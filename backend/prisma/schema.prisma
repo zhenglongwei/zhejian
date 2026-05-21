@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -40,8 +40,8 @@ model Album {
   status           String              @default("draft")
   templateId       String              @default("") @map("template_id")
   templateName     String              @default("") @map("template_name")
-  storeNote        String              @default("") @map("store_note")
-  fingerprint      String              @default("")
+  storeNote        String              @default("") @map("store_note") @db.Text
+  fingerprint      String              @default("") @db.Text
   publicCaseStatus String              @default("private") @map("public_case_status")
   imageCount       Int                 @default(0) @map("image_count")
   createdAt        DateTime            @default(now()) @map("created_at")
@@ -60,7 +60,7 @@ model AlbumNode {
   title     String
   sortOrder Int          @default(0) @map("sort_order")
   status    String       @default("pending")
-  note      String       @default("")
+  note      String       @default("") @db.Text
   updatedAt DateTime?    @map("updated_at")
   album     Album        @relation(fields: [albumId], references: [id], onDelete: Cascade)
   images    AlbumImage[]
@@ -74,7 +74,7 @@ model AlbumImage {
   albumId   String    @map("album_id")
   nodeId    String    @map("node_id")
   idx       Int       @default(0)
-  rawUrl    String    @map("raw_url")
+  rawUrl    String    @map("raw_url") @db.VarChar(512)
   createdAt DateTime  @default(now()) @map("created_at")
   album     Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
   node      AlbumNode @relation(fields: [albumId, nodeId], references: [albumId, nodeId], onDelete: Cascade)
@@ -93,7 +93,7 @@ model DesensitizeTask {
   preMaskStatus        String?            @map("pre_mask_status")
   preMaskVersion       Int                @default(0) @map("pre_mask_version")
   preMaskTaskId        String?            @map("pre_mask_task_id")
-  fingerprint          String             @default("")
+  fingerprint          String             @default("") @db.Text
   fromPreMask          Boolean            @default(false) @map("from_pre_mask")
   maskingConfirmed     Boolean            @default(false) @map("masking_confirmed")
   maskingConfirmedAt   DateTime?          @map("masking_confirmed_at")
@@ -112,9 +112,9 @@ model DesensitizeAsset {
   nodeId       String          @map("node_id")
   nodeTitle    String          @map("node_title")
   idx          Int             @default(0)
-  rawUrl       String          @map("raw_url")
-  maskedUrl    String          @default("") @map("masked_url")
-  preMaskedUrl String          @default("") @map("pre_masked_url")
+  rawUrl       String          @map("raw_url") @db.VarChar(512)
+  maskedUrl    String          @default("") @map("masked_url") @db.VarChar(512)
+  preMaskedUrl String          @default("") @map("pre_masked_url") @db.VarChar(512)
   status       String
   previewed    Boolean         @default(false)
   riskTags     Json            @default("[]")

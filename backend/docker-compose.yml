@@ -1,21 +1,24 @@
+# 可选：本地没有 MySQL 时用 Docker 起一个（生产环境请直接用服务器已有 MySQL）
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: zhejian-postgres
+  mysql:
+    image: mysql:8.0
+    container_name: zhejian-mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: zhejian
-      POSTGRES_PASSWORD: zhejian_dev_pass
-      POSTGRES_DB: zhejian
+      MYSQL_ROOT_PASSWORD: root_dev_pass
+      MYSQL_DATABASE: zhejian
+      MYSQL_USER: zhejian
+      MYSQL_PASSWORD: zhejian_dev_pass
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - zhejian_pg_data:/var/lib/postgresql/data
+      - zhejian_mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zhejian -d zhejian"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uzhejian", "-pzhejian_dev_pass"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  zhejian_pg_data:
+  zhejian_mysql_data:

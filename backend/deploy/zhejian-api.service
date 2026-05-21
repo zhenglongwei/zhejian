@@ -6,8 +6,8 @@ Requires=docker.service
 [Service]
 Type=simple
 User=www-data
-WorkingDirectory=/opt/zhejian/backend
-EnvironmentFile=/opt/zhejian/backend/.env
+WorkingDirectory=/var/www/zhejian/backend
+EnvironmentFile=/var/www/zhejian/backend/.env
 ExecStart=/usr/bin/node src/server.js
 Restart=on-failure
 RestartSec=5

@@ -5,10 +5,12 @@
 ## 技术栈
 
 - Node.js 20 + Express
-- PostgreSQL 16 + Prisma
+- **MySQL 8** + Prisma（与阿里云服务器现有 MySQL 一致）
 - 部署：`geo.simplewin.cn`（Nginx 反代）
 
 ## 本地开发
+
+若本机没有 MySQL，可用 `docker compose up -d` 起一个临时库；**生产环境直接用服务器已有 MySQL**，不必再装 PostgreSQL。
 
 ```bash
 cd backend
@@ -56,8 +58,8 @@ npm run dev
 
 1. 服务器安装 Docker、Node 20、Nginx
 2. `git clone` 本仓库，`cd backend`
-3. 配置 `.env`（`DATABASE_URL`、`PUBLIC_BASE_URL=https://geo.simplewin.cn`）
-4. `docker compose up -d && npm run db:setup && npm start`
+3. 配置 `.env`（`DATABASE_URL` 指向服务器 MySQL、`PUBLIC_BASE_URL=https://geo.simplewin.cn`）
+4. `npm run db:setup && npm start`（生产一般不需要 docker compose）
 5. Nginx 将 `/api/` 反代到 `127.0.0.1:3000`
 6. 小程序 `services/config.js`：`mode: 'dev'`，`baseUrl: 'https://geo.simplewin.cn'`
 
