@@ -1,0 +1,21 @@
+<view class="reward-summary-block">
+  <block wx:if="{{variant === 'result' && amount > 0}}">
+    <view class="reward-summary-block__meta-wrap">
+      <text class="reward-summary-block__meta-label text-caption">评价奖励</text>
+      <text wx:if="{{amount > 0}}" class="reward-summary-block__meta-amount text-price">¥{{amount}}</text>
+      <text wx:if="{{metaText}}" class="reward-summary-block__meta text-caption">{{metaText}}</text>
+    </view>
+  </block>
+  <block wx:else>
+    <text wx:if="{{amount > 0}}" class="reward-summary-block__amount text-price">¥{{amount}}</text>
+    <text wx:if="{{leadText}}" class="reward-summary-block__lead text-caption">{{leadText}}</text>
+  </block>
+  <view wx:if="{{showCompliance}}" class="reward-summary-block__compliance">
+    <ui-compliance-notice type="reward" />
+  </view>
+  <text
+    wx:if="{{showRulesLink}}"
+    class="reward-summary-block__rules text-link text-caption"
+    bindtap="onOpenRules"
+  >查看评价奖励规则 ›</text>
+</view>

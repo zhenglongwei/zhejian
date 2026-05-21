@@ -1,0 +1,53 @@
+<view class="review-list-section">
+  <text
+    wx:if="{{sectionTitle}}"
+    class="review-list-section__title {{titleSize === 'h3' ? 'text-h3' : 'text-h2'}}"
+  >{{sectionTitle}}</text>
+  <text wx:if="{{hint}}" class="review-list-section__hint text-caption">{{hint}}</text>
+  <view wx:if="{{topTags.length}}" class="review-list-section__top-tags">
+    <text class="review-list-section__top-tags-label text-caption">{{topTagsLabel}}</text>
+    <view class="review-list-section__top-tags-row">
+      <ui-tag
+        wx:for="{{topTags}}"
+        wx:key="*this"
+        variant="info"
+        text="{{item}}"
+      />
+    </view>
+  </view>
+  <block wx:if="{{status === 'error'}}">
+    <ui-empty
+      title="{{errorTitle}}"
+      description="{{errorDescription}}"
+      actionText="重试"
+      bind:action="onRetry"
+    />
+  </block>
+  <block wx:elif="{{status === 'empty'}}">
+    <ui-empty
+      title="{{emptyTitle}}"
+      description="{{emptyDescription}}"
+    />
+  </block>
+  <view wx:elif="{{status === 'normal'}}" class="review-list-section__list">
+    <ui-review-card
+      wx:for="{{reviews}}"
+      wx:key="reviewId"
+      reviewId="{{item.reviewId}}"
+      orderId="{{item.orderId}}"
+      displayName="{{item.displayName}}"
+      overallScore="{{item.overallScore}}"
+      content="{{item.content}}"
+      tags="{{item.tags}}"
+      serviceName="{{item.serviceName}}"
+      createdAtText="{{item.createdAtText}}"
+      showStatus="{{item.showStatus}}"
+      statusLabel="{{item.statusLabel}}"
+      statusVariant="{{item.statusVariant}}"
+      images="{{item.images}}"
+      imagesApproved="{{item.imagesApproved}}"
+      compact="{{compact}}"
+      bind:tap="onReviewTap"
+    />
+  </view>
+</view>

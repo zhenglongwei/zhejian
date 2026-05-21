@@ -1,0 +1,76 @@
+/**
+ * 商家端表单共用样式（入驻 / 案例创建 / 服务上架）
+ */
+
+.merchant-form-page {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.merchant-form__section {
+  margin-top: var(--space-lg);
+}
+
+.merchant-form__label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.merchant-form__picker,
+.merchant-form__input,
+.merchant-form__textarea {
+  padding: var(--space-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-form__textarea {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+}
+
+.merchant-form__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merchant-form__input--half {
+  flex: 1;
+}
+
+.merchant-form__price-preview {
+  margin-top: var(--space-sm);
+}
+
+.merchant-form__notice {
+  margin-top: var(--space-sm);
+}
+
+.merchant-form__hint {
+  margin-top: var(--space-lg);
+  color: var(--color-text-secondary);
+}
+
+.merchant-form__spacer {
+  height: var(--space-xl);
+}
+
+.merchant-list__scroll-pad {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.merchant-list-fab {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-md) var(--page-padding-x);
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--color-bg-page) 40%);
+  box-sizing: border-box;
+}

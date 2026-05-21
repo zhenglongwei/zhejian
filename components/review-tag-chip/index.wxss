@@ -1,0 +1,21 @@
+.review-tag-chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-muted);
+  border: 1rpx solid var(--color-border);
+}
+
+.review-tag-chip__text {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+}
+
+.review-tag-chip--selected {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.review-tag-chip--selected .review-tag-chip__text {
+  color: var(--color-primary);
+}

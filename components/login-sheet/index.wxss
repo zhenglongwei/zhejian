@@ -1,0 +1,118 @@
+.login-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-popup);
+}
+
+.login-sheet__mask {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  background-color: var(--color-mask);
+}
+
+.login-sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  background-color: var(--color-bg-card);
+  box-shadow: var(--shadow-popup);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.login-sheet__handle {
+  width: 64rpx;
+  height: 8rpx;
+  margin: 0 auto var(--space-md);
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+}
+
+.login-sheet__title {
+  display: block;
+  text-align: center;
+}
+
+.login-sheet__desc {
+  display: block;
+  margin-top: var(--space-sm);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.login-sheet__agreement {
+  margin-top: var(--space-lg);
+}
+
+.login-sheet__link {
+  display: inline;
+  color: var(--color-primary);
+}
+
+.login-sheet__error {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+  text-align: center;
+}
+
+.login-sheet__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.login-sheet__actions button.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--button-height);
+  padding: 0 var(--space-lg);
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+  font-weight: var(--font-weight-medium);
+  box-sizing: border-box;
+}
+
+.login-sheet__actions button.btn.btn--primary {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+}
+
+.login-sheet__actions button.btn.btn--disabled,
+.login-sheet__actions button.btn[disabled]:not([loading]) {
+  opacity: var(--opacity-disabled);
+}
+
+.login-sheet__actions button.btn::after {
+  border: none;
+}
+
+.login-sheet__dismiss {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: var(--button-height-sm);
+  padding: var(--space-xs) 0;
+}
+
+.login-sheet__dismiss-text {
+  color: var(--color-text-secondary);
+  text-align: center;
+}

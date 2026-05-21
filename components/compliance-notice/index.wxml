@@ -1,0 +1,3 @@
+<view class="compliance-notice" wx:if="{{content}}">
+  <text>{{content}}</text>
+</view>

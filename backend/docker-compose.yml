@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: zhejian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zhejian
+      POSTGRES_PASSWORD: zhejian_dev_pass
+      POSTGRES_DB: zhejian
+    ports:
+      - "5432:5432"
+    volumes:
+      - zhejian_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zhejian -d zhejian"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  zhejian_pg_data:

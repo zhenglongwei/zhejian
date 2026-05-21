@@ -1,0 +1,27 @@
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.empty__image,
+.empty__placeholder {
+  width: 240rpx;
+  height: 240rpx;
+  margin-bottom: var(--space-md);
+}
+
+.empty__title {
+  color: var(--color-text-primary);
+}
+
+.empty__desc {
+  margin-top: var(--space-xs);
+  max-width: 520rpx;
+}
+
+.empty__action {
+  margin-top: var(--space-lg);
+}

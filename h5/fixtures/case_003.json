@@ -1,0 +1,32 @@
+{
+  "id": "case_003",
+  "source": "platform_order",
+  "sourceLabel": "平台订单案例",
+  "title": "大众朗逸 · 小保养",
+  "serviceName": "小保养",
+  "summary": "平台订单履约记录，按标准流程更换机油机滤并完成常规检查。",
+  "aiSummary": "本案例为平台订单案例，用户授权公开，展示标准保养流程与节点记录。",
+  "priceMode": "range",
+  "minAmount": 399,
+  "maxAmount": 599,
+  "priceText": "¥399 - ¥599",
+  "storeName": "透明维修示范店（杭州滨江）",
+  "city": "杭州",
+  "publishedAt": "2026-05-12",
+  "tags": ["desensitized", "audited"],
+  "keyInfo": [
+    { "label": "城市", "value": "杭州" },
+    { "label": "服务项目", "value": "小保养" },
+    { "label": "案例来源", "value": "平台订单案例" }
+  ],
+  "faultDesc": "到达保养里程，机油老化。",
+  "inspectResult": "机油液位正常，滤清器建议更换。",
+  "repairPlan": "更换机油、机滤，检查灯光与胎压。",
+  "priceFactors": ["机油标号", "滤清器品牌", "是否含空调滤"],
+  "nodes": [
+    { "id": "before", "title": "维修前状态", "note": "已脱敏展示" },
+    { "id": "parts", "title": "新旧配件对比", "note": "" },
+    { "id": "done", "title": "完工结果", "note": "" }
+  ],
+  "miniProgramPath": "/pages/case/detail/index?id=case_003"
+}

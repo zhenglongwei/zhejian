@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "提交结果",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-button": "/components/button/index",
+    "ui-card": "/components/card/index",
+    "ui-key-info-table": "/components/key-info-table/index"
+  }
+}

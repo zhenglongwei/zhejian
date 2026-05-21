@@ -1,0 +1,39 @@
+<view wx:if="{{visible}}" class="login-sheet">
+  <view class="login-sheet__mask mask" bindtap="onMaskTap" />
+  <view class="login-sheet__panel popup safe-bottom" catchtap="noop">
+    <view class="login-sheet__handle" />
+    <text class="login-sheet__title text-h2">{{displayTitle}}</text>
+    <text class="login-sheet__desc text-caption">{{displayDescription}}</text>
+
+    <view wx:if="{{needAgreement}}" class="login-sheet__agreement">
+      <ui-checkbox-row checked="{{agreed}}" bind:toggle="toggleAgreement">
+        <text>我已阅读并同意<text class="login-sheet__link" data-type="terms" catchtap="onAgreementLinkTap">《用户协议》</text>和<text class="login-sheet__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text></text>
+      </ui-checkbox-row>
+    </view>
+
+    <view wx:if="{{errorMessage}}" class="login-sheet__error text-caption">{{errorMessage}}</view>
+
+    <view class="login-sheet__actions">
+      <block wx:if="{{step === 'login'}}">
+        <button
+          class="btn btn--primary btn--block {{loading || (needAgreement && !agreed) ? 'btn--disabled' : ''}}"
+          loading="{{loading}}"
+          disabled="{{loading || (needAgreement && !agreed)}}"
+          bindtap="onWechatLoginTap"
+        >{{primaryLabel}}</button>
+      </block>
+      <block wx:else>
+        <button
+          class="btn btn--primary btn--block {{loading ? 'btn--disabled' : ''}}"
+          open-type="getPhoneNumber"
+          loading="{{loading}}"
+          disabled="{{loading}}"
+          bindgetphonenumber="onGetPhoneNumber"
+        >{{primaryLabel}}</button>
+      </block>
+      <view class="login-sheet__dismiss" bindtap="onDismiss">
+        <text class="login-sheet__dismiss-text text-caption">{{dismissLabel}}</text>
+      </view>
+    </view>
+  </view>
+</view>

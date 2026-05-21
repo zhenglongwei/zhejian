@@ -1,0 +1,32 @@
+{
+  "id": "case_001",
+  "source": "merchant_history",
+  "sourceLabel": "商家历史案例",
+  "title": "宝马 3 系 · 刹车片更换",
+  "serviceName": "刹车片更换",
+  "summary": "行驶异响，到店检测后更换前刹车片与刹车盘，完工试车正常。",
+  "aiSummary": "本案例为商家历史案例，展示刹车系统异响的检测与更换过程，价格区间为参考值。",
+  "priceMode": "range",
+  "minAmount": 680,
+  "maxAmount": 1280,
+  "priceText": "¥680 - ¥1280",
+  "storeName": "透明维修示范店（杭州滨江）",
+  "city": "杭州",
+  "publishedAt": "2026-05-10",
+  "tags": ["desensitized", "audited", "reference"],
+  "keyInfo": [
+    { "label": "城市", "value": "杭州" },
+    { "label": "服务项目", "value": "刹车片更换" },
+    { "label": "案例来源", "value": "商家历史案例" }
+  ],
+  "faultDesc": "低速转向时前轮区域有金属摩擦声。",
+  "inspectResult": "前刹车片磨损至极限，刹车盘有划痕。",
+  "repairPlan": "更换前刹车片、前刹车盘，清洁卡钳并试车。",
+  "priceFactors": ["车型与年款", "配件品牌", "刹车盘是否需更换"],
+  "nodes": [
+    { "id": "before", "title": "维修前状态", "note": "已脱敏展示" },
+    { "id": "parts", "title": "新旧配件对比", "note": "" },
+    { "id": "done", "title": "完工结果", "note": "试车无异响" }
+  ],
+  "miniProgramPath": "/pages/case/detail/index?id=case_001"
+}

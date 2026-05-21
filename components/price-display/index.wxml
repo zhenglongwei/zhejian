@@ -1,0 +1,4 @@
+<view class="price-display">
+  <text class="price-display__value {{showPrice ? 'text-price' : 'text-body'}}">{{priceText}}</text>
+  <text wx:if="{{disclaimer}}" class="price-display__hint text-caption">{{disclaimer}}</text>
+</view>

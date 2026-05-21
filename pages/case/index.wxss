@@ -1,0 +1,34 @@
+.case-page {
+  padding-bottom: var(--space-xl);
+}
+
+.case-page__intro {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-sm);
+}
+
+.case-page__desc {
+  display: block;
+  margin: var(--space-xs) 0 var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.case-page__privacy,
+.case-page__compliance {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.case-page__tabs {
+  margin-bottom: var(--space-md);
+}
+
+.case-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.case-page__list ui-skeleton {
+  margin-bottom: var(--space-md);
+}

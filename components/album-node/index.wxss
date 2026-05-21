@@ -1,0 +1,128 @@
+.album-node {
+  padding-left: var(--space-sm);
+  border-left: 2rpx solid var(--color-border);
+  margin-bottom: var(--space-lg);
+}
+
+.album-node--edit {
+  padding-left: 0;
+  border-left: none;
+  margin-bottom: 0;
+  padding: var(--space-md) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.album-node--edit:last-child {
+  border-bottom: none;
+}
+
+.album-node--compact {
+  padding: var(--space-md) 0 0;
+  border-bottom: none;
+}
+
+.album-node__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.album-node__head--edit {
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.album-node--compact .album-node__head--edit {
+  margin-bottom: var(--space-xs);
+}
+
+.album-node__dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.album-node__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-node__content {
+  padding-left: calc(16rpx + var(--space-sm));
+}
+
+.album-node__content--edit {
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-node__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+}
+
+.album-node__cell {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+}
+
+.album-node__img {
+  width: 100%;
+  height: 100%;
+}
+
+.album-node__empty {
+  min-height: 120rpx;
+  border: 2rpx dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+}
+
+.album-node__empty-text {
+  color: var(--color-text-tertiary);
+}
+
+.album-node__time {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.album-node__note {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.album-node__desc {
+  color: var(--color-text-secondary);
+}
+
+.album-node__tips {
+  color: var(--color-text-tertiary);
+}
+
+.album-node__note-input {
+  width: 100%;
+  min-height: 120rpx;
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  font-size: var(--font-body);
+  box-sizing: border-box;
+}
+
+.album-node__upload-hint {
+  color: var(--color-text-tertiary);
+}

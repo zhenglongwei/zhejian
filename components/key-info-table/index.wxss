@@ -1,0 +1,26 @@
+.key-info-table {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.key-info-table__row {
+  display: flex;
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.key-info-table__row:last-child {
+  border-bottom: none;
+}
+
+.key-info-table__label {
+  width: 180rpx;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.key-info-table__value {
+  flex: 1;
+  color: var(--color-text-primary);
+}

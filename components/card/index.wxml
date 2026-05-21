@@ -1,0 +1,3 @@
+<view class="card {{bordered ? 'card--bordered' : ''}} {{shadow ? 'card--shadow' : ''}} {{padding ? '' : 'card--no-padding'}}">
+  <slot />
+</view>

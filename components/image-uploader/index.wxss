@@ -1,0 +1,44 @@
+.image-uploader {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+}
+
+.image-uploader__item,
+.image-uploader__add {
+  aspect-ratio: 1;
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.image-uploader__img {
+  width: 100%;
+  height: 100%;
+}
+
+.image-uploader__remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 36rpx;
+  text-align: center;
+  background-color: var(--color-mask);
+  color: #fff;
+  font-size: var(--font-caption);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.image-uploader__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx dashed var(--color-border);
+  background-color: transparent;
+}
+
+.image-uploader__add-text {
+  color: var(--color-text-tertiary);
+}

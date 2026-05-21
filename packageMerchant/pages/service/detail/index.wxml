@@ -1,0 +1,151 @@
+<view class="page service-detail merchant-svc-detail">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content service-detail__pad">
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载服务方案"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{detail}}">
+    <view class="service-detail__body page-content">
+      <view class="merchant-svc-detail__banner">
+        <text class="merchant-svc-detail__banner-text text-caption">
+          {{isDraft ? '当前为草稿，用户端不可见' : '已上架，用户端可见（预览）'}}
+        </text>
+        <view class="merchant-svc-detail__status-row">
+          <ui-tag
+            variant="{{detail.statusVariant}}"
+            text="{{detail.statusLabel}}"
+          />
+        </view>
+      </view>
+
+      <view class="service-detail__head">
+        <text class="service-detail__title text-h1">{{detail.name}}</text>
+        <view class="service-detail__tags">
+          <ui-tag
+            wx:for="{{detail.headTags}}"
+            wx:key="text"
+            variant="{{item.variant}}"
+            text="{{item.text}}"
+          />
+        </view>
+      </view>
+
+      <view class="service-detail__section">
+        <ui-price-display
+          mode="{{detail.priceMode}}"
+          amount="{{detail.amount}}"
+          minAmount="{{detail.minAmount}}"
+          maxAmount="{{detail.maxAmount}}"
+          showDisclaimer="{{true}}"
+          showSuffix="{{detail.priceMode !== 'fixed'}}"
+        />
+        <view class="service-detail__notice">
+          <ui-compliance-notice type="price" wx:if="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}" />
+          <ui-compliance-notice type="accident" wx:if="{{isAccident}}" />
+        </view>
+      </view>
+
+      <ui-ai-summary-block content="{{detail.summary}}" />
+      <ui-key-info-table rows="{{detail.keyInfoRows}}" />
+
+      <view class="service-detail__section">
+        <text class="service-detail__section-title text-h2">服务说明</text>
+        <text class="text-body">{{detail.detail}}</text>
+      </view>
+
+      <view wx:if="{{detail.includedItems.length}}" class="service-detail__section">
+        <text class="service-detail__section-title text-h2">服务包含</text>
+        <view class="service-detail__list">
+          <text wx:for="{{detail.includedItems}}" wx:key="*this" class="service-detail__list-item text-body">· {{item}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{detail.excludedItems.length}}" class="service-detail__section">
+        <text class="service-detail__section-title text-h2">服务不包含</text>
+        <view class="service-detail__list">
+          <text wx:for="{{detail.excludedItems}}" wx:key="*this" class="service-detail__list-item text-body">· {{item}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{showPriceFactors && detail.priceFactors.length}}" class="service-detail__section">
+        <text class="service-detail__section-title text-h2">影响价格的因素</text>
+        <view class="service-detail__list">
+          <text wx:for="{{detail.priceFactors}}" wx:key="*this" class="service-detail__list-item text-caption">· {{item}}</text>
+        </view>
+      </view>
+
+      <view class="service-detail__section">
+        <view class="service-detail__section-head">
+          <text class="service-detail__section-title text-h2">关联案例（{{detail.caseTotal}}）</text>
+        </view>
+        <view class="service-detail__privacy">
+          <ui-privacy-banner scene="share" />
+        </view>
+        <view class="service-detail__notice">
+          <ui-compliance-notice type="casePrice" />
+        </view>
+        <view wx:if="{{detail.hasHistoryCases}}" class="service-detail__notice">
+          <ui-compliance-notice type="history" />
+        </view>
+        <block wx:if="{{!detail.relatedCases.length}}">
+          <ui-empty
+            title="暂无关联案例"
+            description="上传历史案例可增加用户信任"
+            actionText="去上传案例"
+            bind:action="onManageCases"
+          />
+        </block>
+        <view wx:else class="service-detail__cases">
+          <ui-case-card
+            wx:for="{{detail.relatedCases}}"
+            wx:key="id"
+            caseId="{{item.id}}"
+            caseSource="{{item.source}}"
+            coverImage="{{item.coverImage}}"
+            title="{{item.title}}"
+            serviceName="{{item.serviceName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            viewCount="{{item.viewCount}}"
+            bind:tap="onCaseTap"
+          />
+        </view>
+      </view>
+
+      <view class="service-detail__section">
+        <text class="service-detail__section-title text-h2">所属门店</text>
+        <view
+          wx:for="{{detail.availableMerchants}}"
+          wx:key="id"
+          class="service-detail__store"
+          data-store-id="{{item.id}}"
+          bindtap="onStoreTap"
+        >
+          <text class="text-body service-detail__store-name">{{item.name}}</text>
+          <text class="text-caption service-detail__store-meta">{{item.address}}</text>
+          <text class="text-caption service-detail__store-link">查看门店详情 ›</text>
+        </view>
+      </view>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button type="secondary" size="sm" slot="left" bind:tap="onBack">返回列表</ui-button>
+      <ui-button type="primary" slot="right" bind:tap="onEdit">编辑方案</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

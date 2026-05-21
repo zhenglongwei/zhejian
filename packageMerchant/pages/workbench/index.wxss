@@ -1,0 +1,62 @@
+.merchant-wb__pad {
+  padding-top: var(--space-lg);
+}
+
+.merchant-wb__hero {
+  padding: var(--space-xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-wb__sub {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-wb__head {
+  padding-top: var(--space-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merchant-wb__addr {
+  width: 100%;
+  color: var(--color-text-tertiary);
+}
+
+.merchant-wb__stats {
+  margin-top: var(--space-md);
+}
+
+.merchant-wb__stat-row {
+  display: flex;
+}
+
+.merchant-wb__stat {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-sm);
+}
+
+.merchant-wb__stat-num {
+  display: block;
+}
+
+.merchant-wb__stat--tap:active {
+  opacity: 0.72;
+}
+
+.merchant-wb__actions {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-wb__section {
+  display: block;
+  margin-bottom: var(--space-sm);
+}

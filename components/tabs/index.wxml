@@ -1,0 +1,9 @@
+<view class="tabs {{scrollable ? 'tabs--scroll' : ''}}" wx:if="{{tabs.length}}">
+  <view
+    wx:for="{{tabs}}"
+    wx:key="key"
+    class="tabs__item {{activeKey === item.key ? 'tabs__item--active' : ''}}"
+    data-key="{{item.key}}"
+    bindtap="onTap"
+  >{{item.label}}</view>
+</view>

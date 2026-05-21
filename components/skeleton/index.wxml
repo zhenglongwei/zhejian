@@ -1,0 +1,12 @@
+<view class="skeleton">
+  <view wx:if="{{avatar || title}}" class="skeleton__head">
+    <view wx:if="{{avatar}}" class="skeleton__avatar skeleton-block" />
+    <view wx:if="{{title}}" class="skeleton__title skeleton-block" />
+  </view>
+  <view
+    wx:for="{{rowList}}"
+    wx:key="*this"
+    class="skeleton__row skeleton-block"
+    style="width: {{index === rowList.length - 1 ? '60%' : '100%'}}"
+  />
+</view>

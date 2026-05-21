@@ -1,0 +1,11 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-order-status-badge": "/components/order-status-badge/index",
+    "ui-price-display": "/components/price-display/index"
+  },
+  "styleIsolation": "apply-shared"
+}

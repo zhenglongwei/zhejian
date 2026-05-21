@@ -1,0 +1,102 @@
+.order-detail {
+  padding-bottom: var(--space-xl);
+}
+
+.order-detail--with-bar .order-detail__body {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.order-detail__pad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.order-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.order-detail__status-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0 var(--space-xs);
+}
+
+.order-detail__hint {
+  color: var(--color-text-secondary);
+}
+
+.order-detail__warn {
+  color: var(--color-warning);
+}
+
+.order-detail__section-title {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-primary);
+}
+
+.order-detail__review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.order-detail__review-head .order-detail__section-title {
+  margin-bottom: 0;
+}
+
+.order-detail__price {
+  margin-top: var(--space-md);
+}
+
+.order-detail__notice {
+  margin-top: var(--space-sm);
+}
+
+.order-detail__inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.order-detail__album-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.order-detail__album-meta {
+  color: var(--color-text-secondary);
+}
+
+.order-detail__album-link {
+  color: var(--color-primary);
+  margin-top: var(--space-xs);
+}
+
+.order-detail__footer-links {
+  padding: var(--space-md) 0 var(--space-lg);
+}
+
+.order-detail__footer-text {
+  display: block;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.order-detail__footer-actions {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.order-detail__link {
+  color: var(--color-primary);
+}

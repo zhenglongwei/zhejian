@@ -1,0 +1,192 @@
+const { BIZ_TYPE, LIABILITY_COPY } = require('../../../../constants/desensitize')
+const {
+  fetchTask,
+  runAutoMask,
+  retryAsset,
+  confirmTask,
+  markAssetPreviewed,
+} = require('../../../../services/desensitize')
+const { saveAlbum } = require('../../../../services/album')
+const { mapTaskToWorkbenchState } = require('../../../../utils/desensitize-workbench-display')
+
+Page({
+  data: {
+    status: 'loading',
+    taskId: '',
+    albumId: '',
+    from: '',
+    bizType: BIZ_TYPE.MERCHANT_HISTORY,
+    workbenchItems: [],
+    stats: { total: 0, processed: 0, failed: 0 },
+    canConfirm: false,
+    liabilityText: '',
+    liabilityAccepted: false,
+    confirmLabel: '确认脱敏结果并提交审核',
+    confirmLabelShort: '确认并提交',
+    needPreviewHint: false,
+    errorMessage: '',
+    autoMaskLoading: false,
+    confirmLoading: false,
+  },
+
+  onLoad(query) {
+    const taskId = (query && query.taskId) || ''
+    const albumId = (query && query.albumId) || ''
+    const bizType = (query && query.bizType) || BIZ_TYPE.MERCHANT_HISTORY
+    const copy = LIABILITY_COPY[bizType] || LIABILITY_COPY[BIZ_TYPE.MERCHANT_HISTORY]
+    this.setData({
+      taskId,
+      albumId,
+      from: (query && query.from) || '',
+      bizType,
+      liabilityText: copy.body,
+      confirmLabel: copy.confirmLabel,
+    })
+    if (!taskId) {
+      this.setData({
+        status: 'error',
+        errorMessage: '缺少脱敏任务',
+      })
+      return
+    }
+    this.loadTask()
+  },
+
+  async loadTask() {
+    this.setData({ status: 'loading', errorMessage: '' })
+    try {
+      const task = await fetchTask(this.data.taskId)
+      this.applyTask(task)
+    } catch (e) {
+      this.setData({
+        status: 'error',
+        errorMessage: (e && e.message) || '加载失败',
+      })
+    }
+  },
+
+  applyTask(task) {
+    const view = mapTaskToWorkbenchState(task)
+    this._task = task
+    this.setData({
+      workbenchItems: view.workbenchItems,
+      stats: view.stats,
+      canConfirm: view.canConfirm,
+      needPreviewHint: view.needPreviewHint,
+      status: view.pageStatus,
+    })
+  },
+
+  onRetryLoad() {
+    this.loadTask()
+  },
+
+  onBackEdit() {
+    const albumId = this.data.albumId
+    if (albumId) {
+      wx.redirectTo({
+        url: `/packageMerchant/pages/album/create/index?id=${albumId}`,
+      })
+      return
+    }
+    wx.navigateBack()
+  },
+
+  onLiabilityChange(e) {
+    this.setData({ liabilityAccepted: !!(e.detail && e.detail.accepted) })
+  },
+
+  async onPreview(e) {
+    const { id, url, type } = e.detail || {}
+    if (!url) return
+    if (id && this.data.taskId) {
+      try {
+        const task = await markAssetPreviewed(this.data.taskId, id)
+        this.applyTask(task)
+      } catch (err) {
+        // 预览不阻断
+      }
+    }
+    const urls = (this.data.workbenchItems || [])
+      .map((item) => (type === 'raw' ? item.rawUrl : item.maskedUrl))
+      .filter(Boolean)
+    wx.previewImage({
+      current: url,
+      urls: urls.length ? urls : [url],
+    })
+  },
+
+  async onAutoMask() {
+    if (this.data.autoMaskLoading) return
+    this.setData({ autoMaskLoading: true })
+    try {
+      const task = await runAutoMask(this.data.taskId)
+      this.applyTask(task)
+      wx.showToast({ title: '脱敏完成', icon: 'success' })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '脱敏失败', icon: 'none' })
+    } finally {
+      this.setData({ autoMaskLoading: false })
+    }
+  },
+
+  onManualMask() {
+    wx.showToast({
+      title: '手工打码即将开放，请先用一键 AI 脱敏',
+      icon: 'none',
+    })
+  },
+
+  async onRetryAsset(e) {
+    const assetId = e.detail && e.detail.assetId
+    if (!assetId) return
+    try {
+      const task = await retryAsset(this.data.taskId, assetId)
+      this.applyTask(task)
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '重试失败', icon: 'none' })
+    }
+  },
+
+  async onConfirm() {
+    if (this.data.confirmLoading) return
+    if (!this.data.liabilityAccepted) {
+      wx.showToast({ title: '请勾选责任确认', icon: 'none' })
+      return
+    }
+    if (!this.data.canConfirm) {
+      if (this.data.needPreviewHint) {
+        wx.showToast({ title: '请先查看每张脱敏预览', icon: 'none' })
+      } else {
+        wx.showToast({ title: '请先完成全部图片脱敏', icon: 'none' })
+      }
+      return
+    }
+    this.setData({ confirmLoading: true })
+    try {
+      const { album } = await confirmTask(this.data.taskId, {
+        liabilityAccepted: true,
+      })
+      await saveAlbum(
+        {
+          ...album,
+          id: album.id,
+          maskingConfirmed: true,
+        },
+        true
+      )
+      wx.showToast({ title: '已提交审核', icon: 'success' })
+      setTimeout(() => {
+        if (this.data.from === 'album_create') {
+          wx.navigateBack({ delta: 2 })
+        } else {
+          wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })
+        }
+      }, 700)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+    } finally {
+      this.setData({ confirmLoading: false })
+    }
+  },
+})

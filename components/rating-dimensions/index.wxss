@@ -1,0 +1,36 @@
+.rating-dimensions__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.rating-dimensions__row:last-child {
+  border-bottom: none;
+}
+
+.rating-dimensions__label {
+  flex: 1;
+  padding-right: var(--space-md);
+}
+
+.rating-dimensions__stars {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.rating-dimensions__star {
+  font-size: var(--size-rating-star);
+  line-height: 1;
+  color: var(--color-border-strong);
+}
+
+.rating-dimensions__star.is-active {
+  color: var(--color-warning);
+}
+
+.rating-dimensions__toggle {
+  padding-top: var(--space-sm);
+  text-align: center;
+}

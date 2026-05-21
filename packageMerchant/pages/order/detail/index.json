@@ -1,0 +1,16 @@
+{
+  "navigationBarTitleText": "订单详情",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-order-status-badge": "/components/order-status-badge/index",
+    "ui-timeline": "/components/timeline/index",
+    "ui-key-info-table": "/components/key-info-table/index",
+    "ui-price-display": "/components/price-display/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+  }
+}

@@ -1,0 +1,35 @@
+<view class="page order-result">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content order-result__pad">
+      <ui-skeleton rows="{{4}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content order-result__body">
+      <block wx:if="{{success}}">
+        <view class="order-result__icon order-result__icon--success">✓</view>
+        <text class="order-result__title text-h2">{{title}}</text>
+        <text class="order-result__desc text-caption">{{description}}</text>
+
+        <ui-card wx:if="{{orderSummaryRows.length}}" shadow="{{true}}" padding="{{true}}">
+          <ui-key-info-table rows="{{orderSummaryRows}}" />
+        </ui-card>
+
+        <view class="order-result__actions">
+          <ui-button type="primary" block bind:tap="onViewOrder">查看订单</ui-button>
+          <ui-button type="ghost" block bind:tap="onBackHome">返回首页</ui-button>
+        </view>
+      </block>
+
+      <block wx:else>
+        <ui-empty
+          title="{{title}}"
+          description="{{description}}"
+          actionText="返回重试"
+          bind:action="onRetry"
+        />
+      </block>
+    </view>
+  </block>
+</view>

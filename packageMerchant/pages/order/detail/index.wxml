@@ -1,0 +1,166 @@
+<view class="page merchant-order-detail {{showBottomBar ? 'merchant-order-detail--with-bar' : ''}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-order-detail__pad">
+      <ui-skeleton rows="{{2}}" title="{{true}}" />
+      <ui-skeleton rows="{{5}}" />
+      <ui-skeleton rows="{{4}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载订单"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{detail}}">
+    <view class="page-content merchant-order-detail__body">
+      <view class="merchant-order-detail__status-block">
+        <ui-order-status-badge
+          status="{{detail.status}}"
+          label="{{detail.merchantStatusLabel}}"
+          size="lg"
+        />
+        <text wx:if="{{detail.statusHint}}" class="merchant-order-detail__hint text-body">{{detail.statusHint}}</text>
+      </view>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">维修进度</text>
+        <ui-timeline steps="{{detail.progressSteps}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">用户信息</text>
+        <ui-key-info-table rows="{{detail.userRows}}" />
+        <view class="merchant-order-detail__inline-actions">
+          <ui-button type="secondary" size="sm" catch:tap="onCallUser">联系用户</ui-button>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">车辆信息</text>
+        <ui-key-info-table rows="{{detail.vehicleRows}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">服务信息</text>
+        <ui-key-info-table rows="{{detail.serviceRows}}" />
+        <view class="merchant-order-detail__price">
+          <ui-price-display
+            mode="{{detail.priceMode}}"
+            amount="{{detail.service.amount}}"
+            minAmount="{{detail.service.minAmount}}"
+            maxAmount="{{detail.service.maxAmount}}"
+            showDisclaimer="{{true}}"
+          />
+        </view>
+        <view wx:if="{{detail.flags.isAccident}}" class="merchant-order-detail__notice">
+          <ui-compliance-notice type="accident" />
+        </view>
+        <view
+          wx:elif="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}"
+          class="merchant-order-detail__notice"
+        >
+          <ui-compliance-notice type="price" />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">预约信息</text>
+        <ui-key-info-table rows="{{detail.appointmentRows}}" />
+        <view
+          wx:if="{{detail.status === 'ACCEPTED' || detail.status === 'WAIT_SERVICE'}}"
+          class="merchant-order-detail__inline-actions"
+        >
+          <ui-button type="ghost" size="sm" catch:tap="onReschedule">修改预约时间</ui-button>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">费用信息</text>
+        <ui-key-info-table rows="{{detail.feeRows}}" />
+        <view wx:if="{{detail.showFeeCompliance}}" class="merchant-order-detail__notice">
+          <ui-compliance-notice type="{{detail.flags.isAccident ? 'accident' : 'price'}}" />
+        </view>
+      </ui-card>
+
+      <ui-card
+        wx:if="{{detail.problemRows.length}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+      >
+        <text class="merchant-order-detail__section-title text-h3">问题描述</text>
+        <ui-key-info-table rows="{{detail.problemRows}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="merchant-order-detail__album-head">
+          <text class="merchant-order-detail__section-title text-h3">维修相册</text>
+          <ui-tag wx:if="{{detail.albumStatusLabel}}" variant="default" text="{{detail.albumStatusLabel}}" />
+        </view>
+        <text class="merchant-order-detail__album-hint text-caption">
+          上传维修过程图片有助于用户理解维修过程，也能提升门店透明度。
+        </text>
+        <text class="merchant-order-detail__album-privacy text-caption">
+          用户端仅订单本人可见；公开案例须用户授权并脱敏后展示。
+        </text>
+        <view
+          wx:if="{{detail.flags.canEnterOrderAlbum}}"
+          class="merchant-order-detail__album-entry"
+          bindtap="onAlbumEntry"
+        >
+          <text class="merchant-order-detail__album-link text-caption">进入订单维修相册</text>
+        </view>
+      </ui-card>
+
+      <ui-card
+        wx:if="{{detail.logRows.length}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+      >
+        <text class="merchant-order-detail__section-title text-h3">订单日志</text>
+        <view
+          class="merchant-order-detail__log-item"
+          wx:for="{{detail.logRows}}"
+          wx:key="time"
+        >
+          <text class="text-body">{{item.title}}</text>
+          <text class="text-caption merchant-order-detail__log-meta">{{item.time}}</text>
+          <text wx:if="{{item.remark}}" class="text-caption merchant-order-detail__log-meta">{{item.remark}}</text>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-order-detail__section-title text-h3">订单信息</text>
+        <ui-key-info-table rows="{{detail.metaRows}}" />
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar wx:if="{{showBottomBar}}" safeArea="{{true}}">
+      <ui-button
+        wx:if="{{bottomSecondary && bottomPrimary}}"
+        slot="left"
+        type="{{bottomSecondary.type || 'secondary'}}"
+        size="default"
+        catch:tap="onBottomSecondary"
+      >{{bottomSecondary.label}}</ui-button>
+      <ui-button
+        wx:if="{{bottomPrimary}}"
+        slot="right"
+        type="{{bottomPrimary.actionKey === 'reject' ? 'ghost' : 'primary'}}"
+        catch:tap="onBottomPrimary"
+      >{{bottomPrimary.label}}</ui-button>
+      <ui-button
+        wx:if="{{!bottomPrimary && bottomSecondary}}"
+        slot="right"
+        type="{{bottomSecondary.type || 'secondary'}}"
+        catch:tap="onBottomSecondary"
+      >{{bottomSecondary.label}}</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

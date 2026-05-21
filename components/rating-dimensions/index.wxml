@@ -1,0 +1,23 @@
+<view class="rating-dimensions">
+  <view
+    wx:for="{{visibleDimensions}}"
+    wx:key="key"
+    class="rating-dimensions__row"
+  >
+    <text class="rating-dimensions__label text-body">{{item.label}}</text>
+    <view class="rating-dimensions__stars">
+      <text
+        wx:for="{{starRange}}"
+        wx:for-item="star"
+        wx:key="*this"
+        class="rating-dimensions__star {{values[item.key] >= star ? 'is-active' : ''}}"
+        data-key="{{item.key}}"
+        data-value="{{star}}"
+        bindtap="onStarTap"
+      >★</text>
+    </view>
+  </view>
+  <view wx:if="{{hasCollapsed}}" class="rating-dimensions__toggle" bindtap="onToggleExpand">
+    <text class="text-link text-caption">{{expanded ? '收起更多维度' : '展开更多维度'}}</text>
+  </view>
+</view>

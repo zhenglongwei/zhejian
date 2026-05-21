@@ -1,0 +1,181 @@
+.home__pad {
+  padding-top: var(--space-md);
+}
+
+.home__body {
+  padding-bottom: var(--space-xl);
+}
+
+.home__top {
+  padding-top: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.home__city {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.home__city-name {
+  color: var(--color-text-primary);
+}
+
+.home__city-arrow {
+  color: var(--color-text-tertiary);
+}
+
+.home__search {
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-full);
+}
+
+.home__search-placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.home__hero {
+  margin-bottom: var(--space-lg);
+}
+
+.home__title {
+  display: block;
+}
+
+.home__subtitle {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.home__desc {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.home__section {
+  margin-bottom: var(--space-lg);
+}
+
+.home__section--last {
+  margin-bottom: var(--space-xl);
+}
+
+.home__section-gap {
+  margin: var(--space-lg) 0;
+}
+
+.home__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.home__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.home__section-head .home__section-title {
+  margin-bottom: 0;
+}
+
+.home__more {
+  color: var(--color-primary);
+}
+
+.home__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-md);
+}
+
+.home__grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.home__grid-icon {
+  width: var(--size-service-entry-icon);
+  height: var(--size-service-entry-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary-light);
+  border-radius: var(--radius-md);
+}
+
+.home__grid-icon-text {
+  font-size: var(--font-h3);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.home__grid-name {
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+.home__accident-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.home__accident-sub {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.home__accident-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.home__accident-notice {
+  margin-top: var(--space-md);
+}
+
+.home__accident-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.home__stores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.home__privacy {
+  margin-bottom: var(--space-sm);
+}
+
+.home__compliance {
+  margin-top: var(--space-sm);
+}
+
+.home__cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.home__intro-item {
+  margin-bottom: var(--space-sm);
+}
+
+.home__intro-item:last-child {
+  margin-bottom: 0;
+}

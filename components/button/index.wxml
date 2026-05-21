@@ -1,0 +1,8 @@
+<button
+  class="btn btn--{{type}} {{size === 'sm' ? 'btn--sm' : ''}} {{block ? 'btn--block' : ''}} {{disabled || loading ? 'btn--disabled' : ''}}"
+  disabled="{{disabled || loading}}"
+  loading="{{loading}}"
+  bindtap="onTap"
+>
+  <slot />
+</button>

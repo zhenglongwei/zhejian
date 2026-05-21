@@ -1,0 +1,38 @@
+<view
+  class="case-card {{muted || isHistory ? 'case-card--history' : ''}}"
+  bindtap="onTap"
+>
+  <view class="case-card__cover image-placeholder">
+    <image
+      wx:if="{{safeCoverImage}}"
+      class="case-card__cover-img"
+      src="{{safeCoverImage}}"
+      mode="aspectFill"
+    />
+  </view>
+  <view class="case-card__body">
+    <view class="case-card__tags">
+      <ui-tag
+        wx:for="{{tagList}}"
+        wx:key="text"
+        variant="{{item.variant}}"
+        text="{{item.text}}"
+      />
+    </view>
+    <text class="case-card__title text-h3">{{title}}</text>
+    <text wx:if="{{summary}}" class="case-card__summary text-body">{{summary}}</text>
+    <view class="case-card__meta">
+      <ui-price-display
+        mode="{{priceMode}}"
+        minAmount="{{minAmount}}"
+        maxAmount="{{maxAmount}}"
+        showDisclaimer="{{true}}"
+        disclaimerText="{{priceDisclaimer}}"
+      />
+    </view>
+    <view class="case-card__footer text-caption">
+      <text wx:if="{{showStoreName && storeName}}">{{storeName}}</text>
+      <text wx:if="{{viewCount}}" class="case-card__views">浏览 {{viewCount}}</text>
+    </view>
+  </view>
+</view>

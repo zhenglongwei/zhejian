@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "商家工作台",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index",
+    "ui-card": "/components/card/index",
+    "ui-tag": "/components/tag/index",
+    "ui-skeleton": "/components/skeleton/index"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "脱敏预览",
+  "usingComponents": {
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-desensitize-workbench": "/components/desensitize-workbench/index",
+    "ui-button": "/components/button/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-tag": "/components/tag/index"
+  }
+}

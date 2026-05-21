@@ -1,0 +1,12 @@
+@import '../../../../styles/merchant-form.wxss';
+
+.merchant-svc-list__tabs {
+  padding-top: var(--space-md);
+}
+
+.merchant-svc-list__items {
+  padding-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

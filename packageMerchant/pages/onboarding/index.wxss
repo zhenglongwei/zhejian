@@ -1,0 +1,41 @@
+@import '../../../styles/merchant-form.wxss';
+
+.merchant-onboard__hero {
+  padding: var(--space-lg) 0 var(--space-md);
+}
+
+.merchant-onboard__sub {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.merchant-onboard__form {
+  margin-top: var(--space-md);
+}
+
+.merchant-onboard__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-onboard__chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
+.merchant-onboard__chip--on {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.merchant-onboard__agree {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}

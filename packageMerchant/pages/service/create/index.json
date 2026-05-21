@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "新建服务方案",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-price-display": "/components/price-display/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+  }
+}

@@ -1,0 +1,9 @@
+<view class="empty">
+  <image wx:if="{{image}}" class="empty__image" src="{{image}}" mode="aspectFit" />
+  <view wx:else class="empty__placeholder image-placeholder" />
+  <text class="empty__title text-h3">{{title}}</text>
+  <text wx:if="{{description}}" class="empty__desc text-caption">{{description}}</text>
+  <view wx:if="{{actionText}}" class="empty__action">
+    <ui-button type="primary" size="sm" bind:tap="onAction">{{actionText}}</ui-button>
+  </view>
+</view>

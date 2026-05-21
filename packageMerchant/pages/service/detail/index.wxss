@@ -1,0 +1,110 @@
+.service-detail__pad {
+  padding-top: var(--space-md);
+}
+
+.service-detail__body {
+  padding-top: var(--space-md);
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.service-detail__head {
+  margin-bottom: var(--space-md);
+}
+
+.service-detail__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.service-detail__section {
+  margin-top: var(--space-lg);
+}
+
+.service-detail__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__section-head .service-detail__section-title {
+  margin-bottom: 0;
+}
+
+.service-detail__notice {
+  display: block;
+  margin-top: var(--space-sm);
+}
+
+.service-detail__privacy {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.service-detail__list-item {
+  color: var(--color-text-primary);
+}
+
+.service-detail__cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.service-detail__store {
+  padding: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.service-detail__store-name {
+  display: block;
+}
+
+.service-detail__store-meta {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.service-detail__store-link {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-primary);
+}
+
+.merchant-svc-detail__banner {
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.merchant-svc-detail__banner-text {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.merchant-svc-detail__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}

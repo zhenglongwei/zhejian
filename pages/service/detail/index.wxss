@@ -1,0 +1,119 @@
+.service-detail__pad {
+  padding-top: var(--space-md);
+}
+
+.service-detail__body {
+  padding-top: var(--space-md);
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.service-detail__head {
+  margin-bottom: var(--space-md);
+}
+
+.service-detail__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.service-detail__section {
+  margin-top: var(--space-lg);
+}
+
+.service-detail__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__section-head .service-detail__section-title {
+  margin-bottom: 0;
+}
+
+.service-detail__more {
+  color: var(--color-primary);
+}
+
+.service-detail__notice {
+  display: block;
+  margin-top: var(--space-sm);
+}
+
+.service-detail__privacy {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.service-detail__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.service-detail__list-item {
+  color: var(--color-text-primary);
+}
+
+.service-detail__cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.service-detail__stores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.service-detail__flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.service-detail__flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.service-detail__flow-index {
+  flex-shrink: 0;
+  width: var(--size-flow-step);
+  height: var(--size-flow-step);
+  line-height: var(--size-flow-step);
+  text-align: center;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+.service-detail__faq {
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.service-detail__faq-q {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.service-detail__faq-a {
+  display: block;
+  color: var(--color-text-secondary);
+}

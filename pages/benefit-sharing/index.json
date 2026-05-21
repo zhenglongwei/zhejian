@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "利益共享政策",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index"
+  }
+}

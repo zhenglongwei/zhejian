@@ -1,0 +1,4 @@
+<view class="tag {{variantClass}}" wx:if="{{text}}">
+  <slot wx:if="{{!text}}" />
+  <text wx:else>{{text}}</text>
+</view>

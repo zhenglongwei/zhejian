@@ -1,0 +1,38 @@
+.service-card {
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.service-card__body {
+  padding: var(--space-md);
+}
+
+.service-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.service-card__title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.service-card__summary {
+  display: block;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-card__meta {
+  margin-bottom: var(--space-sm);
+}
+
+.service-card__footer {
+  color: var(--color-text-tertiary);
+}

@@ -1,0 +1,158 @@
+<view class="page order-detail {{showBottomBar ? 'order-detail--with-bar' : ''}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content order-detail__pad">
+      <ui-skeleton rows="{{2}}" title="{{true}}" />
+      <ui-skeleton rows="{{5}}" />
+      <ui-skeleton rows="{{4}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载订单"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{detail}}">
+    <view class="page-content order-detail__body">
+      <view class="order-detail__status-block">
+        <ui-order-status-badge status="{{detail.status}}" size="lg" />
+        <text wx:if="{{detail.statusHint}}" class="order-detail__hint text-body">{{detail.statusHint}}</text>
+        <text wx:if="{{detail.storeOffShelf}}" class="order-detail__warn text-caption">该门店当前暂不可预约。</text>
+      </view>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">维修进度</text>
+        <ui-timeline steps="{{detail.progressSteps}}" bind:linktap="onTimelineLink" />
+      </ui-card>
+
+      <ui-card
+        wx:if="{{detail.hasAlbum && detail.albumEntry}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+      >
+        <ui-privacy-banner scene="album" />
+        <view class="order-detail__album-entry" bindtap="onAlbumEntry">
+          <text class="order-detail__section-title text-h3">维修相册</text>
+          <text class="order-detail__album-meta text-caption">
+            {{detail.albumEntry.imageCount}} 张 · 最新 {{detail.albumEntry.nodeTitle}}
+          </text>
+          <text class="order-detail__album-link text-caption">查看维修相册</text>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">服务信息</text>
+        <ui-key-info-table rows="{{detail.serviceRows}}" />
+        <view class="order-detail__price">
+          <ui-price-display
+            mode="{{detail.priceMode}}"
+            amount="{{detail.service.amount}}"
+            minAmount="{{detail.service.minAmount}}"
+            maxAmount="{{detail.service.maxAmount}}"
+            showDisclaimer="{{true}}"
+          />
+        </view>
+        <view wx:if="{{detail.flags.isAccident}}" class="order-detail__notice">
+          <ui-compliance-notice type="accident" />
+        </view>
+        <view
+          wx:elif="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}"
+          class="order-detail__notice"
+        >
+          <ui-compliance-notice type="price" />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">门店信息</text>
+        <ui-key-info-table rows="{{detail.storeRows}}" />
+        <view class="order-detail__inline-actions">
+          <ui-button type="secondary" size="sm" catch:tap="onNavStore">导航</ui-button>
+          <ui-button type="ghost" size="sm" catch:tap="onCallStore">联系门店</ui-button>
+          <ui-button
+            wx:if="{{detail.store.id}}"
+            type="ghost"
+            size="sm"
+            catch:tap="onStoreDetail"
+          >查看门店</ui-button>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">车辆信息</text>
+        <ui-key-info-table rows="{{detail.vehicleRows}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">预约信息</text>
+        <ui-key-info-table rows="{{detail.appointmentRows}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">费用信息</text>
+        <ui-key-info-table rows="{{detail.feeRows}}" />
+        <view wx:if="{{detail.showFeeCompliance}}" class="order-detail__notice">
+          <ui-compliance-notice type="{{detail.flags.isAccident ? 'accident' : 'price'}}" />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="order-detail__section-title text-h3">订单信息</text>
+        <ui-key-info-table rows="{{detail.metaRows}}" />
+      </ui-card>
+
+      <ui-card wx:if="{{reviewSummary}}" shadow="{{true}}" padding="{{true}}">
+        <view class="order-detail__review-head">
+          <text class="order-detail__section-title text-h3">我的评价</text>
+          <ui-tag
+            variant="{{reviewSummary.statusVariant}}"
+            text="{{reviewSummary.statusLabel}}"
+          />
+        </view>
+        <ui-review-card
+          reviewId="{{reviewSummary.reviewId}}"
+          orderId="{{reviewSummary.orderId}}"
+          displayName="{{reviewSummary.displayName}}"
+          overallScore="{{reviewSummary.overallScore}}"
+          content="{{reviewSummary.content}}"
+          tags="{{reviewSummary.tags}}"
+          serviceName="{{reviewSummary.serviceName}}"
+          createdAtText="{{reviewSummary.createdAtText}}"
+          compact="{{true}}"
+          plain="{{true}}"
+        />
+      </ui-card>
+
+      <view class="order-detail__footer-links">
+        <text class="order-detail__footer-text text-caption">
+          对服务结果有疑问？可申请售后或联系客服处理。
+        </text>
+        <view class="order-detail__footer-actions">
+          <text class="order-detail__link text-caption" bindtap="onAfterSaleHint">申请售后</text>
+          <text class="order-detail__link text-caption" bindtap="onSupport">联系客服</text>
+        </view>
+      </view>
+    </view>
+
+    <ui-fixed-bottom-bar wx:if="{{showBottomBar}}" safeArea="{{true}}">
+      <ui-button
+        wx:if="{{bottomSecondary}}"
+        slot="left"
+        type="{{bottomSecondary.type || 'secondary'}}"
+        size="default"
+        catch:tap="onBottomSecondary"
+      >{{bottomSecondary.label}}</ui-button>
+      <ui-button
+        slot="right"
+        type="primary"
+        catch:tap="onBottomPrimary"
+      >{{bottomPrimary.label}}</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

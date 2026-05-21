@@ -1,0 +1,6 @@
+<view
+  wx:if="{{displayLabel}}"
+  class="order-status-badge {{toneClass}} {{sizeClass}}"
+>
+  <text class="order-status-badge__text">{{displayLabel}}</text>
+</view>

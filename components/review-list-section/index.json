@@ -1,0 +1,9 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-tag": "/components/tag/index",
+    "ui-review-card": "/components/review-card/index"
+  }
+}

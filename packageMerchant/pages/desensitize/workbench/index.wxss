@@ -1,0 +1,15 @@
+.desensitize-page__preview-hint {
+  margin-bottom: var(--space-md);
+  color: var(--color-warning);
+}
+
+.desensitize-page__bar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.desensitize-page__spacer {
+  height: var(--page-fixed-clearance);
+}

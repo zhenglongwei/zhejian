@@ -1,0 +1,89 @@
+.order-album {
+  padding-bottom: var(--space-xl);
+}
+
+.order-album--with-bar .order-album__body {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.order-album__pad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.order-album__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.order-album__summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.order-album__privacy {
+  display: block;
+}
+
+.order-album__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.order-album__section-title {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.order-album__store-note {
+  display: block;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.order-album__auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.order-album__auth-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.order-album__auth-action {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-album__public-hint {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.order-album__feedback {
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.order-album__empty-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-md);
+}

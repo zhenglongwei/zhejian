@@ -1,0 +1,53 @@
+<view
+  class="review-card {{compact ? 'review-card--compact' : ''}} {{plain ? 'review-card--plain' : ''}}"
+  bindtap="onTap"
+>
+  <view class="review-card__head">
+    <view class="review-card__user">
+      <text class="review-card__name text-body">{{displayName}}</text>
+      <text wx:if="{{createdAtText}}" class="review-card__time text-caption">{{createdAtText}}</text>
+    </view>
+    <view class="review-card__score-row">
+      <view class="review-card__stars">
+        <text
+          wx:for="{{starRange}}"
+          wx:key="*this"
+          class="review-card__star {{scoreRounded >= item ? 'is-active' : ''}}"
+        >★</text>
+      </view>
+      <text class="review-card__score text-caption">{{overallScore}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{serviceName}}" class="review-card__service text-caption">
+    服务项目：{{serviceName}}
+  </view>
+
+  <text wx:if="{{content}}" class="review-card__content text-body">{{content}}</text>
+
+  <view wx:if="{{imagesApproved && images.length}}" class="review-card__images">
+    <image
+      wx:for="{{images}}"
+      wx:key="*this"
+      class="review-card__image"
+      src="{{item}}"
+      mode="aspectFill"
+    />
+    <view class="review-card__image-notice">
+      <ui-compliance-notice type="reviewUpload" />
+    </view>
+  </view>
+
+  <view wx:if="{{tags.length}}" class="review-card__tags">
+    <ui-tag
+      wx:for="{{tags}}"
+      wx:key="*this"
+      variant="info"
+      text="{{item}}"
+    />
+  </view>
+
+  <view wx:if="{{showStatus && statusLabel}}" class="review-card__status">
+    <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
+  </view>
+</view>

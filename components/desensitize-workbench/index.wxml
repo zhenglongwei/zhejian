@@ -1,0 +1,60 @@
+<view class="desensitize-wb">
+  <view class="desensitize-wb__progress">
+    <text class="text-h3">脱敏进度</text>
+    <text class="desensitize-wb__progress-meta text-caption">
+      已处理 {{processedCount}} / {{totalCount}}
+      <text wx:if="{{failedCount > 0}}" class="desensitize-wb__progress-warn"> · {{failedCount}} 张需处理</text>
+    </text>
+  </view>
+
+  <view class="desensitize-wb__list">
+    <view
+      class="desensitize-wb__item card"
+      wx:for="{{items}}"
+      wx:key="id"
+    >
+      <view class="desensitize-wb__item-head">
+        <text class="text-caption">{{item.nodeTitle}}</text>
+        <ui-tag variant="{{item.tagVariant}}" text="{{item.statusLabel}}" />
+      </view>
+      <view class="desensitize-wb__compare">
+        <view class="desensitize-wb__col" bindtap="onPreviewRaw" data-id="{{item.id}}" data-url="{{item.rawUrl}}">
+          <text class="desensitize-wb__col-label text-caption">原图</text>
+          <image
+            class="desensitize-wb__thumb"
+            src="{{item.rawUrl}}"
+            mode="aspectFill"
+            lazy-load
+          />
+          <text class="desensitize-wb__hint text-caption">仅本人可见</text>
+        </view>
+        <view class="desensitize-wb__col" bindtap="onPreviewMasked" data-id="{{item.id}}" data-url="{{item.maskedUrl}}">
+          <text class="desensitize-wb__col-label text-caption">脱敏图</text>
+          <image
+            wx:if="{{item.maskedUrl}}"
+            class="desensitize-wb__thumb"
+            src="{{item.maskedUrl}}"
+            mode="aspectFill"
+            lazy-load
+          />
+          <view wx:else class="desensitize-wb__thumb desensitize-wb__thumb--empty">
+            <text class="text-caption">待脱敏</text>
+          </view>
+          <text class="desensitize-wb__hint text-caption">用于公开展示</text>
+        </view>
+      </view>
+      <view class="desensitize-wb__item-actions" wx:if="{{item.showRetry}}">
+        <ui-button type="ghost" size="sm" bind:tap="onRetry" data-id="{{item.id}}">重试</ui-button>
+      </view>
+    </view>
+  </view>
+
+  <view class="desensitize-wb__liability">
+    <label class="desensitize-wb__agree">
+      <checkbox-group bindchange="onLiabilityChange">
+        <checkbox value="1" checked="{{liabilityAccepted}}" />
+      </checkbox-group>
+      <text class="text-caption">{{liabilityText}}</text>
+    </label>
+  </view>
+</view>

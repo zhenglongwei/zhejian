@@ -1,0 +1,13 @@
+.price-display {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.price-display__value {
+  color: var(--color-text-primary);
+}
+
+.price-display__hint {
+  color: var(--color-text-secondary);
+}

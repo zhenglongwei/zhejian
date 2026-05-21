@@ -1,0 +1,35 @@
+.review-result__pad {
+  padding-top: var(--space-lg);
+}
+
+.review-result__body {
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-xl);
+}
+
+.review-result__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.review-result__desc {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.review-result__reward-wrap {
+  margin-top: var(--space-lg);
+}
+
+.review-result__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-md);
+  margin-top: var(--space-xl);
+}
+
+.review-result__action {
+  flex: 1;
+  min-width: 0;
+}

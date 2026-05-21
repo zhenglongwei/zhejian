@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+backend/.env
+
+# WeChat devtools
+project.private.config.json
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Build
+dist/
+coverage/
+
+# Prisma
+backend/prisma/*.db
+
+# Cursor
+.cursor/

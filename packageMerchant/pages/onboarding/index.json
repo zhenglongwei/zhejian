@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "商家入驻",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+  }
+}

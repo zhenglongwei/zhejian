@@ -1,0 +1,87 @@
+.case-detail__pad {
+  padding-top: var(--space-md);
+}
+
+.case-detail__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.case-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.case-detail__privacy {
+  margin-bottom: var(--space-md);
+}
+
+.case-detail__title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.case-detail__section {
+  margin-top: var(--space-lg);
+}
+
+.case-detail__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.case-detail__notice {
+  margin-top: var(--space-sm);
+}
+
+.case-detail__factors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.case-detail__factor {
+  color: var(--color-text-secondary);
+}
+
+.case-detail__store {
+  padding: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.case-detail__store-name {
+  display: block;
+}
+
+.case-detail__store-link {
+  display: block;
+  margin-top: var(--space-sm);
+}
+
+.case-detail__faq-item {
+  padding: var(--space-md) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.case-detail__faq-item:last-child {
+  border-bottom: none;
+}
+
+.case-detail__faq-q {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.case-detail__faq-a {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.case-detail__related {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

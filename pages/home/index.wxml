@@ -1,0 +1,158 @@
+<view class="page home">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content home__pad">
+      <ui-skeleton rows="{{2}}" title="{{true}}" />
+      <view class="home__section-gap">
+        <ui-skeleton rows="{{4}}" />
+      </view>
+      <ui-skeleton rows="{{3}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="页面加载失败"
+        description="{{errorMessage}}"
+        actionText="重新加载"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content home__body">
+      <view class="home__top">
+        <view class="home__city" bindtap="onCityTap">
+          <text class="home__city-name text-h3">{{city}}</text>
+          <text class="home__city-arrow text-caption">›</text>
+        </view>
+        <view class="home__search" bindtap="onSearchTap">
+          <text class="home__search-placeholder text-caption">搜索服务、门店、车型、故障或案例</text>
+        </view>
+      </view>
+
+      <view class="home__hero">
+        <text class="home__title text-h1">透明维修服务平台</text>
+        <text class="home__subtitle text-body">修车过程看得见，每次维修有档案</text>
+        <text class="home__desc text-caption">查看真实维修案例，预约杭州本地可信维修门店</text>
+      </view>
+
+      <view class="home__section">
+        <text class="home__section-title text-h2">核心服务</text>
+        <view class="home__grid">
+          <view
+            wx:for="{{serviceEntries}}"
+            wx:key="id"
+            class="home__grid-item"
+            data-target-type="{{item.targetType}}"
+            data-target-id="{{item.targetId}}"
+            bindtap="onServiceEntryTap"
+          >
+            <view class="home__grid-icon">
+              <text class="home__grid-icon-text">{{item.iconText}}</text>
+            </view>
+            <text class="home__grid-name text-caption">{{item.name}}</text>
+            <ui-tag
+              wx:if="{{item.tag}}"
+              variant="{{item.tagVariant}}"
+              text="{{item.tag}}"
+            />
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{accidentEntry}}" class="home__section">
+        <ui-card bordered="{{true}}">
+          <text class="home__accident-title text-h3">{{accidentEntry.title}}</text>
+          <text class="home__accident-sub text-body">{{accidentEntry.subtitle}}</text>
+          <text class="home__accident-hint text-caption">{{accidentEntry.hint}}</text>
+          <view class="home__accident-notice">
+            <ui-compliance-notice type="accident" />
+          </view>
+          <view class="home__accident-actions">
+            <ui-button type="secondary" size="sm" bind:tap="onAccidentCases">查看案例</ui-button>
+            <ui-button type="primary" size="sm" bind:tap="onAccidentBook">预约检测</ui-button>
+          </view>
+        </ui-card>
+      </view>
+
+      <view wx:if="{{showMerchants}}" class="home__section">
+        <view class="home__section-head">
+          <text class="home__section-title text-h2">附近门店</text>
+          <text class="home__more text-caption" bindtap="onViewAllMerchants">查看更多</text>
+        </view>
+        <view class="home__stores">
+          <ui-store-card
+            wx:for="{{recommendedMerchants}}"
+            wx:key="id"
+            storeId="{{item.id}}"
+            name="{{item.name}}"
+            address="{{item.address}}"
+            score="{{item.score}}"
+            caseCount="{{item.caseCount}}"
+            cardTags="{{item.cardTags}}"
+            bind:tap="onStoreTap"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{showCases}}" class="home__section">
+        <view class="home__section-head">
+          <text class="home__section-title text-h2">精选案例</text>
+          <text class="home__more text-caption" bindtap="onViewAllCases">查看更多</text>
+        </view>
+        <view class="home__privacy">
+          <ui-privacy-banner scene="share" />
+        </view>
+        <view class="home__compliance">
+          <ui-compliance-notice type="casePrice" />
+        </view>
+        <view wx:if="{{hasHistoryCases}}" class="home__compliance">
+          <ui-compliance-notice type="history" />
+        </view>
+        <view class="home__cases">
+          <ui-case-card
+            wx:for="{{featuredCases}}"
+            wx:key="id"
+            caseId="{{item.id}}"
+            caseSource="{{item.source}}"
+            coverImage="{{item.coverImage}}"
+            title="{{item.title}}"
+            serviceName="{{item.serviceName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            viewCount="{{item.viewCount}}"
+            bind:tap="onCaseTap"
+          />
+        </view>
+      </view>
+
+      <view class="home__section">
+        <text class="home__section-title text-h2">透明维修说明</text>
+        <ui-card bordered="{{true}}">
+          <view
+            wx:for="{{platformIntro}}"
+            wx:key="*this"
+            class="home__intro-item"
+          >
+            <text class="text-body">· {{item}}</text>
+          </view>
+        </ui-card>
+      </view>
+
+      <view class="home__section home__section--last">
+        <text class="home__section-title text-h2">平台保障</text>
+        <ui-card bordered="{{true}}">
+          <text class="text-body">{{protectionText}}</text>
+          <view class="home__compliance">
+            <ui-compliance-notice type="price" />
+          </view>
+        </ui-card>
+      </view>
+    </view>
+  </block>
+</view>

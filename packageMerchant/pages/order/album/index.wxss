@@ -1,0 +1,87 @@
+.merchant-order-album {
+  padding-bottom: var(--space-xl);
+}
+
+.merchant-order-album--with-bar {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.merchant-order-album__pad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-order-album__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.merchant-order-album__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-order-album__head-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-order-album__head-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-order-album__switch {
+  flex-shrink: 0;
+  padding-top: var(--space-xs);
+}
+
+.merchant-order-album__switch-hint {
+  display: block;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-order-album__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-order-album__progress-text {
+  color: var(--color-text-secondary);
+}
+
+.merchant-order-album__progress-bar {
+  height: 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-muted);
+  overflow: hidden;
+}
+
+.merchant-order-album__progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+}
+
+.merchant-order-album__section {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-order-album__section-hint {
+  display: block;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-md);
+}

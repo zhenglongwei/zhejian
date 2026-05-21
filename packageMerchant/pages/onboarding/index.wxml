@@ -1,0 +1,73 @@
+<view class="page merchant-onboard page-content merchant-form-page" wx:if="{{status === 'normal'}}">
+  <view class="merchant-onboard__hero">
+    <text class="text-h1">成为透明维修服务商</text>
+    <text class="text-body merchant-onboard__sub">把每一单维修变成可信案例，让专业被用户看见</text>
+  </view>
+  <ui-compliance-notice type="history" text="入驻资料仅用于平台审核与门店展示，MVP 阶段审核结果可先 mock 通过。" />
+  <view class="merchant-onboard__form">
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门店名称 *</text>
+      <input
+        class="merchant-form__input"
+        placeholder="请输入门店名称"
+        value="{{form.storeName}}"
+        data-field="storeName"
+        bindinput="onInput"
+      />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">联系人 *</text>
+      <input
+        class="merchant-form__input"
+        placeholder="负责人姓名"
+        value="{{form.contactName}}"
+        data-field="contactName"
+        bindinput="onInput"
+      />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">手机号 *</text>
+      <input
+        class="merchant-form__input"
+        type="number"
+        placeholder="用于接单联系"
+        value="{{form.phone}}"
+        data-field="phone"
+        bindinput="onInput"
+      />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门店地址 *</text>
+      <input
+        class="merchant-form__input"
+        placeholder="详细地址"
+        value="{{form.address}}"
+        data-field="address"
+        bindinput="onInput"
+      />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">擅长服务</text>
+      <view class="merchant-onboard__chips">
+        <view
+          wx:for="{{serviceOptions}}"
+          wx:key="*this"
+          class="merchant-onboard__chip {{form.services.indexOf(item) >= 0 ? 'merchant-onboard__chip--on' : ''}}"
+          data-name="{{item}}"
+          bindtap="onToggleService"
+        >{{item}}</view>
+      </view>
+    </view>
+    <label class="merchant-onboard__agree">
+      <checkbox-group bindchange="onAgreeChange">
+        <checkbox value="1" checked="{{agreed}}" />
+      </checkbox-group>
+      <text class="text-caption">我已阅读入驻要求</text>
+    </label>
+  </view>
+  <view class="merchant-form__spacer" />
+  <ui-fixed-bottom-bar>
+    <ui-button type="secondary" size="sm" slot="left" loading="{{submitting}}" bind:tap="onSaveDraft">保存草稿</ui-button>
+    <ui-button type="primary" slot="right" loading="{{submitting}}" bind:tap="onSubmit">提交入驻</ui-button>
+  </ui-fixed-bottom-bar>
+</view>

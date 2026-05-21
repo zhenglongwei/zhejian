@@ -1,0 +1,3 @@
+<view wx:if="{{content}}" class="ai-summary-block">
+  <text>{{content}}</text>
+</view>

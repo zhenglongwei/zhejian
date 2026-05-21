@@ -1,0 +1,90 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/service/index",
+    "pages/case/index",
+    "pages/order/index",
+    "pages/mine/index",
+    "pages/case/detail/index",
+    "pages/store/detail/index",
+    "pages/service/detail/index",
+    "pages/order-confirm/index",
+    "pages/order-result/index",
+    "pages/order/detail/index",
+    "pages/order/album/index",
+    "pages/desensitize/preview/index",
+    "pages/benefit-sharing/index",
+    "pages/review/submit/index",
+    "pages/review/result/index",
+    "pages/review/rules/index",
+    "pages/review/list/index",
+    "pages/reward/records/index"
+  ],
+  "subPackages": [
+    {
+      "root": "packageMerchant",
+      "name": "merchant",
+      "pages": [
+        "pages/workbench/index",
+        "pages/onboarding/index",
+        "pages/album/list/index",
+        "pages/album/create/index",
+        "pages/desensitize/workbench/index",
+        "pages/service/list/index",
+        "pages/service/create/index",
+        "pages/service/detail/index",
+        "pages/order/list/index",
+        "pages/order/detail/index",
+        "pages/order/album/index",
+        "pages/order/complete/index"
+      ]
+    }
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "透明维修",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f6f7"
+  },
+  "tabBar": {
+    "color": "#646A73",
+    "selectedColor": "#1677FF",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "assets/tab/home.png",
+        "selectedIconPath": "assets/tab/home-active.png"
+      },
+      {
+        "pagePath": "pages/service/index",
+        "text": "服务",
+        "iconPath": "assets/tab/service.png",
+        "selectedIconPath": "assets/tab/service-active.png"
+      },
+      {
+        "pagePath": "pages/case/index",
+        "text": "案例",
+        "iconPath": "assets/tab/case.png",
+        "selectedIconPath": "assets/tab/case-active.png"
+      },
+      {
+        "pagePath": "pages/order/index",
+        "text": "订单",
+        "iconPath": "assets/tab/order.png",
+        "selectedIconPath": "assets/tab/order-active.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "assets/tab/mine.png",
+        "selectedIconPath": "assets/tab/mine-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

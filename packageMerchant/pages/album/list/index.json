@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "维修案例",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-case-card": "/components/case-card/index"
+  }
+}

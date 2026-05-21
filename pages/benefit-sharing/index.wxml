@@ -1,0 +1,6 @@
+<view class="page page-content benefit-sharing">
+  <ui-empty
+    title="利益共享政策"
+    description="政策文档筹备中。正式上线后将在此展示案例公开奖励、发放条件与审核说明。"
+  />
+</view>

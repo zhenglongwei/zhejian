@@ -1,0 +1,11 @@
+<view class="fixed-bottom-bar fixed-bottom {{safeArea ? 'safe-bottom' : ''}}">
+  <view class="fixed-bottom-bar__inner">
+    <view class="fixed-bottom-bar__left">
+      <slot name="left" />
+    </view>
+    <view class="fixed-bottom-bar__right">
+      <slot name="right" />
+      <slot />
+    </view>
+  </view>
+</view>

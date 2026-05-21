@@ -1,0 +1,205 @@
+.h5-page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-lg);
+  padding-bottom: calc(var(--space-xl) * 2);
+}
+
+.h5-header {
+  margin-bottom: var(--space-lg);
+}
+
+.h5-brand {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-sm);
+}
+
+.h5-title {
+  font-size: var(--font-h1);
+  font-weight: 600;
+  margin: 0 0 var(--space-md);
+}
+
+.h5-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.h5-tag {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+}
+
+.h5-tag--order {
+  color: var(--tag-order-fg);
+  background: var(--tag-order-bg);
+}
+
+.h5-tag--history {
+  color: var(--tag-history-fg);
+  background: var(--tag-history-bg);
+}
+
+.h5-tag--reference {
+  color: var(--tag-reference-fg);
+  background: var(--tag-reference-bg);
+}
+
+.h5-tag--desensitized {
+  color: var(--tag-desensitized-fg);
+  background: var(--tag-desensitized-bg);
+}
+
+.h5-tag--audited {
+  color: var(--tag-audited-fg);
+  background: var(--tag-audited-bg);
+}
+
+.h5-banner {
+  padding: var(--space-md);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-section-title {
+  font-size: var(--font-h3);
+  font-weight: 600;
+  margin: 0 0 var(--space-md);
+}
+
+.h5-summary {
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.h5-table th,
+.h5-table td {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+  font-size: var(--font-body);
+}
+
+.h5-table th {
+  width: 35%;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+.h5-price {
+  font-size: var(--font-h2);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-price-note {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-node {
+  margin-bottom: var(--space-lg);
+}
+
+.h5-node-title {
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.h5-node-note {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-placeholder-img {
+  width: 100%;
+  height: var(--size-h5-img-placeholder);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+  margin-bottom: var(--space-sm);
+}
+
+.h5-node-img {
+  width: 100%;
+  max-height: var(--size-h5-img-placeholder);
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  background: var(--color-bg-muted);
+}
+
+.h5-compliance {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-sm);
+}
+
+.h5-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-md) var(--space-lg);
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+}
+
+.h5-footer-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.h5-btn {
+  display: block;
+  width: 100%;
+  padding: var(--size-h5-btn-padding-y) var(--size-h5-btn-padding-x);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-body);
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+}
+
+.h5-error {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-text-secondary);
+}
+
+.h5-body-spacer {
+  height: var(--size-h5-footer-spacer);
+}

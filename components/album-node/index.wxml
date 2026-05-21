@@ -1,0 +1,61 @@
+<view
+  class="album-node {{mode === 'edit' ? 'album-node--edit' : ''}} {{compact ? 'album-node--compact' : ''}}"
+>
+  <view class="album-node__head {{mode === 'edit' ? 'album-node__head--edit' : ''}}">
+    <view wx:if="{{mode === 'view'}}" class="album-node__dot" />
+    <text class="album-node__title text-h3">{{title}}</text>
+    <ui-tag
+      wx:if="{{mode === 'edit' && requiredLevelLabel}}"
+      variant="{{requiredLevelVariant || 'default'}}"
+      text="{{requiredLevelLabel}}"
+    />
+  </view>
+
+  <view class="album-node__content {{mode === 'edit' ? 'album-node__content--edit' : ''}}">
+    <block wx:if="{{mode === 'edit'}}">
+      <text
+        wx:if="{{!compact && description}}"
+        class="album-node__desc text-caption"
+      >{{description}}</text>
+      <text
+        wx:if="{{!compact && photoTips}}"
+        class="album-node__tips text-caption"
+      >拍摄建议：{{photoTips}}</text>
+      <textarea
+        wx:if="{{!compact}}"
+        class="album-node__note-input input"
+        placeholder="{{notePlaceholder}}"
+        value="{{note}}"
+        bindinput="onNoteInput"
+      />
+      <text
+        wx:if="{{uploadHint}}"
+        class="album-node__upload-hint text-caption"
+      >{{uploadHint}}</text>
+      <ui-image-uploader
+        images="{{images}}"
+        maxCount="{{maxCount}}"
+        bind:change="onImagesChange"
+      />
+    </block>
+
+    <block wx:else>
+      <view wx:if="{{images.length}}" class="album-node__grid">
+        <view
+          wx:for="{{images}}"
+          wx:key="*this"
+          class="album-node__cell image-placeholder"
+          data-index="{{index}}"
+          bindtap="onPreview"
+        >
+          <image class="album-node__img" src="{{item}}" mode="aspectFill" />
+        </view>
+      </view>
+      <view wx:else class="album-node__empty">
+        <text class="album-node__empty-text text-caption">{{emptyText}}</text>
+      </view>
+      <text wx:if="{{time}}" class="album-node__time text-caption">{{time}}</text>
+      <text wx:if="{{note}}" class="album-node__note text-caption">{{note}}</text>
+    </block>
+  </view>
+</view>

@@ -1,0 +1,18 @@
+.merchant-order-page {
+  padding-bottom: var(--space-xl);
+}
+
+.merchant-order-page__tabs {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-content);
+  background-color: var(--color-bg-page);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.merchant-order-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

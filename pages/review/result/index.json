@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "评价结果",
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-button": "/components/button/index",
+    "ui-reward-summary-block": "/components/reward-summary-block/index"
+  }
+}

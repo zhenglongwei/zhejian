@@ -1,0 +1,57 @@
+@import '../../styles/merchant-form.wxss';
+
+.order-confirm__pad {
+  padding-top: var(--space-md);
+}
+
+.order-confirm__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.order-confirm__section-title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.order-confirm__service-name {
+  display: block;
+}
+
+.order-confirm__service-meta {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.order-confirm__price {
+  margin-top: var(--space-md);
+}
+
+.order-confirm__notice {
+  margin-top: var(--space-sm);
+}
+
+.order-confirm__field {
+  margin-top: var(--space-md);
+}
+
+.order-confirm__field:first-of-type {
+  margin-top: 0;
+}
+
+.order-confirm__readonly {
+  display: block;
+  padding: var(--space-md);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.order-confirm__footer-note {
+  margin-bottom: var(--space-md);
+}

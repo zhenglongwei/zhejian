@@ -1,0 +1,6 @@
+<view
+  class="review-tag-chip {{selected ? 'review-tag-chip--selected' : ''}}"
+  bindtap="onTap"
+>
+  <text class="review-tag-chip__text">{{text}}</text>
+</view>

@@ -1,0 +1,143 @@
+<view class="page service-create page-content merchant-form-page">
+  <ui-compliance-notice type="price" />
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">平台服务项目</text>
+    <picker
+      mode="selector"
+      range="{{serviceItems}}"
+      range-key="name"
+      value="{{itemIndex}}"
+      bindchange="onItemChange"
+    >
+      <view class="merchant-form__picker">{{serviceItems[itemIndex].name}}</view>
+    </picker>
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">价格模式</text>
+    <picker
+      mode="selector"
+      range="{{priceModes}}"
+      range-key="label"
+      value="{{priceModeIndex}}"
+      disabled="{{isAccident}}"
+      bindchange="onPriceModeChange"
+    >
+      <view class="merchant-form__picker">{{priceModes[priceModeIndex].label}}</view>
+    </picker>
+    <view wx:if="{{isAccident}}" class="merchant-form__notice">
+      <ui-compliance-notice type="accident" />
+    </view>
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">服务方案名称</text>
+    <input
+      class="merchant-form__input"
+      placeholder="用户端展示名称"
+      value="{{form.name}}"
+      data-field="name"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">服务简介</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="简要说明适用场景与服务内容"
+      value="{{form.summary}}"
+      data-field="summary"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">服务详情</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="用户端详情页展示的详细说明"
+      value="{{form.detail}}"
+      data-field="detail"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view wx:if="{{showPriceFields && priceModes[priceModeIndex].value === 'range'}}" class="merchant-form__section">
+    <text class="merchant-form__label">价格影响因素</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="每行一项，如：车型与年款"
+      value="{{form.priceFactorsText}}"
+      data-field="priceFactorsText"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view wx:if="{{showPriceFields}}" class="merchant-form__section">
+    <text class="merchant-form__label">
+      {{priceModes[priceModeIndex].value === 'fixed' ? '一口价（元）' : '参考价格区间（元）'}}
+    </text>
+    <block wx:if="{{priceModes[priceModeIndex].value === 'fixed'}}">
+      <input
+        class="merchant-form__input"
+        type="number"
+        placeholder="售价（元）"
+        value="{{form.amount}}"
+        data-field="amount"
+        bindinput="onInput"
+      />
+    </block>
+    <block wx:else>
+      <view class="merchant-form__row">
+        <input
+          class="merchant-form__input merchant-form__input--half"
+          type="number"
+          placeholder="下限（元）"
+          value="{{form.minAmount}}"
+          data-field="minAmount"
+          bindinput="onInput"
+        />
+        <text>—</text>
+        <input
+          class="merchant-form__input merchant-form__input--half"
+          type="number"
+          placeholder="上限（元）"
+          value="{{form.maxAmount}}"
+          data-field="maxAmount"
+          bindinput="onInput"
+        />
+      </view>
+    </block>
+    <view class="merchant-form__price-preview">
+      <ui-price-display
+        mode="{{pricePreview.mode}}"
+        amount="{{pricePreview.amount}}"
+        minAmount="{{pricePreview.minAmount}}"
+        maxAmount="{{pricePreview.maxAmount}}"
+        showDisclaimer="{{true}}"
+        showSuffix="{{pricePreview.mode !== 'fixed'}}"
+      />
+    </view>
+    <ui-compliance-notice wx:if="{{pricePreview.mode === 'range'}}" type="price" />
+  </view>
+
+  <view class="merchant-form__spacer" />
+
+  <ui-fixed-bottom-bar>
+    <ui-button
+      type="secondary"
+      size="sm"
+      slot="left"
+      loading="{{submitting}}"
+      bind:tap="onSaveDraft"
+    >存草稿</ui-button>
+    <ui-button
+      type="primary"
+      slot="right"
+      loading="{{submitting}}"
+      bind:tap="onSubmit"
+    >提交审核</ui-button>
+  </ui-fixed-bottom-bar>
+</view>

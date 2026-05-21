@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-tag": "/components/tag/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

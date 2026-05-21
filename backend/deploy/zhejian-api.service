@@ -1,0 +1,16 @@
+[Unit]
+Description=Zhejian API (透明维修平台)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/zhejian/backend
+EnvironmentFile=/opt/zhejian/backend/.env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

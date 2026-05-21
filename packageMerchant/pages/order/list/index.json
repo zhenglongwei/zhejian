@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "订单管理",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-order-card": "/components/order-card/index"
+  }
+}

@@ -1,0 +1,27 @@
+.skeleton__head {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.skeleton__avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.skeleton__title {
+  flex: 1;
+  height: 36rpx;
+}
+
+.skeleton__row {
+  height: 28rpx;
+  margin-bottom: var(--space-sm);
+}
+
+.skeleton__row:last-child {
+  margin-bottom: 0;
+}

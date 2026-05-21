@@ -1,0 +1,48 @@
+/**
+ * 订单主状态 — 与 docs/07_交易订单支付与售后/02_订单状态机.md 对齐
+ */
+const ORDER_STATUS = {
+  CREATED: 'CREATED',
+  WAIT_PAY: 'WAIT_PAY',
+  WAIT_ACCEPT: 'WAIT_ACCEPT',
+  ACCEPTED: 'ACCEPTED',
+  WAIT_SERVICE: 'WAIT_SERVICE',
+  IN_SERVICE: 'IN_SERVICE',
+  WAIT_CONFIRM: 'WAIT_CONFIRM',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
+  CLOSED: 'CLOSED',
+}
+
+/** 用户端展示文案 */
+const ORDER_STATUS_LABEL = {
+  [ORDER_STATUS.CREATED]: '已创建',
+  [ORDER_STATUS.WAIT_PAY]: '待支付',
+  [ORDER_STATUS.WAIT_ACCEPT]: '待商家接单',
+  [ORDER_STATUS.ACCEPTED]: '已接单',
+  [ORDER_STATUS.WAIT_SERVICE]: '待到店',
+  [ORDER_STATUS.IN_SERVICE]: '维修中',
+  [ORDER_STATUS.WAIT_CONFIRM]: '待确认完工',
+  [ORDER_STATUS.COMPLETED]: '已完成',
+  [ORDER_STATUS.CANCELLED]: '已取消',
+  [ORDER_STATUS.CLOSED]: '已关闭',
+}
+
+/** 状态分组色 — 对应 token 语义 */
+const ORDER_STATUS_TONE = {
+  [ORDER_STATUS.WAIT_PAY]: 'warning',
+  [ORDER_STATUS.WAIT_ACCEPT]: 'warning',
+  [ORDER_STATUS.ACCEPTED]: 'primary',
+  [ORDER_STATUS.WAIT_SERVICE]: 'warning',
+  [ORDER_STATUS.IN_SERVICE]: 'primary',
+  [ORDER_STATUS.WAIT_CONFIRM]: 'primary',
+  [ORDER_STATUS.COMPLETED]: 'success',
+  [ORDER_STATUS.CANCELLED]: 'danger',
+  [ORDER_STATUS.CLOSED]: 'danger',
+}
+
+module.exports = {
+  ORDER_STATUS,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_TONE,
+}

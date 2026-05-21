@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "评价奖励规则",
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

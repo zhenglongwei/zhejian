@@ -1,0 +1,3 @@
+<view class="privacy-banner" wx:if="{{content}}">
+  <text>{{content}}</text>
+</view>

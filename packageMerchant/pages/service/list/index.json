@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "服务方案",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-button": "/components/button/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-service-card": "/components/service-card/index"
+  }
+}

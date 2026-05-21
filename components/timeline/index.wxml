@@ -1,0 +1,25 @@
+<view class="timeline {{compact ? 'timeline--compact' : ''}}" wx:if="{{steps.length}}">
+  <view
+    wx:for="{{steps}}"
+    wx:key="index"
+    class="timeline__item timeline__item--{{item.status}}"
+  >
+    <view class="timeline__rail">
+      <view class="timeline__dot" />
+      <view wx:if="{{index < steps.length - 1}}" class="timeline__line" />
+    </view>
+    <view class="timeline__body">
+      <view class="timeline__head">
+        <text class="timeline__title text-body">{{item.title}}</text>
+        <text wx:if="{{item.time}}" class="timeline__time text-caption">{{item.time}}</text>
+      </view>
+      <text wx:if="{{item.desc}}" class="timeline__desc text-caption">{{item.desc}}</text>
+      <text
+        wx:if="{{item.linkText}}"
+        class="timeline__link text-caption"
+        data-index="{{index}}"
+        bindtap="onLinkTap"
+      >{{item.linkText}}</text>
+    </view>
+  </view>
+</view>

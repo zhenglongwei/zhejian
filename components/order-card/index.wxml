@@ -1,0 +1,79 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view
+    class="order-card__inner"
+    data-id="{{item.id}}"
+    bindtap="onTap"
+  >
+    <view class="order-card__head">
+      <ui-order-status-badge
+        status="{{item.status}}"
+        label="{{audience === 'merchant' ? item.merchantStatusLabel : ''}}"
+        size="sm"
+      />
+      <text class="order-card__time text-caption">{{item.createdAtText}}</text>
+    </view>
+
+    <view wx:if="{{audience === 'merchant'}}" class="order-card__tags">
+      <ui-tag variant="default" text="{{item.orderTypeLabel}}" />
+      <ui-tag
+        wx:if="{{item.albumStatusLabel}}"
+        variant="{{item.albumStatus === 'uploaded' ? 'success' : 'default'}}"
+        text="{{item.albumStatusLabel}}"
+      />
+    </view>
+
+    <text class="order-card__service text-body">{{item.serviceName}}</text>
+
+    <block wx:if="{{audience === 'user'}}">
+      <text class="order-card__meta text-caption">{{item.storeName}}</text>
+      <text class="order-card__meta text-caption">预约 {{item.appointmentText}}</text>
+    </block>
+    <block wx:else>
+      <text class="order-card__meta text-caption">用户 {{item.contactName}} · 预约 {{item.appointmentText}}</text>
+    </block>
+
+    <text class="order-card__meta text-caption">{{item.vehicleSummary}}</text>
+
+    <view
+      wx:if="{{item.showPriceDisplay || item.showPaidLine}}"
+      class="order-card__price"
+    >
+      <ui-price-display
+        wx:if="{{item.showPriceDisplay}}"
+        mode="{{item.priceMode}}"
+        amount="{{item.serviceAmount}}"
+        minAmount="{{item.serviceMinAmount}}"
+        maxAmount="{{item.serviceMaxAmount}}"
+        showDisclaimer="{{true}}"
+        showSuffix="{{false}}"
+      />
+      <text
+        wx:if="{{item.showPaidLine}}"
+        class="order-card__paid text-body"
+      >{{item.paidLabel}} ¥{{item.paidAmountText}}</text>
+      <text
+        wx:if="{{item.listPriceHint}}"
+        class="order-card__price-hint text-caption"
+      >{{item.listPriceHint}}</text>
+    </view>
+
+    <view
+      wx:if="{{audience === 'user' && item.hasAlbum}}"
+      class="order-card__album-hint text-caption"
+    >可查看维修相册 · 仅你可见</view>
+
+    <view
+      wx:if="{{item.primaryAction}}"
+      class="order-card__actions"
+      catchtap="onActionAreaTap"
+    >
+      <ui-button
+        type="primary"
+        size="sm"
+        data-id="{{item.id}}"
+        data-action="{{item.primaryAction.actionKey}}"
+        catch:tap="onAction"
+      >{{item.primaryAction.label}}</ui-button>
+    </view>
+  </view>
+</ui-card>

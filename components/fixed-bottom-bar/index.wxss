@@ -1,0 +1,25 @@
+.fixed-bottom-bar {
+  box-shadow: var(--shadow-card);
+}
+
+.fixed-bottom-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--page-padding-x);
+  min-height: var(--button-height);
+  box-sizing: border-box;
+}
+
+.fixed-bottom-bar__left {
+  flex: 1;
+  min-width: 0;
+}
+
+.fixed-bottom-bar__right {
+  flex: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  min-width: 0;
+}

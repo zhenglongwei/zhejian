@@ -1,0 +1,6 @@
+@import '../../../../styles/merchant-form.wxss';
+
+.album-create ui-privacy-banner {
+  display: block;
+  margin-bottom: var(--space-md);
+}

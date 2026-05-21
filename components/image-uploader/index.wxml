@@ -1,0 +1,24 @@
+<view class="image-uploader">
+  <view
+    wx:for="{{images}}"
+    wx:key="*this"
+    class="image-uploader__item image-placeholder"
+    data-index="{{index}}"
+    bindtap="onPreview"
+  >
+    <image class="image-uploader__img" src="{{item}}" mode="aspectFill" />
+    <view
+      wx:if="{{!disabled}}"
+      class="image-uploader__remove"
+      data-index="{{index}}"
+      catchtap="onRemove"
+    >×</view>
+  </view>
+  <view
+    wx:if="{{images.length < maxCount && !disabled}}"
+    class="image-uploader__add image-placeholder"
+    bindtap="onAdd"
+  >
+    <text class="image-uploader__add-text text-caption">上传</text>
+  </view>
+</view>

@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  nickname  String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Order {
+  id          String   @id
+  userId      String   @map("user_id")
+  status      String
+  serviceName String   @default("") @map("service_name")
+  storeId     String   @default("") @map("store_id")
+  storeName   String   @default("") @map("store_name")
+  vehicleJson Json?    @map("vehicle_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id])
+  album       Album?
+
+  @@index([userId])
+  @@map("orders")
+}
+
+model Album {
+  id               String              @id
+  orderId          String              @unique @map("order_id")
+  status           String              @default("draft")
+  templateId       String              @default("") @map("template_id")
+  templateName     String              @default("") @map("template_name")
+  storeNote        String              @default("") @map("store_note")
+  fingerprint      String              @default("")
+  publicCaseStatus String              @default("private") @map("public_case_status")
+  imageCount       Int                 @default(0) @map("image_count")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  order            Order               @relation(fields: [orderId], references: [id])
+  nodes            AlbumNode[]
+  images           AlbumImage[]
+  authorization    AlbumAuthorization?
+
+  @@map("albums")
+}
+
+model AlbumNode {
+  albumId   String       @map("album_id")
+  nodeId    String       @map("node_id")
+  title     String
+  sortOrder Int          @default(0) @map("sort_order")
+  status    String       @default("pending")
+  note      String       @default("")
+  updatedAt DateTime?    @map("updated_at")
+  album     Album        @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  images    AlbumImage[]
+
+  @@id([albumId, nodeId])
+  @@map("album_nodes")
+}
+
+model AlbumImage {
+  id        String    @id
+  albumId   String    @map("album_id")
+  nodeId    String    @map("node_id")
+  idx       Int       @default(0)
+  rawUrl    String    @map("raw_url")
+  createdAt DateTime  @default(now()) @map("created_at")
+  album     Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  node      AlbumNode @relation(fields: [albumId, nodeId], references: [albumId, nodeId], onDelete: Cascade)
+
+  @@index([albumId, nodeId])
+  @@map("album_images")
+}
+
+model DesensitizeTask {
+  taskId               String             @id @map("task_id")
+  bizType              String             @map("biz_type")
+  bizId                String             @map("biz_id")
+  orderId              String?            @map("order_id")
+  operatorRole         String             @map("operator_role")
+  liabilityType        String             @map("liability_type")
+  preMaskStatus        String?            @map("pre_mask_status")
+  preMaskVersion       Int                @default(0) @map("pre_mask_version")
+  preMaskTaskId        String?            @map("pre_mask_task_id")
+  fingerprint          String             @default("")
+  fromPreMask          Boolean            @default(false) @map("from_pre_mask")
+  maskingConfirmed     Boolean            @default(false) @map("masking_confirmed")
+  maskingConfirmedAt   DateTime?          @map("masking_confirmed_at")
+  preMaskedAt          DateTime?          @map("pre_masked_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  assets               DesensitizeAsset[]
+
+  @@index([bizId, bizType])
+  @@map("desensitize_tasks")
+}
+
+model DesensitizeAsset {
+  taskId       String          @map("task_id")
+  assetId      String          @map("asset_id")
+  nodeId       String          @map("node_id")
+  nodeTitle    String          @map("node_title")
+  idx          Int             @default(0)
+  rawUrl       String          @map("raw_url")
+  maskedUrl    String          @default("") @map("masked_url")
+  preMaskedUrl String          @default("") @map("pre_masked_url")
+  status       String
+  previewed    Boolean         @default(false)
+  riskTags     Json            @default("[]")
+  task         DesensitizeTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
+
+  @@id([taskId, assetId])
+  @@map("desensitize_assets")
+}
+
+model AlbumAuthorization {
+  albumId   String   @id @map("album_id")
+  agreed    Boolean
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@map("album_authorizations")
+}

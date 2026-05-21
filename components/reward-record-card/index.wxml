@@ -1,0 +1,10 @@
+<view class="reward-record-card" bindtap="onTap">
+  <view class="reward-record-card__main">
+    <text class="reward-record-card__source text-body">{{sourceLabel}}</text>
+    <text class="reward-record-card__time text-caption">{{createdAtText}}</text>
+  </view>
+  <view class="reward-record-card__right">
+    <text class="reward-record-card__amount text-h3">¥{{amount}}</text>
+    <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
+  </view>
+</view>

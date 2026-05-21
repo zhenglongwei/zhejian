@@ -1,0 +1,6 @@
+<view class="key-info-table" wx:if="{{rows.length}}">
+  <view class="key-info-table__row" wx:for="{{rows}}" wx:key="label">
+    <text class="key-info-table__label text-caption">{{item.label}}</text>
+    <text class="key-info-table__value text-body">{{item.value}}</text>
+  </view>
+</view>

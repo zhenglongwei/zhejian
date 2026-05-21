@@ -1,0 +1,12 @@
+@import '../../../../styles/merchant-form.wxss';
+
+.album-list__tabs {
+  padding-top: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.album-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

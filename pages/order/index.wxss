@@ -1,0 +1,29 @@
+.order-page {
+  padding-bottom: var(--space-xl);
+}
+
+.order-page__tabs {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-content);
+  background-color: var(--color-bg-page);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.order-page__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.order-page__list ui-skeleton {
+  margin-bottom: var(--space-md);
+}
+
+.order-page__guest {
+  padding-top: var(--space-xl);
+}

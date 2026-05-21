@@ -1,0 +1,200 @@
+<view class="page store-detail">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content store-detail__pad">
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载门店"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{store}}">
+    <view class="store-detail__hero image-placeholder">
+      <image
+        wx:if="{{store.coverImage}}"
+        class="store-detail__hero-img"
+        src="{{store.coverImage}}"
+        mode="aspectFill"
+      />
+    </view>
+
+    <view class="store-detail__body page-content">
+      <view class="store-detail__head">
+        <text class="store-detail__name text-h1">{{store.name}}</text>
+        <view class="store-detail__tags">
+          <ui-tag
+            wx:for="{{headTags}}"
+            wx:key="text"
+            variant="{{item.variant}}"
+            text="{{item.text}}"
+          />
+        </view>
+        <view class="store-detail__status-row">
+          <text class="store-detail__status text-body">{{statusText}}</text>
+          <text wx:if="{{store.score}}" class="store-detail__score text-caption">评分 {{store.score}}</text>
+          <text wx:if="{{store.caseCount}}" class="store-detail__meta text-caption">公开案例 {{store.caseCount}}</text>
+        </view>
+      </view>
+
+      <ui-ai-summary-block wx:if="{{store.aiSummary}}" content="{{store.aiSummary}}" />
+
+      <view class="store-detail__card-wrap">
+        <ui-card>
+        <view class="store-detail__info-row">
+          <text class="store-detail__info-label text-caption">地址</text>
+          <text class="store-detail__info-value text-body">{{store.address}}</text>
+        </view>
+        <view class="store-detail__info-row">
+          <text class="store-detail__info-label text-caption">营业时间</text>
+          <text class="store-detail__info-value text-body">{{store.businessHours}}</text>
+        </view>
+        <view wx:if="{{store.specialties.length}}" class="store-detail__specialties">
+          <text class="store-detail__info-label text-caption">擅长项目</text>
+          <view class="store-detail__specialty-tags">
+            <ui-tag
+              wx:for="{{store.specialties}}"
+              wx:key="*this"
+              variant="default"
+              text="{{item}}"
+            />
+          </view>
+        </view>
+        </ui-card>
+      </view>
+
+      <view class="store-detail__section">
+        <text class="store-detail__section-title text-h2">门店资质</text>
+        <view class="store-detail__card-wrap">
+          <ui-card>
+          <view
+            wx:for="{{store.certifications}}"
+            wx:key="label"
+            class="store-detail__cert-row"
+          >
+            <text class="store-detail__cert-label text-body">{{item.label}}</text>
+            <text class="store-detail__cert-value text-caption">{{item.text}}</text>
+          </view>
+        </ui-card>
+        </view>
+      </view>
+
+      <view class="store-detail__section">
+        <view class="store-detail__section-head">
+          <text class="store-detail__section-title text-h2">服务方案</text>
+          <text
+            wx:if="{{services.length}}"
+            class="store-detail__more text-caption"
+            bindtap="onViewAllServices"
+          >查看更多</text>
+        </view>
+        <view class="store-detail__compliance">
+          <ui-compliance-notice type="price" />
+        </view>
+        <block wx:if="{{servicesStatus === 'empty'}}">
+          <ui-empty
+            title="该门店暂未配置可预约服务"
+            description="你可以联系门店或查看其他门店"
+            actionText="联系门店"
+            bind:action="onCall"
+          />
+        </block>
+        <view wx:else class="store-detail__cases">
+          <ui-service-card
+            wx:for="{{services}}"
+            wx:key="id"
+            serviceId="{{item.id}}"
+            name="{{item.name}}"
+            categoryName="{{item.categoryName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            onlinePaymentEnabled="{{item.onlinePaymentEnabled}}"
+            showStoreName="{{false}}"
+            bind:tap="onServiceTap"
+          />
+        </view>
+      </view>
+
+      <view class="store-detail__section">
+        <ui-review-list-section
+          sectionTitle="用户评价"
+          topTags="{{reviewTags}}"
+          reviews="{{reviews}}"
+          status="{{reviewsStatus}}"
+          emptyTitle="该门店暂无公开评价"
+          emptyDescription="完成服务后可提交真实评价，帮助其他用户了解门店。"
+          errorDescription="门店其他信息正常展示，请稍后重试加载评价。"
+          bind:retry="onRetryReviews"
+        />
+      </view>
+
+      <view class="store-detail__section">
+        <view class="store-detail__section-head">
+          <text class="store-detail__section-title text-h2">公开案例</text>
+          <text
+            wx:if="{{cases.length}}"
+            class="store-detail__more text-caption"
+            bindtap="onViewAllCases"
+          >查看更多</text>
+        </view>
+        <view class="store-detail__privacy">
+          <ui-privacy-banner scene="share" />
+        </view>
+        <view class="store-detail__compliance">
+          <ui-compliance-notice type="casePrice" />
+        </view>
+        <view wx:if="{{hasHistoryCases}}" class="store-detail__compliance">
+          <ui-compliance-notice type="history" />
+        </view>
+
+        <block wx:if="{{casesStatus === 'empty'}}">
+          <ui-empty
+            title="该门店暂无公开案例"
+            description="你可以查看服务或联系门店了解维修能力"
+            actionText="联系门店"
+            bind:action="onCall"
+          />
+        </block>
+
+        <view wx:else class="store-detail__cases">
+          <ui-case-card
+            wx:for="{{cases}}"
+            wx:key="id"
+            caseId="{{item.id}}"
+            caseSource="{{item.source}}"
+            coverImage="{{item.coverImage}}"
+            title="{{item.title}}"
+            serviceName="{{item.serviceName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            viewCount="{{item.viewCount}}"
+            showStoreName="{{false}}"
+            bind:tap="onCaseTap"
+          />
+        </view>
+      </view>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <view slot="left" class="store-detail__bar-left">
+        <ui-button type="secondary" size="sm" bind:tap="onCall">联系门店</ui-button>
+        <ui-button type="secondary" size="sm" bind:tap="onNavigate">导航</ui-button>
+      </view>
+      <ui-button type="primary" slot="right" bind:tap="onBook">预约服务</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

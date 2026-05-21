@@ -1,0 +1,98 @@
+<view class="page merchant-order-album">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-order-album__pad">
+      <ui-skeleton rows="{{3}}" title="{{true}}" />
+      <ui-skeleton rows="{{6}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载相册"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content merchant-order-album__body merchant-order-album--with-bar">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="merchant-order-album__head">
+          <view class="merchant-order-album__head-main">
+            <text class="text-h3">相册模板</text>
+            <view class="merchant-order-album__head-tags">
+              <ui-tag variant="info" text="{{templateName}}" />
+              <ui-tag
+                wx:if="{{templateSource === 'manual'}}"
+                variant="reference"
+                text="已手动选择"
+              />
+            </view>
+          </view>
+          <picker
+            mode="selector"
+            range="{{templateOptions}}"
+            range-key="name"
+            value="{{templatePickerIndex}}"
+            disabled="{{switching || saving}}"
+            bindchange="onTemplateChange"
+          >
+            <text class="text-link text-caption merchant-order-album__switch">切换模板</text>
+          </picker>
+        </view>
+        <text class="text-caption merchant-order-album__switch-hint">
+          如自动匹配不准确，可手动切换。切换不会删除已上传图片。
+        </text>
+        <view wx:if="{{completeness}}" class="merchant-order-album__progress">
+          <text class="text-caption merchant-order-album__progress-text">{{completeness.summaryText}}</text>
+          <view class="merchant-order-album__progress-bar">
+            <view
+              class="merchant-order-album__progress-fill"
+              style="width: {{completeness.score}}%;"
+            />
+          </view>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3 merchant-order-album__section">订单摘要</text>
+        <ui-key-info-table rows="{{summaryRows}}" />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3 merchant-order-album__section">按节点上传</text>
+        <text class="text-caption merchant-order-album__section-hint">
+          节点为建议项，可按实际情况选择性完成。
+        </text>
+        <ui-album-node
+          wx:for="{{nodes}}"
+          wx:key="id"
+          mode="edit"
+          title="{{item.title}}"
+          description="{{item.description}}"
+          photoTips="{{item.photoTips}}"
+          requiredLevelLabel="{{item.requiredLevelLabel}}"
+          requiredLevelVariant="{{item.requiredLevelVariant}}"
+          note="{{item.note}}"
+          images="{{item.images}}"
+          uploadHint="{{index === 0 ? uploadPrivacyHint : ''}}"
+          data-index="{{index}}"
+          bind:notechange="onNodeNoteChange"
+          bind:imageschange="onNodeImages"
+        />
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar safeArea="{{true}}">
+      <ui-button
+        slot="right"
+        type="primary"
+        loading="{{saving}}"
+        bind:tap="onSave"
+      >保存并返回</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>
