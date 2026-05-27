@@ -1,0 +1,7 @@
+.album-authorize__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-xl);
+}

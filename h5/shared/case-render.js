@@ -1,10 +1,10 @@
 (function () {
   var TAG_MAP = {
+    authorized: { text: '已授权', cls: 'h5-tag--order' },
+    named: { text: '实名授权', cls: 'h5-tag--order' },
+    anonymous: { text: '匿名授权', cls: 'h5-tag--desensitized' },
     desensitized: { text: '已脱敏', cls: 'h5-tag--desensitized' },
     audited: { text: '已审核', cls: 'h5-tag--audited' },
-    order: { text: '平台订单案例', cls: 'h5-tag--order' },
-    history: { text: '商家历史案例', cls: 'h5-tag--history' },
-    reference: { text: '价格仅供参考', cls: 'h5-tag--reference' },
   }
 
   function escapeHtml(str) {
@@ -21,36 +21,18 @@
     return match ? match[1] : ''
   }
 
-  function isHistoryCase(data) {
-    return (
-      data.source === 'merchant_history' ||
-      data.sourceLabel === '商家历史案例'
-    )
-  }
-
-  function renderTags(tags, sourceLabel, isHistory) {
+  function renderTags(data) {
+    var tier = data.authorizationTier
     var html = ''
-    if (isHistory) {
-      html += '<span class="h5-tag h5-tag--history">商家历史案例</span>'
-    } else if (sourceLabel) {
-      html +=
-        '<span class="h5-tag h5-tag--order">' + escapeHtml(sourceLabel) + '</span>'
+    if (tier === 'anonymous') {
+      html += '<span class="h5-tag h5-tag--desensitized">匿名授权</span>'
+    } else if (tier === 'named') {
+      html += '<span class="h5-tag h5-tag--order">实名授权</span>'
+    } else {
+      html += '<span class="h5-tag h5-tag--order">已授权</span>'
     }
-    ;(tags || []).forEach(function (key) {
-      if (isHistory && key === 'history') return
-      var tag = TAG_MAP[key]
-      if (!tag) return
-      if (tag.cls === 'h5-tag--order' && isHistory) return
-      html +=
-        '<span class="h5-tag ' +
-        tag.cls +
-        '">' +
-        escapeHtml(tag.text) +
-        '</span>'
-    })
-    if (isHistory) {
-      html += '<span class="h5-tag h5-tag--reference">价格仅供参考</span>'
-    }
+    html += '<span class="h5-tag h5-tag--desensitized">已脱敏</span>'
+    html += '<span class="h5-tag h5-tag--audited">已审核</span>'
     return html
   }
 
@@ -111,35 +93,84 @@
     )
   }
 
-  function renderPriceSection(data, priceText, isHistory) {
-    var priceNote = isHistory
-      ? '价格仅供参考。本案例为商家历史案例，非平台订单案例。'
-      : '实际费用以门店检测结果为准。'
-    var compliance = isHistory
-      ? '历史案例价格与图片仅供能力参考，不构成线上报价承诺。'
-      : '价格信息来自真实订单履约记录，不构成线上报价承诺。'
+  function shouldShowStorePublicly(data) {
+    return data.authorizationTier !== 'anonymous'
+  }
+
+  function renderStoreSection(data) {
+    if (!shouldShowStorePublicly(data)) {
+      var cityHint = data.city ? '（' + data.city + '）' : ''
+      return (
+        '<div class="h5-card"><h2 class="h5-section-title">联系门店</h2>' +
+        '<p class="h5-compliance">本案例为匿名授权公开，不展示门店名称。</p>' +
+        '<p class="h5-compliance">可通过下方电话或留言联系服务门店' +
+        escapeHtml(cityHint) +
+        '</p></div>'
+      )
+    }
+    return (
+      '<div class="h5-card">' +
+      '<h2 class="h5-section-title">关联门店</h2>' +
+      '<p>' +
+      escapeHtml(data.storeName) +
+      '</p>' +
+      '<p class="h5-compliance">' +
+      escapeHtml(data.city || '') +
+      '</p>' +
+      '<p class="h5-link">查看门店详情 ›</p>' +
+      '</div>'
+    )
+  }
+
+  function renderPriceFactors(factors) {
+    if (!factors || !factors.length) return ''
+    var items = factors
+      .map(function (item) {
+        return '<p class="h5-bullet">· ' + escapeHtml(item) + '</p>'
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">影响价格的因素</h2>' +
+      items +
+      '</div>'
+    )
+  }
+
+  function renderFaq(faq) {
+    if (!faq || !faq.length) return ''
+    var items = faq
+      .map(function (item) {
+        return (
+          '<div class="h5-faq-item"><p class="h5-faq-q">' +
+          escapeHtml(item.q) +
+          '</p><p class="h5-faq-a">' +
+          escapeHtml(item.a) +
+          '</p></div>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">常见问题</h2>' +
+      items +
+      '</div>'
+    )
+  }
+
+  function renderPriceSection(data, priceText) {
     return (
       '<div class="h5-card">' +
       '<h2 class="h5-section-title">价格说明</h2>' +
       '<div class="h5-price">' +
       escapeHtml(priceText) +
       '</div>' +
-      '<span class="h5-price-note">' +
-      escapeHtml(priceNote) +
-      '</span>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(compliance) +
-      '</p>' +
-      (isHistory
-        ? '<p class="h5-compliance">商家历史案例，非平台订单案例。</p>'
-        : '') +
+      '<span class="h5-price-note">实际费用以门店检测结果为准。</span>' +
+      '<p class="h5-compliance">本案例价格仅为参考区间，不构成线上报价承诺。</p>' +
       '</div>'
     )
   }
 
   function renderCase(data) {
-    document.title = data.title + ' · 透明维修'
-    var isHistory = isHistoryCase(data)
+    document.title = data.title + ' · 辙见'
     var priceText =
       data.priceText ||
       (data.minAmount != null && data.maxAmount != null
@@ -149,12 +180,12 @@
     var html =
       '<div class="h5-page">' +
       '<header class="h5-header">' +
-      '<div class="h5-brand">透明维修服务平台 · 公开案例</div>' +
+      '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(data.title) +
       '</h1>' +
       '<div class="h5-tags">' +
-      renderTags(data.tags, data.sourceLabel, isHistory) +
+      renderTags(data) +
       '</div>' +
       '<div class="h5-banner">本页内容为已脱敏公开案例，不含车牌、手机号等隐私信息。分享链接仅展示审核通过内容。</div>' +
       '</header>' +
@@ -162,7 +193,7 @@
         ? '<p class="h5-summary">' + escapeHtml(data.aiSummary) + '</p>'
         : '') +
       renderKeyInfo(data.keyInfo) +
-      renderPriceSection(data, priceText, isHistory)
+      renderPriceSection(data, priceText)
 
     if (data.faultDesc) {
       html +=
@@ -185,40 +216,51 @@
 
     html += renderNodes(data.nodes)
 
+    html += renderPriceFactors(data.priceFactors)
+    html += renderStoreSection(data)
+    html += renderFaq(data.faq)
+
     html +=
-      '<div class="h5-card">' +
-      '<h2 class="h5-section-title">关联门店</h2>' +
-      '<p>' +
-      escapeHtml(data.storeName) +
-      '</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(data.city || '') +
-      '</p>' +
-      '</div>' +
       '<div class="h5-body-spacer"></div>' +
       '</div>' +
       '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner">' +
-      '<button type="button" class="h5-btn" id="h5-book-btn">打开小程序 · 预约类似服务</button>' +
+      '<div class="h5-footer-inner h5-footer-inner--dual">' +
+      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话咨询</button>' +
+      '<button type="button" class="h5-btn" id="h5-message-btn">留言</button>' +
       '</div>' +
       '</footer>'
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
 
-    var btn = document.getElementById('h5-book-btn')
-    if (btn) {
-      btn.addEventListener('click', function () {
-        alert(
-          '静态骨架演示：正式环境将跳转微信小程序。路径：' +
-            (data.miniProgramPath || '/pages/service/index')
-        )
+    var callBtn = document.getElementById('h5-call-btn')
+    if (callBtn) {
+      callBtn.addEventListener('click', function () {
+        var phone = data.storePhone || ''
+        if (phone) {
+          window.location.href = 'tel:' + phone
+        } else {
+          alert('暂无门店电话')
+        }
+      })
+    }
+
+    var msgBtn = document.getElementById('h5-message-btn')
+    if (msgBtn) {
+      msgBtn.addEventListener('click', function () {
+        var path =
+          '/pages/consult/submit/index?storeId=' +
+          encodeURIComponent(data.storeId || '') +
+          '&caseId=' +
+          encodeURIComponent(data.id || '') +
+          '&sourcePage=h5'
+        alert('静态骨架演示：正式环境将跳转微信小程序留言页。路径：' + path)
       })
     }
   }
 
   function renderError(message) {
-    document.title = '案例不可用 · 透明维修'
+    document.title = '案例不可用 · 辙见'
     var app = document.getElementById('app')
     if (app) {
       app.innerHTML =

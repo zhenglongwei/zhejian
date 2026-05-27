@@ -50,11 +50,8 @@
   </view>
 
   <view class="desensitize-wb__liability">
-    <label class="desensitize-wb__agree">
-      <checkbox-group bindchange="onLiabilityChange">
-        <checkbox value="1" checked="{{liabilityAccepted}}" />
-      </checkbox-group>
-      <text class="text-caption">{{liabilityText}}</text>
-    </label>
+    <ui-checkbox-row checked="{{liabilityAccepted}}" bind:toggle="onLiabilityToggle">
+      <text>{{liabilityText}}</text>
+    </ui-checkbox-row>
   </view>
 </view>

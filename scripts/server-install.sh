@@ -1,78 +1,155 @@
 #!/bin/bash
-# 辙见 · 阿里云服务器首次部署（在服务器上以 root 或 sudo 执行）
+# 辙见 · 服务器部署（B-INF-01～04）
+# 支持：Alibaba Cloud Linux / CentOS（yum/dnf）、Ubuntu/Debian（apt）
+#
 # 用法：
-#   curl -fsSL https://raw.githubusercontent.com/YOUR_USER/zhejian/main/scripts/server-install.sh | bash
-# 或 git clone 后：
-#   sudo bash /var/www/zhejian/scripts/server-install.sh
+#   sudo bash scripts/server-install.sh --init     # 仅生成 backend/.env
+#   sudo bash scripts/server-install.sh            # 迁移 + nginx + systemd
+#   sudo bash scripts/server-install.sh --bootstrap  # 可选：安装 node/nginx（首次裸机）
 set -euo pipefail
 
-APP_ROOT="/var/www/zhejian"
-WEB_ROOT="/var/www/geo.simplewin.cn"
-REPO_URL="${ZHEJIAN_REPO_URL:-}"  # 例：https://github.com/你的用户名/zhejian.git
+APP_ROOT="${ZHEJIAN_APP_ROOT:-/var/www/zhejian}"
+MODE="${1:-}"
 
-echo "==> 目录：代码 $APP_ROOT ，网站 $WEB_ROOT"
+log() { echo "==> $*"; }
 
-apt-get update -y
-apt-get install -y git curl nginx
+detect_pkg_manager() {
+  if command -v dnf >/dev/null 2>&1; then echo dnf
+  elif command -v yum >/dev/null 2>&1; then echo yum
+  elif command -v apt-get >/dev/null 2>&1; then echo apt
+  else echo none
+  fi
+}
 
-if ! command -v node >/dev/null 2>&1; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  apt-get install -y nodejs
+install_bootstrap_packages() {
+  local pm
+  pm="$(detect_pkg_manager)"
+  log "系统包管理: $pm"
+  case "$pm" in
+    dnf)
+      dnf install -y git curl nginx
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+        dnf install -y nodejs
+      fi
+      ;;
+    yum)
+      yum install -y git curl nginx
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+        yum install -y nodejs
+      fi
+      ;;
+    apt)
+      apt-get update -y
+      apt-get install -y git curl nginx
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt-get install -y nodejs
+      fi
+      ;;
+    *)
+      log "WARN: 未识别包管理器，跳过 bootstrap（请自行安装 node、nginx）"
+      ;;
+  esac
+}
+
+install_nginx_site() {
+  local src="$APP_ROOT/backend/deploy/nginx-geo.simplewin.cn.conf"
+  if [ -d /etc/nginx/sites-available ]; then
+    cp "$src" /etc/nginx/sites-available/geo.simplewin.cn
+    ln -sf /etc/nginx/sites-available/geo.simplewin.cn /etc/nginx/sites-enabled/geo.simplewin.cn
+  elif [ -d /etc/nginx/conf.d ]; then
+    cp "$src" /etc/nginx/conf.d/geo.simplewin.cn.conf
+  else
+    echo "ERROR: 找不到 Nginx 配置目录（sites-available 或 conf.d）"
+    exit 1
+  fi
+  nginx -t
+  systemctl enable nginx 2>/dev/null || true
+  systemctl reload nginx || systemctl restart nginx
+}
+
+detect_service_user() {
+  if id www-data >/dev/null 2>&1; then echo www-data
+  elif id nginx >/dev/null 2>&1; then echo nginx
+  else echo root
+  fi
+}
+
+install_systemd_unit() {
+  local user
+  user="$(detect_service_user)"
+  log "systemd 运行用户: $user"
+  sed "s/^User=.*/User=$user/" "$APP_ROOT/backend/deploy/zhejian-api.service" \
+    | sed "s/^Group=.*/Group=$user/" \
+    > /etc/systemd/system/zhejian-api.service
+  systemctl daemon-reload
+  systemctl enable zhejian-api
+  systemctl restart zhejian-api
+  sleep 2
+  systemctl is-active zhejian-api
+}
+
+log "辙见部署 · APP_ROOT=$APP_ROOT"
+
+if [ ! -f "$APP_ROOT/backend/package.json" ]; then
+  echo "ERROR: 未找到 $APP_ROOT/backend/package.json"
+  echo "请先 git clone 或 git pull 到最新代码"
+  exit 1
 fi
 
-mkdir -p "$WEB_ROOT/public" "$WEB_ROOT/admin"
-mkdir -p "$APP_ROOT"
+# 旧版脚本特征：首行日志含「网站 /var/www/geo.simplewin.cn」
+if grep -q '网站 /var/www/geo.simplewin.cn' "$APP_ROOT/scripts/server-install.sh" 2>/dev/null; then
+  echo "WARN: 检测到旧版 server-install.sh，请 git pull 后重试"
+  exit 1
+fi
 
-if [ -n "$REPO_URL" ] && [ ! -d "$APP_ROOT/.git" ]; then
-  git clone "$REPO_URL" "$APP_ROOT"
-elif [ ! -f "$APP_ROOT/backend/package.json" ]; then
-  echo "请先把代码放到 $APP_ROOT（git clone 或上传），再重新运行本脚本"
-  echo "示例：git clone https://github.com/你的用户名/zhejian.git $APP_ROOT"
+if [ "$MODE" = "--bootstrap" ]; then
+  install_bootstrap_packages
+  exit 0
+fi
+
+if [ "$MODE" = "--init" ] || [ ! -f "$APP_ROOT/backend/.env" ]; then
+  cp "$APP_ROOT/backend/.env.production.example" "$APP_ROOT/backend/.env"
+  echo ""
+  echo "已生成 $APP_ROOT/backend/.env"
+  echo "请编辑 DATABASE_URL、DEV_*_TOKEN 后执行:"
+  echo "  sudo bash $APP_ROOT/scripts/server-install.sh"
+  exit 0
+fi
+
+if grep -qE 'YOUR_PASSWORD|请改成随机' "$APP_ROOT/backend/.env"; then
+  echo "ERROR: 请先修改 backend/.env 中的 DATABASE_URL 与 DEV_*_TOKEN"
+  exit 1
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "ERROR: 未找到 node。可执行: sudo bash scripts/server-install.sh --bootstrap"
+  exit 1
+fi
+if ! command -v nginx >/dev/null 2>&1; then
+  echo "ERROR: 未找到 nginx。可执行: sudo bash scripts/server-install.sh --bootstrap"
   exit 1
 fi
 
 cd "$APP_ROOT/backend"
-
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo ""
-  echo "!!! 请编辑 $APP_ROOT/backend/.env ："
-  echo "    DATABASE_URL=mysql://用户:密码@127.0.0.1:3306/zhejian"
-  echo "    DEV_USER_TOKEN=改成随机长字符串"
-  echo "编辑完成后重新运行: sudo bash scripts/server-install.sh --continue"
-  exit 0
-fi
-
-if [ "${1:-}" != "--continue" ] && grep -q "YOUR_PASSWORD" .env 2>/dev/null; then
-  echo "请先修改 backend/.env 中的 DATABASE_URL 和密码，再执行:"
-  echo "  sudo bash $APP_ROOT/scripts/server-install.sh --continue"
-  exit 1
-fi
-
+log "npm install"
 npm install
-npm run db:setup
 
-# 发布 H5 到 public
-rsync -a --delete "$APP_ROOT/h5/" "$WEB_ROOT/public/" 2>/dev/null || cp -a "$APP_ROOT/h5/." "$WEB_ROOT/public/"
+log "db:migrate (生产不强制 seed)"
+npm run db:setup:prod
 
-# 运营后台占位页
-if [ ! -f "$WEB_ROOT/admin/index.html" ]; then
-  cp "$APP_ROOT/admin-web/placeholder/index.html" "$WEB_ROOT/admin/index.html"
-fi
+log "Nginx"
+install_nginx_site
 
-# Nginx
-cp "$APP_ROOT/backend/deploy/nginx-geo.simplewin.cn.conf" /etc/nginx/sites-available/geo.simplewin.cn
-ln -sf /etc/nginx/sites-available/geo.simplewin.cn /etc/nginx/sites-enabled/geo.simplewin.cn
-nginx -t
-systemctl reload nginx
+log "systemd zhejian-api"
+install_systemd_unit
 
-# systemd
-sed "s|/opt/zhejian|$APP_ROOT|g" "$APP_ROOT/backend/deploy/zhejian-api.service" > /etc/systemd/system/zhejian-api.service
-systemctl daemon-reload
-systemctl enable zhejian-api
-systemctl restart zhejian-api
+log "本机 health"
+node scripts/verify-health.js http://127.0.0.1:3000
 
 echo ""
-echo "部署完成。请测试："
+echo "部署完成。外网验证:"
 echo "  curl -s https://geo.simplewin.cn/api/v1/health"
-echo "  curl -sI https://geo.simplewin.cn/admin/"
+echo "小程序: services/config.js → ACTIVE_ENV='prod'"

@@ -1,0 +1,10 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-lead-status-badge": "/components/lead-status-badge/index",
+    "ui-key-info-table": "/components/key-info-table/index",
+    "ui-image-grid": "/components/image-grid/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

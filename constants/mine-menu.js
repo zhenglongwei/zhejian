@@ -1,22 +1,32 @@
-/** 我的页 — 订单快捷入口（PRD §10） */
-const MINE_ORDER_SHORTCUTS = [
-  { key: 'pendingPay', label: '待支付', status: 'pending_pay' },
-  { key: 'pendingConfirm', label: '待确认', status: 'pending_confirm' },
-  { key: 'inService', label: '服务中', status: 'in_service' },
-  { key: 'pendingReview', label: '待评价', status: 'pending_review' },
-  { key: 'refundAfterSale', label: '退款/售后', status: 'refund_after_sale' },
-  { key: 'all', label: '全部订单', status: 'all' },
+/** 我的页 — V2.0 核心数据入口（PRD 12 §3） */
+const MINE_CORE_MENUS = [
+  {
+    key: 'consult',
+    label: '我的咨询',
+    desc: '查看咨询与预约记录',
+    needPhone: false,
+    url: '/pages/consult/index/index',
+    badgeKey: 'consultPending',
+  },
+  {
+    key: 'album',
+    label: '我的服务相册',
+    desc: '查看门店为你创建的服务相册',
+    needPhone: true,
+    url: '/pages/album/list/index',
+    badgeKey: 'albumPendingAuth',
+  },
+  {
+    key: 'authorize',
+    label: '我的公开授权',
+    desc: '查看授权与审核状态',
+    needPhone: true,
+    url: '/pages/album/authorize/index',
+  },
 ]
 
-/** 需登录拦截的功能入口（PRD §23.2） */
-const MINE_PROTECTED_MENUS = [
-  { key: 'vehicles', label: '我的车辆', needPhone: false },
-  { key: 'archive', label: '我的维修档案', needPhone: false },
-  { key: 'reviews', label: '我的评价', needPhone: false },
-  { key: 'rewards', label: '奖励中心', needPhone: false, desc: '查看奖励记录' },
-  { key: 'coupons', label: '优惠券', needPhone: false },
-  { key: 'settings', label: '设置', needPhone: false },
-]
+/** 常用工具（PRD 12 §11） */
+const MINE_TOOL_MENUS = [{ key: 'settings', label: '设置', needPhone: false }]
 
 /** 未登录也可访问 */
 const MINE_PUBLIC_MENUS = [
@@ -25,8 +35,33 @@ const MINE_PUBLIC_MENUS = [
   { key: 'about', label: '关于平台' },
 ]
 
+const MINE_MERCHANT_ITEM = {
+  key: 'merchant',
+  label: '商家工作台',
+  needPhone: false,
+}
+
+function attachBadge(item, badges) {
+  const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''
+  return { ...item, badge }
+}
+
+/** 我的页菜单分区 — 供 wxml 单循环渲染 */
+function buildMineMenuSections(badges = {}) {
+  return [
+    { key: 'core', items: MINE_CORE_MENUS.map((item) => attachBadge(item, badges)) },
+    { key: 'tools', items: MINE_TOOL_MENUS.map((item) => attachBadge(item, badges)) },
+    {
+      key: 'public',
+      items: [...MINE_PUBLIC_MENUS, MINE_MERCHANT_ITEM].map((item) => attachBadge(item, badges)),
+    },
+  ]
+}
+
 module.exports = {
-  MINE_ORDER_SHORTCUTS,
-  MINE_PROTECTED_MENUS,
+  MINE_CORE_MENUS,
+  MINE_TOOL_MENUS,
   MINE_PUBLIC_MENUS,
+  MINE_MERCHANT_ITEM,
+  buildMineMenuSections,
 }

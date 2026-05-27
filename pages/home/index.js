@@ -1,7 +1,57 @@
 const { fetchHomeData } = require('../../services/home')
+const {
+  HOME_PLATFORM_INTRO_ITEMS,
+  HOME_PROTECTION_ITEMS,
+  HOME_PROTECTION_SUMMARY,
+} = require('../../constants/home-entries')
 const { fetchStoreTopReviewTags } = require('../../services/review')
-const { CASE_SOURCE } = require('../../constants/case-source')
 const { buildStoreCardTags } = require('../../utils/store-tags')
+const { SEARCH_PLACEHOLDER } = require('../../constants/search')
+const { GEO_TOPIC_TAG } = require('../../constants/geo-pages')
+const { isDesensitizedUrl } = require('../../utils/desensitize-url')
+
+const INTRO_ACCENTS = ['primary', 'info', 'success']
+
+function resolveIntroItems(points) {
+  if (!points || !points.length) return HOME_PLATFORM_INTRO_ITEMS
+  return points.map((line, index) => {
+    const sep = line.indexOf('：')
+    const fallback = HOME_PLATFORM_INTRO_ITEMS[index]
+    const accent =
+      (fallback && fallback.accent) || INTRO_ACCENTS[index % INTRO_ACCENTS.length]
+    if (sep < 0) {
+      return {
+        id: `intro_${index}`,
+        title: line,
+        desc: '',
+        accent,
+      }
+    }
+    return {
+      id: `intro_${index}`,
+      title: line.slice(0, sep),
+      desc: line.slice(sep + 1),
+      accent,
+    }
+  })
+}
+
+function buildHeroTrustCase(cases) {
+  if (!cases || !cases.length) return null
+  for (let i = 0; i < cases.length; i += 1) {
+    const item = cases[i]
+    const url = item.coverImageDesensitized || item.coverImage
+    if (!url) continue
+    if (url.startsWith('/') || url.startsWith('http') || isDesensitizedUrl(url)) {
+      return {
+        id: item.id,
+        title: item.title,
+        coverImage: url,
+      }
+    }
+  }
+  return null
+}
 
 Page({
   data: {
@@ -11,12 +61,18 @@ Page({
     accidentEntry: null,
     recommendedMerchants: [],
     featuredCases: [],
-    platformIntro: [],
-    protectionText: '',
+    platformIntroItems: [],
+    platformIdentity: '',
+    protectionItems: HOME_PROTECTION_ITEMS,
+    protectionSummary: HOME_PROTECTION_SUMMARY,
     showMerchants: false,
     showCases: false,
-    hasHistoryCases: false,
+    showGeoTopics: false,
+    geoTopics: [],
+    geoTopicTag: GEO_TOPIC_TAG,
+    heroTrustCase: null,
     errorMessage: '',
+    searchPlaceholder: SEARCH_PLACEHOLDER,
   },
 
   onLoad() {
@@ -32,6 +88,7 @@ Page({
     try {
       const data = await fetchHomeData()
       const featuredCases = data.featuredCases || []
+      const heroTrustCase = buildHeroTrustCase(featuredCases)
       const merchants = await Promise.all(
         (data.recommendedMerchants || []).map(async (store) => {
           const reviewTags = await fetchStoreTopReviewTags(store.id, 2)
@@ -47,13 +104,17 @@ Page({
         accidentEntry: data.accidentEntry,
         recommendedMerchants: merchants,
         featuredCases,
-        platformIntro: data.platformIntro.points,
-        protectionText: data.protectionText,
+        platformIntroItems: resolveIntroItems(
+          (data.platformIntro && data.platformIntro.points) || []
+        ),
+        platformIdentity: data.platformIdentity || '',
+        protectionItems: HOME_PROTECTION_ITEMS,
+        protectionSummary: HOME_PROTECTION_SUMMARY,
         showMerchants: merchants.length > 0,
         showCases: featuredCases.length > 0,
-        hasHistoryCases: featuredCases.some(
-          (c) => c.source === CASE_SOURCE.MERCHANT_HISTORY
-        ),
+        geoTopics: data.geoTopics || [],
+        showGeoTopics: (data.geoTopics || []).length > 0,
+        heroTrustCase,
         status: 'normal',
       })
     } catch (e) {
@@ -76,11 +137,22 @@ Page({
     })
   },
 
-  onSearchTap() {
-    wx.showToast({
-      title: '搜索功能将在后续版本开放',
-      icon: 'none',
+  onLearnPlatform() {
+    const lines = (this.data.platformIntroItems || []).map(
+      (item) => `${item.title}：${item.desc}`
+    )
+    wx.showModal({
+      title: '了解辙见',
+      content: lines.length
+        ? lines.map((item) => `· ${item}`).join('\n\n')
+        : '辙见提供案例展示、服务相册与咨询预约工具，实际维修由门店线下负责。',
+      showCancel: false,
+      confirmText: '知道了',
     })
+  },
+
+  onSearchTap() {
+    wx.navigateTo({ url: '/pages/search/index/index' })
   },
 
   onServiceEntryTap(e) {
@@ -112,13 +184,7 @@ Page({
   },
 
   onViewAllMerchants() {
-    const { recommendedMerchants } = this.data
-    const first = recommendedMerchants[0]
-    if (first) {
-      wx.navigateTo({
-        url: `/pages/store/detail/index?id=${first.id}`,
-      })
-    }
+    wx.switchTab({ url: '/pages/store/index' })
   },
 
   onStoreTap(e) {
@@ -130,11 +196,20 @@ Page({
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
+    const caseId =
+      (e.detail && e.detail.caseId) ||
+      e.currentTarget.dataset.caseId
+    if (!caseId) return
     wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
   },
 
   onViewAllCases() {
     wx.switchTab({ url: '/pages/case/index' })
+  },
+
+  onGeoTopicTap(e) {
+    const id = (e.detail && e.detail.topicId) || e.currentTarget.dataset.id
+    if (!id) return
+    wx.navigateTo({ url: `/pages/geo/detail/index?id=${id}` })
   },
 })

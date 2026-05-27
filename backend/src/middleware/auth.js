@@ -1,6 +1,9 @@
 const { config } = require('../config')
 const { fail } = require('../lib/response')
 
+const DEV_USER_ID = 'user_demo_1'
+const DEV_MERCHANT_ID = 'merchant_demo_1'
+
 const CLIENT_ROLE = {
   'weapp_user': 'user',
   'user-miniapp': 'user',
@@ -16,6 +19,14 @@ function parseBearer(req) {
   return match ? match[1].trim() : ''
 }
 
+function isDevUserToken(token) {
+  return config.devAuthEnabled && token === config.devTokens.user
+}
+
+function isDevMerchantToken(token) {
+  return config.devAuthEnabled && token === config.devTokens.merchant
+}
+
 function resolveRole(clientType, token) {
   if (!config.devAuthEnabled) {
     return null
@@ -27,14 +38,24 @@ function resolveRole(clientType, token) {
   return null
 }
 
+/** 联调期：同小程序内用户 dev token 可访问商家 API（映射 demo 商家） */
+function canAccessRole(req, roles) {
+  if (!roles.length) return true
+  const { role, token } = req.auth
+  if (role && roles.includes(role)) return true
+  if (roles.includes('merchant') && isDevUserToken(token)) return true
+  return false
+}
+
 function optionalAuth(req, res, next) {
   const token = parseBearer(req)
   const clientType = req.headers['x-client-type'] || ''
   req.auth = {
     token,
     role: resolveRole(clientType, token),
-    userId: token === config.devTokens.user ? 'user_demo_1' : null,
-    merchantId: token === config.devTokens.merchant ? 'merchant_demo_1' : null,
+    userId: isDevUserToken(token) ? DEV_USER_ID : null,
+    merchantId:
+      isDevMerchantToken(token) || isDevUserToken(token) ? DEV_MERCHANT_ID : null,
   }
   next()
 }
@@ -44,7 +65,7 @@ function requireAuth(roles = []) {
     if (!req.auth || !req.auth.token) {
       return fail(res, 100002, '未授权', 401)
     }
-    if (roles.length && (!req.auth.role || !roles.includes(req.auth.role))) {
+    if (roles.length && !canAccessRole(req, roles)) {
       return fail(res, 100003, '无权限', 403)
     }
     next()

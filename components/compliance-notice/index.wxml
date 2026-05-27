@@ -1,3 +1,6 @@
-<view class="compliance-notice" wx:if="{{content}}">
+<view
+  class="compliance-notice {{prewrap ? 'compliance-notice--prewrap' : ''}}"
+  wx:if="{{content}}"
+>
   <text>{{content}}</text>
 </view>

@@ -12,7 +12,7 @@
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-ai-summary-block": "/components/ai-summary-block/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-review-list-section": "/components/review-list-section/index"
+    "ui-key-info-table": "/components/key-info-table/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

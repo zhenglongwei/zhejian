@@ -1,0 +1,45 @@
+/**
+ * 列表记录卡片 — album-card / lead-card / authorization-card 共用布局
+ */
+.record-card__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.record-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.record-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 0;
+}
+
+.record-card__time {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.record-card__service {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.record-card__meta {
+  color: var(--color-text-secondary);
+}
+
+.record-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}

@@ -26,11 +26,42 @@
   font-size: var(--font-caption);
   background-color: var(--color-bg-muted);
   color: var(--color-text-secondary);
+  border: 1rpx solid var(--color-border);
 }
 
 .merchant-onboard__chip--on {
   background-color: var(--color-primary-light);
   color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.merchant-onboard__chip:active {
+  opacity: 0.72;
+}
+
+.merchant-onboard__custom-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.merchant-onboard__custom-label {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.merchant-onboard__custom-input {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  padding: 0;
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: none;
+  border-bottom: 1rpx solid var(--color-border);
+  border-radius: 0;
 }
 
 .merchant-onboard__agree {

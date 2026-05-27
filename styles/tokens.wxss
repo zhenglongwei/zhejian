@@ -1,5 +1,5 @@
 /**
- * 透明维修平台 · 设计令牌
+ * 辙见平台 · 设计令牌
  * 源码副本：styles/tokens.wxss
  * 已在 app.wxss 全局引入
  *
@@ -8,7 +8,7 @@
  * 2. styles/tokens.wxss
  *
  * 设计规范详见：
- * docs/00_设计规范/00_透明维修平台设计体系.md
+ * docs/00_设计规范/00_辙见平台设计体系.md
  */
 
 page {
@@ -173,7 +173,12 @@ page {
 
   --tag-height: 40rpx;
   --size-rating-star: 40rpx;
-  --size-service-entry-icon: 80rpx;
+  --size-service-entry-icon: 88rpx;
+  --size-service-entry-well: 108rpx;
+  --size-service-entry-cell-min: 220rpx;
+  --size-store-card-thumb: 128rpx;
+  --size-geo-card-cover: 160rpx;
+  --size-geo-card-width: 520rpx;
   --size-flow-step: var(--tag-height);
 
   --tabbar-height: 100rpx;
@@ -555,6 +560,19 @@ page {
 }
 
 /**
+ * 中性说明块（门店备注、状态提示等）
+ */
+
+.note-block {
+  display: block;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
+/**
  * 文本省略
  */
 
@@ -587,6 +605,75 @@ page {
 .image-placeholder {
   background-color: var(--color-bg-muted);
   border-radius: var(--image-radius);
+}
+
+/**
+ * 通用布局工具
+ */
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.bullet-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.bullet-list__item {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+/**
+ * Tab 列表页顶栏（服务/案例/门店）
+ */
+
+.tab-page__intro {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background-color: var(--color-bg-card);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.tab-page__intro-title {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.tab-page__intro-desc {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.tab-page__intro-notice {
+  display: block;
+  margin-top: var(--space-md);
+}
+
+.tab-page__search {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  background-color: var(--color-bg-card);
+}
+
+.tab-page__tabs {
+  margin-bottom: var(--space-sm);
+}
+
+.tab-page__list {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 /**
@@ -650,7 +737,7 @@ page {
 }
 
 /**
- * 透明维修业务专用块
+ * 辙见业务专用块
  */
 
 .ai-summary-block {
@@ -679,4 +766,10 @@ page {
   background-color: var(--color-warning-light);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
+}
+
+.compliance-notice--prewrap {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--color-text-primary);
 }

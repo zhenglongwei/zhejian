@@ -96,13 +96,10 @@
         <view class="service-detail__notice">
           <ui-compliance-notice type="casePrice" />
         </view>
-        <view wx:if="{{detail.hasHistoryCases}}" class="service-detail__notice">
-          <ui-compliance-notice type="history" />
-        </view>
         <block wx:if="{{!detail.relatedCases.length}}">
           <ui-empty
             title="暂无关联案例"
-            description="上传历史案例可增加用户信任"
+            description="服务相册授权公开后将展示在此"
             actionText="去上传案例"
             bind:action="onManageCases"
           />
@@ -112,12 +109,13 @@
             wx:for="{{detail.relatedCases}}"
             wx:key="id"
             caseId="{{item.id}}"
-            caseSource="{{item.source}}"
+            authorizationTier="{{item.authorizationTier}}"
             coverImage="{{item.coverImage}}"
             title="{{item.title}}"
             serviceName="{{item.serviceName}}"
             summary="{{item.summary}}"
             priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
             minAmount="{{item.minAmount}}"
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"

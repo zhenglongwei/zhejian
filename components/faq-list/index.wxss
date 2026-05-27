@@ -1,0 +1,30 @@
+.faq-list__item {
+  padding: var(--space-md) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.faq-list__item:last-child {
+  border-bottom: none;
+}
+
+.faq-list--card .faq-list__item {
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border-bottom: none;
+}
+
+.faq-list--card .faq-list__item:last-child {
+  margin-bottom: 0;
+}
+
+.faq-list__q {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.faq-list__a {
+  display: block;
+  color: var(--color-text-secondary);
+}

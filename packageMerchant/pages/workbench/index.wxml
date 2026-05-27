@@ -8,7 +8,7 @@
   <block wx:elif="{{status === 'none'}}">
     <view class="page-content merchant-wb__hero">
       <text class="text-h1">商家工作台</text>
-      <text class="text-body merchant-wb__sub">入驻后可创建维修案例、管理相册</text>
+      <text class="text-body merchant-wb__sub">入驻后可创建服务相册、处理咨询线索与管理服务方案</text>
       <ui-button type="primary" bind:tap="onGoOnboarding">立即入驻</ui-button>
     </view>
   </block>
@@ -24,46 +24,46 @@
         <view class="merchant-wb__stat-row">
           <view
             class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="today"
-            bindtap="onOrderList"
+            data-tab="active"
+            bindtap="onAlbumList"
           >
-            <text class="merchant-wb__stat-num text-h2">{{todos.today}}</text>
-            <text class="text-caption">今日预约</text>
+            <text class="merchant-wb__stat-num text-h2">{{todos.activeAlbums}}</text>
+            <text class="text-caption">进行中服务相册</text>
           </view>
           <view
             class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="waitAccept"
-            bindtap="onOrderList"
+            data-tab="all"
+            bindtap="onAlbumList"
           >
-            <text class="merchant-wb__stat-num text-h2">{{todos.waitAccept}}</text>
-            <text class="text-caption">待接单</text>
+            <text class="merchant-wb__stat-num text-h2">{{todos.pendingUpload}}</text>
+            <text class="text-caption">待补节点</text>
           </view>
         </view>
         <view class="merchant-wb__stat-row">
           <view
             class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="inService"
-            bindtap="onOrderList"
+            data-tab="pending_auth"
+            bindtap="onAlbumList"
           >
-            <text class="merchant-wb__stat-num text-h2">{{todos.inService}}</text>
-            <text class="text-caption">维修中</text>
+            <text class="merchant-wb__stat-num text-h2">{{todos.pendingAuth}}</text>
+            <text class="text-caption">待公开授权</text>
           </view>
           <view
             class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="inService"
-            bindtap="onOrderList"
+            data-tab="pending"
+            bindtap="onLeadList"
           >
-            <text class="merchant-wb__stat-num text-h2">{{todos.waitComplete}}</text>
-            <text class="text-caption">待提交完工</text>
+            <text class="merchant-wb__stat-num text-h2">{{todos.pendingLeads}}</text>
+            <text class="text-caption">待处理线索</text>
           </view>
         </view>
       </ui-card>
     </view>
     <view class="page-content merchant-wb__actions">
       <text class="text-h3 merchant-wb__section">快捷操作</text>
-      <ui-button type="primary" bind:tap="onOrderList">订单管理</ui-button>
-      <ui-button type="primary" bind:tap="onCreateAlbum">新建历史案例</ui-button>
-      <ui-button type="secondary" bind:tap="onAlbumList">案例管理</ui-button>
+      <ui-button type="primary" bind:tap="onCreateAlbum">新建服务相册</ui-button>
+      <ui-button type="secondary" bind:tap="onLeadList">咨询线索</ui-button>
+      <ui-button type="secondary" bind:tap="onAlbumList">服务相册管理</ui-button>
       <ui-button type="secondary" bind:tap="onServiceList">服务方案</ui-button>
     </view>
   </block>

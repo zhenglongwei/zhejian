@@ -15,7 +15,7 @@
   <block wx:elif="{{status === 'empty'}}">
     <ui-empty
       title="暂无待核对图片"
-      description="请返回维修相册重试"
+      description="请返回服务相册重试"
       actionText="返回相册"
       bind:action="onBackAlbum"
     />
@@ -30,7 +30,7 @@
       <text class="desensitize-preview__ready-hint text-caption">平台已预处理敏感信息，请逐张核对后再公开。</text>
     </view>
     <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
-      请逐张点开右侧脱敏图预览，确认后再公开。
+      建议逐张查看右侧脱敏图，确认效果符合预期后再公开。
     </view>
     <ui-desensitize-workbench
       items="{{workbenchItems}}"
@@ -56,7 +56,6 @@
         <ui-button
           type="ghost"
           size="sm"
-          disabled="{{true}}"
           bind:tap="onManualMask"
         >手工打码</ui-button>
       </view>
@@ -64,7 +63,7 @@
         type="primary"
         slot="right"
         loading="{{confirmLoading}}"
-        disabled="{{!canConfirm || !liabilityAccepted}}"
+        disabled="{{confirmLoading}}"
         bind:tap="onConfirm"
       >{{confirmLabelShort}}</ui-button>
     </ui-fixed-bottom-bar>

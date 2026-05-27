@@ -1,5 +1,5 @@
 /**
- * 商家维修相册（非平台）— V0.1
+ * 商家服务相册（非平台）— V0.1
  * MOCK: storage merchant_albums_v1；提交后 mock 自动审核通过并发布案例
  */
 const { ALBUM_STATUS, ALBUM_TEMPLATES } = require('../constants/album')
@@ -66,7 +66,7 @@ async function saveAlbum(payload, submitReview = false) {
     id,
     createdAt: now,
     storeId: 'store_demo_1',
-    storeName: payload.storeName || '透明维修示范店（杭州滨江）',
+    storeName: payload.storeName || '辙见示范店（杭州滨江）',
     city: '杭州',
   }
 

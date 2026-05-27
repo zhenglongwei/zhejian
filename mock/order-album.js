@@ -1,5 +1,5 @@
 /**
- * MOCK: 用户订单维修相册 — D8
+ * MOCK: 用户订单服务相册 — D8
  * 联调后由 services/order-album.js 接 GET /api/user/orders/{order_id}/album
  */
 const { ORDER_STATUS } = require('../constants/order-status')
@@ -345,14 +345,14 @@ async function mockFetchOrderAlbum(orderId) {
   }
   const stored = getMerchantStoredAlbum(orderId)
   if (!order.hasAlbum && !stored) {
-    const err = new Error('该订单暂无维修相册。')
+    const err = new Error('该订单暂无服务相册。')
     err.code = 404
     throw err
   }
 
   const album = resolveAlbumPayload(order)
   if (!album) {
-    const err = new Error('该订单暂无维修相册。')
+    const err = new Error('该订单暂无服务相册。')
     err.code = 404
     throw err
   }
@@ -408,7 +408,7 @@ async function mockFetchMerchantOrderAlbum(orderId) {
     throw err
   }
   if (order.status === ORDER_STATUS.WAIT_ACCEPT) {
-    const err = new Error('请先接单后再上传维修相册。')
+    const err = new Error('请先接单后再上传服务相册。')
     err.code = 409
     throw err
   }

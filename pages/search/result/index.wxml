@@ -1,0 +1,158 @@
+<view class="page search-result">
+  <view class="search-result__bar page-content">
+    <ui-search-bar
+      value="{{keyword}}"
+      placeholder="{{placeholder}}"
+      showCancel="{{true}}"
+      bind:input="onInput"
+      bind:confirm="onConfirm"
+      bind:clear="onClear"
+      bind:cancel="onCancel"
+    />
+  </view>
+
+  <view class="search-result__toolbar page-content">
+    <text class="search-result__sort text-caption" bindtap="onSortTap">{{sortLabel}} ▾</text>
+    <text class="search-result__filter text-caption" bindtap="onOpenFilter">筛选</text>
+  </view>
+
+  <ui-list-page-shell
+    tabs="{{tabs}}"
+    activeKey="{{activeTab}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    emptyTitle="{{emptyTitle}}"
+    emptyDescription="{{emptyDescription}}"
+    emptyActionText="{{emptyActionText}}"
+    bind:tabchange="onTabChange"
+    bind:retry="onRetry"
+    bind:emptyaction="onEmptyAction"
+  >
+    <view slot="empty">
+      <ui-empty
+        title="{{emptyTitle}}"
+        description="{{emptyDescription}}"
+        actionText="{{emptyActionText}}"
+        bind:action="onEmptyAction"
+      />
+      <view wx:if="{{hotwords.length}}" class="search-result__hotwords">
+        <text class="search-result__section-title text-h3">热门搜索</text>
+        <view class="search-result__chips">
+          <view
+            wx:for="{{hotwords}}"
+            wx:key="*this"
+            class="search-result__chip-wrap"
+            data-keyword="{{item}}"
+            bindtap="onHotwordTap"
+          >
+            <ui-tag variant="default" text="{{item}}" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{geoPages.length}}" class="search-result__geo">
+      <text class="search-result__section-title text-h3">本地专题</text>
+      <ui-geo-topic-card
+        wx:for="{{geoPages}}"
+        wx:key="id"
+        topicId="{{item.id}}"
+        title="{{item.title}}"
+        summary="{{item.summary}}"
+        tagText="{{geoTopicTag}}"
+        updatedAt="{{item.updatedAt}}"
+        showMeta="{{true}}"
+        bind:tap="onGeoTap"
+      />
+    </view>
+
+    <view wx:if="{{activeTab === 'service'}}" class="search-result__notice">
+      <ui-compliance-notice type="price" />
+    </view>
+    <view wx:if="{{activeTab === 'case'}}" class="search-result__notice">
+      <ui-privacy-banner
+        text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
+      />
+      <ui-compliance-notice type="casePrice" />
+    </view>
+
+    <block wx:if="{{activeTab === 'service'}}">
+      <ui-service-card
+        wx:for="{{services}}"
+        wx:key="id"
+        serviceId="{{item.id}}"
+        name="{{item.name}}"
+        categoryName="{{item.categoryName}}"
+        summary="{{item.summary}}"
+        priceMode="{{item.priceMode}}"
+        amount="{{item.amount}}"
+        minAmount="{{item.minAmount}}"
+        maxAmount="{{item.maxAmount}}"
+        storeName="{{item.storeName}}"
+        bind:tap="onServiceTap"
+      />
+    </block>
+
+    <block wx:elif="{{activeTab === 'merchant'}}">
+      <ui-store-card
+        wx:for="{{merchants}}"
+        wx:key="id"
+        storeId="{{item.id}}"
+        name="{{item.name}}"
+        address="{{item.address}}"
+        businessHours="{{item.businessHours}}"
+        caseCount="{{item.caseCount}}"
+        cardTags="{{item.cardTags}}"
+        showLink="{{true}}"
+        bind:tap="onStoreTap"
+      />
+    </block>
+
+    <block wx:elif="{{activeTab === 'case'}}">
+      <ui-case-card
+        wx:for="{{cases}}"
+        wx:key="id"
+        caseId="{{item.id}}"
+        authorizationTier="{{item.authorizationTier}}"
+        coverImage="{{item.coverImage}}"
+        title="{{item.title}}"
+        serviceName="{{item.serviceName}}"
+        summary="{{item.summary}}"
+        priceMode="{{item.priceMode}}"
+        amount="{{item.amount}}"
+        minAmount="{{item.minAmount}}"
+        maxAmount="{{item.maxAmount}}"
+        storeName="{{item.storeName}}"
+        viewCount="{{item.viewCount}}"
+        bind:tap="onCaseTap"
+      />
+    </block>
+  </ui-list-page-shell>
+
+  <ui-bottom-sheet
+    visible="{{filterSheetVisible}}"
+    title="筛选"
+    hint="不含评分、销量与在线支付项"
+    confirmText="应用筛选"
+    cancelText="取消"
+    bind:close="onCloseFilter"
+    bind:cancel="onCloseFilter"
+    bind:confirm="onApplyFilter"
+  >
+    <view class="search-result__filter-list">
+      <view
+        wx:for="{{filterOptions}}"
+        wx:key="key"
+        class="search-result__filter-item"
+        data-key="{{item.key}}"
+        bindtap="onToggleFilter"
+      >
+        <text class="text-body">{{item.label}}</text>
+        <ui-tag
+          variant="{{filters[item.key] ? 'success' : 'default'}}"
+          text="{{filters[item.key] ? '已选' : '可选'}}"
+        />
+      </view>
+    </view>
+  </ui-bottom-sheet>
+</view>

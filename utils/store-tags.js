@@ -11,13 +11,13 @@ function buildStoreHeadTags(store) {
     tags.push({ variant: 'info', text: qualification })
   }
   if (store.supportsAlbum) {
-    tags.push({ variant: 'info', text: '支持维修相册' })
+    tags.push({ variant: 'info', text: '支持服务相册' })
   }
   return tags.slice(0, MAX_TAGS)
 }
 
 /**
- * 门店列表/卡片 Tag（≤3：资质 > 维修相册 > 评价高频标签）
+ * 门店列表/卡片 Tag（≤3：资质 > 服务相册 > 评价高频标签）
  */
 function buildStoreCardTags(store, reviewTags) {
   if (!store) return []
@@ -28,7 +28,7 @@ function buildStoreCardTags(store, reviewTags) {
     }
   })
   if (store.supportsAlbum && tags.length < MAX_TAGS) {
-    tags.push({ variant: 'info', text: '支持维修相册' })
+    tags.push({ variant: 'info', text: '支持服务相册' })
   }
   ;(reviewTags || []).forEach((text) => {
     if (tags.length < MAX_TAGS && text) {

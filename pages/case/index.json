@@ -1,13 +1,11 @@
 {
-  "navigationBarTitleText": "维修案例",
+  "navigationBarTitleText": "公开维修案例",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-button": "/components/button/index",
+    "ui-list-page-shell": "/components/list-page-shell/index",
     "ui-case-card": "/components/case-card/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
-    "ui-tabs": "/components/tabs/index"
+    "ui-search-bar": "/components/search-bar/index"
   }
 }

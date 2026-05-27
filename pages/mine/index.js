@@ -1,10 +1,10 @@
 const { fetchMineSummary } = require('../../services/user')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
-const {
-  MINE_ORDER_SHORTCUTS,
-  MINE_PROTECTED_MENUS,
-  MINE_PUBLIC_MENUS,
-} = require('../../constants/mine-menu')
+const { buildMineMenuSections } = require('../../constants/mine-menu')
+
+const PLACEHOLDER_LABELS = {
+  settings: '设置',
+}
 
 Page({
   data: {
@@ -12,20 +12,16 @@ Page({
     errorMessage: '',
     isLoggedIn: false,
     user: null,
-    orderShortcuts: [],
-    protectedMenus: MINE_PROTECTED_MENUS,
-    publicMenus: MINE_PUBLIC_MENUS,
-    assets: null,
-    vehicleCount: 0,
-    repairArchiveCount: 0,
+    menuSections: buildMineMenuSections({}),
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'general',
+    loginSheetBindContext: 'consult',
+    platformNotice:
+      '平台提供案例浏览、咨询预约与服务相册工具。实际维修、报价、收款与售后由门店线下提供和承担。',
   },
 
   onLoad() {
     syncAppSession()
-    this.initOrderShortcuts()
   },
 
   onShow() {
@@ -36,37 +32,31 @@ Page({
     this.loadPage().finally(() => wx.stopPullDownRefresh())
   },
 
-  initOrderShortcuts() {
-    this.setData({
-      orderShortcuts: MINE_ORDER_SHORTCUTS.map((item) => ({
-        ...item,
-        count: 0,
-      })),
-    })
+  buildBadges(summary) {
+    const source = summary || {}
+    const format = (n) => {
+      const count = Number(n) || 0
+      if (count <= 0) return ''
+      return count > 99 ? '99+' : String(count)
+    }
+    return {
+      consultPending: format(source.consultPending),
+      albumPendingAuth: format(source.albumPendingAuth),
+    }
   },
 
-  buildOrderShortcuts(counts) {
-    const source = counts || {}
-    return MINE_ORDER_SHORTCUTS.map((item) => {
-      const count =
-        item.key === 'all'
-          ? Object.values(source).reduce((sum, n) => sum + (Number(n) || 0), 0)
-          : Number(source[item.key]) || 0
-      return { ...item, count: count > 99 ? '99+' : count > 0 ? String(count) : '' }
-    })
+  syncMenuSections(badges) {
+    this.setData({ menuSections: buildMineMenuSections(badges) })
   },
 
   async loadPage() {
     const loggedIn = isLoggedIn()
     if (!loggedIn) {
+      this.syncMenuSections({})
       this.setData({
         status: 'normal',
         isLoggedIn: false,
         user: null,
-        assets: null,
-        vehicleCount: 0,
-        repairArchiveCount: 0,
-        orderShortcuts: this.buildOrderShortcuts({}),
         errorMessage: '',
       })
       return
@@ -76,6 +66,7 @@ Page({
     try {
       const summary = await fetchMineSummary()
       if (!summary) {
+        this.syncMenuSections({})
         this.setData({
           status: 'normal',
           isLoggedIn: false,
@@ -83,14 +74,12 @@ Page({
         })
         return
       }
+      const badges = this.buildBadges(summary)
+      this.syncMenuSections(badges)
       this.setData({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
-        assets: summary.assets,
-        vehicleCount: summary.vehicleCount || 0,
-        repairArchiveCount: summary.repairArchiveCount || 0,
-        orderShortcuts: this.buildOrderShortcuts(summary.orderCounts),
       })
     } catch (e) {
       this.setData({
@@ -104,7 +93,7 @@ Page({
     this.loadPage()
   },
 
-  openLoginSheet(mode = 'auto', bindContext = 'general') {
+  openLoginSheet(mode = 'auto', bindContext = 'consult') {
     this.setData({
       loginSheetVisible: true,
       loginSheetMode: mode,
@@ -148,35 +137,44 @@ Page({
     return true
   },
 
-  onOrderShortcutTap(e) {
-    if (!this.guardProtectedEntry(false)) return
-    const { key } = e.currentTarget.dataset
-    const app = getApp()
-    app.globalData.pendingOrderTab = key || 'all'
-    wx.switchTab({ url: '/pages/order/index' })
+  findMenuItem(key) {
+    for (const section of this.data.menuSections) {
+      const item = section.items.find((entry) => entry.key === key)
+      if (item) return { section: section.key, item }
+    }
+    return null
   },
 
-  onProtectedMenuTap(e) {
-    const { key } = e.currentTarget.dataset
-    if (!this.guardProtectedEntry(false)) return
-    if (key === 'reviews') {
-      wx.navigateTo({ url: '/pages/review/list/index' })
-      return
-    }
-    if (key === 'rewards') {
-      wx.navigateTo({ url: '/pages/reward/records/index' })
-      return
-    }
-    const labels = {
-      vehicles: '我的车辆',
-      archive: '维修档案',
-      coupons: '优惠券',
-      settings: '设置',
-    }
+  showPlaceholder(key) {
     wx.showToast({
-      title: `${labels[key] || '功能'}将在后续版本开放`,
+      title: `${PLACEHOLDER_LABELS[key] || '功能'}将在后续版本开放`,
       icon: 'none',
     })
+  },
+
+  onMenuCellTap(e) {
+    const { key } = e.currentTarget.dataset
+    const found = this.findMenuItem(key)
+    if (!found) return
+
+    const { section, item } = found
+
+    if (section === 'public') {
+      if (key === 'merchant') {
+        wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
+        return
+      }
+      this.onPublicMenuTap({ currentTarget: { dataset: { key } } })
+      return
+    }
+
+    if (!this.guardProtectedEntry(item.needPhone)) return
+
+    if (item.url) {
+      wx.navigateTo({ url: item.url })
+      return
+    }
+    this.showPlaceholder(key)
   },
 
   onPublicMenuTap(e) {
@@ -188,7 +186,8 @@ Page({
     if (key === 'rules') {
       wx.showModal({
         title: '平台规则',
-        content: '透明维修平台致力于提供可验证的维修过程与诚实价格信息。详细规则页将在后续版本开放。',
+        content:
+          '辙见平台致力于提供可验证的维修过程与诚实价格信息。详细规则页将在后续版本开放。',
         showCancel: false,
       })
       return
@@ -196,13 +195,9 @@ Page({
     if (key === 'about') {
       wx.showModal({
         title: '关于平台',
-        content: '透明维修服务平台（浙检）— 像一份可翻阅的维修档案，而不是促销传单。',
+        content: '辙见服务平台（辙见）— 像一份可翻阅的服务相册，而不是促销传单。',
         showCancel: false,
       })
     }
-  },
-
-  onOpenMerchant() {
-    wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
   },
 })

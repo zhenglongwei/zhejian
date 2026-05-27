@@ -1,30 +1,28 @@
 const { fetchCaseList } = require('../../services/case')
-const { CASE_SOURCE } = require('../../constants/case-source')
+const { PUBLIC_AUTH_TIER } = require('../../constants/case-authorization')
+const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 
 const FILTER_ALL = 'all'
 
 const INTRO_BY_FILTER = {
   [FILTER_ALL]: {
-    introDesc: '已脱敏、已审核；含平台订单与商家历史案例，价格均为参考区间',
-    complianceType: 'price',
-    showHistoryNotice: true,
+    introDesc: '已脱敏、已审核的公开案例，价格均为参考区间',
+    complianceType: 'casePrice',
   },
-  [CASE_SOURCE.PLATFORM_ORDER]: {
-    introDesc: '平台订单案例，经用户授权公开',
-    complianceType: 'price',
-    showHistoryNotice: false,
+  [PUBLIC_AUTH_TIER.NAMED]: {
+    introDesc: '车主实名授权公开，可展示门店与车型等品牌信息',
+    complianceType: 'casePrice',
   },
-  [CASE_SOURCE.MERCHANT_HISTORY]: {
-    introDesc: '商家历史案例，价格仅供参考',
-    complianceType: 'history',
-    showHistoryNotice: false,
+  [PUBLIC_AUTH_TIER.ANONYMOUS]: {
+    introDesc: '车主匿名授权公开，仅保留车辆部分信息',
+    complianceType: 'casePrice',
   },
 }
 
 const FILTER_TABS = [
   { key: FILTER_ALL, label: '全部' },
-  { key: CASE_SOURCE.PLATFORM_ORDER, label: '平台订单案例' },
-  { key: CASE_SOURCE.MERCHANT_HISTORY, label: '商家历史案例' },
+  { key: PUBLIC_AUTH_TIER.NAMED, label: '实名公开' },
+  { key: PUBLIC_AUTH_TIER.ANONYMOUS, label: '匿名公开' },
 ]
 
 Page({
@@ -35,8 +33,8 @@ Page({
     filterSource: FILTER_ALL,
     introDesc: INTRO_BY_FILTER[FILTER_ALL].introDesc,
     complianceType: INTRO_BY_FILTER[FILTER_ALL].complianceType,
-    showHistoryNotice: INTRO_BY_FILTER[FILTER_ALL].showHistoryNotice,
     errorMessage: '',
+    searchPlaceholder: SEARCH_PLACEHOLDER,
   },
 
   onLoad() {
@@ -48,7 +46,6 @@ Page({
     this.setData({
       introDesc: meta.introDesc,
       complianceType: meta.complianceType,
-      showHistoryNotice: !!meta.showHistoryNotice,
     })
   },
 
@@ -59,11 +56,11 @@ Page({
   async loadList() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const source =
+      const authorizationTier =
         this.data.filterSource === FILTER_ALL
           ? undefined
           : this.data.filterSource
-      const { list } = await fetchCaseList({ source })
+      const { list } = await fetchCaseList({ authorizationTier })
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
@@ -91,5 +88,9 @@ Page({
   onCaseTap(e) {
     const { caseId } = e.detail
     wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+  },
+
+  onSearchNavigate() {
+    wx.navigateTo({ url: '/pages/search/index/index' })
   },
 })

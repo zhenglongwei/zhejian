@@ -8,11 +8,13 @@ datasource db {
 }
 
 model User {
-  id        String   @id
-  nickname  String   @default("")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String        @id
+  nickname  String        @default("")
+  phone     String        @default("")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
   orders    Order[]
+  leads     ConsultLead[]
 
   @@map("users")
 }
@@ -34,23 +36,45 @@ model Order {
   @@map("orders")
 }
 
+/// V2.0 统一服务相册：orderId 可选（遗留订单相册）；主路径不依赖 order
 model Album {
-  id               String              @id
-  orderId          String              @unique @map("order_id")
-  status           String              @default("draft")
-  templateId       String              @default("") @map("template_id")
-  templateName     String              @default("") @map("template_name")
-  storeNote        String              @default("") @map("store_note") @db.Text
-  fingerprint      String              @default("") @db.Text
-  publicCaseStatus String              @default("private") @map("public_case_status")
-  imageCount       Int                 @default(0) @map("image_count")
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  order            Order               @relation(fields: [orderId], references: [id])
-  nodes            AlbumNode[]
-  images           AlbumImage[]
-  authorization    AlbumAuthorization?
+  id                  String              @id
+  orderId             String?             @unique @map("order_id")
+  userId              String              @default("") @map("user_id")
+  merchantId          String              @default("") @map("merchant_id")
+  storeId             String              @default("") @map("store_id")
+  storeName           String              @default("") @map("store_name")
+  serviceId           String              @default("") @map("service_id")
+  serviceName         String              @default("") @map("service_name")
+  userPhone           String              @default("") @map("user_phone")
+  leadId              String              @default("") @map("lead_id")
+  complexityLevel     String              @default("L1") @map("complexity_level")
+  vehicleJson         Json?               @map("vehicle_json")
+  priceMode           String              @default("") @map("price_mode")
+  minAmount           Int?                @map("min_amount")
+  maxAmount           Int?                @map("max_amount")
+  partsJson           Json                @default("[]") @map("parts_json")
+  pendingConfirmsJson Json                @default("[]") @map("pending_confirms_json")
+  status              String              @default("draft")
+  templateId          String              @default("") @map("template_id")
+  templateName        String              @default("") @map("template_name")
+  storeNote           String              @default("") @map("store_note") @db.Text
+  fingerprint         String              @default("") @db.Text
+  publicCaseStatus    String              @default("private") @map("public_case_status")
+  authorizationTier   String              @default("private") @map("authorization_tier")
+  imageCount          Int                 @default(0) @map("image_count")
+  completedAt         DateTime?           @map("completed_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+  order               Order?              @relation(fields: [orderId], references: [id])
+  nodes               AlbumNode[]
+  images              AlbumImage[]
+  authorization       AlbumAuthorization?
+  publicCase          PublicCase?
 
+  @@index([merchantId, status])
+  @@index([userPhone])
+  @@index([storeId])
   @@map("albums")
 }
 
@@ -83,24 +107,96 @@ model AlbumImage {
   @@map("album_images")
 }
 
+model ConsultLead {
+  id              String          @id
+  userId          String          @map("user_id")
+  status          String          @default("SUBMITTED")
+  serviceId       String          @default("") @map("service_id")
+  serviceName     String          @default("") @map("service_name")
+  storeId         String          @map("store_id")
+  storeName       String          @default("") @map("store_name")
+  storePhone      String          @default("") @map("store_phone")
+  caseId          String          @default("") @map("case_id")
+  sourcePage      String          @default("") @map("source_page")
+  leadType        String          @default("message") @map("lead_type")
+  vehicleJson     Json?           @map("vehicle_json")
+  description     String          @default("") @db.Text
+  imagesJson      Json            @default("[]") @map("images_json")
+  appointmentJson Json?           @map("appointment_json")
+  contactJson     Json?           @map("contact_json")
+  isAccident      Boolean         @default(false) @map("is_accident")
+  priceMode       String          @default("") @map("price_mode")
+  platformConsent Boolean         @default(false) @map("platform_consent")
+  closeReason     String?         @map("close_reason")
+  closeNote       String          @default("") @map("close_note") @db.Text
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  user            User            @relation(fields: [userId], references: [id])
+  statusLogs      LeadStatusLog[]
+
+  @@index([userId, status])
+  @@index([storeId, status])
+  @@map("consult_leads")
+}
+
+model LeadStatusLog {
+  id           String      @id @default(cuid())
+  leadId       String      @map("lead_id")
+  fromStatus   String?     @map("from_status")
+  toStatus     String      @map("to_status")
+  operatorType String      @map("operator_type")
+  operatorId   String      @default("") @map("operator_id")
+  reason       String      @default("") @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at")
+  lead         ConsultLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_status_logs")
+}
+
+model PublicCase {
+  id                String    @id
+  albumId           String    @unique @map("album_id")
+  status            String    @default("pending_review")
+  authorizationTier String    @default("named") @map("authorization_tier")
+  title             String    @default("")
+  summary           String    @default("") @db.Text
+  coverImage        String    @default("") @map("cover_image") @db.VarChar(512)
+  contentJson       Json?     @map("content_json")
+  storeId           String    @default("") @map("store_id")
+  storeName         String    @default("") @map("store_name")
+  serviceName       String    @default("") @map("service_name")
+  city              String    @default("")
+  minAmount         Int?      @map("min_amount")
+  maxAmount         Int?      @map("max_amount")
+  priceMode         String    @default("") @map("price_mode")
+  publishedAt       DateTime? @map("published_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  album             Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("public_cases")
+}
+
 model DesensitizeTask {
-  taskId               String             @id @map("task_id")
-  bizType              String             @map("biz_type")
-  bizId                String             @map("biz_id")
-  orderId              String?            @map("order_id")
-  operatorRole         String             @map("operator_role")
-  liabilityType        String             @map("liability_type")
-  preMaskStatus        String?            @map("pre_mask_status")
-  preMaskVersion       Int                @default(0) @map("pre_mask_version")
-  preMaskTaskId        String?            @map("pre_mask_task_id")
-  fingerprint          String             @default("") @db.Text
-  fromPreMask          Boolean            @default(false) @map("from_pre_mask")
-  maskingConfirmed     Boolean            @default(false) @map("masking_confirmed")
-  maskingConfirmedAt   DateTime?          @map("masking_confirmed_at")
-  preMaskedAt          DateTime?          @map("pre_masked_at")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-  assets               DesensitizeAsset[]
+  taskId             String             @id @map("task_id")
+  bizType            String             @map("biz_type")
+  bizId              String             @map("biz_id")
+  orderId            String?            @map("order_id")
+  operatorRole       String             @map("operator_role")
+  liabilityType      String             @map("liability_type")
+  preMaskStatus      String?            @map("pre_mask_status")
+  preMaskVersion     Int                @default(0) @map("pre_mask_version")
+  preMaskTaskId      String?            @map("pre_mask_task_id")
+  fingerprint        String             @default("") @db.Text
+  fromPreMask        Boolean            @default(false) @map("from_pre_mask")
+  maskingConfirmed   Boolean            @default(false) @map("masking_confirmed")
+  maskingConfirmedAt DateTime?          @map("masking_confirmed_at")
+  preMaskedAt        DateTime?          @map("pre_masked_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  assets             DesensitizeAsset[]
 
   @@index([bizId, bizType])
   @@map("desensitize_tasks")
@@ -117,7 +213,7 @@ model DesensitizeAsset {
   preMaskedUrl String          @default("") @map("pre_masked_url") @db.VarChar(512)
   status       String
   previewed    Boolean         @default(false)
-  riskTags     Json            @default("[]")
+  riskTags     Json            @default("[]") @map("risk_tags")
   task         DesensitizeTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
 
   @@id([taskId, assetId])
@@ -128,6 +224,7 @@ model AlbumAuthorization {
   albumId   String   @id @map("album_id")
   agreed    Boolean
   status    String
+  tier      String   @default("named")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)

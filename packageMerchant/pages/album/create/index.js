@@ -1,42 +1,88 @@
-const { TEMPLATE_LIST, ALBUM_TEMPLATES } = require('../../../../constants/album')
-const { PRICE_MODE } = require('../../../../constants/price-mode')
-const { saveAlbum } = require('../../../../services/album')
-const { createTask } = require('../../../../services/desensitize')
-const { BIZ_TYPE } = require('../../../../constants/desensitize')
-const { normalizeVehicleText } = require('../../../../utils/album-card')
+const { SERVICE_STATUS } = require('../../../../constants/service')
+const { MERCHANT_SERVICE_TAG_OPTIONS } = require('../../../../constants/merchant-service-tags')
+const { fetchMerchantServiceList } = require('../../../../services/service')
+const { createMerchantServiceAlbum } = require('../../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 
+const DEFAULT_COMPLEXITY = 'L2'
+
+function buildServiceQuickOptions(profile, publishedList) {
+  const map = new Map()
+
+  ;(profile && profile.services ? profile.services : []).forEach((name) => {
+    if (name && !map.has(name)) {
+      map.set(name, { name, serviceId: '', complexityLevel: DEFAULT_COMPLEXITY })
+    }
+  })
+
+  ;(publishedList || []).forEach((item) => {
+    const name = item.name || item.serviceName
+    if (!name) return
+    map.set(name, {
+      name,
+      serviceId: item.serviceId || item.id || '',
+      complexityLevel: item.complexityLevel || DEFAULT_COMPLEXITY,
+    })
+  })
+
+  if (!map.size) {
+    MERCHANT_SERVICE_TAG_OPTIONS.forEach((name) => {
+      map.set(name, { name, serviceId: '', complexityLevel: DEFAULT_COMPLEXITY })
+    })
+  }
+
+  return Array.from(map.values())
+}
+
+function buildSuggestTags(options, keyword) {
+  const value = (keyword || '').trim()
+  const lower = value.toLowerCase()
+  const list = lower
+    ? options.filter((item) => item.name.toLowerCase().includes(lower))
+    : options
+
+  return list.map((item) => ({
+    ...item,
+    selected: value === item.name,
+  }))
+}
+
+function resolveServiceMeta(options, serviceName) {
+  const name = (serviceName || '').trim()
+  const matched = options.find((item) => item.name === name)
+  return {
+    serviceId: matched ? matched.serviceId || '' : '',
+    complexityLevel: matched ? matched.complexityLevel || DEFAULT_COMPLEXITY : DEFAULT_COMPLEXITY,
+  }
+}
+
 Page({
   data: {
-    templates: TEMPLATE_LIST,
-    templateIndex: 0,
+    status: 'loading',
+    serviceQuickOptions: [],
+    serviceSuggestTags: [],
+    serviceSuggestVisible: false,
     form: {
-      vehicleText: '',
-      summary: '',
-      faultDesc: '',
-      repairPlan: '',
-      minAmount: '',
-      maxAmount: '',
+      serviceName: '',
+      serviceId: '',
+      userPhone: '',
+      vehicleBrand: '',
+      vehicleSeries: '',
+      complexityLevel: DEFAULT_COMPLEXITY,
     },
-    nodes: [],
     submitting: false,
-    albumId: '',
-    pricePreview: {
-      mode: PRICE_MODE.RANGE,
-      minAmount: null,
-      maxAmount: null,
-    },
+    storeName: '',
+    storeId: '',
   },
 
   onLoad() {
-    this.initMerchant()
-    this.applyTemplate(0)
+    this.initPage()
   },
 
-  async initMerchant() {
+  async initPage() {
     const profile = await fetchMerchantProfile()
     if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
       wx.showModal({
@@ -49,115 +95,117 @@ Page({
           }
         },
       })
+      return
     }
-    this.storeName = (profile && profile.storeName) || '透明维修示范店'
-  },
 
-  applyTemplate(index) {
-    const tpl = TEMPLATE_LIST[index]
-    const nodes = (tpl.nodes || []).map((n) => ({
-      ...n,
-      images: [],
-      note: '',
-    }))
     this.setData({
-      templateIndex: index,
-      nodes,
-      'form.serviceName': tpl.serviceName,
+      storeName: profile.storeName || '—',
+      storeId: profile.storeId || 'store_demo_1',
+    })
+
+    let publishedList = []
+    try {
+      const { list } = await fetchMerchantServiceList(SERVICE_STATUS.PUBLISHED)
+      publishedList = list || []
+    } catch (e) {
+      /* keep empty */
+    }
+
+    const serviceQuickOptions = buildServiceQuickOptions(profile, publishedList)
+    this.setData({
+      serviceQuickOptions,
+      status: 'normal',
     })
   },
 
-  onTemplateChange(e) {
-    const index = Number(e.detail.value)
-    this.applyTemplate(index)
+  onServiceFocus() {
+    clearTimeout(this._serviceBlurTimer)
+    this.setData({
+      serviceSuggestVisible: true,
+      serviceSuggestTags: buildSuggestTags(
+        this.data.serviceQuickOptions,
+        this.data.form.serviceName
+      ),
+    })
+  },
+
+  onServiceBlur() {
+    this._serviceBlurTimer = setTimeout(() => {
+      this.setData({ serviceSuggestVisible: false })
+    }, 180)
+  },
+
+  onServiceInput(e) {
+    const value = e.detail.value || ''
+    const meta = resolveServiceMeta(this.data.serviceQuickOptions, value)
+    this.setData({
+      'form.serviceName': value,
+      'form.serviceId': meta.serviceId,
+      'form.complexityLevel': meta.complexityLevel,
+      serviceSuggestTags: buildSuggestTags(this.data.serviceQuickOptions, value),
+      serviceSuggestVisible: true,
+    })
+  },
+
+  onPickServiceSuggest(e) {
+    clearTimeout(this._serviceBlurTimer)
+    const { name } = e.currentTarget.dataset
+    const meta = resolveServiceMeta(this.data.serviceQuickOptions, name)
+    this.setData({
+      'form.serviceName': name,
+      'form.serviceId': meta.serviceId,
+      'form.complexityLevel': meta.complexityLevel,
+      serviceSuggestVisible: false,
+    })
+    wx.hideKeyboard()
   },
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
-    this.setData({ [`form.${field}`]: e.detail.value }, () => {
-      if (field === 'minAmount' || field === 'maxAmount') {
-        this.syncPricePreview()
-      }
-    })
+    this.setData({ [`form.${field}`]: e.detail.value })
   },
 
-  syncPricePreview() {
-    const min = parseInt(this.data.form.minAmount, 10)
-    const max = parseInt(this.data.form.maxAmount, 10)
-    this.setData({
-      pricePreview: {
-        mode: PRICE_MODE.RANGE,
-        minAmount: Number.isFinite(min) ? min : null,
-        maxAmount: Number.isFinite(max) ? max : null,
-      },
-    })
-  },
-
-  onNodeImages(e) {
-    const index = Number(e.currentTarget.dataset.index)
-    if (!Number.isFinite(index)) return
-    const nodes = this.data.nodes.slice()
-    nodes[index].images = (e.detail && e.detail.images) || []
-    this.setData({ nodes })
-  },
-
-  buildPayload() {
-    const tpl = TEMPLATE_LIST[this.data.templateIndex]
-    const min = parseInt(this.data.form.minAmount, 10)
-    const max = parseInt(this.data.form.maxAmount, 10)
-    return {
-      id: this.data.albumId || undefined,
-      templateId: tpl.id,
-      serviceName: tpl.serviceName,
-      vehicleText: normalizeVehicleText(this.data.form.vehicleText) === '未填写车型'
-        ? ''
-        : this.data.form.vehicleText.trim(),
-      summary: this.data.form.summary,
-      faultDesc: this.data.form.faultDesc,
-      repairPlan: this.data.form.repairPlan,
-      nodes: this.data.nodes,
-      storeName: this.storeName,
-      priceMode: PRICE_MODE.RANGE,
-      minAmount: Number.isFinite(min) ? min : 0,
-      maxAmount: Number.isFinite(max) ? max : 0,
-      aiSummary: this.data.form.summary,
-      priceFactors: ['车型', '配件品牌', '损伤程度'],
-    }
-  },
-
-  async onSaveDraft() {
-    if (this.data.submitting) return
-    this.setData({ submitting: true })
-    try {
-      await saveAlbum(this.buildPayload(), false)
-      wx.showToast({ title: '草稿已保存', icon: 'success' })
-      setTimeout(() => wx.navigateBack(), 500)
-    } finally {
-      this.setData({ submitting: false })
-    }
+  validatePhone(phone) {
+    if (!phone) return true
+    return /^1\d{10}$/.test(phone.trim())
   },
 
   async onSubmit() {
     if (this.data.submitting) return
-    const hasImage = this.data.nodes.some((n) => (n.images || []).length > 0)
-    if (!hasImage) {
-      wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
+    const serviceName = (this.data.form.serviceName || '').trim()
+    if (!serviceName) {
+      wx.showToast({ title: '请填写服务项目', icon: 'none' })
       return
     }
+    const userPhone = (this.data.form.userPhone || '').trim()
+    if (!this.validatePhone(userPhone)) {
+      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      return
+    }
+
+    const meta = resolveServiceMeta(this.data.serviceQuickOptions, serviceName)
+
     this.setData({ submitting: true })
     try {
-      const album = await saveAlbum(this.buildPayload(), false)
-      const task = await createTask({
-        bizType: BIZ_TYPE.MERCHANT_HISTORY,
-        bizId: album.id,
-        nodes: album.nodes,
+      const album = await createMerchantServiceAlbum({
+        storeId: this.data.storeId,
+        serviceId: meta.serviceId,
+        serviceName,
+        complexityLevel: meta.complexityLevel,
+        userPhone,
+        vehicle: {
+          brand: this.data.form.vehicleBrand.trim(),
+          series: this.data.form.vehicleSeries.trim(),
+        },
       })
-      this.setData({ albumId: album.id })
-      wx.navigateTo({
-        url: `/packageMerchant/pages/desensitize/workbench/index?taskId=${task.taskId}&albumId=${album.id}&from=album_create&bizType=${BIZ_TYPE.MERCHANT_HISTORY}`,
-      })
+      wx.showToast({ title: '服务相册已创建', icon: 'success' })
+      setTimeout(() => {
+        wx.redirectTo({
+          url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+        })
+      }, 400)
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

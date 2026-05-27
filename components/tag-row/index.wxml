@@ -1,0 +1,8 @@
+<view wx:if="{{tagList.length}}" class="tag-row">
+  <ui-tag
+    wx:for="{{tagList}}"
+    wx:key="text"
+    variant="{{item.variant}}"
+    text="{{item.text}}"
+  />
+</view>

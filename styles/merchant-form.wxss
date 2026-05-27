@@ -33,6 +33,15 @@
   box-sizing: border-box;
 }
 
+.merchant-form__readonly {
+  display: block;
+  padding: var(--space-md);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
 .merchant-form__row {
   display: flex;
   align-items: center;

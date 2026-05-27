@@ -7,7 +7,11 @@ const {
   markAssetPreviewed,
 } = require('../../../services/desensitize')
 const { submitAlbumAuthorization } = require('../../../services/order-album')
-const { submitOrderPublicCaseReview } = require('../../../services/public-case')
+const { submitServiceAlbumAuthorization } = require('../../../services/service-album')
+const {
+  submitOrderPublicCaseReview,
+  submitServicePublicCaseReview,
+} = require('../../../services/public-case')
 const { mapTaskToWorkbenchState } = require('../../../utils/desensitize-workbench-display')
 
 Page({
@@ -16,6 +20,7 @@ Page({
     taskId: '',
     albumId: '',
     orderId: '',
+    source: 'order',
     fromPreMask: false,
     workbenchItems: [],
     stats: { total: 0, processed: 0, failed: 0 },
@@ -34,12 +39,16 @@ Page({
     const taskId = (query && query.taskId) || ''
     const albumId = (query && query.albumId) || ''
     const orderId = (query && query.orderId) || ''
+    const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
-    const copy = LIABILITY_COPY[BIZ_TYPE.ORDER_AUTHORIZE]
+    const copyKey =
+      source === 'service' ? BIZ_TYPE.SERVICE_AUTHORIZE : BIZ_TYPE.ORDER_AUTHORIZE
+    const copy = LIABILITY_COPY[copyKey]
     this.setData({
       taskId,
       albumId,
       orderId,
+      source,
       fromPreMask,
       liabilityText: copy.body,
       confirmLabelShort: '确认并公开',
@@ -84,9 +93,15 @@ Page({
   },
 
   onBackAlbum() {
-    const { orderId } = this.data
+    const { orderId, albumId, source } = this.data
+    if (source === 'service' && albumId) {
+      wx.redirectTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
+      return
+    }
     if (orderId) {
-      wx.redirectTo({ url: `/pages/order/album/index?orderId=${orderId}` })
+      wx.redirectTo({
+        url: `/pages/album/detail/index?albumId=${encodeURIComponent(`alb_${orderId}`)}`,
+      })
       return
     }
     wx.navigateBack()
@@ -99,7 +114,7 @@ Page({
   async onPreview(e) {
     const { id, url, type } = e.detail || {}
     if (!url) return
-    if (id && this.data.taskId) {
+    if (type === 'masked' && id && this.data.taskId) {
       try {
         const task = await markAssetPreviewed(this.data.taskId, id)
         this.applyTask(task)
@@ -131,10 +146,10 @@ Page({
   },
 
   onManualMask() {
-    wx.showToast({
-      title: '手工打码即将开放，请先用一键 AI 脱敏',
-      icon: 'none',
-    })
+    const title = this.data.fromPreMask
+      ? '手工打码功能即将开放'
+      : '手工打码即将开放，请先用一键 AI 脱敏'
+    wx.showToast({ title, icon: 'none' })
   },
 
   async onRetryAsset(e) {
@@ -155,11 +170,7 @@ Page({
       return
     }
     if (!this.data.canConfirm) {
-      if (this.data.needPreviewHint) {
-        wx.showToast({ title: '请先查看每张脱敏预览', icon: 'none' })
-      } else {
-        wx.showToast({ title: '请先完成全部图片脱敏', icon: 'none' })
-      }
+      wx.showToast({ title: '请先完成全部图片脱敏', icon: 'none' })
       return
     }
     this.setData({ confirmLoading: true })
@@ -167,13 +178,21 @@ Page({
       await confirmOrderAuthorizeTask(this.data.taskId, {
         liabilityAccepted: true,
       })
-      await submitAlbumAuthorization(this.data.albumId, { agreed: true })
-      if (this.data.orderId) {
-        await submitOrderPublicCaseReview({
-          orderId: this.data.orderId,
+      if (this.data.source === 'service') {
+        await submitServiceAlbumAuthorization(this.data.albumId, { agreed: true })
+        await submitServicePublicCaseReview({
           albumId: this.data.albumId,
           taskId: this.data.taskId,
         })
+      } else {
+        await submitAlbumAuthorization(this.data.albumId, { agreed: true })
+        if (this.data.orderId) {
+          await submitOrderPublicCaseReview({
+            orderId: this.data.orderId,
+            albumId: this.data.albumId,
+            taskId: this.data.taskId,
+          })
+        }
       }
       wx.showToast({ title: '已确认公开', icon: 'success' })
       setTimeout(() => {

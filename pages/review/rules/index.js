@@ -1,15 +1,8 @@
+/** V1 评价规则 → V2 我的咨询（R8） */
+const { redirectLegacyReviewPage } = require('../../../utils/legacy-redirect')
+
 Page({
-  data: {
-    status: 'loading',
-    errorMessage: '',
-  },
-
   onLoad() {
-    this.setData({ status: 'normal' })
-  },
-
-  onRetry() {
-    this.setData({ status: 'loading', errorMessage: '' })
-    this.setData({ status: 'normal' })
+    redirectLegacyReviewPage()
   },
 })

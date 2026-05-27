@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "订单维修相册",
+  "navigationBarTitleText": "订单服务相册",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",

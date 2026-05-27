@@ -1,0 +1,55 @@
+.cell-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--cell-height);
+  padding: var(--space-md);
+  box-sizing: border-box;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.cell-row--no-border,
+.cell-row:last-child {
+  border-bottom: none;
+}
+
+.cell-row--disabled {
+  opacity: 0.4;
+}
+
+.cell-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cell-row__title {
+  display: block;
+}
+
+.cell-row__desc {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.cell-row__extra {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.cell-row__badge {
+  min-width: 32rpx;
+  padding: 0 8rpx;
+  font-size: var(--font-caption);
+  line-height: 32rpx;
+  text-align: center;
+  color: var(--color-text-inverse);
+  background-color: var(--color-danger);
+  border-radius: var(--radius-full);
+}
+
+.cell-row__arrow {
+  color: var(--color-text-tertiary);
+}

@@ -1,29 +1,25 @@
-const { CASE_SOURCE } = require('../../constants/case-source')
+const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
 const { buildCaseTags } = require('../../utils/case-tags')
 const { isDesensitizedUrl } = require('../../utils/desensitize-mock')
 
 Component({
   properties: {
     caseId: { type: String, value: '' },
-    caseSource: {
+    authorizationTier: {
       type: String,
-      value: CASE_SOURCE.MERCHANT_HISTORY,
+      value: PUBLIC_AUTH_TIER.NAMED,
     },
     coverImage: { type: String, value: '' },
     title: { type: String, value: '' },
     serviceName: { type: String, value: '' },
     summary: { type: String, value: '' },
     priceMode: { type: String, value: 'range' },
+    amount: { type: null, value: null },
     minAmount: { type: null, value: null },
     maxAmount: { type: null, value: null },
     storeName: { type: String, value: '' },
     viewCount: { type: Number, value: 0 },
-    muted: {
-      type: Boolean,
-      value: false,
-    },
     showStoreName: { type: Boolean, value: true },
-    /** 传入时覆盖默认 buildCaseTags（商家相册列表按状态） */
     tags: {
       type: Array,
       value: [],
@@ -31,13 +27,12 @@ Component({
   },
   data: {
     tagList: [],
-    isHistory: false,
-    priceDisclaimer: '',
     safeCoverImage: '',
+    displayStoreName: false,
   },
   observers: {
-    'caseSource, tags'(source, tags) {
-      this.syncTags(source, tags)
+    'authorizationTier, tags, showStoreName, storeName'(authorizationTier, tags, showStoreName, storeName) {
+      this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
     coverImage(url) {
       this.setData({
@@ -47,7 +42,8 @@ Component({
   },
   lifetimes: {
     attached() {
-      this.syncTags(this.properties.caseSource, this.properties.tags)
+      const { authorizationTier, tags, showStoreName, storeName } = this.properties
+      this.syncTags(authorizationTier, tags, showStoreName, storeName)
       this.setData({
         safeCoverImage: isDesensitizedUrl(this.properties.coverImage)
           ? this.properties.coverImage
@@ -56,14 +52,16 @@ Component({
     },
   },
   methods: {
-    syncTags(source, tags) {
-      const isHistory = source === CASE_SOURCE.MERCHANT_HISTORY
+    syncTags(authorizationTier, tags, showStoreName, storeName) {
       const tagList =
-        tags && tags.length ? tags : buildCaseTags(source)
+        tags && tags.length ? tags : buildCaseTags(authorizationTier)
+      const canShowStore =
+        shouldShowStorePublicly(authorizationTier) &&
+        showStoreName !== false &&
+        Boolean(storeName)
       this.setData({
         tagList,
-        isHistory,
-        priceDisclaimer: isHistory ? '商家历史案例，价格仅供参考' : '',
+        displayStoreName: canShowStore,
       })
     },
     onTap() {

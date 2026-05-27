@@ -1,0 +1,8 @@
+<view class="result-hero result-hero--{{type}}">
+  <view class="result-hero__icon">{{icon}}</view>
+  <text wx:if="{{title}}" class="result-hero__title text-h2">{{title}}</text>
+  <text wx:if="{{description}}" class="result-hero__desc text-caption">{{description}}</text>
+  <view wx:if="{{type === 'success'}}" class="result-hero__extra">
+    <slot />
+  </view>
+</view>

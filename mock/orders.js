@@ -65,7 +65,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_1',
       serviceName: '小保养套餐',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '宝马',
         series: '3 系',
@@ -93,7 +93,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_1',
       serviceName: '小保养套餐',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '大众',
         series: '帕萨特',
@@ -123,7 +123,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_2',
       serviceName: '刹车片更换',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '奔驰',
         series: 'C 级',
@@ -153,7 +153,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_1',
       serviceName: '小保养套餐',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '日产',
         series: '天籁',
@@ -183,7 +183,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_1',
       serviceName: '小保养套餐',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '奥迪',
         series: 'A4L',
@@ -224,7 +224,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_2',
       serviceName: '刹车片更换',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '丰田',
         series: '凯美瑞',
@@ -267,7 +267,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_2',
       serviceName: '刹车片更换',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '本田',
         series: '雅阁',
@@ -296,7 +296,7 @@ function buildDemoOrders() {
       serviceId: 'svc_seed_2',
       serviceName: '刹车片更换',
       storeId: 'store_demo_1',
-      storeName: '透明维修示范店（杭州滨江）',
+      storeName: '辙见示范店（杭州滨江）',
       vehicle: {
         brand: '宝马',
         series: '3 系',

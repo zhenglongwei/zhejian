@@ -1,6 +1,6 @@
-# 透明维修服务平台 · 辙见
+# 辙见
 
-**盈简科技**旗下产品；仓库代号 `zhejian`（文档中「浙检」同指本项目）。
+**盈简科技**旗下产品；仓库代号 `zhejian`（文档中「辙见」同指本项目）。
 
 微信小程序（用户端 + 商家分包）+ 后端 API + H5 公开页 monorepo。  
 对外域名：**geo.simplewin.cn**（API / SEO·GEO / 运营后台）；公司官网 **simplewin.cn** 独立部署。
@@ -32,7 +32,7 @@
 **本地 + 云端 + GitHub 一步步说明：** [docs/部署上手指南.md](docs/部署上手指南.md)
 
 - 本地：已写好 `backend/.env`，运行 `scripts/local-setup.ps1`
-- 云端：代码放 `/var/www/zhejian`，网站放 `/var/www/geo.simplewin.cn`
+- 云端：`git clone` 到 `/var/www/zhejian`，**目录与 GitHub / 本地一致**；Nginx 把 URL 映射到仓库内子目录
 
 ## 快速开始
 

@@ -23,7 +23,7 @@
 
   <block wx:else>
     <ui-privacy-banner scene="desensitize" />
-    <ui-compliance-notice type="history" />
+    <ui-compliance-notice type="desensitize" />
     <ui-compliance-notice type="desensitize" />
     <ui-compliance-notice type="desensitizeGuide" />
     <view wx:if="{{needPreviewHint}}" class="desensitize-page__preview-hint text-caption">

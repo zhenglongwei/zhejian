@@ -48,7 +48,7 @@ function getStatusHint(order) {
     return '事故车维修方案和费用需到店检测或拆检后确认。'
   }
   if (status === ORDER_STATUS.IN_SERVICE) {
-    return '门店正在为你的车辆服务，你可以查看维修进度和维修相册。'
+    return '门店正在为你的车辆服务，你可以查看维修进度和服务相册。'
   }
   if (status === ORDER_STATUS.WAIT_CONFIRM) {
     return '门店已标记完工，请确认车辆服务结果。如有问题，可申请售后。'
@@ -153,7 +153,7 @@ function buildProgressSteps(order, options = {}) {
       order.hasAlbum &&
       (title === '维修过程' || title === '开始检测')
     ) {
-      step.linkText = '查看维修相册'
+      step.linkText = '查看服务相册'
     }
     return step
   })
@@ -272,7 +272,7 @@ function getDetailBottomActions(order) {
   if (status === ORDER_STATUS.IN_SERVICE) {
     return {
       primary: hasAlbum
-        ? { label: '查看维修相册', actionKey: 'album' }
+        ? { label: '查看服务相册', actionKey: 'album' }
         : { label: '联系门店', actionKey: 'call' },
       secondary: { label: '联系门店', actionKey: 'call', type: 'secondary' },
     }
@@ -287,7 +287,7 @@ function getDetailBottomActions(order) {
     if (reviewStatus === 'not_reviewed') {
       return {
         primary: { label: '去评价', actionKey: 'review' },
-        secondary: { label: '查看维修档案', actionKey: 'archive', type: 'secondary' },
+        secondary: { label: '查看服务相册', actionKey: 'archive', type: 'secondary' },
       }
     }
     return {

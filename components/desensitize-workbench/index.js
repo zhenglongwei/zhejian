@@ -30,9 +30,10 @@ Component({
     },
   },
   methods: {
-    onLiabilityChange(e) {
-      const accepted = (e.detail.value || []).length > 0
-      this.triggerEvent('liabilitychange', { accepted })
+    onLiabilityToggle() {
+      this.triggerEvent('liabilitychange', {
+        accepted: !this.properties.liabilityAccepted,
+      })
     },
     onPreviewRaw(e) {
       const { id, url } = e.currentTarget.dataset

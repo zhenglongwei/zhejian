@@ -1,0 +1,27 @@
+.list-page-shell__tabs {
+  padding-top: var(--space-sm);
+}
+
+.list-page-shell__tabs--card {
+  padding-bottom: var(--space-sm);
+  background-color: var(--color-bg-card);
+}
+
+.list-page-shell__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.list-page-shell__body--clearance {
+  padding-bottom: calc(var(--page-fixed-clearance) + var(--space-lg));
+}
+
+.list-page-shell__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-xl);
+}

@@ -1,0 +1,28 @@
+<view wx:if="{{visible}}" class="bottom-sheet">
+  <view class="bottom-sheet__mask" bindtap="onMaskTap" />
+  <view class="bottom-sheet__panel safe-bottom" catchtap="noop">
+    <text wx:if="{{title}}" class="bottom-sheet__title text-h3">{{title}}</text>
+    <text wx:if="{{hint}}" class="bottom-sheet__hint text-caption">{{hint}}</text>
+    <slot />
+    <textarea
+      wx:if="{{showTextarea}}"
+      class="bottom-sheet__textarea"
+      placeholder="{{textareaPlaceholder}}"
+      maxlength="{{maxlength}}"
+      value="{{textareaValue}}"
+      bindinput="onInput"
+    />
+    <view class="bottom-sheet__actions">
+      <view class="bottom-sheet__action">
+        <ui-button type="secondary" bind:tap="onCancel">{{cancelText}}</ui-button>
+      </view>
+      <view class="bottom-sheet__action">
+        <ui-button
+          type="primary"
+          disabled="{{confirmDisabled || loading}}"
+          bind:tap="onConfirm"
+        >{{confirmText}}</ui-button>
+      </view>
+    </view>
+  </view>
+</view>

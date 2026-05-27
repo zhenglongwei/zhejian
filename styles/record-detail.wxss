@@ -1,0 +1,40 @@
+/**
+ * 咨询/线索详情 — 用户端 consult/detail 与商家端 lead/detail 共用布局
+ */
+.record-detail__pad {
+  padding-top: var(--space-md);
+}
+
+.record-detail__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.record-detail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.record-detail__section-title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.record-detail__desc {
+  display: block;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+}
+
+.record-detail__image-note {
+  margin-top: var(--space-sm);
+}
+
+.record-detail__footer-note {
+  margin-bottom: var(--space-md);
+}

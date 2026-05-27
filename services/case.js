@@ -3,14 +3,16 @@
  * MOCK: 种子数据 + storage 已发布案例
  */
 const { SEED_CASES } = require('../mock/cases')
-const { CASE_SOURCE } = require('../constants/case-source')
+const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../constants/case-authorization')
 const { getServiceItem } = require('../constants/service')
+const { findStore } = require('./store')
 const { matchServiceName } = require('../utils/service-case-link')
 const {
   buildPublicAlbumNodes,
   pickDesensitizedCover,
   sanitizePublicCase,
 } = require('../utils/desensitize-mock')
+const { buildPublicCasePrice } = require('../utils/album-price')
 
 const { buildCaseFaq } = require('../utils/case-faq')
 
@@ -28,6 +30,30 @@ function loadPublishedFromStorage() {
   }
 }
 
+function applyPublicDisplayRules(item) {
+  if (!item) return item
+  const publicPrice = buildPublicCasePrice(item, {
+    hasUserAuthorization:
+      item.authorizationTier === PUBLIC_AUTH_TIER.ANONYMOUS ||
+      item.authorizationTier === PUBLIC_AUTH_TIER.NAMED,
+  })
+  const next = {
+    ...item,
+    priceMode: publicPrice.priceMode,
+    amount: publicPrice.amount,
+    minAmount: publicPrice.minAmount,
+    maxAmount: publicPrice.maxAmount,
+    planAmount: publicPrice.planAmount,
+  }
+  if (!shouldShowStorePublicly(item.authorizationTier)) {
+    return {
+      ...next,
+      storeName: '',
+    }
+  }
+  return next
+}
+
 function mergeCases() {
   const local = loadPublishedFromStorage()
   const map = new Map()
@@ -37,6 +63,7 @@ function mergeCases() {
     .forEach((c) => map.set(c.id, c))
   return Array.from(map.values())
     .map(sanitizePublicCase)
+    .map(applyPublicDisplayRules)
     .sort((a, b) => {
       const ta = a.publishedAt || ''
       const tb = b.publishedAt || ''
@@ -50,8 +77,8 @@ function mergeCases() {
 async function fetchCaseList(query = {}) {
   await delay()
   let list = mergeCases()
-  if (query.source) {
-    list = list.filter((c) => c.source === query.source)
+  if (query.authorizationTier) {
+    list = list.filter((c) => c.authorizationTier === query.authorizationTier)
   }
   if (query.storeId) {
     list = list.filter((c) => c.storeId === query.storeId)
@@ -89,65 +116,19 @@ async function fetchCaseDetail(id) {
         (c.serviceName === item.serviceName || c.storeId === item.storeId)
     )
     .slice(0, 3)
+  const store = item.storeId ? findStore(item.storeId) : null
+  const display = applyPublicDisplayRules(item)
   return {
-    ...item,
+    ...display,
+    storePhone: (store && store.phone) || item.storePhone || '',
+    showStorePublicly: shouldShowStorePublicly(item.authorizationTier),
     faq,
     relatedCases,
   }
 }
 
-/** 商家审核通过后写入用户可见案例库（仅脱敏字段） */
-function publishCaseFromAlbum(album) {
-  if (!album || !album.maskingConfirmed) {
-    const err = new Error('未完成脱敏确认，无法发布案例')
-    err.code = 403
-    throw err
-  }
-  const cases = loadPublishedFromStorage()
-  const coverImageDesensitized =
-    album.coverImageDesensitized || pickDesensitizedCover(album.nodes)
-  const publicNodes = buildPublicAlbumNodes(album.nodes)
-
-  const caseItem = sanitizePublicCase({
-    id: `case_${album.id}`,
-    source: CASE_SOURCE.MERCHANT_HISTORY,
-    coverImage: coverImageDesensitized,
-    coverImageDesensitized,
-    title: album.title || `${album.vehicleText || '车辆'} · ${album.serviceName}`,
-    vehicleText: album.vehicleText || '（已脱敏）',
-    serviceName: album.serviceName,
-    summary: album.summary || '',
-    priceMode: album.priceMode,
-    minAmount: album.minAmount,
-    maxAmount: album.maxAmount,
-    storeId: album.storeId,
-    storeName: album.storeName,
-    city: album.city || '杭州',
-    viewCount: 0,
-    publishedAt: new Date().toISOString().slice(0, 10),
-    tags: ['desensitized', 'audited', 'reference'],
-    aiSummary: album.aiSummary || album.summary || '',
-    keyInfo: [
-      { label: '城市', value: album.city || '杭州' },
-      { label: '服务项目', value: album.serviceName },
-      { label: '案例来源', value: '商家历史案例' },
-    ],
-    faultDesc: album.faultDesc || '',
-    inspectResult: album.inspectResult || '',
-    repairPlan: album.repairPlan || '',
-    priceFactors: album.priceFactors || [],
-    nodes: publicNodes,
-    faq: album.faq || buildCaseFaq(album.serviceName),
-    maskingConfirmed: true,
-  })
-  const next = cases.filter((c) => c.id !== caseItem.id)
-  next.unshift(caseItem)
-  wx.setStorageSync(STORAGE_PUBLISHED, next)
-  return caseItem
-}
-
-/** 平台订单授权公开后写入案例库 */
-function publishCaseFromOrderAlbum(draft) {
+/** 服务相册授权公开后写入案例库 */
+function publishFromServiceAlbum(draft) {
   if (!draft || !draft.maskingConfirmed) {
     const err = new Error('未完成脱敏确认，无法发布案例')
     err.code = 403
@@ -176,9 +157,25 @@ function publishCaseFromOrderAlbum(draft) {
   return caseItem
 }
 
+/** @deprecated 使用 publishFromServiceAlbum */
+function publishCaseFromOrderAlbum(draft) {
+  return publishFromServiceAlbum(draft)
+}
+
+/** @deprecated 使用 publishFromServiceAlbum */
+function publishCaseFromAlbum(album) {
+  return publishFromServiceAlbum({
+    ...album,
+    id: album.id ? `case_${album.id}` : undefined,
+    authorizationTier: album.authorizationTier || PUBLIC_AUTH_TIER.NAMED,
+    maskingConfirmed: album.maskingConfirmed !== false,
+  })
+}
+
 module.exports = {
   fetchCaseList,
   fetchCaseDetail,
+  publishFromServiceAlbum,
   publishCaseFromAlbum,
   publishCaseFromOrderAlbum,
 }

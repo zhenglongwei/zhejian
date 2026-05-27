@@ -1,0 +1,14 @@
+<view
+  class="cell-row {{border ? '' : 'cell-row--no-border'}} {{disabled ? 'cell-row--disabled' : ''}}"
+  bindtap="onTap"
+>
+  <view class="cell-row__main">
+    <text class="cell-row__title text-body">{{title}}</text>
+    <text wx:if="{{desc}}" class="cell-row__desc text-caption">{{desc}}</text>
+  </view>
+  <view class="cell-row__extra">
+    <text wx:if="{{badge}}" class="cell-row__badge">{{badge}}</text>
+    <text wx:if="{{arrow}}" class="cell-row__arrow text-caption">›</text>
+    <slot name="extra" />
+  </view>
+</view>

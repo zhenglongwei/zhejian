@@ -1,0 +1,80 @@
+<view class="page album-confirm {{status === 'normal' ? 'album-confirm--with-bar' : ''}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content album-confirm__pad">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载确认项"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{confirmItem}}">
+    <view class="page-content album-confirm__body">
+      <view class="album-confirm__privacy">
+        <ui-privacy-banner text="本确认信息仅你与门店可见，不会对外公开。" />
+      </view>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-confirm__title text-h3">{{confirmCopy.title || confirmItem.title}}</text>
+        <text class="album-confirm__meta text-caption">{{album.serviceName}} · {{album.store.name}}</text>
+
+        <block wx:if="{{confirmItem.type === 'part'}}">
+          <view class="album-confirm__part-head">
+            <text class="album-confirm__part-name text-body">{{confirmItem.partName}}</text>
+            <ui-tag variant="{{partTypeVariant}}" text="{{confirmItem.partType}}" />
+          </view>
+          <text wx:if="{{confirmItem.partBrand}}" class="album-confirm__meta text-caption">品牌：{{confirmItem.partBrand}}</text>
+          <view wx:if="{{showPartPrice}}" class="album-confirm__price">
+            <ui-price-display
+              mode="{{priceMode}}"
+              amount="{{partPriceAmount}}"
+              showSuffix="{{false}}"
+            />
+          </view>
+          <text wx:if="{{confirmItem.diffDesc}}" class="album-confirm__meta text-caption">{{confirmItem.diffDesc}}</text>
+
+          <view class="album-confirm__part-risk">
+            <ui-compliance-notice type="partRisk" text="{{confirmCopy.body}}" />
+          </view>
+        </block>
+
+        <block wx:else>
+          <text class="album-confirm__summary text-body">{{confirmItem.summary}}</text>
+          <view wx:if="{{showPlanPrice}}" class="album-confirm__price">
+            <ui-price-display
+              mode="{{priceModeRange}}"
+              minAmount="{{planMinAmount}}"
+              maxAmount="{{planMaxAmount}}"
+            />
+          </view>
+          <ui-compliance-notice type="price" />
+        </block>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <ui-checkbox-row checked="{{checked}}" bind:toggle="onCheckToggle">
+          <text>{{confirmCopy.checkbox}}</text>
+        </ui-checkbox-row>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button type="ghost" size="sm" slot="left" disabled="{{submitting}}" bind:tap="onReject">要求重新报价</ui-button>
+      <ui-button
+        type="primary"
+        size="sm"
+        slot="right"
+        disabled="{{!checked || submitting}}"
+        bind:tap="onConfirm"
+      >{{confirmCopy.confirmButton}}</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

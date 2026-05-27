@@ -1,0 +1,16 @@
+.pending-confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pending-confirm-list__title {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.pending-confirm-list__cells {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}

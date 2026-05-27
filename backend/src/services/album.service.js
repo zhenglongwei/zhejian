@@ -20,12 +20,12 @@ async function getUserOrderAlbum(orderId, userId) {
     throw err
   }
   if (userId && order.userId !== userId) {
-    const err = new Error('你无权查看该维修相册。')
+    const err = new Error('你无权查看该服务相册。')
     err.status = 403
     throw err
   }
   if (!order.album) {
-    const err = new Error('该订单暂无维修相册。')
+    const err = new Error('该订单暂无服务相册。')
     err.status = 404
     throw err
   }

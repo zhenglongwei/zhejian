@@ -19,12 +19,7 @@
   <block wx:elif="{{detail}}">
     <view class="case-detail__body page-content">
       <view class="case-detail__tags">
-        <ui-tag
-          wx:for="{{tagList}}"
-          wx:key="text"
-          variant="{{item.variant}}"
-          text="{{item.text}}"
-        />
+        <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
       </view>
       <view class="case-detail__privacy">
         <ui-privacy-banner scene="share" />
@@ -36,12 +31,11 @@
         <text class="case-detail__section-title text-h3">价格说明</text>
         <ui-price-display
           mode="{{detail.priceMode}}"
+          amount="{{detail.amount}}"
           minAmount="{{detail.minAmount}}"
           maxAmount="{{detail.maxAmount}}"
+          showDisclaimer="{{true}}"
         />
-        <view wx:if="{{isHistory}}" class="case-detail__notice">
-          <ui-compliance-notice type="history" />
-        </view>
         <view class="case-detail__notice">
           <ui-compliance-notice type="casePrice" />
         </view>
@@ -60,11 +54,11 @@
       </view>
       <view wx:if="{{detail.priceFactors.length}}" class="case-detail__section">
         <text class="case-detail__section-title text-h3">影响价格的因素</text>
-        <view class="case-detail__factors">
+        <view class="bullet-list">
           <text
             wx:for="{{detail.priceFactors}}"
             wx:key="*this"
-            class="case-detail__factor text-caption"
+            class="bullet-list__item"
           >· {{item}}</text>
         </view>
       </view>
@@ -78,34 +72,25 @@
           note="{{item.note}}"
         />
       </view>
-      <view wx:if="{{linkedReviews.length}}" class="case-detail__section">
-        <ui-review-list-section
-          sectionTitle="关联评价"
-          titleSize="h3"
-          hint="来自本订单用户的真实服务评价（已审核），为用户主观体验，不代表平台结论。"
-          reviews="{{linkedReviews}}"
-          status="normal"
-          topTags="{{[]}}"
-        />
-      </view>
       <view class="case-detail__section">
-        <text class="case-detail__section-title text-h3">关联门店</text>
-        <view class="case-detail__store" bindtap="onStoreTap">
-          <text class="text-body case-detail__store-name">{{detail.storeName}}</text>
-          <text class="text-caption case-detail__city">{{detail.city}}</text>
-          <text class="text-caption text-link case-detail__store-link">查看门店详情 ›</text>
-        </view>
+        <text class="case-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
+        <ui-store-card
+          wx:if="{{showStorePublicly}}"
+          storeId="{{detail.storeId}}"
+          name="{{detail.storeName}}"
+          subtitle="{{detail.city}}"
+          showLink="{{true}}"
+          bind:tap="onStoreTap"
+        />
+        <ui-store-card
+          wx:else
+          mode="anonymous"
+          subtitle="{{detail.city}}"
+        />
       </view>
       <view wx:if="{{faqList.length}}" class="case-detail__section">
         <text class="case-detail__section-title text-h3">常见问题</text>
-        <view
-          wx:for="{{faqList}}"
-          wx:key="q"
-          class="case-detail__faq-item"
-        >
-          <text class="case-detail__faq-q text-body">{{item.q}}</text>
-          <text class="case-detail__faq-a text-caption">{{item.a}}</text>
-        </view>
+        <ui-faq-list items="{{faqList}}" />
       </view>
       <view wx:if="{{relatedCases.length}}" class="case-detail__section">
         <text class="case-detail__section-title text-h3">相关案例</text>
@@ -114,12 +99,13 @@
             wx:for="{{relatedCases}}"
             wx:key="id"
             caseId="{{item.id}}"
-            caseSource="{{item.source}}"
+            authorizationTier="{{item.authorizationTier}}"
             coverImage="{{item.coverImage}}"
             title="{{item.title}}"
             serviceName="{{item.serviceName}}"
             summary="{{item.summary}}"
             priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
             minAmount="{{item.minAmount}}"
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
@@ -129,9 +115,8 @@
         </view>
       </view>
     </view>
-    <ui-fixed-bottom-bar>
-      <ui-button type="secondary" size="sm" slot="left" bind:tap="onShare">分享</ui-button>
-      <ui-button type="primary" slot="right" bind:tap="onBook">预约到店</ui-button>
+    <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
+      <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
     </ui-fixed-bottom-bar>
   </block>
 </view>

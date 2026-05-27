@@ -1,6 +1,9 @@
-<view class="service-card" bindtap="onTap">
+<view
+  class="service-card {{readonly ? 'service-card--readonly' : ''}} {{embedded ? 'service-card--embedded' : ''}}"
+  bindtap="onTap"
+>
   <view class="service-card__body">
-    <view class="service-card__tags">
+    <view wx:if="{{tagList.length}}" class="service-card__tags tag-row">
       <ui-tag
         wx:for="{{tagList}}"
         wx:key="text"
@@ -9,6 +12,7 @@
       />
     </view>
     <text class="service-card__title text-h3">{{name}}</text>
+    <text wx:if="{{!showTags && categoryName}}" class="service-card__category text-caption">{{categoryName}}</text>
     <text wx:if="{{summary}}" class="service-card__summary text-body">{{summary}}</text>
     <view class="service-card__meta">
       <ui-price-display
@@ -17,7 +21,8 @@
         minAmount="{{minAmount}}"
         maxAmount="{{maxAmount}}"
         showDisclaimer="{{true}}"
-        showSuffix="{{showPriceSuffix}}"
+        showSuffix="{{showSuffix !== null ? showSuffix : showPriceSuffix}}"
+        disclaimerText="{{disclaimerText}}"
       />
     </view>
     <view wx:if="{{showStoreName && storeName}}" class="service-card__footer text-caption">

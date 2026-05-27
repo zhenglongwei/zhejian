@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "透明维修",
+  "navigationBarTitleText": "辙见",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",
@@ -10,6 +10,8 @@
     "ui-case-card": "/components/case-card/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
-    "ui-store-card": "/components/store-card/index"
+    "ui-store-card": "/components/store-card/index",
+    "ui-search-bar": "/components/search-bar/index",
+    "ui-geo-topic-card": "/components/geo-topic-card/index"
   }
 }

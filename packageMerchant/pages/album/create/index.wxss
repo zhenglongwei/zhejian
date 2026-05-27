@@ -4,3 +4,51 @@
   display: block;
   margin-bottom: var(--space-md);
 }
+
+.album-create__service-section {
+  position: relative;
+}
+
+.album-create__service-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: var(--input-height)
+}
+
+.album-create__suggest {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.album-create__suggest-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-create__suggest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.album-create__chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  background-color: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  border: 1rpx solid var(--color-border);
+}
+
+.album-create__chip--on {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.album-create__chip:active {
+  opacity: 0.72;
+}

@@ -1,32 +1,26 @@
-const { fetchAlbumList } = require('../../../../services/album')
-const { ALBUM_STATUS, ALBUM_STATUS_LABEL } = require('../../../../constants/album')
-const { CASE_SOURCE } = require('../../../../constants/case-source')
+const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
 const {
-  buildAlbumListTitle,
-  buildAlbumListTags,
-  pickAlbumListCover,
-} = require('../../../../utils/album-card')
+  MERCHANT_SERVICE_ALBUM_LIST_TABS,
+} = require('../../../../constants/service-album-status')
+const { enrichMerchantAlbumListItem } = require('../../../../utils/service-album-display')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 
-const TAB_ALL = 'all'
-
-const STATUS_TABS = [
-  { key: TAB_ALL, label: '全部' },
-  { key: ALBUM_STATUS.DRAFT, label: '草稿' },
-  { key: ALBUM_STATUS.PENDING_REVIEW, label: '待审核' },
-  { key: ALBUM_STATUS.APPROVED, label: '已通过' },
-]
-
 Page({
   data: {
     status: 'loading',
     list: [],
-    statusTabs: STATUS_TABS,
-    tab: TAB_ALL,
+    statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS,
+    tab: 'all',
     errorMessage: '',
+  },
+
+  onLoad(options) {
+    if (options.tab) {
+      this.setData({ tab: options.tab })
+    }
   },
 
   onShow() {
@@ -38,7 +32,7 @@ Page({
     if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
       wx.showModal({
         title: '请先入驻',
-        content: '完成商家入驻后可管理案例',
+        content: '完成商家入驻后可管理服务相册',
         success: (res) => {
           if (res.confirm) {
             wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
@@ -55,18 +49,10 @@ Page({
   async loadList() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const status =
-        this.data.tab === TAB_ALL ? undefined : this.data.tab
-      const { list } = await fetchAlbumList(status)
+      const raw = await fetchMerchantServiceAlbumList({ tab: this.data.tab })
+      const list = (raw || []).map(enrichMerchantAlbumListItem)
       this.setData({
-        list: list.map((a) => ({
-          ...a,
-          statusLabel: ALBUM_STATUS_LABEL[a.status] || a.status,
-          caseSource: CASE_SOURCE.MERCHANT_HISTORY,
-          coverImage: pickAlbumListCover(a),
-          title: buildAlbumListTitle(a),
-          cardTags: buildAlbumListTags(a),
-        })),
+        list,
         status: list.length ? 'normal' : 'empty',
       })
     } catch (e) {
@@ -84,6 +70,12 @@ Page({
 
   onCreate() {
     wx.navigateTo({ url: '/packageMerchant/pages/album/create/index' })
+  },
+
+  onCardTap(e) {
+    const { id } = e.detail
+    if (!id) return
+    wx.navigateTo({ url: `/packageMerchant/pages/album/edit/index?albumId=${id}` })
   },
 
   onRetry() {

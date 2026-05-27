@@ -1,19 +1,20 @@
 const { fetchCaseDetail } = require('../../../services/case')
-const { fetchReviewByOrderId } = require('../../../services/review')
-const { buildCaseTags } = require('../../../utils/case-tags')
-const { CASE_SOURCE } = require('../../../constants/case-source')
 const { copyCaseShareLink } = require('../../../utils/case-share')
+
+const BOTTOM_LEFT_ACTIONS = [
+  { key: 'call', type: 'secondary', text: '电话咨询' },
+  { key: 'share', type: 'ghost', text: '分享' },
+]
 
 Page({
   data: {
     status: 'loading',
     detail: null,
-    tagList: [],
     errorMessage: '',
-    isHistory: true,
     relatedCases: [],
     faqList: [],
-    linkedReview: null,
+    showStorePublicly: true,
+    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
   },
 
   onLoad(options) {
@@ -30,21 +31,11 @@ Page({
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const detail = await fetchCaseDetail(this.caseId)
-      let linkedReview = null
-      if (
-        detail.source === CASE_SOURCE.PLATFORM_ORDER &&
-        detail.orderId
-      ) {
-        linkedReview = await fetchReviewByOrderId(detail.orderId)
-      }
       this.setData({
         detail,
-        tagList: buildCaseTags(detail.source),
-        isHistory: detail.source === CASE_SOURCE.MERCHANT_HISTORY,
+        showStorePublicly: detail.showStorePublicly !== false,
         relatedCases: detail.relatedCases || [],
         faqList: detail.faq || [],
-        linkedReview,
-        linkedReviews: linkedReview ? [linkedReview] : [],
         status: 'normal',
       })
       wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage', 'shareTimeline'] })
@@ -61,22 +52,31 @@ Page({
     this.loadDetail()
   },
 
-  onBook() {
+  onBottomLeftAction(e) {
+    const { key } = e.detail
+    if (key === 'call') this.onCall()
+    else if (key === 'share') this.onShare()
+  },
+
+  onCall() {
     const { detail } = this.data
-    if (!detail) return
-    if (detail.serviceItemId) {
-      wx.navigateTo({
-        url: `/pages/service/detail/index?id=${detail.serviceItemId}`,
-      })
+    const phone = detail && detail.storePhone
+    if (!phone) {
+      wx.showToast({ title: '暂无门店电话', icon: 'none' })
       return
     }
-    if (detail.storeId) {
-      wx.navigateTo({
-        url: `/pages/store/detail/index?id=${detail.storeId}`,
-      })
+    wx.makePhoneCall({ phoneNumber: phone })
+  },
+
+  onMessage() {
+    const { detail } = this.data
+    if (!detail || !detail.storeId) {
+      wx.showToast({ title: '门店信息不完整', icon: 'none' })
       return
     }
-    wx.switchTab({ url: '/pages/service/index' })
+    wx.navigateTo({
+      url: `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
+    })
   },
 
   onShare() {
@@ -89,7 +89,7 @@ Page({
     const { detail } = this.data
     if (!detail || !detail.id) {
       return {
-        title: '透明维修 · 公开案例',
+        title: '辙见 · 公开案例',
         path: '/pages/case/index',
       }
     }
@@ -99,11 +99,12 @@ Page({
     }
   },
 
-  onStoreTap() {
-    const { detail } = this.data
-    if (!detail || !detail.storeId) return
+  onStoreTap(e) {
+    if (!this.data.showStorePublicly) return
+    const storeId = (e.detail && e.detail.storeId) || (this.data.detail && this.data.detail.storeId)
+    if (!storeId) return
     wx.navigateTo({
-      url: `/pages/store/detail/index?id=${detail.storeId}`,
+      url: `/pages/store/detail/index?id=${storeId}`,
     })
   },
 

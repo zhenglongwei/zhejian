@@ -1,6 +1,6 @@
 <view class="page merchant-onboard page-content merchant-form-page" wx:if="{{status === 'normal'}}">
   <view class="merchant-onboard__hero">
-    <text class="text-h1">成为透明维修服务商</text>
+    <text class="text-h1">成为辙见服务商</text>
     <text class="text-body merchant-onboard__sub">把每一单维修变成可信案例，让专业被用户看见</text>
   </view>
   <ui-compliance-notice type="history" text="入驻资料仅用于平台审核与门店展示，MVP 阶段审核结果可先 mock 通过。" />
@@ -47,15 +47,28 @@
       />
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">擅长服务</text>
+      <text class="merchant-form__label">擅长服务 *</text>
       <view class="merchant-onboard__chips">
         <view
-          wx:for="{{serviceOptions}}"
-          wx:key="*this"
-          class="merchant-onboard__chip {{form.services.indexOf(item) >= 0 ? 'merchant-onboard__chip--on' : ''}}"
-          data-name="{{item}}"
+          wx:for="{{serviceTags}}"
+          wx:key="name"
+          class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
+          data-name="{{item.name}}"
           bindtap="onToggleService"
-        >{{item}}</view>
+        >{{item.name}}</view>
+      </view>
+      <view class="merchant-onboard__custom-line">
+        <text class="merchant-onboard__custom-label text-body">自定义</text>
+        <input
+          class="merchant-onboard__custom-input"
+          placeholder=""
+          value="{{customServiceInput}}"
+          maxlength="{{16}}"
+          confirm-type="done"
+          bindinput="onCustomServiceInput"
+          bindblur="onCustomServiceCommit"
+          bindconfirm="onCustomServiceCommit"
+        />
       </view>
     </view>
     <label class="merchant-onboard__agree">

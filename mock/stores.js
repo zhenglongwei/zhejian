@@ -5,7 +5,7 @@
 const SEED_STORES = [
   {
     id: 'store_demo_1',
-    name: '透明维修示范店（杭州滨江）',
+    name: '辙见示范店（杭州滨江）',
     status: 'open',
     auditStatus: 'approved',
     address: '浙江省杭州市滨江区江南大道 1888 号',
@@ -18,7 +18,7 @@ const SEED_STORES = [
     score: 4.8,
     caseCount: 3,
     supportsAlbum: true,
-    coverImage: '',
+    coverImage: '/assets/home/store-cover-demo.jpg',
     environmentImages: [],
     certifications: [
       { label: '营业执照', status: 'verified', text: '已认证' },
@@ -26,7 +26,7 @@ const SEED_STORES = [
       { label: '门店真实性', status: 'verified', text: '已审核' },
     ],
     aiSummary:
-      '杭州滨江示范门店，支持维修相册与公开案例展示，资质已审核，价格以到店检测为准。',
+      '杭州滨江示范门店，支持服务相册与公开案例展示，资质已审核，价格以到店检测为准。',
   },
 ]
 

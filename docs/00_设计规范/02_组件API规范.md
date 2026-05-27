@@ -1,6 +1,6 @@
 # 组件 API 规范
 
-> 与 `00_透明维修平台设计体系.md`、`01_设计令牌_tokens.md` 配套使用。  
+> 与 `00_辙见平台设计体系.md`、`01_设计令牌_tokens.md` 配套使用。  
 > 实现组件前请配合 `docs/99_AI技能库/skill_component_api_implementation.md`。
 
 ---
@@ -61,7 +61,28 @@
 - **Empty**：`image` `title` `description`；事件 `action`（主按钮）
 - **Skeleton**：`rows` `avatar` `title`；无业务文案
 
-### 2.4 Tabs（`components/tabs`）
+### 2.4 Cell（`components/cell`）
+
+列表行：标题、副标题、数字角标、右箭头；用于我的页菜单、设置页等。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | `''` | 主标题 |
+| desc | String | `''` | 副标题 |
+| badge | String | `''` | 数字角标（如待办计数），空则不展示 |
+| arrow | Boolean | true | 是否展示右箭头 |
+| border | Boolean | true | 是否展示底部分割线 |
+| disabled | Boolean | false | 禁用态 |
+
+| 事件 | 说明 |
+|---|---|
+| tap | 点击行（disabled 时不触发） |
+
+| Slot | 说明 |
+|---|---|
+| extra | 右侧自定义内容（在角标/箭头之后） |
+
+### 2.5 Tabs（`components/tabs`）
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
@@ -73,7 +94,7 @@
 |---|---|
 | change | `{ key }` 切换 Tab |
 
-### 2.5 DesensitizeWorkbench（`components/desensitize-workbench`）
+### 2.6 DesensitizeWorkbench（`components/desensitize-workbench`）
 
 > 规格见 `docs/04_维修过程相册/08_图片脱敏工具PRD.md`。商家端与用户端 **同一组件**，仅 `bizType` / 责任文案不同。
 
@@ -122,7 +143,7 @@
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
-| type | String | price / **casePrice** / accident / history / authorize / reward / **reviewUpload** / **desensitize** / **desensitizeGuide** |
+| type | String | price / **casePrice** / accident / history / authorize / **partRisk** / reward / **reviewUpload** / **desensitize** / **desensitizeGuide** |
 
 内置文案模板，禁止营销化表述。
 
@@ -147,9 +168,8 @@
 
 ### 3.4 CaseCard / StoreCard / ServiceCard / OrderCard
 
-列表卡片，字段见设计体系 §6.5–6.6；必须支持来源标签 slot 或 `caseSource` 属性。  
-**CaseCard**：可选 `tags` 覆盖默认标签行（商家相册列表按 `buildAlbumListTags`）。  
-**ServiceCard**：可选 `statusLabel` / `statusVariant`（商家服务列表工作流状态）。
+列表卡片，字段见设计体系 §6.5–6.6；**CaseCard** 使用 `authorizationTier` 生成授权 Tag。  
+**CaseCard**：可选 `tags` 覆盖默认标签行（商家相册列表按 `buildAlbumListTags`）。
 
 #### StoreCard（`components/store-card`）
 
@@ -158,6 +178,7 @@
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | storeId | String | `''` | 门店 ID |
+| coverImage | String | `''` | 门头/环境缩略图（已审核，可选） |
 | name | String | `''` | 门店名称 |
 | address | String | `''` | 地址 |
 | businessHours | String | `''` | 营业时间（可选） |
@@ -166,10 +187,38 @@
 | cardTags | Array | `[]` | `{ variant, text }[]`，≤3 |
 | showLink | Boolean | false | 是否展示底部链接文案 |
 | linkText | String | `'查看门店详情 ›'` | 链接文案 |
+| subtitle | String | `''` | 副标题（如城市，案例详情关联门店） |
+| mode | String | `'default'` | `default` 常规 · `anonymous` 匿名授权案例联系说明 |
+| anonymousHint | String | 见组件 | 匿名模式主文案 |
+| contactHint | String | `''` | 匿名模式联系说明（默认含 subtitle 城市） |
 
 | 事件 | 说明 |
 |---|---|
-| tap | `{ storeId }` |
+| tap | `{ storeId }`（`anonymous` 模式不触发） |
+
+#### ServiceCard（`components/service-card`）
+
+服务列表/详情卡片；价格区复用 `PriceDisplay`。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| serviceId | String | `''` | 服务 ID |
+| name | String | `''` | 服务名称 |
+| categoryName | String | `''` | 分类名 |
+| summary | String | `''` | 摘要 |
+| priceMode / amount / minAmount / maxAmount | — | — | 同 PriceDisplay |
+| storeName | String | `''` | 门店名（列表场景） |
+| showStoreName | Boolean | true | 是否展示门店名 |
+| showTags | Boolean | true | 是否展示 Tag 行；false 时 categoryName 作副标题 |
+| readonly | Boolean | false | 只读嵌入（如留言页服务信息） |
+| embedded | Boolean | false | 嵌入父 Card，无独立背景/内边距 |
+| showSuffix | Boolean | — | 覆盖 PriceDisplay 后缀；不传则用组件默认 |
+| disclaimerText | String | `''` | 覆盖 PriceDisplay 免责文案 |
+| statusLabel / statusVariant | String | — | 商家列表工作流状态 Tag |
+
+| 事件 | 说明 |
+|---|---|
+| tap | `{ serviceId }`（`readonly` 时不触发） |
 
 #### OrderCard（`components/order-card`）
 
@@ -245,6 +294,131 @@
 
 `view` 模式：纵向时间线 + 3 列图网格（§6.4）。`edit` 模式：标题行 + 可选 Tag/描述/建议 + textarea + `ImageUploader`。
 
+#### AlbumCard（`components/album-card`）
+
+用户端与商家端 **共用** 服务相册列表卡片；数据经 `enrichServiceAlbumListItem` 预处理。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| item | Object | — | 列表项 ViewModel（含 `albumId`、`statusLabel` 等） |
+| audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
+
+| 事件 | 说明 |
+|---|---|
+| tap | `{ id: albumId }` |
+
+**展示差异**
+
+| audience | meta 行 | 附加 Tag |
+|---|---|---|
+| user | `storeName`、车型、过程图张数 | `authPendingBadge`（可授权）、`publicLabel`（已授权） |
+| merchant | `车主 userPhoneDisplay`、车型、过程图张数 | 无授权相关 Tag |
+
+列表 enrich：`enrichServiceAlbumListItem(item)` 或 `enrichServiceAlbumListItem(item, { audience: 'merchant' })`（别名 `enrichMerchantAlbumListItem`）。
+
+列表卡片共用布局见 `styles/record-card.wxss`（与 `LeadCard` / `AuthorizationCard` 一致）。
+
+#### LeadCard（`components/lead-card`）
+
+用户端与商家端 **共用** 咨询线索列表卡片；数据经 `enrichLeadListItem` / `enrichMerchantLeadListItem` 预处理。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| item | Object | — | 列表项 ViewModel（含 `id`、`status`、`statusLabel`、`displayServiceName`、`primaryAction` 等） |
+| audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
+
+| 事件 | 说明 |
+|---|---|
+| tap | `{ id }` 点击卡片（非按钮区） |
+| action | `{ id, action }` 主操作按钮（商家端「联系用户」等） |
+
+**展示差异**
+
+| audience | meta 行 |
+|---|---|
+| user | `storeName`、问题摘要、期望到店 |
+| merchant | 联系人·脱敏手机、问题摘要、车型、期望到店、来源 |
+
+列表 enrich：`enrichLeadListItem(item)` · `enrichMerchantLeadListItem(item)`（`utils/lead-display.js`）。
+
+#### LeadStatusBadge（`components/lead-status-badge`）
+
+咨询线索状态 Badge；色组对齐设计体系 §6.2（`constants/lead-status.js` · `LEAD_STATUS_TONE`）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| status | String | `''` | `SUBMITTED` / `VIEWED` / `CONTACTED` / `CANCELLED` / `CLOSED` |
+| label | String | `''` | 覆盖展示文案；不传则用 `LEAD_STATUS_LABEL[status]` |
+| size | String | `sm` | `sm` · `lg` |
+
+#### LeadDetailBody（`components/lead-detail-body`）
+
+用户端 `consult/detail` 与商家端 `lead/detail` **共用** 咨询详情主体（信息表 + 描述 + 图片 + 页脚说明）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | `''` | 服务名或「门店留言」 |
+| status / statusLabel | String | — | 传给 `LeadStatusBadge` |
+| detailRows | Array | `[]` | `KeyInfoTable` 行 |
+| description | String | `''` | 问题描述 |
+| images | Array | `[]` | 用户上传图（私密） |
+| imageComplianceType | String | `consultImage` | 图片区 `ComplianceNotice` |
+| footerComplianceType | String | `consultRecord` | 页脚 `ComplianceNotice` |
+| showFooter | Boolean | true | 是否展示页脚说明 |
+
+共用布局见 `styles/record-detail.wxss`。
+
+#### AuthorizationCard（`components/authorization-card`）
+
+用户端公开授权列表卡片。
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| item | Object | 经 `enrichAuthorizationItem` 预处理，含 `displayTags` |
+
+| 事件 | 说明 |
+|---|---|
+| view | `{ id: albumId }` |
+| withdraw | `{ id: albumId }` |
+
+#### AlbumAuthorizeSection（`components/album-authorize-section`）
+
+相册详情「授权公开为案例」区块（用户端 V2.0）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| checked | Boolean | false | 勾选状态 |
+| submitting | Boolean | false | 提交中 |
+| title | String | 授权生成公开案例 | 标题 |
+| showPolicyLink | Boolean | true | 是否展示政策链接 |
+| confirmText | String | 确认公开为案例 | 主按钮文案 |
+| rejectText | String | 拒绝公开 | 次按钮文案 |
+
+| 事件 | 说明 |
+|---|---|
+| toggle | 勾选切换 |
+| submit | 确认公开 |
+| reject | 拒绝公开 |
+| policy | 点击《利益共享政策》 |
+
+#### PendingConfirmList（`components/pending-confirm-list`）— **Phase 2 · 新页勿引**
+
+> **Phase 1（辙见 · 服务相册）**：用户端 **不启用** 配件/方案待确认主路径；R4 详情页已移除置顶入口。  
+> **Phase 2**：服务相册详情待确认配件/方案置顶列表（见 `10_配件告知确认规则.md`）。  
+> **遗留代码**：组件保留供 Phase 2 与旧 mock 联调，**新页面禁止引用**。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| items | Array | `[]` | `{ id, label, cellTitle? }[]` |
+| actionText | String | 立即处理 | 底部按钮 |
+
+| 事件 | 说明 |
+|---|---|
+| itemtap | `{ id }` |
+| action | 点击「立即处理」 |
+
+列表卡片共用布局见 `styles/record-card.wxss`（`AlbumCard` / `LeadCard` / `AuthorizationCard`）。
+
 ---
 
 ### 3.6 FixedBottomBar（`components/fixed-bottom-bar`）
@@ -252,14 +426,136 @@
 | 属性 | 类型 | 说明 |
 |---|---|---|
 | safeArea | Boolean | true，使用 safe-bottom |
+| leftActions | Array | `{ key, type?, text, disabled? }[]` 左侧按钮组；有值时替代 `left` slot |
 
-双按钮 slot：`left` `right`；或单主按钮。
+| 事件 | 说明 |
+|---|---|
+| leftaction | `{ key }` 点击 leftActions 项 |
+
+双按钮 slot：`left` `right`；或单主按钮 + `leftActions`。
+
+---
+
+### 3.6a ListPageShell（`components/list-page-shell`）
+
+Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于咨询列表、商家线索、服务相册列表等。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| tabs | Array | `[]` | `{ key, label }[]` |
+| activeKey | String | `''` | 当前 Tab |
+| status | String | `loading` | `loading` · `unauthenticated` · `error` · `empty` · `normal` |
+| errorMessage | String | `''` | 错误描述 |
+| emptyTitle / emptyDescription / emptyActionText | String | — | 空状态文案 |
+| unauthTitle / unauthDescription / unauthActionText | String | — | 未登录态（用户端咨询列表） |
+| tabsCard | Boolean | false | Tab 区白底（用户咨询列表） |
+| bodyClearance | Boolean | false | 列表区预留 fixed 底栏间距 |
+| skeletonCount / skeletonRows | Number | 3 / 4 | loading 骨架数量 |
+
+| 事件 | 说明 |
+|---|---|
+| tabchange | `{ key }` |
+| retry | 错误重试 |
+| emptyaction | 空状态主操作 |
+| unauthaction | 未登录主操作 |
+
+默认 slot：normal 态列表内容；`intro` slot：Tabs 上方（搜索栏 + 页头说明）；`empty` slot：空状态自定义区（默认内置 `Empty`）；`footer` slot：底部 FAB 等。
+
+`tabs` 为空数组时不渲染 Tab 栏。
+
+---
+
+### 3.6b BottomSheet（`components/bottom-sheet`）
+
+底部弹层（mask + panel + safe-area）；用于关闭说明、轻量表单等。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| visible | Boolean | false | 是否展示 |
+| title / hint | String | — | 标题与辅助说明 |
+| showTextarea | Boolean | false | 是否展示输入框 |
+| textareaValue / textareaPlaceholder | String | — | 受控输入 |
+| maxlength | Number | 200 | 输入上限 |
+| confirmText / cancelText | String | 确认 / 取消 | 按钮文案 |
+| confirmDisabled / loading | Boolean | false | 确认按钮态 |
+
+| 事件 | 说明 |
+|---|---|
+| close | 点击遮罩 |
+| cancel | 点击取消 |
+| confirm | 点击确认 |
+| input | `{ value }` 输入变更 |
+
+默认 slot：标题与 textarea 之间的自定义内容。
+
+---
+
+### 3.6c SearchBar（`components/search-bar`）
+
+搜索输入 / 只读入口（首页、Tab 顶栏、搜索页）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| value | String | `''` | 受控关键词（可输入模式） |
+| placeholder | String | — | 占位文案 |
+| readonly | Boolean | false | 只读时点击跳转 |
+| focus | Boolean | false | 自动聚焦 |
+| showCancel | Boolean | false | 显示取消按钮 |
+
+| 事件 | 说明 |
+|---|---|
+| input | `{ value }` |
+| confirm | `{ value }` 键盘搜索 |
+| clear | 清空 |
+| cancel | 取消 |
+| navigate | 只读模式点击 |
+
+---
+
+### 3.6d GeoTopicCard（`components/geo-topic-card`）
+
+本地 GEO 专题卡片（首页横滑、搜索结果）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| topicId | String | `''` | 专题 ID |
+| title / summary | String | — | 标题与摘要 |
+| coverImage | String | `''` | 专题缩略图（可选，首页横滑） |
+| tagText | String | `本地专题` | Tag 文案 |
+| updatedAt | String | `''` | 可选，展示更新时间 |
+| showMeta | Boolean | false | true：底部 tag+时间；false：顶部 tag（首页） |
+| bordered / shadow | Boolean | true / false | 透传 `Card` |
+
+| 事件 | 说明 |
+|---|---|
+| tap | `{ topicId }` |
 
 ---
 
 ### 3.7 其他业务组件
 
-#### RatingDimensions（`components/rating-dimensions`）
+#### TagRow（`components/tag-row`）
+
+横向 Tag 组；案例详情与 `CaseCard` 共用 `buildCaseTags`。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| tags | Array | `[]` | `{ variant, text }[]`；有值时优先 |
+| authorizationTier | String | `''` | 无 tags 时按档位生成案例 Tag |
+
+#### FaqList（`components/faq-list`）
+
+FAQ 问答列表（案例/服务详情、H5 结构对齐）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| items | Array | `[]` | `{ q, a }[]` |
+| showQPrefix | Boolean | false | 是否在问题前加 `Q：` |
+| variant | String | `'default'` | `default` 分割线 · `card` 卡片块（服务详情） |
+
+> **V2.0 说明**：`RatingDimensions`、`ReviewCard`、`ReviewListSection`、`RewardSummaryBlock`、`RewardRecordCard` 等为 V1.0 交易评价/奖励组件，**MVP 不实现、新页面勿引用**。门店/案例详情改用透明度指标与案例摘要。
+
+#### RatingDimensions（`components/rating-dimensions`）— V1.0 遗留
 
 六维评价星级（设计体系 §8.3）。默认展示前 3 维，其余可展开。
 
@@ -375,13 +671,30 @@
 
 #### KeyInfoTable / AiSummaryBlock / ImageUploader
 
-见各组件目录；案例/订单详情已广泛使用。
+见各组件目录；案例详情、服务相册页已广泛使用。
 
 ---
 
-### 3.8 LoginSheet（`components/login-sheet`）
+### 3.8 MineUserHeader（`components/mine-user-header`）
 
-底部弹层：微信登录 + 微信手机号绑定；供「我的」、下单前置等场景复用。
+我的页用户信息区：头像、昵称、脱敏手机号、登录/绑手机引导。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| isLoggedIn | Boolean | false | 是否已登录 |
+| user | Object | null | `{ nickname, avatarUrl, phoneDisplay, isPhoneBound }` |
+
+| 事件 | 说明 |
+|---|---|
+| usertap | 点击用户区（已登录未绑手机时引导绑手机） |
+| logintap | 点击「微信一键登录」 |
+| bindphonetap | 点击「绑定手机号」 |
+
+---
+
+### 3.9 LoginSheet（`components/login-sheet`）
+
+底部弹层：微信登录 + 微信手机号绑定；供「我的」、咨询预约前置等场景复用。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -391,7 +704,7 @@
 | description | String | `''` | 覆盖说明 |
 | showAgreement | Boolean | true | 登录步展示协议勾选 |
 | maskClosable | Boolean | true | 点遮罩关闭 |
-| bindContext | String | `'general'` | 绑手机文案场景：`'general'` / `'order'` |
+| bindContext | String | `'general'` | 绑手机/登录文案场景：`'general'` / `'order'` / `'consult'` |
 
 | 事件 | 说明 |
 |---|---|
@@ -399,7 +712,7 @@
 | success | `{ user, step: 'login' \| 'bindPhone' }` |
 | fail | `{ step, message }` |
 
-登录前须勾选《用户协议》《隐私政策》；文案见 PRD `12_我的页面与账户体系.md` §22。
+登录前须勾选《用户协议》《隐私政策》；文案见 PRD `12_我的页面与账户体系.md` §16。
 
 ---
 
@@ -427,6 +740,7 @@
 | 工具类 | 用途 |
 |---|---|
 | `.text-link` | 页内文字链（政策、门店详情等），色值 `--color-primary` |
+| `.note-block` | 中性说明块（门店备注、状态提示等），背景 `--color-bg-muted` |
 
 ---
 
@@ -436,3 +750,4 @@
 |---|---|
 | V1.0 | 初版，与 MVP 组件清单对齐 |
 | V1.1 | 新增 `OrderCard`；`AlbumNode` 扩展 `mode=edit` / `compact` |
+| V2.0 | 新增 `AlbumCard`、`AuthorizationCard`、`AlbumAuthorizeSection`；`ComplianceNotice` 增 `partRisk`；`.note-block` 工具类；`PendingConfirmList`（**Phase 2**，Phase 1 新页勿引）；R6 增 `LeadCard`/`LeadStatusBadge`/`LeadDetailBody`/`ListPageShell`/`BottomSheet` 文档与实现 |

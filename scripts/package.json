@@ -1,0 +1,9 @@
+{
+  "name": "zhejian-scripts",
+  "private": true,
+  "type": "module",
+  "description": "开发脚本依赖（首页图标 SVG→PNG 等）",
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

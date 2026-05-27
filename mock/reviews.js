@@ -23,7 +23,7 @@ const SEED_REVIEWS = [
     storeId: 'store_demo_1',
     serviceId: 'svc_seed_1',
     serviceName: '小保养',
-    storeName: '透明维修示范店（杭州滨江）',
+    storeName: '辙见示范店（杭州滨江）',
     scores: {
       scoreService: 5,
       scoreProfessional: 5,
@@ -47,7 +47,7 @@ const SEED_REVIEWS = [
     storeId: 'store_demo_1',
     serviceId: 'svc_seed_2',
     serviceName: '刹车片更换',
-    storeName: '透明维修示范店（杭州滨江）',
+    storeName: '辙见示范店（杭州滨江）',
     scores: {
       scoreService: 4,
       scoreProfessional: 5,
@@ -58,7 +58,7 @@ const SEED_REVIEWS = [
     },
     overallScore: 4.3,
     tags: ['维修细致', '过程透明'],
-    content: '刹车异响问题已解决，维修相册记录清晰，价格区间事先有说明。',
+    content: '刹车异响问题已解决，服务相册记录清晰，价格区间事先有说明。',
     images: [],
     anonymous: true,
     nickname: '',
@@ -71,7 +71,7 @@ const SEED_REVIEWS = [
     storeId: 'store_demo_1',
     serviceId: 'svc_seed_2',
     serviceName: '刹车片更换',
-    storeName: '透明维修示范店（杭州滨江）',
+    storeName: '辙见示范店（杭州滨江）',
     scores: {
       scoreService: 5,
       scoreProfessional: 4,

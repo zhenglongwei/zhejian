@@ -1,68 +1,55 @@
 <view class="page case-page">
-  <view class="case-page__intro page-content">
-    <text class="text-h2">真实维修案例</text>
-    <text class="text-caption case-page__desc">{{introDesc}}</text>
-    <view class="case-page__privacy">
-      <ui-privacy-banner scene="share" />
+  <ui-list-page-shell
+    tabs="{{filterTabs}}"
+    activeKey="{{filterSource}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    emptyTitle="暂无公开案例"
+    emptyDescription="服务相册授权公开后将展示在此"
+    emptyActionText="刷新"
+    skeletonRows="{{3}}"
+    bind:tabchange="onTabChange"
+    bind:retry="onRetry"
+    bind:emptyaction="onRetry"
+  >
+    <view slot="intro">
+      <view class="tab-page__search page-content">
+        <ui-search-bar
+          readonly="{{true}}"
+          placeholder="{{searchPlaceholder}}"
+          bind:navigate="onSearchNavigate"
+        />
+      </view>
+      <view class="tab-page__intro page-content">
+        <text class="tab-page__intro-title text-h2">公开维修案例</text>
+        <text class="tab-page__intro-desc text-caption">{{introDesc}}</text>
+        <view class="tab-page__intro-notice">
+          <ui-privacy-banner
+            text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
+          />
+        </view>
+        <view class="tab-page__intro-notice">
+          <ui-compliance-notice type="{{complianceType}}" />
+        </view>
+      </view>
     </view>
-    <view class="case-page__compliance">
-      <ui-compliance-notice type="{{complianceType}}" />
-    </view>
-    <view wx:if="{{showHistoryNotice}}" class="case-page__compliance">
-      <ui-compliance-notice type="history" />
-    </view>
-  </view>
 
-  <view class="case-page__tabs page-content">
-    <ui-tabs tabs="{{filterTabs}}" activeKey="{{filterSource}}" bind:change="onTabChange" />
-  </view>
-
-  <block wx:if="{{status === 'loading'}}">
-    <view class="page-content case-page__list">
-      <ui-skeleton wx:for="{{[1,2,3]}}" wx:key="*this" rows="{{3}}" />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <ui-empty
-        title="加载失败"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content">
-      <ui-empty
-        title="暂无公开案例"
-        description="商家入驻并上传案例后将展示在此"
-        actionText="刷新"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:else>
-    <view class="page-content case-page__list">
-      <ui-case-card
-        wx:for="{{list}}"
-        wx:key="id"
-        caseId="{{item.id}}"
-        caseSource="{{item.source}}"
-        coverImage="{{item.coverImage}}"
-        title="{{item.title}}"
-        serviceName="{{item.serviceName}}"
-        summary="{{item.summary}}"
-        priceMode="{{item.priceMode}}"
-        minAmount="{{item.minAmount}}"
-        maxAmount="{{item.maxAmount}}"
-        storeName="{{item.storeName}}"
-        viewCount="{{item.viewCount}}"
-        bind:tap="onCaseTap"
-      />
-    </view>
-  </block>
+    <ui-case-card
+      wx:for="{{list}}"
+      wx:key="id"
+      caseId="{{item.id}}"
+      authorizationTier="{{item.authorizationTier}}"
+      coverImage="{{item.coverImage}}"
+      title="{{item.title}}"
+      serviceName="{{item.serviceName}}"
+      summary="{{item.summary}}"
+      priceMode="{{item.priceMode}}"
+      amount="{{item.amount}}"
+      minAmount="{{item.minAmount}}"
+      maxAmount="{{item.maxAmount}}"
+      storeName="{{item.storeName}}"
+      viewCount="{{item.viewCount}}"
+      bind:tap="onCaseTap"
+    />
+  </ui-list-page-shell>
 </view>

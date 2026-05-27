@@ -39,7 +39,6 @@
         </view>
         <view class="store-detail__status-row">
           <text class="store-detail__status text-body">{{statusText}}</text>
-          <text wx:if="{{store.score}}" class="store-detail__score text-caption">评分 {{store.score}}</text>
           <text wx:if="{{store.caseCount}}" class="store-detail__meta text-caption">公开案例 {{store.caseCount}}</text>
         </view>
       </view>
@@ -48,41 +47,16 @@
 
       <view class="store-detail__card-wrap">
         <ui-card>
-        <view class="store-detail__info-row">
-          <text class="store-detail__info-label text-caption">地址</text>
-          <text class="store-detail__info-value text-body">{{store.address}}</text>
-        </view>
-        <view class="store-detail__info-row">
-          <text class="store-detail__info-label text-caption">营业时间</text>
-          <text class="store-detail__info-value text-body">{{store.businessHours}}</text>
-        </view>
-        <view wx:if="{{store.specialties.length}}" class="store-detail__specialties">
-          <text class="store-detail__info-label text-caption">擅长项目</text>
-          <view class="store-detail__specialty-tags">
-            <ui-tag
-              wx:for="{{store.specialties}}"
-              wx:key="*this"
-              variant="default"
-              text="{{item}}"
-            />
-          </view>
-        </view>
+          <ui-key-info-table rows="{{infoRows}}" />
         </ui-card>
       </view>
 
-      <view class="store-detail__section">
+      <view wx:if="{{certRows.length}}" class="store-detail__section">
         <text class="store-detail__section-title text-h2">门店资质</text>
         <view class="store-detail__card-wrap">
           <ui-card>
-          <view
-            wx:for="{{store.certifications}}"
-            wx:key="label"
-            class="store-detail__cert-row"
-          >
-            <text class="store-detail__cert-label text-body">{{item.label}}</text>
-            <text class="store-detail__cert-value text-caption">{{item.text}}</text>
-          </view>
-        </ui-card>
+            <ui-key-info-table rows="{{certRows}}" />
+          </ui-card>
         </view>
       </view>
 
@@ -119,24 +93,10 @@
             minAmount="{{item.minAmount}}"
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
-            onlinePaymentEnabled="{{item.onlinePaymentEnabled}}"
             showStoreName="{{false}}"
             bind:tap="onServiceTap"
           />
         </view>
-      </view>
-
-      <view class="store-detail__section">
-        <ui-review-list-section
-          sectionTitle="用户评价"
-          topTags="{{reviewTags}}"
-          reviews="{{reviews}}"
-          status="{{reviewsStatus}}"
-          emptyTitle="该门店暂无公开评价"
-          emptyDescription="完成服务后可提交真实评价，帮助其他用户了解门店。"
-          errorDescription="门店其他信息正常展示，请稍后重试加载评价。"
-          bind:retry="onRetryReviews"
-        />
       </view>
 
       <view class="store-detail__section">
@@ -154,9 +114,6 @@
         <view class="store-detail__compliance">
           <ui-compliance-notice type="casePrice" />
         </view>
-        <view wx:if="{{hasHistoryCases}}" class="store-detail__compliance">
-          <ui-compliance-notice type="history" />
-        </view>
 
         <block wx:if="{{casesStatus === 'empty'}}">
           <ui-empty
@@ -172,12 +129,13 @@
             wx:for="{{cases}}"
             wx:key="id"
             caseId="{{item.id}}"
-            caseSource="{{item.source}}"
+            authorizationTier="{{item.authorizationTier}}"
             coverImage="{{item.coverImage}}"
             title="{{item.title}}"
             serviceName="{{item.serviceName}}"
             summary="{{item.summary}}"
             priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
             minAmount="{{item.minAmount}}"
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
@@ -189,12 +147,8 @@
       </view>
     </view>
 
-    <ui-fixed-bottom-bar>
-      <view slot="left" class="store-detail__bar-left">
-        <ui-button type="secondary" size="sm" bind:tap="onCall">联系门店</ui-button>
-        <ui-button type="secondary" size="sm" bind:tap="onNavigate">导航</ui-button>
-      </view>
-      <ui-button type="primary" slot="right" bind:tap="onBook">预约服务</ui-button>
+    <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
+      <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
     </ui-fixed-bottom-bar>
   </block>
 </view>

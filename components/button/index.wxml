@@ -2,6 +2,7 @@
   class="btn btn--{{type}} {{size === 'sm' ? 'btn--sm' : ''}} {{block ? 'btn--block' : ''}} {{disabled || loading ? 'btn--disabled' : ''}}"
   disabled="{{disabled || loading}}"
   loading="{{loading}}"
+  open-type="{{openType}}"
   bindtap="onTap"
 >
   <slot />

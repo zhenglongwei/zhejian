@@ -1,0 +1,38 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="album-authorize-section">
+    <text class="album-authorize-section__title text-h3">{{title}}</text>
+    <ui-compliance-notice type="authorize" />
+    <ui-checkbox-row
+      checked="{{checked}}"
+      disabled="{{submitting}}"
+      bind:toggle="onToggle"
+    >
+      <text>我已核对公开内容，同意将本次服务相册公开为案例。</text>
+      <text
+        wx:if="{{showPolicyLink}}"
+        class="text-link"
+        catchtap="onPolicyTap"
+      >{{policyLinkText}}</text>
+    </ui-checkbox-row>
+    <view class="album-authorize-section__actions">
+      <view class="album-authorize-section__action">
+        <ui-button
+          type="ghost"
+          size="sm"
+          block="{{true}}"
+          disabled="{{submitting}}"
+          bind:tap="onReject"
+        >{{rejectText}}</ui-button>
+      </view>
+      <view class="album-authorize-section__action">
+        <ui-button
+          type="primary"
+          size="sm"
+          block="{{true}}"
+          disabled="{{submitting}}"
+          bind:tap="onSubmit"
+        >{{confirmText}}</ui-button>
+      </view>
+    </view>
+  </view>
+</ui-card>

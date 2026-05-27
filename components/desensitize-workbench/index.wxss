@@ -66,14 +66,3 @@
 .desensitize-wb__liability {
   margin-top: var(--space-lg);
 }
-
-.desensitize-wb__agree {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.desensitize-wb__agree text {
-  flex: 1;
-  color: var(--color-text-secondary);
-}

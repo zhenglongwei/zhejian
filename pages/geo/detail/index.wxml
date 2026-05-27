@@ -1,0 +1,133 @@
+<view class="page geo-detail">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content geo-detail__pad">
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法加载专题"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{detail}}">
+    <view class="geo-detail__body page-content">
+      <view class="geo-detail__tag-row">
+        <ui-tag variant="info" text="{{geoTopicTag}}" />
+      </view>
+      <text class="geo-detail__title text-h1">{{detail.title}}</text>
+      <ui-ai-summary-block content="{{detail.summary}}" />
+      <ui-key-info-table rows="{{keyInfoRows}}" />
+
+      <view wx:if="{{detail.scenarios.length}}" class="geo-detail__section">
+        <text class="geo-detail__section-title text-h3">适用场景</text>
+        <view class="bullet-list">
+          <text
+            wx:for="{{detail.scenarios}}"
+            wx:key="*this"
+            class="bullet-list__item"
+          >· {{item}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{detail.priceFactors.length}}" class="geo-detail__section">
+        <text class="geo-detail__section-title text-h3">影响价格的因素</text>
+        <view class="bullet-list">
+          <text
+            wx:for="{{detail.priceFactors}}"
+            wx:key="*this"
+            class="bullet-list__item"
+          >· {{item}}</text>
+        </view>
+        <view class="geo-detail__notice">
+          <ui-compliance-notice type="accident" wx:if="{{showAccidentNotice}}" />
+          <ui-compliance-notice type="price" wx:else />
+        </view>
+      </view>
+
+      <view class="geo-detail__section">
+        <text class="geo-detail__section-title text-h3">相关案例</text>
+        <view class="geo-detail__privacy">
+          <ui-privacy-banner
+            text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
+          />
+        </view>
+        <view class="geo-detail__notice">
+          <ui-compliance-notice type="casePrice" />
+        </view>
+        <view wx:if="{{relatedCases.length}}" class="geo-detail__cases">
+          <ui-case-card
+            wx:for="{{relatedCases}}"
+            wx:key="id"
+            caseId="{{item.id}}"
+            authorizationTier="{{item.authorizationTier}}"
+            coverImage="{{item.coverImage}}"
+            title="{{item.title}}"
+            serviceName="{{item.serviceName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            viewCount="{{item.viewCount}}"
+            bind:tap="onCaseTap"
+          />
+        </view>
+        <ui-empty
+          wx:else
+          title="暂无相关公开案例"
+          description="你可以先查看其他专题，或留言咨询门店"
+        />
+      </view>
+
+      <view class="geo-detail__section">
+        <text class="geo-detail__section-title text-h3">相关门店</text>
+        <view wx:if="{{relatedStores.length}}" class="geo-detail__stores">
+          <ui-store-card
+            wx:for="{{relatedStores}}"
+            wx:key="id"
+            storeId="{{item.id}}"
+            name="{{item.name}}"
+            address="{{item.address}}"
+            businessHours="{{item.businessHours}}"
+            caseCount="{{item.caseCount}}"
+            cardTags="{{item.cardTags}}"
+            showLink="{{true}}"
+            bind:tap="onStoreTap"
+          />
+        </view>
+        <ui-empty
+          wx:else
+          title="暂无可展示门店"
+          description="更多门店入驻后将展示在此"
+        />
+      </view>
+
+      <view wx:if="{{faqList.length}}" class="geo-detail__section">
+        <text class="geo-detail__section-title text-h3">常见问题</text>
+        <ui-faq-list items="{{faqList}}" />
+      </view>
+
+      <view class="geo-detail__section geo-detail__section--footer">
+        <text class="geo-detail__section-title text-h3">平台说明</text>
+        <ui-card bordered="{{true}}">
+          <text class="text-caption">{{footerText}}</text>
+        </ui-card>
+      </view>
+    </view>
+
+    <ui-fixed-bottom-bar
+      leftActions="{{bottomLeftActions}}"
+      bind:leftaction="onBottomLeftAction"
+    >
+      <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

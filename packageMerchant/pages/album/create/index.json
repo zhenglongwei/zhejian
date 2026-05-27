@@ -1,11 +1,9 @@
 {
-  "navigationBarTitleText": "新建历史案例",
+  "navigationBarTitleText": "新建服务相册",
   "usingComponents": {
     "ui-button": "/components/button/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
-    "ui-album-node": "/components/album-node/index",
-    "ui-price-display": "/components/price-display/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-skeleton": "/components/skeleton/index"
   }
 }

@@ -1,0 +1,3 @@
+<view class="lead-status-badge {{sizeClass}} {{toneClass}}">
+  <text>{{displayLabel}}</text>
+</view>

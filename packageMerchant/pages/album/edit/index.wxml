@@ -1,0 +1,165 @@
+<view class="page merchant-album-edit {{detail ? 'merchant-album-edit--with-bar' : ''}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-album-edit__pad">
+      <ui-skeleton rows="{{3}}" title="{{true}}" />
+      <ui-skeleton rows="{{6}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty title="无法加载服务相册" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+    </view>
+  </block>
+
+  <block wx:elif="{{detail}}">
+    <view class="page-content merchant-album-edit__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="merchant-album-edit__head">
+          <text class="text-h3">{{detail.serviceName}}</text>
+          <ui-tag variant="info" text="{{statusLabel}}" />
+        </view>
+        <ui-key-info-table rows="{{summaryRows}}" />
+      </ui-card>
+
+      <ui-privacy-banner scene="album" />
+
+      <view class="merchant-album-edit__tabs">
+        <ui-tabs
+          tabs="{{stageTabs}}"
+          activeKey="{{stageTabs[stageIndex].key}}"
+          scrollable="{{true}}"
+          bind:change="onStageTabChange"
+        />
+      </view>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <ui-album-node
+          mode="edit"
+          title="{{nodes[stageIndex].title}}"
+          description="{{nodes[stageIndex].description}}"
+          photoTips="{{nodes[stageIndex].photoTips}}"
+          requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
+          requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
+          note="{{nodes[stageIndex].note}}"
+          images="{{nodes[stageIndex].images}}"
+          uploadHint="{{uploadPrivacyHint}}"
+          data-index="{{stageIndex}}"
+          bind:imageschange="onNodeImages"
+          bind:notechange="onNodeNoteChange"
+        />
+
+        <block wx:if="{{stages[stageIndex].id === 'stage_3'}}">
+          <view class="merchant-album-edit__plan">
+            <text class="merchant-form__label">参考报价（以线下确认为准）</text>
+            <input
+              class="merchant-form__input"
+              type="number"
+              placeholder="请输入本次方案报价"
+              value="{{planAmount}}"
+              data-field="planAmount"
+              bindinput="onPlanInput"
+            />
+            <ui-price-display
+              wx:if="{{pricePreview.amount}}"
+              mode="fixed"
+              amount="{{pricePreview.amount}}"
+              showDisclaimer="{{true}}"
+            />
+            <ui-compliance-notice type="price" />
+          </view>
+        </block>
+
+        <block wx:if="{{stages[stageIndex].id === 'stage_4'}}">
+          <view class="merchant-album-edit__parts">
+            <text class="text-h3">配件录入</text>
+            <text class="text-caption merchant-album-edit__parts-hint">记录配件类型与参考价格，供门店留痕；车主可在服务相册中查看，公开案例须另行授权。</text>
+            <view wx:for="{{parts}}" wx:key="partId" class="merchant-album-edit__part-row">
+              <ui-tag variant="{{item.typeVariant}}" text="{{item.partType}}" />
+              <text class="text-body">{{item.partName}}</text>
+              <view wx:if="{{item.actualPrice}}" class="merchant-album-edit__part-price">
+                <ui-price-display
+                  mode="fixed"
+                  amount="{{item.actualPrice}}"
+                  showSuffix="{{false}}"
+                  showDisclaimer="{{false}}"
+                />
+              </view>
+            </view>
+            <view wx:if="{{showPartForm}}" id="part-form" class="merchant-album-edit__part-form">
+              <input class="merchant-form__input" placeholder="配件名称" value="{{partForm.partName}}" data-field="partName" bindinput="onPartInput" />
+              <input class="merchant-form__input" placeholder="品牌（选填）" value="{{partForm.partBrand}}" data-field="partBrand" bindinput="onPartInput" />
+              <picker mode="selector" range="{{partTypeList}}" value="{{partForm.partTypeIndex}}" bindchange="onPartTypeChange">
+                <view class="merchant-form__picker">{{partTypeList[partForm.partTypeIndex]}}</view>
+              </picker>
+              <input class="merchant-form__input" type="number" placeholder="价格（选填）" value="{{partForm.actualPrice}}" data-field="actualPrice" bindinput="onPartInput" />
+              <view class="merchant-album-edit__part-form-actions">
+                <ui-button type="secondary" size="sm" bind:tap="onCancelPartForm">取消</ui-button>
+                <ui-button type="primary" size="sm" bind:tap="onAddPart">确认添加</ui-button>
+              </view>
+            </view>
+            <ui-button
+              wx:if="{{!showPartForm}}"
+              type="secondary"
+              size="sm"
+              block="{{true}}"
+              bind:tap="onOpenPartForm"
+            >添加配件</ui-button>
+          </view>
+        </block>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3">门店说明</text>
+        <textarea
+          class="merchant-form__textarea"
+          placeholder="补充说明（可选）"
+          value="{{storeNote}}"
+          bindinput="onStoreNoteInput"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__share">
+        <text class="text-h3">分享给车主</text>
+        <text class="text-caption merchant-album-edit__invite-hint">
+          仅门店登记的车主可查看；对方须使用同一手机号登录小程序。公开案例须车主另行授权。
+        </text>
+
+        <block wx:if="{{canShareToOwner}}">
+          <text class="text-caption merchant-album-edit__share-phone">已关联：{{detail.userPhoneDisplay}}</text>
+          <ui-button type="primary" size="sm" block="{{true}}" open-type="share">分享给车主</ui-button>
+        </block>
+
+        <block wx:else>
+          <text class="text-caption merchant-album-edit__share-phone">填写车主手机号后即可分享</text>
+          <input
+            class="merchant-form__input"
+            type="number"
+            maxlength="11"
+            placeholder="11 位手机号"
+            value="{{ownerPhoneInput}}"
+            bindinput="onOwnerPhoneInput"
+          />
+          <ui-button
+            type="secondary"
+            size="sm"
+            block="{{true}}"
+            loading="{{savingOwnerPhone}}"
+            bind:tap="onSaveOwnerPhone"
+          >保存手机号</ui-button>
+        </block>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button type="secondary" size="sm" slot="left" loading="{{saving}}" bind:tap="onSave">保存</ui-button>
+      <ui-button
+        wx:if="{{detail.status !== 'completed' && detail.status !== 'published'}}"
+        type="primary"
+        slot="right"
+        loading="{{completing}}"
+        bind:tap="onComplete"
+      >标记已完工</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

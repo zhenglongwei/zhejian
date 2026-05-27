@@ -1,0 +1,28 @@
+<view class="search-bar">
+  <view wx:if="{{readonly}}" class="search-bar__field search-bar__field--readonly" bindtap="onReadonlyTap">
+    <text class="search-bar__icon">⌕</text>
+    <text class="search-bar__placeholder text-caption">{{placeholder}}</text>
+  </view>
+  <view wx:else class="search-bar__field">
+    <text class="search-bar__icon">⌕</text>
+    <input
+      class="search-bar__input text-body"
+      value="{{value}}"
+      placeholder="{{placeholder}}"
+      focus="{{focus}}"
+      confirm-type="search"
+      bindinput="onInput"
+      bindconfirm="onConfirm"
+    />
+    <text
+      wx:if="{{value}}"
+      class="search-bar__clear text-caption"
+      catchtap="onClear"
+    >×</text>
+  </view>
+  <text
+    wx:if="{{showCancel && !readonly}}"
+    class="search-bar__cancel text-body"
+    bindtap="onCancel"
+  >取消</text>
+</view>

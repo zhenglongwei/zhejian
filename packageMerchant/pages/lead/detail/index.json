@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "线索详情",
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-lead-detail-body": "/components/lead-detail-body/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "ui-button": "/components/button/index"
+  }
+}

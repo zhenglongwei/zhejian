@@ -1,12 +1,7 @@
 const { fetchStoreDetail } = require('../../../services/store')
 const { fetchCaseList } = require('../../../services/case')
 const { fetchServiceList } = require('../../../services/service')
-const {
-  fetchStoreReviews,
-  fetchStoreTopReviewTags,
-} = require('../../../services/review')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
-const { CASE_SOURCE } = require('../../../constants/case-source')
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -16,21 +11,44 @@ const STATUS_TEXT = {
   offline: '暂不可预约',
 }
 
+const BOTTOM_LEFT_ACTIONS = [
+  { key: 'call', type: 'secondary', text: '电话咨询' },
+  { key: 'navigate', type: 'secondary', text: '导航' },
+]
+
+function buildStoreInfoRows(store) {
+  if (!store) return []
+  const rows = [
+    { label: '地址', value: store.address || '—' },
+    { label: '营业时间', value: store.businessHours || '—' },
+  ]
+  if (store.specialties && store.specialties.length) {
+    rows.push({ label: '擅长项目', value: store.specialties.join('、') })
+  }
+  return rows
+}
+
+function buildCertRows(certifications) {
+  return (certifications || []).map((item) => ({
+    label: item.label,
+    value: item.text || '—',
+  }))
+}
+
 Page({
   data: {
     status: 'loading',
     store: null,
+    infoRows: [],
+    certRows: [],
     cases: [],
     casesStatus: 'loading',
     services: [],
     servicesStatus: 'loading',
     statusText: '',
     headTags: [],
-    hasHistoryCases: false,
-    reviewTags: [],
-    reviews: [],
-    reviewsStatus: 'loading',
     errorMessage: '',
+    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
   },
 
   onLoad(options) {
@@ -43,23 +61,18 @@ Page({
   },
 
   async loadPage() {
-    this.setData({ status: 'loading', casesStatus: 'loading', servicesStatus: 'loading', reviewsStatus: 'loading', errorMessage: '' })
+    this.setData({ status: 'loading', casesStatus: 'loading', servicesStatus: 'loading', errorMessage: '' })
     try {
       const [store, { list: cases }, { list: services }] = await Promise.all([
         fetchStoreDetail(this.storeId),
         fetchCaseList({ storeId: this.storeId }),
         fetchServiceList({ storeId: this.storeId }),
       ])
-      const reviewModule = await this.loadReviewsModule()
       this.setData({
         store: { ...store, caseCount: cases.length },
         headTags: buildStoreHeadTags(store),
-        reviewTags: reviewModule.reviewTags,
-        reviews: reviewModule.reviews,
-        reviewsStatus: reviewModule.reviewsStatus,
-        hasHistoryCases: cases.some(
-          (c) => c.source === CASE_SOURCE.MERCHANT_HISTORY
-        ),
+        infoRows: buildStoreInfoRows(store),
+        certRows: buildCertRows(store.certifications),
         cases,
         services,
         statusText: STATUS_TEXT[store.status] || store.status,
@@ -73,36 +86,6 @@ Page({
         errorMessage: (e && e.message) || '加载失败，请重试',
       })
     }
-  },
-
-  async loadReviewsModule() {
-    try {
-      const [reviewTags, { list: reviews }] = await Promise.all([
-        fetchStoreTopReviewTags(this.storeId, 5),
-        fetchStoreReviews(this.storeId, { limit: 3 }),
-      ])
-      return {
-        reviewTags,
-        reviews,
-        reviewsStatus: reviews.length ? 'normal' : 'empty',
-      }
-    } catch (e) {
-      return {
-        reviewTags: [],
-        reviews: [],
-        reviewsStatus: 'error',
-      }
-    }
-  },
-
-  async onRetryReviews() {
-    this.setData({ reviewsStatus: 'loading' })
-    const reviewModule = await this.loadReviewsModule()
-    this.setData({
-      reviewTags: reviewModule.reviewTags,
-      reviews: reviewModule.reviews,
-      reviewsStatus: reviewModule.reviewsStatus,
-    })
   },
 
   onRetry() {
@@ -136,6 +119,12 @@ Page({
     wx.makePhoneCall({ phoneNumber: store.phone })
   },
 
+  onBottomLeftAction(e) {
+    const { key } = e.detail
+    if (key === 'call') this.onCall()
+    else if (key === 'navigate') this.onNavigate()
+  },
+
   onNavigate() {
     const { store } = this.data
     if (!store || store.latitude == null || store.longitude == null) {
@@ -151,28 +140,9 @@ Page({
     })
   },
 
-  onBook() {
-    const { services } = this.data
-    if (!services || !services.length) {
-      wx.showToast({ title: '该门店暂无可预约服务', icon: 'none' })
-      return
-    }
-    if (services.length === 1) {
-      const svc = services[0]
-      wx.navigateTo({
-        url: `/pages/order-confirm/index?serviceId=${svc.id}&storeId=${this.storeId}`,
-      })
-      return
-    }
-    wx.showActionSheet({
-      itemList: services.map((s) => s.name),
-      success: (res) => {
-        const svc = services[res.tapIndex]
-        if (!svc) return
-        wx.navigateTo({
-          url: `/pages/order-confirm/index?serviceId=${svc.id}&storeId=${this.storeId}`,
-        })
-      },
+  onMessage() {
+    wx.navigateTo({
+      url: `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
     })
   },
 })

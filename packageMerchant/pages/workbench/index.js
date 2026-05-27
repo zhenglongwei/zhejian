@@ -2,17 +2,18 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
-const { fetchMerchantOrderStats } = require('../../../services/merchant-order')
+const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
+const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 
 Page({
   data: {
     status: 'loading',
     profile: null,
     todos: {
-      waitAccept: 0,
-      today: 0,
-      inService: 0,
-      waitComplete: 0,
+      pendingLeads: 0,
+      pendingUpload: 0,
+      pendingAuth: 0,
+      activeAlbums: 0,
     },
   },
 
@@ -28,13 +29,22 @@ Page({
       return
     }
     let todos = {
-      waitAccept: 0,
-      today: 0,
-      inService: 0,
-      waitComplete: 0,
+      pendingLeads: 0,
+      pendingUpload: 0,
+      pendingAuth: 0,
+      activeAlbums: 0,
     }
     try {
-      todos = await fetchMerchantOrderStats()
+      const [stats, leadStats] = await Promise.all([
+        fetchMerchantAlbumStats(),
+        fetchMerchantLeadStats(profile.storeId),
+      ])
+      todos = {
+        pendingLeads: leadStats.pending || 0,
+        pendingUpload: stats.pendingUpload || 0,
+        pendingAuth: stats.pendingAuth || 0,
+        activeAlbums: stats.active || 0,
+      }
     } catch (e) {
       /* keep zeros */
     }
@@ -49,20 +59,25 @@ Page({
     wx.navigateTo({ url: '/packageMerchant/pages/album/create/index' })
   },
 
-  onAlbumList() {
-    wx.navigateTo({ url: '/packageMerchant/pages/album/list/index' })
+  onAlbumList(e) {
+    const tab =
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
+      'all'
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/list/index?tab=${tab}`,
+    })
   },
 
   onServiceList() {
     wx.navigateTo({ url: '/packageMerchant/pages/service/list/index' })
   },
 
-  onOrderList(e) {
+  onLeadList(e) {
     const tab =
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
-      'all'
+      'pending'
     wx.navigateTo({
-      url: `/packageMerchant/pages/order/list/index?tab=${tab}`,
+      url: `/packageMerchant/pages/lead/list/index?tab=${tab}`,
     })
   },
 })

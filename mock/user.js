@@ -8,27 +8,16 @@ function delay(ms = 320) {
 }
 
 const MOCK_SUMMARY = {
-  orderCounts: {
-    pendingPay: 1,
-    pendingConfirm: 0,
-    inService: 2,
-    pendingReview: 1,
-    refundAfterSale: 0,
-  },
-  assets: {
-    availableReward: 20,
-    pendingIncome: 30,
-    couponCount: 3,
-  },
-  vehicleCount: 2,
-  repairArchiveCount: 5,
+  consultPending: 1,
+  albumPendingAuth: 1,
+  authorizeCount: 0,
 }
 
 async function mockWechatLogin() {
   await delay(400)
   const user = {
     userId: 'usr_mock_001',
-    nickname: '浙检用户',
+    nickname: '辙见用户',
     avatarUrl: '',
     phoneDisplay: '',
     isPhoneBound: false,
@@ -49,6 +38,13 @@ async function mockBindPhone() {
 async function mockMineSummary(user) {
   await delay(280)
   if (!user) return null
+  let albumPendingAuth = MOCK_SUMMARY.albumPendingAuth
+  try {
+    const { mockCountPendingAuth } = require('./service-albums')
+    albumPendingAuth = mockCountPendingAuth()
+  } catch (e) {
+    /* fallback to static mock */
+  }
   return {
     user: {
       userId: user.userId,
@@ -57,7 +53,9 @@ async function mockMineSummary(user) {
       phoneDisplay: user.phoneDisplay || '',
       isPhoneBound: Boolean(user.isPhoneBound),
     },
-    ...MOCK_SUMMARY,
+    consultPending: MOCK_SUMMARY.consultPending,
+    albumPendingAuth,
+    authorizeCount: MOCK_SUMMARY.authorizeCount,
   }
 }
 

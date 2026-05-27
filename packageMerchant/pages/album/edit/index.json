@@ -1,0 +1,17 @@
+{
+  "navigationBarTitleText": "编辑服务相册",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-album-node": "/components/album-node/index",
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-price-display": "/components/price-display/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-key-info-table": "/components/key-info-table/index"
+  }
+}

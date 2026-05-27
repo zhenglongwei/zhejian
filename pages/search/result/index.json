@@ -1,0 +1,16 @@
+{
+  "navigationBarTitleText": "搜索结果",
+  "usingComponents": {
+    "ui-search-bar": "/components/search-bar/index",
+    "ui-list-page-shell": "/components/list-page-shell/index",
+    "ui-service-card": "/components/service-card/index",
+    "ui-store-card": "/components/store-card/index",
+    "ui-case-card": "/components/case-card/index",
+    "ui-geo-topic-card": "/components/geo-topic-card/index",
+    "ui-tag": "/components/tag/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "ui-empty": "/components/empty/index"
+  }
+}

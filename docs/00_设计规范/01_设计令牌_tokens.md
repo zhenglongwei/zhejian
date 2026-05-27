@@ -1,10 +1,10 @@
 ```
-# 透明维修平台 · 设计令牌 Tokens
+# 辙见平台 · 设计令牌 Tokens
 
 > 源码副本：`styles/tokens.wxss`  
 > 已在 `app.wxss` 全局引入。  
 > 修改时请同步维护本文档与 `styles/tokens.wxss`。  
-> 设计规范详见：`docs/00_设计规范/00_透明维修平台设计体系.md`
+> 设计规范详见：`docs/00_设计规范/00_辙见平台设计体系.md`
 
 ---
 
@@ -46,7 +46,7 @@ inherit
 
 ```
 /**
- * 透明维修平台 · 设计令牌
+ * 辙见平台 · 设计令牌
  * 源码副本：styles/tokens.wxss
  * 已在 app.wxss 全局引入
  *
@@ -55,7 +55,7 @@ inherit
  * 2. styles/tokens.wxss
  *
  * 设计规范详见：
- * docs/00_设计规范/00_透明维修平台设计体系.md
+ * docs/00_设计规范/00_辙见平台设计体系.md
  */
 
 page {
@@ -220,7 +220,12 @@ page {
 
   --tag-height: 40rpx;
   --size-rating-star: 40rpx;
-  --size-service-entry-icon: 80rpx;
+  --size-service-entry-icon: 88rpx;
+  --size-service-entry-well: 108rpx;
+  --size-service-entry-cell-min: 220rpx;
+  --size-store-card-thumb: 128rpx;
+  --size-geo-card-cover: 160rpx;
+  --size-geo-card-width: 520rpx;
   --size-flow-step: var(--tag-height);
 
   --tabbar-height: 100rpx;
@@ -646,6 +651,28 @@ page {
 }
 
 /**
+ * 通用布局
+ */
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.bullet-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.bullet-list__item {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+/**
  * 安全区
  */
 
@@ -706,7 +733,7 @@ page {
 }
 
 /**
- * 透明维修业务专用块
+ * 辙见业务专用块
  */
 
 .ai-summary-block {
@@ -737,6 +764,21 @@ page {
   line-height: var(--font-caption-lh);
 }
 
+.compliance-notice--prewrap {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+}
+
+.note-block {
+  display: block;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
 ```
 
 ---
@@ -759,7 +801,7 @@ page {
 
 | 场景        | Class                   |
 | --------- | ----------------------- |
-| 平台订单案例    | `tag tag--order`        |
+| 用户授权案例    | `tag tag--order`（类名遗留，语义为用户授权） |
 | 商家历史案例    | `tag tag--history`      |
 | 已脱敏       | `tag tag--desensitized` |
 | 已审核       | `tag tag--audited`      |
@@ -769,7 +811,7 @@ page {
 | 复杂度 L3/L4 | `tag tag--complex`      |
 
 
-### **4.3 订单状态**
+### **4.3 咨询线索 / 相册状态**（V2.0；无订单/支付状态 token）
 
 
 | 状态组          | 推荐颜色              |
@@ -777,7 +819,7 @@ page {
 | 待处理          | `--color-warning` |
 | 进行中          | `--color-primary` |
 | 已完成          | `--color-success` |
-| 异常 / 售后 / 退款 | `--color-danger`  |
+| 异常 / 已关闭 / 驳回 | `--color-danger`  |
 
 
 ---

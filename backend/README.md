@@ -1,16 +1,14 @@
-# 透明维修平台 · 后端 API
+# 辙见平台 · 后端 API
 
-主业务 API（MVP），对齐 `docs/10_技术架构与接口/04_接口规范.md` 与订单相册/脱敏 PRD。
+主业务 API（V2.0 Phase 1），对齐 `docs/10_技术架构与接口/04_接口规范.md` 与服务相册/咨询线索 PRD。
 
 ## 技术栈
 
 - Node.js 20 + Express
-- **MySQL 8** + Prisma（与阿里云服务器现有 MySQL 一致）
+- **MySQL 8** + Prisma
 - 部署：`geo.simplewin.cn`（Nginx 反代）
 
 ## 本地开发
-
-若本机没有 MySQL，可用 `docker compose up -d` 起一个临时库；**生产环境直接用服务器已有 MySQL**，不必再装 PostgreSQL。
 
 ```bash
 cd backend
@@ -25,48 +23,78 @@ npm run dev
 
 ## 开发鉴权（联调期）
 
-`.env` 中固定 token（生产务必更换并接入微信登录 JWT）：
+| Header | 用户端 | 商家端 |
+|---|---|---|
+| `Authorization` | `Bearer dev_user_token_change_me` | `Bearer dev_merchant_token_change_me` |
+| `X-Client-Type` | `weapp_user` / `user-miniapp` | `merchant` |
 
-| Header | 值 |
-|---|---|
-| `Authorization` | `Bearer dev_user_token_change_me` |
-| `X-Client-Type` | `weapp_user` |
+**同小程序联调**：用户端登录后拿到的 `dev_user_token_change_me` 也可访问 `/api/v1/merchant/*`（映射 seed 中的 `merchant_demo_1`），无需单独换商家 token。
 
-演示订单：`ord_demo_completed_album`（seed 写入）
+演示数据（seed）：
 
-## 已实现的 API（v1）
+- 用户：`user_demo_1`，手机 `13812345678`
+- 服务相册：`alb_svc_demo_completed`
+- 咨询线索：`lead_demo_submitted`、`lead_demo_contacted`
+- 遗留订单相册（仅 seed，API 已 410）：`ord_demo_completed_album`
+
+## 已实现的 API（v1 · V2.0）
+
+### 咨询线索
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v1/health` | 健康检查 |
-| GET | `/api/v1/user/orders/:orderId/album` | 用户订单相册 |
-| POST | `/api/v1/user/orders/:orderId/album/authorize-preview` | 授权预览（策略 B） |
-| POST | `/api/v1/user/albums/:albumId/authorization` | 用户授权公开 |
+| POST | `/api/v1/user/auth/wechat-login` | 微信登录（联调期返回 dev token） |
+| POST | `/api/v1/user/auth/bind-phone` | 绑定手机号（联调期演示） |
+| POST | `/api/v1/user/auth/logout` | 退出登录 |
+| GET | `/api/v1/user/mine/summary` | 我的页摘要 |
+| GET | `/api/v1/user/leads/confirm` | 咨询确认页数据 |
+| GET | `/api/v1/user/leads` | 用户咨询列表 |
+| POST | `/api/v1/user/leads` | 提交咨询 |
+| GET | `/api/v1/user/leads/:leadId` | 咨询详情 |
+| POST | `/api/v1/user/leads/:leadId/cancel` | 取消咨询 |
+| GET | `/api/v1/merchant/leads` | 商家线索列表 |
+| GET | `/api/v1/merchant/leads/stats` | 线索统计 |
+| GET | `/api/v1/merchant/leads/:leadId` | 线索详情 |
+| POST | `/api/v1/merchant/leads/:leadId/view` | 标记已查看 |
+| POST | `/api/v1/merchant/leads/:leadId/contact` | 标记已联系 |
+| POST | `/api/v1/merchant/leads/:leadId/close` | 关闭线索 |
+
+### 服务相册
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/user/service-albums` | 用户相册列表 |
+| GET | `/api/v1/user/service-albums/:albumId` | 用户相册详情 |
+| POST | `/api/v1/user/albums/:albumId/authorize-preview` | 授权脱敏预览 |
+| POST | `/api/v1/user/service-albums/:albumId/authorization` | 用户授权公开 |
+| POST | `/api/v1/user/service-albums/:albumId/public-case` | 提交公开案例 |
+| GET | `/api/v1/user/service-albums/authorizations` | 授权记录 |
+| POST | `/api/v1/user/service-albums/:albumId/withdraw-authorization` | 撤回授权 |
+| GET | `/api/v1/merchant/service-albums` | 商家相册列表 |
+| POST | `/api/v1/merchant/service-albums` | 创建留档 |
+| GET | `/api/v1/merchant/service-albums/:albumId` | 商家相册详情 |
+| POST | `/api/v1/merchant/service-albums/:albumId` | 保存留档 |
+| POST | `/api/v1/merchant/service-albums/:albumId/complete` | 完工 + pre-mask |
+
+### 脱敏 / 系统
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
 | GET | `/api/v1/desensitize/tasks/:taskId` | 脱敏任务详情 |
 | POST | `/api/v1/desensitize/tasks/:taskId/auto-mask` | 一键脱敏 |
-| POST | `/api/v1/desensitize/tasks/:taskId/assets/:assetId/retry` | 单张重试 |
-| POST | `/api/v1/desensitize/tasks/:taskId/assets/:assetId/previewed` | 标记已预览 |
 | POST | `/api/v1/desensitize/tasks/:taskId/confirm` | 确认脱敏任务 |
-| POST | `/api/v1/merchant/albums/:albumId/complete` | 商家完工 + 触发 pre-mask |
 | POST | `/api/v1/system/albums/:albumId/pre-mask` | 系统触发 pre-mask |
 
-## 阿里云部署（8.155.0.128 / geo.simplewin.cn）
+### 已冻结（410）
 
-详见 [deploy/README.md](./deploy/README.md)。
+| 方法 | 路径 |
+|---|---|
+| GET | `/api/v1/user/orders/:orderId/album` |
+| POST | `/api/v1/user/orders/:orderId/album/authorize-preview` |
 
-简要步骤：
+## 小程序联调
 
-1. 服务器安装 Docker、Node 20、Nginx
-2. `git clone` 本仓库，`cd backend`
-3. 配置 `.env`（`DATABASE_URL` 指向服务器 MySQL、`PUBLIC_BASE_URL=https://geo.simplewin.cn`）
-4. `npm run db:setup && npm start`（生产一般不需要 docker compose）
-5. Nginx 将 `/api/` 反代到 `127.0.0.1:3000`
-6. 小程序 `services/config.js`：`mode: 'dev'`，`baseUrl: 'https://geo.simplewin.cn'`
-
-## 脱敏引擎说明
-
-当前为 **占位引擎**：将原图 URL 映射为 `{PUBLIC_BASE_URL}/media/desensitized/...`。  
-后续可替换为阿里云 OSS + 真实 OCR/打码服务，业务 API 契约不变。
+`services/config.js`：`mode: 'dev'`，`baseUrl: 'https://geo.simplewin.cn'`（或本地 `http://127.0.0.1:3000`，**不要**带 `/api/v1`）
 
 ## 目录结构
 
@@ -77,5 +105,4 @@ backend/
 │   ├── routes/      # HTTP 路由
 │   ├── services/    # 业务逻辑
 │   └── middleware/  # 鉴权、错误处理
-└── deploy/          # Nginx、systemd 示例
 ```

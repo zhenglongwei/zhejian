@@ -1,0 +1,83 @@
+@import '../../../../styles/merchant-form.wxss';
+
+.merchant-album-edit__pad {
+  padding-top: var(--space-md);
+}
+
+.merchant-album-edit--with-bar .merchant-album-edit__body {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.merchant-album-edit__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-album-edit__tabs {
+  margin: var(--space-md) 0;
+}
+
+.merchant-album-edit__plan,
+.merchant-album-edit__parts {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-album-edit__plan-label,
+.merchant-album-edit__parts-hint,
+.merchant-album-edit__invite-hint,
+.merchant-album-edit__share-phone {
+  color: var(--color-text-secondary);
+}
+
+.merchant-album-edit__share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-album-edit__part-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-album-edit__part-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-album-edit__part-price {
+  flex-shrink: 0;
+}
+
+.merchant-album-edit__part-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-album-edit__part-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.merchant-album-edit__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}

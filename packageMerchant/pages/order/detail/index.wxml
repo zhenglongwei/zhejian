@@ -100,7 +100,7 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-order-detail__album-head">
-          <text class="merchant-order-detail__section-title text-h3">维修相册</text>
+          <text class="merchant-order-detail__section-title text-h3">服务相册</text>
           <ui-tag wx:if="{{detail.albumStatusLabel}}" variant="default" text="{{detail.albumStatusLabel}}" />
         </view>
         <text class="merchant-order-detail__album-hint text-caption">
@@ -114,7 +114,7 @@
           class="merchant-order-detail__album-entry"
           bindtap="onAlbumEntry"
         >
-          <text class="merchant-order-detail__album-link text-caption">进入订单维修相册</text>
+          <text class="merchant-order-detail__album-link text-caption">进入订单服务相册</text>
         </view>
       </ui-card>
 

@@ -1,11 +1,6 @@
 {
   "navigationBarTitleText": "订单",
-  "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-tabs": "/components/tabs/index",
-    "ui-order-card": "/components/order-card/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-skeleton": "/components/skeleton/index"
   }
 }

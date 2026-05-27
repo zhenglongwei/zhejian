@@ -1,0 +1,11 @@
+<view class="image-grid image-grid--col-{{columns}}">
+  <image
+    wx:for="{{images}}"
+    wx:key="*this"
+    class="image-grid__cell"
+    src="{{item}}"
+    mode="aspectFill"
+    data-index="{{index}}"
+    bindtap="onPreview"
+  />
+</view>

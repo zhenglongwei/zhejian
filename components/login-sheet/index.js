@@ -4,17 +4,27 @@ const { getSession } = require('../../utils/auth')
 const COPY = {
   login: {
     title: '登录',
-    description: '登录后可查看你的订单、车辆和维修档案。',
+    description: '登录后可查看咨询记录、服务相册与授权状态。',
+    primary: '微信一键登录',
+  },
+  loginConsult: {
+    title: '登录',
+    description: '登录后可查看咨询记录、服务相册与授权状态。',
     primary: '微信一键登录',
   },
   bindPhone: {
     title: '绑定手机号',
-    description: '绑定手机号后可下单、预约和接收服务通知。',
+    description: '绑定后可接收咨询回复、相册与配件确认通知。',
     primary: '绑定手机号',
   },
   bindPhoneOrder: {
     title: '绑定手机号',
     description: '为方便门店确认预约和服务，请先绑定手机号。',
+    primary: '绑定手机号',
+  },
+  bindPhoneConsult: {
+    title: '绑定手机号',
+    description: '绑定手机号后门店可与你联系，便于确认咨询与预约。',
     primary: '绑定手机号',
   },
 }
@@ -45,7 +55,7 @@ Component({
       type: Boolean,
       value: true,
     },
-    /** 绑手机场景：general | order */
+    /** 绑手机场景：general | order | consult */
     bindContext: {
       type: String,
       value: 'general',
@@ -89,10 +99,13 @@ Component({
     resetDisplay() {
       const step = this.resolveStep()
       const { title, description, showAgreement, bindContext } = this.properties
-      const copyKey =
-        step === 'bindPhone' && bindContext === 'order'
-          ? 'bindPhoneOrder'
-          : step
+      let copyKey = step
+      if (step === 'bindPhone') {
+        if (bindContext === 'order') copyKey = 'bindPhoneOrder'
+        else if (bindContext === 'consult') copyKey = 'bindPhoneConsult'
+      } else if (step === 'login' && bindContext === 'consult') {
+        copyKey = 'loginConsult'
+      }
       const copy = COPY[copyKey] || COPY.login
       const needAgreement = showAgreement && step === 'login'
 
@@ -157,7 +170,9 @@ Component({
             displayDescription:
               this.properties.bindContext === 'order'
                 ? COPY.bindPhoneOrder.description
-                : COPY.bindPhone.description,
+                : this.properties.bindContext === 'consult'
+                  ? COPY.bindPhoneConsult.description
+                  : COPY.bindPhone.description,
             primaryLabel: COPY.bindPhone.primary,
             needAgreement: false,
             agreed: true,

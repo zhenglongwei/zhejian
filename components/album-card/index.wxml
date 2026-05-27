@@ -1,0 +1,26 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="record-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
+    <view class="record-card__head">
+      <view class="record-card__tags">
+        <ui-tag variant="{{item.statusVariant}}" text="{{item.statusLabel}}" />
+        <block wx:if="{{audience === 'user'}}">
+          <ui-tag wx:if="{{item.authPendingBadge}}" variant="info" text="{{item.authPendingBadge}}" />
+          <ui-tag wx:if="{{item.publicLabel}}" variant="success" text="{{item.publicLabel}}" />
+        </block>
+      </view>
+      <text wx:if="{{item.updatedAtText}}" class="record-card__time text-caption">{{item.updatedAtText}}</text>
+    </view>
+
+    <text class="record-card__service text-body">{{item.serviceName}}</text>
+
+    <block wx:if="{{audience === 'user'}}">
+      <text wx:if="{{item.storeName}}" class="record-card__meta text-caption">{{item.storeName}}</text>
+    </block>
+    <block wx:else>
+      <text wx:if="{{item.userPhoneDisplay}}" class="record-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+    </block>
+
+    <text wx:if="{{item.vehicleDisplay}}" class="record-card__meta text-caption">{{item.vehicleDisplay}}</text>
+    <text wx:if="{{item.imageCount}}" class="record-card__meta text-caption">{{item.imageCount}} 张过程图</text>
+  </view>
+</ui-card>

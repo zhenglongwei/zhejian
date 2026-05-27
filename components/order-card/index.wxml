@@ -60,7 +60,7 @@
     <view
       wx:if="{{audience === 'user' && item.hasAlbum}}"
       class="order-card__album-hint text-caption"
-    >可查看维修相册 · 仅你可见</view>
+    >可查看服务相册 · 仅你可见</view>
 
     <view
       wx:if="{{item.primaryAction}}"

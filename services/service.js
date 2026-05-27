@@ -13,7 +13,6 @@ const { PRICE_MODE, PRICE_MODE_LABEL } = require('../constants/price-mode')
 const { getProfile } = require('./merchant')
 const { fetchStoreDetail } = require('./store')
 const { fetchCaseList } = require('./case')
-const { CASE_SOURCE } = require('../constants/case-source')
 const { applyDetailTemplate } = require('../utils/service-detail-template')
 const { resolveRelatedCases } = require('../utils/service-case-link')
 const { buildStoreCardTags } = require('../utils/store-tags')
@@ -74,9 +73,6 @@ function buildHeadTags(record) {
           : 'onsite'
     tags.push({ variant, text: modeLabel })
   }
-  if (record.onlinePaymentEnabled) {
-    tags.push({ variant: 'info', text: '支持在线支付' })
-  }
   return tags.slice(0, 3)
 }
 
@@ -84,10 +80,7 @@ function buildKeyInfoRows(record, templateFields) {
   return [
     { label: '服务分类', value: record.categoryName || '—' },
     { label: '提供门店', value: record.storeName || '—' },
-    {
-      label: '在线支付',
-      value: record.onlinePaymentEnabled ? '支持' : '到店确认',
-    },
+    { label: '费用确认', value: '到店检测后由门店报价' },
     { label: '服务类型', value: templateFields.complexityLabel || '常规维修' },
   ]
 }
@@ -123,9 +116,6 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     caseTotal,
     caseLinkTier,
     availableMerchants,
-    hasHistoryCases: relatedCases.some(
-      (c) => c.source === CASE_SOURCE.MERCHANT_HISTORY
-    ),
     bookable: record.status === SERVICE_STATUS.PUBLISHED,
   }
 
@@ -228,7 +218,7 @@ function buildServiceRecord(payload, existing, submitReview) {
     includedItems: payload.includedItems || existing?.includedItems || [],
     excludedItems: payload.excludedItems || existing?.excludedItems || [],
     storeId: profile?.storeId || 'store_demo_1',
-    storeName: profile?.storeName || payload.storeName || '透明维修示范店（杭州滨江）',
+    storeName: profile?.storeName || payload.storeName || '辙见示范店（杭州滨江）',
     onlinePaymentEnabled,
     status,
     publishedAt:

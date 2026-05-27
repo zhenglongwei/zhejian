@@ -1,0 +1,23 @@
+.album-authorize-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-authorize-section__title {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.album-authorize-section__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.album-authorize-section__action {
+  flex: 1;
+  min-width: 0;
+}

@@ -5,6 +5,8 @@ const BIZ_TYPE = {
   MERCHANT_HISTORY: 'merchant_history',
   ORDER_PRE_MASK: 'order_pre_mask',
   ORDER_AUTHORIZE: 'order_authorize',
+  SERVICE_PRE_MASK: 'service_pre_mask',
+  SERVICE_AUTHORIZE: 'service_authorize',
   STANDALONE_TOOL: 'standalone_tool',
 }
 
@@ -35,10 +37,15 @@ const ASSET_STATUS = {
 const LIABILITY_COPY = {
   [BIZ_TYPE.MERCHANT_HISTORY]: {
     body:
-      '你上传的内容用于商家历史案例公开展示。请确认已取得必要授权，或确保不会暴露客户车牌、人脸、手机号、证件等信息。请在本页完成脱敏确认；平台将进行审核，商家对上传内容的合法性与真实性承担责任。',
+      '你上传的内容用于服务相册公开案例展示。请确认已取得必要授权，或确保不会暴露客户车牌、人脸、手机号、证件等信息。请在本页完成脱敏确认；平台将进行审核，商家对上传内容的合法性与真实性承担责任。',
     confirmLabel: '确认脱敏结果并提交审核',
   },
   [BIZ_TYPE.ORDER_AUTHORIZE]: {
+    body:
+      '以下为脱敏后的预览，公开后他人仅能看到脱敏版本。请逐张核对效果，必要时可重新处理或手动打码。',
+    confirmLabel: '确认并公开',
+  },
+  [BIZ_TYPE.SERVICE_AUTHORIZE]: {
     body:
       '以下为脱敏后的预览，公开后他人仅能看到脱敏版本。请逐张核对效果，必要时可重新处理或手动打码。',
     confirmLabel: '确认并公开',

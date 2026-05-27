@@ -1,5 +1,6 @@
 const { fetchServiceList } = require('../../services/service')
 const { SERVICE_CATEGORIES } = require('../../constants/service')
+const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 
 const FILTER_ALL = 'all'
 
@@ -15,6 +16,7 @@ Page({
     categoryTabs: CATEGORY_TABS,
     filterCategory: FILTER_ALL,
     errorMessage: '',
+    searchPlaceholder: SEARCH_PLACEHOLDER,
   },
 
   onLoad() {
@@ -68,5 +70,9 @@ Page({
     wx.navigateTo({
       url: `/pages/service/detail/index?id=${serviceId}`,
     })
+  },
+
+  onSearchNavigate() {
+    wx.navigateTo({ url: '/pages/search/index/index' })
   },
 })

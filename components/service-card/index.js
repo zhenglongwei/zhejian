@@ -22,6 +22,11 @@ Component({
     storeName: { type: String, value: '' },
     onlinePaymentEnabled: { type: Boolean, value: false },
     showStoreName: { type: Boolean, value: true },
+    showTags: { type: Boolean, value: true },
+    readonly: { type: Boolean, value: false },
+    embedded: { type: Boolean, value: false },
+    showSuffix: { type: null, value: null },
+    disclaimerText: { type: String, value: '' },
     /** 商家列表：草稿 / 已上架等工作流状态 */
     statusLabel: { type: String, value: '' },
     statusVariant: { type: String, value: 'warning' },
@@ -31,7 +36,7 @@ Component({
     showPriceSuffix: true,
   },
   observers: {
-    'priceMode, statusLabel, statusVariant, categoryName, onlinePaymentEnabled'() {
+    'priceMode, statusLabel, statusVariant, categoryName, showTags'() {
       this.syncTags()
     },
   },
@@ -47,8 +52,15 @@ Component({
         statusLabel,
         statusVariant,
         categoryName,
-        onlinePaymentEnabled,
+        showTags,
       } = this.properties
+      if (!showTags) {
+        this.setData({
+          tagList: [],
+          showPriceSuffix: priceMode !== PRICE_MODE.FIXED,
+        })
+        return
+      }
       const modeLabel = PRICE_MODE_LABEL[priceMode] || priceMode
       const modeVariant = MODE_TAG_VARIANT[priceMode] || 'default'
       const tags = []
@@ -59,15 +71,13 @@ Component({
       if (categoryName && !statusLabel) {
         tags.push({ variant: 'info', text: categoryName })
       }
-      if (onlinePaymentEnabled) {
-        tags.push({ variant: 'success', text: '支持在线支付' })
-      }
       this.setData({
         tagList: tags.slice(0, MAX_TAGS),
         showPriceSuffix: priceMode !== PRICE_MODE.FIXED,
       })
     },
     onTap() {
+      if (this.properties.readonly) return
       if (!this.properties.serviceId) return
       this.triggerEvent('tap', { serviceId: this.properties.serviceId })
     },

@@ -1,0 +1,18 @@
+<ui-card bordered="{{bordered}}" shadow="{{shadow}}">
+  <view class="geo-topic-card" bindtap="onTap">
+    <view wx:if="{{coverImage}}" class="geo-topic-card__cover image-placeholder">
+      <image
+        class="geo-topic-card__cover-img"
+        src="{{coverImage}}"
+        mode="aspectFill"
+      />
+    </view>
+    <ui-tag wx:if="{{!showMeta && tagText}}" variant="info" text="{{tagText}}" />
+    <text class="geo-topic-card__title text-body">{{title}}</text>
+    <text wx:if="{{summary}}" class="geo-topic-card__summary text-caption">{{summary}}</text>
+    <view wx:if="{{showMeta}}" class="geo-topic-card__meta">
+      <ui-tag wx:if="{{tagText}}" variant="info" text="{{tagText}}" />
+      <text wx:if="{{updatedAt}}" class="geo-topic-card__updated text-caption">更新 {{updatedAt}}</text>
+    </view>
+  </view>
+</ui-card>

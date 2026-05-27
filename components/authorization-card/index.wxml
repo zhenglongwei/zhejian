@@ -1,0 +1,30 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="record-card__inner">
+    <view class="record-card__head">
+      <view class="record-card__tags">
+        <ui-tag
+          wx:for="{{item.displayTags}}"
+          wx:key="text"
+          variant="{{item.variant}}"
+          text="{{item.text}}"
+        />
+      </view>
+      <text wx:if="{{item.updatedAtText}}" class="record-card__time text-caption">{{item.updatedAtText}}</text>
+    </view>
+
+    <text class="record-card__service text-body">{{item.serviceName}}</text>
+    <text class="record-card__meta text-caption">{{item.storeName}}</text>
+    <text wx:if="{{item.vehicleDisplay}}" class="record-card__meta text-caption">{{item.vehicleDisplay}}</text>
+
+    <view class="record-card__actions">
+      <ui-button type="secondary" size="sm" bind:tap="onViewAlbum">查看服务相册</ui-button>
+      <ui-button
+        wx:if="{{item.canWithdraw}}"
+        type="ghost"
+        size="sm"
+        disabled="{{item.withdrawing}}"
+        bind:tap="onWithdraw"
+      >撤回授权</ui-button>
+    </view>
+  </view>
+</ui-card>

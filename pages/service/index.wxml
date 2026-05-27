@@ -1,61 +1,47 @@
 <view class="page service-page">
-  <view class="service-page__intro page-content">
-    <text class="text-h2">可预约服务</text>
-    <text class="text-caption service-page__desc">价格模式清晰标注，实际费用以门店检测为准</text>
-    <view class="service-page__compliance">
-      <ui-compliance-notice type="price" />
+  <ui-list-page-shell
+    tabs="{{categoryTabs}}"
+    activeKey="{{filterCategory}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    emptyTitle="暂无可预约服务"
+    emptyDescription="商家上架服务方案后将展示在此"
+    emptyActionText="刷新"
+    skeletonRows="{{3}}"
+    bind:tabchange="onTabChange"
+    bind:retry="onRetry"
+    bind:emptyaction="onRetry"
+  >
+    <view slot="intro">
+      <view class="tab-page__search page-content">
+        <ui-search-bar
+          readonly="{{true}}"
+          placeholder="{{searchPlaceholder}}"
+          bind:navigate="onSearchNavigate"
+        />
+      </view>
+      <view class="tab-page__intro page-content">
+        <text class="tab-page__intro-title text-h2">可展示服务</text>
+        <text class="tab-page__intro-desc text-caption">价格模式清晰标注，可提交咨询或预约到店</text>
+        <view class="tab-page__intro-notice">
+          <ui-compliance-notice type="price" />
+        </view>
+      </view>
     </view>
-  </view>
 
-  <view class="service-page__tabs page-content">
-    <ui-tabs tabs="{{categoryTabs}}" activeKey="{{filterCategory}}" bind:change="onTabChange" />
-  </view>
-
-  <block wx:if="{{status === 'loading'}}">
-    <view class="page-content service-page__list">
-      <ui-skeleton wx:for="{{[1,2,3]}}" wx:key="*this" rows="{{3}}" />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <ui-empty
-        title="加载失败"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content">
-      <ui-empty
-        title="暂无可预约服务"
-        description="商家上架服务方案后将展示在此"
-        actionText="刷新"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:else>
-    <view class="page-content service-page__list">
-      <ui-service-card
-        wx:for="{{list}}"
-        wx:key="id"
-        serviceId="{{item.id}}"
-        name="{{item.name}}"
-        categoryName="{{item.categoryName}}"
-        summary="{{item.summary}}"
-        priceMode="{{item.priceMode}}"
-        amount="{{item.amount}}"
-        minAmount="{{item.minAmount}}"
-        maxAmount="{{item.maxAmount}}"
-        storeName="{{item.storeName}}"
-        onlinePaymentEnabled="{{item.onlinePaymentEnabled}}"
-        bind:tap="onServiceTap"
-      />
-    </view>
-  </block>
+    <ui-service-card
+      wx:for="{{list}}"
+      wx:key="id"
+      serviceId="{{item.id}}"
+      name="{{item.name}}"
+      categoryName="{{item.categoryName}}"
+      summary="{{item.summary}}"
+      priceMode="{{item.priceMode}}"
+      amount="{{item.amount}}"
+      minAmount="{{item.minAmount}}"
+      maxAmount="{{item.maxAmount}}"
+      storeName="{{item.storeName}}"
+      bind:tap="onServiceTap"
+    />
+  </ui-list-page-shell>
 </view>

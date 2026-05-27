@@ -1,12 +1,6 @@
 {
   "navigationBarTitleText": "奖励记录",
-  "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-card": "/components/card/index",
-    "ui-button": "/components/button/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-reward-record-card": "/components/reward-record-card/index"
+    "ui-skeleton": "/components/skeleton/index"
   }
 }

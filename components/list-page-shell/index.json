@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-tabs": "/components/tabs/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index"
+  }
+}

@@ -1,0 +1,19 @@
+.image-grid {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.image-grid--col-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.image-grid--col-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.image-grid__cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}

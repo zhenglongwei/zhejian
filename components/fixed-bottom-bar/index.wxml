@@ -1,7 +1,18 @@
 <view class="fixed-bottom-bar fixed-bottom {{safeArea ? 'safe-bottom' : ''}}">
   <view class="fixed-bottom-bar__inner">
     <view class="fixed-bottom-bar__left">
-      <slot name="left" />
+      <view wx:if="{{leftActions.length}}" class="fixed-bottom-bar__left-actions tag-row">
+        <ui-button
+          wx:for="{{leftActions}}"
+          wx:key="key"
+          type="{{item.type || 'secondary'}}"
+          size="sm"
+          disabled="{{item.disabled}}"
+          data-key="{{item.key}}"
+          bind:tap="onLeftAction"
+        >{{item.text}}</ui-button>
+      </view>
+      <slot wx:else name="left" />
     </view>
     <view class="fixed-bottom-bar__right">
       <slot name="right" />

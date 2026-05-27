@@ -1,9 +1,4 @@
 const { ALBUM_STATUS } = require('../constants/album')
-const {
-  CASE_SOURCE,
-  CASE_SOURCE_LABEL,
-  CASE_SOURCE_TAG_VARIANT,
-} = require('../constants/case-source')
 
 const MAX_TAGS = 3
 const PLACEHOLDER_VEHICLES = ['车辆（待脱敏）', '车辆（请填写车型）', '车辆']
@@ -33,12 +28,7 @@ function buildAlbumListTitle(album) {
  * 商家端列表 Tag：随相册状态变化，禁止草稿展示「已审核」
  */
 function buildAlbumListTags(album) {
-  const tags = [
-    {
-      variant: CASE_SOURCE_TAG_VARIANT[CASE_SOURCE.MERCHANT_HISTORY] || 'history',
-      text: CASE_SOURCE_LABEL[CASE_SOURCE.MERCHANT_HISTORY] || '商家历史案例',
-    },
-  ]
+  const tags = [{ variant: 'info', text: '服务相册' }]
 
   const status = album.status || ALBUM_STATUS.DRAFT
 

@@ -1,25 +1,3 @@
-.review-list__pad {
+.legacy-redirect {
   padding-top: var(--space-md);
-}
-
-.review-list__body {
-  padding-top: var(--space-md);
-  padding-bottom: var(--space-xl);
-}
-
-.review-list__hint {
-  display: block;
-  margin-bottom: var(--space-md);
-  color: var(--color-text-tertiary);
-}
-
-.review-list__items {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.review-list__footer {
-  margin-top: var(--space-lg);
-  text-align: center;
 }

@@ -1,0 +1,51 @@
+.lead-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.lead-status-badge--sm {
+  height: var(--tag-height);
+  padding: 0 var(--space-sm);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+.lead-status-badge--lg {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
+  font-weight: 600;
+}
+
+.lead-status-badge--warning {
+  color: var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.lead-status-badge--primary {
+  color: var(--color-primary-dark);
+  background-color: var(--color-primary-light);
+}
+
+.lead-status-badge--success {
+  color: var(--color-success);
+  background-color: var(--color-success-light);
+}
+
+.lead-status-badge--danger {
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
+}
+
+.lead-status-badge--info {
+  color: var(--color-info);
+  background-color: var(--color-info-light);
+}
+
+.lead-status-badge--muted {
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
+}

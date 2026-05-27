@@ -1,24 +1,32 @@
 const { fetchServiceDetail } = require('../../../services/service')
-const { fetchServiceReviews } = require('../../../services/review')
+const { findStore } = require('../../../services/store')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
+
+function buildBottomLeftActions(showCasesLink) {
+  const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+  if (showCasesLink) {
+    actions.push({ key: 'cases', type: 'ghost', text: '查看案例' })
+  }
+  return actions
+}
 
 Page({
   data: {
     status: 'loading',
     detail: null,
+    storePhone: '',
     errorMessage: '',
     isAccident: false,
     showPriceFactors: false,
-    primaryAction: '选择门店',
-    secondaryAction: '',
+    showCasesLink: false,
+    bookable: false,
     casesAnchor: 'cases-section',
+    bottomLeftActions: buildBottomLeftActions(false),
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'order',
-    pendingOrderAction: false,
-    serviceReviews: [],
-    serviceReviewsStatus: 'loading',
+    loginSheetBindContext: 'consult',
+    pendingConsultAction: false,
   },
 
   onLoad(options) {
@@ -35,22 +43,25 @@ Page({
   },
 
   async loadDetail() {
-    this.setData({ status: 'loading', errorMessage: '', serviceReviewsStatus: 'loading' })
+    this.setData({ status: 'loading', errorMessage: '' })
     try {
       const detail = await fetchServiceDetail(this.serviceId, { audience: 'user' })
-      const reviewModule = await this.loadServiceReviewsModule()
-      const bar = this.buildBottomBar(detail)
+      const store = detail.storeId ? findStore(detail.storeId) : null
+      const showCasesLink =
+        detail.priceMode === PRICE_MODE.ACCIDENT ||
+        detail.priceMode === PRICE_MODE.RANGE ||
+        detail.priceMode === PRICE_MODE.CONSULT
       this.setData({
         detail,
-        serviceReviews: reviewModule.reviews,
-        serviceReviewsStatus: reviewModule.reviewsStatus,
+        storePhone: (store && store.phone) || '',
         isAccident: detail.priceMode === PRICE_MODE.ACCIDENT,
         showPriceFactors:
           detail.priceMode === PRICE_MODE.RANGE ||
           detail.priceMode === PRICE_MODE.CONSULT ||
           detail.priceMode === PRICE_MODE.ACCIDENT,
-        primaryAction: bar.primary,
-        secondaryAction: bar.secondary,
+        showCasesLink,
+        bookable: Boolean(detail.bookable),
+        bottomLeftActions: buildBottomLeftActions(showCasesLink),
         status: 'normal',
       })
     } catch (e) {
@@ -59,43 +70,6 @@ Page({
         errorMessage: (e && e.message) || '加载失败，请重试',
       })
     }
-  },
-
-  async loadServiceReviewsModule() {
-    try {
-      const { list: reviews } = await fetchServiceReviews(this.serviceId, { limit: 3 })
-      return {
-        reviews,
-        reviewsStatus: reviews.length ? 'normal' : 'empty',
-      }
-    } catch (e) {
-      return {
-        reviews: [],
-        reviewsStatus: 'error',
-      }
-    }
-  },
-
-  async onRetryServiceReviews() {
-    this.setData({ serviceReviewsStatus: 'loading' })
-    const reviewModule = await this.loadServiceReviewsModule()
-    this.setData({
-      serviceReviews: reviewModule.reviews,
-      serviceReviewsStatus: reviewModule.reviewsStatus,
-    })
-  },
-
-  buildBottomBar(detail) {
-    if (!detail.bookable) {
-      return { primary: '该服务暂不可预约', secondary: '' }
-    }
-    if (detail.priceMode === PRICE_MODE.FIXED) {
-      return { primary: '立即下单', secondary: '选择门店' }
-    }
-    if (detail.priceMode === PRICE_MODE.ACCIDENT) {
-      return { primary: '预约门店检测', secondary: '查看类似案例' }
-    }
-    return { primary: '预约到店检测', secondary: '咨询客服' }
   },
 
   onRetry() {
@@ -117,74 +91,59 @@ Page({
     wx.navigateTo({ url: `/pages/store/detail/index?id=${storeId}` })
   },
 
-  ensureOrderAuth() {
+  onCall() {
+    const { storePhone } = this.data
+    if (!storePhone) {
+      wx.showToast({ title: '暂无门店电话', icon: 'none' })
+      return
+    }
+    wx.makePhoneCall({ phoneNumber: storePhone })
+  },
+
+  onBottomLeftAction(e) {
+    const { key } = e.detail
+    if (key === 'call') this.onCall()
+    else if (key === 'cases') this.onViewCases()
+  },
+
+  onViewCases() {
+    wx.pageScrollTo({ selector: `#${this.data.casesAnchor}`, duration: 300 })
+  },
+
+  ensureConsultAuth() {
     const auth = checkAuth({ needPhone: true })
     if (!auth.ok) {
       this.setData({
         loginSheetVisible: true,
         loginSheetMode: auth.reason === 'bindPhone' ? 'bindPhone' : 'auto',
-        loginSheetBindContext: 'order',
-        pendingOrderAction: true,
+        loginSheetBindContext: 'consult',
+        pendingConsultAction: true,
       })
       return false
     }
     return true
   },
 
-  onPrimaryAction() {
-    const { detail } = this.data
-    if (!detail || !detail.bookable) return
-    if (!this.ensureOrderAuth()) return
-    this.doPrimaryAction()
-  },
-
-  doPrimaryAction() {
-    const { detail } = this.data
-    if (!detail) return
+  onMessage() {
+    const { detail, bookable } = this.data
+    if (!detail || !bookable) return
+    if (!this.ensureConsultAuth()) return
     wx.navigateTo({
-      url: `/pages/order-confirm/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}`,
+      url: `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
     })
   },
 
   closeLoginSheet() {
-    this.setData({ loginSheetVisible: false, pendingOrderAction: false })
+    this.setData({ loginSheetVisible: false, pendingConsultAction: false })
   },
 
   onLoginSheetSuccess() {
     this.setData({ loginSheetVisible: false })
-    if (!this.data.pendingOrderAction) return
-    this.setData({ pendingOrderAction: false })
+    if (!this.data.pendingConsultAction) return
+    this.setData({ pendingConsultAction: false })
     const auth = checkAuth({ needPhone: true })
     if (auth.ok) {
-      this.doPrimaryAction()
+      this.onMessage()
     }
-  },
-
-  onSecondaryAction() {
-    const { detail } = this.data
-    if (!detail) return
-    if (this.data.secondaryAction === '查看类似案例') {
-      wx.pageScrollTo({ selector: `#${this.data.casesAnchor}`, duration: 300 })
-      return
-    }
-    if (this.data.secondaryAction === '选择门店') {
-      if (detail.storeId) {
-        wx.navigateTo({
-          url: `/pages/store/detail/index?id=${detail.storeId}`,
-        })
-      }
-      return
-    }
-    if (this.data.secondaryAction === '咨询客服') {
-      wx.showToast({ title: '客服功能将在 V0.5 开放', icon: 'none' })
-      return
-    }
-  },
-
-  showComingSoon(label) {
-    wx.showToast({
-      title: `${label}功能将在 V0.5 开放`,
-      icon: 'none',
-    })
   },
 })

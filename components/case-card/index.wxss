@@ -6,10 +6,6 @@
   overflow: hidden;
 }
 
-.case-card--history {
-  opacity: 0.96;
-}
-
 .case-card__cover {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -27,9 +23,6 @@
 }
 
 .case-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
   margin-bottom: var(--space-sm);
 }
 

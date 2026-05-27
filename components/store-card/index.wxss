@@ -4,6 +4,30 @@
   border-radius: var(--radius-md);
 }
 
+.store-card__layout {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.store-card__thumb {
+  width: var(--size-store-card-thumb);
+  height: var(--size-store-card-thumb);
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.store-card__thumb-img {
+  width: 100%;
+  height: 100%;
+}
+
+.store-card__main {
+  flex: 1;
+  min-width: 0;
+}
+
 .store-card__name {
   display: block;
 }

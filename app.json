@@ -1,13 +1,25 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/search/index/index",
+    "pages/search/result/index",
+    "pages/geo/detail/index",
     "pages/service/index",
     "pages/case/index",
-    "pages/order/index",
+    "pages/store/index",
     "pages/mine/index",
     "pages/case/detail/index",
     "pages/store/detail/index",
     "pages/service/detail/index",
+    "pages/consult/submit/index",
+    "pages/consult/result/index",
+    "pages/consult/index/index",
+    "pages/consult/detail/index",
+    "pages/album/list/index",
+    "pages/album/detail/index",
+    "pages/album/confirm/index",
+    "pages/album/authorize/index",
+    "pages/order/index",
     "pages/order-confirm/index",
     "pages/order-result/index",
     "pages/order/detail/index",
@@ -27,12 +39,15 @@
       "pages": [
         "pages/workbench/index",
         "pages/onboarding/index",
-        "pages/album/list/index",
         "pages/album/create/index",
+        "pages/album/edit/index",
+        "pages/album/list/index",
         "pages/desensitize/workbench/index",
         "pages/service/list/index",
         "pages/service/create/index",
         "pages/service/detail/index",
+        "pages/lead/list/index",
+        "pages/lead/detail/index",
         "pages/order/list/index",
         "pages/order/detail/index",
         "pages/order/album/index",
@@ -42,7 +57,7 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "透明维修",
+    "navigationBarTitleText": "辙见",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f5f6f7"
   },
@@ -50,7 +65,7 @@
     "color": "#646A73",
     "selectedColor": "#1677FF",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/home/index",
@@ -71,10 +86,10 @@
         "selectedIconPath": "assets/tab/case-active.png"
       },
       {
-        "pagePath": "pages/order/index",
-        "text": "订单",
-        "iconPath": "assets/tab/order.png",
-        "selectedIconPath": "assets/tab/order-active.png"
+        "pagePath": "pages/store/index",
+        "text": "门店",
+        "iconPath": "assets/tab/store.png",
+        "selectedIconPath": "assets/tab/store-active.png"
       },
       {
         "pagePath": "pages/mine/index",

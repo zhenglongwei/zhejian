@@ -1,18 +1,6 @@
 {
   "navigationBarTitleText": "发表评价",
   "usingComponents": {
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-card": "/components/card/index",
-    "ui-key-info-table": "/components/key-info-table/index",
-    "ui-rating-dimensions": "/components/rating-dimensions/index",
-    "ui-image-uploader": "/components/image-uploader/index",
-    "ui-checkbox-row": "/components/checkbox-row/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-button": "/components/button/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-login-sheet": "/components/login-sheet/index",
-    "ui-review-tag-chip": "/components/review-tag-chip/index",
-    "ui-reward-summary-block": "/components/reward-summary-block/index"
+    "ui-skeleton": "/components/skeleton/index"
   }
 }

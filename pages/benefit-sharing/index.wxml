@@ -1,6 +1,6 @@
 <view class="page page-content benefit-sharing">
   <ui-empty
-    title="利益共享政策"
-    description="政策文档筹备中。正式上线后将在此展示案例公开奖励、发放条件与审核说明。"
+    title="公开案例与隐私说明"
+    description="说明文档筹备中。公开案例须经脱敏与平台审核；仅展示脱敏内容，不含车牌、手机号等个人信息，不涉及线上交易或分享领钱。"
   />
 </view>

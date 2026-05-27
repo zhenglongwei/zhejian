@@ -2,11 +2,14 @@
  * MOCK — 脱敏占位（联调后由服务端返回 desensitizedUrl）
  * 公开展示仅使用 imagesDesensitized / coverImageDesensitized，禁止写入 tempFilePath 原图。
  */
+const {
+  isDesensitizedUrl,
+  buildDesensitizedUrl,
+  resolveMediaUrl,
+} = require('./desensitize-url')
 
 function mockDesensitizedUrl(rawUrl, albumId, nodeId, index) {
-  if (!rawUrl) return ''
-  if (String(rawUrl).indexOf('mock://desensitized/') === 0) return rawUrl
-  return `mock://desensitized/${albumId}/${nodeId}/${index}`
+  return buildDesensitizedUrl(rawUrl, albumId, nodeId, index)
 }
 
 /**
@@ -50,12 +53,8 @@ function buildPublicAlbumNodes(nodes) {
     id: node.id,
     title: node.title,
     note: node.note || '',
-    images: node.imagesDesensitized || [],
+    images: (node.imagesDesensitized || []).map(resolveMediaUrl),
   }))
-}
-
-function isDesensitizedUrl(url) {
-  return url && String(url).indexOf('mock://desensitized/') === 0
 }
 
 /** 读取时兜底：禁止把原图路径暴露到公开案例 */
@@ -67,12 +66,14 @@ function sanitizePublicCase(caseItem) {
       id: node.id,
       title: node.title,
       note: node.note || '',
-      images: pool.filter(isDesensitizedUrl),
+      images: pool.filter(isDesensitizedUrl).map(resolveMediaUrl),
     }
   })
   const coverCandidate =
     caseItem.coverImageDesensitized || caseItem.coverImage || ''
-  const cover = isDesensitizedUrl(coverCandidate) ? coverCandidate : ''
+  const cover = isDesensitizedUrl(coverCandidate)
+    ? resolveMediaUrl(coverCandidate)
+    : ''
   return {
     ...caseItem,
     coverImage: cover,
@@ -89,4 +90,5 @@ module.exports = {
   buildPublicAlbumNodes,
   sanitizePublicCase,
   isDesensitizedUrl,
+  resolveMediaUrl,
 }

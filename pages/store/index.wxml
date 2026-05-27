@@ -1,0 +1,43 @@
+<view class="page store-page">
+  <ui-list-page-shell
+    tabs="{{[]}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    emptyTitle="暂无门店"
+    emptyDescription="更多门店入驻后将展示在此"
+    emptyActionText="刷新"
+    skeletonRows="{{3}}"
+    bind:retry="onRetry"
+    bind:emptyaction="onRetry"
+  >
+    <view slot="intro">
+      <view class="tab-page__search page-content">
+        <ui-search-bar
+          readonly="{{true}}"
+          placeholder="{{searchPlaceholder}}"
+          bind:navigate="onSearchNavigate"
+        />
+      </view>
+      <view class="tab-page__intro page-content">
+        <text class="tab-page__intro-title text-h2">附近门店</text>
+        <text class="tab-page__intro-desc text-caption">资质审核门店，支持电话咨询与预约到店咨询</text>
+        <view class="tab-page__intro-notice">
+          <ui-compliance-notice type="consult" />
+        </view>
+      </view>
+    </view>
+
+    <ui-store-card
+      wx:for="{{list}}"
+      wx:key="id"
+      storeId="{{item.id}}"
+      name="{{item.name}}"
+      address="{{item.address}}"
+      businessHours="{{item.businessHours}}"
+      caseCount="{{item.caseCount}}"
+      cardTags="{{item.cardTags}}"
+      showLink="{{true}}"
+      bind:tap="onStoreTap"
+    />
+  </ui-list-page-shell>
+</view>

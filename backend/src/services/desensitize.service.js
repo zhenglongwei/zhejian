@@ -32,11 +32,34 @@ async function getTaskById(taskId) {
   return mapTaskRecord(task)
 }
 
-async function findPreMaskTask(albumId) {
+function resolveAlbumBizTypes(album) {
+  if (album && album.orderId) {
+    return {
+      preMaskBizType: BIZ_TYPE.ORDER_PRE_MASK,
+      authorizeBizType: BIZ_TYPE.ORDER_AUTHORIZE,
+    }
+  }
+  return {
+    preMaskBizType: BIZ_TYPE.SERVICE_PRE_MASK,
+    authorizeBizType: BIZ_TYPE.SERVICE_AUTHORIZE,
+  }
+}
+
+async function findPreMaskTask(albumId, preMaskBizType) {
+  let bizType = preMaskBizType
+  if (!bizType) {
+    const album = await prisma.album.findUnique({
+      where: { id: albumId },
+      select: { orderId: true },
+    })
+    bizType = album?.orderId
+      ? BIZ_TYPE.ORDER_PRE_MASK
+      : BIZ_TYPE.SERVICE_PRE_MASK
+  }
   const task = await prisma.desensitizeTask.findFirst({
     where: {
       bizId: albumId,
-      bizType: BIZ_TYPE.ORDER_PRE_MASK,
+      bizType,
     },
     include: { assets: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] } },
     orderBy: { updatedAt: 'desc' },
@@ -44,11 +67,14 @@ async function findPreMaskTask(albumId) {
   return task
 }
 
-async function clearPendingAuthorizeTasks(albumId) {
+async function clearPendingAuthorizeTasks(albumId, authorizeBizType) {
+  const bizTypes = authorizeBizType
+    ? [authorizeBizType]
+    : [BIZ_TYPE.ORDER_AUTHORIZE, BIZ_TYPE.SERVICE_AUTHORIZE]
   await prisma.desensitizeTask.deleteMany({
     where: {
       bizId: albumId,
-      bizType: BIZ_TYPE.ORDER_AUTHORIZE,
+      bizType: { in: bizTypes },
       maskingConfirmed: false,
     },
   })
@@ -62,9 +88,13 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     err.status = 404
     throw err
   }
+  const { preMaskBizType, authorizeBizType } = {
+    ...resolveAlbumBizTypes(album),
+    ...options,
+  }
   const nodeViews = albumToNodeView(album)
   const fingerprint = nodesFingerprint(nodeViews)
-  const existing = await findPreMaskTask(albumId)
+  const existing = await findPreMaskTask(albumId, preMaskBizType)
   if (
     existing &&
     existing.fingerprint === fingerprint &&
@@ -75,7 +105,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   }
 
   if (existing && existing.fingerprint !== fingerprint) {
-    await clearPendingAuthorizeTasks(albumId)
+    await clearPendingAuthorizeTasks(albumId, authorizeBizType)
   }
 
   const taskId = buildPreMaskTaskId(albumId)
@@ -102,7 +132,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     where: { taskId },
     create: {
       taskId,
-      bizType: BIZ_TYPE.ORDER_PRE_MASK,
+      bizType: preMaskBizType,
       bizId: albumId,
       orderId: album.orderId,
       operatorRole: 'system',
@@ -135,29 +165,27 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   return getTaskById(taskId)
 }
 
-async function createOrderAuthorizeTaskFromPreMask(orderId) {
-  const album = await prisma.album.findFirst({
-    where: { orderId },
-    include: {
-      order: true,
-      nodes: { orderBy: { sortOrder: 'asc' } },
-      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
-    },
-  })
+async function createAlbumAuthorizeTaskFromPreMask(albumId) {
+  const album = await loadAlbumWithRelations(albumId)
   if (!album) {
-    const err = new Error('该订单暂无维修相册')
+    const err = new Error('相册不存在')
     err.code = 100004
     err.status = 404
     throw err
   }
 
-  let preMaskTask = await findPreMaskTask(album.id)
+  const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
+  let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   if (
     !preMaskTask ||
     [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(preMaskTask.preMaskStatus)
   ) {
-    await ensureOrderPreMaskTask(album.id, { force: false })
-    preMaskTask = await findPreMaskTask(album.id)
+    await ensureOrderPreMaskTask(albumId, {
+      force: false,
+      preMaskBizType,
+      authorizeBizType,
+    })
+    preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   }
 
   if (!preMaskTask) {
@@ -178,7 +206,7 @@ async function createOrderAuthorizeTaskFromPreMask(orderId) {
   const existingAuth = await prisma.desensitizeTask.findFirst({
     where: {
       bizId: album.id,
-      bizType: BIZ_TYPE.ORDER_AUTHORIZE,
+      bizType: authorizeBizType,
       maskingConfirmed: false,
       preMaskTaskId: preMaskTask.taskId,
       preMaskVersion: preMaskTask.preMaskVersion,
@@ -192,7 +220,7 @@ async function createOrderAuthorizeTaskFromPreMask(orderId) {
     }
   }
 
-  await clearPendingAuthorizeTasks(album.id)
+  await clearPendingAuthorizeTasks(album.id, authorizeBizType)
   const authTaskId = buildAuthorizeTaskId(album.id)
   const assetInputs = (preMaskTask.assets || []).map((asset) => ({
     assetId: asset.assetId,
@@ -210,9 +238,9 @@ async function createOrderAuthorizeTaskFromPreMask(orderId) {
   await prisma.desensitizeTask.create({
     data: {
       taskId: authTaskId,
-      bizType: BIZ_TYPE.ORDER_AUTHORIZE,
+      bizType: authorizeBizType,
       bizId: album.id,
-      orderId,
+      orderId: album.orderId || null,
       operatorRole: 'user',
       liabilityType: 'user',
       preMaskTaskId: preMaskTask.taskId,
@@ -227,6 +255,20 @@ async function createOrderAuthorizeTaskFromPreMask(orderId) {
     preview: buildAuthorizePreviewPayload(album, { taskId: authTaskId, ...task }),
     task,
   }
+}
+
+async function createOrderAuthorizeTaskFromPreMask(orderId) {
+  const album = await prisma.album.findFirst({
+    where: { orderId },
+    select: { id: true },
+  })
+  if (!album) {
+    const err = new Error('该订单暂无服务相册')
+    err.code = 100004
+    err.status = 404
+    throw err
+  }
+  return createAlbumAuthorizeTaskFromPreMask(album.id)
 }
 
 function buildAuthorizePreviewPayload(album, task) {
@@ -250,7 +292,10 @@ async function runAutoMask(taskId) {
     err.status = 404
     throw err
   }
-  if (task.bizType === BIZ_TYPE.ORDER_PRE_MASK) {
+  if (
+    task.bizType === BIZ_TYPE.ORDER_PRE_MASK ||
+    task.bizType === BIZ_TYPE.SERVICE_PRE_MASK
+  ) {
     const err = new Error('预脱敏任务由系统自动处理，无需手动脱敏')
     err.status = 400
     throw err
@@ -310,18 +355,6 @@ function allMaskingSucceeded(rawAssets) {
   return (rawAssets || []).length > 0 && rawAssets.every((a) => ok.has(a.status))
 }
 
-function allPreviewed(rawAssets) {
-  const ready = (rawAssets || []).filter((a) => {
-    const ok = new Set([
-      ASSET_STATUS.MASKED_READY,
-      ASSET_STATUS.MANUAL_MASKED,
-      ASSET_STATUS.CONFIRMED,
-    ])
-    return ok.has(a.status) && (a.maskedUrl || a.preMaskedUrl)
-  })
-  return ready.length > 0 && ready.every((a) => a.previewed)
-}
-
 async function confirmOrderAuthorizeTask(taskId, opts = {}) {
   if (!opts.liabilityAccepted) {
     const err = new Error('请勾选责任确认')
@@ -329,18 +362,14 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
     throw err
   }
   const task = await getTaskById(taskId)
-  if (!task || task.bizType !== BIZ_TYPE.ORDER_AUTHORIZE) {
+  const authTypes = [BIZ_TYPE.ORDER_AUTHORIZE, BIZ_TYPE.SERVICE_AUTHORIZE]
+  if (!task || !authTypes.includes(task.bizType)) {
     const err = new Error('任务类型不匹配')
     err.status = 400
     throw err
   }
   if (!allMaskingSucceeded(task.rawAssets)) {
     const err = new Error('仍有图片未完成脱敏')
-    err.status = 400
-    throw err
-  }
-  if (!allPreviewed(task.rawAssets)) {
-    const err = new Error('请先查看每张脱敏预览')
     err.status = 400
     throw err
   }
@@ -363,6 +392,7 @@ module.exports = {
   albumToNodeView,
   getTaskById,
   ensureOrderPreMaskTask,
+  createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
   runAutoMask,
   retryAsset,

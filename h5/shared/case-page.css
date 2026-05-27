@@ -180,6 +180,20 @@
   margin: 0 auto;
 }
 
+.h5-footer-inner--dual {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.h5-footer-inner--dual .h5-btn {
+  flex: 1;
+}
+
+.h5-btn--secondary {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
 .h5-btn {
   display: block;
   width: 100%;

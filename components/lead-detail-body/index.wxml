@@ -1,0 +1,26 @@
+<view class="record-detail__body">
+  <ui-card shadow="{{true}}" padding="{{true}}">
+    <view class="record-detail__head">
+      <text class="text-h3">{{title}}</text>
+      <ui-lead-status-badge status="{{status}}" label="{{statusLabel}}" size="lg" />
+    </view>
+    <ui-key-info-table rows="{{detailRows}}" />
+  </ui-card>
+
+  <ui-card wx:if="{{description}}" shadow="{{true}}" padding="{{true}}">
+    <text class="record-detail__section-title text-h3">问题描述</text>
+    <text class="record-detail__desc text-body">{{description}}</text>
+  </ui-card>
+
+  <ui-card wx:if="{{images && images.length}}" shadow="{{true}}" padding="{{true}}">
+    <text class="record-detail__section-title text-h3">上传图片</text>
+    <ui-image-grid images="{{images}}" columns="{{3}}" />
+    <view class="record-detail__image-note">
+      <ui-compliance-notice type="{{imageComplianceType}}" />
+    </view>
+  </ui-card>
+
+  <view wx:if="{{showFooter}}" class="record-detail__footer-note">
+    <ui-compliance-notice type="{{footerComplianceType}}" />
+  </view>
+</view>

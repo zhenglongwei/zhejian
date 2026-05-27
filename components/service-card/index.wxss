@@ -4,20 +4,36 @@
   overflow: hidden;
 }
 
+.service-card--embedded {
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.service-card--readonly {
+  pointer-events: none;
+}
+
 .service-card__body {
   padding: var(--space-md);
 }
 
+.service-card--embedded .service-card__body {
+  padding: 0;
+}
+
 .service-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
   margin-bottom: var(--space-sm);
 }
 
 .service-card__title {
   display: block;
   margin-bottom: var(--space-xs);
+}
+
+.service-card__category {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
 }
 
 .service-card__summary {

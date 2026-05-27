@@ -1,82 +1,86 @@
 <view class="page album-create page-content merchant-form-page">
-  <ui-privacy-banner scene="album" />
-  <ui-compliance-notice type="history" />
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">服务模板</text>
-    <picker mode="selector" range="{{templates}}" range-key="name" value="{{templateIndex}}" bindchange="onTemplateChange">
-      <view class="merchant-form__picker">{{templates[templateIndex].name}}</view>
-    </picker>
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">车型描述（将脱敏）</text>
-    <input
-      class="merchant-form__input"
-      placeholder="如：宝马 3 系"
-      value="{{form.vehicleText}}"
-      data-field="vehicleText"
-      bindinput="onInput"
-    />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">维修摘要</text>
-    <textarea
-      class="merchant-form__textarea"
-      placeholder="简要说明故障与处理结果"
-      value="{{form.summary}}"
-      data-field="summary"
-      bindinput="onInput"
-    />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">参考价格区间（到店检测后确认）</text>
-    <view class="merchant-form__row">
+  <ui-privacy-banner scene="albumMerchant" />
+
+  <block wx:if="{{status === 'loading'}}">
+    <ui-skeleton rows="{{5}}" title="{{true}}" />
+  </block>
+
+  <block wx:else>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">所属门店</text>
+      <text class="merchant-form__readonly">{{storeName}}</text>
+    </view>
+
+    <view class="merchant-form__section album-create__service-section">
+      <text class="merchant-form__label">服务项目（必填）</text>
       <input
-        class="merchant-form__input merchant-form__input--half"
-        type="number"
-        placeholder="下限（元）"
-        value="{{form.minAmount}}"
-        data-field="minAmount"
-        bindinput="onInput"
+        class="merchant-form__input album-create__service-input"
+        placeholder="点击输入，可选择常见服务或直接填写"
+        value="{{form.serviceName}}"
+        maxlength="{{16}}"
+        bindfocus="onServiceFocus"
+        bindblur="onServiceBlur"
+        bindinput="onServiceInput"
       />
-      <text>—</text>
+      <view
+        wx:if="{{serviceSuggestVisible && serviceSuggestTags.length}}"
+        class="album-create__suggest"
+      >
+        <text class="album-create__suggest-label text-caption">常见服务</text>
+        <view class="album-create__suggest-chips">
+          <view
+            wx:for="{{serviceSuggestTags}}"
+            wx:key="name"
+            class="album-create__chip {{item.selected ? 'album-create__chip--on' : ''}}"
+            data-name="{{item.name}}"
+            catchtap="onPickServiceSuggest"
+          >{{item.name}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">车主手机号（选填，便于邀请查看服务相册）</text>
       <input
-        class="merchant-form__input merchant-form__input--half"
+        class="merchant-form__input"
         type="number"
-        placeholder="上限（元）"
-        value="{{form.maxAmount}}"
-        data-field="maxAmount"
+        maxlength="11"
+        placeholder="11 位手机号，可不填"
+        value="{{form.userPhone}}"
+        data-field="userPhone"
         bindinput="onInput"
       />
     </view>
-    <view class="merchant-form__price-preview">
-      <ui-price-display
-        mode="{{pricePreview.mode}}"
-        minAmount="{{pricePreview.minAmount}}"
-        maxAmount="{{pricePreview.maxAmount}}"
-        showDisclaimer="{{true}}"
-      />
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">车型（建议填写，公开时将脱敏）</text>
+      <view class="merchant-form__row">
+        <input
+          class="merchant-form__input merchant-form__input--half"
+          placeholder="品牌"
+          value="{{form.vehicleBrand}}"
+          data-field="vehicleBrand"
+          bindinput="onInput"
+        />
+        <input
+          class="merchant-form__input merchant-form__input--half"
+          placeholder="车系"
+          value="{{form.vehicleSeries}}"
+          data-field="vehicleSeries"
+          bindinput="onInput"
+        />
+      </view>
     </view>
-    <ui-compliance-notice type="price" />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label text-h3">节点图片</text>
-    <ui-album-node
-      wx:for="{{nodes}}"
-      wx:key="id"
-      mode="edit"
-      compact="{{true}}"
-      title="{{item.title}}"
-      images="{{item.images}}"
-      data-index="{{index}}"
-      bind:imageschange="onNodeImages"
-    />
-  </view>
-  <view class="merchant-form__hint text-caption">
-    提交后将进入图片脱敏工作台，确认脱敏结果后才会提交平台审核。
-  </view>
+  </block>
+
   <view class="merchant-form__spacer" />
   <ui-fixed-bottom-bar>
-    <ui-button type="secondary" size="sm" slot="left" loading="{{submitting}}" bind:tap="onSaveDraft">存草稿</ui-button>
-    <ui-button type="primary" slot="right" loading="{{submitting}}" bind:tap="onSubmit">下一步：图片脱敏</ui-button>
+    <ui-button
+      type="primary"
+      slot="right"
+      loading="{{submitting}}"
+      disabled="{{status === 'loading'}}"
+      bind:tap="onSubmit"
+    >创建服务相册</ui-button>
   </ui-fixed-bottom-bar>
 </view>

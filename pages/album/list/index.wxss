@@ -1,0 +1,12 @@
+.album-list__tabs {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-xs);
+}
+
+.album-list__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-xl);
+}

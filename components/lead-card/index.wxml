@@ -1,0 +1,39 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="record-card__inner" data-id="{{item.id}}" bindtap="onTap">
+    <view class="record-card__head">
+      <view class="record-card__tags">
+        <ui-lead-status-badge status="{{item.status}}" label="{{item.statusLabel}}" size="sm" />
+      </view>
+      <text wx:if="{{item.createdAtText}}" class="record-card__time text-caption">{{item.createdAtText}}</text>
+    </view>
+
+    <text class="record-card__service text-body">{{item.displayServiceName || item.serviceName || '门店留言'}}</text>
+
+    <block wx:if="{{audience === 'user'}}">
+      <text class="record-card__meta text-caption">{{item.storeName}}</text>
+      <text wx:if="{{item.descriptionPreview}}" class="record-card__meta text-caption">{{item.descriptionPreview}}</text>
+      <text wx:if="{{item.appointmentLabel}}" class="record-card__meta text-caption">期望到店 {{item.appointmentText}}</text>
+    </block>
+    <block wx:else>
+      <text class="record-card__meta text-caption">{{item.contactName}} · {{item.phoneDisplay}}</text>
+      <text wx:if="{{item.descriptionPreview}}" class="record-card__meta text-caption">{{item.descriptionPreview}}</text>
+      <text wx:if="{{item.vehicleSummary}}" class="record-card__meta text-caption">{{item.vehicleSummary}}</text>
+      <text wx:if="{{item.appointmentLabel}}" class="record-card__meta text-caption">期望到店 {{item.appointmentText}}</text>
+      <text wx:if="{{item.sourcePageLabel}}" class="record-card__meta text-caption">来源 {{item.sourcePageLabel}}</text>
+    </block>
+
+    <view
+      wx:if="{{item.primaryAction}}"
+      class="record-card__actions"
+      catchtap="onActionAreaTap"
+    >
+      <ui-button
+        type="primary"
+        size="sm"
+        data-id="{{item.id}}"
+        data-action="{{item.primaryAction.actionKey}}"
+        catch:tap="onAction"
+      >{{item.primaryAction.label}}</ui-button>
+    </view>
+  </view>
+</ui-card>

@@ -11,9 +11,14 @@ const {
   PRE_MASK_STATUS,
 } = require('../constants/desensitize')
 const { mockDesensitizedUrl } = require('../utils/desensitize-mock')
+const { normalizeTaskAssets } = require('../utils/desensitize-url')
 
 const STORAGE_TASKS = 'desensitize_tasks_v1'
 const STORAGE_ALBUMS = 'merchant_albums_v1'
+
+function useApi() {
+  return ENV.mode !== 'mock'
+}
 
 function delay(ms = 320) {
   return new Promise((r) => setTimeout(r, ms))
@@ -193,30 +198,37 @@ function toMaskedAssets(rawAssets) {
     }))
 }
 
-function findPreMaskTaskByAlbumId(albumId) {
+function findPreMaskTaskByAlbumId(albumId, bizType) {
+  const preMaskTypes = bizType
+    ? [bizType]
+    : [BIZ_TYPE.ORDER_PRE_MASK, BIZ_TYPE.SERVICE_PRE_MASK]
   const taskId = buildPreMaskTaskId(albumId)
   return loadTasks().find(
-    (t) => t.taskId === taskId || (t.bizId === albumId && t.bizType === BIZ_TYPE.ORDER_PRE_MASK)
+    (t) =>
+      t.taskId === taskId ||
+      (t.bizId === albumId && preMaskTypes.includes(t.bizType))
   )
 }
 
-function findAuthorizeTaskByAlbumId(albumId) {
+function findAuthorizeTaskByAlbumId(albumId, bizType) {
+  const authTypes = bizType
+    ? [bizType]
+    : [BIZ_TYPE.ORDER_AUTHORIZE, BIZ_TYPE.SERVICE_AUTHORIZE]
   return loadTasks().find(
     (t) =>
       t.bizId === albumId &&
-      t.bizType === BIZ_TYPE.ORDER_AUTHORIZE &&
+      authTypes.includes(t.bizType) &&
       !t.maskingConfirmed
   )
 }
 
-function clearPendingAuthorizeTasks(albumId) {
+function clearPendingAuthorizeTasks(albumId, bizType) {
+  const authTypes = bizType
+    ? [bizType]
+    : [BIZ_TYPE.ORDER_AUTHORIZE, BIZ_TYPE.SERVICE_AUTHORIZE]
   const list = loadTasks().filter(
     (t) =>
-      !(
-        t.bizId === albumId &&
-        t.bizType === BIZ_TYPE.ORDER_AUTHORIZE &&
-        !t.maskingConfirmed
-      )
+      !(t.bizId === albumId && authTypes.includes(t.bizType) && !t.maskingConfirmed)
   )
   saveTasks(list)
 }
@@ -260,11 +272,18 @@ function migrateLegacyPreMaskIfNeeded(albumId, nodes) {
  * @param {object[]} nodes
  */
 async function ensureOrderPreMaskTask(albumId, nodes, options = {}) {
+  if (useApi()) {
+    const task = await post(`/system/albums/${albumId}/pre-mask`, {
+      force: Boolean(options.force),
+    })
+    return normalizeTaskAssets(task)
+  }
   await delay(options.instant ? 0 : 180)
   migrateLegacyPreMaskIfNeeded(albumId, nodes)
 
+  const preMaskBizType = options.preMaskBizType || BIZ_TYPE.ORDER_PRE_MASK
   const fingerprint = nodesFingerprint(nodes)
-  const existing = findPreMaskTaskByAlbumId(albumId)
+  const existing = findPreMaskTaskByAlbumId(albumId, preMaskBizType)
   if (
     existing &&
     existing.fingerprint === fingerprint &&
@@ -279,14 +298,14 @@ async function ensureOrderPreMaskTask(albumId, nodes, options = {}) {
     existing &&
     existing.fingerprint !== fingerprint
   ) {
-    clearPendingAuthorizeTasks(albumId)
+    clearPendingAuthorizeTasks(albumId, options.authorizeBizType)
   }
 
   const taskId = buildPreMaskTaskId(albumId)
   const runningTask = {
     ...(existing || {}),
     taskId,
-    bizType: BIZ_TYPE.ORDER_PRE_MASK,
+    bizType: preMaskBizType,
     bizId: albumId,
     operatorRole: OPERATOR_ROLE.SYSTEM,
     liabilityType: 'platform',
@@ -317,6 +336,14 @@ async function ensureOrderPreMaskTask(albumId, nodes, options = {}) {
   return task
 }
 
+async function ensureServicePreMaskTask(albumId, nodes, options = {}) {
+  return ensureOrderPreMaskTask(albumId, nodes, {
+    ...options,
+    preMaskBizType: BIZ_TYPE.SERVICE_PRE_MASK,
+    authorizeBizType: BIZ_TYPE.SERVICE_AUTHORIZE,
+  })
+}
+
 function persistTask(task) {
   const list = loadTasks()
   const next = list.map((t) => (t.taskId === task.taskId ? task : t))
@@ -329,10 +356,13 @@ function persistTask(task) {
  * 用户确认脱敏并授权公开（订单相册 order_authorize，不写 merchant_albums）
  */
 async function confirmOrderAuthorizeTask(taskId, opts = {}) {
-  if (ENV.mode !== 'mock') {
+  if (useApi()) {
     const data = await post(`/desensitize/tasks/${taskId}/confirm`, {
       liabilityAccepted: Boolean(opts.liabilityAccepted),
     })
+    if (data && data.task) {
+      return { task: normalizeTaskAssets(data.task) }
+    }
     return data
   }
   if (!opts.liabilityAccepted) {
@@ -342,18 +372,13 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
   }
   await delay(320)
   let task = await fetchTask(taskId)
-  if (task.bizType !== BIZ_TYPE.ORDER_AUTHORIZE) {
+  if (task.bizType !== BIZ_TYPE.ORDER_AUTHORIZE && task.bizType !== BIZ_TYPE.SERVICE_AUTHORIZE) {
     const err = new Error('任务类型不匹配')
     err.code = 400
     throw err
   }
   if (!allMaskingSucceeded(task.rawAssets)) {
     const err = new Error('仍有图片未完成脱敏')
-    err.code = 400
-    throw err
-  }
-  if (!allPreviewed(task.rawAssets)) {
-    const err = new Error('请先查看每张脱敏预览')
     err.code = 400
     throw err
   }
@@ -373,8 +398,8 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
 }
 
 async function fetchTask(taskId) {
-  if (ENV.mode !== 'mock') {
-    return get(`/desensitize/tasks/${taskId}`)
+  if (useApi()) {
+    return normalizeTaskAssets(await get(`/desensitize/tasks/${taskId}`))
   }
   await delay()
   const task = loadTasks().find((t) => t.taskId === taskId)
@@ -390,10 +415,23 @@ function shouldRunOrderPreMask(albumStatus) {
   return ['completed', 'report_generated'].includes(albumStatus)
 }
 
+function shouldRunServicePreMask(albumStatus) {
+  return ['completed', 'pending_authorization', 'published'].includes(albumStatus)
+}
+
 /**
  * 基于 order_pre_mask 任务创建用户授权预览任务（order_authorize）
  */
 async function createOrderAuthorizeTaskFromPreMask({ bizId, orderId, nodes }) {
+  if (useApi()) {
+    if (!orderId) {
+      const err = new Error('缺少订单 ID')
+      err.code = 400
+      throw err
+    }
+    const preview = await post(`/user/orders/${orderId}/album/authorize-preview`)
+    return fetchTask(preview.taskId)
+  }
   await delay(120)
   let preMaskTask = findPreMaskTaskByAlbumId(bizId)
   if (
@@ -457,14 +495,86 @@ async function createOrderAuthorizeTaskFromPreMask({ bizId, orderId, nodes }) {
   return task
 }
 
+async function createServiceAuthorizeTaskFromPreMask({ bizId, nodes }) {
+  if (useApi()) {
+    const preview = await post(`/user/albums/${bizId}/authorize-preview`)
+    return fetchTask(preview.taskId)
+  }
+  await delay(120)
+  const preMaskBizType = BIZ_TYPE.SERVICE_PRE_MASK
+  const authorizeBizType = BIZ_TYPE.SERVICE_AUTHORIZE
+  let preMaskTask = findPreMaskTaskByAlbumId(bizId, preMaskBizType)
+  if (
+    !preMaskTask ||
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.RUNNING ||
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.IDLE
+  ) {
+    if (nodes && nodes.length) {
+      preMaskTask = await ensureServicePreMaskTask(bizId, nodes, { instant: true })
+    }
+  }
+  if (!preMaskTask) {
+    const err = new Error('预脱敏尚未就绪，请稍后再试')
+    err.code = 409
+    throw err
+  }
+  if (
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED ||
+    !(preMaskTask.rawAssets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
+  ) {
+    const err = new Error('预脱敏失败，请稍后重试或联系客服')
+    err.code = 409
+    throw err
+  }
+
+  const existing = findAuthorizeTaskByAlbumId(bizId, authorizeBizType)
+  if (
+    existing &&
+    existing.preMaskTaskId === preMaskTask.taskId &&
+    existing.preMaskVersion === preMaskTask.preMaskVersion
+  ) {
+    return existing
+  }
+  if (existing) {
+    clearPendingAuthorizeTasks(bizId, authorizeBizType)
+  }
+
+  const rawAssets = (preMaskTask.rawAssets || []).map((asset) => ({
+    ...asset,
+    maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
+    previewed: false,
+  }))
+  const authTaskId = buildAuthorizeTaskId(bizId)
+  const task = {
+    taskId: authTaskId,
+    bizType: authorizeBizType,
+    bizId,
+    operatorRole: OPERATOR_ROLE.USER,
+    liabilityType: 'user',
+    preMaskTaskId: preMaskTask.taskId,
+    preMaskVersion: preMaskTask.preMaskVersion,
+    fromPreMask: true,
+    rawAssets,
+    maskedAssets: toMaskedAssets(rawAssets),
+    maskingConfirmed: false,
+    maskingConfirmedAt: null,
+    updatedAt: Date.now(),
+  }
+  persistTask(task)
+  return task
+}
+
 /** 一键 AI 脱敏（mock 批量） */
 async function runAutoMask(taskId) {
-  if (ENV.mode !== 'mock') {
-    return post(`/desensitize/tasks/${taskId}/auto-mask`)
+  if (useApi()) {
+    return normalizeTaskAssets(await post(`/desensitize/tasks/${taskId}/auto-mask`))
   }
   await delay(480)
   const task = await fetchTask(taskId)
-  if (task.bizType === BIZ_TYPE.ORDER_PRE_MASK) {
+  if (
+    task.bizType === BIZ_TYPE.ORDER_PRE_MASK ||
+    task.bizType === BIZ_TYPE.SERVICE_PRE_MASK
+  ) {
     const err = new Error('预脱敏任务由系统自动处理，无需手动脱敏')
     err.code = 400
     throw err
@@ -516,8 +626,10 @@ async function runAutoMask(taskId) {
 }
 
 async function retryAsset(taskId, assetId) {
-  if (ENV.mode !== 'mock') {
-    return post(`/desensitize/tasks/${taskId}/assets/${assetId}/retry`)
+  if (useApi()) {
+    return normalizeTaskAssets(
+      await post(`/desensitize/tasks/${taskId}/assets/${assetId}/retry`)
+    )
   }
   await delay(360)
   const task = await fetchTask(taskId)
@@ -561,8 +673,10 @@ function allPreviewed(assets) {
 }
 
 async function markAssetPreviewed(taskId, assetId) {
-  if (ENV.mode !== 'mock') {
-    return post(`/desensitize/tasks/${taskId}/assets/${assetId}/previewed`)
+  if (useApi()) {
+    return normalizeTaskAssets(
+      await post(`/desensitize/tasks/${taskId}/assets/${assetId}/previewed`)
+    )
   }
   const task = await fetchTask(taskId)
   const rawAssets = (task.rawAssets || []).map((a) =>
@@ -619,11 +733,6 @@ async function confirmTask(taskId, opts = {}) {
     err.code = 400
     throw err
   }
-  if (!allPreviewed(task.rawAssets)) {
-    const err = new Error('请先查看每张脱敏预览')
-    err.code = 400
-    throw err
-  }
   const rawAssets = (task.rawAssets || []).map((a) => ({
     ...a,
     status: ASSET_STATUS.CONFIRMED,
@@ -666,8 +775,7 @@ function getWorkbenchStats(task) {
     total,
     processed,
     failed,
-    canConfirm:
-      allMaskingSucceeded(task.rawAssets) && allPreviewed(task.rawAssets),
+    canConfirm: allMaskingSucceeded(task.rawAssets),
     needPreview: !allPreviewed(task.rawAssets),
   }
 }
@@ -675,11 +783,14 @@ function getWorkbenchStats(task) {
 module.exports = {
   createTask,
   ensureOrderPreMaskTask,
+  ensureServicePreMaskTask,
   createOrderAuthorizeTaskFromPreMask,
+  createServiceAuthorizeTaskFromPreMask,
   confirmOrderAuthorizeTask,
   fetchTask,
   findPreMaskTaskByAlbumId,
   shouldRunOrderPreMask,
+  shouldRunServicePreMask,
   runAutoMask,
   retryAsset,
   confirmTask,

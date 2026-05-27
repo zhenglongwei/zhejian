@@ -2,7 +2,9 @@ const { config } = require('../config')
 
 const BIZ_TYPE = {
   ORDER_PRE_MASK: 'order_pre_mask',
+  SERVICE_PRE_MASK: 'service_pre_mask',
   ORDER_AUTHORIZE: 'order_authorize',
+  SERVICE_AUTHORIZE: 'service_authorize',
   MERCHANT_HISTORY: 'merchant_history',
 }
 

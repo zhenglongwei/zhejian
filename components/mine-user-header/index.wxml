@@ -1,0 +1,31 @@
+<view class="mine-user-header" bindtap="onUserAreaTap">
+  <view class="mine-user-header__avatar-wrap">
+    <image
+      wx:if="{{isLoggedIn && user.avatarUrl}}"
+      class="mine-user-header__avatar"
+      src="{{user.avatarUrl}}"
+      mode="aspectFill"
+    />
+    <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder">
+      <text class="mine-user-header__avatar-icon">👤</text>
+    </view>
+  </view>
+  <view class="mine-user-header__meta">
+    <block wx:if="{{isLoggedIn}}">
+      <text class="mine-user-header__nickname text-h2">{{user.nickname || '微信用户'}}</text>
+      <text wx:if="{{user.isPhoneBound}}" class="mine-user-header__phone text-caption">{{user.phoneDisplay}}</text>
+      <view wx:else class="mine-user-header__bind-hint">
+        <ui-tag variant="info" text="未绑定手机号" />
+        <text class="mine-user-header__bind-desc text-caption">绑定后可接收咨询回复、相册与配件确认通知</text>
+        <ui-button type="secondary" size="sm" catch:tap="onBindPhoneTap">绑定手机号</ui-button>
+      </view>
+    </block>
+    <block wx:else>
+      <text class="mine-user-header__nickname text-h2">点击登录</text>
+      <text class="mine-user-header__guest-desc text-caption">登录后可查看咨询记录、服务相册与授权状态</text>
+      <view class="mine-user-header__login-btn">
+        <ui-button type="primary" size="sm" catch:tap="onLoginTap">微信一键登录</ui-button>
+      </view>
+    </block>
+  </view>
+</view>

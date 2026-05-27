@@ -19,7 +19,7 @@ Component({
     currency: { type: String, value: '¥' },
     showDisclaimer: { type: Boolean, value: true },
     showSuffix: { type: Boolean, value: true },
-    /** 覆盖默认免责文案（如历史案例「价格仅供参考」） */
+    /** 覆盖默认免责文案 */
     disclaimerText: { type: String, value: '' },
   },
   data: {

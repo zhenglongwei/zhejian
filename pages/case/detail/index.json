@@ -4,7 +4,6 @@
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",
-    "ui-tag": "/components/tag/index",
     "ui-price-display": "/components/price-display/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
@@ -12,7 +11,9 @@
     "ui-ai-summary-block": "/components/ai-summary-block/index",
     "ui-album-node": "/components/album-node/index",
     "ui-case-card": "/components/case-card/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-review-list-section": "/components/review-list-section/index"
+    "ui-store-card": "/components/store-card/index",
+    "ui-tag-row": "/components/tag-row/index",
+    "ui-faq-list": "/components/faq-list/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

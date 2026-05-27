@@ -148,7 +148,7 @@ function handleOrderAction(actionKey, ctx) {
       showDeferred('平台客服')
       break
     case 'archive':
-      showDeferred('维修档案')
+      showDeferred('服务相册')
       break
     case 'reorder':
       if (order.serviceId) {

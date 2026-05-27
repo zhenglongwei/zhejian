@@ -1,5 +1,5 @@
 /**
- * 用户订单维修相册 — D8
+ * 用户订单服务相册 — D8
  * MOCK: mock/order-album.js；联调后接 GET /api/user/orders/{order_id}/album
  */
 const { ENV } = require('./config')

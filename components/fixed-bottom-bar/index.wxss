@@ -16,6 +16,13 @@
   min-width: 0;
 }
 
+.fixed-bottom-bar__left-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 .fixed-bottom-bar__right {
   flex: 2;
   display: flex;

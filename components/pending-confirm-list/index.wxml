@@ -1,0 +1,16 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="pending-confirm-list">
+    <text class="pending-confirm-list__title text-h3">你有 {{items.length}} 项待确认</text>
+    <view class="pending-confirm-list__cells">
+      <ui-cell
+        wx:for="{{items}}"
+        wx:key="id"
+        title="{{item.cellTitle || item.label}}"
+        border="{{index < items.length - 1}}"
+        data-id="{{item.id}}"
+        bind:tap="onItemTap"
+      />
+    </view>
+    <ui-button type="primary" size="sm" block="{{true}}" bind:tap="onAction">{{actionText}}</ui-button>
+  </view>
+</ui-card>

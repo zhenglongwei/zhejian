@@ -1,0 +1,9 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-checkbox-row": "/components/checkbox-row/index"
+  }
+}

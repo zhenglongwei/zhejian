@@ -103,25 +103,13 @@
 
       <view wx:if="{{showPriceFactors && detail.priceFactors.length}}" class="service-detail__section">
         <text class="service-detail__section-title text-h2">影响价格的因素</text>
-        <view class="service-detail__list">
+        <view class="bullet-list">
           <text
             wx:for="{{detail.priceFactors}}"
             wx:key="*this"
-            class="service-detail__list-item text-caption"
+            class="bullet-list__item"
           >· {{item}}</text>
         </view>
-      </view>
-
-      <view id="reviews-section" class="service-detail__section">
-        <ui-review-list-section
-          sectionTitle="用户评价"
-          reviews="{{serviceReviews}}"
-          status="{{serviceReviewsStatus}}"
-          emptyTitle="该服务暂无公开评价"
-          emptyDescription="完成服务后可提交真实评价。"
-          errorDescription="服务其他信息正常展示，请稍后重试加载评价。"
-          bind:retry="onRetryServiceReviews"
-        />
       </view>
 
       <view id="cases-section" class="service-detail__section">
@@ -139,9 +127,6 @@
         <view class="service-detail__notice">
           <ui-compliance-notice type="casePrice" />
         </view>
-        <view wx:if="{{detail.hasHistoryCases}}" class="service-detail__notice">
-          <ui-compliance-notice type="history" />
-        </view>
         <block wx:if="{{!detail.relatedCases.length}}">
           <ui-empty
             title="暂无类似案例"
@@ -153,12 +138,13 @@
             wx:for="{{detail.relatedCases}}"
             wx:key="id"
             caseId="{{item.id}}"
-            caseSource="{{item.source}}"
+            authorizationTier="{{item.authorizationTier}}"
             coverImage="{{item.coverImage}}"
             title="{{item.title}}"
             serviceName="{{item.serviceName}}"
             summary="{{item.summary}}"
             priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
             minAmount="{{item.minAmount}}"
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
@@ -208,32 +194,17 @@
 
       <view wx:if="{{detail.faq.length}}" class="service-detail__section">
         <text class="service-detail__section-title text-h2">常见问题</text>
-        <view
-          wx:for="{{detail.faq}}"
-          wx:key="q"
-          class="service-detail__faq"
-        >
-          <text class="service-detail__faq-q text-body">Q：{{item.q}}</text>
-          <text class="service-detail__faq-a text-caption">{{item.a}}</text>
-        </view>
+        <ui-faq-list items="{{detail.faq}}" showQPrefix="{{true}}" variant="card" />
       </view>
     </view>
 
-    <ui-fixed-bottom-bar>
-      <ui-button
-        wx:if="{{secondaryAction}}"
-        type="secondary"
-        size="sm"
-        slot="left"
-        disabled="{{!detail.bookable}}"
-        bind:tap="onSecondaryAction"
-      >{{secondaryAction}}</ui-button>
+    <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
       <ui-button
         type="primary"
         slot="right"
-        disabled="{{!detail.bookable}}"
-        bind:tap="onPrimaryAction"
-      >{{primaryAction}}</ui-button>
+        disabled="{{!bookable}}"
+        bind:tap="onMessage"
+      >留言</ui-button>
     </ui-fixed-bottom-bar>
 
     <ui-login-sheet

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "搜索",
+  "usingComponents": {
+    "ui-search-bar": "/components/search-bar/index",
+    "ui-tag": "/components/tag/index",
+    "ui-cell": "/components/cell/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index"
+  }
+}

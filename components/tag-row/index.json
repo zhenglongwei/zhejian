@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-tag": "/components/tag/index"
+  },
+  "styleIsolation": "apply-shared"
+}

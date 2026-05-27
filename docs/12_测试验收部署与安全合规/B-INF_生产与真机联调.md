@@ -1,0 +1,149 @@
+# B-INF · 生产部署与真机联调
+
+> 对应 `docs/00_开发计划.md` **B-INF-01～B-INF-04**  
+> **当前生产现状（2026-05-26）**：`https://geo.simplewin.cn/api/v1/health` 返回 Next.js HTML 404，说明 **/api/ 尚未反代到 Node**。完成本文 §二 后应返回 JSON `"db":"up"`。
+
+---
+
+## 一、任务清单
+
+| ID | 任务 | 负责方 | 验收 |
+| --- | --- | --- | --- |
+| B-INF-01 | 服务器部署 backend + MySQL | 运维/开发 SSH | `systemctl status zhejian-api` active |
+| B-INF-02 | Nginx HTTPS + `/api/` 反代 | 运维 | `curl https://geo.simplewin.cn/api/v1/health` 为 JSON |
+| B-INF-03 | 微信小程序 request 合法域名 | 小程序管理员 | 真机 request 不报域名非法 |
+| B-INF-04 | migrate + 可选 seed + health 脚本 | 开发/运维 | `npm run deploy:verify` 通过 |
+
+---
+
+## 二、服务器部署（B-INF-01 + B-INF-02 + B-INF-04）
+
+### 2.1 前置
+
+- 代码已在 `/var/www/zhejian`（`git clone` 或上传，见 `docs/部署上手指南.md`）
+- MySQL 已建库 `zhejian` 与用户 `zhejian@127.0.0.1`
+- SSL 证书在 `/etc/nginx/ssl/geo.simplewin.cn/`
+
+### 2.2 一键脚本（Alibaba Cloud Linux / CentOS / Ubuntu 均适用）
+
+```bash
+cd /var/www/zhejian
+git pull                                      # 务必先更新（旧脚本含 apt-get 会报错）
+sudo bash scripts/server-install.sh --init   # 首次：生成 .env
+sudo nano backend/.env                        # 改 DATABASE_URL、DEV_USER_TOKEN
+sudo bash scripts/server-install.sh           # 安装、migrate、nginx、systemd
+```
+
+裸机缺 node/nginx 时（可选）：
+
+```bash
+sudo bash scripts/server-install.sh --bootstrap
+```
+
+**说明**：Alibaba Cloud Linux 使用 **yum/dnf**，无 `apt-get`；`--init` 不安装系统包，只复制 `.env`。
+
+`.env` 参考 `backend/.env.production.example`。
+
+### 2.3 手动核对
+
+```bash
+# 本机 Node
+curl -s http://127.0.0.1:3000/api/v1/health
+
+# 外网 HTTPS（B-INF-02）
+curl -s https://geo.simplewin.cn/api/v1/health
+```
+
+期望 JSON 示例：
+
+```json
+{
+  "code": 0,
+  "data": { "ok": true, "service": "zhejian-api", "db": "up" }
+}
+```
+
+### 2.4 Nginx 与 Next.js 共存
+
+若域名上已有 **Next.js** 占 `/`，必须在 Nginx 中保证 **`location /api/` 写在 catch-all 之前**，并 `proxy_pass` 到 `127.0.0.1:3000`。  
+配置文件：`backend/deploy/nginx-geo.simplewin.cn.conf`。
+
+### 2.5 生产数据库
+
+| 命令 | 用途 |
+| --- | --- |
+| `npm run db:setup:prod` | 生产：**仅** generate + migrate（不 seed） |
+| `npm run db:seed` | 首次演示数据（可选，勿重复跑） |
+| `npm run deploy:verify` | 健康检查脚本 |
+
+---
+
+## 三、微信小程序（B-INF-03）
+
+### 3.1 公众平台
+
+1. 登录 [微信公众平台](https://mp.weixin.qq.com/) → 开发 → 开发管理 → 开发设置  
+2. **服务器域名** → request 合法域名添加：`https://geo.simplewin.cn`  
+3. 保存后等待生效（约几分钟）
+
+### 3.2 小程序工程
+
+1. 打开 `services/config.js`，设置：
+
+```javascript
+const ACTIVE_ENV = 'prod'
+```
+
+2. 微信开发者工具 → 详情 → 本地设置：  
+   - **真机预览/体验版**：关闭「不校验合法域名」  
+   - **仅本地调 localhost**：可临时开启，且 `ACTIVE_ENV = 'local'`
+
+3. AppID：`project.config.json` 中 `wx54cc6c18cc01b815`（与公众平台一致）
+
+### 3.3 联调期登录
+
+`DEV_AUTH_ENABLED=true` 时，登录接口返回固定 token。  
+服务器 `backend/.env` 的 `DEV_USER_TOKEN` 与登录后 storage 中 `token` 一致即可（正式微信登录见 **B-AUTH-02**）。
+
+---
+
+## 四、Windows 本地验证
+
+```powershell
+# 先起本地 API
+cd backend
+npm run dev
+
+# 另开终端
+powershell -ExecutionPolicy Bypass -File scripts\verify-prod-api.ps1 -BaseUrl http://127.0.0.1:3000
+
+# 生产（Nginx 配好后）
+powershell -ExecutionPolicy Bypass -File scripts\verify-prod-api.ps1
+```
+
+---
+
+## 五、真机冒烟（B-INF-04 扩展）
+
+`ACTIVE_ENV = 'prod'` 且 health 通过后：
+
+- [ ] 首页 / 我的 无「网络异常」
+- [ ] 登录 → 我的页 summary
+- [ ] 我的咨询列表
+- [ ] 我的服务相册 → 详情
+- [ ] 提交一条咨询
+
+分享相册 + 手机号归属 → **B-AUTH + B-ALB-06** 后再测。
+
+---
+
+## 六、回滚
+
+```bash
+cd /var/www/zhejian
+git checkout <上一版本>
+cd backend && npm install && npm run db:migrate
+sudo systemctl restart zhejian-api
+```
+
+数据库迁移一般只向前；回滚代码前确认 migration 兼容性。

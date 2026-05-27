@@ -1,4 +1,4 @@
-/** MOCK: 可预约时段，联调后由 order-confirm API 返回 */
+/** MOCK: 可预约时段，联调后由咨询表单 API 返回 */
 const DEFAULT_TIME_SLOTS = [
   '09:00-10:00',
   '10:00-11:00',
