@@ -1,4 +1,5 @@
 #!/bin/bash
+# zhejian-server-install: v2
 # 辙见 · 服务器部署（B-INF-01～04）
 # 支持：Alibaba Cloud Linux / CentOS（yum/dnf）、Ubuntu/Debian（apt）
 #
@@ -99,8 +100,9 @@ if [ ! -f "$APP_ROOT/backend/package.json" ]; then
   exit 1
 fi
 
-# 旧版脚本特征：首行日志含「网站 /var/www/geo.simplewin.cn」
-if grep -q '网站 /var/www/geo.simplewin.cn' "$APP_ROOT/scripts/server-install.sh" 2>/dev/null; then
+# 旧版脚本含 WEB_ROOT= 且不含 install_nginx_site
+if grep -q 'WEB_ROOT=' "$APP_ROOT/scripts/server-install.sh" 2>/dev/null \
+  && ! grep -q 'install_nginx_site' "$APP_ROOT/scripts/server-install.sh" 2>/dev/null; then
   echo "WARN: 检测到旧版 server-install.sh，请 git pull 后重试"
   exit 1
 fi
