@@ -22,7 +22,7 @@
 
 - 代码已在 `/var/www/zhejian`（`git clone` 或上传，见 `docs/部署上手指南.md`）
 - MySQL 已建库 `zhejian` 与用户 `zhejian@127.0.0.1`
-- SSL 证书在 `/etc/nginx/ssl/geo.simplewin.cn/`
+- SSL 证书：部署脚本会**自动从现有 Nginx 配置**或 `backend/.env` 的 `SSL_CERTIFICATE*` 读取；若均不存在见 §2.6
 
 ### 2.2 一键脚本（Alibaba Cloud Linux / CentOS / Ubuntu 均适用）
 
@@ -66,7 +66,7 @@ curl -s https://geo.simplewin.cn/api/v1/health
 ### 2.4 Nginx 与 Next.js 共存
 
 若域名上已有 **Next.js** 占 `/`，必须在 Nginx 中保证 **`location /api/` 写在 catch-all 之前**，并 `proxy_pass` 到 `127.0.0.1:3000`。  
-配置文件：`backend/deploy/nginx-geo.simplewin.cn.conf`。
+配置文件：`backend/deploy/nginx-geo.simplewin.cn.conf`；仅合并反代时用 `backend/deploy/nginx-api-location.snippet.conf`。
 
 ### 2.5 生产数据库
 
@@ -75,6 +75,39 @@ curl -s https://geo.simplewin.cn/api/v1/health
 | `npm run db:setup:prod` | 生产：**仅** generate + migrate（不 seed） |
 | `npm run db:seed` | 首次演示数据（可选，勿重复跑） |
 | `npm run deploy:verify` | 健康检查脚本 |
+
+### 2.6 Nginx SSL 证书找不到（常见）
+
+报错示例：
+
+```text
+cannot load certificate "/etc/nginx/ssl/geo.simplewin.cn/fullchain.pem": No such file
+```
+
+**原因**：模板默认路径与服务器实际证书位置不一致。域名若已能 HTTPS 打开，说明证书已在某处配置好。
+
+**步骤 1 — 查现有证书路径**（SSH 在服务器）：
+
+```bash
+grep -r ssl_certificate /etc/nginx/
+```
+
+**步骤 2 — 任选其一**：
+
+| 方式 | 操作 |
+| --- | --- |
+| A. 写入 `.env` | 在 `backend/.env` 增加 `SSL_CERTIFICATE=` / `SSL_CERTIFICATE_KEY=`（见 `.env.production.example`） |
+| B. 符号链接 | `sudo mkdir -p /etc/nginx/ssl/geo.simplewin.cn` 后 `ln -sf` 到实际 pem |
+| C. 只合并 API | 已有 Next.js 站点时，编辑原 `server` 块，插入 `backend/deploy/nginx-api-location.snippet.conf`，然后 `sudo bash scripts/server-install.sh --skip-nginx` |
+
+**步骤 3 — 重跑**：
+
+```bash
+cd /var/www/zhejian && git pull
+sudo bash scripts/server-install.sh
+```
+
+**Node 版本**：若 `npm warn EBADENGINE`（当前 Node 18），建议 `sudo bash scripts/server-install.sh --bootstrap` 升级到 Node 20+。
 
 ---
 
