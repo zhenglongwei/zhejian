@@ -4,15 +4,6 @@ const { fail } = require('../lib/response')
 const DEV_USER_ID = 'user_demo_1'
 const DEV_MERCHANT_ID = 'merchant_demo_1'
 
-const CLIENT_ROLE = {
-  'weapp_user': 'user',
-  'user-miniapp': 'user',
-  merchant: 'merchant',
-  'merchant-miniapp': 'merchant',
-  admin: 'admin',
-  system: 'system',
-}
-
 function parseBearer(req) {
   const header = req.headers.authorization || ''
   const match = header.match(/^Bearer\s+(.+)$/i)
@@ -27,14 +18,14 @@ function isDevMerchantToken(token) {
   return config.devAuthEnabled && token === config.devTokens.merchant
 }
 
-function resolveRole(clientType, token) {
+function resolveRole(token) {
   if (!config.devAuthEnabled) {
     return null
   }
   if (token === config.devTokens.user) return 'user'
   if (token === config.devTokens.merchant) return 'merchant'
   if (token === config.devTokens.system) return 'system'
-  if (CLIENT_ROLE[clientType]) return CLIENT_ROLE[clientType]
+  // 联调期勿仅凭 Client-Type 放行：无效 token 会导致 userId 为空
   return null
 }
 
@@ -49,10 +40,9 @@ function canAccessRole(req, roles) {
 
 function optionalAuth(req, res, next) {
   const token = parseBearer(req)
-  const clientType = req.headers['x-client-type'] || ''
   req.auth = {
     token,
-    role: resolveRole(clientType, token),
+    role: resolveRole(token),
     userId: isDevUserToken(token) ? DEV_USER_ID : null,
     merchantId:
       isDevMerchantToken(token) || isDevUserToken(token) ? DEV_MERCHANT_ID : null,
@@ -67,6 +57,12 @@ function requireAuth(roles = []) {
     }
     if (roles.length && !canAccessRole(req, roles)) {
       return fail(res, 100003, '无权限', 403)
+    }
+    if (roles.includes('user') && !req.auth.userId) {
+      return fail(res, 100002, '登录已失效，请重新登录', 401)
+    }
+    if (roles.includes('merchant') && !req.auth.merchantId) {
+      return fail(res, 100002, '登录已失效，请重新登录', 401)
     }
     next()
   }

@@ -43,6 +43,11 @@ async function devBindPhone(userId) {
 }
 
 async function fetchMineSummary(userId) {
+  if (!userId) {
+    const err = new Error('未授权')
+    err.status = 401
+    throw err
+  }
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) {
     const err = new Error('用户不存在')
