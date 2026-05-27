@@ -4,7 +4,7 @@
 
 | 路径 | 说明 |
 | --- | --- |
-| `/api/v1/` | 本 backend（systemd `zhejian-api`） |
+| `/api/v1/` | 本 backend（**PM2** `zhejian-api` 或 systemd，见下） |
 | `/admin/` | `admin-web/placeholder/` |
 | `/case/` | `h5/case/` |
 
@@ -19,6 +19,30 @@ sudo bash scripts/server-install.sh --init
 # 编辑 backend/.env 后：
 sudo bash scripts/server-install.sh
 curl -s https://geo.simplewin.cn/api/v1/health
+```
+
+## PM2（推荐，与现有运维习惯一致）
+
+与 **simplewin.cn :3000** 共存时，`backend/.env` 设 **`PORT=3100`**，Nginx geo 块 `/api/` 反代到 `127.0.0.1:3100`。
+
+```bash
+cd /var/www/zhejian/backend
+cp .env.production.example .env   # 首次
+nano .env                         # DATABASE_URL、DEV_*_TOKEN、PORT=3100
+
+npm install
+npm run db:setup:prod
+
+# 若曾用 systemd，先停掉避免抢端口
+sudo systemctl stop zhejian-api 2>/dev/null || true
+sudo systemctl disable zhejian-api 2>/dev/null || true
+
+pm2 start ecosystem.config.cjs
+pm2 restart zhejian-api          # 以后改代码/配置后
+curl -s http://127.0.0.1:3100/api/v1/health
+
+pm2 save
+pm2 startup                      # 按提示执行一条 sudo 命令，开机自启
 ```
 
 ## 小程序

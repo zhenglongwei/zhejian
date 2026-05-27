@@ -159,7 +159,16 @@ EOF
 install_nginx_site() {
   local src="$APP_ROOT/backend/deploy/nginx-geo.simplewin.cn.conf"
   local rendered cert key source dest_dir
-  local ssl_info
+  local ssl_info existing_other
+
+  existing_other="$(grep -rl 'server_name[^;]*geo\.simplewin\.cn' /etc/nginx/ 2>/dev/null \
+    | grep -Ev 'geo\.simplewin\.cn\.conf|zhejian-api-location' | head -1 || true)"
+
+  if [ -n "$existing_other" ]; then
+    log "已有站点配置: $existing_other（合并 /api/，不覆盖整站）"
+    bash "$APP_ROOT/scripts/merge-nginx-api.sh"
+    return 0
+  fi
 
   if ! ssl_info="$(resolve_ssl_certificate_paths)"; then
     print_ssl_help
@@ -173,7 +182,11 @@ install_nginx_site() {
   log "SSL 证书: $cert (来源: $source)"
 
   rendered="$(mktemp)"
-  sed "s|__SSL_CERTIFICATE__|$cert|g; s|__SSL_CERTIFICATE_KEY__|$key|g" "$src" > "$rendered"
+  api_port="$(read_env_var "$APP_ROOT/backend/.env" PORT)"
+  api_port="${api_port:-3000}"
+  sed "s|__SSL_CERTIFICATE__|$cert|g; s|__SSL_CERTIFICATE_KEY__|$key|g; s|__ZHEJIAN_API_PORT__|$api_port|g" \
+    "$src" > "$rendered"
+  log "API upstream: 127.0.0.1:$api_port"
 
   if [ -d /etc/nginx/sites-available ]; then
     dest_dir="/etc/nginx/sites-available/geo.simplewin.cn"
@@ -189,13 +202,6 @@ install_nginx_site() {
   fi
   rm -f "$rendered"
 
-  local existing_other
-  existing_other="$(grep -rl 'server_name[^;]*geo\.simplewin\.cn' /etc/nginx/ 2>/dev/null | grep -v "$dest_dir" | head -1 || true)"
-  if [ -n "$existing_other" ]; then
-    warn "检测到其它 geo.simplewin.cn 配置: $existing_other"
-    warn "若 Next.js 仍占 /api/，请合并 nginx-api-location.snippet.conf 或删除重复 server 块"
-  fi
-
   nginx -t
   systemctl enable nginx 2>/dev/null || true
   systemctl reload nginx || systemctl restart nginx
@@ -209,9 +215,22 @@ detect_service_user() {
 }
 
 install_systemd_unit() {
-  local user
+  local user port
   user="$(detect_service_user)"
-  log "systemd 运行用户: $user"
+  port="$(read_env_var "$APP_ROOT/backend/.env" PORT)"
+  port="${port:-3002}"
+  log "systemd 运行用户: $user · PORT=$port"
+
+  if command -v ss >/dev/null 2>&1; then
+    if ss -tlnp 2>/dev/null | grep -q ":${port} "; then
+      if ! systemctl is-active --quiet zhejian-api 2>/dev/null; then
+        warn "端口 ${port} 已被占用，zhejian-api 可能无法启动"
+        warn "查看占用: ss -tlnp | grep :${port}"
+        warn "与 Next.js 共存时请在 backend/.env 使用 PORT=3002"
+      fi
+    fi
+  fi
+
   sed "s/^User=.*/User=$user/" "$APP_ROOT/backend/deploy/zhejian-api.service" \
     | sed "s/^Group=.*/Group=$user/" \
     > /etc/systemd/system/zhejian-api.service
@@ -297,7 +316,9 @@ log "systemd zhejian-api"
 install_systemd_unit
 
 log "本机 health"
-node scripts/verify-health.js http://127.0.0.1:3000
+port="$(read_env_var "$APP_ROOT/backend/.env" PORT)"
+port="${port:-3002}"
+node scripts/verify-health.js "http://127.0.0.1:${port}"
 
 echo ""
 echo "部署完成。外网验证:"

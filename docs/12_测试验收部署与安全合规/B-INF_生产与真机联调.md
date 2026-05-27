@@ -76,6 +76,35 @@ curl -s https://geo.simplewin.cn/api/v1/health
 | `npm run db:seed` | 首次演示数据（可选，勿重复跑） |
 | `npm run deploy:verify` | 健康检查脚本 |
 
+### 2.7 geo 专域 + 清理旧项目（simplewin.cn 与 geo 分离）
+
+| 域名 | 用途 | 是否改动 |
+| --- | --- | --- |
+| `simplewin.cn` | 公司官网 | **勿动**（保留 `simplewin.conf` 中官网 server 块） |
+| `geo.simplewin.cn` | 辙见 API + H5 | 使用仓库 `nginx-geo.simplewin.cn.conf` 独占 |
+
+若服务器上曾有其它项目占 **3000** 端口，需先停掉旧服务，再部署 `zhejian-api`。
+
+```bash
+# 查看占用
+sudo bash scripts/redeploy-geo-clean.sh --inspect
+
+# 手动：stop/disable 旧 node/next/pm2 服务；从 simplewin.conf 删除 geo.simplewin.cn 的 server 块
+
+sudo bash scripts/redeploy-geo-clean.sh --deploy
+# 等价于：释放 3000 → server-install.sh → 独立 geo Nginx + systemd
+```
+
+目标架构：
+
+```text
+geo.simplewin.cn
+  /api/*     → zhejian-api :3000
+  /case/*    → /var/www/zhejian/h5/case/
+  /shared/*  → /var/www/zhejian/h5/shared/
+  /          → /var/www/zhejian/h5/
+```
+
 ### 2.6 Nginx SSL 证书找不到（常见）
 
 报错示例：
