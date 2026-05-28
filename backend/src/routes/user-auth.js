@@ -2,8 +2,8 @@ const express = require('express')
 const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const {
-  devWechatLogin,
-  devBindPhone,
+  wechatLogin,
+  bindPhone,
   fetchMineSummary,
 } = require('../services/auth.service')
 
@@ -11,7 +11,7 @@ const router = express.Router()
 
 router.post('/auth/wechat-login', async (req, res, next) => {
   try {
-    const data = await devWechatLogin(req.body?.code)
+    const data = await wechatLogin(req.body?.code)
     return ok(res, data)
   } catch (e) {
     next(e)
@@ -20,7 +20,7 @@ router.post('/auth/wechat-login', async (req, res, next) => {
 
 router.post('/auth/bind-phone', requireAuth(['user']), async (req, res, next) => {
   try {
-    const data = await devBindPhone(req.auth.userId)
+    const data = await bindPhone(req.auth.userId, req.body || {})
     return ok(res, data)
   } catch (e) {
     next(e)

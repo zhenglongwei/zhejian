@@ -19,7 +19,17 @@ function getSession() {
   return {
     token: wx.getStorageSync(STORAGE_TOKEN) || '',
     user: wx.getStorageSync(STORAGE_USER) || null,
+    roles: wx.getStorageSync('roles') || [],
+    merchant: wx.getStorageSync('merchant') || null,
   }
+}
+
+function isMerchant() {
+  const { roles, merchant } = getSession()
+  return (
+    (Array.isArray(roles) && roles.includes('merchant')) ||
+    Boolean(merchant && merchant.merchantId)
+  )
 }
 
 function isLoggedIn() {
@@ -31,15 +41,19 @@ function isPhoneBound() {
   return Boolean(user && user.isPhoneBound)
 }
 
-function saveSession({ token, user }) {
+function saveSession({ token, user, roles, merchant }) {
   if (token) wx.setStorageSync(STORAGE_TOKEN, token)
   if (user !== undefined) wx.setStorageSync(STORAGE_USER, user)
+  if (roles !== undefined) wx.setStorageSync('roles', roles)
+  if (merchant !== undefined) wx.setStorageSync('merchant', merchant)
   syncAppSession()
 }
 
 function clearSession() {
   wx.removeStorageSync(STORAGE_TOKEN)
   wx.removeStorageSync(STORAGE_USER)
+  wx.removeStorageSync('roles')
+  wx.removeStorageSync('merchant')
   syncAppSession()
 }
 
@@ -78,6 +92,7 @@ module.exports = {
   getSession,
   isLoggedIn,
   isPhoneBound,
+  isMerchant,
   saveSession,
   clearSession,
   syncAppSession,

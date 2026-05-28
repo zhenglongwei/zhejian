@@ -8,15 +8,60 @@ datasource db {
 }
 
 model User {
-  id        String        @id
-  nickname  String        @default("")
-  phone     String        @default("")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id        String          @id
+  openid    String?         @unique
+  unionid   String?
+  nickname  String          @default("")
+  phone     String          @default("")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
   orders    Order[]
   leads     ConsultLead[]
+  staff     MerchantStaff[]
 
+  @@index([unionid])
   @@map("users")
+}
+
+model Merchant {
+  id        String          @id
+  name      String          @default("")
+  status    String          @default("ACTIVE")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  stores    Store[]
+  staff     MerchantStaff[]
+
+  @@map("merchants")
+}
+
+model Store {
+  id         String   @id
+  merchantId String   @map("merchant_id")
+  name       String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
+  @@map("stores")
+}
+
+model MerchantStaff {
+  id         String   @id
+  merchantId String   @map("merchant_id")
+  userId     String   @map("user_id")
+  storeId    String   @default("") @map("store_id")
+  role       String   @default("owner")
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([merchantId, userId])
+  @@index([userId])
+  @@map("merchant_staff")
 }
 
 model Order {

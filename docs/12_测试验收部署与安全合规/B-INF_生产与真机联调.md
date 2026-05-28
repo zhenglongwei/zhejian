@@ -162,10 +162,20 @@ const ACTIVE_ENV = 'prod'
 
 3. AppID：`project.config.json` 中 `wx54cc6c18cc01b815`（与公众平台一致）
 
-### 3.3 联调期登录
+### 3.3 登录（B-AUTH）
 
-`DEV_AUTH_ENABLED=true` 时，登录接口返回固定 token。  
-服务器 `backend/.env` 的 `DEV_USER_TOKEN` 与登录后 storage 中 `token` 一致即可（正式微信登录见 **B-AUTH-02**）。
+**真微信登录**（推荐生产）— 在服务器 `backend/.env` 增加：
+
+```env
+JWT_SECRET=<强随机串>
+WECHAT_APP_ID=wx54cc6c18cc01b815
+WECHAT_APP_SECRET=<公众平台 → 开发管理 → 开发设置 → AppSecret>
+DEV_AUTH_ENABLED=false
+```
+
+部署：`npm run db:migrate` → `pm2 restart zhejian-api` → 真机重新登录（storage 中 token 变为 JWT）。
+
+**联调 dev 桩**（`DEV_AUTH_ENABLED=true`）：无 `code` 或微信未配置时仍返回固定 token；配置 `WECHAT_*` + `JWT_SECRET` 后真机走 JWT。
 
 ---
 

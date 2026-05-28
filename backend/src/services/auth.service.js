@@ -1,6 +1,54 @@
 const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
-const { maskPhone } = require('../lib/ids')
+const { newId, maskPhone } = require('../lib/ids')
+const { signSessionToken, ROLES } = require('../lib/jwt')
+const { code2Session, getPhoneNumber } = require('../lib/wechat')
+const { resolveMerchantContext } = require('./merchant-context.service')
+
+function formatUserPayload(user) {
+  const phone = user.phone || ''
+  return {
+    userId: user.id,
+    nickname: user.nickname || '',
+    avatarUrl: '',
+    phoneDisplay: phone ? maskPhone(phone) : '',
+    isPhoneBound: Boolean(phone),
+  }
+}
+
+function formatMerchantPayload(merchantCtx) {
+  if (!merchantCtx) return null
+  return {
+    merchantId: merchantCtx.merchantId,
+    storeId: merchantCtx.storeId,
+    staffRole: merchantCtx.staffRole,
+    status: merchantCtx.merchantStatus,
+  }
+}
+
+async function buildAuthSession(user) {
+  const merchantCtx = await resolveMerchantContext(user.id)
+  const roles = [ROLES.USER]
+  if (merchantCtx) roles.push(ROLES.MERCHANT)
+
+  if (!config.jwt.secret) {
+    const err = new Error('JWT 未配置，请设置 JWT_SECRET')
+    err.status = 500
+    throw err
+  }
+
+  return {
+    token: signSessionToken({
+      userId: user.id,
+      roles,
+      merchantId: merchantCtx?.merchantId,
+      storeId: merchantCtx?.storeId,
+    }),
+    user: formatUserPayload(user),
+    roles,
+    merchant: formatMerchantPayload(merchantCtx),
+  }
+}
 
 async function devWechatLogin() {
   if (!config.devAuthEnabled) {
@@ -17,17 +65,57 @@ async function devWechatLogin() {
     throw err
   }
 
-  const phone = dbUser.phone || ''
+  const merchantCtx = await resolveMerchantContext(userId)
   return {
     token: config.devTokens.user,
-    user: {
-      userId: dbUser.id,
-      nickname: dbUser.nickname || '演示用户',
-      avatarUrl: '',
-      phoneDisplay: phone ? maskPhone(phone) : '',
-      isPhoneBound: Boolean(phone),
-    },
+    user: formatUserPayload(dbUser),
+    roles: merchantCtx ? [ROLES.USER, ROLES.MERCHANT] : [ROLES.USER],
+    merchant: formatMerchantPayload(merchantCtx),
   }
+}
+
+async function wechatLogin(code) {
+  if (config.wechat.configured && code) {
+    return realWechatLogin(code)
+  }
+
+  if (config.devAuthEnabled && !code) {
+    return devWechatLogin()
+  }
+
+  if (!config.wechat.configured) {
+    const err = new Error('微信登录未配置')
+    err.status = 503
+    throw err
+  }
+
+  const err = new Error('缺少微信登录凭证，请重试')
+  err.status = 400
+  throw err
+}
+
+async function realWechatLogin(code) {
+  const session = await code2Session(code)
+  const { openid, unionid } = session
+
+  let user = await prisma.user.findUnique({ where: { openid } })
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        id: newId('usr'),
+        openid,
+        unionid: unionid || null,
+        nickname: '',
+      },
+    })
+  } else if (unionid && !user.unionid) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { unionid },
+    })
+  }
+
+  return buildAuthSession(user)
 }
 
 async function devBindPhone(userId) {
@@ -40,6 +128,30 @@ async function devBindPhone(userId) {
     phoneDisplay: maskPhone(phone),
     isPhoneBound: true,
   }
+}
+
+async function bindPhone(userId, payload = {}) {
+  const phoneCode = payload.code || payload.phoneCode || ''
+
+  if (phoneCode && config.wechat.configured) {
+    const phone = await getPhoneNumber(phoneCode)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { phone },
+    })
+    return {
+      phoneDisplay: maskPhone(phone),
+      isPhoneBound: true,
+    }
+  }
+
+  if (config.devAuthEnabled && !phoneCode) {
+    return devBindPhone(userId)
+  }
+
+  const err = new Error('请授权微信手机号')
+  err.status = 400
+  throw err
 }
 
 async function fetchMineSummary(userId) {
@@ -56,6 +168,7 @@ async function fetchMineSummary(userId) {
   }
 
   const phone = user.phone || ''
+  const merchantCtx = await resolveMerchantContext(userId)
   const [consultPending, albumPendingAuth] = await Promise.all([
     prisma.consultLead.count({
       where: {
@@ -73,13 +186,9 @@ async function fetchMineSummary(userId) {
   ])
 
   return {
-    user: {
-      userId: user.id,
-      nickname: user.nickname || '',
-      avatarUrl: '',
-      phoneDisplay: phone ? maskPhone(phone) : '',
-      isPhoneBound: Boolean(phone),
-    },
+    user: formatUserPayload(user),
+    roles: merchantCtx ? [ROLES.USER, ROLES.MERCHANT] : [ROLES.USER],
+    merchant: formatMerchantPayload(merchantCtx),
     consultPending,
     albumPendingAuth,
     authorizeCount: 0,
@@ -88,6 +197,9 @@ async function fetchMineSummary(userId) {
 
 module.exports = {
   devWechatLogin,
+  wechatLogin,
   devBindPhone,
+  bindPhone,
   fetchMineSummary,
+  buildAuthSession,
 }

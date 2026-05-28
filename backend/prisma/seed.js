@@ -162,8 +162,65 @@ async function seedLeads() {
 async function main() {
   await prisma.user.upsert({
     where: { id: USER_ID },
-    create: { id: USER_ID, nickname: '演示用户', phone: USER_PHONE },
-    update: { nickname: '演示用户', phone: USER_PHONE },
+    create: {
+      id: USER_ID,
+      openid: 'dev_openid_demo_1',
+      nickname: '演示用户',
+      phone: USER_PHONE,
+    },
+    update: {
+      openid: 'dev_openid_demo_1',
+      nickname: '演示用户',
+      phone: USER_PHONE,
+    },
+  })
+
+  await prisma.merchant.upsert({
+    where: { id: MERCHANT_ID },
+    create: {
+      id: MERCHANT_ID,
+      name: '辙见示范商家',
+      status: 'ACTIVE',
+    },
+    update: {
+      name: '辙见示范商家',
+      status: 'ACTIVE',
+    },
+  })
+
+  await prisma.store.upsert({
+    where: { id: STORE_ID },
+    create: {
+      id: STORE_ID,
+      merchantId: MERCHANT_ID,
+      name: '辙见示范店（杭州滨江）',
+    },
+    update: {
+      merchantId: MERCHANT_ID,
+      name: '辙见示范店（杭州滨江）',
+    },
+  })
+
+  await prisma.merchantStaff.upsert({
+    where: {
+      merchantId_userId: {
+        merchantId: MERCHANT_ID,
+        userId: USER_ID,
+      },
+    },
+    create: {
+      id: 'staff_demo_1',
+      merchantId: MERCHANT_ID,
+      userId: USER_ID,
+      storeId: STORE_ID,
+      role: 'owner',
+      status: 'ACTIVE',
+    },
+    update: {
+      storeId: STORE_ID,
+      role: 'owner',
+      status: 'ACTIVE',
+    },
   })
 
   await prisma.order.upsert({
@@ -264,6 +321,7 @@ async function main() {
   console.log('[seed] service album:', SERVICE_ALBUM_ID)
   console.log('[seed] consult leads: lead_demo_submitted, lead_demo_contacted')
   console.log('[seed] dev user token -> userId:', USER_ID, 'phone:', USER_PHONE)
+  console.log('[seed] merchant staff:', USER_ID, '->', MERCHANT_ID, STORE_ID)
 }
 
 main()

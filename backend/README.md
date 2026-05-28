@@ -21,6 +21,65 @@ npm run dev
 
 健康检查：<http://127.0.0.1:3000/api/v1/health>
 
+## 鉴权（B-AUTH）
+
+### 用户端 · 微信登录
+
+1. 小程序 `wx.login` → `code`
+2. `POST /api/v1/user/auth/wechat-login` `{ code }`
+3. 后端 `code2session` → 按 `openid` 查找/创建用户 → 返回 **JWT**
+
+### 用户端 · 绑定手机号
+
+1. 按钮 `open-type="getPhoneNumber"` → `detail.code`
+2. `POST /api/v1/user/auth/bind-phone` `{ code }`（须带用户 JWT）
+3. 后端调用微信 `getuserphonenumber` 写入手机号
+
+### 环境变量
+
+| 变量 | 说明 |
+|---|---|
+| `JWT_SECRET` | JWT 签名密钥（真机登录必填） |
+| `WECHAT_APP_ID` | 小程序 AppID |
+| `WECHAT_APP_SECRET` | 小程序 AppSecret（[微信公众平台](https://mp.weixin.qq.com) → 开发管理 → 开发设置） |
+| `DEV_AUTH_ENABLED` | `true` 时保留 dev 固定 token；无 `code` 时可走演示登录 |
+
+### 联调期 dev token
+
+| Header | 用户端 | 商家端 |
+|---|---|---|
+| `Authorization` | `Bearer dev_user_token_change_me` | `Bearer dev_merchant_token_change_me` |
+
+### 同小程序 · 双角色 JWT
+
+一个微信用户登录后签发 **同一份 JWT**，可同时携带：
+
+| 字段 | 说明 |
+|---|---|
+| `sub` | 用户 ID |
+| `roles` | `['user']` 或 `['user','merchant']` |
+| `merchantId` | 入驻审核通过且存在 `merchant_staff` 时有值 |
+| `storeId` | 默认门店 |
+
+- 用户 API：`requireAuth(['user'])`
+- 商家 API：`requireAuth(['merchant'])` — 同一 token，须 `roles` 含 `merchant` 且 `merchantId` 非空
+- 入驻审核通过后：`POST /api/v1/merchant/auth/refresh-session` 刷新 token
+
+**数据隔离**仍按资源归属：用户只能看自己的相册/线索；商家只能操作本店数据（与角色模型无关）。
+
+### 生产部署 checklist
+
+```bash
+# backend/.env
+JWT_SECRET=<强随机串>
+WECHAT_APP_ID=wx54cc6c18cc01b815
+WECHAT_APP_SECRET=<从公众平台复制>
+DEV_AUTH_ENABLED=false   # 上线后关闭 dev 桩
+
+npm run db:migrate
+pm2 restart zhejian-api
+```
+
 ## 开发鉴权（联调期）
 
 | Header | 用户端 | 商家端 |

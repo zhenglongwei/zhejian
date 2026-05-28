@@ -29,31 +29,23 @@ async function fetchMineSummary() {
   if (data && data.user && data.user.phoneDisplay) {
     data.user.phoneDisplay = maskPhone(data.user.phoneDisplay)
   }
+  if (data) {
+    saveSession({
+      user: data.user,
+      roles: data.roles || ['user'],
+      merchant: data.merchant || null,
+    })
+  }
   return data
 }
 
 async function wechatLogin() {
   let code = ''
-  const platform = (wx.getSystemInfoSync && wx.getSystemInfoSync().platform) || ''
-  // 开发者工具内 wx.login 常超时；联调/dev 登录不依赖 code
-  if (platform !== 'devtools') {
-    try {
-      const res = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('wx.login timeout')), 10000)
-        wx.login({
-          success(res) {
-            clearTimeout(timer)
-            resolve(res)
-          },
-          fail(err) {
-            clearTimeout(timer)
-            reject(err)
-          },
-        })
-      })
-      code = res.code || ''
-    } catch (e) {
-      // 真机偶发失败时不阻塞 dev 桩登录
+  try {
+    code = await getWxLoginCode()
+  } catch (e) {
+    if (ENV.mode === 'prod') {
+      throw new Error('微信登录失败，请重试')
     }
   }
 
@@ -64,8 +56,29 @@ async function wechatLogin() {
   }
 
   const data = await post('/user/auth/wechat-login', { code })
-  saveSession({ token: data.token, user: data.user })
+  saveSession({
+    token: data.token,
+    user: data.user,
+    roles: data.roles || ['user'],
+    merchant: data.merchant || null,
+  })
   return data
+}
+
+function getWxLoginCode() {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('wx.login timeout')), 10000)
+    wx.login({
+      success(res) {
+        clearTimeout(timer)
+        resolve(res.code || '')
+      },
+      fail(err) {
+        clearTimeout(timer)
+        reject(err)
+      },
+    })
+  })
 }
 
 async function bindPhone(detail) {
@@ -78,9 +91,10 @@ async function bindPhone(detail) {
   }
 
   const data = await post('/user/auth/bind-phone', {
+    code: detail.code || '',
+    phoneCode: detail.code || '',
     encryptedData: detail.encryptedData,
     iv: detail.iv,
-    code: detail.code,
   })
   const { user } = getSession()
   const nextUser = {
