@@ -172,6 +172,21 @@ async function loadAlbum(albumId) {
   })
 }
 
+function canAccessMerchantAlbum(album, storeId, merchantId) {
+  if (!album) return false
+  if (merchantId && album.merchantId === merchantId) return true
+  if (storeId && album.storeId === storeId) return true
+  return false
+}
+
+function assertMerchantAlbum(album, storeId, merchantId) {
+  if (!canAccessMerchantAlbum(album, storeId, merchantId)) {
+    const err = new Error('档案不存在或已被删除')
+    err.status = 404
+    throw err
+  }
+}
+
 async function syncAlbumNodes(albumId, nodesPayload = []) {
   const nodes = nodesPayload.length ? nodesPayload : DEFAULT_STAGE_NODES.map((n) => ({
     id: n.nodeId,
@@ -282,9 +297,10 @@ async function getUserServiceAlbum(albumId, userId) {
   return buildAlbumView(album)
 }
 
-async function listMerchantServiceAlbums(storeId, options = {}) {
+async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '') {
+  const where = merchantId ? { merchantId } : { storeId }
   let albums = await prisma.album.findMany({
-    where: { storeId },
+    where,
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
@@ -306,13 +322,9 @@ async function listMerchantServiceAlbums(storeId, options = {}) {
   })
 }
 
-async function getMerchantServiceAlbum(albumId, storeId) {
+async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const album = await loadAlbum(albumId)
-  if (!album || album.storeId !== storeId) {
-    const err = new Error('档案不存在或已被删除')
-    err.status = 404
-    throw err
-  }
+  assertMerchantAlbum(album, storeId, merchantId)
   return buildMerchantView(album)
 }
 
@@ -325,7 +337,7 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       id: albumId,
       merchantId,
       storeId,
-      storeName: payload.storeName || '辙见示范店（杭州滨江）',
+      storeName: payload.storeName || payload.store_name || '门店',
       serviceId: payload.serviceId || '',
       serviceName: payload.serviceName || '服务留档',
       userPhone: payload.userPhone || '',
@@ -354,13 +366,9 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
   return buildMerchantView(album)
 }
 
-async function saveMerchantServiceAlbum(albumId, storeId, payload = {}) {
+async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchantId = '') {
   const existing = await loadAlbum(albumId)
-  if (!existing || existing.storeId !== storeId) {
-    const err = new Error('档案不存在')
-    err.status = 404
-    throw err
-  }
+  assertMerchantAlbum(existing, storeId, merchantId)
 
   let imageCount = existing.imageCount
   if (payload.nodes) {
@@ -405,13 +413,9 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}) {
   return buildMerchantView(album)
 }
 
-async function completeMerchantServiceAlbum(albumId, storeId) {
+async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const existing = await loadAlbum(albumId)
-  if (!existing || existing.storeId !== storeId) {
-    const err = new Error('档案不存在')
-    err.status = 404
-    throw err
-  }
+  assertMerchantAlbum(existing, storeId, merchantId)
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -426,8 +430,9 @@ async function completeMerchantServiceAlbum(albumId, storeId) {
   return buildMerchantView(album)
 }
 
-async function fetchMerchantAlbumStats(storeId) {
-  const albums = await prisma.album.findMany({ where: { storeId } })
+async function fetchMerchantAlbumStats(storeId, merchantId = '') {
+  const where = merchantId ? { merchantId } : { storeId }
+  const albums = await prisma.album.findMany({ where })
   const active = filterByTab(albums, 'active', MERCHANT_TAB_STATUS).length
   const pendingAuth = filterByTab(albums, 'pending_auth', MERCHANT_TAB_STATUS)
     .filter((a) => a.status === SERVICE_ALBUM_STATUS.COMPLETED).length

@@ -175,7 +175,7 @@ DEV_AUTH_ENABLED=false
 
 部署：`npm run db:migrate` → `pm2 restart zhejian-api` → 真机重新登录（storage 中 token 变为 JWT）。
 
-**联调 dev 桩**（`DEV_AUTH_ENABLED=true`）：无 `code` 或微信未配置时仍返回固定 token；配置 `WECHAT_*` + `JWT_SECRET` 后真机走 JWT。
+**联调 dev 桩**（`DEV_AUTH_ENABLED=true`）：**微信或 JWT 未配齐时**（含真机带 `code`）仍返回固定 dev token；三项都配齐后真机自动走 JWT 真登录。
 
 ---
 

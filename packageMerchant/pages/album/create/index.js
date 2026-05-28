@@ -189,6 +189,7 @@ Page({
     try {
       const album = await createMerchantServiceAlbum({
         storeId: this.data.storeId,
+        storeName: this.data.storeName,
         serviceId: meta.serviceId,
         serviceName,
         complexityLevel: meta.complexityLevel,

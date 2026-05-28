@@ -10,13 +10,9 @@ const {
   fetchMerchantLeadStats,
 } = require('../services/lead.service')
 
+const { resolveStoreId } = require('../lib/merchant-request')
+
 const router = express.Router()
-
-const DEFAULT_STORE = 'store_demo_1'
-
-function resolveStoreId(req) {
-  return req.query.storeId || req.body?.storeId || DEFAULT_STORE
-}
 
 router.get('/leads', requireAuth(['merchant']), async (req, res, next) => {
   try {

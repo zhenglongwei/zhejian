@@ -75,16 +75,26 @@ async function devWechatLogin() {
 }
 
 async function wechatLogin(code) {
-  if (config.wechat.configured && code) {
+  const canRealWechat =
+    config.wechat.configured && config.jwt.secret && Boolean(code)
+
+  if (canRealWechat) {
     return realWechatLogin(code)
   }
 
-  if (config.devAuthEnabled && !code) {
+  // 联调期：微信/JWT 未配齐时，真机有 code 也走 dev 桩（与 B-INF 冒烟一致）
+  if (config.devAuthEnabled) {
     return devWechatLogin()
   }
 
   if (!config.wechat.configured) {
-    const err = new Error('微信登录未配置')
+    const err = new Error('微信登录未配置，请在服务器 backend/.env 设置 WECHAT_APP_SECRET')
+    err.status = 503
+    throw err
+  }
+
+  if (!config.jwt.secret) {
+    const err = new Error('JWT 未配置，请在服务器 backend/.env 设置 JWT_SECRET')
     err.status = 503
     throw err
   }
