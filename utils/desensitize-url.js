@@ -119,6 +119,29 @@ function resolveImageSrcList(urls) {
   return (urls || []).map(resolveImageSrc).filter(Boolean)
 }
 
+/**
+ * 公开案例封面：与首页 hero / 精选案例同一套回退顺序
+ * coverImageDesensitized → coverImage → nodes 内首图
+ */
+function pickCaseDisplayCover(item) {
+  if (!item || typeof item !== 'object') return ''
+
+  const urls = []
+  if (item.coverImageDesensitized) urls.push(item.coverImageDesensitized)
+  if (item.coverImage) urls.push(item.coverImage)
+
+  for (const node of item.nodes || []) {
+    if (Array.isArray(node.images)) urls.push(...node.images)
+    if (Array.isArray(node.imagesDesensitized)) urls.push(...node.imagesDesensitized)
+  }
+
+  for (let i = 0; i < urls.length; i += 1) {
+    const src = resolveImageSrc(normalizePublicMediaUrl(String(urls[i] || '')))
+    if (src) return src
+  }
+  return ''
+}
+
 function normalizeTaskAssets(task) {
   if (!task || !Array.isArray(task.rawAssets)) return task
   return {
@@ -145,5 +168,6 @@ module.exports = {
   normalizePublicMediaUrl,
   resolveImageSrc,
   resolveImageSrcList,
+  pickCaseDisplayCover,
   normalizeTaskAssets,
 }

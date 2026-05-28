@@ -1,6 +1,6 @@
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
 const { buildCaseTags } = require('../../utils/case-tags')
-const { resolveImageSrc, isPersistedPublicImageUrl } = require('../../utils/desensitize-url')
+const { resolveImageSrc } = require('../../utils/desensitize-url')
 
 Component({
   properties: {
@@ -49,10 +49,10 @@ Component({
   },
   methods: {
     syncCoverImage(coverImage, coverImageDesensitized) {
-      const candidates = [coverImage, coverImageDesensitized]
+      const candidates = [coverImageDesensitized, coverImage]
       for (let i = 0; i < candidates.length; i += 1) {
         const src = resolveImageSrc(candidates[i])
-        if (src && isPersistedPublicImageUrl(src)) {
+        if (src) {
           this.setData({ safeCoverImage: src })
           return
         }

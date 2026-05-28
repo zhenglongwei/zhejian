@@ -8,7 +8,7 @@ const { fetchStoreTopReviewTags } = require('../../services/review')
 const { buildStoreCardTags } = require('../../utils/store-tags')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 const { GEO_TOPIC_TAG } = require('../../constants/geo-pages')
-const { isDesensitizedUrl, resolveImageSrc } = require('../../utils/desensitize-url')
+const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
 
 const INTRO_ACCENTS = ['primary', 'info', 'success']
 
@@ -40,13 +40,12 @@ function buildHeroTrustCase(cases) {
   if (!cases || !cases.length) return null
   for (let i = 0; i < cases.length; i += 1) {
     const item = cases[i]
-    const url = item.coverImageDesensitized || item.coverImage
-    if (!url) continue
-    if (!isDesensitizedUrl(url) && !url.startsWith('http') && !url.startsWith('/')) continue
+    const coverImage = pickCaseDisplayCover(item)
+    if (!coverImage) continue
     return {
       id: item.id,
       title: item.title,
-      coverImage: resolveImageSrc(url),
+      coverImage,
     }
   }
   return null
@@ -86,7 +85,10 @@ Page({
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const data = await fetchHomeData()
-      const featuredCases = data.featuredCases || []
+      const featuredCases = (data.featuredCases || []).map((item) => ({
+        ...item,
+        coverImage: pickCaseDisplayCover(item),
+      }))
       const heroTrustCase = buildHeroTrustCase(featuredCases)
       const merchants = await Promise.all(
         (data.recommendedMerchants || []).map(async (store) => {

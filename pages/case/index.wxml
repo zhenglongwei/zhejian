@@ -40,7 +40,6 @@
       caseId="{{item.id}}"
       authorizationTier="{{item.authorizationTier}}"
       coverImage="{{item.coverImage}}"
-      coverImageDesensitized="{{item.coverImageDesensitized}}"
       title="{{item.title}}"
       serviceName="{{item.serviceName}}"
       summary="{{item.summary}}"
