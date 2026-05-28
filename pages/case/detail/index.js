@@ -7,7 +7,7 @@ const {
 
 const BOTTOM_LEFT_ACTIONS = [
   { key: 'call', type: 'secondary', text: '电话咨询' },
-  { key: 'share', type: 'ghost', text: '分享' },
+  { key: 'share', type: 'ghost', text: '网页链接' },
 ]
 
 Page({

@@ -77,6 +77,8 @@
     next.coverImage = cover
     next.coverImageDesensitized = cover
     return next
+  }
+
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')

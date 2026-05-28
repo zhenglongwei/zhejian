@@ -122,7 +122,7 @@
       <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__owner">
         <text class="text-h3">关联车主</text>
         <text class="text-caption merchant-album-edit__owner-hint">
-          填写手机号后，车主登录小程序即可在「我的服务相册」查看；门店编辑会同步更新，无需重复分享。分享仅方便对方打开小程序（右上角 ··· 或列表页「分享」）。完工后相册不可再修改。
+          填写手机号后，车主登录小程序即可在「我的服务相册」查看；门店编辑会同步更新，无需重复分享。请用右上角「转发」发给车主；勿复制右上角「复制链接」（#小程序:// 仅微信内有效，浏览器打不开）。完工后相册不可再修改。
         </text>
 
         <block wx:if="{{detail.userPhoneDisplay}}">

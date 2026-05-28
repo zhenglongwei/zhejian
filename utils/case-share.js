@@ -59,9 +59,12 @@ function copyCaseShareLink(caseId, detail) {
     wx.setClipboardData({
       data: url,
       success: () => {
-        wx.showToast({
-          title: '已复制脱敏案例链接',
-          icon: 'success',
+        wx.showModal({
+          title: '网页链接已复制',
+          content:
+            '可在浏览器或微信聊天中粘贴打开。\n\n请勿使用右上角「复制链接」——那是小程序专用短链（#小程序://…），浏览器无法打开。',
+          showCancel: false,
+          confirmText: '知道了',
         })
         resolve(url)
       },
