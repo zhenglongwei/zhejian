@@ -1,7 +1,9 @@
 /**
- * 服务方案 — V0.1 S7 / S7b mock
- * MOCK: mock/services.js + storage merchant_services_v1
+ * 服务方案 — mock + API
+ * prod/dev: GET /api/user/services、/services/:id
  */
+const { ENV } = require('./config')
+const { get } = require('./request')
 const { SEED_SERVICES } = require('../mock/services')
 const {
   SERVICE_STATUS,
@@ -137,6 +139,9 @@ async function buildServiceDetailViewModel(record, opts = {}) {
  * @param {{ categoryId?: string, storeId?: string }} [query]
  */
 async function fetchServiceList(query = {}) {
+  if (ENV.mode !== 'mock') {
+    return get('/user/services', query)
+  }
   await delay()
   let list = mergePublishedServices()
   if (query.categoryId) {
@@ -154,6 +159,10 @@ async function fetchServiceList(query = {}) {
  * @param {{ audience?: 'user'|'merchant' }} [opts]
  */
 async function fetchServiceDetail(id, opts = {}) {
+  if (ENV.mode !== 'mock') {
+    const record = await get(`/user/services/${id}`)
+    return buildServiceDetailViewModel(record, opts)
+  }
   await delay()
   const audience = opts.audience || 'user'
   const record = findRawService(id, audience)

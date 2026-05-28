@@ -1,7 +1,9 @@
 /**
- * 案例服务 — V0.1 mock + 本地商家提交合并
- * MOCK: 种子数据 + storage 已发布案例
+ * 案例服务 — mock + API
+ * prod/dev: GET /api/user/cases、/cases/:id
  */
+const { ENV } = require('./config')
+const { get } = require('./request')
 const { SEED_CASES } = require('../mock/cases')
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../constants/case-authorization')
 const { getServiceItem } = require('../constants/service')
@@ -75,6 +77,9 @@ function mergeCases() {
  * @param {{ serviceType?: string, serviceItemId?: string, categoryId?: string, source?: string, storeId?: string, limit?: number }} [query]
  */
 async function fetchCaseList(query = {}) {
+  if (ENV.mode !== 'mock') {
+    return get('/user/cases', query)
+  }
   await delay()
   let list = mergeCases()
   if (query.authorizationTier) {
@@ -101,6 +106,9 @@ async function fetchCaseList(query = {}) {
 }
 
 async function fetchCaseDetail(id) {
+  if (ENV.mode !== 'mock') {
+    return get(`/user/cases/${id}`)
+  }
   await delay()
   const item = mergeCases().find((c) => c.id === id)
   if (!item) {

@@ -1,4 +1,5 @@
 const { fetchLeadConfirm, createLead } = require('../../../services/lead')
+const { persistLocalImages } = require('../../../utils/media-upload')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
 const {
@@ -244,7 +245,15 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const lead = await createLead(this.buildPayload())
+      let payload = this.buildPayload()
+      if (payload.images && payload.images.length) {
+        const { images, droppedStaleCount } = await persistLocalImages(payload.images)
+        if (droppedStaleCount > 0) {
+          wx.showToast({ title: '部分图片已失效，请重新选择', icon: 'none' })
+        }
+        payload = { ...payload, images }
+      }
+      const lead = await createLead(payload)
       wx.redirectTo({
         url: `/pages/consult/result/index?leadId=${lead.id}&success=1`,
       })

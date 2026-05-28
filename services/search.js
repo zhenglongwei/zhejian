@@ -1,7 +1,9 @@
 /**
- * 搜索 — V2.0 mock
- * MOCK: 本地 filter mock 数据；联调后接 GET /api/user/search/*
+ * 搜索 — mock + API
+ * prod/dev: GET /api/user/search/*
  */
+const { ENV } = require('./config')
+const { get } = require('./request')
 const { HOTWORDS } = require('../mock/search')
 const { GEO_PAGES } = require('../mock/geo-pages')
 const { DEFAULT_CITY } = require('../constants/search-filters')
@@ -130,6 +132,9 @@ function applyFilters(list, tab, filters = {}) {
 }
 
 async function fetchSearchConfig() {
+  if (ENV.mode !== 'mock') {
+    return get('/user/search/config')
+  }
   await delay()
   return {
     city: DEFAULT_CITY,
@@ -138,6 +143,9 @@ async function fetchSearchConfig() {
 }
 
 async function fetchSearchSuggest(keyword) {
+  if (ENV.mode !== 'mock') {
+    return get('/user/search/suggest', { keyword })
+  }
   await delay(160)
   const k = normalizeKeyword(keyword)
   if (!k) return []
@@ -163,6 +171,13 @@ async function fetchSearchSuggest(keyword) {
 }
 
 async function searchContent(query = {}) {
+  if (ENV.mode !== 'mock') {
+    const params = { ...query }
+    if (params.filters && typeof params.filters === 'object') {
+      params.filters = JSON.stringify(params.filters)
+    }
+    return get('/user/search', params)
+  }
   await delay()
   const keyword = normalizeKeyword(query.keyword)
   const tab = query.tab || 'service'

@@ -330,6 +330,44 @@ async function main() {
     status: 'completed',
   })
 
+  await prisma.publicCase.upsert({
+    where: { albumId: SERVICE_ALBUM_ID },
+    create: {
+      id: 'case_svc_demo_completed',
+      albumId: SERVICE_ALBUM_ID,
+      status: 'public_approved',
+      authorizationTier: 'named',
+      title: '杭州大众朗逸 · 小保养套餐',
+      summary: '该案例经车主授权，记录了小保养维修过程。图片已脱敏并通过平台审核。',
+      coverImage: '',
+      contentJson: {
+        vehicleText: '大众朗逸（已脱敏）',
+        tags: ['authorized', 'desensitized', 'audited'],
+        nodes: [],
+      },
+      storeId: STORE_ID,
+      storeName: '辙见示范店（杭州滨江）',
+      serviceName: '小保养套餐',
+      city: '杭州',
+      minAmount: 380,
+      maxAmount: 480,
+      priceMode: 'range',
+      publishedAt: new Date(),
+    },
+    update: {
+      status: 'public_approved',
+      title: '杭州大众朗逸 · 小保养套餐',
+      summary: '该案例经车主授权，记录了小保养维修过程。图片已脱敏并通过平台审核。',
+      storeId: STORE_ID,
+      storeName: '辙见示范店（杭州滨江）',
+      serviceName: '小保养套餐',
+      minAmount: 380,
+      maxAmount: 480,
+      priceMode: 'range',
+      publishedAt: new Date(),
+    },
+  })
+
   await seedLeads()
 
   console.log('[seed] legacy order album:', ORDER_ID, LEGACY_ALBUM_ID)

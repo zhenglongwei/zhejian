@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { newId, maskPhone, toIso } = require('../lib/ids')
+const { assertPersistentImageUrl } = require('../lib/media-storage')
 const {
   LEAD_STATUS,
   LEAD_USER_CANCELLABLE,
@@ -63,6 +64,11 @@ async function appendLeadStatus(leadId, fromStatus, toStatus, operatorType, oper
   })
 }
 
+function sanitizeLeadImages(images) {
+  if (!Array.isArray(images)) return []
+  return images.map((url) => assertPersistentImageUrl(url)).filter(Boolean)
+}
+
 async function createLead(userId, payload = {}) {
   if (!payload.storeId) {
     const err = new Error('缺少门店信息')
@@ -92,7 +98,7 @@ async function createLead(userId, payload = {}) {
       leadType: payload.leadType || (payload.serviceId ? 'service' : 'message'),
       vehicleJson: payload.vehicle || {},
       description: payload.description || '',
-      imagesJson: payload.images || [],
+      imagesJson: sanitizeLeadImages(payload.images),
       appointmentJson: payload.appointment || {},
       contactJson: {
         name: contact.name || '',

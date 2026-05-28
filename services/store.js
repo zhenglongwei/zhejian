@@ -1,7 +1,9 @@
 /**
- * 门店服务 — V0.1 D2 mock
- * MOCK: mock/stores.js + merchant_profile_v1 合并
+ * 门店服务 — mock + API
+ * prod/dev: GET /api/user/merchants、/merchants/:id
  */
+const { ENV } = require('./config')
+const { get } = require('./request')
 const { SEED_STORES } = require('../mock/stores')
 const { getProfile } = require('./merchant')
 
@@ -32,6 +34,9 @@ function findStore(id) {
  * @param {string} storeId
  */
 async function fetchStoreDetail(storeId) {
+  if (ENV.mode !== 'mock') {
+    return get(`/user/merchants/${storeId}`)
+  }
   await delay()
   const store = findStore(storeId)
   if (!store) {
@@ -52,6 +57,9 @@ async function fetchStoreDetail(storeId) {
  * @param {{ limit?: number, status?: string }} [query]
  */
 async function fetchStoreList(query = {}) {
+  if (ENV.mode !== 'mock') {
+    return get('/user/merchants', query)
+  }
   await delay()
   let list = SEED_STORES.map(mergeStoreProfile).filter((s) => s.status !== 'offline')
   if (query.status) {
