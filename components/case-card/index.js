@@ -1,6 +1,6 @@
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
 const { buildCaseTags } = require('../../utils/case-tags')
-const { resolveImageSrc } = require('../../utils/desensitize-url')
+const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
 
 Component({
   properties: {
@@ -28,36 +28,32 @@ Component({
   },
   data: {
     tagList: [],
-    safeCoverImage: '',
+    displayCover: '',
     displayStoreName: false,
   },
   observers: {
     'authorizationTier, tags, showStoreName, storeName'(authorizationTier, tags, showStoreName, storeName) {
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
-    'coverImage, coverImageDesensitized'(coverImage, coverImageDesensitized) {
-      this.syncCoverImage(coverImage, coverImageDesensitized)
+    'coverImage, coverImageDesensitized'() {
+      this.syncDisplayCover()
     },
   },
   lifetimes: {
     attached() {
-      const { authorizationTier, tags, showStoreName, storeName, coverImage, coverImageDesensitized } =
-        this.properties
+      const { authorizationTier, tags, showStoreName, storeName } = this.properties
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
-      this.syncCoverImage(coverImage, coverImageDesensitized)
+    },
+    ready() {
+      this.syncDisplayCover()
     },
   },
   methods: {
-    syncCoverImage(coverImage, coverImageDesensitized) {
-      const candidates = [coverImageDesensitized, coverImage]
-      for (let i = 0; i < candidates.length; i += 1) {
-        const src = resolveImageSrc(candidates[i])
-        if (src) {
-          this.setData({ safeCoverImage: src })
-          return
-        }
+    syncDisplayCover() {
+      const displayCover = pickCaseDisplayCover(this.properties)
+      if (displayCover !== this.data.displayCover) {
+        this.setData({ displayCover })
       }
-      this.setData({ safeCoverImage: '' })
     },
     syncTags(authorizationTier, tags, showStoreName, storeName) {
       const tagList =
@@ -74,9 +70,6 @@ Component({
     onTap() {
       if (!this.properties.caseId) return
       this.triggerEvent('tap', { caseId: this.properties.caseId })
-    },
-    onCoverError() {
-      this.setData({ safeCoverImage: '' })
     },
   },
 })

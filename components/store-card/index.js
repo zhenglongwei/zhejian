@@ -2,6 +2,7 @@ Component({
   properties: {
     storeId: { type: String, value: '' },
     coverImage: { type: String, value: '' },
+    distanceText: { type: String, value: '' },
     name: { type: String, value: '' },
     subtitle: { type: String, value: '' },
     address: { type: String, value: '' },

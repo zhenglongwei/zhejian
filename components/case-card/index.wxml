@@ -4,11 +4,10 @@
 >
   <view class="case-card__cover image-placeholder">
     <image
-      wx:if="{{safeCoverImage}}"
+      wx:if="{{displayCover}}"
       class="case-card__cover-img"
-      src="{{safeCoverImage}}"
+      src="{{displayCover}}"
       mode="aspectFill"
-      binderror="onCoverError"
     />
   </view>
   <view class="case-card__body">

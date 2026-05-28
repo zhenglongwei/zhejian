@@ -23,6 +23,10 @@
   gap: var(--space-xs);
 }
 
+.home__city-notice {
+  margin-top: var(--space-xs);
+}
+
 .home__city-name {
   color: var(--color-text-primary);
 }

@@ -102,6 +102,12 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于展示附近门店距离"
+    }
+  },
+  "requiredPrivateInfos": ["getLocation"],
   "preloadRule": {
     "pages/mine/index": {
       "network": "all",

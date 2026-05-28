@@ -60,8 +60,11 @@ Page({
     this.loadList().finally(() => wx.stopPullDownRefresh())
   },
 
-  async loadList() {
-    this.setData({ status: 'loading', errorMessage: '' })
+  async loadList(options = {}) {
+    const silent = options.silent === true
+    if (!silent) {
+      this.setData({ status: 'loading', errorMessage: '' })
+    }
     try {
       const query = {}
       if (this.data.filterSource !== FILTER_ALL) {
@@ -89,7 +92,7 @@ Page({
     const { key } = e.detail
     this.setData({ filterSource: key }, () => {
       this.applyFilterMeta(key)
-      this.loadList()
+      this.loadList({ silent: true })
     })
   },
 

@@ -28,6 +28,9 @@
             <text class="home__city-name text-h3">{{city}}</text>
             <text class="home__city-arrow text-caption">›</text>
           </view>
+          <view wx:if="{{cityNotice}}" class="home__city-notice notice notice--info">
+            <text class="text-caption">{{cityNotice}}</text>
+          </view>
           <ui-search-bar
             readonly="{{true}}"
             placeholder="{{searchPlaceholder}}"
@@ -179,6 +182,7 @@
             coverImage="{{item.coverImage}}"
             name="{{item.name}}"
             address="{{item.address}}"
+            distanceText="{{item.distanceText}}"
             caseCount="{{item.caseCount}}"
             cardTags="{{item.cardTags}}"
             bind:tap="onStoreTap"

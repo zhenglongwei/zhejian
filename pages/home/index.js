@@ -9,6 +9,11 @@ const { buildStoreCardTags } = require('../../utils/store-tags')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 const { GEO_TOPIC_TAG } = require('../../constants/geo-pages')
 const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
+const {
+  resolveCityContext,
+  enrichStoresWithDistance,
+  DEFAULT_CITY,
+} = require('../../utils/city-location')
 
 const INTRO_ACCENTS = ['primary', 'info', 'success']
 
@@ -69,12 +74,39 @@ Page({
     geoTopics: [],
     geoTopicTag: GEO_TOPIC_TAG,
     heroTrustCase: null,
+    cityNotice: '',
     errorMessage: '',
     searchPlaceholder: SEARCH_PLACEHOLDER,
   },
 
   onLoad() {
-    this.loadHome()
+    this.bootstrapCity().finally(() => this.loadHome())
+  },
+
+  async bootstrapCity() {
+    try {
+      const app = getApp()
+      let ctx = app.globalData.cityContext
+      if (!ctx) {
+        ctx = await resolveCityContext()
+        app.globalData.cityContext = ctx
+      }
+      if (ctx.outsideNotice) {
+        wx.showModal({
+          title: '服务城市',
+          content: ctx.outsideNotice,
+          showCancel: false,
+          confirmText: '知道了',
+        })
+      }
+      this._cityContext = ctx
+    } catch (e) {
+      this._cityContext = {
+        city: DEFAULT_CITY,
+        locationGranted: false,
+        coords: null,
+      }
+    }
   },
 
   onPullDownRefresh() {
@@ -90,8 +122,17 @@ Page({
         coverImage: pickCaseDisplayCover(item),
       }))
       const heroTrustCase = buildHeroTrustCase(featuredCases)
+      const coords = this._cityContext && this._cityContext.coords
+      let merchantSource = enrichStoresWithDistance(data.recommendedMerchants || [], coords)
+      if (coords) {
+        merchantSource = merchantSource.slice().sort((a, b) => {
+          const da = a.distanceMeters != null ? a.distanceMeters : Number.MAX_SAFE_INTEGER
+          const db = b.distanceMeters != null ? b.distanceMeters : Number.MAX_SAFE_INTEGER
+          return da - db
+        })
+      }
       const merchants = await Promise.all(
-        (data.recommendedMerchants || []).map(async (store) => {
+        merchantSource.map(async (store) => {
           const reviewTags = await fetchStoreTopReviewTags(store.id, 2)
           return {
             ...store,
@@ -99,8 +140,10 @@ Page({
           }
         })
       )
+      const cityCtx = this._cityContext || { city: DEFAULT_CITY }
       this.setData({
-        city: data.city.name,
+        city: cityCtx.city.name || data.city.name,
+        cityNotice: cityCtx.outsideServiceNotice || '',
         serviceEntries: data.serviceEntries,
         accidentEntry: data.accidentEntry,
         recommendedMerchants: merchants,
