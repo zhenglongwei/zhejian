@@ -11,11 +11,11 @@ const INTRO_BY_FILTER = {
     complianceType: 'casePrice',
   },
   [PUBLIC_AUTH_TIER.NAMED]: {
-    introDesc: '车主实名授权公开，可展示门店与车型等品牌信息',
+    introDesc: '车主实名授权公示，可展示门店与车型等品牌信息',
     complianceType: 'casePrice',
   },
   [PUBLIC_AUTH_TIER.ANONYMOUS]: {
-    introDesc: '车主匿名授权公开，仅保留车辆部分信息',
+    introDesc: '车主匿名授权公示，仅保留车辆部分信息',
     complianceType: 'casePrice',
   },
 }

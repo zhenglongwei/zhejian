@@ -174,7 +174,7 @@
       var cityHint = data.city ? '（' + data.city + '）' : ''
       return (
         '<div class="h5-card"><h2 class="h5-section-title">联系门店</h2>' +
-        '<p class="h5-compliance">本案例为匿名授权公开，不展示门店名称。</p>' +
+        '<p class="h5-compliance">本案例为匿名授权公示，不展示门店名称。</p>' +
         '<p class="h5-compliance">可通过下方电话或留言联系服务门店' +
         escapeHtml(cityHint) +
         '</p></div>'
@@ -228,15 +228,58 @@
     )
   }
 
-  function renderPriceSection(data, priceText) {
+  function buildPriceDisplay(data) {
+    var mode = data.priceMode || 'range'
+    var currency = '¥'
+    if (mode === 'accident') {
+      return {
+        priceText: '预约到店检测后报价',
+        disclaimer: '事故车维修无法仅凭线上信息准确报价，请预约到店检测后确认方案。',
+        compliance: '本案例不构成线上报价承诺。',
+      }
+    }
+    if (mode === 'consult') {
+      return {
+        priceText: '到店检测后报价',
+        disclaimer: '实际费用以门店检测结果为准。',
+        compliance: '本案例价格仅为参考，不构成线上报价承诺。',
+      }
+    }
+    if (mode === 'fixed' && data.amount != null) {
+      return {
+        priceText: currency + data.amount + ' 起',
+        disclaimer: '实际费用以门店检测结果为准。',
+        compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
+      }
+    }
+    if (data.minAmount != null && data.maxAmount != null) {
+      return {
+        priceText: '参考区间 ' + currency + data.minAmount + ' - ' + currency + data.maxAmount,
+        disclaimer: '实际费用以门店检测结果为准。',
+        compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
+      }
+    }
+    return {
+      priceText: data.priceText || '到店检测后报价',
+      disclaimer: '实际费用以门店检测结果为准。',
+      compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
+    }
+  }
+
+  function renderPriceSection(data) {
+    var display = buildPriceDisplay(data)
     return (
       '<div class="h5-card">' +
       '<h2 class="h5-section-title">价格说明</h2>' +
       '<div class="h5-price">' +
-      escapeHtml(priceText) +
+      escapeHtml(display.priceText) +
       '</div>' +
-      '<span class="h5-price-note">实际费用以门店检测结果为准。</span>' +
-      '<p class="h5-compliance">本案例价格仅为参考区间，不构成线上报价承诺。</p>' +
+      '<span class="h5-price-note">' +
+      escapeHtml(display.disclaimer) +
+      '</span>' +
+      '<p class="h5-compliance">' +
+      escapeHtml(display.compliance) +
+      '</p>' +
       '</div>'
     )
   }
@@ -245,11 +288,6 @@
     var safeData = sanitizeCaseForDisplay(data)
     setShareMeta(safeData)
     document.title = safeData.title + ' · 辙见'
-    var priceText =
-      safeData.priceText ||
-      (safeData.minAmount != null && safeData.maxAmount != null
-        ? '¥' + safeData.minAmount + ' - ¥' + safeData.maxAmount
-        : '到店检测后报价')
 
     var html =
       '<div class="h5-page">' +
@@ -267,7 +305,7 @@
         ? '<p class="h5-summary">' + escapeHtml(safeData.aiSummary) + '</p>'
         : '') +
       renderKeyInfo(safeData.keyInfo) +
-      renderPriceSection(safeData, priceText)
+      renderPriceSection(safeData)
 
     if (safeData.faultDesc) {
       html +=

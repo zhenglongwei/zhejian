@@ -5,7 +5,7 @@
     status="{{status}}"
     errorMessage="{{errorMessage}}"
     emptyTitle="暂无公开案例"
-    emptyDescription="服务相册授权公开后将展示在此"
+    emptyDescription="服务相册授权公示后将展示在此"
     emptyActionText="刷新"
     skeletonRows="{{3}}"
     bind:tabchange="onTabChange"

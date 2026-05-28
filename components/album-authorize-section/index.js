@@ -10,7 +10,7 @@ Component({
     },
     title: {
       type: String,
-      value: '授权生成公开案例',
+      value: '授权公示',
     },
     showPolicyLink: {
       type: Boolean,
@@ -22,11 +22,11 @@ Component({
     },
     confirmText: {
       type: String,
-      value: '确认公开为案例',
+      value: '确认授权公示',
     },
     rejectText: {
       type: String,
-      value: '拒绝公开',
+      value: '拒绝公示',
     },
     authTier: {
       type: String,

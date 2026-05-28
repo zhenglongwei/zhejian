@@ -6,7 +6,6 @@
     "ui-button": "/components/button/index",
     "ui-price-display": "/components/price-display/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-key-info-table": "/components/key-info-table/index",
     "ui-ai-summary-block": "/components/ai-summary-block/index",
     "ui-album-node": "/components/album-node/index",
@@ -14,6 +13,7 @@
     "ui-store-card": "/components/store-card/index",
     "ui-tag-row": "/components/tag-row/index",
     "ui-faq-list": "/components/faq-list/index",
+    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

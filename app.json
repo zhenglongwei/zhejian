@@ -17,6 +17,7 @@
     "pages/consult/detail/index",
     "pages/album/list/index",
     "pages/album/detail/index",
+    "pages/album/share/index",
     "pages/album/confirm/index",
     "pages/album/authorize/index",
     "pages/order/index",

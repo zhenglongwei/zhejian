@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "分享的服务相册",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-album-node": "/components/album-node/index",
+    "ui-key-info-table": "/components/key-info-table/index"
+  }
+}

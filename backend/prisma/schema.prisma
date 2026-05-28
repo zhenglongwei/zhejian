@@ -127,6 +127,7 @@ model Album {
   images              AlbumImage[]
   authorization       AlbumAuthorization?
   publicCase          PublicCase?
+  shareTokens         AlbumShareToken[]
 
   @@index([merchantId, status])
   @@index([userPhone])
@@ -303,4 +304,18 @@ model AlbumAuthorization {
   album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@map("album_authorizations")
+}
+
+model AlbumShareToken {
+  id        String   @id
+  albumId   String   @map("album_id")
+  userId    String   @map("user_id")
+  mode      String   @default("desensitized")
+  channel   String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId])
+  @@index([userId])
+  @@map("album_share_tokens")
 }

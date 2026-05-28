@@ -22,7 +22,11 @@ const {
   formatPlanAmountLabel,
 } = require('../utils/album-price')
 
+const { buildDesensitizedUrl } = require('../utils/desensitize-url')
+const { SHARE_MODE } = require('../constants/album-share')
+
 const STORAGE_KEY = 'service_albums_v1'
+const SHARE_TOKEN_STORAGE = 'album_share_tokens_v1'
 const CONFIRM_STORAGE_KEY = 'service_album_confirm_v1'
 const AUTH_STORAGE_KEY = 'service_album_auth_v1'
 
@@ -785,6 +789,108 @@ async function mockFetchMerchantAlbumStats() {
   return { active, pendingAuth, pendingUpload, total: albums.length }
 }
 
+function readShareTokens() {
+  try {
+    return wx.getStorageSync(SHARE_TOKEN_STORAGE) || {}
+  } catch (e) {
+    return {}
+  }
+}
+
+function writeShareTokens(map) {
+  try {
+    wx.setStorageSync(SHARE_TOKEN_STORAGE, map)
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function buildMockSharedView(album, mode) {
+  const store = resolveStoreBlock(album.storeId)
+  const nodes = (album.nodes || []).map((node) => {
+    const images =
+      mode === SHARE_MODE.ORIGINAL
+        ? node.images || []
+        : (node.images || []).map((url, idx) =>
+            buildDesensitizedUrl(url, album.albumId, node.id, idx)
+          )
+    return {
+      id: node.id,
+      title: node.title,
+      note: node.note || '',
+      images,
+    }
+  })
+
+  return {
+    albumId: album.albumId,
+    shareMode: mode,
+    serviceName: album.serviceName || '—',
+    store: { name: store.name, city: store.city || '杭州' },
+    vehicleDisplay: buildVehicleDisplay(album.vehicle),
+    storeNote: album.storeNote || '',
+    nodes,
+    disclaimer:
+      mode === SHARE_MODE.ORIGINAL
+        ? '本页由车主选择原图分享，可能包含隐私信息，请勿二次传播。'
+        : '本页为车主分享的脱敏服务过程，不含完整车牌、手机号等隐私信息。',
+  }
+}
+
+function getStoredAlbums() {
+  const map = loadAlbumMap()
+  return Object.values(map)
+}
+
+async function mockRecordAlbumShare(albumId, payload = {}) {
+  const map = loadAlbumMap()
+  const album = applyConfirmOverrides(map[albumId] || MOCK_ALBUMS.find((a) => a.albumId === albumId))
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.code = 404
+    throw err
+  }
+  if (album.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+    const err = new Error('相册尚未完工，暂不可分享')
+    err.code = 400
+    throw err
+  }
+  const mode =
+    payload.mode === SHARE_MODE.ORIGINAL ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
+  const shareToken = `sh_alb_mock_${Date.now().toString(36)}`
+  const tokens = readShareTokens()
+  tokens[shareToken] = {
+    albumId,
+    mode,
+    channel: payload.channel || '',
+    createdAt: Date.now(),
+  }
+  writeShareTokens(tokens)
+  return {
+    shareToken,
+    mode,
+    channel: payload.channel || '',
+    miniPath: `/pages/album/share/index?token=${encodeURIComponent(shareToken)}`,
+  }
+}
+
+async function mockFetchSharedAlbum(token) {
+  const record = readShareTokens()[token]
+  if (!record) {
+    const err = new Error('分享链接无效或已失效')
+    err.code = 404
+    throw err
+  }
+  const map = loadAlbumMap()
+  const album = applyConfirmOverrides(map[record.albumId] || MOCK_ALBUMS.find((a) => a.albumId === record.albumId))
+  if (!album || album.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+    const err = new Error('相册暂不可查看')
+    err.code = 404
+    throw err
+  }
+  return buildMockSharedView(album, record.mode)
+}
+
 module.exports = {
   mockFetchUserServiceAlbums,
   mockFetchServiceAlbum,
@@ -800,5 +906,7 @@ module.exports = {
   mockSaveMerchantServiceAlbum,
   mockCompleteMerchantServiceAlbum,
   mockFetchMerchantAlbumStats,
+  mockRecordAlbumShare,
+  mockFetchSharedAlbum,
   MOCK_ALBUMS,
 }

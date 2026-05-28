@@ -25,7 +25,7 @@
       disabled="{{submitting}}"
       bind:toggle="onToggle"
     >
-      <text>我已核对公开内容，同意将本次服务相册公开为案例。</text>
+      <text>我已核对公开内容，同意授权公示本次服务相册。</text>
       <text
         wx:if="{{showPolicyLink}}"
         class="text-link"

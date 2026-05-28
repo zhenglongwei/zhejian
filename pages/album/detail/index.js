@@ -6,15 +6,30 @@ const {
   fetchServiceAlbum,
   prepareServiceAuthorizePreview,
   submitServiceAlbumAuthorization,
+  recordAlbumShare,
 } = require('../../../services/service-album')
 const { enrichServiceAlbumListItem } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
+const {
+  copyCaseShareLink,
+  buildShareableCaseFromAlbum,
+  canShareCase,
+} = require('../../../utils/case-share')
+const {
+  canOwnerShareAlbum,
+  buildOwnerSharePayload,
+  copyOwnerShareLink,
+  SHARE_MODE,
+  SHARE_CHANNEL,
+} = require('../../../utils/album-owner-share')
+const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
 
 const PUBLIC_CASE_HINT = {
-  authorized: '你已授权公开，案例生成中，请稍后查看。',
-  user_rejected: '你已拒绝公开，相册仍可作为私密服务相册查看。',
-  pending_review: '公开案例已提交审核，审核通过后将展示。',
-  public_approved: '公开案例已展示，可在案例 Tab 查看。',
+  authorized: '你已授权公示，案例生成中，请稍后查看。',
+  user_rejected: '你已拒绝公示，相册仍可作为私密服务相册查看。',
+  pending_review: '公开案例已提交，审核通过后将自动展示在「案例」Tab 与公开网页。',
+  public_approved:
+    '案例已自动展示在「案例」Tab 与公开网页，无需额外发布。',
 }
 
 Page({
@@ -24,6 +39,13 @@ Page({
     detail: null,
     albumStatusLabel: '',
     showAuthSection: false,
+    showOwnerShareSection: false,
+    showPublicCaseLinks: false,
+    shareReady: false,
+    shareUseOriginal: false,
+    sharePreparing: false,
+    shareToken: '',
+    shareMode: SHARE_MODE.DESENSITIZED,
     publicCaseHint: '',
     authChecked: false,
     authTier: 'named',
@@ -89,6 +111,10 @@ Page({
       const imageCount = detail.imageCount || 0
       const pageStatus = imageCount > 0 ? 'normal' : 'empty'
       const showAuthSection = this.shouldShowAuth(detail)
+      const showOwnerShareSection = canOwnerShareAlbum(detail)
+      const shareCase = buildShareableCaseFromAlbum(detail)
+      const showPublicCaseLinks =
+        detail.publicCaseStatus === 'public_approved' && Boolean(shareCase)
       const publicCaseHint = showAuthSection
         ? ''
         : PUBLIC_CASE_HINT[detail.publicCaseStatus] || ''
@@ -101,11 +127,21 @@ Page({
         detail: enriched,
         albumStatusLabel: SERVICE_ALBUM_STATUS_LABEL[detail.status] || '',
         showAuthSection,
+        showOwnerShareSection,
+        showPublicCaseLinks,
         publicCaseHint,
         authChecked: false,
         status: pageStatus,
         showBottomBar: pageStatus === 'normal',
+        shareReady: false,
+        shareToken: '',
       })
+
+      if (showOwnerShareSection) {
+        await this.refreshShareToken({ silent: true })
+      } else {
+        this.updateShareMenu(false)
+      }
     } catch (e) {
       const code = e && e.code
       let message = (e && e.message) || '加载失败'
@@ -130,6 +166,67 @@ Page({
     if ((detail.imageCount || 0) < 1) return false
     const status = detail.publicCaseStatus
     return status === 'private' || status === 'authorization_pending'
+  },
+
+  async refreshShareToken(options = {}) {
+    const { detail, shareUseOriginal } = this.data
+    if (!detail || !canOwnerShareAlbum(detail)) {
+      this.updateShareMenu(false)
+      return
+    }
+
+    const mode = shareUseOriginal ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
+    if (!options.silent) {
+      this.setData({ sharePreparing: true, shareReady: false })
+    }
+
+    try {
+      const result = await recordAlbumShare(detail.albumId, {
+        mode,
+        channel: SHARE_CHANNEL.WECHAT,
+      })
+      this.setData({
+        shareToken: result.shareToken || '',
+        shareMode: result.mode || mode,
+        shareReady: Boolean(result.shareToken),
+        sharePreparing: false,
+      })
+      this.updateShareMenu(Boolean(result.shareToken))
+    } catch (e) {
+      this.setData({ sharePreparing: false, shareReady: false, shareToken: '' })
+      this.updateShareMenu(false)
+      if (!options.silent) {
+        wx.showToast({
+          title: (e && e.message) || '分享准备失败',
+          icon: 'none',
+        })
+      }
+    }
+  },
+
+  onShareOriginalToggle() {
+    const { shareUseOriginal, sharePreparing } = this.data
+    if (sharePreparing) return
+
+    if (!shareUseOriginal) {
+      wx.showModal({
+        title: '原图分享风险提示',
+        content: ORIGINAL_SHARE_RISK,
+        confirmText: '仍用原图',
+        cancelText: '取消',
+        success: (res) => {
+          if (!res.confirm) return
+          this.setData({ shareUseOriginal: true }, () => {
+            this.refreshShareToken()
+          })
+        },
+      })
+      return
+    }
+
+    this.setData({ shareUseOriginal: false }, () => {
+      this.refreshShareToken()
+    })
   },
 
   onRetry() {
@@ -176,7 +273,7 @@ Page({
     const { detail, authSubmitting } = this.data
     if (!detail || authSubmitting) return
     wx.showModal({
-      title: '拒绝公开',
+      title: '拒绝公示',
       content:
         '拒绝后，本次服务相册仍仅作为你的私密记录保存，不会生成公开案例。',
       confirmText: '确认拒绝',
@@ -197,7 +294,7 @@ Page({
       await submitServiceAlbumAuthorization(detail.albumId, { agreed })
       wx.hideLoading()
       wx.showToast({
-        title: agreed ? '已确认公开' : '已记录你的选择',
+        title: agreed ? '已授权公示' : '已记录你的选择',
         icon: 'success',
       })
       this.loadAlbum()
@@ -247,5 +344,69 @@ Page({
   onLoginSheetSuccess() {
     this.closeLoginSheet()
     this.loadAlbum()
+  },
+
+  updateShareMenu(ready) {
+    if (ready) {
+      wx.showShareMenu({
+        withShareTicket: false,
+        menus: ['shareAppMessage'],
+      })
+    } else {
+      wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    }
+  },
+
+  onShareAppMessage() {
+    const { detail, shareToken, shareMode } = this.data
+    const payload = buildOwnerSharePayload(detail, {
+      shareToken,
+      mode: shareMode,
+    })
+    if (payload) return payload
+    return {
+      title: '辙见 · 我的服务相册',
+      path: '/pages/album/list/index',
+    }
+  },
+
+  async onCopyOwnerShareLink() {
+    const { shareToken, sharePreparing } = this.data
+    if (sharePreparing) return
+    if (!shareToken) {
+      await this.refreshShareToken()
+    }
+    const token = this.data.shareToken
+    if (!token) {
+      wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
+      return
+    }
+    try {
+      await recordAlbumShare(this.data.detail.albumId, {
+        mode: this.data.shareMode,
+        channel: SHARE_CHANNEL.LINK,
+      })
+      await copyOwnerShareLink(token)
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '复制失败',
+        icon: 'none',
+      })
+    }
+  },
+
+  onCopyCaseWebLink() {
+    const shareCase = buildShareableCaseFromAlbum(this.data.detail)
+    if (!shareCase || !canShareCase(shareCase)) {
+      wx.showToast({ title: '平台公开链接尚未就绪', icon: 'none' })
+      return
+    }
+    copyCaseShareLink(shareCase.id, shareCase)
+  },
+
+  onViewPublicCase() {
+    const shareCase = buildShareableCaseFromAlbum(this.data.detail)
+    if (!shareCase || !shareCase.id) return
+    wx.navigateTo({ url: `/pages/case/detail/index?id=${shareCase.id}` })
   },
 })

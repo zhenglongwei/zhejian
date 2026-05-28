@@ -14,6 +14,7 @@ const {
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
+const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 
 const USER_TAB_STATUS = {
   all: null,
@@ -109,6 +110,9 @@ function buildAlbumView(album) {
     pendingConfirms: album.pendingConfirmsJson || [],
     pendingCount: (album.pendingConfirmsJson || []).length,
     publicCaseStatus,
+    publicCaseId: album.publicCase?.id || '',
+    publicCaseTitle: album.publicCase?.title || '',
+    publicCaseCover: resolvePublicCaseMediaUrl(album.publicCase?.coverImage || ''),
     priceMode: privatePrice.priceMode,
     amount: privatePrice.amount,
     planAmount,

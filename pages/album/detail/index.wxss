@@ -45,3 +45,10 @@
 .service-album__feedback {
   padding: var(--space-sm) 0 var(--space-md);
 }
+
+.service-album__share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}

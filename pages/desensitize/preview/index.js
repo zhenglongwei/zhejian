@@ -27,7 +27,7 @@ Page({
     canConfirm: false,
     liabilityText: '',
     liabilityAccepted: false,
-    confirmLabelShort: '确认并公开',
+    confirmLabelShort: '确认授权公示',
     needPreviewHint: false,
     errorMessage: '',
     autoMaskLoading: false,
@@ -53,7 +53,7 @@ Page({
       fromPreMask,
       authTier,
       liabilityText: copy.body,
-      confirmLabelShort: '确认并公开',
+      confirmLabelShort: '确认授权公示',
     })
     if (!taskId) {
       this.setData({
@@ -199,7 +199,7 @@ Page({
           })
         }
       }
-      wx.showToast({ title: '已确认公开', icon: 'success' })
+      wx.showToast({ title: '已授权公示，审核通过后将自动展示', icon: 'success' })
       setTimeout(() => {
         this.onBackAlbum()
       }, 700)

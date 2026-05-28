@@ -77,6 +77,22 @@ async function withdrawAuthorization(albumId) {
   return post(`/user/service-albums/${albumId}/withdraw-authorization`)
 }
 
+async function recordAlbumShare(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    const { mockRecordAlbumShare } = require('../mock/service-albums')
+    return mockRecordAlbumShare(albumId, payload)
+  }
+  return post(`/user/service-albums/${albumId}/share`, payload)
+}
+
+async function fetchSharedAlbum(token) {
+  if (ENV.mode === 'mock') {
+    const { mockFetchSharedAlbum } = require('../mock/service-albums')
+    return mockFetchSharedAlbum(token)
+  }
+  return get(`/user/shared-albums/${encodeURIComponent(token)}`)
+}
+
 module.exports = {
   fetchUserServiceAlbums,
   fetchServiceAlbum,
@@ -85,4 +101,6 @@ module.exports = {
   prepareServiceAuthorizePreview,
   fetchUserAuthorizations,
   withdrawAuthorization,
+  recordAlbumShare,
+  fetchSharedAlbum,
 }

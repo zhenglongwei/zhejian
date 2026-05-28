@@ -1,14 +1,6 @@
 const { fetchCaseDetail } = require('../../../services/case')
-const {
-  copyCaseShareLink,
-  buildCaseSharePayload,
-  canShareCase,
-} = require('../../../utils/case-share')
 
-const BOTTOM_LEFT_ACTIONS = [
-  { key: 'call', type: 'secondary', text: '电话咨询' },
-  { key: 'share', type: 'ghost', text: '网页链接' },
-]
+const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
 
 Page({
   data: {
@@ -42,13 +34,11 @@ Page({
         faqList: detail.faq || [],
         status: 'normal',
       })
-      wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage', 'shareTimeline'] })
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
-      wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     }
   },
 
@@ -59,7 +49,6 @@ Page({
   onBottomLeftAction(e) {
     const { key } = e.detail
     if (key === 'call') this.onCall()
-    else if (key === 'share') this.onShare()
   },
 
   onCall() {
@@ -81,38 +70,6 @@ Page({
     wx.navigateTo({
       url: `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
     })
-  },
-
-  onShare() {
-    const { detail } = this.data
-    if (!detail || !detail.id) return
-    if (!canShareCase(detail)) {
-      wx.showToast({ title: '案例脱敏内容未就绪，暂不可分享', icon: 'none' })
-      return
-    }
-    copyCaseShareLink(detail.id, detail)
-  },
-
-  onShareAppMessage() {
-    const payload = buildCaseSharePayload(this.data.detail)
-    if (payload) return payload
-    return {
-      title: '辙见 · 公开案例',
-      path: '/pages/case/index',
-    }
-  },
-
-  onShareTimeline() {
-    const { detail } = this.data
-    const payload = buildCaseSharePayload(detail)
-    if (!payload) {
-      return { title: '辙见 · 公开案例' }
-    }
-    return {
-      title: payload.title,
-      query: `id=${detail.id}`,
-      imageUrl: payload.imageUrl,
-    }
   },
 
   onStoreTap(e) {

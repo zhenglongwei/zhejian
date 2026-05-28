@@ -15,7 +15,7 @@ Component({
     mode: { type: String, value: 'default' },
     anonymousHint: {
       type: String,
-      value: '本案例为匿名授权公开，不展示门店名称。',
+      value: '本案例为匿名授权公示，不展示门店名称。',
     },
     contactHint: { type: String, value: '' },
   },

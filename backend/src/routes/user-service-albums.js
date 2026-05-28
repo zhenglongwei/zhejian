@@ -11,6 +11,7 @@ const {
 } = require('../services/service-album.service')
 const { publishServicePublicCase } = require('../services/public-case.service')
 const { createAlbumAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
+const { createAlbumShareToken } = require('../services/album-share.service')
 
 const router = express.Router()
 
@@ -95,6 +96,19 @@ router.post('/albums/:albumId/authorize-preview', requireAuth(['user']), async (
   try {
     const { preview } = await createAlbumAuthorizeTaskFromPreMask(req.params.albumId)
     return ok(res, preview)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/share', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await createAlbumShareToken(
+      req.params.albumId,
+      req.auth.userId,
+      req.body || {}
+    )
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

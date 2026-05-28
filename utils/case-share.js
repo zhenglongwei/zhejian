@@ -1,6 +1,6 @@
 /**
- * 公开案例分享（小程序卡片 + H5 链接）
- * 仅允许分享已脱敏、已审核的公开内容，禁止诱导奖励文案。
+ * 平台公开案例分享（案例 Tab / H5 公示页）
+ * 私人分享见 utils/album-owner-share.js
  */
 const { ENV } = require('../services/config')
 const { pickCaseDisplayCover, isDesensitizedUrl } = require('./desensitize-url')
@@ -73,6 +73,18 @@ function copyCaseShareLink(caseId, detail) {
   })
 }
 
+function buildShareableCaseFromAlbum(detail) {
+  if (!detail || !detail.publicCaseId) return null
+  const cover = detail.publicCaseCover || ''
+  return {
+    id: detail.publicCaseId,
+    title: detail.publicCaseTitle || detail.serviceName || '公开案例',
+    coverImage: cover,
+    coverImageDesensitized: cover,
+    nodes: cover ? [{ images: [cover] }] : [],
+  }
+}
+
 module.exports = {
   buildCaseH5Url,
   buildCaseShareTitle,
@@ -80,5 +92,6 @@ module.exports = {
   canShareCase,
   buildCaseSharePayload,
   buildMiniProgramSharePath,
+  buildShareableCaseFromAlbum,
   copyCaseShareLink,
 }

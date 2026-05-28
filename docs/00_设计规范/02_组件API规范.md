@@ -389,10 +389,10 @@
 |---|---|---|---|
 | checked | Boolean | false | 勾选状态 |
 | submitting | Boolean | false | 提交中 |
-| title | String | 授权生成公开案例 | 标题 |
+| title | String | 授权公示 | 标题 |
 | showPolicyLink | Boolean | true | 是否展示政策链接 |
-| confirmText | String | 确认公开为案例 | 主按钮文案 |
-| rejectText | String | 拒绝公开 | 次按钮文案 |
+| confirmText | String | 确认授权公示 | 主按钮文案 |
+| rejectText | String | 拒绝公示 | 次按钮文案 |
 
 | 事件 | 说明 |
 |---|---|

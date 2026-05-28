@@ -11,6 +11,7 @@ const {
   getSearchSuggest,
   searchContent,
 } = require('../services/content.service')
+const { getSharedAlbumByToken } = require('../services/album-share.service')
 
 const router = express.Router()
 
@@ -26,6 +27,15 @@ router.get('/cases', async (req, res, next) => {
 router.get('/cases/:id', async (req, res, next) => {
   try {
     const data = await getCaseDetail(req.params.id)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.get('/shared-albums/:token', async (req, res, next) => {
+  try {
+    const data = await getSharedAlbumByToken(req.params.token)
     return ok(res, data)
   } catch (e) {
     return next(e)
