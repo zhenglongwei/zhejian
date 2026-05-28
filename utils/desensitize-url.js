@@ -46,9 +46,23 @@ function isPendingMediaUrl(url) {
 /**
  * 供 <image src> 使用：mock:// 与未上线的 /media/* 不可加载
  */
-function resolveImageSrc(url) {
+/** 将旧 /media/uploads/ 公网 URL 转为走 /api/ 的文件路由（避免 Nginx 未配 /media/ 时 404） */
+function normalizePublicMediaUrl(url) {
   if (!url) return ''
   const value = String(url)
+  const base = String(ENV.baseUrl || '').replace(/\/$/, '')
+  if (value.includes('/media/uploads/')) {
+    return value.replace(/\/media\/uploads\//, '/api/v1/media/files/uploads/')
+  }
+  if (base && value.startsWith(`${base}/media/uploads/`)) {
+    return value.replace(`${base}/media/uploads/`, `${base}/api/v1/media/files/uploads/`)
+  }
+  return value
+}
+
+function resolveImageSrc(url) {
+  if (!url) return ''
+  const value = normalizePublicMediaUrl(String(url))
   if (value.startsWith('mock://')) return ''
   if (isPendingMediaUrl(value)) return ''
   if (

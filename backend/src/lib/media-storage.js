@@ -28,7 +28,17 @@ function resolveUploadDir(subdir) {
 
 function buildPublicMediaUrl(relativePath) {
   const rel = String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '')
-  return `${config.publicBaseUrl}/media/${rel}`
+  // 走 /api/ 反代（生产 Nginx 已配置），避免 /media/ 未反代时 404
+  return `${config.publicBaseUrl}/api/v1/media/files/${rel}`
+}
+
+function resolveUploadFilePath(year, month, filename) {
+  if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) return null
+  if (!/^[a-f0-9]{32}\.(jpe?g|png|webp)$/i.test(filename)) return null
+  const filePath = path.join(UPLOAD_ROOT, year, month, filename)
+  const normalized = path.normalize(filePath)
+  if (!normalized.startsWith(UPLOAD_ROOT)) return null
+  return normalized
 }
 
 function createStoredFilename(originalName = '') {
@@ -62,4 +72,5 @@ module.exports = {
   buildPublicMediaUrl,
   createStoredFilename,
   assertPersistentImageUrl,
+  resolveUploadFilePath,
 }

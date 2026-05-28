@@ -152,7 +152,8 @@ pm2 restart zhejian-api
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/v1/media/upload` | 小程序 `wx.uploadFile`，字段名 `file`；需登录（user/merchant） |
-| GET | `/media/uploads/{yyyy}/{mm}/{filename}` | 静态访问已上传图片（Nginx 反代至 Node） |
+| GET | `/api/v1/media/files/uploads/{yyyy}/{mm}/{file}` | 读图（走 `/api/` 反代，**推荐**） |
+| GET | `/media/uploads/{yyyy}/{mm}/{file}` | 兼容；须 Nginx 配 `location /media/` |
 
 存储目录默认 `backend/data/media`（`MEDIA_STORAGE_DIR` 可改）。生产部署须同步 Nginx `location /media/`（见 `deploy/nginx-geo.simplewin.cn.conf`）。
 

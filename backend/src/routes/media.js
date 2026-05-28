@@ -1,6 +1,7 @@
 const express = require('express')
 const multer = require('multer')
 const path = require('path')
+const fs = require('fs')
 const { ok, fail } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { ROLES } = require('../lib/jwt')
@@ -10,9 +11,31 @@ const {
   resolveUploadDir,
   buildPublicMediaUrl,
   createStoredFilename,
+  resolveUploadFilePath,
 } = require('../lib/media-storage')
 
 ensureMediaDirs()
+
+function sendUploadFile(req, res, next) {
+  const filePath = resolveUploadFilePath(
+    req.params.year,
+    req.params.month,
+    req.params.filename
+  )
+  if (!filePath) {
+    return fail(res, 100004, '资源不存在', 404)
+  }
+  fs.access(filePath, fs.constants.R_OK, (err) => {
+    if (err) {
+      return fail(res, 100004, '资源不存在', 404)
+    }
+    res.set('Cache-Control', 'public, max-age=604800')
+    res.type(path.extname(filePath))
+    return res.sendFile(filePath, (sendErr) => {
+      if (sendErr) next(sendErr)
+    })
+  })
+}
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
@@ -46,6 +69,12 @@ const upload = multer({
 })
 
 const router = express.Router()
+
+/** 公开读图（随机文件名，无鉴权；须走 /api/ 反代） */
+router.get('/files/uploads/:year/:month/:filename', sendUploadFile)
+
+/** 兼容旧 URL：/media/uploads/...（Nginx 已配 /media/ 反代时可用） */
+router.get('/legacy/uploads/:year/:month/:filename', sendUploadFile)
 
 /** B-MEDIA-01/02：小程序直传 ECS 本地存储，返回可跨端访问的 HTTPS URL */
 router.post(
