@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="辙见公开案例 · 已脱敏展示。价格仅为参考区间，实际费用以门店检测为准。">
+  <meta name="robots" content="index,follow">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="辙见">
+  <title>加载中… · 辙见</title>
+  <link rel="stylesheet" href="../shared/tokens.css">
+  <link rel="stylesheet" href="../shared/case-page.css">
+</head>
+<body>
+  <div id="app">加载中…</div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search)
+      var caseId = params.get('id') || ''
+      window.__CASE_ID__ = caseId
+      if (caseId) {
+        window.__CASE_API__ = '/api/v1/user/cases/' + encodeURIComponent(caseId)
+      }
+    })()
+  </script>
+  <script src="../shared/case-render.js"></script>
+</body>
+</html>

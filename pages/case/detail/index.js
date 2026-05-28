@@ -1,5 +1,9 @@
 const { fetchCaseDetail } = require('../../../services/case')
-const { copyCaseShareLink } = require('../../../utils/case-share')
+const {
+  copyCaseShareLink,
+  buildCaseSharePayload,
+  canShareCase,
+} = require('../../../utils/case-share')
 
 const BOTTOM_LEFT_ACTIONS = [
   { key: 'call', type: 'secondary', text: '电话咨询' },
@@ -82,20 +86,32 @@ Page({
   onShare() {
     const { detail } = this.data
     if (!detail || !detail.id) return
-    copyCaseShareLink(detail.id)
+    if (!canShareCase(detail)) {
+      wx.showToast({ title: '案例脱敏内容未就绪，暂不可分享', icon: 'none' })
+      return
+    }
+    copyCaseShareLink(detail.id, detail)
   },
 
   onShareAppMessage() {
+    const payload = buildCaseSharePayload(this.data.detail)
+    if (payload) return payload
+    return {
+      title: '辙见 · 公开案例',
+      path: '/pages/case/index',
+    }
+  },
+
+  onShareTimeline() {
     const { detail } = this.data
-    if (!detail || !detail.id) {
-      return {
-        title: '辙见 · 公开案例',
-        path: '/pages/case/index',
-      }
+    const payload = buildCaseSharePayload(detail)
+    if (!payload) {
+      return { title: '辙见 · 公开案例' }
     }
     return {
-      title: `${detail.title} · 已脱敏公开案例`,
-      path: `/pages/case/detail/index?id=${detail.id}`,
+      title: payload.title,
+      query: `id=${detail.id}`,
+      imageUrl: payload.imageUrl,
     }
   },
 
