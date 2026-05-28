@@ -68,8 +68,10 @@
       <ui-album-authorize-section
         wx:if="{{showAuthSection}}"
         checked="{{authChecked}}"
+        authTier="{{authTier}}"
         submitting="{{authSubmitting}}"
         bind:toggle="onAuthCheckToggle"
+        bind:tierchange="onAuthTierChange"
         bind:submit="onSubmitAuth"
         bind:reject="onRejectAuth"
         bind:policy="onOpenBenefitPolicy"

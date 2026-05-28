@@ -41,6 +41,7 @@ Page({
     const orderId = (query && query.orderId) || ''
     const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
+    const authTier = query && query.tier === 'anonymous' ? 'anonymous' : 'named'
     const copyKey =
       source === 'service' ? BIZ_TYPE.SERVICE_AUTHORIZE : BIZ_TYPE.ORDER_AUTHORIZE
     const copy = LIABILITY_COPY[copyKey]
@@ -50,6 +51,7 @@ Page({
       orderId,
       source,
       fromPreMask,
+      authTier,
       liabilityText: copy.body,
       confirmLabelShort: '确认并公开',
     })
@@ -179,7 +181,10 @@ Page({
         liabilityAccepted: true,
       })
       if (this.data.source === 'service') {
-        await submitServiceAlbumAuthorization(this.data.albumId, { agreed: true })
+        await submitServiceAlbumAuthorization(this.data.albumId, {
+          agreed: true,
+          tier: this.data.authTier,
+        })
         await submitServicePublicCaseReview({
           albumId: this.data.albumId,
           taskId: this.data.taskId,

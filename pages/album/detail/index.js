@@ -26,6 +26,7 @@ Page({
     showAuthSection: false,
     publicCaseHint: '',
     authChecked: false,
+    authTier: 'named',
     authSubmitting: false,
     showBottomBar: true,
     loginSheetVisible: false,
@@ -139,6 +140,12 @@ Page({
     this.setData({ authChecked: !this.data.authChecked })
   },
 
+  onAuthTierChange(e) {
+    const tier = e.detail && e.detail.tier
+    if (tier !== 'named' && tier !== 'anonymous') return
+    this.setData({ authTier: tier })
+  },
+
   onSubmitAuth() {
     const { detail, authChecked, authSubmitting } = this.data
     if (!detail || !authChecked || authSubmitting) return
@@ -152,7 +159,7 @@ Page({
       const preview = await prepareServiceAuthorizePreview(this.albumId)
       wx.hideLoading()
       wx.navigateTo({
-        url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service`,
+        url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service&tier=${this.data.authTier}`,
       })
     } catch (e) {
       wx.hideLoading()

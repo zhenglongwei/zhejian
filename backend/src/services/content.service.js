@@ -90,9 +90,22 @@ function applyPublicDisplayRules(item) {
   return next
 }
 
+function pickCaseCover(row, content) {
+  const direct = sanitizeCover(row.coverImage)
+  if (direct) return direct
+  for (const node of content.nodes || []) {
+    for (const img of node.images || []) {
+      const url = typeof img === 'string' ? img : img.url || img.maskedUrl || ''
+      const cover = sanitizeCover(url)
+      if (cover) return cover
+    }
+  }
+  return ''
+}
+
 function mapPublicCaseRow(row) {
   const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-  const cover = sanitizeCover(row.coverImage)
+  const cover = pickCaseCover(row, content)
   const item = {
     id: row.id,
     albumId: row.albumId,
@@ -148,7 +161,10 @@ async function listCases(query = {}) {
   let list = await fetchPublicCaseRows()
 
   if (query.authorizationTier) {
-    list = list.filter((c) => c.authorizationTier === query.authorizationTier)
+    const tier = String(query.authorizationTier)
+    if (tier !== 'all' && tier !== 'undefined') {
+      list = list.filter((c) => c.authorizationTier === tier)
+    }
   }
   if (query.storeId) {
     list = list.filter((c) => c.storeId === query.storeId)
@@ -311,7 +327,10 @@ function listPublishedServices(query = {}) {
     list = list.filter((s) => s.storeId === query.storeId)
   }
   if (query.categoryId) {
-    list = list.filter((s) => s.categoryId === query.categoryId)
+    const categoryId = String(query.categoryId)
+    if (categoryId !== 'all' && categoryId !== 'undefined') {
+      list = list.filter((s) => s.categoryId === categoryId)
+    }
   }
 
   return { list, total: list.length, activeStoreIds }

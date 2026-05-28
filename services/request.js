@@ -10,6 +10,19 @@ const CODE_MESSAGE = {
   500: '服务繁忙，请稍后再试',
 }
 
+function sanitizeQuery(data) {
+  if (!data || typeof data !== 'object') return {}
+  const out = {}
+  Object.keys(data).forEach((key) => {
+    const val = data[key]
+    if (val === undefined || val === null || val === '') return
+    if (String(val) === 'undefined') return
+    if (val === 'all' && (key === 'authorizationTier' || key === 'categoryId')) return
+    out[key] = val
+  })
+  return out
+}
+
 /**
  * 统一请求（MVP：mock 模式直接拒绝，由 services 层走 mock）
  * @param {object} options
@@ -23,10 +36,12 @@ function request(options) {
   const {
     url,
     method = 'GET',
-    data = {},
+    data: rawData = {},
     showLoading = false,
     loadingText = '加载中',
   } = options
+
+  const data = method === 'GET' ? sanitizeQuery(rawData) : rawData
 
   if (ENV.mode === 'mock') {
     return Promise.reject({

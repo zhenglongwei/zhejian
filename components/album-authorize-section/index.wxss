@@ -21,3 +21,32 @@
   flex: 1;
   min-width: 0;
 }
+
+.album-authorize-section__tiers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.album-authorize-section__tier {
+  padding: var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-page);
+}
+
+.album-authorize-section__tier--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.album-authorize-section__tier-label {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.album-authorize-section__tier-desc {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}

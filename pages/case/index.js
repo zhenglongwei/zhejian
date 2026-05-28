@@ -56,11 +56,11 @@ Page({
   async loadList() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const authorizationTier =
-        this.data.filterSource === FILTER_ALL
-          ? undefined
-          : this.data.filterSource
-      const { list } = await fetchCaseList({ authorizationTier })
+      const query = {}
+      if (this.data.filterSource !== FILTER_ALL) {
+        query.authorizationTier = this.data.filterSource
+      }
+      const { list } = await fetchCaseList(query)
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',

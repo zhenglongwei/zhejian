@@ -39,11 +39,11 @@ Page({
   async loadList() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const categoryId =
-        this.data.filterCategory === FILTER_ALL
-          ? undefined
-          : this.data.filterCategory
-      const { list } = await fetchServiceList({ categoryId })
+      const query = {}
+      if (this.data.filterCategory !== FILTER_ALL) {
+        query.categoryId = this.data.filterCategory
+      }
+      const { list } = await fetchServiceList(query)
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',

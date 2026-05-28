@@ -329,8 +329,7 @@ Page({
       confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return
-        // success 勿用 async：否则部分基础库下系统弹窗无法关闭
-        this.submitComplete()
+        setTimeout(() => this.submitComplete(), 200)
       },
     })
   },
@@ -343,10 +342,12 @@ Page({
       const { payload, droppedStaleCount } = await this.buildSavePayload()
       await saveMerchantServiceAlbum(this.albumId, payload)
       await completeMerchantServiceAlbum(this.albumId)
-      await this.loadAlbum()
       wx.hideLoading()
-      wx.showToast({ title: '已标记完工', icon: 'success' })
-      this.notifyStaleImagesDropped(droppedStaleCount)
+      wx.showToast({ title: '已标记完工', icon: 'success', duration: 1500 })
+      if (droppedStaleCount > 0) {
+        this.notifyStaleImagesDropped(droppedStaleCount)
+      }
+      setTimeout(() => wx.navigateBack(), 1600)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })

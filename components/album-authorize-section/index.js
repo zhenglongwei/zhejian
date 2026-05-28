@@ -28,9 +28,19 @@ Component({
       type: String,
       value: '拒绝公开',
     },
+    authTier: {
+      type: String,
+      value: 'named',
+    },
   },
 
   methods: {
+    onTierTap(e) {
+      const tier = e.currentTarget.dataset.tier
+      if (!tier || tier === this.properties.authTier) return
+      this.triggerEvent('tierchange', { tier })
+    },
+
     onToggle() {
       this.triggerEvent('toggle')
     },

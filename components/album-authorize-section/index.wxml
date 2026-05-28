@@ -2,6 +2,24 @@
   <view class="album-authorize-section">
     <text class="album-authorize-section__title text-h3">{{title}}</text>
     <ui-compliance-notice type="authorize" />
+    <view class="album-authorize-section__tiers">
+      <view
+        class="album-authorize-section__tier {{authTier === 'named' ? 'album-authorize-section__tier--active' : ''}}"
+        data-tier="named"
+        bindtap="onTierTap"
+      >
+        <text class="album-authorize-section__tier-label text-body">实名授权</text>
+        <text class="album-authorize-section__tier-desc text-caption">可展示门店与车型信息</text>
+      </view>
+      <view
+        class="album-authorize-section__tier {{authTier === 'anonymous' ? 'album-authorize-section__tier--active' : ''}}"
+        data-tier="anonymous"
+        bindtap="onTierTap"
+      >
+        <text class="album-authorize-section__tier-label text-body">匿名授权</text>
+        <text class="album-authorize-section__tier-desc text-caption">不展示门店名称</text>
+      </view>
+    </view>
     <ui-checkbox-row
       checked="{{checked}}"
       disabled="{{submitting}}"
