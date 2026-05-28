@@ -8,7 +8,7 @@ const { fetchStoreTopReviewTags } = require('../../services/review')
 const { buildStoreCardTags } = require('../../utils/store-tags')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 const { GEO_TOPIC_TAG } = require('../../constants/geo-pages')
-const { isDesensitizedUrl } = require('../../utils/desensitize-url')
+const { isDesensitizedUrl, resolveImageSrc } = require('../../utils/desensitize-url')
 
 const INTRO_ACCENTS = ['primary', 'info', 'success']
 
@@ -42,12 +42,11 @@ function buildHeroTrustCase(cases) {
     const item = cases[i]
     const url = item.coverImageDesensitized || item.coverImage
     if (!url) continue
-    if (url.startsWith('/') || url.startsWith('http') || isDesensitizedUrl(url)) {
-      return {
-        id: item.id,
-        title: item.title,
-        coverImage: url,
-      }
+    if (!isDesensitizedUrl(url) && !url.startsWith('http') && !url.startsWith('/')) continue
+    return {
+      id: item.id,
+      title: item.title,
+      coverImage: resolveImageSrc(url),
     }
   }
   return null

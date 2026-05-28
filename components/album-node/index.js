@@ -1,3 +1,5 @@
+const { resolveImageSrcList } = require('../../utils/desensitize-url')
+
 Component({
   properties: {
     mode: {
@@ -25,10 +27,25 @@ Component({
     /** 上传区旁的操作提示（如隐私说明），仅 edit 模式展示 */
     uploadHint: { type: String, value: '' },
   },
+  data: {
+    displayImages: [],
+  },
+  observers: {
+    images(list) {
+      this.setData({ displayImages: resolveImageSrcList(list) })
+    },
+  },
+  lifetimes: {
+    attached() {
+      this.setData({
+        displayImages: resolveImageSrcList(this.properties.images),
+      })
+    },
+  },
   methods: {
     onPreview(e) {
       const { index } = e.currentTarget.dataset
-      const urls = this.properties.images || []
+      const urls = this.data.displayImages || []
       if (!urls.length) return
       wx.previewImage({ current: urls[index], urls })
     },

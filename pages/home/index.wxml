@@ -50,6 +50,7 @@
           >
             <view class="home__hero-trust-cover image-placeholder">
               <image
+                wx:if="{{heroTrustCase.coverImage}}"
                 class="home__hero-trust-img"
                 src="{{heroTrustCase.coverImage}}"
                 mode="aspectFill"

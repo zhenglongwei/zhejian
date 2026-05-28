@@ -8,6 +8,7 @@
       class="case-card__cover-img"
       src="{{safeCoverImage}}"
       mode="aspectFill"
+      binderror="onCoverError"
     />
   </view>
   <view class="case-card__body">

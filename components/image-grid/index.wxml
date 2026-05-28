@@ -1,6 +1,6 @@
 <view class="image-grid image-grid--col-{{columns}}">
   <image
-    wx:for="{{images}}"
+    wx:for="{{displayImages}}"
     wx:key="*this"
     class="image-grid__cell"
     src="{{item}}"

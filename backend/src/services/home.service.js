@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { sanitizeClientMediaUrl } = require('../lib/media-url')
 const {
   HOME_SERVICE_ENTRIES,
   HOME_ACCIDENT_ENTRY,
@@ -15,7 +16,7 @@ function mapPublicCase(item) {
     id: item.id,
     albumId: item.albumId,
     authorizationTier: item.authorizationTier,
-    coverImage: item.coverImage || '',
+    coverImage: sanitizeClientMediaUrl(item.coverImage),
     title: item.title,
     serviceName: item.serviceName,
     summary: item.summary,
@@ -41,7 +42,7 @@ async function fetchFeaturedCases(limit = 3) {
       id: 'case_svc_demo_completed',
       albumId: 'alb_svc_demo_completed',
       authorizationTier: 'named',
-      coverImage: 'https://geo.simplewin.cn/media/raw/alb_svc_demo_completed/stage_1/0.jpg',
+      coverImage: '',
       title: '杭州大众朗逸 · 小保养套餐',
       serviceName: '小保养套餐',
       summary: '该案例经车主授权，记录了小保养维修过程。图片已脱敏并通过平台审核。',

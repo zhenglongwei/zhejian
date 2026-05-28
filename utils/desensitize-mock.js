@@ -6,6 +6,8 @@ const {
   isDesensitizedUrl,
   buildDesensitizedUrl,
   resolveMediaUrl,
+  resolveImageSrc,
+  resolveImageSrcList,
 } = require('./desensitize-url')
 
 function mockDesensitizedUrl(rawUrl, albumId, nodeId, index) {
@@ -53,7 +55,9 @@ function buildPublicAlbumNodes(nodes) {
     id: node.id,
     title: node.title,
     note: node.note || '',
-    images: (node.imagesDesensitized || []).map(resolveMediaUrl),
+    images: resolveImageSrcList(
+      (node.imagesDesensitized || []).map(resolveMediaUrl)
+    ),
   }))
 }
 
@@ -66,14 +70,16 @@ function sanitizePublicCase(caseItem) {
       id: node.id,
       title: node.title,
       note: node.note || '',
-      images: pool.filter(isDesensitizedUrl).map(resolveMediaUrl),
+      images: resolveImageSrcList(
+        pool.filter(isDesensitizedUrl).map(resolveMediaUrl)
+      ),
     }
   })
   const coverCandidate =
     caseItem.coverImageDesensitized || caseItem.coverImage || ''
   const cover = isDesensitizedUrl(coverCandidate)
-    ? resolveMediaUrl(coverCandidate)
-    : ''
+    ? resolveImageSrc(resolveMediaUrl(coverCandidate))
+    : resolveImageSrc(coverCandidate)
   return {
     ...caseItem,
     coverImage: cover,
@@ -91,4 +97,6 @@ module.exports = {
   sanitizePublicCase,
   isDesensitizedUrl,
   resolveMediaUrl,
+  resolveImageSrc,
+  resolveImageSrcList,
 }

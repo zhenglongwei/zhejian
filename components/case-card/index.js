@@ -1,6 +1,6 @@
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
 const { buildCaseTags } = require('../../utils/case-tags')
-const { isDesensitizedUrl } = require('../../utils/desensitize-mock')
+const { resolveImageSrc } = require('../../utils/desensitize-url')
 
 Component({
   properties: {
@@ -35,9 +35,7 @@ Component({
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
     coverImage(url) {
-      this.setData({
-        safeCoverImage: isDesensitizedUrl(url) ? url : '',
-      })
+      this.setData({ safeCoverImage: resolveImageSrc(url) })
     },
   },
   lifetimes: {
@@ -45,9 +43,7 @@ Component({
       const { authorizationTier, tags, showStoreName, storeName } = this.properties
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
       this.setData({
-        safeCoverImage: isDesensitizedUrl(this.properties.coverImage)
-          ? this.properties.coverImage
-          : '',
+        safeCoverImage: resolveImageSrc(this.properties.coverImage),
       })
     },
   },
@@ -67,6 +63,9 @@ Component({
     onTap() {
       if (!this.properties.caseId) return
       this.triggerEvent('tap', { caseId: this.properties.caseId })
+    },
+    onCoverError() {
+      this.setData({ safeCoverImage: '' })
     },
   },
 })

@@ -38,6 +38,36 @@ function resolveMediaUrl(url) {
   return value
 }
 
+function isPendingMediaUrl(url) {
+  const value = String(url || '')
+  return value.includes('/media/raw/') || value.includes('/media/desensitized/')
+}
+
+/**
+ * 供 <image src> 使用：mock:// 与未上线的 /media/* 不可加载
+ */
+function resolveImageSrc(url) {
+  if (!url) return ''
+  const value = String(url)
+  if (value.startsWith('mock://')) return ''
+  if (isPendingMediaUrl(value)) return ''
+  if (
+    value.startsWith('http://') ||
+    value.startsWith('https://') ||
+    value.startsWith('wxfile://') ||
+    value.startsWith('cloud://')
+  ) {
+    return value
+  }
+  if (value.startsWith('/')) return value
+  return ''
+}
+
+/** 批量过滤 mock://，避免 image 组件触发网络 timeout */
+function resolveImageSrcList(urls) {
+  return (urls || []).map(resolveImageSrc).filter(Boolean)
+}
+
 function normalizeTaskAssets(task) {
   if (!task || !Array.isArray(task.rawAssets)) return task
   return {
@@ -56,7 +86,10 @@ function normalizeTaskAssets(task) {
 
 module.exports = {
   isDesensitizedUrl,
+  isPendingMediaUrl,
   buildDesensitizedUrl,
   resolveMediaUrl,
+  resolveImageSrc,
+  resolveImageSrcList,
   normalizeTaskAssets,
 }

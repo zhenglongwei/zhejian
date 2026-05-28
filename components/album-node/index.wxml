@@ -40,9 +40,9 @@
     </block>
 
     <block wx:else>
-      <view wx:if="{{images.length}}" class="album-node__grid">
+      <view wx:if="{{displayImages.length}}" class="album-node__grid">
         <view
-          wx:for="{{images}}"
+          wx:for="{{displayImages}}"
           wx:key="*this"
           class="album-node__cell image-placeholder"
           data-index="{{index}}"
