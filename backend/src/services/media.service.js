@@ -16,16 +16,31 @@ const DESENSITIZE_STATUS = {
   FAILED: 'failed',
 }
 
+function mediaAssetRepo() {
+  return prisma && prisma.mediaAsset ? prisma.mediaAsset : null
+}
+
 async function createMediaFromUpload({ objectKey, url, uploaderId = '' }) {
   const key = String(objectKey || '').replace(/\\/g, '/')
   const publicUrl = String(url || buildPublicMediaUrl(key))
-  const existing = await prisma.mediaAsset.findFirst({
+  const repo = mediaAssetRepo()
+  if (!repo) {
+    console.warn('[media] prisma.mediaAsset 不可用，跳过 media_assets 写入（请执行 npm run db:setup:prod）')
+    return {
+      id: '',
+      objectKey: key,
+      url: publicUrl,
+      uploaderId: uploaderId || '',
+      desensitizeStatus: DESENSITIZE_STATUS.PENDING,
+    }
+  }
+  const existing = await repo.findFirst({
     where: { objectKey: key },
   })
   if (existing) {
     return existing
   }
-  return prisma.mediaAsset.create({
+  return repo.create({
     data: {
       id: newId('media'),
       objectKey: key,
@@ -41,12 +56,16 @@ async function ensureMediaRecordFromUrl(rawUrl, uploaderId = '') {
   if (!objectKey) {
     return null
   }
+  const repo = mediaAssetRepo()
+  if (!repo) {
+    return null
+  }
   const url = String(rawUrl).trim()
-  const existing = await prisma.mediaAsset.findFirst({ where: { objectKey } })
+  const existing = await repo.findFirst({ where: { objectKey } })
   if (existing) {
     return existing
   }
-  return prisma.mediaAsset.create({
+  return repo.create({
     data: {
       id: newId('media'),
       objectKey,
@@ -59,7 +78,9 @@ async function ensureMediaRecordFromUrl(rawUrl, uploaderId = '') {
 
 async function getMediaById(mediaId) {
   if (!mediaId) return null
-  return prisma.mediaAsset.findUnique({ where: { id: mediaId } })
+  const repo = mediaAssetRepo()
+  if (!repo) return null
+  return repo.findUnique({ where: { id: mediaId } })
 }
 
 /**
@@ -85,10 +106,13 @@ async function runMediaDesensitize(mediaId, context = {}) {
 
   const sourcePath = resolveObjectKeyFilePath(media.objectKey)
   if (!sourcePath || !fs.existsSync(sourcePath)) {
-    await prisma.mediaAsset.update({
-      where: { id: media.id },
-      data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
-    })
+    const repo = mediaAssetRepo()
+    if (repo) {
+      await repo.update({
+        where: { id: media.id },
+        data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
+      })
+    }
     const err = new Error('原图文件不存在')
     err.status = 404
     throw err
@@ -102,14 +126,17 @@ async function runMediaDesensitize(mediaId, context = {}) {
   try {
     fs.copyFileSync(sourcePath, destPath)
     const desensitizedUrl = buildPublicMediaUrl(desensitizedKey)
-    await prisma.mediaAsset.update({
-      where: { id: media.id },
-      data: {
-        desensitizedKey,
-        desensitizedUrl,
-        desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
-      },
-    })
+    const repo = mediaAssetRepo()
+    if (repo) {
+      await repo.update({
+        where: { id: media.id },
+        data: {
+          desensitizedKey,
+          desensitizedUrl,
+          desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+        },
+      })
+    }
     return {
       mediaId: media.id,
       taskStatus: 'SUCCESS',
@@ -117,10 +144,13 @@ async function runMediaDesensitize(mediaId, context = {}) {
       desensitizedUrl,
     }
   } catch (e) {
-    await prisma.mediaAsset.update({
-      where: { id: media.id },
-      data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
-    })
+    const repo = mediaAssetRepo()
+    if (repo) {
+      await repo.update({
+        where: { id: media.id },
+        data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
+      })
+    }
     throw e
   }
 }
