@@ -1,4 +1,5 @@
 const {
+  SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_STATUS_LABEL,
   SERVICE_ALBUM_STATUS_VARIANT,
 } = require('../constants/service-album-status')
@@ -17,6 +18,27 @@ function formatAlbumDateTime(iso) {
   const hour = String(d.getHours()).padStart(2, '0')
   const minute = String(d.getMinutes()).padStart(2, '0')
   return `${month}-${day} ${hour}:${minute}`
+}
+
+/** 商家端展示：完工前统一「进行中」，完工后统一「已完工」（内部 status 不变，供 Tab 筛选） */
+const MERCHANT_ALBUM_DONE_STATUSES = [
+  SERVICE_ALBUM_STATUS.COMPLETED,
+  SERVICE_ALBUM_STATUS.PENDING_AUTHORIZATION,
+  SERVICE_ALBUM_STATUS.PENDING_REVIEW,
+  SERVICE_ALBUM_STATUS.PUBLISHED,
+]
+
+function resolveMerchantAlbumDisplayStatus(rawStatus) {
+  if (MERCHANT_ALBUM_DONE_STATUSES.includes(rawStatus)) {
+    return {
+      statusLabel: SERVICE_ALBUM_STATUS_LABEL[SERVICE_ALBUM_STATUS.COMPLETED],
+      statusVariant: SERVICE_ALBUM_STATUS_VARIANT[SERVICE_ALBUM_STATUS.COMPLETED],
+    }
+  }
+  return {
+    statusLabel: SERVICE_ALBUM_STATUS_LABEL[SERVICE_ALBUM_STATUS.IN_PROGRESS],
+    statusVariant: SERVICE_ALBUM_STATUS_VARIANT[SERVICE_ALBUM_STATUS.IN_PROGRESS],
+  }
 }
 
 function enrichServiceAlbumListItem(item, options = {}) {
@@ -64,8 +86,11 @@ function enrichServiceAlbumListItem(item, options = {}) {
 
 function enrichMerchantAlbumListItem(item) {
   const base = enrichServiceAlbumListItem(item, { audience: 'merchant' })
+  const display = resolveMerchantAlbumDisplayStatus(base.status)
   return {
     ...base,
+    statusLabel: display.statusLabel,
+    statusVariant: display.statusVariant,
     canShareToOwner: canShareToOwner(item),
   }
 }
@@ -130,4 +155,5 @@ module.exports = {
   enrichAuthorizationItem,
   buildPendingConfirmSummary,
   formatAlbumDateTime,
+  resolveMerchantAlbumDisplayStatus,
 }

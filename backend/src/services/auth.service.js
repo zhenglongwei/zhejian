@@ -191,6 +191,7 @@ async function fetchMineSummary(userId) {
         OR: [{ userId }, ...(phone ? [{ userPhone: phone }] : [])],
         status: 'completed',
         publicCaseStatus: 'private',
+        imageCount: { gt: 0 },
       },
     }),
   ])

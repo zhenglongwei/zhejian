@@ -471,24 +471,26 @@ async function mockFetchUserServiceAlbums(options = {}) {
   const map = loadAlbumMap()
   const albums = Object.values(map)
   const filtered = filterAlbumsForUser(albums, options.tab || 'all')
-  return filtered.map((raw) => {
-    const view = buildAlbumViewModel(raw)
-    return {
-      id: view.albumId,
-      albumId: view.albumId,
-      serviceName: view.serviceName,
-      storeName: view.store.name,
-      storeId: view.store.id,
-      vehicleDisplay: view.vehicleDisplay,
-      status: view.status,
-      imageCount: view.imageCount,
-      pendingCount: 0,
-      publicCaseStatus: view.publicCaseStatus,
-      createdAt: view.createdAt,
-      updatedAt: view.updatedAt,
-      isPublic: view.publicCaseStatus === 'public_approved',
-    }
-  })
+  return filtered
+    .map((raw) => {
+      const view = buildAlbumViewModel(raw)
+      return {
+        id: view.albumId,
+        albumId: view.albumId,
+        serviceName: view.serviceName,
+        storeName: view.store.name,
+        storeId: view.store.id,
+        vehicleDisplay: view.vehicleDisplay,
+        status: view.status,
+        imageCount: view.imageCount,
+        pendingCount: 0,
+        publicCaseStatus: view.publicCaseStatus,
+        createdAt: view.createdAt,
+        updatedAt: view.updatedAt,
+        isPublic: view.publicCaseStatus === 'public_approved',
+      }
+    })
+    .filter((item) => item.imageCount > 0)
 }
 
 async function mockFetchServiceAlbum(albumId) {
@@ -653,7 +655,8 @@ function mockCountPendingAuth() {
   const map = loadAlbumMap()
   return Object.values(map)
     .filter((a) => a.userPhone === phone && a.status === SERVICE_ALBUM_STATUS.COMPLETED)
-    .filter((a) => resolvePublicCaseStatus(a.albumId) === 'private').length
+    .filter((a) => resolvePublicCaseStatus(a.albumId) === 'private')
+    .filter((a) => countAlbumImages(a.nodes) > 0).length
 }
 
 async function mockFetchMerchantServiceAlbumList(options = {}) {

@@ -17,7 +17,7 @@
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-album-edit__head">
           <text class="text-h3">{{detail.serviceName}}</text>
-          <ui-tag variant="info" text="{{statusLabel}}" />
+          <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
         </view>
         <ui-key-info-table rows="{{summaryRows}}" />
       </ui-card>

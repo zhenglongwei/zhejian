@@ -1,7 +1,6 @@
 const { SERVICE_ALBUM_STAGES, getStageMeta } = require('../../../../constants/service-album-stages')
 const {
   SERVICE_ALBUM_STATUS,
-  SERVICE_ALBUM_STATUS_LABEL,
 } = require('../../../../constants/service-album-status')
 const { PART_TYPE, PART_TYPE_VARIANT } = require('../../../../constants/part-type')
 const { PRICE_MODE } = require('../../../../constants/price-mode')
@@ -19,6 +18,7 @@ const {
   canShareToOwner,
   buildOwnerShareMessage,
 } = require('../../../../utils/service-album-share')
+const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -34,6 +34,7 @@ Page({
     detail: null,
     summaryRows: [],
     statusLabel: '',
+    statusVariant: 'info',
     stages: SERVICE_ALBUM_STAGES,
     stageTabs: SERVICE_ALBUM_STAGES.map((s) => ({ key: s.id, label: s.title })),
     stageIndex: 0,
@@ -118,11 +119,13 @@ Page({
         value: formatPlanAmountLabel(planAmount),
       })
     }
+    const display = resolveMerchantAlbumDisplayStatus(detail.status)
     this.setData({
       status: 'normal',
       detail,
       summaryRows,
-      statusLabel: SERVICE_ALBUM_STATUS_LABEL[detail.status] || detail.status,
+      statusLabel: display.statusLabel,
+      statusVariant: display.statusVariant,
       nodes,
       parts: (detail.parts || []).map((p) => ({
         ...p,

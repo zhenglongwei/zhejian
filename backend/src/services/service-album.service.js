@@ -254,24 +254,26 @@ async function listUserServiceAlbums(userId, options = {}) {
 
   albums = filterByTab(albums, options.tab, USER_TAB_STATUS)
 
-  return albums.map((album) => {
-    const view = buildAlbumView(album)
-    return {
-      id: view.albumId,
-      albumId: view.albumId,
-      serviceName: view.serviceName,
-      storeName: view.store.name,
-      storeId: view.store.id,
-      vehicleDisplay: view.vehicleDisplay,
-      status: view.status,
-      imageCount: view.imageCount,
-      pendingCount: view.pendingCount,
-      publicCaseStatus: view.publicCaseStatus,
-      createdAt: view.createdAt,
-      updatedAt: view.updatedAt,
-      isPublic: view.publicCaseStatus === 'public_approved',
-    }
-  })
+  return albums
+    .map((album) => {
+      const view = buildAlbumView(album)
+      return {
+        id: view.albumId,
+        albumId: view.albumId,
+        serviceName: view.serviceName,
+        storeName: view.store.name,
+        storeId: view.store.id,
+        vehicleDisplay: view.vehicleDisplay,
+        status: view.status,
+        imageCount: view.imageCount,
+        pendingCount: view.pendingCount,
+        publicCaseStatus: view.publicCaseStatus,
+        createdAt: view.createdAt,
+        updatedAt: view.updatedAt,
+        isPublic: view.publicCaseStatus === 'public_approved',
+      }
+    })
+    .filter((item) => item.imageCount > 0)
 }
 
 async function getUserServiceAlbum(albumId, userId) {

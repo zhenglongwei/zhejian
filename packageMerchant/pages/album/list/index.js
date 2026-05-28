@@ -6,6 +6,7 @@ const {
   buildOwnerShareMessage,
   buildOwnerShareMessageFromDataset,
 } = require('../../../../utils/service-album-share')
+const { enrichMerchantAlbumListItem } = require('../../../../utils/service-album-display')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
