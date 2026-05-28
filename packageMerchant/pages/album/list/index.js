@@ -11,6 +11,13 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const {
+  shouldRunInitialShow,
+  finishInitialShow,
+  markListNeedRefresh,
+  consumeListRefresh,
+  shouldShowListLoading,
+} = require('../../../../utils/list-page-show')
 
 Page({
   data: {
@@ -29,10 +36,19 @@ Page({
 
   onShow() {
     wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
-    this.ensureMerchant()
+
+    if (shouldRunInitialShow(this)) {
+      this.bootstrap()
+        .catch(() => {})
+        .finally(() => finishInitialShow(this))
+      return
+    }
+    if (consumeListRefresh(this)) {
+      this.bootstrap({ silent: true })
+    }
   },
 
-  async ensureMerchant() {
+  async bootstrap(options = {}) {
     const profile = await fetchMerchantProfile()
     if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
       wx.showModal({
@@ -48,11 +64,20 @@ Page({
       })
       return
     }
-    this.loadList()
+    await this.loadList(options)
   },
 
-  async loadList() {
-    this.setData({ status: 'loading', errorMessage: '' })
+  async loadList(options = {}) {
+    const { silent = false, forceLoading = false } = options
+
+    if (this._listLoading) return
+    this._listLoading = true
+
+    const showLoading = forceLoading || shouldShowListLoading(this, silent)
+    if (showLoading) {
+      this.setData({ status: 'loading', errorMessage: '' })
+    }
+
     try {
       const raw = await fetchMerchantServiceAlbumList({ tab: this.data.tab })
       const list = (raw || []).map(enrichMerchantAlbumListItem)
@@ -65,26 +90,31 @@ Page({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
+    } finally {
+      this._listLoading = false
     }
   },
 
   onTabChange(e) {
     const { key } = e.detail
-    this.setData({ tab: key }, () => this.loadList())
+    if (key === this.data.tab) return
+    this.setData({ tab: key }, () => this.loadList({ forceLoading: true }))
   },
 
   onCreate() {
+    markListNeedRefresh(this)
     wx.navigateTo({ url: '/packageMerchant/pages/album/create/index' })
   },
 
   onCardTap(e) {
     const { id } = e.detail
     if (!id) return
+    markListNeedRefresh(this)
     wx.navigateTo({ url: `/packageMerchant/pages/album/edit/index?albumId=${id}` })
   },
 
   onRetry() {
-    this.loadList()
+    this.loadList({ forceLoading: true })
   },
 
   onShareAppMessage(res) {

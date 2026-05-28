@@ -80,29 +80,38 @@ Page({
     wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
   },
 
+  _navigateTo(url) {
+    if (this._navigating) return
+    this._navigating = true
+    wx.navigateTo({
+      url,
+      complete: () => {
+        setTimeout(() => {
+          this._navigating = false
+        }, 400)
+      },
+    })
+  },
+
   onCreateAlbum() {
-    wx.navigateTo({ url: '/packageMerchant/pages/album/create/index' })
+    this._navigateTo('/packageMerchant/pages/album/create/index')
   },
 
   onAlbumList(e) {
     const tab =
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
       'all'
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/list/index?tab=${tab}`,
-    })
+    this._navigateTo(`/packageMerchant/pages/album/list/index?tab=${tab}`)
   },
 
   onServiceList() {
-    wx.navigateTo({ url: '/packageMerchant/pages/service/list/index' })
+    this._navigateTo('/packageMerchant/pages/service/list/index')
   },
 
   onLeadList(e) {
     const tab =
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
       'pending'
-    wx.navigateTo({
-      url: `/packageMerchant/pages/lead/list/index?tab=${tab}`,
-    })
+    this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
   },
 })

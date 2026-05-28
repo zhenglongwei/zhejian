@@ -53,8 +53,13 @@ function assertPersistentImageUrl(url) {
   if (
     value.startsWith('wxfile://') ||
     value.includes('://tmp/') ||
-    (value.startsWith('http://127.0.0.1') && !value.includes('/media/uploads/')) ||
-    (value.startsWith('http://localhost') && !value.includes('/media/uploads/'))
+    value.startsWith('http://usr/') ||
+    (value.startsWith('http://127.0.0.1') &&
+      !value.includes('/media/') &&
+      !value.includes('/api/v1/media/')) ||
+    (value.startsWith('http://localhost') &&
+      !value.includes('/media/') &&
+      !value.includes('/api/v1/media/'))
   ) {
     const err = new Error('包含未上传的本地图片，请重新保存')
     err.status = 400

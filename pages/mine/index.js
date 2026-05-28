@@ -161,7 +161,16 @@ Page({
 
     if (section === 'public') {
       if (key === 'merchant') {
-        wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
+        if (this._navigating) return
+        this._navigating = true
+        wx.navigateTo({
+          url: '/packageMerchant/pages/workbench/index',
+          complete: () => {
+            setTimeout(() => {
+              this._navigating = false
+            }, 400)
+          },
+        })
         return
       }
       this.onPublicMenuTap({ currentTarget: { dataset: { key } } })
@@ -171,7 +180,16 @@ Page({
     if (!this.guardProtectedEntry(item.needPhone)) return
 
     if (item.url) {
-      wx.navigateTo({ url: item.url })
+      if (this._navigating) return
+      this._navigating = true
+      wx.navigateTo({
+        url: item.url,
+        complete: () => {
+          setTimeout(() => {
+            this._navigating = false
+          }, 400)
+        },
+      })
       return
     }
     this.showPlaceholder(key)

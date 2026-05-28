@@ -19,7 +19,7 @@ const {
   buildOwnerShareMessage,
 } = require('../../../../utils/service-album-share')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
-const { persistAlbumNodeImages } = require('../../../../utils/media-upload')
+const { persistAlbumNodeImages, normalizeStoredImageUrl } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -95,7 +95,7 @@ Page({
         photoTips: meta.photoTips,
         requiredLevelLabel: meta.requiredLevelLabel,
         requiredLevelVariant: meta.requiredLevelVariant,
-        images: node.images || [],
+        images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
       }
     })
@@ -266,7 +266,7 @@ Page({
   },
 
   async buildSavePayload() {
-    const nodes = await persistAlbumNodeImages(
+    const { nodes, droppedStaleCount } = await persistAlbumNodeImages(
       this.data.nodes.map((n) => ({
         id: n.id,
         title: n.title,
@@ -282,7 +282,17 @@ Page({
       storeNote: this.data.storeNote,
       planAmount: this.data.planAmount,
     })
-    return normalized
+    return { payload: normalized, droppedStaleCount }
+  },
+
+  notifyStaleImagesDropped(count) {
+    if (!count) return
+    wx.showModal({
+      title: '部分历史图片未保留',
+      content: `有 ${count} 张图片来自旧版本地缓存，已无法上传。请在本页对应节点重新添加；本次新上传的图片已正常保存。`,
+      showCancel: false,
+      confirmText: '知道了',
+    })
   },
 
   async onSave() {
@@ -290,11 +300,12 @@ Page({
     this.setData({ saving: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
-      const payload = await this.buildSavePayload()
+      const { payload, droppedStaleCount } = await this.buildSavePayload()
       const detail = await saveMerchantServiceAlbum(this.albumId, payload)
       wx.hideLoading()
       wx.showToast({ title: '已保存', icon: 'success' })
       this.applyAlbum(detail)
+      this.notifyStaleImagesDropped(droppedStaleCount)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
@@ -329,12 +340,13 @@ Page({
     this.setData({ completing: true })
     try {
       wx.showLoading({ title: '提交中', mask: true })
-      const payload = await this.buildSavePayload()
+      const { payload, droppedStaleCount } = await this.buildSavePayload()
       await saveMerchantServiceAlbum(this.albumId, payload)
       await completeMerchantServiceAlbum(this.albumId)
       await this.loadAlbum()
       wx.hideLoading()
       wx.showToast({ title: '已标记完工', icon: 'success' })
+      this.notifyStaleImagesDropped(droppedStaleCount)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
@@ -366,7 +378,7 @@ Page({
     this.setData({ savingOwnerPhone: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
-      const payload = await this.buildSavePayload()
+      const { payload, droppedStaleCount } = await this.buildSavePayload()
       const detail = await saveMerchantServiceAlbum(this.albumId, {
         ...payload,
         userPhone,
@@ -374,6 +386,7 @@ Page({
       wx.hideLoading()
       wx.showToast({ title: '手机号已保存', icon: 'success' })
       this.applyAlbum(detail)
+      this.notifyStaleImagesDropped(droppedStaleCount)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })

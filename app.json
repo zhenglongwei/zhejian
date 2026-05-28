@@ -101,5 +101,11 @@
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "lazyCodeLoading": "requiredComponents",
+  "preloadRule": {
+    "pages/mine/index": {
+      "network": "all",
+      "packages": ["merchant"]
+    }
+  }
 }

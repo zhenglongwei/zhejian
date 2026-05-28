@@ -107,6 +107,7 @@ module.exports = {
   isPendingMediaUrl,
   buildDesensitizedUrl,
   resolveMediaUrl,
+  normalizePublicMediaUrl,
   resolveImageSrc,
   resolveImageSrcList,
   normalizeTaskAssets,

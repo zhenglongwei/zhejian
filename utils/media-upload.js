@@ -2,19 +2,56 @@
  * B-MEDIA：本地临时图 → 服务端持久 URL
  */
 const { ENV } = require('../services/config')
+const { normalizePublicMediaUrl } = require('./desensitize-url')
+
+function isPersistedRemoteUrl(url) {
+  if (!url || typeof url !== 'string') return false
+  const value = url.trim()
+  if (!value) return false
+  if (value.startsWith('https://')) return true
+  if (value.startsWith('/api/v1/media/files/')) return true
+  if (value.includes('/media/files/uploads/')) return true
+  return false
+}
 
 function isLocalTempImagePath(url) {
   if (!url || typeof url !== 'string') return false
   const value = url.trim()
   if (!value || value.startsWith('mock://')) return false
-  if (value.startsWith('https://')) return false
+  if (isPersistedRemoteUrl(value)) return false
   if (value.startsWith('/media/uploads/')) return false
   if (value.startsWith('wxfile://')) return true
   if (value.includes('://tmp/')) return true
+  if (value.startsWith('http://usr/')) return true
   if (value.startsWith('http://127.0.0.1')) return true
   if (value.startsWith('http://localhost')) return true
   if (value.startsWith('http://') && !value.includes('/media/uploads/')) return true
   return false
+}
+
+function normalizeStoredImageUrl(url) {
+  if (typeof url !== 'string') return url
+  const value = url.trim()
+  if (!value) return value
+  return normalizePublicMediaUrl(value)
+}
+
+function canAccessLocalFile(filePath) {
+  return new Promise((resolve) => {
+    if (!filePath) {
+      resolve(false)
+      return
+    }
+    try {
+      wx.getFileSystemManager().access({
+        path: filePath,
+        success: () => resolve(true),
+        fail: () => resolve(false),
+      })
+    } catch (e) {
+      resolve(false)
+    }
+  })
 }
 
 function uploadImage(tempFilePath) {
@@ -66,29 +103,54 @@ function uploadImage(tempFilePath) {
   })
 }
 
+/**
+ * @returns {{ images: string[], droppedStaleCount: number }}
+ */
 async function persistLocalImages(urls) {
   const result = []
-  for (const url of urls || []) {
-    if (isLocalTempImagePath(url)) {
-      result.push(await uploadImage(url))
-    } else {
-      result.push(url)
+  let droppedStaleCount = 0
+
+  for (const raw of urls || []) {
+    const url = typeof raw === 'string' ? raw.trim() : ''
+    if (!url) continue
+
+    if (!isLocalTempImagePath(url)) {
+      result.push(normalizeStoredImageUrl(url))
+      continue
     }
+
+    const reachable = await canAccessLocalFile(url)
+    if (!reachable) {
+      droppedStaleCount += 1
+      continue
+    }
+
+    result.push(await uploadImage(url))
   }
-  return result
+
+  return { images: result, droppedStaleCount }
 }
 
+/**
+ * @returns {{ nodes: object[], droppedStaleCount: number }}
+ */
 async function persistAlbumNodeImages(nodes) {
   const next = []
+  let droppedStaleCount = 0
+
   for (const node of nodes || []) {
-    const images = await persistLocalImages(node.images || [])
+    const { images, droppedStaleCount: dropped } = await persistLocalImages(node.images || [])
+    droppedStaleCount += dropped
     next.push({ ...node, images })
   }
-  return next
+
+  return { nodes: next, droppedStaleCount }
 }
 
 module.exports = {
+  isPersistedRemoteUrl,
   isLocalTempImagePath,
+  normalizeStoredImageUrl,
   uploadImage,
   persistLocalImages,
   persistAlbumNodeImages,
