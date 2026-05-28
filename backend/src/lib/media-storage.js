@@ -41,6 +41,56 @@ function resolveUploadFilePath(year, month, filename) {
   return normalized
 }
 
+/** 从公开 URL 解析 uploads 相对路径，如 uploads/2026/05/abc.jpg */
+function parseObjectKeyFromPublicUrl(url) {
+  if (!url) return ''
+  const value = String(url).trim()
+  const match = value.match(/\/media\/files\/(uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(?:jpe?g|png|webp))/i)
+  if (match) return match[1]
+  const legacy = value.match(/\/media\/uploads\/(\d{4}\/\d{2}\/[a-f0-9]{32}\.(?:jpe?g|png|webp))/i)
+  if (legacy) return `uploads/${legacy[1]}`
+  return ''
+}
+
+function resolveObjectKeyFilePath(objectKey) {
+  const key = String(objectKey || '').replace(/\\/g, '/').replace(/^\/+/, '')
+  if (!/^uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(jpe?g|png|webp)$/i.test(key)) {
+    return null
+  }
+  const filePath = path.join(MEDIA_ROOT, key)
+  const normalized = path.normalize(filePath)
+  if (!normalized.startsWith(MEDIA_ROOT)) return null
+  return normalized
+}
+
+function buildDesensitizedObjectKey(albumId, nodeId, idx, ext = '.jpg') {
+  const safeAlbum = String(albumId || 'album').replace(/[^\w-]/g, '_')
+  const safeNode = String(nodeId || 'node').replace(/[^\w-]/g, '_')
+  const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(String(ext).toLowerCase())
+    ? String(ext).toLowerCase()
+    : '.jpg'
+  return `uploads/desensitized/${safeAlbum}/${safeNode}_${idx}${safeExt}`
+}
+
+function resolveDesensitizedFilePath(objectKey) {
+  const key = String(objectKey || '').replace(/\\/g, '/').replace(/^\/+/, '')
+  if (!/^uploads\/desensitized\/[\w-]+\/[\w-]+_\d+\.(jpe?g|png|webp)$/i.test(key)) {
+    return null
+  }
+  const filePath = path.join(MEDIA_ROOT, key)
+  const normalized = path.normalize(filePath)
+  if (!normalized.startsWith(MEDIA_ROOT)) return null
+  const dir = path.dirname(normalized)
+  fs.mkdirSync(dir, { recursive: true })
+  return normalized
+}
+
+function resolveDesensitizedUploadFilePath(albumId, filename) {
+  if (!/^[\w-]+$/.test(String(albumId || ''))) return null
+  if (!/^[\w-]+_\d+\.(jpe?g|png|webp)$/i.test(String(filename || ''))) return null
+  return resolveDesensitizedFilePath(`uploads/desensitized/${albumId}/${filename}`)
+}
+
 function createStoredFilename(originalName = '') {
   const ext = path.extname(originalName).toLowerCase()
   const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.jpg'
@@ -79,4 +129,9 @@ module.exports = {
   createStoredFilename,
   assertPersistentImageUrl,
   resolveUploadFilePath,
+  parseObjectKeyFromPublicUrl,
+  resolveObjectKeyFilePath,
+  buildDesensitizedObjectKey,
+  resolveDesensitizedFilePath,
+  resolveDesensitizedUploadFilePath,
 }

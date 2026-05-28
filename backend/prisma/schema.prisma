@@ -261,6 +261,7 @@ model DesensitizeTask {
 model DesensitizeAsset {
   taskId       String          @map("task_id")
   assetId      String          @map("asset_id")
+  mediaId      String          @default("") @map("media_id")
   nodeId       String          @map("node_id")
   nodeTitle    String          @map("node_title")
   idx          Int             @default(0)
@@ -273,7 +274,23 @@ model DesensitizeAsset {
   task         DesensitizeTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
 
   @@id([taskId, assetId])
+  @@index([mediaId])
   @@map("desensitize_assets")
+}
+
+model MediaAsset {
+  id                String   @id
+  objectKey         String   @map("object_key") @db.VarChar(512)
+  url               String   @db.VarChar(512)
+  desensitizedKey   String   @default("") @map("desensitized_key") @db.VarChar(512)
+  desensitizedUrl   String   @default("") @map("desensitized_url") @db.VarChar(512)
+  desensitizeStatus String   @default("pending") @map("desensitize_status")
+  uploaderId        String   @default("") @map("uploader_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([objectKey])
+  @@map("media_assets")
 }
 
 model AlbumAuthorization {

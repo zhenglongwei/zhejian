@@ -12,7 +12,9 @@ const {
   buildPublicMediaUrl,
   createStoredFilename,
   resolveUploadFilePath,
+  resolveDesensitizedUploadFilePath,
 } = require('../lib/media-storage')
+const { createMediaFromUpload, runMediaDesensitize } = require('../services/media.service')
 
 ensureMediaDirs()
 
@@ -70,6 +72,24 @@ const upload = multer({
 
 const router = express.Router()
 
+/** 脱敏图公开读（须在 /:year/:month 之前注册） */
+router.get('/files/uploads/desensitized/:albumId/:filename', (req, res, next) => {
+  const filePath = resolveDesensitizedUploadFilePath(req.params.albumId, req.params.filename)
+  if (!filePath) {
+    return fail(res, 100004, '资源不存在', 404)
+  }
+  fs.access(filePath, fs.constants.R_OK, (err) => {
+    if (err) {
+      return fail(res, 100004, '资源不存在', 404)
+    }
+    res.set('Cache-Control', 'public, max-age=604800')
+    res.type(path.extname(filePath))
+    return res.sendFile(filePath, (sendErr) => {
+      if (sendErr) next(sendErr)
+    })
+  })
+})
+
 /** 公开读图（随机文件名，无鉴权；须走 /api/ 反代） */
 router.get('/files/uploads/:year/:month/:filename', sendUploadFile)
 
@@ -81,7 +101,7 @@ router.post(
   '/upload',
   requireAuth([ROLES.USER, ROLES.MERCHANT]),
   (req, res, next) => {
-    upload.single('file')(req, res, (err) => {
+    upload.single('file')(req, res, async (err) => {
       if (err) {
         if (err.code === 'LIMIT_FILE_SIZE') {
           err.status = 400
@@ -89,21 +109,53 @@ router.post(
         }
         return next(err)
       }
-      next()
+      try {
+        if (!req.file) {
+          return fail(res, 100001, '请选择图片', 400)
+        }
+        const subdir = req.mediaSubdir || buildUploadSubdir()
+        const relativePath = `uploads/${subdir}/${req.file.filename}`.replace(/\\/g, '/')
+        const url = buildPublicMediaUrl(relativePath)
+        const uploaderId = (req.auth && req.auth.userId) || ''
+        const media = await createMediaFromUpload({
+          objectKey: relativePath,
+          url,
+          uploaderId,
+        })
+        return ok(res, {
+          mediaId: media.id,
+          url,
+          mediaUrl: url,
+          objectKey: relativePath,
+        })
+      } catch (e) {
+        return next(e)
+      }
     })
-  },
-  (req, res) => {
-    if (!req.file) {
-      return fail(res, 100001, '请选择图片', 400)
+  }
+)
+
+/** B-MEDIA-07：对 mediaId 创建脱敏产物（MVP 复制到 desensitized 目录） */
+router.post(
+  '/:mediaId/desensitize',
+  requireAuth([ROLES.USER, ROLES.MERCHANT]),
+  async (req, res, next) => {
+    try {
+      const { albumId, nodeId, idx } = req.body || {}
+      const data = await runMediaDesensitize(req.params.mediaId, {
+        albumId,
+        nodeId,
+        idx: idx != null ? Number(idx) : 0,
+      })
+      return ok(res, {
+        taskId: `task_des_${req.params.mediaId}`,
+        mediaId: data.mediaId,
+        taskStatus: data.taskStatus,
+        resultUrl: data.resultUrl,
+      })
+    } catch (e) {
+      return next(e)
     }
-    const subdir = req.mediaSubdir || buildUploadSubdir()
-    const relativePath = `uploads/${subdir}/${req.file.filename}`.replace(/\\/g, '/')
-    const url = buildPublicMediaUrl(relativePath)
-    return ok(res, {
-      url,
-      mediaUrl: url,
-      objectKey: relativePath,
-    })
   }
 )
 

@@ -3,7 +3,6 @@ const {
   BIZ_TYPE,
   PRE_MASK_STATUS,
   ASSET_STATUS,
-  buildDesensitizedUrl,
   nodesFingerprint,
   collectAssetsFromAlbum,
   resolvePreMaskStatus,
@@ -12,6 +11,7 @@ const {
   buildAuthorizeTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
+const { resolveDesensitizedUrlForAsset } = require('./media.service')
 
 async function loadAlbumWithRelations(albumId) {
   return prisma.album.findUnique({
@@ -110,21 +110,29 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
 
   const taskId = buildPreMaskTaskId(albumId)
   const preMaskVersion = (existing?.preMaskVersion || 0) + 1
-  const assetInputs = collectAssetsFromAlbum({ nodes: nodeViews }).map((asset) => {
-    const preMaskedUrl = buildDesensitizedUrl(asset.rawUrl, albumId, asset.nodeId, asset.idx)
-    return {
-      assetId: asset.assetId,
-      nodeId: asset.nodeId,
-      nodeTitle: asset.nodeTitle,
-      idx: asset.idx,
-      rawUrl: asset.rawUrl,
-      maskedUrl: preMaskedUrl,
-      preMaskedUrl,
-      status: preMaskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
-      previewed: false,
-      riskTags: preMaskedUrl ? ['plate'] : [],
-    }
-  })
+  const assetInputs = await Promise.all(
+    collectAssetsFromAlbum({ nodes: nodeViews }).map(async (asset) => {
+      const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
+        albumId,
+        nodeId: asset.nodeId,
+        idx: asset.idx,
+      })
+      const preMaskedUrl = masked.ok ? masked.maskedUrl : ''
+      return {
+        assetId: asset.assetId,
+        mediaId: masked.mediaId || '',
+        nodeId: asset.nodeId,
+        nodeTitle: asset.nodeTitle,
+        idx: asset.idx,
+        rawUrl: asset.rawUrl,
+        maskedUrl: preMaskedUrl,
+        preMaskedUrl,
+        status: preMaskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
+        previewed: false,
+        riskTags: preMaskedUrl ? ['plate'] : [],
+      }
+    })
+  )
   const preMaskStatus = resolvePreMaskStatus(assetInputs)
   const now = new Date()
 
@@ -224,6 +232,7 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   const authTaskId = buildAuthorizeTaskId(album.id)
   const assetInputs = (preMaskTask.assets || []).map((asset) => ({
     assetId: asset.assetId,
+    mediaId: asset.mediaId || '',
     nodeId: asset.nodeId,
     nodeTitle: asset.nodeTitle,
     idx: asset.idx,
@@ -300,18 +309,26 @@ async function runAutoMask(taskId) {
     err.status = 400
     throw err
   }
-  const updates = (task.assets || []).map((asset) => {
-    const maskedUrl = buildDesensitizedUrl(asset.rawUrl, task.bizId, asset.nodeId, asset.idx)
-    return prisma.desensitizeAsset.update({
-      where: { taskId_assetId: { taskId, assetId: asset.assetId } },
-      data: {
-        maskedUrl,
-        preMaskedUrl: maskedUrl,
-        status: ASSET_STATUS.MASKED_READY,
-        riskTags: ['plate'],
-      },
+  const updates = await Promise.all(
+    (task.assets || []).map(async (asset) => {
+      const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
+        albumId: task.bizId,
+        nodeId: asset.nodeId,
+        idx: asset.idx,
+      })
+      const maskedUrl = masked.ok ? masked.maskedUrl : ''
+      return prisma.desensitizeAsset.update({
+        where: { taskId_assetId: { taskId, assetId: asset.assetId } },
+        data: {
+          mediaId: masked.mediaId || asset.mediaId || '',
+          maskedUrl,
+          preMaskedUrl: maskedUrl,
+          status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
+          riskTags: maskedUrl ? ['plate'] : [],
+        },
+      })
     })
-  })
+  )
   await Promise.all(updates)
   return getTaskById(taskId)
 }
@@ -326,10 +343,16 @@ async function retryAsset(taskId, assetId) {
     err.status = 404
     throw err
   }
-  const maskedUrl = buildDesensitizedUrl(asset.rawUrl, asset.task.bizId, asset.nodeId, asset.idx)
+  const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
+    albumId: asset.task.bizId,
+    nodeId: asset.nodeId,
+    idx: asset.idx,
+  })
+  const maskedUrl = masked.ok ? masked.maskedUrl : ''
   await prisma.desensitizeAsset.update({
     where: { taskId_assetId: { taskId, assetId } },
     data: {
+      mediaId: masked.mediaId || asset.mediaId || '',
       maskedUrl,
       preMaskedUrl: maskedUrl,
       status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,

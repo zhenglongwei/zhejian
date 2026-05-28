@@ -71,10 +71,13 @@ function mapTaskRecord(task) {
   if (!task) return null
   const rawAssets = (task.assets || []).map((asset) => ({
     id: asset.assetId,
+    mediaId: asset.mediaId || '',
     nodeId: asset.nodeId,
     nodeTitle: asset.nodeTitle,
     index: asset.idx,
+    idx: asset.idx,
     url: asset.rawUrl,
+    rawUrl: asset.rawUrl,
     maskedUrl: asset.maskedUrl || '',
     preMaskedUrl: asset.preMaskedUrl || '',
     status: asset.status,
