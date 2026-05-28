@@ -7,6 +7,8 @@ function isDesensitizedUrl(url) {
   if (!url) return false
   const value = String(url)
   if (value.indexOf('mock://desensitized/') === 0) return true
+  if (value.includes('/files/uploads/desensitized/')) return true
+  if (value.includes('/media/files/uploads/desensitized/')) return true
   if (value.includes('/media/desensitized/')) return true
   return false
 }
@@ -120,19 +122,26 @@ function resolveImageSrcList(urls) {
 }
 
 /**
- * 公开案例封面：与首页 hero / 精选案例同一套回退顺序
- * coverImageDesensitized → coverImage → nodes 内首图
+ * 公开案例封面：优先脱敏 URL，禁止回退到原图 uploads/YYYY/MM
  */
 function pickCaseDisplayCover(item) {
   if (!item || typeof item !== 'object') return ''
 
   const urls = []
-  if (item.coverImageDesensitized) urls.push(item.coverImageDesensitized)
-  if (item.coverImage) urls.push(item.coverImage)
+  if (item.coverImageDesensitized && isDesensitizedUrl(item.coverImageDesensitized)) {
+    urls.push(item.coverImageDesensitized)
+  }
+  if (item.coverImage && isDesensitizedUrl(item.coverImage)) {
+    urls.push(item.coverImage)
+  }
 
   for (const node of item.nodes || []) {
-    if (Array.isArray(node.images)) urls.push(...node.images)
-    if (Array.isArray(node.imagesDesensitized)) urls.push(...node.imagesDesensitized)
+    if (Array.isArray(node.imagesDesensitized)) {
+      urls.push(...node.imagesDesensitized.filter(isDesensitizedUrl))
+    }
+    if (Array.isArray(node.images)) {
+      urls.push(...node.images.filter(isDesensitizedUrl))
+    }
   }
 
   for (let i = 0; i < urls.length; i += 1) {

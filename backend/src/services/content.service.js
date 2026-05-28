@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { resolveDisplayMediaUrl } = require('../lib/media-url')
+const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { buildPublicCasePrice } = require('../utils/album-price')
 const { buildCaseFaq } = require('../utils/case-faq')
 const {
@@ -11,7 +11,9 @@ const {
   FALLBACK_PUBLIC_CASES,
 } = require('../constants/content-seed')
 const { HOME_GEO_TOPICS } = require('../constants/home')
-const { albumToNodeView } = require('./desensitize.constants')
+const { buildPreMaskTaskId } = require('./desensitize.constants')
+const { getTaskById } = require('./desensitize.service')
+const { buildNodesFromTask } = require('./public-case.service')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -58,41 +60,24 @@ function formatPublishedAt(value) {
 }
 
 function sanitizeCover(url) {
-  return resolveDisplayMediaUrl(url) || ''
+  return resolvePublicCaseMediaUrl(url) || ''
 }
 
 function collectNodeImageUrls(node) {
   const urls = []
+  ;(node.imagesDesensitized || []).forEach((img) => {
+    if (typeof img === 'string') urls.push(img)
+  })
   ;(node.images || []).forEach((img) => {
     if (typeof img === 'string') urls.push(img)
     else if (img) {
-      urls.push(img.url, img.rawUrl, img.maskedUrl, img.preMaskedUrl)
+      urls.push(img.maskedUrl, img.preMaskedUrl)
     }
-  })
-  ;(node.imagesDesensitized || []).forEach((img) => {
-    if (typeof img === 'string') urls.push(img)
   })
   return urls.filter(Boolean)
 }
 
-function pickCoverFromAlbum(album) {
-  if (!album) return ''
-
-  const nodeViews = albumToNodeView({
-    nodes: album.nodes || [],
-    images: album.images || [],
-  })
-  for (const node of nodeViews) {
-    for (const url of node.images || []) {
-      const cover = sanitizeCover(url)
-      if (cover) return cover
-    }
-  }
-
-  for (const img of album.images || []) {
-    const cover = sanitizeCover(img.rawUrl)
-    if (cover) return cover
-  }
+function pickCoverFromAlbum() {
   return ''
 }
 
@@ -204,13 +189,26 @@ async function fetchPublicCaseRows() {
     : []
   const albumMap = Object.fromEntries(albums.map((album) => [album.id, album]))
 
+  const taskByAlbum = {}
+  await Promise.all(
+    albumIds.map(async (albumId) => {
+      taskByAlbum[albumId] = await getTaskById(buildPreMaskTaskId(albumId))
+    })
+  )
+
   return rows.map((row) => {
-    const mapped = mapPublicCaseRow(row, albumMap[row.albumId])
+    const content =
+      row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
+    const task = taskByAlbum[row.albumId]
+    if (task && Array.isArray(content.nodes)) {
+      content.nodes = buildNodesFromTask(content.nodes, task)
+    }
+    const mapped = mapPublicCaseRow({ ...row, contentJson: content }, albumMap[row.albumId])
     if (mapped.coverImage && mapped.coverImage !== row.coverImage) {
       void prisma.publicCase
         .update({
           where: { id: row.id },
-          data: { coverImage: mapped.coverImage },
+          data: { coverImage: mapped.coverImage, contentJson: content },
         })
         .catch(() => {})
     }
@@ -265,7 +263,13 @@ async function getCaseDetail(id) {
           },
         })
       : null
-    item = mapPublicCaseRow(row, album)
+    const content =
+      row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
+    const task = row.albumId ? await getTaskById(buildPreMaskTaskId(row.albumId)) : null
+    if (task && Array.isArray(content.nodes)) {
+      content.nodes = buildNodesFromTask(content.nodes, task)
+    }
+    item = mapPublicCaseRow({ ...row, contentJson: content }, album)
   } else {
     const fallback = FALLBACK_PUBLIC_CASES.find((c) => c.id === id)
     if (!fallback) {

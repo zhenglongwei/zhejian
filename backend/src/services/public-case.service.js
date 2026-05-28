@@ -1,10 +1,11 @@
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { resolveDisplayMediaUrl } = require('../lib/media-url')
+const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice } = require('../utils/album-price')
+const { buildPreMaskTaskId } = require('./desensitize.constants')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -28,39 +29,49 @@ function buildCaseSummary({ vehicle, serviceName = '维修服务', authorization
 function pickCover(nodes) {
   for (const node of nodes || []) {
     for (const img of node.images || []) {
-      const candidates =
-        typeof img === 'string'
-          ? [img]
-          : [img.url, img.rawUrl, img.maskedUrl, img.preMaskedUrl].filter(Boolean)
-      for (const candidate of candidates) {
-        const safe = resolveDisplayMediaUrl(candidate)
-        if (safe) return safe
-      }
+      const safe = resolvePublicCaseMediaUrl(typeof img === 'string' ? img : '')
+      if (safe) return safe
     }
   }
   return ''
 }
 
+function taskAssets(task) {
+  if (!task) return []
+  return task.rawAssets || task.assets || []
+}
+
 function buildNodesFromTask(nodes, task) {
-  if (!task || !task.assets) return nodes
+  const assets = taskAssets(task)
+  if (!assets.length) {
+    return (nodes || []).map((node) => ({
+      ...node,
+      images: [],
+    }))
+  }
+
   const assetMap = {}
-  task.assets.forEach((asset) => {
+  assets.forEach((asset) => {
     const idx = asset.idx != null ? asset.idx : asset.index
-    const key = `${asset.nodeId}_${idx}`
-    assetMap[key] = asset.maskedUrl || asset.preMaskedUrl || asset.rawUrl || asset.url
+    const nodeId = asset.nodeId || ''
+    const key = `${nodeId}_${idx}`
+    assetMap[key] = asset.maskedUrl || asset.preMaskedUrl || ''
   })
-  return (nodes || []).map((node) => ({
-    ...node,
-    images: (node.images || []).map((url, idx) => {
-      const fromTask = assetMap[`${node.id}_${idx}`]
-      const candidates = [fromTask, url].filter(Boolean)
-      for (const candidate of candidates) {
-        const safe = resolveDisplayMediaUrl(candidate)
-        if (safe) return safe
-      }
-      return url
-    }),
-  }))
+
+  return (nodes || []).map((node) => {
+    const nodeId = node.id || node.nodeId || ''
+    return {
+      ...node,
+      images: (node.images || [])
+        .map((url, idx) => {
+          const fromTask = assetMap[`${nodeId}_${idx}`]
+          const safe = resolvePublicCaseMediaUrl(fromTask)
+          if (safe) return safe
+          return resolvePublicCaseMediaUrl(typeof url === 'string' ? url : '')
+        })
+        .filter(Boolean),
+    }
+  })
 }
 
 function buildCaseDraft(albumView, task, authorizationTier) {
@@ -102,6 +113,16 @@ function buildCaseDraft(albumView, task, authorizationTier) {
   }
 }
 
+async function resolvePublishTask(albumId, payload = {}) {
+  if (payload.taskId) {
+    const task = await getTaskById(payload.taskId)
+    if (task && taskAssets(task).length) return task
+  }
+  const preMask = await getTaskById(buildPreMaskTaskId(albumId))
+  if (preMask && taskAssets(preMask).length) return preMask
+  return null
+}
+
 async function publishServicePublicCase(albumId, userId, payload = {}) {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
@@ -136,11 +157,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const albumView = buildAlbumView(album)
-  let task = null
-  if (payload.taskId) {
-    task = await getTaskById(payload.taskId)
-  }
-
+  const task = await resolvePublishTask(albumId, payload)
   const draft = buildCaseDraft(albumView, task, authorizationTier)
   const caseId = draft.id
 
@@ -198,4 +215,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 module.exports = {
   publishServicePublicCase,
   buildCaseDraft,
+  buildNodesFromTask,
+  pickCover,
+  resolvePublishTask,
 }
