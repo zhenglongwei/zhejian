@@ -54,19 +54,40 @@ function formatDistance(meters) {
 
 function requestUserLocation() {
   return new Promise((resolve) => {
-    wx.getLocation({
-      type: 'gcj02',
-      success(res) {
-        resolve({
-          granted: true,
-          latitude: res.latitude,
-          longitude: res.longitude,
-        })
-      },
-      fail() {
-        resolve({ granted: false })
-      },
-    })
+    function callGetLocation() {
+      wx.getLocation({
+        type: 'gcj02',
+        isHighAccuracy: true,
+        success(res) {
+          resolve({
+            granted: true,
+            latitude: res.latitude,
+            longitude: res.longitude,
+          })
+        },
+        fail(err) {
+          console.warn('[city-location] getLocation fail', err && err.errMsg)
+          resolve({ granted: false, errMsg: err && err.errMsg })
+        },
+      })
+    }
+
+    if (typeof wx.getPrivacySetting === 'function') {
+      wx.getPrivacySetting({
+        success(res) {
+          if (res.needAuthorization) {
+            console.warn('[city-location] need privacy authorization in MP admin / user agree')
+            resolve({ granted: false, needPrivacy: true })
+            return
+          }
+          callGetLocation()
+        },
+        fail: callGetLocation,
+      })
+      return
+    }
+
+    callGetLocation()
   })
 }
 

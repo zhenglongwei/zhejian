@@ -306,14 +306,17 @@ async function getCaseDetail(id) {
 function mapStoreRow(store, caseCount = 0) {
   const extras = STORE_EXTRAS[store.id] || {}
   const clientStatus = STORE_STATUS_MAP[store.status] || 'offline'
+  /** MVP：坐标来自 STORE_EXTRAS；DB 尚无 lat/lng 字段，未配置坐标的门店不展示距离 */
+  const latitude = extras.latitude != null ? extras.latitude : null
+  const longitude = extras.longitude != null ? extras.longitude : null
   return {
     id: store.id,
     name: store.name || '',
     status: extras.status || clientStatus,
     auditStatus: extras.auditStatus || 'approved',
     address: store.address || '',
-    latitude: extras.latitude || null,
-    longitude: extras.longitude || null,
+    latitude,
+    longitude,
     businessHours: extras.businessHours || '',
     phone: store.phone || '',
     qualificationTags: extras.qualificationTags || [],

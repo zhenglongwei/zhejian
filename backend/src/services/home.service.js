@@ -40,6 +40,8 @@ async function fetchRecommendedMerchants(limit = 6) {
     name: store.name,
     status: store.status,
     address: store.address,
+    latitude: store.latitude,
+    longitude: store.longitude,
     businessHours: store.businessHours,
     caseCount: store.caseCount,
     coverImage: store.coverImage,
