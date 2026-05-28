@@ -1,9 +1,11 @@
 const {
   fetchMerchantProfile,
+  refreshMerchantSession,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
+const { isLoggedIn } = require('../../../utils/auth')
 
 Page({
   data: {
@@ -23,8 +25,27 @@ Page({
 
   async loadProfile() {
     this.setData({ status: 'loading' })
+    if (isLoggedIn()) {
+      try {
+        await refreshMerchantSession()
+      } catch (e) {
+        /* 忽略刷新失败 */
+      }
+    }
     const profile = await fetchMerchantProfile()
-    if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
+    if (!profile || profile.status === MERCHANT_STATUS.NONE) {
+      this.setData({ status: 'none', profile: null })
+      return
+    }
+    if (profile.status === MERCHANT_STATUS.PENDING) {
+      this.setData({ status: 'pending', profile })
+      return
+    }
+    if (profile.status === MERCHANT_STATUS.REJECTED) {
+      this.setData({ status: 'rejected', profile })
+      return
+    }
+    if (profile.status !== MERCHANT_STATUS.APPROVED) {
       this.setData({ status: 'none', profile: null })
       return
     }
@@ -52,6 +73,10 @@ Page({
   },
 
   onGoOnboarding() {
+    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+  },
+
+  onRefreshAudit() {
     wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
   },
 

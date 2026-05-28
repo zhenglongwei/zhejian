@@ -120,9 +120,22 @@ async function logout() {
   clearSession()
 }
 
+async function refreshSession() {
+  if (ENV.mode === 'mock') return null
+  const data = await post('/merchant/auth/refresh-session')
+  saveSession({
+    token: data.token,
+    user: data.user,
+    roles: data.roles || ['user'],
+    merchant: data.merchant || null,
+  })
+  return data
+}
+
 module.exports = {
   fetchMineSummary,
   wechatLogin,
   bindPhone,
   logout,
+  refreshSession,
 }

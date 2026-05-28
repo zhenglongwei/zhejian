@@ -181,10 +181,17 @@ async function main() {
       id: MERCHANT_ID,
       name: '辙见示范商家',
       status: 'ACTIVE',
+      ownerUserId: USER_ID,
+      contactName: '演示负责人',
+      contactPhone: USER_PHONE,
+      approvedAt: new Date(),
     },
     update: {
       name: '辙见示范商家',
       status: 'ACTIVE',
+      ownerUserId: USER_ID,
+      contactName: '演示负责人',
+      contactPhone: USER_PHONE,
     },
   })
 
@@ -194,10 +201,18 @@ async function main() {
       id: STORE_ID,
       merchantId: MERCHANT_ID,
       name: '辙见示范店（杭州滨江）',
+      address: '杭州市滨江区演示路 1 号',
+      phone: USER_PHONE,
+      servicesJson: ['小保养', '刹车片更换'],
+      status: 'ACTIVE',
     },
     update: {
       merchantId: MERCHANT_ID,
       name: '辙见示范店（杭州滨江）',
+      address: '杭州市滨江区演示路 1 号',
+      phone: USER_PHONE,
+      servicesJson: ['小保养', '刹车片更换'],
+      status: 'ACTIVE',
     },
   })
 

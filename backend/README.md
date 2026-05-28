@@ -43,6 +43,18 @@ npm run dev
 | `WECHAT_APP_ID` | 小程序 AppID |
 | `WECHAT_APP_SECRET` | 小程序 AppSecret（[微信公众平台](https://mp.weixin.qq.com) → 开发管理 → 开发设置） |
 | `DEV_AUTH_ENABLED` | `true` 时保留 dev 固定 token；无 `code` 时可走演示登录 |
+| `MERCHANT_AUTO_APPROVE` | `true`（默认）提交入驻后自动通过；运营审核就绪后设为 `false` |
+
+### 商家入驻
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/merchant/onboarding` | 查询当前用户入驻进度（无记录返回 `null`） |
+| PUT | `/api/v1/merchant/onboarding/draft` | 保存草稿 |
+| POST | `/api/v1/merchant/onboarding/submit` | 提交审核；自动通过时返回 `session`（新 JWT） |
+| POST | `/api/v1/merchant/auth/refresh-session` | 审核通过后刷新 JWT 中的 merchant 角色 |
+
+提交体（MVP 与入驻页字段一致）：`storeName`、`contactName`、`phone`、`address`、`services[]`。
 
 ### 联调期 dev token
 

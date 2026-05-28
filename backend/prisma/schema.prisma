@@ -24,24 +24,35 @@ model User {
 }
 
 model Merchant {
-  id        String          @id
-  name      String          @default("")
-  status    String          @default("ACTIVE")
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
-  stores    Store[]
-  staff     MerchantStaff[]
+  id           String          @id
+  name         String          @default("")
+  status       String          @default("DRAFT")
+  ownerUserId  String          @default("") @map("owner_user_id")
+  contactName  String          @default("") @map("contact_name")
+  contactPhone String          @default("") @map("contact_phone")
+  rejectReason String          @default("") @map("reject_reason")
+  submittedAt  DateTime?       @map("submitted_at")
+  approvedAt   DateTime?       @map("approved_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  stores       Store[]
+  staff        MerchantStaff[]
 
+  @@index([ownerUserId])
   @@map("merchants")
 }
 
 model Store {
-  id         String   @id
-  merchantId String   @map("merchant_id")
-  name       String   @default("")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  merchant   Merchant @relation(fields: [merchantId], references: [id])
+  id           String   @id
+  merchantId   String   @map("merchant_id")
+  name         String   @default("")
+  address      String   @default("")
+  phone        String   @default("")
+  servicesJson Json     @default("[]") @map("services_json")
+  status       String   @default("DRAFT")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  merchant     Merchant @relation(fields: [merchantId], references: [id])
 
   @@index([merchantId])
   @@map("stores")

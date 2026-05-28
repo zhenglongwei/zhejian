@@ -22,6 +22,8 @@ const config = {
       return Boolean(this.appId && this.appSecret)
     },
   },
+  /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */
+  merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',
 }
 
 module.exports = { config }

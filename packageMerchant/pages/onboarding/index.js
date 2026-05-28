@@ -2,6 +2,7 @@ const {
   fetchMerchantProfile,
   submitOnboarding,
   saveOnboardingDraft,
+  refreshMerchantSession,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
@@ -37,6 +38,10 @@ Page({
       wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
       return
     }
+    if (profile && profile.status === MERCHANT_STATUS.PENDING) {
+      this.setData({ status: 'pending', profile })
+      return
+    }
     if (profile) {
       const services = profile.services || []
       this.setData({
@@ -48,7 +53,8 @@ Page({
           services,
         },
         serviceTags: this.buildTagViews(services),
-        status: 'normal',
+        status: profile.status === MERCHANT_STATUS.REJECTED ? 'rejected' : 'normal',
+        profile,
       })
       return
     }
@@ -171,16 +177,51 @@ Page({
     if (this.data.submitting || !this.validate()) return
     this.setData({ submitting: true })
     try {
-      await submitOnboarding(this.data.form)
-      wx.showToast({ title: '入驻已通过（mock）', icon: 'success' })
-      setTimeout(() => {
-        wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
-      }, 600)
+      const result = await submitOnboarding(this.data.form)
+      const profile = result.profile || result
+      if (profile.status === MERCHANT_STATUS.APPROVED) {
+        wx.showToast({ title: '入驻已通过', icon: 'success' })
+        setTimeout(() => {
+          wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+        }, 600)
+        return
+      }
+      if (profile.status === MERCHANT_STATUS.PENDING) {
+        this.setData({ status: 'pending', profile })
+        wx.showToast({ title: '已提交，等待平台审核', icon: 'none' })
+        return
+      }
+      wx.showToast({ title: '提交成功', icon: 'success' })
     } catch (e) {
       wx.showToast({
         title: (e && e.message) || '提交失败',
         icon: 'none',
       })
+    } finally {
+      this.setData({ submitting: false })
+    }
+  },
+
+  async onRefreshAudit() {
+    if (this.data.submitting) return
+    this.setData({ submitting: true })
+    try {
+      await refreshMerchantSession()
+      const profile = await fetchMerchantProfile()
+      if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
+        wx.showToast({ title: '审核已通过', icon: 'success' })
+        setTimeout(() => {
+          wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+        }, 600)
+        return
+      }
+      this.setData({
+        profile: profile || null,
+        status: profile && profile.status === MERCHANT_STATUS.PENDING ? 'pending' : 'normal',
+      })
+      wx.showToast({ title: '仍在审核中', icon: 'none' })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '刷新失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

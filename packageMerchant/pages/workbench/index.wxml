@@ -5,6 +5,22 @@
     </view>
   </block>
 
+  <block wx:elif="{{status === 'pending'}}">
+    <view class="page-content merchant-wb__hero">
+      <text class="text-h1">入驻审核中</text>
+      <text class="text-body merchant-wb__sub">审核通过后即可使用商家工作台</text>
+      <ui-button type="primary" bind:tap="onRefreshAudit">查看审核进度</ui-button>
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'rejected'}}">
+    <view class="page-content merchant-wb__hero">
+      <text class="text-h1">入驻未通过</text>
+      <text class="text-body merchant-wb__sub">请修改资料后重新提交</text>
+      <ui-button type="primary" bind:tap="onGoOnboarding">修改入驻资料</ui-button>
+    </view>
+  </block>
+
   <block wx:elif="{{status === 'none'}}">
     <view class="page-content merchant-wb__hero">
       <text class="text-h1">商家工作台</text>

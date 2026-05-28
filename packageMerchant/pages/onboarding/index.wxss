@@ -70,3 +70,12 @@
   gap: var(--space-sm);
   margin-top: var(--space-md);
 }
+
+.merchant-onboard__actions {
+  margin-top: var(--space-xl);
+}
+
+.merchant-onboard__reject {
+  margin-top: var(--space-md);
+  color: var(--color-warning);
+}

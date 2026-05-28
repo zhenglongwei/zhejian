@@ -1,7 +1,11 @@
 /**
- * 商家入驻与工作台 — V0.1 极简 mock（审核自动通过）
- * MOCK: wx.storage merchant_profile_v1
+ * 商家入驻与工作台
+ * API: /api/v1/merchant/onboarding*
  */
+const { ENV } = require('./config')
+const { get, put, post } = require('./request')
+const { saveSession } = require('../utils/auth')
+
 const STORAGE_KEY = 'merchant_profile_v1'
 
 const MERCHANT_STATUS = {
@@ -16,7 +20,7 @@ function delay(ms = 200) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-function getProfile() {
+function getLocalProfile() {
   try {
     return wx.getStorageSync(STORAGE_KEY) || null
   } catch (e) {
@@ -24,44 +28,98 @@ function getProfile() {
   }
 }
 
-function saveProfile(data) {
+function saveLocalProfile(data) {
   wx.setStorageSync(STORAGE_KEY, data)
   return data
 }
 
-async function fetchMerchantProfile() {
-  await delay()
-  return getProfile()
+function applyAuthSession(session) {
+  if (!session) return
+  saveSession({
+    token: session.token,
+    user: session.user,
+    roles: session.roles || ['user'],
+    merchant: session.merchant || null,
+  })
 }
 
-/** 提交入驻 — MVP mock 直接 approved */
-async function submitOnboarding(form) {
-  await delay(400)
-  const profile = {
-    status: MERCHANT_STATUS.APPROVED,
-    storeName: form.storeName,
-    contactName: form.contactName,
-    phone: form.phone,
-    address: form.address,
-    services: form.services || [],
-    storeId: 'store_demo_1',
-    submittedAt: Date.now(),
-    approvedAt: Date.now(),
+async function refreshMerchantSession() {
+  if (ENV.mode === 'mock') return null
+  const data = await post('/merchant/auth/refresh-session')
+  applyAuthSession(data)
+  return data
+}
+
+async function fetchMerchantProfile() {
+  if (ENV.mode === 'mock') {
+    await delay()
+    return getLocalProfile()
   }
-  saveProfile(profile)
-  return profile
+
+  try {
+    const profile = await get('/merchant/onboarding')
+    if (profile) {
+      saveLocalProfile(profile)
+    }
+    return profile
+  } catch (e) {
+    if (e && (e.code === 401 || e.code === 100002)) {
+      return null
+    }
+    throw e
+  }
 }
 
 async function saveOnboardingDraft(form) {
-  await delay(150)
-  const profile = {
-    status: MERCHANT_STATUS.DRAFT,
-    ...form,
-    storeId: 'store_demo_1',
-    updatedAt: Date.now(),
+  if (ENV.mode === 'mock') {
+    await delay(150)
+    const profile = {
+      status: MERCHANT_STATUS.DRAFT,
+      ...form,
+      storeId: form.storeId || 'store_demo_1',
+      updatedAt: Date.now(),
+    }
+    saveLocalProfile(profile)
+    return profile
   }
-  saveProfile(profile)
+
+  const profile = await put('/merchant/onboarding/draft', form)
+  saveLocalProfile(profile)
   return profile
+}
+
+async function submitOnboarding(form) {
+  if (ENV.mode === 'mock') {
+    await delay(400)
+    const profile = {
+      status: MERCHANT_STATUS.APPROVED,
+      storeName: form.storeName,
+      contactName: form.contactName,
+      phone: form.phone,
+      address: form.address,
+      services: form.services || [],
+      storeId: 'store_demo_1',
+      submittedAt: Date.now(),
+      approvedAt: Date.now(),
+    }
+    saveLocalProfile(profile)
+    return { profile, session: null }
+  }
+
+  const data = await post('/merchant/onboarding/submit', form, { showLoading: true, loadingText: '提交中' })
+  if (data.profile) {
+    saveLocalProfile(data.profile)
+  }
+  if (data.session) {
+    applyAuthSession(data.session)
+  } else if (data.profile && data.profile.status === MERCHANT_STATUS.APPROVED) {
+    await refreshMerchantSession()
+  }
+  return data
+}
+
+function getProfile() {
+  return getLocalProfile()
 }
 
 module.exports = {
@@ -69,5 +127,6 @@ module.exports = {
   fetchMerchantProfile,
   submitOnboarding,
   saveOnboardingDraft,
+  refreshMerchantSession,
   getProfile,
 }
