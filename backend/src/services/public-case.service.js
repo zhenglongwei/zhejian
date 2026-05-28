@@ -28,9 +28,14 @@ function buildCaseSummary({ vehicle, serviceName = '维修服务', authorization
 function pickCover(nodes) {
   for (const node of nodes || []) {
     for (const img of node.images || []) {
-      const url = typeof img === 'string' ? img : img.maskedUrl || img.url
-      const safe = resolveDisplayMediaUrl(url)
-      if (safe) return safe
+      const candidates =
+        typeof img === 'string'
+          ? [img]
+          : [img.url, img.rawUrl, img.maskedUrl, img.preMaskedUrl].filter(Boolean)
+      for (const candidate of candidates) {
+        const safe = resolveDisplayMediaUrl(candidate)
+        if (safe) return safe
+      }
     }
   }
   return ''
@@ -40,14 +45,20 @@ function buildNodesFromTask(nodes, task) {
   if (!task || !task.assets) return nodes
   const assetMap = {}
   task.assets.forEach((asset) => {
-    const key = `${asset.nodeId}_${asset.index}`
-    assetMap[key] = asset.maskedUrl || asset.preMaskedUrl || asset.url
+    const idx = asset.idx != null ? asset.idx : asset.index
+    const key = `${asset.nodeId}_${idx}`
+    assetMap[key] = asset.maskedUrl || asset.preMaskedUrl || asset.rawUrl || asset.url
   })
   return (nodes || []).map((node) => ({
     ...node,
     images: (node.images || []).map((url, idx) => {
-      const masked = assetMap[`${node.id}_${idx}`]
-      return masked || url
+      const fromTask = assetMap[`${node.id}_${idx}`]
+      const candidates = [fromTask, url].filter(Boolean)
+      for (const candidate of candidates) {
+        const safe = resolveDisplayMediaUrl(candidate)
+        if (safe) return safe
+      }
+      return url
     }),
   }))
 }

@@ -11,6 +11,7 @@ const {
   FALLBACK_PUBLIC_CASES,
 } = require('../constants/content-seed')
 const { HOME_GEO_TOPICS } = require('../constants/home')
+const { albumToNodeView } = require('./desensitize.constants')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -64,17 +65,31 @@ function collectNodeImageUrls(node) {
   const urls = []
   ;(node.images || []).forEach((img) => {
     if (typeof img === 'string') urls.push(img)
-    else if (img && (img.url || img.maskedUrl)) urls.push(img.url || img.maskedUrl)
+    else if (img) {
+      urls.push(img.url, img.rawUrl, img.maskedUrl, img.preMaskedUrl)
+    }
   })
   ;(node.imagesDesensitized || []).forEach((img) => {
     if (typeof img === 'string') urls.push(img)
   })
-  return urls
+  return urls.filter(Boolean)
 }
 
 function pickCoverFromAlbum(album) {
-  if (!album || !Array.isArray(album.images)) return ''
-  for (const img of album.images) {
+  if (!album) return ''
+
+  const nodeViews = albumToNodeView({
+    nodes: album.nodes || [],
+    images: album.images || [],
+  })
+  for (const node of nodeViews) {
+    for (const url of node.images || []) {
+      const cover = sanitizeCover(url)
+      if (cover) return cover
+    }
+  }
+
+  for (const img of album.images || []) {
     const cover = sanitizeCover(img.rawUrl)
     if (cover) return cover
   }
@@ -182,13 +197,25 @@ async function fetchPublicCaseRows() {
     ? await prisma.album.findMany({
         where: { id: { in: albumIds } },
         include: {
+          nodes: { orderBy: { sortOrder: 'asc' } },
           images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
         },
       })
     : []
   const albumMap = Object.fromEntries(albums.map((album) => [album.id, album]))
 
-  return rows.map((row) => mapPublicCaseRow(row, albumMap[row.albumId]))
+  return rows.map((row) => {
+    const mapped = mapPublicCaseRow(row, albumMap[row.albumId])
+    if (mapped.coverImage && mapped.coverImage !== row.coverImage) {
+      void prisma.publicCase
+        .update({
+          where: { id: row.id },
+          data: { coverImage: mapped.coverImage },
+        })
+        .catch(() => {})
+    }
+    return mapped
+  })
 }
 
 async function listCases(query = {}) {
@@ -233,6 +260,7 @@ async function getCaseDetail(id) {
       ? await prisma.album.findUnique({
           where: { id: row.albumId },
           include: {
+            nodes: { orderBy: { sortOrder: 'asc' } },
             images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
           },
         })
