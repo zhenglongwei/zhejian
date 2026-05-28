@@ -30,15 +30,22 @@
 
 .merchant-album-edit__plan-label,
 .merchant-album-edit__parts-hint,
-.merchant-album-edit__invite-hint,
-.merchant-album-edit__share-phone {
+.merchant-album-edit__owner-hint,
+.merchant-album-edit__owner-phone,
+.merchant-album-edit__owner-share-tip {
   color: var(--color-text-secondary);
 }
 
-.merchant-album-edit__share {
+.merchant-album-edit__owner,
+.merchant-album-edit__owner-hint,
+.merchant-album-edit__owner-phone {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+}
+
+.merchant-album-edit__owner-share-tip {
+  color: var(--color-primary);
 }
 
 .merchant-album-edit__part-row {

@@ -23,6 +23,28 @@
   min-width: 0;
 }
 
+.record-card__head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.record-card__share-btn {
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-primary);
+  background: transparent;
+  line-height: 1.4;
+}
+
+.record-card__share-btn::after {
+  border: none;
+}
+
 .record-card__time {
   color: var(--color-text-tertiary);
   flex-shrink: 0;

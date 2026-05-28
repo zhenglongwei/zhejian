@@ -6,6 +6,7 @@ const {
   buildPrivateAlbumPrice,
   formatPlanAmountLabel,
 } = require('./album-price')
+const { canShareToOwner } = require('./service-album-share')
 
 function formatAlbumDateTime(iso) {
   if (!iso) return ''
@@ -62,7 +63,11 @@ function enrichServiceAlbumListItem(item, options = {}) {
 }
 
 function enrichMerchantAlbumListItem(item) {
-  return enrichServiceAlbumListItem(item, { audience: 'merchant' })
+  const base = enrichServiceAlbumListItem(item, { audience: 'merchant' })
+  return {
+    ...base,
+    canShareToOwner: canShareToOwner(item),
+  }
 }
 
 const AUTH_STATUS_LABEL = {

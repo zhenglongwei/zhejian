@@ -54,6 +54,7 @@ Page({
     completing: false,
     canShareToOwner: false,
     ownerPhoneInput: '',
+    isCompleted: false,
     savingOwnerPhone: false,
     uploadPrivacyHint:
       '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
@@ -102,6 +103,10 @@ Page({
     const nodes = this.mergeNodes(detail.nodes)
     const planAmount = resolvePlanAmount(detail)
     const imageCount = detail.imageCount != null ? detail.imageCount : 0
+    const canShare = canShareToOwner(detail)
+    const isCompleted =
+      detail.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+      detail.status === SERVICE_ALBUM_STATUS.PUBLISHED
     const summaryRows = [
       { label: '车型', value: detail.vehicleDisplay || '—' },
       { label: '车主', value: detail.userPhoneDisplay || '未关联' },
@@ -129,10 +134,11 @@ Page({
         mode: PRICE_MODE.FIXED,
         amount: planAmount,
       },
-      canShareToOwner: canShareToOwner(detail),
+      canShareToOwner: canShare,
       ownerPhoneInput: detail.userPhone || '',
+      isCompleted,
     })
-    this.syncShareMenu(canShareToOwner(detail))
+    this.syncShareMenu(canShare)
   },
 
   syncShareMenu(enabled) {
@@ -289,7 +295,7 @@ Page({
     }
   },
 
-  async onComplete() {
+  onComplete() {
     if (this.data.completing || this.data.saving) return
     const hasImage = this.data.nodes.some((n) => (n.images || []).length > 0)
     if (!hasImage) {
@@ -302,36 +308,39 @@ Page({
       content:
         '完工后服务相册将保存完整记录。若已关联车主，对方可查看；公开案例须车主另行授权。',
       confirmText: '确认完工',
-      success: async (res) => {
+      success: (res) => {
         if (!res.confirm) return
-        this.setData({ completing: true })
-        try {
-          wx.showLoading({ title: '提交中', mask: true })
-          await saveMerchantServiceAlbum(this.albumId, this.buildSavePayload())
-          const detail = await completeMerchantServiceAlbum(this.albumId)
-          wx.hideLoading()
-          wx.showToast({ title: '已标记完工', icon: 'success' })
-          this.applyAlbum(detail)
-        } catch (e) {
-          wx.hideLoading()
-          wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-        } finally {
-          this.setData({ completing: false })
-        }
+        // success 勿用 async：否则部分基础库下系统弹窗无法关闭
+        this.submitComplete()
       },
     })
   },
 
+  async submitComplete() {
+    if (this.data.completing) return
+    this.setData({ completing: true })
+    try {
+      wx.showLoading({ title: '提交中', mask: true })
+      await saveMerchantServiceAlbum(this.albumId, this.buildSavePayload())
+      await completeMerchantServiceAlbum(this.albumId)
+      await this.loadAlbum()
+      wx.hideLoading()
+      wx.showToast({ title: '已标记完工', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ completing: false })
+    }
+  },
+
   onShareAppMessage() {
     const payload = buildOwnerShareMessage(this.data.detail)
-    if (!payload) {
-      wx.showToast({ title: '请先填写车主手机号', icon: 'none' })
-      return {
-        title: '辙见',
-        path: '/pages/index/index',
-      }
+    if (payload) return payload
+    return {
+      title: '辙见 · 服务相册',
+      path: '/pages/index/index',
     }
-    return payload
   },
 
   onOwnerPhoneInput(e) {

@@ -119,19 +119,18 @@
         />
       </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__share">
-        <text class="text-h3">分享给车主</text>
-        <text class="text-caption merchant-album-edit__invite-hint">
-          仅门店登记的车主可查看；对方须使用同一手机号登录小程序。公开案例须车主另行授权。
+      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__owner">
+        <text class="text-h3">关联车主</text>
+        <text class="text-caption merchant-album-edit__owner-hint">
+          填写手机号后，车主登录小程序即可在「我的服务相册」查看；门店编辑会同步更新，无需重复分享。分享仅方便对方打开小程序（右上角 ··· 或列表页「分享」）。完工后相册不可再修改。
         </text>
 
-        <block wx:if="{{canShareToOwner}}">
-          <text class="text-caption merchant-album-edit__share-phone">已关联：{{detail.userPhoneDisplay}}</text>
-          <ui-button type="primary" size="sm" block="{{true}}" open-type="share">分享给车主</ui-button>
+        <block wx:if="{{detail.userPhoneDisplay}}">
+          <text class="text-body merchant-album-edit__owner-phone">已关联：{{detail.userPhoneDisplay}}</text>
+          <text wx:if="{{canShareToOwner}}" class="text-caption merchant-album-edit__owner-share-tip">可点击右上角 ··· 转发给车主</text>
         </block>
 
-        <block wx:else>
-          <text class="text-caption merchant-album-edit__share-phone">填写车主手机号后即可分享</text>
+        <block wx:elif="{{!isCompleted}}">
           <input
             class="merchant-form__input"
             type="number"

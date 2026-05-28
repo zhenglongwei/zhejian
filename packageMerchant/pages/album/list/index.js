@@ -2,7 +2,10 @@ const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant
 const {
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
 } = require('../../../../constants/service-album-status')
-const { enrichMerchantAlbumListItem } = require('../../../../utils/service-album-display')
+const {
+  buildOwnerShareMessage,
+  buildOwnerShareMessageFromDataset,
+} = require('../../../../utils/service-album-share')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -24,6 +27,7 @@ Page({
   },
 
   onShow() {
+    wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
     this.ensureMerchant()
   },
 
@@ -80,5 +84,16 @@ Page({
 
   onRetry() {
     this.loadList()
+  },
+
+  onShareAppMessage(res) {
+    if (res.from === 'button' && res.target && res.target.dataset) {
+      const payload = buildOwnerShareMessageFromDataset(res.target.dataset)
+      if (payload) return payload
+    }
+    return {
+      title: '辙见 · 服务相册',
+      path: '/pages/index/index',
+    }
   },
 })

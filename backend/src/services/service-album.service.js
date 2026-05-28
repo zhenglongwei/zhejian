@@ -313,9 +313,11 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     return {
       albumId: view.albumId,
       serviceName: view.serviceName,
+      storeName: view.storeName,
       vehicleDisplay: view.vehicleDisplay,
       status: view.status,
       imageCount: view.imageCount,
+      userPhone: view.userPhone,
       userPhoneDisplay: view.userPhoneDisplay,
       updatedAt: view.updatedAt,
     }

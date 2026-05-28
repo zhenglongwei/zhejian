@@ -14,13 +14,22 @@ function buildOwnerShareMessage(detail = {}) {
   if (!canShareToOwner(detail)) return null
   const storeName = detail.storeName || '门店'
   return {
-    title: `${storeName} · 您的服务相册`,
+    title: `${storeName} · 邀请查看服务相册`,
     path: buildOwnerSharePath(detail.albumId),
   }
+}
+
+function buildOwnerShareMessageFromDataset(dataset = {}) {
+  return buildOwnerShareMessage({
+    albumId: dataset.albumId,
+    storeName: dataset.storeName,
+    userPhone: dataset.userPhone,
+  })
 }
 
 module.exports = {
   buildOwnerSharePath,
   canShareToOwner,
   buildOwnerShareMessage,
+  buildOwnerShareMessageFromDataset,
 }
