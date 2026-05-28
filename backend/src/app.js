@@ -6,6 +6,7 @@ const { config } = require('./config')
 const { requestIdMiddleware } = require('./middleware/request-id')
 const { optionalAuth } = require('./middleware/auth')
 const { notFoundHandler, errorHandler } = require('./middleware/error-handler')
+const { MEDIA_ROOT, ensureMediaDirs } = require('./lib/media-storage')
 const healthRoutes = require('./routes/health')
 const userRoutes = require('./routes/user')
 const userHomeRoutes = require('./routes/user-home')
@@ -17,17 +18,23 @@ const merchantLeadRoutes = require('./routes/merchant-leads')
 const merchantAuthRoutes = require('./routes/merchant-auth')
 const merchantOnboardingRoutes = require('./routes/merchant-onboarding')
 const merchantServiceAlbumRoutes = require('./routes/merchant-service-albums')
+const mediaRoutes = require('./routes/media')
 const systemRoutes = require('./routes/system')
 
 function createApp() {
   const app = express()
   app.set('trust proxy', 1)
-  app.use(helmet())
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }))
   app.use(cors({ origin: true, credentials: true }))
   app.use(express.json({ limit: '2mb' }))
   app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'))
   app.use(requestIdMiddleware)
   app.use(optionalAuth)
+
+  ensureMediaDirs()
+  app.use('/media', express.static(MEDIA_ROOT, { maxAge: '7d', fallthrough: true }))
 
   app.get('/', (req, res) => {
     res.json({
@@ -37,6 +44,7 @@ function createApp() {
   })
 
   app.use('/api/v1', healthRoutes)
+  app.use('/api/v1/media', mediaRoutes)
   app.use('/api/v1/user', userRoutes)
   app.use('/api/v1/user', userHomeRoutes)
   app.use('/api/v1/user', userAuthRoutes)

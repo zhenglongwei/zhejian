@@ -19,6 +19,7 @@ const {
   buildOwnerShareMessage,
 } = require('../../../../utils/service-album-share')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
+const { persistAlbumNodeImages } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -264,16 +265,19 @@ Page({
     wx.showToast({ title: '配件已添加', icon: 'success' })
   },
 
-  buildSavePayload() {
-    const normalized = normalizePlanAmountPayload({
-      nodes: this.data.nodes.map((n) => ({
+  async buildSavePayload() {
+    const nodes = await persistAlbumNodeImages(
+      this.data.nodes.map((n) => ({
         id: n.id,
         title: n.title,
         status: (n.images && n.images.length) || n.note ? 'completed' : 'pending',
         images: n.images || [],
         note: n.note || '',
         updatedAt: new Date().toISOString(),
-      })),
+      }))
+    )
+    const normalized = normalizePlanAmountPayload({
+      nodes,
       parts: this.data.parts,
       storeNote: this.data.storeNote,
       planAmount: this.data.planAmount,
@@ -286,7 +290,8 @@ Page({
     this.setData({ saving: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
-      const detail = await saveMerchantServiceAlbum(this.albumId, this.buildSavePayload())
+      const payload = await this.buildSavePayload()
+      const detail = await saveMerchantServiceAlbum(this.albumId, payload)
       wx.hideLoading()
       wx.showToast({ title: '已保存', icon: 'success' })
       this.applyAlbum(detail)
@@ -324,7 +329,8 @@ Page({
     this.setData({ completing: true })
     try {
       wx.showLoading({ title: '提交中', mask: true })
-      await saveMerchantServiceAlbum(this.albumId, this.buildSavePayload())
+      const payload = await this.buildSavePayload()
+      await saveMerchantServiceAlbum(this.albumId, payload)
       await completeMerchantServiceAlbum(this.albumId)
       await this.loadAlbum()
       wx.hideLoading()
@@ -360,8 +366,9 @@ Page({
     this.setData({ savingOwnerPhone: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
+      const payload = await this.buildSavePayload()
       const detail = await saveMerchantServiceAlbum(this.albumId, {
-        ...this.buildSavePayload(),
+        ...payload,
         userPhone,
       })
       wx.hideLoading()

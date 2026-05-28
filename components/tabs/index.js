@@ -14,6 +14,15 @@ Component({
       value: false,
     },
   },
+  data: {
+    scrollIntoView: '',
+  },
+  observers: {
+    'activeKey, scrollable': function (activeKey, scrollable) {
+      if (!scrollable || !activeKey) return
+      this.setData({ scrollIntoView: `tab-${activeKey}` })
+    },
+  },
   methods: {
     onTap(e) {
       const { key } = e.currentTarget.dataset

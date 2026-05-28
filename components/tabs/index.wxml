@@ -1,9 +1,31 @@
-<view class="tabs {{scrollable ? 'tabs--scroll' : ''}}" wx:if="{{tabs.length}}">
-  <view
-    wx:for="{{tabs}}"
-    wx:key="key"
-    class="tabs__item {{activeKey === item.key ? 'tabs__item--active' : ''}}"
-    data-key="{{item.key}}"
-    bindtap="onTap"
-  >{{item.label}}</view>
-</view>
+<block wx:if="{{tabs.length}}">
+  <scroll-view
+    wx:if="{{scrollable}}"
+    class="tabs-scroll"
+    scroll-x="{{true}}"
+    enable-flex="{{true}}"
+    show-scrollbar="{{false}}"
+    scroll-into-view="{{scrollIntoView}}"
+    scroll-with-animation="{{true}}"
+  >
+    <view class="tabs tabs--scroll">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="key"
+        id="tab-{{item.key}}"
+        class="tabs__item {{activeKey === item.key ? 'tabs__item--active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="onTap"
+      >{{item.label}}</view>
+    </view>
+  </scroll-view>
+  <view wx:else class="tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="tabs__item {{activeKey === item.key ? 'tabs__item--active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onTap"
+    >{{item.label}}</view>
+  </view>
+</block>

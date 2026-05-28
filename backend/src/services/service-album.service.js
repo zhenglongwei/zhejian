@@ -13,6 +13,7 @@ const {
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
+const { assertPersistentImageUrl } = require('../lib/media-storage')
 
 const USER_TAB_STATUS = {
   all: null,
@@ -218,12 +219,16 @@ async function syncAlbumNodes(albumId, nodesPayload = []) {
     })
     ;(node.images || []).forEach((url, idx) => {
       if (!url) return
+      const rawUrl = assertPersistentImageUrl(
+        typeof url === 'string' ? url : url.rawUrl || url.url || ''
+      )
+      if (!rawUrl) return
       imageRows.push({
         id: `img_${albumId}_${nodeId}_${idx}`,
         albumId,
         nodeId,
         idx,
-        rawUrl: typeof url === 'string' ? url : url.rawUrl || url.url || '',
+        rawUrl,
       })
       imageCount += 1
     })

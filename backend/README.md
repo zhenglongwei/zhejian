@@ -147,6 +147,15 @@ pm2 restart zhejian-api
 | POST | `/api/v1/merchant/service-albums/:albumId` | 保存留档 |
 | POST | `/api/v1/merchant/service-albums/:albumId/complete` | 完工 + pre-mask |
 
+### 媒体上传（B-MEDIA）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/media/upload` | 小程序 `wx.uploadFile`，字段名 `file`；需登录（user/merchant） |
+| GET | `/media/uploads/{yyyy}/{mm}/{filename}` | 静态访问已上传图片（Nginx 反代至 Node） |
+
+存储目录默认 `backend/data/media`（`MEDIA_STORAGE_DIR` 可改）。生产部署须同步 Nginx `location /media/`（见 `deploy/nginx-geo.simplewin.cn.conf`）。
+
 ### 脱敏 / 系统
 
 | 方法 | 路径 | 说明 |

@@ -1,3 +1,7 @@
+.tabs-scroll {
+  width: 100%;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -18,7 +22,6 @@
   flex-wrap: nowrap;
   display: inline-flex;
   width: max-content;
-  max-width: none;
 }
 
 .tabs--scroll .tabs__item {
