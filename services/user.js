@@ -34,23 +34,27 @@ async function fetchMineSummary() {
 
 async function wechatLogin() {
   let code = ''
-  try {
-    const res = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('wx.login timeout')), 10000)
-      wx.login({
-        success(res) {
-          clearTimeout(timer)
-          resolve(res)
-        },
-        fail(err) {
-          clearTimeout(timer)
-          reject(err)
-        },
+  const platform = (wx.getSystemInfoSync && wx.getSystemInfoSync().platform) || ''
+  // 开发者工具内 wx.login 常超时；联调/dev 登录不依赖 code
+  if (platform !== 'devtools') {
+    try {
+      const res = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('wx.login timeout')), 10000)
+        wx.login({
+          success(res) {
+            clearTimeout(timer)
+            resolve(res)
+          },
+          fail(err) {
+            clearTimeout(timer)
+            reject(err)
+          },
+        })
       })
-    })
-    code = res.code || ''
-  } catch (e) {
-    // mock / 开发者工具下 wx.login 可能超时，不阻塞 dev 登录
+      code = res.code || ''
+    } catch (e) {
+      // 真机偶发失败时不阻塞 dev 桩登录
+    }
   }
 
   if (ENV.mode === 'mock') {

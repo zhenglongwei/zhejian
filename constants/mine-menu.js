@@ -43,7 +43,7 @@ const MINE_MERCHANT_ITEM = {
 
 function attachBadge(item, badges) {
   const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''
-  return { ...item, badge }
+  return { ...item, desc: item.desc || '', badge }
 }
 
 /** 我的页菜单分区 — 供 wxml 单循环渲染 */
