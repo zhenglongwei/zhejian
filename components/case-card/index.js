@@ -10,6 +10,7 @@ Component({
       value: PUBLIC_AUTH_TIER.NAMED,
     },
     coverImage: { type: String, value: '' },
+    coverImageDesensitized: { type: String, value: '' },
     title: { type: String, value: '' },
     serviceName: { type: String, value: '' },
     summary: { type: String, value: '' },
@@ -34,20 +35,23 @@ Component({
     'authorizationTier, tags, showStoreName, storeName'(authorizationTier, tags, showStoreName, storeName) {
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
-    coverImage(url) {
-      this.setData({ safeCoverImage: resolveImageSrc(url) })
+    'coverImage, coverImageDesensitized'(coverImage, coverImageDesensitized) {
+      this.syncCoverImage(coverImage, coverImageDesensitized)
     },
   },
   lifetimes: {
     attached() {
-      const { authorizationTier, tags, showStoreName, storeName } = this.properties
+      const { authorizationTier, tags, showStoreName, storeName, coverImage, coverImageDesensitized } =
+        this.properties
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
-      this.setData({
-        safeCoverImage: resolveImageSrc(this.properties.coverImage),
-      })
+      this.syncCoverImage(coverImage, coverImageDesensitized)
     },
   },
   methods: {
+    syncCoverImage(coverImage, coverImageDesensitized) {
+      const url = coverImage || coverImageDesensitized || ''
+      this.setData({ safeCoverImage: resolveImageSrc(url) })
+    },
     syncTags(authorizationTier, tags, showStoreName, storeName) {
       const tagList =
         tags && tags.length ? tags : buildCaseTags(authorizationTier)

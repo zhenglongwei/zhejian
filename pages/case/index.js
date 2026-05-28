@@ -1,6 +1,7 @@
 const { fetchCaseList } = require('../../services/case')
 const { PUBLIC_AUTH_TIER } = require('../../constants/case-authorization')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
+const { resolveImageSrc } = require('../../utils/desensitize-url')
 
 const FILTER_ALL = 'all'
 
@@ -24,6 +25,26 @@ const FILTER_TABS = [
   { key: PUBLIC_AUTH_TIER.NAMED, label: '实名公开' },
   { key: PUBLIC_AUTH_TIER.ANONYMOUS, label: '匿名公开' },
 ]
+
+function enrichCaseCover(item) {
+  if (!item) return item
+  const direct = item.coverImage || item.coverImageDesensitized
+  if (direct && resolveImageSrc(direct)) return item
+  for (const node of item.nodes || []) {
+    const pool = (node.images || []).concat(node.imagesDesensitized || [])
+    for (let i = 0; i < pool.length; i += 1) {
+      const url = pool[i]
+      if (url && resolveImageSrc(url)) {
+        return {
+          ...item,
+          coverImage: url,
+          coverImageDesensitized: url,
+        }
+      }
+    }
+  }
+  return item
+}
 
 Page({
   data: {
@@ -61,9 +82,10 @@ Page({
         query.authorizationTier = this.data.filterSource
       }
       const { list } = await fetchCaseList(query)
+      const enriched = (list || []).map(enrichCaseCover)
       this.setData({
-        list,
-        status: list.length ? 'normal' : 'empty',
+        list: enriched,
+        status: enriched.length ? 'normal' : 'empty',
       })
     } catch (e) {
       this.setData({

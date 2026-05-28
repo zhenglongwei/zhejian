@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { sanitizeClientMediaUrl } = require('../lib/media-url')
+const { resolveDisplayMediaUrl } = require('../lib/media-url')
 const { buildPublicCasePrice } = require('../utils/album-price')
 const { buildCaseFaq } = require('../utils/case-faq')
 const {
@@ -57,18 +57,42 @@ function formatPublishedAt(value) {
 }
 
 function sanitizeCover(url) {
-  return sanitizeClientMediaUrl(url) || ''
+  return resolveDisplayMediaUrl(url) || ''
 }
 
-function sanitizeNodes(nodes) {
-  return (nodes || []).map((node) => ({
-    id: node.id || node.nodeId || '',
-    title: node.title || '',
-    note: node.note || '',
-    images: (node.images || [])
-      .map((img) => sanitizeCover(typeof img === 'string' ? img : img.url || img.maskedUrl || ''))
-      .filter(Boolean),
-  }))
+function collectNodeImageUrls(node) {
+  const urls = []
+  ;(node.images || []).forEach((img) => {
+    if (typeof img === 'string') urls.push(img)
+    else if (img && (img.url || img.maskedUrl)) urls.push(img.url || img.maskedUrl)
+  })
+  ;(node.imagesDesensitized || []).forEach((img) => {
+    if (typeof img === 'string') urls.push(img)
+  })
+  return urls
+}
+
+function pickCoverFromAlbum(album) {
+  if (!album || !Array.isArray(album.images)) return ''
+  for (const img of album.images) {
+    const cover = sanitizeCover(img.rawUrl)
+    if (cover) return cover
+  }
+  return ''
+}
+
+function pickCaseCover(row, content, album) {
+  const direct = sanitizeCover(row.coverImage)
+  if (direct) return direct
+
+  for (const node of content.nodes || []) {
+    for (const url of collectNodeImageUrls(node)) {
+      const cover = sanitizeCover(url)
+      if (cover) return cover
+    }
+  }
+
+  return pickCoverFromAlbum(album)
 }
 
 function applyPublicDisplayRules(item) {
@@ -90,22 +114,20 @@ function applyPublicDisplayRules(item) {
   return next
 }
 
-function pickCaseCover(row, content) {
-  const direct = sanitizeCover(row.coverImage)
-  if (direct) return direct
-  for (const node of content.nodes || []) {
-    for (const img of node.images || []) {
-      const url = typeof img === 'string' ? img : img.url || img.maskedUrl || ''
-      const cover = sanitizeCover(url)
-      if (cover) return cover
-    }
-  }
-  return ''
+function sanitizeNodes(nodes) {
+  return (nodes || []).map((node) => ({
+    id: node.id || node.nodeId || '',
+    title: node.title || '',
+    note: node.note || '',
+    images: collectNodeImageUrls(node)
+      .map((url) => sanitizeCover(url))
+      .filter(Boolean),
+  }))
 }
 
-function mapPublicCaseRow(row) {
+function mapPublicCaseRow(row, album) {
   const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-  const cover = pickCaseCover(row, content)
+  const cover = pickCaseCover(row, content, album)
   const item = {
     id: row.id,
     albumId: row.albumId,
@@ -153,8 +175,20 @@ async function fetchPublicCaseRows() {
     where: { status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
     orderBy: { publishedAt: 'desc' },
   })
-  if (rows.length) return rows.map(mapPublicCaseRow)
-  return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
+  if (!rows.length) return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
+
+  const albumIds = [...new Set(rows.map((row) => row.albumId).filter(Boolean))]
+  const albums = albumIds.length
+    ? await prisma.album.findMany({
+        where: { id: { in: albumIds } },
+        include: {
+          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+        },
+      })
+    : []
+  const albumMap = Object.fromEntries(albums.map((album) => [album.id, album]))
+
+  return rows.map((row) => mapPublicCaseRow(row, albumMap[row.albumId]))
 }
 
 async function listCases(query = {}) {
@@ -195,7 +229,15 @@ async function getCaseDetail(id) {
 
   let item
   if (row) {
-    item = mapPublicCaseRow(row)
+    const album = row.albumId
+      ? await prisma.album.findUnique({
+          where: { id: row.albumId },
+          include: {
+            images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+          },
+        })
+      : null
+    item = mapPublicCaseRow(row, album)
   } else {
     const fallback = FALLBACK_PUBLIC_CASES.find((c) => c.id === id)
     if (!fallback) {

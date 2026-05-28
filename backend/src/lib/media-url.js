@@ -12,7 +12,17 @@ function sanitizeClientMediaUrl(url) {
   return String(url)
 }
 
+/** 公开案例封面：允许持久化 upload URL，仅拦截占位 raw/desensitized 路径 */
+function resolveDisplayMediaUrl(url) {
+  if (!url) return ''
+  const value = String(url).trim()
+  if (!value || value.startsWith('mock://')) return ''
+  if (value.includes('/media/raw/') || value.includes('/media/desensitized/')) return ''
+  return value
+}
+
 module.exports = {
   isPendingMediaUrl,
   sanitizeClientMediaUrl,
+  resolveDisplayMediaUrl,
 }

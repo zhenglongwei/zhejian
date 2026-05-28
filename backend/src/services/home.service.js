@@ -14,6 +14,7 @@ function mapFeaturedCase(item) {
     albumId: item.albumId,
     authorizationTier: item.authorizationTier,
     coverImage: item.coverImage || '',
+    coverImageDesensitized: item.coverImageDesensitized || item.coverImage || '',
     title: item.title,
     serviceName: item.serviceName,
     summary: item.summary,

@@ -1,7 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { sanitizeClientMediaUrl } = require('../lib/media-url')
+const { resolveDisplayMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice } = require('../utils/album-price')
@@ -29,11 +29,8 @@ function pickCover(nodes) {
   for (const node of nodes || []) {
     for (const img of node.images || []) {
       const url = typeof img === 'string' ? img : img.maskedUrl || img.url
-      if (!url) continue
-      const safe = sanitizeClientMediaUrl(url)
+      const safe = resolveDisplayMediaUrl(url)
       if (safe) return safe
-      const value = String(url)
-      if (value.includes('/media/files/uploads/')) return value
     }
   }
   return ''
