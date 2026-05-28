@@ -22,6 +22,7 @@ function isLocalTempImagePath(url) {
   if (value.startsWith('/media/uploads/')) return false
   if (value.startsWith('wxfile://')) return true
   if (value.includes('://tmp/')) return true
+  if (value.includes('/__tmp__/')) return true
   if (value.startsWith('http://usr/')) return true
   if (value.startsWith('http://127.0.0.1')) return true
   if (value.startsWith('http://localhost')) return true

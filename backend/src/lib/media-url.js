@@ -12,12 +12,27 @@ function sanitizeClientMediaUrl(url) {
   return String(url)
 }
 
-/** 公开案例封面：允许持久化 upload URL，仅拦截占位 raw/desensitized 路径 */
+/** 公开案例封面：允许持久化 upload URL，拦截占位路径与本机临时路径 */
 function resolveDisplayMediaUrl(url) {
   if (!url) return ''
   const value = String(url).trim()
   if (!value || value.startsWith('mock://')) return ''
   if (value.includes('/media/raw/') || value.includes('/media/desensitized/')) return ''
+  if (value.startsWith('wxfile://')) return ''
+  if (value.includes('/__tmp__/')) return ''
+  if (/^http:\/\/127\.0\.0\.1(:\d+)?\//.test(value) && !value.includes('/api/v1/media/')) {
+    return ''
+  }
+  if (/^http:\/\/localhost(:\d+)?\//.test(value) && !value.includes('/api/v1/media/')) {
+    return ''
+  }
+  if (
+    value.startsWith('http://') &&
+    !value.includes('/api/v1/media/') &&
+    !value.includes('/media/files/uploads/')
+  ) {
+    return ''
+  }
   return value
 }
 

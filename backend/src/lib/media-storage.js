@@ -53,6 +53,7 @@ function assertPersistentImageUrl(url) {
   if (
     value.startsWith('wxfile://') ||
     value.includes('://tmp/') ||
+    value.includes('/__tmp__/') ||
     value.startsWith('http://usr/') ||
     (value.startsWith('http://127.0.0.1') &&
       !value.includes('/media/') &&

@@ -1,7 +1,7 @@
 const { fetchCaseList } = require('../../services/case')
 const { PUBLIC_AUTH_TIER } = require('../../constants/case-authorization')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
-const { resolveImageSrc } = require('../../utils/desensitize-url')
+const { resolveImageSrc, isPersistedPublicImageUrl } = require('../../utils/desensitize-url')
 
 const FILTER_ALL = 'all'
 
@@ -28,22 +28,27 @@ const FILTER_TABS = [
 
 function enrichCaseCover(item) {
   if (!item) return item
-  const direct = item.coverImage || item.coverImageDesensitized
-  if (direct && resolveImageSrc(direct)) return item
+
+  function pickPersistedCover(url) {
+    const src = resolveImageSrc(url)
+    return src && isPersistedPublicImageUrl(src) ? src : ''
+  }
+
+  const direct = pickPersistedCover(item.coverImage || item.coverImageDesensitized)
+  if (direct) {
+    return { ...item, coverImage: direct, coverImageDesensitized: direct }
+  }
+
   for (const node of item.nodes || []) {
     const pool = (node.images || []).concat(node.imagesDesensitized || [])
     for (let i = 0; i < pool.length; i += 1) {
-      const url = pool[i]
-      if (url && resolveImageSrc(url)) {
-        return {
-          ...item,
-          coverImage: url,
-          coverImageDesensitized: url,
-        }
+      const src = pickPersistedCover(pool[i])
+      if (src) {
+        return { ...item, coverImage: src, coverImageDesensitized: src }
       }
     }
   }
-  return item
+  return { ...item, coverImage: '', coverImageDesensitized: '' }
 }
 
 Page({

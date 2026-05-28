@@ -43,6 +43,42 @@ function isPendingMediaUrl(url) {
   return value.includes('/media/raw/') || value.includes('/media/desensitized/')
 }
 
+/** 开发者工具 / 本机临时路径，不可作为公开案例封面或跨端展示 */
+function isLocalTempImageUrl(url) {
+  if (!url || typeof url !== 'string') return true
+  const value = url.trim()
+  if (!value || value.startsWith('mock://')) return false
+  if (value.startsWith('wxfile://')) return true
+  if (value.includes('/__tmp__/')) return true
+  if (value.includes('://tmp/')) return true
+  if (value.startsWith('http://usr/')) return true
+  if (/^http:\/\/127\.0\.0\.1(:\d+)?\//.test(value) && !value.includes('/api/v1/media/')) {
+    return true
+  }
+  if (/^http:\/\/localhost(:\d+)?\//.test(value) && !value.includes('/api/v1/media/')) {
+    return true
+  }
+  if (
+    value.startsWith('http://') &&
+    !value.includes('/api/v1/media/') &&
+    !value.includes('/media/files/uploads/')
+  ) {
+    return true
+  }
+  return false
+}
+
+/** 公开列表/案例卡：仅 https 或已持久化的 media files URL */
+function isPersistedPublicImageUrl(url) {
+  if (!url || isLocalTempImageUrl(url)) return false
+  const value = String(url).trim()
+  if (value.startsWith('https://')) return true
+  if (value.includes('/api/v1/media/files/')) return true
+  if (value.includes('/media/files/uploads/')) return true
+  if (value.startsWith('/assets/')) return true
+  return false
+}
+
 /**
  * 供 <image src> 使用：mock:// 与未上线的 /media/* 不可加载
  */
@@ -62,17 +98,14 @@ function normalizePublicMediaUrl(url) {
 
 function resolveImageSrc(url) {
   if (!url) return ''
-  const value = normalizePublicMediaUrl(String(url))
+  const value = normalizePublicMediaUrl(String(url).trim())
   if (value.startsWith('mock://')) return ''
   if (isPendingMediaUrl(value)) return ''
-  if (
-    value.startsWith('http://') ||
-    value.startsWith('https://') ||
-    value.startsWith('wxfile://') ||
-    value.startsWith('cloud://')
-  ) {
-    return value
-  }
+  if (isLocalTempImageUrl(value)) return ''
+  if (value.startsWith('https://')) return value
+  if (value.startsWith('http://') && value.includes('/api/v1/media/')) return value
+  if (value.startsWith('wxfile://')) return value
+  if (value.startsWith('cloud://')) return value
   if (value.startsWith('/media/uploads/')) {
     const base = String(ENV.baseUrl || '').replace(/\/$/, '')
     return base ? `${base}${value}` : value
@@ -105,6 +138,8 @@ function normalizeTaskAssets(task) {
 module.exports = {
   isDesensitizedUrl,
   isPendingMediaUrl,
+  isLocalTempImageUrl,
+  isPersistedPublicImageUrl,
   buildDesensitizedUrl,
   resolveMediaUrl,
   normalizePublicMediaUrl,
