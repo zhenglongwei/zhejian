@@ -9,7 +9,9 @@ const {
 const { canShareToOwner } = require('./service-album-share')
 
 function stripPriceSummaryRow(rows = []) {
-  return rows.filter((row) => row.label !== '参考报价')
+  return rows.filter(
+    (row) => row.label !== '参考报价' && row.label !== '方案报价'
+  )
 }
 
 function formatAlbumDateTime(iso) {

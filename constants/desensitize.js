@@ -41,13 +41,11 @@ const LIABILITY_COPY = {
     confirmLabel: '确认脱敏结果并提交审核',
   },
   [BIZ_TYPE.ORDER_AUTHORIZE]: {
-    body:
-      '以下为脱敏后的预览，公开后他人仅能看到脱敏版本。请逐张核对效果，必要时可重新处理或手动打码。',
+    body: '本人已逐张核对脱敏效果，同意授权公示。',
     confirmLabel: '确认并公开',
   },
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
-    body:
-      '以下为脱敏后的预览，公开后他人仅能看到脱敏版本。请逐张核对效果，必要时可重新处理或手动打码。',
+    body: '本人已逐张核对脱敏效果，同意授权公示。',
     confirmLabel: '确认并公开',
   },
   [BIZ_TYPE.STANDALONE_TOOL]: {

@@ -116,7 +116,7 @@ Page({
     ]
     if (planAmount != null) {
       summaryRows.splice(2, 0, {
-        label: '参考报价',
+        label: '方案报价',
         value: formatPlanAmountLabel(planAmount),
       })
     }

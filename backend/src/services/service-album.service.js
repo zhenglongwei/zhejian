@@ -91,7 +91,7 @@ function buildAlbumView(album) {
   ]
   if (planAmount != null) {
     summaryRows.splice(3, 0, {
-      label: '参考报价',
+      label: '方案报价',
       value: formatPlanAmountLabel(planAmount),
     })
   }

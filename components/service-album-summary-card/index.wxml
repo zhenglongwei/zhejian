@@ -14,13 +14,12 @@
   <text wx:if="{{title}}" class="album-summary__title text-h2">{{title}}</text>
   <ui-key-info-table rows="{{rows}}" />
   <view wx:if="{{showPrice}}" class="album-summary__price">
-    <text class="album-summary__price-label text-caption">参考报价</text>
+    <text class="album-summary__price-label text-caption">方案报价</text>
     <ui-price-display
       mode="{{priceMode}}"
       amount="{{amount}}"
       showSuffix="{{false}}"
       showDisclaimer="{{false}}"
     />
-    <ui-compliance-notice type="history" />
   </view>
 </ui-card>

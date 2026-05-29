@@ -51,11 +51,11 @@
 
         <block wx:if="{{stages[stageIndex].id === 'stage_3'}}">
           <view class="merchant-album-edit__plan">
-            <text class="merchant-form__label">参考报价（以线下确认为准）</text>
+            <text class="merchant-form__label">方案报价</text>
             <input
               class="merchant-form__input"
               type="number"
-              placeholder="请输入本次方案报价"
+              placeholder="请输入本次实际费用"
               value="{{planAmount}}"
               data-field="planAmount"
               bindinput="onPlanInput"
@@ -64,16 +64,16 @@
               wx:if="{{pricePreview.amount}}"
               mode="fixed"
               amount="{{pricePreview.amount}}"
-              showDisclaimer="{{true}}"
+              showSuffix="{{false}}"
+              showDisclaimer="{{false}}"
             />
-            <ui-compliance-notice type="price" />
           </view>
         </block>
 
         <block wx:if="{{stages[stageIndex].id === 'stage_4'}}">
           <view class="merchant-album-edit__parts">
             <text class="text-h3">配件录入</text>
-            <text class="text-caption merchant-album-edit__parts-hint">记录配件类型与参考价格，供门店留痕；车主可在服务相册中查看，公开案例须另行授权。</text>
+            <text class="text-caption merchant-album-edit__parts-hint">记录配件类型与实际价格，供门店留痕；车主可在服务相册中查看，公开案例须另行授权。</text>
             <view wx:for="{{parts}}" wx:key="partId" class="merchant-album-edit__part-row">
               <ui-tag variant="{{item.typeVariant}}" text="{{item.partType}}" />
               <text class="text-body">{{item.partName}}</text>

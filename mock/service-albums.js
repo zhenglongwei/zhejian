@@ -66,7 +66,7 @@ const MOCK_ALBUMS = [
         title: '方案与报价',
         status: 'completed',
         images: [],
-        note: '参考总价 ¥430，以线下确认为准。',
+        note: '本次方案报价 ¥430。',
         updatedAt: '2026-05-20T09:35:00.000Z',
       },
       {
@@ -350,7 +350,7 @@ function buildSummaryRows(album) {
   const planAmount = resolvePlanAmount(album)
   if (planAmount != null) {
     rows.splice(3, 0, {
-      label: '参考报价',
+      label: '方案报价',
       value: formatPlanAmountLabel(planAmount),
     })
   }

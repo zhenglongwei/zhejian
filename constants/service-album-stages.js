@@ -21,7 +21,7 @@ const SERVICE_ALBUM_STAGES = [
   {
     id: 'stage_3',
     title: '方案与报价',
-    description: '填写维修项目与参考价格（以线下确认为准）',
+    description: '记录本次维修方案与实际费用',
     photoTips: '可上传报价单或方案说明截图',
     requiredLevelLabel: '',
     requiredLevelVariant: 'default',
