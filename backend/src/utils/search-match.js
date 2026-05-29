@@ -1,0 +1,76 @@
+/**
+ * 搜索关键词匹配 — 后端
+ */
+
+function normalizeKeyword(keyword) {
+  return String(keyword || '').trim()
+}
+
+function includesKeyword(text, keyword) {
+  if (!keyword) return true
+  return String(text || '')
+    .toLowerCase()
+    .includes(keyword.toLowerCase())
+}
+
+function matchAnyField(keyword, fields) {
+  const k = normalizeKeyword(keyword)
+  if (!k) return true
+  return fields.some((field) => includesKeyword(field, keyword))
+}
+
+function matchSearchService(item, keyword) {
+  return matchAnyField(keyword, [
+    item.name,
+    item.summary,
+    item.categoryName,
+    item.storeName,
+    item.detail,
+  ])
+}
+
+function matchSearchMerchant(item, keyword) {
+  const specialties = Array.isArray(item.specialties)
+    ? item.specialties.join(' ')
+    : item.specialties
+  return matchAnyField(keyword, [
+    item.name,
+    item.address,
+    specialties,
+    item.city,
+  ])
+}
+
+function matchSearchCase(item, keyword) {
+  return matchAnyField(keyword, [
+    item.title,
+    item.summary,
+    item.serviceName,
+    item.vehicleText,
+    item.storeName,
+    item.city,
+    item.aiSummary,
+    item.faultDesc,
+    item.inspectResult,
+    item.repairPlan,
+  ])
+}
+
+function pickSearchResultTab(counts = {}, preferredTab = 'service') {
+  const tab = preferredTab || 'service'
+  if ((counts[tab] || 0) > 0) return tab
+  const order = ['case', 'service', 'merchant']
+  for (let i = 0; i < order.length; i += 1) {
+    if ((counts[order[i]] || 0) > 0) return order[i]
+  }
+  return tab
+}
+
+module.exports = {
+  normalizeKeyword,
+  includesKeyword,
+  matchSearchService,
+  matchSearchMerchant,
+  matchSearchCase,
+  pickSearchResultTab,
+}

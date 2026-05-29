@@ -12,6 +12,12 @@ const { fetchServiceList } = require('./service')
 const { fetchStoreList } = require('./store')
 const { fetchCaseList } = require('./case')
 const { prepareSearchLists } = require('../utils/search-query')
+const {
+  matchSearchService,
+  matchSearchMerchant,
+  matchSearchCase,
+  pickSearchResultTab,
+} = require('../utils/search-match')
 
 function delay(ms = 240) {
   return new Promise((r) => setTimeout(r, ms))
@@ -122,15 +128,9 @@ async function fetchSearchSuggest(keyword) {
     fetchCaseList(),
   ])
 
-  const filteredServices = services.filter((item) =>
-    matchRecord(item, k, ['name', 'summary', 'categoryName'])
-  )
-  const filteredMerchants = merchants.filter((item) =>
-    matchRecord(item, k, ['name', 'address', 'specialties'])
-  )
-  const filteredCases = cases.filter((item) =>
-    matchRecord(item, k, ['title', 'summary', 'serviceName', 'vehicleText'])
-  )
+  const filteredServices = services.filter((item) => matchSearchService(item, k))
+  const filteredMerchants = merchants.filter((item) => matchSearchMerchant(item, k))
+  const filteredCases = cases.filter((item) => matchSearchCase(item, k))
   const geoPages = filterGeoPages(k)
 
   return buildSuggestItems(k, filteredServices, filteredMerchants, filteredCases, geoPages)
@@ -164,19 +164,30 @@ async function searchContent(query = {}) {
     fetchCaseList(),
   ])
 
-  const matchedServices = services.filter((item) =>
-    matchRecord(item, keyword, ['name', 'summary', 'categoryName', 'storeName'])
-  )
-  const matchedMerchants = merchants.filter((item) =>
-    matchRecord(item, keyword, ['name', 'address', 'specialties'])
-  )
-  const matchedCases = cases.filter((item) =>
-    matchRecord(item, keyword, ['title', 'summary', 'serviceName', 'vehicleText', 'storeName'])
-  )
+  const matchedServices = services.filter((item) => matchSearchService(item, keyword))
+  const matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
+  const matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
   const geoPages = filterGeoPages(keyword)
 
-  const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
+  const preliminary = prepareSearchLists({
     tab,
+    sort,
+    filters,
+    coords,
+    services: matchedServices,
+    merchants: matchedMerchants,
+    cases: matchedCases,
+  })
+  const counts = {
+    service: preliminary.serviceList.length,
+    merchant: preliminary.merchantList.length,
+    case: preliminary.caseList.length,
+    geo: geoPages.length,
+  }
+  const resolvedTab = pickSearchResultTab(counts, tab)
+
+  const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
+    tab: resolvedTab,
     sort,
     filters,
     coords,
@@ -190,22 +201,17 @@ async function searchContent(query = {}) {
 
   return {
     keyword,
-    tab,
+    tab: resolvedTab,
     sort,
     filters,
     geoPages,
-    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
-    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
-    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
+    services: resolvedTab === 'service' ? pagedList : serviceList.slice(0, pageSize),
+    merchants: resolvedTab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
+    cases: resolvedTab === 'case' ? pagedList : caseList.slice(0, pageSize),
     list: pagedList,
     total: activeList.length,
     hasMore: start + pageSize < activeList.length,
-    counts: {
-      service: serviceList.length,
-      merchant: merchantList.length,
-      case: caseList.length,
-      geo: geoPages.length,
-    },
+    counts,
     hotwords: HOTWORDS,
   }
 }

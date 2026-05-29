@@ -3,6 +3,7 @@ const {
   SEARCH_KEYWORD_MAX,
 } = require('../../../constants/search')
 const { fetchSearchConfig, fetchSearchSuggest } = require('../../../services/search')
+const { inferDefaultTab } = require('../../../utils/search-intent')
 const {
   getSearchHistory,
   addSearchHistory,
@@ -107,8 +108,9 @@ Page({
     const value = this.validateKeyword(keyword)
     if (!value) return
     addSearchHistory(value)
+    const tab = inferDefaultTab(value)
     wx.navigateTo({
-      url: `/pages/search/result/index?keyword=${encodeURIComponent(value)}`,
+      url: `/pages/search/result/index?keyword=${encodeURIComponent(value)}&tab=${tab}`,
     })
   },
 
