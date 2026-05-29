@@ -1,4 +1,7 @@
 Component({
+  options: {
+    multipleSlots: true,
+  },
   properties: {
     tabs: {
       type: Array,

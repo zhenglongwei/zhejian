@@ -17,6 +17,8 @@
 
 见 `docs/10_技术架构与接口/02_前端架构.md`：Vue Admin 或 React Admin + Element Plus / Ant Design。
 
+**页面骨架 skill**：`docs/99_AI技能库/skill_ops_admin_scaffold.md`（Agent：`ops-admin-scaffold`）。
+
 ## 鉴权
 
 联调期可与 API 共用 `DEV_*_TOKEN`；正式环境使用 `admin_token`（见 `04_接口规范.md` §8.1）。

@@ -9,7 +9,6 @@
     "ui-geo-topic-card": "/components/geo-topic-card/index",
     "ui-tag": "/components/tag/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-bottom-sheet": "/components/bottom-sheet/index",
     "ui-empty": "/components/empty/index"
   }

@@ -9,7 +9,6 @@
     "ui-card": "/components/card/index",
     "ui-case-card": "/components/case-card/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-store-card": "/components/store-card/index",
     "ui-search-bar": "/components/search-bar/index",
     "ui-geo-topic-card": "/components/geo-topic-card/index"

@@ -1,5 +1,7 @@
 .list-page-shell__tabs {
   padding-top: var(--space-sm);
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
 }
 
 .list-page-shell__tabs--card {
@@ -10,6 +12,8 @@
 .list-page-shell__body {
   padding-top: var(--space-md);
   padding-bottom: var(--space-lg);
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -23,5 +27,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
   padding-bottom: var(--space-xl);
+}
+
+.list-page-shell__state {
+  padding-left: var(--page-padding-x);
+  padding-right: var(--page-padding-x);
 }

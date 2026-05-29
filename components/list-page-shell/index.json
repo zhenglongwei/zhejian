@@ -1,6 +1,7 @@
 {
   "component": true,
   "multipleSlots": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-tabs": "/components/tabs/index",
     "ui-skeleton": "/components/skeleton/index",

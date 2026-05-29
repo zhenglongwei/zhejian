@@ -16,6 +16,7 @@ const { searchContent } = require('../../../services/search')
 const { addSearchHistory } = require('../../../utils/search-history')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
 const { resolveCityContext } = require('../../../utils/city-location')
+const { PRICE_MODE } = require('../../../constants/price-mode')
 
 const TAB_LABEL = {
   all: '全部',
@@ -38,14 +39,13 @@ function getTabList(tab, services, merchants, cases, geoPages) {
   return services
 }
 
-function isPageEmpty(counts, geoPages) {
+function isPageEmpty(geoPages, services, merchants, cases, counts) {
+  if ((geoPages || []).length) return false
+  if ((services || []).length) return false
+  if ((merchants || []).length) return false
+  if ((cases || []).length) return false
   const c = counts || {}
-  return (
-    !(c.service || 0) &&
-    !(c.merchant || 0) &&
-    !(c.case || 0) &&
-    !(geoPages || []).length
-  )
+  return !(c.service || 0) && !(c.merchant || 0) && !(c.case || 0) && !(c.geo || 0)
 }
 
 function buildTabEmptyHint(activeTab, counts) {
@@ -62,6 +62,19 @@ function buildTabEmptyHint(activeTab, counts) {
   }
   if (!parts.length) return ''
   return `可切换上方标签查看：${parts.join('、')}`
+}
+
+function resolveServiceComplianceNotices(services) {
+  const list = services || []
+  return {
+    showServicePriceNotice: list.some(
+      (item) =>
+        item.priceMode === PRICE_MODE.FIXED || item.priceMode === PRICE_MODE.RANGE
+    ),
+    showServiceAccidentNotice: list.some(
+      (item) => item.priceMode === PRICE_MODE.ACCIDENT
+    ),
+  }
 }
 
 Page({
@@ -92,6 +105,8 @@ Page({
     geoTopicTag: GEO_TOPIC_TAG,
     showTabEmpty: false,
     tabEmptyHint: '',
+    showServicePriceNotice: false,
+    showServiceAccidentNotice: false,
   },
 
   onLoad(options) {
@@ -198,8 +213,9 @@ Page({
       const activeTab = this.data.activeTab
       const tabList = getTabList(activeTab, services, merchants, cases, geoPages)
       const activeFilters = hasActiveFilters(this.data.filters)
-      const pageEmpty = isPageEmpty(counts, geoPages)
+      const pageEmpty = isPageEmpty(geoPages, services, merchants, cases, counts)
       const showTabEmpty = !pageEmpty && !tabList.length
+      const serviceNotices = resolveServiceComplianceNotices(services)
 
       this.setData({
         geoPages,
@@ -211,6 +227,8 @@ Page({
         status: pageEmpty ? 'empty' : 'normal',
         showTabEmpty,
         tabEmptyHint: showTabEmpty ? buildTabEmptyHint(activeTab, counts) : '',
+        showServicePriceNotice: serviceNotices.showServicePriceNotice,
+        showServiceAccidentNotice: serviceNotices.showServiceAccidentNotice,
         emptyDescription: activeFilters
           ? '当前筛选条件下暂无结果，可尝试清空筛选'
           : '换个关键词试试，或查看热门搜索',

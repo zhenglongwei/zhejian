@@ -13,7 +13,6 @@
     "ui-store-card": "/components/store-card/index",
     "ui-tag-row": "/components/tag-row/index",
     "ui-faq-list": "/components/faq-list/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-share-sheet": "/components/share-sheet/index"
   }

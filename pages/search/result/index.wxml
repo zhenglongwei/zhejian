@@ -30,29 +30,26 @@
     bind:retry="onRetry"
     bind:emptyaction="onEmptyAction"
   >
-    <view slot="empty">
-      <ui-empty
-        title="{{emptyTitle}}"
-        description="{{emptyDescription}}"
-        actionText="{{emptyActionText}}"
-        bind:action="onEmptyAction"
-      />
-      <view wx:if="{{hotwords.length}}" class="search-result__hotwords">
-        <text class="search-result__section-title text-h3">热门搜索</text>
-        <view class="search-result__chips">
-          <view
-            wx:for="{{hotwords}}"
-            wx:key="*this"
-            class="search-result__chip-wrap"
-            data-keyword="{{item}}"
-            bindtap="onHotwordTap"
-          >
-            <ui-tag variant="default" text="{{item}}" />
-          </view>
+    <view
+      wx:if="{{status === 'empty' && hotwords.length}}"
+      slot="footer"
+      class="search-result__hotwords page-content"
+    >
+      <text class="search-result__section-title text-h3">热门搜索</text>
+      <view class="search-result__chips">
+        <view
+          wx:for="{{hotwords}}"
+          wx:key="*this"
+          class="search-result__chip-wrap"
+          data-keyword="{{item}}"
+          bindtap="onHotwordTap"
+        >
+          <ui-tag variant="default" text="{{item}}" />
         </view>
       </view>
     </view>
 
+    <block wx:if="{{status === 'normal'}}">
     <view wx:if="{{geoPages.length}}" class="search-result__geo">
       <text class="search-result__section-title text-h3">本地专题</text>
       <ui-geo-topic-card
@@ -68,13 +65,13 @@
       />
     </view>
 
-    <view wx:if="{{activeTab === 'service' && !showTabEmpty}}" class="search-result__notice">
+    <view wx:if="{{activeTab === 'service' && !showTabEmpty && showServicePriceNotice}}" class="search-result__notice">
       <ui-compliance-notice type="price" />
     </view>
+    <view wx:if="{{activeTab === 'service' && !showTabEmpty && showServiceAccidentNotice}}" class="search-result__notice">
+      <ui-compliance-notice type="accident" />
+    </view>
     <view wx:if="{{activeTab === 'case' && !showTabEmpty}}" class="search-result__notice">
-      <ui-privacy-banner
-        text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
-      />
       <ui-compliance-notice type="casePrice" />
     </view>
 
@@ -88,8 +85,11 @@
     <block wx:elif="{{activeTab === 'all'}}">
       <view wx:if="{{services.length}}" class="search-result__group">
         <text class="search-result__section-title text-h3">服务</text>
-        <view class="search-result__notice">
+        <view wx:if="{{showServicePriceNotice}}" class="search-result__notice">
           <ui-compliance-notice type="price" />
+        </view>
+        <view wx:if="{{showServiceAccidentNotice}}" class="search-result__notice">
+          <ui-compliance-notice type="accident" />
         </view>
         <ui-service-card
           wx:for="{{services}}"
@@ -127,9 +127,6 @@
       <view wx:if="{{cases.length}}" class="search-result__group">
         <text class="search-result__section-title text-h3">案例</text>
         <view class="search-result__notice">
-          <ui-privacy-banner
-            text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
-          />
           <ui-compliance-notice type="casePrice" />
         </view>
         <ui-case-card
@@ -138,6 +135,7 @@
           caseId="{{item.id}}"
           authorizationTier="{{item.authorizationTier}}"
           coverImage="{{item.coverImage}}"
+          coverImageDesensitized="{{item.coverImageDesensitized}}"
           title="{{item.title}}"
           serviceName="{{item.serviceName}}"
           summary="{{item.summary}}"
@@ -192,6 +190,7 @@
         caseId="{{item.id}}"
         authorizationTier="{{item.authorizationTier}}"
         coverImage="{{item.coverImage}}"
+        coverImageDesensitized="{{item.coverImageDesensitized}}"
         title="{{item.title}}"
         serviceName="{{item.serviceName}}"
         summary="{{item.summary}}"
@@ -203,6 +202,7 @@
         viewCount="{{item.viewCount}}"
         bind:tap="onCaseTap"
       />
+    </block>
     </block>
   </ui-list-page-shell>
 

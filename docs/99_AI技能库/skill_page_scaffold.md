@@ -11,6 +11,8 @@
 - 新增运营端页面
 - 新增 H5 公开页
 
+运营 **Web 审核台**（`admin-web/`）请用 **`skill_ops_admin_scaffold.md`**，勿与本 skill 混用。
+
 ## 必读文档
 
 - `docs/00_设计规范/00_辙见平台设计体系.md`

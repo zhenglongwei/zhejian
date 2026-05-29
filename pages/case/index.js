@@ -8,15 +8,12 @@ const FILTER_ALL = 'all'
 const INTRO_BY_FILTER = {
   [FILTER_ALL]: {
     introDesc: '已脱敏、已审核的公开案例；车主授权公示的展示方案报价，其余为参考区间',
-    complianceType: 'casePrice',
   },
   [PUBLIC_AUTH_TIER.NAMED]: {
     introDesc: '车主实名授权公示，可展示门店与车型等品牌信息',
-    complianceType: 'casePrice',
   },
   [PUBLIC_AUTH_TIER.ANONYMOUS]: {
     introDesc: '车主匿名授权公示，仅保留车辆部分信息',
-    complianceType: 'casePrice',
   },
 }
 
@@ -39,7 +36,6 @@ Page({
     filterTabs: FILTER_TABS,
     filterSource: FILTER_ALL,
     introDesc: INTRO_BY_FILTER[FILTER_ALL].introDesc,
-    complianceType: INTRO_BY_FILTER[FILTER_ALL].complianceType,
     errorMessage: '',
     searchPlaceholder: SEARCH_PLACEHOLDER,
   },
@@ -52,7 +48,6 @@ Page({
     const meta = INTRO_BY_FILTER[source] || INTRO_BY_FILTER[FILTER_ALL]
     this.setData({
       introDesc: meta.introDesc,
-      complianceType: meta.complianceType,
     })
   },
 

@@ -108,9 +108,6 @@
             bindtap="onViewAllCases"
           >查看更多</text>
         </view>
-        <view class="store-detail__privacy">
-          <ui-privacy-banner scene="share" />
-        </view>
         <view class="store-detail__compliance">
           <ui-compliance-notice type="casePrice" />
         </view>
