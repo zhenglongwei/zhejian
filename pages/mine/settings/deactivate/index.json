@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "账号注销",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

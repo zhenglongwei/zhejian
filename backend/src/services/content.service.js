@@ -2,6 +2,7 @@ const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
+const { prepareSearchLists, parseSearchCoords } = require('../utils/search-query')
 const { buildCaseFaq } = require('../utils/case-faq')
 const {
   SEED_SERVICES,
@@ -507,48 +508,65 @@ function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
   return items.slice(0, 8)
 }
 
-function sortServices(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'price_asc') {
-    next.sort((a, b) => (a.amount || a.minAmount || 0) - (b.amount || b.minAmount || 0))
-  } else if (sortKey === 'price_desc') {
-    next.sort((a, b) => (b.amount || b.maxAmount || 0) - (a.amount || a.maxAmount || 0))
-  }
-  return next
-}
+async function searchContent(query = {}) {
+  const keyword = normalizeKeyword(query.keyword)
+  const tab = query.tab || 'service'
+  const sort = query.sort || 'relevance'
+  const filters = query.filters || {}
+  const coords = parseSearchCoords(query)
+  const page = Math.max(1, Number(query.page) || 1)
+  const pageSize = Math.max(1, Number(query.pageSize) || 20)
 
-function sortMerchants(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'case_count') {
-    next.sort((a, b) => (b.caseCount || 0) - (a.caseCount || 0))
-  }
-  return next
-}
+  const [{ list: services }, { list: merchants }, { list: cases }] = await Promise.all([
+    listServices(),
+    listMerchants(),
+    listCases(),
+  ])
 
-function sortCases(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'latest') {
-    next.sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')))
-  }
-  return next
-}
+  const matchedServices = services.filter((item) =>
+    matchRecord(item, keyword, ['name', 'summary', 'categoryName', 'storeName'])
+  )
+  const matchedMerchants = merchants.filter((item) =>
+    matchRecord(item, keyword, ['name', 'address', 'specialties'])
+  )
+  const matchedCases = cases.filter((item) =>
+    matchRecord(item, keyword, ['title', 'summary', 'serviceName', 'vehicleText', 'storeName'])
+  )
+  const geoPages = filterGeoPages(keyword)
 
-function applyFilters(list, tab, filters = {}) {
-  let next = list.slice()
-  if (tab === 'merchant') {
-    if (filters.supportAlbum) {
-      next = next.filter((item) => item.supportsAlbum)
-    }
-    if (filters.accidentCapable) {
-      next = next.filter((item) =>
-        (item.specialties || []).some((tag) => String(tag).includes('事故'))
-      )
-    }
+  const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
+    tab,
+    sort,
+    filters,
+    coords,
+    services: matchedServices,
+    merchants: matchedMerchants,
+    cases: matchedCases,
+  })
+
+  const start = (page - 1) * pageSize
+  const pagedList = activeList.slice(start, start + pageSize)
+
+  return {
+    keyword,
+    tab,
+    sort,
+    filters,
+    geoPages,
+    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
+    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
+    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
+    list: pagedList,
+    total: activeList.length,
+    hasMore: start + pageSize < activeList.length,
+    counts: {
+      service: serviceList.length,
+      merchant: merchantList.length,
+      case: caseList.length,
+      geo: geoPages.length,
+    },
+    hotwords: SEARCH_HOTWORDS,
   }
-  if (tab === 'service' && filters.accidentCapable) {
-    next = next.filter((item) => item.priceMode === 'accident')
-  }
-  return next
 }
 
 async function getSearchConfig() {
@@ -580,66 +598,6 @@ async function getSearchSuggest(keyword) {
   const geoPages = filterGeoPages(k)
 
   return buildSuggestItems(k, filteredServices, filteredMerchants, filteredCases, geoPages)
-}
-
-async function searchContent(query = {}) {
-  const keyword = normalizeKeyword(query.keyword)
-  const tab = query.tab || 'service'
-  const sort = query.sort || 'relevance'
-  const filters = query.filters || {}
-  const page = Math.max(1, Number(query.page) || 1)
-  const pageSize = Math.max(1, Number(query.pageSize) || 20)
-
-  const [{ list: services }, { list: merchants }, { list: cases }] = await Promise.all([
-    listServices(),
-    listMerchants(),
-    listCases(),
-  ])
-
-  let serviceList = services.filter((item) =>
-    matchRecord(item, keyword, ['name', 'summary', 'categoryName', 'storeName'])
-  )
-  let merchantList = merchants.filter((item) =>
-    matchRecord(item, keyword, ['name', 'address', 'specialties'])
-  )
-  let caseList = cases.filter((item) =>
-    matchRecord(item, keyword, ['title', 'summary', 'serviceName', 'vehicleText', 'storeName'])
-  )
-  const geoPages = filterGeoPages(keyword)
-
-  serviceList = applyFilters(sortServices(serviceList, sort), 'service', filters)
-  merchantList = applyFilters(sortMerchants(merchantList, sort), 'merchant', filters)
-  caseList = applyFilters(sortCases(caseList, sort), 'case', filters)
-
-  const tabMap = {
-    service: serviceList,
-    merchant: merchantList,
-    case: caseList,
-  }
-  const activeList = tabMap[tab] || serviceList
-  const start = (page - 1) * pageSize
-  const pagedList = activeList.slice(start, start + pageSize)
-
-  return {
-    keyword,
-    tab,
-    sort,
-    filters,
-    geoPages,
-    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
-    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
-    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
-    list: pagedList,
-    total: activeList.length,
-    hasMore: start + pageSize < activeList.length,
-    counts: {
-      service: serviceList.length,
-      merchant: merchantList.length,
-      case: caseList.length,
-      geo: geoPages.length,
-    },
-    hotwords: SEARCH_HOTWORDS,
-  }
 }
 
 module.exports = {

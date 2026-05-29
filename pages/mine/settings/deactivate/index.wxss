@@ -1,0 +1,26 @@
+.deactivate-page {
+  padding-top: var(--space-md);
+  padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom));
+}
+
+.deactivate-page__title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.deactivate-page__body {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-lg);
+}
+
+.deactivate-page__notice {
+  margin-bottom: var(--space-xl);
+}
+
+.deactivate-page__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

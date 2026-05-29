@@ -13,7 +13,7 @@
 
   <view class="search-result__toolbar page-content">
     <text class="search-result__sort text-caption" bindtap="onSortTap">{{sortLabel}} ▾</text>
-    <text class="search-result__filter text-caption" bindtap="onOpenFilter">筛选</text>
+    <text class="search-result__filter text-caption {{hasActiveFilters ? 'search-result__filter--active' : ''}}" bindtap="onOpenFilter">筛选</text>
   </view>
 
   <ui-list-page-shell
@@ -100,6 +100,7 @@
         storeId="{{item.id}}"
         name="{{item.name}}"
         address="{{item.address}}"
+        distanceText="{{item.distanceText}}"
         businessHours="{{item.businessHours}}"
         caseCount="{{item.caseCount}}"
         cardTags="{{item.cardTags}}"
@@ -141,17 +142,39 @@
   >
     <view class="search-result__filter-list">
       <view
-        wx:for="{{filterOptions}}"
+        wx:for="{{filterSections}}"
         wx:key="key"
-        class="search-result__filter-item"
-        data-key="{{item.key}}"
-        bindtap="onToggleFilter"
+        class="search-result__filter-block"
       >
-        <text class="text-body">{{item.label}}</text>
-        <ui-tag
-          variant="{{filters[item.key] ? 'success' : 'default'}}"
-          text="{{filters[item.key] ? '已选' : '可选'}}"
-        />
+        <text class="search-result__filter-label text-caption">{{item.label}}</text>
+        <view
+          wx:if="{{item.type === 'toggle'}}"
+          class="search-result__filter-item"
+          data-key="{{item.key}}"
+          bindtap="onToggleFilter"
+        >
+          <text class="text-body">{{item.label}}</text>
+          <ui-tag
+            variant="{{filters[item.key] ? 'success' : 'default'}}"
+            text="{{filters[item.key] ? '已选' : '可选'}}"
+          />
+        </view>
+        <view wx:elif="{{item.type === 'select'}}" class="search-result__select-chips">
+          <view
+            wx:for="{{item.options}}"
+            wx:for-item="opt"
+            wx:key="value"
+            class="search-result__chip-wrap"
+            data-key="{{item.key}}"
+            data-value="{{opt.value}}"
+            bindtap="onSelectFilter"
+          >
+            <ui-tag
+              variant="{{filters[item.key] === opt.value ? 'success' : 'default'}}"
+              text="{{opt.label}}"
+            />
+          </view>
+        </view>
       </view>
     </view>
   </ui-bottom-sheet>

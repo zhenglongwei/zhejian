@@ -127,6 +127,75 @@ const GEO_PAGES = [
     relatedServiceId: 'svc_seed_1',
     updatedAt: '2026-05-14',
   },
+  {
+    id: 'geo_binjiang',
+    pageType: 'district_service',
+    title: '滨江区钣喷与保养门店',
+    summary: '聚焦杭州滨江区的钣喷修复、小保养等可咨询门店与脱敏案例。',
+    city: '杭州',
+    keywords: ['滨江', '钣喷', '保养'],
+    scenarios: [
+      '在滨江区找就近钣喷或保养门店',
+      '对比滨江本地公开案例与门店能力',
+    ],
+    priceFactors: ['损伤面积', '配件品牌', '是否需要钣金'],
+    faq: [
+      {
+        q: '滨江区门店价格是否一致？',
+        a: '不同门店方案与配件选择不同，平台仅展示参考信息，实际费用需到店检测后确认。',
+      },
+    ],
+    relatedCaseIds: ['case_002'],
+    relatedStoreIds: ['store_demo_1'],
+    primaryStoreId: 'store_demo_1',
+    updatedAt: '2026-05-12',
+  },
+  {
+    id: 'geo_ac_noise',
+    pageType: 'fault_qa',
+    title: '空调不制冷常见原因',
+    summary: '汇总空调不制冷相关检查思路与可咨询门店，不提供线上最终报价。',
+    city: '杭州',
+    keywords: ['空调', '不制冷', '异响'],
+    scenarios: [
+      '夏季空调出风不凉，想了解常见检查项',
+      '寻找可检测空调系统的本地门店',
+    ],
+    priceFactors: ['是否缺氟', '压缩机状态', '冷凝器清洁', '电路故障'],
+    faq: [
+      {
+        q: '空调不制冷一定是缺氟吗？',
+        a: '不一定。需门店检测确认是否缺氟、堵塞或压缩机等问题，平台案例仅作过程参考。',
+      },
+    ],
+    relatedCaseIds: [],
+    relatedStoreIds: ['store_demo_1'],
+    primaryStoreId: 'store_demo_1',
+    updatedAt: '2026-05-11',
+  },
+  {
+    id: 'geo_store_demo',
+    pageType: 'merchant_geo',
+    title: '辙见示范店专题',
+    summary: '辙见示范店（杭州滨江）服务能力、公开案例与咨询入口汇总。',
+    city: '杭州',
+    keywords: ['示范店', '滨江', '门店'],
+    scenarios: [
+      '了解示范店支持的服务项目与相册能力',
+      '查看该店公开案例后预约咨询',
+    ],
+    priceFactors: ['服务项目', '车型', '配件品牌'],
+    faq: [
+      {
+        q: '如何联系示范店？',
+        a: '可通过专题页底栏电话咨询或留言咨询，实际方案与费用由门店线下确认。',
+      },
+    ],
+    relatedCaseIds: ['case_001', 'case_002'],
+    relatedStoreIds: ['store_demo_1'],
+    primaryStoreId: 'store_demo_1',
+    updatedAt: '2026-05-10',
+  },
 ]
 
 module.exports = {

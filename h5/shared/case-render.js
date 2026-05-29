@@ -228,9 +228,34 @@
     )
   }
 
+  function resolveFixedAmount(data) {
+    if (data.amount != null && data.amount !== '') {
+      var amount = Number(data.amount)
+      if (Number.isFinite(amount)) return amount
+    }
+    var min = data.minAmount != null ? Number(data.minAmount) : null
+    var max = data.maxAmount != null ? Number(data.maxAmount) : null
+    if (min != null && max != null && min === max) return min
+    if (data.priceMode === 'fixed' && data.planAmount != null && data.planAmount !== '') {
+      var plan = Number(data.planAmount)
+      if (Number.isFinite(plan)) return plan
+    }
+    return null
+  }
+
+  function stripPriceSuffix(text) {
+    return String(text || '')
+      .replace(/\s*起\s*$/u, '')
+      .trim()
+  }
+
   function buildPriceDisplay(data) {
     var mode = data.priceMode || 'range'
     var currency = '¥'
+    var fixedAmount = resolveFixedAmount(data)
+    var isAuthorized =
+      data.authorizationTier === 'named' || data.authorizationTier === 'anonymous'
+
     if (mode === 'accident') {
       return {
         sectionTitle: '价格说明',
@@ -239,10 +264,10 @@
         compliance: '本案例不构成线上报价承诺。',
       }
     }
-    if (mode === 'fixed' && data.amount != null) {
+    if (fixedAmount != null && (mode === 'fixed' || isAuthorized)) {
       return {
         sectionTitle: '方案报价',
-        priceText: currency + data.amount,
+        priceText: currency + fixedAmount,
         disclaimer: '',
         compliance: '本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。',
       }
@@ -265,7 +290,7 @@
     }
     return {
       sectionTitle: '价格说明',
-      priceText: data.priceText || '到店检测后报价',
+      priceText: stripPriceSuffix(data.priceText || '到店检测后报价'),
       disclaimer: '实际费用以门店检测结果为准。',
       compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
     }
@@ -273,6 +298,7 @@
 
   function renderPriceSection(data) {
     var display = buildPriceDisplay(data)
+    display.priceText = stripPriceSuffix(display.priceText)
     var disclaimerHtml = display.disclaimer
       ? '<span class="h5-price-note">' + escapeHtml(display.disclaimer) + '</span>'
       : ''

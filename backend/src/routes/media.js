@@ -15,6 +15,7 @@ const {
   resolveDesensitizedUploadFilePath,
 } = require('../lib/media-storage')
 const { createMediaFromUpload, runMediaDesensitize } = require('../services/media.service')
+const { processUploadedImage } = require('../lib/image-process')
 
 ensureMediaDirs()
 
@@ -115,7 +116,11 @@ router.post(
         }
         const subdir = req.mediaSubdir || buildUploadSubdir()
         const relativePath = `uploads/${subdir}/${req.file.filename}`.replace(/\\/g, '/')
+        const processed = await processUploadedImage(req.file.path, relativePath)
         const url = buildPublicMediaUrl(relativePath)
+        const thumbUrl = processed.thumbObjectKey
+          ? buildPublicMediaUrl(processed.thumbObjectKey)
+          : ''
         const uploaderId = (req.auth && req.auth.userId) || ''
         const media = await createMediaFromUpload({
           objectKey: relativePath,
@@ -126,6 +131,9 @@ router.post(
           mediaId: media.id,
           url,
           mediaUrl: url,
+          thumbUrl,
+          width: processed.width || null,
+          height: processed.height || null,
           objectKey: relativePath,
         })
       } catch (e) {

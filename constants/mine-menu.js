@@ -26,7 +26,9 @@ const MINE_CORE_MENUS = [
 ]
 
 /** 常用工具（PRD 12 §11） */
-const MINE_TOOL_MENUS = [{ key: 'settings', label: '设置', needPhone: false }]
+const MINE_TOOL_MENUS = [
+  { key: 'settings', label: '设置', needPhone: false, url: '/pages/mine/settings/index' },
+]
 
 /** 未登录也可访问 */
 const MINE_PUBLIC_MENUS = [

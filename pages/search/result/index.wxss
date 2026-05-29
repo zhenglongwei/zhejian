@@ -56,6 +56,20 @@
   gap: var(--space-md);
 }
 
+.search-result__filter--active {
+  font-weight: 600;
+}
+
+.search-result__filter-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.search-result__filter-label {
+  color: var(--color-text-tertiary);
+}
+
 .search-result__filter-item {
   display: flex;
   align-items: center;

@@ -11,6 +11,7 @@ const { SUGGEST_TYPE_LABEL } = require('../constants/search')
 const { fetchServiceList } = require('./service')
 const { fetchStoreList } = require('./store')
 const { fetchCaseList } = require('./case')
+const { prepareSearchLists } = require('../utils/search-query')
 
 function delay(ms = 240) {
   return new Promise((r) => setTimeout(r, ms))
@@ -87,48 +88,13 @@ function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
   return items.slice(0, 8)
 }
 
-function sortServices(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'price_asc') {
-    next.sort((a, b) => (a.amount || a.minAmount || 0) - (b.amount || b.minAmount || 0))
-  } else if (sortKey === 'price_desc') {
-    next.sort((a, b) => (b.amount || b.maxAmount || 0) - (a.amount || a.maxAmount || 0))
+function parseCoords(query = {}) {
+  const lat = query.userLat != null ? Number(query.userLat) : null
+  const lng = query.userLng != null ? Number(query.userLng) : null
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null
   }
-  return next
-}
-
-function sortMerchants(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'case_count') {
-    next.sort((a, b) => (b.caseCount || 0) - (a.caseCount || 0))
-  }
-  return next
-}
-
-function sortCases(list, sortKey) {
-  const next = list.slice()
-  if (sortKey === 'latest') {
-    next.sort((a, b) => String(b.publishedAt || '').localeCompare(String(a.publishedAt || '')))
-  }
-  return next
-}
-
-function applyFilters(list, tab, filters = {}) {
-  let next = list.slice()
-  if (tab === 'merchant') {
-    if (filters.supportAlbum) {
-      next = next.filter((item) => item.supportsAlbum)
-    }
-    if (filters.accidentCapable) {
-      next = next.filter((item) =>
-        (item.specialties || []).some((tag) => String(tag).includes('事故'))
-      )
-    }
-  }
-  if (tab === 'service' && filters.accidentCapable) {
-    next = next.filter((item) => item.priceMode === 'accident')
-  }
-  return next
+  return { latitude: lat, longitude: lng }
 }
 
 async function fetchSearchConfig() {
@@ -176,6 +142,11 @@ async function searchContent(query = {}) {
     if (params.filters && typeof params.filters === 'object') {
       params.filters = JSON.stringify(params.filters)
     }
+    if (params.coords && params.coords.latitude != null) {
+      params.userLat = params.coords.latitude
+      params.userLng = params.coords.longitude
+      delete params.coords
+    }
     return get('/user/search', params)
   }
   await delay()
@@ -183,6 +154,7 @@ async function searchContent(query = {}) {
   const tab = query.tab || 'service'
   const sort = query.sort || 'relevance'
   const filters = query.filters || {}
+  const coords = parseCoords(query.coords ? { userLat: query.coords.latitude, userLng: query.coords.longitude } : query)
   const page = Math.max(1, Number(query.page) || 1)
   const pageSize = Math.max(1, Number(query.pageSize) || 20)
 
@@ -192,27 +164,27 @@ async function searchContent(query = {}) {
     fetchCaseList(),
   ])
 
-  let serviceList = services.filter((item) =>
+  const matchedServices = services.filter((item) =>
     matchRecord(item, keyword, ['name', 'summary', 'categoryName', 'storeName'])
   )
-  let merchantList = merchants.filter((item) =>
+  const matchedMerchants = merchants.filter((item) =>
     matchRecord(item, keyword, ['name', 'address', 'specialties'])
   )
-  let caseList = cases.filter((item) =>
+  const matchedCases = cases.filter((item) =>
     matchRecord(item, keyword, ['title', 'summary', 'serviceName', 'vehicleText', 'storeName'])
   )
   const geoPages = filterGeoPages(keyword)
 
-  serviceList = applyFilters(sortServices(serviceList, sort), 'service', filters)
-  merchantList = applyFilters(sortMerchants(merchantList, sort), 'merchant', filters)
-  caseList = applyFilters(sortCases(caseList, sort), 'case', filters)
+  const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
+    tab,
+    sort,
+    filters,
+    coords,
+    services: matchedServices,
+    merchants: matchedMerchants,
+    cases: matchedCases,
+  })
 
-  const tabMap = {
-    service: serviceList,
-    merchant: merchantList,
-    case: caseList,
-  }
-  const activeList = tabMap[tab] || serviceList
   const start = (page - 1) * pageSize
   const pagedList = activeList.slice(start, start + pageSize)
 

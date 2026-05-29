@@ -1,0 +1,26 @@
+.settings-page {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-xl);
+}
+
+.settings-page__logout {
+  margin-top: var(--space-lg);
+}
+
+.settings-page__logout-btn {
+  width: 100%;
+  background: var(--color-bg-card);
+  color: var(--color-danger);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-body);
+  padding: var(--space-md);
+}
+
+.settings-page__logout-btn::after {
+  border: none;
+}
+
+.settings-page__notice {
+  margin-top: var(--space-lg);
+}

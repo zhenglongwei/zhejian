@@ -1,0 +1,7 @@
+<view class="page legal-doc page-content">
+  <text class="legal-doc__updated text-caption">更新日期：{{updatedAt}}</text>
+  <view wx:for="{{sections}}" wx:key="heading" class="legal-doc__section">
+    <text class="legal-doc__heading text-h3">{{item.heading}}</text>
+    <text class="legal-doc__body text-body">{{item.body}}</text>
+  </view>
+</view>

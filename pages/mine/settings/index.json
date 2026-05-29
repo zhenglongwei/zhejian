@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "设置",
+  "usingComponents": {
+    "ui-card": "/components/card/index",
+    "ui-cell": "/components/cell/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}
