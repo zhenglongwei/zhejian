@@ -6,7 +6,7 @@ const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v2'
+const ENGINE_VERSION = 'aliyun-v3'
 
 function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
   if (!ocrWidth || !ocrHeight || !imageWidth || !imageHeight) return boxes
@@ -51,6 +51,11 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
   let maskError = false
   let needManual = false
 
+  if (detection.ocrAuthFailed) {
+    console.warn('[desensitize-engine] ocr auth failed, mark need_manual', detection.errors)
+    needManual = true
+  }
+
   if (detection.plateMaskMiss) {
     console.warn('[desensitize-engine] plate text detected but no mask box', { sourcePath })
     needManual = true
@@ -72,9 +77,13 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
     needManual = true
   }
 
+  if (detection.ocrAuthFailed && !mergedBoxes.some((b) => b.type === 'plate')) {
+    needManual = true
+  }
+
   const riskLevel = resolveRiskLevel({
     riskTags: detection.riskTags,
-    authFailed: false,
+    authFailed: detection.ocrAuthFailed,
     maskError,
     needManual,
   })

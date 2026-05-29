@@ -2,6 +2,7 @@
  * 阿里云 OCR / 人脸客户端（ECS RAM 角色优先，本地 AccessKey 兜底）
  */
 const fs = require('fs')
+const { Readable } = require('stream')
 const Credential = require('@alicloud/credentials').default
 const { Config } = require('@alicloud/openapi-client')
 const OcrClient = require('@alicloud/ocr-api20210707').default
@@ -74,8 +75,13 @@ function readImageBody(filePath) {
   return fs.readFileSync(filePath)
 }
 
+/** OCR SDK 要求 body 为 Readable；用 Buffer 包装避免 createReadStream 在部分环境报错 */
+function openImageReadable(filePath) {
+  return Readable.from(readImageBody(filePath))
+}
+
 function openImageStream(filePath) {
-  return fs.createReadStream(filePath)
+  return openImageReadable(filePath)
 }
 
 module.exports = {
@@ -83,4 +89,5 @@ module.exports = {
   getFaceClient,
   readImageBody,
   openImageStream,
+  openImageReadable,
 }

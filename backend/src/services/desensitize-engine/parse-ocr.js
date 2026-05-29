@@ -7,12 +7,19 @@ const PLATE_TEXT_RE = /[\u4e00-\u9fa5][A-Z][·\s]?[A-Z0-9]{4,6}/i
 
 function safeParseData(raw) {
   if (!raw) return null
-  if (typeof raw === 'object') return raw
-  try {
-    return JSON.parse(raw)
-  } catch (e) {
-    return null
+  let node = raw
+  for (let i = 0; i < 3; i += 1) {
+    if (node && typeof node === 'object' && !Array.isArray(node)) {
+      return node
+    }
+    if (typeof node !== 'string') return null
+    try {
+      node = JSON.parse(node)
+    } catch (e) {
+      return null
+    }
   }
+  return node && typeof node === 'object' ? node : null
 }
 
 function unwrapOcrRoot(parsed) {
@@ -168,12 +175,13 @@ function parsePlateBoxes(data) {
 }
 
 function parsePlateResult(data) {
-  const parsed = unwrapOcrRoot(safeParseData(data))
+  const root = safeParseData(data)
+  const parsed = unwrapOcrRoot(root)
   const boxes = parsePlateBoxes(data)
   return {
     boxes,
-    orgWidth: Number(parsed?.orgWidth || parsed?.width || 0),
-    orgHeight: Number(parsed?.orgHeight || parsed?.height || 0),
+    orgWidth: Number(parsed?.orgWidth || parsed?.width || root?.orgWidth || root?.width || 0),
+    orgHeight: Number(parsed?.orgHeight || parsed?.height || root?.orgHeight || root?.height || 0),
     plateTextFound: hasPlateTextInOcr(data),
   }
 }
