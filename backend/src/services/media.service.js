@@ -9,7 +9,8 @@ const {
   buildDesensitizedObjectKey,
   resolveDesensitizedFilePath,
 } = require('../lib/media-storage')
-const { processImage } = require('./desensitize-engine')
+const { isStubCopyArtifact } = require('../lib/media-file-compare')
+const { processImage, ENGINE_VERSION } = require('./desensitize-engine')
 
 const DESENSITIZE_STATUS = {
   PENDING: 'pending',
@@ -95,6 +96,21 @@ function mapEngineResultToStatus(engineResult) {
   return DESENSITIZE_STATUS.FAILED
 }
 
+function shouldUseCachedDesensitize(media) {
+  if (!media.desensitizedUrl || media.desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
+    return false
+  }
+  if (!media.desensitizedKey) return false
+  if (isStubCopyArtifact(media.objectKey, media.desensitizedKey)) {
+    console.info('[media] ignore cached desensitize: stub copy artifact', {
+      objectKey: media.objectKey,
+      desensitizedKey: media.desensitizedKey,
+    })
+    return false
+  }
+  return true
+}
+
 /**
  * B-MASK-03：阿里云检测 + 本地 sharp 打码，写入 uploads/desensitized/
  */
@@ -106,11 +122,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
     throw err
   }
 
-  if (
-    media.desensitizedUrl &&
-    media.desensitizeStatus === DESENSITIZE_STATUS.SUCCESS &&
-    !context.force
-  ) {
+  if (shouldUseCachedDesensitize(media) && !context.force) {
     return {
       mediaId: media.id,
       taskStatus: 'SUCCESS',
@@ -181,7 +193,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
       riskLevel: engineResult.riskLevel,
       riskTags: engineResult.riskTags || [],
       detections: engineResult.detections || [],
-      engineVersion: engineResult.engineVersion,
+      engineVersion: engineResult.engineVersion || ENGINE_VERSION,
     }
   } catch (e) {
     if (!e.status) {

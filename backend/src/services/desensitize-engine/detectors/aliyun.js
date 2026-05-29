@@ -4,7 +4,11 @@ const Facebody = require('@alicloud/facebody20191230')
 const { config } = require('../../../config')
 const { getOcrClient, getFaceClient, openImageStream } = require('../../../lib/aliyun-clients')
 const { boxesFromFaceRectangles } = require('../bbox')
-const { parsePlateBoxes, parseVinBoxes, parseGeneralSensitiveBoxes } = require('../parse-ocr')
+const {
+  parsePlateResult,
+  parseVinBoxes,
+  parseGeneralSensitiveBoxes,
+} = require('../parse-ocr')
 
 const {
   RecognizeCarNumberRequest,
@@ -102,9 +106,49 @@ async function ocrWithBody(RequestClass, method, imagePath) {
   return rawBody?.data || ''
 }
 
-async function detectPlates(imagePath) {
-  const data = await ocrWithBody(RecognizeCarNumberRequest, 'recognizeCarNumber', imagePath)
-  return parsePlateBoxes(data)
+async function detectPlateRegion(imagePath) {
+  try {
+    const data = await ocrWithBody(RecognizeCarNumberRequest, 'recognizeCarNumber', imagePath)
+    const plate = parsePlateResult(data)
+    return {
+      boxes: plate.boxes,
+      authFailed: false,
+      error: '',
+      plateMaskMiss: plate.plateTextFound && !plate.boxes.length,
+      orgWidth: plate.orgWidth,
+      orgHeight: plate.orgHeight,
+    }
+  } catch (err) {
+    if (isAuthError(err)) {
+      return {
+        boxes: [],
+        authFailed: true,
+        error: `plate:${err.message || 'auth'}`,
+        plateMaskMiss: false,
+        orgWidth: 0,
+        orgHeight: 0,
+      }
+    }
+    if (isBenignDetectError(err)) {
+      return {
+        boxes: [],
+        authFailed: false,
+        error: '',
+        plateMaskMiss: false,
+        orgWidth: 0,
+        orgHeight: 0,
+      }
+    }
+    console.warn('[desensitize-engine] plate:', err.code || '', String(err.message || '').slice(0, 120))
+    return {
+      boxes: [],
+      authFailed: false,
+      error: `plate:${err.message || 'failed'}`,
+      plateMaskMiss: false,
+      orgWidth: 0,
+      orgHeight: 0,
+    }
+  }
 }
 
 async function detectVin(imagePath) {
@@ -118,25 +162,33 @@ async function detectGeneralText(imagePath) {
 }
 
 /**
- * 并行调用阿里云检测，单路「未检出」不算失败
- * @returns {{ boxes: import('./bbox').BBox[], riskTags: string[], errors: string[], authFailed: boolean }}
+ * @returns {{ boxes: import('../bbox').BBox[], riskTags: string[], errors: string[], authFailed: boolean, plateMaskMiss: boolean, ocrWidth: number, ocrHeight: number }}
  */
 async function detectSensitiveRegions(imagePath) {
-  const tasks = [
-    { name: 'face', fn: () => detectFaces(imagePath) },
-    { name: 'plate', fn: () => detectPlates(imagePath) },
-    { name: 'vin', fn: () => detectVin(imagePath) },
-    { name: 'text', fn: () => detectGeneralText(imagePath) },
+  const [faceResult, plateResult, vinResult, textResult] = await Promise.all([
+    runDetector('face', () => detectFaces(imagePath)),
+    detectPlateRegion(imagePath),
+    runDetector('vin', () => detectVin(imagePath)),
+    runDetector('text', () => detectGeneralText(imagePath)),
+  ])
+
+  const results = [
+    { name: 'face', ...faceResult },
+    { name: 'plate', ...plateResult },
+    { name: 'vin', ...vinResult },
+    { name: 'text', ...textResult },
   ]
 
-  const results = await Promise.all(tasks.map((t) => runDetector(t.name, t.fn)))
   const boxes = []
   const riskTags = new Set()
   const errors = []
   let authFailed = false
+  let plateMaskMiss = Boolean(plateResult.plateMaskMiss)
+  const ocrWidth = plateResult.orgWidth || 0
+  const ocrHeight = plateResult.orgHeight || 0
 
-  results.forEach((result, idx) => {
-    const name = tasks[idx].name
+  results.forEach((result) => {
+    const name = result.name
     if (result.authFailed) {
       authFailed = true
       if (result.error) errors.push(result.error)
@@ -153,6 +205,7 @@ async function detectSensitiveRegions(imagePath) {
         if (b.type === 'phone') riskTags.add('phone')
         else if (b.type === 'vin') riskTags.add('vin')
         else if (b.type === 'document') riskTags.add('document')
+        else if (b.type === 'plate') riskTags.add('plate')
       })
     }
     boxes.push(...found)
@@ -164,7 +217,23 @@ async function detectSensitiveRegions(imagePath) {
     throw err
   }
 
-  return { boxes, riskTags: [...riskTags], errors, authFailed: false }
+  if (boxes.length) {
+    console.info('[desensitize-engine] detections', {
+      count: boxes.length,
+      types: [...riskTags],
+      plateMaskMiss,
+    })
+  }
+
+  return {
+    boxes,
+    riskTags: [...riskTags],
+    errors,
+    authFailed: false,
+    plateMaskMiss,
+    ocrWidth,
+    ocrHeight,
+  }
 }
 
 module.exports = {

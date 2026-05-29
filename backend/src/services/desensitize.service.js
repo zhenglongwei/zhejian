@@ -11,7 +11,9 @@ const {
   buildAuthorizeTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
-const { resolveDesensitizedUrlForAsset } = require('./media.service')
+const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl } = require('./media.service')
+const { isStubCopyArtifact } = require('../lib/media-file-compare')
+const { parseObjectKeyFromPublicUrl } = require('../lib/media-storage')
 
 async function loadAlbumWithRelations(albumId) {
   return prisma.album.findUnique({
@@ -80,6 +82,31 @@ async function clearPendingAuthorizeTasks(albumId, authorizeBizType) {
   })
 }
 
+async function preMaskTaskHasStubArtifacts(preMaskTask) {
+  if (!preMaskTask?.assets?.length) return false
+  for (const asset of preMaskTask.assets) {
+    const rawUrl = asset.rawUrl
+    if (!rawUrl) continue
+    const rawKey = parseObjectKeyFromPublicUrl(rawUrl)
+    const maskedUrl = asset.maskedUrl || asset.preMaskedUrl
+    const maskedKey = maskedUrl ? parseObjectKeyFromPublicUrl(maskedUrl) : ''
+    if (rawKey && maskedKey && isStubCopyArtifact(rawKey, maskedKey)) {
+      console.info('[desensitize] stub copy in pre-mask task asset', { rawKey, maskedKey })
+      return true
+    }
+    const media = await ensureMediaRecordFromUrl(rawUrl)
+    if (
+      media?.desensitizedKey &&
+      media.desensitizeStatus === 'success' &&
+      isStubCopyArtifact(media.objectKey, media.desensitizedKey)
+    ) {
+      console.info('[desensitize] stub copy in media_assets', { objectKey: media.objectKey })
+      return true
+    }
+  }
+  return false
+}
+
 async function ensureOrderPreMaskTask(albumId, options = {}) {
   const album = await loadAlbumWithRelations(albumId)
   if (!album) {
@@ -95,13 +122,17 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   const nodeViews = albumToNodeView(album)
   const fingerprint = nodesFingerprint(nodeViews)
   const existing = await findPreMaskTask(albumId, preMaskBizType)
+  let force = Boolean(options.force)
   if (
     existing &&
     existing.fingerprint === fingerprint &&
     [PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(existing.preMaskStatus) &&
-    !options.force
+    !force
   ) {
-    return mapTaskRecord(existing)
+    const hasStub = await preMaskTaskHasStubArtifacts(existing)
+    if (!hasStub) return mapTaskRecord(existing)
+    console.info('[desensitize] force pre-mask rerun: stub copy artifacts', { albumId })
+    force = true
   }
 
   if (existing && existing.fingerprint !== fingerprint) {
@@ -116,7 +147,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         albumId,
         nodeId: asset.nodeId,
         idx: asset.idx,
-        force: Boolean(options.force),
+        force,
       })
       const preMaskedUrl = masked.ok ? masked.maskedUrl : ''
       return {
@@ -185,6 +216,7 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
 
   const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
+  const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
   const needsPreMaskRefresh =
     !preMaskTask ||
     [
@@ -192,11 +224,12 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
       PRE_MASK_STATUS.IDLE,
       PRE_MASK_STATUS.FAILED,
       null,
-    ].includes(preMaskTask.preMaskStatus)
+    ].includes(preMaskTask.preMaskStatus) ||
+    stubArtifacts
 
   if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
-      force: preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED,
+      force: preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts,
       preMaskBizType,
       authorizeBizType,
     })

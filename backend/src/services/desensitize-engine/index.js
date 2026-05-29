@@ -8,6 +8,20 @@ const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./provi
 
 const ENGINE_VERSION = 'aliyun-v1'
 
+function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
+  if (!ocrWidth || !ocrHeight || !imageWidth || !imageHeight) return boxes
+  if (ocrWidth === imageWidth && ocrHeight === imageHeight) return boxes
+  const sx = imageWidth / ocrWidth
+  const sy = imageHeight / ocrHeight
+  return boxes.map((b) => ({
+    ...b,
+    left: Math.round(b.left * sx),
+    top: Math.round(b.top * sy),
+    width: Math.max(1, Math.round(b.width * sx)),
+    height: Math.max(1, Math.round(b.height * sy)),
+  }))
+}
+
 function resolveRiskLevel({ riskTags, authFailed, maskError, needManual }) {
   if (authFailed || maskError) return 'forbidden'
   if (needManual) return 'high'
@@ -29,9 +43,22 @@ async function processImageAliyun(sourcePath, destPath) {
     throw err
   }
 
-  const mergedBoxes = mergeBoxes(detection.boxes, width, height)
+  const mergedBoxes = mergeBoxes(
+    scaleBoxes(detection.boxes, detection.ocrWidth, detection.ocrHeight, width, height),
+    width,
+    height
+  )
   let maskError = false
   let needManual = false
+
+  if (detection.plateMaskMiss) {
+    console.warn('[desensitize-engine] plate text detected but no mask box', { sourcePath })
+    needManual = true
+  }
+
+  if (detection.riskTags.includes('plate') && !mergedBoxes.some((b) => b.type === 'plate')) {
+    needManual = true
+  }
 
   try {
     await writeMaskedImage(sourcePath, destPath, mergedBoxes)
