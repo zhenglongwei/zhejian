@@ -4,7 +4,7 @@ const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
-const { buildPublicCasePrice } = require('../utils/album-price')
+const { buildPublicCasePrice, buildPublicCaseDbPriceColumns } = require('../utils/album-price')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 
 function buildVehicleTitle(vehicle) {
@@ -160,6 +160,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const task = await resolvePublishTask(albumId, payload)
   const draft = buildCaseDraft(albumView, task, authorizationTier)
   const caseId = draft.id
+  const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
   await prisma.publicCase.upsert({
     where: { albumId },
@@ -176,9 +177,9 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       storeName: draft.storeName,
       serviceName: draft.serviceName,
       city: draft.city,
-      minAmount: draft.minAmount,
-      maxAmount: draft.maxAmount,
-      priceMode: draft.priceMode,
+      minAmount: priceColumns.minAmount,
+      maxAmount: priceColumns.maxAmount,
+      priceMode: priceColumns.priceMode,
       publishedAt: new Date(),
     },
     update: {
@@ -188,6 +189,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       summary: draft.summary,
       coverImage: draft.coverImage,
       contentJson: draft.contentJson,
+      storeId: draft.storeId,
+      storeName: draft.storeName,
+      serviceName: draft.serviceName,
+      city: draft.city,
+      minAmount: priceColumns.minAmount,
+      maxAmount: priceColumns.maxAmount,
+      priceMode: priceColumns.priceMode,
       publishedAt: new Date(),
     },
   })

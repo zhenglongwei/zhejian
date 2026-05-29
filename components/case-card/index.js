@@ -1,4 +1,5 @@
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
+const { PRICE_MODE } = require('../../constants/price-mode')
 const { buildCaseTags } = require('../../utils/case-tags')
 const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
 
@@ -30,8 +31,17 @@ Component({
     tagList: [],
     displayCover: '',
     displayStoreName: false,
+    priceShowSuffix: true,
+    priceShowDisclaimer: true,
   },
   observers: {
+    priceMode(priceMode) {
+      const isFixed = priceMode === PRICE_MODE.FIXED
+      this.setData({
+        priceShowSuffix: !isFixed,
+        priceShowDisclaimer: !isFixed,
+      })
+    },
     'authorizationTier, tags, showStoreName, storeName'(authorizationTier, tags, showStoreName, storeName) {
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
@@ -41,7 +51,12 @@ Component({
   },
   lifetimes: {
     attached() {
-      const { authorizationTier, tags, showStoreName, storeName } = this.properties
+      const { authorizationTier, tags, showStoreName, storeName, priceMode } = this.properties
+      const isFixed = priceMode === PRICE_MODE.FIXED
+      this.setData({
+        priceShowSuffix: !isFixed,
+        priceShowDisclaimer: !isFixed,
+      })
       this.syncTags(authorizationTier, tags, showStoreName, storeName)
     },
     ready() {

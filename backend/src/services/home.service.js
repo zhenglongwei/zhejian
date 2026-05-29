@@ -19,6 +19,8 @@ function mapFeaturedCase(item) {
     serviceName: item.serviceName,
     summary: item.summary,
     priceMode: item.priceMode || 'range',
+    amount: item.amount,
+    planAmount: item.planAmount,
     minAmount: item.minAmount,
     maxAmount: item.maxAmount,
     storeId: item.storeId,

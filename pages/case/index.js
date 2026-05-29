@@ -7,7 +7,7 @@ const FILTER_ALL = 'all'
 
 const INTRO_BY_FILTER = {
   [FILTER_ALL]: {
-    introDesc: '已脱敏、已审核的公开案例，价格均为参考区间',
+    introDesc: '已脱敏、已审核的公开案例；车主授权公示的展示方案报价，其余为参考区间',
     complianceType: 'casePrice',
   },
   [PUBLIC_AUTH_TIER.NAMED]: {

@@ -22,7 +22,8 @@
         amount="{{amount}}"
         minAmount="{{minAmount}}"
         maxAmount="{{maxAmount}}"
-        showDisclaimer="{{true}}"
+        showSuffix="{{priceShowSuffix}}"
+        showDisclaimer="{{priceShowDisclaimer}}"
       />
     </view>
     <view class="case-card__footer text-caption">

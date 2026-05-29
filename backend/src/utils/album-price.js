@@ -116,7 +116,7 @@ function hasUserPublicAuthorization(source = {}) {
     status === 'pending_review' ||
     status === 'public_approved'
   ) {
-    return Boolean(source.userPhone || source.userId)
+    return true
   }
   return false
 }
@@ -177,6 +177,80 @@ function buildPublicCasePrice(source = {}, options = {}) {
   }
 }
 
+function buildPublicCaseDbPriceColumns(draft = {}) {
+  const amount = draft.amount ?? draft.planAmount
+  if (draft.priceMode === PRICE_MODE.FIXED && amount != null) {
+    const value = Math.round(Number(amount))
+    return {
+      priceMode: PRICE_MODE.FIXED,
+      minAmount: value,
+      maxAmount: value,
+    }
+  }
+  return {
+    priceMode: draft.priceMode || PRICE_MODE.RANGE,
+    minAmount: draft.minAmount ?? null,
+    maxAmount: draft.maxAmount ?? null,
+  }
+}
+
+function resolvePublicCasePriceFields(row = {}, album = null) {
+  const tier = row.authorizationTier || PUBLIC_AUTH_TIER.NAMED
+  const hasUserAuth =
+    tier === PUBLIC_AUTH_TIER.ANONYMOUS || tier === PUBLIC_AUTH_TIER.NAMED
+  const albumAmount = album ? resolvePlanAmount(album) : null
+  const minAmount = row.minAmount != null ? Number(row.minAmount) : null
+  const maxAmount = row.maxAmount != null ? Number(row.maxAmount) : null
+  const rowMode = row.priceMode || ''
+
+  const rowFixed =
+    rowMode === PRICE_MODE.FIXED ||
+    (minAmount != null && maxAmount != null && minAmount === maxAmount)
+
+  if (rowFixed) {
+    const amount = minAmount ?? maxAmount ?? albumAmount
+    if (amount != null && amount > 0) {
+      return buildPublicCasePrice(
+        {
+          id: row.id,
+          albumId: row.albumId,
+          authorizationTier: tier,
+          planAmount: amount,
+          amount,
+        },
+        { hasUserAuthorization: hasUserAuth }
+      )
+    }
+  }
+
+  if (minAmount != null && maxAmount != null && minAmount !== maxAmount) {
+    return buildPublicCasePrice(
+      {
+        id: row.id,
+        albumId: row.albumId,
+        authorizationTier: tier,
+        minAmount,
+        maxAmount,
+        planAmount: albumAmount ?? minAmount,
+      },
+      { hasUserAuthorization: hasUserAuth }
+    )
+  }
+
+  return buildPublicCasePrice(
+    {
+      id: row.id,
+      albumId: row.albumId,
+      authorizationTier: tier,
+      planAmount: albumAmount,
+      minAmount: album?.minAmount,
+      maxAmount: album?.maxAmount,
+      priceMode: album?.priceMode,
+    },
+    { hasUserAuthorization: hasUserAuth }
+  )
+}
+
 function normalizePlanAmountPayload(payload = {}) {
   if (payload.planAmount != null && payload.planAmount !== '') {
     const amount = parseInt(String(payload.planAmount), 10)
@@ -216,6 +290,8 @@ module.exports = {
   hasUserPublicAuthorization,
   buildPrivateAlbumPrice,
   buildPublicCasePrice,
+  buildPublicCaseDbPriceColumns,
+  resolvePublicCasePriceFields,
   normalizePlanAmountPayload,
   formatPlanAmountLabel,
 }

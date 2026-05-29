@@ -37,9 +37,6 @@ function resolvePlanAmount(source = {}) {
   return null
 }
 
-/**
- * 基于 seed 的确定性伪随机（0～1），同 seed 结果稳定，不同案例不可比对反推
- */
 function hashSeed(text) {
   const input = String(text || '')
   let hash = 2166136261
@@ -65,10 +62,6 @@ function roundUpToStep(value, step) {
   return Math.ceil(value / step) * step
 }
 
-/**
- * 公开页未获车主授权时的脱敏参考区间（系统计算，商家不可编辑）
- * 基于 albumId/caseId 的确定性伪随机：同案例展示稳定，不同案例区间不可归纳规律
- */
 function computePublicPriceRange(planAmount, seedKey = '') {
   const base = Number(planAmount)
   if (!Number.isFinite(base) || base <= 0) {
@@ -118,12 +111,11 @@ function hasUserPublicAuthorization(source = {}) {
     status === 'pending_review' ||
     status === 'public_approved'
   ) {
-    return Boolean(source.userPhone || source.userId)
+    return true
   }
   return false
 }
 
-/** 商家端 / 车主私密查看 */
 function buildPrivateAlbumPrice(source = {}) {
   const amount = resolvePlanAmount(source)
   if (amount == null) {
@@ -144,7 +136,6 @@ function buildPrivateAlbumPrice(source = {}) {
   }
 }
 
-/** 公开案例 / H5 公示页 */
 function buildPublicCasePrice(source = {}, options = {}) {
   const amount = resolvePlanAmount(source)
   const hasUserAuth =
@@ -172,13 +163,88 @@ function buildPublicCasePrice(source = {}, options = {}) {
     }
   }
 
-  const seedKey =
-    source.albumId || source.caseId || source.id || String(amount)
+  const seedKey = source.albumId || source.caseId || source.id || String(amount)
   const range = computePublicPriceRange(amount, seedKey)
   return {
     ...range,
     planAmount: amount,
   }
+}
+
+/** 公开案例表入库时的价格列（固定价写入 min/max） */
+function buildPublicCaseDbPriceColumns(draft = {}) {
+  const amount = draft.amount ?? draft.planAmount
+  if (draft.priceMode === PRICE_MODE.FIXED && amount != null) {
+    const value = Math.round(Number(amount))
+    return {
+      priceMode: PRICE_MODE.FIXED,
+      minAmount: value,
+      maxAmount: value,
+    }
+  }
+  return {
+    priceMode: draft.priceMode || PRICE_MODE.RANGE,
+    minAmount: draft.minAmount ?? null,
+    maxAmount: draft.maxAmount ?? null,
+  }
+}
+
+/** 从 public_cases 行 + 相册解析 API/H5 展示价格 */
+function resolvePublicCasePriceFields(row = {}, album = null) {
+  const tier = row.authorizationTier || PUBLIC_AUTH_TIER.NAMED
+  const hasUserAuth =
+    tier === PUBLIC_AUTH_TIER.ANONYMOUS || tier === PUBLIC_AUTH_TIER.NAMED
+  const albumAmount = album ? resolvePlanAmount(album) : null
+  const minAmount = row.minAmount != null ? Number(row.minAmount) : null
+  const maxAmount = row.maxAmount != null ? Number(row.maxAmount) : null
+  const rowMode = row.priceMode || ''
+
+  const rowFixed =
+    rowMode === PRICE_MODE.FIXED ||
+    (minAmount != null && maxAmount != null && minAmount === maxAmount)
+
+  if (rowFixed) {
+    const amount = minAmount ?? maxAmount ?? albumAmount
+    if (amount != null && amount > 0) {
+      return buildPublicCasePrice(
+        {
+          id: row.id,
+          albumId: row.albumId,
+          authorizationTier: tier,
+          planAmount: amount,
+          amount,
+        },
+        { hasUserAuthorization: hasUserAuth }
+      )
+    }
+  }
+
+  if (minAmount != null && maxAmount != null && minAmount !== maxAmount) {
+    return buildPublicCasePrice(
+      {
+        id: row.id,
+        albumId: row.albumId,
+        authorizationTier: tier,
+        minAmount,
+        maxAmount,
+        planAmount: albumAmount ?? minAmount,
+      },
+      { hasUserAuthorization: hasUserAuth }
+    )
+  }
+
+  return buildPublicCasePrice(
+    {
+      id: row.id,
+      albumId: row.albumId,
+      authorizationTier: tier,
+      planAmount: albumAmount,
+      minAmount: album?.minAmount,
+      maxAmount: album?.maxAmount,
+      priceMode: album?.priceMode,
+    },
+    { hasUserAuthorization: hasUserAuth }
+  )
 }
 
 function normalizePlanAmountPayload(payload = {}) {
@@ -220,6 +286,8 @@ module.exports = {
   hasUserPublicAuthorization,
   buildPrivateAlbumPrice,
   buildPublicCasePrice,
+  buildPublicCaseDbPriceColumns,
+  resolvePublicCasePriceFields,
   normalizePlanAmountPayload,
   formatPlanAmountLabel,
 }

@@ -30,16 +30,22 @@
       <ui-ai-summary-block content="{{detail.aiSummary}}" />
       <ui-key-info-table rows="{{detail.keyInfo}}" />
       <view class="case-detail__section">
-        <text class="case-detail__section-title text-h3">价格说明</text>
+        <text class="case-detail__section-title text-h3">{{detail.priceMode === 'fixed' ? '方案报价' : '价格说明'}}</text>
         <ui-price-display
           mode="{{detail.priceMode}}"
           amount="{{detail.amount}}"
           minAmount="{{detail.minAmount}}"
           maxAmount="{{detail.maxAmount}}"
-          showDisclaimer="{{true}}"
+          showSuffix="{{detail.priceMode !== 'fixed'}}"
+          showDisclaimer="{{detail.priceMode !== 'fixed'}}"
         />
-        <view class="case-detail__notice">
+        <view wx:if="{{detail.priceMode !== 'fixed'}}" class="case-detail__notice">
           <ui-compliance-notice type="casePrice" />
+        </view>
+        <view wx:else class="case-detail__notice">
+          <ui-compliance-notice
+            text="本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。"
+          />
         </view>
       </view>
       <view wx:if="{{detail.faultDesc}}" class="case-detail__section">

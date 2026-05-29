@@ -1,7 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
-const { buildPublicCasePrice } = require('../utils/album-price')
+const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
 const { buildCaseFaq } = require('../utils/case-faq')
 const {
   SEED_SERVICES,
@@ -128,6 +128,7 @@ function sanitizeNodes(nodes) {
 function mapPublicCaseRow(row, album) {
   const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
   const cover = pickCaseCover(row, content, album)
+  const publicPrice = resolvePublicCasePriceFields(row, album)
   const item = {
     id: row.id,
     albumId: row.albumId,
@@ -138,11 +139,11 @@ function mapPublicCaseRow(row, album) {
     vehicleText: content.vehicleText || '',
     serviceName: row.serviceName || '',
     summary: row.summary || '',
-    priceMode: row.priceMode || 'range',
-    amount: row.minAmount === row.maxAmount ? row.minAmount : null,
-    planAmount: row.minAmount,
-    minAmount: row.minAmount,
-    maxAmount: row.maxAmount,
+    priceMode: publicPrice.priceMode,
+    amount: publicPrice.amount,
+    planAmount: publicPrice.planAmount,
+    minAmount: publicPrice.minAmount,
+    maxAmount: publicPrice.maxAmount,
     storeId: row.storeId || '',
     storeName: row.storeName || '',
     city: row.city || '杭州',

@@ -233,33 +233,38 @@
     var currency = '¥'
     if (mode === 'accident') {
       return {
+        sectionTitle: '价格说明',
         priceText: '预约到店检测后报价',
         disclaimer: '事故车维修无法仅凭线上信息准确报价，请预约到店检测后确认方案。',
         compliance: '本案例不构成线上报价承诺。',
       }
     }
+    if (mode === 'fixed' && data.amount != null) {
+      return {
+        sectionTitle: '方案报价',
+        priceText: currency + data.amount,
+        disclaimer: '',
+        compliance: '本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。',
+      }
+    }
     if (mode === 'consult') {
       return {
+        sectionTitle: '价格说明',
         priceText: '到店检测后报价',
         disclaimer: '实际费用以门店检测结果为准。',
         compliance: '本案例价格仅为参考，不构成线上报价承诺。',
       }
     }
-    if (mode === 'fixed' && data.amount != null) {
-      return {
-        priceText: currency + data.amount + ' 起',
-        disclaimer: '实际费用以门店检测结果为准。',
-        compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
-      }
-    }
     if (data.minAmount != null && data.maxAmount != null) {
       return {
+        sectionTitle: '价格说明',
         priceText: '参考区间 ' + currency + data.minAmount + ' - ' + currency + data.maxAmount,
         disclaimer: '实际费用以门店检测结果为准。',
         compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
       }
     }
     return {
+      sectionTitle: '价格说明',
       priceText: data.priceText || '到店检测后报价',
       disclaimer: '实际费用以门店检测结果为准。',
       compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
@@ -268,15 +273,18 @@
 
   function renderPriceSection(data) {
     var display = buildPriceDisplay(data)
+    var disclaimerHtml = display.disclaimer
+      ? '<span class="h5-price-note">' + escapeHtml(display.disclaimer) + '</span>'
+      : ''
     return (
       '<div class="h5-card">' +
-      '<h2 class="h5-section-title">价格说明</h2>' +
+      '<h2 class="h5-section-title">' +
+      escapeHtml(display.sectionTitle) +
+      '</h2>' +
       '<div class="h5-price">' +
       escapeHtml(display.priceText) +
       '</div>' +
-      '<span class="h5-price-note">' +
-      escapeHtml(display.disclaimer) +
-      '</span>' +
+      disclaimerHtml +
       '<p class="h5-compliance">' +
       escapeHtml(display.compliance) +
       '</p>' +
