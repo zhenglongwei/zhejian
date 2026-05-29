@@ -6,10 +6,15 @@ const SEARCH_HISTORY_MAX = 10
 const SEARCH_KEYWORD_MAX = 30
 
 const SEARCH_TABS = [
+  { key: 'all', label: '全部' },
   { key: 'service', label: '服务' },
   { key: 'merchant', label: '门店' },
   { key: 'case', label: '案例' },
 ]
+
+const SEARCH_DEFAULT_TAB = 'all'
+
+const SEARCH_TAB_KEYS = SEARCH_TABS.map((item) => item.key)
 
 const SUGGEST_TYPE_LABEL = {
   service: '服务',
@@ -26,5 +31,7 @@ module.exports = {
   SEARCH_HISTORY_MAX,
   SEARCH_KEYWORD_MAX,
   SEARCH_TABS,
+  SEARCH_DEFAULT_TAB,
+  SEARCH_TAB_KEYS,
   SUGGEST_TYPE_LABEL,
 }

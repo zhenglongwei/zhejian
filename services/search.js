@@ -11,7 +11,7 @@ const { SUGGEST_TYPE_LABEL } = require('../constants/search')
 const { fetchServiceList } = require('./service')
 const { fetchStoreList } = require('./store')
 const { fetchCaseList } = require('./case')
-const { prepareSearchLists } = require('../utils/search-query')
+const { prepareSearchLists, packSearchResults } = require('../utils/search-query')
 const {
   matchSearchService,
   matchSearchMerchant,
@@ -150,7 +150,7 @@ async function searchContent(query = {}) {
   }
   await delay()
   const keyword = normalizeKeyword(query.keyword)
-  const tab = query.tab || 'service'
+  const tab = query.tab || 'all'
   const sort = query.sort || 'relevance'
   const filters = query.filters || {}
   const coords = parseCoords(query.coords ? { userLat: query.coords.latitude, userLng: query.coords.longitude } : query)
@@ -178,27 +178,23 @@ async function searchContent(query = {}) {
     cases: matchedCases,
   })
 
-  const start = (page - 1) * pageSize
-  const pagedList = activeList.slice(start, start + pageSize)
+  const packed = packSearchResults({
+    tab,
+    page,
+    pageSize,
+    serviceList,
+    merchantList,
+    caseList,
+    activeList,
+    geoPages,
+  })
 
   return {
     keyword,
     tab,
     sort,
     filters,
-    geoPages,
-    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
-    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
-    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
-    list: pagedList,
-    total: activeList.length,
-    hasMore: start + pageSize < activeList.length,
-    counts: {
-      service: serviceList.length,
-      merchant: merchantList.length,
-      case: caseList.length,
-      geo: geoPages.length,
-    },
+    ...packed,
     hotwords: HOTWORDS,
   }
 }

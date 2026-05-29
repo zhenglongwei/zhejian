@@ -1,6 +1,8 @@
 const {
   SEARCH_PLACEHOLDER,
   SEARCH_TABS,
+  SEARCH_DEFAULT_TAB,
+  SEARCH_TAB_KEYS,
   SEARCH_KEYWORD_MAX,
 } = require('../../../constants/search')
 const {
@@ -12,17 +14,25 @@ const {
 const { GEO_TOPIC_TAG } = require('../../../constants/geo-pages')
 const { searchContent } = require('../../../services/search')
 const { addSearchHistory } = require('../../../utils/search-history')
-const { inferDefaultTab } = require('../../../utils/search-intent')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
 const { resolveCityContext } = require('../../../utils/city-location')
 
 const TAB_LABEL = {
+  all: '全部',
   service: '服务',
   merchant: '门店',
   case: '案例',
 }
 
-function getTabList(tab, services, merchants, cases) {
+function getTabList(tab, services, merchants, cases, geoPages) {
+  if (tab === 'all') {
+    return [
+      ...(geoPages || []),
+      ...(services || []),
+      ...(merchants || []),
+      ...(cases || []),
+    ]
+  }
   if (tab === 'merchant') return merchants
   if (tab === 'case') return cases
   return services
@@ -59,7 +69,7 @@ Page({
     placeholder: SEARCH_PLACEHOLDER,
     keyword: '',
     tabs: SEARCH_TABS,
-    activeTab: 'service',
+    activeTab: SEARCH_DEFAULT_TAB,
     status: 'loading',
     errorMessage: '',
     geoPages: [],
@@ -86,7 +96,10 @@ Page({
 
   onLoad(options) {
     const keyword = decodeURIComponent((options && options.keyword) || '')
-    const tab = (options && options.tab) || inferDefaultTab(keyword)
+    const tab =
+      options && SEARCH_TAB_KEYS.includes(options.tab)
+        ? options.tab
+        : SEARCH_DEFAULT_TAB
     this.setData({
       keyword,
       activeTab: tab,
@@ -108,7 +121,8 @@ Page({
   },
 
   syncSortOptions(tab) {
-    const sortOptions = SORT_OPTIONS[tab] || SORT_OPTIONS.service
+    const sortOptions =
+      SORT_OPTIONS[tab] || SORT_OPTIONS[SEARCH_DEFAULT_TAB] || SORT_OPTIONS.service
     const sortKey = 'relevance'
     const sortLabel =
       (sortOptions.find((item) => item.key === sortKey) || sortOptions[0]).label
@@ -182,7 +196,7 @@ Page({
       const cases = result.cases || []
       const counts = result.counts || {}
       const activeTab = this.data.activeTab
-      const tabList = getTabList(activeTab, services, merchants, cases)
+      const tabList = getTabList(activeTab, services, merchants, cases, geoPages)
       const activeFilters = hasActiveFilters(this.data.filters)
       const pageEmpty = isPageEmpty(counts, geoPages)
       const showTabEmpty = !pageEmpty && !tabList.length
@@ -230,8 +244,17 @@ Page({
 
   onConfirm(e) {
     const keyword = (e.detail && e.detail.value) || this.data.keyword
-    this.setData({ keyword })
-    this.runSearch()
+    this.syncSortOptions(SEARCH_DEFAULT_TAB)
+    this.syncFilterSections(SEARCH_DEFAULT_TAB)
+    this.setData(
+      {
+        keyword,
+        activeTab: SEARCH_DEFAULT_TAB,
+        filters: createEmptyFilters(),
+        hasActiveFilters: false,
+      },
+      () => this.runSearch()
+    )
   },
 
   onTabChange(e) {
@@ -323,13 +346,12 @@ Page({
 
   onHotwordTap(e) {
     const { keyword } = e.currentTarget.dataset
-    const tab = inferDefaultTab(keyword)
-    this.syncSortOptions(tab)
-    this.syncFilterSections(tab)
+    this.syncSortOptions(SEARCH_DEFAULT_TAB)
+    this.syncFilterSections(SEARCH_DEFAULT_TAB)
     this.setData(
       {
         keyword,
-        activeTab: tab,
+        activeTab: SEARCH_DEFAULT_TAB,
         filters: createEmptyFilters(),
         hasActiveFilters: false,
       },

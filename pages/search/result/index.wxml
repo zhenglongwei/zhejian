@@ -13,7 +13,7 @@
     />
   </view>
 
-  <view class="search-result__toolbar page-content">
+  <view wx:if="{{activeTab !== 'all'}}" class="search-result__toolbar page-content">
     <text class="search-result__sort text-caption" bindtap="onSortTap">{{sortLabel}} ▾</text>
     <text class="search-result__filter text-caption {{hasActiveFilters ? 'search-result__filter--active' : ''}}" bindtap="onOpenFilter">筛选</text>
   </view>
@@ -84,6 +84,73 @@
         description="{{tabEmptyHint || '可切换上方标签查看其他分类'}}"
       />
     </view>
+
+    <block wx:elif="{{activeTab === 'all'}}">
+      <view wx:if="{{services.length}}" class="search-result__group">
+        <text class="search-result__section-title text-h3">服务</text>
+        <view class="search-result__notice">
+          <ui-compliance-notice type="price" />
+        </view>
+        <ui-service-card
+          wx:for="{{services}}"
+          wx:key="id"
+          serviceId="{{item.id}}"
+          name="{{item.name}}"
+          categoryName="{{item.categoryName}}"
+          summary="{{item.summary}}"
+          priceMode="{{item.priceMode}}"
+          amount="{{item.amount}}"
+          minAmount="{{item.minAmount}}"
+          maxAmount="{{item.maxAmount}}"
+          storeName="{{item.storeName}}"
+          bind:tap="onServiceTap"
+        />
+      </view>
+
+      <view wx:if="{{merchants.length}}" class="search-result__group">
+        <text class="search-result__section-title text-h3">门店</text>
+        <ui-store-card
+          wx:for="{{merchants}}"
+          wx:key="id"
+          storeId="{{item.id}}"
+          name="{{item.name}}"
+          address="{{item.address}}"
+          distanceText="{{item.distanceText}}"
+          businessHours="{{item.businessHours}}"
+          caseCount="{{item.caseCount}}"
+          cardTags="{{item.cardTags}}"
+          showLink="{{true}}"
+          bind:tap="onStoreTap"
+        />
+      </view>
+
+      <view wx:if="{{cases.length}}" class="search-result__group">
+        <text class="search-result__section-title text-h3">案例</text>
+        <view class="search-result__notice">
+          <ui-privacy-banner
+            text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
+          />
+          <ui-compliance-notice type="casePrice" />
+        </view>
+        <ui-case-card
+          wx:for="{{cases}}"
+          wx:key="id"
+          caseId="{{item.id}}"
+          authorizationTier="{{item.authorizationTier}}"
+          coverImage="{{item.coverImage}}"
+          title="{{item.title}}"
+          serviceName="{{item.serviceName}}"
+          summary="{{item.summary}}"
+          priceMode="{{item.priceMode}}"
+          amount="{{item.amount}}"
+          minAmount="{{item.minAmount}}"
+          maxAmount="{{item.maxAmount}}"
+          storeName="{{item.storeName}}"
+          viewCount="{{item.viewCount}}"
+          bind:tap="onCaseTap"
+        />
+      </view>
+    </block>
 
     <block wx:elif="{{activeTab === 'service'}}">
       <ui-service-card

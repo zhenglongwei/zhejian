@@ -1,5 +1,6 @@
 {
   "component": true,
+  "multipleSlots": true,
   "usingComponents": {
     "ui-tabs": "/components/tabs/index",
     "ui-skeleton": "/components/skeleton/index",

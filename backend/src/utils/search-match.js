@@ -2,8 +2,27 @@
  * 搜索关键词匹配 — 后端
  */
 
+const SEARCH_SYNONYM_GROUPS = [
+  ['事故车', '事故车检测', '事故车维修', '事故维修'],
+  ['小保养', '保养'],
+  ['补漆', '喷漆', '漆面修复'],
+  ['电瓶', '蓄电池'],
+]
+
 function normalizeKeyword(keyword) {
   return String(keyword || '').trim()
+}
+
+function getKeywordVariants(keyword) {
+  const k = normalizeKeyword(keyword)
+  if (!k) return ['']
+  const variants = new Set([k])
+  SEARCH_SYNONYM_GROUPS.forEach((group) => {
+    if (group.some((term) => k.includes(term) || term.includes(k))) {
+      group.forEach((term) => variants.add(term))
+    }
+  })
+  return Array.from(variants)
 }
 
 function includesKeyword(text, keyword) {
@@ -14,9 +33,12 @@ function includesKeyword(text, keyword) {
 }
 
 function matchAnyField(keyword, fields) {
-  const k = normalizeKeyword(keyword)
-  if (!k) return true
-  return fields.some((field) => includesKeyword(field, keyword))
+  const variants = getKeywordVariants(keyword)
+  return variants.some((variant) => {
+    const k = normalizeKeyword(variant)
+    if (!k) return true
+    return fields.some((field) => includesKeyword(field, variant))
+  })
 }
 
 function matchSearchService(item, keyword) {
@@ -68,6 +90,7 @@ function pickSearchResultTab(counts = {}, preferredTab = 'service') {
 
 module.exports = {
   normalizeKeyword,
+  getKeywordVariants,
   includesKeyword,
   matchSearchService,
   matchSearchMerchant,

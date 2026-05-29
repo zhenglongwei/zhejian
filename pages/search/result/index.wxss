@@ -20,6 +20,14 @@
   padding-bottom: var(--space-xl);
 }
 
+.search-result__group {
+  margin-bottom: var(--space-lg);
+}
+
+.search-result__group:last-child {
+  margin-bottom: 0;
+}
+
 .search-result__tab-empty {
   padding-bottom: var(--space-xl);
 }

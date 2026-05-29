@@ -122,12 +122,68 @@ function prepareSearchLists({ tab, sort, filters, coords, services, merchants, c
     filters
   )
 
-  const tabMap = { service: serviceList, merchant: merchantList, case: caseList }
+  const tabMap = {
+    service: serviceList,
+    merchant: merchantList,
+    case: caseList,
+    all: [...serviceList, ...merchantList, ...caseList],
+  }
   return {
     serviceList,
     merchantList,
     caseList,
-    activeList: tabMap[tab] || serviceList,
+    activeList: tabMap[tab] || tabMap.all,
+  }
+}
+
+function packSearchResults({
+  tab,
+  page,
+  pageSize,
+  serviceList,
+  merchantList,
+  caseList,
+  activeList,
+  geoPages,
+}) {
+  const start = (page - 1) * pageSize
+
+  if (tab === 'all') {
+    return {
+      geoPages,
+      services: serviceList.slice(0, pageSize),
+      merchants: merchantList.slice(0, pageSize),
+      cases: caseList.slice(0, pageSize),
+      list: [],
+      total: serviceList.length + merchantList.length + caseList.length,
+      hasMore:
+        serviceList.length > pageSize ||
+        merchantList.length > pageSize ||
+        caseList.length > pageSize,
+      counts: {
+        service: serviceList.length,
+        merchant: merchantList.length,
+        case: caseList.length,
+        geo: (geoPages || []).length,
+      },
+    }
+  }
+
+  const pagedList = activeList.slice(start, start + pageSize)
+  return {
+    geoPages,
+    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
+    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
+    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
+    list: pagedList,
+    total: activeList.length,
+    hasMore: start + pageSize < activeList.length,
+    counts: {
+      service: serviceList.length,
+      merchant: merchantList.length,
+      case: caseList.length,
+      geo: (geoPages || []).length,
+    },
   }
 }
 
@@ -135,4 +191,5 @@ module.exports = {
   applySearchFilters,
   sortSearchList,
   prepareSearchLists,
+  packSearchResults,
 }
