@@ -20,23 +20,15 @@
   <block wx:elif="{{detail}}">
     <view class="page-content album-share__body">
       <ui-privacy-banner text="{{detail.disclaimer}}" />
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="album-share__title text-h2">{{detail.serviceName}}</text>
-        <ui-key-info-table rows="{{summaryRows}}" />
-      </ui-card>
-      <view class="album-share__section">
-        <text class="album-share__section-title text-h3">过程记录</text>
-        <ui-album-node
-          wx:for="{{detail.nodes}}"
-          wx:key="id"
-          title="{{item.title}}"
-          images="{{item.images}}"
-          note="{{item.note}}"
-          emptyText="该节点暂无图片"
-        />
-        <text wx:if="{{detail.storeNote}}" class="note-block text-caption">{{detail.storeNote}}</text>
-      </view>
-      <text class="note-block text-caption">私人分享内容，不代表平台公示案例。</text>
+      <ui-service-album-summary-card
+        title="{{detail.serviceName}}"
+        rows="{{summaryRows}}"
+      />
+      <ui-service-album-process-section
+        nodes="{{detail.nodes}}"
+        storeNote="{{detail.storeNote}}"
+        footerBannerText="私人分享内容，不代表平台公示案例。"
+      />
     </view>
   </block>
 </view>

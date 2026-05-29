@@ -1,6 +1,26 @@
 const { fetchCaseDetail } = require('../../../services/case')
+const {
+  buildPublicCaseSharePayload,
+  copyPublicCaseWebLink,
+} = require('../../../utils/case-share')
 
-const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+const BOTTOM_LEFT_ACTIONS = [
+  { key: 'share', type: 'secondary', text: '分享' },
+  { key: 'call', type: 'secondary', text: '电话咨询' },
+]
+
+function buildShareCaseFromDetail(detail = {}) {
+  if (!detail || !detail.id) return null
+  return {
+    id: detail.id,
+    title: detail.title,
+    serviceName: detail.serviceName,
+    storeName: detail.storeName,
+    coverImage: detail.coverImage,
+    coverImageDesensitized: detail.coverImageDesensitized || detail.coverImage,
+    nodes: detail.nodes,
+  }
+}
 
 Page({
   data: {
@@ -11,6 +31,9 @@ Page({
     faqList: [],
     showStorePublicly: true,
     bottomLeftActions: BOTTOM_LEFT_ACTIONS,
+    shareSheetVisible: false,
+    shareSheetIntent: 'publicCase',
+    shareActionsDisabled: false,
   },
 
   onLoad(options) {
@@ -34,11 +57,13 @@ Page({
         faqList: detail.faq || [],
         status: 'normal',
       })
+      this.updateShareMenu(true)
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
+      this.updateShareMenu(false)
     }
   },
 
@@ -49,6 +74,75 @@ Page({
   onBottomLeftAction(e) {
     const { key } = e.detail
     if (key === 'call') this.onCall()
+    if (key === 'share') this.onOpenShareSheet()
+  },
+
+  onOpenShareSheet() {
+    this.setData({ shareSheetVisible: true })
+  },
+
+  onCloseShareSheet() {
+    this.setData({ shareSheetVisible: false })
+  },
+
+  onShareTimelineGuide() {
+    this.setData({ shareSheetVisible: false })
+    wx.showModal({
+      title: '分享到朋友圈',
+      content: '内容已准备好。请点击右上角 ···，选择「分享到朋友圈」。',
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
+  async onCopyPublicWebLink() {
+    const shareCase = buildShareCaseFromDetail(this.data.detail)
+    if (!shareCase || !shareCase.id) {
+      wx.showToast({ title: '案例信息缺失', icon: 'none' })
+      return
+    }
+    try {
+      await copyPublicCaseWebLink(shareCase.id, shareCase)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
+  },
+
+  updateShareMenu(ready) {
+    if (ready) {
+      wx.showShareMenu({
+        withShareTicket: false,
+        menus: ['shareAppMessage', 'shareTimeline'],
+      })
+    } else {
+      wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    }
+  },
+
+  onShareAppMessage() {
+    const shareCase = buildShareCaseFromDetail(this.data.detail)
+    const payload = buildPublicCaseSharePayload(shareCase)
+    if (payload) return payload
+    return {
+      title: '辙见 · 公开案例',
+      path: `/pages/case/detail/index?id=${this.caseId}`,
+    }
+  },
+
+  onShareTimeline() {
+    const shareCase = buildShareCaseFromDetail(this.data.detail)
+    const payload = buildPublicCaseSharePayload(shareCase)
+    return {
+      title: payload?.title || '辙见 · 公开案例',
+      query: `id=${encodeURIComponent(this.caseId)}`,
+    }
+  },
+
+  onCopyUrl() {
+    if (this.caseId) {
+      return { query: `id=${encodeURIComponent(this.caseId)}` }
+    }
+    return { query: '' }
   },
 
   onCall() {

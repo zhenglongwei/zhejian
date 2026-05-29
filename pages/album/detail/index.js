@@ -56,6 +56,9 @@ Page({
     showBottomBar: true,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
+    stickyHeadHeight: 200,
+    shareSheetIntent: 'owner',
+    shareActionsDisabled: false,
   },
 
   onLoad(options) {
@@ -133,6 +136,8 @@ Page({
       const showShareButton = showShareEntry || showPublicCaseShare
       const showPublicCaseStatus = showPublicCaseShare
       const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
+      const shareSheetIntent = defaultShareIntent
+      const shareActionsDisabled = showShareEntry
       const publicCaseHint = showAuthSection
         ? ''
         : PUBLIC_CASE_HINT[detail.publicCaseStatus] || ''
@@ -151,6 +156,8 @@ Page({
         showPublicCaseStatus,
         publicCaseHint,
         defaultShareIntent,
+        shareSheetIntent,
+        shareActionsDisabled,
         authChecked: false,
         status: pageStatus,
         showBottomBar: pageStatus === 'normal',
@@ -164,6 +171,7 @@ Page({
       } else {
         this.updateShareMenu(showPublicCaseShare)
       }
+      setTimeout(() => this.measureStickyHead(), 50)
     } catch (e) {
       const code = e && e.code
       let message = (e && e.message) || '加载失败'
@@ -203,23 +211,30 @@ Page({
 
     const mode = shareUseOriginal ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
     if (!options.silent) {
-      this.setData({ sharePreparing: true, shareReady: false })
+      this.setData({ sharePreparing: true, shareReady: false, shareActionsDisabled: true })
     }
 
     try {
       const result = await recordAlbumShare(detail.albumId, { mode, channel })
+      const ready = Boolean(result.shareToken)
       this.setData({
         shareToken: result.shareToken || '',
         shareMode: result.mode || mode,
-        shareReady: Boolean(result.shareToken),
+        shareReady: ready,
         sharePreparing: false,
+        shareActionsDisabled: !ready,
       })
       this.updateShareMenu(
         Boolean(result.shareToken) || defaultShareIntent === 'publicCase'
       )
       return result
     } catch (e) {
-      this.setData({ sharePreparing: false, shareReady: false, shareToken: '' })
+      this.setData({
+        sharePreparing: false,
+        shareReady: false,
+        shareToken: '',
+        shareActionsDisabled: true,
+      })
       this.updateShareMenu(defaultShareIntent === 'publicCase')
       if (!options.silent) {
         wx.showToast({
@@ -241,6 +256,31 @@ Page({
 
   onCloseShareSheet() {
     this.setData({ shareSheetVisible: false })
+  },
+
+  measureStickyHead() {
+    const query = wx.createSelectorQuery().in(this)
+    query.select('#album-sticky-head').boundingClientRect()
+    query.exec((res) => {
+      const rect = res && res[0]
+      if (!rect || !rect.height) return
+      this.setData({ stickyHeadHeight: Math.ceil(rect.height) })
+    })
+  },
+
+  onShareTimelineGuide(e) {
+    const intent = (e.detail && e.detail.intent) || 'owner'
+    this.setData({
+      shareSheetVisible: false,
+      defaultShareIntent: intent === 'publicCase' ? 'publicCase' : 'owner',
+      shareSheetIntent: intent === 'publicCase' ? 'publicCase' : 'owner',
+    })
+    wx.showModal({
+      title: '分享到朋友圈',
+      content: '内容已准备好。请点击右上角 ···，选择「分享到朋友圈」。',
+      showCancel: false,
+      confirmText: '知道了',
+    })
   },
 
   onShareOriginalToggle() {
@@ -287,7 +327,7 @@ Page({
       return
     }
     try {
-      await copyOwnerShareH5Link(token)
+      await copyOwnerShareH5Link(token, this.data.detail, { mode: this.data.shareMode })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
     }
@@ -306,7 +346,7 @@ Page({
           channel: SHARE_CHANNEL.PUBLIC_H5_LINK,
         })
       }
-      await copyPublicCaseWebLink(shareCase.id)
+      await copyPublicCaseWebLink(shareCase.id, shareCase)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
     }
@@ -493,5 +533,22 @@ Page({
     const shareCase = buildShareableCaseFromAlbum(this.data.detail)
     if (!shareCase || !shareCase.id) return
     wx.navigateTo({ url: `/pages/case/detail/index?id=${shareCase.id}` })
+  },
+
+  onCopyUrl() {
+    const { detail, shareToken, defaultShareIntent } = this.data
+    if (defaultShareIntent === 'publicCase') {
+      const shareCase = buildShareableCaseFromAlbum(detail)
+      if (shareCase && shareCase.id) {
+        return { query: `redirectCaseId=${encodeURIComponent(shareCase.id)}` }
+      }
+    }
+    if (shareToken) {
+      return { query: `token=${encodeURIComponent(shareToken)}` }
+    }
+    if (this.albumId) {
+      return { query: `albumId=${encodeURIComponent(this.albumId)}` }
+    }
+    return { query: '' }
   },
 })

@@ -1,0 +1,14 @@
+<view class="album-process">
+  <text class="album-process__title text-h3">{{title}}</text>
+  <ui-album-node
+    wx:for="{{nodes}}"
+    wx:key="id"
+    title="{{item.title}}"
+    images="{{item.images}}"
+    time="{{item.time}}"
+    note="{{item.note}}"
+    emptyText="{{emptyText}}"
+  />
+  <text wx:if="{{storeNote}}" class="note-block text-caption">{{storeNote}}</text>
+  <ui-privacy-banner wx:if="{{footerBannerText}}" text="{{footerBannerText}}" />
+</view>

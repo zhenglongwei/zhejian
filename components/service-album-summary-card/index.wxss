@@ -1,0 +1,30 @@
+.album-summary__head {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.album-summary__share {
+  flex-shrink: 0;
+}
+
+.album-summary__title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.album-summary__price {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
+}
+
+.album-summary__price-label {
+  color: var(--color-text-secondary);
+}

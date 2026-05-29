@@ -1,36 +1,7 @@
-.share-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  z-index: var(--z-popup);
-}
-
-.share-sheet__mask {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: var(--color-mask);
-}
-
-.share-sheet__panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
-  max-height: 78vh;
-  overflow-y: auto;
-  padding: var(--space-lg) var(--space-md);
-  background: var(--color-bg-card);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: var(--shadow-popup);
+.share-sheet__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-md);
 }
 
 .share-sheet__head {
@@ -48,24 +19,70 @@
   flex-shrink: 0;
 }
 
-.share-sheet__group {
+.share-sheet__channels {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.share-sheet__channel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.share-sheet__channel--disabled {
+  opacity: 0.45;
+}
+
+.share-sheet__channel-btn {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  line-height: inherit;
+  font-size: inherit;
+}
+
+.share-sheet__channel-btn::after {
+  border: none;
+}
+
+.share-sheet__icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+}
+
+.share-sheet__icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.share-sheet__channel-label {
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.share-sheet__footer {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
   padding-top: var(--space-xs);
+  border-top: 1rpx solid var(--color-border);
 }
 
-.share-sheet__group-title {
+.share-sheet__privacy-text {
   color: var(--color-text-secondary);
-}
-
-.share-sheet__actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.share-sheet__footnote {
-  margin-top: var(--space-xs);
-  color: var(--color-text-secondary);
+  line-height: 1.6;
 }

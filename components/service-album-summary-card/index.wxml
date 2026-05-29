@@ -1,0 +1,26 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view class="album-summary__head">
+    <ui-tag
+      wx:if="{{statusLabel}}"
+      variant="{{statusVariant}}"
+      text="{{statusLabel}}"
+    />
+    <text
+      wx:if="{{showShare}}"
+      class="album-summary__share text-caption text-link"
+      bind:tap="onShareTap"
+    >分享</text>
+  </view>
+  <text wx:if="{{title}}" class="album-summary__title text-h2">{{title}}</text>
+  <ui-key-info-table rows="{{rows}}" />
+  <view wx:if="{{showPrice}}" class="album-summary__price">
+    <text class="album-summary__price-label text-caption">参考报价</text>
+    <ui-price-display
+      mode="{{priceMode}}"
+      amount="{{amount}}"
+      showSuffix="{{false}}"
+      showDisclaimer="{{false}}"
+    />
+    <ui-compliance-notice type="history" />
+  </view>
+</ui-card>

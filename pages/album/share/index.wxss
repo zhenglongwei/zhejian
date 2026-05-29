@@ -12,19 +12,3 @@
   padding-top: var(--space-md);
   padding-bottom: var(--space-xl);
 }
-
-.album-share__title {
-  display: block;
-  margin-bottom: var(--space-md);
-}
-
-.album-share__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.album-share__section-title {
-  display: block;
-  color: var(--color-text-primary);
-}

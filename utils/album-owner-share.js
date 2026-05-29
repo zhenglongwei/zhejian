@@ -2,11 +2,7 @@
  * 用户自主分享（私人传播，与授权公示 / 平台公开案例解耦）
  */
 const { ENV } = require('../services/config')
-const {
-  SHARE_MODE,
-  SHARE_CHANNEL,
-  OWNER_SHARE_TITLE_SUFFIX,
-} = require('../constants/album-share')
+const { SHARE_MODE, SHARE_CHANNEL } = require('../constants/album-share')
 const { SERVICE_ALBUM_STATUS } = require('../constants/service-album-status')
 const {
   buildDesensitizedUrl,
@@ -21,8 +17,43 @@ function canOwnerShareAlbum(detail = {}) {
 }
 
 function buildShareTitle(detail = {}) {
-  const serviceName = detail.serviceName || '服务相册'
-  return `这次${serviceName}的过程记录，可参考查看${OWNER_SHARE_TITLE_SUFFIX}`
+  const serviceName = detail.serviceName || '服务维修'
+  const imageCount = Number(detail.imageCount) || 0
+  const countHint = imageCount > 0 ? `${imageCount}张过程图` : '全过程实拍'
+  return `【${serviceName}】${countHint}，修车前值得一看 · 辙见`
+}
+
+function buildOwnerShareSocialCopy(detail = {}, url = '', options = {}) {
+  const serviceName = detail.serviceName || '服务维修'
+  const storeName = (detail.store && detail.store.name) || detail.storeName || ''
+  const vehicle = detail.vehicleDisplay || ''
+  const imageCount = Number(detail.imageCount) || 0
+  const countHint = imageCount > 0 ? `${imageCount}张过程图` : '完整过程记录'
+  const mode = options.mode || SHARE_MODE.DESENSITIZED
+  const lines = []
+
+  if (storeName) {
+    lines.push(`刚在【${storeName}】做完${serviceName}，整理了${countHint}。`)
+  } else {
+    lines.push(`刚做完${serviceName}，整理了${countHint}。`)
+  }
+
+  if (vehicle) {
+    lines.push(`开${vehicle}、正准备做类似项目的朋友，可以点开看看流程和内容，做个参考。`)
+  } else {
+    lines.push('正准备做类似项目的朋友，可以点开看看流程和内容，做个参考。')
+  }
+
+  lines.push('')
+  lines.push('👉 查看我的服务相册：')
+  lines.push(url)
+  lines.push('')
+  lines.push(
+    mode === SHARE_MODE.ORIGINAL
+      ? '注：本次分享含原图，仅供你指定的对象查看，请勿二次传播隐私信息。'
+      : '注：分享内容为脱敏后信息，仅供维修过程参考。'
+  )
+  return lines.join('\n')
 }
 
 function mapNodesForSharePreview(detail, mode) {
@@ -84,19 +115,20 @@ function buildOwnerSharePayload(detail, options = {}) {
   return payload
 }
 
-function buildShareLinkText(token) {
+function buildShareLinkText(detail, token) {
   const path = buildShareMiniPath(token)
-  return `辙见服务相册分享\n请在微信中打开小程序并访问：\n${path}`
+  const title = buildShareTitle(detail)
+  return `${title}\n\n请在微信中打开小程序查看：\n${path}`
 }
 
-function copyOwnerShareLink(token) {
-  const text = buildShareLinkText(token)
+function copyOwnerShareLink(token, detail = {}) {
+  const text = buildShareLinkText(detail, token)
   return new Promise((resolve, reject) => {
     wx.setClipboardData({
       data: text,
       success: () => {
         wx.showModal({
-          title: '分享说明已复制',
+          title: '分享文案已复制',
           content:
             '请将内容粘贴给好友。对方需在微信中打开小程序查看。\n\n私人分享不会自动进入案例 Tab 或公开网页。',
           showCancel: false,
@@ -116,24 +148,25 @@ function buildOwnerShareH5Url(token) {
   return `${base}/album/share.html?token=${encodeURIComponent(token)}`
 }
 
-function copyOwnerShareH5Link(token) {
+function copyOwnerShareH5Link(token, detail = {}, options = {}) {
   const url = buildOwnerShareH5Url(token)
   if (!url) {
     wx.showToast({ title: '分享链接尚未就绪', icon: 'none' })
     return Promise.reject(new Error('missing token'))
   }
+  const text = buildOwnerShareSocialCopy(detail, url, options)
   return new Promise((resolve, reject) => {
     wx.setClipboardData({
-      data: url,
+      data: text,
       success: () => {
         wx.showModal({
-          title: '分享链接已复制',
+          title: '分享文案已复制',
           content:
-            '可在浏览器、朋友圈或其他社交 App 中粘贴打开。\n\n链接内容随你选择的脱敏/原图选项生成；不会自动进入平台案例 Tab。',
+            '文案与链接已一并复制，可直接粘贴到抖音、小红书、知乎等社交媒体。',
           showCancel: false,
           confirmText: '知道了',
         })
-        resolve(url)
+        resolve(text)
       },
       fail: reject,
     })
@@ -143,6 +176,7 @@ function copyOwnerShareH5Link(token) {
 module.exports = {
   canOwnerShareAlbum,
   buildShareTitle,
+  buildOwnerShareSocialCopy,
   mapNodesForSharePreview,
   pickShareCoverImage,
   buildShareMiniPath,

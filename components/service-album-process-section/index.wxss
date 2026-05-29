@@ -1,0 +1,10 @@
+.album-process {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-process__title {
+  display: block;
+  color: var(--color-text-primary);
+}

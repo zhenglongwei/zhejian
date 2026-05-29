@@ -5,9 +5,12 @@ const {
 } = require('../constants/service-album-status')
 const {
   buildPrivateAlbumPrice,
-  formatPlanAmountLabel,
 } = require('./album-price')
 const { canShareToOwner } = require('./service-album-share')
+
+function stripPriceSummaryRow(rows = []) {
+  return rows.filter((row) => row.label !== '参考报价')
+}
 
 function formatAlbumDateTime(iso) {
   if (!iso) return ''
@@ -59,23 +62,15 @@ function enrichServiceAlbumListItem(item, options = {}) {
   }
 
   const privatePrice = buildPrivateAlbumPrice(item)
-  const summaryRows = Array.isArray(item.summaryRows)
-    ? item.summaryRows.slice()
-    : []
-  if (
-    privatePrice.planAmount != null &&
-    !summaryRows.some((row) => row.label === '参考报价')
-  ) {
-    summaryRows.splice(Math.min(3, summaryRows.length), 0, {
-      label: '参考报价',
-      value: formatPlanAmountLabel(privatePrice.planAmount),
-    })
-  }
+  const summaryRows = stripPriceSummaryRow(
+    Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
+  )
 
   return {
     ...base,
     ...privatePrice,
     summaryRows,
+    summaryRowsForDisplay: summaryRows,
     authPendingBadge:
       item.status === 'completed' && item.publicCaseStatus === 'private'
         ? '可授权'
@@ -156,4 +151,5 @@ module.exports = {
   buildPendingConfirmSummary,
   formatAlbumDateTime,
   resolveMerchantAlbumDisplayStatus,
+  stripPriceSummaryRow,
 }

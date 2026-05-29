@@ -44,6 +44,14 @@ Component({
       type: Boolean,
       value: false,
     },
+    showActions: {
+      type: Boolean,
+      value: true,
+    },
+    scrollable: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   methods: {

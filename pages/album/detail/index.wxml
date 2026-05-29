@@ -36,38 +36,31 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="page-content service-album__body">
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <view class="service-album__summary-head">
-          <ui-tag variant="{{detail.statusVariant}}" text="{{albumStatusLabel}}" />
-        </view>
-        <ui-key-info-table rows="{{detail.summaryRows}}" />
-        <text
-          wx:if="{{detail.planAmount}}"
-          class="service-album__price-note note-block text-caption"
-        >方案报价仅供参考，实际费用以门店检测结果为准。</text>
-      </ui-card>
+    <view id="album-sticky-head" class="service-album__sticky">
+      <ui-service-album-summary-card
+        statusVariant="{{detail.statusVariant}}"
+        statusLabel="{{albumStatusLabel}}"
+        rows="{{detail.summaryRowsForDisplay}}"
+        showShare="{{showShareButton}}"
+        priceMode="{{detail.priceMode}}"
+        amount="{{detail.amount}}"
+        planAmount="{{detail.planAmount}}"
+        bind:share="onOpenShareSheet"
+      />
+    </view>
 
+    <view
+      class="page-content service-album__body"
+      style="padding-top: {{stickyHeadHeight}}px;"
+    >
       <view class="service-album__privacy">
         <ui-privacy-banner scene="album" />
       </view>
 
-      <view class="service-album__section">
-        <text class="service-album__section-title text-h3">过程记录</text>
-        <ui-album-node
-          wx:for="{{detail.nodes}}"
-          wx:key="id"
-          title="{{item.title}}"
-          images="{{item.images}}"
-          time="{{item.updatedAtText}}"
-          note="{{item.note}}"
-          emptyText="该节点暂无图片"
-        />
-        <text
-          wx:if="{{detail.storeNote}}"
-          class="note-block text-caption"
-        >{{detail.storeNote}}</text>
-      </view>
+      <ui-service-album-process-section
+        nodes="{{detail.nodes}}"
+        storeNote="{{detail.storeNote}}"
+      />
 
       <ui-album-authorize-section
         wx:if="{{showAuthSection}}"
@@ -80,10 +73,6 @@
         bind:reject="onRejectAuth"
         bind:policy="onOpenBenefitPolicy"
       />
-
-      <view wx:if="{{showShareButton}}" class="service-album__section">
-        <ui-button type="primary" size="sm" block="{{true}}" bind:tap="onOpenShareSheet">分享</ui-button>
-      </view>
 
       <view wx:if="{{showPublicCaseStatus}}" class="service-album__section">
         <text class="service-album__section-title text-h3">平台公示</text>
@@ -109,34 +98,16 @@
   <ui-share-sheet
     visible="{{shareSheetVisible}}"
     showOwnerShare="{{showShareEntry}}"
-    showPublicCaseShare="{{showPublicCaseShare}}"
+    shareIntent="{{shareSheetIntent}}"
     shareUseOriginal="{{shareUseOriginal}}"
-    ownerShareReady="{{shareReady}}"
     ownerSharePreparing="{{sharePreparing}}"
-    ownerPrivacyScene="{{shareUseOriginal ? 'ownerShareOriginal' : 'ownerShare'}}"
+    actionsDisabled="{{shareActionsDisabled}}"
     bind:close="onCloseShareSheet"
     bind:toggleoriginal="onShareOriginalToggle"
     bind:copyownerlink="onCopyOwnerShareLink"
     bind:copypublicweblink="onCopyPublicWebLink"
-  >
-    <ui-button
-      slot="ownerWechatShare"
-      type="ghost"
-      size="sm"
-      block="{{true}}"
-      openType="share"
-      data-share-intent="owner"
-      disabled="{{!shareReady || sharePreparing}}"
-    >转发给微信好友</ui-button>
-    <ui-button
-      slot="publicWechatShare"
-      type="ghost"
-      size="sm"
-      block="{{true}}"
-      openType="share"
-      data-share-intent="publicCase"
-    >转发公开案例</ui-button>
-  </ui-share-sheet>
+    bind:sharetimeline="onShareTimelineGuide"
+  />
 
   <ui-login-sheet
     visible="{{loginSheetVisible}}"

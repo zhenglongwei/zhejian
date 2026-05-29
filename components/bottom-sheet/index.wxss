@@ -52,6 +52,11 @@
   font-size: var(--font-body);
 }
 
+.bottom-sheet__panel--scroll {
+  max-height: 78vh;
+  overflow-y: auto;
+}
+
 .bottom-sheet__actions {
   display: flex;
   gap: var(--space-md);

@@ -1,53 +1,58 @@
-<view wx:if="{{visible}}" class="share-sheet">
-  <view class="share-sheet__mask" bindtap="onMaskTap" />
-  <view class="share-sheet__panel safe-bottom" catchtap="noop">
+<ui-bottom-sheet
+  visible="{{visible}}"
+  showActions="{{false}}"
+  scrollable="{{true}}"
+  bind:close="onCloseFromSheet"
+>
+  <view class="share-sheet__body">
     <view class="share-sheet__head">
       <text class="share-sheet__title text-h3">分享</text>
-      <text class="share-sheet__close text-caption text-link" bindtap="onCloseTap">关闭</text>
+      <text class="share-sheet__close text-caption text-link" bind:tap="onCloseTap">关闭</text>
     </view>
 
-    <block wx:if="{{showOwnerShare}}">
-      <ui-privacy-banner scene="{{ownerPrivacyScene}}" />
+    <view class="share-sheet__channels">
+      <view
+        class="share-sheet__channel {{actionsDisabled ? 'share-sheet__channel--disabled' : ''}}"
+        bindtap="onTimelineTap"
+      >
+        <view class="share-sheet__icon-wrap">
+          <image class="share-sheet__icon" src="/assets/share/icon-moments.svg" mode="aspectFit" />
+        </view>
+        <text class="share-sheet__channel-label text-caption">分享到朋友圈</text>
+      </view>
+
+      <button
+        class="share-sheet__channel share-sheet__channel-btn {{actionsDisabled ? 'share-sheet__channel--disabled' : ''}}"
+        open-type="share"
+        data-share-intent="{{shareIntent}}"
+        disabled="{{actionsDisabled}}"
+      >
+        <view class="share-sheet__icon-wrap">
+          <image class="share-sheet__icon" src="/assets/share/icon-friend.svg" mode="aspectFit" />
+        </view>
+        <text class="share-sheet__channel-label text-caption">转发给朋友</text>
+      </button>
+
+      <view
+        class="share-sheet__channel {{actionsDisabled ? 'share-sheet__channel--disabled' : ''}}"
+        bindtap="onSocialTap"
+      >
+        <view class="share-sheet__icon-wrap">
+          <image class="share-sheet__icon" src="/assets/share/icon-social.svg" mode="aspectFit" />
+        </view>
+        <text class="share-sheet__channel-label text-caption">转发到社交媒体</text>
+      </view>
+    </view>
+
+    <view wx:if="{{showOwnerShare}}" class="share-sheet__footer">
+      <text class="share-sheet__privacy-text text-caption">为保护您的隐私，分享默认使用脱敏后的信息，您也可以使用：</text>
       <ui-checkbox-row
         checked="{{shareUseOriginal}}"
         disabled="{{ownerSharePreparing}}"
         bind:toggle="onToggleOriginal"
       >
-        <text>使用原图分享</text>
+        <text>原图分享</text>
       </ui-checkbox-row>
-      <view class="share-sheet__group">
-        <text class="share-sheet__group-title text-caption">分享我的服务相册</text>
-        <view class="share-sheet__actions">
-          <slot name="ownerWechatShare" />
-          <ui-button
-            type="ghost"
-            size="sm"
-            block="{{true}}"
-            disabled="{{!ownerShareReady || ownerSharePreparing}}"
-            bind:tap="onCopyOwnerLink"
-          >复制分享链接</ui-button>
-        </view>
-      </view>
-    </block>
-
-    <block wx:if="{{showPublicCaseShare}}">
-      <view class="share-sheet__group">
-        <ui-privacy-banner scene="publicCaseShare" />
-        <text class="share-sheet__group-title text-caption">平台公示案例</text>
-        <view class="share-sheet__actions">
-          <slot name="publicWechatShare" />
-          <ui-button
-            type="ghost"
-            size="sm"
-            block="{{true}}"
-            bind:tap="onCopyPublicWebLink"
-          >复制公示网页链接</ui-button>
-        </view>
-      </view>
-    </block>
-
-    <text class="share-sheet__footnote note-block text-caption">
-      右上角 ··· 可分享至朋友圈。上方「复制分享/公示链接」为浏览器可打开的网页；右上角「复制链接」为微信内小程序链。
-    </text>
+    </view>
   </view>
-</view>
+</ui-bottom-sheet>

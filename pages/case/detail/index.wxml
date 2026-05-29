@@ -120,5 +120,15 @@
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
       <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
     </ui-fixed-bottom-bar>
+
+    <ui-share-sheet
+      visible="{{shareSheetVisible}}"
+      showOwnerShare="{{false}}"
+      shareIntent="publicCase"
+      actionsDisabled="{{shareActionsDisabled}}"
+      bind:close="onCloseShareSheet"
+      bind:copypublicweblink="onCopyPublicWebLink"
+      bind:sharetimeline="onShareTimelineGuide"
+    />
   </block>
 </view>

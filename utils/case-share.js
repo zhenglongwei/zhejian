@@ -13,8 +13,27 @@ function buildCaseH5Url(caseId) {
 }
 
 function buildCaseShareTitle(detail) {
-  if (!detail || !detail.title) return '辙见 · 已脱敏公开案例'
-  return `${detail.title} · 已脱敏公开案例`
+  const title = (detail && (detail.title || detail.serviceName)) || '维修案例'
+  return `【${title}】脱敏维修过程参考，修车前值得一看 · 辙见`
+}
+
+function buildPublicCaseSocialCopy(detail = {}, url = '') {
+  const title = (detail && (detail.title || detail.serviceName)) || '维修案例'
+  const storeName =
+    (detail && detail.storeName) || (detail && detail.store && detail.store.name) || ''
+  const lines = [
+    `辙见公开案例 · 【${title}】`,
+    storeName
+      ? `来自【${storeName}】，车主授权公示的脱敏维修过程。`
+      : '车主授权公示的脱敏维修过程，含关键节点与参考信息。',
+    '修同款或类似问题前，可以先翻翻流程和内容，做个参考。',
+    '',
+    '👉 查看案例详情：',
+    url,
+    '',
+    '注：内容为平台已审核的脱敏公示案例，仅供维修过程参考。',
+  ]
+  return lines.join('\n')
 }
 
 function buildCaseShareImageUrl(detail) {
@@ -49,24 +68,51 @@ function buildCaseSharePayload(detail) {
   return buildPublicCaseSharePayload(detail)
 }
 
-function copyPublicCaseWebLink(caseId) {
+function copyPublicCaseMiniLink(caseId, detail = {}) {
+  const path = buildMiniProgramSharePath(caseId)
+  if (!path || !caseId) {
+    wx.showToast({ title: '案例信息缺失', icon: 'none' })
+    return Promise.reject(new Error('missing caseId'))
+  }
+  const title = buildCaseShareTitle(detail)
+  const text = `${title}\n\n请在微信中打开小程序查看：\n${path}`
+  return new Promise((resolve, reject) => {
+    wx.setClipboardData({
+      data: text,
+      success: () => {
+        wx.showModal({
+          title: '分享文案已复制',
+          content:
+            '请将内容粘贴给好友。对方需在微信中打开小程序查看。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        resolve(text)
+      },
+      fail: reject,
+    })
+  })
+}
+
+function copyPublicCaseWebLink(caseId, detail = {}) {
   const url = buildCaseH5Url(caseId)
   if (!url) {
     wx.showToast({ title: '案例信息缺失', icon: 'none' })
     return Promise.reject(new Error('missing caseId'))
   }
+  const text = buildPublicCaseSocialCopy(detail, url)
   return new Promise((resolve, reject) => {
     wx.setClipboardData({
-      data: url,
+      data: text,
       success: () => {
         wx.showModal({
-          title: '公示网页链接已复制',
+          title: '分享文案已复制',
           content:
-            '可在浏览器或朋友圈粘贴打开。内容为平台已审核的脱敏公示案例。\n\n右上角「复制链接」为微信内小程序链，浏览器无法打开。',
+            '文案与链接已一并复制，可直接粘贴到抖音、小红书、知乎等社交媒体。',
           showCancel: false,
           confirmText: '知道了',
         })
-        resolve(url)
+        resolve(text)
       },
       fail: reject,
     })
@@ -107,6 +153,8 @@ function buildShareableCaseFromAlbum(detail) {
   return {
     id: detail.publicCaseId,
     title: detail.publicCaseTitle || detail.serviceName || '公开案例',
+    serviceName: detail.serviceName || '',
+    storeName: (detail.store && detail.store.name) || '',
     coverImage: cover,
     coverImageDesensitized: cover,
     nodes: cover ? [{ images: [cover] }] : [],
@@ -116,6 +164,7 @@ function buildShareableCaseFromAlbum(detail) {
 module.exports = {
   buildCaseH5Url,
   buildCaseShareTitle,
+  buildPublicCaseSocialCopy,
   buildCaseShareImageUrl,
   canShareCase,
   buildCaseSharePayload,
@@ -123,5 +172,6 @@ module.exports = {
   buildMiniProgramSharePath,
   buildShareableCaseFromAlbum,
   copyCaseShareLink,
+  copyPublicCaseMiniLink,
   copyPublicCaseWebLink,
 }

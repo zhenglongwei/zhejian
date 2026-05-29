@@ -8,15 +8,11 @@ Component({
       type: Boolean,
       value: false,
     },
-    showPublicCaseShare: {
-      type: Boolean,
-      value: false,
+    shareIntent: {
+      type: String,
+      value: 'owner',
     },
     shareUseOriginal: {
-      type: Boolean,
-      value: false,
-    },
-    ownerShareReady: {
       type: Boolean,
       value: false,
     },
@@ -24,16 +20,14 @@ Component({
       type: Boolean,
       value: false,
     },
-    ownerPrivacyScene: {
-      type: String,
-      value: 'ownerShare',
+    actionsDisabled: {
+      type: Boolean,
+      value: false,
     },
   },
 
   methods: {
-    noop() {},
-
-    onMaskTap() {
+    onCloseFromSheet() {
       this.triggerEvent('close')
     },
 
@@ -45,12 +39,18 @@ Component({
       this.triggerEvent('toggleoriginal')
     },
 
-    onCopyOwnerLink() {
-      this.triggerEvent('copyownerlink')
+    onTimelineTap() {
+      if (this.properties.actionsDisabled) return
+      this.triggerEvent('sharetimeline', { intent: this.properties.shareIntent })
     },
 
-    onCopyPublicWebLink() {
-      this.triggerEvent('copypublicweblink')
+    onSocialTap() {
+      if (this.properties.actionsDisabled) return
+      if (this.properties.shareIntent === 'publicCase') {
+        this.triggerEvent('copypublicweblink')
+        return
+      }
+      this.triggerEvent('copyownerlink')
     },
   },
 })

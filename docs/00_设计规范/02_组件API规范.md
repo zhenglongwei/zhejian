@@ -478,6 +478,8 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 | maxlength | Number | 200 | 输入上限 |
 | confirmText / cancelText | String | 确认 / 取消 | 按钮文案 |
 | confirmDisabled / loading | Boolean | false | 确认按钮态 |
+| showActions | Boolean | true | 是否展示底部确认/取消栏 |
+| scrollable | Boolean | false | panel 是否限高可滚动（如 ShareSheet） |
 
 | 事件 | 说明 |
 |---|---|
@@ -492,35 +494,66 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 
 ### 3.6d ShareSheet（`components/share-sheet`）· **Phase 1 新增**
 
-相册详情 **半屏分享** 业务组件；基于 `bottom-sheet` 视觉规范（mask + panel + `safe-bottom`），**不含** 默认 confirm/cancel 双按钮栏。
+相册详情 / 案例详情 **半屏分享** 业务组件；组合 **bottom-sheet**（`showActions=false` `scrollable=true`），**不含** 默认 confirm/cancel 双按钮栏。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | visible | Boolean | false | 是否展示 |
-| showOwnerShare | Boolean | false | 私人分组（completed 即可） |
-| showPublicCaseShare | Boolean | false | 平台公示分组（public_approved） |
-| shareUseOriginal | Boolean | false | 原图分享（**仅私人分组**） |
-| ownerShareReady | Boolean | false | 私人 shareToken 就绪 |
+| showOwnerShare | Boolean | false | 是否展示底部原图分享区（私人分享） |
+| shareIntent | String | owner | `owner` 私人 · `publicCase` 平台公示 |
+| shareUseOriginal | Boolean | false | 原图分享（**仅 showOwnerShare**） |
 | ownerSharePreparing | Boolean | false | token 准备中 |
+| actionsDisabled | Boolean | false | 禁用三渠道入口 |
 
 | 事件 | 说明 |
 |---|---|
 | close | 关闭面板 |
 | toggleoriginal | 切换原图（页面侧风险 Modal） |
-| copyownerlink | 复制私人分享公网链接（token.mode） |
-| copypublicweblink | 复制平台公示 H5（case/view.html） |
+| copyownerlink | 复制私人分享文案+公网链接 |
+| copypublicweblink | 复制公示案例文案+公网链接 |
+| sharetimeline | 朋友圈引导（页面侧 Modal + 右上角 ···） |
 
-**Slot / 内置结构**（见 `07_维修相册查看页.md` §17.4）：
+**内置结构**：
 
-- `ui-privacy-banner`（scene 由页面传入或组件内映射）
-- `ui-checkbox-row`（原图分享，仅 `showOwnerShare`）
-- 渠道按钮行：`open-type="share"` 须放在页面 WXML（微信限制），组件通过 slot 或 `bind:` 由页面挂载
+- 三列渠道：朋友圈 / 转发给朋友（`open-type="share"`）/ 转发到社交媒体（复制链接）
+- 底部隐私说明 + `CheckboxRow`（原图分享，仅 `showOwnerShare`）
 
 **约束**：
 
 - 禁止奖励诱导文案；渠道说明使用 `text-caption`
-- z-index 使用 `--z-popup`
+- z-index 继承 bottom-sheet（`--z-popup`）
 - 不得与 `LoginSheet` 同时打开
+
+---
+
+### 3.6e ServiceAlbumSummaryCard（`components/service-album-summary-card`）
+
+服务相册摘要卡：状态 Tag、关键信息表、可选参考报价（PriceDisplay + ComplianceNotice）、可选分享入口。
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| statusVariant / statusLabel | String | 状态 Tag |
+| title | String | 可选标题（分享落地页） |
+| rows | Array | KeyInfoTable 行（不含参考报价） |
+| showShare | Boolean | 右上角「分享」 |
+| priceMode / amount / planAmount | — | 有 planAmount 时展示价格区 |
+
+| 事件 | 说明 |
+|---|---|
+| share | 点击分享 |
+
+---
+
+### 3.6f ServiceAlbumProcessSection（`components/service-album-process-section`）
+
+服务相册过程记录区块：`AlbumNode` 列表 + 门店说明 + 可选底部 PrivacyBanner。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | 过程记录 | 区块标题 |
+| nodes | Array | [] | 节点列表 |
+| storeNote | String | — | 门店说明 |
+| footerBannerText | String | — | 底部提示（如分享落地页合规句） |
 
 ---
 
