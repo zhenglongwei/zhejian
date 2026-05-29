@@ -35,8 +35,12 @@ const config = {
     engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
     apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),
     maxFaceNumber: Number(process.env.DESENSITIZE_MAX_FACE_NUMBER || 10),
+    /** 车辆接车图默认不做人脸检测，避免误检整图 */
+    detectFace: process.env.DESENSITIZE_DETECT_FACE === 'true',
+    /** ocr-api 在部分 ECS 不可达，默认 viapi（ocr.cn-shanghai） */
+    plateProvider: process.env.DESENSITIZE_PLATE_PROVIDER || 'viapi',
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
-    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v5',
+    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v6',
   },
 }
 

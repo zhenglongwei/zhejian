@@ -139,6 +139,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
 
   if (existing && existing.fingerprint !== versionedFingerprint) {
     await clearPendingAuthorizeTasks(albumId, authorizeBizType)
+    force = true
   }
 
   const taskId = buildPreMaskTaskId(albumId)

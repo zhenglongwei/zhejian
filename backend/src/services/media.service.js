@@ -96,7 +96,7 @@ function mapEngineResultToStatus(engineResult) {
   return DESENSITIZE_STATUS.FAILED
 }
 
-function shouldUseCachedDesensitize(media) {
+function shouldUseCachedDesensitize(media, context = {}) {
   if (!media.desensitizedUrl || media.desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
     return false
   }
@@ -107,6 +107,21 @@ function shouldUseCachedDesensitize(media) {
       desensitizedKey: media.desensitizedKey,
     })
     return false
+  }
+  const { albumId = '', nodeId = 'node', idx = 0, engineVersion = '' } = context
+  if (engineVersion && engineVersion !== ENGINE_VERSION) {
+    return false
+  }
+  if (albumId) {
+    const ext = path.extname(String(media.objectKey || '')).toLowerCase() || '.jpg'
+    const expectedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
+    if (media.desensitizedKey !== expectedKey) {
+      console.info('[media] ignore cached desensitize: album key mismatch', {
+        cached: media.desensitizedKey,
+        expected: expectedKey,
+      })
+      return false
+    }
   }
   return true
 }
@@ -122,7 +137,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
     throw err
   }
 
-  if (shouldUseCachedDesensitize(media) && !context.force) {
+  if (shouldUseCachedDesensitize(media, context) && !context.force) {
     return {
       mediaId: media.id,
       taskStatus: 'SUCCESS',
@@ -217,7 +232,10 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
     return { mediaId: '', maskedUrl: '', ok: false, riskTags: [], riskLevel: '' }
   }
   try {
-    const result = await runMediaDesensitize(media.id, context)
+    const result = await runMediaDesensitize(media.id, {
+      ...context,
+      engineVersion: ENGINE_VERSION,
+    })
     return {
       mediaId: media.id,
       maskedUrl: result.desensitizedUrl,

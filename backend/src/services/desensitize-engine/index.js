@@ -1,12 +1,12 @@
-const path = require('path')
 const sharp = require('sharp')
 const { config } = require('../../config')
 const { mergeBoxes } = require('./bbox')
 const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
+const { prepareOrientedWorkingCopy } = require('./oriented')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v5'
+const ENGINE_VERSION = 'aliyun-v6'
 
 function filterBogusFaceBoxes(boxes, imageWidth, imageHeight) {
   if (!imageWidth || !imageHeight) return boxes
@@ -36,6 +36,21 @@ function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
   }))
 }
 
+function riskTagsFromBoxes(boxes) {
+  const riskTags = new Set()
+  boxes.forEach((box) => {
+    if (box.type === 'face') riskTags.add('face')
+    if (box.type === 'plate') riskTags.add('plate')
+    if (box.type === 'vin') riskTags.add('vin')
+    if (box.type === 'phone') riskTags.add('phone')
+    if (box.type === 'document') riskTags.add('document')
+    if (box.type === 'mixed') {
+      riskTags.add('plate')
+    }
+  })
+  return [...riskTags]
+}
+
 function resolveRiskLevel({ riskTags, authFailed, maskError, needManual }) {
   if (authFailed || maskError) return 'forbidden'
   if (needManual) return 'high'
@@ -43,95 +58,110 @@ function resolveRiskLevel({ riskTags, authFailed, maskError, needManual }) {
   return 'medium'
 }
 
-async function getImageSize(imagePath) {
-  const meta = await sharp(imagePath).metadata()
-  return { width: meta.width || 0, height: meta.height || 0 }
-}
-
 async function processImageAliyun(sourcePath, destPath, options = {}) {
-  const detection = await detectSensitiveRegions(sourcePath, options)
-  const { width, height } = await getImageSize(sourcePath)
-  if (!width || !height) {
-    const err = new Error('无法读取图片尺寸')
-    err.code = 'BAD_IMAGE'
-    throw err
-  }
-
-  const filteredBoxes = filterBogusFaceBoxes(detection.boxes, width, height)
-  const mergedBoxes = mergeBoxes(
-    scaleBoxes(filteredBoxes, detection.ocrWidth, detection.ocrHeight, width, height),
-    width,
-    height
-  )
-  let maskError = false
-  let needManual = false
-
-  if (detection.ocrAuthFailed) {
-    console.warn('[desensitize-engine] ocr auth failed, mark need_manual', detection.errors)
-    needManual = true
-  }
-
-  if (detection.plateMaskMiss) {
-    console.warn('[desensitize-engine] plate text detected but no mask box', { sourcePath })
-    needManual = true
-  }
-
-  if (detection.riskTags.includes('plate') && !mergedBoxes.some((b) => b.type === 'plate')) {
-    needManual = true
-  }
-
+  const oriented = await prepareOrientedWorkingCopy(sourcePath)
   try {
-    await writeMaskedImage(sourcePath, destPath, mergedBoxes)
-  } catch (e) {
-    maskError = true
-    if (detection.riskTags.length) needManual = true
-    throw e
-  }
-
-  if (detection.riskTags.length > 0 && detection.errors.length >= 2) {
-    needManual = true
-  }
-
-  if (detection.ocrAuthFailed && !mergedBoxes.some((b) => b.type === 'plate')) {
-    needManual = true
-  }
-
-  if (detection.ocrNetworkFailed && !mergedBoxes.some((b) => b.type === 'plate')) {
-    needManual = true
-  }
-
-  if (!mergedBoxes.some((b) => b.type === 'plate') && !detection.riskTags.includes('plate')) {
-    const onlyFace =
-      mergedBoxes.length > 0 && mergedBoxes.every((b) => b.type === 'face')
-    if (onlyFace) {
-      console.warn('[desensitize-engine] only face masked, plate not detected', { sourcePath })
+    const { width, height } = oriented
+    if (!width || !height) {
+      const err = new Error('无法读取图片尺寸')
+      err.code = 'BAD_IMAGE'
+      throw err
     }
-  }
 
-  const riskLevel = resolveRiskLevel({
-    riskTags: detection.riskTags,
-    authFailed: detection.ocrAuthFailed,
-    maskError,
-    needManual,
-  })
+    const detection = await detectSensitiveRegions(oriented.workingPath, {
+      ...options,
+      imageWidth: width,
+      imageHeight: height,
+    })
 
-  const taskStatus = needManual ? 'NEED_MANUAL' : 'SUCCESS'
+    const filteredBoxes = filterBogusFaceBoxes(detection.boxes, width, height)
+    const mergedBoxes = mergeBoxes(
+      scaleBoxes(filteredBoxes, detection.ocrWidth, detection.ocrHeight, width, height),
+      width,
+      height
+    )
+    const riskTags = riskTagsFromBoxes(mergedBoxes)
+    let maskError = false
+    let needManual = false
 
-  return {
-    taskStatus,
-    riskLevel,
-    riskTags: detection.riskTags,
-    detections: mergedBoxes.map((b) => ({
-      type: b.type,
-      left: b.left,
-      top: b.top,
-      width: b.width,
-      height: b.height,
-      source: b.source,
-    })),
-    engineVersion: ENGINE_VERSION,
-    needManual,
-    warnings: detection.errors,
+    if (detection.ocrAuthFailed) {
+      console.warn('[desensitize-engine] ocr auth failed, mark need_manual', detection.errors)
+      needManual = true
+    }
+
+    if (detection.plateMaskMiss) {
+      console.warn('[desensitize-engine] plate text detected but no mask box', {
+        sourcePath,
+        imageSize: { width, height },
+      })
+      needManual = true
+    }
+
+    if (riskTags.includes('plate') && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
+      needManual = true
+    }
+
+    if (mergedBoxes.length) {
+      console.info('[desensitize-engine] mask boxes', {
+        imageSize: { width, height },
+        boxes: mergedBoxes.map((b) => ({
+          type: b.type,
+          left: b.left,
+          top: b.top,
+          width: b.width,
+          height: b.height,
+          source: b.source,
+        })),
+      })
+    }
+
+    try {
+      await writeMaskedImage(oriented.workingPath, destPath, mergedBoxes)
+    } catch (e) {
+      maskError = true
+      if (riskTags.length) needManual = true
+      throw e
+    }
+
+    if (riskTags.length > 0 && detection.errors.length >= 2) {
+      needManual = true
+    }
+
+    if (detection.ocrAuthFailed && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
+      needManual = true
+    }
+
+    if (detection.ocrNetworkFailed && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
+      needManual = true
+    }
+
+    const riskLevel = resolveRiskLevel({
+      riskTags,
+      authFailed: detection.ocrAuthFailed,
+      maskError,
+      needManual,
+    })
+
+    const taskStatus = needManual ? 'NEED_MANUAL' : 'SUCCESS'
+
+    return {
+      taskStatus,
+      riskLevel,
+      riskTags,
+      detections: mergedBoxes.map((b) => ({
+        type: b.type,
+        left: b.left,
+        top: b.top,
+        width: b.width,
+        height: b.height,
+        source: b.source,
+      })),
+      engineVersion: ENGINE_VERSION,
+      needManual,
+      warnings: detection.errors,
+    }
+  } finally {
+    oriented.cleanup()
   }
 }
 

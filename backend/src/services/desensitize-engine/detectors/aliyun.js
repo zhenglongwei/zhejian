@@ -202,7 +202,44 @@ function isNetworkError(err) {
   )
 }
 
-async function detectPlateRegion(imagePath, publicUrl) {
+async function detectPlateRegion(imagePath, publicUrl, detectOptions = {}) {
+  const { imageWidth = 0, imageHeight = 0 } = detectOptions
+  const useViapiFirst = config.desensitize.plateProvider === 'viapi'
+
+  if (useViapiFirst) {
+    try {
+      const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
+      if (viapi.boxes.length || viapi.plateTextFound) {
+        return {
+          boxes: viapi.boxes,
+          authFailed: false,
+          error: '',
+          plateMaskMiss: viapi.plateTextFound && !viapi.boxes.length,
+          orgWidth: imageWidth,
+          orgHeight: imageHeight,
+          ocrNetworkFailed: false,
+        }
+      }
+    } catch (viapiErr) {
+      if (isAuthError(viapiErr)) {
+        return {
+          boxes: [],
+          authFailed: true,
+          error: `plate-viapi:${viapiErr.message || 'auth'}`,
+          plateMaskMiss: true,
+          orgWidth: 0,
+          orgHeight: 0,
+          ocrNetworkFailed: false,
+        }
+      }
+      console.warn(
+        '[desensitize-engine] viapi plate failed, try ocr-api:',
+        viapiErr.code || '',
+        String(viapiErr.message || '').slice(0, 120)
+      )
+    }
+  }
+
   let ocrApiError = ''
   try {
     const data = await ocrRecognize(
@@ -251,7 +288,7 @@ async function detectPlateRegion(imagePath, publicUrl) {
   }
 
   try {
-    const viapi = await detectPlateViaViapi(imagePath)
+    const viapi = await detectPlateViaViapi(imagePath, imageWidth, imageHeight)
     return {
       boxes: viapi.boxes,
       authFailed: false,
@@ -316,10 +353,16 @@ async function detectGeneralText(imagePath, publicUrl) {
  */
 async function detectSensitiveRegions(imagePath, options = {}) {
   const publicUrl = options.publicUrl || ''
+  const imageWidth = options.imageWidth || 0
+  const imageHeight = options.imageHeight || 0
+
+  const facePromise = config.desensitize.detectFace
+    ? runDetector('face', () => detectFaces(imagePath))
+    : Promise.resolve({ boxes: [], authFailed: false, error: '' })
 
   const [faceResult, plateResult, vinResult, textResult] = await Promise.all([
-    runDetector('face', () => detectFaces(imagePath)),
-    detectPlateRegion(imagePath, publicUrl),
+    facePromise,
+    detectPlateRegion(imagePath, publicUrl, { imageWidth, imageHeight }),
     runDetector('vin', () => detectVin(imagePath, publicUrl)),
     runDetector('text', () => detectGeneralText(imagePath, publicUrl)),
   ])
