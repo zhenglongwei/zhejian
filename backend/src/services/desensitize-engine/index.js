@@ -41,8 +41,8 @@ async function processImageAliyun(sourcePath, destPath) {
     throw e
   }
 
-  if (detection.errors.length && detection.riskTags.length) {
-    needManual = detection.errors.length >= 2
+  if (detection.riskTags.length > 0 && detection.errors.length >= 2) {
+    needManual = true
   }
 
   const riskLevel = resolveRiskLevel({

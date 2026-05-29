@@ -116,6 +116,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         albumId,
         nodeId: asset.nodeId,
         idx: asset.idx,
+        force: Boolean(options.force),
       })
       const preMaskedUrl = masked.ok ? masked.maskedUrl : ''
       return {

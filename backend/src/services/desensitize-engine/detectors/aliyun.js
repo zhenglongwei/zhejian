@@ -2,7 +2,7 @@ const { RuntimeOptions } = require('@darabonba/typescript')
 const Ocr = require('@alicloud/ocr-api20210707')
 const Facebody = require('@alicloud/facebody20191230')
 const { config } = require('../../../config')
-const { getOcrClient, getFaceClient, readImageBody, openImageStream } = require('../../../lib/aliyun-clients')
+const { getOcrClient, getFaceClient, openImageStream } = require('../../../lib/aliyun-clients')
 const { boxesFromFaceRectangles } = require('../bbox')
 const { parsePlateBoxes, parseVinBoxes, parseGeneralSensitiveBoxes } = require('../parse-ocr')
 
@@ -30,18 +30,20 @@ function isAuthError(err) {
   )
 }
 
-/** 未识别到车牌/VIN 等，视为空结果而非整图失败 */
+/** 未识别到车牌/VIN/人脸等，视为空结果而非整图失败 */
 function isBenignDetectError(err) {
   if (isAuthError(err)) return false
-  const code = String(err?.code || '').toLowerCase()
+  const code = String(err?.code || err?.data?.Code || '').toLowerCase()
   const msg = String(err?.message || '').toLowerCase()
   return (
     code.includes('illegalimage') ||
     code.includes('noocrresult') ||
+    code.includes('notfoundface') ||
+    code.includes('notfound') ||
     msg.includes('未识别') ||
     msg.includes('无识别') ||
-    msg.includes('no region') ||
-    msg.includes('not found')
+    msg.includes('没找到') ||
+    msg.includes('notfoundface')
   )
 }
 
@@ -89,8 +91,7 @@ async function detectFaces(imagePath) {
 
 async function ocrWithBody(RequestClass, method, imagePath) {
   const client = getOcrClient()
-  const body = readImageBody(imagePath)
-  const request = new RequestClass({ body })
+  const request = new RequestClass({ body: openImageStream(imagePath) })
   const resp = await client[method](request)
   const rawBody = resp?.body
   if (rawBody?.code && String(rawBody.code) !== '200') {
