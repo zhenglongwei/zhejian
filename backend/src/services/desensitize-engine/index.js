@@ -6,7 +6,21 @@ const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v4'
+const ENGINE_VERSION = 'aliyun-v5'
+
+function filterBogusFaceBoxes(boxes, imageWidth, imageHeight) {
+  if (!imageWidth || !imageHeight) return boxes
+  const imageArea = imageWidth * imageHeight
+  return boxes.filter((box) => {
+    if (box.type !== 'face') return true
+    const ratio = (box.width * box.height) / imageArea
+    if (ratio >= 0.85) {
+      console.warn('[desensitize-engine] drop bogus full-frame face box', { ratio })
+      return false
+    }
+    return true
+  })
+}
 
 function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
   if (!ocrWidth || !ocrHeight || !imageWidth || !imageHeight) return boxes
@@ -43,8 +57,9 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
     throw err
   }
 
+  const filteredBoxes = filterBogusFaceBoxes(detection.boxes, width, height)
   const mergedBoxes = mergeBoxes(
-    scaleBoxes(detection.boxes, detection.ocrWidth, detection.ocrHeight, width, height),
+    scaleBoxes(filteredBoxes, detection.ocrWidth, detection.ocrHeight, width, height),
     width,
     height
   )
@@ -79,6 +94,18 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
 
   if (detection.ocrAuthFailed && !mergedBoxes.some((b) => b.type === 'plate')) {
     needManual = true
+  }
+
+  if (detection.ocrNetworkFailed && !mergedBoxes.some((b) => b.type === 'plate')) {
+    needManual = true
+  }
+
+  if (!mergedBoxes.some((b) => b.type === 'plate') && !detection.riskTags.includes('plate')) {
+    const onlyFace =
+      mergedBoxes.length > 0 && mergedBoxes.every((b) => b.type === 'face')
+    if (onlyFace) {
+      console.warn('[desensitize-engine] only face masked, plate not detected', { sourcePath })
+    }
   }
 
   const riskLevel = resolveRiskLevel({

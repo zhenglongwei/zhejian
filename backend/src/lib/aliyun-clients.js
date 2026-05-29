@@ -6,11 +6,13 @@ const { Readable } = require('stream')
 const Credential = require('@alicloud/credentials').default
 const { Config } = require('@alicloud/openapi-client')
 const OcrClient = require('@alicloud/ocr-api20210707').default
+const ViapiOcrClient = require('@alicloud/ocr20191230').default
 const FacebodyClient = require('@alicloud/facebody20191230').default
 const { config } = require('../config')
 
 let credential
 let ocrClient
+let viapiOcrClient
 let faceClient
 
 function getCredential() {
@@ -37,9 +39,16 @@ function getCredential() {
   return credential
 }
 
-function ocrEndpoint() {
+function ocrApiEndpoint() {
+  if (config.aliyun.ocrApiEndpoint) return config.aliyun.ocrApiEndpoint
   const region = config.aliyun.region || 'cn-shanghai'
   return `ocr-api.${region}.aliyuncs.com`
+}
+
+function viapiOcrEndpoint() {
+  if (config.aliyun.viapiOcrEndpoint) return config.aliyun.viapiOcrEndpoint
+  const region = config.aliyun.region || 'cn-shanghai'
+  return `ocr.${region}.aliyuncs.com`
 }
 
 function faceEndpoint() {
@@ -52,12 +61,25 @@ function getOcrClient() {
     ocrClient = new OcrClient(
       new Config({
         credential: getCredential(),
-        endpoint: ocrEndpoint(),
+        endpoint: ocrApiEndpoint(),
         regionId: config.aliyun.region,
       })
     )
   }
   return ocrClient
+}
+
+function getViapiOcrClient() {
+  if (!viapiOcrClient) {
+    viapiOcrClient = new ViapiOcrClient(
+      new Config({
+        credential: getCredential(),
+        endpoint: viapiOcrEndpoint(),
+        regionId: config.aliyun.region,
+      })
+    )
+  }
+  return viapiOcrClient
 }
 
 function getFaceClient() {
@@ -88,8 +110,11 @@ function openImageStream(filePath) {
 
 module.exports = {
   getOcrClient,
+  getViapiOcrClient,
   getFaceClient,
   readImageBody,
   openImageStream,
   openImageReadable,
+  ocrApiEndpoint,
+  viapiOcrEndpoint,
 }

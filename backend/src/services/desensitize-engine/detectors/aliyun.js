@@ -3,7 +3,8 @@ const Ocr = require('@alicloud/ocr-api20210707')
 const Facebody = require('@alicloud/facebody20191230')
 const { config } = require('../../../config')
 const { buildPublicMediaUrl } = require('../../../lib/media-storage')
-const { getOcrClient, getFaceClient, openImageReadable } = require('../../../lib/aliyun-clients')
+const { getOcrClient, getFaceClient, openImageReadable, ocrApiEndpoint } = require('../../../lib/aliyun-clients')
+const { detectPlateViaViapi } = require('./viapi-plate')
 const { boxesFromFaceRectangles } = require('../bbox')
 const {
   parsePlateResult,
@@ -188,7 +189,21 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
   return ''
 }
 
+function isNetworkError(err) {
+  const code = String(err?.code || '').toUpperCase()
+  const msg = String(err?.message || '').toLowerCase()
+  return (
+    code === 'ENOTFOUND' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNREFUSED' ||
+    code === 'EAI_AGAIN' ||
+    msg.includes('enotfound') ||
+    msg.includes('getaddrinfo')
+  )
+}
+
 async function detectPlateRegion(imagePath, publicUrl) {
+  let ocrApiError = ''
   try {
     const data = await ocrRecognize(
       RecognizeCarNumberRequest,
@@ -197,25 +212,23 @@ async function detectPlateRegion(imagePath, publicUrl) {
       publicUrl
     )
     const plate = parsePlateResult(data)
-    if (!plate.boxes.length) {
-      const summary = summarizeOcrPayload(data)
-      if (summary.kv || summary.plateValue) {
-        console.warn('[desensitize-engine] plate ocr parsed empty boxes', summary)
-      } else if (data) {
-        console.warn('[desensitize-engine] plate ocr empty result', {
-          sample: String(data).slice(0, 120),
-        })
+    if (plate.boxes.length) {
+      return {
+        boxes: plate.boxes,
+        authFailed: false,
+        error: '',
+        plateMaskMiss: false,
+        orgWidth: plate.orgWidth,
+        orgHeight: plate.orgHeight,
+        ocrNetworkFailed: false,
       }
     }
-    return {
-      boxes: plate.boxes,
-      authFailed: false,
-      error: '',
-      plateMaskMiss: plate.plateTextFound && !plate.boxes.length,
-      orgWidth: plate.orgWidth,
-      orgHeight: plate.orgHeight,
+    const summary = summarizeOcrPayload(data)
+    if (summary.kv || summary.plateValue) {
+      console.warn('[desensitize-engine] plate ocr-api parsed empty boxes', summary)
     }
   } catch (err) {
+    ocrApiError = String(err.message || err.code || 'ocr-api failed')
     if (isAuthError(err)) {
       return {
         boxes: [],
@@ -224,26 +237,55 @@ async function detectPlateRegion(imagePath, publicUrl) {
         plateMaskMiss: true,
         orgWidth: 0,
         orgHeight: 0,
+        ocrNetworkFailed: false,
       }
     }
-    if (isBenignDetectError(err)) {
+    if (isNetworkError(err)) {
+      console.warn('[desensitize-engine] ocr-api unreachable, fallback viapi plate', {
+        endpoint: ocrApiEndpoint(),
+        message: ocrApiError.slice(0, 120),
+      })
+    } else if (!isBenignDetectError(err)) {
+      console.warn('[desensitize-engine] plate ocr-api:', err.code || '', ocrApiError.slice(0, 120))
+    }
+  }
+
+  try {
+    const viapi = await detectPlateViaViapi(imagePath)
+    return {
+      boxes: viapi.boxes,
+      authFailed: false,
+      error: ocrApiError ? `plate:ocr-api-fallback-viapi` : '',
+      plateMaskMiss: viapi.plateTextFound && !viapi.boxes.length,
+      orgWidth: viapi.orgWidth,
+      orgHeight: viapi.orgHeight,
+      ocrNetworkFailed: Boolean(ocrApiError && isNetworkError({ message: ocrApiError })),
+    }
+  } catch (viapiErr) {
+    if (isAuthError(viapiErr)) {
       return {
         boxes: [],
-        authFailed: false,
-        error: '',
-        plateMaskMiss: false,
+        authFailed: true,
+        error: `plate-viapi:${viapiErr.message || 'auth'}`,
+        plateMaskMiss: true,
         orgWidth: 0,
         orgHeight: 0,
+        ocrNetworkFailed: false,
       }
     }
-    console.warn('[desensitize-engine] plate:', err.code || '', String(err.message || '').slice(0, 120))
+    console.warn(
+      '[desensitize-engine] viapi plate failed:',
+      viapiErr.code || '',
+      String(viapiErr.message || '').slice(0, 120)
+    )
     return {
       boxes: [],
       authFailed: false,
-      error: `plate:${err.message || 'failed'}`,
+      error: `plate-viapi:${viapiErr.message || 'failed'}`,
       plateMaskMiss: false,
       orgWidth: 0,
       orgHeight: 0,
+      ocrNetworkFailed: isNetworkError(viapiErr) || isNetworkError({ message: ocrApiError }),
     }
   }
 }
@@ -294,6 +336,7 @@ async function detectSensitiveRegions(imagePath, options = {}) {
   const errors = []
   let ocrAuthFailed = false
   let plateMaskMiss = Boolean(plateResult.plateMaskMiss)
+  const ocrNetworkFailed = Boolean(plateResult.ocrNetworkFailed)
   let ocrWidth = plateResult.orgWidth || 0
   let ocrHeight = plateResult.orgHeight || 0
 
@@ -345,6 +388,7 @@ async function detectSensitiveRegions(imagePath, options = {}) {
     riskTags: [...riskTags],
     errors,
     ocrAuthFailed,
+    ocrNetworkFailed,
     plateMaskMiss,
     ocrWidth,
     ocrHeight,

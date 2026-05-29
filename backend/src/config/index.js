@@ -26,13 +26,17 @@ const config = {
   merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',
   aliyun: {
     region: process.env.ALIYUN_REGION || 'cn-shanghai',
+    /** 文字识别 OCR API（2021-07-07），默认 ocr-api.{region}.aliyuncs.com */
+    ocrApiEndpoint: process.env.ALIYUN_OCR_API_ENDPOINT || '',
+    /** VIAPI 车牌 OCR（ocr20191230），默认 ocr.{region}.aliyuncs.com */
+    viapiOcrEndpoint: process.env.ALIYUN_VIAPI_OCR_ENDPOINT || '',
   },
   desensitize: {
     engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
     apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),
     maxFaceNumber: Number(process.env.DESENSITIZE_MAX_FACE_NUMBER || 10),
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
-    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v4',
+    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v5',
   },
 }
 
