@@ -42,6 +42,10 @@
           <ui-tag variant="{{detail.statusVariant}}" text="{{albumStatusLabel}}" />
         </view>
         <ui-key-info-table rows="{{detail.summaryRows}}" />
+        <text
+          wx:if="{{detail.planAmount}}"
+          class="service-album__price-note note-block text-caption"
+        >方案报价仅供参考，实际费用以门店检测结果为准。</text>
       </ui-card>
 
       <view class="service-album__privacy">
@@ -77,39 +81,14 @@
         bind:policy="onOpenBenefitPolicy"
       />
 
-      <view wx:if="{{showOwnerShareSection}}" class="service-album__section service-album__share">
-        <text class="service-album__section-title text-h3">分享</text>
-        <ui-privacy-banner scene="{{shareUseOriginal ? 'ownerShareOriginal' : 'ownerShare'}}" />
-        <ui-checkbox-row
-          checked="{{shareUseOriginal}}"
-          disabled="{{sharePreparing}}"
-          bind:toggle="onShareOriginalToggle"
-        >
-          <text>使用原图分享</text>
-        </ui-checkbox-row>
-        <view class="service-album__share-actions">
-          <ui-button
-            type="ghost"
-            size="sm"
-            openType="share"
-            disabled="{{!shareReady}}"
-          >分享给好友</ui-button>
-          <ui-button
-            type="ghost"
-            size="sm"
-            bind:tap="onCopyOwnerShareLink"
-            disabled="{{!shareReady}}"
-          >复制分享说明</ui-button>
-        </view>
+      <view wx:if="{{showShareButton}}" class="service-album__section">
+        <ui-button type="primary" size="sm" block="{{true}}" bind:tap="onOpenShareSheet">分享</ui-button>
       </view>
 
-      <view wx:if="{{showPublicCaseLinks}}" class="service-album__section">
+      <view wx:if="{{showPublicCaseStatus}}" class="service-album__section">
         <text class="service-album__section-title text-h3">平台公示</text>
         <text class="note-block text-caption">{{publicCaseHint}}</text>
-        <view class="service-album__share-actions">
-          <ui-button type="secondary" size="sm" bind:tap="onViewPublicCase">查看公示页</ui-button>
-          <ui-button type="ghost" size="sm" bind:tap="onCopyCaseWebLink">复制公开网页链接</ui-button>
-        </view>
+        <ui-button type="secondary" size="sm" bind:tap="onViewPublicCase">查看公示页</ui-button>
       </view>
 
       <view wx:elif="{{publicCaseHint}}" class="service-album__section">
@@ -126,6 +105,38 @@
       <ui-button type="secondary" size="sm" slot="right" bind:tap="onSupport">联系客服</ui-button>
     </ui-fixed-bottom-bar>
   </block>
+
+  <ui-share-sheet
+    visible="{{shareSheetVisible}}"
+    showOwnerShare="{{showShareEntry}}"
+    showPublicCaseShare="{{showPublicCaseShare}}"
+    shareUseOriginal="{{shareUseOriginal}}"
+    ownerShareReady="{{shareReady}}"
+    ownerSharePreparing="{{sharePreparing}}"
+    ownerPrivacyScene="{{shareUseOriginal ? 'ownerShareOriginal' : 'ownerShare'}}"
+    bind:close="onCloseShareSheet"
+    bind:toggleoriginal="onShareOriginalToggle"
+    bind:copyownerlink="onCopyOwnerShareLink"
+    bind:copypublicweblink="onCopyPublicWebLink"
+  >
+    <ui-button
+      slot="ownerWechatShare"
+      type="ghost"
+      size="sm"
+      block="{{true}}"
+      openType="share"
+      data-share-intent="owner"
+      disabled="{{!shareReady || sharePreparing}}"
+    >转发给微信好友</ui-button>
+    <ui-button
+      slot="publicWechatShare"
+      type="ghost"
+      size="sm"
+      block="{{true}}"
+      openType="share"
+      data-share-intent="publicCase"
+    >转发公开案例</ui-button>
+  </ui-share-sheet>
 
   <ui-login-sheet
     visible="{{loginSheetVisible}}"

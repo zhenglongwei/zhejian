@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="辙见 · 车主分享的服务相册">
+  <meta name="robots" content="noindex,nofollow">
+  <title>加载中… · 辙见</title>
+  <link rel="stylesheet" href="../shared/tokens.css">
+  <link rel="stylesheet" href="../shared/case-page.css">
+</head>
+<body>
+  <div id="app">加载中…</div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search)
+      var token = params.get('token') || ''
+      window.__SHARE_TOKEN__ = token
+      if (token) {
+        window.__SHARE_API__ = '/api/v1/user/shared-albums/' + encodeURIComponent(token)
+      }
+    })()
+  </script>
+  <script src="../shared/album-share-render.js"></script>
+</body>
+</html>

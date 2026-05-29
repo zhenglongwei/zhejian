@@ -34,8 +34,8 @@ function buildMiniProgramSharePath(caseId) {
   return `/pages/case/detail/index?id=${caseId}`
 }
 
-function buildCaseSharePayload(detail) {
-  if (!canShareCase(detail)) return null
+function buildPublicCaseSharePayload(detail) {
+  if (!detail || !detail.id) return null
   const payload = {
     title: buildCaseShareTitle(detail),
     path: buildMiniProgramSharePath(detail.id),
@@ -43,6 +43,34 @@ function buildCaseSharePayload(detail) {
   const imageUrl = buildCaseShareImageUrl(detail)
   if (imageUrl) payload.imageUrl = imageUrl
   return payload
+}
+
+function buildCaseSharePayload(detail) {
+  return buildPublicCaseSharePayload(detail)
+}
+
+function copyPublicCaseWebLink(caseId) {
+  const url = buildCaseH5Url(caseId)
+  if (!url) {
+    wx.showToast({ title: '案例信息缺失', icon: 'none' })
+    return Promise.reject(new Error('missing caseId'))
+  }
+  return new Promise((resolve, reject) => {
+    wx.setClipboardData({
+      data: url,
+      success: () => {
+        wx.showModal({
+          title: '公示网页链接已复制',
+          content:
+            '可在浏览器或朋友圈粘贴打开。内容为平台已审核的脱敏公示案例。\n\n右上角「复制链接」为微信内小程序链，浏览器无法打开。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        resolve(url)
+      },
+      fail: reject,
+    })
+  })
 }
 
 function copyCaseShareLink(caseId, detail) {
@@ -91,7 +119,9 @@ module.exports = {
   buildCaseShareImageUrl,
   canShareCase,
   buildCaseSharePayload,
+  buildPublicCaseSharePayload,
   buildMiniProgramSharePath,
   buildShareableCaseFromAlbum,
   copyCaseShareLink,
+  copyPublicCaseWebLink,
 }

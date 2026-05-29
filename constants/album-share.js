@@ -6,6 +6,8 @@ const SHARE_MODE = {
 const SHARE_CHANNEL = {
   WECHAT: 'wechat',
   LINK: 'link',
+  OWNER_H5_LINK: 'owner_h5_link',
+  PUBLIC_H5_LINK: 'public_h5_link',
 }
 
 const ORIGINAL_SHARE_RISK =

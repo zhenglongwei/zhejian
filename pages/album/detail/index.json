@@ -10,7 +10,7 @@
     "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-album-node": "/components/album-node/index",
     "ui-album-authorize-section": "/components/album-authorize-section/index",
-    "ui-checkbox-row": "/components/checkbox-row/index",
+    "ui-share-sheet": "/components/share-sheet/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-login-sheet": "/components/login-sheet/index"
   }

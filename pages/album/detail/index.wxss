@@ -46,9 +46,8 @@
   padding: var(--space-sm) 0 var(--space-md);
 }
 
-.service-album__share-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: center;
+.service-album__price-note {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
 }

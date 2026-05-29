@@ -1,0 +1,11 @@
+{
+  "component": true,
+  "options": {
+    "multipleSlots": true
+  },
+  "usingComponents": {
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-checkbox-row": "/components/checkbox-row/index",
+    "ui-button": "/components/button/index"
+  }
+}

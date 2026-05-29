@@ -490,6 +490,40 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 
 ---
 
+### 3.6d ShareSheet（`components/share-sheet`）· **Phase 1 新增**
+
+相册详情 **半屏分享** 业务组件；基于 `bottom-sheet` 视觉规范（mask + panel + `safe-bottom`），**不含** 默认 confirm/cancel 双按钮栏。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| visible | Boolean | false | 是否展示 |
+| showOwnerShare | Boolean | false | 私人分组（completed 即可） |
+| showPublicCaseShare | Boolean | false | 平台公示分组（public_approved） |
+| shareUseOriginal | Boolean | false | 原图分享（**仅私人分组**） |
+| ownerShareReady | Boolean | false | 私人 shareToken 就绪 |
+| ownerSharePreparing | Boolean | false | token 准备中 |
+
+| 事件 | 说明 |
+|---|---|
+| close | 关闭面板 |
+| toggleoriginal | 切换原图（页面侧风险 Modal） |
+| copyownerlink | 复制私人分享公网链接（token.mode） |
+| copypublicweblink | 复制平台公示 H5（case/view.html） |
+
+**Slot / 内置结构**（见 `07_维修相册查看页.md` §17.4）：
+
+- `ui-privacy-banner`（scene 由页面传入或组件内映射）
+- `ui-checkbox-row`（原图分享，仅 `showOwnerShare`）
+- 渠道按钮行：`open-type="share"` 须放在页面 WXML（微信限制），组件通过 slot 或 `bind:` 由页面挂载
+
+**约束**：
+
+- 禁止奖励诱导文案；渠道说明使用 `text-caption`
+- z-index 使用 `--z-popup`
+- 不得与 `LoginSheet` 同时打开
+
+---
+
 ### 3.6c SearchBar（`components/search-bar`）
 
 搜索输入 / 只读入口（首页、Tab 顶栏、搜索页）。

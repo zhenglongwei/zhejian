@@ -11,14 +11,14 @@ const {
 const { enrichServiceAlbumListItem } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const {
-  copyCaseShareLink,
   buildShareableCaseFromAlbum,
-  canShareCase,
+  buildPublicCaseSharePayload,
+  copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
 const {
   canOwnerShareAlbum,
   buildOwnerSharePayload,
-  copyOwnerShareLink,
+  copyOwnerShareH5Link,
   SHARE_MODE,
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
@@ -28,8 +28,7 @@ const PUBLIC_CASE_HINT = {
   authorized: '你已授权公示，案例生成中，请稍后查看。',
   user_rejected: '你已拒绝公示，相册仍可作为私密服务相册查看。',
   pending_review: '公开案例已提交，审核通过后将自动展示在「案例」Tab 与公开网页。',
-  public_approved:
-    '案例已自动展示在「案例」Tab 与公开网页，无需额外发布。',
+  public_approved: '案例已在「案例」Tab 与公开网页展示。',
 }
 
 Page({
@@ -39,14 +38,18 @@ Page({
     detail: null,
     albumStatusLabel: '',
     showAuthSection: false,
-    showOwnerShareSection: false,
-    showPublicCaseLinks: false,
+    showShareEntry: false,
+    showShareButton: false,
+    showPublicCaseShare: false,
+    showPublicCaseStatus: false,
+    shareSheetVisible: false,
     shareReady: false,
     shareUseOriginal: false,
     sharePreparing: false,
     shareToken: '',
     shareMode: SHARE_MODE.DESENSITIZED,
     publicCaseHint: '',
+    defaultShareIntent: 'owner',
     authChecked: false,
     authTier: 'named',
     authSubmitting: false,
@@ -57,8 +60,20 @@ Page({
 
   onLoad(options) {
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    if (options.token) {
+      wx.redirectTo({
+        url: `/pages/album/share/index?token=${encodeURIComponent(options.token)}`,
+      })
+      return
+    }
     this.albumId = options.albumId || options.id || ''
     this.fromMerchantShare = options.from === 'merchant_share'
+    if (options.redirectCaseId) {
+      wx.redirectTo({
+        url: `/pages/case/detail/index?id=${encodeURIComponent(options.redirectCaseId)}`,
+      })
+      return
+    }
     if (!this.albumId) {
       this.setData({
         status: 'error',
@@ -111,10 +126,13 @@ Page({
       const imageCount = detail.imageCount || 0
       const pageStatus = imageCount > 0 ? 'normal' : 'empty'
       const showAuthSection = this.shouldShowAuth(detail)
-      const showOwnerShareSection = canOwnerShareAlbum(detail)
+      const showShareEntry = canOwnerShareAlbum(detail)
       const shareCase = buildShareableCaseFromAlbum(detail)
-      const showPublicCaseLinks =
-        detail.publicCaseStatus === 'public_approved' && Boolean(shareCase)
+      const showPublicCaseShare =
+        detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
+      const showShareButton = showShareEntry || showPublicCaseShare
+      const showPublicCaseStatus = showPublicCaseShare
+      const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
       const publicCaseHint = showAuthSection
         ? ''
         : PUBLIC_CASE_HINT[detail.publicCaseStatus] || ''
@@ -127,20 +145,24 @@ Page({
         detail: enriched,
         albumStatusLabel: SERVICE_ALBUM_STATUS_LABEL[detail.status] || '',
         showAuthSection,
-        showOwnerShareSection,
-        showPublicCaseLinks,
+        showShareEntry,
+        showShareButton,
+        showPublicCaseShare,
+        showPublicCaseStatus,
         publicCaseHint,
+        defaultShareIntent,
         authChecked: false,
         status: pageStatus,
         showBottomBar: pageStatus === 'normal',
         shareReady: false,
         shareToken: '',
+        shareSheetVisible: false,
       })
 
-      if (showOwnerShareSection) {
-        await this.refreshShareToken({ silent: true })
+      if (showShareEntry) {
+        await this.refreshShareToken({ silent: true, defaultShareIntent })
       } else {
-        this.updateShareMenu(false)
+        this.updateShareMenu(showPublicCaseShare)
       }
     } catch (e) {
       const code = e && e.code
@@ -170,9 +192,13 @@ Page({
 
   async refreshShareToken(options = {}) {
     const { detail, shareUseOriginal } = this.data
+    const defaultShareIntent =
+      options.defaultShareIntent || this.data.defaultShareIntent || 'owner'
+    const channel = options.channel || SHARE_CHANNEL.WECHAT
+
     if (!detail || !canOwnerShareAlbum(detail)) {
-      this.updateShareMenu(false)
-      return
+      this.updateShareMenu(defaultShareIntent === 'publicCase')
+      return null
     }
 
     const mode = shareUseOriginal ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
@@ -181,27 +207,40 @@ Page({
     }
 
     try {
-      const result = await recordAlbumShare(detail.albumId, {
-        mode,
-        channel: SHARE_CHANNEL.WECHAT,
-      })
+      const result = await recordAlbumShare(detail.albumId, { mode, channel })
       this.setData({
         shareToken: result.shareToken || '',
         shareMode: result.mode || mode,
         shareReady: Boolean(result.shareToken),
         sharePreparing: false,
       })
-      this.updateShareMenu(Boolean(result.shareToken))
+      this.updateShareMenu(
+        Boolean(result.shareToken) || defaultShareIntent === 'publicCase'
+      )
+      return result
     } catch (e) {
       this.setData({ sharePreparing: false, shareReady: false, shareToken: '' })
-      this.updateShareMenu(false)
+      this.updateShareMenu(defaultShareIntent === 'publicCase')
       if (!options.silent) {
         wx.showToast({
           title: (e && e.message) || '分享准备失败',
           icon: 'none',
         })
       }
+      return null
     }
+  },
+
+  async onOpenShareSheet() {
+    if (!this.data.showShareButton) return
+    this.setData({ shareSheetVisible: true })
+    if (this.data.showShareEntry && !this.data.shareReady && !this.data.sharePreparing) {
+      await this.refreshShareToken({ silent: true })
+    }
+  },
+
+  onCloseShareSheet() {
+    this.setData({ shareSheetVisible: false })
   },
 
   onShareOriginalToggle() {
@@ -227,6 +266,50 @@ Page({
     this.setData({ shareUseOriginal: false }, () => {
       this.refreshShareToken()
     })
+  },
+
+  async onCopyOwnerShareLink() {
+    if (this.data.sharePreparing) return
+    let token = this.data.shareToken
+    if (!token) {
+      const result = await this.refreshShareToken({
+        channel: SHARE_CHANNEL.OWNER_H5_LINK,
+      })
+      token = (result && result.shareToken) || this.data.shareToken
+    } else {
+      await recordAlbumShare(this.data.detail.albumId, {
+        mode: this.data.shareMode,
+        channel: SHARE_CHANNEL.OWNER_H5_LINK,
+      })
+    }
+    if (!token) {
+      wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
+      return
+    }
+    try {
+      await copyOwnerShareH5Link(token)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
+  },
+
+  async onCopyPublicWebLink() {
+    const shareCase = buildShareableCaseFromAlbum(this.data.detail)
+    if (!shareCase || !shareCase.id) {
+      wx.showToast({ title: '公示案例尚未就绪', icon: 'none' })
+      return
+    }
+    try {
+      if (canOwnerShareAlbum(this.data.detail)) {
+        await recordAlbumShare(this.data.detail.albumId, {
+          mode: SHARE_MODE.DESENSITIZED,
+          channel: SHARE_CHANNEL.PUBLIC_H5_LINK,
+        })
+      }
+      await copyPublicCaseWebLink(shareCase.id)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
   },
 
   onRetry() {
@@ -350,14 +433,26 @@ Page({
     if (ready) {
       wx.showShareMenu({
         withShareTicket: false,
-        menus: ['shareAppMessage'],
+        menus: ['shareAppMessage', 'shareTimeline'],
       })
     } else {
       wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     }
   },
 
-  onShareAppMessage() {
+  resolveShareIntent(options = {}) {
+    const fromButton = options.target && options.target.dataset
+    const intent = (fromButton && fromButton.shareIntent) || this.data.defaultShareIntent
+    return intent === 'publicCase' ? 'publicCase' : 'owner'
+  },
+
+  onShareAppMessage(options) {
+    const intent = this.resolveShareIntent(options)
+    if (intent === 'publicCase') {
+      const shareCase = buildShareableCaseFromAlbum(this.data.detail)
+      const payload = buildPublicCaseSharePayload(shareCase)
+      if (payload) return payload
+    }
     const { detail, shareToken, shareMode } = this.data
     const payload = buildOwnerSharePayload(detail, {
       shareToken,
@@ -370,38 +465,28 @@ Page({
     }
   },
 
-  async onCopyOwnerShareLink() {
-    const { shareToken, sharePreparing } = this.data
-    if (sharePreparing) return
-    if (!shareToken) {
-      await this.refreshShareToken()
+  onShareTimeline(options) {
+    const intent = this.resolveShareIntent(options)
+    if (intent === 'publicCase') {
+      const shareCase = buildShareableCaseFromAlbum(this.data.detail)
+      if (shareCase && shareCase.id) {
+        return {
+          title: buildPublicCaseSharePayload(shareCase)?.title || '辙见 · 公开案例',
+          query: `redirectCaseId=${encodeURIComponent(shareCase.id)}`,
+        }
+      }
     }
-    const token = this.data.shareToken
-    if (!token) {
-      wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
-      return
+    const { detail, shareToken, shareMode } = this.data
+    const payload = buildOwnerSharePayload(detail, { shareToken, mode: shareMode })
+    const query = shareToken
+      ? `token=${encodeURIComponent(shareToken)}`
+      : this.albumId
+        ? `albumId=${encodeURIComponent(this.albumId)}`
+        : ''
+    return {
+      title: payload?.title || '辙见 · 我的服务相册',
+      query,
     }
-    try {
-      await recordAlbumShare(this.data.detail.albumId, {
-        mode: this.data.shareMode,
-        channel: SHARE_CHANNEL.LINK,
-      })
-      await copyOwnerShareLink(token)
-    } catch (e) {
-      wx.showToast({
-        title: (e && e.message) || '复制失败',
-        icon: 'none',
-      })
-    }
-  },
-
-  onCopyCaseWebLink() {
-    const shareCase = buildShareableCaseFromAlbum(this.data.detail)
-    if (!shareCase || !canShareCase(shareCase)) {
-      wx.showToast({ title: '平台公开链接尚未就绪', icon: 'none' })
-      return
-    }
-    copyCaseShareLink(shareCase.id, shareCase)
   },
 
   onViewPublicCase() {

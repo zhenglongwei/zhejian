@@ -109,15 +109,48 @@ function copyOwnerShareLink(token) {
   })
 }
 
+function buildOwnerShareH5Url(token) {
+  if (!token) return ''
+  const base = String(ENV.baseUrl || '').replace(/\/$/, '')
+  if (!base) return ''
+  return `${base}/album/share.html?token=${encodeURIComponent(token)}`
+}
+
+function copyOwnerShareH5Link(token) {
+  const url = buildOwnerShareH5Url(token)
+  if (!url) {
+    wx.showToast({ title: '分享链接尚未就绪', icon: 'none' })
+    return Promise.reject(new Error('missing token'))
+  }
+  return new Promise((resolve, reject) => {
+    wx.setClipboardData({
+      data: url,
+      success: () => {
+        wx.showModal({
+          title: '分享链接已复制',
+          content:
+            '可在浏览器、朋友圈或其他社交 App 中粘贴打开。\n\n链接内容随你选择的脱敏/原图选项生成；不会自动进入平台案例 Tab。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        resolve(url)
+      },
+      fail: reject,
+    })
+  })
+}
+
 module.exports = {
   canOwnerShareAlbum,
   buildShareTitle,
   mapNodesForSharePreview,
   pickShareCoverImage,
   buildShareMiniPath,
+  buildOwnerShareH5Url,
   buildOwnerSharePayload,
   buildShareLinkText,
   copyOwnerShareLink,
+  copyOwnerShareH5Link,
   SHARE_MODE,
   SHARE_CHANNEL,
 }
