@@ -67,6 +67,7 @@ async function processUploadedImage(filePath, objectKey = '') {
 }
 
 module.exports = {
+  loadSharp,
   processUploadedImage,
   buildThumbObjectKey,
 }

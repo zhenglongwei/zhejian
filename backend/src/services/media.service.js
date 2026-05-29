@@ -9,11 +9,13 @@ const {
   buildDesensitizedObjectKey,
   resolveDesensitizedFilePath,
 } = require('../lib/media-storage')
+const { processImage } = require('./desensitize-engine')
 
 const DESENSITIZE_STATUS = {
   PENDING: 'pending',
   SUCCESS: 'success',
   FAILED: 'failed',
+  NEED_MANUAL: 'need_manual',
 }
 
 function mediaAssetRepo() {
@@ -83,9 +85,18 @@ async function getMediaById(mediaId) {
   return repo.findUnique({ where: { id: mediaId } })
 }
 
+function mapEngineResultToStatus(engineResult) {
+  if (engineResult.taskStatus === 'NEED_MANUAL') {
+    return DESENSITIZE_STATUS.NEED_MANUAL
+  }
+  if (engineResult.taskStatus === 'SUCCESS') {
+    return DESENSITIZE_STATUS.SUCCESS
+  }
+  return DESENSITIZE_STATUS.FAILED
+}
+
 /**
- * MVP 脱敏：将原图复制到 uploads/desensitized/ 并返回可加载 URL。
- * Phase 2 可替换为真实 OCR/打码服务。
+ * B-MASK-03：阿里云检测 + 本地 sharp 打码，写入 uploads/desensitized/
  */
 async function runMediaDesensitize(mediaId, context = {}) {
   const media = await getMediaById(mediaId)
@@ -95,12 +106,18 @@ async function runMediaDesensitize(mediaId, context = {}) {
     throw err
   }
 
-  if (media.desensitizedUrl && media.desensitizeStatus === DESENSITIZE_STATUS.SUCCESS) {
+  if (
+    media.desensitizedUrl &&
+    media.desensitizeStatus === DESENSITIZE_STATUS.SUCCESS &&
+    !context.force
+  ) {
     return {
       mediaId: media.id,
       taskStatus: 'SUCCESS',
       resultUrl: media.desensitizedUrl,
       desensitizedUrl: media.desensitizedUrl,
+      riskLevel: 'low',
+      riskTags: [],
     }
   }
 
@@ -124,32 +141,57 @@ async function runMediaDesensitize(mediaId, context = {}) {
   const destPath = resolveDesensitizedFilePath(desensitizedKey)
 
   try {
-    fs.copyFileSync(sourcePath, destPath)
-    const desensitizedUrl = buildPublicMediaUrl(desensitizedKey)
+    const engineResult = await processImage(sourcePath, destPath)
+    const desensitizeStatus = mapEngineResultToStatus(engineResult)
+    const desensitizedUrl =
+      desensitizeStatus === DESENSITIZE_STATUS.SUCCESS
+        ? buildPublicMediaUrl(desensitizedKey)
+        : ''
+
     const repo = mediaAssetRepo()
     if (repo) {
       await repo.update({
         where: { id: media.id },
         data: {
-          desensitizedKey,
-          desensitizedUrl,
-          desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+          desensitizedKey: desensitizeStatus === DESENSITIZE_STATUS.SUCCESS ? desensitizedKey : media.desensitizedKey,
+          desensitizedUrl: desensitizedUrl || media.desensitizedUrl || '',
+          desensitizeStatus,
         },
       })
     }
+
+    if (desensitizeStatus !== DESENSITIZE_STATUS.SUCCESS) {
+      const err = new Error(
+        desensitizeStatus === DESENSITIZE_STATUS.NEED_MANUAL
+          ? '脱敏需人工处理'
+          : '脱敏失败'
+      )
+      err.status = 422
+      err.taskStatus = engineResult.taskStatus
+      err.riskLevel = engineResult.riskLevel
+      err.riskTags = engineResult.riskTags
+      throw err
+    }
+
     return {
       mediaId: media.id,
-      taskStatus: 'SUCCESS',
+      taskStatus: engineResult.taskStatus,
       resultUrl: desensitizedUrl,
       desensitizedUrl,
+      riskLevel: engineResult.riskLevel,
+      riskTags: engineResult.riskTags || [],
+      detections: engineResult.detections || [],
+      engineVersion: engineResult.engineVersion,
     }
   } catch (e) {
-    const repo = mediaAssetRepo()
-    if (repo) {
-      await repo.update({
-        where: { id: media.id },
-        data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
-      })
+    if (!e.status) {
+      const repo = mediaAssetRepo()
+      if (repo) {
+        await repo.update({
+          where: { id: media.id },
+          data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
+        })
+      }
     }
     throw e
   }
@@ -158,7 +200,7 @@ async function runMediaDesensitize(mediaId, context = {}) {
 async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
   const media = await ensureMediaRecordFromUrl(rawUrl)
   if (!media) {
-    return { mediaId: '', maskedUrl: '', ok: false }
+    return { mediaId: '', maskedUrl: '', ok: false, riskTags: [], riskLevel: '' }
   }
   try {
     const result = await runMediaDesensitize(media.id, context)
@@ -166,9 +208,18 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
       mediaId: media.id,
       maskedUrl: result.desensitizedUrl,
       ok: Boolean(result.desensitizedUrl),
+      riskTags: result.riskTags || [],
+      riskLevel: result.riskLevel || '',
     }
   } catch (e) {
-    return { mediaId: media.id, maskedUrl: '', ok: false }
+    return {
+      mediaId: media.id,
+      maskedUrl: '',
+      ok: false,
+      riskTags: e.riskTags || [],
+      riskLevel: e.riskLevel || '',
+      needManual: e.taskStatus === 'NEED_MANUAL',
+    }
   }
 }
 

@@ -24,6 +24,14 @@ const config = {
   },
   /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */
   merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',
+  aliyun: {
+    region: process.env.ALIYUN_REGION || 'cn-shanghai',
+  },
+  desensitize: {
+    engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
+    apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),
+    maxFaceNumber: Number(process.env.DESENSITIZE_MAX_FACE_NUMBER || 10),
+  },
 }
 
 module.exports = { config }

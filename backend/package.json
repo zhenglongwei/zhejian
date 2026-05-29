@@ -14,12 +14,17 @@
     "db:setup": "npm run db:generate && npm run db:migrate && npm run db:seed",
     "db:setup:prod": "npm run db:generate && npm run db:migrate",
     "deploy:verify": "node scripts/verify-health.js",
+    "desensitize:smoke": "node scripts/desensitize-smoke.js",
     "postinstall": "prisma generate"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@alicloud/credentials": "^2.4.4",
+    "@alicloud/facebody20191230": "^6.0.0",
+    "@alicloud/ocr-api20210707": "^3.1.3",
+    "@alicloud/openapi-client": "^0.4.15",
     "@prisma/client": "^6.9.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

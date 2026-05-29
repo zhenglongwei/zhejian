@@ -143,7 +143,7 @@ router.post(
   }
 )
 
-/** B-MEDIA-07：对 mediaId 创建脱敏产物（MVP 复制到 desensitized 目录） */
+/** B-MEDIA-07：对 mediaId 创建脱敏产物（B-MASK-03 真实打码） */
 router.post(
   '/:mediaId/desensitize',
   requireAuth([ROLES.USER, ROLES.MERCHANT]),

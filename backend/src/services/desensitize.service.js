@@ -129,7 +129,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         preMaskedUrl,
         status: preMaskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
         previewed: false,
-        riskTags: preMaskedUrl ? ['plate'] : [],
+        riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : preMaskedUrl ? [] : [],
       }
     })
   )
@@ -324,7 +324,7 @@ async function runAutoMask(taskId) {
           maskedUrl,
           preMaskedUrl: maskedUrl,
           status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
-          riskTags: maskedUrl ? ['plate'] : [],
+          riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
         },
       })
     })
@@ -356,6 +356,7 @@ async function retryAsset(taskId, assetId) {
       maskedUrl,
       preMaskedUrl: maskedUrl,
       status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
+      riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
     },
   })
   return getTaskById(taskId)
