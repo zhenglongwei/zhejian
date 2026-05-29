@@ -153,7 +153,9 @@ async function runMediaDesensitize(mediaId, context = {}) {
   const destPath = resolveDesensitizedFilePath(desensitizedKey)
 
   try {
-    const engineResult = await processImage(sourcePath, destPath)
+    const engineResult = await processImage(sourcePath, destPath, {
+      publicUrl: media.url || buildPublicMediaUrl(media.objectKey),
+    })
     const desensitizeStatus = mapEngineResultToStatus(engineResult)
     const desensitizedUrl =
       desensitizeStatus === DESENSITIZE_STATUS.SUCCESS

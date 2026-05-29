@@ -1,4 +1,5 @@
 const { prisma } = require('../lib/prisma')
+const { config } = require('../config')
 const {
   BIZ_TYPE,
   PRE_MASK_STATUS,
@@ -121,11 +122,12 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   }
   const nodeViews = albumToNodeView(album)
   const fingerprint = nodesFingerprint(nodeViews)
+  const versionedFingerprint = `${fingerprint}@${config.desensitize.cacheVersion}`
   const existing = await findPreMaskTask(albumId, preMaskBizType)
   let force = Boolean(options.force)
   if (
     existing &&
-    existing.fingerprint === fingerprint &&
+    existing.fingerprint === versionedFingerprint &&
     [PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(existing.preMaskStatus) &&
     !force
   ) {
@@ -135,7 +137,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     force = true
   }
 
-  if (existing && existing.fingerprint !== fingerprint) {
+  if (existing && existing.fingerprint !== versionedFingerprint) {
     await clearPendingAuthorizeTasks(albumId, authorizeBizType)
   }
 
@@ -177,14 +179,14 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
       orderId: album.orderId,
       operatorRole: 'system',
       liabilityType: 'platform',
-      fingerprint,
+      fingerprint: versionedFingerprint,
       preMaskStatus,
       preMaskVersion,
       preMaskedAt: now,
       assets: { create: assetInputs },
     },
     update: {
-      fingerprint,
+      fingerprint: versionedFingerprint,
       preMaskStatus,
       preMaskVersion,
       preMaskedAt: now,
@@ -215,10 +217,14 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   }
 
   const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
+  const nodeViews = albumToNodeView(album)
+  const versionedFingerprint = `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
+  const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
   const needsPreMaskRefresh =
     !preMaskTask ||
+    engineStale ||
     [
       PRE_MASK_STATUS.RUNNING,
       PRE_MASK_STATUS.IDLE,
@@ -229,7 +235,8 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
 
   if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
-      force: preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts,
+      force:
+        preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts || engineStale,
       preMaskBizType,
       authorizeBizType,
     })

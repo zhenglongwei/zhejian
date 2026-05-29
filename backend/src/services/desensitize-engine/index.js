@@ -6,7 +6,7 @@ const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v1'
+const ENGINE_VERSION = 'aliyun-v2'
 
 function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
   if (!ocrWidth || !ocrHeight || !imageWidth || !imageHeight) return boxes
@@ -34,8 +34,8 @@ async function getImageSize(imagePath) {
   return { width: meta.width || 0, height: meta.height || 0 }
 }
 
-async function processImageAliyun(sourcePath, destPath) {
-  const detection = await detectSensitiveRegions(sourcePath)
+async function processImageAliyun(sourcePath, destPath, options = {}) {
+  const detection = await detectSensitiveRegions(sourcePath, options)
   const { width, height } = await getImageSize(sourcePath)
   if (!width || !height) {
     const err = new Error('无法读取图片尺寸')
@@ -102,14 +102,15 @@ async function processImageAliyun(sourcePath, destPath) {
 /**
  * @param {string} sourcePath
  * @param {string} destPath
+ * @param {{ publicUrl?: string }} [options]
  */
-async function processImage(sourcePath, destPath) {
+async function processImage(sourcePath, destPath, options = {}) {
   const engine = config.desensitize.engine
   if (engine === 'dev') {
     return processImageDev(sourcePath, destPath)
   }
   if (engine === 'aliyun') {
-    return processImageAliyun(sourcePath, destPath)
+    return processImageAliyun(sourcePath, destPath, options)
   }
   const err = new Error(`未知脱敏引擎: ${engine}`)
   err.code = 'UNKNOWN_ENGINE'

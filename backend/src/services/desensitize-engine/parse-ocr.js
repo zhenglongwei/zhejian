@@ -217,4 +217,5 @@ module.exports = {
   parseGeneralSensitiveBoxes,
   hasPlateTextInOcr,
   safeParseData,
+  unwrapOcrRoot,
 }

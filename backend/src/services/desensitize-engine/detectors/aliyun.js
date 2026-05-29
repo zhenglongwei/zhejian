@@ -2,12 +2,15 @@ const { RuntimeOptions } = require('@darabonba/typescript')
 const Ocr = require('@alicloud/ocr-api20210707')
 const Facebody = require('@alicloud/facebody20191230')
 const { config } = require('../../../config')
+const { buildPublicMediaUrl } = require('../../../lib/media-storage')
 const { getOcrClient, getFaceClient, openImageStream } = require('../../../lib/aliyun-clients')
 const { boxesFromFaceRectangles } = require('../bbox')
 const {
   parsePlateResult,
   parseVinBoxes,
   parseGeneralSensitiveBoxes,
+  safeParseData,
+  unwrapOcrRoot,
 } = require('../parse-ocr')
 
 const {
@@ -51,6 +54,38 @@ function isBenignDetectError(err) {
   )
 }
 
+function runtimeOptions() {
+  return new RuntimeOptions({
+    connectTimeout: config.desensitize.apiTimeoutMs,
+    readTimeout: config.desensitize.apiTimeoutMs,
+  })
+}
+
+function resolvePublicImageUrl(imagePath, publicUrl) {
+  if (publicUrl && /^https?:\/\//i.test(String(publicUrl))) {
+    return String(publicUrl).trim()
+  }
+  const normalized = String(imagePath || '').replace(/\\/g, '/')
+  const match = normalized.match(/(uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(?:jpe?g|png|webp))/i)
+  if (match) return buildPublicMediaUrl(match[1])
+  return ''
+}
+
+function summarizeOcrPayload(data) {
+  const parsed = unwrapOcrRoot(safeParseData(data))
+  if (!parsed) return 'empty'
+  const kv = parsed.prism_keyValueInfo || parsed.prism_keyvalueinfo || []
+  const info = parsed.info || []
+  const plateValue = kv.find((item) => String(item.key || '').includes('车牌'))?.value || ''
+  return {
+    kv: kv.length,
+    info: info.length,
+    orgWidth: parsed.orgWidth || 0,
+    orgHeight: parsed.orgHeight || 0,
+    plateValue: String(plateValue).slice(0, 16),
+  }
+}
+
 async function runDetector(name, fn) {
   try {
     return { boxes: await fn(), authFailed: false, error: '' }
@@ -70,13 +105,6 @@ async function runDetector(name, fn) {
   }
 }
 
-function runtimeOptions() {
-  return new RuntimeOptions({
-    connectTimeout: config.desensitize.apiTimeoutMs,
-    readTimeout: config.desensitize.apiTimeoutMs,
-  })
-}
-
 async function detectFaces(imagePath) {
   const client = getFaceClient()
   const runtime = runtimeOptions()
@@ -93,10 +121,26 @@ async function detectFaces(imagePath) {
   return boxesFromFaceRectangles(rectangles, 'face')
 }
 
-async function ocrWithBody(RequestClass, method, imagePath) {
+async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
   const client = getOcrClient()
-  const request = new RequestClass({ body: openImageStream(imagePath) })
-  const resp = await client[method](request)
+  const runtime = runtimeOptions()
+  const withOptionsMethod = `${method}WithOptions`
+  if (typeof client[withOptionsMethod] !== 'function') {
+    const err = new Error(`OCR 方法不存在: ${withOptionsMethod}`)
+    err.code = 'OCR_METHOD_MISSING'
+    throw err
+  }
+
+  const imageUrl = resolvePublicImageUrl(imagePath, publicUrl)
+  let request
+  if (imageUrl) {
+    request = new RequestClass({ url: imageUrl })
+  } else {
+    request = new RequestClass()
+    request.body = openImageStream(imagePath)
+  }
+
+  const resp = await client[withOptionsMethod](request, runtime)
   const rawBody = resp?.body
   if (rawBody?.code && String(rawBody.code) !== '200') {
     const err = new Error(rawBody.message || `OCR ${method} 失败`)
@@ -106,10 +150,21 @@ async function ocrWithBody(RequestClass, method, imagePath) {
   return rawBody?.data || ''
 }
 
-async function detectPlateRegion(imagePath) {
+async function detectPlateRegion(imagePath, publicUrl) {
   try {
-    const data = await ocrWithBody(RecognizeCarNumberRequest, 'recognizeCarNumber', imagePath)
+    const data = await ocrRecognize(
+      RecognizeCarNumberRequest,
+      'recognizeCarNumber',
+      imagePath,
+      publicUrl
+    )
     const plate = parsePlateResult(data)
+    if (!plate.boxes.length) {
+      const summary = summarizeOcrPayload(data)
+      if (summary.kv || summary.plateValue) {
+        console.warn('[desensitize-engine] plate ocr parsed empty boxes', summary)
+      }
+    }
     return {
       boxes: plate.boxes,
       authFailed: false,
@@ -151,25 +206,43 @@ async function detectPlateRegion(imagePath) {
   }
 }
 
-async function detectVin(imagePath) {
-  const data = await ocrWithBody(RecognizeCarVinCodeRequest, 'recognizeCarVinCode', imagePath)
+async function detectVin(imagePath, publicUrl) {
+  const data = await ocrRecognize(
+    RecognizeCarVinCodeRequest,
+    'recognizeCarVinCode',
+    imagePath,
+    publicUrl
+  )
   return parseVinBoxes(data)
 }
 
-async function detectGeneralText(imagePath) {
-  const data = await ocrWithBody(RecognizeGeneralRequest, 'recognizeGeneral', imagePath)
+async function detectGeneralText(imagePath, publicUrl) {
+  const data = await ocrRecognize(
+    RecognizeGeneralRequest,
+    'recognizeGeneral',
+    imagePath,
+    publicUrl
+  )
   return parseGeneralSensitiveBoxes(data)
 }
 
 /**
- * @returns {{ boxes: import('../bbox').BBox[], riskTags: string[], errors: string[], authFailed: boolean, plateMaskMiss: boolean, ocrWidth: number, ocrHeight: number }}
+ * @param {string} imagePath
+ * @param {{ publicUrl?: string }} [options]
+ * @returns {Promise<{ boxes: import('../bbox').BBox[], riskTags: string[], errors: string[], authFailed: boolean, plateMaskMiss: boolean, ocrWidth: number, ocrHeight: number }>}
  */
-async function detectSensitiveRegions(imagePath) {
+async function detectSensitiveRegions(imagePath, options = {}) {
+  const publicUrl = options.publicUrl || ''
+  const imageUrl = resolvePublicImageUrl(imagePath, publicUrl)
+  if (imageUrl) {
+    console.info('[desensitize-engine] ocr source url', imageUrl.slice(-72))
+  }
+
   const [faceResult, plateResult, vinResult, textResult] = await Promise.all([
     runDetector('face', () => detectFaces(imagePath)),
-    detectPlateRegion(imagePath),
-    runDetector('vin', () => detectVin(imagePath)),
-    runDetector('text', () => detectGeneralText(imagePath)),
+    detectPlateRegion(imagePath, publicUrl),
+    runDetector('vin', () => detectVin(imagePath, publicUrl)),
+    runDetector('text', () => detectGeneralText(imagePath, publicUrl)),
   ])
 
   const results = [
@@ -184,8 +257,8 @@ async function detectSensitiveRegions(imagePath) {
   const errors = []
   let authFailed = false
   let plateMaskMiss = Boolean(plateResult.plateMaskMiss)
-  const ocrWidth = plateResult.orgWidth || 0
-  const ocrHeight = plateResult.orgHeight || 0
+  let ocrWidth = plateResult.orgWidth || 0
+  let ocrHeight = plateResult.orgHeight || 0
 
   results.forEach((result) => {
     const name = result.name
@@ -207,6 +280,7 @@ async function detectSensitiveRegions(imagePath) {
         else if (b.type === 'document') riskTags.add('document')
         else if (b.type === 'plate') riskTags.add('plate')
       })
+      if (!ocrWidth && options.ocrWidth) ocrWidth = options.ocrWidth
     }
     boxes.push(...found)
   })
@@ -223,6 +297,8 @@ async function detectSensitiveRegions(imagePath) {
       types: [...riskTags],
       plateMaskMiss,
     })
+  } else if (errors.length) {
+    console.warn('[desensitize-engine] no detections', { errors: errors.slice(0, 4) })
   }
 
   return {
@@ -238,4 +314,5 @@ async function detectSensitiveRegions(imagePath) {
 
 module.exports = {
   detectSensitiveRegions,
+  resolvePublicImageUrl,
 }

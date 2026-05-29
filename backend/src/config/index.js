@@ -31,6 +31,8 @@ const config = {
     engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
     apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),
     maxFaceNumber: Number(process.env.DESENSITIZE_MAX_FACE_NUMBER || 10),
+    /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
+    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v2',
   },
 }
 
