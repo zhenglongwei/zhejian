@@ -21,6 +21,11 @@
     >×</text>
   </view>
   <text
+    wx:if="{{showSearch && !readonly}}"
+    class="search-bar__submit text-body"
+    bindtap="onSearchTap"
+  >搜索</text>
+  <text
     wx:if="{{showCancel && !readonly}}"
     class="search-bar__cancel text-body"
     bindtap="onCancel"

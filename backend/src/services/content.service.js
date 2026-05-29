@@ -7,7 +7,6 @@ const {
   matchSearchService,
   matchSearchMerchant,
   matchSearchCase,
-  pickSearchResultTab,
 } = require('../utils/search-match')
 const { buildCaseFaq } = require('../utils/case-faq')
 const {
@@ -534,26 +533,8 @@ async function searchContent(query = {}) {
   const matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
   const geoPages = filterGeoPages(keyword)
 
-  const preliminary = prepareSearchLists({
-    tab,
-    sort,
-    filters,
-    coords,
-    services: matchedServices,
-    merchants: matchedMerchants,
-    cases: matchedCases,
-  })
-
-  const counts = {
-    service: preliminary.serviceList.length,
-    merchant: preliminary.merchantList.length,
-    case: preliminary.caseList.length,
-    geo: geoPages.length,
-  }
-  const resolvedTab = pickSearchResultTab(counts, tab)
-
   const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
-    tab: resolvedTab,
+    tab,
     sort,
     filters,
     coords,
@@ -567,17 +548,22 @@ async function searchContent(query = {}) {
 
   return {
     keyword,
-    tab: resolvedTab,
+    tab,
     sort,
     filters,
     geoPages,
-    services: resolvedTab === 'service' ? pagedList : serviceList.slice(0, pageSize),
-    merchants: resolvedTab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
-    cases: resolvedTab === 'case' ? pagedList : caseList.slice(0, pageSize),
+    services: tab === 'service' ? pagedList : serviceList.slice(0, pageSize),
+    merchants: tab === 'merchant' ? pagedList : merchantList.slice(0, pageSize),
+    cases: tab === 'case' ? pagedList : caseList.slice(0, pageSize),
     list: pagedList,
     total: activeList.length,
     hasMore: start + pageSize < activeList.length,
-    counts,
+    counts: {
+      service: serviceList.length,
+      merchant: merchantList.length,
+      case: caseList.length,
+      geo: geoPages.length,
+    },
     hotwords: SEARCH_HOTWORDS,
   }
 }

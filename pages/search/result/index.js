@@ -16,6 +16,44 @@ const { inferDefaultTab } = require('../../../utils/search-intent')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
 const { resolveCityContext } = require('../../../utils/city-location')
 
+const TAB_LABEL = {
+  service: '服务',
+  merchant: '门店',
+  case: '案例',
+}
+
+function getTabList(tab, services, merchants, cases) {
+  if (tab === 'merchant') return merchants
+  if (tab === 'case') return cases
+  return services
+}
+
+function isPageEmpty(counts, geoPages) {
+  const c = counts || {}
+  return (
+    !(c.service || 0) &&
+    !(c.merchant || 0) &&
+    !(c.case || 0) &&
+    !(geoPages || []).length
+  )
+}
+
+function buildTabEmptyHint(activeTab, counts) {
+  const c = counts || {}
+  const parts = []
+  if (activeTab !== 'service' && c.service) {
+    parts.push(`${TAB_LABEL.service} ${c.service} 条`)
+  }
+  if (activeTab !== 'merchant' && c.merchant) {
+    parts.push(`${TAB_LABEL.merchant} ${c.merchant} 条`)
+  }
+  if (activeTab !== 'case' && c.case) {
+    parts.push(`${TAB_LABEL.case} ${c.case} 条`)
+  }
+  if (!parts.length) return ''
+  return `可切换上方标签查看：${parts.join('、')}`
+}
+
 Page({
   data: {
     placeholder: SEARCH_PLACEHOLDER,
@@ -42,6 +80,8 @@ Page({
     emptyDescription: '换个关键词试试，或查看热门搜索',
     emptyActionText: '返回首页',
     geoTopicTag: GEO_TOPIC_TAG,
+    showTabEmpty: false,
+    tabEmptyHint: '',
   },
 
   onLoad(options) {
@@ -137,41 +177,32 @@ Page({
         cardTags: buildStoreCardTags(store, []),
       }))
 
-      const list = result.list || []
       const geoPages = result.geoPages || []
+      const services = result.services || []
+      const cases = result.cases || []
+      const counts = result.counts || {}
+      const activeTab = this.data.activeTab
+      const tabList = getTabList(activeTab, services, merchants, cases)
       const activeFilters = hasActiveFilters(this.data.filters)
-      const isEmpty = !list.length && !geoPages.length
-      const resolvedTab = result.tab || this.data.activeTab
-      const tabSwitched = resolvedTab !== this.data.activeTab
-
-      if (tabSwitched) {
-        this.syncSortOptions(resolvedTab)
-        this.syncFilterSections(resolvedTab)
-      }
+      const pageEmpty = isPageEmpty(counts, geoPages)
+      const showTabEmpty = !pageEmpty && !tabList.length
 
       this.setData({
         geoPages,
-        services: result.services || [],
+        services,
         merchants,
-        cases: result.cases || [],
+        cases,
         hotwords: result.hotwords || [],
-        counts: result.counts || {},
-        activeTab: resolvedTab,
-        status: isEmpty ? 'empty' : 'normal',
+        counts,
+        status: pageEmpty ? 'empty' : 'normal',
+        showTabEmpty,
+        tabEmptyHint: showTabEmpty ? buildTabEmptyHint(activeTab, counts) : '',
         emptyDescription: activeFilters
           ? '当前筛选条件下暂无结果，可尝试清空筛选'
-          : isEmpty
-            ? '换个关键词试试，或查看热门搜索'
-            : '换个关键词试试，或查看热门搜索',
+          : '换个关键词试试，或查看热门搜索',
         emptyActionText: activeFilters ? '清空筛选' : '返回首页',
         hasActiveFilters: activeFilters,
       })
-      if (tabSwitched && !isEmpty) {
-        wx.showToast({
-          title: `已切换到${resolvedTab === 'case' ? '案例' : resolvedTab === 'merchant' ? '门店' : '服务'}`,
-          icon: 'none',
-        })
-      }
       addSearchHistory(keyword)
     } catch (e) {
       this.setData({
@@ -206,6 +237,7 @@ Page({
   onTabChange(e) {
     const { key } = e.detail
     if (key === this.data.activeTab) return
+    this.tabLockedByUser = true
     this.syncSortOptions(key)
     this.syncFilterSections(key)
     this.setData(
@@ -327,4 +359,4 @@ Page({
     wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
   },
 })
-
+

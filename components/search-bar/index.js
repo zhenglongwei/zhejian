@@ -20,6 +20,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    showSearch: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   methods: {
@@ -38,6 +42,10 @@ Component({
     onClear() {
       this.triggerEvent('clear')
       this.triggerEvent('input', { value: '' })
+    },
+
+    onSearchTap() {
+      this.triggerEvent('search')
     },
 
     onCancel() {

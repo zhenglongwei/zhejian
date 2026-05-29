@@ -48,3 +48,15 @@
 .search-index__panel {
   padding-bottom: var(--space-xl);
 }
+
+.search-index__more {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.search-index__more-btn {
+  display: block;
+  text-align: center;
+  color: var(--color-primary);
+}

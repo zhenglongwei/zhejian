@@ -5,8 +5,10 @@
       placeholder="{{placeholder}}"
       focus="{{focus}}"
       showCancel="{{true}}"
+      showSearch="{{true}}"
       bind:input="onInput"
       bind:confirm="onConfirm"
+      bind:search="onConfirm"
       bind:clear="onClear"
       bind:cancel="onCancel"
     />
@@ -26,6 +28,15 @@
           arrow="{{false}}"
         />
       </view>
+      <view class="search-index__more">
+        <text class="search-index__more-btn text-body" bindtap="onSearchAll">查看「{{keyword}}」的全部搜索结果</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{keyword && showSearchAll}}">
+    <view class="search-index__more page-content">
+      <ui-button type="primary" bind:tap="onSearchAll">搜索「{{keyword}}」</ui-button>
     </view>
   </block>
 

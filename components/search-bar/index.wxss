@@ -42,7 +42,12 @@
   color: var(--color-text-tertiary);
 }
 
-.search-bar__cancel {
+.search-bar__cancel,
+.search-bar__submit {
   flex-shrink: 0;
   color: var(--color-primary);
+}
+
+.search-bar__submit {
+  font-weight: 500;
 }

@@ -20,6 +20,10 @@
   padding-bottom: var(--space-xl);
 }
 
+.search-result__tab-empty {
+  padding-bottom: var(--space-xl);
+}
+
 .search-result__geo {
   display: flex;
   flex-direction: column;

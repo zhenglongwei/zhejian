@@ -20,6 +20,7 @@ Page({
     history: [],
     suggests: [],
     showSuggests: false,
+    showSearchAll: false,
     errorMessage: '',
   },
 
@@ -58,7 +59,12 @@ Page({
 
   onInput(e) {
     const keyword = (e.detail && e.detail.value) || ''
-    this.setData({ keyword, showSuggests: !!keyword.trim() })
+    const trimmed = keyword.trim()
+    this.setData({
+      keyword,
+      showSuggests: !!trimmed,
+      showSearchAll: !!trimmed,
+    })
     this.loadSuggest(keyword)
   },
 
@@ -77,7 +83,7 @@ Page({
   },
 
   onClear() {
-    this.setData({ keyword: '', suggests: [], showSuggests: false })
+    this.setData({ keyword: '', suggests: [], showSuggests: false, showSearchAll: false })
   },
 
   onCancel() {
@@ -102,6 +108,10 @@ Page({
       return ''
     }
     return value
+  },
+
+  onSearchAll() {
+    this.goResult(this.data.keyword)
   },
 
   goResult(keyword) {

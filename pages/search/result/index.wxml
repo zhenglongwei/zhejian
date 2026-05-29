@@ -4,8 +4,10 @@
       value="{{keyword}}"
       placeholder="{{placeholder}}"
       showCancel="{{true}}"
+      showSearch="{{true}}"
       bind:input="onInput"
       bind:confirm="onConfirm"
+      bind:search="onConfirm"
       bind:clear="onClear"
       bind:cancel="onCancel"
     />
@@ -66,17 +68,24 @@
       />
     </view>
 
-    <view wx:if="{{activeTab === 'service'}}" class="search-result__notice">
+    <view wx:if="{{activeTab === 'service' && !showTabEmpty}}" class="search-result__notice">
       <ui-compliance-notice type="price" />
     </view>
-    <view wx:if="{{activeTab === 'case'}}" class="search-result__notice">
+    <view wx:if="{{activeTab === 'case' && !showTabEmpty}}" class="search-result__notice">
       <ui-privacy-banner
         text="以下为已脱敏、已审核的公开案例，不含车牌、手机号等个人信息。"
       />
       <ui-compliance-notice type="casePrice" />
     </view>
 
-    <block wx:if="{{activeTab === 'service'}}">
+    <view wx:if="{{showTabEmpty}}" class="search-result__tab-empty">
+      <ui-empty
+        title="该分类暂无结果"
+        description="{{tabEmptyHint || '可切换上方标签查看其他分类'}}"
+      />
+    </view>
+
+    <block wx:elif="{{activeTab === 'service'}}">
       <ui-service-card
         wx:for="{{services}}"
         wx:key="id"
