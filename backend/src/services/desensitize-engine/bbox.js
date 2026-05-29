@@ -41,7 +41,7 @@ function boxesFromFaceRectangles(flat, type = 'face') {
 }
 
 function padBox(box, imageWidth, imageHeight) {
-  const ratio = box.type === 'plate' ? 0.14 : PADDING_RATIO
+  const ratio = box.type === 'plate' ? 0.18 : PADDING_RATIO
   const padX = Math.round(box.width * ratio)
   const padY = Math.round(box.height * ratio)
   const left = clamp(Math.floor(box.left - padX), 0, Math.max(0, imageWidth - 1))

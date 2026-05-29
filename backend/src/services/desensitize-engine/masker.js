@@ -6,6 +6,30 @@ function loadSharpModule() {
   return loadSharp()
 }
 
+async function buildMosaicRegion(sharp, sourcePath, left, top, w, h) {
+  const mosaicW = Math.max(6, Math.floor(w / 6))
+  const mosaicH = Math.max(6, Math.floor(h / 6))
+  return sharp(sourcePath)
+    .extract({ left, top, width: w, height: h })
+    .resize(mosaicW, mosaicH, { kernel: 'nearest' })
+    .resize(w, h, { kernel: 'nearest' })
+    .toBuffer()
+}
+
+/** 车牌用实心灰块，避免细粒度马赛克肉眼仍可读 */
+async function buildPlateFill(sharp, w, h) {
+  return sharp({
+    create: {
+      width: w,
+      height: h,
+      channels: 3,
+      background: { r: 72, g: 72, b: 72 },
+    },
+  })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer()
+}
+
 async function applyMosaicToImage(sourcePath, boxes) {
   const sharp = loadSharpModule()
   if (!sharp) {
@@ -40,14 +64,11 @@ async function applyMosaicToImage(sourcePath, boxes) {
     const top = Math.max(0, Math.min(Math.floor(box.top), height - 1))
     const w = Math.max(1, Math.min(Math.floor(box.width), width - left))
     const h = Math.max(1, Math.min(Math.floor(box.height), height - top))
-    const mosaicW = Math.max(4, Math.floor(w / 10))
-    const mosaicH = Math.max(4, Math.floor(h / 10))
-    const region = await sharp(sourcePath)
-      .extract({ left, top, width: w, height: h })
-      .resize(mosaicW, mosaicH, { kernel: 'nearest' })
-      .resize(w, h, { kernel: 'nearest' })
-      .toBuffer()
-    composites.push({ input: region, left, top })
+    const region =
+      box.type === 'plate'
+        ? await buildPlateFill(sharp, w, h)
+        : await buildMosaicRegion(sharp, sourcePath, left, top, w, h)
+    composites.push({ input: region, left, top, blend: 'over' })
   }
 
   let pipeline = sharp(sourcePath).composite(composites)

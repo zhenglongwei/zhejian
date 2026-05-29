@@ -6,7 +6,7 @@ const { detectSensitiveRegions } = require('./detectors/aliyun')
 const { prepareOrientedWorkingCopy } = require('./oriented')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v6'
+const ENGINE_VERSION = 'aliyun-v7'
 
 function filterBogusFaceBoxes(boxes, imageWidth, imageHeight) {
   if (!imageWidth || !imageHeight) return boxes

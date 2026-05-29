@@ -33,6 +33,27 @@ function normalizeBoxCoords(left, top, width, height, imageWidth, imageHeight) {
   return { left: l, top: t, width: w, height: h }
 }
 
+function boxFromNormalizedPoints(points, type, source, imageWidth, imageHeight) {
+  if (!Array.isArray(points) || points.length < 2) return null
+  const coords = points
+    .map((p) => ({
+      x: Number(p.x ?? p.X),
+      y: Number(p.y ?? p.Y),
+    }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+  if (coords.length < 2) return null
+
+  const maxVal = Math.max(...coords.flatMap((p) => [p.x, p.y]))
+  if (maxVal > 0 && maxVal <= 1 && imageWidth && imageHeight) {
+    return boxFromPoints(
+      coords.map((p) => ({ x: p.x * imageWidth, y: p.y * imageHeight })),
+      type,
+      source
+    )
+  }
+  return boxFromPoints(coords, type, source)
+}
+
 function pickBestPlate(plates) {
   if (!plates.length) return null
   let best = plates[0]
@@ -47,38 +68,61 @@ function pickBestPlate(plates) {
   return best
 }
 
+function boxFromRoi(roi, imageWidth, imageHeight) {
+  if (!roi) return null
+  const raw = normalizeBoxCoords(
+    roi.x ?? roi.X ?? roi.left,
+    roi.y ?? roi.Y ?? roi.top,
+    roi.w ?? roi.W ?? roi.width,
+    roi.h ?? roi.H ?? roi.height,
+    imageWidth,
+    imageHeight
+  )
+  if (!raw) return null
+  return boxFromLtwh(raw.left, raw.top, raw.width, raw.height, 'plate', 'viapi_roi')
+}
+
 function parseViapiPlateBoxes(data, imageWidth = 0, imageHeight = 0) {
   const plates = data?.plates || data?.Plates || []
   const plateNumbers = plates
     .map((p) => String(p.plateNumber || p.PlateNumber || '').trim())
     .filter(Boolean)
   if (!plates.length) {
-    return { boxes: [], plateNumbers: [] }
+    return { boxes: [], plateNumbers: [], debug: [] }
   }
 
   const best = pickBestPlate(plates)
-  const boxes = []
+  const debug = []
   const roi = best?.roi || best?.Roi
-  if (roi) {
-    const raw = normalizeBoxCoords(
-      roi.x ?? roi.X ?? roi.left,
-      roi.y ?? roi.Y ?? roi.top,
-      roi.w ?? roi.W ?? roi.width,
-      roi.h ?? roi.H ?? roi.height,
-      imageWidth,
-      imageHeight
-    )
-    if (raw) {
-      const box = boxFromLtwh(raw.left, raw.top, raw.width, raw.height, 'plate', 'viapi_roi')
-      if (box) boxes.push(box)
-    }
+  const positions = best?.positions || best?.Positions || []
+  const posBox = boxFromNormalizedPoints(positions, 'plate', 'viapi_pos', imageWidth, imageHeight)
+  const roiBox = boxFromRoi(roi, imageWidth, imageHeight)
+
+  if (roiBox) {
+    debug.push({
+      source: 'viapi_roi',
+      left: roiBox.left,
+      top: roiBox.top,
+      width: roiBox.width,
+      height: roiBox.height,
+    })
   }
-  if (!boxes.length) {
-    const posBox = boxFromPoints(best?.positions || best?.Positions, 'plate', 'viapi_pos')
-    if (posBox) boxes.push(posBox)
+  if (posBox) {
+    debug.push({
+      source: 'viapi_pos',
+      left: posBox.left,
+      top: posBox.top,
+      width: posBox.width,
+      height: posBox.height,
+    })
   }
 
-  return { boxes, plateNumbers }
+  // 官方示例中 Positions 四角才是车牌真实区域，Roi 常偏移，打码必须用 Positions
+  const boxes = []
+  if (posBox) boxes.push(posBox)
+  else if (roiBox) boxes.push(roiBox)
+
+  return { boxes, plateNumbers, debug }
 }
 
 function hasViapiPlateText(data) {
@@ -101,7 +145,9 @@ async function detectPlateViaViapi(imagePath, imageWidth = 0, imageHeight = 0) {
     endpoint: viapiOcrEndpoint(),
     count: parsed.boxes.length,
     plateNumbers: parsed.plateNumbers.slice(0, 3),
-    boxes: parsed.boxes.map((b) => ({
+    candidates: parsed.debug,
+    picked: parsed.boxes.map((b) => ({
+      source: b.source,
       left: b.left,
       top: b.top,
       width: b.width,

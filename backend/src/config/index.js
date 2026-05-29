@@ -40,7 +40,7 @@ const config = {
     /** ocr-api 在部分 ECS 不可达，默认 viapi（ocr.cn-shanghai） */
     plateProvider: process.env.DESENSITIZE_PLATE_PROVIDER || 'viapi',
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
-    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v6',
+    cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v7',
   },
 }
 
