@@ -24,7 +24,11 @@ function getCredential() {
         accessKeySecret,
       })
     } else {
-      credential = new Credential()
+      const roleName =
+        process.env.ALIBABA_CLOUD_ECS_METADATA_ROLE_NAME || process.env.ECS_RAM_ROLE_NAME || ''
+      credential = roleName
+        ? new Credential({ type: 'ecs_ram_role', roleName })
+        : new Credential()
     }
   }
   return credential

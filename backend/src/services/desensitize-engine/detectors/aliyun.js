@@ -24,8 +24,44 @@ function isAuthError(err) {
     code.includes('signature') ||
     msg.includes('accesskey') ||
     msg.includes('credential') ||
-    msg.includes('forbidden')
+    msg.includes('forbidden') ||
+    msg.includes('denied') ||
+    code === '403'
   )
+}
+
+/** 未识别到车牌/VIN 等，视为空结果而非整图失败 */
+function isBenignDetectError(err) {
+  if (isAuthError(err)) return false
+  const code = String(err?.code || '').toLowerCase()
+  const msg = String(err?.message || '').toLowerCase()
+  return (
+    code.includes('illegalimage') ||
+    code.includes('noocrresult') ||
+    msg.includes('未识别') ||
+    msg.includes('无识别') ||
+    msg.includes('no region') ||
+    msg.includes('not found')
+  )
+}
+
+async function runDetector(name, fn) {
+  try {
+    return { boxes: await fn(), authFailed: false, error: '' }
+  } catch (err) {
+    if (isAuthError(err)) {
+      return { boxes: [], authFailed: true, error: `${name}:${err.message || 'auth'}` }
+    }
+    if (isBenignDetectError(err)) {
+      return { boxes: [], authFailed: false, error: '' }
+    }
+    console.warn(
+      `[desensitize-engine] ${name}:`,
+      err.code || '',
+      String(err.message || '').slice(0, 120)
+    )
+    return { boxes: [], authFailed: false, error: `${name}:${err.message || 'failed'}` }
+  }
 }
 
 function runtimeOptions() {
@@ -92,7 +128,7 @@ async function detectSensitiveRegions(imagePath) {
     { name: 'text', fn: () => detectGeneralText(imagePath) },
   ]
 
-  const results = await Promise.allSettled(tasks.map((t) => t.fn()))
+  const results = await Promise.all(tasks.map((t) => runDetector(t.name, t.fn)))
   const boxes = []
   const riskTags = new Set()
   const errors = []
@@ -100,38 +136,34 @@ async function detectSensitiveRegions(imagePath) {
 
   results.forEach((result, idx) => {
     const name = tasks[idx].name
-    if (result.status === 'fulfilled') {
-      const found = result.value || []
-      if (found.length) {
-        if (name === 'face') riskTags.add('face')
-        if (name === 'plate') riskTags.add('plate')
-        if (name === 'vin') riskTags.add('vin')
-        if (name === 'text') {
-          found.forEach((b) => {
-            if (b.type === 'phone') riskTags.add('phone')
-            else if (b.type === 'vin') riskTags.add('vin')
-            else if (b.type === 'document') riskTags.add('document')
-          })
-        }
-        boxes.push(...found)
-      }
+    if (result.authFailed) {
+      authFailed = true
+      if (result.error) errors.push(result.error)
       return
     }
-    const err = result.reason
-    if (isAuthError(err)) authFailed = true
-    errors.push(`${name}:${err?.message || 'failed'}`)
+    if (result.error) errors.push(result.error)
+    const found = result.boxes || []
+    if (!found.length) return
+    if (name === 'face') riskTags.add('face')
+    if (name === 'plate') riskTags.add('plate')
+    if (name === 'vin') riskTags.add('vin')
+    if (name === 'text') {
+      found.forEach((b) => {
+        if (b.type === 'phone') riskTags.add('phone')
+        else if (b.type === 'vin') riskTags.add('vin')
+        else if (b.type === 'document') riskTags.add('document')
+      })
+    }
+    boxes.push(...found)
   })
 
-  const allRejected = results.every((r) => r.status === 'rejected')
-  if (allRejected) {
-    const err = new Error(
-      authFailed ? '阿里云凭证无效或权限不足' : '脱敏检测服务不可用，请稍后重试'
-    )
-    err.code = authFailed ? 'ALIYUN_AUTH_FAILED' : 'DETECT_ALL_FAILED'
+  if (authFailed) {
+    const err = new Error('阿里云凭证无效或权限不足')
+    err.code = 'ALIYUN_AUTH_FAILED'
     throw err
   }
 
-  return { boxes, riskTags: [...riskTags], errors, authFailed }
+  return { boxes, riskTags: [...riskTags], errors, authFailed: false }
 }
 
 module.exports = {

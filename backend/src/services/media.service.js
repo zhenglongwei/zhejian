@@ -212,6 +212,12 @@ async function resolveDesensitizedUrlForAsset(rawUrl, context = {}) {
       riskLevel: result.riskLevel || '',
     }
   } catch (e) {
+    console.warn('[desensitize] asset failed', {
+      mediaId: media.id,
+      code: e.code || '',
+      status: e.status || '',
+      message: String(e.message || '').slice(0, 160),
+    })
     return {
       mediaId: media.id,
       maskedUrl: '',

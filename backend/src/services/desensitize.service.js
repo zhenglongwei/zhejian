@@ -184,12 +184,18 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
 
   const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
-  if (
+  const needsPreMaskRefresh =
     !preMaskTask ||
-    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(preMaskTask.preMaskStatus)
-  ) {
+    [
+      PRE_MASK_STATUS.RUNNING,
+      PRE_MASK_STATUS.IDLE,
+      PRE_MASK_STATUS.FAILED,
+      null,
+    ].includes(preMaskTask.preMaskStatus)
+
+  if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
-      force: false,
+      force: preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED,
       preMaskBizType,
       authorizeBizType,
     })
@@ -205,6 +211,15 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
 
   const readyAssets = (preMaskTask.assets || []).filter((a) => a.maskedUrl || a.preMaskedUrl)
   if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED || !readyAssets.length) {
+    const failedAssets = (preMaskTask.assets || []).filter(
+      (a) => a.status === ASSET_STATUS.MASK_FAILED
+    )
+    console.warn('[desensitize] pre-mask not ready', {
+      albumId,
+      preMaskStatus: preMaskTask.preMaskStatus,
+      total: (preMaskTask.assets || []).length,
+      failed: failedAssets.length,
+    })
     const err = new Error('预脱敏失败，请稍后重试或联系客服')
     err.code = 100007
     err.status = 409
