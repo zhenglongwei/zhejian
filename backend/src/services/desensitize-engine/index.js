@@ -6,7 +6,7 @@ const { writeMaskedImage } = require('./masker')
 const { detectSensitiveRegions } = require('./detectors/aliyun')
 const { processImageDev, ENGINE_VERSION: DEV_ENGINE_VERSION } = require('./providers/dev')
 
-const ENGINE_VERSION = 'aliyun-v3'
+const ENGINE_VERSION = 'aliyun-v4'
 
 function scaleBoxes(boxes, ocrWidth, ocrHeight, imageWidth, imageHeight) {
   if (!ocrWidth || !ocrHeight || !imageWidth || !imageHeight) return boxes

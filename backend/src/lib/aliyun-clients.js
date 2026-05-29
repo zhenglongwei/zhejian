@@ -27,9 +27,11 @@ function getCredential() {
     } else {
       const roleName =
         process.env.ALIBABA_CLOUD_ECS_METADATA_ROLE_NAME || process.env.ECS_RAM_ROLE_NAME || ''
-      credential = roleName
-        ? new Credential({ type: 'ecs_ram_role', roleName })
-        : new Credential()
+      // 必须显式 ecs_ram_role；裸 new Credential() 会先读 ~/.aliyun/config.json 导致 ECS 上 ENOENT
+      credential = new Credential({
+        type: 'ecs_ram_role',
+        ...(roleName ? { roleName } : {}),
+      })
     }
   }
   return credential

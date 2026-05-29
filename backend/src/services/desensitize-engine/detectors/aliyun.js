@@ -24,6 +24,7 @@ const { DetectFaceAdvanceRequest } = Facebody
 function isAuthError(err) {
   const code = String(err?.code || err?.data?.Code || '').toLowerCase()
   const msg = String(err?.message || '').toLowerCase()
+  if (code === 'enoent' || msg.includes('enoent')) return false
   return (
     code.includes('nopermission') ||
     code.includes('invalidaccesskey') ||
@@ -31,11 +32,11 @@ function isAuthError(err) {
     code.includes('signature') ||
     code.includes('unauthorized') ||
     msg.includes('accesskey') ||
-    msg.includes('credential') ||
     msg.includes('forbidden') ||
     msg.includes('denied') ||
     msg.includes('not authorized') ||
-    msg.includes('权限') ||
+    msg.includes('you are not authorized') ||
+    msg.includes('权限不足') ||
     code === '403'
   )
 }
