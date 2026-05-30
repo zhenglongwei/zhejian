@@ -72,3 +72,4 @@ pre-mask → desensitize → authorize preview → public case
 
 - 先替换 engine，再开 OPS-MASK-01 运营 UI。
 - 与 `privacy-desensitization-check` 联用：区分「URL 隔离」与「像素级打码」。
+- 故障排查（日志 SUCCESS 但车牌仍清晰、VIAPI/OCR/pre-mask）：用 `skill_desensitize_plate_debug.md`（`.cursor/skills/desensitize-plate-debug/`）。
