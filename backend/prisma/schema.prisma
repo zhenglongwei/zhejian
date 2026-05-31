@@ -272,6 +272,7 @@ model DesensitizeAsset {
   status       String
   previewed    Boolean         @default(false)
   riskTags     Json            @default("[]") @map("risk_tags")
+  riskLevel    String          @default("") @map("risk_level")
   task         DesensitizeTask @relation(fields: [taskId], references: [taskId], onDelete: Cascade)
 
   @@id([taskId, assetId])
@@ -286,12 +287,34 @@ model MediaAsset {
   desensitizedKey   String   @default("") @map("desensitized_key") @db.VarChar(512)
   desensitizedUrl   String   @default("") @map("desensitized_url") @db.VarChar(512)
   desensitizeStatus String   @default("pending") @map("desensitize_status")
+  privacyRiskLevel  String   @default("") @map("privacy_risk_level")
+  riskTags          Json     @default("[]") @map("risk_tags")
+  engineVersion     String   @default("") @map("engine_version")
+  privacyDetectedAt DateTime? @map("privacy_detected_at")
   uploaderId        String   @default("") @map("uploader_id")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@index([objectKey])
   @@map("media_assets")
+}
+
+/// PRD 06 §17.3：单图隐私检测记录（按 detect_type 分行）
+model PrivacyDetectionResult {
+  id          String   @id
+  imageId     String   @map("image_id")
+  caseId      String   @default("") @map("case_id")
+  detectType  String   @map("detect_type")
+  resultJson  Json     @map("result_json")
+  riskLevel   String   @default("") @map("risk_level")
+  maskedPath  String   @default("") @map("masked_path") @db.VarChar(512)
+  status      String   @default("success")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([imageId, caseId, detectType])
+  @@index([imageId])
+  @@index([caseId])
+  @@map("privacy_detection_result")
 }
 
 model AlbumAuthorization {

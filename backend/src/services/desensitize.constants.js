@@ -83,6 +83,7 @@ function mapTaskRecord(task) {
     status: asset.status,
     previewed: asset.previewed,
     riskTags: asset.riskTags || [],
+    riskLevel: asset.riskLevel || '',
   }))
   const maskedAssets = rawAssets
     .filter((a) => a.maskedUrl || a.preMaskedUrl)

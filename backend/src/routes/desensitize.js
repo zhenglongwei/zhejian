@@ -13,7 +13,7 @@ const router = express.Router()
 
 router.get('/tasks/:taskId', requireAuth(['user', 'merchant', 'system']), async (req, res, next) => {
   try {
-    const task = await getTaskById(req.params.taskId)
+    const task = await getTaskById(req.params.taskId, { roles: req.auth?.roles || [] })
     if (!task) {
       const err = new Error('脱敏任务不存在')
       err.status = 404

@@ -15,6 +15,8 @@ const {
 const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl } = require('./media.service')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
 const { parseObjectKeyFromPublicUrl } = require('../lib/media-storage')
+const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
+const { ROLES } = require('../lib/jwt')
 
 async function loadAlbumWithRelations(albumId) {
   return prisma.album.findUnique({
@@ -27,12 +29,34 @@ async function loadAlbumWithRelations(albumId) {
   })
 }
 
-async function getTaskById(taskId) {
+function canIncludePrivacyDetections(options = {}) {
+  if (options.includeDetections === true) return true
+  const roles = options.roles || []
+  return roles.includes(ROLES.SYSTEM)
+}
+
+async function enrichTaskWithPrivacyDetections(mapped, options = {}) {
+  if (!mapped || !canIncludePrivacyDetections(options)) return mapped
+  const rawAssets = await Promise.all(
+    (mapped.rawAssets || []).map(async (asset) => {
+      if (!asset.mediaId) return asset
+      const privacyDetections = await listPrivacyDetectionsByImageId(asset.mediaId, {
+        caseId: options.caseId,
+        includeResultJson: true,
+      })
+      return { ...asset, privacyDetections }
+    })
+  )
+  return { ...mapped, rawAssets }
+}
+
+async function getTaskById(taskId, options = {}) {
   const task = await prisma.desensitizeTask.findUnique({
     where: { taskId },
     include: { assets: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] } },
   })
-  return mapTaskRecord(task)
+  const mapped = mapTaskRecord(task)
+  return enrichTaskWithPrivacyDetections(mapped, options)
 }
 
 function resolveAlbumBizTypes(album) {
@@ -165,6 +189,7 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
         status: preMaskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
         previewed: false,
         riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : preMaskedUrl ? [] : [],
+        riskLevel: masked.riskLevel || (preMaskedUrl ? 'low' : ''),
       }
     })
   )
@@ -299,6 +324,7 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
     status: asset.status,
     previewed: false,
     riskTags: asset.riskTags || [],
+    riskLevel: asset.riskLevel || '',
   }))
 
   await prisma.desensitizeTask.create({
@@ -348,7 +374,7 @@ function buildAuthorizePreviewPayload(album, task) {
   }
 }
 
-async function runAutoMask(taskId) {
+async function runAutoMask(taskId, options = {}) {
   const task = await prisma.desensitizeTask.findUnique({
     where: { taskId },
     include: { assets: true },
@@ -382,15 +408,16 @@ async function runAutoMask(taskId) {
           preMaskedUrl: maskedUrl,
           status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
           riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
+          riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
         },
       })
     })
   )
   await Promise.all(updates)
-  return getTaskById(taskId)
+  return getTaskById(taskId, options)
 }
 
-async function retryAsset(taskId, assetId) {
+async function retryAsset(taskId, assetId, options = {}) {
   const asset = await prisma.desensitizeAsset.findUnique({
     where: { taskId_assetId: { taskId, assetId } },
     include: { task: true },
@@ -414,17 +441,18 @@ async function retryAsset(taskId, assetId) {
       preMaskedUrl: maskedUrl,
       status: maskedUrl ? ASSET_STATUS.MASKED_READY : ASSET_STATUS.MASK_FAILED,
       riskTags: masked.riskTags && masked.riskTags.length ? masked.riskTags : maskedUrl ? [] : [],
+      riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
     },
   })
-  return getTaskById(taskId)
+  return getTaskById(taskId, options)
 }
 
-async function markAssetPreviewed(taskId, assetId) {
+async function markAssetPreviewed(taskId, assetId, options = {}) {
   await prisma.desensitizeAsset.updateMany({
     where: { taskId, assetId },
     data: { previewed: true },
   })
-  return getTaskById(taskId)
+  return getTaskById(taskId, options)
 }
 
 function allMaskingSucceeded(rawAssets) {
@@ -472,6 +500,7 @@ module.exports = {
   loadAlbumWithRelations,
   albumToNodeView,
   getTaskById,
+  canIncludePrivacyDetections,
   ensureOrderPreMaskTask,
   createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
