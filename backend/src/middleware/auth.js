@@ -56,11 +56,11 @@ function resolveDevAuth(token) {
     }
   }
 
-  if (token === config.devTokens.system) {
+  if (token === config.devTokens.system || token === config.devTokens.admin) {
     return {
       token,
       roles: [ROLES.SYSTEM],
-      userId: null,
+      userId: 'admin_system',
       merchantId: null,
       storeId: null,
       isDevToken: true,

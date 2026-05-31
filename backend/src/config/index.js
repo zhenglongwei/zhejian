@@ -10,7 +10,9 @@ const config = {
     user: process.env.DEV_USER_TOKEN || 'dev_user_token_change_me',
     merchant: process.env.DEV_MERCHANT_TOKEN || 'dev_merchant_token_change_me',
     system: process.env.DEV_SYSTEM_TOKEN || 'dev_system_token_change_me',
+    admin: process.env.DEV_ADMIN_TOKEN || process.env.DEV_SYSTEM_TOKEN || 'dev_system_token_change_me',
   },
+  adminPassword: process.env.ADMIN_PASSWORD || 'admin_change_me',
   jwt: {
     secret: process.env.JWT_SECRET || '',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',

@@ -236,6 +236,21 @@ model PublicCase {
   @@map("public_cases")
 }
 
+model CaseReviewLog {
+  id             String   @id
+  caseId         String   @map("case_id")
+  reviewerId     String   @default("system") @map("reviewer_id")
+  reviewAction   String   @map("review_action")
+  reviewComment  String   @default("") @map("review_comment") @db.Text
+  beforeStatus   String   @default("") @map("before_status")
+  afterStatus    String   @default("") @map("after_status")
+  riskLevel      String   @default("") @map("risk_level")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([caseId])
+  @@map("case_review_log")
+}
+
 model DesensitizeTask {
   taskId             String             @id @map("task_id")
   bizType            String             @map("biz_type")

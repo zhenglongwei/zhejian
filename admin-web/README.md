@@ -1,24 +1,43 @@
 # admin-web（运营后台）
 
-> **状态：规划中** · 部署路径 `https://geo.simplewin.cn/admin/`
+> 部署路径：`https://geo.simplewin.cn/admin/` · API：`/api/v1/`
 
-盈简科技 · **辙见** 平台运营后台：案例审核、订单管理、内容管理等（见 `docs/06_平台运营后台/`）。
+## 本地开发
 
-## 部署约定
+```bash
+cd admin-web
+npm install
+npm run dev
+```
 
-| 项 | 值 |
-|---|---|
-| 访问 URL | `https://geo.simplewin.cn/admin/` |
-| API | 同域 `https://geo.simplewin.cn/api/v1/` |
-| 构建 base | `/admin/`（Vite: `base: '/admin/'`；Vue Router: `history` + `base`） |
-| Nginx 静态目录 | `/var/www/geo.simplewin.cn/admin/` |
+浏览器打开：`http://127.0.0.1:5174/admin/`（Vite 已代理 `/api` → `http://127.0.0.1:3000`）。
 
-## 技术建议
+## 登录
 
-见 `docs/10_技术架构与接口/02_前端架构.md`：Vue Admin 或 React Admin + Element Plus / Ant Design。
+1. 启动 backend（`backend` 目录 `npm run dev`）。
+2. 在 `backend/.env` 配置 `ADMIN_PASSWORD`（默认 `admin_change_me`）。
+3. 登录成功后使用返回的 `admin_token`（联调期等同 `DEV_SYSTEM_TOKEN` / `DEV_ADMIN_TOKEN`）。
 
-**页面骨架 skill**：`docs/99_AI技能库/skill_ops_admin_scaffold.md`（Agent：`ops-admin-scaffold`）。
+请求头：`Authorization: Bearer <token>`、`X-Client-Type: admin`。
 
-## 鉴权
+## 构建部署
 
-联调期可与 API 共用 `DEV_*_TOKEN`；正式环境使用 `admin_token`（见 `04_接口规范.md` §8.1）。
+```bash
+npm run build
+```
+
+将 `dist/` 同步至服务器 `/var/www/geo.simplewin.cn/admin/`。
+
+## OPS-MASK-01 页面
+
+| 路由 | 说明 |
+| --- | --- |
+| `/admin/login` | 运营登录 |
+| `/admin/cases` | 公开案例审核列表 |
+| `/admin/cases/:caseId` | 审核详情（原图/脱敏对比 + OCR 摘要 + 审核操作） |
+
+## 关联任务
+
+- **OPS-MASK-01**：本模块
+- **A-PUB-06**：用户提交公开案例 → `pending_review`，运营通过后 `public_approved`
+- **B-MASK-04**：详情读 `privacy_detection_result` / pre-mask 任务

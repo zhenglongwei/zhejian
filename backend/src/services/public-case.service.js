@@ -167,7 +167,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     create: {
       id: caseId,
       albumId,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       authorizationTier,
       title: draft.title,
       summary: draft.summary,
@@ -180,10 +180,10 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       minAmount: priceColumns.minAmount,
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
-      publishedAt: new Date(),
+      publishedAt: null,
     },
     update: {
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       authorizationTier,
       title: draft.title,
       summary: draft.summary,
@@ -196,15 +196,14 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       minAmount: priceColumns.minAmount,
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
-      publishedAt: new Date(),
+      publishedAt: null,
     },
   })
 
   await prisma.album.update({
     where: { id: albumId },
     data: {
-      publicCaseStatus: 'public_approved',
-      status: 'published',
+      publicCaseStatus: 'pending_review',
     },
   })
 
@@ -214,9 +213,10 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       albumId,
       title: draft.title,
       authorizationTier,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
     },
-    status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    message: '已提交平台审核，通过后将公开展示',
   }
 }
 

@@ -21,6 +21,7 @@ const merchantOnboardingRoutes = require('./routes/merchant-onboarding')
 const merchantServiceAlbumRoutes = require('./routes/merchant-service-albums')
 const mediaRoutes = require('./routes/media')
 const systemRoutes = require('./routes/system')
+const adminRoutes = require('./routes/admin')
 
 function createApp() {
   const app = express()
@@ -58,6 +59,7 @@ function createApp() {
   app.use('/api/v1/merchant', merchantLeadRoutes)
   app.use('/api/v1/merchant', merchantServiceAlbumRoutes)
   app.use('/api/v1/system', systemRoutes)
+  app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

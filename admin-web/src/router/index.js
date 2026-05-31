@@ -1,0 +1,46 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/login/index.vue'),
+    meta: { public: true },
+  },
+  {
+    path: '/',
+    component: () => import('@/layouts/AdminLayout.vue'),
+    children: [
+      { path: '', redirect: '/cases' },
+      {
+        path: 'cases',
+        name: 'case-list',
+        component: () => import('@/views/case-review/list/index.vue'),
+      },
+      {
+        path: 'cases/:caseId',
+        name: 'case-detail',
+        component: () => import('@/views/case-review/detail/index.vue'),
+      },
+    ],
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory('/admin/'),
+  routes,
+})
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (!to.meta.public && !auth.token) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.name === 'login' && auth.token) {
+    return { name: 'case-list' }
+  }
+  return true
+})
+
+export default router

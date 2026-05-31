@@ -37,6 +37,16 @@ const PUBLIC_CASE_STATUS = {
   PENDING_REVIEW: 'pending_review',
   PUBLIC_APPROVED: 'public_approved',
   USER_REJECTED: 'user_rejected',
+  REJECTED: 'rejected',
+  NEED_MODIFY: 'need_modify',
+  OFFLINE: 'offline',
+}
+
+const RISK_LEVEL_ORDER = {
+  low: 1,
+  medium: 2,
+  high: 3,
+  forbidden: 4,
 }
 
 module.exports = {
@@ -46,4 +56,5 @@ module.exports = {
   SERVICE_ALBUM_STATUS,
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
+  RISK_LEVEL_ORDER,
 }
