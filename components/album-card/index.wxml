@@ -2,11 +2,16 @@
   <view class="record-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
     <view class="record-card__head">
       <view class="record-card__tags">
-        <ui-tag variant="{{item.statusVariant}}" text="{{item.statusLabel}}" />
-        <block wx:if="{{audience === 'user'}}">
-          <ui-tag wx:if="{{item.authPendingBadge}}" variant="info" text="{{item.authPendingBadge}}" />
-          <ui-tag wx:if="{{item.publicLabel}}" variant="success" text="{{item.publicLabel}}" />
-        </block>
+        <ui-tag
+          wx:if="{{item.statusLabel}}"
+          variant="{{item.statusVariant}}"
+          text="{{item.statusLabel}}"
+        />
+        <ui-tag
+          wx:if="{{audience === 'user' && item.visibilityLabel}}"
+          variant="{{item.visibilityVariant}}"
+          text="{{item.visibilityLabel}}"
+        />
       </view>
       <view class="record-card__head-right">
         <button

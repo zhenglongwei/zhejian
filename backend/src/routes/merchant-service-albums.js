@@ -10,7 +10,8 @@ const {
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
 } = require('../services/service-album.service')
-const { ensureOrderPreMaskTask } = require('../services/desensitize.service')
+const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
+const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 
 const router = express.Router()
 
@@ -96,6 +97,31 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       preMaskTaskId: preMaskTask.taskId,
       preMaskStatus: preMaskTask.preMaskStatus,
     })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/cold-start-preview', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    await getMerchantServiceAlbum(req.params.albumId, storeId, req.auth.merchantId)
+    const { preview, task } = await createMerchantColdStartAuthorizeTaskFromPreMask(req.params.albumId)
+    return ok(res, { ...preview, task })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/public-case', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await publishMerchantColdStartPublicCase(req.params.albumId, {
+      storeId,
+      merchantId: req.auth.merchantId,
+      taskId: req.body && req.body.taskId,
+    })
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

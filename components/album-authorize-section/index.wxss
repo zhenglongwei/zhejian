@@ -9,6 +9,10 @@
   color: var(--color-text-primary);
 }
 
+.album-authorize-section__reject-link {
+  margin-top: var(--space-3);
+}
+
 .album-authorize-section__actions {
   display: flex;
   flex-direction: row;

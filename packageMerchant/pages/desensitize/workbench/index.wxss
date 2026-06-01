@@ -3,6 +3,20 @@
   color: var(--color-warning);
 }
 
+.desensitize-page__ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.desensitize-page__ready-hint {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
 .desensitize-page__bar-left {
   display: flex;
   flex-wrap: wrap;

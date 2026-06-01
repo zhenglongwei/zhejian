@@ -17,8 +17,11 @@ function buildCaseTitle({ city = '杭州', vehicle, serviceName = '维修服务'
   return `${cityPart}${vehicleTitle} · ${serviceName}`.trim()
 }
 
-function buildCaseSummary({ vehicle, serviceName = '维修服务', authorizationTier }) {
+function buildCaseSummary({ vehicle, serviceName = '维修服务', authorizationTier, coldStart = false }) {
   const vehicleTitle = buildVehicleTitle(vehicle)
+  if (coldStart) {
+    return `该案例为门店服务留档，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。图片已脱敏，展示价格为系统参考区间。`
+  }
   const tierLabel = PUBLIC_AUTH_TIER_LABEL[authorizationTier] || '已授权'
   if (authorizationTier === PUBLIC_AUTH_TIER.ANONYMOUS) {
     return `该案例经车主${tierLabel}，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。内容由门店上传，平台已完成隐私脱敏与展示审核。`
@@ -44,6 +47,7 @@ function buildCaseDraftFromServiceAlbum({
   album,
   task,
   authorizationTier = PUBLIC_AUTH_TIER.NAMED,
+  coldStart = false,
 }) {
   const albumId = album.albumId
   const caseId = `case_${albumId.replace(/^alb_/, '')}`
@@ -52,21 +56,22 @@ function buildCaseDraftFromServiceAlbum({
   const city = album.city || album.store?.city || '杭州'
   const storeName = album.store?.name || album.storeName || '—'
   const storeId = album.store?.id || album.storeId || ''
+  const tier = coldStart ? PUBLIC_AUTH_TIER.PRIVATE : authorizationTier
 
   const nodesWithMask = buildNodesFromTask(album.nodes, task, albumId)
   const coverImageDesensitized = pickCover(nodesWithMask)
   const publicPrice = buildPublicCasePrice(
     {
       ...album,
-      authorizationTier,
+      authorizationTier: tier,
     },
-    { hasUserAuthorization: true }
+    { hasUserAuthorization: !coldStart }
   )
 
   return {
     id: caseId,
     albumId,
-    authorizationTier,
+    authorizationTier: tier,
     coverImage: coverImageDesensitized,
     coverImageDesensitized,
     title: buildCaseTitle({ city, vehicle, serviceName }),
@@ -74,7 +79,7 @@ function buildCaseDraftFromServiceAlbum({
     serviceName,
     summary:
       album.storeNote ||
-      buildCaseSummary({ vehicle, serviceName, authorizationTier }),
+      buildCaseSummary({ vehicle, serviceName, authorizationTier: tier, coldStart }),
     priceMode: publicPrice.priceMode,
     amount: publicPrice.amount,
     minAmount: publicPrice.minAmount,
@@ -85,9 +90,9 @@ function buildCaseDraftFromServiceAlbum({
     city,
     viewCount: 0,
     publishedAt: new Date().toISOString().slice(0, 10),
-    tags: ['authorized', 'desensitized', 'audited'],
+    tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
     aiSummary: buildCaseAiSummary({ city, vehicle, serviceName }),
-    keyInfo: buildCaseKeyInfo({ city, serviceName, authorizationTier }),
+    keyInfo: buildCaseKeyInfo({ city, serviceName, authorizationTier: tier }),
     faultDesc:
       album.faultDesc ||
       '用户到店反映车辆需进行相关检查与维修，门店按流程完成服务。',

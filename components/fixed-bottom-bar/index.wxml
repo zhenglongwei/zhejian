@@ -15,8 +15,23 @@
       <slot wx:else name="left" />
     </view>
     <view class="fixed-bottom-bar__right">
-      <slot name="right" />
-      <slot />
+      <view wx:if="{{rightActions.length}}" class="fixed-bottom-bar__right-actions">
+        <ui-button
+          wx:for="{{rightActions}}"
+          wx:key="key"
+          type="{{item.type || 'primary'}}"
+          size="{{item.size || 'default'}}"
+          block="{{item.block}}"
+          disabled="{{item.disabled}}"
+          loading="{{item.loading}}"
+          data-key="{{item.key}}"
+          bind:tap="onRightAction"
+        >{{item.text}}</ui-button>
+      </view>
+      <block wx:else>
+        <slot name="right" />
+        <slot />
+      </block>
     </view>
   </view>
 </view>

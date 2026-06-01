@@ -3,9 +3,10 @@
  */
 const {
   SERVICE_ALBUM_STATUS,
-  SERVICE_ALBUM_TAB_STATUS_MAP,
+  SERVICE_ALBUM_REPAIR_DONE_STATUSES,
   MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP,
 } = require('../constants/service-album-status')
+const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildEmptyStageNodes } = require('../constants/service-album-stages')
 const { PART_TYPE } = require('../constants/part-type')
 const { isLoggedIn, getSession } = require('../utils/auth')
@@ -410,7 +411,9 @@ function filterAlbumsByTab(albums, tab, statusMap) {
 function filterAlbumsForUser(albums, tab) {
   const phone = getUserPhone()
   let list = albums.filter((a) => a.userPhone === phone)
-  list = filterAlbumsByTab(list, tab || 'all', SERVICE_ALBUM_TAB_STATUS_MAP)
+  list = filterUserAlbumsByTab(list, tab || 'all', (album) =>
+    resolvePublicCaseStatus(album.albumId)
+  )
   return list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
 }
 
@@ -430,6 +433,13 @@ function buildMerchantAlbumView(raw) {
   const store = resolveStoreBlock(album.storeId)
   const imageCount = countAlbumImages(album.nodes)
   const privatePrice = buildPrivateAlbumPrice(album)
+  const publicCaseStatus = resolvePublicCaseStatus(album.albumId)
+  const hasOwner = Boolean(String(album.userPhone || '').trim())
+  const isCompleted =
+    album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+    album.status === SERVICE_ALBUM_STATUS.PUBLISHED
+  const canSubmitColdStartPublicCase =
+    isCompleted && !hasOwner && publicCaseStatus === 'private'
   return {
     albumId: album.albumId,
     storeId: album.storeId,
@@ -439,6 +449,7 @@ function buildMerchantAlbumView(raw) {
     status: album.status,
     userPhone: album.userPhone || '',
     userPhoneDisplay: maskPhone(album.userPhone),
+    hasOwner,
     vehicle: album.vehicle || {},
     vehicleDisplay: buildVehicleDisplay(album.vehicle),
     storeName: store.name,
@@ -451,6 +462,8 @@ function buildMerchantAlbumView(raw) {
     priceMode: privatePrice.priceMode,
     amount: privatePrice.amount,
     imageCount,
+    publicCaseStatus,
+    canSubmitColdStartPublicCase,
     invitePath: `/pages/album/detail/index?albumId=${album.albumId}&from=merchant_share`,
     createdAt: album.createdAt,
     updatedAt: album.updatedAt,
@@ -620,6 +633,7 @@ async function mockFetchUserAuthorizations() {
               : authStatus === 'authorized'
                 ? 'pending_review'
                 : 'none',
+        publicCaseStatus: view.publicCaseStatus,
         reviewStatus:
           view.publicCaseStatus === 'public_approved'
             ? 'approved'
@@ -628,7 +642,7 @@ async function mockFetchUserAuthorizations() {
               : view.publicCaseStatus === 'user_rejected'
                 ? 'rejected'
                 : 'none',
-        canWithdraw: view.publicCaseStatus === 'pending_review',
+        canWithdraw: ['pending_review', 'public_approved'].includes(view.publicCaseStatus),
         updatedAt: view.updatedAt,
         updatedAtText: view.updatedAtText,
       }
@@ -642,6 +656,11 @@ async function mockWithdrawAuthorization(albumId) {
   const authMap = loadAuthMap()
   delete authMap[albumId]
   saveAuthMap(authMap)
+  const map = loadAlbumMap()
+  if (map[albumId]) {
+    map[albumId].status = SERVICE_ALBUM_STATUS.COMPLETED
+    saveAlbumMap(map)
+  }
   const { setPublicCaseMeta } = require('../services/public-case')
   const { PUBLIC_CASE_STATUS } = require('../constants/public-case-status')
   setPublicCaseMeta(albumId, { status: PUBLIC_CASE_STATUS.PRIVATE })
@@ -736,10 +755,14 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
   }
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
+  let userPhone = raw.userPhone
+  if (payload.userPhone != null) {
+    userPhone = String(payload.userPhone || '').trim()
+  }
   const next = {
     ...raw,
     ...normalized,
-    userPhone: payload.userPhone != null ? payload.userPhone : raw.userPhone,
+    userPhone,
     nodes: payload.nodes || raw.nodes,
     parts: payload.parts || raw.parts,
     updatedAt: now,
@@ -787,6 +810,124 @@ async function mockFetchMerchantAlbumStats() {
       countAlbumImages(a.nodes) < 2
   ).length
   return { active, pendingAuth, pendingUpload, total: albums.length }
+}
+
+async function mockCreateMerchantColdStartPreview(albumId) {
+  await delay(280)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  if (raw.userPhone) {
+    const err = new Error('已关联车主，请由车主完成授权公示')
+    err.code = 409
+    throw err
+  }
+  if (raw.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+    const err = new Error('请先标记服务相册已完工')
+    err.code = 409
+    throw err
+  }
+  if (countAlbumImages(raw.nodes) < 1) {
+    const err = new Error('请至少上传一张过程图')
+    err.code = 409
+    throw err
+  }
+
+  const { createMerchantColdStartTaskFromPreMask } = require('../services/desensitize')
+  if (shouldRunServicePreMask(raw.status)) {
+    await ensureServicePreMaskTask(albumId, raw.nodes, { instant: true })
+  }
+  const task = await createMerchantColdStartTaskFromPreMask({
+    bizId: albumId,
+    nodes: raw.nodes,
+  })
+  return {
+    taskId: task.taskId,
+    albumId,
+    fromPreMask: true,
+    task,
+  }
+}
+
+async function mockSubmitMerchantPublicCase(albumId, payload = {}) {
+  await delay(360)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  if (raw.userPhone) {
+    const err = new Error('已关联车主，请由车主完成授权公示')
+    err.code = 409
+    throw err
+  }
+  const publicCaseStatus = resolvePublicCaseStatus(albumId)
+  if (publicCaseStatus === 'pending_review') {
+    const err = new Error('公开案例审核中，请耐心等待')
+    err.code = 409
+    throw err
+  }
+  if (publicCaseStatus === 'public_approved') {
+    const err = new Error('该案例已公开展示')
+    err.code = 409
+    throw err
+  }
+
+  const { fetchTask } = require('../services/desensitize')
+  const { buildCaseDraftFromServiceAlbum } = require('../utils/case-content')
+  const { setPublicCaseMeta } = require('../services/public-case')
+  const { PUBLIC_CASE_STATUS } = require('../constants/public-case-status')
+
+  const taskId = payload.taskId || `task_mch_${albumId}`
+  const task = await fetchTask(taskId)
+  if (!task || !task.maskingConfirmed) {
+    const err = new Error('请先完成脱敏确认')
+    err.code = 409
+    throw err
+  }
+
+  const store = resolveStoreBlock(raw.storeId)
+  const album = {
+    albumId,
+    serviceName: raw.serviceName,
+    store: { id: raw.storeId, name: store.name, city: store.city || '杭州' },
+    storeId: raw.storeId,
+    storeName: store.name,
+    city: store.city || '杭州',
+    vehicle: raw.vehicle || {},
+    nodes: raw.nodes,
+    storeNote: raw.storeNote,
+    planAmount: raw.planAmount,
+  }
+  const draft = buildCaseDraftFromServiceAlbum({
+    album,
+    task,
+    coldStart: true,
+  })
+
+  setPublicCaseMeta(albumId, {
+    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    authorizationTier: 'private',
+    caseId: draft.id,
+  })
+
+  return {
+    caseItem: {
+      id: draft.id,
+      albumId,
+      title: draft.title,
+      authorizationTier: 'private',
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    },
+    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    message: '已提交平台审核，通过后将公开展示',
+  }
 }
 
 function readShareTokens() {
@@ -850,7 +991,7 @@ async function mockRecordAlbumShare(albumId, payload = {}) {
     err.code = 404
     throw err
   }
-  if (album.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+  if (!SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(album.status)) {
     const err = new Error('相册尚未完工，暂不可分享')
     err.code = 400
     throw err
@@ -906,6 +1047,8 @@ module.exports = {
   mockSaveMerchantServiceAlbum,
   mockCompleteMerchantServiceAlbum,
   mockFetchMerchantAlbumStats,
+  mockCreateMerchantColdStartPreview,
+  mockSubmitMerchantPublicCase,
   mockRecordAlbumShare,
   mockFetchSharedAlbum,
   MOCK_ALBUMS,

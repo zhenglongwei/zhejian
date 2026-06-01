@@ -1,10 +1,23 @@
 require('dotenv').config()
 
+function resolvePublicBaseUrl() {
+  if (process.env.PUBLIC_BASE_URL) {
+    return String(process.env.PUBLIC_BASE_URL).replace(/\/$/, '')
+  }
+  const nodeEnv = process.env.NODE_ENV || 'development'
+  if (nodeEnv === 'production') {
+    return 'https://geo.simplewin.cn'
+  }
+  const host = process.env.HOST || '127.0.0.1'
+  const port = Number(process.env.PORT || 3000)
+  return `http://${host}:${port}`
+}
+
 const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '127.0.0.1',
-  publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'https://geo.simplewin.cn').replace(/\/$/, ''),
+  publicBaseUrl: resolvePublicBaseUrl(),
   devAuthEnabled: process.env.DEV_AUTH_ENABLED !== 'false',
   devTokens: {
     user: process.env.DEV_USER_TOKEN || 'dev_user_token_change_me',

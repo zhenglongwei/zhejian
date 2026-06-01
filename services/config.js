@@ -8,7 +8,7 @@
  *
  * 域名：geo.simplewin.cn = 辙见 API + H5 + /admin/
  */
-const ACTIVE_ENV = 'prod'
+const ACTIVE_ENV = 'local'
 
 const PROFILES = {
   mock: {

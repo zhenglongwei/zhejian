@@ -2,6 +2,9 @@ const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_STATUS_LABEL,
   SERVICE_ALBUM_STATUS_VARIANT,
+  SERVICE_ALBUM_REPAIR_DONE_STATUSES,
+  ALBUM_VISIBILITY_LABEL,
+  ALBUM_VISIBILITY_VARIANT,
 } = require('../constants/service-album-status')
 const {
   buildPrivateAlbumPrice,
@@ -25,16 +28,13 @@ function formatAlbumDateTime(iso) {
   return `${month}-${day} ${hour}:${minute}`
 }
 
-/** 商家端展示：完工前统一「进行中」，完工后统一「已完工」（内部 status 不变，供 Tab 筛选） */
-const MERCHANT_ALBUM_DONE_STATUSES = [
-  SERVICE_ALBUM_STATUS.COMPLETED,
-  SERVICE_ALBUM_STATUS.PENDING_AUTHORIZATION,
-  SERVICE_ALBUM_STATUS.PENDING_REVIEW,
-  SERVICE_ALBUM_STATUS.PUBLISHED,
-]
+function isRepairCompleted(status) {
+  return SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(status)
+}
 
-function resolveMerchantAlbumDisplayStatus(rawStatus) {
-  if (MERCHANT_ALBUM_DONE_STATUSES.includes(rawStatus)) {
+/** 维修进度：维修中 / 已完工（与公示态解耦） */
+function resolveRepairProgress(status) {
+  if (isRepairCompleted(status)) {
     return {
       statusLabel: SERVICE_ALBUM_STATUS_LABEL[SERVICE_ALBUM_STATUS.COMPLETED],
       statusVariant: SERVICE_ALBUM_STATUS_VARIANT[SERVICE_ALBUM_STATUS.COMPLETED],
@@ -46,21 +46,56 @@ function resolveMerchantAlbumDisplayStatus(rawStatus) {
   }
 }
 
+/** 相册可见性：私密相册 / 审核中 / 公开相册 */
+function resolveAlbumVisibility(publicCaseStatus) {
+  const key = publicCaseStatus || 'private'
+  return {
+    visibilityLabel: ALBUM_VISIBILITY_LABEL[key] || ALBUM_VISIBILITY_LABEL.private,
+    visibilityVariant: ALBUM_VISIBILITY_VARIANT[key] || ALBUM_VISIBILITY_VARIANT.private,
+  }
+}
+
+function resolveUserAlbumDisplay(status, publicCaseStatus) {
+  const repair = resolveRepairProgress(status)
+  const visibility = isRepairCompleted(status)
+    ? resolveAlbumVisibility(publicCaseStatus)
+    : { visibilityLabel: '', visibilityVariant: 'default' }
+  return { ...repair, ...visibility }
+}
+
+/** 商家端展示：完工前「进行中」，完工后「已完工」 */
+function resolveMerchantAlbumDisplayStatus(rawStatus) {
+  if (isRepairCompleted(rawStatus)) {
+    return {
+      statusLabel: SERVICE_ALBUM_STATUS_LABEL[SERVICE_ALBUM_STATUS.COMPLETED],
+      statusVariant: SERVICE_ALBUM_STATUS_VARIANT[SERVICE_ALBUM_STATUS.COMPLETED],
+    }
+  }
+  return {
+    statusLabel: '进行中',
+    statusVariant: SERVICE_ALBUM_STATUS_VARIANT[SERVICE_ALBUM_STATUS.IN_PROGRESS],
+  }
+}
+
 function enrichServiceAlbumListItem(item, options = {}) {
   const audience = options.audience || 'user'
+  const listTab = options.listTab || 'private'
   const status =
     item.status || (audience === 'merchant' ? 'draft' : 'in_progress')
   const base = {
     ...item,
     status,
-    statusLabel: SERVICE_ALBUM_STATUS_LABEL[status] || status,
-    statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
     createdAtText: formatAlbumDateTime(item.createdAt),
     updatedAtText: item.updatedAtText || formatAlbumDateTime(item.updatedAt),
   }
 
   if (audience === 'merchant') {
-    return base
+    const display = resolveMerchantAlbumDisplayStatus(status)
+    return {
+      ...base,
+      statusLabel: display.statusLabel,
+      statusVariant: display.statusVariant,
+    }
   }
 
   const privatePrice = buildPrivateAlbumPrice(item)
@@ -68,69 +103,73 @@ function enrichServiceAlbumListItem(item, options = {}) {
     Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
   )
 
+  // 列表：私密 Tab 仅展示维修进度；公开 Tab 不展示状态 Tag
+  if (listTab === 'public') {
+    return {
+      ...base,
+      statusLabel: '',
+      statusVariant: 'default',
+      visibilityLabel: '',
+      visibilityVariant: 'default',
+      ...privatePrice,
+      summaryRows,
+      summaryRowsForDisplay: summaryRows,
+    }
+  }
+
+  const repair = resolveRepairProgress(status)
+  const publicCaseStatus = item.publicCaseStatus || 'private'
+  const reviewTag =
+    publicCaseStatus === 'pending_review'
+      ? {
+          visibilityLabel: ALBUM_VISIBILITY_LABEL.pending_review,
+          visibilityVariant: ALBUM_VISIBILITY_VARIANT.pending_review,
+        }
+      : { visibilityLabel: '', visibilityVariant: 'default' }
+
   return {
     ...base,
+    statusLabel: repair.statusLabel,
+    statusVariant: repair.statusVariant,
+    ...reviewTag,
     ...privatePrice,
     summaryRows,
     summaryRowsForDisplay: summaryRows,
-    authPendingBadge:
-      item.status === 'completed' && item.publicCaseStatus === 'private'
-        ? '可授权'
-        : '',
-    publicLabel: item.isPublic ? '已授权' : '',
   }
 }
 
 function enrichMerchantAlbumListItem(item) {
   const base = enrichServiceAlbumListItem(item, { audience: 'merchant' })
-  const display = resolveMerchantAlbumDisplayStatus(base.status)
   return {
     ...base,
-    statusLabel: display.statusLabel,
-    statusVariant: display.statusVariant,
     canShareToOwner: canShareToOwner(item),
   }
 }
 
-const AUTH_STATUS_LABEL = {
-  pending_review: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
-  withdrawn: '已撤回',
-}
-
-const AUTH_STATUS_VARIANT = {
-  pending_review: 'info',
-  approved: 'success',
-  rejected: 'default',
-  withdrawn: 'default',
-}
-
-function buildAuthorizationTags(authStatus) {
-  const base = [
-    { variant: 'order', text: '已授权' },
-    { variant: 'desensitized', text: '已脱敏' },
-  ]
-  if (authStatus === 'approved') {
-    return [...base, { variant: 'audited', text: '已审核' }]
+function buildAuthorizationTags(publicCaseStatus) {
+  const key = publicCaseStatus || 'private'
+  if (key === 'public_approved') {
+    return [{ variant: 'success', text: '公开相册' }]
   }
-  if (authStatus === 'pending_review') {
-    return [...base, { variant: 'info', text: '待审核' }]
+  if (key === 'pending_review') {
+    return [{ variant: 'info', text: '审核中' }]
   }
-  if (authStatus === 'rejected') {
-    return base
-  }
-  return base
+  return [{ variant: 'default', text: '私密相册' }]
 }
 
 function enrichAuthorizationItem(item) {
-  const authStatus = item.authStatus || 'none'
+  const publicCaseStatus =
+    item.publicCaseStatus ||
+    (item.authStatus === 'approved'
+      ? 'public_approved'
+      : item.authStatus === 'pending_review'
+        ? 'pending_review'
+        : 'private')
   return {
     ...item,
-    authStatusLabel: AUTH_STATUS_LABEL[authStatus] || authStatus,
-    authStatusVariant: AUTH_STATUS_VARIANT[authStatus] || 'default',
+    publicCaseStatus,
     updatedAtText: formatAlbumDateTime(item.updatedAt),
-    displayTags: buildAuthorizationTags(authStatus),
+    displayTags: buildAuthorizationTags(publicCaseStatus),
   }
 }
 
@@ -153,5 +192,9 @@ module.exports = {
   buildPendingConfirmSummary,
   formatAlbumDateTime,
   resolveMerchantAlbumDisplayStatus,
+  resolveUserAlbumDisplay,
+  resolveRepairProgress,
+  resolveAlbumVisibility,
+  isRepairCompleted,
   stripPriceSummaryRow,
 }

@@ -32,7 +32,10 @@
         catchtap="onPolicyTap"
       >{{policyLinkText}}</text>
     </ui-checkbox-row>
-    <view class="album-authorize-section__actions">
+    <view wx:if="{{!showActions && showRejectLink}}" class="album-authorize-section__reject-link">
+      <text class="text-caption text-link" bindtap="onReject">{{rejectText}}</text>
+    </view>
+    <view wx:if="{{showActions}}" class="album-authorize-section__actions">
       <view class="album-authorize-section__action">
         <ui-button
           type="ghost"

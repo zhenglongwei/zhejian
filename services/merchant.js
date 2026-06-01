@@ -12,6 +12,7 @@ const MERCHANT_STATUS = {
   NONE: 'none',
   DRAFT: 'draft',
   PENDING: 'pending',
+  NEED_MODIFY: 'need_modify',
   APPROVED: 'approved',
   REJECTED: 'rejected',
 }

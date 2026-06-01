@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { newId, formatVehicle, toIso } = require('../lib/ids')
-const { SERVICE_ALBUM_STATUS } = require('../constants/v2')
+const { isServiceAlbumRepairDone } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { albumToNodeView, BIZ_TYPE, buildDesensitizedUrl } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
@@ -136,7 +136,7 @@ async function assertOwnerAccess(album, userId) {
     err.status = 403
     throw err
   }
-  if (album.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+  if (!isServiceAlbumRepairDone(album.status)) {
     const err = new Error('相册尚未完工，暂不可分享')
     err.status = 400
     throw err
@@ -227,7 +227,7 @@ async function getSharedAlbumByToken(token) {
     throw err
   }
 
-  if (record.album.status !== SERVICE_ALBUM_STATUS.COMPLETED) {
+  if (!isServiceAlbumRepairDone(record.album.status)) {
     const err = new Error('相册暂不可查看')
     err.status = 404
     throw err

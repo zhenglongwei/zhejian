@@ -17,7 +17,7 @@ Page({
     needLogin: false,
     needPhone: false,
     tabs: SERVICE_ALBUM_LIST_TABS,
-    activeTab: 'all',
+    activeTab: 'private',
     list: [],
     loginSheetVisible: false,
     loginSheetMode: 'auto',
@@ -75,7 +75,10 @@ Page({
 
     try {
       const raw = await fetchUserServiceAlbums({ tab: this.data.activeTab })
-      const list = (raw || []).map(enrichServiceAlbumListItem)
+      const listTab = this.data.activeTab
+      const list = (raw || []).map((item) =>
+        enrichServiceAlbumListItem(item, { listTab })
+      )
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',

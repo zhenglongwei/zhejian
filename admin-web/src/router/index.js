@@ -23,6 +23,16 @@ const routes = [
         name: 'case-detail',
         component: () => import('@/views/case-review/detail/index.vue'),
       },
+      {
+        path: 'merchants',
+        name: 'merchant-list',
+        component: () => import('@/views/merchant-review/list/index.vue'),
+      },
+      {
+        path: 'merchants/:merchantId',
+        name: 'merchant-detail',
+        component: () => import('@/views/merchant-review/detail/index.vue'),
+      },
     ],
   },
 ]

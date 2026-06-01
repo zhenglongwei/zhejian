@@ -1,14 +1,13 @@
 const {
-  SERVICE_ALBUM_STATUS,
-  SERVICE_ALBUM_STATUS_LABEL,
-} = require('../../../constants/service-album-status')
-const {
   fetchServiceAlbum,
   prepareServiceAuthorizePreview,
   submitServiceAlbumAuthorization,
   recordAlbumShare,
 } = require('../../../services/service-album')
-const { enrichServiceAlbumListItem } = require('../../../utils/service-album-display')
+const {
+  enrichServiceAlbumListItem,
+  isRepairCompleted,
+} = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const {
   buildShareableCaseFromAlbum,
@@ -25,10 +24,9 @@ const {
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
 
 const PUBLIC_CASE_HINT = {
-  authorized: '你已授权公示，案例生成中，请稍后查看。',
-  user_rejected: '你已拒绝公示，相册仍可作为私密服务相册查看。',
-  pending_review: '公开案例已提交，审核通过后将自动展示在「案例」Tab 与公开网页。',
-  public_approved: '案例已在「案例」Tab 与公开网页展示。',
+  user_rejected: '当前为私密相册，你可随时申请公开公示。',
+  pending_review: '公开申请审核中，通过后将展示在案例页与公开网页。',
+  public_approved: '当前为公开相册，已在案例页与公开网页展示。',
 }
 
 Page({
@@ -37,6 +35,9 @@ Page({
     errorMessage: '',
     detail: null,
     albumStatusLabel: '',
+    albumStatusVariant: 'default',
+    albumVisibilityLabel: '',
+    albumVisibilityVariant: 'default',
     showAuthSection: false,
     showShareEntry: false,
     showShareButton: false,
@@ -148,7 +149,10 @@ Page({
 
       this.setData({
         detail: enriched,
-        albumStatusLabel: SERVICE_ALBUM_STATUS_LABEL[detail.status] || '',
+        albumStatusLabel: enriched.statusLabel,
+        albumStatusVariant: enriched.statusVariant,
+        albumVisibilityLabel: enriched.visibilityLabel,
+        albumVisibilityVariant: enriched.visibilityVariant,
         showAuthSection,
         showShareEntry,
         showShareButton,
@@ -192,7 +196,7 @@ Page({
 
   shouldShowAuth(detail) {
     if (!detail) return false
-    if (detail.status !== SERVICE_ALBUM_STATUS.COMPLETED) return false
+    if (!isRepairCompleted(detail.status)) return false
     if ((detail.imageCount || 0) < 1) return false
     const status = detail.publicCaseStatus
     return status === 'private' || status === 'authorization_pending'
@@ -366,9 +370,29 @@ Page({
     this.setData({ authTier: tier })
   },
 
+  scrollToAuthSection(callback) {
+    wx.pageScrollTo({
+      selector: '#album-auth-section',
+      duration: 300,
+      offsetTop: (this.data.stickyHeadHeight || 0) + 8,
+      success: () => {
+        if (typeof callback === 'function') callback()
+      },
+      fail: () => {
+        if (typeof callback === 'function') callback()
+      },
+    })
+  },
+
   onSubmitAuth() {
     const { detail, authChecked, authSubmitting } = this.data
-    if (!detail || !authChecked || authSubmitting) return
+    if (!detail || authSubmitting) return
+    if (!authChecked) {
+      this.scrollToAuthSection(() => {
+        wx.showToast({ title: '请先勾选确认项', icon: 'none' })
+      })
+      return
+    }
     this.openAuthorizePreview()
   },
 
@@ -440,13 +464,6 @@ Page({
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
-  },
-
-  onSupport() {
-    wx.showToast({
-      title: '客服功能将在后续版本开放',
-      icon: 'none',
-    })
   },
 
   onFeedback() {

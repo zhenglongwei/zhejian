@@ -10,6 +10,14 @@ Component({
       type: String,
       value: '',
     },
+    visibilityLabel: {
+      type: String,
+      value: '',
+    },
+    visibilityVariant: {
+      type: String,
+      value: 'default',
+    },
     title: {
       type: String,
       value: '',

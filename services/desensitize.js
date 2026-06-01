@@ -372,7 +372,12 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
   }
   await delay(320)
   let task = await fetchTask(taskId)
-  if (task.bizType !== BIZ_TYPE.ORDER_AUTHORIZE && task.bizType !== BIZ_TYPE.SERVICE_AUTHORIZE) {
+  const confirmTypes = [
+    BIZ_TYPE.ORDER_AUTHORIZE,
+    BIZ_TYPE.SERVICE_AUTHORIZE,
+    BIZ_TYPE.MERCHANT_HISTORY,
+  ]
+  if (!confirmTypes.includes(task.bizType)) {
     const err = new Error('任务类型不匹配')
     err.code = 400
     throw err
@@ -564,6 +569,75 @@ async function createServiceAuthorizeTaskFromPreMask({ bizId, nodes }) {
   return task
 }
 
+function buildMerchantColdStartTaskId(albumId) {
+  return `task_mch_${albumId}`
+}
+
+async function createMerchantColdStartTaskFromPreMask({ bizId, nodes }) {
+  if (useApi()) {
+    const data = await post(`/merchant/service-albums/${bizId}/cold-start-preview`)
+    return normalizeTaskAssets(data.task || data)
+  }
+  await delay(120)
+  const preMaskBizType = BIZ_TYPE.SERVICE_PRE_MASK
+  let preMaskTask = findPreMaskTaskByAlbumId(bizId, preMaskBizType)
+  if (
+    !preMaskTask ||
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.RUNNING ||
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.IDLE
+  ) {
+    if (nodes && nodes.length) {
+      preMaskTask = await ensureServicePreMaskTask(bizId, nodes, { instant: true })
+    }
+  }
+  if (!preMaskTask) {
+    const err = new Error('预脱敏尚未就绪，请稍后再试')
+    err.code = 409
+    throw err
+  }
+  if (
+    preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED ||
+    !(preMaskTask.rawAssets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
+  ) {
+    const err = new Error('预脱敏失败，请稍后重试或联系客服')
+    err.code = 409
+    throw err
+  }
+
+  const taskId = buildMerchantColdStartTaskId(bizId)
+  const existing = loadTasks().find((t) => t.taskId === taskId && !t.maskingConfirmed)
+  if (
+    existing &&
+    existing.preMaskTaskId === preMaskTask.taskId &&
+    existing.preMaskVersion === preMaskTask.preMaskVersion
+  ) {
+    return existing
+  }
+
+  const rawAssets = (preMaskTask.rawAssets || []).map((asset) => ({
+    ...asset,
+    maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
+    previewed: false,
+  }))
+  const task = {
+    taskId,
+    bizType: BIZ_TYPE.MERCHANT_HISTORY,
+    bizId,
+    operatorRole: OPERATOR_ROLE.MERCHANT,
+    liabilityType: 'merchant',
+    preMaskTaskId: preMaskTask.taskId,
+    preMaskVersion: preMaskTask.preMaskVersion,
+    fromPreMask: true,
+    rawAssets,
+    maskedAssets: toMaskedAssets(rawAssets),
+    maskingConfirmed: false,
+    maskingConfirmedAt: null,
+    updatedAt: Date.now(),
+  }
+  persistTask(task)
+  return task
+}
+
 /** 一键 AI 脱敏（mock 批量） */
 async function runAutoMask(taskId) {
   if (useApi()) {
@@ -721,6 +795,15 @@ function applyMaskedToAlbumNodes(album, task) {
  * @param {{ liabilityAccepted?: boolean }} [opts]
  */
 async function confirmTask(taskId, opts = {}) {
+  if (useApi()) {
+    const data = await post(`/desensitize/tasks/${taskId}/confirm`, {
+      liabilityAccepted: Boolean(opts.liabilityAccepted),
+    })
+    if (data && data.task) {
+      return { task: normalizeTaskAssets(data.task) }
+    }
+    return data
+  }
   if (!opts.liabilityAccepted) {
     const err = new Error('请勾选责任确认')
     err.code = 400
@@ -786,6 +869,7 @@ module.exports = {
   ensureServicePreMaskTask,
   createOrderAuthorizeTaskFromPreMask,
   createServiceAuthorizeTaskFromPreMask,
+  createMerchantColdStartTaskFromPreMask,
   confirmOrderAuthorizeTask,
   fetchTask,
   findPreMaskTaskByAlbumId,

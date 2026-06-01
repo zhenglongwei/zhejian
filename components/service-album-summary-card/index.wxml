@@ -1,10 +1,17 @@
 <ui-card shadow="{{true}}" padding="{{true}}">
   <view class="album-summary__head">
-    <ui-tag
-      wx:if="{{statusLabel}}"
-      variant="{{statusVariant}}"
-      text="{{statusLabel}}"
-    />
+    <view class="album-summary__tags">
+      <ui-tag
+        wx:if="{{statusLabel}}"
+        variant="{{statusVariant}}"
+        text="{{statusLabel}}"
+      />
+      <ui-tag
+        wx:if="{{visibilityLabel}}"
+        variant="{{visibilityVariant}}"
+        text="{{visibilityLabel}}"
+      />
+    </view>
     <text
       wx:if="{{showShare}}"
       class="album-summary__share text-caption text-link"

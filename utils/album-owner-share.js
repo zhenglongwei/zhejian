@@ -3,7 +3,7 @@
  */
 const { ENV } = require('../services/config')
 const { SHARE_MODE, SHARE_CHANNEL } = require('../constants/album-share')
-const { SERVICE_ALBUM_STATUS } = require('../constants/service-album-status')
+const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('../constants/service-album-status')
 const {
   buildDesensitizedUrl,
   resolveImageSrc,
@@ -12,7 +12,7 @@ const {
 
 function canOwnerShareAlbum(detail = {}) {
   if (!detail || !detail.albumId) return false
-  if (detail.status !== SERVICE_ALBUM_STATUS.COMPLETED) return false
+  if (!SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(detail.status)) return false
   return (detail.imageCount || 0) > 0
 }
 

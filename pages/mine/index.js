@@ -15,9 +15,7 @@ Page({
     menuSections: buildMineMenuSections({}),
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'consult',
-    platformNotice:
-      '平台提供案例浏览、咨询预约与服务相册工具。实际维修、报价、收款与售后由门店线下提供和承担。',
+    loginSheetBindContext: 'consult'
   },
 
   onLoad() {

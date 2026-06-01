@@ -24,6 +24,18 @@ const SERVICE_ALBUM_STATUS = {
   PUBLISHED: 'published',
 }
 
+/** 维修已结束（含公示流程中的历史 status 值，对外视为已完工） */
+const SERVICE_ALBUM_REPAIR_DONE_STATUSES = [
+  SERVICE_ALBUM_STATUS.COMPLETED,
+  SERVICE_ALBUM_STATUS.PENDING_AUTHORIZATION,
+  'pending_review',
+  SERVICE_ALBUM_STATUS.PUBLISHED,
+]
+
+function isServiceAlbumRepairDone(status) {
+  return SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(status)
+}
+
 const DEFAULT_STAGE_NODES = [
   { nodeId: 'stage_1', title: '接车记录', sortOrder: 0 },
   { nodeId: 'stage_2', title: '检测诊断', sortOrder: 1 },
@@ -54,6 +66,8 @@ module.exports = {
   LEAD_USER_CANCELLABLE,
   LEAD_CLOSE_REASON,
   SERVICE_ALBUM_STATUS,
+  SERVICE_ALBUM_REPAIR_DONE_STATUSES,
+  isServiceAlbumRepairDone,
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
   RISK_LEVEL_ORDER,

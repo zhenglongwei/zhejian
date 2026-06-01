@@ -13,20 +13,14 @@ const {
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
-const { assertPersistentImageUrl } = require('../lib/media-storage')
+const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
+const {
+  assertPersistentImageUrl,
+  rewriteMediaUrlForCurrentBase,
+} = require('../lib/media-storage')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 
-const USER_TAB_STATUS = {
-  all: null,
-  active: [
-    SERVICE_ALBUM_STATUS.DRAFT,
-    'in_progress',
-    'pending_delivery',
-    'pending_part_confirm',
-  ],
-  done: [SERVICE_ALBUM_STATUS.COMPLETED],
-  pending_auth: ['pending_authorization', 'pending_review'],
-}
+const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 
 const MERCHANT_TAB_STATUS = {
   all: null,
@@ -59,7 +53,7 @@ function mapNodesForView(album) {
     title: node.title,
     status: node.status,
     note: node.note || '',
-    images: node.images || [],
+    images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
     updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
   }))
 }
@@ -131,6 +125,16 @@ function buildMerchantView(album) {
   const imageCount = album.imageCount || countImages(nodes)
   const privatePrice = buildPrivateAlbumPrice(album)
   const planAmount = privatePrice.planAmount
+  const publicCaseStatus = resolvePublicCaseStatus(album)
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  const isCompleted =
+    album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+    album.status === SERVICE_ALBUM_STATUS.PUBLISHED ||
+    album.status === 'published'
+  const canSubmitColdStartPublicCase =
+    isCompleted && !hasOwner && publicCaseStatus === 'private'
   return {
     albumId: album.id,
     storeId: album.storeId,
@@ -140,6 +144,7 @@ function buildMerchantView(album) {
     status: album.status,
     userPhone: album.userPhone || '',
     userPhoneDisplay: maskPhone(album.userPhone || ''),
+    hasOwner,
     vehicle: album.vehicleJson || {},
     vehicleDisplay: formatVehicle(album.vehicleJson),
     storeName: album.storeName || '—',
@@ -152,6 +157,9 @@ function buildMerchantView(album) {
     priceMode: privatePrice.priceMode,
     amount: privatePrice.amount,
     imageCount,
+    publicCaseStatus,
+    publicCaseId: album.publicCase?.id || '',
+    canSubmitColdStartPublicCase,
     invitePath: `/pages/album/detail/index?albumId=${album.id}&from=merchant_share`,
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
@@ -261,7 +269,7 @@ async function listUserServiceAlbums(userId, options = {}) {
     orderBy: { updatedAt: 'desc' },
   })
 
-  albums = filterByTab(albums, options.tab, USER_TAB_STATUS)
+  albums = filterUserAlbumsByTab(albums, options.tab, resolvePublicCaseStatus)
 
   return albums
     .map((album) => {
@@ -379,6 +387,23 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
   return buildMerchantView(album)
 }
 
+async function resolveOwnerPhoneUpdate(existing, payload) {
+  if (payload.userPhone === undefined) return {}
+  const userPhone = String(payload.userPhone || '').trim()
+  const previous = String(existing.userPhone || '').trim()
+  if (userPhone === previous) {
+    return { userPhone: previous }
+  }
+  if (!userPhone) {
+    return { userPhone: '', userId: '' }
+  }
+  const user = await prisma.user.findFirst({ where: { phone: userPhone } })
+  return {
+    userPhone,
+    userId: user ? user.id : '',
+  }
+}
+
 async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
@@ -401,13 +426,13 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ...existing,
     ...normalized,
   })
+  const ownerPatch = await resolveOwnerPhoneUpdate(existing, payload)
 
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
       serviceName: payload.serviceName ?? existing.serviceName,
       serviceId: payload.serviceId ?? existing.serviceId,
-      userPhone: payload.userPhone ?? existing.userPhone,
       vehicleJson: payload.vehicle ?? existing.vehicleJson,
       storeNote: payload.storeNote ?? existing.storeNote,
       complexityLevel: payload.complexityLevel ?? existing.complexityLevel,
@@ -417,6 +442,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,
       status,
       imageCount,
+      ...ownerPatch,
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
@@ -489,7 +515,8 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
     data: {
       publicCaseStatus,
       authorizationTier: agreed ? tier : 'private',
-      status: agreed ? 'pending_authorization' : album.status,
+      userId: album.userId || userId,
+      userPhone: album.userPhone || phone,
     },
   })
   return { publicCaseStatus }
@@ -523,6 +550,7 @@ async function fetchUserAuthorizations(userId) {
         vehicleDisplay: item.vehicleDisplay,
         coverImage: '',
         authStatus,
+        publicCaseStatus: item.publicCaseStatus,
         reviewStatus:
           item.publicCaseStatus === 'public_approved'
             ? 'approved'
@@ -531,7 +559,7 @@ async function fetchUserAuthorizations(userId) {
               : item.publicCaseStatus === 'user_rejected'
                 ? 'rejected'
                 : 'none',
-        canWithdraw: item.publicCaseStatus === 'pending_review',
+        canWithdraw: ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
         updatedAt: item.updatedAt,
       }
     })
@@ -547,9 +575,23 @@ async function withdrawAuthorization(albumId, userId) {
   }
   await prisma.albumAuthorization.deleteMany({ where: { albumId } })
   await prisma.publicCase.deleteMany({ where: { albumId } })
+  await prisma.desensitizeTask.updateMany({
+    where: {
+      taskId: buildAuthorizeTaskId(albumId),
+      bizType: BIZ_TYPE.SERVICE_AUTHORIZE,
+    },
+    data: {
+      maskingConfirmed: false,
+      maskingConfirmedAt: null,
+    },
+  })
   await prisma.album.update({
     where: { id: albumId },
-    data: { publicCaseStatus: 'private', authorizationTier: 'private' },
+    data: {
+      publicCaseStatus: 'private',
+      authorizationTier: 'private',
+      status: SERVICE_ALBUM_STATUS.COMPLETED,
+    },
   })
   return { ok: true }
 }

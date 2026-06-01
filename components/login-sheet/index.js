@@ -160,10 +160,7 @@ Component({
         this.triggerEvent('success', { user, step: 'login' })
 
         const nextStep = this.resolveStepAfterLogin(user)
-        if (
-          nextStep === 'bindPhone' &&
-          (this.properties.mode === 'auto' || this.properties.mode === 'bindPhone')
-        ) {
+        if (nextStep === 'bindPhone') {
           this.setData({
             step: 'bindPhone',
             displayTitle: COPY.bindPhone.title,
@@ -212,8 +209,8 @@ Component({
       try {
         const user = await bindPhone(detail)
         this.setData({ loading: false })
-        this.triggerEvent('success', { user, step: 'bindPhone' })
         this.triggerEvent('close')
+        this.triggerEvent('success', { user, step: 'bindPhone' })
       } catch (err) {
         this.setData({
           loading: false,

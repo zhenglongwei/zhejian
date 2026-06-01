@@ -34,10 +34,13 @@ npm run build
 | --- | --- |
 | `/admin/login` | 运营登录 |
 | `/admin/cases` | 公开案例审核列表 |
-| `/admin/cases/:caseId` | 审核详情（原图/脱敏对比 + OCR 摘要 + 审核操作） |
+| `/admin/cases/:caseId` | 审核详情（**脱敏图** + OCR 摘要 + 审核操作；**不展示原图**） |
+| `/admin/merchants` | 商家入驻审核列表 |
+| `/admin/merchants/:merchantId` | 商家入驻审核详情 |
 
 ## 关联任务
 
-- **OPS-MASK-01**：本模块
+- **OPS-MASK-01**：案例审核模块
+- **B-MERCH-04**：商家入驻审核模块
 - **A-PUB-06**：用户提交公开案例 → `pending_review`，运营通过后 `public_approved`
 - **B-MASK-04**：详情读 `privacy_detection_result` / pre-mask 任务

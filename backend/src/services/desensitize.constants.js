@@ -1,4 +1,5 @@
 const { config } = require('../config')
+const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 
 const BIZ_TYPE = {
   ORDER_PRE_MASK: 'order_pre_mask',
@@ -124,11 +125,15 @@ function buildAuthorizeTaskId(albumId) {
   return `task_auth_${albumId}`
 }
 
+function buildMerchantColdStartTaskId(albumId) {
+  return `task_mch_${albumId}`
+}
+
 function albumToNodeView(album) {
   const imagesByNode = {}
   ;(album.images || []).forEach((img) => {
     if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
-    imagesByNode[img.nodeId].push(img.rawUrl)
+    imagesByNode[img.nodeId].push(rewriteMediaUrlForCurrentBase(img.rawUrl))
   })
   return (album.nodes || []).map((node) => ({
     nodeId: node.nodeId,
@@ -151,5 +156,6 @@ module.exports = {
   mapTaskRecord,
   buildPreMaskTaskId,
   buildAuthorizeTaskId,
+  buildMerchantColdStartTaskId,
   albumToNodeView,
 }

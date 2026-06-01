@@ -98,9 +98,18 @@ function normalizePublicMediaUrl(url) {
   return value
 }
 
+function resolveMediaFilesUrlForLocalApi(value) {
+  const match = String(value || '').match(/\/api\/v1\/media\/files\/(uploads\/.+)$/i)
+  if (!match) return value
+  const base = String(ENV.baseUrl || '').replace(/\/$/, '')
+  if (!base || value.startsWith(base)) return value
+  return `${base}/api/v1/media/files/${match[1]}`
+}
+
 function resolveImageSrc(url) {
   if (!url) return ''
-  const value = normalizePublicMediaUrl(String(url).trim())
+  let value = normalizePublicMediaUrl(String(url).trim())
+  value = resolveMediaFilesUrlForLocalApi(value)
   if (value.startsWith('mock://')) return ''
   if (isPendingMediaUrl(value)) return ''
   if (isLocalTempImageUrl(value)) return ''

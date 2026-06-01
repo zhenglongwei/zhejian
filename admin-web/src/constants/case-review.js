@@ -40,5 +40,13 @@ export const REJECT_REASONS = [
 export const COMPLIANCE_NOTICES = [
   '公开案例不代表平台对维修质量背书。',
   '价格仅供参考，复杂项目以到店检测为准。',
-  '公开页仅展示脱敏图，原图仅供内部审核。',
+  '审核员仅查看脱敏图，不展示原图；请结合 OCR 摘要判断隐私风险。',
 ]
+
+export const DESENSITIZE_STATUS_TAG = {
+  ready: { label: '已脱敏', type: 'success' },
+  need_manual: { label: '需人工', type: 'warning' },
+  failed: { label: '脱敏失败', type: 'danger' },
+  processing: { label: '处理中', type: 'info' },
+  pending: { label: '待脱敏', type: 'info' },
+}

@@ -9,7 +9,7 @@
     <view class="page-content">
       <ui-empty
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看授权'}}"
-        description="查看你已授权或处理中的公开案例状态"
+        description="查看你的相册公开与审核状态"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
         bind:action="onLoginTap"
       />
@@ -55,5 +55,17 @@
     bind:close="closeLoginSheet"
     bind:cancel="closeLoginSheet"
     bind:success="onLoginSheetSuccess"
+  />
+
+  <ui-bottom-sheet
+    visible="{{withdrawSheetVisible}}"
+    title="撤回授权"
+    hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
+    confirmText="确认撤回"
+    cancelText="取消"
+    loading="{{withdrawSheetLoading}}"
+    bind:close="onWithdrawSheetClose"
+    bind:cancel="onWithdrawSheetClose"
+    bind:confirm="onWithdrawSheetConfirm"
   />
 </view>

@@ -7,7 +7,9 @@ const {
   formatPlanAmountLabel,
   buildPublicCaseDbPriceColumns,
 } = require('../utils/album-price')
-const { getTaskById } = require('./desensitize.service')
+const { getTaskById, retryAsset } = require('./desensitize.service')
+const { ASSET_STATUS } = require('./desensitize.constants')
+const { getMediaById } = require('./media.service')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
 const { ensureMediaRecordFromUrl } = require('./media.service')
@@ -17,8 +19,11 @@ const { buildAlbumView } = require('./service-album.service')
 const RISK_RANK = RISK_LEVEL_ORDER
 
 function resolveCaseSource(album) {
-  if (!album.userId) return 'cold_start'
+  if (!album) return 'user_authorized'
   if (album.authorization?.status === 'authorized') return 'user_authorized'
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) || Boolean(String(album.userPhone || '').trim())
+  if (!hasOwner) return 'cold_start'
   return 'merchant_history'
 }
 
@@ -162,6 +167,42 @@ async function listAdminCases(query = {}) {
   }
 }
 
+function resolveDesensitizeDisplayStatus(assetStatus, mediaDesensitizeStatus) {
+  if (assetStatus === ASSET_STATUS.MASKED_READY || assetStatus === ASSET_STATUS.MANUAL_MASKED) {
+    return { key: 'ready', label: '已脱敏' }
+  }
+  if (mediaDesensitizeStatus === 'need_manual') {
+    return { key: 'need_manual', label: '需人工' }
+  }
+  if (assetStatus === ASSET_STATUS.MASK_FAILED || mediaDesensitizeStatus === 'failed') {
+    return { key: 'failed', label: '脱敏失败' }
+  }
+  if (assetStatus === ASSET_STATUS.MASKING) {
+    return { key: 'processing', label: '处理中' }
+  }
+  return { key: 'pending', label: '待脱敏' }
+}
+
+function buildDesensitizeSummary(mediaAssets) {
+  const summary = {
+    total: mediaAssets.length,
+    readyCount: 0,
+    failedCount: 0,
+    needManualCount: 0,
+    pendingCount: 0,
+    hasBlockingIssues: false,
+  }
+  mediaAssets.forEach((asset) => {
+    const key = asset.desensitizeDisplay?.key || ''
+    if (key === 'ready') summary.readyCount += 1
+    else if (key === 'need_manual') summary.needManualCount += 1
+    else if (key === 'failed') summary.failedCount += 1
+    else summary.pendingCount += 1
+  })
+  summary.hasBlockingIssues = summary.failedCount + summary.needManualCount + summary.pendingCount > 0
+  return summary
+}
+
 async function buildMediaAssetsForDetail(album, task) {
   const assetByKey = {}
   ;(task?.rawAssets || []).forEach((asset) => {
@@ -178,7 +219,6 @@ async function buildMediaAssetsForDetail(album, task) {
   for (const img of album.images || []) {
     const key = `${img.nodeId}_${img.idx}`
     const matched = assetByKey[key] || {}
-    const rawUrl = resolveDisplayMediaUrl(img.rawUrl)
     const maskedUrl =
       resolvePublicCaseMediaUrl(matched.maskedUrl || matched.preMaskedUrl || '') ||
       resolveDisplayMediaUrl(matched.maskedUrl || matched.preMaskedUrl || '')
@@ -198,18 +238,39 @@ async function buildMediaAssetsForDetail(album, task) {
       }
     }
 
+    let mediaId = matched.mediaId || ''
+    let mediaDesensitizeStatus = ''
+    if (!mediaId && img.rawUrl) {
+      const media = await ensureMediaRecordFromUrl(img.rawUrl)
+      if (media?.id) {
+        mediaId = media.id
+        mediaDesensitizeStatus = media.desensitizeStatus || ''
+      }
+    } else if (mediaId) {
+      const media = await getMediaById(mediaId)
+      mediaDesensitizeStatus = media?.desensitizeStatus || ''
+    }
+    const assetStatus = matched.status || ''
+    const desensitizeDisplay = resolveDesensitizeDisplayStatus(
+      assetStatus,
+      mediaDesensitizeStatus
+    )
+
     items.push({
       imageId: img.id,
-      mediaId: matched.mediaId || '',
+      assetId: matched.id || key,
+      mediaId,
       nodeId: img.nodeId,
       nodeTitle: nodeTitleMap[img.nodeId] || img.nodeId,
       idx: img.idx,
-      rawUrl,
       maskedUrl,
       riskLevel: matched.riskLevel || '',
       riskTags: matched.riskTags || [],
       privacyDetections,
-      assetStatus: matched.status || '',
+      assetStatus,
+      mediaDesensitizeStatus,
+      desensitizeDisplay,
+      canRetry: desensitizeDisplay.key === 'failed' || desensitizeDisplay.key === 'need_manual',
     })
   }
 
@@ -250,11 +311,9 @@ async function getAdminCaseDetail(caseId) {
     { hasUserAuthorization: source === 'user_authorized' }
   )
 
-  const reviewLogs = await prisma.caseReviewLog.findMany({
-    where: { caseId },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  })
+  const reviewLogs = await fetchCaseReviewLogs(caseId)
+  const mediaAssets = await buildMediaAssetsForDetail(album, task)
+  const desensitizeSummary = buildDesensitizeSummary(mediaAssets)
 
   return {
     caseId: row.id,
@@ -291,7 +350,8 @@ async function getAdminCaseDetail(caseId) {
     contentJson: row.contentJson || {},
     preMaskTaskId: task?.taskId || buildPreMaskTaskId(album.id),
     preMaskStatus: task?.preMaskStatus || '',
-    mediaAssets: await buildMediaAssetsForDetail(album, task),
+    desensitizeSummary,
+    mediaAssets,
     reviewLogs: reviewLogs.map((log) => ({
       id: log.id,
       reviewAction: log.reviewAction,
@@ -307,6 +367,20 @@ async function getAdminCaseDetail(caseId) {
   }
 }
 
+async function fetchCaseReviewLogs(caseId) {
+  if (!prisma.caseReviewLog) {
+    console.warn(
+      '[admin-case] prisma.caseReviewLog 不可用，请执行 npm run db:generate && npm run db:migrate'
+    )
+    return []
+  }
+  return prisma.caseReviewLog.findMany({
+    where: { caseId },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+}
+
 async function appendReviewLog({
   caseId,
   reviewerId,
@@ -316,6 +390,10 @@ async function appendReviewLog({
   afterStatus,
   riskLevel = '',
 }) {
+  if (!prisma.caseReviewLog) {
+    console.warn('[admin-case] 跳过审核留痕：case_review_log 表未就绪')
+    return
+  }
   await prisma.caseReviewLog.create({
     data: {
       id: newId('crl'),
@@ -328,6 +406,20 @@ async function appendReviewLog({
       riskLevel,
     },
   })
+}
+
+async function assertCaseDesensitizeReady(caseId) {
+  const detail = await getAdminCaseDetail(caseId)
+  if (detail.desensitizeSummary?.hasBlockingIssues) {
+    const { failedCount = 0, needManualCount = 0, pendingCount = 0 } = detail.desensitizeSummary
+    const err = new Error(
+      `仍有 ${failedCount + needManualCount + pendingCount} 张图片未完成脱敏，请先重试或退回商家处理`
+    )
+    err.status = 409
+    err.code = 'DESENSITIZE_INCOMPLETE'
+    throw err
+  }
+  return detail
 }
 
 async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
@@ -343,6 +435,8 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     throw err
   }
 
+  await assertCaseDesensitizeReady(caseId)
+
   const album = await prisma.album.findUnique({
     where: { id: row.albumId },
     include: {
@@ -352,7 +446,15 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     },
   })
   const task = await resolvePublishTask(row.albumId, {})
-  const draft = buildCaseDraft(buildAlbumView(album), task, row.authorizationTier)
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  const hasUserAuth = album.authorization?.status === 'authorized'
+  const coldStart = !hasUserAuth && !hasOwner
+  const draft = buildCaseDraft(buildAlbumView(album), task, row.authorizationTier, {
+    coldStart,
+    hasUserAuthorization: hasUserAuth,
+  })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
   const now = new Date()
 
@@ -459,12 +561,43 @@ async function requestModifyAdminCase(caseId, { reviewerId, comment = '', reason
   return getAdminCaseDetail(caseId)
 }
 
+async function retryAdminCaseAsset(caseId, assetId, options = {}) {
+  const row = await prisma.publicCase.findUnique({
+    where: { id: caseId },
+    select: { albumId: true },
+  })
+  if (!row) {
+    const err = new Error('案例不存在')
+    err.status = 404
+    throw err
+  }
+  const taskId = buildPreMaskTaskId(row.albumId)
+  await retryAsset(taskId, assetId, {
+    force: true,
+    includeDetections: true,
+    roles: ['system'],
+  })
+  if (options.skipDetail) return null
+  return getAdminCaseDetail(caseId)
+}
+
+async function retryAllAdminCaseAssets(caseId) {
+  const detail = await getAdminCaseDetail(caseId)
+  const retryable = (detail.mediaAssets || []).filter((a) => a.canRetry)
+  for (const asset of retryable) {
+    await retryAdminCaseAsset(caseId, asset.assetId, { skipDetail: true })
+  }
+  return getAdminCaseDetail(caseId)
+}
+
 module.exports = {
   listAdminCases,
   getAdminCaseDetail,
   approveAdminCase,
   rejectAdminCase,
   requestModifyAdminCase,
+  retryAdminCaseAsset,
+  retryAllAdminCaseAssets,
   resolveCaseSource,
   sourceLabel,
 }

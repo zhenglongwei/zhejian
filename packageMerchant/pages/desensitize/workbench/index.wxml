@@ -23,9 +23,17 @@
 
   <block wx:else>
     <ui-privacy-banner scene="desensitize" />
-    <ui-compliance-notice type="desensitize" />
-    <ui-compliance-notice type="desensitize" />
-    <ui-compliance-notice type="desensitizeGuide" />
+    <block wx:if="{{fromPreMask}}">
+      <view class="desensitize-page__ready">
+        <ui-tag variant="desensitized" text="已自动脱敏" />
+        <text class="desensitize-page__ready-hint text-caption">平台已预处理敏感信息，请逐张核对后再提交审核。</text>
+      </view>
+      <ui-compliance-notice type="desensitizePreMaskReview" />
+    </block>
+    <block wx:else>
+      <ui-compliance-notice type="desensitize" />
+      <ui-compliance-notice type="desensitizeGuide" />
+    </block>
     <view wx:if="{{needPreviewHint}}" class="desensitize-page__preview-hint text-caption">
       请逐张点开右侧脱敏图预览，确认后再提交。
     </view>
@@ -44,15 +52,22 @@
     <ui-fixed-bottom-bar>
       <view slot="left" class="desensitize-page__bar-left">
         <ui-button
+          wx:if="{{!fromPreMask}}"
           type="primary"
           size="sm"
           loading="{{autoMaskLoading}}"
           bind:tap="onAutoMask"
         >一键 AI 脱敏</ui-button>
         <ui-button
+          wx:elif="{{stats.failed > 0}}"
+          type="secondary"
+          size="sm"
+          loading="{{autoMaskLoading}}"
+          bind:tap="onAutoMask"
+        >重新 AI 脱敏</ui-button>
+        <ui-button
           type="ghost"
           size="sm"
-          disabled="{{true}}"
           bind:tap="onManualMask"
         >手工打码</ui-button>
       </view>

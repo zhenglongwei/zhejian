@@ -71,6 +71,22 @@ async function fetchMerchantAlbumStats() {
   return get('/merchant/service-albums/stats', withStore())
 }
 
+async function createMerchantColdStartPreview(albumId) {
+  if (ENV.mode === 'mock') {
+    const { mockCreateMerchantColdStartPreview } = require('../mock/service-albums')
+    return mockCreateMerchantColdStartPreview(albumId)
+  }
+  return post(`/merchant/service-albums/${albumId}/cold-start-preview`, withStore())
+}
+
+async function submitMerchantPublicCase(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    const { mockSubmitMerchantPublicCase } = require('../mock/service-albums')
+    return mockSubmitMerchantPublicCase(albumId, payload)
+  }
+  return post(`/merchant/service-albums/${albumId}/public-case`, withStore(payload))
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -78,4 +94,6 @@ module.exports = {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
+  createMerchantColdStartPreview,
+  submitMerchantPublicCase,
 }

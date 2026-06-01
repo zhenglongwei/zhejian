@@ -9,8 +9,11 @@ function isPersistedRemoteUrl(url) {
   const value = url.trim()
   if (!value) return false
   if (value.startsWith('https://')) return true
+  if (value.includes('/api/v1/media/files/uploads/')) return true
   if (value.startsWith('/api/v1/media/files/')) return true
   if (value.includes('/media/files/uploads/')) return true
+  const base = String(ENV.baseUrl || '').replace(/\/$/, '')
+  if (base && value.startsWith(`${base}/api/v1/media/files/`)) return true
   return false
 }
 

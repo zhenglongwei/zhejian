@@ -39,8 +39,8 @@
   <block wx:elif="{{status === 'empty'}}">
     <view class="page-content">
       <ui-empty
-        title="暂无服务相册"
-        description="门店为你创建服务相册后，将在此展示六阶段过程记录"
+        title="{{activeTab === 'public' ? '暂无公开相册' : '暂无私密相册'}}"
+        description="{{activeTab === 'public' ? '审核通过并公开展示的案例将出现在这里' : '门店为你创建的维修记录与尚未公开的案例将出现在这里'}}"
       />
     </view>
   </block>

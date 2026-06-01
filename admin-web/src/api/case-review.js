@@ -19,3 +19,11 @@ export function rejectCase(caseId, body) {
 export function requestModifyCase(caseId, body) {
   return request.post(`/admin/cases/${caseId}/request-modify`, body)
 }
+
+export function retryCaseAssetDesensitize(caseId, assetId) {
+  return request.post(`/admin/cases/${caseId}/assets/${assetId}/retry-desensitize`)
+}
+
+export function retryAllCaseDesensitize(caseId) {
+  return request.post(`/admin/cases/${caseId}/retry-desensitize-all`)
+}

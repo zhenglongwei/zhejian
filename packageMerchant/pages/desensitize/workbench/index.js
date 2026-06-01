@@ -3,10 +3,10 @@ const {
   fetchTask,
   runAutoMask,
   retryAsset,
-  confirmTask,
+  confirmOrderAuthorizeTask,
   markAssetPreviewed,
 } = require('../../../../services/desensitize')
-const { saveAlbum } = require('../../../../services/album')
+const { submitMerchantPublicCase } = require('../../../../services/merchant-service-album')
 const { mapTaskToWorkbenchState } = require('../../../../utils/desensitize-workbench-display')
 
 Page({
@@ -15,6 +15,7 @@ Page({
     taskId: '',
     albumId: '',
     from: '',
+    fromPreMask: false,
     bizType: BIZ_TYPE.MERCHANT_HISTORY,
     workbenchItems: [],
     stats: { total: 0, processed: 0, failed: 0 },
@@ -38,6 +39,7 @@ Page({
       taskId,
       albumId,
       from: (query && query.from) || '',
+      fromPreMask: query && query.fromPreMask === '1',
       bizType,
       liabilityText: copy.body,
       confirmLabel: copy.confirmLabel,
@@ -73,6 +75,7 @@ Page({
       stats: view.stats,
       canConfirm: view.canConfirm,
       needPreviewHint: view.needPreviewHint,
+      fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
       status: view.pageStatus,
     })
   },
@@ -85,7 +88,7 @@ Page({
     const albumId = this.data.albumId
     if (albumId) {
       wx.redirectTo({
-        url: `/packageMerchant/pages/album/create/index?id=${albumId}`,
+        url: `/packageMerchant/pages/album/edit/index?albumId=${albumId}`,
       })
       return
     }
@@ -132,7 +135,7 @@ Page({
 
   onManualMask() {
     wx.showToast({
-      title: '手工打码即将开放，请先用一键 AI 脱敏',
+      title: '手工打码功能即将开放',
       icon: 'none',
     })
   },
@@ -164,20 +167,21 @@ Page({
     }
     this.setData({ confirmLoading: true })
     try {
-      const { album } = await confirmTask(this.data.taskId, {
+      await confirmOrderAuthorizeTask(this.data.taskId, {
         liabilityAccepted: true,
       })
-      await saveAlbum(
-        {
-          ...album,
-          id: album.id,
-          maskingConfirmed: true,
-        },
-        true
-      )
+      if (this.data.bizType === BIZ_TYPE.MERCHANT_HISTORY && this.data.albumId) {
+        await submitMerchantPublicCase(this.data.albumId, {
+          taskId: this.data.taskId,
+        })
+      }
       wx.showToast({ title: '已提交审核', icon: 'success' })
       setTimeout(() => {
-        if (this.data.from === 'album_create') {
+        if (this.data.from === 'album_edit') {
+          wx.redirectTo({
+            url: `/packageMerchant/pages/album/edit/index?albumId=${this.data.albumId}&refresh=1`,
+          })
+        } else if (this.data.from === 'album_create') {
           wx.navigateBack({ delta: 2 })
         } else {
           wx.redirectTo({ url: '/packageMerchant/pages/album/list/index' })

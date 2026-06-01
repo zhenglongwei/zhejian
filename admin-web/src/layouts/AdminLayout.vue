@@ -4,6 +4,7 @@
       <div class="admin-layout__brand">辙见运营</div>
       <el-menu :default-active="activeMenu" router>
         <el-menu-item index="/cases">案例审核</el-menu-item>
+        <el-menu-item index="/merchants">商家审核</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -29,6 +30,7 @@ const auth = useAuthStore()
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/cases')) return '/cases'
+  if (route.path.startsWith('/merchants')) return '/merchants'
   return route.path
 })
 

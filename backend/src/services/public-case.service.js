@@ -5,7 +5,7 @@ const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice, buildPublicCaseDbPriceColumns } = require('../utils/album-price')
-const { buildPreMaskTaskId } = require('./desensitize.constants')
+const { buildPreMaskTaskId, buildMerchantColdStartTaskId, BIZ_TYPE } = require('./desensitize.constants')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -18,8 +18,11 @@ function buildCaseTitle({ city = '杭州', vehicle, serviceName = '维修服务'
   return `${city}${vehicleTitle} · ${serviceName}`.trim()
 }
 
-function buildCaseSummary({ vehicle, serviceName = '维修服务', authorizationTier }) {
+function buildCaseSummary({ vehicle, serviceName = '维修服务', authorizationTier, coldStart = false }) {
   const vehicleTitle = buildVehicleTitle(vehicle)
+  if (coldStart) {
+    return `该案例为门店服务留档，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。图片已脱敏，展示价格为系统参考区间。`
+  }
   if (authorizationTier === 'anonymous') {
     return `该案例经车主匿名授权，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。`
   }
@@ -74,27 +77,40 @@ function buildNodesFromTask(nodes, task) {
   })
 }
 
-function buildCaseDraft(albumView, task, authorizationTier) {
+function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
+  const coldStart = Boolean(options.coldStart)
+  const hasUserAuthorization =
+    options.hasUserAuthorization != null ? options.hasUserAuthorization : !coldStart
   const caseId = `case_${albumView.albumId.replace(/^alb_/, '')}`
   const vehicle = albumView.vehicle || {}
   const serviceName = albumView.serviceName || '维修服务'
   const city = albumView.store?.city || '杭州'
   const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
+  const tier = coldStart ? 'private' : authorizationTier
   const publicPrice = buildPublicCasePrice(
     {
       ...albumView,
-      authorizationTier,
+      authorizationTier: tier,
       userPhone: albumView.userPhone,
     },
-    { hasUserAuthorization: true }
+    { hasUserAuthorization }
   )
+
+  const summary =
+    albumView.storeNote ||
+    buildCaseSummary({
+      vehicle,
+      serviceName,
+      authorizationTier: tier,
+      coldStart,
+    })
 
   return {
     id: caseId,
     albumId: albumView.albumId,
-    authorizationTier,
+    authorizationTier: tier,
     title: buildCaseTitle({ city, vehicle, serviceName }),
-    summary: albumView.storeNote || buildCaseSummary({ vehicle, serviceName, authorizationTier }),
+    summary,
     coverImage: pickCover(nodesWithMask),
     storeId: albumView.store?.id || '',
     storeName: albumView.store?.name || '',
@@ -108,15 +124,27 @@ function buildCaseDraft(albumView, task, authorizationTier) {
     contentJson: {
       nodes: nodesWithMask,
       vehicleText: `${buildVehicleTitle(vehicle)}（已脱敏）`,
-      tags: ['authorized', 'desensitized', 'audited'],
+      tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
+      coldStart,
     },
   }
+}
+
+function canAccessMerchantAlbum(album, storeId, merchantId) {
+  if (!album) return false
+  if (merchantId && album.merchantId === merchantId) return true
+  if (storeId && album.storeId === storeId) return true
+  return false
 }
 
 async function resolvePublishTask(albumId, payload = {}) {
   if (payload.taskId) {
     const task = await getTaskById(payload.taskId)
     if (task && taskAssets(task).length) return task
+  }
+  const mchTask = await getTaskById(buildMerchantColdStartTaskId(albumId))
+  if (mchTask && taskAssets(mchTask).length && mchTask.maskingConfirmed) {
+    return mchTask
   }
   const preMask = await getTaskById(buildPreMaskTaskId(albumId))
   if (preMask && taskAssets(preMask).length) return preMask
@@ -220,8 +248,150 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   }
 }
 
+async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId, taskId } = {}) {
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    include: {
+      nodes: { orderBy: { sortOrder: 'asc' } },
+      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+      authorization: true,
+      publicCase: true,
+    },
+  })
+  if (!album || !canAccessMerchantAlbum(album, storeId, merchantId)) {
+    const err = new Error('档案不存在或已被删除')
+    err.status = 404
+    throw err
+  }
+
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  if (hasOwner) {
+    const err = new Error('已关联车主，请由车主完成授权公示')
+    err.status = 409
+    throw err
+  }
+
+  if (album.authorization?.status === 'authorized') {
+    const err = new Error('该相册已有车主授权，请走用户授权公示流程')
+    err.status = 409
+    throw err
+  }
+
+  if (album.status !== 'completed' && album.status !== 'published') {
+    const err = new Error('请先标记服务相册已完工')
+    err.status = 409
+    throw err
+  }
+
+  const imageCount = album.imageCount || (album.images || []).length
+  if (imageCount < 1) {
+    const err = new Error('请至少上传一张过程图')
+    err.status = 409
+    throw err
+  }
+
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
+    const err = new Error('公开案例审核中，请耐心等待')
+    err.status = 409
+    throw err
+  }
+
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    const err = new Error('该案例已公开展示')
+    err.status = 409
+    throw err
+  }
+
+  const resolvedTaskId = taskId || buildMerchantColdStartTaskId(albumId)
+  const task = await getTaskById(resolvedTaskId)
+  if (!task || task.bizType !== BIZ_TYPE.MERCHANT_HISTORY || task.bizId !== albumId) {
+    const err = new Error('请先完成脱敏确认')
+    err.status = 409
+    throw err
+  }
+  if (!task.maskingConfirmed) {
+    const err = new Error('请先完成脱敏确认')
+    err.status = 409
+    throw err
+  }
+  if (!taskAssets(task).length) {
+    const err = new Error('脱敏任务无有效图片')
+    err.status = 409
+    throw err
+  }
+
+  const albumView = buildAlbumView(album)
+  const draft = buildCaseDraft(albumView, task, 'private', {
+    coldStart: true,
+    hasUserAuthorization: false,
+  })
+  const caseId = draft.id
+  const priceColumns = buildPublicCaseDbPriceColumns(draft)
+
+  await prisma.publicCase.upsert({
+    where: { albumId },
+    create: {
+      id: caseId,
+      albumId,
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      authorizationTier: 'private',
+      title: draft.title,
+      summary: draft.summary,
+      coverImage: draft.coverImage,
+      contentJson: draft.contentJson,
+      storeId: draft.storeId,
+      storeName: draft.storeName,
+      serviceName: draft.serviceName,
+      city: draft.city,
+      minAmount: priceColumns.minAmount,
+      maxAmount: priceColumns.maxAmount,
+      priceMode: priceColumns.priceMode,
+      publishedAt: null,
+    },
+    update: {
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      authorizationTier: 'private',
+      title: draft.title,
+      summary: draft.summary,
+      coverImage: draft.coverImage,
+      contentJson: draft.contentJson,
+      storeId: draft.storeId,
+      storeName: draft.storeName,
+      serviceName: draft.serviceName,
+      city: draft.city,
+      minAmount: priceColumns.minAmount,
+      maxAmount: priceColumns.maxAmount,
+      priceMode: priceColumns.priceMode,
+      publishedAt: null,
+    },
+  })
+
+  await prisma.album.update({
+    where: { id: albumId },
+    data: {
+      publicCaseStatus: 'pending_review',
+      authorizationTier: 'private',
+    },
+  })
+
+  return {
+    caseItem: {
+      id: caseId,
+      albumId,
+      title: draft.title,
+      authorizationTier: 'private',
+      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    },
+    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    message: '已提交平台审核，通过后将公开展示',
+  }
+}
+
 module.exports = {
   publishServicePublicCase,
+  publishMerchantColdStartPublicCase,
   buildCaseDraft,
   buildNodesFromTask,
   pickCover,

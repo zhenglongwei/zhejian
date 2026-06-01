@@ -13,6 +13,7 @@ const {
   fetchMerchantServiceAlbum,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
+  createMerchantColdStartPreview,
 } = require('../../../../services/merchant-service-album')
 const {
   canShareToOwner,
@@ -20,12 +21,16 @@ const {
 } = require('../../../../utils/service-album-share')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
 const { persistAlbumNodeImages, normalizeStoredImageUrl } = require('../../../../utils/media-upload')
+const { BIZ_TYPE } = require('../../../../constants/desensitize')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
+
+const OWNER_PHONE_HINT =
+  '填写手机号后，用户可在小程序端查看相册并实时跟踪维修进度。如果没有手机号，公示时仅展示车型和故障修复信息，不展示门店信息。完工后仍可修改手机号，便于纠正录入错误。'
 
 Page({
   data: {
@@ -58,6 +63,13 @@ Page({
     ownerPhoneInput: '',
     isCompleted: false,
     savingOwnerPhone: false,
+    hasOwner: false,
+    showSubmitReviewButton: false,
+    publicCaseStatus: 'private',
+    submitReviewLoading: false,
+    showBottomPrimary: false,
+    bottomPrimaryText: '',
+    ownerPhoneHint: OWNER_PHONE_HINT,
     uploadPrivacyHint:
       '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
   },
@@ -121,6 +133,23 @@ Page({
       })
     }
     const display = resolveMerchantAlbumDisplayStatus(detail.status)
+    const hasOwnerPhone = Boolean(String(detail.userPhone || '').trim())
+    const hasOwner = Boolean(detail.hasOwner) || hasOwnerPhone
+    const publicCaseStatus = detail.publicCaseStatus || 'private'
+    const showSubmitReviewButton =
+      isCompleted && !hasOwnerPhone && publicCaseStatus === 'private'
+    let showBottomPrimary = false
+    let bottomPrimaryText = ''
+    if (
+      detail.status !== SERVICE_ALBUM_STATUS.COMPLETED &&
+      detail.status !== SERVICE_ALBUM_STATUS.PUBLISHED
+    ) {
+      showBottomPrimary = true
+      bottomPrimaryText = '标记已完工'
+    } else if (showSubmitReviewButton) {
+      showBottomPrimary = true
+      bottomPrimaryText = '提交审核'
+    }
     this.setData({
       status: 'normal',
       detail,
@@ -141,6 +170,11 @@ Page({
       canShareToOwner: canShare,
       ownerPhoneInput: detail.userPhone || '',
       isCompleted,
+      hasOwner,
+      publicCaseStatus,
+      showSubmitReviewButton,
+      showBottomPrimary,
+      bottomPrimaryText,
     })
     this.syncShareMenu(canShare)
   },
@@ -153,16 +187,21 @@ Page({
     }
   },
 
-  async loadAlbum() {
-    this.setData({ status: 'loading', errorMessage: '' })
+  async loadAlbum(options = {}) {
+    const silent = Boolean(options.silent)
+    if (!silent) {
+      this.setData({ status: 'loading', errorMessage: '' })
+    }
     try {
       const detail = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(detail)
     } catch (e) {
-      this.setData({
-        status: 'error',
-        errorMessage: (e && e.message) || '加载失败',
-      })
+      if (!silent) {
+        this.setData({
+          status: 'error',
+          errorMessage: (e && e.message) || '加载失败',
+        })
+      }
     }
   },
 
@@ -177,7 +216,10 @@ Page({
   },
 
   onNodeImages(e) {
-    const index = Number(e.currentTarget.dataset.index)
+    let index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) {
+      index = this.data.stageIndex
+    }
     if (!Number.isFinite(index)) return
     const nodes = this.data.nodes.slice()
     nodes[index].images = (e.detail && e.detail.images) || []
@@ -185,8 +227,10 @@ Page({
   },
 
   onNodeNoteChange(e) {
-    const index = Number(e.currentTarget.dataset.index)
-    if (!Number.isFinite(index)) return
+    let index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) {
+      index = this.data.stageIndex
+    }
     const nodes = this.data.nodes.slice()
     nodes[index].note = (e.detail && e.detail.value) || ''
     this.setData({ nodes })
@@ -324,8 +368,9 @@ Page({
 
     wx.showModal({
       title: '标记已完工',
-      content:
-        '完工后服务相册将保存完整记录。若已关联车主，对方可查看；公开案例须车主另行授权。',
+      content: this.data.hasOwner
+        ? '完工后服务相册将保存完整记录。若已关联车主，对方可查看；公开案例须车主另行授权。'
+        : '完工后服务相册将保存完整记录。未关联车主时，可在底部提交审核。',
       confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return
@@ -347,7 +392,8 @@ Page({
       if (droppedStaleCount > 0) {
         this.notifyStaleImagesDropped(droppedStaleCount)
       }
-      setTimeout(() => wx.navigateBack(), 1600)
+      const detail = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(detail)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
@@ -366,7 +412,33 @@ Page({
   },
 
   onOwnerPhoneInput(e) {
-    this.setData({ ownerPhoneInput: e.detail.value })
+    const ownerPhoneInput = e.detail.value || ''
+    const savedPhone = String((this.data.detail && this.data.detail.userPhone) || '').trim()
+    const draftPhone = String(ownerPhoneInput).trim()
+    const hasOwnerPhone = Boolean(savedPhone) || /^1\d{10}$/.test(draftPhone)
+    const showSubmitReviewButton =
+      this.data.isCompleted &&
+      !hasOwnerPhone &&
+      this.data.publicCaseStatus === 'private'
+    let showBottomPrimary = false
+    let bottomPrimaryText = ''
+    if (
+      this.data.detail &&
+      this.data.detail.status !== SERVICE_ALBUM_STATUS.COMPLETED &&
+      this.data.detail.status !== SERVICE_ALBUM_STATUS.PUBLISHED
+    ) {
+      showBottomPrimary = true
+      bottomPrimaryText = '标记已完工'
+    } else if (showSubmitReviewButton) {
+      showBottomPrimary = true
+      bottomPrimaryText = '提交审核'
+    }
+    this.setData({
+      ownerPhoneInput,
+      showSubmitReviewButton,
+      showBottomPrimary,
+      bottomPrimaryText,
+    })
   },
 
   async onSaveOwnerPhone() {
@@ -374,6 +446,11 @@ Page({
     const userPhone = (this.data.ownerPhoneInput || '').trim()
     if (!/^1\d{10}$/.test(userPhone)) {
       wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      return
+    }
+    const previous = (this.data.detail && this.data.detail.userPhone) || ''
+    if (userPhone === previous) {
+      wx.showToast({ title: '手机号未变更', icon: 'none' })
       return
     }
     this.setData({ savingOwnerPhone: true })
@@ -399,5 +476,93 @@ Page({
   canComplete() {
     const status = this.data.detail && this.data.detail.status
     return status !== SERVICE_ALBUM_STATUS.COMPLETED && status !== SERVICE_ALBUM_STATUS.PUBLISHED
+  },
+
+  hasAlbumImages() {
+    const imageCount = this.data.detail && this.data.detail.imageCount
+    if (Number.isFinite(imageCount) && imageCount > 0) return true
+    return (this.data.nodes || []).some((n) => (n.images || []).length > 0)
+  },
+
+  onSubmitReview() {
+    if (this.data.submitReviewLoading) {
+      wx.showToast({ title: '正在提交，请稍候', icon: 'none' })
+      return
+    }
+    if (this.data.saving) {
+      wx.showToast({ title: '正在保存，请稍候', icon: 'none' })
+      return
+    }
+    if (this.data.completing) {
+      wx.showToast({ title: '正在标记完工，请稍候', icon: 'none' })
+      return
+    }
+    if (!this.data.isCompleted) {
+      wx.showToast({ title: '请先标记已完工', icon: 'none' })
+      return
+    }
+    const savedPhone = String((this.data.detail && this.data.detail.userPhone) || '').trim()
+    const draftPhone = String(this.data.ownerPhoneInput || '').trim()
+    if (draftPhone && draftPhone !== savedPhone) {
+      wx.showToast({ title: '请先保存或清空手机号', icon: 'none' })
+      return
+    }
+    if (savedPhone) {
+      wx.showToast({ title: '已关联车主，请由车主完成授权公示', icon: 'none' })
+      return
+    }
+    if (this.data.publicCaseStatus === 'pending_review') {
+      wx.showToast({ title: '已在平台审核中', icon: 'none' })
+      return
+    }
+    if (this.data.publicCaseStatus === 'public_approved') {
+      wx.showToast({ title: '该案例已公开展示', icon: 'none' })
+      return
+    }
+    if (!this.hasAlbumImages()) {
+      wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
+      return
+    }
+
+    wx.hideLoading()
+    wx.showModal({
+      title: '提交审核',
+      content:
+        '请逐张核对脱敏效果并确认责任声明。审核通过后，案例将展示在平台公开页，价格为系统参考区间。',
+      confirmText: '开始核对',
+      success: (res) => {
+        if (!res.confirm) return
+        this.openColdStartWorkbench()
+      },
+      fail: () => {
+        wx.showToast({ title: '无法打开确认框', icon: 'none' })
+      },
+    })
+  },
+
+  async openColdStartWorkbench() {
+    if (this.data.submitReviewLoading) return
+    this.setData({ submitReviewLoading: true })
+    try {
+      wx.showLoading({ title: '加载脱敏预览', mask: true })
+      const preview = await createMerchantColdStartPreview(this.albumId)
+      wx.hideLoading()
+      const taskId = preview.taskId || (preview.task && preview.task.taskId)
+      if (!taskId) {
+        wx.showToast({ title: '脱敏任务创建失败', icon: 'none' })
+        return
+      }
+      wx.navigateTo({
+        url:
+          `/packageMerchant/pages/desensitize/workbench/index?taskId=${encodeURIComponent(taskId)}` +
+          `&albumId=${encodeURIComponent(this.albumId)}` +
+          `&bizType=${BIZ_TYPE.MERCHANT_HISTORY}&from=album_edit&fromPreMask=1`,
+      })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+    } finally {
+      this.setData({ submitReviewLoading: false })
+    }
   },
 })

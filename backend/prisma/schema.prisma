@@ -31,6 +31,7 @@ model Merchant {
   contactName  String          @default("") @map("contact_name")
   contactPhone String          @default("") @map("contact_phone")
   rejectReason String          @default("") @map("reject_reason")
+  agreedAt     DateTime?       @map("agreed_at")
   submittedAt  DateTime?       @map("submitted_at")
   approvedAt   DateTime?       @map("approved_at")
   createdAt    DateTime        @default(now()) @map("created_at")
@@ -39,6 +40,7 @@ model Merchant {
   staff        MerchantStaff[]
 
   @@index([ownerUserId])
+  @@index([status])
   @@map("merchants")
 }
 
@@ -249,6 +251,21 @@ model CaseReviewLog {
 
   @@index([caseId])
   @@map("case_review_log")
+}
+
+model MerchantReviewLog {
+  id            String   @id
+  merchantId    String   @map("merchant_id")
+  storeId       String   @default("") @map("store_id")
+  reviewerId    String   @default("system") @map("reviewer_id")
+  reviewAction  String   @map("review_action")
+  reviewComment String   @default("") @map("review_comment") @db.Text
+  beforeStatus  String   @default("") @map("before_status")
+  afterStatus   String   @default("") @map("after_status")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([merchantId])
+  @@map("merchant_review_log")
 }
 
 model DesensitizeTask {

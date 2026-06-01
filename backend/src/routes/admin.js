@@ -9,7 +9,17 @@ const {
   approveAdminCase,
   rejectAdminCase,
   requestModifyAdminCase,
+  retryAdminCaseAsset,
+  retryAllAdminCaseAssets,
 } = require('../services/admin-case.service')
+
+const {
+  listAdminMerchants,
+  getAdminMerchantDetail,
+  approveAdminMerchant,
+  rejectAdminMerchant,
+  requestModifyAdminMerchant,
+} = require('../services/admin-merchant.service')
 
 const router = express.Router()
 
@@ -78,6 +88,80 @@ router.post('/cases/:caseId/reject', async (req, res, next) => {
 router.post('/cases/:caseId/request-modify', async (req, res, next) => {
   try {
     const data = await requestModifyAdminCase(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/assets/:assetId/retry-desensitize', async (req, res, next) => {
+  try {
+    const data = await retryAdminCaseAsset(req.params.caseId, req.params.assetId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/retry-desensitize-all', async (req, res, next) => {
+  try {
+    const data = await retryAllAdminCaseAssets(req.params.caseId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/merchants', async (req, res, next) => {
+  try {
+    const data = await listAdminMerchants(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/merchants/:merchantId', async (req, res, next) => {
+  try {
+    const data = await getAdminMerchantDetail(req.params.merchantId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/merchants/:merchantId/approve', async (req, res, next) => {
+  try {
+    const data = await approveAdminMerchant(req.params.merchantId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/merchants/:merchantId/reject', async (req, res, next) => {
+  try {
+    const data = await rejectAdminMerchant(req.params.merchantId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/merchants/:merchantId/request-modify', async (req, res, next) => {
+  try {
+    const data = await requestModifyAdminMerchant(req.params.merchantId, {
       reviewerId: req.admin?.reviewerId,
       comment: req.body?.comment || '',
       reasonType: req.body?.reasonType || '',

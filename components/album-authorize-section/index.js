@@ -32,6 +32,14 @@ Component({
       type: String,
       value: 'named',
     },
+    showActions: {
+      type: Boolean,
+      value: true,
+    },
+    showRejectLink: {
+      type: Boolean,
+      value: true,
+    },
   },
 
   methods: {

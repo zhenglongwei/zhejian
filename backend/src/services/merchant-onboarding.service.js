@@ -28,6 +28,7 @@ function formatOnboardingProfile(merchant, store) {
     address: store.address,
     services: Array.isArray(store.servicesJson) ? store.servicesJson : [],
     rejectReason: merchant.rejectReason || '',
+    agreedAt: toIso(merchant.agreedAt),
     submittedAt: toIso(merchant.submittedAt),
     approvedAt: toIso(merchant.approvedAt),
   }
@@ -132,6 +133,7 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
   const now = new Date()
   const nextMerchantStatus = submit ? MERCHANT_STATUS.PENDING_AUDIT : MERCHANT_STATUS.DRAFT
   const nextStoreStatus = submit ? STORE_STATUS.PENDING_AUDIT : STORE_STATUS.DRAFT
+  const agreedAt = submit && form.agreed ? now : undefined
 
   let merchant
   let store
@@ -145,7 +147,8 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
         contactPhone: payload.phone,
         status: nextMerchantStatus,
         submittedAt: submit ? now : existing.merchant.submittedAt,
-        rejectReason: '',
+        rejectReason: submit ? '' : existing.merchant.rejectReason,
+        ...(agreedAt ? { agreedAt } : {}),
       },
     })
     store = await prisma.store.update({
@@ -174,6 +177,7 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
         contactPhone: payload.phone,
         status: nextMerchantStatus,
         submittedAt: submit ? now : null,
+        agreedAt: agreedAt || null,
         stores: {
           create: {
             id: storeId,

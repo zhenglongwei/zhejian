@@ -4,8 +4,42 @@
   padding-top: var(--space-md);
 }
 
-.merchant-album-edit--with-bar .merchant-album-edit__body {
-  padding-bottom: var(--page-fixed-clearance);
+.merchant-album-edit__shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.merchant-album-edit__scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.merchant-album-edit__bottom {
+  flex-shrink: 0;
+  background-color: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.merchant-album-edit__bottom-inner {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--page-padding-x);
+  box-sizing: border-box;
+}
+
+.merchant-album-edit__bottom-btn {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  line-height: inherit;
+}
+
+.merchant-album-edit__bottom-btn::after {
+  border: none;
 }
 
 .merchant-album-edit__head {
@@ -87,4 +121,5 @@
   flex-direction: column;
   gap: var(--space-md);
   padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
 }

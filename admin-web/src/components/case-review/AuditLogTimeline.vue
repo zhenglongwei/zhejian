@@ -15,13 +15,14 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   logs: { type: Array, default: () => [] },
+  approveLabel: { type: String, default: '通过并公开' },
 })
 
 function actionLabel(action) {
   const map = {
-    approve: '通过并公开',
+    approve: props.approveLabel,
     reject: '驳回',
     request_modify: '要求修改',
   }

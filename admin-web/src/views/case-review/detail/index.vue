@@ -23,6 +23,15 @@
       class="notice"
     />
 
+    <el-alert
+      v-if="desensitizeAlert"
+      :title="desensitizeAlert"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="notice"
+    />
+
     <el-row :gutter="16" class="section">
       <el-col :span="12">
         <el-card shadow="never">
@@ -52,11 +61,26 @@
     </el-row>
 
     <el-card shadow="never" class="section">
-      <template #header>脱敏素材对比 · OCR 风险</template>
+      <template #header>
+        <div class="section-head">
+          <span>脱敏图审核 · OCR 风险</span>
+          <el-button
+            v-if="hasRetryableAssets"
+            size="small"
+            type="warning"
+            :loading="retryAllLoading"
+            @click="onRetryAll"
+          >
+            全部重试脱敏
+          </el-button>
+        </div>
+      </template>
       <DesensitizeComparePanel
         v-for="asset in detail.mediaAssets"
         :key="`${asset.nodeId}_${asset.idx}`"
         :asset="asset"
+        :retry-loading="retryingAssetId === asset.assetId"
+        @retry="onRetryAsset"
       />
       <el-empty v-if="!detail.mediaAssets?.length" description="暂无图片素材" />
     </el-card>
@@ -66,7 +90,8 @@
       <ReviewActionBar
         ref="actionRef"
         :loading="submitting"
-        :can-review="detail.status === 'pending_review'"
+        :can-review="canReview"
+        :approve-label="approveLabel"
         @approve="onApprove"
         @reject="onReject"
         @request-modify="onRequestModify"
@@ -89,6 +114,8 @@ import {
   approveCase,
   rejectCase,
   requestModifyCase,
+  retryCaseAssetDesensitize,
+  retryAllCaseDesensitize,
 } from '@/api/case-review'
 import { COMPLIANCE_NOTICES } from '@/constants/case-review'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
@@ -101,6 +128,8 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const submitting = ref(false)
+const retryAllLoading = ref(false)
+const retryingAssetId = ref('')
 const detail = ref({})
 const actionRef = ref(null)
 
@@ -114,6 +143,28 @@ const priceText = computed(() => {
   return p.priceMode || '—'
 })
 
+const desensitizeSummary = computed(() => detail.value.desensitizeSummary || {})
+const hasRetryableAssets = computed(() =>
+  (detail.value.mediaAssets || []).some((a) => a.canRetry)
+)
+const canReview = computed(
+  () =>
+    detail.value.status === 'pending_review' &&
+    !desensitizeSummary.value.hasBlockingIssues
+)
+const approveLabel = computed(() =>
+  desensitizeSummary.value.hasBlockingIssues ? '脱敏未完成' : '通过并公开'
+)
+const desensitizeAlert = computed(() => {
+  const s = desensitizeSummary.value
+  if (!s.hasBlockingIssues) return ''
+  const parts = []
+  if (s.needManualCount) parts.push(`${s.needManualCount} 张需人工`)
+  if (s.failedCount) parts.push(`${s.failedCount} 张脱敏失败`)
+  if (s.pendingCount) parts.push(`${s.pendingCount} 张待脱敏`)
+  return `脱敏未完成：${parts.join('、')}。请重试脱敏或要求商家修改后再审核通过。`
+})
+
 async function loadDetail() {
   loading.value = true
   try {
@@ -125,6 +176,33 @@ async function loadDetail() {
 
 function goBack() {
   router.push({ name: 'case-list' })
+}
+
+async function onRetryAsset(assetId) {
+  if (!assetId || retryingAssetId.value) return
+  retryingAssetId.value = assetId
+  try {
+    detail.value = await retryCaseAssetDesensitize(route.params.caseId, assetId)
+    ElMessage.success('已重新执行脱敏')
+  } catch (e) {
+    ElMessage.error(e?.message || '重试失败')
+  } finally {
+    retryingAssetId.value = ''
+  }
+}
+
+async function onRetryAll() {
+  if (retryAllLoading.value) return
+  await ElMessageBox.confirm('将对所有失败/需人工图片重新执行脱敏，是否继续？', '重试确认')
+  retryAllLoading.value = true
+  try {
+    detail.value = await retryAllCaseDesensitize(route.params.caseId)
+    ElMessage.success('批量重试已完成')
+  } catch (e) {
+    ElMessage.error(e?.message || '批量重试失败')
+  } finally {
+    retryAllLoading.value = false
+  }
 }
 
 async function onApprove() {
@@ -192,5 +270,11 @@ onMounted(loadDetail)
 }
 .section {
   margin-top: 16px;
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 </style>

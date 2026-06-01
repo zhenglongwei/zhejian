@@ -15,6 +15,9 @@ Page({
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     withdrawingId: '',
+    withdrawSheetVisible: false,
+    withdrawSheetLoading: false,
+    pendingWithdrawAlbumId: '',
   },
 
   onShow() {
@@ -25,7 +28,8 @@ Page({
     this.loadList().finally(() => wx.stopPullDownRefresh())
   },
 
-  async loadList() {
+  async loadList(options = {}) {
+    const { silent = false } = options
     if (!isLoggedIn()) {
       this.setData({
         status: 'unauthenticated',
@@ -47,7 +51,9 @@ Page({
       return
     }
 
-    this.setData({ status: 'loading', errorMessage: '' })
+    if (!silent) {
+      this.setData({ status: 'loading', errorMessage: '' })
+    }
     try {
       const raw = await fetchUserAuthorizations()
       const withdrawingId = this.data.withdrawingId
@@ -85,9 +91,15 @@ Page({
     this.setData({ loginSheetVisible: false })
   },
 
-  onLoginSheetSuccess() {
+  onLoginSheetSuccess(e) {
+    const detail = (e && e.detail) || {}
+    const { step, user } = detail
+    // 微信登录成功但仍需绑定手机号：保持弹窗，等待 getPhoneNumber 完成
+    if (step === 'login' && user && !user.isPhoneBound) {
+      return
+    }
     this.closeLoginSheet()
-    this.loadList()
+    setTimeout(() => this.loadList(), 50)
   },
 
   onViewAlbum(e) {
@@ -98,36 +110,46 @@ Page({
 
   onWithdraw(e) {
     const { id } = e.detail
-    if (!id || this.data.withdrawingId) return
-    wx.showModal({
-      title: '撤回授权',
-      content: '撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。',
-      confirmText: '确认撤回',
-      cancelText: '取消',
-      success: (res) => {
-        if (!res.confirm) return
-        this.doWithdraw(id)
-      },
+    if (!id || this.data.withdrawingId || this.data.withdrawSheetVisible) return
+    this.setData({
+      withdrawSheetVisible: true,
+      pendingWithdrawAlbumId: id,
     })
+  },
+
+  onWithdrawSheetClose() {
+    if (this.data.withdrawSheetLoading) return
+    this.setData({
+      withdrawSheetVisible: false,
+      pendingWithdrawAlbumId: '',
+    })
+  },
+
+  onWithdrawSheetConfirm() {
+    const albumId = this.data.pendingWithdrawAlbumId
+    if (!albumId || this.data.withdrawSheetLoading) return
+    this.setData({ withdrawSheetVisible: false, withdrawSheetLoading: true })
+    this.doWithdraw(albumId)
   },
 
   async doWithdraw(albumId) {
     this.setData({ withdrawingId: albumId })
     this.syncListWithdrawing(albumId)
     try {
-      wx.showLoading({ title: '处理中', mask: true })
       await withdrawAuthorization(albumId)
-      wx.hideLoading()
       wx.showToast({ title: '已撤回授权', icon: 'success' })
-      this.loadList()
+      await this.loadList({ silent: true })
     } catch (e) {
-      wx.hideLoading()
       wx.showToast({
         title: (e && e.message) || '撤回失败',
         icon: 'none',
       })
     } finally {
-      this.setData({ withdrawingId: '' })
+      this.setData({
+        withdrawingId: '',
+        withdrawSheetLoading: false,
+        pendingWithdrawAlbumId: '',
+      })
       this.syncListWithdrawing('')
     }
   },

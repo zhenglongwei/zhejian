@@ -1,4 +1,4 @@
-<view class="page merchant-album-edit {{detail ? 'merchant-album-edit--with-bar' : ''}}">
+<view class="page merchant-album-edit">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-album-edit__pad">
       <ui-skeleton rows="{{3}}" title="{{true}}" />
@@ -13,7 +13,9 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="page-content merchant-album-edit__body">
+    <view class="merchant-album-edit__shell">
+      <scroll-view scroll-y class="merchant-album-edit__scroll" show-scrollbar="{{false}}">
+        <view class="page-content merchant-album-edit__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-album-edit__head">
           <text class="text-h3">{{detail.serviceName}}</text>
@@ -121,44 +123,50 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__owner">
         <text class="text-h3">关联车主</text>
-        <text class="text-caption merchant-album-edit__owner-hint">
-          填写手机号后，车主登录小程序即可在「我的服务相册」查看；门店编辑会同步更新，无需重复分享。请用右上角「转发」发给车主；勿复制右上角「复制链接」（#小程序:// 仅微信内有效，浏览器打不开）。完工后相册不可再修改。
+        <text class="text-caption merchant-album-edit__owner-hint">{{ownerPhoneHint}}</text>
+
+        <text wx:if="{{detail.userPhoneDisplay}}" class="text-body merchant-album-edit__owner-phone">
+          当前关联：{{detail.userPhoneDisplay}}
         </text>
 
-        <block wx:if="{{detail.userPhoneDisplay}}">
-          <text class="text-body merchant-album-edit__owner-phone">已关联：{{detail.userPhoneDisplay}}</text>
-          <text wx:if="{{canShareToOwner}}" class="text-caption merchant-album-edit__owner-share-tip">可点击右上角 ··· 转发给车主</text>
-        </block>
-
-        <block wx:elif="{{!isCompleted}}">
-          <input
-            class="merchant-form__input"
-            type="number"
-            maxlength="11"
-            placeholder="11 位手机号"
-            value="{{ownerPhoneInput}}"
-            bindinput="onOwnerPhoneInput"
-          />
-          <ui-button
-            type="secondary"
-            size="sm"
-            block="{{true}}"
-            loading="{{savingOwnerPhone}}"
-            bind:tap="onSaveOwnerPhone"
-          >保存手机号</ui-button>
-        </block>
+        <input
+          class="merchant-form__input"
+          type="number"
+          maxlength="11"
+          placeholder="11 位手机号"
+          value="{{ownerPhoneInput}}"
+          bindinput="onOwnerPhoneInput"
+        />
+        <ui-button
+          type="secondary"
+          size="sm"
+          block="{{true}}"
+          loading="{{savingOwnerPhone}}"
+          bind:tap="onSaveOwnerPhone"
+        >保存手机号</ui-button>
       </ui-card>
-    </view>
+        </view>
+      </scroll-view>
 
-    <ui-fixed-bottom-bar>
-      <ui-button type="secondary" size="sm" slot="left" loading="{{saving}}" bind:tap="onSave">保存</ui-button>
-      <ui-button
-        wx:if="{{detail.status !== 'completed' && detail.status !== 'published'}}"
-        type="primary"
-        slot="right"
-        loading="{{completing}}"
-        bind:tap="onComplete"
-      >标记已完工</ui-button>
-    </ui-fixed-bottom-bar>
+      <view class="merchant-album-edit__bottom safe-bottom">
+        <view class="merchant-album-edit__bottom-inner">
+          <button
+            class="btn btn--secondary btn--block merchant-album-edit__bottom-btn"
+            loading="{{saving}}"
+            catchtap="onSave"
+          >保存</button>
+          <button
+            wx:if="{{showSubmitReviewButton}}"
+            class="btn btn--primary btn--block merchant-album-edit__bottom-btn"
+            catchtap="onSubmitReview"
+          >提交审核</button>
+          <button
+            wx:elif="{{showBottomPrimary}}"
+            class="btn btn--primary btn--block merchant-album-edit__bottom-btn"
+            catchtap="onComplete"
+          >{{bottomPrimaryText}}</button>
+        </view>
+      </view>
+    </view>
   </block>
 </view>

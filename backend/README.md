@@ -21,6 +21,8 @@ npm run dev
 
 健康检查：<http://127.0.0.1:3000/api/v1/health>
 
+**本地商家/用户跨端读图**：`backend/.env` 设置 `PUBLIC_BASE_URL=http://127.0.0.1:3000`（与小程序 `services/config.js` 的 `local.baseUrl` 一致）。未设置时 development 环境会自动使用该地址，避免上传落本地盘但 URL 指向生产域名。
+
 ## 鉴权（B-AUTH）
 
 ### 用户端 · 微信登录
@@ -43,7 +45,7 @@ npm run dev
 | `WECHAT_APP_ID` | 小程序 AppID |
 | `WECHAT_APP_SECRET` | 小程序 AppSecret（[微信公众平台](https://mp.weixin.qq.com) → 开发管理 → 开发设置） |
 | `DEV_AUTH_ENABLED` | `true` 时保留 dev 固定 token；无 `code` 时可走演示登录 |
-| `MERCHANT_AUTO_APPROVE` | `true`（默认）提交入驻后自动通过；运营审核就绪后设为 `false` |
+| `MERCHANT_AUTO_APPROVE` | `false`（推荐 staging/prod）；`true` 仅本地快速联调，提交后自动通过 |
 
 ### 商家入驻
 
@@ -51,10 +53,24 @@ npm run dev
 |---|---|---|
 | GET | `/api/v1/merchant/onboarding` | 查询当前用户入驻进度（无记录返回 `null`） |
 | PUT | `/api/v1/merchant/onboarding/draft` | 保存草稿 |
-| POST | `/api/v1/merchant/onboarding/submit` | 提交审核；自动通过时返回 `session`（新 JWT） |
+| POST | `/api/v1/merchant/onboarding/submit` | 提交审核；`MERCHANT_AUTO_APPROVE=true` 时返回 `session`；否则 `pending` 待运营审核 |
 | POST | `/api/v1/merchant/auth/refresh-session` | 审核通过后刷新 JWT 中的 merchant 角色 |
 
-提交体（MVP 与入驻页字段一致）：`storeName`、`contactName`、`phone`、`address`、`services[]`。
+提交体（MVP 与入驻页字段一致）：`storeName`、`contactName`、`phone`、`address`、`services[]`、`agreed`（提交时须为 true）。
+
+### 运营后台 · 商家入驻审核（B-MERCH-04）
+
+鉴权：`Authorization: Bearer <admin_token>` + `X-Client-Type: admin`
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/admin/merchants` | 列表（`tab=pending\|approved\|rejected\|need_modify`） |
+| GET | `/api/v1/admin/merchants/:merchantId` | 详情（手机号脱敏） |
+| POST | `/api/v1/admin/merchants/:merchantId/approve` | 通过并开通 |
+| POST | `/api/v1/admin/merchants/:merchantId/reject` | 驳回 |
+| POST | `/api/v1/admin/merchants/:merchantId/request-modify` | 要求修改 |
+
+审核留痕表：`merchant_review_log`。
 
 ### 联调期 dev token
 

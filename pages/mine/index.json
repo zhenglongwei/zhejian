@@ -7,7 +7,6 @@
     "ui-card": "/components/card/index",
     "ui-cell": "/components/cell/index",
     "ui-mine-user-header": "/components/mine-user-header/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-login-sheet": "/components/login-sheet/index"
   }
 }

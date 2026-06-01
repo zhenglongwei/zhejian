@@ -41,8 +41,8 @@ Page({
       this.setData({ status: 'pending', profile })
       return
     }
-    if (profile.status === MERCHANT_STATUS.REJECTED) {
-      this.setData({ status: 'rejected', profile })
+    if (profile.status === MERCHANT_STATUS.REJECTED || profile.status === MERCHANT_STATUS.NEED_MODIFY) {
+      this.setData({ status: profile.status === MERCHANT_STATUS.NEED_MODIFY ? 'need_modify' : 'rejected', profile })
       return
     }
     if (profile.status !== MERCHANT_STATUS.APPROVED) {

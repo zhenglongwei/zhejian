@@ -42,6 +42,22 @@ Page({
       this.setData({ status: 'pending', profile })
       return
     }
+    if (profile && profile.status === MERCHANT_STATUS.NEED_MODIFY) {
+      const services = profile.services || []
+      this.setData({
+        form: {
+          storeName: profile.storeName || '',
+          contactName: profile.contactName || '',
+          phone: profile.phone || '',
+          address: profile.address || '',
+          services,
+        },
+        serviceTags: this.buildTagViews(services),
+        status: 'need_modify',
+        profile,
+      })
+      return
+    }
     if (profile) {
       const services = profile.services || []
       this.setData({
@@ -177,7 +193,7 @@ Page({
     if (this.data.submitting || !this.validate()) return
     this.setData({ submitting: true })
     try {
-      const result = await submitOnboarding(this.data.form)
+      const result = await submitOnboarding({ ...this.data.form, agreed: this.data.agreed })
       const profile = result.profile || result
       if (profile.status === MERCHANT_STATUS.APPROVED) {
         wx.showToast({ title: '入驻已通过', icon: 'success' })
@@ -217,7 +233,14 @@ Page({
       }
       this.setData({
         profile: profile || null,
-        status: profile && profile.status === MERCHANT_STATUS.PENDING ? 'pending' : 'normal',
+        status:
+          profile && profile.status === MERCHANT_STATUS.PENDING
+            ? 'pending'
+            : profile && profile.status === MERCHANT_STATUS.NEED_MODIFY
+              ? 'need_modify'
+              : profile && profile.status === MERCHANT_STATUS.REJECTED
+                ? 'rejected'
+                : 'normal',
       })
       wx.showToast({ title: '仍在审核中', icon: 'none' })
     } catch (e) {

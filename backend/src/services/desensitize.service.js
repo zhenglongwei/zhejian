@@ -10,6 +10,7 @@ const {
   mapTaskRecord,
   buildPreMaskTaskId,
   buildAuthorizeTaskId,
+  buildMerchantColdStartTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
 const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl } = require('./media.service')
@@ -293,25 +294,33 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
     throw err
   }
 
-  const existingAuth = await prisma.desensitizeTask.findFirst({
-    where: {
-      bizId: album.id,
-      bizType: authorizeBizType,
-      maskingConfirmed: false,
-      preMaskTaskId: preMaskTask.taskId,
-      preMaskVersion: preMaskTask.preMaskVersion,
-    },
+  const authTaskId = buildAuthorizeTaskId(album.id)
+  const existingAuth = await prisma.desensitizeTask.findUnique({
+    where: { taskId: authTaskId },
     include: { assets: true },
   })
-  if (existingAuth) {
-    return {
-      preview: buildAuthorizePreviewPayload(album, existingAuth),
-      task: mapTaskRecord(existingAuth),
+
+  const preMaskMatches = (task) =>
+    task &&
+    task.preMaskTaskId === preMaskTask.taskId &&
+    task.preMaskVersion === preMaskTask.preMaskVersion
+
+  if (existingAuth && existingAuth.bizType === authorizeBizType && preMaskMatches(existingAuth)) {
+    if (!existingAuth.maskingConfirmed) {
+      return {
+        preview: buildAuthorizePreviewPayload(album, existingAuth),
+        task: mapTaskRecord(existingAuth),
+      }
+    }
+    if (['pending_review', 'public_approved'].includes(album.publicCaseStatus)) {
+      return {
+        preview: buildAuthorizePreviewPayload(album, existingAuth),
+        task: mapTaskRecord(existingAuth),
+      }
     }
   }
 
   await clearPendingAuthorizeTasks(album.id, authorizeBizType)
-  const authTaskId = buildAuthorizeTaskId(album.id)
   const assetInputs = (preMaskTask.assets || []).map((asset) => ({
     assetId: asset.assetId,
     mediaId: asset.mediaId || '',
@@ -327,8 +336,9 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
     riskLevel: asset.riskLevel || '',
   }))
 
-  await prisma.desensitizeTask.create({
-    data: {
+  await prisma.desensitizeTask.upsert({
+    where: { taskId: authTaskId },
+    create: {
       taskId: authTaskId,
       bizType: authorizeBizType,
       bizId: album.id,
@@ -339,6 +349,22 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
       preMaskVersion: preMaskTask.preMaskVersion,
       fromPreMask: true,
       assets: { create: assetInputs },
+    },
+    update: {
+      bizType: authorizeBizType,
+      bizId: album.id,
+      orderId: album.orderId || null,
+      operatorRole: 'user',
+      liabilityType: 'user',
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion,
+      fromPreMask: true,
+      maskingConfirmed: false,
+      maskingConfirmedAt: null,
+      assets: {
+        deleteMany: {},
+        create: assetInputs,
+      },
     },
   })
 
@@ -417,6 +443,22 @@ async function runAutoMask(taskId, options = {}) {
   return getTaskById(taskId, options)
 }
 
+async function refreshPreMaskStatusForTask(taskId) {
+  const task = await prisma.desensitizeTask.findUnique({
+    where: { taskId },
+    include: { assets: true },
+  })
+  if (!task) return
+  const isPreMask =
+    task.bizType === BIZ_TYPE.SERVICE_PRE_MASK || task.bizType === BIZ_TYPE.ORDER_PRE_MASK
+  if (!isPreMask) return
+  const preMaskStatus = resolvePreMaskStatus(task.assets || [])
+  await prisma.desensitizeTask.update({
+    where: { taskId },
+    data: { preMaskStatus },
+  })
+}
+
 async function retryAsset(taskId, assetId, options = {}) {
   const asset = await prisma.desensitizeAsset.findUnique({
     where: { taskId_assetId: { taskId, assetId } },
@@ -431,6 +473,7 @@ async function retryAsset(taskId, assetId, options = {}) {
     albumId: asset.task.bizId,
     nodeId: asset.nodeId,
     idx: asset.idx,
+    force: Boolean(options.force),
   })
   const maskedUrl = masked.ok ? masked.maskedUrl : ''
   await prisma.desensitizeAsset.update({
@@ -444,6 +487,7 @@ async function retryAsset(taskId, assetId, options = {}) {
       riskLevel: masked.riskLevel || (maskedUrl ? 'low' : ''),
     },
   })
+  await refreshPreMaskStatusForTask(taskId)
   return getTaskById(taskId, options)
 }
 
@@ -471,7 +515,11 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
     throw err
   }
   const task = await getTaskById(taskId)
-  const authTypes = [BIZ_TYPE.ORDER_AUTHORIZE, BIZ_TYPE.SERVICE_AUTHORIZE]
+  const authTypes = [
+    BIZ_TYPE.ORDER_AUTHORIZE,
+    BIZ_TYPE.SERVICE_AUTHORIZE,
+    BIZ_TYPE.MERCHANT_HISTORY,
+  ]
   if (!task || !authTypes.includes(task.bizType)) {
     const err = new Error('任务类型不匹配')
     err.status = 400
@@ -496,6 +544,163 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
   return getTaskById(taskId)
 }
 
+async function clearPendingMerchantHistoryTasks(albumId) {
+  await prisma.desensitizeTask.deleteMany({
+    where: {
+      bizId: albumId,
+      bizType: BIZ_TYPE.MERCHANT_HISTORY,
+      maskingConfirmed: false,
+    },
+  })
+}
+
+async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
+  const album = await loadAlbumWithRelations(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.code = 100004
+    err.status = 404
+    throw err
+  }
+
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  if (hasOwner) {
+    const err = new Error('已关联车主，请由车主完成授权公示')
+    err.code = 100008
+    err.status = 409
+    throw err
+  }
+
+  if (album.status !== 'completed' && album.status !== 'published') {
+    const err = new Error('请先标记服务相册已完工')
+    err.code = 100008
+    err.status = 409
+    throw err
+  }
+
+  const preMaskBizType = BIZ_TYPE.SERVICE_PRE_MASK
+  const nodeViews = albumToNodeView(album)
+  const versionedFingerprint = `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`
+  let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
+  const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
+  const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
+  const needsPreMaskRefresh =
+    !preMaskTask ||
+    engineStale ||
+    [
+      PRE_MASK_STATUS.RUNNING,
+      PRE_MASK_STATUS.IDLE,
+      PRE_MASK_STATUS.FAILED,
+      null,
+    ].includes(preMaskTask.preMaskStatus) ||
+    stubArtifacts
+
+  if (needsPreMaskRefresh) {
+    await ensureOrderPreMaskTask(albumId, {
+      force:
+        preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts || engineStale,
+      preMaskBizType,
+      authorizeBizType: BIZ_TYPE.SERVICE_AUTHORIZE,
+    })
+    preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
+  }
+
+  if (!preMaskTask) {
+    const err = new Error('预脱敏尚未就绪，请稍后再试')
+    err.code = 100007
+    err.status = 409
+    throw err
+  }
+
+  const readyAssets = (preMaskTask.assets || []).filter((a) => a.maskedUrl || a.preMaskedUrl)
+  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED || !readyAssets.length) {
+    const err = new Error('预脱敏失败，请稍后重试或联系客服')
+    err.code = 100007
+    err.status = 409
+    throw err
+  }
+
+  const taskId = buildMerchantColdStartTaskId(albumId)
+  const existing = await prisma.desensitizeTask.findFirst({
+    where: {
+      taskId,
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion,
+      maskingConfirmed: false,
+    },
+    include: { assets: true },
+  })
+  if (existing) {
+    return {
+      preview: {
+        taskId: existing.taskId,
+        albumId: album.id,
+        fromPreMask: true,
+        preMaskTaskId: preMaskTask.taskId,
+        preMaskVersion: preMaskTask.preMaskVersion,
+      },
+      task: mapTaskRecord(existing),
+    }
+  }
+
+  await clearPendingMerchantHistoryTasks(albumId)
+  const assetInputs = (preMaskTask.assets || []).map((asset) => ({
+    assetId: asset.assetId,
+    mediaId: asset.mediaId || '',
+    nodeId: asset.nodeId,
+    nodeTitle: asset.nodeTitle,
+    idx: asset.idx,
+    rawUrl: asset.rawUrl,
+    maskedUrl: asset.maskedUrl || asset.preMaskedUrl || '',
+    preMaskedUrl: asset.preMaskedUrl || asset.maskedUrl || '',
+    status: asset.status,
+    previewed: false,
+    riskTags: asset.riskTags || [],
+    riskLevel: asset.riskLevel || '',
+  }))
+
+  await prisma.desensitizeTask.upsert({
+    where: { taskId },
+    create: {
+      taskId,
+      bizType: BIZ_TYPE.MERCHANT_HISTORY,
+      bizId: album.id,
+      orderId: null,
+      operatorRole: 'merchant',
+      liabilityType: 'merchant',
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion,
+      fromPreMask: true,
+      assets: { create: assetInputs },
+    },
+    update: {
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion,
+      fromPreMask: true,
+      maskingConfirmed: false,
+      maskingConfirmedAt: null,
+      assets: {
+        deleteMany: {},
+        create: assetInputs,
+      },
+    },
+  })
+
+  const task = await getTaskById(taskId)
+  return {
+    preview: {
+      taskId,
+      albumId: album.id,
+      fromPreMask: true,
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion,
+    },
+    task,
+  }
+}
+
 module.exports = {
   loadAlbumWithRelations,
   albumToNodeView,
@@ -508,4 +713,5 @@ module.exports = {
   retryAsset,
   markAssetPreviewed,
   confirmOrderAuthorizeTask,
+  createMerchantColdStartAuthorizeTaskFromPreMask,
 }
