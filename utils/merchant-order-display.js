@@ -115,7 +115,7 @@ function getMerchantStatusHint(order) {
     return '订单已完成，可查看评价或沉淀为案例。'
   }
   if (order.refundStatus === REFUND_STATUS.REFUNDING) {
-    return '订单退款处理中，请关注平台通知。'
+    return '订单退款处理中，请关注后续通知。'
   }
   if (status === ORDER_STATUS.CLOSED || status === ORDER_STATUS.CANCELLED) {
     return order.rejectReasonLabel
@@ -191,7 +191,7 @@ function getMerchantDetailBottomActions(order) {
     }
   }
   return {
-    primary: { label: '联系平台', actionKey: 'support', type: 'ghost' },
+    primary: { label: '联系客服', actionKey: 'support', type: 'ghost' },
     secondary: null,
   }
 }

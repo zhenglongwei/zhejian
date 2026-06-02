@@ -926,7 +926,7 @@ async function mockSubmitMerchantPublicCase(albumId, payload = {}) {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
     },
     status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
-    message: '已提交平台审核，通过后将公开展示',
+    message: '已提交审核，通过后将公开展示',
   }
 }
 

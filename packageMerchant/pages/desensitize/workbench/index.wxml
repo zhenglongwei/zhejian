@@ -26,7 +26,7 @@
     <block wx:if="{{fromPreMask}}">
       <view class="desensitize-page__ready">
         <ui-tag variant="desensitized" text="已自动脱敏" />
-        <text class="desensitize-page__ready-hint text-caption">平台已预处理敏感信息，请逐张核对后再提交审核。</text>
+        <text class="desensitize-page__ready-hint text-caption">敏感信息已预处理，请逐张核对后再提交审核。</text>
       </view>
       <ui-compliance-notice type="desensitizePreMaskReview" />
     </block>

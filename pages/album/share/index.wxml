@@ -27,7 +27,7 @@
       <ui-service-album-process-section
         nodes="{{detail.nodes}}"
         storeNote="{{detail.storeNote}}"
-        footerBannerText="私人分享内容，不代表平台公示案例。"
+        footerBannerText="私人分享内容，不代表授权公示案例。"
       />
     </view>
   </block>

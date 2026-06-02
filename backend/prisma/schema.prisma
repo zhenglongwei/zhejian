@@ -24,20 +24,25 @@ model User {
 }
 
 model Merchant {
-  id           String          @id
-  name         String          @default("")
-  status       String          @default("DRAFT")
-  ownerUserId  String          @default("") @map("owner_user_id")
-  contactName  String          @default("") @map("contact_name")
-  contactPhone String          @default("") @map("contact_phone")
-  rejectReason String          @default("") @map("reject_reason")
-  agreedAt     DateTime?       @map("agreed_at")
-  submittedAt  DateTime?       @map("submitted_at")
-  approvedAt   DateTime?       @map("approved_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-  stores       Store[]
-  staff        MerchantStaff[]
+  id                String          @id
+  name              String          @default("")
+  status            String          @default("DRAFT")
+  ownerUserId       String          @default("") @map("owner_user_id")
+  contactName       String          @default("") @map("contact_name")
+  contactPhone      String          @default("") @map("contact_phone")
+  legalName         String          @default("") @map("legal_name")
+  creditCode        String          @default("") @map("credit_code")
+  licensePhotoUrl   String          @default("") @map("license_photo_url") @db.VarChar(512)
+  contactEmail      String          @default("") @map("contact_email")
+  qualificationJson Json            @default("{}") @map("qualification_json")
+  rejectReason      String          @default("") @map("reject_reason")
+  agreedAt          DateTime?       @map("agreed_at")
+  submittedAt       DateTime?       @map("submitted_at")
+  approvedAt        DateTime?       @map("approved_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  stores            Store[]
+  staff             MerchantStaff[]
 
   @@index([ownerUserId])
   @@index([status])
@@ -45,16 +50,21 @@ model Merchant {
 }
 
 model Store {
-  id           String   @id
-  merchantId   String   @map("merchant_id")
-  name         String   @default("")
-  address      String   @default("")
-  phone        String   @default("")
-  servicesJson Json     @default("[]") @map("services_json")
-  status       String   @default("DRAFT")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  merchant     Merchant @relation(fields: [merchantId], references: [id])
+  id            String   @id
+  merchantId    String   @map("merchant_id")
+  name          String   @default("")
+  address       String   @default("")
+  phone         String   @default("")
+  latitude      Float?
+  longitude     Float?
+  businessHours String   @default("") @map("business_hours")
+  intro         String   @default("") @db.Text
+  photosJson    Json     @default("{}") @map("photos_json")
+  servicesJson  Json     @default("[]") @map("services_json")
+  status        String   @default("DRAFT")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
 
   @@index([merchantId])
   @@map("stores")

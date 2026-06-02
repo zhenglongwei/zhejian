@@ -1,6 +1,18 @@
 const { PRICE_MODE } = require('../../../../constants/price-mode')
 const { PRICE_MODE_OPTIONS } = require('../../../../constants/service')
 const {
+  buildServiceTagOptions,
+  buildMatchedTagViews,
+  extractNameQuery,
+  matchServiceTags,
+  resolveServiceSelection,
+  inferSelectionFromPlan,
+} = require('../../../../constants/service-plan-selection')
+const {
+  appointmentJsonFromForm,
+  appointmentFormFromJson,
+} = require('../../../../constants/service-appointment')
+const {
   saveServicePlan,
   fetchServiceDetail,
   fetchMerchantServiceItems,
@@ -14,11 +26,19 @@ const PRICE_MODE_PICKER = PRICE_MODE_OPTIONS.filter(
   (o) => o.value !== PRICE_MODE.CONSULT
 )
 
+const SERVICE_NAME_MAX = 32
+
 Page({
   data: {
     serviceItems: [],
+    serviceTagOptions: [],
+    matchedTags: [],
+    showNameSuggestions: false,
+    nameQuery: '',
+    selectedServiceLabel: '',
+    selectedServiceItemId: '',
+    selectedCategoryId: '',
     itemsReady: false,
-    itemIndex: 0,
     priceModes: PRICE_MODE_PICKER,
     priceModeIndex: 0,
     form: {
@@ -29,6 +49,12 @@ Page({
       amount: '',
       minAmount: '',
       maxAmount: '',
+      acceptConsult: true,
+      slotNote: '',
+      advanceRequired: false,
+      advanceNote: '',
+      holidayNote: '',
+      consultGuide: '',
     },
     showPriceFields: true,
     submitting: false,
@@ -42,6 +68,7 @@ Page({
 
   onLoad(options) {
     this.planId = options.id || ''
+    this._skipNameBlur = false
     this.bootstrap()
   },
 
@@ -52,20 +79,18 @@ Page({
     if (!itemsOk) return
     if (this.planId) {
       await this.loadExisting(this.planId)
-    } else {
-      this.applyServiceItem(0)
-      this.syncPricePreview()
     }
   },
 
   async loadServiceItems() {
     try {
       const { list } = await fetchMerchantServiceItems()
-      if (!list.length) {
-        wx.showToast({ title: '暂无可用服务项目', icon: 'none' })
-        return false
-      }
-      this.setData({ serviceItems: list, itemsReady: true })
+      const serviceTagOptions = buildServiceTagOptions(list)
+      this.setData({
+        serviceItems: list,
+        serviceTagOptions,
+        itemsReady: true,
+      })
       return true
     } catch (e) {
       wx.showToast({
@@ -79,17 +104,21 @@ Page({
   async loadExisting(planId) {
     try {
       const detail = await fetchServiceDetail(planId, { audience: 'merchant' })
-      const itemIndex = this.data.serviceItems.findIndex(
-        (item) => item.id === detail.serviceItemId
+      const selection = inferSelectionFromPlan(
+        detail,
+        this.data.serviceItems,
+        this.storeName
       )
-      const idx = itemIndex >= 0 ? itemIndex : 0
       let priceModeIndex = PRICE_MODE_PICKER.findIndex(
         (o) => o.value === detail.priceMode
       )
       if (priceModeIndex < 0) priceModeIndex = 0
       const mode = PRICE_MODE_PICKER[priceModeIndex].value
+      const appointmentForm = appointmentFormFromJson(
+        detail.appointmentJson,
+        detail.acceptAppointment
+      )
       this.setData({
-        itemIndex: idx,
         priceModeIndex,
         showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
         form: {
@@ -100,8 +129,17 @@ Page({
           amount: detail.amount != null ? String(detail.amount) : '',
           minAmount: detail.minAmount != null ? String(detail.minAmount) : '',
           maxAmount: detail.maxAmount != null ? String(detail.maxAmount) : '',
+          ...appointmentForm,
         },
       })
+      if (selection) {
+        this.applyServiceSelection(selection.label, {
+          preserveFormName: true,
+          preservePriceMode: true,
+        })
+      } else {
+        this.syncSelectionFromName(detail.name || '')
+      }
       this.syncPricePreview()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
@@ -127,27 +165,115 @@ Page({
     return true
   },
 
-  applyServiceItem(index) {
-    const item = this.data.serviceItems[index]
-    if (!item) return
+  refreshMatchedTags(query, selectedLabel) {
+    const matched = matchServiceTags(query, this.data.serviceTagOptions)
+    return buildMatchedTagViews(matched, selectedLabel)
+  },
+
+  applyServiceSelection(label, opts = {}) {
+    const resolved = resolveServiceSelection(label, this.data.serviceItems)
+    if (!resolved) return
+
     let priceModeIndex = PRICE_MODE_PICKER.findIndex(
-      (o) => o.value === item.defaultPriceMode
+      (o) => o.value === resolved.defaultPriceMode
     )
     if (priceModeIndex < 0) priceModeIndex = 0
     const mode = PRICE_MODE_PICKER[priceModeIndex].value
-    this.setData(
-      {
-        itemIndex: index,
-        priceModeIndex,
-        showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
-        'form.name': `${item.name} · ${this.storeName || '本店'}`,
-      },
-      () => this.syncPricePreview()
-    )
+    const patch = {
+      selectedServiceLabel: resolved.label,
+      selectedServiceItemId: resolved.id,
+      selectedCategoryId: resolved.categoryId || '',
+      nameQuery: resolved.label,
+      matchedTags: this.refreshMatchedTags(resolved.label, resolved.label),
+      showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
+    }
+    if (!opts.preservePriceMode) {
+      patch.priceModeIndex = priceModeIndex
+    }
+    if (opts.formName !== undefined) {
+      patch['form.name'] = opts.formName
+    } else if (!opts.preserveFormName) {
+      patch['form.name'] = `${resolved.label} · ${this.storeName || '本店'}`
+    }
+    this.setData(patch, () => this.syncPricePreview())
   },
 
-  onItemChange(e) {
-    this.applyServiceItem(Number(e.detail.value))
+  syncSelectionFromName(displayName, opts = {}) {
+    const query = extractNameQuery(displayName, this.storeName)
+    if (!query) {
+      this.setData({
+        selectedServiceLabel: '',
+        selectedServiceItemId: '',
+        selectedCategoryId: '',
+        nameQuery: '',
+      })
+      return
+    }
+    const resolved = resolveServiceSelection(query, this.data.serviceItems)
+    if (!resolved) return
+
+    const patch = {
+      selectedServiceLabel: resolved.label,
+      selectedServiceItemId: resolved.id,
+      selectedCategoryId: resolved.categoryId || '',
+      nameQuery: query,
+    }
+    if (opts.updatePriceMode) {
+      let priceModeIndex = PRICE_MODE_PICKER.findIndex(
+        (o) => o.value === resolved.defaultPriceMode
+      )
+      if (priceModeIndex < 0) priceModeIndex = 0
+      const mode = PRICE_MODE_PICKER[priceModeIndex].value
+      patch.priceModeIndex = priceModeIndex
+      patch.showPriceFields = mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE
+    }
+    this.setData(patch, () => {
+      if (opts.updatePriceMode) this.syncPricePreview()
+    })
+  },
+
+  onNameFocus() {
+    const query = extractNameQuery(this.data.form.name, this.storeName)
+    this.setData({
+      showNameSuggestions: true,
+      nameQuery: query,
+      matchedTags: this.refreshMatchedTags(query, this.data.selectedServiceLabel),
+    })
+  },
+
+  onNameBlur() {
+    setTimeout(() => {
+      if (this._skipNameBlur) {
+        this._skipNameBlur = false
+        return
+      }
+      this.setData({ showNameSuggestions: false })
+      this.syncSelectionFromName(this.data.form.name)
+    }, 200)
+  },
+
+  onNameInput(e) {
+    const name = e.detail.value
+    const query = extractNameQuery(name, this.storeName)
+    const matched = matchServiceTags(query, this.data.serviceTagOptions)
+    const exactTag = matched.find((entry) => entry.name === query)
+    this.setData({
+      'form.name': name,
+      nameQuery: query,
+      showNameSuggestions: true,
+      matchedTags: buildMatchedTagViews(matched, exactTag ? exactTag.name : ''),
+    })
+    if (exactTag && query === exactTag.name) {
+      this.syncSelectionFromName(name, { updatePriceMode: true })
+    }
+  },
+
+  onSelectQuickTag(e) {
+    const { name } = e.currentTarget.dataset
+    this._skipNameBlur = true
+    const displayName = `${name} · ${this.storeName || '本店'}`
+    this.applyServiceSelection(name, { formName: displayName })
+    this.setData({ showNameSuggestions: false })
   },
 
   onPriceModeChange(e) {
@@ -160,6 +286,14 @@ Page({
       },
       () => this.syncPricePreview()
     )
+  },
+
+  onAcceptConsultChange(e) {
+    this.setData({ 'form.acceptConsult': Boolean(e.detail.value) })
+  },
+
+  onAdvanceRequiredChange(e) {
+    this.setData({ 'form.advanceRequired': Boolean(e.detail.value) })
   },
 
   onInput(e) {
@@ -198,14 +332,17 @@ Page({
   },
 
   buildPayload() {
-    const item = this.data.serviceItems[this.data.itemIndex]
     const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
     const minAmount = parseInt(this.data.form.minAmount, 10)
     const maxAmount = parseInt(this.data.form.maxAmount, 10)
+    const query = extractNameQuery(this.data.form.name, this.storeName)
+    const resolved =
+      resolveServiceSelection(query, this.data.serviceItems) || {}
     return {
       id: this.planId || undefined,
-      serviceItemId: item.id,
+      serviceItemId: resolved.id || this.data.selectedServiceItemId,
+      categoryId: resolved.categoryId || this.data.selectedCategoryId,
       name: this.data.form.name.trim(),
       summary: this.data.form.summary.trim(),
       detail: this.data.form.detail.trim() || this.data.form.summary.trim(),
@@ -214,18 +351,30 @@ Page({
       minAmount: Number.isFinite(minAmount) ? minAmount : null,
       maxAmount: Number.isFinite(maxAmount) ? maxAmount : null,
       priceFactors: this.parsePriceFactors(this.data.form.priceFactorsText),
+      acceptAppointment: this.data.form.acceptConsult !== false,
+      appointmentJson: appointmentJsonFromForm(this.data.form),
       storeName: this.storeName,
     }
   },
 
   validate() {
-    if (!this.data.itemsReady || !this.data.serviceItems.length) {
+    if (!this.data.itemsReady) {
       wx.showToast({ title: '服务项目加载中', icon: 'none' })
       return false
     }
     const { form } = this.data
-    if (!form.name.trim()) {
+    const name = form.name.trim()
+    if (!name) {
       wx.showToast({ title: '请填写服务名称', icon: 'none' })
+      return false
+    }
+    if (name.length > SERVICE_NAME_MAX) {
+      wx.showToast({ title: `服务名称不超过 ${SERVICE_NAME_MAX} 字`, icon: 'none' })
+      return false
+    }
+    const query = extractNameQuery(name, this.storeName)
+    if (!query) {
+      wx.showToast({ title: '请填写有效的服务名称', icon: 'none' })
       return false
     }
     return true

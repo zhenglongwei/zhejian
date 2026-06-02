@@ -58,12 +58,9 @@ function saleStatusLabel(status) {
   return PLAN_SALE_LABEL[status] || status
 }
 
-/** 用户端可见：已上架且未被平台处罚下架 */
+/** 用户端可见：已上架且未被平台处罚下架（暂停预约仍可浏览） */
 function isPubliclyVisible(plan) {
-  return (
-    plan.saleStatus === PLAN_SALE_STATUS.ONLINE &&
-    plan.acceptAppointment !== false
-  )
+  return plan.saleStatus === PLAN_SALE_STATUS.ONLINE
 }
 
 module.exports = {

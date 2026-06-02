@@ -13,6 +13,7 @@ const {
   getServiceItem,
 } = require('../constants/service')
 const { PRICE_MODE, PRICE_MODE_LABEL } = require('../constants/price-mode')
+const { buildAppointmentSection } = require('../constants/service-appointment')
 const { fetchStoreDetail } = require('./store')
 const { fetchCaseList } = require('./case')
 const { applyDetailTemplate } = require('../utils/service-detail-template')
@@ -129,10 +130,9 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     caseTotal,
     caseLinkTier,
     availableMerchants,
+    appointmentSection: buildAppointmentSection(record),
     bookable:
-      audience === 'user'
-        ? status === SERVICE_STATUS.PUBLISHED
-        : status === SERVICE_STATUS.PUBLISHED && record.acceptAppointment !== false,
+      status === SERVICE_STATUS.PUBLISHED && record.acceptAppointment !== false,
   }
 
   if (audience === 'merchant') {
@@ -216,7 +216,10 @@ function normalizeServiceItem(item) {
 async function fetchMerchantServiceItems() {
   if (ENV.mode !== 'mock') {
     const data = await get('/merchant/service-items')
-    const list = (data.list || []).map(normalizeServiceItem).filter(Boolean)
+    const list = (data.list || [])
+      .filter((item) => item.selectable !== false && item.id !== 'item_custom')
+      .map(normalizeServiceItem)
+      .filter(Boolean)
     return { list, total: list.length }
   }
 
@@ -287,6 +290,8 @@ function buildMockServiceRecord(payload, existing, submitReview) {
     priceFactors: payload.priceFactors || existing?.priceFactors || [],
     includedItems: payload.includedItems || existing?.includedItems || [],
     excludedItems: payload.excludedItems || existing?.excludedItems || [],
+    appointmentJson: payload.appointmentJson || existing?.appointmentJson || {},
+    acceptAppointment: payload.acceptAppointment !== false,
     storeId: payload.storeId || existing?.storeId || 'store_demo_1',
     storeName: payload.storeName || existing?.storeName || '辙见示范店（杭州滨江）',
     status,

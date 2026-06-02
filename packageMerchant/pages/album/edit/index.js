@@ -512,7 +512,7 @@ Page({
       return
     }
     if (this.data.publicCaseStatus === 'pending_review') {
-      wx.showToast({ title: '已在平台审核中', icon: 'none' })
+      wx.showToast({ title: '已在审核中', icon: 'none' })
       return
     }
     if (this.data.publicCaseStatus === 'public_approved') {
@@ -528,7 +528,7 @@ Page({
     wx.showModal({
       title: '提交审核',
       content:
-        '请逐张核对脱敏效果并确认责任声明。审核通过后，案例将展示在平台公开页，价格为系统参考区间。',
+        '请逐张核对脱敏效果并确认责任声明。审核通过后，案例将展示在公开页，价格为系统参考区间。',
       confirmText: '开始核对',
       success: (res) => {
         if (!res.confirm) return

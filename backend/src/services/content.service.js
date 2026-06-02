@@ -322,9 +322,21 @@ async function getCaseDetail(id) {
 function mapStoreRow(store, caseCount = 0) {
   const extras = STORE_EXTRAS[store.id] || {}
   const clientStatus = STORE_STATUS_MAP[store.status] || 'offline'
-  /** MVP：坐标来自 STORE_EXTRAS；DB 尚无 lat/lng 字段，未配置坐标的门店不展示距离 */
-  const latitude = extras.latitude != null ? extras.latitude : null
-  const longitude = extras.longitude != null ? extras.longitude : null
+  const photos = store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
+  const latitude =
+    store.latitude != null ? store.latitude : extras.latitude != null ? extras.latitude : null
+  const longitude =
+    store.longitude != null
+      ? store.longitude
+      : extras.longitude != null
+        ? extras.longitude
+        : null
+  const coverImage =
+    photos.facadeUrl || extras.coverImage || ''
+  const environmentImages =
+    Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
+      ? photos.workshopUrls
+      : extras.environmentImages || []
   return {
     id: store.id,
     name: store.name || '',
@@ -333,17 +345,18 @@ function mapStoreRow(store, caseCount = 0) {
     address: store.address || '',
     latitude,
     longitude,
-    businessHours: extras.businessHours || '',
+    businessHours: store.businessHours || extras.businessHours || '',
     phone: store.phone || '',
+    intro: store.intro || extras.aiSummary || '',
     qualificationTags: extras.qualificationTags || [],
-    specialties: extras.specialties || [],
+    specialties: Array.isArray(store.servicesJson) ? store.servicesJson : extras.specialties || [],
     score: extras.score || 0,
     caseCount,
     supportsAlbum: extras.supportsAlbum !== false,
-    coverImage: extras.coverImage || '',
-    environmentImages: extras.environmentImages || [],
+    coverImage,
+    environmentImages,
     certifications: extras.certifications || [],
-    aiSummary: extras.aiSummary || '',
+    aiSummary: store.intro || extras.aiSummary || '',
   }
 }
 
@@ -427,7 +440,6 @@ function listPublishedServices(query = {}) {
 async function loadPublishedPlansFromDb(query = {}) {
   const where = {
     saleStatus: PLAN_SALE_STATUS.ONLINE,
-    acceptAppointment: true,
   }
   if (query.storeId) {
     where.storeId = String(query.storeId)

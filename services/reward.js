@@ -18,7 +18,7 @@ function buildRewardRecordModel(record) {
   return {
     rewardId: record.rewardId,
     sourceType: record.sourceType || 'review',
-    sourceLabel: REWARD_SOURCE_LABEL[record.sourceType] || '平台奖励',
+    sourceLabel: REWARD_SOURCE_LABEL[record.sourceType] || '活动奖励',
     orderId: record.orderId || '',
     amount: record.amount || 0,
     status,

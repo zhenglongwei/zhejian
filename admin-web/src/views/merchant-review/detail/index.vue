@@ -27,14 +27,29 @@
             <el-descriptions-item label="状态">{{ detail.statusLabel }}</el-descriptions-item>
             <el-descriptions-item label="门店名称">{{ detail.storeName }}</el-descriptions-item>
             <el-descriptions-item label="负责人">{{ detail.contactName }}</el-descriptions-item>
-            <el-descriptions-item label="手机号">{{ detail.phoneMasked || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="负责人手机">{{ detail.phoneMasked || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="门店电话">{{ detail.storePhone || '—' }}</el-descriptions-item>
             <el-descriptions-item label="地址">{{ detail.address }}</el-descriptions-item>
+            <el-descriptions-item label="坐标">
+              <span v-if="detail.latitude != null">{{ detail.latitude }}, {{ detail.longitude }}</span>
+              <span v-else>—</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="营业时间">{{ detail.businessHours || '—' }}</el-descriptions-item>
             <el-descriptions-item label="提交时间">{{ detail.submittedAt || '—' }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
       <el-col :span="12">
         <el-card shadow="never">
+          <template #header>商家主体</template>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="主体名称">{{ detail.legalName || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="信用代码">{{ detail.creditCode || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="联系邮箱">{{ detail.contactEmail || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="门店简介">{{ detail.intro || '—' }}</el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+        <el-card shadow="never" class="sub-card">
           <template #header>擅长服务</template>
           <div v-if="detail.services?.length" class="service-tags">
             <el-tag v-for="name in detail.services" :key="name" class="service-tag">{{ name }}</el-tag>
@@ -45,6 +60,20 @@
     </el-row>
 
     <el-row :gutter="16" class="section">
+      <el-col :span="12">
+        <el-card shadow="never">
+          <template #header>维修资质</template>
+          <el-descriptions :column="1" border size="small">
+            <el-descriptions-item label="类型">{{ detail.qualification?.typeLabel || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="编号">{{ detail.qualification?.certNo || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="有效期至">{{ detail.qualification?.validUntil || '—' }}</el-descriptions-item>
+          </el-descriptions>
+          <div v-if="detail.qualification?.photoUrl" class="photo-block">
+            <div class="photo-label">资质照片</div>
+            <el-image :src="detail.qualification.photoUrl" fit="cover" class="review-photo" :preview-src-list="[detail.qualification.photoUrl]" />
+          </div>
+        </el-card>
+      </el-col>
       <el-col :span="12">
         <el-card shadow="never">
           <template #header>辙见要求确认</template>
@@ -58,13 +87,38 @@
           </el-descriptions>
         </el-card>
       </el-col>
-      <el-col :span="12">
-        <el-card shadow="never">
-          <template #header>资质材料</template>
-          <el-empty description="完整资质审核见 B-MERCH-03（营业执照/门头照等）" :image-size="48" />
-        </el-card>
-      </el-col>
     </el-row>
+
+    <el-card shadow="never" class="section">
+      <template #header>资质与门店照片</template>
+      <el-row :gutter="16">
+        <el-col v-if="detail.licensePhotoUrl" :span="6">
+          <div class="photo-label">营业执照</div>
+          <el-image :src="detail.licensePhotoUrl" fit="cover" class="review-photo" :preview-src-list="[detail.licensePhotoUrl]" />
+        </el-col>
+        <el-col v-if="detail.photos?.facadeUrl" :span="6">
+          <div class="photo-label">门头</div>
+          <el-image :src="detail.photos.facadeUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.facadeUrl]" />
+        </el-col>
+        <el-col v-for="(url, idx) in detail.photos?.workshopUrls || []" :key="'w-' + idx" :span="6">
+          <div class="photo-label">工位 {{ idx + 1 }}</div>
+          <el-image :src="url" fit="cover" class="review-photo" :preview-src-list="[url]" />
+        </el-col>
+        <el-col v-if="detail.photos?.receptionUrl" :span="6">
+          <div class="photo-label">接待区</div>
+          <el-image :src="detail.photos.receptionUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.receptionUrl]" />
+        </el-col>
+        <el-col v-if="detail.photos?.brandAuthUrl" :span="6">
+          <div class="photo-label">品牌授权</div>
+          <el-image :src="detail.photos.brandAuthUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.brandAuthUrl]" />
+        </el-col>
+      </el-row>
+      <el-empty
+        v-if="!detail.licensePhotoUrl && !detail.photos?.facadeUrl"
+        description="未上传资质材料"
+        :image-size="48"
+      />
+    </el-card>
 
     <el-card v-if="detail.rejectReason" shadow="never" class="section">
       <template #header>审核意见</template>
@@ -196,6 +250,9 @@ onMounted(loadDetail)
 .section {
   margin-top: 16px;
 }
+.sub-card {
+  margin-top: 16px;
+}
 .service-tags {
   display: flex;
   flex-wrap: wrap;
@@ -208,5 +265,20 @@ onMounted(loadDetail)
   margin: 0;
   color: var(--el-text-color-regular);
   white-space: pre-wrap;
+}
+.photo-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 8px;
+}
+.photo-block {
+  margin-top: 12px;
+}
+.review-photo {
+  width: 100%;
+  max-width: 220px;
+  height: 140px;
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter);
 }
 </style>

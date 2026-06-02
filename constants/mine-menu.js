@@ -33,8 +33,8 @@ const MINE_TOOL_MENUS = [
 /** 未登录也可访问 */
 const MINE_PUBLIC_MENUS = [
   { key: 'support', label: '联系客服' },
-  { key: 'rules', label: '平台规则' },
-  { key: 'about', label: '关于平台' },
+  { key: 'rules', label: '使用规则' },
+  { key: 'about', label: '关于辙见' },
 ]
 
 const MINE_MERCHANT_ITEM = {

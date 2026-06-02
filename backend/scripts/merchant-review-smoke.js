@@ -62,12 +62,25 @@ async function main() {
   const userJwt = session.token
   assert(userJwt, '无法签发用户 JWT')
 
+  const demoPhoto = 'https://geo.simplewin.cn/api/v1/media/files/uploads/smoke/license.jpg'
+
   const submitBody = {
     storeName: `冒烟测试店-${suffix}`,
     contactName: '张测试',
     phone,
+    storePhone: phone,
     address: '浙江省杭州市滨江区网商路599号',
+    latitude: 30.1895,
+    longitude: 120.1902,
+    businessHours: '09:00-18:00',
     services: ['小保养', '刹车片更换'],
+    legalName: `冒烟主体-${suffix}`,
+    creditCode: '91330108MA2XXXXXX',
+    licensePhotoUrl: demoPhoto,
+    qualificationType: 'class_3',
+    qualificationPhotoUrl: demoPhoto,
+    facadePhotoUrl: demoPhoto,
+    workshopPhotoUrls: [demoPhoto],
     agreed: true,
   }
 

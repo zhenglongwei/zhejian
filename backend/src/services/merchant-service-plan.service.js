@@ -38,13 +38,17 @@ function buildPlanData(payload, item, existing) {
       payload.appointmentJson && typeof payload.appointmentJson === 'object'
         ? payload.appointmentJson
         : existing?.appointmentJson || {},
+    acceptAppointment:
+      payload.acceptAppointment != null
+        ? Boolean(payload.acceptAppointment)
+        : existing?.acceptAppointment !== false,
     coverUrl: payload.coverUrl || existing?.coverUrl || '',
   }
 }
 
 function validatePlanPayload(data) {
   if (!data.serviceItemId) {
-    const err = new Error('请选择平台服务项目')
+    const err = new Error('请选择或填写服务类型')
     err.status = 400
     throw err
   }
@@ -137,7 +141,7 @@ async function createMerchantServicePlan(merchantId, storeId, payload = {}) {
       ...data,
       auditStatus: PLAN_AUDIT_STATUS.DRAFT,
       saleStatus: PLAN_SALE_STATUS.OFFLINE,
-      acceptAppointment: true,
+      acceptAppointment: data.acceptAppointment !== false,
     },
   })
   return formatPlanRecord(row, store)
@@ -148,7 +152,7 @@ async function updateMerchantServicePlan(planId, merchantId, storeId, payload = 
   const existing = await loadOwnedPlan(planId, merchantId, storeId)
 
   if (existing.saleStatus === PLAN_SALE_STATUS.SUSPENDED) {
-    const err = new Error('平台已强制下架，请联系运营处理后再编辑')
+    const err = new Error('内容已下架，请联系客服处理后再编辑')
     err.status = 409
     throw err
   }
@@ -179,7 +183,7 @@ async function publishMerchantServicePlan(planId, merchantId, storeId) {
   const existing = await loadOwnedPlan(planId, merchantId, storeId)
 
   if (existing.saleStatus === PLAN_SALE_STATUS.SUSPENDED) {
-    const err = new Error('平台已强制下架，请联系运营')
+    const err = new Error('内容已下架，请联系客服')
     err.status = 409
     throw err
   }

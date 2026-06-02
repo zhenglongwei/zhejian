@@ -24,9 +24,9 @@ function buildCaseSummary({ vehicle, serviceName = '维修服务', authorization
   }
   const tierLabel = PUBLIC_AUTH_TIER_LABEL[authorizationTier] || '已授权'
   if (authorizationTier === PUBLIC_AUTH_TIER.ANONYMOUS) {
-    return `该案例经车主${tierLabel}，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。内容由门店上传，平台已完成隐私脱敏与展示审核。`
+    return `该案例经车主${tierLabel}，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。内容由门店上传，已完成隐私脱敏与展示审核。`
   }
-  return `该案例经车主${tierLabel}，记录了${vehicleTitle}进行${serviceName}的维修过程。图片已脱敏并通过平台审核，展示门店本次方案参考报价。`
+  return `该案例经车主${tierLabel}，记录了${vehicleTitle}进行${serviceName}的维修过程。图片已脱敏并经审核，展示门店本次方案参考报价。`
 }
 
 function buildCaseAiSummary({ city = '杭州', vehicle, serviceName = '维修服务' }) {

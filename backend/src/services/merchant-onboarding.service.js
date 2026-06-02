@@ -7,26 +7,37 @@ const {
   toFrontStatus,
 } = require('../constants/merchant')
 const { buildAuthSession } = require('./auth.service')
-
-function normalizeServices(services) {
-  if (!Array.isArray(services)) return []
-  return services
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean)
-    .slice(0, 20)
-}
+const {
+  parseOnboardingForm,
+  validateSubmitPayload,
+  formatQualificationForClient,
+  formatPhotosForClient,
+} = require('../lib/onboarding-payload')
 
 function formatOnboardingProfile(merchant, store) {
   if (!merchant || !store) return null
+  const photos = formatPhotosForClient(store.photosJson)
+  const qualification = formatQualificationForClient(merchant.qualificationJson)
   return {
     status: toFrontStatus(merchant.status),
     merchantId: merchant.id,
     storeId: store.id,
     storeName: store.name || merchant.name,
     contactName: merchant.contactName,
-    phone: merchant.contactPhone || store.phone,
+    phone: merchant.contactPhone,
+    storePhone: store.phone,
     address: store.address,
+    latitude: store.latitude,
+    longitude: store.longitude,
+    businessHours: store.businessHours || '',
+    intro: store.intro || '',
     services: Array.isArray(store.servicesJson) ? store.servicesJson : [],
+    legalName: merchant.legalName || '',
+    creditCode: merchant.creditCode || '',
+    licensePhotoUrl: merchant.licensePhotoUrl || '',
+    contactEmail: merchant.contactEmail || '',
+    qualification,
+    photos,
     rejectReason: merchant.rejectReason || '',
     agreedAt: toIso(merchant.agreedAt),
     submittedAt: toIso(merchant.submittedAt),
@@ -66,36 +77,6 @@ async function getOnboardingProfile(userId) {
   return formatOnboardingProfile(found.merchant, found.store)
 }
 
-function validateSubmitForm(form = {}) {
-  const storeName = (form.storeName || '').trim()
-  const contactName = (form.contactName || '').trim()
-  const phone = (form.contactPhone || form.phone || '').trim()
-  const address = (form.address || '').trim()
-  const services = normalizeServices(form.services)
-
-  if (!storeName || !contactName || !phone || !address) {
-    const err = new Error('请填写完整入驻信息')
-    err.status = 400
-    throw err
-  }
-  if (!services.length) {
-    const err = new Error('请至少选择一项擅长服务')
-    err.status = 400
-    throw err
-  }
-  return { storeName, contactName, phone, address, services }
-}
-
-function validateDraftForm(form = {}) {
-  return {
-    storeName: (form.storeName || '').trim(),
-    contactName: (form.contactName || '').trim(),
-    phone: (form.contactPhone || form.phone || '').trim(),
-    address: (form.address || '').trim(),
-    services: normalizeServices(form.services),
-  }
-}
-
 async function assertCanEditApplication(merchant) {
   if (!merchant) return
   if (merchant.status === MERCHANT_STATUS.ACTIVE) {
@@ -107,6 +88,32 @@ async function assertCanEditApplication(merchant) {
     const err = new Error('入驻审核中，请耐心等待')
     err.status = 409
     throw err
+  }
+}
+
+function buildMerchantStoreData(payload) {
+  return {
+    merchant: {
+      name: payload.storeName,
+      contactName: payload.contactName,
+      contactPhone: payload.phone,
+      legalName: payload.legalName,
+      creditCode: payload.creditCode,
+      licensePhotoUrl: payload.licensePhotoUrl,
+      contactEmail: payload.contactEmail,
+      qualificationJson: payload.qualification,
+    },
+    store: {
+      name: payload.storeName,
+      address: payload.address,
+      phone: payload.storePhone,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      businessHours: payload.businessHours,
+      intro: payload.intro,
+      photosJson: payload.photos,
+      servicesJson: payload.services,
+    },
   }
 }
 
@@ -123,7 +130,11 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     throw err
   }
 
-  const payload = submit ? validateSubmitForm(form) : validateDraftForm(form)
+  let payload = parseOnboardingForm(form)
+  if (submit) {
+    payload = validateSubmitPayload(payload)
+  }
+
   const existing = await findMerchantApplication(userId)
 
   if (existing?.merchant) {
@@ -134,6 +145,7 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
   const nextMerchantStatus = submit ? MERCHANT_STATUS.PENDING_AUDIT : MERCHANT_STATUS.DRAFT
   const nextStoreStatus = submit ? STORE_STATUS.PENDING_AUDIT : STORE_STATUS.DRAFT
   const agreedAt = submit && form.agreed ? now : undefined
+  const { merchant: merchantData, store: storeData } = buildMerchantStoreData(payload)
 
   let merchant
   let store
@@ -142,9 +154,7 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     merchant = await prisma.merchant.update({
       where: { id: existing.merchant.id },
       data: {
-        name: payload.storeName || existing.merchant.name,
-        contactName: payload.contactName,
-        contactPhone: payload.phone,
+        ...merchantData,
         status: nextMerchantStatus,
         submittedAt: submit ? now : existing.merchant.submittedAt,
         rejectReason: submit ? '' : existing.merchant.rejectReason,
@@ -154,10 +164,7 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     store = await prisma.store.update({
       where: { id: existing.store.id },
       data: {
-        name: payload.storeName || existing.store.name,
-        address: payload.address,
-        phone: payload.phone,
-        servicesJson: payload.services,
+        ...storeData,
         status: nextStoreStatus,
       },
     })
@@ -171,21 +178,16 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     merchant = await prisma.merchant.create({
       data: {
         id: merchantId,
-        name: payload.storeName,
         ownerUserId: userId,
-        contactName: payload.contactName,
-        contactPhone: payload.phone,
         status: nextMerchantStatus,
         submittedAt: submit ? now : null,
         agreedAt: agreedAt || null,
+        ...merchantData,
         stores: {
           create: {
             id: storeId,
-            name: payload.storeName,
-            address: payload.address,
-            phone: payload.phone,
-            servicesJson: payload.services,
             status: nextStoreStatus,
+            ...storeData,
           },
         },
       },

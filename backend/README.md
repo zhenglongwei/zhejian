@@ -117,6 +117,15 @@ pm2 restart zhejian-api
 
 **同小程序联调**：用户端登录后拿到的 `dev_user_token_change_me` 也可访问 `/api/v1/merchant/*`（映射 seed 中的 `merchant_demo_1`），无需单独换商家 token。
 
+**线索 prod 冒烟（M-LEAD-07）**：
+
+```bash
+npm run leads:smoke
+# 生产：SMOKE_BASE_URL=https://geo.simplewin.cn npm run leads:smoke
+```
+
+或 Windows：`powershell -File ../scripts/verify-prod-api.ps1`（health + 线索链）
+
 演示数据（seed）：
 
 - 用户：`user_demo_1`，手机 `13812345678`

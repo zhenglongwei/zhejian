@@ -246,7 +246,7 @@ function handleMerchantOrderAction(actionKey, ctx) {
       showDeferred('案例创建')
       break
     case 'support':
-      showDeferred('平台客服')
+      showDeferred('联系客服')
       break
     default:
       navigateToMerchantOrderDetail(id)

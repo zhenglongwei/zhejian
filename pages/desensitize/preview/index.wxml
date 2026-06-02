@@ -27,7 +27,7 @@
     </view>
     <view wx:if="{{fromPreMask}}" class="desensitize-preview__ready">
       <ui-tag variant="desensitized" text="已自动脱敏" />
-      <text class="desensitize-preview__ready-hint text-caption">平台已预处理敏感信息，请逐张核对后再授权公示。</text>
+      <text class="desensitize-preview__ready-hint text-caption">敏感信息已预处理，请逐张核对后再授权公示。</text>
     </view>
     <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
       建议逐张查看右侧脱敏图，确认效果符合预期后再授权公示。

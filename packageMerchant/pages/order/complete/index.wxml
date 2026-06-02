@@ -63,7 +63,7 @@
           <text class="merchant-form__label">质保说明</text>
           <textarea
             class="merchant-form__textarea"
-            placeholder="门店承诺或平台规则（可选）"
+            placeholder="门店承诺或活动规则（可选）"
             value="{{form.warrantyNote}}"
             data-field="warrantyNote"
             bindinput="onInput"

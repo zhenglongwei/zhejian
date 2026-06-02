@@ -67,6 +67,11 @@ async function appendServiceReviewLog({
   })
 }
 
+function resolveServiceItemName(row, item) {
+  if (row.serviceItemId === 'item_custom') return '自定义'
+  return item?.name || row.serviceItemId
+}
+
 function formatListItem(row, store, merchant) {
   const item = getServiceItem(row.serviceItemId)
   return {
@@ -76,7 +81,7 @@ function formatListItem(row, store, merchant) {
     storeName: store?.name || '',
     merchantId: row.merchantId,
     merchantName: merchant?.name || '',
-    serviceItemName: item?.name || row.serviceItemId,
+    serviceItemName: resolveServiceItemName(row, item),
     priceMode: row.priceMode,
     complexityLevel: item?.complexityLevel || '',
     saleStatus: row.saleStatus,
@@ -149,7 +154,7 @@ async function getAdminServicePlanDetail(planId) {
   return {
     ...formatted,
     merchantName: merchant?.name || '',
-    serviceItemName: item?.name || plan.serviceItemId,
+    serviceItemName: resolveServiceItemName(plan, item),
     complexityLevel: item?.complexityLevel || '',
     saleStatusLabel: saleStatusLabel(plan.saleStatus),
     reviewLogs: reviewLogs.map((log) => ({

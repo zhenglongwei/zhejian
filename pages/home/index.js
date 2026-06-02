@@ -176,7 +176,7 @@ Page({
   onCityTap() {
     wx.showModal({
       title: '服务城市',
-      content: '当前平台首发服务城市为杭州，更多城市陆续开放。',
+      content: '当前首发服务城市为杭州，更多城市陆续开放。',
       showCancel: false,
     })
   },

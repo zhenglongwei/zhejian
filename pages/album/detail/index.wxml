@@ -28,7 +28,7 @@
       </view>
       <ui-empty
         title="门店暂未上传服务相册"
-        description="如你对维修进度有疑问，可联系门店或平台客服。"
+        description="如你对维修进度有疑问，可联系门店或客服。"
         actionText="联系门店"
         bind:action="onCallStore"
       />
@@ -79,7 +79,7 @@
       </view>
 
       <view wx:if="{{showPublicCaseStatus}}" class="service-album__section">
-        <text class="service-album__section-title text-h3">平台公示</text>
+        <text class="service-album__section-title text-h3">授权公示</text>
         <text class="note-block text-caption">{{publicCaseHint}}</text>
         <ui-button type="secondary" size="sm" bind:tap="onViewPublicCase">查看公示页</ui-button>
       </view>

@@ -31,7 +31,7 @@ function buildPublicCaseSocialCopy(detail = {}, url = '') {
     '👉 查看案例详情：',
     url,
     '',
-    '注：内容为平台已审核的脱敏公示案例，仅供维修过程参考。',
+    '注：内容为已审核的脱敏公示案例，仅供维修过程参考。',
   ]
   return lines.join('\n')
 }

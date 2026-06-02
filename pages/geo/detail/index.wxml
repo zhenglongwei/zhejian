@@ -111,7 +111,7 @@
       </view>
 
       <view class="geo-detail__section geo-detail__section--footer">
-        <text class="geo-detail__section-title text-h3">平台说明</text>
+        <text class="geo-detail__section-title text-h3">页面说明</text>
         <ui-card bordered="{{true}}">
           <text class="text-caption">{{footerText}}</text>
         </ui-card>

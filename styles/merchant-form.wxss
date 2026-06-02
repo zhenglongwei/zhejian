@@ -18,6 +18,27 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-form__label--sub {
+  margin-top: var(--space-md);
+}
+
+.merchant-form__switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-form__hint-inline {
+  display: block;
+  margin-top: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
 .merchant-form__picker,
 .merchant-form__input,
 .merchant-form__textarea {
@@ -67,6 +88,76 @@
 
 .merchant-form__spacer {
   height: var(--space-xl);
+}
+
+.merchant-form__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-form__chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-caption);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-form__chip--on {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.merchant-form__chip:active {
+  opacity: 0.72;
+}
+
+.merchant-form__custom-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.merchant-form__custom-label {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.merchant-form__custom-input {
+  flex: 1;
+  min-width: 0;
+  height: 64rpx;
+  padding: 0;
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+  background-color: transparent;
+  border: none;
+  border-bottom: 1rpx solid var(--color-border);
+  border-radius: 0;
+}
+
+.merchant-form__hint-inline {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.merchant-form__suggest {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-form__suggest-empty {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
 }
 
 .merchant-list__scroll-pad {

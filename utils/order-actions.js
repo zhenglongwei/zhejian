@@ -145,7 +145,7 @@ function handleOrderAction(actionKey, ctx) {
       showDeferred('退款进度')
       break
     case 'support':
-      showDeferred('平台客服')
+      showDeferred('联系客服')
       break
     case 'archive':
       showDeferred('服务相册')

@@ -22,7 +22,7 @@ const SEED_CASES = [
     vehicleText: '大众朗逸（已脱敏）',
     serviceName: '小保养',
     summary:
-      '该案例经车主实名授权，记录了大众朗逸进行小保养的维修过程。图片已脱敏并通过平台审核。',
+      '该案例经车主实名授权，记录了大众朗逸进行小保养的维修过程。图片已脱敏并经审核。',
     priceMode: PRICE_MODE.FIXED,
     amount: 499,
     planAmount: 499,
@@ -112,7 +112,7 @@ const SEED_CASES = [
     vehicleText: '德系轿车（已脱敏）',
     serviceName: '钣喷修复',
     summary:
-      '该案例经车主匿名授权，展示钣喷修复过程摘要。仅保留车辆部分信息，图片已脱敏并通过平台审核。',
+      '该案例经车主匿名授权，展示钣喷修复过程摘要。仅保留车辆部分信息，图片已脱敏并经审核。',
     priceMode: PRICE_MODE.FIXED,
     amount: 1800,
     planAmount: 1800,

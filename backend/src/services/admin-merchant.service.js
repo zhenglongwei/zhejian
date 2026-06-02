@@ -6,6 +6,10 @@ const {
   merchantStatusLabel,
 } = require('../constants/merchant')
 const { activateMerchant } = require('./merchant-onboarding.service')
+const {
+  formatQualificationForClient,
+  formatPhotosForClient,
+} = require('../lib/onboarding-payload')
 
 function buildListWhere(query = {}) {
   const tab = String(query.tab || 'pending').toLowerCase()
@@ -154,6 +158,8 @@ async function getAdminMerchantDetail(merchantId) {
   const phone = merchant.contactPhone || store.phone || ''
   const services = Array.isArray(store.servicesJson) ? store.servicesJson : []
   const reviewLogs = await fetchMerchantReviewLogs(merchantId)
+  const qualification = formatQualificationForClient(merchant.qualificationJson)
+  const photos = formatPhotosForClient(store.photosJson)
 
   return {
     merchantId: merchant.id,
@@ -161,8 +167,19 @@ async function getAdminMerchantDetail(merchantId) {
     storeName: store.name || merchant.name,
     contactName: merchant.contactName,
     phoneMasked: maskPhone(phone),
+    storePhone: store.phone || '',
     address: store.address,
+    latitude: store.latitude,
+    longitude: store.longitude,
+    businessHours: store.businessHours || '',
+    intro: store.intro || '',
     services,
+    legalName: merchant.legalName || '',
+    creditCode: merchant.creditCode || '',
+    licensePhotoUrl: merchant.licensePhotoUrl || '',
+    contactEmail: merchant.contactEmail || '',
+    qualification,
+    photos,
     status: merchant.status,
     statusLabel: merchantStatusLabel(merchant.status),
     rejectReason: merchant.rejectReason || '',

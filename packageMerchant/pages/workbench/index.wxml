@@ -26,7 +26,7 @@
     <view class="page-content merchant-wb__hero">
       <text class="text-h1">资料需修改</text>
       <text wx:if="{{profile.rejectReason}}" class="text-body merchant-wb__sub">{{profile.rejectReason}}</text>
-      <text wx:else class="text-body merchant-wb__sub">请按平台意见修改后重新提交</text>
+      <text wx:else class="text-body merchant-wb__sub">请按审核意见修改后重新提交</text>
       <ui-button type="primary" bind:tap="onGoOnboarding">修改入驻资料</ui-button>
     </view>
   </block>

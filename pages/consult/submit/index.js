@@ -90,6 +90,7 @@ Page({
           confirm.mode
         ),
         descriptionPlaceholder:
+          confirm.consultGuide ||
           confirm.descriptionHint ||
           '简要描述车辆问题或咨询需求（选填）',
         dateOptions: dates.map((d) => d.label),

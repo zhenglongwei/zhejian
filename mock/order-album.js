@@ -228,7 +228,7 @@ function buildWaitConfirmAlbum(order) {
     albumStatus: 'completed',
     imageCount: 12,
     storeNote:
-      '左前制动片磨损严重，已更换新件并完成试车。如有疑问可联系门店或平台客服。',
+      '左前制动片磨损严重，已更换新件并完成试车。如有疑问可联系门店或客服。',
     nodes,
   }
 }

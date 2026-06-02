@@ -1,25 +1,40 @@
 <view class="page service-create page-content merchant-form-page">
-  <ui-compliance-notice type="platformDisplay" />
-  <ui-compliance-notice type="price" />
-
   <block wx:if="{{!itemsReady}}">
     <view class="merchant-form__section">
-      <text class="text-caption">正在加载平台服务项目…</text>
+      <text class="text-caption">正在加载…</text>
     </view>
   </block>
 
   <block wx:else>
   <view class="merchant-form__section">
-    <text class="merchant-form__label">平台服务项目</text>
-    <picker
-      mode="selector"
-      range="{{serviceItems}}"
-      range-key="name"
-      value="{{itemIndex}}"
-      bindchange="onItemChange"
-    >
-      <view class="merchant-form__picker">{{serviceItems[itemIndex].name}}</view>
-    </picker>
+    <text class="merchant-form__label">服务名称 *</text>
+    <input
+      class="merchant-form__input"
+      placeholder="如：小保养、贴膜、精洗"
+      value="{{form.name}}"
+      maxlength="32"
+      bindfocus="onNameFocus"
+      bindblur="onNameBlur"
+      bindinput="onNameInput"
+    />
+    <view wx:if="{{showNameSuggestions}}" class="merchant-form__suggest">
+      <text class="merchant-form__hint-inline text-caption">
+        {{nameQuery ? '匹配到的服务，点选快速填充' : '常见服务，点选快速填充'}}
+      </text>
+      <view wx:if="{{matchedTags.length}}" class="merchant-form__chips">
+        <view
+          wx:for="{{matchedTags}}"
+          wx:key="name"
+          class="merchant-form__chip {{item.selected ? 'merchant-form__chip--on' : ''}}"
+          data-name="{{item.name}}"
+          catchtap="onSelectQuickTag"
+        >{{item.name}}</view>
+      </view>
+      <text
+        wx:elif="{{nameQuery}}"
+        class="merchant-form__suggest-empty text-caption"
+      >未找到匹配项，可直接使用「{{nameQuery}}」作为服务名称</text>
+    </view>
   </view>
 
   <view class="merchant-form__section">
@@ -36,17 +51,6 @@
     <view wx:if="{{pricePreview.mode === 'accident'}}" class="merchant-form__notice">
       <ui-compliance-notice type="accident" />
     </view>
-  </view>
-
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">服务方案名称</text>
-    <input
-      class="merchant-form__input"
-      placeholder="用户端展示名称"
-      value="{{form.name}}"
-      data-field="name"
-      bindinput="onInput"
-    />
   </view>
 
   <view class="merchant-form__section">
@@ -80,6 +84,57 @@
       data-field="priceFactorsText"
       bindinput="onInput"
     />
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">咨询与预约</text>
+    <view class="merchant-form__switch-row">
+      <text class="text-body">接受线上咨询/预约</text>
+      <switch checked="{{form.acceptConsult}}" bindchange="onAcceptConsultChange" color="var(--color-brand)" />
+    </view>
+    <block wx:if="{{form.acceptConsult}}">
+      <text class="merchant-form__hint-inline text-caption">用户提交后由门店电话联系，非平台订单</text>
+      <text class="merchant-form__label merchant-form__label--sub">可预约时段</text>
+      <textarea
+        class="merchant-form__textarea"
+        placeholder="如：周一至周六 9:00–18:00；周日休息"
+        value="{{form.slotNote}}"
+        data-field="slotNote"
+        bindinput="onInput"
+        maxlength="200"
+      />
+      <view class="merchant-form__switch-row">
+        <text class="text-body">需提前预约</text>
+        <switch checked="{{form.advanceRequired}}" bindchange="onAdvanceRequiredChange" color="var(--color-brand)" />
+      </view>
+      <textarea
+        wx:if="{{form.advanceRequired}}"
+        class="merchant-form__textarea"
+        placeholder="如：请至少提前 1 天预约"
+        value="{{form.advanceNote}}"
+        data-field="advanceNote"
+        bindinput="onInput"
+        maxlength="120"
+      />
+      <text class="merchant-form__label merchant-form__label--sub">节假日说明</text>
+      <textarea
+        class="merchant-form__textarea"
+        placeholder="如：法定节假日营业时间以门店通知为准"
+        value="{{form.holidayNote}}"
+        data-field="holidayNote"
+        bindinput="onInput"
+        maxlength="120"
+      />
+      <text class="merchant-form__label merchant-form__label--sub">咨询说明</text>
+      <textarea
+        class="merchant-form__textarea"
+        placeholder="提交咨询时希望用户了解的事项，如：请备注车型与故障现象"
+        value="{{form.consultGuide}}"
+        data-field="consultGuide"
+        bindinput="onInput"
+        maxlength="300"
+      />
+    </block>
   </view>
 
   <view wx:if="{{showPriceFields}}" class="merchant-form__section">

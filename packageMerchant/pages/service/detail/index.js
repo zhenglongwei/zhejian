@@ -8,7 +8,7 @@ const BANNER_TEXT = {
   draft: '当前为草稿，保存并上架后用户端可见',
   approved: '未上架，点击「上架」后用户端可见',
   published: '已上架，用户端可见（预览）',
-  suspended: '平台已强制下架，请联系运营或修改后重新申请',
+  suspended: '内容已下架，请联系客服或修改后重新申请',
 }
 
 Page({

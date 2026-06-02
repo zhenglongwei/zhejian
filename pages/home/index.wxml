@@ -41,7 +41,7 @@
 
       <view class="home__hero-wrap page-content">
         <view class="home__hero card card--shadow">
-          <text class="home__hero-kicker text-caption">辙见 · 服务相册平台</text>
+          <text class="home__hero-kicker text-caption">辙见 · 维修案例与服务相册</text>
           <text class="home__title text-h1">修车过程看得见</text>
           <text class="home__subtitle text-h2">每次维修有档案</text>
           <text class="home__desc text-body">查看脱敏维修案例，联系杭州本地可信维修门店</text>
@@ -221,7 +221,7 @@
 
       <view class="home__section page-content">
         <text class="home__section-title text-h2">辙见说明</text>
-        <text class="home__section-desc text-caption">平台能做什么、你的数据如何被保护</text>
+        <text class="home__section-desc text-caption">功能介绍与你的数据如何被保护</text>
         <view class="home__intro card card--shadow card--bordered">
           <view
             wx:for="{{platformIntroItems}}"
@@ -240,7 +240,7 @@
       </view>
 
       <view class="home__section home__section--last page-content">
-        <text class="home__section-title text-h2">平台保障</text>
+        <text class="home__section-title text-h2">服务说明</text>
         <text class="home__section-desc text-caption">审核、过程留档与价格合规</text>
         <view class="home__trust card card--shadow card--bordered">
           <view class="home__trust-chips">

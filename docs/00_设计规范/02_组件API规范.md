@@ -143,28 +143,35 @@
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
-| type | String | price / **casePrice** / accident / history / authorize / **partRisk** / reward / **reviewUpload** / **desensitize** / **desensitizeGuide** |
+| type | String | 见下表；完整标准文案见设计体系 **§9.4.1** |
+| text | String | 可选，覆盖内置文案（**须符合 §2.4**，PR 需说明理由） |
 
-内置文案模板，禁止营销化表述。
+| type | 说明 |
+|---|---|
+| **displayDisclaimer** | 用户端详情页内容免责（商家编辑页勿用） |
+| price / **casePrice** / accident / history | 价格与案例价说明 |
+| authorize / **reviewUpload** / **desensitize** / **desensitizeGuide** / **desensitizePreMaskReview** | 授权与脱敏 |
+| **partRisk** / reward | 配件风险、活动奖励 |
+| consult / consultRecord / consultPrivacy / consultImage | 用户咨询 |
+| consultMerchant / consultImageMerchant | 商家线索 |
 
----
+`platformDisplay` 已废弃，请用 `displayDisclaimer`。
+
+内置文案模板，禁止营销化与中介平台表述（§9.1、§9.4.4）。
 
 ### 3.3 PrivacyBanner（`components/privacy-banner`）
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
-| scene | String | album / share / authorize / **desensitize** |
+| scene | String | 见设计体系 **§9.4.2** |
 
 | scene | 说明 |
 |---|---|
-| album | 订单相册仅本人可见 |
-| share | 分享内容已脱敏 |
-| authorize | 公开前可先查看脱敏效果 |
-| desensitize | 脱敏工作台：原图仅本页预览，确认后再授权公开 |
+| album / albumMerchant | 服务相册隐私 |
+| share / ownerShare / ownerShareOriginal / publicCaseShare | 分享场景 |
+| authorize / **desensitize** / coldStartPublic | 授权与脱敏 |
 
-默认文案：订单相册仅本人可见；分享使用脱敏版本。
-
----
+默认文案见 §9.4.2；禁止在页面内联改写。
 
 ### 3.4 CaseCard / StoreCard / ServiceCard / OrderCard
 

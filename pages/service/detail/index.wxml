@@ -19,7 +19,7 @@
   <block wx:elif="{{detail}}">
     <view class="service-detail__body page-content">
       <view class="service-detail__notice">
-        <ui-compliance-notice type="platformDisplay" />
+        <ui-compliance-notice type="displayDisclaimer" />
       </view>
 
       <view class="service-detail__head">
@@ -56,6 +56,18 @@
       <view class="service-detail__section">
         <text class="service-detail__section-title text-h2">服务说明</text>
         <text class="text-body">{{detail.detail}}</text>
+      </view>
+
+      <view wx:if="{{detail.appointmentSection.hasContent}}" class="service-detail__section">
+        <text class="service-detail__section-title text-h2">咨询与预约说明</text>
+        <ui-key-info-table wx:if="{{detail.appointmentSection.rows.length}}" rows="{{detail.appointmentSection.rows}}" />
+        <text
+          wx:if="{{detail.appointmentSection.consultGuide}}"
+          class="service-detail__consult-guide text-body"
+        >{{detail.appointmentSection.consultGuide}}</text>
+        <view wx:if="{{!bookable && detail.status === 'published'}}" class="service-detail__notice">
+          <text class="text-caption">该服务暂不可提交咨询，你可以查看其他服务或电话咨询门店。</text>
+        </view>
       </view>
 
       <view wx:if="{{detail.includedItems.length}}" class="service-detail__section">

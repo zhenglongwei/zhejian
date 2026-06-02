@@ -201,17 +201,17 @@ Page({
     }
     if (key === 'rules') {
       wx.showModal({
-        title: '平台规则',
+        title: '使用规则',
         content:
-          '辙见平台致力于提供可验证的维修过程与诚实价格信息。详细规则页将在后续版本开放。',
+          '辙见致力于提供可验证的维修过程与诚实价格信息。详细规则页将在后续版本开放。',
         showCancel: false,
       })
       return
     }
     if (key === 'about') {
       wx.showModal({
-        title: '关于平台',
-        content: '辙见服务平台（辙见）— 像一份可翻阅的服务相册，而不是促销传单。',
+        title: '关于辙见',
+        content: '辙见 — 像一份可翻阅的服务相册，而不是促销传单。',
         showCancel: false,
       })
     }

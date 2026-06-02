@@ -40,6 +40,9 @@
         <view wx:if="{{isAccident}}" class="consult-submit__notice">
           <ui-compliance-notice type="accident" />
         </view>
+        <view wx:if="{{confirm.consultGuide}}" class="consult-submit__notice">
+          <text class="text-caption">门店说明：{{confirm.consultGuide}}</text>
+        </view>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
@@ -139,7 +142,7 @@
         <ui-compliance-notice type="consult" />
         <view class="consult-submit__consent">
           <ui-checkbox-row checked="{{form.platformConsent}}" bind:toggle="togglePlatformConsent">
-            我已知晓实际维修服务由门店线下提供，平台仅提供信息展示和咨询转接服务。
+            我已知晓实际维修服务由门店线下提供，此处仅提供信息展示和咨询转接。
           </ui-checkbox-row>
         </view>
         <view wx:if="{{isAccident}}" class="consult-submit__consent">

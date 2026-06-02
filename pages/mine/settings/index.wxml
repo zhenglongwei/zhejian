@@ -37,8 +37,8 @@
       bind:tap="onCellTap"
     />
     <ui-cell
-      title="关于平台"
-      desc="辙见服务平台"
+      title="关于辙见"
+      desc="维修案例与服务相册"
       border="{{true}}"
       arrow="{{true}}"
       data-key="about"
@@ -61,7 +61,7 @@
 
   <view class="settings-page__notice">
     <ui-compliance-notice
-      text="平台提供案例浏览、咨询预约与服务相册工具。实际维修、报价、收款与售后由门店线下提供和承担。"
+      text="辙见提供案例浏览、咨询预约与服务相册工具。实际维修、报价、收款与售后由门店线下提供和承担。"
     />
   </view>
 </view>

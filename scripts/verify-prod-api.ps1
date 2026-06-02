@@ -20,4 +20,15 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 Pop-Location
+
+Write-Host "==> 线索 API 冒烟 (M-LEAD-07): $BaseUrl"
+Push-Location $Backend
+$env:SMOKE_BASE_URL = $BaseUrl
+node scripts/merchant-leads-smoke.js
+if ($LASTEXITCODE -ne 0) {
+  Pop-Location
+  exit 1
+}
+Pop-Location
+
 Write-Host "==> 通过"

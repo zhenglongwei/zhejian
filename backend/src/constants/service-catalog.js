@@ -7,6 +7,7 @@ const SERVICE_CATEGORIES = [
   { id: 'cat_battery', name: '电瓶服务' },
   { id: 'cat_body', name: '钣喷修复' },
   { id: 'cat_accident', name: '事故车维修' },
+  { id: 'cat_other', name: '其他服务' },
 ]
 
 const SERVICE_ITEMS = [
@@ -50,6 +51,15 @@ const SERVICE_ITEMS = [
     complexityLevel: 'L4',
     needQualificationLevel: 'L4',
   },
+  {
+    id: 'item_custom',
+    categoryId: 'cat_other',
+    name: '自定义服务',
+    defaultPriceMode: 'range',
+    complexityLevel: 'L2',
+    needQualificationLevel: 'L2',
+    selectable: false,
+  },
 ]
 
 function getCategoryName(categoryId) {
@@ -62,7 +72,7 @@ function getServiceItem(id) {
 }
 
 function listServiceItems() {
-  return SERVICE_ITEMS.map((item) => ({
+  return SERVICE_ITEMS.filter((item) => item.selectable !== false).map((item) => ({
     ...item,
     categoryName: getCategoryName(item.categoryId),
   }))

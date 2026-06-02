@@ -279,7 +279,13 @@ async function fetchMerchantLeadStats(storeId) {
   return { pending, contacted, closed, total: pending + contacted + closed }
 }
 
-/** 联调期简化：返回固定门店信息 */
+const { getServiceDetail, getMerchantDetail } = require('./content.service')
+
+function appointmentJsonSafe(raw) {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+}
+
+/** 咨询确认页：优先读 DB 服务/门店；无 serviceId 时保留门店留言简化数据 */
 async function fetchLeadConfirm(_userId, params = {}) {
   const { serviceId, storeId, caseId, sourcePage } = params
   const demoStore = {
@@ -291,27 +297,48 @@ async function fetchLeadConfirm(_userId, params = {}) {
     bookable: true,
   }
   if (serviceId) {
-    return {
-      mode: 'service',
-      service: {
-        id: serviceId,
-        name: '演示服务',
-        categoryName: '保养',
-        summary: '联调期演示服务',
-        priceMode: 'fixed',
-        amount: 399,
-        bookable: true,
-      },
-      store: demoStore,
-      isAccident: false,
-      bookingDates: [],
-      defaultContact: { name: '演示用户', phoneDisplay: '138****5678', isPhoneBound: true },
-      storeInfoRows: [
-        { label: '门店名称', value: demoStore.name },
-        { label: '地址', value: demoStore.address },
-      ],
-      caseContext: caseId ? { caseId } : null,
-      sourcePage: sourcePage || 'service',
+    try {
+      const service = await getServiceDetail(serviceId)
+      const resolvedStoreId = storeId || service.storeId
+      const store = resolvedStoreId
+        ? await getMerchantDetail(resolvedStoreId)
+        : demoStore
+      const appointment = appointmentJsonSafe(service.appointmentJson)
+      const bookable = service.acceptAppointment !== false
+      return {
+        mode: 'service',
+        service: {
+          id: service.id,
+          name: service.name,
+          categoryName: service.categoryName || '',
+          summary: service.summary || '',
+          priceMode: service.priceMode,
+          amount: service.amount,
+          minAmount: service.minAmount,
+          maxAmount: service.maxAmount,
+          bookable,
+        },
+        store: {
+          id: store.id,
+          name: store.name,
+          address: store.address || '',
+          businessHours: store.businessHours || '',
+          phone: store.phone || '',
+          bookable: store.status !== 'offline',
+        },
+        isAccident: service.priceMode === 'accident',
+        consultGuide: appointment.consultGuide || '',
+        bookingDates: [],
+        defaultContact: { name: '演示用户', phoneDisplay: '138****5678', isPhoneBound: true },
+        storeInfoRows: [
+          { label: '门店名称', value: store.name || '—' },
+          { label: '地址', value: store.address || '—' },
+        ],
+        caseContext: caseId ? { caseId } : null,
+        sourcePage: sourcePage || 'service',
+      }
+    } catch (e) {
+      if (e.status !== 404) throw e
     }
   }
   return {

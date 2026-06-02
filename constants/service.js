@@ -20,7 +20,7 @@ const SERVICE_STATUS_LABEL = {
   [SERVICE_STATUS.PUBLISHED]: '已上架',
   [SERVICE_STATUS.REJECTED]: '已驳回',
   [SERVICE_STATUS.NEED_MODIFY]: '需修改',
-  [SERVICE_STATUS.SUSPENDED]: '平台下架',
+  [SERVICE_STATUS.SUSPENDED]: '已下架',
 }
 
 const SERVICE_CATEGORIES = [
@@ -30,6 +30,7 @@ const SERVICE_CATEGORIES = [
   { id: 'cat_battery', name: '电瓶服务', sort: 4 },
   { id: 'cat_body', name: '钣喷修复', sort: 5 },
   { id: 'cat_accident', name: '事故车维修', sort: 6 },
+  { id: 'cat_other', name: '其他服务', sort: 99 },
 ]
 
 /** 平台标准服务项目（商家选择后发布方案） */
@@ -74,9 +75,20 @@ const SERVICE_ITEMS = {
     complexity: 'L4',
     allowOnlinePayment: false,
   },
+  custom: {
+    id: 'item_custom',
+    categoryId: 'cat_other',
+    name: '自定义服务',
+    defaultPriceMode: PRICE_MODE.RANGE,
+    complexity: 'L2',
+    allowOnlinePayment: false,
+    selectable: false,
+  },
 }
 
-const SERVICE_ITEM_LIST = Object.values(SERVICE_ITEMS)
+const SERVICE_ITEM_LIST = Object.values(SERVICE_ITEMS).filter(
+  (item) => item.selectable !== false
+)
 
 const PRICE_MODE_OPTIONS = [
   { value: PRICE_MODE.FIXED, label: '一口价' },
@@ -91,7 +103,7 @@ function getCategoryName(categoryId) {
 }
 
 function getServiceItem(id) {
-  return SERVICE_ITEM_LIST.find((item) => item.id === id) || null
+  return Object.values(SERVICE_ITEMS).find((item) => item.id === id) || null
 }
 
 module.exports = {
