@@ -33,6 +33,16 @@ const routes = [
         name: 'merchant-detail',
         component: () => import('@/views/merchant-review/detail/index.vue'),
       },
+      {
+        path: 'services',
+        name: 'service-list',
+        component: () => import('@/views/service-review/list/index.vue'),
+      },
+      {
+        path: 'services/:planId',
+        name: 'service-detail',
+        component: () => import('@/views/service-review/detail/index.vue'),
+      },
     ],
   },
 ]

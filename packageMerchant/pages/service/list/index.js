@@ -1,5 +1,5 @@
 const { fetchMerchantServiceList } = require('../../../../services/service')
-const { SERVICE_STATUS, SERVICE_STATUS_LABEL } = require('../../../../constants/service')
+const { SERVICE_STATUS } = require('../../../../constants/service')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -51,12 +51,7 @@ Page({
       const status = this.data.tab === TAB_ALL ? undefined : this.data.tab
       const { list } = await fetchMerchantServiceList(status)
       this.setData({
-        list: list.map((s) => ({
-          ...s,
-          statusLabel: SERVICE_STATUS_LABEL[s.status] || s.status,
-          statusVariant:
-            s.status === SERVICE_STATUS.PUBLISHED ? 'success' : 'warning',
-        })),
+        list,
         status: list.length ? 'normal' : 'empty',
       })
     } catch (e) {

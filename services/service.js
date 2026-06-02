@@ -1,9 +1,9 @@
 /**
  * 服务方案 — mock + API
- * prod/dev: GET /api/user/services、/services/:id
+ * prod/dev: GET /api/user/services、/merchant/service-plans*
  */
 const { ENV } = require('./config')
-const { get } = require('./request')
+const { get, post, put } = require('./request')
 const { SEED_SERVICES } = require('../mock/services')
 const {
   SERVICE_STATUS,
@@ -12,7 +12,6 @@ const {
   getServiceItem,
 } = require('../constants/service')
 const { PRICE_MODE, PRICE_MODE_LABEL } = require('../constants/price-mode')
-const { getProfile } = require('./merchant')
 const { fetchStoreDetail } = require('./store')
 const { fetchCaseList } = require('./case')
 const { applyDetailTemplate } = require('../utils/service-detail-template')
@@ -58,6 +57,16 @@ function findRawService(id, audience = 'user') {
     return SEED_SERVICES.find((s) => s.id === id) || null
   }
   return mergePublishedServices().find((s) => s.id === id) || null
+}
+
+function statusVariantFor(status) {
+  if (status === SERVICE_STATUS.PUBLISHED) return 'success'
+  if (status === SERVICE_STATUS.SUSPENDED) return 'danger'
+  if (status === SERVICE_STATUS.PENDING_REVIEW) return 'default'
+  if (status === SERVICE_STATUS.REJECTED || status === SERVICE_STATUS.NEED_MODIFY) {
+    return 'danger'
+  }
+  return 'warning'
 }
 
 function buildHeadTags(record) {
@@ -108,6 +117,7 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     }
   }
 
+  const status = record.status || SERVICE_STATUS.DRAFT
   const viewModel = {
     ...record,
     detail: record.detail || record.summary || '',
@@ -118,17 +128,23 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     caseTotal,
     caseLinkTier,
     availableMerchants,
-    bookable: record.status === SERVICE_STATUS.PUBLISHED,
+    bookable:
+      audience === 'user'
+        ? status === SERVICE_STATUS.PUBLISHED
+        : status === SERVICE_STATUS.PUBLISHED && record.acceptAppointment !== false,
   }
 
   if (audience === 'merchant') {
-    viewModel.statusLabel =
-      SERVICE_STATUS_LABEL[record.status] || record.status
-    viewModel.statusVariant =
-      record.status === SERVICE_STATUS.PUBLISHED ? 'success' : 'warning'
+    viewModel.statusLabel = SERVICE_STATUS_LABEL[status] || status
+    viewModel.statusVariant = statusVariantFor(status)
     viewModel.editable =
-      record.status === SERVICE_STATUS.DRAFT ||
-      record.status === SERVICE_STATUS.PUBLISHED
+      status !== SERVICE_STATUS.SUSPENDED &&
+      (status === SERVICE_STATUS.DRAFT ||
+        status === SERVICE_STATUS.APPROVED ||
+        status === SERVICE_STATUS.PUBLISHED)
+    viewModel.canPublish =
+      status === SERVICE_STATUS.DRAFT || status === SERVICE_STATUS.APPROVED
+    viewModel.canUnpublish = status === SERVICE_STATUS.PUBLISHED
   }
 
   return viewModel
@@ -159,12 +175,17 @@ async function fetchServiceList(query = {}) {
  * @param {{ audience?: 'user'|'merchant' }} [opts]
  */
 async function fetchServiceDetail(id, opts = {}) {
+  const audience = opts.audience || 'user'
+
   if (ENV.mode !== 'mock') {
-    const record = await get(`/user/services/${id}`)
+    const record =
+      audience === 'merchant'
+        ? await get(`/merchant/service-plans/${id}`)
+        : await get(`/user/services/${id}`)
     return buildServiceDetailViewModel(record, opts)
   }
+
   await delay()
-  const audience = opts.audience || 'user'
   const record = findRawService(id, audience)
   if (!record) {
     const err = new Error('该服务已下架，请查看其他服务')
@@ -184,31 +205,46 @@ async function fetchServiceDetail(id, opts = {}) {
  * @param {string} [status]
  */
 async function fetchMerchantServiceList(status) {
+  if (ENV.mode !== 'mock') {
+    const query = status ? { status } : {}
+    const data = await get('/merchant/service-plans', query)
+    return {
+      list: (data.list || []).map((s) => ({
+        ...s,
+        statusLabel: SERVICE_STATUS_LABEL[s.status] || s.status,
+        statusVariant: statusVariantFor(s.status),
+      })),
+      total: data.total || 0,
+    }
+  }
+
   await delay()
   let list = loadMerchantServices()
   if (status) {
     list = list.filter((s) => s.status === status)
   }
   return {
-    list: list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
+    list: list
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .map((s) => ({
+        ...s,
+        statusLabel: SERVICE_STATUS_LABEL[s.status] || s.status,
+        statusVariant: statusVariantFor(s.status),
+      })),
     total: list.length,
   }
 }
 
-function buildServiceRecord(payload, existing, submitReview) {
-  const profile = getProfile()
+function buildMockServiceRecord(payload, existing, submitReview) {
   const item = getServiceItem(payload.serviceItemId)
   const now = Date.now()
   const id = payload.id || existing?.id || `svc_${now}`
   const priceMode = payload.priceMode || item?.defaultPriceMode || PRICE_MODE.RANGE
 
-  let status = submitReview ? SERVICE_STATUS.PENDING_REVIEW : SERVICE_STATUS.DRAFT
+  let status = SERVICE_STATUS.DRAFT
   if (submitReview) {
     status = SERVICE_STATUS.PUBLISHED
   }
-
-  const onlinePaymentEnabled =
-    priceMode === PRICE_MODE.FIXED && item?.allowOnlinePayment !== false
 
   return {
     ...(existing || {}),
@@ -226,9 +262,8 @@ function buildServiceRecord(payload, existing, submitReview) {
     priceFactors: payload.priceFactors || existing?.priceFactors || [],
     includedItems: payload.includedItems || existing?.includedItems || [],
     excludedItems: payload.excludedItems || existing?.excludedItems || [],
-    storeId: profile?.storeId || 'store_demo_1',
-    storeName: profile?.storeName || payload.storeName || '辙见示范店（杭州滨江）',
-    onlinePaymentEnabled,
+    storeId: payload.storeId || existing?.storeId || 'store_demo_1',
+    storeName: payload.storeName || existing?.storeName || '辙见示范店（杭州滨江）',
     status,
     publishedAt:
       status === SERVICE_STATUS.PUBLISHED
@@ -245,14 +280,78 @@ function buildServiceRecord(payload, existing, submitReview) {
  * @param {boolean} [submitReview]
  */
 async function saveServicePlan(payload, submitReview = false) {
+  if (ENV.mode !== 'mock') {
+    let record
+    if (payload.id) {
+      record = await put(`/merchant/service-plans/${payload.id}`, payload, {
+        showLoading: true,
+        loadingText: submitReview ? '提交中' : '保存中',
+      })
+    } else {
+      record = await post('/merchant/service-plans', payload, {
+        showLoading: true,
+        loadingText: submitReview ? '提交中' : '保存中',
+      })
+    }
+    if (submitReview) {
+      record = await post(
+        `/merchant/service-plans/${record.id}/publish`,
+        {},
+        { showLoading: true, loadingText: '上架中' }
+      )
+    }
+    return record
+  }
+
   await delay(submitReview ? 500 : 280)
   const list = loadMerchantServices()
   const existing = payload.id ? list.find((s) => s.id === payload.id) : null
-  const record = buildServiceRecord(payload, existing, submitReview)
+  const record = buildMockServiceRecord(payload, existing, submitReview)
   const next = list.filter((s) => s.id !== record.id)
   next.unshift(record)
   saveMerchantServices(next)
   return record
+}
+
+async function publishServicePlan(planId) {
+  if (ENV.mode !== 'mock') {
+    return post(`/merchant/service-plans/${planId}/publish`, {}, {
+      showLoading: true,
+      loadingText: '上架中',
+    })
+  }
+  await delay()
+  const list = loadMerchantServices()
+  const idx = list.findIndex((s) => s.id === planId)
+  if (idx < 0) throw new Error('服务方案不存在')
+  list[idx] = {
+    ...list[idx],
+    status: SERVICE_STATUS.PUBLISHED,
+    publishedAt: new Date().toISOString().slice(0, 10),
+    updatedAt: Date.now(),
+  }
+  saveMerchantServices(list)
+  return list[idx]
+}
+
+async function unpublishServicePlan(planId) {
+  if (ENV.mode !== 'mock') {
+    return post(`/merchant/service-plans/${planId}/unpublish`, {}, {
+      showLoading: true,
+      loadingText: '下架中',
+    })
+  }
+  await delay()
+  const list = loadMerchantServices()
+  const idx = list.findIndex((s) => s.id === planId)
+  if (idx < 0) throw new Error('服务方案不存在')
+  list[idx] = {
+    ...list[idx],
+    status: SERVICE_STATUS.APPROVED,
+    updatedAt: Date.now(),
+  }
+  saveMerchantServices(list)
+  return list[idx]
 }
 
 module.exports = {
@@ -260,6 +359,8 @@ module.exports = {
   fetchServiceDetail,
   fetchMerchantServiceList,
   saveServicePlan,
+  publishServicePlan,
+  unpublishServicePlan,
   findRawService,
   buildServiceDetailViewModel,
 }

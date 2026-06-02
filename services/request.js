@@ -120,8 +120,13 @@ function post(url, data, opts) {
   return request({ url, method: 'POST', data, ...opts })
 }
 
+function put(url, data, opts) {
+  return request({ url, method: 'PUT', data, ...opts })
+}
+
 module.exports = {
   request,
   get,
   post,
+  put,
 }

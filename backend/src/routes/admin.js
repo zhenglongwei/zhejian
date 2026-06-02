@@ -21,6 +21,16 @@ const {
   requestModifyAdminMerchant,
 } = require('../services/admin-merchant.service')
 
+const {
+  listAdminServicePlans,
+  getAdminServicePlanDetail,
+  recordSpotCheckServicePlan,
+  suspendAdminServicePlan,
+  forceUnpublishAdminServicePlan,
+  limitAppointmentAdminServicePlan,
+  restoreAdminServicePlan,
+} = require('../services/admin-service-plan.service')
+
 const router = express.Router()
 
 router.post('/auth/login', async (req, res, next) => {
@@ -165,6 +175,88 @@ router.post('/merchants/:merchantId/request-modify', async (req, res, next) => {
       reviewerId: req.admin?.reviewerId,
       comment: req.body?.comment || '',
       reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/services', async (req, res, next) => {
+  try {
+    const data = await listAdminServicePlans(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/services/:planId', async (req, res, next) => {
+  try {
+    const data = await getAdminServicePlanDetail(req.params.planId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/services/:planId/spot-check', async (req, res, next) => {
+  try {
+    const data = await recordSpotCheckServicePlan(req.params.planId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      result: req.body?.result || 'pass',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/services/:planId/suspend', async (req, res, next) => {
+  try {
+    const data = await suspendAdminServicePlan(req.params.planId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/services/:planId/force-unpublish', async (req, res, next) => {
+  try {
+    const data = await forceUnpublishAdminServicePlan(req.params.planId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/services/:planId/limit-appointment', async (req, res, next) => {
+  try {
+    const data = await limitAppointmentAdminServicePlan(req.params.planId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/services/:planId/restore', async (req, res, next) => {
+  try {
+    const data = await restoreAdminServicePlan(req.params.planId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
     })
     return ok(res, data)
   } catch (e) {

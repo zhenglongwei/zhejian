@@ -16,6 +16,11 @@ const {
   SERVICE_ITEM_NAME_MAP,
   FALLBACK_PUBLIC_CASES,
 } = require('../constants/content-seed')
+const {
+  PLAN_SALE_STATUS,
+  isPubliclyVisible,
+} = require('../constants/service-plan')
+const { formatPlanRecord } = require('./service-plan-format')
 const { HOME_GEO_TOPICS } = require('../constants/home')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
@@ -404,7 +409,6 @@ async function getMerchantDetail(id) {
 }
 
 function listPublishedServices(query = {}) {
-  const activeStoreIds = new Set()
   let list = SEED_SERVICES.filter((s) => s.status === 'published')
 
   if (query.storeId) {
@@ -417,18 +421,74 @@ function listPublishedServices(query = {}) {
     }
   }
 
-  return { list, total: list.length, activeStoreIds }
-}
-
-async function listServices(query = {}) {
-  const stores = await listActiveStores()
-  const activeIds = new Set(stores.map((s) => s.id))
-  let { list } = listPublishedServices(query)
-  list = list.filter((s) => activeIds.has(s.storeId))
   return { list, total: list.length }
 }
 
+async function loadPublishedPlansFromDb(query = {}) {
+  const where = {
+    saleStatus: PLAN_SALE_STATUS.ONLINE,
+    acceptAppointment: true,
+  }
+  if (query.storeId) {
+    where.storeId = String(query.storeId)
+  }
+  if (query.categoryId) {
+    const categoryId = String(query.categoryId)
+    if (categoryId !== 'all' && categoryId !== 'undefined') {
+      where.categoryId = categoryId
+    }
+  }
+
+  const rows = await prisma.merchantServicePlan.findMany({
+    where,
+    orderBy: [{ publishedAt: 'desc' }, { updatedAt: 'desc' }],
+  })
+
+  if (!rows.length) {
+    return listPublishedServices(query)
+  }
+
+  const storeIds = [...new Set(rows.map((r) => r.storeId))]
+  const stores = await prisma.store.findMany({
+    where: { id: { in: storeIds }, status: 'ACTIVE' },
+  })
+  const storeMap = new Map(stores.map((s) => [s.id, s]))
+
+  const list = rows
+    .filter((row) => storeMap.has(row.storeId))
+    .map((row) => {
+      const formatted = formatPlanRecord(row, storeMap.get(row.storeId))
+      return {
+        ...formatted,
+        status: 'published',
+        onlinePaymentEnabled: false,
+      }
+    })
+
+  return { list, total: list.length }
+}
+
+async function listServices(query = {}) {
+  const { list, total } = await loadPublishedPlansFromDb(query)
+  return { list, total }
+}
+
 async function getServiceDetail(id) {
+  const row = await prisma.merchantServicePlan.findUnique({ where: { id } })
+  if (row && isPubliclyVisible(row)) {
+    const store = await prisma.store.findUnique({ where: { id: row.storeId } })
+    if (!store || store.status !== 'ACTIVE') {
+      const err = new Error('该服务已下架，请查看其他服务')
+      err.status = 404
+      throw err
+    }
+    return {
+      ...formatPlanRecord(row, store),
+      status: 'published',
+      onlinePaymentEnabled: false,
+    }
+  }
+
   const record = SEED_SERVICES.find((s) => s.id === id)
   if (!record) {
     const err = new Error('该服务已下架，请查看其他服务')

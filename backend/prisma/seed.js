@@ -1,6 +1,11 @@
 require('dotenv').config()
 const { PrismaClient } = require('@prisma/client')
 const { LEAD_STATUS } = require('../src/constants/v2')
+const { SEED_SERVICES } = require('../src/constants/content-seed')
+const {
+  PLAN_AUDIT_STATUS,
+  PLAN_SALE_STATUS,
+} = require('../src/constants/service-plan')
 
 const prisma = new PrismaClient()
 
@@ -154,6 +159,54 @@ async function seedLeads() {
       update: {
         status: item.status,
         description: item.description,
+      },
+    })
+  }
+}
+
+async function seedServicePlans() {
+  for (const seed of SEED_SERVICES) {
+    await prisma.merchantServicePlan.upsert({
+      where: { id: seed.id },
+      create: {
+        id: seed.id,
+        merchantId: MERCHANT_ID,
+        storeId: seed.storeId,
+        serviceItemId: seed.serviceItemId,
+        categoryId: seed.categoryId,
+        name: seed.name,
+        summary: seed.summary,
+        detail: seed.detail,
+        priceMode: seed.priceMode,
+        amount: seed.amount,
+        minAmount: seed.minAmount,
+        maxAmount: seed.maxAmount,
+        priceFactors: seed.priceFactors || [],
+        includedItems: [],
+        excludedItems: [],
+        appointmentJson: {},
+        auditStatus: PLAN_AUDIT_STATUS.APPROVED,
+        saleStatus: PLAN_SALE_STATUS.ONLINE,
+        acceptAppointment: true,
+        approvedAt: new Date('2026-05-15'),
+        publishedAt: new Date(seed.publishedAt || '2026-05-15'),
+        submittedAt: new Date('2026-05-14'),
+      },
+      update: {
+        merchantId: MERCHANT_ID,
+        storeId: seed.storeId,
+        name: seed.name,
+        summary: seed.summary,
+        detail: seed.detail,
+        priceMode: seed.priceMode,
+        amount: seed.amount,
+        minAmount: seed.minAmount,
+        maxAmount: seed.maxAmount,
+        priceFactors: seed.priceFactors || [],
+        auditStatus: PLAN_AUDIT_STATUS.APPROVED,
+        saleStatus: PLAN_SALE_STATUS.ONLINE,
+        acceptAppointment: true,
+        publishedAt: new Date(seed.publishedAt || '2026-05-15'),
       },
     })
   }
@@ -369,9 +422,11 @@ async function main() {
   })
 
   await seedLeads()
+  await seedServicePlans()
 
   console.log('[seed] legacy order album:', ORDER_ID, LEGACY_ALBUM_ID)
   console.log('[seed] service album:', SERVICE_ALBUM_ID)
+  console.log('[seed] service plans:', SEED_SERVICES.map((s) => s.id).join(', '))
   console.log('[seed] consult leads: lead_demo_submitted, lead_demo_contacted')
   console.log('[seed] dev user token -> userId:', USER_ID, 'phone:', USER_PHONE)
   console.log('[seed] merchant staff:', USER_ID, '->', MERCHANT_ID, STORE_ID)

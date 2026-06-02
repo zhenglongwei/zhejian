@@ -268,6 +268,58 @@ model MerchantReviewLog {
   @@map("merchant_review_log")
 }
 
+/// 商家服务方案（卷二 B-SVC-01）
+model MerchantServicePlan {
+  id                String   @id
+  merchantId        String   @map("merchant_id")
+  storeId           String   @map("store_id")
+  serviceItemId     String   @map("service_item_id")
+  categoryId        String   @default("") @map("category_id")
+  name              String   @default("")
+  summary           String   @default("") @db.Text
+  detail            String   @default("") @db.Text
+  priceMode         String   @map("price_mode")
+  amount            Int?
+  minAmount         Int?     @map("min_amount")
+  maxAmount         Int?     @map("max_amount")
+  priceFactors      Json     @default("[]") @map("price_factors")
+  includedItems     Json     @default("[]") @map("included_items")
+  excludedItems     Json     @default("[]") @map("excluded_items")
+  appointmentJson   Json     @default("{}") @map("appointment_json")
+  coverUrl          String   @default("") @map("cover_url") @db.VarChar(512)
+  auditStatus       String   @default("DRAFT") @map("audit_status")
+  saleStatus        String   @default("OFFLINE") @map("sale_status")
+  acceptAppointment Boolean  @default(true) @map("accept_appointment")
+  rejectReason      String   @default("") @map("reject_reason") @db.Text
+  submittedAt       DateTime? @map("submitted_at")
+  approvedAt        DateTime? @map("approved_at")
+  publishedAt       DateTime? @map("published_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([merchantId])
+  @@index([storeId])
+  @@index([auditStatus])
+  @@index([saleStatus])
+  @@map("merchant_service_plans")
+}
+
+model ServiceReviewLog {
+  id            String   @id
+  planId        String   @map("plan_id")
+  merchantId    String   @default("") @map("merchant_id")
+  storeId       String   @default("") @map("store_id")
+  reviewerId    String   @default("system") @map("reviewer_id")
+  reviewAction  String   @map("review_action")
+  reviewComment String   @default("") @map("review_comment") @db.Text
+  beforeStatus  String   @default("") @map("before_status")
+  afterStatus   String   @default("") @map("after_status")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([planId])
+  @@map("service_review_log")
+}
+
 model DesensitizeTask {
   taskId             String             @id @map("task_id")
   bizType            String             @map("biz_type")

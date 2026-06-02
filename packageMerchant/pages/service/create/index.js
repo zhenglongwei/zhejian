@@ -4,7 +4,7 @@ const {
   PRICE_MODE_OPTIONS,
   getServiceItem,
 } = require('../../../../constants/service')
-const { saveServicePlan } = require('../../../../services/service')
+const { saveServicePlan, fetchServiceDetail } = require('../../../../services/service')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -30,7 +30,6 @@ Page({
       maxAmount: '',
     },
     showPriceFields: true,
-    isAccident: false,
     submitting: false,
     pricePreview: {
       mode: PRICE_MODE.RANGE,
@@ -40,10 +39,47 @@ Page({
     },
   },
 
-  onLoad() {
+  onLoad(options) {
+    this.planId = options.id || ''
     this.initMerchant()
-    this.applyServiceItem(0)
-    this.syncPricePreview()
+    if (this.planId) {
+      this.loadExisting(this.planId)
+    } else {
+      this.applyServiceItem(0)
+      this.syncPricePreview()
+    }
+  },
+
+  async loadExisting(planId) {
+    try {
+      const detail = await fetchServiceDetail(planId, { audience: 'merchant' })
+      const itemIndex = SERVICE_ITEM_LIST.findIndex(
+        (item) => item.id === detail.serviceItemId
+      )
+      const idx = itemIndex >= 0 ? itemIndex : 0
+      let priceModeIndex = PRICE_MODE_PICKER.findIndex(
+        (o) => o.value === detail.priceMode
+      )
+      if (priceModeIndex < 0) priceModeIndex = 0
+      const mode = PRICE_MODE_PICKER[priceModeIndex].value
+      this.setData({
+        itemIndex: idx,
+        priceModeIndex,
+        showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
+        form: {
+          name: detail.name || '',
+          summary: detail.summary || '',
+          detail: detail.detail || '',
+          priceFactorsText: (detail.priceFactors || []).join('\n'),
+          amount: detail.amount != null ? String(detail.amount) : '',
+          minAmount: detail.minAmount != null ? String(detail.minAmount) : '',
+          maxAmount: detail.maxAmount != null ? String(detail.maxAmount) : '',
+        },
+      })
+      this.syncPricePreview()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+    }
   },
 
   async initMerchant() {
@@ -67,19 +103,15 @@ Page({
   applyServiceItem(index) {
     const item = SERVICE_ITEM_LIST[index]
     if (!item) return
-    const isAccident = item.defaultPriceMode === PRICE_MODE.ACCIDENT
     let priceModeIndex = PRICE_MODE_PICKER.findIndex(
       (o) => o.value === item.defaultPriceMode
     )
-    if (priceModeIndex < 0) priceModeIndex = 1
-    const mode = isAccident
-      ? PRICE_MODE.ACCIDENT
-      : PRICE_MODE_PICKER[priceModeIndex].value
+    if (priceModeIndex < 0) priceModeIndex = 0
+    const mode = PRICE_MODE_PICKER[priceModeIndex].value
     this.setData(
       {
         itemIndex: index,
-        priceModeIndex: isAccident ? 2 : priceModeIndex,
-        isAccident,
+        priceModeIndex,
         showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
         'form.name': `${item.name} · ${this.storeName || '本店'}`,
       },
@@ -92,7 +124,6 @@ Page({
   },
 
   onPriceModeChange(e) {
-    if (this.data.isAccident) return
     const index = Number(e.detail.value)
     const mode = PRICE_MODE_PICKER[index].value
     this.setData(
@@ -118,9 +149,7 @@ Page({
   },
 
   syncPricePreview() {
-    const mode = this.data.isAccident
-      ? PRICE_MODE.ACCIDENT
-      : PRICE_MODE_PICKER[this.data.priceModeIndex].value
+    const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
     const min = parseInt(this.data.form.minAmount, 10)
     const max = parseInt(this.data.form.maxAmount, 10)
@@ -143,13 +172,12 @@ Page({
 
   buildPayload() {
     const item = SERVICE_ITEM_LIST[this.data.itemIndex]
-    const mode = this.data.isAccident
-      ? PRICE_MODE.ACCIDENT
-      : PRICE_MODE_PICKER[this.data.priceModeIndex].value
+    const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
     const minAmount = parseInt(this.data.form.minAmount, 10)
     const maxAmount = parseInt(this.data.form.maxAmount, 10)
     return {
+      id: this.planId || undefined,
       serviceItemId: item.id,
       name: this.data.form.name.trim(),
       summary: this.data.form.summary.trim(),
@@ -163,48 +191,17 @@ Page({
     }
   },
 
-  validate(submitReview) {
-    const { form, showPriceFields, isAccident } = this.data
+  validate() {
+    const { form } = this.data
     if (!form.name.trim()) {
       wx.showToast({ title: '请填写服务名称', icon: 'none' })
-      return false
-    }
-    if (submitReview && !form.summary.trim()) {
-      wx.showToast({ title: '请填写服务简介', icon: 'none' })
-      return false
-    }
-    if (submitReview && !form.detail.trim() && !form.summary.trim()) {
-      wx.showToast({ title: '请填写服务详情', icon: 'none' })
-      return false
-    }
-    const payload = this.buildPayload()
-    if (payload.priceMode === PRICE_MODE.FIXED && !payload.amount) {
-      wx.showToast({ title: '请填写一口价', icon: 'none' })
-      return false
-    }
-    if (payload.priceMode === PRICE_MODE.RANGE) {
-      if (!payload.minAmount || !payload.maxAmount) {
-        wx.showToast({ title: '请填写参考区间', icon: 'none' })
-        return false
-      }
-      if (payload.maxAmount < payload.minAmount) {
-        wx.showToast({ title: '最高价不能低于最低价', icon: 'none' })
-        return false
-      }
-      if (submitReview && !payload.priceFactors.length) {
-        wx.showToast({ title: '请填写价格影响因素', icon: 'none' })
-        return false
-      }
-    }
-    if (isAccident && payload.priceMode !== PRICE_MODE.ACCIDENT) {
-      wx.showToast({ title: '事故车仅支持预约到店报价', icon: 'none' })
       return false
     }
     return true
   },
 
   async onSaveDraft() {
-    if (this.data.submitting || !this.validate(false)) return
+    if (this.data.submitting || !this.validate()) return
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), false)
@@ -216,11 +213,11 @@ Page({
   },
 
   async onSubmit() {
-    if (this.data.submitting || !this.validate(true)) return
+    if (this.data.submitting || !this.validate()) return
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), true)
-      wx.showToast({ title: '已提交并上架', icon: 'success' })
+      wx.showToast({ title: '已上架', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 500)
     } finally {
       this.setData({ submitting: false })

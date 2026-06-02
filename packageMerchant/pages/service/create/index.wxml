@@ -21,12 +21,11 @@
       range="{{priceModes}}"
       range-key="label"
       value="{{priceModeIndex}}"
-      disabled="{{isAccident}}"
       bindchange="onPriceModeChange"
     >
       <view class="merchant-form__picker">{{priceModes[priceModeIndex].label}}</view>
     </picker>
-    <view wx:if="{{isAccident}}" class="merchant-form__notice">
+    <view wx:if="{{pricePreview.mode === 'accident'}}" class="merchant-form__notice">
       <ui-compliance-notice type="accident" />
     </view>
   </view>
@@ -138,6 +137,6 @@
       slot="right"
       loading="{{submitting}}"
       bind:tap="onSubmit"
-    >提交审核</ui-button>
+    >保存并上架</ui-button>
   </ui-fixed-bottom-bar>
 </view>

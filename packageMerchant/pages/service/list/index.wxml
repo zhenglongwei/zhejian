@@ -24,7 +24,7 @@
     <view class="page-content">
       <ui-empty
         title="暂无服务方案"
-        description="创建服务方案并提交审核后，用户可在服务 Tab 浏览"
+        description="创建服务方案并上架后，用户可在服务 Tab 浏览"
         actionText="新建服务"
         bind:action="onCreate"
       />

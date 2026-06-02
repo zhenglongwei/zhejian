@@ -9,14 +9,18 @@ const SERVICE_STATUS = {
   APPROVED: 'approved',
   PUBLISHED: 'published',
   REJECTED: 'rejected',
+  NEED_MODIFY: 'need_modify',
+  SUSPENDED: 'suspended',
 }
 
 const SERVICE_STATUS_LABEL = {
   [SERVICE_STATUS.DRAFT]: '草稿',
   [SERVICE_STATUS.PENDING_REVIEW]: '待审核',
-  [SERVICE_STATUS.APPROVED]: '已通过',
+  [SERVICE_STATUS.APPROVED]: '未上架',
   [SERVICE_STATUS.PUBLISHED]: '已上架',
   [SERVICE_STATUS.REJECTED]: '已驳回',
+  [SERVICE_STATUS.NEED_MODIFY]: '需修改',
+  [SERVICE_STATUS.SUSPENDED]: '平台下架',
 }
 
 const SERVICE_CATEGORIES = [

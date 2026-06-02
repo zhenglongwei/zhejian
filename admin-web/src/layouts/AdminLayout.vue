@@ -5,6 +5,7 @@
       <el-menu :default-active="activeMenu" router>
         <el-menu-item index="/cases">案例审核</el-menu-item>
         <el-menu-item index="/merchants">商家审核</el-menu-item>
+        <el-menu-item index="/services">服务监管</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -31,6 +32,7 @@ const auth = useAuthStore()
 const activeMenu = computed(() => {
   if (route.path.startsWith('/cases')) return '/cases'
   if (route.path.startsWith('/merchants')) return '/merchants'
+  if (route.path.startsWith('/services')) return '/services'
   return route.path
 })
 
