@@ -1,0 +1,27 @@
+.report-result {
+  padding-top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.report-result__hero {
+  text-align: center;
+  padding: var(--space-lg) 0;
+}
+
+.report-result__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.report-result__desc {
+  color: var(--color-text-secondary);
+}
+
+.report-result__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}

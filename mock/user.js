@@ -30,6 +30,7 @@ async function mockBindPhone() {
   await delay(300)
   const phone = '13812345678'
   return {
+    phone,
     phoneDisplay: maskPhone(phone),
     isPhoneBound: true,
   }

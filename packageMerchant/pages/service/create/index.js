@@ -21,6 +21,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { DESIGN_TOKENS } = require('../../../../constants/design-tokens')
 
 const PRICE_MODE_PICKER = PRICE_MODE_OPTIONS.filter(
   (o) => o.value !== PRICE_MODE.CONSULT
@@ -39,6 +40,7 @@ Page({
     selectedServiceItemId: '',
     selectedCategoryId: '',
     itemsReady: false,
+    switchColor: DESIGN_TOKENS.COLOR_PRIMARY,
     priceModes: PRICE_MODE_PICKER,
     priceModeIndex: 0,
     form: {

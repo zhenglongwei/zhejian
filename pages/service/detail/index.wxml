@@ -209,6 +209,12 @@
         <text class="service-detail__section-title text-h2">常见问题</text>
         <ui-faq-list items="{{detail.faq}}" showQPrefix="{{true}}" variant="card" />
       </view>
+
+      <ui-detail-report-entry
+        targetType="service"
+        targetId="{{detail.id}}"
+        targetTitle="{{detail.name}}"
+      />
     </view>
 
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">

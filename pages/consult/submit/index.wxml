@@ -126,7 +126,7 @@
           <text class="merchant-form__label">称呼 *</text>
           <input
             class="merchant-form__input input"
-            placeholder="姓名或称呼"
+            placeholder="请填写你的称呼"
             value="{{form.contactName}}"
             data-field="contactName"
             bindinput="onInput"
@@ -134,12 +134,19 @@
         </view>
         <view class="consult-submit__field">
           <text class="merchant-form__label">手机号 *</text>
-          <text class="merchant-form__readonly text-body">{{confirm.defaultContact.phoneDisplay || '请先绑定手机号'}}</text>
+          <input
+            class="merchant-form__input input"
+            type="number"
+            maxlength="11"
+            placeholder="授权手机号，可修改"
+            value="{{form.contactPhone}}"
+            data-field="contactPhone"
+            bindinput="onInput"
+          />
         </view>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
-        <ui-compliance-notice type="consult" />
         <view class="consult-submit__consent">
           <ui-checkbox-row checked="{{form.platformConsent}}" bind:toggle="togglePlatformConsent">
             我已知晓实际维修服务由门店线下提供，此处仅提供信息展示和咨询转接。

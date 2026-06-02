@@ -14,6 +14,7 @@
     "ui-tag-row": "/components/tag-row/index",
     "ui-faq-list": "/components/faq-list/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-share-sheet": "/components/share-sheet/index"
+    "ui-share-sheet": "/components/share-sheet/index",
+    "ui-detail-report-entry": "/components/detail-report-entry/index"
   }
 }

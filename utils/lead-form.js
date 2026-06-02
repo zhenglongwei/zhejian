@@ -11,6 +11,10 @@ function getConsultPageTitle(mode = 'service') {
   return mode === 'message' ? '留言' : '咨询预约'
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '')
+}
+
 /**
  * @param {object} form
  * @param {{ isAccident?: boolean }} opts
@@ -18,6 +22,10 @@ function getConsultPageTitle(mode = 'service') {
 function validateLeadForm(form, opts = {}) {
   if (!form.contactName || !String(form.contactName).trim()) {
     return { ok: false, message: '请填写联系人称呼', field: 'contactName' }
+  }
+  const phone = normalizePhone(form.contactPhone)
+  if (phone.length !== 11) {
+    return { ok: false, message: '请填写正确的手机号', field: 'contactPhone' }
   }
   if (!form.platformConsent) {
     return { ok: false, message: '请先确认咨询转接说明', field: 'platformConsent' }

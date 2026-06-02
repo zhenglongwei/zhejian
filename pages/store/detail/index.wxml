@@ -27,6 +27,14 @@
     </view>
 
     <view class="store-detail__body page-content">
+      <view wx:if="{{isPreview}}" class="notice store-detail__notice-gap">
+        <text>{{previewBannerText}}</text>
+      </view>
+
+      <view class="store-detail__compliance store-detail__compliance--top">
+        <ui-compliance-notice type="displayDisclaimer" />
+      </view>
+
       <view class="store-detail__head">
         <text class="store-detail__name text-h1">{{store.name}}</text>
         <view class="store-detail__tags">

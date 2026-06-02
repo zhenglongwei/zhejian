@@ -1,0 +1,15 @@
+<view class="page report-result page-content">
+  <view class="report-result__hero">
+    <text class="report-result__title text-h1">举报已提交</text>
+    <text class="report-result__desc text-body">{{successMessage}}</text>
+  </view>
+
+  <ui-card wx:if="{{reportId}}" shadow="{{true}}" padding="{{true}}">
+    <text class="text-caption">举报编号：{{reportId}}</text>
+  </ui-card>
+
+  <view class="report-result__actions">
+    <ui-button type="primary" block bind:tap="onBackHome">返回首页</ui-button>
+    <ui-button type="secondary" block bind:tap="onBack">返回上一页</ui-button>
+  </view>
+</view>

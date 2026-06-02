@@ -1,0 +1,10 @@
+.detail-report-entry {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
+  text-align: center;
+}
+
+.detail-report-entry__text {
+  color: var(--color-text-tertiary);
+}

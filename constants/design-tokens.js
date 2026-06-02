@@ -3,6 +3,7 @@
  * 用于 wx.showModal confirmColor 等无法使用 CSS 变量的 API
  */
 const DESIGN_TOKENS = {
+  COLOR_PRIMARY: '#1677ff',
   COLOR_DANGER: '#f53f3f',
 }
 

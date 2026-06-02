@@ -18,6 +18,15 @@
   padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
+.store-detail__notice-gap {
+  margin-bottom: var(--space-md);
+}
+
+.store-detail__compliance--top {
+  margin-top: 0;
+  margin-bottom: var(--space-md);
+}
+
 .store-detail__head {
   margin-bottom: var(--space-md);
 }

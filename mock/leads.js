@@ -252,10 +252,12 @@ function buildStoreConfirm(store) {
 }
 
 function buildDefaultContact(user) {
+  const phone = user.phone || ''
   return {
-    name: user.nickname || '',
-    phoneDisplay: user.phoneDisplay || '',
-    isPhoneBound: Boolean(user.isPhoneBound),
+    name: '',
+    phone,
+    phoneDisplay: user.phoneDisplay || (phone ? maskPhone(phone) : ''),
+    isPhoneBound: Boolean(user.isPhoneBound || phone),
   }
 }
 

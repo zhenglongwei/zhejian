@@ -13,6 +13,8 @@
     "pages/service/detail/index",
     "pages/consult/submit/index",
     "pages/consult/result/index",
+    "pages/report/submit/index",
+    "pages/report/result/index",
     "pages/consult/index/index",
     "pages/consult/detail/index",
     "pages/album/list/index",

@@ -1,0 +1,97 @@
+<view class="page report-submit">
+  <block wx:if="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法打开举报"
+        description="{{errorMessage}}"
+        actionText="返回"
+        bind:action="onBack"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content report-submit__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="report-submit__section-title text-h3">举报对象</text>
+        <text class="text-body">{{targetTypeLabel}}：{{targetTitle || targetId}}</text>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="report-submit__section-title text-h3">举报类型 *</text>
+        <view class="report-submit__type-list">
+          <view
+            wx:for="{{typeOptions}}"
+            wx:key="value"
+            class="report-submit__type-item {{form.reportType === item.value ? 'report-submit__type-item--active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onSelectType"
+          >
+            <text class="text-body">{{item.label}}</text>
+          </view>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="report-submit__section-title text-h3">问题说明 *</text>
+        <textarea
+          class="report-submit__textarea text-body"
+          placeholder="请描述具体问题，10–500 字"
+          value="{{form.description}}"
+          maxlength="500"
+          bindinput="onDescriptionInput"
+        />
+        <text class="report-submit__counter text-caption">{{descriptionLength}}/500</text>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="report-submit__section-title text-h3">截图凭证（选填）</text>
+        <ui-image-uploader
+          images="{{form.images}}"
+          maxCount="{{3}}"
+          bind:change="onImagesChange"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="report-submit__section-title text-h3">联系手机（选填）</text>
+        <input
+          class="report-submit__input input"
+          type="number"
+          maxlength="11"
+          placeholder="便于运营回访"
+          value="{{form.contactPhone}}"
+          bindinput="onPhoneInput"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="report-submit__consent">
+          <ui-checkbox-row checked="{{form.consent}}" bind:toggle="toggleConsent">
+            {{consentText}}
+          </ui-checkbox-row>
+        </view>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button
+        type="primary"
+        slot="right"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="onSubmit"
+      >提交举报</ui-button>
+    </ui-fixed-bottom-bar>
+
+    <ui-login-sheet
+      visible="{{loginSheetVisible}}"
+      mode="auto"
+      bindContext="report"
+      bind:close="closeLoginSheet"
+      bind:cancel="closeLoginSheet"
+      bind:success="onLoginSuccess"
+    />
+  </block>
+</view>

@@ -15,6 +15,7 @@
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-login-sheet": "/components/login-sheet/index",
     "ui-faq-list": "/components/faq-list/index",
-    "ui-store-card": "/components/store-card/index"
+    "ui-store-card": "/components/store-card/index",
+    "ui-detail-report-entry": "/components/detail-report-entry/index"
   }
 }

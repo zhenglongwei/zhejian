@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "举报已提交",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-card": "/components/card/index"
+  }
+}

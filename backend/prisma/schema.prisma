@@ -18,6 +18,7 @@ model User {
   orders    Order[]
   leads     ConsultLead[]
   staff     MerchantStaff[]
+  reports   ContentReport[]
 
   @@index([unionid])
   @@map("users")
@@ -261,6 +262,27 @@ model CaseReviewLog {
 
   @@index([caseId])
   @@map("case_review_log")
+}
+
+model ContentReport {
+  id           String   @id
+  userId       String   @map("user_id")
+  targetType   String   @map("target_type")
+  targetId     String   @map("target_id")
+  targetTitle  String   @default("") @map("target_title")
+  reportType   String   @map("report_type")
+  description  String   @db.Text
+  imagesJson   Json     @default("[]") @map("images_json")
+  contactPhone String   @default("") @map("contact_phone")
+  status       String   @default("pending")
+  resolution   String   @default("") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, targetType, targetId])
+  @@index([status, createdAt])
+  @@map("content_reports")
 }
 
 model MerchantReviewLog {

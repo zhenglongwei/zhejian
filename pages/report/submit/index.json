@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "举报虚假信息",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-checkbox-row": "/components/checkbox-row/index",
+    "ui-image-uploader": "/components/image-uploader/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

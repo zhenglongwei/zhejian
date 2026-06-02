@@ -21,6 +21,9 @@
       <view class="case-detail__tags">
         <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
       </view>
+      <view class="case-detail__privacy">
+        <ui-compliance-notice type="displayDisclaimer" />
+      </view>
       <text class="case-detail__title text-h1">{{detail.title}}</text>
       <ui-ai-summary-block content="{{detail.aiSummary}}" />
       <ui-key-info-table rows="{{detail.keyInfo}}" />
@@ -117,6 +120,11 @@
           />
         </view>
       </view>
+      <ui-detail-report-entry
+        targetType="case"
+        targetId="{{detail.id}}"
+        targetTitle="{{detail.title}}"
+      />
     </view>
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
       <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>

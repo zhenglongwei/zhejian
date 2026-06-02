@@ -285,8 +285,25 @@ function appointmentJsonSafe(raw) {
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
 }
 
+async function buildDefaultContact(userId) {
+  if (!userId) {
+    return { name: '', phone: '', phoneDisplay: '', isPhoneBound: false }
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) {
+    return { name: '', phone: '', phoneDisplay: '', isPhoneBound: false }
+  }
+  const phone = user.phone || ''
+  return {
+    name: '',
+    phone,
+    phoneDisplay: phone ? maskPhone(phone) : '',
+    isPhoneBound: Boolean(phone),
+  }
+}
+
 /** 咨询确认页：优先读 DB 服务/门店；无 serviceId 时保留门店留言简化数据 */
-async function fetchLeadConfirm(_userId, params = {}) {
+async function fetchLeadConfirm(userId, params = {}) {
   const { serviceId, storeId, caseId, sourcePage } = params
   const demoStore = {
     id: storeId || 'store_demo_1',
@@ -296,6 +313,7 @@ async function fetchLeadConfirm(_userId, params = {}) {
     phone: '0571-88886666',
     bookable: true,
   }
+  const defaultContact = await buildDefaultContact(userId)
   if (serviceId) {
     try {
       const service = await getServiceDetail(serviceId)
@@ -329,7 +347,7 @@ async function fetchLeadConfirm(_userId, params = {}) {
         isAccident: service.priceMode === 'accident',
         consultGuide: appointment.consultGuide || '',
         bookingDates: [],
-        defaultContact: { name: '演示用户', phoneDisplay: '138****5678', isPhoneBound: true },
+        defaultContact,
         storeInfoRows: [
           { label: '门店名称', value: store.name || '—' },
           { label: '地址', value: store.address || '—' },
@@ -347,7 +365,7 @@ async function fetchLeadConfirm(_userId, params = {}) {
     store: demoStore,
     isAccident: false,
     bookingDates: [],
-    defaultContact: { name: '演示用户', phoneDisplay: '138****5678', isPhoneBound: true },
+    defaultContact,
     storeInfoRows: [
       { label: '门店名称', value: demoStore.name },
       { label: '地址', value: demoStore.address },

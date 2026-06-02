@@ -1,7 +1,13 @@
 const { fetchStoreDetail } = require('../../../services/store')
 const { fetchCaseList } = require('../../../services/case')
 const { fetchServiceList } = require('../../../services/service')
+const {
+  fetchMerchantProfile,
+  MERCHANT_STATUS,
+} = require('../../../services/merchant')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
+
+const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -49,11 +55,59 @@ Page({
     headTags: [],
     errorMessage: '',
     bottomLeftActions: BOTTOM_LEFT_ACTIONS,
+    isPreview: false,
+    previewBannerText: PREVIEW_BANNER_TEXT,
   },
 
   onLoad(options) {
-    this.storeId = options.id || 'store_demo_1'
+    this.isPreview = options.preview === '1' || options.preview === 'true'
+    this.storeId = options.id || ''
+    if (this.isPreview) {
+      wx.setNavigationBarTitle({ title: '门店主页预览' })
+    }
+    this.initPage()
+  },
+
+  async initPage() {
+    if (this.isPreview) {
+      const ok = await this.ensurePreviewAccess()
+      if (!ok) return
+    } else if (!this.storeId) {
+      this.storeId = 'store_demo_1'
+    }
+    this.setData({ isPreview: this.isPreview })
     this.loadPage()
+  },
+
+  async ensurePreviewAccess() {
+    try {
+      const profile = await fetchMerchantProfile()
+      if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
+        wx.showToast({ title: '仅入驻商家可预览', icon: 'none' })
+        setTimeout(() => wx.navigateBack(), 1500)
+        return false
+      }
+      if (!profile.storeId) {
+        wx.showToast({ title: '未找到门店信息', icon: 'none' })
+        setTimeout(() => wx.navigateBack(), 1500)
+        return false
+      }
+      if (this.storeId && this.storeId !== profile.storeId) {
+        wx.showToast({ title: '只能预览本店', icon: 'none' })
+        setTimeout(() => wx.navigateBack(), 1500)
+        return false
+      }
+      this.storeId = profile.storeId
+      return true
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '预览加载失败', icon: 'none' })
+      setTimeout(() => wx.navigateBack(), 1500)
+      return false
+    }
+  },
+
+  previewBlockedToast() {
+    wx.showToast({ title: '预览模式下不可用', icon: 'none' })
   },
 
   onPullDownRefresh() {
@@ -98,10 +152,18 @@ Page({
   },
 
   onViewAllCases() {
+    if (this.data.isPreview) {
+      this.previewBlockedToast()
+      return
+    }
     wx.switchTab({ url: '/pages/case/index' })
   },
 
   onViewAllServices() {
+    if (this.data.isPreview) {
+      this.previewBlockedToast()
+      return
+    }
     wx.switchTab({ url: '/pages/service/index' })
   },
 

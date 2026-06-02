@@ -135,6 +135,7 @@ async function devBindPhone(userId) {
     data: { phone },
   })
   return {
+    phone,
     phoneDisplay: maskPhone(phone),
     isPhoneBound: true,
   }
@@ -150,6 +151,7 @@ async function bindPhone(userId, payload = {}) {
       data: { phone },
     })
     return {
+      phone,
       phoneDisplay: maskPhone(phone),
       isPhoneBound: true,
     }

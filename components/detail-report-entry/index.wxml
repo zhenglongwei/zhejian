@@ -1,0 +1,3 @@
+<view class="detail-report-entry" bindtap="onTap">
+  <text class="detail-report-entry__text text-caption">举报虚假信息</text>
+</view>

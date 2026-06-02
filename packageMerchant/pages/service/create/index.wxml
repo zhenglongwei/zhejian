@@ -90,7 +90,7 @@
     <text class="merchant-form__label">咨询与预约</text>
     <view class="merchant-form__switch-row">
       <text class="text-body">接受线上咨询/预约</text>
-      <switch checked="{{form.acceptConsult}}" bindchange="onAcceptConsultChange" color="var(--color-brand)" />
+      <switch checked="{{form.acceptConsult}}" bindchange="onAcceptConsultChange" color="{{switchColor}}" />
     </view>
     <block wx:if="{{form.acceptConsult}}">
       <text class="merchant-form__hint-inline text-caption">用户提交后由门店电话联系，非平台订单</text>
@@ -105,7 +105,7 @@
       />
       <view class="merchant-form__switch-row">
         <text class="text-body">需提前预约</text>
-        <switch checked="{{form.advanceRequired}}" bindchange="onAdvanceRequiredChange" color="var(--color-brand)" />
+        <switch checked="{{form.advanceRequired}}" bindchange="onAdvanceRequiredChange" color="{{switchColor}}" />
       </view>
       <textarea
         wx:if="{{form.advanceRequired}}"

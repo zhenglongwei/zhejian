@@ -114,4 +114,15 @@ Page({
       'pending'
     this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
   },
+
+  onPreviewStore() {
+    const { profile } = this.data
+    if (!profile || !profile.storeId) {
+      wx.showToast({ title: '未找到门店信息', icon: 'none' })
+      return
+    }
+    this._navigateTo(
+      `/pages/store/detail/index?id=${profile.storeId}&preview=1`
+    )
+  },
 })

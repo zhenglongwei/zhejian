@@ -100,6 +100,7 @@ async function bindPhone(detail) {
   const nextUser = {
     ...user,
     ...data,
+    phone: data.phone || user.phone || '',
     phoneDisplay: maskPhone(data.phoneDisplay || data.phone || ''),
     isPhoneBound: true,
   }

@@ -1,7 +1,7 @@
 const { fetchLeadConfirm, createLead } = require('../../../services/lead')
 const { persistLocalImages } = require('../../../utils/media-upload')
 const { PRICE_MODE } = require('../../../constants/price-mode')
-const { checkAuth } = require('../../../utils/auth')
+const { checkAuth, getSession, maskPhone } = require('../../../utils/auth')
 const {
   validateLeadForm,
   getSubmitButtonLabel,
@@ -25,6 +25,7 @@ Page({
       description: '',
       images: [],
       contactName: '',
+      contactPhone: '',
       appointmentDate: '',
       appointmentSlot: '',
       appointmentDateLabel: '',
@@ -102,7 +103,8 @@ Page({
           series: '',
           description: '',
           images: [],
-          contactName: confirm.defaultContact.name || '',
+          contactName: '',
+          contactPhone: this.resolveContactPhone(confirm.defaultContact),
           appointmentDate: firstDate ? firstDate.value : '',
           appointmentSlot: slots[0] || '',
           appointmentDateLabel: firstDate ? firstDate.label : '',
@@ -122,6 +124,13 @@ Page({
 
   onRetry() {
     this.loadConfirm()
+  },
+
+  resolveContactPhone(defaultContact = {}) {
+    if (defaultContact.phone) return String(defaultContact.phone)
+    const { user } = getSession()
+    if (user && user.phone) return String(user.phone)
+    return ''
   },
 
   onInput(e) {
@@ -226,7 +235,8 @@ Page({
       appointment,
       contact: {
         name: form.contactName.trim(),
-        phoneDisplay: confirm.defaultContact.phoneDisplay,
+        phone: String(form.contactPhone || '').replace(/\D/g, ''),
+        phoneDisplay: maskPhone(String(form.contactPhone || '').replace(/\D/g, '')),
       },
       platformConsent: form.platformConsent,
     }
