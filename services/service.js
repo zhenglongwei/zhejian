@@ -8,6 +8,7 @@ const { SEED_SERVICES } = require('../mock/services')
 const {
   SERVICE_STATUS,
   SERVICE_STATUS_LABEL,
+  SERVICE_ITEM_LIST,
   getCategoryName,
   getServiceItem,
 } = require('../constants/service')
@@ -200,6 +201,30 @@ async function fetchServiceDetail(id, opts = {}) {
   return buildServiceDetailViewModel(record, { audience })
 }
 
+function normalizeServiceItem(item) {
+  if (!item) return null
+  return {
+    ...item,
+    defaultPriceMode: item.defaultPriceMode,
+    complexity: item.complexity || item.complexityLevel || '',
+  }
+}
+
+/**
+ * 商家端 — 平台标准服务项目（创建方案时选择）
+ */
+async function fetchMerchantServiceItems() {
+  if (ENV.mode !== 'mock') {
+    const data = await get('/merchant/service-items')
+    const list = (data.list || []).map(normalizeServiceItem).filter(Boolean)
+    return { list, total: list.length }
+  }
+
+  await delay()
+  const list = SERVICE_ITEM_LIST.map(normalizeServiceItem)
+  return { list, total: list.length }
+}
+
 /**
  * 商家端 — 本店服务方案列表
  * @param {string} [status]
@@ -357,6 +382,7 @@ async function unpublishServicePlan(planId) {
 module.exports = {
   fetchServiceList,
   fetchServiceDetail,
+  fetchMerchantServiceItems,
   fetchMerchantServiceList,
   saveServicePlan,
   publishServicePlan,

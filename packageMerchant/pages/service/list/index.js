@@ -81,4 +81,12 @@ Page({
   onRetry() {
     this.loadList()
   },
+
+  async onPullDownRefresh() {
+    try {
+      await this.loadList()
+    } finally {
+      wx.stopPullDownRefresh()
+    }
+  },
 })

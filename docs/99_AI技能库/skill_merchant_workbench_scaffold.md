@@ -9,7 +9,7 @@
 - 新建或扩展商家工作台页：入驻、服务方案、咨询线索、门店预览、员工、数据看板
 - 将 **localStorage mock** 替换为 prod API（如 `services/service.js` 商家分支）
 - 新增 `backend` 商家路由：`/merchant/service-plans*`、`/merchant/onboarding` 扩展字段等
-- 衔接运营审核：服务方案提交 → **OPS-SVC-01** 审核通过后才对用户端可见
+- **平台定调（2026-06-02）**：内容发布 + AI 可信信源，非交易撮合；服务 **自助上架**，**无**发布前审核；违规 → 举报 + **OPS-SVC** 事后监管
 
 ## 与相关 skill 的分工
 
@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | **`merchant-workbench-scaffold`** | **商家工作台** | `packageMerchant/pages/`（**不含** `album/`、`desensitize/`，归卷一 `A-*`） |
 | `page-scaffold` | 通用小程序页 | 商家页也可复用 loading/empty/error 壳层；**业务规则以本 skill 为准** |
-| `ops-admin-scaffold` | 运营 Web 审核 | `admin-web/`；服务审核 **OPS-SVC-***、商家审核 **B-MERCH-04** |
+| `ops-admin-scaffold` | 运营 Web | `admin-web/`；服务 **事后监管 OPS-SVC-***、商家入驻 **B-MERCH-04**、案例 **OPS-MASK-01** |
 | `api-integration` | 接 API 细节 | 本 skill 定页面结构后，接接口时必叠加 |
 | `desensitize-engine` | 脱敏引擎 | 仅当改相册/公开链时；卷二默认不涉及 |
 
@@ -64,7 +64,7 @@
 - 提交前校验与 PRD 字段一致；**事故车禁止一口价**（前后端双拦）
 - 图片字段走 `utils/media-upload.js` 持久 URL，拒绝 wxfile/tmp
 - 合规勾选文案符合 V2.0（禁「每一单维修」「免佣」等交易导向）
-- 服务方案：**提交审核** ≠ 直接 `published`（须走 **B-SVC-03** + **OPS-SVC**）
+- 服务方案：**保存并上架** 即 `published`；**禁止**实现「待平台审核」上架闸门（**OPS-SVC** 仅事后抽查/下架）
 
 ### C. 咨询线索详情（M-LEAD）
 
@@ -94,7 +94,7 @@
 | --- | --- | --- |
 | M-LEAD-07 | 线索 prod 验收 | `api-integration` + 本 skill §C |
 | B-SVC-01/03 + M-SVC-12 | 服务 DB 化 | 本 skill §B + `api-integration` + `price-compliance-check` |
-| OPS-SVC-01/02 | 运营服务审核 | `ops-admin-scaffold` |
+| OPS-SVC-01/02 | 运营服务 **事后监管** | `ops-admin-scaffold` |
 | B-MERCH-03 + M-ONB-06～11 | 完整入驻 | 本 skill §B + `ops-admin-scaffold`（审核详情） |
 | M-STORE-01 / M-WB-07 | 门店预览 | 本 skill §D + `page-scaffold` |
 | M-WB-10 | 清理订单页 | 本 skill 原则 5 |
@@ -145,7 +145,7 @@ packageMerchant/pages/... 或 backend/src/routes/...
 
 1. 未入驻用户无法绕过闸门访问列表/详情。
 2. 线索操作后用户端咨询记录状态同步（dev 联调一条完整链路）。
-3. 服务方案提交后状态为「待审核」，用户端不可见（直到 OPS 通过）。
+3. 服务方案上架后用户端可见；**无**「待平台审核」才展示的逻辑。
 4. 无 V1 订单/评价/奖励文案与入口。
 5. 涉及价格处已通过 `price-compliance-check` 要点自查。
 6. `docs/00_开发计划.md` §7.2 对应项可勾选或备注阻塞。
@@ -166,6 +166,6 @@ packageMerchant/pages/... 或 backend/src/routes/...
 ## 约束
 
 - **不要**在卷二任务中大规模改 `packageMerchant/pages/album/`（除非 `00_开发计划` 卷一 A-* 明确项）。
-- **不要**让商家服务方案「提交即上架」绕过运营审核（当前 mock 行为须修正）。
+- **不要**新增服务方案「发布前审核」队列（与 2026-06-02 定调冲突）。
 - **不要**在线索页增加订单/支付/履约能力。
 - **不要**复制用户端 pages 到 packageMerchant；复用 `components/` 与 `utils/`。

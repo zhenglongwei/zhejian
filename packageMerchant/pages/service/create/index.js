@@ -1,10 +1,10 @@
 const { PRICE_MODE } = require('../../../../constants/price-mode')
+const { PRICE_MODE_OPTIONS } = require('../../../../constants/service')
 const {
-  SERVICE_ITEM_LIST,
-  PRICE_MODE_OPTIONS,
-  getServiceItem,
-} = require('../../../../constants/service')
-const { saveServicePlan, fetchServiceDetail } = require('../../../../services/service')
+  saveServicePlan,
+  fetchServiceDetail,
+  fetchMerchantServiceItems,
+} = require('../../../../services/service')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -16,7 +16,8 @@ const PRICE_MODE_PICKER = PRICE_MODE_OPTIONS.filter(
 
 Page({
   data: {
-    serviceItems: SERVICE_ITEM_LIST,
+    serviceItems: [],
+    itemsReady: false,
     itemIndex: 0,
     priceModes: PRICE_MODE_PICKER,
     priceModeIndex: 0,
@@ -41,19 +42,44 @@ Page({
 
   onLoad(options) {
     this.planId = options.id || ''
-    this.initMerchant()
+    this.bootstrap()
+  },
+
+  async bootstrap() {
+    const merchantOk = await this.initMerchant()
+    if (!merchantOk) return
+    const itemsOk = await this.loadServiceItems()
+    if (!itemsOk) return
     if (this.planId) {
-      this.loadExisting(this.planId)
+      await this.loadExisting(this.planId)
     } else {
       this.applyServiceItem(0)
       this.syncPricePreview()
     }
   },
 
+  async loadServiceItems() {
+    try {
+      const { list } = await fetchMerchantServiceItems()
+      if (!list.length) {
+        wx.showToast({ title: '暂无可用服务项目', icon: 'none' })
+        return false
+      }
+      this.setData({ serviceItems: list, itemsReady: true })
+      return true
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '加载服务项目失败',
+        icon: 'none',
+      })
+      return false
+    }
+  },
+
   async loadExisting(planId) {
     try {
       const detail = await fetchServiceDetail(planId, { audience: 'merchant' })
-      const itemIndex = SERVICE_ITEM_LIST.findIndex(
+      const itemIndex = this.data.serviceItems.findIndex(
         (item) => item.id === detail.serviceItemId
       )
       const idx = itemIndex >= 0 ? itemIndex : 0
@@ -95,13 +121,14 @@ Page({
           }
         },
       })
-      return
+      return false
     }
     this.storeName = profile.storeName
+    return true
   },
 
   applyServiceItem(index) {
-    const item = SERVICE_ITEM_LIST[index]
+    const item = this.data.serviceItems[index]
     if (!item) return
     let priceModeIndex = PRICE_MODE_PICKER.findIndex(
       (o) => o.value === item.defaultPriceMode
@@ -171,7 +198,7 @@ Page({
   },
 
   buildPayload() {
-    const item = SERVICE_ITEM_LIST[this.data.itemIndex]
+    const item = this.data.serviceItems[this.data.itemIndex]
     const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
     const minAmount = parseInt(this.data.form.minAmount, 10)
@@ -192,6 +219,10 @@ Page({
   },
 
   validate() {
+    if (!this.data.itemsReady || !this.data.serviceItems.length) {
+      wx.showToast({ title: '服务项目加载中', icon: 'none' })
+      return false
+    }
     const { form } = this.data
     if (!form.name.trim()) {
       wx.showToast({ title: '请填写服务名称', icon: 'none' })
@@ -207,6 +238,8 @@ Page({
       await saveServicePlan(this.buildPayload(), false)
       wx.showToast({ title: '草稿已保存', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 500)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }
@@ -219,6 +252,8 @@ Page({
       await saveServicePlan(this.buildPayload(), true)
       wx.showToast({ title: '已上架', icon: 'success' })
       setTimeout(() => wx.navigateBack(), 500)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '上架失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }

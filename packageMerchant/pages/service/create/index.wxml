@@ -1,6 +1,14 @@
 <view class="page service-create page-content merchant-form-page">
+  <ui-compliance-notice type="platformDisplay" />
   <ui-compliance-notice type="price" />
 
+  <block wx:if="{{!itemsReady}}">
+    <view class="merchant-form__section">
+      <text class="text-caption">正在加载平台服务项目…</text>
+    </view>
+  </block>
+
+  <block wx:else>
   <view class="merchant-form__section">
     <text class="merchant-form__label">平台服务项目</text>
     <picker
@@ -123,6 +131,7 @@
   </view>
 
   <view class="merchant-form__spacer" />
+  </block>
 
   <ui-fixed-bottom-bar>
     <ui-button
@@ -130,12 +139,14 @@
       size="sm"
       slot="left"
       loading="{{submitting}}"
+      disabled="{{!itemsReady}}"
       bind:tap="onSaveDraft"
     >存草稿</ui-button>
     <ui-button
       type="primary"
       slot="right"
       loading="{{submitting}}"
+      disabled="{{!itemsReady}}"
       bind:tap="onSubmit"
     >保存并上架</ui-button>
   </ui-fixed-bottom-bar>

@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "服务方案",
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",

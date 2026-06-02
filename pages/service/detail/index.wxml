@@ -18,6 +18,10 @@
 
   <block wx:elif="{{detail}}">
     <view class="service-detail__body page-content">
+      <view class="service-detail__notice">
+        <ui-compliance-notice type="platformDisplay" />
+      </view>
+
       <view class="service-detail__head">
         <text class="service-detail__title text-h1">{{detail.name}}</text>
         <view class="service-detail__tags">

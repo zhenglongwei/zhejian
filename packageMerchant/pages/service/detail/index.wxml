@@ -23,7 +23,7 @@
           {{bannerText}}
         </text>
         <view wx:if="{{detail.rejectReason}}" class="merchant-svc-detail__reject">
-          <text class="text-caption">审核意见：{{detail.rejectReason}}</text>
+          <text class="text-caption">平台处罚说明：{{detail.rejectReason}}</text>
         </view>
         <view class="merchant-svc-detail__status-row">
           <ui-tag
@@ -31,6 +31,10 @@
             text="{{detail.statusLabel}}"
           />
         </view>
+      </view>
+
+      <view class="service-detail__notice">
+        <ui-compliance-notice type="platformDisplay" />
       </view>
 
       <view class="service-detail__head">
