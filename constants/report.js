@@ -1,5 +1,6 @@
 const REPORT_TARGET_TYPE = {
   SERVICE: 'service',
+  STORE: 'store',
   CASE: 'case',
 }
 
@@ -33,6 +34,23 @@ const REPORT_CONSENT_TEXT =
 
 const REPORT_SUCCESS_MESSAGE = '已收到，我们将在 3 个工作日内处理'
 
+const REPORT_TYPE_LABEL = Object.fromEntries(
+  REPORT_TYPE_OPTIONS.map((item) => [item.value, item.label])
+)
+
+const REPORT_TARGET_TYPE_LABEL = {
+  service: '服务',
+  store: '门店',
+  case: '案例',
+}
+
+const REPORT_STATUS_LABEL = {
+  pending: '待处理',
+  processing: '处理中',
+  resolved: '已成立',
+  rejected: '已驳回',
+}
+
 module.exports = {
   REPORT_TARGET_TYPE,
   REPORT_TYPE,
@@ -40,4 +58,7 @@ module.exports = {
   REPORT_STATUS,
   REPORT_CONSENT_TEXT,
   REPORT_SUCCESS_MESSAGE,
+  REPORT_TYPE_LABEL,
+  REPORT_TARGET_TYPE_LABEL,
+  REPORT_STATUS_LABEL,
 }

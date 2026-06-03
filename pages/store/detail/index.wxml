@@ -150,6 +150,13 @@
           />
         </view>
       </view>
+
+      <ui-detail-report-entry
+        wx:if="{{!isPreview}}"
+        targetType="store"
+        targetId="{{store.id}}"
+        targetTitle="{{store.name}}"
+      />
     </view>
 
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">

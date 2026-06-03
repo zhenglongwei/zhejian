@@ -31,6 +31,14 @@ const {
   restoreAdminServicePlan,
 } = require('../services/admin-service-plan.service')
 
+const {
+  listAdminReports,
+  getAdminReportDetail,
+  acceptAdminReport,
+  rejectAdminReport,
+  resolveAdminReport,
+} = require('../services/admin-report.service')
+
 const router = express.Router()
 
 router.post('/auth/login', async (req, res, next) => {
@@ -257,6 +265,61 @@ router.post('/services/:planId/restore', async (req, res, next) => {
     const data = await restoreAdminServicePlan(req.params.planId, {
       reviewerId: req.admin?.reviewerId,
       comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/reports', async (req, res, next) => {
+  try {
+    const data = await listAdminReports(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/reports/:reportId', async (req, res, next) => {
+  try {
+    const data = await getAdminReportDetail(req.params.reportId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/reports/:reportId/accept', async (req, res, next) => {
+  try {
+    const data = await acceptAdminReport(req.params.reportId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/reports/:reportId/reject', async (req, res, next) => {
+  try {
+    const data = await rejectAdminReport(req.params.reportId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/reports/:reportId/resolve', async (req, res, next) => {
+  try {
+    const data = await resolveAdminReport(req.params.reportId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+      hideContent: Boolean(req.body?.hideContent),
     })
     return ok(res, data)
   } catch (e) {

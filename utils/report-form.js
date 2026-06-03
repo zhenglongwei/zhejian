@@ -4,9 +4,8 @@ const {
 } = require('../../constants/report')
 
 function getTargetTypeLabel(targetType) {
-  if (targetType === 'service') return '服务'
-  if (targetType === 'case') return '案例'
-  return '内容'
+  const map = { service: '服务', store: '门店', case: '案例' }
+  return map[targetType] || '内容'
 }
 
 function validateReportForm(form) {

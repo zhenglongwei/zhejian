@@ -8,7 +8,7 @@ const {
   validateReportForm,
 } = require('../../../utils/report-form')
 
-const VALID_TARGETS = new Set(['service', 'case'])
+const VALID_TARGETS = new Set(['service', 'store', 'case'])
 
 Page({
   data: {
@@ -40,7 +40,7 @@ Page({
     if (!VALID_TARGETS.has(targetType) || !targetId) {
       this.setData({
         status: 'error',
-        errorMessage: '缺少举报对象，请从服务或案例详情页进入',
+        errorMessage: '缺少举报对象，请从服务、门店或案例详情页进入',
       })
       return
     }

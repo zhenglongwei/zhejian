@@ -1,7 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
-const { getServiceDetail, getCaseDetail } = require('./content.service')
+const { getServiceDetail, getCaseDetail, getMerchantDetail } = require('./content.service')
 const {
   VALID_TARGET_TYPES,
   VALID_REPORT_TYPES,
@@ -44,6 +44,11 @@ async function assertReportTarget(targetType, targetId) {
   if (targetType === 'service') {
     const detail = await getServiceDetail(targetId)
     return detail.name || detail.title || ''
+  }
+
+  if (targetType === 'store') {
+    const detail = await getMerchantDetail(targetId)
+    return detail.name || ''
   }
 
   const detail = await getCaseDetail(targetId)

@@ -279,10 +279,26 @@ model ContentReport {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   user         User     @relation(fields: [userId], references: [id])
+  handleLogs   ReportHandleLog[]
 
   @@index([userId, targetType, targetId])
   @@index([status, createdAt])
   @@map("content_reports")
+}
+
+model ReportHandleLog {
+  id           String        @id
+  reportId     String        @map("report_id")
+  reviewerId   String        @default("admin_system") @map("reviewer_id")
+  handleAction String        @map("handle_action")
+  handleComment String       @default("") @map("handle_comment") @db.Text
+  beforeStatus String        @default("") @map("before_status")
+  afterStatus  String        @default("") @map("after_status")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  report       ContentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_handle_log")
 }
 
 model MerchantReviewLog {

@@ -6,6 +6,7 @@
         <el-menu-item index="/cases">案例审核</el-menu-item>
         <el-menu-item index="/merchants">商家审核</el-menu-item>
         <el-menu-item index="/services">服务监管</el-menu-item>
+        <el-menu-item index="/reports">举报管理</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -33,6 +34,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/cases')) return '/cases'
   if (route.path.startsWith('/merchants')) return '/merchants'
   if (route.path.startsWith('/services')) return '/services'
+  if (route.path.startsWith('/reports')) return '/reports'
   return route.path
 })
 
