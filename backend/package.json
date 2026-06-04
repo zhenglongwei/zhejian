@@ -17,6 +17,7 @@
     "desensitize:smoke": "node scripts/desensitize-smoke.js",
     "leads:smoke": "node scripts/merchant-leads-smoke.js",
     "stats:aggregate": "node scripts/merchant-daily-stats-aggregate.js",
+    "stats:aggregate:cron": "bash scripts/stats-aggregate-cron.sh",
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "postinstall": "prisma generate"
   },

@@ -159,6 +159,26 @@ npm run leads:smoke
 
 日 job：`npm run stats:aggregate`（默认聚合上海时区「昨日」）
 
+**生产定时（北京时间每天 0:00）**：在 ECS 上为 **root 或跑 API 的同一用户** 配置 crontab（路径改成你服务器上的 `backend` 绝对路径，例如 `/www/zhejian/backend`）：
+
+```cron
+# 辙见 · 商家日统计：北京时间 0:00 汇总昨日 → merchant_daily_stats
+TZ=Asia/Shanghai
+0 0 * * * /www/zhejian/backend/scripts/stats-aggregate-cron.sh
+```
+
+安装步骤：
+
+```bash
+chmod +x /www/zhejian/backend/scripts/stats-aggregate-cron.sh
+mkdir -p /var/log/zhejian
+crontab -e   # 粘贴上面两行（改路径）
+# 手动试跑（应写入 /var/log/zhejian/stats-aggregate.log）
+/www/zhejian/backend/scripts/stats-aggregate-cron.sh
+```
+
+说明：`TZ=Asia/Shanghai` 保证在**服务器系统时区为 UTC** 时也在北京时间 0 点触发；job 内日期口径与看板一致（`Asia/Shanghai` 的「昨天」）。日志目录可用环境变量 `STATS_AGGREGATE_LOG_DIR` 覆盖。
+
 冒烟：`npm run stats:smoke`（需先 `npm run dev`；或 `node scripts/merchant-stats-smoke.js --no-http`）
 
 ### 咨询线索
