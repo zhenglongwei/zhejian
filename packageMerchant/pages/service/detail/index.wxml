@@ -31,6 +31,21 @@
             text="{{detail.statusLabel}}"
           />
         </view>
+        <view
+          wx:if="{{detail.canPauseAppointment || detail.canResumeAppointment}}"
+          class="merchant-svc-detail__quick-actions"
+        >
+          <text
+            wx:if="{{detail.canPauseAppointment}}"
+            class="merchant-svc-detail__quick-action text-caption"
+            catchtap="onPauseAppointment"
+          >暂停预约</text>
+          <text
+            wx:if="{{detail.canResumeAppointment}}"
+            class="merchant-svc-detail__quick-action text-caption"
+            catchtap="onResumeAppointment"
+          >恢复预约</text>
+        </view>
       </view>
 
       <view class="service-detail__notice">
@@ -157,11 +172,11 @@
       </view>
     </view>
 
-    <ui-fixed-bottom-bar>
-      <ui-button type="secondary" size="sm" slot="left" bind:tap="onBack">返回列表</ui-button>
-      <ui-button wx:if="{{showUnpublish}}" type="secondary" size="sm" slot="right" bind:tap="onUnpublish" disabled="{{actionLoading}}">下架</ui-button>
-      <ui-button wx:if="{{showPublish}}" type="primary" size="sm" slot="right" bind:tap="onPublish" disabled="{{actionLoading}}">上架</ui-button>
-      <ui-button wx:if="{{showEdit}}" type="primary" size="sm" slot="right" bind:tap="onEdit">编辑方案</ui-button>
-    </ui-fixed-bottom-bar>
+    <ui-fixed-bottom-bar
+      leftActions="{{leftActions}}"
+      rightActions="{{rightActions}}"
+      bind:leftaction="onLeftAction"
+      bind:rightaction="onRightAction"
+    />
   </block>
 </view>

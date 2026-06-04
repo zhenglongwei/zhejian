@@ -82,5 +82,11 @@
 
     <p class="note">完整城市首页与 SEO 聚合页见 H5 PRD，开发中。案例页仅展示已审核、已脱敏内容；价格仅为参考区间，实际费用以门店检测为准。</p>
   </div>
+  <script src="/shared/track.js"></script>
+  <script>
+    if (window.zhejianTrack) {
+      window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home' })
+    }
+  </script>
 </body>
 </html>

@@ -24,6 +24,7 @@ const TARGET_TYPE_LABEL = {
   service: '服务',
   store: '门店',
   case: '案例',
+  geo: '专题',
 }
 
 const STATUS_LABEL = {

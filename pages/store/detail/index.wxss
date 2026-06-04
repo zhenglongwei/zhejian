@@ -15,7 +15,11 @@
 
 .store-detail__body {
   padding-top: var(--space-md);
-  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.store-detail__report {
+  margin-top: var(--space-lg);
 }
 
 .store-detail__notice-gap {

@@ -4,6 +4,7 @@ const { newId, maskPhone } = require('../lib/ids')
 const { signSessionToken, ROLES } = require('../lib/jwt')
 const { code2Session, getPhoneNumber } = require('../lib/wechat')
 const { resolveMerchantContext } = require('./merchant-context.service')
+const { linkPendingStaffForUser } = require('./merchant-staff.service')
 
 function formatUserPayload(user) {
   const phone = user.phone || ''
@@ -150,6 +151,7 @@ async function bindPhone(userId, payload = {}) {
       where: { id: userId },
       data: { phone },
     })
+    await linkPendingStaffForUser(userId, phone)
     return {
       phone,
       phoneDisplay: maskPhone(phone),
@@ -158,7 +160,9 @@ async function bindPhone(userId, payload = {}) {
   }
 
   if (config.devAuthEnabled && !phoneCode) {
-    return devBindPhone(userId)
+    const dev = await devBindPhone(userId)
+    await linkPendingStaffForUser(userId, dev.phone)
+    return dev
   }
 
   const err = new Error('请授权微信手机号')

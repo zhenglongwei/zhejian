@@ -46,6 +46,27 @@
       <text class="text-caption merchant-wb__addr">{{profile.address}}</text>
     </view>
     <view class="page-content merchant-wb__stats">
+      <ui-card shadow="{{true}}" class="merchant-wb__overview-card">
+        <view class="merchant-wb__overview-head">
+          <text class="text-h3">数据概览</text>
+          <text class="text-caption merchant-wb__overview-hint">近7天 · T+1</text>
+        </view>
+        <view class="merchant-wb__stat-row">
+          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
+            <text class="merchant-wb__stat-num text-h2">{{overview.caseViews}}</text>
+            <text class="text-caption">案例浏览</text>
+          </view>
+          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
+            <text class="merchant-wb__stat-num text-h2">{{overview.leadSubmit}}</text>
+            <text class="text-caption">咨询提交</text>
+          </view>
+          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
+            <text class="merchant-wb__stat-num text-h2">{{overview.transparency}}</text>
+            <text class="text-caption">透明度分</text>
+          </view>
+        </view>
+        <ui-button type="secondary" size="sm" bind:tap="onDashboard">查看数据概览</ui-button>
+      </ui-card>
       <ui-card shadow="{{true}}">
         <view class="merchant-wb__stat-row">
           <view
@@ -92,6 +113,7 @@
       <ui-button type="secondary" bind:tap="onAlbumList">服务相册管理</ui-button>
       <ui-button type="secondary" bind:tap="onServiceList">服务方案</ui-button>
       <ui-button type="secondary" bind:tap="onPreviewStore">预览门店主页</ui-button>
+      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:tap="onStaffManage">员工管理</ui-button>
     </view>
   </block>
 </view>

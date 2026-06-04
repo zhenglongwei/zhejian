@@ -149,7 +149,7 @@
 | type | 说明 |
 |---|---|
 | **displayDisclaimer** | 用户端详情页内容免责（商家编辑页勿用） |
-| price / **casePrice** / accident / history | 价格与案例价说明 |
+| price / **casePrice** / **authorizedCaseFixed** / accident / history | 价格与案例价说明 |
 | authorize / **reviewUpload** / **desensitize** / **desensitizeGuide** / **desensitizePreMaskReview** | 授权与脱敏 |
 | **partRisk** / reward | 配件风险、活动奖励 |
 | consult / consultRecord / consultPrivacy / consultImage | 用户咨询 |
@@ -158,6 +158,17 @@
 `platformDisplay` 已废弃，请用 `displayDisclaimer`。
 
 内置文案模板，禁止营销化与中介平台表述（§9.1、§9.4.4）。
+
+### 3.2.1 ReportTypePicker（`components/report-type-picker`）
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| options | Array | `{ value, label }[]`，见 `constants/report.js` |
+| value | String | 当前选中举报类型 |
+
+| 事件 | 说明 |
+|---|---|
+| change | `{ value }` |
 
 ### 3.3 PrivacyBanner（`components/privacy-banner`）
 
@@ -344,7 +355,7 @@
 | audience | meta 行 |
 |---|---|
 | user | `storeName`、问题摘要、期望到店 |
-| merchant | 联系人·脱敏手机、问题摘要、车型、期望到店、来源 |
+| merchant | 联系人·脱敏手机、问题摘要、车型、期望到店 |
 
 列表 enrich：`enrichLeadListItem(item)` · `enrichMerchantLeadListItem(item)`（`utils/lead-display.js`）。
 

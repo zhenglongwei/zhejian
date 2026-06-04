@@ -1,3 +1,4 @@
+const path = require('path')
 const express = require('express')
 const cors = require('cors')
 const helmet = require('helmet')
@@ -21,8 +22,11 @@ const merchantAuthRoutes = require('./routes/merchant-auth')
 const merchantOnboardingRoutes = require('./routes/merchant-onboarding')
 const merchantServiceAlbumRoutes = require('./routes/merchant-service-albums')
 const merchantServicePlanRoutes = require('./routes/merchant-service-plans')
+const merchantStaffRoutes = require('./routes/merchant-staff')
+const merchantStatsRoutes = require('./routes/merchant-stats')
 const mediaRoutes = require('./routes/media')
 const systemRoutes = require('./routes/system')
+const trackRoutes = require('./routes/track')
 const adminRoutes = require('./routes/admin')
 
 function createApp() {
@@ -39,6 +43,15 @@ function createApp() {
 
   ensureMediaDirs()
   app.use('/media', express.static(MEDIA_ROOT, { maxAge: '7d', fallthrough: true }))
+
+  /** 本地 H5 联调：与 API 同域，无需部署到 geo.simplewin.cn（仅非 production） */
+  if (config.nodeEnv !== 'production') {
+    const h5Root = path.join(__dirname, '..', '..', 'h5')
+    app.use('/shared', express.static(path.join(h5Root, 'shared')))
+    app.use('/fixtures', express.static(path.join(h5Root, 'fixtures')))
+    app.use('/case', express.static(path.join(h5Root, 'case')))
+    app.use('/album', express.static(path.join(h5Root, 'album')))
+  }
 
   app.get('/', (req, res) => {
     res.json({
@@ -62,7 +75,10 @@ function createApp() {
   app.use('/api/v1/merchant', merchantLeadRoutes)
   app.use('/api/v1/merchant', merchantServiceAlbumRoutes)
   app.use('/api/v1/merchant', merchantServicePlanRoutes)
+  app.use('/api/v1/merchant', merchantStaffRoutes)
+  app.use('/api/v1/merchant', merchantStatsRoutes)
   app.use('/api/v1/system', systemRoutes)
+  app.use('/api/v1/track', trackRoutes)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)

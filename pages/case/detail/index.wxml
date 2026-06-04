@@ -41,9 +41,7 @@
           <ui-compliance-notice type="casePrice" />
         </view>
         <view wx:else class="case-detail__notice">
-          <ui-compliance-notice
-            text="本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。"
-          />
+          <ui-compliance-notice type="authorizedCaseFixed" />
         </view>
       </view>
       <view wx:if="{{detail.faultDesc}}" class="case-detail__section">
@@ -98,6 +96,14 @@
         <text class="case-detail__section-title text-h3">常见问题</text>
         <ui-faq-list items="{{faqList}}" />
       </view>
+      <view class="case-detail__section case-detail__report">
+        <ui-detail-report-entry
+          targetType="case"
+          targetId="{{detail.id}}"
+          targetTitle="{{detail.title}}"
+          attached="{{true}}"
+        />
+      </view>
       <view wx:if="{{relatedCases.length}}" class="case-detail__section">
         <text class="case-detail__section-title text-h3">相关案例</text>
         <view class="case-detail__related">
@@ -120,11 +126,6 @@
           />
         </view>
       </view>
-      <ui-detail-report-entry
-        targetType="case"
-        targetId="{{detail.id}}"
-        targetTitle="{{detail.title}}"
-      />
     </view>
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
       <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>

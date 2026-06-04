@@ -1,5 +1,11 @@
 <view class="page report-submit">
-  <block wx:if="{{status === 'error'}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content report-submit__pad">
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
     <view class="page-content">
       <ui-empty
         title="无法打开举报"
@@ -19,17 +25,11 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="report-submit__section-title text-h3">举报类型 *</text>
-        <view class="report-submit__type-list">
-          <view
-            wx:for="{{typeOptions}}"
-            wx:key="value"
-            class="report-submit__type-item {{form.reportType === item.value ? 'report-submit__type-item--active' : ''}}"
-            data-value="{{item.value}}"
-            bindtap="onSelectType"
-          >
-            <text class="text-body">{{item.label}}</text>
-          </view>
-        </view>
+        <ui-report-type-picker
+          options="{{typeOptions}}"
+          value="{{form.reportType}}"
+          bind:change="onReportTypeChange"
+        />
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
@@ -51,6 +51,9 @@
           maxCount="{{3}}"
           bind:change="onImagesChange"
         />
+        <view class="report-submit__notice">
+          <ui-compliance-notice type="reviewUpload" />
+        </view>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">

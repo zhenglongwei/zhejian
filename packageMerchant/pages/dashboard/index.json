@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "数据概览",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-card": "/components/card/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-button": "/components/button/index",
+    "compliance-notice": "/components/compliance-notice/index"
+  }
+}

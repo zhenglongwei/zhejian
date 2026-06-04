@@ -5,7 +5,9 @@ const {
 } = require('../../../services/merchant')
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
-const { isLoggedIn } = require('../../../utils/auth')
+const { fetchMerchantStats } = require('../../../services/merchant-stats')
+const { formatCount } = require('../../../utils/merchant-dashboard')
+const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
 
 Page({
   data: {
@@ -17,6 +19,12 @@ Page({
       pendingAuth: 0,
       activeAlbums: 0,
     },
+    overview: {
+      caseViews: '0',
+      leadSubmit: '0',
+      transparency: '0',
+    },
+    canManageStaff: false,
   },
 
   onShow() {
@@ -55,10 +63,12 @@ Page({
       pendingAuth: 0,
       activeAlbums: 0,
     }
+    let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
     try {
-      const [stats, leadStats] = await Promise.all([
+      const [stats, leadStats, dashStats] = await Promise.all([
         fetchMerchantAlbumStats(),
         fetchMerchantLeadStats(profile.storeId),
+        fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
       ])
       todos = {
         pendingLeads: leadStats.pending || 0,
@@ -66,10 +76,25 @@ Page({
         pendingAuth: stats.pendingAuth || 0,
         activeAlbums: stats.active || 0,
       }
+      if (dashStats && dashStats.summary) {
+        overview = {
+          caseViews: formatCount(dashStats.summary.caseViewCount),
+          leadSubmit: formatCount(dashStats.summary.leadSubmitCount),
+          transparency: formatCount(
+            dashStats.transparency?.score ?? dashStats.summary.transparencyScore
+          ),
+        }
+      }
     } catch (e) {
       /* keep zeros */
     }
-    this.setData({ status: 'normal', profile, todos })
+    this.setData({
+      status: 'normal',
+      profile,
+      todos,
+      overview,
+      canManageStaff: isMerchantOwner(),
+    })
   },
 
   onGoOnboarding() {
@@ -113,6 +138,14 @@ Page({
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
       'pending'
     this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
+  },
+
+  onStaffManage() {
+    this._navigateTo('/packageMerchant/pages/staff/list/index')
+  },
+
+  onDashboard() {
+    this._navigateTo('/packageMerchant/pages/dashboard/index')
   },
 
   onPreviewStore() {

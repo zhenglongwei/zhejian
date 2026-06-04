@@ -19,6 +19,10 @@ const { fetchCaseList } = require('./case')
 const { applyDetailTemplate } = require('../utils/service-detail-template')
 const { resolveRelatedCases } = require('../utils/service-case-link')
 const { buildStoreCardTags } = require('../utils/store-tags')
+const {
+  pauseServiceAppointment,
+  resumeServiceAppointment,
+} = require('./merchant-service-plan-actions')
 
 const STORAGE_KEY = 'merchant_services_v1'
 
@@ -61,14 +65,28 @@ function findRawService(id, audience = 'user') {
   return mergePublishedServices().find((s) => s.id === id) || null
 }
 
-function statusVariantFor(status) {
-  if (status === SERVICE_STATUS.PUBLISHED) return 'success'
+function statusVariantFor(status, acceptAppointment = true) {
+  if (status === SERVICE_STATUS.PUBLISHED) {
+    return acceptAppointment !== false ? 'success' : 'warning'
+  }
   if (status === SERVICE_STATUS.SUSPENDED) return 'danger'
   if (status === SERVICE_STATUS.PENDING_REVIEW) return 'default'
   if (status === SERVICE_STATUS.REJECTED || status === SERVICE_STATUS.NEED_MODIFY) {
     return 'danger'
   }
   return 'warning'
+}
+
+function merchantListStatusMeta(record) {
+  const status = record.status || SERVICE_STATUS.DRAFT
+  const acceptAppointment = record.acceptAppointment !== false
+  if (status === SERVICE_STATUS.PUBLISHED && !acceptAppointment) {
+    return { statusLabel: '暂停预约', statusVariant: 'warning' }
+  }
+  return {
+    statusLabel: SERVICE_STATUS_LABEL[status] || status,
+    statusVariant: statusVariantFor(status, acceptAppointment),
+  }
 }
 
 function buildHeadTags(record) {
@@ -136,8 +154,10 @@ async function buildServiceDetailViewModel(record, opts = {}) {
   }
 
   if (audience === 'merchant') {
-    viewModel.statusLabel = SERVICE_STATUS_LABEL[status] || status
-    viewModel.statusVariant = statusVariantFor(status)
+    const acceptAppointment = record.acceptAppointment !== false
+    const listMeta = merchantListStatusMeta(record)
+    viewModel.statusLabel = listMeta.statusLabel
+    viewModel.statusVariant = listMeta.statusVariant
     viewModel.editable =
       status !== SERVICE_STATUS.SUSPENDED &&
       (status === SERVICE_STATUS.DRAFT ||
@@ -146,6 +166,11 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     viewModel.canPublish =
       status === SERVICE_STATUS.DRAFT || status === SERVICE_STATUS.APPROVED
     viewModel.canUnpublish = status === SERVICE_STATUS.PUBLISHED
+    viewModel.canPauseAppointment =
+      status === SERVICE_STATUS.PUBLISHED && acceptAppointment
+    viewModel.canResumeAppointment =
+      status === SERVICE_STATUS.PUBLISHED && !acceptAppointment
+    viewModel.appointmentPaused = status === SERVICE_STATUS.PUBLISHED && !acceptAppointment
   }
 
   return viewModel
@@ -239,8 +264,7 @@ async function fetchMerchantServiceList(status) {
     return {
       list: (data.list || []).map((s) => ({
         ...s,
-        statusLabel: SERVICE_STATUS_LABEL[s.status] || s.status,
-        statusVariant: statusVariantFor(s.status),
+        ...merchantListStatusMeta(s),
       })),
       total: data.total || 0,
     }
@@ -256,8 +280,7 @@ async function fetchMerchantServiceList(status) {
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
       .map((s) => ({
         ...s,
-        statusLabel: SERVICE_STATUS_LABEL[s.status] || s.status,
-        statusVariant: statusVariantFor(s.status),
+        ...merchantListStatusMeta(s),
       })),
     total: list.length,
   }
@@ -392,6 +415,8 @@ module.exports = {
   saveServicePlan,
   publishServicePlan,
   unpublishServicePlan,
+  pauseServiceAppointment,
+  resumeServiceAppointment,
   findRawService,
   buildServiceDetailViewModel,
 }

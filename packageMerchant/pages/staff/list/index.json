@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "员工管理",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index"
+  }
+}

@@ -12,6 +12,10 @@ Component({
       type: String,
       value: '',
     },
+    attached: {
+      type: Boolean,
+      value: true,
+    },
   },
   methods: {
     onTap() {

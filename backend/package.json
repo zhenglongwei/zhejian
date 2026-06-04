@@ -16,6 +16,8 @@
     "deploy:verify": "node scripts/verify-health.js",
     "desensitize:smoke": "node scripts/desensitize-smoke.js",
     "leads:smoke": "node scripts/merchant-leads-smoke.js",
+    "stats:aggregate": "node scripts/merchant-daily-stats-aggregate.js",
+    "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "postinstall": "prisma generate"
   },
   "engines": {

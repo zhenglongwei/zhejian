@@ -11,6 +11,8 @@ const {
   submitMerchantServicePlan,
   publishMerchantServicePlan,
   unpublishMerchantServicePlan,
+  pauseMerchantServicePlan,
+  resumeMerchantServicePlan,
 } = require('../services/merchant-service-plan.service')
 
 const router = express.Router()
@@ -117,5 +119,41 @@ router.post('/service-plans/:planId/unpublish', requireAuth(['merchant']), async
     next(e)
   }
 })
+
+router.post(
+  '/service-plans/:planId/pause-appointment',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const data = await pauseMerchantServicePlan(
+        req.params.planId,
+        req.auth.merchantId,
+        storeId
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
+
+router.post(
+  '/service-plans/:planId/resume-appointment',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const data = await resumeMerchantServicePlan(
+        req.params.planId,
+        req.auth.merchantId,
+        storeId
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
 
 module.exports = router

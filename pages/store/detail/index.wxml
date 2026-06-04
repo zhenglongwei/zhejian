@@ -68,6 +68,15 @@
         </view>
       </view>
 
+      <view wx:if="{{!isPreview}}" class="store-detail__section store-detail__report">
+        <ui-detail-report-entry
+          targetType="store"
+          targetId="{{store.id}}"
+          targetTitle="{{store.name}}"
+          attached="{{true}}"
+        />
+      </view>
+
       <view class="store-detail__section">
         <view class="store-detail__section-head">
           <text class="store-detail__section-title text-h2">服务方案</text>
@@ -150,13 +159,6 @@
           />
         </view>
       </view>
-
-      <ui-detail-report-entry
-        wx:if="{{!isPreview}}"
-        targetType="store"
-        targetId="{{store.id}}"
-        targetTitle="{{store.name}}"
-      />
     </view>
 
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">

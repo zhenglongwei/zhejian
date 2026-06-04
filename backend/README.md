@@ -135,6 +135,32 @@ npm run leads:smoke
 
 ## 已实现的 API（v1 · V2.0）
 
+### 数据埋点（站外 / H5）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/v1/track/events` | 行为上报（匿名可调用）；body `{ events: [...] }` 或单条；`event_id` 幂等去重 |
+
+冒烟：`node scripts/track-events-smoke.js http://127.0.0.1:3000`
+
+### 本地 H5 埋点联调（不动生产静态站）
+
+`NODE_ENV` 非 `production` 时，dev API 会托管仓库内 `h5/`（与 `/api` 同域）：
+
+1. `npm run dev`（看 `.env` 的 `PORT`，如 `3002`）
+2. 浏览器打开：`http://127.0.0.1:PORT/case/case_003.html`
+3. F12 网络应看到 `POST /api/v1/track/events`；库内应有 `h5_case_view`（`caseId: case_003`）
+
+### 商家数据看板（日聚合）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/merchant/stats` | 区间汇总 + 日序列；query：`storeId?`、`period`（`7d`/`30d`/`yesterday`/`today`/`month`/`custom`）、`from`/`to` |
+
+日 job：`npm run stats:aggregate`（默认聚合上海时区「昨日」）
+
+冒烟：`npm run stats:smoke`（需先 `npm run dev`；或 `node scripts/merchant-stats-smoke.js --no-http`）
+
 ### 咨询线索
 
 | 方法 | 路径 | 说明 |

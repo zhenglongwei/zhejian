@@ -8,11 +8,11 @@ const {
   validateReportForm,
 } = require('../../../utils/report-form')
 
-const VALID_TARGETS = new Set(['service', 'store', 'case'])
+const VALID_TARGETS = new Set(['service', 'store', 'case', 'geo'])
 
 Page({
   data: {
-    status: 'ready',
+    status: 'loading',
     errorMessage: '',
     targetType: '',
     targetId: '',
@@ -40,7 +40,7 @@ Page({
     if (!VALID_TARGETS.has(targetType) || !targetId) {
       this.setData({
         status: 'error',
-        errorMessage: '缺少举报对象，请从服务、门店或案例详情页进入',
+        errorMessage: '缺少举报对象，请从服务、门店、案例或 GEO 专题页进入',
       })
       return
     }
@@ -49,6 +49,7 @@ Page({
 
     const phone = this.resolveDefaultPhone()
     this.setData({
+      status: 'ready',
       targetType,
       targetId,
       targetTitle,
@@ -66,9 +67,8 @@ Page({
     return user && user.phone ? String(user.phone) : ''
   },
 
-  onSelectType(e) {
-    const { value } = e.currentTarget.dataset
-    this.setData({ 'form.reportType': value })
+  onReportTypeChange(e) {
+    this.setData({ 'form.reportType': e.detail.value })
   },
 
   onDescriptionInput(e) {

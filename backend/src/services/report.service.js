@@ -2,6 +2,7 @@ const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
 const { getServiceDetail, getCaseDetail, getMerchantDetail } = require('./content.service')
+const { GEO_PAGES } = require('../../../mock/geo-pages')
 const {
   VALID_TARGET_TYPES,
   VALID_REPORT_TYPES,
@@ -49,6 +50,16 @@ async function assertReportTarget(targetType, targetId) {
   if (targetType === 'store') {
     const detail = await getMerchantDetail(targetId)
     return detail.name || ''
+  }
+
+  if (targetType === 'geo') {
+    const page = GEO_PAGES.find((item) => item.id === targetId)
+    if (!page) {
+      const err = new Error('专题不存在或已下线')
+      err.status = 404
+      throw err
+    }
+    return page.title || ''
   }
 
   const detail = await getCaseDetail(targetId)

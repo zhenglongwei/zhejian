@@ -53,7 +53,9 @@
         "pages/service/create/index",
         "pages/service/detail/index",
         "pages/lead/list/index",
-        "pages/lead/detail/index"
+        "pages/lead/detail/index",
+        "pages/staff/list/index",
+        "pages/dashboard/index"
       ]
     }
   ],

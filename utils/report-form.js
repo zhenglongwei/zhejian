@@ -1,11 +1,13 @@
 const {
   REPORT_TYPE_OPTIONS,
   REPORT_CONSENT_TEXT,
-} = require('../../constants/report')
+  REPORT_SUCCESS_MESSAGE,
+} = require('../constants/report')
+
+const { REPORT_TARGET_TYPE_LABEL } = require('../constants/report')
 
 function getTargetTypeLabel(targetType) {
-  const map = { service: '服务', store: '门店', case: '案例' }
-  return map[targetType] || '内容'
+  return REPORT_TARGET_TYPE_LABEL[targetType] || '内容'
 }
 
 function validateReportForm(form) {
@@ -32,6 +34,7 @@ function validateReportForm(form) {
 module.exports = {
   REPORT_TYPE_OPTIONS,
   REPORT_CONSENT_TEXT,
+  REPORT_SUCCESS_MESSAGE,
   getTargetTypeLabel,
   validateReportForm,
 }

@@ -19,6 +19,10 @@
   margin: var(--space-lg) 0;
 }
 
+.geo-detail__report {
+  margin-top: var(--space-lg);
+}
+
 .geo-detail__section--footer {
   margin-bottom: var(--space-xl);
 }

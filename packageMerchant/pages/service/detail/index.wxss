@@ -108,3 +108,14 @@
   gap: var(--space-xs);
   margin-top: var(--space-sm);
 }
+
+.merchant-svc-detail__quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.merchant-svc-detail__quick-action {
+  color: var(--color-primary);
+}

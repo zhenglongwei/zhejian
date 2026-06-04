@@ -1,4 +1,4 @@
-const { REPORT_SUCCESS_MESSAGE } = require('../../../constants/report')
+const { REPORT_SUCCESS_MESSAGE } = require('../../../utils/report-form')
 
 Page({
   data: {

@@ -1,0 +1,140 @@
+.merchant-dash__pad {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-xl);
+}
+
+.merchant-dash__lag {
+  margin: var(--space-sm) 0 var(--space-md);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-dash__range {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.merchant-dash__block {
+  margin-bottom: var(--space-md);
+}
+
+.merchant-dash__section {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.merchant-dash__metric-row {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.merchant-dash__metric {
+  flex: 1;
+  min-width: 30%;
+  text-align: center;
+  padding: var(--space-sm) var(--space-xs);
+  box-sizing: border-box;
+}
+
+.merchant-dash__metric-num {
+  display: block;
+}
+
+.merchant-dash__metric--tap:active {
+  opacity: 0.72;
+}
+
+.merchant-dash__rates {
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.merchant-dash__todo-row {
+  display: flex;
+}
+
+.merchant-dash__todo {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-sm);
+}
+
+.merchant-dash__todo-num {
+  display: block;
+}
+
+.merchant-dash__score-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.merchant-dash__score {
+  color: var(--color-primary);
+}
+
+.merchant-dash__breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-dash__breakdown-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-dash__breakdown-val {
+  color: var(--color-text-secondary);
+}
+
+.merchant-dash__rank-hint {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-dash__rank-sub {
+  display: block;
+  margin: var(--space-sm) 0 var(--space-xs);
+  font-weight: 500;
+}
+
+.merchant-dash__rank-row {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-dash__rank-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-dash__rank-no {
+  width: 48rpx;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.merchant-dash__rank-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-dash__rank-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-dash__tip {
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-dash__tip:last-child {
+  border-bottom: none;
+}

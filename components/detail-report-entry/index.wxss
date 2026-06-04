@@ -5,6 +5,15 @@
   text-align: center;
 }
 
+.detail-report-entry--attached {
+  margin-top: 0;
+  text-align: left;
+}
+
 .detail-report-entry__text {
+  color: var(--color-text-tertiary);
+}
+
+.detail-report-entry--attached .detail-report-entry__text {
   color: var(--color-text-tertiary);
 }

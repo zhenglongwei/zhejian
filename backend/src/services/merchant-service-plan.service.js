@@ -220,6 +220,56 @@ async function unpublishMerchantServicePlan(planId, merchantId, storeId) {
   return formatPlanRecord(row, store)
 }
 
+async function pauseMerchantServicePlan(planId, merchantId, storeId) {
+  const store = await loadStoreForMerchant(storeId, merchantId)
+  const existing = await loadOwnedPlan(planId, merchantId, storeId)
+
+  if (existing.saleStatus === PLAN_SALE_STATUS.SUSPENDED) {
+    const err = new Error('内容已下架，请联系客服')
+    err.status = 409
+    throw err
+  }
+  if (existing.saleStatus !== PLAN_SALE_STATUS.ONLINE) {
+    const err = new Error('仅已上架的服务可暂停预约')
+    err.status = 409
+    throw err
+  }
+  if (existing.acceptAppointment === false) {
+    return formatPlanRecord(existing, store)
+  }
+
+  const row = await prisma.merchantServicePlan.update({
+    where: { id: planId },
+    data: { acceptAppointment: false },
+  })
+  return formatPlanRecord(row, store)
+}
+
+async function resumeMerchantServicePlan(planId, merchantId, storeId) {
+  const store = await loadStoreForMerchant(storeId, merchantId)
+  const existing = await loadOwnedPlan(planId, merchantId, storeId)
+
+  if (existing.saleStatus === PLAN_SALE_STATUS.SUSPENDED) {
+    const err = new Error('内容已下架，请联系客服')
+    err.status = 409
+    throw err
+  }
+  if (existing.saleStatus !== PLAN_SALE_STATUS.ONLINE) {
+    const err = new Error('仅已上架的服务可恢复预约')
+    err.status = 409
+    throw err
+  }
+  if (existing.acceptAppointment !== false) {
+    return formatPlanRecord(existing, store)
+  }
+
+  const row = await prisma.merchantServicePlan.update({
+    where: { id: planId },
+    data: { acceptAppointment: true },
+  })
+  return formatPlanRecord(row, store)
+}
+
 module.exports = {
   listMerchantServicePlans,
   getMerchantServicePlan,
@@ -228,5 +278,7 @@ module.exports = {
   submitMerchantServicePlan,
   publishMerchantServicePlan,
   unpublishMerchantServicePlan,
+  pauseMerchantServicePlan,
+  resumeMerchantServicePlan,
   buildReviewComment,
 }

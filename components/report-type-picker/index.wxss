@@ -1,0 +1,16 @@
+.report-type-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.report-type-picker__item {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.report-type-picker__item--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}

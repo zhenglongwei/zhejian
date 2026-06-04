@@ -19,7 +19,6 @@
       <text wx:if="{{item.descriptionPreview}}" class="record-card__meta text-caption">{{item.descriptionPreview}}</text>
       <text wx:if="{{item.vehicleSummary}}" class="record-card__meta text-caption">{{item.vehicleSummary}}</text>
       <text wx:if="{{item.appointmentLabel}}" class="record-card__meta text-caption">期望到店 {{item.appointmentText}}</text>
-      <text wx:if="{{item.sourcePageLabel}}" class="record-card__meta text-caption">来源 {{item.sourcePageLabel}}</text>
     </block>
 
     <view

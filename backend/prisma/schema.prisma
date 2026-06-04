@@ -72,19 +72,22 @@ model Store {
 }
 
 model MerchantStaff {
-  id         String   @id
-  merchantId String   @map("merchant_id")
-  userId     String   @map("user_id")
-  storeId    String   @default("") @map("store_id")
-  role       String   @default("owner")
-  status     String   @default("ACTIVE")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  merchant   Merchant @relation(fields: [merchantId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  id          String   @id
+  merchantId  String   @map("merchant_id")
+  userId      String?  @map("user_id")
+  invitePhone String   @default("") @map("invite_phone")
+  storeId     String   @default("") @map("store_id")
+  role        String   @default("owner")
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@unique([merchantId, userId])
+  @@unique([merchantId, invitePhone])
   @@index([userId])
+  @@index([invitePhone])
   @@map("merchant_staff")
 }
 
@@ -473,4 +476,53 @@ model AlbumShareToken {
   @@index([albumId])
   @@index([userId])
   @@map("album_share_tokens")
+}
+
+/// 卷二 B-STATS：商家门店日指标（T+1 聚合）
+model MerchantDailyStats {
+  id                  String   @id
+  merchantId          String   @map("merchant_id")
+  storeId             String   @map("store_id")
+  statDate            DateTime @map("stat_date") @db.Date
+  storeViewCount      Int      @default(0) @map("store_view_count")
+  serviceViewCount    Int      @default(0) @map("service_view_count")
+  caseViewCount       Int      @default(0) @map("case_view_count")
+  geoViewCount        Int      @default(0) @map("geo_view_count")
+  phoneClickCount     Int      @default(0) @map("phone_click_count")
+  leadSubmitCount     Int      @default(0) @map("lead_submit_count")
+  leadContactedCount  Int      @default(0) @map("lead_contacted_count")
+  leadClosedCount     Int      @default(0) @map("lead_closed_count")
+  caseConsultCount    Int      @default(0) @map("case_consult_count")
+  albumCreatedCount   Int      @default(0) @map("album_created_count")
+  albumCompletedCount Int      @default(0) @map("album_completed_count")
+  albumCompleteRate   Float?   @map("album_complete_rate")
+  transparencyScore   Int      @default(0) @map("transparency_score")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([merchantId, storeId, statDate])
+  @@index([merchantId, statDate])
+  @@index([storeId, statDate])
+  @@map("merchant_daily_stats")
+}
+
+/// 卷五 B-TRACK：站外/H5 行为埋点（浏览、电话、咨询点击等）
+model EventTrackingLog {
+  id          String   @id
+  eventId     String   @unique @map("event_id")
+  eventName   String   @map("event_name")
+  userId      String   @default("") @map("user_id")
+  role        String   @default("user")
+  sessionId   String   @default("") @map("session_id")
+  pagePath    String   @default("") @map("page_path") @db.VarChar(512)
+  referrer    String   @default("") @db.VarChar(512)
+  source      String   @default("") @db.VarChar(128)
+  channel     String   @default("") @db.VarChar(64)
+  city        String   @default("") @db.VarChar(64)
+  eventParams Json     @default("{}") @map("event_params")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([eventName, createdAt])
+  @@index([createdAt])
+  @@map("event_tracking_log")
 }

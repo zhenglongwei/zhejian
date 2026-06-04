@@ -37,6 +37,21 @@
   margin-top: var(--space-md);
 }
 
+.merchant-wb__overview-card {
+  margin-bottom: var(--space-md);
+}
+
+.merchant-wb__overview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-wb__overview-hint {
+  color: var(--color-text-tertiary);
+}
+
 .merchant-wb__stat-row {
   display: flex;
 }

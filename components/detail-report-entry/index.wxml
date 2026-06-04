@@ -1,3 +1,6 @@
-<view class="detail-report-entry" bindtap="onTap">
+<view
+  class="detail-report-entry {{attached ? 'detail-report-entry--attached' : ''}}"
+  bindtap="onTap"
+>
   <text class="detail-report-entry__text text-caption">举报虚假信息</text>
 </view>

@@ -12,6 +12,7 @@
     "ui-store-card": "/components/store-card/index",
     "ui-faq-list": "/components/faq-list/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-button": "/components/button/index"
+    "ui-button": "/components/button/index",
+    "ui-detail-report-entry": "/components/detail-report-entry/index"
   }
 }

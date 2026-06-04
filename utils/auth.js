@@ -32,6 +32,12 @@ function isMerchant() {
   )
 }
 
+/** 店铺管理员（创建者），可管理员工 */
+function isMerchantOwner() {
+  const { merchant } = getSession()
+  return Boolean(merchant && merchant.staffRole === 'owner')
+}
+
 function isLoggedIn() {
   return Boolean(getSession().token)
 }
@@ -93,6 +99,7 @@ module.exports = {
   isLoggedIn,
   isPhoneBound,
   isMerchant,
+  isMerchantOwner,
   saveSession,
   clearSession,
   syncAppSession,

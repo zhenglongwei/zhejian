@@ -10,14 +10,6 @@ const { MERCHANT_LEAD_TAB_STATUS_MAP } = require('../constants/merchant-lead-tab
 const { LEAD_CLOSE_REASON_LABEL } = require('../constants/lead-close-reason')
 const { formatAppointmentLabel } = require('./lead-form')
 
-const SOURCE_PAGE_LABEL = {
-  service: '服务详情',
-  store: '门店详情',
-  case: '案例详情',
-  geo: 'GEO 专题',
-  home: '首页',
-}
-
 function formatLeadDateTime(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -92,7 +84,6 @@ function enrichMerchantLeadListItem(lead) {
     displayServiceName: resolveLeadServiceName(lead),
     statusLabel: LEAD_STATUS_LABEL_MERCHANT[status] || base.statusLabel,
     primaryAction: getMerchantLeadPrimaryAction(status),
-    sourcePageLabel: SOURCE_PAGE_LABEL[lead.sourcePage] || lead.sourcePage || '',
   }
 }
 
@@ -144,10 +135,6 @@ function buildMerchantLeadDetailRows(lead) {
   const apptLabel = formatAppointmentLabel(lead.appointment)
   if (apptLabel) {
     rows.push({ label: '期望到店', value: apptLabel })
-  }
-  const sourceLabel = SOURCE_PAGE_LABEL[lead.sourcePage] || lead.sourcePage
-  if (sourceLabel) {
-    rows.push({ label: '来源', value: sourceLabel })
   }
   const closeText = buildCloseReasonText(lead)
   if (closeText) {

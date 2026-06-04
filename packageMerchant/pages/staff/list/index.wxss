@@ -1,0 +1,83 @@
+.merchant-staff__pad {
+  padding-top: var(--space-lg);
+}
+
+.merchant-staff__hero {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.merchant-staff__intro {
+  padding-top: var(--space-md);
+}
+
+.merchant-staff__hint {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.merchant-staff__list {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-staff__card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background: var(--color-bg-container);
+  border-radius: var(--radius-md);
+}
+
+.merchant-staff__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merchant-staff__phone {
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-staff__self {
+  color: var(--color-text-tertiary);
+}
+
+.merchant-staff__remove {
+  flex-shrink: 0;
+  color: var(--color-danger);
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.merchant-staff__invite {
+  margin-top: var(--space-lg);
+  padding-bottom: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-staff__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-staff__input {
+  height: 88rpx;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-container);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+}

@@ -34,6 +34,10 @@
 .fixed-bottom-bar__right-actions {
   flex: 1;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-xs);
   min-width: 0;
+  max-width: 100%;
 }

@@ -379,9 +379,20 @@
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
 
+    if (window.zhejianTrack) {
+      window.zhejianTrack.trackCaseView(safeData)
+      window.zhejianTrack.bindScrollDepth(safeData.id || '')
+    }
+
     var callBtn = document.getElementById('h5-call-btn')
     if (callBtn) {
       callBtn.addEventListener('click', function () {
+        if (window.zhejianTrack) {
+          window.zhejianTrack.track('h5_call_click', {
+            caseId: safeData.id || '',
+            storeId: safeData.storeId || '',
+          })
+        }
         var phone = safeData.storePhone || ''
         if (phone) {
           window.location.href = 'tel:' + phone
@@ -394,6 +405,12 @@
     var msgBtn = document.getElementById('h5-message-btn')
     if (msgBtn) {
       msgBtn.addEventListener('click', function () {
+        if (window.zhejianTrack) {
+          window.zhejianTrack.track('h5_consult_click', {
+            caseId: safeData.id || '',
+            storeId: safeData.storeId || '',
+          })
+        }
         var path =
           '/pages/consult/submit/index?storeId=' +
           encodeURIComponent(safeData.storeId || '') +

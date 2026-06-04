@@ -1,7 +1,13 @@
+const {
+  COMPLIANCE_COPY,
+  REPORT_SUCCESS_MESSAGE,
+} = require('./compliance-copy')
+
 const REPORT_TARGET_TYPE = {
   SERVICE: 'service',
   STORE: 'store',
   CASE: 'case',
+  GEO: 'geo',
 }
 
 const REPORT_TYPE = {
@@ -29,10 +35,7 @@ const REPORT_STATUS = {
   REJECTED: 'rejected',
 }
 
-const REPORT_CONSENT_TEXT =
-  '信息仅供查阅，举报不代表内容已核实；恶意举报可能承担法律责任。'
-
-const REPORT_SUCCESS_MESSAGE = '已收到，我们将在 3 个工作日内处理'
+const REPORT_CONSENT_TEXT = COMPLIANCE_COPY.reportConsent
 
 const REPORT_TYPE_LABEL = Object.fromEntries(
   REPORT_TYPE_OPTIONS.map((item) => [item.value, item.label])
@@ -42,6 +45,7 @@ const REPORT_TARGET_TYPE_LABEL = {
   service: '服务',
   store: '门店',
   case: '案例',
+  geo: '专题',
 }
 
 const REPORT_STATUS_LABEL = {
