@@ -31,6 +31,26 @@ const STORE_STATUS_MAP = {
   DRAFT: 'offline',
 }
 
+async function resolveActivePublicStoreIds(storeIds) {
+  const ids = [...new Set((storeIds || []).filter(Boolean))]
+  if (!ids.length) return new Set()
+  const stores = await prisma.store.findMany({
+    where: {
+      id: { in: ids },
+      status: 'ACTIVE',
+      merchant: { status: 'ACTIVE' },
+    },
+    select: { id: true },
+  })
+  return new Set(stores.map((s) => s.id))
+}
+
+async function isPublicCaseStoreVisible(storeId) {
+  if (!storeId) return false
+  const active = await resolveActivePublicStoreIds([storeId])
+  return active.has(storeId)
+}
+
 function shouldShowStorePublicly(tier) {
   return tier !== 'anonymous'
 }
@@ -189,7 +209,12 @@ async function fetchPublicCaseRows() {
   })
   if (!rows.length) return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
 
-  const albumIds = [...new Set(rows.map((row) => row.albumId).filter(Boolean))]
+  const storeIds = [...new Set(rows.map((row) => row.storeId).filter(Boolean))]
+  const activeStoreIds = await resolveActivePublicStoreIds(storeIds)
+  const visibleRows = rows.filter((row) => row.storeId && activeStoreIds.has(row.storeId))
+  if (!visibleRows.length) return []
+
+  const albumIds = [...new Set(visibleRows.map((row) => row.albumId).filter(Boolean))]
   const albums = albumIds.length
     ? await prisma.album.findMany({
         where: { id: { in: albumIds } },
@@ -208,7 +233,7 @@ async function fetchPublicCaseRows() {
     })
   )
 
-  return rows.map((row) => {
+  return visibleRows.map((row) => {
     const content =
       row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
     const task = taskByAlbum[row.albumId]
@@ -266,6 +291,12 @@ async function getCaseDetail(id) {
 
   let item
   if (row) {
+    const storeVisible = await isPublicCaseStoreVisible(row.storeId)
+    if (!storeVisible) {
+      const err = new Error('案例不存在')
+      err.status = 404
+      throw err
+    }
     const album = row.albumId
       ? await prisma.album.findUnique({
           where: { id: row.albumId },

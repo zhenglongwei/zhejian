@@ -88,12 +88,17 @@ async function resolveMerchantToken(merchantId) {
 }
 
 async function verifyH5Assets(caseId) {
+  const listRes = await fetch(`${BASE}/case/`)
+  assert(listRes.ok, `case/ 列表页 HTTP ${listRes.status}`)
+  const listHtml = await listRes.text()
+  assert(listHtml.includes('case-list.js'), 'case/index 未引用 case-list.js')
+
   const viewRes = await fetch(`${BASE}/case/view.html?id=${encodeURIComponent(caseId)}`)
   assert(viewRes.ok, `view.html HTTP ${viewRes.status}`)
   const html = await viewRes.text()
   assert(html.includes('track.js'), 'view.html 未引用 track.js')
   assert(html.includes('case-render.js'), 'view.html 未引用 case-render.js')
-  console.log('[chain] H5 view.html 静态资源 OK')
+  console.log('[chain] H5 /case/ 列表 + view.html 静态资源 OK')
 }
 
 async function main() {

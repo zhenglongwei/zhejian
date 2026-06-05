@@ -136,7 +136,7 @@ async function main() {
   const listRes = await apiGet('/user/cases?page=1&pageSize=20')
   assert(listRes.ok && listRes.json?.code === 0, `案例列表失败: ${listRes.status}`)
   const list = listRes.json.data?.list || listRes.json.data || []
-  assert(Array.isArray(list) && list.length > 0, '案例列表为空')
+  assert(Array.isArray(list) && list.length > 0, '案例列表为空（需 ACTIVE 门店 + 已审核 public_approved）')
   console.log('[check] 用户案例列表数量 =', list.length)
 
   const dbBacked = list.filter((item) => !FALLBACK_IDS.has(item.id))
