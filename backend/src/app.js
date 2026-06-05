@@ -79,6 +79,8 @@ function createApp() {
   app.use('/api/v1/merchant', merchantStatsRoutes)
   app.use('/api/v1/system', systemRoutes)
   app.use('/api/v1/track', trackRoutes)
+  /** 与 /track 相同；H5 默认走此路径，避免广告插件拦截 URL 中的 “track” */
+  app.use('/api/v1/analytics', trackRoutes)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)

@@ -171,13 +171,14 @@ TZ=Asia/Shanghai
 
 ```bash
 chmod +x /www/zhejian/backend/scripts/stats-aggregate-cron.sh
-mkdir -p /var/log/zhejian
+mkdir -p /www/zhejian/backend/logs
 crontab -e   # 粘贴上面两行（改路径）
-# 手动试跑（应写入 /var/log/zhejian/stats-aggregate.log）
+# 手动试跑（应写入 backend/logs/stats-aggregate.log）
 /www/zhejian/backend/scripts/stats-aggregate-cron.sh
+tail -5 /www/zhejian/backend/logs/stats-aggregate.log
 ```
 
-说明：`TZ=Asia/Shanghai` 保证在**服务器系统时区为 UTC** 时也在北京时间 0 点触发；job 内日期口径与看板一致（`Asia/Shanghai` 的「昨天」）。日志目录可用环境变量 `STATS_AGGREGATE_LOG_DIR` 覆盖。
+说明：`TZ=Asia/Shanghai` 保证在**服务器系统时区为 UTC** 时也在北京时间 0 点触发；job 内日期口径与看板一致（`Asia/Shanghai` 的「昨天」）。默认日志目录为 **`backend/logs`**；可用环境变量 `STATS_AGGREGATE_LOG_DIR` 改为 `/var/log/zhejian` 等。
 
 冒烟：`npm run stats:smoke`（需先 `npm run dev`；或 `node scripts/merchant-stats-smoke.js --no-http`）
 

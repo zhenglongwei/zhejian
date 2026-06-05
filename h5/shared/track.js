@@ -36,9 +36,18 @@
     return { source: source, channel: channel }
   }
 
+  /** 默认 ingest 路径（勿用 /track/，易被 AdBlock 拦截导致 Network 里看不到 POST） */
+  var DEFAULT_INGEST_PATH = '/api/v1/analytics/events'
+
   function apiBase() {
     if (global.__TRACK_API_BASE__) return String(global.__TRACK_API_BASE__).replace(/\/$/, '')
     return ''
+  }
+
+  function ingestUrl() {
+    var base = apiBase()
+    if (base) return base + DEFAULT_INGEST_PATH
+    return DEFAULT_INGEST_PATH
   }
 
   function buildPayload(events) {
@@ -63,7 +72,7 @@
   function flush() {
     if (!queue.length) return Promise.resolve()
     var batch = queue.splice(0, MAX_BATCH)
-    var url = apiBase() + '/api/v1/track/events'
+    var url = ingestUrl()
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -98,6 +107,9 @@
       )
     )
     scheduleFlush()
+    if (eventName === 'h5_case_view' || eventName === 'h5_page_view') {
+      flush()
+    }
   }
 
   function trackPageView(eventName, eventParams) {
@@ -132,11 +144,40 @@
     onScroll()
   }
 
+  function onPageHide() {
+    if (!queue.length) return
+    var url = ingestUrl()
+    try {
+      var body = JSON.stringify(buildPayload(queue.splice(0, MAX_BATCH)))
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))
+      } else {
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: body,
+          keepalive: true,
+        })
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') onPageHide()
+    })
+  }
+
   global.zhejianTrack = {
     track: track,
     trackPageView: trackPageView,
     trackCaseView: trackCaseView,
     bindScrollDepth: bindScrollDepth,
     flush: flush,
+    ingestUrl: ingestUrl,
   }
 })(typeof window !== 'undefined' ? window : global)

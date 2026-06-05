@@ -7,7 +7,8 @@ export TZ=Asia/Shanghai
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-LOG_DIR="${STATS_AGGREGATE_LOG_DIR:-/var/log/zhejian}"
+# 默认写在 backend/logs（与仓库同目录）；可用 STATS_AGGREGATE_LOG_DIR 覆盖
+LOG_DIR="${STATS_AGGREGATE_LOG_DIR:-$ROOT/logs}"
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/stats-aggregate.log"
 
