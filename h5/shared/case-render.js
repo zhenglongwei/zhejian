@@ -88,9 +88,22 @@
   }
 
   function resolveCaseId() {
-    if (window.__CASE_ID__) return window.__CASE_ID__
+    if (window.__CASE_ID__) return String(window.__CASE_ID__).trim()
+    var params = new URLSearchParams(location.search)
+    var fromQuery = params.get('id') || params.get('caseId') || ''
+    if (fromQuery) return String(fromQuery).trim()
     var match = location.pathname.match(/\/([^/]+)\.html$/)
-    return match ? match[1] : ''
+    if (!match) return ''
+    var base = match[1]
+    if (base === 'view' || base === 'index') return ''
+    return base
+  }
+
+  function isFixtureFallbackAllowed() {
+    var host = String(location.hostname || '').toLowerCase()
+    if (host === 'localhost' || host === '127.0.0.1') return true
+    if (window.__H5_ALLOW_FIXTURES__ === true) return true
+    return false
   }
 
   function renderTags(data) {
@@ -100,6 +113,8 @@
       html += '<span class="h5-tag h5-tag--desensitized">匿名授权</span>'
     } else if (tier === 'named') {
       html += '<span class="h5-tag h5-tag--order">实名授权</span>'
+    } else if (tier === 'private') {
+      html += '<span class="h5-tag h5-tag--audited">门店留档</span>'
     } else {
       html += '<span class="h5-tag h5-tag--order">已授权</span>'
     }
@@ -422,14 +437,27 @@
     }
   }
 
-  function renderError(message) {
+  function renderError(message, caseId) {
     document.title = '案例不可用 · 辙见'
     var app = document.getElementById('app')
     if (app) {
       app.innerHTML =
-        '<div class="h5-error"><h1>无法加载案例</h1><p>' +
+        '<div class="h5-error">' +
+        '<h1>无法加载案例</h1>' +
+        '<p>' +
         escapeHtml(message) +
-        '</p></div>'
+        '</p>' +
+        (caseId
+          ? '<p class="h5-error-id">案例 ID：' + escapeHtml(caseId) + '</p>'
+          : '') +
+        '<button type="button" class="h5-btn h5-error-retry" id="h5-retry-btn">重试</button>' +
+        '</div>'
+      var retryBtn = document.getElementById('h5-retry-btn')
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function () {
+          location.reload()
+        })
+      }
     }
   }
 
@@ -440,12 +468,15 @@
     return fetch(apiUrl)
       .then(function (res) {
         return res.json().then(function (body) {
-          return { ok: res.ok, body: body }
+          return { ok: res.ok, status: res.status, body: body }
         })
       })
       .then(function (result) {
         if (!result.ok || result.body.code !== 0 || !result.body.data) {
-          throw new Error('案例不存在或未公开')
+          var err = new Error('案例不存在或未公开')
+          err.httpStatus = result.status
+          err.apiCode = result.body && result.body.code
+          throw err
         }
         renderCase(result.body.data)
       })
@@ -453,27 +484,42 @@
 
   function loadFixture(caseId) {
     if (!caseId) {
-      renderError('案例 ID 无效')
       return Promise.reject(new Error('missing case id'))
     }
-    return fetch('/fixtures/' + caseId + '.json')
+    return fetch('/fixtures/' + encodeURIComponent(caseId) + '.json')
       .then(function (res) {
-        if (!res.ok) throw new Error('案例不存在或未公开')
+        if (!res.ok) throw new Error('fixture missing')
         return res.json()
       })
       .then(renderCase)
   }
 
+  function resolveLoadErrorMessage(err) {
+    if (err && err.message === 'missing case id') return '案例 ID 无效，请检查链接是否完整'
+    if (err && (err.httpStatus === 404 || err.apiCode === 100004)) {
+      return '案例不存在或未公开展示'
+    }
+    if (err && err.name === 'TypeError') return '网络异常，请稍后重试'
+    return '案例不存在、未公开或脱敏内容未就绪'
+  }
+
   function loadCase(caseId) {
     if (!caseId) {
-      renderError('案例 ID 无效')
+      renderError('案例 ID 无效，请检查链接是否完整', '')
       return
     }
-    loadFromApi(caseId).catch(function () {
-      return loadFixture(caseId).catch(function () {
-        renderError('案例不存在、未公开或脱敏内容未就绪')
+
+    loadFromApi(caseId)
+      .catch(function (apiErr) {
+        if (!isFixtureFallbackAllowed()) {
+          throw apiErr
+        }
+        console.info('[h5-case] API 失败，本地 fallback fixtures', caseId)
+        return loadFixture(caseId)
       })
-    })
+      .catch(function (err) {
+        renderError(resolveLoadErrorMessage(err), caseId)
+      })
   }
 
   loadCase(resolveCaseId())

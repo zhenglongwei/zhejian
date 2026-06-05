@@ -214,6 +214,22 @@
   color: var(--color-text-secondary);
 }
 
+.h5-error h1 {
+  font-size: var(--font-h2);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-md);
+}
+
+.h5-error-id {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-error-retry {
+  margin-top: var(--space-lg);
+  min-width: 8rem;
+}
+
 .h5-body-spacer {
   height: var(--size-h5-footer-spacer);
 }

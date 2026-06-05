@@ -31,4 +31,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 Pop-Location
 
+Write-Host "==> 公开案例入库验收 (H5-A-01): $BaseUrl"
+Push-Location $Backend
+$env:SMOKE_BASE_URL = $BaseUrl
+node scripts/public-case-prod-check.js
+if ($LASTEXITCODE -ne 0) {
+  Pop-Location
+  Write-Host ""
+  Write-Host "H5-A-01 未通过：需在运营台审核通过至少 1 条公开案例，见 backend/scripts/public-case-prod-check.js 输出。"
+  exit 1
+}
+Pop-Location
+
 Write-Host "==> 通过"
