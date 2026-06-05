@@ -63,7 +63,7 @@ install_bootstrap_packages() {
 # 用法：
 #   sudo bash scripts/server-install.sh --init        # 仅生成 backend/.env
 #   sudo bash scripts/server-install.sh                 # 迁移 + nginx + systemd
-#   sudo bash scripts/server-install.sh --skip-nginx    # 跳过 Nginx（已手动合并 /api/ 时）
+#   sudo bash scripts/server-install.sh --simplewin-nginx  # 覆盖 /etc/nginx/conf.d/simplewin.conf
 #   sudo bash scripts/server-install.sh --bootstrap     # 可选：安装 node/nginx（首次裸机）
 set -euo pipefail
 
@@ -156,6 +156,28 @@ ERROR: 未找到 SSL 证书文件。
 EOF
 }
 
+install_simplewin_conf() {
+  local src="$APP_ROOT/backend/deploy/simplewin.conf"
+  local dest="/etc/nginx/conf.d/simplewin.conf"
+
+  if [ ! -f "$src" ]; then
+    echo "ERROR: 缺少 $src"
+    exit 1
+  fi
+
+  if [ -f "$dest" ]; then
+    cp "$dest" "${dest}.bak.$(date +%Y%m%d%H%M%S)"
+    log "已备份 $dest"
+  fi
+
+  rm -f /etc/nginx/conf.d/geo.simplewin.cn.conf
+  cp "$src" "$dest"
+  nginx -t
+  systemctl enable nginx 2>/dev/null || true
+  systemctl reload nginx || systemctl restart nginx
+  log "已安装 $dest（含 simplewin.cn + geo.simplewin.cn）"
+}
+
 install_nginx_site() {
   local src="$APP_ROOT/backend/deploy/nginx-geo.simplewin.cn.conf"
   local rendered cert key source dest_dir
@@ -245,13 +267,16 @@ log "辙见部署 · APP_ROOT=$APP_ROOT"
 
 case "$MODE" in
   --skip-nginx) SKIP_NGINX=1; MODE="" ;;
+  --simplewin-nginx) SKIP_NGINX=0; SIMPLEWIN_NGINX=1; MODE="" ;;
   --init|--bootstrap) ;;
   "") ;;
   *)
-    echo "用法: sudo bash scripts/server-install.sh [--init|--bootstrap|--skip-nginx]"
+    echo "用法: sudo bash scripts/server-install.sh [--init|--bootstrap|--skip-nginx|--simplewin-nginx]"
     exit 1
     ;;
 esac
+
+SIMPLEWIN_NGINX="${SIMPLEWIN_NGINX:-0}"
 
 if [ ! -f "$APP_ROOT/backend/package.json" ]; then
   echo "ERROR: 未找到 $APP_ROOT/backend/package.json"
@@ -307,6 +332,9 @@ npm run db:setup:prod
 
 if [ "$SKIP_NGINX" -eq 1 ]; then
   log "跳过 Nginx（--skip-nginx）"
+elif [ "$SIMPLEWIN_NGINX" -eq 1 ]; then
+  log "Nginx（simplewin.conf 全量）"
+  install_simplewin_conf
 else
   log "Nginx"
   install_nginx_site
