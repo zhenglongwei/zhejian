@@ -102,6 +102,11 @@ async function verifyH5Assets(caseId) {
 }
 
 async function verifyH5StoreAssets(storeId) {
+  const listRes = await fetch(`${BASE}/store/`)
+  assert(listRes.ok, `store/ 列表页 HTTP ${listRes.status}`)
+  const listHtml = await listRes.text()
+  assert(listHtml.includes('store-list.js'), 'store/index 未引用 store-list.js')
+
   const storeRes = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}.html`)
   assert(storeRes.ok, `store/{id}.html HTTP ${storeRes.status}`)
   const html = await storeRes.text()

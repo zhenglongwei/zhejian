@@ -576,7 +576,9 @@
 
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 门店主页</nav>' +
+      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/store/">公开门店</a> › ' +
+      escapeHtml(store.name) +
+      '</nav>' +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 门店公开主页</div>' +
       '<h1 class="h5-title">' +
