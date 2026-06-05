@@ -1,0 +1,168 @@
+.h5-store-hero {
+  width: 100%;
+  height: calc(var(--size-h5-img-placeholder) + 40px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-lg);
+  background: var(--color-bg-muted);
+}
+
+.h5-store-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.h5-store-status {
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.h5-store-meta {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-store-notice {
+  padding: var(--space-md);
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-store-notice--warn {
+  background: #fff7e8;
+  color: var(--color-warning);
+}
+
+.h5-transparency {
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.h5-specialty-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h5-specialty-item {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-service-list,
+.h5-store-case-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.h5-service-card,
+.h5-store-case-card {
+  display: block;
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-card);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.h5-service-card:active,
+.h5-store-case-card:active {
+  border-color: var(--color-primary);
+}
+
+.h5-service-card-title,
+.h5-store-case-card-title {
+  font-size: var(--font-h3);
+  font-weight: 600;
+  margin: 0 0 var(--space-xs);
+}
+
+.h5-service-card-summary,
+.h5-store-case-card-meta {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-sm);
+}
+
+.h5-service-card-price {
+  font-size: var(--font-h3);
+  font-weight: 600;
+  margin: 0;
+}
+
+.h5-env-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.h5-env-img {
+  width: 100%;
+  height: var(--size-h5-img-placeholder);
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.h5-empty-block {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.h5-top-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-top-actions .h5-btn {
+  flex: 1;
+}
+
+.h5-footer-inner--triple {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: var(--space-sm);
+}
+
+.h5-footer-inner--triple .h5-btn {
+  width: auto;
+  padding-left: var(--space-sm);
+  padding-right: var(--space-sm);
+  font-size: var(--font-caption);
+}
+
+.h5-breadcrumb {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-md);
+}
+
+.h5-breadcrumb a {
+  color: var(--color-text-tertiary);
+}
+
+.h5-tag--info {
+  color: var(--tag-reference-fg);
+  background: var(--tag-reference-bg);
+}

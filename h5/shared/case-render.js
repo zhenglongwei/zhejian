@@ -204,7 +204,9 @@
       '<p class="h5-compliance">' +
       escapeHtml(data.city || '') +
       '</p>' +
-      '<p class="h5-link">查看门店详情 ›</p>' +
+      '<a class="h5-link" href="/store/' +
+      encodeURIComponent(data.storeId) +
+      '.html">查看门店详情 ›</a>' +
       '</div>'
     )
   }

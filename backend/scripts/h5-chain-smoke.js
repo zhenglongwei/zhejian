@@ -101,6 +101,19 @@ async function verifyH5Assets(caseId) {
   console.log('[chain] H5 /case/ 列表 + view.html 静态资源 OK')
 }
 
+async function verifyH5StoreAssets(storeId) {
+  const storeRes = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}.html`)
+  assert(storeRes.ok, `store/{id}.html HTTP ${storeRes.status}`)
+  const html = await storeRes.text()
+  assert(html.includes('track.js'), 'store 页未引用 track.js')
+  assert(html.includes('store-render.js'), 'store 页未引用 store-render.js')
+  console.log('[chain] H5 /store/{id}.html 静态资源 OK')
+
+  const merchant = await api('GET', `/user/merchants/${encodeURIComponent(storeId)}`)
+  assert(merchant.ok && merchant.json?.code === 0, `门店 merchants API 失败: ${merchant.status}`)
+  console.log('[chain] ✅ GET /user/merchants/:id')
+}
+
 async function main() {
   console.log('[chain] H5-A-04 全链路验收')
   console.log('[chain] BASE =', BASE)
@@ -123,6 +136,7 @@ async function main() {
   console.log('[chain] ✅ GET /user/cases/:id')
 
   await verifyH5Assets(caseId)
+  await verifyH5StoreAssets(storeId)
 
   const eventId = `evt_h5_chain_${Date.now()}`
   const pagePath = `/case/view.html?id=${encodeURIComponent(caseId)}`

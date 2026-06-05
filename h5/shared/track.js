@@ -107,7 +107,11 @@
       )
     )
     scheduleFlush()
-    if (eventName === 'h5_case_view' || eventName === 'h5_page_view') {
+    if (
+      eventName === 'h5_case_view' ||
+      eventName === 'h5_store_view' ||
+      eventName === 'h5_page_view'
+    ) {
       flush()
     }
   }
@@ -125,7 +129,21 @@
     })
   }
 
-  function bindScrollDepth(caseId) {
+  function trackStoreView(data) {
+    track('h5_store_view', {
+      storeId: data.id || data.storeId || '',
+      storeName: data.name || data.storeName || '',
+      city: data.city || '',
+    })
+  }
+
+  function bindScrollDepth(context) {
+    var params = {}
+    if (typeof context === 'string') {
+      params.caseId = context
+    } else if (context && typeof context === 'object') {
+      params = Object.assign({}, context)
+    }
     var sent = { 25: false, 50: false, 75: false, 100: false }
     function onScroll() {
       var doc = document.documentElement
@@ -136,7 +154,7 @@
         var m = milestones[i]
         if (ratio >= m && !sent[m]) {
           sent[m] = true
-          track('h5_scroll_depth', { caseId: caseId || '', depth: m })
+          track('h5_scroll_depth', Object.assign({ depth: m }, params))
         }
       }
     }
@@ -176,6 +194,7 @@
     track: track,
     trackPageView: trackPageView,
     trackCaseView: trackCaseView,
+    trackStoreView: trackStoreView,
     bindScrollDepth: bindScrollDepth,
     flush: flush,
     ingestUrl: ingestUrl,
