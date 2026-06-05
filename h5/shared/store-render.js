@@ -1,4 +1,10 @@
 (function () {
+  var path = location.pathname
+  if (path === '/store' || path === '/store/') {
+    location.replace('/store/index.html')
+    return
+  }
+
   var COPY = {
     displayDisclaimer:
       '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
@@ -95,7 +101,7 @@
   function resolveStoreId() {
     if (window.__STORE_ID__) return String(window.__STORE_ID__).trim()
     var pathMatch = location.pathname.match(/\/store\/([^/]+)\.html$/)
-    if (pathMatch && pathMatch[1] !== 'view') {
+    if (pathMatch && pathMatch[1] !== 'view' && pathMatch[1] !== 'index') {
       return decodeURIComponent(pathMatch[1]).trim()
     }
     var params = new URLSearchParams(location.search)
