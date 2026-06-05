@@ -43,4 +43,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 Pop-Location
 
+Write-Host "==> H5 全链路验收 (H5-A-04): $BaseUrl"
+Push-Location $Backend
+$env:SMOKE_BASE_URL = $BaseUrl
+node scripts/h5-chain-smoke.js
+if ($LASTEXITCODE -ne 0) {
+  Pop-Location
+  Write-Host ""
+  Write-Host "H5-A-04 未通过：见 backend/scripts/h5-chain-smoke.js 输出。"
+  exit 1
+}
+Pop-Location
+
 Write-Host "==> 通过"

@@ -21,6 +21,7 @@
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "cases:check": "node scripts/public-case-prod-check.js",
+    "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
     "postinstall": "prisma generate"
   },
   "engines": {
