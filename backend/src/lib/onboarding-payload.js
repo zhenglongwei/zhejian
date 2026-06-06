@@ -115,14 +115,10 @@ function sanitizePhotoPayload(photos) {
   }
 }
 
-function validateSubmitPayload(payload) {
+/** 入驻提交：仅校验基本资料（主体/资质/门店标识），其他资料可审核后完善 */
+function validateBasicOnboardingPayload(payload) {
   if (!payload.storeName || !payload.contactName || !payload.phone || !payload.address) {
     const err = new Error('请填写完整入驻信息')
-    err.status = 400
-    throw err
-  }
-  if (!payload.services.length) {
-    const err = new Error('请至少选择一项擅长服务')
     err.status = 400
     throw err
   }
@@ -141,13 +137,62 @@ function validateSubmitPayload(payload) {
     err.status = 400
     throw err
   }
+  if (!payload.qualification.type || !payload.qualification.photoUrl) {
+    const err = new Error('请填写维修资质类型并上传资质照片')
+    err.status = 400
+    throw err
+  }
+
+  const photos = sanitizePhotoPayload(payload.photos)
+
+  return {
+    ...payload,
+    licensePhotoUrl: assertPersistentImageUrl(payload.licensePhotoUrl),
+    qualification: {
+      ...payload.qualification,
+      photoUrl: assertPersistentImageUrl(payload.qualification.photoUrl),
+    },
+    photos,
+  }
+}
+
+function validateSubmitPayload(payload) {
+  return validateBasicOnboardingPayload(payload)
+}
+
+function parseStoreDisplayForm(form = {}) {
+  const photos = normalizePhotos(
+    form.photos || {
+      facadeUrl: form.facadePhotoUrl,
+      workshopUrls: form.workshopPhotoUrls,
+      receptionUrl: form.receptionPhotoUrl,
+      brandAuthUrl: form.brandAuthPhotoUrl,
+    }
+  )
+
+  return {
+    storePhone: String(form.storePhone || '').trim(),
+    businessHours: String(form.businessHours || '').trim(),
+    intro: String(form.intro || '').trim(),
+    services: normalizeServices(form.services),
+    photos,
+  }
+}
+
+/** 审核通过后商家自维护的展示资料 */
+function validateStoreDisplayPayload(payload) {
+  if (!payload.storePhone) {
+    const err = new Error('请填写门店电话')
+    err.status = 400
+    throw err
+  }
   if (!payload.businessHours) {
     const err = new Error('请填写营业时间')
     err.status = 400
     throw err
   }
-  if (!payload.storePhone) {
-    const err = new Error('请填写门店电话')
+  if (!payload.services.length) {
+    const err = new Error('请至少选择一项擅长服务')
     err.status = 400
     throw err
   }
@@ -161,19 +206,9 @@ function validateSubmitPayload(payload) {
     err.status = 400
     throw err
   }
-  if (!payload.qualification.type || !payload.qualification.photoUrl) {
-    const err = new Error('请填写维修资质类型并上传资质照片')
-    err.status = 400
-    throw err
-  }
 
   return {
     ...payload,
-    licensePhotoUrl: assertPersistentImageUrl(payload.licensePhotoUrl),
-    qualification: {
-      ...payload.qualification,
-      photoUrl: assertPersistentImageUrl(payload.qualification.photoUrl),
-    },
     photos: sanitizePhotoPayload(payload.photos),
   }
 }
@@ -194,7 +229,10 @@ module.exports = {
   QUALIFICATION_TYPES,
   QUALIFICATION_LABELS,
   parseOnboardingForm,
+  parseStoreDisplayForm,
+  validateBasicOnboardingPayload,
   validateSubmitPayload,
+  validateStoreDisplayPayload,
   formatQualificationForClient,
   formatPhotosForClient,
   normalizeServices,

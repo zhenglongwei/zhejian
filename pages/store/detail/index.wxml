@@ -29,6 +29,9 @@
     <view class="store-detail__body page-content">
       <view wx:if="{{isPreview}}" class="notice store-detail__notice-gap">
         <text>{{previewBannerText}}</text>
+        <view wx:if="{{canEditStore}}" class="store-detail__preview-edit">
+          <ui-button type="secondary" size="sm" bind:tap="onEditStore">编辑门店资料</ui-button>
+        </view>
       </view>
 
       <view class="store-detail__compliance store-detail__compliance--top">

@@ -5,6 +5,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
+const { isMerchantOwner } = require('../../../utils/auth')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
@@ -57,6 +58,7 @@ Page({
     bottomLeftActions: BOTTOM_LEFT_ACTIONS,
     isPreview: false,
     previewBannerText: PREVIEW_BANNER_TEXT,
+    canEditStore: false,
   },
 
   onLoad(options) {
@@ -98,6 +100,7 @@ Page({
         return false
       }
       this.storeId = profile.storeId
+      this.setData({ canEditStore: isMerchantOwner() })
       return true
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '预览加载失败', icon: 'none' })
@@ -206,5 +209,9 @@ Page({
     wx.navigateTo({
       url: `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
     })
+  },
+
+  onEditStore() {
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
   },
 })

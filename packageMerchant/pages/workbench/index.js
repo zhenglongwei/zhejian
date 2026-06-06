@@ -158,4 +158,8 @@ Page({
       `/pages/store/detail/index?id=${profile.storeId}&preview=1`
     )
   },
+
+  onEditStore() {
+    this._navigateTo('/packageMerchant/pages/store/edit/index')
+  },
 })

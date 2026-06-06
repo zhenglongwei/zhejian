@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "编辑门店资料",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index"
+  }
+}

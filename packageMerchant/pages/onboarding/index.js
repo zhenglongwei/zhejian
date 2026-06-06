@@ -315,20 +315,8 @@ Page({
       wx.showToast({ title: '请在地图上选择门店位置', icon: 'none' })
       return false
     }
-    if (!f.businessHours || !f.storePhone) {
-      wx.showToast({ title: '请填写营业时间与门店电话', icon: 'none' })
-      return false
-    }
-    if (!f.facadePhotoUrl || !(f.workshopPhotoUrls || []).length) {
-      wx.showToast({ title: '请上传门头与工位照片', icon: 'none' })
-      return false
-    }
     if (!f.qualificationType || !f.qualificationPhotoUrl) {
       wx.showToast({ title: '请完善维修资质信息', icon: 'none' })
-      return false
-    }
-    if (!f.services || !f.services.length) {
-      wx.showToast({ title: '请至少选择一项擅长服务', icon: 'none' })
       return false
     }
     if (!this.data.agreed) {

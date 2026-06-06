@@ -123,6 +123,13 @@ function getProfile() {
   return getLocalProfile()
 }
 
+function cacheMerchantProfile(profile) {
+  if (profile) {
+    saveLocalProfile(profile)
+  }
+  return profile
+}
+
 module.exports = {
   MERCHANT_STATUS,
   fetchMerchantProfile,
@@ -130,4 +137,5 @@ module.exports = {
   saveOnboardingDraft,
   refreshMerchantSession,
   getProfile,
+  cacheMerchantProfile,
 }

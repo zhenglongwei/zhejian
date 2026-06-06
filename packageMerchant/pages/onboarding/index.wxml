@@ -58,7 +58,8 @@
       <input class="merchant-form__input" type="number" placeholder="审核与通知联系" value="{{form.phone}}" data-field="phone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门店电话 *</text>
+      <text class="merchant-form__label">门店电话</text>
+      <text class="text-caption merchant-onboard__optional-hint">可审核通过后完善</text>
       <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
@@ -68,7 +69,8 @@
       <text wx:if="{{form.latitude}}" class="text-caption merchant-onboard__loc-hint">已选坐标 {{form.latitude}}, {{form.longitude}}</text>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">营业时间 *</text>
+      <text class="merchant-form__label">营业时间</text>
+      <text class="text-caption merchant-onboard__optional-hint">可审核通过后完善</text>
       <input class="merchant-form__input" placeholder="如 09:00-18:00，周日休息" value="{{form.businessHours}}" data-field="businessHours" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
@@ -77,15 +79,16 @@
     </view>
 
     <text class="merchant-onboard__section-title text-h3">门店照片</text>
+    <text class="text-caption merchant-onboard__optional-hint">以下照片可审核通过后在工作台完善</text>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门头照片 *</text>
+      <text class="merchant-form__label">门头照片</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
         <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
         <text wx:else class="text-caption">点击上传</text>
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">工位照片 *（至少 1 张）</text>
+      <text class="merchant-form__label">工位照片</text>
       <view class="merchant-onboard__photo-grid">
         <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
           <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
@@ -135,6 +138,7 @@
     </view>
 
     <text class="merchant-onboard__section-title text-h3">擅长服务</text>
+    <text class="text-caption merchant-onboard__optional-hint">可审核通过后完善</text>
     <view class="merchant-form__section">
       <view class="merchant-onboard__chips">
         <view wx:for="{{serviceTags}}" wx:key="name" class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}" data-name="{{item.name}}" bindtap="onToggleService">{{item.name}}</view>

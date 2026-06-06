@@ -1,0 +1,133 @@
+<view class="page merchant-store-edit page-content merchant-form-page" wx:if="{{status === 'loading'}}">
+  <ui-skeleton rows="{{6}}" title="{{true}}" />
+</view>
+
+<view class="page merchant-store-edit page-content merchant-form-page" wx:elif="{{status === 'forbidden'}}">
+  <ui-empty
+    title="仅主账号可编辑"
+    description="门店资料变更需由店铺管理员操作"
+    actionText="返回工作台"
+    bind:action="onBackWorkbench"
+  />
+</view>
+
+<view class="page merchant-store-edit page-content merchant-form-page" wx:elif="{{status === 'normal'}}">
+  <ui-compliance-notice type="history" text="以下展示信息由本店自行维护，请确保真实有效。" />
+
+  <text class="merchant-onboard__section-title text-h3">展示资料（可编辑）</text>
+  <text class="text-caption merchant-store-edit__hint">审核通过后可随时修改，保存后用户端与 H5 门店页即时更新。</text>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">门店电话 *</text>
+    <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">营业时间 *</text>
+    <input class="merchant-form__input" placeholder="如 09:00-18:00，周日休息" value="{{form.businessHours}}" data-field="businessHours" bindinput="onInput" />
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">门店简介</text>
+    <textarea class="merchant-form__textarea" placeholder="选填，用户端门店详情展示" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
+  </view>
+
+  <text class="merchant-onboard__section-title text-h3">擅长服务 *</text>
+  <view class="merchant-form__section">
+    <view class="merchant-onboard__chips">
+      <view
+        wx:for="{{serviceTags}}"
+        wx:key="name"
+        class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
+        data-name="{{item.name}}"
+        bindtap="onToggleService"
+      >{{item.name}}</view>
+    </view>
+    <view class="merchant-onboard__custom-line">
+      <text class="merchant-onboard__custom-label text-body">自定义</text>
+      <input
+        class="merchant-onboard__custom-input"
+        value="{{customServiceInput}}"
+        maxlength="16"
+        confirm-type="done"
+        bindinput="onCustomServiceInput"
+        bindblur="onCustomServiceCommit"
+        bindconfirm="onCustomServiceCommit"
+      />
+    </view>
+  </view>
+
+  <text class="merchant-onboard__section-title text-h3">门店照片</text>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">门头照片 *</text>
+    <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
+      <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
+      <text wx:else class="text-caption">点击上传</text>
+    </view>
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">工位照片 *（至少 1 张）</text>
+    <view class="merchant-onboard__photo-grid">
+      <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
+        <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
+        <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+      </view>
+      <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
+        <text class="text-caption">+</text>
+      </view>
+    </view>
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">接待区照片</text>
+    <view class="merchant-onboard__photo-slot" bindtap="onPickReception">
+      <image wx:if="{{form.receptionPhotoUrl}}" class="merchant-onboard__photo" src="{{form.receptionPhotoUrl}}" mode="aspectFill" />
+      <text wx:else class="text-caption">选填</text>
+    </view>
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">品牌授权证明</text>
+    <view class="merchant-onboard__photo-slot" bindtap="onPickBrandAuth">
+      <image wx:if="{{form.brandAuthPhotoUrl}}" class="merchant-onboard__photo" src="{{form.brandAuthPhotoUrl}}" mode="aspectFill" />
+      <text wx:else class="text-caption">选填</text>
+    </view>
+  </view>
+
+  <view class="merchant-store-edit__readonly">
+    <text class="merchant-onboard__section-title text-h3">基本资料（只读）</text>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">门店名称</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.storeName}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">门店地址</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.address}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">主体名称</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.legalName}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">信用代码</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.creditCode}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">负责人</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.contactName}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">负责人手机</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.phone}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-row">
+      <text class="merchant-store-edit__readonly-label">资质类型</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.qualificationTypeLabel}}</text>
+    </view>
+    <image wx:if="{{basic.licensePhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.licensePhotoUrl}}" mode="aspectFill" />
+    <image wx:if="{{basic.qualificationPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.qualificationPhotoUrl}}" mode="aspectFill" />
+    <text class="merchant-store-edit__readonly-tip">主体、资质、名称与地址变更请联系平台运营处理。</text>
+  </view>
+
+  <view class="merchant-form__spacer" />
+  <ui-fixed-bottom-bar>
+    <ui-button type="secondary" size="sm" slot="left" bind:tap="onPreview">预览主页</ui-button>
+    <ui-button type="primary" slot="right" loading="{{submitting}}" bind:tap="onSave">保存</ui-button>
+  </ui-fixed-bottom-bar>
+</view>

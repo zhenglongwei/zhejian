@@ -1,0 +1,55 @@
+@import '../../../../styles/merchant-form.wxss';
+@import '../../onboarding/index.wxss';
+
+.merchant-store-edit__hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-store-edit__readonly {
+  margin-top: var(--space-xl);
+  padding: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.merchant-store-edit__readonly-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-store-edit__readonly-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-store-edit__readonly-label {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+}
+
+.merchant-store-edit__readonly-value {
+  flex: 1;
+  text-align: right;
+  color: var(--color-text-primary);
+  font-size: var(--font-caption);
+  word-break: break-all;
+}
+
+.merchant-store-edit__readonly-photo {
+  width: 160rpx;
+  height: 120rpx;
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-xs);
+}
+
+.merchant-store-edit__readonly-tip {
+  display: block;
+  margin-top: var(--space-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}

@@ -10,6 +10,12 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-onboard__optional-hint {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
 .merchant-onboard__form {
   margin-top: var(--space-md);
 }
