@@ -12,6 +12,7 @@ const {
   searchContent,
 } = require('../services/content.service')
 const { getSharedAlbumByToken } = require('../services/album-share.service')
+const { listGeoPages, getGeoPageDetail } = require('../services/geo.service')
 
 const router = express.Router()
 
@@ -72,6 +73,24 @@ router.get('/services', async (req, res, next) => {
 router.get('/services/:id', async (req, res, next) => {
   try {
     const data = await getServiceDetail(req.params.id)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.get('/geo-pages', async (req, res, next) => {
+  try {
+    const data = await listGeoPages(req.query)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.get('/geo-pages/:id', async (req, res, next) => {
+  try {
+    const data = await getGeoPageDetail(req.params.id)
     return ok(res, data)
   } catch (e) {
     return next(e)

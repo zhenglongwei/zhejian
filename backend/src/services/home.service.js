@@ -4,9 +4,9 @@ const {
   HOME_PLATFORM_INTRO,
   HOME_PLATFORM_IDENTITY,
   HOME_PROTECTION_TEXT,
-  HOME_GEO_TOPICS,
 } = require('../constants/home')
 const { listMerchants, fetchPublicCaseRows } = require('./content.service')
+const { listGeoPages } = require('./geo.service')
 
 function mapFeaturedCase(item) {
   return {
@@ -54,9 +54,10 @@ async function fetchRecommendedMerchants(limit = 6) {
 }
 
 async function getHomePayload() {
-  const [featuredCases, recommendedMerchants] = await Promise.all([
+  const [featuredCases, recommendedMerchants, geoPages] = await Promise.all([
     fetchFeaturedCases(3),
     fetchRecommendedMerchants(6),
+    listGeoPages({ limit: 6 }),
   ])
 
   const serviceEntries = HOME_SERVICE_ENTRIES.filter((e) => e.status === 'enabled').sort(
@@ -71,7 +72,7 @@ async function getHomePayload() {
     },
     serviceEntries,
     accidentEntry: HOME_ACCIDENT_ENTRY,
-    geoTopics: HOME_GEO_TOPICS,
+    geoTopics: geoPages.list,
     recommendedMerchants,
     featuredCases,
     platformIntro: { points: HOME_PLATFORM_INTRO },

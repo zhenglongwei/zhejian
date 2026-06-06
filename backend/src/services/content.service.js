@@ -21,7 +21,7 @@ const {
   isPubliclyVisible,
 } = require('../constants/service-plan')
 const { formatPlanRecord } = require('./service-plan-format')
-const { HOME_GEO_TOPICS } = require('../constants/home')
+const { GEO_PAGES } = require('../../../mock/geo-pages')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
 const { buildNodesFromTask } = require('./public-case.service')
@@ -557,14 +557,14 @@ async function getServiceDetail(id) {
 function filterGeoPages(keyword) {
   const k = normalizeKeyword(keyword)
   if (!k) return []
-  return HOME_GEO_TOPICS.filter((page) => {
-    const haystack = [page.title, page.summary].join(' ')
+  return GEO_PAGES.filter((page) => {
+    const haystack = [page.title, page.summary, ...(page.keywords || [])].join(' ')
     return includesKeyword(haystack, k)
   }).map((page) => ({
     id: page.id,
     title: page.title,
     summary: page.summary,
-    keywords: [],
+    keywords: page.keywords || [],
   }))
 }
 

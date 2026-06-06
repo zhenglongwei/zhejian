@@ -1,7 +1,8 @@
 /**
- * GEO 专题 — mock
- * MOCK: mock/geo-pages.js；联调后接 GET /api/user/geo-pages/{id}
+ * GEO 专题 — prod: GET /api/user/geo-pages*
  */
+const { ENV } = require('./config')
+const { get } = require('./request')
 const { GEO_PAGES } = require('../mock/geo-pages')
 const { fetchCaseList } = require('./case')
 const { fetchStoreList, fetchStoreDetail } = require('./store')
@@ -16,7 +17,7 @@ function pickByIds(list, ids) {
   return (list || []).filter((item) => idSet.has(item.id))
 }
 
-async function fetchGeoPageDetail(id) {
+async function fetchGeoPageDetailMock(id) {
   await delay()
   const page = GEO_PAGES.find((item) => item.id === id)
   if (!page) {
@@ -55,7 +56,7 @@ async function fetchGeoPageDetail(id) {
   }
 }
 
-async function fetchGeoHomeEntries(limit = 6) {
+async function fetchGeoHomeEntriesMock(limit = 6) {
   await delay()
   return GEO_PAGES.slice(0, limit).map((item) => ({
     id: item.id,
@@ -66,6 +67,29 @@ async function fetchGeoHomeEntries(limit = 6) {
     pageType: item.pageType,
     updatedAt: item.updatedAt,
   }))
+}
+
+async function fetchGeoPageDetail(id) {
+  if (ENV.mode !== 'mock') {
+    const data = await get(`/user/geo-pages/${id}`)
+    const relatedStores = (data.relatedStores || []).map((store) => ({
+      ...store,
+      cardTags: buildStoreCardTags(store, []),
+    }))
+    return {
+      ...data,
+      relatedStores,
+    }
+  }
+  return fetchGeoPageDetailMock(id)
+}
+
+async function fetchGeoHomeEntries(limit = 6) {
+  if (ENV.mode !== 'mock') {
+    const data = await get('/user/geo-pages', { limit })
+    return data.list || []
+  }
+  return fetchGeoHomeEntriesMock(limit)
 }
 
 module.exports = {

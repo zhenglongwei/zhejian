@@ -98,6 +98,14 @@ async function verifyH5Home() {
   assert(Array.isArray(apiHome.json.data?.featuredCases), 'home 缺少 featuredCases')
   assert(Array.isArray(apiHome.json.data?.recommendedMerchants), 'home 缺少 recommendedMerchants')
   console.log('[chain] ✅ H5 首页 + GET /user/home')
+
+  const geoList = await api('GET', '/user/geo-pages?limit=3')
+  assert(geoList.ok && geoList.json?.code === 0, 'GET /user/geo-pages 失败')
+  const geoId = geoList.json.data?.list?.[0]?.id
+  assert(geoId, 'geo-pages 列表为空')
+  const geoDetail = await api('GET', `/user/geo-pages/${encodeURIComponent(geoId)}`)
+  assert(geoDetail.ok && geoDetail.json?.code === 0, `GET /user/geo-pages/${geoId} 失败`)
+  console.log('[chain] ✅ GET /user/geo-pages/:id')
 }
 
 async function verifyH5Assets(caseId) {
