@@ -18,6 +18,8 @@
     "leads:smoke": "node scripts/merchant-leads-smoke.js",
     "stats:aggregate": "node scripts/merchant-daily-stats-aggregate.js",
     "stats:aggregate:cron": "bash scripts/stats-aggregate-cron.sh",
+    "stats:monitor": "node scripts/ops-data-monitor.js",
+    "stats:monitor:cron": "bash scripts/stats-monitor-cron.sh",
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "cases:check": "node scripts/public-case-prod-check.js",
