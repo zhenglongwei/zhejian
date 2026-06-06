@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "门店详情",
+  "enableShareTimeline": true,
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",
@@ -13,6 +14,7 @@
     "ui-ai-summary-block": "/components/ai-summary-block/index",
     "ui-key-info-table": "/components/key-info-table/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-detail-report-entry": "/components/detail-report-entry/index"
+    "ui-detail-report-entry": "/components/detail-report-entry/index",
+    "ui-share-sheet": "/components/share-sheet/index"
   }
 }

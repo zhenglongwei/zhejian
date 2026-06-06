@@ -165,7 +165,18 @@
     </view>
 
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-      <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
+      <ui-button wx:if="{{!isPreview}}" type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
+      <ui-button wx:else type="primary" slot="right" bind:tap="onOpenShareSheet">分享门店</ui-button>
     </ui-fixed-bottom-bar>
+
+    <ui-share-sheet
+      visible="{{shareSheetVisible}}"
+      showOwnerShare="{{false}}"
+      shareIntent="publicStore"
+      actionsDisabled="{{shareActionsDisabled}}"
+      bind:close="onCloseShareSheet"
+      bind:copypublicweblink="onCopyPublicWebLink"
+      bind:sharetimeline="onShareTimelineGuide"
+    />
   </block>
 </view>

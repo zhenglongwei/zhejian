@@ -178,6 +178,14 @@ Page({
     })
   },
 
+  onShareStore() {
+    const { storeId } = this.data
+    if (!storeId) return
+    wx.navigateTo({
+      url: `/pages/store/detail/index?id=${storeId}&preview=1&share=1`,
+    })
+  },
+
   async onSave() {
     if (this.data.submitting) return
     const message = validateDisplayForm(this.data.form)

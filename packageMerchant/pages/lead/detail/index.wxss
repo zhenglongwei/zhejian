@@ -1,1 +1,29 @@
 @import '../../../../styles/record-detail.wxss';
+
+.lead-detail__note {
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+}
+
+.lead-detail__note-title {
+  display: block;
+}
+
+.lead-detail__note-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.lead-detail__note-input {
+  width: 100%;
+  min-height: 160rpx;
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  box-sizing: border-box;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+  font-size: var(--font-body);
+}

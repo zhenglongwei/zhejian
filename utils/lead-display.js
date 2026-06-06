@@ -136,6 +136,9 @@ function buildMerchantLeadDetailRows(lead) {
   if (apptLabel) {
     rows.push({ label: '期望到店', value: apptLabel })
   }
+  if (lead.contactNote) {
+    rows.push({ label: '联系备注', value: lead.contactNote })
+  }
   const closeText = buildCloseReasonText(lead)
   if (closeText) {
     rows.push({ label: '关闭原因', value: closeText })

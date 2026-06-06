@@ -7,6 +7,26 @@ const {
   LEAD_CLOSE_REASON,
 } = require('../constants/v2')
 
+function extractContactNote(statusLogs = []) {
+  if (!Array.isArray(statusLogs) || !statusLogs.length) return ''
+  const contacted = [...statusLogs]
+    .reverse()
+    .find((log) => log.toStatus === LEAD_STATUS.CONTACTED)
+  return contacted?.reason || ''
+}
+
+async function updateLeadContactNote(leadId, note = '') {
+  const log = await prisma.leadStatusLog.findFirst({
+    where: { leadId, toStatus: LEAD_STATUS.CONTACTED },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!log) return
+  await prisma.leadStatusLog.update({
+    where: { id: log.id },
+    data: { reason: note || '' },
+  })
+}
+
 function mapLeadRecord(lead) {
   const contact = lead.contactJson || {}
   return {
@@ -34,6 +54,7 @@ function mapLeadRecord(lead) {
     platformConsent: lead.platformConsent,
     closeReason: lead.closeReason || '',
     closeNote: lead.closeNote || '',
+    contactNote: extractContactNote(lead.statusLogs),
     createdAt: toIso(lead.createdAt),
     updatedAt: toIso(lead.updatedAt),
     statusLogs: (lead.statusLogs || []).map((log) => ({
@@ -230,7 +251,12 @@ async function markLeadContacted(leadId, storeId, merchantId, note = '') {
     throw err
   }
   if (lead.status === LEAD_STATUS.CONTACTED) {
-    return lead
+    await updateLeadContactNote(leadId, note)
+    const fresh = await prisma.consultLead.findUnique({
+      where: { id: leadId },
+      include: { statusLogs: { orderBy: { createdAt: 'asc' } } },
+    })
+    return mapLeadRecord(fresh)
   }
   await appendLeadStatus(leadId, lead.status, LEAD_STATUS.CONTACTED, 'merchant', merchantId, note)
   const fresh = await prisma.consultLead.findUnique({

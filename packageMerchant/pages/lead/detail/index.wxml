@@ -28,6 +28,19 @@
         imageComplianceType="consultImageMerchant"
         footerComplianceType="consultMerchant"
       />
+
+      <view wx:if="{{canEditContactNote}}" class="lead-detail__note card">
+        <text class="lead-detail__note-title text-h3">联系备注</text>
+        <text class="text-caption lead-detail__note-hint">仅商家可见，便于记录沟通情况</text>
+        <textarea
+          class="lead-detail__note-input"
+          value="{{contactNoteDraft}}"
+          placeholder="选填，如：已电话沟通，约定周三到店"
+          maxlength="200"
+          bindinput="onContactNoteInput"
+        />
+        <ui-button type="secondary" size="sm" disabled="{{acting}}" bind:tap="onSaveContactNote">保存备注</ui-button>
+      </view>
     </view>
 
     <ui-fixed-bottom-bar
@@ -42,6 +55,23 @@
       >{{primaryActionText}}</ui-button>
     </ui-fixed-bottom-bar>
   </block>
+
+  <ui-bottom-sheet
+    visible="{{showContactPanel}}"
+    title="标记已联系"
+    hint="可选填联系备注，便于后续跟进"
+    showTextarea="{{true}}"
+    textareaValue="{{contactNoteDraft}}"
+    textareaPlaceholder="如：已电话沟通，约定周三到店"
+    confirmText="确认已联系"
+    cancelText="取消"
+    confirmDisabled="{{acting}}"
+    loading="{{acting}}"
+    bind:close="onCancelContactPanel"
+    bind:cancel="onCancelContactPanel"
+    bind:confirm="onSubmitContactPanel"
+    bind:input="onContactNoteInput"
+  />
 
   <ui-bottom-sheet
     visible="{{showClosePanel}}"

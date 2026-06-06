@@ -32,6 +32,9 @@ Page({
     showClosePanel: false,
     closeNote: '',
     pendingCloseReason: '',
+    showContactPanel: false,
+    contactNoteDraft: '',
+    canEditContactNote: false,
     acting: false,
   },
 
@@ -85,6 +88,8 @@ Page({
       this.setData({
         lead,
         detailRows: buildMerchantLeadDetailRows(raw),
+        contactNoteDraft: raw.contactNote || '',
+        canEditContactNote: lead.status === LEAD_STATUS.CONTACTED,
         ...this.buildBottomBarState(lead.status),
         status: 'normal',
       })
@@ -152,12 +157,47 @@ Page({
     wx.makePhoneCall({ phoneNumber: phone })
   },
 
-  async onMarkContacted() {
+  onMarkContacted() {
+    if (this.data.acting) return
+    this.setData({
+      showContactPanel: true,
+      contactNoteDraft: '',
+    })
+  },
+
+  onContactNoteInput(e) {
+    const value = (e.detail && e.detail.value) || ''
+    this.setData({ contactNoteDraft: value })
+  },
+
+  onCancelContactPanel() {
+    this.setData({ showContactPanel: false })
+  },
+
+  async onSubmitContactPanel() {
+    if (this.data.acting) return
+    await this.submitContactNote(this.data.contactNoteDraft.trim(), {
+      closePanel: true,
+      successToast: '已标记联系',
+    })
+  },
+
+  async onSaveContactNote() {
+    if (this.data.acting || !this.data.canEditContactNote) return
+    await this.submitContactNote(this.data.contactNoteDraft.trim(), {
+      successToast: '备注已保存',
+    })
+  },
+
+  async submitContactNote(note, { closePanel = false, successToast = '已保存' } = {}) {
     if (this.data.acting) return
     this.setData({ acting: true })
     try {
-      await markLeadContacted(this.leadId, this.storeId)
-      wx.showToast({ title: '已标记联系', icon: 'success' })
+      await markLeadContacted(this.leadId, this.storeId, note)
+      wx.showToast({ title: successToast, icon: 'success' })
+      if (closePanel) {
+        this.setData({ showContactPanel: false })
+      }
       this.loadDetail()
     } catch (e) {
       wx.showToast({

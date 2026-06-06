@@ -7,8 +7,27 @@ const {
 } = require('../../../services/merchant')
 const { isMerchantOwner } = require('../../../utils/auth')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
+const {
+  buildPublicStoreSharePayload,
+  buildPublicStoreTimelinePayload,
+  buildStoreShareTitle,
+  canShareStore,
+  copyPublicStoreWebLink,
+} = require('../../../utils/store-share')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
+
+const BOTTOM_LEFT_ACTIONS = [
+  { key: 'share', type: 'secondary', text: '分享' },
+  { key: 'call', type: 'secondary', text: '电话咨询' },
+  { key: 'navigate', type: 'secondary', text: '导航' },
+]
+
+/** 商家预览：分享放右侧主按钮，左侧仅保留联系/导航 */
+const BOTTOM_LEFT_ACTIONS_PREVIEW = [
+  { key: 'call', type: 'secondary', text: '电话咨询' },
+  { key: 'navigate', type: 'secondary', text: '导航' },
+]
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -17,11 +36,6 @@ const STATUS_TEXT = {
   suspended: '暂停预约',
   offline: '暂不可预约',
 }
-
-const BOTTOM_LEFT_ACTIONS = [
-  { key: 'call', type: 'secondary', text: '电话咨询' },
-  { key: 'navigate', type: 'secondary', text: '导航' },
-]
 
 function buildStoreInfoRows(store) {
   if (!store) return []
@@ -59,15 +73,25 @@ Page({
     isPreview: false,
     previewBannerText: PREVIEW_BANNER_TEXT,
     canEditStore: false,
+    shareSheetVisible: false,
+    shareActionsDisabled: false,
+    autoOpenShare: false,
   },
 
   onLoad(options) {
     this.isPreview = options.preview === '1' || options.preview === 'true'
+    this.autoOpenShare = options.share === '1' || options.share === 'true'
     this.storeId = options.id || ''
     if (this.isPreview) {
       wx.setNavigationBarTitle({ title: '门店主页预览' })
     }
     this.initPage()
+  },
+
+  onShow() {
+    if (this.data.status === 'normal' && this.storeId) {
+      this.updateShareMenu(true)
+    }
   },
 
   async initPage() {
@@ -77,7 +101,10 @@ Page({
     } else if (!this.storeId) {
       this.storeId = 'store_demo_1'
     }
-    this.setData({ isPreview: this.isPreview })
+    this.setData({
+      isPreview: this.isPreview,
+      bottomLeftActions: this.isPreview ? BOTTOM_LEFT_ACTIONS_PREVIEW : BOTTOM_LEFT_ACTIONS,
+    })
     this.loadPage()
   },
 
@@ -136,13 +163,88 @@ Page({
         status: 'normal',
         casesStatus: cases.length ? 'normal' : 'empty',
         servicesStatus: services.length ? 'normal' : 'empty',
+        shareActionsDisabled: !canShareStore(store),
       })
+      this.updateShareMenu(true)
+      if (this.autoOpenShare && canShareStore(store)) {
+        this.autoOpenShare = false
+        this.setData({ shareSheetVisible: true })
+      } else if (this.autoOpenShare && !canShareStore(store)) {
+        this.autoOpenShare = false
+        wx.showToast({ title: '门店信息未就绪，暂不可分享', icon: 'none' })
+      }
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败，请重试',
       })
+      this.updateShareMenu(false)
     }
+  },
+
+  updateShareMenu(ready) {
+    if (ready) {
+      wx.showShareMenu({
+        withShareTicket: false,
+        menus: ['shareAppMessage', 'shareTimeline'],
+      })
+    } else {
+      wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    }
+  },
+
+  onOpenShareSheet() {
+    if (!canShareStore(this.data.store)) {
+      wx.showToast({ title: '门店信息未就绪，暂不可分享', icon: 'none' })
+      return
+    }
+    this.setData({ shareSheetVisible: true })
+  },
+
+  onCloseShareSheet() {
+    this.setData({ shareSheetVisible: false })
+  },
+
+  onShareTimelineGuide() {
+    this.setData({ shareSheetVisible: false })
+    wx.showModal({
+      title: '分享到朋友圈',
+      content: '内容已准备好。请点击右上角 ···，选择「分享到朋友圈」。',
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
+  async onCopyPublicWebLink() {
+    const { store } = this.data
+    if (!store || !store.id) {
+      wx.showToast({ title: '门店信息缺失', icon: 'none' })
+      return
+    }
+    try {
+      await copyPublicStoreWebLink(store.id, store)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
+  },
+
+  onShareAppMessage() {
+    const { store } = this.data
+    if (store && canShareStore(store)) {
+      const payload = buildPublicStoreSharePayload(store)
+      if (payload) return payload
+    }
+    if (this.storeId) {
+      return {
+        title: store && store.name ? buildStoreShareTitle(store) : '辙见 · 门店主页',
+        path: `/pages/store/detail/index?id=${this.storeId}`,
+      }
+    }
+    return { title: '辙见 · 门店主页', path: '/pages/store/index' }
+  },
+
+  onShareTimeline() {
+    return buildPublicStoreTimelinePayload(this.data.store, this.storeId)
   },
 
   onRetry() {
@@ -186,7 +288,8 @@ Page({
 
   onBottomLeftAction(e) {
     const { key } = e.detail
-    if (key === 'call') this.onCall()
+    if (key === 'share') this.onOpenShareSheet()
+    else if (key === 'call') this.onCall()
     else if (key === 'navigate') this.onNavigate()
   },
 

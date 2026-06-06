@@ -46,7 +46,10 @@ Component({
 
     onSocialTap() {
       if (this.properties.actionsDisabled) return
-      if (this.properties.shareIntent === 'publicCase') {
+      if (
+        this.properties.shareIntent === 'publicCase' ||
+        this.properties.shareIntent === 'publicStore'
+      ) {
         this.triggerEvent('copypublicweblink')
         return
       }

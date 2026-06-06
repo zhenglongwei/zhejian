@@ -443,10 +443,18 @@ async function mockMarkLeadContacted(leadId, storeId, note = '') {
   }
   if (lead.status !== LEAD_STATUS.CONTACTED) {
     appendStatusLog(lead, LEAD_STATUS.CONTACTED, 'merchant', note)
-    if (note) lead.contactNote = note
-    list[index] = lead
-    saveLeads(list)
+  } else {
+    const logs = lead.statusLogs || []
+    for (let i = logs.length - 1; i >= 0; i -= 1) {
+      if (logs[i].toStatus === LEAD_STATUS.CONTACTED) {
+        logs[i].reason = note
+        break
+      }
+    }
   }
+  lead.contactNote = note
+  list[index] = lead
+  saveLeads(list)
   return lead
 }
 
