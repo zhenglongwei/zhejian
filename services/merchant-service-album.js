@@ -79,6 +79,14 @@ async function createMerchantColdStartPreview(albumId) {
   return post(`/merchant/service-albums/${albumId}/cold-start-preview`, withStore())
 }
 
+async function fetchMerchantAlbumClaimQrcode(albumId) {
+  if (ENV.mode === 'mock') {
+    const { mockFetchMerchantAlbumClaimQrcode } = require('../mock/service-albums')
+    return mockFetchMerchantAlbumClaimQrcode(albumId)
+  }
+  return get(`/merchant/service-albums/${albumId}/claim-qrcode`, withStore())
+}
+
 async function submitMerchantPublicCase(albumId, payload = {}) {
   if (ENV.mode === 'mock') {
     const { mockSubmitMerchantPublicCase } = require('../mock/service-albums')
@@ -96,4 +104,5 @@ module.exports = {
   fetchMerchantAlbumStats,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
+  fetchMerchantAlbumClaimQrcode,
 }

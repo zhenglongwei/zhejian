@@ -19,6 +19,8 @@ const {
   rewriteMediaUrlForCurrentBase,
 } = require('../lib/media-storage')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { config } = require('../config')
+const { getWxaCodeUnlimited } = require('../lib/wechat')
 
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 
@@ -161,6 +163,7 @@ function buildMerchantView(album) {
     publicCaseId: album.publicCase?.id || '',
     canSubmitColdStartPublicCase,
     invitePath: `/pages/album/detail/index?albumId=${album.id}&from=merchant_share`,
+    claimPath: `/pages/album/claim/index?albumId=${album.id}`,
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
@@ -601,6 +604,125 @@ async function submitPartConfirm(albumId, userId, _confirmId, _payload) {
   return getUserServiceAlbum(albumId, userId)
 }
 
+const ALBUM_CLAIM_PAGE = 'pages/album/claim/index'
+
+function albumHasOwner(album) {
+  return (
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  )
+}
+
+async function getAlbumClaimPreview(albumId, userId = '') {
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在或已被删除')
+    err.status = 404
+    throw err
+  }
+
+  let user = null
+  if (userId) {
+    user = await prisma.user.findUnique({ where: { id: userId } })
+  }
+  const phone = user?.phone || ''
+  const hasOwner = albumHasOwner(album)
+  const alreadyOwner =
+    Boolean(userId && album.userId === userId) ||
+    Boolean(phone && album.userPhone === phone)
+
+  let claimable = !hasOwner
+  let reason = ''
+  if (hasOwner && !alreadyOwner) {
+    claimable = false
+    reason = '该服务相册已关联其他车主'
+  } else if (alreadyOwner) {
+    claimable = false
+    reason = '你已关联此服务相册'
+  }
+
+  return {
+    albumId: album.id,
+    storeName: album.storeName || '—',
+    serviceName: album.serviceName || '—',
+    vehicleDisplay: formatVehicle(album.vehicleJson),
+    claimable,
+    alreadyOwner,
+    hasOwner,
+    reason,
+  }
+}
+
+async function claimServiceAlbumByUser(albumId, userId, payload = {}) {
+  if (!payload.agreed) {
+    const err = new Error('请先阅读并同意关联说明')
+    err.status = 400
+    throw err
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = String(user?.phone || '').trim()
+  if (!/^1\d{10}$/.test(phone)) {
+    const err = new Error('请先绑定手机号后再关联服务相册')
+    err.status = 403
+    throw err
+  }
+
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在或已被删除')
+    err.status = 404
+    throw err
+  }
+
+  if (albumHasOwner(album)) {
+    if (album.userId === userId || album.userPhone === phone) {
+      return getUserServiceAlbum(albumId, userId)
+    }
+    const err = new Error('该服务相册已关联其他车主')
+    err.status = 409
+    throw err
+  }
+
+  await prisma.album.update({
+    where: { id: albumId },
+    data: {
+      userPhone: phone,
+      userId,
+    },
+  })
+
+  return getUserServiceAlbum(albumId, userId)
+}
+
+async function getMerchantAlbumClaimQrcode(albumId, storeId, merchantId = '') {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+
+  if (!config.wechat.configured) {
+    return {
+      albumId,
+      claimPath: `/pages/album/claim/index?albumId=${albumId}`,
+      qrcodeAvailable: false,
+      message: '微信未配置，暂无法生成小程序码，请使用转发或复制路径',
+    }
+  }
+
+  const envVersion = config.nodeEnv === 'production' ? 'release' : 'develop'
+  const buffer = await getWxaCodeUnlimited({
+    page: ALBUM_CLAIM_PAGE,
+    scene: albumId,
+    envVersion,
+  })
+
+  return {
+    albumId,
+    claimPath: `/pages/album/claim/index?albumId=${albumId}`,
+    qrcodeAvailable: true,
+    qrcodeDataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
+  }
+}
+
 module.exports = {
   listUserServiceAlbums,
   getUserServiceAlbum,
@@ -615,4 +737,7 @@ module.exports = {
   withdrawAuthorization,
   submitPartConfirm,
   buildAlbumView,
+  getAlbumClaimPreview,
+  claimServiceAlbumByUser,
+  getMerchantAlbumClaimQrcode,
 }

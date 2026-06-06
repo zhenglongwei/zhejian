@@ -1,0 +1,73 @@
+<view class="page album-claim {{status === 'ready' ? 'album-claim--with-bar' : ''}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content album-claim__pad">
+      <ui-skeleton rows="{{4}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法关联服务相册"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{preview}}">
+    <view class="page-content album-claim__body">
+      <ui-privacy-banner scene="album" />
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3 album-claim__title">门店为你创建了服务相册</text>
+        <text class="text-caption album-claim__meta">{{preview.storeName}} · {{preview.serviceName}}</text>
+        <text wx:if="{{preview.vehicleDisplay && preview.vehicleDisplay !== '—'}}" class="text-caption album-claim__meta">车辆：{{preview.vehicleDisplay}}</text>
+        <text class="text-body album-claim__desc">关联后可在「我的 → 我的服务相册」查看维修留档，内容仅你本人可见。</text>
+      </ui-card>
+
+      <block wx:if="{{preview.alreadyOwner}}">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="text-body">{{preview.reason || '你已关联此服务相册'}}</text>
+        </ui-card>
+      </block>
+
+      <block wx:elif="{{!preview.claimable}}">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="text-body">{{preview.reason || '当前无法关联'}}</text>
+        </ui-card>
+      </block>
+
+      <block wx:else>
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <ui-checkbox-row checked="{{agreed}}" bind:toggle="onAgreeToggle">
+            <text class="text-caption">{{consentText}}</text>
+          </ui-checkbox-row>
+        </ui-card>
+      </block>
+    </view>
+
+    <ui-fixed-bottom-bar wx:if="{{preview.claimable && !preview.alreadyOwner}}">
+      <ui-button
+        type="primary"
+        slot="right"
+        loading="{{submitting}}"
+        disabled="{{!agreed || submitting}}"
+        bind:tap="onClaimTap"
+      >确认关联</ui-button>
+    </ui-fixed-bottom-bar>
+
+    <ui-fixed-bottom-bar wx:elif="{{preview.alreadyOwner}}">
+      <ui-button type="primary" slot="right" bind:tap="onViewAlbum">查看服务相册</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bind:success="onLoginSheetSuccess"
+    bind:fail="onLoginSheetFail"
+    bind:close="closeLoginSheet"
+  />
+</view>

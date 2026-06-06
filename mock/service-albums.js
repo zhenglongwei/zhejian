@@ -465,6 +465,7 @@ function buildMerchantAlbumView(raw) {
     publicCaseStatus,
     canSubmitColdStartPublicCase,
     invitePath: `/pages/album/detail/index?albumId=${album.albumId}&from=merchant_share`,
+    claimPath: `/pages/album/claim/index?albumId=${album.albumId}`,
     createdAt: album.createdAt,
     updatedAt: album.updatedAt,
     updatedAtText: formatDateTime(album.updatedAt),
@@ -1032,7 +1033,99 @@ async function mockFetchSharedAlbum(token) {
   return buildMockSharedView(album, record.mode)
 }
 
+async function mockFetchAlbumClaimPreview(albumId) {
+  await delay()
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('相册不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  const store = resolveStoreBlock(raw.storeId)
+  const hasOwner = Boolean(String(raw.userPhone || '').trim())
+  const phone = isLoggedIn() ? getUserPhone() : ''
+  const alreadyOwner = Boolean(phone && raw.userPhone === phone)
+  let claimable = !hasOwner
+  let reason = ''
+  if (hasOwner && !alreadyOwner) {
+    claimable = false
+    reason = '该服务相册已关联其他车主'
+  } else if (alreadyOwner) {
+    claimable = false
+    reason = '你已关联此服务相册'
+  }
+  return {
+    albumId: raw.albumId,
+    storeName: store.name,
+    serviceName: raw.serviceName,
+    vehicleDisplay: buildVehicleDisplay(raw.vehicle),
+    claimable,
+    alreadyOwner,
+    hasOwner,
+    reason,
+  }
+}
+
+async function mockClaimServiceAlbum(albumId, payload = {}) {
+  await delay(320)
+  if (!payload.agreed) {
+    const err = new Error('请先阅读并同意关联说明')
+    err.code = 400
+    throw err
+  }
+  if (!isLoggedIn()) {
+    const err = new Error('请先登录')
+    err.code = 401
+    throw err
+  }
+  const phone = getUserPhone()
+  if (!phone) {
+    const err = new Error('请先绑定手机号后再关联服务相册')
+    err.code = 403
+    throw err
+  }
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('相册不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  if (raw.userPhone && raw.userPhone !== phone) {
+    const err = new Error('该服务相册已关联其他车主')
+    err.code = 409
+    throw err
+  }
+  if (!raw.userPhone) {
+    raw.userPhone = phone
+    raw.updatedAt = new Date().toISOString()
+    map[albumId] = raw
+    saveAlbumMap(map)
+  }
+  return mockFetchServiceAlbum(albumId)
+}
+
+async function mockFetchMerchantAlbumClaimQrcode(albumId) {
+  await delay()
+  const map = loadAlbumMap()
+  if (!map[albumId]) {
+    const err = new Error('档案不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  return {
+    albumId,
+    claimPath: `/pages/album/claim/index?albumId=${albumId}`,
+    qrcodeAvailable: false,
+    message: '演示模式：请车主打开认领页或复制路径测试',
+  }
+}
+
 module.exports = {
+  mockFetchAlbumClaimPreview,
+  mockClaimServiceAlbum,
+  mockFetchMerchantAlbumClaimQrcode,
   mockFetchUserServiceAlbums,
   mockFetchServiceAlbum,
   mockSubmitPartConfirm,

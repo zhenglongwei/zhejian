@@ -5,6 +5,15 @@
   margin-bottom: var(--space-md);
 }
 
+.album-create__scan-hint {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .album-create__service-section {
   position: relative;
 }

@@ -9,6 +9,7 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
+  getMerchantAlbumClaimQrcode,
 } = require('../services/service-album.service')
 const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
@@ -46,6 +47,20 @@ router.post('/service-albums', requireAuth(['merchant']), async (req, res, next)
       req.auth.merchantId,
       storeId,
       req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/claim-qrcode', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await getMerchantAlbumClaimQrcode(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
     )
     return ok(res, data)
   } catch (e) {

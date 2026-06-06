@@ -1,0 +1,36 @@
+.album-claim {
+  padding-bottom: var(--space-xl);
+}
+
+.album-claim--with-bar .album-claim__body {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.album-claim__pad {
+  padding-top: var(--space-md);
+}
+
+.album-claim__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+}
+
+.album-claim__title {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-primary);
+}
+
+.album-claim__meta {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-claim__desc {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+}

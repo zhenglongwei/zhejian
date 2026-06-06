@@ -11,6 +11,8 @@ const {
   mockSubmitServiceAlbumAuthorization,
   mockFetchUserAuthorizations,
   mockWithdrawAuthorization,
+  mockFetchAlbumClaimPreview,
+  mockClaimServiceAlbum,
 } = require('../mock/service-albums')
 const { createServiceAuthorizeTaskFromPreMask } = require('./desensitize')
 
@@ -85,6 +87,20 @@ async function recordAlbumShare(albumId, payload = {}) {
   return post(`/user/service-albums/${albumId}/share`, payload)
 }
 
+async function fetchAlbumClaimPreview(albumId) {
+  if (ENV.mode === 'mock') {
+    return mockFetchAlbumClaimPreview(albumId)
+  }
+  return get(`/user/service-albums/${albumId}/claim-preview`)
+}
+
+async function claimServiceAlbum(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return mockClaimServiceAlbum(albumId, payload)
+  }
+  return post(`/user/service-albums/${albumId}/claim`, payload)
+}
+
 async function fetchSharedAlbum(token) {
   if (ENV.mode === 'mock') {
     const { mockFetchSharedAlbum } = require('../mock/service-albums')
@@ -103,4 +119,6 @@ module.exports = {
   withdrawAuthorization,
   recordAlbumShare,
   fetchSharedAlbum,
+  fetchAlbumClaimPreview,
+  claimServiceAlbum,
 }

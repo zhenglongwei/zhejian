@@ -441,6 +441,13 @@ Page({
     })
   },
 
+  onInviteOwnerScan() {
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
+    })
+  },
+
   async onSaveOwnerPhone() {
     if (this.data.savingOwnerPhone) return
     const userPhone = (this.data.ownerPhoneInput || '').trim()

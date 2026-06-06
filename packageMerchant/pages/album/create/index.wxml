@@ -39,7 +39,11 @@
       </view>
     </view>
 
-    <view class="merchant-form__section">
+    <view wx:if="{{scanMode}}" class="merchant-form__section">
+      <text class="text-caption album-create__scan-hint">创建后请车主扫码确认关联，将使用车主本人绑定的手机号，不由商家代填。</text>
+    </view>
+
+    <view wx:else class="merchant-form__section">
       <text class="merchant-form__label">车主手机号（选填，便于邀请查看服务相册）</text>
       <input
         class="merchant-form__input"
@@ -81,6 +85,6 @@
       loading="{{submitting}}"
       disabled="{{status === 'loading'}}"
       bind:tap="onSubmit"
-    >创建服务相册</ui-button>
+    >{{scanMode ? '创建并生成扫码' : '创建服务相册'}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

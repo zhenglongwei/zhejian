@@ -76,9 +76,19 @@ Page({
     submitting: false,
     storeName: '',
     storeId: '',
+    scanMode: false,
+    pageTitle: '新建服务相册',
   },
 
-  onLoad() {
+  onLoad(options) {
+    this.scanMode = options.mode === 'scan'
+    this.setData({
+      scanMode: this.scanMode,
+      pageTitle: this.scanMode ? '扫码关联车主' : '新建服务相册',
+    })
+    if (this.scanMode) {
+      wx.setNavigationBarTitle({ title: '扫码关联车主' })
+    }
     this.initPage()
   },
 
@@ -177,7 +187,7 @@ Page({
       wx.showToast({ title: '请填写服务项目', icon: 'none' })
       return
     }
-    const userPhone = (this.data.form.userPhone || '').trim()
+    const userPhone = this.scanMode ? '' : (this.data.form.userPhone || '').trim()
     if (!this.validatePhone(userPhone)) {
       wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
       return
@@ -201,9 +211,10 @@ Page({
       })
       wx.showToast({ title: '服务相册已创建', icon: 'success' })
       setTimeout(() => {
-        wx.redirectTo({
-          url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
-        })
+        const nextUrl = this.scanMode
+          ? `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`
+          : `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`
+        wx.redirectTo({ url: nextUrl })
       }, 400)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })

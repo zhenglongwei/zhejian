@@ -1,0 +1,69 @@
+.album-invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.album-invite__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.album-invite__meta {
+  display: block;
+  color: var(--color-text-tertiary);
+}
+
+.album-invite__phone {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+
+.album-invite__section {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.album-invite__hint {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-tertiary);
+}
+
+.album-invite__qr-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-md) 0;
+}
+
+.album-invite__qr {
+  width: 440rpx;
+  height: 440rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.album-invite__qr-placeholder {
+  width: 440rpx;
+  min-height: 440rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  text-align: center;
+}
+
+.album-invite__steps {
+  display: block;
+  white-space: pre-line;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}

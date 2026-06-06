@@ -8,6 +8,8 @@ const {
   fetchUserAuthorizations,
   withdrawAuthorization,
   submitPartConfirm,
+  getAlbumClaimPreview,
+  claimServiceAlbumByUser,
 } = require('../services/service-album.service')
 const { publishServicePublicCase } = require('../services/public-case.service')
 const { createAlbumAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
@@ -28,6 +30,29 @@ router.get('/service-albums/authorizations', requireAuth(['user']), async (req, 
   try {
     const list = await fetchUserAuthorizations(req.auth.userId)
     return ok(res, list)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/claim-preview', async (req, res, next) => {
+  try {
+    const userId = req.auth?.userId || ''
+    const data = await getAlbumClaimPreview(req.params.albumId, userId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/claim', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await claimServiceAlbumByUser(
+      req.params.albumId,
+      req.auth.userId,
+      req.body || {},
+    )
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

@@ -124,8 +124,56 @@ async function getPhoneNumber(phoneCode) {
   return phone
 }
 
+/**
+ * 小程序码（无数量限制），scene 最长 32 字符
+ * @param {{ page: string, scene: string, width?: number, envVersion?: string }} options
+ * @returns {Promise<Buffer>}
+ */
+async function getWxaCodeUnlimited(options = {}) {
+  assertWechatConfigured()
+  const { page, scene, width = 280, envVersion = 'release' } = options
+  if (!page || !scene) {
+    const err = new Error('缺少小程序码 page 或 scene')
+    err.status = 400
+    throw err
+  }
+  if (String(scene).length > 32) {
+    const err = new Error('scene 超过 32 字符限制')
+    err.status = 400
+    throw err
+  }
+
+  const accessToken = await getAccessToken()
+  const res = await fetch(
+    `https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page,
+        scene,
+        width,
+        check_path: false,
+        env_version: envVersion,
+      }),
+    },
+  )
+
+  const contentType = res.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    const data = await res.json()
+    const err = new Error(data.errmsg || '生成小程序码失败')
+    err.status = 502
+    err.code = data.errcode
+    throw err
+  }
+
+  return Buffer.from(await res.arrayBuffer())
+}
+
 module.exports = {
   code2Session,
   getAccessToken,
   getPhoneNumber,
+  getWxaCodeUnlimited,
 }

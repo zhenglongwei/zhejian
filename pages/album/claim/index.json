@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "关联服务相册",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-checkbox-row": "/components/checkbox-row/index",
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

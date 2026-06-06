@@ -144,6 +144,14 @@
           loading="{{savingOwnerPhone}}"
           bind:tap="onSaveOwnerPhone"
         >保存手机号</ui-button>
+        <ui-button
+          wx:if="{{!hasOwner}}"
+          type="ghost"
+          size="sm"
+          block="{{true}}"
+          custom-class="merchant-album-edit__invite-btn"
+          bind:tap="onInviteOwnerScan"
+        >请车主扫码关联</ui-button>
       </ui-card>
         </view>
       </scroll-view>
