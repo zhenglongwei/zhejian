@@ -1,0 +1,36 @@
+.h5-home-hero .h5-title {
+  margin-bottom: var(--space-sm);
+}
+
+.h5-home-quick {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-home-quick .h5-btn {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.h5-home-more {
+  margin: var(--space-md) 0 0;
+}
+
+.h5-home-intro {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+}
+
+.h5-home-intro li {
+  margin-bottom: var(--space-sm);
+}
+
+.h5-home-footnote {
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-xl);
+}

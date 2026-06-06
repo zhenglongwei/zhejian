@@ -87,6 +87,19 @@ async function resolveMerchantToken(merchantId) {
   return session.token
 }
 
+async function verifyH5Home() {
+  const homeRes = await fetch(`${BASE}/`)
+  assert(homeRes.ok, `H5 首页 HTTP ${homeRes.status}`)
+  const html = await homeRes.text()
+  assert(html.includes('home-render.js'), 'index.html 未引用 home-render.js')
+
+  const apiHome = await api('GET', '/user/home')
+  assert(apiHome.ok && apiHome.json?.code === 0, 'GET /user/home 失败')
+  assert(Array.isArray(apiHome.json.data?.featuredCases), 'home 缺少 featuredCases')
+  assert(Array.isArray(apiHome.json.data?.recommendedMerchants), 'home 缺少 recommendedMerchants')
+  console.log('[chain] ✅ H5 首页 + GET /user/home')
+}
+
 async function verifyH5Assets(caseId) {
   const listRes = await fetch(`${BASE}/case/`)
   assert(listRes.ok, `case/ 列表页 HTTP ${listRes.status}`)
@@ -140,6 +153,7 @@ async function main() {
   assert(detail.json.data.storeId, '案例详情缺少 storeId')
   console.log('[chain] ✅ GET /user/cases/:id')
 
+  await verifyH5Home()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
 
