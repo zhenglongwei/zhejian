@@ -98,6 +98,10 @@
     return '/case/view.html?id=' + encodeURIComponent(caseId)
   }
 
+  function servicePagePath(serviceId) {
+    return '/service/' + encodeURIComponent(serviceId) + '.html'
+  }
+
   function resolveStoreId() {
     if (window.__STORE_ID__) return String(window.__STORE_ID__).trim()
     var pathMatch = location.pathname.match(/\/store\/([^/]+)\.html$/)
@@ -352,7 +356,9 @@
       .map(function (svc) {
         var price = buildPriceDisplay(svc)
         return (
-          '<div class="h5-service-card" role="button" tabindex="0" data-service-id="' +
+          '<a class="h5-service-card" href="' +
+          servicePagePath(svc.id) +
+          '" data-service-id="' +
           escapeHtml(svc.id) +
           '">' +
           '<h3 class="h5-service-card-title">' +
@@ -367,10 +373,11 @@
           (price.note
             ? '<p class="h5-compliance">' + escapeHtml(price.note) + '</p>'
             : '') +
+          '<p class="h5-link">查看服务详情 ›</p>' +
           (bookingEnabled
-            ? '<p class="h5-link">预约该服务 ›</p>'
+            ? ''
             : '<p class="h5-compliance">门店暂停预约，可先浏览服务信息</p>') +
-          '</div>'
+          '</a>'
         )
       })
       .join('')
@@ -462,11 +469,9 @@
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_store_service_click', {
             storeId: storeId,
-            serviceItemId: serviceId,
+            serviceId: serviceId,
           })
         }
-        if (!bookingEnabled) return
-        openWeapp(miniprogramPath('service/detail/index', storeId, { serviceId: serviceId }))
       })
     })
 

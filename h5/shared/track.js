@@ -110,6 +110,7 @@
     if (
       eventName === 'h5_case_view' ||
       eventName === 'h5_store_view' ||
+      eventName === 'h5_service_view' ||
       eventName === 'h5_page_view'
     ) {
       flush()
@@ -134,6 +135,16 @@
       storeId: data.id || data.storeId || '',
       storeName: data.name || data.storeName || '',
       city: data.city || '',
+    })
+  }
+
+  function trackServiceView(data) {
+    track('h5_service_view', {
+      serviceId: data.id || data.serviceId || '',
+      serviceItemId: data.serviceItemId || '',
+      storeId: data.storeId || '',
+      storeName: data.storeName || '',
+      serviceName: data.name || data.serviceName || '',
     })
   }
 
@@ -195,6 +206,7 @@
     trackPageView: trackPageView,
     trackCaseView: trackCaseView,
     trackStoreView: trackStoreView,
+    trackServiceView: trackServiceView,
     bindScrollDepth: bindScrollDepth,
     flush: flush,
     ingestUrl: ingestUrl,
