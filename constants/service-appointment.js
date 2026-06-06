@@ -6,6 +6,12 @@ const DEFAULT_APPOINTMENT_JSON = {
   advanceNote: '',
   holidayNote: '',
   consultGuide: '',
+  applicableVehicles: [],
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return []
+  return value.map((s) => String(s).trim()).filter(Boolean)
 }
 
 function normalizeAppointmentJson(raw) {
@@ -17,7 +23,19 @@ function normalizeAppointmentJson(raw) {
     advanceNote: String(src.advanceNote || '').trim(),
     holidayNote: String(src.holidayNote || '').trim(),
     consultGuide: String(src.consultGuide || '').trim(),
+    applicableVehicles: normalizeStringArray(src.applicableVehicles),
   }
+}
+
+function parseLineList(text) {
+  return (text || '')
+    .split(/[\n,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function lineListToText(list) {
+  return normalizeStringArray(list).join('\n')
 }
 
 function appointmentJsonFromForm(form = {}) {
@@ -27,6 +45,7 @@ function appointmentJsonFromForm(form = {}) {
     advanceNote: form.advanceNote,
     holidayNote: form.holidayNote,
     consultGuide: form.consultGuide,
+    applicableVehicles: parseLineList(form.applicableVehiclesText),
   })
   if (normalized.advanceRequired && !normalized.advanceNote) {
     normalized.advanceNote = '请提前预约后再到店'
@@ -43,6 +62,7 @@ function appointmentFormFromJson(raw, acceptAppointment = true) {
     advanceNote: json.advanceNote,
     holidayNote: json.holidayNote,
     consultGuide: json.consultGuide,
+    applicableVehiclesText: lineListToText(json.applicableVehicles),
   }
 }
 
@@ -80,6 +100,9 @@ function buildAppointmentSection(record = {}) {
 module.exports = {
   DEFAULT_APPOINTMENT_JSON,
   normalizeAppointmentJson,
+  normalizeStringArray,
+  parseLineList,
+  lineListToText,
   appointmentJsonFromForm,
   appointmentFormFromJson,
   buildAppointmentSection,

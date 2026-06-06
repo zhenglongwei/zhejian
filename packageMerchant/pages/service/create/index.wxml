@@ -89,6 +89,42 @@
     />
   </view>
 
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">服务包含</text>
+    <text class="merchant-form__hint text-caption">选填，每行一项；留空时用户端展示平台默认说明</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="如：指定机油、机滤&#10;标准工时&#10;基础检测"
+      value="{{form.includedItemsText}}"
+      data-field="includedItemsText"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">服务不包含</text>
+    <text class="merchant-form__hint text-caption">选填，每行一项</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="如：额外维修项目&#10;非套餐配件&#10;特殊车型差价"
+      value="{{form.excludedItemsText}}"
+      data-field="excludedItemsText"
+      bindinput="onInput"
+    />
+  </view>
+
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">适用车型</text>
+    <text class="merchant-form__hint text-caption">选填，每行一项；如品牌、车系或年款限制</text>
+    <textarea
+      class="merchant-form__textarea"
+      placeholder="如：大众、奥迪部分车型&#10;不含进口行政加长版"
+      value="{{form.applicableVehiclesText}}"
+      data-field="applicableVehiclesText"
+      bindinput="onInput"
+    />
+  </view>
+
   <view wx:if="{{showPriceFields && priceModes[priceModeIndex].value === 'range'}}" class="merchant-form__section">
     <text class="merchant-form__label">价格影响因素</text>
     <textarea

@@ -11,7 +11,10 @@ const {
 const {
   appointmentJsonFromForm,
   appointmentFormFromJson,
+  parseLineList,
+  lineListToText,
 } = require('../../../../constants/service-appointment')
+const { ITEM_TEMPLATES } = require('../../../../utils/service-detail-template')
 const {
   saveServicePlan,
   fetchServiceDetail,
@@ -49,6 +52,9 @@ Page({
       coverUrl: '',
       summary: '',
       detail: '',
+      includedItemsText: '',
+      excludedItemsText: '',
+      applicableVehiclesText: '',
       priceFactorsText: '',
       amount: '',
       minAmount: '',
@@ -130,6 +136,11 @@ Page({
           coverUrl: detail.coverUrl || '',
           summary: detail.summary || '',
           detail: detail.detail || '',
+          includedItemsText: lineListToText(detail.includedItems),
+          excludedItemsText: lineListToText(detail.excludedItems),
+          applicableVehiclesText: lineListToText(
+            (detail.appointmentJson && detail.appointmentJson.applicableVehicles) || []
+          ),
           priceFactorsText: (detail.priceFactors || []).join('\n'),
           amount: detail.amount != null ? String(detail.amount) : '',
           minAmount: detail.minAmount != null ? String(detail.minAmount) : '',
@@ -175,6 +186,28 @@ Page({
     return buildMatchedTagViews(matched, selectedLabel)
   },
 
+  buildTemplatePrefill(serviceItemId) {
+    const tpl = ITEM_TEMPLATES[serviceItemId]
+    if (!tpl) return {}
+    const { form } = this.data
+    const patch = {}
+    if (!form.includedItemsText.trim() && tpl.includedItems?.length) {
+      patch['form.includedItemsText'] = tpl.includedItems.join('\n')
+    }
+    if (!form.excludedItemsText.trim() && tpl.excludedItems?.length) {
+      patch['form.excludedItemsText'] = tpl.excludedItems.join('\n')
+    }
+    if (
+      !form.applicableVehiclesText.trim() &&
+      tpl.defaultPriceFactors?.length
+    ) {
+      patch['form.applicableVehiclesText'] = tpl.defaultPriceFactors
+        .filter((f) => /车型|年款|品牌/.test(f))
+        .join('\n')
+    }
+    return patch
+  },
+
   applyServiceSelection(label, opts = {}) {
     const resolved = resolveServiceSelection(label, this.data.serviceItems)
     if (!resolved) return
@@ -199,6 +232,7 @@ Page({
       patch['form.name'] = opts.formName
     } else if (!opts.preserveFormName) {
       patch['form.name'] = `${resolved.label} · ${this.storeName || '本店'}`
+      Object.assign(patch, this.buildTemplatePrefill(resolved.id))
     }
     this.setData(patch, () => this.syncPricePreview())
   },
@@ -348,10 +382,7 @@ Page({
   },
 
   parsePriceFactors(text) {
-    return (text || '')
-      .split(/[\n,，]/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    return parseLineList(text)
   },
 
   buildPayload() {
@@ -370,6 +401,8 @@ Page({
       coverUrl: (this.data.form.coverUrl || '').trim(),
       summary: this.data.form.summary.trim(),
       detail: this.data.form.detail.trim() || this.data.form.summary.trim(),
+      includedItems: parseLineList(this.data.form.includedItemsText),
+      excludedItems: parseLineList(this.data.form.excludedItemsText),
       priceMode: mode,
       amount: Number.isFinite(amount) ? amount : null,
       minAmount: Number.isFinite(minAmount) ? minAmount : null,

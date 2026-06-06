@@ -13,7 +13,10 @@ const {
   getServiceItem,
 } = require('../constants/service')
 const { PRICE_MODE, PRICE_MODE_LABEL } = require('../constants/price-mode')
-const { buildAppointmentSection } = require('../constants/service-appointment')
+const {
+  buildAppointmentSection,
+  normalizeAppointmentJson,
+} = require('../constants/service-appointment')
 const { fetchStoreDetail } = require('./store')
 const { fetchCaseList } = require('./case')
 const { applyDetailTemplate } = require('../utils/service-detail-template')
@@ -124,6 +127,7 @@ function buildKeyInfoRows(record, templateFields) {
 async function buildServiceDetailViewModel(record, opts = {}) {
   const audience = opts.audience || 'user'
   const templateFields = applyDetailTemplate(record)
+  const appointmentJson = normalizeAppointmentJson(record.appointmentJson)
   const { list: relatedCases, total: caseTotal, tier: caseLinkTier } =
     resolveRelatedCases(record, (await fetchCaseList()).list, { limit: 3 })
 
@@ -142,6 +146,7 @@ async function buildServiceDetailViewModel(record, opts = {}) {
     ...record,
     detail: record.detail || record.summary || '',
     ...templateFields,
+    applicableVehicles: appointmentJson.applicableVehicles,
     headTags: buildHeadTags(record),
     keyInfoRows: buildKeyInfoRows(record, templateFields),
     relatedCases,

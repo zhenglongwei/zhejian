@@ -230,6 +230,15 @@
     ]
   }
 
+  function normalizeStringArray(value) {
+    if (!Array.isArray(value)) return []
+    return value
+      .map(function (s) {
+        return String(s || '').trim()
+      })
+      .filter(Boolean)
+  }
+
   function normalizeAppointmentJson(raw) {
     var src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
     return {
@@ -238,6 +247,7 @@
       advanceNote: String(src.advanceNote || '').trim(),
       holidayNote: String(src.holidayNote || '').trim(),
       consultGuide: String(src.consultGuide || '').trim(),
+      applicableVehicles: normalizeStringArray(src.applicableVehicles),
     }
   }
 
@@ -635,6 +645,9 @@
       service.excludedItems,
       '如到店检测发现车辆情况与所选服务不符，门店会与你确认新的维修方案和费用。'
     )
+
+    var appointmentMeta = normalizeAppointmentJson(service.appointmentJson)
+    html += renderBulletSection('适用车型', appointmentMeta.applicableVehicles)
 
     if (service.priceFactors && service.priceFactors.length) {
       html += renderBulletSection('影响价格的因素', service.priceFactors)

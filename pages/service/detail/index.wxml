@@ -95,6 +95,17 @@
         </view>
       </view>
 
+      <view wx:if="{{detail.applicableVehicles.length}}" class="service-detail__section">
+        <text class="service-detail__section-title text-h2">适用车型</text>
+        <view class="service-detail__list">
+          <text
+            wx:for="{{detail.applicableVehicles}}"
+            wx:key="*this"
+            class="service-detail__list-item text-body"
+          >· {{item}}</text>
+        </view>
+      </view>
+
       <view wx:if="{{detail.applicableScenes.length}}" class="service-detail__section">
         <text class="service-detail__section-title text-h2">适用情况</text>
         <view class="service-detail__list">
