@@ -22,6 +22,7 @@ const {
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 const { DESIGN_TOKENS } = require('../../../../constants/design-tokens')
+const { uploadImage } = require('../../../../utils/media-upload')
 
 const PRICE_MODE_PICKER = PRICE_MODE_OPTIONS.filter(
   (o) => o.value !== PRICE_MODE.CONSULT
@@ -45,6 +46,7 @@ Page({
     priceModeIndex: 0,
     form: {
       name: '',
+      coverUrl: '',
       summary: '',
       detail: '',
       priceFactorsText: '',
@@ -125,6 +127,7 @@ Page({
         showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
         form: {
           name: detail.name || '',
+          coverUrl: detail.coverUrl || '',
           summary: detail.summary || '',
           detail: detail.detail || '',
           priceFactorsText: (detail.priceFactors || []).join('\n'),
@@ -298,6 +301,24 @@ Page({
     this.setData({ 'form.advanceRequired': Boolean(e.detail.value) })
   },
 
+  async onPickCover() {
+    const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+    const temp = res.tempFiles[0].tempFilePath
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const url = await uploadImage(temp)
+      this.setData({ 'form.coverUrl': url })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onRemoveCover() {
+    this.setData({ 'form.coverUrl': '' })
+  },
+
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value }, () => {
@@ -346,6 +367,7 @@ Page({
       serviceItemId: resolved.id || this.data.selectedServiceItemId,
       categoryId: resolved.categoryId || this.data.selectedCategoryId,
       name: this.data.form.name.trim(),
+      coverUrl: (this.data.form.coverUrl || '').trim(),
       summary: this.data.form.summary.trim(),
       detail: this.data.form.detail.trim() || this.data.form.summary.trim(),
       priceMode: mode,

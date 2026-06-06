@@ -122,6 +122,63 @@ async function verifyH5Assets(caseId) {
   console.log('[chain] H5 /case/ 列表 + view.html 静态资源 OK')
 }
 
+async function pickServiceForStore(storeId) {
+  const list = await api('GET', `/user/services?storeId=${encodeURIComponent(storeId)}&pageSize=10`)
+  assert(list.ok && list.json?.code === 0, '服务列表失败')
+  const items = list.json.data?.list || []
+  if (!items.length) return null
+  return items.find((i) => i.id) || null
+}
+
+async function verifyH5ServiceAssets(storeId) {
+  const service = await pickServiceForStore(storeId)
+  if (!service?.id) {
+    console.warn('[chain] ⚠ 门店无已上架服务，跳过服务 H5 检查')
+    return null
+  }
+  const planId = service.id
+
+  const svcRes = await fetch(`${BASE}/service/${encodeURIComponent(planId)}.html`)
+  assert(svcRes.ok, `service/{id}.html HTTP ${svcRes.status}`)
+  const html = await svcRes.text()
+  assert(html.includes('track.js'), 'service 页未引用 track.js')
+  assert(html.includes('service-render.js'), 'service 页未引用 service-render.js')
+  console.log('[chain] H5 /service/{id}.html 静态资源 OK')
+
+  const detail = await api('GET', `/user/services/${encodeURIComponent(planId)}`)
+  assert(detail.ok && detail.json?.code === 0, `服务详情 API 失败: ${detail.status}`)
+  assert(detail.json.data?.storeId === storeId, '服务 storeId 与门店不一致')
+  console.log('[chain] ✅ GET /user/services/:id')
+
+  const eventId = `evt_h5_svc_chain_${Date.now()}`
+  const pagePath = `/service/${encodeURIComponent(planId)}.html`
+  const ingest = await api('POST', '/analytics/events', {
+    body: {
+      events: [
+        {
+          eventId,
+          eventName: 'h5_service_view',
+          sessionId: `sid_svc_chain_${Date.now()}`,
+          pagePath,
+          source: 'h5_chain_smoke',
+          channel: 'smoke',
+          eventParams: {
+            serviceId: planId,
+            storeId: detail.json.data.storeId,
+            storeName: detail.json.data.storeName || '',
+            serviceName: detail.json.data.name || '',
+          },
+        },
+      ],
+    },
+  })
+  assert(ingest.ok && ingest.json?.code === 0, `h5_service_view ingest 失败: ${JSON.stringify(ingest.json)}`)
+  assert(ingest.json.data?.accepted >= 1, 'h5_service_view 未被接受')
+  console.log('[chain] ✅ POST /analytics/events h5_service_view')
+
+  return { planId, eventId, storeId: detail.json.data.storeId }
+}
+
 async function verifyH5StoreAssets(storeId) {
   const listRes = await fetch(`${BASE}/store/`)
   assert(listRes.ok, `store/ 列表页 HTTP ${listRes.status}`)
@@ -164,6 +221,7 @@ async function main() {
   await verifyH5Home()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
+  const serviceChain = await verifyH5ServiceAssets(storeId)
 
   const eventId = `evt_h5_chain_${Date.now()}`
   const pagePath = `/case/view.html?id=${encodeURIComponent(caseId)}`
@@ -249,6 +307,9 @@ async function main() {
 
   if (!KEEP_EVENT) {
     await prisma.eventTrackingLog.delete({ where: { eventId } }).catch(() => {})
+    if (serviceChain?.eventId) {
+      await prisma.eventTrackingLog.delete({ where: { eventId: serviceChain.eventId } }).catch(() => {})
+    }
     await runDailyAggregation({
       date: today,
       merchantId: store.merchantId,

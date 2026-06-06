@@ -54,6 +54,20 @@
   </view>
 
   <view class="merchant-form__section">
+    <text class="merchant-form__label">服务封面</text>
+    <text class="merchant-form__hint text-caption">选填，用于服务卡与 H5 详情展示</text>
+    <view class="svc-create__cover-wrap">
+      <view wx:if="{{form.coverUrl}}" class="svc-create__cover-slot">
+        <image class="svc-create__cover-img" src="{{form.coverUrl}}" mode="aspectFill" />
+        <text class="svc-create__cover-del" catchtap="onRemoveCover">×</text>
+      </view>
+      <view wx:else class="svc-create__cover-slot svc-create__cover-slot--add" bindtap="onPickCover">
+        <text class="text-caption">点击上传</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="merchant-form__section">
     <text class="merchant-form__label">服务简介</text>
     <textarea
       class="merchant-form__textarea"
