@@ -30,7 +30,21 @@ async function buildPlateFill(sharp, w, h) {
     .toBuffer()
 }
 
-async function applyMosaicToImage(sourcePath, boxes) {
+async function buildBlurRegion(sharp, sourcePath, left, top, w, h) {
+  const sigma = Math.max(4, Math.min(24, Math.floor(Math.min(w, h) / 8)))
+  return sharp(sourcePath)
+    .extract({ left, top, width: w, height: h })
+    .blur(sigma)
+    .toBuffer()
+}
+
+function resolveBoxEffect(box, globalMode = 'mosaic') {
+  if (box.type === 'plate') return 'plate'
+  if (box.type === 'blur' || box.type === 'mosaic') return box.type
+  return globalMode === 'blur' ? 'blur' : 'mosaic'
+}
+
+async function applyMosaicToImage(sourcePath, boxes, globalMode = 'mosaic') {
   const sharp = loadSharpModule()
   if (!sharp) {
     const err = new Error('sharp 不可用，无法打码')
@@ -64,10 +78,15 @@ async function applyMosaicToImage(sourcePath, boxes) {
     const top = Math.max(0, Math.min(Math.floor(box.top), height - 1))
     const w = Math.max(1, Math.min(Math.floor(box.width), width - left))
     const h = Math.max(1, Math.min(Math.floor(box.height), height - top))
-    const region =
-      box.type === 'plate'
-        ? await buildPlateFill(sharp, w, h)
-        : await buildMosaicRegion(sharp, sourcePath, left, top, w, h)
+    const effect = resolveBoxEffect(box, globalMode)
+    let region
+    if (effect === 'plate') {
+      region = await buildPlateFill(sharp, w, h)
+    } else if (effect === 'blur') {
+      region = await buildBlurRegion(sharp, sourcePath, left, top, w, h)
+    } else {
+      region = await buildMosaicRegion(sharp, sourcePath, left, top, w, h)
+    }
     composites.push({ input: region, left, top, blend: 'over' })
   }
 
@@ -77,8 +96,8 @@ async function applyMosaicToImage(sourcePath, boxes) {
   return pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer()
 }
 
-async function writeMaskedImage(sourcePath, destPath, boxes) {
-  const buffer = await applyMosaicToImage(sourcePath, boxes)
+async function writeMaskedImage(sourcePath, destPath, boxes, globalMode = 'mosaic') {
+  const buffer = await applyMosaicToImage(sourcePath, boxes, globalMode)
   fs.mkdirSync(path.dirname(destPath), { recursive: true })
   fs.writeFileSync(destPath, buffer)
   return buffer

@@ -19,6 +19,7 @@ model User {
   leads     ConsultLead[]
   staff     MerchantStaff[]
   reports   ContentReport[]
+  searchHistory UserSearchHistory[]
 
   @@index([unionid])
   @@map("users")
@@ -302,6 +303,19 @@ model ReportHandleLog {
 
   @@index([reportId])
   @@map("report_handle_log")
+}
+
+model UserSearchHistory {
+  id        String   @id
+  userId    String   @map("user_id")
+  keyword   String   @db.VarChar(128)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, keyword])
+  @@index([userId, updatedAt])
+  @@map("user_search_history")
 }
 
 model MerchantReviewLog {

@@ -51,7 +51,14 @@ Page({
       })
       return
     }
+    this._loaded = false
     this.loadTask()
+  },
+
+  onShow() {
+    if (this._loaded && this.data.taskId) {
+      this.loadTask()
+    }
   },
 
   async loadTask() {
@@ -78,6 +85,7 @@ Page({
       fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
       status: view.pageStatus,
     })
+    this._loaded = true
   },
 
   onRetryLoad() {
@@ -133,10 +141,49 @@ Page({
     }
   },
 
-  onManualMask() {
-    wx.showToast({
-      title: '手工打码功能即将开放',
-      icon: 'none',
+  onManualMask(e) {
+    const assetId = e.detail && e.detail.assetId
+    if (assetId) {
+      this.goMaskEditor(assetId)
+      return
+    }
+    const candidates = (this.data.workbenchItems || []).filter((i) => i.showManualMask)
+    if (!candidates.length) {
+      wx.showToast({ title: '暂无可用图片', icon: 'none' })
+      return
+    }
+    if (candidates.length === 1) {
+      this.goMaskEditor(candidates[0].id)
+      return
+    }
+    const failed = candidates.filter((c) => c.tagVariant === 'warning')
+    const list = failed.length ? failed : candidates
+    wx.showActionSheet({
+      itemList: list.map((c) => c.nodeTitle || '过程图'),
+      success: (res) => {
+        if (list[res.tapIndex]) {
+          this.goMaskEditor(list[res.tapIndex].id)
+        }
+      },
+    })
+  },
+
+  onManualMaskItem(e) {
+    this.onManualMask(e)
+  },
+
+  goMaskEditor(assetId) {
+    const { taskId, albumId } = this.data
+    wx.navigateTo({
+      url:
+        `/pages/desensitize/mask/index?taskId=${encodeURIComponent(taskId)}` +
+        `&assetId=${encodeURIComponent(assetId)}` +
+        (albumId ? `&albumId=${encodeURIComponent(albumId)}` : ''),
+      events: {
+        maskUpdated: () => {
+          this.loadTask()
+        },
+      },
     })
   },
 

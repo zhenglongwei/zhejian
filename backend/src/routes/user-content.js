@@ -1,5 +1,6 @@
 const express = require('express')
 const { ok } = require('../lib/response')
+const { requireAuth } = require('../middleware/auth')
 const {
   listCases,
   getCaseDetail,
@@ -11,6 +12,11 @@ const {
   getSearchSuggest,
   searchContent,
 } = require('../services/content.service')
+const {
+  listUserSearchHistory,
+  addUserSearchHistory,
+  clearUserSearchHistory,
+} = require('../services/search-history.service')
 const { getSharedAlbumByToken } = require('../services/album-share.service')
 const { listGeoPages, getGeoPageDetail } = require('../services/geo.service')
 
@@ -135,6 +141,33 @@ router.get('/search', async (req, res, next) => {
       }
     }
     const data = await searchContent(query)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.get('/search/history', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await listUserSearchHistory(req.auth.userId)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.post('/search/history', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await addUserSearchHistory(req.auth.userId, req.body?.keyword)
+    return ok(res, data)
+  } catch (e) {
+    return next(e)
+  }
+})
+
+router.delete('/search/history', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await clearUserSearchHistory(req.auth.userId)
     return ok(res, data)
   } catch (e) {
     return next(e)

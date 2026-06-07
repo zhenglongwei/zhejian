@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "手工打码",
+  "usingComponents": {
+    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-image-mask-editor": "/components/image-mask-editor/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index"
+  }
+}

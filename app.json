@@ -32,6 +32,7 @@
     "pages/order/detail/index",
     "pages/order/album/index",
     "pages/desensitize/preview/index",
+    "pages/desensitize/mask/index",
     "pages/benefit-sharing/index",
     "pages/review/submit/index",
     "pages/review/result/index",

@@ -52,5 +52,9 @@ Component({
       const { id } = e.currentTarget.dataset
       this.triggerEvent('retry', { assetId: id })
     },
+    onManualMask(e) {
+      const { id } = e.currentTarget.dataset
+      this.triggerEvent('manualmask', { assetId: id })
+    },
   },
 })

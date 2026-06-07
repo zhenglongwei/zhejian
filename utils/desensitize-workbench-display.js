@@ -23,6 +23,12 @@ const TAG_VARIANT = {
 }
 
 function buildWorkbenchItems(task) {
+  const manualMaskStatuses = new Set([
+    ASSET_STATUS.RAW_UPLOADED,
+    ASSET_STATUS.MASK_FAILED,
+    ASSET_STATUS.MASKED_READY,
+    ASSET_STATUS.MANUAL_MASKED,
+  ])
   return (task.rawAssets || []).map((asset) => ({
     id: asset.id,
     nodeTitle: asset.nodeTitle,
@@ -31,6 +37,7 @@ function buildWorkbenchItems(task) {
     statusLabel: STATUS_LABEL[asset.status] || asset.status,
     tagVariant: TAG_VARIANT[asset.status] || 'info',
     showRetry: asset.status === ASSET_STATUS.MASK_FAILED,
+    showManualMask: manualMaskStatuses.has(asset.status),
   }))
 }
 

@@ -5,6 +5,7 @@ const {
   getTaskById,
   runAutoMask,
   retryAsset,
+  applyManualMask,
   markAssetPreviewed,
   confirmOrderAuthorizeTask,
 } = require('../services/desensitize.service')
@@ -42,6 +43,22 @@ router.post('/tasks/:taskId/assets/:assetId/retry', requireAuth(['user', 'mercha
     next(e)
   }
 })
+
+router.post(
+  '/tasks/:taskId/assets/:assetId/manual-mask',
+  requireAuth(['user', 'merchant']),
+  async (req, res, next) => {
+    try {
+      const task = await applyManualMask(req.params.taskId, req.params.assetId, {
+        regions: req.body && req.body.regions,
+        mode: req.body && req.body.mode,
+      })
+      return ok(res, task)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
 
 router.post('/tasks/:taskId/assets/:assetId/previewed', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {

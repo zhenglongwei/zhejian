@@ -3,7 +3,7 @@
  * prod/dev: GET /api/user/search/*
  */
 const { ENV } = require('./config')
-const { get } = require('./request')
+const { get, post, request } = require('./request')
 const { HOTWORDS } = require('../mock/search')
 const { GEO_PAGES } = require('../mock/geo-pages')
 const { DEFAULT_CITY } = require('../constants/search-filters')
@@ -135,6 +135,49 @@ async function fetchSearchSuggest(keyword) {
   return buildSuggestItems(k, filteredServices, filteredMerchants, filteredCases, geoPages)
 }
 
+async function fetchSearchHistory() {
+  if (ENV.mode !== 'mock') {
+    return get('/user/search/history')
+  }
+  await delay(120)
+  const { SEARCH_HISTORY_KEY } = require('../constants/search')
+  let list = []
+  try {
+    list = wx.getStorageSync(SEARCH_HISTORY_KEY)
+    if (!Array.isArray(list)) list = []
+  } catch (e) {
+    list = []
+  }
+  return { keywords: list, list: list.map((keyword) => ({ keyword })) }
+}
+
+async function postSearchHistory(keyword) {
+  if (ENV.mode !== 'mock') {
+    return post('/user/search/history', { keyword })
+  }
+  await delay(80)
+  const { SEARCH_HISTORY_KEY, SEARCH_HISTORY_MAX } = require('../constants/search')
+  const value = normalizeKeyword(keyword)
+  let list = []
+  try {
+    list = wx.getStorageSync(SEARCH_HISTORY_KEY)
+    if (!Array.isArray(list)) list = []
+  } catch (e) {
+    list = []
+  }
+  const next = [value, ...list.filter((item) => item !== value)].slice(0, SEARCH_HISTORY_MAX)
+  wx.setStorageSync(SEARCH_HISTORY_KEY, next)
+  return { keywords: next, list: next.map((item) => ({ keyword: item })) }
+}
+
+async function clearRemoteSearchHistory() {
+  if (ENV.mode !== 'mock') {
+    return request({ url: '/user/search/history', method: 'DELETE' })
+  }
+  await delay(80)
+  return { keywords: [], list: [] }
+}
+
 async function searchContent(query = {}) {
   if (ENV.mode !== 'mock') {
     const params = { ...query }
@@ -202,5 +245,8 @@ async function searchContent(query = {}) {
 module.exports = {
   fetchSearchConfig,
   fetchSearchSuggest,
+  fetchSearchHistory,
+  postSearchHistory,
+  clearRemoteSearchHistory,
   searchContent,
 }

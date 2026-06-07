@@ -2,6 +2,7 @@ const express = require('express')
 const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { ensureOrderPreMaskTask, getTaskById } = require('../services/desensitize.service')
+const { generateAndSaveCaseFaq } = require('../services/case-content.service')
 
 const router = express.Router()
 
@@ -11,6 +12,18 @@ router.post('/albums/:albumId/pre-mask', requireAuth(['system', 'merchant']), as
       force: Boolean(req.body && req.body.force),
     })
     return ok(res, task)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/generate-faq', requireAuth(['system']), async (req, res, next) => {
+  try {
+    const data = await generateAndSaveCaseFaq(req.params.caseId, {
+      force: Boolean(req.body && req.body.force),
+      persist: req.body && req.body.persist === false ? false : true,
+    })
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

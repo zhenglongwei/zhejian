@@ -7,6 +7,7 @@ const {
   getSearchHistory,
   addSearchHistory,
   clearSearchHistory,
+  syncSearchHistoryFromCloud,
 } = require('../../../utils/search-history')
 
 Page({
@@ -28,11 +29,17 @@ Page({
       this.setData({ keyword: decodeURIComponent(options.keyword) })
     }
     this.loadConfig()
-    this.refreshHistory()
+    this.syncHistory()
   },
 
   onShow() {
-    this.refreshHistory()
+    this.syncHistory()
+  },
+
+  syncHistory() {
+    syncSearchHistoryFromCloud().then((history) => {
+      this.setData({ history })
+    })
   },
 
   refreshHistory() {
@@ -116,9 +123,11 @@ Page({
   goResult(keyword) {
     const value = this.validateKeyword(keyword)
     if (!value) return
-    addSearchHistory(value)
-    wx.navigateTo({
-      url: `/pages/search/result/index?keyword=${encodeURIComponent(value)}`,
+    addSearchHistory(value).then((history) => {
+      this.setData({ history })
+      wx.navigateTo({
+        url: `/pages/search/result/index?keyword=${encodeURIComponent(value)}`,
+      })
     })
   },
 
@@ -148,8 +157,9 @@ Page({
       content: '确定清空全部搜索历史吗？',
       success: (res) => {
         if (!res.confirm) return
-        clearSearchHistory()
-        this.setData({ history: [] })
+        clearSearchHistory().then(() => {
+          this.setData({ history: [] })
+        })
       },
     })
   },

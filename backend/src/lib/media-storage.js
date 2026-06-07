@@ -63,6 +63,25 @@ function parseObjectKeyFromPublicUrl(url) {
   return ''
 }
 
+/** 从公开 URL 解析脱敏产物路径，如 uploads/desensitized/album/node_0.jpg */
+function parseDesensitizedObjectKeyFromPublicUrl(url) {
+  if (!url) return ''
+  const value = String(url).trim()
+  const match = value.match(
+    /\/media\/files\/(uploads\/desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
+  )
+  if (match) return match[1]
+  return ''
+}
+
+function resolveMediaFilePathFromPublicUrl(url) {
+  const desKey = parseDesensitizedObjectKeyFromPublicUrl(url)
+  if (desKey) return resolveDesensitizedFilePath(desKey)
+  const key = parseObjectKeyFromPublicUrl(url)
+  if (key) return resolveObjectKeyFilePath(key)
+  return null
+}
+
 function resolveObjectKeyFilePath(objectKey) {
   const key = String(objectKey || '').replace(/\\/g, '/').replace(/^\/+/, '')
   if (!/^uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(jpe?g|png|webp)$/i.test(key)) {
@@ -142,7 +161,9 @@ module.exports = {
   assertPersistentImageUrl,
   resolveUploadFilePath,
   parseObjectKeyFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
   resolveObjectKeyFilePath,
+  resolveMediaFilePathFromPublicUrl,
   buildDesensitizedObjectKey,
   resolveDesensitizedFilePath,
   resolveDesensitizedUploadFilePath,

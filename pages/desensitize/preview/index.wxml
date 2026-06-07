@@ -42,6 +42,7 @@
       bind:liabilitychange="onLiabilityChange"
       bind:preview="onPreview"
       bind:retry="onRetryAsset"
+      bind:manualmask="onManualMaskItem"
     />
     <view class="desensitize-preview__spacer" />
     <ui-fixed-bottom-bar>

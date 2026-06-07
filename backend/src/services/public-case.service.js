@@ -5,6 +5,7 @@ const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice, buildPublicCaseDbPriceColumns } = require('../utils/album-price')
+const { generateCaseFaq } = require('../utils/case-faq')
 const { buildPreMaskTaskId, buildMerchantColdStartTaskId, BIZ_TYPE } = require('./desensitize.constants')
 
 function buildVehicleTitle(vehicle) {
@@ -105,6 +106,13 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
       coldStart,
     })
 
+  const faq = generateCaseFaq({
+    serviceName,
+    serviceItemId: options.serviceItemId || '',
+    templateId: options.templateId || '',
+    coldStart,
+  })
+
   return {
     id: caseId,
     albumId: albumView.albumId,
@@ -126,6 +134,7 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
       vehicleText: `${buildVehicleTitle(vehicle)}（已脱敏）`,
       tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
       coldStart,
+      faq,
     },
   }
 }
@@ -186,7 +195,10 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const albumView = buildAlbumView(album)
   const task = await resolvePublishTask(albumId, payload)
-  const draft = buildCaseDraft(albumView, task, authorizationTier)
+  const draft = buildCaseDraft(albumView, task, authorizationTier, {
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
+  })
   const caseId = draft.id
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
@@ -326,6 +338,8 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
   const draft = buildCaseDraft(albumView, task, 'private', {
     coldStart: true,
     hasUserAuthorization: false,
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
   })
   const caseId = draft.id
   const priceColumns = buildPublicCaseDbPriceColumns(draft)

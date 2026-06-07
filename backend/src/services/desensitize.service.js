@@ -13,7 +13,7 @@ const {
   buildMerchantColdStartTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
-const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl } = require('./media.service')
+const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl, applyManualMaskToAsset } = require('./media.service')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
 const { parseObjectKeyFromPublicUrl } = require('../lib/media-storage')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
@@ -491,6 +491,80 @@ async function retryAsset(taskId, assetId, options = {}) {
   return getTaskById(taskId, options)
 }
 
+const MANUAL_MASK_ALLOWED = new Set([
+  ASSET_STATUS.RAW_UPLOADED,
+  ASSET_STATUS.MASK_FAILED,
+  ASSET_STATUS.MASKED_READY,
+  ASSET_STATUS.MANUAL_MASKED,
+])
+
+async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
+  const { regions, mode = 'mosaic' } = payload || {}
+  const asset = await prisma.desensitizeAsset.findUnique({
+    where: { taskId_assetId: { taskId, assetId } },
+    include: { task: true },
+  })
+  if (!asset) {
+    const err = new Error('图片资源不存在')
+    err.status = 404
+    throw err
+  }
+  const task = asset.task
+  if (!task) {
+    const err = new Error('脱敏任务不存在')
+    err.status = 404
+    throw err
+  }
+  if (task.maskingConfirmed) {
+    const err = new Error('脱敏已确认，无法修改')
+    err.status = 409
+    throw err
+  }
+  if (
+    task.bizType === BIZ_TYPE.ORDER_PRE_MASK ||
+    task.bizType === BIZ_TYPE.SERVICE_PRE_MASK
+  ) {
+    const err = new Error('预脱敏任务不支持手工打码')
+    err.status = 400
+    throw err
+  }
+  if (!MANUAL_MASK_ALLOWED.has(asset.status)) {
+    const err = new Error('当前状态不支持手工打码')
+    err.status = 409
+    throw err
+  }
+
+  const result = await applyManualMaskToAsset({
+    rawUrl: asset.rawUrl,
+    maskedUrl: asset.maskedUrl || asset.preMaskedUrl,
+    mediaId: asset.mediaId,
+    albumId: task.bizId,
+    nodeId: asset.nodeId,
+    idx: asset.idx,
+    regions,
+    mode,
+  })
+
+  if (!result.maskedUrl) {
+    const err = new Error('手工打码未生成有效脱敏图')
+    err.status = 422
+    throw err
+  }
+
+  await prisma.desensitizeAsset.update({
+    where: { taskId_assetId: { taskId, assetId } },
+    data: {
+      mediaId: result.mediaId || asset.mediaId || '',
+      maskedUrl: result.maskedUrl,
+      preMaskedUrl: result.maskedUrl,
+      status: ASSET_STATUS.MANUAL_MASKED,
+      previewed: false,
+    },
+  })
+  await refreshPreMaskStatusForTask(taskId)
+  return getTaskById(taskId, options)
+}
+
 async function markAssetPreviewed(taskId, assetId, options = {}) {
   await prisma.desensitizeAsset.updateMany({
     where: { taskId, assetId },
@@ -711,6 +785,7 @@ module.exports = {
   createOrderAuthorizeTaskFromPreMask,
   runAutoMask,
   retryAsset,
+  applyManualMask,
   markAssetPreviewed,
   confirmOrderAuthorizeTask,
   createMerchantColdStartAuthorizeTaskFromPreMask,

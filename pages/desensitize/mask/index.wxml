@@ -1,0 +1,25 @@
+<view class="page mask-page page-content">
+  <block wx:if="{{status === 'loading'}}">
+    <ui-skeleton rows="{{3}}" title />
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <ui-empty
+      title="无法编辑"
+      description="{{errorMessage}}"
+      actionText="重试"
+      bind:action="onRetryLoad"
+    />
+  </block>
+
+  <block wx:else>
+    <ui-privacy-banner scene="desensitize" />
+    <ui-image-mask-editor
+      imageUrl="{{imageUrl}}"
+      nodeTitle="{{nodeTitle}}"
+      mode="{{mode}}"
+      submitting="{{submitting}}"
+      bind:submit="onSubmit"
+    />
+  </block>
+</view>

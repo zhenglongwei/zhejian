@@ -759,6 +759,53 @@ async function markAssetPreviewed(taskId, assetId) {
   return persistTask({ ...task, rawAssets, updatedAt: Date.now() })
 }
 
+/** A-MASK-05：手工打码（框选区域 + 马赛克/模糊） */
+async function applyManualMask(taskId, assetId, payload = {}) {
+  if (useApi()) {
+    return normalizeTaskAssets(
+      await post(`/desensitize/tasks/${taskId}/assets/${assetId}/manual-mask`, {
+        regions: payload.regions || [],
+        mode: payload.mode || 'mosaic',
+      })
+    )
+  }
+  await delay(360)
+  const task = await fetchTask(taskId)
+  const albumId = task.bizId
+  const regions = payload.regions || []
+  if (!regions.length) {
+    const err = new Error('请至少框选一处打码区域')
+    err.code = 400
+    throw err
+  }
+  const mode = payload.mode === 'blur' ? 'blur' : 'mosaic'
+  const nextAssets = (task.rawAssets || []).map((asset) => {
+    if (asset.id !== assetId) return asset
+    const maskedUrl = buildMaskedUrl(asset.url, albumId, asset)
+    return {
+      ...asset,
+      status: ASSET_STATUS.MANUAL_MASKED,
+      maskedUrl,
+      previewed: false,
+      riskTags: asset.riskTags || [],
+    }
+  })
+  const maskedAssets = nextAssets
+    .filter((a) => a.maskedUrl)
+    .map((a) => ({
+      id: `m_${a.id}`,
+      rawId: a.id,
+      url: a.maskedUrl,
+      status: a.status,
+    }))
+  return persistTask({
+    ...task,
+    rawAssets: nextAssets,
+    maskedAssets,
+    updatedAt: Date.now(),
+  })
+}
+
 /** 将脱敏结果写回相册节点 */
 function applyMaskedToAlbumNodes(album, task) {
   const byKey = {}
@@ -877,6 +924,7 @@ module.exports = {
   shouldRunServicePreMask,
   runAutoMask,
   retryAsset,
+  applyManualMask,
   confirmTask,
   markAssetPreviewed,
   allPreviewed,
