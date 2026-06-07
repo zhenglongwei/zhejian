@@ -18,6 +18,7 @@ const TRACK_EVENT_NAMES = new Set([
   'h5_service_store_click',
   'h5_related_case_click',
   'h5_navigation_click',
+  'h5_crawler_view',
   'phone_click',
   'lead_submit',
 ])

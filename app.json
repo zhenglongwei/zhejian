@@ -23,6 +23,8 @@
     "pages/album/share/index",
     "pages/album/confirm/index",
     "pages/album/authorize/index",
+    "pages/album/feedback/index",
+    "pages/album/feedback/result/index",
     "pages/mine/settings/index",
     "pages/mine/settings/document/index",
     "pages/mine/settings/deactivate/index",

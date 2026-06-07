@@ -105,6 +105,11 @@
   color: var(--color-text-secondary);
 }
 
+.album-node__feedback {
+  display: inline-block;
+  margin-top: var(--space-sm);
+}
+
 .album-node__desc {
   color: var(--color-text-secondary);
 }

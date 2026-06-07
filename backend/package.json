@@ -21,6 +21,8 @@
     "stats:monitor": "node scripts/ops-data-monitor.js",
     "stats:monitor:cron": "bash scripts/stats-monitor-cron.sh",
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
+    "crawler:ingest": "node scripts/crawler-access-ingest.js",
+    "crawler:smoke": "node scripts/crawler-track-smoke.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "cases:check": "node scripts/public-case-prod-check.js",
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",

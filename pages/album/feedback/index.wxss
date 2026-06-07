@@ -1,0 +1,48 @@
+.album-feedback__pad {
+  padding-top: var(--space-md);
+}
+
+.album-feedback__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.album-feedback__section-title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.album-feedback__sub {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.album-feedback__textarea {
+  width: 100%;
+  min-height: 200rpx;
+  box-sizing: border-box;
+}
+
+.album-feedback__counter {
+  display: block;
+  margin-top: var(--space-xs);
+  text-align: right;
+  color: var(--color-text-tertiary);
+}
+
+.album-feedback__input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.album-feedback__consent {
+  margin-top: var(--space-xs);
+}
+
+.album-feedback__notice {
+  margin-top: var(--space-sm);
+}

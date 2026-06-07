@@ -89,6 +89,13 @@
             <text class="text-caption">电话点击</text>
           </view>
         </view>
+        <view class="merchant-dash__metric-row">
+          <view class="merchant-dash__metric">
+            <text class="merchant-dash__metric-num text-h2">{{display.crawlerViewCount}}</text>
+            <text class="text-caption">搜索/AI 爬虫访问</text>
+          </view>
+        </view>
+        <text class="text-caption merchant-dash__crawler-hint">识别 GPTBot 等爬虫 UA 的访问次数，不代表 AI 引用或收录</text>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
@@ -211,7 +218,7 @@
 
       <compliance-notice
         type="price"
-        text="数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。"
+        text="数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。搜索/AI 爬虫访问为代理指标，非引用次数。"
       />
     </view>
   </block>

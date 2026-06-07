@@ -3,11 +3,14 @@
   <ui-album-node
     wx:for="{{nodes}}"
     wx:key="id"
+    nodeId="{{item.id}}"
     title="{{item.title}}"
     images="{{item.images}}"
     time="{{item.time}}"
     note="{{item.note}}"
     emptyText="{{emptyText}}"
+    showFeedback="{{showNodeFeedback}}"
+    bind:feedback="onNodeFeedback"
   />
   <text wx:if="{{storeNote}}" class="note-block text-caption">{{storeNote}}</text>
   <ui-privacy-banner wx:if="{{footerBannerText}}" text="{{footerBannerText}}" />

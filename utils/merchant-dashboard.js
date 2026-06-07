@@ -27,7 +27,7 @@ function sumViews(summary) {
 function buildLagHint(dataLag, lastAggregatedDate) {
   if (dataLag === 'T+1') {
     const date = lastAggregatedDate ? `（更新至 ${lastAggregatedDate}）` : ''
-    return `站外浏览与电话点击按日统计，次日更新${date}`
+    return `站外浏览、电话点击与搜索/AI 爬虫访问按日统计，次日更新${date}`
   }
   return ''
 }

@@ -24,12 +24,14 @@ const SERVICE_VIEW_EVENTS = new Set(['service_view', 'h5_service_view'])
 const CASE_VIEW_EVENTS = new Set(['case_view', 'h5_case_view'])
 const PHONE_EVENTS = new Set(['phone_click', 'h5_call_click'])
 const GEO_EVENTS = new Set(['geo_page_view'])
+const CRAWLER_VIEW_EVENTS = new Set(['h5_crawler_view'])
 const TRACKED_AGG_EVENTS = [
   ...STORE_VIEW_EVENTS,
   ...SERVICE_VIEW_EVENTS,
   ...CASE_VIEW_EVENTS,
   ...PHONE_EVENTS,
   ...GEO_EVENTS,
+  ...CRAWLER_VIEW_EVENTS,
   'h5_page_view',
 ]
 
@@ -57,6 +59,7 @@ async function countEventMetrics(storeId, start, end) {
     serviceViewCount: 0,
     caseViewCount: 0,
     geoViewCount: 0,
+    crawlerViewCount: 0,
     phoneClickCount: 0,
   }
 
@@ -70,6 +73,7 @@ async function countEventMetrics(storeId, start, end) {
     if (CASE_VIEW_EVENTS.has(name)) metrics.caseViewCount += 1
     if (PHONE_EVENTS.has(name)) metrics.phoneClickCount += 1
     if (GEO_EVENTS.has(name)) metrics.geoViewCount += 1
+    if (CRAWLER_VIEW_EVENTS.has(name)) metrics.crawlerViewCount += 1
     if (
       name === 'h5_page_view' &&
       (params.pageType === 'geo' || String(params.page_path || '').includes('/geo'))
@@ -326,6 +330,7 @@ function sumRows(rows) {
     serviceViewCount: 0,
     caseViewCount: 0,
     geoViewCount: 0,
+    crawlerViewCount: 0,
     phoneClickCount: 0,
     leadSubmitCount: 0,
     leadContactedCount: 0,
@@ -340,6 +345,7 @@ function sumRows(rows) {
     summary.serviceViewCount += r.serviceViewCount
     summary.caseViewCount += r.caseViewCount
     summary.geoViewCount += r.geoViewCount
+    summary.crawlerViewCount += r.crawlerViewCount
     summary.phoneClickCount += r.phoneClickCount
     summary.leadSubmitCount += r.leadSubmitCount
     summary.leadContactedCount += r.leadContactedCount
@@ -477,6 +483,7 @@ async function fetchMerchantStats(auth, query = {}) {
         serviceViewCount: 0,
         caseViewCount: 0,
         geoViewCount: 0,
+        crawlerViewCount: 0,
         phoneClickCount: 0,
         leadSubmitCount: 0,
         leadContactedCount: 0,
@@ -494,6 +501,7 @@ async function fetchMerchantStats(auth, query = {}) {
     item.serviceViewCount += row.serviceViewCount
     item.caseViewCount += row.caseViewCount
     item.geoViewCount += row.geoViewCount
+    item.crawlerViewCount += row.crawlerViewCount
     item.phoneClickCount += row.phoneClickCount
     item.leadSubmitCount += row.leadSubmitCount
     item.leadContactedCount += row.leadContactedCount

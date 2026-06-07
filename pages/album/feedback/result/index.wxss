@@ -1,0 +1,19 @@
+.album-feedback-result__hero {
+  margin-bottom: var(--space-lg);
+}
+
+.album-feedback-result__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.album-feedback-result__desc {
+  color: var(--color-text-secondary);
+}
+
+.album-feedback-result__actions {
+  margin-top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

@@ -1,0 +1,15 @@
+<view class="page album-feedback-result page-content">
+  <view class="album-feedback-result__hero">
+    <text class="album-feedback-result__title text-h1">反馈已提交</text>
+    <text class="album-feedback-result__desc text-body">{{successMessage}}</text>
+  </view>
+
+  <ui-card wx:if="{{feedbackId}}" shadow="{{true}}" padding="{{true}}">
+    <text class="text-caption">反馈编号：{{feedbackId}}</text>
+  </ui-card>
+
+  <view class="album-feedback-result__actions">
+    <ui-button type="primary" block bind:tap="onBackAlbum">返回相册</ui-button>
+    <ui-button type="secondary" block bind:tap="onBackList">我的相册列表</ui-button>
+  </view>
+</view>

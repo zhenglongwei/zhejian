@@ -19,6 +19,7 @@ function emptyDisplay() {
   return {
     totalViews: '0',
     caseViewCount: '0',
+    crawlerViewCount: '0',
     phoneClickCount: '0',
     leadSubmitCount: '0',
     leadContactedCount: '0',
@@ -98,6 +99,7 @@ Page({
     return {
       totalViews: formatCount(sumViews(summary)),
       caseViewCount: formatCount(summary.caseViewCount),
+      crawlerViewCount: formatCount(summary.crawlerViewCount),
       phoneClickCount: formatCount(summary.phoneClickCount),
       leadSubmitCount: formatCount(summary.leadSubmitCount),
       leadContactedCount: formatCount(summary.leadContactedCount),
@@ -134,6 +136,7 @@ Page({
       const suggestions = stats.suggestions || []
       const hasMetrics =
         sumViews(stats.summary) > 0 ||
+        (stats.summary?.crawlerViewCount || 0) > 0 ||
         (stats.summary?.leadSubmitCount || 0) > 0 ||
         (stats.summary?.phoneClickCount || 0) > 0
       const hasInsights =

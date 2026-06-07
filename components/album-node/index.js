@@ -26,6 +26,8 @@ Component({
     maxCount: { type: Number, value: 9 },
     /** 上传区旁的操作提示（如隐私说明），仅 edit 模式展示 */
     uploadHint: { type: String, value: '' },
+    nodeId: { type: String, value: '' },
+    showFeedback: { type: Boolean, value: false },
   },
   data: {
     displayImages: [],
@@ -55,6 +57,12 @@ Component({
     onImagesChange(e) {
       this.triggerEvent('imageschange', {
         images: (e.detail && e.detail.images) || [],
+      })
+    },
+    onFeedbackTap() {
+      this.triggerEvent('feedback', {
+        nodeId: this.properties.nodeId,
+        nodeTitle: this.properties.title,
       })
     },
   },

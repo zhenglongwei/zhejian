@@ -63,6 +63,8 @@
       <ui-service-album-process-section
         nodes="{{detail.nodes}}"
         storeNote="{{detail.storeNote}}"
+        showNodeFeedback="{{true}}"
+        bind:nodefeedback="onNodeFeedback"
       />
 
       <view wx:if="{{showAuthSection}}" id="album-auth-section">

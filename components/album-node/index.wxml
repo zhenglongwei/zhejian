@@ -56,6 +56,11 @@
       </view>
       <text wx:if="{{time}}" class="album-node__time text-caption">{{time}}</text>
       <text wx:if="{{note}}" class="album-node__note text-caption">{{note}}</text>
+      <text
+        wx:if="{{showFeedback && mode === 'view'}}"
+        class="album-node__feedback text-caption text-link"
+        bindtap="onFeedbackTap"
+      >对此节点有疑问</text>
     </block>
   </view>
 </view>

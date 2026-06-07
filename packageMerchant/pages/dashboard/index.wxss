@@ -39,6 +39,13 @@
   display: block;
 }
 
+.merchant-dash__crawler-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
 .merchant-dash__metric--tap:active {
   opacity: 0.72;
 }

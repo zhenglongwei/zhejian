@@ -33,6 +33,8 @@ const H5_EVENTS = [
   'h5_consult_click',
 ]
 
+const CRAWLER_EVENTS = ['h5_crawler_view']
+
 function parseArgs(argv) {
   const out = { strict: false, json: false }
   for (const arg of argv) {
@@ -106,6 +108,7 @@ async function fetchDailyStatsSummary(statDate) {
       caseViewCount: true,
       phoneClickCount: true,
       leadSubmitCount: true,
+      crawlerViewCount: true,
     },
   })
   const sum = rows.reduce(
@@ -115,6 +118,7 @@ async function fetchDailyStatsSummary(statDate) {
       acc.caseViewCount += r.caseViewCount
       acc.phoneClickCount += r.phoneClickCount
       acc.leadSubmitCount += r.leadSubmitCount
+      acc.crawlerViewCount += r.crawlerViewCount
       return acc
     },
     {
@@ -123,6 +127,7 @@ async function fetchDailyStatsSummary(statDate) {
       caseViewCount: 0,
       phoneClickCount: 0,
       leadSubmitCount: 0,
+      crawlerViewCount: 0,
     }
   )
   return { rowCount: rows.length, sum }
@@ -165,6 +170,7 @@ async function main() {
   ])
 
   const h5Total = H5_EVENTS.reduce((n, name) => n + (events.byName[name] || 0), 0)
+  const crawlerTotal = CRAWLER_EVENTS.reduce((n, name) => n + (events.byName[name] || 0), 0)
 
   let logRuns = []
   let logRun = null
@@ -229,6 +235,7 @@ async function main() {
     events: {
       total: events.total,
       h5Total,
+      crawlerTotal,
       top: Object.entries(events.byName)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
@@ -247,7 +254,7 @@ async function main() {
   } else {
     console.log('[monitor] OPS-DATA-03 数据健康检查')
     console.log('[monitor] 目标日(上海):', targetDate)
-    console.log('[monitor] event_tracking_log 总量:', events.total, 'H5 相关:', h5Total)
+    console.log('[monitor] event_tracking_log 总量:', events.total, 'H5 相关:', h5Total, '爬虫:', crawlerTotal)
     if (report.events.top.length) {
       console.log('[monitor] 事件 Top:', report.events.top.map((e) => `${e.eventName}=${e.count}`).join(', '))
     }
@@ -255,7 +262,7 @@ async function main() {
       '[monitor] merchant_daily_stats 行数:',
       dailyStats.rowCount,
       '浏览汇总:',
-      `门店${dailyStats.sum.storeViewCount} 服务${dailyStats.sum.serviceViewCount} 案例${dailyStats.sum.caseViewCount}`
+      `门店${dailyStats.sum.storeViewCount} 服务${dailyStats.sum.serviceViewCount} 案例${dailyStats.sum.caseViewCount} 爬虫${dailyStats.sum.crawlerViewCount}`
     )
     if (logRun) {
       console.log(

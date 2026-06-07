@@ -20,6 +20,7 @@ model User {
   staff     MerchantStaff[]
   reports   ContentReport[]
   searchHistory UserSearchHistory[]
+  albumFeedback ServiceAlbumFeedback[]
 
   @@index([unionid])
   @@map("users")
@@ -318,6 +319,28 @@ model UserSearchHistory {
   @@map("user_search_history")
 }
 
+model ServiceAlbumFeedback {
+  id           String   @id
+  userId       String   @map("user_id")
+  albumId      String   @map("album_id")
+  storeId      String   @default("") @map("store_id")
+  nodeId       String   @default("") @map("node_id")
+  nodeTitle    String   @default("") @map("node_title")
+  feedbackType String   @map("feedback_type")
+  description  String   @db.Text
+  imagesJson   Json     @default("[]") @map("images_json")
+  contactPhone String   @default("") @map("contact_phone")
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([albumId])
+  @@index([userId, albumId, nodeId])
+  @@index([status, createdAt])
+  @@map("service_album_feedback")
+}
+
 model MerchantReviewLog {
   id            String   @id
   merchantId    String   @map("merchant_id")
@@ -502,6 +525,7 @@ model MerchantDailyStats {
   serviceViewCount    Int      @default(0) @map("service_view_count")
   caseViewCount       Int      @default(0) @map("case_view_count")
   geoViewCount        Int      @default(0) @map("geo_view_count")
+  crawlerViewCount    Int      @default(0) @map("crawler_view_count")
   phoneClickCount     Int      @default(0) @map("phone_click_count")
   leadSubmitCount     Int      @default(0) @map("lead_submit_count")
   leadContactedCount  Int      @default(0) @map("lead_contacted_count")

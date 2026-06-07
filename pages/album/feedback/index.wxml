@@ -1,0 +1,101 @@
+<view class="page album-feedback">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content album-feedback__pad">
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="无法打开反馈"
+        description="{{errorMessage}}"
+        actionText="返回"
+        bind:action="onBack"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content album-feedback__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-feedback__section-title text-h3">反馈对象</text>
+        <text class="text-body">{{albumTitle || '我的服务相册'}}</text>
+        <text wx:if="{{nodeTitle}}" class="text-caption album-feedback__sub">节点：{{nodeTitle}}</text>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-feedback__section-title text-h3">反馈类型 *</text>
+        <ui-report-type-picker
+          options="{{typeOptions}}"
+          value="{{form.feedbackType}}"
+          bind:change="onFeedbackTypeChange"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-feedback__section-title text-h3">问题说明 *</text>
+        <textarea
+          class="album-feedback__textarea text-body"
+          placeholder="请描述你的疑问，10–500 字"
+          value="{{form.description}}"
+          maxlength="500"
+          bindinput="onDescriptionInput"
+        />
+        <text class="album-feedback__counter text-caption">{{descriptionLength}}/500</text>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-feedback__section-title text-h3">截图（选填）</text>
+        <ui-image-uploader
+          images="{{form.images}}"
+          maxCount="{{3}}"
+          bind:change="onImagesChange"
+        />
+        <view class="album-feedback__notice">
+          <ui-compliance-notice type="reviewUpload" />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-feedback__section-title text-h3">联系手机（选填）</text>
+        <input
+          class="album-feedback__input input"
+          type="number"
+          maxlength="11"
+          placeholder="便于门店或平台回访"
+          value="{{form.contactPhone}}"
+          bindinput="onPhoneInput"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="album-feedback__consent">
+          <ui-checkbox-row checked="{{form.consent}}" bind:toggle="toggleConsent">
+            {{consentText}}
+          </ui-checkbox-row>
+        </view>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button
+        type="primary"
+        slot="right"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:tap="onSubmit"
+      >提交反馈</ui-button>
+    </ui-fixed-bottom-bar>
+
+    <ui-login-sheet
+      visible="{{loginSheetVisible}}"
+      mode="auto"
+      bindContext="album"
+      bind:close="closeLoginSheet"
+      bind:cancel="closeLoginSheet"
+      bind:success="onLoginSuccess"
+    />
+  </block>
+</view>

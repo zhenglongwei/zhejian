@@ -467,10 +467,28 @@ Page({
   },
 
   onFeedback() {
-    wx.showToast({
-      title: '问题反馈将在后续版本开放',
-      icon: 'none',
-    })
+    this.goFeedbackPage()
+  },
+
+  onNodeFeedback(e) {
+    const { nodeId, nodeTitle } = e.detail || {}
+    this.goFeedbackPage({ nodeId, nodeTitle })
+  },
+
+  goFeedbackPage({ nodeId = '', nodeTitle = '' } = {}) {
+    const detail = this.data.detail
+    if (!detail || !this.albumId) return
+    const albumTitle = detail.serviceName || '我的服务相册'
+    let url =
+      `/pages/album/feedback/index?albumId=${encodeURIComponent(this.albumId)}` +
+      `&albumTitle=${encodeURIComponent(albumTitle)}`
+    if (nodeId) {
+      url += `&nodeId=${encodeURIComponent(nodeId)}`
+    }
+    if (nodeTitle) {
+      url += `&nodeTitle=${encodeURIComponent(nodeTitle)}`
+    }
+    wx.navigateTo({ url })
   },
 
   onOpenBenefitPolicy() {

@@ -20,5 +20,14 @@ Component({
       type: String,
       value: '',
     },
+    showNodeFeedback: {
+      type: Boolean,
+      value: false,
+    },
+  },
+  methods: {
+    onNodeFeedback(e) {
+      this.triggerEvent('nodefeedback', e.detail || {})
+    },
   },
 })
