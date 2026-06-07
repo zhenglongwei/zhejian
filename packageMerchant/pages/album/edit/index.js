@@ -95,26 +95,33 @@ Page({
   mergeNodes(rawNodes) {
     const map = {}
     ;(rawNodes || []).forEach((n) => {
-      map[n.id] = n
+      const key = n.id || n.nodeId
+      if (key) map[key] = n
     })
     return SERVICE_ALBUM_STAGES.map((stage) => {
       const node = map[stage.id] || {}
       const meta = getStageMeta(stage.id) || stage
+      const apiTitle = String(node.title || '').trim()
       return {
         id: stage.id,
-        title: stage.title,
-        description: meta.description,
-        photoTips: meta.photoTips,
-        requiredLevelLabel: meta.requiredLevelLabel,
-        requiredLevelVariant: meta.requiredLevelVariant,
+        title: apiTitle || stage.title,
+        description: node.description || meta.description,
+        photoTips: node.photoTips || meta.photoTips,
+        requiredLevelLabel: node.requiredLevelLabel || meta.requiredLevelLabel,
+        requiredLevelVariant: node.requiredLevelVariant || meta.requiredLevelVariant,
         images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
       }
     })
   },
 
+  buildStageTabs(nodes) {
+    return (nodes || []).map((n) => ({ key: n.id, label: n.title }))
+  },
+
   applyAlbum(detail) {
     const nodes = this.mergeNodes(detail.nodes)
+    const stageTabs = this.buildStageTabs(nodes)
     const planAmount = resolvePlanAmount(detail)
     const imageCount = detail.imageCount != null ? detail.imageCount : 0
     const canShare = canShareToOwner(detail)
@@ -126,6 +133,9 @@ Page({
       { label: '车主', value: detail.userPhoneDisplay || '未关联' },
       { label: '过程图', value: `${imageCount} 张` },
     ]
+    if (detail.templateName) {
+      summaryRows.splice(1, 0, { label: '相册模板', value: detail.templateName })
+    }
     if (planAmount != null) {
       summaryRows.splice(2, 0, {
         label: '方案报价',
@@ -156,6 +166,7 @@ Page({
       summaryRows,
       statusLabel: display.statusLabel,
       statusVariant: display.statusVariant,
+      stageTabs,
       nodes,
       parts: (detail.parts || []).map((p) => ({
         ...p,

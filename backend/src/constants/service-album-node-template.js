@@ -125,6 +125,16 @@ function matchKeywordTemplate(serviceName) {
   return null
 }
 
+function getTemplateNodeMetaMap(templateId) {
+  const key = String(templateId || '').trim()
+  const tpl = key ? ALBUM_NODE_TEMPLATES[key] : null
+  if (!tpl || !Array.isArray(tpl.nodes)) return {}
+  return tpl.nodes.reduce((acc, node) => {
+    acc[node.nodeId] = node
+    return acc
+  }, {})
+}
+
 /**
  * @param {{ serviceItemId?: string, serviceName?: string }} input
  */
@@ -158,4 +168,5 @@ module.exports = {
   resolveAlbumNodeTemplate,
   buildAlbumNodesFromTemplate,
   matchKeywordTemplate,
+  getTemplateNodeMetaMap,
 }

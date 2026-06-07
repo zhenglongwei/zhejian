@@ -16,6 +16,7 @@ const {
 const {
   resolveAlbumNodeTemplate,
   buildAlbumNodesFromTemplate,
+  getTemplateNodeMetaMap,
 } = require('../constants/service-album-node-template')
 const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const {
@@ -54,14 +55,26 @@ function resolvePublicCaseStatus(album) {
 
 function mapNodesForView(album) {
   const nodeViews = albumToNodeView(album)
-  return nodeViews.map((node) => ({
-    id: node.id,
-    title: node.title,
-    status: node.status,
-    note: node.note || '',
-    images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
-    updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
-  }))
+  const templateMeta = getTemplateNodeMetaMap(album.templateId)
+  return nodeViews.map((node) => {
+    const meta = templateMeta[node.id] || {}
+    const requiredLevel = meta.requiredLevel || ''
+    return {
+      id: node.id,
+      title: node.title,
+      status: node.status,
+      note: node.note || '',
+      images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
+      updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
+      requiredLevelLabel:
+        requiredLevel === 'required'
+          ? '必拍'
+          : requiredLevel === 'recommended'
+            ? '建议拍摄'
+            : '',
+      requiredLevelVariant: requiredLevel === 'required' ? 'danger' : 'info',
+    }
+  })
 }
 
 function buildStoreBlock(album) {
@@ -155,6 +168,8 @@ function buildMerchantView(album) {
     vehicleDisplay: formatVehicle(album.vehicleJson),
     storeName: album.storeName || '—',
     storeNote: album.storeNote || '',
+    templateId: album.templateId || '',
+    templateName: album.templateName || '',
     nodes,
     parts: album.partsJson || [],
     planAmount,
