@@ -4,7 +4,7 @@
  */
 const { ENV } = require('./config')
 const { get, put, post } = require('./request')
-const { saveSession } = require('../utils/auth')
+const { saveSession, getSession } = require('../utils/auth')
 
 const STORAGE_KEY = 'merchant_profile_v1'
 
@@ -49,6 +49,64 @@ async function refreshMerchantSession() {
   const data = await post('/merchant/auth/refresh-session')
   applyAuthSession(data)
   return data
+}
+
+async function fetchMerchantStores() {
+  if (ENV.mode === 'mock') {
+    await delay(120)
+    const profile = getLocalProfile()
+    const list = [
+      {
+        id: profile?.storeId || 'store_demo_1',
+        name: profile?.storeName || '演示门店',
+        address: profile?.address || '',
+      },
+    ]
+    if (profile?.storeId === 'store_demo_1') {
+      list.push({
+        id: 'store_demo_002',
+        name: '辙见城西分店（演示）',
+        address: '杭州市西湖区示例路 88 号',
+      })
+    }
+    return { list, total: list.length }
+  }
+  return get('/merchant/stores')
+}
+
+async function switchMerchantStore(storeId) {
+  if (ENV.mode === 'mock') {
+    await delay(200)
+    const profile = getLocalProfile() || {}
+    const stores = (await fetchMerchantStores()).list || []
+    const picked = stores.find((s) => s.id === storeId)
+    if (!picked) {
+      const err = new Error('门店不存在')
+      err.code = 404
+      throw err
+    }
+    const next = {
+      ...profile,
+      storeId: picked.id,
+      storeName: picked.name,
+      address: picked.address,
+    }
+    saveLocalProfile(next)
+    const session = getSession()
+    saveSession({
+      ...session,
+      merchant: {
+        ...(session.merchant || {}),
+        storeId: picked.id,
+      },
+    })
+    return next
+  }
+  const session = await post('/merchant/auth/switch-store', { storeId })
+  applyAuthSession(session)
+  const profile = await get('/merchant/onboarding')
+  if (profile) saveLocalProfile(profile)
+  return profile
 }
 
 async function fetchMerchantProfile() {
@@ -149,6 +207,8 @@ function cacheMerchantProfile(profile) {
 module.exports = {
   MERCHANT_STATUS,
   fetchMerchantProfile,
+  fetchMerchantStores,
+  switchMerchantStore,
   submitOnboarding,
   saveOnboardingDraft,
   refreshMerchantSession,

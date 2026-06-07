@@ -12,7 +12,7 @@ const router = express.Router()
 
 router.get('/onboarding', requireAuth(['user']), async (req, res, next) => {
   try {
-    const profile = await getOnboardingProfile(req.auth.userId)
+    const profile = await getOnboardingProfile(req.auth.userId, req.auth.storeId || '')
     return ok(res, profile)
   } catch (e) {
     next(e)

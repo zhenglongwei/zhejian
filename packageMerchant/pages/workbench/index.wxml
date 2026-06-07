@@ -41,8 +41,23 @@
 
   <block wx:else>
     <view class="page-content merchant-wb__head">
-      <text class="text-h2">{{profile.storeName}}</text>
-      <ui-tag variant="success" text="已认证" />
+      <view class="merchant-wb__head-main">
+        <text class="text-h2">{{profile.storeName}}</text>
+        <view class="merchant-wb__head-tags">
+          <ui-tag variant="success" text="已认证" />
+        </view>
+        <picker
+          wx:if="{{canSwitchStore}}"
+          mode="selector"
+          range="{{storeOptions}}"
+          range-key="name"
+          value="{{storePickerIndex}}"
+          disabled="{{switchingStore}}"
+          bindchange="onStoreChange"
+        >
+          <text class="text-link text-caption merchant-wb__switch">切换门店</text>
+        </picker>
+      </view>
       <text class="text-caption merchant-wb__addr">{{profile.address}}</text>
     </view>
     <view class="page-content merchant-wb__stats">

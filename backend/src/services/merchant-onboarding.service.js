@@ -45,18 +45,27 @@ function formatOnboardingProfile(merchant, store) {
   }
 }
 
-async function findMerchantApplication(userId) {
+async function findMerchantApplication(userId, activeStoreId = '') {
   const staff = await prisma.merchantStaff.findFirst({
     where: { userId, status: 'ACTIVE' },
     include: {
-      merchant: { include: { stores: { take: 1, orderBy: { createdAt: 'asc' } } } },
+      merchant: {
+        include: {
+          stores: { where: { status: STORE_STATUS.ACTIVE }, orderBy: { createdAt: 'asc' } },
+        },
+      },
     },
   })
-  if (staff?.merchant) {
-    const store = staff.merchant.stores[0]
-    if (store) {
-      return { merchant: staff.merchant, store }
+  if (staff?.merchant && staff.merchant.stores.length) {
+    const preferred = String(activeStoreId || '').trim()
+    let store =
+      (preferred && staff.merchant.stores.find((s) => s.id === preferred)) ||
+      staff.merchant.stores.find((s) => s.id === staff.storeId) ||
+      staff.merchant.stores[0]
+    if (staff.role !== 'owner' && staff.storeId) {
+      store = staff.merchant.stores.find((s) => s.id === staff.storeId) || store
     }
+    return { merchant: staff.merchant, store }
   }
 
   const merchant = await prisma.merchant.findFirst({
@@ -64,15 +73,20 @@ async function findMerchantApplication(userId) {
       ownerUserId: userId,
       status: { not: MERCHANT_STATUS.CLOSED },
     },
-    include: { stores: { take: 1, orderBy: { createdAt: 'asc' } } },
+    include: {
+      stores: { where: { status: STORE_STATUS.ACTIVE }, orderBy: { createdAt: 'asc' } },
+    },
     orderBy: { updatedAt: 'desc' },
   })
-  if (!merchant || !merchant.stores[0]) return null
-  return { merchant, store: merchant.stores[0] }
+  if (!merchant || !merchant.stores.length) return null
+  const preferred = String(activeStoreId || '').trim()
+  const store =
+    (preferred && merchant.stores.find((s) => s.id === preferred)) || merchant.stores[0]
+  return { merchant, store }
 }
 
-async function getOnboardingProfile(userId) {
-  const found = await findMerchantApplication(userId)
+async function getOnboardingProfile(userId, activeStoreId = '') {
+  const found = await findMerchantApplication(userId, activeStoreId)
   if (!found) return null
   return formatOnboardingProfile(found.merchant, found.store)
 }

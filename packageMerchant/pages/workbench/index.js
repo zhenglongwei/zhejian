@@ -1,6 +1,8 @@
 const {
   fetchMerchantProfile,
   refreshMerchantSession,
+  fetchMerchantStores,
+  switchMerchantStore,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
@@ -25,6 +27,10 @@ Page({
       transparency: '0',
     },
     canManageStaff: false,
+    storeOptions: [],
+    storePickerIndex: 0,
+    canSwitchStore: false,
+    switchingStore: false,
   },
 
   onShow() {
@@ -64,6 +70,22 @@ Page({
       activeAlbums: 0,
     }
     let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
+    let storeOptions = []
+    let storePickerIndex = 0
+    let canSwitchStore = false
+    try {
+      if (isMerchantOwner()) {
+        const storeData = await fetchMerchantStores()
+        storeOptions = storeData.list || []
+        storePickerIndex = Math.max(
+          0,
+          storeOptions.findIndex((item) => item.id === profile.storeId)
+        )
+        canSwitchStore = storeOptions.length > 1
+      }
+    } catch (e) {
+      storeOptions = []
+    }
     try {
       const [stats, leadStats, dashStats] = await Promise.all([
         fetchMerchantAlbumStats(),
@@ -94,7 +116,43 @@ Page({
       todos,
       overview,
       canManageStaff: isMerchantOwner(),
+      storeOptions,
+      storePickerIndex,
+      canSwitchStore,
     })
+  },
+
+  onStoreChange(e) {
+    const index = Number(e.detail.value)
+    const { storeOptions, profile, canSwitchStore, switchingStore } = this.data
+    if (!canSwitchStore || switchingStore || !Number.isFinite(index)) return
+    const picked = storeOptions[index]
+    if (!picked || picked.id === profile.storeId) return
+    this.doSwitchStore(picked.id, index)
+  },
+
+  async doSwitchStore(storeId, pickerIndex) {
+    if (this.data.switchingStore) return
+    this.setData({ switchingStore: true })
+    try {
+      wx.showLoading({ title: '切换门店', mask: true })
+      await switchMerchantStore(storeId)
+      wx.hideLoading()
+      this.setData({ storePickerIndex: pickerIndex })
+      await this.loadProfile()
+      wx.showToast({ title: '已切换门店', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      this.setData({
+        storePickerIndex: Math.max(
+          0,
+          this.data.storeOptions.findIndex((item) => item.id === this.data.profile?.storeId)
+        ),
+      })
+      wx.showToast({ title: (e && e.message) || '切换失败', icon: 'none' })
+    } finally {
+      this.setData({ switchingStore: false })
+    }
   },
 
   onGoOnboarding() {

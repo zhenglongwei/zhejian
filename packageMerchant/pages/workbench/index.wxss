@@ -23,9 +23,25 @@
 .merchant-wb__head {
   padding-top: var(--space-lg);
   display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-wb__head-main {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+}
+
+.merchant-wb__head-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-wb__switch {
+  margin-left: auto;
 }
 
 .merchant-wb__addr {

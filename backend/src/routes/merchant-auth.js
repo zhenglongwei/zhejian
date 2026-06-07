@@ -2,12 +2,13 @@ const express = require('express')
 const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { buildAuthSession } = require('../services/auth.service')
+const { resolveMerchantContext } = require('../services/merchant-context.service')
 const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 
 const router = express.Router()
 
-/** 登录后刷新会话（入驻审核通过后重新拉取 merchant 角色） */
+/** 登录后刷新会话（入驻审核通过后重新拉取 merchant 角色；保留 JWT 当前门店） */
 router.post('/auth/refresh-session', requireAuth(['user']), async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.auth.userId } })
@@ -16,7 +17,40 @@ router.post('/auth/refresh-session', requireAuth(['user']), async (req, res, nex
       err.status = 404
       throw err
     }
-    const data = await buildAuthSession(user)
+    const data = await buildAuthSession(user, { storeId: req.auth.storeId || '' })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** 主账号切换当前工作台门店（刷新 JWT storeId） */
+router.post('/auth/switch-store', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = String((req.body && req.body.storeId) || '').trim()
+    if (!storeId) {
+      const err = new Error('请选择门店')
+      err.status = 400
+      throw err
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.auth.userId } })
+    if (!user) {
+      const err = new Error('用户不存在')
+      err.status = 404
+      throw err
+    }
+    const ctx = await resolveMerchantContext(user.id, { storeId })
+    if (!ctx || ctx.staffRole !== 'owner') {
+      const err = new Error('仅店铺管理员可切换门店')
+      err.status = 403
+      throw err
+    }
+    if (ctx.storeId !== storeId) {
+      const err = new Error('门店不存在或不可用')
+      err.status = 404
+      throw err
+    }
+    const data = await buildAuthSession(user, { storeId })
     return ok(res, data)
   } catch (e) {
     next(e)
