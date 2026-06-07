@@ -1,7 +1,7 @@
-const { fetchUserFavorites, removeFavorite } = require('../../services/favorite')
-const { FAVORITE_LIST_TABS, FAVORITE_NOTICE } = require('../../constants/favorite-list-tabs')
-const { enrichFavoriteListItem } = require('../../utils/favorite-display')
-const { isLoggedIn, checkAuth } = require('../../utils/auth')
+const { fetchUserFavorites, removeFavorite } = require('../../../services/favorite')
+const { FAVORITE_LIST_TABS, FAVORITE_NOTICE } = require('../../../constants/favorite-list-tabs')
+const { enrichFavoriteListItem } = require('../../../utils/favorite-display')
+const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 
 Page({
   data: {

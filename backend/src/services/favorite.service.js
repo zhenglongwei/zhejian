@@ -1,4 +1,4 @@
-const { prisma } = require('../lib/prisma')
+const { prisma, assertPrismaDelegate } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { PLAN_SALE_STATUS } = require('../constants/service-plan')
@@ -205,6 +205,7 @@ async function enrichFavoriteRow(row) {
 }
 
 async function listUserFavorites(userId, query = {}) {
+  assertPrismaDelegate('userFavorite', '收藏')
   await assertPhoneBound(userId)
   const targetType = normalizeFavoriteType(query.type)
   const { page, pageSize, skip } = parsePagination(query)
@@ -233,6 +234,7 @@ async function listUserFavorites(userId, query = {}) {
 }
 
 async function getFavoriteStatus(userId, targetTypeRaw, targetIdRaw) {
+  assertPrismaDelegate('userFavorite', '收藏')
   const targetType = normalizeFavoriteType(targetTypeRaw)
   const targetId = String(targetIdRaw || '').trim()
   if (!targetId) {
@@ -254,6 +256,7 @@ async function getFavoriteStatus(userId, targetTypeRaw, targetIdRaw) {
 }
 
 async function addUserFavorite(userId, payload = {}) {
+  assertPrismaDelegate('userFavorite', '收藏')
   await assertPhoneBound(userId)
   const targetType = normalizeFavoriteType(payload.targetType)
   const targetId = String(payload.targetId || '').trim()
@@ -280,6 +283,7 @@ async function addUserFavorite(userId, payload = {}) {
 }
 
 async function removeUserFavorite(userId, payload = {}) {
+  assertPrismaDelegate('userFavorite', '收藏')
   await assertPhoneBound(userId)
   const targetType = normalizeFavoriteType(payload.targetType)
   const targetId = String(payload.targetId || '').trim()

@@ -17,6 +17,10 @@ router.get('/health', async (req, res) => {
     service: 'zhejian-api',
     version: '0.1.0',
     db,
+    prisma: {
+      userFavorite: Boolean(prisma.userFavorite),
+      userVehicle: Boolean(prisma.userVehicle),
+    },
     time: new Date().toISOString(),
   })
 })

@@ -34,8 +34,19 @@ async function main() {
   }
 
   const data = body.data || body
-  const ok = res.ok && data.ok === true && data.db === 'up'
+  const prismaReady =
+    data.prisma &&
+    data.prisma.userFavorite === true &&
+    data.prisma.userVehicle === true
+  const ok = res.ok && data.ok === true && data.db === 'up' && prismaReady
   console.log(JSON.stringify(body, null, 2))
+
+  if (res.ok && data.ok === true && data.db === 'up' && !prismaReady) {
+    console.error(
+      'FAIL: Prisma Client 未包含 userFavorite/userVehicle，请在 backend 执行 npm run db:setup:prod 后 pm2 restart'
+    )
+    process.exit(1)
+  }
 
   if (!ok) {
     console.error('FAIL: health 未通过（检查 API 进程与 DATABASE_URL）')

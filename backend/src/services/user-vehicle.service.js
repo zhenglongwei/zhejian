@@ -1,4 +1,4 @@
-const { prisma } = require('../lib/prisma')
+const { prisma, assertPrismaDelegate } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { maskPlate } = require('../utils/plate-mask')
 
@@ -71,6 +71,7 @@ async function countActiveVehicles(userId) {
 }
 
 async function listUserVehicles(userId) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const rows = await prisma.userVehicle.findMany({
     where: { userId, deletedAt: null },
@@ -80,6 +81,7 @@ async function listUserVehicles(userId) {
 }
 
 async function getDefaultUserVehicle(userId) {
+  assertPrismaDelegate('userVehicle', '车辆')
   if (!userId) return null
   const row = await prisma.userVehicle.findFirst({
     where: { userId, deletedAt: null, isDefault: true },
@@ -94,6 +96,7 @@ async function getDefaultUserVehicle(userId) {
 }
 
 async function getUserVehicle(userId, vehicleId) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const row = await prisma.userVehicle.findFirst({
     where: { id: vehicleId, userId, deletedAt: null },
@@ -107,6 +110,7 @@ async function getUserVehicle(userId, vehicleId) {
 }
 
 async function createUserVehicle(userId, payload = {}) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const activeCount = await countActiveVehicles(userId)
   if (activeCount >= MAX_VEHICLES) {
@@ -137,6 +141,7 @@ async function createUserVehicle(userId, payload = {}) {
 }
 
 async function updateUserVehicle(userId, vehicleId, payload = {}) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const existing = await prisma.userVehicle.findFirst({
     where: { id: vehicleId, userId, deletedAt: null },
@@ -175,6 +180,7 @@ async function updateUserVehicle(userId, vehicleId, payload = {}) {
 }
 
 async function deleteUserVehicle(userId, vehicleId) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const existing = await prisma.userVehicle.findFirst({
     where: { id: vehicleId, userId, deletedAt: null },
@@ -207,6 +213,7 @@ async function deleteUserVehicle(userId, vehicleId) {
 }
 
 async function setDefaultUserVehicle(userId, vehicleId) {
+  assertPrismaDelegate('userVehicle', '车辆')
   await assertPhoneBound(userId)
   const existing = await prisma.userVehicle.findFirst({
     where: { id: vehicleId, userId, deletedAt: null },
