@@ -95,6 +95,14 @@ async function submitMerchantPublicCase(albumId, payload = {}) {
   return post(`/merchant/service-albums/${albumId}/public-case`, withStore(payload))
 }
 
+async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
+  if (ENV.mode === 'mock') {
+    const { mockSwitchMerchantServiceAlbumTemplate } = require('../mock/service-albums')
+    return mockSwitchMerchantServiceAlbumTemplate(albumId, templateId)
+  }
+  return post(`/merchant/service-albums/${albumId}/switch-template`, withStore({ templateId }))
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -105,4 +113,5 @@ module.exports = {
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,
+  switchMerchantServiceAlbumTemplate,
 }

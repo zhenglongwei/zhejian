@@ -18,8 +18,31 @@
         <view class="page-content merchant-album-edit__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-album-edit__head">
-          <text class="text-h3">{{detail.serviceName}}</text>
-          <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
+          <view class="merchant-album-edit__head-main">
+            <text class="text-h3">{{detail.serviceName}}</text>
+            <view class="merchant-album-edit__head-tags">
+              <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
+              <ui-tag wx:if="{{templateName}}" variant="info" text="{{templateName}}" />
+            </view>
+          </view>
+          <picker
+            wx:if="{{canSwitchTemplate && templateOptions.length}}"
+            mode="selector"
+            range="{{templateOptions}}"
+            range-key="name"
+            value="{{templatePickerIndex}}"
+            disabled="{{switching || saving || completing}}"
+            bindchange="onTemplateChange"
+          >
+            <text class="text-link text-caption merchant-album-edit__switch">切换模板</text>
+          </picker>
+        </view>
+        <text
+          wx:if="{{canSwitchTemplate && templateOptions.length}}"
+          class="text-caption merchant-album-edit__switch-hint"
+        >如自动匹配不准确，可手动切换。切换不会删除已上传图片。</text>
+        <view wx:if="{{completeness}}" class="merchant-album-edit__progress">
+          <text class="text-caption">{{completeness.summaryText}}</text>
         </view>
         <ui-key-info-table rows="{{summaryRows}}" />
       </ui-card>

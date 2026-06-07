@@ -17,6 +17,8 @@ const {
   resolveAlbumNodeTemplate,
   buildAlbumNodesFromTemplate,
   getTemplateNodeMetaMap,
+  listServiceAlbumTemplateOptions,
+  getAlbumTemplateById,
 } = require('../constants/service-album-node-template')
 const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const {
@@ -139,6 +141,33 @@ function buildAlbumView(album) {
   return view
 }
 
+function buildServiceAlbumCompleteness(album, nodes) {
+  const templateMeta = getTemplateNodeMetaMap(album.templateId)
+  const list = nodes || []
+  const total = list.length
+  const filled = list.filter(
+    (n) => (n.images || []).length > 0 || String(n.note || '').trim()
+  ).length
+  const requiredKeys = Object.keys(templateMeta).filter(
+    (key) => templateMeta[key].requiredLevel === 'required'
+  )
+  const requiredFilled = requiredKeys.filter((key) => {
+    const node = list.find((n) => n.id === key)
+    if (!node) return false
+    return (node.images || []).length > 0 || String(node.note || '').trim()
+  }).length
+  return {
+    filledStages: filled,
+    totalStages: total,
+    requiredStages: requiredKeys.length,
+    requiredFilled,
+    summaryText:
+      requiredKeys.length > 0
+        ? `已上传 ${filled}/${total} 个阶段，必拍 ${requiredFilled}/${requiredKeys.length}`
+        : `已上传 ${filled}/${total} 个阶段`,
+  }
+}
+
 function buildMerchantView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
@@ -186,6 +215,7 @@ function buildMerchantView(album) {
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
+    completeness: buildServiceAlbumCompleteness(album, nodes),
   }
 }
 
@@ -762,6 +792,85 @@ async function getMerchantAlbumClaimQrcode(albumId, storeId, merchantId = '') {
   }
 }
 
+const ALBUM_TEMPLATE_SWITCH_LOCKED = new Set([
+  SERVICE_ALBUM_STATUS.COMPLETED,
+  SERVICE_ALBUM_STATUS.PUBLISHED,
+  'published',
+  'pending_review',
+])
+
+async function switchMerchantServiceAlbumTemplate(
+  albumId,
+  storeId,
+  templateId,
+  merchantId = ''
+) {
+  const existing = await loadAlbum(albumId)
+  assertMerchantAlbum(existing, storeId, merchantId)
+
+  const id = String(templateId || '').trim()
+  const tpl = getAlbumTemplateById(id)
+  if (!tpl) {
+    const err = new Error('无效的相册模板')
+    err.status = 400
+    throw err
+  }
+
+  if (existing.templateId === id) {
+    return buildMerchantView(existing)
+  }
+
+  if (ALBUM_TEMPLATE_SWITCH_LOCKED.has(existing.status)) {
+    const err = new Error('已完工或审核中的相册不可切换模板')
+    err.status = 409
+    throw err
+  }
+
+  const imagesByNode = {}
+  ;(existing.images || []).forEach((img) => {
+    if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
+    imagesByNode[img.nodeId].push(img.rawUrl)
+  })
+  const nodeById = Object.fromEntries((existing.nodes || []).map((n) => [n.nodeId, n]))
+
+  await prisma.albumNode.deleteMany({ where: { albumId } })
+
+  let imageCount = 0
+  for (let i = 0; i < tpl.nodes.length; i += 1) {
+    const spec = tpl.nodes[i]
+    const prev = nodeById[spec.nodeId] || {}
+    const urls = imagesByNode[spec.nodeId] || []
+    imageCount += urls.length
+    const hasContent = urls.length > 0 || String(prev.note || '').trim()
+    await prisma.albumNode.create({
+      data: {
+        albumId,
+        nodeId: spec.nodeId,
+        title: spec.title,
+        sortOrder: i,
+        status: hasContent ? 'completed' : 'pending',
+        note: prev.note || '',
+        updatedAt: prev.updatedAt || null,
+      },
+    })
+  }
+
+  const album = await prisma.album.update({
+    where: { id: albumId },
+    data: {
+      templateId: tpl.templateId,
+      templateName: tpl.templateName,
+      imageCount,
+    },
+    include: {
+      nodes: { orderBy: { sortOrder: 'asc' } },
+      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+    },
+  })
+
+  return buildMerchantView(album)
+}
+
 module.exports = {
   listUserServiceAlbums,
   getUserServiceAlbum,
@@ -779,4 +888,6 @@ module.exports = {
   getAlbumClaimPreview,
   claimServiceAlbumByUser,
   getMerchantAlbumClaimQrcode,
+  switchMerchantServiceAlbumTemplate,
+  listServiceAlbumTemplateOptions,
 }

@@ -10,6 +10,8 @@ const {
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
   getMerchantAlbumClaimQrcode,
+  switchMerchantServiceAlbumTemplate,
+  listServiceAlbumTemplateOptions,
 } = require('../services/service-album.service')
 const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
@@ -35,6 +37,14 @@ router.get('/service-albums/stats', requireAuth(['merchant']), async (req, res, 
     const storeId = resolveStoreId(req)
     const data = await fetchMerchantAlbumStats(storeId, req.auth.merchantId)
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/templates', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    return ok(res, { list: listServiceAlbumTemplateOptions() })
   } catch (e) {
     next(e)
   }
@@ -116,6 +126,26 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
     next(e)
   }
 })
+
+router.post(
+  '/service-albums/:albumId/switch-template',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const templateId = (req.body && req.body.templateId) || ''
+      const data = await switchMerchantServiceAlbumTemplate(
+        req.params.albumId,
+        storeId,
+        templateId,
+        req.auth.merchantId
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
 
 router.post('/service-albums/:albumId/cold-start-preview', requireAuth(['merchant']), async (req, res, next) => {
   try {

@@ -8,6 +8,10 @@ const {
 } = require('../constants/service-album-status')
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildEmptyStageNodes } = require('../constants/service-album-stages')
+const {
+  MOCK_TEMPLATE_OPTIONS,
+  MOCK_TEMPLATE_NODE_TITLES,
+} = require('../services/service-album-template')
 const { PART_TYPE } = require('../constants/part-type')
 const { isLoggedIn, getSession } = require('../utils/auth')
 const { findStore } = require('../services/store')
@@ -428,6 +432,20 @@ function maskPhone(phone) {
   return `${phone.slice(0, 3)}****${phone.slice(-4)}`
 }
 
+function buildMockCompleteness(album, nodes) {
+  const total = (nodes || []).length
+  const filled = (nodes || []).filter(
+    (n) => (n.images || []).length > 0 || String(n.note || '').trim()
+  ).length
+  return {
+    filledStages: filled,
+    totalStages: total,
+    requiredStages: 0,
+    requiredFilled: 0,
+    summaryText: `已上传 ${filled}/${total} 个阶段`,
+  }
+}
+
 function buildMerchantAlbumView(raw) {
   const album = applyConfirmOverrides(raw)
   const store = resolveStoreBlock(album.storeId)
@@ -440,6 +458,7 @@ function buildMerchantAlbumView(raw) {
     album.status === SERVICE_ALBUM_STATUS.PUBLISHED
   const canSubmitColdStartPublicCase =
     isCompleted && !hasOwner && publicCaseStatus === 'private'
+  const nodes = mapNodesForView(album.nodes)
   return {
     albumId: album.albumId,
     storeId: album.storeId,
@@ -454,7 +473,9 @@ function buildMerchantAlbumView(raw) {
     vehicleDisplay: buildVehicleDisplay(album.vehicle),
     storeName: store.name,
     storeNote: album.storeNote || '',
-    nodes: mapNodesForView(album.nodes),
+    templateId: album.templateId || '',
+    templateName: album.templateName || '',
+    nodes,
     parts: album.parts || [],
     planAmount: privatePrice.planAmount,
     planMinAmount: privatePrice.planAmount,
@@ -470,6 +491,7 @@ function buildMerchantAlbumView(raw) {
     updatedAt: album.updatedAt,
     updatedAtText: formatDateTime(album.updatedAt),
     completedAt: album.completedAt || '',
+    completeness: buildMockCompleteness(album, nodes),
   }
 }
 
@@ -1129,6 +1151,46 @@ async function mockFetchMerchantAlbumClaimQrcode(albumId) {
   }
 }
 
+async function mockSwitchMerchantServiceAlbumTemplate(albumId, templateId) {
+  await delay(280)
+  const titles = MOCK_TEMPLATE_NODE_TITLES[templateId]
+  const option = MOCK_TEMPLATE_OPTIONS.find((item) => item.id === templateId)
+  if (!titles || !option) {
+    const err = new Error('无效的相册模板')
+    err.code = 400
+    throw err
+  }
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  if (
+    raw.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+    raw.status === SERVICE_ALBUM_STATUS.PUBLISHED
+  ) {
+    const err = new Error('已完工或审核中的相册不可切换模板')
+    err.code = 409
+    throw err
+  }
+  const now = new Date().toISOString()
+  const next = {
+    ...raw,
+    templateId,
+    templateName: option.name,
+    updatedAt: now,
+    nodes: (raw.nodes || buildEmptyStageNodes()).map((node, index) => ({
+      ...node,
+      title: titles[index] || node.title,
+    })),
+  }
+  map[albumId] = next
+  saveAlbumMap(map)
+  return buildMerchantAlbumView(next)
+}
+
 module.exports = {
   mockFetchAlbumClaimPreview,
   mockClaimServiceAlbum,
@@ -1151,5 +1213,6 @@ module.exports = {
   mockSubmitMerchantPublicCase,
   mockRecordAlbumShare,
   mockFetchSharedAlbum,
+  mockSwitchMerchantServiceAlbumTemplate,
   MOCK_ALBUMS,
 }

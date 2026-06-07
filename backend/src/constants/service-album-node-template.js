@@ -162,6 +162,18 @@ function buildAlbumNodesFromTemplate(template) {
   }))
 }
 
+function listServiceAlbumTemplateOptions() {
+  return Object.values(ALBUM_NODE_TEMPLATES)
+    .filter((tpl) => tpl.templateId && tpl.templateId !== 'default')
+    .map((tpl) => ({ id: tpl.templateId, name: tpl.templateName }))
+}
+
+function getAlbumTemplateById(templateId) {
+  const key = String(templateId || '').trim()
+  if (!key || key === 'default') return null
+  return ALBUM_NODE_TEMPLATES[key] || null
+}
+
 module.exports = {
   ALBUM_NODE_TEMPLATES,
   TEMPLATE_BY_ITEM_ID,
@@ -169,4 +181,6 @@ module.exports = {
   buildAlbumNodesFromTemplate,
   matchKeywordTemplate,
   getTemplateNodeMetaMap,
+  listServiceAlbumTemplateOptions,
+  getAlbumTemplateById,
 }

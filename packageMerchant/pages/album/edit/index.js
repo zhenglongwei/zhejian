@@ -14,7 +14,9 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   createMerchantColdStartPreview,
+  switchMerchantServiceAlbumTemplate,
 } = require('../../../../services/merchant-service-album')
+const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
 const {
   canShareToOwner,
   buildOwnerShareMessage,
@@ -72,6 +74,13 @@ Page({
     ownerPhoneHint: OWNER_PHONE_HINT,
     uploadPrivacyHint:
       '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
+    templateOptions: [],
+    templatePickerIndex: 0,
+    templateId: '',
+    templateName: '',
+    canSwitchTemplate: false,
+    switching: false,
+    completeness: null,
   },
 
   onLoad(options) {
@@ -89,7 +98,20 @@ Page({
       this.setData({ status: 'error', errorMessage: '请先完成商家入驻' })
       return
     }
+    let templateOptions = []
+    try {
+      templateOptions = await fetchServiceAlbumTemplateOptions()
+    } catch (e) {
+      templateOptions = []
+    }
+    this.setData({ templateOptions })
     this.loadAlbum()
+  },
+
+  syncTemplatePickerIndex(templateId) {
+    const { templateOptions } = this.data
+    const index = (templateOptions || []).findIndex((item) => item.id === templateId)
+    return index >= 0 ? index : 0
   },
 
   mergeNodes(rawNodes) {
@@ -133,9 +155,6 @@ Page({
       { label: '车主', value: detail.userPhoneDisplay || '未关联' },
       { label: '过程图', value: `${imageCount} 张` },
     ]
-    if (detail.templateName) {
-      summaryRows.splice(1, 0, { label: '相册模板', value: detail.templateName })
-    }
     if (planAmount != null) {
       summaryRows.splice(2, 0, {
         label: '方案报价',
@@ -146,6 +165,8 @@ Page({
     const hasOwnerPhone = Boolean(String(detail.userPhone || '').trim())
     const hasOwner = Boolean(detail.hasOwner) || hasOwnerPhone
     const publicCaseStatus = detail.publicCaseStatus || 'private'
+    const canSwitchTemplate =
+      !isCompleted && publicCaseStatus === 'private' && detail.status !== 'pending_review'
     const showSubmitReviewButton =
       isCompleted && !hasOwnerPhone && publicCaseStatus === 'private'
     let showBottomPrimary = false
@@ -187,6 +208,11 @@ Page({
       showSubmitReviewButton,
       showBottomPrimary,
       bottomPrimaryText,
+      templateId: detail.templateId || '',
+      templateName: detail.templateName || '',
+      templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
+      canSwitchTemplate,
+      completeness: detail.completeness || null,
     })
     this.syncShareMenu(canShare)
   },
@@ -225,6 +251,51 @@ Page({
     const { key } = e.detail
     const index = SERVICE_ALBUM_STAGES.findIndex((s) => s.id === key)
     if (index >= 0) this.setData({ stageIndex: index })
+  },
+
+  onTemplateChange(e) {
+    const index = Number(e.detail.value)
+    const { templateOptions, templateId, canSwitchTemplate } = this.data
+    if (!canSwitchTemplate || !Number.isFinite(index)) return
+    const picked = templateOptions[index]
+    if (!picked || picked.id === templateId) return
+
+    wx.showModal({
+      title: '切换相册模板',
+      content: `将切换为「${picked.name}」模板。已上传图片会保留在同阶段节点上，完整度将重新计算。`,
+      confirmText: '确认切换',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) {
+          this.setData({
+            templatePickerIndex: this.syncTemplatePickerIndex(this.data.templateId),
+          })
+          return
+        }
+        this.doSwitchTemplate(picked.id, index)
+      },
+    })
+  },
+
+  async doSwitchTemplate(templateId, pickerIndex) {
+    if (this.data.switching) return
+    this.setData({ switching: true })
+    try {
+      wx.showLoading({ title: '切换中', mask: true })
+      const detail = await switchMerchantServiceAlbumTemplate(this.albumId, templateId)
+      wx.hideLoading()
+      this.applyAlbum(detail)
+      this.setData({ templatePickerIndex: pickerIndex, stageIndex: 0 })
+      wx.showToast({ title: '已切换模板', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      this.setData({
+        templatePickerIndex: this.syncTemplatePickerIndex(this.data.templateId),
+      })
+      wx.showToast({ title: (e && e.message) || '切换失败', icon: 'none' })
+    } finally {
+      this.setData({ switching: false })
+    }
   },
 
   onNodeImages(e) {
