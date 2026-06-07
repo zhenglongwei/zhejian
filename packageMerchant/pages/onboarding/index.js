@@ -3,6 +3,7 @@ const {
   submitOnboarding,
   saveOnboardingDraft,
   refreshMerchantSession,
+  recognizeLicenseOcr,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
@@ -214,13 +215,17 @@ Page({
     })
   },
 
-  async pickSingleImage(field) {
+  async pickSingleImage(field, options = {}) {
+    const { onUploaded } = options
     const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
     const temp = res.tempFiles[0].tempFilePath
     wx.showLoading({ title: '上传中', mask: true })
     try {
       const url = await uploadImage(temp)
       this.setData({ [`form.${field}`]: url })
+      if (typeof onUploaded === 'function') {
+        await onUploaded(url)
+      }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
     } finally {
@@ -228,8 +233,59 @@ Page({
     }
   },
 
+  applyLicenseOcrResult(result = {}) {
+    const patch = {}
+    const form = this.data.form || {}
+    if (result.legalName && !form.legalName) {
+      patch['form.legalName'] = result.legalName
+    }
+    if (result.creditCode && !form.creditCode) {
+      patch['form.creditCode'] = result.creditCode
+    }
+    if (result.legalPerson && !form.contactName) {
+      patch['form.contactName'] = result.legalPerson
+    }
+    if (Object.keys(patch).length) {
+      this.setData(patch)
+      wx.showToast({ title: '已识别，请核对', icon: 'none' })
+      return
+    }
+    if (result.legalName || result.creditCode) {
+      wx.showModal({
+        title: '识别到营业执照信息',
+        content: '是否用识别结果覆盖当前已填写的主体信息？',
+        confirmText: '覆盖',
+        success: (res) => {
+          if (!res.confirm) return
+          const overwrite = {}
+          if (result.legalName) overwrite['form.legalName'] = result.legalName
+          if (result.creditCode) overwrite['form.creditCode'] = result.creditCode
+          if (result.legalPerson) overwrite['form.contactName'] = result.legalPerson
+          this.setData(overwrite)
+          wx.showToast({ title: '已更新，请核对', icon: 'none' })
+        },
+      })
+      return
+    }
+    wx.showToast({ title: '未识别到关键信息，请手填', icon: 'none' })
+  },
+
+  async runLicenseOcr(licensePhotoUrl) {
+    wx.showLoading({ title: '识别中', mask: true })
+    try {
+      const result = await recognizeLicenseOcr(licensePhotoUrl)
+      this.applyLicenseOcrResult(result)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '识别失败，请手动填写', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
   onPickLicense() {
-    this.pickSingleImage('licensePhotoUrl')
+    this.pickSingleImage('licensePhotoUrl', {
+      onUploaded: (url) => this.runLicenseOcr(url),
+    })
   },
 
   onPickFacade() {

@@ -14,7 +14,7 @@ function buildServiceQuickOptions(profile, publishedList) {
 
   ;(profile && profile.services ? profile.services : []).forEach((name) => {
     if (name && !map.has(name)) {
-      map.set(name, { name, serviceId: '', complexityLevel: DEFAULT_COMPLEXITY })
+      map.set(name, { name, serviceId: '', serviceItemId: '', complexityLevel: DEFAULT_COMPLEXITY })
     }
   })
 
@@ -24,13 +24,14 @@ function buildServiceQuickOptions(profile, publishedList) {
     map.set(name, {
       name,
       serviceId: item.serviceId || item.id || '',
+      serviceItemId: item.serviceItemId || '',
       complexityLevel: item.complexityLevel || DEFAULT_COMPLEXITY,
     })
   })
 
   if (!map.size) {
     MERCHANT_SERVICE_TAG_OPTIONS.forEach((name) => {
-      map.set(name, { name, serviceId: '', complexityLevel: DEFAULT_COMPLEXITY })
+      map.set(name, { name, serviceId: '', serviceItemId: '', complexityLevel: DEFAULT_COMPLEXITY })
     })
   }
 
@@ -55,6 +56,7 @@ function resolveServiceMeta(options, serviceName) {
   const matched = options.find((item) => item.name === name)
   return {
     serviceId: matched ? matched.serviceId || '' : '',
+    serviceItemId: matched ? matched.serviceItemId || '' : '',
     complexityLevel: matched ? matched.complexityLevel || DEFAULT_COMPLEXITY : DEFAULT_COMPLEXITY,
   }
 }
@@ -68,7 +70,6 @@ Page({
     form: {
       serviceName: '',
       serviceId: '',
-      userPhone: '',
       vehicleBrand: '',
       vehicleSeries: '',
       complexityLevel: DEFAULT_COMPLEXITY,
@@ -76,19 +77,9 @@ Page({
     submitting: false,
     storeName: '',
     storeId: '',
-    scanMode: false,
-    pageTitle: '新建服务相册',
   },
 
-  onLoad(options) {
-    this.scanMode = options.mode === 'scan'
-    this.setData({
-      scanMode: this.scanMode,
-      pageTitle: this.scanMode ? '扫码关联车主' : '新建服务相册',
-    })
-    if (this.scanMode) {
-      wx.setNavigationBarTitle({ title: '扫码关联车主' })
-    }
+  onLoad() {
     this.initPage()
   },
 
@@ -175,11 +166,6 @@ Page({
     this.setData({ [`form.${field}`]: e.detail.value })
   },
 
-  validatePhone(phone) {
-    if (!phone) return true
-    return /^1\d{10}$/.test(phone.trim())
-  },
-
   async onSubmit() {
     if (this.data.submitting) return
     const serviceName = (this.data.form.serviceName || '').trim()
@@ -187,9 +173,14 @@ Page({
       wx.showToast({ title: '请填写服务项目', icon: 'none' })
       return
     }
-    const userPhone = this.scanMode ? '' : (this.data.form.userPhone || '').trim()
-    if (!this.validatePhone(userPhone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+    const vehicleBrand = (this.data.form.vehicleBrand || '').trim()
+    const vehicleSeries = (this.data.form.vehicleSeries || '').trim()
+    if (!vehicleBrand) {
+      wx.showToast({ title: '请填写车辆品牌', icon: 'none' })
+      return
+    }
+    if (!vehicleSeries) {
+      wx.showToast({ title: '请填写车系', icon: 'none' })
       return
     }
 
@@ -201,20 +192,19 @@ Page({
         storeId: this.data.storeId,
         storeName: this.data.storeName,
         serviceId: meta.serviceId,
+        serviceItemId: meta.serviceItemId,
         serviceName,
         complexityLevel: meta.complexityLevel,
-        userPhone,
         vehicle: {
-          brand: this.data.form.vehicleBrand.trim(),
-          series: this.data.form.vehicleSeries.trim(),
+          brand: vehicleBrand,
+          series: vehicleSeries,
         },
       })
       wx.showToast({ title: '服务相册已创建', icon: 'success' })
       setTimeout(() => {
-        const nextUrl = this.scanMode
-          ? `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`
-          : `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`
-        wx.redirectTo({ url: nextUrl })
+        wx.redirectTo({
+          url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+        })
       }, 400)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })

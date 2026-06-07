@@ -34,6 +34,7 @@
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">营业执照照片 *</text>
+      <text class="text-caption merchant-onboard__optional-hint">上传后可自动识别主体名称与信用代码，识别结果可手动修改。</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickLicense">
         <image wx:if="{{form.licensePhotoUrl}}" class="merchant-onboard__photo" src="{{form.licensePhotoUrl}}" mode="aspectFill" />
         <text wx:else class="text-caption">点击上传</text>

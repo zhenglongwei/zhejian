@@ -21,6 +21,7 @@ const {
   isPubliclyVisible,
 } = require('../constants/service-plan')
 const { formatPlanRecord } = require('./service-plan-format')
+const { resolveRelatedCasesForService } = require('../utils/service-case-link')
 const { GEO_PAGES } = require('../../../mock/geo-pages')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
@@ -516,6 +517,14 @@ async function listServices(query = {}) {
   return { list, total }
 }
 
+async function attachRelatedCasesToService(record, opts = {}) {
+  const allCases = await fetchPublicCaseRows()
+  return {
+    ...record,
+    ...resolveRelatedCasesForService(record, allCases, opts),
+  }
+}
+
 async function getServiceDetail(id) {
   const row = await prisma.merchantServicePlan.findUnique({ where: { id } })
   if (row && isPubliclyVisible(row)) {
@@ -525,11 +534,14 @@ async function getServiceDetail(id) {
       err.status = 404
       throw err
     }
-    return {
-      ...formatPlanRecord(row, store),
-      status: 'published',
-      onlinePaymentEnabled: false,
-    }
+    return attachRelatedCasesToService(
+      {
+        ...formatPlanRecord(row, store),
+        status: 'published',
+        onlinePaymentEnabled: false,
+      },
+      { limit: 3 }
+    )
   }
 
   const record = SEED_SERVICES.find((s) => s.id === id)
@@ -551,7 +563,10 @@ async function getServiceDetail(id) {
     throw err
   }
 
-  return { ...record, storeName: store.name || record.storeName }
+  return attachRelatedCasesToService(
+    { ...record, storeName: store.name || record.storeName },
+    { limit: 3 }
+  )
 }
 
 function filterGeoPages(keyword) {
@@ -699,6 +714,7 @@ module.exports = {
   getMerchantDetail,
   listServices,
   getServiceDetail,
+  attachRelatedCasesToService,
   getSearchConfig,
   getSearchSuggest,
   searchContent,

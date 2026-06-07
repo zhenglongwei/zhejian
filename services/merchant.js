@@ -89,6 +89,22 @@ async function saveOnboardingDraft(form) {
   return profile
 }
 
+async function recognizeLicenseOcr(licensePhotoUrl) {
+  if (ENV.mode === 'mock') {
+    await delay(400)
+    return {
+      legalName: '杭州辙见汽车服务有限公司',
+      creditCode: '91330100MA2XXXXX0X',
+      legalPerson: '张三',
+      businessScope: '机动车维修经营',
+      companyType: '有限责任公司',
+      businessAddress: '浙江省杭州市西湖区示例路 1 号',
+      provider: 'mock',
+    }
+  }
+  return post('/merchant/onboarding/license-ocr', { licensePhotoUrl })
+}
+
 async function submitOnboarding(form) {
   if (ENV.mode === 'mock') {
     await delay(400)
@@ -138,4 +154,5 @@ module.exports = {
   refreshMerchantSession,
   getProfile,
   cacheMerchantProfile,
+  recognizeLicenseOcr,
 }

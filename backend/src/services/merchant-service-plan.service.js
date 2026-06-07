@@ -7,6 +7,7 @@ const {
   CLIENT_STATUS,
 } = require('../constants/service-plan')
 const { formatPlanRecord } = require('./service-plan-format')
+const { attachRelatedCasesToService } = require('./content.service')
 
 const EDITABLE_SALE = new Set([PLAN_SALE_STATUS.OFFLINE, PLAN_SALE_STATUS.ONLINE])
 
@@ -125,7 +126,7 @@ async function listMerchantServicePlans(merchantId, storeId, query = {}) {
 async function getMerchantServicePlan(planId, merchantId, storeId) {
   const store = await loadStoreForMerchant(storeId, merchantId)
   const plan = await loadOwnedPlan(planId, merchantId, storeId)
-  return formatPlanRecord(plan, store)
+  return attachRelatedCasesToService(formatPlanRecord(plan, store), { limit: 3 })
 }
 
 async function createMerchantServicePlan(merchantId, storeId, payload = {}) {

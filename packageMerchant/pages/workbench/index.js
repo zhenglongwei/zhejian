@@ -122,10 +122,6 @@ Page({
     this._navigateTo('/packageMerchant/pages/album/create/index')
   },
 
-  onScanCreateAlbum() {
-    this._navigateTo('/packageMerchant/pages/album/create/index?mode=scan')
-  },
-
   onAlbumList(e) {
     const tab =
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||

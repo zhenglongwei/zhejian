@@ -42,6 +42,16 @@
   border: none;
 }
 
+.merchant-album-edit__vehicle-hint {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-album-edit__vehicle-row {
+  margin-top: var(--space-xs);
+}
+
 .merchant-album-edit__head {
   display: flex;
   align-items: center;

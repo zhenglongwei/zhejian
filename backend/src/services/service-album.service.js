@@ -13,6 +13,10 @@ const {
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
+const {
+  resolveAlbumNodeTemplate,
+  buildAlbumNodesFromTemplate,
+} = require('../constants/service-album-node-template')
 const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const {
   assertPersistentImageUrl,
@@ -352,9 +356,35 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   return buildMerchantView(album)
 }
 
+function assertMerchantCannotSetOwnerPhone(payload = {}) {
+  if (payload.userPhone == null || payload.userPhone === '') return
+  const phone = String(payload.userPhone || '').trim()
+  if (phone) {
+    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
+    err.status = 400
+    throw err
+  }
+}
+
+async function resolveServiceItemIdForAlbum(payload = {}) {
+  const direct = String(payload.serviceItemId || payload.service_item_id || '').trim()
+  if (direct) return direct
+  const serviceId = String(payload.serviceId || payload.service_id || '').trim()
+  if (!serviceId) return ''
+  const plan = await prisma.merchantServicePlan.findUnique({
+    where: { id: serviceId },
+    select: { serviceItemId: true },
+  })
+  return plan?.serviceItemId || ''
+}
+
 async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
+  assertMerchantCannotSetOwnerPhone(payload)
   const normalized = normalizePlanAmountPayload(payload)
   const planAmount = resolvePlanAmount(normalized)
+  const serviceName = payload.serviceName || '服务留档'
+  const serviceItemId = await resolveServiceItemIdForAlbum(payload)
+  const template = resolveAlbumNodeTemplate({ serviceItemId, serviceName })
   const albumId = newId('alb_svc')
   const album = await prisma.album.create({
     data: {
@@ -363,7 +393,7 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       storeId,
       storeName: payload.storeName || payload.store_name || '门店',
       serviceId: payload.serviceId || '',
-      serviceName: payload.serviceName || '服务留档',
+      serviceName,
       userPhone: payload.userPhone || '',
       complexityLevel: payload.complexityLevel || 'L1',
       vehicleJson: payload.vehicle || {},
@@ -371,15 +401,11 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       minAmount: planAmount,
       maxAmount: planAmount,
       status: SERVICE_ALBUM_STATUS.DRAFT,
+      templateId: template.templateId || '',
+      templateName: template.templateName || '',
       imageCount: 0,
       nodes: {
-        create: DEFAULT_STAGE_NODES.map((n, i) => ({
-          nodeId: n.nodeId,
-          title: n.title,
-          sortOrder: i,
-          status: 'pending',
-          note: '',
-        })),
+        create: buildAlbumNodesFromTemplate(template),
       },
     },
     include: {
@@ -410,6 +436,7 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
 async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  assertMerchantCannotSetOwnerPhone(payload)
 
   let imageCount = existing.imageCount
   if (payload.nodes) {
@@ -429,8 +456,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ...existing,
     ...normalized,
   })
-  const ownerPatch = await resolveOwnerPhoneUpdate(existing, payload)
-
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -445,7 +470,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,
       status,
       imageCount,
-      ...ownerPatch,
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },

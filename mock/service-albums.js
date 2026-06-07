@@ -716,6 +716,11 @@ async function mockFetchMerchantServiceAlbum(albumId) {
 
 async function mockCreateMerchantServiceAlbum(payload) {
   await delay(350)
+  if (payload.userPhone && String(payload.userPhone).trim()) {
+    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
+    err.code = 400
+    throw err
+  }
   const albumId = `alb_svc_${Date.now()}`
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
@@ -756,10 +761,12 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
   }
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
-  let userPhone = raw.userPhone
-  if (payload.userPhone != null) {
-    userPhone = String(payload.userPhone || '').trim()
+  if (payload.userPhone != null && String(payload.userPhone || '').trim()) {
+    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
+    err.code = 400
+    throw err
   }
+  const userPhone = raw.userPhone
   const next = {
     ...raw,
     ...normalized,

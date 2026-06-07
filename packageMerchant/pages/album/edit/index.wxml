@@ -112,6 +112,27 @@
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3">车型信息</text>
+        <text class="text-caption merchant-album-edit__vehicle-hint">品牌与车系为必填，公开案例时将脱敏展示。</text>
+        <view class="merchant-form__row merchant-album-edit__vehicle-row">
+          <input
+            class="merchant-form__input merchant-form__input--half"
+            placeholder="品牌 *"
+            value="{{vehicleBrand}}"
+            data-field="vehicleBrand"
+            bindinput="onVehicleInput"
+          />
+          <input
+            class="merchant-form__input merchant-form__input--half"
+            placeholder="车系 *"
+            value="{{vehicleSeries}}"
+            data-field="vehicleSeries"
+            bindinput="onVehicleInput"
+          />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="text-h3">门店说明</text>
         <textarea
           class="merchant-form__textarea"
@@ -129,27 +150,11 @@
           当前关联：{{detail.userPhoneDisplay}}
         </text>
 
-        <input
-          class="merchant-form__input"
-          type="number"
-          maxlength="11"
-          placeholder="11 位手机号"
-          value="{{ownerPhoneInput}}"
-          bindinput="onOwnerPhoneInput"
-        />
         <ui-button
+          wx:if="{{!hasOwner}}"
           type="secondary"
           size="sm"
           block="{{true}}"
-          loading="{{savingOwnerPhone}}"
-          bind:tap="onSaveOwnerPhone"
-        >保存手机号</ui-button>
-        <ui-button
-          wx:if="{{!hasOwner}}"
-          type="ghost"
-          size="sm"
-          block="{{true}}"
-          custom-class="merchant-album-edit__invite-btn"
           bind:tap="onInviteOwnerScan"
         >请车主扫码关联</ui-button>
       </ui-card>

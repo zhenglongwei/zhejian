@@ -30,7 +30,7 @@ const {
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 
 const OWNER_PHONE_HINT =
-  '填写手机号后，用户可在小程序端查看相册并实时跟踪维修进度。如果没有手机号，公示时仅展示车型和故障修复信息，不展示门店信息。完工后仍可修改手机号，便于纠正录入错误。'
+  '请车主扫码确认关联，将使用车主本人绑定的手机号。未关联时仅作门店留档；关联后车主可在小程序查看维修进度。'
 
 Page({
   data: {
@@ -60,9 +60,9 @@ Page({
     saving: false,
     completing: false,
     canShareToOwner: false,
-    ownerPhoneInput: '',
+    vehicleBrand: '',
+    vehicleSeries: '',
     isCompleted: false,
-    savingOwnerPhone: false,
     hasOwner: false,
     showSubmitReviewButton: false,
     publicCaseStatus: 'private',
@@ -168,7 +168,8 @@ Page({
         amount: planAmount,
       },
       canShareToOwner: canShare,
-      ownerPhoneInput: detail.userPhone || '',
+      vehicleBrand: (detail.vehicle && detail.vehicle.brand) || '',
+      vehicleSeries: (detail.vehicle && detail.vehicle.series) || '',
       isCompleted,
       hasOwner,
       publicCaseStatus,
@@ -238,6 +239,32 @@ Page({
 
   onStoreNoteInput(e) {
     this.setData({ storeNote: e.detail.value })
+  },
+
+  onVehicleInput(e) {
+    const { field } = e.currentTarget.dataset
+    this.setData({ [field]: e.detail.value })
+  },
+
+  validateVehicle() {
+    const brand = (this.data.vehicleBrand || '').trim()
+    const series = (this.data.vehicleSeries || '').trim()
+    if (!brand) {
+      wx.showToast({ title: '请填写车辆品牌', icon: 'none' })
+      return false
+    }
+    if (!series) {
+      wx.showToast({ title: '请填写车系', icon: 'none' })
+      return false
+    }
+    return true
+  },
+
+  buildVehiclePayload() {
+    return {
+      brand: (this.data.vehicleBrand || '').trim(),
+      series: (this.data.vehicleSeries || '').trim(),
+    }
   },
 
   onPlanInput(e) {
@@ -325,6 +352,7 @@ Page({
       parts: this.data.parts,
       storeNote: this.data.storeNote,
       planAmount: this.data.planAmount,
+      vehicle: this.buildVehiclePayload(),
     })
     return { payload: normalized, droppedStaleCount }
   },
@@ -341,6 +369,7 @@ Page({
 
   async onSave() {
     if (this.data.saving) return
+    if (!this.validateVehicle()) return
     this.setData({ saving: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
@@ -360,6 +389,7 @@ Page({
 
   onComplete() {
     if (this.data.completing || this.data.saving) return
+    if (!this.validateVehicle()) return
     const hasImage = this.data.nodes.some((n) => (n.images || []).length > 0)
     if (!hasImage) {
       wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
@@ -411,73 +441,11 @@ Page({
     }
   },
 
-  onOwnerPhoneInput(e) {
-    const ownerPhoneInput = e.detail.value || ''
-    const savedPhone = String((this.data.detail && this.data.detail.userPhone) || '').trim()
-    const draftPhone = String(ownerPhoneInput).trim()
-    const hasOwnerPhone = Boolean(savedPhone) || /^1\d{10}$/.test(draftPhone)
-    const showSubmitReviewButton =
-      this.data.isCompleted &&
-      !hasOwnerPhone &&
-      this.data.publicCaseStatus === 'private'
-    let showBottomPrimary = false
-    let bottomPrimaryText = ''
-    if (
-      this.data.detail &&
-      this.data.detail.status !== SERVICE_ALBUM_STATUS.COMPLETED &&
-      this.data.detail.status !== SERVICE_ALBUM_STATUS.PUBLISHED
-    ) {
-      showBottomPrimary = true
-      bottomPrimaryText = '标记已完工'
-    } else if (showSubmitReviewButton) {
-      showBottomPrimary = true
-      bottomPrimaryText = '提交审核'
-    }
-    this.setData({
-      ownerPhoneInput,
-      showSubmitReviewButton,
-      showBottomPrimary,
-      bottomPrimaryText,
-    })
-  },
-
   onInviteOwnerScan() {
     if (!this.albumId) return
     wx.navigateTo({
       url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
     })
-  },
-
-  async onSaveOwnerPhone() {
-    if (this.data.savingOwnerPhone) return
-    const userPhone = (this.data.ownerPhoneInput || '').trim()
-    if (!/^1\d{10}$/.test(userPhone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
-      return
-    }
-    const previous = (this.data.detail && this.data.detail.userPhone) || ''
-    if (userPhone === previous) {
-      wx.showToast({ title: '手机号未变更', icon: 'none' })
-      return
-    }
-    this.setData({ savingOwnerPhone: true })
-    try {
-      wx.showLoading({ title: '保存中', mask: true })
-      const { payload, droppedStaleCount } = await this.buildSavePayload()
-      const detail = await saveMerchantServiceAlbum(this.albumId, {
-        ...payload,
-        userPhone,
-      })
-      wx.hideLoading()
-      wx.showToast({ title: '手机号已保存', icon: 'success' })
-      this.applyAlbum(detail)
-      this.notifyStaleImagesDropped(droppedStaleCount)
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
-    } finally {
-      this.setData({ savingOwnerPhone: false })
-    }
   },
 
   canComplete() {
@@ -492,6 +460,7 @@ Page({
   },
 
   onSubmitReview() {
+    if (!this.validateVehicle()) return
     if (this.data.submitReviewLoading) {
       wx.showToast({ title: '正在提交，请稍候', icon: 'none' })
       return
@@ -509,11 +478,6 @@ Page({
       return
     }
     const savedPhone = String((this.data.detail && this.data.detail.userPhone) || '').trim()
-    const draftPhone = String(this.data.ownerPhoneInput || '').trim()
-    if (draftPhone && draftPhone !== savedPhone) {
-      wx.showToast({ title: '请先保存或清空手机号', icon: 'none' })
-      return
-    }
     if (savedPhone) {
       wx.showToast({ title: '已关联车主，请由车主完成授权公示', icon: 'none' })
       return

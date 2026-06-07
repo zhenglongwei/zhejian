@@ -128,8 +128,16 @@ async function buildServiceDetailViewModel(record, opts = {}) {
   const audience = opts.audience || 'user'
   const templateFields = applyDetailTemplate(record)
   const appointmentJson = normalizeAppointmentJson(record.appointmentJson)
-  const { list: relatedCases, total: caseTotal, tier: caseLinkTier } =
-    resolveRelatedCases(record, (await fetchCaseList()).list, { limit: 3 })
+
+  let relatedCases = Array.isArray(record.relatedCases) ? record.relatedCases : null
+  let caseTotal = record.caseTotal
+  let caseLinkTier = record.caseLinkTier
+  if (!relatedCases) {
+    const resolved = resolveRelatedCases(record, (await fetchCaseList()).list, { limit: 3 })
+    relatedCases = resolved.list
+    caseTotal = resolved.total
+    caseLinkTier = resolved.tier
+  }
 
   let availableMerchants = []
   if (record.storeId) {
