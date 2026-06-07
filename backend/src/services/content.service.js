@@ -720,4 +720,6 @@ module.exports = {
   searchContent,
   fetchPublicCaseRows,
   mapStoreRow,
+  mapPublicCaseRow,
+  applyPublicDisplayRules,
 }

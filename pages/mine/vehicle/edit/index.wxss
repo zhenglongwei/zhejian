@@ -1,0 +1,26 @@
+@import '../../../../styles/merchant-form.wxss';
+
+.vehicle-edit__pad {
+  padding-top: var(--space-md);
+}
+
+.vehicle-edit__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.vehicle-edit__field {
+  margin-bottom: var(--space-md);
+}
+
+.vehicle-edit__switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.vehicle-edit__hint {
+  display: block;
+  color: var(--color-text-secondary);
+}

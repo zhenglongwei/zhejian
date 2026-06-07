@@ -124,9 +124,14 @@ function put(url, data, opts) {
   return request({ url, method: 'PUT', data, ...opts })
 }
 
+function del(url, data, opts) {
+  return request({ url, method: 'DELETE', data, ...opts })
+}
+
 module.exports = {
   request,
   get,
   post,
   put,
+  del,
 }

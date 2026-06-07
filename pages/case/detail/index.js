@@ -3,6 +3,7 @@ const {
   buildPublicCaseSharePayload,
   copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
+const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
 const BOTTOM_LEFT_ACTIONS = [
   { key: 'share', type: 'secondary', text: '分享' },
@@ -31,9 +32,30 @@ Page({
     faqList: [],
     showStorePublicly: true,
     bottomLeftActions: BOTTOM_LEFT_ACTIONS,
+    isFavorited: false,
     shareSheetVisible: false,
     shareSheetIntent: 'publicCase',
     shareActionsDisabled: false,
+    loginSheetVisible: false,
+    loginSheetMode: 'auto',
+    loginSheetBindContext: 'favorite',
+    pendingFavoriteToggle: false,
+  },
+
+  onShow() {
+    if (this.data.status === 'normal' && this.caseId) {
+      this.syncFavoriteState()
+    }
+  },
+
+  syncFavoriteState() {
+    this.baseLeftActions = BOTTOM_LEFT_ACTIONS
+    return loadFavoriteState(this, {
+      targetType: 'case',
+      targetId: this.caseId,
+      baseLeftActions: this.baseLeftActions,
+      showFavorite: true,
+    })
   },
 
   onLoad(options) {
@@ -58,6 +80,7 @@ Page({
         status: 'normal',
       })
       this.updateShareMenu(true)
+      await this.syncFavoriteState()
     } catch (e) {
       this.setData({
         status: 'error',
@@ -73,8 +96,36 @@ Page({
 
   onBottomLeftAction(e) {
     const { key } = e.detail
+    if (key === 'favorite') {
+      toggleFavorite(this, {
+        targetType: 'case',
+        targetId: this.caseId,
+        baseLeftActions: BOTTOM_LEFT_ACTIONS,
+        showFavorite: true,
+      })
+      return
+    }
     if (key === 'call') this.onCall()
     if (key === 'share') this.onOpenShareSheet()
+  },
+
+  closeLoginSheet() {
+    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+  },
+
+  onLoginSheetSuccess() {
+    const pendingFavorite = this.data.pendingFavoriteToggle
+    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+    if (pendingFavorite) {
+      toggleFavorite(this, {
+        targetType: 'case',
+        targetId: this.caseId,
+        baseLeftActions: BOTTOM_LEFT_ACTIONS,
+        showFavorite: true,
+      })
+      return
+    }
+    this.syncFavoriteState()
   },
 
   onOpenShareSheet() {

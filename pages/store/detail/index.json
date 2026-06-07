@@ -15,6 +15,7 @@
     "ui-key-info-table": "/components/key-info-table/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-detail-report-entry": "/components/detail-report-entry/index",
-    "ui-share-sheet": "/components/share-sheet/index"
+    "ui-share-sheet": "/components/share-sheet/index",
+    "ui-login-sheet": "/components/login-sheet/index"
   }
 }

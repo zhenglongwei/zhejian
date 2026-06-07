@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "我的车辆",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-card": "/components/card/index",
+    "ui-tag": "/components/tag/index",
+    "ui-button": "/components/button/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

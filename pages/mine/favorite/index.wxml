@@ -1,0 +1,95 @@
+<view class="page favorite-list">
+  <ui-list-page-shell
+    tabs="{{tabs}}"
+    activeKey="{{activeTab}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    tabsCard="{{true}}"
+    emptyTitle="暂无收藏"
+    emptyDescription="浏览门店、服务或案例后可收藏，方便下次查看"
+    emptyActionText="去看看"
+    unauthTitle="{{needPhone ? '绑定手机号后查看收藏' : '登录后查看收藏'}}"
+    unauthDescription="{{needPhone ? '绑定后可收藏并管理门店、服务与案例' : '登录后可收藏并管理门店、服务与案例'}}"
+    unauthActionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
+    bind:tabchange="onTabChange"
+    bind:retry="onRetry"
+    bind:emptyaction="onGoBrowse"
+    bind:unauthaction="onLoginTap"
+  >
+    <view wx:for="{{list}}" wx:key="favoriteId" class="favorite-list__item">
+      <view class="favorite-list__toolbar">
+        <ui-tag
+          wx:if="{{!item.available}}"
+          variant="warning"
+          text="{{item.unavailableReason || '暂不可用'}}"
+        />
+        <text
+          class="favorite-list__cancel text-link"
+          catchtap="onCancelFavorite"
+          data-type="{{item.targetType}}"
+          data-target-id="{{item.targetId}}"
+        >取消收藏</text>
+      </view>
+
+      <block wx:if="{{activeTab === 'store' && item.item}}">
+        <ui-store-card
+          storeId="{{item.item.id}}"
+          name="{{item.item.name}}"
+          coverImage="{{item.item.coverImage}}"
+          address="{{item.item.address}}"
+          businessHours="{{item.item.businessHours}}"
+          caseCount="{{item.item.caseCount}}"
+          bind:tap="onStoreTap"
+        />
+      </block>
+
+      <block wx:elif="{{activeTab === 'service' && item.item}}">
+        <ui-service-card
+          serviceId="{{item.item.id}}"
+          name="{{item.item.name}}"
+          categoryName="{{item.item.categoryName}}"
+          summary="{{item.item.summary}}"
+          priceMode="{{item.item.priceMode}}"
+          amount="{{item.item.amount}}"
+          minAmount="{{item.item.minAmount}}"
+          maxAmount="{{item.item.maxAmount}}"
+          storeName="{{item.item.storeName}}"
+          statusLabel="{{item.available ? '' : (item.unavailableReason || '暂不可用')}}"
+          statusVariant="warning"
+          bind:tap="onServiceTap"
+        />
+      </block>
+
+      <block wx:elif="{{activeTab === 'case' && item.item}}">
+        <ui-case-card
+          caseId="{{item.item.id}}"
+          authorizationTier="{{item.item.authorizationTier}}"
+          coverImage="{{item.item.coverImage}}"
+          title="{{item.item.title}}"
+          serviceName="{{item.item.serviceName}}"
+          summary="{{item.item.summary}}"
+          priceMode="{{item.item.priceMode}}"
+          amount="{{item.item.amount}}"
+          minAmount="{{item.item.minAmount}}"
+          maxAmount="{{item.item.maxAmount}}"
+          storeName="{{item.item.storeName}}"
+          viewCount="{{item.item.viewCount}}"
+          bind:tap="onCaseTap"
+        />
+      </block>
+    </view>
+  </ui-list-page-shell>
+
+  <view wx:if="{{status === 'normal'}}" class="favorite-list__notice page-content">
+    <ui-compliance-notice text="{{noticeText}}" />
+  </view>
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bindContext="{{loginSheetBindContext}}"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+    bind:success="onLoginSheetSuccess"
+  />
+</view>

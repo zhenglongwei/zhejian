@@ -1,3 +1,19 @@
+const MINE_FAVORITE_ITEM = {
+  key: 'favorite',
+  label: '我的收藏',
+  desc: '收藏的服务、门店与案例',
+  needPhone: true,
+  url: '/pages/mine/favorite/index',
+}
+
+const MINE_VEHICLE_ITEM = {
+  key: 'vehicle',
+  label: '我的车辆',
+  desc: '管理常用车辆信息',
+  needPhone: true,
+  url: '/pages/mine/vehicle/index',
+}
+
 /** 我的页 — V2.0 核心数据入口（PRD 12 §3） */
 const MINE_CORE_MENUS = [
   {
@@ -23,6 +39,8 @@ const MINE_CORE_MENUS = [
     needPhone: true,
     url: '/pages/album/authorize/index',
   },
+  MINE_FAVORITE_ITEM,
+  MINE_VEHICLE_ITEM,
 ]
 
 /** 常用工具（PRD 12 §11） */
@@ -62,6 +80,8 @@ function buildMineMenuSections(badges = {}) {
 
 module.exports = {
   MINE_CORE_MENUS,
+  MINE_FAVORITE_ITEM,
+  MINE_VEHICLE_ITEM,
   MINE_TOOL_MENUS,
   MINE_PUBLIC_MENUS,
   MINE_MERCHANT_ITEM,

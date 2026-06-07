@@ -1,4 +1,5 @@
 const { fetchLeadConfirm, createLead } = require('../../../services/lead')
+const { fetchDefaultVehicle } = require('../../../services/vehicle')
 const { persistLocalImages } = require('../../../utils/media-upload')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth, getSession, maskPhone } = require('../../../utils/auth')
@@ -73,6 +74,17 @@ Page({
       const firstDate = dates[0]
       const slots = firstDate ? firstDate.slots : []
       const isMessageMode = confirm.mode === 'message'
+      let defaultBrand = ''
+      let defaultSeries = ''
+      try {
+        const defaultVehicle = await fetchDefaultVehicle()
+        if (defaultVehicle) {
+          defaultBrand = defaultVehicle.brand || ''
+          defaultSeries = defaultVehicle.series || ''
+        }
+      } catch (vehicleErr) {
+        // 无默认车辆时不阻断咨询表单
+      }
 
       this.setData({
         confirm,
@@ -99,8 +111,8 @@ Page({
         dateIndex: 0,
         slotIndex: 0,
         form: {
-          brand: '',
-          series: '',
+          brand: defaultBrand,
+          series: defaultSeries,
           description: '',
           images: [],
           contactName: '',

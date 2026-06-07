@@ -14,6 +14,7 @@ const {
   canShareStore,
   copyPublicStoreWebLink,
 } = require('../../../utils/store-share')
+const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
 
@@ -70,12 +71,17 @@ Page({
     headTags: [],
     errorMessage: '',
     bottomLeftActions: BOTTOM_LEFT_ACTIONS,
+    isFavorited: false,
     isPreview: false,
     previewBannerText: PREVIEW_BANNER_TEXT,
     canEditStore: false,
     shareSheetVisible: false,
     shareActionsDisabled: false,
     autoOpenShare: false,
+    loginSheetVisible: false,
+    loginSheetMode: 'auto',
+    loginSheetBindContext: 'favorite',
+    pendingFavoriteToggle: false,
   },
 
   onLoad(options) {
@@ -91,7 +97,20 @@ Page({
   onShow() {
     if (this.data.status === 'normal' && this.storeId) {
       this.updateShareMenu(true)
+      if (!this.isPreview) {
+        this.syncFavoriteState()
+      }
     }
+  },
+
+  syncFavoriteState() {
+    this.baseLeftActions = BOTTOM_LEFT_ACTIONS
+    return loadFavoriteState(this, {
+      targetType: 'store',
+      targetId: this.storeId,
+      baseLeftActions: this.baseLeftActions,
+      showFavorite: !this.isPreview,
+    })
   },
 
   async initPage() {
@@ -166,6 +185,9 @@ Page({
         shareActionsDisabled: !canShareStore(store),
       })
       this.updateShareMenu(true)
+      if (!this.isPreview) {
+        await this.syncFavoriteState()
+      }
       if (this.autoOpenShare && canShareStore(store)) {
         this.autoOpenShare = false
         this.setData({ shareSheetVisible: true })
@@ -288,9 +310,37 @@ Page({
 
   onBottomLeftAction(e) {
     const { key } = e.detail
+    if (key === 'favorite') {
+      toggleFavorite(this, {
+        targetType: 'store',
+        targetId: this.storeId,
+        baseLeftActions: BOTTOM_LEFT_ACTIONS,
+        showFavorite: !this.isPreview,
+      })
+      return
+    }
     if (key === 'share') this.onOpenShareSheet()
     else if (key === 'call') this.onCall()
     else if (key === 'navigate') this.onNavigate()
+  },
+
+  closeLoginSheet() {
+    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+  },
+
+  onLoginSheetSuccess() {
+    const pendingFavorite = this.data.pendingFavoriteToggle
+    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+    if (pendingFavorite) {
+      toggleFavorite(this, {
+        targetType: 'store',
+        targetId: this.storeId,
+        baseLeftActions: BOTTOM_LEFT_ACTIONS,
+        showFavorite: !this.isPreview,
+      })
+      return
+    }
+    this.syncFavoriteState()
   },
 
   onNavigate() {

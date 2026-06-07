@@ -140,5 +140,14 @@
       bind:copypublicweblink="onCopyPublicWebLink"
       bind:sharetimeline="onShareTimelineGuide"
     />
+
+    <ui-login-sheet
+      visible="{{loginSheetVisible}}"
+      mode="{{loginSheetMode}}"
+      bindContext="{{loginSheetBindContext}}"
+      bind:close="closeLoginSheet"
+      bind:cancel="closeLoginSheet"
+      bind:success="onLoginSheetSuccess"
+    />
   </block>
 </view>

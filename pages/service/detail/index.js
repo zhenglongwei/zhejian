@@ -2,6 +2,7 @@ const { fetchServiceDetail } = require('../../../services/service')
 const { findStore } = require('../../../services/store')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
+const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
 function buildBottomLeftActions(showCasesLink) {
   const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
@@ -23,10 +24,28 @@ Page({
     bookable: false,
     casesAnchor: 'cases-section',
     bottomLeftActions: buildBottomLeftActions(false),
+    isFavorited: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     loginSheetBindContext: 'consult',
     pendingConsultAction: false,
+    pendingFavoriteToggle: false,
+  },
+
+  onShow() {
+    if (this.data.status === 'normal' && this.serviceId) {
+      this.syncFavoriteState()
+    }
+  },
+
+  syncFavoriteState() {
+    this.baseLeftActions = buildBottomLeftActions(this.data.showCasesLink)
+    return loadFavoriteState(this, {
+      targetType: 'service',
+      targetId: this.serviceId,
+      baseLeftActions: this.baseLeftActions,
+      showFavorite: true,
+    })
   },
 
   onLoad(options) {
@@ -61,9 +80,9 @@ Page({
           detail.priceMode === PRICE_MODE.ACCIDENT,
         showCasesLink,
         bookable: Boolean(detail.bookable),
-        bottomLeftActions: buildBottomLeftActions(showCasesLink),
         status: 'normal',
       })
+      await this.syncFavoriteState()
     } catch (e) {
       this.setData({
         status: 'error',
@@ -102,6 +121,15 @@ Page({
 
   onBottomLeftAction(e) {
     const { key } = e.detail
+    if (key === 'favorite') {
+      toggleFavorite(this, {
+        targetType: 'service',
+        targetId: this.serviceId,
+        baseLeftActions: buildBottomLeftActions(this.data.showCasesLink),
+        showFavorite: true,
+      })
+      return
+    }
     if (key === 'call') this.onCall()
     else if (key === 'cases') this.onViewCases()
   },
@@ -134,13 +162,30 @@ Page({
   },
 
   closeLoginSheet() {
-    this.setData({ loginSheetVisible: false, pendingConsultAction: false })
+    this.setData({ loginSheetVisible: false, pendingConsultAction: false, pendingFavoriteToggle: false })
   },
 
   onLoginSheetSuccess() {
-    this.setData({ loginSheetVisible: false })
-    if (!this.data.pendingConsultAction) return
-    this.setData({ pendingConsultAction: false })
+    const pendingFavorite = this.data.pendingFavoriteToggle
+    const pendingConsult = this.data.pendingConsultAction
+    this.setData({
+      loginSheetVisible: false,
+      pendingFavoriteToggle: false,
+      pendingConsultAction: false,
+    })
+    if (pendingFavorite) {
+      toggleFavorite(this, {
+        targetType: 'service',
+        targetId: this.serviceId,
+        baseLeftActions: buildBottomLeftActions(this.data.showCasesLink),
+        showFavorite: true,
+      })
+      return
+    }
+    if (!pendingConsult) {
+      this.syncFavoriteState()
+      return
+    }
     const auth = checkAuth({ needPhone: true })
     if (auth.ok) {
       this.onMessage()
