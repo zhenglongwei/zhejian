@@ -1,6 +1,7 @@
 const { fetchMineSummary } = require('../../services/user')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections } = require('../../constants/mine-menu')
+const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 
 const PLACEHOLDER_LABELS = {
   settings: '设置',
@@ -15,7 +16,8 @@ Page({
     menuSections: buildMineMenuSections({}),
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'consult'
+    loginSheetBindContext: 'consult',
+    platformNotice: HOME_PLATFORM_IDENTITY,
   },
 
   onLoad() {

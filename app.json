@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/web/h5-site/index",
     "pages/search/index/index",
     "pages/search/result/index",
     "pages/geo/detail/index",

@@ -4,6 +4,14 @@ const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
+const {
+  resolvePageShareContext,
+  filterCasesByStore,
+  withStoreContextPath,
+  getShareStoreId,
+  isShareStoreIsolated,
+  markShareStoreContext,
+} = require('../../../utils/share-store-context')
 
 function buildBottomLeftActions(showCasesLink) {
   const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
@@ -31,6 +39,7 @@ Page({
     loginSheetBindContext: 'consult',
     pendingConsultAction: false,
     pendingFavoriteToggle: false,
+    storeIsolated: false,
   },
 
   onShow() {
@@ -51,6 +60,11 @@ Page({
 
   onLoad(options) {
     this.serviceId = options.id || ''
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: options.storeId || '',
+      source: 'service_detail',
+    })
+    this.setData({ storeIsolated: shareCtx.isolated || isShareStoreIsolated(options) })
     if (!this.serviceId) {
       this.setData({ status: 'error', errorMessage: '服务不存在' })
       return
@@ -66,22 +80,33 @@ Page({
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const detail = await fetchServiceDetail(this.serviceId, { audience: 'user' })
-      const store = detail.storeId ? findStore(detail.storeId) : null
+      const storeId = detail.storeId || getShareStoreId()
+      const storeIsolated = this.data.storeIsolated || isShareStoreIsolated()
+      if (storeId && storeIsolated) {
+        markShareStoreContext({ storeId, source: 'service_detail' })
+      }
+      let relatedCases = detail.relatedCases || []
+      if (storeIsolated && storeId) {
+        relatedCases = filterCasesByStore(relatedCases, storeId)
+      }
+      const detailView = { ...detail, relatedCases }
+      const store = detailView.storeId ? findStore(detailView.storeId) : null
       const showCasesLink =
         detail.priceMode === PRICE_MODE.ACCIDENT ||
         detail.priceMode === PRICE_MODE.RANGE ||
         detail.priceMode === PRICE_MODE.CONSULT
       this.setData({
-        detail,
+        detail: detailView,
         storePhone: (store && store.phone) || '',
-        isAccident: detail.priceMode === PRICE_MODE.ACCIDENT,
+        isAccident: detailView.priceMode === PRICE_MODE.ACCIDENT,
         showPriceFactors:
-          detail.priceMode === PRICE_MODE.RANGE ||
-          detail.priceMode === PRICE_MODE.CONSULT ||
-          detail.priceMode === PRICE_MODE.ACCIDENT,
+          detailView.priceMode === PRICE_MODE.RANGE ||
+          detailView.priceMode === PRICE_MODE.CONSULT ||
+          detailView.priceMode === PRICE_MODE.ACCIDENT,
         showCasesLink,
-        bookable: Boolean(detail.bookable),
+        bookable: Boolean(detailView.bookable),
         status: 'normal',
+        storeIsolated: storeIsolated && Boolean(storeId),
       })
       await this.syncFavoriteState()
     } catch (e) {
@@ -101,7 +126,9 @@ Page({
     if (!caseId || this._caseNavigating) return
     this._caseNavigating = true
     wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
+      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
+        storeId: getShareStoreId() || (this.data.detail && this.data.detail.storeId),
+      }),
       complete: () => {
         this._caseNavigating = false
       },
@@ -109,7 +136,8 @@ Page({
   },
 
   onViewAllCases() {
-    openLegacyListPage('case')
+    const storeId = getShareStoreId() || (this.data.detail && this.data.detail.storeId)
+    openLegacyListPage('case', storeId)
   },
 
   onStoreTap(e) {
@@ -117,7 +145,7 @@ Page({
     if (!storeId || this._storeNavigating) return
     this._storeNavigating = true
     wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}`,
+      url: withStoreContextPath(`/pages/store/detail/index?id=${storeId}`, { storeId }),
       complete: () => {
         this._storeNavigating = false
       },
@@ -173,7 +201,10 @@ Page({
     if (!this.ensureConsultAuth()) return
     this._messageNavigating = true
     wx.navigateTo({
-      url: `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
+      url: withStoreContextPath(
+        `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
+        { storeId: detail.storeId }
+      ),
       complete: () => {
         this._messageNavigating = false
       },

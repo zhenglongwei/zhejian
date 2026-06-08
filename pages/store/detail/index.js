@@ -7,6 +7,12 @@ const {
 } = require('../../../services/merchant')
 const { isMerchantOwner } = require('../../../utils/auth')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
+const {
+  resolvePageShareContext,
+  withStoreContextPath,
+  markShareStoreContext,
+  TOOL_HOME_PATH,
+} = require('../../../utils/share-store-context')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
 const {
   buildPublicStoreSharePayload,
@@ -16,6 +22,7 @@ const {
   copyPublicStoreWebLink,
 } = require('../../../utils/store-share')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
+const { recordRecentVisit } = require('../../../utils/recent-visit')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
 
@@ -83,12 +90,19 @@ Page({
     loginSheetMode: 'auto',
     loginSheetBindContext: 'favorite',
     pendingFavoriteToggle: false,
+    storeIsolated: false,
   },
 
   onLoad(options) {
     this.isPreview = options.preview === '1' || options.preview === 'true'
     this.autoOpenShare = options.share === '1' || options.share === 'true'
     this.storeId = options.id || ''
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: this.storeId,
+      source: 'store_detail',
+      autoIsolate: Boolean(this.storeId),
+    })
+    this.setData({ storeIsolated: shareCtx.isolated })
     if (this.isPreview) {
       wx.setNavigationBarTitle({ title: '门店主页预览' })
     }
@@ -185,6 +199,12 @@ Page({
         servicesStatus: services.length ? 'normal' : 'empty',
         shareActionsDisabled: !canShareStore(store),
       })
+      markShareStoreContext({ storeId: store.id, source: 'store_detail' })
+      recordRecentVisit({
+        type: 'store',
+        storeId: store.id,
+        storeName: store.name,
+      })
       this.updateShareMenu(true)
       if (!this.isPreview) {
         await this.syncFavoriteState()
@@ -260,10 +280,13 @@ Page({
     if (this.storeId) {
       return {
         title: store && store.name ? buildStoreShareTitle(store) : '辙见 · 门店主页',
-        path: `/pages/store/detail/index?id=${this.storeId}`,
+        path: withStoreContextPath(`/pages/store/detail/index?id=${this.storeId}`, {
+          storeId: this.storeId,
+          isolated: true,
+        }),
       }
     }
-    return { title: '辙见 · 门店主页', path: '/pages/store/index' }
+    return { title: '辙见 · 门店主页', path: TOOL_HOME_PATH }
   },
 
   onShareTimeline() {
@@ -279,7 +302,9 @@ Page({
     if (!caseId || this._caseNavigating) return
     this._caseNavigating = true
     wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
+      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._caseNavigating = false
       },
@@ -291,7 +316,7 @@ Page({
       this.previewBlockedToast()
       return
     }
-    openLegacyListPage('case')
+    openLegacyListPage('case', this.storeId)
   },
 
   onViewAllServices() {
@@ -299,7 +324,7 @@ Page({
       this.previewBlockedToast()
       return
     }
-    openLegacyListPage('service')
+    openLegacyListPage('service', this.storeId)
   },
 
   onServiceTap(e) {
@@ -307,7 +332,9 @@ Page({
     if (!serviceId || this._serviceNavigating) return
     this._serviceNavigating = true
     wx.navigateTo({
-      url: `/pages/service/detail/index?id=${serviceId}`,
+      url: withStoreContextPath(`/pages/service/detail/index?id=${serviceId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._serviceNavigating = false
       },
@@ -374,7 +401,10 @@ Page({
     if (this._messageNavigating || !this.storeId) return
     this._messageNavigating = true
     wx.navigateTo({
-      url: `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
+      url: withStoreContextPath(
+        `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
+        { storeId: this.storeId }
+      ),
       complete: () => {
         this._messageNavigating = false
       },

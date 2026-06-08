@@ -21,6 +21,7 @@ const {
   canShareToOwner,
   buildOwnerShareMessage,
 } = require('../../../../utils/service-album-share')
+const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
 const { persistAlbumNodeImages, normalizeStoredImageUrl } = require('../../../../utils/media-upload')
 const { BIZ_TYPE } = require('../../../../constants/desensitize')
@@ -562,7 +563,7 @@ Page({
     if (payload) return payload
     return {
       title: '辙见 · 服务相册',
-      path: '/pages/index/index',
+      path: TOOL_HOME_PATH,
     }
   },
 

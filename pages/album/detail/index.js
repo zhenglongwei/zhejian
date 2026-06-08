@@ -23,6 +23,13 @@ const {
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
+const {
+  resolvePageShareContext,
+  markShareStoreContext,
+  withStoreContextPath,
+  TOOL_HOME_PATH,
+} = require('../../../utils/share-store-context')
+const { recordRecentVisit } = require('../../../utils/recent-visit')
 
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时申请公开公示。',
@@ -73,9 +80,17 @@ Page({
     }
     this.albumId = options.albumId || options.id || ''
     this.fromMerchantShare = options.from === 'merchant_share'
+    resolvePageShareContext(options, {
+      albumId: this.albumId,
+      source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
+      autoIsolate: Boolean(this.albumId),
+    })
     if (options.redirectCaseId) {
       wx.redirectTo({
-        url: `/pages/case/detail/index?id=${encodeURIComponent(options.redirectCaseId)}`,
+        url: withStoreContextPath(
+          `/pages/case/detail/index?id=${encodeURIComponent(options.redirectCaseId)}`,
+          { storeId: options.storeId, isolated: this.fromMerchantShare }
+        ),
       })
       return
     }
@@ -170,6 +185,30 @@ Page({
         shareToken: '',
         shareSheetVisible: false,
       })
+
+      const storeId =
+        (detail.store && detail.store.id) ||
+        detail.storeId ||
+        (enriched.store && enriched.store.id) ||
+        ''
+      if (storeId) {
+        markShareStoreContext({
+          storeId,
+          albumId: this.albumId,
+          source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
+        })
+        recordRecentVisit({
+          type: 'album',
+          albumId: this.albumId,
+          storeId,
+          storeName:
+            (detail.store && detail.store.name) ||
+            detail.storeName ||
+            enriched.storeName ||
+            '',
+          serviceName: detail.serviceName || enriched.serviceName || '',
+        })
+      }
 
       if (showShareEntry) {
         await this.refreshShareToken({ silent: true, defaultShareIntent })
@@ -540,7 +579,11 @@ Page({
     if (payload) return payload
     return {
       title: '辙见 · 我的服务相册',
-      path: '/pages/album/list/index',
+      path: this.albumId
+        ? withStoreContextPath(`/pages/album/detail/index?albumId=${this.albumId}`, {
+            isolated: true,
+          })
+        : TOOL_HOME_PATH,
     }
   },
 
@@ -571,7 +614,16 @@ Page({
   onViewPublicCase() {
     const shareCase = buildShareableCaseFromAlbum(this.data.detail)
     if (!shareCase || !shareCase.id) return
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${shareCase.id}` })
+    const storeId =
+      (this.data.detail && this.data.detail.store && this.data.detail.store.id) ||
+      (this.data.detail && this.data.detail.storeId) ||
+      ''
+    wx.navigateTo({
+      url: withStoreContextPath(`/pages/case/detail/index?id=${shareCase.id}`, {
+        storeId,
+        isolated: true,
+      }),
+    })
   },
 
   onCopyUrl() {

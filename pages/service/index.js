@@ -1,8 +1,12 @@
 const { fetchServiceList } = require('../../services/service')
 const { SERVICE_CATEGORIES } = require('../../constants/service')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
+const { resolvePageShareContext, withStoreContextPath } = require('../../utils/share-store-context')
 
 const FILTER_ALL = 'all'
+
+const INTRO_DESC_DEFAULT = '价格模式清晰标注，可提交咨询或预约到店'
+const INTRO_DESC_STORE = '本店可展示服务方案，价格模式清晰标注，可留言咨询'
 
 const CATEGORY_TABS = [
   { key: FILTER_ALL, label: '全部' },
@@ -17,9 +21,32 @@ Page({
     filterCategory: FILTER_ALL,
     errorMessage: '',
     searchPlaceholder: SEARCH_PLACEHOLDER,
+    storeIsolated: false,
+    storeId: '',
+    introTitle: '可展示服务',
+    introDesc: INTRO_DESC_DEFAULT,
+    emptyTitle: '暂无可预约服务',
+    emptyDescription: '商家上架服务方案后将展示在此',
   },
 
-  onLoad() {
+  onLoad(options) {
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: options.storeId || '',
+      source: 'service_list',
+      autoIsolate: Boolean(options.storeId),
+    })
+    this.storeId = shareCtx.storeId || options.storeId || ''
+    const storeIsolated = Boolean(this.storeId)
+    this.setData({
+      storeIsolated: shareCtx.isolated,
+      storeId: this.storeId,
+      introTitle: storeIsolated ? '本店服务方案' : '可展示服务',
+      introDesc: storeIsolated ? INTRO_DESC_STORE : INTRO_DESC_DEFAULT,
+      emptyTitle: storeIsolated ? '本店暂无可展示服务' : '暂无可预约服务',
+      emptyDescription: storeIsolated
+        ? '该门店上架服务方案后将展示在此'
+        : '商家上架服务方案后将展示在此',
+    })
     this.loadList()
   },
 
@@ -42,6 +69,9 @@ Page({
       const query = {}
       if (this.data.filterCategory !== FILTER_ALL) {
         query.categoryId = this.data.filterCategory
+      }
+      if (this.storeId) {
+        query.storeId = this.storeId
       }
       const { list } = await fetchServiceList(query)
       this.setData({
@@ -70,7 +100,9 @@ Page({
     if (!serviceId || this._serviceNavigating) return
     this._serviceNavigating = true
     wx.navigateTo({
-      url: `/pages/service/detail/index?id=${serviceId}`,
+      url: withStoreContextPath(`/pages/service/detail/index?id=${serviceId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._serviceNavigating = false
       },
@@ -78,6 +110,7 @@ Page({
   },
 
   onSearchNavigate() {
+    if (this.data.storeIsolated) return
     wx.navigateTo({ url: '/pages/search/index/index' })
   },
 })

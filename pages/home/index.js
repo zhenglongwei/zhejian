@@ -1,10 +1,16 @@
 const { fetchUserServiceAlbums } = require('../../services/service-album')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
-const { H5_CONTENT_SITE_URL, H5_CONTENT_SITE_HINT } = require('../../constants/h5-links')
+const { openH5ContentSite } = require('../../constants/h5-links')
 const { navigateToScanTarget, navigateFromAlbumCode } = require('../../utils/tool-scan')
 const { markMerchantToolEntry, shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../utils/auth')
+const {
+  getRecentVisit,
+  buildRecentVisitLabel,
+  buildRecentVisitPath,
+} = require('../../utils/recent-visit')
+const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 
 const HOME_ALBUM_PREVIEW_LIMIT = 5
 
@@ -24,6 +30,9 @@ Page({
     loginSheetMode: 'auto',
     scanning: false,
     showH5PublicCaseLink: false,
+    showRecentVisit: false,
+    recentVisitLabel: '',
+    guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
   },
 
   onShow() {
@@ -63,6 +72,10 @@ Page({
       }
     }
 
+    const recent = getRecentVisit()
+    const recentVisitLabel = buildRecentVisitLabel(recent)
+    this.recentVisitPath = buildRecentVisitPath(recent)
+
     this.setData({
       isLoggedIn: loggedIn,
       status,
@@ -71,6 +84,8 @@ Page({
       showAlbumPreview,
       showAlbumEmpty,
       showH5PublicCaseLink: shouldShowH5PublicCaseLink({ hasAlbumBindings }),
+      showRecentVisit: Boolean(recent && recentVisitLabel),
+      recentVisitLabel,
     })
   },
 
@@ -128,8 +143,8 @@ Page({
     wx.navigateTo({ url: '/pages/album/list/index' })
   },
 
-  onAlbumPreviewTap(e) {
-    const albumId = e.currentTarget.dataset.albumId
+  onAlbumCardTap(e) {
+    const albumId = (e.detail && e.detail.id) || ''
     if (!albumId) return
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
   },
@@ -139,12 +154,12 @@ Page({
   },
 
   onH5SiteTap() {
-    wx.setClipboardData({
-      data: H5_CONTENT_SITE_URL,
-      success: () => {
-        wx.showToast({ title: H5_CONTENT_SITE_HINT, icon: 'none', duration: 2500 })
-      },
-    })
+    openH5ContentSite()
+  },
+
+  onRecentVisitTap() {
+    if (!this.recentVisitPath) return
+    wx.navigateTo({ url: this.recentVisitPath })
   },
 
   onMerchantTap() {

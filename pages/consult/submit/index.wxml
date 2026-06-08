@@ -47,6 +47,11 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="consult-submit__section-title text-h3">门店信息</text>
+        <view wx:if="{{storeLocked && lockedStoreHint}}" class="consult-submit__notice">
+          <view class="notice notice--info">
+            <text class="text-caption">{{lockedStoreHint}}</text>
+          </view>
+        </view>
         <ui-key-info-table rows="{{confirm.storeInfoRows}}" />
       </ui-card>
 

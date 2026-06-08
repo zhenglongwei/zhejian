@@ -4,8 +4,8 @@
     activeKey="{{filterSource}}"
     status="{{status}}"
     errorMessage="{{errorMessage}}"
-    emptyTitle="暂无公开案例"
-    emptyDescription="服务相册授权公示后将展示在此"
+    emptyTitle="{{emptyTitle}}"
+    emptyDescription="{{emptyDescription}}"
     emptyActionText="刷新"
     skeletonRows="{{3}}"
     bind:tabchange="onTabChange"
@@ -13,7 +13,7 @@
     bind:emptyaction="onRetry"
   >
     <view slot="intro">
-      <view class="tab-page__search page-content">
+      <view class="tab-page__search page-content" wx:if="{{!storeIsolated}}">
         <ui-search-bar
           readonly="{{true}}"
           placeholder="{{searchPlaceholder}}"
@@ -21,7 +21,7 @@
         />
       </view>
       <view class="tab-page__intro page-content">
-        <text class="tab-page__intro-title text-h2">公开维修案例</text>
+        <text class="tab-page__intro-title text-h2">{{introTitle}}</text>
         <text class="tab-page__intro-desc text-caption">{{introDesc}}</text>
       </view>
     </view>
@@ -41,6 +41,7 @@
       minAmount="{{item.minAmount}}"
       maxAmount="{{item.maxAmount}}"
       storeName="{{item.storeName}}"
+      showStoreName="{{!storeIsolated}}"
       viewCount="{{item.viewCount}}"
       bind:cardtap="onCaseTap"
     />

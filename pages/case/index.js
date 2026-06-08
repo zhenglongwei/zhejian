@@ -2,6 +2,7 @@ const { fetchCaseList } = require('../../services/case')
 const { PUBLIC_AUTH_TIER } = require('../../constants/case-authorization')
 const { SEARCH_PLACEHOLDER } = require('../../constants/search')
 const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
+const { resolvePageShareContext, withStoreContextPath } = require('../../utils/share-store-context')
 
 const FILTER_ALL = 'all'
 
@@ -14,6 +15,18 @@ const INTRO_BY_FILTER = {
   },
   [PUBLIC_AUTH_TIER.ANONYMOUS]: {
     introDesc: '车主匿名授权公示，仅保留车辆部分信息',
+  },
+}
+
+const INTRO_BY_FILTER_STORE = {
+  [FILTER_ALL]: {
+    introDesc: '本店授权公示案例，仅供了解该门店维修能力',
+  },
+  [PUBLIC_AUTH_TIER.NAMED]: {
+    introDesc: '本店实名授权公示，可展示门店与车型等品牌信息',
+  },
+  [PUBLIC_AUTH_TIER.ANONYMOUS]: {
+    introDesc: '本店匿名授权公示，仅保留车辆部分信息',
   },
 }
 
@@ -38,14 +51,37 @@ Page({
     introDesc: INTRO_BY_FILTER[FILTER_ALL].introDesc,
     errorMessage: '',
     searchPlaceholder: SEARCH_PLACEHOLDER,
+    storeIsolated: false,
+    storeId: '',
+    introTitle: '公开维修案例',
+    emptyTitle: '暂无公开案例',
+    emptyDescription: '服务相册授权公示后将展示在此',
   },
 
-  onLoad() {
+  onLoad(options) {
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: options.storeId || '',
+      source: 'case_list',
+      autoIsolate: Boolean(options.storeId),
+    })
+    this.storeId = shareCtx.storeId || options.storeId || ''
+    const storeIsolated = Boolean(this.storeId)
+    this.setData({
+      storeIsolated: shareCtx.isolated,
+      storeId: this.storeId,
+      introTitle: storeIsolated ? '本店公开案例' : '公开维修案例',
+      emptyTitle: storeIsolated ? '本店暂无公开案例' : '暂无公开案例',
+      emptyDescription: storeIsolated
+        ? '授权公示通过后将展示在此'
+        : '服务相册授权公示后将展示在此',
+    })
+    this.applyFilterMeta(this.data.filterSource)
     this.loadList()
   },
 
   applyFilterMeta(source) {
-    const meta = INTRO_BY_FILTER[source] || INTRO_BY_FILTER[FILTER_ALL]
+    const pool = this.data.storeIsolated ? INTRO_BY_FILTER_STORE : INTRO_BY_FILTER
+    const meta = pool[source] || pool[FILTER_ALL]
     this.setData({
       introDesc: meta.introDesc,
     })
@@ -64,6 +100,9 @@ Page({
       const query = {}
       if (this.data.filterSource !== FILTER_ALL) {
         query.authorizationTier = this.data.filterSource
+      }
+      if (this.storeId) {
+        query.storeId = this.storeId
       }
       const { list } = await fetchCaseList(query)
       const enriched = (list || []).map(mapCaseListItem)
@@ -96,7 +135,9 @@ Page({
     if (!caseId || this._caseNavigating) return
     this._caseNavigating = true
     wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
+      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._caseNavigating = false
       },
@@ -104,6 +145,7 @@ Page({
   },
 
   onSearchNavigate() {
+    if (this.data.storeIsolated) return
     wx.navigateTo({ url: '/pages/search/index/index' })
   },
 })

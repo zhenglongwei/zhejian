@@ -1,6 +1,8 @@
 const { fetchSharedAlbum } = require('../../../services/service-album')
 const { resolveImageSrcList } = require('../../../utils/desensitize-url')
 const { SHARE_MODE } = require('../../../constants/album-share')
+const { markShareStoreContext } = require('../../../utils/share-store-context')
+const { recordRecentVisit } = require('../../../utils/recent-visit')
 
 Page({
   data: {
@@ -45,6 +47,17 @@ Page({
         summaryRows,
         status: 'normal',
       })
+      const storeId = detail.store && detail.store.id
+      if (storeId) {
+        markShareStoreContext({ storeId, source: 'album_token_share', albumId: detail.albumId })
+        recordRecentVisit({
+          type: 'album',
+          albumId: detail.albumId,
+          storeId,
+          storeName: (detail.store && detail.store.name) || '',
+          serviceName: detail.serviceName || '',
+        })
+      }
     } catch (e) {
       this.setData({
         status: 'error',
@@ -54,6 +67,6 @@ Page({
   },
 
   onGoHome() {
-    wx.switchTab({ url: '/pages/index/index' })
+    wx.switchTab({ url: '/pages/home/index' })
   },
 })

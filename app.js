@@ -22,5 +22,7 @@ App({
     pendingOrderTab: '',
     /** 工具首页 · 冷启动入口（公域搜索 / 商家扫码） */
     toolEntryContext: null,
+    /** 分享链路单店隔离上下文 */
+    shareStoreContext: null,
   },
 })

@@ -4,8 +4,8 @@
     activeKey="{{filterCategory}}"
     status="{{status}}"
     errorMessage="{{errorMessage}}"
-    emptyTitle="暂无可预约服务"
-    emptyDescription="商家上架服务方案后将展示在此"
+    emptyTitle="{{emptyTitle}}"
+    emptyDescription="{{emptyDescription}}"
     emptyActionText="刷新"
     skeletonRows="{{3}}"
     bind:tabchange="onTabChange"
@@ -13,7 +13,7 @@
     bind:emptyaction="onRetry"
   >
     <view slot="intro">
-      <view class="tab-page__search page-content">
+      <view class="tab-page__search page-content" wx:if="{{!storeIsolated}}">
         <ui-search-bar
           readonly="{{true}}"
           placeholder="{{searchPlaceholder}}"
@@ -21,8 +21,8 @@
         />
       </view>
       <view class="tab-page__intro page-content">
-        <text class="tab-page__intro-title text-h2">可展示服务</text>
-        <text class="tab-page__intro-desc text-caption">价格模式清晰标注，可提交咨询或预约到店</text>
+        <text class="tab-page__intro-title text-h2">{{introTitle}}</text>
+        <text class="tab-page__intro-desc text-caption">{{introDesc}}</text>
         <view class="tab-page__intro-notice">
           <ui-compliance-notice type="price" />
         </view>
@@ -41,6 +41,7 @@
       minAmount="{{item.minAmount}}"
       maxAmount="{{item.maxAmount}}"
       storeName="{{item.storeName}}"
+      showStoreName="{{!storeIsolated}}"
       bind:cardtap="onServiceTap"
     />
   </ui-list-page-shell>

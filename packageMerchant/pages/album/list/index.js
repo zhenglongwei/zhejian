@@ -18,6 +18,7 @@ const {
   consumeListRefresh,
   shouldShowListLoading,
 } = require('../../../../utils/list-page-show')
+const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 
 Page({
   data: {
@@ -124,7 +125,7 @@ Page({
     }
     return {
       title: '辙见 · 服务相册',
-      path: '/pages/index/index',
+      path: TOOL_HOME_PATH,
     }
   },
 })

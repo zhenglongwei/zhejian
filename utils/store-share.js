@@ -25,8 +25,10 @@ function buildStoreShareImageUrl(store = {}) {
   return cover
 }
 
+const { MERCHANT_SHARE_FROM } = require('./share-store-context')
+
 function buildMiniProgramSharePath(storeId) {
-  return `/pages/store/detail/index?id=${encodeURIComponent(storeId)}`
+  return `/pages/store/detail/index?id=${encodeURIComponent(storeId)}&from=${MERCHANT_SHARE_FROM}`
 }
 
 function canShareStore(store = {}) {

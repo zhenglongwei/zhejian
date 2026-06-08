@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "辙见内容站",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index"
+  }
+}

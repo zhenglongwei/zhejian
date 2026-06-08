@@ -21,10 +21,10 @@
       </view>
     </block>
     <block wx:else>
-      <text class="mine-user-header__nickname text-h2">点击登录</text>
-      <text class="mine-user-header__guest-desc text-caption">登录后可查看咨询记录、服务相册与授权状态</text>
+      <text class="mine-user-header__nickname text-h2">{{guestTitle}}</text>
+      <text class="mine-user-header__guest-desc text-caption">{{guestDesc}}</text>
       <view class="mine-user-header__login-btn">
-        <ui-button type="primary" size="sm" catch:tap="onLoginTap">微信一键登录</ui-button>
+        <ui-button type="primary" size="sm" catch:tap="onLoginTap">{{guestLoginButton}}</ui-button>
       </view>
     </block>
   </view>

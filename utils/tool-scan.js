@@ -1,4 +1,5 @@
 const ALBUM_ID_PATTERN = /^alb_[a-zA-Z0-9_]+$/
+const { MERCHANT_SHARE_FROM } = require('./share-store-context')
 
 function decodeSafe(value) {
   try {
@@ -17,13 +18,13 @@ function buildAlbumClaimUrl(albumId) {
 function buildAlbumDetailUrl(albumId) {
   const id = decodeSafe(albumId)
   if (!id) return ''
-  return `/pages/album/detail/index?albumId=${encodeURIComponent(id)}`
+  return `/pages/album/detail/index?albumId=${encodeURIComponent(id)}&from=${MERCHANT_SHARE_FROM}`
 }
 
 function buildStoreDetailUrl(storeId) {
   const id = decodeSafe(storeId)
   if (!id) return ''
-  return `/pages/store/detail/index?id=${encodeURIComponent(id)}`
+  return `/pages/store/detail/index?id=${encodeURIComponent(id)}&from=${MERCHANT_SHARE_FROM}`
 }
 
 /**

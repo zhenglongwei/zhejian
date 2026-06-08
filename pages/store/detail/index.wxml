@@ -95,7 +95,7 @@
         <block wx:if="{{servicesStatus === 'empty'}}">
           <ui-empty
             title="该门店暂未配置可预约服务"
-            description="你可以联系门店或查看其他门店"
+            description="你可以联系门店了解服务方案"
             actionText="联系门店"
             bind:action="onCall"
           />

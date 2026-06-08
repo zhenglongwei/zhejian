@@ -1,7 +1,8 @@
 const OWNER_SHARE_QUERY = 'from=merchant_share'
+const { TOOL_HOME_PATH } = require('./share-store-context')
 
 function buildOwnerSharePath(albumId) {
-  if (!albumId) return '/pages/index/index'
+  if (!albumId) return TOOL_HOME_PATH
   return `/pages/album/detail/index?albumId=${albumId}&${OWNER_SHARE_QUERY}`
 }
 

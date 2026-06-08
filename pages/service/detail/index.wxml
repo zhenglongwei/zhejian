@@ -169,12 +169,12 @@
 
       <view id="cases-section" class="service-detail__section">
         <view class="service-detail__section-head">
-          <text class="service-detail__section-title text-h2">类似案例</text>
+          <text class="service-detail__section-title text-h2">{{storeIsolated ? '本店类似案例' : '类似案例'}}</text>
           <text
             wx:if="{{detail.relatedCases.length}}"
             class="service-detail__more text-caption"
             bindtap="onViewAllCases"
-          >查看更多</text>
+          >{{storeIsolated ? '查看本店全部' : '查看更多'}}</text>
         </view>
         <view class="service-detail__notice">
           <ui-compliance-notice type="casePrice" />
@@ -201,13 +201,13 @@
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
             viewCount="{{item.viewCount}}"
-            showStoreName="{{true}}"
+            showStoreName="{{!storeIsolated}}"
             bind:cardtap="onCaseTap"
           />
         </view>
       </view>
 
-      <view class="service-detail__section">
+      <view wx:if="{{!storeIsolated}}" class="service-detail__section">
         <text class="service-detail__section-title text-h2">可预约门店</text>
         <block wx:if="{{!detail.availableMerchants.length}}">
           <ui-empty

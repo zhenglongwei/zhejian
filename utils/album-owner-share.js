@@ -95,8 +95,10 @@ function pickShareCoverImage(detail, mode) {
   return ''
 }
 
+const { TOOL_HOME_PATH } = require('./share-store-context')
+
 function buildShareMiniPath(token) {
-  if (!token) return '/pages/album/list/index'
+  if (!token) return TOOL_HOME_PATH
   return `/pages/album/share/index?token=${encodeURIComponent(token)}`
 }
 

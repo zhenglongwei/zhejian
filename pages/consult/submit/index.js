@@ -9,6 +9,11 @@ const {
   getConsultPageTitle,
 } = require('../../../utils/lead-form')
 const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const {
+  resolvePageShareContext,
+  isShareStoreIsolated,
+  getShareStoreId,
+} = require('../../../utils/share-store-context')
 
 Page({
   data: {
@@ -41,13 +46,25 @@ Page({
     submitting: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
+    storeLocked: false,
+    lockedStoreHint: '',
   },
 
   onLoad(options) {
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: options.storeId || '',
+      source: 'consult_submit',
+    })
     this.serviceId = options.serviceId || ''
-    this.storeId = options.storeId || ''
     this.caseId = options.caseId || ''
     this.sourcePage = options.sourcePage || ''
+    const lockedStoreId =
+      shareCtx.isolated || isShareStoreIsolated(options)
+        ? options.storeId || getShareStoreId() || shareCtx.storeId
+        : ''
+    this.storeLocked = Boolean(lockedStoreId)
+    this.storeId = lockedStoreId || options.storeId || ''
+    this.lockedStoreId = lockedStoreId
 
     if (!this.serviceId && !this.storeId) {
       this.setData({
@@ -59,6 +76,10 @@ Page({
     wx.setNavigationBarTitle({
       title: getConsultPageTitle(this.serviceId ? 'service' : 'message'),
     })
+    this.setData({
+      storeLocked: this.storeLocked,
+      lockedStoreHint: this.storeLocked ? '分享场景下咨询将发送至以下门店，不可切换' : '',
+    })
     this.loadConfirm()
   },
 
@@ -67,7 +88,7 @@ Page({
     try {
       const confirm = await fetchLeadConfirm({
         serviceId: this.serviceId,
-        storeId: this.storeId,
+        storeId: this.lockedStoreId || this.storeId,
         caseId: this.caseId,
         sourcePage: this.sourcePage || (this.caseId ? 'case' : ''),
       })
@@ -225,11 +246,14 @@ Page({
           }
         : {}
     const service = confirm.service || {}
+    const lockedStoreId = this.lockedStoreId || ''
+    const storeId = lockedStoreId || confirm.store.id
+    const storeName = confirm.store.name
     return {
       serviceId: service.id || '',
       serviceName: service.name || '',
-      storeId: confirm.store.id,
-      storeName: confirm.store.name,
+      storeId,
+      storeName,
       storePhone: confirm.store.phone || '',
       caseId: this.caseId || (confirm.caseContext && confirm.caseContext.caseId) || '',
       sourcePage:

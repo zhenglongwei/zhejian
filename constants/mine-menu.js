@@ -1,7 +1,7 @@
 const MINE_FAVORITE_ITEM = {
   key: 'favorite',
   label: '我的收藏',
-  desc: '收藏的服务、门店与案例',
+  desc: '收藏的服务与门店',
   needPhone: true,
   url: '/pages/mine/favorite/index',
 }

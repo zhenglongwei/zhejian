@@ -105,7 +105,7 @@
         />
       </view>
       <view wx:if="{{relatedCases.length}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">相关案例</text>
+        <text class="case-detail__section-title text-h3">{{storeIsolated ? '本店更多案例' : '相关案例'}}</text>
         <view class="case-detail__related">
           <ui-case-card
             wx:for="{{relatedCases}}"
@@ -122,6 +122,7 @@
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
             viewCount="{{item.viewCount}}"
+            showStoreName="{{!storeIsolated}}"
             bind:cardtap="onRelatedCaseTap"
           />
         </view>

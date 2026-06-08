@@ -4,6 +4,14 @@ const {
   copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
+const {
+  resolvePageShareContext,
+  filterCasesByStore,
+  withStoreContextPath,
+  getShareStoreId,
+  isShareStoreIsolated,
+  markShareStoreContext,
+} = require('../../../utils/share-store-context')
 
 const BOTTOM_LEFT_ACTIONS = [
   { key: 'share', type: 'secondary', text: '分享' },
@@ -40,6 +48,7 @@ Page({
     loginSheetMode: 'auto',
     loginSheetBindContext: 'favorite',
     pendingFavoriteToggle: false,
+    storeIsolated: false,
   },
 
   onShow() {
@@ -61,6 +70,11 @@ Page({
   onLoad(options) {
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     this.caseId = options.id || ''
+    const shareCtx = resolvePageShareContext(options, {
+      storeId: options.storeId || '',
+      source: 'case_detail',
+    })
+    this.setData({ storeIsolated: shareCtx.isolated || isShareStoreIsolated(options) })
     if (!this.caseId) {
       this.setData({ status: 'error', errorMessage: '案例不存在' })
       return
@@ -72,12 +86,22 @@ Page({
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const detail = await fetchCaseDetail(this.caseId)
+      const storeId = detail.storeId || getShareStoreId()
+      const storeIsolated = this.data.storeIsolated || isShareStoreIsolated()
+      if (storeId && storeIsolated) {
+        markShareStoreContext({ storeId, source: 'case_detail' })
+      }
+      let relatedCases = detail.relatedCases || []
+      if (storeIsolated && storeId) {
+        relatedCases = filterCasesByStore(relatedCases, storeId)
+      }
       this.setData({
         detail,
         showStorePublicly: detail.showStorePublicly !== false,
-        relatedCases: detail.relatedCases || [],
+        relatedCases,
         faqList: detail.faq || [],
         status: 'normal',
+        storeIsolated: storeIsolated && Boolean(storeId),
       })
       this.updateShareMenu(true)
       await this.syncFavoriteState()
@@ -215,7 +239,9 @@ Page({
     }
     this._messageNavigating = true
     wx.navigateTo({
-      url: `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
+      url: withStoreContextPath(`/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`, {
+        storeId: detail.storeId,
+      }),
       complete: () => {
         this._messageNavigating = false
       },
@@ -228,7 +254,7 @@ Page({
     if (!storeId || this._storeNavigating) return
     this._storeNavigating = true
     wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}`,
+      url: withStoreContextPath(`/pages/store/detail/index?id=${storeId}`, { storeId }),
       complete: () => {
         this._storeNavigating = false
       },
@@ -240,7 +266,9 @@ Page({
     if (!caseId || this._relatedCaseNavigating) return
     this._relatedCaseNavigating = true
     wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
+      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
+        storeId: getShareStoreId() || (this.data.detail && this.data.detail.storeId),
+      }),
       complete: () => {
         this._relatedCaseNavigating = false
       },

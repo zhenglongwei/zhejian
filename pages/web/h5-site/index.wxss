@@ -1,0 +1,9 @@
+.h5-site__error {
+  padding-top: var(--space-xl);
+}
+
+.h5-site__back {
+  margin-top: var(--space-lg);
+  display: flex;
+  justify-content: center;
+}

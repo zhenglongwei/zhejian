@@ -1,0 +1,16 @@
+<view class="page h5-site">
+  <block wx:if="{{loadError}}">
+    <view class="page-content h5-site__error">
+      <ui-empty
+        title="无法在小程序内打开"
+        description="请复制链接后在浏览器中访问辙见内容站"
+        actionText="复制链接"
+        bind:action="onCopyLink"
+      />
+      <view class="h5-site__back">
+        <ui-button type="secondary" bind:btntap="onBackHome">返回工具首页</ui-button>
+      </view>
+    </view>
+  </block>
+  <web-view wx:else src="{{url}}" binderror="onWebViewError" />
+</view>
