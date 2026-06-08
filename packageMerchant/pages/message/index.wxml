@@ -9,31 +9,23 @@
     bind:retry="onRetry"
     bind:unauthaction="onGoLogin"
   >
-    <view slot="intro" wx:if="{{isLoggedIn}}" class="message-list__subscribe">
-      <view class="message-list__subscribe-text">
-        <text class="text-body">微信通知</text>
-        <text class="text-caption">每次点击授权可接收 1 条微信通知，重要操作前请再次授权</text>
-      </view>
-      <ui-button type="secondary" size="sm" bind:btntap="onSubscribeWechat">开启微信通知</ui-button>
+    <view slot="intro" wx:if="{{isLoggedIn}}">
+      <ui-message-subscribe-banner bind:subscribe="onSubscribeWechat" />
     </view>
     <view wx:if="{{unreadCount > 0 && status === 'normal'}}" class="message-list__toolbar">
       <text class="text-caption">未读 {{unreadCount}} 条</text>
       <text class="text-link text-caption" bindtap="onMarkAllRead">全部已读</text>
     </view>
-    <view
+    <ui-message-card
       wx:for="{{list}}"
       wx:key="id"
-      class="message-list__item {{item.read ? 'message-list__item--read' : ''}}"
-      data-id="{{item.id}}"
-      data-path="{{item.jumpPath}}"
-      bindtap="onItemTap"
-    >
-      <view class="message-list__head">
-        <text class="text-body message-list__title">{{item.title}}</text>
-        <text wx:if="{{!item.read}}" class="message-list__dot"></text>
-      </view>
-      <text class="text-caption message-list__content">{{item.content}}</text>
-      <text class="text-caption message-list__time">{{item.createdAt}}</text>
-    </view>
+      messageId="{{item.id}}"
+      title="{{item.title}}"
+      content="{{item.content}}"
+      time="{{item.createdAt}}"
+      read="{{item.read}}"
+      jumpPath="{{item.jumpPath}}"
+      bind:tap="onItemTap"
+    />
   </ui-list-page-shell>
 </view>

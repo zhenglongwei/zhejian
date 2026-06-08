@@ -8,9 +8,10 @@ const {
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
-const { fetchMerchantUnreadNotificationCount } = require('../../../services/notification')
+const { fetchMerchantUnreadNotificationCount, fetchMerchantSubscribeStatus } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
+const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 
 Page({
   data: {
@@ -34,6 +35,10 @@ Page({
     switchingStore: false,
     unreadMessages: 0,
     messageButtonLabel: '消息通知',
+    needsSubscribePrompt: false,
+    subscribeSheetVisible: false,
+    subscribeBannerDescription:
+      '有新咨询线索或审核结果时，可在微信及时提醒你。每次授权可收 1 条，站内消息不受影响。',
   },
 
   onShow() {
@@ -77,6 +82,7 @@ Page({
     let storePickerIndex = 0
     let canSwitchStore = false
     let unreadMessages = 0
+    let needsSubscribePrompt = false
     try {
       if (isMerchantOwner()) {
         const storeData = await fetchMerchantStores()
@@ -91,11 +97,12 @@ Page({
       storeOptions = []
     }
     try {
-      const [stats, leadStats, dashStats, unreadCount] = await Promise.all([
+      const [stats, leadStats, dashStats, unreadCount, subscribeStatus] = await Promise.all([
         fetchMerchantAlbumStats(),
         fetchMerchantLeadStats(profile.storeId),
         fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
         fetchMerchantUnreadNotificationCount().catch(() => 0),
+        fetchMerchantSubscribeStatus('merchant').catch(() => ({ needsPrompt: false })),
       ])
       todos = {
         pendingLeads: leadStats.pending || 0,
@@ -113,6 +120,7 @@ Page({
         }
       }
       unreadMessages = unreadCount || 0
+      needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
     } catch (e) {
       /* keep zeros */
     }
@@ -126,6 +134,8 @@ Page({
       storePickerIndex,
       canSwitchStore,
       unreadMessages,
+      needsSubscribePrompt,
+      subscribeSheetVisible: needsSubscribePrompt,
       messageButtonLabel:
         unreadMessages > 0 ? `消息通知 (${unreadMessages})` : '消息通知',
     })
@@ -217,6 +227,33 @@ Page({
 
   onMessageList() {
     this._navigateTo('/packageMerchant/pages/message/index')
+  },
+
+  onSubscribeSheetClose() {
+    this.setData({ subscribeSheetVisible: false })
+  },
+
+  async onSubscribeSheetConfirm() {
+    await this.onWorkbenchSubscribe()
+    this.setData({ subscribeSheetVisible: false })
+  },
+
+  async refreshSubscribePrompt() {
+    try {
+      const subscribeStatus = await fetchMerchantSubscribeStatus('merchant')
+      const needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
+      this.setData({
+        needsSubscribePrompt,
+        subscribeSheetVisible: needsSubscribePrompt ? this.data.subscribeSheetVisible : false,
+      })
+    } catch (e) {
+      // ignore
+    }
+  },
+
+  async onWorkbenchSubscribe() {
+    await requestMerchantNotificationSubscribe('merchant')
+    await this.refreshSubscribePrompt()
   },
 
   onPreviewStore() {

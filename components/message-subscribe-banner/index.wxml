@@ -1,0 +1,7 @@
+<view class="message-subscribe-banner">
+  <view class="message-subscribe-banner__text">
+    <text class="text-body">{{title}}</text>
+    <text class="text-caption message-subscribe-banner__desc">{{description}}</text>
+  </view>
+  <ui-button type="secondary" size="sm" bind:btntap="onSubscribe">{{buttonText}}</ui-button>
+</view>

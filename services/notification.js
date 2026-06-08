@@ -53,6 +53,13 @@ async function saveMerchantSubscribeResults(results = {}) {
   return post('/merchant/notifications/subscribe', { results })
 }
 
+async function fetchMerchantSubscribeStatus(scene = 'merchant') {
+  const data = await get(
+    `/merchant/notifications/subscribe-status?scene=${encodeURIComponent(scene)}`
+  )
+  return data || { needsPrompt: false, templates: [] }
+}
+
 module.exports = {
   fetchUserNotifications,
   fetchUserUnreadNotificationCount,
@@ -64,4 +71,5 @@ module.exports = {
   markMerchantNotificationsRead,
   fetchMerchantSubscribeTemplates,
   saveMerchantSubscribeResults,
+  fetchMerchantSubscribeStatus,
 }

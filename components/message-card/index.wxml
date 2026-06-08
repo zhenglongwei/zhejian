@@ -1,0 +1,13 @@
+<ui-card shadow="{{true}}" padding="{{true}}">
+  <view
+    class="message-card {{read ? 'message-card--read' : ''}}"
+    bindtap="onTap"
+  >
+    <view class="message-card__head">
+      <text class="text-body message-card__title">{{title}}</text>
+      <text wx:if="{{!read}}" class="message-card__dot"></text>
+    </view>
+    <text wx:if="{{content}}" class="text-caption message-card__content">{{content}}</text>
+    <text wx:if="{{time}}" class="text-caption message-card__time">{{time}}</text>
+  </view>
+</ui-card>

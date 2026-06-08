@@ -9,6 +9,7 @@ const {
   saveSubscribeResults,
   listSubscribeTemplateIds,
   resolveMerchantNotificationUserId,
+  getSubscribeStatus,
 } = require('../services/notification.service')
 
 const router = express.Router()
@@ -55,6 +56,17 @@ router.get('/notifications/subscribe-templates', requireAuth(['merchant']), asyn
   try {
     const scene = req.query?.scene || 'merchant'
     return ok(res, { templates: listSubscribeTemplateIds(scene) })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/notifications/subscribe-status', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const scene = req.query?.scene || 'merchant'
+    const userId = await merchantReceiverId(req.auth)
+    const data = await getSubscribeStatus(userId, scene)
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

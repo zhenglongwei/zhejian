@@ -60,6 +60,20 @@
       </view>
       <text class="text-caption merchant-wb__addr">{{profile.address}}</text>
     </view>
+    <view wx:if="{{needsSubscribePrompt}}" class="page-content merchant-wb__notify">
+      <ui-message-subscribe-banner
+        description="{{subscribeBannerDescription}}"
+        bind:subscribe="onWorkbenchSubscribe"
+      />
+    </view>
+    <view
+      wx:if="{{unreadMessages > 0}}"
+      class="page-content merchant-wb__message-entry"
+      bindtap="onMessageList"
+    >
+      <text class="text-body">你有 {{unreadMessages}} 条未读消息</text>
+      <text class="text-link text-caption">查看</text>
+    </view>
     <view class="page-content merchant-wb__stats">
       <ui-card shadow="{{true}}" class="merchant-wb__overview-card">
         <view class="merchant-wb__overview-head">
@@ -123,9 +137,9 @@
     </view>
     <view class="page-content merchant-wb__actions">
       <text class="text-h3 merchant-wb__section">快捷操作</text>
+      <ui-button type="secondary" bind:btntap="onMessageList">{{messageButtonLabel}}</ui-button>
       <ui-button type="primary" bind:btntap="onCreateAlbum">新建服务相册</ui-button>
       <ui-button type="secondary" bind:btntap="onLeadList">咨询线索</ui-button>
-      <ui-button type="secondary" bind:btntap="onMessageList">{{messageButtonLabel}}</ui-button>
       <ui-button type="secondary" bind:btntap="onAlbumList">服务相册管理</ui-button>
       <ui-button type="secondary" bind:btntap="onServiceList">服务方案</ui-button>
       <ui-button type="secondary" bind:btntap="onPreviewStore">预览门店主页</ui-button>
@@ -134,4 +148,15 @@
       <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:btntap="onStaffManage">员工管理</ui-button>
     </view>
   </block>
+
+  <ui-bottom-sheet
+    visible="{{subscribeSheetVisible}}"
+    title="开启微信通知"
+    hint="{{subscribeBannerDescription}}"
+    confirmText="开启微信通知"
+    cancelText="稍后再说"
+    bind:close="onSubscribeSheetClose"
+    bind:cancel="onSubscribeSheetClose"
+    bind:confirm="onSubscribeSheetConfirm"
+  />
 </view>

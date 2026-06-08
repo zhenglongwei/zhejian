@@ -5,6 +5,8 @@
     "ui-button": "/components/button/index",
     "ui-card": "/components/card/index",
     "ui-tag": "/components/tag/index",
-    "ui-skeleton": "/components/skeleton/index"
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index"
   }
 }

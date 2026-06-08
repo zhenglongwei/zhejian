@@ -1,0 +1,40 @@
+.message-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.message-card--read {
+  opacity: var(--opacity-muted);
+}
+
+.message-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.message-card__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--font-weight-semibold);
+}
+
+.message-card__dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.message-card__content {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.message-card__time {
+  display: block;
+  color: var(--color-text-tertiary);
+}

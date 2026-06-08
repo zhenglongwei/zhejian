@@ -3,7 +3,8 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-list-page-shell": "/components/list-page-shell/index",
-    "ui-button": "/components/button/index",
+    "ui-message-card": "/components/message-card/index",
+    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-empty": "/components/empty/index"
   }

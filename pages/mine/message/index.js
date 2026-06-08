@@ -73,7 +73,7 @@ Page({
   },
 
   async onItemTap(e) {
-    const { id, path } = e.currentTarget.dataset
+    const { id, path } = e.detail || {}
     if (!id) return
     try {
       await markUserNotificationsRead([id])

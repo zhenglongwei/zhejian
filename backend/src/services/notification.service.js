@@ -384,6 +384,36 @@ function listSubscribeTemplateIds(scene = 'default') {
     .filter((item) => item.templateId)
 }
 
+async function getSubscribeStatus(userId, scene = 'merchant') {
+  const keys = SUBSCRIBE_TEMPLATE_KEYS.byScene[scene] || SUBSCRIBE_TEMPLATE_KEYS.byScene.default
+  const configuredKeys = keys.filter((key) => getSubscribeTemplateId(key))
+  if (!configuredKeys.length) {
+    return { needsPrompt: false, templates: [] }
+  }
+  const repo = subscriptionRepo()
+  if (!repo || !userId) {
+    return {
+      needsPrompt: true,
+      templates: configuredKeys.map((key) => ({ key, status: 'none', hasQuota: false })),
+    }
+  }
+  const rows = await repo.findMany({
+    where: { userId, templateKey: { in: configuredKeys } },
+  })
+  const statusMap = {}
+  rows.forEach((row) => {
+    statusMap[row.templateKey] = row.status
+  })
+  const templates = configuredKeys.map((key) => {
+    const status = statusMap[key] || 'none'
+    return { key, status, hasQuota: status === 'accept' }
+  })
+  return {
+    needsPrompt: templates.some((item) => !item.hasQuota),
+    templates,
+  }
+}
+
 async function notifyLeadContacted(lead) {
   if (!lead?.userId) return null
   return notifyUser({
@@ -634,6 +664,7 @@ module.exports = {
   markNotificationsRead,
   saveSubscribeResults,
   listSubscribeTemplateIds,
+  getSubscribeStatus,
   notifyLeadContacted,
   notifyLeadClosed,
   notifyNewLead,

@@ -1,0 +1,21 @@
+.message-subscribe-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+}
+
+.message-subscribe-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-subscribe-banner__desc {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}

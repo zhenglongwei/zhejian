@@ -49,6 +49,21 @@
   color: var(--color-text-tertiary);
 }
 
+.merchant-wb__notify {
+  margin-top: var(--space-md);
+}
+
+.merchant-wb__message-entry {
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+}
+
 .merchant-wb__stats {
   margin-top: var(--space-md);
 }
