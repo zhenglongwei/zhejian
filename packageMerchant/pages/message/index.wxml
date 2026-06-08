@@ -9,7 +9,7 @@
     bind:retry="onRetry"
     bind:unauthaction="onGoLogin"
   >
-    <view wx:if="{{isLoggedIn}}" class="message-list__subscribe">
+    <view slot="intro" wx:if="{{isLoggedIn}}" class="message-list__subscribe">
       <view class="message-list__subscribe-text">
         <text class="text-body">微信通知</text>
         <text class="text-caption">每次点击授权可接收 1 条微信通知，重要操作前请再次授权</text>
@@ -30,7 +30,7 @@
     >
       <view class="message-list__head">
         <text class="text-body message-list__title">{{item.title}}</text>
-        <text wx:if="{{!item.read}}" class="message-list__dot" />
+        <text wx:if="{{!item.read}}" class="message-list__dot"></text>
       </view>
       <text class="text-caption message-list__content">{{item.content}}</text>
       <text class="text-caption message-list__time">{{item.createdAt}}</text>

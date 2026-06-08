@@ -2,6 +2,10 @@ const {
   fetchMerchantNotifications,
   markMerchantNotificationsRead,
 } = require('../../../services/notification')
+const {
+  fetchMerchantProfile,
+  MERCHANT_STATUS,
+} = require('../../../services/merchant')
 const { isLoggedIn } = require('../../../utils/auth')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 
@@ -9,7 +13,6 @@ Page({
   data: {
     status: 'loading',
     errorMessage: '',
-    needLogin: false,
     list: [],
     unreadCount: 0,
     isLoggedIn: false,
@@ -27,21 +30,38 @@ Page({
     if (!isLoggedIn()) {
       this.setData({
         status: 'unauthenticated',
-        needLogin: true,
         isLoggedIn: false,
         list: [],
+        unreadCount: 0,
         errorMessage: '',
       })
       return
     }
 
-    this.setData({ status: 'loading', errorMessage: '', needLogin: false, isLoggedIn: true })
+    this.setData({
+      status: 'loading',
+      errorMessage: '',
+      isLoggedIn: true,
+      list: [],
+    })
+
     try {
+      const profile = await fetchMerchantProfile()
+      if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
+        this.setData({
+          status: 'error',
+          errorMessage: '请先完成商家入驻并通过审核',
+          list: [],
+          unreadCount: 0,
+        })
+        return
+      }
+
       const data = await fetchMerchantNotifications({ page: 1, pageSize: 50 })
-      const list = data?.list || []
+      const list = (data && data.list) || []
       this.setData({
         list,
-        unreadCount: Number(data?.unreadCount) || 0,
+        unreadCount: Number(data && data.unreadCount) || 0,
         status: list.length ? 'normal' : 'empty',
       })
     } catch (e) {
@@ -49,6 +69,7 @@ Page({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
         list: [],
+        unreadCount: 0,
       })
     }
   },

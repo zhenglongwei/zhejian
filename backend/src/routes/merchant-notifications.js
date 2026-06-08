@@ -8,13 +8,19 @@ const {
   markNotificationsRead,
   saveSubscribeResults,
   listSubscribeTemplateIds,
+  resolveMerchantNotificationUserId,
 } = require('../services/notification.service')
 
 const router = express.Router()
 
+async function merchantReceiverId(auth = {}) {
+  return resolveMerchantNotificationUserId(auth.userId, auth.merchantId)
+}
+
 router.get('/notifications', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const data = await listNotifications(RECEIVER.MERCHANT, req.auth.userId, req.query || {})
+    const receiverId = await merchantReceiverId(req.auth)
+    const data = await listNotifications(RECEIVER.MERCHANT, receiverId, req.query || {})
     return ok(res, data)
   } catch (e) {
     next(e)
@@ -23,7 +29,8 @@ router.get('/notifications', requireAuth(['merchant']), async (req, res, next) =
 
 router.get('/notifications/unread-count', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const count = await getUnreadCount(RECEIVER.MERCHANT, req.auth.userId)
+    const receiverId = await merchantReceiverId(req.auth)
+    const count = await getUnreadCount(RECEIVER.MERCHANT, receiverId)
     return ok(res, { count })
   } catch (e) {
     next(e)
@@ -32,9 +39,10 @@ router.get('/notifications/unread-count', requireAuth(['merchant']), async (req,
 
 router.post('/notifications/read', requireAuth(['merchant']), async (req, res, next) => {
   try {
+    const receiverId = await merchantReceiverId(req.auth)
     const data = await markNotificationsRead(
       RECEIVER.MERCHANT,
-      req.auth.userId,
+      receiverId,
       req.body?.ids || []
     )
     return ok(res, data)
@@ -54,7 +62,8 @@ router.get('/notifications/subscribe-templates', requireAuth(['merchant']), asyn
 
 router.post('/notifications/subscribe', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const data = await saveSubscribeResults(req.auth.userId, req.body?.results || {})
+    const userId = await merchantReceiverId(req.auth)
+    const data = await saveSubscribeResults(userId, req.body?.results || {})
     return ok(res, data)
   } catch (e) {
     next(e)

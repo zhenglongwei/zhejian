@@ -87,6 +87,12 @@ async function resolveMerchantOwnerUserId(merchantId) {
   return merchant?.ownerUserId || ''
 }
 
+/** 商家消息 receiverId：JWT sub，或 dev token 时回退到 merchant.ownerUserId */
+async function resolveMerchantNotificationUserId(userId, merchantId) {
+  if (userId) return userId
+  return resolveMerchantOwnerUserId(merchantId)
+}
+
 async function resolveStoreOwnerUserId(storeId) {
   if (!storeId) return ''
   const store = await prisma.store.findUnique({
@@ -622,6 +628,7 @@ module.exports = {
   createNotification,
   notifyUser,
   notifyMerchantOwner,
+  resolveMerchantNotificationUserId,
   listNotifications,
   getUnreadCount,
   markNotificationsRead,
