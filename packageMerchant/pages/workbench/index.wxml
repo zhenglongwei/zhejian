@@ -1,51 +1,61 @@
 <view class="page merchant-wb">
   <block wx:if="{{status === 'loading'}}">
-    <view class="page-content merchant-wb__pad">
-      <ui-skeleton rows="{{4}}" title="{{true}}" />
+    <view class="page-content merchant-wb__body">
+      <ui-skeleton rows="{{2}}" title="{{true}}" />
+      <view class="merchant-wb__sk-gap">
+        <ui-skeleton rows="{{2}}" title="{{false}}" />
+      </view>
+      <ui-skeleton rows="{{3}}" title="{{false}}" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'pending'}}">
-    <view class="page-content merchant-wb__hero">
-      <text class="text-h1">入驻审核中</text>
-      <text class="text-body merchant-wb__sub">审核通过后即可使用商家工作台</text>
-      <ui-button type="primary" bind:btntap="onRefreshAudit">查看审核进度</ui-button>
+    <view class="page-content merchant-wb__gate">
+      <ui-empty
+        title="入驻审核中"
+        description="审核通过后即可使用商家工作台，创建服务相册并处理咨询线索"
+        actionText="查看审核进度"
+        bind:action="onRefreshAudit"
+      />
     </view>
   </block>
 
   <block wx:elif="{{status === 'rejected'}}">
-    <view class="page-content merchant-wb__hero">
-      <text class="text-h1">入驻未通过</text>
-      <text wx:if="{{profile.rejectReason}}" class="text-body merchant-wb__sub">{{profile.rejectReason}}</text>
-      <text wx:else class="text-body merchant-wb__sub">请修改资料后重新提交</text>
-      <ui-button type="primary" bind:btntap="onGoOnboarding">修改入驻资料</ui-button>
+    <view class="page-content merchant-wb__gate">
+      <ui-empty
+        title="入驻未通过"
+        description="{{profile.rejectReason || '请修改资料后重新提交'}}"
+        actionText="修改入驻资料"
+        bind:action="onGoOnboarding"
+      />
     </view>
   </block>
 
   <block wx:elif="{{status === 'need_modify'}}">
-    <view class="page-content merchant-wb__hero">
-      <text class="text-h1">资料需修改</text>
-      <text wx:if="{{profile.rejectReason}}" class="text-body merchant-wb__sub">{{profile.rejectReason}}</text>
-      <text wx:else class="text-body merchant-wb__sub">请按审核意见修改后重新提交</text>
-      <ui-button type="primary" bind:btntap="onGoOnboarding">修改入驻资料</ui-button>
+    <view class="page-content merchant-wb__gate">
+      <ui-empty
+        title="资料需修改"
+        description="{{profile.rejectReason || '请按审核意见修改后重新提交'}}"
+        actionText="修改入驻资料"
+        bind:action="onGoOnboarding"
+      />
     </view>
   </block>
 
   <block wx:elif="{{status === 'none'}}">
-    <view class="page-content merchant-wb__hero">
-      <text class="text-h1">商家工作台</text>
-      <text class="text-body merchant-wb__sub">入驻后可创建服务相册、处理咨询线索与管理服务方案</text>
-      <ui-button type="primary" bind:btntap="onGoOnboarding">立即入驻</ui-button>
+    <view class="page-content merchant-wb__gate">
+      <ui-empty
+        title="商家工作台"
+        description="入驻后可创建服务相册、处理咨询线索与管理服务方案"
+        actionText="申请入驻"
+        bind:action="onGoOnboarding"
+      />
     </view>
   </block>
 
   <block wx:else>
-    <view class="page-content merchant-wb__head">
-      <view class="merchant-wb__head-main">
-        <text class="text-h2">{{profile.storeName}}</text>
-        <view class="merchant-wb__head-tags">
-          <ui-tag variant="success" text="已认证" />
-        </view>
+    <view class="merchant-wb__toolbar page-content">
+      <view class="merchant-wb__toolbar-main">
         <picker
           wx:if="{{canSwitchStore}}"
           mode="selector"
@@ -55,97 +65,122 @@
           disabled="{{switchingStore}}"
           bindchange="onStoreChange"
         >
-          <text class="text-link text-caption merchant-wb__switch">切换门店</text>
+          <view class="merchant-wb__store-picker">
+            <text class="text-h3 merchant-wb__store-name">{{profile.storeName}}</text>
+            <text class="merchant-wb__store-caret text-caption">▾</text>
+          </view>
         </picker>
+        <text wx:else class="text-h3 merchant-wb__store-name">{{profile.storeName}}</text>
+        <text wx:if="{{profile.address}}" class="text-caption merchant-wb__toolbar-addr">{{profile.address}}</text>
       </view>
-      <text class="text-caption merchant-wb__addr">{{profile.address}}</text>
-    </view>
-    <view wx:if="{{needsSubscribePrompt}}" class="page-content merchant-wb__notify">
-      <ui-message-subscribe-banner
-        description="{{subscribeBannerDescription}}"
-        bind:subscribe="onWorkbenchSubscribe"
-      />
-    </view>
-    <view
-      wx:if="{{unreadMessages > 0}}"
-      class="page-content merchant-wb__message-entry"
-      bindtap="onMessageList"
-    >
-      <text class="text-body">你有 {{unreadMessages}} 条未读消息</text>
-      <text class="text-link text-caption">查看</text>
-    </view>
-    <view class="page-content merchant-wb__stats">
-      <ui-card shadow="{{true}}" class="merchant-wb__overview-card">
-        <view class="merchant-wb__overview-head">
-          <text class="text-h3">数据概览</text>
-          <text class="text-caption merchant-wb__overview-hint">近7天 · T+1</text>
+      <view class="merchant-wb__toolbar-actions">
+        <view class="merchant-wb__icon-btn" bindtap="onWechatNotifyTap">
+          <view class="merchant-wb__wx-icon" />
+          <view wx:if="{{needsSubscribePrompt}}" class="merchant-wb__icon-dot" />
         </view>
-        <view class="merchant-wb__stat-row">
-          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
-            <text class="merchant-wb__stat-num text-h2">{{overview.caseViews}}</text>
-            <text class="text-caption">案例浏览</text>
-          </view>
-          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
-            <text class="merchant-wb__stat-num text-h2">{{overview.leadSubmit}}</text>
-            <text class="text-caption">咨询提交</text>
-          </view>
-          <view class="merchant-wb__stat merchant-wb__stat--tap" bindtap="onDashboard">
-            <text class="merchant-wb__stat-num text-h2">{{overview.transparency}}</text>
-            <text class="text-caption">透明度分</text>
-          </view>
+        <view class="merchant-wb__icon-btn" bindtap="onMessageList">
+          <view class="merchant-wb__bell-icon" />
+          <view wx:if="{{unreadBadgeText}}" class="merchant-wb__icon-badge">{{unreadBadgeText}}</view>
         </view>
-        <ui-button type="secondary" size="sm" bind:btntap="onDashboard">查看数据概览</ui-button>
-      </ui-card>
-      <ui-card shadow="{{true}}">
-        <view class="merchant-wb__stat-row">
+      </view>
+    </view>
+
+    <view class="page-content merchant-wb__body">
+      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-wb__block">
+        <text class="text-h3 merchant-wb__section">待办</text>
+        <view class="merchant-wb__todo-row">
           <view
-            class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="active"
-            bindtap="onAlbumList"
-          >
-            <text class="merchant-wb__stat-num text-h2">{{todos.activeAlbums}}</text>
-            <text class="text-caption">进行中服务相册</text>
-          </view>
-          <view
-            class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="all"
-            bindtap="onAlbumList"
-          >
-            <text class="merchant-wb__stat-num text-h2">{{todos.pendingUpload}}</text>
-            <text class="text-caption">待补节点</text>
-          </view>
-        </view>
-        <view class="merchant-wb__stat-row">
-          <view
-            class="merchant-wb__stat merchant-wb__stat--tap"
-            data-tab="pending_auth"
-            bindtap="onAlbumList"
-          >
-            <text class="merchant-wb__stat-num text-h2">{{todos.pendingAuth}}</text>
-            <text class="text-caption">待公开授权</text>
-          </view>
-          <view
-            class="merchant-wb__stat merchant-wb__stat--tap"
+            class="merchant-wb__todo merchant-wb__todo--tap {{todos.pendingLeads > 0 ? 'merchant-wb__todo--active' : ''}}"
             data-tab="pending"
             bindtap="onLeadList"
           >
-            <text class="merchant-wb__stat-num text-h2">{{todos.pendingLeads}}</text>
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{todos.pendingLeads}}</text>
             <text class="text-caption">待处理线索</text>
           </view>
+          <view
+            class="merchant-wb__todo merchant-wb__todo--tap {{todos.pendingAuth > 0 ? 'merchant-wb__todo--active' : ''}}"
+            data-tab="pending_auth"
+            bindtap="onAlbumList"
+          >
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{todos.pendingAuth}}</text>
+            <text class="text-caption">待公开授权</text>
+          </view>
+          <view
+            class="merchant-wb__todo merchant-wb__todo--tap {{todos.pendingUpload > 0 ? 'merchant-wb__todo--active' : ''}}"
+            data-tab="all"
+            bindtap="onAlbumList"
+          >
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{todos.pendingUpload}}</text>
+            <text class="text-caption">待补节点</text>
+          </view>
+        </view>
+        <view class="merchant-wb__todo-foot" bindtap="onAlbumList">
+          <text class="text-link text-caption">查看全部服务相册</text>
         </view>
       </ui-card>
-    </view>
-    <view class="page-content merchant-wb__actions">
-      <text class="text-h3 merchant-wb__section">快捷操作</text>
-      <ui-button type="secondary" bind:btntap="onMessageList">{{messageButtonLabel}}</ui-button>
-      <ui-button type="primary" bind:btntap="onCreateAlbum">新建服务相册</ui-button>
-      <ui-button type="secondary" bind:btntap="onLeadList">咨询线索</ui-button>
-      <ui-button type="secondary" bind:btntap="onAlbumList">服务相册管理</ui-button>
-      <ui-button type="secondary" bind:btntap="onServiceList">服务方案</ui-button>
-      <ui-button type="secondary" bind:btntap="onPreviewStore">预览门店主页</ui-button>
-      <ui-button type="secondary" bind:btntap="onShareStore">分享门店</ui-button>
-      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:btntap="onEditStore">编辑门店资料</ui-button>
-      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:btntap="onStaffManage">员工管理</ui-button>
+
+      <ui-card shadow="{{true}}" padding="{{false}}" class="merchant-wb__block">
+        <view class="merchant-wb__overview-inner">
+          <view class="merchant-wb__overview-head">
+            <text class="text-h3">数据概览</text>
+            <text class="text-caption merchant-wb__overview-hint">近7天 · T+1</text>
+          </view>
+          <view class="merchant-wb__metric-row">
+            <view class="merchant-wb__metric merchant-wb__metric--tap" bindtap="onDashboard">
+              <text class="merchant-wb__metric-num text-h2 text-numeric">{{overview.caseViews}}</text>
+              <text class="text-caption">案例浏览</text>
+            </view>
+            <view class="merchant-wb__metric merchant-wb__metric--tap" bindtap="onDashboard">
+              <text class="merchant-wb__metric-num text-h2 text-numeric">{{overview.leadSubmit}}</text>
+              <text class="text-caption">咨询提交</text>
+            </view>
+            <view class="merchant-wb__metric merchant-wb__metric--tap" bindtap="onDashboard">
+              <text class="merchant-wb__metric-num text-h2 text-numeric">{{overview.transparency}}</text>
+              <text class="text-caption">透明度分</text>
+            </view>
+          </view>
+        </view>
+        <ui-cell
+          title="查看完整数据"
+          desc="站外曝光、线索转化与优化建议"
+          border="{{false}}"
+          bind:celltap="onDashboard"
+        />
+      </ui-card>
+
+      <view class="merchant-wb__block">
+        <text class="text-h3 merchant-wb__section merchant-wb__section--plain">常用功能</text>
+        <view class="merchant-wb__action-grid">
+          <view
+            wx:for="{{primaryActions}}"
+            wx:key="key"
+            class="merchant-wb__action-tile merchant-wb__action-tile--tap {{item.key === 'createAlbum' ? 'merchant-wb__action-tile--primary' : ''}}"
+            data-key="{{item.key}}"
+            bindtap="onPrimaryActionTap"
+          >
+            <text class="merchant-wb__action-label text-body">{{item.label}}</text>
+            <text class="text-caption merchant-wb__action-desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </view>
+
+      <ui-card wx:if="{{moreMenuItems.length}}" shadow="{{true}}" padding="{{false}}" class="merchant-wb__block">
+        <view class="merchant-wb__more-head merchant-wb__more-head--tap" bindtap="onToggleMoreMenu">
+          <text class="text-body">门店与设置</text>
+          <text class="text-caption merchant-wb__more-caret">{{moreMenuExpanded ? '收起 ▴' : '展开 ▾'}}</text>
+        </view>
+        <block wx:if="{{moreMenuExpanded}}">
+          <ui-cell
+            wx:for="{{moreMenuItems}}"
+            wx:for-index="cellIndex"
+            wx:key="key"
+            title="{{item.label}}"
+            border="{{cellIndex < moreMenuItems.length - 1}}"
+            data-key="{{item.key}}"
+            bind:celltap="onMoreMenuTap"
+          />
+        </block>
+      </ui-card>
     </view>
   </block>
 

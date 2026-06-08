@@ -13,6 +13,32 @@ const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 
+function formatBadge(n) {
+  const count = Number(n) || 0
+  if (count <= 0) return ''
+  return count > 99 ? '99+' : String(count)
+}
+
+function buildPrimaryActions() {
+  return [
+    { key: 'createAlbum', label: '新建相册', desc: '创建服务留档' },
+    { key: 'services', label: '服务方案', desc: '管理门店服务' },
+    { key: 'shareStore', label: '分享门店', desc: '获客与传播' },
+    { key: 'previewStore', label: '预览门店', desc: '查看主页效果' },
+  ]
+}
+
+function buildMoreMenuItems({ canManageStaff }) {
+  const items = []
+  if (canManageStaff) {
+    items.push(
+      { key: 'editStore', label: '编辑门店资料' },
+      { key: 'staff', label: '员工管理' }
+    )
+  }
+  return items
+}
+
 Page({
   data: {
     status: 'loading',
@@ -34,9 +60,12 @@ Page({
     canSwitchStore: false,
     switchingStore: false,
     unreadMessages: 0,
-    messageButtonLabel: '消息通知',
+    unreadBadgeText: '',
     needsSubscribePrompt: false,
     subscribeSheetVisible: false,
+    moreMenuExpanded: false,
+    primaryActions: buildPrimaryActions(),
+    moreMenuItems: [],
     subscribeBannerDescription:
       '有新咨询线索或审核结果时，可在微信及时提醒你。每次授权可收 1 条，站内消息不受影响。',
   },
@@ -124,20 +153,20 @@ Page({
     } catch (e) {
       /* keep zeros */
     }
+    const canManageStaff = isMerchantOwner()
     this.setData({
       status: 'normal',
       profile,
       todos,
       overview,
-      canManageStaff: isMerchantOwner(),
+      canManageStaff,
       storeOptions,
       storePickerIndex,
       canSwitchStore,
       unreadMessages,
+      unreadBadgeText: formatBadge(unreadMessages),
       needsSubscribePrompt,
-      subscribeSheetVisible: needsSubscribePrompt,
-      messageButtonLabel:
-        unreadMessages > 0 ? `消息通知 (${unreadMessages})` : '消息通知',
+      moreMenuItems: buildMoreMenuItems({ canManageStaff }),
     })
   },
 
@@ -195,6 +224,34 @@ Page({
     })
   },
 
+  onPrimaryActionTap(e) {
+    const key = e.currentTarget.dataset.key
+    const handlers = {
+      createAlbum: () => this.onCreateAlbum(),
+      services: () => this.onServiceList(),
+      shareStore: () => this.onShareStore(),
+      previewStore: () => this.onPreviewStore(),
+    }
+    const fn = handlers[key]
+    if (fn) fn()
+  },
+
+  onMoreMenuTap(e) {
+    const key = e.currentTarget.dataset.key
+    const handlers = {
+      previewStore: () => this.onPreviewStore(),
+      shareStore: () => this.onShareStore(),
+      editStore: () => this.onEditStore(),
+      staff: () => this.onStaffManage(),
+    }
+    const fn = handlers[key]
+    if (fn) fn()
+  },
+
+  onToggleMoreMenu() {
+    this.setData({ moreMenuExpanded: !this.data.moreMenuExpanded })
+  },
+
   onCreateAlbum() {
     this._navigateTo('/packageMerchant/pages/album/create/index')
   },
@@ -229,6 +286,14 @@ Page({
     this._navigateTo('/packageMerchant/pages/message/index')
   },
 
+  onWechatNotifyTap() {
+    if (this.data.needsSubscribePrompt) {
+      this.setData({ subscribeSheetVisible: true })
+      return
+    }
+    this.onWorkbenchSubscribe()
+  },
+
   onSubscribeSheetClose() {
     this.setData({ subscribeSheetVisible: false })
   },
@@ -242,10 +307,7 @@ Page({
     try {
       const subscribeStatus = await fetchMerchantSubscribeStatus('merchant')
       const needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
-      this.setData({
-        needsSubscribePrompt,
-        subscribeSheetVisible: needsSubscribePrompt ? this.data.subscribeSheetVisible : false,
-      })
+      this.setData({ needsSubscribePrompt })
     } catch (e) {
       // ignore
     }

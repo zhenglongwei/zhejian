@@ -6,6 +6,7 @@ const {
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const { isMerchantOwner } = require('../../../utils/auth')
+const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
 const {
   buildPublicStoreSharePayload,
@@ -290,7 +291,7 @@ Page({
       this.previewBlockedToast()
       return
     }
-    wx.switchTab({ url: '/pages/case/index' })
+    openLegacyListPage('case')
   },
 
   onViewAllServices() {
@@ -298,7 +299,7 @@ Page({
       this.previewBlockedToast()
       return
     }
-    wx.switchTab({ url: '/pages/service/index' })
+    openLegacyListPage('service')
   },
 
   onServiceTap(e) {

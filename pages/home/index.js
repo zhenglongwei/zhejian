@@ -1,263 +1,176 @@
-const { fetchHomeData } = require('../../services/home')
-const {
-  HOME_PLATFORM_INTRO_ITEMS,
-  HOME_PROTECTION_ITEMS,
-  HOME_PROTECTION_SUMMARY,
-} = require('../../constants/home-entries')
-const { fetchStoreTopReviewTags } = require('../../services/review')
-const { buildStoreCardTags } = require('../../utils/store-tags')
-const { SEARCH_PLACEHOLDER } = require('../../constants/search')
-const { GEO_TOPIC_TAG } = require('../../constants/geo-pages')
-const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
-const {
-  resolveCityContext,
-  enrichStoresWithDistance,
-  DEFAULT_CITY,
-} = require('../../utils/city-location')
+const { fetchUserServiceAlbums } = require('../../services/service-album')
+const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
+const { H5_CONTENT_SITE_URL, H5_CONTENT_SITE_HINT } = require('../../constants/h5-links')
+const { navigateToScanTarget, navigateFromAlbumCode } = require('../../utils/tool-scan')
+const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
+const { isLoggedIn, checkAuth } = require('../../utils/auth')
 
-const INTRO_ACCENTS = ['primary', 'info', 'success']
-
-function resolveIntroItems(points) {
-  if (!points || !points.length) return HOME_PLATFORM_INTRO_ITEMS
-  return points.map((line, index) => {
-    const sep = line.indexOf('：')
-    const fallback = HOME_PLATFORM_INTRO_ITEMS[index]
-    const accent =
-      (fallback && fallback.accent) || INTRO_ACCENTS[index % INTRO_ACCENTS.length]
-    if (sep < 0) {
-      return {
-        id: `intro_${index}`,
-        title: line,
-        desc: '',
-        accent,
-      }
-    }
-    return {
-      id: `intro_${index}`,
-      title: line.slice(0, sep),
-      desc: line.slice(sep + 1),
-      accent,
-    }
-  })
-}
-
-function buildHeroTrustCase(cases) {
-  if (!cases || !cases.length) return null
-  for (let i = 0; i < cases.length; i += 1) {
-    const item = cases[i]
-    const coverImage = pickCaseDisplayCover(item)
-    if (!coverImage) continue
-    return {
-      id: item.id,
-      title: item.title,
-      coverImage,
-    }
-  }
-  return null
-}
+const HOME_ALBUM_PREVIEW_LIMIT = 5
 
 Page({
   data: {
-    status: 'loading',
-    city: '杭州',
-    serviceEntries: [],
-    accidentEntry: null,
-    recommendedMerchants: [],
-    featuredCases: [],
-    platformIntroItems: [],
-    platformIdentity: '',
-    protectionItems: HOME_PROTECTION_ITEMS,
-    protectionSummary: HOME_PROTECTION_SUMMARY,
-    showMerchants: false,
-    showCases: false,
-    showGeoTopics: false,
-    geoTopics: [],
-    geoTopicTag: GEO_TOPIC_TAG,
-    heroTrustCase: null,
-    cityNotice: '',
+    status: 'normal',
     errorMessage: '',
-    searchPlaceholder: SEARCH_PLACEHOLDER,
+    platformIdentity: HOME_PLATFORM_IDENTITY,
+    h5SiteLabel: '想了解公开维修案例？前往辙见内容站',
+    isLoggedIn: false,
+    albumPreview: [],
+    showAlbumPreview: false,
+    showAlbumEmpty: false,
+    enterCodeVisible: false,
+    enterCodeValue: '',
+    loginSheetVisible: false,
+    loginSheetMode: 'auto',
+    scanning: false,
   },
 
-  onLoad() {
-    this.bootstrapCity().finally(() => this.loadHome())
-  },
-
-  async bootstrapCity() {
-    try {
-      const app = getApp()
-      let ctx = app.globalData.cityContext
-      if (!ctx) {
-        ctx = await resolveCityContext()
-        app.globalData.cityContext = ctx
-      }
-      if (ctx.outsideNotice) {
-        wx.showModal({
-          title: '服务城市',
-          content: ctx.outsideNotice,
-          showCancel: false,
-          confirmText: '知道了',
-        })
-      }
-      this._cityContext = ctx
-    } catch (e) {
-      this._cityContext = {
-        city: DEFAULT_CITY,
-        locationGranted: false,
-        coords: null,
-      }
-    }
+  onShow() {
+    this.refreshPage()
   },
 
   onPullDownRefresh() {
-    this.loadHome().finally(() => wx.stopPullDownRefresh())
+    this.refreshPage().finally(() => wx.stopPullDownRefresh())
   },
 
-  async loadHome() {
+  async refreshPage() {
+    const loggedIn = isLoggedIn()
+    this.setData({ isLoggedIn: loggedIn })
+
+    if (!loggedIn) {
+      this.setData({
+        status: 'normal',
+        albumPreview: [],
+        showAlbumPreview: false,
+        showAlbumEmpty: false,
+        errorMessage: '',
+      })
+      return
+    }
+
+    const auth = checkAuth({ needPhone: false })
+    if (!auth.ok) {
+      this.setData({
+        status: 'normal',
+        albumPreview: [],
+        showAlbumPreview: false,
+        showAlbumEmpty: false,
+        errorMessage: '',
+      })
+      return
+    }
+
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const data = await fetchHomeData()
-      const featuredCases = (data.featuredCases || []).map((item) => ({
-        ...item,
-        coverImage: pickCaseDisplayCover(item),
-      }))
-      const heroTrustCase = buildHeroTrustCase(featuredCases)
-      const coords = this._cityContext && this._cityContext.coords
-      let merchantSource = enrichStoresWithDistance(data.recommendedMerchants || [], coords)
-      if (coords) {
-        merchantSource = merchantSource.slice().sort((a, b) => {
-          const da = a.distanceMeters != null ? a.distanceMeters : Number.MAX_SAFE_INTEGER
-          const db = b.distanceMeters != null ? b.distanceMeters : Number.MAX_SAFE_INTEGER
-          return da - db
-        })
-      }
-      const merchants = await Promise.all(
-        merchantSource.map(async (store) => {
-          const reviewTags = await fetchStoreTopReviewTags(store.id, 2)
-          return {
-            ...store,
-            cardTags: buildStoreCardTags(store, reviewTags),
-          }
-        })
-      )
-      const cityCtx = this._cityContext || { city: DEFAULT_CITY }
+      const raw = await fetchUserServiceAlbums({ tab: 'private' })
+      const albumPreview = (raw || [])
+        .slice(0, HOME_ALBUM_PREVIEW_LIMIT)
+        .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
       this.setData({
-        city: cityCtx.city.name || data.city.name,
-        cityNotice: cityCtx.outsideServiceNotice || '',
-        serviceEntries: data.serviceEntries,
-        accidentEntry: data.accidentEntry,
-        recommendedMerchants: merchants,
-        featuredCases,
-        platformIntroItems: resolveIntroItems(
-          (data.platformIntro && data.platformIntro.points) || []
-        ),
-        platformIdentity: data.platformIdentity || '',
-        protectionItems: HOME_PROTECTION_ITEMS,
-        protectionSummary: HOME_PROTECTION_SUMMARY,
-        showMerchants: merchants.length > 0,
-        showCases: featuredCases.length > 0,
-        geoTopics: data.geoTopics || [],
-        showGeoTopics: (data.geoTopics || []).length > 0,
-        heroTrustCase,
         status: 'normal',
+        albumPreview,
+        showAlbumPreview: albumPreview.length > 0,
+        showAlbumEmpty: albumPreview.length === 0,
       })
     } catch (e) {
       this.setData({
         status: 'error',
-        errorMessage: (e && e.message) || '页面加载失败，请稍后重试',
+        errorMessage: (e && e.message) || '加载失败，请稍后重试',
+        albumPreview: [],
+        showAlbumPreview: false,
+        showAlbumEmpty: false,
       })
     }
   },
 
   onRetry() {
-    this.loadHome()
+    this.refreshPage()
   },
 
-  onCityTap() {
-    wx.showModal({
-      title: '服务城市',
-      content: '当前首发服务城市为杭州，更多城市陆续开放。',
-      showCancel: false,
+  onScanTap() {
+    if (this.data.scanning) return
+    this.setData({ scanning: true })
+    wx.scanCode({
+      onlyFromCamera: false,
+      scanType: ['qrCode', 'barCode'],
+      success: (res) => {
+        navigateToScanTarget(res.result)
+      },
+      fail: (err) => {
+        if (err && err.errMsg && err.errMsg.indexOf('cancel') >= 0) return
+        wx.showToast({ title: '扫码失败', icon: 'none' })
+      },
+      complete: () => {
+        this.setData({ scanning: false })
+      },
     })
   },
 
-  onLearnPlatform() {
-    const lines = (this.data.platformIntroItems || []).map(
-      (item) => `${item.title}：${item.desc}`
-    )
+  onEnterCodeTap() {
+    this.setData({ enterCodeVisible: true, enterCodeValue: '' })
+  },
+
+  onEnterCodeClose() {
+    this.setData({ enterCodeVisible: false, enterCodeValue: '' })
+  },
+
+  onEnterCodeInput(e) {
+    this.setData({ enterCodeValue: (e.detail && e.detail.value) || '' })
+  },
+
+  onEnterCodeConfirm() {
+    const code = (this.data.enterCodeValue || '').trim()
+    if (!navigateFromAlbumCode(code)) return
+    this.onEnterCodeClose()
+  },
+
+  onMyAlbumsTap() {
+    if (!isLoggedIn()) {
+      this.setData({ loginSheetVisible: true, loginSheetMode: 'login' })
+      return
+    }
+    wx.navigateTo({ url: '/pages/album/list/index' })
+  },
+
+  onAlbumPreviewTap(e) {
+    const albumId = e.currentTarget.dataset.albumId
+    if (!albumId) return
+    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
+  },
+
+  onViewAllAlbums() {
+    this.onMyAlbumsTap()
+  },
+
+  onH5SiteTap() {
+    wx.setClipboardData({
+      data: H5_CONTENT_SITE_URL,
+      success: () => {
+        wx.showToast({ title: H5_CONTENT_SITE_HINT, icon: 'none', duration: 2500 })
+      },
+    })
+  },
+
+  onMerchantTap() {
+    wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
+  },
+
+  onHelpTap() {
     wx.showModal({
-      title: '了解辙见',
-      content: lines.length
-        ? lines.map((item) => `· ${item}`).join('\n\n')
-        : '辙见提供案例展示、服务相册与咨询预约工具，实际维修由门店线下负责。',
+      title: '使用说明',
+      content:
+        '车主：扫描门店二维码或输入相册码，查看维修服务记录；登录后在「我的服务相册」管理记录。想了解公开案例请前往内容站。\n\n商家：点击「我是商家」进入工作台，创建服务相册并邀请车主查看。',
       showCancel: false,
       confirmText: '知道了',
     })
   },
 
-  onSearchTap() {
-    wx.navigateTo({ url: '/pages/search/index/index' })
+  closeLoginSheet() {
+    this.setData({ loginSheetVisible: false })
   },
 
-  onServiceEntryTap(e) {
-    const { targetType, targetId } = e.currentTarget.dataset
-    if (targetType === 'service' && targetId) {
-      wx.navigateTo({
-        url: `/pages/service/detail/index?id=${targetId}`,
-      })
-      return
-    }
-    if (targetType === 'category' && targetId) {
-      const app = getApp()
-      app.globalData.pendingServiceCategory = targetId
-      wx.switchTab({ url: '/pages/service/index' })
-    }
-  },
-
-  onAccidentCases() {
-    wx.switchTab({ url: '/pages/case/index' })
-  },
-
-  onAccidentBook() {
-    const { accidentEntry } = this.data
-    const id = accidentEntry && accidentEntry.serviceId
-    if (!id) return
-    wx.navigateTo({
-      url: `/pages/service/detail/index?id=${id}`,
-    })
-  },
-
-  onViewAllMerchants() {
-    wx.switchTab({ url: '/pages/store/index' })
-  },
-
-  onStoreTap(e) {
-    const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId || this._storeNavigating) return
-    this._storeNavigating = true
-    wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}`,
-      complete: () => {
-        this._storeNavigating = false
-      },
-    })
-  },
-
-  onCaseTap(e) {
-    const caseId =
-      (e.detail && e.detail.caseId) ||
-      e.currentTarget.dataset.caseId
-    if (!caseId) return
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
-  },
-
-  onViewAllCases() {
-    wx.switchTab({ url: '/pages/case/index' })
-  },
-
-  onGeoTopicTap(e) {
-    const id = (e.detail && e.detail.topicId) || e.currentTarget.dataset.id
-    if (!id) return
-    wx.navigateTo({ url: `/pages/geo/detail/index?id=${id}` })
+  onLoginSheetSuccess() {
+    this.closeLoginSheet()
+    this.refreshPage()
+    wx.navigateTo({ url: '/pages/album/list/index' })
   },
 })

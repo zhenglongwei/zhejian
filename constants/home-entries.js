@@ -4,7 +4,7 @@
  * 资源：assets/home/entries/*.png（源稿 entries-src/*.svg）
  */
 const HOME_PLATFORM_IDENTITY =
-  '辙见提供案例展示、服务相册与咨询预约工具。实际维修、报价、收款与售后由门店线下提供和承担。'
+  '辙见提供服务相册查看与咨询预约工具。实际维修、报价、收款与售后由门店线下提供和承担。'
 
 const HOME_ENTRY_ICON_BASE = '/assets/home/entries'
 

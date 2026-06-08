@@ -3,6 +3,7 @@ const { findStore } = require('../../../services/store')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
+const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 
 function buildBottomLeftActions(showCasesLink) {
   const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
@@ -108,7 +109,7 @@ Page({
   },
 
   onViewAllCases() {
-    wx.switchTab({ url: '/pages/case/index' })
+    openLegacyListPage('case')
   },
 
   onStoreTap(e) {

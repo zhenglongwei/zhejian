@@ -2,6 +2,7 @@ const { fetchUserLeads } = require('../../../services/lead')
 const { LEAD_LIST_TABS } = require('../../../constants/lead-list-tabs')
 const { enrichLeadListItem } = require('../../../utils/lead-display')
 const { isLoggedIn } = require('../../../utils/auth')
+const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 
 Page({
   data: {
@@ -76,7 +77,7 @@ Page({
   },
 
   onGoService() {
-    wx.switchTab({ url: '/pages/service/index' })
+    openLegacyListPage('service')
   },
 
   onCardTap(e) {

@@ -89,24 +89,6 @@
         "selectedIconPath": "assets/tab/home-active.png"
       },
       {
-        "pagePath": "pages/service/index",
-        "text": "服务",
-        "iconPath": "assets/tab/service.png",
-        "selectedIconPath": "assets/tab/service-active.png"
-      },
-      {
-        "pagePath": "pages/case/index",
-        "text": "案例",
-        "iconPath": "assets/tab/case.png",
-        "selectedIconPath": "assets/tab/case-active.png"
-      },
-      {
-        "pagePath": "pages/store/index",
-        "text": "门店",
-        "iconPath": "assets/tab/store.png",
-        "selectedIconPath": "assets/tab/store-active.png"
-      },
-      {
         "pagePath": "pages/mine/index",
         "text": "我的",
         "iconPath": "assets/tab/mine.png",
@@ -117,12 +99,6 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
-  "permission": {
-    "scope.userLocation": {
-      "desc": "你的位置信息将用于展示附近门店距离"
-    }
-  },
-  "requiredPrivateInfos": ["getLocation"],
   "preloadRule": {
     "pages/mine/index": {
       "network": "all",
