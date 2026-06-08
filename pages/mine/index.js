@@ -40,6 +40,7 @@ Page({
     return {
       consultPending: format(source.consultPending),
       albumPendingAuth: format(source.albumPendingAuth),
+      unreadNotification: format(source.unreadNotificationCount),
     }
   },
 

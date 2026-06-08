@@ -31,6 +31,7 @@
     "pages/mine/favorite/index",
     "pages/mine/vehicle/index",
     "pages/mine/vehicle/edit/index",
+    "pages/mine/message/index",
     "pages/order/index",
     "pages/order-confirm/index",
     "pages/order-result/index",
@@ -64,7 +65,8 @@
         "pages/lead/detail/index",
         "pages/staff/list/index",
         "pages/dashboard/index",
-        "pages/store/edit/index"
+        "pages/store/edit/index",
+        "pages/message/index"
       ]
     }
   ],

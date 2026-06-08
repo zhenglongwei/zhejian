@@ -187,7 +187,7 @@ async function fetchMineSummary(userId) {
 
   const phone = user.phone || ''
   const merchantCtx = await resolveMerchantContext(userId)
-  const [consultPending, albumPendingAuth] = await Promise.all([
+  const [consultPending, albumPendingAuth, unreadNotificationCount] = await Promise.all([
     prisma.consultLead.count({
       where: {
         userId,
@@ -202,6 +202,14 @@ async function fetchMineSummary(userId) {
         imageCount: { gt: 0 },
       },
     }),
+    (async () => {
+      try {
+        const { getUnreadCount, RECEIVER } = require('./notification.service')
+        return getUnreadCount(RECEIVER.USER, userId)
+      } catch (e) {
+        return 0
+      }
+    })(),
   ])
 
   return {
@@ -210,6 +218,7 @@ async function fetchMineSummary(userId) {
     merchant: formatMerchantPayload(merchantCtx),
     consultPending,
     albumPendingAuth,
+    unreadNotificationCount,
     authorizeCount: 0,
   }
 }

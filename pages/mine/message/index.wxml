@@ -1,0 +1,41 @@
+<view class="page message-list">
+  <ui-list-page-shell
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    emptyTitle="暂无消息"
+    emptyDescription="咨询进度、服务相册与授权审核结果会在这里通知你"
+    unauthTitle="登录后查看消息"
+    unauthDescription="登录后可接收咨询、相册与案例审核相关通知"
+    bind:retry="onRetry"
+    bind:unauthaction="onLoginTap"
+  >
+    <view wx:if="{{unreadCount > 0 && status === 'normal'}}" class="message-list__toolbar">
+      <text class="text-caption">未读 {{unreadCount}} 条</text>
+      <text class="text-link text-caption" bindtap="onMarkAllRead">全部已读</text>
+    </view>
+    <view
+      wx:for="{{list}}"
+      wx:key="id"
+      class="message-list__item {{item.read ? 'message-list__item--read' : ''}}"
+      data-id="{{item.id}}"
+      data-path="{{item.jumpPath}}"
+      bindtap="onItemTap"
+    >
+      <view class="message-list__head">
+        <text class="text-body message-list__title">{{item.title}}</text>
+        <text wx:if="{{!item.read}}" class="message-list__dot" />
+      </view>
+      <text class="text-caption message-list__content">{{item.content}}</text>
+      <text class="text-caption message-list__time">{{item.createdAt}}</text>
+    </view>
+  </ui-list-page-shell>
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bindContext="consult"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+    bind:success="onLoginSheetSuccess"
+  />
+</view>

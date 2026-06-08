@@ -125,6 +125,7 @@
       <text class="text-h3 merchant-wb__section">快捷操作</text>
       <ui-button type="primary" bind:tap="onCreateAlbum">新建服务相册</ui-button>
       <ui-button type="secondary" bind:tap="onLeadList">咨询线索</ui-button>
+      <ui-button type="secondary" bind:tap="onMessageList">{{messageButtonLabel}}</ui-button>
       <ui-button type="secondary" bind:tap="onAlbumList">服务相册管理</ui-button>
       <ui-button type="secondary" bind:tap="onServiceList">服务方案</ui-button>
       <ui-button type="secondary" bind:tap="onPreviewStore">预览门店主页</ui-button>

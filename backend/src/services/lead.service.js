@@ -140,7 +140,12 @@ async function createLead(userId, payload = {}) {
     },
     include: { statusLogs: { orderBy: { createdAt: 'asc' } } },
   })
-  return mapLeadRecord(lead)
+  const mapped = mapLeadRecord(lead)
+  const { notifyNewLead } = require('./notification.service')
+  notifyNewLead(mapped).catch((e) => {
+    console.warn('[notification] new lead', e && e.message)
+  })
+  return mapped
 }
 
 async function listUserLeads(userId, tab) {
@@ -263,7 +268,12 @@ async function markLeadContacted(leadId, storeId, merchantId, note = '') {
     where: { id: leadId },
     include: { statusLogs: { orderBy: { createdAt: 'asc' } } },
   })
-  return mapLeadRecord(fresh)
+  const mapped = mapLeadRecord(fresh)
+  const { notifyLeadContacted } = require('./notification.service')
+  notifyLeadContacted(mapped).catch((e) => {
+    console.warn('[notification] lead contacted', e && e.message)
+  })
+  return mapped
 }
 
 async function closeMerchantLead(leadId, storeId, merchantId, payload = {}) {
@@ -289,7 +299,12 @@ async function closeMerchantLead(leadId, storeId, merchantId, payload = {}) {
     where: { id: leadId },
     include: { statusLogs: { orderBy: { createdAt: 'asc' } } },
   })
-  return mapLeadRecord(fresh)
+  const mapped = mapLeadRecord(fresh)
+  const { notifyLeadClosed } = require('./notification.service')
+  notifyLeadClosed(mapped).catch((e) => {
+    console.warn('[notification] lead closed', e && e.message)
+  })
+  return mapped
 }
 
 async function fetchMerchantLeadStats(storeId) {

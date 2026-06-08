@@ -443,6 +443,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
       nodes: { orderBy: { sortOrder: 'asc' } },
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
       authorization: true,
+      publicCase: true,
     },
   })
   const task = await resolvePublishTask(row.albumId, {})
@@ -490,6 +491,11 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     afterStatus: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
   })
 
+  const { notifyCaseAuditResult } = require('./notification.service')
+  notifyCaseAuditResult({ album, approved: true, comment }).catch((e) => {
+    console.warn('[notification] case approve', e && e.message)
+  })
+
   return getAdminCaseDetail(caseId)
 }
 
@@ -522,6 +528,19 @@ async function rejectAdminCase(caseId, { reviewerId, comment = '', reasonType = 
     reviewComment: [reasonType, comment].filter(Boolean).join('：'),
     beforeStatus: row.status,
     afterStatus: PUBLIC_CASE_STATUS.REJECTED,
+  })
+
+  const album = await prisma.album.findUnique({
+    where: { id: row.albumId },
+    include: { publicCase: true },
+  })
+  const { notifyCaseAuditResult } = require('./notification.service')
+  notifyCaseAuditResult({
+    album,
+    approved: false,
+    comment: [reasonType, comment].filter(Boolean).join('：'),
+  }).catch((e) => {
+    console.warn('[notification] case reject', e && e.message)
   })
 
   return getAdminCaseDetail(caseId)

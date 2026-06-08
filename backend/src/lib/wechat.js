@@ -171,9 +171,50 @@ async function getWxaCodeUnlimited(options = {}) {
   return Buffer.from(await res.arrayBuffer())
 }
 
+/**
+ * 发送订阅消息（用户须已在小程序端 requestSubscribeMessage 授权）
+ * @param {{ openid: string, templateId: string, page?: string, data: object, miniprogramState?: string }} options
+ */
+async function sendSubscribeMessage(options = {}) {
+  assertWechatConfigured()
+  const { openid, templateId, page = '', data = {}, miniprogramState = 'formal' } = options
+  if (!openid || !templateId) {
+    const err = new Error('缺少 openid 或 templateId')
+    err.status = 400
+    throw err
+  }
+
+  const accessToken = await getAccessToken()
+  const body = {
+    touser: openid,
+    template_id: templateId,
+    page,
+    miniprogram_state: miniprogramState,
+    lang: 'zh_CN',
+    data,
+  }
+  const result = await fetchJson(
+    `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
+
+  if (result.errcode) {
+    const err = new Error(result.errmsg || '订阅消息发送失败')
+    err.status = 502
+    err.code = result.errcode
+    throw err
+  }
+  return result
+}
+
 module.exports = {
   code2Session,
   getAccessToken,
   getPhoneNumber,
   getWxaCodeUnlimited,
+  sendSubscribeMessage,
 }

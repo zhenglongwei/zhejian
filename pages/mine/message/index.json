@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "消息通知",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-list-page-shell": "/components/list-page-shell/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

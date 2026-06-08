@@ -9,6 +9,7 @@ const {
   isRepairCompleted,
 } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
+const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
 const {
   buildShareableCaseFromAlbum,
   buildPublicCaseSharePayload,
@@ -444,6 +445,9 @@ Page({
         title: agreed ? '已授权公示' : '已记录你的选择',
         icon: 'success',
       })
+      if (agreed) {
+        requestUserNotificationSubscribe('authorize')
+      }
       this.loadAlbum()
     } catch (e) {
       wx.hideLoading()

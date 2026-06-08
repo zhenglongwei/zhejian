@@ -39,6 +39,14 @@ const MINE_CORE_MENUS = [
     needPhone: true,
     url: '/pages/album/authorize/index',
   },
+  {
+    key: 'message',
+    label: '消息通知',
+    desc: '咨询、相册与审核结果',
+    needPhone: false,
+    url: '/pages/mine/message/index',
+    badgeKey: 'unreadNotification',
+  },
   MINE_FAVORITE_ITEM,
   MINE_VEHICLE_ITEM,
 ]

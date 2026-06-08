@@ -8,6 +8,8 @@ const {
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
+const { fetchMerchantUnreadNotificationCount } = require('../../../services/notification')
+const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
 
@@ -31,6 +33,8 @@ Page({
     storePickerIndex: 0,
     canSwitchStore: false,
     switchingStore: false,
+    unreadMessages: 0,
+    messageButtonLabel: '消息通知',
   },
 
   onShow() {
@@ -73,6 +77,7 @@ Page({
     let storeOptions = []
     let storePickerIndex = 0
     let canSwitchStore = false
+    let unreadMessages = 0
     try {
       if (isMerchantOwner()) {
         const storeData = await fetchMerchantStores()
@@ -87,10 +92,11 @@ Page({
       storeOptions = []
     }
     try {
-      const [stats, leadStats, dashStats] = await Promise.all([
+      const [stats, leadStats, dashStats, unreadCount] = await Promise.all([
         fetchMerchantAlbumStats(),
         fetchMerchantLeadStats(profile.storeId),
         fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
+        fetchMerchantUnreadNotificationCount().catch(() => 0),
       ])
       todos = {
         pendingLeads: leadStats.pending || 0,
@@ -107,8 +113,13 @@ Page({
           ),
         }
       }
+      unreadMessages = unreadCount || 0
     } catch (e) {
       /* keep zeros */
+    }
+    if (!this._merchantSubscribeRequested) {
+      this._merchantSubscribeRequested = true
+      requestMerchantNotificationSubscribe('merchant')
     }
     this.setData({
       status: 'normal',
@@ -119,6 +130,9 @@ Page({
       storeOptions,
       storePickerIndex,
       canSwitchStore,
+      unreadMessages,
+      messageButtonLabel:
+        unreadMessages > 0 ? `消息通知 (${unreadMessages})` : '消息通知',
     })
   },
 
@@ -204,6 +218,10 @@ Page({
 
   onDashboard() {
     this._navigateTo('/packageMerchant/pages/dashboard/index')
+  },
+
+  onMessageList() {
+    this._navigateTo('/packageMerchant/pages/message/index')
   },
 
   onPreviewStore() {

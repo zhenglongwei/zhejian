@@ -38,12 +38,7 @@ Page({
       return
     }
     if (key === 'notify') {
-      wx.showModal({
-        title: '消息通知',
-        content:
-          'P0 简版：你可接收咨询/预约、服务相册更新、授权审核结果等通知。订单、支付、评价类通知不在辙见提供。',
-        showCancel: false,
-      })
+      wx.navigateTo({ url: '/pages/mine/message/index' })
       return
     }
     if (key === 'cache') {

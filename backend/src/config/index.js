@@ -36,6 +36,34 @@ const config = {
     get configured() {
       return Boolean(this.appId && this.appSecret)
     },
+    subscribeTemplates: {
+      consult: process.env.WECHAT_TMPL_CONSULT || '',
+      album: process.env.WECHAT_TMPL_ALBUM || '',
+      audit: process.env.WECHAT_TMPL_AUDIT || '',
+      lead: process.env.WECHAT_TMPL_LEAD || '',
+    },
+    subscribeFields: {
+      consult: {
+        title: process.env.WECHAT_TMPL_CONSULT_FIELD_TITLE || 'thing1',
+        content: process.env.WECHAT_TMPL_CONSULT_FIELD_CONTENT || 'thing2',
+        time: process.env.WECHAT_TMPL_CONSULT_FIELD_TIME || 'time3',
+      },
+      album: {
+        title: process.env.WECHAT_TMPL_ALBUM_FIELD_TITLE || 'thing1',
+        content: process.env.WECHAT_TMPL_ALBUM_FIELD_CONTENT || 'thing2',
+        time: process.env.WECHAT_TMPL_ALBUM_FIELD_TIME || 'time3',
+      },
+      audit: {
+        title: process.env.WECHAT_TMPL_AUDIT_FIELD_TITLE || 'thing1',
+        content: process.env.WECHAT_TMPL_AUDIT_FIELD_CONTENT || 'thing2',
+        time: process.env.WECHAT_TMPL_AUDIT_FIELD_TIME || 'time3',
+      },
+      lead: {
+        title: process.env.WECHAT_TMPL_LEAD_FIELD_TITLE || 'thing1',
+        content: process.env.WECHAT_TMPL_LEAD_FIELD_CONTENT || 'thing2',
+        time: process.env.WECHAT_TMPL_LEAD_FIELD_TIME || 'time3',
+      },
+    },
   },
   /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */
   merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',

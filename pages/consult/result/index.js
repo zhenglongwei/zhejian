@@ -1,6 +1,7 @@
 const { getLeadById } = require('../../../services/lead')
 const { buildLeadDetailRows } = require('../../../utils/lead-display')
 const { formatAppointmentLabel } = require('../../../utils/lead-form')
+const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
 
 Page({
   data: {
@@ -41,6 +42,7 @@ Page({
         title: '咨询已提交',
         description: '门店将尽快与你联系。实际维修方案和费用需你与门店线下确认。',
       })
+      requestUserNotificationSubscribe('consult')
     } catch (e) {
       this.setData({
         status: 'normal',

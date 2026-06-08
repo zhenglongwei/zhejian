@@ -224,6 +224,11 @@ async function approveAdminMerchant(merchantId, { reviewerId, comment = '' } = {
     afterStatus: MERCHANT_STATUS.ACTIVE,
   })
 
+  const { notifyMerchantAuditResult } = require('./notification.service')
+  notifyMerchantAuditResult({ merchant, approved: true, comment }).catch((e) => {
+    console.warn('[notification] merchant approve', e && e.message)
+  })
+
   return getAdminMerchantDetail(merchantId)
 }
 
@@ -259,6 +264,11 @@ async function rejectAdminMerchant(merchantId, { reviewerId, comment = '', reaso
     reviewComment,
     beforeStatus: merchant.status,
     afterStatus: MERCHANT_STATUS.AUDIT_REJECTED,
+  })
+
+  const { notifyMerchantAuditResult } = require('./notification.service')
+  notifyMerchantAuditResult({ merchant, approved: false, comment: reviewComment }).catch((e) => {
+    console.warn('[notification] merchant reject', e && e.message)
   })
 
   return getAdminMerchantDetail(merchantId)
@@ -299,6 +309,16 @@ async function requestModifyAdminMerchant(
     reviewComment,
     beforeStatus: merchant.status,
     afterStatus: MERCHANT_STATUS.NEED_MODIFY,
+  })
+
+  const { notifyMerchantAuditResult } = require('./notification.service')
+  notifyMerchantAuditResult({
+    merchant,
+    approved: false,
+    needModify: true,
+    comment: reviewComment,
+  }).catch((e) => {
+    console.warn('[notification] merchant need modify', e && e.message)
   })
 
   return getAdminMerchantDetail(merchantId)

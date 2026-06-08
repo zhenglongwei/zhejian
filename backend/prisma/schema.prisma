@@ -596,3 +596,55 @@ model EventTrackingLog {
   @@index([createdAt])
   @@map("event_tracking_log")
 }
+
+model NotificationMessage {
+  id           String    @id
+  receiverType String    @map("receiver_type")
+  receiverId   String    @map("receiver_id")
+  messageType  String    @map("message_type")
+  title        String    @default("")
+  content      String    @default("") @db.Text
+  refType      String    @default("") @map("ref_type")
+  refId        String    @default("") @map("ref_id")
+  jumpPath     String    @default("") @map("jump_path") @db.VarChar(256)
+  channel      String    @default("in_app")
+  status       String    @default("sent")
+  readAt       DateTime? @map("read_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  sendLogs     NotificationSendLog[]
+
+  @@index([receiverType, receiverId, readAt])
+  @@index([receiverType, receiverId, createdAt])
+  @@index([refType, refId, messageType])
+  @@map("notification_messages")
+}
+
+model NotificationSendLog {
+  id         String              @id
+  messageId  String              @map("message_id")
+  channel    String              @default("wechat")
+  templateId String              @default("") @map("template_id")
+  sendStatus String              @default("pending") @map("send_status")
+  failReason String              @default("") @map("fail_reason") @db.VarChar(512)
+  retryCount Int                 @default(0) @map("retry_count")
+  sentAt     DateTime?           @map("sent_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+  message    NotificationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("notification_send_logs")
+}
+
+model NotificationSubscription {
+  id           String   @id
+  userId       String   @map("user_id")
+  templateKey  String   @map("template_key")
+  templateId   String   @default("") @map("template_id")
+  status       String   @default("accept")
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, templateKey])
+  @@index([userId])
+  @@map("notification_subscriptions")
+}

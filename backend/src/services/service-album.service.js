@@ -25,6 +25,7 @@ const {
   assertPersistentImageUrl,
   rewriteMediaUrlForCurrentBase,
 } = require('../lib/media-storage')
+const { watermarkAlbumImageUrl } = require('../lib/album-watermark')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { config } = require('../config')
 const { getWxaCodeUnlimited } = require('../lib/wechat')
@@ -252,7 +253,7 @@ function assertMerchantAlbum(album, storeId, merchantId) {
   }
 }
 
-async function syncAlbumNodes(albumId, nodesPayload = []) {
+async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
   const nodes = nodesPayload.length ? nodesPayload : DEFAULT_STAGE_NODES.map((n) => ({
     id: n.nodeId,
     title: n.title,
@@ -260,6 +261,8 @@ async function syncAlbumNodes(albumId, nodesPayload = []) {
     note: '',
     images: [],
   }))
+  const albumContext = options.album || null
+  const previousUrls = options.previousImageUrls || new Set()
 
   await prisma.albumNode.deleteMany({ where: { albumId } })
   await prisma.albumImage.deleteMany({ where: { albumId } })
@@ -270,23 +273,32 @@ async function syncAlbumNodes(albumId, nodesPayload = []) {
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i]
     const nodeId = node.id || node.nodeId || `stage_${i + 1}`
+    const nodeTitle = node.title || ''
     await prisma.albumNode.create({
       data: {
         albumId,
         nodeId,
-        title: node.title || '',
+        title: nodeTitle,
         sortOrder: i,
         status: node.status || 'pending',
         note: node.note || '',
         updatedAt: node.updatedAt ? new Date(node.updatedAt) : null,
       },
     })
-    ;(node.images || []).forEach((url, idx) => {
-      if (!url) return
-      const rawUrl = assertPersistentImageUrl(
+    for (let idx = 0; idx < (node.images || []).length; idx += 1) {
+      const url = node.images[idx]
+      if (!url) continue
+      let rawUrl = assertPersistentImageUrl(
         typeof url === 'string' ? url : url.rawUrl || url.url || ''
       )
-      if (!rawUrl) return
+      if (!rawUrl) continue
+      if (albumContext) {
+        rawUrl = await watermarkAlbumImageUrl(rawUrl, {
+          album: albumContext,
+          nodeTitle,
+          previousUrls,
+        })
+      }
       imageRows.push({
         id: `img_${albumId}_${nodeId}_${idx}`,
         albumId,
@@ -295,7 +307,7 @@ async function syncAlbumNodes(albumId, nodesPayload = []) {
         rawUrl,
       })
       imageCount += 1
-    })
+    }
   }
 
   if (imageRows.length) {
@@ -485,7 +497,13 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
 
   let imageCount = existing.imageCount
   if (payload.nodes) {
-    imageCount = await syncAlbumNodes(albumId, payload.nodes)
+    const previousImageUrls = new Set(
+      (existing.images || []).map((img) => rewriteMediaUrlForCurrentBase(img.rawUrl))
+    )
+    imageCount = await syncAlbumNodes(albumId, payload.nodes, {
+      album: existing,
+      previousImageUrls,
+    })
   }
 
   let status = payload.status || existing.status
@@ -537,6 +555,10 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
       nodes: { orderBy: { sortOrder: 'asc' } },
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
+  })
+  const { notifyAlbumCompleted } = require('./notification.service')
+  notifyAlbumCompleted(album).catch((e) => {
+    console.warn('[notification] album completed', e && e.message)
   })
   return buildMerchantView(album)
 }
@@ -590,6 +612,10 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
       userId: album.userId || userId,
       userPhone: album.userPhone || phone,
     },
+  })
+  const { notifyAuthorizationSubmitted } = require('./notification.service')
+  notifyAuthorizationSubmitted(albumId, agreed).catch((e) => {
+    console.warn('[notification] authorization', e && e.message)
   })
   return { publicCaseStatus }
 }
@@ -664,6 +690,10 @@ async function withdrawAuthorization(albumId, userId) {
       authorizationTier: 'private',
       status: SERVICE_ALBUM_STATUS.COMPLETED,
     },
+  })
+  const { notifyAuthorizationWithdrawn } = require('./notification.service')
+  notifyAuthorizationWithdrawn(albumId).catch((e) => {
+    console.warn('[notification] withdraw authorization', e && e.message)
   })
   return { ok: true }
 }
