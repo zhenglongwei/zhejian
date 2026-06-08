@@ -1,11 +1,13 @@
 const { ENV } = require('./services/config')
 const { syncAppSession } = require('./utils/auth')
 const { resolveCityContext } = require('./utils/city-location')
+const { recordAppLaunchEntry } = require('./utils/tool-entry-context')
 
 App({
-  onLaunch() {
+  onLaunch(options) {
     console.info('[app] launch', ENV.mode)
     syncAppSession()
+    this.globalData.toolEntryContext = recordAppLaunchEntry(options || {})
     resolveCityContext().then((ctx) => {
       this.globalData.cityContext = ctx
     })
@@ -18,5 +20,7 @@ App({
     pendingServiceCategory: '',
     /** 我的页跳转订单 Tab 时携带的筛选 key */
     pendingOrderTab: '',
+    /** 工具首页 · 冷启动入口（公域搜索 / 商家扫码） */
+    toolEntryContext: null,
   },
 })

@@ -74,7 +74,7 @@
         <text class="tool-home__empty-hint text-caption">暂无服务相册，请扫描门店二维码或输入相册码</text>
       </view>
 
-      <view class="tool-home__section card card--shadow">
+      <view wx:if="{{showH5PublicCaseLink}}" class="tool-home__section card card--shadow">
         <ui-cell
           title="{{h5SiteLabel}}"
           arrow="{{true}}"

@@ -2,6 +2,7 @@ const { fetchUserServiceAlbums } = require('../../services/service-album')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 const { H5_CONTENT_SITE_URL, H5_CONTENT_SITE_HINT } = require('../../constants/h5-links')
 const { navigateToScanTarget, navigateFromAlbumCode } = require('../../utils/tool-scan')
+const { markMerchantToolEntry, shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../utils/auth')
 
@@ -22,6 +23,7 @@ Page({
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     scanning: false,
+    showH5PublicCaseLink: false,
   },
 
   onShow() {
@@ -34,52 +36,42 @@ Page({
 
   async refreshPage() {
     const loggedIn = isLoggedIn()
-    this.setData({ isLoggedIn: loggedIn })
+    let hasAlbumBindings = false
+    let albumPreview = []
+    let showAlbumPreview = false
+    let showAlbumEmpty = false
+    let status = 'normal'
+    let errorMessage = ''
 
-    if (!loggedIn) {
-      this.setData({
-        status: 'normal',
-        albumPreview: [],
-        showAlbumPreview: false,
-        showAlbumEmpty: false,
-        errorMessage: '',
-      })
-      return
+    if (loggedIn) {
+      const auth = checkAuth({ needPhone: false })
+      if (auth.ok) {
+        this.setData({ status: 'loading', errorMessage: '' })
+        try {
+          const raw = await fetchUserServiceAlbums({ tab: 'private' })
+          hasAlbumBindings = (raw || []).length > 0
+          albumPreview = (raw || [])
+            .slice(0, HOME_ALBUM_PREVIEW_LIMIT)
+            .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
+          showAlbumPreview = albumPreview.length > 0
+          showAlbumEmpty = !hasAlbumBindings
+          status = 'normal'
+        } catch (e) {
+          status = 'error'
+          errorMessage = (e && e.message) || '加载失败，请稍后重试'
+        }
+      }
     }
 
-    const auth = checkAuth({ needPhone: false })
-    if (!auth.ok) {
-      this.setData({
-        status: 'normal',
-        albumPreview: [],
-        showAlbumPreview: false,
-        showAlbumEmpty: false,
-        errorMessage: '',
-      })
-      return
-    }
-
-    this.setData({ status: 'loading', errorMessage: '' })
-    try {
-      const raw = await fetchUserServiceAlbums({ tab: 'private' })
-      const albumPreview = (raw || [])
-        .slice(0, HOME_ALBUM_PREVIEW_LIMIT)
-        .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
-      this.setData({
-        status: 'normal',
-        albumPreview,
-        showAlbumPreview: albumPreview.length > 0,
-        showAlbumEmpty: albumPreview.length === 0,
-      })
-    } catch (e) {
-      this.setData({
-        status: 'error',
-        errorMessage: (e && e.message) || '加载失败，请稍后重试',
-        albumPreview: [],
-        showAlbumPreview: false,
-        showAlbumEmpty: false,
-      })
-    }
+    this.setData({
+      isLoggedIn: loggedIn,
+      status,
+      errorMessage,
+      albumPreview,
+      showAlbumPreview,
+      showAlbumEmpty,
+      showH5PublicCaseLink: shouldShowH5PublicCaseLink({ hasAlbumBindings }),
+    })
   },
 
   onRetry() {
@@ -93,7 +85,10 @@ Page({
       onlyFromCamera: false,
       scanType: ['qrCode', 'barCode'],
       success: (res) => {
-        navigateToScanTarget(res.result)
+        if (navigateToScanTarget(res.result)) {
+          markMerchantToolEntry('scan')
+          this.setData({ showH5PublicCaseLink: false })
+        }
       },
       fail: (err) => {
         if (err && err.errMsg && err.errMsg.indexOf('cancel') >= 0) return
@@ -120,6 +115,8 @@ Page({
   onEnterCodeConfirm() {
     const code = (this.data.enterCodeValue || '').trim()
     if (!navigateFromAlbumCode(code)) return
+    markMerchantToolEntry('album_code')
+    this.setData({ showH5PublicCaseLink: false })
     this.onEnterCodeClose()
   },
 
@@ -158,7 +155,7 @@ Page({
     wx.showModal({
       title: '使用说明',
       content:
-        '车主：扫描门店二维码或输入相册码，查看维修服务记录；登录后在「我的服务相册」管理记录。想了解公开案例请前往内容站。\n\n商家：点击「我是商家」进入工作台，创建服务相册并邀请车主查看。',
+        '车主：扫描门店二维码或输入相册码，查看维修服务记录；登录后在「我的服务相册」管理记录。\n\n商家：点击「我是商家」进入工作台，创建服务相册并邀请车主查看。',
       showCancel: false,
       confirmText: '知道了',
     })

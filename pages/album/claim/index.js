@@ -1,6 +1,7 @@
 const { fetchAlbumClaimPreview, claimServiceAlbum } = require('../../../services/service-album')
 const { COMPLIANCE_COPY } = require('../../../constants/compliance-copy')
 const { resolveAlbumIdFromOptions } = require('../../../utils/album-claim')
+const { markMerchantToolEntry } = require('../../../utils/tool-entry-context')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 
 Page({
@@ -26,6 +27,7 @@ Page({
       })
       return
     }
+    markMerchantToolEntry('claim_launch')
     this.loadPreview()
   },
 
