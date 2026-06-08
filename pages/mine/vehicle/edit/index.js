@@ -2,9 +2,9 @@ const {
   fetchUserVehicle,
   createUserVehicle,
   updateUserVehicle,
-} = require('../../../services/vehicle')
-const { MAX_USER_VEHICLES } = require('../../../constants/user-vehicle')
-const { checkAuth } = require('../../../utils/auth')
+} = require('../../../../services/vehicle')
+const { MAX_USER_VEHICLES } = require('../../../../constants/user-vehicle')
+const { checkAuth } = require('../../../../utils/auth')
 
 Page({
   data: {
