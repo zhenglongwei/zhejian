@@ -173,6 +173,18 @@
           当前关联：{{detail.userPhoneDisplay}}
         </text>
 
+        <block wx:if="{{!hasOwner && allowTestOwnerPhone}}">
+          <input
+            class="merchant-form__input"
+            type="number"
+            maxlength="11"
+            placeholder="车主手机号（测试手填）"
+            value="{{ownerPhoneInput}}"
+            bindinput="onOwnerPhoneInput"
+          />
+          <text class="text-caption merchant-album-edit__owner-test-tip">填写后点击底部「保存」即可关联</text>
+        </block>
+
         <ui-button
           wx:if="{{!hasOwner}}"
           type="secondary"

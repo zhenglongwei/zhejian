@@ -414,6 +414,7 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
 }
 
 function assertMerchantCannotSetOwnerPhone(payload = {}) {
+  if (config.merchantOwnerPhoneTest) return
   if (payload.userPhone == null || payload.userPhone === '') return
   const phone = String(payload.userPhone || '').trim()
   if (phone) {
@@ -519,6 +520,9 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ...existing,
     ...normalized,
   })
+  const ownerUpdate = config.merchantOwnerPhoneTest
+    ? await resolveOwnerPhoneUpdate(existing, payload)
+    : {}
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -533,6 +537,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,
       status,
       imageCount,
+      ...ownerUpdate,
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },

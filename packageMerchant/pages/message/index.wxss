@@ -1,1 +1,1 @@
-@import '../../../../pages/mine/message/index.wxss';
+@import '../../../pages/mine/message/index.wxss';

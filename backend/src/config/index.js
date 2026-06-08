@@ -44,29 +44,32 @@ const config = {
     },
     subscribeFields: {
       consult: {
-        title: process.env.WECHAT_TMPL_CONSULT_FIELD_TITLE || 'thing1',
-        content: process.env.WECHAT_TMPL_CONSULT_FIELD_CONTENT || 'thing2',
-        time: process.env.WECHAT_TMPL_CONSULT_FIELD_TIME || 'time3',
+        service: process.env.WECHAT_TMPL_CONSULT_FIELD_SERVICE || 'thing1',
+        status: process.env.WECHAT_TMPL_CONSULT_FIELD_STATUS || 'thing2',
+        tips: process.env.WECHAT_TMPL_CONSULT_FIELD_TIPS || 'thing6',
       },
       album: {
-        title: process.env.WECHAT_TMPL_ALBUM_FIELD_TITLE || 'thing1',
-        content: process.env.WECHAT_TMPL_ALBUM_FIELD_CONTENT || 'thing2',
-        time: process.env.WECHAT_TMPL_ALBUM_FIELD_TIME || 'time3',
+        service: process.env.WECHAT_TMPL_ALBUM_FIELD_SERVICE || 'thing1',
+        status: process.env.WECHAT_TMPL_ALBUM_FIELD_STATUS || 'thing2',
+        tips: process.env.WECHAT_TMPL_ALBUM_FIELD_TIPS || 'thing6',
       },
       audit: {
-        title: process.env.WECHAT_TMPL_AUDIT_FIELD_TITLE || 'thing1',
-        content: process.env.WECHAT_TMPL_AUDIT_FIELD_CONTENT || 'thing2',
-        time: process.env.WECHAT_TMPL_AUDIT_FIELD_TIME || 'time3',
+        auditStatus: process.env.WECHAT_TMPL_AUDIT_FIELD_STATUS || 'phrase1',
+        caseNo: process.env.WECHAT_TMPL_AUDIT_FIELD_CASE_NO || 'character_string14',
+        auditTime: process.env.WECHAT_TMPL_AUDIT_FIELD_TIME || 'date2',
+        remark: process.env.WECHAT_TMPL_AUDIT_FIELD_REMARK || 'thing3',
       },
       lead: {
-        title: process.env.WECHAT_TMPL_LEAD_FIELD_TITLE || 'thing1',
-        content: process.env.WECHAT_TMPL_LEAD_FIELD_CONTENT || 'thing2',
-        time: process.env.WECHAT_TMPL_LEAD_FIELD_TIME || 'time3',
+        sender: process.env.WECHAT_TMPL_LEAD_FIELD_SENDER || 'name1',
+        leadTime: process.env.WECHAT_TMPL_LEAD_FIELD_TIME || 'time1',
+        tips: process.env.WECHAT_TMPL_LEAD_FIELD_TIPS || 'thing2',
       },
     },
   },
   /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */
   merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',
+  /** TEST-ONLY: 允许商家手填车主手机号；测试通过后设为 false 或删除环境变量 */
+  merchantOwnerPhoneTest: process.env.MERCHANT_OWNER_PHONE_TEST === 'true',
   aliyun: {
     region: process.env.ALIYUN_REGION || 'cn-shanghai',
     /** 文字识别 OCR API（2021-07-07），默认 ocr-api.{region}.aliyuncs.com */

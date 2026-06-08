@@ -29,10 +29,17 @@ const {
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 
+const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
+
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 
-const OWNER_PHONE_HINT =
-  '请车主扫码确认关联，将使用车主本人绑定的手机号。未关联时仅作门店留档；关联后车主可在小程序查看维修进度。'
+function normalizeOwnerPhone(value) {
+  return String(value || '').replace(/\D/g, '')
+}
+
+const OWNER_PHONE_HINT = ALLOW_TEST_OWNER_PHONE
+  ? '【测试模式】可手填车主手机号，填写后点击保存即可关联；正式环境须由车主扫码确认。'
+  : '请车主扫码确认关联，将使用车主本人绑定的手机号。未关联时仅作门店留档；关联后车主可在小程序查看维修进度。'
 
 Page({
   data: {
@@ -72,6 +79,8 @@ Page({
     showBottomPrimary: false,
     bottomPrimaryText: '',
     ownerPhoneHint: OWNER_PHONE_HINT,
+    allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
+    ownerPhoneInput: '',
     uploadPrivacyHint:
       '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
     templateOptions: [],
@@ -213,6 +222,7 @@ Page({
       templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
       canSwitchTemplate,
       completeness: detail.completeness || null,
+      ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     })
     this.syncShareMenu(canShare)
   },
@@ -321,6 +331,19 @@ Page({
 
   onStoreNoteInput(e) {
     this.setData({ storeNote: e.detail.value })
+  },
+
+  onOwnerPhoneInput(e) {
+    this.setData({ ownerPhoneInput: e.detail.value })
+  },
+
+  validateOwnerPhoneInput() {
+    const phone = normalizeOwnerPhone(this.data.ownerPhoneInput)
+    if (!phone) return { ok: true, phone: '' }
+    if (phone.length !== 11) {
+      return { ok: false, message: '请填写正确的手机号' }
+    }
+    return { ok: true, phone }
   },
 
   onVehicleInput(e) {
@@ -436,6 +459,12 @@ Page({
       planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })
+    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
+      const ownerCheck = this.validateOwnerPhoneInput()
+      if (ownerCheck.phone) {
+        normalized.userPhone = ownerCheck.phone
+      }
+    }
     return { payload: normalized, droppedStaleCount }
   },
 
@@ -452,6 +481,13 @@ Page({
   async onSave() {
     if (this.data.saving) return
     if (!this.validateVehicle()) return
+    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
+      const ownerCheck = this.validateOwnerPhoneInput()
+      if (!ownerCheck.ok) {
+        wx.showToast({ title: ownerCheck.message, icon: 'none' })
+        return
+      }
+    }
     this.setData({ saving: true })
     try {
       wx.showLoading({ title: '保存中', mask: true })
@@ -472,6 +508,13 @@ Page({
   onComplete() {
     if (this.data.completing || this.data.saving) return
     if (!this.validateVehicle()) return
+    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
+      const ownerCheck = this.validateOwnerPhoneInput()
+      if (!ownerCheck.ok) {
+        wx.showToast({ title: ownerCheck.message, icon: 'none' })
+        return
+      }
+    }
     const hasImage = this.data.nodes.some((n) => (n.images || []).length > 0)
     if (!hasImage) {
       wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })

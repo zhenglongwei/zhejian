@@ -106,7 +106,8 @@
 .merchant-album-edit__parts-hint,
 .merchant-album-edit__owner-hint,
 .merchant-album-edit__owner-phone,
-.merchant-album-edit__owner-share-tip {
+.merchant-album-edit__owner-share-tip,
+.merchant-album-edit__owner-test-tip {
   color: var(--color-text-secondary);
 }
 

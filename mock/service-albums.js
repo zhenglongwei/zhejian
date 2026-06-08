@@ -1,6 +1,7 @@
 /**
  * MOCK: V2.0 用户服务相册 — 联调后由 services/service-album.js 接真实 API
  */
+const { ALLOW_TEST_OWNER_PHONE } = require('../services/config')
 const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_REPAIR_DONE_STATUSES,
@@ -738,7 +739,7 @@ async function mockFetchMerchantServiceAlbum(albumId) {
 
 async function mockCreateMerchantServiceAlbum(payload) {
   await delay(350)
-  if (payload.userPhone && String(payload.userPhone).trim()) {
+  if (!ALLOW_TEST_OWNER_PHONE && payload.userPhone && String(payload.userPhone).trim()) {
     const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
     err.code = 400
     throw err
@@ -783,12 +784,15 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
   }
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
-  if (payload.userPhone != null && String(payload.userPhone || '').trim()) {
+  if (!ALLOW_TEST_OWNER_PHONE && payload.userPhone != null && String(payload.userPhone || '').trim()) {
     const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
     err.code = 400
     throw err
   }
-  const userPhone = raw.userPhone
+  const userPhone =
+    ALLOW_TEST_OWNER_PHONE && payload.userPhone != null
+      ? String(payload.userPhone || '').trim()
+      : raw.userPhone
   const next = {
     ...raw,
     ...normalized,

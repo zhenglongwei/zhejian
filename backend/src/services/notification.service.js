@@ -366,7 +366,12 @@ async function notifyLeadContacted(lead) {
     jumpPath: `/pages/consult/detail/index?id=${lead.id}`,
     wechatTemplateKey: 'consult',
     wechatPage: `pages/consult/detail/index?id=${lead.id}`,
-    wechatPayload: { storeName: lead.storeName, serviceName: lead.serviceName },
+    wechatPayload: {
+      serviceName: lead.serviceName || '咨询预约',
+      status: '门店已联系',
+      tips: '请留意来电或留言回复',
+      storeName: lead.storeName,
+    },
   })
 }
 
@@ -382,10 +387,17 @@ async function notifyLeadClosed(lead) {
     jumpPath: `/pages/consult/detail/index?id=${lead.id}`,
     wechatTemplateKey: 'consult',
     wechatPage: `pages/consult/detail/index?id=${lead.id}`,
+    wechatPayload: {
+      serviceName: lead.serviceName || '咨询预约',
+      status: '咨询已关闭',
+      tips: '可在我的咨询中查看记录',
+      storeName: lead.storeName,
+    },
   })
 }
 
 async function notifyNewLead(lead) {
+  const senderName = String(lead.contact?.name || '').trim()
   return notifyMerchantOwner({
     storeId: lead.storeId,
     messageType: 'lead',
@@ -396,7 +408,13 @@ async function notifyNewLead(lead) {
     jumpPath: `/packageMerchant/pages/lead/detail/index?id=${lead.id}`,
     wechatTemplateKey: 'lead',
     wechatPage: `packageMerchant/pages/lead/detail/index?id=${lead.id}`,
-    wechatPayload: { storeName: lead.storeName, serviceName: lead.serviceName },
+    wechatPayload: {
+      sender: senderName || '咨询用户',
+      time: lead.createdAt || new Date(),
+      tips: `${lead.serviceName || '咨询预约'}，请及时联系`,
+      storeName: lead.storeName,
+      serviceName: lead.serviceName,
+    },
   })
 }
 
@@ -413,14 +431,27 @@ async function notifyAlbumCompleted(album) {
     jumpPath: `/pages/album/detail/index?id=${album.id}`,
     wechatTemplateKey: 'album',
     wechatPage: `pages/album/detail/index?id=${album.id}`,
-    wechatPayload: { storeName: album.storeName, serviceName: album.serviceName },
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '已完工',
+      tips: '服务相册已更新，可查看留档',
+      storeName: album.storeName,
+    },
   })
 }
 
 async function notifyAuthorizationSubmitted(albumId, agreed) {
-  const album = await prisma.album.findUnique({ where: { id: albumId } })
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    include: { publicCase: true },
+  })
   if (!album) return null
   const userId = await resolveAlbumUserId(album)
+  const auditPayload = {
+    caseNo: album.publicCase?.id || album.id,
+    auditStatus: agreed ? '待审核' : '已拒绝授权',
+    remark: agreed ? '已提交，等待平台审核' : '未公开为案例',
+  }
   if (userId) {
     await notifyUser({
       receiverId: userId,
@@ -434,6 +465,7 @@ async function notifyAuthorizationSubmitted(albumId, agreed) {
       jumpPath: `/pages/album/authorize/index`,
       wechatTemplateKey: 'audit',
       wechatPage: 'pages/album/authorize/index',
+      wechatPayload: auditPayload,
     })
   }
   if (agreed) {
@@ -447,6 +479,11 @@ async function notifyAuthorizationSubmitted(albumId, agreed) {
       jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
       wechatTemplateKey: 'audit',
       wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
+      wechatPayload: {
+        ...auditPayload,
+        auditStatus: '待审核',
+        remark: '车主已提交公开授权',
+      },
     })
   }
   return null
@@ -484,6 +521,11 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
   const content = approved
     ? '你的案例已完成脱敏审核并公开展示。'
     : truncate(comment || '案例未通过审核，私密相册仍可查看。', 120)
+  const auditPayload = {
+    caseNo: album.publicCase?.id || album.id,
+    auditStatus: approved ? '审核通过' : '审核未通过',
+    remark: approved ? '已脱敏公开展示' : truncate(comment || '请修改后重新提交', 20),
+  }
   if (userId) {
     await notifyUser({
       receiverId: userId,
@@ -497,6 +539,7 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
         : '/pages/album/authorize/index',
       wechatTemplateKey: 'audit',
       wechatPage: 'pages/album/authorize/index',
+      wechatPayload: auditPayload,
     })
   }
   return notifyMerchantOwner({
@@ -509,10 +552,19 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
     jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
     wechatTemplateKey: 'audit',
     wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
+    wechatPayload: auditPayload,
   })
 }
 
 async function notifyMerchantAuditResult({ merchant, approved, needModify = false, comment = '' }) {
+  const auditStatus = approved ? '审核通过' : needModify ? '需修改' : '审核未通过'
+  const remark = truncate(
+    comment ||
+      (approved
+        ? '可进入商家工作台'
+        : '请按审核意见修改后重新提交'),
+    20
+  )
   return notifyMerchantOwner({
     merchantId: merchant.id,
     messageType: 'audit',
@@ -533,6 +585,11 @@ async function notifyMerchantAuditResult({ merchant, approved, needModify = fals
     jumpPath: '/packageMerchant/pages/workbench/index',
     wechatTemplateKey: 'audit',
     wechatPage: 'packageMerchant/pages/workbench/index',
+    wechatPayload: {
+      caseNo: merchant.id,
+      auditStatus,
+      remark,
+    },
   })
 }
 

@@ -39,4 +39,7 @@ const PROFILES = {
 
 const ENV = PROFILES[ACTIVE_ENV] || PROFILES.local
 
-module.exports = { ENV, ACTIVE_ENV, PROFILES }
+/** TEST-ONLY: 允许商家手填车主手机号；测试通过后改回 false */
+const ALLOW_TEST_OWNER_PHONE = true
+
+module.exports = { ENV, ACTIVE_ENV, PROFILES, ALLOW_TEST_OWNER_PHONE }
