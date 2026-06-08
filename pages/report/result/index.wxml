@@ -9,7 +9,7 @@
   </ui-card>
 
   <view class="report-result__actions">
-    <ui-button type="primary" block bind:tap="onBackHome">返回首页</ui-button>
-    <ui-button type="secondary" block bind:tap="onBack">返回上一页</ui-button>
+    <ui-button type="primary" block bind:btntap="onBackHome">返回首页</ui-button>
+    <ui-button type="secondary" block bind:btntap="onBack">返回上一页</ui-button>
   </view>
 </view>

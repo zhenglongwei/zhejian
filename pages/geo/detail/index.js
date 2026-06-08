@@ -91,6 +91,7 @@ Page({
   },
 
   onMessage() {
+    if (this._messageNavigating) return
     const { detail } = this.data
     const storeId =
       (detail && detail.primaryStoreId) ||
@@ -101,17 +102,36 @@ Page({
     if (detail && detail.relatedServiceId) {
       url += `&serviceId=${detail.relatedServiceId}`
     }
-    wx.navigateTo({ url })
+    this._messageNavigating = true
+    wx.navigateTo({
+      url,
+      complete: () => {
+        this._messageNavigating = false
+      },
+    })
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._caseNavigating) return
+    this._caseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._caseNavigating = false
+      },
+    })
   },
 
   onStoreTap(e) {
     const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId) return
-    wx.navigateTo({ url: `/pages/store/detail/index?id=${storeId}` })
+    if (!storeId || this._storeNavigating) return
+    this._storeNavigating = true
+    wx.navigateTo({
+      url: `/pages/store/detail/index?id=${storeId}`,
+      complete: () => {
+        this._storeNavigating = false
+      },
+    })
   },
 })

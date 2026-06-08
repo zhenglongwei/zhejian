@@ -38,7 +38,7 @@
         wx:if="{{canCancel}}"
         type="secondary"
         disabled="{{cancelling}}"
-        bind:tap="onCancelConsult"
+        bind:btntap="onCancelConsult"
       >取消咨询</ui-button>
     </ui-fixed-bottom-bar>
   </block>

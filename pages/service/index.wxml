@@ -41,7 +41,7 @@
       minAmount="{{item.minAmount}}"
       maxAmount="{{item.maxAmount}}"
       storeName="{{item.storeName}}"
-      bind:tap="onServiceTap"
+      bind:cardtap="onServiceTap"
     />
   </ui-list-page-shell>
 </view>

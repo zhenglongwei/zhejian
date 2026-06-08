@@ -52,12 +52,12 @@
           type="primary"
           size="sm"
           loading="{{autoMaskLoading}}"
-          bind:tap="onAutoMask"
+          bind:btntap="onAutoMask"
         >一键 AI 脱敏</ui-button>
         <ui-button
           type="ghost"
           size="sm"
-          bind:tap="onManualMask"
+          bind:btntap="onManualMask"
         >手工打码</ui-button>
       </view>
       <ui-button
@@ -65,7 +65,7 @@
         slot="right"
         loading="{{confirmLoading}}"
         disabled="{{confirmLoading}}"
-        bind:tap="onConfirm"
+        bind:btntap="onConfirm"
       >{{confirmLabelShort}}</ui-button>
     </ui-fixed-bottom-bar>
   </block>

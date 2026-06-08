@@ -28,7 +28,7 @@ Component({
   methods: {
     onTap() {
       if (this.properties.disabled || this.properties.loading) return
-      this.triggerEvent('tap')
+      this.triggerEvent('btntap')
     },
   },
 })

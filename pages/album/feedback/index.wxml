@@ -85,7 +85,7 @@
         block
         loading="{{submitting}}"
         disabled="{{submitting}}"
-        bind:tap="onSubmit"
+        bind:btntap="onSubmit"
       >提交反馈</ui-button>
     </ui-fixed-bottom-bar>
 

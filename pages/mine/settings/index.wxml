@@ -6,35 +6,35 @@
       desc="{{phoneDesc}}"
       border="{{true}}"
       data-key="phone"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       title="消息通知"
       desc="咨询、相册与授权相关通知"
       border="{{true}}"
       data-key="notify"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       title="清除缓存"
       desc="清除本地搜索历史与临时数据"
       border="{{true}}"
       data-key="cache"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       title="用户协议"
       border="{{true}}"
       arrow="{{true}}"
       data-key="agreement"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       title="隐私政策"
       border="{{true}}"
       arrow="{{true}}"
       data-key="privacy"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       title="关于辙见"
@@ -42,7 +42,7 @@
       border="{{true}}"
       arrow="{{true}}"
       data-key="about"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
     <ui-cell
       wx:if="{{isLoggedIn}}"
@@ -51,7 +51,7 @@
       border="{{false}}"
       arrow="{{true}}"
       data-key="deactivate"
-      bind:tap="onCellTap"
+      bind:celltap="onCellTap"
     />
   </ui-card>
 

@@ -1,12 +1,16 @@
 const { get, post } = require('./request')
 
+/** 小程序 JS 环境无 URLSearchParams，用手动拼接 */
+function buildQueryString(query = {}) {
+  const parts = []
+  if (query.page) parts.push(`page=${encodeURIComponent(String(query.page))}`)
+  if (query.pageSize) parts.push(`pageSize=${encodeURIComponent(String(query.pageSize))}`)
+  if (query.unreadOnly) parts.push('unreadOnly=1')
+  return parts.length ? `?${parts.join('&')}` : ''
+}
+
 async function fetchUserNotifications(query = {}) {
-  const params = new URLSearchParams()
-  if (query.page) params.set('page', String(query.page))
-  if (query.pageSize) params.set('pageSize', String(query.pageSize))
-  if (query.unreadOnly) params.set('unreadOnly', '1')
-  const qs = params.toString()
-  return get(`/user/notifications${qs ? `?${qs}` : ''}`)
+  return get(`/user/notifications${buildQueryString(query)}`)
 }
 
 async function fetchUserUnreadNotificationCount() {
@@ -28,12 +32,7 @@ async function saveUserSubscribeResults(results = {}) {
 }
 
 async function fetchMerchantNotifications(query = {}) {
-  const params = new URLSearchParams()
-  if (query.page) params.set('page', String(query.page))
-  if (query.pageSize) params.set('pageSize', String(query.pageSize))
-  if (query.unreadOnly) params.set('unreadOnly', '1')
-  const qs = params.toString()
-  return get(`/merchant/notifications${qs ? `?${qs}` : ''}`)
+  return get(`/merchant/notifications${buildQueryString(query)}`)
 }
 
 async function fetchMerchantUnreadNotificationCount() {

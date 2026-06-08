@@ -84,7 +84,8 @@ Component({
     },
     onTap() {
       if (!this.properties.caseId) return
-      this.triggerEvent('tap', { caseId: this.properties.caseId })
+      // 勿用事件名 tap：真机上 bind:tap 会与原生冒泡叠加，导致回调执行两次且第二次 detail 为空
+      this.triggerEvent('cardtap', { caseId: this.properties.caseId })
     },
   },
 })

@@ -48,10 +48,10 @@
           wx:if="{{item.showManualMask}}"
           type="secondary"
           size="sm"
-          bind:tap="onManualMask"
+          bind:btntap="onManualMask"
           data-id="{{item.id}}"
         >手工打码</ui-button>
-        <ui-button wx:if="{{item.showRetry}}" type="ghost" size="sm" bind:tap="onRetry" data-id="{{item.id}}">重试</ui-button>
+        <ui-button wx:if="{{item.showRetry}}" type="ghost" size="sm" bind:btntap="onRetry" data-id="{{item.id}}">重试</ui-button>
       </view>
     </view>
   </view>

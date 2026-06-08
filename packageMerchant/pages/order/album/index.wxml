@@ -91,7 +91,7 @@
         slot="right"
         type="primary"
         loading="{{saving}}"
-        bind:tap="onSave"
+        bind:btntap="onSave"
       >保存并返回</ui-button>
     </ui-fixed-bottom-bar>
   </block>

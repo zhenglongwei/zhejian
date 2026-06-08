@@ -8,6 +8,7 @@ const {
   getSubmitButtonLabel,
   getConsultPageTitle,
 } = require('../../../utils/lead-form')
+const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
 
 Page({
   data: {
@@ -268,6 +269,8 @@ Page({
 
     this.setData({ submitting: true })
     try {
+      // 一次性订阅：提交前授权，便于后续「门店已联系/关闭」微信通知
+      await requestUserNotificationSubscribe('consult', { showToast: false })
       let payload = this.buildPayload()
       if (payload.images && payload.images.length) {
         const { images, droppedStaleCount } = await persistLocalImages(payload.images)

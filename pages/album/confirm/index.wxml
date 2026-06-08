@@ -67,13 +67,13 @@
     </view>
 
     <ui-fixed-bottom-bar>
-      <ui-button type="ghost" size="sm" slot="left" disabled="{{submitting}}" bind:tap="onReject">要求重新报价</ui-button>
+      <ui-button type="ghost" size="sm" slot="left" disabled="{{submitting}}" bind:btntap="onReject">要求重新报价</ui-button>
       <ui-button
         type="primary"
         size="sm"
         slot="right"
         disabled="{{!checked || submitting}}"
-        bind:tap="onConfirm"
+        bind:btntap="onConfirm"
       >{{confirmCopy.confirmButton}}</ui-button>
     </ui-fixed-bottom-bar>
   </block>

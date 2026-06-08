@@ -42,7 +42,7 @@ Component({
   methods: {
     onTap() {
       if (!this.properties.topicId) return
-      this.triggerEvent('tap', { topicId: this.properties.topicId })
+      this.triggerEvent('cardtap', { topicId: this.properties.topicId })
     },
   },
 })

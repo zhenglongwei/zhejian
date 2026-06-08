@@ -202,7 +202,7 @@
             storeName="{{item.storeName}}"
             viewCount="{{item.viewCount}}"
             showStoreName="{{true}}"
-            bind:tap="onCaseTap"
+            bind:cardtap="onCaseTap"
           />
         </view>
       </view>
@@ -225,7 +225,7 @@
             businessHours="{{item.businessHours}}"
             cardTags="{{item.cardTags}}"
             showLink="{{true}}"
-            bind:tap="onStoreTap"
+            bind:cardtap="onStoreTap"
           />
         </view>
       </view>
@@ -236,7 +236,7 @@
         type="primary"
         slot="right"
         disabled="{{!bookable}}"
-        bind:tap="onMessage"
+        bind:btntap="onMessage"
       >留言</ui-button>
     </ui-fixed-bottom-bar>
 

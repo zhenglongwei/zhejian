@@ -74,7 +74,7 @@
   </block>
 
   <ui-fixed-bottom-bar wx:if="{{status === 'normal' || status === 'empty'}}">
-    <ui-button type="primary" block="{{true}}" disabled="{{!canAdd && status === 'normal'}}" bind:tap="onAddVehicle">
+    <ui-button type="primary" block="{{true}}" disabled="{{!canAdd && status === 'normal'}}" bind:btntap="onAddVehicle">
       新增车辆
     </ui-button>
   </ui-fixed-bottom-bar>

@@ -79,7 +79,7 @@ Component({
     onTap() {
       if (this.properties.readonly) return
       if (!this.properties.serviceId) return
-      this.triggerEvent('tap', { serviceId: this.properties.serviceId })
+      this.triggerEvent('cardtap', { serviceId: this.properties.serviceId })
     },
   },
 })

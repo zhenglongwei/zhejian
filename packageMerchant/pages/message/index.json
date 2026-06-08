@@ -2,6 +2,7 @@
   "navigationBarTitleText": "商家消息",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-list-page-shell": "/components/list-page-shell/index"
+    "ui-list-page-shell": "/components/list-page-shell/index",
+    "ui-button": "/components/button/index"
   }
 }

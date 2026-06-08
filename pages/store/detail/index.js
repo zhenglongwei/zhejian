@@ -274,8 +274,15 @@ Page({
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._caseNavigating) return
+    this._caseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._caseNavigating = false
+      },
+    })
   },
 
   onViewAllCases() {
@@ -295,10 +302,14 @@ Page({
   },
 
   onServiceTap(e) {
-    const { serviceId } = e.detail
-    if (!serviceId) return
+    const serviceId = e.detail && e.detail.serviceId
+    if (!serviceId || this._serviceNavigating) return
+    this._serviceNavigating = true
     wx.navigateTo({
       url: `/pages/service/detail/index?id=${serviceId}`,
+      complete: () => {
+        this._serviceNavigating = false
+      },
     })
   },
 
@@ -359,8 +370,13 @@ Page({
   },
 
   onMessage() {
+    if (this._messageNavigating || !this.storeId) return
+    this._messageNavigating = true
     wx.navigateTo({
       url: `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
+      complete: () => {
+        this._messageNavigating = false
+      },
     })
   },
 

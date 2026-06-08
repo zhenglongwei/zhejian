@@ -42,7 +42,7 @@
           size="sm"
           block="{{true}}"
           disabled="{{submitting}}"
-          bind:tap="onReject"
+          bind:btntap="onReject"
         >{{rejectText}}</ui-button>
       </view>
       <view class="album-authorize-section__action">
@@ -51,7 +51,7 @@
           size="sm"
           block="{{true}}"
           disabled="{{submitting}}"
-          bind:tap="onSubmit"
+          bind:btntap="onSubmit"
         >{{confirmText}}</ui-button>
       </view>
     </view>

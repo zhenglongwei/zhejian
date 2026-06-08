@@ -84,7 +84,7 @@
           name="{{detail.storeName}}"
           subtitle="{{detail.city}}"
           showLink="{{true}}"
-          bind:tap="onStoreTap"
+          bind:cardtap="onStoreTap"
         />
         <ui-store-card
           wx:else
@@ -122,13 +122,13 @@
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
             viewCount="{{item.viewCount}}"
-            bind:tap="onRelatedCaseTap"
+            bind:cardtap="onRelatedCaseTap"
           />
         </view>
       </view>
     </view>
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-      <ui-button type="primary" slot="right" bind:tap="onMessage">留言</ui-button>
+      <ui-button type="primary" slot="right" bind:btntap="onMessage">留言</ui-button>
     </ui-fixed-bottom-bar>
 
     <ui-share-sheet

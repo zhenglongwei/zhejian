@@ -119,8 +119,8 @@
               </picker>
               <input class="merchant-form__input" type="number" placeholder="价格（选填）" value="{{partForm.actualPrice}}" data-field="actualPrice" bindinput="onPartInput" />
               <view class="merchant-album-edit__part-form-actions">
-                <ui-button type="secondary" size="sm" bind:tap="onCancelPartForm">取消</ui-button>
-                <ui-button type="primary" size="sm" bind:tap="onAddPart">确认添加</ui-button>
+                <ui-button type="secondary" size="sm" bind:btntap="onCancelPartForm">取消</ui-button>
+                <ui-button type="primary" size="sm" bind:btntap="onAddPart">确认添加</ui-button>
               </view>
             </view>
             <ui-button
@@ -128,7 +128,7 @@
               type="secondary"
               size="sm"
               block="{{true}}"
-              bind:tap="onOpenPartForm"
+              bind:btntap="onOpenPartForm"
             >添加配件</ui-button>
           </view>
         </block>
@@ -190,7 +190,7 @@
           type="secondary"
           size="sm"
           block="{{true}}"
-          bind:tap="onInviteOwnerScan"
+          bind:btntap="onInviteOwnerScan"
         >请车主扫码关联</ui-button>
       </ui-card>
         </view>

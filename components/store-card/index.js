@@ -50,7 +50,7 @@ Component({
     onTap() {
       const { storeId, mode } = this.properties
       if (mode === 'anonymous' || !storeId) return
-      this.triggerEvent('tap', { storeId })
+      this.triggerEvent('cardtap', { storeId })
     },
   },
 })

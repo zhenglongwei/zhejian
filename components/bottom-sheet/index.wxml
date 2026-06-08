@@ -14,13 +14,13 @@
     />
     <view wx:if="{{showActions}}" class="bottom-sheet__actions">
       <view class="bottom-sheet__action">
-        <ui-button type="secondary" bind:tap="onCancel">{{cancelText}}</ui-button>
+        <ui-button type="secondary" bind:btntap="onCancel">{{cancelText}}</ui-button>
       </view>
       <view class="bottom-sheet__action">
         <ui-button
           type="primary"
           disabled="{{confirmDisabled || loading}}"
-          bind:tap="onConfirm"
+          bind:btntap="onConfirm"
         >{{confirmText}}</ui-button>
       </view>
     </view>

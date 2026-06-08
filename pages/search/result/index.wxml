@@ -61,7 +61,7 @@
         tagText="{{geoTopicTag}}"
         updatedAt="{{item.updatedAt}}"
         showMeta="{{true}}"
-        bind:tap="onGeoTap"
+        bind:cardtap="onGeoTap"
       />
     </view>
 
@@ -103,7 +103,7 @@
           minAmount="{{item.minAmount}}"
           maxAmount="{{item.maxAmount}}"
           storeName="{{item.storeName}}"
-          bind:tap="onServiceTap"
+          bind:cardtap="onServiceTap"
         />
       </view>
 
@@ -120,7 +120,7 @@
           caseCount="{{item.caseCount}}"
           cardTags="{{item.cardTags}}"
           showLink="{{true}}"
-          bind:tap="onStoreTap"
+          bind:cardtap="onStoreTap"
         />
       </view>
 
@@ -145,7 +145,7 @@
           maxAmount="{{item.maxAmount}}"
           storeName="{{item.storeName}}"
           viewCount="{{item.viewCount}}"
-          bind:tap="onCaseTap"
+          bind:cardtap="onCaseTap"
         />
       </view>
     </block>
@@ -163,7 +163,7 @@
         minAmount="{{item.minAmount}}"
         maxAmount="{{item.maxAmount}}"
         storeName="{{item.storeName}}"
-        bind:tap="onServiceTap"
+        bind:cardtap="onServiceTap"
       />
     </block>
 
@@ -179,7 +179,7 @@
         caseCount="{{item.caseCount}}"
         cardTags="{{item.cardTags}}"
         showLink="{{true}}"
-        bind:tap="onStoreTap"
+        bind:cardtap="onStoreTap"
       />
     </block>
 
@@ -200,7 +200,7 @@
         maxAmount="{{item.maxAmount}}"
         storeName="{{item.storeName}}"
         viewCount="{{item.viewCount}}"
-        bind:tap="onCaseTap"
+        bind:cardtap="onCaseTap"
       />
     </block>
     </block>

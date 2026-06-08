@@ -83,7 +83,7 @@
       <view wx:if="{{showPublicCaseStatus}}" class="service-album__section">
         <text class="service-album__section-title text-h3">授权公示</text>
         <text class="note-block text-caption">{{publicCaseHint}}</text>
-        <ui-button type="secondary" size="sm" bind:tap="onViewPublicCase">查看公示页</ui-button>
+        <ui-button type="secondary" size="sm" bind:btntap="onViewPublicCase">查看公示页</ui-button>
       </view>
 
       <view wx:elif="{{publicCaseHint}}" class="service-album__section">
@@ -96,14 +96,14 @@
     </view>
 
     <ui-fixed-bottom-bar>
-      <ui-button type="secondary" size="sm" slot="left" bind:tap="onCallStore">联系门店</ui-button>
+      <ui-button type="secondary" size="sm" slot="left" bind:btntap="onCallStore">联系门店</ui-button>
       <ui-button
         wx:if="{{showAuthSection}}"
         type="primary"
         slot="right"
         disabled="{{authSubmitting}}"
         loading="{{authSubmitting}}"
-        bind:tap="onSubmitAuth"
+        bind:btntap="onSubmitAuth"
       >授权公示</ui-button>
     </ui-fixed-bottom-bar>
   </block>

@@ -117,6 +117,25 @@ async function hasActiveSubscription(userId, templateKey) {
   return row?.status === 'accept'
 }
 
+/** 微信一次性订阅：发送成功或额度失效后清除 accept 态，避免重复尝试 */
+async function markSubscriptionConsumed(userId, templateKey) {
+  const repo = subscriptionRepo()
+  if (!repo || !userId || !templateKey) return
+  const row = await repo.findUnique({
+    where: { userId_templateKey: { userId, templateKey } },
+  })
+  if (!row || row.status !== 'accept') return
+  await repo.update({
+    where: { userId_templateKey: { userId, templateKey } },
+    data: { status: 'consumed' },
+  })
+}
+
+/** 43101：用户未订阅或一次性额度已用完 */
+function isSubscribeQuotaError(err) {
+  return err && (err.code === 43101 || err.code === '43101')
+}
+
 async function trySendWechatSubscribe({
   userId,
   templateKey,
@@ -153,6 +172,7 @@ async function trySendWechatSubscribe({
       page,
       data: buildSubscribePayload(templateKey, payload),
     })
+    await markSubscriptionConsumed(userId, templateKey)
     if (logRepo) {
       await logRepo.update({
         where: { id: logId },
@@ -160,6 +180,9 @@ async function trySendWechatSubscribe({
       })
     }
   } catch (e) {
+    if (isSubscribeQuotaError(e)) {
+      await markSubscriptionConsumed(userId, templateKey)
+    }
     if (logRepo) {
       await logRepo.update({
         where: { id: logId },
@@ -317,6 +340,7 @@ async function markNotificationsRead(receiverType, receiverId, ids = []) {
 }
 
 async function saveSubscribeResults(userId, results = {}) {
+  // 微信一次性订阅：accept 仅表示当前有 1 条发送额度，发送成功后会被 markSubscriptionConsumed 置为 consumed
   const repo = subscriptionRepo()
   if (!repo || !userId) return { saved: 0 }
   let saved = 0

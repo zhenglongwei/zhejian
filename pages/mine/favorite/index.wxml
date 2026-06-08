@@ -39,7 +39,7 @@
           address="{{item.item.address}}"
           businessHours="{{item.item.businessHours}}"
           caseCount="{{item.item.caseCount}}"
-          bind:tap="onStoreTap"
+          bind:cardtap="onStoreTap"
         />
       </block>
 
@@ -56,7 +56,7 @@
           storeName="{{item.item.storeName}}"
           statusLabel="{{item.available ? '' : (item.unavailableReason || '暂不可用')}}"
           statusVariant="warning"
-          bind:tap="onServiceTap"
+          bind:cardtap="onServiceTap"
         />
       </block>
 
@@ -74,7 +74,7 @@
           maxAmount="{{item.item.maxAmount}}"
           storeName="{{item.item.storeName}}"
           viewCount="{{item.item.viewCount}}"
-          bind:tap="onCaseTap"
+          bind:cardtap="onCaseTap"
         />
       </block>
     </view>

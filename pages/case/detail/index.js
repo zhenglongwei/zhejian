@@ -207,28 +207,43 @@ Page({
   },
 
   onMessage() {
+    if (this._messageNavigating) return
     const { detail } = this.data
     if (!detail || !detail.storeId) {
       wx.showToast({ title: '门店信息不完整', icon: 'none' })
       return
     }
+    this._messageNavigating = true
     wx.navigateTo({
       url: `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
+      complete: () => {
+        this._messageNavigating = false
+      },
     })
   },
 
   onStoreTap(e) {
     if (!this.data.showStorePublicly) return
     const storeId = (e.detail && e.detail.storeId) || (this.data.detail && this.data.detail.storeId)
-    if (!storeId) return
+    if (!storeId || this._storeNavigating) return
+    this._storeNavigating = true
     wx.navigateTo({
       url: `/pages/store/detail/index?id=${storeId}`,
+      complete: () => {
+        this._storeNavigating = false
+      },
     })
   },
 
   onRelatedCaseTap(e) {
-    const { caseId } = e.detail
-    if (!caseId) return
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._relatedCaseNavigating) return
+    this._relatedCaseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._relatedCaseNavigating = false
+      },
+    })
   },
 })

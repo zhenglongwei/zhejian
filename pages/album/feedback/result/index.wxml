@@ -9,7 +9,7 @@
   </ui-card>
 
   <view class="album-feedback-result__actions">
-    <ui-button type="primary" block bind:tap="onBackAlbum">返回相册</ui-button>
-    <ui-button type="secondary" block bind:tap="onBackList">我的相册列表</ui-button>
+    <ui-button type="primary" block bind:btntap="onBackAlbum">返回相册</ui-button>
+    <ui-button type="secondary" block bind:btntap="onBackList">我的相册列表</ui-button>
   </view>
 </view>

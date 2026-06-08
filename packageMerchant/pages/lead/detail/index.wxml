@@ -39,7 +39,7 @@
           maxlength="200"
           bindinput="onContactNoteInput"
         />
-        <ui-button type="secondary" size="sm" disabled="{{acting}}" bind:tap="onSaveContactNote">保存备注</ui-button>
+        <ui-button type="secondary" size="sm" disabled="{{acting}}" bind:btntap="onSaveContactNote">保存备注</ui-button>
       </view>
     </view>
 
@@ -51,7 +51,7 @@
         wx:if="{{showPrimaryAction}}"
         type="primary"
         disabled="{{acting}}"
-        bind:tap="onPrimaryAction"
+        bind:btntap="onPrimaryAction"
       >{{primaryActionText}}</ui-button>
     </ui-fixed-bottom-bar>
   </block>

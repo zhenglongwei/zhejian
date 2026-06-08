@@ -9,7 +9,7 @@
           size="sm"
           disabled="{{item.disabled}}"
           data-key="{{item.key}}"
-          bind:tap="onLeftAction"
+          bind:btntap="onLeftAction"
         >{{item.text}}</ui-button>
       </view>
       <slot wx:else name="left" />
@@ -25,7 +25,7 @@
           disabled="{{item.disabled}}"
           loading="{{item.loading}}"
           data-key="{{item.key}}"
-          bind:tap="onRightAction"
+          bind:btntap="onRightAction"
         >{{item.text}}</ui-button>
       </view>
       <block wx:else>

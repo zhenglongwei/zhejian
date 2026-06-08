@@ -5,7 +5,7 @@
   </view>
   <ui-compliance-notice type="history" text="审核期间可返回本页刷新状态；通过后须刷新登录态以使用商家功能。" />
   <view class="merchant-onboard__actions">
-    <ui-button type="primary" loading="{{submitting}}" bind:tap="onRefreshAudit">刷新审核状态</ui-button>
+    <ui-button type="primary" loading="{{submitting}}" bind:btntap="onRefreshAudit">刷新审核状态</ui-button>
   </view>
 </view>
 
@@ -66,7 +66,7 @@
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店地址 *</text>
       <input class="merchant-form__input" placeholder="详细地址" value="{{form.address}}" data-field="address" bindinput="onInput" />
-      <ui-button type="ghost" size="sm" custom-class="merchant-onboard__loc-btn" bind:tap="onChooseLocation">地图选点</ui-button>
+      <ui-button type="ghost" size="sm" custom-class="merchant-onboard__loc-btn" bind:btntap="onChooseLocation">地图选点</ui-button>
       <text wx:if="{{form.latitude}}" class="text-caption merchant-onboard__loc-hint">已选坐标 {{form.latitude}}, {{form.longitude}}</text>
     </view>
     <view class="merchant-form__section">
@@ -160,7 +160,7 @@
 
   <view class="merchant-form__spacer" />
   <ui-fixed-bottom-bar>
-    <ui-button type="secondary" size="sm" slot="left" loading="{{submitting}}" bind:tap="onSaveDraft">保存草稿</ui-button>
-    <ui-button type="primary" slot="right" loading="{{submitting}}" bind:tap="onSubmit">提交入驻</ui-button>
+    <ui-button type="secondary" size="sm" slot="left" loading="{{submitting}}" bind:btntap="onSaveDraft">保存草稿</ui-button>
+    <ui-button type="primary" slot="right" loading="{{submitting}}" bind:btntap="onSubmit">提交入驻</ui-button>
   </ui-fixed-bottom-bar>
 </view>

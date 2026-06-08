@@ -66,9 +66,14 @@ Page({
   },
 
   onServiceTap(e) {
-    const { serviceId } = e.detail
+    const serviceId = e.detail && e.detail.serviceId
+    if (!serviceId || this._serviceNavigating) return
+    this._serviceNavigating = true
     wx.navigateTo({
       url: `/pages/service/detail/index?id=${serviceId}`,
+      complete: () => {
+        this._serviceNavigating = false
+      },
     })
   },
 

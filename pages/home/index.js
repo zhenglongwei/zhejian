@@ -233,9 +233,13 @@ Page({
 
   onStoreTap(e) {
     const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId) return
+    if (!storeId || this._storeNavigating) return
+    this._storeNavigating = true
     wx.navigateTo({
       url: `/pages/store/detail/index?id=${storeId}`,
+      complete: () => {
+        this._storeNavigating = false
+      },
     })
   },
 

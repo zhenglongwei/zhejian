@@ -9,7 +9,7 @@
     <view class="page-content merchant-wb__hero">
       <text class="text-h1">入驻审核中</text>
       <text class="text-body merchant-wb__sub">审核通过后即可使用商家工作台</text>
-      <ui-button type="primary" bind:tap="onRefreshAudit">查看审核进度</ui-button>
+      <ui-button type="primary" bind:btntap="onRefreshAudit">查看审核进度</ui-button>
     </view>
   </block>
 
@@ -18,7 +18,7 @@
       <text class="text-h1">入驻未通过</text>
       <text wx:if="{{profile.rejectReason}}" class="text-body merchant-wb__sub">{{profile.rejectReason}}</text>
       <text wx:else class="text-body merchant-wb__sub">请修改资料后重新提交</text>
-      <ui-button type="primary" bind:tap="onGoOnboarding">修改入驻资料</ui-button>
+      <ui-button type="primary" bind:btntap="onGoOnboarding">修改入驻资料</ui-button>
     </view>
   </block>
 
@@ -27,7 +27,7 @@
       <text class="text-h1">资料需修改</text>
       <text wx:if="{{profile.rejectReason}}" class="text-body merchant-wb__sub">{{profile.rejectReason}}</text>
       <text wx:else class="text-body merchant-wb__sub">请按审核意见修改后重新提交</text>
-      <ui-button type="primary" bind:tap="onGoOnboarding">修改入驻资料</ui-button>
+      <ui-button type="primary" bind:btntap="onGoOnboarding">修改入驻资料</ui-button>
     </view>
   </block>
 
@@ -35,7 +35,7 @@
     <view class="page-content merchant-wb__hero">
       <text class="text-h1">商家工作台</text>
       <text class="text-body merchant-wb__sub">入驻后可创建服务相册、处理咨询线索与管理服务方案</text>
-      <ui-button type="primary" bind:tap="onGoOnboarding">立即入驻</ui-button>
+      <ui-button type="primary" bind:btntap="onGoOnboarding">立即入驻</ui-button>
     </view>
   </block>
 
@@ -80,7 +80,7 @@
             <text class="text-caption">透明度分</text>
           </view>
         </view>
-        <ui-button type="secondary" size="sm" bind:tap="onDashboard">查看数据概览</ui-button>
+        <ui-button type="secondary" size="sm" bind:btntap="onDashboard">查看数据概览</ui-button>
       </ui-card>
       <ui-card shadow="{{true}}">
         <view class="merchant-wb__stat-row">
@@ -123,15 +123,15 @@
     </view>
     <view class="page-content merchant-wb__actions">
       <text class="text-h3 merchant-wb__section">快捷操作</text>
-      <ui-button type="primary" bind:tap="onCreateAlbum">新建服务相册</ui-button>
-      <ui-button type="secondary" bind:tap="onLeadList">咨询线索</ui-button>
-      <ui-button type="secondary" bind:tap="onMessageList">{{messageButtonLabel}}</ui-button>
-      <ui-button type="secondary" bind:tap="onAlbumList">服务相册管理</ui-button>
-      <ui-button type="secondary" bind:tap="onServiceList">服务方案</ui-button>
-      <ui-button type="secondary" bind:tap="onPreviewStore">预览门店主页</ui-button>
-      <ui-button type="secondary" bind:tap="onShareStore">分享门店</ui-button>
-      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:tap="onEditStore">编辑门店资料</ui-button>
-      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:tap="onStaffManage">员工管理</ui-button>
+      <ui-button type="primary" bind:btntap="onCreateAlbum">新建服务相册</ui-button>
+      <ui-button type="secondary" bind:btntap="onLeadList">咨询线索</ui-button>
+      <ui-button type="secondary" bind:btntap="onMessageList">{{messageButtonLabel}}</ui-button>
+      <ui-button type="secondary" bind:btntap="onAlbumList">服务相册管理</ui-button>
+      <ui-button type="secondary" bind:btntap="onServiceList">服务方案</ui-button>
+      <ui-button type="secondary" bind:btntap="onPreviewStore">预览门店主页</ui-button>
+      <ui-button type="secondary" bind:btntap="onShareStore">分享门店</ui-button>
+      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:btntap="onEditStore">编辑门店资料</ui-button>
+      <ui-button wx:if="{{canManageStaff}}" type="secondary" bind:btntap="onStaffManage">员工管理</ui-button>
     </view>
   </block>
 </view>

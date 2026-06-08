@@ -8,9 +8,9 @@
         title="{{item.cellTitle || item.label}}"
         border="{{index < items.length - 1}}"
         data-id="{{item.id}}"
-        bind:tap="onItemTap"
+        bind:celltap="onItemTap"
       />
     </view>
-    <ui-button type="primary" size="sm" block="{{true}}" bind:tap="onAction">{{actionText}}</ui-button>
+    <ui-button type="primary" size="sm" block="{{true}}" bind:btntap="onAction">{{actionText}}</ui-button>
   </view>
 </ui-card>

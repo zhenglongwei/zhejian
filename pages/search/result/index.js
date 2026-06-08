@@ -384,19 +384,39 @@ Page({
   },
 
   onServiceTap(e) {
-    const { serviceId } = e.detail
-    wx.navigateTo({ url: `/pages/service/detail/index?id=${serviceId}` })
+    const serviceId = e.detail && e.detail.serviceId
+    if (!serviceId || this._serviceNavigating) return
+    this._serviceNavigating = true
+    wx.navigateTo({
+      url: `/pages/service/detail/index?id=${serviceId}`,
+      complete: () => {
+        this._serviceNavigating = false
+      },
+    })
   },
 
   onStoreTap(e) {
     const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId) return
-    wx.navigateTo({ url: `/pages/store/detail/index?id=${storeId}` })
+    if (!storeId || this._storeNavigating) return
+    this._storeNavigating = true
+    wx.navigateTo({
+      url: `/pages/store/detail/index?id=${storeId}`,
+      complete: () => {
+        this._storeNavigating = false
+      },
+    })
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._caseNavigating) return
+    this._caseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._caseNavigating = false
+      },
+    })
   },
 })
 

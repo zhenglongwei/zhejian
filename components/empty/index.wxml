@@ -4,6 +4,6 @@
   <text class="empty__title text-h3">{{title}}</text>
   <text wx:if="{{description}}" class="empty__desc text-caption">{{description}}</text>
   <view wx:if="{{actionText}}" class="empty__action">
-    <ui-button type="primary" size="sm" bind:tap="onAction">{{actionText}}</ui-button>
+    <ui-button type="primary" size="sm" bind:btntap="onAction">{{actionText}}</ui-button>
   </view>
 </view>

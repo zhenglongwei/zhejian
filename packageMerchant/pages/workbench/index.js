@@ -9,7 +9,6 @@ const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantUnreadNotificationCount } = require('../../../services/notification')
-const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
 
@@ -116,10 +115,6 @@ Page({
       unreadMessages = unreadCount || 0
     } catch (e) {
       /* keep zeros */
-    }
-    if (!this._merchantSubscribeRequested) {
-      this._merchantSubscribeRequested = true
-      requestMerchantNotificationSubscribe('merchant')
     }
     this.setData({
       status: 'normal',

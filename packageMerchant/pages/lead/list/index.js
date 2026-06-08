@@ -5,6 +5,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { requestMerchantNotificationSubscribe } = require('../../../../utils/subscribe-message')
 
 Page({
   data: {
@@ -83,13 +84,14 @@ Page({
     this.loadList()
   },
 
-  onCardTap(e) {
+  async onCardTap(e) {
     const { id } = e.detail || {}
     if (!id) return
+    await requestMerchantNotificationSubscribe('lead', { showToast: false })
     wx.navigateTo({ url: `/packageMerchant/pages/lead/detail/index?id=${id}` })
   },
 
-  onCardAction(e) {
+  async onCardAction(e) {
     const { id, action } = e.detail || {}
     if (!id) return
     if (action === 'call') {
@@ -97,6 +99,7 @@ Page({
       this.dialLead(item)
       return
     }
+    await requestMerchantNotificationSubscribe('lead', { showToast: false })
     wx.navigateTo({ url: `/packageMerchant/pages/lead/detail/index?id=${id}` })
   },
 

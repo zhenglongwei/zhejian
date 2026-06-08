@@ -9,6 +9,13 @@
     bind:retry="onRetry"
     bind:unauthaction="onGoLogin"
   >
+    <view wx:if="{{isLoggedIn}}" class="message-list__subscribe">
+      <view class="message-list__subscribe-text">
+        <text class="text-body">微信通知</text>
+        <text class="text-caption">每次点击授权可接收 1 条微信通知，重要操作前请再次授权</text>
+      </view>
+      <ui-button type="secondary" size="sm" bind:btntap="onSubscribeWechat">开启微信通知</ui-button>
+    </view>
     <view wx:if="{{unreadCount > 0 && status === 'normal'}}" class="message-list__toolbar">
       <text class="text-caption">未读 {{unreadCount}} 条</text>
       <text class="text-link text-caption" bindtap="onMarkAllRead">全部已读</text>

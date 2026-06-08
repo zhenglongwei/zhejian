@@ -31,12 +31,12 @@
       >模糊</view>
     </view>
     <view class="mask-editor__actions">
-      <ui-button type="ghost" size="sm" bind:tap="onUndo" disabled="{{!regions.length}}">撤销</ui-button>
-      <ui-button type="ghost" size="sm" bind:tap="onClear" disabled="{{!regions.length}}">清除</ui-button>
+      <ui-button type="ghost" size="sm" bind:btntap="onUndo" disabled="{{!regions.length}}">撤销</ui-button>
+      <ui-button type="ghost" size="sm" bind:btntap="onClear" disabled="{{!regions.length}}">清除</ui-button>
     </view>
   </view>
   <view class="mask-editor__footer">
-    <ui-button type="primary" block loading="{{submitting}}" disabled="{{!ready || submitting}}" bind:tap="onSubmit">
+    <ui-button type="primary" block loading="{{submitting}}" disabled="{{!ready || submitting}}" bind:btntap="onSubmit">
       应用打码（{{regions.length}} 处）
     </ui-button>
   </view>

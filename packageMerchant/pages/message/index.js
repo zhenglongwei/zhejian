@@ -3,6 +3,7 @@ const {
   markMerchantNotificationsRead,
 } = require('../../../services/notification')
 const { isLoggedIn } = require('../../../utils/auth')
+const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 
 Page({
   data: {
@@ -11,6 +12,7 @@ Page({
     needLogin: false,
     list: [],
     unreadCount: 0,
+    isLoggedIn: false,
   },
 
   onShow() {
@@ -26,13 +28,14 @@ Page({
       this.setData({
         status: 'unauthenticated',
         needLogin: true,
+        isLoggedIn: false,
         list: [],
         errorMessage: '',
       })
       return
     }
 
-    this.setData({ status: 'loading', errorMessage: '', needLogin: false })
+    this.setData({ status: 'loading', errorMessage: '', needLogin: false, isLoggedIn: true })
     try {
       const data = await fetchMerchantNotifications({ page: 1, pageSize: 50 })
       const list = data?.list || []
@@ -85,5 +88,13 @@ Page({
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     }
+  },
+
+  onSubscribeWechat() {
+    if (!isLoggedIn()) {
+      this.onGoLogin()
+      return
+    }
+    requestMerchantNotificationSubscribe('merchant')
   },
 })

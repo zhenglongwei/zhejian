@@ -12,13 +12,13 @@ Page({
     needLogin: false,
     list: [],
     unreadCount: 0,
+    isLoggedIn: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
   },
 
   onShow() {
     this.loadList()
-    requestUserNotificationSubscribe('default')
   },
 
   onPullDownRefresh() {
@@ -30,13 +30,14 @@ Page({
       this.setData({
         status: 'unauthenticated',
         needLogin: true,
+        isLoggedIn: false,
         list: [],
         errorMessage: '',
       })
       return
     }
 
-    this.setData({ status: 'loading', errorMessage: '', needLogin: false })
+    this.setData({ status: 'loading', errorMessage: '', needLogin: false, isLoggedIn: true })
     try {
       const data = await fetchUserNotifications({ page: 1, pageSize: 50 })
       const list = data?.list || []
@@ -98,5 +99,13 @@ Page({
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     }
+  },
+
+  onSubscribeWechat() {
+    if (!isLoggedIn()) {
+      this.onLoginTap()
+      return
+    }
+    requestUserNotificationSubscribe('default')
   },
 })

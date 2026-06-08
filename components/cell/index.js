@@ -29,7 +29,7 @@ Component({
   methods: {
     onTap() {
       if (this.properties.disabled) return
-      this.triggerEvent('tap')
+      this.triggerEvent('celltap')
     },
   },
 })

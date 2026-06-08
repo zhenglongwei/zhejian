@@ -8,7 +8,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="page-content merchant-staff__hero">
       <text class="text-body">{{errorMessage}}</text>
-      <ui-button type="primary" bind:tap="onRetry">重试</ui-button>
+      <ui-button type="primary" bind:btntap="onRetry">重试</ui-button>
     </view>
   </block>
 
@@ -56,8 +56,8 @@
             value="{{invitePhone}}"
             bindinput="onInviteInput"
           />
-          <ui-button type="primary" loading="{{inviting}}" bind:tap="onSubmitInvite">确认添加</ui-button>
-          <ui-button type="ghost" bind:tap="onCloseInvite">取消</ui-button>
+          <ui-button type="primary" loading="{{inviting}}" bind:btntap="onSubmitInvite">确认添加</ui-button>
+          <ui-button type="ghost" bind:btntap="onCloseInvite">取消</ui-button>
         </view>
       </block>
       <block wx:else>

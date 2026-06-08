@@ -92,8 +92,15 @@ Page({
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._caseNavigating) return
+    this._caseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._caseNavigating = false
+      },
+    })
   },
 
   onSearchNavigate() {

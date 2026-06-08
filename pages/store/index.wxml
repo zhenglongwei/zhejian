@@ -34,7 +34,7 @@
       caseCount="{{item.caseCount}}"
       cardTags="{{item.cardTags}}"
       showLink="{{true}}"
-      bind:tap="onStoreTap"
+      bind:cardtap="onStoreTap"
     />
   </ui-list-page-shell>
 </view>

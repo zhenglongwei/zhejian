@@ -15,9 +15,10 @@
         </ui-result-hero>
 
         <view class="consult-result__actions">
-          <ui-button type="primary" block bind:tap="onViewConsult">查看咨询详情</ui-button>
-          <ui-button type="secondary" block bind:tap="onViewList">我的咨询</ui-button>
-          <ui-button type="ghost" block bind:tap="onBackHome">返回首页</ui-button>
+          <ui-button type="primary" block bind:btntap="onViewConsult">查看咨询详情</ui-button>
+          <ui-button type="secondary" block bind:btntap="onSubscribeWechat">开启微信通知（门店联系时提醒）</ui-button>
+          <ui-button type="secondary" block bind:btntap="onViewList">我的咨询</ui-button>
+          <ui-button type="ghost" block bind:btntap="onBackHome">返回首页</ui-button>
         </view>
       </block>
 

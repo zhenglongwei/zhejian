@@ -47,12 +47,12 @@
         statusLabel="{{item.statusLabel}}"
         statusVariant="{{item.statusVariant}}"
         showStoreName="{{false}}"
-        bind:tap="onServiceTap"
+        bind:cardtap="onServiceTap"
       />
     </view>
   </block>
 
   <view class="merchant-list-fab page-content">
-    <ui-button type="primary" bind:tap="onCreate">新建服务方案</ui-button>
+    <ui-button type="primary" bind:btntap="onCreate">新建服务方案</ui-button>
   </view>
 </view>

@@ -96,8 +96,15 @@ Page({
   },
 
   onCaseTap(e) {
-    const { caseId } = e.detail
-    wx.navigateTo({ url: `/pages/case/detail/index?id=${caseId}` })
+    const caseId = e.detail && e.detail.caseId
+    if (!caseId || this._caseNavigating) return
+    this._caseNavigating = true
+    wx.navigateTo({
+      url: `/pages/case/detail/index?id=${caseId}`,
+      complete: () => {
+        this._caseNavigating = false
+      },
+    })
   },
 
   onViewAllCases() {
@@ -106,8 +113,14 @@ Page({
 
   onStoreTap(e) {
     const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId) return
-    wx.navigateTo({ url: `/pages/store/detail/index?id=${storeId}` })
+    if (!storeId || this._storeNavigating) return
+    this._storeNavigating = true
+    wx.navigateTo({
+      url: `/pages/store/detail/index?id=${storeId}`,
+      complete: () => {
+        this._storeNavigating = false
+      },
+    })
   },
 
   onCall() {
@@ -153,11 +166,16 @@ Page({
   },
 
   onMessage() {
+    if (this._messageNavigating) return
     const { detail, bookable } = this.data
     if (!detail || !bookable) return
     if (!this.ensureConsultAuth()) return
+    this._messageNavigating = true
     wx.navigateTo({
       url: `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
+      complete: () => {
+        this._messageNavigating = false
+      },
     })
   },
 

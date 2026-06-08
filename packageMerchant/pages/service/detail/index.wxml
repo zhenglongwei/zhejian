@@ -158,7 +158,7 @@
             maxAmount="{{item.maxAmount}}"
             storeName="{{item.storeName}}"
             viewCount="{{item.viewCount}}"
-            bind:tap="onCaseTap"
+            bind:cardtap="onCaseTap"
           />
         </view>
       </view>

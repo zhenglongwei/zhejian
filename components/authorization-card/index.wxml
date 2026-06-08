@@ -17,13 +17,13 @@
     <text wx:if="{{item.vehicleDisplay}}" class="record-card__meta text-caption">{{item.vehicleDisplay}}</text>
 
     <view class="record-card__actions">
-      <ui-button type="secondary" size="sm" bind:tap="onViewAlbum">查看服务相册</ui-button>
+      <ui-button type="secondary" size="sm" bind:btntap="onViewAlbum">查看服务相册</ui-button>
       <ui-button
         wx:if="{{item.canWithdraw}}"
         type="ghost"
         size="sm"
         disabled="{{item.withdrawing}}"
-        bind:tap="onWithdraw"
+        bind:btntap="onWithdraw"
       >撤回授权</ui-button>
     </view>
   </view>

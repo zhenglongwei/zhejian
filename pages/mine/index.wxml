@@ -48,7 +48,7 @@
           badge="{{cell.badge}}"
           border="{{cellIndex < item.items.length - 1}}"
           data-key="{{cell.key}}"
-          bind:tap="onMenuCellTap"
+          bind:celltap="onMenuCellTap"
         />
       </ui-card>
 
