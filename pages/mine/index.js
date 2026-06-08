@@ -1,11 +1,12 @@
 const { fetchMineSummary } = require('../../services/user')
+const { fetchUserServiceAlbums } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections } = require('../../constants/mine-menu')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
+const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
+const { TOOL_HELP_CONTENT } = require('../../constants/help-content')
 
-const PLACEHOLDER_LABELS = {
-  settings: '设置',
-}
+const MINE_ALBUM_PREVIEW_LIMIT = 3
 
 Page({
   data: {
@@ -14,9 +15,13 @@ Page({
     isLoggedIn: false,
     user: null,
     menuSections: buildMineMenuSections({}),
+    albumPreview: [],
+    showAlbumPreview: false,
+    showAlbumEmpty: false,
+    albumPendingAuthBadge: '',
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'consult',
+    loginSheetBindContext: 'album',
     platformNotice: HOME_PLATFORM_IDENTITY,
   },
 
@@ -59,6 +64,10 @@ Page({
         isLoggedIn: false,
         user: null,
         errorMessage: '',
+        albumPreview: [],
+        showAlbumPreview: false,
+        showAlbumEmpty: false,
+        albumPendingAuthBadge: '',
       })
       return
     }
@@ -72,15 +81,42 @@ Page({
           status: 'normal',
           isLoggedIn: false,
           user: null,
+          albumPreview: [],
+          showAlbumPreview: false,
+          showAlbumEmpty: false,
+          albumPendingAuthBadge: '',
         })
         return
       }
+
       const badges = this.buildBadges(summary)
+      let albumPreview = []
+      let showAlbumPreview = false
+      let showAlbumEmpty = false
+
+      const auth = checkAuth({ needPhone: false })
+      if (auth.ok) {
+        try {
+          const raw = await fetchUserServiceAlbums({ tab: 'private' })
+          albumPreview = (raw || [])
+            .slice(0, MINE_ALBUM_PREVIEW_LIMIT)
+            .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
+          showAlbumPreview = albumPreview.length > 0
+          showAlbumEmpty = !(raw || []).length
+        } catch (e) {
+          // 摘要区失败不阻断菜单
+        }
+      }
+
       this.syncMenuSections(badges)
       this.setData({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
+        albumPreview,
+        showAlbumPreview,
+        showAlbumEmpty,
+        albumPendingAuthBadge: badges.albumPendingAuth,
       })
     } catch (e) {
       this.setData({
@@ -94,7 +130,7 @@ Page({
     this.loadPage()
   },
 
-  openLoginSheet(mode = 'auto', bindContext = 'consult') {
+  openLoginSheet(mode = 'auto', bindContext = 'album') {
     this.setData({
       loginSheetVisible: true,
       loginSheetMode: mode,
@@ -148,9 +184,20 @@ Page({
 
   showPlaceholder(key) {
     wx.showToast({
-      title: `${PLACEHOLDER_LABELS[key] || '功能'}将在后续版本开放`,
+      title: `${key === 'settings' ? '设置' : '功能'}将在后续版本开放`,
       icon: 'none',
     })
+  },
+
+  onViewAllAlbums() {
+    if (!this.guardProtectedEntry(true)) return
+    wx.navigateTo({ url: '/pages/album/list/index' })
+  },
+
+  onAlbumCardTap(e) {
+    const albumId = (e.detail && e.detail.id) || ''
+    if (!albumId) return
+    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
   },
 
   onMenuCellTap(e) {
@@ -198,25 +245,17 @@ Page({
 
   onPublicMenuTap(e) {
     const { key } = e.currentTarget.dataset
+    if (key === 'help') {
+      wx.showModal({
+        title: '使用说明与帮助',
+        content: TOOL_HELP_CONTENT,
+        showCancel: false,
+        confirmText: '知道了',
+      })
+      return
+    }
     if (key === 'support') {
       wx.showToast({ title: '客服功能将在后续版本开放', icon: 'none' })
-      return
-    }
-    if (key === 'rules') {
-      wx.showModal({
-        title: '使用规则',
-        content:
-          '辙见致力于提供可验证的维修过程与诚实价格信息。详细规则页将在后续版本开放。',
-        showCancel: false,
-      })
-      return
-    }
-    if (key === 'about') {
-      wx.showModal({
-        title: '关于辙见',
-        content: '辙见 — 像一份可翻阅的服务相册，而不是促销传单。',
-        showCancel: false,
-      })
     }
   },
 })

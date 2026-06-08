@@ -1,147 +1,59 @@
 <view class="page tool-home">
-  <block wx:if="{{status === 'loading'}}">
-    <view class="tool-home__hero tool-home__hero--band">
-      <view class="page-content tool-home__hero-inner">
-        <ui-skeleton rows="{{2}}" title="{{true}}" />
-      </view>
+  <view class="tool-home__hero tool-home__hero--band">
+    <view class="page-content tool-home__hero-inner">
+      <text class="tool-home__kicker text-caption">辙见 · 服务相册</text>
+      <text class="tool-home__title text-h1">服务相册</text>
+      <text class="tool-home__subtitle text-body">查看门店为你创建的维修服务记录</text>
     </view>
-    <view class="page-content tool-home__body">
-      <ui-skeleton rows="{{4}}" />
-      <view class="tool-home__gap">
-        <ui-skeleton rows="{{3}}" />
-      </view>
-    </view>
-  </block>
+  </view>
 
-  <block wx:elif="{{status === 'error'}}">
-    <view class="tool-home__hero tool-home__hero--band">
-      <view class="page-content tool-home__hero-inner">
-        <text class="tool-home__kicker text-caption">辙见 · 服务相册</text>
-        <text class="tool-home__title text-h1">服务相册</text>
-        <text class="tool-home__subtitle text-body">查看门店为你创建的维修服务记录</text>
+  <view class="page-content tool-home__body">
+    <view
+      class="tool-home__scan {{scanning ? 'tool-home__scan--loading' : ''}}"
+      bindtap="onScanTap"
+    >
+      <view class="tool-home__scan-icon" aria-hidden="true">
+        <view class="tool-home__scan-icon-frame"></view>
       </view>
+      <view class="tool-home__scan-copy">
+        <text class="tool-home__scan-title text-h3">扫描门店二维码</text>
+        <text class="tool-home__scan-desc text-caption">扫码打开门店服务相册</text>
+      </view>
+      <text class="tool-home__scan-arrow text-caption" aria-hidden="true">›</text>
     </view>
-    <view class="page-content tool-home__body">
-      <view
-        class="tool-home__scan {{scanning ? 'tool-home__scan--loading' : ''}}"
-        bindtap="onScanTap"
-      >
-        <view class="tool-home__scan-icon" aria-hidden="true">
-          <view class="tool-home__scan-icon-frame"></view>
-        </view>
-        <view class="tool-home__scan-copy">
-          <text class="tool-home__scan-title text-h3">扫描门店二维码</text>
-          <text class="tool-home__scan-desc text-caption">扫码打开门店服务相册</text>
-        </view>
-        <text class="tool-home__scan-arrow text-caption" aria-hidden="true">›</text>
+
+    <view class="tool-home__quick card card--shadow">
+      <view class="tool-home__quick-item" bindtap="onEnterCodeTap">
+        <text class="tool-home__quick-label text-body">输入相册码</text>
+        <text class="tool-home__quick-hint text-caption">门店提供的 alb_ 码</text>
       </view>
-      <view class="tool-home__quick card card--shadow">
-        <view class="tool-home__quick-item" bindtap="onEnterCodeTap">
-          <text class="tool-home__quick-label text-body">输入相册码</text>
-          <text class="tool-home__quick-hint text-caption">门店提供的 alb_ 码</text>
-        </view>
+      <block wx:if="{{!isLoggedIn}}">
         <view class="tool-home__quick-split"></view>
         <view class="tool-home__quick-item" bindtap="onMyAlbumsTap">
           <text class="tool-home__quick-label text-body">我的服务相册</text>
           <text class="tool-home__quick-hint text-caption">{{guestAlbumHint}}</text>
         </view>
-      </view>
-      <ui-empty
-        title="相册列表加载失败"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
+      </block>
+    </view>
+
+    <ui-card wx:if="{{showRecentVisit}}" shadow="{{true}}" padding="{{false}}">
+      <ui-cell
+        title="{{recentVisitLabel}}"
+        arrow="{{true}}"
+        border="{{false}}"
+        bind:celltap="onRecentVisitTap"
       />
-      <view class="tool-home__foot-note">
-        <ui-compliance-notice type="displayDisclaimer" text="{{platformIdentity}}" />
-      </view>
-    </view>
-  </block>
+    </ui-card>
 
-  <block wx:else>
-    <view class="tool-home__hero tool-home__hero--band">
-      <view class="page-content tool-home__hero-inner">
-        <text class="tool-home__kicker text-caption">辙见 · 服务相册</text>
-        <text class="tool-home__title text-h1">服务相册</text>
-        <text class="tool-home__subtitle text-body">查看门店为你创建的维修服务记录</text>
-      </view>
-    </view>
-
-    <view class="page-content tool-home__body">
-      <view
-        class="tool-home__scan {{scanning ? 'tool-home__scan--loading' : ''}}"
-        bindtap="onScanTap"
-      >
-        <view class="tool-home__scan-icon" aria-hidden="true">
-          <view class="tool-home__scan-icon-frame"></view>
-        </view>
-        <view class="tool-home__scan-copy">
-          <text class="tool-home__scan-title text-h3">扫描门店二维码</text>
-          <text class="tool-home__scan-desc text-caption">扫码打开门店服务相册</text>
-        </view>
-        <text class="tool-home__scan-arrow text-caption" aria-hidden="true">›</text>
-      </view>
-
-      <view class="tool-home__quick card card--shadow">
-        <view class="tool-home__quick-item" bindtap="onEnterCodeTap">
-          <text class="tool-home__quick-label text-body">输入相册码</text>
-          <text class="tool-home__quick-hint text-caption">门店提供的 alb_ 码</text>
-        </view>
-        <view class="tool-home__quick-split"></view>
-        <view class="tool-home__quick-item" bindtap="onMyAlbumsTap">
-          <text class="tool-home__quick-label text-body">我的服务相册</text>
-          <text class="tool-home__quick-hint text-caption">{{isLoggedIn ? '查看全部记录' : guestAlbumHint}}</text>
-        </view>
-      </view>
-
-      <ui-card wx:if="{{showRecentVisit}}" shadow="{{true}}" padding="{{false}}">
-        <ui-cell
-          title="{{recentVisitLabel}}"
-          arrow="{{true}}"
-          border="{{false}}"
-          bind:celltap="onRecentVisitTap"
-        />
-      </ui-card>
-
-      <view wx:if="{{showAlbumPreview}}" class="tool-home__section">
-        <view class="tool-home__section-head">
-          <text class="tool-home__section-title text-h3">我的服务记录</text>
-          <text class="tool-home__more text-caption" bindtap="onViewAllAlbums">查看全部</text>
-        </view>
-        <view class="tool-home__album-stack">
-          <ui-album-card
-            wx:for="{{albumPreview}}"
-            wx:key="albumId"
-            item="{{item}}"
-            bind:tap="onAlbumCardTap"
-          />
-        </view>
-      </view>
-
-      <view wx:elif="{{isLoggedIn && showAlbumEmpty}}" class="tool-home__section">
-        <ui-card shadow="{{true}}" padding="{{true}}">
-          <text class="tool-home__section-title text-h3">我的服务记录</text>
-          <text class="tool-home__empty-hint text-caption">暂无服务相册，请扫描门店二维码或输入相册码</text>
-        </ui-card>
-      </view>
-
-      <ui-card shadow="{{true}}" padding="{{false}}">
-        <ui-cell
-          wx:if="{{showH5PublicCaseLink}}"
-          title="{{h5SiteLabel}}"
-          arrow="{{true}}"
-          border="{{true}}"
-          bind:celltap="onH5SiteTap"
-        />
-        <ui-cell title="我是商家，进入工作台" arrow="{{true}}" border="{{true}}" bind:celltap="onMerchantTap" />
-        <ui-cell title="使用说明" arrow="{{true}}" border="{{false}}" bind:celltap="onHelpTap" />
-      </ui-card>
-
-      <view class="tool-home__foot-note">
-        <ui-compliance-notice type="displayDisclaimer" text="{{platformIdentity}}" />
-      </view>
-    </view>
-  </block>
+    <ui-card wx:if="{{showH5PublicCaseLink}}" shadow="{{true}}" padding="{{false}}">
+      <ui-cell
+        title="{{h5SiteLabel}}"
+        arrow="{{true}}"
+        border="{{false}}"
+        bind:celltap="onH5SiteTap"
+      />
+    </ui-card>
+  </view>
 
   <ui-bottom-sheet
     visible="{{enterCodeVisible}}"

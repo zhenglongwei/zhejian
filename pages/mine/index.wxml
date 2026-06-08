@@ -32,6 +32,29 @@
         />
       </ui-card>
 
+      <view wx:if="{{showAlbumPreview}}" class="mine__album-section">
+        <view class="mine__section-head">
+          <view class="mine__section-title-wrap">
+            <text class="mine__section-title text-h3">我的服务记录</text>
+            <text wx:if="{{albumPendingAuthBadge}}" class="mine__section-badge">{{albumPendingAuthBadge}}</text>
+          </view>
+          <text class="mine__more text-caption" bindtap="onViewAllAlbums">查看全部</text>
+        </view>
+        <view class="mine__album-stack">
+          <ui-album-card
+            wx:for="{{albumPreview}}"
+            wx:key="albumId"
+            item="{{item}}"
+            bind:tap="onAlbumCardTap"
+          />
+        </view>
+      </view>
+
+      <ui-card wx:elif="{{isLoggedIn && showAlbumEmpty}}" shadow="{{true}}" padding="{{true}}">
+        <text class="mine__section-title text-h3">我的服务记录</text>
+        <text class="mine__empty-hint text-caption">暂无服务相册，请返回首页扫描门店二维码或输入相册码</text>
+      </ui-card>
+
       <ui-card
         wx:for="{{menuSections}}"
         wx:key="key"

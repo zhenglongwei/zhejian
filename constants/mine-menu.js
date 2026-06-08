@@ -58,14 +58,18 @@ const MINE_TOOL_MENUS = [
 
 /** 未登录也可访问 */
 const MINE_PUBLIC_MENUS = [
+  {
+    key: 'help',
+    label: '使用说明与帮助',
+    desc: '车主与商家使用指引',
+  },
   { key: 'support', label: '联系客服' },
-  { key: 'rules', label: '使用规则' },
-  { key: 'about', label: '关于辙见' },
 ]
 
 const MINE_MERCHANT_ITEM = {
   key: 'merchant',
   label: '商家工作台',
+  desc: '创建服务相册与管理门店',
   needPhone: false,
 }
 

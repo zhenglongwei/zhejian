@@ -1,9 +1,7 @@
 const { fetchUserServiceAlbums } = require('../../services/service-album')
-const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 const { openH5ContentSite } = require('../../constants/h5-links')
 const { navigateToScanTarget, navigateFromAlbumCode } = require('../../utils/tool-scan')
 const { markMerchantToolEntry, shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
-const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../utils/auth')
 const {
   getRecentVisit,
@@ -12,24 +10,16 @@ const {
 } = require('../../utils/recent-visit')
 const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 
-const HOME_ALBUM_PREVIEW_LIMIT = 5
-
 Page({
   data: {
-    status: 'normal',
-    errorMessage: '',
-    platformIdentity: HOME_PLATFORM_IDENTITY,
-    h5SiteLabel: '想了解公开维修案例？前往辙见内容站',
     isLoggedIn: false,
-    albumPreview: [],
-    showAlbumPreview: false,
-    showAlbumEmpty: false,
     enterCodeVisible: false,
     enterCodeValue: '',
     loginSheetVisible: false,
-    loginSheetMode: 'auto',
+    loginSheetMode: 'login',
     scanning: false,
     showH5PublicCaseLink: false,
+    h5SiteLabel: '想了解公开维修案例？前往辙见内容站',
     showRecentVisit: false,
     recentVisitLabel: '',
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
@@ -45,52 +35,32 @@ Page({
 
   async refreshPage() {
     const loggedIn = isLoggedIn()
-    let hasAlbumBindings = false
-    let albumPreview = []
-    let showAlbumPreview = false
-    let showAlbumEmpty = false
-    let status = 'normal'
-    let errorMessage = ''
-
-    if (loggedIn) {
-      const auth = checkAuth({ needPhone: false })
-      if (auth.ok) {
-        this.setData({ status: 'loading', errorMessage: '' })
-        try {
-          const raw = await fetchUserServiceAlbums({ tab: 'private' })
-          hasAlbumBindings = (raw || []).length > 0
-          albumPreview = (raw || [])
-            .slice(0, HOME_ALBUM_PREVIEW_LIMIT)
-            .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
-          showAlbumPreview = albumPreview.length > 0
-          showAlbumEmpty = !hasAlbumBindings
-          status = 'normal'
-        } catch (e) {
-          status = 'error'
-          errorMessage = (e && e.message) || '加载失败，请稍后重试'
-        }
-      }
-    }
-
     const recent = getRecentVisit()
     const recentVisitLabel = buildRecentVisitLabel(recent)
     this.recentVisitPath = buildRecentVisitPath(recent)
 
     this.setData({
       isLoggedIn: loggedIn,
-      status,
-      errorMessage,
-      albumPreview,
-      showAlbumPreview,
-      showAlbumEmpty,
-      showH5PublicCaseLink: shouldShowH5PublicCaseLink({ hasAlbumBindings }),
       showRecentVisit: Boolean(recent && recentVisitLabel),
       recentVisitLabel,
+      showH5PublicCaseLink: shouldShowH5PublicCaseLink({ hasAlbumBindings: false }),
     })
-  },
 
-  onRetry() {
-    this.refreshPage()
+    if (!loggedIn) return
+
+    const auth = checkAuth({ needPhone: false })
+    if (!auth.ok) return
+
+    try {
+      const raw = await fetchUserServiceAlbums({ tab: 'private' })
+      this.setData({
+        showH5PublicCaseLink: shouldShowH5PublicCaseLink({
+          hasAlbumBindings: (raw || []).length > 0,
+        }),
+      })
+    } catch (e) {
+      // H5 条件展示失败时不阻断工具首页
+    }
   },
 
   onScanTap() {
@@ -136,21 +106,8 @@ Page({
   },
 
   onMyAlbumsTap() {
-    if (!isLoggedIn()) {
-      this.setData({ loginSheetVisible: true, loginSheetMode: 'login' })
-      return
-    }
-    wx.navigateTo({ url: '/pages/album/list/index' })
-  },
-
-  onAlbumCardTap(e) {
-    const albumId = (e.detail && e.detail.id) || ''
-    if (!albumId) return
-    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
-  },
-
-  onViewAllAlbums() {
-    this.onMyAlbumsTap()
+    if (isLoggedIn()) return
+    this.setData({ loginSheetVisible: true, loginSheetMode: 'login' })
   },
 
   onH5SiteTap() {
@@ -162,27 +119,12 @@ Page({
     wx.navigateTo({ url: this.recentVisitPath })
   },
 
-  onMerchantTap() {
-    wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
-  },
-
-  onHelpTap() {
-    wx.showModal({
-      title: '使用说明',
-      content:
-        '车主：扫描门店二维码或输入相册码，查看维修服务记录；登录后在「我的服务相册」管理记录。\n\n商家：点击「我是商家」进入工作台，创建服务相册并邀请车主查看。',
-      showCancel: false,
-      confirmText: '知道了',
-    })
-  },
-
   closeLoginSheet() {
     this.setData({ loginSheetVisible: false })
   },
 
   onLoginSheetSuccess() {
     this.closeLoginSheet()
-    this.refreshPage()
-    wx.navigateTo({ url: '/pages/album/list/index' })
+    wx.switchTab({ url: '/pages/mine/index' })
   },
 })
