@@ -146,8 +146,8 @@
             data-key="views"
             bindtap="onCasePublishSummaryTap"
           >
-            <text class="merchant-wb__todo-num text-h2 text-numeric">{{casePublish.caseViews7d}}</text>
-            <text class="text-caption">案例浏览</text>
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{casePublish.h5CaseViews7d || casePublish.caseViews7d}}</text>
+            <text class="text-caption">H5 案例浏览</text>
           </view>
         </view>
         <block wx:if="{{casePublishRecent.length}}">
@@ -163,7 +163,7 @@
             >
               <view class="merchant-wb__case-main">
                 <text class="text-body merchant-wb__case-title">{{item.title}}</text>
-                <text class="text-caption merchant-wb__case-meta">{{item.serviceName}} · 近7天 {{item.viewCount7d}} 次浏览</text>
+                <text class="text-caption merchant-wb__case-meta">{{item.serviceName}} · 近7天 H5 {{item.h5ViewCount7d || 0}} · 小程序 {{item.mpViewCount7d || 0}}</text>
               </view>
               <text class="text-caption merchant-wb__case-status {{item.publishStatus === 'published_wechat' ? 'merchant-wb__case-status--wechat' : ''}}">{{item.publishLabel}}</text>
             </view>
@@ -183,7 +183,7 @@
           <view class="merchant-wb__metric-row">
             <view class="merchant-wb__metric merchant-wb__metric--tap" bindtap="onDashboard">
               <text class="merchant-wb__metric-num text-h2 text-numeric">{{overview.caseViews}}</text>
-              <text class="text-caption">案例浏览</text>
+              <text class="text-caption">H5 案例浏览</text>
             </view>
             <view class="merchant-wb__metric merchant-wb__metric--tap" bindtap="onDashboard">
               <text class="merchant-wb__metric-num text-h2 text-numeric">{{overview.leadSubmit}}</text>

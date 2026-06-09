@@ -19,6 +19,8 @@ function emptyDisplay() {
   return {
     totalViews: '0',
     caseViewCount: '0',
+    h5CaseViewCount: '0',
+    mpCaseViewCount: '0',
     crawlerViewCount: '0',
     phoneClickCount: '0',
     leadSubmitCount: '0',
@@ -99,6 +101,8 @@ Page({
     return {
       totalViews: formatCount(sumViews(summary)),
       caseViewCount: formatCount(summary.caseViewCount),
+      h5CaseViewCount: formatCount(summary.h5CaseViewCount),
+      mpCaseViewCount: formatCount(summary.mpCaseViewCount),
       crawlerViewCount: formatCount(summary.crawlerViewCount),
       phoneClickCount: formatCount(summary.phoneClickCount),
       leadSubmitCount: formatCount(summary.leadSubmitCount),

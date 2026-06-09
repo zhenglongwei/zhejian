@@ -247,11 +247,11 @@ Page({
           })
         }
       }
-      wx.showToast({ title: '已授权公示，审核通过后将自动展示', icon: 'success' })
-      requestUserNotificationSubscribe('authorize')
+      await requestUserNotificationSubscribe('authorize', { showToast: false })
+      wx.showToast({ title: '已授权公示，审核通过后将自动展示', icon: 'success', duration: 2000 })
       setTimeout(() => {
         this.onBackAlbum()
-      }, 700)
+      }, 2000)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
     } finally {

@@ -567,6 +567,8 @@ model MerchantDailyStats {
   storeViewCount      Int      @default(0) @map("store_view_count")
   serviceViewCount    Int      @default(0) @map("service_view_count")
   caseViewCount       Int      @default(0) @map("case_view_count")
+  h5CaseViewCount     Int      @default(0) @map("h5_case_view_count")
+  mpCaseViewCount     Int      @default(0) @map("mp_case_view_count")
   geoViewCount        Int      @default(0) @map("geo_view_count")
   crawlerViewCount    Int      @default(0) @map("crawler_view_count")
   phoneClickCount     Int      @default(0) @map("phone_click_count")

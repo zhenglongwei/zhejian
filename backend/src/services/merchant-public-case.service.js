@@ -13,7 +13,9 @@ const {
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { buildCaseH5Url } = require('./case-article-publish.service')
 
-const CASE_VIEW_EVENTS = ['h5_case_view', 'case_view']
+const H5_CASE_VIEW_EVENT = 'h5_case_view'
+const MP_CASE_VIEW_EVENT = 'case_view'
+const CASE_VIEW_EVENTS = [H5_CASE_VIEW_EVENT, MP_CASE_VIEW_EVENT]
 const RECENT_LIMIT = 5
 
 function paramCaseId(params) {
@@ -67,7 +69,11 @@ async function countCaseViews7d(storeId, caseIds = null) {
   })
 
   let total = 0
+  let h5Total = 0
+  let mpTotal = 0
   const perCase = {}
+  const perCaseH5 = {}
+  const perCaseMp = {}
   const idSet =
     Array.isArray(caseIds) && caseIds.length ? new Set(caseIds) : null
 
@@ -76,12 +82,19 @@ async function countCaseViews7d(storeId, caseIds = null) {
     if (paramStoreId(params) !== storeId) continue
     const caseId = paramCaseId(params)
     if (!caseId) continue
+    const isH5 = row.eventName === H5_CASE_VIEW_EVENT
+    const isMp = row.eventName === MP_CASE_VIEW_EVENT
+    if (!isH5 && !isMp) continue
     total += 1
+    if (isH5) h5Total += 1
+    if (isMp) mpTotal += 1
     if (idSet && !idSet.has(caseId)) continue
     perCase[caseId] = (perCase[caseId] || 0) + 1
+    if (isH5) perCaseH5[caseId] = (perCaseH5[caseId] || 0) + 1
+    if (isMp) perCaseMp[caseId] = (perCaseMp[caseId] || 0) + 1
   }
 
-  return { total, perCase }
+  return { total, h5Total, mpTotal, perCase, perCaseH5, perCaseMp }
 }
 
 async function fetchMerchantCasePublishPanel(storeId) {
@@ -135,7 +148,14 @@ async function fetchMerchantCasePublishPanel(storeId) {
   ])
 
   const caseIds = recentRows.map((row) => row.id)
-  const { total: caseViews7d, perCase: viewMap } = await countCaseViews7d(storeId, caseIds)
+  const {
+    total: caseViews7d,
+    h5Total: h5CaseViews7d,
+    mpTotal: mpCaseViews7d,
+    perCase: viewMap,
+    perCaseH5: h5ViewMap,
+    perCaseMp: mpViewMap,
+  } = await countCaseViews7d(storeId, caseIds)
 
   const recent = recentRows.map((row) => {
     const publish = resolvePublishLabel(row)
@@ -158,6 +178,8 @@ async function fetchMerchantCasePublishPanel(storeId) {
       h5Url,
       coverImage: resolvePublicCaseMediaUrl(row.coverImage || ''),
       viewCount7d: viewMap[row.id] || 0,
+      h5ViewCount7d: h5ViewMap[row.id] || 0,
+      mpViewCount7d: mpViewMap[row.id] || 0,
       publishedAt: row.publishedAt ? toIso(row.publishedAt) : '',
       updatedAt: row.updatedAt ? toIso(row.updatedAt) : '',
     }
@@ -171,6 +193,8 @@ async function fetchMerchantCasePublishPanel(storeId) {
       publishedH5,
       readyToPublish,
       caseViews7d,
+      h5CaseViews7d,
+      mpCaseViews7d,
     },
     recent,
   }

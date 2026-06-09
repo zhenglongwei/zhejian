@@ -53,6 +53,7 @@ Page({
     },
     overview: {
       caseViews: '0',
+      mpCaseViews: '0',
       leadSubmit: '0',
       transparency: '0',
     },
@@ -62,6 +63,8 @@ Page({
       publishedH5: 0,
       readyToPublish: 0,
       caseViews7d: 0,
+      h5CaseViews7d: 0,
+      mpCaseViews7d: 0,
     },
     casePublishRecent: [],
     canManageStaff: false,
@@ -123,6 +126,8 @@ Page({
       publishedH5: 0,
       readyToPublish: 0,
       caseViews7d: 0,
+      h5CaseViews7d: 0,
+      mpCaseViews7d: 0,
     }
     let casePublishRecent = []
     let storeOptions = []
@@ -167,12 +172,15 @@ Page({
           publishedH5: summary.publishedH5 || 0,
           readyToPublish: summary.readyToPublish || 0,
           caseViews7d: summary.caseViews7d || 0,
+          h5CaseViews7d: summary.h5CaseViews7d || 0,
+          mpCaseViews7d: summary.mpCaseViews7d || 0,
         }
         casePublishRecent = publishPanel.recent || []
       }
       if (dashStats && dashStats.summary) {
         overview = {
-          caseViews: formatCount(dashStats.summary.caseViewCount),
+          caseViews: formatCount(dashStats.summary.h5CaseViewCount ?? dashStats.summary.caseViewCount),
+          mpCaseViews: formatCount(dashStats.summary.mpCaseViewCount),
           leadSubmit: formatCount(dashStats.summary.leadSubmitCount),
           transparency: formatCount(
             dashStats.transparency?.score ?? dashStats.summary.transparencyScore

@@ -81,9 +81,15 @@
             <text class="text-caption">总浏览</text>
           </view>
           <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.caseViewCount}}</text>
-            <text class="text-caption">案例浏览</text>
+            <text class="merchant-dash__metric-num text-h2">{{display.h5CaseViewCount}}</text>
+            <text class="text-caption">H5 案例浏览</text>
           </view>
+          <view class="merchant-dash__metric">
+            <text class="merchant-dash__metric-num text-h2">{{display.mpCaseViewCount}}</text>
+            <text class="text-caption">小程序案例</text>
+          </view>
+        </view>
+        <view class="merchant-dash__metric-row">
           <view class="merchant-dash__metric">
             <text class="merchant-dash__metric-num text-h2">{{display.phoneClickCount}}</text>
             <text class="text-caption">电话点击</text>
@@ -165,7 +171,7 @@
             <text class="merchant-dash__rank-no text-caption">{{item.rank}}</text>
             <view class="merchant-dash__rank-main">
               <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-              <text class="text-caption">浏览 {{item.viewCountText}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+              <text class="text-caption">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
             </view>
           </view>
         </block>
@@ -179,7 +185,7 @@
             <text class="merchant-dash__rank-no text-caption">{{item.rank}}</text>
             <view class="merchant-dash__rank-main">
               <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-              <text class="text-caption">浏览 {{item.viewCountText}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+              <text class="text-caption">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
             </view>
           </view>
         </block>

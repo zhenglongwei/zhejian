@@ -21,7 +21,9 @@ const CORE_NODE_DONE_MIN = 4
 
 const STORE_VIEW_EVENTS = new Set(['store_view', 'h5_store_view'])
 const SERVICE_VIEW_EVENTS = new Set(['service_view', 'h5_service_view'])
-const CASE_VIEW_EVENTS = new Set(['case_view', 'h5_case_view'])
+const H5_CASE_VIEW_EVENT = 'h5_case_view'
+const MP_CASE_VIEW_EVENT = 'case_view'
+const CASE_VIEW_EVENTS = new Set([MP_CASE_VIEW_EVENT, H5_CASE_VIEW_EVENT])
 const PHONE_EVENTS = new Set(['phone_click', 'h5_call_click'])
 const GEO_EVENTS = new Set(['geo_page_view'])
 const CRAWLER_VIEW_EVENTS = new Set(['h5_crawler_view'])
@@ -58,6 +60,8 @@ async function countEventMetrics(storeId, start, end) {
     storeViewCount: 0,
     serviceViewCount: 0,
     caseViewCount: 0,
+    h5CaseViewCount: 0,
+    mpCaseViewCount: 0,
     geoViewCount: 0,
     crawlerViewCount: 0,
     phoneClickCount: 0,
@@ -70,7 +74,14 @@ async function countEventMetrics(storeId, start, end) {
 
     if (STORE_VIEW_EVENTS.has(name)) metrics.storeViewCount += 1
     if (SERVICE_VIEW_EVENTS.has(name)) metrics.serviceViewCount += 1
-    if (CASE_VIEW_EVENTS.has(name)) metrics.caseViewCount += 1
+    if (name === H5_CASE_VIEW_EVENT) {
+      metrics.h5CaseViewCount += 1
+      metrics.caseViewCount += 1
+    }
+    if (name === MP_CASE_VIEW_EVENT) {
+      metrics.mpCaseViewCount += 1
+      metrics.caseViewCount += 1
+    }
     if (PHONE_EVENTS.has(name)) metrics.phoneClickCount += 1
     if (GEO_EVENTS.has(name)) metrics.geoViewCount += 1
     if (CRAWLER_VIEW_EVENTS.has(name)) metrics.crawlerViewCount += 1
@@ -329,6 +340,8 @@ function sumRows(rows) {
     storeViewCount: 0,
     serviceViewCount: 0,
     caseViewCount: 0,
+    h5CaseViewCount: 0,
+    mpCaseViewCount: 0,
     geoViewCount: 0,
     crawlerViewCount: 0,
     phoneClickCount: 0,
@@ -344,6 +357,8 @@ function sumRows(rows) {
     summary.storeViewCount += r.storeViewCount
     summary.serviceViewCount += r.serviceViewCount
     summary.caseViewCount += r.caseViewCount
+    summary.h5CaseViewCount += r.h5CaseViewCount || 0
+    summary.mpCaseViewCount += r.mpCaseViewCount || 0
     summary.geoViewCount += r.geoViewCount
     summary.crawlerViewCount += r.crawlerViewCount
     summary.phoneClickCount += r.phoneClickCount
@@ -482,6 +497,8 @@ async function fetchMerchantStats(auth, query = {}) {
         storeViewCount: 0,
         serviceViewCount: 0,
         caseViewCount: 0,
+        h5CaseViewCount: 0,
+        mpCaseViewCount: 0,
         geoViewCount: 0,
         crawlerViewCount: 0,
         phoneClickCount: 0,
@@ -500,6 +517,8 @@ async function fetchMerchantStats(auth, query = {}) {
     item.storeViewCount += row.storeViewCount
     item.serviceViewCount += row.serviceViewCount
     item.caseViewCount += row.caseViewCount
+    item.h5CaseViewCount += row.h5CaseViewCount || 0
+    item.mpCaseViewCount += row.mpCaseViewCount || 0
     item.geoViewCount += row.geoViewCount
     item.crawlerViewCount += row.crawlerViewCount
     item.phoneClickCount += row.phoneClickCount

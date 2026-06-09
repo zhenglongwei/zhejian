@@ -29,7 +29,9 @@
 | UI | 字段 |
 | --- | --- |
 | 站外总浏览 | `storeView + serviceView + caseView` |
-| 案例浏览 | `caseViewCount` |
+| 案例浏览（合计） | `caseViewCount` |
+| H5 案例浏览 | `h5CaseViewCount` |
+| 小程序案例浏览 | `mpCaseViewCount` |
 | 电话点击 | `phoneClickCount` |
 | 线索提交/已联系/已关闭 | `leadSubmitCount` 等 |
 | 案例留资 | `caseConsultCount` |

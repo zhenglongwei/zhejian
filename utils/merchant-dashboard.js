@@ -39,13 +39,22 @@ const PERIOD_TABS = [
 ]
 
 function formatRankRows(items, titleKey) {
-  return (items || []).map((item, index) => ({
-    rank: index + 1,
-    title: item[titleKey] || item.title || item.name || '—',
-    viewCountText: formatCount(item.viewCount),
-    leadCountText: formatCount(item.leadCount),
-    leadRateText: formatRate(item.leadRate),
-  }))
+  return (items || []).map((item, index) => {
+    const h5 = item.h5ViewCount || 0
+    const mp = item.mpViewCount || 0
+    const viewDetail =
+      h5 > 0 || mp > 0
+        ? `H5 ${formatCount(h5)} · 小程序 ${formatCount(mp)}`
+        : ''
+    return {
+      rank: index + 1,
+      title: item[titleKey] || item.title || item.name || '—',
+      viewCountText: formatCount(item.viewCount),
+      viewDetailText: viewDetail,
+      leadCountText: formatCount(item.leadCount),
+      leadRateText: formatRate(item.leadRate),
+    }
+  })
 }
 
 module.exports = {

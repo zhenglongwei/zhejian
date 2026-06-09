@@ -4,7 +4,9 @@ const { LEAD_STATUS } = require('../constants/v2')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
 
 const TOP_LIMIT = 5
-const CASE_VIEW_EVENTS = new Set(['h5_case_view', 'case_view'])
+const H5_CASE_VIEW_EVENT = 'h5_case_view'
+const MP_CASE_VIEW_EVENT = 'case_view'
+const CASE_VIEW_EVENTS = new Set([MP_CASE_VIEW_EVENT, H5_CASE_VIEW_EVENT])
 const SERVICE_VIEW_EVENTS = new Set(['h5_service_view', 'service_view'])
 const STALE_LEAD_MS = 24 * 60 * 60 * 1000
 
@@ -80,12 +82,20 @@ async function fetchTopCases(storeIds, range) {
   ])
 
   const viewMap = {}
+  const h5ViewMap = {}
+  const mpViewMap = {}
   for (const row of logs) {
     const storeId = paramStoreId(row.eventParams)
     if (!inStoreScope(storeIds, storeId)) continue
     const caseId = paramCaseId(row.eventParams)
     if (!caseId) continue
     viewMap[caseId] = (viewMap[caseId] || 0) + 1
+    if (row.eventName === H5_CASE_VIEW_EVENT) {
+      h5ViewMap[caseId] = (h5ViewMap[caseId] || 0) + 1
+    }
+    if (row.eventName === MP_CASE_VIEW_EVENT) {
+      mpViewMap[caseId] = (mpViewMap[caseId] || 0) + 1
+    }
   }
 
   const leadMap = {}
@@ -104,6 +114,8 @@ async function fetchTopCases(storeIds, range) {
         caseId,
         title: titleMap[caseId] || caseId,
         viewCount,
+        h5ViewCount: h5ViewMap[caseId] || 0,
+        mpViewCount: mpViewMap[caseId] || 0,
         leadCount,
         leadRate: buildLeadRate(viewCount, leadCount),
       }
