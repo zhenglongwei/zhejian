@@ -1,10 +1,10 @@
 const { fetchMineSummary } = require('../../services/user')
-const { fetchUserServiceAlbums } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections } = require('../../constants/mine-menu')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { TOOL_HELP_CONTENT } = require('../../constants/help-content')
+const { openPlatformSupportContact } = require('../../utils/support-contact')
 
 const MINE_ALBUM_PREVIEW_LIMIT = 3
 
@@ -90,23 +90,12 @@ Page({
       }
 
       const badges = this.buildBadges(summary)
-      let albumPreview = []
-      let showAlbumPreview = false
-      let showAlbumEmpty = false
-
-      const auth = checkAuth({ needPhone: false })
-      if (auth.ok) {
-        try {
-          const raw = await fetchUserServiceAlbums({ tab: 'private' })
-          albumPreview = (raw || [])
-            .slice(0, MINE_ALBUM_PREVIEW_LIMIT)
-            .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
-          showAlbumPreview = albumPreview.length > 0
-          showAlbumEmpty = !(raw || []).length
-        } catch (e) {
-          // 摘要区失败不阻断菜单
-        }
-      }
+      const rawAlbums = summary.recentAlbums || []
+      const albumPreview = rawAlbums
+        .slice(0, MINE_ALBUM_PREVIEW_LIMIT)
+        .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
+      const showAlbumPreview = albumPreview.length > 0
+      const showAlbumEmpty = !summary.hasAlbumBindings
 
       this.syncMenuSections(badges)
       this.setData({
@@ -255,7 +244,7 @@ Page({
       return
     }
     if (key === 'support') {
-      wx.showToast({ title: '客服功能将在后续版本开放', icon: 'none' })
+      openPlatformSupportContact()
     }
   },
 })

@@ -1,4 +1,4 @@
-const { fetchUserServiceAlbums } = require('../../services/service-album')
+const { fetchMineSummary } = require('../../services/user')
 const { openH5ContentSite } = require('../../constants/h5-links')
 const { navigateToScanTarget, navigateFromAlbumCode } = require('../../utils/tool-scan')
 const { markMerchantToolEntry, shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
@@ -52,10 +52,10 @@ Page({
     if (!auth.ok) return
 
     try {
-      const raw = await fetchUserServiceAlbums({ tab: 'private' })
+      const summary = await fetchMineSummary()
       this.setData({
         showH5PublicCaseLink: shouldShowH5PublicCaseLink({
-          hasAlbumBindings: (raw || []).length > 0,
+          hasAlbumBindings: Boolean(summary && summary.hasAlbumBindings),
         }),
       })
     } catch (e) {

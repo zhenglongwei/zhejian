@@ -1,7 +1,7 @@
 const MINE_FAVORITE_ITEM = {
   key: 'favorite',
   label: '我的收藏',
-  desc: '收藏的服务与门店',
+  desc: '收藏的公开案例与门店（仅供浏览参考）',
   needPhone: true,
   url: '/pages/mine/favorite/index',
 }
@@ -63,7 +63,7 @@ const MINE_PUBLIC_MENUS = [
     label: '使用说明与帮助',
     desc: '车主与商家使用指引',
   },
-  { key: 'support', label: '联系客服' },
+  { key: 'support', label: '联系客服', desc: '内容、隐私与账号问题' },
 ]
 
 const MINE_MERCHANT_ITEM = {

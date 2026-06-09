@@ -5,6 +5,12 @@ const { signSessionToken, ROLES } = require('../lib/jwt')
 const { code2Session, getPhoneNumber } = require('../lib/wechat')
 const { resolveMerchantContext } = require('./merchant-context.service')
 const { linkPendingStaffForUser } = require('./merchant-staff.service')
+const {
+  listUserRecentServiceAlbums,
+  countUserServiceAlbumBindings,
+} = require('./service-album.service')
+
+const MINE_RECENT_ALBUMS_LIMIT = 3
 
 function formatUserPayload(user) {
   const phone = user.phone || ''
@@ -187,7 +193,8 @@ async function fetchMineSummary(userId) {
 
   const phone = user.phone || ''
   const merchantCtx = await resolveMerchantContext(userId)
-  const [consultPending, albumPendingAuth, unreadNotificationCount] = await Promise.all([
+  const [consultPending, albumPendingAuth, unreadNotificationCount, recentAlbums, albumBindingCount] =
+    await Promise.all([
     prisma.consultLead.count({
       where: {
         userId,
@@ -210,6 +217,8 @@ async function fetchMineSummary(userId) {
         return 0
       }
     })(),
+    listUserRecentServiceAlbums(userId, MINE_RECENT_ALBUMS_LIMIT),
+    countUserServiceAlbumBindings(userId),
   ])
 
   return {
@@ -220,6 +229,8 @@ async function fetchMineSummary(userId) {
     albumPendingAuth,
     unreadNotificationCount,
     authorizeCount: 0,
+    recentAlbums,
+    hasAlbumBindings: albumBindingCount > 0,
   }
 }
 

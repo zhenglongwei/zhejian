@@ -317,10 +317,79 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
   return imageCount
 }
 
+function buildUserAlbumWhere(userId, phone) {
+  return phone ? { OR: [{ userId }, { userPhone: phone }] } : { userId }
+}
+
+async function countUserServiceAlbumBindings(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = user?.phone || ''
+  const count = await prisma.album.count({
+    where: {
+      ...buildUserAlbumWhere(userId, phone),
+      imageCount: { gt: 0 },
+    },
+  })
+  return count
+}
+
+/** 我的页摘要：轻量查询最近 N 条私密相册（不含 nodes/images） */
+async function listUserRecentServiceAlbums(userId, limit = 3) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = user?.phone || ''
+
+  const albums = await prisma.album.findMany({
+    where: {
+      ...buildUserAlbumWhere(userId, phone),
+      imageCount: { gt: 0 },
+      publicCaseStatus: { not: 'public_approved' },
+    },
+    select: {
+      id: true,
+      serviceName: true,
+      storeName: true,
+      storeId: true,
+      vehicleJson: true,
+      status: true,
+      imageCount: true,
+      publicCaseStatus: true,
+      pendingConfirmsJson: true,
+      createdAt: true,
+      updatedAt: true,
+      authorization: { select: { status: true } },
+      publicCase: { select: { status: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: Math.max(1, Math.min(Number(limit) || 3, 5)),
+  })
+
+  return albums.map((album) => {
+    const vehicle = album.vehicleJson || {}
+    const publicCaseStatus = resolvePublicCaseStatus(album)
+    return {
+      id: album.id,
+      albumId: album.id,
+      serviceName: album.serviceName || '—',
+      storeName: album.storeName || '',
+      storeId: album.storeId || '',
+      vehicleDisplay: formatVehicle(vehicle),
+      status: album.status,
+      imageCount: album.imageCount || 0,
+      pendingCount: Array.isArray(album.pendingConfirmsJson)
+        ? album.pendingConfirmsJson.length
+        : 0,
+      publicCaseStatus,
+      createdAt: toIso(album.createdAt),
+      updatedAt: toIso(album.updatedAt),
+      isPublic: publicCaseStatus === 'public_approved',
+    }
+  })
+}
+
 async function listUserServiceAlbums(userId, options = {}) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   const phone = user?.phone || ''
-  const where = phone ? { OR: [{ userId }, { userPhone: phone }] } : { userId }
+  const where = buildUserAlbumWhere(userId, phone)
 
   let albums = await prisma.album.findMany({
     where,
@@ -908,6 +977,8 @@ async function switchMerchantServiceAlbumTemplate(
 
 module.exports = {
   listUserServiceAlbums,
+  listUserRecentServiceAlbums,
+  countUserServiceAlbumBindings,
   getUserServiceAlbum,
   listMerchantServiceAlbums,
   getMerchantServiceAlbum,

@@ -40,9 +40,14 @@ async function mockMineSummary(user) {
   await delay(280)
   if (!user) return null
   let albumPendingAuth = MOCK_SUMMARY.albumPendingAuth
+  let recentAlbums = []
+  let hasAlbumBindings = false
   try {
-    const { mockCountPendingAuth } = require('./service-albums')
+    const { mockCountPendingAuth, mockFetchUserServiceAlbums } = require('./service-albums')
     albumPendingAuth = mockCountPendingAuth()
+    const list = await mockFetchUserServiceAlbums({ tab: 'private' })
+    hasAlbumBindings = (list || []).length > 0
+    recentAlbums = (list || []).slice(0, 3)
   } catch (e) {
     /* fallback to static mock */
   }
@@ -57,6 +62,8 @@ async function mockMineSummary(user) {
     consultPending: MOCK_SUMMARY.consultPending,
     albumPendingAuth,
     authorizeCount: MOCK_SUMMARY.authorizeCount,
+    recentAlbums,
+    hasAlbumBindings,
   }
 }
 

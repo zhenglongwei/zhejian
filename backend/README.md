@@ -189,7 +189,16 @@ tail -5 /www/zhejian/backend/logs/stats-aggregate.log
 | POST | `/api/v1/user/auth/wechat-login` | 微信登录（联调期返回 dev token） |
 | POST | `/api/v1/user/auth/bind-phone` | 绑定手机号（联调期演示） |
 | POST | `/api/v1/user/auth/logout` | 退出登录 |
-| GET | `/api/v1/user/mine/summary` | 我的页摘要 |
+| GET | `/api/v1/user/mine/summary` | 我的页摘要（含角标 + 最近相册预览） |
+
+**`GET /api/v1/user/mine/summary` 响应字段（节选）**
+
+| 字段 | 说明 |
+| --- | --- |
+| `user` | 昵称、头像、手机号展示等 |
+| `consultPending` / `albumPendingAuth` / `unreadNotificationCount` | 菜单角标 |
+| `recentAlbums` | 最近 3 条私密服务相册（轻量，无 nodes/images） |
+| `hasAlbumBindings` | 用户是否绑定至少 1 个相册（首页 H5 出口条件等） |
 | GET | `/api/v1/user/leads/confirm` | 咨询确认页数据 |
 | GET | `/api/v1/user/leads` | 用户咨询列表 |
 | POST | `/api/v1/user/leads` | 提交咨询 |
