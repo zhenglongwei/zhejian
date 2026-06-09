@@ -14,6 +14,7 @@ const os = require('os')
 const path = require('path')
 const { PrismaClient } = require('@prisma/client')
 const { PUBLIC_CASE_STATUS } = require('../src/constants/v2')
+const { CASE_ARTICLE_STATUS } = require('../src/constants/case-article-status')
 
 const BASE = process.env.SMOKE_BASE_URL || 'http://127.0.0.1:3000'
 const STORE_ID = process.env.SMOKE_STORE_ID || 'store_demo_1'
@@ -233,6 +234,10 @@ async function main() {
     )
     assert(userDetail.article && userDetail.article.hasArticle, '审核通过后 article.hasArticle 应为 true')
     assert(userDetail.article.body, '应有 article.body')
+    assert(
+      userDetail.article.status === CASE_ARTICLE_STATUS.PUBLISHED_H5,
+      '审核通过后 article.status 应为 published_h5'
+    )
     assert(Array.isArray(userDetail.article.sections) && userDetail.article.sections.length >= 3, '应有 article.sections')
     if (userDetail.coverImage) {
       assert(isDesensitizedUrl(userDetail.coverImage), '封面应为脱敏 URL')
@@ -243,6 +248,10 @@ async function main() {
     assert(dbRow?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, 'DB 状态应为 public_approved')
     assert(dbRow?.storeId === STORE_ID, 'DB storeId 对齐')
     assert(dbRow?.slug, 'DB 应有 slug')
+    assert(
+      dbRow?.articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_H5,
+      'DB article_status 应为 published_h5'
+    )
     console.log('[smoke] ✅ H5-A-01 全流程通过', caseId, 'slug=', dbRow.slug)
   } finally {
     if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)

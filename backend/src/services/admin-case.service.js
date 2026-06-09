@@ -16,6 +16,7 @@ const { ensureMediaRecordFromUrl } = require('./media.service')
 const { buildCaseDraft, resolvePublishTask } = require('./public-case.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
+const { stampPublishedH5OnPayload } = require('./case-article-publish.service')
 const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
 
 const RISK_RANK = RISK_LEVEL_ORDER
@@ -477,6 +478,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     slug: articlePayload.slug,
     caseId,
   })
+  stampPublishedH5OnPayload(articlePayload)
   const now = new Date()
 
   await prisma.publicCase.update({

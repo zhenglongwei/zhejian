@@ -1,5 +1,5 @@
 /**
- * DS-B-12 · 商家工作台案例发布状态
+ * DS-B-12 / DS-B-04 · 商家工作台案例发布状态
  */
 const { prisma } = require('../lib/prisma')
 const { toIso } = require('../lib/ids')
@@ -8,8 +8,10 @@ const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
   CASE_ARTICLE_STATUS,
   CASE_ARTICLE_STATUS_LABELS,
+  CASE_ARTICLE_H5_PUBLISHED_STATUSES,
 } = require('../constants/case-article-status')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { buildCaseH5Url } = require('./case-article-publish.service')
 
 const CASE_VIEW_EVENTS = ['h5_case_view', 'case_view']
 const RECENT_LIMIT = 5
@@ -32,10 +34,10 @@ function resolvePublishLabel(row) {
     return { key: 'draft', label: '未公开' }
   }
   const articleStatus = row.articleStatus || CASE_ARTICLE_STATUS.PENDING
-  if (
-    articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_H5 ||
-    articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_WECHAT
-  ) {
+  if (articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_WECHAT) {
+    return { key: 'published_wechat', label: '已发公众号' }
+  }
+  if (articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_H5) {
     return { key: 'published_h5', label: '已发 H5' }
   }
   if (
@@ -84,12 +86,29 @@ async function countCaseViews7d(storeId, caseIds = null) {
 }
 
 async function fetchMerchantCasePublishPanel(storeId) {
-  const [pendingPublish, publishedH5, recentRows] = await Promise.all([
+  const [pendingReview, publishedH5, readyToPublish, recentRows] = await Promise.all([
     prisma.publicCase.count({
       where: { storeId, status: PUBLIC_CASE_STATUS.PENDING_REVIEW },
     }),
     prisma.publicCase.count({
-      where: { storeId, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+      where: {
+        storeId,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+      },
+    }),
+    prisma.publicCase.count({
+      where: {
+        storeId,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        articleStatus: {
+          in: [
+            CASE_ARTICLE_STATUS.PENDING,
+            CASE_ARTICLE_STATUS.DRAFT,
+            CASE_ARTICLE_STATUS.READY,
+          ],
+        },
+      },
     }),
     prisma.publicCase.findMany({
       where: {
@@ -108,6 +127,7 @@ async function fetchMerchantCasePublishPanel(storeId) {
         status: true,
         articleStatus: true,
         slug: true,
+        canonicalPath: true,
         coverImage: true,
         publishedAt: true,
         updatedAt: true,
@@ -120,6 +140,12 @@ async function fetchMerchantCasePublishPanel(storeId) {
 
   const recent = recentRows.map((row) => {
     const publish = resolvePublishLabel(row)
+    const h5Url =
+      CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(
+        row.articleStatus || CASE_ARTICLE_STATUS.PENDING
+      )
+        ? buildCaseH5Url(row)
+        : ''
     return {
       caseId: row.id,
       albumId: row.albumId || '',
@@ -130,6 +156,7 @@ async function fetchMerchantCasePublishPanel(storeId) {
       publishStatus: publish.key,
       publishLabel: publish.label,
       slug: row.slug || '',
+      h5Url,
       coverImage: resolvePublicCaseMediaUrl(row.coverImage || ''),
       viewCount7d: viewMap[row.id] || 0,
       publishedAt: row.publishedAt ? toIso(row.publishedAt) : '',
@@ -139,8 +166,11 @@ async function fetchMerchantCasePublishPanel(storeId) {
 
   return {
     summary: {
-      pendingPublish,
+      pendingReview,
+      /** @deprecated 兼容旧字段，等同 pendingReview */
+      pendingPublish: pendingReview,
       publishedH5,
+      readyToPublish,
       caseViews7d,
     },
     recent,

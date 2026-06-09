@@ -2,6 +2,7 @@
  * DS-B-02 / DS-B-03 · 审核通过后生成案例文章（模板，非 AI）
  */
 const { prisma } = require('../lib/prisma')
+const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
   CASE_ARTICLE_STATUS,
   CASE_ARTICLE_GENERATION_SOURCE,
@@ -207,6 +208,7 @@ async function generateAndSaveCaseArticle(caseId, options = {}) {
   payload.slug = await ensureUniqueCaseSlug(prisma, payload.slug, caseId)
   payload.canonicalPath = resolveCaseCanonicalPath({ slug: payload.slug, caseId })
 
+  let finalArticleStatus = payload.articleStatus
   if (options.persist !== false) {
     await prisma.publicCase.update({
       where: { id: caseId },
@@ -226,13 +228,21 @@ async function generateAndSaveCaseArticle(caseId, options = {}) {
         contentJson: payload.contentJson,
       },
     })
+    if (row.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+      const { publishCaseArticleToH5 } = require('./case-article-publish.service')
+      const published = await publishCaseArticleToH5(caseId, {
+        backfill: true,
+        actor: 'generate_content',
+      })
+      finalArticleStatus = published.articleStatus
+    }
   }
 
   return {
     caseId,
     generated: true,
     source: CASE_ARTICLE_GENERATION_SOURCE.TEMPLATE,
-    articleStatus: payload.articleStatus,
+    articleStatus: finalArticleStatus,
     articleVersion: payload.articleVersion,
     seoNoindex: payload.seoNoindex,
     slug: payload.slug,

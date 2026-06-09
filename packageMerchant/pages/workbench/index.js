@@ -9,6 +9,7 @@ const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
+const { copyCaseH5Link, copyCaseListH5Link, openH5ContentSite } = require('../../../constants/h5-links')
 const { fetchMerchantUnreadNotificationCount, fetchMerchantSubscribeStatus } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
@@ -56,8 +57,10 @@ Page({
       transparency: '0',
     },
     casePublish: {
+      pendingReview: 0,
       pendingPublish: 0,
       publishedH5: 0,
+      readyToPublish: 0,
       caseViews7d: 0,
     },
     casePublishRecent: [],
@@ -114,7 +117,13 @@ Page({
       activeAlbums: 0,
     }
     let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
-    let casePublish = { pendingPublish: 0, publishedH5: 0, caseViews7d: 0 }
+    let casePublish = {
+      pendingReview: 0,
+      pendingPublish: 0,
+      publishedH5: 0,
+      readyToPublish: 0,
+      caseViews7d: 0,
+    }
     let casePublishRecent = []
     let storeOptions = []
     let storePickerIndex = 0
@@ -151,10 +160,13 @@ Page({
         activeAlbums: stats.active || 0,
       }
       if (publishPanel && publishPanel.summary) {
+        const summary = publishPanel.summary
         casePublish = {
-          pendingPublish: publishPanel.summary.pendingPublish || 0,
-          publishedH5: publishPanel.summary.publishedH5 || 0,
-          caseViews7d: publishPanel.summary.caseViews7d || 0,
+          pendingReview: summary.pendingReview || summary.pendingPublish || 0,
+          pendingPublish: summary.pendingReview || summary.pendingPublish || 0,
+          publishedH5: summary.publishedH5 || 0,
+          readyToPublish: summary.readyToPublish || 0,
+          caseViews7d: summary.caseViews7d || 0,
         }
         casePublishRecent = publishPanel.recent || []
       }
@@ -372,7 +384,9 @@ Page({
       return
     }
     if (key === 'published') {
-      this._navigateTo('/pages/case/index')
+      copyCaseListH5Link().catch(() => {
+        openH5ContentSite()
+      })
       return
     }
     if (key === 'views') {
@@ -381,14 +395,29 @@ Page({
   },
 
   onCasePublishItemTap(e) {
-    const albumId = e.currentTarget.dataset.albumId
-    const caseId = e.currentTarget.dataset.caseId
-    if (albumId) {
-      this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${albumId}`)
+    const index = e.currentTarget.dataset.index
+    const item =
+      (typeof index === 'number' && this.data.casePublishRecent[index]) ||
+      this.data.casePublishRecent.find(
+        (row) =>
+          row.caseId === e.currentTarget.dataset.caseId ||
+          row.albumId === e.currentTarget.dataset.albumId
+      )
+    if (!item) return
+
+    const publishedKeys = ['published_h5', 'published_wechat']
+    if (publishedKeys.includes(item.publishStatus) || item.h5Url) {
+      copyCaseH5Link(item).catch(() => {
+        wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
+      })
       return
     }
-    if (caseId) {
-      this._navigateTo(`/pages/case/detail/index?id=${caseId}`)
+    if (item.albumId) {
+      this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${item.albumId}`)
+      return
+    }
+    if (item.caseId) {
+      this._navigateTo(`/packageMerchant/pages/album/list/index?tab=pending_auth`)
     }
   },
 })

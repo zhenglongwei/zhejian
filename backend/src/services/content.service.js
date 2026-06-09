@@ -9,6 +9,7 @@ const {
   matchSearchCase,
 } = require('../utils/search-match')
 const { buildCaseFaq } = require('../utils/case-faq')
+const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const {
   SEED_SERVICES,
   STORE_EXTRAS,
@@ -238,7 +239,10 @@ function attachCaseArticleAndSeo(row, item) {
 
 async function fetchPublicCaseRows() {
   const rows = await prisma.publicCase.findMany({
-    where: { status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    where: {
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+    },
     orderBy: { publishedAt: 'desc' },
   })
   if (!rows.length) return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
@@ -320,11 +324,19 @@ async function listCases(query = {}) {
 
 async function getCaseDetail(idOrSlug) {
   let row = await prisma.publicCase.findFirst({
-    where: { id: idOrSlug, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    where: {
+      id: idOrSlug,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+    },
   })
   if (!row) {
     row = await prisma.publicCase.findFirst({
-      where: { slug: idOrSlug, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+      where: {
+        slug: idOrSlug,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+      },
     })
   }
 
@@ -445,7 +457,11 @@ function mapStoreRow(store, caseCount = 0) {
 
 async function countCasesByStore(storeId) {
   const count = await prisma.publicCase.count({
-    where: { storeId, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    where: {
+      storeId,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+    },
   })
   if (count > 0) return count
   return FALLBACK_PUBLIC_CASES.filter((c) => c.storeId === storeId).length

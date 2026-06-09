@@ -12,6 +12,8 @@ const {
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
 } = require('../services/admin-case.service')
+const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
+const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 
 const {
   listAdminMerchants,
@@ -85,6 +87,24 @@ router.post('/cases/:caseId/approve', async (req, res, next) => {
       comment: req.body?.comment || '',
     })
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/article-status', async (req, res, next) => {
+  try {
+    const targetStatus = String(req.body?.targetStatus || req.body?.target_status || '').trim()
+    if (targetStatus !== CASE_ARTICLE_STATUS.PUBLISHED_WECHAT) {
+      const err = new Error('仅支持标记为 published_wechat')
+      err.status = 400
+      throw err
+    }
+    const data = await markCaseArticlePublishedWechat(req.params.caseId, {
+      actor: req.admin?.reviewerId || 'admin',
+    })
+    const detail = await getAdminCaseDetail(req.params.caseId)
+    return ok(res, { ...data, case: detail })
   } catch (e) {
     next(e)
   }

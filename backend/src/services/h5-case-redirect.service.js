@@ -3,6 +3,7 @@
  */
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { buildCasePagePath, buildLegacyCaseViewPath } = require('../utils/case-slug')
 
 async function resolveCaseRedirectTarget(caseId) {
@@ -14,7 +15,11 @@ async function resolveCaseRedirectTarget(caseId) {
   }
 
   const row = await prisma.publicCase.findFirst({
-    where: { id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    where: {
+      id,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+    },
     select: { id: true, slug: true },
   })
 

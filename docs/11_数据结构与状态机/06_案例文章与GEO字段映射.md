@@ -90,9 +90,18 @@
 | --- | --- | --- |
 | `pending` | 尚未生成文章 | 存量默认 / 新建案例 |
 | `draft` | 已生成草稿 | DS-B-03 |
-| `ready` | 生成完成，待 H5 发布 | DS-B-03 |
-| `published_h5` | 已在 H5 文章化发布 | DS-B-07～09 |
-| `published_wechat` | 已发公众号 | DS-D |
+| `ready` | 生成完成，待 H5 发布 | DS-B-03 生成器写入 |
+| `published_h5` | 已在 H5 文章化发布 | DS-B-04 审核通过自动发布；system `publish-h5` 补跑 |
+| `published_wechat` | 已发公众号 | DS-D；运营 `POST /admin/cases/:id/article-status` |
+
+**跃迁规则（DS-B-04 ✅）**：
+
+| from | to | 触发 |
+| --- | --- | --- |
+| `pending` / `draft` / `ready` | `published_h5` | 运营审核通过（`stampPublishedH5OnPayload`）；system 补跑 |
+| `published_h5` | `published_wechat` | 运营手工标记 |
+
+**H5 读侧**：列表与详情仅 `published_h5` / `published_wechat` 对外可见（`content.service`）。
 
 常量：`backend/src/constants/case-article-status.js`
 
@@ -159,7 +168,9 @@
 | 生成器 | `backend/src/services/case-article-generator.service.js` |
 | 模板 | `backend/src/utils/case-article-templates.js`（非 AI，`generationSource=template`） |
 
-审核通过后 `article_status` → `ready`；`seo_noindex` 在缺城市/服务项目/无图时为 `true`。
+审核通过后 `article_status` → `published_h5`（生成 `ready` 后同事务自动发布）；`seo_noindex` 在缺城市/服务项目/无图时为 `true`。
+
+**存量补跑**：`POST /api/v1/system/cases/:id/publish-h5` 或 `POST /api/v1/system/cases/backfill-published-h5`。
 
 ---
 
@@ -174,3 +185,4 @@
 | 2026-06-09 | DS-B-06/10/11：slug + canonical + 301 redirect + H5 Schema 补全 |
 | 2026-06-09 | DS-B-10 修复：`legacy=1` 防无 slug 旧链死循环 |
 | 2026-06-09 | DS-B-12：`GET /merchant/public-cases/publish-panel` + 工作台案例发布区 |
+| 2026-06-09 | DS-B-04：`case-article-publish.service` 状态机；审核通过自动 `published_h5`；H5 读侧闸门；system backfill |

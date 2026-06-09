@@ -423,6 +423,7 @@ async function main() {
         vehicleText: '大众朗逸（已脱敏）',
         tags: ['authorized', 'desensitized', 'audited'],
         nodes: [],
+        geo: { publishedH5At: new Date().toISOString() },
       },
       storeId: STORE_ID,
       storeName: '辙见示范店（杭州滨江）',
@@ -432,6 +433,7 @@ async function main() {
       maxAmount: 480,
       priceMode: 'range',
       publishedAt: new Date(),
+      articleStatus: 'published_h5',
     },
     update: {
       status: 'public_approved',
@@ -444,6 +446,7 @@ async function main() {
       maxAmount: 480,
       priceMode: 'range',
       publishedAt: new Date(),
+      articleStatus: 'published_h5',
     },
   })
 
