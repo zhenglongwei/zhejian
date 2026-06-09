@@ -453,14 +453,6 @@ async function createOrderAuthorizeTaskFromPreMask({ bizId, orderId, nodes }) {
     err.code = 409
     throw err
   }
-  if (
-    preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED ||
-    !(preMaskTask.rawAssets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
-  ) {
-    const err = new Error('预脱敏失败，请稍后重试或联系客服')
-    err.code = 409
-    throw err
-  }
 
   const existing = findAuthorizeTaskByAlbumId(bizId)
   if (
@@ -520,14 +512,6 @@ async function createServiceAuthorizeTaskFromPreMask({ bizId, nodes }) {
   }
   if (!preMaskTask) {
     const err = new Error('预脱敏尚未就绪，请稍后再试')
-    err.code = 409
-    throw err
-  }
-  if (
-    preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED ||
-    !(preMaskTask.rawAssets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
-  ) {
-    const err = new Error('预脱敏失败，请稍后重试或联系客服')
     err.code = 409
     throw err
   }
@@ -592,14 +576,6 @@ async function createMerchantColdStartTaskFromPreMask({ bizId, nodes }) {
   }
   if (!preMaskTask) {
     const err = new Error('预脱敏尚未就绪，请稍后再试')
-    err.code = 409
-    throw err
-  }
-  if (
-    preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED ||
-    !(preMaskTask.rawAssets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
-  ) {
-    const err = new Error('预脱敏失败，请稍后重试或联系客服')
     err.code = 409
     throw err
   }

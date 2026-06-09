@@ -277,21 +277,16 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
     throw err
   }
 
-  const readyAssets = (preMaskTask.assets || []).filter((a) => a.maskedUrl || a.preMaskedUrl)
-  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED || !readyAssets.length) {
+  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED) {
     const failedAssets = (preMaskTask.assets || []).filter(
       (a) => a.status === ASSET_STATUS.MASK_FAILED
     )
-    console.warn('[desensitize] pre-mask not ready', {
+    console.warn('[desensitize] pre-mask all failed, open authorize workbench', {
       albumId,
       preMaskStatus: preMaskTask.preMaskStatus,
       total: (preMaskTask.assets || []).length,
       failed: failedAssets.length,
     })
-    const err = new Error('预脱敏失败，请稍后重试或联系客服')
-    err.code = 100007
-    err.status = 409
-    throw err
   }
 
   const authTaskId = buildAuthorizeTaskId(album.id)
@@ -308,13 +303,13 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   if (existingAuth && existingAuth.bizType === authorizeBizType && preMaskMatches(existingAuth)) {
     if (!existingAuth.maskingConfirmed) {
       return {
-        preview: buildAuthorizePreviewPayload(album, existingAuth),
+        preview: buildAuthorizePreviewPayload(album, existingAuth, preMaskTask),
         task: mapTaskRecord(existingAuth),
       }
     }
     if (['pending_review', 'public_approved'].includes(album.publicCaseStatus)) {
       return {
-        preview: buildAuthorizePreviewPayload(album, existingAuth),
+        preview: buildAuthorizePreviewPayload(album, existingAuth, preMaskTask),
         task: mapTaskRecord(existingAuth),
       }
     }
@@ -370,7 +365,7 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
 
   const task = await getTaskById(authTaskId)
   return {
-    preview: buildAuthorizePreviewPayload(album, { taskId: authTaskId, ...task }),
+    preview: buildAuthorizePreviewPayload(album, { taskId: authTaskId, ...task }, preMaskTask),
     task,
   }
 }
@@ -389,12 +384,17 @@ async function createOrderAuthorizeTaskFromPreMask(orderId) {
   return createAlbumAuthorizeTaskFromPreMask(album.id)
 }
 
-function buildAuthorizePreviewPayload(album, task) {
+function preMaskHasReadyAssets(preMaskTask) {
+  return (preMaskTask?.assets || []).some((a) => a.maskedUrl || a.preMaskedUrl)
+}
+
+function buildAuthorizePreviewPayload(album, task, preMaskTask) {
+  const preMaskReady = preMaskTask ? preMaskHasReadyAssets(preMaskTask) : true
   return {
     taskId: task.taskId,
     albumId: album.id,
     orderId: album.orderId,
-    fromPreMask: Boolean(task.fromPreMask ?? true),
+    fromPreMask: Boolean((task.fromPreMask ?? true) && preMaskReady),
     preMaskTaskId: task.preMaskTaskId || '',
     preMaskVersion: task.preMaskVersion || 0,
   }
@@ -688,12 +688,11 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
     throw err
   }
 
-  const readyAssets = (preMaskTask.assets || []).filter((a) => a.maskedUrl || a.preMaskedUrl)
-  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED || !readyAssets.length) {
-    const err = new Error('预脱敏失败，请稍后重试或联系客服')
-    err.code = 100007
-    err.status = 409
-    throw err
+  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED) {
+    console.warn('[desensitize] pre-mask all failed, open merchant authorize workbench', {
+      albumId,
+      total: (preMaskTask.assets || []).length,
+    })
   }
 
   const taskId = buildMerchantColdStartTaskId(albumId)
@@ -707,11 +706,12 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
     include: { assets: true },
   })
   if (existing) {
+    const preMaskReady = preMaskHasReadyAssets(preMaskTask)
     return {
       preview: {
         taskId: existing.taskId,
         albumId: album.id,
-        fromPreMask: true,
+        fromPreMask: preMaskReady,
         preMaskTaskId: preMaskTask.taskId,
         preMaskVersion: preMaskTask.preMaskVersion,
       },
@@ -763,11 +763,12 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
   })
 
   const task = await getTaskById(taskId)
+  const preMaskReady = preMaskHasReadyAssets(preMaskTask)
   return {
     preview: {
       taskId,
       albumId: album.id,
-      fromPreMask: true,
+      fromPreMask: preMaskReady,
       preMaskTaskId: preMaskTask.taskId,
       preMaskVersion: preMaskTask.preMaskVersion,
     },

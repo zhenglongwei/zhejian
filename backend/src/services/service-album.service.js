@@ -619,6 +619,12 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  const imageCount = existing.imageCount || (existing.images || []).length
+  if (imageCount < 1) {
+    const err = new Error('请至少上传一张过程图')
+    err.status = 409
+    throw err
+  }
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {

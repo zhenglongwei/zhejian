@@ -818,6 +818,11 @@ async function mockCompleteMerchantServiceAlbum(albumId) {
     err.code = 404
     throw err
   }
+  if (countAlbumImages(raw.nodes) < 1) {
+    const err = new Error('请至少上传一张过程图')
+    err.code = 409
+    throw err
+  }
   const now = new Date().toISOString()
   const next = {
     ...raw,
