@@ -3,7 +3,7 @@
  */
 const { prisma } = require('../lib/prisma')
 const { toIso } = require('../lib/ids')
-const { shanghaiDayBounds } = require('../lib/shanghai-date')
+const { formatShanghaiDate, addDays, shanghaiDayBounds } = require('../lib/shanghai-date')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
   CASE_ARTICLE_STATUS,
@@ -53,11 +53,10 @@ function resolvePublishLabel(row) {
 }
 
 async function countCaseViews7d(storeId, caseIds = null) {
-  const today = new Date()
-  const from = new Date(today)
-  from.setDate(from.getDate() - 6)
-  const { start } = shanghaiDayBounds(from)
-  const { end } = shanghaiDayBounds(today)
+  const todayStr = formatShanghaiDate(new Date())
+  const fromStr = addDays(todayStr, -6)
+  const { start } = shanghaiDayBounds(fromStr)
+  const { end } = shanghaiDayBounds(todayStr)
 
   const logs = await prisma.eventTrackingLog.findMany({
     where: {
