@@ -22,6 +22,19 @@ router.post('/albums/:albumId/pre-mask', requireAuth(['system', 'merchant']), as
   }
 })
 
+/** 静态路径须在 /cases/:caseId/* 之前注册，避免被参数路由吞掉 */
+router.post('/cases/backfill-published-h5', requireAuth(['system']), async (req, res, next) => {
+  try {
+    const data = await backfillPublishedH5ForApprovedCases({
+      storeId: req.body?.storeId || req.body?.store_id || '',
+      limit: req.body?.limit,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/cases/:caseId/generate-faq', requireAuth(['system']), async (req, res, next) => {
   try {
     const data = await generateAndSaveCaseFaq(req.params.caseId, {
@@ -51,18 +64,6 @@ router.post('/cases/:caseId/publish-h5', requireAuth(['system']), async (req, re
     const data = await publishCaseArticleToH5(req.params.caseId, {
       backfill: true,
       actor: 'system_api',
-    })
-    return ok(res, data)
-  } catch (e) {
-    next(e)
-  }
-})
-
-router.post('/cases/backfill-published-h5', requireAuth(['system']), async (req, res, next) => {
-  try {
-    const data = await backfillPublishedH5ForApprovedCases({
-      storeId: req.body?.storeId || req.body?.store_id || '',
-      limit: req.body?.limit,
     })
     return ok(res, data)
   } catch (e) {

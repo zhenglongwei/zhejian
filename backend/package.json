@@ -25,6 +25,7 @@
     "crawler:smoke": "node scripts/crawler-track-smoke.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "cases:check": "node scripts/public-case-prod-check.js",
+    "cases:backfill-published-h5": "node scripts/backfill-published-h5.js",
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
     "postinstall": "prisma generate"
   },
