@@ -119,6 +119,60 @@
         </view>
       </ui-card>
 
+      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-wb__block">
+        <view class="merchant-wb__overview-head">
+          <text class="text-h3">案例发布</text>
+          <text class="text-caption merchant-wb__overview-hint">近7天浏览</text>
+        </view>
+        <view class="merchant-wb__todo-row merchant-wb__todo-row--case">
+          <view
+            class="merchant-wb__todo merchant-wb__todo--tap {{casePublish.pendingPublish > 0 ? 'merchant-wb__todo--active' : ''}}"
+            data-key="pending"
+            bindtap="onCasePublishSummaryTap"
+          >
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{casePublish.pendingPublish}}</text>
+            <text class="text-caption">待发布</text>
+          </view>
+          <view
+            class="merchant-wb__todo merchant-wb__todo--tap {{casePublish.publishedH5 > 0 ? 'merchant-wb__todo--active' : ''}}"
+            data-key="published"
+            bindtap="onCasePublishSummaryTap"
+          >
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{casePublish.publishedH5}}</text>
+            <text class="text-caption">已发 H5</text>
+          </view>
+          <view
+            class="merchant-wb__todo merchant-wb__todo--tap"
+            data-key="views"
+            bindtap="onCasePublishSummaryTap"
+          >
+            <text class="merchant-wb__todo-num text-h2 text-numeric">{{casePublish.caseViews7d}}</text>
+            <text class="text-caption">案例浏览</text>
+          </view>
+        </view>
+        <block wx:if="{{casePublishRecent.length}}">
+          <view class="merchant-wb__case-list">
+            <view
+              wx:for="{{casePublishRecent}}"
+              wx:key="caseId"
+              class="merchant-wb__case-item merchant-wb__case-item--tap"
+              data-album-id="{{item.albumId}}"
+              data-case-id="{{item.caseId}}"
+              bindtap="onCasePublishItemTap"
+            >
+              <view class="merchant-wb__case-main">
+                <text class="text-body merchant-wb__case-title">{{item.title}}</text>
+                <text class="text-caption merchant-wb__case-meta">{{item.serviceName}} · 近7天 {{item.viewCount7d}} 次浏览</text>
+              </view>
+              <text class="text-caption merchant-wb__case-status">{{item.publishLabel}}</text>
+            </view>
+          </view>
+        </block>
+        <view wx:else class="merchant-wb__case-empty">
+          <text class="text-caption">暂无公开案例，完工相册提交审核后将在此展示</text>
+        </view>
+      </ui-card>
+
       <ui-card shadow="{{true}}" padding="{{false}}" class="merchant-wb__block">
         <view class="merchant-wb__overview-inner">
           <view class="merchant-wb__overview-head">

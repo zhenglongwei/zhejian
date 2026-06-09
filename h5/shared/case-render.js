@@ -86,7 +86,15 @@
     el.textContent = JSON.stringify(data)
   }
 
-  function casePagePath(caseId) {
+  function casePagePath(caseId, slugSource) {
+    var slug = slugSource
+    if (slugSource && typeof slugSource === 'object') {
+      slug =
+        slugSource.slug ||
+        (slugSource.seo && slugSource.seo.slug) ||
+        ''
+    }
+    if (slug) return '/case/' + String(slug) + '.html'
     return '/case/view.html?id=' + encodeURIComponent(caseId)
   }
 
@@ -103,6 +111,12 @@
   }
 
   function buildPageTitle(data) {
+    if (data.seo && data.seo.title) {
+      return String(data.seo.title) + ' · 辙见'
+    }
+    if (data.seoTitle) {
+      return String(data.seoTitle) + ' · 辙见'
+    }
     var city = data.city || ''
     var vehicle = vehicleLabel(data)
     var service = data.serviceName || '维修服务'
@@ -112,6 +126,8 @@
   }
 
   function buildPageDescription(data) {
+    if (data.seo && data.seo.description) return String(data.seo.description)
+    if (data.seoDescription) return String(data.seoDescription)
     var city = data.city || ''
     var store = shouldShowStorePublicly(data) ? data.storeName || '服务门店' : '服务门店'
     var vehicle = vehicleLabel(data) || '车辆'
@@ -140,9 +156,16 @@
     var title = buildPageTitle(data)
     var desc = buildPageDescription(data)
     var cover = pickCaseCover(data)
-    var canonical = location.origin + casePagePath(data.id)
+    var canonicalPath =
+      (data.seo && data.seo.canonicalPath) ||
+      data.canonicalPath ||
+      casePagePath(data.id, data.seo && data.seo.slug ? data.seo.slug : data.slug)
+    var canonical = canonicalPath.indexOf('http') === 0 ? canonicalPath : location.origin + canonicalPath
 
     document.title = title
+    if ((data.seo && data.seo.noindex) || data.seoNoindex) {
+      setNoIndex()
+    }
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
     ensureMeta('property', 'og:description', desc)
@@ -152,20 +175,66 @@
     if (cover) ensureMeta('property', 'og:image', cover)
     ensureLink('canonical', canonical)
 
-    var article = {
+    var articleSchema = {
       '@context': 'https://schema.org',
       '@type': 'Article',
       headline: data.title || title,
       description: data.aiSummary || data.summary || desc,
+      articleBody: (data.article && data.article.body) || data.articleBody || undefined,
       url: canonical,
       datePublished: data.publishedAt || undefined,
+      dateModified: data.updatedAt || data.publishedAt || undefined,
       image: cover || undefined,
       author: shouldShowStorePublicly(data)
         ? { '@type': 'Organization', name: data.storeName || '辙见合作门店' }
         : { '@type': 'Organization', name: '辙见' },
-      publisher: { '@type': 'Organization', name: '辙见' },
+      publisher: {
+        '@type': 'Organization',
+        name: '辙见',
+        url: location.origin + '/',
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': canonical,
+      },
     }
-    ensureJsonLd('case-article-schema', article)
+    ensureJsonLd('case-article-schema', articleSchema)
+
+    if (cover) {
+      ensureJsonLd('case-cover-image-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'ImageObject',
+        contentUrl: cover,
+        name: data.title || title,
+        description: desc,
+      })
+    }
+
+    if (data.serviceName) {
+      var serviceProvider =
+        shouldShowStorePublicly(data) && data.store && data.store.name
+          ? {
+              '@type': 'AutoRepair',
+              name: data.store.name,
+              url:
+                location.origin +
+                '/store/' +
+                encodeURIComponent(data.store.id) +
+                '.html',
+            }
+          : { '@type': 'Organization', name: '辙见' }
+      ensureJsonLd('case-service-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'Service',
+        name: data.serviceName,
+        description: data.aiSummary || data.summary || desc,
+        provider: serviceProvider,
+        areaServed: data.city
+          ? { '@type': 'City', name: data.city }
+          : { '@type': 'Country', name: '中国' },
+        url: canonical,
+      })
+    }
 
     ensureJsonLd('case-breadcrumb-schema', {
       '@context': 'https://schema.org',
@@ -194,6 +263,25 @@
           }
         }),
       })
+    }
+
+    if (data.store && shouldShowStorePublicly(data) && data.store.name) {
+      var storeSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'AutoRepair',
+        name: data.store.name,
+        address: data.store.address || undefined,
+        telephone: data.store.phone || data.storePhone || undefined,
+        url: location.origin + '/store/' + encodeURIComponent(data.store.id) + '.html',
+      }
+      if (data.store.latitude != null && data.store.longitude != null) {
+        storeSchema.geo = {
+          '@type': 'GeoCoordinates',
+          latitude: data.store.latitude,
+          longitude: data.store.longitude,
+        }
+      }
+      ensureJsonLd('case-store-schema', storeSchema)
     }
   }
 
@@ -350,7 +438,7 @@
     )
   }
 
-  function renderRelatedCases(cases, currentId) {
+  function renderRelatedCases(cases, currentId, title) {
     var list = (cases || []).filter(function (item) {
       return item && item.id && item.id !== currentId
     })
@@ -367,7 +455,7 @@
           : '<div class="h5-placeholder-img">脱敏封面暂未就绪</div>'
         return (
           '<a class="h5-store-case-card" href="' +
-          casePagePath(item.id) +
+          casePagePath(item.id, item) +
           '" data-case-id="' +
           escapeHtml(item.id) +
           '">' +
@@ -383,10 +471,204 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">相关案例</h2>' +
+      '<div class="h5-card"><h2 class="h5-section-title">' +
+      escapeHtml(title || '相关案例') +
+      '</h2>' +
       '<div class="h5-store-case-list">' +
       cards +
       '</div></div>'
+    )
+  }
+
+  function hasArticleLayout(data) {
+    return Boolean(
+      (data.article && data.article.hasArticle) ||
+      (data.articleBody && String(data.articleBody).length > 20)
+    )
+  }
+
+  function getArticleSections(data) {
+    if (data.article && data.article.sections && data.article.sections.length) {
+      return data.article.sections
+    }
+    return []
+  }
+
+  function buildNodeNarrativeMap(data) {
+    var map = {}
+    var list = (data.article && data.article.nodeNarratives) || []
+    list.forEach(function (item) {
+      if (item && item.nodeId) map[item.nodeId] = item
+    })
+    return map
+  }
+
+  function renderArticleSections(data) {
+    var sections = getArticleSections(data).filter(function (section) {
+      return section && section.content && section.key !== 'priceFactors'
+    })
+    if (!sections.length) return ''
+    return sections
+      .map(function (section) {
+        return (
+          '<section class="h5-article-section h5-card">' +
+          '<h2 class="h5-section-title">' +
+          escapeHtml(section.title || '') +
+          '</h2>' +
+          '<div class="h5-article-text">' +
+          escapeHtml(section.content).replace(/\n/g, '<br>') +
+          '</div></section>'
+        )
+      })
+      .join('')
+  }
+
+  function renderArticleLead(data) {
+    var text = data.aiSummary || data.summary || ''
+    if (!text) return ''
+    return (
+      '<section class="h5-article-lead">' +
+      '<p class="h5-article-lead-label">案例摘要</p>' +
+      '<p class="h5-summary">' +
+      escapeHtml(text) +
+      '</p></section>'
+    )
+  }
+
+  function renderArticleProcess(data, nodes) {
+    if (!nodes || !nodes.length) return ''
+    var narrativeMap = buildNodeNarrativeMap(data)
+    var items = nodes
+      .filter(function (node) {
+        return pickNodeDesensitizedImages(node).length > 0
+      })
+      .map(function (node) {
+        var nodeId = node.id || node.nodeId || ''
+        var narrative = narrativeMap[nodeId] || {}
+        var desc = narrative.description || node.note || ''
+        var captions = narrative.imageCaptions || []
+        var images = pickNodeDesensitizedImages(node)
+        var imgsHtml = images
+          .map(function (url, index) {
+            var caption = captions[index] && captions[index].alt ? captions[index].alt : buildImageAlt(data, node)
+            return (
+              '<figure class="h5-figure">' +
+              '<img class="h5-node-img" src="' +
+              escapeHtml(url) +
+              '" alt="' +
+              escapeHtml(caption) +
+              '" loading="lazy" />' +
+              (captions[index] && captions[index].caption
+                ? '<figcaption class="h5-figure-caption">' +
+                  escapeHtml(captions[index].caption) +
+                  '</figcaption>'
+                : '') +
+              '</figure>'
+            )
+          })
+          .join('')
+        return (
+          '<article class="h5-node h5-article-node">' +
+          '<h3 class="h5-node-title">' +
+          escapeHtml(narrative.nodeName || node.title || '维修过程') +
+          '</h3>' +
+          (desc ? '<p class="h5-node-note">' + escapeHtml(desc) + '</p>' : '') +
+          imgsHtml +
+          '</article>'
+        )
+      })
+      .join('')
+    if (!items) return ''
+    return (
+      '<section class="h5-card">' +
+      '<h2 class="h5-section-title">维修过程图集</h2>' +
+      '<p class="h5-compliance">' +
+      escapeHtml(COPY.desensitize) +
+      '</p>' +
+      items +
+      '</section>'
+    )
+  }
+
+  function buildStoreNavUrl(store) {
+    if (!store) return ''
+    var lat = store.latitude
+    var lng = store.longitude
+    if (lat != null && lng != null && !Number.isNaN(Number(lat)) && !Number.isNaN(Number(lng))) {
+      return (
+        'https://uri.amap.com/marker?position=' +
+        encodeURIComponent(String(lng) + ',' + String(lat)) +
+        '&name=' +
+        encodeURIComponent(store.name || '门店')
+      )
+    }
+    if (store.address) {
+      return (
+        'https://uri.amap.com/search?keyword=' + encodeURIComponent(store.address)
+      )
+    }
+    return ''
+  }
+
+  function renderConversionFooter(data) {
+    return (
+      '<footer class="h5-footer">' +
+      '<div class="h5-footer-inner h5-footer-inner--dual">' +
+      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话咨询</button>' +
+      '<button type="button" class="h5-btn" id="h5-consult-open-btn">留言咨询</button>' +
+      '</div>' +
+      '<div class="h5-footer-links">' +
+      (buildStoreNavUrl(data.store)
+        ? '<a class="h5-footer-link" id="h5-nav-link" href="' +
+          escapeHtml(buildStoreNavUrl(data.store)) +
+          '" target="_blank" rel="noopener">门店导航</a>'
+        : '') +
+      (data.storeId
+        ? '<a class="h5-footer-link" href="/store/' +
+          encodeURIComponent(data.storeId) +
+          '.html">本店主页</a>'
+        : '') +
+      '<button type="button" class="h5-footer-link h5-footer-link-btn" id="h5-open-weapp-link">小程序查看</button>' +
+      '</div></footer>' +
+      renderConsultSheet(data)
+    )
+  }
+
+  function renderConsultSheet(data) {
+    var storeLabel = shouldShowStorePublicly(data)
+      ? data.storeName || '服务门店'
+      : data.city
+        ? data.city + '服务门店'
+        : '服务门店'
+    return (
+      '<div class="h5-consult-sheet" id="h5-consult-sheet" hidden>' +
+      '<div class="h5-consult-sheet-mask" id="h5-consult-sheet-mask"></div>' +
+      '<div class="h5-consult-sheet-panel">' +
+      '<div class="h5-consult-sheet-head">' +
+      '<h2 class="h5-section-title">留言咨询</h2>' +
+      '<button type="button" class="h5-consult-close" id="h5-consult-close">关闭</button>' +
+      '</div>' +
+      '<p class="h5-compliance">向「' +
+      escapeHtml(storeLabel) +
+      '」提交咨询，门店将电话与您联系。非平台报价承诺。</p>' +
+      '<label class="h5-field"><span>称呼</span><input id="h5-consult-name" type="text" maxlength="20" placeholder="如何称呼您" /></label>' +
+      '<label class="h5-field"><span>手机号</span><input id="h5-consult-phone" type="tel" maxlength="11" placeholder="11位手机号" /></label>' +
+      '<label class="h5-field"><span>咨询内容</span><textarea id="h5-consult-desc" rows="4" maxlength="500" placeholder="请描述您的车辆问题或想了解的维修项目"></textarea></label>' +
+      '<label class="h5-consult-consent"><input id="h5-consult-consent" type="checkbox" /> 我已知悉：线上咨询仅为预约沟通，实际方案与费用需到店确认。</label>' +
+      '<p class="h5-consult-error" id="h5-consult-error" hidden></p>' +
+      '<button type="button" class="h5-btn" id="h5-consult-submit">提交咨询</button>' +
+      '</div></div>'
+    )
+  }
+
+  function renderLegacyFooter(data) {
+    return (
+      '<footer class="h5-footer">' +
+      '<div class="h5-footer-inner h5-footer-inner--triple">' +
+      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>' +
+      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn-footer">打开小程序</button>' +
+      '<button type="button" class="h5-btn" id="h5-message-btn">留言</button>' +
+      '</div></footer>'
     )
   }
 
@@ -537,7 +819,7 @@
     )
   }
 
-  function bindCaseInteractions(safeData) {
+  function bindCaseInteractions(safeData, articleMode) {
     var caseId = safeData.id || ''
     var storeId = safeData.storeId || ''
 
@@ -576,6 +858,163 @@
       }
     }
 
+    function trackConsultClick() {
+      if (window.zhejianTrack) {
+        window.zhejianTrack.track('h5_consult_click', {
+          caseId: caseId,
+          storeId: storeId,
+        })
+      }
+    }
+
+    function handleCallClick() {
+      if (window.zhejianTrack) {
+        window.zhejianTrack.track('h5_call_click', {
+          caseId: caseId,
+          storeId: storeId,
+        })
+      }
+      var phone = safeData.storePhone || (safeData.store && safeData.store.phone) || ''
+      if (phone) {
+        window.location.href = 'tel:' + phone
+      } else if (articleMode) {
+        openConsultSheet()
+      } else {
+        alert('暂无门店电话，请打开小程序留言咨询。')
+      }
+    }
+
+    ;['h5-call-btn', 'h5-call-btn-top'].forEach(function (id) {
+      var btn = document.getElementById(id)
+      if (btn) btn.addEventListener('click', handleCallClick)
+    })
+
+    var navLink = document.getElementById('h5-nav-link')
+    if (navLink) {
+      navLink.addEventListener('click', function () {
+        if (window.zhejianTrack) {
+          window.zhejianTrack.track('h5_store_nav_click', {
+            caseId: caseId,
+            storeId: storeId,
+          })
+        }
+      })
+    }
+
+    function openConsultSheet() {
+      var sheet = document.getElementById('h5-consult-sheet')
+      if (sheet) sheet.hidden = false
+    }
+
+    function closeConsultSheet() {
+      var sheet = document.getElementById('h5-consult-sheet')
+      if (sheet) sheet.hidden = true
+      var err = document.getElementById('h5-consult-error')
+      if (err) err.hidden = true
+    }
+
+    ;['h5-consult-open-btn', 'h5-consult-open-top'].forEach(function (id) {
+      var btn = document.getElementById(id)
+      if (btn) {
+        btn.addEventListener('click', function () {
+          trackConsultClick()
+          openConsultSheet()
+        })
+      }
+    })
+
+    var closeBtn = document.getElementById('h5-consult-close')
+    if (closeBtn) closeBtn.addEventListener('click', closeConsultSheet)
+    var mask = document.getElementById('h5-consult-sheet-mask')
+    if (mask) mask.addEventListener('click', closeConsultSheet)
+
+    var submitBtn = document.getElementById('h5-consult-submit')
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function () {
+        var nameEl = document.getElementById('h5-consult-name')
+        var phoneEl = document.getElementById('h5-consult-phone')
+        var descEl = document.getElementById('h5-consult-desc')
+        var consentEl = document.getElementById('h5-consult-consent')
+        var errEl = document.getElementById('h5-consult-error')
+        var name = nameEl ? String(nameEl.value || '').trim() : ''
+        var phone = phoneEl ? String(phoneEl.value || '').replace(/\D/g, '') : ''
+        var description = descEl ? String(descEl.value || '').trim() : ''
+        var consent = consentEl ? consentEl.checked : false
+
+        function showError(msg) {
+          if (!errEl) {
+            alert(msg)
+            return
+          }
+          errEl.textContent = msg
+          errEl.hidden = false
+        }
+
+        if (!storeId) {
+          showError('缺少门店信息，请刷新后重试')
+          return
+        }
+        if (!/^1\d{10}$/.test(phone)) {
+          showError('请填写有效手机号')
+          return
+        }
+        if (description.length < 4) {
+          showError('请填写至少 4 字咨询内容')
+          return
+        }
+        if (!consent) {
+          showError('请先勾选说明')
+          return
+        }
+
+        submitBtn.disabled = true
+        fetch('/api/v1/public/h5/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId: storeId,
+            caseId: caseId,
+            serviceName: safeData.serviceName || '',
+            name: name,
+            phone: phone,
+            description: description,
+            platformConsent: true,
+            sourcePage: 'h5_case',
+          }),
+        })
+          .then(function (res) {
+            return res.json().then(function (body) {
+              return { ok: res.ok, body: body }
+            })
+          })
+          .then(function (result) {
+            if (!result.ok || result.body.code !== 0) {
+              throw new Error((result.body && result.body.message) || '提交失败')
+            }
+            trackConsultClick()
+            closeConsultSheet()
+            alert('咨询已提交，门店将尽快与您联系。')
+          })
+          .catch(function (err) {
+            showError((err && err.message) || '提交失败，请稍后重试')
+          })
+          .finally(function () {
+            submitBtn.disabled = false
+          })
+      })
+    }
+
+    if (articleMode) {
+      var weappLink = document.getElementById('h5-open-weapp-link')
+      if (weappLink) {
+        weappLink.addEventListener('click', function () {
+          trackOpenWeapp()
+          openWeapp(miniprogramCasePath(safeData))
+        })
+      }
+      return
+    }
+
     ;['h5-open-weapp-btn', 'h5-open-weapp-btn-footer'].forEach(function (id) {
       var btn = document.getElementById(id)
       if (btn) {
@@ -590,38 +1029,16 @@
       var btn = document.getElementById(id)
       if (btn) {
         btn.addEventListener('click', function () {
-          if (window.zhejianTrack) {
-            window.zhejianTrack.track('h5_consult_click', {
-              caseId: caseId,
-              storeId: storeId,
-            })
-          }
+          trackConsultClick()
           openWeapp(miniprogramConsultPath(safeData))
         })
       }
     })
-
-    var callBtn = document.getElementById('h5-call-btn')
-    if (callBtn) {
-      callBtn.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_call_click', {
-            caseId: caseId,
-            storeId: storeId,
-          })
-        }
-        var phone = safeData.storePhone || ''
-        if (phone) {
-          window.location.href = 'tel:' + phone
-        } else {
-          alert('暂无门店电话，请打开小程序留言咨询。')
-        }
-      })
-    }
   }
 
   function renderCase(data) {
     var safeData = sanitizeCaseForDisplay(data)
+    var articleMode = hasArticleLayout(safeData)
     setShareMeta(safeData)
 
     var html =
@@ -630,7 +1047,7 @@
       escapeHtml(safeData.title) +
       '</nav>' +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
+      '<div class="h5-brand">辙见 · 公开维修案例</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(safeData.title) +
       '</h1>' +
@@ -643,58 +1060,69 @@
       '<div class="h5-banner">' +
       escapeHtml(COPY.geoDisclaimer) +
       '</div>' +
-      '</header>' +
-      '<div class="h5-top-actions">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
-      '<button type="button" class="h5-btn" id="h5-consult-top-btn">预约类似服务</button>' +
-      '</div>' +
-      (safeData.aiSummary
-        ? '<p class="h5-summary">' + escapeHtml(safeData.aiSummary) + '</p>'
-        : '') +
-      renderKeyInfo(safeData.keyInfo) +
-      renderPriceSection(safeData)
+      '</header>'
 
-    if (safeData.faultDesc) {
+    if (articleMode) {
       html +=
-        '<div class="h5-card"><h2 class="h5-section-title">故障表现</h2><p>' +
-        escapeHtml(safeData.faultDesc) +
-        '</p></div>'
-    }
-    if (safeData.inspectResult) {
+        '<div class="h5-top-actions">' +
+        '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn-top">电话咨询</button>' +
+        '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
+        '</div>' +
+        renderArticleLead(safeData) +
+        renderKeyInfo(safeData.keyInfo) +
+        renderPriceSection(safeData) +
+        renderArticleSections(safeData) +
+        renderArticleProcess(safeData, safeData.nodes)
+    } else {
       html +=
-        '<div class="h5-card"><h2 class="h5-section-title">检查结果</h2><p>' +
-        escapeHtml(safeData.inspectResult) +
-        '</p></div>'
-    }
-    if (safeData.repairPlan) {
-      html +=
-        '<div class="h5-card"><h2 class="h5-section-title">维修方案</h2><p>' +
-        escapeHtml(safeData.repairPlan) +
-        '</p></div>'
+        '<div class="h5-top-actions">' +
+        '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
+        '<button type="button" class="h5-btn" id="h5-consult-top-btn">预约类似服务</button>' +
+        '</div>' +
+        (safeData.aiSummary
+          ? '<p class="h5-summary">' + escapeHtml(safeData.aiSummary) + '</p>'
+          : '') +
+        renderKeyInfo(safeData.keyInfo) +
+        renderPriceSection(safeData)
+
+      if (safeData.faultDesc) {
+        html +=
+          '<div class="h5-card"><h2 class="h5-section-title">故障表现</h2><p>' +
+          escapeHtml(safeData.faultDesc) +
+          '</p></div>'
+      }
+      if (safeData.inspectResult) {
+        html +=
+          '<div class="h5-card"><h2 class="h5-section-title">检查结果</h2><p>' +
+          escapeHtml(safeData.inspectResult) +
+          '</p></div>'
+      }
+      if (safeData.repairPlan) {
+        html +=
+          '<div class="h5-card"><h2 class="h5-section-title">维修方案</h2><p>' +
+          escapeHtml(safeData.repairPlan) +
+          '</p></div>'
+      }
+
+      html += renderNodes(safeData, safeData.nodes)
+      html += renderPriceFactors(safeData.priceFactors)
     }
 
-    html += renderNodes(safeData, safeData.nodes)
-
-    html += renderPriceFactors(safeData.priceFactors)
     html += renderStoreSection(safeData)
     html += renderFaq(safeData.faq)
-    html += renderRelatedCases(safeData.relatedCases, safeData.id)
+    html += renderRelatedCases(
+      safeData.relatedCases,
+      safeData.id,
+      articleMode ? '本店更多案例' : '相关案例'
+    )
 
-    html +=
-      '<div class="h5-body-spacer"></div>' +
-      '</div>' +
-      '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner h5-footer-inner--triple">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn-footer">打开小程序</button>' +
-      '<button type="button" class="h5-btn" id="h5-message-btn">留言</button>' +
-      '</div>' +
-      '</footer>'
+    html += '<div class="h5-body-spacer"></div></div>'
+    html += articleMode ? renderConversionFooter(safeData) : renderLegacyFooter(safeData)
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
 
-    bindCaseInteractions(safeData)
+    bindCaseInteractions(safeData, articleMode)
 
     if (window.zhejianTrack) {
       window.zhejianTrack.trackCaseView(safeData)

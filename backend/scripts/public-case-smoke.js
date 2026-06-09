@@ -223,6 +223,17 @@ async function main() {
     const userDetail = await api('GET', `/user/cases/${caseId}`)
     assert(userDetail.storeId === STORE_ID, `storeId 应为 ${STORE_ID}`)
     assertNoRawInPayload(userDetail)
+    assert(userDetail.seo && userDetail.seo.title, '应有 seo.title')
+    assert(userDetail.seo.slug, '审核通过后应有 seo.slug')
+    assert(
+      userDetail.seo.canonicalPath &&
+        userDetail.seo.canonicalPath.indexOf('/case/') === 0 &&
+        userDetail.seo.canonicalPath.endsWith('.html'),
+      'canonicalPath 应为 slug 页'
+    )
+    assert(userDetail.article && userDetail.article.hasArticle, '审核通过后 article.hasArticle 应为 true')
+    assert(userDetail.article.body, '应有 article.body')
+    assert(Array.isArray(userDetail.article.sections) && userDetail.article.sections.length >= 3, '应有 article.sections')
     if (userDetail.coverImage) {
       assert(isDesensitizedUrl(userDetail.coverImage), '封面应为脱敏 URL')
     }
@@ -231,7 +242,8 @@ async function main() {
     const dbRow = await prisma.publicCase.findUnique({ where: { id: caseId } })
     assert(dbRow?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, 'DB 状态应为 public_approved')
     assert(dbRow?.storeId === STORE_ID, 'DB storeId 对齐')
-    console.log('[smoke] ✅ H5-A-01 全流程通过', caseId)
+    assert(dbRow?.slug, 'DB 应有 slug')
+    console.log('[smoke] ✅ H5-A-01 全流程通过', caseId, 'slug=', dbRow.slug)
   } finally {
     if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
     if (process.env.SMOKE_KEEP_DATA !== '1') {

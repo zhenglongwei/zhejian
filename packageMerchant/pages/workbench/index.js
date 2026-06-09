@@ -8,6 +8,7 @@ const {
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
+const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
 const { fetchMerchantUnreadNotificationCount, fetchMerchantSubscribeStatus } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
@@ -54,6 +55,12 @@ Page({
       leadSubmit: '0',
       transparency: '0',
     },
+    casePublish: {
+      pendingPublish: 0,
+      publishedH5: 0,
+      caseViews7d: 0,
+    },
+    casePublishRecent: [],
     canManageStaff: false,
     storeOptions: [],
     storePickerIndex: 0,
@@ -107,6 +114,8 @@ Page({
       activeAlbums: 0,
     }
     let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
+    let casePublish = { pendingPublish: 0, publishedH5: 0, caseViews7d: 0 }
+    let casePublishRecent = []
     let storeOptions = []
     let storePickerIndex = 0
     let canSwitchStore = false
@@ -126,10 +135,12 @@ Page({
       storeOptions = []
     }
     try {
-      const [stats, leadStats, dashStats, unreadCount, subscribeStatus] = await Promise.all([
+      const [stats, leadStats, dashStats, publishPanel, unreadCount, subscribeStatus] =
+        await Promise.all([
         fetchMerchantAlbumStats(),
         fetchMerchantLeadStats(profile.storeId),
         fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
+        fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
         fetchMerchantUnreadNotificationCount().catch(() => 0),
         fetchMerchantSubscribeStatus('merchant').catch(() => ({ needsPrompt: false })),
       ])
@@ -138,6 +149,14 @@ Page({
         pendingUpload: stats.pendingUpload || 0,
         pendingAuth: stats.pendingAuth || 0,
         activeAlbums: stats.active || 0,
+      }
+      if (publishPanel && publishPanel.summary) {
+        casePublish = {
+          pendingPublish: publishPanel.summary.pendingPublish || 0,
+          publishedH5: publishPanel.summary.publishedH5 || 0,
+          caseViews7d: publishPanel.summary.caseViews7d || 0,
+        }
+        casePublishRecent = publishPanel.recent || []
       }
       if (dashStats && dashStats.summary) {
         overview = {
@@ -159,6 +178,8 @@ Page({
       profile,
       todos,
       overview,
+      casePublish,
+      casePublishRecent,
       canManageStaff,
       storeOptions,
       storePickerIndex,
@@ -342,5 +363,32 @@ Page({
     this._navigateTo(
       `/pages/store/detail/index?id=${profile.storeId}&preview=1&share=1`
     )
+  },
+
+  onCasePublishSummaryTap(e) {
+    const key = e.currentTarget.dataset.key
+    if (key === 'pending') {
+      this._navigateTo('/packageMerchant/pages/album/list/index?tab=pending_auth')
+      return
+    }
+    if (key === 'published') {
+      this._navigateTo('/pages/case/index')
+      return
+    }
+    if (key === 'views') {
+      this.onDashboard()
+    }
+  },
+
+  onCasePublishItemTap(e) {
+    const albumId = e.currentTarget.dataset.albumId
+    const caseId = e.currentTarget.dataset.caseId
+    if (albumId) {
+      this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${albumId}`)
+      return
+    }
+    if (caseId) {
+      this._navigateTo(`/pages/case/detail/index?id=${caseId}`)
+    }
   },
 })

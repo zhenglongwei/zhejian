@@ -26,6 +26,13 @@ const { GEO_PAGES } = require('../../../mock/geo-pages')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
 const { buildNodesFromTask } = require('./public-case.service')
+const {
+  resolveGeoReadableFields,
+  mapCaseArticleForApi,
+  mapCaseSeoForApi,
+  emptyCaseArticleApi,
+  emptyCaseSeoApi,
+} = require('../schemas/case-geo-content.schema')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -159,6 +166,7 @@ function sanitizeNodes(nodes) {
 
 function mapPublicCaseRow(row, album) {
   const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  const geoFields = resolveGeoReadableFields(row)
   const cover = pickCaseCover(row, content, album)
   const publicPrice = resolvePublicCasePriceFields(row, album)
   const item = {
@@ -182,25 +190,50 @@ function mapPublicCaseRow(row, album) {
     viewCount: 0,
     publishedAt: formatPublishedAt(row.publishedAt),
     tags: content.tags || ['authorized', 'desensitized', 'audited'],
-    aiSummary: content.aiSummary || row.summary || '',
-    keyInfo: content.keyInfo || [],
-    faultDesc: content.faultDesc || '',
-    inspectResult: content.inspectResult || '',
-    repairPlan: content.repairPlan || '',
-    priceFactors: content.priceFactors || [],
+    aiSummary: geoFields.aiSummary,
+    keyInfo: geoFields.keyInfo.length ? geoFields.keyInfo : content.keyInfo || [],
+    faultDesc: geoFields.faultDesc,
+    inspectResult: geoFields.inspectResult,
+    repairPlan: geoFields.repairPlan,
+    priceFactors:
+      geoFields.priceFactors.length > 0 ? geoFields.priceFactors : content.priceFactors || [],
     nodes: sanitizeNodes(content.nodes),
     faq: content.faq || [],
+    slug: geoFields.slug || null,
   }
   return applyPublicDisplayRules(item)
 }
 
 function mapFallbackCase(item) {
-  return applyPublicDisplayRules({
+  const mapped = applyPublicDisplayRules({
     ...item,
     coverImage: sanitizeCover(item.coverImage),
     coverImageDesensitized: sanitizeCover(item.coverImage),
     nodes: sanitizeNodes(item.nodes),
   })
+  return {
+    ...mapped,
+    seo: emptyCaseSeoApi(item.id),
+    article: emptyCaseArticleApi(),
+  }
+}
+
+function attachCaseArticleAndSeo(row, item) {
+  const sourceRow = row || {}
+  const seo = mapCaseSeoForApi(sourceRow)
+  const article = mapCaseArticleForApi(sourceRow)
+  return {
+    ...item,
+    seoTitle: seo.title || item.title || '',
+    seoDescription: seo.description || item.summary || '',
+    seoNoindex: seo.noindex,
+    canonicalPath: seo.canonicalPath,
+    slug: seo.slug,
+    articleStatus: article.status,
+    articleBody: article.body,
+    seo,
+    article,
+  }
 }
 
 async function fetchPublicCaseRows() {
@@ -285,10 +318,15 @@ async function listCases(query = {}) {
   return { list, total }
 }
 
-async function getCaseDetail(id) {
-  const row = await prisma.publicCase.findFirst({
-    where: { id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+async function getCaseDetail(idOrSlug) {
+  let row = await prisma.publicCase.findFirst({
+    where: { id: idOrSlug, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
   })
+  if (!row) {
+    row = await prisma.publicCase.findFirst({
+      where: { slug: idOrSlug, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    })
+  }
 
   let item
   if (row) {
@@ -313,9 +351,14 @@ async function getCaseDetail(id) {
     if (task && Array.isArray(content.nodes)) {
       content.nodes = buildNodesFromTask(content.nodes, task)
     }
-    item = mapPublicCaseRow({ ...row, contentJson: content }, album)
+    item = attachCaseArticleAndSeo(
+      { ...row, contentJson: content },
+      mapPublicCaseRow({ ...row, contentJson: content }, album)
+    )
   } else {
-    const fallback = FALLBACK_PUBLIC_CASES.find((c) => c.id === id)
+    const fallback = FALLBACK_PUBLIC_CASES.find(
+      (c) => c.id === idOrSlug || c.slug === idOrSlug
+    )
     if (!fallback) {
       const err = new Error('案例不存在')
       err.status = 404
@@ -326,17 +369,24 @@ async function getCaseDetail(id) {
 
   const { list: allCases } = await listCases()
   const relatedCases = allCases
-    .filter(
-      (c) =>
-        c.id !== item.id &&
-        (c.serviceName === item.serviceName || c.storeId === item.storeId)
-    )
+    .filter((c) => c.id !== item.id && c.storeId === item.storeId)
     .slice(0, 3)
 
   let storePhone = ''
+  let store = null
   if (item.storeId) {
-    const store = await prisma.store.findUnique({ where: { id: item.storeId } })
-    storePhone = store?.phone || ''
+    const storeRow = await prisma.store.findUnique({ where: { id: item.storeId } })
+    if (storeRow) {
+      storePhone = storeRow.phone || ''
+      store = {
+        id: storeRow.id,
+        name: storeRow.name || '',
+        address: storeRow.address || '',
+        latitude: storeRow.latitude != null ? Number(storeRow.latitude) : null,
+        longitude: storeRow.longitude != null ? Number(storeRow.longitude) : null,
+        phone: storeRow.phone || '',
+      }
+    }
   }
 
   const faq = item.faq && item.faq.length ? item.faq : buildCaseFaq(item.serviceName)
@@ -345,6 +395,7 @@ async function getCaseDetail(id) {
   return {
     ...display,
     storePhone,
+    store,
     showStorePublicly: shouldShowStorePublicly(item.authorizationTier),
     faq,
     relatedCases,

@@ -54,10 +54,13 @@ function openPlatformSupportContact() {
   wx.showModal({
     title: '联系客服',
     content: `${PLATFORM_SUPPORT_SCOPE}${hoursLine}`,
-    confirmText: '选择联系方式',
+    confirmText: '联系方式',
     cancelText: '知道了',
     success: (res) => {
       if (res.confirm) showSupportActionSheet()
+    },
+    fail: () => {
+      showSupportActionSheet()
     },
   })
 }

@@ -309,3 +309,58 @@
 .merchant-wb__more-caret {
   color: var(--color-text-tertiary);
 }
+
+.merchant-wb__todo-row--case {
+  margin-top: var(--space-md);
+}
+
+.merchant-wb__case-list {
+  margin-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.merchant-wb__case-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.merchant-wb__case-item:last-child {
+  border-bottom: none;
+}
+
+.merchant-wb__case-item--tap:active {
+  opacity: 0.72;
+}
+
+.merchant-wb__case-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-wb__case-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-wb__case-meta {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.merchant-wb__case-status {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.merchant-wb__case-empty {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}

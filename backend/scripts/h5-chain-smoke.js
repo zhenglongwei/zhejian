@@ -216,6 +216,37 @@ async function main() {
   const detail = await api('GET', `/user/cases/${encodeURIComponent(caseId)}`)
   assert(detail.ok && detail.json?.code === 0 && detail.json.data, `案例详情失败: ${detail.status}`)
   assert(detail.json.data.storeId, '案例详情缺少 storeId')
+  const caseData = detail.json.data
+  if (caseData.article && caseData.article.hasArticle) {
+    assert(caseData.seo && caseData.seo.title, '文章案例应有 seo.title')
+    assert(caseData.article.body, '文章案例应有 article.body')
+    assert(Array.isArray(caseData.article.sections), '应有 article.sections')
+    console.log('[chain] ✅ 案例文章 API（seo + article）')
+  } else {
+    console.warn('[chain] ⚠ 案例未生成文章，跳过 article 断言（可 POST /system/cases/:id/generate-content）')
+  }
+  if (caseData.seo && caseData.seo.slug) {
+    assert(
+      caseData.seo.canonicalPath === `/case/${caseData.seo.slug}.html`,
+      'canonicalPath 应与 slug 对齐'
+    )
+    const redirectRes = await fetch(
+      `${BASE}/api/v1/public/h5/case-redirect?id=${encodeURIComponent(caseId)}`,
+      { redirect: 'manual' }
+    )
+    assert(redirectRes.status === 301, `旧链 redirect 应为 301，实际 ${redirectRes.status}`)
+    const location = redirectRes.headers.get('location') || ''
+    assert(location.endsWith(`${caseData.seo.slug}.html`), `redirect Location 应指向 slug 页: ${location}`)
+    console.log('[chain] ✅ 旧 URL 301 → slug 页')
+
+    const legacyView = await fetch(
+      `${BASE}/case/view.html?id=${encodeURIComponent(caseId)}&legacy=1`
+    )
+    assert(legacyView.ok, `legacy view.html 应 200，实际 ${legacyView.status}`)
+    console.log('[chain] ✅ legacy=1 旧链无死循环')
+  } else {
+    console.warn('[chain] ⚠ 案例无 slug，跳过 301 断言（可 generate-content?force=true）')
+  }
   console.log('[chain] ✅ GET /user/cases/:id')
 
   await verifyH5Home()

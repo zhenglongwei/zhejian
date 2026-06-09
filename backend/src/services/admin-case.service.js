@@ -15,6 +15,8 @@ const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service'
 const { ensureMediaRecordFromUrl } = require('./media.service')
 const { buildCaseDraft, resolvePublishTask } = require('./public-case.service')
 const { buildAlbumView } = require('./service-album.service')
+const { buildCaseArticlePayload } = require('./case-article-generator.service')
+const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
 
 const RISK_RANK = RISK_LEVEL_ORDER
 
@@ -452,25 +454,53 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     Boolean(String(album.userPhone || '').trim())
   const hasUserAuth = album.authorization?.status === 'authorized'
   const coldStart = !hasUserAuth && !hasOwner
-  const draft = buildCaseDraft(buildAlbumView(album), task, row.authorizationTier, {
+  const albumView = buildAlbumView(album)
+  const draft = buildCaseDraft(albumView, task, row.authorizationTier, {
     coldStart,
     hasUserAuthorization: hasUserAuth,
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
   })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
+  const articlePayload = buildCaseArticlePayload({
+    caseId,
+    draft,
+    albumView,
+    coldStart,
+    hasUserAuthorization: hasUserAuth,
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
+    previousArticleVersion: row.articleVersion || 0,
+  })
+  articlePayload.slug = await ensureUniqueCaseSlug(prisma, articlePayload.slug, caseId)
+  articlePayload.canonicalPath = resolveCaseCanonicalPath({
+    slug: articlePayload.slug,
+    caseId,
+  })
   const now = new Date()
 
   await prisma.publicCase.update({
     where: { id: caseId },
     data: {
       status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      title: draft.title,
-      summary: draft.summary,
+      title: articlePayload.title,
+      summary: articlePayload.summary,
       coverImage: draft.coverImage,
-      contentJson: draft.contentJson,
+      contentJson: articlePayload.contentJson,
       minAmount: priceColumns.minAmount,
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: now,
+      seoTitle: articlePayload.seoTitle,
+      seoDescription: articlePayload.seoDescription,
+      aiSummary: articlePayload.aiSummary,
+      articleBody: articlePayload.articleBody,
+      articleStatus: articlePayload.articleStatus,
+      articleVersion: articlePayload.articleVersion,
+      articleGeneratedAt: articlePayload.articleGeneratedAt,
+      seoNoindex: articlePayload.seoNoindex,
+      slug: articlePayload.slug,
+      canonicalPath: articlePayload.canonicalPath,
     },
   })
 

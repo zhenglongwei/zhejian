@@ -232,27 +232,38 @@ model LeadStatusLog {
 }
 
 model PublicCase {
-  id                String    @id
-  albumId           String    @unique @map("album_id")
-  status            String    @default("pending_review")
-  authorizationTier String    @default("named") @map("authorization_tier")
-  title             String    @default("")
-  summary           String    @default("") @db.Text
-  coverImage        String    @default("") @map("cover_image") @db.VarChar(512)
-  contentJson       Json?     @map("content_json")
-  storeId           String    @default("") @map("store_id")
-  storeName         String    @default("") @map("store_name")
-  serviceName       String    @default("") @map("service_name")
-  city              String    @default("")
-  minAmount         Int?      @map("min_amount")
-  maxAmount         Int?      @map("max_amount")
-  priceMode         String    @default("") @map("price_mode")
-  publishedAt       DateTime? @map("published_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  album             Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  id                  String    @id
+  albumId             String    @unique @map("album_id")
+  status              String    @default("pending_review")
+  authorizationTier   String    @default("named") @map("authorization_tier")
+  title               String    @default("")
+  summary             String    @default("") @db.Text
+  coverImage          String    @default("") @map("cover_image") @db.VarChar(512)
+  contentJson         Json?     @map("content_json")
+  storeId             String    @default("") @map("store_id")
+  storeName           String    @default("") @map("store_name")
+  serviceName         String    @default("") @map("service_name")
+  city                String    @default("")
+  minAmount           Int?      @map("min_amount")
+  maxAmount           Int?      @map("max_amount")
+  priceMode           String    @default("") @map("price_mode")
+  publishedAt         DateTime? @map("published_at")
+  slug                String?   @unique @db.VarChar(255)
+  seoTitle            String    @default("") @map("seo_title") @db.VarChar(160)
+  seoDescription      String    @default("") @map("seo_description") @db.VarChar(300)
+  aiSummary           String    @default("") @map("ai_summary") @db.Text
+  articleBody         String    @default("") @map("article_body") @db.Text
+  articleStatus       String    @default("pending") @map("article_status") @db.VarChar(32)
+  articleVersion      Int       @default(0) @map("article_version")
+  articleGeneratedAt  DateTime? @map("article_generated_at")
+  seoNoindex          Boolean   @default(false) @map("seo_noindex")
+  canonicalPath       String    @default("") @map("canonical_path") @db.VarChar(512)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  album               Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@index([status])
+  @@index([articleStatus])
   @@map("public_cases")
 }
 
