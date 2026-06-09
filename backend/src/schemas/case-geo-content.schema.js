@@ -236,9 +236,8 @@ const ARTICLE_READY_STATUSES = new Set([
 function mapCaseArticleForApi(row) {
   const fields = resolveGeoReadableFields(row)
   const geo = fields.geo || {}
-  const hasArticle =
-    Boolean(fields.articleBody) ||
-    ARTICLE_READY_STATUSES.has(fields.articleStatus)
+  /** 仅有 published 态但无正文时不算 hasArticle（存量须 generate-content 补跑） */
+  const hasArticle = Boolean(String(fields.articleBody || '').trim())
   return {
     hasArticle,
     status: fields.articleStatus,
