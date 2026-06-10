@@ -5,7 +5,7 @@
 | 路径 | 说明 |
 | --- | --- |
 | `/api/v1/` | 本 backend（**PM2** `zhejian-api` 或 systemd，见下） |
-| `/admin/` | `admin-web/placeholder/` |
+| `/admin/` | `admin-web/dist/`（须先 `cd admin-web && npm run build`） |
 | `/case/` | `h5/case/` |
 
 **完整步骤**：`docs/12_测试验收部署与安全合规/B-INF_生产与真机联调.md`  

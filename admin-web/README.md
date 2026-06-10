@@ -23,10 +23,22 @@ npm run dev
 ## 构建部署
 
 ```bash
+cd admin-web
+npm install
 npm run build
 ```
 
-将 `dist/` 同步至服务器 `/var/www/geo.simplewin.cn/admin/`。
+构建产物在 `admin-web/dist/`。Nginx 已配置读该目录（见 `backend/deploy/simplewin.conf`）。
+
+**ECS 发版**（在服务器 `/var/www/zhejian` 拉代码后）：
+
+```bash
+cd admin-web && npm ci && npm run build
+sudo cp /var/www/zhejian/backend/deploy/simplewin.conf /etc/nginx/conf.d/simplewin.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+浏览器打开：`https://geo.simplewin.cn/admin/` → 登录页。
 
 ## OPS-MASK-01 页面
 
@@ -37,6 +49,12 @@ npm run build
 | `/admin/cases/:caseId` | 审核详情（**脱敏图** + OCR 摘要 + 审核操作；**不展示原图**） |
 | `/admin/merchants` | 商家入驻审核列表 |
 | `/admin/merchants/:merchantId` | 商家入驻审核详情 |
+| `/admin/services` | 服务方案事后监管 |
+| `/admin/services/:planId` | 抽查 / 下架 / 限预约 |
+| `/admin/reports` | 举报工单列表 |
+| `/admin/reports/:reportId` | 举报处置 |
+
+案例详情另含：公众号文章导出、FAQ 外链编辑（**A-PUB-07**）。
 
 ## 关联任务
 
