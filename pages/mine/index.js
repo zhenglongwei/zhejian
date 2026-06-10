@@ -1,11 +1,11 @@
-const { fetchMineSummary } = require('../../services/user')
+const { fetchMineSummary, updateUserProfile } = require('../../services/user')
+const { uploadImage } = require('../../utils/media-upload')
+const { fetchUserServiceAlbums } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections } = require('../../constants/mine-menu')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
-const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
+const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
-
-const MINE_ALBUM_PREVIEW_LIMIT = 3
 
 Page({
   data: {
@@ -14,14 +14,12 @@ Page({
     isLoggedIn: false,
     user: null,
     menuSections: buildMineMenuSections({}),
-    albumPreview: [],
-    showAlbumPreview: false,
-    showAlbumEmpty: false,
-    albumPendingAuthBadge: '',
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     loginSheetBindContext: 'album',
     platformNotice: HOME_PLATFORM_IDENTITY,
+    avatarPreview: '',
+    profileUpdating: false,
   },
 
   onLoad() {
@@ -36,22 +34,34 @@ Page({
     this.loadPage().finally(() => wx.stopPullDownRefresh())
   },
 
-  buildBadges(summary) {
+  buildBadges(summary, albumUnread) {
     const source = summary || {}
     const format = (n) => {
       const count = Number(n) || 0
       if (count <= 0) return ''
       return count > 99 ? '99+' : String(count)
     }
+    const pendingAuth = Number(source.albumPendingAuth) || 0
     return {
-      consultPending: format(source.consultPending),
-      albumPendingAuth: format(source.albumPendingAuth),
       unreadNotification: format(source.unreadNotificationCount),
+      albumUnread: albumUnread || pendingAuth > 0,
     }
   },
 
   syncMenuSections(badges) {
     this.setData({ menuSections: buildMineMenuSections(badges) })
+  },
+
+  async loadAlbumUnreadHint() {
+    try {
+      const [privateList, publicList] = await Promise.all([
+        fetchUserServiceAlbums({ tab: 'private' }),
+        fetchUserServiceAlbums({ tab: 'public' }),
+      ])
+      return hasUnreadAlbums([...(privateList || []), ...(publicList || [])])
+    } catch (e) {
+      return false
+    }
   },
 
   async loadPage() {
@@ -63,10 +73,6 @@ Page({
         isLoggedIn: false,
         user: null,
         errorMessage: '',
-        albumPreview: [],
-        showAlbumPreview: false,
-        showAlbumEmpty: false,
-        albumPendingAuthBadge: '',
       })
       return
     }
@@ -80,31 +86,23 @@ Page({
           status: 'normal',
           isLoggedIn: false,
           user: null,
-          albumPreview: [],
-          showAlbumPreview: false,
-          showAlbumEmpty: false,
-          albumPendingAuthBadge: '',
+          errorMessage: '',
         })
         return
       }
 
-      const badges = this.buildBadges(summary)
-      const rawAlbums = summary.recentAlbums || []
-      const albumPreview = rawAlbums
-        .slice(0, MINE_ALBUM_PREVIEW_LIMIT)
-        .map((item) => enrichServiceAlbumListItem(item, { listTab: 'private' }))
-      const showAlbumPreview = albumPreview.length > 0
-      const showAlbumEmpty = !summary.hasAlbumBindings
+      const auth = checkAuth({ needPhone: false })
+      let albumUnread = false
+      if (auth.ok) {
+        albumUnread = await this.loadAlbumUnreadHint()
+      }
 
+      const badges = this.buildBadges(summary, albumUnread)
       this.syncMenuSections(badges)
       this.setData({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
-        albumPreview,
-        showAlbumPreview,
-        showAlbumEmpty,
-        albumPendingAuthBadge: badges.albumPendingAuth,
       })
     } catch (e) {
       this.setData({
@@ -136,13 +134,44 @@ Page({
   },
 
   onUserAreaTap() {
-    if (this.data.isLoggedIn) {
-      if (!(this.data.user && this.data.user.isPhoneBound)) {
-        this.openLoginSheet('bindPhone')
-      }
-      return
+    if (!this.data.isLoggedIn) {
+      this.openLoginSheet('login')
     }
-    this.openLoginSheet('login')
+  },
+
+  async onAvatarChoose(e) {
+    const tempPath = (e.detail && e.detail.tempPath) || ''
+    if (!tempPath || this.data.profileUpdating) return
+
+    this.setData({ profileUpdating: true, avatarPreview: tempPath })
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const avatarUrl = await uploadImage(tempPath)
+      const user = await updateUserProfile({ avatarUrl })
+      this.setData({ user, avatarPreview: '' })
+      wx.showToast({ title: '头像已更新', icon: 'success' })
+    } catch (err) {
+      this.setData({ avatarPreview: '' })
+      wx.showToast({ title: (err && err.message) || '头像更新失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+      this.setData({ profileUpdating: false })
+    }
+  },
+
+  async onNicknameChange(e) {
+    const nickname = String((e.detail && e.detail.nickname) || '').trim()
+    if (this.data.profileUpdating) return
+
+    this.setData({ profileUpdating: true })
+    try {
+      const user = await updateUserProfile({ nickname })
+      this.setData({ user })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '昵称保存失败', icon: 'none' })
+    } finally {
+      this.setData({ profileUpdating: false })
+    }
   },
 
   onLoginTap() {
@@ -175,17 +204,6 @@ Page({
       title: `${key === 'settings' ? '设置' : '功能'}将在后续版本开放`,
       icon: 'none',
     })
-  },
-
-  onViewAllAlbums() {
-    if (!this.guardProtectedEntry(true)) return
-    wx.navigateTo({ url: '/pages/album/list/index' })
-  },
-
-  onAlbumCardTap(e) {
-    const albumId = (e.detail && e.detail.id) || ''
-    if (!albumId) return
-    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
   },
 
   onMenuCellTap(e) {

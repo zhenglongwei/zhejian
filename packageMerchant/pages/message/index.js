@@ -79,7 +79,8 @@ Page({
   },
 
   onGoLogin() {
-    wx.switchTab({ url: '/pages/mine/index' })
+    const { reLaunchAppHome } = require('../../../utils/app-home')
+    reLaunchAppHome()
   },
 
   async onItemTap(e) {

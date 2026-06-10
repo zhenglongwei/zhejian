@@ -537,7 +537,11 @@
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_store_consult_click', { storeId: storeId })
         }
-        openWeapp(miniprogramPath('consult/submit/index', storeId))
+        if (store.phone) {
+          window.location.href = 'tel:' + store.phone
+        } else {
+          alert('暂无门店电话，请稍后再试。')
+        }
       })
     }
 
@@ -550,7 +554,7 @@
         if (store.phone) {
           window.location.href = 'tel:' + store.phone
         } else {
-          alert('暂无门店电话，请打开小程序留言咨询。')
+          alert('暂无门店电话，请稍后再试。')
         }
       })
     }
@@ -693,7 +697,11 @@
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_store_consult_click', { storeId: store.id })
         }
-        openWeapp(miniprogramPath('consult/submit/index', store.id))
+        if (store.phone) {
+          window.location.href = 'tel:' + store.phone
+        } else {
+          alert('暂无门店电话，请稍后再试。')
+        }
       })
     }
 

@@ -22,7 +22,6 @@ const {
   copyPublicStoreWebLink,
 } = require('../../../utils/store-share')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
-const { recordRecentVisit } = require('../../../utils/recent-visit')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
 
@@ -200,11 +199,6 @@ Page({
         shareActionsDisabled: !canShareStore(store),
       })
       markShareStoreContext({ storeId: store.id, source: 'store_detail' })
-      recordRecentVisit({
-        type: 'store',
-        storeId: store.id,
-        storeName: store.name,
-      })
       this.updateShareMenu(true)
       if (!this.isPreview) {
         await this.syncFavoriteState()
@@ -410,18 +404,14 @@ Page({
     })
   },
 
-  onMessage() {
-    if (this._messageNavigating || !this.storeId) return
-    this._messageNavigating = true
-    wx.navigateTo({
-      url: withStoreContextPath(
-        `/pages/consult/submit/index?storeId=${this.storeId}&sourcePage=store`,
-        { storeId: this.storeId }
-      ),
-      complete: () => {
-        this._messageNavigating = false
-      },
-    })
+  onCallStore() {
+    const { store } = this.data
+    const phone = store && store.phone
+    if (!phone) {
+      wx.showToast({ title: '暂无门店电话', icon: 'none' })
+      return
+    }
+    wx.makePhoneCall({ phoneNumber: phone })
   },
 
   onEditStore() {

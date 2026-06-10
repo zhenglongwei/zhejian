@@ -32,7 +32,8 @@ Page({
       }
       wx.navigateBack({
         fail() {
-          wx.switchTab({ url: '/pages/mine/index' })
+          const { reLaunchAppHome } = require('../../../utils/app-home')
+          reLaunchAppHome()
         },
       })
       return
@@ -57,7 +58,7 @@ Page({
       wx.showModal({
         title: '关于辙见',
         content:
-          '辙见 — 像一份可翻阅的服务相册，而不是促销传单。提供案例浏览、咨询预约与服务相册工具。',
+          '辙见 — 像一份可翻阅的服务相册，而不是促销传单。提供服务相册查看与授权留痕工具。',
         showCancel: false,
       })
       return
@@ -80,14 +81,15 @@ Page({
   onLogout() {
     wx.showModal({
       title: '退出登录',
-      content: '退出后将无法查看咨询记录、服务相册与授权状态，确定退出吗？',
+      content: '退出后将无法查看服务相册与授权状态，确定退出吗？',
       success: (res) => {
         if (!res.confirm) return
         clearSession()
         this.syncLoginState()
         wx.showToast({ title: '已退出登录', icon: 'success' })
         setTimeout(() => {
-          wx.switchTab({ url: '/pages/mine/index' })
+          const { reLaunchAppHome } = require('../../../utils/app-home')
+          reLaunchAppHome()
         }, 400)
       },
     })

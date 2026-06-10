@@ -15,6 +15,7 @@ const {
   mockBindPhone,
   mockMineSummary,
   mockLogout,
+  mockUpdateUserProfile,
 } = require('../mock/user')
 
 async function fetchMineSummary() {
@@ -121,6 +122,29 @@ async function logout() {
   clearSession()
 }
 
+async function updateUserProfile(payload = {}) {
+  const { user } = getSession()
+  if (!user) {
+    throw new Error('请先登录')
+  }
+
+  if (ENV.mode === 'mock') {
+    const nextUser = await mockUpdateUserProfile(payload, user)
+    saveSession({ user: nextUser })
+    return nextUser
+  }
+
+  const data = await post('/user/profile', payload)
+  const nextUser = {
+    ...user,
+    ...data,
+    nickname: data.nickname !== undefined ? data.nickname : user.nickname,
+    avatarUrl: data.avatarUrl !== undefined ? data.avatarUrl : user.avatarUrl,
+  }
+  saveSession({ user: nextUser })
+  return nextUser
+}
+
 async function refreshSession() {
   if (ENV.mode === 'mock') return null
   const data = await post('/merchant/auth/refresh-session')
@@ -137,6 +161,7 @@ module.exports = {
   fetchMineSummary,
   wechatLogin,
   bindPhone,
+  updateUserProfile,
   logout,
   refreshSession,
 }

@@ -72,9 +72,23 @@ async function mockLogout() {
   return { ok: true }
 }
 
+async function mockUpdateUserProfile(payload = {}, currentUser = {}) {
+  await delay(240)
+  return {
+    userId: currentUser.userId || 'usr_mock_001',
+    nickname:
+      payload.nickname !== undefined ? String(payload.nickname || '').trim() : currentUser.nickname || '',
+    avatarUrl:
+      payload.avatarUrl !== undefined ? String(payload.avatarUrl || '').trim() : currentUser.avatarUrl || '',
+    phoneDisplay: currentUser.phoneDisplay || '',
+    isPhoneBound: Boolean(currentUser.isPhoneBound),
+  }
+}
+
 module.exports = {
   mockWechatLogin,
   mockBindPhone,
   mockMineSummary,
   mockLogout,
+  mockUpdateUserProfile,
 }

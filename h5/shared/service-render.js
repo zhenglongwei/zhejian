@@ -544,7 +544,12 @@
             storeId: storeId,
           })
         }
-        openWeapp(miniprogramConsultPath(serviceId, storeId))
+        var phone = (store && store.phone) || ''
+        if (phone) {
+          window.location.href = 'tel:' + phone
+        } else {
+          alert('暂无门店电话，请稍后再试。')
+        }
       })
     }
 
@@ -561,7 +566,7 @@
         if (phone) {
           window.location.href = 'tel:' + phone
         } else {
-          alert('暂无门店电话，请打开小程序留言咨询。')
+          alert('暂无门店电话，请稍后再试。')
         }
       })
     }
@@ -694,7 +699,12 @@
             storeId: service.storeId,
           })
         }
-        openWeapp(miniprogramConsultPath(service.id, service.storeId))
+        var phone = (store && store.phone) || ''
+        if (phone) {
+          window.location.href = 'tel:' + phone
+        } else {
+          alert('暂无门店电话，请稍后再试。')
+        }
       })
     }
 

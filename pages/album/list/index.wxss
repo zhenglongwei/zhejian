@@ -10,3 +10,25 @@
   padding-top: var(--space-sm);
   padding-bottom: var(--space-xl);
 }
+
+.album-list__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-xxl) var(--space-md);
+  text-align: center;
+}
+
+.album-list__empty-title {
+  color: var(--color-text-primary);
+}
+
+.album-list__empty-desc {
+  margin-top: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.album-list__empty-link {
+  margin-top: var(--space-lg);
+  color: var(--color-primary);
+}

@@ -1118,7 +1118,12 @@
       if (btn) {
         btn.addEventListener('click', function () {
           trackConsultClick()
-          openWeapp(miniprogramConsultPath(safeData))
+          var phone = safeData.storePhone || (safeData.store && safeData.store.phone) || ''
+          if (phone) {
+            window.location.href = 'tel:' + phone
+          } else {
+            alert('暂无门店电话，请稍后再试。')
+          }
         })
       }
     })

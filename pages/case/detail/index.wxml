@@ -129,7 +129,7 @@
       </view>
     </view>
     <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-      <ui-button type="primary" slot="right" bind:btntap="onMessage">留言</ui-button>
+      <ui-button type="primary" slot="right" bind:btntap="onCall">电话联系</ui-button>
     </ui-fixed-bottom-bar>
 
     <ui-share-sheet

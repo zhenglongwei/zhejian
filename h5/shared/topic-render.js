@@ -310,10 +310,7 @@
     var weappBtn = document.getElementById('h5-open-weapp-btn')
     if (weappBtn) {
       weappBtn.addEventListener('click', function () {
-        var path =
-          'pages/consult/submit/index?source=h5&page_type=geo&geo_id=' +
-          encodeURIComponent(topic.id || '') +
-          (topic.primaryStoreId ? '&store_id=' + encodeURIComponent(topic.primaryStoreId) : '')
+        var path = 'pages/mine/index'
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_open_weapp_click', {
             page_type: 'geo_topic',

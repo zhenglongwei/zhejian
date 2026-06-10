@@ -31,7 +31,7 @@
     <view class="page-content vehicle-list__empty-wrap">
       <ui-empty
         title="暂无车辆"
-        description="添加常用车辆，咨询时可快速填写"
+        description="添加常用车辆信息"
         actionText="添加车辆"
         bind:action="onAddVehicle"
       />

@@ -12,6 +12,7 @@ model User {
   openid    String?         @unique
   unionid   String?
   nickname  String          @default("")
+  avatarUrl String          @default("") @map("avatar_url") @db.VarChar(512)
   phone     String          @default("")
   createdAt DateTime        @default(now()) @map("created_at")
   updatedAt DateTime        @updatedAt @map("updated_at")

@@ -39,6 +39,13 @@
   flex-shrink: 0;
 }
 
+.cell-row__dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-danger);
+}
+
 .cell-row__badge {
   min-width: 32rpx;
   padding: 0 8rpx;

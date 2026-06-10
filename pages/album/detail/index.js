@@ -29,7 +29,7 @@ const {
   withStoreContextPath,
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
-const { recordRecentVisit } = require('../../../utils/recent-visit')
+const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时申请公开公示。',
@@ -197,17 +197,7 @@ Page({
           albumId: this.albumId,
           source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
         })
-        recordRecentVisit({
-          type: 'album',
-          albumId: this.albumId,
-          storeId,
-          storeName:
-            (detail.store && detail.store.name) ||
-            detail.storeName ||
-            enriched.storeName ||
-            '',
-          serviceName: detail.serviceName || enriched.serviceName || '',
-        })
+        markAlbumSeen(this.albumId, detail.updatedAt || enriched.updatedAt)
       }
 
       if (showShareEntry) {

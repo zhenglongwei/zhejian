@@ -3,9 +3,9 @@
     status="{{status}}"
     errorMessage="{{errorMessage}}"
     emptyTitle="暂无消息"
-    emptyDescription="咨询进度、服务相册与授权审核结果会在这里通知你"
+    emptyDescription="服务相册更新与授权审核结果会在这里通知你"
     unauthTitle="登录后查看消息"
-    unauthDescription="登录后可接收咨询、相册与案例审核相关通知"
+    unauthDescription="登录后可接收相册与授权审核相关通知"
     bind:retry="onRetry"
     bind:unauthaction="onLoginTap"
   >

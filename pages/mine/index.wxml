@@ -2,9 +2,6 @@
   <block wx:if="{{status === 'loading' && isLoggedIn}}">
     <view class="page-content mine__pad">
       <ui-skeleton rows="{{4}}" title="{{true}}" avatar="{{true}}" />
-      <view class="mine__sk-block">
-        <ui-skeleton rows="{{2}}" title="{{false}}" />
-      </view>
       <ui-skeleton rows="{{5}}" title="{{false}}" />
     </view>
   </block>
@@ -26,33 +23,13 @@
         <ui-mine-user-header
           isLoggedIn="{{isLoggedIn}}"
           user="{{user}}"
+          avatarPreview="{{avatarPreview}}"
           bind:usertap="onUserAreaTap"
           bind:logintap="onLoginTap"
           bind:bindphonetap="onBindPhoneTap"
+          bind:avatarchoose="onAvatarChoose"
+          bind:nicknamechange="onNicknameChange"
         />
-      </ui-card>
-
-      <view wx:if="{{showAlbumPreview}}" class="mine__album-section">
-        <view class="mine__section-head">
-          <view class="mine__section-title-wrap">
-            <text class="mine__section-title text-h3">我的服务记录</text>
-            <text wx:if="{{albumPendingAuthBadge}}" class="mine__section-badge">{{albumPendingAuthBadge}}</text>
-          </view>
-          <text class="mine__more text-caption" bindtap="onViewAllAlbums">查看全部</text>
-        </view>
-        <view class="mine__album-stack">
-          <ui-album-card
-            wx:for="{{albumPreview}}"
-            wx:key="albumId"
-            item="{{item}}"
-            bind:tap="onAlbumCardTap"
-          />
-        </view>
-      </view>
-
-      <ui-card wx:elif="{{isLoggedIn && showAlbumEmpty}}" shadow="{{true}}" padding="{{true}}">
-        <text class="mine__section-title text-h3">我的服务记录</text>
-        <text class="mine__empty-hint text-caption">暂无服务相册，请返回首页扫描门店二维码或输入相册码</text>
       </ui-card>
 
       <ui-card
@@ -69,6 +46,7 @@
           title="{{cell.label}}"
           desc="{{cell.desc}}"
           badge="{{cell.badge}}"
+          dot="{{cell.dot}}"
           border="{{cellIndex < item.items.length - 1}}"
           data-key="{{cell.key}}"
           bind:celltap="onMenuCellTap"

@@ -111,6 +111,7 @@ Page({
   },
 
   onBackHome() {
-    wx.switchTab({ url: '/pages/home/index' })
+    const { reLaunchAppHome } = require('../../../utils/app-home')
+    reLaunchAppHome()
   },
 })

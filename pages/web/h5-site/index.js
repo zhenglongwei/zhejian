@@ -1,4 +1,5 @@
 const { H5_CONTENT_SITE_URL } = require('../../../constants/h5-links')
+const { reLaunchAppHome } = require('../../../utils/app-home')
 
 Page({
   data: {
@@ -32,6 +33,6 @@ Page({
   },
 
   onBackHome() {
-    wx.switchTab({ url: '/pages/home/index' })
+    reLaunchAppHome()
   },
 })

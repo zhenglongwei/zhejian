@@ -86,7 +86,8 @@ function createPublicListRedirectPage(pageKey) {
     },
 
     onBackHome() {
-      wx.switchTab({ url: '/pages/home/index' })
+      const { reLaunchAppHome } = require('./app-home')
+      reLaunchAppHome()
     },
   }
 }

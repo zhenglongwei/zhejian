@@ -1,4 +1,5 @@
 const { REPORT_SUCCESS_MESSAGE } = require('../../../utils/report-form')
+const { reLaunchAppHome } = require('../../../utils/app-home')
 
 Page({
   data: {
@@ -8,7 +9,7 @@ Page({
 
   onLoad(options) {
     if (options.success !== '1') {
-      wx.redirectTo({ url: '/pages/home/index' })
+      reLaunchAppHome()
       return
     }
     this.setData({
@@ -17,7 +18,7 @@ Page({
   },
 
   onBackHome() {
-    wx.switchTab({ url: '/pages/home/index' })
+    reLaunchAppHome()
   },
 
   onBack() {
@@ -26,6 +27,6 @@ Page({
       wx.navigateBack({ delta: 1 })
       return
     }
-    wx.switchTab({ url: '/pages/home/index' })
+    reLaunchAppHome()
   },
 })

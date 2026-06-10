@@ -5,7 +5,8 @@
 const { markMerchantToolEntry } = require('./tool-entry-context')
 
 const MERCHANT_SHARE_FROM = 'merchant_share'
-const TOOL_HOME_PATH = '/pages/home/index'
+const { APP_HOME_PATH } = require('./app-home')
+const TOOL_HOME_PATH = APP_HOME_PATH
 
 function getAppSafe() {
   try {

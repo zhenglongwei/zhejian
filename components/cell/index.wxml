@@ -7,7 +7,8 @@
     <text wx:if="{{desc}}" class="cell-row__desc text-caption">{{desc}}</text>
   </view>
   <view class="cell-row__extra">
-    <text wx:if="{{badge}}" class="cell-row__badge">{{badge}}</text>
+    <view wx:if="{{dot}}" class="cell-row__dot" aria-hidden="true"></view>
+    <text wx:elif="{{badge}}" class="cell-row__badge">{{badge}}</text>
     <text wx:if="{{arrow}}" class="cell-row__arrow text-caption">›</text>
     <slot name="extra" />
   </view>

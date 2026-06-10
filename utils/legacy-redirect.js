@@ -1,53 +1,30 @@
-/** V1 交易/评价/奖励遗留路由 → V2 咨询（R8 遗留下线） */
+/** V1 交易/评价/奖励遗留路由 → 单页工具台（R8 遗留下线） */
 
-const CONSULT_LIST = '/pages/consult/index/index'
-const CONSULT_SUBMIT = '/pages/consult/submit/index'
-const MINE = '/pages/mine/index'
+const { reLaunchAppHome } = require('./app-home')
 
-function go(url, method = 'redirectTo') {
-  const fn = wx[method]
-  if (typeof fn !== 'function') return
-  fn({
-    url,
-    fail: () => {
-      if (method !== 'switchTab') {
-        wx.switchTab({ url: MINE, fail: () => wx.reLaunch({ url: CONSULT_LIST }) })
-      }
-    },
-  })
+function goHomeWithToast(title) {
+  wx.showToast({ title, icon: 'none', duration: 2200 })
+  setTimeout(reLaunchAppHome, 400)
 }
 
 function redirectToConsultList() {
-  go(CONSULT_LIST)
+  goHomeWithToast('咨询功能已下线，请直接联系门店')
 }
 
-function redirectOrderConfirm(options = {}) {
-  const params = []
-  const serviceId = options.serviceId || options.id || ''
-  const storeId = options.storeId || ''
-  if (serviceId) params.push(`serviceId=${encodeURIComponent(serviceId)}`)
-  if (storeId) params.push(`storeId=${encodeURIComponent(storeId)}`)
-  params.push('sourcePage=legacy_order')
-  go(`${CONSULT_SUBMIT}?${params.join('&')}`)
+function redirectOrderConfirm() {
+  goHomeWithToast('下单功能已下线')
 }
 
 function redirectLegacyOrderDetail() {
-  wx.showToast({
-    title: '订单功能已下线，请查看我的咨询',
-    icon: 'none',
-    duration: 2200,
-  })
-  setTimeout(redirectToConsultList, 400)
+  goHomeWithToast('订单功能已下线')
 }
 
 function redirectLegacyReviewPage() {
-  wx.showToast({ title: '评价功能已下线', icon: 'none', duration: 2000 })
-  setTimeout(redirectToConsultList, 400)
+  goHomeWithToast('评价功能已下线')
 }
 
 function redirectLegacyRewardPage() {
-  wx.showToast({ title: '奖励功能已下线', icon: 'none', duration: 2000 })
-  setTimeout(() => go(MINE, 'switchTab'), 400)
+  goHomeWithToast('奖励功能已下线')
 }
 
 module.exports = {

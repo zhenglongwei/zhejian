@@ -30,7 +30,8 @@ Page({
         clearSession()
         wx.showToast({ title: '注销申请已提交', icon: 'success' })
         setTimeout(() => {
-          wx.switchTab({ url: '/pages/home/index' })
+          const { reLaunchAppHome } = require('../../../../utils/app-home')
+          reLaunchAppHome()
         }, 500)
       },
     })

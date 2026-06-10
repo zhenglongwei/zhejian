@@ -1,6 +1,6 @@
 {
   "pages": [
-    "pages/home/index",
+    "pages/mine/index",
     "pages/web/h5-site/index",
     "pages/search/index/index",
     "pages/search/result/index",
@@ -8,16 +8,11 @@
     "pages/service/index",
     "pages/case/index",
     "pages/store/index",
-    "pages/mine/index",
     "pages/case/detail/index",
     "pages/store/detail/index",
     "pages/service/detail/index",
-    "pages/consult/submit/index",
-    "pages/consult/result/index",
     "pages/report/submit/index",
     "pages/report/result/index",
-    "pages/consult/index/index",
-    "pages/consult/detail/index",
     "pages/album/list/index",
     "pages/album/claim/index",
     "pages/album/detail/index",
@@ -77,26 +72,6 @@
     "navigationBarTitleText": "辙见",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f5f6f7"
-  },
-  "tabBar": {
-    "color": "#646A73",
-    "selectedColor": "#1677FF",
-    "backgroundColor": "#ffffff",
-    "borderStyle": "white",
-    "list": [
-      {
-        "pagePath": "pages/home/index",
-        "text": "首页",
-        "iconPath": "assets/tab/home.png",
-        "selectedIconPath": "assets/tab/home-active.png"
-      },
-      {
-        "pagePath": "pages/mine/index",
-        "text": "我的",
-        "iconPath": "assets/tab/mine.png",
-        "selectedIconPath": "assets/tab/mine-active.png"
-      }
-    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",

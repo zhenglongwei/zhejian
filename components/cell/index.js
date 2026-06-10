@@ -12,6 +12,10 @@ Component({
       type: String,
       value: '',
     },
+    dot: {
+      type: Boolean,
+      value: false,
+    },
     arrow: {
       type: Boolean,
       value: true,

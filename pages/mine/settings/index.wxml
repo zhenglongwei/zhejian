@@ -10,7 +10,7 @@
     />
     <ui-cell
       title="消息通知"
-      desc="咨询、相册与授权相关通知"
+      desc="相册与授权相关通知"
       border="{{true}}"
       data-key="notify"
       bind:celltap="onCellTap"
@@ -61,7 +61,7 @@
 
   <view class="settings-page__notice">
     <ui-compliance-notice
-      text="辙见提供案例浏览、咨询预约与服务相册工具。实际维修、报价、收款与售后由门店线下提供和承担。"
+      text="辙见提供服务相册查看与授权留痕工具。实际维修、报价、收款与售后由门店线下提供和承担。"
     />
   </view>
 </view>

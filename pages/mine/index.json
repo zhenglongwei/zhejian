@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "我的",
+  "navigationBarTitleText": "服务相册",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",

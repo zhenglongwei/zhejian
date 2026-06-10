@@ -59,14 +59,14 @@
       </view>
 
       <view wx:if="{{detail.appointmentSection.hasContent}}" class="service-detail__section">
-        <text class="service-detail__section-title text-h2">咨询与预约说明</text>
+        <text class="service-detail__section-title text-h2">到店说明</text>
         <ui-key-info-table wx:if="{{detail.appointmentSection.rows.length}}" rows="{{detail.appointmentSection.rows}}" />
         <text
           wx:if="{{detail.appointmentSection.consultGuide}}"
           class="service-detail__consult-guide text-body"
         >{{detail.appointmentSection.consultGuide}}</text>
-        <view wx:if="{{!bookable && detail.status === 'published'}}" class="service-detail__notice">
-          <text class="text-caption">该服务暂不可提交咨询，你可以查看其他服务或电话咨询门店。</text>
+        <view wx:if="{{detail.status === 'published'}}" class="service-detail__notice">
+          <text class="text-caption">如需了解详情或预约到店，请直接电话联系门店。</text>
         </view>
       </view>
 
@@ -235,9 +235,9 @@
       <ui-button
         type="primary"
         slot="right"
-        disabled="{{!bookable}}"
-        bind:btntap="onMessage"
-      >留言</ui-button>
+        disabled="{{!storePhone}}"
+        bind:btntap="onCall"
+      >电话联系</ui-button>
     </ui-fixed-bottom-bar>
 
     <ui-login-sheet

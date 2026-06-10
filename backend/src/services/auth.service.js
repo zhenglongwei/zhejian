@@ -17,7 +17,7 @@ function formatUserPayload(user) {
   return {
     userId: user.id,
     nickname: user.nickname || '',
-    avatarUrl: '',
+    avatarUrl: user.avatarUrl || '',
     phoneDisplay: phone ? maskPhone(phone) : '',
     isPhoneBound: Boolean(phone),
   }
@@ -178,6 +178,38 @@ async function bindPhone(userId, payload = {}) {
   throw err
 }
 
+async function updateUserProfile(userId, payload = {}) {
+  if (!userId) {
+    const err = new Error('未授权')
+    err.status = 401
+    throw err
+  }
+
+  const data = {}
+  if (payload.nickname !== undefined) {
+    data.nickname = String(payload.nickname || '').trim().slice(0, 32)
+  }
+  if (payload.avatarUrl !== undefined) {
+    data.avatarUrl = String(payload.avatarUrl || '').trim().slice(0, 512)
+  }
+
+  if (!Object.keys(data).length) {
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      const err = new Error('用户不存在')
+      err.status = 404
+      throw err
+    }
+    return formatUserPayload(user)
+  }
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data,
+  })
+  return formatUserPayload(user)
+}
+
 async function fetchMineSummary(userId) {
   if (!userId) {
     const err = new Error('未授权')
@@ -240,5 +272,6 @@ module.exports = {
   devBindPhone,
   bindPhone,
   fetchMineSummary,
+  updateUserProfile,
   buildAuthSession,
 }

@@ -5,6 +5,7 @@ const {
   wechatLogin,
   bindPhone,
   fetchMineSummary,
+  updateUserProfile,
 } = require('../services/auth.service')
 
 const router = express.Router()
@@ -30,6 +31,15 @@ router.post('/auth/bind-phone', requireAuth(['user']), async (req, res, next) =>
 router.post('/auth/logout', requireAuth(['user']), async (req, res, next) => {
   try {
     return ok(res, { ok: true })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/profile', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await updateUserProfile(req.auth.userId, req.body || {})
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

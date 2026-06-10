@@ -423,9 +423,9 @@ async function notifyLeadContacted(lead) {
     content: `${lead.storeName || '门店'}已查看并联系你的咨询，请留意来电或留言回复。`,
     refType: 'lead',
     refId: lead.id,
-    jumpPath: `/pages/consult/detail/index?id=${lead.id}`,
+    jumpPath: '/pages/mine/index',
     wechatTemplateKey: 'consult',
-    wechatPage: `pages/consult/detail/index?id=${lead.id}`,
+    wechatPage: 'pages/mine/index',
     wechatPayload: {
       serviceName: lead.serviceName || '咨询预约',
       status: '门店已联系',
@@ -444,9 +444,9 @@ async function notifyLeadClosed(lead) {
     content: `${lead.storeName || '门店'}已关闭本次咨询记录。`,
     refType: 'lead',
     refId: lead.id,
-    jumpPath: `/pages/consult/detail/index?id=${lead.id}`,
+    jumpPath: '/pages/mine/index',
     wechatTemplateKey: 'consult',
-    wechatPage: `pages/consult/detail/index?id=${lead.id}`,
+    wechatPage: 'pages/mine/index',
     wechatPayload: {
       serviceName: lead.serviceName || '咨询预约',
       status: '咨询已关闭',

@@ -279,7 +279,8 @@ Page({
   onCancel() {
     wx.navigateBack({
       fail() {
-        wx.switchTab({ url: '/pages/home/index' })
+        const { reLaunchAppHome } = require('../../../utils/app-home')
+        reLaunchAppHome()
       },
     })
   },
@@ -339,7 +340,8 @@ Page({
       })
       return
     }
-    wx.switchTab({ url: '/pages/home/index' })
+    const { reLaunchAppHome } = require('../../../utils/app-home')
+    reLaunchAppHome()
   },
 
   onOpenFilter() {

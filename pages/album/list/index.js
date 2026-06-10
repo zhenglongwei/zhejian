@@ -2,6 +2,8 @@ const { fetchUserServiceAlbums } = require('../../../services/service-album')
 const { SERVICE_ALBUM_LIST_TABS } = require('../../../constants/service-album-status')
 const { enrichServiceAlbumListItem } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
+const { markAlbumsSeen } = require('../../../utils/album-unread-hint')
+const { openH5ContentSite } = require('../../../constants/h5-links')
 const {
   shouldRunInitialShow,
   finishInitialShow,
@@ -27,11 +29,31 @@ Page({
     if (shouldRunInitialShow(this)) {
       this.loadList()
         .catch(() => {})
-        .finally(() => finishInitialShow(this))
+        .finally(() => {
+          finishInitialShow(this)
+          this.markAllTabsSeen()
+        })
       return
     }
     if (consumeListRefresh(this)) {
-      this.loadList({ silent: true })
+      this.loadList({ silent: true }).finally(() => this.markAllTabsSeen())
+      return
+    }
+    this.markAllTabsSeen()
+  },
+
+  async markAllTabsSeen() {
+    if (!isLoggedIn()) return
+    const auth = checkAuth({ needPhone: true })
+    if (!auth.ok) return
+    try {
+      const [privateList, publicList] = await Promise.all([
+        fetchUserServiceAlbums({ tab: 'private' }),
+        fetchUserServiceAlbums({ tab: 'public' }),
+      ])
+      markAlbumsSeen([...(privateList || []), ...(publicList || [])])
+    } catch (e) {
+      // ignore
     }
   },
 
@@ -79,6 +101,9 @@ Page({
       const list = (raw || []).map((item) =>
         enrichServiceAlbumListItem(item, { listTab })
       )
+      if (raw && raw.length) {
+        markAlbumsSeen(raw)
+      }
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
@@ -126,5 +151,9 @@ Page({
     if (!id) return
     markListNeedRefresh(this)
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+  },
+
+  onOpenH5Cases() {
+    openH5ContentSite()
   },
 })

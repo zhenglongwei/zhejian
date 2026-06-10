@@ -1,7 +1,6 @@
 const { fetchServiceDetail } = require('../../../services/service')
 const { findStore } = require('../../../services/store')
 const { PRICE_MODE } = require('../../../constants/price-mode')
-const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 const {
@@ -36,8 +35,7 @@ Page({
     isFavorited: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'consult',
-    pendingConsultAction: false,
+    loginSheetBindContext: 'general',
     pendingFavoriteToggle: false,
     storeIsolated: false,
   },
@@ -180,48 +178,15 @@ Page({
     wx.pageScrollTo({ selector: `#${this.data.casesAnchor}`, duration: 300 })
   },
 
-  ensureConsultAuth() {
-    const auth = checkAuth({ needPhone: true })
-    if (!auth.ok) {
-      this.setData({
-        loginSheetVisible: true,
-        loginSheetMode: auth.reason === 'bindPhone' ? 'bindPhone' : 'auto',
-        loginSheetBindContext: 'consult',
-        pendingConsultAction: true,
-      })
-      return false
-    }
-    return true
-  },
-
-  onMessage() {
-    if (this._messageNavigating) return
-    const { detail, bookable } = this.data
-    if (!detail || !bookable) return
-    if (!this.ensureConsultAuth()) return
-    this._messageNavigating = true
-    wx.navigateTo({
-      url: withStoreContextPath(
-        `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
-        { storeId: detail.storeId }
-      ),
-      complete: () => {
-        this._messageNavigating = false
-      },
-    })
-  },
-
   closeLoginSheet() {
-    this.setData({ loginSheetVisible: false, pendingConsultAction: false, pendingFavoriteToggle: false })
+    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
   },
 
   onLoginSheetSuccess() {
     const pendingFavorite = this.data.pendingFavoriteToggle
-    const pendingConsult = this.data.pendingConsultAction
     this.setData({
       loginSheetVisible: false,
       pendingFavoriteToggle: false,
-      pendingConsultAction: false,
     })
     if (pendingFavorite) {
       toggleFavorite(this, {
@@ -232,13 +197,6 @@ Page({
       })
       return
     }
-    if (!pendingConsult) {
-      this.syncFavoriteState()
-      return
-    }
-    const auth = checkAuth({ needPhone: true })
-    if (auth.ok) {
-      this.onMessage()
-    }
+    this.syncFavoriteState()
   },
 })

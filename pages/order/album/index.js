@@ -19,7 +19,12 @@ Page({
     }
     wx.showToast({ title: '相册不存在', icon: 'none' })
     setTimeout(() => {
-      wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/mine/index' }) })
+      wx.navigateBack({
+        fail: () => {
+          const { reLaunchAppHome } = require('../../../utils/app-home')
+          reLaunchAppHome()
+        },
+      })
     }, 1200)
   },
 })
