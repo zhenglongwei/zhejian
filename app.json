@@ -33,6 +33,7 @@
     "pages/mine/vehicle/index",
     "pages/mine/vehicle/edit/index",
     "pages/mine/message/index",
+    "pages/mine/help/index",
     "pages/order/index",
     "pages/order-confirm/index",
     "pages/order-result/index",

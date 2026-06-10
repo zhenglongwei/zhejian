@@ -1,49 +1,23 @@
-<view class="page case-page">
-  <ui-list-page-shell
-    tabs="{{filterTabs}}"
-    activeKey="{{filterSource}}"
-    status="{{status}}"
-    errorMessage="{{errorMessage}}"
-    emptyTitle="{{emptyTitle}}"
-    emptyDescription="{{emptyDescription}}"
-    emptyActionText="刷新"
-    skeletonRows="{{3}}"
-    bind:tabchange="onTabChange"
-    bind:retry="onRetry"
-    bind:emptyaction="onRetry"
-  >
-    <view slot="intro">
-      <view class="tab-page__search page-content" wx:if="{{!storeIsolated}}">
-        <ui-search-bar
-          readonly="{{true}}"
-          placeholder="{{searchPlaceholder}}"
-          bind:navigate="onSearchNavigate"
-        />
-      </view>
-      <view class="tab-page__intro page-content">
-        <text class="tab-page__intro-title text-h2">{{introTitle}}</text>
-        <text class="tab-page__intro-desc text-caption">{{introDesc}}</text>
+<view class="page public-list-h5">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content public-list-h5__pad">
+      <ui-skeleton rows="{{3}}" title="{{true}}" />
+      <text class="public-list-h5__hint text-caption">{{loadingText}}</text>
+      <text class="public-list-h5__hint text-caption">{{hint}}</text>
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content public-list-h5__pad">
+      <ui-empty
+        title="{{offlineTitle}}"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+      <view class="public-list-h5__actions">
+        <ui-button type="secondary" bind:btntap="onBackHome">返回工具首页</ui-button>
       </view>
     </view>
-
-    <ui-case-card
-      wx:for="{{list}}"
-      wx:key="id"
-      caseId="{{item.id}}"
-      authorizationTier="{{item.authorizationTier}}"
-      coverImage="{{item.coverImage}}"
-      coverImageDesensitized="{{item.coverImageDesensitized}}"
-      title="{{item.title}}"
-      serviceName="{{item.serviceName}}"
-      summary="{{item.summary}}"
-      priceMode="{{item.priceMode}}"
-      amount="{{item.amount}}"
-      minAmount="{{item.minAmount}}"
-      maxAmount="{{item.maxAmount}}"
-      storeName="{{item.storeName}}"
-      showStoreName="{{!storeIsolated}}"
-      viewCount="{{item.viewCount}}"
-      bind:cardtap="onCaseTap"
-    />
-  </ui-list-page-shell>
+  </block>
 </view>

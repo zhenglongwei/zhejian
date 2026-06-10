@@ -116,6 +116,16 @@
       })
     }
     injectJsonLd({ '@context': 'https://schema.org', '@graph': graph })
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyBreadcrumbSchema(
+        [
+          { label: '辙见', href: '/' },
+          { label: '服务项目', href: '/service/car-maintenance.html' },
+          { label: item.name || '服务项目' },
+        ],
+        'service-item-breadcrumb'
+      )
+    }
   }
 
   function renderBulletSection(title, items) {
@@ -274,6 +284,13 @@
     )
   }
 
+  function renderSiteNav() {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
+    }
+    return ''
+  }
+
   function renderFaq(faq) {
     if (!faq || !faq.length) return ''
     var items = faq
@@ -343,9 +360,15 @@
 
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › ' +
-      escapeHtml(item.name) +
-      '</nav>' +
+      (window.zhejianSeo
+        ? window.zhejianSeo.renderBreadcrumbHtml([
+            { label: '辙见', href: '/' },
+            { label: '服务项目', href: '/service/car-maintenance.html' },
+            { label: item.name },
+          ])
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › ' +
+          escapeHtml(item.name) +
+          '</nav>') +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 服务项目</div>' +
       '<h1 class="h5-title">' +
@@ -381,6 +404,7 @@
       renderStores(data.recommendedStores) +
       renderRelated(data.relatedServices) +
       renderFaq(data.faq) +
+      renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
 

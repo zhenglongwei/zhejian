@@ -76,6 +76,24 @@
   function setPageMeta(data) {
     var seo = data.seo || {}
     var item = data.item || {}
+    var crumbs = [
+      { label: '辙见', href: '/' },
+      { label: '服务项目', href: '/service/car-maintenance.html' },
+      { label: item.name || '服务项目', href: item.slug ? serviceItemPagePath(item.slug) : '' },
+      { label: '维修案例' },
+    ]
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyPageSeo({
+        title: seo.title || (item.name ? item.name + '案例列表 · 辙见' : '案例列表 · 辙见'),
+        description: seo.description || item.summary || '',
+        canonicalPath: seo.canonicalPath || location.pathname,
+        robots: seo.robots || 'index,follow',
+        prevPath: seo.prevPath,
+        nextPath: seo.nextPath,
+      })
+      window.zhejianSeo.applyBreadcrumbSchema(crumbs, 'service-item-cases-breadcrumb')
+      return
+    }
     var title = seo.title || item.name + '案例列表 · 辙见'
     var desc = seo.description || item.summary || ''
     var canonical = location.origin + (seo.canonicalPath || location.pathname)
@@ -238,6 +256,13 @@
     return '<div class="h5-pagination">' + parts.join('') + '</div>'
   }
 
+  function renderSiteNav() {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
+    }
+    return ''
+  }
+
   function renderFaq(faq) {
     if (!faq || !faq.length) return ''
     var items = faq
@@ -277,12 +302,18 @@
 
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › ' +
-      '<a href="' +
-      serviceItemPagePath(item.slug) +
-      '">' +
-      escapeHtml(item.name) +
-      '</a> › 维修案例</nav>' +
+      (window.zhejianSeo
+        ? window.zhejianSeo.renderBreadcrumbHtml([
+            { label: '辙见', href: '/' },
+            { label: '服务项目', href: '/service/car-maintenance.html' },
+            { label: item.name, href: serviceItemPagePath(item.slug) },
+            { label: '维修案例' },
+          ])
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › <a href="' +
+          serviceItemPagePath(item.slug) +
+          '">' +
+          escapeHtml(item.name) +
+          '</a> › 维修案例</nav>') +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 项目案例列表</div>' +
       '<h1 class="h5-title">' +
@@ -313,6 +344,7 @@
       '</div>' +
       renderPagination(item.slug, pagination, data.filters) +
       renderFaq(data.faq) +
+      renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
 

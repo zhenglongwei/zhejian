@@ -98,6 +98,9 @@ async function verifyH5Home() {
   assert(Array.isArray(apiHome.json.data?.featuredCases), 'home 缺少 featuredCases')
   assert(Array.isArray(apiHome.json.data?.recommendedMerchants), 'home 缺少 recommendedMerchants')
   assert(Array.isArray(apiHome.json.data?.cityEntries), 'home 缺少 cityEntries')
+  assert(Array.isArray(apiHome.json.data?.serviceEntries), 'home 缺少 serviceEntries')
+  assert(Array.isArray(apiHome.json.data?.geoTopics), 'home 缺少 geoTopics')
+  assert(html.includes('site-nav.js'), 'index.html 未引用 site-nav.js')
   console.log('[chain] ✅ H5 首页 + GET /user/home')
 
   const geoList = await api('GET', '/user/geo-pages?limit=3')
@@ -235,6 +238,60 @@ async function verifyH5ServiceItemCases() {
   console.log('[chain] ✅ H5 项目案例列表 /service/{slug}/cases + GET /public/h5/service-items/:slug/cases')
 }
 
+async function verifyH5Sitemap() {
+  const robotsRes = await fetch(`${BASE}/robots.txt`)
+  assert(robotsRes.ok, `robots.txt HTTP ${robotsRes.status}`)
+  const robotsText = await robotsRes.text()
+  assert(robotsText.includes('Sitemap:'), 'robots.txt 缺少 Sitemap 声明')
+
+  const indexRes = await fetch(`${BASE}/sitemap.xml`)
+  assert(indexRes.ok, `sitemap.xml HTTP ${indexRes.status}`)
+  const indexXml = await indexRes.text()
+  assert(indexXml.includes('sitemap-pages.xml'), 'sitemap index 缺少 pages')
+  assert(indexXml.includes('sitemap-cases.xml'), 'sitemap index 缺少 cases')
+  assert(indexXml.includes('sitemap-stores.xml'), 'sitemap index 缺少 stores')
+
+  const pagesRes = await fetch(`${BASE}/sitemap-pages.xml`)
+  assert(pagesRes.ok, `sitemap-pages.xml HTTP ${pagesRes.status}`)
+  const pagesXml = await pagesRes.text()
+  assert(pagesXml.includes('<urlset'), 'sitemap-pages 格式错误')
+  assert(pagesXml.includes('/city/hangzhou'), 'sitemap-pages 应含城市页')
+
+  const casesRes = await fetch(`${BASE}/sitemap-cases.xml`)
+  assert(casesRes.ok, `sitemap-cases.xml HTTP ${casesRes.status}`)
+  const casesXml = await casesRes.text()
+  assert(casesXml.includes('<urlset'), 'sitemap-cases 格式错误')
+
+  const storesRes = await fetch(`${BASE}/sitemap-stores.xml`)
+  assert(storesRes.ok, `sitemap-stores.xml HTTP ${storesRes.status}`)
+  const storesXml = await storesRes.text()
+  assert(storesXml.includes('<urlset'), 'sitemap-stores 格式错误')
+
+  const apiIndex = await api('GET', '/public/sitemap.xml')
+  assert(apiIndex.ok, 'GET /public/sitemap.xml API 失败')
+  console.log('[chain] ✅ sitemap.xml + robots.txt + 子 sitemap')
+}
+
+async function verifyH5GeoTopic() {
+  const slug = 'hangzhou-brake-pad'
+  const pageRes = await fetch(`${BASE}/topic/${slug}`)
+  assert(pageRes.ok, `H5 GEO 专题 HTTP ${pageRes.status}`)
+  const html = await pageRes.text()
+  assert(html.includes('topic-render.js'), 'topic/index 未引用 topic-render.js')
+
+  const apiTopic = await api('GET', `/public/h5/topics/${slug}`)
+  assert(apiTopic.ok && apiTopic.json?.code === 0, 'GET /public/h5/topics/:slug 失败')
+  assert(apiTopic.json.data?.topic?.slug === slug, 'geo topic slug 不正确')
+  assert(Array.isArray(apiTopic.json.data?.relatedCases), 'geo topic 缺少 relatedCases')
+  assert(Array.isArray(apiTopic.json.data?.relatedStores), 'geo topic 缺少 relatedStores')
+  assert(Array.isArray(apiTopic.json.data?.faq), 'geo topic 缺少 faq')
+  assert(apiTopic.json.data?.seo?.canonicalPath === `/topic/${slug}`, 'geo topic canonicalPath 不正确')
+
+  const legacyApi = await api('GET', '/public/h5/topics/geo_brake_hz')
+  assert(legacyApi.ok && legacyApi.json?.code === 0, 'GET /public/h5/topics/:id 兼容失败')
+  console.log('[chain] ✅ H5 GEO 专题 /topic/{slug} + GET /public/h5/topics/:slug')
+}
+
 async function verifyH5StoreAssets(storeId) {
   const listRes = await fetch(`${BASE}/store/`)
   assert(listRes.ok, `store/ 列表页 HTTP ${listRes.status}`)
@@ -251,6 +308,96 @@ async function verifyH5StoreAssets(storeId) {
   const merchant = await api('GET', `/user/merchants/${encodeURIComponent(storeId)}`)
   assert(merchant.ok && merchant.json?.code === 0, `门店 merchants API 失败: ${merchant.status}`)
   console.log('[chain] ✅ GET /user/merchants/:id')
+}
+
+async function verifyCaseArticleExport(caseId) {
+  const token = process.env.DEV_SYSTEM_TOKEN || 'dev_system_token_change_me'
+  const res = await fetch(`${BASE}/api/v1/admin/cases/${encodeURIComponent(caseId)}/article-export`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'X-Client-Type': 'admin',
+    },
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok || json.code !== 0) {
+    console.warn(
+      '[chain] ⚠ 公众号导出跳过（案例可能未生成文章）:',
+      json.message || res.status
+    )
+    return
+  }
+  const data = json.data || {}
+  assert(data.title, 'article-export 缺少 title')
+  assert(data.html && data.html.includes('咨询本店'), 'article-export HTML 缺少文末转化')
+  assert(data.markdown && data.markdown.includes('咨询本店'), 'article-export Markdown 缺少文末转化')
+  if (data.h5Url) {
+    assert(data.html.includes('utm_source=wechat_mp'), 'HTML 文末应含 wechat_mp 归因')
+  }
+  console.log('[chain] ✅ 公众号文章导出 GET /admin/cases/:id/article-export')
+}
+
+async function verifyH5CaseInternalLinks(caseId) {
+  const detail = await api('GET', `/user/cases/${encodeURIComponent(caseId)}`)
+  assert(detail.ok && detail.json?.code === 0, '案例详情 API 失败')
+  const data = detail.json.data || {}
+  const links = data.internalLinks
+  assert(links && typeof links === 'object', '案例缺少 internalLinks')
+  assert(links.store?.path || data.authorizationTier === 'anonymous', '案例应有门店内链')
+  assert(links.service?.path, '案例应有服务项目内链')
+  assert(links.faq?.path, '案例应有 FAQ 内链')
+  assert(Array.isArray(data.relatedCases), '案例缺少 relatedCases')
+  assert(
+    data.relatedCases.length >= 1 || data.authorizationTier === 'anonymous',
+    '案例应至少有 1 条相关案例推荐'
+  )
+
+  const caseHtml = await fetch(`${BASE}/case/view.html?id=${encodeURIComponent(caseId)}&legacy=1`)
+  assert(caseHtml.ok, '案例页 HTTP 失败')
+  const html = await caseHtml.text()
+  assert(html.includes('seo-utils.js'), 'case/view 未引用 seo-utils.js')
+  console.log('[chain] ✅ 案例页内链 internalLinks + relatedCases')
+}
+
+async function verifyH5ListSeo(storeId) {
+  const slug = 'brake-pad-replacement'
+
+  const storeCasesP1 = await api('GET', `/public/h5/stores/${encodeURIComponent(storeId)}/cases?page=1`)
+  assert(storeCasesP1.ok && storeCasesP1.json?.code === 0, 'store cases page1 API 失败')
+  const seoP1 = storeCasesP1.json.data?.seo || {}
+  assert(seoP1.canonicalPath === `/store/${storeId}/cases`, 'store cases canonical 应为无参主列表')
+  assert(seoP1.robots === 'index,follow' || seoP1.robots === 'noindex,follow', 'store cases robots 缺失')
+
+  const storeCasesP2 = await api(
+    'GET',
+    `/public/h5/stores/${encodeURIComponent(storeId)}/cases?page=2`
+  )
+  assert(storeCasesP2.ok && storeCasesP2.json?.code === 0, 'store cases page2 API 失败')
+  const seoP2 = storeCasesP2.json.data?.seo || {}
+  assert(seoP2.canonicalPath === `/store/${storeId}/cases`, 'store cases page2 canonical 应指向主列表')
+  assert(seoP2.robots === 'noindex,follow', 'store cases page2 应为 noindex,follow')
+  if (storeCasesP2.json.data?.pagination?.page > 1) {
+    assert(seoP2.prevPath, 'store cases page2 应有 prevPath')
+  }
+
+  const serviceCases = await api(
+    'GET',
+    `/public/h5/service-items/${slug}/cases?page=2&city=${encodeURIComponent('杭州')}`
+  )
+  assert(serviceCases.ok && serviceCases.json?.code === 0, 'service item cases 筛选 API 失败')
+  const serviceSeo = serviceCases.json.data?.seo || {}
+  assert(serviceSeo.canonicalPath === `/service/${slug}/cases`, 'service cases canonical 应为主列表')
+  assert(serviceSeo.robots === 'noindex,follow', 'service cases 筛选/分页变体应为 noindex,follow')
+
+  const storeCasesHtml = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}/cases`)
+  assert(storeCasesHtml.ok, 'store cases 页面 HTTP 失败')
+  const storeHtml = await storeCasesHtml.text()
+  assert(storeHtml.includes('seo-utils.js'), 'store/cases 未引用 seo-utils.js')
+
+  const cityHtml = await fetch(`${BASE}/city/hangzhou`)
+  assert(cityHtml.ok, 'city 页面 HTTP 失败')
+  assert((await cityHtml.text()).includes('seo-utils.js'), 'city 未引用 seo-utils.js')
+
+  console.log('[chain] ✅ 列表分页 canonical + 面包屑基建（API）')
 }
 
 async function verifyH5StoreCases(storeId) {
@@ -319,14 +466,19 @@ async function main() {
     console.warn('[chain] ⚠ 案例无 slug，跳过 301 断言（可 generate-content?force=true）')
   }
   console.log('[chain] ✅ GET /user/cases/:id')
+  await verifyH5CaseInternalLinks(caseId)
+  await verifyCaseArticleExport(caseId)
 
   await verifyH5Home()
   await verifyH5City()
   await verifyH5ServiceItem()
   await verifyH5ServiceItemCases()
+  await verifyH5GeoTopic()
+  await verifyH5Sitemap()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
   await verifyH5StoreCases(storeId)
+  await verifyH5ListSeo(storeId)
   const serviceChain = await verifyH5ServiceAssets(storeId)
 
   const eventId = `evt_h5_chain_${Date.now()}`

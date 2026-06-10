@@ -1,12 +1,16 @@
 const {
-  HOME_SERVICE_ENTRIES,
   HOME_ACCIDENT_ENTRY,
   HOME_PLATFORM_INTRO,
   HOME_PLATFORM_IDENTITY,
   HOME_PROTECTION_TEXT,
 } = require('../constants/home')
-const { listServiceCities } = require('../constants/cities')
+const {
+  mapHomeServiceEntries,
+  buildServiceNavLinks,
+  buildCityNavLinks,
+} = require('../constants/h5-internal-links')
 const { listMerchants, fetchPublicCaseRows } = require('./content.service')
+const { listGeoPages } = require('./geo.service')
 
 function mapFeaturedCase(item) {
   return {
@@ -54,24 +58,19 @@ async function fetchRecommendedMerchants(limit = 6) {
 }
 
 async function getHomePayload() {
-  const [featuredCases, recommendedMerchants] = await Promise.all([
+  const [featuredCases, recommendedMerchants, geoResult] = await Promise.all([
     fetchFeaturedCases(3),
     fetchRecommendedMerchants(6),
+    listGeoPages({ limit: 6 }),
   ])
 
-  const serviceEntries = HOME_SERVICE_ENTRIES.filter((e) => e.status === 'enabled').sort(
-    (a, b) => a.sort - b.sort
-  )
-
-  const cityEntries = listServiceCities().map((city) => ({
-    slug: city.slug,
-    name: city.name,
-    path: `/city/${city.slug}`,
-  }))
+  const cityEntries = buildCityNavLinks()
 
   return {
     cityEntries,
-    serviceEntries,
+    serviceEntries: mapHomeServiceEntries(),
+    serviceNav: buildServiceNavLinks(),
+    geoTopics: geoResult.list || [],
     accidentEntry: HOME_ACCIDENT_ENTRY,
     recommendedMerchants,
     featuredCases,

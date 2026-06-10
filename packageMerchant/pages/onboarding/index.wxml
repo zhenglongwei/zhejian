@@ -11,9 +11,16 @@
 
 <view class="page merchant-onboard page-content merchant-form-page" wx:elif="{{status === 'normal' || status === 'rejected' || status === 'need_modify'}}">
   <view class="merchant-onboard__hero">
-    <text class="text-h1">成为辙见服务商</text>
-    <text class="text-body merchant-onboard__sub">把维修过程变成可信案例，让专业被用户看见</text>
+    <text class="text-h1">{{heroCopy.title}}</text>
+    <text class="text-body merchant-onboard__sub">{{heroCopy.subtitle}}</text>
   </view>
+  <view class="merchant-onboard__values">
+    <view wx:for="{{valueItems}}" wx:key="title" class="merchant-onboard__value-item">
+      <text class="text-body merchant-onboard__value-title">{{item.title}}</text>
+      <text class="text-caption merchant-onboard__value-desc">{{item.desc}}</text>
+    </view>
+  </view>
+  <ui-compliance-notice type="history" text="{{positioningNotice}}" />
   <ui-compliance-notice type="history" text="入驻资料仅用于资质审核与门店展示，请确保信息真实有效。" />
   <view wx:if="{{status === 'rejected'}}" class="merchant-onboard__reject text-caption">
     上次审核未通过{{profile.rejectReason ? '：' + profile.rejectReason : ''}}，请修改后重新提交。

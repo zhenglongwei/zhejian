@@ -156,7 +156,7 @@ function handleOrderAction(actionKey, ctx) {
           url: `/pages/service/detail/index?id=${order.serviceId}`,
         })
       } else {
-        wx.switchTab({ url: '/pages/service/index' })
+        wx.navigateTo({ url: '/pages/service/index' })
       }
       break
     default:

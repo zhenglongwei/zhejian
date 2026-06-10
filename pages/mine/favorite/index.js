@@ -95,8 +95,9 @@ Page({
   },
 
   onGoBrowse() {
-    const tab = this.data.activeTab === 'service' ? '/pages/service/index' : '/pages/store/index'
-    wx.switchTab({ url: tab })
+    const path =
+      this.data.activeTab === 'service' ? '/pages/service/index' : '/pages/store/index'
+    wx.navigateTo({ url: path })
   },
 
   async onCancelFavorite(e) {

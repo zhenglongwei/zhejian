@@ -62,6 +62,7 @@ const MINE_PUBLIC_MENUS = [
     key: 'help',
     label: '使用说明与帮助',
     desc: '车主与商家使用指引',
+    url: '/pages/mine/help/index',
   },
   { key: 'support', label: '联系客服', desc: '内容、隐私与账号问题' },
 ]

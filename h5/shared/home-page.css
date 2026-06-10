@@ -148,3 +148,44 @@
   font-size: var(--font-caption);
   color: var(--color-text-secondary);
 }
+
+.h5-site-nav {
+  margin-top: var(--space-lg);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.h5-site-nav-core-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.h5-site-nav-core,
+.h5-site-nav-link {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-size: var(--font-caption);
+}
+
+.h5-site-nav-group + .h5-site-nav-group {
+  margin-top: var(--space-md);
+}
+
+.h5-site-nav-label {
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-site-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}

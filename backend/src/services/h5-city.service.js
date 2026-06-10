@@ -5,18 +5,11 @@ const {
   HOME_PLATFORM_INTRO,
   HOME_PROTECTION_TEXT,
 } = require('../constants/home')
+const {
+  SERVICE_ENTRY_H5_LINKS,
+} = require('../constants/h5-internal-links')
 const { listCases, listMerchants } = require('./content.service')
 const { listGeoPages } = require('./geo.service')
-
-/** 首页入口 → H5 服务/案例链接（MVP 种子映射） */
-const SERVICE_ENTRY_H5_LINKS = {
-  entry_maintenance: '/service/car-maintenance.html',
-  entry_brake: '/service/brake-pad-replacement.html',
-  entry_accident: '/service/accident-repair.html',
-  entry_body: '/service/body-paint-repair.html',
-  entry_tire: '/case/',
-  entry_battery: '/service/battery-replacement.html',
-}
 
 const CITY_FAQ = {
   hangzhou: [

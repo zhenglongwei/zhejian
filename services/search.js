@@ -45,6 +45,16 @@ function filterGeoPages(keyword) {
   return GEO_PAGES.filter((page) => {
     const haystack = [page.title, page.summary, ...(page.keywords || [])].join(' ')
     return includesKeyword(haystack, k)
+  }).map((page) => {
+    const slug = page.slug || page.id
+    return {
+      id: page.id,
+      slug,
+      title: page.title,
+      summary: page.summary,
+      updatedAt: page.updatedAt,
+      h5Path: `/topic/${slug}`,
+    }
   })
 }
 
@@ -206,10 +216,19 @@ async function searchContent(query = {}) {
     fetchCaseList(),
   ])
 
-  const matchedServices = services.filter((item) => matchSearchService(item, keyword))
-  const matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
-  const matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
-  const geoPages = filterGeoPages(keyword)
+  const storeId = query.storeId ? String(query.storeId).trim() : ''
+
+  let matchedServices = services.filter((item) => matchSearchService(item, keyword))
+  let matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
+  let matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
+  let geoPages = filterGeoPages(keyword)
+
+  if (storeId) {
+    matchedServices = matchedServices.filter((item) => item.storeId === storeId)
+    matchedMerchants = matchedMerchants.filter((item) => item.id === storeId)
+    matchedCases = matchedCases.filter((item) => item.storeId === storeId)
+    geoPages = []
+  }
 
   const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
     tab,

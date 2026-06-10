@@ -12,8 +12,8 @@
   <block wx:elif="{{status === 'pending'}}">
     <view class="page-content merchant-wb__gate">
       <ui-empty
-        title="入驻审核中"
-        description="审核通过后即可使用商家工作台，创建服务相册并处理咨询线索"
+        title="{{gatePending.title}}"
+        description="{{gatePending.description}}"
         actionText="查看审核进度"
         bind:action="onRefreshAudit"
       />
@@ -45,8 +45,8 @@
   <block wx:elif="{{status === 'none'}}">
     <view class="page-content merchant-wb__gate">
       <ui-empty
-        title="商家工作台"
-        description="入驻后可创建服务相册、处理咨询线索与管理服务方案"
+        title="{{gateNone.title}}"
+        description="{{gateNone.description}}"
         actionText="申请入驻"
         bind:action="onGoOnboarding"
       />

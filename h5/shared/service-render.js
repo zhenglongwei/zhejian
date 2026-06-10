@@ -441,6 +441,21 @@
       }
     }
     ensureJsonLd('service-schema', schema)
+    if (window.zhejianSeo) {
+      var storeHref =
+        store && store.id ? '/store/' + encodeURIComponent(store.id) + '.html' : ''
+      window.zhejianSeo.applyBreadcrumbSchema(
+        [
+          { label: '辙见', href: '/' },
+          { label: '公开门店', href: '/store/' },
+          store && store.name
+            ? { label: store.name, href: storeHref }
+            : { label: '门店' },
+          { label: service.name || '服务方案' },
+        ],
+        'service-plan-breadcrumb'
+      )
+    }
   }
 
   function setNoIndex() {

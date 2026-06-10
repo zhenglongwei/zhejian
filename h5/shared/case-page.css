@@ -263,6 +263,34 @@
   color: var(--color-text-secondary);
 }
 
+.h5-internal-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.h5-internal-link-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+
+.h5-internal-link-label {
+  font-weight: 600;
+}
+
+.h5-internal-link-hint {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
 .h5-case-list-empty p {
   margin: 0;
   color: var(--color-text-secondary);

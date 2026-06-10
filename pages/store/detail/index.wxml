@@ -83,11 +83,14 @@
       <view class="store-detail__section">
         <view class="store-detail__section-head">
           <text class="store-detail__section-title text-h2">服务方案</text>
-          <text
-            wx:if="{{services.length}}"
-            class="store-detail__more text-caption"
-            bindtap="onViewAllServices"
-          >查看更多</text>
+          <view wx:if="{{!isPreview}}" class="store-detail__section-links">
+            <text class="store-detail__more text-caption" bindtap="onSearchStore">搜索本店</text>
+            <text
+              wx:if="{{services.length}}"
+              class="store-detail__more text-caption"
+              bindtap="onViewAllServices"
+            >查看更多</text>
+          </view>
         </view>
         <view class="store-detail__compliance">
           <ui-compliance-notice type="price" />

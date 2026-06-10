@@ -15,6 +15,11 @@ const {
   ONBOARDING_QUALIFICATION_OPTIONS,
   ONBOARDING_COMPLIANCE_TEXT,
 } = require('../../../constants/onboarding')
+const {
+  MERCHANT_ONBOARDING_HERO,
+  MERCHANT_ONBOARDING_VALUE_ITEMS,
+  MERCHANT_ONBOARDING_POSITIONING,
+} = require('../../../constants/merchant-onboarding-copy')
 const { uploadImage } = require('../../../utils/media-upload')
 
 const EMPTY_FORM = {
@@ -51,6 +56,9 @@ Page({
     qualificationOptions: ONBOARDING_QUALIFICATION_OPTIONS,
     qualificationIndex: 0,
     complianceText: ONBOARDING_COMPLIANCE_TEXT,
+    heroCopy: MERCHANT_ONBOARDING_HERO,
+    valueItems: MERCHANT_ONBOARDING_VALUE_ITEMS,
+    positioningNotice: MERCHANT_ONBOARDING_POSITIONING,
     customServiceInput: '',
     agreed: false,
     submitting: false,

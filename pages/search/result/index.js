@@ -1,18 +1,26 @@
 const {
-  SEARCH_PLACEHOLDER,
-  SEARCH_TABS,
   SEARCH_DEFAULT_TAB,
-  SEARCH_TAB_KEYS,
   SEARCH_KEYWORD_MAX,
 } = require('../../../constants/search')
+const {
+  TOOL_SEARCH_STORE_PLACEHOLDER,
+  STORE_SEARCH_TABS,
+  STORE_SEARCH_TAB_KEYS,
+} = require('../../../constants/search-tool')
 const {
   SORT_OPTIONS,
   createEmptyFilters,
   hasActiveFilters,
   getFilterSections,
 } = require('../../../constants/search-filters')
-const { GEO_TOPIC_TAG } = require('../../../constants/geo-pages')
 const { searchContent } = require('../../../services/search')
+const { isAlbumCodeInput } = require('../../../utils/search-tool')
+const { navigateFromAlbumCode } = require('../../../utils/tool-scan')
+const {
+  resolvePageShareContext,
+  getShareStoreId,
+  withStoreContextPath,
+} = require('../../../utils/share-store-context')
 const { addSearchHistory } = require('../../../utils/search-history')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
 const { resolveCityContext } = require('../../../utils/city-location')
@@ -25,27 +33,21 @@ const TAB_LABEL = {
   case: '案例',
 }
 
-function getTabList(tab, services, merchants, cases, geoPages) {
+function getTabList(tab, services, merchants, cases) {
   if (tab === 'all') {
-    return [
-      ...(geoPages || []),
-      ...(services || []),
-      ...(merchants || []),
-      ...(cases || []),
-    ]
+    return [...(services || []), ...(merchants || []), ...(cases || [])]
   }
   if (tab === 'merchant') return merchants
   if (tab === 'case') return cases
   return services
 }
 
-function isPageEmpty(geoPages, services, merchants, cases, counts) {
-  if ((geoPages || []).length) return false
+function isPageEmpty(services, merchants, cases, counts) {
   if ((services || []).length) return false
   if ((merchants || []).length) return false
   if ((cases || []).length) return false
   const c = counts || {}
-  return !(c.service || 0) && !(c.merchant || 0) && !(c.case || 0) && !(c.geo || 0)
+  return !(c.service || 0) && !(c.merchant || 0) && !(c.case || 0)
 }
 
 function buildTabEmptyHint(activeTab, counts) {
@@ -79,10 +81,11 @@ function resolveServiceComplianceNotices(services) {
 
 Page({
   data: {
-    placeholder: SEARCH_PLACEHOLDER,
+    placeholder: TOOL_SEARCH_STORE_PLACEHOLDER,
     keyword: '',
-    tabs: SEARCH_TABS,
+    tabs: STORE_SEARCH_TABS,
     activeTab: SEARCH_DEFAULT_TAB,
+    storeSearchMode: true,
     status: 'loading',
     errorMessage: '',
     geoPages: [],
@@ -99,10 +102,9 @@ Page({
     filterSections: [],
     hasActiveFilters: false,
     locationGranted: false,
-    emptyTitle: '暂无相关结果',
-    emptyDescription: '换个关键词试试，或查看热门搜索',
-    emptyActionText: '返回首页',
-    geoTopicTag: GEO_TOPIC_TAG,
+    emptyTitle: '本店暂无相关结果',
+    emptyDescription: '换个关键词试试，或返回查询页',
+    emptyActionText: '返回查询页',
     showTabEmpty: false,
     tabEmptyHint: '',
     showServicePriceNotice: false,
@@ -110,11 +112,28 @@ Page({
   },
 
   onLoad(options) {
+    const ctx = resolvePageShareContext(options || {}, {
+      storeId: (options && options.storeId) || '',
+      autoIsolate: Boolean(options && options.storeId),
+    })
+    this.storeId =
+      (options && options.storeId) || ctx.storeId || getShareStoreId() || ''
     const keyword = decodeURIComponent((options && options.keyword) || '')
+
+    if (!this.storeId) {
+      if (keyword && isAlbumCodeInput(keyword)) {
+        navigateFromAlbumCode(keyword)
+        return
+      }
+      wx.redirectTo({ url: '/pages/search/index/index' })
+      return
+    }
+
     const tab =
-      options && SEARCH_TAB_KEYS.includes(options.tab)
+      options && STORE_SEARCH_TAB_KEYS.includes(options.tab)
         ? options.tab
         : SEARCH_DEFAULT_TAB
+    wx.setNavigationBarTitle({ title: '本店搜索' })
     this.setData({
       keyword,
       activeTab: tab,
@@ -124,7 +143,12 @@ Page({
     if (keyword) {
       this.bootstrapSearch()
     } else {
-      wx.redirectTo({ url: '/pages/search/index/index' })
+      wx.redirectTo({
+        url: withStoreContextPath(
+          `/pages/search/index/index?storeId=${encodeURIComponent(this.storeId)}`,
+          { storeId: this.storeId, isolated: true }
+        ),
+      })
     }
   },
 
@@ -194,6 +218,7 @@ Page({
         tab: this.data.activeTab,
         sort: this.data.sortKey,
         filters: this.data.filters,
+        storeId: this.storeId,
       }
       if (this.coords) {
         query.coords = this.coords
@@ -206,23 +231,22 @@ Page({
         cardTags: buildStoreCardTags(store, []),
       }))
 
-      const geoPages = result.geoPages || []
       const services = result.services || []
       const cases = result.cases || []
       const counts = result.counts || {}
       const activeTab = this.data.activeTab
-      const tabList = getTabList(activeTab, services, merchants, cases, geoPages)
+      const tabList = getTabList(activeTab, services, merchants, cases)
       const activeFilters = hasActiveFilters(this.data.filters)
-      const pageEmpty = isPageEmpty(geoPages, services, merchants, cases, counts)
+      const pageEmpty = isPageEmpty(services, merchants, cases, counts)
       const showTabEmpty = !pageEmpty && !tabList.length
       const serviceNotices = resolveServiceComplianceNotices(services)
 
       this.setData({
-        geoPages,
+        geoPages: [],
         services,
         merchants,
         cases,
-        hotwords: result.hotwords || [],
+        hotwords: [],
         counts,
         status: pageEmpty ? 'empty' : 'normal',
         showTabEmpty,
@@ -231,8 +255,8 @@ Page({
         showServiceAccidentNotice: serviceNotices.showServiceAccidentNotice,
         emptyDescription: activeFilters
           ? '当前筛选条件下暂无结果，可尝试清空筛选'
-          : '换个关键词试试，或查看热门搜索',
-        emptyActionText: activeFilters ? '清空筛选' : '返回首页',
+          : '换个关键词试试，或返回查询页',
+        emptyActionText: activeFilters ? '清空筛选' : '返回查询页',
         hasActiveFilters: activeFilters,
       })
       addSearchHistory(keyword)
@@ -306,6 +330,15 @@ Page({
       )
       return
     }
+    if (this.storeId) {
+      wx.redirectTo({
+        url: withStoreContextPath(
+          `/pages/search/index/index?storeId=${encodeURIComponent(this.storeId)}`,
+          { storeId: this.storeId, isolated: true }
+        ),
+      })
+      return
+    }
     wx.switchTab({ url: '/pages/home/index' })
   },
 
@@ -377,18 +410,14 @@ Page({
     )
   },
 
-  onGeoTap(e) {
-    const id = (e.detail && e.detail.topicId) || e.currentTarget.dataset.id
-    if (!id) return
-    wx.navigateTo({ url: `/pages/geo/detail/index?id=${id}` })
-  },
-
   onServiceTap(e) {
     const serviceId = e.detail && e.detail.serviceId
     if (!serviceId || this._serviceNavigating) return
     this._serviceNavigating = true
     wx.navigateTo({
-      url: `/pages/service/detail/index?id=${serviceId}`,
+      url: withStoreContextPath(`/pages/service/detail/index?id=${serviceId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._serviceNavigating = false
       },
@@ -400,7 +429,9 @@ Page({
     if (!storeId || this._storeNavigating) return
     this._storeNavigating = true
     wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}`,
+      url: withStoreContextPath(`/pages/store/detail/index?id=${storeId}`, {
+        storeId: this.storeId || storeId,
+      }),
       complete: () => {
         this._storeNavigating = false
       },
@@ -412,7 +443,9 @@ Page({
     if (!caseId || this._caseNavigating) return
     this._caseNavigating = true
     wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
+      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
+        storeId: this.storeId,
+      }),
       complete: () => {
         this._caseNavigating = false
       },

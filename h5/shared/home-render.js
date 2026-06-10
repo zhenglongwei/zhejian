@@ -63,6 +63,61 @@
     ensureLink('canonical', location.origin + '/')
   }
 
+  function renderSiteNav() {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
+    }
+    return ''
+  }
+
+  function renderServiceEntries(entries) {
+    if (!entries || !entries.length) return ''
+    var items = entries
+      .map(function (entry) {
+        var href = entry.h5Path || '/case/'
+        return (
+          '<a class="h5-city-service-item" href="' +
+          escapeHtml(href) +
+          '"><span class="h5-city-service-name">' +
+          escapeHtml(entry.name) +
+          '</span></a>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">热门维修项目</h2>' +
+      '<div class="h5-city-service-grid">' +
+      items +
+      '</div></div>'
+    )
+  }
+
+  function renderGeoTopics(topics) {
+    if (!topics || !topics.length) return ''
+    var items = topics
+      .map(function (topic) {
+        var href = topic.h5Path || '/topic/' + encodeURIComponent(topic.slug || topic.id)
+        return (
+          '<a class="h5-case-list-item" href="' +
+          escapeHtml(href) +
+          '"><div class="h5-case-list-title">' +
+          escapeHtml(topic.title) +
+          '</div>' +
+          (topic.summary
+            ? '<div class="h5-case-list-meta">' + escapeHtml(topic.summary) + '</div>'
+            : '') +
+          '</a>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">常见维修问题</h2>' +
+      '<div class="h5-case-list">' +
+      items +
+      '</div></div>'
+    )
+  }
+
   function renderCityEntries(entries) {
     if (!entries || !entries.length) return ''
     var items = entries
@@ -207,9 +262,12 @@
       '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
       '</div>' +
       renderCityEntries(data.cityEntries) +
+      renderServiceEntries(data.serviceEntries) +
       renderFeaturedCases(data.featuredCases) +
       renderStores(data.recommendedMerchants) +
+      renderGeoTopics(data.geoTopics) +
       renderIntro((data.platformIntro && data.platformIntro.points) || []) +
+      renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">' +
       escapeHtml(
         (typeof data.protectionText === 'string' && data.protectionText) ||

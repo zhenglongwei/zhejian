@@ -138,6 +138,25 @@
 
   function setPageMeta(data) {
     var seo = data.seo || {}
+    var store = data.store || {}
+    var crumbs = [
+      { label: '辙见', href: '/' },
+      { label: '公开门店', href: '/store/' },
+      { label: store.name || '门店', href: store.id ? storePagePath(store.id) : '' },
+      { label: '维修案例' },
+    ]
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyPageSeo({
+        title: seo.title || '门店维修案例 · 辙见',
+        description: seo.description || '查看门店公开维修案例。',
+        canonicalPath: seo.canonicalPath || location.pathname,
+        robots: seo.robots || 'index,follow',
+        prevPath: seo.prevPath,
+        nextPath: seo.nextPath,
+      })
+      window.zhejianSeo.applyBreadcrumbSchema(crumbs, 'store-cases-breadcrumb')
+      return
+    }
     var title = seo.title || '门店维修案例 · 辙见'
     var desc = seo.description || '查看门店公开维修案例。'
     var canonical = location.origin + (seo.canonicalPath || location.pathname)
@@ -266,6 +285,13 @@
     })
   }
 
+  function renderSiteNav() {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
+    }
+    return ''
+  }
+
   function renderPage(data) {
     var store = data.store
     var pagination = data.pagination || {}
@@ -273,12 +299,18 @@
 
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/store/">公开门店</a> › ' +
-      '<a href="' +
-      storePagePath(store.id) +
-      '">' +
-      escapeHtml(store.name) +
-      '</a> › 维修案例</nav>' +
+      (window.zhejianSeo
+        ? window.zhejianSeo.renderBreadcrumbHtml([
+            { label: '辙见', href: '/' },
+            { label: '公开门店', href: '/store/' },
+            { label: store.name, href: storePagePath(store.id) },
+            { label: '维修案例' },
+          ])
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/store/">公开门店</a> › <a href="' +
+          storePagePath(store.id) +
+          '">' +
+          escapeHtml(store.name) +
+          '</a> › 维修案例</nav>') +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 门店案例集</div>' +
       '<h1 class="h5-title">' +
@@ -311,6 +343,7 @@
       renderCaseCards(data.cases) +
       '</div>' +
       renderPagination(store.id, pagination, data.filters) +
+      renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
 

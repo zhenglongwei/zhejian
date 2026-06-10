@@ -2,6 +2,13 @@
   padding-top: var(--space-md);
 }
 
+.geo-detail__hint {
+  display: block;
+  margin-top: var(--space-md);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
 .geo-detail__body {
   padding-bottom: calc(var(--page-fixed-clearance) + var(--space-lg));
 }

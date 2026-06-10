@@ -27,3 +27,13 @@ export function retryCaseAssetDesensitize(caseId, assetId) {
 export function retryAllCaseDesensitize(caseId) {
   return request.post(`/admin/cases/${caseId}/retry-desensitize-all`)
 }
+
+export function fetchCaseArticleExport(caseId) {
+  return request.get(`/admin/cases/${caseId}/article-export`)
+}
+
+export function markCaseArticlePublishedWechat(caseId) {
+  return request.post(`/admin/cases/${caseId}/article-status`, {
+    targetStatus: 'published_wechat',
+  })
+}

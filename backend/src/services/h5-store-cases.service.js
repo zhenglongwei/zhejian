@@ -1,3 +1,7 @@
+const {
+  buildListPageSeo,
+  buildStoreCasesPagePath,
+} = require('../lib/h5-list-seo')
 const { getMerchantDetail, listCases } = require('./content.service')
 
 const DEFAULT_PAGE_SIZE = 12
@@ -37,15 +41,27 @@ function buildFilterOptions(allCases) {
   return [...names].sort()
 }
 
-function buildStoreCasesSeo(store, { total, allowIndex }) {
+function buildStoreCasesSeo(store, { total, allowIndex, page, hasFilters, hasMore, serviceName }) {
   const city = extractCityFromStore(store)
   const cityPart = city.replace(/市$/, '')
+  const canonicalPath = `/store/${store.id}/cases`
+  const listSeo = buildListPageSeo({
+    canonicalPath,
+    allowIndex,
+    page,
+    hasFilters,
+    hasMore,
+    buildPagePath: (opts) =>
+      buildStoreCasesPagePath(store.id, {
+        page: opts.page,
+        serviceName,
+      }),
+  })
+
   return {
     title: `${store.name}维修案例_${cityPart}真实汽车维修案例 · 辙见`,
     description: `查看${store.name}已审核、已脱敏的公开维修案例（共 ${total} 条），了解维修项目、价格参考与施工过程摘要。`,
-    canonicalPath: `/store/${store.id}/cases`,
-    robots: allowIndex ? 'index,follow' : 'noindex,follow',
-    allowIndex,
+    ...listSeo,
   }
 }
 
@@ -58,7 +74,7 @@ async function getStoreCasesPagePayload(storeId, query = {}) {
   )
   const serviceName = query.serviceName ? String(query.serviceName).trim() : ''
 
-  const [{ list, total, hasMore }, { list: allStoreCases }] = await Promise.all([
+  const [{ list, total, hasMore: listHasMore }, { list: allStoreCases }] = await Promise.all([
     listCases({
       storeId,
       page,
@@ -69,6 +85,8 @@ async function getStoreCasesPagePayload(storeId, query = {}) {
   ])
 
   const allowIndex = total > 0
+  const hasFilters = Boolean(serviceName)
+  const hasMore = listHasMore != null ? listHasMore : page * pageSize < total
   const city = extractCityFromStore(store)
 
   return {
@@ -91,10 +109,17 @@ async function getStoreCasesPagePayload(storeId, query = {}) {
       page,
       pageSize,
       total,
-      hasMore: hasMore != null ? hasMore : page * pageSize < total,
+      hasMore,
       totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
     },
-    seo: buildStoreCasesSeo(store, { total, allowIndex }),
+    seo: buildStoreCasesSeo(store, {
+      total,
+      allowIndex,
+      page,
+      hasFilters,
+      hasMore,
+      serviceName,
+    }),
   }
 }
 

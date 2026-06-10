@@ -85,6 +85,12 @@
   display: block;
 }
 
+.store-detail__section-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
 .store-detail__more {
   color: var(--color-primary);
 }

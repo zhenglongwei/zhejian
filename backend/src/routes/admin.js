@@ -13,6 +13,7 @@ const {
   retryAllAdminCaseAssets,
 } = require('../services/admin-case.service')
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
+const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 
 const {
@@ -74,6 +75,15 @@ router.get('/cases', async (req, res, next) => {
 router.get('/cases/:caseId', async (req, res, next) => {
   try {
     const data = await getAdminCaseDetail(req.params.caseId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/cases/:caseId/article-export', async (req, res, next) => {
+  try {
+    const data = await exportCaseArticleForWechat(req.params.caseId)
     return ok(res, data)
   } catch (e) {
     next(e)

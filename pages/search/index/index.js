@@ -1,170 +1,116 @@
 const {
-  SEARCH_PLACEHOLDER,
-  SEARCH_KEYWORD_MAX,
-} = require('../../../constants/search')
-const { fetchSearchConfig, fetchSearchSuggest } = require('../../../services/search')
+  TOOL_SEARCH_ALBUM_PLACEHOLDER,
+  TOOL_SEARCH_STORE_PLACEHOLDER,
+  TOOL_SEARCH_MIGRATED_HINT,
+} = require('../../../constants/search-tool')
+const { SEARCH_KEYWORD_MAX } = require('../../../constants/search')
+const { openH5ContentSite } = require('../../../constants/h5-links')
+const { navigateFromAlbumCode, navigateToScanTarget } = require('../../../utils/tool-scan')
+const { isAlbumCodeInput } = require('../../../utils/search-tool')
 const {
-  getSearchHistory,
-  addSearchHistory,
-  clearSearchHistory,
-  syncSearchHistoryFromCloud,
-} = require('../../../utils/search-history')
+  resolvePageShareContext,
+  getShareStoreId,
+  withStoreContextPath,
+} = require('../../../utils/share-store-context')
 
 Page({
   data: {
-    placeholder: SEARCH_PLACEHOLDER,
-    keyword: '',
-    focus: true,
-    configStatus: 'loading',
-    hotwords: [],
-    history: [],
-    suggests: [],
-    showSuggests: false,
-    showSearchAll: false,
-    errorMessage: '',
+    albumCode: '',
+    storeKeyword: '',
+    storeMode: false,
+    storeId: '',
+    scanning: false,
+    albumPlaceholder: TOOL_SEARCH_ALBUM_PLACEHOLDER,
+    storePlaceholder: TOOL_SEARCH_STORE_PLACEHOLDER,
+    migratedHint: TOOL_SEARCH_MIGRATED_HINT,
   },
 
   onLoad(options) {
-    if (options && options.keyword) {
-      this.setData({ keyword: decodeURIComponent(options.keyword) })
-    }
-    this.loadConfig()
-    this.syncHistory()
-  },
-
-  onShow() {
-    this.syncHistory()
-  },
-
-  syncHistory() {
-    syncSearchHistoryFromCloud().then((history) => {
-      this.setData({ history })
+    const ctx = resolvePageShareContext(options || {}, {
+      storeId: (options && options.storeId) || '',
+      autoIsolate: Boolean(options && options.storeId),
     })
-  },
+    const storeId = (options && options.storeId) || ctx.storeId || getShareStoreId() || ''
+    this.setData({ storeMode: Boolean(storeId), storeId })
 
-  refreshHistory() {
-    this.setData({ history: getSearchHistory() })
-  },
-
-  async loadConfig() {
-    this.setData({ configStatus: 'loading', errorMessage: '' })
-    try {
-      const config = await fetchSearchConfig()
-      this.setData({
-        hotwords: config.hotwords || [],
-        configStatus: 'normal',
-      })
-    } catch (e) {
-      this.setData({
-        configStatus: 'error',
-        errorMessage: (e && e.message) || '加载失败',
-        hotwords: [],
-      })
+    const legacyKeyword = options && options.keyword ? decodeURIComponent(options.keyword) : ''
+    if (legacyKeyword) {
+      if (isAlbumCodeInput(legacyKeyword)) {
+        navigateFromAlbumCode(legacyKeyword)
+        return
+      }
+      if (storeId) {
+        wx.redirectTo({
+          url: withStoreContextPath(
+            `/pages/search/result/index?keyword=${encodeURIComponent(legacyKeyword)}&storeId=${encodeURIComponent(storeId)}`,
+            { storeId, isolated: true }
+          ),
+        })
+        return
+      }
+      this.setData({ albumCode: legacyKeyword })
     }
   },
 
-  onInput(e) {
-    const keyword = (e.detail && e.detail.value) || ''
-    const trimmed = keyword.trim()
-    this.setData({
-      keyword,
-      showSuggests: !!trimmed,
-      showSearchAll: !!trimmed,
-    })
-    this.loadSuggest(keyword)
+  onAlbumInput(e) {
+    this.setData({ albumCode: (e.detail && e.detail.value) || '' })
   },
 
-  async loadSuggest(keyword) {
-    const value = String(keyword || '').trim()
-    if (!value) {
-      this.setData({ suggests: [], showSuggests: false })
+  onStoreInput(e) {
+    this.setData({ storeKeyword: (e.detail && e.detail.value) || '' })
+  },
+
+  onAlbumSubmit() {
+    navigateFromAlbumCode(this.data.albumCode)
+  },
+
+  onStoreSearch() {
+    const keyword = String(this.data.storeKeyword || '').trim()
+    if (!keyword) {
+      wx.showToast({ title: '请输入搜索关键词', icon: 'none' })
       return
     }
-    try {
-      const suggests = await fetchSearchSuggest(value)
-      this.setData({ suggests, showSuggests: true })
-    } catch (e) {
-      this.setData({ suggests: [], showSuggests: false })
-    }
-  },
-
-  onClear() {
-    this.setData({ keyword: '', suggests: [], showSuggests: false, showSearchAll: false })
-  },
-
-  onCancel() {
-    wx.navigateBack({
-      fail() {
-        wx.switchTab({ url: '/pages/home/index' })
-      },
-    })
-  },
-
-  validateKeyword(keyword) {
-    const value = String(keyword || '').trim()
-    if (!value) {
-      wx.showToast({ title: '请输入搜索关键词', icon: 'none' })
-      return ''
-    }
-    if (value.length > SEARCH_KEYWORD_MAX) {
+    if (keyword.length > SEARCH_KEYWORD_MAX) {
       wx.showToast({
         title: `关键词不超过 ${SEARCH_KEYWORD_MAX} 字`,
         icon: 'none',
       })
-      return ''
+      return
     }
-    return value
-  },
-
-  onSearchAll() {
-    this.goResult(this.data.keyword)
-  },
-
-  goResult(keyword) {
-    const value = this.validateKeyword(keyword)
-    if (!value) return
-    addSearchHistory(value).then((history) => {
-      this.setData({ history })
-      wx.navigateTo({
-        url: `/pages/search/result/index?keyword=${encodeURIComponent(value)}`,
-      })
+    const { storeId } = this.data
+    if (!storeId) return
+    wx.navigateTo({
+      url: withStoreContextPath(
+        `/pages/search/result/index?keyword=${encodeURIComponent(keyword)}&storeId=${encodeURIComponent(storeId)}`,
+        { storeId, isolated: true }
+      ),
     })
   },
 
-  onConfirm(e) {
-    const keyword = (e.detail && e.detail.value) || this.data.keyword
-    this.goResult(keyword)
-  },
-
-  onHistoryTap(e) {
-    const { keyword } = e.currentTarget.dataset
-    this.goResult(keyword)
-  },
-
-  onHotwordTap(e) {
-    const { keyword } = e.currentTarget.dataset
-    this.goResult(keyword)
-  },
-
-  onSuggestTap(e) {
-    const { keyword } = e.currentTarget.dataset
-    this.goResult(keyword)
-  },
-
-  onClearHistory() {
-    wx.showModal({
-      title: '清空搜索历史',
-      content: '确定清空全部搜索历史吗？',
+  onScanTap() {
+    if (this.data.scanning) return
+    this.setData({ scanning: true })
+    wx.scanCode({
+      onlyFromCamera: false,
+      scanType: ['qrCode', 'barCode'],
       success: (res) => {
-        if (!res.confirm) return
-        clearSearchHistory().then(() => {
-          this.setData({ history: [] })
-        })
+        navigateToScanTarget(res.result)
+      },
+      fail: (err) => {
+        if (err && err.errMsg && err.errMsg.indexOf('cancel') >= 0) return
+        wx.showToast({ title: '扫码失败', icon: 'none' })
+      },
+      complete: () => {
+        this.setData({ scanning: false })
       },
     })
   },
 
-  onRetryConfig() {
-    this.loadConfig()
+  onOpenH5() {
+    openH5ContentSite()
+  },
+
+  onBackHome() {
+    wx.switchTab({ url: '/pages/home/index' })
   },
 })

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "使用说明与帮助",
+  "usingComponents": {
+    "ui-tabs": "/components/tabs/index",
+    "ui-button": "/components/button/index"
+  }
+}

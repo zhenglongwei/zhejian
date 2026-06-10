@@ -5,6 +5,7 @@
 const GEO_PAGES = [
   {
     id: 'geo_brake_hz',
+    slug: 'hangzhou-brake-pad',
     pageType: 'city_service',
     coverImage: '/assets/home/geo_brake_hz-thumb.jpg',
     title: '杭州刹车片更换门店与维修案例',
@@ -36,6 +37,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_spray_hz',
+    slug: 'hangzhou-body-paint',
     pageType: 'city_service',
     coverImage: '/assets/home/geo_spray_hz-thumb.jpg',
     title: '杭州钣金喷漆门店参考',
@@ -65,6 +67,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_accident_hz',
+    slug: 'hangzhou-accident-guide',
     pageType: 'case_collection',
     coverImage: '/assets/home/geo_accident_hz-thumb.jpg',
     title: '杭州事故车维修怎么选',
@@ -100,6 +103,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_bmw_maintain',
+    slug: 'bmw-3-series-maintenance',
     pageType: 'vehicle_service',
     title: '宝马 3 系保养参考',
     summary: '宝马 3 系相关保养与维修公开案例参考，实际费用以到店检测为准。',
@@ -129,6 +133,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_binjiang',
+    slug: 'hangzhou-binjiang-stores',
     pageType: 'district_service',
     title: '滨江区钣喷与保养门店',
     summary: '聚焦杭州滨江区的钣喷修复、小保养等可咨询门店与脱敏案例。',
@@ -152,6 +157,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_ac_noise',
+    slug: 'ac-not-cooling-guide',
     pageType: 'fault_qa',
     title: '空调不制冷常见原因',
     summary: '汇总空调不制冷相关检查思路与可咨询门店，不提供线上最终报价。',
@@ -175,6 +181,7 @@ const GEO_PAGES = [
   },
   {
     id: 'geo_store_demo',
+    slug: 'store-demo-hangzhou',
     pageType: 'merchant_geo',
     title: '辙见示范店专题',
     summary: '辙见示范店（杭州滨江）服务能力、公开案例与咨询入口汇总。',

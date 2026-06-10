@@ -8,12 +8,20 @@ const {
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
-const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
+const {
+  fetchMerchantCasePublishPanel,
+  fetchMerchantCaseArticleExport,
+} = require('../../../services/merchant-public-case')
 const { copyCaseH5Link, copyCaseListH5Link, openH5ContentSite } = require('../../../constants/h5-links')
 const { fetchMerchantUnreadNotificationCount, fetchMerchantSubscribeStatus } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
+const {
+  MERCHANT_WORKBENCH_GATE_NONE,
+  MERCHANT_WORKBENCH_GATE_PENDING,
+  MERCHANT_SHARE_STORE_DESC,
+} = require('../../../constants/merchant-onboarding-copy')
 
 function formatBadge(n) {
   const count = Number(n) || 0
@@ -25,7 +33,7 @@ function buildPrimaryActions() {
   return [
     { key: 'createAlbum', label: '新建相册', desc: '创建服务留档' },
     { key: 'services', label: '服务方案', desc: '管理门店服务' },
-    { key: 'shareStore', label: '分享门店', desc: '获客与传播' },
+    { key: 'shareStore', label: '分享门店', desc: MERCHANT_SHARE_STORE_DESC },
     { key: 'previewStore', label: '预览门店', desc: '查看主页效果' },
   ]
 }
@@ -44,6 +52,8 @@ function buildMoreMenuItems({ canManageStaff }) {
 Page({
   data: {
     status: 'loading',
+    gateNone: MERCHANT_WORKBENCH_GATE_NONE,
+    gatePending: MERCHANT_WORKBENCH_GATE_PENDING,
     profile: null,
     todos: {
       pendingLeads: 0,
@@ -385,6 +395,40 @@ Page({
     )
   },
 
+  async _copyCaseWechatExport(caseId, field) {
+    if (!caseId || this._wechatExportLoading) return
+    this._wechatExportLoading = true
+    wx.showLoading({ title: '生成中…', mask: true })
+    try {
+      const data = await fetchMerchantCaseArticleExport(caseId)
+      const text = field === 'markdown' ? data.markdown : data.html
+      if (!text) {
+        wx.showToast({ title: '导出内容为空', icon: 'none' })
+        return
+      }
+      await new Promise((resolve, reject) => {
+        wx.setClipboardData({
+          data: text,
+          success: resolve,
+          fail: reject,
+        })
+      })
+      wx.showToast({
+        title: field === 'markdown' ? 'Markdown 已复制' : 'HTML 已复制',
+        icon: 'none',
+        duration: 2500,
+      })
+    } catch (err) {
+      wx.showToast({
+        title: (err && err.message) || '导出失败',
+        icon: 'none',
+      })
+    } finally {
+      this._wechatExportLoading = false
+      wx.hideLoading()
+    }
+  },
+
   onCasePublishSummaryTap(e) {
     const key = e.currentTarget.dataset.key
     if (key === 'pending') {
@@ -415,8 +459,17 @@ Page({
 
     const publishedKeys = ['published_h5', 'published_wechat']
     if (publishedKeys.includes(item.publishStatus) || item.h5Url) {
-      copyCaseH5Link(item).catch(() => {
-        wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
+      wx.showActionSheet({
+        itemList: ['复制 H5 链接', '复制公众号 HTML', '复制公众号 Markdown'],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            copyCaseH5Link(item).catch(() => {
+              wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
+            })
+            return
+          }
+          this._copyCaseWechatExport(item.caseId, res.tapIndex === 1 ? 'html' : 'markdown')
+        },
       })
       return
     }

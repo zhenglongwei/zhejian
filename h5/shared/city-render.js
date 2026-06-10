@@ -84,6 +84,16 @@
     ensureMeta('property', 'og:url', canonical)
     ensureLink('canonical', canonical)
 
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyBreadcrumbSchema(
+        [
+          { label: '辙见', href: '/' },
+          { label: cityName, href: seo.canonicalPath || location.pathname.replace(/\/$/, '') },
+        ],
+        'city-breadcrumb'
+      )
+    }
+
     if (data.faq && data.faq.length) {
       injectJsonLd({
         '@context': 'https://schema.org',
@@ -110,6 +120,13 @@
         ],
       })
     }
+  }
+
+  function renderSiteNav() {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
+    }
+    return ''
   }
 
   function renderServiceEntries(entries, cityName) {
@@ -260,15 +277,18 @@
     if (!topics || !topics.length) return ''
     var items = topics
       .map(function (topic) {
+        var href = topic.h5Path || '/topic/' + encodeURIComponent(topic.slug || topic.id)
         return (
-          '<div class="h5-case-list-item h5-city-geo-item">' +
+          '<a class="h5-case-list-item" href="' +
+          escapeHtml(href) +
+          '">' +
           '<div class="h5-case-list-title">' +
           escapeHtml(topic.title) +
           '</div>' +
           (topic.summary
             ? '<div class="h5-case-list-meta">' + escapeHtml(topic.summary) + '</div>'
             : '') +
-          '</div>'
+          '</a>'
         )
       })
       .join('')
@@ -387,6 +407,12 @@
 
     var html =
       '<div class="h5-page">' +
+      (window.zhejianSeo
+        ? window.zhejianSeo.renderBreadcrumbHtml([
+            { label: '辙见', href: '/' },
+            { label: cityName },
+          ])
+        : '') +
       '<header class="h5-header h5-home-hero">' +
       '<div class="h5-brand"><a class="h5-link" href="/">辙见服务平台</a> · ' +
       escapeHtml(cityName) +
@@ -415,6 +441,7 @@
       renderGeoTopics(data.geoTopics) +
       renderIntro((data.platformIntro && data.platformIntro.points) || []) +
       renderFaq(data.faq) +
+      renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">' +
       escapeHtml(
         (typeof data.protectionText === 'string' && data.protectionText) ||

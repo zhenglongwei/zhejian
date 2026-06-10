@@ -10,6 +10,30 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-onboard__values {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-onboard__value-item {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-onboard__value-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-onboard__value-desc {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .merchant-onboard__optional-hint {
   display: block;
   margin-bottom: var(--space-xs);

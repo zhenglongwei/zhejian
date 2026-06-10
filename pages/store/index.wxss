@@ -1,1 +1,15 @@
-/** Tab 列表页样式已收敛至 styles/tokens.wxss · tab-page__* */
+.public-list-h5__pad {
+  padding-top: var(--space-md);
+}
+
+.public-list-h5__hint {
+  display: block;
+  margin-top: var(--space-sm);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.public-list-h5__actions {
+  margin-top: var(--space-lg);
+  padding: 0 var(--space-md);
+}

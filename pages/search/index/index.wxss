@@ -1,62 +1,64 @@
-.search-index__bar {
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-sm);
-}
-
-.search-index__pad {
+.search-tool__body {
   padding-top: var(--space-md);
-}
-
-.search-index__body {
   padding-bottom: var(--space-xl);
 }
 
-.search-index__section {
-  margin-bottom: var(--space-lg);
+.search-tool__hint {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
-.search-index__head {
+.search-tool__scan {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-sm);
 }
 
-.search-index__title {
+.search-tool__scan--loading {
+  opacity: var(--opacity-disabled);
+}
+
+.search-tool__scan-title {
+  display: block;
+}
+
+.search-tool__scan-desc {
+  display: block;
+  color: var(--color-text-secondary);
+}
+
+.search-tool__block {
+  margin-bottom: var(--space-md);
+}
+
+.search-tool__block-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.search-tool__block-desc {
   display: block;
   margin-bottom: var(--space-sm);
+  color: var(--color-text-secondary);
 }
 
-.search-index__head .search-index__title {
-  margin-bottom: 0;
+.search-tool__input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
 }
 
-.search-index__action {
-  color: var(--color-primary);
-}
-
-.search-index__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.search-index__chip-wrap {
-  max-width: 100%;
-}
-
-.search-index__panel {
-  padding-bottom: var(--space-xl);
-}
-
-.search-index__more {
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.search-index__more-btn {
-  display: block;
+.search-tool__footer {
+  margin-top: var(--space-lg);
   text-align: center;
-  color: var(--color-primary);
 }

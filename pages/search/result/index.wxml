@@ -30,41 +30,7 @@
     bind:retry="onRetry"
     bind:emptyaction="onEmptyAction"
   >
-    <view
-      wx:if="{{status === 'empty' && hotwords.length}}"
-      slot="footer"
-      class="search-result__hotwords page-content"
-    >
-      <text class="search-result__section-title text-h3">热门搜索</text>
-      <view class="search-result__chips">
-        <view
-          wx:for="{{hotwords}}"
-          wx:key="*this"
-          class="search-result__chip-wrap"
-          data-keyword="{{item}}"
-          bindtap="onHotwordTap"
-        >
-          <ui-tag variant="default" text="{{item}}" />
-        </view>
-      </view>
-    </view>
-
     <block wx:if="{{status === 'normal'}}">
-    <view wx:if="{{geoPages.length}}" class="search-result__geo">
-      <text class="search-result__section-title text-h3">本地专题</text>
-      <ui-geo-topic-card
-        wx:for="{{geoPages}}"
-        wx:key="id"
-        topicId="{{item.id}}"
-        title="{{item.title}}"
-        summary="{{item.summary}}"
-        tagText="{{geoTopicTag}}"
-        updatedAt="{{item.updatedAt}}"
-        showMeta="{{true}}"
-        bind:cardtap="onGeoTap"
-      />
-    </view>
-
     <view wx:if="{{activeTab === 'service' && !showTabEmpty && showServicePriceNotice}}" class="search-result__notice">
       <ui-compliance-notice type="price" />
     </view>
@@ -104,23 +70,6 @@
           maxAmount="{{item.maxAmount}}"
           storeName="{{item.storeName}}"
           bind:cardtap="onServiceTap"
-        />
-      </view>
-
-      <view wx:if="{{merchants.length}}" class="search-result__group">
-        <text class="search-result__section-title text-h3">门店</text>
-        <ui-store-card
-          wx:for="{{merchants}}"
-          wx:key="id"
-          storeId="{{item.id}}"
-          name="{{item.name}}"
-          address="{{item.address}}"
-          distanceText="{{item.distanceText}}"
-          businessHours="{{item.businessHours}}"
-          caseCount="{{item.caseCount}}"
-          cardTags="{{item.cardTags}}"
-          showLink="{{true}}"
-          bind:cardtap="onStoreTap"
         />
       </view>
 
@@ -164,22 +113,6 @@
         maxAmount="{{item.maxAmount}}"
         storeName="{{item.storeName}}"
         bind:cardtap="onServiceTap"
-      />
-    </block>
-
-    <block wx:elif="{{activeTab === 'merchant'}}">
-      <ui-store-card
-        wx:for="{{merchants}}"
-        wx:key="id"
-        storeId="{{item.id}}"
-        name="{{item.name}}"
-        address="{{item.address}}"
-        distanceText="{{item.distanceText}}"
-        businessHours="{{item.businessHours}}"
-        caseCount="{{item.caseCount}}"
-        cardTags="{{item.cardTags}}"
-        showLink="{{true}}"
-        bind:cardtap="onStoreTap"
       />
     </block>
 

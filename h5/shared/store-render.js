@@ -294,6 +294,16 @@
     }
     if (store.phone) schema.telephone = store.phone
     ensureJsonLd('store-schema', schema)
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyBreadcrumbSchema(
+        [
+          { label: '辙见', href: '/' },
+          { label: '公开门店', href: '/store/' },
+          { label: store.name },
+        ],
+        'store-breadcrumb'
+      )
+    }
   }
 
   function setNoIndex() {

@@ -98,6 +98,15 @@
       />
     </el-card>
 
+    <ArticleExportPanel
+      v-if="detail.status === 'public_approved'"
+      class="section"
+      :case-id="detail.caseId"
+      :status="detail.status"
+      :article-status="detail.articleStatus"
+      @marked-wechat="loadDetail"
+    />
+
     <el-card shadow="never" class="section">
       <template #header>审核日志</template>
       <AuditLogTimeline :logs="detail.reviewLogs" />
@@ -123,6 +132,7 @@ import RiskLevelTag from '@/components/case-review/RiskLevelTag.vue'
 import DesensitizeComparePanel from '@/components/case-review/DesensitizeComparePanel.vue'
 import ReviewActionBar from '@/components/case-review/ReviewActionBar.vue'
 import AuditLogTimeline from '@/components/case-review/AuditLogTimeline.vue'
+import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
 
 const route = useRoute()
 const router = useRouter()

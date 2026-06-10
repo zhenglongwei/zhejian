@@ -1,4 +1,4 @@
-/** Tab 收缩后，原列表页改 navigateTo 深链打开（DS-A-01） */
+/** 原公域列表深链 → navigateTo 兼容页（DS-D-04～06 内跳转 H5） */
 const {
   buildStoreScopedListPath,
   isShareStoreIsolated,

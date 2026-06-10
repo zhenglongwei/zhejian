@@ -46,8 +46,12 @@ async function fetchGeoPageDetailMock(id) {
     }
   }
 
+  const slug = page.slug || page.id
+
   return {
     ...page,
+    slug,
+    h5Path: `/topic/${slug}`,
     relatedCases,
     relatedStores,
     relatedCaseCount: relatedCases.length,

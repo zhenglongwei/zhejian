@@ -7,26 +7,53 @@
       .replace(/"/g, '&quot;')
   }
 
-  function caseHref(id) {
-    return 'view.html?id=' + encodeURIComponent(id)
+  function caseHref(item) {
+    if (item && item.slug) return '/case/' + encodeURIComponent(item.slug) + '.html'
+    return 'view.html?id=' + encodeURIComponent(item.id)
+  }
+
+  function applyListSeo() {
+    if (!window.zhejianSeo) return
+    window.zhejianSeo.applyPageSeo({
+      title: '公开案例 · 辙见',
+      description: '辙见公开案例列表 · 已审核、已脱敏的维修案例，价格仅为参考。',
+      canonicalPath: '/case/',
+      robots: 'index,follow',
+    })
+    window.zhejianSeo.applyBreadcrumbSchema(
+      [
+        { label: '辙见', href: '/' },
+        { label: '公开案例' },
+      ],
+      'case-list-breadcrumb'
+    )
+  }
+
+  function renderBreadcrumb() {
+    if (window.zhejianSeo) {
+      return window.zhejianSeo.renderBreadcrumbHtml([
+        { label: '辙见', href: '/' },
+        { label: '公开案例' },
+      ])
+    }
+    return ''
   }
 
   function renderEmpty(message) {
-    document.title = '公开案例 · 辙见'
+    applyListSeo()
     var app = document.getElementById('app')
     if (!app) return
     app.innerHTML =
       '<div class="h5-page">' +
+      renderBreadcrumb() +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">展示已审核、已脱敏的维修案例；价格仅为参考。</p>' +
       '</header>' +
-      '<div class="h5-card h5-case-list-empty">' +
-      '<p>' +
+      '<div class="h5-card h5-case-list-empty"><p>' +
       escapeHtml(message) +
-      '</p>' +
-      '</div></div>'
+      '</p></div></div>'
   }
 
   function renderError(message) {
@@ -34,16 +61,15 @@
   }
 
   function renderList(list) {
-    document.title = '公开案例 · 辙见'
+    applyListSeo()
     var items = list
       .map(function (item) {
         var title = item.title || item.serviceName || '公开案例'
         var meta = [item.city, item.storeName, item.serviceName].filter(Boolean).join(' · ')
         return (
           '<a class="h5-case-list-item" href="' +
-          caseHref(item.id) +
-          '">' +
-          '<div class="h5-case-list-title">' +
+          caseHref(item) +
+          '"><div class="h5-case-list-title">' +
           escapeHtml(title) +
           '</div>' +
           (meta
@@ -58,6 +84,7 @@
     if (!app) return
     app.innerHTML =
       '<div class="h5-page">' +
+      renderBreadcrumb() +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +

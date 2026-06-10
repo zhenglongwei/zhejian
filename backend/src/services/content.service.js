@@ -24,6 +24,8 @@ const {
 } = require('../constants/service-plan')
 const { formatPlanRecord } = require('./service-plan-format')
 const { resolveRelatedCasesForService } = require('../utils/service-case-link')
+const { resolveRelatedCasesForCase } = require('../utils/case-related-cases')
+const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-internal-links')
 const { GEO_PAGES } = require('../../../mock/geo-pages')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
@@ -365,6 +367,7 @@ async function getCaseDetail(idOrSlug) {
   }
 
   let item
+  let album = null
   if (row) {
     const storeVisible = await isPublicCaseStoreVisible(row.storeId)
     if (!storeVisible) {
@@ -372,7 +375,7 @@ async function getCaseDetail(idOrSlug) {
       err.status = 404
       throw err
     }
-    const album = row.albumId
+    album = row.albumId
       ? await prisma.album.findUnique({
           where: { id: row.albumId },
           include: {
@@ -403,10 +406,14 @@ async function getCaseDetail(idOrSlug) {
     item = mapFallbackCase(fallback)
   }
 
-  const { list: allCases } = await listCases()
-  const relatedCases = allCases
-    .filter((c) => c.id !== item.id && c.storeId === item.storeId)
-    .slice(0, 3)
+  const serviceItemId = resolveServiceItemId(item, album)
+  if (serviceItemId) item.serviceItemId = serviceItemId
+
+  const { list: allCases } = await listCases({ limit: 200 })
+  const { relatedCases, relatedCaseTier } = resolveRelatedCasesForCase(item, allCases, {
+    limit: 3,
+    serviceItemId,
+  })
 
   let storePhone = ''
   let store = null
@@ -425,16 +432,31 @@ async function getCaseDetail(idOrSlug) {
     }
   }
 
-  const faq = item.faq && item.faq.length ? item.faq : buildCaseFaq(item.serviceName)
+  const faq =
+    item.faq && item.faq.length
+      ? item.faq
+      : buildCaseFaq(item.serviceName)
   const display = applyPublicDisplayRules(item)
+  const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
+  const internalLinks = buildCaseInternalLinks(
+    { ...display, serviceItemId },
+    {
+      album,
+      showStorePublicly,
+      hasFaq: Boolean(faq && faq.length),
+    }
+  )
 
   return {
     ...display,
+    serviceItemId,
     storePhone,
     store,
-    showStorePublicly: shouldShowStorePublicly(item.authorizationTier),
+    showStorePublicly,
     faq,
     relatedCases,
+    relatedCaseTier,
+    internalLinks,
   }
 }
 
@@ -678,12 +700,18 @@ function filterGeoPages(keyword) {
   return GEO_PAGES.filter((page) => {
     const haystack = [page.title, page.summary, ...(page.keywords || [])].join(' ')
     return includesKeyword(haystack, k)
-  }).map((page) => ({
-    id: page.id,
-    title: page.title,
-    summary: page.summary,
-    keywords: page.keywords || [],
-  }))
+  }).map((page) => {
+    const slug = page.slug || page.id
+    return {
+      id: page.id,
+      slug,
+      title: page.title,
+      summary: page.summary,
+      keywords: page.keywords || [],
+      updatedAt: page.updatedAt,
+      h5Path: `/topic/${slug}`,
+    }
+  })
 }
 
 function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
@@ -749,10 +777,19 @@ async function searchContent(query = {}) {
     listCases(),
   ])
 
-  const matchedServices = services.filter((item) => matchSearchService(item, keyword))
-  const matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
-  const matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
-  const geoPages = filterGeoPages(keyword)
+  const storeId = query.storeId ? String(query.storeId).trim() : ''
+
+  let matchedServices = services.filter((item) => matchSearchService(item, keyword))
+  let matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
+  let matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
+  let geoPages = filterGeoPages(keyword)
+
+  if (storeId) {
+    matchedServices = matchedServices.filter((item) => item.storeId === storeId)
+    matchedMerchants = matchedMerchants.filter((item) => item.id === storeId)
+    matchedCases = matchedCases.filter((item) => item.storeId === storeId)
+    geoPages = []
+  }
 
   const { serviceList, merchantList, caseList, activeList } = prepareSearchLists({
     tab,

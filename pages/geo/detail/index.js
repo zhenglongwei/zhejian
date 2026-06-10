@@ -1,137 +1,80 @@
+const { GEO_PAGES } = require('../../../mock/geo-pages')
 const { fetchGeoPageDetail } = require('../../../services/geo')
-const {
-  getGeoPageTypeLabel,
-  isAccidentGeoPage,
-  GEO_TOPIC_TAG,
-} = require('../../../constants/geo-pages')
+const { buildGeoTopicH5Url, openGeoTopicH5 } = require('../../../constants/h5-links')
 
-const FOOTER_TEXT =
-  '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。'
+function looksLikeGeoTopicSlug(ref) {
+  const s = String(ref || '').trim()
+  if (!s || s.startsWith('geo_')) return false
+  return /^[a-z0-9]+(-[a-z0-9]+)+$/i.test(s)
+}
 
-const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+function resolveGeoTopicFromLocal(ref) {
+  const normalized = String(ref || '').trim()
+  if (!normalized) return null
+  const page = GEO_PAGES.find((item) => item.slug === normalized || item.id === normalized)
+  if (!page) return null
+  const slug = page.slug || page.id
+  return { id: page.id, slug, h5Path: `/topic/${slug}` }
+}
 
 Page({
   data: {
     status: 'loading',
-    detail: null,
-    keyInfoRows: [],
-    relatedCases: [],
-    relatedStores: [],
-    faqList: [],
     errorMessage: '',
-    footerText: FOOTER_TEXT,
-    showAccidentNotice: false,
-    geoTopicTag: GEO_TOPIC_TAG,
-    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
-    primaryStorePhone: '',
-    bodyClearance: true,
   },
 
   onLoad(options) {
-    this.pageId = (options && options.id) || ''
-    if (!this.pageId) {
-      this.setData({ status: 'error', errorMessage: '缺少专题 ID' })
+    this.pageRef = (options && (options.id || options.slug)) || ''
+    if (!this.pageRef) {
+      this.setData({ status: 'error', errorMessage: '缺少专题参数' })
       return
     }
-    this.loadDetail(this.pageId)
+    wx.setNavigationBarTitle({ title: '专题' })
+    this.redirectToH5(this.pageRef)
   },
 
-  async loadDetail(id) {
+  async redirectToH5(ref) {
     this.setData({ status: 'loading', errorMessage: '' })
-    try {
-      const detail = await fetchGeoPageDetail(id)
-      const navTitle =
-        detail.title.length > 14 ? `${detail.title.slice(0, 14)}…` : detail.title
-      wx.setNavigationBarTitle({ title: navTitle })
-      const keyInfoRows = [
-        { label: '城市', value: detail.city },
-        { label: '专题类型', value: getGeoPageTypeLabel(detail.pageType) },
-        { label: '相关案例', value: `${detail.relatedCaseCount} 条` },
-        { label: '相关门店', value: `${detail.relatedStoreCount} 家` },
-        { label: '更新时间', value: detail.updatedAt },
-      ]
-      const primaryStorePhone =
-        (detail.primaryStore && detail.primaryStore.phone) || ''
-      this.setData({
-        detail,
-        keyInfoRows,
-        relatedCases: detail.relatedCases || [],
-        relatedStores: detail.relatedStores || [],
-        faqList: detail.faq || [],
-        showAccidentNotice: isAccidentGeoPage(detail),
-        primaryStorePhone,
-        status: 'normal',
-      })
-    } catch (e) {
-      this.setData({
-        status: 'error',
-        errorMessage: (e && e.message) || '加载失败',
-      })
+
+    let params = null
+    if (looksLikeGeoTopicSlug(ref)) {
+      params = { slug: ref }
+    } else {
+      params = resolveGeoTopicFromLocal(ref)
+    }
+
+    if (!params) {
+      try {
+        const detail = await fetchGeoPageDetail(ref)
+        params = {
+          id: detail.id,
+          slug: detail.slug,
+          h5Path: detail.h5Path,
+        }
+      } catch (e) {
+        this.setData({
+          status: 'error',
+          errorMessage: (e && e.message) || '专题不可用',
+        })
+        return
+      }
+    }
+
+    const url = buildGeoTopicH5Url(params)
+    if (!url) {
+      this.setData({ status: 'error', errorMessage: '专题链接不可用' })
+      return
+    }
+
+    const opened = await openGeoTopicH5(url, { redirect: true })
+    if (!opened) {
+      this.setData({ status: 'error', errorMessage: '无法打开专题页，请复制链接后在浏览器访问' })
     }
   },
 
   onRetry() {
-    if (this.pageId) {
-      this.loadDetail(this.pageId)
+    if (this.pageRef) {
+      this.redirectToH5(this.pageRef)
     }
-  },
-
-  onBottomLeftAction(e) {
-    const { key } = e.detail
-    if (key === 'call') this.onCall()
-  },
-
-  onCall() {
-    const { primaryStorePhone } = this.data
-    if (!primaryStorePhone) {
-      wx.showToast({ title: '暂无门店电话', icon: 'none' })
-      return
-    }
-    wx.makePhoneCall({ phoneNumber: primaryStorePhone })
-  },
-
-  onMessage() {
-    if (this._messageNavigating) return
-    const { detail } = this.data
-    const storeId =
-      (detail && detail.primaryStoreId) ||
-      (detail && detail.relatedStoreIds && detail.relatedStoreIds[0]) ||
-      ''
-    let url = `/pages/consult/submit/index?sourcePage=geo&geoId=${this.pageId}`
-    if (storeId) url += `&storeId=${storeId}`
-    if (detail && detail.relatedServiceId) {
-      url += `&serviceId=${detail.relatedServiceId}`
-    }
-    this._messageNavigating = true
-    wx.navigateTo({
-      url,
-      complete: () => {
-        this._messageNavigating = false
-      },
-    })
-  },
-
-  onCaseTap(e) {
-    const caseId = e.detail && e.detail.caseId
-    if (!caseId || this._caseNavigating) return
-    this._caseNavigating = true
-    wx.navigateTo({
-      url: `/pages/case/detail/index?id=${caseId}`,
-      complete: () => {
-        this._caseNavigating = false
-      },
-    })
-  },
-
-  onStoreTap(e) {
-    const storeId = (e.detail && e.detail.storeId) || e.currentTarget.dataset.storeId
-    if (!storeId || this._storeNavigating) return
-    this._storeNavigating = true
-    wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}`,
-      complete: () => {
-        this._storeNavigating = false
-      },
-    })
   },
 })

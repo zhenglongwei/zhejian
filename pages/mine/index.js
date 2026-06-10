@@ -3,7 +3,6 @@ const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections } = require('../../constants/mine-menu')
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
-const { TOOL_HELP_CONTENT } = require('../../constants/help-content')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 
 const MINE_ALBUM_PREVIEW_LIMIT = 3
@@ -235,12 +234,7 @@ Page({
   onPublicMenuTap(e) {
     const { key } = e.currentTarget.dataset
     if (key === 'help') {
-      wx.showModal({
-        title: '使用说明与帮助',
-        content: TOOL_HELP_CONTENT,
-        showCancel: false,
-        confirmText: '知道了',
-      })
+      wx.navigateTo({ url: '/pages/mine/help/index' })
       return
     }
     if (key === 'support') {

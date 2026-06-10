@@ -311,6 +311,19 @@ Page({
     })
   },
 
+  onSearchStore() {
+    if (this.data.isPreview) {
+      this.previewBlockedToast()
+      return
+    }
+    wx.navigateTo({
+      url: withStoreContextPath(
+        `/pages/search/index/index?storeId=${encodeURIComponent(this.storeId)}`,
+        { storeId: this.storeId, isolated: true }
+      ),
+    })
+  },
+
   onViewAllCases() {
     if (this.data.isPreview) {
       this.previewBlockedToast()

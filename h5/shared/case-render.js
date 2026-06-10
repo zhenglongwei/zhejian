@@ -236,21 +236,6 @@
       })
     }
 
-    ensureJsonLd('case-breadcrumb-schema', {
-      '@context': 'https://schema.org',
-      '@type': 'BreadcrumbList',
-      itemListElement: [
-        { '@type': 'ListItem', position: 1, name: '辙见', item: location.origin + '/' },
-        {
-          '@type': 'ListItem',
-          position: 2,
-          name: '公开案例',
-          item: location.origin + '/case/',
-        },
-        { '@type': 'ListItem', position: 3, name: data.title || '公开案例' },
-      ],
-    })
-
     if (data.faq && data.faq.length) {
       ensureJsonLd('case-faq-schema', {
         '@context': 'https://schema.org',
@@ -407,6 +392,80 @@
 
   function shouldShowStorePublicly(data) {
     return data.authorizationTier !== 'anonymous'
+  }
+
+  function renderInternalLinks(data) {
+    var links = data.internalLinks
+    if (!links) return ''
+    var entries = []
+    if (links.store && links.store.path) {
+      entries.push({
+        type: 'store',
+        label: links.store.name || '服务门店',
+        hint: '门店主页',
+        path: links.store.path,
+      })
+    }
+    if (links.vehicle && links.vehicle.path) {
+      entries.push({
+        type: 'vehicle',
+        label: links.vehicle.label || '车型相关',
+        hint: '更多同类案例',
+        path: links.vehicle.path,
+      })
+    }
+    if (links.service && links.service.path) {
+      entries.push({
+        type: 'service',
+        label: links.service.name || '服务项目',
+        hint: '流程与价格参考',
+        path: links.service.path,
+      })
+    }
+    if (links.faq && links.faq.path) {
+      entries.push({
+        type: 'faq',
+        label: links.faq.label || '常见问题',
+        hint: '维修说明与 FAQ',
+        path: links.faq.path,
+        isAnchor: links.faq.isAnchor,
+      })
+    } else if (links.geoTopic && links.geoTopic.path) {
+      entries.push({
+        type: 'geo',
+        label: links.geoTopic.title || '相关专题',
+        hint: '本地维修专题',
+        path: links.geoTopic.path,
+      })
+    }
+    if (!entries.length) return ''
+
+    var items = entries
+      .map(function (entry) {
+        return (
+          '<a class="h5-internal-link-item" href="' +
+          escapeHtml(entry.path) +
+          '" data-internal-link-type="' +
+          escapeHtml(entry.type) +
+          '">' +
+          '<span class="h5-internal-link-label">' +
+          escapeHtml(entry.label) +
+          '</span>' +
+          '<span class="h5-internal-link-hint">' +
+          escapeHtml(entry.hint) +
+          ' ›</span></a>'
+        )
+      })
+      .join('')
+
+    return (
+      '<div class="h5-card" id="case-internal-links">' +
+      '<h2 class="h5-section-title">延伸浏览</h2>' +
+      '<p class="h5-compliance">通过以下链接查看门店、服务项目、同类案例与常见问题，便于对比参考。</p>' +
+      '<div class="h5-internal-links">' +
+      items +
+      '</div></div>'
+    )
   }
 
   function renderStoreSection(data) {
@@ -723,7 +782,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">常见问题</h2>' +
+      '<div class="h5-card" id="case-faq"><h2 class="h5-section-title">常见问题</h2>' +
       items +
       '</div>'
     )
@@ -847,6 +906,19 @@
         }
       })
     }
+
+    document.querySelectorAll('[data-internal-link-type]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        if (window.zhejianTrack) {
+          window.zhejianTrack.track('h5_case_internal_link_click', {
+            caseId: caseId,
+            storeId: storeId,
+            linkType: el.getAttribute('data-internal-link-type') || '',
+            targetPath: el.getAttribute('href') || '',
+          })
+        }
+      })
+    })
 
     function trackOpenWeapp() {
       if (window.zhejianTrack) {
@@ -1041,11 +1113,28 @@
     var articleMode = hasArticleLayout(safeData)
     setShareMeta(safeData)
 
+    var breadcrumbItems = [{ label: '辙见', href: '/' }, { label: '公开案例', href: '/case/' }]
+    if (safeData.internalLinks && safeData.internalLinks.service) {
+      breadcrumbItems.push({
+        label: safeData.internalLinks.service.name,
+        href: safeData.internalLinks.service.path,
+      })
+    }
+    breadcrumbItems.push({ label: safeData.title || '公开案例' })
+
+    var breadcrumbHtml = window.zhejianSeo
+      ? window.zhejianSeo.renderBreadcrumbHtml(breadcrumbItems)
+      : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/case/">公开案例</a> › ' +
+        escapeHtml(safeData.title) +
+        '</nav>'
+
+    if (window.zhejianSeo) {
+      window.zhejianSeo.applyBreadcrumbSchema(breadcrumbItems, 'case-breadcrumb-schema-v2')
+    }
+
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/case/">公开案例</a> › ' +
-      escapeHtml(safeData.title) +
-      '</nav>' +
+      breadcrumbHtml +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见 · 公开维修案例</div>' +
       '<h1 class="h5-title">' +
@@ -1109,6 +1198,7 @@
     }
 
     html += renderStoreSection(safeData)
+    html += renderInternalLinks(safeData)
     html += renderFaq(safeData.faq)
     html += renderRelatedCases(
       safeData.relatedCases,

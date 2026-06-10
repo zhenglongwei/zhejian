@@ -16,13 +16,41 @@
     return '/store/' + encodeURIComponent(id) + '.html'
   }
 
+  function applyListSeo() {
+    if (!window.zhejianSeo) return
+    window.zhejianSeo.applyPageSeo({
+      title: '公开门店 · 辙见',
+      description: '浏览已入驻、可公开展示的汽车维修保养门店，进入门店主页查看服务方案与真实案例。',
+      canonicalPath: '/store/',
+      robots: 'index,follow',
+    })
+    window.zhejianSeo.applyBreadcrumbSchema(
+      [
+        { label: '辙见', href: '/' },
+        { label: '公开门店' },
+      ],
+      'store-list-breadcrumb'
+    )
+  }
+
+  function renderBreadcrumb() {
+    if (window.zhejianSeo) {
+      return window.zhejianSeo.renderBreadcrumbHtml([
+        { label: '辙见', href: '/' },
+        { label: '公开门店' },
+      ])
+    }
+    return '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 公开门店</nav>'
+  }
+
   function renderShell(title, bodyHtml) {
+    applyListSeo()
     document.title = title
     var app = document.getElementById('app')
     if (!app) return
     app.innerHTML =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 公开门店</nav>' +
+      renderBreadcrumb() +
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见服务平台 · 公开门店</div>' +
       '<h1 class="h5-title">公开门店</h1>' +

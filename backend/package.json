@@ -28,6 +28,7 @@
     "cases:backfill-published-h5": "node scripts/backfill-published-h5.js",
     "cases:generate-articles": "node scripts/generate-case-articles-backfill.js",
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
+    "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },
   "engines": {

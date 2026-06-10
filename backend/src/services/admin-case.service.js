@@ -367,6 +367,9 @@ async function getAdminCaseDetail(caseId) {
     })),
     submittedAt: toIso(row.updatedAt),
     publishedAt: row.publishedAt ? toIso(row.publishedAt) : '',
+    articleStatus: row.articleStatus || '',
+    slug: row.slug || '',
+    canonicalPath: row.canonicalPath || '',
   }
 }
 

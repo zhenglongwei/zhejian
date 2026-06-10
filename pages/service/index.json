@@ -1,10 +1,8 @@
 {
   "navigationBarTitleText": "服务",
-  "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-list-page-shell": "/components/list-page-shell/index",
-    "ui-service-card": "/components/service-card/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-search-bar": "/components/search-bar/index"
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index"
   }
 }
