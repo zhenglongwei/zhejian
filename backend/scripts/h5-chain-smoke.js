@@ -400,6 +400,36 @@ async function verifyH5ListSeo(storeId) {
   console.log('[chain] ✅ 列表分页 canonical + 面包屑基建（API）')
 }
 
+async function verifyH5Search() {
+  const pageRes = await fetch(`${BASE}/search/`)
+  assert(pageRes.ok, `H5 搜索页 HTTP ${pageRes.status}`)
+  const html = await pageRes.text()
+  assert(html.includes('search-render.js'), 'search/index 未引用 search-render.js')
+
+  const config = await api('GET', '/public/h5/search/config')
+  assert(config.ok && config.json?.code === 0, 'GET /public/h5/search/config 失败')
+  assert(Array.isArray(config.json.data?.hotwords), 'search config 缺少 hotwords')
+
+  const search = await api('GET', '/public/h5/search?keyword=刹车&tab=all&pageSize=5')
+  assert(search.ok && search.json?.code === 0, 'GET /public/h5/search 失败')
+  assert(search.json.data?.counts, 'search 缺少 counts')
+  assert(Array.isArray(search.json.data?.services), 'search 缺少 services')
+  assert(Array.isArray(search.json.data?.geoPages), 'search 缺少 geoPages')
+
+  const withStore = await api('GET', '/public/h5/search?keyword=刹车&storeId=store_demo_1')
+  assert(withStore.ok && withStore.json?.code === 0, 'GET /public/h5/search storeId 应被忽略')
+  assert(
+    !withStore.json.data?.storeId,
+    'H5 search 不应回传 storeId'
+  )
+
+  const suggest = await api('GET', '/public/h5/search/suggest?keyword=刹')
+  assert(suggest.ok && suggest.json?.code === 0, 'GET /public/h5/search/suggest 失败')
+  assert(Array.isArray(suggest.json.data), 'search suggest 应为数组')
+
+  console.log('[chain] ✅ H5 全站搜索 /search/ + GET /public/h5/search*')
+}
+
 async function verifyH5StoreCases(storeId) {
   const casesRes = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}/cases`)
   assert(casesRes.ok, `H5 门店案例集 HTTP ${casesRes.status}`)
@@ -474,6 +504,7 @@ async function main() {
   await verifyH5ServiceItem()
   await verifyH5ServiceItemCases()
   await verifyH5GeoTopic()
+  await verifyH5Search()
   await verifyH5Sitemap()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)

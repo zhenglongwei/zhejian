@@ -258,6 +258,7 @@
       '</div>' +
       '</header>' +
       '<div class="h5-home-quick">' +
+      '<a class="h5-btn" href="/search/">搜索内容</a>' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
       '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
       '</div>' +
@@ -300,6 +301,7 @@
       '</p>' +
       '</header>' +
       '<div class="h5-home-quick">' +
+      '<a class="h5-btn" href="/search/">搜索内容</a>' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
       '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
       '</div></div>'

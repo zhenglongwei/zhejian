@@ -12,6 +12,11 @@ const {
   getSitemapXmlByType,
   getRobotsTxt,
 } = require('../services/h5-sitemap.service')
+const {
+  searchH5Content,
+  getH5SearchSuggest,
+  getH5SearchConfig,
+} = require('../services/h5-search.service')
 
 const router = express.Router()
 
@@ -86,6 +91,33 @@ router.get('/h5/service-items/:slug', async (req, res, next) => {
 router.get('/h5/topics/:slug', async (req, res, next) => {
   try {
     const data = await getGeoTopicPagePayload(req.params.slug)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/search/config', async (req, res, next) => {
+  try {
+    const data = await getH5SearchConfig()
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/search/suggest', async (req, res, next) => {
+  try {
+    const data = await getH5SearchSuggest(req.query.keyword)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/search', async (req, res, next) => {
+  try {
+    const data = await searchH5Content(req.query)
     return ok(res, data)
   } catch (e) {
     next(e)

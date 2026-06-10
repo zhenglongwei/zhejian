@@ -43,6 +43,7 @@
     options = options || {}
     var coreLinks = [
       { name: '平台首页', path: '/' },
+      { name: '全站搜索', path: '/search/' },
       { name: '公开案例', path: '/case/' },
       { name: '公开门店', path: '/store/' },
     ]

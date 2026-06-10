@@ -4,6 +4,7 @@
 
 .h5-home-quick {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   margin-bottom: var(--space-lg);
 }

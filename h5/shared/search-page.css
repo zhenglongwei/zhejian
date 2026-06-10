@@ -1,0 +1,190 @@
+.h5-search-form {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.h5-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-body);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.h5-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.h5-search-submit {
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-body);
+  cursor: pointer;
+}
+
+.h5-search-submit:active {
+  opacity: 0.85;
+}
+
+.h5-search-hint {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+  line-height: 1.5;
+}
+
+.h5-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-search-chip {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.h5-search-chip:active {
+  opacity: 0.72;
+}
+
+.h5-search-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.h5-search-tab {
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+}
+
+.h5-search-tab--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.h5-search-section {
+  margin-bottom: var(--space-lg);
+}
+
+.h5-search-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.h5-search-count {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.h5-search-tag {
+  display: inline-block;
+  margin-right: var(--space-xs);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.h5-search-empty {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.h5-search-loading {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--color-text-tertiary);
+}
+
+.h5-search-more {
+  margin-top: var(--space-md);
+  text-align: center;
+}
+
+.h5-search-more-btn {
+  display: inline-block;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+  cursor: pointer;
+}
+
+.h5-search-suggest {
+  margin-top: calc(-1 * var(--space-sm));
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-surface);
+}
+
+.h5-search-suggest-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  text-align: left;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.h5-search-suggest-item:last-child {
+  border-bottom: none;
+}
+
+.h5-search-suggest-type {
+  margin-left: var(--space-xs);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.h5-search-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.h5-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+  cursor: pointer;
+}
