@@ -442,6 +442,25 @@ async function verifyH5StoreCases(storeId) {
   assert(Array.isArray(apiCases.json.data?.cases), 'store cases 缺少 cases 数组')
   assert(apiCases.json.data?.pagination, 'store cases 缺少 pagination')
   assert(apiCases.json.data?.seo?.canonicalPath === `/store/${storeId}/cases`, 'store cases canonicalPath 不正确')
+
+  const trackRes = await api('POST', '/analytics/events', {
+    body: {
+      events: [
+        {
+          eventId: `evt_smoke_store_cases_${Date.now()}`,
+          eventName: 'h5_store_cases_view',
+          sessionId: `sid_smoke_${Date.now()}`,
+          pagePath: `/store/${storeId}/cases`,
+          source: 'h5_chain_smoke',
+          channel: 'smoke',
+          eventParams: { storeId, pageType: 'store_cases' },
+        },
+      ],
+    },
+  })
+  assert(trackRes.ok && trackRes.json?.code === 0, `h5_store_cases_view 埋点失败: ${JSON.stringify(trackRes.json)}`)
+  assert(trackRes.json.data?.accepted >= 1, 'h5_store_cases_view 未被接受')
+
   console.log('[chain] ✅ H5 门店案例集 /store/{id}/cases + GET /public/h5/stores/:id/cases')
 }
 

@@ -112,6 +112,7 @@
       eventName === 'h5_store_view' ||
       eventName === 'h5_service_view' ||
       eventName === 'h5_page_view' ||
+      eventName === 'h5_search_submit' ||
       eventName === 'h5_city_view' ||
       eventName === 'h5_store_cases_view' ||
       eventName === 'h5_geo_topic_view'
