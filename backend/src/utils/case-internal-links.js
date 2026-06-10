@@ -138,8 +138,8 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
   if (ctx.hasFaq) {
     links.push({
       type: 'faq',
-      label: '常见问题',
-      hint: '本页 FAQ 与维修说明',
+      label: '延伸阅读',
+      hint: '公众号科普文章',
       path: '#case-faq',
       isAnchor: true,
     })
@@ -178,7 +178,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
         : null,
     service,
     faq: ctx.hasFaq
-      ? { label: '常见问题', path: '#case-faq', isAnchor: true }
+      ? { label: '延伸阅读', path: '#case-faq', isAnchor: true }
       : geoTopic
         ? {
             label: '相关专题',

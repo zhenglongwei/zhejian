@@ -16,8 +16,6 @@ const {
 } = require('../utils/desensitize-mock')
 const { buildPublicCasePrice } = require('../utils/album-price')
 
-const { buildCaseFaq } = require('../utils/case-faq')
-
 const STORAGE_PUBLISHED = 'published_cases_v1'
 
 function delay(ms = 280) {
@@ -116,7 +114,7 @@ async function fetchCaseDetail(id) {
     err.code = 404
     throw err
   }
-  const faq = item.faq && item.faq.length ? item.faq : buildCaseFaq(item.serviceName)
+  const faq = (item.faq || []).filter((entry) => entry && entry.title && entry.url)
   const relatedCases = mergeCases()
     .filter(
       (c) =>
@@ -157,7 +155,7 @@ function publishFromServiceAlbum(draft) {
     coverImage: coverImageDesensitized,
     coverImageDesensitized,
     nodes: publicNodes,
-    faq: draft.faq || buildCaseFaq(draft.serviceName),
+    faq: (draft.faq || []).filter((entry) => entry && entry.title && entry.url),
   })
   const next = cases.filter((c) => c.id !== caseItem.id)
   next.unshift(caseItem)

@@ -99,7 +99,7 @@ Page({
         detail,
         showStorePublicly: detail.showStorePublicly !== false,
         relatedCases,
-        faqList: detail.faq || [],
+        faqList: (detail.faq || []).filter((item) => item && item.title && item.url),
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),
       })

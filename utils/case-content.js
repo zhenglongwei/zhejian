@@ -2,7 +2,6 @@ const {
   PUBLIC_AUTH_TIER,
   PUBLIC_AUTH_TIER_LABEL,
 } = require('../constants/case-authorization')
-const { buildCaseFaq } = require('./case-faq')
 const { buildPublicCasePrice } = require('./album-price')
 
 function buildVehicleTitle(vehicle) {
@@ -107,7 +106,6 @@ function buildCaseDraftFromServiceAlbum({
       '是否需要额外拆装',
     ],
     nodes: nodesWithMask,
-    faq: buildCaseFaq(serviceName),
     maskingConfirmed: true,
   }
 }

@@ -1,5 +1,5 @@
 const { prisma } = require('../lib/prisma')
-const { generateCaseFaq } = require('../utils/case-faq')
+const { normalizeCaseFaqLinks } = require('../utils/case-faq-links')
 
 function mergeContentJson(existing, patch) {
   const base = existing && typeof existing === 'object' ? { ...existing } : {}
@@ -7,22 +7,12 @@ function mergeContentJson(existing, patch) {
 }
 
 /**
- * 为公开案例生成 FAQ 并可选写入 contentJson.faq
+ * 读取案例已配置的 FAQ 外链（不再自动生成）
  * @param {string} caseId
- * @param {{ persist?: boolean, force?: boolean, coldStart?: boolean }} options
  */
-async function generateAndSaveCaseFaq(caseId, options = {}) {
+async function generateAndSaveCaseFaq(caseId) {
   const row = await prisma.publicCase.findUnique({
     where: { id: caseId },
-    include: {
-      album: {
-        select: {
-          serviceItemId: true,
-          templateId: true,
-          serviceName: true,
-        },
-      },
-    },
   })
   if (!row) {
     const err = new Error('案例不存在')
@@ -32,39 +22,15 @@ async function generateAndSaveCaseFaq(caseId, options = {}) {
 
   const content =
     row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-  const existingFaq = Array.isArray(content.faq) ? content.faq : []
-  if (existingFaq.length >= 3 && !options.force) {
-    return {
-      caseId,
-      faq: existingFaq,
-      generated: false,
-      source: 'existing',
-    }
-  }
-
-  const coldStart =
-    options.coldStart != null ? Boolean(options.coldStart) : Boolean(content.coldStart)
-  const faq = generateCaseFaq({
-    serviceName: row.serviceName || row.album?.serviceName || '',
-    serviceItemId: row.album?.serviceItemId || '',
-    templateId: row.album?.templateId || '',
-    coldStart,
-  })
-
-  if (options.persist !== false) {
-    await prisma.publicCase.update({
-      where: { id: caseId },
-      data: {
-        contentJson: mergeContentJson(row.contentJson, { faq }),
-      },
-    })
-  }
+  const faq = normalizeCaseFaqLinks(content.faq)
 
   return {
     caseId,
     faq,
-    generated: true,
-    source: 'template',
+    generated: false,
+    source: 'manual',
+    deprecated: true,
+    message: '案例 FAQ 已改为运营手动配置公众号外链，不再自动生成',
   }
 }
 

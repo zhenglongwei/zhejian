@@ -28,3 +28,13 @@
   display: block;
   color: var(--color-text-secondary);
 }
+
+.faq-list__item--link .faq-list__link-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.faq-list__item--link .faq-list__link-hint {
+  display: block;
+  color: var(--color-text-secondary);
+}

@@ -8,7 +8,7 @@ const {
   matchSearchMerchant,
   matchSearchCase,
 } = require('../utils/search-match')
-const { buildCaseFaq } = require('../utils/case-faq')
+const { normalizeCaseFaqLinks, hasCaseFaqLinks } = require('../utils/case-faq-links')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { getServiceItem } = require('../constants/service-catalog')
 const {
@@ -202,7 +202,7 @@ function mapPublicCaseRow(row, album) {
     priceFactors:
       geoFields.priceFactors.length > 0 ? geoFields.priceFactors : content.priceFactors || [],
     nodes: sanitizeNodes(content.nodes),
-    faq: content.faq || [],
+    faq: normalizeCaseFaqLinks(content.faq),
     slug: geoFields.slug || null,
   }
   return applyPublicDisplayRules(item)
@@ -432,10 +432,7 @@ async function getCaseDetail(idOrSlug) {
     }
   }
 
-  const faq =
-    item.faq && item.faq.length
-      ? item.faq
-      : buildCaseFaq(item.serviceName)
+  const faq = normalizeCaseFaqLinks(item.faq)
   const display = applyPublicDisplayRules(item)
   const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
   const internalLinks = buildCaseInternalLinks(
@@ -443,7 +440,7 @@ async function getCaseDetail(idOrSlug) {
     {
       album,
       showStorePublicly,
-      hasFaq: Boolean(faq && faq.length),
+      hasFaq: hasCaseFaqLinks(faq),
     }
   )
 

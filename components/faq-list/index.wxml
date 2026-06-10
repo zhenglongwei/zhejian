@@ -1,10 +1,12 @@
 <view class="faq-list faq-list--{{variant}}">
-  <view
-    wx:for="{{items}}"
-    wx:key="q"
-    class="faq-list__item"
-  >
-    <text class="faq-list__q text-body">{{showQPrefix ? 'Q：' : ''}}{{item.q}}</text>
-    <text class="faq-list__a text-caption">{{item.a}}</text>
-  </view>
+  <block wx:for="{{items}}" wx:key="index">
+    <view wx:if="{{item.url}}" class="faq-list__item faq-list__item--link">
+      <text class="faq-list__link-title text-body">{{item.title}}</text>
+      <text class="faq-list__link-hint text-caption">公众号文章</text>
+    </view>
+    <view wx:else class="faq-list__item">
+      <text class="faq-list__q text-body">{{showQPrefix ? 'Q：' : ''}}{{item.q}}</text>
+      <text class="faq-list__a text-caption">{{item.a}}</text>
+    </view>
+  </block>
 </view>

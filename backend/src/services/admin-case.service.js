@@ -18,6 +18,7 @@ const { buildAlbumView } = require('./service-album.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
 const { stampPublishedH5OnPayload } = require('./case-article-publish.service')
 const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
+const { normalizeCaseFaqLinks } = require('../utils/case-faq-links')
 
 const RISK_RANK = RISK_LEVEL_ORDER
 
@@ -317,6 +318,8 @@ async function getAdminCaseDetail(caseId) {
   const reviewLogs = await fetchCaseReviewLogs(caseId)
   const mediaAssets = await buildMediaAssetsForDetail(album, task)
   const desensitizeSummary = buildDesensitizeSummary(mediaAssets)
+  const contentJson = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  const faq = normalizeCaseFaqLinks(contentJson.faq)
 
   return {
     caseId: row.id,
@@ -350,7 +353,8 @@ async function getAdminCaseDetail(caseId) {
         }
       : null,
     vehicle: album.vehicleJson || {},
-    contentJson: row.contentJson || {},
+    contentJson,
+    faq,
     preMaskTaskId: task?.taskId || buildPreMaskTaskId(album.id),
     preMaskStatus: task?.preMaskStatus || '',
     desensitizeSummary,
@@ -644,6 +648,31 @@ async function retryAllAdminCaseAssets(caseId) {
   return getAdminCaseDetail(caseId)
 }
 
+async function updateAdminCaseFaqLinks(caseId, payload = {}) {
+  const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
+  if (!row) {
+    const err = new Error('案例不存在')
+    err.status = 404
+    throw err
+  }
+
+  const faq = normalizeCaseFaqLinks(payload.faq, { strict: true })
+  const content =
+    row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
+  if (faq.length) {
+    content.faq = faq
+  } else {
+    delete content.faq
+  }
+
+  await prisma.publicCase.update({
+    where: { id: caseId },
+    data: { contentJson: content },
+  })
+
+  return getAdminCaseDetail(caseId)
+}
+
 module.exports = {
   listAdminCases,
   getAdminCaseDetail,
@@ -652,6 +681,7 @@ module.exports = {
   requestModifyAdminCase,
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
+  updateAdminCaseFaqLinks,
   resolveCaseSource,
   sourceLabel,
 }

@@ -37,3 +37,7 @@ export function markCaseArticlePublishedWechat(caseId) {
     targetStatus: 'published_wechat',
   })
 }
+
+export function updateCaseFaqLinks(caseId, body) {
+  return request.put(`/admin/cases/${caseId}/faq`, body)
+}

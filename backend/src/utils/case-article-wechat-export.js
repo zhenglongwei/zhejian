@@ -377,7 +377,6 @@ function buildWechatArticleExport(data, options = {}) {
     renderSectionsHtml(data),
     renderProcessHtml(data, publicBaseUrl),
     renderPriceFactorsHtml(data),
-    renderFaqHtml(data),
     renderConversionHtml(data, publicBaseUrl),
   ]
     .filter(Boolean)
@@ -389,7 +388,6 @@ function buildWechatArticleExport(data, options = {}) {
     renderSectionsMarkdown(data),
     renderProcessMarkdown(data, publicBaseUrl),
     renderPriceFactorsMarkdown(data),
-    renderFaqMarkdown(data),
     renderConversionMarkdown(data, publicBaseUrl),
   ]
     .filter(Boolean)

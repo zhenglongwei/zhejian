@@ -107,6 +107,14 @@
       @marked-wechat="loadDetail"
     />
 
+    <CaseFaqEditor
+      v-if="detail.status === 'public_approved'"
+      class="section"
+      :case-id="detail.caseId"
+      :faq="detail.faq"
+      @saved="onFaqSaved"
+    />
+
     <el-card shadow="never" class="section">
       <template #header>审核日志</template>
       <AuditLogTimeline :logs="detail.reviewLogs" />
@@ -133,6 +141,7 @@ import DesensitizeComparePanel from '@/components/case-review/DesensitizeCompare
 import ReviewActionBar from '@/components/case-review/ReviewActionBar.vue'
 import AuditLogTimeline from '@/components/case-review/AuditLogTimeline.vue'
 import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
+import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -186,6 +195,14 @@ async function loadDetail() {
 
 function goBack() {
   router.push({ name: 'case-list' })
+}
+
+function onFaqSaved(next) {
+  if (next && typeof next === 'object') {
+    detail.value = next
+  } else {
+    loadDetail()
+  }
 }
 
 async function onRetryAsset(assetId) {

@@ -93,7 +93,7 @@
         />
       </view>
       <view wx:if="{{faqList.length}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">常见问题</text>
+        <text class="case-detail__section-title text-h3">延伸阅读</text>
         <ui-faq-list items="{{faqList}}" />
       </view>
       <view class="case-detail__section case-detail__report">

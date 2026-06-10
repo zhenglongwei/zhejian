@@ -109,6 +109,34 @@
   line-height: 1.6;
 }
 
+.h5-faq-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.h5-faq-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
+  background: var(--color-bg-subtle, #f8f9fa);
+}
+
+.h5-faq-link__title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-faq-link__hint {
+  font-size: var(--font-caption, 12px);
+  color: var(--color-text-secondary);
+}
+
 .h5-filter-row {
   display: flex;
   flex-wrap: wrap;

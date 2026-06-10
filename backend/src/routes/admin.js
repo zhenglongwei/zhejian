@@ -11,6 +11,7 @@ const {
   requestModifyAdminCase,
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
+  updateAdminCaseFaqLinks,
 } = require('../services/admin-case.service')
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
 const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
@@ -158,6 +159,17 @@ router.post('/cases/:caseId/assets/:assetId/retry-desensitize', async (req, res,
 router.post('/cases/:caseId/retry-desensitize-all', async (req, res, next) => {
   try {
     const data = await retryAllAdminCaseAssets(req.params.caseId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/cases/:caseId/faq', async (req, res, next) => {
+  try {
+    const data = await updateAdminCaseFaqLinks(req.params.caseId, {
+      faq: req.body?.faq,
+    })
     return ok(res, data)
   } catch (e) {
     next(e)

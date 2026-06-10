@@ -8,7 +8,7 @@ const {
   CASE_ARTICLE_GENERATION_SOURCE,
 } = require('../constants/case-article-status')
 const { mergeContentJsonGeo } = require('../schemas/case-geo-content.schema')
-const { generateCaseFaq } = require('../utils/case-faq')
+const { normalizeCaseFaqLinks } = require('../utils/case-faq-links')
 const {
   GENERATION_VERSION,
   buildDisplayCaseTitle,
@@ -87,15 +87,7 @@ function buildCaseArticlePayload(input) {
     riskChecked: false,
   }
 
-  const faq =
-    Array.isArray(content.faq) && content.faq.length >= 3
-      ? content.faq
-      : generateCaseFaq({
-          serviceName,
-          serviceItemId: input.serviceItemId || '',
-          templateId: input.templateId || '',
-          coldStart,
-        })
+  const faq = normalizeCaseFaqLinks(content.faq)
 
   const displayTitle = buildDisplayCaseTitle({ city, vehicle, serviceName })
   const seoTitle = buildSeoTitle({ city, vehicle, serviceName, storeName })
@@ -118,7 +110,7 @@ function buildCaseArticlePayload(input) {
   const slug = buildCaseSlug({ city, vehicle, serviceName, caseId })
 
   const mergedContentJson = mergeContentJsonGeo(
-    { ...content, faq },
+    faq.length ? { ...content, faq } : { ...content },
     geoBlock
   )
 
