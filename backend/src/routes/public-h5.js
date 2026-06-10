@@ -4,6 +4,7 @@ const { createH5Lead } = require('../services/h5-lead.service')
 const { resolveCaseRedirectTarget } = require('../services/h5-case-redirect.service')
 const { getCityPagePayload } = require('../services/h5-city.service')
 const { getStoreCasesPagePayload } = require('../services/h5-store-cases.service')
+const { getServiceItemPagePayload } = require('../services/h5-service-item.service')
 
 const router = express.Router()
 
@@ -19,6 +20,15 @@ router.get('/h5/cities/:citySlug', async (req, res, next) => {
 router.get('/h5/stores/:storeId/cases', async (req, res, next) => {
   try {
     const data = await getStoreCasesPagePayload(req.params.storeId, req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/service-items/:slug', async (req, res, next) => {
+  try {
+    const data = await getServiceItemPagePayload(req.params.slug)
     return ok(res, data)
   } catch (e) {
     next(e)

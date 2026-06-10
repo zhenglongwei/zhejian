@@ -802,6 +802,8 @@
   }
 
   function loadPage(serviceId) {
+    if (window.__H5_SERVICE_ITEM_HANDLED__) return
+
     if (!serviceId) {
       renderError('服务 ID 无效，请检查链接是否完整', '', true)
       return
@@ -825,7 +827,9 @@
   }
 
   var serviceId = resolveServiceId()
-  if (!maybeRedirectToCanonical(serviceId)) {
-    loadPage(serviceId)
-  }
+  var bootstrap = window.__H5_SERVICE_ITEM_BOOTSTRAP__ || Promise.resolve(false)
+  bootstrap.then(function (handled) {
+    if (handled) return
+    if (!maybeRedirectToCanonical(serviceId)) loadPage(serviceId)
+  })
 })()

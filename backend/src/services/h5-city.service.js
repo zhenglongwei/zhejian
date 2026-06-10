@@ -10,12 +10,12 @@ const { listGeoPages } = require('./geo.service')
 
 /** 首页入口 → H5 服务/案例链接（MVP 种子映射） */
 const SERVICE_ENTRY_H5_LINKS = {
-  entry_maintenance: '/service/svc_seed_1.html',
-  entry_brake: '/service/svc_seed_2.html',
-  entry_accident: '/service/svc_seed_3.html',
-  entry_body: '/case/',
+  entry_maintenance: '/service/car-maintenance.html',
+  entry_brake: '/service/brake-pad-replacement.html',
+  entry_accident: '/service/accident-repair.html',
+  entry_body: '/service/body-paint-repair.html',
   entry_tire: '/case/',
-  entry_battery: '/case/',
+  entry_battery: '/service/battery-replacement.html',
 }
 
 const CITY_FAQ = {

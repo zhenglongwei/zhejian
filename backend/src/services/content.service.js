@@ -550,6 +550,12 @@ function listPublishedServices(query = {}) {
       list = list.filter((s) => s.categoryId === categoryId)
     }
   }
+  if (query.serviceItemId) {
+    const serviceItemId = String(query.serviceItemId)
+    if (serviceItemId !== 'all' && serviceItemId !== 'undefined') {
+      list = list.filter((s) => s.serviceItemId === serviceItemId)
+    }
+  }
 
   return { list, total: list.length }
 }
@@ -565,6 +571,12 @@ async function loadPublishedPlansFromDb(query = {}) {
     const categoryId = String(query.categoryId)
     if (categoryId !== 'all' && categoryId !== 'undefined') {
       where.categoryId = categoryId
+    }
+  }
+  if (query.serviceItemId) {
+    const serviceItemId = String(query.serviceItemId)
+    if (serviceItemId !== 'all' && serviceItemId !== 'undefined') {
+      where.serviceItemId = serviceItemId
     }
   }
 
