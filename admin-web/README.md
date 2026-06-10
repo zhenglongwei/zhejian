@@ -16,7 +16,8 @@ npm run dev
 
 1. 启动 backend（`backend` 目录 `npm run dev`）。
 2. 在 `backend/.env` 配置 `ADMIN_PASSWORD`（默认 `admin_change_me`）。
-3. 登录成功后使用返回的 `admin_token`（联调期等同 `DEV_SYSTEM_TOKEN` / `DEV_ADMIN_TOKEN`）。
+3. 生产须配置 **`JWT_SECRET`**（与小程序登录共用）；登录成功后返回 **JWT system token**，不依赖 `DEV_AUTH_ENABLED`。
+4. 若仅本地联调且无 `JWT_SECRET`，可设 `DEV_AUTH_ENABLED=true` 使用 dev admin token。
 
 请求头：`Authorization: Bearer <token>`、`X-Client-Type: admin`。
 

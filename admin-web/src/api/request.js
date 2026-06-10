@@ -30,7 +30,10 @@ request.interceptors.response.use(
     if (status === 401) {
       const auth = useAuthStore()
       auth.clear()
-      window.location.href = '/admin/login'
+      const onLogin = window.location.pathname.replace(/\/$/, '').endsWith('/admin/login')
+      if (!onLogin) {
+        window.location.href = '/admin/login'
+      }
     }
     ElMessage.error(err.response?.data?.message || err.message || '网络错误')
     return Promise.reject(err)

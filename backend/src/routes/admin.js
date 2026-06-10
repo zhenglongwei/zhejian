@@ -3,6 +3,7 @@ const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { requireAdmin } = require('../middleware/require-admin')
 const { config } = require('../config')
+const { signSystemToken } = require('../lib/jwt')
 const {
   listAdminCases,
   getAdminCaseDetail,
@@ -53,8 +54,18 @@ router.post('/auth/login', async (req, res, next) => {
       err.status = 401
       throw err
     }
+    let token
+    if (config.jwt.secret) {
+      token = signSystemToken('admin_system')
+    } else if (config.devAuthEnabled) {
+      token = config.devTokens.admin
+    } else {
+      const err = new Error('服务未配置 JWT_SECRET，无法签发运营登录令牌')
+      err.status = 503
+      throw err
+    }
     return ok(res, {
-      token: config.devTokens.admin,
+      token,
       expiresIn: config.jwt.expiresIn,
     })
   } catch (e) {
