@@ -98,11 +98,18 @@ Page({
       { key: 'leadResponse', label: '咨询响应', score: breakdown.leadResponse || 0 },
     ]
 
+    const hasSplitFields =
+      summary.h5CaseViewCount != null || summary.mpCaseViewCount != null
+    const h5Views = hasSplitFields
+      ? summary.h5CaseViewCount || 0
+      : summary.caseViewCount || 0
+    const mpViews = hasSplitFields ? summary.mpCaseViewCount || 0 : 0
+
     return {
       totalViews: formatCount(sumViews(summary)),
       caseViewCount: formatCount(summary.caseViewCount),
-      h5CaseViewCount: formatCount(summary.h5CaseViewCount),
-      mpCaseViewCount: formatCount(summary.mpCaseViewCount),
+      h5CaseViewCount: formatCount(h5Views),
+      mpCaseViewCount: formatCount(mpViews),
       crawlerViewCount: formatCount(summary.crawlerViewCount),
       phoneClickCount: formatCount(summary.phoneClickCount),
       leadSubmitCount: formatCount(summary.leadSubmitCount),

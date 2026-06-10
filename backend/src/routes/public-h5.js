@@ -2,8 +2,28 @@ const express = require('express')
 const { ok } = require('../lib/response')
 const { createH5Lead } = require('../services/h5-lead.service')
 const { resolveCaseRedirectTarget } = require('../services/h5-case-redirect.service')
+const { getCityPagePayload } = require('../services/h5-city.service')
+const { getStoreCasesPagePayload } = require('../services/h5-store-cases.service')
 
 const router = express.Router()
+
+router.get('/h5/cities/:citySlug', async (req, res, next) => {
+  try {
+    const data = await getCityPagePayload(req.params.citySlug)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/stores/:storeId/cases', async (req, res, next) => {
+  try {
+    const data = await getStoreCasesPagePayload(req.params.storeId, req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
 
 router.get('/h5/case-redirect', async (req, res, next) => {
   try {

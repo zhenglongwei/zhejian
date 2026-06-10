@@ -111,7 +111,9 @@
       eventName === 'h5_case_view' ||
       eventName === 'h5_store_view' ||
       eventName === 'h5_service_view' ||
-      eventName === 'h5_page_view'
+      eventName === 'h5_page_view' ||
+      eventName === 'h5_city_view' ||
+      eventName === 'h5_store_cases_view'
     ) {
       flush()
     }

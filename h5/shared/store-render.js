@@ -94,8 +94,16 @@
     return '/store/' + encodeURIComponent(storeId) + '.html'
   }
 
-  function casePagePath(caseId) {
-    return '/case/view.html?id=' + encodeURIComponent(caseId)
+  function storeCasesPagePath(storeId) {
+    return '/store/' + encodeURIComponent(storeId) + '/cases'
+  }
+
+  function casePagePath(caseItem) {
+    if (caseItem && typeof caseItem === 'object') {
+      if (caseItem.slug) return '/case/' + encodeURIComponent(caseItem.slug) + '.html'
+      return '/case/view.html?id=' + encodeURIComponent(caseItem.id)
+    }
+    return '/case/view.html?id=' + encodeURIComponent(caseItem)
   }
 
   function servicePagePath(serviceId) {
@@ -384,7 +392,9 @@
     return section + '<div class="h5-service-list">' + cards + '</div></div>'
   }
 
-  function renderCases(cases) {
+  function renderCases(cases, store) {
+    var storeId = store && store.id ? store.id : ''
+    var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
@@ -407,7 +417,7 @@
           : '<div class="h5-placeholder-img">脱敏封面暂未就绪</div>'
         return (
           '<a class="h5-store-case-card" href="' +
-          casePagePath(item.id) +
+          casePagePath(item) +
           '" data-case-id="' +
           escapeHtml(item.id) +
           '">' +
@@ -425,7 +435,19 @@
         )
       })
       .join('')
-    return section + '<div class="h5-store-case-list">' + cards + '</div></div>'
+    var moreLink =
+      storeId && totalCount > (cases || []).length
+        ? '<p class="h5-home-more"><a class="h5-link" href="' +
+          storeCasesPagePath(storeId) +
+          '">查看全部 ' +
+          totalCount +
+          ' 个案例 ›</a></p>'
+        : storeId && totalCount > LIST_LIMIT
+          ? '<p class="h5-home-more"><a class="h5-link" href="' +
+            storeCasesPagePath(storeId) +
+            '">查看全部案例 ›</a></p>'
+          : ''
+    return section + '<div class="h5-store-case-list">' + cards + '</div>' + moreLink + '</div>'
   }
 
   function renderEnvironment(images) {
@@ -637,7 +659,7 @@
 
     html += renderSpecialties(store.specialties)
     html += renderServices(services, store.id, bookingEnabled)
-    html += renderCases(cases)
+    html += renderCases(cases, store)
     html += renderEnvironment(store.environmentImages)
 
     html += '<div class="h5-body-spacer"></div></div>'

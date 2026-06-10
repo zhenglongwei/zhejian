@@ -15,8 +15,12 @@
       .replace(/"/g, '&quot;')
   }
 
-  function caseHref(id) {
-    return '/case/view.html?id=' + encodeURIComponent(id)
+  function caseHref(item) {
+    if (typeof item === 'object' && item) {
+      if (item.slug) return '/case/' + encodeURIComponent(item.slug) + '.html'
+      return '/case/view.html?id=' + encodeURIComponent(item.id)
+    }
+    return '/case/view.html?id=' + encodeURIComponent(item)
   }
 
   function storeHref(id) {
@@ -35,19 +39,53 @@
     el.setAttribute('content', content)
   }
 
-  function setPageMeta(cityName) {
-    var city = cityName || '杭州'
-    var title = city + '透明汽车维修服务平台 · 辙见'
+  function ensureLink(rel, href) {
+    if (!href) return
+    var el = document.querySelector('link[rel="' + rel + '"]')
+    if (!el) {
+      el = document.createElement('link')
+      el.setAttribute('rel', rel)
+      document.head.appendChild(el)
+    }
+    el.setAttribute('href', href)
+  }
+
+  function setPageMeta() {
+    var title = '辙见 · 透明汽车维修服务平台'
     var desc =
-      '查看' +
-      city +
-      '真实维修案例，浏览本地可信维修门店。维修过程看得见，公开案例已脱敏审核。价格仅为参考，实际费用以门店检测为准。'
+      '辙见提供透明汽车维修信息与咨询预约工具。查看真实脱敏维修案例，浏览可信门店，了解维修过程与价格参考。'
     document.title = title
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
     ensureMeta('property', 'og:description', desc)
     ensureMeta('property', 'og:type', 'website')
     ensureMeta('property', 'og:site_name', '辙见')
+    ensureLink('canonical', location.origin + '/')
+  }
+
+  function renderCityEntries(entries) {
+    if (!entries || !entries.length) return ''
+    var items = entries
+      .map(function (city) {
+        var path = city.path || '/city/' + encodeURIComponent(city.slug)
+        return (
+          '<a class="h5-city-entry-item" href="' +
+          escapeHtml(path) +
+          '">' +
+          '<span class="h5-city-entry-name">' +
+          escapeHtml(city.name) +
+          '</span>' +
+          '<span class="h5-city-entry-hint">城市服务页 ›</span>' +
+          '</a>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">服务城市</h2>' +
+      '<div class="h5-city-entry-list">' +
+      items +
+      '</div></div>'
+    )
   }
 
   function renderFeaturedCases(cases) {
@@ -64,7 +102,7 @@
         var meta = [item.city, item.serviceName].filter(Boolean).join(' · ')
         return (
           '<a class="h5-case-list-item" href="' +
-          caseHref(item.id) +
+          caseHref(item) +
           '">' +
           '<div class="h5-case-list-title">' +
           escapeHtml(title) +
@@ -142,23 +180,18 @@
   }
 
   function renderHome(data) {
-    var cityName = (data.city && data.city.name) || '杭州'
     var identity =
       (typeof data.platformIdentity === 'string' && data.platformIdentity) ||
       (data.platformIdentity && data.platformIdentity.subtitle) ||
       '查看真实维修案例，预约本地可信维修门店。维修过程看得见，每次维修有档案。'
 
-    setPageMeta(cityName)
+    setPageMeta()
 
     var html =
       '<div class="h5-page">' +
       '<header class="h5-header h5-home-hero">' +
-      '<div class="h5-brand">辙见服务平台 · ' +
-      escapeHtml(cityName) +
-      '</div>' +
-      '<h1 class="h5-title">' +
-      escapeHtml(cityName) +
-      '透明汽车维修服务平台</h1>' +
+      '<div class="h5-brand">辙见服务平台</div>' +
+      '<h1 class="h5-title">透明汽车维修服务平台</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(identity) +
       '</p>' +
@@ -173,6 +206,7 @@
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
       '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
       '</div>' +
+      renderCityEntries(data.cityEntries) +
       renderFeaturedCases(data.featuredCases) +
       renderStores(data.recommendedMerchants) +
       renderIntro((data.platformIntro && data.platformIntro.points) || []) +
@@ -191,13 +225,12 @@
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', {
         pageType: 'home',
-        city: cityName,
       })
     }
   }
 
   function renderError(message) {
-    setPageMeta('杭州')
+    setPageMeta()
     var app = document.getElementById('app')
     if (!app) return
     app.innerHTML =
@@ -213,7 +246,7 @@
       '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
       '</div></div>'
     if (window.zhejianTrack) {
-      window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home', city: '杭州' })
+      window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home' })
     }
   }
 

@@ -312,9 +312,27 @@ async function listCases(query = {}) {
       (c) => c.serviceName && c.serviceName.indexOf(query.serviceType) !== -1
     )
   }
+  if (query.serviceName) {
+    const serviceName = String(query.serviceName).trim()
+    if (serviceName) {
+      list = list.filter((c) => matchServiceName(c.serviceName, serviceName))
+    }
+  }
 
   const total = list.length
+  const page =
+    query.page != null ? Math.max(1, parseInt(String(query.page), 10) || 1) : null
+  const pageSizeRaw =
+    query.pageSize != null ? parseInt(String(query.pageSize), 10) : null
   const limit = query.limit != null ? parseInt(String(query.limit), 10) : 0
+
+  if (page != null && pageSizeRaw != null && pageSizeRaw > 0) {
+    const pageSize = Math.min(pageSizeRaw, 50)
+    const offset = (page - 1) * pageSize
+    list = list.slice(offset, offset + pageSize)
+    return { list, total, page, pageSize, hasMore: offset + list.length < total }
+  }
+
   if (limit > 0) {
     list = list.slice(0, limit)
   }

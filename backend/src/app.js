@@ -72,6 +72,13 @@ function createApp() {
     app.use('/fixtures', express.static(path.join(h5Root, 'fixtures')))
     app.use('/case', express.static(path.join(h5Root, 'case')))
     app.use('/album', express.static(path.join(h5Root, 'album')))
+    app.get(/^\/store\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
+      res.sendFile(path.join(h5Root, 'store', 'cases.html'))
+    })
+    app.get(/^\/city\/[a-z0-9-]+\/?$/i, (req, res) => {
+      res.sendFile(path.join(h5Root, 'city', 'index.html'))
+    })
+    app.use('/city', express.static(path.join(h5Root, 'city')))
   }
 
   app.get('/', (req, res) => {

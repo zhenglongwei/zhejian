@@ -34,3 +34,117 @@
   margin-top: var(--space-lg);
   margin-bottom: var(--space-xl);
 }
+
+.h5-city-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.h5-city-entry-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+
+.h5-city-entry-name {
+  font-weight: 600;
+}
+
+.h5-city-entry-hint {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-city-service-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.h5-city-service-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+  color: var(--color-text-primary);
+}
+
+.h5-city-service-name {
+  font-size: var(--font-body);
+  font-weight: 500;
+}
+
+.h5-city-geo-item {
+  cursor: default;
+}
+
+.h5-faq-item {
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.h5-faq-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.h5-faq-q {
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.h5-faq-a {
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.6;
+}
+
+.h5-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.h5-filter-chip {
+  display: inline-block;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-caption);
+}
+
+.h5-filter-chip--active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.h5-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0 var(--space-xl);
+}
+
+.h5-pagination-btn {
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.h5-pagination-info {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}

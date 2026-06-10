@@ -97,6 +97,7 @@ async function verifyH5Home() {
   assert(apiHome.ok && apiHome.json?.code === 0, 'GET /user/home 失败')
   assert(Array.isArray(apiHome.json.data?.featuredCases), 'home 缺少 featuredCases')
   assert(Array.isArray(apiHome.json.data?.recommendedMerchants), 'home 缺少 recommendedMerchants')
+  assert(Array.isArray(apiHome.json.data?.cityEntries), 'home 缺少 cityEntries')
   console.log('[chain] ✅ H5 首页 + GET /user/home')
 
   const geoList = await api('GET', '/user/geo-pages?limit=3')
@@ -106,6 +107,22 @@ async function verifyH5Home() {
   const geoDetail = await api('GET', `/user/geo-pages/${encodeURIComponent(geoId)}`)
   assert(geoDetail.ok && geoDetail.json?.code === 0, `GET /user/geo-pages/${geoId} 失败`)
   console.log('[chain] ✅ GET /user/geo-pages/:id')
+}
+
+async function verifyH5City() {
+  const cityRes = await fetch(`${BASE}/city/hangzhou`)
+  assert(cityRes.ok, `H5 城市页 HTTP ${cityRes.status}`)
+  const html = await cityRes.text()
+  assert(html.includes('city-render.js'), 'city/index 未引用 city-render.js')
+
+  const apiCity = await api('GET', '/public/h5/cities/hangzhou')
+  assert(apiCity.ok && apiCity.json?.code === 0, 'GET /public/h5/cities/hangzhou 失败')
+  assert(apiCity.json.data?.city?.slug === 'hangzhou', 'city slug 不正确')
+  assert(Array.isArray(apiCity.json.data?.featuredCases), 'city 缺少 featuredCases')
+  assert(Array.isArray(apiCity.json.data?.recommendedMerchants), 'city 缺少 recommendedMerchants')
+  assert(Array.isArray(apiCity.json.data?.faq), 'city 缺少 faq')
+  assert(apiCity.json.data?.seo?.canonicalPath === '/city/hangzhou', 'city canonicalPath 不正确')
+  console.log('[chain] ✅ H5 城市页 /city/hangzhou + GET /public/h5/cities/hangzhou')
 }
 
 async function verifyH5Assets(caseId) {
@@ -197,6 +214,21 @@ async function verifyH5StoreAssets(storeId) {
   console.log('[chain] ✅ GET /user/merchants/:id')
 }
 
+async function verifyH5StoreCases(storeId) {
+  const casesRes = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}/cases`)
+  assert(casesRes.ok, `H5 门店案例集 HTTP ${casesRes.status}`)
+  const html = await casesRes.text()
+  assert(html.includes('store-cases-render.js'), 'store/cases 未引用 store-cases-render.js')
+
+  const apiCases = await api('GET', `/public/h5/stores/${encodeURIComponent(storeId)}/cases?page=1&pageSize=12`)
+  assert(apiCases.ok && apiCases.json?.code === 0, 'GET /public/h5/stores/:id/cases 失败')
+  assert(apiCases.json.data?.store?.id === storeId, 'store cases storeId 不一致')
+  assert(Array.isArray(apiCases.json.data?.cases), 'store cases 缺少 cases 数组')
+  assert(apiCases.json.data?.pagination, 'store cases 缺少 pagination')
+  assert(apiCases.json.data?.seo?.canonicalPath === `/store/${storeId}/cases`, 'store cases canonicalPath 不正确')
+  console.log('[chain] ✅ H5 门店案例集 /store/{id}/cases + GET /public/h5/stores/:id/cases')
+}
+
 async function main() {
   console.log('[chain] H5-A-04 全链路验收')
   console.log('[chain] BASE =', BASE)
@@ -250,8 +282,10 @@ async function main() {
   console.log('[chain] ✅ GET /user/cases/:id')
 
   await verifyH5Home()
+  await verifyH5City()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
+  await verifyH5StoreCases(storeId)
   const serviceChain = await verifyH5ServiceAssets(storeId)
 
   const eventId = `evt_h5_chain_${Date.now()}`
