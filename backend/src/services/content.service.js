@@ -10,6 +10,7 @@ const {
 } = require('../utils/search-match')
 const { buildCaseFaq } = require('../utils/case-faq')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
+const { getServiceItem } = require('../constants/service-catalog')
 const {
   SEED_SERVICES,
   STORE_EXTRAS,
@@ -304,8 +305,13 @@ async function listCases(query = {}) {
     list = list.filter((c) => c.storeId === query.storeId)
   }
   if (query.serviceItemId) {
-    const itemName = SERVICE_ITEM_NAME_MAP[query.serviceItemId] || ''
+    const catalogItem = getServiceItem(query.serviceItemId)
+    const itemName = catalogItem?.name || SERVICE_ITEM_NAME_MAP[query.serviceItemId] || ''
     list = list.filter((c) => matchServiceName(c.serviceName, itemName))
+  }
+  if (query.city) {
+    const city = String(query.city).trim()
+    if (city) list = list.filter((c) => c.city === city)
   }
   if (query.serviceType) {
     list = list.filter(

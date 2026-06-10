@@ -216,6 +216,25 @@ async function verifyH5ServiceItem() {
   console.log('[chain] ✅ H5 服务项目聚合页 /service/{slug}.html + GET /public/h5/service-items/:slug')
 }
 
+async function verifyH5ServiceItemCases() {
+  const slug = 'brake-pad-replacement'
+  const pageRes = await fetch(`${BASE}/service/${slug}/cases`)
+  assert(pageRes.ok, `H5 项目案例列表 HTTP ${pageRes.status}`)
+  const html = await pageRes.text()
+  assert(html.includes('service-item-cases-render.js'), 'service/cases 未引用 service-item-cases-render.js')
+
+  const apiCases = await api('GET', `/public/h5/service-items/${slug}/cases?page=1&pageSize=12`)
+  assert(apiCases.ok && apiCases.json?.code === 0, 'GET /public/h5/service-items/:slug/cases 失败')
+  assert(apiCases.json.data?.item?.slug === slug, 'service item cases slug 不正确')
+  assert(Array.isArray(apiCases.json.data?.cases), 'service item cases 缺少 cases 数组')
+  assert(apiCases.json.data?.pagination, 'service item cases 缺少 pagination')
+  assert(
+    apiCases.json.data?.seo?.canonicalPath === `/service/${slug}/cases`,
+    'service item cases canonicalPath 不正确'
+  )
+  console.log('[chain] ✅ H5 项目案例列表 /service/{slug}/cases + GET /public/h5/service-items/:slug/cases')
+}
+
 async function verifyH5StoreAssets(storeId) {
   const listRes = await fetch(`${BASE}/store/`)
   assert(listRes.ok, `store/ 列表页 HTTP ${listRes.status}`)
@@ -304,6 +323,7 @@ async function main() {
   await verifyH5Home()
   await verifyH5City()
   await verifyH5ServiceItem()
+  await verifyH5ServiceItemCases()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
   await verifyH5StoreCases(storeId)

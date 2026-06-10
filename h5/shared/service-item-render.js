@@ -161,7 +161,7 @@
     return '到店检测后报价'
   }
 
-  function renderCases(cases, item) {
+  function renderCases(cases, item, stats) {
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
@@ -176,6 +176,7 @@
         '<div class="h5-empty-block">该服务项目暂无公开案例，可先查看推荐门店并预约咨询。</div></div>'
       )
     }
+    var total = (stats && stats.caseCount) || cases.length
     var cards = cases
       .map(function (entry) {
         var cover = pickCaseCover(entry)
@@ -202,7 +203,15 @@
         )
       })
       .join('')
-    return section + '<div class="h5-store-case-list">' + cards + '</div></div>'
+    var moreLink =
+      total > cases.length
+        ? '<p class="h5-home-more"><a class="h5-link" href="/service/' +
+          encodeURIComponent(item.slug) +
+          '/cases">查看全部 ' +
+          total +
+          ' 个案例 ›</a></p>'
+        : ''
+    return section + '<div class="h5-store-case-list">' + cards + '</div>' + moreLink + '</div>'
   }
 
   function renderStores(stores) {
@@ -368,7 +377,7 @@
         : '<p class="h5-compliance">页面价格为参考范围，实际费用会因车型、配件品牌、损伤程度和门店检测结果不同而变化。</p>') +
       '</div>' +
       renderBulletSection('价格影响因素', item.priceFactors) +
-      renderCases(data.featuredCases, item) +
+      renderCases(data.featuredCases, item, data.stats) +
       renderStores(data.recommendedStores) +
       renderRelated(data.relatedServices) +
       renderFaq(data.faq) +

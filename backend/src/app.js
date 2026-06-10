@@ -75,6 +75,9 @@ function createApp() {
     app.get(/^\/store\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
       res.sendFile(path.join(h5Root, 'store', 'cases.html'))
     })
+    app.get(/^\/service\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
+      res.sendFile(path.join(h5Root, 'service', 'cases.html'))
+    })
     app.get(/^\/city\/[a-z0-9-]+\/?$/i, (req, res) => {
       res.sendFile(path.join(h5Root, 'city', 'index.html'))
     })
