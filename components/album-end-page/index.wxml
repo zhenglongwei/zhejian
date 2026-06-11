@@ -21,6 +21,13 @@
     >{{shareLabel}}</ui-button>
 
     <ui-button
+      wx:if="{{showContact}}"
+      type="secondary"
+      block
+      bind:btntap="onContactTap"
+    >{{contactLabel}}</ui-button>
+
+    <ui-button
       wx:if="{{showFeedback}}"
       type="ghost"
       block

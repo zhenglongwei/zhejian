@@ -1,3 +1,35 @@
+.album-bottom-toolbar--overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(var(--z-fixed) + 1);
+  height: auto;
+  padding: 0 var(--space-sm) calc(env(safe-area-inset-bottom) + var(--space-sm));
+  background: transparent;
+  border-top: none;
+  pointer-events: none;
+}
+
+.album-bottom-toolbar--overlay .album-bottom-toolbar__scroll {
+  pointer-events: auto;
+}
+
+.album-bottom-toolbar--overlay .album-bottom-toolbar__inner {
+  padding: 0;
+}
+
+.album-bottom-toolbar--overlay .album-bottom-toolbar__item {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.14);
+}
+
+.album-bottom-toolbar--overlay .album-bottom-toolbar__item--active {
+  border-color: var(--color-album-active);
+  background: rgba(255, 255, 255, 0.96);
+}
+
 .album-bottom-toolbar {
   box-sizing: border-box;
   width: 100%;
@@ -52,4 +84,51 @@
 
 .album-bottom-toolbar__item--active .album-bottom-toolbar__label {
   color: var(--color-album-active);
+}
+
+.album-bottom-toolbar--progress.album-bottom-toolbar--overlay {
+  padding: 0 var(--space-md) calc(env(safe-area-inset-bottom) + var(--space-md));
+}
+
+.album-bottom-toolbar__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  align-items: center;
+  width: 100%;
+  pointer-events: auto;
+}
+
+.album-bottom-toolbar__segments {
+  display: flex;
+  gap: 6rpx;
+  align-items: center;
+  width: 100%;
+  max-width: 520rpx;
+}
+
+.album-bottom-toolbar__segment {
+  flex: 1;
+  height: 6rpx;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.album-bottom-toolbar__segment--filled {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.album-bottom-toolbar__segment--active {
+  height: 8rpx;
+  background: var(--color-album-active);
+  box-shadow: 0 0 12rpx rgba(22, 119, 255, 0.45);
+}
+
+.album-bottom-toolbar__stage-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
 }

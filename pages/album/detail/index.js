@@ -30,12 +30,49 @@ const {
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
-const { buildAlbumFlipPages, buildAlbumNodeNotes } = require('../../../utils/album-flip-pages')
+const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
+const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
+
+function getWindowMetrics() {
+  try {
+    return typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+  } catch (err) {
+    return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20 }
+  }
+}
+
+function rpxToPx(rpx, windowWidth) {
+  return (rpx / 750) * windowWidth
+}
 
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时申请公开公示。',
   pending_review: '公开申请审核中，通过后将展示在案例页与公开网页。',
   public_approved: '当前为公开相册，已在案例页与公开网页展示。',
+}
+
+function buildStageProgress(chapters, activeNodeId) {
+  const chapterByNode = {}
+  ;(chapters || []).forEach((c) => {
+    if (c && c.nodeId) chapterByNode[c.nodeId] = c
+  })
+  return SERVICE_ALBUM_STAGES.map((stage) => {
+    const chapter = chapterByNode[stage.id]
+    return {
+      id: stage.id,
+      title: stage.title,
+      filled: Boolean(chapter),
+      active: activeNodeId === stage.id,
+      startIndex: chapter ? chapter.startIndex : 0,
+    }
+  })
+}
+
+function resolveActiveStageTitle(chapters, activeNodeId) {
+  const chapter = (chapters || []).find((c) => c.nodeId === activeNodeId)
+  if (chapter && chapter.title) return chapter.title
+  const stage = SERVICE_ALBUM_STAGES.find((s) => s.id === activeNodeId)
+  return (stage && stage.title) || ''
 }
 
 function buildEndPageAuthState(detail, showAuthSection) {
@@ -91,15 +128,23 @@ Page({
     flipChapters: [],
     pageIndex: 0,
     activeNodeId: '',
-    nodeNotes: [],
     storePhone: '',
-    infoSheetVisible: false,
     endPageShowAuth: false,
     endPageAuthLabel: '授权公示',
     endPageAuthDisabled: false,
     endPageAuthHint: '',
     shareSheetIntent: 'owner',
     shareActionsDisabled: false,
+    viewerHeightPx: 0,
+    progressPercent: 0,
+    navTone: 'light',
+    chromeVisible: false,
+    isEndPage: false,
+    stageProgress: [],
+    activeStageTitle: '',
+    heroCoverUrl: '',
+    heroVisible: false,
+    navSafeTopPx: 0,
   },
 
   onLoad(options) {
@@ -111,7 +156,12 @@ Page({
       return
     }
     this.albumId = options.albumId || options.id || ''
-    this.setData({ albumId: this.albumId })
+    const heroCover = options.cover ? decodeURIComponent(options.cover) : ''
+    this.setData({
+      albumId: this.albumId,
+      heroCoverUrl: heroCover,
+      heroVisible: Boolean(heroCover),
+    })
     this.fromMerchantShare = options.from === 'merchant_share'
     resolvePageShareContext(options, {
       albumId: this.albumId,
@@ -146,15 +196,62 @@ Page({
 
   scheduleViewerLayout() {
     wx.nextTick(() => {
-      const viewer = this.selectComponent('.album-detail__viewer')
-      if (viewer && typeof viewer.scheduleMeasureSwiper === 'function') {
-        viewer.scheduleMeasureSwiper()
-      }
+      setTimeout(() => {
+        this.measureViewerLayout()
+      }, 48)
     })
   },
 
+  measureViewerLayout() {
+    const win = getWindowMetrics()
+    const height = Math.max(Math.floor(win.windowHeight), 200)
+    if (height !== this.data.viewerHeightPx) {
+      this.setData({ viewerHeightPx: height })
+    }
+  },
+
+  fallbackViewerLayout() {
+    this.measureViewerLayout()
+  },
+
+  syncPageDisplay(pageIndex, total) {
+    const index = Number(pageIndex) || 0
+    const count = Number(total) || 0
+    const navTone = count > 0 && index >= count - 1 ? 'dark' : 'light'
+    const progressPercent = count > 1 ? Math.round(((index + 1) / count) * 100) : 0
+    this.setData({
+      progressPercent,
+      navTone,
+    })
+  },
+
+  syncStageProgress(chapters, activeNodeId) {
+    this.setData({
+      stageProgress: buildStageProgress(chapters, activeNodeId),
+      activeStageTitle: resolveActiveStageTitle(chapters, activeNodeId),
+    })
+  },
+
+  onToggleChrome() {
+    if (this.data.isEndPage) return
+    this.setData({ chromeVisible: !this.data.chromeVisible })
+  },
+
+  dismissHeroCover() {
+    if (!this.data.heroVisible) return
+    this.setData({ heroVisible: false })
+  },
+
   onReady() {
+    this.fallbackViewerLayout()
     this.scheduleViewerLayout()
+    try {
+      const menu = wx.getMenuButtonBoundingClientRect()
+      this.setData({ navSafeTopPx: menu.top + menu.height + 6 })
+    } catch (err) {
+      const win = getWindowMetrics()
+      this.setData({ navSafeTopPx: (win.statusBarHeight || 20) + 44 })
+    }
   },
 
   guardAccess() {
@@ -210,7 +307,6 @@ Page({
         detail: enriched,
         flipPages: flip.pages,
         flipChapters: flip.chapters,
-        nodeNotes: buildAlbumNodeNotes(enriched.nodes || []),
         storePhone,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
@@ -223,14 +319,18 @@ Page({
         shareActionsDisabled,
         authChecked: false,
         authSheetVisible: false,
-        infoSheetVisible: false,
         status: pageStatus,
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
         ...endPageAuth,
       }, () => {
+        const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
+        const activeId = (flip.chapters[0] && flip.chapters[0].nodeId) || ''
+        this.syncPageDisplay(0, total)
+        this.syncStageProgress(flip.chapters, activeId)
         this.scheduleViewerLayout()
+        setTimeout(() => this.dismissHeroCover(), 280)
       })
 
       const storeId =
@@ -338,33 +438,41 @@ Page({
   },
 
   onPageChange(e) {
-    const { index, page } = e.detail || {}
-    const patch = { pageIndex: index }
+    const { index, page, total } = e.detail || {}
+    const isEnd = page && page.type === 'end'
+    const patch = {
+      pageIndex: index,
+      isEndPage: isEnd,
+    }
     if (page && page.type === 'photo' && page.nodeId) {
       patch.activeNodeId = page.nodeId
     }
-    this.setData(patch)
+    if (isEnd) {
+      patch.chromeVisible = true
+    } else if (this.data.isEndPage) {
+      patch.chromeVisible = false
+    }
+    this.setData(patch, () => {
+      this.syncPageDisplay(index, total || this.data.flipPages.length + 1)
+      this.syncStageProgress(this.data.flipChapters, this.data.activeNodeId)
+    })
   },
 
   onChapterTap(e) {
     const { startIndex, nodeId } = e.detail || {}
+    const total = this.data.flipPages.length + (this.data.flipPages.length > 0 ? 1 : 0)
     this.setData(
       {
         pageIndex: Number(startIndex) || 0,
         activeNodeId: nodeId || '',
+        isEndPage: false,
+        chromeVisible: false,
       },
       () => {
-        this.scheduleViewerLayout()
+        this.syncPageDisplay(Number(startIndex) || 0, total)
+        this.syncStageProgress(this.data.flipChapters, nodeId || '')
       },
     )
-  },
-
-  onOpenInfoSheet() {
-    this.setData({ infoSheetVisible: true })
-  },
-
-  onCloseInfoSheet() {
-    this.setData({ infoSheetVisible: false })
   },
 
   onEndPageAuth() {

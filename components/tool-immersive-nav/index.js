@@ -49,6 +49,15 @@ Component({
       type: Boolean,
       value: true,
     },
+    overlay: {
+      type: Boolean,
+      value: false,
+    },
+    /** overlay 时：`light` 浅字（照片底）· `dark` 深字（浅色底如尾页） */
+    tone: {
+      type: String,
+      value: 'dark',
+    },
     transparent: {
       type: Boolean,
       value: false,

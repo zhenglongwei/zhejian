@@ -13,9 +13,39 @@
   border-bottom: 1rpx solid var(--color-border);
 }
 
-.tool-immersive-nav--transparent {
-  background: transparent;
+.tool-immersive-nav--overlay {
+  z-index: calc(var(--z-fixed) + 2);
+}
+
+.tool-immersive-nav--overlay.tool-immersive-nav--transparent.tool-immersive-nav--tone-light {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.42) 0%,
+    rgba(0, 0, 0, 0.08) 70%,
+    transparent 100%
+  );
   border-bottom-color: transparent;
+}
+
+.tool-immersive-nav--tone-light .tool-immersive-nav__title,
+.tool-immersive-nav--tone-light .tool-immersive-nav__back-icon {
+  color: #fff;
+}
+
+.tool-immersive-nav--tone-light .tool-immersive-nav__title {
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
+}
+
+.tool-immersive-nav--tone-light .tool-immersive-nav__back {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.tool-immersive-nav--tone-light .tool-immersive-nav__back--hover {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.tool-immersive-nav--tone-dark .tool-immersive-nav__back--hover {
+  background: var(--color-bg-active);
 }
 
 .tool-immersive-nav__bar {
@@ -34,6 +64,13 @@
 
 .tool-immersive-nav__side--left {
   justify-content: flex-start;
+  gap: var(--space-xs);
+}
+
+.tool-immersive-nav__left-extra {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .tool-immersive-nav__side--right {

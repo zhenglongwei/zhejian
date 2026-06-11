@@ -16,6 +16,22 @@ Component({
       type: Boolean,
       value: false,
     },
+    overlay: {
+      type: Boolean,
+      value: false,
+    },
+    mode: {
+      type: String,
+      value: 'chips',
+    },
+    stages: {
+      type: Array,
+      value: [],
+    },
+    activeTitle: {
+      type: String,
+      value: '',
+    },
   },
 
   data: {

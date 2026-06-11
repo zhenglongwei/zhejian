@@ -15,6 +15,10 @@
     </view>
 
     <scroll-view class="album-info-sheet__body" scroll-y enhanced show-scrollbar="{{false}}">
+      <view wx:if="{{pageProgress}}" class="album-info-sheet__progress-row">
+        <text class="text-caption">阅读进度 {{pageProgress}}</text>
+      </view>
+
       <ui-privacy-banner scene="{{scene}}" />
 
       <block wx:if="{{hasNotes}}">
@@ -43,6 +47,12 @@
           </view>
         </view>
       </block>
+
+      <view wx:if="{{showContact && hasStorePhone}}" class="album-info-sheet__contact">
+        <ui-button type="secondary" block bind:btntap="onContactTap">联系门店</ui-button>
+      </view>
+
+      <ui-compliance-notice wx:if="{{showCompliance}}" type="homePlatform" />
     </scroll-view>
   </view>
 </view>

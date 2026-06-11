@@ -149,8 +149,11 @@ Page({
   onCardTap(e) {
     const { id } = e.detail
     if (!id) return
+    const item = (this.data.list || []).find((row) => row.albumId === id)
+    const cover = item && item.coverUrl ? encodeURIComponent(item.coverUrl) : ''
     markListNeedRefresh(this)
-    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+    const coverQuery = cover ? `&cover=${cover}` : ''
+    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}${coverQuery}` })
   },
 
   onOpenH5Cases() {

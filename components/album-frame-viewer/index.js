@@ -1,11 +1,9 @@
 function formatCaption(page) {
   if (!page || page.type !== 'photo') return ''
-  const parts = []
-  if (page.nodeTitle) parts.push(page.nodeTitle)
-  if (page.time) parts.push(page.time)
-  if (page.note) parts.push(page.note)
-  return parts.join(' · ')
+  return String(page.note || '').trim()
 }
+
+const { orientationToTransform } = require('../../utils/image-orientation')
 
 function getWindowMetrics() {
   try {
@@ -63,6 +61,19 @@ Component({
       type: String,
       value: '该相册暂无过程图片',
     },
+    /** 页面实测分配给相框区的高度（px）；真机必填，否则组件无法撑满 */
+    hostHeight: {
+      type: Number,
+      value: 0,
+    },
+    immersive: {
+      type: Boolean,
+      value: false,
+    },
+    chromeVisible: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -87,6 +98,12 @@ Component({
         })
       }
     },
+    hostHeight(height) {
+      const h = Number(height) || 0
+      if (h > 0) {
+        this.applyHostLayout(h)
+      }
+    },
   },
 
   lifetimes: {
@@ -99,6 +116,10 @@ Component({
     },
     ready() {
       this.scheduleMeasureSwiper()
+      const hostHeight = Number(this.properties.hostHeight) || 0
+      if (hostHeight > 0) {
+        this.applyHostLayout(hostHeight)
+      }
     },
   },
 
@@ -132,8 +153,38 @@ Component({
           }
           this.syncCurrentPageMeta(nextIndex)
           this.scheduleMeasureSwiper()
+          this.resolvePhotoOrientations(displayPages)
         },
       )
+    },
+
+    resolvePhotoOrientations(displayPages) {
+      const photos = (displayPages || []).filter((p) => p.type === 'photo' && p.imageUrl)
+      if (!photos.length) return
+      const orientationMap = {}
+      let pending = 0
+      photos.forEach((page) => {
+        pending += 1
+        wx.getImageInfo({
+          src: page.imageUrl,
+          success: (res) => {
+            const transform = orientationToTransform(res.orientation)
+            if (transform) orientationMap[page.imageUrl] = transform
+          },
+          complete: () => {
+            pending -= 1
+            if (pending <= 0 && Object.keys(orientationMap).length) {
+              const next = (this.data.displayPages || []).map((p) => {
+                if (p.type !== 'photo') return p
+                const transform = orientationMap[p.imageUrl] || p.imageTransform || ''
+                if (!transform) return p
+                return { ...p, imageTransform: transform, imageStyle: `transform:${transform}` }
+              })
+              this.setData({ displayPages: next })
+            }
+          },
+        })
+      })
     },
 
     syncCurrentPageMeta(index) {
@@ -158,6 +209,11 @@ Component({
     },
 
     measureSwiperHeight() {
+      const hostHeight = Number(this.properties.hostHeight) || 0
+      if (hostHeight > 0) {
+        this.applyHostLayout(hostHeight)
+        return
+      }
       if (!this.data.photoCount) return
       const query = this.createSelectorQuery()
       query.select('.album-frame-viewer__frame').boundingClientRect()
@@ -172,11 +228,24 @@ Component({
     },
 
     applySwiperHeight(frameHeightPx) {
+      this.applyHostLayout(frameHeightPx)
+    },
+
+    applyHostLayout(hostHeightPx) {
       const win = getWindowMetrics()
+      if (this.properties.immersive) {
+        const swiperHeightPx = Math.max(Math.floor(hostHeightPx), 200)
+        if (swiperHeightPx !== this.data.swiperHeightPx) {
+          this.setData({ swiperHeightPx })
+        }
+        return
+      }
+      const framePadPx = rpxToPx(48, win.windowWidth)
       const topbarPx = rpxToPx(64, win.windowWidth)
       const captionPx =
         this.data.currentPageType === 'photo' ? rpxToPx(72, win.windowWidth) : 0
-      const swiperHeightPx = Math.max(Math.floor(frameHeightPx - topbarPx - captionPx), 160)
+      const innerFramePx = Math.max(hostHeightPx - framePadPx, 160)
+      const swiperHeightPx = Math.max(Math.floor(innerFramePx - topbarPx - captionPx), 160)
       if (swiperHeightPx !== this.data.swiperHeightPx) {
         this.setData({ swiperHeightPx })
       }
@@ -224,6 +293,10 @@ Component({
 
     onInfoTap() {
       this.triggerEvent('info')
+    },
+
+    onStageTap() {
+      this.triggerEvent('togglechrome')
     },
   },
 })

@@ -1,27 +1,45 @@
 <view
-  wx:if="{{chapters.length}}"
-  class="album-bottom-toolbar {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+  wx:if="{{chapters.length || stages.length}}"
+  class="album-bottom-toolbar {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
 >
-  <scroll-view
-    class="album-bottom-toolbar__scroll"
-    scroll-x
-    enable-flex
-    show-scrollbar="{{false}}"
-    scroll-into-view="{{scrollIntoView}}"
-    scroll-with-animation
-  >
-    <view class="album-bottom-toolbar__inner">
-      <view
-        wx:for="{{chapters}}"
-        wx:key="nodeId"
-        id="album-chapter-{{item.nodeId}}"
-        class="album-bottom-toolbar__item {{activeNodeId === item.nodeId ? 'album-bottom-toolbar__item--active' : ''}}"
-        data-node-id="{{item.nodeId}}"
-        data-start-index="{{item.startIndex}}"
-        bindtap="onChapterTap"
-      >
-        <text class="album-bottom-toolbar__label text-caption">{{item.title}}</text>
+  <block wx:if="{{mode === 'progress'}}">
+    <view class="album-bottom-toolbar__progress">
+      <view class="album-bottom-toolbar__segments">
+        <view
+          wx:for="{{stages}}"
+          wx:key="id"
+          class="album-bottom-toolbar__segment {{item.filled ? 'album-bottom-toolbar__segment--filled' : ''}} {{item.active ? 'album-bottom-toolbar__segment--active' : ''}}"
+          data-start-index="{{item.startIndex}}"
+          data-node-id="{{item.id}}"
+          bindtap="onChapterTap"
+        />
       </view>
+      <text class="album-bottom-toolbar__stage-name text-caption">{{activeTitle}}</text>
     </view>
-  </scroll-view>
+  </block>
+
+  <block wx:else>
+    <scroll-view
+      class="album-bottom-toolbar__scroll"
+      scroll-x
+      enable-flex
+      show-scrollbar="{{false}}"
+      scroll-into-view="{{scrollIntoView}}"
+      scroll-with-animation
+    >
+      <view class="album-bottom-toolbar__inner">
+        <view
+          wx:for="{{chapters}}"
+          wx:key="nodeId"
+          id="album-chapter-{{item.nodeId}}"
+          class="album-bottom-toolbar__item {{activeNodeId === item.nodeId ? 'album-bottom-toolbar__item--active' : ''}}"
+          data-node-id="{{item.nodeId}}"
+          data-start-index="{{item.startIndex}}"
+          bindtap="onChapterTap"
+        >
+          <text class="album-bottom-toolbar__label text-caption">{{item.title}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
 </view>

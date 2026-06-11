@@ -11,8 +11,6 @@
     "tool-immersive-nav": "/components/tool-immersive-nav/index",
     "album-frame-viewer": "/components/album-frame-viewer/index",
     "album-end-page": "/components/album-end-page/index",
-    "album-bottom-toolbar": "/components/album-bottom-toolbar/index",
-    "album-page-footer": "/components/album-page-footer/index",
-    "album-info-sheet": "/components/album-info-sheet/index"
+    "album-bottom-toolbar": "/components/album-bottom-toolbar/index"
   }
 }

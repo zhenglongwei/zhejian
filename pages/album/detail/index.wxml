@@ -1,14 +1,25 @@
-<view class="album-detail page bg-album">
-  <tool-immersive-nav title="服务相册" />
-
+<view class="album-detail page {{detail ? 'album-detail--immersive' : 'bg-album'}}">
   <block wx:if="{{status === 'loading'}}">
-    <view class="album-detail__main">
-      <album-frame-viewer class="album-detail__viewer" loading="{{true}}" pages="{{[]}}" />
+    <view class="album-detail__stage" style="height: {{viewerHeightPx}}px;">
+      <album-frame-viewer
+        class="album-detail__viewer"
+        immersive="{{true}}"
+        host-height="{{viewerHeightPx}}"
+        loading="{{true}}"
+        pages="{{[]}}"
+      />
     </view>
-    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
+    <tool-immersive-nav
+      overlay="{{true}}"
+      transparent="{{true}}"
+      tone="light"
+      title=""
+      statusBarPlaceholder="{{false}}"
+    />
   </block>
 
   <block wx:elif="{{status === 'error'}}">
+    <tool-immersive-nav title="服务相册" />
     <view class="album-detail__empty-wrap">
       <ui-empty
         title="无法加载服务相册"
@@ -17,10 +28,10 @@
         bind:action="onRetry"
       />
     </view>
-    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
+    <tool-immersive-nav title="服务相册" />
     <view class="album-detail__empty-wrap">
       <ui-empty
         title="门店暂未上传服务相册"
@@ -29,17 +40,19 @@
         bind:action="onContactStore"
       />
     </view>
-    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="album-detail__main">
+    <view class="album-detail__stage" style="height: {{viewerHeightPx}}px;">
       <album-frame-viewer
         class="album-detail__viewer"
+        immersive="{{true}}"
+        host-height="{{viewerHeightPx}}"
+        chrome-visible="{{chromeVisible}}"
         pages="{{flipPages}}"
         current="{{pageIndex}}"
         bind:pagechange="onPageChange"
-        bind:info="onOpenInfoSheet"
+        bind:togglechrome="onToggleChrome"
       >
         <album-end-page
           slot="endPage"
@@ -50,29 +63,51 @@
           auth-hint="{{endPageAuthHint}}"
           show-share="{{showShareButton}}"
           show-feedback="{{true}}"
+          show-contact="{{!!storePhone}}"
           bind:auth="onEndPageAuth"
           bind:share="onOpenShareSheet"
           bind:feedback="onEndPageFeedback"
+          bind:contact="onContactStore"
         />
       </album-frame-viewer>
 
+      <image
+        wx:if="{{heroVisible && heroCoverUrl}}"
+        class="album-detail__hero {{heroVisible ? '' : 'album-detail__hero--hide'}}"
+        src="{{heroCoverUrl}}"
+        mode="aspectFill"
+      />
+
       <album-bottom-toolbar
-        wx:if="{{flipChapters.length}}"
+        wx:if="{{chromeVisible && stageProgress.length}}"
+        overlay="{{true}}"
+        mode="progress"
+        stages="{{stageProgress}}"
+        active-title="{{activeStageTitle}}"
         chapters="{{flipChapters}}"
         active-node-id="{{activeNodeId}}"
         bind:chaptertap="onChapterTap"
       />
     </view>
 
-    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
-  </block>
+    <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
+      <view
+        wx:if="{{!isEndPage && progressPercent > 0}}"
+        class="album-detail__progress-track"
+        style="padding-top: {{navSafeTopPx}}px;"
+      >
+        <view class="album-detail__progress-fill" style="width: {{progressPercent}}%;" />
+      </view>
 
-  <album-info-sheet
-    visible="{{infoSheetVisible}}"
-    store-note="{{detail ? detail.storeNote : ''}}"
-    node-notes="{{nodeNotes}}"
-    bind:close="onCloseInfoSheet"
-  />
+      <tool-immersive-nav
+        overlay="{{true}}"
+        transparent="{{true}}"
+        tone="{{navTone}}"
+        title=""
+        statusBarPlaceholder="{{false}}"
+      />
+    </view>
+  </block>
 
   <ui-bottom-sheet
     visible="{{authSheetVisible}}"

@@ -1,6 +1,6 @@
 <view class="tool-immersive-nav-root">
   <view
-    class="tool-immersive-nav tool-immersive-nav--fixed {{transparent ? 'tool-immersive-nav--transparent' : ''}}"
+    class="tool-immersive-nav tool-immersive-nav--fixed {{transparent ? 'tool-immersive-nav--transparent' : ''}} {{overlay ? 'tool-immersive-nav--overlay' : ''}} tool-immersive-nav--tone-{{tone}}"
     style="padding-top: {{statusBarHeight}}px; height: {{navTotalHeight}}px;"
   >
     <view
@@ -18,6 +18,9 @@
         >
           <text class="tool-immersive-nav__back-icon">‹</text>
         </view>
+        <view class="tool-immersive-nav__left-extra">
+          <slot name="leftExtra" />
+        </view>
       </view>
 
       <text class="tool-immersive-nav__title text-h3">{{title}}</text>
@@ -29,7 +32,7 @@
   </view>
 
   <view
-    wx:if="{{statusBarPlaceholder}}"
+    wx:if="{{statusBarPlaceholder && !overlay}}"
     class="tool-immersive-nav__spacer"
     style="height: {{navTotalHeight}}px;"
   />

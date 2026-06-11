@@ -72,6 +72,11 @@
   max-height: calc(62vh - 120rpx);
 }
 
+.album-info-sheet__progress-row {
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
 .album-info-sheet__section-title {
   display: block;
   margin: var(--space-md) 0 var(--space-sm);
@@ -126,4 +131,8 @@
   display: block;
   color: var(--color-text-secondary);
   word-break: break-word;
+}
+
+.album-info-sheet__contact {
+  margin-top: var(--space-md);
 }

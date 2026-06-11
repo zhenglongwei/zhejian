@@ -101,28 +101,12 @@ async function applyBusinessWatermark(filePath, lines = [], options = {}) {
 async function watermarkAlbumImageUrl(rawUrl, ctx = {}) {
   const normalized = rewriteMediaUrlForCurrentBase(rawUrl)
   if (!normalized) return normalized
-  const previous = ctx.previousUrls
-  if (previous && previous.has(normalized)) {
-    return normalized
-  }
-  const objectKey = parseObjectKeyFromPublicUrl(normalized)
-  if (!objectKey || !objectKey.startsWith('uploads/')) {
-    return normalized
-  }
-  const filePath = resolveMediaFilePathFromPublicUrl(normalized)
-  if (!filePath) return normalized
-
-  const lines = buildWatermarkLines(ctx.album, ctx.nodeTitle)
-  try {
-    await applyBusinessWatermark(filePath, lines)
-    const thumbPath = filePath.replace(/(\.[^./]+)$/, '_thumb$1')
-    if (fs.existsSync(thumbPath)) {
-      await applyBusinessWatermark(thumbPath, lines, { opacity: 0.24 })
-    }
-  } catch (e) {
-    console.warn('[album-watermark] skip', e && e.message)
-  }
+  // UI-ALB 沉浸阅读：C 端不烧录门店/车辆/编号水印（证据链保留在库表）；新绑定图不再叠加水印
   return normalized
+  /* legacy B-MEDIA-06 — 按需恢复
+  const previous = ctx.previousUrls
+  ...
+  */
 }
 
 module.exports = {

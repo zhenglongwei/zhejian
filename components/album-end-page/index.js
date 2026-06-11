@@ -36,6 +36,14 @@ Component({
       type: Boolean,
       value: true,
     },
+    showContact: {
+      type: Boolean,
+      value: false,
+    },
+    contactLabel: {
+      type: String,
+      value: '联系门店',
+    },
     feedbackLabel: {
       type: String,
       value: '反馈',
@@ -56,6 +64,10 @@ Component({
       this.triggerEvent('feedback', {
         albumId: this.properties.albumId || '',
       })
+    },
+
+    onContactTap() {
+      this.triggerEvent('contact')
     },
   },
 })

@@ -1,15 +1,67 @@
-<view class="album-frame-viewer">
+<view class="album-frame-viewer {{immersive ? 'album-frame-viewer--immersive' : ''}}" style="height: {{hostHeight}}px;">
   <block wx:if="{{loading}}">
-    <album-photo-frame variant="detail">
-      <view class="album-frame-viewer__loading">
+    <block wx:if="{{immersive}}">
+      <view class="album-frame-viewer__immersive-loading">
         <ui-skeleton rows="{{4}}" />
       </view>
-    </album-photo-frame>
+    </block>
+    <block wx:else>
+      <album-photo-frame variant="detail">
+        <view class="album-frame-viewer__loading">
+          <ui-skeleton rows="{{4}}" />
+        </view>
+      </album-photo-frame>
+    </block>
   </block>
 
   <block wx:elif="{{!photoCount}}">
     <view class="album-frame-viewer__empty">
       <text class="album-frame-viewer__empty-text text-caption">{{emptyText}}</text>
+    </view>
+  </block>
+
+  <block wx:elif="{{immersive}}">
+    <view class="album-frame-viewer__immersive">
+      <swiper
+        class="album-frame-viewer__swiper album-frame-viewer__swiper--immersive"
+        style="height: {{swiperHeightPx}}px"
+        current="{{innerCurrent}}"
+        duration="{{280}}"
+        easing-function="easeOutCubic"
+        bindchange="onSwiperChange"
+      >
+        <swiper-item wx:for="{{displayPages}}" wx:key="id">
+          <view class="album-frame-viewer__slide album-frame-viewer__slide--immersive">
+            <block wx:if="{{item.type === 'photo'}}">
+              <view class="album-frame-viewer__photo-tap" bindtap="onStageTap">
+                <image
+                  class="album-frame-viewer__immersive-photo"
+                  style="{{item.imageStyle}}"
+                  src="{{item.imageUrl}}"
+                  mode="aspectFill"
+                  show-menu-by-longpress="{{false}}"
+                />
+              </view>
+            </block>
+            <block wx:else>
+              <view class="album-frame-viewer__immersive-end">
+                <album-photo-frame variant="detail">
+                  <view class="album-frame-viewer__end-book">
+                    <slot name="endPage" />
+                  </view>
+                </album-photo-frame>
+              </view>
+            </block>
+          </view>
+        </swiper-item>
+      </swiper>
+
+      <view
+        wx:if="{{chromeVisible && currentPageType === 'photo' && currentCaptionLine}}"
+        class="album-frame-viewer__immersive-caption"
+      >
+        <text class="album-frame-viewer__immersive-caption-text text-caption">{{currentCaptionLine}}</text>
+      </view>
     </view>
   </block>
 

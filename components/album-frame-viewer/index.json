@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "album-photo-frame": "/components/album-photo-frame/index",
     "ui-skeleton": "/components/skeleton/index"
