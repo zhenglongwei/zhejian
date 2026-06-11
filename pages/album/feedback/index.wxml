@@ -34,10 +34,10 @@
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="album-feedback__section-title text-h3">问题说明 *</text>
+        <text class="album-feedback__section-title text-h3">问题说明（选填）</text>
         <textarea
           class="album-feedback__textarea text-body"
-          placeholder="请描述你的疑问，10–500 字"
+          placeholder="可补充你的疑问，最多 500 字"
           value="{{form.description}}"
           maxlength="500"
           bindinput="onDescriptionInput"

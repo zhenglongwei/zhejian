@@ -28,6 +28,7 @@
 
         <swiper
           class="album-frame-viewer__swiper"
+          style="height: {{swiperHeightPx}}px"
           current="{{innerCurrent}}"
           duration="{{280}}"
           easing-function="easeOutCubic"

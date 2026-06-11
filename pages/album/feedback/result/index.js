@@ -1,4 +1,4 @@
-const { ALBUM_FEEDBACK_SUCCESS_MESSAGE } = require('../../../utils/album-feedback-form')
+const { ALBUM_FEEDBACK_SUCCESS_MESSAGE } = require('../../../../utils/album-feedback-form')
 
 Page({
   data: {

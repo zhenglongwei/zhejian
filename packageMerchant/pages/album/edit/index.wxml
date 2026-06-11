@@ -67,6 +67,7 @@
           requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
           requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
           note="{{nodes[stageIndex].note}}"
+          notePlaceholder="补充本节点照片说明（可选）"
           images="{{nodes[stageIndex].images}}"
           uploadHint="{{uploadPrivacyHint}}"
           data-index="{{stageIndex}}"
@@ -153,16 +154,6 @@
             bindinput="onVehicleInput"
           />
         </view>
-      </ui-card>
-
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="text-h3">门店说明</text>
-        <textarea
-          class="merchant-form__textarea"
-          placeholder="补充说明（可选）"
-          value="{{storeNote}}"
-          bindinput="onStoreNoteInput"
-        />
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__owner">

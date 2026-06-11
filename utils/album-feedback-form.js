@@ -9,9 +9,6 @@ function validateAlbumFeedbackForm(form) {
     return { ok: false, message: '请选择反馈类型' }
   }
   const desc = String(form.description || '').trim()
-  if (desc.length < 10) {
-    return { ok: false, message: '问题说明至少 10 字' }
-  }
   if (desc.length > 500) {
     return { ok: false, message: '问题说明不超过 500 字' }
   }

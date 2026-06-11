@@ -60,8 +60,8 @@ async function submitServiceAlbumFeedback(albumId, userId, payload = {}) {
     err.status = 400
     throw err
   }
-  if (description.length < 10 || description.length > 500) {
-    const err = new Error('问题说明需 10–500 字')
+  if (description.length > 500) {
+    const err = new Error('问题说明不超过 500 字')
     err.status = 400
     throw err
   }

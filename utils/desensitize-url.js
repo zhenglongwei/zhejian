@@ -117,11 +117,7 @@ function resolveImageSrc(url) {
   if (value.startsWith('http://') && value.includes('/api/v1/media/')) return value
   if (value.startsWith('wxfile://')) return value
   if (value.startsWith('cloud://')) return value
-  if (value.startsWith('/media/uploads/')) {
-    const base = String(ENV.baseUrl || '').replace(/\/$/, '')
-    return base ? `${base}${value}` : value
-  }
-  if (value.startsWith('/')) return value
+  if (value.startsWith('/')) return resolveMediaUrl(value)
   return ''
 }
 

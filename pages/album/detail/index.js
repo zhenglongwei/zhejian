@@ -141,6 +141,20 @@ Page({
     if (this.albumId && ['normal', 'empty'].includes(this.data.status)) {
       this.loadAlbum()
     }
+    this.scheduleViewerLayout()
+  },
+
+  scheduleViewerLayout() {
+    wx.nextTick(() => {
+      const viewer = this.selectComponent('.album-detail__viewer')
+      if (viewer && typeof viewer.scheduleMeasureSwiper === 'function') {
+        viewer.scheduleMeasureSwiper()
+      }
+    })
+  },
+
+  onReady() {
+    this.scheduleViewerLayout()
   },
 
   guardAccess() {
@@ -215,6 +229,8 @@ Page({
         shareToken: '',
         shareSheetVisible: false,
         ...endPageAuth,
+      }, () => {
+        this.scheduleViewerLayout()
       })
 
       const storeId =
@@ -332,10 +348,15 @@ Page({
 
   onChapterTap(e) {
     const { startIndex, nodeId } = e.detail || {}
-    this.setData({
-      pageIndex: Number(startIndex) || 0,
-      activeNodeId: nodeId || '',
-    })
+    this.setData(
+      {
+        pageIndex: Number(startIndex) || 0,
+        activeNodeId: nodeId || '',
+      },
+      () => {
+        this.scheduleViewerLayout()
+      },
+    )
   },
 
   onOpenInfoSheet() {

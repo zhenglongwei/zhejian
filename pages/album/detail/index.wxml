@@ -3,7 +3,7 @@
 
   <block wx:if="{{status === 'loading'}}">
     <view class="album-detail__main">
-      <album-frame-viewer loading="{{true}}" pages="{{[]}}" />
+      <album-frame-viewer class="album-detail__viewer" loading="{{true}}" pages="{{[]}}" />
     </view>
     <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
@@ -85,6 +85,8 @@
       checked="{{authChecked}}"
       authTier="{{authTier}}"
       submitting="{{authSubmitting}}"
+      showActions="{{false}}"
+      showRejectLink="{{true}}"
       bind:toggle="onAuthCheckToggle"
       bind:tierchange="onAuthTierChange"
       bind:reject="onRejectAuth"

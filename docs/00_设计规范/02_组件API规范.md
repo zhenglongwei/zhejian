@@ -336,9 +336,9 @@
 
 `view` 模式：纵向时间线 + 3 列图网格（§6.4）。**用户端详情主阅读**已改用 **§3.6g `AlbumFrameViewer`**（全屏相框翻页）；`view` 仍用于商家端编辑、H5/深链摘要等。`edit` 模式：标题行 + 可选 Tag/描述/建议 + textarea + `ImageUploader`。
 
-#### AlbumFlipBook（`components/album-flip-book`）— **废弃 · UI-ALB-B-05**
+#### ~~AlbumFlipBook~~（已删除 · UI-ALB-B-05 / C-07）
 
-> **2026-06-10 定稿**：试验方向不符合产品目标；**新代码禁止引用**。由 **§3.6g `AlbumFrameViewer` + `AlbumPhotoFrame`** 替代；实现完成后 **删除或并入** viewer（UI-ALB-C-07）。
+> **2026-06-10 定稿废弃**；**2026-06-11 已删除** `components/album-flip-book`。相册详情主阅读统一使用 **§3.6g `AlbumFrameViewer` + `AlbumPhotoFrame`**。
 
 #### AlbumCard（`components/album-card` · 卷七 UI-ALB 升级）
 

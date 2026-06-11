@@ -53,15 +53,28 @@
 
 /* detail：详情全屏相框 */
 .album-photo-frame--detail {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
   box-shadow: var(--shadow-album-frame);
 }
 
 .album-photo-frame--detail .album-photo-frame__mat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
   padding: var(--size-album-frame-border);
 }
 
 .album-photo-frame--detail .album-photo-frame__inner {
-  min-height: 200rpx;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
 }
 
 .album-photo-frame--detail .album-photo-frame__corner {

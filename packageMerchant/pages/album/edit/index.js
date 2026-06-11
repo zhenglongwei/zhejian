@@ -56,7 +56,6 @@ Page({
     stageIndex: 0,
     nodes: [],
     parts: [],
-    storeNote: '',
     planAmount: '',
     pricePreview: { mode: PRICE_MODE.FIXED, amount: null },
     partTypeList: PART_TYPE_LIST,
@@ -203,7 +202,6 @@ Page({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
       })),
-      storeNote: detail.storeNote || '',
       planAmount: planAmount != null ? String(planAmount) : '',
       pricePreview: {
         mode: PRICE_MODE.FIXED,
@@ -330,10 +328,6 @@ Page({
     this.setData({ nodes })
   },
 
-  onStoreNoteInput(e) {
-    this.setData({ storeNote: e.detail.value })
-  },
-
   onOwnerPhoneInput(e) {
     this.setData({ ownerPhoneInput: e.detail.value })
   },
@@ -456,7 +450,6 @@ Page({
     const normalized = normalizePlanAmountPayload({
       nodes,
       parts: this.data.parts,
-      storeNote: this.data.storeNote,
       planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })

@@ -7,6 +7,18 @@ function formatCaption(page) {
   return parts.join(' · ')
 }
 
+function getWindowMetrics() {
+  try {
+    return typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+  } catch (err) {
+    return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20 }
+  }
+}
+
+function rpxToPx(rpx, windowWidth) {
+  return (rpx / 750) * windowWidth
+}
+
 function normalizePhotoPages(pages) {
   return (pages || [])
     .filter((p) => p && p.type !== 'end')
@@ -60,6 +72,7 @@ Component({
     totalCount: 0,
     currentPageType: 'photo',
     currentCaptionLine: '',
+    swiperHeightPx: 320,
   },
 
   observers: {
@@ -83,6 +96,15 @@ Component({
       this.setData({ innerCurrent: index }, () => {
         this.syncCurrentPageMeta(index)
       })
+    },
+    ready() {
+      this.scheduleMeasureSwiper()
+    },
+  },
+
+  pageLifetimes: {
+    show() {
+      this.scheduleMeasureSwiper()
     },
   },
 
@@ -109,6 +131,7 @@ Component({
             this.setData({ innerCurrent: nextIndex })
           }
           this.syncCurrentPageMeta(nextIndex)
+          this.scheduleMeasureSwiper()
         },
       )
     },
@@ -116,10 +139,74 @@ Component({
     syncCurrentPageMeta(index) {
       const page = (this.data.displayPages || [])[index]
       const type = page && page.type === 'end' ? 'end' : 'photo'
-      this.setData({
-        currentPageType: type,
-        currentCaptionLine: formatCaption(page),
+      this.setData(
+        {
+          currentPageType: type,
+          currentCaptionLine: formatCaption(page),
+        },
+        () => {
+          this.scheduleMeasureSwiper()
+        },
+      )
+    },
+
+    scheduleMeasureSwiper() {
+      if (this._measureTimer) clearTimeout(this._measureTimer)
+      this._measureTimer = setTimeout(() => {
+        wx.nextTick(() => this.measureSwiperHeight())
+      }, 32)
+    },
+
+    measureSwiperHeight() {
+      if (!this.data.photoCount) return
+      const query = this.createSelectorQuery()
+      query.select('.album-frame-viewer__frame').boundingClientRect()
+      query.exec((res) => {
+        const frame = res && res[0]
+        if (frame && frame.height > 80) {
+          this.applySwiperHeight(frame.height)
+          return
+        }
+        this.fallbackSwiperHeight()
       })
+    },
+
+    applySwiperHeight(frameHeightPx) {
+      const win = getWindowMetrics()
+      const topbarPx = rpxToPx(64, win.windowWidth)
+      const captionPx =
+        this.data.currentPageType === 'photo' ? rpxToPx(72, win.windowWidth) : 0
+      const swiperHeightPx = Math.max(Math.floor(frameHeightPx - topbarPx - captionPx), 160)
+      if (swiperHeightPx !== this.data.swiperHeightPx) {
+        this.setData({ swiperHeightPx })
+      }
+    },
+
+    fallbackSwiperHeight() {
+      const win = getWindowMetrics()
+      let navTotal = rpxToPx(88, win.windowWidth) + (win.statusBarHeight || 20)
+      try {
+        const menu = wx.getMenuButtonBoundingClientRect()
+        navTotal = menu.top + menu.height + (menu.top - (win.statusBarHeight || 20))
+      } catch (err) {
+        /* use estimate */
+      }
+      const toolbarPx = rpxToPx(80, win.windowWidth)
+      const footerPx = rpxToPx(200, win.windowWidth)
+      const topbarPx = rpxToPx(64, win.windowWidth)
+      const captionPx =
+        this.data.currentPageType === 'photo' ? rpxToPx(72, win.windowWidth) : 0
+      const framePadPx = rpxToPx(48, win.windowWidth)
+      const pagePadPx = rpxToPx(16, win.windowWidth)
+      const frameHeight =
+        win.windowHeight - navTotal - toolbarPx - footerPx - pagePadPx
+      const swiperHeightPx = Math.max(
+        Math.floor(frameHeight - framePadPx - topbarPx - captionPx),
+        160,
+      )
+      if (swiperHeightPx !== this.data.swiperHeightPx) {
+        this.setData({ swiperHeightPx })
+      }
     },
 
     onSwiperChange(e) {
