@@ -1,50 +1,32 @@
-.service-album {
-  padding-bottom: var(--space-xl);
-}
-
-.service-album--with-bar .service-album__body {
-  padding-bottom: var(--page-fixed-clearance);
-}
-
-.service-album__pad {
+.album-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-}
-
-.service-album__sticky {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-fixed);
-  padding: var(--space-md) var(--page-padding-x) var(--space-sm);
-  background: var(--color-bg-page);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
+  min-height: 100vh;
 }
 
-.service-album__body {
+.album-detail__main {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--space-md);
+  box-sizing: border-box;
+  padding: var(--space-sm) var(--page-padding-x) 0;
 }
 
-.service-album__privacy {
-  display: block;
+.album-detail__viewer {
+  flex: 1;
+  min-height: 0;
 }
 
-.service-album__section {
+.album-detail__empty-wrap {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--space-sm);
+  justify-content: center;
+  box-sizing: border-box;
+  padding: var(--space-xl) var(--page-padding-x);
 }
 
-.service-album__section-title {
-  display: block;
-  color: var(--color-text-primary);
-}
-
-.service-album__feedback {
-  padding: var(--space-sm) 0 var(--space-md);
+.album-detail__auth-submit {
+  margin-top: var(--space-md);
 }

@@ -86,6 +86,21 @@ page {
   --color-bg-active: #f2f3f5;
 
   /**
+   * 工具相册域（卷七 UI-ALB）
+   */
+  --color-bg-album: #f7f5f2;
+  --color-bg-band: #f0f4fa;
+  --color-album-active: #1677ff;
+  --color-album-active-light: #e8f3ff;
+  --color-album-frame: #e8e4df;
+  --color-album-frame-line: #d9d4cd;
+  --color-album-frame-corner: #c4beb6;
+  --color-album-frame-inner: #faf9f7;
+  --color-nav-icon-well: #f2f3f5;
+  --color-album-toolbar-bg: rgba(247, 245, 242, 0.92);
+  --color-album-caption-bar: rgba(250, 249, 247, 0.96);
+
+  /**
    * 功能色
    * 全站功能主语义控制在 success / warning / danger / info 四类。
    */
@@ -188,7 +203,11 @@ page {
    * 阴影
    */
   --shadow-card: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
+  --shadow-card-soft: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   --shadow-popup: 0 8rpx 40rpx rgba(0, 0, 0, 0.12);
+  --shadow-album-frame: 0 8rpx 32rpx rgba(60, 50, 40, 0.12),
+    0 2rpx 8rpx rgba(60, 50, 40, 0.06);
+  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(60, 50, 40, 0.08);
 
   /**
    * 层级
@@ -219,6 +238,26 @@ page {
   );
 
   --tag-height: 40rpx;
+
+  --tool-band-height: 88rpx;
+  --size-nav-icon-well: 64rpx;
+  --size-nav-icon: 40rpx;
+  --size-album-cover: 128rpx;
+  --size-album-list-thumb: 176rpx;
+  --size-album-list-card-min-height: 220rpx;
+  --size-album-frame-border: 24rpx;
+  --size-album-frame-corner: 32rpx;
+  --size-album-frame-topbar: 64rpx;
+  --size-album-caption-bar: 72rpx;
+  --size-album-immersive-nav: 88rpx;
+  --size-album-toolbar-height: 80rpx;
+  --size-album-page-footer-min: 120rpx;
+  --font-album-display: 26rpx;
+  --font-album-display-lh: 36rpx;
+  --font-album-frame-page: 24rpx;
+  --font-album-frame-page-lh: 34rpx;
+  --radius-album-frame-inner: 8rpx;
+  --radius-album-list-thumb: var(--radius-md);
   --size-rating-star: 40rpx;
   --size-service-entry-icon: 88rpx;
   --size-service-entry-well: 108rpx;
@@ -251,6 +290,37 @@ page {
 }
 
 ```
+
+---
+
+## 2.1.1 工具相册扩展 Token（UI-ALB-A-07）
+
+> 真源：`11_工具相册UI线框.md` §2.2 / §3 · 设计体系 §10.1.1  
+> 用途：相框翻页详情、加高列表卡、沉浸导航、节点底栏、页脚。
+
+| Token | 值 / 引用 | 用途 |
+| --- | --- | --- |
+| `--color-album-frame-corner` | `#c4beb6` | 相框 L 形角饰 |
+| `--color-album-frame-inner` | `#faf9f7` | 相框内衬 / 尾页暖底 |
+| `--color-nav-icon-well` | `#f2f3f5` | 我的/设置菜单图标底块 |
+| `--color-album-toolbar-bg` | `rgba(247,245,242,0.92)` | 节点 Tab 底栏半透明底 |
+| `--color-album-caption-bar` | `rgba(250,249,247,0.96)` | 框内短文案条底 |
+| `--shadow-album-frame` | 双层暖色阴影 | 详情全屏相框立体感 |
+| `--shadow-album-list-thumb` | 轻阴影 | 列表缩略图轻相框感 |
+| `--size-album-list-thumb` | `176rpx` | 列表卡左缩略图边长（160～200 取中） |
+| `--size-album-list-card-min-height` | `220rpx` | 加高列表卡内容区最小高度 |
+| `--size-album-frame-border` | `24rpx` | 相框 mat 边宽 |
+| `--size-album-frame-corner` | `32rpx` | 角饰 L 形臂长 |
+| `--size-album-frame-topbar` | `64rpx` | 框内顶栏（页码 + 信息） |
+| `--size-album-caption-bar` | `72rpx` | 框内底短文案条高度 |
+| `--size-album-immersive-nav` | `88rpx` | 沉浸导航内容区（不含 statusBar） |
+| `--size-album-toolbar-height` | `80rpx` | 节点 Tab 底栏 |
+| `--size-album-page-footer-min` | `120rpx` | 页脚（联系门店 + 合规）最小高度 |
+| `--font-album-frame-page` | `24rpx` | 框内页码字号 |
+| `--radius-album-frame-inner` | `8rpx` | 框内大图圆角 |
+| `--radius-album-list-thumb` | `var(--radius-md)` | 列表缩略图圆角 |
+
+**工具类（B-01）**：`.bg-album` · `.bg-band` · `.text-album-display` · `.text-album-frame-page`（见 `tokens.wxss`）
 
 ---
 

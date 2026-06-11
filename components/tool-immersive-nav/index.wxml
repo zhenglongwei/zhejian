@@ -1,0 +1,36 @@
+<view class="tool-immersive-nav-root">
+  <view
+    class="tool-immersive-nav tool-immersive-nav--fixed {{transparent ? 'tool-immersive-nav--transparent' : ''}}"
+    style="padding-top: {{statusBarHeight}}px; height: {{navTotalHeight}}px;"
+  >
+    <view
+      class="tool-immersive-nav__bar"
+      style="height: {{navBarHeight}}px; padding-left: {{sidePadding}}px; padding-right: {{sidePadding}}px;"
+    >
+      <view class="tool-immersive-nav__side tool-immersive-nav__side--left">
+        <view
+          wx:if="{{showBack}}"
+          class="tool-immersive-nav__back"
+          hover-class="tool-immersive-nav__back--hover"
+          bindtap="onBackTap"
+          aria-role="button"
+          aria-label="返回"
+        >
+          <text class="tool-immersive-nav__back-icon">‹</text>
+        </view>
+      </view>
+
+      <text class="tool-immersive-nav__title text-h3">{{title}}</text>
+
+      <view class="tool-immersive-nav__side tool-immersive-nav__side--right">
+        <slot name="right" />
+      </view>
+    </view>
+  </view>
+
+  <view
+    wx:if="{{statusBarPlaceholder}}"
+    class="tool-immersive-nav__spacer"
+    style="height: {{navTotalHeight}}px;"
+  />
+</view>

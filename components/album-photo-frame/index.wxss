@@ -1,0 +1,88 @@
+.album-photo-frame {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.album-photo-frame__mat {
+  box-sizing: border-box;
+  background: var(--color-album-frame);
+  border: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-photo-frame__inner {
+  box-sizing: border-box;
+  background: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-album-frame-inner);
+  overflow: hidden;
+}
+
+.album-photo-frame__corner {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  border-color: var(--color-album-frame-corner);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.album-photo-frame__corner--tl {
+  top: 0;
+  left: 0;
+  border-width: 3rpx 0 0 3rpx;
+}
+
+.album-photo-frame__corner--tr {
+  top: 0;
+  right: 0;
+  border-width: 3rpx 3rpx 0 0;
+}
+
+.album-photo-frame__corner--bl {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 3rpx 3rpx;
+}
+
+.album-photo-frame__corner--br {
+  right: 0;
+  bottom: 0;
+  border-width: 0 3rpx 3rpx 0;
+}
+
+/* detail：详情全屏相框 */
+.album-photo-frame--detail {
+  box-shadow: var(--shadow-album-frame);
+}
+
+.album-photo-frame--detail .album-photo-frame__mat {
+  padding: var(--size-album-frame-border);
+}
+
+.album-photo-frame--detail .album-photo-frame__inner {
+  min-height: 200rpx;
+}
+
+.album-photo-frame--detail .album-photo-frame__corner {
+  width: var(--size-album-frame-corner);
+  height: var(--size-album-frame-corner);
+}
+
+/* thumb：列表缩略图轻相框 */
+.album-photo-frame--thumb {
+  box-shadow: var(--shadow-album-list-thumb);
+}
+
+.album-photo-frame--thumb .album-photo-frame__mat {
+  padding: var(--space-xs);
+}
+
+.album-photo-frame--thumb .album-photo-frame__inner {
+  min-height: 0;
+}
+
+.album-photo-frame--thumb .album-photo-frame__corner {
+  width: 20rpx;
+  height: 20rpx;
+}

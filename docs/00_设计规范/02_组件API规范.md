@@ -46,6 +46,27 @@
 
 ---
 
+### 2.1.1 ToolPageShell（`components/tool-page-shell` · 卷七 UI-ALB）
+
+用户端 **工具域** 页面壳：页顶 band + 内容区 + 合规页脚位。用于 `pages/mine`、`pages/album/list`、`pages/mine/settings`、`pages/mine/help` 等。**相册详情**使用 `ToolImmersiveNav`，**不用**本壳。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | `服务相册` | band 主标题 |
+| subtitle | String | `门店维修记录` | band 副标题（可选） |
+| showBand | Boolean | true | 是否展示页顶 band |
+| showCompliance | Boolean | true | 是否展示页脚 ComplianceNotice |
+| complianceText | String | — | 覆盖默认 `HOME_PLATFORM_IDENTITY` |
+
+| Slot | 说明 |
+|---|---|
+| default | 主内容（`page-content` 内） |
+| bandExtra | band 右侧弱操作（可选） |
+
+页面 `page` 背景使用 `--color-bg-album`；band 使用 `--color-bg-band` + `--tool-band-height`。
+
+---
+
 ### 2.2 Tag（`components/tag`）
 
 | 属性 | 类型 | 默认 | 说明 |
@@ -63,13 +84,16 @@
 
 ### 2.4 Cell（`components/cell`）
 
-列表行：标题、副标题、数字角标、右箭头；用于我的页菜单、设置页等。
+列表行：标题、副标题、图标、角标/红点、右箭头；用于我的页菜单、设置页等。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | title | String | `''` | 主标题 |
 | desc | String | `''` | 副标题 |
+| icon | String | `''` | 左侧线型图标路径（`assets/nav/`） |
+| iconBg | String | `primary-light` | 图标底块背景语义：`primary-light` / `success-light` 等 → `--color-*-light` |
 | badge | String | `''` | 数字角标（如待办计数），空则不展示 |
+| dot | Boolean | false | 红点（与 badge 互斥展示，优先 dot） |
 | arrow | Boolean | true | 是否展示右箭头 |
 | border | Boolean | true | 是否展示底部分割线 |
 | disabled | Boolean | false | 禁用态 |
@@ -310,31 +334,192 @@
 | notechange | `{ value }` 说明变更（`edit`） |
 | imageschange | `{ images }` 图片变更（`edit`） |
 
-`view` 模式：纵向时间线 + 3 列图网格（§6.4）。`edit` 模式：标题行 + 可选 Tag/描述/建议 + textarea + `ImageUploader`。
+`view` 模式：纵向时间线 + 3 列图网格（§6.4）。**用户端详情主阅读**已改用 **§3.6g `AlbumFrameViewer`**（全屏相框翻页）；`view` 仍用于商家端编辑、H5/深链摘要等。`edit` 模式：标题行 + 可选 Tag/描述/建议 + textarea + `ImageUploader`。
 
-#### AlbumCard（`components/album-card`）
+#### AlbumFlipBook（`components/album-flip-book`）— **废弃 · UI-ALB-B-05**
 
-用户端与商家端 **共用** 服务相册列表卡片；数据经 `enrichServiceAlbumListItem` 预处理。
+> **2026-06-10 定稿**：试验方向不符合产品目标；**新代码禁止引用**。由 **§3.6g `AlbumFrameViewer` + `AlbumPhotoFrame`** 替代；实现完成后 **删除或并入** viewer（UI-ALB-C-07）。
+
+#### AlbumCard（`components/album-card` · 卷七 UI-ALB 升级）
+
+用户端与商家端 **共用** 服务相册列表卡片；数据经 `enrichServiceAlbumListItem` 预处理。  
+**卷七 A-06b/c**：**加高横向卡** — 左 `--size-album-list-thumb` 缩略图 + 右档案信息；用户端右上 **分享 + 授权/公示**；可选六段迷你进度条；缩略图轻相框 `--shadow-album-list-thumb`。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| item | Object | — | 列表项 ViewModel（含 `albumId`、`statusLabel` 等） |
+| item | Object | — | 列表项 ViewModel（含 `albumId`、`coverUrl`、`stageProgress`、`publicCaseStatus`、`canOwnerShare` 等） |
 | audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
+| showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
+| framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
+| showHeaderActions | Boolean | true | 用户端是否展示右上分享/授权（merchant 忽略） |
 
 | 事件 | 说明 |
 |---|---|
-| tap | `{ id: albumId }` |
+| tap | `{ id: albumId }` 点击卡片主体（非右上按钮区） |
+| share | `{ id: albumId }` 用户端分享 |
+| authorize | `{ id: albumId, publicCaseStatus }` 用户端授权/公示 |
+
+**用户端卡片信息块（合并摘要，非四行表）**
+
+| 字段 | 来源 |
+|---|---|
+| 服务名 | `serviceName` / `displayServiceName` |
+| 门店 | `storeName` |
+| 车辆·张数 | 车型脱敏 + 过程图张数 |
+| 状态 Tag | `statusLabel`、`publicLabel`、`authPendingBadge` 等 |
+| 更新时间 | `updatedAtDisplay` |
+
+**授权/公示按钮（右上，与 `publicCaseStatus` 合并）**
+
+| 状态 | 按钮文案 | 行为 |
+|---|---|---|
+| 可授权 | 授权公示 | `authorize` |
+| pending_review | 审核中 | 弱态说明 |
+| public_approved | 已公开 | 可选查看公示 |
+| 未完工/无图 | 不展示 | — |
 
 **展示差异**
 
-| audience | meta 行 | 附加 Tag |
+| audience | 布局 | 附加 |
 |---|---|---|
-| user | `storeName`、车型、过程图张数 | `authPendingBadge`（可授权）、`publicLabel`（已授权） |
-| merchant | `车主 userPhoneDisplay`、车型、过程图张数 | 无授权相关 Tag |
+| user | 左图右文 + 右上操作 | 分享 + 授权/公示 |
+| merchant | 左图右文（可选无图） | 无授权；保留分享（若业务需要） |
 
-列表 enrich：`enrichServiceAlbumListItem(item)` 或 `enrichServiceAlbumListItem(item, { audience: 'merchant' })`（别名 `enrichMerchantAlbumListItem`）。
+`stageProgress`：`{ completed: number, total: 6 }` 用于迷你进度条。卡片最小高度 `--size-album-list-card-min-height`。
 
-列表卡片共用布局见 `styles/record-card.wxss`（与 `LeadCard` / `AuthorizationCard` 一致）。
+列表 enrich：`enrichServiceAlbumListItem(item)` 或 `enrichServiceAlbumListItem(item, { audience: 'merchant' })`。
+
+#### ToolImmersiveNav（`components/tool-immersive-nav` · 卷七 UI-ALB）
+
+相册详情等 **沉浸页** 自定义导航（配合 `navigationStyle: custom`）。高度参考 `--size-album-immersive-nav`；背景 `--color-bg-album` 或透明。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| title | String | `服务相册` | 居中标题 |
+| showBack | Boolean | true | 是否展示返回 |
+| backDelta | Number | 1 | `navigateBack` delta |
+| statusBarPlaceholder | Boolean | true | 是否预留 statusBar + 导航栏占位 |
+| transparent | Boolean | false | 透明底（无 border） |
+| autoBack | Boolean | true | 点击返回时自动 `navigateBack`；无栈时 `reLaunch` 至「我的」 |
+
+| Slot | 说明 |
+|---|---|
+| right | 右侧操作（详情页通常为空） |
+
+| 事件 | 说明 |
+|---|---|
+| back | 点击返回 |
+| ready | `{ statusBarHeight, navBarHeight, navTotalHeight, sidePadding }` 布局就绪 |
+
+#### AlbumPhotoFrame（`components/album-photo-frame` · 卷七 UI-ALB）
+
+全屏相框 **壳层**：四边 mat + L 形角饰 + `--shadow-album-frame`。纯 CSS + token，无业务逻辑。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| variant | String | `detail` | `detail` 详情大图 · `thumb` 列表缩略图（角饰缩小） |
+| showCorners | Boolean | true | 是否展示四角 L 饰 |
+
+| Slot | 说明 |
+|---|---|
+| default | 框内内容（顶栏 / 大图 / 文案条等） |
+
+Token：`--color-album-frame` / `--color-album-frame-line` / `--color-album-frame-corner` / `--size-album-frame-border` / `--size-album-frame-corner`。
+
+#### AlbumFrameViewer（`components/album-frame-viewer` · 卷七 UI-ALB）
+
+详情 **主阅读**：横向 swiper 翻页 + 相框内布局 + **虚拟尾页槽**。数据来自 `buildAlbumFlipPages`（`utils/album-flip-pages.js`）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| pages | Array | `[]` | 扁平页 `{ type: 'photo'|'end', imageUrl?, caption?, nodeId?, nodeTitle?, time? }` |
+| chapters | Array | `[]` | 节点章节 `{ nodeId, title, startIndex }` |
+| current | Number | 0 | 当前页（0-based）；**含尾页** |
+| loading | Boolean | false | Skeleton 态 |
+| emptyText | String | `该相册暂无过程图片` | 无图空态 |
+
+| Slot | 说明 |
+|---|---|
+| endPage | 尾页内容（默认用 `AlbumEndPage`） |
+
+| 事件 | 说明 |
+|---|---|
+| pagechange | `{ index, page, total }` 翻页；`total` = 图片数 + 1（尾页） |
+| info | 点击框内「信息」→ 由页面打开 `AlbumInfoSheet` |
+
+**框内结构（图片页）**
+
+- 顶栏：页码 `{index}/{total}` + 「信息」按钮；**无分享**
+- 中部：大图 `aspectFill`；**禁止** `previewImage`
+- 底栏：`--size-album-caption-bar` 一行短文案（节点名 · 时间 · 摘要省略）
+
+尾页不展示底文案条；页码为最后一页。
+
+#### AlbumEndPage（`components/album-end-page` · 卷七 UI-ALB）
+
+虚拟 **尾页**：暖底 `--color-album-frame-inner` + 授权/分享/反馈三按钮（按状态显隐）。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| showAuth | Boolean | false | 是否展示授权公示 |
+| authLabel | String | `授权公示` | 主按钮文案 |
+| authDisabled | Boolean | false | 审核中等弱态 |
+| authHint | String | `''` | 审核中等弱态说明（`authDisabled` 时展示） |
+| showShare | Boolean | false | 是否展示分享 |
+| showFeedback | Boolean | true | 是否展示反馈 |
+
+| 事件 | 说明 |
+|---|---|
+| auth | 授权公示 |
+| share | 分享 |
+| feedback | `{ albumId? }` 跳转反馈页 |
+
+#### AlbumInfoSheet（`components/album-info-sheet` · 卷七 UI-ALB）
+
+详情 **极简抽屉**：**仅** PrivacyBanner + 门店说明列表；半屏约 55–65% 屏高。基于 `BottomSheet` 或等价实现。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| visible | Boolean | false | 是否展示 |
+| scene | String | `album` | 传给 `PrivacyBanner` |
+| storeNote | String | `''` | 门店总说明（置顶） |
+| nodeNotes | Array | `[]` | `{ nodeId, nodeTitle, thumbUrl, note }[]` 有说明的节点 |
+
+| 事件 | 说明 |
+|---|---|
+| close | 关闭抽屉 |
+
+**不在抽屉内**：摘要表、Tag、授权、分享、ComplianceNotice。
+
+#### AlbumBottomToolbar（`components/album-bottom-toolbar` · 卷七 UI-ALB）
+
+详情 **节点 Tab 底栏**：仅横滑节点 Tab；**无**授权、**无**联系门店。背景 `--color-album-toolbar-bg`；高度 `--size-album-toolbar-height`。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| chapters | Array | `[]` | `{ nodeId, title, startIndex }` |
+| activeNodeId | String | `''` | 当前高亮节点 |
+| disabled | Boolean | false | 加载/空态时禁用 |
+
+| 事件 | 说明 |
+|---|---|
+| chaptertap | `{ nodeId, startIndex }` 跳到该节点首张 |
+
+#### AlbumPageFooter（`components/album-page-footer` · 卷七 UI-ALB）
+
+详情 **页底留白栏**（节点 Tab 下方）：联系门店 + **ComplianceNotice 唯一位**。最小高度 `--size-album-page-footer-min`。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| storePhone | String | `''` | 门店电话；空则隐藏拨号 |
+| contactLabel | String | `联系门店` | 主按钮文案 |
+| complianceType | String | `homePlatform` | 合规类型；`homePlatform` 用 `HOME_PLATFORM_IDENTITY` |
+| complianceText | String | `''` | 覆盖默认文案 |
+| showCompliance | Boolean | true | 是否展示合规条 |
+
+| 事件 | 说明 |
+|---|---|
+| contact | 点击联系门店（拨号前可校验） |
 
 #### LeadCard（`components/lead-card`）
 
@@ -836,3 +1021,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V1.0 | 初版，与 MVP 组件清单对齐 |
 | V1.1 | 新增 `OrderCard`；`AlbumNode` 扩展 `mode=edit` / `compact` |
 | V2.0 | 新增 `AlbumCard`、`AuthorizationCard`、`AlbumAuthorizeSection`；`ComplianceNotice` 增 `partRisk`；`.note-block` 工具类；`PendingConfirmList`（**Phase 2**，Phase 1 新页勿引）；R6 增 `LeadCard`/`LeadStatusBadge`/`LeadDetailBody`/`ListPageShell`/`BottomSheet` 文档与实现 |
+| V2.1 | **UI-ALB-A-08**：`AlbumCard` 加高横向卡 + 分享/授权；新增 `ToolImmersiveNav`/`AlbumPhotoFrame`/`AlbumFrameViewer`/`AlbumEndPage`/`AlbumInfoSheet`/`AlbumBottomToolbar`/`AlbumPageFooter`；`AlbumFlipBook` 标废弃 |

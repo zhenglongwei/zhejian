@@ -1,15 +1,18 @@
 {
+  "navigationStyle": "custom",
   "navigationBarTitleText": "服务相册",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",
-    "ui-privacy-banner": "/components/privacy-banner/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
     "ui-album-authorize-section": "/components/album-authorize-section/index",
-    "ui-service-album-summary-card": "/components/service-album-summary-card/index",
-    "ui-service-album-process-section": "/components/service-album-process-section/index",
     "ui-share-sheet": "/components/share-sheet/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-login-sheet": "/components/login-sheet/index",
+    "tool-immersive-nav": "/components/tool-immersive-nav/index",
+    "album-frame-viewer": "/components/album-frame-viewer/index",
+    "album-end-page": "/components/album-end-page/index",
+    "album-bottom-toolbar": "/components/album-bottom-toolbar/index",
+    "album-page-footer": "/components/album-page-footer/index",
+    "album-info-sheet": "/components/album-info-sheet/index"
   }
 }

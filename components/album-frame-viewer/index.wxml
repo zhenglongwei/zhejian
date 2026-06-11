@@ -1,0 +1,66 @@
+<view class="album-frame-viewer">
+  <block wx:if="{{loading}}">
+    <album-photo-frame variant="detail">
+      <view class="album-frame-viewer__loading">
+        <ui-skeleton rows="{{4}}" />
+      </view>
+    </album-photo-frame>
+  </block>
+
+  <block wx:elif="{{!photoCount}}">
+    <view class="album-frame-viewer__empty">
+      <text class="album-frame-viewer__empty-text text-caption">{{emptyText}}</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <album-photo-frame variant="detail">
+      <view class="album-frame-viewer__frame">
+        <view class="album-frame-viewer__topbar">
+          <text class="album-frame-viewer__page text-album-frame-page">
+            {{innerCurrent + 1}} / {{totalCount}}
+          </text>
+          <text
+            class="album-frame-viewer__info text-caption text-link"
+            bindtap="onInfoTap"
+          >信息</text>
+        </view>
+
+        <swiper
+          class="album-frame-viewer__swiper"
+          current="{{innerCurrent}}"
+          duration="{{280}}"
+          easing-function="easeOutCubic"
+          bindchange="onSwiperChange"
+        >
+          <swiper-item wx:for="{{displayPages}}" wx:key="id">
+            <view class="album-frame-viewer__slide">
+              <block wx:if="{{item.type === 'photo'}}">
+                <view class="album-frame-viewer__photo-wrap">
+                  <image
+                    class="album-frame-viewer__photo"
+                    src="{{item.imageUrl}}"
+                    mode="aspectFill"
+                    show-menu-by-longpress="{{false}}"
+                  />
+                </view>
+              </block>
+              <block wx:else>
+                <view class="album-frame-viewer__end-body">
+                  <slot name="endPage" />
+                </view>
+              </block>
+            </view>
+          </swiper-item>
+        </swiper>
+
+        <view
+          wx:if="{{currentPageType === 'photo'}}"
+          class="album-frame-viewer__caption"
+        >
+          <text class="album-frame-viewer__caption-text text-caption">{{currentCaptionLine}}</text>
+        </view>
+      </view>
+    </album-photo-frame>
+  </block>
+</view>

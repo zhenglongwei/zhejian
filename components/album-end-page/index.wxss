@@ -1,0 +1,26 @@
+.album-end-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 360rpx;
+  padding: var(--space-md) 0;
+}
+
+.album-end-page__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 420rpx;
+}
+
+.album-end-page__hint {
+  display: block;
+  margin-top: calc(-1 * var(--space-xs));
+  margin-bottom: var(--space-xs);
+  text-align: center;
+  color: var(--color-text-tertiary);
+}

@@ -133,12 +133,6 @@ Page({
     this.loadPage()
   },
 
-  onUserAreaTap() {
-    if (!this.data.isLoggedIn) {
-      this.openLoginSheet('login')
-    }
-  },
-
   async onAvatarChoose(e) {
     const tempPath = (e.detail && e.detail.tempPath) || ''
     if (!tempPath || this.data.profileUpdating) return

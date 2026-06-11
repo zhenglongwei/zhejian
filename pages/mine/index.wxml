@@ -24,7 +24,6 @@
           isLoggedIn="{{isLoggedIn}}"
           user="{{user}}"
           avatarPreview="{{avatarPreview}}"
-          bind:usertap="onUserAreaTap"
           bind:logintap="onLoginTap"
           bind:bindphonetap="onBindPhoneTap"
           bind:avatarchoose="onAvatarChoose"

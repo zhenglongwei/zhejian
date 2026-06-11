@@ -1,0 +1,48 @@
+<view wx:if="{{visible}}" class="album-info-sheet">
+  <view class="album-info-sheet__mask" bindtap="onMaskTap" />
+  <view class="album-info-sheet__panel safe-bottom" catchtap="noop">
+    <view class="album-info-sheet__head">
+      <text class="album-info-sheet__title text-h3">说明与隐私</text>
+      <view
+        class="album-info-sheet__close"
+        hover-class="album-info-sheet__close--hover"
+        bindtap="onCloseTap"
+        aria-role="button"
+        aria-label="关闭"
+      >
+        <text class="album-info-sheet__close-icon">×</text>
+      </view>
+    </view>
+
+    <scroll-view class="album-info-sheet__body" scroll-y enhanced show-scrollbar="{{false}}">
+      <ui-privacy-banner scene="{{scene}}" />
+
+      <block wx:if="{{hasNotes}}">
+        <view class="album-info-sheet__section-title text-caption">门店说明</view>
+
+        <view wx:if="{{storeNote}}" class="album-info-sheet__store-note">
+          <text class="album-info-sheet__store-note-label text-caption">门店总说明</text>
+          <text class="album-info-sheet__note-text text-body">{{storeNote}}</text>
+        </view>
+
+        <view
+          wx:for="{{nodeNotes}}"
+          wx:key="nodeId"
+          class="album-info-sheet__note-item"
+        >
+          <image
+            wx:if="{{item.thumbUrl}}"
+            class="album-info-sheet__thumb"
+            src="{{item.thumbUrl}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="album-info-sheet__thumb album-info-sheet__thumb--placeholder" />
+          <view class="album-info-sheet__note-content">
+            <text class="album-info-sheet__node-title text-body">{{item.nodeTitle}}</text>
+            <text class="album-info-sheet__note-text text-caption">{{item.note}}</text>
+          </view>
+        </view>
+      </block>
+    </scroll-view>
+  </view>
+</view>

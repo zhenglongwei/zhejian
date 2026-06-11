@@ -1,0 +1,55 @@
+.album-bottom-toolbar {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--size-album-toolbar-height);
+  background: var(--color-album-toolbar-bg);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-bottom-toolbar--disabled {
+  opacity: var(--opacity-muted);
+  pointer-events: none;
+}
+
+.album-bottom-toolbar__scroll {
+  width: 100%;
+  height: 100%;
+}
+
+.album-bottom-toolbar__inner {
+  display: inline-flex;
+  flex-direction: row;
+  gap: var(--space-xs);
+  align-items: center;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0 var(--space-md);
+}
+
+.album-bottom-toolbar__item {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  max-width: 240rpx;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+}
+
+.album-bottom-toolbar__item--active {
+  border-color: var(--color-album-active);
+  background: var(--color-album-active-light);
+}
+
+.album-bottom-toolbar__label {
+  overflow: hidden;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
+}
+
+.album-bottom-toolbar__item--active .album-bottom-toolbar__label {
+  color: var(--color-album-active);
+}

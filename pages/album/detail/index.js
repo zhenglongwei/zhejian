@@ -30,6 +30,7 @@ const {
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
+const { buildAlbumFlipPages, buildAlbumNodeNotes } = require('../../../utils/album-flip-pages')
 
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时申请公开公示。',
@@ -37,35 +38,66 @@ const PUBLIC_CASE_HINT = {
   public_approved: '当前为公开相册，已在案例页与公开网页展示。',
 }
 
+function buildEndPageAuthState(detail, showAuthSection) {
+  const status = detail && detail.publicCaseStatus
+  if (status === 'pending_review') {
+    return {
+      endPageShowAuth: true,
+      endPageAuthLabel: '审核中',
+      endPageAuthDisabled: true,
+      endPageAuthHint: PUBLIC_CASE_HINT.pending_review,
+    }
+  }
+  if (showAuthSection) {
+    return {
+      endPageShowAuth: true,
+      endPageAuthLabel: '授权公示',
+      endPageAuthDisabled: false,
+      endPageAuthHint: '',
+    }
+  }
+  return {
+    endPageShowAuth: false,
+    endPageAuthLabel: '授权公示',
+    endPageAuthDisabled: false,
+    endPageAuthHint: '',
+  }
+}
+
 Page({
   data: {
+    albumId: '',
     status: 'loading',
     errorMessage: '',
     detail: null,
-    albumStatusLabel: '',
-    albumStatusVariant: 'default',
-    albumVisibilityLabel: '',
-    albumVisibilityVariant: 'default',
     showAuthSection: false,
     showShareEntry: false,
     showShareButton: false,
     showPublicCaseShare: false,
-    showPublicCaseStatus: false,
     shareSheetVisible: false,
     shareReady: false,
     shareUseOriginal: false,
     sharePreparing: false,
     shareToken: '',
     shareMode: SHARE_MODE.DESENSITIZED,
-    publicCaseHint: '',
     defaultShareIntent: 'owner',
     authChecked: false,
     authTier: 'named',
     authSubmitting: false,
-    showBottomBar: true,
+    authSheetVisible: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    stickyHeadHeight: 200,
+    flipPages: [],
+    flipChapters: [],
+    pageIndex: 0,
+    activeNodeId: '',
+    nodeNotes: [],
+    storePhone: '',
+    infoSheetVisible: false,
+    endPageShowAuth: false,
+    endPageAuthLabel: '授权公示',
+    endPageAuthDisabled: false,
+    endPageAuthHint: '',
     shareSheetIntent: 'owner',
     shareActionsDisabled: false,
   },
@@ -79,6 +111,7 @@ Page({
       return
     }
     this.albumId = options.albumId || options.id || ''
+    this.setData({ albumId: this.albumId })
     this.fromMerchantShare = options.from === 'merchant_share'
     resolvePageShareContext(options, {
       albumId: this.albumId,
@@ -98,7 +131,6 @@ Page({
       this.setData({
         status: 'error',
         errorMessage: '相册不存在或已被删除。',
-        showBottomBar: false,
       })
       return
     }
@@ -119,7 +151,6 @@ Page({
         errorMessage: `请先登录后查看${shareHint}。`,
         loginSheetVisible: true,
         loginSheetMode: 'login',
-        showBottomBar: false,
       })
       return false
     }
@@ -130,7 +161,6 @@ Page({
         errorMessage: `请先绑定手机号后查看${shareHint}。`,
         loginSheetVisible: true,
         loginSheetMode: 'bindPhone',
-        showBottomBar: false,
       })
       return false
     }
@@ -151,39 +181,40 @@ Page({
       const showPublicCaseShare =
         detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
       const showShareButton = showShareEntry || showPublicCaseShare
-      const showPublicCaseStatus = showPublicCaseShare
       const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
       const shareSheetIntent = defaultShareIntent
       const shareActionsDisabled = showShareEntry
-      const publicCaseHint = showAuthSection
-        ? ''
-        : PUBLIC_CASE_HINT[detail.publicCaseStatus] || ''
       const enriched = enrichServiceAlbumListItem({
         ...detail,
         id: detail.albumId,
       })
+      const flip = buildAlbumFlipPages(enriched.nodes || [])
+      const endPageAuth = buildEndPageAuthState(enriched, showAuthSection)
+      const storePhone = (enriched.store && enriched.store.phone) || ''
 
       this.setData({
         detail: enriched,
-        albumStatusLabel: enriched.statusLabel,
-        albumStatusVariant: enriched.statusVariant,
-        albumVisibilityLabel: enriched.visibilityLabel,
-        albumVisibilityVariant: enriched.visibilityVariant,
+        flipPages: flip.pages,
+        flipChapters: flip.chapters,
+        nodeNotes: buildAlbumNodeNotes(enriched.nodes || []),
+        storePhone,
+        pageIndex: 0,
+        activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
         showAuthSection,
         showShareEntry,
         showShareButton,
         showPublicCaseShare,
-        showPublicCaseStatus,
-        publicCaseHint,
         defaultShareIntent,
         shareSheetIntent,
         shareActionsDisabled,
         authChecked: false,
+        authSheetVisible: false,
+        infoSheetVisible: false,
         status: pageStatus,
-        showBottomBar: pageStatus === 'normal',
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
+        ...endPageAuth,
       })
 
       const storeId =
@@ -205,7 +236,6 @@ Page({
       } else {
         this.updateShareMenu(showPublicCaseShare)
       }
-      setTimeout(() => this.measureStickyHead(), 50)
     } catch (e) {
       const code = e && e.code
       let message = (e && e.message) || '加载失败'
@@ -219,7 +249,6 @@ Page({
         status: 'error',
         errorMessage: message,
         detail: null,
-        showBottomBar: false,
       })
     }
   },
@@ -292,14 +321,46 @@ Page({
     this.setData({ shareSheetVisible: false })
   },
 
-  measureStickyHead() {
-    const query = wx.createSelectorQuery().in(this)
-    query.select('#album-sticky-head').boundingClientRect()
-    query.exec((res) => {
-      const rect = res && res[0]
-      if (!rect || !rect.height) return
-      this.setData({ stickyHeadHeight: Math.ceil(rect.height) })
+  onPageChange(e) {
+    const { index, page } = e.detail || {}
+    const patch = { pageIndex: index }
+    if (page && page.type === 'photo' && page.nodeId) {
+      patch.activeNodeId = page.nodeId
+    }
+    this.setData(patch)
+  },
+
+  onChapterTap(e) {
+    const { startIndex, nodeId } = e.detail || {}
+    this.setData({
+      pageIndex: Number(startIndex) || 0,
+      activeNodeId: nodeId || '',
     })
+  },
+
+  onOpenInfoSheet() {
+    this.setData({ infoSheetVisible: true })
+  },
+
+  onCloseInfoSheet() {
+    this.setData({ infoSheetVisible: false })
+  },
+
+  onEndPageAuth() {
+    if (this.data.endPageAuthDisabled) return
+    this.setData({ authSheetVisible: true, authChecked: false })
+  },
+
+  onCloseAuthSheet() {
+    this.setData({ authSheetVisible: false })
+  },
+
+  onEndPageFeedback(e) {
+    this.goFeedbackPage()
+  },
+
+  onRetry() {
+    this.loadAlbum()
   },
 
   onShareTimelineGuide(e) {
@@ -386,10 +447,6 @@ Page({
     }
   },
 
-  onRetry() {
-    this.loadAlbum()
-  },
-
   onAuthCheckToggle() {
     this.setData({ authChecked: !this.data.authChecked })
   },
@@ -400,29 +457,14 @@ Page({
     this.setData({ authTier: tier })
   },
 
-  scrollToAuthSection(callback) {
-    wx.pageScrollTo({
-      selector: '#album-auth-section',
-      duration: 300,
-      offsetTop: (this.data.stickyHeadHeight || 0) + 8,
-      success: () => {
-        if (typeof callback === 'function') callback()
-      },
-      fail: () => {
-        if (typeof callback === 'function') callback()
-      },
-    })
-  },
-
   onSubmitAuth() {
     const { detail, authChecked, authSubmitting } = this.data
     if (!detail || authSubmitting) return
     if (!authChecked) {
-      this.scrollToAuthSection(() => {
-        wx.showToast({ title: '请先勾选确认项', icon: 'none' })
-      })
+      wx.showToast({ title: '请先勾选确认项', icon: 'none' })
       return
     }
+    this.setData({ authSheetVisible: false })
     this.openAuthorizePreview()
   },
 
@@ -489,23 +531,16 @@ Page({
     }
   },
 
-  onCallStore() {
-    const store = this.data.detail && this.data.detail.store
-    const phone = store && store.phone
+  onContactStore() {
+    const phone =
+      String(this.data.storePhone || '').trim() ||
+      (this.data.detail && this.data.detail.store && this.data.detail.store.phone) ||
+      ''
     if (!phone) {
       wx.showToast({ title: '暂无门店电话', icon: 'none' })
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
-  },
-
-  onFeedback() {
-    this.goFeedbackPage()
-  },
-
-  onNodeFeedback(e) {
-    const { nodeId, nodeTitle } = e.detail || {}
-    this.goFeedbackPage({ nodeId, nodeTitle })
   },
 
   goFeedbackPage({ nodeId = '', nodeTitle = '' } = {}) {
@@ -599,21 +634,6 @@ Page({
       title: payload?.title || '辙见 · 我的服务相册',
       query,
     }
-  },
-
-  onViewPublicCase() {
-    const shareCase = buildShareableCaseFromAlbum(this.data.detail)
-    if (!shareCase || !shareCase.id) return
-    const storeId =
-      (this.data.detail && this.data.detail.store && this.data.detail.store.id) ||
-      (this.data.detail && this.data.detail.storeId) ||
-      ''
-    wx.navigateTo({
-      url: withStoreContextPath(`/pages/case/detail/index?id=${shareCase.id}`, {
-        storeId,
-        isolated: true,
-      }),
-    })
   },
 
   onCopyUrl() {

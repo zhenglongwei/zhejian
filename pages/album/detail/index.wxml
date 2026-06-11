@@ -1,17 +1,15 @@
-<view class="page service-album {{showBottomBar ? 'service-album--with-bar' : ''}}">
+<view class="album-detail page bg-album">
+  <tool-immersive-nav title="服务相册" />
+
   <block wx:if="{{status === 'loading'}}">
-    <view class="page-content service-album__pad">
-      <ui-skeleton rows="{{3}}" title="{{true}}" />
-      <ui-skeleton rows="{{4}}" />
-      <ui-skeleton rows="{{4}}" />
+    <view class="album-detail__main">
+      <album-frame-viewer loading="{{true}}" pages="{{[]}}" />
     </view>
+    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content service-album__body">
-      <view class="service-album__privacy">
-        <ui-privacy-banner scene="album" />
-      </view>
+    <view class="album-detail__empty-wrap">
       <ui-empty
         title="无法加载服务相册"
         description="{{errorMessage}}"
@@ -19,94 +17,89 @@
         bind:action="onRetry"
       />
     </view>
+    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content service-album__body">
-      <view class="service-album__privacy">
-        <ui-privacy-banner scene="album" />
-      </view>
+    <view class="album-detail__empty-wrap">
       <ui-empty
         title="门店暂未上传服务相册"
-        description="如你对维修进度有疑问，可联系门店或客服。"
+        description="如你对维修进度有疑问，可联系门店。"
         actionText="联系门店"
-        bind:action="onCallStore"
+        bind:action="onContactStore"
       />
     </view>
+    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
   </block>
 
   <block wx:elif="{{detail}}">
-    <view id="album-sticky-head" class="service-album__sticky">
-      <ui-service-album-summary-card
-        statusVariant="{{detail.statusVariant}}"
-        statusLabel="{{albumStatusLabel}}"
-        statusVariant="{{detail.statusVariant}}"
-        visibilityLabel="{{albumVisibilityLabel}}"
-        visibilityVariant="{{albumVisibilityVariant}}"
-        rows="{{detail.summaryRowsForDisplay}}"
-        showShare="{{showShareButton}}"
-        priceMode="{{detail.priceMode}}"
-        amount="{{detail.amount}}"
-        planAmount="{{detail.planAmount}}"
-        bind:share="onOpenShareSheet"
-      />
-    </view>
-
-    <view
-      class="page-content service-album__body"
-      style="padding-top: {{stickyHeadHeight}}px;"
-    >
-      <view class="service-album__privacy">
-        <ui-privacy-banner scene="album" />
-      </view>
-
-      <ui-service-album-process-section
-        nodes="{{detail.nodes}}"
-        storeNote="{{detail.storeNote}}"
-        showNodeFeedback="{{true}}"
-        bind:nodefeedback="onNodeFeedback"
-      />
-
-      <view wx:if="{{showAuthSection}}" id="album-auth-section">
-        <ui-album-authorize-section
-          showActions="{{false}}"
-          checked="{{authChecked}}"
-          authTier="{{authTier}}"
-          submitting="{{authSubmitting}}"
-          bind:toggle="onAuthCheckToggle"
-          bind:tierchange="onAuthTierChange"
-          bind:reject="onRejectAuth"
-          bind:policy="onOpenBenefitPolicy"
+    <view class="album-detail__main">
+      <album-frame-viewer
+        class="album-detail__viewer"
+        pages="{{flipPages}}"
+        current="{{pageIndex}}"
+        bind:pagechange="onPageChange"
+        bind:info="onOpenInfoSheet"
+      >
+        <album-end-page
+          slot="endPage"
+          album-id="{{albumId}}"
+          show-auth="{{endPageShowAuth}}"
+          auth-label="{{endPageAuthLabel}}"
+          auth-disabled="{{endPageAuthDisabled}}"
+          auth-hint="{{endPageAuthHint}}"
+          show-share="{{showShareButton}}"
+          show-feedback="{{true}}"
+          bind:auth="onEndPageAuth"
+          bind:share="onOpenShareSheet"
+          bind:feedback="onEndPageFeedback"
         />
-      </view>
+      </album-frame-viewer>
 
-      <view wx:if="{{showPublicCaseStatus}}" class="service-album__section">
-        <text class="service-album__section-title text-h3">授权公示</text>
-        <text class="note-block text-caption">{{publicCaseHint}}</text>
-        <ui-button type="secondary" size="sm" bind:btntap="onViewPublicCase">查看公示页</ui-button>
-      </view>
-
-      <view wx:elif="{{publicCaseHint}}" class="service-album__section">
-        <text class="service-album__public-hint note-block text-caption">{{publicCaseHint}}</text>
-      </view>
-
-      <view class="service-album__feedback">
-        <text class="service-album__feedback-link text-caption text-link" bind:tap="onFeedback">对此相册有疑问？</text>
-      </view>
+      <album-bottom-toolbar
+        wx:if="{{flipChapters.length}}"
+        chapters="{{flipChapters}}"
+        active-node-id="{{activeNodeId}}"
+        bind:chaptertap="onChapterTap"
+      />
     </view>
 
-    <ui-fixed-bottom-bar>
-      <ui-button type="secondary" size="sm" slot="left" bind:btntap="onCallStore">联系门店</ui-button>
+    <album-page-footer store-phone="{{storePhone}}" bind:contact="onContactStore" />
+  </block>
+
+  <album-info-sheet
+    visible="{{infoSheetVisible}}"
+    store-note="{{detail ? detail.storeNote : ''}}"
+    node-notes="{{nodeNotes}}"
+    bind:close="onCloseInfoSheet"
+  />
+
+  <ui-bottom-sheet
+    visible="{{authSheetVisible}}"
+    title="授权公示"
+    showActions="{{false}}"
+    scrollable="{{true}}"
+    bind:close="onCloseAuthSheet"
+  >
+    <ui-album-authorize-section
+      checked="{{authChecked}}"
+      authTier="{{authTier}}"
+      submitting="{{authSubmitting}}"
+      bind:toggle="onAuthCheckToggle"
+      bind:tierchange="onAuthTierChange"
+      bind:reject="onRejectAuth"
+      bind:policy="onOpenBenefitPolicy"
+    />
+    <view class="album-detail__auth-submit">
       <ui-button
-        wx:if="{{showAuthSection}}"
         type="primary"
-        slot="right"
+        block
         disabled="{{authSubmitting}}"
         loading="{{authSubmitting}}"
         bind:btntap="onSubmitAuth"
-      >授权公示</ui-button>
-    </ui-fixed-bottom-bar>
-  </block>
+      >确认并进入脱敏预览</ui-button>
+    </view>
+  </ui-bottom-sheet>
 
   <ui-share-sheet
     visible="{{shareSheetVisible}}"

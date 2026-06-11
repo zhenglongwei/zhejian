@@ -1,0 +1,96 @@
+<view class="album-flip-book">
+  <block wx:if="{{!pages.length}}">
+    <view class="album-flip-book__empty">
+      <text class="album-flip-book__empty-text text-caption">{{emptyText}}</text>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="album-flip-book__book">
+      <view class="album-flip-book__spine" />
+      <view class="album-flip-book__frame">
+        <view class="album-flip-book__frame-head">
+          <text class="album-flip-book__label">服务记录</text>
+          <text class="album-flip-book__counter text-caption">
+            {{innerCurrent + 1}} / {{pages.length}}
+          </text>
+        </view>
+
+        <swiper
+          class="album-flip-book__swiper"
+          current="{{innerCurrent}}"
+          duration="{{320}}"
+          easing-function="easeOutCubic"
+          previous-margin="36rpx"
+          next-margin="36rpx"
+          bindchange="onSwiperChange"
+        >
+          <swiper-item wx:for="{{pages}}" wx:key="id">
+            <view
+              class="album-flip-book__page {{innerCurrent === index ? 'album-flip-book__page--active' : ''}} {{flipDirection === 'next' ? 'album-flip-book__page--from-next' : 'album-flip-book__page--from-prev'}}"
+            >
+              <view class="album-flip-book__photo" data-index="{{index}}" bindtap="onPreview">
+                <image
+                  class="album-flip-book__img"
+                  src="{{item.url}}"
+                  mode="aspectFit"
+                  show-menu-by-longpress="{{false}}"
+                />
+              </view>
+              <view class="album-flip-book__caption">
+                <text class="album-flip-book__node text-h3">{{item.nodeTitle}}</text>
+                <text
+                  wx:if="{{item.imageCountInNode > 1}}"
+                  class="album-flip-book__sub text-caption"
+                >本节点第 {{item.imageIndex + 1}} 张，共 {{item.imageCountInNode}} 张</text>
+                <text wx:if="{{item.note}}" class="album-flip-book__note text-body">{{item.note}}</text>
+                <text wx:if="{{item.time}}" class="album-flip-book__time text-caption">{{item.time}}</text>
+                <text
+                  wx:if="{{showFeedback}}"
+                  class="album-flip-book__feedback text-caption text-link"
+                  bindtap="onFeedbackTap"
+                >对此节点有疑问</text>
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
+
+        <view
+          class="album-flip-book__nav album-flip-book__nav--prev {{innerCurrent <= 0 ? 'album-flip-book__nav--disabled' : ''}}"
+          bindtap="onPrev"
+        >
+          <text class="album-flip-book__nav-icon">‹</text>
+        </view>
+        <view
+          class="album-flip-book__nav album-flip-book__nav--next {{innerCurrent >= pages.length - 1 ? 'album-flip-book__nav--disabled' : ''}}"
+          bindtap="onNext"
+        >
+          <text class="album-flip-book__nav-icon">›</text>
+        </view>
+      </view>
+    </view>
+
+    <scroll-view
+      wx:if="{{chapters.length > 1}}"
+      class="album-flip-book__chapters"
+      scroll-x
+      enable-flex
+      show-scrollbar="{{false}}"
+    >
+      <view class="album-flip-book__chapters-inner">
+        <view
+          wx:for="{{chapters}}"
+          wx:key="nodeId"
+          class="album-flip-book__chapter {{activeChapterIndex === index ? 'album-flip-book__chapter--active' : ''}}"
+          data-index="{{item.startIndex}}"
+          data-chapter="{{index}}"
+          bindtap="onChapterTap"
+        >
+          <text class="album-flip-book__chapter-text text-caption">{{item.title}}</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <text class="album-flip-book__hint text-caption">左右滑动翻页，点击图片可全屏查看</text>
+  </block>
+</view>

@@ -1,0 +1,11 @@
+.album-page-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--size-album-page-footer-min);
+  padding: var(--space-md) var(--page-padding-x);
+  background: var(--color-bg-album);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}

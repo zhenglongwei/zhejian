@@ -1,0 +1,13 @@
+<view class="album-photo-frame album-photo-frame--{{variant}}">
+  <block wx:if="{{showCorners}}">
+    <view class="album-photo-frame__corner album-photo-frame__corner--tl" aria-hidden="true" />
+    <view class="album-photo-frame__corner album-photo-frame__corner--tr" aria-hidden="true" />
+    <view class="album-photo-frame__corner album-photo-frame__corner--bl" aria-hidden="true" />
+    <view class="album-photo-frame__corner album-photo-frame__corner--br" aria-hidden="true" />
+  </block>
+  <view class="album-photo-frame__mat">
+    <view class="album-photo-frame__inner">
+      <slot />
+    </view>
+  </view>
+</view>

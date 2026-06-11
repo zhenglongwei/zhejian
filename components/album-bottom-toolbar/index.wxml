@@ -1,0 +1,27 @@
+<view
+  wx:if="{{chapters.length}}"
+  class="album-bottom-toolbar {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+>
+  <scroll-view
+    class="album-bottom-toolbar__scroll"
+    scroll-x
+    enable-flex
+    show-scrollbar="{{false}}"
+    scroll-into-view="{{scrollIntoView}}"
+    scroll-with-animation
+  >
+    <view class="album-bottom-toolbar__inner">
+      <view
+        wx:for="{{chapters}}"
+        wx:key="nodeId"
+        id="album-chapter-{{item.nodeId}}"
+        class="album-bottom-toolbar__item {{activeNodeId === item.nodeId ? 'album-bottom-toolbar__item--active' : ''}}"
+        data-node-id="{{item.nodeId}}"
+        data-start-index="{{item.startIndex}}"
+        bindtap="onChapterTap"
+      >
+        <text class="album-bottom-toolbar__label text-caption">{{item.title}}</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

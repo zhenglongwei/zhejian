@@ -1,5 +1,5 @@
 <view class="mine-user-header">
-  <view class="mine-user-header__avatar-wrap">
+  <view class="mine-user-header__avatar-shell">
     <button
       wx:if="{{isLoggedIn}}"
       class="mine-user-header__avatar-btn"
@@ -17,18 +17,22 @@
         <text class="mine-user-header__avatar-icon">👤</text>
       </view>
     </button>
-    <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder" bindtap="onUserAreaTap">
+    <view
+      wx:else
+      class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder"
+    >
       <text class="mine-user-header__avatar-icon">👤</text>
     </view>
-    <text wx:if="{{isLoggedIn}}" class="mine-user-header__avatar-hint text-caption">点击换头像</text>
+    <text wx:if="{{isLoggedIn}}" class="mine-user-header__avatar-hint">换头像</text>
   </view>
 
   <view class="mine-user-header__meta">
     <block wx:if="{{isLoggedIn}}">
       <input
-        class="mine-user-header__nickname-input text-h2"
+        class="mine-user-header__nickname-input"
         type="nickname"
-        placeholder="点击填写昵称（选填）"
+        placeholder="昵称（选填）"
+        placeholder-class="mine-user-header__nickname-placeholder"
         value="{{nicknameInput}}"
         maxlength="32"
         bindinput="onNicknameInput"
@@ -41,11 +45,9 @@
         <ui-button type="secondary" size="sm" catch:tap="onBindPhoneTap">绑定手机号</ui-button>
       </view>
     </block>
-    <block wx:else bindtap="onUserAreaTap">
-      <text class="mine-user-header__nickname text-h2">{{guestTitle}}</text>
-      <text class="mine-user-header__guest-desc text-caption">{{guestDesc}}</text>
-      <view class="mine-user-header__login-btn">
-        <ui-button type="primary" size="sm" catch:tap="onLoginTap">{{guestLoginButton}}</ui-button>
+    <block wx:else>
+      <view class="mine-user-header__guest">
+        <ui-button type="primary" block bind:btntap="onLoginTap">{{guestLoginButton}}</ui-button>
       </view>
     </block>
   </view>

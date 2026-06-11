@@ -1,0 +1,13 @@
+<view class="album-page-footer">
+  <ui-button
+    wx:if="{{showContact}}"
+    type="secondary"
+    block
+    bind:btntap="onContactTap"
+  >{{contactLabel}}</ui-button>
+
+  <ui-compliance-notice
+    wx:if="{{showCompliance && resolvedComplianceText}}"
+    text="{{resolvedComplianceText}}"
+  />
+</view>

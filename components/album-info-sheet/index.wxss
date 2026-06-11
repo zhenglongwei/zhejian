@@ -1,0 +1,129 @@
+.album-info-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-popup);
+}
+
+.album-info-sheet__mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--color-mask);
+}
+
+.album-info-sheet__panel {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: 62vh;
+  padding: var(--space-md) var(--space-md) var(--space-lg);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-popup);
+}
+
+.album-info-sheet__head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.album-info-sheet__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-info-sheet__close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  margin-right: calc(-1 * var(--space-xs));
+  border-radius: var(--radius-full);
+}
+
+.album-info-sheet__close--hover {
+  background: var(--color-bg-active);
+}
+
+.album-info-sheet__close-icon {
+  font-size: 40rpx;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+.album-info-sheet__body {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(62vh - 120rpx);
+}
+
+.album-info-sheet__section-title {
+  display: block;
+  margin: var(--space-md) 0 var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.album-info-sheet__store-note {
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.album-info-sheet__store-note-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-info-sheet__note-item {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  margin-bottom: var(--space-md);
+}
+
+.album-info-sheet__thumb {
+  flex-shrink: 0;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+}
+
+.album-info-sheet__thumb--placeholder {
+  border: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-info-sheet__note-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-info-sheet__node-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.album-info-sheet__note-text {
+  display: block;
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}

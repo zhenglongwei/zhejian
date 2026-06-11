@@ -39,6 +39,22 @@ page {
   --color-bg-active: #f2f3f5;
 
   /**
+   * 工具相册域（卷七 UI-ALB）
+   * 略暖「档案纸」底 + 页顶 band；用于我的/相册列表/详情等工具页。
+   */
+  --color-bg-album: #f7f5f2;
+  --color-bg-band: #f0f4fa;
+  --color-album-active: #1677ff;
+  --color-album-active-light: #e8f3ff;
+  --color-album-frame: #e8e4df;
+  --color-album-frame-line: #d9d4cd;
+  --color-album-frame-corner: #c4beb6;
+  --color-album-frame-inner: #faf9f7;
+  --color-nav-icon-well: #f2f3f5;
+  --color-album-toolbar-bg: rgba(247, 245, 242, 0.92);
+  --color-album-caption-bar: rgba(250, 249, 247, 0.96);
+
+  /**
    * 功能色
    * 全站功能主语义控制在 success / warning / danger / info 四类。
    */
@@ -141,7 +157,11 @@ page {
    * 阴影
    */
   --shadow-card: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
+  --shadow-card-soft: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   --shadow-popup: 0 8rpx 40rpx rgba(0, 0, 0, 0.12);
+  --shadow-album-frame: 0 8rpx 32rpx rgba(60, 50, 40, 0.12),
+    0 2rpx 8rpx rgba(60, 50, 40, 0.06);
+  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(60, 50, 40, 0.08);
 
   /**
    * 层级
@@ -172,6 +192,26 @@ page {
   );
 
   --tag-height: 40rpx;
+
+  --tool-band-height: 88rpx;
+  --size-nav-icon-well: 64rpx;
+  --size-nav-icon: 40rpx;
+  --size-album-cover: 128rpx;
+  --size-album-list-thumb: 176rpx;
+  --size-album-list-card-min-height: 220rpx;
+  --size-album-frame-border: 24rpx;
+  --size-album-frame-corner: 32rpx;
+  --size-album-frame-topbar: 64rpx;
+  --size-album-caption-bar: 72rpx;
+  --size-album-immersive-nav: 88rpx;
+  --size-album-toolbar-height: 80rpx;
+  --size-album-page-footer-min: 120rpx;
+  --font-album-display: 26rpx;
+  --font-album-display-lh: 36rpx;
+  --font-album-frame-page: 24rpx;
+  --font-album-frame-page-lh: 34rpx;
+  --radius-album-frame-inner: 8rpx;
+  --radius-album-list-thumb: var(--radius-md);
   --size-rating-star: 40rpx;
   --size-service-entry-icon: 88rpx;
   --size-service-entry-well: 108rpx;
@@ -739,6 +779,28 @@ page {
 /**
  * 辙见业务专用块
  */
+
+.bg-album {
+  background-color: var(--color-bg-album);
+}
+
+.bg-band {
+  background-color: var(--color-bg-band);
+}
+
+.text-album-display {
+  font-size: var(--font-album-display);
+  line-height: var(--font-album-display-lh);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 4rpx;
+  color: var(--color-text-secondary);
+}
+
+.text-album-frame-page {
+  font-size: var(--font-album-frame-page);
+  line-height: var(--font-album-frame-page-lh);
+  color: var(--color-text-tertiary);
+}
 
 .ai-summary-block {
   padding: var(--space-md);

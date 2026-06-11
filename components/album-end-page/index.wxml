@@ -1,0 +1,30 @@
+<view class="album-end-page">
+  <view class="album-end-page__actions">
+    <block wx:if="{{showAuth}}">
+      <ui-button
+        type="primary"
+        block
+        disabled="{{authDisabled}}"
+        bind:btntap="onAuthTap"
+      >{{authLabel}}</ui-button>
+      <text
+        wx:if="{{authDisabled && authHint}}"
+        class="album-end-page__hint text-caption"
+      >{{authHint}}</text>
+    </block>
+
+    <ui-button
+      wx:if="{{showShare}}"
+      type="secondary"
+      block
+      bind:btntap="onShareTap"
+    >{{shareLabel}}</ui-button>
+
+    <ui-button
+      wx:if="{{showFeedback}}"
+      type="ghost"
+      block
+      bind:btntap="onFeedbackTap"
+    >{{feedbackLabel}}</ui-button>
+  </view>
+</view>
