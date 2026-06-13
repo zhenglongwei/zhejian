@@ -1,12 +1,15 @@
 <view
   wx:if="{{chapters.length || stages.length}}"
-  class="album-bottom-toolbar {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+  class="album-bottom-toolbar {{embedded ? 'album-bottom-toolbar--embedded' : ''}} {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+  style="{{overlay && toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
 >
   <block wx:if="{{mode === 'progress'}}">
     <view class="album-bottom-toolbar__panel">
-      <view wx:if="{{activeTitle || displayNote}}" class="album-bottom-toolbar__panel-copy">
+      <view class="album-bottom-toolbar__panel-copy">
         <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
-        <text wx:if="{{displayNote}}" class="album-bottom-toolbar__panel-note" selectable>{{displayNote}}</text>
+        <view wx:if="{{displayNote || captionLine}}" class="album-bottom-toolbar__panel-note-box">
+          <text class="album-bottom-toolbar__panel-note" selectable>{{displayNote || captionLine}}</text>
+        </view>
       </view>
       <view class="album-bottom-toolbar__segments">
         <view

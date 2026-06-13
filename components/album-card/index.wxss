@@ -117,6 +117,18 @@
   text-overflow: ellipsis;
 }
 
+.album-card__summary {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__date {
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
 .album-card__tags {
   display: flex;
   flex-wrap: wrap;

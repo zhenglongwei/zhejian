@@ -27,6 +27,7 @@ const {
   buildPrivateAlbumPrice,
   formatPlanAmountLabel,
 } = require('../utils/album-price')
+const { buildAlbumSummaryFields } = require('../utils/album-summary')
 
 const {
   resolveAlbumCoverUrl,
@@ -349,23 +350,6 @@ function resolvePublicCaseStatus(albumId) {
   return resolvePublicCaseUiStatus(albumId)
 }
 
-function buildSummaryRows(album) {
-  const rows = [
-    { label: '服务项目', value: album.serviceName || '—' },
-    { label: '门店', value: album.store?.name || '—' },
-    { label: '车辆', value: album.vehicleDisplay || '—' },
-    { label: '图片总数', value: `${album.imageCount || 0} 张` },
-  ]
-  const planAmount = resolvePlanAmount(album)
-  if (planAmount != null) {
-    rows.splice(3, 0, {
-      label: '方案报价',
-      value: formatPlanAmountLabel(planAmount),
-    })
-  }
-  return rows
-}
-
 function mapNodesForView(nodes) {
   return (nodes || []).map((node) => ({
     ...node,
@@ -406,7 +390,22 @@ function buildAlbumViewModel(raw) {
   view.planAmount = privatePrice.planAmount
   view.priceMode = privatePrice.priceMode
   view.amount = privatePrice.amount
-  view.summaryRows = buildSummaryRows({ ...view, store })
+
+  const summaryFields = buildAlbumSummaryFields(
+    {
+      createdAt: album.createdAt,
+      updatedAt: album.updatedAt,
+      storeNote: album.storeNote,
+      partsJson: album.parts || [],
+      vehicleJson: album.vehicle,
+    },
+    {
+      ...view,
+      formatPlanAmountLabel,
+    },
+    privatePrice,
+  )
+  Object.assign(view, summaryFields)
   return view
 }
 
@@ -534,6 +533,10 @@ async function mockFetchUserServiceAlbums(options = {}) {
         isPublic: view.publicCaseStatus === 'public_approved',
         coverUrl: resolveAlbumCoverUrl({ nodes: raw.nodes }),
         stageProgress: buildAlbumListStageProgress({ nodes: raw.nodes }),
+        deliverDateText: view.deliverDateText,
+        summaryLine: view.summaryLine,
+        summaryRows: view.summaryRows,
+        partsSummary: view.partsSummary,
       }
     })
     .filter((item) => item.imageCount > 0)

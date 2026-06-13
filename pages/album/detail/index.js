@@ -32,17 +32,36 @@ const {
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
+const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
 
 function getWindowMetrics() {
   try {
     return typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
   } catch (err) {
-    return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20 }
+    return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20, screenHeight: 667, safeArea: null }
   }
 }
 
-function rpxToPx(rpx, windowWidth) {
-  return (rpx / 750) * windowWidth
+function resolveToolbarBottomPadPx() {
+  try {
+    const win = getWindowMetrics()
+    const screenHeight = win.screenHeight || win.windowHeight || 667
+    const safeBottom = (win.safeArea && win.safeArea.bottom) || screenHeight
+    const inset = Math.max(screenHeight - safeBottom, 0)
+    return Math.max(inset, 34) + 12
+  } catch (err) {
+    return 46
+  }
+}
+
+function measureImmersiveLayout() {
+  const win = getWindowMetrics()
+  const windowHeight = Math.floor(win.windowHeight || win.screenHeight || 667)
+  const toolbarBottomPadPx = resolveToolbarBottomPadPx()
+  return {
+    viewerHeightPx: windowHeight,
+    toolbarBottomPadPx,
+  }
 }
 
 const PUBLIC_CASE_HINT = {
@@ -126,6 +145,24 @@ function buildNodeNoteMap(nodes) {
   return map
 }
 
+function buildNodeNotesForSheet(nodes) {
+  return (nodes || [])
+    .filter((node) => node && String(node.note || '').trim())
+    .map((node) => ({
+      nodeId: node.id || node.nodeId || '',
+      nodeTitle: node.title || '',
+      thumbUrl: (node.images && node.images[0]) || '',
+      note: String(node.note || '').trim(),
+    }))
+}
+
+function buildPartsForSheet(parts) {
+  return (Array.isArray(parts) ? parts : []).map((part) => ({
+    ...part,
+    typeVariant: PART_TYPE_VARIANT[part.partType] || 'default',
+  }))
+}
+
 function buildEndPageAuthState(detail, showAuthSection) {
   const status = detail && detail.publicCaseStatus
   if (status === 'pending_review') {
@@ -198,6 +235,12 @@ Page({
     heroCoverUrl: '',
     heroVisible: false,
     navSafeTopPx: 0,
+    toolbarBottomPadPx: 0,
+    infoSheetVisible: false,
+    infoSheetNodeNotes: [],
+    infoSheetParts: [],
+    infoSheetSummaryRows: [],
+    infoSheetPageProgress: '',
   },
 
   onLoad(options) {
@@ -256,10 +299,16 @@ Page({
   },
 
   measureViewerLayout() {
-    const win = getWindowMetrics()
-    const height = Math.max(Math.floor(win.windowHeight), 200)
-    if (height !== this.data.viewerHeightPx) {
-      this.setData({ viewerHeightPx: height })
+    const layout = measureImmersiveLayout()
+    const patch = {
+      viewerHeightPx: layout.viewerHeightPx,
+      toolbarBottomPadPx: layout.toolbarBottomPadPx,
+    }
+    if (
+      patch.viewerHeightPx !== this.data.viewerHeightPx ||
+      patch.toolbarBottomPadPx !== this.data.toolbarBottomPadPx
+    ) {
+      this.setData(patch)
     }
   },
 
@@ -283,28 +332,33 @@ Page({
       pageIndex !== undefined && pageIndex !== null
         ? Number(pageIndex) || 0
         : Number(this.data.pageIndex) || 0
+    const flipPages = this.data.flipPages || []
     const nodeId =
       activeNodeId ||
-      (this.data.flipPages[index] && this.data.flipPages[index].nodeId) ||
+      (flipPages[index] && flipPages[index].nodeId) ||
       ''
     const detail = detailOverride || this.data.detail
-    const nodeNoteMap = this.data.nodeNoteMap || {}
+    const nodeNoteMap = detailOverride
+      ? buildNodeNoteMap((detailOverride.nodes) || [])
+      : this.data.nodeNoteMap || {}
+    const activeTitle = resolveActiveStageTitle(chapters, nodeId)
     const activeStageNote =
-      resolveActiveStageNote(detail, nodeId, this.data.flipPages, index) ||
+      resolveActiveStageNote(detail, nodeId, flipPages, index) ||
       nodeNoteMap[nodeId] ||
-      nodeNoteMap[`title:${resolveActiveStageTitle(chapters, nodeId)}`] ||
+      nodeNoteMap[`title:${activeTitle}`] ||
       ''
     this.setData({
       stageProgress: buildStageProgress(chapters, nodeId),
-      activeStageTitle: resolveActiveStageTitle(chapters, nodeId),
+      activeStageTitle: activeTitle,
       activeStageNote,
     })
   },
 
   onToggleChrome() {
     if (this.data.isEndPage) return
-    this.setData({ chromeVisible: !this.data.chromeVisible }, () => {
-      if (this.data.chromeVisible) {
+    const nextVisible = !this.data.chromeVisible
+    this.setData({ chromeVisible: nextVisible }, () => {
+      if (nextVisible) {
         this.syncStageProgress(
           this.data.flipChapters,
           this.data.activeNodeId,
@@ -322,6 +376,7 @@ Page({
   onReady() {
     this.fallbackViewerLayout()
     this.scheduleViewerLayout()
+    this.setData({ toolbarBottomPadPx: resolveToolbarBottomPadPx() })
     try {
       const menu = wx.getMenuButtonBoundingClientRect()
       this.setData({ navSafeTopPx: menu.top + menu.height + 6 })
@@ -385,6 +440,10 @@ Page({
         flipPages: flip.pages,
         flipChapters: flip.chapters,
         nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
+        infoSheetNodeNotes: buildNodeNotesForSheet(enriched.nodes || []),
+        infoSheetParts: buildPartsForSheet(enriched.parts || []),
+        infoSheetSummaryRows: enriched.summaryRows || [],
+        infoSheetVisible: false,
         storePhone,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
@@ -401,6 +460,7 @@ Page({
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
+        chromeVisible: pageStatus === 'normal',
         ...endPageAuth,
       }, () => {
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
@@ -550,12 +610,53 @@ Page({
         activeNodeId: nodeId || '',
         isEndPage: false,
         chromeVisible: false,
+        infoSheetVisible: false,
       },
       () => {
         this.syncPageDisplay(nextIndex, total)
         this.syncStageProgress(this.data.flipChapters, nodeId || '', nextIndex)
       },
     )
+  },
+
+  onOpenInfoSheet() {
+    const { pageIndex, flipPages } = this.data
+    const total = flipPages.length + (flipPages.length > 0 ? 1 : 0)
+    const progress = total > 0 ? `${pageIndex + 1} / ${total}` : ''
+    this.setData({
+      infoSheetVisible: true,
+      infoSheetPageProgress: progress,
+    })
+  },
+
+  onCloseInfoSheet() {
+    this.setData({ infoSheetVisible: false })
+  },
+
+  onInfoSheetPartTap(e) {
+    const { index } = e.detail || {}
+    const parts = this.data.infoSheetParts || []
+    const part = parts[Number(index) || 0]
+    const chapters = this.data.flipChapters || []
+    let targetChapter = chapters.find((c) => c && c.nodeId === 'stage_4')
+    if (!targetChapter && part && part.thumbUrl) {
+      const flipPages = this.data.flipPages || []
+      const pageIdx = flipPages.findIndex(
+        (page) => page && page.imageUrl === part.thumbUrl,
+      )
+      if (pageIdx >= 0) {
+        this.onChapterTap({ detail: { startIndex: pageIdx, nodeId: flipPages[pageIdx].nodeId } })
+        return
+      }
+    }
+    if (targetChapter) {
+      this.onChapterTap({
+        detail: {
+          startIndex: targetChapter.startIndex,
+          nodeId: targetChapter.nodeId,
+        },
+      })
+    }
   },
 
   onEndPageAuth() {

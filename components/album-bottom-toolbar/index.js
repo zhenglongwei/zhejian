@@ -38,6 +38,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    embedded: {
+      type: Boolean,
+      value: false,
+    },
     mode: {
       type: String,
       value: 'chips',
@@ -57,6 +61,10 @@ Component({
     nodeNoteMap: {
       type: Object,
       value: {},
+    },
+    toolbarBottomPadPx: {
+      type: Number,
+      value: 0,
     },
   },
 

@@ -89,6 +89,7 @@
       active-title="{{activeStageTitle}}"
       caption-line="{{activeStageNote}}"
       node-note-map="{{nodeNoteMap}}"
+      toolbar-bottom-pad-px="{{toolbarBottomPadPx}}"
       chapters="{{flipChapters}}"
       active-node-id="{{activeNodeId}}"
       bind:chaptertap="onChapterTap"
@@ -109,7 +110,19 @@
         tone="{{navTone}}"
         title=""
         statusBarPlaceholder="{{false}}"
-      />
+      >
+        <view
+          wx:if="{{!isEndPage}}"
+          slot="right"
+          class="album-detail__archive-btn"
+          hover-class="album-detail__archive-btn--hover"
+          bindtap="onOpenInfoSheet"
+          aria-role="button"
+          aria-label="档案"
+        >
+          <text class="album-detail__archive-text text-caption">档案</text>
+        </view>
+      </tool-immersive-nav>
     </view>
   </block>
 
@@ -163,5 +176,17 @@
     bind:close="closeLoginSheet"
     bind:cancel="closeLoginSheet"
     bind:success="onLoginSheetSuccess"
+  />
+
+  <album-info-sheet
+    visible="{{infoSheetVisible}}"
+    scene="album"
+    summary-rows="{{infoSheetSummaryRows}}"
+    parts="{{infoSheetParts}}"
+    store-note="{{detail.storeNote || ''}}"
+    node-notes="{{infoSheetNodeNotes}}"
+    page-progress="{{infoSheetPageProgress}}"
+    bind:close="onCloseInfoSheet"
+    bind:parttap="onInfoSheetPartTap"
   />
 </view>

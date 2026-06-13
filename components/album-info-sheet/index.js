@@ -12,6 +12,14 @@ Component({
       type: String,
       value: 'album',
     },
+    summaryRows: {
+      type: Array,
+      value: [],
+    },
+    parts: {
+      type: Array,
+      value: [],
+    },
     storeNote: {
       type: String,
       value: '',
@@ -26,11 +34,11 @@ Component({
     },
     showContact: {
       type: Boolean,
-      value: true,
+      value: false,
     },
     showCompliance: {
       type: Boolean,
-      value: true,
+      value: false,
     },
     pageProgress: {
       type: String,
@@ -41,6 +49,8 @@ Component({
   data: {
     hasNotes: false,
     hasStorePhone: false,
+    hasParts: false,
+    hasSummaryRows: false,
   },
 
   observers: {
@@ -52,16 +62,24 @@ Component({
     storePhone(phone) {
       this.setData({ hasStorePhone: Boolean(String(phone || '').trim()) })
     },
+    parts(list) {
+      this.setData({ hasParts: Array.isArray(list) && list.length > 0 })
+    },
+    summaryRows(rows) {
+      this.setData({ hasSummaryRows: Array.isArray(rows) && rows.length > 0 })
+    },
   },
 
   lifetimes: {
     attached() {
-      const { storeNote, nodeNotes, storePhone } = this.properties
+      const { storeNote, nodeNotes, storePhone, parts, summaryRows } = this.properties
       const hasStore = Boolean(storeNote && String(storeNote).trim())
       const hasNodes = Array.isArray(nodeNotes) && nodeNotes.length > 0
       this.setData({
         hasNotes: hasStore || hasNodes,
         hasStorePhone: Boolean(String(storePhone || '').trim()),
+        hasParts: Array.isArray(parts) && parts.length > 0,
+        hasSummaryRows: Array.isArray(summaryRows) && summaryRows.length > 0,
       })
     },
   },
@@ -79,6 +97,11 @@ Component({
 
     onContactTap() {
       this.triggerEvent('contact')
+    },
+
+    onPartTap(e) {
+      const { index } = e.currentTarget.dataset
+      this.triggerEvent('parttap', { index: Number(index) || 0 })
     },
   },
 })

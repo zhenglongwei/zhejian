@@ -2,7 +2,7 @@
   <view class="album-info-sheet__mask" bindtap="onMaskTap" />
   <view class="album-info-sheet__panel safe-bottom" catchtap="noop">
     <view class="album-info-sheet__head">
-      <text class="album-info-sheet__title text-h3">说明与隐私</text>
+      <text class="album-info-sheet__title text-h3">说明与档案</text>
       <view
         class="album-info-sheet__close"
         hover-class="album-info-sheet__close--hover"
@@ -20,6 +20,41 @@
       </view>
 
       <ui-privacy-banner scene="{{scene}}" />
+
+      <block wx:if="{{hasSummaryRows}}">
+        <view class="album-info-sheet__section-title text-caption">档案摘要</view>
+        <ui-key-info-table rows="{{summaryRows}}" />
+      </block>
+
+      <block wx:if="{{hasParts}}">
+        <view class="album-info-sheet__section-title text-caption">配件清单</view>
+        <view
+          wx:for="{{parts}}"
+          wx:key="partId"
+          class="album-info-sheet__part-row"
+          data-index="{{index}}"
+          bindtap="onPartTap"
+        >
+          <image
+            wx:if="{{item.thumbUrl}}"
+            class="album-info-sheet__part-thumb"
+            src="{{item.thumbUrl}}"
+            mode="aspectFill"
+          />
+          <view wx:else class="album-info-sheet__part-thumb album-info-sheet__part-thumb--placeholder" />
+          <view class="album-info-sheet__part-main">
+            <text class="album-info-sheet__part-name text-body">{{item.name}}</text>
+            <view class="album-info-sheet__part-meta">
+              <ui-tag
+                wx:if="{{item.partType}}"
+                variant="{{item.typeVariant || 'default'}}"
+                text="{{item.partType}}"
+              />
+              <text class="album-info-sheet__part-qty text-caption">×{{item.qty}}</text>
+            </view>
+          </view>
+        </view>
+      </block>
 
       <block wx:if="{{hasNotes}}">
         <view class="album-info-sheet__section-title text-caption">门店说明</view>

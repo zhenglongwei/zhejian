@@ -71,6 +71,7 @@
       <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
 
       <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
+      <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
 
       <view wx:if="{{item.statusLabel || item.visibilityLabel}}" class="album-card__tags">
         <ui-tag
@@ -97,7 +98,8 @@
         />
       </view>
 
-      <text wx:if="{{item.updatedAtText}}" class="album-card__time text-caption">{{item.updatedAtText}}</text>
+      <text wx:if="{{item.deliverDateText}}" class="album-card__date text-caption">{{item.deliverDateText}}</text>
+      <text wx:elif="{{item.updatedAtText}}" class="album-card__time text-caption">更新于 {{item.updatedAtText}}</text>
     </view>
   </view>
 </ui-card>

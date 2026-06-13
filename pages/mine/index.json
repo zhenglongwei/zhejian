@@ -6,7 +6,6 @@
     "ui-skeleton": "/components/skeleton/index",
     "ui-card": "/components/card/index",
     "ui-cell": "/components/cell/index",
-    "ui-album-card": "/components/album-card/index",
     "ui-mine-user-header": "/components/mine-user-header/index",
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-login-sheet": "/components/login-sheet/index"

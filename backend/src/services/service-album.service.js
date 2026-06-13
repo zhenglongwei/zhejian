@@ -31,6 +31,7 @@ const { config } = require('../config')
 const { getWxaCodeUnlimited } = require('../lib/wechat')
 
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
+const { buildAlbumSummaryFields } = require('../utils/album-summary')
 
 const MERCHANT_TAB_STATUS = {
   all: null,
@@ -132,18 +133,6 @@ function buildAlbumView(album) {
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const privatePrice = buildPrivateAlbumPrice(album)
   const planAmount = privatePrice.planAmount
-  const summaryRows = [
-    { label: '服务项目', value: album.serviceName || '—' },
-    { label: '门店', value: store.name },
-    { label: '车辆', value: vehicleDisplay },
-    { label: '图片总数', value: `${imageCount} 张` },
-  ]
-  if (planAmount != null) {
-    summaryRows.splice(3, 0, {
-      label: '方案报价',
-      value: formatPlanAmountLabel(planAmount),
-    })
-  }
 
   const view = {
     albumId: album.id,
@@ -170,9 +159,17 @@ function buildAlbumView(album) {
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
-    summaryRows,
   }
-  return view
+
+  const summaryFields = buildAlbumSummaryFields(album, {
+    ...view,
+    formatPlanAmountLabel,
+  }, privatePrice)
+
+  return {
+    ...view,
+    ...summaryFields,
+  }
 }
 
 function buildServiceAlbumCompleteness(album, nodes) {
@@ -456,6 +453,10 @@ async function listUserServiceAlbums(userId, options = {}) {
         isPublic: view.publicCaseStatus === 'public_approved',
         coverUrl: buildListCoverUrl(album),
         stageProgress: buildListStageProgress(album),
+        deliverDateText: view.deliverDateText,
+        summaryLine: view.summaryLine,
+        summaryRows: view.summaryRows,
+        partsSummary: view.partsSummary,
       }
     })
     .filter((item) => item.imageCount > 0)

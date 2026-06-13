@@ -306,6 +306,17 @@ page {
 | `--color-album-toolbar-bg` | `rgba(247,245,242,0.92)` | 节点 Tab 底栏半透明底 |
 | `--color-album-caption-bar` | `rgba(250,249,247,0.96)` | 框内短文案条底 |
 | `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
+| `--color-bg-immersive` | `#000` | 沉浸翻页全屏底 |
+| `--color-album-immersive-border` | `rgba(255,255,255,0.14)` | 沉浸面板描边 |
+| `--color-album-immersive-note` | `rgba(255,255,255,0.88)` | 沉浸说明正文 |
+| `--color-album-progress-track` | `rgba(255,255,255,0.18)` | 沉浸顶栏细进度轨 |
+| `--color-album-segment-idle` / `--filled` | `rgba(255,255,255,0.28/0.55)` | 六段进度条 |
+| `--color-album-overlay-chip` | `rgba(255,255,255,0.9)` | overlay 节点 chip 底 |
+| `--color-album-nav-fade-strong` / `--weak` | `rgba(0,0,0,0.42/0.08)` | 沉浸导航渐变 |
+| `--color-album-nav-back` / `--back-pressed` | `rgba(0,0,0,0.28/0.42)` | 沉浸返回按钮底 |
+| `--shadow-album-immersive-panel` | `0 8rpx 28rpx rgba(0,0,0,0.28)` | 沉浸说明面板阴影 |
+| `--shadow-album-overlay-chip` | `0 4rpx 20rpx rgba(0,0,0,0.14)` | overlay chip 阴影 |
+| `--shadow-album-segment-active` | `0 0 12rpx rgba(22,119,255,0.45)` | 当前阶段进度光晕 |
 | `--color-album-end-finish` | `#8a8278` | 尾页「本册已阅」装饰线 |
 | `--shadow-album-frame` | 双层暖色阴影 | 详情全屏相框立体感 |
 | `--shadow-album-list-thumb` | 轻阴影 | 列表缩略图轻相框感 |

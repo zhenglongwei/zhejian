@@ -181,6 +181,8 @@ function appendAlbumListPresentation(item, base = {}) {
     ...base,
     coverUrl,
     metaLine: buildAlbumMetaLine(merged),
+    deliverDateText: merged.deliverDateText || '',
+    summaryLine: merged.summaryLine || '',
     stageProgress,
     authAction,
     showShareButton: resolveUserAlbumShareVisible(merged),
@@ -209,9 +211,8 @@ function enrichServiceAlbumListItem(item, options = {}) {
   }
 
   const privatePrice = buildPrivateAlbumPrice(item)
-  const summaryRows = stripPriceSummaryRow(
-    Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
-  )
+  const summaryRowsFull = Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
+  const summaryRowsForDisplay = stripPriceSummaryRow(summaryRowsFull)
 
   // 列表：私密 Tab 仅展示维修进度；公开 Tab 不展示状态 Tag
   if (listTab === 'public') {
@@ -222,8 +223,8 @@ function enrichServiceAlbumListItem(item, options = {}) {
       visibilityLabel: '',
       visibilityVariant: 'default',
       ...privatePrice,
-      summaryRows,
-      summaryRowsForDisplay: summaryRows,
+      summaryRows: summaryRowsFull,
+      summaryRowsForDisplay,
     })
   }
 
@@ -243,8 +244,8 @@ function enrichServiceAlbumListItem(item, options = {}) {
     statusVariant: repair.statusVariant,
     ...reviewTag,
     ...privatePrice,
-    summaryRows,
-    summaryRowsForDisplay: summaryRows,
+    summaryRows: summaryRowsFull,
+    summaryRowsForDisplay,
   })
 }
 

@@ -2,70 +2,10 @@
   padding-top: var(--space-md);
 }
 
-.mine__sk-block {
-  margin: var(--space-md) 0;
-}
-
 .mine__body {
-  padding-top: var(--space-md);
-  padding-bottom: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-}
-
-.mine__album-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mine__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-xs);
-}
-
-.mine__section-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
-.mine__section-title {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-semibold);
-}
-
-.mine__section-badge {
-  flex-shrink: 0;
-  min-width: 32rpx;
-  height: 32rpx;
-  padding: 0 10rpx;
-  border-radius: 999rpx;
-  background-color: var(--color-danger);
-  color: var(--color-text-inverse);
-  font-size: 20rpx;
-  line-height: 32rpx;
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.mine__more {
-  flex-shrink: 0;
-  color: var(--color-primary);
-}
-
-.mine__album-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mine__empty-hint {
-  display: block;
-  margin-top: var(--space-xs);
-  color: var(--color-text-secondary);
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
 }

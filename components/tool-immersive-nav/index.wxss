@@ -20,8 +20,8 @@
 .tool-immersive-nav--overlay.tool-immersive-nav--transparent.tool-immersive-nav--tone-light {
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.42) 0%,
-    rgba(0, 0, 0, 0.08) 70%,
+    var(--color-album-nav-fade-strong) 0%,
+    var(--color-album-nav-fade-weak) 70%,
     transparent 100%
   );
   border-bottom-color: transparent;
@@ -33,15 +33,15 @@
 }
 
 .tool-immersive-nav--tone-light .tool-immersive-nav__title {
-  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
+  text-shadow: var(--shadow-album-nav-text);
 }
 
 .tool-immersive-nav--tone-light .tool-immersive-nav__back {
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--color-album-nav-back);
 }
 
 .tool-immersive-nav--tone-light .tool-immersive-nav__back--hover {
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--color-album-nav-back-pressed);
 }
 
 .tool-immersive-nav--tone-dark .tool-immersive-nav__back--hover {

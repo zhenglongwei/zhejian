@@ -6,14 +6,14 @@
 
 .album-detail--immersive {
   height: 100vh;
-  overflow: hidden;
-  background: #000;
+  background: var(--color-bg-immersive);
 }
 
 .album-detail__stage {
   position: relative;
   box-sizing: border-box;
   width: 100%;
+  overflow: hidden;
 }
 
 .album-detail__viewer {
@@ -65,15 +65,36 @@
   box-sizing: border-box;
   height: 6rpx;
   padding-right: 200rpx;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--color-album-progress-track);
 }
 
 .album-detail__progress-fill {
   height: 100%;
   border-radius: 0 3rpx 3rpx 0;
   background: #fff;
-  box-shadow: 0 0 8rpx rgba(255, 255, 255, 0.35);
+  box-shadow: var(--shadow-album-progress-fill);
   transition: width 0.28s ease;
+}
+
+.album-detail__archive-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72rpx;
+  height: 56rpx;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-full);
+  background: var(--color-album-nav-back);
+}
+
+.album-detail__archive-btn--hover {
+  background: var(--color-album-nav-back-pressed);
+}
+
+.album-detail__archive-text {
+  font-weight: var(--font-weight-medium);
+  color: #fff;
+  text-shadow: var(--shadow-album-nav-text);
 }
 
 .album-detail__empty-wrap {
