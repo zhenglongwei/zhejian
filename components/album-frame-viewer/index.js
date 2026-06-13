@@ -74,6 +74,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    showImmersiveCaption: {
+      type: Boolean,
+      value: true,
+    },
   },
 
   data: {

@@ -27,7 +27,9 @@ Page({
   },
 
   onShow() {
-    this.loadPage()
+    if (this.data.profileUpdating) return
+    const silent = this.data.isLoggedIn && this.data.status === 'normal'
+    this.loadPage({ silent })
   },
 
   onPullDownRefresh() {
@@ -64,7 +66,9 @@ Page({
     }
   },
 
-  async loadPage() {
+  async loadPage(options = {}) {
+    if (this.data.profileUpdating) return
+
     const loggedIn = isLoggedIn()
     if (!loggedIn) {
       this.syncMenuSections({})
@@ -77,7 +81,10 @@ Page({
       return
     }
 
-    this.setData({ status: 'loading', errorMessage: '' })
+    const silent = Boolean(options.silent)
+    if (!silent) {
+      this.setData({ status: 'loading', errorMessage: '' })
+    }
     try {
       const summary = await fetchMineSummary()
       if (!summary) {

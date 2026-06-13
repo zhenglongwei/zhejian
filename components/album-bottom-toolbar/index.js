@@ -32,6 +32,10 @@ Component({
       type: String,
       value: '',
     },
+    captionLine: {
+      type: String,
+      value: '',
+    },
   },
 
   data: {

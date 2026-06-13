@@ -57,7 +57,7 @@
       </swiper>
 
       <view
-        wx:if="{{currentPageType === 'photo' && currentCaptionLine}}"
+        wx:if="{{showImmersiveCaption && currentPageType === 'photo' && currentCaptionLine}}"
         class="album-frame-viewer__immersive-caption {{chromeVisible ? 'album-frame-viewer__immersive-caption--with-toolbar' : ''}}"
       >
         <view class="album-frame-viewer__immersive-caption-bar">

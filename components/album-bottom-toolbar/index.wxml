@@ -3,7 +3,7 @@
   class="album-bottom-toolbar {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
 >
   <block wx:if="{{mode === 'progress'}}">
-    <view class="album-bottom-toolbar__progress">
+    <view class="album-bottom-toolbar__panel">
       <view class="album-bottom-toolbar__segments">
         <view
           wx:for="{{stages}}"
@@ -14,7 +14,10 @@
           bindtap="onChapterTap"
         />
       </view>
-      <text class="album-bottom-toolbar__stage-name text-caption">{{activeTitle}}</text>
+      <view wx:if="{{activeTitle || captionLine}}" class="album-bottom-toolbar__panel-copy">
+        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node text-body">{{activeTitle}}</text>
+        <text wx:if="{{captionLine}}" class="album-bottom-toolbar__panel-note text-caption">{{captionLine}}</text>
+      </view>
     </view>
   </block>
 

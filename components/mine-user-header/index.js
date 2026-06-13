@@ -1,5 +1,5 @@
 const { TOOL_GUEST_LOGIN_BUTTON } = require('../../constants/tool-login-copy')
-const { normalizeStoredImageUrl } = require('../../utils/media-upload')
+const { normalizeStoredImageUrl, isLocalTempImagePath } = require('../../utils/media-upload')
 
 Component({
   properties: {
@@ -27,7 +27,11 @@ Component({
     'user, avatarPreview': function syncUser(user, avatarPreview) {
       const nickname = (user && user.nickname) || ''
       const rawAvatar = avatarPreview || (user && user.avatarUrl) || ''
-      const avatarUrl = rawAvatar ? normalizeStoredImageUrl(rawAvatar) : ''
+      const avatarUrl = rawAvatar
+        ? isLocalTempImagePath(rawAvatar)
+          ? rawAvatar
+          : normalizeStoredImageUrl(rawAvatar)
+        : ''
       this._savedNickname = nickname
       this.setData({
         nicknameInput: nickname,
