@@ -1,4 +1,8 @@
 Component({
+  options: {
+    addGlobalClass: true,
+  },
+
   properties: {
     item: {
       type: Object,
@@ -8,15 +12,44 @@ Component({
       type: String,
       value: 'user',
     },
+    showProgress: {
+      type: Boolean,
+      value: true,
+    },
+    framed: {
+      type: Boolean,
+      value: true,
+    },
+    showHeaderActions: {
+      type: Boolean,
+      value: true,
+    },
   },
+
   methods: {
     onTap() {
       const { item } = this.properties
       if (!item || !item.albumId) return
       this.triggerEvent('tap', { id: item.albumId })
     },
+
+    onActionAreaTap() {},
+
     onShareTap() {
-      // 阻止冒泡至卡片跳转；实际分享由页面 onShareAppMessage 处理
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('share', { id: item.albumId })
+    },
+
+    onAuthTap() {
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('authorize', {
+        id: item.albumId,
+        publicCaseStatus: item.publicCaseStatus || 'private',
+        disabled: Boolean(item.authAction && item.authAction.disabled),
+        hint: (item.authAction && item.authAction.hint) || '',
+      })
     },
   },
 })

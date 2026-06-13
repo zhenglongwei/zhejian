@@ -57,6 +57,7 @@
         <album-end-page
           slot="endPage"
           album-id="{{albumId}}"
+          album-title="{{detail.serviceName || ''}}"
           show-auth="{{endPageShowAuth}}"
           auth-label="{{endPageAuthLabel}}"
           auth-disabled="{{endPageAuthDisabled}}"
@@ -79,7 +80,7 @@
       />
 
       <album-bottom-toolbar
-        wx:if="{{chromeVisible && stageProgress.length}}"
+        wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
         overlay="{{true}}"
         mode="progress"
         stages="{{stageProgress}}"

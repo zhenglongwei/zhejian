@@ -1,37 +1,47 @@
 <view class="album-end-page">
-  <view class="album-end-page__actions">
-    <block wx:if="{{showAuth}}">
+  <view class="album-end-page__sheet">
+    <view class="album-end-page__finisher" aria-hidden="true">
+      <view class="album-end-page__finisher-line" />
+      <text class="album-end-page__finisher-label text-caption">本册已阅</text>
+      <view class="album-end-page__finisher-line" />
+    </view>
+
+    <text wx:if="{{albumTitle}}" class="album-end-page__album-title text-caption">{{albumTitle}}</text>
+
+    <view class="album-end-page__actions">
+      <block wx:if="{{showAuth}}">
+        <ui-button
+          type="primary"
+          block
+          disabled="{{authDisabled}}"
+          bind:btntap="onAuthTap"
+        >{{authLabel}}</ui-button>
+        <text
+          wx:if="{{authDisabled && authHint}}"
+          class="album-end-page__hint text-caption"
+        >{{authHint}}</text>
+      </block>
+
       <ui-button
-        type="primary"
+        wx:if="{{showShare}}"
+        type="secondary"
         block
-        disabled="{{authDisabled}}"
-        bind:btntap="onAuthTap"
-      >{{authLabel}}</ui-button>
-      <text
-        wx:if="{{authDisabled && authHint}}"
-        class="album-end-page__hint text-caption"
-      >{{authHint}}</text>
-    </block>
+        bind:btntap="onShareTap"
+      >{{shareLabel}}</ui-button>
 
-    <ui-button
-      wx:if="{{showShare}}"
-      type="secondary"
-      block
-      bind:btntap="onShareTap"
-    >{{shareLabel}}</ui-button>
+      <ui-button
+        wx:if="{{showContact}}"
+        type="secondary"
+        block
+        bind:btntap="onContactTap"
+      >{{contactLabel}}</ui-button>
 
-    <ui-button
-      wx:if="{{showContact}}"
-      type="secondary"
-      block
-      bind:btntap="onContactTap"
-    >{{contactLabel}}</ui-button>
-
-    <ui-button
-      wx:if="{{showFeedback}}"
-      type="ghost"
-      block
-      bind:btntap="onFeedbackTap"
-    >{{feedbackLabel}}</ui-button>
+      <ui-button
+        wx:if="{{showFeedback}}"
+        type="ghost"
+        block
+        bind:btntap="onFeedbackTap"
+      >{{feedbackLabel}}</ui-button>
+    </view>
   </view>
 </view>

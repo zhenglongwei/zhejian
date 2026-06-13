@@ -2,6 +2,7 @@
   "component": true,
   "usingComponents": {
     "ui-card": "/components/card/index",
-    "ui-tag": "/components/tag/index"
+    "ui-tag": "/components/tag/index",
+    "album-photo-frame": "/components/album-photo-frame/index"
   }
 }

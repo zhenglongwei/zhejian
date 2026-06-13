@@ -80,6 +80,39 @@ function mapNodesForView(album) {
   })
 }
 
+function buildListCoverUrl(album) {
+  const images = album.images || []
+  if (images.length) {
+    const url =
+      images[0].rawUrl || images[0].url || images[0].imageUrl || ''
+    return rewriteMediaUrlForCurrentBase(url)
+  }
+  const nodes = mapNodesForView(album)
+  for (const node of nodes) {
+    if (node.images && node.images[0]) return node.images[0]
+  }
+  return ''
+}
+
+function buildListStageProgress(album) {
+  const nodes = mapNodesForView(album)
+  const nodeById = {}
+  nodes.forEach((node) => {
+    if (node && node.id) nodeById[node.id] = node
+  })
+  return DEFAULT_STAGE_NODES.map((stage) => {
+    const node = nodeById[stage.nodeId]
+    const filled =
+      Boolean(node) &&
+      ((node.images || []).length > 0 || String(node.note || '').trim())
+    return {
+      id: stage.nodeId,
+      title: stage.title,
+      filled,
+    }
+  })
+}
+
 function buildStoreBlock(album) {
   return {
     id: album.storeId || '',
@@ -421,6 +454,8 @@ async function listUserServiceAlbums(userId, options = {}) {
         createdAt: view.createdAt,
         updatedAt: view.updatedAt,
         isPublic: view.publicCaseStatus === 'public_approved',
+        coverUrl: buildListCoverUrl(album),
+        stageProgress: buildListStageProgress(album),
       }
     })
     .filter((item) => item.imageCount > 0)

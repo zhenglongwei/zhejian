@@ -6,10 +6,105 @@ const {
   ALBUM_VISIBILITY_LABEL,
   ALBUM_VISIBILITY_VARIANT,
 } = require('../constants/service-album-status')
+const { SERVICE_ALBUM_STAGES } = require('../constants/service-album-stages')
 const {
   buildPrivateAlbumPrice,
 } = require('./album-price')
 const { canShareToOwner } = require('./service-album-share')
+const { canOwnerShareAlbum } = require('./album-owner-share')
+const { resolveImageSrc, resolveMediaUrl } = require('./desensitize-url')
+
+function resolveAlbumCoverUrl(item = {}) {
+  if (item.coverUrl) {
+    const resolved = resolveImageSrc(item.coverUrl)
+    if (resolved) return resolved
+    const media = resolveMediaUrl(item.coverUrl)
+    if (media) return media
+  }
+  const nodes = item.nodes || []
+  for (let i = 0; i < nodes.length; i += 1) {
+    const images = nodes[i].images || []
+    for (let j = 0; j < images.length; j += 1) {
+      const resolved = resolveImageSrc(images[j])
+      if (resolved) return resolved
+      const media = resolveMediaUrl(images[j])
+      if (media) return media
+    }
+  }
+  return ''
+}
+
+function buildAlbumListStageProgress(item = {}) {
+  if (Array.isArray(item.stageProgress) && item.stageProgress.length) {
+    return item.stageProgress
+  }
+  const nodeById = {}
+  ;(item.nodes || []).forEach((node) => {
+    if (node && node.id) nodeById[node.id] = node
+  })
+  return SERVICE_ALBUM_STAGES.map((stage) => {
+    const node = nodeById[stage.id]
+    const filled =
+      Boolean(node) &&
+      ((node.images || []).length > 0 || String(node.note || '').trim())
+    return {
+      id: stage.id,
+      title: stage.title,
+      filled,
+    }
+  })
+}
+
+function buildAlbumMetaLine(item = {}) {
+  const parts = []
+  if (item.vehicleDisplay) parts.push(item.vehicleDisplay)
+  const count = Number(item.imageCount) || 0
+  if (count > 0) parts.push(`${count} 张`)
+  return parts.join(' · ')
+}
+
+function resolveAlbumAuthAction(item = {}) {
+  if (!isRepairCompleted(item.status)) {
+    return { show: false, label: '', disabled: false, hint: '' }
+  }
+  if ((Number(item.imageCount) || 0) < 1) {
+    return { show: false, label: '', disabled: false, hint: '' }
+  }
+  const status = item.publicCaseStatus || 'private'
+  if (status === 'pending_review') {
+    return {
+      show: true,
+      label: '审核中',
+      disabled: true,
+      hint: '公开申请审核中，通过后将展示在案例页与公开网页。',
+    }
+  }
+  if (status === 'public_approved') {
+    return {
+      show: true,
+      label: '已公开',
+      disabled: true,
+      hint: '当前为公开相册，已在案例页与公开网页展示。',
+    }
+  }
+  if (
+    status === 'private' ||
+    status === 'authorization_pending' ||
+    status === 'user_rejected'
+  ) {
+    return { show: true, label: '授权公示', disabled: false, hint: '' }
+  }
+  return { show: false, label: '', disabled: false, hint: '' }
+}
+
+function resolveUserAlbumShareVisible(item = {}) {
+  const canOwnerShare = canOwnerShareAlbum({
+    albumId: item.albumId,
+    status: item.status,
+    imageCount: item.imageCount,
+  })
+  return canOwnerShare || item.publicCaseStatus === 'public_approved'
+}
 
 function stripPriceSummaryRow(rows = []) {
   return rows.filter(
@@ -77,6 +172,21 @@ function resolveMerchantAlbumDisplayStatus(rawStatus) {
   }
 }
 
+function appendAlbumListPresentation(item, base = {}) {
+  const merged = { ...item, ...base }
+  const coverUrl = resolveAlbumCoverUrl(merged)
+  const stageProgress = buildAlbumListStageProgress(merged)
+  const authAction = resolveAlbumAuthAction(merged)
+  return {
+    ...base,
+    coverUrl,
+    metaLine: buildAlbumMetaLine(merged),
+    stageProgress,
+    authAction,
+    showShareButton: resolveUserAlbumShareVisible(merged),
+  }
+}
+
 function enrichServiceAlbumListItem(item, options = {}) {
   const audience = options.audience || 'user'
   const listTab = options.listTab || 'private'
@@ -91,11 +201,11 @@ function enrichServiceAlbumListItem(item, options = {}) {
 
   if (audience === 'merchant') {
     const display = resolveMerchantAlbumDisplayStatus(status)
-    return {
+    return appendAlbumListPresentation(item, {
       ...base,
       statusLabel: display.statusLabel,
       statusVariant: display.statusVariant,
-    }
+    })
   }
 
   const privatePrice = buildPrivateAlbumPrice(item)
@@ -105,7 +215,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
 
   // 列表：私密 Tab 仅展示维修进度；公开 Tab 不展示状态 Tag
   if (listTab === 'public') {
-    return {
+    return appendAlbumListPresentation(item, {
       ...base,
       statusLabel: '',
       statusVariant: 'default',
@@ -114,7 +224,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
       ...privatePrice,
       summaryRows,
       summaryRowsForDisplay: summaryRows,
-    }
+    })
   }
 
   const repair = resolveRepairProgress(status)
@@ -127,7 +237,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
         }
       : { visibilityLabel: '', visibilityVariant: 'default' }
 
-  return {
+  return appendAlbumListPresentation(item, {
     ...base,
     statusLabel: repair.statusLabel,
     statusVariant: repair.statusVariant,
@@ -135,7 +245,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
     ...privatePrice,
     summaryRows,
     summaryRowsForDisplay: summaryRows,
-  }
+  })
 }
 
 function enrichMerchantAlbumListItem(item) {
@@ -197,4 +307,8 @@ module.exports = {
   resolveAlbumVisibility,
   isRepairCompleted,
   stripPriceSummaryRow,
+  resolveAlbumCoverUrl,
+  buildAlbumListStageProgress,
+  buildAlbumMetaLine,
+  resolveAlbumAuthAction,
 }

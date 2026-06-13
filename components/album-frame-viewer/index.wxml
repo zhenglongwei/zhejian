@@ -31,7 +31,7 @@
         bindchange="onSwiperChange"
       >
         <swiper-item wx:for="{{displayPages}}" wx:key="id">
-          <view class="album-frame-viewer__slide album-frame-viewer__slide--immersive">
+          <view class="album-frame-viewer__slide album-frame-viewer__slide--immersive {{item.type === 'end' ? 'album-frame-viewer__slide--end' : ''}}">
             <block wx:if="{{item.type === 'photo'}}">
               <view class="album-frame-viewer__photo-tap" bindtap="onStageTap">
                 <image
@@ -57,10 +57,12 @@
       </swiper>
 
       <view
-        wx:if="{{chromeVisible && currentPageType === 'photo' && currentCaptionLine}}"
-        class="album-frame-viewer__immersive-caption"
+        wx:if="{{currentPageType === 'photo' && currentCaptionLine}}"
+        class="album-frame-viewer__immersive-caption {{chromeVisible ? 'album-frame-viewer__immersive-caption--with-toolbar' : ''}}"
       >
-        <text class="album-frame-viewer__immersive-caption-text text-caption">{{currentCaptionLine}}</text>
+        <view class="album-frame-viewer__immersive-caption-bar">
+          <text class="album-frame-viewer__immersive-caption-text text-body">{{currentCaptionLine}}</text>
+        </view>
       </view>
     </view>
   </block>

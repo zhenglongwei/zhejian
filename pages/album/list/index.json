@@ -6,6 +6,10 @@
     "ui-skeleton": "/components/skeleton/index",
     "ui-empty": "/components/empty/index",
     "ui-album-card": "/components/album-card/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-login-sheet": "/components/login-sheet/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "ui-album-authorize-section": "/components/album-authorize-section/index",
+    "ui-button": "/components/button/index",
+    "ui-share-sheet": "/components/share-sheet/index"
   }
 }

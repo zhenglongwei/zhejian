@@ -1,7 +1,78 @@
-<ui-card shadow="{{true}}" padding="{{true}}">
-  <view class="record-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
-    <view class="record-card__head">
-      <view class="record-card__tags">
+<ui-card shadow="{{true}}" padding="{{false}}">
+  <view class="album-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
+    <view class="album-card__thumb-col">
+      <block wx:if="{{framed}}">
+        <album-photo-frame variant="thumb">
+          <view class="album-card__thumb-wrap">
+            <image
+              wx:if="{{item.coverUrl}}"
+              class="album-card__thumb"
+              src="{{item.coverUrl}}"
+              mode="aspectFill"
+              lazy-load="{{true}}"
+            />
+            <view wx:else class="album-card__thumb album-card__thumb--placeholder">
+              <text class="album-card__thumb-ph text-caption">相册</text>
+            </view>
+          </view>
+        </album-photo-frame>
+      </block>
+      <block wx:else>
+        <view class="album-card__thumb-wrap album-card__thumb-wrap--plain">
+          <image
+            wx:if="{{item.coverUrl}}"
+            class="album-card__thumb"
+            src="{{item.coverUrl}}"
+            mode="aspectFill"
+            lazy-load="{{true}}"
+          />
+          <view wx:else class="album-card__thumb album-card__thumb--placeholder">
+            <text class="album-card__thumb-ph text-caption">相册</text>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <view class="album-card__body">
+      <view class="album-card__head">
+        <text class="album-card__service text-body">{{item.serviceName}}</text>
+        <view
+          wx:if="{{audience === 'user' && showHeaderActions}}"
+          class="album-card__actions"
+          catchtap="onActionAreaTap"
+        >
+          <view
+            wx:if="{{item.showShareButton}}"
+            class="album-card__action"
+            data-action="share"
+            catchtap="onShareTap"
+          >
+            <text class="album-card__action-text text-caption">分享</text>
+          </view>
+          <view
+            wx:if="{{item.authAction.show}}"
+            class="album-card__action {{item.authAction.disabled ? 'album-card__action--muted' : ''}}"
+            data-action="authorize"
+            catchtap="onAuthTap"
+          >
+            <text class="album-card__action-text text-caption">{{item.authAction.label}}</text>
+          </view>
+        </view>
+        <button
+          wx:elif="{{audience === 'merchant' && item.canShareToOwner}}"
+          class="album-card__share-btn"
+          open-type="share"
+          catchtap="onShareTap"
+          data-album-id="{{item.albumId}}"
+        >分享</button>
+      </view>
+
+      <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta text-caption">{{item.storeName}}</text>
+      <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+
+      <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
+
+      <view wx:if="{{item.statusLabel || item.visibilityLabel}}" class="album-card__tags">
         <ui-tag
           wx:if="{{item.statusLabel}}"
           variant="{{item.statusVariant}}"
@@ -13,30 +84,20 @@
           text="{{item.visibilityLabel}}"
         />
       </view>
-      <view class="record-card__head-right">
-        <button
-          wx:if="{{audience === 'merchant' && item.canShareToOwner}}"
-          class="record-card__share-btn"
-          open-type="share"
-          catchtap="onShareTap"
-          data-album-id="{{item.albumId}}"
-          data-store-name="{{item.storeName}}"
-          data-user-phone="{{item.userPhone}}"
-        >分享</button>
-        <text wx:if="{{item.updatedAtText}}" class="record-card__time text-caption">{{item.updatedAtText}}</text>
+
+      <view
+        wx:if="{{showProgress && item.stageProgress.length}}"
+        class="album-card__progress"
+        aria-hidden="true"
+      >
+        <view
+          wx:for="{{item.stageProgress}}"
+          wx:key="id"
+          class="album-card__progress-seg {{item.filled ? 'album-card__progress-seg--filled' : ''}}"
+        />
       </view>
+
+      <text wx:if="{{item.updatedAtText}}" class="album-card__time text-caption">{{item.updatedAtText}}</text>
     </view>
-
-    <text class="record-card__service text-body">{{item.serviceName}}</text>
-
-    <block wx:if="{{audience === 'user'}}">
-      <text wx:if="{{item.storeName}}" class="record-card__meta text-caption">{{item.storeName}}</text>
-    </block>
-    <block wx:else>
-      <text wx:if="{{item.userPhoneDisplay}}" class="record-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
-    </block>
-
-    <text wx:if="{{item.vehicleDisplay}}" class="record-card__meta text-caption">{{item.vehicleDisplay}}</text>
-    <text wx:if="{{item.imageCount}}" class="record-card__meta text-caption">{{item.imageCount}} 张过程图</text>
   </view>
 </ui-card>

@@ -305,6 +305,8 @@ page {
 | `--color-nav-icon-well` | `#f2f3f5` | 我的/设置菜单图标底块 |
 | `--color-album-toolbar-bg` | `rgba(247,245,242,0.92)` | 节点 Tab 底栏半透明底 |
 | `--color-album-caption-bar` | `rgba(250,249,247,0.96)` | 框内短文案条底 |
+| `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
+| `--color-album-end-finish` | `#8a8278` | 尾页「本册已阅」装饰线 |
 | `--shadow-album-frame` | 双层暖色阴影 | 详情全屏相框立体感 |
 | `--shadow-album-list-thumb` | 轻阴影 | 列表缩略图轻相框感 |
 | `--size-album-list-thumb` | `176rpx` | 列表卡左缩略图边长（160～200 取中） |

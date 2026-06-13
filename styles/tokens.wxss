@@ -53,6 +53,8 @@ page {
   --color-nav-icon-well: #f2f3f5;
   --color-album-toolbar-bg: rgba(247, 245, 242, 0.92);
   --color-album-caption-bar: rgba(250, 249, 247, 0.96);
+  --color-album-immersive-caption-bg: rgba(22, 20, 18, 0.88);
+  --color-album-end-finish: #8a8278;
 
   /**
    * 功能色

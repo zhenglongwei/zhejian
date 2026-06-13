@@ -28,7 +28,10 @@ const {
   formatPlanAmountLabel,
 } = require('../utils/album-price')
 
-const { buildDesensitizedUrl } = require('../utils/desensitize-url')
+const {
+  resolveAlbumCoverUrl,
+  buildAlbumListStageProgress,
+} = require('../utils/service-album-display')
 const { SHARE_MODE } = require('../constants/album-share')
 
 const STORAGE_KEY = 'service_albums_v1'
@@ -529,6 +532,8 @@ async function mockFetchUserServiceAlbums(options = {}) {
         createdAt: view.createdAt,
         updatedAt: view.updatedAt,
         isPublic: view.publicCaseStatus === 'public_approved',
+        coverUrl: resolveAlbumCoverUrl({ nodes: raw.nodes }),
+        stageProgress: buildAlbumListStageProgress({ nodes: raw.nodes }),
       }
     })
     .filter((item) => item.imageCount > 0)

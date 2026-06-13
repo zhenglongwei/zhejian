@@ -1,4 +1,8 @@
-<view class="page album-list">
+<view class="page album-list bg-album">
+  <view class="album-list__band">
+    <text class="album-list__band-title text-body">服务相册 · 门店维修记录</text>
+  </view>
+
   <view class="album-list__tabs page-content">
     <ui-tabs
       tabs="{{tabs}}"
@@ -10,12 +14,14 @@
 
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content album-list__list">
-      <ui-skeleton wx:for="{{[1,2,3]}}" wx:key="*this" rows="{{4}}" />
+      <view class="album-list__skeleton-card" wx:for="{{[1,2,3]}}" wx:key="*this">
+        <ui-skeleton rows="{{3}}" />
+      </view>
     </view>
   </block>
 
   <block wx:elif="{{status === 'unauthenticated'}}">
-    <view class="page-content">
+    <view class="page-content album-list__state">
       <ui-empty
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看服务相册'}}"
         description="{{needPhone ? '绑定后可查看门店为你创建的服务相册' : '登录后可查看门店为你创建的服务相册'}}"
@@ -26,7 +32,7 @@
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
+    <view class="page-content album-list__state">
       <ui-empty
         title="加载失败"
         description="{{errorMessage}}"
@@ -45,7 +51,7 @@
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content">
+    <view class="page-content album-list__state">
       <ui-empty
         title="暂无公开相册"
         description="审核通过并公开展示的案例将出现在这里"
@@ -60,9 +66,54 @@
         wx:key="albumId"
         item="{{item}}"
         bind:tap="onCardTap"
+        bind:share="onCardShare"
+        bind:authorize="onCardAuthorize"
       />
     </view>
   </block>
+
+  <ui-bottom-sheet
+    visible="{{authSheetVisible}}"
+    title="授权公示"
+    showActions="{{false}}"
+    scrollable="{{true}}"
+    bind:close="onCloseAuthSheet"
+  >
+    <ui-album-authorize-section
+      checked="{{authChecked}}"
+      authTier="{{authTier}}"
+      submitting="{{authSubmitting}}"
+      showActions="{{false}}"
+      showRejectLink="{{true}}"
+      bind:toggle="onAuthCheckToggle"
+      bind:tierchange="onAuthTierChange"
+      bind:reject="onRejectAuth"
+      bind:policy="onOpenBenefitPolicy"
+    />
+    <view class="album-list__auth-submit">
+      <ui-button
+        type="primary"
+        block
+        disabled="{{authSubmitting}}"
+        loading="{{authSubmitting}}"
+        bind:btntap="onSubmitAuth"
+      >确认并进入脱敏预览</ui-button>
+    </view>
+  </ui-bottom-sheet>
+
+  <ui-share-sheet
+    visible="{{shareSheetVisible}}"
+    showOwnerShare="{{showShareEntry}}"
+    shareIntent="{{shareSheetIntent}}"
+    shareUseOriginal="{{shareUseOriginal}}"
+    ownerSharePreparing="{{sharePreparing}}"
+    actionsDisabled="{{shareActionsDisabled}}"
+    bind:close="onCloseShareSheet"
+    bind:toggleoriginal="onShareOriginalToggle"
+    bind:copyownerlink="onCopyOwnerShareLink"
+    bind:copypublicweblink="onCopyPublicWebLink"
+    bind:sharetimeline="onShareTimelineGuide"
+  />
 
   <ui-login-sheet
     visible="{{loginSheetVisible}}"

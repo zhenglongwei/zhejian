@@ -8,6 +8,10 @@ Component({
       type: String,
       value: '',
     },
+    albumTitle: {
+      type: String,
+      value: '',
+    },
     showAuth: {
       type: Boolean,
       value: false,
