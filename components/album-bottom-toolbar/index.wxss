@@ -5,7 +5,7 @@
   left: 0;
   z-index: calc(var(--z-fixed) + 4);
   height: auto;
-  padding: 0 var(--space-sm) calc(env(safe-area-inset-bottom) + var(--space-sm));
+  padding: 0 var(--space-md) calc(env(safe-area-inset-bottom) + var(--space-md));
   background: transparent;
   border-top: none;
   pointer-events: none;
@@ -96,7 +96,8 @@
   gap: var(--space-sm);
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-sm) var(--space-md);
+  max-height: 46vh;
+  padding: var(--space-md);
   border: 1rpx solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius-md);
   background: var(--color-album-immersive-caption-bg);
@@ -107,41 +108,38 @@
 .album-bottom-toolbar__panel-copy {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: var(--space-xs);
   width: 100%;
-  max-height: 42vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 .album-bottom-toolbar__panel-node {
+  flex-shrink: 0;
   color: #fff;
   font-size: var(--font-body);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-body-lh);
 }
 
-.album-bottom-toolbar__panel-note-wrap {
-  width: 100%;
-}
-
 .album-bottom-toolbar__panel-note {
   display: block;
+  flex-shrink: 0;
   box-sizing: border-box;
   width: 100%;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.94);
   font-size: var(--font-caption);
-  line-height: var(--font-caption-lh);
+  line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
 }
 
 .album-bottom-toolbar__segments {
   display: flex;
+  flex-shrink: 0;
   gap: 6rpx;
   align-items: center;
   width: 100%;
-  max-width: 520rpx;
 }
 
 .album-bottom-toolbar__segment {
@@ -160,4 +158,3 @@
   background: var(--color-album-active);
   box-shadow: 0 0 12rpx rgba(22, 119, 255, 0.45);
 }
-

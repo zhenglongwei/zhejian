@@ -116,9 +116,12 @@ function resolveActiveStageNote(detail, activeNodeId, flipPages, pageIndex) {
 function buildNodeNoteMap(nodes) {
   const map = {}
   ;(nodes || []).forEach((node) => {
-    const id = node && (node.id || node.nodeId)
     const note = String((node && node.note) || '').trim()
-    if (id && note) map[id] = note
+    if (!note) return
+    const id = node && (node.id || node.nodeId)
+    const title = String((node && node.title) || '').trim()
+    if (id) map[id] = note
+    if (title) map[`title:${title}`] = note
   })
   return map
 }
@@ -275,7 +278,7 @@ Page({
     })
   },
 
-  syncStageProgress(chapters, activeNodeId, pageIndex) {
+  syncStageProgress(chapters, activeNodeId, pageIndex, detailOverride) {
     const index =
       pageIndex !== undefined && pageIndex !== null
         ? Number(pageIndex) || 0
@@ -284,15 +287,17 @@ Page({
       activeNodeId ||
       (this.data.flipPages[index] && this.data.flipPages[index].nodeId) ||
       ''
+    const detail = detailOverride || this.data.detail
+    const nodeNoteMap = this.data.nodeNoteMap || {}
+    const activeStageNote =
+      resolveActiveStageNote(detail, nodeId, this.data.flipPages, index) ||
+      nodeNoteMap[nodeId] ||
+      nodeNoteMap[`title:${resolveActiveStageTitle(chapters, nodeId)}`] ||
+      ''
     this.setData({
       stageProgress: buildStageProgress(chapters, nodeId),
       activeStageTitle: resolveActiveStageTitle(chapters, nodeId),
-      activeStageNote: resolveActiveStageNote(
-        this.data.detail,
-        nodeId,
-        this.data.flipPages,
-        index,
-      ),
+      activeStageNote,
     })
   },
 
@@ -401,7 +406,7 @@ Page({
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
         const activeId = (flip.chapters[0] && flip.chapters[0].nodeId) || ''
         this.syncPageDisplay(0, total)
-        this.syncStageProgress(flip.chapters, activeId, 0)
+        this.syncStageProgress(flip.chapters, activeId, 0, enriched)
         this.scheduleViewerLayout()
         setTimeout(() => this.dismissHeroCover(), 280)
       })

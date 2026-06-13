@@ -1,3 +1,21 @@
+function resolveDisplayNote(captionLine, activeNodeId, activeTitle, nodeNoteMap) {
+  const direct = String(captionLine || '').trim()
+  if (direct) return direct
+
+  const map = nodeNoteMap || {}
+  const nodeId = String(activeNodeId || '').trim()
+  if (nodeId && map[nodeId]) {
+    return String(map[nodeId]).trim()
+  }
+
+  const title = String(activeTitle || '').trim()
+  if (title && map[`title:${title}`]) {
+    return String(map[`title:${title}`]).trim()
+  }
+
+  return ''
+}
+
 Component({
   options: {
     addGlobalClass: true,
@@ -36,10 +54,15 @@ Component({
       type: String,
       value: '',
     },
+    nodeNoteMap: {
+      type: Object,
+      value: {},
+    },
   },
 
   data: {
     scrollIntoView: '',
+    displayNote: '',
   },
 
   observers: {
@@ -51,15 +74,37 @@ Component({
         scrollIntoView: resolvedId ? `album-chapter-${resolvedId}` : '',
       })
     },
+    'captionLine, activeNodeId, activeTitle, nodeNoteMap': function syncDisplayNote(
+      captionLine,
+      activeNodeId,
+      activeTitle,
+      nodeNoteMap,
+    ) {
+      this.setData({
+        displayNote: resolveDisplayNote(
+          captionLine,
+          activeNodeId,
+          activeTitle,
+          nodeNoteMap,
+        ),
+      })
+    },
   },
 
   lifetimes: {
     attached() {
-      const { activeNodeId, chapters } = this.properties
+      const { activeNodeId, chapters, captionLine, activeTitle, nodeNoteMap } =
+        this.properties
       const list = chapters || []
       const resolvedId = activeNodeId || (list[0] && list[0].nodeId) || ''
       this.setData({
         scrollIntoView: resolvedId ? `album-chapter-${resolvedId}` : '',
+        displayNote: resolveDisplayNote(
+          captionLine,
+          activeNodeId,
+          activeTitle,
+          nodeNoteMap,
+        ),
       })
     },
   },

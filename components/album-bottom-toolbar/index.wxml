@@ -4,6 +4,10 @@
 >
   <block wx:if="{{mode === 'progress'}}">
     <view class="album-bottom-toolbar__panel">
+      <view wx:if="{{activeTitle || displayNote}}" class="album-bottom-toolbar__panel-copy">
+        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
+        <text wx:if="{{displayNote}}" class="album-bottom-toolbar__panel-note" selectable>{{displayNote}}</text>
+      </view>
       <view class="album-bottom-toolbar__segments">
         <view
           wx:for="{{stages}}"
@@ -13,12 +17,6 @@
           data-node-id="{{item.id}}"
           bindtap="onChapterTap"
         />
-      </view>
-      <view wx:if="{{activeTitle || captionLine}}" class="album-bottom-toolbar__panel-copy">
-        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
-        <view wx:if="{{captionLine}}" class="album-bottom-toolbar__panel-note-wrap">
-          <text class="album-bottom-toolbar__panel-note" selectable>{{captionLine}}</text>
-        </view>
       </view>
     </view>
   </block>
