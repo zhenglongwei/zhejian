@@ -52,9 +52,10 @@ function riskTagsFromBoxes(boxes) {
 }
 
 function resolveRiskLevel({ riskTags, authFailed, maskError, needManual }) {
-  if (authFailed || maskError) return 'forbidden'
   if (needManual) return 'high'
+  if (maskError) return 'forbidden'
   if (!riskTags.length) return 'low'
+  if (authFailed) return 'high'
   return 'medium'
 }
 
@@ -83,11 +84,6 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
     const riskTags = riskTagsFromBoxes(mergedBoxes)
     let maskError = false
     let needManual = false
-
-    if (detection.ocrAuthFailed) {
-      console.warn('[desensitize-engine] ocr auth failed, mark need_manual', detection.errors)
-      needManual = true
-    }
 
     if (detection.plateMaskMiss) {
       console.warn('[desensitize-engine] plate text detected but no mask box', {
@@ -123,16 +119,21 @@ async function processImageAliyun(sourcePath, destPath, options = {}) {
       throw e
     }
 
-    if (riskTags.length > 0 && detection.errors.length >= 2) {
-      needManual = true
-    }
+    const noSensitiveContent =
+      !mergedBoxes.length && !riskTags.length && !detection.plateMaskMiss
 
-    if (detection.ocrAuthFailed && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
-      needManual = true
-    }
-
-    if (detection.ocrNetworkFailed && !mergedBoxes.some((b) => b.type === 'plate' || b.type === 'mixed')) {
-      needManual = true
+    if (noSensitiveContent) {
+      // 无车牌/人脸/VIN/单据等区域：原图 copy 即脱敏产物，不因 OCR 鉴权或网络失败强制人工
+      if (detection.ocrAuthFailed || detection.ocrNetworkFailed) {
+        console.info('[desensitize-engine] clean pass-through despite ocr issues', {
+          ocrAuthFailed: detection.ocrAuthFailed,
+          ocrNetworkFailed: detection.ocrNetworkFailed,
+          errors: (detection.errors || []).slice(0, 3),
+        })
+      }
+      needManual = false
+    } else if (mergedBoxes.length && !maskError) {
+      needManual = false
     }
 
     const riskLevel = resolveRiskLevel({
