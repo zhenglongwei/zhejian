@@ -17,6 +17,45 @@
   opacity: 0.4;
 }
 
+.cell-row--with-icon {
+  gap: var(--space-md);
+}
+
+.cell-row__icon-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--size-nav-icon-well);
+  height: var(--size-nav-icon-well);
+  border-radius: var(--radius-md);
+}
+
+.cell-row__icon-well--well {
+  background-color: var(--color-nav-icon-well);
+}
+
+.cell-row__icon-well--primary-light {
+  background-color: var(--color-primary-light);
+}
+
+.cell-row__icon-well--success-light {
+  background-color: var(--color-success-light);
+}
+
+.cell-row__icon-well--info-light {
+  background-color: var(--color-info-light);
+}
+
+.cell-row__icon-well--warning-light {
+  background-color: var(--color-warning-light);
+}
+
+.cell-row__icon {
+  width: var(--size-nav-icon);
+  height: var(--size-nav-icon);
+}
+
 .cell-row__main {
   flex: 1;
   min-width: 0;

@@ -1,3 +1,5 @@
+const { attachNavIcon } = require('./nav-icons')
+
 const MINE_VEHICLE_ITEM = {
   key: 'vehicle',
   label: '我的车辆',
@@ -60,7 +62,7 @@ const MINE_MERCHANT_ITEM = {
 function attachBadge(item, badges) {
   const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''
   const dot = Boolean(item.dotKey && badges[item.dotKey])
-  return { ...item, desc: item.desc || '', badge, dot }
+  return attachNavIcon({ ...item, desc: item.desc || '', badge, dot })
 }
 
 /** 我的页菜单分区 — 供 wxml 单循环渲染 */

@@ -1,67 +1,63 @@
-<view class="page settings-page page-content">
-  <ui-card shadow="{{true}}" padding="{{false}}">
-    <ui-cell
-      wx:if="{{isLoggedIn}}"
-      title="手机号"
-      desc="{{phoneDesc}}"
-      border="{{true}}"
-      data-key="phone"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      title="消息通知"
-      desc="相册与授权相关通知"
-      border="{{true}}"
-      data-key="notify"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      title="清除缓存"
-      desc="清除本地搜索历史与临时数据"
-      border="{{true}}"
-      data-key="cache"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      title="用户协议"
-      border="{{true}}"
-      arrow="{{true}}"
-      data-key="agreement"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      title="隐私政策"
-      border="{{true}}"
-      arrow="{{true}}"
-      data-key="privacy"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      title="关于辙见"
-      desc="维修案例与服务相册"
-      border="{{true}}"
-      arrow="{{true}}"
-      data-key="about"
-      bind:celltap="onCellTap"
-    />
-    <ui-cell
-      wx:if="{{isLoggedIn}}"
-      title="账号注销"
-      desc="不可恢复，请谨慎操作"
-      border="{{false}}"
-      arrow="{{true}}"
-      data-key="deactivate"
-      bind:celltap="onCellTap"
-    />
-  </ui-card>
+<ui-tool-page-shell>
+  <view class="settings-page">
+    <ui-card shadow="{{true}}" padding="{{false}}">
+      <ui-cell
+        wx:if="{{isLoggedIn}}"
+        title="手机号"
+        desc="{{phoneDesc}}"
+        border="{{true}}"
+        data-key="phone"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="消息通知"
+        desc="相册与授权相关通知"
+        border="{{true}}"
+        data-key="notify"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="清除缓存"
+        desc="清除本地搜索历史与临时数据"
+        border="{{true}}"
+        data-key="cache"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="用户协议"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="agreement"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="隐私政策"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="privacy"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="关于辙见"
+        desc="维修案例与服务相册"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="about"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        wx:if="{{isLoggedIn}}"
+        title="账号注销"
+        desc="不可恢复，请谨慎操作"
+        border="{{false}}"
+        arrow="{{true}}"
+        data-key="deactivate"
+        bind:celltap="onCellTap"
+      />
+    </ui-card>
 
-  <view wx:if="{{isLoggedIn}}" class="settings-page__logout">
-    <button class="settings-page__logout-btn" bindtap="onLogout">退出登录</button>
+    <view wx:if="{{isLoggedIn}}" class="settings-page__logout">
+      <button class="settings-page__logout-btn" bindtap="onLogout">退出登录</button>
+    </view>
   </view>
-
-  <view class="settings-page__notice">
-    <ui-compliance-notice
-      text="辙见提供服务相册查看与授权留痕工具。实际维修、报价、收款与售后由门店线下提供和承担。"
-    />
-  </view>
-</view>
+</ui-tool-page-shell>

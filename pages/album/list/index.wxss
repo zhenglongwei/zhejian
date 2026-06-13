@@ -1,26 +1,6 @@
-.album-list {
-  min-height: 100vh;
-}
-
-.album-list__band {
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  min-height: var(--tool-band-height);
-  padding: var(--space-sm) var(--page-padding-x);
-  background: var(--color-bg-band);
-  border-bottom: 1rpx solid var(--color-border);
-}
-
-.album-list__band-title {
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-}
-
 .album-list__tabs {
   padding-top: var(--space-sm);
   padding-bottom: var(--space-xs);
-  background: var(--color-bg-album);
 }
 
 .album-list__list {
@@ -28,7 +8,7 @@
   flex-direction: column;
   gap: var(--space-md);
   padding-top: var(--space-sm);
-  padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom));
+  padding-bottom: var(--space-xl);
 }
 
 .album-list__skeleton-card {

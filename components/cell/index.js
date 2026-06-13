@@ -28,6 +28,14 @@ Component({
       type: Boolean,
       value: false,
     },
+    icon: {
+      type: String,
+      value: '',
+    },
+    iconBg: {
+      type: String,
+      value: '',
+    },
   },
 
   methods: {

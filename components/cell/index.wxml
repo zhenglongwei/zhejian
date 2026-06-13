@@ -1,7 +1,13 @@
 <view
-  class="cell-row {{border ? '' : 'cell-row--no-border'}} {{disabled ? 'cell-row--disabled' : ''}}"
+  class="cell-row {{border ? '' : 'cell-row--no-border'}} {{disabled ? 'cell-row--disabled' : ''}} {{icon ? 'cell-row--with-icon' : ''}}"
   bindtap="onTap"
 >
+  <view
+    wx:if="{{icon}}"
+    class="cell-row__icon-well cell-row__icon-well--{{iconBg || 'well'}}"
+  >
+    <image class="cell-row__icon" src="{{icon}}" mode="aspectFit" aria-hidden="true" />
+  </view>
   <view class="cell-row__main">
     <text class="cell-row__title text-body">{{title}}</text>
     <text wx:if="{{desc}}" class="cell-row__desc text-caption">{{desc}}</text>

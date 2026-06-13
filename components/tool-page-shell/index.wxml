@@ -1,0 +1,19 @@
+<view class="tool-page-shell bg-album">
+  <view wx:if="{{showBand}}" class="tool-page-shell__band bg-band">
+    <view class="tool-page-shell__band-main">
+      <text class="tool-page-shell__title text-body">{{title}}</text>
+      <text wx:if="{{subtitle}}" class="tool-page-shell__subtitle text-body"> · {{subtitle}}</text>
+    </view>
+    <view class="tool-page-shell__band-extra">
+      <slot name="bandExtra" />
+    </view>
+  </view>
+
+  <view class="tool-page-shell__body page-content">
+    <slot />
+  </view>
+
+  <view wx:if="{{showCompliance}}" class="tool-page-shell__footer page-content">
+    <ui-compliance-notice text="{{resolvedComplianceText}}" />
+  </view>
+</view>

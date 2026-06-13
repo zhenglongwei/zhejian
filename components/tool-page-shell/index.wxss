@@ -1,0 +1,47 @@
+.tool-page-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.tool-page-shell__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-height: var(--tool-band-height);
+  padding: var(--space-sm) var(--page-padding-x);
+  border-bottom: 1rpx solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.tool-page-shell__band-main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-page-shell__title,
+.tool-page-shell__subtitle {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.tool-page-shell__band-extra {
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+
+.tool-page-shell__body {
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.tool-page-shell__footer {
+  flex-shrink: 0;
+  padding-top: var(--space-sm);
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}

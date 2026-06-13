@@ -1,0 +1,7 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

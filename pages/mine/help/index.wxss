@@ -1,6 +1,6 @@
 .help-center {
   padding-top: var(--space-md);
-  padding-bottom: var(--space-xl);
+  padding-bottom: var(--space-md);
 }
 
 .help-center__identity {

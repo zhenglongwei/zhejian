@@ -1,6 +1,6 @@
 .settings-page {
   padding-top: var(--space-md);
-  padding-bottom: var(--space-xl);
+  padding-bottom: var(--space-md);
 }
 
 .settings-page__logout {
@@ -19,8 +19,4 @@
 
 .settings-page__logout-btn::after {
   border: none;
-}
-
-.settings-page__notice {
-  margin-top: var(--space-lg);
 }
