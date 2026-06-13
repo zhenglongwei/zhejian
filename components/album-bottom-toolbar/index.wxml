@@ -15,8 +15,10 @@
         />
       </view>
       <view wx:if="{{activeTitle || captionLine}}" class="album-bottom-toolbar__panel-copy">
-        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node text-body">{{activeTitle}}</text>
-        <text wx:if="{{captionLine}}" class="album-bottom-toolbar__panel-note text-caption">{{captionLine}}</text>
+        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
+        <view wx:if="{{captionLine}}" class="album-bottom-toolbar__panel-note-wrap">
+          <text class="album-bottom-toolbar__panel-note" selectable>{{captionLine}}</text>
+        </view>
       </view>
     </view>
   </block>

@@ -27,11 +27,14 @@ function buildAlbumFlipPages(nodes = []) {
 
     images.forEach((url, imageIndex) => {
       pages.push({
+        type: 'photo',
         id: `${node.id || 'node'}_${imageIndex}`,
         url,
+        imageUrl: url,
         nodeId: node.id || '',
         nodeTitle,
         note,
+        caption: note,
         time,
         imageIndex,
         imageCountInNode: images.length,

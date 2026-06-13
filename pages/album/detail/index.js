@@ -75,6 +75,54 @@ function resolveActiveStageTitle(chapters, activeNodeId) {
   return (stage && stage.title) || ''
 }
 
+function resolveActiveStageNote(detail, activeNodeId, flipPages, pageIndex) {
+  const index = Number(pageIndex) || 0
+  const page = (flipPages || [])[index]
+  if (page) {
+    const fromPage = String(page.note || page.caption || '').trim()
+    if (fromPage) return fromPage
+  }
+
+  const nodeId =
+    activeNodeId || (page && (page.nodeId || page.id)) || ''
+  const nodes = (detail && detail.nodes) || []
+  if (nodeId) {
+    const node = nodes.find(
+      (item) => item && (item.id === nodeId || item.nodeId === nodeId),
+    )
+    if (node) {
+      const fromNode = String(node.note || '').trim()
+      if (fromNode) return fromNode
+    }
+  }
+
+  if (page && page.nodeTitle) {
+    const title = String(page.nodeTitle).trim()
+    const node = nodes.find(
+      (item) => item && String(item.title || '').trim() === title,
+    )
+    if (node) {
+      const fromNode = String(node.note || '').trim()
+      if (fromNode) return fromNode
+    }
+  }
+
+  const storeNote = detail && String(detail.storeNote || '').trim()
+  if (storeNote) return storeNote
+
+  return ''
+}
+
+function buildNodeNoteMap(nodes) {
+  const map = {}
+  ;(nodes || []).forEach((node) => {
+    const id = node && (node.id || node.nodeId)
+    const note = String((node && node.note) || '').trim()
+    if (id && note) map[id] = note
+  })
+  return map
+}
+
 function buildEndPageAuthState(detail, showAuthSection) {
   const status = detail && detail.publicCaseStatus
   if (status === 'pending_review') {
@@ -142,7 +190,8 @@ Page({
     isEndPage: false,
     stageProgress: [],
     activeStageTitle: '',
-    currentCaptionLine: '',
+    activeStageNote: '',
+    nodeNoteMap: {},
     heroCoverUrl: '',
     heroVisible: false,
     navSafeTopPx: 0,
@@ -226,16 +275,38 @@ Page({
     })
   },
 
-  syncStageProgress(chapters, activeNodeId) {
+  syncStageProgress(chapters, activeNodeId, pageIndex) {
+    const index =
+      pageIndex !== undefined && pageIndex !== null
+        ? Number(pageIndex) || 0
+        : Number(this.data.pageIndex) || 0
+    const nodeId =
+      activeNodeId ||
+      (this.data.flipPages[index] && this.data.flipPages[index].nodeId) ||
+      ''
     this.setData({
-      stageProgress: buildStageProgress(chapters, activeNodeId),
-      activeStageTitle: resolveActiveStageTitle(chapters, activeNodeId),
+      stageProgress: buildStageProgress(chapters, nodeId),
+      activeStageTitle: resolveActiveStageTitle(chapters, nodeId),
+      activeStageNote: resolveActiveStageNote(
+        this.data.detail,
+        nodeId,
+        this.data.flipPages,
+        index,
+      ),
     })
   },
 
   onToggleChrome() {
     if (this.data.isEndPage) return
-    this.setData({ chromeVisible: !this.data.chromeVisible })
+    this.setData({ chromeVisible: !this.data.chromeVisible }, () => {
+      if (this.data.chromeVisible) {
+        this.syncStageProgress(
+          this.data.flipChapters,
+          this.data.activeNodeId,
+          this.data.pageIndex,
+        )
+      }
+    })
   },
 
   dismissHeroCover() {
@@ -308,6 +379,7 @@ Page({
         detail: enriched,
         flipPages: flip.pages,
         flipChapters: flip.chapters,
+        nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
         storePhone,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
@@ -328,12 +400,8 @@ Page({
       }, () => {
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
         const activeId = (flip.chapters[0] && flip.chapters[0].nodeId) || ''
-        const firstPage = flip.pages[0] || null
         this.syncPageDisplay(0, total)
-        this.syncStageProgress(flip.chapters, activeId)
-        this.setData({
-          currentCaptionLine: firstPage ? String(firstPage.note || '').trim() : '',
-        })
+        this.syncStageProgress(flip.chapters, activeId, 0)
         this.scheduleViewerLayout()
         setTimeout(() => this.dismissHeroCover(), 280)
       })
@@ -448,8 +516,6 @@ Page({
     const patch = {
       pageIndex: index,
       isEndPage: isEnd,
-      currentCaptionLine:
-        page && page.type === 'photo' ? String(page.note || '').trim() : '',
     }
     if (page && page.type === 'photo' && page.nodeId) {
       patch.activeNodeId = page.nodeId
@@ -461,7 +527,11 @@ Page({
     }
     this.setData(patch, () => {
       this.syncPageDisplay(index, total || this.data.flipPages.length + 1)
-      this.syncStageProgress(this.data.flipChapters, this.data.activeNodeId)
+      this.syncStageProgress(
+        this.data.flipChapters,
+        patch.activeNodeId || this.data.activeNodeId,
+        index,
+      )
     })
   },
 
@@ -475,19 +545,12 @@ Page({
         activeNodeId: nodeId || '',
         isEndPage: false,
         chromeVisible: false,
-        currentCaptionLine: this.resolveCaptionForPage(nextIndex),
       },
       () => {
         this.syncPageDisplay(nextIndex, total)
-        this.syncStageProgress(this.data.flipChapters, nodeId || '')
+        this.syncStageProgress(this.data.flipChapters, nodeId || '', nextIndex)
       },
     )
-  },
-
-  resolveCaptionForPage(pageIndex) {
-    const page = (this.data.flipPages || [])[pageIndex]
-    if (!page) return ''
-    return String(page.note || '').trim()
   },
 
   onEndPageAuth() {

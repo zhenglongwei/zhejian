@@ -1,9 +1,9 @@
 .album-bottom-toolbar--overlay {
-  position: absolute;
+  position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: calc(var(--z-fixed) + 1);
+  z-index: calc(var(--z-fixed) + 4);
   height: auto;
   padding: 0 var(--space-sm) calc(env(safe-area-inset-bottom) + var(--space-sm));
   background: transparent;
@@ -109,17 +109,28 @@
   flex-direction: column;
   gap: var(--space-xs);
   width: 100%;
+  max-height: 42vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .album-bottom-toolbar__panel-node {
   color: #fff;
+  font-size: var(--font-body);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-body-lh);
 }
 
+.album-bottom-toolbar__panel-note-wrap {
+  width: 100%;
+}
+
 .album-bottom-toolbar__panel-note {
   display: block;
-  color: rgba(255, 255, 255, 0.88);
+  box-sizing: border-box;
+  width: 100%;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
   word-break: break-word;
   white-space: pre-wrap;

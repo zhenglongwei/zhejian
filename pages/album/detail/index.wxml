@@ -79,19 +79,19 @@
         src="{{heroCoverUrl}}"
         mode="aspectFill"
       />
-
-      <album-bottom-toolbar
-        wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
-        overlay="{{true}}"
-        mode="progress"
-        stages="{{stageProgress}}"
-        active-title="{{activeStageTitle}}"
-        caption-line="{{currentCaptionLine}}"
-        chapters="{{flipChapters}}"
-        active-node-id="{{activeNodeId}}"
-        bind:chaptertap="onChapterTap"
-      />
     </view>
+
+    <album-bottom-toolbar
+      wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
+      overlay="{{true}}"
+      mode="progress"
+      stages="{{stageProgress}}"
+      active-title="{{activeStageTitle}}"
+      caption-line="{{activeStageNote}}"
+      chapters="{{flipChapters}}"
+      active-node-id="{{activeNodeId}}"
+      bind:chaptertap="onChapterTap"
+    />
 
     <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
       <view
