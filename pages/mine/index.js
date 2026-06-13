@@ -24,12 +24,42 @@ Page({
 
   onLoad() {
     syncAppSession()
+    this._profileUpdating = false
   },
 
   onShow() {
-    if (this.data.profileUpdating) return
+    if (this.isAvatarFlowActive()) return
     const silent = this.data.isLoggedIn && this.data.status === 'normal'
     this.loadPage({ silent })
+  },
+
+  isAvatarFlowActive() {
+    return Boolean(
+      this._profileUpdating ||
+        this.data.profileUpdating ||
+        this.data.avatarPreview,
+    )
+  },
+
+  markAvatarPicking(tempPath) {
+    this._profileUpdating = true
+    this.setData({
+      profileUpdating: true,
+      avatarPreview: tempPath || '',
+    })
+  },
+
+  clearAvatarPicking() {
+    this._profileUpdating = false
+    this.setData({ profileUpdating: false })
+  },
+
+  resetAvatarPreview() {
+    this.setData({ avatarPreview: '' })
+    const header = this.selectComponent('#mineUserHeader')
+    if (header && typeof header.clearLocalAvatarPreview === 'function') {
+      header.clearLocalAvatarPreview()
+    }
   },
 
   onPullDownRefresh() {
@@ -67,7 +97,7 @@ Page({
   },
 
   async loadPage(options = {}) {
-    if (this.data.profileUpdating) return
+    if (this.isAvatarFlowActive()) return
 
     const loggedIn = isLoggedIn()
     if (!loggedIn) {
@@ -142,9 +172,11 @@ Page({
 
   async onAvatarChoose(e) {
     const tempPath = (e.detail && e.detail.tempPath) || ''
-    if (!tempPath || this.data.profileUpdating) return
+    if (!tempPath) return
 
-    this.setData({ profileUpdating: true, avatarPreview: tempPath })
+    if (!this._profileUpdating) {
+      this.markAvatarPicking(tempPath)
+    }
     wx.showLoading({ title: '上传中', mask: true })
     try {
       const avatarUrl = await uploadImage(tempPath)
@@ -152,11 +184,11 @@ Page({
       this.setData({ user, avatarPreview: '' })
       wx.showToast({ title: '头像已更新', icon: 'success' })
     } catch (err) {
-      this.setData({ avatarPreview: '' })
+      this.resetAvatarPreview()
       wx.showToast({ title: (err && err.message) || '头像更新失败', icon: 'none' })
     } finally {
       wx.hideLoading()
-      this.setData({ profileUpdating: false })
+      this.clearAvatarPicking()
     }
   },
 

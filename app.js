@@ -6,11 +6,15 @@ const { recordAppLaunchEntry } = require('./utils/tool-entry-context')
 App({
   onLaunch(options) {
     console.info('[app] launch', ENV.mode)
-    syncAppSession()
-    this.globalData.toolEntryContext = recordAppLaunchEntry(options || {})
-    resolveCityContext().then((ctx) => {
-      this.globalData.cityContext = ctx
-    })
+    try {
+      syncAppSession()
+      this.globalData.toolEntryContext = recordAppLaunchEntry(options || {})
+      resolveCityContext().then((ctx) => {
+        this.globalData.cityContext = ctx
+      })
+    } catch (err) {
+      console.warn('[app] onLaunch init failed', err)
+    }
   },
   globalData: {
     city: '杭州',

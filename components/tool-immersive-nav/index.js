@@ -3,6 +3,9 @@ function resolveNavMetrics() {
     const windowInfo = typeof wx.getWindowInfo === 'function'
       ? wx.getWindowInfo()
       : wx.getSystemInfoSync()
+    if (!windowInfo) {
+      throw new Error('windowInfo unavailable')
+    }
     const menuButton = wx.getMenuButtonBoundingClientRect()
     const statusBarHeight = windowInfo.statusBarHeight || 20
     const gap = menuButton.top - statusBarHeight

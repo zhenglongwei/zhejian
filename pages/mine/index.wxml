@@ -22,6 +22,7 @@
     <view class="mine__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
         <ui-mine-user-header
+          id="mineUserHeader"
           isLoggedIn="{{isLoggedIn}}"
           user="{{user}}"
           avatarPreview="{{avatarPreview}}"

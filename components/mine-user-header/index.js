@@ -1,5 +1,15 @@
 const { TOOL_GUEST_LOGIN_BUTTON } = require('../../constants/tool-login-copy')
-const { normalizeStoredImageUrl, isLocalTempImagePath } = require('../../utils/media-upload')
+const {
+  normalizeStoredImageUrl,
+  isLocalTempImagePath,
+} = require('../../utils/media-upload')
+const { resolveImageSrc } = require('../../utils/desensitize-url')
+
+function resolveDisplayAvatarUrl(rawAvatar) {
+  if (!rawAvatar) return ''
+  if (isLocalTempImagePath(rawAvatar)) return rawAvatar
+  return resolveImageSrc(rawAvatar) || normalizeStoredImageUrl(rawAvatar)
+}
 
 Component({
   properties: {
@@ -21,26 +31,47 @@ Component({
     guestLoginButton: TOOL_GUEST_LOGIN_BUTTON,
     nicknameInput: '',
     displayAvatarUrl: '',
+    localAvatarPreview: '',
   },
 
   observers: {
-    'user, avatarPreview': function syncUser(user, avatarPreview) {
+    'user, avatarPreview, localAvatarPreview': function syncUser(
+      user,
+      avatarPreview,
+      localAvatarPreview,
+    ) {
       const nickname = (user && user.nickname) || ''
-      const rawAvatar = avatarPreview || (user && user.avatarUrl) || ''
-      const avatarUrl = rawAvatar
-        ? isLocalTempImagePath(rawAvatar)
-          ? rawAvatar
-          : normalizeStoredImageUrl(rawAvatar)
-        : ''
-      this._savedNickname = nickname
-      this.setData({
+      const rawAvatar =
+        localAvatarPreview || avatarPreview || (user && user.avatarUrl) || ''
+      const avatarUrl = resolveDisplayAvatarUrl(rawAvatar)
+      const patch = {
         nicknameInput: nickname,
         displayAvatarUrl: avatarUrl,
-      })
+      }
+      if (
+        localAvatarPreview &&
+        !avatarPreview &&
+        user &&
+        user.avatarUrl &&
+        !isLocalTempImagePath(user.avatarUrl)
+      ) {
+        patch.localAvatarPreview = ''
+      }
+      this._savedNickname = nickname
+      this.setData(patch)
     },
   },
 
   methods: {
+    clearLocalAvatarPreview() {
+      const user = this.properties.user
+      const avatarUrl = resolveDisplayAvatarUrl((user && user.avatarUrl) || '')
+      this.setData({
+        localAvatarPreview: '',
+        displayAvatarUrl: avatarUrl,
+      })
+    },
+
     onLoginTap() {
       this.triggerEvent('logintap')
     },
@@ -52,7 +83,17 @@ Component({
     onChooseAvatar(e) {
       const tempPath = (e.detail && e.detail.avatarUrl) || ''
       if (!tempPath) return
-      this.setData({ displayAvatarUrl: tempPath })
+
+      this.setData({
+        localAvatarPreview: tempPath,
+        displayAvatarUrl: tempPath,
+      })
+
+      const page = getCurrentPages().slice(-1)[0]
+      if (page && typeof page.markAvatarPicking === 'function') {
+        page.markAvatarPicking(tempPath)
+      }
+
       this.triggerEvent('avatarchoose', { tempPath })
     },
 

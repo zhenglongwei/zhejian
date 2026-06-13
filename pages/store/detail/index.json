@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "门店详情",
-  "enableShareTimeline": true,
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",
