@@ -25,6 +25,9 @@
     <view class="desensitize-preview__banner">
       <ui-privacy-banner scene="desensitize" />
     </view>
+    <view wx:if="{{aiSummary}}" class="desensitize-preview__summary">
+      <ui-ai-summary-block content="{{aiSummary}}" />
+    </view>
     <view wx:if="{{fromPreMask}}" class="desensitize-preview__ready">
       <ui-tag variant="desensitized" text="已自动脱敏" />
       <text class="desensitize-preview__ready-hint text-caption">敏感信息已预处理，请逐张核对后再授权公示。</text>

@@ -70,6 +70,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    showCompare: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -135,6 +139,11 @@ Component({
     onArchiveTap() {
       if (this.properties.disabled) return
       this.triggerEvent('archivetap')
+    },
+
+    onCompareTap() {
+      if (this.properties.disabled) return
+      this.triggerEvent('comparetap')
     },
   },
 })

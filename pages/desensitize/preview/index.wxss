@@ -3,6 +3,10 @@
   margin-bottom: var(--space-md);
 }
 
+.desensitize-preview__summary {
+  margin-bottom: var(--space-md);
+}
+
 .desensitize-preview__ready {
   display: flex;
   flex-wrap: wrap;

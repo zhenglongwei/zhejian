@@ -139,6 +139,13 @@
   gap: var(--space-xs);
 }
 
+.album-bottom-toolbar__panel-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-xs);
+  align-items: flex-start;
+}
+
 .album-bottom-toolbar__archive {
   flex-shrink: 0;
   display: flex;

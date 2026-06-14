@@ -44,6 +44,10 @@ Component({
       type: String,
       value: '',
     },
+    aiSummary: {
+      type: String,
+      value: '',
+    },
   },
 
   data: {

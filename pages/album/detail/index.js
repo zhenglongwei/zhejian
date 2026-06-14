@@ -31,6 +31,7 @@ const {
 } = require('../../../utils/share-store-context')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
+const { buildAlbumComparePairs } = require('../../../utils/album-compare-pairs')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
 
@@ -240,7 +241,12 @@ Page({
     infoSheetNodeNotes: [],
     infoSheetParts: [],
     infoSheetSummaryRows: [],
+    infoSheetAiSummary: '',
     infoSheetPageProgress: '',
+    comparePairs: [],
+    showCompareEntry: false,
+    compareOverlayVisible: false,
+    comparePairIndex: 0,
   },
 
   onLoad(options) {
@@ -432,6 +438,11 @@ Page({
         id: detail.albumId,
       })
       const flip = buildAlbumFlipPages(enriched.nodes || [])
+      const comparePairs = buildAlbumComparePairs(enriched.nodes || [], {
+        templateId: enriched.templateId,
+        templateName: enriched.templateName,
+        serviceName: enriched.serviceName,
+      })
       const endPageAuth = buildEndPageAuthState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
 
@@ -443,6 +454,7 @@ Page({
         infoSheetNodeNotes: buildNodeNotesForSheet(enriched.nodes || []),
         infoSheetParts: buildPartsForSheet(enriched.parts || []),
         infoSheetSummaryRows: enriched.summaryRows || [],
+        infoSheetAiSummary: enriched.aiSummary || '',
         infoSheetVisible: false,
         storePhone,
         pageIndex: 0,
@@ -461,6 +473,10 @@ Page({
         shareToken: '',
         shareSheetVisible: false,
         chromeVisible: pageStatus === 'normal',
+        comparePairs,
+        showCompareEntry: comparePairs.length > 0,
+        compareOverlayVisible: false,
+        comparePairIndex: 0,
         ...endPageAuth,
       }, () => {
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
@@ -631,6 +647,30 @@ Page({
 
   onCloseInfoSheet() {
     this.setData({ infoSheetVisible: false })
+  },
+
+  onOpenCompareOverlay() {
+    if (!this.data.comparePairs.length) return
+    this.setData({
+      compareOverlayVisible: true,
+      comparePairIndex: 0,
+      chromeVisible: false,
+    })
+  },
+
+  onCloseCompareOverlay() {
+    const { status, isEndPage } = this.data
+    this.setData({
+      compareOverlayVisible: false,
+      chromeVisible: status === 'normal' && !isEndPage,
+    })
+  },
+
+  onComparePairChange(e) {
+    const index = (e.detail && e.detail.current) || 0
+    if (index !== this.data.comparePairIndex) {
+      this.setData({ comparePairIndex: index })
+    }
   },
 
   onInfoSheetPartTap(e) {

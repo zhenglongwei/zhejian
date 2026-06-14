@@ -14,6 +14,8 @@ const {
   submitServicePublicCaseReview,
 } = require('../../../services/public-case')
 const { mapTaskToWorkbenchState } = require('../../../utils/desensitize-workbench-display')
+const { fetchServiceAlbum } = require('../../../services/service-album')
+const { buildAlbumAiSummary } = require('../../../utils/album-ai-summary')
 
 Page({
   data: {
@@ -33,6 +35,7 @@ Page({
     errorMessage: '',
     autoMaskLoading: false,
     confirmLoading: false,
+    aiSummary: '',
   },
 
   onLoad(query) {
@@ -76,8 +79,11 @@ Page({
   async loadTask() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const task = await fetchTask(this.data.taskId)
-      this.applyTask(task)
+      const [task, aiSummary] = await Promise.all([
+        fetchTask(this.data.taskId),
+        this.loadAuthorizeAiSummary(),
+      ])
+      this.applyTask(task, aiSummary)
     } catch (e) {
       this.setData({
         status: 'error',
@@ -86,7 +92,28 @@ Page({
     }
   },
 
-  applyTask(task) {
+  async loadAuthorizeAiSummary() {
+    const { source, albumId } = this.data
+    if (source !== 'service' || !albumId) return ''
+    try {
+      const album = await fetchServiceAlbum(albumId)
+      return buildAlbumAiSummary({
+        serviceName: album.serviceName,
+        vehicle: album.vehicle,
+        nodes: album.nodes,
+        storeNote: album.storeNote,
+        storeName: (album.store && album.store.name) || album.storeName,
+        city: (album.store && album.store.city) || '',
+        partsJson: album.parts,
+        imageCount: album.imageCount,
+        scene: 'authorize',
+      })
+    } catch (e) {
+      return ''
+    }
+  },
+
+  applyTask(task, aiSummary = '') {
     const view = mapTaskToWorkbenchState(task)
     this.setData({
       workbenchItems: view.workbenchItems,
@@ -95,6 +122,7 @@ Page({
       needPreviewHint: view.needPreviewHint,
       fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
       status: view.pageStatus,
+      aiSummary: aiSummary || this.data.aiSummary,
     })
     this._loaded = true
   },

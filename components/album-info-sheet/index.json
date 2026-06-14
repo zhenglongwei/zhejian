@@ -5,6 +5,7 @@
     "ui-key-info-table": "/components/key-info-table/index",
     "ui-tag": "/components/tag/index",
     "ui-button": "/components/button/index",
-    "ui-compliance-notice": "/components/compliance-notice/index"
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-ai-summary-block": "/components/ai-summary-block/index"
   }
 }

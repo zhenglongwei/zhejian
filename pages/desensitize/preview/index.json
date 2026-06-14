@@ -7,6 +7,7 @@
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "ui-tag": "/components/tag/index"
+    "ui-tag": "/components/tag/index",
+    "ui-ai-summary-block": "/components/ai-summary-block/index"
   }
 }

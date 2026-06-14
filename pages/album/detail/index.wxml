@@ -93,8 +93,10 @@
       chapters="{{flipChapters}}"
       active-node-id="{{activeNodeId}}"
       show-archive="{{true}}"
+      show-compare="{{showCompareEntry}}"
       bind:chaptertap="onChapterTap"
       bind:archivetap="onOpenInfoSheet"
+      bind:comparetap="onOpenCompareOverlay"
     />
 
     <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
@@ -172,6 +174,7 @@
     visible="{{infoSheetVisible}}"
     scene="album"
     summary-rows="{{infoSheetSummaryRows}}"
+    ai-summary="{{infoSheetAiSummary}}"
     parts="{{infoSheetParts}}"
     store-note="{{detail.storeNote || ''}}"
     node-notes="{{infoSheetNodeNotes}}"
@@ -179,4 +182,43 @@
     bind:close="onCloseInfoSheet"
     bind:parttap="onInfoSheetPartTap"
   />
+
+  <view
+    wx:if="{{compareOverlayVisible && comparePairs.length}}"
+    class="album-detail__compare-overlay"
+  >
+    <tool-immersive-nav
+      overlay="{{true}}"
+      transparent="{{false}}"
+      tone="dark"
+      title="前后对比"
+      auto-back="{{false}}"
+      bind:back="onCloseCompareOverlay"
+    />
+    <view class="album-detail__compare-body">
+      <swiper
+        class="album-detail__compare-swiper"
+        current="{{comparePairIndex}}"
+        bindchange="onComparePairChange"
+      >
+        <swiper-item
+          wx:for="{{comparePairs}}"
+          wx:key="id"
+          class="album-detail__compare-item"
+        >
+          <text wx:if="{{item.title}}" class="album-detail__compare-title text-body">{{item.title}}</text>
+          <album-compare-slider
+            before-url="{{item.beforeUrl}}"
+            after-url="{{item.afterUrl}}"
+            before-label="{{item.beforeLabel}}"
+            after-label="{{item.afterLabel}}"
+          />
+        </swiper-item>
+      </swiper>
+      <text
+        wx:if="{{comparePairs.length > 1}}"
+        class="album-detail__compare-pager text-caption"
+      >{{comparePairIndex + 1}} / {{comparePairs.length}}</text>
+    </view>
+  </view>
 </view>

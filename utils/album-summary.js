@@ -267,6 +267,19 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
     formatPlanAmountLabel: viewCtx.formatPlanAmountLabel,
   })
 
+  const { buildAlbumAiSummary } = require('./album-ai-summary')
+  const aiSummary = buildAlbumAiSummary({
+    serviceName: viewCtx.serviceName || album.serviceName,
+    vehicle,
+    nodes,
+    storeNote: album.storeNote || viewCtx.storeNote,
+    storeName: viewCtx.store?.name || album.storeName,
+    city: viewCtx.store?.city || album.storeCity || '',
+    partsJson,
+    imageCount: viewCtx.imageCount,
+    scene: viewCtx.aiSummaryScene || 'private',
+  })
+
   return {
     deliverDateText: formatDeliverDateText(album.createdAt || viewCtx.createdAt),
     summaryLine,
@@ -278,6 +291,7 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
     repairSolution: resolveRepairSolution(nodes, album.storeNote || viewCtx.storeNote),
     mileageText: buildMileageText(vehicle),
     updatedAtText: formatUpdatedAtDisplay(album.updatedAt || viewCtx.updatedAt),
+    aiSummary,
   }
 }
 
@@ -290,4 +304,6 @@ module.exports = {
   formatDeliverDateText,
   formatDateYMD,
   resolveIssueDesc,
+  resolveInspectionResult,
+  resolveRepairSolution,
 }

@@ -12,15 +12,27 @@
             <text class="album-bottom-toolbar__panel-note" selectable>{{displayNote || captionLine}}</text>
           </view>
         </view>
-        <view
-          wx:if="{{showArchive}}"
-          class="album-bottom-toolbar__archive"
-          hover-class="album-bottom-toolbar__archive--hover"
-          catchtap="onArchiveTap"
-          aria-role="button"
-          aria-label="档案"
-        >
-          <text class="album-bottom-toolbar__archive-text text-caption">档案</text>
+        <view class="album-bottom-toolbar__panel-actions">
+          <view
+            wx:if="{{showCompare}}"
+            class="album-bottom-toolbar__archive"
+            hover-class="album-bottom-toolbar__archive--hover"
+            catchtap="onCompareTap"
+            aria-role="button"
+            aria-label="前后对比"
+          >
+            <text class="album-bottom-toolbar__archive-text text-caption">对比</text>
+          </view>
+          <view
+            wx:if="{{showArchive}}"
+            class="album-bottom-toolbar__archive"
+            hover-class="album-bottom-toolbar__archive--hover"
+            catchtap="onArchiveTap"
+            aria-role="button"
+            aria-label="档案"
+          >
+            <text class="album-bottom-toolbar__archive-text text-caption">档案</text>
+          </view>
         </view>
       </view>
       <view class="album-bottom-toolbar__segments">

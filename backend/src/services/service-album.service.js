@@ -197,6 +197,8 @@ function buildAlbumView(album) {
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
+    templateId: album.templateId || '',
+    templateName: album.templateName || '',
   }
 
   const summaryFields = buildAlbumSummaryFields(album, {

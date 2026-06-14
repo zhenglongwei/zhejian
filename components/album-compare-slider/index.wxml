@@ -1,0 +1,37 @@
+<view
+  class="album-compare-slider"
+  wx:if="{{beforeUrl && afterUrl}}"
+>
+  <view
+    class="album-compare-slider__stage"
+    bindtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+    bindtouchcancel="onTouchEnd"
+  >
+    <image
+      class="album-compare-slider__image album-compare-slider__image--before"
+      src="{{beforeUrl}}"
+      mode="aspectFill"
+      lazy-load="{{true}}"
+    />
+    <view class="album-compare-slider__after-wrap" style="width: {{splitPercent}}%;">
+      <image
+        class="album-compare-slider__image album-compare-slider__image--after"
+        src="{{afterUrl}}"
+        mode="aspectFill"
+        lazy-load="{{true}}"
+        style="{{afterImageWidthPx ? 'width:' + afterImageWidthPx + 'px;' : ''}}"
+      />
+    </view>
+    <view class="album-compare-slider__handle" style="left: {{splitPercent}}%;">
+      <view class="album-compare-slider__handle-line" />
+      <view class="album-compare-slider__handle-knob" />
+    </view>
+    <view class="album-compare-slider__labels">
+      <text class="album-compare-slider__label text-caption">{{beforeLabel}}</text>
+      <text class="album-compare-slider__label text-caption">{{afterLabel}}</text>
+    </view>
+  </view>
+  <text class="album-compare-slider__hint text-caption">左右拖动中线查看维修前后差异</text>
+</view>

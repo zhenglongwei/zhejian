@@ -21,6 +21,11 @@
 
       <ui-privacy-banner scene="{{scene}}" />
 
+      <block wx:if="{{aiSummary}}">
+        <view class="album-info-sheet__section-title text-caption">维修摘要</view>
+        <ui-ai-summary-block content="{{aiSummary}}" />
+      </block>
+
       <block wx:if="{{hasSummaryRows}}">
         <view class="album-info-sheet__section-title text-caption">档案摘要</view>
         <ui-key-info-table rows="{{summaryRows}}" />
