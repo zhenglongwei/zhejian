@@ -12,11 +12,19 @@ Component({
     uploadHint: { type: String, value: '' },
     note: { type: String, value: '' },
     notePlaceholder: { type: String, value: '补充说明（可选）' },
-    pairs: {
+    beforeImages: {
       type: Array,
       value: [],
     },
-    maxPairs: {
+    afterImages: {
+      type: Array,
+      value: [],
+    },
+    pairPreview: {
+      type: Array,
+      value: [],
+    },
+    maxCount: {
       type: Number,
       value: 6,
     },
@@ -26,32 +34,40 @@ Component({
     },
   },
 
+  data: {
+    countMismatch: false,
+  },
+
+  observers: {
+    'beforeImages, afterImages'(beforeImages, afterImages) {
+      const beforeLen = (beforeImages || []).length
+      const afterLen = (afterImages || []).length
+      this.setData({
+        countMismatch: beforeLen > 0 && afterLen > 0 && beforeLen !== afterLen,
+      })
+    },
+  },
+
   methods: {
-    emitPairs(nextPairs) {
-      this.triggerEvent('pairchange', { pairs: nextPairs })
+    emitColumns(beforeImages, afterImages) {
+      this.triggerEvent('columnschange', {
+        beforeImages: beforeImages || [],
+        afterImages: afterImages || [],
+      })
     },
 
     emitNote(value) {
       this.triggerEvent('notechange', { value })
     },
 
-    updatePair(index, patch) {
-      const pairs = (this.properties.pairs || []).map((item, i) =>
-        i === index ? { ...item, ...patch } : item,
-      )
-      this.emitPairs(pairs)
-    },
-
     onBeforeChange(e) {
-      const { index } = e.currentTarget.dataset
       const images = (e.detail && e.detail.images) || []
-      this.updatePair(Number(index), { beforeUrl: images[0] || '' })
+      this.emitColumns(images, this.properties.afterImages || [])
     },
 
     onAfterChange(e) {
-      const { index } = e.currentTarget.dataset
       const images = (e.detail && e.detail.images) || []
-      this.updatePair(Number(index), { afterUrl: images[0] || '' })
+      this.emitColumns(this.properties.beforeImages || [], images)
     },
 
     onNoteInput(e) {
@@ -60,39 +76,6 @@ Component({
 
     onSyncFromAssessment() {
       this.triggerEvent('syncfromassessment')
-    },
-
-    onAddPair() {
-      const pairs = (this.properties.pairs || []).slice()
-      if (pairs.length >= this.properties.maxPairs) {
-        wx.showToast({ title: `最多 ${this.properties.maxPairs} 组`, icon: 'none' })
-        return
-      }
-      pairs.push({
-        id: `pair_${Date.now()}`,
-        label: `第 ${pairs.length + 1} 组`,
-        beforeUrl: '',
-        afterUrl: '',
-      })
-      this.emitPairs(pairs)
-    },
-
-    onRemovePair(e) {
-      const { index } = e.currentTarget.dataset
-      const idx = Number(index)
-      const pairs = (this.properties.pairs || []).slice()
-      if (!Number.isFinite(idx) || idx < 0 || idx >= pairs.length) return
-      if (pairs.length <= 1) {
-        wx.showToast({ title: '至少保留 1 组', icon: 'none' })
-        return
-      }
-      pairs.splice(idx, 1)
-      const relabeled = pairs.map((item, i) => ({
-        ...item,
-        id: `pair_${i}`,
-        label: `第 ${i + 1} 组`,
-      }))
-      this.emitPairs(relabeled)
     },
   },
 })

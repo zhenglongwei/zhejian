@@ -278,8 +278,11 @@ const MOCK_ALBUMS = [
         id: 'stage_2',
         title: '损伤评估',
         status: 'completed',
-        images: ['mock://service-album/alb_svc_body_paint/stage_2/0'],
-        note: '需局部钣金与喷漆。',
+        images: [
+          'mock://service-album/alb_svc_body_paint/stage_2/0',
+          'mock://service-album/alb_svc_body_paint/stage_2/1',
+        ],
+        note: '两处损伤近景评估。',
         updatedAt: '2026-06-01T11:00:00.000Z',
       },
       {

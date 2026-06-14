@@ -24,76 +24,106 @@
   color: var(--color-text-tertiary);
 }
 
-.album-compare-pair-editor__legend {
-  display: grid;
-  grid-template-columns: 1fr 96rpx 1fr;
-  gap: var(--space-sm);
-  align-items: center;
+.album-compare-pair-editor__columns {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
   margin-top: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-muted);
 }
 
-.album-compare-pair-editor__legend-item {
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-  text-align: center;
-}
-
-.album-compare-pair-editor__legend-bridge {
-  color: var(--color-primary);
-  text-align: center;
-}
-
-.album-compare-pair-editor__row {
-  margin-top: var(--space-sm);
-  padding: var(--space-sm);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-}
-
-.album-compare-pair-editor__row-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
-}
-
-.album-compare-pair-editor__row-label {
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-}
-
-.album-compare-pair-editor__row-remove {
-  flex-shrink: 0;
-}
-
-.album-compare-pair-editor__row-body {
-  display: flex;
-  gap: var(--space-xs);
-  align-items: stretch;
-}
-
-.album-compare-pair-editor__col {
+.album-compare-pair-editor__column {
   flex: 1;
   min-width: 0;
 }
 
-.album-compare-pair-editor__col .image-uploader {
-  justify-content: center;
+.album-compare-pair-editor__column-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
-.album-compare-pair-editor__bridge {
+.album-compare-pair-editor__column-hint {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.album-compare-pair-editor__warn {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+.album-compare-pair-editor__preview {
+  padding: var(--space-sm);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.album-compare-pair-editor__preview-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.album-compare-pair-editor__preview-row {
+  margin-bottom: var(--space-sm);
+}
+
+.album-compare-pair-editor__preview-row:last-child {
+  margin-bottom: 0;
+}
+
+.album-compare-pair-editor__preview-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-compare-pair-editor__preview-body {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+.album-compare-pair-editor__preview-thumb {
+  flex-shrink: 0;
+  width: 96rpx;
+  height: 96rpx;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+}
+
+.album-compare-pair-editor__preview-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx dashed var(--color-border);
+}
+
+.album-compare-pair-editor__preview-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.album-compare-pair-editor__preview-ph {
+  color: var(--color-text-tertiary);
+}
+
+.album-compare-pair-editor__preview-bridge {
   position: relative;
   flex-shrink: 0;
-  align-self: center;
   width: 72rpx;
-  height: 48rpx;
+  height: 32rpx;
 }
 
-.album-compare-pair-editor__bridge-line {
+.album-compare-pair-editor__preview-line {
   position: absolute;
   top: 50%;
   right: 8rpx;
@@ -105,7 +135,7 @@
   opacity: 0.45;
 }
 
-.album-compare-pair-editor__bridge-dot {
+.album-compare-pair-editor__preview-dot {
   position: absolute;
   top: 50%;
   width: 14rpx;
@@ -117,20 +147,25 @@
   box-sizing: border-box;
 }
 
-.album-compare-pair-editor__bridge-dot--left {
+.album-compare-pair-editor__preview-dot--left {
   left: 0;
 }
 
-.album-compare-pair-editor__bridge-dot--right {
+.album-compare-pair-editor__preview-dot--right {
   right: 0;
   background: var(--color-primary);
+}
+
+.album-compare-pair-editor__preview-status {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-warning);
 }
 
 .album-compare-pair-editor__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  margin-top: var(--space-xs);
 }
 
 .album-compare-pair-editor__note {

@@ -25,8 +25,8 @@ const TEMPLATE_STAGE_META = {
       photoTips: '过程照即可。',
     },
     stage_5: {
-      description: '同位置修复前后，按组上传',
-      photoTips: '左侧默认引用损伤评估近景；右侧逐组补拍修复后，保持同角度。',
+      description: '修复前/后分列上传，按序号配对',
+      photoTips: '左栏默认引用损伤评估；右栏上传同序号修复后照片。',
       requiredLevelLabel: '必拍',
       requiredLevelVariant: 'danger',
     },

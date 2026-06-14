@@ -1,11 +1,15 @@
 const { resolveImageSrcList } = require('./desensitize-url')
+const {
+  splitInterleavedImages,
+  STAGE_ASSESSMENT_ID,
+  STAGE_COMPARE_ID,
+} = require('./album-compare-stage-images')
 
 const COMPARE_TEMPLATE_IDS = new Set(['body_paint', 'accident'])
 
-const STAGE_BEFORE = 'stage_1'
-const STAGE_COMPARE = 'stage_5'
-const STAGE_AFTER = 'stage_6'
-const MAX_CROSS_STAGE_PAIRS = 6
+const STAGE_INTAKE = 'stage_1'
+const STAGE_COMPLETE = 'stage_6'
+const MAX_COMPARE_PAIRS = 6
 
 function resolveCompareTemplateId(detail = {}) {
   const templateId = String(detail.templateId || '').trim()
@@ -36,76 +40,123 @@ function pushPair(pairs, seen, pair) {
   pairs.push(pair)
 }
 
-/**
- * 钣喷/事故车：
- * - stage_1 ↔ stage_6 按序号成对（最多 6 组）；
- * - stage_5 按 1-2、3-4… 成对（钣喷「前后对比」节点）。
- */
-function buildAlbumComparePairs(nodes = [], options = {}) {
-  const templateId = resolveCompareTemplateId(options)
-  if (!COMPARE_TEMPLATE_IDS.has(templateId)) return []
+function resolveBodyPaintCompareColumns(nodes) {
+  const assessmentNode = findNode(nodes, STAGE_ASSESSMENT_ID)
+  const compareNode = findNode(nodes, STAGE_COMPARE_ID)
+  const assessment = nodeImages(assessmentNode)
+  const stored = nodeImages(compareNode)
 
-  const list = nodes || []
-  const beforeNode = findNode(list, STAGE_BEFORE)
-  const afterNode = findNode(list, STAGE_AFTER)
-  const compareNode = findNode(list, STAGE_COMPARE)
-  const pairs = []
-  const seen = new Set()
+  if (!stored.length && !assessment.length) {
+    return { beforeList: [], afterList: [] }
+  }
 
-  const beforeImages = nodeImages(beforeNode)
-  const afterImages = nodeImages(afterNode)
-  const beforeLabel = (beforeNode && beforeNode.title) || '维修前'
-  const afterLabel = (afterNode && afterNode.title) || '完工后'
+  if (!stored.length) {
+    return { beforeList: assessment, afterList: [] }
+  }
 
-  if (beforeImages.length && afterImages.length) {
-    const count = Math.min(
-      beforeImages.length,
-      afterImages.length,
-      MAX_CROSS_STAGE_PAIRS,
-    )
-    for (let i = 0; i < count; i += 1) {
-      pushPair(pairs, seen, {
-        id: `stage1_stage6_${i}`,
-        title: count > 1 ? `第 ${i + 1} 处 · ${beforeLabel} → ${afterLabel}` : `${beforeLabel} → ${afterLabel}`,
-        beforeUrl: beforeImages[i],
-        afterUrl: afterImages[i],
-        beforeLabel,
-        afterLabel,
-        source: 'cross_stage',
-      })
+  if (assessment.length > 0 && stored.length === assessment.length) {
+    return { beforeList: assessment, afterList: stored }
+  }
+
+  if (stored.length >= 2 && stored.length % 2 === 0) {
+    const { beforeImages, afterImages } = splitInterleavedImages(stored)
+    const hasPairedAfter = afterImages.some(Boolean)
+    if (hasPairedAfter) {
+      return {
+        beforeList: beforeImages.length ? beforeImages : assessment,
+        afterList: afterImages,
+      }
     }
   }
 
-  const compareImages = nodeImages(compareNode)
-  if (compareImages.length >= 2 && templateId === 'body_paint') {
-    const pairCount = Math.floor(compareImages.length / 2)
-    for (let i = 0; i < pairCount; i += 1) {
-      const beforeIdx = i * 2
-      const afterIdx = beforeIdx + 1
-      pushPair(pairs, seen, {
-        id: `stage5_pair_${i}`,
-        title:
-          pairCount > 1
-            ? `${(compareNode && compareNode.title) || '前后对比'} · 第 ${i + 1} 组`
-            : (compareNode && compareNode.title) || '前后对比',
-        beforeUrl: compareImages[beforeIdx],
-        afterUrl: compareImages[afterIdx],
-        beforeLabel: '修复前',
-        afterLabel: '修复后',
-        source: 'stage5',
-      })
+  if (assessment.length) {
+    const count = Math.min(assessment.length, stored.length)
+    return {
+      beforeList: assessment.slice(0, count),
+      afterList: stored.slice(0, count),
     }
+  }
+
+  const split = splitInterleavedImages(stored)
+  return {
+    beforeList: split.beforeImages,
+    afterList: split.afterImages.filter(Boolean),
+  }
+}
+
+function buildBodyPaintComparePairs(nodes) {
+  const assessmentNode = findNode(nodes, STAGE_ASSESSMENT_ID)
+  const compareNode = findNode(nodes, STAGE_COMPARE_ID)
+  const beforeLabel = (assessmentNode && assessmentNode.title) || '损伤评估'
+  const afterLabel = (compareNode && compareNode.title) || '修复后'
+  const { beforeList, afterList } = resolveBodyPaintCompareColumns(nodes)
+  const pairs = []
+  const seen = new Set()
+  const count = Math.min(beforeList.length, afterList.length, MAX_COMPARE_PAIRS)
+
+  for (let i = 0; i < count; i += 1) {
+    if (!beforeList[i] || !afterList[i]) continue
+    pushPair(pairs, seen, {
+      id: `assessment_compare_${i}`,
+      title:
+        count > 1
+          ? `第 ${i + 1} 组 · ${beforeLabel} → ${afterLabel}`
+          : `${beforeLabel} → ${afterLabel}`,
+      beforeUrl: beforeList[i],
+      afterUrl: afterList[i],
+      beforeLabel,
+      afterLabel,
+      source: 'assessment_compare',
+    })
   }
 
   return pairs
 }
 
-function buildAlbumCompareHint(pairs = [], options = {}) {
+function buildAccidentComparePairs(nodes) {
+  const intakeNode = findNode(nodes, STAGE_INTAKE)
+  const completeNode = findNode(nodes, STAGE_COMPLETE)
+  const beforeImages = nodeImages(intakeNode)
+  const afterImages = nodeImages(completeNode)
+  const beforeLabel = (intakeNode && intakeNode.title) || '接车记录'
+  const afterLabel = (completeNode && completeNode.title) || '完工验收'
+  const pairs = []
+  const seen = new Set()
+  const count = Math.min(beforeImages.length, afterImages.length, MAX_COMPARE_PAIRS)
+
+  for (let i = 0; i < count; i += 1) {
+    pushPair(pairs, seen, {
+      id: `intake_complete_${i}`,
+      title:
+        count > 1
+          ? `第 ${i + 1} 组 · ${beforeLabel} → ${afterLabel}`
+          : `${beforeLabel} → ${afterLabel}`,
+      beforeUrl: beforeImages[i],
+      afterUrl: afterImages[i],
+      beforeLabel,
+      afterLabel,
+      source: 'cross_stage',
+    })
+  }
+
+  return pairs
+}
+
+function buildAlbumComparePairs(nodes = [], options = {}) {
+  const templateId = resolveCompareTemplateId(options)
+  if (templateId === 'body_paint') {
+    return buildBodyPaintComparePairs(nodes)
+  }
+  if (templateId === 'accident') {
+    return buildAccidentComparePairs(nodes)
+  }
+  return []
+}
+
+function buildAlbumCompareHint(pairs = []) {
   if (!pairs.length) return ''
-  const crossCount = pairs.filter((p) => p.source === 'cross_stage').length
-  const stage5Count = pairs.filter((p) => p.source === 'stage5').length
-  if (crossCount > 1 || stage5Count > 0) {
-    return '左右切换查看各损伤点；拖动中线对比。若错位请联系门店重拍。'
+  if (pairs.length > 1) {
+    return '左右切换查看各组；拖动中线对比。若错位请联系门店重拍。'
   }
   return '左右拖动中线查看差异。'
 }
@@ -116,9 +167,10 @@ function hasAlbumComparePairs(nodes = [], options = {}) {
 
 module.exports = {
   COMPARE_TEMPLATE_IDS,
-  MAX_CROSS_STAGE_PAIRS,
+  MAX_COMPARE_PAIRS,
   resolveCompareTemplateId,
   buildAlbumComparePairs,
   buildAlbumCompareHint,
   hasAlbumComparePairs,
+  resolveBodyPaintCompareColumns,
 }

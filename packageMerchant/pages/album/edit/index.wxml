@@ -69,9 +69,11 @@
             note="{{nodes[stageIndex].note}}"
             notePlaceholder="补充本节点说明（可选）"
             uploadHint="{{uploadPrivacyHint}}"
-            pairs="{{comparePairs}}"
+            beforeImages="{{compareBeforeImages}}"
+            afterImages="{{compareAfterImages}}"
+            pairPreview="{{comparePairPreview}}"
             disabled="{{saving || completing || switching}}"
-            bind:pairchange="onComparePairsChange"
+            bind:columnschange="onCompareColumnsChange"
             bind:notechange="onCompareNoteChange"
             bind:syncfromassessment="onSyncCompareFromAssessment"
           />

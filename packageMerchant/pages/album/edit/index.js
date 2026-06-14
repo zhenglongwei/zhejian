@@ -34,9 +34,10 @@ const {
 
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
-  buildComparePairRowsFromNodes,
-  syncComparePairsFromAssessment,
-  applyComparePairsToNodes,
+  resolveCompareColumnsFromNodes,
+  buildComparePairPreview,
+  syncBeforeFromAssessment,
+  applyCompareColumnsToNodes,
 } = require('../../../../utils/album-compare-stage-images')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
@@ -103,7 +104,9 @@ Page({
     canSwitchTemplate: false,
     switching: false,
     completeness: null,
-    comparePairs: [],
+    compareBeforeImages: [],
+    compareAfterImages: [],
+    comparePairPreview: [],
     isComparePairStage: false,
   },
 
@@ -192,16 +195,36 @@ Page({
     return isComparePairStage
   },
 
-  initComparePairsFromNodes(nodes, templateId) {
+  initCompareColumnsFromNodes(nodes, templateId) {
     if (templateId !== BODY_PAINT_TEMPLATE_ID) {
-      return []
+      return {
+        beforeImages: [],
+        afterImages: [],
+        pairPreview: [],
+      }
     }
-    return buildComparePairRowsFromNodes(nodes)
+    const { beforeImages, afterImages } = resolveCompareColumnsFromNodes(nodes)
+    return {
+      beforeImages,
+      afterImages,
+      pairPreview: buildComparePairPreview(beforeImages, afterImages),
+    }
   },
 
-  applyComparePairsToPage(pairs) {
-    const nodes = applyComparePairsToNodes(this.data.nodes, pairs)
-    this.setData({ comparePairs: pairs, nodes })
+  applyCompareColumnsToPage(beforeImages, afterImages) {
+    const assessment = this.resolveAssessmentImages()
+    const nodes = applyCompareColumnsToNodes(
+      this.data.nodes,
+      beforeImages,
+      afterImages,
+      assessment,
+    )
+    this.setData({
+      compareBeforeImages: beforeImages,
+      compareAfterImages: afterImages,
+      comparePairPreview: buildComparePairPreview(beforeImages, afterImages),
+      nodes,
+    })
   },
 
   applyAlbum(detail) {
@@ -244,6 +267,7 @@ Page({
       showBottomPrimary = true
       bottomPrimaryText = '提交审核'
     }
+    const compareColumns = this.initCompareColumnsFromNodes(nodes, detail.templateId || '')
     this.setData({
       status: 'normal',
       detail,
@@ -252,7 +276,9 @@ Page({
       statusVariant: display.statusVariant,
       stageTabs,
       nodes,
-      comparePairs: this.initComparePairsFromNodes(nodes, detail.templateId || ''),
+      compareBeforeImages: compareColumns.beforeImages,
+      compareAfterImages: compareColumns.afterImages,
+      comparePairPreview: compareColumns.pairPreview,
       parts: (detail.parts || []).map((p) => ({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
@@ -320,14 +346,23 @@ Page({
     const index = SERVICE_ALBUM_STAGES.findIndex((s) => s.id === key)
     if (index >= 0) {
       this.setData({ stageIndex: index }, () => {
-        this.refreshCompareStageFlags(index)
+        const isCompare = this.refreshCompareStageFlags(index)
+        if (isCompare && this.data.templateId === BODY_PAINT_TEMPLATE_ID) {
+          const cols = this.initCompareColumnsFromNodes(this.data.nodes, this.data.templateId)
+          this.setData({
+            compareBeforeImages: cols.beforeImages,
+            compareAfterImages: cols.afterImages,
+            comparePairPreview: cols.pairPreview,
+          })
+        }
       })
     }
   },
 
-  onComparePairsChange(e) {
-    const pairs = (e.detail && e.detail.pairs) || []
-    this.applyComparePairsToPage(pairs)
+  onCompareColumnsChange(e) {
+    const beforeImages = (e.detail && e.detail.beforeImages) || []
+    const afterImages = (e.detail && e.detail.afterImages) || []
+    this.applyCompareColumnsToPage(beforeImages, afterImages)
   },
 
   onCompareNoteChange(e) {
@@ -345,8 +380,12 @@ Page({
       wx.showToast({ title: '请先在「损伤评估」上传近景', icon: 'none' })
       return
     }
-    const pairs = syncComparePairsFromAssessment(this.data.comparePairs, assessment)
-    this.applyComparePairsToPage(pairs)
+    const { beforeImages, afterImages } = syncBeforeFromAssessment(
+      this.data.compareBeforeImages,
+      this.data.compareAfterImages,
+      assessment,
+    )
+    this.applyCompareColumnsToPage(beforeImages, afterImages)
     wx.showToast({ title: '已同步修复前照片', icon: 'success' })
   },
 
@@ -633,10 +672,14 @@ Page({
     let nodesSource = this.data.nodes
     if (
       this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
-      Array.isArray(this.data.comparePairs) &&
-      this.data.comparePairs.length
+      (this.data.compareBeforeImages.length || this.data.compareAfterImages.length)
     ) {
-      nodesSource = applyComparePairsToNodes(nodesSource, this.data.comparePairs)
+      nodesSource = applyCompareColumnsToNodes(
+        nodesSource,
+        this.data.compareBeforeImages,
+        this.data.compareAfterImages,
+        this.resolveAssessmentImages(),
+      )
     }
     const { nodes, droppedStaleCount } = await persistAlbumNodeImages(
       nodesSource.map((n) => ({
