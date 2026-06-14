@@ -66,6 +66,10 @@ Component({
       type: Number,
       value: 0,
     },
+    showArchive: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -126,6 +130,11 @@ Component({
         nodeId,
         startIndex: Number(startIndex) || 0,
       })
+    },
+
+    onArchiveTap() {
+      if (this.properties.disabled) return
+      this.triggerEvent('archivetap')
     },
   },
 })

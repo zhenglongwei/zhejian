@@ -122,10 +122,10 @@ function buildPartsSummary(partsJson) {
   return `${head} 等 ${list.length} 项`
 }
 
-function buildReferencePriceText(privatePrice = {}) {
+function buildSummaryPriceText(privatePrice = {}) {
   const planAmount = privatePrice.planAmount
   if (planAmount != null && Number(planAmount) > 0) {
-    return `参考¥${planAmount}`
+    return `¥${planAmount}`
   }
   const minAmount = privatePrice.minAmount
   const maxAmount = privatePrice.maxAmount
@@ -136,18 +136,18 @@ function buildReferencePriceText(privatePrice = {}) {
     Number(maxAmount) >= Number(minAmount)
   ) {
     if (Number(minAmount) === Number(maxAmount)) {
-      return `参考¥${minAmount}`
+      return `¥${minAmount}`
     }
-    return `参考¥${minAmount}-${maxAmount}`
+    return `¥${minAmount}-${maxAmount}`
   }
   return ''
 }
 
-function buildSummaryLine({ issueDesc, partsSummary, referencePriceText }) {
+function buildSummaryLine({ issueDesc, partsSummary, summaryPriceText }) {
   const segments = []
   if (issueDesc) segments.push(issueDesc)
   if (partsSummary) segments.push(partsSummary)
-  if (referencePriceText) segments.push(referencePriceText)
+  if (summaryPriceText) segments.push(summaryPriceText)
   if (!segments.length) return ''
   const line = segments.join(' · ')
   return line.length > 40 ? `${line.slice(0, 39)}…` : line
@@ -245,11 +245,11 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
 
   const issueDesc = resolveIssueDesc(vehicle, nodes)
   const partsSummary = buildPartsSummary(partsJson)
-  const referencePriceText = buildReferencePriceText(privatePrice)
+  const summaryPriceText = buildSummaryPriceText(privatePrice)
   const summaryLine = buildSummaryLine({
     issueDesc,
     partsSummary,
-    referencePriceText,
+    summaryPriceText,
   })
 
   const summaryRows = buildSummaryRows({

@@ -76,27 +76,6 @@
   transition: width 0.28s ease;
 }
 
-.album-detail__archive-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 72rpx;
-  height: 56rpx;
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-full);
-  background: var(--color-album-nav-back);
-}
-
-.album-detail__archive-btn--hover {
-  background: var(--color-album-nav-back-pressed);
-}
-
-.album-detail__archive-text {
-  font-weight: var(--font-weight-medium);
-  color: #fff;
-  text-shadow: var(--shadow-album-nav-text);
-}
-
 .album-detail__empty-wrap {
   display: flex;
   flex: 1;

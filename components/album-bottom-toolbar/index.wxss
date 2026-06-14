@@ -123,12 +123,42 @@
   pointer-events: auto;
 }
 
+.album-bottom-toolbar__panel-head {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  width: 100%;
+}
+
 .album-bottom-toolbar__panel-copy {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  flex-shrink: 0;
+  min-width: 0;
   gap: var(--space-xs);
-  width: 100%;
+}
+
+.album-bottom-toolbar__archive {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72rpx;
+  margin-top: 2rpx;
+  padding: 4rpx var(--space-sm);
+  border: 1rpx solid var(--color-album-immersive-border);
+  border-radius: var(--radius-full);
+  background: var(--color-album-nav-back);
+}
+
+.album-bottom-toolbar__archive--hover {
+  background: var(--color-album-nav-back-pressed);
+}
+
+.album-bottom-toolbar__archive-text {
+  font-weight: var(--font-weight-medium);
+  color: #fff;
 }
 
 .album-bottom-toolbar__panel-node {
