@@ -10,6 +10,7 @@
     "ui-album-node": "/components/album-node/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-price-display": "/components/price-display/index",
-    "ui-key-info-table": "/components/key-info-table/index"
+    "ui-key-info-table": "/components/key-info-table/index",
+    "album-part-row": "/components/album-part-row/index"
   }
 }

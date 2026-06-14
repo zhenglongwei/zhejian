@@ -2,6 +2,7 @@
   "navigationBarTitleText": "车辆服务相册",
   "enablePullDownRefresh": true,
   "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-empty": "/components/empty/index",
     "ui-card": "/components/card/index",

@@ -181,6 +181,7 @@ page {
   --shadow-album-caption-text: 0 1rpx 4rpx rgba(0, 0, 0, 0.45);
   --shadow-album-nav-text: 0 2rpx 8rpx rgba(0, 0, 0, 0.35);
   --shadow-album-progress-fill: 0 0 8rpx rgba(255, 255, 255, 0.35);
+  --shadow-album-compare-handle: 0 0 8rpx rgba(0, 0, 0, 0.35);
   --shadow-album-segment-active: 0 0 12rpx rgba(22, 119, 255, 0.45);
 
   /**
@@ -225,6 +226,7 @@ page {
   --size-album-caption-bar: 72rpx;
   --size-album-immersive-nav: 88rpx;
   --size-album-toolbar-height: 80rpx;
+  --size-album-compare-stage: 960rpx;
   --size-album-page-footer-min: 120rpx;
   --font-album-display: 26rpx;
   --font-album-display-lh: 36rpx;

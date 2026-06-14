@@ -10,6 +10,8 @@ Page({
     status: 'loading',
     errorMessage: '',
     list: [],
+    shellTitle: '我的车辆',
+    shellSubtitle: '服务相册时间轴',
   },
 
   onLoad(options) {
@@ -68,6 +70,8 @@ Page({
         list,
         status: list.length ? 'normal' : 'empty',
         errorMessage: '',
+        shellTitle: vehicle.displayTitle || '我的车辆',
+        shellSubtitle: `服务相册 ${vehicle.albumCount || 0} 本`,
       })
       if (vehicle && vehicle.displayTitle) {
         wx.setNavigationBarTitle({ title: vehicle.displayTitle })

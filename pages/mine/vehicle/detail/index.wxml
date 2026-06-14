@@ -1,12 +1,12 @@
-<view class="page vehicle-detail">
+<ui-tool-page-shell title="{{shellTitle}}" subtitle="{{shellSubtitle}}">
   <block wx:if="{{status === 'loading'}}">
-    <view class="vehicle-detail__pad">
+    <view class="vehicle-detail__state">
       <ui-skeleton rows="{{4}}" title="{{true}}" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="vehicle-detail__pad">
+    <view class="vehicle-detail__state">
       <ui-empty
         title="加载失败"
         description="{{errorMessage}}"
@@ -40,7 +40,7 @@
     <view class="vehicle-detail__section-title text-caption">服务相册时间轴</view>
 
     <block wx:if="{{status === 'empty'}}">
-      <view class="vehicle-detail__empty">
+      <view class="vehicle-detail__state">
         <ui-empty
           title="暂无该车的服务相册"
           description="门店创建相册并登记相同品牌、车系后会出现在这里"
@@ -62,4 +62,4 @@
       </view>
     </block>
   </block>
-</view>
+</ui-tool-page-shell>

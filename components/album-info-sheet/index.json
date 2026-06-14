@@ -6,6 +6,7 @@
     "ui-tag": "/components/tag/index",
     "ui-button": "/components/button/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-ai-summary-block": "/components/ai-summary-block/index"
+    "ui-ai-summary-block": "/components/ai-summary-block/index",
+    "album-part-row": "/components/album-part-row/index"
   }
 }

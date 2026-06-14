@@ -93,14 +93,9 @@
 
       <view
         wx:if="{{showProgress && item.stageProgress.length}}"
-        class="album-card__progress"
-        aria-hidden="true"
+        class="album-card__progress-wrap"
       >
-        <view
-          wx:for="{{item.stageProgress}}"
-          wx:key="id"
-          class="album-card__progress-seg {{item.filled ? 'album-card__progress-seg--filled' : ''}}"
-        />
+        <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
       </view>
 
       <text wx:if="{{item.deliverDateText}}" class="album-card__date text-caption">{{item.deliverDateText}}</text>

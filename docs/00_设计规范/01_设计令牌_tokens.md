@@ -208,6 +208,7 @@ page {
   --shadow-album-frame: 0 8rpx 32rpx rgba(60, 50, 40, 0.12),
     0 2rpx 8rpx rgba(60, 50, 40, 0.06);
   --shadow-album-list-thumb: 0 2rpx 12rpx rgba(60, 50, 40, 0.08);
+  --shadow-album-compare-handle: 0 0 8rpx rgba(0, 0, 0, 0.35);
 
   /**
    * 层级
@@ -251,6 +252,7 @@ page {
   --size-album-caption-bar: 72rpx;
   --size-album-immersive-nav: 88rpx;
   --size-album-toolbar-height: 80rpx;
+  --size-album-compare-stage: 960rpx;
   --size-album-page-footer-min: 120rpx;
   --font-album-display: 26rpx;
   --font-album-display-lh: 36rpx;
@@ -317,6 +319,7 @@ page {
 | `--shadow-album-immersive-panel` | `0 8rpx 28rpx rgba(0,0,0,0.28)` | 沉浸说明面板阴影 |
 | `--shadow-album-overlay-chip` | `0 4rpx 20rpx rgba(0,0,0,0.14)` | overlay chip 阴影 |
 | `--shadow-album-segment-active` | `0 0 12rpx rgba(22,119,255,0.45)` | 当前阶段进度光晕 |
+| `--shadow-album-compare-handle` | `0 0 8rpx rgba(0,0,0,0.35)` | 前后对比滑块中线/手柄阴影 |
 | `--color-album-end-finish` | `#8a8278` | 尾页「本册已阅」装饰线 |
 | `--shadow-album-frame` | 双层暖色阴影 | 详情全屏相框立体感 |
 | `--shadow-album-list-thumb` | 轻阴影 | 列表缩略图轻相框感 |
@@ -328,6 +331,7 @@ page {
 | `--size-album-caption-bar` | `72rpx` | 框内底短文案条高度 |
 | `--size-album-immersive-nav` | `88rpx` | 沉浸导航内容区（不含 statusBar） |
 | `--size-album-toolbar-height` | `80rpx` | 节点 Tab 底栏 |
+| `--size-album-compare-stage` | `960rpx` | 前后对比滑块可视区高度 |
 | `--size-album-page-footer-min` | `120rpx` | 页脚（联系门店 + 合规）最小高度 |
 | `--font-album-frame-page` | `24rpx` | 框内页码字号 |
 | `--radius-album-frame-inner` | `8rpx` | 框内大图圆角 |

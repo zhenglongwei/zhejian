@@ -1,0 +1,42 @@
+.album-progress-segments {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.album-progress-segments--mini {
+  gap: 4rpx;
+  max-width: 320rpx;
+  margin-top: var(--space-xs);
+}
+
+.album-progress-segments--toolbar {
+  flex-shrink: 0;
+  gap: 6rpx;
+  max-width: 520rpx;
+}
+
+.album-progress-segments__seg {
+  flex: 1;
+  height: 6rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-album-frame-line);
+}
+
+.album-progress-segments--toolbar .album-progress-segments__seg {
+  background: var(--color-album-segment-idle);
+}
+
+.album-progress-segments__seg--filled {
+  background: var(--color-album-active);
+}
+
+.album-progress-segments--toolbar .album-progress-segments__seg--filled {
+  background: var(--color-album-segment-filled);
+}
+
+.album-progress-segments__seg--active {
+  height: 8rpx;
+  background: var(--color-album-active);
+  box-shadow: var(--shadow-album-segment-active);
+}

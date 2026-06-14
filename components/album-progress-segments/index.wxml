@@ -1,0 +1,13 @@
+<view
+  class="album-progress-segments album-progress-segments--{{variant}}"
+  aria-hidden="{{variant === 'mini'}}"
+>
+  <view
+    wx:for="{{stages}}"
+    wx:key="id"
+    class="album-progress-segments__seg {{item.filled ? 'album-progress-segments__seg--filled' : ''}} {{item.active ? 'album-progress-segments__seg--active' : ''}}"
+    data-start-index="{{item.startIndex}}"
+    data-node-id="{{item.id}}"
+    bindtap="onSegmentTap"
+  />
+</view>

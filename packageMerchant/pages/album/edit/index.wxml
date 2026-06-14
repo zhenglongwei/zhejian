@@ -100,17 +100,18 @@
           <view class="merchant-album-edit__parts">
             <text class="text-h3">配件录入</text>
             <text class="text-caption merchant-album-edit__parts-hint">记录配件类型与实际价格，供门店留痕；车主可在服务相册中查看，公开案例须另行授权。</text>
-            <view wx:for="{{parts}}" wx:key="partId" class="merchant-album-edit__part-row">
-              <ui-tag variant="{{item.typeVariant}}" text="{{item.partType}}" />
-              <text class="text-body">{{item.partName}}</text>
-              <view wx:if="{{item.actualPrice}}" class="merchant-album-edit__part-price">
-                <ui-price-display
-                  mode="fixed"
-                  amount="{{item.actualPrice}}"
-                  showSuffix="{{false}}"
-                  showDisclaimer="{{false}}"
-                />
-              </view>
+            <view class="merchant-album-edit__parts-list">
+              <album-part-row
+                wx:for="{{parts}}"
+                wx:key="partId"
+                variant="inline"
+                tappable="{{false}}"
+                is-last="{{index === parts.length - 1}}"
+                name="{{item.partName}}"
+                part-type="{{item.partType}}"
+                type-variant="{{item.typeVariant}}"
+                price-amount="{{item.actualPrice}}"
+              />
             </view>
             <view wx:if="{{showPartForm}}" id="part-form" class="merchant-album-edit__part-form">
               <input class="merchant-form__input" placeholder="配件名称" value="{{partForm.partName}}" data-field="partName" bindinput="onPartInput" />

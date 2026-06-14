@@ -104,8 +104,10 @@ Component({
     },
 
     onPartTap(e) {
-      const { index } = e.currentTarget.dataset
-      this.triggerEvent('parttap', { index: Number(index) || 0 })
+      const index = e.detail && e.detail.index != null
+        ? Number(e.detail.index)
+        : Number(e.currentTarget.dataset.index)
+      this.triggerEvent('parttap', { index: index >= 0 ? index : 0 })
     },
   },
 })

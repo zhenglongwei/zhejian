@@ -135,24 +135,8 @@
   gap: var(--space-xs);
 }
 
-.album-card__progress {
-  display: flex;
-  gap: 4rpx;
-  align-items: center;
+.album-card__progress-wrap {
   width: 100%;
-  max-width: 320rpx;
-  margin-top: var(--space-xs);
-}
-
-.album-card__progress-seg {
-  flex: 1;
-  height: 6rpx;
-  border-radius: var(--radius-full);
-  background: var(--color-album-frame-line);
-}
-
-.album-card__progress-seg--filled {
-  background: var(--color-album-active);
 }
 
 .album-card__time {

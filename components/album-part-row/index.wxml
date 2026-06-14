@@ -1,0 +1,42 @@
+<view
+  class="album-part-row album-part-row--{{variant}} {{variant === 'card' && tappable ? 'album-part-row--tappable' : ''}} {{variant === 'inline' && isLast ? 'album-part-row--last' : ''}}"
+  bindtap="onTap"
+>
+  <block wx:if="{{variant === 'card'}}">
+    <image
+      wx:if="{{thumbUrl}}"
+      class="album-part-row__thumb"
+      src="{{thumbUrl}}"
+      mode="aspectFill"
+    />
+    <view wx:else class="album-part-row__thumb album-part-row__thumb--placeholder" />
+    <view class="album-part-row__main">
+      <text class="album-part-row__name text-body">{{name}}</text>
+      <view class="album-part-row__meta">
+        <ui-tag
+          wx:if="{{partType}}"
+          variant="{{typeVariant || 'default'}}"
+          text="{{partType}}"
+        />
+        <text wx:if="{{qty}}" class="album-part-row__qty text-caption">×{{qty}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <ui-tag
+      wx:if="{{partType}}"
+      variant="{{typeVariant || 'default'}}"
+      text="{{partType}}"
+    />
+    <text class="album-part-row__name text-body">{{name}}</text>
+    <view wx:if="{{priceAmount}}" class="album-part-row__price">
+      <ui-price-display
+        mode="fixed"
+        amount="{{priceAmount}}"
+        showSuffix="{{false}}"
+        showDisclaimer="{{false}}"
+      />
+    </view>
+  </block>
+</view>

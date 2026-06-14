@@ -35,16 +35,12 @@
           </view>
         </view>
       </view>
-      <view class="album-bottom-toolbar__segments">
-        <view
-          wx:for="{{stages}}"
-          wx:key="id"
-          class="album-bottom-toolbar__segment {{item.filled ? 'album-bottom-toolbar__segment--filled' : ''}} {{item.active ? 'album-bottom-toolbar__segment--active' : ''}}"
-          data-start-index="{{item.startIndex}}"
-          data-node-id="{{item.id}}"
-          bindtap="onChapterTap"
-        />
-      </view>
+      <album-progress-segments
+        stages="{{stages}}"
+        variant="toolbar"
+        disabled="{{disabled}}"
+        bind:segmenttap="onSegmentTap"
+      />
     </view>
   </block>
 

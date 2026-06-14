@@ -71,7 +71,7 @@
 .album-detail__progress-fill {
   height: 100%;
   border-radius: 0 3rpx 3rpx 0;
-  background: #fff;
+  background: var(--color-text-inverse);
   box-shadow: var(--shadow-album-progress-fill);
   transition: width 0.28s ease;
 }

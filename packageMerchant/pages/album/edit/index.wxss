@@ -135,21 +135,8 @@
   color: var(--color-primary);
 }
 
-.merchant-album-edit__part-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) 0;
-  border-bottom: 1rpx solid var(--color-border);
-}
-
-.merchant-album-edit__part-row:last-child {
-  border-bottom: none;
-}
-
-.merchant-album-edit__part-price {
-  flex-shrink: 0;
+.merchant-album-edit__parts-list {
+  display: block;
 }
 
 .merchant-album-edit__part-form {

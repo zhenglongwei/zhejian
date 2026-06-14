@@ -1,7 +1,10 @@
-.vehicle-detail__pad,
-.vehicle-detail__head,
-.vehicle-detail__empty {
-  padding: var(--space-md);
+.vehicle-detail__state {
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-xl);
+}
+
+.vehicle-detail__head {
+  padding-top: var(--space-sm);
 }
 
 .vehicle-detail__head-inner {
@@ -30,7 +33,8 @@
 }
 
 .vehicle-detail__section-title {
-  padding: 0 var(--space-md) var(--space-sm);
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-sm);
   color: var(--color-text-tertiary);
 }
 
@@ -38,5 +42,5 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding: 0 var(--space-md) var(--page-fixed-clearance);
+  padding-bottom: var(--space-xl);
 }

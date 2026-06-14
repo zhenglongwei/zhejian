@@ -145,5 +145,15 @@ Component({
       if (this.properties.disabled) return
       this.triggerEvent('comparetap')
     },
+
+    onSegmentTap(e) {
+      const { nodeId, startIndex } = e.detail || {}
+      if (!nodeId) return
+      this.onChapterTap({
+        currentTarget: {
+          dataset: { nodeId, startIndex },
+        },
+      })
+    },
   },
 })
