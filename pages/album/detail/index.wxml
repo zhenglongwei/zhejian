@@ -219,6 +219,7 @@
         wx:if="{{comparePairs.length > 1}}"
         class="album-detail__compare-pager text-caption"
       >{{comparePairIndex + 1}} / {{comparePairs.length}}</text>
+      <text wx:if="{{compareHint}}" class="album-detail__compare-hint text-caption">{{compareHint}}</text>
     </view>
   </view>
 </view>

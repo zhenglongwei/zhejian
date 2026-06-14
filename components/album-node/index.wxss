@@ -118,6 +118,26 @@
   color: var(--color-text-tertiary);
 }
 
+.album-node__compare-guide {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border-left: 4rpx solid var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.album-node__compare-guide-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-warning);
+  font-weight: var(--font-weight-medium);
+}
+
+.album-node__compare-guide-text {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: var(--font-caption-lh);
+}
+
 .album-node__note-input {
   width: 100%;
   min-height: 120rpx;

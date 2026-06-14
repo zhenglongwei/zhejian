@@ -31,7 +31,7 @@ const {
 } = require('../../../utils/share-store-context')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
-const { buildAlbumComparePairs } = require('../../../utils/album-compare-pairs')
+const { buildAlbumComparePairs, buildAlbumCompareHint } = require('../../../utils/album-compare-pairs')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
 
@@ -244,6 +244,7 @@ Page({
     infoSheetAiSummary: '',
     infoSheetPageProgress: '',
     comparePairs: [],
+    compareHint: '',
     showCompareEntry: false,
     compareOverlayVisible: false,
     comparePairIndex: 0,
@@ -443,6 +444,11 @@ Page({
         templateName: enriched.templateName,
         serviceName: enriched.serviceName,
       })
+      const compareHint = buildAlbumCompareHint(comparePairs, {
+        templateId: enriched.templateId,
+        templateName: enriched.templateName,
+        serviceName: enriched.serviceName,
+      })
       const endPageAuth = buildEndPageAuthState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
 
@@ -474,6 +480,7 @@ Page({
         shareSheetVisible: false,
         chromeVisible: pageStatus === 'normal',
         comparePairs,
+        compareHint,
         showCompareEntry: comparePairs.length > 0,
         compareOverlayVisible: false,
         comparePairIndex: 0,
@@ -498,8 +505,8 @@ Page({
           albumId: this.albumId,
           source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
         })
-        markAlbumSeen(this.albumId, detail.updatedAt || enriched.updatedAt)
       }
+      markAlbumSeen(this.albumId, detail.updatedAt || enriched.updatedAt)
 
       if (showShareEntry) {
         await this.refreshShareToken({ silent: true, defaultShareIntent })

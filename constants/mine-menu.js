@@ -24,6 +24,7 @@ const MINE_CORE_MENUS = [
     desc: '查看授权与审核状态',
     needPhone: true,
     url: '/pages/album/authorize/index',
+    badgeKey: 'albumPendingAuth',
   },
   {
     key: 'message',

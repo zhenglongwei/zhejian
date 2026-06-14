@@ -64,6 +64,7 @@
           title="{{nodes[stageIndex].title}}"
           description="{{nodes[stageIndex].description}}"
           photoTips="{{nodes[stageIndex].photoTips}}"
+          compareGuidance="{{nodes[stageIndex].compareGuidance}}"
           requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
           requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
           note="{{nodes[stageIndex].note}}"

@@ -76,7 +76,8 @@ Page({
     const pendingAuth = Number(source.albumPendingAuth) || 0
     return {
       unreadNotification: format(source.unreadNotificationCount),
-      albumUnread: albumUnread || pendingAuth > 0,
+      albumUnread: Boolean(albumUnread),
+      albumPendingAuth: format(pendingAuth),
     }
   },
 

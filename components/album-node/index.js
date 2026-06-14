@@ -20,6 +20,7 @@ Component({
     emptyText: { type: String, value: '商家暂未上传' },
     description: { type: String, value: '' },
     photoTips: { type: String, value: '' },
+    compareGuidance: { type: String, value: '' },
     requiredLevelLabel: { type: String, value: '' },
     requiredLevelVariant: { type: String, value: 'default' },
     notePlaceholder: { type: String, value: '补充本节点说明（可选）' },

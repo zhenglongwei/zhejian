@@ -22,12 +22,39 @@ function normalizeUpdatedAt(value) {
   return String(value)
 }
 
+function toCompareTime(value) {
+  if (value == null || value === '') return 0
+  const s = String(value).trim()
+  if (/^\d+$/.test(s)) return Number(s)
+  const t = new Date(s).getTime()
+  return Number.isNaN(t) ? 0 : t
+}
+
 function markAlbumSeen(albumId, updatedAt) {
   const id = String(albumId || '').trim()
   if (!id) return
   const state = getReadState()
-  state[id] = normalizeUpdatedAt(updatedAt) || String(Date.now())
+  const stamp = normalizeUpdatedAt(updatedAt)
+  state[id] = stamp || String(Date.now())
   saveReadState(state)
+  notifyAlbumReadStateChanged()
+}
+
+function notifyAlbumReadStateChanged() {
+  try {
+    const pages = getCurrentPages()
+    pages.forEach((page) => {
+      if (!page || !page.route) return
+      if (page.route === 'pages/album/list/index' && page._listNeedRefresh !== undefined) {
+        page._listNeedRefresh = true
+      }
+      if (page.route === 'pages/mine/index' && typeof page.loadPage === 'function') {
+        page.loadPage({ silent: true })
+      }
+    })
+  } catch (e) {
+    // ignore
+  }
 }
 
 function markAlbumsSeen(albums = []) {
@@ -43,21 +70,31 @@ function markAlbumsSeen(albums = []) {
 function isAlbumUnread(item, state = getReadState()) {
   const id = String((item && item.albumId) || (item && item.id) || '').trim()
   if (!id) return false
-  const updatedAt = normalizeUpdatedAt(item.updatedAt)
-  const seenAt = state[id]
+  const updatedAt = toCompareTime(item.updatedAt)
+  const seenAt = toCompareTime(state[id])
   if (!seenAt) return true
-  if (updatedAt && updatedAt > String(seenAt)) return true
+  if (updatedAt && updatedAt > seenAt) return true
   return false
 }
 
-function hasUnreadAlbums(albums = []) {
+/** 菜单红点：仅统计维修中且有内容更新的相册（不含待授权） */
+function hasUnreadAlbumUpdates(albums = []) {
   const state = getReadState()
-  return albums.some((item) => isAlbumUnread(item, state))
+  return albums.some((item) => {
+    const status = item && item.status
+    if (status && ['completed', 'published'].includes(String(status))) return false
+    return isAlbumUnread(item, state)
+  })
+}
+
+function hasUnreadAlbums(albums = []) {
+  return hasUnreadAlbumUpdates(albums)
 }
 
 module.exports = {
   markAlbumSeen,
   markAlbumsSeen,
   hasUnreadAlbums,
+  hasUnreadAlbumUpdates,
   isAlbumUnread,
 }

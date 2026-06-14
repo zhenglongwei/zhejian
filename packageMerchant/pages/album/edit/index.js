@@ -1,4 +1,5 @@
 const { SERVICE_ALBUM_STAGES, getStageMeta } = require('../../../../constants/service-album-stages')
+const { applyTemplateStageMeta } = require('../../../../constants/service-album-template-stage-meta')
 const {
   SERVICE_ALBUM_STATUS,
 } = require('../../../../constants/service-album-status')
@@ -127,23 +128,32 @@ Page({
     return index >= 0 ? index : 0
   },
 
-  mergeNodes(rawNodes) {
+  mergeNodes(rawNodes, templateId) {
     const map = {}
     ;(rawNodes || []).forEach((n) => {
       const key = n.id || n.nodeId
       if (key) map[key] = n
     })
+    const tplId = String(templateId || '').trim()
     return SERVICE_ALBUM_STAGES.map((stage) => {
       const node = map[stage.id] || {}
       const meta = getStageMeta(stage.id) || stage
+      const mergedMeta = applyTemplateStageMeta(tplId, stage.id, {
+        description: node.description || meta.description,
+        photoTips: node.photoTips || meta.photoTips,
+        compareGuidance: node.compareGuidance || '',
+        requiredLevelLabel: node.requiredLevelLabel || meta.requiredLevelLabel,
+        requiredLevelVariant: node.requiredLevelVariant || meta.requiredLevelVariant,
+      })
       const apiTitle = String(node.title || '').trim()
       return {
         id: stage.id,
         title: apiTitle || stage.title,
-        description: node.description || meta.description,
-        photoTips: node.photoTips || meta.photoTips,
-        requiredLevelLabel: node.requiredLevelLabel || meta.requiredLevelLabel,
-        requiredLevelVariant: node.requiredLevelVariant || meta.requiredLevelVariant,
+        description: mergedMeta.description,
+        photoTips: mergedMeta.photoTips,
+        compareGuidance: mergedMeta.compareGuidance,
+        requiredLevelLabel: mergedMeta.requiredLevelLabel || '',
+        requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
         images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
       }
@@ -155,7 +165,7 @@ Page({
   },
 
   applyAlbum(detail) {
-    const nodes = this.mergeNodes(detail.nodes)
+    const nodes = this.mergeNodes(detail.nodes, detail.templateId)
     const stageTabs = this.buildStageTabs(nodes)
     const planAmount = resolvePlanAmount(detail)
     const imageCount = detail.imageCount != null ? detail.imageCount : 0

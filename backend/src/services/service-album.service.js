@@ -20,6 +20,7 @@ const {
   listServiceAlbumTemplateOptions,
   getAlbumTemplateById,
 } = require('../constants/service-album-node-template')
+const { applyTemplateStageMeta } = require('../constants/service-album-template-stage-meta')
 const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const {
   assertPersistentImageUrl,
@@ -101,6 +102,7 @@ function mapNodesForView(album) {
   return nodeViews.map((node) => {
     const meta = templateMeta[node.id] || {}
     const requiredLevel = meta.requiredLevel || ''
+    const stageMeta = applyTemplateStageMeta(album.templateId, node.id, {})
     return {
       id: node.id,
       title: node.title,
@@ -108,6 +110,9 @@ function mapNodesForView(album) {
       note: node.note || '',
       images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
       updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
+      description: stageMeta.description || '',
+      photoTips: stageMeta.photoTips || '',
+      compareGuidance: stageMeta.compareGuidance || '',
       requiredLevelLabel:
         requiredLevel === 'required'
           ? '必拍'

@@ -135,3 +135,10 @@
   color: var(--color-text-tertiary);
   text-align: center;
 }
+
+.album-detail__compare-hint {
+  flex-shrink: 0;
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--font-caption-lh);
+}
