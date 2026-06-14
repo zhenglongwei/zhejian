@@ -13,6 +13,7 @@ const {
 const { canShareToOwner } = require('./service-album-share')
 const { canOwnerShareAlbum } = require('./album-owner-share')
 const { resolveImageSrc, resolveMediaUrl } = require('./desensitize-url')
+const { isAlbumUnread } = require('./album-unread-hint')
 
 function resolveAlbumCoverUrl(item = {}) {
   if (item.coverUrl) {
@@ -177,6 +178,7 @@ function appendAlbumListPresentation(item, base = {}) {
   const coverUrl = resolveAlbumCoverUrl(merged)
   const stageProgress = buildAlbumListStageProgress(merged)
   const authAction = resolveAlbumAuthAction(merged)
+  const hasUnreadUpdate = Boolean(base.hasUnreadUpdate)
   return {
     ...base,
     coverUrl,
@@ -186,6 +188,7 @@ function appendAlbumListPresentation(item, base = {}) {
     stageProgress,
     authAction,
     showShareButton: resolveUserAlbumShareVisible(merged),
+    hasUnreadUpdate,
   }
 }
 
@@ -213,11 +216,15 @@ function enrichServiceAlbumListItem(item, options = {}) {
   const privatePrice = buildPrivateAlbumPrice(item)
   const summaryRowsFull = Array.isArray(item.summaryRows) ? item.summaryRows.slice() : []
   const summaryRowsForDisplay = stripPriceSummaryRow(summaryRowsFull)
+  const unreadBase = {
+    hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
+  }
 
   // 列表：私密 Tab 仅展示维修进度；公开 Tab 不展示状态 Tag
   if (listTab === 'public') {
     return appendAlbumListPresentation(item, {
       ...base,
+      ...unreadBase,
       statusLabel: '',
       statusVariant: 'default',
       visibilityLabel: '',
@@ -240,6 +247,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
 
   return appendAlbumListPresentation(item, {
     ...base,
+    ...unreadBase,
     statusLabel: repair.statusLabel,
     statusVariant: repair.statusVariant,
     ...reviewTag,

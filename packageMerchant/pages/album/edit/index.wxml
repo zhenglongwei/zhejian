@@ -137,7 +137,7 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="text-h3">车型信息</text>
-        <text class="text-caption merchant-album-edit__vehicle-hint">品牌与车系为必填，公开案例时将脱敏展示。</text>
+        <text class="text-caption merchant-album-edit__vehicle-hint">品牌与车系为必填；车牌/VIN 选填，公开案例时将脱敏展示。</text>
         <view class="merchant-form__row merchant-album-edit__vehicle-row">
           <input
             class="merchant-form__input merchant-form__input--half"
@@ -153,6 +153,33 @@
             data-field="vehicleSeries"
             bindinput="onVehicleInput"
           />
+        </view>
+        <view class="merchant-form__row merchant-album-edit__vehicle-row">
+          <input
+            class="merchant-form__input merchant-form__input--half"
+            placeholder="车牌（选填）"
+            value="{{vehiclePlate}}"
+            data-field="vehiclePlate"
+            bindinput="onVehicleInput"
+          />
+          <input
+            class="merchant-form__input merchant-form__input--half"
+            placeholder="VIN（选填）"
+            value="{{vehicleVin}}"
+            maxlength="17"
+            data-field="vehicleVin"
+            bindinput="onVehicleInput"
+          />
+        </view>
+        <view class="merchant-album-edit__ocr-row">
+          <ui-button
+            type="secondary"
+            size="sm"
+            loading="{{vehicleOcrLoading}}"
+            disabled="{{saving || completing}}"
+            bind:btntap="onVehicleOcrFromIntake"
+          >从接车照片识别</ui-button>
+          <text class="text-caption merchant-album-edit__ocr-hint">使用接车节点最新一张照片识别车牌/VIN，识别后可手动修改</text>
         </view>
       </ui-card>
 

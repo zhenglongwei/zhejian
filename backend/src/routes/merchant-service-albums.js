@@ -13,6 +13,7 @@ const {
   switchMerchantServiceAlbumTemplate,
   listServiceAlbumTemplateOptions,
 } = require('../services/service-album.service')
+const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.service')
 const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 
@@ -58,6 +59,15 @@ router.post('/service-albums', requireAuth(['merchant']), async (req, res, next)
       storeId,
       req.body || {},
     )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/vehicle-ocr', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const data = await recognizeVehicleIntake(req.body?.imageUrl)
     return ok(res, data)
   } catch (e) {
     next(e)

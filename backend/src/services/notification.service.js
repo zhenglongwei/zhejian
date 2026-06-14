@@ -15,6 +15,8 @@ const RECEIVER = {
 
 const DEDUP_MS = 24 * 60 * 60 * 1000
 
+const ALBUM_DONE_STATUSES = new Set(['completed', 'published'])
+
 function notificationRepo() {
   return prisma.notificationMessage
 }
@@ -481,21 +483,54 @@ async function notifyNewLead(lead) {
 async function notifyAlbumCompleted(album) {
   const userId = await resolveAlbumUserId(album)
   if (!userId) return null
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
   return notifyUser({
     receiverId: userId,
-    messageType: 'album',
+    messageType: 'album_completed',
     title: '服务相册已完工',
     content: `${album.storeName || '门店'}的服务相册已更新，可查看完整留档。`,
     refType: 'album',
     refId: album.id,
-    jumpPath: `/pages/album/detail/index?id=${album.id}`,
+    jumpPath,
     wechatTemplateKey: 'album',
-    wechatPage: `pages/album/detail/index?id=${album.id}`,
+    wechatPage: jumpPath.replace(/^\//, ''),
     wechatPayload: {
       serviceName: album.serviceName || '服务相册',
       status: '已完工',
       tips: '服务相册已更新，可查看留档',
       storeName: album.storeName,
+    },
+  })
+}
+
+async function notifyAlbumNodeUpdated(album, meta = {}) {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  if (ALBUM_DONE_STATUSES.has(album.status)) return null
+
+  const stageTitle = String(meta.stageTitle || '').trim() || '维修进度'
+  const tips =
+    meta.kind === 'images'
+      ? '门店上传了新的过程照片'
+      : '门店更新了维修说明'
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
+
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'album_update',
+    title: '服务相册有更新',
+    content: `${album.storeName || '门店'} · ${stageTitle}`,
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'album',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '维修中',
+      tips,
+      storeName: album.storeName,
+      stageTitle,
     },
   })
 }
@@ -669,6 +704,7 @@ module.exports = {
   notifyLeadClosed,
   notifyNewLead,
   notifyAlbumCompleted,
+  notifyAlbumNodeUpdated,
   notifyAuthorizationSubmitted,
   notifyAuthorizationWithdrawn,
   notifyCaseAuditResult,

@@ -15,6 +15,7 @@ const {
   completeMerchantServiceAlbum,
   createMerchantColdStartPreview,
   switchMerchantServiceAlbumTemplate,
+  recognizeVehicleIntakeOcr,
 } = require('../../../../services/merchant-service-album')
 const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
 const {
@@ -23,7 +24,7 @@ const {
 } = require('../../../../utils/service-album-share')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
-const { persistAlbumNodeImages, normalizeStoredImageUrl } = require('../../../../utils/media-upload')
+const { persistAlbumNodeImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
 const { BIZ_TYPE } = require('../../../../constants/desensitize')
 const {
   fetchMerchantProfile,
@@ -71,6 +72,9 @@ Page({
     canShareToOwner: false,
     vehicleBrand: '',
     vehicleSeries: '',
+    vehiclePlate: '',
+    vehicleVin: '',
+    vehicleOcrLoading: false,
     isCompleted: false,
     hasOwner: false,
     showSubmitReviewButton: false,
@@ -210,6 +214,8 @@ Page({
       canShareToOwner: canShare,
       vehicleBrand: (detail.vehicle && detail.vehicle.brand) || '',
       vehicleSeries: (detail.vehicle && detail.vehicle.series) || '',
+      vehiclePlate: (detail.vehicle && (detail.vehicle.plate || detail.vehicle.plateDisplay)) || '',
+      vehicleVin: (detail.vehicle && detail.vehicle.vin) || '',
       isCompleted,
       hasOwner,
       publicCaseStatus,
@@ -361,9 +367,114 @@ Page({
   },
 
   buildVehiclePayload() {
-    return {
+    const plate = String(this.data.vehiclePlate || '')
+      .trim()
+      .replace(/[\s·.]/g, '')
+      .toUpperCase()
+    const vin = String(this.data.vehicleVin || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+    const payload = {
       brand: (this.data.vehicleBrand || '').trim(),
       series: (this.data.vehicleSeries || '').trim(),
+    }
+    if (plate) payload.plate = plate
+    if (vin) payload.vin = vin
+    return payload
+  },
+
+  resolveIntakeImageUrl() {
+    const intakeNode = (this.data.nodes || [])[0]
+    const images = (intakeNode && intakeNode.images) || []
+    for (let i = images.length - 1; i >= 0; i -= 1) {
+      const url = normalizeStoredImageUrl(images[i])
+      if (url) return url
+    }
+    return ''
+  },
+
+  isTempImagePath(url) {
+    const value = String(url || '')
+    return (
+      value.startsWith('wxfile://') ||
+      value.startsWith('http://tmp/') ||
+      value.startsWith('https://tmp/') ||
+      value.includes('__tmp__')
+    )
+  },
+
+  applyVehicleOcrResult(result = {}) {
+    const patch = {}
+    const { vehicleBrand, vehicleSeries, vehiclePlate, vehicleVin } = this.data
+    const hasExisting = Boolean(
+      (vehiclePlate || '').trim() || (vehicleVin || '').trim()
+    )
+
+    const applyFields = (overwrite) => {
+      const next = {}
+      if (result.plate && (overwrite || !vehiclePlate)) {
+        next.vehiclePlate = result.plate
+      }
+      if (result.vin && (overwrite || !vehicleVin)) {
+        next.vehicleVin = result.vin
+      }
+      if (Object.keys(next).length) {
+        this.setData(next)
+        wx.showToast({ title: '已识别，请核对', icon: 'none' })
+      } else if (result.plate || result.vin) {
+        wx.showToast({ title: '字段已填写，未覆盖', icon: 'none' })
+      }
+    }
+
+    if (!hasExisting) {
+      applyFields(false)
+      return
+    }
+
+    wx.showModal({
+      title: '识别到车辆信息',
+      content: '是否用识别结果覆盖当前已填写的车牌或 VIN？',
+      confirmText: '覆盖',
+      success: (res) => {
+        if (!res.confirm) return
+        applyFields(true)
+      },
+    })
+  },
+
+  async onVehicleOcrFromIntake() {
+    if (this.data.vehicleOcrLoading || this.data.saving || this.data.completing) return
+
+    let imageUrl = this.resolveIntakeImageUrl()
+    if (!imageUrl) {
+      wx.showToast({ title: '请先在接车节点上传照片', icon: 'none' })
+      return
+    }
+
+    this.setData({ vehicleOcrLoading: true })
+    wx.showLoading({ title: '识别中', mask: true })
+    try {
+      if (this.isTempImagePath(imageUrl)) {
+        imageUrl = await uploadImage(imageUrl)
+        const nodes = this.data.nodes.slice()
+        if (nodes[0] && Array.isArray(nodes[0].images) && nodes[0].images.length) {
+          const images = nodes[0].images.slice()
+          images[images.length - 1] = imageUrl
+          nodes[0] = { ...nodes[0], images }
+          this.setData({ nodes })
+        }
+      }
+      const result = await recognizeVehicleIntakeOcr(imageUrl)
+      this.applyVehicleOcrResult(result)
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '识别失败，请手动填写',
+        icon: 'none',
+      })
+    } finally {
+      wx.hideLoading()
+      this.setData({ vehicleOcrLoading: false })
     }
   },
 

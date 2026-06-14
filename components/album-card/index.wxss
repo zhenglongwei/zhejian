@@ -159,3 +159,8 @@
   margin-top: var(--space-xs);
   color: var(--color-text-tertiary);
 }
+
+.album-card__time--fresh {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-medium);
+}

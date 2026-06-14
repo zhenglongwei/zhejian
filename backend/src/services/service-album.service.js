@@ -33,6 +33,43 @@ const { getWxaCodeUnlimited } = require('../lib/wechat')
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
 const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
+const { detectAlbumSaveChanges } = require('../utils/album-save-notify')
+const { maskPlate } = require('../utils/plate-mask')
+const { normalizePlate, normalizeVin } = require('./vehicle-intake-ocr.service')
+
+function normalizeVehicleJson(vehicle = {}) {
+  if (!vehicle || typeof vehicle !== 'object') return {}
+  const brand = String(vehicle.brand || '').trim()
+  const series = String(vehicle.series || '').trim()
+  const plate = normalizePlate(vehicle.plate || vehicle.plateNumber || '')
+  const vin = normalizeVin(vehicle.vin || '')
+  let plateDisplay = String(vehicle.plateDisplay || '').trim()
+  if (plate) {
+    plateDisplay = maskPlate(plate)
+  }
+  const out = {}
+  if (brand) out.brand = brand
+  if (series) out.series = series
+  if (plate) {
+    out.plate = plate
+    out.plateDisplay = plateDisplay
+  } else if (plateDisplay) {
+    out.plateDisplay = plateDisplay
+  }
+  if (vin) out.vin = vin
+  const modelYear = String(vehicle.modelYear || vehicle.model_year || '').trim()
+  if (modelYear) out.modelYear = modelYear
+  return out
+}
+
+/** 用户端不返回完整车牌/VIN，仅脱敏展示字段 */
+function sanitizeUserVehicle(vehicleJson = {}) {
+  const normalized = normalizeVehicleJson(vehicleJson)
+  const out = { ...normalized }
+  delete out.plate
+  delete out.vin
+  return out
+}
 
 const MERCHANT_TAB_STATUS = {
   all: null,
@@ -129,7 +166,7 @@ function buildAlbumView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
   const store = buildStoreBlock(album)
-  const vehicle = album.vehicleJson || {}
+  const vehicle = sanitizeUserVehicle(album.vehicleJson || {})
   const vehicleDisplay = formatVehicle(vehicle)
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const privatePrice = buildPrivateAlbumPrice(album)
@@ -225,7 +262,7 @@ function buildMerchantView(album) {
     userPhone: album.userPhone || '',
     userPhoneDisplay: maskPhone(album.userPhone || ''),
     hasOwner,
-    vehicle: album.vehicleJson || {},
+    vehicle: normalizeVehicleJson(album.vehicleJson || {}),
     vehicleDisplay: formatVehicle(album.vehicleJson),
     storeName: album.storeName || '—',
     storeNote: album.storeNote || '',
@@ -605,7 +642,7 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       serviceName,
       userPhone: payload.userPhone || '',
       complexityLevel: payload.complexityLevel || 'L1',
-      vehicleJson: payload.vehicle || {},
+      vehicleJson: normalizeVehicleJson(payload.vehicle || {}),
       priceMode: planAmount != null ? 'fixed' : '',
       minAmount: planAmount,
       maxAmount: planAmount,
@@ -679,7 +716,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     data: {
       serviceName: payload.serviceName ?? existing.serviceName,
       serviceId: payload.serviceId ?? existing.serviceId,
-      vehicleJson: payload.vehicle ?? existing.vehicleJson,
+      vehicleJson: normalizeVehicleJson(payload.vehicle ?? existing.vehicleJson),
       storeNote: payload.storeNote ?? existing.storeNote,
       complexityLevel: payload.complexityLevel ?? existing.complexityLevel,
       partsJson: payload.parts ?? existing.partsJson,
@@ -695,6 +732,15 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
+
+  const saveChange = detectAlbumSaveChanges(existing, payload, imageCount)
+  if (saveChange) {
+    const { notifyAlbumNodeUpdated } = require('./notification.service')
+    notifyAlbumNodeUpdated(album, saveChange).catch((e) => {
+      console.warn('[notification] album node updated', e && e.message)
+    })
+  }
+
   return buildMerchantView(album)
 }
 

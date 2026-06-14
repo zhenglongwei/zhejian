@@ -1247,6 +1247,22 @@ async function mockSwitchMerchantServiceAlbumTemplate(albumId, templateId) {
   return buildMerchantAlbumView(next)
 }
 
+async function mockRecognizeVehicleIntakeOcr(imageUrl) {
+  const url = String(imageUrl || '').trim()
+  if (!url) {
+    const err = new Error('请先上传接车照片')
+    err.status = 400
+    throw err
+  }
+  return {
+    plate: '浙A12345',
+    plateDisplay: '浙A****5',
+    vin: 'LGWEF4A58NF123456',
+    recognized: ['plate', 'vin'],
+    provider: 'mock',
+  }
+}
+
 module.exports = {
   mockFetchAlbumClaimPreview,
   mockClaimServiceAlbum,
@@ -1271,5 +1287,6 @@ module.exports = {
   mockRecordAlbumShare,
   mockFetchSharedAlbum,
   mockSwitchMerchantServiceAlbumTemplate,
+  mockRecognizeVehicleIntakeOcr,
   MOCK_ALBUMS,
 }

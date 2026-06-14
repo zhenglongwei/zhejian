@@ -103,6 +103,14 @@ async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   return post(`/merchant/service-albums/${albumId}/switch-template`, withStore({ templateId }))
 }
 
+async function recognizeVehicleIntakeOcr(imageUrl) {
+  if (ENV.mode === 'mock') {
+    const { mockRecognizeVehicleIntakeOcr } = require('../mock/service-albums')
+    return mockRecognizeVehicleIntakeOcr(imageUrl)
+  }
+  return post('/merchant/service-albums/vehicle-ocr', { imageUrl })
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -114,4 +122,5 @@ module.exports = {
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
+  recognizeVehicleIntakeOcr,
 }
