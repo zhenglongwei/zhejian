@@ -59,22 +59,41 @@
       </view>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
-        <ui-album-node
-          mode="edit"
-          title="{{nodes[stageIndex].title}}"
-          description="{{nodes[stageIndex].description}}"
-          photoTips="{{nodes[stageIndex].photoTips}}"
-          compareGuidance="{{nodes[stageIndex].compareGuidance}}"
-          requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
-          requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
-          note="{{nodes[stageIndex].note}}"
-          notePlaceholder="补充本节点照片说明（可选）"
-          images="{{nodes[stageIndex].images}}"
-          uploadHint="{{uploadPrivacyHint}}"
-          data-index="{{stageIndex}}"
-          bind:imageschange="onNodeImages"
-          bind:notechange="onNodeNoteChange"
-        />
+        <block wx:if="{{isComparePairStage}}">
+          <album-compare-pair-editor
+            title="{{nodes[stageIndex].title}}"
+            description="{{nodes[stageIndex].description}}"
+            photoTips="{{nodes[stageIndex].photoTips}}"
+            requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
+            requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
+            note="{{nodes[stageIndex].note}}"
+            notePlaceholder="补充本节点说明（可选）"
+            uploadHint="{{uploadPrivacyHint}}"
+            pairs="{{comparePairs}}"
+            disabled="{{saving || completing || switching}}"
+            bind:pairchange="onComparePairsChange"
+            bind:notechange="onCompareNoteChange"
+            bind:syncfromassessment="onSyncCompareFromAssessment"
+          />
+        </block>
+        <block wx:else>
+          <ui-album-node
+            mode="edit"
+            title="{{nodes[stageIndex].title}}"
+            description="{{nodes[stageIndex].description}}"
+            photoTips="{{nodes[stageIndex].photoTips}}"
+            compareGuidance="{{nodes[stageIndex].compareGuidance}}"
+            requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
+            requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
+            note="{{nodes[stageIndex].note}}"
+            notePlaceholder="补充本节点照片说明（可选）"
+            images="{{nodes[stageIndex].images}}"
+            uploadHint="{{uploadPrivacyHint}}"
+            data-index="{{stageIndex}}"
+            bind:imageschange="onNodeImages"
+            bind:notechange="onNodeNoteChange"
+          />
+        </block>
 
         <block wx:if="{{stages[stageIndex].id === 'stage_3'}}">
           <view class="merchant-album-edit__plan">

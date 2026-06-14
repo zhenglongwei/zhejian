@@ -102,22 +102,12 @@ function buildAlbumComparePairs(nodes = [], options = {}) {
 
 function buildAlbumCompareHint(pairs = [], options = {}) {
   if (!pairs.length) return ''
-  const templateId = resolveCompareTemplateId(options)
   const crossCount = pairs.filter((p) => p.source === 'cross_stage').length
   const stage5Count = pairs.filter((p) => p.source === 'stage5').length
-  const parts = ['左右拖动中线查看差异。']
-  if (crossCount > 0) {
-    const label =
-      templateId === 'accident'
-        ? '接车/检测与完工验收按同序号配对'
-        : '损伤状态与完工结果按同序号配对'
-    parts.push(`${label}（共 ${crossCount} 组）。`)
+  if (crossCount > 1 || stage5Count > 0) {
+    return '左右切换查看各损伤点；拖动中线对比。若错位请联系门店重拍。'
   }
-  if (stage5Count > 0) {
-    parts.push(`「前后对比」节点按上传顺序 1-2、3-4… 成组（${stage5Count} 组）。`)
-  }
-  parts.push('若对比错位，请联系门店按同位置、同顺序重拍。')
-  return parts.join('')
+  return '左右拖动中线查看差异。'
 }
 
 function hasAlbumComparePairs(nodes = [], options = {}) {

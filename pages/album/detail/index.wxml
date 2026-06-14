@@ -200,6 +200,7 @@
         class="album-detail__compare-swiper"
         current="{{comparePairIndex}}"
         bindchange="onComparePairChange"
+        bindanimationfinish="onComparePairChange"
       >
         <swiper-item
           wx:for="{{comparePairs}}"
@@ -208,6 +209,7 @@
         >
           <text wx:if="{{item.title}}" class="album-detail__compare-title text-body">{{item.title}}</text>
           <album-compare-slider
+            pair-key="{{item.id}}"
             before-url="{{item.beforeUrl}}"
             after-url="{{item.afterUrl}}"
             before-label="{{item.beforeLabel}}"

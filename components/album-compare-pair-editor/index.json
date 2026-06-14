@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "usingComponents": {
+    "ui-tag": "/components/tag/index",
+    "ui-button": "/components/button/index",
+    "ui-image-uploader": "/components/image-uploader/index"
+  }
+}

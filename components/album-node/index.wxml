@@ -23,9 +23,8 @@
       >拍摄建议：{{photoTips}}</text>
       <view
         wx:if="{{!compact && compareGuidance}}"
-        class="album-node__compare-guide"
+        class="album-node__compare-guide album-node__compare-guide--compact"
       >
-        <text class="album-node__compare-guide-label text-caption">前后对比说明</text>
         <text class="album-node__compare-guide-text text-caption">{{compareGuidance}}</text>
       </view>
       <textarea

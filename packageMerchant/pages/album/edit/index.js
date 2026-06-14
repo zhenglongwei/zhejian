@@ -33,8 +33,16 @@ const {
 } = require('../../../../services/merchant')
 
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
+const {
+  buildComparePairRowsFromNodes,
+  syncComparePairsFromAssessment,
+  applyComparePairsToNodes,
+} = require('../../../../utils/album-compare-stage-images')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
+const BODY_PAINT_TEMPLATE_ID = 'body_paint'
+const STAGE_COMPARE_ID = 'stage_5'
+const STAGE_ASSESSMENT_ID = 'stage_2'
 
 function normalizeOwnerPhone(value) {
   return String(value || '').replace(/\D/g, '')
@@ -95,6 +103,8 @@ Page({
     canSwitchTemplate: false,
     switching: false,
     completeness: null,
+    comparePairs: [],
+    isComparePairStage: false,
   },
 
   onLoad(options) {
@@ -164,6 +174,36 @@ Page({
     return (nodes || []).map((n) => ({ key: n.id, label: n.title }))
   },
 
+  resolveCompareStageIndex() {
+    return (this.data.nodes || []).findIndex((n) => n.id === STAGE_COMPARE_ID)
+  },
+
+  resolveAssessmentImages() {
+    const node = (this.data.nodes || []).find((n) => n.id === STAGE_ASSESSMENT_ID)
+    return (node && node.images) || []
+  },
+
+  refreshCompareStageFlags(stageIndex = this.data.stageIndex) {
+    const isComparePairStage =
+      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
+      SERVICE_ALBUM_STAGES[stageIndex] &&
+      SERVICE_ALBUM_STAGES[stageIndex].id === STAGE_COMPARE_ID
+    this.setData({ isComparePairStage })
+    return isComparePairStage
+  },
+
+  initComparePairsFromNodes(nodes, templateId) {
+    if (templateId !== BODY_PAINT_TEMPLATE_ID) {
+      return []
+    }
+    return buildComparePairRowsFromNodes(nodes)
+  },
+
+  applyComparePairsToPage(pairs) {
+    const nodes = applyComparePairsToNodes(this.data.nodes, pairs)
+    this.setData({ comparePairs: pairs, nodes })
+  },
+
   applyAlbum(detail) {
     const nodes = this.mergeNodes(detail.nodes, detail.templateId)
     const stageTabs = this.buildStageTabs(nodes)
@@ -212,6 +252,7 @@ Page({
       statusVariant: display.statusVariant,
       stageTabs,
       nodes,
+      comparePairs: this.initComparePairsFromNodes(nodes, detail.templateId || ''),
       parts: (detail.parts || []).map((p) => ({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
@@ -238,6 +279,8 @@ Page({
       canSwitchTemplate,
       completeness: detail.completeness || null,
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
+    }, () => {
+      this.refreshCompareStageFlags(this.data.stageIndex)
     })
     this.syncShareMenu(canShare)
   },
@@ -275,7 +318,36 @@ Page({
   onStageTabChange(e) {
     const { key } = e.detail
     const index = SERVICE_ALBUM_STAGES.findIndex((s) => s.id === key)
-    if (index >= 0) this.setData({ stageIndex: index })
+    if (index >= 0) {
+      this.setData({ stageIndex: index }, () => {
+        this.refreshCompareStageFlags(index)
+      })
+    }
+  },
+
+  onComparePairsChange(e) {
+    const pairs = (e.detail && e.detail.pairs) || []
+    this.applyComparePairsToPage(pairs)
+  },
+
+  onCompareNoteChange(e) {
+    const value = (e.detail && e.detail.value) || ''
+    const nodes = this.data.nodes.slice()
+    const idx = this.resolveCompareStageIndex()
+    if (idx < 0) return
+    nodes[idx] = { ...nodes[idx], note: value }
+    this.setData({ nodes })
+  },
+
+  onSyncCompareFromAssessment() {
+    const assessment = this.resolveAssessmentImages()
+    if (!assessment.length) {
+      wx.showToast({ title: '请先在「损伤评估」上传近景', icon: 'none' })
+      return
+    }
+    const pairs = syncComparePairsFromAssessment(this.data.comparePairs, assessment)
+    this.applyComparePairsToPage(pairs)
+    wx.showToast({ title: '已同步修复前照片', icon: 'success' })
   },
 
   onTemplateChange(e) {
@@ -558,8 +630,16 @@ Page({
   },
 
   async buildSavePayload() {
+    let nodesSource = this.data.nodes
+    if (
+      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
+      Array.isArray(this.data.comparePairs) &&
+      this.data.comparePairs.length
+    ) {
+      nodesSource = applyComparePairsToNodes(nodesSource, this.data.comparePairs)
+    }
     const { nodes, droppedStaleCount } = await persistAlbumNodeImages(
-      this.data.nodes.map((n) => ({
+      nodesSource.map((n) => ({
         id: n.id,
         title: n.title,
         status: (n.images && n.images.length) || n.note ? 'completed' : 'pending',
