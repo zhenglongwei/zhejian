@@ -26,6 +26,7 @@
     "pages/mine/settings/deactivate/index",
     "pages/mine/favorite/index",
     "pages/mine/vehicle/index",
+    "pages/mine/vehicle/detail/index",
     "pages/mine/vehicle/edit/index",
     "pages/mine/message/index",
     "pages/mine/help/index",

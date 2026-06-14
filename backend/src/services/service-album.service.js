@@ -32,6 +32,7 @@ const { getWxaCodeUnlimited } = require('../lib/wechat')
 
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
+const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
 
 const MERCHANT_TAB_STATUS = {
   all: null,
@@ -351,6 +352,67 @@ function buildUserAlbumWhere(userId, phone) {
   return phone ? { OR: [{ userId }, { userPhone: phone }] } : { userId }
 }
 
+async function resolveUserVehicleForFilter(userId, vehicleId) {
+  const id = String(vehicleId || '').trim()
+  if (!id) return null
+  const row = await prisma.userVehicle.findFirst({
+    where: { id, userId, deletedAt: null },
+  })
+  if (!row) {
+    const err = new Error('车辆不存在')
+    err.status = 404
+    throw err
+  }
+  return row
+}
+
+function mapUserServiceAlbumListItem(album) {
+  const view = buildAlbumView(album)
+  return {
+    id: view.albumId,
+    albumId: view.albumId,
+    serviceName: view.serviceName,
+    storeName: view.store.name,
+    storeId: view.store.id,
+    vehicleDisplay: view.vehicleDisplay,
+    status: view.status,
+    imageCount: view.imageCount,
+    pendingCount: view.pendingCount,
+    publicCaseStatus: view.publicCaseStatus,
+    createdAt: view.createdAt,
+    updatedAt: view.updatedAt,
+    isPublic: view.publicCaseStatus === 'public_approved',
+    coverUrl: buildListCoverUrl(album),
+    stageProgress: buildListStageProgress(album),
+    deliverDateText: view.deliverDateText,
+    summaryLine: view.summaryLine,
+    summaryRows: view.summaryRows,
+    partsSummary: view.partsSummary,
+  }
+}
+
+async function countUserAlbumsForVehicle(userId, vehicleRow) {
+  if (!vehicleRow) return 0
+  const counts = await countUserAlbumsForVehicleRows(userId, [vehicleRow])
+  return counts[0] || 0
+}
+
+async function countUserAlbumsForVehicleRows(userId, vehicleRows = []) {
+  if (!vehicleRows.length) return []
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } })
+  const phone = user?.phone || ''
+  const albums = await prisma.album.findMany({
+    where: {
+      ...buildUserAlbumWhere(userId, phone),
+      imageCount: { gt: 0 },
+    },
+    select: { vehicleJson: true },
+  })
+  return vehicleRows.map((vehicleRow) =>
+    albums.filter((album) => albumMatchesUserVehicle(album.vehicleJson, vehicleRow)).length,
+  )
+}
+
 async function countUserServiceAlbumBindings(userId) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   const phone = user?.phone || ''
@@ -434,31 +496,15 @@ async function listUserServiceAlbums(userId, options = {}) {
 
   albums = filterUserAlbumsByTab(albums, options.tab, resolvePublicCaseStatus)
 
+  const vehicleFilter = await resolveUserVehicleForFilter(userId, options.vehicleId)
+  if (vehicleFilter) {
+    albums = albums.filter((album) =>
+      albumMatchesUserVehicle(album.vehicleJson, vehicleFilter),
+    )
+  }
+
   return albums
-    .map((album) => {
-      const view = buildAlbumView(album)
-      return {
-        id: view.albumId,
-        albumId: view.albumId,
-        serviceName: view.serviceName,
-        storeName: view.store.name,
-        storeId: view.store.id,
-        vehicleDisplay: view.vehicleDisplay,
-        status: view.status,
-        imageCount: view.imageCount,
-        pendingCount: view.pendingCount,
-        publicCaseStatus: view.publicCaseStatus,
-        createdAt: view.createdAt,
-        updatedAt: view.updatedAt,
-        isPublic: view.publicCaseStatus === 'public_approved',
-        coverUrl: buildListCoverUrl(album),
-        stageProgress: buildListStageProgress(album),
-        deliverDateText: view.deliverDateText,
-        summaryLine: view.summaryLine,
-        summaryRows: view.summaryRows,
-        partsSummary: view.partsSummary,
-      }
-    })
+    .map((album) => mapUserServiceAlbumListItem(album))
     .filter((item) => item.imageCount > 0)
 }
 
@@ -1033,6 +1079,8 @@ module.exports = {
   withdrawAuthorization,
   submitPartConfirm,
   buildAlbumView,
+  countUserAlbumsForVehicle,
+  countUserAlbumsForVehicleRows,
   getAlbumClaimPreview,
   claimServiceAlbumByUser,
   getMerchantAlbumClaimQrcode,

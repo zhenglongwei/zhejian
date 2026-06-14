@@ -28,6 +28,7 @@ const {
   formatPlanAmountLabel,
 } = require('../utils/album-price')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
+const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
 
 const {
   resolveAlbumCoverUrl,
@@ -39,6 +40,7 @@ const STORAGE_KEY = 'service_albums_v1'
 const SHARE_TOKEN_STORAGE = 'album_share_tokens_v1'
 const CONFIRM_STORAGE_KEY = 'service_album_confirm_v1'
 const AUTH_STORAGE_KEY = 'service_album_auth_v1'
+const MOCK_VEHICLE_STORAGE = 'mock_user_vehicles'
 
 const MOCK_ALBUMS = [
   {
@@ -498,6 +500,34 @@ function buildMerchantAlbumView(raw) {
   }
 }
 
+function findMockVehicleRow(vehicleId) {
+  try {
+    const rows = wx.getStorageSync(MOCK_VEHICLE_STORAGE) || []
+    const { user } = getSession()
+    const userId = (user && user.userId) || 'mock_user'
+    return (
+      rows.find(
+        (row) => row.id === vehicleId && row.userId === userId && !row.deletedAt,
+      ) || null
+    )
+  } catch (err) {
+    return null
+  }
+}
+
+function listMockUserAlbumSources() {
+  const map = loadAlbumMap()
+  return filterAlbumsForUser(Object.values(map), 'all')
+}
+
+function countMockUserAlbumsForVehicle(vehicleRow) {
+  if (!vehicleRow) return 0
+  return listMockUserAlbumSources().filter((raw) => {
+    const view = buildAlbumViewModel(raw)
+    return view.imageCount > 0 && albumMatchesUserVehicle(raw.vehicle, vehicleRow)
+  }).length
+}
+
 async function mockFetchUserServiceAlbums(options = {}) {
   await delay()
   if (!isLoggedIn()) {
@@ -513,7 +543,16 @@ async function mockFetchUserServiceAlbums(options = {}) {
   }
   const map = loadAlbumMap()
   const albums = Object.values(map)
-  const filtered = filterAlbumsForUser(albums, options.tab || 'all')
+  let filtered = filterAlbumsForUser(albums, options.tab || 'all')
+  if (options.vehicleId) {
+    const vehicle = findMockVehicleRow(options.vehicleId)
+    if (!vehicle) {
+      const err = new Error('车辆不存在')
+      err.code = 404
+      throw err
+    }
+    filtered = filtered.filter((raw) => albumMatchesUserVehicle(raw.vehicle, vehicle))
+  }
   return filtered
     .map((raw) => {
       const view = buildAlbumViewModel(raw)
@@ -1213,6 +1252,7 @@ module.exports = {
   mockClaimServiceAlbum,
   mockFetchMerchantAlbumClaimQrcode,
   mockFetchUserServiceAlbums,
+  countMockUserAlbumsForVehicle,
   mockFetchServiceAlbum,
   mockSubmitPartConfirm,
   mockSubmitServiceAlbumAuthorization,

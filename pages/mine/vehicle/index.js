@@ -100,6 +100,12 @@ Page({
     wx.navigateTo({ url: '/pages/mine/vehicle/edit/index' })
   },
 
+  onOpenDetail(e) {
+    const { id } = e.currentTarget.dataset
+    if (!id) return
+    wx.navigateTo({ url: `/pages/mine/vehicle/detail/index?id=${id}` })
+  },
+
   onEditVehicle(e) {
     const { id } = e.currentTarget.dataset
     if (!id) return

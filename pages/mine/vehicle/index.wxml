@@ -46,7 +46,7 @@
           wx:key="id"
           class="vehicle-list__row"
           data-id="{{item.id}}"
-          bind:tap="onEditVehicle"
+          bind:tap="onOpenDetail"
         >
           <view class="vehicle-list__main">
             <view class="vehicle-list__title-row">
@@ -54,8 +54,14 @@
               <ui-tag wx:if="{{item.isDefault}}" variant="success" text="默认" />
             </view>
             <text wx:if="{{item.plateDisplay}}" class="vehicle-list__meta text-caption">车牌 {{item.plateDisplay}}</text>
+            <text class="vehicle-list__meta text-caption">服务相册 {{item.albumCount || 0}} 本</text>
           </view>
           <view class="vehicle-list__actions" catchtap="">
+            <text
+              class="vehicle-list__action text-link"
+              data-id="{{item.id}}"
+              catchtap="onEditVehicle"
+            >编辑</text>
             <text
               wx:if="{{!item.isDefault}}"
               class="vehicle-list__action text-link"

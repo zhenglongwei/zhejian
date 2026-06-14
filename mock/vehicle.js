@@ -1,6 +1,7 @@
 const { getSession } = require('../utils/auth')
 const { maskPlate } = require('../utils/order-form')
 const { MAX_USER_VEHICLES } = require('../constants/user-vehicle')
+const { countMockUserAlbumsForVehicle } = require('./service-albums')
 
 const STORAGE_KEY = 'mock_user_vehicles'
 
@@ -38,6 +39,7 @@ function formatRow(row) {
     plateDisplay: row.plateDisplay || '',
     isDefault: Boolean(row.isDefault),
     displayTitle: displayTitle || '未命名车辆',
+    albumCount: countMockUserAlbumsForVehicle(row),
   }
 }
 

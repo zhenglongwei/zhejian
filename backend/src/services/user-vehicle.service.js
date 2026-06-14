@@ -1,6 +1,7 @@
 const { prisma, assertPrismaDelegate } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { maskPlate } = require('../utils/plate-mask')
+const { countUserAlbumsForVehicle, countUserAlbumsForVehicleRows } = require('./service-album.service')
 
 const MAX_VEHICLES = 5
 
@@ -13,7 +14,7 @@ async function assertPhoneBound(userId) {
   }
 }
 
-function formatVehicleRow(row) {
+function formatVehicleRow(row, albumCount) {
   const brand = row.brand || ''
   const series = row.series || ''
   const modelYear = row.modelYear || ''
@@ -22,7 +23,7 @@ function formatVehicleRow(row) {
   if (modelYear) {
     displayTitle = displayTitle ? `${displayTitle} · ${modelYear}款` : `${modelYear}款`
   }
-  return {
+  const base = {
     id: row.id,
     brand,
     series,
@@ -33,6 +34,10 @@ function formatVehicleRow(row) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
+  if (albumCount != null) {
+    base.albumCount = albumCount
+  }
+  return base
 }
 
 function validateVehiclePayload(payload = {}, { partial = false } = {}) {
@@ -77,7 +82,9 @@ async function listUserVehicles(userId) {
     where: { userId, deletedAt: null },
     orderBy: [{ isDefault: 'desc' }, { updatedAt: 'desc' }],
   })
-  return { list: rows.map(formatVehicleRow) }
+  const albumCounts = await countUserAlbumsForVehicleRows(userId, rows)
+  const list = rows.map((row, index) => formatVehicleRow(row, albumCounts[index] || 0))
+  return { list }
 }
 
 async function getDefaultUserVehicle(userId) {
@@ -106,7 +113,8 @@ async function getUserVehicle(userId, vehicleId) {
     err.status = 404
     throw err
   }
-  return formatVehicleRow(row)
+  const albumCount = await countUserAlbumsForVehicle(userId, row)
+  return formatVehicleRow(row, albumCount)
 }
 
 async function createUserVehicle(userId, payload = {}) {
