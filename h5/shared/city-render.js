@@ -171,6 +171,12 @@
     }
     var cards = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, {
+            href: caseHref(item),
+            extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
+          })
+        }
         var title = item.title || item.serviceName || '公开案例'
         var meta = [item.city, item.serviceName, item.storeName].filter(Boolean).join(' · ')
         return (
@@ -199,7 +205,7 @@
           ((cases[0] && cases[0].priceNotice) || '案例价格仅为参考区间，实际费用以门店检测为准。')
       ) +
       '</p>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       cards +
       '</div>' +
       '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'

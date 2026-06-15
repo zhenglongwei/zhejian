@@ -184,31 +184,38 @@
     }
     var cards = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, {
+            href: casePagePath(item),
+            extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
+          })
+        }
         var cover = pickCaseCover(item)
         var coverHtml = cover
-          ? '<img class="h5-node-img" src="' +
+          ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="' +
             escapeHtml(topic.title + '脱敏案例') +
             '" loading="lazy" />'
-          : '<div class="h5-placeholder-img">脱敏封面暂未就绪</div>'
+          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
-          '<a class="h5-store-case-card" href="' +
+          '<a class="h5-media-list-item" href="' +
           casePagePath(item) +
           '" data-case-id="' +
           escapeHtml(item.id) +
           '">' +
           coverHtml +
-          '<h3 class="h5-store-case-card-title">' +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
-          '</h3>' +
-          '<p class="h5-store-case-card-meta">' +
+          '</div>' +
+          '<div class="h5-media-list-meta">' +
           escapeHtml([item.city, item.storeName].filter(Boolean).join(' · ')) +
-          '</p></a>'
+          '</div></div></a>'
         )
       })
       .join('')
-    return section + '<div class="h5-store-case-list">' + cards + '</div></div>'
+    return section + '<div class="h5-media-list">' + cards + '</div></div>'
   }
 
   function renderStores(stores) {

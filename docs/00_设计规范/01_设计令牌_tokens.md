@@ -911,6 +911,30 @@ page {
 
 ---
 
+## **2.2 H5 公开内容站令牌（`h5/shared/tokens.css`）**
+
+> 设计细则：**§10.8** · 与小程序语义对齐，单位为 **px**。修改时同步 `h5/shared/tokens.css` 与本文档。
+
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| `--color-bg-surface` | `#ffffff` | 输入框、搜索框表面 |
+| `--color-danger` | `#f53f3f` | 表单错误 |
+| `--color-danger-light` | `#fff1f0` | 错误浅底 |
+| `--color-mask` | `rgba(0,0,0,0.45)` | 咨询 sheet 遮罩 |
+| `--line-height-body` | `1.6` | 正文默认 |
+| `--line-height-article` | `1.7` | 文章/免责/合规 |
+| `--size-h5-process-img-min` | `240px` | 过程图最小高度 |
+| `--size-h5-process-img` | `280px` | 过程图典型高度 |
+| `--size-h5-list-thumb` | `80px` | 列表封面缩略图 |
+| `--size-h5-footer-spacer` | `88px` | 固定底栏正文留白 |
+| `--radius-full` | `999px` | 搜索 chip |
+| `--z-h5-footer` | `100` | 固定底栏 |
+| `--z-h5-sheet` | `1000` | 咨询 sheet |
+
+**CSS 引用顺序**：`tokens.css` → `base-page.css` → 页专属 CSS。
+
+---
+
 ## **5. Cursor / AI 使用约束**
 
 使用 Cursor 或其他 AI 工具开发 UI 时，必须遵守以下规则：
@@ -924,5 +948,5 @@ page {
 7. 固定底栏必须使用 safe-area 适配。
 8. 首屏加载应使用 Skeleton。
 9. 空状态、错误状态、隐私提示、合规提示必须使用统一语义样式。
-10. H5 端如需复用本设计体系，应建立对应 px/rem 版本，不直接复制 rpx 文件。
+10. H5 端使用 **`h5/shared/tokens.css`** + **`base-page.css`**（§2.2、设计体系 §10.8），不直接复制 rpx。
 

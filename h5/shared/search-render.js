@@ -309,6 +309,9 @@
     if (!cases || !cases.length) return ''
     var items = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, { href: caseHref(item) })
+        }
         var meta = [item.city, item.storeName, item.serviceName].filter(Boolean).join(' · ')
         return renderListItem(item.title || item.serviceName || '公开案例', meta, caseHref(item), '案例')
       })
@@ -317,7 +320,7 @@
       '<div class="h5-search-section">' +
       '<div class="h5-search-section-title">' +
       '<h3 class="text-h3">案例</h3></div>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       items +
       '</div></div>'
     )

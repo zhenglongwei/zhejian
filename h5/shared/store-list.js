@@ -55,12 +55,15 @@
       '<div class="h5-brand">辙见服务平台 · 公开门店</div>' +
       '<h1 class="h5-title">公开门店</h1>' +
       '<p class="h5-summary">浏览已入驻、可公开展示的汽车维修保养门店，进入门店主页查看服务方案与真实案例。</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
+        ? window.zhejianH5Ui.renderDisclaimer(COPY.geoDisclaimer, '')
+        : '<div class="h5-banner">' + escapeHtml(COPY.geoDisclaimer) + '</div>') +
       '</header>' +
       bodyHtml +
       '</div>'
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
   }
 
   function renderEmpty(message) {

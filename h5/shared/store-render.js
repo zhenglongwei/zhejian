@@ -17,6 +17,26 @@
       '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
   }
 
+  function renderDisclaimerBlock() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(
+        COPY.displayDisclaimer,
+        COPY.geoDisclaimer
+      )
+    }
+    return (
+      '<div class="h5-disclaimer" data-h5-disclaimer>' +
+      '<p class="h5-disclaimer__primary">' +
+      escapeHtml(COPY.displayDisclaimer) +
+      '</p>' +
+      '<div class="h5-disclaimer__more" hidden><p>' +
+      escapeHtml(COPY.geoDisclaimer) +
+      '</p></div>' +
+      '<button type="button" class="h5-disclaimer__toggle" data-h5-disclaimer-toggle aria-expanded="false">展开说明</button>' +
+      '</div>'
+    )
+  }
+
   var STATUS_TEXT = {
     open: '营业中',
     closed: '休息中',
@@ -418,30 +438,33 @@
     }
     var cards = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, {
+            href: casePagePath(item),
+            extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
+          })
+        }
         var cover = pickCaseCover(item)
         var price = buildPriceDisplay(item)
         var coverHtml = cover
-          ? '<img class="h5-node-img" src="' +
+          ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="脱敏案例封面" loading="lazy" />'
-          : '<div class="h5-placeholder-img">脱敏封面暂未就绪</div>'
+          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
-          '<a class="h5-store-case-card" href="' +
+          '<a class="h5-media-list-item" href="' +
           casePagePath(item) +
           '" data-case-id="' +
           escapeHtml(item.id) +
           '">' +
           coverHtml +
-          '<h3 class="h5-store-case-card-title">' +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
-          '</h3>' +
-          '<p class="h5-store-case-card-meta">' +
-          escapeHtml(item.serviceName || '') +
-          '</p>' +
-          '<p class="h5-service-card-price">' +
+          '</div>' +
+          '<div class="h5-media-list-meta">' +
           escapeHtml(stripPriceSuffix(price.priceText)) +
-          '</p>' +
-          '</a>'
+          '</div></div></a>'
         )
       })
       .join('')
@@ -457,7 +480,7 @@
             storeCasesPagePath(storeId) +
             '">查看全部案例 ›</a></p>'
           : ''
-    return section + '<div class="h5-store-case-list">' + cards + '</div>' + moreLink + '</div>'
+    return section + '<div class="h5-media-list">' + cards + '</div>' + moreLink + '</div>'
   }
 
   function renderEnvironment(images) {
@@ -507,7 +530,7 @@
       })
     })
 
-    document.querySelectorAll('.h5-store-case-card[data-case-id]').forEach(function (el) {
+    document.querySelectorAll('.h5-media-list-item[data-case-id], .h5-store-case-card[data-case-id]').forEach(function (el) {
       el.addEventListener('click', function (ev) {
         var caseId = el.getAttribute('data-case-id') || ''
         if (window.zhejianTrack) {
@@ -638,12 +661,7 @@
       escapeHtml(statusText) +
       (store.caseCount ? ' · 公开案例 ' + store.caseCount : '') +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.displayDisclaimer) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      renderDisclaimerBlock() +
       suspendedNotice +
       '</header>' +
       heroHtml +
@@ -690,6 +708,10 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles()
+    }
 
     var bookTop = document.getElementById('h5-book-top-btn')
     if (bookTop) {

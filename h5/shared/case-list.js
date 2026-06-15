@@ -1,15 +1,22 @@
 (function () {
-  function escapeHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+  var LIST_NOTE =
+    '本页仅展示有效门店的公开案例；价格仅为参考，实际费用以门店检测为准。'
+
+  function renderBreadcrumb() {
+    if (window.zhejianSeo) {
+      return window.zhejianSeo.renderBreadcrumbHtml([
+        { label: '辙见', href: '/' },
+        { label: '公开案例' },
+      ])
+    }
+    return ''
   }
 
-  function caseHref(item) {
-    if (item && item.slug) return '/case/' + encodeURIComponent(item.slug) + '.html'
-    return 'view.html?id=' + encodeURIComponent(item.id)
+  function renderDisclaimer() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(LIST_NOTE, '')
+    }
+    return '<div class="h5-banner">' + LIST_NOTE + '</div>'
   }
 
   function applyListSeo() {
@@ -29,30 +36,24 @@
     )
   }
 
-  function renderBreadcrumb() {
-    if (window.zhejianSeo) {
-      return window.zhejianSeo.renderBreadcrumbHtml([
-        { label: '辙见', href: '/' },
-        { label: '公开案例' },
-      ])
-    }
-    return ''
-  }
-
   function renderEmpty(message) {
     applyListSeo()
     var app = document.getElementById('app')
     if (!app) return
+    var safeMessage =
+      window.zhejianH5Ui && window.zhejianH5Ui.escapeHtml
+        ? window.zhejianH5Ui.escapeHtml(message)
+        : message
     app.innerHTML =
       '<div class="h5-page">' +
       renderBreadcrumb() +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
+      '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">展示已审核、已脱敏的维修案例；价格仅为参考。</p>' +
       '</header>' +
       '<div class="h5-card h5-case-list-empty"><p>' +
-      escapeHtml(message) +
+      safeMessage +
       '</p></div></div>'
   }
 
@@ -60,25 +61,30 @@
     renderEmpty(message + '（请稍后重试）')
   }
 
+  function renderListItem(item) {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+      return window.zhejianH5Ui.renderCaseListItem(item)
+    }
+    var title = item.title || item.serviceName || '公开案例'
+    var meta = [item.city, item.storeName, item.serviceName].filter(Boolean).join(' · ')
+    var href =
+      item.slug
+        ? '/case/' + encodeURIComponent(item.slug) + '.html'
+        : 'view.html?id=' + encodeURIComponent(item.id)
+    return (
+      '<a class="h5-case-list-item" href="' +
+      href +
+      '"><div class="h5-case-list-title">' +
+      title +
+      '</div>' +
+      (meta ? '<div class="h5-case-list-meta">' + meta + '</div>' : '') +
+      '</a>'
+    )
+  }
+
   function renderList(list) {
     applyListSeo()
-    var items = list
-      .map(function (item) {
-        var title = item.title || item.serviceName || '公开案例'
-        var meta = [item.city, item.storeName, item.serviceName].filter(Boolean).join(' · ')
-        return (
-          '<a class="h5-case-list-item" href="' +
-          caseHref(item) +
-          '"><div class="h5-case-list-title">' +
-          escapeHtml(title) +
-          '</div>' +
-          (meta
-            ? '<div class="h5-case-list-meta">' + escapeHtml(meta) + '</div>'
-            : '') +
-          '</a>'
-        )
-      })
-      .join('')
+    var items = list.map(renderListItem).join('')
 
     var app = document.getElementById('app')
     if (!app) return
@@ -86,14 +92,18 @@
       '<div class="h5-page">' +
       renderBreadcrumb() +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见服务平台 · 公开案例</div>' +
+      '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">以下为已审核、已脱敏公示案例，数据来自平台数据库。</p>' +
-      '<div class="h5-banner">本页仅展示有效门店的公开案例；价格仅为参考，实际费用以门店检测为准。</div>' +
+      renderDisclaimer() +
       '</header>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       items +
       '</div></div>'
+
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles()
+    }
 
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'case_list' })

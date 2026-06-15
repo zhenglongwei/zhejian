@@ -124,7 +124,7 @@
   border-radius: var(--radius-md);
   text-decoration: none;
   color: inherit;
-  background: var(--color-bg-subtle, #f8f9fa);
+  background: var(--color-bg-muted);
 }
 
 .h5-faq-link__title {

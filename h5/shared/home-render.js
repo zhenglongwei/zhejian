@@ -153,6 +153,9 @@
     }
     var cards = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, { href: caseHref(item) })
+        }
         var title = item.title || item.serviceName || '公开案例'
         var meta = [item.city, item.serviceName].filter(Boolean).join(' · ')
         return (
@@ -174,7 +177,7 @@
       '<p class="h5-compliance">' +
       escapeHtml(COPY.price) +
       '</p>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       cards +
       '</div>' +
       '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'

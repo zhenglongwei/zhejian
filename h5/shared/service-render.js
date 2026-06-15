@@ -12,6 +12,26 @@
       '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
   }
 
+  function renderDisclaimerBlock() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(
+        COPY.displayDisclaimer,
+        COPY.geoDisclaimer
+      )
+    }
+    return (
+      '<div class="h5-disclaimer" data-h5-disclaimer>' +
+      '<p class="h5-disclaimer__primary">' +
+      escapeHtml(COPY.displayDisclaimer) +
+      '</p>' +
+      '<div class="h5-disclaimer__more" hidden><p>' +
+      escapeHtml(COPY.geoDisclaimer) +
+      '</p></div>' +
+      '<button type="button" class="h5-disclaimer__toggle" data-h5-disclaimer-toggle aria-expanded="false">展开说明</button>' +
+      '</div>'
+    )
+  }
+
   var PRICE_MODE_LABEL = {
     fixed: '一口价',
     range: '参考区间',
@@ -609,12 +629,7 @@
       (service.storeName
         ? '<p class="h5-service-status">' + escapeHtml(service.storeName) + '</p>'
         : '') +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.displayDisclaimer) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      renderDisclaimerBlock() +
       pausedNotice +
       '</header>' +
       heroHtml +
@@ -689,6 +704,10 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles()
+    }
 
     var consultTop = document.getElementById('h5-consult-top-btn')
     if (consultTop) {
