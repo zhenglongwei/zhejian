@@ -16,6 +16,11 @@ Component({
       type: String,
       value: '/assets/icon/add.png',
     },
+    /** default 通用 · album 服务相册节点（相框 thumb token） */
+    variant: {
+      type: String,
+      value: 'default',
+    },
   },
   data: {
     uploading: false,

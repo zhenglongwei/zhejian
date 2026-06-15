@@ -1,4 +1,4 @@
-<view class="page album-create page-content merchant-form-page">
+<view class="page merchant-album-page album-create page-content merchant-form-page">
   <ui-privacy-banner scene="albumMerchant" />
 
   <block wx:if="{{status === 'loading'}}">

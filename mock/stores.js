@@ -13,6 +13,7 @@ const SEED_STORES = [
     longitude: 120.212,
     businessHours: '09:00-18:00',
     phone: '0571-88886666',
+    contactName: '王店长',
     qualificationTags: ['二类维修资质'],
     specialties: ['钣喷修复', '刹车系统', '小保养', '事故车维修'],
     score: 4.8,

@@ -23,13 +23,10 @@ const {
 } = require('../../../utils/store-share')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
-const { DEEP_LINK_SHELL, DEEP_LINK_BOTTOM } = require('../../../constants/deep-link-detail')
-const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
+const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
-
-const BOTTOM_LEFT_ACTIONS = DEEP_LINK_BOTTOM.store
-const BOTTOM_LEFT_ACTIONS_PREVIEW = DEEP_LINK_BOTTOM.storePreview
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -39,16 +36,30 @@ const STATUS_TEXT = {
   offline: '暂不可预约',
 }
 
-function buildStoreInfoRows(store) {
-  if (!store) return []
-  const rows = [
-    { label: '地址', value: store.address || '—' },
-    { label: '营业时间', value: store.businessHours || '—' },
-  ]
-  if (store.specialties && store.specialties.length) {
-    rows.push({ label: '擅长项目', value: store.specialties.join('、') })
+function buildStoreBasicFields(store) {
+  if (!store) {
+    return {
+      storeAddress: '—',
+      storeSpecialtiesText: '',
+      showStoreSpecialties: false,
+      storeContactName: '—',
+      storePhone: '',
+      storePhoneDisplay: '—',
+      storeBusinessHours: '—',
+      showStoreNavigate: false,
+    }
   }
-  return rows
+  const specialties = store.specialties || []
+  return {
+    storeAddress: store.address || '—',
+    storeSpecialtiesText: specialties.join('、'),
+    showStoreSpecialties: specialties.length > 0,
+    storeContactName: store.contactName || '—',
+    storePhone: store.phone || '',
+    storePhoneDisplay: store.phone || '—',
+    storeBusinessHours: store.businessHours || '—',
+    showStoreNavigate: store.latitude != null && store.longitude != null,
+  }
 }
 
 function buildCertRows(certifications) {
@@ -58,13 +69,31 @@ function buildCertRows(certifications) {
   }))
 }
 
+function buildEvidenceTabs(cases = [], services = []) {
+  const caseCount = cases.length
+  const serviceCount = services.length
+  return [
+    { key: 'cases', label: caseCount ? `公开案例 (${caseCount})` : '公开案例' },
+    { key: 'services', label: serviceCount ? `服务方案 (${serviceCount})` : '服务方案' },
+  ]
+}
+
+function pickEvidenceTab(cases = [], services = [], preferred = 'cases') {
+  const hasCases = cases.length > 0
+  const hasServices = services.length > 0
+  if (preferred === 'services' && hasServices) return 'services'
+  if (preferred === 'cases' && hasCases) return 'cases'
+  if (hasCases) return 'cases'
+  if (hasServices) return 'services'
+  return 'cases'
+}
+
 Page({
   data: {
     shellTitle: DEEP_LINK_SHELL.store.title,
     shellSubtitle: DEEP_LINK_SHELL.store.subtitle,
     status: 'loading',
     store: null,
-    infoRows: [],
     certRows: [],
     cases: [],
     casesStatus: 'loading',
@@ -73,7 +102,17 @@ Page({
     statusText: '',
     headTags: [],
     errorMessage: '',
-    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
+    storeAddress: '',
+    storeSpecialtiesText: '',
+    showStoreSpecialties: false,
+    storeContactName: '',
+    storePhone: '',
+    storePhoneDisplay: '',
+    storeBusinessHours: '',
+    showStoreNavigate: false,
+    evidenceTab: 'cases',
+    evidenceTabs: buildEvidenceTabs(),
+    showTopShare: false,
     isFavorited: false,
     isPreview: false,
     previewBannerText: PREVIEW_BANNER_TEXT,
@@ -92,6 +131,7 @@ Page({
     this.pageOptions = options || {}
     this.isPreview = options.preview === '1' || options.preview === 'true'
     this.autoOpenShare = options.share === '1' || options.share === 'true'
+    this.preferredEvidenceTab = options.tab === 'services' ? 'services' : 'cases'
     this.storeId = options.id || ''
     const shareCtx = resolvePageShareContext(options, {
       storeId: this.storeId,
@@ -115,12 +155,11 @@ Page({
   },
 
   syncFavoriteState() {
-    this.baseLeftActions = BOTTOM_LEFT_ACTIONS
     return loadFavoriteState(this, {
       targetType: 'store',
       targetId: this.storeId,
-      baseLeftActions: this.baseLeftActions,
       showFavorite: !this.isPreview,
+      injectIntoBottomBar: false,
     })
   },
 
@@ -145,12 +184,15 @@ Page({
       }
       if (access.mode === 'album_owner' || access.mode === 'context') {
         this.setData({ storeIsolated: true })
+      } else if (access.mode === 'public_guest') {
+        this.setData({ storeIsolated: false })
+      } else {
+        this.setData({
+          storeIsolated: isStoreContextIsolated(access, this.data.storeIsolated),
+        })
       }
     }
-    this.setData({
-      isPreview: this.isPreview,
-      bottomLeftActions: this.isPreview ? BOTTOM_LEFT_ACTIONS_PREVIEW : BOTTOM_LEFT_ACTIONS,
-    })
+    this.setData({ isPreview: this.isPreview })
     this.loadPage()
   },
 
@@ -198,18 +240,23 @@ Page({
         fetchCaseList({ storeId: this.storeId }),
         fetchServiceList({ storeId: this.storeId }),
       ])
+      const basicFields = buildStoreBasicFields(store)
+      const evidenceTab = pickEvidenceTab(cases, services, this.preferredEvidenceTab)
       this.setData({
         store: { ...store, caseCount: cases.length },
         headTags: buildStoreHeadTags(store),
-        infoRows: buildStoreInfoRows(store),
         certRows: buildCertRows(store.certifications),
         cases,
         services,
+        evidenceTab,
+        evidenceTabs: buildEvidenceTabs(cases, services),
         statusText: STATUS_TEXT[store.status] || store.status,
         status: 'normal',
         casesStatus: cases.length ? 'normal' : 'empty',
         servicesStatus: services.length ? 'normal' : 'empty',
         shareActionsDisabled: !canShareStore(store),
+        showTopShare: canShareStore(store),
+        ...basicFields,
       })
       markShareStoreContext({ storeId: store.id, source: 'store_detail' })
       this.updateShareMenu(true)
@@ -331,6 +378,12 @@ Page({
     })
   },
 
+  onEvidenceTabChange(e) {
+    const key = e.detail && e.detail.key
+    if (!key || key === this.data.evidenceTab) return
+    this.setData({ evidenceTab: key })
+  },
+
   onViewAllCases() {
     if (this.data.isPreview) {
       this.previewBlockedToast()
@@ -362,25 +415,16 @@ Page({
   },
 
   onCall() {
-    const { store } = this.data
-    if (!store || !store.phone) return
-    wx.makePhoneCall({ phoneNumber: store.phone })
+    this.onCallStore()
   },
 
-  onBottomLeftAction(e) {
-    const { key } = e.detail
-    if (key === 'favorite') {
-      toggleFavorite(this, {
-        targetType: 'store',
-        targetId: this.storeId,
-        baseLeftActions: BOTTOM_LEFT_ACTIONS,
-        showFavorite: !this.isPreview,
-      })
-      return
-    }
-    if (key === 'share') this.onOpenShareSheet()
-    else if (key === 'call') this.onCall()
-    else if (key === 'navigate') this.onNavigate()
+  onTopFavoriteTap() {
+    toggleFavorite(this, {
+      targetType: 'store',
+      targetId: this.storeId,
+      showFavorite: !this.isPreview,
+      injectIntoBottomBar: false,
+    })
   },
 
   closeLoginSheet() {
@@ -394,12 +438,17 @@ Page({
       toggleFavorite(this, {
         targetType: 'store',
         targetId: this.storeId,
-        baseLeftActions: BOTTOM_LEFT_ACTIONS,
         showFavorite: !this.isPreview,
+        injectIntoBottomBar: false,
       })
       return
     }
     this.syncFavoriteState()
+  },
+
+  onNavigateTap() {
+    if (!this.data.showStoreNavigate) return
+    this.onNavigate()
   },
 
   onNavigate() {

@@ -21,6 +21,7 @@ function mergeStoreProfile(seed) {
     name: profile.storeName || seed.name,
     address: profile.address || seed.address,
     phone: profile.phone || seed.phone,
+    contactName: profile.contactName || seed.contactName || '',
   }
 }
 

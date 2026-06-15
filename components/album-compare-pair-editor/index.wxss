@@ -75,9 +75,9 @@
 
 .album-compare-pair-editor__preview {
   padding: var(--space-sm);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-album-frame-line);
   border-radius: var(--radius-md);
-  background: var(--color-bg-muted);
+  background: var(--color-album-frame-inner);
 }
 
 .album-compare-pair-editor__preview-title {
@@ -112,15 +112,17 @@
   width: 96rpx;
   height: 96rpx;
   overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-card);
+  border-radius: var(--radius-album-list-thumb);
+  border: 1rpx solid var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+  box-shadow: var(--shadow-album-list-thumb);
 }
 
 .album-compare-pair-editor__preview-thumb--empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1rpx dashed var(--color-border);
+  border: 2rpx dashed var(--color-album-frame-line);
 }
 
 .album-compare-pair-editor__preview-img {
@@ -191,7 +193,8 @@
   margin-top: var(--space-sm);
   padding: var(--space-sm);
   border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
+  border: 1rpx solid var(--color-album-frame-line);
+  background-color: var(--color-album-frame-inner);
   font-size: var(--font-body);
   box-sizing: border-box;
 }

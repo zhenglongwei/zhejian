@@ -41,6 +41,7 @@
       <ui-image-uploader
         images="{{images}}"
         maxCount="{{maxCount}}"
+        variant="album"
         bind:change="onImagesChange"
       />
     </block>

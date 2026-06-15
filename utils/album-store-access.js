@@ -1,5 +1,8 @@
 /**
- * 车主从服务相册浏览关联门店（单店隔离 · 禁止无关门店）
+ * 门店/案例/服务深链准入 · 单店隔离 + 公域只读访客态
+ *
+ * - 未绑定任何服务相册：可读公开门店/案例/服务（public_guest，利于分享与搜一搜直达）
+ * - 已绑定相册：仅可访问相册关联门店；商家分享链仍可按上下文打开
  */
 const { fetchUserServiceAlbums } = require('../services/service-album')
 const { checkAuth } = require('./auth')
@@ -16,6 +19,12 @@ const ALBUM_OWNER_SOURCES = new Set(['album_detail', 'album_list', 'album_owner'
 const ACCESS_DENIED_MESSAGE =
   '仅可查看与您服务相册相关的门店内容，请从「我的服务相册」进入。'
 
+const ISOLATED_ACCESS_MODES = new Set([
+  'merchant_share',
+  'context',
+  'album_owner',
+])
+
 function isAlbumOwnerScope(options = {}) {
   if (options.from === ALBUM_OWNER_FROM) return true
   const ctx = getShareStoreContext()
@@ -31,21 +40,42 @@ function collectStoreIdsFromAlbums(albums) {
   return ids
 }
 
-async function userOwnsStoreAlbum(storeId) {
-  if (!storeId || !checkAuth()) return false
+async function fetchUserAlbumStoreIds() {
+  if (!checkAuth({ needPhone: false })) return new Set()
   try {
     const [privateList, publicList] = await Promise.all([
       fetchUserServiceAlbums({ tab: 'private' }),
       fetchUserServiceAlbums({ tab: 'public' }),
     ])
-    const ids = collectStoreIdsFromAlbums([
+    return collectStoreIdsFromAlbums([
       ...(privateList || []),
       ...(publicList || []),
     ])
-    return ids.has(String(storeId))
   } catch (e) {
-    return false
+    return new Set()
   }
+}
+
+async function userHasBoundAlbum() {
+  const ids = await fetchUserAlbumStoreIds()
+  return ids.size > 0
+}
+
+async function userOwnsStoreAlbum(storeId) {
+  if (!storeId) return false
+  const ids = await fetchUserAlbumStoreIds()
+  return ids.has(String(storeId))
+}
+
+/**
+ * 是否处于单店隔离 UI（隐藏跨店模块、过滤相关案例等）
+ * @param {{ mode?: string, allowed?: boolean }} access assertOwnerStoreAccess 返回值
+ * @param {boolean} [extraIsolated] 页面已有 isolated 标记（分享上下文等）
+ */
+function isStoreContextIsolated(access, extraIsolated = false) {
+  if (extraIsolated) return true
+  if (!access || !access.allowed) return false
+  return ISOLATED_ACCESS_MODES.has(access.mode)
 }
 
 /**
@@ -69,7 +99,12 @@ async function assertOwnerStoreAccess(storeId, options = {}) {
     return { allowed: true, mode: 'context' }
   }
 
-  if (await userOwnsStoreAlbum(storeId)) {
+  const albumStoreIds = await fetchUserAlbumStoreIds()
+  if (albumStoreIds.size === 0) {
+    return { allowed: true, mode: 'public_guest' }
+  }
+
+  if (albumStoreIds.has(String(storeId))) {
     markShareStoreContext({
       storeId: String(storeId),
       source: 'album_owner',
@@ -115,4 +150,7 @@ module.exports = {
   buildOwnerStoreDetailPath,
   navigateToOwnerStoreDetail,
   userOwnsStoreAlbum,
+  userHasBoundAlbum,
+  fetchUserAlbumStoreIds,
+  isStoreContextIsolated,
 }

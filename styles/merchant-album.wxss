@@ -1,0 +1,13 @@
+/**
+ * 商家端服务相册页 — 与用户端卷七相册 token 对齐（密度偏高）
+ */
+
+.merchant-album-page {
+  min-height: 100vh;
+  background-color: var(--color-bg-album);
+  color: var(--color-text-primary);
+}
+
+.merchant-album-page.merchant-form-page {
+  padding-bottom: var(--page-fixed-clearance);
+}

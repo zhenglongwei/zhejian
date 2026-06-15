@@ -12,3 +12,7 @@
 .case-detail__evidence {
   margin-top: var(--space-md);
 }
+
+.case-detail__phone-card {
+  margin-top: var(--space-sm);
+}

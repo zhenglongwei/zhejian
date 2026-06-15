@@ -13,10 +13,8 @@ const {
   markShareStoreContext,
 } = require('../../../utils/share-store-context')
 
-const { DEEP_LINK_SHELL, DEEP_LINK_BOTTOM } = require('../../../constants/deep-link-detail')
-const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
-
-const BOTTOM_LEFT_ACTIONS = DEEP_LINK_BOTTOM.case
+const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -41,7 +39,6 @@ Page({
     relatedCases: [],
     faqList: [],
     showStorePublicly: true,
-    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
     isFavorited: false,
     shareSheetVisible: false,
     shareSheetIntent: 'publicCase',
@@ -60,12 +57,11 @@ Page({
   },
 
   syncFavoriteState() {
-    this.baseLeftActions = BOTTOM_LEFT_ACTIONS
     return loadFavoriteState(this, {
       targetType: 'case',
       targetId: this.caseId,
-      baseLeftActions: this.baseLeftActions,
       showFavorite: true,
+      injectIntoBottomBar: false,
     })
   },
 
@@ -94,11 +90,7 @@ Page({
       if (!access.allowed) {
         throw new Error(access.reason || '无法查看该案例')
       }
-      let storeIsolated =
-        this.data.storeIsolated ||
-        isShareStoreIsolated() ||
-        access.mode === 'album_owner' ||
-        access.mode === 'context'
+      let storeIsolated = isStoreContextIsolated(access, this.data.storeIsolated || isShareStoreIsolated())
       if (storeId && storeIsolated) {
         markShareStoreContext({ storeId, source: 'case_detail' })
       }
@@ -129,19 +121,17 @@ Page({
     this.loadDetail()
   },
 
-  onBottomLeftAction(e) {
-    const { key } = e.detail
-    if (key === 'favorite') {
-      toggleFavorite(this, {
-        targetType: 'case',
-        targetId: this.caseId,
-        baseLeftActions: BOTTOM_LEFT_ACTIONS,
-        showFavorite: true,
-      })
-      return
-    }
-    if (key === 'call') this.onCall()
-    if (key === 'share') this.onOpenShareSheet()
+  onTopFavoriteTap() {
+    toggleFavorite(this, {
+      targetType: 'case',
+      targetId: this.caseId,
+      showFavorite: true,
+      injectIntoBottomBar: false,
+    })
+  },
+
+  onTopShareTap() {
+    this.onOpenShareSheet()
   },
 
   closeLoginSheet() {
@@ -155,8 +145,8 @@ Page({
       toggleFavorite(this, {
         targetType: 'case',
         targetId: this.caseId,
-        baseLeftActions: BOTTOM_LEFT_ACTIONS,
         showFavorite: true,
+        injectIntoBottomBar: false,
       })
       return
     }

@@ -71,7 +71,10 @@
 .album-node__cell {
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-album-list-thumb);
+  background: var(--color-album-frame-inner);
+  box-shadow: var(--shadow-album-list-thumb);
 }
 
 .album-node__img {
@@ -81,8 +84,9 @@
 
 .album-node__empty {
   min-height: 120rpx;
-  border: 2rpx dashed var(--color-border);
-  border-radius: var(--radius-sm);
+  border: 2rpx dashed var(--color-album-frame-line);
+  border-radius: var(--radius-album-list-thumb);
+  background: var(--color-album-frame-inner);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,7 +145,8 @@
   min-height: 120rpx;
   padding: var(--space-sm);
   border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
+  border: 1rpx solid var(--color-album-frame-line);
+  background-color: var(--color-album-frame-inner);
   font-size: var(--font-body);
   box-sizing: border-box;
 }

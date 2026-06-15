@@ -2,7 +2,7 @@
   "navigationBarTitleText": "消息通知",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-list-page-shell": "/components/list-page-shell/index",
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-login-sheet": "/components/login-sheet/index",
     "ui-message-card": "/components/message-card/index",
     "ui-message-subscribe-banner": "/components/message-subscribe-banner/index",

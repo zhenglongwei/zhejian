@@ -1,40 +1,73 @@
-<view class="page message-list">
-  <ui-list-page-shell
-    status="{{status}}"
-    errorMessage="{{errorMessage}}"
-    emptyTitle="暂无消息"
-    emptyDescription="服务相册更新与授权审核结果会在这里通知你"
-    unauthTitle="登录后查看消息"
-    unauthDescription="登录后可接收相册与授权审核相关通知"
-    bind:retry="onRetry"
-    bind:unauthaction="onLoginTap"
-  >
-    <view slot="intro" wx:if="{{isLoggedIn}}">
+<ui-tool-page-shell>
+  <block wx:if="{{status === 'loading'}}">
+    <view class="message-list__pad">
+      <ui-skeleton wx:for="{{[1,2,3]}}" wx:key="*this" rows="{{3}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'unauthenticated'}}">
+    <view class="message-list__state">
+      <ui-empty
+        title="登录后查看消息"
+        description="登录后可接收相册与授权审核相关通知"
+        actionText="微信一键登录"
+        bind:action="onLoginTap"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="message-list__state">
+      <ui-empty
+        title="加载失败"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'empty'}}">
+    <view class="message-list__intro">
       <ui-message-subscribe-banner bind:subscribe="onSubscribeWechat" />
     </view>
-    <view wx:if="{{unreadCount > 0 && status === 'normal'}}" class="message-list__toolbar">
+    <view class="message-list__state">
+      <ui-empty
+        title="暂无消息"
+        description="服务相册更新与授权审核结果会在这里通知你"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="message-list__intro">
+      <ui-message-subscribe-banner bind:subscribe="onSubscribeWechat" />
+    </view>
+    <view wx:if="{{unreadCount > 0}}" class="message-list__toolbar">
       <text class="text-caption">未读 {{unreadCount}} 条</text>
       <text class="text-link text-caption" bindtap="onMarkAllRead">全部已读</text>
     </view>
-    <ui-message-card
-      wx:for="{{list}}"
-      wx:key="id"
-      messageId="{{item.id}}"
-      title="{{item.title}}"
-      content="{{item.content}}"
-      time="{{item.createdAt}}"
-      read="{{item.read}}"
-      jumpPath="{{item.jumpPath}}"
-      bind:tap="onItemTap"
-    />
-  </ui-list-page-shell>
+    <view class="message-list__items">
+      <ui-message-card
+        wx:for="{{list}}"
+        wx:key="id"
+        messageId="{{item.id}}"
+        title="{{item.title}}"
+        content="{{item.content}}"
+        time="{{item.createdAt}}"
+        read="{{item.read}}"
+        jumpPath="{{item.jumpPath}}"
+        bind:tap="onItemTap"
+      />
+    </view>
+  </block>
+</ui-tool-page-shell>
 
-  <ui-login-sheet
-    visible="{{loginSheetVisible}}"
-    mode="{{loginSheetMode}}"
-    bindContext="consult"
-    bind:close="closeLoginSheet"
-    bind:cancel="closeLoginSheet"
-    bind:success="onLoginSheetSuccess"
-  />
-</view>
+<ui-login-sheet
+  visible="{{loginSheetVisible}}"
+  mode="{{loginSheetMode}}"
+  bindContext="consult"
+  bind:close="closeLoginSheet"
+  bind:cancel="closeLoginSheet"
+  bind:success="onLoginSheetSuccess"
+/>

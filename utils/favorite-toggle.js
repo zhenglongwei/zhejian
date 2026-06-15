@@ -13,38 +13,40 @@ async function loadFavoriteState(page, options = {}) {
     baseLeftActions = [],
     showFavorite = true,
     dataKey = 'bottomLeftActions',
+    injectIntoBottomBar = true,
   } = options
 
   if (!showFavorite || !targetType || !targetId) {
-    page.setData({
-      isFavorited: false,
-      [dataKey]: baseLeftActions,
-    })
+    const patch = { isFavorited: false }
+    if (injectIntoBottomBar) patch[dataKey] = baseLeftActions
+    page.setData(patch)
     return
   }
 
   const auth = checkAuth({ needPhone: false })
   if (!auth.ok) {
-    page.setData({
-      isFavorited: false,
-      [dataKey]: mergeLeftActionsWithFavorite(baseLeftActions, false, { showFavorite }),
-    })
+    const patch = { isFavorited: false }
+    if (injectIntoBottomBar) {
+      patch[dataKey] = mergeLeftActionsWithFavorite(baseLeftActions, false, { showFavorite })
+    }
+    page.setData(patch)
     return
   }
 
   try {
     const status = await fetchFavoriteStatus(targetType, targetId)
-    page.setData({
-      isFavorited: Boolean(status && status.favorited),
-      [dataKey]: mergeLeftActionsWithFavorite(baseLeftActions, Boolean(status && status.favorited), {
-        showFavorite,
-      }),
-    })
+    const favorited = Boolean(status && status.favorited)
+    const patch = { isFavorited: favorited }
+    if (injectIntoBottomBar) {
+      patch[dataKey] = mergeLeftActionsWithFavorite(baseLeftActions, favorited, { showFavorite })
+    }
+    page.setData(patch)
   } catch (e) {
-    page.setData({
-      isFavorited: false,
-      [dataKey]: mergeLeftActionsWithFavorite(baseLeftActions, false, { showFavorite }),
-    })
+    const patch = { isFavorited: false }
+    if (injectIntoBottomBar) {
+      patch[dataKey] = mergeLeftActionsWithFavorite(baseLeftActions, false, { showFavorite })
+    }
+    page.setData(patch)
   }
 }
 
@@ -69,6 +71,7 @@ async function toggleFavorite(page, options = {}) {
     baseLeftActions = [],
     dataKey = 'bottomLeftActions',
     showFavorite = true,
+    injectIntoBottomBar = true,
   } = options
 
   if (!targetType || !targetId || page._favoriteBusy) return
@@ -87,8 +90,14 @@ async function toggleFavorite(page, options = {}) {
     }
     page.setData({
       isFavorited: nextFavorited,
-      [dataKey]: mergeLeftActionsWithFavorite(baseLeftActions, nextFavorited, { showFavorite }),
       pendingFavoriteToggle: false,
+      ...(injectIntoBottomBar
+        ? {
+            [dataKey]: mergeLeftActionsWithFavorite(baseLeftActions, nextFavorited, {
+              showFavorite,
+            }),
+          }
+        : {}),
     })
   } catch (e) {
     wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })

@@ -1,4 +1,4 @@
-<view class="image-uploader">
+<view class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}}">
   <view
     wx:for="{{images}}"
     wx:key="*this"

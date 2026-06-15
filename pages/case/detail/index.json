@@ -2,6 +2,7 @@
   "navigationBarTitleText": "案例详情",
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-detail-top-actions": "/components/detail-top-actions/index",
     "ui-card": "/components/card/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
@@ -15,7 +16,6 @@
     "ui-store-card": "/components/store-card/index",
     "ui-tag-row": "/components/tag-row/index",
     "ui-faq-list": "/components/faq-list/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-share-sheet": "/components/share-sheet/index",
     "ui-detail-report-entry": "/components/detail-report-entry/index",
     "ui-login-sheet": "/components/login-sheet/index"

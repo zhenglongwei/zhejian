@@ -1,0 +1,18 @@
+<view class="detail-top-actions">
+  <view
+    wx:if="{{showFavorite}}"
+    class="detail-top-actions__btn {{isFavorited ? 'detail-top-actions__btn--active' : ''}}"
+    hover-class="detail-top-actions__btn--hover"
+    bindtap="onFavoriteTap"
+  >
+    <text class="detail-top-actions__text text-caption">{{favoriteText}}</text>
+  </view>
+  <view
+    wx:if="{{showShare}}"
+    class="detail-top-actions__btn {{shareDisabled ? 'detail-top-actions__btn--disabled' : ''}}"
+    hover-class="{{shareDisabled ? '' : 'detail-top-actions__btn--hover'}}"
+    bindtap="onShareTap"
+  >
+    <text class="detail-top-actions__text text-caption">分享</text>
+  </view>
+</view>

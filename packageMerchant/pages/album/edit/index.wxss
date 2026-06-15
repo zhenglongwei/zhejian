@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/merchant-album.wxss';
 
 .merchant-album-edit__pad {
   padding-top: var(--space-md);
@@ -19,8 +20,9 @@
 
 .merchant-album-edit__bottom {
   flex-shrink: 0;
-  background-color: var(--color-bg-card);
-  box-shadow: var(--shadow-card);
+  background-color: var(--color-bg-album);
+  border-top: 1rpx solid var(--color-album-frame-line);
+  box-shadow: none;
 }
 
 .merchant-album-edit__bottom-inner {
@@ -146,7 +148,8 @@
   margin-top: var(--space-sm);
   padding: var(--space-md);
   border-radius: var(--radius-md);
-  background-color: var(--color-bg-muted);
+  border: 1rpx solid var(--color-album-frame-line);
+  background-color: var(--color-album-frame-inner);
 }
 
 .merchant-album-edit__part-form-actions {

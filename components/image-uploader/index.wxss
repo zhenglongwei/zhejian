@@ -43,3 +43,19 @@
   width: 56rpx;
   height: 56rpx;
 }
+
+.image-uploader--album .image-uploader__item,
+.image-uploader--album .image-uploader__add {
+  border-radius: var(--radius-album-list-thumb);
+}
+
+.image-uploader--album .image-uploader__item {
+  border: 1rpx solid var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+  box-shadow: var(--shadow-album-list-thumb);
+}
+
+.image-uploader--album .image-uploader__add {
+  border: 2rpx dashed var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+}

@@ -3,6 +3,7 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-detail-top-actions": "/components/detail-top-actions/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",
@@ -13,7 +14,6 @@
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-ai-summary-block": "/components/ai-summary-block/index",
     "ui-key-info-table": "/components/key-info-table/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-login-sheet": "/components/login-sheet/index",
     "ui-faq-list": "/components/faq-list/index",
     "ui-store-card": "/components/store-card/index",

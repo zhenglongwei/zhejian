@@ -12,8 +12,8 @@ const {
   markShareStoreContext,
 } = require('../../../utils/share-store-context')
 
-const { DEEP_LINK_SHELL, buildServiceBottomLeftActions } = require('../../../constants/deep-link-detail')
-const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
+const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 Page({
   data: {
@@ -25,10 +25,8 @@ Page({
     errorMessage: '',
     isAccident: false,
     showPriceFactors: false,
-    showCasesLink: false,
     bookable: false,
     casesAnchor: 'cases-section',
-    bottomLeftActions: buildServiceBottomLeftActions(false),
     isFavorited: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
@@ -44,12 +42,11 @@ Page({
   },
 
   syncFavoriteState() {
-    this.baseLeftActions = buildServiceBottomLeftActions(this.data.showCasesLink)
     return loadFavoriteState(this, {
       targetType: 'service',
       targetId: this.serviceId,
-      baseLeftActions: this.baseLeftActions,
       showFavorite: true,
+      injectIntoBottomBar: false,
     })
   },
 
@@ -81,11 +78,7 @@ Page({
       if (!access.allowed) {
         throw new Error(access.reason || '无法查看该服务')
       }
-      let storeIsolated =
-        this.data.storeIsolated ||
-        isShareStoreIsolated() ||
-        access.mode === 'album_owner' ||
-        access.mode === 'context'
+      let storeIsolated = isStoreContextIsolated(access, this.data.storeIsolated || isShareStoreIsolated())
       if (storeId && storeIsolated) {
         markShareStoreContext({ storeId, source: 'service_detail' })
       }
@@ -95,19 +88,15 @@ Page({
       }
       const detailView = { ...detail, relatedCases }
       const store = detailView.storeId ? findStore(detailView.storeId) : null
-      const showCasesLink =
-        detail.priceMode === PRICE_MODE.ACCIDENT ||
-        detail.priceMode === PRICE_MODE.RANGE ||
-        detail.priceMode === PRICE_MODE.CONSULT
+      const storePhone = (store && store.phone) || ''
       this.setData({
         detail: detailView,
-        storePhone: (store && store.phone) || '',
+        storePhone,
         isAccident: detailView.priceMode === PRICE_MODE.ACCIDENT,
         showPriceFactors:
           detailView.priceMode === PRICE_MODE.RANGE ||
           detailView.priceMode === PRICE_MODE.CONSULT ||
           detailView.priceMode === PRICE_MODE.ACCIDENT,
-        showCasesLink,
         bookable: Boolean(detailView.bookable),
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),
@@ -165,23 +154,13 @@ Page({
     wx.makePhoneCall({ phoneNumber: storePhone })
   },
 
-  onBottomLeftAction(e) {
-    const { key } = e.detail
-    if (key === 'favorite') {
-      toggleFavorite(this, {
-        targetType: 'service',
-        targetId: this.serviceId,
-        baseLeftActions: buildServiceBottomLeftActions(this.data.showCasesLink),
-        showFavorite: true,
-      })
-      return
-    }
-    if (key === 'call') this.onCall()
-    else if (key === 'cases') this.onViewCases()
-  },
-
-  onViewCases() {
-    wx.pageScrollTo({ selector: `#${this.data.casesAnchor}`, duration: 300 })
+  onTopFavoriteTap() {
+    toggleFavorite(this, {
+      targetType: 'service',
+      targetId: this.serviceId,
+      showFavorite: true,
+      injectIntoBottomBar: false,
+    })
   },
 
   closeLoginSheet() {
@@ -198,8 +177,8 @@ Page({
       toggleFavorite(this, {
         targetType: 'service',
         targetId: this.serviceId,
-        baseLeftActions: buildServiceBottomLeftActions(this.data.showCasesLink),
         showFavorite: true,
+        injectIntoBottomBar: false,
       })
       return
     }

@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/merchant-album.wxss';
 
 .merchant-list-fab {
   padding-top: var(--space-md);

@@ -1,4 +1,5 @@
 @import '../../../../styles/merchant-form.wxss';
+@import '../../../../styles/merchant-album.wxss';
 
 .album-create ui-privacy-banner {
   display: block;
@@ -47,15 +48,15 @@
   padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius-full);
   font-size: var(--font-caption);
-  background-color: var(--color-bg-card);
+  background-color: var(--color-album-frame-inner);
   color: var(--color-text-secondary);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-album-frame-line);
 }
 
 .album-create__chip--on {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border-color: var(--color-primary);
+  background-color: var(--color-album-active-light);
+  color: var(--color-album-active);
+  border-color: var(--color-album-active);
 }
 
 .album-create__chip:active {

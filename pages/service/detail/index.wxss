@@ -19,6 +19,10 @@
   margin-top: 0;
 }
 
+.service-detail__contact-card {
+  margin-top: var(--space-md);
+}
+
 .service-detail__evidence {
   margin-top: var(--space-md);
 }
