@@ -28,11 +28,16 @@ Component({
       type: Boolean,
       value: false,
     },
+    stageHeight: {
+      type: Number,
+      value: 0,
+    },
   },
 
   data: {
     splitPercent: 50,
     afterImageWidthPx: 0,
+    stageStyle: '',
   },
 
   observers: {
@@ -40,12 +45,18 @@ Component({
       this.resetSplit()
     },
     immersive() {
+      this.updateStageStyle()
+      this.scheduleMeasure()
+    },
+    stageHeight() {
+      this.updateStageStyle()
       this.scheduleMeasure()
     },
   },
 
   lifetimes: {
     attached() {
+      this.updateStageStyle()
       this.resetSplit()
       this._onWindowResize = () => {
         if (this.properties.immersive) this.scheduleMeasure()
@@ -63,6 +74,18 @@ Component({
   },
 
   methods: {
+    updateStageStyle() {
+      const { immersive, stageHeight } = this.properties
+      const heightPx = Number(stageHeight) || 0
+      let stageStyle = ''
+      if (immersive && heightPx > 0) {
+        stageStyle = `height:${Math.floor(heightPx)}px;`
+      }
+      if (stageStyle !== this.data.stageStyle) {
+        this.setData({ stageStyle })
+      }
+    },
+
     resetSplit() {
       this._dragging = false
       this._containerWidth = 0

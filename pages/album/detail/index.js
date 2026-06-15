@@ -48,6 +48,35 @@ function getWindowMetrics() {
   }
 }
 
+function resolveNavTotalHeightPx(win) {
+  const statusBarHeight = win.statusBarHeight || 20
+  try {
+    const menu = wx.getMenuButtonBoundingClientRect()
+    const gap = Math.max(menu.top - statusBarHeight, 0)
+    return statusBarHeight + menu.height + gap * 2
+  } catch (err) {
+    return statusBarHeight + 44
+  }
+}
+
+function resolveCompareLayoutMetrics(pairCount = 1) {
+  const win = getWindowMetrics()
+  const windowHeight = Math.floor(win.windowHeight || win.screenHeight || 667)
+  const navTotalPx = resolveNavTotalHeightPx(win)
+  const screenHeight = win.screenHeight || windowHeight
+  const safeBottom = (win.safeArea && win.safeArea.bottom) || screenHeight
+  const safeBottomInset = Math.max(screenHeight - safeBottom, 0)
+  const bodyPaddingPx = 24 + safeBottomInset + 16
+  const footerPx = 36 + (pairCount > 1 ? 28 : 0)
+  const titlePx = 44
+  const swiperHeightPx = Math.max(
+    windowHeight - navTotalPx - bodyPaddingPx - footerPx - titlePx,
+    220,
+  )
+  const stageHeightPx = Math.max(swiperHeightPx - titlePx, 200)
+  return { compareSwiperHeightPx: swiperHeightPx, compareStageHeightPx: stageHeightPx }
+}
+
 function resolveToolbarBottomPadPx() {
   try {
     const win = getWindowMetrics()
@@ -253,9 +282,15 @@ Page({
     showCompareEntry: false,
     compareOverlayVisible: false,
     comparePairIndex: 0,
+    compareSwiperHeightPx: 400,
+    compareStageHeightPx: 360,
   },
 
   onLoad(options) {
+    this._onCompareResize = () => {
+      if (this.data.compareOverlayVisible) this.updateCompareLayout()
+    }
+    if (wx.onWindowResize) wx.onWindowResize(this._onCompareResize)
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     if (options.token) {
       wx.redirectTo({
@@ -664,11 +699,21 @@ Page({
   onOpenCompareOverlay() {
     if (!this.data.comparePairs.length) return
     setComparePageOrientation('auto')
+    const layout = resolveCompareLayoutMetrics(this.data.comparePairs.length)
     this.setData({
       compareOverlayVisible: true,
       comparePairIndex: 0,
       chromeVisible: false,
+      ...layout,
+    }, () => {
+      setTimeout(() => this.updateCompareLayout(), 80)
     })
+  },
+
+  updateCompareLayout() {
+    if (!this.data.compareOverlayVisible) return
+    const layout = resolveCompareLayoutMetrics(this.data.comparePairs.length)
+    this.setData(layout)
   },
 
   onCloseCompareOverlay() {
@@ -681,6 +726,9 @@ Page({
   },
 
   onUnload() {
+    if (wx.offWindowResize && this._onCompareResize) {
+      wx.offWindowResize(this._onCompareResize)
+    }
     if (this.data.compareOverlayVisible) {
       setComparePageOrientation('portrait')
     }

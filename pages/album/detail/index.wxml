@@ -198,6 +198,7 @@
     <view class="album-detail__compare-body">
       <swiper
         class="album-detail__compare-swiper"
+        style="height: {{compareSwiperHeightPx}}px;"
         current="{{comparePairIndex}}"
         bindchange="onComparePairChange"
         bindanimationfinish="onComparePairChange"
@@ -208,9 +209,13 @@
           class="album-detail__compare-item"
         >
           <text wx:if="{{item.title}}" class="album-detail__compare-title text-body">{{item.title}}</text>
-          <view class="album-detail__compare-slider-wrap">
+          <view
+            class="album-detail__compare-slider-wrap"
+            style="height: {{compareStageHeightPx}}px;"
+          >
             <album-compare-slider
               immersive="{{true}}"
+              stage-height="{{compareStageHeightPx}}"
               pair-key="{{item.id}}"
               before-url="{{item.beforeUrl}}"
               after-url="{{item.afterUrl}}"

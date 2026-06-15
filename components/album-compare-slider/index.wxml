@@ -4,6 +4,7 @@
 >
   <view
     class="album-compare-slider__stage"
+    style="{{stageStyle}}"
     bindtouchstart="onTouchStart"
     catchtouchmove="onTouchMove"
     bindtouchend="onTouchEnd"
