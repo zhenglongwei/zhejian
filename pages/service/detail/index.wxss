@@ -1,15 +1,4 @@
-.service-detail__pad {
-  padding-top: var(--space-md);
-}
-
-.service-detail__body {
-  padding-top: var(--space-md);
-  padding-bottom: var(--page-fixed-clearance);
-}
-
-.service-detail__report {
-  margin-top: var(--space-lg);
-}
+@import '../../../styles/deep-link-detail.wxss';
 
 .service-detail__head {
   margin-bottom: var(--space-md);
@@ -26,44 +15,18 @@
   gap: var(--space-xs);
 }
 
-.service-detail__section {
-  margin-top: var(--space-lg);
+.service-detail__price-section {
+  margin-top: 0;
+}
+
+.service-detail__evidence {
+  margin-top: var(--space-md);
 }
 
 .service-detail__consult-guide {
   display: block;
   margin-top: var(--space-sm);
   color: var(--color-text-secondary);
-}
-
-.service-detail__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
-}
-
-.service-detail__section-title {
-  display: block;
-  margin-bottom: var(--space-sm);
-}
-
-.service-detail__section-head .service-detail__section-title {
-  margin-bottom: 0;
-}
-
-.service-detail__more {
-  color: var(--color-primary);
-}
-
-.service-detail__notice {
-  display: block;
-  margin-top: var(--space-sm);
-}
-
-.service-detail__privacy {
-  display: block;
-  margin-bottom: var(--space-sm);
 }
 
 .service-detail__list {
@@ -74,18 +37,6 @@
 
 .service-detail__list-item {
   color: var(--color-text-primary);
-}
-
-.service-detail__cases {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.service-detail__stores {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
 }
 
 .service-detail__flow {

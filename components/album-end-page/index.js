@@ -44,6 +44,14 @@ Component({
       type: Boolean,
       value: false,
     },
+    showStoreBrowse: {
+      type: Boolean,
+      value: false,
+    },
+    storeBrowseLabel: {
+      type: String,
+      value: '查看门店主页',
+    },
     contactLabel: {
       type: String,
       value: '联系门店',
@@ -72,6 +80,10 @@ Component({
 
     onContactTap() {
       this.triggerEvent('contact')
+    },
+
+    onStoreBrowseTap() {
+      this.triggerEvent('storebrowse')
     },
   },
 })

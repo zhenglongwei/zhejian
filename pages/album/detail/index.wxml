@@ -66,10 +66,12 @@
           show-share="{{showShareButton}}"
           show-feedback="{{true}}"
           show-contact="{{!!storePhone}}"
+          show-store-browse="{{showStoreBrowse}}"
           bind:auth="onEndPageAuth"
           bind:share="onOpenShareSheet"
           bind:feedback="onEndPageFeedback"
           bind:contact="onContactStore"
+          bind:storebrowse="onOpenLinkedStore"
         />
       </album-frame-viewer>
 
@@ -179,8 +181,13 @@
     store-note="{{detail.storeNote || ''}}"
     node-notes="{{infoSheetNodeNotes}}"
     page-progress="{{infoSheetPageProgress}}"
+    store-id="{{linkedStoreId}}"
+    store-name="{{linkedStoreName}}"
+    store-subtitle="{{linkedStoreSubtitle}}"
+    show-store-link="{{showStoreBrowse}}"
     bind:close="onCloseInfoSheet"
     bind:parttap="onInfoSheetPartTap"
+    bind:storetap="onOpenLinkedStore"
   />
 
   <view
@@ -208,7 +215,6 @@
           wx:key="id"
           class="album-detail__compare-item"
         >
-          <text wx:if="{{item.title}}" class="album-detail__compare-title text-body">{{item.title}}</text>
           <view
             class="album-detail__compare-slider-wrap"
             style="height: {{compareStageHeightPx}}px;"

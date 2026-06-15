@@ -7,6 +7,7 @@
     "ui-button": "/components/button/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-ai-summary-block": "/components/ai-summary-block/index",
+    "ui-store-card": "/components/store-card/index",
     "album-part-row": "/components/album-part-row/index"
   }
 }

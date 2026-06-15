@@ -23,19 +23,13 @@ const {
 } = require('../../../utils/store-share')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
+const { DEEP_LINK_SHELL, DEEP_LINK_BOTTOM } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
+
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
 
-const BOTTOM_LEFT_ACTIONS = [
-  { key: 'share', type: 'secondary', text: '分享' },
-  { key: 'call', type: 'secondary', text: '电话咨询' },
-  { key: 'navigate', type: 'secondary', text: '导航' },
-]
-
-/** 商家预览：分享放右侧主按钮，左侧仅保留联系/导航 */
-const BOTTOM_LEFT_ACTIONS_PREVIEW = [
-  { key: 'call', type: 'secondary', text: '电话咨询' },
-  { key: 'navigate', type: 'secondary', text: '导航' },
-]
+const BOTTOM_LEFT_ACTIONS = DEEP_LINK_BOTTOM.store
+const BOTTOM_LEFT_ACTIONS_PREVIEW = DEEP_LINK_BOTTOM.storePreview
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -66,6 +60,8 @@ function buildCertRows(certifications) {
 
 Page({
   data: {
+    shellTitle: DEEP_LINK_SHELL.store.title,
+    shellSubtitle: DEEP_LINK_SHELL.store.subtitle,
     status: 'loading',
     store: null,
     infoRows: [],
@@ -93,6 +89,7 @@ Page({
   },
 
   onLoad(options) {
+    this.pageOptions = options || {}
     this.isPreview = options.preview === '1' || options.preview === 'true'
     this.autoOpenShare = options.share === '1' || options.share === 'true'
     this.storeId = options.id || ''
@@ -132,7 +129,23 @@ Page({
       const ok = await this.ensurePreviewAccess()
       if (!ok) return
     } else if (!this.storeId) {
-      this.storeId = 'store_demo_1'
+      this.setData({
+        status: 'error',
+        errorMessage: '门店不存在',
+      })
+      return
+    } else {
+      const access = await assertOwnerStoreAccess(this.storeId, this.pageOptions)
+      if (!access.allowed) {
+        this.setData({
+          status: 'error',
+          errorMessage: access.reason || '无法查看该门店',
+        })
+        return
+      }
+      if (access.mode === 'album_owner' || access.mode === 'context') {
+        this.setData({ storeIsolated: true })
+      }
     }
     this.setData({
       isPreview: this.isPreview,

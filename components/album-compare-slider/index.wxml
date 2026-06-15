@@ -5,10 +5,6 @@
   <view
     class="album-compare-slider__stage"
     style="{{stageStyle}}"
-    bindtouchstart="onTouchStart"
-    catchtouchmove="onTouchMove"
-    bindtouchend="onTouchEnd"
-    bindtouchcancel="onTouchEnd"
   >
     <image
       class="album-compare-slider__image album-compare-slider__image--before"
@@ -25,9 +21,30 @@
         style="{{afterImageWidthPx ? 'width:' + afterImageWidthPx + 'px;' : ''}}"
       />
     </view>
-    <view class="album-compare-slider__handle" style="left: {{splitPercent}}%;">
+    <view
+      wx:if="{{immersive}}"
+      class="album-compare-slider__handle-hit"
+      style="left: {{splitPercent}}%;"
+      catchtouchstart="onHandleTouchStart"
+      catchtouchmove="onHandleTouchMove"
+      catchtouchend="onHandleTouchEnd"
+      catchtouchcancel="onHandleTouchEnd"
+    >
       <view class="album-compare-slider__handle-line" />
       <view class="album-compare-slider__handle-knob" />
+    </view>
+    <view
+      wx:else
+      class="album-compare-slider__drag-layer"
+      catchtouchstart="onStageTouchStart"
+      catchtouchmove="onStageTouchMove"
+      catchtouchend="onStageTouchEnd"
+      catchtouchcancel="onStageTouchEnd"
+    >
+      <view class="album-compare-slider__handle" style="left: {{splitPercent}}%;">
+        <view class="album-compare-slider__handle-line" />
+        <view class="album-compare-slider__handle-knob" />
+      </view>
     </view>
     <view class="album-compare-slider__labels">
       <text class="album-compare-slider__label text-caption">{{beforeLabel}}</text>

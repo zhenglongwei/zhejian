@@ -136,3 +136,9 @@
 .album-info-sheet__contact {
   margin-top: var(--space-md);
 }
+
+.album-info-sheet__store-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}

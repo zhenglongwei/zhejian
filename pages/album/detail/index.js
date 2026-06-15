@@ -29,6 +29,7 @@ const {
   withStoreContextPath,
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
+const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-access')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { buildAlbumComparePairs, buildAlbumCompareHint } = require('../../../utils/album-compare-pairs')
@@ -68,13 +69,11 @@ function resolveCompareLayoutMetrics(pairCount = 1) {
   const safeBottomInset = Math.max(screenHeight - safeBottom, 0)
   const bodyPaddingPx = 24 + safeBottomInset + 16
   const footerPx = 36 + (pairCount > 1 ? 28 : 0)
-  const titlePx = 44
   const swiperHeightPx = Math.max(
-    windowHeight - navTotalPx - bodyPaddingPx - footerPx - titlePx,
+    windowHeight - navTotalPx - bodyPaddingPx - footerPx,
     220,
   )
-  const stageHeightPx = Math.max(swiperHeightPx - titlePx, 200)
-  return { compareSwiperHeightPx: swiperHeightPx, compareStageHeightPx: stageHeightPx }
+  return { compareSwiperHeightPx: swiperHeightPx, compareStageHeightPx: swiperHeightPx }
 }
 
 function resolveToolbarBottomPadPx() {
@@ -284,6 +283,10 @@ Page({
     comparePairIndex: 0,
     compareSwiperHeightPx: 400,
     compareStageHeightPx: 360,
+    linkedStoreId: '',
+    linkedStoreName: '',
+    linkedStoreSubtitle: '',
+    showStoreBrowse: false,
   },
 
   onLoad(options) {
@@ -491,6 +494,18 @@ Page({
       })
       const endPageAuth = buildEndPageAuthState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
+      const linkedStoreId =
+        (detail.store && detail.store.id) ||
+        detail.storeId ||
+        (enriched.store && enriched.store.id) ||
+        ''
+      const linkedStoreName =
+        (detail.store && detail.store.name) ||
+        detail.storeName ||
+        (enriched.store && enriched.store.name) ||
+        ''
+      const linkedStoreSubtitle = detail.serviceName || enriched.serviceName || ''
+      const showStoreBrowse = Boolean(linkedStoreId)
 
       this.setData({
         detail: enriched,
@@ -503,6 +518,10 @@ Page({
         infoSheetAiSummary: enriched.aiSummary || '',
         infoSheetVisible: false,
         storePhone,
+        linkedStoreId,
+        linkedStoreName,
+        linkedStoreSubtitle,
+        showStoreBrowse,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
         showAuthSection,
@@ -534,14 +553,9 @@ Page({
         setTimeout(() => this.dismissHeroCover(), 280)
       })
 
-      const storeId =
-        (detail.store && detail.store.id) ||
-        detail.storeId ||
-        (enriched.store && enriched.store.id) ||
-        ''
-      if (storeId) {
+      if (linkedStoreId) {
         markShareStoreContext({
-          storeId,
+          storeId: linkedStoreId,
           albumId: this.albumId,
           source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
         })
@@ -962,6 +976,10 @@ Page({
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
+  },
+
+  onOpenLinkedStore() {
+    navigateToOwnerStoreDetail(this.data.linkedStoreId)
   },
 
   goFeedbackPage({ nodeId = '', nodeTitle = '' } = {}) {

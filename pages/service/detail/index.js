@@ -12,16 +12,13 @@ const {
   markShareStoreContext,
 } = require('../../../utils/share-store-context')
 
-function buildBottomLeftActions(showCasesLink) {
-  const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
-  if (showCasesLink) {
-    actions.push({ key: 'cases', type: 'ghost', text: '查看案例' })
-  }
-  return actions
-}
+const { DEEP_LINK_SHELL, buildServiceBottomLeftActions } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
 
 Page({
   data: {
+    shellTitle: DEEP_LINK_SHELL.service.title,
+    shellSubtitle: DEEP_LINK_SHELL.service.subtitle,
     status: 'loading',
     detail: null,
     storePhone: '',
@@ -31,7 +28,7 @@ Page({
     showCasesLink: false,
     bookable: false,
     casesAnchor: 'cases-section',
-    bottomLeftActions: buildBottomLeftActions(false),
+    bottomLeftActions: buildServiceBottomLeftActions(false),
     isFavorited: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
@@ -47,7 +44,7 @@ Page({
   },
 
   syncFavoriteState() {
-    this.baseLeftActions = buildBottomLeftActions(this.data.showCasesLink)
+    this.baseLeftActions = buildServiceBottomLeftActions(this.data.showCasesLink)
     return loadFavoriteState(this, {
       targetType: 'service',
       targetId: this.serviceId,
@@ -57,6 +54,7 @@ Page({
   },
 
   onLoad(options) {
+    this.pageOptions = options || {}
     this.serviceId = options.id || ''
     const shareCtx = resolvePageShareContext(options, {
       storeId: options.storeId || '',
@@ -79,7 +77,15 @@ Page({
     try {
       const detail = await fetchServiceDetail(this.serviceId, { audience: 'user' })
       const storeId = detail.storeId || getShareStoreId()
-      const storeIsolated = this.data.storeIsolated || isShareStoreIsolated()
+      const access = await assertOwnerStoreAccess(storeId, this.pageOptions)
+      if (!access.allowed) {
+        throw new Error(access.reason || '无法查看该服务')
+      }
+      let storeIsolated =
+        this.data.storeIsolated ||
+        isShareStoreIsolated() ||
+        access.mode === 'album_owner' ||
+        access.mode === 'context'
       if (storeId && storeIsolated) {
         markShareStoreContext({ storeId, source: 'service_detail' })
       }
@@ -165,7 +171,7 @@ Page({
       toggleFavorite(this, {
         targetType: 'service',
         targetId: this.serviceId,
-        baseLeftActions: buildBottomLeftActions(this.data.showCasesLink),
+        baseLeftActions: buildServiceBottomLeftActions(this.data.showCasesLink),
         showFavorite: true,
       })
       return
@@ -192,7 +198,7 @@ Page({
       toggleFavorite(this, {
         targetType: 'service',
         targetId: this.serviceId,
-        baseLeftActions: buildBottomLeftActions(this.data.showCasesLink),
+        baseLeftActions: buildServiceBottomLeftActions(this.data.showCasesLink),
         showFavorite: true,
       })
       return

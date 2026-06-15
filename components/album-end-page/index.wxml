@@ -30,6 +30,13 @@
       >{{shareLabel}}</ui-button>
 
       <ui-button
+        wx:if="{{showStoreBrowse}}"
+        type="secondary"
+        block
+        bind:btntap="onStoreBrowseTap"
+      >{{storeBrowseLabel}}</ui-button>
+
+      <ui-button
         wx:if="{{showContact}}"
         type="secondary"
         block

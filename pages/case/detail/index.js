@@ -13,10 +13,10 @@ const {
   markShareStoreContext,
 } = require('../../../utils/share-store-context')
 
-const BOTTOM_LEFT_ACTIONS = [
-  { key: 'share', type: 'secondary', text: '分享' },
-  { key: 'call', type: 'secondary', text: '电话咨询' },
-]
+const { DEEP_LINK_SHELL, DEEP_LINK_BOTTOM } = require('../../../constants/deep-link-detail')
+const { assertOwnerStoreAccess } = require('../../../utils/album-store-access')
+
+const BOTTOM_LEFT_ACTIONS = DEEP_LINK_BOTTOM.case
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -33,6 +33,8 @@ function buildShareCaseFromDetail(detail = {}) {
 
 Page({
   data: {
+    shellTitle: DEEP_LINK_SHELL.case.title,
+    shellSubtitle: DEEP_LINK_SHELL.case.subtitle,
     status: 'loading',
     detail: null,
     errorMessage: '',
@@ -69,6 +71,7 @@ Page({
 
   onLoad(options) {
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    this.pageOptions = options || {}
     this.caseId = options.id || ''
     const shareCtx = resolvePageShareContext(options, {
       storeId: options.storeId || '',
@@ -87,7 +90,15 @@ Page({
     try {
       const detail = await fetchCaseDetail(this.caseId)
       const storeId = detail.storeId || getShareStoreId()
-      const storeIsolated = this.data.storeIsolated || isShareStoreIsolated()
+      const access = await assertOwnerStoreAccess(storeId, this.pageOptions)
+      if (!access.allowed) {
+        throw new Error(access.reason || '无法查看该案例')
+      }
+      let storeIsolated =
+        this.data.storeIsolated ||
+        isShareStoreIsolated() ||
+        access.mode === 'album_owner' ||
+        access.mode === 'context'
       if (storeId && storeIsolated) {
         markShareStoreContext({ storeId, source: 'case_detail' })
       }

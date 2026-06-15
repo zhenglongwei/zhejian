@@ -143,7 +143,7 @@ Component({
       }
     },
 
-    onTouchStart(e) {
+    onHandleTouchStart(e) {
       const touch = e.touches && e.touches[0]
       if (!touch) return
       this._dragging = true
@@ -153,7 +153,7 @@ Component({
       })
     },
 
-    onTouchMove(e) {
+    onHandleTouchMove(e) {
       if (!this._dragging) return
       const touch = e.touches && e.touches[0]
       if (!touch) return
@@ -167,8 +167,20 @@ Component({
       this.updateSplitByTouch(touch)
     },
 
-    onTouchEnd() {
+    onHandleTouchEnd() {
       this._dragging = false
+    },
+
+    onStageTouchStart(e) {
+      this.onHandleTouchStart(e)
+    },
+
+    onStageTouchMove(e) {
+      this.onHandleTouchMove(e)
+    },
+
+    onStageTouchEnd() {
+      this.onHandleTouchEnd()
     },
   },
 })

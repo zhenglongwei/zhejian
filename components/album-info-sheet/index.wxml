@@ -31,6 +31,18 @@
         <ui-key-info-table rows="{{summaryRows}}" />
       </block>
 
+      <block wx:if="{{showStoreLink && storeId}}">
+        <view class="album-info-sheet__section-title text-caption">关联门店</view>
+        <ui-store-card
+          storeId="{{storeId}}"
+          name="{{storeName}}"
+          subtitle="{{storeSubtitle}}"
+          showLink="{{true}}"
+          bind:cardtap="onStoreTap"
+        />
+        <text class="album-info-sheet__store-hint text-caption">可查看本店公开案例与服务方案</text>
+      </block>
+
       <block wx:if="{{hasParts}}">
         <view class="album-info-sheet__section-title text-caption">配件清单</view>
         <album-part-row

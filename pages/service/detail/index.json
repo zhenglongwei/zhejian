@@ -2,6 +2,7 @@
   "navigationBarTitleText": "服务详情",
   "enablePullDownRefresh": true,
   "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",

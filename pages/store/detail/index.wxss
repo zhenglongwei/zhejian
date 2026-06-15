@@ -1,6 +1,4 @@
-.store-detail__pad {
-  padding-top: var(--space-md);
-}
+@import '../../../styles/deep-link-detail.wxss';
 
 .store-detail__hero {
   width: 100%;
@@ -13,26 +11,12 @@
   height: 100%;
 }
 
-.store-detail__body {
-  padding-top: var(--space-md);
-  padding-bottom: var(--page-fixed-clearance);
-}
-
-.store-detail__report {
-  margin-top: var(--space-lg);
-}
-
 .store-detail__notice-gap {
   margin-bottom: var(--space-md);
 }
 
 .store-detail__preview-edit {
   margin-top: var(--space-sm);
-}
-
-.store-detail__compliance--top {
-  margin-top: 0;
-  margin-bottom: var(--space-md);
 }
 
 .store-detail__head {
@@ -66,44 +50,8 @@
   color: var(--color-text-secondary);
 }
 
-.store-detail__card-wrap {
-  margin-top: var(--space-md);
-}
-
-.store-detail__section {
-  margin-top: var(--space-lg);
-}
-
-.store-detail__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-sm);
-}
-
-.store-detail__section-title {
-  display: block;
-}
-
 .store-detail__section-links {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-}
-
-.store-detail__more {
-  color: var(--color-primary);
-}
-
-.store-detail__privacy,
-.store-detail__compliance {
-  display: block;
-  margin-bottom: var(--space-sm);
-}
-
-.store-detail__cases {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
 }

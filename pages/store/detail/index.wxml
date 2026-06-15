@@ -1,19 +1,21 @@
-<view class="page store-detail">
+<ui-tool-page-shell
+  title="{{shellTitle}}"
+  subtitle="{{shellSubtitle}}"
+  showCompliance="{{status === 'normal'}}"
+>
   <block wx:if="{{status === 'loading'}}">
-    <view class="page-content store-detail__pad">
+    <view class="deep-link-detail__pad">
       <ui-skeleton rows="{{6}}" title="{{true}}" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <ui-empty
-        title="无法加载门店"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
+    <ui-empty
+      title="无法加载门店"
+      description="{{errorMessage}}"
+      actionText="重试"
+      bind:action="onRetry"
+    />
   </block>
 
   <block wx:elif="{{store}}">
@@ -26,16 +28,12 @@
       />
     </view>
 
-    <view class="store-detail__body page-content">
+    <view class="deep-link-detail__body">
       <view wx:if="{{isPreview}}" class="notice store-detail__notice-gap">
         <text>{{previewBannerText}}</text>
         <view wx:if="{{canEditStore}}" class="store-detail__preview-edit">
           <ui-button type="secondary" size="sm" bind:btntap="onEditStore">编辑门店资料</ui-button>
         </view>
-      </view>
-
-      <view class="store-detail__compliance store-detail__compliance--top">
-        <ui-compliance-notice type="displayDisclaimer" />
       </view>
 
       <view class="store-detail__head">
@@ -56,82 +54,31 @@
 
       <ui-ai-summary-block wx:if="{{store.aiSummary}}" content="{{store.aiSummary}}" />
 
-      <view class="store-detail__card-wrap">
+      <view class="deep-link-detail__card-wrap">
         <ui-card>
           <ui-key-info-table rows="{{infoRows}}" />
         </ui-card>
       </view>
 
-      <view wx:if="{{certRows.length}}" class="store-detail__section">
-        <text class="store-detail__section-title text-h2">门店资质</text>
-        <view class="store-detail__card-wrap">
+      <view wx:if="{{certRows.length}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h2">门店资质</text>
+        <view class="deep-link-detail__card-wrap">
           <ui-card>
             <ui-key-info-table rows="{{certRows}}" />
           </ui-card>
         </view>
       </view>
 
-      <view wx:if="{{!isPreview}}" class="store-detail__section store-detail__report">
-        <ui-detail-report-entry
-          targetType="store"
-          targetId="{{store.id}}"
-          targetTitle="{{store.name}}"
-          attached="{{true}}"
-        />
-      </view>
-
-      <view class="store-detail__section">
-        <view class="store-detail__section-head">
-          <text class="store-detail__section-title text-h2">服务方案</text>
-          <view wx:if="{{!isPreview}}" class="store-detail__section-links">
-            <text class="store-detail__more text-caption" bindtap="onSearchStore">搜索本店</text>
-            <text
-              wx:if="{{services.length}}"
-              class="store-detail__more text-caption"
-              bindtap="onViewAllServices"
-            >查看更多</text>
-          </view>
-        </view>
-        <view class="store-detail__compliance">
-          <ui-compliance-notice type="price" />
-        </view>
-        <block wx:if="{{servicesStatus === 'empty'}}">
-          <ui-empty
-            title="该门店暂未配置可预约服务"
-            description="你可以联系门店了解服务方案"
-            actionText="联系门店"
-            bind:action="onCall"
-          />
-        </block>
-        <view wx:else class="store-detail__cases">
-          <ui-service-card
-            wx:for="{{services}}"
-            wx:key="id"
-            serviceId="{{item.id}}"
-            name="{{item.name}}"
-            categoryName="{{item.categoryName}}"
-            summary="{{item.summary}}"
-            priceMode="{{item.priceMode}}"
-            amount="{{item.amount}}"
-            minAmount="{{item.minAmount}}"
-            maxAmount="{{item.maxAmount}}"
-            storeName="{{item.storeName}}"
-            showStoreName="{{false}}"
-            bind:cardtap="onServiceTap"
-          />
-        </view>
-      </view>
-
-      <view class="store-detail__section">
-        <view class="store-detail__section-head">
-          <text class="store-detail__section-title text-h2">公开案例</text>
+      <view class="deep-link-detail__section">
+        <view class="deep-link-detail__section-head">
+          <text class="deep-link-detail__section-title text-h2">公开案例</text>
           <text
             wx:if="{{cases.length}}"
-            class="store-detail__more text-caption"
+            class="deep-link-detail__more text-caption"
             bindtap="onViewAllCases"
           >查看更多</text>
         </view>
-        <view class="store-detail__compliance">
+        <view class="deep-link-detail__notice">
           <ui-compliance-notice type="casePrice" />
         </view>
 
@@ -144,7 +91,7 @@
           />
         </block>
 
-        <view wx:else class="store-detail__cases">
+        <view wx:else class="deep-link-detail__stack">
           <ui-case-card
             wx:for="{{cases}}"
             wx:key="id"
@@ -165,30 +112,83 @@
           />
         </view>
       </view>
+
+      <view class="deep-link-detail__section">
+        <view class="deep-link-detail__section-head">
+          <text class="deep-link-detail__section-title text-h2">服务方案</text>
+          <view wx:if="{{!isPreview}}" class="store-detail__section-links">
+            <text class="deep-link-detail__more text-caption" bindtap="onSearchStore">搜索本店</text>
+            <text
+              wx:if="{{services.length}}"
+              class="deep-link-detail__more text-caption"
+              bindtap="onViewAllServices"
+            >查看更多</text>
+          </view>
+        </view>
+        <view class="deep-link-detail__notice">
+          <ui-compliance-notice type="price" />
+        </view>
+        <block wx:if="{{servicesStatus === 'empty'}}">
+          <ui-empty
+            title="该门店暂未配置可预约服务"
+            description="你可以联系门店了解服务方案"
+            actionText="联系门店"
+            bind:action="onCall"
+          />
+        </block>
+        <view wx:else class="deep-link-detail__stack">
+          <ui-service-card
+            wx:for="{{services}}"
+            wx:key="id"
+            serviceId="{{item.id}}"
+            name="{{item.name}}"
+            categoryName="{{item.categoryName}}"
+            summary="{{item.summary}}"
+            priceMode="{{item.priceMode}}"
+            amount="{{item.amount}}"
+            minAmount="{{item.minAmount}}"
+            maxAmount="{{item.maxAmount}}"
+            storeName="{{item.storeName}}"
+            showStoreName="{{false}}"
+            bind:cardtap="onServiceTap"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{!isPreview}}" class="deep-link-detail__section deep-link-detail__report">
+        <ui-detail-report-entry
+          targetType="store"
+          targetId="{{store.id}}"
+          targetTitle="{{store.name}}"
+          attached="{{true}}"
+        />
+      </view>
     </view>
-
-    <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-      <ui-button wx:if="{{!isPreview}}" type="primary" slot="right" bind:btntap="onCallStore">电话联系</ui-button>
-      <ui-button wx:else type="primary" slot="right" bind:btntap="onOpenShareSheet">分享门店</ui-button>
-    </ui-fixed-bottom-bar>
-
-    <ui-share-sheet
-      visible="{{shareSheetVisible}}"
-      showOwnerShare="{{false}}"
-      shareIntent="publicStore"
-      actionsDisabled="{{shareActionsDisabled}}"
-      bind:close="onCloseShareSheet"
-      bind:copypublicweblink="onCopyPublicWebLink"
-      bind:sharetimeline="onShareTimelineGuide"
-    />
-
-    <ui-login-sheet
-      visible="{{loginSheetVisible}}"
-      mode="{{loginSheetMode}}"
-      bindContext="{{loginSheetBindContext}}"
-      bind:close="closeLoginSheet"
-      bind:cancel="closeLoginSheet"
-      bind:success="onLoginSheetSuccess"
-    />
   </block>
-</view>
+</ui-tool-page-shell>
+
+<block wx:if="{{store && status === 'normal'}}">
+  <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
+    <ui-button wx:if="{{!isPreview}}" type="primary" slot="right" bind:btntap="onCallStore">电话联系</ui-button>
+    <ui-button wx:else type="primary" slot="right" bind:btntap="onOpenShareSheet">分享门店</ui-button>
+  </ui-fixed-bottom-bar>
+
+  <ui-share-sheet
+    visible="{{shareSheetVisible}}"
+    showOwnerShare="{{false}}"
+    shareIntent="publicStore"
+    actionsDisabled="{{shareActionsDisabled}}"
+    bind:close="onCloseShareSheet"
+    bind:copypublicweblink="onCopyPublicWebLink"
+    bind:sharetimeline="onShareTimelineGuide"
+  />
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bindContext="{{loginSheetBindContext}}"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+    bind:success="onLoginSheetSuccess"
+  />
+</block>

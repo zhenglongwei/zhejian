@@ -58,10 +58,28 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 2;
+  left: 0;
   width: 0;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+.album-compare-slider__handle-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 96rpx;
+  transform: translateX(-50%);
+}
+
+.album-compare-slider__drag-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 4;
 }
 
 .album-compare-slider__handle-line {

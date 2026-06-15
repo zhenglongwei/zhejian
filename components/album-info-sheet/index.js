@@ -48,6 +48,22 @@ Component({
       type: String,
       value: '',
     },
+    storeId: {
+      type: String,
+      value: '',
+    },
+    storeName: {
+      type: String,
+      value: '',
+    },
+    storeSubtitle: {
+      type: String,
+      value: '',
+    },
+    showStoreLink: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -108,6 +124,10 @@ Component({
         ? Number(e.detail.index)
         : Number(e.currentTarget.dataset.index)
       this.triggerEvent('parttap', { index: index >= 0 ? index : 0 })
+    },
+
+    onStoreTap() {
+      this.triggerEvent('storetap')
     },
   },
 })

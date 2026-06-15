@@ -1,73 +1,33 @@
-<view class="page case-detail">
+<ui-tool-page-shell
+  title="{{shellTitle}}"
+  subtitle="{{shellSubtitle}}"
+  showCompliance="{{status === 'normal'}}"
+>
   <block wx:if="{{status === 'loading'}}">
-    <view class="page-content case-detail__pad">
+    <view class="deep-link-detail__pad">
       <ui-skeleton rows="{{6}}" title="{{true}}" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <ui-empty
-        title="无法加载案例"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
+    <ui-empty
+      title="无法加载案例"
+      description="{{errorMessage}}"
+      actionText="重试"
+      bind:action="onRetry"
+    />
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="case-detail__body page-content">
+    <view class="deep-link-detail__body">
       <view class="case-detail__tags">
         <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
       </view>
-      <view class="case-detail__privacy">
-        <ui-compliance-notice type="displayDisclaimer" />
-      </view>
       <text class="case-detail__title text-h1">{{detail.title}}</text>
       <ui-ai-summary-block content="{{detail.aiSummary}}" />
-      <ui-key-info-table rows="{{detail.keyInfo}}" />
-      <view class="case-detail__section">
-        <text class="case-detail__section-title text-h3">{{detail.priceMode === 'fixed' ? '方案报价' : '价格说明'}}</text>
-        <ui-price-display
-          mode="{{detail.priceMode}}"
-          amount="{{detail.amount}}"
-          minAmount="{{detail.minAmount}}"
-          maxAmount="{{detail.maxAmount}}"
-          showSuffix="{{detail.priceMode !== 'fixed'}}"
-          showDisclaimer="{{detail.priceMode !== 'fixed'}}"
-        />
-        <view wx:if="{{detail.priceMode !== 'fixed'}}" class="case-detail__notice">
-          <ui-compliance-notice type="casePrice" />
-        </view>
-        <view wx:else class="case-detail__notice">
-          <ui-compliance-notice type="authorizedCaseFixed" />
-        </view>
-      </view>
-      <view wx:if="{{detail.faultDesc}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">故障表现</text>
-        <text class="text-body">{{detail.faultDesc}}</text>
-      </view>
-      <view wx:if="{{detail.inspectResult}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">检查结果</text>
-        <text class="text-body">{{detail.inspectResult}}</text>
-      </view>
-      <view wx:if="{{detail.repairPlan}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">维修方案</text>
-        <text class="text-body">{{detail.repairPlan}}</text>
-      </view>
-      <view wx:if="{{detail.priceFactors.length}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">影响价格的因素</text>
-        <view class="bullet-list">
-          <text
-            wx:for="{{detail.priceFactors}}"
-            wx:key="*this"
-            class="bullet-list__item"
-          >· {{item}}</text>
-        </view>
-      </view>
-      <view class="case-detail__section">
-        <text class="case-detail__section-title text-h3">维修过程</text>
+
+      <view class="deep-link-detail__section case-detail__evidence">
+        <text class="deep-link-detail__section-title text-h2">维修过程</text>
         <ui-album-node
           wx:for="{{detail.nodes}}"
           wx:key="id"
@@ -76,8 +36,54 @@
           note="{{item.note}}"
         />
       </view>
-      <view class="case-detail__section">
-        <text class="case-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
+
+      <view wx:if="{{detail.keyInfo.length}}" class="deep-link-detail__card-wrap">
+        <ui-card>
+          <ui-key-info-table rows="{{detail.keyInfo}}" />
+        </ui-card>
+      </view>
+
+      <view class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">{{detail.priceMode === 'fixed' ? '方案报价' : '价格说明'}}</text>
+        <ui-price-display
+          mode="{{detail.priceMode}}"
+          amount="{{detail.amount}}"
+          minAmount="{{detail.minAmount}}"
+          maxAmount="{{detail.maxAmount}}"
+          showSuffix="{{detail.priceMode !== 'fixed'}}"
+          showDisclaimer="{{detail.priceMode !== 'fixed'}}"
+        />
+        <view class="deep-link-detail__notice">
+          <ui-compliance-notice type="casePrice" wx:if="{{detail.priceMode !== 'fixed'}}" />
+          <ui-compliance-notice type="authorizedCaseFixed" wx:else />
+        </view>
+      </view>
+
+      <view wx:if="{{detail.faultDesc}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">故障表现</text>
+        <text class="text-body">{{detail.faultDesc}}</text>
+      </view>
+      <view wx:if="{{detail.inspectResult}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">检查结果</text>
+        <text class="text-body">{{detail.inspectResult}}</text>
+      </view>
+      <view wx:if="{{detail.repairPlan}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">维修方案</text>
+        <text class="text-body">{{detail.repairPlan}}</text>
+      </view>
+      <view wx:if="{{detail.priceFactors.length}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">影响价格的因素</text>
+        <view class="bullet-list">
+          <text
+            wx:for="{{detail.priceFactors}}"
+            wx:key="*this"
+            class="bullet-list__item"
+          >· {{item}}</text>
+        </view>
+      </view>
+
+      <view class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
         <ui-store-card
           wx:if="{{showStorePublicly}}"
           storeId="{{detail.storeId}}"
@@ -92,11 +98,13 @@
           subtitle="{{detail.city}}"
         />
       </view>
-      <view wx:if="{{faqList.length}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">延伸阅读</text>
+
+      <view wx:if="{{faqList.length}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">延伸阅读</text>
         <ui-faq-list items="{{faqList}}" />
       </view>
-      <view class="case-detail__section case-detail__report">
+
+      <view class="deep-link-detail__section deep-link-detail__report">
         <ui-detail-report-entry
           targetType="case"
           targetId="{{detail.id}}"
@@ -104,9 +112,10 @@
           attached="{{true}}"
         />
       </view>
-      <view wx:if="{{relatedCases.length}}" class="case-detail__section">
-        <text class="case-detail__section-title text-h3">{{storeIsolated ? '本店更多案例' : '相关案例'}}</text>
-        <view class="case-detail__related">
+
+      <view wx:if="{{relatedCases.length}}" class="deep-link-detail__section">
+        <text class="deep-link-detail__section-title text-h3">{{storeIsolated ? '本店更多案例' : '相关案例'}}</text>
+        <view class="deep-link-detail__stack">
           <ui-case-card
             wx:for="{{relatedCases}}"
             wx:key="id"
@@ -128,27 +137,30 @@
         </view>
       </view>
     </view>
-    <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-      <ui-button type="primary" slot="right" bind:btntap="onCall">电话联系</ui-button>
-    </ui-fixed-bottom-bar>
-
-    <ui-share-sheet
-      visible="{{shareSheetVisible}}"
-      showOwnerShare="{{false}}"
-      shareIntent="publicCase"
-      actionsDisabled="{{shareActionsDisabled}}"
-      bind:close="onCloseShareSheet"
-      bind:copypublicweblink="onCopyPublicWebLink"
-      bind:sharetimeline="onShareTimelineGuide"
-    />
-
-    <ui-login-sheet
-      visible="{{loginSheetVisible}}"
-      mode="{{loginSheetMode}}"
-      bindContext="{{loginSheetBindContext}}"
-      bind:close="closeLoginSheet"
-      bind:cancel="closeLoginSheet"
-      bind:success="onLoginSheetSuccess"
-    />
   </block>
-</view>
+</ui-tool-page-shell>
+
+<block wx:if="{{detail && status === 'normal'}}">
+  <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
+    <ui-button type="primary" slot="right" bind:btntap="onCall">电话联系</ui-button>
+  </ui-fixed-bottom-bar>
+
+  <ui-share-sheet
+    visible="{{shareSheetVisible}}"
+    showOwnerShare="{{false}}"
+    shareIntent="publicCase"
+    actionsDisabled="{{shareActionsDisabled}}"
+    bind:close="onCloseShareSheet"
+    bind:copypublicweblink="onCopyPublicWebLink"
+    bind:sharetimeline="onShareTimelineGuide"
+  />
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bindContext="{{loginSheetBindContext}}"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+    bind:success="onLoginSheetSuccess"
+  />
+</block>

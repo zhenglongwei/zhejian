@@ -136,6 +136,7 @@ module.exports = {
   TOOL_HOME_PATH,
   markShareStoreContext,
   getShareStoreContext,
+  isMerchantShareQuery,
   isShareStoreIsolated,
   getShareStoreId,
   withStoreContextPath,
