@@ -57,7 +57,7 @@
     </ui-card>
 
     <view wx:if="{{isLoggedIn}}" class="settings-page__logout">
-      <button class="settings-page__logout-btn" bindtap="onLogout">退出登录</button>
+      <ui-button type="danger" block bind:btntap="onLogout">退出登录</ui-button>
     </view>
   </view>
 </ui-tool-page-shell>

@@ -93,7 +93,7 @@
       type="secondary"
       size="sm"
       bind:btntap="onSyncFromAssessment"
-    >从损伤评估同步修复前</ui-button>
+    >从损伤评估节点同步</ui-button>
   </view>
 
   <textarea

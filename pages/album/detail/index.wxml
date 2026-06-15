@@ -22,6 +22,7 @@
     <tool-immersive-nav title="服务相册" />
     <view class="album-detail__empty-wrap">
       <ui-empty
+        theme="album"
         title="无法加载服务相册"
         description="{{errorMessage}}"
         actionText="重试"
@@ -34,6 +35,7 @@
     <tool-immersive-nav title="服务相册" />
     <view class="album-detail__empty-wrap">
       <ui-empty
+        theme="album"
         title="门店暂未上传服务相册"
         description="如你对维修进度有疑问，可联系门店。"
         actionText="联系门店"

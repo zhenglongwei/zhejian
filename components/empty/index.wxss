@@ -6,11 +6,22 @@
   text-align: center;
 }
 
+.empty--album {
+  padding-top: var(--space-lg);
+}
+
 .empty__image,
 .empty__placeholder {
   width: 240rpx;
   height: 240rpx;
   margin-bottom: var(--space-md);
+}
+
+.empty__placeholder--album {
+  border: 2rpx dashed var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  background: var(--color-album-frame-inner);
+  box-shadow: var(--shadow-album-list-thumb);
 }
 
 .empty__title {

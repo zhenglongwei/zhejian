@@ -8,6 +8,7 @@
   <block wx:elif="{{status === 'unauthenticated'}}">
     <view class="album-authorize__state">
       <ui-empty
+        theme="album"
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看授权'}}"
         description="查看你的相册公开与审核状态"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
@@ -19,6 +20,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="album-authorize__state">
       <ui-empty
+        theme="album"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
@@ -30,6 +32,7 @@
   <block wx:elif="{{status === 'empty'}}">
     <view class="album-authorize__state">
       <ui-empty
+        theme="album"
         title="暂无公开授权"
         description="相册完工后，可在服务相册中授权生成脱敏公开案例"
       />

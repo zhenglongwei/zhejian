@@ -1,12 +1,26 @@
-<view class="skeleton">
-  <view wx:if="{{avatar || title}}" class="skeleton__head">
-    <view wx:if="{{avatar}}" class="skeleton__avatar skeleton-block" />
-    <view wx:if="{{title}}" class="skeleton__title skeleton-block" />
-  </view>
-  <view
-    wx:for="{{rowList}}"
-    wx:key="*this"
-    class="skeleton__row skeleton-block"
-    style="width: {{index === rowList.length - 1 ? '60%' : '100%'}}"
-  />
+<view
+  class="skeleton {{theme === 'album' ? 'skeleton--album' : ''}} {{variant === 'album-card' ? 'skeleton--album-card' : ''}}"
+>
+  <block wx:if="{{variant === 'album-card'}}">
+    <view class="skeleton__album-card">
+      <view class="skeleton__album-thumb skeleton-block" />
+      <view class="skeleton__album-body">
+        <view class="skeleton__album-line skeleton-block" />
+        <view class="skeleton__album-line skeleton__album-line--short skeleton-block" />
+        <view class="skeleton__album-line skeleton__album-line--mini skeleton-block" />
+      </view>
+    </view>
+  </block>
+  <block wx:else>
+    <view wx:if="{{avatar || title}}" class="skeleton__head">
+      <view wx:if="{{avatar}}" class="skeleton__avatar skeleton-block" />
+      <view wx:if="{{title}}" class="skeleton__title skeleton-block" />
+    </view>
+    <view
+      wx:for="{{rowList}}"
+      wx:key="*this"
+      class="skeleton__row skeleton-block"
+      style="width: {{index === rowList.length - 1 ? '60%' : '100%'}}"
+    />
+  </block>
 </view>

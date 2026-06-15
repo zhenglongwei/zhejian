@@ -50,11 +50,16 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  width: 100%;
   min-height: 0;
   max-height: 100%;
+}
+
+.album-frame-viewer__immersive-end .album-photo-frame--detail .album-photo-frame__inner {
+  align-items: center;
 }
 
 .album-frame-viewer__immersive-end .album-photo-frame--detail {
@@ -96,7 +101,7 @@
   -webkit-line-clamp: 3;
   font-weight: var(--font-weight-medium);
   line-height: var(--font-body-lh);
-  color: #fff;
+  color: var(--color-text-inverse);
   text-shadow: var(--shadow-album-caption-text);
   word-break: break-word;
 }
@@ -195,9 +200,10 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  width: 100%;
   min-height: 100%;
   padding: var(--space-md);
   background: var(--color-bg-album);

@@ -15,13 +15,20 @@
 
   <block wx:if="{{status === 'loading'}}">
     <view class="list-page-shell__body">
-      <ui-skeleton wx:for="{{skeletonItems}}" wx:key="*this" rows="{{skeletonRows}}" />
+      <ui-skeleton
+        wx:for="{{skeletonItems}}"
+        wx:key="*this"
+        rows="{{skeletonRows}}"
+        theme="{{skeletonTheme}}"
+        variant="{{skeletonVariant}}"
+      />
     </view>
   </block>
 
   <block wx:elif="{{status === 'unauthenticated'}}">
     <view class="list-page-shell__state">
       <ui-empty
+        theme="{{emptyTheme}}"
         title="{{unauthTitle}}"
         description="{{unauthDescription}}"
         actionText="{{unauthActionText}}"
@@ -33,6 +40,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="list-page-shell__state">
       <ui-empty
+        theme="{{emptyTheme}}"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="{{errorActionText}}"
@@ -45,6 +53,7 @@
     <view class="list-page-shell__empty">
       <slot name="empty">
         <ui-empty
+          theme="{{emptyTheme}}"
           title="{{emptyTitle}}"
           description="{{emptyDescription}}"
           actionText="{{emptyActionText}}"

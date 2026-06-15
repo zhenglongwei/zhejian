@@ -3,6 +3,7 @@
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-card": "/components/card/index",
-    "ui-cell": "/components/cell/index"
+    "ui-cell": "/components/cell/index",
+    "ui-button": "/components/button/index"
   }
 }

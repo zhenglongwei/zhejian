@@ -67,6 +67,18 @@ Component({
       type: Boolean,
       value: false,
     },
+    emptyTheme: {
+      type: String,
+      value: 'default',
+    },
+    skeletonTheme: {
+      type: String,
+      value: 'default',
+    },
+    skeletonVariant: {
+      type: String,
+      value: 'default',
+    },
   },
 
   data: {

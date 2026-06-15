@@ -13,6 +13,7 @@ const {
   markShareStoreContext,
 } = require('../../../utils/share-store-context')
 
+const { submitCaseDetailPage } = require('../../../utils/wx-search-submit')
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
@@ -98,14 +99,17 @@ Page({
       if (storeIsolated && storeId) {
         relatedCases = filterCasesByStore(relatedCases, storeId)
       }
+      const pageTitle = detail.title || detail.serviceName || DEEP_LINK_SHELL.case.subtitle
       this.setData({
         detail,
+        shellSubtitle: pageTitle,
         showStorePublicly: detail.showStorePublicly !== false,
         relatedCases,
         faqList: (detail.faq || []).filter((item) => item && item.title && item.url),
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),
       })
+      submitCaseDetailPage(detail, { storeId })
       this.updateShareMenu(true)
       await this.syncFavoriteState()
     } catch (e) {

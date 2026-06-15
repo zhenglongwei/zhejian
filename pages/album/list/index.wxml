@@ -10,15 +10,14 @@
 
   <block wx:if="{{status === 'loading'}}">
     <view class="album-list__list">
-      <view class="album-list__skeleton-card" wx:for="{{[1,2,3]}}" wx:key="*this">
-        <ui-skeleton rows="{{3}}" />
-      </view>
+      <ui-skeleton theme="album" variant="album-card" wx:for="{{[1,2,3]}}" wx:key="*this" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'unauthenticated'}}">
     <view class="album-list__state">
       <ui-empty
+        theme="album"
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看服务相册'}}"
         description="{{needPhone ? '绑定后可查看门店为你创建的服务相册' : '登录后可查看门店为你创建的服务相册'}}"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
@@ -30,6 +29,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="album-list__state">
       <ui-empty
+        theme="album"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
@@ -41,6 +41,7 @@
   <block wx:elif="{{status === 'empty' && activeTab === 'private'}}">
     <view class="album-list__state">
       <ui-empty
+        theme="album"
         title="暂无服务相册"
         description="请扫描商家二维码。"
         actionText="查看更多公开案例"
@@ -52,6 +53,7 @@
   <block wx:elif="{{status === 'empty'}}">
     <view class="album-list__state">
       <ui-empty
+        theme="album"
         title="暂无公开相册"
         description="审核通过并公开展示的案例将出现在这里"
       />

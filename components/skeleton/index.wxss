@@ -25,3 +25,59 @@
 .skeleton__row:last-child {
   margin-bottom: 0;
 }
+
+.skeleton--album-card {
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.skeleton__album-card {
+  display: flex;
+  gap: var(--space-md);
+  align-items: stretch;
+  min-height: var(--size-album-list-card-min-height);
+}
+
+.skeleton__album-thumb {
+  flex-shrink: 0;
+  width: var(--size-album-list-thumb);
+  height: var(--size-album-list-thumb);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-album-list-thumb);
+  background: var(--color-album-frame-inner);
+}
+
+.skeleton__album-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-xs);
+  justify-content: center;
+  min-width: 0;
+}
+
+.skeleton__album-line {
+  height: 28rpx;
+}
+
+.skeleton__album-line--short {
+  width: 72%;
+}
+
+.skeleton__album-line--mini {
+  width: 48%;
+  height: 22rpx;
+}
+
+.skeleton--album .skeleton-block {
+  background: linear-gradient(
+    90deg,
+    var(--color-album-frame-inner) 25%,
+    var(--color-album-frame) 37%,
+    var(--color-album-frame-inner) 63%
+  );
+  background-size: 400% 100%;
+}

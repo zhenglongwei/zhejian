@@ -11,14 +11,6 @@
   padding-bottom: var(--space-xl);
 }
 
-.album-list__skeleton-card {
-  box-sizing: border-box;
-  padding: var(--space-md);
-  background: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-}
-
 .album-list__state {
   padding-top: var(--space-lg);
   padding-bottom: var(--space-xl);

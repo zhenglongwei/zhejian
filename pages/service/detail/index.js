@@ -13,6 +13,7 @@ const {
 } = require('../../../utils/share-store-context')
 
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
+const { submitServiceDetailPage } = require('../../../utils/wx-search-submit')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 Page({
@@ -89,8 +90,10 @@ Page({
       const detailView = { ...detail, relatedCases }
       const store = detailView.storeId ? findStore(detailView.storeId) : null
       const storePhone = (store && store.phone) || ''
+      const pageTitle = detailView.name || detailView.serviceName || DEEP_LINK_SHELL.service.subtitle
       this.setData({
         detail: detailView,
+        shellSubtitle: pageTitle,
         storePhone,
         isAccident: detailView.priceMode === PRICE_MODE.ACCIDENT,
         showPriceFactors:
@@ -101,6 +104,7 @@ Page({
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),
       })
+      submitServiceDetailPage(detailView, { storeId: detailView.storeId })
       await this.syncFavoriteState()
     } catch (e) {
       this.setData({

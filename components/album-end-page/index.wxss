@@ -2,7 +2,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
@@ -26,7 +26,9 @@
   gap: var(--space-sm);
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 100%;
+  max-width: var(--size-album-end-content-width);
   margin-bottom: var(--space-md);
 }
 
@@ -46,7 +48,9 @@
 
 .album-end-page__album-title {
   display: block;
-  max-width: 100%;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--size-album-end-content-width);
   margin-bottom: var(--space-lg);
   overflow: hidden;
   text-align: center;
@@ -59,8 +63,16 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  box-sizing: border-box;
   width: 100%;
-  max-width: 420rpx;
+  max-width: var(--size-album-end-content-width);
+  align-self: center;
+}
+
+.album-end-page__actions .btn--block {
+  display: flex;
+  width: 100%;
+  justify-content: center;
 }
 
 .album-end-page__hint {

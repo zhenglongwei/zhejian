@@ -24,6 +24,7 @@ const {
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
+const { submitStoreDetailPage } = require('../../../utils/wx-search-submit')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
@@ -242,8 +243,10 @@ Page({
       ])
       const basicFields = buildStoreBasicFields(store)
       const evidenceTab = pickEvidenceTab(cases, services, this.preferredEvidenceTab)
+      const pageTitle = store.name || DEEP_LINK_SHELL.store.subtitle
       this.setData({
         store: { ...store, caseCount: cases.length },
+        shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certRows: buildCertRows(store.certifications),
         cases,
@@ -262,6 +265,7 @@ Page({
       this.updateShareMenu(true)
       if (!this.isPreview) {
         await this.syncFavoriteState()
+        submitStoreDetailPage(store, { preview: this.isPreview, storeId: store.id })
       }
       if (this.autoOpenShare && canShareStore(store)) {
         this.autoOpenShare = false
