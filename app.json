@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/dev/album-sandbox/index",
     "pages/mine/index",
     "pages/web/h5-site/index",
     "pages/search/index/index",

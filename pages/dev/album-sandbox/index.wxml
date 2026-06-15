@@ -1,0 +1,181 @@
+<ui-tool-page-shell
+  title="相册组件 Sandbox"
+  subtitle="卷七 B-07～B-14 目视验收"
+  show-compliance="{{false}}"
+>
+  <view slot="bandExtra">
+    <detail-top-actions
+      is-favorited="{{favorited}}"
+      bind:favorite="onToggleFavorite"
+      bind:share="onSandboxShare"
+    />
+  </view>
+
+  <view class="album-sandbox">
+    <view class="album-sandbox__notice">
+      <text class="text-caption text-secondary">开发专用 · 路径 pages/dev/album-sandbox/index · mock 数据</text>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">Empty / Skeleton（theme=album）</text>
+      <view class="album-sandbox__row">
+        <ui-skeleton theme="album" variant="album-card" />
+      </view>
+      <view class="album-sandbox__row album-sandbox__row--compact">
+        <ui-empty
+          theme="album"
+          title="暂无服务相册"
+          description="门店创建后会出现在这里"
+        />
+      </view>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">AlbumCard · 用户端 / 商家端</text>
+      <ui-album-card
+        class="album-sandbox__card"
+        item="{{userCardItem}}"
+        audience="user"
+        bind:tap="onSandboxShare"
+        bind:share="onSandboxShare"
+        bind:authorize="onSandboxAuth"
+      />
+      <ui-album-card
+        class="album-sandbox__card"
+        item="{{merchantCardItem}}"
+        audience="merchant"
+        show-header-actions="{{false}}"
+      />
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">AlbumPhotoFrame · detail / thumb</text>
+      <view class="album-sandbox__frame-row">
+        <view class="album-sandbox__frame-cell">
+          <album-photo-frame variant="thumb">
+            <image class="album-sandbox__frame-image" src="{{demoImage}}" mode="aspectFill" />
+          </album-photo-frame>
+          <text class="text-caption text-secondary">thumb</text>
+        </view>
+        <view class="album-sandbox__frame-cell album-sandbox__frame-cell--wide">
+          <album-photo-frame variant="detail">
+            <image class="album-sandbox__frame-image" src="{{demoImage}}" mode="aspectFill" />
+          </album-photo-frame>
+          <text class="text-caption text-secondary">detail</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">ToolImmersiveNav</text>
+      <view class="album-sandbox__immersive bg-album">
+        <tool-immersive-nav title="服务相册" show-back="{{false}}" />
+        <text class="album-sandbox__immersive-hint text-caption text-secondary">沉浸导航预览（非 custom 页）</text>
+      </view>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">AlbumFrameViewer + BottomToolbar</text>
+      <view class="album-sandbox__viewer-stage bg-album" style="height: {{viewerHeightPx}}px;">
+        <album-frame-viewer
+          pages="{{flipPages}}"
+          chapters="{{chapters}}"
+          current="{{viewerCurrent}}"
+          host-height="{{viewerHeightPx}}"
+          immersive="{{false}}"
+          bind:pagechange="onViewerChange"
+          bind:info="onToggleInfoSheet"
+        >
+          <view slot="endPage">
+            <album-end-page
+              album-id="{{detail.albumId}}"
+              album-title="{{detail.serviceName}}"
+              show-auth="{{true}}"
+              show-share="{{true}}"
+              show-feedback="{{true}}"
+              bind:auth="onSandboxAuth"
+              bind:share="onSandboxShare"
+              bind:feedback="onSandboxFeedback"
+            />
+          </view>
+        </album-frame-viewer>
+        <album-bottom-toolbar
+          class="album-sandbox__toolbar"
+          chapters="{{chapters}}"
+          stages="{{stageProgress}}"
+          active-node-id="{{toolbarNodeId}}"
+          active-title="{{activeStageTitle}}"
+          caption-line="{{sampleNode.note}}"
+          node-note-map="{{nodeNoteMap}}"
+          overlay="{{true}}"
+          mode="progress"
+          show-archive="{{true}}"
+          bind:chaptertap="onToolbarChapterTap"
+          bind:archivetap="onToggleInfoSheet"
+        />
+      </view>
+      <view class="album-sandbox__actions">
+        <ui-button size="small" type="secondary" bind:btntap="onToggleInfoSheet">
+          {{infoSheetVisible ? '关闭信息抽屉' : '打开信息抽屉'}}
+        </ui-button>
+      </view>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">AlbumEndPage（独立）</text>
+      <view class="album-sandbox__end bg-album">
+        <album-end-page
+          album-id="{{detail.albumId}}"
+          album-title="{{detail.serviceName}}"
+          show-auth="{{true}}"
+          auth-label="授权公示"
+          show-share="{{true}}"
+          show-feedback="{{true}}"
+          show-contact="{{true}}"
+          bind:auth="onSandboxAuth"
+          bind:share="onSandboxShare"
+          bind:feedback="onSandboxFeedback"
+          bind:contact="onSandboxContact"
+        />
+      </view>
+    </view>
+
+    <view class="album-sandbox__section">
+      <text class="album-sandbox__title text-h3">AlbumNode · view / edit</text>
+      <ui-album-node
+        mode="view"
+        title="{{sampleNode.title}}"
+        images="{{sampleNode.images}}"
+        note="{{sampleNode.note}}"
+        time="2026-06-01 10:00"
+      />
+      <ui-album-node
+        class="album-sandbox__node-edit"
+        mode="edit"
+        title="检测诊断"
+        images="{{sampleNode.images}}"
+        note="{{sampleNode.note}}"
+        photo-tips="建议拍摄故障点、检测仪器读数"
+        node-id="stage_2"
+      />
+    </view>
+  </view>
+</ui-tool-page-shell>
+
+<album-info-sheet
+  visible="{{infoSheetVisible}}"
+  summary-rows="{{infoSheet.summaryRows}}"
+  parts="{{infoSheet.parts}}"
+  store-note="{{infoSheet.storeNote}}"
+  node-notes="{{infoSheet.nodeNotes}}"
+  page-progress="{{infoSheet.pageProgress}}"
+  ai-summary="{{infoSheet.aiSummary}}"
+  show-contact="{{true}}"
+  store-phone="400-000-0000"
+  bind:close="onToggleInfoSheet"
+  bind:contact="onSandboxContact"
+/>
+
+<view wx:if="{{toastMessage}}" class="album-sandbox__toast" bind:tap="onDismissToast">
+  <text class="text-body">{{toastMessage}}</text>
+</view>

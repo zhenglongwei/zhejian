@@ -1,0 +1,19 @@
+{
+  "navigationBarTitleText": "相册组件 Sandbox",
+  "navigationBarBackgroundColor": "#f7f3ee",
+  "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-album-card": "/components/album-card/index",
+    "ui-album-node": "/components/album-node/index",
+    "ui-button": "/components/button/index",
+    "album-photo-frame": "/components/album-photo-frame/index",
+    "album-frame-viewer": "/components/album-frame-viewer/index",
+    "album-end-page": "/components/album-end-page/index",
+    "album-bottom-toolbar": "/components/album-bottom-toolbar/index",
+    "album-info-sheet": "/components/album-info-sheet/index",
+    "tool-immersive-nav": "/components/tool-immersive-nav/index",
+    "detail-top-actions": "/components/detail-top-actions/index"
+  }
+}

@@ -1,0 +1,106 @@
+.album-sandbox {
+  padding-bottom: var(--space-xl);
+}
+
+.album-sandbox__notice {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-md);
+}
+
+.album-sandbox__section {
+  margin-top: var(--space-lg);
+}
+
+.album-sandbox__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.album-sandbox__row {
+  margin-top: var(--space-sm);
+}
+
+.album-sandbox__row--compact {
+  padding: var(--space-md) 0;
+}
+
+.album-sandbox__card + .album-sandbox__card {
+  margin-top: var(--space-md);
+}
+
+.album-sandbox__frame-row {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.album-sandbox__frame-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 200rpx;
+}
+
+.album-sandbox__frame-cell--wide {
+  flex: 1;
+  width: auto;
+}
+
+.album-sandbox__frame-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.album-sandbox__immersive {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 160rpx;
+}
+
+.album-sandbox__immersive-hint {
+  display: block;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.album-sandbox__viewer-stage {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.album-sandbox__toolbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.album-sandbox__actions {
+  margin-top: var(--space-sm);
+}
+
+.album-sandbox__end {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  min-height: 520rpx;
+}
+
+.album-sandbox__node-edit {
+  margin-top: var(--space-md);
+}
+
+.album-sandbox__toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-xl) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-mask);
+  color: var(--color-text-inverse);
+  z-index: var(--z-toast);
+}
