@@ -155,6 +155,51 @@
     )
   }
 
+  function renderServiceListItem(item, options) {
+    options = options || {}
+    var cover = (item && (item.coverImage || item.thumbImage)) || ''
+    var thumb = cover
+      ? '<img class="h5-media-list-thumb" src="' +
+        escapeHtml(cover) +
+        '" alt="' +
+        escapeHtml(item.name || '服务') +
+        '" loading="lazy" />'
+      : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">服务</div>'
+    var title = item.name || '服务方案'
+    var summary = item.summary || ''
+    if (summary.length > 72) summary = summary.slice(0, 72) + '…'
+    var priceLine = stripPriceSuffix(buildPriceDisplay(item).priceText)
+    var metaParts = []
+    if (priceLine) metaParts.push(priceLine)
+    if (options.bookingEnabled === false) metaParts.push('暂停预约')
+    var href =
+      options.href ||
+      '/service/' + encodeURIComponent(item.id || '') + '.html'
+    var className = options.className || 'h5-media-list-item'
+    var extraAttrs = options.extraAttrs || ''
+    return (
+      '<a class="' +
+      className +
+      '" href="' +
+      escapeHtml(href) +
+      '"' +
+      extraAttrs +
+      '>' +
+      thumb +
+      '<div class="h5-media-list-body">' +
+      '<div class="h5-media-list-title">' +
+      escapeHtml(title) +
+      '</div>' +
+      (summary
+        ? '<div class="h5-media-list-summary">' + escapeHtml(summary) + '</div>'
+        : '') +
+      (metaParts.length
+        ? '<div class="h5-media-list-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
+        : '') +
+      '</div></a>'
+    )
+  }
+
   global.zhejianH5Ui = {
     escapeHtml: escapeHtml,
     stripPriceSuffix: stripPriceSuffix,
@@ -164,5 +209,6 @@
     renderDisclaimer: renderDisclaimer,
     bindDisclaimerToggles: bindDisclaimerToggles,
     renderCaseListItem: renderCaseListItem,
+    renderServiceListItem: renderServiceListItem,
   }
 })(typeof window !== 'undefined' ? window : globalThis)

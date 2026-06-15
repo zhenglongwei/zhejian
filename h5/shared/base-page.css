@@ -402,24 +402,28 @@
   color: var(--color-text-secondary);
 }
 
-/* 宽屏（PC/平板横屏）：双列卡片，封面置顶 16:9，避免缩略图撑满整行 */
+/* 宽屏（PC/平板横屏）：页级列表双列；卡片内嵌列表保持左 thumb 行布局 */
 @media (min-width: 640px) {
-  .h5-media-list {
+  .h5-page > .h5-media-list,
+  .h5-page > .h5-store-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-lg);
   }
 
-  .h5-media-list-item,
-  .h5-case-list-item {
+  .h5-page > .h5-media-list .h5-media-list-item,
+  .h5-page > .h5-store-list .h5-store-list-item,
+  .h5-page > .h5-media-list .h5-case-list-item {
     flex-direction: column;
     align-items: stretch;
     padding: var(--space-lg);
   }
 
-  .h5-media-list-thumb,
-  .h5-media-list-item > img.h5-media-list-thumb,
-  .h5-case-list-item > img.h5-media-list-thumb {
+  .h5-page > .h5-media-list .h5-media-list-thumb,
+  .h5-page > .h5-media-list .h5-media-list-item > img.h5-media-list-thumb,
+  .h5-page > .h5-media-list .h5-case-list-item > img.h5-media-list-thumb,
+  .h5-page > .h5-store-list .h5-store-list-cover,
+  .h5-page > .h5-store-list .h5-store-list-item > img.h5-store-list-cover {
     flex: 0 0 auto;
     width: 100%;
     min-width: 0;
@@ -429,12 +433,45 @@
     margin-bottom: var(--space-sm);
   }
 
-  .h5-media-list-thumb--placeholder {
+  .h5-page > .h5-media-list .h5-media-list-thumb--placeholder,
+  .h5-page > .h5-store-list .h5-store-list-cover--placeholder {
     width: 100%;
     min-width: 0;
     max-width: 100%;
     height: auto;
     aspect-ratio: 16 / 9;
     margin-bottom: var(--space-sm);
+  }
+
+  .h5-card .h5-media-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .h5-card .h5-media-list-item {
+    flex-direction: row;
+    align-items: flex-start;
+    padding: var(--space-md);
+  }
+
+  .h5-card .h5-media-list-thumb,
+  .h5-card .h5-media-list-item > img.h5-media-list-thumb {
+    flex: 0 0 var(--size-h5-list-thumb);
+    width: var(--size-h5-list-thumb);
+    height: var(--size-h5-list-thumb);
+    min-width: var(--size-h5-list-thumb);
+    max-width: var(--size-h5-list-thumb);
+    aspect-ratio: auto;
+    margin-bottom: 0;
+  }
+
+  .h5-card .h5-media-list-thumb--placeholder {
+    width: var(--size-h5-list-thumb);
+    min-width: var(--size-h5-list-thumb);
+    max-width: var(--size-h5-list-thumb);
+    height: var(--size-h5-list-thumb);
+    aspect-ratio: auto;
+    margin-bottom: 0;
   }
 }

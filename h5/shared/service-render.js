@@ -323,7 +323,7 @@
     if (!items || !items.length) return ''
     var lis = items
       .map(function (item) {
-        return '<li>· ' + escapeHtml(item) + '</li>'
+        return '<li>' + escapeHtml(item) + '</li>'
       })
       .join('')
     return (
@@ -339,70 +339,99 @@
     )
   }
 
+  function splitDetailToBullets(text) {
+    return String(text || '')
+      .split(/\r?\n+/)
+      .map(function (line) {
+        return line.replace(/^[\s·•\-–—]+/, '').trim()
+      })
+      .filter(Boolean)
+  }
+
+  function renderDetailSection(detail) {
+    if (!detail) return ''
+    var items = splitDetailToBullets(detail)
+    if (!items.length) return ''
+    return renderBulletSection('服务说明', items)
+  }
+
   function renderCases(cases, serviceId, storeId) {
+    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">类似案例</h2>' +
       '<p class="h5-compliance">' +
-      escapeHtml(COPY.casePrice) +
-      '</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.caseCompliance) +
+      escapeHtml(caseNote) +
       '</p>'
     if (!cases || !cases.length) {
       return section + '<div class="h5-empty-block">暂无类似案例</div></div>'
     }
     var cards = cases
       .map(function (item) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+          return window.zhejianH5Ui.renderCaseListItem(item, {
+            href:
+              item.slug
+                ? '/case/' + encodeURIComponent(item.slug) + '.html'
+                : casePagePath(item.id),
+            extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
+          })
+        }
         var cover = pickCaseCover(item)
         var price = buildPriceDisplay(item)
         var coverHtml = cover
-          ? '<img class="h5-node-img" src="' +
+          ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
             '" alt="脱敏案例封面" loading="lazy" />'
-          : '<div class="h5-placeholder-img">脱敏封面暂未就绪</div>'
+          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
-          '<a class="h5-store-case-card" href="' +
+          '<a class="h5-media-list-item" href="' +
           casePagePath(item.id) +
           '" data-case-id="' +
           escapeHtml(item.id) +
           '">' +
           coverHtml +
-          '<h3 class="h5-store-case-card-title">' +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
           escapeHtml(item.title || item.serviceName || '公开案例') +
-          '</h3>' +
-          '<p class="h5-store-case-card-meta">' +
-          escapeHtml(item.serviceName || '') +
-          '</p>' +
-          '<p class="h5-service-card-price">' +
+          '</div>' +
+          '<div class="h5-media-list-meta">' +
           escapeHtml(stripPriceSuffix(price.priceText)) +
-          '</p>' +
-          '</a>'
+          '</div></div></a>'
         )
       })
       .join('')
-    return section + '<div class="h5-store-case-list">' + cards + '</div></div>'
+    return section + '<div class="h5-media-list">' + cards + '</div></div>'
   }
 
   function renderStoreCard(store) {
     if (!store || !store.id) return ''
+    var cover = store.coverImage || ''
+    var thumb = cover
+      ? '<img class="h5-media-list-thumb" src="' +
+        escapeHtml(cover) +
+        '" alt="' +
+        escapeHtml(store.name) +
+        '门头" loading="lazy" />'
+      : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>'
+    var metaParts = [store.address, store.businessHours].filter(Boolean)
     return (
       '<div class="h5-card"><h2 class="h5-section-title">提供门店</h2>' +
-      '<a class="h5-store-link-card" href="' +
+      '<div class="h5-media-list">' +
+      '<a class="h5-media-list-item" href="' +
       storePagePath(store.id) +
       '" id="h5-store-link" data-store-id="' +
       escapeHtml(store.id) +
       '">' +
-      '<h3 class="h5-store-link-title">' +
+      thumb +
+      '<div class="h5-media-list-body">' +
+      '<div class="h5-media-list-title">' +
       escapeHtml(store.name) +
-      '</h3>' +
-      '<p class="h5-store-link-meta">' +
-      escapeHtml(store.address || '') +
-      '</p>' +
-      (store.businessHours
-        ? '<p class="h5-store-link-meta">营业时间：' + escapeHtml(store.businessHours) + '</p>'
+      '</div>' +
+      (metaParts.length
+        ? '<div class="h5-media-list-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
         : '') +
-      '<p class="h5-store-link-action">查看门店主页 ›</p>' +
-      '</a></div>'
+      '<div class="h5-media-list-summary">查看门店主页 ›</div>' +
+      '</div></a></div></div>'
     )
   }
 
@@ -516,7 +545,7 @@
     var serviceId = service.id
     var storeId = service.storeId || (store && store.id) || ''
 
-    document.querySelectorAll('.h5-store-case-card[data-case-id]').forEach(function (el) {
+    document.querySelectorAll('.h5-media-list-item[data-case-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_service_case_click', {
@@ -659,11 +688,7 @@
     html += renderKeyInfo(buildKeyInfoRows(service), '服务信息')
 
     if (service.detail) {
-      html +=
-        '<div class="h5-card"><h2 class="h5-section-title">服务说明</h2>' +
-        '<p class="h5-service-detail-text">' +
-        escapeHtml(service.detail) +
-        '</p></div>'
+      html += renderDetailSection(service.detail)
     }
 
     if (appointment.hasContent) {

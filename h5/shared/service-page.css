@@ -1,6 +1,7 @@
 .h5-service-hero {
   width: 100%;
-  height: calc(var(--size-h5-img-placeholder) + 24px);
+  aspect-ratio: 4 / 3;
+  max-height: 280px;
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: var(--space-lg);
@@ -33,12 +34,19 @@
   list-style: none;
 }
 
+.h5-bullet-list li::before {
+  content: '·';
+  margin-right: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
 .h5-bullet-list li {
   font-size: var(--font-body);
   color: var(--color-text-secondary);
   margin-bottom: var(--space-xs);
-  padding-left: 0.75rem;
-  text-indent: -0.75rem;
+  padding-left: 0;
+  text-indent: 0;
+  line-height: var(--line-height-article);
 }
 
 .h5-store-link-card {

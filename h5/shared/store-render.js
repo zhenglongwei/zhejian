@@ -381,6 +381,26 @@
     )
   }
 
+  function renderStoreContact(store) {
+    var parts = []
+    if (store.address) {
+      parts.push(
+        '<span class="h5-store-contact__addr">' + escapeHtml(store.address) + '</span>'
+      )
+    }
+    if (store.phone) {
+      parts.push(
+        '<a class="h5-store-contact__phone" href="tel:' +
+          escapeHtml(store.phone) +
+          '">' +
+          escapeHtml(store.phone) +
+          '</a>'
+      )
+    }
+    if (!parts.length) return ''
+    return '<p class="h5-store-contact">' + parts.join('') + '</p>'
+  }
+
   function renderServices(services, storeId, bookingEnabled) {
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">服务商品</h2>' +
@@ -392,46 +412,45 @@
     }
     var cards = services
       .map(function (svc) {
+        if (window.zhejianH5Ui && window.zhejianH5Ui.renderServiceListItem) {
+          return window.zhejianH5Ui.renderServiceListItem(svc, {
+            href: servicePagePath(svc.id),
+            bookingEnabled: bookingEnabled,
+            extraAttrs: ' data-service-id="' + escapeHtml(svc.id) + '"',
+          })
+        }
         var price = buildPriceDisplay(svc)
         return (
-          '<a class="h5-service-card" href="' +
+          '<a class="h5-media-list-item" href="' +
           servicePagePath(svc.id) +
           '" data-service-id="' +
           escapeHtml(svc.id) +
           '">' +
-          '<h3 class="h5-service-card-title">' +
+          '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">服务</div>' +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
           escapeHtml(svc.name) +
-          '</h3>' +
+          '</div>' +
           (svc.summary
-            ? '<p class="h5-service-card-summary">' + escapeHtml(svc.summary) + '</p>'
+            ? '<div class="h5-media-list-summary">' + escapeHtml(svc.summary) + '</div>'
             : '') +
-          '<p class="h5-service-card-price">' +
+          '<div class="h5-media-list-meta">' +
           escapeHtml(stripPriceSuffix(price.priceText)) +
-          '</p>' +
-          (price.note
-            ? '<p class="h5-compliance">' + escapeHtml(price.note) + '</p>'
-            : '') +
-          '<p class="h5-link">查看服务详情 ›</p>' +
-          (bookingEnabled
-            ? ''
-            : '<p class="h5-compliance">门店暂停预约，可先浏览服务信息</p>') +
-          '</a>'
+          '</div></div></a>'
         )
       })
       .join('')
-    return section + '<div class="h5-service-list">' + cards + '</div></div>'
+    return section + '<div class="h5-media-list">' + cards + '</div></div>'
   }
 
   function renderCases(cases, store) {
     var storeId = store && store.id ? store.id : ''
     var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
+    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
-      escapeHtml(COPY.casePrice) +
-      '</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.caseCompliance) +
+      escapeHtml(caseNote) +
       '</p>'
     if (!cases || !cases.length) {
       return section + '<div class="h5-empty-block">该门店暂无公开案例</div></div>'
@@ -518,7 +537,7 @@
   function bindStoreInteractions(store, bookingEnabled) {
     var storeId = store.id
 
-    document.querySelectorAll('.h5-service-card[data-service-id]').forEach(function (el) {
+    document.querySelectorAll('.h5-media-list-item[data-service-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         var serviceId = el.getAttribute('data-service-id') || ''
         if (window.zhejianTrack) {
@@ -661,6 +680,7 @@
       escapeHtml(statusText) +
       (store.caseCount ? ' · 公开案例 ' + store.caseCount : '') +
       '</p>' +
+      renderStoreContact(store) +
       renderDisclaimerBlock() +
       suspendedNotice +
       '</header>' +

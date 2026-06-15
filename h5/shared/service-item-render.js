@@ -138,7 +138,7 @@
     return (
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(title) +
-      '</h2><ul class="h5-home-intro">' +
+      '</h2><ul class="h5-bullet-list">' +
       lis +
       '</ul></div>'
     )
@@ -172,13 +172,11 @@
   }
 
   function renderCases(cases, item, stats) {
+    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
-      escapeHtml(COPY.casePrice) +
-      '</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.caseCompliance) +
+      escapeHtml(caseNote) +
       '</p>'
     if (!cases || !cases.length) {
       return (
@@ -243,28 +241,41 @@
         var href = store.servicePlanId
           ? servicePlanPath(store.servicePlanId)
           : storePagePath(store.id)
+        var cover = store.coverImage || ''
+        var thumb = cover
+          ? '<img class="h5-media-list-thumb" src="' +
+            escapeHtml(cover) +
+            '" alt="' +
+            escapeHtml(store.name) +
+            '" loading="lazy" />'
+          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>'
+        var meta = [
+          store.address,
+          '参考 ' + buildStorePriceText(store),
+          store.caseCount ? '案例 ' + store.caseCount : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-media-list-item" href="' +
           href +
           '" data-store-id="' +
           escapeHtml(store.id) +
           '">' +
-          '<div class="h5-case-list-title">' +
+          thumb +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
           escapeHtml(store.name) +
           '</div>' +
-          '<div class="h5-case-list-meta">' +
-          escapeHtml(
-            [store.address, '参考 ' + buildStorePriceText(store), store.caseCount ? '案例 ' + store.caseCount : '']
-              .filter(Boolean)
-              .join(' · ')
-          ) +
-          '</div></a>'
+          '<div class="h5-media-list-meta">' +
+          escapeHtml(meta) +
+          '</div></div></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">推荐门店</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       cards +
       '</div></div>'
     )
@@ -384,12 +395,12 @@
       '<p class="h5-summary">' +
       escapeHtml(item.summary) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.displayDisclaimer) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
+        ? window.zhejianH5Ui.renderDisclaimer(
+            COPY.displayDisclaimer,
+            COPY.geoDisclaimer
+          )
+        : '<div class="h5-banner">' + escapeHtml(COPY.displayDisclaimer) + '</div>') +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
@@ -417,6 +428,9 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
     bindInteractions(data)
 
     if (window.zhejianTrack) {

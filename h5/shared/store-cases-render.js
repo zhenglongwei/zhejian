@@ -276,7 +276,7 @@
   }
 
   function bindInteractions(store) {
-    document.querySelectorAll('.h5-store-case-card[data-case-id]').forEach(function (el) {
+    document.querySelectorAll('.h5-media-list-item[data-case-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         if (window.zhejianTrack) {
           window.zhejianTrack.track('h5_store_case_click', {
@@ -329,12 +329,14 @@
           '。价格仅为参考，实际费用以门店检测为准。'
       ) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.casePrice) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.caseCompliance) +
-      '</div>' +
+      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
+        ? window.zhejianH5Ui.renderDisclaimer(
+            COPY.casePrice + ' ' + COPY.caseCompliance,
+            ''
+          )
+        : '<div class="h5-banner">' +
+          escapeHtml(COPY.casePrice) +
+          '</div>') +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="' +
@@ -353,6 +355,9 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
     bindInteractions(store)
 
     if (window.zhejianTrack) {
