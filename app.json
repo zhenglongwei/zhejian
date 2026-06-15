@@ -1,6 +1,5 @@
 {
   "pages": [
-    "pages/dev/album-sandbox/index",
     "pages/mine/index",
     "pages/web/h5-site/index",
     "pages/search/index/index",
@@ -30,6 +29,7 @@
     "pages/mine/vehicle/detail/index",
     "pages/mine/vehicle/edit/index",
     "pages/mine/message/index",
+    "pages/mine/earnings/index",
     "pages/mine/help/index",
     "pages/order/index",
     "pages/order-confirm/index",
@@ -43,7 +43,9 @@
     "pages/review/result/index",
     "pages/review/rules/index",
     "pages/review/list/index",
-    "pages/reward/records/index"
+    "pages/reward/records/index",
+    "pages/dev/album-sandbox/index"
+
   ],
   "subPackages": [
     {

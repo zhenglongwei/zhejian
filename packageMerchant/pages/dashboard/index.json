@@ -4,9 +4,7 @@
   "usingComponents": {
     "ui-skeleton": "/components/skeleton/index",
     "ui-empty": "/components/empty/index",
-    "ui-card": "/components/card/index",
     "ui-tabs": "/components/tabs/index",
-    "ui-button": "/components/button/index",
-    "compliance-notice": "/components/compliance-notice/index"
+    "ui-tool-page-shell": "/components/tool-page-shell/index"
   }
 }

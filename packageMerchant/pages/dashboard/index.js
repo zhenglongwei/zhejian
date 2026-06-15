@@ -15,6 +15,83 @@ const {
   formatRankRows,
 } = require('../../../utils/merchant-dashboard')
 
+function parseDisplayCount(value) {
+  const n = Number(String(value || '').replace(/,/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+function buildHeroKpis(display = {}) {
+  return [
+    { key: 'views', label: '总浏览', value: display.totalViews || '0', tone: 'primary' },
+    { key: 'leads', label: '咨询提交', value: display.leadSubmitCount || '0', tone: 'warning' },
+    { key: 'score', label: '透明度', value: display.transparencyScore || '0', tone: 'success' },
+  ]
+}
+
+function buildExposureChips(display = {}) {
+  return [
+    { key: 'h5', label: 'H5 案例', value: display.h5CaseViewCount || '0' },
+    { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
+    { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
+    { key: 'crawler', label: '爬虫访问', value: display.crawlerViewCount || '0' },
+  ]
+}
+
+function buildLeadRows(display = {}) {
+  const pending = parseDisplayCount(display.pendingLeads)
+  const pendingAuth = parseDisplayCount(display.pendingAuth)
+  return [
+    {
+      key: 'pending',
+      value: display.pendingLeads || '0',
+      label: '条咨询待处理（实时）',
+      action: '去处理',
+      active: pending > 0,
+      handler: 'leads',
+    },
+    {
+      key: 'submit',
+      value: display.leadSubmitCount || '0',
+      label: '区间提交',
+      active: false,
+    },
+    {
+      key: 'contacted',
+      value: display.leadContactedCount || '0',
+      label: '已联系',
+      active: false,
+    },
+    {
+      key: 'closed',
+      value: display.leadClosedCount || '0',
+      label: '已关闭',
+      active: false,
+    },
+    {
+      key: 'case',
+      value: display.caseConsultCount || '0',
+      label: '案例留资',
+      active: false,
+    },
+  ]
+}
+
+function buildAlbumRows(display = {}) {
+  const pendingAuth = parseDisplayCount(display.pendingAuth)
+  return [
+    { key: 'created', value: display.albumCreatedCount || '0', label: '新建相册', active: false },
+    { key: 'done', value: display.albumCompletedCount || '0', label: '完工相册', active: false },
+    {
+      key: 'auth',
+      value: display.pendingAuth || '0',
+      label: '本待公开授权',
+      action: '去授权',
+      active: pendingAuth > 0,
+      handler: 'auth',
+    },
+  ]
+}
+
 function emptyDisplay() {
   return {
     totalViews: '0',
@@ -52,6 +129,13 @@ Page({
     topCases: [],
     topServices: [],
     suggestions: [],
+    storeName: '',
+    heroKpis: buildHeroKpis(),
+    exposureChips: buildExposureChips(),
+    leadRows: buildLeadRows(),
+    albumRows: buildAlbumRows(),
+    complianceText:
+      '数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。搜索/AI 爬虫访问为代理指标，非引用次数。',
   },
 
   onLoad() {
@@ -83,6 +167,7 @@ Page({
       return
     }
     this.storeId = profile.storeId || ''
+    this.setData({ storeName: profile.storeName || '' })
     this.loadData()
   },
 
@@ -162,6 +247,10 @@ Page({
         topCases,
         topServices,
         suggestions,
+        heroKpis: buildHeroKpis(display),
+        exposureChips: buildExposureChips(display),
+        leadRows: buildLeadRows(display),
+        albumRows: buildAlbumRows(display),
       })
     } catch (e) {
       this.setData({
@@ -172,6 +261,10 @@ Page({
         topCases: [],
         topServices: [],
         suggestions: [],
+        heroKpis: buildHeroKpis(),
+        exposureChips: buildExposureChips(),
+        leadRows: buildLeadRows(),
+        albumRows: buildAlbumRows(),
       })
     }
   },
@@ -194,5 +287,11 @@ Page({
     wx.navigateTo({
       url: '/packageMerchant/pages/album/list/index?tab=pending_auth',
     })
+  },
+
+  onLeadRowTap(e) {
+    const handler = e.currentTarget.dataset.handler
+    if (handler === 'leads') this.onGoLeads()
+    if (handler === 'auth') this.onGoAlbumAuth()
   },
 })

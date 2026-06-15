@@ -5,7 +5,7 @@ const NAV_ICON_MAP = {
   authorize: { icon: `${NAV_ICON_BASE}/authorize.png`, iconBg: 'success-light' },
   message: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'info-light' },
   vehicle: { icon: `${NAV_ICON_BASE}/vehicle.png`, iconBg: 'primary-light' },
-  settings: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'well' },
+  settings: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'warning-light' },
   help: { icon: `${NAV_ICON_BASE}/help.png`, iconBg: 'info-light' },
   support: { icon: `${NAV_ICON_BASE}/support.png`, iconBg: 'info-light' },
   merchant: { icon: `${NAV_ICON_BASE}/merchant.png`, iconBg: 'warning-light' },

@@ -39,7 +39,13 @@ const MINE_CORE_MENUS = [
 
 /** 常用工具 */
 const MINE_TOOL_MENUS = [
-  { key: 'settings', label: '设置', needPhone: false, url: '/pages/mine/settings/index' },
+  {
+    key: 'settings',
+    label: '设置',
+    desc: '账号、隐私与通知偏好',
+    needPhone: false,
+    url: '/pages/mine/settings/index',
+  },
 ]
 
 /** 未登录也可访问 */

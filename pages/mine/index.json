@@ -8,6 +8,7 @@
     "ui-cell": "/components/cell/index",
     "ui-mine-user-header": "/components/mine-user-header/index",
     "ui-tool-page-shell": "/components/tool-page-shell/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-login-sheet": "/components/login-sheet/index",
+    "album-photo-frame": "/components/album-photo-frame/index"
   }
 }

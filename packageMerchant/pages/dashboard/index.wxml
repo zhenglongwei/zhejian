@@ -1,231 +1,228 @@
-<view class="page merchant-dash">
-  <block wx:if="{{status === 'loading'}}">
-    <view class="page-content merchant-dash__pad">
-      <ui-skeleton rows="{{6}}" title="{{true}}" />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'error'}}">
-    <view class="page-content merchant-dash__pad">
-      <ui-empty
-        title="数据加载失败"
-        description="{{errorMessage}}"
-        actionText="重试"
-        bind:action="onRetry"
-      />
-    </view>
-  </block>
-
-  <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content merchant-dash__pad">
-      <ui-tabs
-        tabs="{{periodTabs}}"
-        activeKey="{{period}}"
-        scrollable="{{true}}"
-        bind:change="onPeriodChange"
-      />
-      <view class="merchant-dash__lag">
-        <text class="text-caption">{{lagHint}}</text>
+<ui-tool-page-shell
+  wx:if="{{status !== 'loading'}}"
+  show-band="{{false}}"
+  compliance-text="{{complianceText}}"
+  show-compliance="{{status === 'normal' || status === 'empty'}}"
+>
+  <view class="merchant-dash__cockpit">
+    <view class="merchant-dash__topbar bg-band">
+      <view class="merchant-dash__topbar-row">
+        <view class="merchant-dash__topbar-main">
+          <text class="merchant-dash__topbar-title text-body">数据概览</text>
+          <text wx:if="{{storeName}}" class="merchant-dash__topbar-sub text-body">· {{storeName}}</text>
+        </view>
       </view>
-      <ui-empty
-        title="暂无统计数据"
-        description="站外案例页产生浏览或电话点击后，次日可在此查看；也可先处理下方待办"
-        actionText="刷新"
-        bind:action="onRetry"
-      />
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
-        <text class="text-h3 merchant-dash__section">当前待办</text>
-        <view class="merchant-dash__todo-row">
-          <view class="merchant-dash__todo" bindtap="onGoLeads">
-            <text class="merchant-dash__todo-num text-h2">{{display.pendingLeads}}</text>
-            <text class="text-caption">待处理线索</text>
-          </view>
-          <view class="merchant-dash__todo" bindtap="onGoAlbumAuth">
-            <text class="merchant-dash__todo-num text-h2">{{display.pendingAuth}}</text>
-            <text class="text-caption">待公开授权</text>
-          </view>
-        </view>
-      </ui-card>
-      <ui-card
-        wx:if="{{suggestions.length}}"
-        shadow="{{true}}"
-        padding="{{true}}"
-        class="merchant-dash__block"
-      >
-        <text class="text-h3 merchant-dash__section">优化建议</text>
-        <view wx:for="{{suggestions}}" wx:key="*this" class="merchant-dash__tip">
-          <text class="text-body">{{item}}</text>
-        </view>
-      </ui-card>
+      <text wx:if="{{lagHint}}" class="merchant-dash__topbar-hint text-caption">{{lagHint}}</text>
     </view>
-  </block>
 
-  <block wx:else>
-    <view class="page-content merchant-dash__pad">
-      <ui-tabs
-        tabs="{{periodTabs}}"
-        activeKey="{{period}}"
-        scrollable="{{true}}"
-        bind:change="onPeriodChange"
-      />
-      <view class="merchant-dash__lag">
-        <text class="text-caption">{{lagHint}}</text>
-        <text wx:if="{{rangeLabel}}" class="text-caption merchant-dash__range">{{rangeLabel}}</text>
+    <block wx:if="{{status === 'error'}}">
+      <view class="merchant-dash__gate">
+        <ui-empty
+          title="数据加载失败"
+          description="{{errorMessage}}"
+          actionText="重试"
+          bind:action="onRetry"
+        />
       </view>
+    </block>
 
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
-        <text class="text-h3 merchant-dash__section">站外曝光（H5/公开页）</text>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.totalViews}}</text>
-            <text class="text-caption">总浏览</text>
-          </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.h5CaseViewCount}}</text>
-            <text class="text-caption">H5 案例浏览</text>
-          </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.mpCaseViewCount}}</text>
-            <text class="text-caption">小程序案例</text>
-          </view>
+    <block wx:elif="{{status === 'empty'}}">
+      <view class="merchant-dash__body">
+        <view class="merchant-dash__filter-panel">
+          <ui-tabs
+            tabs="{{periodTabs}}"
+            activeKey="{{period}}"
+            scrollable="{{true}}"
+            bind:change="onPeriodChange"
+          />
         </view>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.phoneClickCount}}</text>
-            <text class="text-caption">电话点击</text>
-          </view>
-        </view>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.crawlerViewCount}}</text>
-            <text class="text-caption">搜索/AI 爬虫访问</text>
-          </view>
-        </view>
-        <text class="text-caption merchant-dash__crawler-hint">识别 GPTBot 等爬虫 UA 的访问次数，不代表 AI 引用或收录</text>
-      </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
-        <text class="text-h3 merchant-dash__section">咨询线索</text>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric merchant-dash__metric--tap" bindtap="onGoLeads">
-            <text class="merchant-dash__metric-num text-h2">{{display.pendingLeads}}</text>
-            <text class="text-caption">待处理（实时）</text>
-          </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.leadSubmitCount}}</text>
-            <text class="text-caption">区间提交</text>
-          </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.leadContactedCount}}</text>
-            <text class="text-caption">已联系</text>
-          </view>
+        <view class="merchant-dash__gate merchant-dash__gate--inline">
+          <ui-empty
+            title="暂无统计数据"
+            description="站外案例页产生浏览或电话点击后，次日可在此查看；也可先处理下方待办"
+            actionText="刷新"
+            bind:action="onRetry"
+          />
         </view>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.leadClosedCount}}</text>
-            <text class="text-caption">已关闭</text>
-          </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.caseConsultCount}}</text>
-            <text class="text-caption">案例留资</text>
-          </view>
-        </view>
-        <view class="merchant-dash__rates">
-          <text class="text-caption">线索率 {{display.leadRate}} · 联系率 {{display.contactRate}} · 案例咨询率 {{display.caseConsultRate}}</text>
-        </view>
-      </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
-        <text class="text-h3 merchant-dash__section">服务相册</text>
-        <view class="merchant-dash__metric-row">
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.albumCreatedCount}}</text>
-            <text class="text-caption">新建</text>
+        <view class="merchant-dash__panel">
+          <text class="text-h3 merchant-dash__panel-title">当前待办</text>
+          <view class="merchant-dash__action-row merchant-dash__action-row--tap" bindtap="onGoLeads">
+            <view class="merchant-dash__action-copy">
+              <text class="text-body">{{display.pendingLeads}} 条咨询待处理</text>
+            </view>
+            <text class="text-caption text-link">去处理</text>
           </view>
-          <view class="merchant-dash__metric">
-            <text class="merchant-dash__metric-num text-h2">{{display.albumCompletedCount}}</text>
-            <text class="text-caption">完工</text>
-          </view>
-          <view class="merchant-dash__metric merchant-dash__metric--tap" bindtap="onGoAlbumAuth">
-            <text class="merchant-dash__metric-num text-h2">{{display.pendingAuth}}</text>
-            <text class="text-caption">待公开授权</text>
+          <view class="merchant-dash__action-row merchant-dash__action-row--tap" bindtap="onGoAlbumAuth">
+            <view class="merchant-dash__action-copy">
+              <text class="text-body">{{display.pendingAuth}} 本待公开授权</text>
+            </view>
+            <text class="text-caption text-link">去授权</text>
           </view>
         </view>
-      </ui-card>
 
-      <ui-card
-        wx:if="{{topCases.length || topServices.length}}"
-        shadow="{{true}}"
-        padding="{{true}}"
-        class="merchant-dash__block"
-      >
-        <text class="text-h3 merchant-dash__section">案例 / 服务排行</text>
-        <text class="text-caption merchant-dash__rank-hint">按站外浏览与区间留资统计，转化率为留资÷浏览</text>
-        <block wx:if="{{topCases.length}}">
-          <text class="text-body merchant-dash__rank-sub">案例 TOP</text>
+        <view wx:if="{{suggestions.length}}" class="merchant-dash__panel merchant-dash__panel--tips">
+          <text class="text-h3 merchant-dash__panel-title">优化建议</text>
+          <view wx:for="{{suggestions}}" wx:key="*this" class="merchant-dash__tip">
+            <text class="text-body">{{item}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="merchant-dash__body">
+        <view class="merchant-dash__filter-panel merchant-dash__filter-panel--sticky">
+          <ui-tabs
+            tabs="{{periodTabs}}"
+            activeKey="{{period}}"
+            scrollable="{{true}}"
+            bind:change="onPeriodChange"
+          />
+          <text wx:if="{{rangeLabel}}" class="merchant-dash__range text-caption">{{rangeLabel}}</text>
+        </view>
+
+        <view class="merchant-dash__hero-panel">
           <view
-            wx:for="{{topCases}}"
-            wx:key="rank"
-            class="merchant-dash__rank-row"
+            wx:for="{{heroKpis}}"
+            wx:key="key"
+            class="merchant-dash__hero-item merchant-dash__hero-item--{{item.tone}}"
           >
-            <text class="merchant-dash__rank-no text-caption">{{item.rank}}</text>
-            <view class="merchant-dash__rank-main">
-              <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-              <text class="text-caption">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+            <text class="merchant-dash__hero-num text-h2 text-numeric">{{item.value}}</text>
+            <text class="text-caption merchant-dash__hero-label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="merchant-dash__panel">
+          <text class="text-h3 merchant-dash__panel-title">站外曝光</text>
+          <view class="merchant-dash__chip-row">
+            <view
+              wx:for="{{exposureChips}}"
+              wx:key="key"
+              class="merchant-dash__chip"
+            >
+              <text class="merchant-dash__chip-num text-body text-numeric">{{item.value}}</text>
+              <text class="text-caption merchant-dash__chip-label">{{item.label}}</text>
             </view>
           </view>
-        </block>
-        <block wx:if="{{topServices.length}}">
-          <text class="text-body merchant-dash__rank-sub">服务 TOP</text>
-          <view
-            wx:for="{{topServices}}"
-            wx:key="rank"
-            class="merchant-dash__rank-row"
-          >
-            <text class="merchant-dash__rank-no text-caption">{{item.rank}}</text>
-            <view class="merchant-dash__rank-main">
-              <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-              <text class="text-caption">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+          <text class="text-caption merchant-dash__hint">搜索/AI 爬虫为代理指标，不代表引用或收录</text>
+        </view>
+
+        <view class="merchant-dash__panel">
+          <view class="merchant-dash__panel-head">
+            <text class="text-h3">咨询线索</text>
+            <text class="text-caption merchant-dash__rates">线索率 {{display.leadRate}} · 联系率 {{display.contactRate}}</text>
+          </view>
+          <view class="merchant-dash__queue">
+            <view
+              wx:for="{{leadRows}}"
+              wx:key="key"
+              class="merchant-dash__action-row merchant-dash__action-row--{{item.key}} {{item.active ? 'merchant-dash__action-row--active' : ''}} {{item.handler ? 'merchant-dash__action-row--tap' : ''}}"
+              data-handler="{{item.handler}}"
+              bindtap="onLeadRowTap"
+            >
+              <view class="merchant-dash__action-dot {{item.active ? 'merchant-dash__action-dot--active' : ''}}" />
+              <view class="merchant-dash__action-copy">
+                <text class="text-body">{{item.value}} {{item.label}}</text>
+              </view>
+              <text wx:if="{{item.action}}" class="text-caption text-link">{{item.action}}</text>
             </view>
           </view>
-        </block>
-      </ui-card>
+          <text class="text-caption merchant-dash__rates merchant-dash__rates--foot">案例咨询率 {{display.caseConsultRate}}</text>
+        </view>
 
-      <ui-card
-        wx:if="{{suggestions.length}}"
-        shadow="{{true}}"
-        padding="{{true}}"
-        class="merchant-dash__block"
-      >
-        <text class="text-h3 merchant-dash__section">优化建议</text>
+        <view class="merchant-dash__panel">
+          <text class="text-h3 merchant-dash__panel-title">服务相册</text>
+          <view class="merchant-dash__queue">
+            <view
+              wx:for="{{albumRows}}"
+              wx:key="key"
+              class="merchant-dash__action-row merchant-dash__action-row--{{item.key}} {{item.active ? 'merchant-dash__action-row--active' : ''}} {{item.handler ? 'merchant-dash__action-row--tap' : ''}}"
+              data-handler="{{item.handler}}"
+              bindtap="onLeadRowTap"
+            >
+              <view class="merchant-dash__action-dot {{item.active ? 'merchant-dash__action-dot--active' : ''}}" />
+              <view class="merchant-dash__action-copy">
+                <text class="text-body">{{item.value}} {{item.label}}</text>
+              </view>
+              <text wx:if="{{item.action}}" class="text-caption text-link">{{item.action}}</text>
+            </view>
+          </view>
+        </view>
+
         <view
-          wx:for="{{suggestions}}"
-          wx:key="*this"
-          class="merchant-dash__tip"
+          wx:if="{{topCases.length || topServices.length}}"
+          class="merchant-dash__panel"
         >
-          <text class="text-body">{{item}}</text>
+          <text class="text-h3 merchant-dash__panel-title">案例 / 服务排行</text>
+          <text class="text-caption merchant-dash__hint">按站外浏览与区间留资统计，转化率为留资÷浏览</text>
+          <block wx:if="{{topCases.length}}">
+            <text class="text-body merchant-dash__rank-sub">案例 TOP</text>
+            <view class="merchant-dash__timeline">
+              <view wx:for="{{topCases}}" wx:key="rank" class="merchant-dash__timeline-item">
+                <view class="merchant-dash__timeline-rail">
+                  <text class="merchant-dash__rank-badge text-caption">{{item.rank}}</text>
+                  <view wx:if="{{index < topCases.length - 1}}" class="merchant-dash__timeline-line" />
+                </view>
+                <view class="merchant-dash__timeline-body">
+                  <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
+                  <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+                </view>
+              </view>
+            </view>
+          </block>
+          <block wx:if="{{topServices.length}}">
+            <text class="text-body merchant-dash__rank-sub">服务 TOP</text>
+            <view class="merchant-dash__timeline">
+              <view wx:for="{{topServices}}" wx:key="rank" class="merchant-dash__timeline-item">
+                <view class="merchant-dash__timeline-rail">
+                  <text class="merchant-dash__rank-badge text-caption">{{item.rank}}</text>
+                  <view wx:if="{{index < topServices.length - 1}}" class="merchant-dash__timeline-line" />
+                </view>
+                <view class="merchant-dash__timeline-body">
+                  <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
+                  <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+                </view>
+              </view>
+            </view>
+          </block>
         </view>
-      </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-dash__block">
-        <view class="merchant-dash__score-head">
-          <text class="text-h3">门店透明度</text>
-          <text class="merchant-dash__score text-h1">{{display.transparencyScore}}</text>
+        <view wx:if="{{suggestions.length}}" class="merchant-dash__panel merchant-dash__panel--tips">
+          <text class="text-h3 merchant-dash__panel-title">优化建议</text>
+          <view wx:for="{{suggestions}}" wx:key="*this" class="merchant-dash__tip">
+            <text class="text-body">{{item}}</text>
+          </view>
         </view>
-        <view
-          wx:for="{{transparencyBreakdown}}"
-          wx:key="key"
-          class="merchant-dash__breakdown-row"
-        >
-          <text class="text-body">{{item.label}}</text>
-          <text class="text-body merchant-dash__breakdown-val">{{item.score}} 分</text>
-        </view>
-      </ui-card>
 
-      <compliance-notice
-        type="price"
-        text="数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。搜索/AI 爬虫访问为代理指标，非引用次数。"
-      />
-    </view>
-  </block>
+        <view class="merchant-dash__panel merchant-dash__panel--score">
+          <view class="merchant-dash__score-head">
+            <view>
+              <text class="text-h3">门店透明度</text>
+              <text class="text-caption merchant-dash__hint">资料完整度与响应表现综合得分</text>
+            </view>
+            <text class="merchant-dash__score text-h1 text-numeric">{{display.transparencyScore}}</text>
+          </view>
+          <view
+            wx:for="{{transparencyBreakdown}}"
+            wx:key="key"
+            class="merchant-dash__breakdown-row"
+          >
+            <text class="text-body">{{item.label}}</text>
+            <text class="text-body merchant-dash__breakdown-val text-numeric">{{item.score}} 分</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+</ui-tool-page-shell>
+
+<view wx:else class="page merchant-dash merchant-dash--loading">
+  <view class="merchant-dash__topbar bg-band">
+    <text class="merchant-dash__topbar-title text-body">数据概览</text>
+  </view>
+  <view class="page-content merchant-dash__loading-body">
+    <ui-skeleton rows="{{6}}" title="{{true}}" />
+  </view>
 </view>

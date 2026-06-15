@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "分享收益",
+  "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-tag": "/components/tag/index",
+    "ui-button": "/components/button/index",
+    "ui-empty": "/components/empty/index"
+  }
+}

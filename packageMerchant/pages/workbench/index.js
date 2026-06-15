@@ -20,7 +20,6 @@ const { requestMerchantNotificationSubscribe } = require('../../../utils/subscri
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
-  MERCHANT_SHARE_STORE_DESC,
 } = require('../../../constants/merchant-onboarding-copy')
 
 function formatBadge(n) {
@@ -29,25 +28,73 @@ function formatBadge(n) {
   return count > 99 ? '99+' : String(count)
 }
 
-function buildPrimaryActions() {
+
+function buildQuickActions() {
   return [
-    { key: 'createAlbum', label: '新建相册', desc: '创建服务留档' },
-    { key: 'services', label: '服务方案', desc: '管理门店服务' },
-    { key: 'shareStore', label: '分享门店', desc: MERCHANT_SHARE_STORE_DESC },
-    { key: 'previewStore', label: '预览门店', desc: '查看主页效果' },
+    {
+      key: 'services',
+      label: '服务方案',
+      icon: '/assets/nav/settings.png',
+      iconBg: 'primary-light',
+    },
+    {
+      key: 'shareStore',
+      label: '分享门店',
+      icon: '/assets/nav/merchant.png',
+      iconBg: 'warning-light',
+    },
+    {
+      key: 'previewStore',
+      label: '预览门店',
+      icon: '/assets/tab/store.png',
+      iconBg: 'info-light',
+    },
+    {
+      key: 'dashboard',
+      label: '数据概览',
+      icon: '/assets/nav/album.png',
+      iconBg: 'well',
+    },
   ]
 }
 
-function buildMoreMenuItems({ canManageStaff }) {
-  const items = []
-  if (canManageStaff) {
-    items.push(
-      { key: 'editStore', label: '编辑门店资料' },
-      { key: 'staff', label: '员工管理' }
-    )
-  }
-  return items
+function buildTodoQueue(todos = {}) {
+  const pendingLeads = Number(todos.pendingLeads) || 0
+  const pendingAuth = Number(todos.pendingAuth) || 0
+  const pendingUpload = Number(todos.pendingUpload) || 0
+  return [
+    {
+      key: 'leads',
+      count: pendingLeads,
+      label: '条咨询待处理',
+      actionLabel: '去处理',
+      active: pendingLeads > 0,
+    },
+    {
+      key: 'auth',
+      count: pendingAuth,
+      label: '本待公开授权',
+      actionLabel: '去授权',
+      active: pendingAuth > 0,
+    },
+    {
+      key: 'upload',
+      count: pendingUpload,
+      label: '本待补节点',
+      actionLabel: '去补传',
+      active: pendingUpload > 0,
+    },
+  ]
 }
+
+function countTodoTotal(todos = {}) {
+  return (
+    (Number(todos.pendingLeads) || 0) +
+    (Number(todos.pendingAuth) || 0) +
+    (Number(todos.pendingUpload) || 0)
+  )
+}
+
 
 Page({
   data: {
@@ -86,9 +133,9 @@ Page({
     unreadBadgeText: '',
     needsSubscribePrompt: false,
     subscribeSheetVisible: false,
-    moreMenuExpanded: false,
-    primaryActions: buildPrimaryActions(),
-    moreMenuItems: [],
+    quickActions: buildQuickActions(),
+    todoQueue: buildTodoQueue(),
+    todoTotal: 0,
     subscribeBannerDescription:
       '有新咨询线索或审核结果时，可在微信及时提醒你。每次授权可收 1 条，站内消息不受影响。',
   },
@@ -203,10 +250,13 @@ Page({
       /* keep zeros */
     }
     const canManageStaff = isMerchantOwner()
+    const todoQueue = buildTodoQueue(todos)
     this.setData({
       status: 'normal',
       profile,
       todos,
+      todoQueue,
+      todoTotal: countTodoTotal(todos),
       overview,
       casePublish,
       casePublishRecent,
@@ -217,7 +267,6 @@ Page({
       unreadMessages,
       unreadBadgeText: formatBadge(unreadMessages),
       needsSubscribePrompt,
-      moreMenuItems: buildMoreMenuItems({ canManageStaff }),
     })
   },
 
@@ -277,11 +326,28 @@ Page({
 
   onPrimaryActionTap(e) {
     const key = e.currentTarget.dataset.key
+    this.onQuickActionTap({ currentTarget: { dataset: { key } } })
+  },
+
+  onQuickActionTap(e) {
+    const key = e.currentTarget.dataset.key
     const handlers = {
       createAlbum: () => this.onCreateAlbum(),
       services: () => this.onServiceList(),
       shareStore: () => this.onShareStore(),
       previewStore: () => this.onPreviewStore(),
+      dashboard: () => this.onDashboard(),
+    }
+    const fn = handlers[key]
+    if (fn) fn()
+  },
+
+  onTodoRowTap(e) {
+    const key = e.currentTarget.dataset.key
+    const handlers = {
+      leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
+      auth: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'pending_auth' } } }),
+      upload: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
     }
     const fn = handlers[key]
     if (fn) fn()
@@ -297,10 +363,6 @@ Page({
     }
     const fn = handlers[key]
     if (fn) fn()
-  },
-
-  onToggleMoreMenu() {
-    this.setData({ moreMenuExpanded: !this.data.moreMenuExpanded })
   },
 
   onCreateAlbum() {
