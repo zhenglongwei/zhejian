@@ -24,6 +24,10 @@ Component({
       type: String,
       value: '完工后',
     },
+    immersive: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -35,11 +39,23 @@ Component({
     'pairKey, beforeUrl, afterUrl'() {
       this.resetSplit()
     },
+    immersive() {
+      this.scheduleMeasure()
+    },
   },
 
   lifetimes: {
     attached() {
       this.resetSplit()
+      this._onWindowResize = () => {
+        if (this.properties.immersive) this.scheduleMeasure()
+      }
+      if (wx.onWindowResize) wx.onWindowResize(this._onWindowResize)
+    },
+    detached() {
+      if (wx.offWindowResize && this._onWindowResize) {
+        wx.offWindowResize(this._onWindowResize)
+      }
     },
     ready() {
       this.scheduleMeasure()

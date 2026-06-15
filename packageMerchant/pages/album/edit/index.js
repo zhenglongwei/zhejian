@@ -212,17 +212,16 @@ Page({
   },
 
   applyCompareColumnsToPage(beforeImages, afterImages) {
+    const normalize = (list) =>
+      (list || []).map((url) => String(url || '').trim()).filter(Boolean)
+    const before = normalize(beforeImages)
+    const after = normalize(afterImages)
     const assessment = this.resolveAssessmentImages()
-    const nodes = applyCompareColumnsToNodes(
-      this.data.nodes,
-      beforeImages,
-      afterImages,
-      assessment,
-    )
+    const nodes = applyCompareColumnsToNodes(this.data.nodes, before, after, assessment)
     this.setData({
-      compareBeforeImages: beforeImages,
-      compareAfterImages: afterImages,
-      comparePairPreview: buildComparePairPreview(beforeImages, afterImages),
+      compareBeforeImages: before,
+      compareAfterImages: after,
+      comparePairPreview: buildComparePairPreview(before, after),
       nodes,
     })
   },
@@ -442,7 +441,33 @@ Page({
     if (!Number.isFinite(index)) return
     const nodes = this.data.nodes.slice()
     nodes[index].images = (e.detail && e.detail.images) || []
-    this.setData({ nodes })
+    const updates = { nodes }
+
+    if (
+      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
+      nodes[index].id === STAGE_ASSESSMENT_ID
+    ) {
+      const assessment = nodes[index].images || []
+      const synced = syncBeforeFromAssessment(
+        this.data.compareBeforeImages,
+        this.data.compareAfterImages,
+        assessment,
+      )
+      updates.compareBeforeImages = synced.beforeImages
+      updates.compareAfterImages = synced.afterImages
+      updates.comparePairPreview = buildComparePairPreview(
+        synced.beforeImages,
+        synced.afterImages,
+      )
+      updates.nodes = applyCompareColumnsToNodes(
+        nodes,
+        synced.beforeImages,
+        synced.afterImages,
+        assessment,
+      )
+    }
+
+    this.setData(updates)
   },
 
   onNodeNoteChange(e) {

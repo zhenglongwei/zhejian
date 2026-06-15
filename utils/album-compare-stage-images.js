@@ -44,14 +44,14 @@ function resolveCompareColumnsFromNodes(nodes = []) {
     }
   }
 
-  // 修复后专用：stage_5 张数 ≤ 损伤评估 → 同序号 after（含部分已上传）
+  // 修复后专用：stage_5 张数 ≤ 损伤评估 → 同序号 after（仅真实 URL，不补空位）
   if (assessment.length > 0 && stored.length <= assessment.length) {
     const partialAfterOnly =
       stored.length < assessment.length || stored.length % 2 !== 0
     if (partialAfterOnly || stored.length === assessment.length) {
       return {
         beforeImages: assessment.slice(),
-        afterImages: assessment.map((_, i) => stored[i] || ''),
+        afterImages: stored.slice(),
         storageMode: 'after_only',
       }
     }
@@ -134,10 +134,9 @@ function syncBeforeFromAssessment(beforeImages = [], afterImages = [], assessmen
       afterImages: after,
     }
   }
-  const maxLen = Math.max(assessment.length, after.length)
   return {
-    beforeImages: Array.from({ length: maxLen }, (_, i) => assessment[i] || ''),
-    afterImages: Array.from({ length: maxLen }, (_, i) => after[i] || ''),
+    beforeImages: assessment.slice(),
+    afterImages: after.slice(0, assessment.length),
   }
 }
 

@@ -12,6 +12,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    addIconSrc: {
+      type: String,
+      value: '/assets/icon/add.png',
+    },
   },
   data: {
     uploading: false,

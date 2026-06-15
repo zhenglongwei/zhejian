@@ -11,10 +11,10 @@
   <text wx:if="{{description}}" class="album-compare-pair-editor__desc text-caption">{{description}}</text>
   <text wx:if="{{photoTips}}" class="album-compare-pair-editor__tips text-caption">拍摄建议：{{photoTips}}</text>
 
-  <view class="album-compare-pair-editor__columns">
-    <view class="album-compare-pair-editor__column">
-      <text class="album-compare-pair-editor__column-title text-caption">修复前</text>
-      <text class="album-compare-pair-editor__column-hint text-caption">默认引用损伤评估，可增删</text>
+  <view class="album-compare-pair-editor__sections">
+    <view class="album-compare-pair-editor__section">
+      <text class="album-compare-pair-editor__section-title text-caption">修复前</text>
+      <text class="album-compare-pair-editor__section-hint text-caption">默认引用损伤评估，可增删</text>
       <ui-image-uploader
         images="{{beforeImages}}"
         maxCount="{{maxCount}}"
@@ -23,9 +23,15 @@
       />
     </view>
 
-    <view class="album-compare-pair-editor__column">
-      <text class="album-compare-pair-editor__column-title text-caption">修复后</text>
-      <text class="album-compare-pair-editor__column-hint text-caption">与左侧同序号一一对应</text>
+    <view class="album-compare-pair-editor__section-divider" aria-hidden="true">
+      <view class="album-compare-pair-editor__section-divider-line" />
+      <text class="album-compare-pair-editor__section-divider-label text-caption">同序号配对</text>
+      <view class="album-compare-pair-editor__section-divider-line" />
+    </view>
+
+    <view class="album-compare-pair-editor__section">
+      <text class="album-compare-pair-editor__section-title text-caption">修复后</text>
+      <text class="album-compare-pair-editor__section-hint text-caption">与上方同序号一一对应</text>
       <ui-image-uploader
         images="{{afterImages}}"
         maxCount="{{maxCount}}"
@@ -36,7 +42,7 @@
   </view>
 
   <view wx:if="{{countMismatch}}" class="album-compare-pair-editor__warn text-caption">
-    修复前 {{beforeImages.length}} 张、修复后 {{afterImages.length}} 张，数量不一致，请对齐后再保存。
+    修复后 {{afterImages.length}} 张多于修复前 {{beforeImages.length}} 张，请删除多余或补齐修复前照片。
   </view>
 
   <view wx:if="{{pairPreview.length}}" class="album-compare-pair-editor__preview">

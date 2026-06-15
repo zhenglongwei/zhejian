@@ -35,6 +35,11 @@ const { buildAlbumComparePairs, buildAlbumCompareHint } = require('../../../util
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
 
+function setComparePageOrientation(orientation) {
+  if (typeof wx.setPageOrientation !== 'function') return
+  wx.setPageOrientation({ orientation })
+}
+
 function getWindowMetrics() {
   try {
     return typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
@@ -658,6 +663,7 @@ Page({
 
   onOpenCompareOverlay() {
     if (!this.data.comparePairs.length) return
+    setComparePageOrientation('auto')
     this.setData({
       compareOverlayVisible: true,
       comparePairIndex: 0,
@@ -667,10 +673,17 @@ Page({
 
   onCloseCompareOverlay() {
     const { status, isEndPage } = this.data
+    setComparePageOrientation('portrait')
     this.setData({
       compareOverlayVisible: false,
       chromeVisible: status === 'normal' && !isEndPage,
     })
+  },
+
+  onUnload() {
+    if (this.data.compareOverlayVisible) {
+      setComparePageOrientation('portrait')
+    }
   },
 
   onComparePairChange(e) {

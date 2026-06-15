@@ -26,7 +26,7 @@ const TEMPLATE_STAGE_META = {
     },
     stage_5: {
       description: '修复前/后分列上传，按序号配对',
-      photoTips: '左栏默认引用损伤评估；右栏上传同序号修复后照片。',
+      photoTips: '上方默认引用损伤评估；下方上传同序号修复后照片。',
       requiredLevelLabel: '必拍',
       requiredLevelVariant: 'danger',
     },

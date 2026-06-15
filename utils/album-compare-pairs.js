@@ -155,10 +155,11 @@ function buildAlbumComparePairs(nodes = [], options = {}) {
 
 function buildAlbumCompareHint(pairs = []) {
   if (!pairs.length) return ''
+  const rotateTip = '可旋转手机横屏查看。'
   if (pairs.length > 1) {
-    return '左右切换查看各组；拖动中线对比。若错位请联系门店重拍。'
+    return `${rotateTip}左右切换各组，拖动中线对比。若错位请联系门店重拍。`
   }
-  return '左右拖动中线查看差异。'
+  return `${rotateTip}左右拖动中线查看差异。`
 }
 
 function hasAlbumComparePairs(nodes = [], options = {}) {

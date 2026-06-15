@@ -1,6 +1,7 @@
 {
   "navigationStyle": "custom",
   "navigationBarTitleText": "服务相册",
+  "pageOrientation": "portrait",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-button": "/components/button/index",

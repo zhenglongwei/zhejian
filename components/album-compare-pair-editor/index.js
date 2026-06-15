@@ -43,7 +43,7 @@ Component({
       const beforeLen = (beforeImages || []).length
       const afterLen = (afterImages || []).length
       this.setData({
-        countMismatch: beforeLen > 0 && afterLen > 0 && beforeLen !== afterLen,
+        countMismatch: beforeLen > 0 && afterLen > beforeLen,
       })
     },
   },

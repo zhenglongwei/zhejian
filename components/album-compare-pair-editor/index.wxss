@@ -24,28 +24,45 @@
   color: var(--color-text-tertiary);
 }
 
-.album-compare-pair-editor__columns {
+.album-compare-pair-editor__sections {
   display: flex;
-  gap: var(--space-md);
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0;
   margin-top: var(--space-xs);
 }
 
-.album-compare-pair-editor__column {
-  flex: 1;
-  min-width: 0;
+.album-compare-pair-editor__section {
+  width: 100%;
 }
 
-.album-compare-pair-editor__column-title {
+.album-compare-pair-editor__section-title {
   display: block;
   margin-bottom: var(--space-xs);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
 
-.album-compare-pair-editor__column-hint {
+.album-compare-pair-editor__section-hint {
   display: block;
   margin-bottom: var(--space-sm);
+  color: var(--color-text-tertiary);
+}
+
+.album-compare-pair-editor__section-divider {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: var(--space-md) 0;
+}
+
+.album-compare-pair-editor__section-divider-line {
+  flex: 1;
+  height: 1rpx;
+  background: var(--color-border);
+}
+
+.album-compare-pair-editor__section-divider-label {
+  flex-shrink: 0;
   color: var(--color-text-tertiary);
 }
 

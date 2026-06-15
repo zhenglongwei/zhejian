@@ -1,5 +1,5 @@
 <view
-  class="album-compare-slider"
+  class="album-compare-slider {{immersive ? 'album-compare-slider--immersive' : ''}}"
   wx:if="{{beforeUrl && afterUrl}}"
 >
   <view
@@ -33,5 +33,8 @@
       <text class="album-compare-slider__label text-caption">{{afterLabel}}</text>
     </view>
   </view>
-  <text class="album-compare-slider__hint text-caption">左右拖动中线查看维修前后差异</text>
+  <text
+    wx:if="{{!immersive}}"
+    class="album-compare-slider__hint text-caption"
+  >左右拖动中线查看维修前后差异</text>
 </view>

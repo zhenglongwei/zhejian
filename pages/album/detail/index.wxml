@@ -208,13 +208,16 @@
           class="album-detail__compare-item"
         >
           <text wx:if="{{item.title}}" class="album-detail__compare-title text-body">{{item.title}}</text>
-          <album-compare-slider
-            pair-key="{{item.id}}"
-            before-url="{{item.beforeUrl}}"
-            after-url="{{item.afterUrl}}"
-            before-label="{{item.beforeLabel}}"
-            after-label="{{item.afterLabel}}"
-          />
+          <view class="album-detail__compare-slider-wrap">
+            <album-compare-slider
+              immersive="{{true}}"
+              pair-key="{{item.id}}"
+              before-url="{{item.beforeUrl}}"
+              after-url="{{item.afterUrl}}"
+              before-label="{{item.beforeLabel}}"
+              after-label="{{item.afterLabel}}"
+            />
+          </view>
         </swiper-item>
       </swiper>
       <text

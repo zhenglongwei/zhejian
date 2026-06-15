@@ -19,6 +19,10 @@
     class="image-uploader__add image-placeholder"
     bindtap="onAdd"
   >
-    <text class="image-uploader__add-text text-caption">上传</text>
+    <image
+      class="image-uploader__add-icon"
+      src="{{addIconSrc}}"
+      mode="aspectFit"
+    />
   </view>
 </view>

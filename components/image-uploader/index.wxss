@@ -36,9 +36,10 @@
   align-items: center;
   justify-content: center;
   border: 2rpx dashed var(--color-border);
-  background-color: transparent;
+  background-color: var(--color-bg-muted);
 }
 
-.image-uploader__add-text {
-  color: var(--color-text-tertiary);
+.image-uploader__add-icon {
+  width: 56rpx;
+  height: 56rpx;
 }
