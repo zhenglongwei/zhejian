@@ -90,7 +90,7 @@ async function collectPageEntries() {
     },
   ]
 
-  const [{ list: allCases }, { list: allStores }] = await Promise.all([
+  const [allCases, { list: allStores }] = await Promise.all([
     fetchPublicCaseRows(),
     listMerchants({ limit: 0 }),
   ])
