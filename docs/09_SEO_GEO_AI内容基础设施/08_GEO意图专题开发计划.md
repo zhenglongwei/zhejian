@@ -159,15 +159,15 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 ---
 
-## 7. 阶段 C · 案例↔专题矩阵（P1）
+## 7. 阶段 C · 案例↔服务页矩阵（P1）
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-C01 | 匹配规则 | `backend/src/utils/geo-topic-matcher.js`（新建） | P1 | [ ] | case.city + serviceName + tags → topic |
-| GEO-TOPIC-C02 | 案例发布自动挂载 | `case-article-publish.service.js` | P1 | [ ] | 写入 `related_case_ids`（可人工解绑） |
-| GEO-TOPIC-C03 | 案例内链 | `backend/src/utils/case-internal-links.js` | P1 | [ ] | 优先真库专题 slug |
-| GEO-TOPIC-C04 | H5 案例延伸 | `h5/shared/case-render.js` | P1 | [ ] | 「相关专题」模块 |
-| GEO-TOPIC-C05 | 专题相关案例 | `h5-geo-topic.service.js` | P1 | [ ] | 规则 + 人工排序；最少 1 条才 index |
+| GEO-TOPIC-C01 | 匹配规则 | `backend/src/utils/geo-topic-matcher.js` | P1 | [x] | case.city + serviceName + tags → 服务页 / geo_pages |
+| GEO-TOPIC-C02 | 案例发布自动挂载 | `case-article-publish.service.js` | P1 | [x] | 写入 `related_case_ids`（可人工解绑） |
+| GEO-TOPIC-C03 | 案例内链 | `backend/src/utils/case-internal-links.js` | P1 | [x] | 优先 `/service/{slug}.html?city=` |
+| GEO-TOPIC-C04 | H5 案例延伸 | `h5/shared/case-render.js` | P1 | [x] | 「相关服务说明」模块 |
+| GEO-TOPIC-C05 | 服务页相关案例 | `h5-service-item.service.js` | P1 | [x] | geo_pages 人工排序 + 规则；最少 1 条才 index |
 | GEO-TOPIC-C06 | 运营批量挂载 | `admin-geo-page.service.js` | P2 | [ ] | 按城市+服务批量关联案例 |
 
 ---
@@ -176,12 +176,12 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-D01 | 专题生成器 | `backend/src/services/geo-page-generator.service.js`（新建） | P1 | [ ] | 从服务库+城市生成 draft |
-| GEO-TOPIC-D02 | 首批清单 | `backend/src/constants/geo-topic-seed-list.js`（新建） | P1 | [ ] | 30 条；**每条绑定 prompt 词库 ID**（对接 OBS） |
-| GEO-TOPIC-D03 | 导入脚本 | `npm run geo:seed-topics` | P1 | [ ] | 生成 draft，运营审核后发布 |
-| GEO-TOPIC-D04 | ai_summary 模板 | 复用 `case-article-templates` 或 LLM（[`06`](./06_GEO案例引用优化开发计划.md) C 阶段） | P1 | [ ] | 专题顶栏摘要 |
-| GEO-TOPIC-D05 | 首页/城市页入口 | `h5/shared/home-render.js`；`city-render.js` | P1 | [ ] | 仅展示 `published` 且有案例专题 |
-| GEO-TOPIC-D06 | 搜索收录 | `search-render.js`；`content.service` search | P1 | [ ] | geoPages 来自 DB |
+| GEO-TOPIC-D01 | 专题生成器 | `backend/src/services/geo-page-generator.service.js` | P1 | [x] | 从服务库+城市生成 draft |
+| GEO-TOPIC-D02 | 首批清单 | `backend/src/constants/geo-topic-seed-list.js` | P1 | [x] | 30 条；**每条绑定 prompt 词库 ID**（对接 OBS） |
+| GEO-TOPIC-D03 | 导入脚本 | `npm run geo:seed-topics` | P1 | [x] | 生成 draft，运营审核后发布 |
+| GEO-TOPIC-D04 | ai_summary 模板 | 复用 `geo-page-generator` + `geo-faq-templates` | P1 | [x] | 服务页顶栏摘要 |
+| GEO-TOPIC-D05 | 首页/城市页入口 | `home.service.js`；`h5-city.service.js` | P1 | [x] | 展示意图页（排除 service_base） |
+| GEO-TOPIC-D06 | 搜索收录 | `content.service` search | P1 | [x] | geoPages 来自 DB；suggest 带 h5Path |
 
 ### 8.1 阶段 D 验收
 

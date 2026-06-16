@@ -442,14 +442,14 @@ async function getCaseDetail(idOrSlug) {
   const faqLinks = item.faqLinks || []
   const display = applyPublicDisplayRules(item)
   const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
-  const { list: publishedGeoPages } = await listGeoPages({ limit: 100 })
+  const { pages: geoPagesForMatch } = await listGeoPages({ limit: 100 })
   const internalLinks = buildCaseInternalLinks(
     { ...display, serviceItemId },
     {
       album,
       showStorePublicly,
       hasFaq: hasCaseFaqContent([...(faq || []), ...(faqLinks || [])]),
-      geoPages: publishedGeoPages,
+      geoPages: geoPagesForMatch,
     }
   )
 
@@ -752,6 +752,7 @@ function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
       type: 'geo',
       typeLabel: typeLabels.geo,
       targetId: item.id,
+      path: item.h5Path || `/topic/${item.slug || item.id}`,
     })
   })
 

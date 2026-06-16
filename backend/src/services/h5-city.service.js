@@ -10,6 +10,7 @@ const {
 } = require('../constants/h5-internal-links')
 const { listCases, listMerchants } = require('./content.service')
 const { listGeoPages } = require('./geo.service')
+const { filterIntentDiscoveryTopics } = require('../utils/geo-intent-discovery')
 
 const CITY_FAQ = {
   hangzhou: [
@@ -94,12 +95,14 @@ async function getCityPagePayload(citySlug) {
   const [{ list: allCases }, { list: allMerchants }, geoResult] = await Promise.all([
     listCases({ limit: 100 }),
     listMerchants({ limit: 100 }),
-    listGeoPages({ limit: 20 }),
+    listGeoPages({ limit: 0 }),
   ])
 
   const cityCases = allCases.filter((item) => matchesCity(item, city.name))
   const cityMerchants = allMerchants.filter((item) => matchesCity(item, city.name))
-  const cityGeoTopics = (geoResult.list || []).filter((item) => item.city === city.name)
+  const cityGeoTopics = filterIntentDiscoveryTopics(geoResult.list || [], { limit: 6 }).filter(
+    (item) => item.city === city.name
+  )
 
   const featuredCases = cityCases.slice(0, 6).map(mapFeaturedCase)
   const recommendedMerchants = cityMerchants.slice(0, 6)
@@ -115,7 +118,7 @@ async function getCityPagePayload(citySlug) {
     },
     serviceEntries: mapServiceEntries(HOME_SERVICE_ENTRIES),
     accidentEntry: HOME_ACCIDENT_ENTRY,
-    geoTopics: cityGeoTopics.slice(0, 6),
+    geoTopics: cityGeoTopics,
     recommendedMerchants,
     featuredCases,
     platformIntro: { points: HOME_PLATFORM_INTRO },

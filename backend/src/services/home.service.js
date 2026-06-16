@@ -11,6 +11,7 @@ const {
 } = require('../constants/h5-internal-links')
 const { listMerchants, fetchPublicCaseRows } = require('./content.service')
 const { listGeoPages } = require('./geo.service')
+const { filterIntentDiscoveryTopics } = require('../utils/geo-intent-discovery')
 
 function mapFeaturedCase(item) {
   return {
@@ -61,16 +62,17 @@ async function getHomePayload() {
   const [featuredCases, recommendedMerchants, geoResult] = await Promise.all([
     fetchFeaturedCases(3),
     fetchRecommendedMerchants(6),
-    listGeoPages({ limit: 6 }),
+    listGeoPages({ limit: 0 }),
   ])
 
+  const geoTopics = filterIntentDiscoveryTopics(geoResult.list || [], { limit: 6 })
   const cityEntries = buildCityNavLinks()
 
   return {
     cityEntries,
     serviceEntries: mapHomeServiceEntries(),
     serviceNav: buildServiceNavLinks(),
-    geoTopics: geoResult.list || [],
+    geoTopics,
     accidentEntry: HOME_ACCIDENT_ENTRY,
     recommendedMerchants,
     featuredCases,

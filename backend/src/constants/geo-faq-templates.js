@@ -72,28 +72,135 @@ const FAULT_QA_DEFAULT = [
 const SERVICE_ID_ALIASES = {
   brake_pad: 'brake_pad',
   brake: 'brake_pad',
+  maintenance: 'maintenance',
+  battery: 'battery',
+  body_paint: 'body_paint',
+  accident: 'accident',
+  item_brake_pad: 'brake_pad',
+  item_maintenance: 'maintenance',
+  item_battery: 'battery',
+  item_body_paint: 'body_paint',
+  item_accident: 'accident',
   '刹车片': 'brake_pad',
   '刹车片更换': 'brake_pad',
 }
+
+const MAINTENANCE_FAQ = [
+  {
+    q: '小保养一般包含哪些项目？',
+    a: withStoreCheck(
+      '常见包含机油、机滤更换与常规检查，具体以门店套餐和车辆检测结果为准，不同车型项目可能略有差异。'
+    ),
+  },
+  {
+    q: '保养周期怎么判断？',
+    a: withStoreCheck(
+      '可参考厂家手册的建议里程或时间，并结合机油状况、提示灯与实际使用情况。到期或提示灯亮起时建议预约检查。'
+    ),
+  },
+  {
+    q: '页面保养价格是最终价吗？',
+    a: COMMON_PRICE_ANSWER,
+  },
+]
+
+const BATTERY_FAQ = [
+  {
+    q: '怎么判断是否需要换电瓶？',
+    a: withStoreCheck(
+      '建议到店检测电瓶电压、启动电流和外观状态，并结合使用年限与启动表现综合判断，不建议仅凭线上描述自行定论。'
+    ),
+  },
+  {
+    q: '打不着火一定是电瓶坏了吗？',
+    a: withStoreCheck(
+      '不一定。还可能与桩头松动、发电机充电异常或其他电路问题有关，需门店检测后确认。'
+    ),
+  },
+  {
+    q: '换电瓶大概多少钱？',
+    a: COMMON_PRICE_ANSWER,
+  },
+]
+
+const BODY_PAINT_FAQ = [
+  {
+    q: '补漆和钣金喷漆有什么区别？',
+    a: withStoreCheck(
+      '轻微刮擦可能仅需局部补漆；涉及变形时通常需钣金校正后再喷漆，费用影响因素更多，需到店查看损伤后确认。'
+    ),
+  },
+  {
+    q: '小刮擦可以线上准确报价吗？',
+    a: withStoreCheck(
+      '多数情况仍需到店查看实际损伤面积与位置。页面价格仅为参考，不能替代现场检测报价。'
+    ),
+  },
+  {
+    q: '修复后会有色差吗？',
+    a: '门店会尽量匹配原车漆，具体效果与车龄、漆面状况和工艺有关，施工前可向门店咨询。',
+  },
+]
+
+const ACCIDENT_FAQ = [
+  {
+    q: '事故车可以线上确认最终价格吗？',
+    a: withStoreCheck(
+      '不可以。事故车维修方案与费用需门店现场检测或拆检后确认，线上不提供最终报价。'
+    ),
+  },
+  {
+    q: '事故车维修一般流程是什么？',
+    a: '通常包括损伤评估、必要时拆检、确认方案与配件、施工验收与交车说明。具体以门店检测为准。',
+  },
+  {
+    q: '平台案例能用来估价吗？',
+    a: withStoreCheck(
+      '案例仅用于了解常见流程和费用影响因素，不能替代对你车辆的实际检测报价。'
+    ),
+  },
+]
 
 const TEMPLATES_BY_TYPE = {
   city_service: {
     default: CITY_SERVICE_DEFAULT,
     brake_pad: BRAKE_PAD_FAQ,
+    maintenance: MAINTENANCE_FAQ,
+    battery: BATTERY_FAQ,
+    body_paint: BODY_PAINT_FAQ,
+    accident: ACCIDENT_FAQ,
   },
   district_service: {
     default: CITY_SERVICE_DEFAULT,
     brake_pad: BRAKE_PAD_FAQ,
+    maintenance: MAINTENANCE_FAQ,
+    battery: BATTERY_FAQ,
+    body_paint: BODY_PAINT_FAQ,
+    accident: ACCIDENT_FAQ,
   },
   vehicle_service: {
     default: CITY_SERVICE_DEFAULT,
     brake_pad: BRAKE_PAD_FAQ,
+    maintenance: MAINTENANCE_FAQ,
+    battery: BATTERY_FAQ,
+    body_paint: BODY_PAINT_FAQ,
+    accident: ACCIDENT_FAQ,
   },
   city_fault: {
     default: FAULT_QA_DEFAULT,
+    brake_pad: BRAKE_PAD_FAQ,
+    maintenance: MAINTENANCE_FAQ,
+    battery: BATTERY_FAQ,
+    body_paint: BODY_PAINT_FAQ,
+    accident: ACCIDENT_FAQ,
   },
   fault_qa: {
     default: FAULT_QA_DEFAULT,
+    brake_pad: BRAKE_PAD_FAQ,
+    maintenance: MAINTENANCE_FAQ,
+    battery: BATTERY_FAQ,
+    body_paint: BODY_PAINT_FAQ,
+    accident: ACCIDENT_FAQ,
   },
   case_collection: {
     default: [

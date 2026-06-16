@@ -4,6 +4,7 @@ const {
   loadGeoOverlayForServiceItem,
   mergeServiceItemWithGeo,
 } = require('./h5-service-geo-merge.service')
+const { orderCasesByIds } = require('../utils/geo-topic-matcher')
 
 const CASE_LIMIT = 6
 const STORE_LIMIT = 6
@@ -158,6 +159,12 @@ async function getServiceItemPagePayload(slug, query = {}) {
   const effectiveCases = filteredCases.length ? filteredCases : allCases
   const effectiveCaseTotal = merged.cityFilter ? effectiveCases.length : caseTotal
 
+  const manualCaseIds = Array.isArray(geoPage?.relatedCaseIds) ? geoPage.relatedCaseIds : []
+  const featuredSource = manualCaseIds.length
+    ? orderCasesByIds(effectiveCases, manualCaseIds, CASE_LIMIT)
+    : effectiveCases.slice(0, CASE_LIMIT)
+  const featuredCases = featuredSource.map(mapCaseListItem)
+
   const caseCountByStore = new Map()
   effectiveCases.forEach((c) => {
     if (!c.storeId) return
@@ -171,7 +178,6 @@ async function getServiceItemPagePayload(slug, query = {}) {
     merchants = list.filter((m) => storeIds.includes(m.id))
   }
 
-  const featuredCases = effectiveCases.slice(0, CASE_LIMIT).map(mapCaseListItem)
   const recommendedStores = buildRecommendedStores(plans, merchants, caseCountByStore)
   const referencePrice = buildReferencePrice(item, plans)
 

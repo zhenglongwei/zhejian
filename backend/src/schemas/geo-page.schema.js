@@ -204,6 +204,7 @@ function mapGeoListItem(page) {
     pageType: page.pageType,
     keywords: page.keywords || [],
     status: page.status,
+    relatedCaseCount: Array.isArray(page.relatedCaseIds) ? page.relatedCaseIds.length : 0,
     updatedAt: page.updatedAt,
     h5Path: buildGeoPageH5Path(page),
     legacyTopicPath: `/topic/${slug}`,

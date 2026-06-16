@@ -35,9 +35,10 @@ async function listGeoPages(query = {}) {
     ...(limit > 0 ? { take: limit } : {}),
   })
 
-  const list = rows.map((row) => mapGeoListItem(mapGeoPageRow(row)))
+  const mapped = rows.map((row) => mapGeoPageRow(row))
+  const list = mapped.map((page) => mapGeoListItem(page))
   const total = await prisma.geoPage.count({ where })
-  return { list, total }
+  return { list, total, pages: mapped }
 }
 
 async function searchPublishedGeoPages(keyword) {

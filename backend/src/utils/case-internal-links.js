@@ -6,6 +6,11 @@ const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
 const { resolveAlbumNodeTemplate } = require('../constants/service-album-node-template')
 const { matchServiceName } = require('./service-case-link')
 const { extractVehicleText } = require('./case-related-cases')
+const {
+  buildServicePagePath,
+  matchCaseToGeoPages,
+  mapGeoPageLink,
+} = require('./geo-topic-matcher')
 
 function resolveCityPath(cityName) {
   const name = String(cityName || '').trim()
@@ -60,10 +65,11 @@ function resolveServiceLink(serviceItemId, serviceName, album, caseItem) {
     item = H5_SERVICE_ITEMS.find((entry) => matchServiceName(serviceName, entry.name)) || null
   }
   if (item) {
+    const city = caseItem && caseItem.city ? caseItem.city : ''
     return {
       serviceItemId: item.serviceItemId,
       name: item.name,
-      path: `/service/${item.slug}.html`,
+      path: buildServicePagePath(item.slug, city),
       casesPath: `/service/${item.slug}/cases`,
       isMerchantPlan: false,
     }
@@ -78,19 +84,6 @@ function buildVehicleCasesPath(serviceLink, city) {
   return `${serviceLink.casesPath}?city=${encodeURIComponent(city)}`
 }
 
-function findRelatedGeoTopic(caseItem, serviceLink, geoPages = []) {
-  const city = caseItem.city || ''
-  const keywords = [caseItem.serviceName || '', serviceLink?.name || ''].filter(Boolean)
-
-  return (
-    (geoPages || []).find((page) => {
-      if (city && page.city && page.city !== city) return false
-      const haystack = [page.title, page.summary, ...(page.keywords || [])].join('')
-      return keywords.some((word) => word && haystack.includes(word.slice(0, 2)))
-    }) || null
-  )
-}
-
 /**
  * @param {object} caseItem
  * @param {{ album?: object|null, showStorePublicly?: boolean, hasFaq?: boolean }} [ctx]
@@ -103,7 +96,8 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
   const service = resolveServiceLink(serviceItemId, caseItem.serviceName, album, caseItem)
   const vehicleLabel = extractVehicleText(caseItem)
   const cityPath = resolveCityPath(city)
-  const geoTopic = findRelatedGeoTopic(caseItem, service, ctx.geoPages)
+  const geoMatch = matchCaseToGeoPages(caseItem, ctx.geoPages, { album })
+  const geoTopic = mapGeoPageLink(geoMatch.bestGeoPage, caseItem)
 
   const links = []
 
@@ -138,7 +132,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
     links.push({
       type: 'city',
       label: `${city}汽车维修`,
-      hint: '查看城市门店与专题',
+      hint: '查看城市门店与服务',
       path: cityPath,
     })
   }
@@ -173,9 +167,9 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
   } else if (geoTopic) {
     links.push({
       type: 'faq',
-      label: '相关专题 FAQ',
-      hint: geoTopic.title,
-      path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
+      label: `${geoTopic.title || service?.name || '服务'} FAQ`,
+      hint: '服务项目说明与常见问题',
+      path: geoTopic.path,
     })
   } else if (service) {
     links.push({
@@ -208,21 +202,27 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
       ? { label: '延伸阅读', path: '#case-faq', isAnchor: true }
       : geoTopic
         ? {
-            label: '相关专题',
-            path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
+            label: geoTopic.title || '相关服务说明',
+            path: geoTopic.path,
           }
         : service
           ? { label: '服务 FAQ', path: service.path }
           : null,
     city: cityPath ? { name: city, path: cityPath } : null,
-    geoTopic: geoTopic
+    geoTopic: geoTopic,
+    relatedService: geoMatch.serviceItem
       ? {
-          id: geoTopic.id,
-          slug: geoTopic.slug || geoTopic.id,
-          title: geoTopic.title,
-          path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
+          slug: geoMatch.serviceItem.slug,
+          name: geoMatch.serviceItem.name,
+          path: geoMatch.servicePath || service?.path || '',
         }
-      : null,
+      : service
+        ? {
+            slug: '',
+            name: service.name,
+            path: service.path,
+          }
+        : null,
     links,
     serviceItemId: serviceItemId || '',
   }

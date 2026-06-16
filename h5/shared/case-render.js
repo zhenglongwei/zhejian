@@ -456,9 +456,16 @@
     } else if (links.geoTopic && links.geoTopic.path) {
       entries.push({
         type: 'geo',
-        label: links.geoTopic.title || '相关专题',
-        hint: '本地维修专题',
+        label: links.geoTopic.title || '相关服务说明',
+        hint: '流程、价格与常见问题',
         path: links.geoTopic.path,
+      })
+    } else if (links.relatedService && links.relatedService.path) {
+      entries.push({
+        type: 'geo',
+        label: links.relatedService.name || '相关服务',
+        hint: '服务项目说明与 FAQ',
+        path: links.relatedService.path,
       })
     }
     if (!entries.length) return ''
@@ -488,6 +495,27 @@
       '<div class="h5-internal-links">' +
       items +
       '</div></div>'
+    )
+  }
+
+  function renderRelatedServiceCard(data) {
+    var links = data.internalLinks
+    if (!links) return ''
+    var target = links.geoTopic || links.relatedService
+    if (!target || !target.path) return ''
+    var title = target.title || (links.relatedService && links.relatedService.name) || '相关服务说明'
+    var summary = target.summary || ''
+    return (
+      '<div class="h5-card" id="case-related-service">' +
+      '<h2 class="h5-section-title">相关服务说明</h2>' +
+      (summary
+        ? '<p class="h5-summary">' + escapeHtml(summary) + '</p>'
+        : '<p class="h5-compliance">查看该服务项目的流程说明、参考价格与常见问题。</p>') +
+      '<a class="h5-btn h5-btn--secondary" href="' +
+      escapeHtml(target.path) +
+      '">查看' +
+      escapeHtml(title) +
+      '</a></div>'
     )
   }
 
@@ -1280,6 +1308,7 @@
     }
 
     html += renderStoreSection(safeData)
+    html += renderRelatedServiceCard(safeData)
     html += renderInternalLinks(safeData)
     html += renderFaq(safeData)
     html += renderRelatedCases(

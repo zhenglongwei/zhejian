@@ -25,6 +25,8 @@
     "crawler:smoke": "node scripts/crawler-track-smoke.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "test:geo-extract": "node src/utils/album-geo-extract.test.js",
+    "test:geo-topic-matcher": "node src/utils/geo-topic-matcher.test.js",
+    "test:geo-topic-seed": "node src/constants/geo-topic-seed.test.js",
     "cases:check": "node scripts/public-case-prod-check.js",
     "cases:backfill-published-h5": "node scripts/backfill-published-h5.js",
     "cases:generate-articles": "node scripts/generate-case-articles-backfill.js",
@@ -33,6 +35,8 @@
     "geo:migrate-mock:publish": "node scripts/geo-pages-migrate-from-mock.js --publish",
     "geo:seed-service-topics": "node scripts/geo-seed-service-topics.js",
     "geo:seed-service-topics:publish": "node scripts/geo-seed-service-topics.js --publish",
+    "geo:seed-topics": "node scripts/geo-seed-topics.js",
+    "geo:seed-topics:publish": "node scripts/geo-seed-topics.js --publish",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

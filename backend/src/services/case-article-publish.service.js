@@ -10,6 +10,10 @@ const {
   CASE_ARTICLE_H5_PUBLISHED_STATUSES,
 } = require('../constants/case-article-status')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
+const { mapGeoPageRow } = require('../schemas/geo-page.schema')
+const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { matchGeoPagesForCaseMount } = require('../utils/geo-topic-matcher')
+const { resolveServiceItemId } = require('../utils/case-internal-links')
 
 function assertArticleTransition(fromStatus, toStatus) {
   const from = fromStatus || CASE_ARTICLE_STATUS.PENDING
@@ -59,6 +63,58 @@ function canBackfillToPublishedH5(row) {
     CASE_ARTICLE_STATUS.DRAFT,
     CASE_ARTICLE_STATUS.READY,
   ].includes(status)
+}
+
+const GEO_MOUNT_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
+
+/**
+ * GEO-TOPIC-C02 · 案例发布 H5 后挂载到匹配 geo_pages.related_case_ids
+ */
+async function mountCaseOnGeoPages(caseId, db) {
+  const row = await db.publicCase.findUnique({
+    where: { id: caseId },
+    include: { album: true },
+  })
+  if (!row) return { mounted: 0, targetIds: [] }
+
+  const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  const geoContent =
+    content.geo && typeof content.geo === 'object' ? content.geo : {}
+  const caseItem = {
+    id: row.id,
+    city: row.city || '',
+    serviceName: row.serviceName || '',
+    serviceItemId: resolveServiceItemId(
+      { serviceName: row.serviceName, serviceItemId: content.serviceItemId },
+      row.album
+    ),
+    title: row.title || '',
+    summary: row.summary || '',
+    faultDesc: geoContent.faultDesc || content.faultDesc || '',
+    tags: content.tags || [],
+  }
+
+  const geoRows = await db.geoPage.findMany({
+    where: { status: { in: GEO_MOUNT_STATUSES } },
+  })
+  const geoPages = geoRows.map(mapGeoPageRow)
+  const targetIds = matchGeoPagesForCaseMount(caseItem, geoPages, { album: row.album })
+
+  let mounted = 0
+  for (const geoId of targetIds) {
+    const page = geoPages.find((entry) => entry.id === geoId)
+    if (!page) continue
+    const prev = Array.isArray(page.relatedCaseIds) ? page.relatedCaseIds : []
+    const ids = [...new Set([...prev, caseId])]
+    if (ids.length === prev.length) continue
+    await db.geoPage.update({
+      where: { id: geoId },
+      data: { relatedCaseIdsJson: ids },
+    })
+    mounted += 1
+  }
+
+  return { mounted, targetIds }
 }
 
 /**
@@ -127,11 +183,14 @@ async function publishCaseArticleToH5(caseId, options = {}) {
     },
   })
 
+  const geoMount = await mountCaseOnGeoPages(caseId, db)
+
   return {
     caseId,
     articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5,
     h5Url: buildCaseH5Url(row),
     alreadyPublished: false,
+    geoMount,
   }
 }
 
@@ -251,5 +310,6 @@ module.exports = {
   publishCaseArticleToH5,
   markCaseArticlePublishedWechat,
   backfillPublishedH5ForApprovedCases,
+  mountCaseOnGeoPages,
   CASE_ARTICLE_H5_PUBLISHED_STATUSES,
 }
