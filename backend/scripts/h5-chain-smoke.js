@@ -45,7 +45,23 @@ async function pickTargetFromApi() {
   assert(list.ok && list.json?.code === 0, '案例列表失败')
   const items = list.json.data?.list || []
   assert(items.length, '案例列表为空')
+
+  const candidates = items.filter(
+    (i) => i.id && i.storeId && !DEMO_STORES.has(i.storeId)
+  )
+  const pool = candidates.length ? candidates : items.filter((i) => i.id && i.storeId)
+
+  for (const item of pool) {
+    const detail = await api('GET', `/user/cases/${encodeURIComponent(item.id)}`)
+    if (!detail.ok || detail.json?.code !== 0) continue
+    const links = detail.json.data?.internalLinks
+    if (links?.service?.path && links?.faq?.path) {
+      return { id: item.id, storeId: item.storeId }
+    }
+  }
+
   const picked =
+    pool[0] ||
     items.find((i) => i.id && i.storeId && !DEMO_STORES.has(i.storeId)) ||
     items.find((i) => i.id && i.storeId) ||
     items[0]

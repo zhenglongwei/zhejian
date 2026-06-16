@@ -29,7 +29,30 @@ function resolveServiceItemId(caseItem, album) {
   return matched?.serviceItemId || ''
 }
 
-function resolveServiceLink(serviceItemId, serviceName) {
+function inferServicePlanId(album, caseItem) {
+  const fromAlbum = String(album?.serviceId || '').trim()
+  if (fromAlbum) return fromAlbum
+  const id = String(album?.id || caseItem?.albumId || caseItem?.id || '').trim()
+  const match = id.match(/(?:^|_)(svc_[a-z0-9_]+)$/i)
+  return match ? match[1] : ''
+}
+
+function resolveMerchantServicePlanLink(album, caseItem, serviceName) {
+  const planId = inferServicePlanId(album, caseItem)
+  if (!planId) return null
+  const name =
+    String(serviceName || album?.serviceName || caseItem?.serviceName || '').trim() ||
+    '服务详情'
+  return {
+    serviceItemId: '',
+    name,
+    path: `/service/${encodeURIComponent(planId)}.html`,
+    casesPath: '',
+    isMerchantPlan: true,
+  }
+}
+
+function resolveServiceLink(serviceItemId, serviceName, album, caseItem) {
   let item = null
   if (serviceItemId) {
     item = H5_SERVICE_ITEMS.find((entry) => entry.serviceItemId === serviceItemId) || null
@@ -37,17 +60,21 @@ function resolveServiceLink(serviceItemId, serviceName) {
   if (!item && serviceName) {
     item = H5_SERVICE_ITEMS.find((entry) => matchServiceName(serviceName, entry.name)) || null
   }
-  if (!item) return null
-  return {
-    serviceItemId: item.serviceItemId,
-    name: item.name,
-    path: `/service/${item.slug}.html`,
-    casesPath: `/service/${item.slug}/cases`,
+  if (item) {
+    return {
+      serviceItemId: item.serviceItemId,
+      name: item.name,
+      path: `/service/${item.slug}.html`,
+      casesPath: `/service/${item.slug}/cases`,
+      isMerchantPlan: false,
+    }
   }
+  return resolveMerchantServicePlanLink(album, caseItem, serviceName)
 }
 
 function buildVehicleCasesPath(serviceLink, city) {
   if (!serviceLink) return ''
+  if (!serviceLink.casesPath) return serviceLink.path || ''
   if (!city) return serviceLink.casesPath
   return `${serviceLink.casesPath}?city=${encodeURIComponent(city)}`
 }
@@ -77,7 +104,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
   const showStore = ctx.showStorePublicly !== false && caseItem.authorizationTier !== 'anonymous'
   const city = caseItem.city || ''
   const serviceItemId = resolveServiceItemId(caseItem, album)
-  const service = resolveServiceLink(serviceItemId, caseItem.serviceName)
+  const service = resolveServiceLink(serviceItemId, caseItem.serviceName, album, caseItem)
   const vehicleLabel = extractVehicleText(caseItem)
   const cityPath = resolveCityPath(city)
   const geoTopic = findRelatedGeoTopic(caseItem, service)
@@ -124,15 +151,19 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
     links.push({
       type: 'service',
       label: service.name,
-      hint: '服务项目说明、流程与参考价格',
+      hint: service.isMerchantPlan
+        ? '查看门店服务方案详情'
+        : '服务项目说明、流程与参考价格',
       path: service.path,
     })
-    links.push({
-      type: 'service_cases',
-      label: `${service.name}案例列表`,
-      hint: '同项目更多脱敏案例',
-      path: buildVehicleCasesPath(service, city),
-    })
+    if (service.casesPath) {
+      links.push({
+        type: 'service_cases',
+        label: `${service.name}案例列表`,
+        hint: '同项目更多脱敏案例',
+        path: buildVehicleCasesPath(service, city),
+      })
+    }
   }
 
   if (ctx.hasFaq) {
@@ -205,4 +236,6 @@ module.exports = {
   buildCaseInternalLinks,
   resolveServiceItemId,
   resolveServiceLink,
+  resolveMerchantServicePlanLink,
+  inferServicePlanId,
 }
