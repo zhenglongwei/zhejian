@@ -6,6 +6,7 @@ export const GEO_PAGE_STATUS_OPTIONS = [
 ]
 
 export const GEO_PAGE_TYPE_OPTIONS = [
+  { value: 'service_base', label: '标准服务（原服务项目页）' },
   { value: 'city_service', label: '城市+服务' },
   { value: 'fault_qa', label: '故障问答' },
   { value: 'city_fault', label: '城市+故障' },

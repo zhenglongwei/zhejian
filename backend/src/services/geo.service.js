@@ -9,8 +9,15 @@ const {
   searchPublishedGeoPages,
 } = require('./geo-page-store.service')
 const { listCases, listMerchants, getMerchantDetail } = require('./content.service')
+const { buildGeoPageH5Path } = require('../schemas/geo-page.schema')
+const {
+  aggregateServiceCatalog,
+  resolveCatalogGeoPageBySlug,
+  resolveServiceItemIdFromPage,
+} = require('./geo-service-catalog.service')
 
 const GEO_PAGE_TYPE_LABEL = {
+  service_base: '标准服务',
   city_service: '城市服务',
   district_service: '城区服务',
   vehicle_service: '车型服务',
@@ -40,27 +47,43 @@ function pickByIds(list, ids) {
 }
 
 async function getGeoPageDetail(ref, options = {}) {
-  const page = await resolveGeoPageRef(ref)
+  let page = await resolveGeoPageRef(ref)
+  const publicRead = options.publicRead !== false
+
+  if (!page) {
+    page = resolveCatalogGeoPageBySlug(ref)
+  }
+
   if (!page) {
     const err = new Error('专题不存在或已下线')
     err.status = 404
     throw err
   }
 
-  const publicRead = options.publicRead !== false
   if (publicRead && !PUBLIC_VISIBLE_STATUSES.includes(page.status)) {
     const err = new Error('专题不存在或已下线')
     err.status = 404
     throw err
   }
 
-  const [{ list: allCases }, { list: allStores }] = await Promise.all([
-    listCases({ limit: 200 }),
-    listMerchants({ limit: 200 }),
-  ])
+  const isServiceBase = page.pageType === 'service_base'
+  let relatedCases = pickByIds((await listCases({ limit: 200 })).list, page.relatedCaseIds)
+  let relatedStores = pickByIds((await listMerchants({ limit: 200 })).list, page.relatedStoreIds)
+  let referencePrice = null
+  let relatedTopics = []
+  let catalogStats = null
 
-  const relatedCases = pickByIds(allCases, page.relatedCaseIds)
-  const relatedStores = pickByIds(allStores, page.relatedStoreIds)
+  if (isServiceBase) {
+    const catalog = await aggregateServiceCatalog(page.serviceMeta || {})
+    if (!relatedCases.length) relatedCases = catalog.relatedCases
+    if (!relatedStores.length) relatedStores = catalog.relatedStores
+    referencePrice = catalog.referencePrice
+    relatedTopics = catalog.relatedTopics
+    catalogStats = {
+      caseTotal: catalog.caseTotal,
+      storeTotal: catalog.storeTotal,
+    }
+  }
 
   let primaryStore = null
   if (page.primaryStoreId) {
@@ -78,12 +101,18 @@ async function getGeoPageDetail(ref, options = {}) {
     slug,
     pageTypeLabel: getGeoPageTypeLabel(page.pageType),
     isAccidentTopic: isAccidentGeoPage(page),
+    isServiceBase: isServiceBase,
+    serviceItemId: resolveServiceItemIdFromPage(page),
     relatedCases,
     relatedStores,
     relatedCaseCount: relatedCases.length,
     relatedStoreCount: relatedStores.length,
+    referencePrice,
+    relatedTopics,
+    catalogStats,
     primaryStore,
-    h5Path: `/topic/${slug}`,
+    h5Path: buildGeoPageH5Path({ ...page, slug }),
+    legacyTopicPath: `/topic/${slug}`,
   }
 }
 

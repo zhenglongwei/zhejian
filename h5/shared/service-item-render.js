@@ -8,6 +8,12 @@
       '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
     caseCompliance:
       '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
+    price:
+      '页面价格为参考范围，实际费用会因车型、配件品牌、损伤程度和门店检测结果不同而变化。',
+    accident:
+      '事故车维修无法仅凭线上信息准确报价，需到店检测或拆检后确认方案和费用。',
+    footnote:
+      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
   }
 
   function escapeHtml(str) {
@@ -79,7 +85,7 @@
     var seo = data.seo || {}
     var item = data.item || {}
     var title = seo.title || item.name + ' · 辙见'
-    var desc = seo.description || item.summary || ''
+    var desc = seo.description || item.aiSummary || item.summary || ''
     var canonical = location.origin + (seo.canonicalPath || location.pathname)
     document.title = title
     ensureMeta('name', 'description', desc)
@@ -104,16 +110,21 @@
       },
     ]
     if (data.faq && data.faq.length) {
-      graph.push({
-        '@type': 'FAQPage',
-        mainEntity: data.faq.map(function (entry) {
-          return {
-            '@type': 'Question',
-            name: entry.q,
-            acceptedAnswer: { '@type': 'Answer', text: entry.a },
-          }
-        }),
+      var visibleFaq = data.faq.filter(function (entry) {
+        return entry && entry.q && entry.a
       })
+      if (visibleFaq.length) {
+        graph.push({
+          '@type': 'FAQPage',
+          mainEntity: visibleFaq.map(function (entry) {
+            return {
+              '@type': 'Question',
+              name: entry.q,
+              acceptedAnswer: { '@type': 'Answer', text: entry.a },
+            }
+          }),
+        })
+      }
     }
     injectJsonLd({ '@context': 'https://schema.org', '@graph': graph })
     if (window.zhejianSeo) {
@@ -312,6 +323,9 @@
   function renderFaq(faq) {
     if (!faq || !faq.length) return ''
     var items = faq
+      .filter(function (entry) {
+        return entry && entry.q && entry.a
+      })
       .map(function (entry) {
         return (
           '<div class="h5-faq-item"><div class="h5-faq-q">' +
@@ -322,8 +336,88 @@
         )
       })
       .join('')
+    if (!items) return ''
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">常见问题</h2>' + items + '</div>'
+      '<section class="h5-card h5-topic-faq" id="service-faq">' +
+      '<h2 class="h5-section-title">常见问题</h2>' +
+      items +
+      '</section>'
+    )
+  }
+
+  function renderFaqLinks(faqLinks) {
+    if (!faqLinks || !faqLinks.length) return ''
+    var items = faqLinks
+      .map(function (entry) {
+        var href = String(entry.url || '').replace(/"/g, '&quot;')
+        return (
+          '<a class="h5-faq-link" href="' +
+          href +
+          '" target="_blank" rel="noopener noreferrer">' +
+          '<span class="h5-faq-link__title">' +
+          escapeHtml(entry.title) +
+          '</span>' +
+          '<span class="h5-faq-link__hint">公众号文章</span>' +
+          '</a>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card" id="service-faq-links">' +
+      '<h2 class="h5-section-title">延伸阅读</h2>' +
+      '<div class="h5-faq-links">' +
+      items +
+      '</div></div>'
+    )
+  }
+
+  function renderReferencePrice(price, item) {
+    if (!price || !price.text) return ''
+    var compliance =
+      item.priceMode === 'accident' || price.mode === 'accident' ? COPY.accident : COPY.price
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">参考价格</h2>' +
+      '<p class="h5-price">' +
+      escapeHtml(price.text) +
+      '</p>' +
+      (price.note ? '<p class="h5-price-note">' + escapeHtml(price.note) + '</p>' : '') +
+      '<p class="h5-compliance">' +
+      escapeHtml(compliance) +
+      '</p></div>'
+    )
+  }
+
+  function renderEvidenceSection(data, item) {
+    var caseCount = (data.featuredCases || []).length
+    var storeCount = (data.recommendedStores || []).length
+    var summaryText =
+      '相关证据（' +
+      caseCount +
+      ' 条案例' +
+      (storeCount ? ' · ' + storeCount + ' 家门店' : '') +
+      '）'
+    return (
+      '<details class="h5-topic-evidence">' +
+      '<summary class="h5-topic-evidence__summary">' +
+      escapeHtml(summaryText) +
+      '</summary>' +
+      '<div class="h5-topic-evidence__body">' +
+      renderCases(data.featuredCases, item, data.stats) +
+      renderStores(data.recommendedStores) +
+      '</div></details>'
+    )
+  }
+
+  function renderSupplementSection(data, item) {
+    var html = ''
+    html += renderBulletSection('什么情况需要做', item.scenarios)
+    html += renderBulletSection('维修流程', item.process)
+    html += renderBulletSection('价格影响因素', item.priceFactors)
+    if (!html) return ''
+    return (
+      '<details class="h5-topic-supplement"><summary class="h5-topic-evidence__summary">服务说明</summary><div class="h5-topic-evidence__body">' +
+      html +
+      '</div></details>'
     )
   }
 
@@ -373,8 +467,14 @@
 
   function renderPage(data) {
     var item = data.item
-    var price = data.referencePrice || {}
     setPageMeta(data)
+
+    var answerText = item.aiSummary || item.summary || ''
+    var cityNote = item.cityFilter
+      ? '<p class="h5-compliance">当前展示与「' +
+        escapeHtml(item.cityFilter) +
+        '」相关的案例与门店，全国内容请去掉筛选条件访问。</p>'
+      : ''
 
     var html =
       '<div class="h5-page">' +
@@ -387,43 +487,34 @@
         : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › ' +
           escapeHtml(item.name) +
           '</nav>') +
-      '<header class="h5-header">' +
+      '<header class="h5-header h5-topic-header">' +
       '<div class="h5-brand">辙见服务平台 · 服务项目</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(item.name) +
       '案例、流程与价格参考</h1>' +
-      '<p class="h5-summary">' +
-      escapeHtml(item.summary) +
-      '</p>' +
-      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
-        ? window.zhejianH5Ui.renderDisclaimer(
-            COPY.displayDisclaimer,
-            COPY.geoDisclaimer
-          )
-        : '<div class="h5-banner">' + escapeHtml(COPY.displayDisclaimer) + '</div>') +
+      (answerText
+        ? '<div class="h5-topic-answer">' + escapeHtml(answerText) + '</div>'
+        : '') +
+      cityNote +
       '</header>' +
-      '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>' +
+      '<div class="h5-home-quick h5-topic-cta">' +
+      '<a class="h5-btn h5-btn--secondary" href="/service/' +
+      encodeURIComponent(item.slug) +
+      '/cases' +
+      (item.cityFilter ? '?city=' + encodeURIComponent(item.cityFilter) : '') +
+      '">浏览公开案例</a>' +
+      '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>' +
       '</div>' +
-      renderBulletSection('什么情况需要做', item.scenarios) +
-      renderBulletSection('维修流程', item.process) +
-      '<div class="h5-card"><h2 class="h5-section-title">参考价格</h2>' +
-      '<p class="h5-price">' +
-      escapeHtml(price.text || '') +
-      '</p>' +
-      (price.note ? '<p class="h5-price-note">' + escapeHtml(price.note) + '</p>' : '') +
-      (item.priceMode === 'accident'
-        ? '<p class="h5-compliance">事故车维修无法仅凭线上信息准确报价，需到店检测或拆检后确认方案和费用。</p>'
-        : '<p class="h5-compliance">页面价格为参考范围，实际费用会因车型、配件品牌、损伤程度和门店检测结果不同而变化。</p>') +
-      '</div>' +
-      renderBulletSection('价格影响因素', item.priceFactors) +
-      renderCases(data.featuredCases, item, data.stats) +
-      renderStores(data.recommendedStores) +
-      renderRelated(data.relatedServices) +
       renderFaq(data.faq) +
+      renderReferencePrice(data.referencePrice, item) +
+      renderSupplementSection(data, item) +
+      renderEvidenceSection(data, item) +
+      renderRelated(data.relatedServices) +
+      renderFaqLinks(data.faqLinks) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。</p>' +
+      '<p class="h5-compliance h5-home-footnote">' +
+      escapeHtml(COPY.footnote) +
+      '</p>' +
       '</div>'
 
     var app = document.getElementById('app')
@@ -452,7 +543,13 @@
   function tryLoadServiceItem(slug) {
     if (!slug || looksLikePlanId(slug)) return Promise.resolve(false)
 
-    return fetch('/api/v1/public/h5/service-items/' + encodeURIComponent(slug))
+    var city = String(new URLSearchParams(location.search).get('city') || '').trim()
+    var apiUrl =
+      '/api/v1/public/h5/service-items/' +
+      encodeURIComponent(slug) +
+      (city ? '?city=' + encodeURIComponent(city) : '')
+
+    return fetch(apiUrl)
       .then(function (res) {
         return res.json().then(function (body) {
           return { ok: res.ok, status: res.status, body: body }

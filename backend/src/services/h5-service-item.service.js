@@ -1,5 +1,9 @@
 const { resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
 const { listCases, listMerchants, listServices } = require('./content.service')
+const {
+  loadGeoOverlayForServiceItem,
+  mergeServiceItemWithGeo,
+} = require('./h5-service-geo-merge.service')
 
 const CASE_LIMIT = 6
 const STORE_LIMIT = 6
@@ -10,6 +14,7 @@ function mapCaseListItem(item) {
     slug: item.slug || (item.seo && item.seo.slug) || '',
     title: item.title,
     serviceName: item.serviceName,
+    summary: item.summary,
     coverImage: item.coverImage || '',
     coverImageDesensitized: item.coverImageDesensitized || item.coverImage || '',
     priceMode: item.priceMode || 'range',
@@ -90,6 +95,7 @@ function buildRecommendedStores(plans, merchants, caseCountByStore) {
         name: store.name,
         address: store.address,
         businessHours: store.businessHours,
+        phone: store.phone || '',
         caseCount: caseCountByStore.get(storeId) || store.caseCount || 0,
         score: store.score || 0,
         servicePlanId: plan.id,
@@ -108,18 +114,30 @@ function buildRecommendedStores(plans, merchants, caseCountByStore) {
     .slice(0, STORE_LIMIT)
 }
 
-function buildSeo(item, { caseTotal, storeTotal }) {
+function buildSeo(item, merged, { caseTotal, storeTotal }) {
   const allowIndex = caseTotal > 0 || storeTotal > 0
+  const title =
+    merged.seoTitle || `${item.name}价格参考与维修案例_透明汽车维修平台 · 辙见`
+  const description =
+    merged.seoDescription ||
+    merged.aiSummary ||
+    `了解${item.name}适用情况、维修流程、参考价格、价格影响因素和真实维修案例，可预约本地辙见门店。`
   return {
-    title: `${item.name}价格参考与维修案例_透明汽车维修平台 · 辙见`,
-    description: `了解${item.name}适用情况、维修流程、参考价格、价格影响因素和真实维修案例，可预约本地辙见门店。`,
+    title,
+    description,
     canonicalPath: `/service/${item.slug}.html`,
     robots: allowIndex ? 'index,follow' : 'noindex,follow',
     allowIndex,
   }
 }
 
-async function getServiceItemPagePayload(slug) {
+function filterCasesByCity(cases, city) {
+  const value = String(city || '').trim()
+  if (!value) return cases
+  return cases.filter((item) => String(item.city || '').includes(value))
+}
+
+async function getServiceItemPagePayload(slug, query = {}) {
   const item = resolveH5ServiceItemBySlug(slug)
   if (!item) {
     const err = new Error('服务项目不存在或未开放')
@@ -127,13 +145,21 @@ async function getServiceItemPagePayload(slug) {
     throw err
   }
 
+  const cityFilter = String(query.city || '').trim()
+  const geoPage = await loadGeoOverlayForServiceItem(item)
+  const merged = mergeServiceItemWithGeo(item, geoPage, cityFilter)
+
   const [{ list: allCases, total: caseTotal }, { list: plans }] = await Promise.all([
     listCases({ serviceItemId: item.serviceItemId }),
     listServices({ serviceItemId: item.serviceItemId }),
   ])
 
+  const filteredCases = filterCasesByCity(allCases, merged.cityFilter)
+  const effectiveCases = filteredCases.length ? filteredCases : allCases
+  const effectiveCaseTotal = merged.cityFilter ? effectiveCases.length : caseTotal
+
   const caseCountByStore = new Map()
-  allCases.forEach((c) => {
+  effectiveCases.forEach((c) => {
     if (!c.storeId) return
     caseCountByStore.set(c.storeId, (caseCountByStore.get(c.storeId) || 0) + 1)
   })
@@ -145,7 +171,7 @@ async function getServiceItemPagePayload(slug) {
     merchants = list.filter((m) => storeIds.includes(m.id))
   }
 
-  const featuredCases = allCases.slice(0, CASE_LIMIT).map(mapCaseListItem)
+  const featuredCases = effectiveCases.slice(0, CASE_LIMIT).map(mapCaseListItem)
   const recommendedStores = buildRecommendedStores(plans, merchants, caseCountByStore)
   const referencePrice = buildReferencePrice(item, plans)
 
@@ -164,21 +190,27 @@ async function getServiceItemPagePayload(slug) {
       serviceItemId: item.serviceItemId,
       name: item.name,
       priceMode: item.priceMode,
-      summary: item.summary,
-      scenarios: item.scenarios || [],
-      process: item.process || [],
-      priceFactors: item.priceFactors || [],
+      summary: merged.summary,
+      aiSummary: merged.aiSummary,
+      scenarios: merged.scenarios,
+      process: merged.process,
+      priceFactors: merged.priceFactors,
+      cityFilter: merged.cityFilter,
     },
     referencePrice,
     featuredCases,
     recommendedStores,
     relatedServices,
-    faq: item.faq || [],
+    faq: merged.faq,
+    faqLinks: merged.faqLinks,
     stats: {
-      caseCount: caseTotal,
+      caseCount: effectiveCaseTotal,
       storeCount: recommendedStores.length,
     },
-    seo: buildSeo(item, { caseTotal, storeTotal: recommendedStores.length }),
+    seo: buildSeo(item, merged, {
+      caseTotal: effectiveCaseTotal,
+      storeTotal: recommendedStores.length,
+    }),
   }
 }
 

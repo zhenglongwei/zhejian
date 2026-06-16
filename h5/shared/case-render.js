@@ -236,25 +236,41 @@
       })
     }
 
-    if (data.faq && data.faq.length) {
-      var faqLinks = data.faq.filter(function (item) {
+    var faqInline = (data.faq || []).filter(function (item) {
+      return item && item.q && item.a
+    })
+    var faqLinks = (data.faqLinks || []).concat(
+      (data.faq || []).filter(function (item) {
         return item && item.title && item.url
       })
-      if (faqLinks.length) {
-        ensureJsonLd('case-faq-schema', {
-          '@context': 'https://schema.org',
-          '@type': 'ItemList',
-          name: '延伸阅读',
-          itemListElement: faqLinks.map(function (item, index) {
-            return {
-              '@type': 'ListItem',
-              position: index + 1,
-              name: item.title,
-              url: item.url,
-            }
-          }),
-        })
-      }
+    )
+    if (faqInline.length) {
+      ensureJsonLd('case-faq-inline-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqInline.map(function (item) {
+          return {
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: { '@type': 'Answer', text: item.a },
+          }
+        }),
+      })
+    }
+    if (faqLinks.length) {
+      ensureJsonLd('case-faq-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: '延伸阅读',
+        itemListElement: faqLinks.map(function (item, index) {
+          return {
+            '@type': 'ListItem',
+            position: index + 1,
+            name: item.title,
+            url: item.url,
+          }
+        }),
+      })
     }
 
     if (data.store && shouldShowStorePublicly(data) && data.store.name) {
@@ -802,33 +818,56 @@
     )
   }
 
-  function renderFaq(faq) {
-    if (!faq || !faq.length) return ''
-    var links = faq.filter(function (item) {
-      return item && item.title && item.url
+  function renderFaq(data) {
+    var faqInline = (data.faq || []).filter(function (item) {
+      return item && item.q && item.a
     })
-    if (!links.length) return ''
-    var items = links
-      .map(function (item) {
-        var href = String(item.url || '').replace(/"/g, '&quot;')
-        return (
-          '<a class="h5-faq-link" href="' +
-          href +
-          '" target="_blank" rel="noopener noreferrer">' +
-          '<span class="h5-faq-link__title">' +
-          escapeHtml(item.title) +
-          '</span>' +
-          '<span class="h5-faq-link__hint">公众号文章</span>' +
-          '</a>'
-        )
+    var faqLinks = (data.faqLinks || []).concat(
+      (data.faq || []).filter(function (item) {
+        return item && item.title && item.url
       })
-      .join('')
-    return (
-      '<div class="h5-card" id="case-faq"><h2 class="h5-section-title">延伸阅读</h2>' +
-      '<div class="h5-faq-links">' +
-      items +
-      '</div></div>'
     )
+    var html = ''
+    if (faqInline.length) {
+      var inlineItems = faqInline
+        .map(function (item) {
+          return (
+            '<div class="h5-faq-item"><div class="h5-faq-q">' +
+            escapeHtml(item.q) +
+            '</div><div class="h5-faq-a">' +
+            escapeHtml(item.a) +
+            '</div></div>'
+          )
+        })
+        .join('')
+      html +=
+        '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">常见问题</h2>' +
+        inlineItems +
+        '</div>'
+    }
+    if (faqLinks.length) {
+      var linkItems = faqLinks
+        .map(function (item) {
+          var href = String(item.url || '').replace(/"/g, '&quot;')
+          return (
+            '<a class="h5-faq-link" href="' +
+            href +
+            '" target="_blank" rel="noopener noreferrer">' +
+            '<span class="h5-faq-link__title">' +
+            escapeHtml(item.title) +
+            '</span>' +
+            '<span class="h5-faq-link__hint">公众号文章</span>' +
+            '</a>'
+          )
+        })
+        .join('')
+      html +=
+        '<div class="h5-card" id="case-faq"><h2 class="h5-section-title">延伸阅读</h2>' +
+        '<div class="h5-faq-links">' +
+        linkItems +
+        '</div></div>'
+    }
+    return html
   }
 
   function resolveFixedAmount(data) {
@@ -1242,7 +1281,7 @@
 
     html += renderStoreSection(safeData)
     html += renderInternalLinks(safeData)
-    html += renderFaq(safeData.faq)
+    html += renderFaq(safeData)
     html += renderRelatedCases(
       safeData.relatedCases,
       safeData.id,

@@ -20,6 +20,7 @@ const {
   getAdminGeoPageDetail,
   createAdminGeoPage,
   updateAdminGeoPage,
+  getGeoFaqTemplate,
 } = require('../services/admin-geo-page.service')
 const {
   updateAdminCaseGeoContent,
@@ -224,6 +225,18 @@ router.get('/geo-pages', async (req, res, next) => {
   try {
     const data = await listAdminGeoPages(req.query)
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo-pages/faq-template', async (req, res, next) => {
+  try {
+    const data = getGeoFaqTemplate(req.query.pageType, req.query.serviceId, {
+      city: req.query.city,
+      title: req.query.title,
+    })
+    return ok(res, { faq: data })
   } catch (e) {
     next(e)
   }

@@ -70,12 +70,26 @@
       </el-form-item>
 
       <el-form-item label="页内 FAQ">
+        <div class="faq-toolbar">
+          <el-button size="small" :loading="templateLoading" @click="onApplyFaqTemplate">
+            应用合规模板
+          </el-button>
+        </div>
         <div v-for="(item, index) in form.faq" :key="index" class="faq-row">
           <el-input v-model="item.q" placeholder="问题" class="faq-q" />
           <el-input v-model="item.a" placeholder="答案" type="textarea" :rows="2" class="faq-a" />
           <el-button link type="danger" @click="removeFaq(index)">删除</el-button>
         </div>
         <el-button link type="primary" @click="addFaq">+ 添加问答</el-button>
+      </el-form-item>
+
+      <el-form-item label="延伸阅读（公众号链接）">
+        <div v-for="(item, index) in form.faqLinks" :key="'link-' + index" class="faq-row faq-row--link">
+          <el-input v-model="item.title" placeholder="文章标题" class="faq-q" />
+          <el-input v-model="item.url" placeholder="https://mp.weixin.qq.com/s/..." class="faq-a" />
+          <el-button link type="danger" @click="removeFaqLink(index)">删除</el-button>
+        </div>
+        <el-button link type="primary" @click="addFaqLink">+ 添加链接</el-button>
       </el-form-item>
 
       <el-row :gutter="16">
@@ -135,6 +149,7 @@ import {
   updateGeoPage,
   publishGeoPage,
   unpublishGeoPage,
+  fetchGeoFaqTemplate,
 } from '@/api/geo-pages'
 import { GEO_PAGE_TYPE_OPTIONS } from '@/constants/geo-pages'
 
@@ -143,6 +158,7 @@ const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
+const templateLoading = ref(false)
 
 const isCreate = computed(() => route.name === 'geo-page-create')
 
@@ -159,6 +175,7 @@ const form = reactive({
   seoTitle: '',
   seoDescription: '',
   faq: [{ q: '', a: '' }],
+  faqLinks: [{ title: '', url: '' }],
 })
 
 const keywordsText = ref('')
@@ -182,6 +199,7 @@ function buildPayload() {
     priceFactors: splitLines(priceFactorsText.value),
     relatedCaseIds: splitLines(relatedCaseIdsText.value),
     faq: (form.faq || []).filter((item) => item.q && item.a),
+    faqLinks: (form.faqLinks || []).filter((item) => item.title && item.url),
   }
 }
 
@@ -199,6 +217,9 @@ function syncFromDetail(detail) {
     seoTitle: detail.seoTitle || '',
     seoDescription: detail.seoDescription || '',
     faq: (detail.faq || []).length ? detail.faq.map((item) => ({ ...item })) : [{ q: '', a: '' }],
+    faqLinks: (detail.faqLinks || []).length
+      ? detail.faqLinks.map((item) => ({ ...item }))
+      : [{ title: '', url: '' }],
   })
   keywordsText.value = (detail.keywords || []).join(', ')
   scenariosText.value = (detail.scenarios || []).join('\n')
@@ -225,6 +246,38 @@ function addFaq() {
 function removeFaq(index) {
   form.faq.splice(index, 1)
   if (!form.faq.length) form.faq.push({ q: '', a: '' })
+}
+
+function addFaqLink() {
+  form.faqLinks.push({ title: '', url: '' })
+}
+
+function removeFaqLink(index) {
+  form.faqLinks.splice(index, 1)
+  if (!form.faqLinks.length) form.faqLinks.push({ title: '', url: '' })
+}
+
+async function onApplyFaqTemplate() {
+  templateLoading.value = true
+  try {
+    const result = await fetchGeoFaqTemplate({
+      pageType: form.pageType,
+      serviceId: form.relatedServiceId || form.serviceId,
+      city: form.city,
+      title: form.title,
+    })
+    const list = result?.faq || []
+    if (!list.length) {
+      ElMessage.warning('暂无匹配模板')
+      return
+    }
+    form.faq = list.map((item) => ({ q: item.q, a: item.a }))
+    ElMessage.success('已填入合规 FAQ 模板，请核对后保存')
+  } catch (e) {
+    ElMessage.error(e?.message || '加载模板失败')
+  } finally {
+    templateLoading.value = false
+  }
 }
 
 function goBack() {
@@ -296,6 +349,9 @@ onMounted(loadDetail)
   gap: 8px;
   margin-bottom: 8px;
   align-items: start;
+}
+.faq-toolbar {
+  margin-bottom: 8px;
 }
 .actions {
   display: flex;

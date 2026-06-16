@@ -687,6 +687,7 @@ model GeoPage {
   seoTitle            String    @default("") @map("seo_title") @db.VarChar(160)
   seoDescription      String    @default("") @map("seo_description") @db.VarChar(300)
   aiSummary           String    @default("") @map("ai_summary") @db.Text
+  serviceMetaJson     Json      @default("{}") @map("service_meta_json")
   status              String    @default("draft") @db.VarChar(32)
   publishedAt         DateTime? @map("published_at")
   createdAt           DateTime  @default(now()) @map("created_at")

@@ -146,12 +146,15 @@ async function collectPageEntries() {
     status: GEO_PAGE_STATUS.PUBLISHED,
   })
   for (const topic of geoList) {
+    if (topic.pageType === 'service_base') continue
     try {
       const detail = await getGeoPageDetail(topic.slug || topic.id)
       const allowIndex = detail.relatedCaseCount > 0 || detail.relatedStoreCount > 0
       if (!allowIndex) continue
+      const servicePath = detail.h5Path || `/topic/${detail.slug}`
+      if (servicePath.indexOf('/service/') !== 0) continue
       entries.push({
-        loc: absUrl(`/topic/${detail.slug}`),
+        loc: absUrl(servicePath),
         lastmod: detail.updatedAt || today,
         changefreq: 'weekly',
         priority: '0.7',

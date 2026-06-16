@@ -6,7 +6,7 @@ const { getCityPagePayload } = require('../services/h5-city.service')
 const { getStoreCasesPagePayload } = require('../services/h5-store-cases.service')
 const { getServiceItemPagePayload } = require('../services/h5-service-item.service')
 const { getServiceItemCasesPagePayload } = require('../services/h5-service-item-cases.service')
-const { getGeoTopicPagePayload } = require('../services/h5-geo-topic.service')
+const { resolveTopicRedirectTarget } = require('../services/h5-topic-redirect.service')
 const {
   getSitemapIndexXml,
   getSitemapXmlByType,
@@ -81,8 +81,22 @@ router.get('/h5/service-items/:slug/cases', async (req, res, next) => {
 
 router.get('/h5/service-items/:slug', async (req, res, next) => {
   try {
-    const data = await getServiceItemPagePayload(req.params.slug)
+    const data = await getServiceItemPagePayload(req.params.slug, req.query)
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/topic-redirect/:slug', async (req, res, next) => {
+  try {
+    const target = await resolveTopicRedirectTarget(req.params.slug)
+    if (!target) {
+      const err = new Error('专题已合并至服务项目页')
+      err.status = 404
+      throw err
+    }
+    return ok(res, target)
   } catch (e) {
     next(e)
   }
@@ -90,8 +104,13 @@ router.get('/h5/service-items/:slug', async (req, res, next) => {
 
 router.get('/h5/topics/:slug', async (req, res, next) => {
   try {
-    const data = await getGeoTopicPagePayload(req.params.slug)
-    return ok(res, data)
+    const target = await resolveTopicRedirectTarget(req.params.slug)
+    if (!target) {
+      const err = new Error('专题已合并至服务项目页')
+      err.status = 404
+      throw err
+    }
+    return ok(res, { redirect: target, deprecated: true })
   } catch (e) {
     next(e)
   }

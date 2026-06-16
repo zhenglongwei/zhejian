@@ -23,7 +23,11 @@ const {
   mapCaseSeoForApi,
   resolveGeoReadableFields,
 } = require('../schemas/case-geo-content.schema')
-const { normalizeCaseFaqLinks } = require('../utils/case-faq-links')
+const {
+  partitionCaseFaq,
+  mergeCaseFaqForStorage,
+  hasCaseFaqContent,
+} = require('../utils/case-faq-links')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
 const { applyManualGeoOverrides } = require('./admin-case-article.service')
 
@@ -326,7 +330,9 @@ async function getAdminCaseDetail(caseId) {
   const mediaAssets = await buildMediaAssetsForDetail(album, task)
   const desensitizeSummary = buildDesensitizeSummary(mediaAssets)
   const contentJson = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-  const faq = normalizeCaseFaqLinks(contentJson.faq)
+  const { inline, links } = partitionCaseFaq(contentJson.faq)
+  const faq = links
+  const faqInline = inline
   const geoPack = buildAlbumGeoPreview(
     { ...albumView, authorizationTier: row.authorizationTier },
     { coldStart: source === 'cold_start' }
@@ -367,6 +373,7 @@ async function getAdminCaseDetail(caseId) {
     vehicle: album.vehicleJson || {},
     contentJson,
     faq,
+    faqInline,
     preMaskTaskId: task?.taskId || buildPreMaskTaskId(album.id),
     preMaskStatus: task?.preMaskStatus || '',
     desensitizeSummary,
@@ -676,7 +683,20 @@ async function updateAdminCaseFaqLinks(caseId, payload = {}) {
     throw err
   }
 
-  const faq = normalizeCaseFaqLinks(payload.faq, { strict: true })
+  const inlineInput = payload.faqInline != null ? payload.faqInline : payload.faq
+  const linksInput = payload.faqLinks != null ? payload.faqLinks : payload.faq
+  const hasSplitPayload = payload.faqInline != null || payload.faqLinks != null
+
+  let faq = []
+  if (hasSplitPayload) {
+    faq = mergeCaseFaqForStorage(inlineInput || [], linksInput || [], { strict: true })
+  } else if (Array.isArray(payload.faq)) {
+    const parts = partitionCaseFaq(payload.faq)
+    faq = mergeCaseFaqForStorage(parts.inline, parts.links, { strict: true })
+  } else {
+    faq = mergeCaseFaqForStorage([], [], { strict: true })
+  }
+
   const content =
     row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
   if (faq.length) {

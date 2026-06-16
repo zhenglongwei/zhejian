@@ -2,6 +2,27 @@
  * GEO-TOPIC · GeoPage 数据契约（读/写共用）
  */
 const { toIso } = require('../lib/ids')
+const {
+  resolveH5ServiceItemBySlug,
+  resolveH5ServiceItemById,
+  H5_SERVICE_ITEMS,
+} = require('../constants/h5-service-items')
+
+const MAX_FAQ_ITEMS = 20
+const MAX_FAQ_Q_LEN = 120
+const MAX_FAQ_A_LEN = 500
+const GEO_FAQ_BANNED_PHRASES = [
+  '好评返现',
+  '晒图返现',
+  '分享赚钱',
+  '转发领钱',
+  '全网最低',
+  '100%修好',
+  '保证一次修好',
+  '永久不复发',
+  '全城最便宜',
+  '必须马上维修',
+]
 
 function parseJsonArray(value) {
   if (!Array.isArray(value)) return []
@@ -16,9 +37,70 @@ function normalizeFaqItem(item) {
   return { q, a }
 }
 
-function normalizeFaq(value) {
-  if (!Array.isArray(value)) return []
-  return value.map(normalizeFaqItem).filter(Boolean)
+function normalizeFaq(value, options = {}) {
+  if (!Array.isArray(value)) {
+    if (options.strict) {
+      const err = new Error('faq 须为数组')
+      err.status = 400
+      throw err
+    }
+    return []
+  }
+  const items = value.map(normalizeFaqItem).filter(Boolean)
+  if (options.strict) {
+    validateGeoFaqItems(items, options)
+  }
+  return items.slice(0, MAX_FAQ_ITEMS)
+}
+
+function findGeoFaqViolation(text) {
+  const raw = String(text || '')
+  return GEO_FAQ_BANNED_PHRASES.find((phrase) => raw.includes(phrase)) || ''
+}
+
+/**
+ * @param {{ q: string, a: string }[]} items
+ * @param {{ requireStoreCheckHint?: boolean, relatedCaseCount?: number }} [options]
+ */
+function validateGeoFaqItems(items, options = {}) {
+  if (!items.length) {
+    const err = new Error('至少填写 1 条页内 FAQ')
+    err.status = 400
+    throw err
+  }
+  for (const item of items) {
+    if (item.q.length > MAX_FAQ_Q_LEN) {
+      const err = new Error(`FAQ 问题不超过 ${MAX_FAQ_Q_LEN} 字`)
+      err.status = 400
+      throw err
+    }
+    if (item.a.length > MAX_FAQ_A_LEN) {
+      const err = new Error(`FAQ 答案不超过 ${MAX_FAQ_A_LEN} 字`)
+      err.status = 400
+      throw err
+    }
+    const bannedQ = findGeoFaqViolation(item.q)
+    const bannedA = findGeoFaqViolation(item.a)
+    if (bannedQ || bannedA) {
+      const err = new Error(`FAQ 含不合规表述：${bannedQ || bannedA}`)
+      err.status = 400
+      throw err
+    }
+  }
+  const requireHint =
+    options.requireStoreCheckHint ||
+    (options.relatedCaseCount != null && options.relatedCaseCount === 0)
+  if (requireHint) {
+    const hasHint = items.some(
+      (item) => item.a.includes('到店检测') || item.a.includes('到店检查')
+    )
+    if (!hasHint) {
+      const err = new Error('无关联案例时，FAQ 答案须包含「到店检测」或「到店检查」提示')
+      err.status = 400
+      throw err
+    }
+  }
+  return items
 }
 
 function normalizeFaqLinks(value) {
@@ -32,6 +114,19 @@ function normalizeFaqLinks(value) {
       return { title, url }
     })
     .filter(Boolean)
+}
+
+function normalizeServiceMeta(value) {
+  if (!value || typeof value !== 'object') return {}
+  const meta = value
+  return {
+    serviceItemId: String(meta.serviceItemId || '').trim(),
+    displayName: String(meta.displayName || '').trim(),
+    priceMode: String(meta.priceMode || 'range').trim(),
+    referencePriceHint: String(meta.referencePriceHint || '').trim(),
+    process: parseJsonArray(meta.process),
+    relatedSlugs: parseJsonArray(meta.relatedSlugs),
+  }
 }
 
 /**
@@ -62,11 +157,39 @@ function mapGeoPageRow(row) {
     seoTitle: row.seoTitle || '',
     seoDescription: row.seoDescription || '',
     aiSummary: row.aiSummary || '',
+    serviceMeta: normalizeServiceMeta(row.serviceMetaJson),
     status: row.status || 'draft',
     publishedAt: row.publishedAt ? toIso(row.publishedAt) : '',
     updatedAt: row.updatedAt ? toIso(row.updatedAt) : '',
     createdAt: row.createdAt ? toIso(row.createdAt) : '',
   }
+}
+
+function buildGeoPageH5Path(page) {
+  const slug = page.slug || page.id
+  if (resolveH5ServiceItemBySlug(slug)) {
+    return `/service/${slug}.html`
+  }
+  const meta = page.serviceMeta || {}
+  const candidateIds = [
+    meta.serviceItemId,
+    page.serviceId,
+    page.relatedServiceId,
+  ].filter((id) => String(id || '').startsWith('item_'))
+  for (const itemId of candidateIds) {
+    const item = resolveH5ServiceItemById(itemId)
+    if (item) {
+      const qs = page.city ? `?city=${encodeURIComponent(page.city)}` : ''
+      return `/service/${item.slug}.html${qs}`
+    }
+  }
+  const haystack = [page.title, page.summary, ...(page.keywords || [])].join('')
+  const matched = H5_SERVICE_ITEMS.find((item) => item.name && haystack.includes(item.name))
+  if (matched) {
+    const qs = page.city ? `?city=${encodeURIComponent(page.city)}` : ''
+    return `/service/${matched.slug}.html${qs}`
+  }
+  return `/topic/${slug}`
 }
 
 function mapGeoListItem(page) {
@@ -82,7 +205,8 @@ function mapGeoListItem(page) {
     keywords: page.keywords || [],
     status: page.status,
     updatedAt: page.updatedAt,
-    h5Path: `/topic/${slug}`,
+    h5Path: buildGeoPageH5Path(page),
+    legacyTopicPath: `/topic/${slug}`,
   }
 }
 
@@ -105,6 +229,7 @@ function buildGeoPageWriteData(payload = {}, existing = null) {
   if (payload.seoDescription != null) data.seoDescription = String(payload.seoDescription).trim()
   if (payload.aiSummary != null) data.aiSummary = String(payload.aiSummary).trim()
   if (payload.status != null) data.status = String(payload.status).trim()
+  if (payload.serviceMeta != null) data.serviceMetaJson = normalizeServiceMeta(payload.serviceMeta)
 
   if (payload.keywords != null) data.keywordsJson = parseJsonArray(payload.keywords)
   if (payload.scenarios != null) data.scenariosJson = parseJsonArray(payload.scenarios)
@@ -129,5 +254,11 @@ module.exports = {
   buildGeoPageWriteData,
   normalizeFaq,
   normalizeFaqLinks,
+  normalizeServiceMeta,
   parseJsonArray,
+  validateGeoFaqItems,
+  findGeoFaqViolation,
+  buildGeoPageH5Path,
+  MAX_FAQ_ITEMS,
+  GEO_FAQ_BANNED_PHRASES,
 }

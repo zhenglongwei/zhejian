@@ -175,7 +175,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
       type: 'faq',
       label: '相关专题 FAQ',
       hint: geoTopic.title,
-      path: `/topic/${geoTopic.slug || geoTopic.id}`,
+      path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
     })
   } else if (service) {
     links.push({
@@ -209,7 +209,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
       : geoTopic
         ? {
             label: '相关专题',
-            path: `/topic/${geoTopic.slug || geoTopic.id}`,
+            path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
           }
         : service
           ? { label: '服务 FAQ', path: service.path }
@@ -220,7 +220,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
           id: geoTopic.id,
           slug: geoTopic.slug || geoTopic.id,
           title: geoTopic.title,
-          path: `/topic/${geoTopic.slug || geoTopic.id}`,
+          path: geoTopic.h5Path || `/topic/${geoTopic.slug || geoTopic.id}`,
         }
       : null,
     links,

@@ -8,7 +8,10 @@ const {
   matchSearchMerchant,
   matchSearchCase,
 } = require('../utils/search-match')
-const { normalizeCaseFaqLinks, hasCaseFaqLinks } = require('../utils/case-faq-links')
+const {
+  partitionCaseFaq,
+  hasCaseFaqContent,
+} = require('../utils/case-faq-links')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { getServiceItem } = require('../constants/service-catalog')
 const {
@@ -202,7 +205,10 @@ function mapPublicCaseRow(row, album) {
     priceFactors:
       geoFields.priceFactors.length > 0 ? geoFields.priceFactors : content.priceFactors || [],
     nodes: sanitizeNodes(content.nodes),
-    faq: normalizeCaseFaqLinks(content.faq),
+    ...(() => {
+      const parts = partitionCaseFaq(content.faq)
+      return { faq: parts.inline, faqLinks: parts.links }
+    })(),
     slug: geoFields.slug || null,
   }
   return applyPublicDisplayRules(item)
@@ -432,7 +438,8 @@ async function getCaseDetail(idOrSlug) {
     }
   }
 
-  const faq = normalizeCaseFaqLinks(item.faq)
+  const faq = item.faq || []
+  const faqLinks = item.faqLinks || []
   const display = applyPublicDisplayRules(item)
   const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
   const { list: publishedGeoPages } = await listGeoPages({ limit: 100 })
@@ -441,7 +448,7 @@ async function getCaseDetail(idOrSlug) {
     {
       album,
       showStorePublicly,
-      hasFaq: hasCaseFaqLinks(faq),
+      hasFaq: hasCaseFaqContent([...(faq || []), ...(faqLinks || [])]),
       geoPages: publishedGeoPages,
     }
   )
@@ -453,6 +460,7 @@ async function getCaseDetail(idOrSlug) {
     store,
     showStorePublicly,
     faq,
+    faqLinks,
     relatedCases,
     relatedCaseTier,
     internalLinks,

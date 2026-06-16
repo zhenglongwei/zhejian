@@ -31,6 +31,8 @@
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
     "geo:migrate-mock": "node scripts/geo-pages-migrate-from-mock.js",
     "geo:migrate-mock:publish": "node scripts/geo-pages-migrate-from-mock.js --publish",
+    "geo:seed-service-topics": "node scripts/geo-seed-service-topics.js",
+    "geo:seed-service-topics:publish": "node scripts/geo-seed-service-topics.js --publish",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

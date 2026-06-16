@@ -220,21 +220,21 @@ async function verifyH5ServiceAssets(storeId) {
 async function verifyH5ServiceItem() {
   const slug = 'brake-pad-replacement'
   const pageRes = await fetch(`${BASE}/service/${slug}.html`)
-  assert(pageRes.ok, `H5 服务项目聚合页 HTTP ${pageRes.status}`)
+  assert(pageRes.ok, `H5 服务项目页 HTTP ${pageRes.status}`)
   const html = await pageRes.text()
   assert(html.includes('service-item-render.js'), 'service/view 未引用 service-item-render.js')
 
   const apiItem = await api('GET', `/public/h5/service-items/${slug}`)
   assert(apiItem.ok && apiItem.json?.code === 0, 'GET /public/h5/service-items/:slug 失败')
   assert(apiItem.json.data?.item?.slug === slug, 'service item slug 不正确')
+  assert(apiItem.json.data?.item?.aiSummary, 'service item 缺少 aiSummary')
   assert(Array.isArray(apiItem.json.data?.featuredCases), 'service item 缺少 featuredCases')
-  assert(Array.isArray(apiItem.json.data?.recommendedStores), 'service item 缺少 recommendedStores')
   assert(Array.isArray(apiItem.json.data?.faq), 'service item 缺少 faq')
   assert(
     apiItem.json.data?.seo?.canonicalPath === `/service/${slug}.html`,
     'service item canonicalPath 不正确'
   )
-  console.log('[chain] ✅ H5 服务项目聚合页 /service/{slug}.html + GET /public/h5/service-items/:slug')
+  console.log('[chain] ✅ H5 服务项目页（GEO 增强）/service/{slug}.html')
 }
 
 async function verifyH5ServiceItemCases() {
@@ -292,22 +292,15 @@ async function verifyH5Sitemap() {
 
 async function verifyH5GeoTopic() {
   const slug = 'hangzhou-brake-pad'
-  const pageRes = await fetch(`${BASE}/topic/${slug}`)
-  assert(pageRes.ok, `H5 GEO 专题 HTTP ${pageRes.status}`)
-  const html = await pageRes.text()
-  assert(html.includes('topic-render.js'), 'topic/index 未引用 topic-render.js')
+  const redirectApi = await api('GET', `/public/h5/topic-redirect/${slug}`)
+  assert(redirectApi.ok && redirectApi.json?.code === 0, 'GET /public/h5/topic-redirect/:slug 失败')
+  const location = redirectApi.json.data?.location || ''
+  assert(location.includes('/service/'), `topic 应重定向到服务页，实际 ${location}`)
 
-  const apiTopic = await api('GET', `/public/h5/topics/${slug}`)
-  assert(apiTopic.ok && apiTopic.json?.code === 0, 'GET /public/h5/topics/:slug 失败')
-  assert(apiTopic.json.data?.topic?.slug === slug, 'geo topic slug 不正确')
-  assert(Array.isArray(apiTopic.json.data?.relatedCases), 'geo topic 缺少 relatedCases')
-  assert(Array.isArray(apiTopic.json.data?.relatedStores), 'geo topic 缺少 relatedStores')
-  assert(Array.isArray(apiTopic.json.data?.faq), 'geo topic 缺少 faq')
-  assert(apiTopic.json.data?.seo?.canonicalPath === `/topic/${slug}`, 'geo topic canonicalPath 不正确')
-
-  const legacyApi = await api('GET', '/public/h5/topics/geo_brake_hz')
-  assert(legacyApi.ok && legacyApi.json?.code === 0, 'GET /public/h5/topics/:id 兼容失败')
-  console.log('[chain] ✅ H5 GEO 专题 /topic/{slug} + GET /public/h5/topics/:slug')
+  const legacyApi = await api('GET', `/public/h5/topics/${slug}`)
+  assert(legacyApi.ok && legacyApi.json?.code === 0, 'GET /public/h5/topics/:slug 兼容失败')
+  assert(legacyApi.json.data?.redirect?.location, 'topics API 应返回 redirect')
+  console.log('[chain] ✅ 旧专题 URL 重定向至服务项目页 /service/{slug}.html')
 }
 
 async function verifyH5StoreAssets(storeId) {

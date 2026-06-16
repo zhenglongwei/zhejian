@@ -8,8 +8,12 @@ const {
   mapGeoPageRow,
   mapGeoListItem,
   buildGeoPageWriteData,
+  normalizeFaq,
+  validateGeoFaqItems,
+  buildGeoPageH5Path,
 } = require('../schemas/geo-page.schema')
 const { getGeoPageDetail } = require('./geo.service')
+const { getGeoFaqTemplate } = require('../constants/geo-faq-templates')
 
 function assertSlug(slug) {
   const value = String(slug || '').trim()
@@ -114,6 +118,7 @@ async function createAdminGeoPage(payload = {}) {
       seoTitle: data.seoTitle ?? '',
       seoDescription: data.seoDescription ?? '',
       aiSummary: data.aiSummary ?? '',
+      serviceMetaJson: data.serviceMetaJson ?? {},
       status: data.status || GEO_PAGE_STATUS.DRAFT,
     },
   })
@@ -154,6 +159,7 @@ async function updateAdminGeoPage(idOrSlug, payload = {}) {
       priceFactorsJson: data.priceFactorsJson ?? row.priceFactorsJson,
       faqJson: data.faqJson ?? row.faqJson,
       faqLinksJson: data.faqLinksJson ?? row.faqLinksJson,
+      serviceMetaJson: data.serviceMetaJson ?? row.serviceMetaJson,
       relatedCaseIdsJson: data.relatedCaseIdsJson ?? row.relatedCaseIdsJson,
       relatedStoreIdsJson: data.relatedStoreIdsJson ?? row.relatedStoreIdsJson,
     },
@@ -179,6 +185,15 @@ async function setAdminGeoPageStatus(idOrSlug, status) {
     throw err
   }
 
+  if (nextStatus === GEO_PAGE_STATUS.PUBLISHED) {
+    const page = mapGeoPageRow(row)
+    const relatedCaseCount = Array.isArray(page.relatedCaseIds) ? page.relatedCaseIds.length : 0
+    validateGeoFaqItems(page.faq || [], {
+      requireStoreCheckHint: relatedCaseCount === 0,
+      relatedCaseCount,
+    })
+  }
+
   const publishedAt =
     nextStatus === GEO_PAGE_STATUS.PUBLISHED
       ? row.publishedAt || new Date()
@@ -200,4 +215,5 @@ module.exports = {
   createAdminGeoPage,
   updateAdminGeoPage,
   setAdminGeoPageStatus,
+  getGeoFaqTemplate,
 }

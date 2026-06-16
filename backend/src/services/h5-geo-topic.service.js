@@ -35,12 +35,20 @@ function mapStoreItem(item) {
 
 function buildTopicSeo(page, { allowIndex }) {
   const forceNoindex = page.status === 'noindex'
+  const isServiceBase = page.pageType === 'service_base'
+  const displayName = page.serviceMeta?.displayName || page.title
   const title =
-    page.seoTitle || `${page.title}_本地汽车维修专题 · 辙见`
+    page.seoTitle ||
+    (isServiceBase
+      ? `${displayName}价格参考与维修案例_透明汽车维修平台 · 辙见`
+      : `${page.title}_本地汽车维修专题 · 辙见`)
   const description =
     page.seoDescription ||
+    page.aiSummary ||
     page.summary ||
-    `查看${page.city || ''}${page.title}相关门店、脱敏案例与常见问题，价格仅供参考。`
+    (isServiceBase
+      ? `了解${displayName}适用情况、维修流程、参考价格、价格影响因素和真实维修案例，可预约本地辙见门店。`
+      : `查看${page.city || ''}${page.title}相关门店、脱敏案例与常见问题，价格仅供参考。`)
   const indexable = allowIndex && !forceNoindex
   return {
     title,
@@ -48,12 +56,22 @@ function buildTopicSeo(page, { allowIndex }) {
     canonicalPath: `/topic/${page.slug}`,
     robots: indexable ? 'index,follow' : 'noindex,follow',
     allowIndex: indexable,
+    legacyCanonicalPath: isServiceBase ? `/service/${page.slug}.html` : '',
   }
 }
 
 async function getGeoTopicPagePayload(slugOrId) {
   const detail = await getGeoPageDetail(slugOrId)
-  const allowIndex = detail.relatedCaseCount > 0 || detail.relatedStoreCount > 0
+  const catalogStats = detail.catalogStats || {}
+  const caseCount = detail.isServiceBase
+    ? catalogStats.caseTotal ?? detail.relatedCaseCount
+    : detail.relatedCaseCount
+  const storeCount = detail.isServiceBase
+    ? catalogStats.storeTotal ?? detail.relatedStoreCount
+    : detail.relatedStoreCount
+  const allowIndex = caseCount > 0 || storeCount > 0
+
+  const serviceMeta = detail.serviceMeta || {}
 
   return {
     topic: {
@@ -69,18 +87,26 @@ async function getGeoTopicPagePayload(slugOrId) {
       keywords: detail.keywords || [],
       aiSummary: detail.aiSummary || detail.summary || '',
       isAccidentTopic: detail.isAccidentTopic,
+      isServiceBase: detail.isServiceBase,
+      serviceItemId: detail.serviceItemId || '',
+      displayName: serviceMeta.displayName || detail.title,
+      priceMode: serviceMeta.priceMode || 'range',
       primaryStoreId: detail.primaryStoreId || '',
       relatedServiceId: detail.relatedServiceId || '',
     },
+    process: serviceMeta.process || [],
+    referencePrice: detail.referencePrice || null,
+    relatedTopics: detail.relatedTopics || [],
     scenarios: detail.scenarios || [],
     priceFactors: detail.priceFactors || [],
     faq: detail.faq || [],
+    faqLinks: detail.faqLinks || [],
     relatedCases: (detail.relatedCases || []).map(mapCaseItem),
     relatedStores: (detail.relatedStores || []).map(mapStoreItem),
     primaryStore: detail.primaryStore ? mapStoreItem(detail.primaryStore) : null,
     stats: {
-      caseCount: detail.relatedCaseCount,
-      storeCount: detail.relatedStoreCount,
+      caseCount,
+      storeCount,
     },
     seo: buildTopicSeo(detail, { allowIndex }),
   }

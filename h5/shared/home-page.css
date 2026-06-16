@@ -215,6 +215,52 @@
   color: var(--color-text-secondary);
 }
 
+.h5-topic-header {
+  margin-bottom: var(--space-md);
+}
+
+.h5-topic-answer {
+  margin-top: var(--space-sm);
+  font-size: var(--font-body);
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.h5-topic-cta {
+  margin-bottom: var(--space-md);
+}
+
+.h5-topic-faq {
+  margin-bottom: var(--space-md);
+}
+
+.h5-topic-evidence,
+.h5-topic-supplement {
+  margin: var(--space-md) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.h5-topic-evidence__summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: var(--space-md);
+  list-style: none;
+}
+
+.h5-topic-evidence__summary::-webkit-details-marker {
+  display: none;
+}
+
+.h5-topic-evidence__body {
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+.h5-topic-evidence__body .h5-card {
+  margin-top: var(--space-sm);
+}
+
 .h5-filter-row {
   display: flex;
   flex-wrap: wrap;

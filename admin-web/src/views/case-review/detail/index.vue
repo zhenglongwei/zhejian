@@ -121,6 +121,7 @@
       class="section"
       :case-id="detail.caseId"
       :faq="detail.faq"
+      :faq-inline="detail.faqInline"
       @saved="onFaqSaved"
     />
 

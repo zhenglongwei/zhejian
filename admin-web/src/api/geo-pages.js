@@ -1,5 +1,9 @@
 import request from './request'
 
+export function fetchGeoFaqTemplate(params) {
+  return request.get('/admin/geo-pages/faq-template', { params })
+}
+
 export function fetchGeoPageList(params) {
   return request.get('/admin/geo-pages', { params })
 }

@@ -66,6 +66,7 @@
 3. **不编造**：FAQ 答案来自案例聚合、服务 PRD、运营审核；无案例支撑则写「需到店检测」类合规表述。
 4. **专题由运营创建 + 半自动推荐**（[`07`](./07_GEO引用观测开发计划.md) gap 列表）。
 5. **为人只看摘要**：专题页信息架构对齐 **答案页**，不对齐「内容社区」；过程证据下沉、可折叠。
+6. **标准服务 = 服务项目页**（2026-06-16）：GEO 能力（`ai_summary`、页内 FAQ、`FAQPage`）落在 **`/service/{slug}.html`**；`geo_pages` 作运营可编辑层合并进服务 API；**`/topic/` 仅作兼容跳转**，不再独立渲染。
 
 ---
 
@@ -141,14 +142,14 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-B01 | FAQ 数据契约 | `backend/src/schemas/geo-page.schema.js`（新建） | P0 | [ ] | `faq: {q,a}[]` 校验 |
-| GEO-TOPIC-B02 | H5 渲染 | `h5/shared/topic-render.js` | P0 | [ ] | **首屏**：summary + FAQ；案例区可折叠；延伸阅读分开展示 |
-| GEO-TOPIC-B03 | FAQPage Schema | `topic-render.js` | P0 | [ ] | 与可见 FAQ 一致 |
-| GEO-TOPIC-B04 | 案例页 FAQ 扩展 | `public_cases.content_json.faq`；[`06`](./06_GEO案例引用优化开发计划.md) | P1 | [ ] | 支持内联 `{q,a}` + 外链并存 |
-| GEO-TOPIC-B05 | 案例 H5 | `h5/shared/case-render.js` | P1 | [ ] | 内联 FAQ → `FAQPage`；外链仍 `ItemList` |
-| GEO-TOPIC-B06 | 运营 FAQ 编辑器 | `admin-web` CaseFaqEditor / GeoPage 表单 | P1 | [ ] | Tab：页内问答 / 公众号链接 |
-| GEO-TOPIC-B07 | FAQ 种子模板 | `backend/src/constants/geo-faq-templates.js`（新建） | P1 | [ ] | 按 `page_type` + `service_id` 给合规初稿 |
-| GEO-TOPIC-B08 | 规范对齐 | `docs/09_SEO_GEO_AI内容基础设施/05_FAQ生成规范.md` | P1 | [ ] | 页内 FAQ 与案例 FAQ 区分 |
+| GEO-TOPIC-B01 | FAQ 数据契约 | `backend/src/schemas/geo-page.schema.js`（新建） | P0 | [x] | `faq: {q,a}[]` 校验 |
+| GEO-TOPIC-B02 | H5 渲染 | `h5/shared/topic-render.js` | P0 | [x] | **首屏**：summary + FAQ；案例区可折叠；延伸阅读分开展示 |
+| GEO-TOPIC-B03 | FAQPage Schema | `topic-render.js` | P0 | [x] | 与可见 FAQ 一致 |
+| GEO-TOPIC-B04 | 案例页 FAQ 扩展 | `public_cases.content_json.faq`；[`06`](./06_GEO案例引用优化开发计划.md) | P1 | [x] | 支持内联 `{q,a}` + 外链并存 |
+| GEO-TOPIC-B05 | 案例 H5 | `h5/shared/case-render.js` | P1 | [x] | 内联 FAQ → `FAQPage`；外链仍 `ItemList` |
+| GEO-TOPIC-B06 | 运营 FAQ 编辑器 | `admin-web` CaseFaqEditor / GeoPage 表单 | P1 | [x] | Tab：页内问答 / 公众号链接 |
+| GEO-TOPIC-B07 | FAQ 种子模板 | `backend/src/constants/geo-faq-templates.js`（新建） | P1 | [x] | 按 `page_type` + `service_id` 给合规初稿 |
+| GEO-TOPIC-B08 | 规范对齐 | `docs/09_SEO_GEO_AI内容基础设施/05_FAQ生成规范.md` | P1 | [x] | 页内 FAQ 与案例 FAQ 区分 |
 
 ### 6.1 阶段 B 验收
 
