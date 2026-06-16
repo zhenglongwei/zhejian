@@ -18,7 +18,14 @@ const { buildAlbumView } = require('./service-album.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
 const { stampPublishedH5OnPayload } = require('./case-article-publish.service')
 const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
+const {
+  mapCaseArticleForApi,
+  mapCaseSeoForApi,
+  resolveGeoReadableFields,
+} = require('../schemas/case-geo-content.schema')
 const { normalizeCaseFaqLinks } = require('../utils/case-faq-links')
+const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
+const { applyManualGeoOverrides } = require('./admin-case-article.service')
 
 const RISK_RANK = RISK_LEVEL_ORDER
 
@@ -320,6 +327,11 @@ async function getAdminCaseDetail(caseId) {
   const desensitizeSummary = buildDesensitizeSummary(mediaAssets)
   const contentJson = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
   const faq = normalizeCaseFaqLinks(contentJson.faq)
+  const geoPack = buildAlbumGeoPreview(
+    { ...albumView, authorizationTier: row.authorizationTier },
+    { coldStart: source === 'cold_start' }
+  )
+  const geoReadable = resolveGeoReadableFields(row)
 
   return {
     caseId: row.id,
@@ -374,6 +386,13 @@ async function getAdminCaseDetail(caseId) {
     articleStatus: row.articleStatus || '',
     slug: row.slug || '',
     canonicalPath: row.canonicalPath || '',
+    geoQuality: geoPack.geoQuality,
+    geoPreview: geoPack.geoPreview,
+    aiSummary: row.aiSummary || geoReadable.aiSummary || '',
+    articleBody: row.articleBody || geoReadable.articleBody || '',
+    seo: mapCaseSeoForApi(row),
+    article: mapCaseArticleForApi(row),
+    geo: geoReadable.geo || {},
   }
 }
 
@@ -470,7 +489,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     templateId: album.templateId || '',
   })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
-  const articlePayload = buildCaseArticlePayload({
+  let articlePayload = buildCaseArticlePayload({
     caseId,
     draft,
     albumView,
@@ -480,6 +499,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     templateId: album.templateId || '',
     previousArticleVersion: row.articleVersion || 0,
   })
+  articlePayload = applyManualGeoOverrides(row, articlePayload)
   articlePayload.slug = await ensureUniqueCaseSlug(prisma, articlePayload.slug, caseId)
   articlePayload.canonicalPath = resolveCaseCanonicalPath({
     slug: articlePayload.slug,
@@ -682,6 +702,7 @@ module.exports = {
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
   updateAdminCaseFaqLinks,
+  appendReviewLog,
   resolveCaseSource,
   sourceLabel,
 }

@@ -16,6 +16,7 @@ const {
 const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.service')
 const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
+const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
 
 const router = express.Router()
 
@@ -156,6 +157,18 @@ router.post(
     }
   }
 )
+
+router.get('/service-albums/:albumId/geo-preview', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const album = await getMerchantServiceAlbum(req.params.albumId, storeId, req.auth.merchantId)
+    const coldStart = !album.userId && !album.userPhone
+    const preview = buildAlbumGeoPreview(album, { coldStart })
+    return ok(res, preview)
+  } catch (e) {
+    next(e)
+  }
+})
 
 router.post('/service-albums/:albumId/cold-start-preview', requireAuth(['merchant']), async (req, res, next) => {
   try {

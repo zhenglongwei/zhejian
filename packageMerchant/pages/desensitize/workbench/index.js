@@ -6,7 +6,7 @@ const {
   confirmOrderAuthorizeTask,
   markAssetPreviewed,
 } = require('../../../../services/desensitize')
-const { submitMerchantPublicCase } = require('../../../../services/merchant-service-album')
+const { submitMerchantPublicCase, fetchMerchantAlbumGeoPreview } = require('../../../../services/merchant-service-album')
 const { mapTaskToWorkbenchState } = require('../../../../utils/desensitize-workbench-display')
 
 Page({
@@ -25,6 +25,9 @@ Page({
     confirmLabel: '确认脱敏结果并提交审核',
     confirmLabelShort: '确认并提交',
     needPreviewHint: false,
+    geoQuality: null,
+    geoBlockMessages: [],
+    geoBlocked: false,
     errorMessage: '',
     autoMaskLoading: false,
     confirmLoading: false,
@@ -53,11 +56,35 @@ Page({
     }
     this._loaded = false
     this.loadTask()
+    if (albumId && bizType === BIZ_TYPE.MERCHANT_HISTORY) {
+      this.loadGeoPreview()
+    }
   },
 
   onShow() {
     if (this._loaded && this.data.taskId) {
       this.loadTask()
+      if (this.data.albumId && this.data.bizType === BIZ_TYPE.MERCHANT_HISTORY) {
+        this.loadGeoPreview()
+      }
+    }
+  },
+
+  async loadGeoPreview() {
+    if (!this.data.albumId) return
+    try {
+      const preview = await fetchMerchantAlbumGeoPreview(this.data.albumId)
+      const geoQuality = preview.geoQuality || null
+      const missingFields = (geoQuality && geoQuality.missingFields) || []
+      const geoBlockMessages = missingFields.map((item) => item.message).filter(Boolean)
+      const geoBlocked = geoQuality && geoQuality.level === 'block'
+      this.setData({
+        geoQuality,
+        geoBlockMessages,
+        geoBlocked,
+      })
+    } catch (e) {
+      // 预览失败不阻断脱敏核对
     }
   },
 
@@ -200,6 +227,20 @@ Page({
 
   async onConfirm() {
     if (this.data.confirmLoading) return
+    if (this.data.geoBlocked) {
+      wx.showModal({
+        title: '公开证据不完整',
+        content:
+          (this.data.geoBlockMessages || []).join('\n') ||
+          '请返回相册编辑页补全接车、检测、方案等节点说明后再提交。',
+        showCancel: false,
+        confirmText: '返回编辑',
+        success: (res) => {
+          if (res.confirm) this.onBackEdit()
+        },
+      })
+      return
+    }
     if (!this.data.liabilityAccepted) {
       wx.showToast({ title: '请勾选责任确认', icon: 'none' })
       return

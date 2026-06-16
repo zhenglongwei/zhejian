@@ -6,7 +6,6 @@ const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
 const { resolveAlbumNodeTemplate } = require('../constants/service-album-node-template')
 const { matchServiceName } = require('./service-case-link')
 const { extractVehicleText } = require('./case-related-cases')
-const { GEO_PAGES } = require('../../../mock/geo-pages')
 
 function resolveCityPath(cityName) {
   const name = String(cityName || '').trim()
@@ -79,15 +78,12 @@ function buildVehicleCasesPath(serviceLink, city) {
   return `${serviceLink.casesPath}?city=${encodeURIComponent(city)}`
 }
 
-function findRelatedGeoTopic(caseItem, serviceLink) {
+function findRelatedGeoTopic(caseItem, serviceLink, geoPages = []) {
   const city = caseItem.city || ''
-  const keywords = [
-    caseItem.serviceName || '',
-    serviceLink?.name || '',
-  ].filter(Boolean)
+  const keywords = [caseItem.serviceName || '', serviceLink?.name || ''].filter(Boolean)
 
   return (
-    GEO_PAGES.find((page) => {
+    (geoPages || []).find((page) => {
       if (city && page.city && page.city !== city) return false
       const haystack = [page.title, page.summary, ...(page.keywords || [])].join('')
       return keywords.some((word) => word && haystack.includes(word.slice(0, 2)))
@@ -107,7 +103,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
   const service = resolveServiceLink(serviceItemId, caseItem.serviceName, album, caseItem)
   const vehicleLabel = extractVehicleText(caseItem)
   const cityPath = resolveCityPath(city)
-  const geoTopic = findRelatedGeoTopic(caseItem, service)
+  const geoTopic = findRelatedGeoTopic(caseItem, service, ctx.geoPages)
 
   const links = []
 

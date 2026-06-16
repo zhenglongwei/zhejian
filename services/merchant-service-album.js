@@ -71,6 +71,14 @@ async function fetchMerchantAlbumStats() {
   return get('/merchant/service-albums/stats', withStore())
 }
 
+async function fetchMerchantAlbumGeoPreview(albumId) {
+  if (ENV.mode === 'mock') {
+    const { mockFetchMerchantAlbumGeoPreview } = require('../mock/service-albums')
+    return mockFetchMerchantAlbumGeoPreview(albumId)
+  }
+  return get(`/merchant/service-albums/${albumId}/geo-preview`, withStore())
+}
+
 async function createMerchantColdStartPreview(albumId) {
   if (ENV.mode === 'mock') {
     const { mockCreateMerchantColdStartPreview } = require('../mock/service-albums')
@@ -118,6 +126,7 @@ module.exports = {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
+  fetchMerchantAlbumGeoPreview,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,

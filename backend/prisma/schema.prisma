@@ -662,3 +662,38 @@ model NotificationSubscription {
   @@index([userId])
   @@map("notification_subscriptions")
 }
+
+/// GEO-TOPIC-A01 · 意图专题页（替代 mock/geo-pages）
+model GeoPage {
+  id                  String    @id
+  slug                String    @unique @db.VarChar(128)
+  title               String    @default("")
+  summary             String    @default("") @db.Text
+  coverImage          String    @default("") @map("cover_image") @db.VarChar(512)
+  pageType            String    @default("city_service") @map("page_type") @db.VarChar(32)
+  city                String    @default("")
+  serviceId           String    @default("") @map("service_id")
+  faultTag            String    @default("") @map("fault_tag")
+  vehicleSeries       String    @default("") @map("vehicle_series")
+  keywordsJson        Json      @default("[]") @map("keywords_json")
+  scenariosJson       Json      @default("[]") @map("scenarios_json")
+  priceFactorsJson    Json      @default("[]") @map("price_factors_json")
+  faqJson             Json      @default("[]") @map("faq_json")
+  faqLinksJson        Json      @default("[]") @map("faq_links_json")
+  relatedCaseIdsJson  Json      @default("[]") @map("related_case_ids_json")
+  relatedStoreIdsJson Json      @default("[]") @map("related_store_ids_json")
+  primaryStoreId      String    @default("") @map("primary_store_id")
+  relatedServiceId    String    @default("") @map("related_service_id")
+  seoTitle            String    @default("") @map("seo_title") @db.VarChar(160)
+  seoDescription      String    @default("") @map("seo_description") @db.VarChar(300)
+  aiSummary           String    @default("") @map("ai_summary") @db.Text
+  status              String    @default("draft") @db.VarChar(32)
+  publishedAt         DateTime? @map("published_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([city])
+  @@index([pageType])
+  @@map("geo_pages")
+}

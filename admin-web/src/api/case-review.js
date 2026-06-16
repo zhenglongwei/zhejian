@@ -41,3 +41,11 @@ export function markCaseArticlePublishedWechat(caseId) {
 export function updateCaseFaqLinks(caseId, body) {
   return request.put(`/admin/cases/${caseId}/faq`, body)
 }
+
+export function updateCaseGeoContent(caseId, body) {
+  return request.put(`/admin/cases/${caseId}/geo-content`, body)
+}
+
+export function regenerateCaseArticle(caseId) {
+  return request.post(`/admin/cases/${caseId}/regenerate-article`)
+}

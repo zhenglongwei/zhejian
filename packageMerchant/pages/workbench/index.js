@@ -62,6 +62,7 @@ function buildTodoQueue(todos = {}) {
   const pendingLeads = Number(todos.pendingLeads) || 0
   const pendingAuth = Number(todos.pendingAuth) || 0
   const pendingUpload = Number(todos.pendingUpload) || 0
+  const geoEvidenceBlocked = Number(todos.geoEvidenceBlocked) || 0
   return [
     {
       key: 'leads',
@@ -84,6 +85,13 @@ function buildTodoQueue(todos = {}) {
       actionLabel: '去补传',
       active: pendingUpload > 0,
     },
+    {
+      key: 'geo',
+      count: geoEvidenceBlocked,
+      label: '个相册待补公开证据',
+      actionLabel: '去补全',
+      active: geoEvidenceBlocked > 0,
+    },
   ]
 }
 
@@ -91,7 +99,8 @@ function countTodoTotal(todos = {}) {
   return (
     (Number(todos.pendingLeads) || 0) +
     (Number(todos.pendingAuth) || 0) +
-    (Number(todos.pendingUpload) || 0)
+    (Number(todos.pendingUpload) || 0) +
+    (Number(todos.geoEvidenceBlocked) || 0)
   )
 }
 
@@ -106,6 +115,7 @@ Page({
       pendingLeads: 0,
       pendingUpload: 0,
       pendingAuth: 0,
+      geoEvidenceBlocked: 0,
       activeAlbums: 0,
     },
     overview: {
@@ -174,6 +184,7 @@ Page({
       pendingLeads: 0,
       pendingUpload: 0,
       pendingAuth: 0,
+      geoEvidenceBlocked: 0,
       activeAlbums: 0,
     }
     let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
@@ -219,6 +230,7 @@ Page({
         pendingLeads: leadStats.pending || 0,
         pendingUpload: stats.pendingUpload || 0,
         pendingAuth: stats.pendingAuth || 0,
+        geoEvidenceBlocked: stats.geoEvidenceBlocked || 0,
         activeAlbums: stats.active || 0,
       }
       if (publishPanel && publishPanel.summary) {
@@ -348,6 +360,7 @@ Page({
       leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
       auth: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'pending_auth' } } }),
       upload: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
+      geo: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
     }
     const fn = handlers[key]
     if (fn) fn()

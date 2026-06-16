@@ -9,11 +9,11 @@ function ok(res, data, message = 'success') {
   })
 }
 
-function fail(res, code, message, status = 400) {
+function fail(res, code, message, status = 400, data = null) {
   return res.status(status).json({
     code,
     message,
-    data: null,
+    data,
     request_id: res.locals.requestId,
   })
 }

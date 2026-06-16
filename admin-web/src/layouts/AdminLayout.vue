@@ -4,6 +4,7 @@
       <div class="admin-layout__brand">辙见运营</div>
       <el-menu :default-active="activeMenu" router>
         <el-menu-item index="/cases">案例审核</el-menu-item>
+        <el-menu-item index="/geo-pages">GEO 专题</el-menu-item>
         <el-menu-item index="/merchants">商家审核</el-menu-item>
         <el-menu-item index="/services">服务监管</el-menu-item>
         <el-menu-item index="/reports">举报管理</el-menu-item>
@@ -32,6 +33,7 @@ const auth = useAuthStore()
 
 const activeMenu = computed(() => {
   if (route.path.startsWith('/cases')) return '/cases'
+  if (route.path.startsWith('/geo-pages')) return '/geo-pages'
   if (route.path.startsWith('/merchants')) return '/merchants'
   if (route.path.startsWith('/services')) return '/services'
   if (route.path.startsWith('/reports')) return '/reports'

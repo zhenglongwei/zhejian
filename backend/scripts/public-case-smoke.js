@@ -160,14 +160,26 @@ async function main() {
             id: 'stage_1',
             title: '接车记录',
             status: 'completed',
-            note: '冒烟',
+            note: '用户反馈刹车异响，行驶中偶发',
             images: [imageUrl],
           },
-          { id: 'stage_2', title: '检测诊断', status: 'pending', note: '', images: [] },
-          { id: 'stage_3', title: '方案与报价', status: 'pending', note: '', images: [] },
+          {
+            id: 'stage_2',
+            title: '检测诊断',
+            status: 'completed',
+            note: '前制动片磨损至极限，建议更换',
+            images: [],
+          },
+          {
+            id: 'stage_3',
+            title: '方案与报价',
+            status: 'completed',
+            note: '更换前制动片及工时',
+            images: [],
+          },
           { id: 'stage_4', title: '配件告知', status: 'pending', note: '', images: [] },
           { id: 'stage_5', title: '施工记录', status: 'pending', note: '', images: [] },
-          { id: 'stage_6', title: '完工交付', status: 'pending', note: '', images: [] },
+          { id: 'stage_6', title: '完工交付', status: 'completed', note: '试车制动正常', images: [] },
         ],
       },
     })
@@ -193,6 +205,20 @@ async function main() {
     })
     console.log('[smoke] 脱敏确认 OK')
 
+    const geoPreview = await api('GET', `/merchant/service-albums/${albumId}/geo-preview?storeId=${STORE_ID}`, {
+      token: merchantToken,
+    })
+    assert(geoPreview.geoQuality?.level === 'ready', `geo-preview 应为 ready，实际 ${geoPreview.geoQuality?.level}`)
+    assert(
+      geoPreview.geoPreview?.fromNodes?.inspectResult,
+      'geo-preview 应来自 stage_2 note'
+    )
+    assert(
+      geoPreview.aiSummaryPreview?.includes('前制动片'),
+      '模板摘要应含检测结论'
+    )
+    console.log('[smoke] GEO 预览 API OK')
+
     const submitted = await api('POST', `/merchant/service-albums/${albumId}/public-case`, {
       token: merchantToken,
       body: { storeId: STORE_ID, taskId },
@@ -211,6 +237,8 @@ async function main() {
       !adminDetail.desensitizeSummary?.hasBlockingIssues,
       '运营详情仍有脱敏阻塞项'
     )
+    assert(adminDetail.geoQuality?.level, '运营详情应有 geoQuality')
+    assert(adminDetail.geoPreview?.faultDesc, '运营详情应有 geoPreview.faultDesc')
     console.log('[smoke] 运营详情 OK（无 rawUrl，来源=', adminDetail.sourceLabel || adminDetail.source, ')')
 
     const approved = await api('POST', `/admin/cases/${caseId}/approve`, {
@@ -239,6 +267,8 @@ async function main() {
       '审核通过后 article.status 应为 published_h5'
     )
     assert(Array.isArray(userDetail.article.sections) && userDetail.article.sections.length >= 3, '应有 article.sections')
+    const resultSection = userDetail.article.sections.find((s) => s.key === 'result')
+    assert(resultSection?.content?.includes('试车'), '完工段应含 stage_6 note')
     if (userDetail.coverImage) {
       assert(isDesensitizedUrl(userDetail.coverImage), '封面应为脱敏 URL')
     }

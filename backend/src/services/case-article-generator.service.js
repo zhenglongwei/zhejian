@@ -21,8 +21,6 @@ const {
   buildArticleBody,
   countNodeImages,
   resolveSeoNoindex,
-  defaultInspectResult,
-  defaultRepairPlan,
 } = require('../utils/case-article-templates')
 const {
   buildCaseSlug,
@@ -54,12 +52,20 @@ function buildCaseArticlePayload(input) {
   const storeNote = String(albumView.storeNote || '').trim()
   const imageCount = countNodeImages(nodes)
   const hasImages = imageCount > 0
+  const planAmount = albumView.planAmount ?? albumView.planMinAmount ?? null
 
-  const faultDesc = storeNote ? storeNote.slice(0, 120) : ''
-  const inspectResult = defaultInspectResult()
-  const repairPlan = storeNote
-    ? storeNote.slice(0, 200)
-    : defaultRepairPlan(serviceName)
+  const { extractGeoFromAlbumNodes } = require('../utils/album-geo-extract')
+  const geoExtracted = extractGeoFromAlbumNodes(nodes, {
+    coldStart,
+    serviceName,
+    planAmount,
+    storeNote,
+  })
+
+  const faultDesc = geoExtracted.faultDesc
+  const inspectResult = geoExtracted.inspectResult
+  const repairPlan = geoExtracted.repairPlan
+  const resultConfirm = geoExtracted.resultConfirm
 
   const sections = buildGeoSections({
     city,
@@ -70,21 +76,24 @@ function buildCaseArticlePayload(input) {
     faultDesc,
     inspectResult,
     repairPlan,
+    resultConfirm,
     coldStart,
     hasImages,
   })
 
   const geoBlock = {
     keyInfo: buildKeyInfo({ city, vehicle, serviceName, storeName }),
-    faultDesc: faultDesc || (coldStart ? '到店进行相关检查' : '用户反馈的相关问题'),
+    faultDesc,
     inspectResult,
     repairPlan,
+    resultConfirm,
     priceFactors: [],
     sections,
     nodeNarratives: buildNodeNarratives(nodes),
     generationSource: CASE_ARTICLE_GENERATION_SOURCE.TEMPLATE,
     generationVersion: GENERATION_VERSION,
     riskChecked: false,
+    fromNodes: geoExtracted.fromNodes,
   }
 
   const faq = normalizeCaseFaqLinks(content.faq)
@@ -99,6 +108,7 @@ function buildCaseArticlePayload(input) {
     faultDesc: geoBlock.faultDesc,
     inspectResult,
     repairPlan,
+    resultConfirm,
     coldStart,
     hasImages,
   })

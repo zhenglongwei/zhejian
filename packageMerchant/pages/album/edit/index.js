@@ -104,6 +104,9 @@ Page({
     canSwitchTemplate: false,
     switching: false,
     completeness: null,
+    geoEvidence: null,
+    geoEvidenceVariant: 'default',
+    geoEvidenceLabel: '',
     compareBeforeImages: [],
     compareAfterImages: [],
     comparePairPreview: [],
@@ -167,6 +170,7 @@ Page({
         compareGuidance: mergedMeta.compareGuidance,
         requiredLevelLabel: mergedMeta.requiredLevelLabel || '',
         requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
+        notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '补充本节点说明',
         images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
       }
@@ -267,6 +271,24 @@ Page({
       bottomPrimaryText = '提交审核'
     }
     const compareColumns = this.initCompareColumnsFromNodes(nodes, detail.templateId || '')
+    const geoEvidence =
+      detail.completeness && detail.completeness.geoEvidence
+        ? detail.completeness.geoEvidence
+        : null
+    let geoEvidenceVariant = 'default'
+    let geoEvidenceLabel = ''
+    if (geoEvidence) {
+      if (geoEvidence.level === 'block') {
+        geoEvidenceVariant = 'warning'
+        geoEvidenceLabel = '公开证据待补'
+      } else if (geoEvidence.level === 'weak') {
+        geoEvidenceVariant = 'info'
+        geoEvidenceLabel = '可优化'
+      } else {
+        geoEvidenceVariant = 'success'
+        geoEvidenceLabel = '证据齐全'
+      }
+    }
     this.setData({
       status: 'normal',
       detail,
@@ -303,6 +325,9 @@ Page({
       templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
       canSwitchTemplate,
       completeness: detail.completeness || null,
+      geoEvidence,
+      geoEvidenceVariant,
+      geoEvidenceLabel,
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)

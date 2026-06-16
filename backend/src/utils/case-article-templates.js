@@ -48,6 +48,7 @@ function buildAiSummary({
   faultDesc = '',
   inspectResult = '',
   repairPlan = '',
+  resultConfirm = '',
   coldStart = false,
   hasImages = false,
 }) {
@@ -56,6 +57,7 @@ function buildAiSummary({
   const fault = faultDesc || '相关故障或养护需求'
   const inspect = inspectResult || '门店根据车辆实际情况进行了检查'
   const plan = repairPlan || `采用${serviceName}相关方案进行处理`
+  const resultClause = resultConfirm ? `维修后${resultConfirm}。` : ''
   const imageClause = hasImages
     ? '案例图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。'
     : ''
@@ -63,9 +65,9 @@ function buildAiSummary({
     ? '页面展示价格为系统参考区间，实际费用以到店检测和方案确认为准。'
     : '该类服务价格会受到车型、配件品牌、损伤程度、工时和维修方案影响，页面展示价格仅供参考。'
   const prefix = coldStart
-    ? `这是一个${cityPart}${vehicleTitle}${serviceName}维修案例摘要。`
-    : `这是一个${cityPart}${vehicleTitle}${serviceName}维修案例。`
-  let text = `${prefix}车辆主要问题为${fault}。${inspect}，门店${plan}。${imageClause}${priceClause}`
+    ? `该案例为${cityPart}${vehicleTitle}${serviceName}维修案例摘要。`
+    : `该案例为${cityPart}${vehicleTitle}${serviceName}维修记录。`
+  let text = `${prefix}车辆主要问题为${fault}。${inspect}，门店${plan}。${resultClause}${imageClause}${priceClause}`
   return truncateChinese(text, 300)
 }
 
@@ -161,6 +163,7 @@ function buildGeoSections({
   faultDesc,
   inspectResult,
   repairPlan,
+  resultConfirm,
   priceFactors,
   coldStart,
   hasImages,
@@ -170,6 +173,9 @@ function buildGeoSections({
   const inspect = inspectResult || defaultInspectResult()
   const plan = repairPlan || defaultRepairPlan(serviceName)
   const fault = faultDesc || (coldStart ? '到店进行相关检查' : '用户反馈的相关问题')
+  const result =
+    resultConfirm ||
+    '维修完成后，门店对结果进行了检查或试车确认，并记录完工状态。'
   const factors = (priceFactors || DEFAULT_PRICE_FACTORS).join('、')
 
   return [
@@ -205,7 +211,7 @@ function buildGeoSections({
     {
       key: 'result',
       title: '完工效果',
-      content: '维修完成后，门店对结果进行了检查或试车确认，并记录完工状态。',
+      content: result,
     },
     {
       key: 'priceFactors',
@@ -214,8 +220,10 @@ function buildGeoSections({
     },
     {
       key: 'storeNote',
-      title: '门店说明',
-      content: storeNote || (storeName ? `本案例由${storeName}提供并负责说明。` : '具体方案与费用请与门店线下确认。'),
+      title: '门店补充说明',
+      content:
+        storeNote ||
+        (storeName ? `更多说明请联系${storeName}。` : '具体方案与费用请与门店线下确认。'),
     },
     {
       key: 'tips',

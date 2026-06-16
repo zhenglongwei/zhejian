@@ -1,21 +1,24 @@
-const { GEO_PAGES } = require('../../../mock/geo-pages')
+/**
+ * GEO-TOPIC-A02 · 专题读服务（聚合案例/门店）
+ */
+const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const {
+  PUBLIC_VISIBLE_STATUSES,
+  resolveGeoPageRef,
+  listGeoPages,
+  searchPublishedGeoPages,
+} = require('./geo-page-store.service')
 const { listCases, listMerchants, getMerchantDetail } = require('./content.service')
 
 const GEO_PAGE_TYPE_LABEL = {
   city_service: '城市服务',
   district_service: '城区服务',
   vehicle_service: '车型服务',
+  city_fault: '城市故障',
   fault_qa: '故障问答',
   merchant_geo: '门店专题',
   case_collection: '案例合集',
-}
-
-function resolveGeoPageRef(ref) {
-  const normalized = String(ref || '').trim()
-  if (!normalized) return null
-  return (
-    GEO_PAGES.find((item) => item.slug === normalized || item.id === normalized) || null
-  )
+  case_agg: '案例聚合',
 }
 
 function getGeoPageTypeLabel(pageType) {
@@ -24,7 +27,7 @@ function getGeoPageTypeLabel(pageType) {
 
 function isAccidentGeoPage(page) {
   if (!page) return false
-  if (page.pageType === 'case_collection') {
+  if (page.pageType === 'case_collection' || page.pageType === 'case_agg') {
     const text = [page.title, page.summary, ...(page.keywords || [])].join('')
     return text.includes('事故')
   }
@@ -36,33 +39,16 @@ function pickByIds(list, ids) {
   return (list || []).filter((item) => idSet.has(item.id))
 }
 
-function mapGeoListItem(page) {
-  const slug = page.slug || page.id
-  return {
-    id: page.id,
-    slug,
-    title: page.title,
-    summary: page.summary,
-    coverImage: page.coverImage || '',
-    city: page.city,
-    pageType: page.pageType,
-    updatedAt: page.updatedAt,
-    h5Path: `/topic/${slug}`,
-  }
-}
-
-async function listGeoPages(query = {}) {
-  let list = GEO_PAGES.map(mapGeoListItem)
-  const limit = query.limit != null ? parseInt(String(query.limit), 10) : 0
-  if (limit > 0) {
-    list = list.slice(0, limit)
-  }
-  return { list, total: GEO_PAGES.length }
-}
-
-async function getGeoPageDetail(ref) {
-  const page = resolveGeoPageRef(ref)
+async function getGeoPageDetail(ref, options = {}) {
+  const page = await resolveGeoPageRef(ref)
   if (!page) {
+    const err = new Error('专题不存在或已下线')
+    err.status = 404
+    throw err
+  }
+
+  const publicRead = options.publicRead !== false
+  if (publicRead && !PUBLIC_VISIBLE_STATUSES.includes(page.status)) {
     const err = new Error('专题不存在或已下线')
     err.status = 404
     throw err
@@ -101,15 +87,18 @@ async function getGeoPageDetail(ref) {
   }
 }
 
-function findGeoPageOrNull(ref) {
+async function findGeoPageOrNull(ref) {
   return resolveGeoPageRef(ref)
 }
 
 module.exports = {
+  GEO_PAGE_STATUS,
   listGeoPages,
+  searchPublishedGeoPages,
   getGeoPageDetail,
   findGeoPageOrNull,
   resolveGeoPageRef,
   getGeoPageTypeLabel,
   isAccidentGeoPage,
+  PUBLIC_VISIBLE_STATUSES,
 }

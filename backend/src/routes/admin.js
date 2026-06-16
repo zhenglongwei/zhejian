@@ -14,6 +14,17 @@ const {
   retryAllAdminCaseAssets,
   updateAdminCaseFaqLinks,
 } = require('../services/admin-case.service')
+const {
+  setAdminGeoPageStatus,
+  listAdminGeoPages,
+  getAdminGeoPageDetail,
+  createAdminGeoPage,
+  updateAdminGeoPage,
+} = require('../services/admin-geo-page.service')
+const {
+  updateAdminCaseGeoContent,
+  regenerateAdminCaseArticle,
+} = require('../services/admin-case-article.service')
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
 const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
@@ -181,6 +192,82 @@ router.put('/cases/:caseId/faq', async (req, res, next) => {
     const data = await updateAdminCaseFaqLinks(req.params.caseId, {
       faq: req.body?.faq,
     })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/cases/:caseId/geo-content', async (req, res, next) => {
+  try {
+    const data = await updateAdminCaseGeoContent(req.params.caseId, req.body || {}, {
+      reviewerId: req.admin?.reviewerId,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/regenerate-article', async (req, res, next) => {
+  try {
+    const data = await regenerateAdminCaseArticle(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo-pages', async (req, res, next) => {
+  try {
+    const data = await listAdminGeoPages(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo-pages/:pageId', async (req, res, next) => {
+  try {
+    const data = await getAdminGeoPageDetail(req.params.pageId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo-pages', async (req, res, next) => {
+  try {
+    const data = await createAdminGeoPage(req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/geo-pages/:pageId', async (req, res, next) => {
+  try {
+    const data = await updateAdminGeoPage(req.params.pageId, req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo-pages/:pageId/publish', async (req, res, next) => {
+  try {
+    const data = await setAdminGeoPageStatus(req.params.pageId, 'published')
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo-pages/:pageId/unpublish', async (req, res, next) => {
+  try {
+    const data = await setAdminGeoPageStatus(req.params.pageId, 'draft')
     return ok(res, data)
   } catch (e) {
     next(e)

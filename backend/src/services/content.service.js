@@ -26,7 +26,7 @@ const { formatPlanRecord } = require('./service-plan-format')
 const { resolveRelatedCasesForService } = require('../utils/service-case-link')
 const { resolveRelatedCasesForCase } = require('../utils/case-related-cases')
 const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-internal-links')
-const { GEO_PAGES } = require('../../../mock/geo-pages')
+const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
 const { buildNodesFromTask } = require('./public-case.service')
@@ -435,12 +435,14 @@ async function getCaseDetail(idOrSlug) {
   const faq = normalizeCaseFaqLinks(item.faq)
   const display = applyPublicDisplayRules(item)
   const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
+  const { list: publishedGeoPages } = await listGeoPages({ limit: 100 })
   const internalLinks = buildCaseInternalLinks(
     { ...display, serviceItemId },
     {
       album,
       showStorePublicly,
       hasFaq: hasCaseFaqLinks(faq),
+      geoPages: publishedGeoPages,
     }
   )
 
@@ -692,23 +694,12 @@ async function getServiceDetail(id) {
 }
 
 function filterGeoPages(keyword) {
-  const k = normalizeKeyword(keyword)
-  if (!k) return []
-  return GEO_PAGES.filter((page) => {
-    const haystack = [page.title, page.summary, ...(page.keywords || [])].join(' ')
-    return includesKeyword(haystack, k)
-  }).map((page) => {
-    const slug = page.slug || page.id
-    return {
-      id: page.id,
-      slug,
-      title: page.title,
-      summary: page.summary,
-      keywords: page.keywords || [],
-      updatedAt: page.updatedAt,
-      h5Path: `/topic/${slug}`,
-    }
-  })
+  // 兼容旧同步调用；异步搜索请用 searchPublishedGeoPages
+  return []
+}
+
+async function filterGeoPagesAsync(keyword) {
+  return searchPublishedGeoPages(keyword)
 }
 
 function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
@@ -779,7 +770,7 @@ async function searchContent(query = {}) {
   let matchedServices = services.filter((item) => matchSearchService(item, keyword))
   let matchedMerchants = merchants.filter((item) => matchSearchMerchant(item, keyword))
   let matchedCases = cases.filter((item) => matchSearchCase(item, keyword))
-  let geoPages = filterGeoPages(keyword)
+  let geoPages = await filterGeoPagesAsync(keyword)
 
   if (storeId) {
     matchedServices = matchedServices.filter((item) => item.storeId === storeId)
@@ -839,7 +830,7 @@ async function getSearchSuggest(keyword) {
   const filteredServices = services.filter((item) => matchSearchService(item, k))
   const filteredMerchants = merchants.filter((item) => matchSearchMerchant(item, k))
   const filteredCases = cases.filter((item) => matchSearchCase(item, k))
-  const geoPages = filterGeoPages(k)
+  const geoPages = await filterGeoPagesAsync(k)
 
   return buildSuggestItems(k, filteredServices, filteredMerchants, filteredCases, geoPages)
 }

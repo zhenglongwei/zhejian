@@ -121,11 +121,13 @@ async function verifyH5Home() {
 
   const geoList = await api('GET', '/user/geo-pages?limit=3')
   assert(geoList.ok && geoList.json?.code === 0, 'GET /user/geo-pages 失败')
-  const geoId = geoList.json.data?.list?.[0]?.id
-  assert(geoId, 'geo-pages 列表为空')
-  const geoDetail = await api('GET', `/user/geo-pages/${encodeURIComponent(geoId)}`)
-  assert(geoDetail.ok && geoDetail.json?.code === 0, `GET /user/geo-pages/${geoId} 失败`)
-  console.log('[chain] ✅ GET /user/geo-pages/:id')
+  const geoItem = geoList.json.data?.list?.[0]
+  assert(geoItem?.id, 'geo-pages 列表为空（请先 npm run geo:migrate-mock:publish）')
+  assert(geoItem?.slug, 'geo-pages 缺少 slug')
+  const geoDetail = await api('GET', `/user/geo-pages/${encodeURIComponent(geoItem.slug)}`)
+  assert(geoDetail.ok && geoDetail.json?.code === 0, `GET /user/geo-pages/${geoItem.slug} 失败`)
+  assert(geoDetail.json.data?.slug === geoItem.slug, 'geo 详情 slug 不一致')
+  console.log('[chain] ✅ GET /user/geo-pages/:id (DB)', geoItem.slug)
 }
 
 async function verifyH5City() {

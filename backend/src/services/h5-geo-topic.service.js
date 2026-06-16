@@ -34,14 +34,20 @@ function mapStoreItem(item) {
 }
 
 function buildTopicSeo(page, { allowIndex }) {
+  const forceNoindex = page.status === 'noindex'
+  const title =
+    page.seoTitle || `${page.title}_本地汽车维修专题 · 辙见`
+  const description =
+    page.seoDescription ||
+    page.summary ||
+    `查看${page.city || ''}${page.title}相关门店、脱敏案例与常见问题，价格仅供参考。`
+  const indexable = allowIndex && !forceNoindex
   return {
-    title: `${page.title}_本地汽车维修专题 · 辙见`,
-    description:
-      page.summary ||
-      `查看${page.city || ''}${page.title}相关门店、脱敏案例与常见问题，价格仅供参考。`,
+    title,
+    description,
     canonicalPath: `/topic/${page.slug}`,
-    robots: allowIndex ? 'index,follow' : 'noindex,follow',
-    allowIndex,
+    robots: indexable ? 'index,follow' : 'noindex,follow',
+    allowIndex: indexable,
   }
 }
 
@@ -61,6 +67,7 @@ async function getGeoTopicPagePayload(slugOrId) {
       pageTypeLabel: detail.pageTypeLabel,
       updatedAt: detail.updatedAt,
       keywords: detail.keywords || [],
+      aiSummary: detail.aiSummary || detail.summary || '',
       isAccidentTopic: detail.isAccidentTopic,
       primaryStoreId: detail.primaryStoreId || '',
       relatedServiceId: detail.relatedServiceId || '',

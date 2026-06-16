@@ -5,6 +5,7 @@ const { renderUrlSet, renderSitemapIndex, formatSitemapDate } = require('../lib/
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { fetchPublicCaseRows, listCases, listMerchants } = require('./content.service')
 const { listGeoPages, getGeoPageDetail } = require('./geo.service')
+const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 
 const SITEMAP_TYPES = new Set(['pages', 'cases', 'stores'])
 
@@ -140,7 +141,10 @@ async function collectPageEntries() {
     }
   }
 
-  const { list: geoList } = await listGeoPages({ limit: 0 })
+  const { list: geoList } = await listGeoPages({
+    limit: 0,
+    status: GEO_PAGE_STATUS.PUBLISHED,
+  })
   for (const topic of geoList) {
     try {
       const detail = await getGeoPageDetail(topic.slug || topic.id)

@@ -34,6 +34,18 @@
       <ui-compliance-notice type="desensitize" />
       <ui-compliance-notice type="desensitizeGuide" />
     </block>
+    <view wx:if="{{geoBlocked}}" class="desensitize-page__geo-block">
+      <ui-tag variant="warning" text="公开证据待补" />
+      <text class="text-caption desensitize-page__geo-block-title">提交审核前请补全以下项：</text>
+      <view class="desensitize-page__geo-block-list">
+        <text
+          wx:for="{{geoBlockMessages}}"
+          wx:key="*this"
+          class="text-caption desensitize-page__geo-block-item"
+        >· {{item}}</text>
+      </view>
+      <ui-button type="secondary" size="sm" block bind:btntap="onBackEdit">返回相册补全</ui-button>
+    </view>
     <view wx:if="{{needPreviewHint}}" class="desensitize-page__preview-hint text-caption">
       请逐张点开右侧脱敏图预览，确认后再提交。
     </view>
@@ -76,7 +88,7 @@
         type="secondary"
         slot="right"
         loading="{{confirmLoading}}"
-        disabled="{{!canConfirm || !liabilityAccepted}}"
+        disabled="{{!canConfirm || !liabilityAccepted || geoBlocked}}"
         bind:btntap="onConfirm"
       >{{confirmLabelShort}}</ui-button>
     </ui-fixed-bottom-bar>

@@ -85,6 +85,15 @@
       <el-empty v-if="!detail.mediaAssets?.length" description="暂无图片素材" />
     </el-card>
 
+    <CaseGeoEditor
+      v-if="showGeoEditor"
+      class="section"
+      :case-id="detail.caseId"
+      :detail="detail"
+      :editable="geoEditable"
+      @saved="onGeoSaved"
+    />
+
     <el-card shadow="never" class="section">
       <template #header>审核操作</template>
       <ReviewActionBar
@@ -142,6 +151,7 @@ import ReviewActionBar from '@/components/case-review/ReviewActionBar.vue'
 import AuditLogTimeline from '@/components/case-review/AuditLogTimeline.vue'
 import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
 import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
+import CaseGeoEditor from '@/components/case-review/CaseGeoEditor.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -183,6 +193,15 @@ const desensitizeAlert = computed(() => {
   if (s.pendingCount) parts.push(`${s.pendingCount} 张待脱敏`)
   return `脱敏未完成：${parts.join('、')}。请重试脱敏或要求商家修改后再审核通过。`
 })
+const showGeoEditor = computed(
+  () =>
+    detail.value.caseId &&
+    (detail.value.status === 'pending_review' || detail.value.status === 'public_approved')
+)
+const geoEditable = computed(
+  () =>
+    detail.value.status === 'pending_review' || detail.value.status === 'public_approved'
+)
 
 async function loadDetail() {
   loading.value = true
@@ -232,8 +251,32 @@ async function onRetryAll() {
   }
 }
 
+function onGeoSaved(next) {
+  if (next && typeof next === 'object') {
+    detail.value = next
+  } else {
+    loadDetail()
+  }
+}
+
 async function onApprove() {
-  await ElMessageBox.confirm('确认通过并公开该案例？', '审核确认')
+  if (detail.value.geoQuality?.level === 'block') {
+    ElMessage.warning('案例 GEO 证据缺失（block），请要求商家补全或驳回')
+    return
+  }
+  if (detail.value.geoQuality?.level === 'weak') {
+    try {
+      await ElMessageBox.confirm(
+        '该案例 GEO 证据完整度偏弱，公开后 AI 可引用质量可能不足。确认仍要通过？',
+        '证据质量提醒',
+        { type: 'warning', confirmButtonText: '仍要通过' }
+      )
+    } catch {
+      return
+    }
+  } else {
+    await ElMessageBox.confirm('确认通过并公开该案例？', '审核确认')
+  }
   submitting.value = true
   try {
     const payload = actionRef.value?.getPayload() || {}

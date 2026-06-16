@@ -37,6 +37,7 @@ const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
 const { detectAlbumSaveChanges } = require('../utils/album-save-notify')
 const { maskPlate } = require('../utils/plate-mask')
 const { normalizePlate, normalizeVin } = require('./vehicle-intake-ocr.service')
+const { assessGeoEvidence } = require('../utils/case-geo-quality')
 
 function normalizeVehicleJson(vehicle = {}) {
   if (!vehicle || typeof vehicle !== 'object') return {}
@@ -232,6 +233,16 @@ function buildServiceAlbumCompleteness(album, nodes) {
     if (!node) return false
     return (node.images || []).length > 0 || String(node.note || '').trim()
   }).length
+  const privatePrice = buildPrivateAlbumPrice(album)
+  const planAmount = privatePrice.planAmount
+  const geoResult = assessGeoEvidence({
+    nodes: list,
+    coldStart: true,
+    serviceName: album.serviceName,
+    planAmount,
+    storeNote: album.storeNote,
+    imageCount: album.imageCount || countImages(list),
+  })
   return {
     filledStages: filled,
     totalStages: total,
@@ -241,6 +252,13 @@ function buildServiceAlbumCompleteness(album, nodes) {
       requiredKeys.length > 0
         ? `已上传 ${filled}/${total} 个阶段，必拍 ${requiredFilled}/${requiredKeys.length}`
         : `已上传 ${filled}/${total} 个阶段`,
+    geoEvidence: {
+      level: geoResult.level,
+      score: geoResult.score,
+      summaryText: geoResult.summaryText,
+      missingCount: geoResult.missingFields.length,
+      missingFields: geoResult.missingFields,
+    },
   }
 }
 
@@ -780,7 +798,13 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
 
 async function fetchMerchantAlbumStats(storeId, merchantId = '') {
   const where = merchantId ? { merchantId } : { storeId }
-  const albums = await prisma.album.findMany({ where })
+  const albums = await prisma.album.findMany({
+    where,
+    include: {
+      nodes: { orderBy: { sortOrder: 'asc' } },
+      publicCase: true,
+    },
+  })
   const active = filterByTab(albums, 'active', MERCHANT_TAB_STATUS).length
   const pendingAuth = filterByTab(albums, 'pending_auth', MERCHANT_TAB_STATUS)
     .filter((a) => a.status === SERVICE_ALBUM_STATUS.COMPLETED).length
@@ -789,7 +813,24 @@ async function fetchMerchantAlbumStats(storeId, merchantId = '') {
       [SERVICE_ALBUM_STATUS.DRAFT, 'in_progress'].includes(a.status) &&
       a.imageCount < 2
   ).length
-  return { active, pendingAuth, pendingUpload, total: albums.length }
+  let geoEvidenceBlocked = 0
+  for (const album of albums) {
+    const hasOwner =
+      Boolean(String(album.userId || '').trim()) ||
+      Boolean(String(album.userPhone || '').trim())
+    const isCompleted =
+      album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+      album.status === SERVICE_ALBUM_STATUS.PUBLISHED ||
+      album.status === 'published'
+    const publicCaseStatus = resolvePublicCaseStatus(album)
+    if (!isCompleted || hasOwner || publicCaseStatus !== 'private') continue
+    const nodes = mapNodesForView(album)
+    const completeness = buildServiceAlbumCompleteness(album, nodes)
+    if (completeness.geoEvidence && completeness.geoEvidence.level === 'block') {
+      geoEvidenceBlocked += 1
+    }
+  }
+  return { active, pendingAuth, pendingUpload, geoEvidenceBlocked, total: albums.length }
 }
 
 async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {

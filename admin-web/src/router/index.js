@@ -44,6 +44,21 @@ const routes = [
         component: () => import('@/views/service-review/detail/index.vue'),
       },
       {
+        path: 'geo-pages',
+        name: 'geo-page-list',
+        component: () => import('@/views/geo-pages/list/index.vue'),
+      },
+      {
+        path: 'geo-pages/new',
+        name: 'geo-page-create',
+        component: () => import('@/views/geo-pages/edit/index.vue'),
+      },
+      {
+        path: 'geo-pages/:pageId',
+        name: 'geo-page-edit',
+        component: () => import('@/views/geo-pages/edit/index.vue'),
+      },
+      {
         path: 'reports',
         name: 'report-list',
         component: () => import('@/views/report-review/list/index.vue'),

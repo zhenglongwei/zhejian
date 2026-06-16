@@ -516,6 +516,50 @@ function maskPhone(phone) {
   return `${phone.slice(0, 3)}****${phone.slice(-4)}`
 }
 
+function buildMockGeoEvidence(album, nodes) {
+  const imageCount = countAlbumImages(nodes)
+  const missingFields = []
+  const hasStageEvidence = (stageId) => {
+    const node = (nodes || []).find((n) => n.id === stageId)
+    if (!node) return false
+    return (node.images || []).length > 0 || String(node.note || '').trim()
+  }
+  if (imageCount < 1) {
+    missingFields.push({ field: 'images', message: '请至少上传一张过程图' })
+  }
+  if (!hasStageEvidence('stage_1')) {
+    missingFields.push({
+      field: 'stage_1',
+      message: '请补充接车记录：故障现象或需求说明，或上传接车图片',
+    })
+  }
+  if (!hasStageEvidence('stage_2')) {
+    missingFields.push({
+      field: 'stage_2',
+      message: '请补充检测诊断：检查结论说明，或上传检测图片',
+    })
+  }
+  const planAmount = album.planAmount ?? album.planMinAmount
+  const hasPlan =
+    hasStageEvidence('stage_3') ||
+    (planAmount != null && planAmount !== '' && Number.isFinite(Number(planAmount)))
+  if (!hasPlan) {
+    missingFields.push({
+      field: 'stage_3',
+      message: '请补充方案与报价：维修方案说明，或填写方案报价金额',
+    })
+  }
+  const level = missingFields.length ? 'block' : 'ready'
+  return {
+    level,
+    score: level === 'block' ? 40 : 85,
+    summaryText:
+      level === 'block' ? `缺 ${missingFields.length} 项关键证据` : '关键阶段证据齐全',
+    missingCount: missingFields.length,
+    missingFields,
+  }
+}
+
 function buildMockCompleteness(album, nodes) {
   const total = (nodes || []).length
   const filled = (nodes || []).filter(
@@ -527,6 +571,7 @@ function buildMockCompleteness(album, nodes) {
     requiredStages: 0,
     requiredFilled: 0,
     summaryText: `已上传 ${filled}/${total} 个阶段`,
+    geoEvidence: buildMockGeoEvidence(album, nodes),
   }
 }
 
@@ -974,7 +1019,42 @@ async function mockFetchMerchantAlbumStats() {
       [SERVICE_ALBUM_STATUS.IN_PROGRESS, SERVICE_ALBUM_STATUS.DRAFT].includes(a.status) &&
       countAlbumImages(a.nodes) < 2
   ).length
-  return { active, pendingAuth, pendingUpload, total: albums.length }
+  let geoEvidenceBlocked = 0
+  albums.forEach((raw) => {
+    const hasOwner = Boolean(String(raw.userPhone || '').trim())
+    const isCompleted =
+      raw.status === SERVICE_ALBUM_STATUS.COMPLETED ||
+      raw.status === SERVICE_ALBUM_STATUS.PUBLISHED
+    const publicCaseStatus = resolvePublicCaseStatus(raw.albumId)
+    if (!isCompleted || hasOwner || publicCaseStatus !== 'private') return
+    const nodes = mapNodesForView(raw.nodes)
+    const geo = buildMockGeoEvidence(raw, nodes)
+    if (geo.level === 'block') geoEvidenceBlocked += 1
+  })
+  return { active, pendingAuth, pendingUpload, geoEvidenceBlocked, total: albums.length }
+}
+
+async function mockFetchMerchantAlbumGeoPreview(albumId) {
+  await delay(120)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在或已被删除')
+    err.code = 404
+    throw err
+  }
+  const view = buildMerchantAlbumView(raw)
+  const geoEvidence = view.completeness && view.completeness.geoEvidence
+  return {
+    geoQuality: geoEvidence || { level: 'ready', score: 85, summaryText: '关键阶段证据齐全', missingFields: [], warnings: [] },
+    geoPreview: {
+      faultDesc: '',
+      inspectResult: '',
+      repairPlan: '',
+      resultConfirm: '',
+    },
+    aiSummaryPreview: '',
+  }
 }
 
 async function mockCreateMerchantColdStartPreview(albumId) {
@@ -1361,6 +1441,7 @@ module.exports = {
   mockSaveMerchantServiceAlbum,
   mockCompleteMerchantServiceAlbum,
   mockFetchMerchantAlbumStats,
+  mockFetchMerchantAlbumGeoPreview,
   mockCreateMerchantColdStartPreview,
   mockSubmitMerchantPublicCase,
   mockRecordAlbumShare,

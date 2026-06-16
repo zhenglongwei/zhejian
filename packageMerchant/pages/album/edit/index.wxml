@@ -44,6 +44,10 @@
         <view wx:if="{{completeness}}" class="merchant-album-edit__progress">
           <text class="text-caption">{{completeness.summaryText}}</text>
         </view>
+        <view wx:if="{{geoEvidence}}" class="merchant-album-edit__geo">
+          <ui-tag variant="{{geoEvidenceVariant}}" text="{{geoEvidenceLabel}}" />
+          <text class="text-caption merchant-album-edit__geo-text">{{geoEvidence.summaryText}}</text>
+        </view>
         <ui-key-info-table rows="{{summaryRows}}" />
       </ui-card>
 
@@ -67,7 +71,7 @@
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             note="{{nodes[stageIndex].note}}"
-            notePlaceholder="补充本节点说明（可选）"
+            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             uploadHint="{{uploadPrivacyHint}}"
             beforeImages="{{compareBeforeImages}}"
             afterImages="{{compareAfterImages}}"
@@ -88,7 +92,7 @@
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             note="{{nodes[stageIndex].note}}"
-            notePlaceholder="补充本节点照片说明（可选）"
+            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             images="{{nodes[stageIndex].images}}"
             uploadHint="{{uploadPrivacyHint}}"
             data-index="{{stageIndex}}"

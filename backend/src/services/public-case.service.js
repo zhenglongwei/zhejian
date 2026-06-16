@@ -6,6 +6,9 @@ const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice, buildPublicCaseDbPriceColumns } = require('../utils/album-price')
 const { buildPreMaskTaskId, buildMerchantColdStartTaskId, BIZ_TYPE } = require('./desensitize.constants')
+const { mergeContentJsonGeo } = require('../schemas/case-geo-content.schema')
+const { assertGeoPublishable } = require('../utils/case-geo-quality')
+const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -96,14 +99,17 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
     { hasUserAuthorization }
   )
 
-  const summary =
-    albumView.storeNote ||
-    buildCaseSummary({
-      vehicle,
-      serviceName,
-      authorizationTier: tier,
-      coldStart,
-    })
+  const summary = buildCaseSummary({
+    vehicle,
+    serviceName,
+    authorizationTier: tier,
+    coldStart,
+  })
+
+  const geoPack = buildAlbumGeoPreview(
+    { ...albumView, nodes: nodesWithMask },
+    { coldStart }
+  )
 
   return {
     id: caseId,
@@ -121,12 +127,15 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
     minAmount: publicPrice.minAmount,
     maxAmount: publicPrice.maxAmount,
     planAmount: publicPrice.planAmount,
-    contentJson: {
-      nodes: nodesWithMask,
-      vehicleText: `${buildVehicleTitle(vehicle)}（已脱敏）`,
-      tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
-      coldStart,
-    },
+    contentJson: mergeContentJsonGeo(
+      {
+        nodes: nodesWithMask,
+        vehicleText: `${buildVehicleTitle(vehicle)}（已脱敏）`,
+        tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
+        coldStart,
+      },
+      geoPack.geo
+    ),
   }
 }
 
@@ -185,6 +194,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const albumView = buildAlbumView(album)
+  assertGeoPublishable(albumView, { coldStart: false })
   const task = await resolvePublishTask(albumId, payload)
   const draft = buildCaseDraft(albumView, task, authorizationTier, {
     serviceItemId: album.serviceItemId || '',
@@ -326,6 +336,7 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
   }
 
   const albumView = buildAlbumView(album)
+  assertGeoPublishable(albumView, { coldStart: true })
   const draft = buildCaseDraft(albumView, task, 'private', {
     coldStart: true,
     hasUserAuthorization: false,

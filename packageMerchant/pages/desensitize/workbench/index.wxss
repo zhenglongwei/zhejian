@@ -1,3 +1,28 @@
+.desensitize-page__geo-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-warning-light);
+}
+
+.desensitize-page__geo-block-title {
+  color: var(--color-text-secondary);
+}
+
+.desensitize-page__geo-block-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.desensitize-page__geo-block-item {
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .desensitize-page__preview-hint {
   margin-bottom: var(--space-md);
   color: var(--color-warning);

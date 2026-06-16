@@ -9,8 +9,18 @@ function errorHandler(err, req, res, next) {
   const status = err.status || 500
   const code = err.code || (status === 409 ? 100007 : 100006)
   const message = err.message || '系统繁忙'
+  const data =
+    err.data ||
+    (err.missingFields
+      ? {
+          missingFields: err.missingFields,
+          geoQuality: err.geoQuality || null,
+        }
+      : null) ||
+    err.details ||
+    null
   console.error('[api-error]', res.locals.requestId, err)
-  fail(res, code, message, status)
+  fail(res, code, message, status, data)
 }
 
 module.exports = { notFoundHandler, errorHandler }

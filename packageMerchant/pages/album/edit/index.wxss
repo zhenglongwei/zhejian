@@ -104,6 +104,20 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-album-edit__geo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-album-edit__geo-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-secondary);
+}
+
 .merchant-album-edit__tabs {
   margin: var(--space-md) 0;
 }
