@@ -70,23 +70,41 @@
     return ''
   }
 
+  function renderDisclaimer() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(
+        COPY.displayDisclaimer,
+        COPY.geoDisclaimer
+      )
+    }
+    return '<div class="h5-banner">' + escapeHtml(COPY.displayDisclaimer) + '</div>'
+  }
+
   function renderServiceEntries(entries) {
     if (!entries || !entries.length) return ''
+    var ui = window.zhejianH5Ui
     var items = entries
       .map(function (entry) {
         var href = entry.h5Path || '/case/'
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: href,
+            name: entry.name,
+            summary: entry.summary || entry.tag || '查看公开案例与价格参考',
+          })
+        }
         return (
-          '<a class="h5-city-service-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(href) +
-          '"><span class="h5-city-service-name">' +
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
           escapeHtml(entry.name) +
-          '</span></a>'
+          '</div></div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">热门维修项目</h2>' +
-      '<div class="h5-city-service-grid">' +
+      '<div class="h5-entry-grid">' +
       items +
       '</div></div>'
     )
@@ -94,25 +112,29 @@
 
   function renderGeoTopics(topics) {
     if (!topics || !topics.length) return ''
+    var ui = window.zhejianH5Ui
     var items = topics
       .map(function (topic) {
         var href = topic.h5Path || '/topic/' + encodeURIComponent(topic.slug || topic.id)
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: href,
+            name: topic.title,
+            summary: topic.summary || '阅读专题说明与相关案例',
+          })
+        }
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(href) +
-          '"><div class="h5-case-list-title">' +
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
           escapeHtml(topic.title) +
-          '</div>' +
-          (topic.summary
-            ? '<div class="h5-case-list-meta">' + escapeHtml(topic.summary) + '</div>'
-            : '') +
-          '</a>'
+          '</div></div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">常见维修问题</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-entry-list">' +
       items +
       '</div></div>'
     )
@@ -120,24 +142,30 @@
 
   function renderCityEntries(entries) {
     if (!entries || !entries.length) return ''
+    var ui = window.zhejianH5Ui
     var items = entries
       .map(function (city) {
         var path = city.path || '/city/' + encodeURIComponent(city.slug)
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: path,
+            name: city.name,
+            summary: '本地门店与公开案例',
+            hint: '城市服务页 ›',
+          })
+        }
         return (
-          '<a class="h5-city-entry-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(path) +
-          '">' +
-          '<span class="h5-city-entry-name">' +
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
           escapeHtml(city.name) +
-          '</span>' +
-          '<span class="h5-city-entry-hint">城市服务页 ›</span>' +
-          '</a>'
+          '</div></div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">服务城市</h2>' +
-      '<div class="h5-city-entry-list">' +
+      '<div class="h5-entry-list">' +
       items +
       '</div></div>'
     )
@@ -192,31 +220,25 @@
         '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
       )
     }
+    var ui = window.zhejianH5Ui
     var items = stores
       .map(function (store) {
-        var meta = [store.address, store.businessHours].filter(Boolean).join(' · ')
-        var stats = []
-        if (store.caseCount > 0) stats.push('公开案例 ' + store.caseCount)
+        if (ui && ui.renderStoreListItem) {
+          return ui.renderStoreListItem(store, { href: storeHref(store.id) })
+        }
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-media-list-item" href="' +
           storeHref(store.id) +
-          '">' +
-          '<div class="h5-case-list-title">' +
+          '"><div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>' +
+          '<div class="h5-media-list-body"><div class="h5-media-list-title">' +
           escapeHtml(store.name) +
-          '</div>' +
-          (meta
-            ? '<div class="h5-case-list-meta">' + escapeHtml(meta) + '</div>'
-            : '') +
-          (stats.length
-            ? '<div class="h5-case-list-meta">' + escapeHtml(stats.join(' · ')) + '</div>'
-            : '') +
-          '</a>'
+          '</div></div></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">推荐门店</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       items +
       '</div>' +
       '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
@@ -253,12 +275,7 @@
       '<p class="h5-summary">' +
       escapeHtml(identity) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.displayDisclaimer) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      renderDisclaimer() +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/search/">搜索内容</a>' +
@@ -283,6 +300,10 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
 
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', {

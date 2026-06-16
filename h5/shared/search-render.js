@@ -231,35 +231,84 @@
     return '<div class="h5-search-suggest">' + items + '</div>'
   }
 
-  function renderListItem(title, meta, href, tag) {
+  function searchTagClass(type) {
+    if (type === '服务') return 'h5-tag--reference'
+    if (type === '案例') return 'h5-tag--audited'
+    return 'h5-tag--info'
+  }
+
+  function renderTypedMediaItem(options) {
+    options = options || {}
+    var thumb =
+      options.thumbHtml ||
+      '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">' +
+        escapeHtml(options.placeholder || options.type || '内容') +
+        '</div>'
+    var tag = options.type
+      ? '<span class="h5-tag ' +
+        searchTagClass(options.type) +
+        ' h5-search-result-tag">' +
+        escapeHtml(options.type) +
+        '</span>'
+      : ''
     return (
-      '<a class="h5-case-list-item" href="' +
-      escapeHtml(href) +
+      '<a class="h5-media-list-item h5-search-result-item" href="' +
+      escapeHtml(options.href || '#') +
       '">' +
-      (tag ? '<span class="h5-search-tag">' + escapeHtml(tag) + '</span>' : '') +
-      '<div class="h5-case-list-title">' +
-      escapeHtml(title) +
+      thumb +
+      '<div class="h5-media-list-body">' +
+      tag +
+      '<div class="h5-media-list-title">' +
+      escapeHtml(options.title || '') +
       '</div>' +
-      (meta ? '<div class="h5-case-list-meta">' + escapeHtml(meta) + '</div>' : '') +
-      '</a>'
+      (options.summary
+        ? '<div class="h5-media-list-summary">' + escapeHtml(options.summary) + '</div>'
+        : '') +
+      (options.meta
+        ? '<div class="h5-media-list-meta">' + escapeHtml(options.meta) + '</div>'
+        : '') +
+      '</div></a>'
+    )
+  }
+
+  function renderSectionHeader(title, count) {
+    return (
+      '<div class="h5-search-section-title">' +
+      '<h2 class="h5-section-title">' +
+      escapeHtml(title) +
+      '</h2>' +
+      (count != null
+        ? '<span class="h5-search-count">' + count + ' 条</span>'
+        : '') +
+      '</div>'
     )
   }
 
   function renderGeoList(geoPages) {
     if (!geoPages || !geoPages.length) return ''
+    var ui = window.zhejianH5Ui
     var items = geoPages
       .map(function (item) {
-        return renderListItem(item.title, item.summary || '', geoHref(item), '专题')
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: geoHref(item),
+            name: item.title,
+            summary: item.summary || '阅读专题说明与相关案例',
+          })
+        }
+        return renderTypedMediaItem({
+          href: geoHref(item),
+          type: '专题',
+          title: item.title,
+          summary: item.summary || '',
+          placeholder: '专题',
+        })
       })
       .join('')
     return (
       '<div class="h5-search-section">' +
-      '<div class="h5-search-section-title">' +
-      '<h3 class="text-h3">维修专题</h3>' +
-      '<span class="h5-search-count">' +
-      geoPages.length +
-      ' 条</span></div>' +
-      '<div class="h5-case-list">' +
+      renderSectionHeader('维修专题', geoPages.length) +
+      '<div class="h5-entry-list">' +
       items +
       '</div></div>'
     )
@@ -267,19 +316,33 @@
 
   function renderServiceList(services) {
     if (!services || !services.length) return ''
+    var ui = window.zhejianH5Ui
     var items = services
       .map(function (item) {
+        if (ui && ui.renderServiceListItem) {
+          var html = ui.renderServiceListItem(item, { href: serviceHref(item.id) })
+          return html.replace(
+            '<div class="h5-media-list-body">',
+            '<div class="h5-media-list-body"><span class="h5-tag h5-tag--reference h5-search-result-tag">服务</span>'
+          )
+        }
         var meta = [item.storeName, formatServicePrice(item), item.categoryName]
           .filter(Boolean)
           .join(' · ')
-        return renderListItem(item.name, meta, serviceHref(item.id), '服务')
+        return renderTypedMediaItem({
+          href: serviceHref(item.id),
+          type: '服务',
+          title: item.name,
+          summary: item.summary || '',
+          meta: meta,
+          placeholder: '服务',
+        })
       })
       .join('')
     return (
       '<div class="h5-search-section">' +
-      '<div class="h5-search-section-title">' +
-      '<h3 class="text-h3">服务</h3></div>' +
-      '<div class="h5-case-list">' +
+      renderSectionHeader('服务', services.length) +
+      '<div class="h5-media-list">' +
       items +
       '</div></div>'
     )
@@ -287,19 +350,32 @@
 
   function renderMerchantList(merchants) {
     if (!merchants || !merchants.length) return ''
+    var ui = window.zhejianH5Ui
     var items = merchants
       .map(function (item) {
+        if (ui && ui.renderStoreListItem) {
+          var html = ui.renderStoreListItem(item, { href: storeHref(item.id) })
+          return html.replace(
+            '<div class="h5-media-list-body">',
+            '<div class="h5-media-list-body"><span class="h5-tag h5-tag--info h5-search-result-tag">门店</span>'
+          )
+        }
         var meta = [item.address, item.caseCount ? '公开案例 ' + item.caseCount : '']
           .filter(Boolean)
           .join(' · ')
-        return renderListItem(item.name, meta, storeHref(item.id), '门店')
+        return renderTypedMediaItem({
+          href: storeHref(item.id),
+          type: '门店',
+          title: item.name,
+          meta: meta,
+          placeholder: '门店',
+        })
       })
       .join('')
     return (
       '<div class="h5-search-section">' +
-      '<div class="h5-search-section-title">' +
-      '<h3 class="text-h3">门店</h3></div>' +
-      '<div class="h5-case-list">' +
+      renderSectionHeader('门店', merchants.length) +
+      '<div class="h5-media-list">' +
       items +
       '</div></div>'
     )
@@ -310,16 +386,26 @@
     var items = cases
       .map(function (item) {
         if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
-          return window.zhejianH5Ui.renderCaseListItem(item, { href: caseHref(item) })
+          var html = window.zhejianH5Ui.renderCaseListItem(item, { href: caseHref(item) })
+          return html.replace(
+            '<div class="h5-media-list-body">',
+            '<div class="h5-media-list-body"><span class="h5-tag h5-tag--audited h5-search-result-tag">案例</span>'
+          )
         }
         var meta = [item.city, item.storeName, item.serviceName].filter(Boolean).join(' · ')
-        return renderListItem(item.title || item.serviceName || '公开案例', meta, caseHref(item), '案例')
+        return renderTypedMediaItem({
+          href: caseHref(item),
+          type: '案例',
+          title: item.title || item.serviceName || '公开案例',
+          summary: item.summary || item.aiSummary || '',
+          meta: meta,
+          placeholder: '案例',
+        })
       })
       .join('')
     return (
       '<div class="h5-search-section">' +
-      '<div class="h5-search-section-title">' +
-      '<h3 class="text-h3">案例</h3></div>' +
+      renderSectionHeader('案例', cases.length) +
       '<div class="h5-media-list">' +
       items +
       '</div></div>'

@@ -332,12 +332,12 @@
           (pagination.total ? '（共 ' + pagination.total + ' 条已审核脱敏案例）' : '')
       ) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.casePrice) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.caseCompliance) +
-      '</div>' +
+      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
+        ? window.zhejianH5Ui.renderDisclaimer(
+            COPY.casePrice + ' ' + COPY.caseCompliance,
+            ''
+          )
+        : '<div class="h5-banner">' + escapeHtml(COPY.casePrice) + '</div>') +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="' +
@@ -357,6 +357,9 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
     bindInteractions(data)
 
     if (window.zhejianTrack) {

@@ -120,7 +120,7 @@
     return (
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(title) +
-      '</h2><ul class="h5-home-intro">' +
+      '</h2><ul class="h5-bullet-list">' +
       lis +
       '</ul></div>'
     )
@@ -171,13 +171,11 @@
   }
 
   function renderCases(cases, topic) {
+    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">相关案例</h2>' +
       '<p class="h5-compliance">' +
-      escapeHtml(COPY.casePrice) +
-      '</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.caseCompliance) +
+      escapeHtml(caseNote) +
       '</p>'
     if (!cases || !cases.length) {
       return section + '<div class="h5-empty-block">暂无相关公开案例</div></div>'
@@ -225,30 +223,30 @@
         '<div class="h5-empty-block">暂无可展示门店</div></div>'
       )
     }
+    var ui = window.zhejianH5Ui
     var items = stores
       .map(function (store) {
+        if (ui && ui.renderStoreListItem) {
+          return ui.renderStoreListItem(store, {
+            href: storePagePath(store.id),
+            extraAttrs: ' data-store-id="' + escapeHtml(store.id) + '"',
+          })
+        }
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-media-list-item" href="' +
           storePagePath(store.id) +
           '" data-store-id="' +
           escapeHtml(store.id) +
-          '">' +
-          '<div class="h5-case-list-title">' +
+          '"><div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>' +
+          '<div class="h5-media-list-body"><div class="h5-media-list-title">' +
           escapeHtml(store.name) +
-          '</div>' +
-          '<div class="h5-case-list-meta">' +
-          escapeHtml(
-            [store.address, store.businessHours, store.caseCount ? '案例 ' + store.caseCount : '']
-              .filter(Boolean)
-              .join(' · ')
-          ) +
-          '</div></a>'
+          '</div></div></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">相关门店</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       items +
       '</div></div>'
     )
@@ -371,9 +369,9 @@
       '<p class="h5-summary">' +
       escapeHtml(topic.summary) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(FOOTER_TEXT) +
-      '</div>' +
+      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
+        ? window.zhejianH5Ui.renderDisclaimer(FOOTER_TEXT, '')
+        : '<div class="h5-banner">' + escapeHtml(FOOTER_TEXT) + '</div>') +
       '</header>' +
       heroHtml +
       '<div class="h5-home-quick">' +
@@ -397,6 +395,9 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
     bindInteractions(data)
 
     if (window.zhejianTrack) {

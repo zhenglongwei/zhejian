@@ -129,23 +129,36 @@
     return ''
   }
 
+  function renderDisclaimer() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(
+        COPY.displayDisclaimer,
+        COPY.geoDisclaimer
+      )
+    }
+    return '<div class="h5-banner">' + escapeHtml(COPY.displayDisclaimer) + '</div>'
+  }
+
   function renderServiceEntries(entries, cityName) {
     if (!entries || !entries.length) return ''
+    var ui = window.zhejianH5Ui
     var items = entries
       .map(function (entry) {
         var href = entry.h5Path || '/case/'
-        var tag = entry.tag
-          ? '<span class="h5-tag h5-tag--reference">' + escapeHtml(entry.tag) + '</span>'
-          : ''
+        var name = cityName + entry.name
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: href,
+            name: name,
+            summary: entry.summary || entry.tag || '查看公开案例与价格参考',
+          })
+        }
         return (
-          '<a class="h5-city-service-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(href) +
-          '">' +
-          '<span class="h5-city-service-name">' +
-          escapeHtml(cityName + entry.name) +
-          '</span>' +
-          tag +
-          '</a>'
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
+          escapeHtml(name) +
+          '</div></div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
@@ -153,7 +166,7 @@
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(cityName) +
       '热门维修项目</h2>' +
-      '<div class="h5-city-service-grid">' +
+      '<div class="h5-entry-grid">' +
       items +
       '</div></div>'
     )
@@ -222,27 +235,24 @@
         '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
       )
     }
+    var ui = window.zhejianH5Ui
     var items = stores
       .map(function (store) {
-        var meta = [store.address, store.businessHours].filter(Boolean).join(' · ')
-        var stats = []
-        if (store.caseCount > 0) stats.push('公开案例 ' + store.caseCount)
+        if (ui && ui.renderStoreListItem) {
+          return ui.renderStoreListItem(store, {
+            href: storeHref(store.id),
+            extraAttrs: ' data-store-id="' + escapeHtml(store.id) + '"',
+          })
+        }
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-media-list-item" href="' +
           storeHref(store.id) +
           '" data-store-id="' +
           escapeHtml(store.id) +
-          '">' +
-          '<div class="h5-case-list-title">' +
+          '"><div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>' +
+          '<div class="h5-media-list-body"><div class="h5-media-list-title">' +
           escapeHtml(store.name) +
-          '</div>' +
-          (meta
-            ? '<div class="h5-case-list-meta">' + escapeHtml(meta) + '</div>'
-            : '') +
-          (stats.length
-            ? '<div class="h5-case-list-meta">' + escapeHtml(stats.join(' · ')) + '</div>'
-            : '') +
-          '</a>'
+          '</div></div></a>'
         )
       })
       .join('')
@@ -250,7 +260,7 @@
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(cityName) +
       '推荐门店</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-media-list">' +
       items +
       '</div>' +
       '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
@@ -281,26 +291,29 @@
 
   function renderGeoTopics(topics) {
     if (!topics || !topics.length) return ''
+    var ui = window.zhejianH5Ui
     var items = topics
       .map(function (topic) {
         var href = topic.h5Path || '/topic/' + encodeURIComponent(topic.slug || topic.id)
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: href,
+            name: topic.title,
+            summary: topic.summary || '阅读专题说明与相关案例',
+          })
+        }
         return (
-          '<a class="h5-case-list-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(href) +
-          '">' +
-          '<div class="h5-case-list-title">' +
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
           escapeHtml(topic.title) +
-          '</div>' +
-          (topic.summary
-            ? '<div class="h5-case-list-meta">' + escapeHtml(topic.summary) + '</div>'
-            : '') +
-          '</a>'
+          '</div></div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">常见维修问题</h2>' +
-      '<div class="h5-case-list">' +
+      '<div class="h5-entry-list">' +
       items +
       '</div></div>'
     )
@@ -429,12 +442,7 @@
       '<p class="h5-summary">' +
       escapeHtml(summary) +
       '</p>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.displayDisclaimer) +
-      '</div>' +
-      '<div class="h5-banner">' +
-      escapeHtml(COPY.geoDisclaimer) +
-      '</div>' +
+      renderDisclaimer() +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
@@ -459,6 +467,9 @@
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
+      window.zhejianH5Ui.bindDisclaimerToggles(app)
+    }
     bindInteractions(data)
 
     if (window.zhejianTrack) {

@@ -61,7 +61,7 @@
 
     return (
       '<nav class="h5-site-nav" aria-label="站内导航">' +
-      '<h2 class="h5-section-title">探索更多内容</h2>' +
+      '<h2 class="h5-site-nav__title">探索更多内容</h2>' +
       '<div class="h5-site-nav-core-row">' +
       core +
       '</div>' +

@@ -52,11 +52,11 @@
 
 .h5-search-chip {
   padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   background: var(--color-bg-muted);
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
-  border: 1px solid var(--color-border);
+  border: none;
   cursor: pointer;
 }
 
@@ -67,24 +67,24 @@
 .h5-search-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   margin-bottom: var(--space-md);
 }
 
 .h5-search-tab {
   padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
   background: var(--color-bg-muted);
   color: var(--color-text-secondary);
   font-size: var(--font-caption);
-  border: 1px solid var(--color-border);
+  border: none;
   cursor: pointer;
 }
 
 .h5-search-tab--active {
   background: var(--color-primary-light);
   color: var(--color-primary);
-  border-color: var(--color-primary);
+  font-weight: 600;
 }
 
 .h5-search-section {
@@ -93,22 +93,23 @@
 
 .h5-search-section-title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: var(--space-sm);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.h5-search-section-title .h5-section-title {
+  margin: 0;
+}
+
+.h5-search-result-tag {
+  display: inline-block;
+  margin-bottom: var(--space-xs);
 }
 
 .h5-search-count {
-  color: var(--color-text-tertiary);
-  font-size: var(--font-caption);
-}
-
-.h5-search-tag {
-  display: inline-block;
-  margin-right: var(--space-xs);
-  padding: 0 var(--space-xs);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-muted);
+  flex-shrink: 0;
   color: var(--color-text-tertiary);
   font-size: var(--font-caption);
 }

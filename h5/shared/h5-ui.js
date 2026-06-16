@@ -155,6 +155,75 @@
     )
   }
 
+  function renderEntryCard(options) {
+    options = options || {}
+    var href = options.href || '#'
+    var name = options.name || ''
+    var summary = options.summary || ''
+    var hint = options.hint || '›'
+    var className = options.className || 'h5-entry-card'
+    var extraAttrs = options.extraAttrs || ''
+    return (
+      '<a class="' +
+      className +
+      '" href="' +
+      escapeHtml(href) +
+      '"' +
+      extraAttrs +
+      '>' +
+      '<div class="h5-entry-card__body">' +
+      '<div class="h5-entry-card__title">' +
+      escapeHtml(name) +
+      '</div>' +
+      (summary
+        ? '<div class="h5-entry-card__summary">' + escapeHtml(summary) + '</div>'
+        : '') +
+      '</div>' +
+      '<span class="h5-entry-card__hint" aria-hidden="true">' +
+      escapeHtml(hint) +
+      '</span></a>'
+    )
+  }
+
+  function renderStoreListItem(store, options) {
+    options = options || {}
+    var cover = (store && store.coverImage) || ''
+    var thumb = cover
+      ? '<img class="h5-media-list-thumb" src="' +
+        escapeHtml(cover) +
+        '" alt="' +
+        escapeHtml(store.name || '门店') +
+        '门头" loading="lazy" />'
+      : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>'
+    var metaParts = []
+    if (store.address) metaParts.push(store.address)
+    if (store.businessHours) metaParts.push(store.businessHours)
+    if (store.caseCount > 0) metaParts.push('公开案例 ' + store.caseCount)
+    if (store.score >= 10) metaParts.push('透明度 ' + Math.round(store.score) + ' 分')
+    var href =
+      options.href || '/store/' + encodeURIComponent(store.id || '') + '.html'
+    var className = options.className || 'h5-media-list-item'
+    var extraAttrs = options.extraAttrs || ''
+    return (
+      '<a class="' +
+      className +
+      '" href="' +
+      escapeHtml(href) +
+      '"' +
+      extraAttrs +
+      '>' +
+      thumb +
+      '<div class="h5-media-list-body">' +
+      '<div class="h5-media-list-title">' +
+      escapeHtml(store.name || '门店') +
+      '</div>' +
+      (metaParts.length
+        ? '<div class="h5-media-list-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
+        : '') +
+      '</div></a>'
+    )
+  }
+
   function renderServiceListItem(item, options) {
     options = options || {}
     var cover = (item && (item.coverImage || item.thumbImage)) || ''
@@ -209,6 +278,8 @@
     renderDisclaimer: renderDisclaimer,
     bindDisclaimerToggles: bindDisclaimerToggles,
     renderCaseListItem: renderCaseListItem,
+    renderEntryCard: renderEntryCard,
+    renderStoreListItem: renderStoreListItem,
     renderServiceListItem: renderServiceListItem,
   }
 })(typeof window !== 'undefined' ? window : globalThis)
