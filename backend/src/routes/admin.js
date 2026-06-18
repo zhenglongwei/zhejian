@@ -29,6 +29,18 @@ const {
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
 const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
+const { getAdminCrawlerStats } = require('../services/admin-crawler-stats.service')
+const {
+  listAdminGeoPrompts,
+  getAdminGeoPrompt,
+  createAdminGeoPrompt,
+  updateAdminGeoPrompt,
+} = require('../services/admin-geo-prompt.service')
+const {
+  syncGeoPromptSeeds,
+  runGeoPromptProbeBatch,
+  buildGeoProbeReport,
+} = require('../services/geo-prompt-probe.service')
 
 const {
   listAdminMerchants,
@@ -281,6 +293,81 @@ router.post('/geo-pages/:pageId/publish', async (req, res, next) => {
 router.post('/geo-pages/:pageId/unpublish', async (req, res, next) => {
   try {
     const data = await setAdminGeoPageStatus(req.params.pageId, 'draft')
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/crawler-stats', async (req, res, next) => {
+  try {
+    const data = await getAdminCrawlerStats(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/probe-report', async (req, res, next) => {
+  try {
+    const data = await buildGeoProbeReport(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo/probe-run', async (req, res, next) => {
+  try {
+    const data = await runGeoPromptProbeBatch({
+      limit: req.body?.limit,
+      promptIds: req.body?.promptIds,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo/probe-seed-sync', async (req, res, next) => {
+  try {
+    const data = await syncGeoPromptSeeds()
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/prompts', async (req, res, next) => {
+  try {
+    const data = await listAdminGeoPrompts(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/prompts/:promptId', async (req, res, next) => {
+  try {
+    const data = await getAdminGeoPrompt(req.params.promptId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo/prompts', async (req, res, next) => {
+  try {
+    const data = await createAdminGeoPrompt(req.body)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/geo/prompts/:promptId', async (req, res, next) => {
+  try {
+    const data = await updateAdminGeoPrompt(req.params.promptId, req.body)
     return ok(res, data)
   } catch (e) {
     next(e)

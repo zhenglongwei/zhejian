@@ -40,6 +40,8 @@ function inferPageType(path) {
   if (p.startsWith('/case')) return 'case'
   if (p.startsWith('/store')) return 'store'
   if (p.startsWith('/service')) return 'service'
+  if (p.startsWith('/topic')) return 'topic'
+  if (p.startsWith('/city')) return 'city'
   if (p.startsWith('/album')) return 'album'
   if (p === '/' || p === '/index.html') return 'home'
   return 'other'
@@ -204,5 +206,6 @@ module.exports = {
   resolveStoreContext,
   recordCrawlerView,
   ingestCrawlerEntries,
+  inferPageType,
   CRAWLER_EVENT_NAME,
 }

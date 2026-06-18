@@ -23,6 +23,8 @@
     "stats:smoke": "node scripts/merchant-stats-smoke.js",
     "crawler:ingest": "node scripts/crawler-access-ingest.js",
     "crawler:smoke": "node scripts/crawler-track-smoke.js",
+    "crawler:stats-smoke": "node scripts/crawler-stats-smoke.js",
+    "crawler:url-aggregate": "node scripts/crawler-url-daily-aggregate.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "test:geo-extract": "node src/utils/album-geo-extract.test.js",
     "test:geo-topic-matcher": "node src/utils/geo-topic-matcher.test.js",
@@ -37,6 +39,9 @@
     "geo:seed-service-topics:publish": "node scripts/geo-seed-service-topics.js --publish",
     "geo:seed-topics": "node scripts/geo-seed-topics.js",
     "geo:seed-topics:publish": "node scripts/geo-seed-topics.js --publish",
+    "geo:probe-seed-sync": "node scripts/geo-prompt-seed-sync.js",
+    "geo:probe": "node scripts/geo-prompt-probe.js",
+    "geo:probe:live": "node scripts/geo-prompt-probe.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

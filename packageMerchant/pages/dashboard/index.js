@@ -33,7 +33,7 @@ function buildExposureChips(display = {}) {
     { key: 'h5', label: 'H5 案例', value: display.h5CaseViewCount || '0' },
     { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
     { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
-    { key: 'crawler', label: '爬虫访问', value: display.crawlerViewCount || '0' },
+    { key: 'crawler', label: '搜索/AI爬虫', value: display.crawlerViewCount || '0' },
   ]
 }
 

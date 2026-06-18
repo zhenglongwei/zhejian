@@ -1,7 +1,7 @@
 # GEO 引用观测开发计划
 
 > **生效日期**：2026-06-16  
-> **状态**：定稿 · 待执行  
+> **状态**：定稿 · **A～B 已验收**（2026-06-16）；下一项 **GEO-OBS C**（Citation gap，P2）或 **GEO-CITE C**
 > **与主计划关系**：独立专项；进度在本文件勾选；完成后更新 [`docs/00_开发计划.md`](../00_开发计划.md) §2.6。  
 > **对标能力**：国际 GEO SaaS（Profound / Peec AI）的 **citation tracking、used-vs-cited、prompt 探测**；**不做**对外通用 MarTech，仅服务辙见平台 **内部选题 + 商家价值话术 + 效果验证**。  
 > **关联专项**：[`06_GEO案例引用优化开发计划.md`](./06_GEO案例引用优化开发计划.md)（提升可被引）· [`08_GEO意图专题开发计划.md`](./08_GEO意图专题开发计划.md)（承接 prompt 的流量页）
@@ -100,8 +100,8 @@
 
 | 阶段 | 名称 | 优先级 | 依赖 | 产出 |
 | --- | --- | ---: | --- | --- |
-| **A** | 爬虫日志深化 + 运营看板 | P1 | `B-TRACK-04` | URL 级热度、Bot 分布 |
-| **B** | Prompt 词库 + 合成探测 | P1 | A | 周报：是否被提及/被引 |
+| **A** | 爬虫日志深化 + 运营看板 | P1 | `B-TRACK-04` | URL 级热度、Bot 分布 | [x] |
+| **B** | Prompt 词库 + 合成探测 | P1 | A | 周报：是否被提及/被引 | [x] |
 | **C** | Citation gap + 商家机会分 | P2 | B、[`08`](./08_GEO意图专题开发计划.md) | 选题与招商数据 |
 | **D** | 多引擎扩展 + 自动化报告 | P2 | B | 豆包/DeepSeek/元宝等 |
 
@@ -115,14 +115,14 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-A01 | URL 级聚合表 | `backend/prisma/schema.prisma`；migration | P1 | [ ] | `crawler_url_daily`：date, url, bot_type, hit_count |
-| GEO-OBS-A02 | ingest 扩展 | `backend/src/services/crawler-track.service.js`；`scripts/crawler-access-ingest.js` | P1 | [ ] | 解析 path → page_type(case/topic/store) |
-| GEO-OBS-A03 | 日聚合任务 | `backend/scripts/stats-aggregate.js` | P1 | [ ] | 写入 `crawler_url_daily` |
-| GEO-OBS-A04 | 运营 API | `backend/src/routes/admin.js`；`admin-crawler-stats.service.js`（新建） | P1 | [ ] | `GET /admin/geo/crawler-stats` |
-| GEO-OBS-A05 | 运营台页面 | `admin-web/src/views/geo/crawler-stats/index.vue`（新建） | P1 | [ ] | Bot 分布、Top URL、趋势 |
-| GEO-OBS-A06 | 看板文案 | `packageMerchant/pages/dashboard/index.js`；`docs/03_商家端/06_商家数据看板.md` | P1 | [ ] | 区分「爬虫访问」与「答案引用（探测）」 |
-| GEO-OBS-A07 | robots 审计 | `backend/src/services/h5-sitemap.service.js` → `getRobotsTxt` | P2 | [ ] | 确认 GPTBot/ClaudeBot 等未被误拦 |
-| GEO-OBS-A08 | 冒烟 | `backend/scripts/crawler-stats-smoke.js`（新建） | P1 | [ ] | ingest → aggregate → API |
+| GEO-OBS-A01 | URL 级聚合表 | `backend/prisma/schema.prisma`；migration | P1 | [x] | `crawler_url_daily` |
+| GEO-OBS-A02 | ingest 扩展 | `crawler-track.service.js` | P1 | [x] | path → page_type（含 topic/city） |
+| GEO-OBS-A03 | 日聚合任务 | `scripts/crawler-url-daily-aggregate.js` | P1 | [x] | 写入 `crawler_url_daily` |
+| GEO-OBS-A04 | 运营 API | `admin.js`；`admin-crawler-stats.service.js` | P1 | [x] | `GET /admin/geo/crawler-stats` |
+| GEO-OBS-A05 | 运营台页面 | `admin-web/.../geo/crawler-stats` | P1 | [x] | Bot 分布、Top URL、趋势 |
+| GEO-OBS-A06 | 看板文案 | `packageMerchant/pages/dashboard` | P1 | [x] | 「搜索/AI爬虫」+ 免责 hint |
+| GEO-OBS-A07 | robots 审计 | `h5-sitemap.service.js` | P2 | [ ] | 确认 GPTBot 等未被误拦 |
+| GEO-OBS-A08 | 冒烟 | `scripts/crawler-stats-smoke.js` | P1 | [x] | ingest → aggregate → API |
 
 ### 5.1 阶段 A 验收
 
@@ -142,16 +142,16 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-B01 | Prompt 词库表 | `backend/prisma/schema.prisma` | P1 | [ ] | `geo_prompt_probe`：prompt, city, service, fault, source, active |
-| GEO-OBS-B02 | 词库种子 | `backend/src/constants/geo-prompt-seed.js`（新建） | P1 | [ ] | 从服务项目库 + 规范示例初始化 |
-| GEO-OBS-B03 | 词库运营 API | `backend/src/routes/admin.js` | P1 | [ ] | CRUD；从咨询线索/搜索日志导入（脱敏） |
-| GEO-OBS-B04 | 探测执行器 | `backend/src/services/geo-prompt-probe.service.js`（新建） | P1 | [ ] | 调可用 API（优先 1 家）；解析 mention/citation |
-| GEO-OBS-B05 | 结果表 | migration | P1 | [ ] | `geo_prompt_probe_result`：prompt_id, engine, mentioned, cited_url, raw_hash, probed_at |
-| GEO-OBS-B06 | 定时任务 | `backend/scripts/geo-prompt-probe-cron.sh`（新建） | P1 | [ ] | 周频；可 `npm run geo:probe` 手动 |
-| GEO-OBS-B07 | 周报 API | `GET /admin/geo/probe-report` | P1 | [ ] | 按引擎、城市、服务聚合 |
-| GEO-OBS-B08 | 运营台 UI | `admin-web/src/views/geo/probe-report/index.vue`（新建） | P1 | [ ] | 词库 + **北极星周报**（citation 率、意图覆盖率） |
-| GEO-OBS-B09 | 配置 | `backend/src/config/index.js` | P1 | [ ] | `GEO_PROBE_ENABLED`、API key、频率上限 |
-| GEO-OBS-B10 | 合规说明 | `docs/09_SEO_GEO_AI内容基础设施/07_GEO引用观测开发计划.md` §9 | P1 | [ ] | 内部使用、不对外承诺 |
+| GEO-OBS-B01 | Prompt 词库表 | `backend/prisma/schema.prisma` | P1 | [x] | `geo_prompt_probe` |
+| GEO-OBS-B02 | 词库种子 | `geo-prompt-seed.js` + `geo-prompt-seed-sync.js` | P1 | [x] | 30 条与 TOPIC-D 对齐 |
+| GEO-OBS-B03 | 词库运营 API | `admin.js`；`admin-geo-prompt.service.js` | P1 | [x] | CRUD |
+| GEO-OBS-B04 | 探测执行器 | `geo-prompt-probe.service.js` | P1 | [x] | API / dry-run |
+| GEO-OBS-B05 | 结果表 | migration | P1 | [x] | `geo_prompt_probe_result` |
+| GEO-OBS-B06 | 定时任务 | `geo-prompt-probe-cron.sh` | P1 | [x] | `npm run geo:probe` |
+| GEO-OBS-B07 | 周报 API | `GET /admin/geo/probe-report` | P1 | [x] | citation / coverage |
+| GEO-OBS-B08 | 运营台 UI | `admin-web/.../geo/probe-report` | P1 | [x] | 北极星周报 |
+| GEO-OBS-B09 | 配置 | `config/index.js` | P1 | [x] | `GEO_PROBE_*` 环境变量 |
+| GEO-OBS-B10 | 合规说明 | 本文 §9 | P1 | [x] | 内部使用、不对外承诺 |
 
 ### 6.1 初始 Prompt 模板（种子）
 
@@ -314,13 +314,13 @@
 
 ## 12. 进度汇总
 
-| 阶段 | 任务数 | [x] | [ ] |
-| --- | ---: | ---: | ---: |
-| A 爬虫深化 | 8 | 0 | 8 |
-| B Prompt 探测 | 10 | 0 | 10 |
-| C Citation gap | 7 | 0 | 7 |
-| D 多引擎 | 4 | 0 | 4 |
-| **合计** | **29** | **0** | **29** |
+| 阶段 | 任务数 | [x] | [ ] | 备注 |
+| --- | ---: | ---: | ---: | --- |
+| A 爬虫深化 | 8 | 7 | 1 | A07 robots 审计 P2 |
+| B Prompt 探测 | 10 | 10 | 0 | dry-run 默认；live 需 `GEO_PROBE_ENABLED` |
+| C Citation gap | 7 | 0 | 7 | P2 |
+| D 多引擎 | 4 | 0 | 4 | P2 |
+| **合计** | **29** | **17** | **12** |
 
 ---
 
@@ -347,3 +347,4 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-16 | V1.0 | 初稿：对标 Profound/Peec 观测层，内部闭环 |
 | 2026-06-16 | V1.1 | 北极星指标、引后转化、Go/No-Go；弱化爬虫作唯一成功标准 |
 | 2026-06-16 | V1.2 | §10 七条引用杠杆；§11 运营周报 Checklist |
+| 2026-06-16 | V1.3 | A～B 验收：crawler_url_daily、probe 词库/周报、运营台 |

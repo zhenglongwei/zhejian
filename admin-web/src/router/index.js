@@ -59,6 +59,16 @@ const routes = [
         component: () => import('@/views/geo-pages/edit/index.vue'),
       },
       {
+        path: 'geo/crawler-stats',
+        name: 'geo-crawler-stats',
+        component: () => import('@/views/geo/crawler-stats/index.vue'),
+      },
+      {
+        path: 'geo/probe-report',
+        name: 'geo-probe-report',
+        component: () => import('@/views/geo/probe-report/index.vue'),
+      },
+      {
         path: 'reports',
         name: 'report-list',
         component: () => import('@/views/report-review/list/index.vue'),

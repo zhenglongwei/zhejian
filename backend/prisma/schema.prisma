@@ -698,3 +698,61 @@ model GeoPage {
   @@index([pageType])
   @@map("geo_pages")
 }
+
+/// GEO-OBS-A01 · 爬虫 URL 日聚合
+model CrawlerUrlDaily {
+  id        String   @id
+  statDate  DateTime @map("stat_date") @db.Date
+  url       String   @db.VarChar(512)
+  pageType  String   @default("") @map("page_type") @db.VarChar(32)
+  botType   String   @default("") @map("bot_type") @db.VarChar(64)
+  hitCount  Int      @default(0) @map("hit_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([statDate, url, botType])
+  @@index([statDate])
+  @@index([pageType, statDate])
+  @@map("crawler_url_daily")
+}
+
+/// GEO-OBS-B01 · Prompt 探测词库
+model GeoPromptProbe {
+  id         String   @id
+  promptId   String   @unique @map("prompt_id") @db.VarChar(64)
+  prompt     String   @db.Text
+  city       String   @default("")
+  service    String   @default("")
+  fault      String   @default("")
+  topicSlug  String   @default("") @map("topic_slug") @db.VarChar(128)
+  pageType   String   @default("") @map("page_type") @db.VarChar(32)
+  promptType String   @default("B") @map("prompt_type") @db.VarChar(8)
+  source     String   @default("seed") @db.VarChar(32)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@index([topicSlug])
+  @@map("geo_prompt_probe")
+}
+
+/// GEO-OBS-B05 · Prompt 探测结果
+model GeoPromptProbeResult {
+  id                  String   @id
+  promptId            String   @map("prompt_id") @db.VarChar(64)
+  engine              String   @default("default") @db.VarChar(32)
+  mentioned           Boolean  @default(false)
+  citedUrl            String   @default("") @map("cited_url") @db.VarChar(512)
+  citedUrlsJson       Json     @default("[]") @map("cited_urls_json")
+  externalDomainsJson Json     @default("[]") @map("external_domains_json")
+  rawHash             String   @default("") @map("raw_hash") @db.VarChar(64)
+  status              String   @default("ok") @db.VarChar(32)
+  errorMessage        String   @default("") @map("error_message") @db.VarChar(512)
+  probedAt            DateTime @default(now()) @map("probed_at")
+
+  @@index([promptId, probedAt])
+  @@index([probedAt])
+  @@index([engine, probedAt])
+  @@map("geo_prompt_probe_result")
+}

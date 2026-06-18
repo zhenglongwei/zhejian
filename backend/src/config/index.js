@@ -88,6 +88,16 @@ const config = {
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
     cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v7',
   },
+  geoProbe: {
+    enabled: process.env.GEO_PROBE_ENABLED === 'true',
+    dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',
+    apiUrl: process.env.GEO_PROBE_API_URL || 'https://api.deepseek.com/chat/completions',
+    apiKey: process.env.GEO_PROBE_API_KEY || '',
+    model: process.env.GEO_PROBE_MODEL || 'deepseek-chat',
+    engine: process.env.GEO_PROBE_ENGINE || 'deepseek',
+    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 30000),
+    batchLimit: Number(process.env.GEO_PROBE_BATCH_LIMIT || 20),
+  },
 }
 
 module.exports = { config }

@@ -16,6 +16,7 @@ LOG_FILE="${LOG_DIR}/stats-aggregate.log"
   echo "===== $(date '+%Y-%m-%d %H:%M:%S %Z') ====="
   if command -v node >/dev/null 2>&1; then
     node scripts/crawler-access-ingest.js
+    node scripts/crawler-url-daily-aggregate.js
     node scripts/merchant-daily-stats-aggregate.js
   else
     echo "ERROR: node not in PATH"
