@@ -435,7 +435,10 @@ async function verifyH5Search() {
   assert(Array.isArray(config.json.data?.hotwords), 'search config 缺少 hotwords')
 
   const search = await api('GET', '/public/h5/search?keyword=刹车&tab=all&pageSize=5')
-  assert(search.ok && search.json?.code === 0, 'GET /public/h5/search 失败')
+  assert(
+    search.ok && search.json?.code === 0,
+    `GET /public/h5/search 失败: HTTP ${search.status} code=${search.json?.code} msg=${search.json?.message || ''}`
+  )
   assert(search.json.data?.counts, 'search 缺少 counts')
   assert(Array.isArray(search.json.data?.services), 'search 缺少 services')
   assert(Array.isArray(search.json.data?.geoPages), 'search 缺少 geoPages')

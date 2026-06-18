@@ -4,7 +4,7 @@
 const { prisma } = require('../lib/prisma')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { mapGeoPageRow, mapGeoListItem } = require('../schemas/geo-page.schema')
-const { includesKeyword, normalizeKeyword } = require('../utils/search-query')
+const { includesKeyword, normalizeKeyword } = require('../utils/search-match')
 
 const PUBLIC_VISIBLE_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
