@@ -44,29 +44,49 @@
       class="geo-llm__notice"
     />
 
-    <el-row :gutter="16">
-      <el-col :span="12">
-        <h4 class="geo-llm__col-title">模板稿（original）</h4>
-        <div class="geo-llm__block">
-          <p class="geo-llm__label">AI 摘要</p>
-          <p class="geo-llm__text">{{ diff.original?.aiSummary || '—' }}</p>
-          <p class="geo-llm__label">故障 / 检测 / 方案</p>
-          <p class="geo-llm__text">{{ originalFacts }}</p>
-        </div>
-      </el-col>
-      <el-col :span="12">
-        <h4 class="geo-llm__col-title">LLM 建议（suggestion）</h4>
-        <div class="geo-llm__block geo-llm__block--suggest">
-          <p class="geo-llm__label">AI 摘要</p>
-          <p class="geo-llm__text">{{ diff.suggestion?.aiSummary || '生成中或暂无' }}</p>
-          <p class="geo-llm__label">故障 / 检测 / 方案</p>
-          <p class="geo-llm__text">{{ suggestionFacts }}</p>
-          <p v-if="diff.suggestion?.confidence" class="geo-llm__meta">
-            置信度：{{ diff.suggestion.confidence }}
-          </p>
-        </div>
-      </el-col>
-    </el-row>
+    <el-tabs v-model="activeTab" class="geo-llm__tabs">
+      <el-tab-pane label="文本润色" name="text">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <h4 class="geo-llm__col-title">模板稿（original）</h4>
+            <div class="geo-llm__block">
+              <p class="geo-llm__label">AI 摘要</p>
+              <p class="geo-llm__text">{{ diff.original?.aiSummary || '—' }}</p>
+              <p class="geo-llm__label">故障 / 检测 / 方案</p>
+              <p class="geo-llm__text">{{ originalFacts }}</p>
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <h4 class="geo-llm__col-title">LLM 建议（suggestion）</h4>
+            <div class="geo-llm__block geo-llm__block--suggest">
+              <p class="geo-llm__label">AI 摘要</p>
+              <p class="geo-llm__text">{{ diff.suggestion?.aiSummary || '生成中或暂无' }}</p>
+              <p class="geo-llm__label">故障 / 检测 / 方案</p>
+              <p class="geo-llm__text">{{ suggestionFacts }}</p>
+              <p v-if="diff.suggestion?.confidence" class="geo-llm__meta">
+                置信度：{{ diff.suggestion.confidence }}
+              </p>
+            </div>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+      <el-tab-pane label="图说 / alt" name="captions">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <h4 class="geo-llm__col-title">模板图说</h4>
+            <div class="geo-llm__block">
+              <pre class="geo-llm__pre">{{ formatNarratives(diff.original?.nodeNarratives) }}</pre>
+            </div>
+          </el-col>
+          <el-col :span="12">
+            <h4 class="geo-llm__col-title">建议图说</h4>
+            <div class="geo-llm__block geo-llm__block--suggest">
+              <pre class="geo-llm__pre">{{ formatNarratives(diff.suggestion?.nodeNarratives) }}</pre>
+            </div>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+    </el-tabs>
   </el-card>
 </template>
 
@@ -100,6 +120,7 @@ const diff = ref({
 const running = ref(false)
 const adopting = ref(false)
 const rejecting = ref(false)
+const activeTab = ref('text')
 
 const statusMap = {
   pending: { label: '待生成', type: 'info' },
@@ -121,6 +142,18 @@ function formatFacts(block) {
   return [block.faultDesc, block.inspectResult, block.repairPlan]
     .filter(Boolean)
     .join(' / ')
+}
+
+function formatNarratives(list) {
+  if (!Array.isArray(list) || !list.length) return '—'
+  return list
+    .map((item) => {
+      const caps = (item.imageCaptions || [])
+        .map((cap) => `  - [${cap.imageIndex}] ${cap.caption || ''} | alt: ${cap.alt || ''}`)
+        .join('\n')
+      return `${item.nodeName || item.nodeId}\n${item.description || ''}\n${caps}`
+    })
+    .join('\n\n')
 }
 
 async function loadDiff() {
@@ -228,5 +261,15 @@ onMounted(loadDiff)
   margin: 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.geo-llm__tabs {
+  margin-top: 4px;
+}
+.geo-llm__pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: inherit;
 }
 </style>

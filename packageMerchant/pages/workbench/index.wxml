@@ -125,6 +125,17 @@
       </view>
 
       <view class="merchant-wb__scroll-body">
+        <view wx:if="{{geoOpportunity}}" class="merchant-wb__panel merchant-wb__geo-opp">
+          <view class="merchant-wb__panel-head">
+            <text class="text-h3">GEO 供给参考</text>
+          </view>
+          <text class="text-body">{{geoOpportunity.hint}}</text>
+          <text class="text-caption text-tertiary merchant-wb__geo-meta">
+            同城公开案例中位数 {{geoOpportunity.cityMedianPublicCases || 0}} 条 · 本店 {{geoOpportunity.storePublicCaseCount || 0}} 条
+          </text>
+          <text class="text-caption text-tertiary">{{geoOpportunity.disclaimer}}</text>
+        </view>
+
         <view class="merchant-wb__quick-panel">
           <text class="text-h3 merchant-wb__quick-title">快捷操作</text>
           <scroll-view class="merchant-wb__quick-strip" scroll-x enable-flex show-scrollbar="{{false}}">

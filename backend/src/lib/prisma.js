@@ -17,4 +17,22 @@ function assertPrismaDelegate(delegateKey, label = delegateKey) {
   throw err
 }
 
-module.exports = { prisma, assertPrismaDelegate }
+/** @param {Array<[string, string?]>|string[]} delegates */
+function assertPrismaDelegates(delegates) {
+  for (const item of delegates) {
+    const key = Array.isArray(item) ? item[0] : item
+    const label = Array.isArray(item) ? item[1] || item[0] : item
+    assertPrismaDelegate(key, label)
+  }
+}
+
+/** GEO-OBS 表迁移 + prisma generate 后可用 */
+function assertGeoObsPrismaReady() {
+  assertPrismaDelegates([
+    ['crawlerUrlDaily', 'GEO 爬虫统计（crawler_url_daily）'],
+    ['geoPromptProbe', 'GEO Prompt 词库（geo_prompt_probe）'],
+    ['geoPromptProbeResult', 'GEO Prompt 探测结果（geo_prompt_probe_result）'],
+  ])
+}
+
+module.exports = { prisma, assertPrismaDelegate, assertPrismaDelegates, assertGeoObsPrismaReady }

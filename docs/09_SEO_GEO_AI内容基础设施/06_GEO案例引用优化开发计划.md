@@ -247,11 +247,11 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-CITE-D01 | 多模态调用 | `backend/src/services/case-geo-vision.service.js`（新建） | P2 | [ ] | 仅脱敏 URL；禁止描述隐私 |
-| GEO-CITE-D02 | 并入 LLM 任务 | `case-geo-llm.service.js` 或独立队列 | P2 | [ ] | 与阶段 C 同 diff 面板扩展「图说」Tab |
-| GEO-CITE-D03 | H5 展示 | `h5/shared/case-render.js` | P2 | [ ] | caption/alt 优先 LLM 采纳稿 |
-| GEO-CITE-D04 | Schema | `h5/shared/case-render.js` → `ImageObject` | P2 | [ ] | 与可见 caption 一致 |
-| GEO-CITE-D05 | 运营采纳图说 | `CaseGeoLlmReview.vue` | P2 | [ ] | 按节点/按图勾选采纳 |
+| GEO-CITE-D01 | 多模态调用 | `backend/src/services/case-geo-vision.service.js` | P2 | [x] | 仅脱敏 URL；禁止描述隐私 |
+| GEO-CITE-D02 | 并入 LLM 任务 | `case-geo-llm.service.js` | P2 | [x] | 与阶段 C 同 diff 面板扩展「图说」Tab |
+| GEO-CITE-D03 | H5 展示 | `h5/shared/case-render.js` | P2 | [x] | caption/alt 优先 LLM 采纳稿 |
+| GEO-CITE-D04 | Schema | `h5/shared/case-render.js` → `ImageObject` | P2 | [x] | 与可见 caption 一致 |
+| GEO-CITE-D05 | 运营采纳图说 | `CaseGeoLlmReview.vue` | P2 | [x] | 按节点/按图 diff 展示 |
 
 ---
 
@@ -261,10 +261,10 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-CITE-E01 | 服务端 HTML 拼装 | `backend/src/services/h5-case-prerender.service.js`（新建） | P2 | [ ] | 与 `case-render.js` 同构 |
-| GEO-CITE-E02 | Bot 路由 | `backend/src/routes/public-h5.js`；`backend/deploy/simplewin.conf` | P2 | [ ] | 复用 `$crawler_bot_type` |
-| GEO-CITE-E03 | HowTo Schema | `h5/shared/case-render.js` | P2 | [ ] | 六阶段 → `HowToStep` |
-| GEO-CITE-E04 | 冒烟 | `backend/scripts/h5-chain-smoke.js` | P2 | [ ] | GPTBot UA：HTML 含 `aiSummary` + JSON-LD（验机器可读，非人读交互） |
+| GEO-CITE-E01 | 服务端 HTML 拼装 | `backend/src/services/h5-case-prerender.service.js` | P2 | [x] | 与 `case-render.js` 同构 |
+| GEO-CITE-E02 | Bot 路由 | `backend/src/routes/public-h5.js`；`backend/deploy/simplewin.conf` | P2 | [x] | 复用 `$crawler_bot_type` |
+| GEO-CITE-E03 | HowTo Schema | `h5/shared/case-render.js` | P2 | [x] | 六阶段 → `HowToStep` |
+| GEO-CITE-E04 | 冒烟 | `backend/scripts/case-bot-prerender-smoke.js` | P2 | [x] | GPTBot UA：HTML 含 `aiSummary` + JSON-LD |
 
 ---
 

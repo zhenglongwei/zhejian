@@ -177,13 +177,13 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-C01 | Gap 算法 | `backend/src/utils/geo-citation-gap.js`（新建） | P2 | [ ] | 城市+服务：公开案例数、探测命中、专题有无 |
-| GEO-OBS-C02 | 运营 gap API | `GET /admin/geo/citation-gaps` | P2 | [ ] | 优先补案例/专题列表 |
-| GEO-OBS-C03 | 商家机会 API | `GET /merchant/geo/opportunity` | P2 | [ ] | 本店 vs 同城同服务中位数 |
-| GEO-OBS-C04 | 工作台卡片 | `packageMerchant/pages/workbench/index.wxml` | P2 | [ ] | 「同城同服务已有 N 条公开案例」 |
-| GEO-OBS-C05 | 联动专题 | 对接 [`08`](./08_GEO意图专题开发计划.md) `GEO-TOPIC-*` | P2 | [ ] | gap 高且专题缺失 → 运营待办 |
-| GEO-OBS-C06 | Used vs cited | `geo-prompt-probe.service.js` | P2 | [ ] | 域名出现无链接 vs 带链接 |
-| GEO-OBS-C07 | 引后转化 join | `geo-prompt-probe.service.js` + 埋点日表 | P2 | [ ] | `post_citation_lead`；CTA 须 `utm_medium=geo` |
+| GEO-OBS-C01 | Gap 算法 | `backend/src/utils/geo-citation-gap.js` | P2 | [x] | 城市+服务：公开案例数、探测命中、专题有无 |
+| GEO-OBS-C02 | 运营 gap API | `GET /admin/geo/citation-gaps` | P2 | [x] | 优先补案例/专题列表 |
+| GEO-OBS-C03 | 商家机会 API | `GET /merchant/geo/opportunity` | P2 | [x] | 本店 vs 同城同服务中位数 |
+| GEO-OBS-C04 | 工作台卡片 | `packageMerchant/pages/workbench/index.wxml` | P2 | [x] | 「同城同服务已有 N 条公开案例」 |
+| GEO-OBS-C05 | 联动专题 | 对接 [`08`](./08_GEO意图专题开发计划.md) `GEO-TOPIC-*` | P2 | [x] | gap 高且专题缺失 → 运营待办 |
+| GEO-OBS-C06 | Used vs cited | `geo-prompt-probe.service.js` | P2 | [x] | 域名出现无链接 vs 带链接 |
+| GEO-OBS-C07 | 引后转化 join | `geo-prompt-probe.service.js` + 埋点日表 | P2 | [x] | `post_citation_lead`；CTA 须 `utm_medium=geo` |
 
 ### 7.1 阶段 C 验收
 
@@ -318,9 +318,9 @@
 | --- | ---: | ---: | ---: | --- |
 | A 爬虫深化 | 8 | 7 | 1 | A07 robots 审计 P2 |
 | B Prompt 探测 | 10 | 10 | 0 | dry-run 默认；live 需 `GEO_PROBE_ENABLED` |
-| C Citation gap | 7 | 0 | 7 | P2 |
+| C Citation gap | 7 | 7 | 0 | P2 |
 | D 多引擎 | 4 | 0 | 4 | P2 |
-| **合计** | **29** | **17** | **12** |
+| **合计** | **29** | **24** | **5** |
 
 ---
 

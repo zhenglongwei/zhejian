@@ -2,7 +2,7 @@
  * GEO-OBS-A01/A03 · 爬虫 URL 日聚合
  */
 const crypto = require('crypto')
-const { prisma } = require('../lib/prisma')
+const { prisma, assertGeoObsPrismaReady } = require('../lib/prisma')
 const { CRAWLER_EVENT_NAME } = require('../constants/crawler-bots')
 const { inferPageType } = require('./crawler-track.service')
 
@@ -41,6 +41,7 @@ function resolveDayRange(dateInput) {
  * @param {{ date?: string|Date, merchantId?: string }} [options]
  */
 async function aggregateCrawlerUrlDaily(options = {}) {
+  assertGeoObsPrismaReady()
   const { statDate, start, end } = resolveDayRange(options.date)
   const rows = await prisma.eventTrackingLog.findMany({
     where: {
@@ -107,6 +108,7 @@ function sinceDays(days) {
  * @param {{ days?: number, limit?: number }} [query]
  */
 async function queryCrawlerUrlStats(query = {}) {
+  assertGeoObsPrismaReady()
   const days = Math.min(Math.max(Number(query.days) || 7, 1), 90)
   const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100)
   const since = sinceDays(days)

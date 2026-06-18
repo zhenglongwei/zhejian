@@ -49,6 +49,34 @@
     </el-row>
 
     <el-row :gutter="16" class="mb-16">
+      <el-col :span="6">
+        <el-statistic
+          title="仅提及（无链接）"
+          :value="report.usedVsCited?.mentioned_only || 0"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="带链接引用"
+          :value="report.usedVsCited?.cited_with_link || 0"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="引后转化（P1）"
+          :value="formatRate(report.metrics?.post_citation_lead_rate)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="引后咨询/电话"
+          :value="report.postCitationLeads?.lead_event_count || 0"
+        />
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="16" class="mb-16">
       <el-col :span="12">
         <el-card shadow="never" header="按引擎">
           <el-table :data="report.byEngine || []" size="small" border>
@@ -82,6 +110,11 @@
         <el-table-column label="Mention" width="90">
           <template #default="{ row }">
             <el-tag :type="row.mentioned ? 'success' : 'info'">{{ row.mentioned ? '是' : '否' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Used only" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.usedOnly ? 'warning' : 'info'">{{ row.usedOnly ? '是' : '否' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="citedUrl" label="Citation URL" min-width="220" show-overflow-tooltip />

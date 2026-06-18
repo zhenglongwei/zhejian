@@ -47,6 +47,7 @@ const {
   runGeoPromptProbeBatch,
   buildGeoProbeReport,
 } = require('../services/geo-prompt-probe.service')
+const { buildAdminCitationGaps } = require('../services/admin-geo-citation-gap.service')
 
 const {
   listAdminMerchants,
@@ -349,6 +350,15 @@ router.post('/geo-pages/:pageId/unpublish', async (req, res, next) => {
 router.get('/geo/crawler-stats', async (req, res, next) => {
   try {
     const data = await getAdminCrawlerStats(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/citation-gaps', async (req, res, next) => {
+  try {
+    const data = await buildAdminCitationGaps(req.query)
     return ok(res, data)
   } catch (e) {
     next(e)

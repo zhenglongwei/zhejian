@@ -152,6 +152,18 @@ router.get('/h5/case-redirect', async (req, res, next) => {
   }
 })
 
+router.get('/h5/case/:caseId/bot-html', async (req, res, next) => {
+  try {
+    const { renderCaseBotHtml } = require('../services/h5-case-prerender.service')
+    const html = await renderCaseBotHtml(req.params.caseId)
+    res.set('Content-Type', 'text/html; charset=utf-8')
+    res.set('Cache-Control', 'public, max-age=300')
+    return res.send(html)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/h5/leads', async (req, res, next) => {
   try {
     const data = await createH5Lead(req.body || {})

@@ -28,6 +28,7 @@ const merchantServiceAlbumRoutes = require('./routes/merchant-service-albums')
 const merchantServicePlanRoutes = require('./routes/merchant-service-plans')
 const merchantStaffRoutes = require('./routes/merchant-staff')
 const merchantStatsRoutes = require('./routes/merchant-stats')
+const merchantGeoRoutes = require('./routes/merchant-geo')
 const merchantPublicCaseRoutes = require('./routes/merchant-public-cases')
 const merchantNotificationRoutes = require('./routes/merchant-notifications')
 const mediaRoutes = require('./routes/media')
@@ -56,6 +57,16 @@ function createApp() {
   if (config.nodeEnv !== 'production') {
     const h5Root = path.join(__dirname, '..', '..', 'h5')
     app.get('/case/view.html', async (req, res, next) => {
+      const { isCrawlerRequest, renderCaseBotHtml } = require('./services/h5-case-prerender.service')
+      if (req.query.id && req.query.legacy !== '1' && isCrawlerRequest(req)) {
+        try {
+          const html = await renderCaseBotHtml(req.query.id)
+          res.set('Content-Type', 'text/html; charset=utf-8')
+          return res.send(html)
+        } catch (e) {
+          if (e.status !== 404) return next(e)
+        }
+      }
       if (!req.query.id || req.query.legacy === '1') return next()
       try {
         const target = await resolveCaseRedirectTarget(req.query.id)
@@ -118,6 +129,7 @@ function createApp() {
   app.use('/api/v1/merchant', merchantServicePlanRoutes)
   app.use('/api/v1/merchant', merchantStaffRoutes)
   app.use('/api/v1/merchant', merchantStatsRoutes)
+  app.use('/api/v1/merchant', merchantGeoRoutes)
   app.use('/api/v1/merchant', merchantPublicCaseRoutes)
   app.use('/api/v1/merchant', merchantNotificationRoutes)
   app.use('/api/v1/system', systemRoutes)

@@ -18,6 +18,7 @@ const {
 } = require('./public-case.service')
 const { findGeoLlmViolation, sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
 const { verifyLlmDraftAgainstEvidence } = require('../utils/case-geo-llm-verify')
+const { buildCaseGeoVisionDraft } = require('./case-geo-vision.service')
 
 const PROMPT_PATH = path.join(__dirname, '../prompts/case-geo-optimize.md')
 const runningCases = new Set()
@@ -287,6 +288,9 @@ async function runCaseGeoLlmOptimization(caseId) {
     }
 
     const draft = normalizeLlmDraft(rawDraft)
+    const visionDraft = buildCaseGeoVisionDraft(ctx, draft)
+    draft.nodeNarratives = visionDraft.nodeNarratives
+    draft.visionSource = visionDraft.source
     const verify = verifyLlmDraftAgainstEvidence(draft, ctx.nodes, {
       serviceName: ctx.row.serviceName,
       city: ctx.row.city,
@@ -392,6 +396,7 @@ function mapTemplateOriginal(templatePayload) {
     repairPlan: geo.repairPlan || '',
     resultConfirm: geo.resultConfirm || '',
     articleBody: templatePayload.articleBody || '',
+    nodeNarratives: geo.nodeNarratives || templatePayload.article?.nodeNarratives || [],
     generationSource: CASE_ARTICLE_GENERATION_SOURCE.TEMPLATE,
   }
 }

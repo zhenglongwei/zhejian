@@ -8,6 +8,7 @@ const {
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
+const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
 const {
   fetchMerchantCasePublishPanel,
   fetchMerchantCaseArticleExport,
@@ -203,6 +204,7 @@ Page({
     let canSwitchStore = false
     let unreadMessages = 0
     let needsSubscribePrompt = false
+    let geoOpportunity = null
     try {
       if (isMerchantOwner()) {
         const storeData = await fetchMerchantStores()
@@ -217,7 +219,7 @@ Page({
       storeOptions = []
     }
     try {
-      const [stats, leadStats, dashStats, publishPanel, unreadCount, subscribeStatus] =
+      const [stats, leadStats, dashStats, publishPanel, unreadCount, subscribeStatus, geoOpp] =
         await Promise.all([
         fetchMerchantAlbumStats(),
         fetchMerchantLeadStats(profile.storeId),
@@ -225,6 +227,7 @@ Page({
         fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
         fetchMerchantUnreadNotificationCount().catch(() => 0),
         fetchMerchantSubscribeStatus('merchant').catch(() => ({ needsPrompt: false })),
+        fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
       ])
       todos = {
         pendingLeads: leadStats.pending || 0,
@@ -258,6 +261,7 @@ Page({
       }
       unreadMessages = unreadCount || 0
       needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
+      geoOpportunity = geoOpp || null
     } catch (e) {
       /* keep zeros */
     }
@@ -279,6 +283,7 @@ Page({
       unreadMessages,
       unreadBadgeText: formatBadge(unreadMessages),
       needsSubscribePrompt,
+      geoOpportunity,
     })
   },
 

@@ -78,6 +78,7 @@ async function adoptAdminCaseGeoLlm(caseId, options = {}) {
     inspectResult: draft.inspectResult || geo.inspectResult,
     repairPlan: draft.repairPlan || geo.repairPlan,
     resultConfirm: draft.resultConfirm || geo.resultConfirm,
+    nodeNarratives: Array.isArray(draft.nodeNarratives) ? draft.nodeNarratives : geo.nodeNarratives,
     generationSource: CASE_ARTICLE_GENERATION_SOURCE.LLM_V1,
     generationVersion: 'llm_v1',
     riskChecked: true,

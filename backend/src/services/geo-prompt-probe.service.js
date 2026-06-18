@@ -2,7 +2,7 @@
  * GEO-OBS-B04/B07 · Prompt 探测执行与周报
  */
 const crypto = require('crypto')
-const { prisma } = require('../lib/prisma')
+const { prisma, assertGeoObsPrismaReady } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { config } = require('../config')
 const { GEO_PROMPT_SEED } = require('../constants/geo-prompt-seed')
@@ -32,6 +32,7 @@ function hashText(text) {
 }
 
 async function syncGeoPromptSeeds() {
+  assertGeoObsPrismaReady()
   let created = 0
   let updated = 0
   for (const seed of GEO_PROMPT_SEED) {
@@ -155,6 +156,7 @@ async function saveProbeResult(promptRow, engineResult, probeConfig) {
  * @param {{ limit?: number, promptIds?: string[] }} [options]
  */
 async function runGeoPromptProbeBatch(options = {}) {
+  assertGeoObsPrismaReady()
   const probeConfig = getProbeConfig()
   const limit = Math.min(
     Math.max(Number(options.limit) || probeConfig.batchLimit, 1),
@@ -192,6 +194,66 @@ async function runGeoPromptProbeBatch(options = {}) {
   }
 }
 
+async function computePostCitationLeads(probeResults, days) {
+  const citedPaths = new Set()
+  for (const row of probeResults) {
+    if (!row.citedUrl) continue
+    try {
+      const url = new URL(row.citedUrl)
+      citedPaths.add(`${url.pathname}${url.search}`)
+    } catch {
+      // ignore malformed URL
+    }
+  }
+  if (!citedPaths.size) {
+    return {
+      cited_url_count: 0,
+      lead_event_count: 0,
+      page_view_count: 0,
+      post_citation_lead_rate: 0,
+      byUrl: [],
+    }
+  }
+
+  const paths = [...citedPaths]
+  const since = new Date()
+  since.setUTCDate(since.getUTCDate() - Math.min(Math.max(Number(days) || 7, 1), 30))
+
+  const [leadRows, viewCount] = await Promise.all([
+    prisma.eventTrackingLog.findMany({
+      where: {
+        eventName: { in: ['h5_consult_click', 'h5_call_click'] },
+        createdAt: { gte: since },
+        pagePath: { in: paths },
+      },
+      select: { pagePath: true, eventName: true },
+    }),
+    prisma.eventTrackingLog.count({
+      where: {
+        eventName: 'h5_case_view',
+        createdAt: { gte: since },
+        pagePath: { in: paths },
+      },
+    }),
+  ])
+
+  const byUrlMap = new Map()
+  leadRows.forEach((row) => {
+    const bucket = byUrlMap.get(row.pagePath) || { pagePath: row.pagePath, leads: 0 }
+    bucket.leads += 1
+    byUrlMap.set(row.pagePath, bucket)
+  })
+
+  return {
+    cited_url_count: paths.length,
+    lead_event_count: leadRows.length,
+    page_view_count: viewCount,
+    post_citation_lead_rate: viewCount > 0 ? leadRows.length / viewCount : 0,
+    byUrl: [...byUrlMap.values()],
+    sampleNote: viewCount < 20 ? '样本较少，仅供参考' : '',
+  }
+}
+
 async function computeIntentCoverage(prompts) {
   const pages = await prisma.geoPage.findMany({
     where: { status: { in: PUBLIC_PAGE_STATUSES } },
@@ -216,6 +278,7 @@ async function computeIntentCoverage(prompts) {
  * @param {{ days?: number }} [query]
  */
 async function buildGeoProbeReport(query = {}) {
+  assertGeoObsPrismaReady()
   const days = Math.min(Math.max(Number(query.days) || 7, 1), 90)
   const since = new Date()
   since.setUTCDate(since.getUTCDate() - days)
@@ -232,7 +295,9 @@ async function buildGeoProbeReport(query = {}) {
   const okResults = probeResults.filter((row) => row.status === 'ok' || row.status === 'dry_run')
   const mentionCount = okResults.filter((row) => row.mentioned).length
   const citationCount = okResults.filter((row) => row.citedUrl).length
+  const usedOnlyCount = okResults.filter((row) => row.mentioned && !row.citedUrl).length
   const coverage = await computeIntentCoverage(promptRows)
+  const postCitationLeads = await computePostCitationLeads(okResults, days)
 
   const byEngineMap = new Map()
   okResults.forEach((row) => {
@@ -257,6 +322,7 @@ async function buildGeoProbeReport(query = {}) {
     engine: row.engine,
     mentioned: row.mentioned,
     citedUrl: row.citedUrl,
+    usedOnly: Boolean(row.mentioned && !row.citedUrl),
     externalDomains: Array.isArray(row.externalDomainsJson) ? row.externalDomainsJson : [],
     status: row.status,
     probedAt: row.probedAt,
@@ -275,7 +341,15 @@ async function buildGeoProbeReport(query = {}) {
       prompt_intent_coverage: coverage.prompt_intent_coverage,
       active_prompt_count: coverage.activePromptCount,
       covered_prompt_count: coverage.coveredPromptCount,
+      post_citation_lead_rate: postCitationLeads.post_citation_lead_rate,
     },
+    usedVsCited: {
+      mentioned_only: usedOnlyCount,
+      cited_with_link: citationCount,
+      used_only_rate: okResults.length ? usedOnlyCount / okResults.length : 0,
+      cited_rate: okResults.length ? citationCount / okResults.length : 0,
+    },
+    postCitationLeads,
     coverage,
     byEngine,
     recentResults,

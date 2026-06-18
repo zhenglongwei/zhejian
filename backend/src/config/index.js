@@ -106,6 +106,10 @@ const config = {
     model: process.env.GEO_LLM_MODEL || 'deepseek-chat',
     timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || 45000),
   },
+  geoVision: {
+    enabled: process.env.GEO_VISION_ENABLED === 'true',
+    dryRun: process.env.GEO_VISION_DRY_RUN !== 'false',
+  },
 }
 
 module.exports = { config }

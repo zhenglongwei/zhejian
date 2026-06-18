@@ -8,6 +8,10 @@ export function fetchProbeReport(params) {
   return request.get('/admin/geo/probe-report', { params })
 }
 
+export function fetchCitationGaps(params) {
+  return request.get('/admin/geo/citation-gaps', { params })
+}
+
 export function runProbeBatch(body) {
   return request.post('/admin/geo/probe-run', body)
 }

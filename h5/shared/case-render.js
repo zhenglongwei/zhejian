@@ -273,6 +273,48 @@
       })
     }
 
+    var processNodes = (data.nodes || []).filter(function (node) {
+      return node && (node.title || node.note)
+    })
+    if (processNodes.length) {
+      ensureJsonLd('case-howto-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'HowTo',
+        name: data.title || data.serviceName || '维修过程',
+        description: data.aiSummary || data.summary || desc,
+        step: processNodes.slice(0, 6).map(function (node, index) {
+          return {
+            '@type': 'HowToStep',
+            position: index + 1,
+            name: node.title || '步骤' + (index + 1),
+            text: node.note || node.title || '',
+          }
+        }),
+      })
+    }
+
+    var narrativeMap = buildNodeNarrativeMap(data)
+    var imageSchemas = []
+    ;(data.nodes || []).forEach(function (node) {
+      var nodeId = node.id || node.nodeId || ''
+      var narrative = narrativeMap[nodeId] || {}
+      var captions = narrative.imageCaptions || []
+      pickNodeDesensitizedImages(node).forEach(function (url, index) {
+        var cap = captions[index] || {}
+        imageSchemas.push({
+          '@context': 'https://schema.org',
+          '@type': 'ImageObject',
+          contentUrl: url,
+          name: (node.title || '维修过程') + ' 图' + (index + 1),
+          description: cap.alt || cap.caption || buildImageAlt(data, node),
+          isPartOf: { '@type': 'WebPage', '@id': canonical },
+        })
+      })
+    })
+    if (imageSchemas.length) {
+      ensureJsonLd('case-process-images-schema', imageSchemas.length === 1 ? imageSchemas[0] : imageSchemas)
+    }
+
     if (data.store && shouldShowStorePublicly(data) && data.store.name) {
       var storeSchema = {
         '@context': 'https://schema.org',

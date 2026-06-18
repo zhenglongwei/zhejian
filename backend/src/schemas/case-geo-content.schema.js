@@ -312,6 +312,7 @@ module.exports = {
   GEO_SECTION_KEYS,
   extractGeoBlock,
   normalizeGeoBlock,
+  normalizeNodeNarratives,
   mergeContentJsonGeo,
   resolveGeoReadableFields,
   mapCaseArticleForApi,

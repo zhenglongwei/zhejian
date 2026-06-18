@@ -69,6 +69,11 @@ const routes = [
         component: () => import('@/views/geo/probe-report/index.vue'),
       },
       {
+        path: 'geo/citation-gaps',
+        name: 'geo-citation-gaps',
+        component: () => import('@/views/geo/citation-gaps/index.vue'),
+      },
+      {
         path: 'reports',
         name: 'report-list',
         component: () => import('@/views/report-review/list/index.vue'),

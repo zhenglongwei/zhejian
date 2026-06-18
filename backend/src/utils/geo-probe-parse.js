@@ -44,6 +44,7 @@ function parseProbeAnswer(text, options = {}) {
     citedUrl: citedUrls[0] || '',
     citedUrls,
     externalDomains,
+    usedOnly: mentioned && citedUrls.length === 0,
   }
 }
 
