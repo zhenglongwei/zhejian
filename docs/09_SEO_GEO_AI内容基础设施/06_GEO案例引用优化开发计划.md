@@ -201,19 +201,19 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-CITE-C01 | LLM 服务封装 | `backend/src/services/case-geo-llm.service.js`（新建） | P1 | [ ] | prompt、JSON schema 输出、超时、回退模板 |
-| GEO-CITE-C02 | Prompt 与约束 | `backend/src/prompts/case-geo-optimize.md`（新建） | P1 | [ ] | 禁止编造；须标注 `missing_evidence[]` |
-| GEO-CITE-C03 | 合规后处理 | `case-geo-llm.service.js` + `constants/compliance-copy.js` | P1 | [ ] | 营销禁词拦截 |
-| GEO-CITE-C04 | 事实溯源校验 | `backend/src/utils/case-geo-llm-verify.js`（新建） | P1 | [ ] | 输出句 ↔ 节点 note 映射；无法映射则降级 |
-| GEO-CITE-C05 | 异步任务触发 | 脱敏完成回调 / `desensitize` 任务链 | P1 | [ ] | 商家提交审核入队；不阻塞提交响应 |
-| GEO-CITE-C06 | 建议稿存储 | `public_cases.content_json.geo` 或新列 `geo_llm_draft` | P1 | [ ] | `llmDraft` / `llmGeneratedAt` / `llmStatus` |
-| GEO-CITE-C07 | 运营 diff API | `GET /admin/cases/:id/geo-llm-diff` | P1 | [ ] | `original`（聚合+模板）vs `suggestion`（LLM） |
-| GEO-CITE-C08 | diff 审核 UI | `admin-web/src/components/case-review/CaseGeoLlmReview.vue`（新建） | P1 | [ ] | 并排/diff；按钮：采用建议、保留原稿、编辑后采纳 |
-| GEO-CITE-C09 | 批准落库 | `admin-case.service.js` → `approveAdminCase` | P1 | [ ] | 仅采纳后写入 `ai_summary` 等；`riskChecked: true` |
-| GEO-CITE-C10 | 配置与开关 | `backend/src/config/index.js`；环境变量 | P1 | [ ] | `GEO_LLM_ENABLED`、模型 endpoint、仅 prod/staging |
-| GEO-CITE-C11 | 失败回退 | `case-geo-llm.service.js` | P1 | [ ] | 失败 → `llmStatus: failed`，审核台显示「使用模板稿」 |
-| GEO-CITE-C12 | 审核日志 | `case_review_log` 或 geo 块 | P1 | [ ] | 记录采纳 LLM / 原稿 / 手改 |
-| GEO-CITE-C13 | 冒烟 | `backend/scripts/case-geo-llm-smoke.js`（新建） | P2 | [ ] | mock LLM；验证 diff + 批准链路 |
+| GEO-CITE-C01 | LLM 服务封装 | `backend/src/services/case-geo-llm.service.js` | P1 | [x] | prompt、JSON 输出、超时、回退模板/dry-run |
+| GEO-CITE-C02 | Prompt 与约束 | `backend/src/prompts/case-geo-optimize.md` | P1 | [x] | 禁止编造；`missingEvidence[]` |
+| GEO-CITE-C03 | 合规后处理 | `geo-llm-compliance.js` | P1 | [x] | 营销禁词拦截 |
+| GEO-CITE-C04 | 事实溯源校验 | `case-geo-llm-verify.js` | P1 | [x] | 输出 ↔ 节点 note |
+| GEO-CITE-C05 | 异步任务触发 | `public-case.service.js` + `desensitize.service.js` | P1 | [x] | 提交审核入队；pre-mask READY/PARTIAL_FAILED 补触发 |
+| GEO-CITE-C06 | 建议稿存储 | `content_json.geo.llmDraft` | P1 | [x] | `llmStatus` / `llmGeneratedAt` |
+| GEO-CITE-C07 | 运营 diff API | `GET /admin/cases/:id/geo-llm-diff` | P1 | [x] | original vs suggestion |
+| GEO-CITE-C08 | diff 审核 UI | `CaseGeoLlmReview.vue` | P1 | [x] | 采用 / 保留模板 |
+| GEO-CITE-C09 | 批准落库 | `approveAdminCase` + adopt | P1 | [x] | `generationSource=llm_v1` |
+| GEO-CITE-C10 | 配置与开关 | `config/index.js` | P1 | [x] | `GEO_LLM_*` |
+| GEO-CITE-C11 | 失败回退 | `case-geo-llm.service.js` | P1 | [x] | `llmStatus: failed` |
+| GEO-CITE-C12 | 审核日志 | `case_review_log` | P1 | [x] | `geo_llm_adopt` / `geo_llm_reject` |
+| GEO-CITE-C13 | 冒烟 | `case-geo-llm-smoke.js` | P2 | [x] | dry-run 全链路 |
 
 ### 8.1 LLM 输出契约（阶段 C）
 

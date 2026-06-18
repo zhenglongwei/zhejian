@@ -248,6 +248,9 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     },
   })
 
+  const { scheduleCaseGeoLlmOptimization } = require('./case-geo-llm.service')
+  scheduleCaseGeoLlmOptimization(caseId)
+
   return {
     caseItem: {
       id: caseId,
@@ -391,6 +394,9 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
       authorizationTier: 'private',
     },
   })
+
+  const { scheduleCaseGeoLlmOptimization } = require('./case-geo-llm.service')
+  scheduleCaseGeoLlmOptimization(caseId)
 
   return {
     caseItem: {

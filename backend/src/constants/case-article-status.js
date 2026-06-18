@@ -26,6 +26,7 @@ const CASE_ARTICLE_STATUS_LABELS = {
 const CASE_ARTICLE_GENERATION_SOURCE = {
   TEMPLATE: 'template',
   AI: 'ai',
+  LLM_V1: 'llm_v1',
   MANUAL: 'manual',
 }
 

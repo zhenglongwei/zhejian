@@ -85,6 +85,14 @@
       <el-empty v-if="!detail.mediaAssets?.length" description="暂无图片素材" />
     </el-card>
 
+    <CaseGeoLlmReview
+      v-if="showGeoEditor"
+      class="section"
+      :case-id="detail.caseId"
+      :editable="geoEditable"
+      @changed="onGeoLlmChanged"
+    />
+
     <CaseGeoEditor
       v-if="showGeoEditor"
       class="section"
@@ -153,6 +161,7 @@ import AuditLogTimeline from '@/components/case-review/AuditLogTimeline.vue'
 import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
 import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
 import CaseGeoEditor from '@/components/case-review/CaseGeoEditor.vue'
+import CaseGeoLlmReview from '@/components/case-review/CaseGeoLlmReview.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -258,6 +267,10 @@ function onGeoSaved(next) {
   } else {
     loadDetail()
   }
+}
+
+function onGeoLlmChanged() {
+  loadDetail()
 }
 
 async function onApprove() {

@@ -133,6 +133,12 @@ async function preMaskTaskHasStubArtifacts(preMaskTask) {
   return false
 }
 
+function notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus) {
+  if (![PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskStatus)) return
+  const { scheduleCaseGeoLlmForAlbum } = require('./case-geo-llm.service')
+  scheduleCaseGeoLlmForAlbum(albumId, { trigger: 'pre_mask_ready' })
+}
+
 async function ensureOrderPreMaskTask(albumId, options = {}) {
   const album = await loadAlbumWithRelations(albumId)
   if (!album) {
@@ -230,6 +236,8 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     where: { id: albumId },
     data: { fingerprint },
   })
+
+  notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus)
 
   return getTaskById(taskId)
 }
@@ -452,11 +460,14 @@ async function refreshPreMaskStatusForTask(taskId) {
   const isPreMask =
     task.bizType === BIZ_TYPE.SERVICE_PRE_MASK || task.bizType === BIZ_TYPE.ORDER_PRE_MASK
   if (!isPreMask) return
+  const previousStatus = task.preMaskStatus
   const preMaskStatus = resolvePreMaskStatus(task.assets || [])
+  if (preMaskStatus === previousStatus) return
   await prisma.desensitizeTask.update({
     where: { taskId },
     data: { preMaskStatus },
   })
+  notifyPreMaskReadyForGeoLlm(task.bizId, preMaskStatus)
 }
 
 async function retryAsset(taskId, assetId, options = {}) {

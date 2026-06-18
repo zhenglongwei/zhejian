@@ -26,6 +26,12 @@ const {
   updateAdminCaseGeoContent,
   regenerateAdminCaseArticle,
 } = require('../services/admin-case-article.service')
+const {
+  getAdminCaseGeoLlmDiff,
+  adoptAdminCaseGeoLlm,
+  rejectAdminCaseGeoLlm,
+  triggerAdminCaseGeoLlm,
+} = require('../services/admin-case-geo-llm.service')
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
 const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
@@ -227,6 +233,47 @@ router.post('/cases/:caseId/regenerate-article', async (req, res, next) => {
     const data = await regenerateAdminCaseArticle(req.params.caseId, {
       reviewerId: req.admin?.reviewerId,
     })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/cases/:caseId/geo-llm-diff', async (req, res, next) => {
+  try {
+    const data = await getAdminCaseGeoLlmDiff(req.params.caseId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/geo-llm-adopt', async (req, res, next) => {
+  try {
+    const data = await adoptAdminCaseGeoLlm(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/geo-llm-reject', async (req, res, next) => {
+  try {
+    const data = await rejectAdminCaseGeoLlm(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/geo-llm-run', async (req, res, next) => {
+  try {
+    const data = await triggerAdminCaseGeoLlm(req.params.caseId)
     return ok(res, data)
   } catch (e) {
     next(e)

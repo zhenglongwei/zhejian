@@ -98,6 +98,14 @@ const config = {
     timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 30000),
     batchLimit: Number(process.env.GEO_PROBE_BATCH_LIMIT || 20),
   },
+  geoLlm: {
+    enabled: process.env.GEO_LLM_ENABLED === 'true',
+    dryRun: process.env.GEO_LLM_DRY_RUN !== 'false',
+    apiUrl: process.env.GEO_LLM_API_URL || 'https://api.deepseek.com/chat/completions',
+    apiKey: process.env.GEO_LLM_API_KEY || '',
+    model: process.env.GEO_LLM_MODEL || 'deepseek-chat',
+    timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || 45000),
+  },
 }
 
 module.exports = { config }

@@ -22,7 +22,9 @@ const {
   mapCaseArticleForApi,
   mapCaseSeoForApi,
   resolveGeoReadableFields,
+  mergeContentJsonGeo,
 } = require('../schemas/case-geo-content.schema')
+const { CASE_ARTICLE_GENERATION_SOURCE } = require('../constants/case-article-status')
 const {
   partitionCaseFaq,
   mergeCaseFaqForStorage,
@@ -400,6 +402,12 @@ async function getAdminCaseDetail(caseId) {
     seo: mapCaseSeoForApi(row),
     article: mapCaseArticleForApi(row),
     geo: geoReadable.geo || {},
+    geoLlm: {
+      status: geoReadable.geo?.llmStatus || '',
+      generatedAt: geoReadable.geo?.llmGeneratedAt || '',
+      error: geoReadable.geo?.llmError || '',
+      adoptedAt: geoReadable.geo?.llmAdoptedAt || '',
+    },
   }
 }
 
@@ -507,6 +515,19 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     previousArticleVersion: row.articleVersion || 0,
   })
   articlePayload = applyManualGeoOverrides(row, articlePayload)
+  const prevGeo =
+    row.contentJson && typeof row.contentJson === 'object' && row.contentJson.geo
+      ? row.contentJson.geo
+      : {}
+  if (prevGeo.generationSource === CASE_ARTICLE_GENERATION_SOURCE.LLM_V1) {
+    articlePayload.contentJson = mergeContentJsonGeo(articlePayload.contentJson, {
+      generationSource: prevGeo.generationSource,
+      generationVersion: prevGeo.generationVersion || 'llm_v1',
+      riskChecked: true,
+      llmStatus: prevGeo.llmStatus,
+      llmAdoptedAt: prevGeo.llmAdoptedAt,
+    })
+  }
   articlePayload.slug = await ensureUniqueCaseSlug(prisma, articlePayload.slug, caseId)
   articlePayload.canonicalPath = resolveCaseCanonicalPath({
     slug: articlePayload.slug,

@@ -164,10 +164,19 @@ function normalizeGeoBlock(geo) {
     generationSource: normalizeString(geo.generationSource),
     generationVersion: normalizeString(geo.generationVersion),
     riskChecked: Boolean(geo.riskChecked),
+    llmStatus: normalizeString(geo.llmStatus),
+    llmError: normalizeString(geo.llmError),
+    llmGeneratedAt: normalizeString(geo.llmGeneratedAt),
+    llmAdoptedAt: normalizeString(geo.llmAdoptedAt),
+    llmRejectedAt: normalizeString(geo.llmRejectedAt),
+    llmDraft: isPlainObject(geo.llmDraft) ? geo.llmDraft : null,
+    llmVerify: isPlainObject(geo.llmVerify) ? geo.llmVerify : null,
   }
   return Object.fromEntries(Object.entries(block).filter(([, v]) => {
+    if (v === null) return false
     if (Array.isArray(v)) return v.length > 0
     if (typeof v === 'boolean') return v
+    if (isPlainObject(v)) return Object.keys(v).length > 0
     return Boolean(v)
   }))
 }

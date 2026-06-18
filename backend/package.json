@@ -42,6 +42,7 @@
     "geo:probe-seed-sync": "node scripts/geo-prompt-seed-sync.js",
     "geo:probe": "node scripts/geo-prompt-probe.js",
     "geo:probe:live": "node scripts/geo-prompt-probe.js",
+    "case:geo-llm-smoke": "node scripts/case-geo-llm-smoke.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },
