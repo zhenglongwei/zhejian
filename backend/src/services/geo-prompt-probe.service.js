@@ -9,6 +9,7 @@ const { GEO_PROMPT_SEED } = require('../constants/geo-prompt-seed')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { parseProbeAnswer } = require('../utils/geo-probe-parse')
 const { mapPromptRow } = require('./admin-geo-prompt.service')
+const { computeGeoTopicHealthMetrics } = require('./geo-topic-health.service')
 
 const PUBLIC_PAGE_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
@@ -297,6 +298,7 @@ async function buildGeoProbeReport(query = {}) {
   const citationCount = okResults.filter((row) => row.citedUrl).length
   const usedOnlyCount = okResults.filter((row) => row.mentioned && !row.citedUrl).length
   const coverage = await computeIntentCoverage(promptRows)
+  const topicHealth = await computeGeoTopicHealthMetrics()
   const postCitationLeads = await computePostCitationLeads(okResults, days)
 
   const byEngineMap = new Map()
@@ -341,8 +343,11 @@ async function buildGeoProbeReport(query = {}) {
       prompt_intent_coverage: coverage.prompt_intent_coverage,
       active_prompt_count: coverage.activePromptCount,
       covered_prompt_count: coverage.coveredPromptCount,
+      topic_faq_completeness: topicHealth.topic_faq_completeness,
+      topic_with_case_rate: topicHealth.topic_with_case_rate,
       post_citation_lead_rate: postCitationLeads.post_citation_lead_rate,
     },
+    topicHealth,
     usedVsCited: {
       mentioned_only: usedOnlyCount,
       cited_with_link: citationCount,

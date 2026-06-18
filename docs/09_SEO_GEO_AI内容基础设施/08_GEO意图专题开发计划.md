@@ -1,7 +1,7 @@
 # GEO 意图专题开发计划
 
 > **生效日期**：2026-06-16  
-> **状态**：定稿 · **A～D 已验收**（2026-06-16）；服务页 = GEO 答案页架构已落地；下一项 **GEO-OBS A～B** 或 **GEO-CITE C**
+> **状态**：定稿 · **A～D 已验收**；**T/M/F(P1) 已验收**（2026-06-18）；下一项 **GEO-TOPIC E**（P2）或 **C06**
 > **与主计划关系**：独立专项；进度在本文件勾选；完成后更新 [`docs/00_开发计划.md`](../00_开发计划.md) §2.6。  
 > **战略定位**：**案例 = 证据，专题 = 答案**；对标 Profound「Prompt 选题」+ 国内 GEO「结构化语料 / 知识页」，用 **真实案例聚合** 做差异化。  
 > **关联专项**：[`06_GEO案例引用优化开发计划.md`](./06_GEO案例引用优化开发计划.md)（案例成稿）· [`07_GEO引用观测开发计划.md`](./07_GEO引用观测开发计划.md)（gap 驱动选题）
@@ -110,7 +110,7 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | **C** | 案例↔服务页矩阵 + 自动挂载 | P1 | A、[`06`](./06_GEO案例引用优化开发计划.md) | 内链密度 | [x] |
 | **D** | 意图模板批量生成 + 首批 30 种子 | P1 | A、B | 种子内容网 | [x] |
 | **E** | 车型+服务轻量专题 | P2 | C | 覆盖 `DS-C-06` 子集 | [ ] |
-| **F** | llms.txt / 专题 Feed | P2 | A | 可选发现层 | [ ] |
+| **F** | llms.txt / 专题 Feed | P2 | A | 可选发现层 | [x] |
 
 **推荐顺序**：`A → B → D` ✅ → `C` ✅ → **GEO-OBS B**（验 citation）→ `E/F`（按需）。
 
@@ -128,7 +128,7 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | GEO-TOPIC-A06 | mock 迁移脚本 | `backend/scripts/geo-pages-migrate-from-mock.js`（新建） | P0 | [x] | 现有 `mock/geo-pages` → DB |
 | GEO-TOPIC-A07 | sitemap | `backend/src/services/h5-sitemap.service.js` | P0 | [x] | `published` 专题入 sitemap |
 | GEO-TOPIC-A08 | 冒烟 | `backend/scripts/h5-chain-smoke.js` | P0 | [x] | topic 读真库 |
-| GEO-TOPIC-A09 | 文档 | `docs/11_数据结构与状态机/02_核心数据对象.md` | P1 | [ ] | GeoPage 对象 |
+| GEO-TOPIC-A09 | 文档 | `docs/11_数据结构与状态机/02_核心数据对象.md` | P1 | [x] | GeoPage 对象 §7.6 |
 
 ### 5.1 阶段 A 验收
 
@@ -216,8 +216,8 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-F01 | `llms.txt` | `backend/src/routes/public-h5.js` | P2 | [ ] | 站点简介 + Top 专题/案例链接 |
-| GEO-TOPIC-F02 | 专题 RSS | `GET /feeds/topics.xml` | P2 | [ ] | 最近发布专题 |
+| GEO-TOPIC-F01 | `llms.txt` | `backend/src/routes/public-h5.js` | P2 | [x] | `h5-discovery.service.js` + Nginx 反代 |
+| GEO-TOPIC-F02 | 专题 RSS | `GET /feeds/topics.xml` | P2 | [x] | 最近发布专题 |
 | GEO-TOPIC-F03 | IndexNow / 站长文档 | `docs/10_技术架构/` 运维备忘 | P2 | [ ] | 运营动作，非代码必达 |
 
 ---
@@ -226,10 +226,10 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 说明 | 状态 |
 | ---: | --- | --- | ---: |
-| GEO-TOPIC-M01 | `prompt_intent_coverage` | 词库 prompt 有已发布专题映射的占比（主责；OBS 周报展示） | [ ] |
-| GEO-TOPIC-M02 | `topic_faq_completeness` | 已发布专题含 ≥3 条页内 FAQ 的占比 | [ ] |
-| GEO-TOPIC-M03 | `topic_with_case_rate` | 已发布且 index 专题中，≥1 脱敏案例的占比 | [ ] |
-| GEO-TOPIC-M04 | 专题 CTA 埋点 | `h5_geo_topic_view` + consult/call 带 `utm_medium=geo` | [ ] |
+| GEO-TOPIC-M01 | `prompt_intent_coverage` | 词库 prompt 有已发布专题映射的占比（主责；OBS 周报展示） | [x] |
+| GEO-TOPIC-M02 | `topic_faq_completeness` | 已发布专题含 ≥3 条页内 FAQ 的占比 | [x] | `geo-topic-health.service.js` |
+| GEO-TOPIC-M03 | `topic_with_case_rate` | 已发布且 index 专题中，≥1 脱敏案例的占比 | [x] | 同上 |
+| GEO-TOPIC-M04 | 专题 CTA 埋点 | `h5_geo_topic_view` + consult/call 带 `utm_medium=geo` | [x] | 服务页 `channel: geo` |
 
 **非主指标**：专题页 PV、人均阅读 FAQ 条数。
 
@@ -239,10 +239,10 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 说明 | 状态 |
 | ---: | --- | --- | ---: |
-| GEO-TOPIC-T01 | 专题页展示 `updated_at`、案例数 | 信任信号 | [ ] |
-| GEO-TOPIC-T02 | `ai_summary` 顶栏 | 对齐 [`04_AI可引用摘要规范.md`](./04_AI可引用摘要规范.md) | [ ] |
-| GEO-TOPIC-T03 | 免责声明 | 复用 `GEO_DISCLAIMER` | [ ] |
-| GEO-TOPIC-T04 | 无案例 noindex | `seo.robots` | [ ] |
+| GEO-TOPIC-T01 | 专题页展示 `updated_at`、案例数 | 信任信号 | [x] | 服务页 `h5-topic-trust` |
+| GEO-TOPIC-T02 | `ai_summary` 顶栏 | 对齐 [`04_AI可引用摘要规范.md`](./04_AI可引用摘要规范.md) | [x] | `h5-topic-answer` |
+| GEO-TOPIC-T03 | 免责声明 | 复用 `GEO_DISCLAIMER` | [x] | `renderDisclaimer` 双条 |
+| GEO-TOPIC-T04 | 无案例 noindex | `seo.robots` | [x] | 仅 `caseCount > 0` 可 index |
 
 ---
 
@@ -250,15 +250,15 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | 阶段 | 任务数 | [x] | [ ] | 备注 |
 | --- | ---: | ---: | ---: | --- |
-| A 入库 CRUD | 9 | 8 | 1 | A09 数据对象文档待补 |
+| A 入库 CRUD | 9 | 9 | 0 | |
 | B 页内 FAQ | 8 | 8 | 0 | FAQ 落在 `/service/` 服务页 |
 | C 案例矩阵 | 6 | 5 | 1 | C06 运营批量挂载为 P2 |
 | D 首批 30 种子 | 6 | 6 | 0 | `geo:seed-topics` 已验收 |
 | E 车型轻量 | 4 | 0 | 4 | P2 |
-| F 发现层 | 3 | 0 | 3 | P2 |
-| T 信任横切 | 4 | 0 | 4 | 部分能力已在服务页实现，待单独勾选 |
-| M 指标 | 4 | 0 | 4 | 依赖 GEO-OBS B |
-| **合计** | **44** | **27** | **17** | **P0/P1 主体已完成** |
+| F 发现层 | 3 | 2 | 1 | F03 IndexNow 运维备忘 |
+| T 信任横切 | 4 | 4 | 0 | 服务页答案页 |
+| M 指标 | 4 | 4 | 0 | OBS 周报 + 健康度 |
+| **合计** | **44** | **38** | **6** | **余 E、C06、F03** |
 
 ---
 
@@ -289,4 +289,5 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | --- | --- | --- |
 | 2026-06-16 | V1.0 | 初稿：意图专题 + 页内 FAQ + 案例矩阵 |
 | 2026-06-16 | V1.1 | 懒人用户/答案页形态；意图覆盖率与 citation 验收；M 指标 |
+| 2026-06-18 | V1.3 | T/M 横切验收；F01 llms.txt + F02 RSS；A09 GeoPage §7.6 |
 | 2026-06-16 | V1.2 | 服务页 = GEO 答案页；A～D + C(P1) 验收；30 条意图种子 `geo:seed-topics` |

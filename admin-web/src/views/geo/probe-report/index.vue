@@ -51,6 +51,29 @@
     <el-row :gutter="16" class="mb-16">
       <el-col :span="6">
         <el-statistic
+          title="FAQ 完整度 (M02)"
+          :value="formatRate(report.metrics?.topic_faq_completeness)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="专题挂载案例率 (M03)"
+          :value="formatRate(report.metrics?.topic_with_case_rate)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic title="已发布专题" :value="report.topicHealth?.published_count || 0" />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic title="≥3 FAQ 专题" :value="report.topicHealth?.faq_complete_count || 0" />
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="16" class="mb-16">
+      <el-col :span="6">
+        <el-statistic
           title="仅提及（无链接）"
           :value="report.usedVsCited?.mentioned_only || 0"
         />

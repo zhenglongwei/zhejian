@@ -16,6 +16,59 @@
       '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
   }
 
+  function renderDisclaimerBlock() {
+    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
+      return window.zhejianH5Ui.renderDisclaimer(COPY.displayDisclaimer, COPY.geoDisclaimer)
+    }
+    return (
+      '<div class="h5-disclaimer" data-h5-disclaimer>' +
+      '<p class="h5-disclaimer__primary">' +
+      escapeHtml(COPY.displayDisclaimer) +
+      '</p>' +
+      '<div class="h5-disclaimer__more" hidden><p>' +
+      escapeHtml(COPY.geoDisclaimer) +
+      '</p></div>' +
+      '<button type="button" class="h5-disclaimer__toggle" data-h5-disclaimer-toggle aria-expanded="false">展开说明</button>' +
+      '</div>'
+    )
+  }
+
+  function formatTrustDate(iso) {
+    if (!iso) return ''
+    var d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    return (
+      d.getFullYear() +
+      '-' +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(d.getDate()).padStart(2, '0')
+    )
+  }
+
+  function renderTrustMeta(data) {
+    var geo = data.geo || {}
+    var stats = data.stats || {}
+    var parts = []
+    var updated = formatTrustDate(geo.updatedAt)
+    if (updated) parts.push('内容更新：' + updated)
+    if (stats.caseCount > 0) parts.push('公开脱敏案例 ' + stats.caseCount + ' 条')
+    if (!parts.length) return ''
+    return '<p class="h5-topic-trust">' + escapeHtml(parts.join(' · ')) + '</p>'
+  }
+
+  function geoTrackParams(item, extra) {
+    return Object.assign(
+      {
+        serviceSlug: item.slug || '',
+        serviceItemId: item.serviceItemId || '',
+        pageType: 'service_item',
+        channel: 'geo',
+        utm_medium: 'geo',
+      },
+      extra || {}
+    )
+  }
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
@@ -84,6 +137,7 @@
   function setPageMeta(data) {
     var seo = data.seo || {}
     var item = data.item || {}
+    var geo = data.geo || {}
     var title = seo.title || item.name + ' · 辙见'
     var desc = seo.description || item.aiSummary || item.summary || ''
     var canonical = location.origin + (seo.canonicalPath || location.pathname)
@@ -95,17 +149,21 @@
     ensureMeta('property', 'og:url', canonical)
     ensureLink('canonical', canonical)
 
+    var webPage = {
+      '@type': 'WebPage',
+      name: title,
+      description: desc,
+      url: canonical,
+    }
+    if (geo.updatedAt) webPage.dateModified = geo.updatedAt
+    if (geo.publishedAt) webPage.datePublished = geo.publishedAt
+
     var graph = [
-      {
-        '@type': 'WebPage',
-        name: title,
-        description: desc,
-        url: canonical,
-      },
+      webPage,
       {
         '@type': 'Service',
         name: item.name,
-        description: item.summary,
+        description: item.aiSummary || item.summary,
         url: canonical,
       },
     ]
@@ -426,22 +484,24 @@
     document.querySelectorAll('[data-case-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_service_case_click', {
-            serviceSlug: item.slug,
-            serviceItemId: item.serviceItemId,
-            caseId: el.getAttribute('data-case-id') || '',
-          })
+          window.zhejianTrack.track(
+            'h5_service_case_click',
+            geoTrackParams(item, {
+              caseId: el.getAttribute('data-case-id') || '',
+            })
+          )
         }
       })
     })
     document.querySelectorAll('[data-store-id]').forEach(function (el) {
       el.addEventListener('click', function () {
         if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_service_store_click', {
-            serviceSlug: item.slug,
-            serviceItemId: item.serviceItemId,
-            storeId: el.getAttribute('data-store-id') || '',
-          })
+          window.zhejianTrack.track(
+            'h5_service_store_click',
+            geoTrackParams(item, {
+              storeId: el.getAttribute('data-store-id') || '',
+            })
+          )
         }
       })
     })
@@ -452,13 +512,13 @@
           'pages/index/index?source=h5&page_type=service&service_slug=' +
           encodeURIComponent(item.slug || '') +
           '&service_item_id=' +
-          encodeURIComponent(item.serviceItemId || '')
+          encodeURIComponent(item.serviceItemId || '') +
+          '&utm_medium=geo&utm_source=h5'
         if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_open_weapp_click', {
-            page_type: 'service_item',
-            serviceSlug: item.slug,
-            serviceItemId: item.serviceItemId,
-          })
+          window.zhejianTrack.track(
+            'h5_open_weapp_click',
+            geoTrackParams(item, { cta: 'weapp_booking' })
+          )
         }
         alert('请打开微信小程序继续。路径：/' + path)
       })
@@ -495,6 +555,7 @@
       (answerText
         ? '<div class="h5-topic-answer">' + escapeHtml(answerText) + '</div>'
         : '') +
+      renderTrustMeta(data) +
       cityNote +
       '</header>' +
       '<div class="h5-home-quick h5-topic-cta">' +
@@ -512,9 +573,7 @@
       renderRelated(data.relatedServices) +
       renderFaqLinks(data.faqLinks) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">' +
-      escapeHtml(COPY.footnote) +
-      '</p>' +
+      renderDisclaimerBlock() +
       '</div>'
 
     var app = document.getElementById('app')
@@ -525,17 +584,21 @@
     bindInteractions(data)
 
     if (window.zhejianTrack) {
-      window.zhejianTrack.trackServiceView({
-        serviceItemId: item.serviceItemId,
+      var trackPayload = geoTrackParams(item, {
         serviceName: item.name,
-        serviceSlug: item.slug,
-        pageType: 'service_item',
+        caseCount: (data.stats && data.stats.caseCount) || 0,
+        geoPageId: (data.geo && data.geo.id) || '',
+        geoSlug: (data.geo && data.geo.slug) || item.slug || '',
       })
-      if (window.zhejianTrack.bindScrollDepth) {
-        window.zhejianTrack.bindScrollDepth({
-          pageType: 'service_item',
-          serviceSlug: item.slug,
+      window.zhejianTrack.track('h5_geo_topic_view', trackPayload, { channel: 'geo' })
+      window.zhejianTrack.trackServiceView(
+        Object.assign({}, trackPayload, {
+          serviceId: item.serviceItemId,
+          name: item.name,
         })
+      )
+      if (window.zhejianTrack.bindScrollDepth) {
+        window.zhejianTrack.bindScrollDepth(trackPayload)
       }
     }
   }

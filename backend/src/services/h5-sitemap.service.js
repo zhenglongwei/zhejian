@@ -205,6 +205,7 @@ function getRobotsTxt() {
     'Disallow: /api/',
     '',
     `Sitemap: ${base}/sitemap.xml`,
+    `LLMs-Txt: ${base}/llms.txt`,
     '',
   ].join('\n')
 }

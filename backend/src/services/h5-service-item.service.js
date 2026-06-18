@@ -115,8 +115,9 @@ function buildRecommendedStores(plans, merchants, caseCountByStore) {
     .slice(0, STORE_LIMIT)
 }
 
-function buildSeo(item, merged, { caseTotal, storeTotal }) {
-  const allowIndex = caseTotal > 0 || storeTotal > 0
+function buildSeo(item, merged, geoPage, { caseTotal }) {
+  const forceNoindex = geoPage?.status === 'noindex'
+  const allowIndex = !forceNoindex && caseTotal > 0
   const title =
     merged.seoTitle || `${item.name}价格参考与维修案例_透明汽车维修平台 · 辙见`
   const description =
@@ -203,6 +204,15 @@ async function getServiceItemPagePayload(slug, query = {}) {
       priceFactors: merged.priceFactors,
       cityFilter: merged.cityFilter,
     },
+    geo: geoPage
+      ? {
+          id: geoPage.id,
+          slug: geoPage.slug,
+          pageType: geoPage.pageType,
+          updatedAt: geoPage.updatedAt || '',
+          publishedAt: geoPage.publishedAt || '',
+        }
+      : null,
     referencePrice,
     featuredCases,
     recommendedStores,
@@ -213,9 +223,8 @@ async function getServiceItemPagePayload(slug, query = {}) {
       caseCount: effectiveCaseTotal,
       storeCount: recommendedStores.length,
     },
-    seo: buildSeo(item, merged, {
+    seo: buildSeo(item, merged, geoPage, {
       caseTotal: effectiveCaseTotal,
-      storeTotal: recommendedStores.length,
     }),
   }
 }

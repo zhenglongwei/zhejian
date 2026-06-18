@@ -226,6 +226,13 @@
   color: var(--color-text-secondary);
 }
 
+.h5-topic-trust {
+  margin-top: var(--space-sm);
+  font-size: var(--font-caption, 12px);
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
+}
+
 .h5-topic-cta {
   margin-bottom: var(--space-md);
 }

@@ -228,6 +228,8 @@ async function verifyH5ServiceItem() {
   assert(apiItem.ok && apiItem.json?.code === 0, 'GET /public/h5/service-items/:slug 失败')
   assert(apiItem.json.data?.item?.slug === slug, 'service item slug 不正确')
   assert(apiItem.json.data?.item?.aiSummary, 'service item 缺少 aiSummary')
+  assert(apiItem.json.data?.stats?.caseCount != null, 'service item 缺少 stats.caseCount')
+  assert(apiItem.json.data?.seo?.robots, 'service item 缺少 seo.robots')
   assert(Array.isArray(apiItem.json.data?.featuredCases), 'service item 缺少 featuredCases')
   assert(Array.isArray(apiItem.json.data?.faq), 'service item 缺少 faq')
   assert(
@@ -261,6 +263,17 @@ async function verifyH5Sitemap() {
   assert(robotsRes.ok, `robots.txt HTTP ${robotsRes.status}`)
   const robotsText = await robotsRes.text()
   assert(robotsText.includes('Sitemap:'), 'robots.txt 缺少 Sitemap 声明')
+
+  const llmsRes = await fetch(`${BASE}/llms.txt`)
+  assert(llmsRes.ok, `llms.txt HTTP ${llmsRes.status}`)
+  const llmsText = await llmsRes.text()
+  assert(llmsText.includes('辙见服务平台'), 'llms.txt 缺少站点标题')
+  assert(llmsText.includes('/service/'), 'llms.txt 应含服务页链接')
+
+  const feedRes = await fetch(`${BASE}/feeds/topics.xml`)
+  assert(feedRes.ok, `feeds/topics.xml HTTP ${feedRes.status}`)
+  const feedXml = await feedRes.text()
+  assert(feedXml.includes('<rss'), 'feeds/topics.xml 格式错误')
 
   const indexRes = await fetch(`${BASE}/sitemap.xml`)
   assert(indexRes.ok, `sitemap.xml HTTP ${indexRes.status}`)
