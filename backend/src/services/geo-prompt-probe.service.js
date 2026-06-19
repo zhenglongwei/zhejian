@@ -10,6 +10,7 @@ const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { parseProbeAnswer } = require('../utils/geo-probe-parse')
 const { mapPromptRow } = require('./admin-geo-prompt.service')
 const { computeGeoTopicHealthMetrics } = require('./geo-topic-health.service')
+const { chatCompletion } = require('../lib/dashscope-chat')
 
 const PUBLIC_PAGE_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
@@ -19,11 +20,13 @@ function getProbeConfig() {
     enabled: process.env.GEO_PROBE_ENABLED === 'true' || probe.enabled === true,
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true' || probe.dryRun === true,
     apiUrl: String(probe.apiUrl || '').trim(),
-    apiKey: String(probe.apiKey || '').trim(),
-    model: String(probe.model || 'deepseek-chat').trim(),
-    engine: String(probe.engine || 'deepseek').trim(),
-    timeoutMs: Number(probe.timeoutMs) || 30000,
+    apiKey: String(probe.apiKey || process.env.DASHSCOPE_API_KEY || '').trim(),
+    model: String(probe.model || 'qwen-plus').trim(),
+    engine: String(probe.engine || 'qwen').trim(),
+    timeoutMs: Number(probe.timeoutMs) || 60000,
     batchLimit: Math.min(Math.max(Number(probe.batchLimit) || 20, 1), 50),
+    enableThinking:
+      process.env.GEO_PROBE_ENABLE_THINKING === 'true' || probe.enableThinking === true,
     publicBaseUrl: config.publicBaseUrl,
   }
 }
@@ -79,42 +82,22 @@ async function callProbeEngine(prompt, probeConfig) {
     return { status: 'skipped', reason: 'probe_disabled' }
   }
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), probeConfig.timeoutMs)
   try {
-    const res = await fetch(probeConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${probeConfig.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: probeConfig.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
-      }),
-      signal: controller.signal,
+    const result = await chatCompletion({
+      apiUrl: probeConfig.apiUrl,
+      apiKey: probeConfig.apiKey,
+      model: probeConfig.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2,
+      enableThinking: probeConfig.enableThinking ? true : false,
+      timeoutMs: probeConfig.timeoutMs,
     })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      return {
-        status: 'error',
-        errorMessage: body.error?.message || body.message || `HTTP ${res.status}`,
-      }
-    }
-    const answer =
-      body.choices?.[0]?.message?.content ||
-      body.output?.text ||
-      body.result ||
-      ''
-    return { status: 'ok', answer: String(answer) }
+    return { status: 'ok', answer: result.text }
   } catch (error) {
     return {
       status: 'error',
-      errorMessage: error.name === 'AbortError' ? 'probe_timeout' : error.message,
+      errorMessage: error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message,
     }
-  } finally {
-    clearTimeout(timer)
   }
 }
 

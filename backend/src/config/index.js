@@ -91,24 +91,38 @@ const config = {
   geoProbe: {
     enabled: process.env.GEO_PROBE_ENABLED === 'true',
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',
-    apiUrl: process.env.GEO_PROBE_API_URL || 'https://api.deepseek.com/chat/completions',
-    apiKey: process.env.GEO_PROBE_API_KEY || '',
-    model: process.env.GEO_PROBE_MODEL || 'deepseek-chat',
-    engine: process.env.GEO_PROBE_ENGINE || 'deepseek',
-    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 30000),
+    apiUrl:
+      process.env.GEO_PROBE_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey: process.env.GEO_PROBE_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.GEO_PROBE_MODEL || 'qwen-plus',
+    engine: process.env.GEO_PROBE_ENGINE || 'qwen',
+    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 60000),
     batchLimit: Number(process.env.GEO_PROBE_BATCH_LIMIT || 20),
+    /** qwen3.6-plus 等混合思考模型：探测需直接答案，默认关思考 */
+    enableThinking: process.env.GEO_PROBE_ENABLE_THINKING === 'true',
   },
   geoLlm: {
     enabled: process.env.GEO_LLM_ENABLED === 'true',
-    dryRun: process.env.GEO_LLM_DRY_RUN !== 'false',
-    apiUrl: process.env.GEO_LLM_API_URL || 'https://api.deepseek.com/chat/completions',
-    apiKey: process.env.GEO_LLM_API_KEY || '',
-    model: process.env.GEO_LLM_MODEL || 'deepseek-chat',
-    timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || 45000),
+    dryRun: process.env.GEO_LLM_DRY_RUN === 'true',
+    apiUrl:
+      process.env.GEO_LLM_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey: process.env.GEO_LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.GEO_LLM_MODEL || 'qwen3.6-plus',
+    timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || 90000),
+    enableThinking: process.env.GEO_LLM_ENABLE_THINKING === 'true',
   },
   geoVision: {
     enabled: process.env.GEO_VISION_ENABLED === 'true',
-    dryRun: process.env.GEO_VISION_DRY_RUN !== 'false',
+    dryRun: process.env.GEO_VISION_DRY_RUN === 'true',
+    apiUrl:
+      process.env.GEO_VISION_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey: process.env.GEO_VISION_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.GEO_VISION_MODEL || 'qwen3.6-plus',
+    timeoutMs: Number(process.env.GEO_VISION_TIMEOUT_MS || 90000),
+    enableThinking: process.env.GEO_VISION_ENABLE_THINKING === 'true',
   },
 }
 

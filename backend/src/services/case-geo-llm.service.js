@@ -19,6 +19,7 @@ const {
 const { findGeoLlmViolation, sanitizeGeoLlmText } = require('../constants/geo-llm-compliance')
 const { verifyLlmDraftAgainstEvidence } = require('../utils/case-geo-llm-verify')
 const { buildCaseGeoVisionDraft } = require('./case-geo-vision.service')
+const { chatCompletion } = require('../lib/dashscope-chat')
 
 const PROMPT_PATH = path.join(__dirname, '../prompts/case-geo-optimize.md')
 const runningCases = new Set()
@@ -27,15 +28,16 @@ function getGeoLlmConfig() {
   const llm = config.geoLlm || {}
   const enabled = process.env.GEO_LLM_ENABLED === 'true' || llm.enabled === true
   const dryRun =
-    process.env.GEO_LLM_DRY_RUN === 'true' ||
-    (!enabled && llm.dryRun !== false)
+    process.env.GEO_LLM_DRY_RUN === 'true' || (!enabled && llm.dryRun !== false && !llm.enabled)
   return {
     enabled,
     dryRun,
     apiUrl: String(process.env.GEO_LLM_API_URL || llm.apiUrl || '').trim(),
-    apiKey: String(process.env.GEO_LLM_API_KEY || llm.apiKey || '').trim(),
-    model: String(process.env.GEO_LLM_MODEL || llm.model || 'deepseek-chat').trim(),
-    timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || llm.timeoutMs || 45000),
+    apiKey: String(process.env.GEO_LLM_API_KEY || llm.apiKey || process.env.DASHSCOPE_API_KEY || '').trim(),
+    model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.6-plus').trim(),
+    timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || llm.timeoutMs || 90000),
+    enableThinking:
+      process.env.GEO_LLM_ENABLE_THINKING === 'true' || llm.enableThinking === true,
   }
 }
 
@@ -198,39 +200,20 @@ function buildDryRunDraft(ctx) {
 }
 
 async function callLlmApi(systemPrompt, userPrompt, llmConfig) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), llmConfig.timeoutMs)
-  try {
-    const res = await fetch(llmConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${llmConfig.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: llmConfig.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      throw new Error(body.error?.message || body.message || `HTTP ${res.status}`)
-    }
-    const content =
-      body.choices?.[0]?.message?.content ||
-      body.output?.text ||
-      body.result ||
-      ''
-    return parseLlmJson(content)
-  } finally {
-    clearTimeout(timer)
-  }
+  const result = await chatCompletion({
+    apiUrl: llmConfig.apiUrl,
+    apiKey: llmConfig.apiKey,
+    model: llmConfig.model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.2,
+    responseFormat: { type: 'json_object' },
+    enableThinking: llmConfig.enableThinking ? true : false,
+    timeoutMs: llmConfig.timeoutMs,
+  })
+  return parseLlmJson(result.text)
 }
 
 async function patchGeoLlmState(caseId, patch) {
@@ -288,7 +271,7 @@ async function runCaseGeoLlmOptimization(caseId) {
     }
 
     const draft = normalizeLlmDraft(rawDraft)
-    const visionDraft = buildCaseGeoVisionDraft(ctx, draft)
+    const visionDraft = await buildCaseGeoVisionDraft(ctx, draft)
     draft.nodeNarratives = visionDraft.nodeNarratives
     draft.visionSource = visionDraft.source
     const verify = verifyLlmDraftAgainstEvidence(draft, ctx.nodes, {
