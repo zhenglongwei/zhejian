@@ -13,5 +13,5 @@ LOG_FILE="${LOG_DIR}/geo-probe.log"
 {
   echo "===== $(date '+%Y-%m-%d %H:%M:%S %Z') ====="
   node scripts/geo-prompt-seed-sync.js
-  node scripts/geo-prompt-probe.js
+  node scripts/geo-prompt-probe.js --live
 } >>"$LOG_FILE" 2>&1
