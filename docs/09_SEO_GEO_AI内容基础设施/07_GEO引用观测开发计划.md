@@ -1,7 +1,7 @@
 # GEO 引用观测开发计划
 
 > **生效日期**：2026-06-16  
-> **状态**：定稿 · **A～C 已验收**（2026-06-18）；下一项 **GEO-OBS D**（多引擎）或 **GEO-TOPIC E/F**
+> **状态**：定稿 · **A～C 已验收**；**B 百炼 live 生产验收 ✅**（2026-06-19）；下一项 **OBS D** 或 **TOPIC E**
 > **与主计划关系**：独立专项；进度在本文件勾选；完成后更新 [`docs/00_开发计划.md`](../00_开发计划.md) §2.6。  
 > **对标能力**：国际 GEO SaaS（Profound / Peec AI）的 **citation tracking、used-vs-cited、prompt 探测**；**不做**对外通用 MarTech，仅服务辙见平台 **内部选题 + 商家价值话术 + 效果验证**。  
 > **关联专项**：[`06_GEO案例引用优化开发计划.md`](./06_GEO案例引用优化开发计划.md)（提升可被引）· [`08_GEO意图专题开发计划.md`](./08_GEO意图专题开发计划.md)（承接 prompt 的流量页）
@@ -145,12 +145,12 @@
 | GEO-OBS-B01 | Prompt 词库表 | `backend/prisma/schema.prisma` | P1 | [x] | `geo_prompt_probe` |
 | GEO-OBS-B02 | 词库种子 | `geo-prompt-seed.js` + `geo-prompt-seed-sync.js` | P1 | [x] | 30 条与 TOPIC-D 对齐 |
 | GEO-OBS-B03 | 词库运营 API | `admin.js`；`admin-geo-prompt.service.js` | P1 | [x] | CRUD |
-| GEO-OBS-B04 | 探测执行器 | `geo-prompt-probe.service.js` | P1 | [x] | API / dry-run |
+| GEO-OBS-B04 | 探测执行器 | `geo-prompt-probe.service.js`；`lib/dashscope-chat.js` | P1 | [x] | 百炼 OpenAI 兼容；`dry_run` / **live `qwen-plus`** |
 | GEO-OBS-B05 | 结果表 | migration | P1 | [x] | `geo_prompt_probe_result` |
-| GEO-OBS-B06 | 定时任务 | `geo-prompt-probe-cron.sh` | P1 | [x] | `npm run geo:probe` |
+| GEO-OBS-B06 | 定时任务 | `geo-prompt-probe-cron.sh` | P1 | [x] | 周频 `0 3 * * 1`；`npm run geo:probe:cron`；日志 `logs/geo-probe.log` |
 | GEO-OBS-B07 | 周报 API | `GET /admin/geo/probe-report` | P1 | [x] | citation / coverage |
 | GEO-OBS-B08 | 运营台 UI | `admin-web/.../geo/probe-report` | P1 | [x] | 北极星周报 |
-| GEO-OBS-B09 | 配置 | `config/index.js` | P1 | [x] | `GEO_PROBE_*` 环境变量 |
+| GEO-OBS-B09 | 配置 | `config/index.js`；`.env.example` | P1 | [x] | `GEO_PROBE_*` / `DASHSCOPE_API_KEY`；默认北京 compatible-mode |
 | GEO-OBS-B10 | 合规说明 | 本文 §9 | P1 | [x] | 内部使用、不对外承诺 |
 
 ### 6.1 初始 Prompt 模板（种子）
@@ -170,6 +170,19 @@
 2. 能区分 `mentioned`（提及辙见）与 `cited_url`（含链接）。
 3. **周报必含**：`prompt_probe_citation_rate`、`prompt_intent_coverage`（对接 [`08`](./08_GEO意图专题开发计划.md) 专题表）。
 4. 词库 ≥20 条且与杭州首发服务/故障种子对齐。
+5. **生产 live**：状态 `ok`（非 `dry_run`）；见 §6.3。
+
+### 6.3 生产 live 验收（2026-06-19）
+
+| 项 | 结果 |
+| --- | --- |
+| API | 阿里云百炼 `dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` |
+| 模型 | `qwen-plus`（探测）；`GEO_PROBE_ENABLE_THINKING=false` |
+| 冒烟 | `npm run geo:probe-smoke` ✅ |
+| 批量 | `node scripts/geo-prompt-probe.js --live` · `processed:20` · `dryRun:false` ✅ |
+| 抽检 | `--live --limit=2` · `probe_total:41` · citation ~29%（7 日窗口）✅ |
+| 周报样例 | `prompt_intent_coverage:1` · citation ~29%（7 日窗口，基线信号） |
+| 定时 | `bash scripts/geo-prompt-probe-cron.sh`（seed-sync + `--live` 默认 20 条/周） |
 
 ---
 
@@ -317,7 +330,7 @@
 | 阶段 | 任务数 | [x] | [ ] | 备注 |
 | --- | ---: | ---: | ---: | --- |
 | A 爬虫深化 | 8 | 7 | 1 | A07 robots 审计 P2 |
-| B Prompt 探测 | 10 | 10 | 0 | dry-run 默认；live 需 `GEO_PROBE_ENABLED` |
+| B Prompt 探测 | 10 | 10 | 0 | **ECS live ✅**；周频 cron 见部署指南 §7.3.1 |
 | C Citation gap | 7 | 7 | 0 | P2 |
 | D 多引擎 | 4 | 0 | 4 | P2 |
 | **合计** | **29** | **24** | **5** |
@@ -349,3 +362,4 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-16 | V1.2 | §10 七条引用杠杆；§11 运营周报 Checklist |
 | 2026-06-16 | V1.3 | A～B 验收：crawler_url_daily、probe 词库/周报、运营台 |
 | 2026-06-18 | V1.4 | C 验收：citation-gaps、used-vs-cited、引后转化、商家机会卡片 |
+| 2026-06-19 | V1.5 | 百炼千问 live 探测；`dashscope-chat`；cron 进度日志；§6.3 生产验收 |
