@@ -159,14 +159,24 @@ async function runGeoPromptProbeBatch(options = {}) {
   })
 
   const results = []
-  for (const promptRow of prompts) {
+  for (let i = 0; i < prompts.length; i += 1) {
+    const promptRow = prompts[i]
+    console.log(
+      `[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} probing...`
+    )
     const engineResult = await callProbeEngine(promptRow.prompt, probeConfig)
     if (engineResult.status === 'skipped') {
       results.push({ promptId: promptRow.promptId, status: 'skipped' })
+      console.log(`[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} skipped`)
       continue
     }
     const saved = await saveProbeResult(promptRow, engineResult, probeConfig)
     results.push(saved)
+    console.log(
+      `[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} ${saved.status}` +
+        (saved.mentioned ? ' mention' : '') +
+        (saved.citedUrl ? ' citation' : '')
+    )
   }
 
   return {
