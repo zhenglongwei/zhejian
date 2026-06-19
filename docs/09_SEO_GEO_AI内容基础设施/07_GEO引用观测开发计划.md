@@ -1,7 +1,7 @@
 # GEO 引用观测开发计划
 
 > **生效日期**：2026-06-16  
-> **状态**：定稿 · **A～C 已验收**；**B 百炼 live 生产验收 ✅**（2026-06-19）；下一项 **OBS D** 或 **TOPIC E**
+> **状态**：定稿 · **A～C 已验收**；**B 百炼 live + 运维收口 ✅**（2026-06-19）；下一项 **OBS D** 或 **TOPIC E**
 > **与主计划关系**：独立专项；进度在本文件勾选；完成后更新 [`docs/00_开发计划.md`](../00_开发计划.md) §2.6。  
 > **对标能力**：国际 GEO SaaS（Profound / Peec AI）的 **citation tracking、used-vs-cited、prompt 探测**；**不做**对外通用 MarTech，仅服务辙见平台 **内部选题 + 商家价值话术 + 效果验证**。  
 > **关联专项**：[`06_GEO案例引用优化开发计划.md`](./06_GEO案例引用优化开发计划.md)（提升可被引）· [`08_GEO意图专题开发计划.md`](./08_GEO意图专题开发计划.md)（承接 prompt 的流量页）
@@ -183,6 +183,7 @@
 | 抽检 | `--live --limit=2` · `probe_total:41` · citation ~29%（7 日窗口）✅ |
 | 周报样例 | `prompt_intent_coverage:1` · citation ~29%（7 日窗口，基线信号） |
 | 定时 | `bash scripts/geo-prompt-probe-cron.sh`（seed-sync + `--live` 默认 20 条/周） |
+| 运维 | ECS `git pull` + backend 重启 ✅ · crontab `0 3 * * 1` ✅ · `DASHSCOPE_API_KEY` 轮换 ✅ |
 
 ---
 
@@ -330,7 +331,7 @@
 | 阶段 | 任务数 | [x] | [ ] | 备注 |
 | --- | ---: | ---: | ---: | --- |
 | A 爬虫深化 | 8 | 7 | 1 | A07 robots 审计 P2 |
-| B Prompt 探测 | 10 | 10 | 0 | **ECS live ✅**；周频 cron 见部署指南 §7.3.1 |
+| B Prompt 探测 | 10 | 10 | 0 | **ECS live + cron ✅**；见部署指南 §7.3.1 |
 | C Citation gap | 7 | 7 | 0 | P2 |
 | D 多引擎 | 4 | 0 | 4 | P2 |
 | **合计** | **29** | **24** | **5** |
@@ -363,3 +364,4 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-16 | V1.3 | A～B 验收：crawler_url_daily、probe 词库/周报、运营台 |
 | 2026-06-18 | V1.4 | C 验收：citation-gaps、used-vs-cited、引后转化、商家机会卡片 |
 | 2026-06-19 | V1.5 | 百炼千问 live 探测；`dashscope-chat`；cron 进度日志；§6.3 生产验收 |
+| 2026-06-19 | V1.6 | 运维收口：ECS 发版、crontab 周一 03:00、API Key 轮换 |
