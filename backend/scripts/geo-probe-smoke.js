@@ -16,6 +16,9 @@ const {
   parseEngineIdList,
 } = require('../src/services/geo-probe-engines')
 
+/** 多引擎 smoke 版本；ECS 输出无此字段说明未 git pull */
+const GEO_PROBE_SMOKE_VERSION = 'multi-engine-v2'
+
 /**
  * @param {string[]} argv process.argv
  */
@@ -97,6 +100,7 @@ async function main() {
   }
 
   console.log('[geo-probe-smoke]', {
+    version: GEO_PROBE_SMOKE_VERSION,
     engine: engineConfig.id,
     label: engineConfig.label,
     model: engineConfig.model,

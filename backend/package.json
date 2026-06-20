@@ -44,6 +44,7 @@
     "geo:probe:live": "node scripts/geo-prompt-probe.js --live",
     "geo:probe:cron": "bash scripts/geo-prompt-probe-cron.sh",
     "geo:probe-smoke": "node scripts/geo-probe-smoke.js",
+    "geo:probe:cleanup-legacy": "node scripts/geo-probe-cleanup-legacy-engines.js",
     "case:geo-llm-smoke": "node scripts/case-geo-llm-smoke.js",
     "geo:citation-gap-smoke": "node scripts/geo-citation-gap-smoke.js",
     "case:bot-prerender-smoke": "node scripts/case-bot-prerender-smoke.js",

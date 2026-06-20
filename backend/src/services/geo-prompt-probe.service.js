@@ -117,7 +117,12 @@ async function runGeoPromptProbeBatch(options = {}) {
   if (Array.isArray(options.engines) && options.engines.length) {
     const { resolveEngineRuntimeConfig } = require('./geo-probe-engines')
     engineConfigs = options.engines
-      .map((id) => resolveEngineRuntimeConfig(id, { globalBatchLimit: probeConfig.batchLimit }))
+      .map((id) => {
+        const cfg = resolveEngineRuntimeConfig(id, { globalBatchLimit: probeConfig.batchLimit })
+        if (!cfg) return null
+        cfg.configured = Boolean(cfg.apiKey)
+        return cfg
+      })
       .filter(Boolean)
       .filter((item) => item.batchLimit > 0)
   }
