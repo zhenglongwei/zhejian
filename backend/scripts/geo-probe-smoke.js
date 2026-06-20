@@ -2,38 +2,77 @@
  * 百炼千问 · GEO 探测单条冒烟（不写入 DB）
  *
  * 用法：
- *   GEO_PROBE_API_KEY=sk-xxx npm run geo:probe-smoke
- *   GEO_PROBE_MODEL=qwen-plus npm run geo:probe-smoke -- "杭州刹车片更换多少钱"
+ *   npm run geo:probe-smoke
+ *   npm run geo:probe-smoke -- --engine=doubao "杭州刹车片更换多少钱"
+ *   npm run geo:probe-smoke -- --list-engines
  */
 require('dotenv').config()
-const { chatCompletion, DEFAULT_API_URL } = require('../src/lib/dashscope-chat')
+const {
+  probeWithEngine,
+  listEngineDefinitions,
+  resolveEngineRuntimeConfig,
+} = require('../src/services/geo-probe-engines')
+
+function readArg(name) {
+  const prefix = `--${name}=`
+  const hit = process.argv.find((item) => item.startsWith(prefix))
+  return hit ? hit.slice(prefix.length) : ''
+}
 
 async function main() {
-  const apiKey = process.env.GEO_PROBE_API_KEY || process.env.DASHSCOPE_API_KEY || ''
-  const model = process.env.GEO_PROBE_MODEL || 'qwen-plus'
-  const apiUrl = process.env.GEO_PROBE_API_URL || DEFAULT_API_URL
-  const prompt = process.argv.slice(2).join(' ') || '杭州刹车片更换大概多少钱？'
+  if (process.argv.includes('--list-engines')) {
+    console.log(
+      '[geo-probe-smoke] engines:',
+      listEngineDefinitions().map((item) => ({
+        id: item.id,
+        label: item.label,
+        tier: item.tier,
+        defaultModel: item.defaultModel,
+      }))
+    )
+    return
+  }
 
-  if (!apiKey) {
-    console.error('[geo-probe-smoke] 请设置 GEO_PROBE_API_KEY 或 DASHSCOPE_API_KEY')
+  const engineId = readArg('engine') || process.env.GEO_PROBE_ENGINE || 'qwen'
+  const prompt =
+    process.argv.slice(2).filter((item) => !item.startsWith('--')).join(' ') ||
+    '杭州刹车片更换大概多少钱？'
+
+  const engineConfig = resolveEngineRuntimeConfig(engineId, { globalBatchLimit: 1 })
+  if (!engineConfig) {
+    console.error(`[geo-probe-smoke] unknown engine: ${engineId}`)
     process.exit(1)
   }
 
-  console.log('[geo-probe-smoke]', { model, apiUrl, prompt })
+  if (!engineConfig.apiKey && process.env.GEO_PROBE_DRY_RUN !== 'true') {
+    console.error(
+      `[geo-probe-smoke] engine=${engineId} 缺少 API Key（见 GEO_PROBE_${engineId.toUpperCase()}_API_KEY 或 registry 回退键）`
+    )
+    process.exit(1)
+  }
 
-  const result = await chatCompletion({
-    apiUrl,
-    apiKey,
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    enableThinking: process.env.GEO_PROBE_ENABLE_THINKING === 'true',
+  console.log('[geo-probe-smoke]', {
+    engine: engineConfig.id,
+    label: engineConfig.label,
+    model: engineConfig.model,
+    apiUrl: engineConfig.apiUrl,
+    prompt,
+  })
+
+  const result = await probeWithEngine(engineId, prompt, {
+    dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',
+    enabled: true,
     timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 60000),
   })
 
-  console.log('[geo-probe-smoke] answer:\n', result.text)
-  if (result.reasoning) {
-    console.log('[geo-probe-smoke] reasoning (truncated):\n', result.reasoning.slice(0, 200))
+  console.log('[geo-probe-smoke] status:', result.status)
+  if (result.answer) {
+    console.log('[geo-probe-smoke] answer:\n', result.answer)
   }
+  if (result.errorMessage || result.reason) {
+    console.log('[geo-probe-smoke] detail:', result.errorMessage || result.reason)
+  }
+  if (result.status === 'error') process.exit(1)
 }
 
 main().catch((err) => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# GEO-OBS-B06 · 周频 Prompt 探测（建议 crontab：0 3 * * 1）
+# GEO-OBS-B06/D02 · 周频 Prompt 探测（建议 crontab：0 3 * * 1）
+# 多引擎：GEO_PROBE_ENGINES=qwen,doubao,kimi,wenxin,yuanbao（缺 Key 的引擎自动 skip）
 set -euo pipefail
 
 export TZ=Asia/Shanghai
@@ -11,7 +12,7 @@ mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/geo-probe.log"
 
 echo "[geo-probe-cron] start $(date '+%Y-%m-%d %H:%M:%S %Z') → log: $LOG_FILE"
-echo "[geo-probe-cron] live 探测约 20 条 Prompt，千问 API 串行调用，通常需 5～30 分钟，请耐心等待"
+echo "[geo-probe-cron] live 探测（多引擎 GEO_PROBE_ENGINES），串行调用，通常需 5～60 分钟，请耐心等待"
 
 {
   echo "===== $(date '+%Y-%m-%d %H:%M:%S %Z') ====="

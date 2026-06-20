@@ -91,12 +91,14 @@ const config = {
   geoProbe: {
     enabled: process.env.GEO_PROBE_ENABLED === 'true',
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',
+    /** @deprecated 单引擎遗留；多引擎见 GEO_PROBE_ENGINES */
     apiUrl:
       process.env.GEO_PROBE_API_URL ||
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
     apiKey: process.env.GEO_PROBE_API_KEY || process.env.DASHSCOPE_API_KEY || '',
     model: process.env.GEO_PROBE_MODEL || 'qwen-plus',
     engine: process.env.GEO_PROBE_ENGINE || 'qwen',
+    engines: process.env.GEO_PROBE_ENGINES || process.env.GEO_PROBE_ENGINE || 'qwen',
     timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 60000),
     batchLimit: Number(process.env.GEO_PROBE_BATCH_LIMIT || 20),
     /** qwen3.6-plus 等混合思考模型：探测需直接答案，默认关思考 */

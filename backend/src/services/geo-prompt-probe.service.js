@@ -1,5 +1,5 @@
 /**
- * GEO-OBS-B04/B07 · Prompt 探测执行与周报
+ * GEO-OBS-B04/B07/D02 · Prompt 探测执行与周报（多引擎）
  */
 const crypto = require('crypto')
 const { prisma, assertGeoObsPrismaReady } = require('../lib/prisma')
@@ -10,24 +10,27 @@ const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { parseProbeAnswer } = require('../utils/geo-probe-parse')
 const { mapPromptRow } = require('./admin-geo-prompt.service')
 const { computeGeoTopicHealthMetrics } = require('./geo-topic-health.service')
-const { chatCompletion } = require('../lib/dashscope-chat')
+const {
+  resolveEnabledEngineConfigs,
+  callProbeEngineForConfig,
+  listEngineDefinitions,
+} = require('./geo-probe-engines')
 
 const PUBLIC_PAGE_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
 function getProbeConfig() {
   const probe = config.geoProbe || {}
+  const globalBatchLimit = Math.min(Math.max(Number(probe.batchLimit) || 20, 1), 50)
+  const engines = resolveEnabledEngineConfigs({ globalBatchLimit })
   return {
     enabled: process.env.GEO_PROBE_ENABLED === 'true' || probe.enabled === true,
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true' || probe.dryRun === true,
-    apiUrl: String(probe.apiUrl || '').trim(),
-    apiKey: String(probe.apiKey || process.env.DASHSCOPE_API_KEY || '').trim(),
-    model: String(probe.model || 'qwen-plus').trim(),
-    engine: String(probe.engine || 'qwen').trim(),
     timeoutMs: Number(probe.timeoutMs) || 60000,
-    batchLimit: Math.min(Math.max(Number(probe.batchLimit) || 20, 1), 50),
-    enableThinking:
-      process.env.GEO_PROBE_ENABLE_THINKING === 'true' || probe.enableThinking === true,
+    batchLimit: globalBatchLimit,
     publicBaseUrl: config.publicBaseUrl,
+    engines,
+    /** @deprecated 兼容旧脚本；取首个引擎 id */
+    engine: engines[0]?.id || 'qwen',
   }
 }
 
@@ -67,41 +70,7 @@ async function syncGeoPromptSeeds() {
   return { created, updated, total: GEO_PROMPT_SEED.length }
 }
 
-async function callProbeEngine(prompt, probeConfig) {
-  if (probeConfig.dryRun) {
-    const mention = prompt.includes('刹车') || prompt.includes('杭州')
-    return {
-      status: 'dry_run',
-      answer: mention
-        ? '建议先到店检测。可参考辙见公开案例：https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州'
-        : '一般需结合实车检测确认，线上信息仅供参考。',
-    }
-  }
-
-  if (!probeConfig.enabled || !probeConfig.apiUrl || !probeConfig.apiKey) {
-    return { status: 'skipped', reason: 'probe_disabled' }
-  }
-
-  try {
-    const result = await chatCompletion({
-      apiUrl: probeConfig.apiUrl,
-      apiKey: probeConfig.apiKey,
-      model: probeConfig.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-      enableThinking: probeConfig.enableThinking ? true : false,
-      timeoutMs: probeConfig.timeoutMs,
-    })
-    return { status: 'ok', answer: result.text }
-  } catch (error) {
-    return {
-      status: 'error',
-      errorMessage: error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message,
-    }
-  }
-}
-
-async function saveProbeResult(promptRow, engineResult, probeConfig) {
+async function saveProbeResult(promptRow, engineResult, engineId, probeConfig) {
   const answer = engineResult.answer || ''
   const parsed =
     engineResult.status === 'ok' || engineResult.status === 'dry_run'
@@ -117,7 +86,7 @@ async function saveProbeResult(promptRow, engineResult, probeConfig) {
     data: {
       id: newId('gpr'),
       promptId: promptRow.promptId,
-      engine: probeConfig.engine,
+      engine: engineId,
       mentioned: parsed.mentioned,
       citedUrl: parsed.citedUrl,
       citedUrlsJson: parsed.citedUrls,
@@ -130,6 +99,7 @@ async function saveProbeResult(promptRow, engineResult, probeConfig) {
 
   return {
     promptId: promptRow.promptId,
+    engine: engineId,
     mentioned: row.mentioned,
     citedUrl: row.citedUrl,
     status: row.status,
@@ -137,50 +107,109 @@ async function saveProbeResult(promptRow, engineResult, probeConfig) {
 }
 
 /**
- * @param {{ limit?: number, promptIds?: string[] }} [options]
+ * @param {{ limit?: number, promptIds?: string[], engines?: string[] }} [options]
  */
 async function runGeoPromptProbeBatch(options = {}) {
   assertGeoObsPrismaReady()
   const probeConfig = getProbeConfig()
-  const limit = Math.min(
-    Math.max(Number(options.limit) || probeConfig.batchLimit, 1),
-    probeConfig.batchLimit
-  )
+  let engineConfigs = probeConfig.engines
+
+  if (Array.isArray(options.engines) && options.engines.length) {
+    const { resolveEngineRuntimeConfig } = require('./geo-probe-engines')
+    engineConfigs = options.engines
+      .map((id) => resolveEngineRuntimeConfig(id, { globalBatchLimit: probeConfig.batchLimit }))
+      .filter(Boolean)
+      .filter((item) => item.batchLimit > 0)
+  }
 
   const where = { active: true }
   if (Array.isArray(options.promptIds) && options.promptIds.length) {
     where.promptId = { in: options.promptIds.map(String) }
   }
 
-  const prompts = await prisma.geoPromptProbe.findMany({
+  const maxPromptPool = Math.min(
+    Math.max(
+      Number(options.limit) ||
+        Math.max(...engineConfigs.map((item) => item.batchLimit), probeConfig.batchLimit),
+      1
+    ),
+    probeConfig.batchLimit
+  )
+
+  const promptPool = await prisma.geoPromptProbe.findMany({
     where,
     orderBy: [{ updatedAt: 'asc' }],
-    take: limit,
+    take: maxPromptPool,
   })
 
+  const globalCallOptions = {
+    dryRun: probeConfig.dryRun,
+    enabled: probeConfig.enabled,
+    timeoutMs: probeConfig.timeoutMs,
+  }
+
   const results = []
-  for (let i = 0; i < prompts.length; i += 1) {
-    const promptRow = prompts[i]
+  const engineSummaries = []
+
+  for (const engineConfig of engineConfigs) {
+    const prompts = promptPool.slice(0, engineConfig.batchLimit)
+    if (!prompts.length) continue
+
+    let engineProcessed = 0
+    let engineSkipped = 0
+
     console.log(
-      `[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} probing...`
+      `[geo-probe] engine=${engineConfig.id} (${engineConfig.label}) prompts=${prompts.length}` +
+        (engineConfig.configured || probeConfig.dryRun ? '' : ' [no api key, will skip]')
     )
-    const engineResult = await callProbeEngine(promptRow.prompt, probeConfig)
-    if (engineResult.status === 'skipped') {
-      results.push({ promptId: promptRow.promptId, status: 'skipped' })
-      console.log(`[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} skipped`)
-      continue
+
+    for (let i = 0; i < prompts.length; i += 1) {
+      const promptRow = prompts[i]
+      const tag = `${engineConfig.id}/${promptRow.promptId}`
+      console.log(`[geo-probe] (${i + 1}/${prompts.length}) ${tag} probing...`)
+
+      const engineResult = await callProbeEngineForConfig(
+        promptRow.prompt,
+        globalCallOptions,
+        engineConfig
+      )
+
+      if (engineResult.status === 'skipped') {
+        engineSkipped += 1
+        results.push({
+          promptId: promptRow.promptId,
+          engine: engineConfig.id,
+          status: 'skipped',
+          reason: engineResult.reason,
+        })
+        console.log(`[geo-probe] (${i + 1}/${prompts.length}) ${tag} skipped (${engineResult.reason})`)
+        continue
+      }
+
+      const saved = await saveProbeResult(promptRow, engineResult, engineConfig.id, probeConfig)
+      engineProcessed += 1
+      results.push(saved)
+      console.log(
+        `[geo-probe] (${i + 1}/${prompts.length}) ${tag} ${saved.status}` +
+          (saved.mentioned ? ' mention' : '') +
+          (saved.citedUrl ? ' citation' : '')
+      )
     }
-    const saved = await saveProbeResult(promptRow, engineResult, probeConfig)
-    results.push(saved)
-    console.log(
-      `[geo-probe] (${i + 1}/${prompts.length}) ${promptRow.promptId} ${saved.status}` +
-        (saved.mentioned ? ' mention' : '') +
-        (saved.citedUrl ? ' citation' : '')
-    )
+
+    engineSummaries.push({
+      engine: engineConfig.id,
+      label: engineConfig.label,
+      tier: engineConfig.tier,
+      configured: engineConfig.configured,
+      batchLimit: engineConfig.batchLimit,
+      processed: engineProcessed,
+      skipped: engineSkipped,
+    })
   }
 
   return {
-    engine: probeConfig.engine,
+    engines: engineSummaries.map((item) => item.engine),
+    engineSummaries,
     dryRun: probeConfig.dryRun,
     enabled: probeConfig.enabled,
     processed: results.length,
@@ -303,8 +332,10 @@ async function buildGeoProbeReport(query = {}) {
     byEngineMap.set(row.engine, bucket)
   })
 
+  const engineLabelMap = new Map(listEngineDefinitions().map((item) => [item.id, item.label]))
   const byEngine = [...byEngineMap.values()].map((item) => ({
     ...item,
+    label: engineLabelMap.get(item.engine) || item.engine,
     prompt_probe_mention_rate: item.total ? item.mention / item.total : 0,
     prompt_probe_citation_rate: item.total ? item.citation / item.total : 0,
   }))
@@ -323,6 +354,8 @@ async function buildGeoProbeReport(query = {}) {
     probedAt: row.probedAt,
   }))
 
+  const primaryEngine = byEngine.find((item) => item.engine === 'qwen') || byEngine[0]
+
   return {
     period: {
       days,
@@ -332,7 +365,9 @@ async function buildGeoProbeReport(query = {}) {
     metrics: {
       probe_total: okResults.length,
       prompt_probe_mention_rate: okResults.length ? mentionCount / okResults.length : 0,
+      /** 全引擎混合；北极星主曲线见 byEngine.qwen */
       prompt_probe_citation_rate: okResults.length ? citationCount / okResults.length : 0,
+      prompt_probe_citation_rate_qwen: primaryEngine?.engine === 'qwen' ? primaryEngine.prompt_probe_citation_rate : null,
       prompt_intent_coverage: coverage.prompt_intent_coverage,
       active_prompt_count: coverage.activePromptCount,
       covered_prompt_count: coverage.coveredPromptCount,
@@ -351,8 +386,9 @@ async function buildGeoProbeReport(query = {}) {
     coverage,
     byEngine,
     recentResults,
+    enabledEngines: resolveEnabledEngineConfigs({ globalBatchLimit: getProbeConfig().batchLimit }),
     disclaimer:
-      '「答案探测」为平台内部抽样监测，仅供参考，不构成引用或排名承诺。爬虫访问不等于被 AI 引用。',
+      '「答案探测」为平台内部对开放 API 大模型的抽样监测，不含微信小程序内搜一搜；仅供参考，不构成引用或排名承诺。爬虫访问不等于被 AI 引用。',
   }
 }
 

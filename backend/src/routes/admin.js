@@ -376,9 +376,15 @@ router.get('/geo/probe-report', async (req, res, next) => {
 
 router.post('/geo/probe-run', async (req, res, next) => {
   try {
+    const engines = Array.isArray(req.body?.engines)
+      ? req.body.engines
+      : typeof req.body?.engines === 'string'
+        ? req.body.engines.split(/[,;\s]+/).filter(Boolean)
+        : undefined
     const data = await runGeoPromptProbeBatch({
       limit: req.body?.limit,
       promptIds: req.body?.promptIds,
+      engines,
     })
     return ok(res, data)
   } catch (e) {
