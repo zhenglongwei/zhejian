@@ -276,7 +276,7 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、kimi、wenxin、yuanbao（OpenAI 兼容） |
+| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、**deepseek**、kimi、wenxin、yuanbao（OpenAI 兼容） |
 | GEO-OBS-D02 | 探测编排 | `geo-prompt-probe.service.js` | P2 | [x] | `GEO_PROBE_ENGINES` + 各引擎 `*_BATCH_LIMIT`；缺 Key skip |
 | GEO-OBS-D03 | 对比报表 | 运营台 probe-report | P2 | [~] | `byEngine` API 已有；UI 引擎对比待加强 |
 | GEO-OBS-D04 | 邮件/企微周报 | 可选 cron 通知 | P2 | [ ] | 模板见 **§11**；含 W 人工段 |

@@ -14,8 +14,16 @@ test('parseEngineIdList dedupes and lowercases', () => {
   assert.deepEqual(parseEngineIdList('qwen, Doubao ,kimi,qwen'), ['qwen', 'doubao', 'kimi'])
 })
 
-test('registry includes five open-api engines', () => {
-  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin', 'yuanbao'])
+test('registry includes six open-api engines', () => {
+  assert.deepEqual(ALL_ENGINE_IDS, [
+    'qwen',
+    'doubao',
+    'deepseek',
+    'kimi',
+    'wenxin',
+    'yuanbao',
+  ])
+  assert.equal(getEngineDefinition('deepseek')?.defaultModel, 'deepseek-chat')
   assert.equal(getEngineDefinition('yuanbao')?.label.includes('混元'), true)
 })
 

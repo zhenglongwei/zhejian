@@ -5,7 +5,7 @@
  */
 const { DEFAULT_API_URL } = require('../../lib/dashscope-chat')
 
-/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'} GeoProbeEngineId */
+/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'|'deepseek'} GeoProbeEngineId */
 
 /**
  * @typedef {Object} GeoProbeEngineDefinition
@@ -48,6 +48,18 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     apiUrlEnvKey: 'GEO_PROBE_DOUBAO_API_URL',
     modelEnvKey: 'GEO_PROBE_DOUBAO_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_DOUBAO_BATCH_LIMIT',
+    defaultBatchLimit: 10,
+    tier: 2,
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    defaultApiUrl: 'https://api.deepseek.com/chat/completions',
+    defaultModel: 'deepseek-chat',
+    apiKeyEnvKeys: ['GEO_PROBE_DEEPSEEK_API_KEY', 'DEEPSEEK_API_KEY'],
+    apiUrlEnvKey: 'GEO_PROBE_DEEPSEEK_API_URL',
+    modelEnvKey: 'GEO_PROBE_DEEPSEEK_MODEL',
+    batchLimitEnvKey: 'GEO_PROBE_DEEPSEEK_BATCH_LIMIT',
     defaultBatchLimit: 10,
     tier: 2,
   },
