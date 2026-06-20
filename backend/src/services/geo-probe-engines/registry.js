@@ -158,8 +158,8 @@ function resolveEngineRuntimeConfig(engineId, options = {}) {
 
 function resolveEnabledEngineConfigs(options = {}) {
   const fromList = parseEngineIdList(process.env.GEO_PROBE_ENGINES)
-  const legacy = String(process.env.GEO_PROBE_ENGINE || '').trim().toLowerCase()
-  const requested = fromList.length ? fromList : legacy ? [legacy] : ['qwen']
+  const legacyList = parseEngineIdList(process.env.GEO_PROBE_ENGINE)
+  const requested = fromList.length ? fromList : legacyList.length ? legacyList : ['qwen']
 
   const configs = []
   for (const engineId of requested) {
