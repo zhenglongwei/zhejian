@@ -17,7 +17,7 @@ const {
 } = require('../src/services/geo-probe-engines')
 
 /** 多引擎 smoke 版本；ECS 输出无此字段说明未 git pull */
-const GEO_PROBE_SMOKE_VERSION = 'web-search-v1'
+const GEO_PROBE_SMOKE_VERSION = 'web-search-v2'
 
 /**
  * @param {string[]} argv process.argv
@@ -118,11 +118,22 @@ async function main() {
   })
 
   console.log('[geo-probe-smoke] status:', result.status)
+  if (result.webSearchEvidence) {
+    console.log('[geo-probe-smoke] webSearchEvidence:', result.webSearchEvidence)
+  }
   if (result.answer) {
     console.log('[geo-probe-smoke] answer:\n', result.answer)
   }
   if (Array.isArray(result.searchSources) && result.searchSources.length) {
     console.log('[geo-probe-smoke] searchSources:', result.searchSources.slice(0, 5))
+  } else if (result.status === 'ok' && result.probeMode === 'web_search') {
+    console.warn(
+      '[geo-probe-smoke] 警告：未解析到 searchSources；请查看 webSearchEvidence.confirmed 是否为 true'
+    )
+  }
+  if (process.argv.includes('--verbose') && result.raw) {
+    console.log('[geo-probe-smoke] raw.outputTypes:', result.webSearchEvidence?.outputTypes)
+    console.log('[geo-probe-smoke] raw (truncated):', JSON.stringify(result.raw).slice(0, 2000))
   }
   if (result.errorMessage || result.reason) {
     console.log('[geo-probe-smoke] detail:', result.errorMessage || result.reason)

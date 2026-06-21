@@ -11,7 +11,7 @@ const {
   ALL_ENGINE_IDS,
   isRemovedEngine,
 } = require('../src/services/geo-probe-engines')
-const { collectSearchSources } = require('../src/services/geo-probe-engines/web-search-chat')
+const { collectSearchSources, analyzeWebSearchEvidence } = require('../src/services/geo-probe-engines/web-search-chat')
 
 test('parseEngineIdList dedupes and lowercases', () => {
   assert.deepEqual(parseEngineIdList('qwen, Doubao ,kimi,qwen'), ['qwen', 'doubao', 'kimi'])
@@ -50,6 +50,20 @@ test('resolveEnabledEngineConfigs respects batch limit zero skip', () => {
   else process.env.GEO_PROBE_ENGINE = saved.ENGINE
   if (saved.KIMI_LIMIT == null) delete process.env.GEO_PROBE_KIMI_BATCH_LIMIT
   else process.env.GEO_PROBE_KIMI_BATCH_LIMIT = saved.KIMI_LIMIT
+})
+
+test('analyzeWebSearchEvidence detects web_search_call', () => {
+  const evidence = analyzeWebSearchEvidence(
+    {
+      output: [
+        { type: 'web_search_call', id: 'ws_1' },
+        { type: 'message', content: [{ type: 'output_text', text: 'ok' }] },
+      ],
+    },
+    'ok'
+  )
+  assert.equal(evidence.confirmed, true)
+  assert.equal(evidence.hasWebSearchCall, true)
 })
 
 test('collectSearchSources extracts nested urls', () => {

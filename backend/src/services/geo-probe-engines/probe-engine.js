@@ -83,6 +83,8 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
       probeMode: 'web_search',
       answer: result.text,
       searchSources: result.searchSources || [],
+      webSearchEvidence: result.webSearchEvidence || null,
+      raw: result.raw || null,
       answerForParse: [result.text, searchSnippet].filter(Boolean).join('\n'),
     }
   } catch (error) {

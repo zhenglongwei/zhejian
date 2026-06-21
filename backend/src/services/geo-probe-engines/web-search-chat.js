@@ -110,6 +110,53 @@ function collectSearchSources(value) {
 }
 
 /**
+ * 从 Responses API 等原始响应推断是否发生过联网检索
+ * @param {unknown} body
+ * @param {string} [answerText]
+ */
+function analyzeWebSearchEvidence(body, answerText = '') {
+  /** @type {string[]} */
+  const outputTypes = []
+  const output = body && typeof body === 'object' ? body.output : null
+
+  if (Array.isArray(output)) {
+    output.forEach((item) => {
+      if (item && typeof item === 'object' && item.type) {
+        outputTypes.push(String(item.type))
+      }
+    })
+  }
+
+  const hasWebSearchCall = outputTypes.some((type) => /web[_-]?search/i.test(type))
+  const searchSources = collectSearchSources(body)
+  const urlsInAnswer = (String(answerText || '').match(/https?:\/\/[^\s)\]"'<>]+/gi) || []).length
+  const confirmed = hasWebSearchCall || searchSources.length > 0
+
+  let confidence = 'unconfirmed'
+  if (hasWebSearchCall && searchSources.length > 0) confidence = 'high'
+  else if (hasWebSearchCall || searchSources.length > 0) confidence = 'medium'
+
+  let hint = '未在响应中检测到 web_search 调用或检索 URL；答案可能来自模型记忆，或平台未返回溯源字段。'
+  if (confidence === 'high') {
+    hint = '响应含 web_search 调用记录且解析到检索来源 URL。'
+  } else if (hasWebSearchCall) {
+    hint = '响应含 web_search 调用记录，但未解析到来源 URL（可能字段结构不同）。'
+  } else if (searchSources.length > 0) {
+    hint = '响应含检索来源 URL，但未显式标记 web_search 调用类型。'
+  }
+
+  return {
+    confirmed,
+    confidence,
+    outputTypes,
+    hasWebSearchCall,
+    searchSourceCount: searchSources.length,
+    urlsInAnswer,
+    hint,
+  }
+}
+
+/**
  * @param {unknown} output
  */
 function extractResponsesApiText(output) {
@@ -171,9 +218,11 @@ async function chatQwenWithWebSearch(options) {
     timeoutMs: options.timeoutMs,
   })
   const parsed = parseChatCompletionBody(body)
+  const text = parsed.text
   return {
-    text: parsed.text,
+    text,
     searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
     raw: body,
   }
 }
@@ -193,10 +242,12 @@ async function chatResponsesWebSearch(options) {
     },
     timeoutMs: options.timeoutMs,
   })
+  const text = extractResponsesApiText(body.output || body)
 
   return {
-    text: extractResponsesApiText(body.output || body),
+    text,
     searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
     raw: body,
   }
 }
@@ -249,14 +300,17 @@ async function chatKimiBuiltinWebSearch(options) {
     return {
       text: extractMessageContent(message),
       searchSources: collectSearchSources(body),
+      webSearchEvidence: analyzeWebSearchEvidence(body, extractMessageContent(message)),
       raw: body,
     }
   }
 
   const fallbackMessage = lastBody?.choices?.[0]?.message
+  const fallbackText = extractMessageContent(fallbackMessage)
   return {
-    text: extractMessageContent(fallbackMessage),
+    text: fallbackText,
     searchSources: collectSearchSources(lastBody),
+    webSearchEvidence: analyzeWebSearchEvidence(lastBody, fallbackText),
     raw: lastBody,
   }
 }
@@ -281,9 +335,11 @@ async function chatWenxinWebSearch(options) {
     timeoutMs: options.timeoutMs,
   })
   const parsed = parseChatCompletionBody(body)
+  const text = parsed.text
   return {
-    text: parsed.text,
+    text,
     searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
     raw: body,
   }
 }
@@ -326,6 +382,7 @@ async function chatWithWebSearch(options) {
 module.exports = {
   chatWithWebSearch,
   collectSearchSources,
+  analyzeWebSearchEvidence,
   extractResponsesApiText,
   KIMI_WEB_SEARCH_TOOLS,
 }
