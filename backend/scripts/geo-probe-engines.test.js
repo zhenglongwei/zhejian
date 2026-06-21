@@ -18,13 +18,12 @@ test('parseEngineIdList dedupes and lowercases', () => {
 })
 
 test('registry includes web-search engines only (no deepseek)', () => {
-  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin', 'yuanbao'])
+  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin'])
+  assert.equal(getEngineDefinition('yuanbao'), null)
+  assert.equal(isRemovedEngine('yuanbao'), true)
   assert.equal(getEngineDefinition('qwen')?.webSearchMode, 'enable_search')
   assert.equal(getEngineDefinition('doubao')?.webSearchMode, 'responses_web_search')
-  assert.equal(getEngineDefinition('yuanbao')?.webSearchMode, 'enable_enhancement')
-  assert.match(getEngineDefinition('yuanbao')?.defaultApiUrl || '', /chat\/completions/)
   assert.equal(getEngineDefinition('deepseek'), null)
-  assert.equal(isRemovedEngine('yuanbao'), false)
   assert.equal(isRemovedEngine('deepseek'), true)
 })
 

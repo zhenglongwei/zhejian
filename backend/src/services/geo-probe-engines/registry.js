@@ -5,7 +5,7 @@
  */
 const { DEFAULT_API_URL } = require('../../lib/dashscope-chat')
 
-/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'} GeoProbeEngineId */
+/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'} GeoProbeEngineId */
 /** @typedef {'enable_search'|'responses_web_search'|'builtin_web_search'|'web_search_object'|'enable_enhancement'} GeoProbeWebSearchMode */
 
 /**
@@ -85,23 +85,14 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     defaultBatchLimit: 10,
     tier: 2,
   },
-  {
-    id: 'yuanbao',
-    label: '腾讯 TokenHub（混元 Hy3）',
-    defaultApiUrl: 'https://tokenhub.tencentmaas.com/v1/chat/completions',
-    defaultModel: 'hy3-preview',
-    webSearchMode: 'enable_enhancement',
-    apiKeyEnvKeys: ['GEO_PROBE_YUANBAO_API_KEY', 'TOKENHUB_API_KEY'],
-    apiUrlEnvKey: 'GEO_PROBE_YUANBAO_API_URL',
-    modelEnvKey: 'GEO_PROBE_YUANBAO_MODEL',
-    batchLimitEnvKey: 'GEO_PROBE_YUANBAO_BATCH_LIMIT',
-    defaultBatchLimit: 10,
-    tier: 2,
-  },
 ]
 
-/** 已从注册表移除：官方 API 无联网能力 */
-const REMOVED_ENGINE_IDS = ['deepseek']
+/**
+ * 已从注册表移除
+ * - deepseek：官方 API 无联网
+ * - yuanbao：TokenHub hy3-preview 实测 enable_enhancement 无 search_info（2026-06-21 ECS A/B）
+ */
+const REMOVED_ENGINE_IDS = ['deepseek', 'yuanbao']
 
 const ENGINE_MAP = new Map(GEO_PROBE_ENGINE_REGISTRY.map((item) => [item.id, item]))
 
@@ -153,7 +144,8 @@ function resolveEngineRuntimeConfig(engineId, options = {}) {
       webSearchMode: '',
       configured: false,
       removed: true,
-      removedReason: 'no_web_search_api',
+      removedReason:
+        id === 'yuanbao' ? 'tokenhub_hy3_enhancement_no_search_info' : 'no_web_search_api',
     }
   }
 
