@@ -521,4 +521,4 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-19 | V1.6 | 运维收口：ECS 发版、crontab 周一 03:00、API Key 轮换 |
 | 2026-06-19 | V1.8 | OBS-D01/D02：五引擎适配器 + `GEO_PROBE_ENGINES` 编排；元宝归开放 API；OBS-W 仅微信内搜一搜 |
 | 2026-06-19 | V1.9 | 探测切 **仅联网模式**（`web-search-chat`）；移除 DeepSeek；豆包/TokenHub 用 Responses API `web_search` |
-| 2026-06-19 | V1.9.1 | 元宝引擎默认 **TokenHub**（`hy3-preview` + `tokenhub.tencentmaas.com`）；不再使用老混元域名 |
+| 2026-06-19 | V1.9.2 | 元宝改 **Chat Completions + enable_enhancement**（非 Responses/web_search） |

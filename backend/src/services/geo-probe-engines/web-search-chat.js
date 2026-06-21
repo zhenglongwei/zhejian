@@ -100,6 +100,10 @@ function collectSearchSources(value) {
     if (Array.isArray(node.search_info?.search_results)) {
       node.search_info.search_results.forEach(pushSource)
     }
+    if (Array.isArray(node.SearchInfo)) node.SearchInfo.forEach(pushSource)
+    if (Array.isArray(node.search_info) && !node.search_results) {
+      node.search_info.forEach(pushSource)
+    }
     if (node.url || node.link) pushSource(node)
 
     Object.values(node).forEach(walk)
@@ -129,8 +133,12 @@ function analyzeWebSearchEvidence(body, answerText = '') {
 
   const hasWebSearchCall = outputTypes.some((type) => /web[_-]?search/i.test(type))
   const searchSources = collectSearchSources(body)
+  const hasSearchInfoField =
+    body &&
+    typeof body === 'object' &&
+    (body.search_info != null || body.SearchInfo != null)
   const urlsInAnswer = (String(answerText || '').match(/https?:\/\/[^\s)\]"'<>]+/gi) || []).length
-  const confirmed = hasWebSearchCall || searchSources.length > 0
+  const confirmed = hasWebSearchCall || searchSources.length > 0 || hasSearchInfoField
 
   let confidence = 'unconfirmed'
   if (hasWebSearchCall && searchSources.length > 0) confidence = 'high'
@@ -143,6 +151,8 @@ function analyzeWebSearchEvidence(body, answerText = '') {
     hint = '响应含 web_search 调用记录，但未解析到来源 URL（可能字段结构不同）。'
   } else if (searchSources.length > 0) {
     hint = '响应含检索来源 URL，但未显式标记 web_search 调用类型。'
+  } else if (hasSearchInfoField) {
+    hint = '响应含 search_info 字段，但未解析到来源 URL（可能未命中搜索或结构不同）。'
   }
 
   return {
@@ -150,6 +160,7 @@ function analyzeWebSearchEvidence(body, answerText = '') {
     confidence,
     outputTypes,
     hasWebSearchCall,
+    hasSearchInfoField,
     searchSourceCount: searchSources.length,
     urlsInAnswer,
     hint,
@@ -345,6 +356,35 @@ async function chatWenxinWebSearch(options) {
 }
 
 /**
+ * 混元 / TokenHub · Chat Completions + enable_enhancement（官方联网开关）
+ * @see https://cloud.tencent.com/document/product/1729/111007
+ * @param {{ apiUrl: string, apiKey: string, model: string, messages: object[], timeoutMs?: number }} options
+ */
+async function chatEnableEnhancement(options) {
+  const body = await postJson({
+    apiUrl: options.apiUrl,
+    apiKey: options.apiKey,
+    payload: {
+      model: options.model,
+      messages: options.messages,
+      temperature: 0.2,
+      enable_enhancement: true,
+      search_info: true,
+      force_search_enhancement: true,
+    },
+    timeoutMs: options.timeoutMs,
+  })
+  const parsed = parseChatCompletionBody(body)
+  const text = parsed.text
+  return {
+    text,
+    searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
+    raw: body,
+  }
+}
+
+/**
  * @param {{
  *   webSearchMode: string,
  *   apiUrl: string,
@@ -374,6 +414,8 @@ async function chatWithWebSearch(options) {
       return chatKimiBuiltinWebSearch(base)
     case 'web_search_object':
       return chatWenxinWebSearch(base)
+    case 'enable_enhancement':
+      return chatEnableEnhancement(base)
     default:
       throw new Error(`unsupported_web_search_mode:${options.webSearchMode}`)
   }

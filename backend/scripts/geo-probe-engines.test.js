@@ -21,10 +21,10 @@ test('registry includes web-search engines only (no deepseek)', () => {
   assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin', 'yuanbao'])
   assert.equal(getEngineDefinition('qwen')?.webSearchMode, 'enable_search')
   assert.equal(getEngineDefinition('doubao')?.webSearchMode, 'responses_web_search')
-  assert.equal(getEngineDefinition('yuanbao')?.defaultModel, 'hy3-preview')
-  assert.equal(getEngineDefinition('yuanbao')?.webSearchMode, 'responses_web_search')
-  assert.match(getEngineDefinition('yuanbao')?.defaultApiUrl || '', /tokenhub\.tencentmaas\.com/)
+  assert.equal(getEngineDefinition('yuanbao')?.webSearchMode, 'enable_enhancement')
+  assert.match(getEngineDefinition('yuanbao')?.defaultApiUrl || '', /chat\/completions/)
   assert.equal(getEngineDefinition('deepseek'), null)
+  assert.equal(isRemovedEngine('yuanbao'), false)
   assert.equal(isRemovedEngine('deepseek'), true)
 })
 

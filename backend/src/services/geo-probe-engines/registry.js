@@ -6,7 +6,7 @@
 const { DEFAULT_API_URL } = require('../../lib/dashscope-chat')
 
 /** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'} GeoProbeEngineId */
-/** @typedef {'enable_search'|'responses_web_search'|'builtin_web_search'|'web_search_object'} GeoProbeWebSearchMode */
+/** @typedef {'enable_search'|'responses_web_search'|'builtin_web_search'|'web_search_object'|'enable_enhancement'} GeoProbeWebSearchMode */
 
 /**
  * @typedef {Object} GeoProbeEngineDefinition
@@ -87,14 +87,12 @@ const GEO_PROBE_ENGINE_REGISTRY = [
   },
   {
     id: 'yuanbao',
-    label: '腾讯 TokenHub（Hy3）',
-    defaultApiUrl: 'https://tokenhub.tencentmaas.com/v1/responses',
-    defaultWebSearchApiUrl: 'https://tokenhub.tencentmaas.com/v1/responses',
+    label: '腾讯 TokenHub（混元 Hy3）',
+    defaultApiUrl: 'https://tokenhub.tencentmaas.com/v1/chat/completions',
     defaultModel: 'hy3-preview',
-    webSearchMode: 'responses_web_search',
+    webSearchMode: 'enable_enhancement',
     apiKeyEnvKeys: ['GEO_PROBE_YUANBAO_API_KEY', 'TOKENHUB_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_YUANBAO_API_URL',
-    webSearchApiUrlEnvKey: 'GEO_PROBE_YUANBAO_API_URL',
     modelEnvKey: 'GEO_PROBE_YUANBAO_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_YUANBAO_BATCH_LIMIT',
     defaultBatchLimit: 10,
@@ -102,7 +100,7 @@ const GEO_PROBE_ENGINE_REGISTRY = [
   },
 ]
 
-/** 已从注册表移除、若仍出现在 GEO_PROBE_ENGINES 中会 skip */
+/** 已从注册表移除：官方 API 无联网能力 */
 const REMOVED_ENGINE_IDS = ['deepseek']
 
 const ENGINE_MAP = new Map(GEO_PROBE_ENGINE_REGISTRY.map((item) => [item.id, item]))
