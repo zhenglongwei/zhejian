@@ -133,10 +133,14 @@ function analyzeWebSearchEvidence(body, answerText = '') {
 
   const hasWebSearchCall = outputTypes.some((type) => /web[_-]?search/i.test(type))
   const searchSources = collectSearchSources(body)
+  const outputSearchInfo =
+    body && typeof body === 'object' && body.output && typeof body.output === 'object'
+      ? body.output.search_info ?? body.output.SearchInfo
+      : null
   const hasSearchInfoField =
     body &&
     typeof body === 'object' &&
-    (body.search_info != null || body.SearchInfo != null)
+    (body.search_info != null || body.SearchInfo != null || outputSearchInfo != null)
   const urlsInAnswer = (String(answerText || '').match(/https?:\/\/[^\s)\]"'<>]+/gi) || []).length
   const confirmed = hasWebSearchCall || searchSources.length > 0 || hasSearchInfoField
 
@@ -204,10 +208,61 @@ function extractResponsesApiText(output) {
   return [...new Set(chunks.filter(Boolean))].join('\n')
 }
 
+function isDashScopeGenerationUrl(apiUrl) {
+  return /text-generation\/generation/i.test(String(apiUrl || ''))
+}
+
 /**
+ * DashScope 原生协议 · enable_search + enable_source（可返回 search_info）
+ * @see https://help.aliyun.com/zh/model-studio/web-search
+ */
+async function chatDashScopeGenerationWebSearch(options) {
+  const parameters = {
+    enable_search: true,
+    search_options: {
+      forced_search: true,
+      enable_source: true,
+      search_strategy: 'max',
+      ...(options.searchOptions || {}),
+    },
+    result_format: 'message',
+    temperature: 0.2,
+  }
+  if (options.enableThinking === false) parameters.enable_thinking = false
+  if (options.enableThinking === true) parameters.enable_thinking = true
+
+  const body = await postJson({
+    apiUrl: options.apiUrl,
+    apiKey: options.apiKey,
+    payload: {
+      model: options.model,
+      input: {
+        messages: options.messages,
+      },
+      parameters,
+    },
+    timeoutMs: options.timeoutMs,
+  })
+
+  const output = body?.output || {}
+  const choice = output?.choices?.[0]
+  const text =
+    extractMessageContent(choice?.message) ||
+    String(output?.text || body?.output_text || '')
+
+  return {
+    text,
+    searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
+    raw: body,
+  }
+}
+
+/**
+ * OpenAI 兼容 Chat Completions · enable_search（联网但通常不返回 search_info）
  * @param {{ apiUrl: string, apiKey: string, model: string, messages: object[], timeoutMs?: number, enableThinking?: boolean, searchOptions?: object }} options
  */
-async function chatQwenWithWebSearch(options) {
+async function chatQwenCompatibleWebSearch(options) {
   const payload = {
     model: options.model,
     messages: options.messages,
@@ -239,6 +294,56 @@ async function chatQwenWithWebSearch(options) {
 }
 
 /**
+ * @param {{ apiUrl: string, apiKey: string, model: string, messages: object[], timeoutMs?: number, enableThinking?: boolean, searchOptions?: object }} options
+ */
+async function chatQwenWithWebSearch(options) {
+  if (isDashScopeGenerationUrl(options.apiUrl)) {
+    return chatDashScopeGenerationWebSearch(options)
+  }
+  return chatQwenCompatibleWebSearch(options)
+}
+
+/**
+ * 火山方舟 / 千问 Responses API 统一 input 格式
+ * @param {object[]} messages
+ */
+function normalizeResponsesInput(messages) {
+  return (messages || []).map((message) => {
+    const role = String(message?.role || 'user')
+    const content = message?.content
+
+    if (typeof content === 'string') {
+      return {
+        role,
+        content: [{ type: 'input_text', text: content }],
+      }
+    }
+
+    if (Array.isArray(content)) {
+      const normalized = content
+        .map((part) => {
+          if (!part || typeof part !== 'object') return null
+          if (part.type === 'input_text' && part.text) return part
+          if (part.type === 'text' && part.text) {
+            return { type: 'input_text', text: String(part.text) }
+          }
+          if (typeof part.text === 'string') {
+            return { type: 'input_text', text: part.text }
+          }
+          return null
+        })
+        .filter(Boolean)
+      if (normalized.length) return { role, content: normalized }
+    }
+
+    return {
+      role,
+      content: [{ type: 'input_text', text: String(content || '') }],
+    }
+  })
+}
+
+/**
  * @param {{ apiUrl: string, apiKey: string, model: string, messages: object[], timeoutMs?: number }} options
  */
 async function chatResponsesWebSearch(options) {
@@ -247,7 +352,7 @@ async function chatResponsesWebSearch(options) {
     apiKey: options.apiKey,
     payload: {
       model: options.model,
-      input: options.messages,
+      input: normalizeResponsesInput(options.messages),
       tools: [{ type: 'web_search' }],
       stream: false,
     },
@@ -423,8 +528,11 @@ async function chatWithWebSearch(options) {
 
 module.exports = {
   chatWithWebSearch,
+  chatDashScopeGenerationWebSearch,
   collectSearchSources,
   analyzeWebSearchEvidence,
   extractResponsesApiText,
+  normalizeResponsesInput,
+  isDashScopeGenerationUrl,
   KIMI_WEB_SEARCH_TOOLS,
 }

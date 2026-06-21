@@ -93,6 +93,8 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
       engine: engineConfig.id,
       probeMode: 'web_search',
       errorMessage: error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message,
+      errorStatus: error.status || null,
+      errorBody: error.body || null,
     }
   }
 }

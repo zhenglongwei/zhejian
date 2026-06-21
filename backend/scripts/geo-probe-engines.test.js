@@ -11,7 +11,12 @@ const {
   ALL_ENGINE_IDS,
   isRemovedEngine,
 } = require('../src/services/geo-probe-engines')
-const { collectSearchSources, analyzeWebSearchEvidence } = require('../src/services/geo-probe-engines/web-search-chat')
+const {
+  collectSearchSources,
+  analyzeWebSearchEvidence,
+  normalizeResponsesInput,
+  isDashScopeGenerationUrl,
+} = require('../src/services/geo-probe-engines/web-search-chat')
 
 test('parseEngineIdList dedupes and lowercases', () => {
   assert.deepEqual(parseEngineIdList('qwen, Doubao ,kimi,qwen'), ['qwen', 'doubao', 'kimi'])
@@ -73,4 +78,52 @@ test('collectSearchSources extracts nested urls', () => {
   })
   assert.equal(sources.length, 1)
   assert.equal(sources[0].url, 'https://geo.simplewin.cn/case/a.html')
+})
+
+test('collectSearchSources extracts dashscope output.search_info', () => {
+  const sources = collectSearchSources({
+    output: {
+      search_info: {
+        search_results: [{ url: 'https://example.com/a', title: 'A' }],
+      },
+    },
+  })
+  assert.equal(sources.length, 1)
+  assert.equal(sources[0].url, 'https://example.com/a')
+})
+
+test('analyzeWebSearchEvidence detects output.search_info', () => {
+  const evidence = analyzeWebSearchEvidence(
+    {
+      output: {
+        search_info: {
+          search_results: [{ url: 'https://example.com', title: 'x' }],
+        },
+      },
+    },
+    'ok'
+  )
+  assert.equal(evidence.confirmed, true)
+  assert.equal(evidence.hasSearchInfoField, true)
+})
+
+test('normalizeResponsesInput converts string content', () => {
+  const input = normalizeResponsesInput([{ role: 'user', content: 'hello' }])
+  assert.equal(input[0].role, 'user')
+  assert.deepEqual(input[0].content, [{ type: 'input_text', text: 'hello' }])
+})
+
+test('isDashScopeGenerationUrl detects generation endpoint', () => {
+  assert.equal(
+    isDashScopeGenerationUrl(
+      'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation'
+    ),
+    true
+  )
+  assert.equal(isDashScopeGenerationUrl('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'), false)
+})
+
+test('qwen default web search api is dashscope generation', () => {
+  const cfg = resolveEngineRuntimeConfig('qwen')
+  assert.match(cfg?.apiUrl || '', /text-generation\/generation/)
 })

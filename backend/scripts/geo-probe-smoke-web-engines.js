@@ -80,6 +80,8 @@ async function runOne(engineId, prompt, options) {
     prompt,
     status: result.status,
     reason: result.reason || result.errorMessage || '',
+    errorStatus: result.errorStatus || null,
+    errorBody: result.errorBody || null,
     webSearchConfirmed: Boolean(result.webSearchEvidence?.confirmed),
     searchSourceCount: Array.isArray(result.searchSources) ? result.searchSources.length : 0,
     mentioned: parsed.mentioned,
@@ -126,6 +128,13 @@ async function main() {
       }
       if (cli.verbose && row.raw) {
         console.log('[geo-probe-smoke-web] raw (truncated):', JSON.stringify(row.raw).slice(0, 1500))
+      }
+      if (row.status === 'error' && row.reason) {
+        console.error('[geo-probe-smoke-web] error:', row.reason)
+        if (row.errorStatus) console.error('[geo-probe-smoke-web] errorStatus:', row.errorStatus)
+        if (row.errorBody) {
+          console.error('[geo-probe-smoke-web] errorBody:', JSON.stringify(row.errorBody).slice(0, 800))
+        }
       }
     }
   }

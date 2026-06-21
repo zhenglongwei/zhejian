@@ -138,6 +138,12 @@ async function main() {
   if (result.errorMessage || result.reason) {
     console.log('[geo-probe-smoke] detail:', result.errorMessage || result.reason)
   }
+  if (result.errorStatus) {
+    console.log('[geo-probe-smoke] errorStatus:', result.errorStatus)
+  }
+  if (process.argv.includes('--verbose') && result.errorBody) {
+    console.log('[geo-probe-smoke] errorBody:', JSON.stringify(result.errorBody).slice(0, 800))
+  }
   if (result.status === 'error') process.exit(1)
 }
 
