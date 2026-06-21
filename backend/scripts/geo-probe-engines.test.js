@@ -6,25 +6,32 @@ const assert = require('node:assert/strict')
 const {
   parseEngineIdList,
   resolveEnabledEngineConfigs,
+  resolveEngineRuntimeConfig,
   getEngineDefinition,
   ALL_ENGINE_IDS,
+  isRemovedEngine,
 } = require('../src/services/geo-probe-engines')
+const { collectSearchSources } = require('../src/services/geo-probe-engines/web-search-chat')
 
 test('parseEngineIdList dedupes and lowercases', () => {
   assert.deepEqual(parseEngineIdList('qwen, Doubao ,kimi,qwen'), ['qwen', 'doubao', 'kimi'])
 })
 
-test('registry includes six open-api engines', () => {
-  assert.deepEqual(ALL_ENGINE_IDS, [
-    'qwen',
-    'doubao',
-    'deepseek',
-    'kimi',
-    'wenxin',
-    'yuanbao',
-  ])
-  assert.equal(getEngineDefinition('deepseek')?.defaultModel, 'deepseek-chat')
-  assert.equal(getEngineDefinition('yuanbao')?.label.includes('混元'), true)
+test('registry includes web-search engines only (no deepseek)', () => {
+  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin', 'yuanbao'])
+  assert.equal(getEngineDefinition('qwen')?.webSearchMode, 'enable_search')
+  assert.equal(getEngineDefinition('doubao')?.webSearchMode, 'responses_web_search')
+  assert.equal(getEngineDefinition('yuanbao')?.defaultModel, 'hy3-preview')
+  assert.equal(getEngineDefinition('yuanbao')?.webSearchMode, 'responses_web_search')
+  assert.match(getEngineDefinition('yuanbao')?.defaultApiUrl || '', /tokenhub\.tencentmaas\.com/)
+  assert.equal(getEngineDefinition('deepseek'), null)
+  assert.equal(isRemovedEngine('deepseek'), true)
+})
+
+test('removed engine resolves with removed flag', () => {
+  const cfg = resolveEngineRuntimeConfig('deepseek')
+  assert.equal(cfg?.removed, true)
+  assert.equal(cfg?.removedReason, 'no_web_search_api')
 })
 
 test('resolveEnabledEngineConfigs respects batch limit zero skip', () => {
@@ -43,4 +50,14 @@ test('resolveEnabledEngineConfigs respects batch limit zero skip', () => {
   else process.env.GEO_PROBE_ENGINE = saved.ENGINE
   if (saved.KIMI_LIMIT == null) delete process.env.GEO_PROBE_KIMI_BATCH_LIMIT
   else process.env.GEO_PROBE_KIMI_BATCH_LIMIT = saved.KIMI_LIMIT
+})
+
+test('collectSearchSources extracts nested urls', () => {
+  const sources = collectSearchSources({
+    search_info: {
+      search_results: [{ url: 'https://geo.simplewin.cn/case/a.html', title: '案例' }],
+    },
+  })
+  assert.equal(sources.length, 1)
+  assert.equal(sources[0].url, 'https://geo.simplewin.cn/case/a.html')
 })

@@ -25,7 +25,7 @@ function getProbeConfig() {
   return {
     enabled: process.env.GEO_PROBE_ENABLED === 'true' || probe.enabled === true,
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true' || probe.dryRun === true,
-    timeoutMs: Number(probe.timeoutMs) || 60000,
+    timeoutMs: Number(probe.timeoutMs) || 120000,
     batchLimit: globalBatchLimit,
     publicBaseUrl: config.publicBaseUrl,
     engines,
@@ -72,9 +72,10 @@ async function syncGeoPromptSeeds() {
 
 async function saveProbeResult(promptRow, engineResult, engineId, probeConfig) {
   const answer = engineResult.answer || ''
+  const parseText = engineResult.answerForParse || answer
   const parsed =
     engineResult.status === 'ok' || engineResult.status === 'dry_run'
-      ? parseProbeAnswer(answer, { publicBaseUrl: probeConfig.publicBaseUrl })
+      ? parseProbeAnswer(parseText, { publicBaseUrl: probeConfig.publicBaseUrl })
       : {
           mentioned: false,
           citedUrl: '',
@@ -157,6 +158,23 @@ async function runGeoPromptProbeBatch(options = {}) {
   const engineSummaries = []
 
   for (const engineConfig of engineConfigs) {
+    if (engineConfig.removed) {
+      console.log(
+        `[geo-probe] engine=${engineConfig.id} skipped (${engineConfig.removedReason || 'no_web_search_api'})`
+      )
+      engineSummaries.push({
+        engine: engineConfig.id,
+        label: engineConfig.label || engineConfig.id,
+        tier: engineConfig.tier || 0,
+        configured: false,
+        batchLimit: 0,
+        processed: 0,
+        skipped: 0,
+        removed: true,
+      })
+      continue
+    }
+
     const prompts = promptPool.slice(0, engineConfig.batchLimit)
     if (!prompts.length) continue
 
@@ -164,7 +182,7 @@ async function runGeoPromptProbeBatch(options = {}) {
     let engineSkipped = 0
 
     console.log(
-      `[geo-probe] engine=${engineConfig.id} (${engineConfig.label}) prompts=${prompts.length}` +
+      `[geo-probe] engine=${engineConfig.id} (${engineConfig.label}) mode=web_search prompts=${prompts.length}` +
         (engineConfig.configured || probeConfig.dryRun ? '' : ' [no api key, will skip]')
     )
 
@@ -393,7 +411,8 @@ async function buildGeoProbeReport(query = {}) {
     recentResults,
     enabledEngines: resolveEnabledEngineConfigs({ globalBatchLimit: getProbeConfig().batchLimit }),
     disclaimer:
-      '「答案探测」为平台内部对开放 API 大模型的抽样监测，不含微信小程序内搜一搜；仅供参考，不构成引用或排名承诺。爬虫访问不等于被 AI 引用。',
+      '「答案探测」为平台内部对开放 API 大模型联网问答的抽样监测（模拟用户开启联网），不含微信小程序内搜一搜；仅供参考，不构成引用或排名承诺。爬虫访问不等于被 AI 引用。',
+    probeMode: 'web_search',
   }
 }
 

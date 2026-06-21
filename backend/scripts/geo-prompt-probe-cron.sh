@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # GEO-OBS-B06/D02 · 周频 Prompt 探测（建议 crontab：0 3 * * 1）
-# 多引擎：GEO_PROBE_ENGINES=qwen,doubao,deepseek,kimi,wenxin,yuanbao（缺 Key 的引擎自动 skip）
+# 多引擎联网探测：GEO_PROBE_ENGINES=qwen,doubao,kimi,wenxin,yuanbao（缺 Key 的引擎自动 skip；deepseek 已移除）
 set -euo pipefail
 
 export TZ=Asia/Shanghai

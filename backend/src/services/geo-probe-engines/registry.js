@@ -1,20 +1,24 @@
 /**
- * GEO-OBS-D01 · 探测引擎注册表（OpenAI 兼容 Chat Completions）
+ * GEO-OBS-D01 · 探测引擎注册表（仅支持 API 联网搜索的引擎）
  *
- * 元宝（混元）为独立 App/API，可检索开放 Web，与微信小程序内搜一搜（OBS-W）不同。
+ * 不联网的 Chat Completions 已从探测链路移除；无法联网的引擎（如 DeepSeek 官方 API）不再注册。
  */
 const { DEFAULT_API_URL } = require('../../lib/dashscope-chat')
 
-/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'|'deepseek'} GeoProbeEngineId */
+/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'|'yuanbao'} GeoProbeEngineId */
+/** @typedef {'enable_search'|'responses_web_search'|'builtin_web_search'|'web_search_object'} GeoProbeWebSearchMode */
 
 /**
  * @typedef {Object} GeoProbeEngineDefinition
  * @property {GeoProbeEngineId} id
  * @property {string} label
  * @property {string} defaultApiUrl
+ * @property {string} [defaultWebSearchApiUrl]
  * @property {string} defaultModel
+ * @property {GeoProbeWebSearchMode} webSearchMode
  * @property {string[]} apiKeyEnvKeys
  * @property {string} apiUrlEnvKey
+ * @property {string} [webSearchApiUrlEnvKey]
  * @property {string} modelEnvKey
  * @property {string} batchLimitEnvKey
  * @property {number} defaultBatchLimit
@@ -30,6 +34,7 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     label: '通义千问',
     defaultApiUrl: DEFAULT_API_URL,
     defaultModel: 'qwen-plus',
+    webSearchMode: 'enable_search',
     apiKeyEnvKeys: ['GEO_PROBE_QWEN_API_KEY', 'GEO_PROBE_API_KEY', 'DASHSCOPE_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_QWEN_API_URL',
     modelEnvKey: 'GEO_PROBE_QWEN_MODEL',
@@ -42,24 +47,15 @@ const GEO_PROBE_ENGINE_REGISTRY = [
   {
     id: 'doubao',
     label: '豆包（火山方舟）',
-    defaultApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
+    defaultApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
+    defaultWebSearchApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
     defaultModel: 'doubao-1-5-pro-32k',
+    webSearchMode: 'responses_web_search',
     apiKeyEnvKeys: ['GEO_PROBE_DOUBAO_API_KEY', 'ARK_API_KEY', 'VOLCENGINE_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_DOUBAO_API_URL',
+    webSearchApiUrlEnvKey: 'GEO_PROBE_DOUBAO_RESPONSES_API_URL',
     modelEnvKey: 'GEO_PROBE_DOUBAO_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_DOUBAO_BATCH_LIMIT',
-    defaultBatchLimit: 10,
-    tier: 2,
-  },
-  {
-    id: 'deepseek',
-    label: 'DeepSeek',
-    defaultApiUrl: 'https://api.deepseek.com/chat/completions',
-    defaultModel: 'deepseek-chat',
-    apiKeyEnvKeys: ['GEO_PROBE_DEEPSEEK_API_KEY', 'DEEPSEEK_API_KEY'],
-    apiUrlEnvKey: 'GEO_PROBE_DEEPSEEK_API_URL',
-    modelEnvKey: 'GEO_PROBE_DEEPSEEK_MODEL',
-    batchLimitEnvKey: 'GEO_PROBE_DEEPSEEK_BATCH_LIMIT',
     defaultBatchLimit: 10,
     tier: 2,
   },
@@ -67,7 +63,8 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     id: 'kimi',
     label: 'Kimi（Moonshot）',
     defaultApiUrl: 'https://api.moonshot.cn/v1/chat/completions',
-    defaultModel: 'moonshot-v1-8k',
+    defaultModel: 'kimi-k2-turbo-preview',
+    webSearchMode: 'builtin_web_search',
     apiKeyEnvKeys: ['GEO_PROBE_KIMI_API_KEY', 'MOONSHOT_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_KIMI_API_URL',
     modelEnvKey: 'GEO_PROBE_KIMI_MODEL',
@@ -79,7 +76,8 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     id: 'wenxin',
     label: '百度文心（千帆）',
     defaultApiUrl: 'https://qianfan.baidubce.com/v2/chat/completions',
-    defaultModel: 'ernie-4.0-turbo-8k',
+    defaultModel: 'ernie-4.5-turbo-32k',
+    webSearchMode: 'web_search_object',
     apiKeyEnvKeys: ['GEO_PROBE_WENXIN_API_KEY', 'QIANFAN_API_KEY', 'QIANFAN_ACCESS_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_WENXIN_API_URL',
     modelEnvKey: 'GEO_PROBE_WENXIN_MODEL',
@@ -89,17 +87,23 @@ const GEO_PROBE_ENGINE_REGISTRY = [
   },
   {
     id: 'yuanbao',
-    label: '腾讯元宝（混元）',
-    defaultApiUrl: 'https://api.hunyuan.cloud.tencent.com/v1/chat/completions',
-    defaultModel: 'hunyuan-turbos-latest',
-    apiKeyEnvKeys: ['GEO_PROBE_YUANBAO_API_KEY', 'HUNYUAN_API_KEY', 'TENCENT_HUNYUAN_API_KEY'],
+    label: '腾讯 TokenHub（Hy3）',
+    defaultApiUrl: 'https://tokenhub.tencentmaas.com/v1/responses',
+    defaultWebSearchApiUrl: 'https://tokenhub.tencentmaas.com/v1/responses',
+    defaultModel: 'hy3-preview',
+    webSearchMode: 'responses_web_search',
+    apiKeyEnvKeys: ['GEO_PROBE_YUANBAO_API_KEY', 'TOKENHUB_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_YUANBAO_API_URL',
+    webSearchApiUrlEnvKey: 'GEO_PROBE_YUANBAO_API_URL',
     modelEnvKey: 'GEO_PROBE_YUANBAO_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_YUANBAO_BATCH_LIMIT',
     defaultBatchLimit: 10,
     tier: 2,
   },
 ]
+
+/** 已从注册表移除、若仍出现在 GEO_PROBE_ENGINES 中会 skip */
+const REMOVED_ENGINE_IDS = ['deepseek']
 
 const ENGINE_MAP = new Map(GEO_PROBE_ENGINE_REGISTRY.map((item) => [item.id, item]))
 
@@ -111,6 +115,10 @@ function getEngineDefinition(engineId) {
 
 function listEngineDefinitions() {
   return [...GEO_PROBE_ENGINE_REGISTRY]
+}
+
+function isRemovedEngine(engineId) {
+  return REMOVED_ENGINE_IDS.includes(String(engineId || '').trim().toLowerCase())
 }
 
 function parseEngineIdList(raw) {
@@ -134,7 +142,24 @@ function resolveFirstEnv(keys) {
  * @param {{ globalBatchLimit?: number }} [options]
  */
 function resolveEngineRuntimeConfig(engineId, options = {}) {
-  const def = getEngineDefinition(engineId)
+  const id = String(engineId || '').trim().toLowerCase()
+  if (isRemovedEngine(id)) {
+    return {
+      id,
+      label: id,
+      tier: 0,
+      apiUrl: '',
+      apiKey: '',
+      model: '',
+      batchLimit: 0,
+      webSearchMode: '',
+      configured: false,
+      removed: true,
+      removedReason: 'no_web_search_api',
+    }
+  }
+
+  const def = getEngineDefinition(id)
   if (!def) return null
 
   const globalCap = Math.min(Math.max(Number(options.globalBatchLimit) || 50, 1), 50)
@@ -155,16 +180,21 @@ function resolveEngineRuntimeConfig(engineId, options = {}) {
   if (enableThinkingEnv === 'true') enableThinking = true
   if (enableThinkingEnv === 'false') enableThinking = false
 
+  const webSearchApiUrlKey = def.webSearchApiUrlEnvKey || def.apiUrlEnvKey
+  const defaultWebSearchApiUrl = def.defaultWebSearchApiUrl || def.defaultApiUrl
+
   return {
     id: def.id,
     label: def.label,
     tier: def.tier,
-    apiUrl: String(process.env[def.apiUrlEnvKey] || def.defaultApiUrl).trim(),
+    webSearchMode: def.webSearchMode,
+    apiUrl: String(process.env[webSearchApiUrlKey] || defaultWebSearchApiUrl).trim(),
     apiKey: resolveFirstEnv(def.apiKeyEnvKeys),
     model: String(process.env[def.modelEnvKey] || def.defaultModel).trim(),
     batchLimit,
     enableThinking,
     configured: false,
+    removed: false,
   }
 }
 
@@ -177,6 +207,11 @@ function resolveEnabledEngineConfigs(options = {}) {
   for (const engineId of requested) {
     const cfg = resolveEngineRuntimeConfig(engineId, options)
     if (!cfg) continue
+    if (cfg.removed) {
+      cfg.configured = false
+      configs.push(cfg)
+      continue
+    }
     if (cfg.batchLimit <= 0) continue
     cfg.configured = Boolean(cfg.apiKey)
     configs.push(cfg)
@@ -187,8 +222,10 @@ function resolveEnabledEngineConfigs(options = {}) {
 module.exports = {
   GEO_PROBE_ENGINE_REGISTRY,
   ALL_ENGINE_IDS,
+  REMOVED_ENGINE_IDS,
   getEngineDefinition,
   listEngineDefinitions,
+  isRemovedEngine,
   parseEngineIdList,
   resolveEngineRuntimeConfig,
   resolveEnabledEngineConfigs,

@@ -17,7 +17,7 @@ const {
 } = require('../src/services/geo-probe-engines')
 
 /** 多引擎 smoke 版本；ECS 输出无此字段说明未 git pull */
-const GEO_PROBE_SMOKE_VERSION = 'multi-engine-v2'
+const GEO_PROBE_SMOKE_VERSION = 'web-search-v1'
 
 /**
  * @param {string[]} argv process.argv
@@ -70,6 +70,7 @@ async function main() {
         label: item.label,
         tier: item.tier,
         defaultModel: item.defaultModel,
+        webSearchMode: item.webSearchMode,
       }))
     )
     return
@@ -105,18 +106,23 @@ async function main() {
     label: engineConfig.label,
     model: engineConfig.model,
     apiUrl: engineConfig.apiUrl,
+    webSearchMode: engineConfig.webSearchMode,
+    probeMode: 'web_search',
     prompt,
   })
 
   const result = await probeWithEngine(engineId, prompt, {
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',
     enabled: true,
-    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 60000),
+    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 120000),
   })
 
   console.log('[geo-probe-smoke] status:', result.status)
   if (result.answer) {
     console.log('[geo-probe-smoke] answer:\n', result.answer)
+  }
+  if (Array.isArray(result.searchSources) && result.searchSources.length) {
+    console.log('[geo-probe-smoke] searchSources:', result.searchSources.slice(0, 5))
   }
   if (result.errorMessage || result.reason) {
     console.log('[geo-probe-smoke] detail:', result.errorMessage || result.reason)

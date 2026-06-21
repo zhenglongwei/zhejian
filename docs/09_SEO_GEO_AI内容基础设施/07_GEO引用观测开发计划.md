@@ -186,7 +186,9 @@
 
 ---
 
-## 6. 阶段 B · Prompt 词库 + 合成探测（P1）
+## 6. 阶段 B · Prompt 词库 + 合成探测（P1 · **联网模式**）
+
+> **口径（2026-06-19 定稿）**：探测 **仅** 走各引擎官方 **联网搜索 API**，模拟用户 App 内开启联网问答；**不**再使用闭卷 Chat Completions。官方 API **无联网能力** 的引擎（如 DeepSeek `api.deepseek.com`）**不注册**，配置在 `GEO_PROBE_ENGINES` 中会自动 skip。
 
 > **验收**：每周自动跑 ≥20 条固定 prompt，产出 mention/citation 率周报。
 
@@ -257,10 +259,11 @@
 
 ---
 
-## 8. 阶段 D · 多引擎扩展（P2 · **仅生态外开放 API**）
+## 8. 阶段 D · 多引擎扩展（P2 · **仅生态外开放 API · 联网**）
 
-> **范围**：千问、豆包、Kimi、文心、DeepSeek 等 **有 Chat Completions 类官方 API** 的引擎。  
-> **不含**：微信元宝、搜一搜 AI 摘要——见 **§8.5 阶段 W**；**禁止**把 D 的 citation 率当作「全平台引用概率」。  
+> **范围**：千问、豆包、Kimi、文心、混元（元宝 API）等 **有官方联网搜索 API** 的引擎。  
+> **已移除**：DeepSeek 官方 Chat API（无联网）。  
+> **不含**：微信内搜一搜 AI 摘要——见 **§8.5 阶段 W**；**禁止**把 D 的 citation 率当作「全平台引用概率」。  
 > **成本**：Tier 编排见 §8.1；全量 prompt × 全引擎 **禁止**默认开启。
 
 ### 8.1 成本 Tier（建议默认值）
@@ -276,7 +279,7 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、**deepseek**、kimi、wenxin、yuanbao（OpenAI 兼容） |
+| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、kimi、wenxin、yuanbao；**web-search-chat** 联网调用 |
 | GEO-OBS-D02 | 探测编排 | `geo-prompt-probe.service.js` | P2 | [x] | `GEO_PROBE_ENGINES` + 各引擎 `*_BATCH_LIMIT`；缺 Key skip |
 | GEO-OBS-D03 | 对比报表 | 运营台 probe-report | P2 | [~] | `byEngine` API 已有；UI 引擎对比待加强 |
 | GEO-OBS-D04 | 邮件/企微周报 | 可选 cron 通知 | P2 | [ ] | 模板见 **§11**；含 W 人工段 |
@@ -517,3 +520,5 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-19 | V1.5 | 百炼千问 live 探测；`dashscope-chat`；cron 进度日志；§6.3 生产验收 |
 | 2026-06-19 | V1.6 | 运维收口：ECS 发版、crontab 周一 03:00、API Key 轮换 |
 | 2026-06-19 | V1.8 | OBS-D01/D02：五引擎适配器 + `GEO_PROBE_ENGINES` 编排；元宝归开放 API；OBS-W 仅微信内搜一搜 |
+| 2026-06-19 | V1.9 | 探测切 **仅联网模式**（`web-search-chat`）；移除 DeepSeek；豆包/TokenHub 用 Responses API `web_search` |
+| 2026-06-19 | V1.9.1 | 元宝引擎默认 **TokenHub**（`hy3-preview` + `tokenhub.tencentmaas.com`）；不再使用老混元域名 |

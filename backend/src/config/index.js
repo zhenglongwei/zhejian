@@ -99,7 +99,7 @@ const config = {
     model: process.env.GEO_PROBE_MODEL || 'qwen-plus',
     engine: process.env.GEO_PROBE_ENGINE || 'qwen',
     engines: process.env.GEO_PROBE_ENGINES || process.env.GEO_PROBE_ENGINE || 'qwen',
-    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 60000),
+    timeoutMs: Number(process.env.GEO_PROBE_TIMEOUT_MS || 120000),
     batchLimit: Number(process.env.GEO_PROBE_BATCH_LIMIT || 20),
     /** qwen3.6-plus 等混合思考模型：探测需直接答案，默认关思考 */
     enableThinking: process.env.GEO_PROBE_ENABLE_THINKING === 'true',

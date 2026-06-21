@@ -1,13 +1,13 @@
 /**
- * GEO-OBS-D01 · 单引擎探测调用
+ * GEO-OBS-D01 · 单引擎联网探测调用
  */
-const { chatCompletion } = require('../../lib/dashscope-chat')
 const { getEngineDefinition } = require('./registry')
+const { chatWithWebSearch } = require('./web-search-chat')
 
 /**
  * @param {string} prompt
  * @param {{ dryRun?: boolean, enabled?: boolean, timeoutMs?: number }} globalOptions
- * @param {{ id: string, apiUrl: string, apiKey: string, model: string, enableThinking?: boolean }} engineConfig
+ * @param {{ id: string, apiUrl: string, apiKey: string, model: string, webSearchMode?: string, enableThinking?: boolean, removed?: boolean, removedReason?: string }} engineConfig
  */
 async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
   if (globalOptions.dryRun) {
@@ -15,14 +15,34 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
     return {
       status: 'dry_run',
       engine: engineConfig.id,
+      probeMode: 'web_search',
       answer: mention
-        ? `[${engineConfig.id}] 建议先到店检测。可参考辙见公开案例：https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州`
-        : `[${engineConfig.id}] 一般需结合实车检测确认，线上信息仅供参考。`,
+        ? `[${engineConfig.id}/联网] 建议先到店检测。可参考辙见公开案例：https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州`
+        : `[${engineConfig.id}/联网] 一般需结合实车检测确认，线上信息仅供参考。`,
+      searchSources: mention
+        ? [{ url: 'https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州' }]
+        : [],
     }
   }
 
   if (globalOptions.enabled === false) {
     return { status: 'skipped', engine: engineConfig.id, reason: 'probe_disabled' }
+  }
+
+  if (engineConfig.removed) {
+    return {
+      status: 'skipped',
+      engine: engineConfig.id,
+      reason: engineConfig.removedReason || 'no_web_search_api',
+    }
+  }
+
+  if (!engineConfig.webSearchMode) {
+    return {
+      status: 'skipped',
+      engine: engineConfig.id,
+      reason: 'no_web_search_api',
+    }
   }
 
   if (!engineConfig.apiKey) {
@@ -42,26 +62,34 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
   }
 
   try {
-    const completionOptions = {
+    const result = await chatWithWebSearch({
+      webSearchMode: engineConfig.webSearchMode,
       apiUrl: engineConfig.apiUrl,
       apiKey: engineConfig.apiKey,
       model: engineConfig.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.2,
-      timeoutMs: globalOptions.timeoutMs || 60000,
-    }
-    if (engineConfig.enableThinking === true) {
-      completionOptions.enableThinking = true
-    } else if (engineConfig.enableThinking === false) {
-      completionOptions.enableThinking = false
-    }
+      prompt,
+      timeoutMs: globalOptions.timeoutMs || 120000,
+      enableThinking: engineConfig.enableThinking,
+    })
 
-    const result = await chatCompletion(completionOptions)
-    return { status: 'ok', engine: engineConfig.id, answer: result.text }
+    const searchSnippet = (result.searchSources || [])
+      .map((item) => [item.url, item.title, item.snippet].filter(Boolean).join(' '))
+      .filter(Boolean)
+      .join('\n')
+
+    return {
+      status: 'ok',
+      engine: engineConfig.id,
+      probeMode: 'web_search',
+      answer: result.text,
+      searchSources: result.searchSources || [],
+      answerForParse: [result.text, searchSnippet].filter(Boolean).join('\n'),
+    }
   } catch (error) {
     return {
       status: 'error',
       engine: engineConfig.id,
+      probeMode: 'web_search',
       errorMessage: error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message,
     }
   }
@@ -75,6 +103,11 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
 async function probeWithEngine(engineId, prompt, globalOptions = {}) {
   const def = getEngineDefinition(engineId)
   if (!def) {
+    const { isRemovedEngine, resolveEngineRuntimeConfig } = require('./registry')
+    if (isRemovedEngine(engineId)) {
+      const cfg = resolveEngineRuntimeConfig(engineId, globalOptions)
+      return callProbeEngineForConfig(prompt, globalOptions, cfg)
+    }
     return { status: 'skipped', engine: engineId, reason: 'unknown_engine' }
   }
   const { resolveEngineRuntimeConfig } = require('./registry')
