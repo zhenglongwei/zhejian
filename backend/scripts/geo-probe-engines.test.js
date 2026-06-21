@@ -22,20 +22,20 @@ test('parseEngineIdList dedupes and lowercases', () => {
   assert.deepEqual(parseEngineIdList('qwen, Doubao ,kimi,qwen'), ['qwen', 'doubao', 'kimi'])
 })
 
-test('registry includes web-search engines only (no deepseek)', () => {
-  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'kimi', 'wenxin'])
+test('registry includes web-search engines including ark deepseek', () => {
+  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'deepseek', 'kimi', 'wenxin'])
   assert.equal(getEngineDefinition('yuanbao'), null)
   assert.equal(isRemovedEngine('yuanbao'), true)
   assert.equal(getEngineDefinition('qwen')?.webSearchMode, 'enable_search')
   assert.equal(getEngineDefinition('doubao')?.webSearchMode, 'responses_web_search')
-  assert.equal(getEngineDefinition('deepseek'), null)
-  assert.equal(isRemovedEngine('deepseek'), true)
+  assert.equal(getEngineDefinition('deepseek')?.webSearchMode, 'responses_web_search')
+  assert.equal(isRemovedEngine('deepseek'), false)
 })
 
-test('removed engine resolves with removed flag', () => {
-  const cfg = resolveEngineRuntimeConfig('deepseek')
+test('removed yuanbao resolves with removed flag', () => {
+  const cfg = resolveEngineRuntimeConfig('yuanbao')
   assert.equal(cfg?.removed, true)
-  assert.equal(cfg?.removedReason, 'no_web_search_api')
+  assert.equal(cfg?.removedReason, 'tokenhub_hy3_enhancement_no_search_info')
 })
 
 test('resolveEnabledEngineConfigs respects batch limit zero skip', () => {

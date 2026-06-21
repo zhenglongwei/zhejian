@@ -1,11 +1,12 @@
 /**
  * GEO-OBS-D01 · 探测引擎注册表（仅支持 API 联网搜索的引擎）
  *
- * 不联网的 Chat Completions 已从探测链路移除；无法联网的引擎（如 DeepSeek 官方 API）不再注册。
+ * 不联网的 Chat Completions 已从探测链路移除。
+ * DeepSeek 仅通过火山方舟 Responses API + web_search 接入（官方 DeepSeek API 无联网）。
  */
 const { DEFAULT_API_URL } = require('../../lib/dashscope-chat')
 
-/** @typedef {'qwen'|'doubao'|'kimi'|'wenxin'} GeoProbeEngineId */
+/** @typedef {'qwen'|'doubao'|'deepseek'|'kimi'|'wenxin'} GeoProbeEngineId */
 /** @typedef {'enable_search'|'responses_web_search'|'builtin_web_search'|'web_search_object'|'enable_enhancement'} GeoProbeWebSearchMode */
 
 /**
@@ -52,13 +53,28 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     label: '豆包（火山方舟）',
     defaultApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
     defaultWebSearchApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
-    defaultModel: 'doubao-1-5-pro-32k-250115',
+    defaultModel: 'doubao-seed-1-6-250615',
     webSearchMode: 'responses_web_search',
     apiKeyEnvKeys: ['GEO_PROBE_DOUBAO_API_KEY', 'ARK_API_KEY', 'VOLCENGINE_API_KEY'],
     apiUrlEnvKey: 'GEO_PROBE_DOUBAO_API_URL',
     webSearchApiUrlEnvKey: 'GEO_PROBE_DOUBAO_RESPONSES_API_URL',
     modelEnvKey: 'GEO_PROBE_DOUBAO_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_DOUBAO_BATCH_LIMIT',
+    defaultBatchLimit: 10,
+    tier: 2,
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek（火山方舟）',
+    defaultApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
+    defaultWebSearchApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/responses',
+    defaultModel: 'deepseek-v4-pro',
+    webSearchMode: 'responses_web_search',
+    apiKeyEnvKeys: ['GEO_PROBE_DEEPSEEK_API_KEY', 'ARK_API_KEY', 'VOLCENGINE_API_KEY'],
+    apiUrlEnvKey: 'GEO_PROBE_DEEPSEEK_API_URL',
+    webSearchApiUrlEnvKey: 'GEO_PROBE_DEEPSEEK_RESPONSES_API_URL',
+    modelEnvKey: 'GEO_PROBE_DEEPSEEK_MODEL',
+    batchLimitEnvKey: 'GEO_PROBE_DEEPSEEK_BATCH_LIMIT',
     defaultBatchLimit: 10,
     tier: 2,
   },
@@ -92,10 +108,9 @@ const GEO_PROBE_ENGINE_REGISTRY = [
 
 /**
  * 已从注册表移除
- * - deepseek：官方 API 无联网
  * - yuanbao：TokenHub hy3-preview 实测 enable_enhancement 无 search_info（2026-06-21 ECS A/B）
  */
-const REMOVED_ENGINE_IDS = ['deepseek', 'yuanbao']
+const REMOVED_ENGINE_IDS = ['yuanbao']
 
 const ENGINE_MAP = new Map(GEO_PROBE_ENGINE_REGISTRY.map((item) => [item.id, item]))
 

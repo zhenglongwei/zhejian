@@ -88,11 +88,16 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
       answerForParse: [result.text, searchSnippet].filter(Boolean).join('\n'),
     }
   } catch (error) {
+    let errorMessage = error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message
+    const errText = String(error.message || '')
+    if (/does not have access to responses api/i.test(errText)) {
+      errorMessage = `${errorMessage}（请在方舟创建 doubao-seed 系列接入点，doubao-1-5-pro 不支持 Responses API）`
+    }
     return {
       status: 'error',
       engine: engineConfig.id,
       probeMode: 'web_search',
-      errorMessage: error.code === 'LLM_TIMEOUT' ? 'probe_timeout' : error.message,
+      errorMessage,
       errorStatus: error.status || null,
       errorBody: error.body || null,
     }
