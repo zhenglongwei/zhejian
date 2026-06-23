@@ -14,6 +14,7 @@ const {
   resolveEnabledEngineConfigs,
   callProbeEngineForConfig,
   listEngineDefinitions,
+  getEngineDefinition,
 } = require('./geo-probe-engines')
 
 const PUBLIC_PAGE_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
@@ -320,12 +321,36 @@ async function computeIntentCoverage(prompts) {
   }
 }
 
+function normalizeEngineFilter(raw) {
+  if (raw === undefined || raw === null || raw === '') return null
+  const id = String(raw).trim().toLowerCase()
+  if (id === 'all') return null
+  return getEngineDefinition(id) ? id : null
+}
+
+function mapProbeResultRow(row, promptMap, engineLabelMap) {
+  return {
+    promptId: row.promptId,
+    prompt: promptMap.get(row.promptId)?.prompt || '',
+    topicSlug: promptMap.get(row.promptId)?.topicSlug || '',
+    engine: row.engine,
+    engineLabel: engineLabelMap.get(row.engine) || row.engine,
+    mentioned: row.mentioned,
+    citedUrl: row.citedUrl,
+    usedOnly: Boolean(row.mentioned && !row.citedUrl),
+    externalDomains: Array.isArray(row.externalDomainsJson) ? row.externalDomainsJson : [],
+    status: row.status,
+    probedAt: row.probedAt,
+  }
+}
+
 /**
- * @param {{ days?: number }} [query]
+ * @param {{ days?: number, engine?: string }} [query]
  */
 async function buildGeoProbeReport(query = {}) {
   assertGeoObsPrismaReady()
   const days = Math.min(Math.max(Number(query.days) || 7, 1), 90)
+  const engineFilter = normalizeEngineFilter(query.engine)
   const since = new Date()
   since.setUTCDate(since.getUTCDate() - days)
   since.setUTCHours(0, 0, 0, 0)
@@ -338,16 +363,23 @@ async function buildGeoProbeReport(query = {}) {
     }),
   ])
 
-  const okResults = probeResults.filter((row) => row.status === 'ok' || row.status === 'dry_run')
-  const mentionCount = okResults.filter((row) => row.mentioned).length
-  const citationCount = okResults.filter((row) => row.citedUrl).length
-  const usedOnlyCount = okResults.filter((row) => row.mentioned && !row.citedUrl).length
+  const allOkResults = probeResults.filter((row) => row.status === 'ok' || row.status === 'dry_run')
+  const scopedOkResults = engineFilter
+    ? allOkResults.filter((row) => row.engine === engineFilter)
+    : allOkResults
+
+  const mentionCount = scopedOkResults.filter((row) => row.mentioned).length
+  const citationCount = scopedOkResults.filter((row) => row.citedUrl).length
+  const usedOnlyCount = scopedOkResults.filter((row) => row.mentioned && !row.citedUrl).length
   const coverage = await computeIntentCoverage(promptRows)
   const topicHealth = await computeGeoTopicHealthMetrics()
-  const postCitationLeads = await computePostCitationLeads(okResults, days)
+  const postCitationLeads = await computePostCitationLeads(scopedOkResults, days)
+
+  const engineTierMap = new Map(listEngineDefinitions().map((item) => [item.id, item.tier]))
+  const engineLabelMap = new Map(listEngineDefinitions().map((item) => [item.id, item.label]))
 
   const byEngineMap = new Map()
-  okResults.forEach((row) => {
+  allOkResults.forEach((row) => {
     const bucket = byEngineMap.get(row.engine) || { engine: row.engine, total: 0, mention: 0, citation: 0 }
     bucket.total += 1
     if (row.mentioned) bucket.mention += 1
@@ -355,27 +387,21 @@ async function buildGeoProbeReport(query = {}) {
     byEngineMap.set(row.engine, bucket)
   })
 
-  const engineLabelMap = new Map(listEngineDefinitions().map((item) => [item.id, item.label]))
-  const byEngine = [...byEngineMap.values()].map((item) => ({
-    ...item,
-    label: engineLabelMap.get(item.engine) || item.engine,
-    prompt_probe_mention_rate: item.total ? item.mention / item.total : 0,
-    prompt_probe_citation_rate: item.total ? item.citation / item.total : 0,
-  }))
+  const byEngine = [...byEngineMap.values()]
+    .map((item) => ({
+      ...item,
+      label: engineLabelMap.get(item.engine) || item.engine,
+      tier: engineTierMap.get(item.engine) || 0,
+      prompt_probe_mention_rate: item.total ? item.mention / item.total : 0,
+      prompt_probe_citation_rate: item.total ? item.citation / item.total : 0,
+    }))
+    .sort((a, b) => (a.tier || 99) - (b.tier || 99) || b.total - a.total)
 
   const promptMap = new Map(promptRows.map((row) => [row.promptId, row]))
-  const recentResults = probeResults.slice(0, 20).map((row) => ({
-    promptId: row.promptId,
-    prompt: promptMap.get(row.promptId)?.prompt || '',
-    topicSlug: promptMap.get(row.promptId)?.topicSlug || '',
-    engine: row.engine,
-    mentioned: row.mentioned,
-    citedUrl: row.citedUrl,
-    usedOnly: Boolean(row.mentioned && !row.citedUrl),
-    externalDomains: Array.isArray(row.externalDomainsJson) ? row.externalDomainsJson : [],
-    status: row.status,
-    probedAt: row.probedAt,
-  }))
+  const recentSource = engineFilter
+    ? probeResults.filter((row) => row.engine === engineFilter)
+    : probeResults
+  const recentResults = recentSource.slice(0, 20).map((row) => mapProbeResultRow(row, promptMap, engineLabelMap))
 
   const primaryEngine = byEngine.find((item) => item.engine === 'qwen') || byEngine[0]
 
@@ -385,11 +411,15 @@ async function buildGeoProbeReport(query = {}) {
       since: since.toISOString(),
       until: new Date().toISOString(),
     },
+    filter: {
+      engine: engineFilter,
+      engineLabel: engineFilter ? engineLabelMap.get(engineFilter) || engineFilter : null,
+    },
     metrics: {
-      probe_total: okResults.length,
-      prompt_probe_mention_rate: okResults.length ? mentionCount / okResults.length : 0,
-      /** 全引擎混合；北极星主曲线见 byEngine.qwen */
-      prompt_probe_citation_rate: okResults.length ? citationCount / okResults.length : 0,
+      probe_total: scopedOkResults.length,
+      prompt_probe_mention_rate: scopedOkResults.length ? mentionCount / scopedOkResults.length : 0,
+      /** 无 engine 筛选时为全引擎混合；筛选时为该引擎；北极星主曲线见 byEngine.qwen */
+      prompt_probe_citation_rate: scopedOkResults.length ? citationCount / scopedOkResults.length : 0,
       prompt_probe_citation_rate_qwen: primaryEngine?.engine === 'qwen' ? primaryEngine.prompt_probe_citation_rate : null,
       prompt_intent_coverage: coverage.prompt_intent_coverage,
       active_prompt_count: coverage.activePromptCount,
@@ -402,8 +432,8 @@ async function buildGeoProbeReport(query = {}) {
     usedVsCited: {
       mentioned_only: usedOnlyCount,
       cited_with_link: citationCount,
-      used_only_rate: okResults.length ? usedOnlyCount / okResults.length : 0,
-      cited_rate: okResults.length ? citationCount / okResults.length : 0,
+      used_only_rate: scopedOkResults.length ? usedOnlyCount / scopedOkResults.length : 0,
+      cited_rate: scopedOkResults.length ? citationCount / scopedOkResults.length : 0,
     },
     postCitationLeads,
     coverage,
@@ -412,6 +442,8 @@ async function buildGeoProbeReport(query = {}) {
     enabledEngines: resolveEnabledEngineConfigs({ globalBatchLimit: getProbeConfig().batchLimit }),
     disclaimer:
       '「答案探测」为平台内部对开放 API 大模型联网问答的抽样监测（模拟用户开启联网），不含微信小程序内搜一搜；仅供参考，不构成引用或排名承诺。爬虫访问不等于被 AI 引用。',
+    channelNote:
+      '本页仅统计生态外大模型联网 API 探测。微信内搜一搜/元宝等 OBS-W 双周人工抽检须单独台账，不得与本页 citation 率合并。',
     probeMode: 'web_search',
   }
 }

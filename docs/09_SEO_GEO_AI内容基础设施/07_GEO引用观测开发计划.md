@@ -111,7 +111,7 @@
 | --- | --- | --- |
 | 典型入口 | 浏览器、`geo.simplewin.cn`、国产 LLM 独立 App / **开放 API** | **微信小程序内搜一搜**、聊天内打开链接 |
 | 辙见主内容 | H5 案例/专题/服务页 | 公众号同步文（链回 H5）、小程序深链页（`utils/wx-search-submit.js` · UI-ALB-D-07） |
-| 现有观测 | `crawler_view`、OBS-D `prompt_probe`（千问/豆包/Kimi/文心/**元宝混元 API**） | OBS-W 双周人工抽检搜一搜；**元宝 API 不计入 W** |
+| 现有观测 | `crawler_view`、OBS-D `prompt_probe`（**千问/豆包/DeepSeek**/Kimi/文心） | OBS-W 双周人工抽检搜一搜；**元宝 TokenHub 已移出 D** |
 | citation 形态 | 答案含 `geo.simplewin.cn` URL | 更常 **引公众号文章**、摘要内店名/小程序，**未必**外链 H5 |
 | 自动化程度 | cron + 多引擎 API（OBS-D） | **人工抽检为主**（OBS-W）；不做 UI 自动化刷微信 |
 | 与北极星关系 | **`prompt_probe_citation_rate` 仅统计本渠道** | 单独台账；Go/No-Go 时 **并列看**，不替代 L3 |
@@ -131,7 +131,7 @@
                     生态外 (Web/API)           微信生态内
 ────────────────────────────────────────────────────────────
 被动 · 收录/爬虫      crawler_view ✅           搜一搜 submitPages + 抽查看摘要 ⚠️
-主动 · 答案探测       qwen/豆包/Kimi (OBS-D)    元宝/AI摘要：人工双周 (OBS-W)
+主动 · 答案探测       qwen/豆包/DeepSeek (OBS-D)  元宝/AI摘要：人工双周 (OBS-W)
 转化 · 引后           h5_consult / h5_call      公众号→H5、小程序咨询深链
 供给 · 内容           geo_pages + 公开案例       公众号文 + 已收录小程序页
 ```
@@ -188,7 +188,7 @@
 
 ## 6. 阶段 B · Prompt 词库 + 合成探测（P1 · **联网模式**）
 
-> **口径（2026-06-19 定稿）**：探测 **仅** 走各引擎官方 **联网搜索 API**，模拟用户 App 内开启联网问答；**不**再使用闭卷 Chat Completions。官方 API **无联网能力** 的引擎（如 DeepSeek `api.deepseek.com`）**不注册**，配置在 `GEO_PROBE_ENGINES` 中会自动 skip。
+> **口径（2026-06-22 定稿）**：探测 **仅** 走各引擎 **可验证联网** API（响应须含 `search_info` 或 `web_search_call`）。千问用 DashScope 原生 `text-generation/generation`（OpenAI 兼容 Chat **不返回**检索来源）；豆包/DeepSeek 用火山方舟 Responses + `web_search`。DeepSeek **官方** `api.deepseek.com` 无联网 → **不注册**；DeepSeek **方舟** `deepseek-v4-pro` 可探测。元宝 TokenHub 无 `search_info` → 已移出。
 
 > **验收**：每周自动跑 ≥20 条固定 prompt，产出 mention/citation 率周报。
 
@@ -197,12 +197,12 @@
 | GEO-OBS-B01 | Prompt 词库表 | `backend/prisma/schema.prisma` | P1 | [x] | `geo_prompt_probe` |
 | GEO-OBS-B02 | 词库种子 | `geo-prompt-seed.js` + `geo-prompt-seed-sync.js` | P1 | [x] | 30 条与 TOPIC-D 对齐 |
 | GEO-OBS-B03 | 词库运营 API | `admin.js`；`admin-geo-prompt.service.js` | P1 | [x] | CRUD |
-| GEO-OBS-B04 | 探测执行器 | `geo-prompt-probe.service.js`；`lib/dashscope-chat.js` | P1 | [x] | 百炼 OpenAI 兼容；`dry_run` / **live `qwen-plus`** |
+| GEO-OBS-B04 | 探测执行器 | `geo-prompt-probe.service.js`；`geo-probe-engines/web-search-chat.js` | P1 | [x] | 千问 DashScope generation；方舟 Responses `web_search` |
 | GEO-OBS-B05 | 结果表 | migration | P1 | [x] | `geo_prompt_probe_result` |
 | GEO-OBS-B06 | 定时任务 | `geo-prompt-probe-cron.sh` | P1 | [x] | 周频 `0 3 * * 1`；`npm run geo:probe:cron`；日志 `logs/geo-probe.log` |
 | GEO-OBS-B07 | 周报 API | `GET /admin/geo/probe-report` | P1 | [x] | citation / coverage |
 | GEO-OBS-B08 | 运营台 UI | `admin-web/.../geo/probe-report` | P1 | [x] | 北极星周报 |
-| GEO-OBS-B09 | 配置 | `config/index.js`；`.env.example` | P1 | [x] | `GEO_PROBE_*` / `DASHSCOPE_API_KEY`；默认北京 compatible-mode |
+| GEO-OBS-B09 | 配置 | `config/index.js`；`.env.example` | P1 | [x] | `GEO_PROBE_*` / `DASHSCOPE_API_KEY` / `ARK_API_KEY` |
 | GEO-OBS-B10 | 合规说明 | 本文 §9 | P1 | [x] | 内部使用、不对外承诺 |
 
 ### 6.1 初始 Prompt 模板（种子）
@@ -224,7 +224,7 @@
 4. 词库 ≥20 条且与杭州首发服务/故障种子对齐。
 5. **生产 live**：状态 `ok`（非 `dry_run`）；见 §6.3。
 
-### 6.3 生产 live 验收（2026-06-19）
+### 6.3 生产 live 验收（千问 · 2026-06-19）
 
 | 项 | 结果 |
 | --- | --- |
@@ -236,6 +236,20 @@
 | 周报样例 | `prompt_intent_coverage:1` · citation ~29%（7 日窗口，基线信号） |
 | 定时 | `bash scripts/geo-prompt-probe-cron.sh`（seed-sync + `--live` 默认 20 条/周） |
 | 运维 | ECS `git pull` + backend 重启 ✅ · crontab `0 3 * * 1` ✅ · `DASHSCOPE_API_KEY` 轮换 ✅ |
+
+### 6.4 生产联网验收（三引擎 · 2026-06-22）
+
+| 引擎 | 接入 | 模型/接入点 | 联网证据 | 冒烟 |
+| --- | --- | --- | --- | --- |
+| 千问 | DashScope `text-generation/generation` + `enable_search` | `qwen-plus` | `output.search_info.search_results` | `webSearchEvidence.confirmed` ✅ |
+| 豆包 | 方舟 Responses + `tools: web_search` | `ep-20260621234920-4qhp9`（doubao-seed-1-6） | `web_search_call` + 检索 URL | `confidence: high` ✅ |
+| DeepSeek | 方舟 Responses + `web_search`（**非**官方 API） | `ep-20260621235232-hpgpt`（deepseek-v4-pro） | `web_search_call` + 检索 URL | `confidence: high` ✅ |
+
+**生产配置**：`GEO_PROBE_ENGINES=qwen,doubao,deepseek` · `GEO_PROBE_TIMEOUT_MS=120000` · 共用 `ARK_API_KEY` · crontab `0 3 * * 1` ✅
+
+**脚本**：`npm run geo:probe-smoke` · `npm run geo:probe-smoke-web`
+
+**已移出**：`yuanbao`（TokenHub 无 `search_info`）· `doubao-1-5-pro`（不支持 Responses API）· DeepSeek 官方 API
 
 ---
 
@@ -261,8 +275,8 @@
 
 ## 8. 阶段 D · 多引擎扩展（P2 · **仅生态外开放 API · 联网**）
 
-> **范围**：千问、豆包、Kimi、文心、混元（元宝 API）等 **有官方联网搜索 API** 的引擎。  
-> **已移除**：DeepSeek 官方 Chat API（无联网）。  
+> **范围**：千问、豆包、DeepSeek（方舟）、Kimi、文心等 **有官方可验证联网 API** 的引擎。  
+> **已移除**：DeepSeek 官方 Chat API（无联网）；元宝 TokenHub（无 `search_info`）；豆包 1.5-pro（无 Responses API）。  
 > **不含**：微信内搜一搜 AI 摘要——见 **§8.5 阶段 W**；**禁止**把 D 的 citation 率当作「全平台引用概率」。  
 > **成本**：Tier 编排见 §8.1；全量 prompt × 全引擎 **禁止**默认开启。
 
@@ -271,7 +285,7 @@
 | Tier | 引擎 | 频率 | 条数/周 | 用途 |
 | ---: | --- | --- | ---: | --- |
 | **1** | 千问（主） | 每周 | 20～30 | 北极星 `prompt_probe_citation_rate` 主曲线 |
-| **2** | 豆包、Kimi | 每周轮换 | 各 5～10 | 引擎差异对比 |
+| **2** | 豆包、DeepSeek（方舟）、Kimi | 每周 | 各 5～10 | 引擎差异对比 |
 | **3** | 文心等 | 双周 | 全库 1 轮 | 补样本 |
 | **0** | 任意 | 专题/案例大改后 3 天内 | B/C 类子集 | 事件触发加跑 |
 
@@ -279,10 +293,10 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、kimi、wenxin、yuanbao；**web-search-chat** 联网调用 |
-| GEO-OBS-D02 | 探测编排 | `geo-prompt-probe.service.js` | P2 | [x] | `GEO_PROBE_ENGINES` + 各引擎 `*_BATCH_LIMIT`；缺 Key skip |
-| GEO-OBS-D03 | 对比报表 | 运营台 probe-report | P2 | [~] | `byEngine` API 已有；UI 引擎对比待加强 |
-| GEO-OBS-D04 | 邮件/企微周报 | 可选 cron 通知 | P2 | [ ] | 模板见 **§11**；含 W 人工段 |
+| GEO-OBS-D01 | 引擎适配器 | `backend/src/services/geo-probe-engines/*` | P2 | [x] | qwen、doubao、**deepseek（方舟）**、kimi、wenxin；`web-search-chat` |
+| GEO-OBS-D02 | 探测编排 | `geo-prompt-probe.service.js` | P2 | [x] | `GEO_PROBE_ENGINES` + 各引擎 `*_BATCH_LIMIT`；缺 Key skip；**ECS 三引擎联网 ✅** |
+| GEO-OBS-D03 | 对比报表 | 运营台 probe-report | P2 | [x] | `?engine=` 筛选 metrics/recentResults；对比表 Tier/vs千问；渠道说明 |
+| GEO-OBS-D04 | 邮件/企微周报 | 可选 cron 通知 | P2 | [搁] | 2026-06-22 暂缓；视业务发展再立项；替代=probe-report + §11 手工周报 |
 
 ### 8.2 阶段 D 验收
 
@@ -351,7 +365,7 @@
 
 ## 11. 运营周报模板（每周 Checklist）
 
-> **频率**：每周一（覆盖上周一至周日探测与埋点）。**产出**：运营台 `probe-report` 导出 + 可选企微/邮件（`GEO-OBS-D04`）。  
+> **频率**：每周一（覆盖上周一至周日探测与埋点）。**产出**：运营台 `probe-report` + §11 手工 Checklist（**企微/邮件推送 `GEO-OBS-D04` 已 `[搁]`**，视业务发展再立项）。  
 > **读者**：运营 + 内容负责人；**不**对外发给商家作「引用承诺」。
 
 ### 11.1 北极星一页纸
@@ -486,7 +500,7 @@
 | A 爬虫深化 | 8 | 7 | 1 | A07 robots 审计 P2 |
 | B Prompt 探测 | 10 | 10 | 0 | **ECS live + cron ✅**；见部署指南 §7.3.1 |
 | C Citation gap | 7 | 7 | 0 | P2 |
-| D 多引擎（开放 API） | 4 | 2 | 2 | D01/D02 ✅；D03 UI `[~]` |
+| D 多引擎（开放 API） | 4 | 2 | 2 | D01/D02 + **ECS 三引擎联网 ✅**；D03 UI `[~]` |
 | W 微信生态内 | 5 | 1 | 3 | W01 文档 ✅；W05 `[延]` |
 | **合计** | **34** | **27** | **5** | |
 
@@ -522,3 +536,5 @@ B-TRACK-04（爬虫）───┘
 | 2026-06-19 | V1.8 | OBS-D01/D02：五引擎适配器 + `GEO_PROBE_ENGINES` 编排；元宝归开放 API；OBS-W 仅微信内搜一搜 |
 | 2026-06-19 | V1.9 | 探测切 **仅联网模式**（`web-search-chat`）；移除 DeepSeek；豆包/TokenHub 用 Responses API `web_search` |
 | 2026-06-21 | V1.9.3 | TokenHub hy3 enable_enhancement 实测无 search_info；**yuanbao 移出探测** |
+| 2026-06-22 | V1.9.4 | 千问改 DashScope generation；豆包/DeepSeek 方舟 Responses 联网；**ECS 三引擎 smoke ✅**；§6.4 验收表 |
+| 2026-06-22 | V1.9.5 | **OBS-D03 ✅** probe-report 引擎对比 UI；**OBS-D04 `[搁]`** 企微周报视业务发展再立项 |
