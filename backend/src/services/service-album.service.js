@@ -515,7 +515,7 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       images: {
         take: 1,
         orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
-        select: { rawUrl: true, url: true, imageUrl: true },
+        select: { rawUrl: true },
       },
     },
     orderBy: { updatedAt: 'desc' },
