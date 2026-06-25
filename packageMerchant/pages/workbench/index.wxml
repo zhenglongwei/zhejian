@@ -63,9 +63,9 @@
           switchingStore="{{switchingStore}}"
           storeOptions="{{storeOptions}}"
           storePickerIndex="{{storePickerIndex}}"
-          unreadBadgeText="{{unreadBadgeText}}"
+          showMessageEntry="{{false}}"
           bind:storechange="onStoreHeaderChange"
-          bind:messagetap="onMessageList"
+          bind:overviewtap="onOverviewTap"
         />
       </view>
 
@@ -159,38 +159,31 @@
         <text class="text-caption text-secondary">{{geoOpportunity.hint}}</text>
       </view>
 
-      <view class="merchant-hub__dock">
-        <view
-          wx:for="{{hubDock}}"
-          wx:key="key"
-          class="merchant-hub__dock-item"
-          data-key="{{item.key}}"
-          bindtap="onDockTap"
-        >
-          <view class="merchant-hub__dock-well merchant-hub__dock-well--{{item.iconBg}}">
-            <image class="merchant-hub__dock-icon" src="{{item.icon}}" mode="aspectFit" />
-            <text wx:if="{{item.badge}}" class="merchant-hub__dock-badge">{{item.badge}}</text>
-          </view>
-          <text class="merchant-hub__dock-label text-caption">{{item.label}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{canManageStaff}}" class="merchant-hub__section merchant-hub__section--panel">
-        <text class="merchant-hub__section-title text-h3 merchant-hub__manage-title">{{manageSectionTitle}}</text>
-        <view class="merchant-hub__manage-grid">
+      <view class="merchant-hub__section merchant-hub__section--panel merchant-hub__shortcuts">
+        <view class="merchant-hub__dock merchant-hub__dock--in-panel">
           <view
-            wx:for="{{manageGrid}}"
+            wx:for="{{hubDock}}"
             wx:key="key"
-            class="merchant-hub__manage-item"
+            class="merchant-hub__dock-item"
             data-key="{{item.key}}"
-            bindtap="onManageTap"
+            bindtap="onDockTap"
           >
-            <view class="merchant-hub__manage-well merchant-hub__manage-well--{{item.iconBg}}">
-              <image class="merchant-hub__manage-icon" src="{{item.icon}}" mode="aspectFit" />
+            <view class="merchant-hub__dock-well merchant-hub__dock-well--{{item.iconBg}}">
+              <image class="merchant-hub__dock-icon" src="{{item.icon}}" mode="aspectFit" />
+              <text wx:if="{{item.badge}}" class="merchant-hub__dock-badge">{{item.badge}}</text>
             </view>
-            <text class="merchant-hub__manage-label text-caption">{{item.label}}</text>
-            <text class="merchant-hub__manage-hint text-caption text-tertiary">{{item.hint}}</text>
+            <text class="merchant-hub__dock-label text-caption">{{item.label}}</text>
           </view>
+        </view>
+        <view wx:if="{{hubMoreLinks.length}}" class="merchant-hub__more">
+          <block wx:for="{{hubMoreLinks}}" wx:key="key">
+            <text wx:if="{{index > 0}}" class="merchant-hub__more-sep text-caption text-tertiary">·</text>
+            <text
+              class="merchant-hub__more-link text-caption text-link"
+              data-key="{{item.key}}"
+              bindtap="onMoreLinkTap"
+            >{{item.label}}</text>
+          </block>
         </view>
       </view>
     </view>

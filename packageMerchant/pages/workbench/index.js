@@ -17,7 +17,6 @@ const {
   fetchMerchantCaseArticleExport,
 } = require('../../../services/merchant-public-case')
 const { copyCaseH5Link, openH5ContentSite } = require('../../../constants/h5-links')
-const { fetchMerchantUnreadNotificationCount } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner } = require('../../../utils/auth')
@@ -29,20 +28,13 @@ const {
   MERCHANT_ALBUM_SECTION_TITLE,
   MERCHANT_ALBUM_EMPTY_HINT,
   MERCHANT_CASE_SECTION_TITLE,
-  MERCHANT_MANAGE_SECTION_TITLE,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
-  buildMerchantManageGrid,
+  buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
 } = require('../../../constants/merchant-hub')
-
-function formatBadge(n) {
-  const count = Number(n) || 0
-  if (count <= 0) return ''
-  return count > 99 ? '99+' : String(count)
-}
 
 Page({
   data: {
@@ -62,19 +54,17 @@ Page({
     albumSectionBadge: '',
     todoSummary: null,
     hubDock: buildMerchantHubDock(),
+    hubMoreLinks: [],
     casePublishRecent: [],
     canManageStaff: false,
-    manageGrid: buildMerchantManageGrid(),
     storeOptions: [],
     storePickerIndex: 0,
     canSwitchStore: false,
     switchingStore: false,
-    unreadBadgeText: '',
     geoOpportunity: null,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
-    manageSectionTitle: MERCHANT_MANAGE_SECTION_TITLE,
   },
 
   onShow() {
@@ -128,7 +118,6 @@ Page({
     let storeOptions = []
     let storePickerIndex = 0
     let canSwitchStore = false
-    let unreadMessages = 0
     let geoOpportunity = null
     let albumHeroCards = []
 
@@ -147,13 +136,12 @@ Page({
     }
 
     try {
-      const [stats, leadStats, dashStats, publishPanel, unreadCount, geoOpp, albumList] =
+      const [stats, leadStats, dashStats, publishPanel, geoOpp, albumList] =
         await Promise.all([
           fetchMerchantAlbumStats(),
           fetchMerchantLeadStats(profile.storeId),
           fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
           fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
-          fetchMerchantUnreadNotificationCount().catch(() => 0),
           fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
           fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
         ])
@@ -179,7 +167,6 @@ Page({
         })
       }
 
-      unreadMessages = unreadCount || 0
       geoOpportunity = geoOpp || null
 
       const heroes = pickMerchantHubAlbums(albumList || []).map(enrichMerchantAlbumListItem)
@@ -200,13 +187,12 @@ Page({
       albumHeroCards,
       albumSectionBadge: buildAlbumSectionBadge(todos),
       hubDock: buildMerchantHubDock(todos),
+      hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff),
       casePublishRecent,
       canManageStaff,
-      manageGrid: canManageStaff ? buildMerchantManageGrid() : [],
       storeOptions,
       storePickerIndex,
       canSwitchStore,
-      unreadBadgeText: formatBadge(unreadMessages),
       geoOpportunity,
     })
   },
@@ -289,22 +275,24 @@ Page({
       createAlbum: () => this.onCreateAlbum(),
       leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
       services: () => this.onServiceList(),
-      dashboard: () => this.onDashboard(),
     }
     const fn = handlers[key]
     if (fn) fn()
   },
 
-  onManageTap(e) {
+  onMoreLinkTap(e) {
     const { key } = e.currentTarget.dataset
     const handlers = {
-      previewStore: () => this.onPreviewStore(),
-      shareStore: () => this.onShareStore(),
+      storeHome: () => this.onStoreHome(),
       editStore: () => this.onEditStore(),
       staff: () => this.onStaffManage(),
     }
     const fn = handlers[key]
     if (fn) fn()
+  },
+
+  onOverviewTap() {
+    this.onDashboard()
   },
 
   onCreateAlbum() {
@@ -335,11 +323,7 @@ Page({
     this._navigateTo('/packageMerchant/pages/dashboard/index')
   },
 
-  onMessageList() {
-    this._navigateTo('/packageMerchant/pages/message/index')
-  },
-
-  onPreviewStore() {
+  onStoreHome() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
       wx.showToast({ title: '未找到门店信息', icon: 'none' })
@@ -350,15 +334,6 @@ Page({
 
   onEditStore() {
     this._navigateTo('/packageMerchant/pages/store/edit/index')
-  },
-
-  onShareStore() {
-    const { profile } = this.data
-    if (!profile || !profile.storeId) {
-      wx.showToast({ title: '未找到门店信息', icon: 'none' })
-      return
-    }
-    this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1&share=1`)
   },
 
   async _copyCaseWechatExport(caseId, field) {

@@ -13,20 +13,17 @@ const MERCHANT_ALBUM_EMPTY_HINT =
 
 const MERCHANT_CASE_SECTION_TITLE = '案例动态'
 
-const MERCHANT_MANAGE_SECTION_TITLE = '门店管理'
-
 const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'createAlbum', label: '新建相册' },
   { key: 'leads', label: '咨询线索', badgeKey: 'pendingLeads' },
   { key: 'services', label: '服务方案' },
-  { key: 'dashboard', label: '数据概览' },
 ]
 
-const MERCHANT_MANAGE_ITEMS = [
-  { key: 'previewStore', label: '预览门店', hint: '用户端主页' },
-  { key: 'shareStore', label: '分享门店', hint: '链接与卡片' },
-  { key: 'editStore', label: '编辑资料', hint: '基本与资质' },
-  { key: 'staff', label: '员工管理', hint: '邀请与权限' },
+/** 主账号 · 页内文字链（不占 Dock 格） */
+const MERCHANT_HUB_MORE_ITEMS = [
+  { key: 'storeHome', label: '门店主页' },
+  { key: 'editStore', label: '编辑资料' },
+  { key: 'staff', label: '员工管理' },
 ]
 
 function formatSectionBadge(n) {
@@ -79,8 +76,9 @@ function buildMerchantHubDock(todos = {}) {
   return MERCHANT_HUB_DOCK_ITEMS.map((item) => attachDockBadge(item, todos))
 }
 
-function buildMerchantManageGrid() {
-  return MERCHANT_MANAGE_ITEMS.map((item) => attachNavIcon({ ...item, desc: '' }))
+function buildMerchantHubMoreLinks(canManageStaff = false) {
+  if (!canManageStaff) return []
+  return MERCHANT_HUB_MORE_ITEMS.slice()
 }
 
 function buildMerchantOverviewLine(overview = {}) {
@@ -101,12 +99,11 @@ module.exports = {
   MERCHANT_ALBUM_SECTION_TITLE,
   MERCHANT_ALBUM_EMPTY_HINT,
   MERCHANT_CASE_SECTION_TITLE,
-  MERCHANT_MANAGE_SECTION_TITLE,
-  MERCHANT_MANAGE_ITEMS,
+  MERCHANT_HUB_MORE_ITEMS,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
-  buildMerchantManageGrid,
+  buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
 }

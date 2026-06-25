@@ -18,7 +18,9 @@ async function fetchMerchantLeads(params = {}) {
     return mockFetchMerchantLeads(params)
   }
   const data = await get('/merchant/leads', params)
-  return data.list || data
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.list)) return data.list
+  return []
 }
 
 async function getMerchantLeadById(leadId, storeId) {

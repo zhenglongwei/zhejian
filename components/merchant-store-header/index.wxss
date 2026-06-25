@@ -39,12 +39,22 @@
   color: var(--color-text-tertiary);
 }
 
-.merchant-store-header__addr,
+.merchant-store-header__addr {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .merchant-store-header__overview {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.merchant-store-header__overview:active {
+  opacity: 0.72;
 }
 
 .merchant-store-header__msg {

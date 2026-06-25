@@ -4,18 +4,20 @@
     activeKey="{{activeTab}}"
     status="{{status}}"
     errorMessage="{{errorMessage}}"
-    emptyTitle="暂无咨询线索"
-    emptyDescription="用户提交咨询或预约后，线索会出现在这里"
+    emptyTitle="{{emptyTitle}}"
+    emptyDescription="{{emptyDescription}}"
     bind:tabchange="onTabChange"
     bind:retry="onRetry"
   >
-    <ui-lead-card
-      wx:for="{{list}}"
-      wx:key="id"
-      item="{{item}}"
-      audience="merchant"
-      bind:tap="onCardTap"
-      bind:action="onCardAction"
-    />
+    <block wx:if="{{status === 'normal'}}">
+      <ui-lead-card
+        wx:for="{{list}}"
+        wx:key="id"
+        item="{{item}}"
+        audience="merchant"
+        bind:tap="onCardTap"
+        bind:action="onCardAction"
+      />
+    </block>
   </ui-list-page-shell>
 </view>

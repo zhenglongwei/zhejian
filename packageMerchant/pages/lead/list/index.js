@@ -1,10 +1,19 @@
 const { fetchMerchantLeads } = require('../../../../services/merchant-lead')
-const { MERCHANT_LEAD_LIST_TABS } = require('../../../../constants/merchant-lead-tabs')
+const {
+  MERCHANT_LEAD_LIST_TABS,
+  resolveMerchantLeadListEmptyCopy,
+} = require('../../../../constants/merchant-lead-tabs')
 const { enrichMerchantLeadListItem } = require('../../../../utils/lead-display')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+
+function normalizeLeadList(raw) {
+  if (Array.isArray(raw)) return raw
+  if (raw && Array.isArray(raw.list)) return raw.list
+  return []
+}
 
 Page({
   data: {
@@ -14,12 +23,18 @@ Page({
     activeTab: 'pending',
     errorMessage: '',
     storeId: '',
+    emptyTitle: '暂无线索',
+    emptyDescription: '',
   },
 
   onLoad(options) {
-    if (options.tab) {
-      this.setData({ activeTab: options.tab })
-    }
+    const activeTab = options.tab || 'pending'
+    const emptyCopy = resolveMerchantLeadListEmptyCopy(activeTab)
+    this.setData({
+      activeTab,
+      emptyTitle: emptyCopy.title,
+      emptyDescription: emptyCopy.description,
+    })
   },
 
   onShow() {
@@ -53,13 +68,13 @@ Page({
 
   async loadList() {
     if (!this.storeId) return
-    this.setData({ status: 'loading', errorMessage: '' })
+    this.setData({ status: 'loading', errorMessage: '', list: [] })
     try {
       const raw = await fetchMerchantLeads({
         storeId: this.storeId,
         tab: this.data.activeTab,
       })
-      const list = (raw || []).map(enrichMerchantLeadListItem)
+      const list = normalizeLeadList(raw).map(enrichMerchantLeadListItem)
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
@@ -76,7 +91,17 @@ Page({
   onTabChange(e) {
     const { key } = e.detail
     if (key === this.data.activeTab) return
-    this.setData({ activeTab: key }, () => this.loadList())
+    const emptyCopy = resolveMerchantLeadListEmptyCopy(key)
+    this.setData(
+      {
+        activeTab: key,
+        list: [],
+        status: 'loading',
+        emptyTitle: emptyCopy.title,
+        emptyDescription: emptyCopy.description,
+      },
+      () => this.loadList()
+    )
   },
 
   onRetry() {

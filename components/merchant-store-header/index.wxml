@@ -17,7 +17,7 @@
     </picker>
     <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
     <text wx:if="{{address}}" class="merchant-store-header__addr text-caption text-secondary">{{address}}</text>
-    <text wx:if="{{overviewLine}}" class="merchant-store-header__overview text-caption text-tertiary">{{overviewLine}}</text>
+    <text wx:if="{{overviewLine}}" class="merchant-store-header__overview text-caption text-tertiary" bindtap="onOverviewTap">{{overviewLine}}</text>
   </view>
 
   <view

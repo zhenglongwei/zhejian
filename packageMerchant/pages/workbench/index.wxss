@@ -58,78 +58,35 @@
   color: var(--color-text-primary);
 }
 
-.merchant-hub__manage-title {
-  display: block;
-  margin-bottom: var(--space-sm);
+.merchant-hub__shortcuts {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
 }
 
-.merchant-hub__manage-grid {
+.merchant-hub__dock--in-panel {
+  padding: var(--space-xs) 0 0;
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.merchant-hub__more {
   display: flex;
   flex-wrap: wrap;
-}
-
-.merchant-hub__manage-item {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
-  width: 50%;
-  padding: var(--space-md) var(--space-sm);
-  box-sizing: border-box;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
 }
 
-.merchant-hub__manage-item:nth-child(odd) {
-  border-right: 1rpx solid var(--color-border);
-}
-
-.merchant-hub__manage-item:nth-child(-n + 2) {
-  border-bottom: 1rpx solid var(--color-border);
-}
-
-.merchant-hub__manage-item:active {
+.merchant-hub__more-link:active {
   opacity: 0.72;
 }
 
-.merchant-hub__manage-well {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-nav-icon-well);
-}
-
-.merchant-hub__manage-well--primary-light {
-  background-color: var(--color-primary-light);
-}
-
-.merchant-hub__manage-well--info-light {
-  background-color: var(--color-info-light);
-}
-
-.merchant-hub__manage-well--warning-light {
-  background-color: var(--color-warning-light);
-}
-
-.merchant-hub__manage-well--success-light {
-  background-color: var(--color-success-light);
-}
-
-.merchant-hub__manage-icon {
-  width: 40rpx;
-  height: 40rpx;
-}
-
-.merchant-hub__manage-label {
-  color: var(--color-text-primary);
-  text-align: center;
-}
-
-.merchant-hub__manage-hint {
-  text-align: center;
-  line-height: 1.2;
+.merchant-hub__more-sep {
+  user-select: none;
 }
 
 .merchant-hub__section-links {
@@ -253,10 +210,6 @@
   align-items: stretch;
   justify-content: space-around;
   gap: var(--space-xs);
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 

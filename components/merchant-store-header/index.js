@@ -46,5 +46,9 @@ Component({
     onMessageTap() {
       this.triggerEvent('messagetap')
     },
+
+    onOverviewTap() {
+      this.triggerEvent('overviewtap')
+    },
   },
 })
