@@ -5,7 +5,7 @@
 const TOOL_GUEST_LOGIN_TITLE = '点击登录'
 
 const TOOL_GUEST_LOGIN_DESC =
-  '登录后可查看门店为你创建的服务相册与授权记录'
+  '登录后可同步门店为你创建的服务相册与授权记录'
 
 const TOOL_GUEST_ALBUM_HINT = '登录后查看记录'
 

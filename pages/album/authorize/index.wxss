@@ -10,3 +10,7 @@
   padding-top: var(--space-lg);
   padding-bottom: var(--space-xl);
 }
+
+.album-authorize__auth-submit {
+  padding-top: var(--space-md);
+}

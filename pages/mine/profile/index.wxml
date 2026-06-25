@@ -1,0 +1,99 @@
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
+  <block wx:if="{{status === 'unauthenticated'}}">
+    <ui-empty
+      title="请先登录"
+      description="登录后可编辑头像、昵称与车辆信息"
+      actionText="微信一键登录"
+      bind:action="onLoginTap"
+    />
+  </block>
+
+  <block wx:elif="{{status === 'loading'}}">
+    <view class="profile-form__pad">
+      <ui-skeleton rows="{{4}}" title="{{true}}" avatar="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <ui-empty
+      title="加载失败"
+      description="{{errorMessage}}"
+      actionText="重试"
+      bind:action="onRetry"
+    />
+  </block>
+
+  <block wx:else>
+    <view class="profile-form">
+      <ui-card shadow="{{true}}" padding="{{false}}">
+        <view class="profile-form__row profile-form__row--avatar">
+          <text class="profile-form__label text-body">头像</text>
+          <view class="profile-form__value-wrap">
+            <view class="profile-form__trail">
+              <button
+                class="profile-form__avatar-btn"
+                open-type="chooseAvatar"
+                bind:chooseavatar="onAvatarChoose"
+                aria-label="选择头像"
+              >
+                <image
+                  wx:if="{{displayAvatarUrl}}"
+                  class="profile-form__avatar"
+                  src="{{displayAvatarUrl}}"
+                  mode="aspectFill"
+                />
+                <view wx:else class="profile-form__avatar profile-form__avatar--placeholder image-placeholder" />
+              </button>
+              <text class="profile-form__arrow text-caption">›</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="profile-form__row profile-form__row--input">
+          <text class="profile-form__label text-body">昵称</text>
+          <input
+            class="profile-form__input text-body"
+            type="nickname"
+            placeholder="选填"
+            placeholder-class="profile-form__placeholder"
+            value="{{nicknameInput}}"
+            maxlength="32"
+            bindinput="onNicknameInput"
+            bindblur="onNicknameBlur"
+          />
+        </view>
+
+        <view class="profile-form__row profile-form__row--last" bindtap="onBindPhoneTap">
+          <text class="profile-form__label text-body">手机号</text>
+          <view class="profile-form__value-wrap">
+            <text class="profile-form__value text-body {{user.isPhoneBound ? '' : 'profile-form__value--muted'}}">
+              {{phoneDisplayText}}
+            </text>
+            <text class="profile-form__arrow text-caption">›</text>
+          </view>
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{false}}">
+        <view class="profile-form__row profile-form__row--last" bindtap="onVehicleTap">
+          <text class="profile-form__label text-body">我的车辆</text>
+          <view class="profile-form__value-wrap">
+            <text class="profile-form__value text-body {{vehicleSummary ? '' : 'profile-form__value--muted'}}">
+              {{vehicleDisplayText}}
+            </text>
+            <text class="profile-form__arrow text-caption">›</text>
+          </view>
+        </view>
+      </ui-card>
+    </view>
+  </block>
+</ui-tool-page-shell>
+
+<ui-login-sheet
+  visible="{{loginSheetVisible}}"
+  mode="{{loginSheetMode}}"
+  bindContext="{{loginSheetBindContext}}"
+  bind:close="closeLoginSheet"
+  bind:cancel="closeLoginSheet"
+  bind:success="onLoginSheetSuccess"
+/>

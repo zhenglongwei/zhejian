@@ -1,124 +1,29 @@
-const { fetchMineSummary, updateUserProfile } = require('../../services/user')
-const { uploadImage } = require('../../utils/media-upload')
-const { fetchUserServiceAlbums } = require('../../services/service-album')
+const { fetchMineSummary } = require('../../services/user')
+const { fetchDefaultVehicle } = require('../../services/vehicle')
+const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
-const {
-  buildMineMenuSections,
-  MINE_TOOL_MENUS,
-  MINE_PUBLIC_MENUS,
-  MINE_MERCHANT_ITEM,
-  MINE_CORE_MENUS,
-} = require('../../constants/mine-menu')
-const { attachNavIcon } = require('../../constants/nav-icons')
+const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
-const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
+const {
+  MINE_ALBUM_SECTION_TITLE,
+  MINE_ALBUM_EMPTY_HINT,
+  MINE_GUEST_TOOL_HINT,
+  MINE_SHARE_INCENTIVE_TITLE,
+  MINE_H5_OUTLET_TEXT,
+  summarizeAuthorizationTodos,
+  buildMineTodoSummary,
+} = require('../../constants/mine-hub')
+const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
+const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
+const { openH5ContentSite } = require('../../constants/h5-links')
 
-const SECONDARY_MENU_KEYS = ['authorize', 'message', 'vehicle', 'settings']
-
-const SECONDARY_MENU_TONES = {
-  authorize: 'authorize',
-  message: 'message',
-  vehicle: 'vehicle',
-  settings: 'settings',
-}
-
-function buildStatusPills(badges = {}) {
-  const pills = []
-  if (badges.albumUnread) {
-    pills.push({ key: 'albumUnread', label: '相册有更新', emphasis: true, tone: 'primary' })
-  }
-  const pendingAuth = Number(badges.albumPendingAuth) || 0
-  if (pendingAuth > 0) {
-    pills.push({
-      key: 'pendingAuth',
-      label: `${pendingAuth} 本待授权`,
-      emphasis: true,
-      tone: 'success',
-    })
-  }
-  const unread = Number(badges.unreadNotification) || 0
-  if (unread > 0) {
-    pills.push({
-      key: 'unread',
-      label: `${unread} 条消息`,
-      emphasis: false,
-      tone: 'info',
-    })
-  }
-  if (!pills.length) {
-    pills.push({ key: 'ok', label: '暂无待处理', emphasis: false, tone: 'calm' })
-  }
-  return pills
-}
-
-function attachMenuBadge(item, badges) {
-  const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''
-  const dot = Boolean(item.dotKey && badges[item.dotKey])
-  return attachNavIcon({
-    ...item,
-    desc: item.desc || '',
-    badge,
-    dot,
-    tone: SECONDARY_MENU_TONES[item.key] || 'settings',
-  })
-}
-
-function buildSecondaryMenus(badges = {}) {
-  const pool = [...MINE_CORE_MENUS.filter((item) => item.key !== 'album'), ...MINE_TOOL_MENUS]
-  return pool
-    .filter((item) => SECONDARY_MENU_KEYS.includes(item.key))
-    .map((item) => attachMenuBadge(item, badges))
-}
-
-function buildFooterMenus() {
-  return [...MINE_PUBLIC_MENUS, MINE_MERCHANT_ITEM].map((item) => attachNavIcon(item))
-}
-
-function buildAlbumRail(albums = []) {
-  if (!albums.length) {
-    return [
-      {
-        id: 'empty',
-        action: 'list',
-        variant: 'mine__album-tile--hero',
-        showFrame: true,
-        coverUrl: '',
-        title: '暂无服务相册',
-        meta: '门店创建后会出现在这里',
-      },
-      {
-        id: 'more',
-        action: 'list',
-        variant: 'mine__album-tile--more',
-        showFrame: false,
-        title: '查看全部',
-        meta: '',
-      },
-    ]
-  }
-  const tiles = albums.slice(0, 3).map((album, index) => ({
-    id: album.albumId,
-    albumId: album.albumId,
-    action: 'detail',
-    variant: index === 0 ? 'mine__album-tile--hero' : '',
-    showFrame: true,
-    coverUrl: album.coverUrl || '',
-    title: album.serviceName || '服务相册',
-    meta: album.updatedAtText ? `更新于 ${album.updatedAtText}` : '',
-    dot: Boolean(album.hasUnreadUpdate),
-  }))
-  tiles.push({
-    id: 'more',
-    action: 'list',
-    variant: 'mine__album-tile--more',
-    showFrame: false,
-    title: '查看全部',
-    meta: '',
-  })
-  return tiles
+function enrichRecentAlbums(albums = []) {
+  return (albums || [])
+    .slice(0, 2)
+    .map((item) => enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' }))
 }
 
 Page({
@@ -127,58 +32,32 @@ Page({
     errorMessage: '',
     isLoggedIn: false,
     user: null,
-    menuSections: buildMineMenuSections({}),
-    statusPills: [],
-    albumRail: [],
-    secondaryMenus: buildSecondaryMenus({}),
-    footerMenus: buildFooterMenus(),
-    earningsPreview: buildMineEarningsPreview({ loggedIn: false }),
+    vehicleSummary: '',
+    albumHeroCards: [],
+    pendingAuthBadge: '',
+    hubDock: buildMineHubDock(),
+    todoSummary: null,
+    shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
+    showShareIncentive: false,
+    showH5Link: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     loginSheetBindContext: 'album',
-    platformNotice: HOME_PLATFORM_IDENTITY,
-    avatarPreview: '',
-    profileUpdating: false,
+    menuSections: buildMineMenuSections({}),
+    albumSectionTitle: MINE_ALBUM_SECTION_TITLE,
+    albumEmptyHint: MINE_ALBUM_EMPTY_HINT,
+    guestToolHint: MINE_GUEST_TOOL_HINT,
+    guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
+    shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
+    h5OutletText: MINE_H5_OUTLET_TEXT,
   },
 
   onLoad() {
     syncAppSession()
-    this._profileUpdating = false
   },
 
   onShow() {
-    if (this.isAvatarFlowActive()) return
-    const silent = this.data.isLoggedIn && this.data.status === 'normal'
-    this.loadPage({ silent })
-  },
-
-  isAvatarFlowActive() {
-    return Boolean(
-      this._profileUpdating ||
-        this.data.profileUpdating ||
-        this.data.avatarPreview,
-    )
-  },
-
-  markAvatarPicking(tempPath) {
-    this._profileUpdating = true
-    this.setData({
-      profileUpdating: true,
-      avatarPreview: tempPath || '',
-    })
-  },
-
-  clearAvatarPicking() {
-    this._profileUpdating = false
-    this.setData({ profileUpdating: false })
-  },
-
-  resetAvatarPreview() {
-    this.setData({ avatarPreview: '' })
-    const header = this.selectComponent('#mineUserHeader')
-    if (header && typeof header.clearLocalAvatarPreview === 'function') {
-      header.clearLocalAvatarPreview()
-    }
+    this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
   },
 
   onPullDownRefresh() {
@@ -200,63 +79,78 @@ Page({
     }
   },
 
-  syncHubMenus(badges, albums = [], loggedIn = false) {
+  syncHubView(badges, albums = [], loggedIn = false, summary = null, vehicleSummary = '', authList = []) {
+    const authSummary = summarizeAuthorizationTodos(authList, {
+      albumPendingAuth: summary && summary.albumPendingAuth,
+    })
+    const todoSummary = buildMineTodoSummary(badges, authSummary)
     this.setData({
       menuSections: buildMineMenuSections(badges),
-      statusPills: buildStatusPills(badges),
-      albumRail: buildAlbumRail(albums),
-      secondaryMenus: buildSecondaryMenus(badges),
-      footerMenus: buildFooterMenus(),
-      earningsPreview: buildMineEarningsPreview({ loggedIn }),
+      albumHeroCards: albums,
+      pendingAuthBadge: badges.albumPendingAuth || '',
+      todoSummary,
+      vehicleSummary,
+      shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
+      showShareIncentive: loggedIn,
+      showH5Link:
+        !loggedIn &&
+        shouldShowH5PublicCaseLink({
+          hasAlbumBindings: Boolean(summary && summary.hasAlbumBindings),
+        }),
     })
   },
 
-  async loadRecentAlbums() {
+  async loadVehicleSummary() {
+    try {
+      const auth = checkAuth({ needPhone: false })
+      if (!auth.ok) return ''
+      const vehicle = await fetchDefaultVehicle()
+      if (!vehicle || !vehicle.displayTitle) return ''
+      return vehicle.plateDisplay
+        ? `${vehicle.displayTitle} · ${vehicle.plateDisplay}`
+        : vehicle.displayTitle
+    } catch (e) {
+      return ''
+    }
+  },
+
+  async loadAuthList() {
+    try {
+      const auth = checkAuth({ needPhone: true })
+      if (!auth.ok) return []
+      return (await fetchUserAuthorizations()) || []
+    } catch (e) {
+      return []
+    }
+  },
+
+  async loadHubAlbums() {
     try {
       const [privateList, publicList] = await Promise.all([
         fetchUserServiceAlbums({ tab: 'private' }),
         fetchUserServiceAlbums({ tab: 'public' }),
       ])
       const merged = [...(privateList || []), ...(publicList || [])]
-      const sorted = merged
         .slice()
         .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
-      return sorted
-        .slice(0, 3)
-        .map((item) => enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' }))
+      return {
+        recent: merged.slice(0, 2),
+        albumUnread: hasUnreadAlbums(merged),
+      }
     } catch (e) {
-      return []
-    }
-  },
-
-  syncMenuSections(badges) {
-    this.syncHubMenus(badges, this.data._recentAlbums || [], this.data.isLoggedIn)
-  },
-
-  async loadAlbumUnreadHint() {
-    try {
-      const [privateList, publicList] = await Promise.all([
-        fetchUserServiceAlbums({ tab: 'private' }),
-        fetchUserServiceAlbums({ tab: 'public' }),
-      ])
-      return hasUnreadAlbums([...(privateList || []), ...(publicList || [])])
-    } catch (e) {
-      return false
+      return { recent: [], albumUnread: false }
     }
   },
 
   async loadPage(options = {}) {
-    if (this.isAvatarFlowActive()) return
-
     const loggedIn = isLoggedIn()
     if (!loggedIn) {
-      this.syncHubMenus({})
+      this.syncHubView({}, [], false, null, '')
       this.setData({
         status: 'normal',
         isLoggedIn: false,
         user: null,
         errorMessage: '',
-        _recentAlbums: [],
       })
       return
     }
@@ -268,36 +162,44 @@ Page({
     try {
       const summary = await fetchMineSummary()
       if (!summary) {
-        this.syncHubMenus({})
+        this.syncHubView({}, [], false, null, '')
         this.setData({
           status: 'normal',
           isLoggedIn: false,
           user: null,
           errorMessage: '',
-          _recentAlbums: [],
         })
         return
       }
 
       const auth = checkAuth({ needPhone: false })
+      let recentRaw = []
       let albumUnread = false
-      let recentAlbums = []
+      let authList = []
       if (auth.ok) {
-        const [unread, albums] = await Promise.all([
-          this.loadAlbumUnreadHint(),
-          this.loadRecentAlbums(),
+        const [hub, authorizations] = await Promise.all([
+          this.loadHubAlbums(),
+          this.loadAuthList(),
         ])
-        albumUnread = unread
-        recentAlbums = albums
+        recentRaw = hub.recent
+        albumUnread = hub.albumUnread
+        authList = authorizations
+      } else if (Array.isArray(summary.recentAlbums)) {
+        recentRaw = summary.recentAlbums
       }
 
+      const recentAlbums = enrichRecentAlbums(recentRaw)
+      if (!albumUnread) {
+        albumUnread = recentAlbums.some((item) => item.hasUnreadUpdate)
+      }
+
+      const vehicleSummary = auth.ok ? await this.loadVehicleSummary() : ''
       const badges = this.buildBadges(summary, albumUnread)
-      this.syncHubMenus(badges, recentAlbums, true)
+      this.syncHubView(badges, recentAlbums, true, summary, vehicleSummary, authList)
       this.setData({
         status: 'normal',
         isLoggedIn: true,
         user: summary.user,
-        _recentAlbums: recentAlbums,
       })
     } catch (e) {
       this.setData({
@@ -328,49 +230,13 @@ Page({
     this.loadPage()
   },
 
-  async onAvatarChoose(e) {
-    const tempPath = (e.detail && e.detail.tempPath) || ''
-    if (!tempPath) return
-
-    if (!this._profileUpdating) {
-      this.markAvatarPicking(tempPath)
-    }
-    wx.showLoading({ title: '上传中', mask: true })
-    try {
-      const avatarUrl = await uploadImage(tempPath)
-      const user = await updateUserProfile({ avatarUrl })
-      this.setData({ user, avatarPreview: '' })
-      wx.showToast({ title: '头像已更新', icon: 'success' })
-    } catch (err) {
-      this.resetAvatarPreview()
-      wx.showToast({ title: (err && err.message) || '头像更新失败', icon: 'none' })
-    } finally {
-      wx.hideLoading()
-      this.clearAvatarPicking()
-    }
-  },
-
-  async onNicknameChange(e) {
-    const nickname = String((e.detail && e.detail.nickname) || '').trim()
-    if (this.data.profileUpdating) return
-
-    this.setData({ profileUpdating: true })
-    try {
-      const user = await updateUserProfile({ nickname })
-      this.setData({ user })
-    } catch (err) {
-      wx.showToast({ title: (err && err.message) || '昵称保存失败', icon: 'none' })
-    } finally {
-      this.setData({ profileUpdating: false })
-    }
-  },
-
   onLoginTap() {
     this.openLoginSheet('login')
   },
 
-  onBindPhoneTap() {
-    this.openLoginSheet('bindPhone')
+  onProfileTap() {
+    if (!this.guardProtectedEntry(false)) return
+    wx.navigateTo({ url: '/pages/mine/profile/index' })
   },
 
   guardProtectedEntry(needPhone = false) {
@@ -390,49 +256,38 @@ Page({
     return null
   },
 
-  showPlaceholder(key) {
-    wx.showToast({
-      title: `${key === 'settings' ? '设置' : '功能'}将在后续版本开放`,
-      icon: 'none',
-    })
+  onShareIncentiveTap() {
+    if (!this.guardProtectedEntry(false)) return
+    wx.navigateTo({ url: '/pages/mine/earnings/index' })
   },
 
-  onEarningsTap() {
-    if (!this.guardProtectedEntry(false)) return
-    if (this._navigating) return
-    this._navigating = true
-    wx.navigateTo({
-      url: '/pages/mine/earnings/index',
-      complete: () => {
-        setTimeout(() => {
-          this._navigating = false
-        }, 400)
-      },
-    })
+  onH5OutletTap() {
+    openH5ContentSite()
+  },
+
+  onHelpFromSettings() {
+    wx.navigateTo({ url: '/pages/mine/help/index' })
   },
 
   onAlbumListTap() {
     this.openMenuEntry('album', true)
   },
 
-  onAlbumRailTap(e) {
-    const { id, action } = e.currentTarget.dataset
-    if (action === 'list' || id === 'more') {
-      this.onAlbumListTap()
-      return
+  onAuthorizeTap() {
+    this.openMenuEntry('authorize')
+  },
+
+  onAlbumCardTap(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id || !this.guardProtectedEntry(true)) return
+    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+  },
+
+  onTodoItemTap(e) {
+    const { action } = e.currentTarget.dataset
+    if (action === 'authorize') {
+      this.onAuthorizeTap()
     }
-    if (!id) return
-    if (!this.guardProtectedEntry(true)) return
-    if (this._navigating) return
-    this._navigating = true
-    wx.navigateTo({
-      url: `/pages/album/detail/index?albumId=${id}`,
-      complete: () => {
-        setTimeout(() => {
-          this._navigating = false
-        }, 400)
-      },
-    })
   },
 
   openMenuEntry(key, needPhoneFallback = false) {
@@ -441,46 +296,21 @@ Page({
     const { section, item } = found
     if (section === 'public') {
       if (key === 'merchant') {
-        if (this._navigating) return
-        this._navigating = true
-        wx.navigateTo({
-          url: '/packageMerchant/pages/workbench/index',
-          complete: () => {
-            setTimeout(() => {
-              this._navigating = false
-            }, 400)
-          },
-        })
+        wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
       }
       return
     }
     const needPhone = item.needPhone !== undefined ? item.needPhone : needPhoneFallback
     if (!this.guardProtectedEntry(needPhone)) return
     if (item.url) {
-      if (this._navigating) return
-      this._navigating = true
-      wx.navigateTo({
-        url: item.url,
-        complete: () => {
-          setTimeout(() => {
-            this._navigating = false
-          }, 400)
-        },
-      })
-      return
+      wx.navigateTo({ url: item.url })
     }
-    this.showPlaceholder(key)
   },
 
-  onSecondaryMenuTap(e) {
+  onDockTap(e) {
     const { key } = e.currentTarget.dataset
-    this.openMenuEntry(key)
-  },
-
-  onFooterMenuTap(e) {
-    const { key } = e.currentTarget.dataset
-    if (key === 'help') {
-      wx.navigateTo({ url: '/pages/mine/help/index' })
+    if (key === 'settings') {
+      wx.navigateTo({ url: '/pages/mine/settings/index' })
       return
     }
     if (key === 'support') {
@@ -490,10 +320,5 @@ Page({
     if (key === 'merchant') {
       this.openMenuEntry('merchant')
     }
-  },
-
-  onMenuCellTap(e) {
-    const { key } = e.currentTarget.dataset
-    this.openMenuEntry(key)
   },
 })

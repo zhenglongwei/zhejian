@@ -812,7 +812,13 @@ async function mockFetchUserAuthorizations() {
     .map((raw) => {
       const view = buildAlbumViewModel(raw)
       const authStatus = authMap[view.albumId] || 'none'
-      if (authStatus === 'none' && view.publicCaseStatus === 'private') return null
+      const needsAuthorization =
+        view.status === 'completed' &&
+        view.publicCaseStatus === 'private' &&
+        authStatus === 'none'
+      if (authStatus === 'none' && view.publicCaseStatus === 'private' && !needsAuthorization) {
+        return null
+      }
       return {
         id: view.albumId,
         albumId: view.albumId,
@@ -838,6 +844,7 @@ async function mockFetchUserAuthorizations() {
                 ? 'rejected'
                 : 'none',
         canWithdraw: ['pending_review', 'public_approved'].includes(view.publicCaseStatus),
+        needsAuthorization,
         updatedAt: view.updatedAt,
         updatedAtText: view.updatedAtText,
       }

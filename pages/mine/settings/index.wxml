@@ -1,5 +1,17 @@
-<ui-tool-page-shell>
+<ui-tool-page-shell
+  complianceText="{{platformNotice}}"
+  showCompliance="{{true}}"
+>
   <view class="settings-page">
+    <view wx:if="{{isLoggedIn}}" class="settings-page__subscribe">
+      <ui-message-subscribe-banner
+        title="微信服务通知"
+        description="{{subscribeBannerDesc}}"
+        buttonText="{{subscribeButtonText}}"
+        bind:subscribe="onSubscribeWechat"
+      />
+    </view>
+
     <ui-card shadow="{{true}}" padding="{{false}}">
       <ui-cell
         wx:if="{{isLoggedIn}}"
@@ -10,10 +22,11 @@
         bind:celltap="onCellTap"
       />
       <ui-cell
-        title="消息通知"
-        desc="相册与授权相关通知"
+        title="使用说明与帮助"
+        desc="车主与商家使用指引"
         border="{{true}}"
-        data-key="notify"
+        arrow="{{true}}"
+        data-key="help"
         bind:celltap="onCellTap"
       />
       <ui-cell

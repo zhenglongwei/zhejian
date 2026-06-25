@@ -22,6 +22,7 @@
     "pages/album/feedback/index",
     "pages/album/feedback/result/index",
     "pages/mine/settings/index",
+    "pages/mine/profile/index",
     "pages/mine/settings/document/index",
     "pages/mine/settings/deactivate/index",
     "pages/mine/favorite/index",

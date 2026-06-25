@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "分享收益",
+  "navigationBarTitleText": "公示激励",
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-tag": "/components/tag/index",

@@ -7,6 +7,8 @@
     "ui-empty": "/components/empty/index",
     "ui-authorization-card": "/components/authorization-card/index",
     "ui-login-sheet": "/components/login-sheet/index",
-    "ui-bottom-sheet": "/components/bottom-sheet/index"
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "ui-album-authorize-section": "/components/album-authorize-section/index",
+    "ui-button": "/components/button/index"
   }
 }

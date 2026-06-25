@@ -8,6 +8,7 @@ const {
   markNotificationsRead,
   saveSubscribeResults,
   listSubscribeTemplateIds,
+  getSubscribeStatus,
 } = require('../services/notification.service')
 
 const router = express.Router()
@@ -47,6 +48,16 @@ router.get('/notifications/subscribe-templates', requireAuth(['user']), async (r
   try {
     const scene = req.query?.scene || 'default'
     return ok(res, { templates: listSubscribeTemplateIds(scene) })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/notifications/subscribe-status', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const scene = req.query?.scene || 'default'
+    const data = await getSubscribeStatus(req.auth.userId, scene)
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

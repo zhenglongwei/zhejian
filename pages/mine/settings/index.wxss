@@ -3,6 +3,10 @@
   padding-bottom: var(--space-md);
 }
 
+.settings-page__subscribe {
+  margin-bottom: var(--space-md);
+}
+
 .settings-page__logout {
   margin-top: var(--space-lg);
 }

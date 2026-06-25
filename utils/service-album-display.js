@@ -265,7 +265,10 @@ function enrichMerchantAlbumListItem(item) {
   }
 }
 
-function buildAuthorizationTags(publicCaseStatus) {
+function buildAuthorizationTags(publicCaseStatus, options = {}) {
+  if (options.needsAuthorization) {
+    return [{ variant: 'warning', text: '待授权公示' }]
+  }
   const key = publicCaseStatus || 'private'
   if (key === 'public_approved') {
     return [{ variant: 'success', text: '公开相册' }]
@@ -273,7 +276,41 @@ function buildAuthorizationTags(publicCaseStatus) {
   if (key === 'pending_review') {
     return [{ variant: 'info', text: '审核中' }]
   }
+  if (key === 'user_rejected') {
+    return [{ variant: 'warning', text: '审核未通过' }]
+  }
   return [{ variant: 'default', text: '私密相册' }]
+}
+
+function resolveAuthorizationCardAction(item = {}) {
+  const status = item.publicCaseStatus || 'private'
+  const canWithdraw =
+    Boolean(item.canWithdraw) || status === 'pending_review' || status === 'public_approved'
+
+  if (canWithdraw) {
+    return {
+      action: 'withdraw',
+      label: '撤回授权',
+      buttonType: 'ghost',
+      disabled: Boolean(item.withdrawing),
+    }
+  }
+
+  if (
+    item.needsAuthorization ||
+    status === 'private' ||
+    status === 'authorization_pending' ||
+    status === 'user_rejected'
+  ) {
+    return {
+      action: 'authorize',
+      label: '授权公示',
+      buttonType: 'secondary',
+      disabled: false,
+    }
+  }
+
+  return { action: '', label: '', buttonType: 'ghost', disabled: true }
 }
 
 function enrichAuthorizationItem(item) {
@@ -284,11 +321,15 @@ function enrichAuthorizationItem(item) {
       : item.authStatus === 'pending_review'
         ? 'pending_review'
         : 'private')
+  const cardAction = resolveAuthorizationCardAction({ ...item, publicCaseStatus })
   return {
     ...item,
     publicCaseStatus,
     updatedAtText: formatAlbumDateTime(item.updatedAt),
-    displayTags: buildAuthorizationTags(publicCaseStatus),
+    displayTags: buildAuthorizationTags(publicCaseStatus, {
+      needsAuthorization: Boolean(item.needsAuthorization),
+    }),
+    cardAction,
   }
 }
 
@@ -320,4 +361,5 @@ module.exports = {
   buildAlbumListStageProgress,
   buildAlbumMetaLine,
   resolveAlbumAuthAction,
+  resolveAuthorizationCardAction,
 }

@@ -13,6 +13,10 @@ function resolveDisplayAvatarUrl(rawAvatar) {
 
 Component({
   properties: {
+    variant: {
+      type: String,
+      value: 'profile',
+    },
     isLoggedIn: {
       type: Boolean,
       value: false,
@@ -25,11 +29,16 @@ Component({
       type: String,
       value: '',
     },
+    vehicleSummary: {
+      type: String,
+      value: '',
+    },
   },
 
   data: {
     guestLoginButton: TOOL_GUEST_LOGIN_BUTTON,
     nicknameInput: '',
+    displayNickname: '',
     displayAvatarUrl: '',
     localAvatarPreview: '',
   },
@@ -46,6 +55,7 @@ Component({
       const avatarUrl = resolveDisplayAvatarUrl(rawAvatar)
       const patch = {
         nicknameInput: nickname,
+        displayNickname: nickname || '微信用户',
         displayAvatarUrl: avatarUrl,
       }
       if (
@@ -74,6 +84,14 @@ Component({
 
     onLoginTap() {
       this.triggerEvent('logintap')
+    },
+
+    onHubTap() {
+      if (!this.properties.isLoggedIn) {
+        this.onLoginTap()
+        return
+      }
+      this.triggerEvent('profiletap')
     },
 
     onBindPhoneTap() {

@@ -53,7 +53,7 @@
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | title | String | `服务相册` | band 主标题 |
-| subtitle | String | `门店维修记录` | band 副标题（可选） |
+| subtitle | String | `汽车维修档案` | band 副标题（可选） |
 | showBand | Boolean | true | 是否展示页顶 band |
 | showCompliance | Boolean | true | 是否展示页脚 ComplianceNotice |
 | complianceText | String | — | 覆盖默认 `HOME_PLATFORM_IDENTITY` |

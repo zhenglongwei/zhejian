@@ -49,7 +49,7 @@ function showSubscribeFeedback(results = {}, showToast = true) {
     wx.showToast({ title: '已开启，每次授权可收1条微信通知', icon: 'success' })
     return
   }
-  wx.showToast({ title: '未开启，可在消息页再次授权', icon: 'none' })
+  wx.showToast({ title: '未开启，可在设置中再次授权', icon: 'none' })
 }
 
 function cleanSubscribeResults(results = {}) {

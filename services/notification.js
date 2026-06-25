@@ -27,6 +27,13 @@ async function fetchUserSubscribeTemplates(scene = 'default') {
   return data?.templates || []
 }
 
+async function fetchUserSubscribeStatus(scene = 'default') {
+  const data = await get(
+    `/user/notifications/subscribe-status?scene=${encodeURIComponent(scene)}`
+  )
+  return data || { needsPrompt: false, templates: [] }
+}
+
 async function saveUserSubscribeResults(results = {}) {
   return post('/user/notifications/subscribe', { results })
 }
@@ -65,6 +72,7 @@ module.exports = {
   fetchUserUnreadNotificationCount,
   markUserNotificationsRead,
   fetchUserSubscribeTemplates,
+  fetchUserSubscribeStatus,
   saveUserSubscribeResults,
   fetchMerchantNotifications,
   fetchMerchantUnreadNotificationCount,

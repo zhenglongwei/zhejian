@@ -1,7 +1,10 @@
-<view class="mine-user-header">
+<view
+  class="mine-user-header {{variant === 'hub' ? 'mine-user-header--hub' : ''}}"
+  bindtap="{{variant === 'hub' ? 'onHubTap' : ''}}"
+>
   <view class="mine-user-header__avatar-shell">
     <button
-      wx:if="{{isLoggedIn}}"
+      wx:if="{{isLoggedIn && variant === 'profile'}}"
       class="mine-user-header__avatar-btn"
       open-type="chooseAvatar"
       bind:chooseavatar="onChooseAvatar"
@@ -13,42 +16,58 @@
         src="{{displayAvatarUrl}}"
         mode="aspectFill"
       />
-      <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder">
-        <text class="mine-user-header__avatar-icon">👤</text>
-      </view>
+      <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder" />
     </button>
+    <block wx:elif="{{isLoggedIn}}">
+      <image
+        wx:if="{{displayAvatarUrl}}"
+        class="mine-user-header__avatar"
+        src="{{displayAvatarUrl}}"
+        mode="aspectFill"
+      />
+      <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder" />
+    </block>
     <view
       wx:else
       class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder"
-    >
-      <text class="mine-user-header__avatar-icon">👤</text>
-    </view>
-    <text wx:if="{{isLoggedIn}}" class="mine-user-header__avatar-hint">换头像</text>
+    />
+    <text wx:if="{{isLoggedIn && variant === 'profile'}}" class="mine-user-header__avatar-hint">换头像</text>
   </view>
 
   <view class="mine-user-header__meta">
     <block wx:if="{{isLoggedIn}}">
-      <input
-        class="mine-user-header__nickname-input"
-        type="nickname"
-        placeholder="昵称（选填）"
-        placeholder-class="mine-user-header__nickname-placeholder"
-        value="{{nicknameInput}}"
-        maxlength="32"
-        bindinput="onNicknameInput"
-        bindblur="onNicknameBlur"
-      />
-      <text wx:if="{{user.isPhoneBound}}" class="mine-user-header__phone text-caption">{{user.phoneDisplay}}</text>
-      <view wx:else class="mine-user-header__bind-hint">
-        <ui-tag variant="info" text="未绑定手机号" />
-        <text class="mine-user-header__bind-desc text-caption">绑定后可接收相册更新与配件确认通知</text>
-        <ui-button type="secondary" size="sm" catch:tap="onBindPhoneTap">绑定手机号</ui-button>
-      </view>
+      <block wx:if="{{variant === 'hub'}}">
+        <text class="mine-user-header__nickname text-h3">{{displayNickname}}</text>
+        <text wx:if="{{user.isPhoneBound}}" class="mine-user-header__phone text-caption">{{user.phoneDisplay}}</text>
+        <text wx:else class="mine-user-header__phone text-caption text-secondary">未绑定手机号</text>
+        <text wx:if="{{vehicleSummary}}" class="mine-user-header__vehicle text-caption text-secondary">{{vehicleSummary}}</text>
+        <text wx:else class="mine-user-header__vehicle text-caption text-secondary">点击管理车辆信息</text>
+      </block>
+      <block wx:else>
+        <input
+          class="mine-user-header__nickname-input"
+          type="nickname"
+          placeholder="昵称（选填）"
+          placeholder-class="mine-user-header__nickname-placeholder"
+          value="{{nicknameInput}}"
+          maxlength="32"
+          bindinput="onNicknameInput"
+          bindblur="onNicknameBlur"
+        />
+        <text wx:if="{{user.isPhoneBound}}" class="mine-user-header__phone text-caption">{{user.phoneDisplay}}</text>
+        <view wx:else class="mine-user-header__bind-hint">
+          <ui-tag variant="info" text="未绑定手机号" />
+          <text class="mine-user-header__bind-desc text-caption">绑定后可接收微信服务通知与配件确认提醒</text>
+          <ui-button type="secondary" size="sm" catch:tap="onBindPhoneTap">绑定手机号</ui-button>
+        </view>
+      </block>
     </block>
     <block wx:else>
-      <view class="mine-user-header__guest">
+      <view class="mine-user-header__guest" catch:tap="onLoginTap">
         <ui-button type="primary" block bind:btntap="onLoginTap">{{guestLoginButton}}</ui-button>
       </view>
     </block>
   </view>
+
+  <text wx:if="{{isLoggedIn && variant === 'hub'}}" class="mine-user-header__chevron text-caption">›</text>
 </view>

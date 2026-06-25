@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "个人资料",
+  "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-card": "/components/card/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

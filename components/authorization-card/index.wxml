@@ -16,15 +16,13 @@
     <text class="record-card__meta text-caption">{{item.storeName}}</text>
     <text wx:if="{{item.vehicleDisplay}}" class="record-card__meta text-caption">{{item.vehicleDisplay}}</text>
 
-    <view class="record-card__actions">
-      <ui-button type="secondary" size="sm" bind:btntap="onViewAlbum">查看服务相册</ui-button>
+    <view wx:if="{{item.cardAction.label}}" class="record-card__actions">
       <ui-button
-        wx:if="{{item.canWithdraw}}"
-        type="ghost"
+        type="{{item.cardAction.buttonType}}"
         size="sm"
-        disabled="{{item.withdrawing}}"
-        bind:btntap="onWithdraw"
-      >撤回授权</ui-button>
+        disabled="{{item.cardAction.disabled}}"
+        bind:btntap="onCardAction"
+      >{{item.cardAction.label}}</ui-button>
     </view>
   </view>
 </ui-card>

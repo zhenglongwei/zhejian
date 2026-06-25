@@ -1,7 +1,4 @@
-<ui-tool-page-shell
-  complianceText="{{platformNotice}}"
-  showCompliance="{{status !== 'loading' && status !== 'error'}}"
->
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <block wx:if="{{status === 'loading' && isLoggedIn}}">
     <view class="mine__pad">
       <ui-skeleton rows="{{4}}" title="{{true}}" avatar="{{true}}" />
@@ -20,135 +17,118 @@
 
   <block wx:else>
     <view class="mine__hub">
+      <view wx:if="{{!isLoggedIn}}" class="mine__tool-hint">
+        <text class="text-caption text-secondary">{{guestToolHint}}</text>
+      </view>
+
       <view class="mine__folio bg-album">
         <ui-mine-user-header
-          id="mineUserHeader"
+          variant="hub"
           isLoggedIn="{{isLoggedIn}}"
           user="{{user}}"
-          avatarPreview="{{avatarPreview}}"
+          vehicleSummary="{{vehicleSummary}}"
           bind:logintap="onLoginTap"
-          bind:bindphonetap="onBindPhoneTap"
-          bind:avatarchoose="onAvatarChoose"
-          bind:nicknamechange="onNicknameChange"
+          bind:profiletap="onProfileTap"
         />
-        <view wx:if="{{isLoggedIn && statusPills.length}}" class="mine__status-pills">
-          <view
-            wx:for="{{statusPills}}"
-            wx:key="key"
-            class="mine__pill mine__pill--{{item.tone || (item.emphasis ? 'primary' : 'calm')}}"
-          >
-            <text class="text-caption">{{item.label}}</text>
-          </view>
-        </view>
-        <view wx:elif="{{!isLoggedIn}}" class="mine__guest-hint">
-          <text class="text-caption text-secondary">登录后可查看门店为你创建的维修档案</text>
-        </view>
       </view>
 
       <view class="mine__section mine__section--panel">
         <view class="mine__section-head">
-          <text class="mine__section-title text-h3">我的服务相册</text>
-          <text
-            wx:if="{{isLoggedIn}}"
-            class="text-caption text-link"
-            bindtap="onAlbumListTap"
-          >全部</text>
-        </view>
-        <scroll-view class="mine__album-rail" scroll-x enable-flex show-scrollbar="{{false}}">
-          <view class="mine__album-rail-inner">
-            <block wx:if="{{isLoggedIn && albumRail.length}}">
-              <view
-                wx:for="{{albumRail}}"
-                wx:key="id"
-                class="mine__album-tile {{item.variant}}"
-                data-id="{{item.albumId}}"
-                data-action="{{item.action}}"
-                bindtap="onAlbumRailTap"
-              >
-                <album-photo-frame wx:if="{{item.showFrame}}" variant="thumb" show-corners="{{false}}">
-                  <image
-                    wx:if="{{item.coverUrl}}"
-                    class="mine__album-cover"
-                    src="{{item.coverUrl}}"
-                    mode="aspectFill"
-                  />
-                  <view wx:else class="mine__album-cover mine__album-cover--placeholder image-placeholder" />
-                </album-photo-frame>
-                <view wx:else class="mine__album-more">
-                  <text class="mine__album-more-icon">+</text>
-                </view>
-                <text class="mine__album-title text-caption">{{item.title}}</text>
-                <text wx:if="{{item.meta}}" class="mine__album-meta text-caption">{{item.meta}}</text>
-                <view wx:if="{{item.dot}}" class="mine__album-dot" />
-              </view>
-            </block>
-            <view wx:else class="mine__album-tile mine__album-tile--guest" bindtap="onLoginTap">
-              <view class="mine__album-guest-card">
-                <text class="text-body">登录查看服务相册</text>
-                <text class="text-caption text-secondary">门店维修留档，随时翻阅</text>
-              </view>
+          <text class="mine__section-title text-h3">{{albumSectionTitle}}</text>
+          <view wx:if="{{isLoggedIn}}" class="mine__section-links">
+            <view class="mine__section-link" bindtap="onAlbumListTap">
+              <text class="mine__section-link-text text-caption text-link">全部</text>
+            </view>
+            <text class="mine__section-divider text-caption text-secondary">·</text>
+            <view class="mine__section-link" bindtap="onAuthorizeTap">
+              <text class="mine__section-link-text text-caption text-link">授权公示</text>
+              <text wx:if="{{pendingAuthBadge}}" class="mine__link-badge text-caption">{{pendingAuthBadge}}</text>
             </view>
           </view>
-        </scroll-view>
+        </view>
+
+        <block wx:if="{{isLoggedIn && albumHeroCards.length}}">
+          <view class="mine__album-stack">
+            <ui-album-card
+              wx:for="{{albumHeroCards}}"
+              wx:key="albumId"
+              item="{{item}}"
+              audience="user"
+              showProgress="{{true}}"
+              showHeaderActions="{{false}}"
+              data-id="{{item.albumId}}"
+              bind:tap="onAlbumCardTap"
+            />
+          </view>
+        </block>
+
+        <block wx:elif="{{isLoggedIn}}">
+          <ui-empty
+            title="暂无服务相册"
+            description="{{albumEmptyHint}}"
+            actionText="使用说明"
+            bind:action="onHelpFromSettings"
+          />
+        </block>
+
+        <block wx:else>
+          <view class="mine__guest-album" bindtap="onLoginTap">
+            <text class="text-body">登录查看服务相册</text>
+            <text class="text-caption text-secondary">{{guestAlbumHint}}</text>
+          </view>
+        </block>
+      </view>
+
+      <view wx:if="{{todoSummary}}" class="mine__section mine__section--panel mine__todo">
+        <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
+        <view class="mine__todo-list">
+          <view
+            wx:for="{{todoSummary.items}}"
+            wx:key="key"
+            class="mine__todo-item"
+            data-action="{{item.action}}"
+            bindtap="onTodoItemTap"
+          >
+            <text class="mine__todo-dot" />
+            <text class="text-caption">{{item.label}}</text>
+            <text class="mine__todo-arrow text-caption">›</text>
+          </view>
+        </view>
       </view>
 
       <view
-        class="mine__earnings-panel"
-        bindtap="onEarningsTap"
+        wx:if="{{isLoggedIn && showShareIncentive}}"
+        class="mine__incentive"
+        bindtap="onShareIncentiveTap"
       >
-        <view class="mine__earnings-main">
-          <view class="mine__earnings-head">
-            <text class="text-h3">分享收益</text>
-            <view class="mine__earnings-tag">
-              <text class="text-caption">{{earningsPreview.statusLabel}}</text>
-            </view>
-          </view>
-          <text class="text-caption mine__earnings-desc">{{earningsPreview.summaryHint}}</text>
+        <view class="mine__incentive-head">
+          <text class="text-body">{{shareIncentiveTitle}}</text>
+          <ui-tag variant="default" text="{{shareIncentivePreview.statusLabel}}" />
         </view>
-        <view class="mine__earnings-stat">
-          <text class="mine__earnings-amount text-h2 text-numeric">{{earningsPreview.totalText}}</text>
-          <text class="text-caption mine__earnings-unit">累计收益（元）</text>
-        </view>
-        <text class="text-caption text-link mine__earnings-link">查看明细 ›</text>
+        <text class="text-caption text-secondary">{{shareIncentivePreview.summaryHint}}</text>
       </view>
 
-      <view class="mine__section mine__section--panel">
-        <text class="mine__section-title text-h3">常用工具</text>
-        <view class="mine__grid">
-          <view
-            wx:for="{{secondaryMenus}}"
-            wx:key="key"
-            class="mine__grid-tile mine__grid-tile--{{item.tone}}"
-            data-key="{{item.key}}"
-            bindtap="onSecondaryMenuTap"
-          >
-            <view class="mine__grid-well mine__grid-well--{{item.iconBg}}">
-              <image class="mine__grid-icon" src="{{item.icon}}" mode="aspectFit" />
-            </view>
-            <view class="mine__grid-copy">
-              <text class="mine__grid-label text-body">{{item.label}}</text>
-              <text wx:if="{{item.desc}}" class="mine__grid-desc text-caption">{{item.desc}}</text>
-            </view>
-            <text class="mine__grid-arrow text-caption">›</text>
-            <view wx:if="{{item.dot}}" class="mine__grid-dot" />
-            <text wx:elif="{{item.badge}}" class="mine__grid-badge">{{item.badge}}</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="mine__footer-bar">
+      <view class="mine__dock">
         <view
-          wx:for="{{footerMenus}}"
+          wx:for="{{hubDock}}"
           wx:key="key"
-          class="mine__footer-item"
+          class="mine__dock-item"
           data-key="{{item.key}}"
-          bindtap="onFooterMenuTap"
+          bindtap="onDockTap"
         >
-          <view class="mine__footer-well mine__footer-well--{{item.key}}">
-            <image class="mine__footer-icon" src="{{item.icon}}" mode="aspectFit" />
+          <view class="mine__dock-well mine__dock-well--{{item.iconBg}}">
+            <image class="mine__dock-icon" src="{{item.icon}}" mode="aspectFit" />
           </view>
-          <text class="text-caption mine__footer-label">{{item.label}}</text>
+          <text class="mine__dock-label text-caption">{{item.label}}</text>
         </view>
+      </view>
+
+      <view
+        wx:if="{{showH5Link}}"
+        class="mine__h5-outlet"
+        bindtap="onH5OutletTap"
+      >
+        <text class="text-caption text-link">{{h5OutletText}}</text>
       </view>
     </view>
   </block>

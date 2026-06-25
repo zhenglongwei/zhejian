@@ -1,14 +1,25 @@
 const { isLoggedIn, clearSession, maskPhone, getSession } = require('../../../utils/auth')
 const { clearSearchHistory } = require('../../../utils/search-history')
+const { fetchUserSubscribeStatus } = require('../../../services/notification')
+const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { HOME_PLATFORM_IDENTITY } = require('../../../constants/home-entries')
+
+const SUBSCRIBE_DESC_DEFAULT =
+  '相册更新与授权审核结果需你同意后，才会推送到微信。每次授权可收 1 条通知。'
+const SUBSCRIBE_DESC_READY = '当前已有可用通知额度。额度用完后请再次点击授权。'
 
 Page({
   data: {
     isLoggedIn: false,
     phoneDesc: '登录后可绑定',
+    platformNotice: HOME_PLATFORM_IDENTITY,
+    subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
+    subscribeButtonText: '开启微信通知',
   },
 
   onShow() {
     this.syncLoginState()
+    this.loadSubscribeStatus()
   },
 
   syncLoginState() {
@@ -23,6 +34,39 @@ Page({
     this.setData({ isLoggedIn: loggedIn, phoneDesc })
   },
 
+  async loadSubscribeStatus() {
+    if (!isLoggedIn()) {
+      this.setData({
+        subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
+        subscribeButtonText: '开启微信通知',
+      })
+      return
+    }
+    try {
+      const status = await fetchUserSubscribeStatus('default')
+      const needsPrompt = Boolean(status && status.needsPrompt)
+      this.setData({
+        subscribeBannerDesc: needsPrompt ? SUBSCRIBE_DESC_DEFAULT : SUBSCRIBE_DESC_READY,
+        subscribeButtonText: needsPrompt ? '开启微信通知' : '再次授权',
+      })
+    } catch (e) {
+      this.setData({
+        subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
+        subscribeButtonText: '开启微信通知',
+      })
+    }
+  },
+
+  onSubscribeWechat() {
+    if (!this.data.isLoggedIn) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    requestUserNotificationSubscribe('default').finally(() => {
+      this.loadSubscribeStatus()
+    })
+  },
+
   onCellTap(e) {
     const { key } = e.currentTarget.dataset
     if (key === 'phone') {
@@ -32,14 +76,13 @@ Page({
       }
       wx.navigateBack({
         fail() {
-          const { reLaunchAppHome } = require('../../../utils/app-home')
-          reLaunchAppHome()
+          wx.navigateTo({ url: '/pages/mine/profile/index' })
         },
       })
       return
     }
-    if (key === 'notify') {
-      wx.navigateTo({ url: '/pages/mine/message/index' })
+    if (key === 'help') {
+      wx.navigateTo({ url: '/pages/mine/help/index' })
       return
     }
     if (key === 'cache') {
@@ -57,8 +100,7 @@ Page({
     if (key === 'about') {
       wx.showModal({
         title: '关于辙见',
-        content:
-          '辙见 — 像一份可翻阅的服务相册，而不是促销传单。提供服务相册查看与授权留痕工具。',
+        content: HOME_PLATFORM_IDENTITY,
         showCancel: false,
       })
       return

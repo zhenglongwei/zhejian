@@ -512,6 +512,11 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       updatedAt: true,
       authorization: { select: { status: true } },
       publicCase: { select: { status: true } },
+      images: {
+        take: 1,
+        orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
+        select: { rawUrl: true, url: true, imageUrl: true },
+      },
     },
     orderBy: { updatedAt: 'desc' },
     take: Math.max(1, Math.min(Number(limit) || 3, 5)),
@@ -536,6 +541,7 @@ async function listUserRecentServiceAlbums(userId, limit = 3) {
       createdAt: toIso(album.createdAt),
       updatedAt: toIso(album.updatedAt),
       isPublic: publicCaseStatus === 'public_approved',
+      coverUrl: buildListCoverUrl(album),
     }
   })
 }
@@ -887,7 +893,11 @@ async function fetchUserAuthorizations(userId) {
   return albums
     .map((item) => {
       const auth = authMap[item.albumId]
-      if (!auth && item.publicCaseStatus === 'private') return null
+      const needsAuthorization =
+        item.status === 'completed' &&
+        item.publicCaseStatus === 'private' &&
+        !auth
+      if (!auth && item.publicCaseStatus === 'private' && !needsAuthorization) return null
       const authStatus =
         auth?.status === 'user_rejected'
           ? 'rejected'
@@ -914,6 +924,7 @@ async function fetchUserAuthorizations(userId) {
                 ? 'rejected'
                 : 'none',
         canWithdraw: ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
+        needsAuthorization,
         updatedAt: item.updatedAt,
       }
     })

@@ -1,13 +1,13 @@
 <ui-tool-page-shell
-  title="分享收益"
-  subtitle="案例贡献结算"
+  title="公示激励"
+  subtitle="授权公示规则"
   compliance-text="{{complianceText}}"
 >
   <block wx:if="{{!isLoggedIn}}">
     <view class="mine-earnings__gate">
       <ui-empty
-        title="登录后查看分享收益"
-        description="授权公示案例后，可按实际浏览与到店效果查看收益明细"
+        title="登录后查看公示激励"
+        description="授权公示脱敏案例后，可按平台规则查看激励说明"
         actionText="返回我的"
         bind:action="onGoBack"
       />

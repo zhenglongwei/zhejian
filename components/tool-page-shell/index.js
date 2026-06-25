@@ -1,14 +1,15 @@
 const { HOME_PLATFORM_IDENTITY } = require('../../constants/home-entries')
+const { PRODUCT_NAME, PRODUCT_SUBTITLE } = require('../../constants/product-brand')
 
 Component({
   properties: {
     title: {
       type: String,
-      value: '服务相册',
+      value: PRODUCT_NAME,
     },
     subtitle: {
       type: String,
-      value: '门店维修记录',
+      value: PRODUCT_SUBTITLE,
     },
     showBand: {
       type: Boolean,

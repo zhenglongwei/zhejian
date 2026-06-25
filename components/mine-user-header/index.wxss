@@ -49,6 +49,28 @@
   border-radius: var(--radius-full);
 }
 
+.mine-user-header--hub:active {
+  opacity: 0.72;
+}
+
+.mine-user-header__nickname {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.mine-user-header__vehicle {
+  display: block;
+}
+
+.mine-user-header__chevron {
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+  color: var(--color-text-tertiary);
+  font-size: 40rpx;
+  line-height: 1;
+}
+
 .mine-user-header__avatar-icon {
   font-size: 48rpx;
   opacity: 0.5;

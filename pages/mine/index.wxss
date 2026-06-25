@@ -11,6 +11,14 @@
   background-color: var(--color-bg-album);
 }
 
+.mine__tool-hint {
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-album-frame-line);
+  box-sizing: border-box;
+}
+
 .mine__folio {
   margin: 0 calc(-1 * var(--page-padding-x));
   padding: var(--space-lg) var(--page-padding-x);
@@ -24,49 +32,6 @@
   box-sizing: border-box;
 }
 
-.mine__status-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-md);
-}
-
-.mine__pill {
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
-  box-sizing: border-box;
-}
-
-.mine__pill--primary {
-  background-color: var(--color-primary-light);
-  border-color: transparent;
-  color: var(--color-primary-dark);
-}
-
-.mine__pill--success {
-  background-color: var(--color-success-light);
-  border-color: transparent;
-  color: var(--color-success);
-}
-
-.mine__pill--info {
-  background-color: var(--color-info-light);
-  border-color: transparent;
-  color: var(--color-info);
-}
-
-.mine__pill--calm {
-  background-color: var(--color-bg-card);
-  border-color: var(--color-album-frame-line);
-  color: var(--color-text-secondary);
-}
-
-.mine__guest-hint {
-  margin-top: var(--space-md);
-}
-
 .mine__section--panel {
   padding: var(--space-md);
   background-color: var(--color-bg-card);
@@ -75,326 +40,125 @@
   box-sizing: border-box;
 }
 
-.mine__earnings-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-sm) var(--space-md);
-  padding: var(--space-md);
-  background: linear-gradient(
-    135deg,
-    var(--color-warning-light) 0%,
-    var(--color-bg-card) 72%
-  );
-  border-radius: var(--radius-lg);
-  border: 1rpx solid var(--color-album-frame-line);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
-}
-
-.mine__earnings-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.mine__earnings-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
-}
-
-.mine__earnings-tag {
-  padding: 2rpx var(--space-xs);
-  border-radius: var(--radius-full);
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.mine__earnings-desc {
-  display: block;
-  margin-top: var(--space-xs);
-  color: var(--color-text-secondary);
-}
-
-.mine__earnings-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.mine__earnings-amount {
-  color: var(--color-warning);
-  font-weight: var(--font-weight-semibold);
-}
-
-.mine__earnings-unit {
-  margin-top: 2rpx;
-  color: var(--color-text-secondary);
-}
-
-.mine__earnings-link {
-  width: 100%;
-  text-align: right;
-}
-
 .mine__section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
 }
 
 .mine__section-title {
-  display: block;
-  margin-bottom: var(--space-sm);
   color: var(--color-text-primary);
 }
 
-.mine__section-head .mine__section-title {
-  margin-bottom: 0;
-}
-
-.mine__album-rail {
-  width: 100%;
-  white-space: nowrap;
-}
-
-.mine__album-rail-inner {
-  display: inline-flex;
-  gap: var(--space-sm);
-  padding-bottom: var(--space-xs);
-}
-
-.mine__album-tile {
-  position: relative;
-  display: inline-flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  width: 200rpx;
-  vertical-align: top;
-}
-
-.mine__album-tile--hero {
-  width: 280rpx;
-}
-
-.mine__album-tile--more {
-  width: 160rpx;
-  align-items: center;
-  justify-content: center;
-}
-
-.mine__album-tile--guest {
-  width: 100%;
-  min-width: 520rpx;
-}
-
-.mine__album-tile:active {
-  opacity: 0.72;
-}
-
-.mine__album-cover {
-  width: 100%;
-  height: 160rpx;
-  display: block;
-}
-
-.mine__album-tile--hero .mine__album-cover {
-  height: 220rpx;
-}
-
-.mine__album-cover--placeholder {
-  width: 100%;
-  height: 160rpx;
-  background-color: var(--color-primary-light);
-}
-
-.mine__album-tile--hero .mine__album-cover--placeholder {
-  height: 220rpx;
-}
-
-.mine__album-more {
+.mine__section-links {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 160rpx;
-  border-radius: var(--radius-md);
-  background-color: var(--color-primary-light);
-  border: 1rpx dashed var(--color-primary);
-  box-sizing: border-box;
+  flex-shrink: 0;
+  gap: var(--space-xs);
 }
 
-.mine__album-more-icon {
-  font-size: 48rpx;
-  line-height: 1;
-  color: var(--color-primary);
+.mine__section-link {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  min-height: var(--font-caption-lh);
 }
 
-.mine__album-title {
-  display: block;
-  margin-top: var(--space-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
+.mine__section-link-text {
+  line-height: var(--font-caption-lh);
 }
 
-.mine__album-meta {
-  display: block;
-  margin-top: 2rpx;
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.mine__section-divider {
+  line-height: var(--font-caption-lh);
+  opacity: 0.5;
 }
 
-.mine__album-dot {
-  position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-danger);
-  border: 2rpx solid var(--color-bg-card);
-  box-sizing: border-box;
+.mine__link-badge {
+  color: var(--color-danger);
+  line-height: var(--font-caption-lh);
 }
 
-.mine__album-guest-card {
+.mine__album-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.mine__guest-album {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  width: 100%;
   padding: var(--space-lg);
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg-card) 100%);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
-}
-
-.mine__grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mine__grid-tile {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: 136rpx;
-  padding: var(--space-md);
-  border-radius: var(--radius-md);
-  box-sizing: border-box;
-}
-
-.mine__grid-tile--authorize {
-  background-color: var(--color-success-light);
-}
-
-.mine__grid-tile--message {
-  background-color: var(--color-info-light);
-}
-
-.mine__grid-tile--vehicle {
   background-color: var(--color-primary-light);
+  border: 1rpx solid var(--color-album-frame-line);
+  box-sizing: border-box;
 }
 
-.mine__grid-tile--settings {
-  background-color: var(--color-warning-light);
-}
-
-.mine__grid-tile:active {
+.mine__guest-album:active {
   opacity: 0.72;
 }
 
-.mine__grid-well {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--radius-md);
-  background-color: var(--color-bg-card);
-  box-shadow: var(--shadow-card);
-}
-
-.mine__grid-well--well {
-  background-color: var(--color-bg-card);
-}
-
-.mine__grid-well--primary-light,
-.mine__grid-well--success-light,
-.mine__grid-well--info-light,
-.mine__grid-well--warning-light {
-  background-color: var(--color-bg-card);
-}
-
-.mine__grid-icon {
-  width: 48rpx;
-  height: 48rpx;
-}
-
-.mine__grid-copy {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.mine__grid-label {
-  font-weight: var(--font-weight-semibold);
+.mine__todo-headline {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
 
-.mine__grid-desc {
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.mine__todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
 
-.mine__grid-arrow {
+.mine__todo-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+.mine__todo-item:active {
+  opacity: 0.72;
+}
+
+.mine__todo-dot {
   flex-shrink: 0;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+}
+
+.mine__todo-arrow {
+  margin-left: auto;
   color: var(--color-text-tertiary);
-  font-size: 36rpx;
-  line-height: 1;
 }
 
-.mine__grid-dot {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-danger);
-}
-
-.mine__grid-badge {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  min-width: 32rpx;
-  padding: 0 8rpx;
-  font-size: 20rpx;
-  line-height: 32rpx;
-  text-align: center;
-  color: var(--color-text-inverse);
-  background-color: var(--color-danger);
-  border-radius: var(--radius-full);
+.mine__incentive {
+  padding: var(--space-md);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  border: 1rpx solid var(--color-album-frame-line);
   box-sizing: border-box;
 }
 
-.mine__footer-bar {
+.mine__incentive:active {
+  opacity: 0.72;
+}
+
+.mine__incentive-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.mine__dock {
   display: flex;
   align-items: stretch;
   justify-content: space-around;
@@ -406,7 +170,7 @@
   box-sizing: border-box;
 }
 
-.mine__footer-item {
+.mine__dock-item {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -416,37 +180,48 @@
   box-sizing: border-box;
 }
 
-.mine__footer-item:active {
+.mine__dock-item:active {
   opacity: 0.72;
 }
 
-.mine__footer-well {
+.mine__dock-well {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72rpx;
-  height: 72rpx;
+  width: 88rpx;
+  height: 88rpx;
   border-radius: var(--radius-full);
+  background-color: var(--color-nav-icon-well);
 }
 
-.mine__footer-well--help {
+.mine__dock-well--primary-light {
+  background-color: var(--color-primary-light);
+}
+
+.mine__dock-well--info-light {
   background-color: var(--color-info-light);
 }
 
-.mine__footer-well--support {
-  background-color: var(--color-success-light);
-}
-
-.mine__footer-well--merchant {
+.mine__dock-well--warning-light {
   background-color: var(--color-warning-light);
 }
 
-.mine__footer-icon {
-  width: 40rpx;
-  height: 40rpx;
+.mine__dock-icon {
+  width: 44rpx;
+  height: 44rpx;
 }
 
-.mine__footer-label {
+.mine__dock-label {
   color: var(--color-text-secondary);
   text-align: center;
+}
+
+.mine__h5-outlet {
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.mine__h5-outlet:active {
+  opacity: 0.72;
 }

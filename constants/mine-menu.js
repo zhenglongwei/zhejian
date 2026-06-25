@@ -8,7 +8,7 @@ const MINE_VEHICLE_ITEM = {
   url: '/pages/mine/vehicle/index',
 }
 
-/** 我的页 — 单页工具台菜单 */
+/** 程序路由仍保留；首页不再单独展示 */
 const MINE_CORE_MENUS = [
   {
     key: 'album',
@@ -20,35 +20,24 @@ const MINE_CORE_MENUS = [
   },
   {
     key: 'authorize',
-    label: '我的公开授权',
+    label: '授权公示',
     desc: '查看授权与审核状态',
     needPhone: true,
     url: '/pages/album/authorize/index',
     badgeKey: 'albumPendingAuth',
   },
-  {
-    key: 'message',
-    label: '消息通知',
-    desc: '相册更新与授权审核结果',
-    needPhone: false,
-    url: '/pages/mine/message/index',
-    badgeKey: 'unreadNotification',
-  },
-  MINE_VEHICLE_ITEM,
 ]
 
-/** 常用工具 */
 const MINE_TOOL_MENUS = [
   {
     key: 'settings',
     label: '设置',
-    desc: '账号、隐私与通知偏好',
+    desc: '账号、帮助与隐私',
     needPhone: false,
     url: '/pages/mine/settings/index',
   },
 ]
 
-/** 未登录也可访问 */
 const MINE_PUBLIC_MENUS = [
   {
     key: 'help',
@@ -66,13 +55,19 @@ const MINE_MERCHANT_ITEM = {
   needPhone: false,
 }
 
+/** 首页底部快捷 dock（非列表菜单） */
+const MINE_HUB_DOCK = [
+  MINE_TOOL_MENUS[0],
+  MINE_PUBLIC_MENUS[1],
+  MINE_MERCHANT_ITEM,
+].map((item) => attachNavIcon({ ...item, desc: '' }))
+
 function attachBadge(item, badges) {
   const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''
   const dot = Boolean(item.dotKey && badges[item.dotKey])
   return attachNavIcon({ ...item, desc: item.desc || '', badge, dot })
 }
 
-/** 我的页菜单分区 — 供 wxml 单循环渲染 */
 function buildMineMenuSections(badges = {}) {
   return [
     { key: 'core', items: MINE_CORE_MENUS.map((item) => attachBadge(item, badges)) },
@@ -84,11 +79,17 @@ function buildMineMenuSections(badges = {}) {
   ]
 }
 
+function buildMineHubDock() {
+  return MINE_HUB_DOCK
+}
+
 module.exports = {
   MINE_CORE_MENUS,
   MINE_VEHICLE_ITEM,
   MINE_TOOL_MENUS,
   MINE_PUBLIC_MENUS,
   MINE_MERCHANT_ITEM,
+  MINE_HUB_DOCK,
   buildMineMenuSections,
+  buildMineHubDock,
 }

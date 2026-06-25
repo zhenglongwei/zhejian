@@ -1,6 +1,6 @@
 /**
- * 用户分享收益 · Phase 2 预留（我的页入口 + 收益浏览占位）
- * 合规：规则内说明，禁止「分享领钱」「好评返现」类外显诱导（设计体系 §9）
+ * 用户公示激励 · Phase 2 预留（单页工具台弱提示 + 明细页占位）
+ * 合规：小程序内可展示激励规则；分享卡片/链接不得带收益诱导（12_我的 §3.1 · 设计体系 §9）
  */
 
 const EARNINGS_STATUS = {
@@ -32,12 +32,12 @@ const EARNINGS_RULE_STEPS = [
 const EARNINGS_PREVIEW_PLACEHOLDER = {
   status: EARNINGS_STATUS.COMING_SOON,
   statusLabel: '筹备中',
-  totalText: '—',
-  monthText: '—',
-  pendingText: '—',
+  totalText: '',
+  monthText: '',
+  pendingText: '',
   publicCaseCount: 0,
-  summaryHint: '授权公示案例后，按实际浏览与到店效果结算',
-  guestHint: '登录后查看分享收益',
+  summaryHint: '授权公示脱敏案例后，平台按规则与实际浏览、到店效果核算激励',
+  guestHint: '登录后查看公示激励说明',
 }
 
 function buildMineEarningsPreview(options = {}) {
@@ -45,7 +45,6 @@ function buildMineEarningsPreview(options = {}) {
   if (!loggedIn) {
     return {
       ...EARNINGS_PREVIEW_PLACEHOLDER,
-      totalText: '—',
       summaryHint: EARNINGS_PREVIEW_PLACEHOLDER.guestHint,
     }
   }
