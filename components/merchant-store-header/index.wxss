@@ -1,0 +1,85 @@
+.merchant-store-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.merchant-store-header__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-store-header__picker {
+  display: block;
+  width: 100%;
+}
+
+.merchant-store-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.merchant-store-header__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.merchant-store-header__caret {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.merchant-store-header__addr,
+.merchant-store-header__overview {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-store-header__msg {
+  position: relative;
+  flex-shrink: 0;
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.merchant-store-header__msg:active {
+  opacity: 0.72;
+}
+
+.merchant-store-header__msg-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.merchant-store-header__msg-badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  min-width: 28rpx;
+  padding: 0 6rpx;
+  font-size: 20rpx;
+  line-height: 28rpx;
+  text-align: center;
+  color: var(--color-text-inverse);
+  background-color: var(--color-danger);
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+}

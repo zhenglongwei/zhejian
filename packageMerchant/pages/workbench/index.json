@@ -2,10 +2,12 @@
   "navigationBarTitleText": "商家工作台",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
-    "ui-button": "/components/button/index",
     "ui-tag": "/components/tag/index",
     "ui-skeleton": "/components/skeleton/index",
-    "ui-bottom-sheet": "/components/bottom-sheet/index",
-    "ui-tool-page-shell": "/components/tool-page-shell/index"
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-merchant-store-header": "/components/merchant-store-header/index",
+    "ui-album-card": "/components/album-card/index",
+    "ui-cell": "/components/cell/index",
+    "ui-card": "/components/card/index"
   }
 }

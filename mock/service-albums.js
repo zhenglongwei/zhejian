@@ -890,6 +890,12 @@ async function mockFetchMerchantServiceAlbumList(options = {}) {
   const filtered = filterAlbumsForMerchant(Object.values(map), options.tab || 'all')
   return filtered.map((raw) => {
     const view = buildMerchantAlbumView(raw)
+    const coverUrl =
+      (view.nodes &&
+        view.nodes[0] &&
+        view.nodes[0].images &&
+        view.nodes[0].images[0]) ||
+      ''
     return {
       albumId: view.albumId,
       serviceName: view.serviceName,
@@ -899,6 +905,7 @@ async function mockFetchMerchantServiceAlbumList(options = {}) {
       userPhoneDisplay: view.userPhoneDisplay,
       updatedAt: view.updatedAt,
       updatedAtText: view.updatedAtText,
+      coverUrl,
     }
   })
 }

@@ -9,6 +9,10 @@ const NAV_ICON_MAP = {
   help: { icon: `${NAV_ICON_BASE}/help.png`, iconBg: 'info-light' },
   support: { icon: `${NAV_ICON_BASE}/support.png`, iconBg: 'info-light' },
   merchant: { icon: `${NAV_ICON_BASE}/merchant.png`, iconBg: 'warning-light' },
+  createAlbum: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'primary-light' },
+  leads: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'warning-light' },
+  services: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'info-light' },
+  dashboard: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'well' },
 }
 
 const DEFAULT_NAV_ICON = { icon: '', iconBg: 'well' }

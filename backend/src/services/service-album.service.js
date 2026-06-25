@@ -622,6 +622,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       userPhone: view.userPhone,
       userPhoneDisplay: view.userPhoneDisplay,
       updatedAt: view.updatedAt,
+      coverUrl: buildListCoverUrl(album),
     }
   })
 }

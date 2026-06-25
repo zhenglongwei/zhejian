@@ -37,7 +37,13 @@
 - 接口：`docs/10_技术架构与接口/04_接口规范.md`（merchant JWT、`requireAuth(['merchant'])`）
 - 复杂度 / 价格：`docs/02_用户端小程序/10_复杂度分级详细标准.md`
 
-**UI 规范**：商家端与用户端共用设计体系；表单页参考 `packageMerchant/pages/onboarding/`、`lead/` 现有样式。
+**UI 规范**：
+
+- 商家端与用户端共用设计体系
+- **工作台首页**：必读 `docs/00_设计规范/12_商家工作台UI线框.md`（对标用户端 `11_工具相册UI线框.md` §1）
+- Hero 必须用 **`ui-album-card` `audience=merchant`**（×1～2），禁止无封面摘要行作主 Hero
+- Dock **四格**：新建相册 / 咨询线索 / 服务方案 / 数据概览
+- 表单页参考 `packageMerchant/pages/onboarding/`、`lead/` 现有样式
 
 ## 实现目录速查
 

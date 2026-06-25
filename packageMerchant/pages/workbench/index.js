@@ -5,7 +5,10 @@ const {
   switchMerchantStore,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
-const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
+const {
+  fetchMerchantAlbumStats,
+  fetchMerchantServiceAlbumList,
+} = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
@@ -13,98 +16,33 @@ const {
   fetchMerchantCasePublishPanel,
   fetchMerchantCaseArticleExport,
 } = require('../../../services/merchant-public-case')
-const { copyCaseH5Link, copyCaseListH5Link, openH5ContentSite } = require('../../../constants/h5-links')
-const { fetchMerchantUnreadNotificationCount, fetchMerchantSubscribeStatus } = require('../../../services/notification')
+const { copyCaseH5Link, openH5ContentSite } = require('../../../constants/h5-links')
+const { fetchMerchantUnreadNotificationCount } = require('../../../services/notification')
 const { formatCount } = require('../../../utils/merchant-dashboard')
-const { isLoggedIn, isMerchantOwner } = require('../../../utils/auth')
-const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
+const { isMerchantOwner } = require('../../../utils/auth')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
 } = require('../../../constants/merchant-onboarding-copy')
+const {
+  MERCHANT_ALBUM_SECTION_TITLE,
+  MERCHANT_ALBUM_EMPTY_HINT,
+  MERCHANT_CASE_SECTION_TITLE,
+  MERCHANT_MANAGE_SECTION_TITLE,
+  MERCHANT_MANAGE_CELLS,
+  buildMerchantTodoSummary,
+  pickMerchantHubAlbums,
+  buildAlbumSectionBadge,
+  buildMerchantHubDock,
+  buildMerchantOverviewLine,
+} = require('../../../constants/merchant-hub')
 
 function formatBadge(n) {
   const count = Number(n) || 0
   if (count <= 0) return ''
   return count > 99 ? '99+' : String(count)
 }
-
-
-function buildQuickActions() {
-  return [
-    {
-      key: 'services',
-      label: '服务方案',
-      icon: '/assets/nav/settings.png',
-      iconBg: 'primary-light',
-    },
-    {
-      key: 'shareStore',
-      label: '分享门店',
-      icon: '/assets/nav/merchant.png',
-      iconBg: 'warning-light',
-    },
-    {
-      key: 'previewStore',
-      label: '预览门店',
-      icon: '/assets/tab/store.png',
-      iconBg: 'info-light',
-    },
-    {
-      key: 'dashboard',
-      label: '数据概览',
-      icon: '/assets/nav/album.png',
-      iconBg: 'well',
-    },
-  ]
-}
-
-function buildTodoQueue(todos = {}) {
-  const pendingLeads = Number(todos.pendingLeads) || 0
-  const pendingAuth = Number(todos.pendingAuth) || 0
-  const pendingUpload = Number(todos.pendingUpload) || 0
-  const geoEvidenceBlocked = Number(todos.geoEvidenceBlocked) || 0
-  return [
-    {
-      key: 'leads',
-      count: pendingLeads,
-      label: '条咨询待处理',
-      actionLabel: '去处理',
-      active: pendingLeads > 0,
-    },
-    {
-      key: 'auth',
-      count: pendingAuth,
-      label: '本待公开授权',
-      actionLabel: '去授权',
-      active: pendingAuth > 0,
-    },
-    {
-      key: 'upload',
-      count: pendingUpload,
-      label: '本待补节点',
-      actionLabel: '去补传',
-      active: pendingUpload > 0,
-    },
-    {
-      key: 'geo',
-      count: geoEvidenceBlocked,
-      label: '个相册待补公开证据',
-      actionLabel: '去补全',
-      active: geoEvidenceBlocked > 0,
-    },
-  ]
-}
-
-function countTodoTotal(todos = {}) {
-  return (
-    (Number(todos.pendingLeads) || 0) +
-    (Number(todos.pendingAuth) || 0) +
-    (Number(todos.pendingUpload) || 0) +
-    (Number(todos.geoEvidenceBlocked) || 0)
-  )
-}
-
 
 Page({
   data: {
@@ -119,51 +57,44 @@ Page({
       geoEvidenceBlocked: 0,
       activeAlbums: 0,
     },
-    overview: {
-      caseViews: '0',
-      mpCaseViews: '0',
-      leadSubmit: '0',
-      transparency: '0',
-    },
-    casePublish: {
-      pendingReview: 0,
-      pendingPublish: 0,
-      publishedH5: 0,
-      readyToPublish: 0,
-      caseViews7d: 0,
-      h5CaseViews7d: 0,
-      mpCaseViews7d: 0,
-    },
+    overviewLine: '',
+    albumHeroCards: [],
+    albumSectionBadge: '',
+    todoSummary: null,
+    hubDock: buildMerchantHubDock(),
     casePublishRecent: [],
     canManageStaff: false,
+    manageCells: MERCHANT_MANAGE_CELLS,
     storeOptions: [],
     storePickerIndex: 0,
     canSwitchStore: false,
     switchingStore: false,
-    unreadMessages: 0,
     unreadBadgeText: '',
-    needsSubscribePrompt: false,
-    subscribeSheetVisible: false,
-    quickActions: buildQuickActions(),
-    todoQueue: buildTodoQueue(),
-    todoTotal: 0,
-    subscribeBannerDescription:
-      '有新咨询线索或审核结果时，可在微信及时提醒你。每次授权可收 1 条，站内消息不受影响。',
+    geoOpportunity: null,
+    albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
+    albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
+    caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
+    manageSectionTitle: MERCHANT_MANAGE_SECTION_TITLE,
   },
 
   onShow() {
-    this.loadProfile()
+    this.loadProfile({ silent: this.data.status === 'normal' })
   },
 
-  async loadProfile() {
-    this.setData({ status: 'loading' })
-    if (isLoggedIn()) {
+  async loadProfile(options = {}) {
+    const silent = Boolean(options.silent)
+    if (!silent) {
+      this.setData({ status: 'loading' })
+    }
+
+    if (!silent) {
       try {
         await refreshMerchantSession()
       } catch (e) {
-        /* 忽略刷新失败 */
+        // ignore
       }
     }
+
     const profile = await fetchMerchantProfile()
     if (!profile || profile.status === MERCHANT_STATUS.NONE) {
       this.setData({ status: 'none', profile: null })
@@ -174,13 +105,17 @@ Page({
       return
     }
     if (profile.status === MERCHANT_STATUS.REJECTED || profile.status === MERCHANT_STATUS.NEED_MODIFY) {
-      this.setData({ status: profile.status === MERCHANT_STATUS.NEED_MODIFY ? 'need_modify' : 'rejected', profile })
+      this.setData({
+        status: profile.status === MERCHANT_STATUS.NEED_MODIFY ? 'need_modify' : 'rejected',
+        profile,
+      })
       return
     }
     if (profile.status !== MERCHANT_STATUS.APPROVED) {
       this.setData({ status: 'none', profile: null })
       return
     }
+
     let todos = {
       pendingLeads: 0,
       pendingUpload: 0,
@@ -188,23 +123,15 @@ Page({
       geoEvidenceBlocked: 0,
       activeAlbums: 0,
     }
-    let overview = { caseViews: '0', leadSubmit: '0', transparency: '0' }
-    let casePublish = {
-      pendingReview: 0,
-      pendingPublish: 0,
-      publishedH5: 0,
-      readyToPublish: 0,
-      caseViews7d: 0,
-      h5CaseViews7d: 0,
-      mpCaseViews7d: 0,
-    }
+    let overviewLine = ''
     let casePublishRecent = []
     let storeOptions = []
     let storePickerIndex = 0
     let canSwitchStore = false
     let unreadMessages = 0
-    let needsSubscribePrompt = false
     let geoOpportunity = null
+    let albumHeroCards = []
+
     try {
       if (isMerchantOwner()) {
         const storeData = await fetchMerchantStores()
@@ -218,17 +145,19 @@ Page({
     } catch (e) {
       storeOptions = []
     }
+
     try {
-      const [stats, leadStats, dashStats, publishPanel, unreadCount, subscribeStatus, geoOpp] =
+      const [stats, leadStats, dashStats, publishPanel, unreadCount, geoOpp, albumList] =
         await Promise.all([
-        fetchMerchantAlbumStats(),
-        fetchMerchantLeadStats(profile.storeId),
-        fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
-        fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
-        fetchMerchantUnreadNotificationCount().catch(() => 0),
-        fetchMerchantSubscribeStatus('merchant').catch(() => ({ needsPrompt: false })),
-        fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
-      ])
+          fetchMerchantAlbumStats(),
+          fetchMerchantLeadStats(profile.storeId),
+          fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
+          fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
+          fetchMerchantUnreadNotificationCount().catch(() => 0),
+          fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
+          fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
+        ])
+
       todos = {
         pendingLeads: leadStats.pending || 0,
         pendingUpload: stats.pendingUpload || 0,
@@ -236,55 +165,55 @@ Page({
         geoEvidenceBlocked: stats.geoEvidenceBlocked || 0,
         activeAlbums: stats.active || 0,
       }
-      if (publishPanel && publishPanel.summary) {
-        const summary = publishPanel.summary
-        casePublish = {
-          pendingReview: summary.pendingReview || summary.pendingPublish || 0,
-          pendingPublish: summary.pendingReview || summary.pendingPublish || 0,
-          publishedH5: summary.publishedH5 || 0,
-          readyToPublish: summary.readyToPublish || 0,
-          caseViews7d: summary.caseViews7d || 0,
-          h5CaseViews7d: summary.h5CaseViews7d || 0,
-          mpCaseViews7d: summary.mpCaseViews7d || 0,
-        }
-        casePublishRecent = publishPanel.recent || []
+
+      if (publishPanel && publishPanel.recent) {
+        casePublishRecent = (publishPanel.recent || []).slice(0, 3)
       }
+
       if (dashStats && dashStats.summary) {
-        overview = {
-          caseViews: formatCount(dashStats.summary.h5CaseViewCount ?? dashStats.summary.caseViewCount),
-          mpCaseViews: formatCount(dashStats.summary.mpCaseViewCount),
+        overviewLine = buildMerchantOverviewLine({
           leadSubmit: formatCount(dashStats.summary.leadSubmitCount),
           transparency: formatCount(
             dashStats.transparency?.score ?? dashStats.summary.transparencyScore
           ),
-        }
+        })
       }
+
       unreadMessages = unreadCount || 0
-      needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
       geoOpportunity = geoOpp || null
+
+      const heroes = pickMerchantHubAlbums(albumList || []).map(enrichMerchantAlbumListItem)
+      albumHeroCards = heroes
     } catch (e) {
-      /* keep zeros */
+      // keep defaults
     }
+
     const canManageStaff = isMerchantOwner()
-    const todoQueue = buildTodoQueue(todos)
+    const todoSummary = buildMerchantTodoSummary(todos)
+
     this.setData({
       status: 'normal',
       profile,
       todos,
-      todoQueue,
-      todoTotal: countTodoTotal(todos),
-      overview,
-      casePublish,
+      todoSummary,
+      overviewLine,
+      albumHeroCards,
+      albumSectionBadge: buildAlbumSectionBadge(todos),
+      hubDock: buildMerchantHubDock(todos),
       casePublishRecent,
       canManageStaff,
+      manageCells: canManageStaff ? MERCHANT_MANAGE_CELLS : [],
       storeOptions,
       storePickerIndex,
       canSwitchStore,
-      unreadMessages,
       unreadBadgeText: formatBadge(unreadMessages),
-      needsSubscribePrompt,
       geoOpportunity,
     })
+  },
+
+  onStoreHeaderChange(e) {
+    const index = Number(e.detail && e.detail.index)
+    this.onStoreChange({ detail: { value: index } })
   },
 
   onStoreChange(e) {
@@ -304,7 +233,7 @@ Page({
       await switchMerchantStore(storeId)
       wx.hideLoading()
       this.setData({ storePickerIndex: pickerIndex })
-      await this.loadProfile()
+      await this.loadProfile({ silent: true })
       wx.showToast({ title: '已切换门店', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
@@ -341,38 +270,38 @@ Page({
     })
   },
 
-  onPrimaryActionTap(e) {
-    const key = e.currentTarget.dataset.key
-    this.onQuickActionTap({ currentTarget: { dataset: { key } } })
+  onAlbumCardTap(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id) return
+    this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${id}`)
   },
 
-  onQuickActionTap(e) {
-    const key = e.currentTarget.dataset.key
-    const handlers = {
-      createAlbum: () => this.onCreateAlbum(),
-      services: () => this.onServiceList(),
-      shareStore: () => this.onShareStore(),
-      previewStore: () => this.onPreviewStore(),
-      dashboard: () => this.onDashboard(),
-    }
-    const fn = handlers[key]
-    if (fn) fn()
-  },
-
-  onTodoRowTap(e) {
-    const key = e.currentTarget.dataset.key
+  onTodoItemTap(e) {
+    const { action } = e.currentTarget.dataset
     const handlers = {
       leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
       auth: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'pending_auth' } } }),
       upload: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
       geo: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
     }
+    const fn = handlers[action]
+    if (fn) fn()
+  },
+
+  onDockTap(e) {
+    const { key } = e.currentTarget.dataset
+    const handlers = {
+      createAlbum: () => this.onCreateAlbum(),
+      leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
+      services: () => this.onServiceList(),
+      dashboard: () => this.onDashboard(),
+    }
     const fn = handlers[key]
     if (fn) fn()
   },
 
-  onMoreMenuTap(e) {
-    const key = e.currentTarget.dataset.key
+  onManageCellTap(e) {
+    const { key } = e.currentTarget.dataset
     const handlers = {
       previewStore: () => this.onPreviewStore(),
       shareStore: () => this.onShareStore(),
@@ -389,8 +318,7 @@ Page({
 
   onAlbumList(e) {
     const tab =
-      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
-      'all'
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || 'all'
     this._navigateTo(`/packageMerchant/pages/album/list/index?tab=${tab}`)
   },
 
@@ -400,8 +328,7 @@ Page({
 
   onLeadList(e) {
     const tab =
-      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) ||
-      'pending'
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || 'pending'
     this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
   },
 
@@ -417,47 +344,13 @@ Page({
     this._navigateTo('/packageMerchant/pages/message/index')
   },
 
-  onWechatNotifyTap() {
-    if (this.data.needsSubscribePrompt) {
-      this.setData({ subscribeSheetVisible: true })
-      return
-    }
-    this.onWorkbenchSubscribe()
-  },
-
-  onSubscribeSheetClose() {
-    this.setData({ subscribeSheetVisible: false })
-  },
-
-  async onSubscribeSheetConfirm() {
-    await this.onWorkbenchSubscribe()
-    this.setData({ subscribeSheetVisible: false })
-  },
-
-  async refreshSubscribePrompt() {
-    try {
-      const subscribeStatus = await fetchMerchantSubscribeStatus('merchant')
-      const needsSubscribePrompt = Boolean(subscribeStatus && subscribeStatus.needsPrompt)
-      this.setData({ needsSubscribePrompt })
-    } catch (e) {
-      // ignore
-    }
-  },
-
-  async onWorkbenchSubscribe() {
-    await requestMerchantNotificationSubscribe('merchant')
-    await this.refreshSubscribePrompt()
-  },
-
   onPreviewStore() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
       wx.showToast({ title: '未找到门店信息', icon: 'none' })
       return
     }
-    this._navigateTo(
-      `/pages/store/detail/index?id=${profile.storeId}&preview=1`
-    )
+    this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1`)
   },
 
   onEditStore() {
@@ -470,9 +363,7 @@ Page({
       wx.showToast({ title: '未找到门店信息', icon: 'none' })
       return
     }
-    this._navigateTo(
-      `/pages/store/detail/index?id=${profile.storeId}&preview=1&share=1`
-    )
+    this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1&share=1`)
   },
 
   async _copyCaseWechatExport(caseId, field) {
@@ -509,23 +400,6 @@ Page({
     }
   },
 
-  onCasePublishSummaryTap(e) {
-    const key = e.currentTarget.dataset.key
-    if (key === 'pending') {
-      this._navigateTo('/packageMerchant/pages/album/list/index?tab=pending_auth')
-      return
-    }
-    if (key === 'published') {
-      copyCaseListH5Link().catch(() => {
-        openH5ContentSite()
-      })
-      return
-    }
-    if (key === 'views') {
-      this.onDashboard()
-    }
-  },
-
   onCasePublishItemTap(e) {
     const index = e.currentTarget.dataset.index
     const item =
@@ -558,7 +432,7 @@ Page({
       return
     }
     if (item.caseId) {
-      this._navigateTo(`/packageMerchant/pages/album/list/index?tab=pending_auth`)
+      this._navigateTo('/packageMerchant/pages/album/list/index?tab=pending_auth')
     }
   },
 })

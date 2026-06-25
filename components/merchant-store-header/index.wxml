@@ -1,0 +1,32 @@
+<view class="merchant-store-header">
+  <view class="merchant-store-header__main">
+    <picker
+      wx:if="{{canSwitchStore}}"
+      class="merchant-store-header__picker"
+      mode="selector"
+      range="{{storeOptions}}"
+      range-key="name"
+      value="{{storePickerIndex}}"
+      disabled="{{switchingStore}}"
+      bindchange="onStoreChange"
+    >
+      <view class="merchant-store-header__title-row">
+        <text class="merchant-store-header__title text-h3">{{storeName}}</text>
+        <text class="merchant-store-header__caret text-caption">▾</text>
+      </view>
+    </picker>
+    <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
+    <text wx:if="{{address}}" class="merchant-store-header__addr text-caption text-secondary">{{address}}</text>
+    <text wx:if="{{overviewLine}}" class="merchant-store-header__overview text-caption text-tertiary">{{overviewLine}}</text>
+  </view>
+
+  <view
+    wx:if="{{showMessageEntry}}"
+    class="merchant-store-header__msg"
+    bindtap="onMessageTap"
+    aria-label="消息通知"
+  >
+    <image class="merchant-store-header__msg-icon" src="/assets/nav/message.png" mode="aspectFit" />
+    <text wx:if="{{unreadBadgeText}}" class="merchant-store-header__msg-badge">{{unreadBadgeText}}</text>
+  </view>
+</view>
