@@ -15,6 +15,7 @@
   <view class="cell-row__extra">
     <view wx:if="{{dot}}" class="cell-row__dot" aria-hidden="true"></view>
     <text wx:elif="{{badge}}" class="cell-row__badge">{{badge}}</text>
+    <text wx:if="{{value}}" class="cell-row__value text-body">{{value}}</text>
     <text wx:if="{{arrow}}" class="cell-row__arrow text-caption">›</text>
     <slot name="extra" />
   </view>

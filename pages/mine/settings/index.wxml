@@ -1,73 +1,76 @@
 <ui-tool-page-shell
+  showBand="{{false}}"
   complianceText="{{platformNotice}}"
   showCompliance="{{true}}"
 >
   <view class="settings-page">
-    <view wx:if="{{isLoggedIn}}" class="settings-page__subscribe">
-      <ui-message-subscribe-banner
-        title="微信服务通知"
-        description="{{subscribeBannerDesc}}"
-        buttonText="{{subscribeButtonText}}"
-        bind:subscribe="onSubscribeWechat"
-      />
+    <block wx:if="{{isLoggedIn}}">
+      <view class="settings-page__group">
+        <ui-card shadow="{{true}}" padding="{{false}}">
+          <ui-cell
+            title="微信服务通知"
+            value="{{subscribeStatusText}}"
+            border="{{false}}"
+            arrow="{{true}}"
+            bind:celltap="onSubscribeCellTap"
+          />
+        </ui-card>
+        <text class="settings-page__hint text-caption">{{subscribeHint}}</text>
+      </view>
+    </block>
+
+    <view class="settings-page__group">
+      <ui-card shadow="{{true}}" padding="{{false}}">
+        <ui-cell
+          title="使用说明与帮助"
+          border="{{true}}"
+          arrow="{{true}}"
+          data-key="help"
+          bind:celltap="onCellTap"
+        />
+        <ui-cell
+          title="清除缓存"
+          border="{{true}}"
+          arrow="{{true}}"
+          data-key="cache"
+          bind:celltap="onCellTap"
+        />
+        <ui-cell
+          title="用户协议"
+          border="{{true}}"
+          arrow="{{true}}"
+          data-key="agreement"
+          bind:celltap="onCellTap"
+        />
+        <ui-cell
+          title="隐私政策"
+          border="{{true}}"
+          arrow="{{true}}"
+          data-key="privacy"
+          bind:celltap="onCellTap"
+        />
+        <ui-cell
+          title="关于辙见"
+          border="{{false}}"
+          arrow="{{true}}"
+          data-key="about"
+          bind:celltap="onCellTap"
+        />
+      </ui-card>
     </view>
 
-    <ui-card shadow="{{true}}" padding="{{false}}">
-      <ui-cell
-        wx:if="{{isLoggedIn}}"
-        title="手机号"
-        desc="{{phoneDesc}}"
-        border="{{true}}"
-        data-key="phone"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        title="使用说明与帮助"
-        desc="车主与商家使用指引"
-        border="{{true}}"
-        arrow="{{true}}"
-        data-key="help"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        title="清除缓存"
-        desc="清除本地搜索历史与临时数据"
-        border="{{true}}"
-        data-key="cache"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        title="用户协议"
-        border="{{true}}"
-        arrow="{{true}}"
-        data-key="agreement"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        title="隐私政策"
-        border="{{true}}"
-        arrow="{{true}}"
-        data-key="privacy"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        title="关于辙见"
-        desc="维修案例与服务相册"
-        border="{{true}}"
-        arrow="{{true}}"
-        data-key="about"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
-        wx:if="{{isLoggedIn}}"
-        title="账号注销"
-        desc="不可恢复，请谨慎操作"
-        border="{{false}}"
-        arrow="{{true}}"
-        data-key="deactivate"
-        bind:celltap="onCellTap"
-      />
-    </ui-card>
+    <view wx:if="{{isLoggedIn}}" class="settings-page__group">
+      <ui-card shadow="{{true}}" padding="{{false}}">
+        <ui-cell
+          title="账号注销"
+          desc="不可恢复，请谨慎操作"
+          border="{{false}}"
+          arrow="{{true}}"
+          data-key="deactivate"
+          bind:celltap="onCellTap"
+        />
+      </ui-card>
+    </view>
 
     <view wx:if="{{isLoggedIn}}" class="settings-page__logout">
       <ui-button type="danger" block bind:btntap="onLogout">退出登录</ui-button>

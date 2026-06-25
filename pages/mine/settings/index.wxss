@@ -1,12 +1,24 @@
 .settings-page {
-  padding-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
   padding-bottom: var(--space-md);
 }
 
-.settings-page__subscribe {
-  margin-bottom: var(--space-md);
+.settings-page__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.settings-page__hint {
+  display: block;
+  padding: 0 var(--space-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.6;
 }
 
 .settings-page__logout {
-  margin-top: var(--space-lg);
+  margin-top: var(--space-sm);
 }

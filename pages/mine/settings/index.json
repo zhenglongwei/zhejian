@@ -4,7 +4,6 @@
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-card": "/components/card/index",
     "ui-cell": "/components/cell/index",
-    "ui-button": "/components/button/index",
-    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index"
+    "ui-button": "/components/button/index"
   }
 }

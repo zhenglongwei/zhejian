@@ -96,6 +96,14 @@
   border-radius: var(--radius-full);
 }
 
+.cell-row__value {
+  color: var(--color-text-secondary);
+  max-width: 360rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cell-row__arrow {
   color: var(--color-text-tertiary);
 }

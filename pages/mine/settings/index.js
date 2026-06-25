@@ -1,20 +1,18 @@
-const { isLoggedIn, clearSession, maskPhone, getSession } = require('../../../utils/auth')
+const { isLoggedIn, clearSession } = require('../../../utils/auth')
 const { clearSearchHistory } = require('../../../utils/search-history')
 const { fetchUserSubscribeStatus } = require('../../../services/notification')
 const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
 const { HOME_PLATFORM_IDENTITY } = require('../../../constants/home-entries')
 
-const SUBSCRIBE_DESC_DEFAULT =
-  '相册更新与授权审核结果需你同意后，才会推送到微信。每次授权可收 1 条通知。'
-const SUBSCRIBE_DESC_READY = '当前已有可用通知额度。额度用完后请再次点击授权。'
+const SUBSCRIBE_HINT =
+  '微信一次性订阅消息，不是 App 常驻推送。每次点击授权仅增加 1 条发送额度；额度用完后请再次授权。提交授权公示时也会引导开启。'
 
 Page({
   data: {
     isLoggedIn: false,
-    phoneDesc: '登录后可绑定',
     platformNotice: HOME_PLATFORM_IDENTITY,
-    subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
-    subscribeButtonText: '开启微信通知',
+    subscribeStatusText: '未开启',
+    subscribeHint: SUBSCRIBE_HINT,
   },
 
   onShow() {
@@ -23,41 +21,26 @@ Page({
   },
 
   syncLoginState() {
-    const loggedIn = isLoggedIn()
-    const { user } = getSession()
-    let phoneDesc = '登录后可绑定'
-    if (loggedIn && user) {
-      phoneDesc = user.isPhoneBound
-        ? maskPhone(user.phone || user.phoneNumber || '')
-        : '未绑定，点击绑定'
-    }
-    this.setData({ isLoggedIn: loggedIn, phoneDesc })
+    this.setData({ isLoggedIn: isLoggedIn() })
   },
 
   async loadSubscribeStatus() {
     if (!isLoggedIn()) {
-      this.setData({
-        subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
-        subscribeButtonText: '开启微信通知',
-      })
+      this.setData({ subscribeStatusText: '未开启' })
       return
     }
     try {
       const status = await fetchUserSubscribeStatus('default')
       const needsPrompt = Boolean(status && status.needsPrompt)
       this.setData({
-        subscribeBannerDesc: needsPrompt ? SUBSCRIBE_DESC_DEFAULT : SUBSCRIBE_DESC_READY,
-        subscribeButtonText: needsPrompt ? '开启微信通知' : '再次授权',
+        subscribeStatusText: needsPrompt ? '未开启' : '可接收',
       })
     } catch (e) {
-      this.setData({
-        subscribeBannerDesc: SUBSCRIBE_DESC_DEFAULT,
-        subscribeButtonText: '开启微信通知',
-      })
+      this.setData({ subscribeStatusText: '未开启' })
     }
   },
 
-  onSubscribeWechat() {
+  onSubscribeCellTap() {
     if (!this.data.isLoggedIn) {
       wx.showToast({ title: '请先登录', icon: 'none' })
       return
@@ -69,18 +52,6 @@ Page({
 
   onCellTap(e) {
     const { key } = e.currentTarget.dataset
-    if (key === 'phone') {
-      if (!this.data.isLoggedIn) {
-        wx.showToast({ title: '请先登录', icon: 'none' })
-        return
-      }
-      wx.navigateBack({
-        fail() {
-          wx.navigateTo({ url: '/pages/mine/profile/index' })
-        },
-      })
-      return
-    }
     if (key === 'help') {
       wx.navigateTo({ url: '/pages/mine/help/index' })
       return
