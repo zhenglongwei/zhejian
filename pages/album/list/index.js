@@ -18,7 +18,7 @@ const {
   consumeListRefresh,
   shouldShowListLoading,
 } = require('../../../utils/list-page-show')
-const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
   buildPublicCaseSharePayload,
@@ -332,7 +332,9 @@ Page({
         icon: 'success',
       })
       if (agreed) {
-        requestUserNotificationSubscribe('authorize')
+        setTimeout(() => {
+          promptAuthorizeAuditSubscribe(albumId)
+        }, 1200)
       }
       markListNeedRefresh(this)
       this.loadList({ silent: true })

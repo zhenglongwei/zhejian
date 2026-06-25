@@ -4,21 +4,6 @@
   showCompliance="{{true}}"
 >
   <view class="settings-page">
-    <block wx:if="{{isLoggedIn}}">
-      <view class="settings-page__group">
-        <ui-card shadow="{{true}}" padding="{{false}}">
-          <ui-cell
-            title="微信服务通知"
-            value="{{subscribeStatusText}}"
-            border="{{false}}"
-            arrow="{{true}}"
-            bind:celltap="onSubscribeCellTap"
-          />
-        </ui-card>
-        <text class="settings-page__hint text-caption">{{subscribeHint}}</text>
-      </view>
-    </block>
-
     <view class="settings-page__group">
       <ui-card shadow="{{true}}" padding="{{false}}">
         <ui-cell

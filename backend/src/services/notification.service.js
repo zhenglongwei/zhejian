@@ -5,6 +5,7 @@ const { sendSubscribeMessage } = require('../lib/wechat')
 const {
   SUBSCRIBE_TEMPLATE_KEYS,
   getSubscribeTemplateId,
+  ensureSubscribeTemplateMap,
   buildSubscribePayload,
 } = require('../constants/notification-templates')
 
@@ -349,6 +350,7 @@ async function markNotificationsRead(receiverType, receiverId, ids = []) {
 
 async function saveSubscribeResults(userId, results = {}) {
   // 微信一次性订阅：accept 仅表示当前有 1 条发送额度，发送成功后会被 markSubscriptionConsumed 置为 consumed
+  ensureSubscribeTemplateMap()
   const repo = subscriptionRepo()
   if (!repo || !userId) return { saved: 0 }
   let saved = 0
@@ -390,12 +392,13 @@ async function getSubscribeStatus(userId, scene = 'merchant') {
   const keys = SUBSCRIBE_TEMPLATE_KEYS.byScene[scene] || SUBSCRIBE_TEMPLATE_KEYS.byScene.default
   const configuredKeys = keys.filter((key) => getSubscribeTemplateId(key))
   if (!configuredKeys.length) {
-    return { needsPrompt: false, templates: [] }
+    return { needsPrompt: false, hasAnyQuota: false, templates: [] }
   }
   const repo = subscriptionRepo()
   if (!repo || !userId) {
     return {
       needsPrompt: true,
+      hasAnyQuota: false,
       templates: configuredKeys.map((key) => ({ key, status: 'none', hasQuota: false })),
     }
   }
@@ -410,8 +413,10 @@ async function getSubscribeStatus(userId, scene = 'merchant') {
     const status = statusMap[key] || 'none'
     return { key, status, hasQuota: status === 'accept' }
   })
+  const hasAnyQuota = templates.some((item) => item.hasQuota)
   return {
     needsPrompt: templates.some((item) => !item.hasQuota),
+    hasAnyQuota,
     templates,
   }
 }

@@ -8,7 +8,7 @@ const {
 } = require('../../../services/desensitize')
 const { submitAlbumAuthorization } = require('../../../services/order-album')
 const { submitServiceAlbumAuthorization } = require('../../../services/service-album')
-const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   submitOrderPublicCaseReview,
   submitServicePublicCaseReview,
@@ -275,8 +275,10 @@ Page({
           })
         }
       }
-      await requestUserNotificationSubscribe('authorize', { showToast: false })
       wx.showToast({ title: '已授权公示，审核通过后将自动展示', icon: 'success', duration: 2000 })
+      setTimeout(() => {
+        promptAuthorizeAuditSubscribe(this.data.albumId)
+      }, 1200)
       setTimeout(() => {
         this.onBackAlbum()
       }, 2000)

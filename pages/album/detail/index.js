@@ -9,7 +9,7 @@ const {
   isRepairCompleted,
 } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
-const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { promptAuthorizeAuditSubscribe, promptAlbumProgressSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
   buildPublicCaseSharePayload,
@@ -567,6 +567,12 @@ Page({
       } else {
         this.updateShareMenu(showPublicCaseShare)
       }
+
+      if (pageStatus === 'normal' && !isRepairCompleted(enriched.status)) {
+        setTimeout(() => {
+          promptAlbumProgressSubscribe(this.albumId)
+        }, 480)
+      }
     } catch (e) {
       const code = e && e.code
       let message = (e && e.message) || '加载失败'
@@ -952,7 +958,9 @@ Page({
         icon: 'success',
       })
       if (agreed) {
-        requestUserNotificationSubscribe('authorize')
+        setTimeout(() => {
+          promptAuthorizeAuditSubscribe(detail.albumId)
+        }, 1200)
       }
       this.loadAlbum()
     } catch (e) {

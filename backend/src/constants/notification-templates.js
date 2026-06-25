@@ -21,6 +21,11 @@ function loadTemplateMap() {
   })
 }
 
+/** 写入订阅结果前须先调用，否则 byTemplateId 为空导致 saved=0 */
+function ensureSubscribeTemplateMap() {
+  loadTemplateMap()
+}
+
 function getSubscribeTemplateId(key) {
   loadTemplateMap()
   return (config.wechat.subscribeTemplates || {})[key] || ''
@@ -122,6 +127,7 @@ function buildSubscribePayload(templateKey, payload = {}) {
 module.exports = {
   SUBSCRIBE_TEMPLATE_KEYS,
   getSubscribeTemplateId,
+  ensureSubscribeTemplateMap,
   buildSubscribePayload,
   formatAuditDate,
   formatLeadTime,

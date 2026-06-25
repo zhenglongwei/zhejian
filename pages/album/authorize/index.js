@@ -7,7 +7,7 @@ const {
 } = require('../../../services/service-album')
 const { enrichAuthorizationItem } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
-const { requestUserNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 
 Page({
   data: {
@@ -209,7 +209,9 @@ Page({
         icon: 'success',
       })
       if (agreed) {
-        requestUserNotificationSubscribe('authorize')
+        setTimeout(() => {
+          promptAuthorizeAuditSubscribe(albumId)
+        }, 1200)
       }
       await this.loadList({ silent: true })
     } catch (e) {
