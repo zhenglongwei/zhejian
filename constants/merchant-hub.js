@@ -22,11 +22,11 @@ const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'dashboard', label: '数据概览' },
 ]
 
-const MERCHANT_MANAGE_CELLS = [
-  { key: 'previewStore', label: '预览门店', desc: '查看用户端门店主页' },
-  { key: 'shareStore', label: '分享门店', desc: '复制链接或分享卡片' },
-  { key: 'editStore', label: '编辑门店资料', desc: '基本资料与资质' },
-  { key: 'staff', label: '员工管理', desc: '邀请与管理门店员工' },
+const MERCHANT_MANAGE_ITEMS = [
+  { key: 'previewStore', label: '预览门店', hint: '用户端主页' },
+  { key: 'shareStore', label: '分享门店', hint: '链接与卡片' },
+  { key: 'editStore', label: '编辑资料', hint: '基本与资质' },
+  { key: 'staff', label: '员工管理', hint: '邀请与权限' },
 ]
 
 function formatSectionBadge(n) {
@@ -36,45 +36,18 @@ function formatSectionBadge(n) {
 }
 
 function buildMerchantTodoSummary(todos = {}) {
-  const items = []
   const pendingLeads = Number(todos.pendingLeads) || 0
-  const pendingAuth = Number(todos.pendingAuth) || 0
-  const pendingUpload = Number(todos.pendingUpload) || 0
-  const geoEvidenceBlocked = Number(todos.geoEvidenceBlocked) || 0
+  if (pendingLeads <= 0) return null
 
-  if (pendingLeads > 0) {
-    items.push({
-      key: 'leads',
-      label: `${pendingLeads} 条咨询待处理`,
-      action: 'leads',
-    })
-  }
-  if (pendingAuth > 0) {
-    items.push({
-      key: 'auth',
-      label: `${pendingAuth} 本待车主授权`,
-      action: 'auth',
-    })
-  }
-  if (pendingUpload > 0) {
-    items.push({
-      key: 'upload',
-      label: `${pendingUpload} 本待补节点`,
-      action: 'upload',
-    })
-  }
-  if (geoEvidenceBlocked > 0) {
-    items.push({
-      key: 'geo',
-      label: `${geoEvidenceBlocked} 个相册待补公开证据`,
-      action: 'geo',
-    })
-  }
-
-  if (!items.length) return null
   return {
-    headline: `${items.length} 项待你处理`,
-    items,
+    headline: `${pendingLeads} 条咨询待处理`,
+    items: [
+      {
+        key: 'leads',
+        label: '查看咨询线索',
+        action: 'leads',
+      },
+    ],
   }
 }
 
@@ -90,11 +63,8 @@ function pickMerchantHubAlbums(list = []) {
   return heroes.slice(0, 2)
 }
 
-function buildAlbumSectionBadge(todos = {}) {
-  const upload = Number(todos.pendingUpload) || 0
-  const auth = Number(todos.pendingAuth) || 0
-  const total = upload + auth
-  return formatSectionBadge(total)
+function buildAlbumSectionBadge() {
+  return ''
 }
 
 function attachDockBadge(item, todos = {}) {
@@ -107,6 +77,10 @@ function attachDockBadge(item, todos = {}) {
 
 function buildMerchantHubDock(todos = {}) {
   return MERCHANT_HUB_DOCK_ITEMS.map((item) => attachDockBadge(item, todos))
+}
+
+function buildMerchantManageGrid() {
+  return MERCHANT_MANAGE_ITEMS.map((item) => attachNavIcon({ ...item, desc: '' }))
 }
 
 function buildMerchantOverviewLine(overview = {}) {
@@ -128,10 +102,11 @@ module.exports = {
   MERCHANT_ALBUM_EMPTY_HINT,
   MERCHANT_CASE_SECTION_TITLE,
   MERCHANT_MANAGE_SECTION_TITLE,
-  MERCHANT_MANAGE_CELLS,
+  MERCHANT_MANAGE_ITEMS,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
+  buildMerchantManageGrid,
   buildMerchantOverviewLine,
 }

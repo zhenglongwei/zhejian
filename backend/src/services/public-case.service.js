@@ -265,6 +265,10 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 }
 
 async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId, taskId } = {}) {
+  const err = new Error('未关联车主的相册不再支持商家单方提交公开，请由车主扫码关联后授权公示')
+  err.status = 409
+  throw err
+
   const album = await prisma.album.findUnique({
     where: { id: albumId },
     include: {

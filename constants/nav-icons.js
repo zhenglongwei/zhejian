@@ -13,6 +13,10 @@ const NAV_ICON_MAP = {
   leads: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'warning-light' },
   services: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'info-light' },
   dashboard: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'well' },
+  previewStore: { icon: '/assets/tab/store.png', iconBg: 'info-light' },
+  shareStore: { icon: `${NAV_ICON_BASE}/merchant.png`, iconBg: 'warning-light' },
+  editStore: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'primary-light' },
+  staff: { icon: `${NAV_ICON_BASE}/vehicle.png`, iconBg: 'success-light' },
 }
 
 const DEFAULT_NAV_ICON = { icon: '', iconBg: 'well' }

@@ -14,7 +14,6 @@ const {
   fetchMerchantServiceAlbum,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
-  createMerchantColdStartPreview,
   switchMerchantServiceAlbumTemplate,
   recognizeVehicleIntakeOcr,
 } = require('../../../../services/merchant-service-album')
@@ -26,7 +25,6 @@ const {
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
 const { persistAlbumNodeImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
-const { BIZ_TYPE } = require('../../../../constants/desensitize')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -50,8 +48,8 @@ function normalizeOwnerPhone(value) {
 }
 
 const OWNER_PHONE_HINT = ALLOW_TEST_OWNER_PHONE
-  ? '【测试模式】可手填车主手机号，填写后点击保存即可关联；正式环境须由车主扫码确认。'
-  : '请车主扫码确认关联，将使用车主本人绑定的手机号。未关联时仅作门店留档；关联后车主可在小程序查看维修进度。'
+  ? '【测试模式】可手填车主手机号；标记完工前须关联车主。正式环境须由车主扫码确认。'
+  : '标记已完工前，须由车主扫码关联本人手机号（商家不可代填）。关联后车主可在小程序查看维修进度。'
 
 Page({
   data: {
@@ -87,9 +85,7 @@ Page({
     vehicleOcrLoading: false,
     isCompleted: false,
     hasOwner: false,
-    showSubmitReviewButton: false,
     publicCaseStatus: 'private',
-    submitReviewLoading: false,
     showBottomPrimary: false,
     bottomPrimaryText: '',
     ownerPhoneHint: OWNER_PHONE_HINT,
@@ -256,8 +252,6 @@ Page({
     const publicCaseStatus = detail.publicCaseStatus || 'private'
     const canSwitchTemplate =
       !isCompleted && publicCaseStatus === 'private' && detail.status !== 'pending_review'
-    const showSubmitReviewButton =
-      isCompleted && !hasOwnerPhone && publicCaseStatus === 'private'
     let showBottomPrimary = false
     let bottomPrimaryText = ''
     if (
@@ -266,9 +260,6 @@ Page({
     ) {
       showBottomPrimary = true
       bottomPrimaryText = '标记已完工'
-    } else if (showSubmitReviewButton) {
-      showBottomPrimary = true
-      bottomPrimaryText = '提交审核'
     }
     const compareColumns = this.initCompareColumnsFromNodes(nodes, detail.templateId || '')
     const geoEvidence =
@@ -317,7 +308,6 @@ Page({
       isCompleted,
       hasOwner,
       publicCaseStatus,
-      showSubmitReviewButton,
       showBottomPrimary,
       bottomPrimaryText,
       templateId: detail.templateId || '',
@@ -796,10 +786,15 @@ Page({
   onComplete() {
     if (this.data.completing || this.data.saving) return
     if (!this.validateVehicle()) return
-    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
-      const ownerCheck = this.validateOwnerPhoneInput()
-      if (!ownerCheck.ok) {
-        wx.showToast({ title: ownerCheck.message, icon: 'none' })
+    if (!this.data.hasOwner) {
+      if (this.data.allowTestOwnerPhone) {
+        const ownerCheck = this.validateOwnerPhoneInput()
+        if (!ownerCheck.ok || !ownerCheck.phone) {
+          wx.showToast({ title: ownerCheck.message || '请先填写车主手机号', icon: 'none' })
+          return
+        }
+      } else {
+        wx.showToast({ title: '请先请车主扫码关联手机号', icon: 'none' })
         return
       }
     }
@@ -811,9 +806,8 @@ Page({
 
     wx.showModal({
       title: '标记已完工',
-      content: this.data.hasOwner
-        ? '完工后服务相册将保存完整记录。若已关联车主，对方可查看；公开案例须车主另行授权。'
-        : '完工后服务相册将保存完整记录。未关联车主时，可在底部提交审核。',
+      content:
+        '完工后服务相册将保存完整记录。车主可在小程序查看；公开案例须车主另行授权公示。',
       confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return
@@ -859,94 +853,5 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
     })
-  },
-
-  canComplete() {
-    const status = this.data.detail && this.data.detail.status
-    return status !== SERVICE_ALBUM_STATUS.COMPLETED && status !== SERVICE_ALBUM_STATUS.PUBLISHED
-  },
-
-  hasAlbumImages() {
-    const imageCount = this.data.detail && this.data.detail.imageCount
-    if (Number.isFinite(imageCount) && imageCount > 0) return true
-    return (this.data.nodes || []).some((n) => (n.images || []).length > 0)
-  },
-
-  onSubmitReview() {
-    if (!this.validateVehicle()) return
-    if (this.data.submitReviewLoading) {
-      wx.showToast({ title: '正在提交，请稍候', icon: 'none' })
-      return
-    }
-    if (this.data.saving) {
-      wx.showToast({ title: '正在保存，请稍候', icon: 'none' })
-      return
-    }
-    if (this.data.completing) {
-      wx.showToast({ title: '正在标记完工，请稍候', icon: 'none' })
-      return
-    }
-    if (!this.data.isCompleted) {
-      wx.showToast({ title: '请先标记已完工', icon: 'none' })
-      return
-    }
-    const savedPhone = String((this.data.detail && this.data.detail.userPhone) || '').trim()
-    if (savedPhone) {
-      wx.showToast({ title: '已关联车主，请由车主完成授权公示', icon: 'none' })
-      return
-    }
-    if (this.data.publicCaseStatus === 'pending_review') {
-      wx.showToast({ title: '已在审核中', icon: 'none' })
-      return
-    }
-    if (this.data.publicCaseStatus === 'public_approved') {
-      wx.showToast({ title: '该案例已公开展示', icon: 'none' })
-      return
-    }
-    if (!this.hasAlbumImages()) {
-      wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
-      return
-    }
-
-    wx.hideLoading()
-    wx.showModal({
-      title: '提交审核',
-      content:
-        '请逐张核对脱敏效果并确认责任声明。审核通过后，案例将展示在公开页，价格为系统参考区间。',
-      confirmText: '开始核对',
-      success: (res) => {
-        if (!res.confirm) return
-        this.openColdStartWorkbench()
-      },
-      fail: () => {
-        wx.showToast({ title: '无法打开确认框', icon: 'none' })
-      },
-    })
-  },
-
-  async openColdStartWorkbench() {
-    if (this.data.submitReviewLoading) return
-    this.setData({ submitReviewLoading: true })
-    try {
-      wx.showLoading({ title: '加载脱敏预览', mask: true })
-      const preview = await createMerchantColdStartPreview(this.albumId)
-      wx.hideLoading()
-      const taskId = preview.taskId || (preview.task && preview.task.taskId)
-      if (!taskId) {
-        wx.showToast({ title: '脱敏任务创建失败', icon: 'none' })
-        return
-      }
-      wx.navigateTo({
-        url:
-          `/packageMerchant/pages/desensitize/workbench/index?taskId=${encodeURIComponent(taskId)}` +
-          `&albumId=${encodeURIComponent(this.albumId)}` +
-          `&bizType=${BIZ_TYPE.MERCHANT_HISTORY}&from=album_edit&fromPreMask=1`,
-      })
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
-    } finally {
-      this.setData({ submitReviewLoading: false })
-    }
   },
 })

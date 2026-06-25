@@ -175,20 +175,23 @@
         </view>
       </view>
 
-      <view wx:if="{{canManageStaff}}" class="merchant-hub__section">
+      <view wx:if="{{canManageStaff}}" class="merchant-hub__section merchant-hub__section--panel">
         <text class="merchant-hub__section-title text-h3 merchant-hub__manage-title">{{manageSectionTitle}}</text>
-        <ui-card shadow="{{true}}" padding="{{false}}">
-          <ui-cell
-            wx:for="{{manageCells}}"
+        <view class="merchant-hub__manage-grid">
+          <view
+            wx:for="{{manageGrid}}"
             wx:key="key"
-            title="{{item.label}}"
-            desc="{{item.desc}}"
-            border="{{index < manageCells.length - 1}}"
-            arrow="{{true}}"
+            class="merchant-hub__manage-item"
             data-key="{{item.key}}"
-            bind:celltap="onManageCellTap"
-          />
-        </ui-card>
+            bindtap="onManageTap"
+          >
+            <view class="merchant-hub__manage-well merchant-hub__manage-well--{{item.iconBg}}">
+              <image class="merchant-hub__manage-icon" src="{{item.icon}}" mode="aspectFit" />
+            </view>
+            <text class="merchant-hub__manage-label text-caption">{{item.label}}</text>
+            <text class="merchant-hub__manage-hint text-caption text-tertiary">{{item.hint}}</text>
+          </view>
+        </view>
       </view>
     </view>
   </block>

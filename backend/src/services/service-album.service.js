@@ -268,15 +268,12 @@ function buildMerchantView(album) {
   const privatePrice = buildPrivateAlbumPrice(album)
   const planAmount = privatePrice.planAmount
   const publicCaseStatus = resolvePublicCaseStatus(album)
-  const hasOwner =
-    Boolean(String(album.userId || '').trim()) ||
-    Boolean(String(album.userPhone || '').trim())
+  const hasOwner = albumHasOwner(album)
   const isCompleted =
     album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
     album.status === SERVICE_ALBUM_STATUS.PUBLISHED ||
     album.status === 'published'
-  const canSubmitColdStartPublicCase =
-    isCompleted && !hasOwner && publicCaseStatus === 'private'
+  const canSubmitColdStartPublicCase = false
   return {
     albumId: album.id,
     storeId: album.storeId,
@@ -633,6 +630,22 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   return buildMerchantView(album)
 }
 
+function albumHasOwner(album) {
+  return (
+    Boolean(String(album?.userId || '').trim()) ||
+    Boolean(String(album?.userPhone || '').trim())
+  )
+}
+
+function assertAlbumHasOwnerPhone(album) {
+  if (config.merchantOwnerPhoneTest) return
+  if (albumHasOwner(album)) return
+  const err = new Error('请先请车主扫码关联手机号后再继续')
+  err.status = 409
+  err.code = 100009
+  throw err
+}
+
 function assertMerchantCannotSetOwnerPhone(payload = {}) {
   if (config.merchantOwnerPhoneTest) return
   if (payload.userPhone == null || payload.userPhone === '') return
@@ -702,6 +715,11 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
     return { userPhone: previous }
   }
   if (!userPhone) {
+    if (previous) {
+      const err = new Error('已关联车主手机号不可清空')
+      err.status = 400
+      throw err
+    }
     return { userPhone: '', userId: '' }
   }
   const user = await prisma.user.findFirst({ where: { phone: userPhone } })
@@ -779,6 +797,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  assertAlbumHasOwnerPhone(existing)
   const imageCount = existing.imageCount || (existing.images || []).length
   if (imageCount < 1) {
     const err = new Error('请至少上传一张过程图')

@@ -640,6 +640,11 @@ async function clearPendingMerchantHistoryTasks(albumId) {
 }
 
 async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
+  const err = new Error('未关联车主的相册不再支持商家单方提交公开，请由车主扫码关联后授权公示')
+  err.code = 100008
+  err.status = 409
+  throw err
+
   const album = await loadAlbumWithRelations(albumId)
   if (!album) {
     const err = new Error('相册不存在')

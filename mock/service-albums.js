@@ -585,8 +585,7 @@ function buildMerchantAlbumView(raw) {
   const isCompleted =
     album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
     album.status === SERVICE_ALBUM_STATUS.PUBLISHED
-  const canSubmitColdStartPublicCase =
-    isCompleted && !hasOwner && publicCaseStatus === 'private'
+  const canSubmitColdStartPublicCase = false
   const nodes = mapNodesForView(album.nodes)
   return {
     albumId: album.albumId,
@@ -1008,6 +1007,12 @@ async function mockCompleteMerchantServiceAlbum(albumId) {
     err.code = 409
     throw err
   }
+  const hasOwner = Boolean(String(raw.userPhone || '').trim())
+  if (!hasOwner && !ALLOW_TEST_OWNER_PHONE) {
+    const err = new Error('请先请车主扫码关联手机号后再继续')
+    err.code = 409
+    throw err
+  }
   const now = new Date().toISOString()
   const next = {
     ...raw,
@@ -1072,6 +1077,10 @@ async function mockFetchMerchantAlbumGeoPreview(albumId) {
 }
 
 async function mockCreateMerchantColdStartPreview(albumId) {
+  const err = new Error('未关联车主的相册不再支持商家单方提交公开，请由车主扫码关联后授权公示')
+  err.code = 409
+  throw err
+
   await delay(280)
   const map = loadAlbumMap()
   const raw = map[albumId]

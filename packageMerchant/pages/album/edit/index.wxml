@@ -249,12 +249,7 @@
             catchtap="onSave"
           >保存</button>
           <button
-            wx:if="{{showSubmitReviewButton}}"
-            class="btn btn--primary btn--block merchant-album-edit__bottom-btn"
-            catchtap="onSubmitReview"
-          >提交审核</button>
-          <button
-            wx:elif="{{showBottomPrimary}}"
+            wx:if="{{showBottomPrimary}}"
             class="btn btn--primary btn--block merchant-album-edit__bottom-btn"
             catchtap="onComplete"
           >{{bottomPrimaryText}}</button>

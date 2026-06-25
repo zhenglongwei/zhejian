@@ -30,11 +30,11 @@ const {
   MERCHANT_ALBUM_EMPTY_HINT,
   MERCHANT_CASE_SECTION_TITLE,
   MERCHANT_MANAGE_SECTION_TITLE,
-  MERCHANT_MANAGE_CELLS,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
+  buildMerchantManageGrid,
   buildMerchantOverviewLine,
 } = require('../../../constants/merchant-hub')
 
@@ -64,7 +64,7 @@ Page({
     hubDock: buildMerchantHubDock(),
     casePublishRecent: [],
     canManageStaff: false,
-    manageCells: MERCHANT_MANAGE_CELLS,
+    manageGrid: buildMerchantManageGrid(),
     storeOptions: [],
     storePickerIndex: 0,
     canSwitchStore: false,
@@ -202,7 +202,7 @@ Page({
       hubDock: buildMerchantHubDock(todos),
       casePublishRecent,
       canManageStaff,
-      manageCells: canManageStaff ? MERCHANT_MANAGE_CELLS : [],
+      manageGrid: canManageStaff ? buildMerchantManageGrid() : [],
       storeOptions,
       storePickerIndex,
       canSwitchStore,
@@ -278,14 +278,9 @@ Page({
 
   onTodoItemTap(e) {
     const { action } = e.currentTarget.dataset
-    const handlers = {
-      leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
-      auth: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'pending_auth' } } }),
-      upload: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
-      geo: () => this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } }),
+    if (action === 'leads') {
+      this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } })
     }
-    const fn = handlers[action]
-    if (fn) fn()
   },
 
   onDockTap(e) {
@@ -300,7 +295,7 @@ Page({
     if (fn) fn()
   },
 
-  onManageCellTap(e) {
+  onManageTap(e) {
     const { key } = e.currentTarget.dataset
     const handlers = {
       previewStore: () => this.onPreviewStore(),

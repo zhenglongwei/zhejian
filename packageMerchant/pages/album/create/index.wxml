@@ -60,7 +60,7 @@
     </view>
 
     <view class="merchant-form__section">
-      <text class="text-caption album-create__scan-hint">关联车主为选填：可在编辑页请车主扫码确认，将使用车主本人绑定的手机号，不由商家代填。</text>
+      <text class="text-caption album-create__scan-hint">创建后请在编辑页请车主扫码关联手机号，关联完成后方可标记已完工。手机号由车主本人授权，商家不可代填。</text>
     </view>
   </block>
 
