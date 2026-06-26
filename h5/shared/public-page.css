@@ -46,6 +46,61 @@
   border-left: 3px solid var(--color-border-strong, var(--color-border));
 }
 
+.h5-section-note {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0 0 var(--space-md);
+}
+
+.h5-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.h5-breakdown-row {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.h5-breakdown-row:last-child {
+  border-bottom: none;
+}
+
+.h5-breakdown-label {
+  font-weight: 600;
+  font-size: var(--font-body);
+}
+
+.h5-breakdown-score,
+.h5-breakdown-hint {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.h5-transparency-asof {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-xs);
+}
+
+.h5-cert-empty {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  margin: var(--space-sm) 0 var(--space-md);
+}
+
+.h5-media-list-item--folio {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  padding: var(--space-md);
+  box-sizing: border-box;
+}
+
 .h5-metric-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

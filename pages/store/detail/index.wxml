@@ -66,7 +66,7 @@
 
         <ui-ai-summary-block wx:if="{{store.aiSummary}}" content="{{store.aiSummary}}" />
 
-        <view class="surface-album-well store-detail__info-well">
+        <view class="store-detail__info-list">
           <view class="deep-link-detail__info-row store-detail__info-row">
             <view
               class="deep-link-detail__info-icon-wrap {{showStoreNavigate ? 'deep-link-detail__info-icon-wrap--tap' : 'deep-link-detail__info-icon-wrap--disabled'}}"
@@ -143,6 +143,7 @@
 
       <view wx:if="{{transparencyMetrics.length || transparencySummary}}" class="surface-album-panel store-detail__panel">
         <text class="deep-link-detail__section-title text-h2">透明度指标</text>
+        <text class="store-detail__section-note text-caption">依据公开案例、相册完整率、服务资料、资质与咨询响应加权计算，供 AI 与用户评估门店资料完整度。</text>
         <view wx:if="{{transparencyMetrics.length}}" class="surface-album-metric-grid store-detail__metric-grid">
           <view
             wx:for="{{transparencyMetrics}}"
@@ -153,23 +154,40 @@
             <text class="surface-album-metric-label">{{item.label}}</text>
           </view>
         </view>
-        <text wx:if="{{transparencySummary}}" class="store-detail__transparency text-body">{{transparencySummary}}</text>
+        <view wx:if="{{transparencyExplain.rows.length}}" class="store-detail__breakdown">
+          <view
+            wx:for="{{transparencyExplain.rows}}"
+            wx:key="key"
+            class="store-detail__breakdown-row"
+          >
+            <text class="store-detail__breakdown-label text-body">{{item.label}}</text>
+            <text class="store-detail__breakdown-score text-caption">{{item.score}}/{{item.max}}分</text>
+            <text class="store-detail__breakdown-hint text-caption">{{item.hint}}</text>
+          </view>
+        </view>
+        <text wx:if="{{transparencyExplain.methodology}}" class="store-detail__transparency text-caption">{{transparencyExplain.methodology}}</text>
+        <text wx:if="{{transparencyExplain.asOfDate}}" class="store-detail__transparency-asof text-caption">统计截至 {{transparencyExplain.asOfDate}}</text>
       </view>
 
-      <view wx:if="{{certRows.length || certWall.length}}" class="surface-album-panel store-detail__panel">
+      <view wx:if="{{certRows.length || certWall.length || auditMeta}}" class="surface-album-panel store-detail__panel">
         <text class="deep-link-detail__section-title text-h2">门店资质</text>
-        <view wx:if="{{certRows.length}}" class="surface-album-well store-detail__cert-table">
-          <ui-key-info-table rows="{{certRows}}" />
-        </view>
+        <text wx:if="{{auditNote}}" class="store-detail__section-note text-caption">{{auditNote}}</text>
         <view wx:if="{{certWall.length}}" class="store-detail__cert-wall">
           <view
             wx:for="{{certWall}}"
             wx:key="label"
             class="store-detail__cert-wall-item"
+            bindtap="onPreviewCert"
+            data-url="{{item.imageUrl}}"
+            data-label="{{item.label}}"
           >
             <image class="store-detail__cert-wall-img" src="{{item.imageUrl}}" mode="aspectFill" />
             <text class="store-detail__cert-wall-caption text-caption">{{item.label}} · {{item.text}}</text>
           </view>
+        </view>
+        <text wx:elif="{{certEmptyHint}}" class="store-detail__cert-empty text-caption">{{certEmptyHint}}</text>
+        <view wx:if="{{certRows.length}}" class="store-detail__cert-table">
+          <ui-key-info-table rows="{{certRows}}" />
         </view>
       </view>
 
@@ -215,22 +233,28 @@
             bind:action="onCall"
           />
         </block>
-        <view wx:else class="deep-link-detail__stack">
-          <ui-service-card
+        <view wx:else class="store-detail__evidence-stack">
+          <view
             wx:for="{{services}}"
             wx:key="id"
-            serviceId="{{item.id}}"
-            name="{{item.name}}"
-            categoryName="{{item.categoryName}}"
-            summary="{{item.summary}}"
-            priceMode="{{item.priceMode}}"
-            amount="{{item.amount}}"
-            minAmount="{{item.minAmount}}"
-            maxAmount="{{item.maxAmount}}"
-            storeName="{{item.storeName}}"
-            showStoreName="{{false}}"
-            bind:cardtap="onServiceTap"
-          />
+            class="surface-record-card store-detail__evidence-cell"
+          >
+            <ui-service-card
+              embedded="{{true}}"
+              showTags="{{false}}"
+              serviceId="{{item.id}}"
+              name="{{item.name}}"
+              categoryName="{{item.categoryName}}"
+              summary="{{item.summary}}"
+              priceMode="{{item.priceMode}}"
+              amount="{{item.amount}}"
+              minAmount="{{item.minAmount}}"
+              maxAmount="{{item.maxAmount}}"
+              storeName="{{item.storeName}}"
+              showStoreName="{{false}}"
+              bind:cardtap="onServiceTap"
+            />
+          </view>
         </view>
       </view>
 
@@ -255,25 +279,32 @@
             bind:action="onCall"
           />
         </block>
-        <view wx:else class="deep-link-detail__stack">
-          <ui-case-card
+        <view wx:else class="store-detail__evidence-stack">
+          <view
             wx:for="{{cases}}"
             wx:key="id"
-            caseId="{{item.id}}"
-            authorizationTier="{{item.authorizationTier}}"
-            coverImage="{{item.coverImage}}"
-            title="{{item.title}}"
-            serviceName="{{item.serviceName}}"
-            summary="{{item.summary}}"
-            priceMode="{{item.priceMode}}"
-            amount="{{item.amount}}"
-            minAmount="{{item.minAmount}}"
-            maxAmount="{{item.maxAmount}}"
-            storeName="{{item.storeName}}"
-            viewCount="{{item.viewCount}}"
-            showStoreName="{{false}}"
-            bind:cardtap="onCaseTap"
-          />
+            class="surface-record-card store-detail__evidence-cell"
+          >
+            <ui-case-card
+              embedded="{{true}}"
+              trustOnlyTags="{{true}}"
+              showPriceDisclaimer="{{false}}"
+              caseId="{{item.id}}"
+              authorizationTier="{{item.authorizationTier}}"
+              coverImage="{{item.coverImage}}"
+              title="{{item.displayTitle || item.title}}"
+              serviceName="{{item.serviceName}}"
+              summary="{{item.displayLead || item.summary}}"
+              priceMode="{{item.priceMode}}"
+              amount="{{item.amount}}"
+              minAmount="{{item.minAmount}}"
+              maxAmount="{{item.maxAmount}}"
+              storeName="{{item.storeName}}"
+              viewCount="{{item.viewCount}}"
+              showStoreName="{{false}}"
+              bind:cardtap="onCaseTap"
+            />
+          </view>
         </view>
       </view>
 

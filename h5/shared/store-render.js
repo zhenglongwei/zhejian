@@ -352,6 +352,39 @@
     ensureMeta('name', 'robots', 'noindex,nofollow')
   }
 
+  function buildStoreCaseCardTitle(item) {
+    var vehicle = item.vehicleText || ''
+    var service = item.serviceName || ''
+    var problem = item.faultDesc || item.inspectResult || ''
+    if (problem.length > 24) problem = problem.slice(0, 24) + '…'
+    var parts = []
+    if (vehicle) parts.push(vehicle)
+    if (service) parts.push(service)
+    if (problem && service.indexOf(problem) === -1) parts.push(problem)
+    if (parts.length) return parts.join(' · ')
+    return String(item.title || '公开案例').replace(/维修维修/g, '维修')
+  }
+
+  function buildStoreCaseCardLead(item) {
+    if (item.repairPlan) {
+      return item.repairPlan.length > 48
+        ? item.repairPlan.slice(0, 48) + '…'
+        : item.repairPlan
+    }
+    var summary = item.aiSummary || item.summary || ''
+    summary = summary.replace(/^该案例经车主授权[，,]?/u, '').replace(/^该案例为/u, '')
+    if (summary.length > 56) summary = summary.slice(0, 56) + '…'
+    return summary || '含脱敏过程图片，详情见案例页。'
+  }
+
+  var TRANSPARENCY_BREAKDOWN_META = {
+    album: { label: '相册完整率', max: 30, hint: '服务相册六阶段节点完成比例' },
+    case: { label: '公开案例', max: 25, hint: '已审核脱敏案例数量' },
+    serviceProfile: { label: '服务资料', max: 15, hint: '上架服务的名称、摘要、封面与价格' },
+    qualification: { label: '资质认证', max: 15, hint: '营业执照与维修资质证照' },
+    leadResponse: { label: '咨询响应', max: 15, hint: '近7日咨询回复情况' },
+  }
+
   function renderTags(tags) {
     return tags
       .map(function (tag) {
@@ -422,17 +455,58 @@
             .join('') +
           '</div>'
         : ''
+    var breakdown = transparency.breakdown || {}
+    var breakdownHtml = Object.keys(TRANSPARENCY_BREAKDOWN_META)
+      .filter(function (key) {
+        return breakdown[key] != null
+      })
+      .map(function (key) {
+        var meta = TRANSPARENCY_BREAKDOWN_META[key]
+        return (
+          '<div class="h5-breakdown-row"><div class="h5-breakdown-label">' +
+          escapeHtml(meta.label) +
+          '</div><div class="h5-breakdown-score">' +
+          escapeHtml(String(breakdown[key])) +
+          '/' +
+          escapeHtml(String(meta.max)) +
+          '分</div><div class="h5-breakdown-hint">' +
+          escapeHtml(meta.hint) +
+          '</div></div>'
+        )
+      })
+      .join('')
+    var methodology =
+      transparency.methodology ||
+      '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
     return (
       '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">透明度指标</h2>' +
+      '<p class="h5-section-note">依据公开案例、相册完整率、服务资料、资质与咨询响应加权计算，供 AI 与用户评估门店资料完整度。</p>' +
       grid +
+      (breakdownHtml ? '<div class="h5-breakdown">' + breakdownHtml + '</div>' : '') +
       '<p class="h5-transparency">' +
-      escapeHtml(buildTransparencyText(store, serviceCount)) +
-      '</p></div>'
+      escapeHtml(methodology) +
+      '</p>' +
+      (transparency.asOfDate
+        ? '<p class="h5-transparency-asof">统计截至 ' + escapeHtml(transparency.asOfDate) + '</p>'
+        : '') +
+      '</div>'
     )
   }
 
   function renderCertSection(store, certRows) {
-    if (!certRows.length && !(store.certWall && store.certWall.length)) return ''
+    if (!certRows.length && !(store.certWall && store.certWall.length) && !store.auditMeta) {
+      return ''
+    }
+    var audit = store.auditMeta || {}
+    var auditNote = audit.auditor
+      ? '<p class="h5-section-note">由' +
+        escapeHtml(audit.auditor) +
+        '依据' +
+        escapeHtml(audit.basis || '营业执照、维修资质证照、门店实景照片') +
+        '审核' +
+        (audit.approvedAt ? '（' + escapeHtml(audit.approvedAt) + '）' : '') +
+        '。</p>'
+      : ''
     var table = ''
     if (certRows.length) {
       var body = certRows
@@ -468,11 +542,15 @@
           })
           .join('') +
         '</div>'
+    } else if (!store.certWall || !store.certWall.length) {
+      wall =
+        '<p class="h5-cert-empty">证照图片待商家补充；以下为平台资料审核结果。</p>'
     }
     return (
       '<div class="h5-folio-panel" id="store-trust"><h2 class="h5-folio-section-title">门店资质</h2>' +
-      table +
+      auditNote +
       wall +
+      table +
       '</div>'
     )
   }
@@ -616,9 +694,15 @@
     var cards = cases
       .map(function (item) {
         if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
-          return window.zhejianH5Ui.renderCaseListItem(item, {
+          return window.zhejianH5Ui.renderCaseListItem(
+            Object.assign({}, item, {
+              title: buildStoreCaseCardTitle(item),
+              summary: buildStoreCaseCardLead(item),
+            }),
+            {
             href: casePagePath(item),
             extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
+            className: 'h5-media-list-item h5-media-list-item--folio',
           })
         }
         var cover = pickCaseCover(item)

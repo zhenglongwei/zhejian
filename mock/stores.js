@@ -48,6 +48,20 @@ const SEED_STORES = [
       albumCompleteRate: 86,
       serviceCount: 2,
       summary: '该门店已公开 3 个维修案例，近 30 天相册完整率 86%，透明度评分 92 分。',
+      breakdown: {
+        album: 26,
+        case: 25,
+        serviceProfile: 15,
+        qualification: 15,
+        leadResponse: 11,
+      },
+      methodology:
+        '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。',
+    },
+    auditMeta: {
+      auditor: '辙见平台运营',
+      basis: '营业执照、维修资质证照、门店实景照片',
+      approvedAt: '2026-05-01',
     },
     faq: [
       {

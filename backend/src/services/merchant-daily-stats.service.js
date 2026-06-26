@@ -577,4 +577,5 @@ module.exports = {
   runDailyAggregation,
   fetchMerchantStats,
   snapshotAlbumCompleteRate,
+  computeTransparency,
 }

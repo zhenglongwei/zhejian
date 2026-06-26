@@ -17,7 +17,9 @@ const { buildStoreHeadTags } = require('../../../utils/store-tags')
 const {
   buildCertRows,
   buildTransparencyMetrics,
+  buildTransparencyExplain,
 } = require('../../../utils/public-page-display')
+const { enrichStoreCaseList } = require('../../../utils/store-case-display')
 const {
   buildPublicStoreSharePayload,
   buildPublicStoreTimelinePayload,
@@ -82,7 +84,10 @@ Page({
     staffPublic: [],
     transparencyMetrics: [],
     transparencySummary: '',
-    faqList: [],
+    transparencyExplain: null,
+    auditMeta: null,
+    auditNote: '',
+    certEmptyHint: '',
     vehicleSpecialties: [],
     vehicleSpecialtiesText: '',
     cases: [],
@@ -230,21 +235,37 @@ Page({
       const basicFields = buildStoreBasicFields(store)
       const pageTitle = store.name || DEEP_LINK_SHELL.store.subtitle
       const transparency = store.transparency || {}
+      const transparencyExplain = buildTransparencyExplain(transparency)
+      const certWall = store.certWall || []
+      const auditMeta = store.auditMeta || null
+      const auditNote = auditMeta
+        ? `由${auditMeta.auditor}依据${auditMeta.basis}审核${
+            auditMeta.approvedAt ? `（${auditMeta.approvedAt}）` : ''
+          }。`
+        : ''
+      const casesForView = enrichStoreCaseList(cases)
       this.setData({
         store: { ...store, caseCount: cases.length },
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certRows: buildCertRows(store.certifications),
-        certWall: store.certWall || [],
+        certWall,
+        certEmptyHint:
+          certWall.length > 0
+            ? ''
+            : '证照图片待商家补充；以下为平台资料审核结果。',
         staffPublic: store.staffPublic || [],
         faqList: store.faq || [],
+        auditMeta,
+        auditNote,
         transparencyMetrics: buildTransparencyMetrics({
           ...transparency,
           caseCount: cases.length,
           serviceCount: services.length,
         }),
         transparencySummary: transparency.summary || '',
-        cases,
+        transparencyExplain,
+        cases: casesForView,
         services,
         statusText: STATUS_TEXT[store.status] || store.status,
         status: 'normal',
@@ -469,5 +490,11 @@ Page({
 
   onEditStore() {
     wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
+  },
+
+  onPreviewCert(e) {
+    const url = e.currentTarget.dataset.url
+    if (!url) return
+    wx.previewImage({ urls: [url], current: url })
   },
 })

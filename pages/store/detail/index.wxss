@@ -62,8 +62,22 @@
   color: var(--color-text-secondary);
 }
 
-.store-detail__info-well {
+.store-detail__section-note {
+  display: block;
+  margin-bottom: var(--space-md);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.store-detail__info-list {
+  display: flex;
+  flex-direction: column;
   margin-top: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
 }
 
 .store-detail__info-row {
@@ -79,12 +93,59 @@
   margin-bottom: var(--space-md);
 }
 
-.store-detail__transparency {
+.store-detail__breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.store-detail__breakdown-row {
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.store-detail__breakdown-row:last-child {
+  border-bottom: none;
+}
+
+.store-detail__breakdown-label {
+  display: block;
+  font-weight: 600;
+}
+
+.store-detail__breakdown-score {
+  display: block;
+  margin-top: var(--space-xs);
   color: var(--color-text-secondary);
 }
 
+.store-detail__breakdown-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.store-detail__transparency {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.store-detail__transparency-asof {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
 .store-detail__cert-table {
+  margin-top: var(--space-md);
+}
+
+.store-detail__cert-empty {
+  display: block;
   margin-top: var(--space-sm);
+  color: var(--color-text-tertiary);
 }
 
 .store-detail__cert-wall {
@@ -98,6 +159,7 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg-muted);
+  border: 1rpx solid var(--color-border);
 }
 
 .store-detail__cert-wall-img {
@@ -155,4 +217,15 @@
 
 .store-detail__evidence {
   margin-top: 0;
+}
+
+.store-detail__evidence-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.store-detail__evidence-cell {
+  padding: var(--space-md);
 }

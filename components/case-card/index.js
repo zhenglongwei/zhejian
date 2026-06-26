@@ -1,6 +1,6 @@
 const { PUBLIC_AUTH_TIER, shouldShowStorePublicly } = require('../../constants/case-authorization')
 const { PRICE_MODE } = require('../../constants/price-mode')
-const { buildCaseTags } = require('../../utils/case-tags')
+const { buildCaseTags, buildCaseTrustTags } = require('../../utils/case-tags')
 const { pickCaseDisplayCover } = require('../../utils/desensitize-url')
 
 Component({
@@ -22,6 +22,9 @@ Component({
     storeName: { type: String, value: '' },
     viewCount: { type: Number, value: 0 },
     showStoreName: { type: Boolean, value: true },
+    embedded: { type: Boolean, value: false },
+    trustOnlyTags: { type: Boolean, value: false },
+    showPriceDisclaimer: { type: null, value: null },
     tags: {
       type: Array,
       value: [],
@@ -35,6 +38,11 @@ Component({
     priceShowDisclaimer: true,
   },
   observers: {
+    showPriceDisclaimer(showPriceDisclaimer) {
+      if (showPriceDisclaimer != null) {
+        this.setData({ priceShowDisclaimer: Boolean(showPriceDisclaimer) })
+      }
+    },
     priceMode(priceMode) {
       const isFixed = priceMode === PRICE_MODE.FIXED
       this.setData({
@@ -42,8 +50,14 @@ Component({
         priceShowDisclaimer: !isFixed,
       })
     },
-    'authorizationTier, tags, showStoreName, storeName'(authorizationTier, tags, showStoreName, storeName) {
-      this.syncTags(authorizationTier, tags, showStoreName, storeName)
+    'authorizationTier, tags, showStoreName, storeName, trustOnlyTags'(
+      authorizationTier,
+      tags,
+      showStoreName,
+      storeName,
+      trustOnlyTags
+    ) {
+      this.syncTags(authorizationTier, tags, showStoreName, storeName, trustOnlyTags)
     },
     'coverImage, coverImageDesensitized'() {
       this.syncDisplayCover()
@@ -51,13 +65,15 @@ Component({
   },
   lifetimes: {
     attached() {
-      const { authorizationTier, tags, showStoreName, storeName, priceMode } = this.properties
+      const { authorizationTier, tags, showStoreName, storeName, priceMode, trustOnlyTags, showPriceDisclaimer } =
+        this.properties
       const isFixed = priceMode === PRICE_MODE.FIXED
       this.setData({
         priceShowSuffix: !isFixed,
-        priceShowDisclaimer: !isFixed,
+        priceShowDisclaimer:
+          showPriceDisclaimer != null ? Boolean(showPriceDisclaimer) : !isFixed,
       })
-      this.syncTags(authorizationTier, tags, showStoreName, storeName)
+      this.syncTags(authorizationTier, tags, showStoreName, storeName, trustOnlyTags)
     },
     ready() {
       this.syncDisplayCover()
@@ -70,9 +86,11 @@ Component({
         this.setData({ displayCover })
       }
     },
-    syncTags(authorizationTier, tags, showStoreName, storeName) {
-      const tagList =
-        tags && tags.length ? tags : buildCaseTags(authorizationTier)
+    syncTags(authorizationTier, tags, showStoreName, storeName, trustOnlyTags) {
+      let tagList = tags && tags.length ? tags : buildCaseTags(authorizationTier)
+      if (trustOnlyTags) {
+        tagList = buildCaseTrustTags()
+      }
       const canShowStore =
         shouldShowStorePublicly(authorizationTier) &&
         showStoreName !== false &&

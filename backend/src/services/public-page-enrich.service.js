@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { computeTransparency } = require('./merchant-daily-stats.service')
 const { STORE_EXTRAS } = require('../constants/content-seed')
 const {
   formatQualificationForClient,
@@ -190,6 +191,25 @@ async function loadTransparency(store, merchantId, serviceCount = 0) {
   const albumRate =
     lastRow?.albumCompleteRate != null ? Math.round(Number(lastRow.albumCompleteRate) * 100) : null
 
+  let breakdown = null
+  if (lastRow && merchantId) {
+    const statDate =
+      lastRow.statDate instanceof Date
+        ? lastRow.statDate.toISOString().slice(0, 10)
+        : String(lastRow.statDate).slice(0, 10)
+    try {
+      const computed = await computeTransparency(
+        merchantId,
+        store.id,
+        statDate,
+        lastRow.albumCompleteRate
+      )
+      breakdown = computed.breakdown
+    } catch (e) {
+      breakdown = null
+    }
+  }
+
   const parts = []
   if (caseCount > 0) parts.push(`已公开 ${caseCount} 个维修案例`)
   if (albumRate != null && albumRate > 0) parts.push(`近 30 天相册完整率 ${albumRate}%`)
@@ -205,6 +225,9 @@ async function loadTransparency(store, merchantId, serviceCount = 0) {
     albumCompleteRate: albumRate,
     serviceCount,
     summary,
+    breakdown,
+    methodology:
+      '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。',
     asOfDate: lastRow?.statDate ? String(lastRow.statDate).slice(0, 10) : '',
   }
 }
@@ -259,6 +282,16 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       faq,
       vehicleSpecialties,
       aiSummary: mapped.aiSummary || mapped.intro || '',
+      auditMeta: {
+        auditor: '辙见平台运营',
+        basis: '营业执照、维修资质证照、门店实景照片',
+        approvedAt:
+          merchantRow?.approvedAt instanceof Date
+            ? merchantRow.approvedAt.toISOString().slice(0, 10)
+            : merchantRow?.approvedAt
+              ? String(merchantRow.approvedAt).slice(0, 10)
+              : '',
+      },
     },
     STORE_SECTION_ORDER
   )

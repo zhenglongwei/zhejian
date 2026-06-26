@@ -24,4 +24,12 @@ function buildCaseTags(authorizationTier) {
   ].slice(0, MAX_TAGS)
 }
 
-module.exports = { buildCaseTags }
+/** 门店页列表：仅展示合规状态，减少彩色 Tag */
+function buildCaseTrustTags() {
+  return [
+    { variant: 'default', text: '已脱敏' },
+    { variant: 'default', text: '已审核' },
+  ]
+}
+
+module.exports = { buildCaseTags, buildCaseTrustTags }

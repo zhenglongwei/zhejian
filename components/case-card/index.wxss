@@ -6,6 +6,20 @@
   overflow: hidden;
 }
 
+.case-card--embedded {
+  background-color: transparent;
+  border-radius: 0;
+}
+
+.case-card--embedded .case-card__body {
+  padding: 0;
+}
+
+.case-card--embedded .case-card__cover {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
 .case-card__cover {
   position: relative;
   width: 100%;

@@ -1,5 +1,5 @@
 <view
-  class="case-card"
+  class="case-card {{embedded ? 'case-card--embedded' : ''}}"
   bindtap="onTap"
 >
   <view class="case-card__cover image-placeholder">
