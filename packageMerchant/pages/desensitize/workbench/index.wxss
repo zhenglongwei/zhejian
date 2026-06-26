@@ -8,6 +8,11 @@
   background-color: var(--color-warning-light);
 }
 
+.desensitize-page__geo-block-hint {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
 .desensitize-page__geo-block-title {
   color: var(--color-text-secondary);
 }

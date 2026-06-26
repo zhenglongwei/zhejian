@@ -36,14 +36,7 @@
     </block>
     <view wx:if="{{geoBlocked}}" class="desensitize-page__geo-block">
       <ui-tag variant="warning" text="公开证据待补" />
-      <text class="text-caption desensitize-page__geo-block-title">提交审核前请补全以下项：</text>
-      <view class="desensitize-page__geo-block-list">
-        <text
-          wx:for="{{geoBlockMessages}}"
-          wx:key="*this"
-          class="text-caption desensitize-page__geo-block-item"
-        >· {{item}}</text>
-      </view>
+      <text class="text-caption desensitize-page__geo-block-hint">{{geoBlockHint}}</text>
       <ui-button type="secondary" size="sm" block bind:btntap="onBackEdit">返回相册补全</ui-button>
     </view>
     <view wx:if="{{needPreviewHint}}" class="desensitize-page__preview-hint text-caption">

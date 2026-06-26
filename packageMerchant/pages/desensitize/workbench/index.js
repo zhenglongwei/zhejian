@@ -8,6 +8,11 @@ const {
 } = require('../../../../services/desensitize')
 const { submitMerchantPublicCase, fetchMerchantAlbumGeoPreview } = require('../../../../services/merchant-service-album')
 const { mapTaskToWorkbenchState } = require('../../../../utils/desensitize-workbench-display')
+const {
+  buildGeoEvidenceMerchantContent,
+  isGeoEvidenceIncompleteError,
+  showGeoEvidenceIncompleteModal,
+} = require('../../../../utils/geo-evidence-prompt')
 
 Page({
   data: {
@@ -26,7 +31,7 @@ Page({
     confirmLabelShort: '确认并提交',
     needPreviewHint: false,
     geoQuality: null,
-    geoBlockMessages: [],
+    geoBlockHint: '',
     geoBlocked: false,
     errorMessage: '',
     autoMaskLoading: false,
@@ -76,11 +81,11 @@ Page({
       const preview = await fetchMerchantAlbumGeoPreview(this.data.albumId)
       const geoQuality = preview.geoQuality || null
       const missingFields = (geoQuality && geoQuality.missingFields) || []
-      const geoBlockMessages = missingFields.map((item) => item.message).filter(Boolean)
+      const geoBlockHint = buildGeoEvidenceMerchantContent(missingFields)
       const geoBlocked = geoQuality && geoQuality.level === 'block'
       this.setData({
         geoQuality,
-        geoBlockMessages,
+        geoBlockHint,
         geoBlocked,
       })
     } catch (e) {
@@ -229,10 +234,8 @@ Page({
     if (this.data.confirmLoading) return
     if (this.data.geoBlocked) {
       wx.showModal({
-        title: '公开证据不完整',
-        content:
-          (this.data.geoBlockMessages || []).join('\n') ||
-          '请返回相册编辑页补全接车、检测、方案等节点说明后再提交。',
+        title: '暂无法提交',
+        content: this.data.geoBlockHint || buildGeoEvidenceMerchantContent(),
         showCancel: false,
         confirmText: '返回编辑',
         success: (res) => {
@@ -276,7 +279,15 @@ Page({
         }
       }, 700)
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+      if (isGeoEvidenceIncompleteError(e)) {
+        const res = await showGeoEvidenceIncompleteModal(e, {
+          audience: 'merchant',
+          confirmText: '返回编辑',
+        })
+        if (res.confirm) this.onBackEdit()
+      } else {
+        wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+      }
     } finally {
       this.setData({ confirmLoading: false })
     }

@@ -19,7 +19,11 @@ function errorHandler(err, req, res, next) {
       : null) ||
     err.details ||
     null
-  console.error('[api-error]', res.locals.requestId, err)
+  if (err.code === 'GEO_EVIDENCE_INCOMPLETE') {
+    console.warn('[api-geo-block]', res.locals.requestId, message, err.missingFields?.length || 0)
+  } else {
+    console.error('[api-error]', res.locals.requestId, err)
+  }
   fail(res, code, message, status, data)
 }
 
