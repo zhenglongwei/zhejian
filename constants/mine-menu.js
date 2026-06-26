@@ -60,7 +60,10 @@ const MINE_HUB_DOCK = [
   MINE_TOOL_MENUS[0],
   MINE_PUBLIC_MENUS[1],
   MINE_MERCHANT_ITEM,
-].map((item) => attachNavIcon({ ...item, desc: '' }))
+].map((item) => ({
+  ...attachNavIcon({ ...item, desc: '' }),
+  iconBg: 'well',
+}))
 
 function attachBadge(item, badges) {
   const badge = item.badgeKey && badges[item.badgeKey] ? badges[item.badgeKey] : ''

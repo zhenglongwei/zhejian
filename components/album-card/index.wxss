@@ -1,3 +1,19 @@
+.album-card__shell--raised {
+  overflow: hidden;
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-album-list-thumb);
+}
+
+.album-card__shell--embedded {
+  overflow: hidden;
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-album-list-thumb);
+}
+
 .album-card__inner {
   display: flex;
   flex-direction: row;
@@ -40,9 +56,23 @@
 
 .album-card__thumb--placeholder {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
   background: var(--color-album-frame-inner);
+  box-sizing: border-box;
+}
+
+.album-card__thumb-initial {
+  color: var(--color-album-frame-corner);
+}
+
+.album-card__thumb-progress {
+  width: 100%;
+  padding: 0 var(--space-xs);
+  box-sizing: border-box;
 }
 
 .album-card__thumb-ph {

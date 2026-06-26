@@ -1,13 +1,40 @@
 <view class="page deactivate-page page-content">
   <text class="deactivate-page__title text-h2">{{title}}</text>
   <text class="deactivate-page__body text-body">{{body}}</text>
+
+  <view wx:if="{{loading}}" class="deactivate-page__state text-caption">正在检查注销条件…</view>
+
+  <view wx:elif="{{loadError}}" class="deactivate-page__state">
+    <text class="deactivate-page__state-text text-caption">{{loadError}}</text>
+    <ui-button type="secondary" size="sm" bind:btntap="onRetryCheck">重试</ui-button>
+  </view>
+
+  <view wx:elif="{{blockers.length}}" class="deactivate-page__blockers">
+    <text class="deactivate-page__blockers-title text-body">暂无法注销</text>
+    <view
+      wx:for="{{blockers}}"
+      wx:key="code"
+      class="deactivate-page__blocker-item text-caption"
+    >
+      {{item.message}}
+    </view>
+  </view>
+
   <view class="deactivate-page__notice">
     <ui-compliance-notice
       text="注销申请提交后，账号将不可登录。如有进行中的授权争议或投诉工单，可能需人工处理后再完成注销。"
     />
   </view>
+
   <view class="deactivate-page__actions">
-    <ui-button type="secondary" bind:btntap="onCancel">取消</ui-button>
-    <ui-button type="primary" bind:btntap="onConfirm">{{confirmText}}</ui-button>
+    <ui-button type="secondary" disabled="{{submitting}}" bind:btntap="onCancel">取消</ui-button>
+    <ui-button
+      type="primary"
+      disabled="{{loading || !!loadError || !canDeactivate || submitting}}"
+      loading="{{submitting}}"
+      bind:btntap="onConfirm"
+    >
+      {{confirmText}}
+    </ui-button>
   </view>
 </view>

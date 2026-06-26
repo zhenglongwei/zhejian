@@ -1,7 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "ui-card": "/components/card/index",
     "ui-tag": "/components/tag/index",
     "ui-button": "/components/button/index"
   }

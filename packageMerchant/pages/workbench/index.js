@@ -36,6 +36,33 @@ const {
   buildMerchantOverviewLine,
 } = require('../../../constants/merchant-hub')
 
+const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat']
+
+function resolveCasePublishTagVariant(publishStatus) {
+  if (MERCHANT_CASE_PUBLISHED.includes(publishStatus)) return 'default'
+  return 'info'
+}
+
+function decorateCasePublishRecent(list = []) {
+  return (list || []).map((item) => ({
+    ...item,
+    publishTagVariant: resolveCasePublishTagVariant(item.publishStatus),
+  }))
+}
+
+function quietMerchantHubAlbumTags(item = {}) {
+  const status = item.status || ''
+  const needsColor =
+    status === 'pending_review' ||
+    status === 'pending_authorization' ||
+    status === 'pending_part_confirm' ||
+    item.publicCaseStatus === 'pending_review'
+  return {
+    ...item,
+    statusVariant: needsColor ? item.statusVariant : 'default',
+  }
+}
+
 Page({
   data: {
     status: 'loading',
@@ -155,7 +182,9 @@ Page({
       }
 
       if (publishPanel && publishPanel.recent) {
-        casePublishRecent = (publishPanel.recent || []).slice(0, 3)
+        casePublishRecent = decorateCasePublishRecent(
+          (publishPanel.recent || []).slice(0, 3)
+        )
       }
 
       if (dashStats && dashStats.summary) {
@@ -169,7 +198,9 @@ Page({
 
       geoOpportunity = geoOpp || null
 
-      const heroes = pickMerchantHubAlbums(albumList || []).map(enrichMerchantAlbumListItem)
+      const heroes = pickMerchantHubAlbums(albumList || []).map((item) =>
+        quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))
+      )
       albumHeroCards = heroes
     } catch (e) {
       // keep defaults

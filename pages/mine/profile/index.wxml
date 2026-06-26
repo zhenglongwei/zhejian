@@ -1,6 +1,7 @@
 <ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <block wx:if="{{status === 'unauthenticated'}}">
     <ui-empty
+      theme="album"
       title="请先登录"
       description="登录后可编辑头像、昵称与车辆信息"
       actionText="微信一键登录"
@@ -16,6 +17,7 @@
 
   <block wx:elif="{{status === 'error'}}">
     <ui-empty
+      theme="album"
       title="加载失败"
       description="{{errorMessage}}"
       actionText="重试"
@@ -25,7 +27,7 @@
 
   <block wx:else>
     <view class="profile-form">
-      <ui-card shadow="{{true}}" padding="{{false}}">
+      <view class="profile-form__main surface-album-panel">
         <view class="profile-form__row profile-form__row--avatar">
           <text class="profile-form__label text-body">头像</text>
           <view class="profile-form__value-wrap">
@@ -63,7 +65,7 @@
           />
         </view>
 
-        <view class="profile-form__row profile-form__row--last" bindtap="onBindPhoneTap">
+        <view class="profile-form__row profile-form__row--bordered" bindtap="onBindPhoneTap">
           <text class="profile-form__label text-body">手机号</text>
           <view class="profile-form__value-wrap">
             <text class="profile-form__value text-body {{user.isPhoneBound ? '' : 'profile-form__value--muted'}}">
@@ -72,9 +74,9 @@
             <text class="profile-form__arrow text-caption">›</text>
           </view>
         </view>
-      </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{false}}">
+        <view class="surface-album-inset-divider" />
+
         <view class="profile-form__row profile-form__row--last" bindtap="onVehicleTap">
           <text class="profile-form__label text-body">我的车辆</text>
           <view class="profile-form__value-wrap">
@@ -84,7 +86,7 @@
             <text class="profile-form__arrow text-caption">›</text>
           </view>
         </view>
-      </ui-card>
+      </view>
     </view>
   </block>
 </ui-tool-page-shell>

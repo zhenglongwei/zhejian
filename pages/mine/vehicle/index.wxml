@@ -1,4 +1,4 @@
-<view class="page vehicle-list">
+<view class="page vehicle-list bg-album">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content vehicle-list__pad">
       <ui-skeleton rows="{{4}}" title="{{true}}" />
@@ -8,6 +8,7 @@
   <block wx:elif="{{status === 'unauthenticated'}}">
     <view class="page-content">
       <ui-empty
+        theme="album"
         title="{{needPhone ? '绑定手机号后管理车辆' : '登录后管理车辆'}}"
         description="{{needPhone ? '绑定后可保存常用车辆信息' : '登录后可保存常用车辆信息'}}"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
@@ -19,6 +20,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="page-content">
       <ui-empty
+        theme="album"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
@@ -30,6 +32,7 @@
   <block wx:elif="{{status === 'empty'}}">
     <view class="page-content vehicle-list__empty-wrap">
       <ui-empty
+        theme="album"
         title="暂无车辆"
         description="添加常用车辆信息"
         actionText="添加车辆"
@@ -40,7 +43,7 @@
 
   <block wx:else>
     <view class="page-content vehicle-list__body">
-      <ui-card shadow="{{true}}" padding="{{false}}">
+      <view class="vehicle-list__main surface-album-panel">
         <view
           wx:for="{{list}}"
           wx:key="id"
@@ -48,7 +51,7 @@
           data-id="{{item.id}}"
           bind:tap="onOpenDetail"
         >
-          <view class="vehicle-list__main">
+          <view class="vehicle-list__row-main">
             <view class="vehicle-list__title-row">
               <text class="vehicle-list__title text-body">{{item.displayTitle}}</text>
               <ui-tag wx:if="{{item.isDefault}}" variant="success" text="默认" />
@@ -75,7 +78,7 @@
             >删除</text>
           </view>
         </view>
-      </ui-card>
+      </view>
     </view>
   </block>
 

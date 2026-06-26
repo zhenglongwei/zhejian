@@ -1,10 +1,11 @@
-<view class="page favorite-list">
+<view class="page favorite-list bg-album">
   <ui-list-page-shell
     tabs="{{tabs}}"
     activeKey="{{activeTab}}"
     status="{{status}}"
     errorMessage="{{errorMessage}}"
     tabsCard="{{true}}"
+    emptyTheme="album"
     emptyTitle="暂无收藏"
     emptyDescription="浏览门店、服务或案例后可收藏，方便下次查看"
     emptyActionText="去看看"

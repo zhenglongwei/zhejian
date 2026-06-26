@@ -1,6 +1,8 @@
 const { config } = require('../config')
 const { fail } = require('../lib/response')
 const { verifyToken, normalizeRoles, ROLES } = require('../lib/jwt')
+const { prisma } = require('../lib/prisma')
+const { USER_STATUS } = require('../constants/user')
 
 const DEV_USER_ID = 'user_demo_1'
 const DEV_MERCHANT_ID = 'merchant_demo_1'
@@ -134,7 +136,7 @@ function optionalAuth(req, res, next) {
 }
 
 function requireAuth(roles = []) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const auth = req.auth
     if (!auth || !auth.token || !auth.roles.length) {
       return fail(res, 100002, '未授权', 401)
@@ -147,6 +149,22 @@ function requireAuth(roles = []) {
     }
     if (roles.includes(ROLES.MERCHANT) && !auth.merchantId) {
       return fail(res, 100003, '尚未开通商家身份', 403)
+    }
+    if (roles.includes(ROLES.USER) && auth.userId && !auth.isDevToken) {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: auth.userId },
+          select: { status: true },
+        })
+        if (!user || user.status === USER_STATUS.CANCELLED) {
+          return fail(res, 100002, '账号已注销，请重新注册', 401)
+        }
+        if (user.status === USER_STATUS.DISABLED) {
+          return fail(res, 100003, '账号已被禁用', 403)
+        }
+      } catch (e) {
+        return next(e)
+      }
     }
     next()
   }

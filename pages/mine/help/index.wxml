@@ -1,30 +1,38 @@
 <ui-tool-page-shell>
   <view class="help-center">
-    <view class="help-center__identity">
-      <text class="help-center__heading text-h3">{{identity.heading}}</text>
-      <text class="help-center__body text-body">{{identity.body}}</text>
-    </view>
-
-    <view class="help-center__tabs">
-      <ui-tabs tabs="{{tabs}}" activeKey="{{activeTab}}" bind:change="onTabChange" />
-    </view>
-
-    <view wx:for="{{sections}}" wx:key="heading" class="help-center__section">
-      <text class="help-center__heading text-h3">{{item.heading}}</text>
-      <text class="help-center__body text-body">{{item.body}}</text>
-    </view>
-
-    <view class="help-center__about">
-      <text class="help-center__heading text-h3">{{about.heading}}</text>
-      <view wx:for="{{about.items}}" wx:key="title" class="help-center__about-item">
-        <text class="help-center__about-title text-body">{{item.title}}</text>
-        <text class="help-center__body text-caption">{{item.desc}}</text>
+    <view class="help-center__main surface-album-panel">
+      <view class="help-center__identity">
+        <text class="help-center__heading text-h3">{{identity.heading}}</text>
+        <text class="help-center__body text-body">{{identity.body}}</text>
       </view>
-    </view>
 
-    <view class="help-center__actions">
-      <ui-button type="ghost" size="sm" bind:btntap="onOpenH5Site">浏览 H5 内容站</ui-button>
-      <ui-button type="secondary" size="sm" bind:btntap="onContactSupport">联系客服</ui-button>
+      <view class="help-center__tabs">
+        <ui-tabs tabs="{{tabs}}" activeKey="{{activeTab}}" bind:change="onTabChange" />
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view wx:for="{{sections}}" wx:key="heading" class="help-center__section">
+        <text class="help-center__heading text-h3">{{item.heading}}</text>
+        <text class="help-center__body text-body">{{item.body}}</text>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view class="help-center__about">
+        <text class="help-center__heading text-h3">{{about.heading}}</text>
+        <view wx:for="{{about.items}}" wx:key="title" class="help-center__about-item">
+          <text class="help-center__about-title text-body">{{item.title}}</text>
+          <text class="help-center__body text-caption">{{item.desc}}</text>
+        </view>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view class="help-center__actions">
+        <ui-button type="ghost" size="sm" bind:btntap="onOpenH5Site">浏览 H5 内容站</ui-button>
+        <ui-button type="secondary" size="sm" bind:btntap="onContactSupport">联系客服</ui-button>
+      </view>
     </view>
   </view>
 </ui-tool-page-shell>

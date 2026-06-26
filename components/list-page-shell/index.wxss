@@ -6,7 +6,6 @@
 
 .list-page-shell__tabs--card {
   padding-bottom: var(--space-sm);
-  background-color: var(--color-bg-card);
 }
 
 .list-page-shell__body {

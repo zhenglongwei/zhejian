@@ -1,7 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "ui-card": "/components/card/index",
     "ui-lead-status-badge": "/components/lead-status-badge/index",
     "ui-button": "/components/button/index"
   }

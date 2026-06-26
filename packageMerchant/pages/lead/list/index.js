@@ -25,6 +25,7 @@ Page({
     storeId: '',
     emptyTitle: '暂无线索',
     emptyDescription: '',
+    skeletonItems: [0, 1, 2],
   },
 
   onLoad(options) {

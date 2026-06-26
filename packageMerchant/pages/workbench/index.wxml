@@ -11,6 +11,7 @@
   <block wx:elif="{{status === 'pending'}}">
     <view class="merchant-hub__gate">
       <ui-empty
+        theme="album"
         title="{{gatePending.title}}"
         description="{{gatePending.description}}"
         actionText="查看审核进度"
@@ -22,6 +23,7 @@
   <block wx:elif="{{status === 'rejected'}}">
     <view class="merchant-hub__gate">
       <ui-empty
+        theme="album"
         title="入驻未通过"
         description="{{profile.rejectReason || '请修改资料后重新提交'}}"
         actionText="修改入驻资料"
@@ -33,6 +35,7 @@
   <block wx:elif="{{status === 'need_modify'}}">
     <view class="merchant-hub__gate">
       <ui-empty
+        theme="album"
         title="资料需修改"
         description="{{profile.rejectReason || '请按审核意见修改后重新提交'}}"
         actionText="修改入驻资料"
@@ -44,6 +47,7 @@
   <block wx:elif="{{status === 'none'}}">
     <view class="merchant-hub__gate">
       <ui-empty
+        theme="album"
         title="{{gateNone.title}}"
         description="{{gateNone.description}}"
         actionText="申请入驻"
@@ -54,7 +58,7 @@
 
   <block wx:else>
     <view class="merchant-hub">
-      <view class="merchant-hub__folio bg-album">
+      <view class="merchant-hub__folio surface-album-folio">
         <ui-merchant-store-header
           storeName="{{profile.storeName}}"
           address="{{profile.address}}"
@@ -69,7 +73,7 @@
         />
       </view>
 
-      <view class="merchant-hub__section merchant-hub__section--panel">
+      <view class="merchant-hub__main surface-album-panel">
         <view class="merchant-hub__section-head">
           <text class="merchant-hub__section-title text-h3">{{albumSectionTitle}}</text>
           <view class="merchant-hub__section-links">
@@ -89,6 +93,7 @@
               audience="merchant"
               showProgress="{{true}}"
               showHeaderActions="{{true}}"
+              embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
             />
@@ -97,70 +102,75 @@
 
         <block wx:else>
           <ui-empty
+            theme="album"
             title="暂无服务相册"
             description="{{albumEmptyHint}}"
             actionText="新建服务相册"
             bind:action="onCreateAlbum"
           />
         </block>
-      </view>
 
-      <view wx:if="{{todoSummary}}" class="merchant-hub__section merchant-hub__section--panel merchant-hub__todo">
-        <text class="merchant-hub__todo-headline text-body">{{todoSummary.headline}}</text>
-        <view class="merchant-hub__todo-list">
-          <view
-            wx:for="{{todoSummary.items}}"
-            wx:key="key"
-            class="merchant-hub__todo-item"
-            data-action="{{item.action}}"
-            bindtap="onTodoItemTap"
-          >
-            <text class="merchant-hub__todo-dot" />
-            <text class="text-caption">{{item.label}}</text>
-            <text class="merchant-hub__todo-arrow text-caption">›</text>
-          </view>
-        </view>
-      </view>
-
-      <view wx:if="{{casePublishRecent.length}}" class="merchant-hub__section merchant-hub__section--panel">
-        <view class="merchant-hub__section-head">
-          <text class="merchant-hub__section-title text-h3">{{caseSectionTitle}}</text>
-          <view class="merchant-hub__section-link" bindtap="onAlbumList">
-            <text class="merchant-hub__section-link-text text-caption text-link">全部相册</text>
-          </view>
-        </view>
-        <view class="merchant-hub__case-list">
-          <view
-            wx:for="{{casePublishRecent}}"
-            wx:key="caseId"
-            class="merchant-hub__case-item"
-            data-index="{{index}}"
-            data-album-id="{{item.albumId}}"
-            data-case-id="{{item.caseId}}"
-            bindtap="onCasePublishItemTap"
-          >
-            <view class="merchant-hub__case-main">
-              <text class="text-body merchant-hub__case-title">{{item.title}}</text>
-              <text class="text-caption text-tertiary">{{item.serviceName}}</text>
+        <block wx:if="{{todoSummary}}">
+          <view class="surface-album-inset-divider" />
+          <view class="merchant-hub__todo">
+            <text class="merchant-hub__todo-headline text-body">{{todoSummary.headline}}</text>
+            <view class="merchant-hub__todo-list">
+              <view
+                wx:for="{{todoSummary.items}}"
+                wx:key="key"
+                class="merchant-hub__todo-item"
+                data-action="{{item.action}}"
+                bindtap="onTodoItemTap"
+              >
+                <text class="merchant-hub__todo-dot" />
+                <text class="text-caption">{{item.label}}</text>
+                <text class="merchant-hub__todo-arrow text-caption">›</text>
+              </view>
             </view>
-            <ui-tag
-              variant="{{item.publishStatus === 'published_wechat' ? 'success' : 'info'}}"
-              text="{{item.publishLabel}}"
-            />
           </view>
-        </view>
-      </view>
+        </block>
 
-      <view
-        wx:if="{{geoOpportunity}}"
-        class="merchant-hub__geo"
-        bindtap="onAlbumList"
-      >
-        <text class="text-caption text-secondary">{{geoOpportunity.hint}}</text>
-      </view>
+        <block wx:if="{{casePublishRecent.length}}">
+          <view class="surface-album-inset-divider" />
+          <view class="merchant-hub__case-block">
+            <view class="merchant-hub__section-head">
+              <text class="merchant-hub__section-title text-h3">{{caseSectionTitle}}</text>
+              <view class="merchant-hub__section-link" bindtap="onAlbumList">
+                <text class="merchant-hub__section-link-text text-caption text-link">全部相册</text>
+              </view>
+            </view>
+            <view class="merchant-hub__case-list">
+              <view
+                wx:for="{{casePublishRecent}}"
+                wx:key="caseId"
+                class="merchant-hub__case-item"
+                data-index="{{index}}"
+                data-album-id="{{item.albumId}}"
+                data-case-id="{{item.caseId}}"
+                bindtap="onCasePublishItemTap"
+              >
+                <view class="merchant-hub__case-main">
+                  <text class="text-body merchant-hub__case-title">{{item.title}}</text>
+                  <text class="text-caption text-tertiary">{{item.serviceName}}</text>
+                </view>
+                <ui-tag
+                  variant="{{item.publishTagVariant}}"
+                  text="{{item.publishLabel}}"
+                />
+              </view>
+            </view>
+          </view>
+        </block>
 
-      <view class="merchant-hub__section merchant-hub__section--panel merchant-hub__shortcuts">
-        <view class="merchant-hub__dock merchant-hub__dock--in-panel">
+        <block wx:if="{{geoOpportunity}}">
+          <view class="surface-album-inset-divider" />
+          <view class="merchant-hub__geo" bindtap="onAlbumList">
+            <text class="text-caption text-secondary">{{geoOpportunity.hint}}</text>
+          </view>
+        </block>
+
+        <view class="surface-album-inset-divider" />
+        <view class="merchant-hub__dock">
           <view
             wx:for="{{hubDock}}"
             wx:key="key"
@@ -168,13 +178,14 @@
             data-key="{{item.key}}"
             bindtap="onDockTap"
           >
-            <view class="merchant-hub__dock-well merchant-hub__dock-well--{{item.iconBg}}">
-              <image class="merchant-hub__dock-icon" src="{{item.icon}}" mode="aspectFit" />
+            <view class="merchant-hub__dock-well surface-album-well">
+              <image class="merchant-hub__dock-icon nav-icon-tone-album" src="{{item.icon}}" mode="aspectFit" />
               <text wx:if="{{item.badge}}" class="merchant-hub__dock-badge">{{item.badge}}</text>
             </view>
             <text class="merchant-hub__dock-label text-caption">{{item.label}}</text>
           </view>
         </view>
+
         <view wx:if="{{hubMoreLinks.length}}" class="merchant-hub__more">
           <block wx:for="{{hubMoreLinks}}" wx:key="key">
             <text wx:if="{{index > 0}}" class="merchant-hub__more-sep text-caption text-tertiary">·</text>

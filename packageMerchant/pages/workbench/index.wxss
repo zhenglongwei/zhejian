@@ -28,22 +28,11 @@
 .merchant-hub__folio {
   margin: 0 calc(-1 * var(--page-padding-x));
   padding: var(--space-lg) var(--page-padding-x);
-  background: linear-gradient(
-    180deg,
-    var(--color-primary-light) 0%,
-    var(--color-album-frame-inner) 180rpx,
-    var(--color-album-frame-inner) 100%
-  );
-  border-bottom: 1rpx solid var(--color-album-frame-line);
-  box-sizing: border-box;
 }
 
-.merchant-hub__section--panel {
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
+.merchant-hub__main {
+  display: flex;
+  flex-direction: column;
 }
 
 .merchant-hub__section-head {
@@ -56,37 +45,6 @@
 
 .merchant-hub__section-title {
   color: var(--color-text-primary);
-}
-
-.merchant-hub__shortcuts {
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-sm);
-}
-
-.merchant-hub__dock--in-panel {
-  padding: var(--space-xs) 0 0;
-  background-color: transparent;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.merchant-hub__more {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1rpx solid var(--color-border);
-}
-
-.merchant-hub__more-link:active {
-  opacity: 0.72;
-}
-
-.merchant-hub__more-sep {
-  user-select: none;
 }
 
 .merchant-hub__section-links {
@@ -147,12 +105,16 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: var(--radius-full);
-  background-color: var(--color-primary);
+  background-color: var(--color-album-frame-corner);
 }
 
 .merchant-hub__todo-arrow {
   margin-left: auto;
   color: var(--color-text-tertiary);
+}
+
+.merchant-hub__case-block .merchant-hub__section-head {
+  margin-bottom: var(--space-xs);
 }
 
 .merchant-hub__case-list {
@@ -167,7 +129,7 @@
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-sm) 0;
-  border-bottom: 1rpx solid var(--color-border);
+  border-bottom: 1rpx solid var(--color-album-frame-line);
 }
 
 .merchant-hub__case-item:last-child {
@@ -193,14 +155,6 @@
   white-space: nowrap;
 }
 
-.merchant-hub__geo {
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  border: 1rpx solid var(--color-album-frame-line);
-  box-sizing: border-box;
-}
-
 .merchant-hub__geo:active {
   opacity: 0.72;
 }
@@ -209,8 +163,7 @@
   display: flex;
   align-items: stretch;
   justify-content: space-around;
-  gap: var(--space-xs);
-  box-sizing: border-box;
+  gap: var(--space-sm);
 }
 
 .merchant-hub__dock-item {
@@ -229,30 +182,14 @@
 
 .merchant-hub__dock-well {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-nav-icon-well);
-}
-
-.merchant-hub__dock-well--primary-light {
-  background-color: var(--color-primary-light);
-}
-
-.merchant-hub__dock-well--info-light {
-  background-color: var(--color-info-light);
-}
-
-.merchant-hub__dock-well--warning-light {
-  background-color: var(--color-warning-light);
+  width: var(--size-nav-icon-well);
+  height: var(--size-nav-icon-well);
+  border-radius: var(--radius-md);
 }
 
 .merchant-hub__dock-icon {
-  width: 44rpx;
-  height: 44rpx;
+  width: var(--size-nav-icon);
+  height: var(--size-nav-icon);
 }
 
 .merchant-hub__dock-badge {
@@ -273,4 +210,23 @@
 .merchant-hub__dock-label {
   color: var(--color-text-secondary);
   text-align: center;
+}
+
+.merchant-hub__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.merchant-hub__more-link:active {
+  opacity: 0.72;
+}
+
+.merchant-hub__more-sep {
+  user-select: none;
 }

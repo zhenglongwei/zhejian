@@ -12,32 +12,18 @@
 }
 
 .mine__tool-hint {
-  padding: var(--space-sm) var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-md);
-  border: 1rpx solid var(--color-album-frame-line);
-  box-sizing: border-box;
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
 }
 
 .mine__folio {
   margin: 0 calc(-1 * var(--page-padding-x));
   padding: var(--space-lg) var(--page-padding-x);
-  background: linear-gradient(
-    180deg,
-    var(--color-primary-light) 0%,
-    var(--color-album-frame-inner) 180rpx,
-    var(--color-album-frame-inner) 100%
-  );
-  border-bottom: 1rpx solid var(--color-album-frame-line);
-  box-sizing: border-box;
 }
 
-.mine__section--panel {
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
+.mine__main {
+  display: flex;
+  flex-direction: column;
 }
 
 .mine__section-head {
@@ -92,8 +78,9 @@
   gap: var(--space-xs);
   padding: var(--space-lg);
   border-radius: var(--radius-md);
-  background-color: var(--color-primary-light);
+  background-color: var(--color-album-frame-inner);
   border: 1rpx solid var(--color-album-frame-line);
+  box-shadow: var(--shadow-album-list-thumb);
   box-sizing: border-box;
 }
 
@@ -130,20 +117,12 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: var(--radius-full);
-  background-color: var(--color-primary);
+  background-color: var(--color-album-frame-corner);
 }
 
 .mine__todo-arrow {
   margin-left: auto;
   color: var(--color-text-tertiary);
-}
-
-.mine__incentive {
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  border: 1rpx solid var(--color-album-frame-line);
-  box-sizing: border-box;
 }
 
 .mine__incentive:active {
@@ -163,11 +142,6 @@
   align-items: stretch;
   justify-content: space-around;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
 }
 
 .mine__dock-item {
@@ -185,30 +159,14 @@
 }
 
 .mine__dock-well {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-nav-icon-well);
-}
-
-.mine__dock-well--primary-light {
-  background-color: var(--color-primary-light);
-}
-
-.mine__dock-well--info-light {
-  background-color: var(--color-info-light);
-}
-
-.mine__dock-well--warning-light {
-  background-color: var(--color-warning-light);
+  width: var(--size-nav-icon-well);
+  height: var(--size-nav-icon-well);
+  border-radius: var(--radius-md);
 }
 
 .mine__dock-icon {
-  width: 44rpx;
-  height: 44rpx;
+  width: var(--size-nav-icon);
+  height: var(--size-nav-icon);
 }
 
 .mine__dock-label {

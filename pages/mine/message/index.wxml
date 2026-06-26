@@ -8,6 +8,7 @@
   <block wx:elif="{{status === 'unauthenticated'}}">
     <view class="message-list__state">
       <ui-empty
+        theme="album"
         title="登录后查看消息"
         description="登录后可接收相册与授权审核相关通知"
         actionText="微信一键登录"
@@ -18,8 +19,9 @@
 
   <block wx:elif="{{status === 'error'}}">
     <view class="message-list__state">
-      <ui-empty
-        title="加载失败"
+    <ui-empty
+      theme="album"
+      title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
         bind:action="onRetry"
@@ -33,6 +35,7 @@
     </view>
     <view class="message-list__state">
       <ui-empty
+        theme="album"
         title="暂无消息"
         description="服务相册更新与授权审核结果会在这里通知你"
       />

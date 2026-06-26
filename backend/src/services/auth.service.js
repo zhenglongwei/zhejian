@@ -3,6 +3,7 @@ const { config } = require('../config')
 const { newId, maskPhone } = require('../lib/ids')
 const { signSessionToken, ROLES } = require('../lib/jwt')
 const { code2Session, getPhoneNumber } = require('../lib/wechat')
+const { USER_STATUS } = require('../constants/user')
 const { resolveMerchantContext } = require('./merchant-context.service')
 const { linkPendingStaffForUser } = require('./merchant-staff.service')
 const {
@@ -118,6 +119,9 @@ async function realWechatLogin(code) {
   const { openid, unionid } = session
 
   let user = await prisma.user.findUnique({ where: { openid } })
+  if (user && user.status === USER_STATUS.CANCELLED) {
+    user = null
+  }
   if (!user) {
     user = await prisma.user.create({
       data: {

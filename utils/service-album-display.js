@@ -173,15 +173,23 @@ function resolveMerchantAlbumDisplayStatus(rawStatus) {
   }
 }
 
+function resolveCoverInitial(item = {}) {
+  const name = String(item.serviceName || '').trim()
+  if (!name) return '档'
+  return name.charAt(0)
+}
+
 function appendAlbumListPresentation(item, base = {}) {
   const merged = { ...item, ...base }
   const coverUrl = resolveAlbumCoverUrl(merged)
+  const coverInitial = resolveCoverInitial(merged)
   const stageProgress = buildAlbumListStageProgress(merged)
   const authAction = resolveAlbumAuthAction(merged)
   const hasUnreadUpdate = Boolean(base.hasUnreadUpdate)
   return {
     ...base,
     coverUrl,
+    coverInitial,
     metaLine: buildAlbumMetaLine(merged),
     deliverDateText: merged.deliverDateText || '',
     summaryLine: merged.summaryLine || '',

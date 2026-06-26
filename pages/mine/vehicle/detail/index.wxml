@@ -8,6 +8,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="vehicle-detail__state">
       <ui-empty
+        theme="album"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
@@ -17,24 +18,22 @@
   </block>
 
   <block wx:else>
-    <view class="vehicle-detail__head">
-      <ui-card shadow="{{true}}">
-        <view class="vehicle-detail__head-inner">
-          <view class="vehicle-detail__title-row">
-            <text class="vehicle-detail__title text-h3">{{vehicle.displayTitle}}</text>
-            <ui-tag wx:if="{{vehicle.isDefault}}" variant="success" text="默认" />
-          </view>
-          <text wx:if="{{vehicle.plateDisplay}}" class="vehicle-detail__meta text-caption">
-            车牌 {{vehicle.plateDisplay}}
-          </text>
-          <text class="vehicle-detail__meta text-caption">
-            服务相册 {{vehicle.albumCount || 0}} 本
-          </text>
-          <view class="vehicle-detail__head-actions">
-            <text class="vehicle-detail__link text-link" bindtap="onEditVehicle">编辑车辆</text>
-          </view>
+    <view class="vehicle-detail__head surface-album-panel">
+      <view class="vehicle-detail__head-inner">
+        <view class="vehicle-detail__title-row">
+          <text class="vehicle-detail__title text-h3">{{vehicle.displayTitle}}</text>
+          <ui-tag wx:if="{{vehicle.isDefault}}" variant="default" text="默认" />
         </view>
-      </ui-card>
+        <text wx:if="{{vehicle.plateDisplay}}" class="vehicle-detail__meta text-caption">
+          车牌 {{vehicle.plateDisplay}}
+        </text>
+        <text class="vehicle-detail__meta text-caption">
+          服务相册 {{vehicle.albumCount || 0}} 本
+        </text>
+        <view class="vehicle-detail__head-actions">
+          <text class="vehicle-detail__link text-link" bindtap="onEditVehicle">编辑车辆</text>
+        </view>
+      </view>
     </view>
 
     <view class="vehicle-detail__section-title text-caption">服务相册时间轴</view>
@@ -42,6 +41,7 @@
     <block wx:if="{{status === 'empty'}}">
       <view class="vehicle-detail__state">
         <ui-empty
+          theme="album"
           title="暂无该车的服务相册"
           description="门店创建相册并登记相同品牌、车系后会出现在这里"
           actionText="查看全部相册"

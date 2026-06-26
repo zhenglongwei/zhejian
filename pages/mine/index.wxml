@@ -8,6 +8,7 @@
 
   <block wx:elif="{{status === 'error'}}">
     <ui-empty
+      theme="album"
       title="加载失败"
       description="{{errorMessage}}"
       actionText="重试"
@@ -17,11 +18,11 @@
 
   <block wx:else>
     <view class="mine__hub">
-      <view wx:if="{{!isLoggedIn}}" class="mine__tool-hint">
+      <view wx:if="{{!isLoggedIn}}" class="mine__tool-hint surface-album-panel">
         <text class="text-caption text-secondary">{{guestToolHint}}</text>
       </view>
 
-      <view class="mine__folio bg-album">
+      <view class="mine__folio surface-album-folio">
         <ui-mine-user-header
           variant="hub"
           isLoggedIn="{{isLoggedIn}}"
@@ -32,7 +33,7 @@
         />
       </view>
 
-      <view class="mine__section mine__section--panel">
+      <view class="mine__main surface-album-panel">
         <view class="mine__section-head">
           <text class="mine__section-title text-h3">{{albumSectionTitle}}</text>
           <view wx:if="{{isLoggedIn}}" class="mine__section-links">
@@ -56,6 +57,7 @@
               audience="user"
               showProgress="{{true}}"
               showHeaderActions="{{false}}"
+              embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
             />
@@ -64,6 +66,7 @@
 
         <block wx:elif="{{isLoggedIn}}">
           <ui-empty
+            theme="album"
             title="暂无服务相册"
             description="{{albumEmptyHint}}"
             actionText="使用说明"
@@ -77,49 +80,52 @@
             <text class="text-caption text-secondary">{{guestAlbumHint}}</text>
           </view>
         </block>
-      </view>
 
-      <view wx:if="{{todoSummary}}" class="mine__section mine__section--panel mine__todo">
-        <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
-        <view class="mine__todo-list">
+        <block wx:if="{{todoSummary}}">
+          <view class="surface-album-inset-divider" />
+          <view class="mine__todo">
+            <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
+            <view class="mine__todo-list">
+              <view
+                wx:for="{{todoSummary.items}}"
+                wx:key="key"
+                class="mine__todo-item"
+                data-action="{{item.action}}"
+                bindtap="onTodoItemTap"
+              >
+                <text class="mine__todo-dot" />
+                <text class="text-caption">{{item.label}}</text>
+                <text class="mine__todo-arrow text-caption">›</text>
+              </view>
+            </view>
+          </view>
+        </block>
+
+        <block wx:if="{{isLoggedIn && showShareIncentive}}">
+          <view class="surface-album-inset-divider" />
+          <view class="mine__incentive" bindtap="onShareIncentiveTap">
+            <view class="mine__incentive-head">
+              <text class="text-body">{{shareIncentiveTitle}}</text>
+              <ui-tag variant="default" text="{{shareIncentivePreview.statusLabel}}" />
+            </view>
+            <text class="text-caption text-secondary">{{shareIncentivePreview.summaryHint}}</text>
+          </view>
+        </block>
+
+        <view class="surface-album-inset-divider" />
+        <view class="mine__dock">
           <view
-            wx:for="{{todoSummary.items}}"
+            wx:for="{{hubDock}}"
             wx:key="key"
-            class="mine__todo-item"
-            data-action="{{item.action}}"
-            bindtap="onTodoItemTap"
+            class="mine__dock-item"
+            data-key="{{item.key}}"
+            bindtap="onDockTap"
           >
-            <text class="mine__todo-dot" />
-            <text class="text-caption">{{item.label}}</text>
-            <text class="mine__todo-arrow text-caption">›</text>
+            <view class="mine__dock-well surface-album-well">
+              <image class="mine__dock-icon nav-icon-tone-album" src="{{item.icon}}" mode="aspectFit" />
+            </view>
+            <text class="mine__dock-label text-caption">{{item.label}}</text>
           </view>
-        </view>
-      </view>
-
-      <view
-        wx:if="{{isLoggedIn && showShareIncentive}}"
-        class="mine__incentive"
-        bindtap="onShareIncentiveTap"
-      >
-        <view class="mine__incentive-head">
-          <text class="text-body">{{shareIncentiveTitle}}</text>
-          <ui-tag variant="default" text="{{shareIncentivePreview.statusLabel}}" />
-        </view>
-        <text class="text-caption text-secondary">{{shareIncentivePreview.summaryHint}}</text>
-      </view>
-
-      <view class="mine__dock">
-        <view
-          wx:for="{{hubDock}}"
-          wx:key="key"
-          class="mine__dock-item"
-          data-key="{{item.key}}"
-          bindtap="onDockTap"
-        >
-          <view class="mine__dock-well mine__dock-well--{{item.iconBg}}">
-            <image class="mine__dock-icon" src="{{item.icon}}" mode="aspectFit" />
-          </view>
-          <text class="mine__dock-label text-caption">{{item.label}}</text>
         </view>
       </view>
 

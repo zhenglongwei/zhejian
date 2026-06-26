@@ -808,6 +808,93 @@ page {
   background-color: var(--color-bg-album);
 }
 
+/** 工具页表面（Surface System · UI-SURFACE） */
+.surface-album-panel {
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-album-list-thumb);
+  box-sizing: border-box;
+}
+
+.surface-album-folio {
+  background: linear-gradient(
+    180deg,
+    var(--color-album-frame) 0%,
+    var(--color-album-frame-inner) 160rpx,
+    var(--color-album-frame-inner) 100%
+  );
+  border-bottom: 1rpx solid var(--color-album-frame-line);
+  box-sizing: border-box;
+}
+
+.surface-album-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  box-shadow: var(--shadow-album-list-thumb);
+  box-sizing: border-box;
+}
+
+/** 工具页 Dock：彩色 nav PNG 统一为暖灰线型（待替换为单色线稿资源前） */
+.nav-icon-tone-album {
+  opacity: 0.88;
+  filter: grayscale(100%) brightness(0.58) sepia(0.22);
+}
+
+/** 列表记录卡（授权/消息/线索）— 与 album-card raised 同语法 */
+.surface-record-card {
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-album-list-thumb);
+  box-sizing: border-box;
+}
+
+/** 工具页 KPI / 指标内嵌格 */
+.surface-album-metric-grid {
+  display: flex;
+  gap: 1rpx;
+  overflow: hidden;
+  background-color: var(--color-album-frame-line);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.surface-album-metric-cell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 132rpx;
+  padding: var(--space-md) var(--space-sm);
+  background-color: var(--color-album-frame-inner);
+  box-sizing: border-box;
+}
+
+.surface-album-metric-num {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.surface-album-metric-label {
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.surface-album-inset-divider {
+  height: 1rpx;
+  margin: var(--space-md) 0;
+  background-color: var(--color-album-frame-line);
+}
+
 .bg-band {
   background-color: var(--color-bg-band);
 }

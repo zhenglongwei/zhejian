@@ -1,4 +1,4 @@
-<ui-card shadow="{{true}}" padding="{{false}}">
+<view class="album-card__shell {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}}">
   <view class="album-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
     <view class="album-card__thumb-col">
       <block wx:if="{{framed}}">
@@ -12,7 +12,13 @@
               lazy-load="{{true}}"
             />
             <view wx:else class="album-card__thumb album-card__thumb--placeholder">
-              <text class="album-card__thumb-ph text-caption">相册</text>
+              <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
+              <view
+                wx:if="{{showProgress && item.stageProgress.length}}"
+                class="album-card__thumb-progress"
+              >
+                <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
+              </view>
             </view>
           </view>
         </album-photo-frame>
@@ -27,7 +33,13 @@
             lazy-load="{{true}}"
           />
           <view wx:else class="album-card__thumb album-card__thumb--placeholder">
-            <text class="album-card__thumb-ph text-caption">相册</text>
+            <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
+            <view
+              wx:if="{{showProgress && item.stageProgress.length}}"
+              class="album-card__thumb-progress"
+            >
+              <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
+            </view>
           </view>
         </view>
       </block>
@@ -105,4 +117,4 @@
       >更新于 {{item.updatedAtText}}</text>
     </view>
   </view>
-</ui-card>
+</view>

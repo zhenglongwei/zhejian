@@ -4,48 +4,45 @@
   showCompliance="{{true}}"
 >
   <view class="settings-page">
-    <view class="settings-page__group">
-      <ui-card shadow="{{true}}" padding="{{false}}">
-        <ui-cell
-          title="使用说明与帮助"
-          border="{{true}}"
-          arrow="{{true}}"
-          data-key="help"
-          bind:celltap="onCellTap"
-        />
-        <ui-cell
-          title="清除缓存"
-          border="{{true}}"
-          arrow="{{true}}"
-          data-key="cache"
-          bind:celltap="onCellTap"
-        />
-        <ui-cell
-          title="用户协议"
-          border="{{true}}"
-          arrow="{{true}}"
-          data-key="agreement"
-          bind:celltap="onCellTap"
-        />
-        <ui-cell
-          title="隐私政策"
-          border="{{true}}"
-          arrow="{{true}}"
-          data-key="privacy"
-          bind:celltap="onCellTap"
-        />
-        <ui-cell
-          title="关于辙见"
-          border="{{false}}"
-          arrow="{{true}}"
-          data-key="about"
-          bind:celltap="onCellTap"
-        />
-      </ui-card>
-    </view>
+    <view class="settings-page__main surface-album-panel">
+      <ui-cell
+        title="使用说明与帮助"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="help"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="清除缓存"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="cache"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="用户协议"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="agreement"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="隐私政策"
+        border="{{true}}"
+        arrow="{{true}}"
+        data-key="privacy"
+        bind:celltap="onCellTap"
+      />
+      <ui-cell
+        title="关于辙见"
+        border="{{false}}"
+        arrow="{{true}}"
+        data-key="about"
+        bind:celltap="onCellTap"
+      />
 
-    <view wx:if="{{isLoggedIn}}" class="settings-page__group">
-      <ui-card shadow="{{true}}" padding="{{false}}">
+      <block wx:if="{{isLoggedIn}}">
+        <view class="surface-album-inset-divider" />
         <ui-cell
           title="账号注销"
           desc="不可恢复，请谨慎操作"
@@ -54,7 +51,7 @@
           data-key="deactivate"
           bind:celltap="onCellTap"
         />
-      </ui-card>
+      </block>
     </view>
 
     <view wx:if="{{isLoggedIn}}" class="settings-page__logout">

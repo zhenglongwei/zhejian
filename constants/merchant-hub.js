@@ -69,7 +69,10 @@ function attachDockBadge(item, todos = {}) {
     item.badgeKey && todos[item.badgeKey]
       ? formatSectionBadge(todos[item.badgeKey])
       : ''
-  return attachNavIcon({ ...item, desc: '', badge })
+  return {
+    ...attachNavIcon({ ...item, desc: '', badge }),
+    iconBg: 'well',
+  }
 }
 
 function buildMerchantHubDock(todos = {}) {

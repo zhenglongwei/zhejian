@@ -24,6 +24,10 @@ Component({
       type: Boolean,
       value: true,
     },
+    embedded: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   methods: {

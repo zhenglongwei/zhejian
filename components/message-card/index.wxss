@@ -25,7 +25,7 @@
   width: 16rpx;
   height: 16rpx;
   border-radius: var(--radius-full);
-  background: var(--color-primary);
+  background: var(--color-warning);
   flex-shrink: 0;
 }
 

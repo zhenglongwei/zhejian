@@ -2,7 +2,9 @@
   "navigationBarTitleText": "咨询线索",
   "enablePullDownRefresh": true,
   "usingComponents": {
-    "ui-list-page-shell": "/components/list-page-shell/index",
+    "ui-tabs": "/components/tabs/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
     "ui-lead-card": "/components/lead-card/index"
   }
 }

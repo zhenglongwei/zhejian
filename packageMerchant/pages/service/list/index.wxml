@@ -1,4 +1,4 @@
-<view class="page merchant-svc-list">
+<view class="page merchant-svc-list bg-album">
   <view class="page-content merchant-svc-list__tabs">
     <ui-tabs tabs="{{statusTabs}}" activeKey="{{tab}}" bind:change="onTabChange" />
   </view>
@@ -12,6 +12,7 @@
   <block wx:elif="{{status === 'error'}}">
     <view class="page-content">
       <ui-empty
+        theme="album"
         title="加载失败"
         description="{{errorMessage}}"
         actionText="重试"
@@ -23,6 +24,7 @@
   <block wx:elif="{{status === 'empty'}}">
     <view class="page-content">
       <ui-empty
+        theme="album"
         title="暂无服务方案"
         description="创建服务方案并上架后，用户可在服务 Tab 浏览"
         actionText="新建服务"

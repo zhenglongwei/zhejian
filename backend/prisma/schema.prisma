@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String          @id
-  openid    String?         @unique
-  unionid   String?
-  nickname  String          @default("")
-  avatarUrl String          @default("") @map("avatar_url") @db.VarChar(512)
-  phone     String          @default("")
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
+  id          String          @id
+  openid      String?         @unique
+  unionid     String?
+  nickname    String          @default("")
+  avatarUrl   String          @default("") @map("avatar_url") @db.VarChar(512)
+  phone       String          @default("")
+  status      String          @default("ACTIVE")
+  cancelledAt DateTime?       @map("cancelled_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
   orders    Order[]
   leads     ConsultLead[]
   staff     MerchantStaff[]
@@ -26,6 +28,7 @@ model User {
   vehicles    UserVehicle[]
 
   @@index([unionid])
+  @@index([status])
   @@map("users")
 }
 

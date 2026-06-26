@@ -1,7 +1,8 @@
-<view class="page message-list">
+<view class="page message-list bg-album">
   <ui-list-page-shell
     status="{{status}}"
     errorMessage="{{errorMessage}}"
+    emptyTheme="album"
     emptyTitle="暂无消息"
     emptyDescription="新线索、授权与审核结果会在这里通知你"
     unauthTitle="请先登录"

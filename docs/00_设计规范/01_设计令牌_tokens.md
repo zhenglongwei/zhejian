@@ -339,6 +339,18 @@ page {
 
 **工具类（B-01）**：`.bg-album` · `.bg-band` · `.text-album-display` · `.text-album-frame-page`（见 `tokens.wxss`）
 
+**工具页表面（UI-SURFACE · 2026-06-24）**：同一屏最多一张主 panel；内嵌卡片用 `--color-album-frame-inner` + `--shadow-album-list-thumb`，禁止叠多层 `#fff` + `--shadow-card`。
+
+| 工具类 | 用途 |
+| --- | --- |
+| `.surface-album-panel` | 工具页主内容区（我的/工作台单卡） |
+| `.surface-album-folio` | 扉页用户区暖色渐变 |
+| `.surface-album-well` | Dock / 快捷入口纸感 icon 底 |
+| `.surface-album-inset-divider` | panel 内分区线 |
+| `.nav-icon-tone-album` | Dock 彩色 PNG 暖灰统一（过渡；终态为单色线稿资源） |
+| `.surface-record-card` | 授权/消息/线索列表卡纸感壳 |
+| `.surface-album-metric-grid` / `.surface-album-metric-cell` | 工具页 KPI 内嵌格（无彩色底） |
+
 ---
 
 ## **3. 常用工具类**

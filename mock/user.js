@@ -72,6 +72,16 @@ async function mockLogout() {
   return { ok: true }
 }
 
+async function mockDeactivateCheck() {
+  await delay(200)
+  return { canDeactivate: true, blockers: [] }
+}
+
+async function mockDeactivateAccount() {
+  await delay(400)
+  return { ok: true }
+}
+
 async function mockUpdateUserProfile(payload = {}, currentUser = {}) {
   await delay(240)
   return {
@@ -90,5 +100,7 @@ module.exports = {
   mockBindPhone,
   mockMineSummary,
   mockLogout,
+  mockDeactivateCheck,
+  mockDeactivateAccount,
   mockUpdateUserProfile,
 }

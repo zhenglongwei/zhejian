@@ -1,4 +1,4 @@
-<ui-card shadow="{{true}}" padding="{{true}}">
+<view class="surface-record-card">
   <view class="record-card__inner">
     <view class="record-card__head">
       <view class="record-card__tags">
@@ -25,4 +25,4 @@
       >{{item.cardAction.label}}</ui-button>
     </view>
   </view>
-</ui-card>
+</view>

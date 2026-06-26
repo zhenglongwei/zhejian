@@ -3,23 +3,25 @@
   padding-bottom: var(--space-md);
 }
 
+.help-center__main {
+  display: flex;
+  flex-direction: column;
+}
+
 .help-center__identity {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-md);
 }
 
 .help-center__tabs {
-  margin-bottom: var(--space-lg);
+  margin-bottom: 0;
 }
 
 .help-center__section {
   margin-bottom: var(--space-lg);
 }
 
-.help-center__about {
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1rpx solid var(--color-border);
+.help-center__section:last-of-type {
+  margin-bottom: 0;
 }
 
 .help-center__about-item {

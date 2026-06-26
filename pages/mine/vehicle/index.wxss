@@ -8,20 +8,24 @@
   padding-bottom: var(--page-fixed-clearance);
 }
 
+.vehicle-list__main {
+  padding: 0;
+}
+
 .vehicle-list__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1rpx solid var(--color-album-frame-line);
 }
 
 .vehicle-list__row:last-child {
   border-bottom: none;
 }
 
-.vehicle-list__main {
+.vehicle-list__row-main {
   flex: 1;
   min-width: 0;
 }

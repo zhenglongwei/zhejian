@@ -1,7 +1,4 @@
 .mine-earnings__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);
 }
@@ -10,80 +7,24 @@
   padding: var(--space-xl) 0;
 }
 
+.mine-earnings__main {
+  display: flex;
+  flex-direction: column;
+}
+
 .mine-earnings__status-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
-.mine-earnings__hero-panel {
-  display: flex;
-  gap: var(--space-sm);
+.mine-earnings__metrics {
+  margin-bottom: 0;
 }
 
-.mine-earnings__hero-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  min-height: 140rpx;
-  padding: var(--space-md) var(--space-sm);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  background-color: var(--color-bg-card);
-  box-sizing: border-box;
-}
-
-.mine-earnings__hero-item--primary {
-  background-color: var(--color-primary-light);
-}
-
-.mine-earnings__hero-item--warning {
-  background-color: var(--color-warning-light);
-}
-
-.mine-earnings__hero-item--success {
-  background-color: var(--color-success-light);
-}
-
-.mine-earnings__hero-num {
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.mine-earnings__hero-item--primary .mine-earnings__hero-num {
-  color: var(--color-primary-dark);
-}
-
-.mine-earnings__hero-item--warning .mine-earnings__hero-num {
-  color: var(--color-warning);
-}
-
-.mine-earnings__hero-item--success .mine-earnings__hero-num {
-  color: var(--color-success);
-}
-
-.mine-earnings__hero-label {
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
-.mine-earnings__panel {
-  padding: var(--space-md);
-  background-color: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  box-sizing: border-box;
-}
-
-.mine-earnings__panel--records {
-  padding-bottom: var(--space-sm);
-}
-
-.mine-earnings__panel-title {
+.mine-earnings__section-title {
   display: block;
   margin-bottom: var(--space-md);
 }
@@ -115,8 +56,9 @@
   width: 36rpx;
   height: 36rpx;
   border-radius: var(--radius-full);
-  background-color: var(--color-warning-light);
-  color: var(--color-warning);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  color: var(--color-album-frame-corner);
   font-weight: var(--font-weight-medium);
 }
 
@@ -125,7 +67,7 @@
   width: 2rpx;
   min-height: 40rpx;
   margin-top: var(--space-xs);
-  background-color: var(--color-border);
+  background-color: var(--color-album-frame-line);
 }
 
 .mine-earnings__step-body {

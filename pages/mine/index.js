@@ -20,10 +20,24 @@ const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5ContentSite } = require('../../constants/h5-links')
 
+function quietHubAlbumTags(item = {}) {
+  const reviewPending = item.publicCaseStatus === 'pending_review'
+  return {
+    ...item,
+    statusVariant: reviewPending ? item.statusVariant : 'default',
+    visibilityVariant:
+      item.visibilityLabel === '审核中' ? item.visibilityVariant : 'default',
+  }
+}
+
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
-    .map((item) => enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' }))
+    .map((item) =>
+      quietHubAlbumTags(
+        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' })
+      )
+    )
 }
 
 Page({

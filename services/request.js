@@ -104,7 +104,12 @@ function normalizeError(code, body) {
     (body && (body.message || body.msg)) ||
     CODE_MESSAGE[code] ||
     '请求失败'
-  return { code, message, requestId: body && body.requestId }
+  return {
+    code,
+    message,
+    requestId: body && body.requestId,
+    data: body && body.data,
+  }
 }
 
 function handleUnauthorized() {

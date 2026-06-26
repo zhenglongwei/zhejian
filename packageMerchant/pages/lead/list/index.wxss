@@ -1,1 +1,19 @@
-/** merchant-lead-list — 列表布局由 ListPageShell 承担 */
+.merchant-lead-list__tabs {
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.merchant-lead-list__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-xl);
+}
+
+.merchant-lead-list__state {
+  padding-top: var(--space-lg);
+  padding-bottom: var(--space-xl);
+  min-height: 50vh;
+  box-sizing: border-box;
+}

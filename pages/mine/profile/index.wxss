@@ -10,6 +10,10 @@
   padding-bottom: var(--space-md);
 }
 
+.profile-form__main {
+  padding: 0;
+}
+
 .profile-form__row {
   display: flex;
   align-items: center;
@@ -18,7 +22,11 @@
   min-height: var(--cell-height);
   padding: var(--space-md);
   box-sizing: border-box;
-  border-bottom: 1rpx solid var(--color-border);
+  border-bottom: 1rpx solid var(--color-album-frame-line);
+}
+
+.profile-form__row--bordered {
+  border-bottom: 1rpx solid var(--color-album-frame-line);
 }
 
 .profile-form__row--last {
@@ -108,7 +116,8 @@
 }
 
 .profile-form__avatar--placeholder {
-  background-color: var(--color-primary-light);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
 }
 
 .profile-form__input {

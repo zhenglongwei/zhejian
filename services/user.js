@@ -15,6 +15,8 @@ const {
   mockBindPhone,
   mockMineSummary,
   mockLogout,
+  mockDeactivateCheck,
+  mockDeactivateAccount,
   mockUpdateUserProfile,
 } = require('../mock/user')
 
@@ -157,6 +159,20 @@ async function refreshSession() {
   return data
 }
 
+async function fetchDeactivateCheck() {
+  if (ENV.mode === 'mock') {
+    return mockDeactivateCheck()
+  }
+  return get('/user/account/deactivate-check')
+}
+
+async function deactivateAccount() {
+  if (ENV.mode === 'mock') {
+    return mockDeactivateAccount()
+  }
+  return post('/user/account/deactivate', { confirmed: true })
+}
+
 module.exports = {
   fetchMineSummary,
   wechatLogin,
@@ -164,4 +180,6 @@ module.exports = {
   updateUserProfile,
   logout,
   refreshSession,
+  fetchDeactivateCheck,
+  deactivateAccount,
 }

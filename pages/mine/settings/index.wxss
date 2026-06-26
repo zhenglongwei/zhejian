@@ -6,19 +6,10 @@
   padding-bottom: var(--space-md);
 }
 
-.settings-page__group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.settings-page__hint {
-  display: block;
-  padding: 0 var(--space-xs);
-  color: var(--color-text-tertiary);
-  line-height: 1.6;
+.settings-page__main {
+  padding: 0;
 }
 
 .settings-page__logout {
-  margin-top: var(--space-sm);
+  margin-top: var(--space-xs);
 }

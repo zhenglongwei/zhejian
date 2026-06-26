@@ -6,6 +6,7 @@
   <block wx:if="{{!isLoggedIn}}">
     <view class="mine-earnings__gate">
       <ui-empty
+        theme="album"
         title="登录后查看公示激励"
         description="授权公示脱敏案例后，可按平台规则查看激励说明"
         actionText="返回我的"
@@ -16,24 +17,22 @@
 
   <block wx:else>
     <view class="mine-earnings__body">
-      <view class="mine-earnings__status-row">
-        <ui-tag variant="info" text="{{preview.statusLabel}}" />
-        <text class="text-caption text-secondary">{{preview.summaryHint}}</text>
-      </view>
-
-      <view class="mine-earnings__hero-panel">
-        <view
-          wx:for="{{heroKpis}}"
-          wx:key="key"
-          class="mine-earnings__hero-item mine-earnings__hero-item--{{item.tone}}"
-        >
-          <text class="mine-earnings__hero-num text-h2 text-numeric">{{item.value}}</text>
-          <text class="text-caption mine-earnings__hero-label">{{item.label}}</text>
+      <view class="mine-earnings__main surface-album-panel">
+        <view class="mine-earnings__status-row">
+          <ui-tag variant="default" text="{{preview.statusLabel}}" />
+          <text class="text-caption text-secondary">{{preview.summaryHint}}</text>
         </view>
-      </view>
 
-      <view class="mine-earnings__panel">
-        <text class="text-h3 mine-earnings__panel-title">如何获得收益</text>
+        <view class="surface-album-metric-grid mine-earnings__metrics">
+          <view wx:for="{{heroKpis}}" wx:key="key" class="surface-album-metric-cell">
+            <text class="surface-album-metric-num text-h2 text-numeric">{{item.value}}</text>
+            <text class="text-caption surface-album-metric-label">{{item.label}}</text>
+          </view>
+        </view>
+
+        <view class="surface-album-inset-divider" />
+
+        <text class="text-h3 mine-earnings__section-title">如何获得收益</text>
         <view class="mine-earnings__steps">
           <view wx:for="{{ruleSteps}}" wx:key="key" class="mine-earnings__step">
             <view class="mine-earnings__step-rail">
@@ -47,11 +46,12 @@
           </view>
         </view>
         <ui-button type="secondary" block bind:btntap="onGoAuthorize">去授权公开案例</ui-button>
-      </view>
 
-      <view class="mine-earnings__panel mine-earnings__panel--records">
-        <text class="text-h3 mine-earnings__panel-title">收益明细</text>
+        <view class="surface-album-inset-divider" />
+
+        <text class="text-h3 mine-earnings__section-title">收益明细</text>
         <ui-empty
+          theme="album"
           title="明细功能筹备中"
           description="公开案例产生有效浏览与到店效果后，将在此展示结算记录与金额"
         />
