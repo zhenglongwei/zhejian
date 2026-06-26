@@ -55,5 +55,14 @@ Component({
         hint: (item.authAction && item.authAction.hint) || '',
       })
     },
+
+    onWithdrawTap() {
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('withdraw', {
+        id: item.albumId,
+        disabled: Boolean(item.withdrawAction && item.withdrawAction.disabled),
+      })
+    },
   },
 })

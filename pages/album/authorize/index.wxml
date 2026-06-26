@@ -1,7 +1,7 @@
 <ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <block wx:if="{{status === 'loading'}}">
     <view class="album-authorize__list">
-      <ui-skeleton wx:for="{{[1,2]}}" wx:key="*this" rows="{{4}}" />
+      <ui-skeleton theme="album" variant="album-card" wx:for="{{[1,2]}}" wx:key="*this" />
     </view>
   </block>
 
@@ -41,10 +41,14 @@
 
   <block wx:else>
     <view class="album-authorize__list">
-      <ui-authorization-card
+      <ui-album-card
         wx:for="{{list}}"
         wx:key="albumId"
         item="{{item}}"
+        audience="user"
+        showProgress="{{true}}"
+        showHeaderActions="{{true}}"
+        bind:tap="onCardTap"
         bind:authorize="onAuthorize"
         bind:withdraw="onWithdraw"
       />

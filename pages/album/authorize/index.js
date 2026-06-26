@@ -5,7 +5,7 @@ const {
   submitServiceAlbumAuthorization,
   withdrawAuthorization,
 } = require('../../../services/service-album')
-const { enrichAuthorizationItem } = require('../../../utils/service-album-display')
+const { enrichAuthorizationAlbumItem } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 
@@ -66,7 +66,7 @@ Page({
       const raw = await fetchUserAuthorizations()
       const withdrawingId = this.data.withdrawingId
       const list = (raw || []).map((item) =>
-        enrichAuthorizationItem({
+        enrichAuthorizationAlbumItem({
           ...item,
           withdrawing: withdrawingId === item.albumId,
         })
@@ -277,11 +277,20 @@ Page({
 
   syncListWithdrawing(withdrawingId) {
     const list = (this.data.list || []).map((item) =>
-      enrichAuthorizationItem({
+      enrichAuthorizationAlbumItem({
         ...item,
         withdrawing: withdrawingId === item.albumId,
       })
     )
     this.setData({ list })
+  },
+
+  onCardTap(e) {
+    const { id } = e.detail || {}
+    if (!id) return
+    const item = (this.data.list || []).find((row) => row.albumId === id)
+    const cover = item && item.coverUrl ? encodeURIComponent(item.coverUrl) : ''
+    const coverQuery = cover ? `&cover=${cover}` : ''
+    wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}${coverQuery}` })
   },
 })

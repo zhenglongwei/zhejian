@@ -927,14 +927,8 @@ async function fetchUserAuthorizations(userId) {
               ? 'pending_review'
               : 'none'
       return {
-        id: item.albumId,
-        albumId: item.albumId,
-        serviceName: item.serviceName,
-        storeName: item.storeName,
-        vehicleDisplay: item.vehicleDisplay,
-        coverImage: '',
+        ...item,
         authStatus,
-        publicCaseStatus: item.publicCaseStatus,
         reviewStatus:
           item.publicCaseStatus === 'public_approved'
             ? 'approved'
@@ -945,7 +939,6 @@ async function fetchUserAuthorizations(userId) {
                 : 'none',
         canWithdraw: ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
         needsAuthorization,
-        updatedAt: item.updatedAt,
       }
     })
     .filter(Boolean)

@@ -341,6 +341,49 @@ function enrichAuthorizationItem(item) {
   }
 }
 
+/** 授权列表页 · 与相册列表同构（ui-album-card） */
+function enrichAuthorizationAlbumItem(item) {
+  const publicCaseStatus = item.publicCaseStatus || 'private'
+  const base = enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' })
+  const cardAction = resolveAuthorizationCardAction({ ...item, publicCaseStatus })
+
+  let authAction = { show: false, label: '', disabled: false, hint: '' }
+  let withdrawAction = { show: false, label: '', disabled: false }
+  if (cardAction.action === 'withdraw') {
+    withdrawAction = {
+      show: true,
+      label: cardAction.label,
+      disabled: cardAction.disabled || Boolean(item.withdrawing),
+    }
+  } else if (cardAction.action === 'authorize') {
+    authAction = {
+      show: true,
+      label: cardAction.label,
+      disabled: cardAction.disabled,
+      hint: '',
+    }
+  }
+
+  const visibility = isRepairCompleted(item.status)
+    ? resolveAlbumVisibility(publicCaseStatus)
+    : { visibilityLabel: '', visibilityVariant: 'default' }
+  const needsAuth = Boolean(item.needsAuthorization)
+
+  return {
+    ...base,
+    showShareButton: false,
+    authAction,
+    withdrawAction,
+    statusLabel: needsAuth ? '待授权公示' : base.statusLabel,
+    statusVariant: needsAuth ? 'warning' : 'default',
+    visibilityLabel: visibility.visibilityLabel,
+    visibilityVariant:
+      visibility.visibilityLabel === '审核中'
+        ? visibility.visibilityVariant
+        : 'default',
+  }
+}
+
 function buildPendingConfirmSummary(pendingConfirms = []) {
   return (pendingConfirms || []).map((item, index) => {
     const label = item.title || item.partName || '待确认项'
@@ -357,6 +400,7 @@ module.exports = {
   enrichServiceAlbumListItem,
   enrichMerchantAlbumListItem,
   enrichAuthorizationItem,
+  enrichAuthorizationAlbumItem,
   buildPendingConfirmSummary,
   formatAlbumDateTime,
   resolveMerchantAlbumDisplayStatus,

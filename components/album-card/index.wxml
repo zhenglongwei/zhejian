@@ -69,6 +69,14 @@
           >
             <text class="album-card__action-text text-caption">{{item.authAction.label}}</text>
           </view>
+          <view
+            wx:if="{{item.withdrawAction.show}}"
+            class="album-card__action {{item.withdrawAction.disabled ? 'album-card__action--muted' : ''}}"
+            data-action="withdraw"
+            catchtap="onWithdrawTap"
+          >
+            <text class="album-card__action-text text-caption">{{item.withdrawAction.label}}</text>
+          </view>
         </view>
         <button
           wx:elif="{{audience === 'merchant' && item.canShareToOwner}}"
