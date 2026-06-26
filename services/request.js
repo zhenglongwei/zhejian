@@ -104,10 +104,11 @@ function normalizeError(code, body) {
     (body && (body.message || body.msg)) ||
     CODE_MESSAGE[code] ||
     '请求失败'
+  const apiCode = body && body.code
   return {
-    code,
+    code: apiCode != null && apiCode !== '' && apiCode !== 0 ? apiCode : code,
     message,
-    requestId: body && body.requestId,
+    requestId: body && (body.request_id || body.requestId),
     data: body && body.data,
   }
 }

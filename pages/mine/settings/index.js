@@ -1,5 +1,4 @@
 const { isLoggedIn, clearSession } = require('../../../utils/auth')
-const { clearSearchHistory } = require('../../../utils/search-history')
 const { HOME_PLATFORM_IDENTITY } = require('../../../constants/home-entries')
 
 Page({
@@ -16,10 +15,6 @@ Page({
     const { key } = e.currentTarget.dataset
     if (key === 'help') {
       wx.navigateTo({ url: '/pages/mine/help/index' })
-      return
-    }
-    if (key === 'cache') {
-      this.onClearCache()
       return
     }
     if (key === 'agreement') {
@@ -41,16 +36,6 @@ Page({
     if (key === 'deactivate') {
       wx.navigateTo({ url: '/pages/mine/settings/deactivate/index' })
     }
-  },
-
-  onClearCache() {
-    try {
-      clearSearchHistory()
-      wx.removeStorageSync('city_outside_notice_v1')
-    } catch (e) {
-      // ignore
-    }
-    wx.showToast({ title: '已清除本地缓存', icon: 'success' })
   },
 
   onLogout() {

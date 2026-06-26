@@ -13,13 +13,6 @@
         bind:celltap="onCellTap"
       />
       <ui-cell
-        title="清除缓存"
-        border="{{true}}"
-        arrow="{{true}}"
-        data-key="cache"
-        bind:celltap="onCellTap"
-      />
-      <ui-cell
         title="用户协议"
         border="{{true}}"
         arrow="{{true}}"

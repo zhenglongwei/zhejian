@@ -8,11 +8,14 @@ const {
 } = require('../../../services/desensitize')
 const { submitAlbumAuthorization } = require('../../../services/order-album')
 const { submitServiceAlbumAuthorization } = require('../../../services/service-album')
-const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   submitOrderPublicCaseReview,
   submitServicePublicCaseReview,
 } = require('../../../services/public-case')
+const {
+  isGeoEvidenceIncompleteError,
+  showGeoEvidenceIncompleteModal,
+} = require('../../../utils/geo-evidence-prompt')
 const { mapTaskToWorkbenchState } = require('../../../utils/desensitize-workbench-display')
 const { fetchServiceAlbum } = require('../../../services/service-album')
 const { buildAlbumAiSummary } = require('../../../utils/album-ai-summary')
@@ -275,15 +278,16 @@ Page({
           })
         }
       }
-      wx.showToast({ title: '已授权公示，审核通过后将自动展示', icon: 'success', duration: 2000 })
-      setTimeout(() => {
-        promptAuthorizeAuditSubscribe(this.data.albumId)
-      }, 1200)
+      wx.showToast({ title: '已提交审核，通过后将自动展示', icon: 'success', duration: 2000 })
       setTimeout(() => {
         this.onBackAlbum()
       }, 2000)
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+      if (isGeoEvidenceIncompleteError(e)) {
+        await showGeoEvidenceIncompleteModal(e, { audience: 'user' })
+      } else {
+        wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+      }
     } finally {
       this.setData({ confirmLoading: false })
     }
