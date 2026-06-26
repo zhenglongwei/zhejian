@@ -40,6 +40,11 @@ const {
   emptyCaseArticleApi,
   emptyCaseSeoApi,
 } = require('../schemas/case-geo-content.schema')
+const {
+  enrichStorePublicPage,
+  enrichCasePublicPage,
+  enrichServicePublicPage,
+} = require('./public-page-enrich.service')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -453,7 +458,7 @@ async function getCaseDetail(idOrSlug) {
     }
   )
 
-  return {
+  return enrichCasePublicPage({
     ...display,
     serviceItemId,
     storePhone,
@@ -464,7 +469,7 @@ async function getCaseDetail(idOrSlug) {
     relatedCases,
     relatedCaseTier,
     internalLinks,
-  }
+  })
 }
 
 function mapStoreRow(store, caseCount = 0) {
@@ -557,7 +562,10 @@ async function listMerchants(query = {}) {
 }
 
 async function getMerchantDetail(id) {
-  const store = await prisma.store.findUnique({ where: { id } })
+  const store = await prisma.store.findUnique({
+    where: { id },
+    include: { merchant: true },
+  })
   if (!store) {
     const err = new Error('门店不存在')
     err.status = 404
@@ -570,7 +578,11 @@ async function getMerchantDetail(id) {
     err.status = 410
     throw err
   }
-  return mapped
+  return enrichStorePublicPage(mapped, store, store.merchant, {
+    serviceCount: await prisma.merchantServicePlan.count({
+      where: { storeId: store.id, saleStatus: 'ONLINE' },
+    }),
+  })
 }
 
 function listPublishedServices(query = {}) {
@@ -666,13 +678,15 @@ async function getServiceDetail(id) {
       err.status = 404
       throw err
     }
-    return attachRelatedCasesToService(
-      {
-        ...formatPlanRecord(row, store),
-        status: 'published',
-        onlinePaymentEnabled: false,
-      },
-      { limit: 3 }
+    return enrichServicePublicPage(
+      await attachRelatedCasesToService(
+        {
+          ...formatPlanRecord(row, store),
+          status: 'published',
+          onlinePaymentEnabled: false,
+        },
+        { limit: 3 }
+      )
     )
   }
 
@@ -695,9 +709,11 @@ async function getServiceDetail(id) {
     throw err
   }
 
-  return attachRelatedCasesToService(
-    { ...record, storeName: store.name || record.storeName },
-    { limit: 3 }
+  return enrichServicePublicPage(
+    await attachRelatedCasesToService(
+      { ...record, storeName: store.name || record.storeName },
+      { limit: 3 }
+    )
   )
 }
 

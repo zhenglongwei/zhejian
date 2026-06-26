@@ -15,6 +15,10 @@ const {
 } = require('../../../utils/share-store-context')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
 const {
+  buildCertRows,
+  buildTransparencyMetrics,
+} = require('../../../utils/public-page-display')
+const {
   buildPublicStoreSharePayload,
   buildPublicStoreTimelinePayload,
   buildStoreShareTitle,
@@ -48,45 +52,23 @@ function buildStoreBasicFields(store) {
       storePhoneDisplay: '—',
       storeBusinessHours: '—',
       showStoreNavigate: false,
+      vehicleSpecialtiesText: '',
     }
   }
   const specialties = store.specialties || []
+  const vehicleSpecialties = store.vehicleSpecialties || []
   return {
     storeAddress: store.address || '—',
     storeSpecialtiesText: specialties.join('、'),
     showStoreSpecialties: specialties.length > 0,
+    vehicleSpecialties,
+    vehicleSpecialtiesText: vehicleSpecialties.join('、'),
     storeContactName: store.contactName || '—',
     storePhone: store.phone || '',
     storePhoneDisplay: store.phone || '—',
     storeBusinessHours: store.businessHours || '—',
     showStoreNavigate: store.latitude != null && store.longitude != null,
   }
-}
-
-function buildCertRows(certifications) {
-  return (certifications || []).map((item) => ({
-    label: item.label,
-    value: item.text || '—',
-  }))
-}
-
-function buildEvidenceTabs(cases = [], services = []) {
-  const caseCount = cases.length
-  const serviceCount = services.length
-  return [
-    { key: 'cases', label: caseCount ? `公开案例 (${caseCount})` : '公开案例' },
-    { key: 'services', label: serviceCount ? `服务方案 (${serviceCount})` : '服务方案' },
-  ]
-}
-
-function pickEvidenceTab(cases = [], services = [], preferred = 'cases') {
-  const hasCases = cases.length > 0
-  const hasServices = services.length > 0
-  if (preferred === 'services' && hasServices) return 'services'
-  if (preferred === 'cases' && hasCases) return 'cases'
-  if (hasCases) return 'cases'
-  if (hasServices) return 'services'
-  return 'cases'
 }
 
 Page({
@@ -96,6 +78,13 @@ Page({
     status: 'loading',
     store: null,
     certRows: [],
+    certWall: [],
+    staffPublic: [],
+    transparencyMetrics: [],
+    transparencySummary: '',
+    faqList: [],
+    vehicleSpecialties: [],
+    vehicleSpecialtiesText: '',
     cases: [],
     casesStatus: 'loading',
     services: [],
@@ -111,8 +100,6 @@ Page({
     storePhoneDisplay: '',
     storeBusinessHours: '',
     showStoreNavigate: false,
-    evidenceTab: 'cases',
-    evidenceTabs: buildEvidenceTabs(),
     showTopShare: false,
     isFavorited: false,
     isPreview: false,
@@ -132,7 +119,6 @@ Page({
     this.pageOptions = options || {}
     this.isPreview = options.preview === '1' || options.preview === 'true'
     this.autoOpenShare = options.share === '1' || options.share === 'true'
-    this.preferredEvidenceTab = options.tab === 'services' ? 'services' : 'cases'
     this.storeId = options.id || ''
     const shareCtx = resolvePageShareContext(options, {
       storeId: this.storeId,
@@ -242,17 +228,24 @@ Page({
         fetchServiceList({ storeId: this.storeId }),
       ])
       const basicFields = buildStoreBasicFields(store)
-      const evidenceTab = pickEvidenceTab(cases, services, this.preferredEvidenceTab)
       const pageTitle = store.name || DEEP_LINK_SHELL.store.subtitle
+      const transparency = store.transparency || {}
       this.setData({
         store: { ...store, caseCount: cases.length },
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certRows: buildCertRows(store.certifications),
+        certWall: store.certWall || [],
+        staffPublic: store.staffPublic || [],
+        faqList: store.faq || [],
+        transparencyMetrics: buildTransparencyMetrics({
+          ...transparency,
+          caseCount: cases.length,
+          serviceCount: services.length,
+        }),
+        transparencySummary: transparency.summary || '',
         cases,
         services,
-        evidenceTab,
-        evidenceTabs: buildEvidenceTabs(cases, services),
         statusText: STATUS_TEXT[store.status] || store.status,
         status: 'normal',
         casesStatus: cases.length ? 'normal' : 'empty',
@@ -380,12 +373,6 @@ Page({
         { storeId: this.storeId, isolated: true }
       ),
     })
-  },
-
-  onEvidenceTabChange(e) {
-    const key = e.detail && e.detail.key
-    if (!key || key === this.data.evidenceTab) return
-    this.setData({ evidenceTab: key })
   },
 
   onViewAllCases() {

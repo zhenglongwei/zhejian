@@ -11,6 +11,18 @@
   height: 100%;
 }
 
+.store-detail__body {
+  padding-top: var(--space-md);
+}
+
+.store-detail__panel {
+  margin-bottom: var(--space-lg);
+}
+
+.store-detail__panel:last-child {
+  margin-bottom: 0;
+}
+
 .store-detail__notice-gap {
   margin-bottom: var(--space-md);
 }
@@ -50,6 +62,91 @@
   color: var(--color-text-secondary);
 }
 
+.store-detail__info-well {
+  margin-top: var(--space-md);
+}
+
+.store-detail__info-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.store-detail__info-row--last {
+  border-bottom: none;
+}
+
+.store-detail__metric-grid {
+  margin-bottom: var(--space-md);
+}
+
+.store-detail__transparency {
+  color: var(--color-text-secondary);
+}
+
+.store-detail__cert-table {
+  margin-top: var(--space-sm);
+}
+
+.store-detail__cert-wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.store-detail__cert-wall-item {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-muted);
+}
+
+.store-detail__cert-wall-img {
+  width: 100%;
+  height: 200rpx;
+  display: block;
+}
+
+.store-detail__cert-wall-caption {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-secondary);
+}
+
+.store-detail__staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.store-detail__staff-card {
+  padding: var(--space-md);
+}
+
+.store-detail__staff-name {
+  display: block;
+  font-weight: 600;
+}
+
+.store-detail__staff-role {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.store-detail__staff-creds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.store-detail__staff-cred {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
 .store-detail__section-links {
   display: flex;
   align-items: center;
@@ -57,20 +154,5 @@
 }
 
 .store-detail__evidence {
-  margin-top: var(--space-lg);
-}
-
-.store-detail__evidence-panel-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-}
-
-.store-detail__evidence-notice {
-  flex: 1;
-  min-width: 0;
   margin-top: 0;
-  margin-bottom: 0;
 }

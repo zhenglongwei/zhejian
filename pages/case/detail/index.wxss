@@ -1,5 +1,13 @@
 @import '../../../styles/deep-link-detail.wxss';
 
+.case-detail__body {
+  padding-top: var(--space-md);
+}
+
+.case-detail__panel {
+  margin-bottom: var(--space-lg);
+}
+
 .case-detail__tags {
   margin-bottom: var(--space-sm);
 }
@@ -9,10 +17,27 @@
   margin-bottom: var(--space-md);
 }
 
-.case-detail__evidence {
+.case-detail__key-well {
   margin-top: var(--space-md);
 }
 
-.case-detail__phone-card {
+.case-detail__narrative-block {
+  margin-bottom: var(--space-md);
+}
+
+.case-detail__narrative-block:last-child {
+  margin-bottom: 0;
+}
+
+.case-detail__evidence {
+  margin-top: 0;
+}
+
+.case-detail__phone-well {
   margin-top: var(--space-sm);
+}
+
+.case-detail__phone-row {
+  padding-left: 0;
+  padding-right: 0;
 }

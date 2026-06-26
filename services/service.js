@@ -153,6 +153,7 @@ async function buildServiceDetailViewModel(record, opts = {}) {
   const viewModel = {
     ...record,
     detail: record.detail || record.summary || '',
+    aiSummary: record.aiSummary || record.summary || '',
     ...templateFields,
     applicableVehicles: appointmentJson.applicableVehicles,
     headTags: buildHeadTags(record),

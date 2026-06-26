@@ -407,7 +407,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">关键信息</h2><table class="h5-table">' +
+      '<div class="h5-folio-panel"><h2 class="h5-folio-section-title">关键信息</h2><table class="h5-table">' +
       body +
       '</table></div>'
     )
@@ -446,7 +446,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">维修过程</h2>' +
+      '<div class="h5-folio-panel" id="case-process"><h2 class="h5-folio-section-title">维修过程</h2>' +
       '<p class="h5-compliance">' +
       escapeHtml(COPY.desensitize) +
       '</p>' +
@@ -1321,28 +1321,34 @@
         '<button type="button" class="h5-btn" id="h5-consult-top-btn">预约类似服务</button>' +
         '</div>' +
         (safeData.aiSummary
-          ? '<p class="h5-summary">' + escapeHtml(safeData.aiSummary) + '</p>'
+          ? '<div class="h5-folio-summary">' + escapeHtml(safeData.aiSummary) + '</div>'
           : '') +
         renderKeyInfo(safeData.keyInfo) +
         renderPriceSection(safeData)
 
+      if (safeData.faultDesc || safeData.inspectResult || safeData.repairPlan) {
+        html += '<div class="h5-folio-panel" id="case-narrative">'
+      }
       if (safeData.faultDesc) {
         html +=
-          '<div class="h5-card"><h2 class="h5-section-title">故障表现</h2><p>' +
+          '<h2 class="h5-folio-section-title">故障表现</h2><p>' +
           escapeHtml(safeData.faultDesc) +
-          '</p></div>'
+          '</p>'
       }
       if (safeData.inspectResult) {
         html +=
-          '<div class="h5-card"><h2 class="h5-section-title">检查结果</h2><p>' +
+          '<h2 class="h5-folio-section-title">检查结果</h2><p>' +
           escapeHtml(safeData.inspectResult) +
-          '</p></div>'
+          '</p>'
       }
       if (safeData.repairPlan) {
         html +=
-          '<div class="h5-card"><h2 class="h5-section-title">维修方案</h2><p>' +
+          '<h2 class="h5-folio-section-title">维修方案</h2><p>' +
           escapeHtml(safeData.repairPlan) +
-          '</p></div>'
+          '</p>'
+      }
+      if (safeData.faultDesc || safeData.inspectResult || safeData.repairPlan) {
+        html += '</div>'
       }
 
       html += renderNodes(safeData, safeData.nodes)

@@ -187,8 +187,14 @@
       { label: '地址', value: store.address || '—' },
       { label: '营业时间', value: store.businessHours || '—' },
     ]
+    if (store.contactName) {
+      rows.push({ label: '联系人', value: store.contactName })
+    }
     if (store.specialties && store.specialties.length) {
       rows.push({ label: '擅长项目', value: store.specialties.join('、') })
+    }
+    if (store.vehicleSpecialties && store.vehicleSpecialties.length) {
+      rows.push({ label: '擅长车型', value: store.vehicleSpecialties.join('、') })
     }
     return rows
   }
@@ -200,6 +206,9 @@
   }
 
   function buildTransparencyText(store, serviceCount) {
+    if (store.transparency && store.transparency.summary) {
+      return store.transparency.summary
+    }
     var parts = []
     if (store.caseCount > 0) {
       parts.push('该门店已公开 ' + store.caseCount + ' 个维修案例')
@@ -314,6 +323,19 @@
     }
     if (store.phone) schema.telephone = store.phone
     ensureJsonLd('store-schema', schema)
+    if (store.faq && store.faq.length) {
+      ensureJsonLd('store-faq-schema', {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: store.faq.map(function (item) {
+          return {
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: { '@type': 'Answer', text: item.a },
+          }
+        }),
+      })
+    }
     if (window.zhejianSeo) {
       window.zhejianSeo.applyBreadcrumbSchema(
         [
@@ -358,11 +380,147 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">' +
+      '<div class="h5-folio-panel"><h2 class="h5-folio-section-title">' +
       escapeHtml(title || '门店信息') +
       '</h2><table class="h5-table">' +
       body +
       '</table></div>'
+    )
+  }
+
+  function renderTransparencyPanel(store, serviceCount) {
+    var transparency = store.transparency || {}
+    var metrics = []
+    if (transparency.caseCount > 0) {
+      metrics.push({ num: String(transparency.caseCount), label: '公开案例' })
+    }
+    if (transparency.albumCompleteRate > 0) {
+      metrics.push({ num: transparency.albumCompleteRate + '%', label: '相册完整率' })
+    }
+    if (transparency.score > 0) {
+      metrics.push({ num: String(transparency.score), label: '透明度评分' })
+    }
+    if (transparency.serviceCount > 0 || serviceCount > 0) {
+      metrics.push({
+        num: String(transparency.serviceCount || serviceCount),
+        label: '可预约服务',
+      })
+    }
+    var grid =
+      metrics.length > 0
+        ? '<div class="h5-metric-grid">' +
+          metrics
+            .map(function (cell) {
+              return (
+                '<div class="h5-metric-cell"><span class="h5-metric-num">' +
+                escapeHtml(cell.num) +
+                '</span><span class="h5-metric-label">' +
+                escapeHtml(cell.label) +
+                '</span></div>'
+              )
+            })
+            .join('') +
+          '</div>'
+        : ''
+    return (
+      '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">透明度指标</h2>' +
+      grid +
+      '<p class="h5-transparency">' +
+      escapeHtml(buildTransparencyText(store, serviceCount)) +
+      '</p></div>'
+    )
+  }
+
+  function renderCertSection(store, certRows) {
+    if (!certRows.length && !(store.certWall && store.certWall.length)) return ''
+    var table = ''
+    if (certRows.length) {
+      var body = certRows
+        .map(function (row) {
+          return (
+            '<tr><th>' +
+            escapeHtml(row.label) +
+            '</th><td>' +
+            escapeHtml(row.value) +
+            '</td></tr>'
+          )
+        })
+        .join('')
+      table = '<table class="h5-table">' + body + '</table>'
+    }
+    var wall = ''
+    if (store.certWall && store.certWall.length) {
+      wall =
+        '<div class="h5-cert-wall">' +
+        store.certWall
+          .map(function (item) {
+            return (
+              '<div class="h5-cert-wall-item"><img class="h5-cert-wall-img" src="' +
+              escapeHtml(item.imageUrl) +
+              '" alt="' +
+              escapeHtml(item.label) +
+              '" loading="lazy" /><div class="h5-cert-wall-caption">' +
+              escapeHtml(item.label) +
+              ' · ' +
+              escapeHtml(item.text || '已认证') +
+              '</div></div>'
+            )
+          })
+          .join('') +
+        '</div>'
+    }
+    return (
+      '<div class="h5-folio-panel" id="store-trust"><h2 class="h5-folio-section-title">门店资质</h2>' +
+      table +
+      wall +
+      '</div>'
+    )
+  }
+
+  function renderStaff(staffPublic) {
+    if (!staffPublic || !staffPublic.length) return ''
+    var items = staffPublic
+      .map(function (member) {
+        var creds = (member.credentials || [])
+          .map(function (cred) {
+            return '<li class="h5-staff-cred">' + escapeHtml(cred) + '</li>'
+          })
+          .join('')
+        return (
+          '<div class="h5-staff-item"><div class="h5-staff-name">' +
+          escapeHtml(member.name) +
+          '</div><div class="h5-staff-role">' +
+          escapeHtml(member.role || '员工') +
+          '</div>' +
+          (creds ? '<ul class="h5-staff-creds">' + creds + '</ul>' : '') +
+          '</div>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-folio-panel" id="store-staff"><h2 class="h5-folio-section-title">员工资质</h2><div class="h5-staff-list">' +
+      items +
+      '</div></div>'
+    )
+  }
+
+  function renderStoreFaq(faq) {
+    if (!faq || !faq.length) return ''
+    var items = faq
+      .map(function (item) {
+        return (
+          '<div class="h5-faq-item"><div class="h5-faq-q">' +
+          escapeHtml(item.q) +
+          '</div><div class="h5-faq-a">' +
+          escapeHtml(item.a) +
+          '</div></div>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-folio-panel h5-topic-faq" id="store-faq"><h2 class="h5-folio-section-title">常见问题</h2>' +
+      items +
+      '</div>'
     )
   }
 
@@ -374,7 +532,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">擅长项目</h2>' +
+      '<div class="h5-folio-panel"><h2 class="h5-folio-section-title">擅长项目</h2>' +
       '<ul class="h5-specialty-list">' +
       items +
       '</ul></div>'
@@ -403,7 +561,7 @@
 
   function renderServices(services, storeId, bookingEnabled) {
     var section =
-      '<div class="h5-card"><h2 class="h5-section-title">服务商品</h2>' +
+      '<div class="h5-folio-panel" id="store-services"><h2 class="h5-folio-section-title">服务方案</h2>' +
       '<p class="h5-compliance">' +
       escapeHtml(COPY.price) +
       '</p>'
@@ -448,7 +606,7 @@
     var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
     var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
     var section =
-      '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
+      '<div class="h5-folio-panel" id="store-cases"><h2 class="h5-folio-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
       escapeHtml(caseNote) +
       '</p>'
@@ -516,7 +674,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">门店环境</h2>' +
+      '<div class="h5-folio-panel"><h2 class="h5-folio-section-title">门店环境</h2>' +
       '<div class="h5-env-grid">' +
       imgs +
       '</div></div>'
@@ -646,7 +804,6 @@
     var statusText = STATUS_TEXT[store.status] || store.status || ''
     var headTags = buildStoreHeadTags(store)
     var certRows = buildCertRows(store.certifications)
-    var transparency = buildTransparencyText(store, (services || []).length)
 
     setShareMeta(store)
 
@@ -694,25 +851,20 @@
 
     if (store.aiSummary || store.intro) {
       html +=
-        '<p class="h5-summary">' + escapeHtml(store.aiSummary || store.intro) + '</p>'
+        '<div class="h5-folio-summary">' +
+        escapeHtml(store.aiSummary || store.intro) +
+        '</div>'
     }
 
     html += renderKeyInfo(buildInfoRows(store), '门店信息')
-
-    if (certRows.length) {
-      html += renderKeyInfo(certRows, '认证信息')
-    }
-
-    html +=
-      '<div class="h5-card"><h2 class="h5-section-title">透明度指标</h2>' +
-      '<p class="h5-transparency">' +
-      escapeHtml(transparency) +
-      '</p></div>'
-
+    html += renderCertSection(store, certRows)
+    html += renderStaff(store.staffPublic)
+    html += renderTransparencyPanel(store, (services || []).length)
     html += renderSpecialties(store.specialties)
     html += renderServices(services, store.id, bookingEnabled)
     html += renderCases(cases, store)
     html += renderEnvironment(store.environmentImages)
+    html += renderStoreFaq(store.faq)
 
     html += '<div class="h5-body-spacer"></div></div>'
 

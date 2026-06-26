@@ -1,5 +1,13 @@
 @import '../../../styles/deep-link-detail.wxss';
 
+.service-detail__body {
+  padding-top: var(--space-md);
+}
+
+.service-detail__panel {
+  margin-bottom: var(--space-lg);
+}
+
 .service-detail__head {
   margin-bottom: var(--space-md);
 }
@@ -15,16 +23,25 @@
   gap: var(--space-xs);
 }
 
+.service-detail__key-well {
+  margin-top: var(--space-md);
+}
+
 .service-detail__price-section {
   margin-top: 0;
 }
 
-.service-detail__contact-card {
+.service-detail__contact-well {
   margin-top: var(--space-md);
 }
 
+.service-detail__phone-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .service-detail__evidence {
-  margin-top: var(--space-md);
+  margin-top: 0;
 }
 
 .service-detail__consult-guide {

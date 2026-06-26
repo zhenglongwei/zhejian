@@ -28,20 +28,129 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="deep-link-detail__body">
-      <view class="service-detail__head">
-        <text class="service-detail__title text-h1">{{detail.name}}</text>
-        <view class="service-detail__tags">
-          <ui-tag
-            wx:for="{{detail.headTags}}"
-            wx:key="text"
-            variant="{{item.variant}}"
-            text="{{item.text}}"
-          />
+    <view class="deep-link-detail__body service-detail__body">
+      <view class="surface-album-panel service-detail__panel">
+        <view class="service-detail__head">
+          <text class="service-detail__title text-h1">{{detail.name}}</text>
+          <view class="service-detail__tags">
+            <ui-tag
+              wx:for="{{detail.headTags}}"
+              wx:key="text"
+              variant="{{item.variant}}"
+              text="{{item.text}}"
+            />
+          </view>
+        </view>
+        <ui-ai-summary-block content="{{detail.aiSummary || detail.summary}}" />
+        <view wx:if="{{detail.keyInfoRows.length}}" class="surface-album-well service-detail__key-well">
+          <ui-key-info-table rows="{{detail.keyInfoRows}}" />
         </view>
       </view>
 
-      <view class="deep-link-detail__section service-detail__price-section">
+      <view class="surface-album-panel service-detail__panel">
+        <view class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">服务说明</text>
+          <text class="text-body">{{detail.detail}}</text>
+        </view>
+
+        <view wx:if="{{detail.appointmentSection.hasContent}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">到店说明</text>
+          <ui-key-info-table wx:if="{{detail.appointmentSection.rows.length}}" rows="{{detail.appointmentSection.rows}}" />
+          <text
+            wx:if="{{detail.appointmentSection.consultGuide}}"
+            class="service-detail__consult-guide text-body"
+          >{{detail.appointmentSection.consultGuide}}</text>
+          <view wx:if="{{detail.status === 'published'}}" class="deep-link-detail__notice">
+            <text class="text-caption">如需了解详情或预约到店，请直接电话联系门店。</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.includedItems.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">服务包含</text>
+          <view class="service-detail__list">
+            <text
+              wx:for="{{detail.includedItems}}"
+              wx:key="*this"
+              class="service-detail__list-item text-body"
+            >· {{item}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.excludedItems.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">服务不包含</text>
+          <view class="service-detail__list">
+            <text
+              wx:for="{{detail.excludedItems}}"
+              wx:key="*this"
+              class="service-detail__list-item text-body"
+            >· {{item}}</text>
+          </view>
+          <view class="deep-link-detail__notice">
+            <text class="text-caption">如到店检测发现车辆情况与所选服务不符，门店会与你确认新的维修方案和费用。</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.applicableVehicles.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">适用车型</text>
+          <view class="service-detail__list">
+            <text
+              wx:for="{{detail.applicableVehicles}}"
+              wx:key="*this"
+              class="service-detail__list-item text-body"
+            >· {{item}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.applicableScenes.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">适用情况</text>
+          <view class="service-detail__list">
+            <text
+              wx:for="{{detail.applicableScenes}}"
+              wx:key="*this"
+              class="service-detail__list-item text-body"
+            >· {{item}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.notApplicableScenes.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">不适用情况</text>
+          <view class="service-detail__list">
+            <text
+              wx:for="{{detail.notApplicableScenes}}"
+              wx:key="*this"
+              class="service-detail__list-item text-body"
+            >· {{item}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{showPriceFactors && detail.priceFactors.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">影响价格的因素</text>
+          <view class="bullet-list">
+            <text
+              wx:for="{{detail.priceFactors}}"
+              wx:key="*this"
+              class="bullet-list__item"
+            >· {{item}}</text>
+          </view>
+        </view>
+
+        <view wx:if="{{detail.serviceFlow.length}}" class="deep-link-detail__section">
+          <text class="deep-link-detail__section-title text-h2">服务流程</text>
+          <view class="service-detail__flow">
+            <view
+              wx:for="{{detail.serviceFlow}}"
+              wx:key="*this"
+              class="service-detail__flow-step"
+            >
+              <text class="service-detail__flow-index text-caption">{{index + 1}}</text>
+              <text class="text-body">{{item}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="surface-album-panel service-detail__panel service-detail__price-section">
+        <text class="deep-link-detail__section-title text-h2">价格说明</text>
         <ui-price-display
           mode="{{detail.priceMode}}"
           amount="{{detail.amount}}"
@@ -54,30 +163,27 @@
           <ui-compliance-notice type="price" wx:if="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}" />
           <ui-compliance-notice type="accident" wx:if="{{isAccident}}" />
         </view>
-      </view>
-
-      <view wx:if="{{storePhone}}" class="deep-link-detail__info-card service-detail__contact-card">
-        <view
-          class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last"
-          bindtap="onCall"
-        >
-          <view class="deep-link-detail__info-icon-wrap">
-            <image
-              class="deep-link-detail__info-icon"
-              src="/assets/icon/phone.png"
-              mode="aspectFit"
-            />
-          </view>
-          <view class="deep-link-detail__info-main">
-            <text class="deep-link-detail__info-label text-caption">联系电话</text>
-            <text class="deep-link-detail__info-value deep-link-detail__info-value--link text-body">{{storePhone}}</text>
+        <view wx:if="{{storePhone}}" class="surface-album-well service-detail__contact-well">
+          <view
+            class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last service-detail__phone-row"
+            bindtap="onCall"
+          >
+            <view class="deep-link-detail__info-icon-wrap">
+              <image
+                class="deep-link-detail__info-icon"
+                src="/assets/icon/phone.png"
+                mode="aspectFit"
+              />
+            </view>
+            <view class="deep-link-detail__info-main">
+              <text class="deep-link-detail__info-label text-caption">联系电话</text>
+              <text class="deep-link-detail__info-value deep-link-detail__info-value--link text-body">{{storePhone}}</text>
+            </view>
           </view>
         </view>
       </view>
 
-      <ui-ai-summary-block content="{{detail.summary}}" />
-
-      <view id="cases-section" class="deep-link-detail__section service-detail__evidence">
+      <view id="cases-section" class="surface-album-panel service-detail__panel service-detail__evidence">
         <view class="deep-link-detail__section-head">
           <text class="deep-link-detail__section-title text-h2">{{storeIsolated ? '本店类似案例' : '类似案例'}}</text>
           <text
@@ -91,6 +197,7 @@
         </view>
         <block wx:if="{{!detail.relatedCases.length}}">
           <ui-empty
+            theme="album"
             title="暂无类似案例"
             description="你可以先查看门店或联系客服了解维修能力"
           />
@@ -117,130 +224,16 @@
         </view>
       </view>
 
-      <view wx:if="{{detail.keyInfoRows.length}}" class="deep-link-detail__card-wrap">
-        <ui-card>
-          <ui-key-info-table rows="{{detail.keyInfoRows}}" />
-        </ui-card>
-      </view>
-
-      <view class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">服务说明</text>
-        <text class="text-body">{{detail.detail}}</text>
-      </view>
-
-      <view wx:if="{{detail.appointmentSection.hasContent}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">到店说明</text>
-        <ui-key-info-table wx:if="{{detail.appointmentSection.rows.length}}" rows="{{detail.appointmentSection.rows}}" />
-        <text
-          wx:if="{{detail.appointmentSection.consultGuide}}"
-          class="service-detail__consult-guide text-body"
-        >{{detail.appointmentSection.consultGuide}}</text>
-        <view wx:if="{{detail.status === 'published'}}" class="deep-link-detail__notice">
-          <text class="text-caption">如需了解详情或预约到店，请直接电话联系门店。</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.includedItems.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">服务包含</text>
-        <view class="service-detail__list">
-          <text
-            wx:for="{{detail.includedItems}}"
-            wx:key="*this"
-            class="service-detail__list-item text-body"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.excludedItems.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">服务不包含</text>
-        <view class="service-detail__list">
-          <text
-            wx:for="{{detail.excludedItems}}"
-            wx:key="*this"
-            class="service-detail__list-item text-body"
-          >· {{item}}</text>
-        </view>
-        <view class="deep-link-detail__notice">
-          <text class="text-caption">如到店检测发现车辆情况与所选服务不符，门店会与你确认新的维修方案和费用。</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.applicableVehicles.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">适用车型</text>
-        <view class="service-detail__list">
-          <text
-            wx:for="{{detail.applicableVehicles}}"
-            wx:key="*this"
-            class="service-detail__list-item text-body"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.applicableScenes.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">适用情况</text>
-        <view class="service-detail__list">
-          <text
-            wx:for="{{detail.applicableScenes}}"
-            wx:key="*this"
-            class="service-detail__list-item text-body"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.notApplicableScenes.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">不适用情况</text>
-        <view class="service-detail__list">
-          <text
-            wx:for="{{detail.notApplicableScenes}}"
-            wx:key="*this"
-            class="service-detail__list-item text-body"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{showPriceFactors && detail.priceFactors.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">影响价格的因素</text>
-        <view class="bullet-list">
-          <text
-            wx:for="{{detail.priceFactors}}"
-            wx:key="*this"
-            class="bullet-list__item"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.serviceFlow.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h2">服务流程</text>
-        <view class="service-detail__flow">
-          <view
-            wx:for="{{detail.serviceFlow}}"
-            wx:key="*this"
-            class="service-detail__flow-step"
-          >
-            <text class="service-detail__flow-index text-caption">{{index + 1}}</text>
-            <text class="text-body">{{item}}</text>
-          </view>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.faq.length}}" class="deep-link-detail__section">
+      <view wx:if="{{detail.faq.length}}" class="surface-album-panel service-detail__panel">
         <text class="deep-link-detail__section-title text-h2">常见问题</text>
         <ui-faq-list items="{{detail.faq}}" showQPrefix="{{true}}" variant="card" />
       </view>
 
-      <view class="deep-link-detail__section deep-link-detail__report">
-        <ui-detail-report-entry
-          targetType="service"
-          targetId="{{detail.id}}"
-          targetTitle="{{detail.name}}"
-          attached="{{true}}"
-        />
-      </view>
-
-      <view wx:if="{{!storeIsolated}}" class="deep-link-detail__section">
+      <view wx:if="{{!storeIsolated}}" class="surface-album-panel service-detail__panel">
         <text class="deep-link-detail__section-title text-h2">可预约门店</text>
         <block wx:if="{{!detail.availableMerchants.length}}">
           <ui-empty
+            theme="album"
             title="当前暂无可预约门店"
             description="你可以查看类似案例或联系客服"
           />
@@ -258,6 +251,15 @@
             bind:cardtap="onStoreTap"
           />
         </view>
+      </view>
+
+      <view class="deep-link-detail__section deep-link-detail__report">
+        <ui-detail-report-entry
+          targetType="service"
+          targetId="{{detail.id}}"
+          targetTitle="{{detail.name}}"
+          attached="{{true}}"
+        />
       </view>
     </view>
   </block>

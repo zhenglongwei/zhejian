@@ -86,6 +86,31 @@ const STORE_EXTRAS = {
       { label: '维修资质', status: 'verified', text: '二类维修资质 · 已认证' },
       { label: '门店真实性', status: 'verified', text: '已审核' },
     ],
+    vehicleSpecialties: ['大众', '丰田', '本田', '别克'],
+    staffPublic: [
+      {
+        id: 'staff_demo_1',
+        name: '李师傅',
+        role: '维修技师',
+        credentials: ['二类维修技师', '钣金修复'],
+      },
+      {
+        id: 'staff_demo_2',
+        name: '王店长',
+        role: '管理员',
+        credentials: ['门店管理'],
+      },
+    ],
+    faq: [
+      {
+        q: '如何预约该门店？',
+        a: '可通过页面预约入口或电话联系门店，确认到店时间与检测项目。',
+      },
+      {
+        q: '公开案例的价格是否准确？',
+        a: '案例价格为当时维修方案参考；实际费用以到店检测与门店报价为准。',
+      },
+    ],
     aiSummary:
       '杭州滨江示范门店，支持服务相册与公开案例展示，资质已审核，价格以到店检测为准。',
   },

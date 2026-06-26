@@ -1,0 +1,150 @@
+/**
+ * 辙见 H5 · 公开页 folio 纸感（对齐小程序 surface-album-*）
+ */
+
+.h5-folio-panel {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-soft, 0 2px 12px rgba(28, 24, 20, 0.06));
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.h5-folio-panel--inset {
+  background: var(--color-bg-muted);
+  box-shadow: none;
+  border: 1rpx solid var(--color-border);
+}
+
+.h5-folio-section-title {
+  font-size: var(--font-h2);
+  font-weight: 600;
+  margin: 0 0 var(--space-md);
+  line-height: 1.35;
+}
+
+.h5-folio-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.h5-folio-section-head .h5-folio-section-title {
+  margin-bottom: 0;
+}
+
+.h5-folio-summary {
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-article, 1.65);
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-border-strong, var(--color-border));
+}
+
+.h5-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.h5-metric-cell {
+  padding: var(--space-md);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.h5-metric-num {
+  display: block;
+  font-size: var(--font-h2);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.h5-metric-label {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-cert-wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.h5-cert-wall-item {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+}
+
+.h5-cert-wall-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+
+.h5-cert-wall-caption {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.h5-staff-item {
+  padding: var(--space-md);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.h5-staff-name {
+  font-size: var(--font-body);
+  font-weight: 600;
+  margin: 0 0 var(--space-xs);
+}
+
+.h5-staff-role {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-xs);
+}
+
+.h5-staff-creds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.h5-staff-cred {
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-card.h5-folio-legacy {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-soft, 0 2px 12px rgba(28, 24, 20, 0.06));
+  border: none;
+}

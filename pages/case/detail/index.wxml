@@ -30,14 +30,48 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="deep-link-detail__body">
-      <view class="case-detail__tags">
-        <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
-      </view>
-      <text class="case-detail__title text-h1">{{detail.title}}</text>
-      <ui-ai-summary-block content="{{detail.aiSummary}}" />
+    <view class="deep-link-detail__body case-detail__body">
+      <view class="surface-album-panel case-detail__panel">
+        <view class="case-detail__tags">
+          <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
+        </view>
+        <text class="case-detail__title text-h1">{{detail.title}}</text>
+        <ui-ai-summary-block content="{{detail.aiSummary}}" />
 
-      <view class="deep-link-detail__section case-detail__evidence">
+        <view wx:if="{{detail.keyInfo.length}}" class="surface-album-well case-detail__key-well">
+          <ui-key-info-table rows="{{detail.keyInfo}}" />
+        </view>
+      </view>
+
+      <view
+        wx:if="{{detail.faultDesc || detail.inspectResult || detail.repairPlan || detail.priceFactors.length}}"
+        class="surface-album-panel case-detail__panel"
+      >
+        <view wx:if="{{detail.faultDesc}}" class="case-detail__narrative-block">
+          <text class="deep-link-detail__section-title text-h3">故障表现</text>
+          <text class="text-body">{{detail.faultDesc}}</text>
+        </view>
+        <view wx:if="{{detail.inspectResult}}" class="case-detail__narrative-block">
+          <text class="deep-link-detail__section-title text-h3">检查结果</text>
+          <text class="text-body">{{detail.inspectResult}}</text>
+        </view>
+        <view wx:if="{{detail.repairPlan}}" class="case-detail__narrative-block">
+          <text class="deep-link-detail__section-title text-h3">维修方案</text>
+          <text class="text-body">{{detail.repairPlan}}</text>
+        </view>
+        <view wx:if="{{detail.priceFactors.length}}" class="case-detail__narrative-block">
+          <text class="deep-link-detail__section-title text-h3">影响价格的因素</text>
+          <view class="bullet-list">
+            <text
+              wx:for="{{detail.priceFactors}}"
+              wx:key="*this"
+              class="bullet-list__item"
+            >· {{item}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{detail.nodes.length}}" class="surface-album-folio case-detail__panel case-detail__evidence">
         <text class="deep-link-detail__section-title text-h2">维修过程</text>
         <ui-album-node
           wx:for="{{detail.nodes}}"
@@ -48,13 +82,7 @@
         />
       </view>
 
-      <view wx:if="{{detail.keyInfo.length}}" class="deep-link-detail__card-wrap">
-        <ui-card>
-          <ui-key-info-table rows="{{detail.keyInfo}}" />
-        </ui-card>
-      </view>
-
-      <view class="deep-link-detail__section">
+      <view class="surface-album-panel case-detail__panel">
         <text class="deep-link-detail__section-title text-h3">{{detail.priceMode === 'fixed' ? '方案报价' : '价格说明'}}</text>
         <ui-price-display
           mode="{{detail.priceMode}}"
@@ -70,30 +98,7 @@
         </view>
       </view>
 
-      <view wx:if="{{detail.faultDesc}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h3">故障表现</text>
-        <text class="text-body">{{detail.faultDesc}}</text>
-      </view>
-      <view wx:if="{{detail.inspectResult}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h3">检查结果</text>
-        <text class="text-body">{{detail.inspectResult}}</text>
-      </view>
-      <view wx:if="{{detail.repairPlan}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h3">维修方案</text>
-        <text class="text-body">{{detail.repairPlan}}</text>
-      </view>
-      <view wx:if="{{detail.priceFactors.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h3">影响价格的因素</text>
-        <view class="bullet-list">
-          <text
-            wx:for="{{detail.priceFactors}}"
-            wx:key="*this"
-            class="bullet-list__item"
-          >· {{item}}</text>
-        </view>
-      </view>
-
-      <view class="deep-link-detail__section">
+      <view class="surface-album-panel case-detail__panel">
         <text class="deep-link-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
         <ui-store-card
           wx:if="{{showStorePublicly}}"
@@ -105,10 +110,10 @@
         />
         <view
           wx:if="{{showStorePublicly && detail.storePhone}}"
-          class="deep-link-detail__info-card case-detail__phone-card"
+          class="surface-album-well case-detail__phone-well"
         >
           <view
-            class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last"
+            class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last case-detail__phone-row"
             bindtap="onCall"
           >
             <view class="deep-link-detail__info-icon-wrap">
@@ -131,21 +136,7 @@
         />
       </view>
 
-      <view wx:if="{{faqList.length}}" class="deep-link-detail__section">
-        <text class="deep-link-detail__section-title text-h3">延伸阅读</text>
-        <ui-faq-list items="{{faqList}}" />
-      </view>
-
-      <view class="deep-link-detail__section deep-link-detail__report">
-        <ui-detail-report-entry
-          targetType="case"
-          targetId="{{detail.id}}"
-          targetTitle="{{detail.title}}"
-          attached="{{true}}"
-        />
-      </view>
-
-      <view wx:if="{{relatedCases.length}}" class="deep-link-detail__section">
+      <view wx:if="{{relatedCases.length}}" class="surface-album-panel case-detail__panel">
         <text class="deep-link-detail__section-title text-h3">{{storeIsolated ? '本店更多案例' : '相关案例'}}</text>
         <view class="deep-link-detail__stack">
           <ui-case-card
@@ -167,6 +158,20 @@
             bind:cardtap="onRelatedCaseTap"
           />
         </view>
+      </view>
+
+      <view wx:if="{{faqList.length}}" class="surface-album-panel case-detail__panel">
+        <text class="deep-link-detail__section-title text-h3">延伸阅读</text>
+        <ui-faq-list items="{{faqList}}" />
+      </view>
+
+      <view class="deep-link-detail__section deep-link-detail__report">
+        <ui-detail-report-entry
+          targetType="case"
+          targetId="{{detail.id}}"
+          targetTitle="{{detail.title}}"
+          attached="{{true}}"
+        />
       </view>
     </view>
   </block>
