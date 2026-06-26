@@ -336,17 +336,20 @@
   }
 
   function sanitizeCaseForDisplay(data) {
-    var next = Object.assign({}, data)
-    next.nodes = (data.nodes || []).map(function (node) {
+    var base = Object.assign({}, data)
+    base.nodes = (data.nodes || []).map(function (node) {
       return Object.assign({}, node, {
         images: pickNodeDesensitizedImages(node),
         imagesDesensitized: pickNodeDesensitizedImages(node),
       })
     })
-    var cover = pickCaseCover(next)
-    next.coverImage = cover
-    next.coverImageDesensitized = cover
-    return next
+    var cover = pickCaseCover(base)
+    base.coverImage = cover
+    base.coverImageDesensitized = cover
+    if (window.zhejianCaseDisplay && window.zhejianCaseDisplay.enrichCaseForRender) {
+      return window.zhejianCaseDisplay.enrichCaseForRender(base)
+    }
+    return base
   }
 
   function escapeHtml(str) {
@@ -431,28 +434,37 @@
   function renderNodes(data, nodes) {
     if (!nodes || !nodes.length) return ''
     var items = nodes
+      .filter(function (node) {
+        return pickNodeDesensitizedImages(node).length > 0 || normalizeNodeNote(node)
+      })
       .map(function (node) {
+        var note = normalizeNodeNote(node)
+        var imgs = pickNodeDesensitizedImages(node)
         return (
           '<div class="h5-node">' +
           '<div class="h5-node-title">' +
           escapeHtml(node.title) +
           '</div>' +
-          renderNodeImage(data, node) +
-          (node.note
-            ? '<div class="h5-node-note">' + escapeHtml(node.note) + '</div>'
-            : '') +
+          (note ? '<div class="h5-node-note">' + escapeHtml(note) + '</div>' : '') +
+          (imgs.length ? renderNodeImage(data, node) : '') +
           '</div>'
         )
       })
       .join('')
+    if (!items) return ''
     return (
       '<div class="h5-folio-panel" id="case-process"><h2 class="h5-folio-section-title">维修过程</h2>' +
+      '<p class="h5-section-note">各节点说明来自门店填写或 AI 看图草稿；无图片且无说明的节点不展示。</p>' +
       '<p class="h5-compliance">' +
       escapeHtml(COPY.desensitize) +
       '</p>' +
       items +
       '</div>'
     )
+  }
+
+  function normalizeNodeNote(node) {
+    return String((node && node.note) || '').trim()
   }
 
   function shouldShowStorePublicly(data) {
@@ -565,20 +577,29 @@
     if (!shouldShowStorePublicly(data)) {
       var cityHint = data.city ? '（' + data.city + '）' : ''
       return (
-        '<div class="h5-card"><h2 class="h5-section-title">联系门店</h2>' +
+        '<div class="h5-card h5-store-panel"><h2 class="h5-section-title">联系门店</h2>' +
         '<p class="h5-compliance">本案例为匿名授权公示，不展示门店名称。</p>' +
         '<p class="h5-compliance">可通过下方电话或留言联系服务门店' +
         escapeHtml(cityHint) +
         '</p></div>'
       )
     }
+    var phone = data.storePhone || (data.store && data.store.phone) || ''
+    var phoneHtml = phone
+      ? '<a class="h5-store-phone-row" href="tel:' +
+        escapeHtml(phone) +
+        '"><span class="h5-store-phone-label">联系电话</span><span class="h5-store-phone-value">' +
+        escapeHtml(phone) +
+        '</span></a>'
+      : ''
     return (
-      '<div class="h5-card">' +
+      '<div class="h5-card h5-store-panel">' +
       '<h2 class="h5-section-title">关联门店</h2>' +
-      '<p>' +
+      '<div class="h5-store-panel-body">' +
+      '<p class="h5-store-name">' +
       escapeHtml(data.storeName) +
       '</p>' +
-      '<p class="h5-compliance">' +
+      '<p class="h5-store-meta">' +
       escapeHtml(data.city || '') +
       '</p>' +
       '<a class="h5-link" id="h5-store-link" href="/store/' +
@@ -586,7 +607,8 @@
       '.html" data-store-id="' +
       escapeHtml(data.storeId) +
       '">查看门店详情 ›</a>' +
-      '</div>'
+      phoneHtml +
+      '</div></div>'
     )
   }
 
@@ -683,8 +705,12 @@
   }
 
   function renderArticleSections(data) {
+    var skipKeys = { before: 1, inspect: 1, plan: 1, process: 1, overview: 1 }
+    var hasProcessNodes = (data.displayNodes || data.nodes || []).length > 0
     var sections = getArticleSections(data).filter(function (section) {
-      return section && section.content && section.key !== 'priceFactors'
+      if (!section || !section.content || section.key === 'priceFactors') return false
+      if (hasProcessNodes && skipKeys[section.key]) return false
+      return true
     })
     if (!sections.length) return ''
     return sections
@@ -703,7 +729,7 @@
   }
 
   function renderArticleLead(data) {
-    var text = data.aiSummary || data.summary || ''
+    var text = data.displayAiSummary || data.aiSummary || data.summary || ''
     if (!text) return ''
     return (
       '<section class="h5-article-lead">' +
@@ -981,7 +1007,8 @@
         sectionTitle: '方案报价',
         priceText: currency + fixedAmount,
         disclaimer: '',
-        compliance: '本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。',
+        compliance:
+          '本案例为车主授权公示，展示当时方案参考费用，不构成线上报价承诺。',
       }
     }
     if (mode === 'consult') {
@@ -1313,46 +1340,22 @@
         renderKeyInfo(safeData.keyInfo) +
         renderPriceSection(safeData) +
         renderArticleSections(safeData) +
-        renderArticleProcess(safeData, safeData.nodes)
+        renderArticleProcess(safeData, safeData.displayNodes || safeData.nodes)
     } else {
       html +=
         '<div class="h5-top-actions">' +
         '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
         '<button type="button" class="h5-btn" id="h5-consult-top-btn">预约类似服务</button>' +
         '</div>' +
-        (safeData.aiSummary
-          ? '<div class="h5-folio-summary">' + escapeHtml(safeData.aiSummary) + '</div>'
+        (safeData.displayAiSummary || safeData.aiSummary
+          ? '<div class="h5-folio-summary">' +
+            escapeHtml(safeData.displayAiSummary || safeData.aiSummary) +
+            '</div>'
           : '') +
         renderKeyInfo(safeData.keyInfo) +
-        renderPriceSection(safeData)
-
-      if (safeData.faultDesc || safeData.inspectResult || safeData.repairPlan) {
-        html += '<div class="h5-folio-panel" id="case-narrative">'
-      }
-      if (safeData.faultDesc) {
-        html +=
-          '<h2 class="h5-folio-section-title">故障表现</h2><p>' +
-          escapeHtml(safeData.faultDesc) +
-          '</p>'
-      }
-      if (safeData.inspectResult) {
-        html +=
-          '<h2 class="h5-folio-section-title">检查结果</h2><p>' +
-          escapeHtml(safeData.inspectResult) +
-          '</p>'
-      }
-      if (safeData.repairPlan) {
-        html +=
-          '<h2 class="h5-folio-section-title">维修方案</h2><p>' +
-          escapeHtml(safeData.repairPlan) +
-          '</p>'
-      }
-      if (safeData.faultDesc || safeData.inspectResult || safeData.repairPlan) {
-        html += '</div>'
-      }
-
-      html += renderNodes(safeData, safeData.nodes)
-      html += renderPriceFactors(safeData.priceFactors)
+        renderPriceSection(safeData) +
+        renderNodes(safeData, safeData.displayNodes || safeData.nodes) +
+        renderPriceFactors(safeData.priceFactors)
     }
 
     html += renderStoreSection(safeData)

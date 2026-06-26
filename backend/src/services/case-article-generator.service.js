@@ -111,6 +111,7 @@ function buildCaseArticlePayload(input) {
     resultConfirm,
     coldStart,
     hasImages,
+    planAmount,
   })
   const articleBody = buildArticleBody(sections)
   const caseId = input.caseId || draft.id

@@ -20,7 +20,9 @@ function truncateChinese(text, maxLen) {
 function buildDisplayCaseTitle({ city = '', vehicle, serviceName = '维修服务' }) {
   const vehicleTitle = buildVehicleTitle(vehicle)
   const cityPart = city || ''
-  return `${cityPart}${vehicleTitle}${serviceName}维修案例`.trim()
+  const svc = String(serviceName || '维修服务').trim()
+  const servicePart = svc.endsWith('维修') || svc.endsWith('案例') ? svc : `${svc}维修`
+  return `${cityPart}${vehicleTitle}${servicePart}案例`.trim()
 }
 
 /** §11.1 SEO 标题：展示标题 + _门店名，20–35 字降级 */
@@ -40,7 +42,23 @@ function buildSeoDescription({ city = '', vehicle, serviceName = '维修服务',
   return truncateChinese(text, 150)
 }
 
-/** §13.2 AI 可引用摘要，150–300 字 */
+function isGenericFaultDesc(text) {
+  const v = String(text || '').trim()
+  return !v || v === '用户反馈的相关问题' || v === '到店进行相关检查'
+}
+
+function isGenericInspectResult(text) {
+  const v = String(text || '').trim()
+  return !v || v === defaultInspectResult()
+}
+
+function isGenericRepairPlan(text, serviceName = '') {
+  const v = String(text || '').trim()
+  if (!v) return true
+  return v === defaultRepairPlan(serviceName)
+}
+
+/** §13.2 AI 可引用摘要，80–180 字 · 事实句，禁止模板套话 */
 function buildAiSummary({
   city = '',
   vehicle,
@@ -51,24 +69,42 @@ function buildAiSummary({
   resultConfirm = '',
   coldStart = false,
   hasImages = false,
+  planAmount = null,
 }) {
   const vehicleTitle = buildVehicleTitle(vehicle)
   const cityPart = city || '当地'
-  const fault = faultDesc || '相关故障或养护需求'
-  const inspect = inspectResult || '门店根据车辆实际情况进行了检查'
-  const plan = repairPlan || `采用${serviceName}相关方案进行处理`
-  const resultClause = resultConfirm ? `维修后${resultConfirm}。` : ''
-  const imageClause = hasImages
-    ? '案例图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。'
-    : ''
-  const priceClause = coldStart
-    ? '页面展示价格为系统参考区间，实际费用以到店检测和方案确认为准。'
-    : '该类服务价格会受到车型、配件品牌、损伤程度、工时和维修方案影响，页面展示价格仅供参考。'
-  const prefix = coldStart
-    ? `该案例为${cityPart}${vehicleTitle}${serviceName}维修案例摘要。`
-    : `该案例为${cityPart}${vehicleTitle}${serviceName}维修记录。`
-  let text = `${prefix}车辆主要问题为${fault}。${inspect}，门店${plan}。${resultClause}${imageClause}${priceClause}`
-  return truncateChinese(text, 300)
+  const parts = []
+
+  if (!isGenericFaultDesc(faultDesc)) {
+    parts.push(String(faultDesc).trim().replace(/。$/, ''))
+  }
+  if (!isGenericInspectResult(inspectResult)) {
+    parts.push(String(inspectResult).trim().replace(/。$/, ''))
+  }
+  if (!isGenericRepairPlan(repairPlan, serviceName)) {
+    parts.push(String(repairPlan).trim().replace(/。$/, ''))
+  }
+  if (resultConfirm) {
+    parts.push(String(resultConfirm).trim().replace(/。$/, ''))
+  }
+
+  if (!parts.length) {
+    parts.push(`${cityPart}${vehicleTitle}进行${serviceName}`)
+  }
+
+  if (coldStart) {
+    parts.push('案例为门店服务留档，价格为系统参考区间')
+  } else if (planAmount != null && Number(planAmount) > 0) {
+    parts.push(`当时方案参考费用约${Math.round(Number(planAmount))}元`)
+  }
+
+  if (hasImages) {
+    parts.push('过程图片已脱敏并经平台审核')
+  }
+
+  let text = parts.filter(Boolean).join('。')
+  if (text && !text.endsWith('。')) text += '。'
+  return truncateChinese(text, 180)
 }
 
 function defaultInspectResult() {
@@ -172,7 +208,7 @@ function buildGeoSections({
   const cityPart = city || '当地'
   const inspect = inspectResult || defaultInspectResult()
   const plan = repairPlan || defaultRepairPlan(serviceName)
-  const fault = faultDesc || (coldStart ? '到店进行相关检查' : '用户反馈的相关问题')
+  const fault = faultDesc || (coldStart ? '到店进行相关检查' : '')
   const result =
     resultConfirm ||
     '维修完成后，门店对结果进行了检查或试车确认，并记录完工状态。'
@@ -272,6 +308,7 @@ module.exports = {
   buildGeoSections,
   buildNodeNarratives,
   buildArticleBody,
+  buildNodeDescription,
   countNodeImages,
   resolveSeoNoindex,
   buildCanonicalPath,

@@ -47,6 +47,7 @@
     </block>
 
     <block wx:else>
+      <text wx:if="{{note}}" class="album-node__note text-caption">{{note}}</text>
       <view wx:if="{{displayImages.length}}" class="album-node__grid">
         <view
           wx:for="{{displayImages}}"
@@ -58,11 +59,10 @@
           <image class="album-node__img" src="{{item}}" mode="aspectFill" />
         </view>
       </view>
-      <view wx:else class="album-node__empty">
+      <view wx:elif="{{!note}}" class="album-node__empty">
         <text class="album-node__empty-text text-caption">{{emptyText}}</text>
       </view>
       <text wx:if="{{time}}" class="album-node__time text-caption">{{time}}</text>
-      <text wx:if="{{note}}" class="album-node__note text-caption">{{note}}</text>
       <text
         wx:if="{{showFeedback && mode === 'view'}}"
         class="album-node__feedback text-caption text-link"

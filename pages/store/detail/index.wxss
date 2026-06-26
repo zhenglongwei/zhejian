@@ -3,7 +3,10 @@
 .store-detail__hero {
   width: 100%;
   height: 360rpx;
+  margin-bottom: var(--space-lg);
   background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 .store-detail__hero-img {
@@ -13,6 +16,29 @@
 
 .store-detail__body {
   padding-top: var(--space-md);
+}
+
+.store-detail__panel--top {
+  margin-top: 0;
+}
+
+.store-detail__head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.store-detail__head {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.store-detail__head-actions {
+  flex-shrink: 0;
+  padding-top: var(--space-xs);
 }
 
 .store-detail__panel {
@@ -29,10 +55,6 @@
 
 .store-detail__preview-edit {
   margin-top: var(--space-sm);
-}
-
-.store-detail__head {
-  margin-bottom: var(--space-md);
 }
 
 .store-detail__name {

@@ -17,27 +17,36 @@
   margin-bottom: var(--space-md);
 }
 
-.case-detail__key-well {
-  margin-top: var(--space-md);
-}
-
-.case-detail__narrative-block {
+.case-detail__process-note {
+  display: block;
   margin-bottom: var(--space-md);
-}
-
-.case-detail__narrative-block:last-child {
-  margin-bottom: 0;
+  color: var(--color-text-tertiary);
+  line-height: 1.55;
 }
 
 .case-detail__evidence {
   margin-top: 0;
 }
 
-.case-detail__phone-well {
-  margin-top: var(--space-sm);
+.case-detail__store-panel .deep-link-detail__section-title {
+  margin-bottom: var(--space-md);
+}
+
+.case-detail__store-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
 .case-detail__phone-row {
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.case-detail__phone-row .deep-link-detail__info-row {
   padding-left: 0;
   padding-right: 0;
 }

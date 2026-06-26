@@ -15,7 +15,7 @@ const {
 
 const { submitCaseDetailPage } = require('../../../utils/wx-search-submit')
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
-const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
+const { enrichCaseDetailForPage } = require('../../../utils/case-detail-display')
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -85,7 +85,8 @@ Page({
   async loadDetail() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const detail = await fetchCaseDetail(this.caseId)
+      const rawDetail = await fetchCaseDetail(this.caseId)
+      const detail = enrichCaseDetailForPage(rawDetail)
       const storeId = detail.storeId || getShareStoreId()
       const access = await assertOwnerStoreAccess(storeId, this.pageOptions)
       if (!access.allowed) {

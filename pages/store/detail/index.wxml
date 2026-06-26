@@ -1,19 +1,7 @@
 <ui-tool-page-shell
-  title="{{shellTitle}}"
-  subtitle="{{shellSubtitle}}"
+  showBand="{{false}}"
   showCompliance="{{status === 'normal'}}"
 >
-  <ui-detail-top-actions
-    wx:if="{{status === 'normal'}}"
-    slot="bandExtra"
-    showFavorite="{{!isPreview}}"
-    isFavorited="{{isFavorited}}"
-    showShare="{{showTopShare}}"
-    shareDisabled="{{shareActionsDisabled}}"
-    bind:favorite="onTopFavoriteTap"
-    bind:share="onOpenShareSheet"
-  />
-
   <block wx:if="{{status === 'loading'}}">
     <view class="deep-link-detail__pad">
       <ui-skeleton rows="{{6}}" title="{{true}}" />
@@ -30,15 +18,6 @@
   </block>
 
   <block wx:elif="{{store}}">
-    <view class="store-detail__hero image-placeholder">
-      <image
-        wx:if="{{store.coverImage}}"
-        class="store-detail__hero-img"
-        src="{{store.coverImage}}"
-        mode="aspectFill"
-      />
-    </view>
-
     <view class="deep-link-detail__body store-detail__body">
       <view wx:if="{{isPreview}}" class="notice store-detail__notice-gap">
         <text>{{previewBannerText}}</text>
@@ -47,21 +26,33 @@
         </view>
       </view>
 
-      <view class="surface-album-panel store-detail__panel">
-        <view class="store-detail__head">
-          <text class="store-detail__name text-h1">{{store.name}}</text>
-          <view class="store-detail__tags">
-            <ui-tag
-              wx:for="{{headTags}}"
-              wx:key="text"
-              variant="{{item.variant}}"
-              text="{{item.text}}"
-            />
+      <view class="surface-album-panel store-detail__panel store-detail__panel--top">
+        <view class="store-detail__head-row">
+          <view class="store-detail__head">
+            <text class="store-detail__name text-h1">{{store.name}}</text>
+            <view class="store-detail__tags">
+              <ui-tag
+                wx:for="{{headTags}}"
+                wx:key="text"
+                variant="{{item.variant}}"
+                text="{{item.text}}"
+              />
+            </view>
+            <view class="store-detail__status-row">
+              <text class="store-detail__status text-body">{{statusText}}</text>
+              <text wx:if="{{store.caseCount}}" class="store-detail__meta text-caption">公开案例 {{store.caseCount}}</text>
+            </view>
           </view>
-          <view class="store-detail__status-row">
-            <text class="store-detail__status text-body">{{statusText}}</text>
-            <text wx:if="{{store.caseCount}}" class="store-detail__meta text-caption">公开案例 {{store.caseCount}}</text>
-          </view>
+          <ui-detail-top-actions
+            wx:if="{{status === 'normal'}}"
+            class="store-detail__head-actions"
+            showFavorite="{{!isPreview}}"
+            isFavorited="{{isFavorited}}"
+            showShare="{{showTopShare}}"
+            shareDisabled="{{shareActionsDisabled}}"
+            bind:favorite="onTopFavoriteTap"
+            bind:share="onOpenShareSheet"
+          />
         </view>
 
         <ui-ai-summary-block wx:if="{{store.aiSummary}}" content="{{store.aiSummary}}" />
@@ -139,6 +130,14 @@
             </view>
           </view>
         </view>
+      </view>
+
+      <view wx:if="{{store.coverImage}}" class="store-detail__hero">
+        <image
+          class="store-detail__hero-img"
+          src="{{store.coverImage}}"
+          mode="aspectFill"
+        />
       </view>
 
       <view wx:if="{{transparencyMetrics.length || transparencySummary}}" class="surface-album-panel store-detail__panel">

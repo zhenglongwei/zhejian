@@ -36,45 +36,20 @@
           <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
         </view>
         <text class="case-detail__title text-h1">{{detail.title}}</text>
-        <ui-ai-summary-block content="{{detail.aiSummary}}" />
+        <ui-ai-summary-block wx:if="{{detail.displayAiSummary}}" content="{{detail.displayAiSummary}}" />
 
-        <view wx:if="{{detail.keyInfo.length}}" class="surface-album-well case-detail__key-well">
-          <ui-key-info-table rows="{{detail.keyInfo}}" />
-        </view>
+        <ui-key-info-table
+          wx:if="{{detail.keyInfo.length}}"
+          variant="inset"
+          rows="{{detail.keyInfo}}"
+        />
       </view>
 
-      <view
-        wx:if="{{detail.faultDesc || detail.inspectResult || detail.repairPlan || detail.priceFactors.length}}"
-        class="surface-album-panel case-detail__panel"
-      >
-        <view wx:if="{{detail.faultDesc}}" class="case-detail__narrative-block">
-          <text class="deep-link-detail__section-title text-h3">故障表现</text>
-          <text class="text-body">{{detail.faultDesc}}</text>
-        </view>
-        <view wx:if="{{detail.inspectResult}}" class="case-detail__narrative-block">
-          <text class="deep-link-detail__section-title text-h3">检查结果</text>
-          <text class="text-body">{{detail.inspectResult}}</text>
-        </view>
-        <view wx:if="{{detail.repairPlan}}" class="case-detail__narrative-block">
-          <text class="deep-link-detail__section-title text-h3">维修方案</text>
-          <text class="text-body">{{detail.repairPlan}}</text>
-        </view>
-        <view wx:if="{{detail.priceFactors.length}}" class="case-detail__narrative-block">
-          <text class="deep-link-detail__section-title text-h3">影响价格的因素</text>
-          <view class="bullet-list">
-            <text
-              wx:for="{{detail.priceFactors}}"
-              wx:key="*this"
-              class="bullet-list__item"
-            >· {{item}}</text>
-          </view>
-        </view>
-      </view>
-
-      <view wx:if="{{detail.nodes.length}}" class="surface-album-folio case-detail__panel case-detail__evidence">
+      <view wx:if="{{detail.displayNodes.length}}" class="surface-album-folio case-detail__panel case-detail__evidence">
         <text class="deep-link-detail__section-title text-h2">维修过程</text>
+        <text class="case-detail__process-note text-caption">无图片且无说明的节点不展示；说明缺失时系统可依据图片生成草稿供门店确认。</text>
         <ui-album-node
-          wx:for="{{detail.nodes}}"
+          wx:for="{{detail.displayNodes}}"
           wx:key="id"
           title="{{item.title}}"
           images="{{item.images}}"
@@ -82,38 +57,46 @@
         />
       </view>
 
-      <view class="surface-album-panel case-detail__panel">
-        <text class="deep-link-detail__section-title text-h3">{{detail.priceMode === 'fixed' ? '方案报价' : '价格说明'}}</text>
-        <ui-price-display
-          mode="{{detail.priceMode}}"
-          amount="{{detail.amount}}"
-          minAmount="{{detail.minAmount}}"
-          maxAmount="{{detail.maxAmount}}"
-          showSuffix="{{detail.priceMode !== 'fixed'}}"
-          showDisclaimer="{{detail.priceMode !== 'fixed'}}"
-        />
-        <view class="deep-link-detail__notice">
-          <ui-compliance-notice type="casePrice" wx:if="{{detail.priceMode !== 'fixed'}}" />
-          <ui-compliance-notice type="authorizedCaseFixed" wx:else />
+      <view wx:if="{{detail.priceFactors.length}}" class="surface-album-panel case-detail__panel">
+        <text class="deep-link-detail__section-title text-h3">影响价格的因素</text>
+        <view class="bullet-list">
+          <text
+            wx:for="{{detail.priceFactors}}"
+            wx:key="*this"
+            class="bullet-list__item"
+          >· {{item}}</text>
         </view>
       </view>
 
       <view class="surface-album-panel case-detail__panel">
-        <text class="deep-link-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
-        <ui-store-card
-          wx:if="{{showStorePublicly}}"
-          storeId="{{detail.storeId}}"
-          name="{{detail.storeName}}"
-          subtitle="{{detail.city}}"
-          showLink="{{true}}"
-          bind:cardtap="onStoreTap"
+        <text class="deep-link-detail__section-title text-h3">{{detail.priceView.sectionTitle}}</text>
+        <ui-price-display
+          mode="{{detail.priceView.priceMode}}"
+          amount="{{detail.priceView.amount}}"
+          minAmount="{{detail.priceView.minAmount}}"
+          maxAmount="{{detail.priceView.maxAmount}}"
+          showSuffix="{{detail.priceView.showSuffix}}"
+          showDisclaimer="{{detail.priceView.showDisclaimer}}"
         />
-        <view
-          wx:if="{{showStorePublicly && detail.storePhone}}"
-          class="surface-album-well case-detail__phone-well"
-        >
+        <view class="deep-link-detail__notice">
+          <ui-compliance-notice type="{{detail.priceView.disclaimerType}}" />
+        </view>
+      </view>
+
+      <view class="surface-album-panel case-detail__panel case-detail__store-panel">
+        <text class="deep-link-detail__section-title text-h3">{{showStorePublicly ? '关联门店' : '联系门店'}}</text>
+        <view class="case-detail__store-block">
+          <ui-store-card
+            wx:if="{{showStorePublicly}}"
+            storeId="{{detail.storeId}}"
+            name="{{detail.storeName}}"
+            subtitle="{{detail.city}}"
+            showLink="{{true}}"
+            bind:cardtap="onStoreTap"
+          />
           <view
-            class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last case-detail__phone-row"
+            wx:if="{{showStorePublicly && detail.storePhone}}"
+            class="case-detail__phone-row deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last"
             bindtap="onCall"
           >
             <view class="deep-link-detail__info-icon-wrap">
@@ -128,12 +111,12 @@
               <text class="deep-link-detail__info-value deep-link-detail__info-value--link text-body">{{detail.storePhone}}</text>
             </view>
           </view>
+          <ui-store-card
+            wx:elif="{{!showStorePublicly}}"
+            mode="anonymous"
+            subtitle="{{detail.city}}"
+          />
         </view>
-        <ui-store-card
-          wx:else
-          mode="anonymous"
-          subtitle="{{detail.city}}"
-        />
       </view>
 
       <view wx:if="{{relatedCases.length}}" class="surface-album-panel case-detail__panel">

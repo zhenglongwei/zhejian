@@ -181,12 +181,10 @@ function buildDryRunDraft(ctx) {
   const base = ctx.templatePayload
   const geo = base.contentJson?.geo || {}
   const summary = String(base.aiSummary || '').trim()
-  const polishedSummary = summary
-    ? `${summary.replace(/。$/, '')}。以上内容基于门店脱敏记录整理，具体方案与费用以到店检测为准。`
-    : '本案例为脱敏维修记录摘要，具体方案与费用以到店检测为准。'
+  const polishedSummary = summary || '脱敏维修过程记录，详见各节点说明与图片。'
 
   return normalizeLlmDraft({
-    aiSummary: polishedSummary.slice(0, 280),
+    aiSummary: polishedSummary.slice(0, 180),
     seoTitle: base.seoTitle,
     seoDescription: base.seoDescription,
     faultDesc: geo.faultDesc,

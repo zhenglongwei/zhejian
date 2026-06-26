@@ -13,9 +13,61 @@
 }
 
 .h5-table th {
-  width: 35%;
+  width: 7.5em;
+  min-width: 7.5em;
+  padding-right: var(--space-md);
   color: var(--color-text-tertiary);
   font-weight: 400;
+}
+
+.h5-section-note {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-article);
+  margin: 0 0 var(--space-md);
+}
+
+.h5-store-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.h5-store-name {
+  margin: 0;
+  font-size: var(--font-h3, var(--font-body));
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-store-meta {
+  margin: 0;
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-store-phone-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  text-decoration: none;
+}
+
+.h5-store-phone-label {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-store-phone-value {
+  margin-left: auto;
+  font-size: var(--font-body);
+  font-weight: 600;
+  color: var(--color-primary);
 }
 
 .h5-price {

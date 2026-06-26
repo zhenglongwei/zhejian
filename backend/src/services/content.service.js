@@ -45,6 +45,7 @@ const {
   enrichCasePublicPage,
   enrichServicePublicPage,
 } = require('./public-page-enrich.service')
+const { applyCasePublicDisplay } = require('../utils/case-geo-display')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -160,9 +161,9 @@ function applyPublicDisplayRules(item) {
     planAmount: publicPrice.planAmount,
   }
   if (!shouldShowStorePublicly(item.authorizationTier)) {
-    return { ...next, storeName: '' }
+    return applyCasePublicDisplay({ ...next, storeName: '' })
   }
-  return next
+  return applyCasePublicDisplay(next)
 }
 
 function sanitizeNodes(nodes) {

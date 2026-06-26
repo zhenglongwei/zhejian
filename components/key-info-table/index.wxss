@@ -4,8 +4,18 @@
   padding: var(--space-md);
 }
 
+.key-info-table--inset {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+}
+
 .key-info-table__row {
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
   padding: var(--space-sm) 0;
   border-bottom: 1rpx solid var(--color-border);
 }
@@ -15,12 +25,14 @@
 }
 
 .key-info-table__label {
-  width: 180rpx;
+  width: 168rpx;
   flex-shrink: 0;
   color: var(--color-text-secondary);
 }
 
 .key-info-table__value {
   flex: 1;
+  min-width: 0;
   color: var(--color-text-primary);
+  text-align: left;
 }

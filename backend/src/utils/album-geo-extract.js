@@ -59,11 +59,10 @@ function extractGeoFromAlbumNodes(nodes, options = {}) {
   const planNote = getNodeNote(stage3)
   const resultNote = getNodeNote(stage6)
 
-  const faultDesc =
-    faultNote || (coldStart ? '到店进行相关检查' : '用户反馈的相关问题')
-  const inspectResult = inspectNote || defaultInspectResult()
+  const faultDesc = faultNote || (coldStart ? '到店进行相关检查' : '')
+  const inspectResult = inspectNote || (coldStart ? defaultInspectResult() : '')
 
-  let repairPlan = planNote || defaultRepairPlan(serviceName)
+  let repairPlan = planNote || (coldStart ? defaultRepairPlan(serviceName) : '')
   if (planAmount != null) {
     const amountText = `本次方案参考费用约 ${planAmount} 元`
     repairPlan = planNote ? `${planNote}（${amountText}）` : amountText
