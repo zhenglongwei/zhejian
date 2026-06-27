@@ -1,0 +1,62 @@
+<text class="text-caption merchant-hours__hint">设置每日营业时间；长假等特殊时段可添加临时休息</text>
+
+<view class="merchant-hours__daily">
+  <text class="merchant-hours__daily-label">每日营业</text>
+  <view class="merchant-hours__daily-times">
+    <picker mode="time" value="{{businessHoursDaily.start}}" data-field="start" bindchange="onDailyTimeChange">
+      <view class="merchant-hours__time">{{businessHoursDaily.start}}</view>
+    </picker>
+    <text class="merchant-hours__sep">至</text>
+    <picker mode="time" value="{{businessHoursDaily.end}}" data-field="end" bindchange="onDailyTimeChange">
+      <view class="merchant-hours__time">{{businessHoursDaily.end}}</view>
+    </picker>
+  </view>
+</view>
+
+<view class="merchant-hours__closures">
+  <view class="merchant-hours__closures-head">
+    <text class="merchant-form__label merchant-form__label--sub">临时休息</text>
+    <text class="merchant-hours__add" bindtap="onToggleClosureForm">{{showClosureForm ? '收起' : '+ 添加'}}</text>
+  </view>
+
+  <view wx:if="{{showClosureForm}}" class="merchant-hours__closure-form">
+    <view class="merchant-hours__closure-row">
+      <text class="merchant-hours__closure-label">开始</text>
+      <picker mode="date" value="{{closureDraft.startDate}}" data-field="startDate" bindchange="onClosureDraftDateChange">
+        <view class="merchant-hours__date">{{closureDraft.startDate}}</view>
+      </picker>
+    </view>
+    <view class="merchant-hours__closure-row">
+      <text class="merchant-hours__closure-label">结束</text>
+      <picker mode="date" value="{{closureDraft.endDate}}" data-field="endDate" bindchange="onClosureDraftDateChange">
+        <view class="merchant-hours__date">{{closureDraft.endDate}}</view>
+      </picker>
+    </view>
+    <input
+      class="merchant-form__input"
+      placeholder="说明（选填），如：春节、国庆"
+      value="{{closureDraft.note}}"
+      bindinput="onClosureDraftNoteInput"
+    />
+    <view class="merchant-hours__closure-actions">
+      <ui-button type="secondary" size="sm" bind:btntap="onCancelClosureForm">取消</ui-button>
+      <ui-button type="primary" size="sm" bind:btntap="onConfirmClosure">确认</ui-button>
+    </view>
+  </view>
+
+  <text wx:if="{{!businessHoursClosures.length && !showClosureForm}}" class="merchant-hours__closure-empty text-caption">暂无临时休息，如春节、十一等长假可在此添加</text>
+
+  <view
+    wx:for="{{businessHoursClosures}}"
+    wx:key="id"
+    class="merchant-hours__closure-item"
+  >
+    <text class="merchant-hours__closure-text">{{item.displayText}}</text>
+    <text class="merchant-hours__closure-remove" data-id="{{item.id}}" bindtap="onRemoveClosure">删除</text>
+  </view>
+</view>
+
+<view class="merchant-hours__preview">
+  <text class="merchant-hours__preview-label text-caption">用户端展示</text>
+  <text class="merchant-hours__preview-value text-body">{{businessHoursPreview}}</text>
+</view>

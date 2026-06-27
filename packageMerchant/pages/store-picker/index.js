@@ -64,12 +64,6 @@ Page({
         return
       }
 
-      const approvedEntries = entries.filter((item) => item.canEnterWorkbench)
-      if (approvedEntries.length === 1 && entries.length === 1 && !this.data.switching) {
-        await this.enterStore(approvedEntries[0], { redirect: true })
-        return
-      }
-
       this.setData({ status: 'normal', entries })
     } catch (e) {
       this.setData({

@@ -4,65 +4,27 @@
   color: var(--color-text-tertiary);
 }
 
-.merchant-hours__presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-}
-
-.merchant-hours__list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.merchant-hours__row {
+.merchant-hours__daily {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
   background-color: var(--color-bg-card);
   border-radius: var(--radius-md);
   border: 1rpx solid var(--color-border);
 }
 
-.merchant-hours__row--closed {
-  background-color: var(--color-bg-muted);
-}
-
-.merchant-hours__day {
+.merchant-hours__daily-label {
   flex-shrink: 0;
-  width: 72rpx;
-  font-size: var(--font-caption);
+  font-size: var(--font-body);
   color: var(--color-text-primary);
 }
 
-.merchant-hours__status {
-  flex-shrink: 0;
-  min-width: 72rpx;
-  padding: var(--space-xs) var(--space-sm);
-  text-align: center;
-  font-size: var(--font-caption);
-  color: var(--color-text-secondary);
-  background-color: var(--color-bg-muted);
-  border-radius: var(--radius-full);
-  border: 1rpx solid var(--color-border);
-}
-
-.merchant-hours__status--open {
-  color: var(--color-primary);
-  background-color: var(--color-primary-light);
-  border-color: var(--color-primary);
-}
-
-.merchant-hours__times {
-  flex: 1;
+.merchant-hours__daily-times {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-xs);
-  min-width: 0;
 }
 
 .merchant-hours__time {
@@ -82,13 +44,94 @@
   font-size: var(--font-caption);
 }
 
-.merchant-hours__closed-tip {
-  flex: 1;
-  text-align: right;
-  color: var(--color-text-tertiary);
+.merchant-hours__closures {
+  margin-top: var(--space-md);
 }
 
-.merchant-hours__remark {
+.merchant-hours__closures-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-hours__add {
+  font-size: var(--font-caption);
+  color: var(--color-primary);
+}
+
+.merchant-hours__closure-empty {
+  display: block;
+  padding: var(--space-md);
+  color: var(--color-text-tertiary);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx dashed var(--color-border);
+}
+
+.merchant-hours__closure-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-xs);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-hours__closure-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--font-caption);
+}
+
+.merchant-hours__closure-remove {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.merchant-hours__closure-form {
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-hours__closure-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-hours__closure-label {
+  flex-shrink: 0;
+  width: 72rpx;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+}
+
+.merchant-hours__date {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-hours__closure-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
   margin-top: var(--space-md);
 }
 

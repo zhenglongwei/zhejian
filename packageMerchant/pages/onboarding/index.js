@@ -23,12 +23,10 @@ const {
 } = require('../../../constants/merchant-onboarding-copy')
 const { uploadImage } = require('../../../utils/media-upload')
 const {
-  BUSINESS_HOUR_PRESETS,
-  createScheduleFromPreset,
   buildBusinessHoursEditorState,
-  formatBusinessHours,
-  validateBusinessHoursSchedule,
+  validateBusinessHours,
 } = require('../../../utils/business-hours')
+const { createBusinessHoursPageHandlers } = require('../../../utils/business-hours-page')
 
 const EMPTY_FORM = {
   storeName: '',
@@ -68,10 +66,11 @@ Page({
     valueItems: MERCHANT_ONBOARDING_VALUE_ITEMS,
     positioningNotice: MERCHANT_ONBOARDING_POSITIONING,
     customServiceInput: '',
-    businessHoursSchedule: [],
-    businessHoursRemark: '',
+    businessHoursDaily: { start: '09:00', end: '18:00' },
+    businessHoursClosures: [],
     businessHoursPreview: '',
-    businessHourPresets: BUSINESS_HOUR_PRESETS,
+    showClosureForm: false,
+    closureDraft: { startDate: '', endDate: '', note: '' },
     agreed: false,
     submitting: false,
     status: 'loading',
@@ -122,6 +121,8 @@ Page({
     }
   },
 
+  ...createBusinessHoursPageHandlers(),
+
   buildBusinessHoursState(raw) {
     return buildBusinessHoursEditorState(raw)
   },
@@ -130,9 +131,11 @@ Page({
     const hours = this.buildBusinessHoursState(rawBusinessHours)
     return {
       ...patch,
-      businessHoursSchedule: hours.businessHoursSchedule,
-      businessHoursRemark: hours.businessHoursRemark,
+      businessHoursDaily: hours.businessHoursDaily,
+      businessHoursClosures: hours.businessHoursClosures,
       businessHoursPreview: hours.businessHoursPreview,
+      showClosureForm: hours.showClosureForm,
+      closureDraft: hours.closureDraft,
     }
   },
 
@@ -181,59 +184,17 @@ Page({
     this.setData({
       status: 'normal',
       serviceTags: this.buildTagViews([]),
-      businessHoursSchedule: hours.businessHoursSchedule,
-      businessHoursRemark: hours.businessHoursRemark,
+      businessHoursDaily: hours.businessHoursDaily,
+      businessHoursClosures: hours.businessHoursClosures,
       businessHoursPreview: hours.businessHoursPreview,
+      showClosureForm: hours.showClosureForm,
+      closureDraft: hours.closureDraft,
     })
   },
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value })
-  },
-
-  syncBusinessHours() {
-    const text = formatBusinessHours(
-      this.data.businessHoursSchedule,
-      this.data.businessHoursRemark
-    )
-    this.setData({
-      'form.businessHours': text,
-      businessHoursPreview: text,
-    })
-  },
-
-  onApplyBusinessHoursPreset(e) {
-    const { preset } = e.currentTarget.dataset
-    this.setData({
-      businessHoursSchedule: createScheduleFromPreset(preset),
-    })
-    this.syncBusinessHours()
-  },
-
-  onToggleBusinessDay(e) {
-    const { index } = e.currentTarget.dataset
-    const schedule = (this.data.businessHoursSchedule || []).slice()
-    const day = schedule[Number(index)]
-    if (!day) return
-    day.open = !day.open
-    this.setData({ businessHoursSchedule: schedule })
-    this.syncBusinessHours()
-  },
-
-  onBusinessDayTimeChange(e) {
-    const { index, field } = e.currentTarget.dataset
-    const schedule = (this.data.businessHoursSchedule || []).slice()
-    const day = schedule[Number(index)]
-    if (!day) return
-    day[field] = e.detail.value
-    this.setData({ businessHoursSchedule: schedule })
-    this.syncBusinessHours()
-  },
-
-  onBusinessHoursRemarkInput(e) {
-    this.setData({ businessHoursRemark: e.detail.value })
-    this.syncBusinessHours()
   },
 
   buildTagViews(services) {
@@ -483,7 +444,10 @@ Page({
       return false
     }
     if (f.businessHours) {
-      const hoursMessage = validateBusinessHoursSchedule(this.data.businessHoursSchedule)
+      const hoursMessage = validateBusinessHours(
+        this.data.businessHoursDaily,
+        this.data.businessHoursClosures
+      )
       if (hoursMessage) {
         wx.showToast({ title: hoursMessage, icon: 'none' })
         return false

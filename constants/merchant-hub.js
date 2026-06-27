@@ -24,6 +24,8 @@ const MERCHANT_HUB_MORE_ITEMS = [
   { key: 'storeHome', label: '门店主页' },
   { key: 'editStore', label: '编辑资料' },
   { key: 'staff', label: '员工管理' },
+  { key: 'addStore', label: '注册新门店' },
+  { key: 'switchStore', label: '切换门店' },
 ]
 
 function formatSectionBadge(n) {

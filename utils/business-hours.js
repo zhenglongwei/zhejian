@@ -1,13 +1,5 @@
-const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-
 const DEFAULT_OPEN = '09:00'
 const DEFAULT_CLOSE = '18:00'
-
-const BUSINESS_HOUR_PRESETS = [
-  { id: 'everyday', label: '每天 09:00-18:00' },
-  { id: 'workday', label: '周一至五营业' },
-  { id: 'weekend_off', label: '周末休息' },
-]
 
 function normalizeTime(value) {
   const match = String(value || '').trim().match(/^(\d{1,2}):(\d{2})$/)
@@ -17,237 +9,208 @@ function normalizeTime(value) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
-function createDaySchedule(index, overrides = {}) {
+function getTodayIso(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function createDefaultDailyHours() {
   return {
-    label: WEEKDAY_LABELS[index],
-    open: overrides.open !== false,
-    start: normalizeTime(overrides.start || DEFAULT_OPEN),
-    end: normalizeTime(overrides.end || DEFAULT_CLOSE),
+    start: DEFAULT_OPEN,
+    end: DEFAULT_CLOSE,
   }
 }
 
-function createDefaultSchedule() {
-  return WEEKDAY_LABELS.map((label, index) => createDaySchedule(index, {
-    open: index < 6,
-  }))
+function createEmptyClosureDraft() {
+  const today = getTodayIso()
+  return {
+    startDate: today,
+    endDate: today,
+    note: '',
+  }
 }
 
-function createScheduleFromPreset(presetId) {
-  const schedule = createDefaultSchedule()
-  if (presetId === 'everyday') {
-    return schedule.map((day) => ({ ...day, open: true }))
-  }
-  if (presetId === 'workday') {
-    return schedule.map((day, index) => ({ ...day, open: index < 5 }))
-  }
-  if (presetId === 'weekend_off') {
-    return schedule.map((day, index) => ({ ...day, open: index < 5 }))
-  }
-  return schedule
-}
-
-function extractTimeRange(text) {
-  const match = String(text || '').match(/(\d{1,2}:\d{2})\s*[-~至到]\s*(\d{1,2}:\d{2})/)
+function parseIsoDate(value) {
+  const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null
+  }
+  return { year, month, day, iso: `${match[1]}-${match[2]}-${match[3]}` }
+}
+
+function formatChineseDate(iso, options = {}) {
+  const parsed = parseIsoDate(iso)
+  if (!parsed) return iso
+  const { withYear = false } = options
+  if (withYear) return `${parsed.year}年${parsed.month}月${parsed.day}日`
+  return `${parsed.month}月${parsed.day}日`
+}
+
+function compareIso(a, b) {
+  if (a === b) return 0
+  return a < b ? -1 : 1
+}
+
+function inferIsoFromChineseDate(text, refYear) {
+  const match = String(text || '').trim().match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日/)
+  if (!match) return ''
+  const year = Number(match[1] || refYear)
+  const month = String(Number(match[2])).padStart(2, '0')
+  const day = String(Number(match[3])).padStart(2, '0')
+  const parsed = parseIsoDate(`${year}-${month}-${day}`)
+  return parsed ? parsed.iso : ''
+}
+
+function extractDailyRange(text) {
+  const match = String(text || '').match(/(\d{1,2}:\d{2})\s*[-~至到]\s*(\d{1,2}:\d{2})/)
+  if (!match) return createDefaultDailyHours()
   return {
     start: normalizeTime(match[1]),
     end: normalizeTime(match[2]),
   }
 }
 
+function parseTemporaryClosures(text) {
+  const closures = []
+  const re = /(\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}日)(?:\s*[-~至到]\s*(\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}月\d{1,2}日))?([^，,]*?)休息/g
+  let match
+  const refYear = new Date().getFullYear()
+  while ((match = re.exec(text))) {
+    const startIso = inferIsoFromChineseDate(match[1], refYear)
+    const endIso = inferIsoFromChineseDate(match[2] || match[1], refYear)
+    if (!startIso || !endIso) continue
+    closures.push({
+      id: `${startIso}_${endIso}_${closures.length}`,
+      startDate: startIso,
+      endDate: endIso,
+      note: String(match[3] || '').trim(),
+    })
+  }
+  return closures
+}
+
 function parseBusinessHours(raw) {
   const text = String(raw || '').trim()
   if (!text) {
-    return { schedule: createDefaultSchedule(), remark: '' }
-  }
-
-  const simpleRange = text.match(/^(\d{1,2}:\d{2})\s*[-~至到]\s*(\d{1,2}:\d{2})$/)
-  if (simpleRange) {
-    const range = {
-      start: normalizeTime(simpleRange[1]),
-      end: normalizeTime(simpleRange[2]),
-    }
     return {
-      schedule: WEEKDAY_LABELS.map((label, index) => createDaySchedule(index, {
-        ...range,
-        open: true,
-      })),
-      remark: '',
+      daily: createDefaultDailyHours(),
+      temporaryClosures: [],
     }
   }
 
-  const range = extractTimeRange(text)
-  const schedule = createDefaultSchedule()
-  const hasDayKeywords = /周/.test(text)
-
-  if (range) {
-    schedule.forEach((day) => {
-      day.start = range.start
-      day.end = range.end
-      day.open = true
-    })
+  return {
+    daily: extractDailyRange(text),
+    temporaryClosures: parseTemporaryClosures(text),
   }
+}
 
-  if (/周一至周五|周一到周五|周一-周五/.test(text) && range) {
-    schedule.forEach((day, index) => {
-      day.open = index < 5
-    })
-  } else if (/周一至周六|周一到周六|周一-周六/.test(text) && range) {
-    schedule.forEach((day, index) => {
-      day.open = index < 6
-    })
-  }
+function formatClosureText(closure) {
+  const startParsed = parseIsoDate(closure.startDate)
+  const endParsed = parseIsoDate(closure.endDate)
+  if (!startParsed || !endParsed) return ''
 
-  WEEKDAY_LABELS.forEach((label, index) => {
-    const dayRangeMatch = text.match(
-      new RegExp(`${label}\\s*(\\d{1,2}:\\d{2})\\s*[-~至到]\\s*(\\d{1,2}:\\d{2})`)
-    )
-    if (dayRangeMatch) {
-      schedule[index].open = true
-      schedule[index].start = normalizeTime(dayRangeMatch[1])
-      schedule[index].end = normalizeTime(dayRangeMatch[2])
-      return
-    }
-    if (new RegExp(`${label}\\s*休息`).test(text)) {
-      schedule[index].open = false
-    }
+  const crossYear = startParsed.year !== endParsed.year
+  const startLabel = formatChineseDate(closure.startDate, { withYear: crossYear })
+  const endLabel = closure.startDate === closure.endDate
+    ? ''
+    : formatChineseDate(closure.endDate, { withYear: crossYear })
+  const note = String(closure.note || '').trim()
+  const rangeLabel = endLabel ? `${startLabel}-${endLabel}` : startLabel
+  return `${rangeLabel}${note}休息`
+}
+
+function filterActiveClosures(closures, today = getTodayIso()) {
+  return (closures || []).filter((item) => compareIso(item.endDate, today) >= 0)
+}
+
+function formatBusinessHours({ daily, temporaryClosures }) {
+  const dailyStart = normalizeTime(daily && daily.start)
+  const dailyEnd = normalizeTime(daily && daily.end)
+  const parts = [`${dailyStart}-${dailyEnd}`]
+
+  filterActiveClosures(temporaryClosures).forEach((closure) => {
+    const text = formatClosureText(closure)
+    if (text) parts.push(text)
   })
-
-  if (/周末休息/.test(text)) {
-    schedule[5].open = false
-    schedule[6].open = false
-  }
-
-  let remark = ''
-  const remarkMatch = text.match(/[，,]([^，,]*(?:节假日|法定|通知|预约)[^，,]*)$/)
-  if (remarkMatch) {
-    remark = remarkMatch[1].trim()
-  }
-
-  if (!hasDayKeywords && !range) {
-    return { schedule: createDefaultSchedule(), remark: text }
-  }
-
-  return { schedule, remark }
-}
-
-function groupOpenDays(schedule) {
-  const groups = []
-  let current = null
-
-  schedule.forEach((day, index) => {
-    if (!day.open) {
-      current = null
-      return
-    }
-    const key = `${day.start}-${day.end}`
-    if (current && current.key === key && current.endIndex === index - 1) {
-      current.endIndex = index
-      return
-    }
-    current = {
-      key,
-      startIndex: index,
-      endIndex: index,
-      start: day.start,
-      end: day.end,
-    }
-    groups.push(current)
-  })
-
-  return groups
-}
-
-function formatDayRange(startIndex, endIndex) {
-  if (startIndex === endIndex) return WEEKDAY_LABELS[startIndex]
-  if (startIndex === 0 && endIndex === 4) return '周一至周五'
-  if (startIndex === 0 && endIndex === 5) return '周一至周六'
-  if (startIndex === 0 && endIndex === 6) return '周一至周日'
-  return `${WEEKDAY_LABELS[startIndex]}至${WEEKDAY_LABELS[endIndex]}`
-}
-
-function formatBusinessHours(schedule, remark) {
-  const days = (schedule || []).map((day, index) => ({
-    ...day,
-    label: day.label || WEEKDAY_LABELS[index],
-    start: normalizeTime(day.start),
-    end: normalizeTime(day.end),
-  }))
-
-  const openDays = days.filter((day) => day.open)
-  if (!openDays.length) {
-    return String(remark || '').trim() || '休息'
-  }
-
-  const allOpenSame = openDays.length === 7
-    && openDays.every((day) => day.start === openDays[0].start && day.end === openDays[0].end)
-
-  const parts = []
-  if (allOpenSame) {
-    parts.push(`${openDays[0].start}-${openDays[0].end}`)
-  } else {
-    groupOpenDays(days).forEach((group) => {
-      const rangeLabel = formatDayRange(group.startIndex, group.endIndex)
-      parts.push(`${rangeLabel} ${group.start}-${group.end}`)
-    })
-  }
-
-  const closedLabels = days.filter((day) => !day.open).map((day) => day.label)
-  if (closedLabels.length && closedLabels.length < 7) {
-    if (closedLabels.length === 1) {
-      parts.push(`${closedLabels[0]}休息`)
-    } else if (
-      closedLabels.length === 2
-      && closedLabels[0] === '周六'
-      && closedLabels[1] === '周日'
-    ) {
-      parts.push('周末休息')
-    } else {
-      parts.push(`${closedLabels.join('、')}休息`)
-    }
-  }
-
-  const note = String(remark || '').trim()
-  if (note) parts.push(note)
 
   return parts.join('，')
 }
 
+function enrichClosuresForDisplay(closures) {
+  return (closures || []).map((item) => ({
+    ...item,
+    displayText: formatClosureText(item),
+  }))
+}
+
 function buildBusinessHoursEditorState(raw) {
-  const text = String(raw || '').trim()
-  const { schedule, remark } = parseBusinessHours(text)
-  const preview = formatBusinessHours(schedule, remark)
+  const parsed = parseBusinessHours(raw)
+  const preview = formatBusinessHours(parsed)
   return {
-    businessHoursSchedule: schedule,
-    businessHoursRemark: remark,
+    businessHoursDaily: parsed.daily,
+    businessHoursClosures: enrichClosuresForDisplay(parsed.temporaryClosures),
     businessHoursPreview: preview,
+    showClosureForm: false,
+    closureDraft: createEmptyClosureDraft(),
   }
 }
 
-function validateBusinessHoursSchedule(schedule) {
-  const days = schedule || []
-  const openDays = days.filter((day) => day.open)
-  if (!openDays.length) {
-    return '请至少设置一天营业时间'
+function validateBusinessHours(daily, temporaryClosures) {
+  const start = normalizeTime(daily && daily.start)
+  const end = normalizeTime(daily && daily.end)
+  if (start >= end) {
+    return '结束时间需晚于开始时间'
   }
-  for (const day of openDays) {
-    const start = normalizeTime(day.start)
-    const end = normalizeTime(day.end)
-    if (start >= end) {
-      return `${day.label || '营业日'}的结束时间需晚于开始时间`
+
+  for (const closure of temporaryClosures || []) {
+    if (!closure.startDate || !closure.endDate) {
+      return '请完善临时休息日期'
     }
+    if (compareIso(closure.startDate, closure.endDate) > 0) {
+      return '临时休息的结束日期不能早于开始日期'
+    }
+  }
+
+  return ''
+}
+
+function validateClosureDraft(draft) {
+  if (!draft.startDate || !draft.endDate) {
+    return '请选择休息日期'
+  }
+  if (compareIso(draft.startDate, draft.endDate) > 0) {
+    return '结束日期不能早于开始日期'
   }
   return ''
 }
 
+function sortClosures(closures) {
+  return (closures || []).slice().sort((a, b) => compareIso(a.startDate, b.startDate))
+}
+
 module.exports = {
-  WEEKDAY_LABELS,
-  BUSINESS_HOUR_PRESETS,
-  createDefaultSchedule,
-  createScheduleFromPreset,
+  DEFAULT_OPEN,
+  DEFAULT_CLOSE,
+  createDefaultDailyHours,
+  createEmptyClosureDraft,
+  getTodayIso,
   parseBusinessHours,
   formatBusinessHours,
   buildBusinessHoursEditorState,
-  validateBusinessHoursSchedule,
+  validateBusinessHours,
+  validateClosureDraft,
+  sortClosures,
+  enrichClosuresForDisplay,
   normalizeTime,
 }

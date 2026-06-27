@@ -317,9 +317,19 @@ Page({
       storeHome: () => this.onStoreHome(),
       editStore: () => this.onEditStore(),
       staff: () => this.onStaffManage(),
+      addStore: () => this.onAddStore(),
+      switchStore: () => this.onSwitchStore(),
     }
     const fn = handlers[key]
     if (fn) fn()
+  },
+
+  onAddStore() {
+    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index?newStore=1' })
+  },
+
+  onSwitchStore() {
+    wx.navigateTo({ url: '/packageMerchant/pages/store-picker/index' })
   },
 
   onOverviewTap() {

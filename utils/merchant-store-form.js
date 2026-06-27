@@ -7,7 +7,7 @@ const { findQualificationLabel } = require('../constants/onboarding')
 const {
   parseBusinessHours,
   formatBusinessHours,
-  validateBusinessHoursSchedule,
+  validateBusinessHours,
 } = require('./business-hours')
 
 const EMPTY_DISPLAY_FORM = {
@@ -85,8 +85,11 @@ function validateDisplayForm(form, options = {}) {
   if (!form.storePhone) {
     return '请填写门店电话'
   }
-  if (options.businessHoursSchedule) {
-    const hoursMessage = validateBusinessHoursSchedule(options.businessHoursSchedule)
+  if (options.businessHoursDaily) {
+    const hoursMessage = validateBusinessHours(
+      options.businessHoursDaily,
+      options.businessHoursClosures
+    )
     if (hoursMessage) return hoursMessage
   }
   if (!form.businessHours) {
