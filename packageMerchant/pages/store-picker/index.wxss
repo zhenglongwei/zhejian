@@ -1,0 +1,41 @@
+.merchant-store-picker__pad {
+  padding: var(--space-lg);
+}
+
+.merchant-store-picker__gate {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.merchant-store-picker__intro {
+  padding: var(--space-lg) var(--space-md) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-store-picker__sub {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.merchant-store-picker__list {
+  padding: 0 var(--space-md) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-store-picker__item {
+  background: var(--color-bg-container);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.merchant-store-picker__footer {
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+}

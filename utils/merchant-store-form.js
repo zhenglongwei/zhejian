@@ -4,6 +4,11 @@ const {
   MERCHANT_SERVICE_TAG_NAME_MAX,
 } = require('../constants/merchant-service-tags')
 const { findQualificationLabel } = require('../constants/onboarding')
+const {
+  parseBusinessHours,
+  formatBusinessHours,
+  validateBusinessHoursSchedule,
+} = require('./business-hours')
 
 const EMPTY_DISPLAY_FORM = {
   storePhone: '',
@@ -76,9 +81,13 @@ function buildDisplayPayload(form, storeId) {
   }
 }
 
-function validateDisplayForm(form) {
+function validateDisplayForm(form, options = {}) {
   if (!form.storePhone) {
     return '请填写门店电话'
+  }
+  if (options.businessHoursSchedule) {
+    const hoursMessage = validateBusinessHoursSchedule(options.businessHoursSchedule)
+    if (hoursMessage) return hoursMessage
   }
   if (!form.businessHours) {
     return '请填写营业时间'
@@ -105,4 +114,6 @@ module.exports = {
   profileToBasicReadonly,
   buildDisplayPayload,
   validateDisplayForm,
+  parseBusinessHours,
+  formatBusinessHours,
 }

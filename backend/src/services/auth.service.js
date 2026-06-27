@@ -36,6 +36,7 @@ function formatMerchantPayload(merchantCtx) {
 
 async function buildAuthSession(user, options = {}) {
   const merchantCtx = await resolveMerchantContext(user.id, {
+    merchantId: options.merchantId || '',
     storeId: options.storeId || '',
   })
   const roles = [ROLES.USER]

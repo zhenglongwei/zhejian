@@ -5,6 +5,7 @@ const {
   MERCHANT_STATUS,
   STORE_STATUS,
   toFrontStatus,
+  merchantStatusLabel,
 } = require('../constants/merchant')
 const { buildAuthSession } = require('./auth.service')
 const {
@@ -45,7 +46,73 @@ function formatOnboardingProfile(merchant, store) {
   }
 }
 
-async function findMerchantApplication(userId, activeStoreId = '') {
+const INCOMPLETE_MERCHANT_STATUSES = [
+  MERCHANT_STATUS.DRAFT,
+  MERCHANT_STATUS.PENDING_AUDIT,
+  MERCHANT_STATUS.NEED_MODIFY,
+  MERCHANT_STATUS.AUDIT_REJECTED,
+]
+
+async function loadOwnedMerchant(userId, merchantId, storeStatuses = null) {
+  const storeWhere = storeStatuses ? { status: { in: storeStatuses } } : undefined
+  return prisma.merchant.findFirst({
+    where: {
+      id: merchantId,
+      ownerUserId: userId,
+      status: { not: MERCHANT_STATUS.CLOSED },
+    },
+    include: {
+      stores: {
+        where: storeWhere,
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  })
+}
+
+async function findIncompleteMerchantApplication(userId) {
+  return prisma.merchant.findFirst({
+    where: {
+      ownerUserId: userId,
+      status: { in: INCOMPLETE_MERCHANT_STATUSES },
+    },
+    include: {
+      stores: { orderBy: { createdAt: 'asc' } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  })
+}
+
+function pickStoreFromMerchant(merchant, { storeId = '', staffStoreId = '', staffRole = 'owner' } = {}) {
+  const stores = merchant?.stores || []
+  if (!stores.length) return null
+
+  const preferred = String(storeId || '').trim()
+  if (preferred) {
+    const picked = stores.find((item) => item.id === preferred)
+    if (picked) return picked
+  }
+
+  if (staffRole !== 'owner' && staffStoreId) {
+    const locked = stores.find((item) => item.id === staffStoreId)
+    if (locked) return locked
+  }
+
+  return stores[0]
+}
+
+async function findMerchantApplication(userId, options = {}) {
+  const merchantId = String(options.merchantId || '').trim()
+  const storeId = String(options.storeId || '').trim()
+  const preferIncomplete = Boolean(options.preferIncomplete)
+
+  if (merchantId) {
+    const merchant = await loadOwnedMerchant(userId, merchantId)
+    if (!merchant?.stores?.length) return null
+    const store = pickStoreFromMerchant(merchant, { storeId })
+    return store ? { merchant, store } : null
+  }
+
   const staff = await prisma.merchantStaff.findFirst({
     where: { userId, status: 'ACTIVE' },
     include: {
@@ -55,17 +122,22 @@ async function findMerchantApplication(userId, activeStoreId = '') {
         },
       },
     },
+    orderBy: { updatedAt: 'desc' },
   })
   if (staff?.merchant && staff.merchant.stores.length) {
-    const preferred = String(activeStoreId || '').trim()
-    let store =
-      (preferred && staff.merchant.stores.find((s) => s.id === preferred)) ||
-      staff.merchant.stores.find((s) => s.id === staff.storeId) ||
-      staff.merchant.stores[0]
-    if (staff.role !== 'owner' && staff.storeId) {
-      store = staff.merchant.stores.find((s) => s.id === staff.storeId) || store
+    const store = pickStoreFromMerchant(staff.merchant, {
+      storeId,
+      staffStoreId: staff.storeId,
+      staffRole: staff.role,
+    })
+    return store ? { merchant: staff.merchant, store } : null
+  }
+
+  if (preferIncomplete) {
+    const incomplete = await findIncompleteMerchantApplication(userId)
+    if (incomplete?.stores?.length) {
+      return { merchant: incomplete, store: incomplete.stores[0] }
     }
-    return { merchant: staff.merchant, store }
   }
 
   const merchant = await prisma.merchant.findFirst({
@@ -79,16 +151,113 @@ async function findMerchantApplication(userId, activeStoreId = '') {
     orderBy: { updatedAt: 'desc' },
   })
   if (!merchant || !merchant.stores.length) return null
-  const preferred = String(activeStoreId || '').trim()
-  const store =
-    (preferred && merchant.stores.find((s) => s.id === preferred)) || merchant.stores[0]
-  return { merchant, store }
+  const store = pickStoreFromMerchant(merchant, { storeId })
+  return store ? { merchant, store } : null
 }
 
-async function getOnboardingProfile(userId, activeStoreId = '') {
-  const found = await findMerchantApplication(userId, activeStoreId)
+async function getOnboardingProfile(userId, options = {}) {
+  const merchantId = typeof options === 'string' ? '' : String(options.merchantId || '').trim()
+  const storeId = typeof options === 'string' ? String(options || '').trim() : String(options.storeId || '').trim()
+  const preferIncomplete = typeof options === 'object' && Boolean(options.preferIncomplete)
+
+  const found = await findMerchantApplication(userId, {
+    merchantId,
+    storeId,
+    preferIncomplete,
+  })
   if (!found) return null
   return formatOnboardingProfile(found.merchant, found.store)
+}
+
+async function listWorkbenchStoreEntries(userId) {
+  const merchants = await prisma.merchant.findMany({
+    where: {
+      ownerUserId: userId,
+      status: { not: MERCHANT_STATUS.CLOSED },
+    },
+    include: {
+      stores: { orderBy: { createdAt: 'asc' }, take: 1 },
+    },
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  return merchants.flatMap((merchant) => {
+    const store = merchant.stores[0]
+    if (!store) return []
+    return [
+      {
+        merchantId: merchant.id,
+        storeId: store.id,
+        storeName: store.name || merchant.name,
+        address: store.address || '',
+        status: toFrontStatus(merchant.status),
+        statusLabel: merchantStatusLabel(merchant.status),
+        canEnterWorkbench:
+          merchant.status === MERCHANT_STATUS.ACTIVE && store.status === STORE_STATUS.ACTIVE,
+      },
+    ]
+  })
+}
+
+async function beginNewStoreRegistration(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) {
+    const err = new Error('用户不存在')
+    err.status = 404
+    throw err
+  }
+
+  const incomplete = await findIncompleteMerchantApplication(userId)
+  if (incomplete?.stores?.length) {
+    return formatOnboardingProfile(incomplete, incomplete.stores[0])
+  }
+
+  const staffElsewhere = await prisma.merchantStaff.findFirst({
+    where: {
+      userId,
+      status: 'ACTIVE',
+      merchant: { ownerUserId: { not: userId } },
+    },
+  })
+  if (staffElsewhere) {
+    const err = new Error('你已是其他商家的员工，请使用主账号注册新门店')
+    err.status = 409
+    throw err
+  }
+
+  const latestApproved = await prisma.merchant.findFirst({
+    where: { ownerUserId: userId, status: MERCHANT_STATUS.ACTIVE },
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  const merchantId = newId('mer')
+  const storeId = newId('store')
+  const merchant = await prisma.merchant.create({
+    data: {
+      id: merchantId,
+      ownerUserId: userId,
+      status: MERCHANT_STATUS.DRAFT,
+      contactName: latestApproved?.contactName || '',
+      contactPhone: latestApproved?.contactPhone || user.phone || '',
+      legalName: latestApproved?.legalName || '',
+      creditCode: latestApproved?.creditCode || '',
+      licensePhotoUrl: latestApproved?.licensePhotoUrl || '',
+      contactEmail: latestApproved?.contactEmail || '',
+      qualificationJson: latestApproved?.qualificationJson || {},
+      stores: {
+        create: {
+          id: storeId,
+          status: STORE_STATUS.DRAFT,
+          phone: latestApproved?.contactPhone || user.phone || '',
+        },
+      },
+    },
+    include: {
+      stores: { orderBy: { createdAt: 'asc' } },
+    },
+  })
+
+  return formatOnboardingProfile(merchant, merchant.stores[0])
 }
 
 async function assertCanEditApplication(merchant) {
@@ -149,10 +318,39 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     payload = validateSubmitPayload(payload)
   }
 
-  const existing = await findMerchantApplication(userId)
+  const merchantId = String(form.merchantId || '').trim()
+  let existing = merchantId
+    ? await loadOwnedMerchant(userId, merchantId, null)
+    : await findIncompleteMerchantApplication(userId)
+
+  if (existing?.merchant) {
+    existing = { merchant: existing, store: existing.stores?.[0] }
+  } else if (existing?.stores?.length) {
+    existing = { merchant: existing, store: existing.stores[0] }
+  } else {
+    existing = null
+  }
 
   if (existing?.merchant) {
     await assertCanEditApplication(existing.merchant)
+    if (existing.merchant.ownerUserId !== userId) {
+      const err = new Error('你已是其他商家的员工，请使用主账号提交入驻')
+      err.status = 409
+      throw err
+    }
+  } else {
+    const staffElsewhere = await prisma.merchantStaff.findFirst({
+      where: {
+        userId,
+        status: 'ACTIVE',
+        merchant: { ownerUserId: { not: userId } },
+      },
+    })
+    if (staffElsewhere) {
+      const err = new Error('你已是其他商家的员工，请使用主账号提交入驻')
+      err.status = 409
+      throw err
+    }
   }
 
   const now = new Date()
@@ -182,16 +380,12 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
         status: nextStoreStatus,
       },
     })
-  } else if (existing?.merchant) {
-    const err = new Error('你已是其他商家的员工，请使用主账号提交入驻')
-    err.status = 409
-    throw err
   } else {
-    const merchantId = newId('mer')
-    const storeId = newId('store')
+    const newMerchantId = newId('mer')
+    const newStoreId = newId('store')
     merchant = await prisma.merchant.create({
       data: {
-        id: merchantId,
+        id: newMerchantId,
         ownerUserId: userId,
         status: nextMerchantStatus,
         submittedAt: submit ? now : null,
@@ -199,14 +393,14 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
         ...merchantData,
         stores: {
           create: {
-            id: storeId,
+            id: newStoreId,
             status: nextStoreStatus,
             ...storeData,
           },
         },
       },
     })
-    store = await prisma.store.findUnique({ where: { id: storeId } })
+    store = await prisma.store.findUnique({ where: { id: newStoreId } })
   }
 
   return { merchant, store, user }
@@ -281,4 +475,6 @@ module.exports = {
   submitOnboarding,
   formatOnboardingProfile,
   activateMerchant,
+  listWorkbenchStoreEntries,
+  beginNewStoreRegistration,
 }

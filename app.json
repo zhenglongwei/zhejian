@@ -54,6 +54,7 @@
       "name": "merchant",
       "pages": [
         "pages/workbench/index",
+        "pages/store-picker/index",
         "pages/onboarding/index",
         "pages/album/create/index",
         "pages/album/invite/index",

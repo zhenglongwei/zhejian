@@ -4,6 +4,7 @@ const {
   saveOnboardingDraft,
   refreshMerchantSession,
   recognizeLicenseOcr,
+  beginNewMerchantStore,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
@@ -21,6 +22,13 @@ const {
   MERCHANT_ONBOARDING_POSITIONING,
 } = require('../../../constants/merchant-onboarding-copy')
 const { uploadImage } = require('../../../utils/media-upload')
+const {
+  BUSINESS_HOUR_PRESETS,
+  createScheduleFromPreset,
+  buildBusinessHoursEditorState,
+  formatBusinessHours,
+  validateBusinessHoursSchedule,
+} = require('../../../utils/business-hours')
 
 const EMPTY_FORM = {
   storeName: '',
@@ -60,12 +68,20 @@ Page({
     valueItems: MERCHANT_ONBOARDING_VALUE_ITEMS,
     positioningNotice: MERCHANT_ONBOARDING_POSITIONING,
     customServiceInput: '',
+    businessHoursSchedule: [],
+    businessHoursRemark: '',
+    businessHoursPreview: '',
+    businessHourPresets: BUSINESS_HOUR_PRESETS,
     agreed: false,
     submitting: false,
     status: 'loading',
+    merchantId: '',
+    newStoreMode: false,
   },
 
-  onLoad() {
+  onLoad(options = {}) {
+    this.newStoreMode = options.newStore === '1'
+    this.targetMerchantId = options.merchantId || ''
     this.initForm()
   },
 
@@ -106,14 +122,48 @@ Page({
     }
   },
 
+  buildBusinessHoursState(raw) {
+    return buildBusinessHoursEditorState(raw)
+  },
+
+  applyBusinessHoursPatch(patch, rawBusinessHours) {
+    const hours = this.buildBusinessHoursState(rawBusinessHours)
+    return {
+      ...patch,
+      businessHoursSchedule: hours.businessHoursSchedule,
+      businessHoursRemark: hours.businessHoursRemark,
+      businessHoursPreview: hours.businessHoursPreview,
+    }
+  },
+
   async initForm() {
-    const profile = await fetchMerchantProfile()
-    if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
-      wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+    if (this.newStoreMode) {
+      try {
+        const profile = await beginNewMerchantStore()
+        const patch = this.profileToForm(profile)
+        const hours = this.buildBusinessHoursState(patch.form.businessHours)
+        this.setData({
+          ...this.applyBusinessHoursPatch({ ...patch, status: 'normal', profile, merchantId: profile.merchantId || '' }, patch.form.businessHours),
+          merchantId: profile.merchantId || '',
+          newStoreMode: true,
+        })
+      } catch (e) {
+        wx.showToast({ title: (e && e.message) || '无法创建新门店', icon: 'none' })
+        setTimeout(() => wx.navigateBack(), 800)
+      }
+      return
+    }
+
+    const profile = await fetchMerchantProfile({
+      merchantId: this.targetMerchantId,
+      preferIncomplete: !this.targetMerchantId,
+    })
+    if (profile && profile.status === MERCHANT_STATUS.APPROVED && !this.targetMerchantId) {
+      wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
       return
     }
     if (profile && profile.status === MERCHANT_STATUS.PENDING) {
-      this.setData({ status: 'pending', profile })
+      this.setData({ status: 'pending', profile, merchantId: profile.merchantId || '' })
       return
     }
     if (profile) {
@@ -124,18 +174,66 @@ Page({
           : profile.status === MERCHANT_STATUS.REJECTED
             ? 'rejected'
             : 'normal'
-      this.setData({ ...patch, status, profile })
+      this.setData(this.applyBusinessHoursPatch({ ...patch, status, profile, merchantId: profile.merchantId || '' }, patch.form.businessHours))
       return
     }
+    const hours = this.buildBusinessHoursState('')
     this.setData({
       status: 'normal',
       serviceTags: this.buildTagViews([]),
+      businessHoursSchedule: hours.businessHoursSchedule,
+      businessHoursRemark: hours.businessHoursRemark,
+      businessHoursPreview: hours.businessHoursPreview,
     })
   },
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value })
+  },
+
+  syncBusinessHours() {
+    const text = formatBusinessHours(
+      this.data.businessHoursSchedule,
+      this.data.businessHoursRemark
+    )
+    this.setData({
+      'form.businessHours': text,
+      businessHoursPreview: text,
+    })
+  },
+
+  onApplyBusinessHoursPreset(e) {
+    const { preset } = e.currentTarget.dataset
+    this.setData({
+      businessHoursSchedule: createScheduleFromPreset(preset),
+    })
+    this.syncBusinessHours()
+  },
+
+  onToggleBusinessDay(e) {
+    const { index } = e.currentTarget.dataset
+    const schedule = (this.data.businessHoursSchedule || []).slice()
+    const day = schedule[Number(index)]
+    if (!day) return
+    day.open = !day.open
+    this.setData({ businessHoursSchedule: schedule })
+    this.syncBusinessHours()
+  },
+
+  onBusinessDayTimeChange(e) {
+    const { index, field } = e.currentTarget.dataset
+    const schedule = (this.data.businessHoursSchedule || []).slice()
+    const day = schedule[Number(index)]
+    if (!day) return
+    day[field] = e.detail.value
+    this.setData({ businessHoursSchedule: schedule })
+    this.syncBusinessHours()
+  },
+
+  onBusinessHoursRemarkInput(e) {
+    this.setData({ businessHoursRemark: e.detail.value })
+    this.syncBusinessHours()
   },
 
   buildTagViews(services) {
@@ -347,9 +445,10 @@ Page({
   },
 
   buildPayload() {
-    const { form } = this.data
+    const { form, merchantId, profile } = this.data
     return {
       ...form,
+      merchantId: merchantId || (profile && profile.merchantId) || '',
       qualification: {
         type: form.qualificationType,
         photoUrl: form.qualificationPhotoUrl,
@@ -383,6 +482,13 @@ Page({
       wx.showToast({ title: '请完善维修资质信息', icon: 'none' })
       return false
     }
+    if (f.businessHours) {
+      const hoursMessage = validateBusinessHoursSchedule(this.data.businessHoursSchedule)
+      if (hoursMessage) {
+        wx.showToast({ title: hoursMessage, icon: 'none' })
+        return false
+      }
+    }
     if (!this.data.agreed) {
       wx.showToast({ title: '请阅读并同意入驻说明', icon: 'none' })
       return false
@@ -413,13 +519,16 @@ Page({
       if (profile.status === MERCHANT_STATUS.APPROVED) {
         wx.showToast({ title: '入驻已通过', icon: 'success' })
         setTimeout(() => {
-          wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
         }, 600)
         return
       }
       if (profile.status === MERCHANT_STATUS.PENDING) {
-        this.setData({ status: 'pending', profile })
+        this.setData({ status: 'pending', profile, merchantId: profile.merchantId || '' })
         wx.showToast({ title: '已提交，等待审核', icon: 'none' })
+        setTimeout(() => {
+          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
+        }, 800)
         return
       }
       wx.showToast({ title: '提交成功', icon: 'success' })
@@ -435,11 +544,13 @@ Page({
     this.setData({ submitting: true })
     try {
       await refreshMerchantSession()
-      const profile = await fetchMerchantProfile()
+      const profile = await fetchMerchantProfile({
+        merchantId: this.data.profile?.merchantId || this.data.merchantId,
+      })
       if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
         wx.showToast({ title: '审核已通过', icon: 'success' })
         setTimeout(() => {
-          wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
         }, 600)
         return
       }

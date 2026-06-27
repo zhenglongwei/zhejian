@@ -51,6 +51,61 @@ async function refreshMerchantSession() {
   return data
 }
 
+async function fetchMerchantWorkbenchEntries() {
+  if (ENV.mode === 'mock') {
+    await delay(120)
+    const profile = getLocalProfile()
+    if (!profile || profile.status === MERCHANT_STATUS.NONE) {
+      return { list: [], total: 0 }
+    }
+    const list = [
+      {
+        merchantId: profile.merchantId || 'merchant_demo_1',
+        storeId: profile.storeId || 'store_demo_1',
+        storeName: profile.storeName || '演示门店',
+        address: profile.address || '',
+        status: profile.status || MERCHANT_STATUS.APPROVED,
+        statusLabel: '已通过',
+        canEnterWorkbench: profile.status === MERCHANT_STATUS.APPROVED,
+      },
+    ]
+    if (profile.storeId === 'store_demo_1') {
+      list.push({
+        merchantId: 'merchant_demo_2',
+        storeId: 'store_demo_002',
+        storeName: '辙见城西分店（演示）',
+        address: '杭州市西湖区示例路 88 号',
+        status: MERCHANT_STATUS.APPROVED,
+        statusLabel: '已通过',
+        canEnterWorkbench: true,
+      })
+    }
+    return { list, total: list.length }
+  }
+  return get('/merchant/workbench-entries')
+}
+
+async function beginNewMerchantStore() {
+  if (ENV.mode === 'mock') {
+    await delay(150)
+    const profile = {
+      status: MERCHANT_STATUS.DRAFT,
+      merchantId: 'merchant_demo_new',
+      storeId: 'store_demo_new',
+      storeName: '',
+      contactName: '',
+      phone: '',
+      address: '',
+      services: [],
+    }
+    saveLocalProfile(profile)
+    return profile
+  }
+  const profile = await post('/merchant/onboarding/new')
+  if (profile) saveLocalProfile(profile)
+  return profile
+}
+
 async function fetchMerchantStores() {
   if (ENV.mode === 'mock') {
     await delay(120)
@@ -104,19 +159,33 @@ async function switchMerchantStore(storeId) {
   }
   const session = await post('/merchant/auth/switch-store', { storeId })
   applyAuthSession(session)
-  const profile = await get('/merchant/onboarding')
+  const profile = await get('/merchant/onboarding', {
+    merchantId: session.merchant?.merchantId,
+    storeId: session.merchant?.storeId,
+  })
   if (profile) saveLocalProfile(profile)
   return profile
 }
 
-async function fetchMerchantProfile() {
+async function fetchMerchantProfile(options = {}) {
   if (ENV.mode === 'mock') {
     await delay()
     return getLocalProfile()
   }
 
   try {
-    const profile = await get('/merchant/onboarding')
+    const session = getSession()
+    const query = {}
+    if (options.merchantId || session.merchant?.merchantId) {
+      query.merchantId = options.merchantId || session.merchant.merchantId
+    }
+    if (options.storeId || session.merchant?.storeId) {
+      query.storeId = options.storeId || session.merchant.storeId
+    }
+    if (options.preferIncomplete) {
+      query.preferIncomplete = '1'
+    }
+    const profile = await get('/merchant/onboarding', query)
     if (profile) {
       saveLocalProfile(profile)
     }
@@ -142,9 +211,17 @@ async function saveOnboardingDraft(form) {
     return profile
   }
 
-  const profile = await put('/merchant/onboarding/draft', form)
+  const profile = await put('/merchant/onboarding/draft', buildDraftPayload(form))
   saveLocalProfile(profile)
   return profile
+}
+
+function buildDraftPayload(form) {
+  const profile = getLocalProfile()
+  return {
+    ...form,
+    merchantId: form.merchantId || profile?.merchantId || '',
+  }
 }
 
 async function recognizeLicenseOcr(licensePhotoUrl) {
@@ -181,7 +258,10 @@ async function submitOnboarding(form) {
     return { profile, session: null }
   }
 
-  const data = await post('/merchant/onboarding/submit', form, { showLoading: true, loadingText: '提交中' })
+  const data = await post('/merchant/onboarding/submit', buildDraftPayload({
+    ...form,
+    agreed: form.agreed,
+  }), { showLoading: true, loadingText: '提交中' })
   if (data.profile) {
     saveLocalProfile(data.profile)
   }
@@ -207,8 +287,10 @@ function cacheMerchantProfile(profile) {
 module.exports = {
   MERCHANT_STATUS,
   fetchMerchantProfile,
+  fetchMerchantWorkbenchEntries,
   fetchMerchantStores,
   switchMerchantStore,
+  beginNewMerchantStore,
   submitOnboarding,
   saveOnboardingDraft,
   refreshMerchantSession,

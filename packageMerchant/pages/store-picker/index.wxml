@@ -1,0 +1,59 @@
+<view class="merchant-store-picker bg-album">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="merchant-store-picker__pad">
+      <ui-skeleton rows="{{3}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="merchant-store-picker__gate">
+      <ui-empty
+        theme="album"
+        title="加载失败"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'empty'}}">
+    <view class="merchant-store-picker__gate">
+      <ui-empty
+        theme="album"
+        title="{{copy.emptyTitle}}"
+        description="{{copy.emptyDescription}}"
+        actionText="申请入驻"
+        bind:action="onGoOnboarding"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="merchant-store-picker__intro">
+      <text class="text-h3">{{copy.title}}</text>
+      <text class="text-caption merchant-store-picker__sub">{{copy.subtitle}}</text>
+    </view>
+
+    <view class="merchant-store-picker__list">
+      <view
+        wx:for="{{entries}}"
+        wx:key="storeId"
+        class="merchant-store-picker__item"
+        data-index="{{index}}"
+        bindtap="onEntryTap"
+      >
+        <ui-store-card
+          storeId="{{item.storeId}}"
+          name="{{item.storeName}}"
+          address="{{item.address}}"
+          cardTags="{{item.cardTags}}"
+        />
+      </view>
+    </view>
+
+    <view class="merchant-store-picker__footer safe-bottom">
+      <ui-button type="secondary" bind:btntap="onAddStore">{{copy.addStore}}</ui-button>
+    </view>
+  </block>
+</view>

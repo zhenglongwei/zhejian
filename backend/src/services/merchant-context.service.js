@@ -50,51 +50,66 @@ function formatMerchantContext(staff, storeId) {
   }
 }
 
-/**
- * 查询用户绑定的商家身份（同小程序：入驻审核通过后 staff 生效）
- * @param {string} userId
- * @param {{ storeId?: string }} [options] — JWT 当前门店；owner 可切换，staff 锁定本店
- */
-async function resolveMerchantContext(userId, options = {}) {
-  if (!userId) return null
+const STAFF_INCLUDE = {
+  merchant: {
+    include: {
+      stores: { where: { status: STORE_STATUS.ACTIVE }, orderBy: { createdAt: 'asc' } },
+    },
+  },
+}
 
-  let staff = await prisma.merchantStaff.findFirst({
+async function loadActiveStaffRecords(userId) {
+  return prisma.merchantStaff.findMany({
     where: {
       userId,
       status: ACTIVE_STAFF_STATUS,
       merchant: { status: ACTIVE_MERCHANT_STATUS },
     },
-    include: {
-      merchant: {
-        include: {
-          stores: { where: { status: 'ACTIVE' }, orderBy: { createdAt: 'asc' } },
-        },
-      },
-    },
+    include: STAFF_INCLUDE,
+    orderBy: { updatedAt: 'desc' },
   })
+}
 
-  if (!staff) {
+function pickStaffRecord(staffRecords, options = {}) {
+  if (!staffRecords.length) return null
+  const preferredMerchantId = String(options.merchantId || '').trim()
+  const preferredStoreId = String(options.storeId || '').trim()
+
+  if (preferredStoreId) {
+    const byStore = staffRecords.find((staff) =>
+      (staff.merchant.stores || []).some((store) => store.id === preferredStoreId)
+    )
+    if (byStore) return byStore
+  }
+
+  if (preferredMerchantId) {
+    const byMerchant = staffRecords.find((staff) => staff.merchantId === preferredMerchantId)
+    if (byMerchant) return byMerchant
+  }
+
+  return staffRecords[0]
+}
+
+/**
+ * 查询用户绑定的商家身份（同小程序：入驻审核通过后 staff 生效）
+ * @param {string} userId
+ * @param {{ merchantId?: string, storeId?: string }} [options] — JWT 当前商家/门店；owner 可切换，staff 锁定本店
+ */
+async function resolveMerchantContext(userId, options = {}) {
+  if (!userId) return null
+
+  let staffRecords = await loadActiveStaffRecords(userId)
+
+  if (!staffRecords.length) {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     const phone = normalizeMobilePhone(user?.phone)
     if (phone) {
       await linkPendingStaffForUser(userId, phone)
-      staff = await prisma.merchantStaff.findFirst({
-        where: {
-          userId,
-          status: ACTIVE_STAFF_STATUS,
-          merchant: { status: ACTIVE_MERCHANT_STATUS },
-        },
-        include: {
-          merchant: {
-            include: {
-              stores: { where: { status: 'ACTIVE' }, orderBy: { createdAt: 'asc' } },
-            },
-          },
-        },
-      })
+      staffRecords = await loadActiveStaffRecords(userId)
     }
   }
 
+  const staff = pickStaffRecord(staffRecords, options)
   if (!staff) return null
   const storeId = await resolveStoreIdForStaff(staff, options.storeId)
   return formatMerchantContext(staff, storeId)
@@ -116,10 +131,37 @@ async function listMerchantStoresForUser(userId, merchantId, preferredStoreId = 
   return stores
 }
 
+async function userOwnsMerchantStore(userId, storeId) {
+  const storeIdText = String(storeId || '').trim()
+  if (!userId || !storeIdText) return null
+
+  const store = await prisma.store.findUnique({
+    where: { id: storeIdText },
+    include: { merchant: true },
+  })
+  if (!store?.merchant) return null
+
+  if (store.merchant.ownerUserId === userId) {
+    return { merchant: store.merchant, store }
+  }
+
+  const staff = await prisma.merchantStaff.findFirst({
+    where: {
+      userId,
+      merchantId: store.merchantId,
+      status: ACTIVE_STAFF_STATUS,
+      role: 'owner',
+    },
+  })
+  if (!staff) return null
+  return { merchant: store.merchant, store }
+}
+
 module.exports = {
   resolveMerchantContext,
   listMerchantStoresForUser,
   resolveStoreIdForStaff,
+  userOwnsMerchantStore,
   ACTIVE_MERCHANT_STATUS,
   ACTIVE_STAFF_STATUS,
 }

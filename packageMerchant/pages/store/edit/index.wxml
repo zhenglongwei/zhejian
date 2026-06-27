@@ -21,9 +21,55 @@
     <text class="merchant-form__label">门店电话 *</text>
     <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
   </view>
-  <view class="merchant-form__section">
+  <view class="merchant-form__section merchant-hours">
     <text class="merchant-form__label">营业时间 *</text>
-    <input class="merchant-form__input" placeholder="如 09:00-18:00，周日休息" value="{{form.businessHours}}" data-field="businessHours" bindinput="onInput" />
+    <text class="text-caption merchant-hours__hint">点选星期与时段，无需手打格式</text>
+    <view class="merchant-hours__presets">
+      <view
+        wx:for="{{businessHourPresets}}"
+        wx:key="id"
+        class="merchant-onboard__chip"
+        data-preset="{{item.id}}"
+        bindtap="onApplyBusinessHoursPreset"
+      >{{item.label}}</view>
+    </view>
+    <view class="merchant-hours__list">
+      <view
+        wx:for="{{businessHoursSchedule}}"
+        wx:key="label"
+        class="merchant-hours__row {{item.open ? '' : 'merchant-hours__row--closed'}}"
+      >
+        <text class="merchant-hours__day">{{item.label}}</text>
+        <view
+          class="merchant-hours__status {{item.open ? 'merchant-hours__status--open' : ''}}"
+          data-index="{{index}}"
+          bindtap="onToggleBusinessDay"
+        >{{item.open ? '营业' : '休息'}}</view>
+        <view class="merchant-hours__times" wx:if="{{item.open}}">
+          <picker mode="time" value="{{item.start}}" data-index="{{index}}" data-field="start" bindchange="onBusinessDayTimeChange">
+            <view class="merchant-hours__time">{{item.start}}</view>
+          </picker>
+          <text class="merchant-hours__sep">至</text>
+          <picker mode="time" value="{{item.end}}" data-index="{{index}}" data-field="end" bindchange="onBusinessDayTimeChange">
+            <view class="merchant-hours__time">{{item.end}}</view>
+          </picker>
+        </view>
+        <text wx:else class="merchant-hours__closed-tip text-caption">当天不营业</text>
+      </view>
+    </view>
+    <view class="merchant-hours__remark">
+      <text class="merchant-form__label merchant-form__label--sub">补充说明</text>
+      <input
+        class="merchant-form__input"
+        placeholder="选填，如：法定节假日营业时间以门店通知为准"
+        value="{{businessHoursRemark}}"
+        bindinput="onBusinessHoursRemarkInput"
+      />
+    </view>
+    <view class="merchant-hours__preview">
+      <text class="merchant-hours__preview-label text-caption">用户端展示</text>
+      <text class="merchant-hours__preview-value text-body">{{businessHoursPreview}}</text>
+    </view>
   </view>
   <view class="merchant-form__section">
     <text class="merchant-form__label">门店简介</text>

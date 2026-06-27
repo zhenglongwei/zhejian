@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "选择门店",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-tag": "/components/tag/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-button": "/components/button/index",
+    "ui-store-card": "/components/store-card/index"
+  }
+}

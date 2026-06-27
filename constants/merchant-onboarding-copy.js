@@ -35,6 +35,14 @@ const MERCHANT_WORKBENCH_GATE_PENDING = {
 
 const MERCHANT_SHARE_STORE_DESC = '分享 H5 门店页'
 
+const MERCHANT_STORE_PICKER_COPY = {
+  title: '选择门店',
+  subtitle: '同一账号可管理多家门店，进入后将使用该门店的工作台数据',
+  emptyTitle: '还没有门店',
+  emptyDescription: '注册门店并通过审核后，可在此进入商家工作台',
+  addStore: '注册新门店',
+}
+
 module.exports = {
   MERCHANT_ONBOARDING_HERO,
   MERCHANT_ONBOARDING_VALUE_ITEMS,
@@ -42,4 +50,5 @@ module.exports = {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
   MERCHANT_SHARE_STORE_DESC,
+  MERCHANT_STORE_PICKER_COPY,
 }

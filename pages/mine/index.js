@@ -310,7 +310,7 @@ Page({
     const { section, item } = found
     if (section === 'public') {
       if (key === 'merchant') {
-        wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
+        wx.navigateTo({ url: '/packageMerchant/pages/store-picker/index' })
       }
       return
     }

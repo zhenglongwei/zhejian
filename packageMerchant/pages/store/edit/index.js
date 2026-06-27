@@ -12,7 +12,13 @@ const {
   profileToBasicReadonly,
   buildDisplayPayload,
   validateDisplayForm,
+  formatBusinessHours,
 } = require('../../../../utils/merchant-store-form')
+const {
+  BUSINESS_HOUR_PRESETS,
+  createScheduleFromPreset,
+  buildBusinessHoursEditorState,
+} = require('../../../../utils/business-hours')
 
 Page({
   data: {
@@ -22,6 +28,10 @@ Page({
     serviceTags: [],
     serviceOptions: MERCHANT_SERVICE_TAG_OPTIONS,
     customServiceInput: '',
+    businessHoursSchedule: [],
+    businessHoursRemark: '',
+    businessHoursPreview: '',
+    businessHourPresets: BUSINESS_HOUR_PRESETS,
     submitting: false,
     storeId: '',
   },
@@ -45,11 +55,18 @@ Page({
       }
 
       const form = profileToDisplayForm(profile)
+      const hours = buildBusinessHoursEditorState(form.businessHours)
       this.setData({
         status: 'normal',
-        form,
+        form: {
+          ...form,
+          businessHours: hours.businessHoursPreview,
+        },
         basic: profileToBasicReadonly(profile),
         serviceTags: buildServiceTagViews(form.services),
+        businessHoursSchedule: hours.businessHoursSchedule,
+        businessHoursRemark: hours.businessHoursRemark,
+        businessHoursPreview: hours.businessHoursPreview,
         storeId: profile.storeId || '',
       })
     } catch (e) {
@@ -61,6 +78,50 @@ Page({
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value })
+  },
+
+  syncBusinessHours() {
+    const text = formatBusinessHours(
+      this.data.businessHoursSchedule,
+      this.data.businessHoursRemark
+    )
+    this.setData({
+      'form.businessHours': text,
+      businessHoursPreview: text,
+    })
+  },
+
+  onApplyBusinessHoursPreset(e) {
+    const { preset } = e.currentTarget.dataset
+    this.setData({
+      businessHoursSchedule: createScheduleFromPreset(preset),
+    })
+    this.syncBusinessHours()
+  },
+
+  onToggleBusinessDay(e) {
+    const { index } = e.currentTarget.dataset
+    const schedule = (this.data.businessHoursSchedule || []).slice()
+    const day = schedule[Number(index)]
+    if (!day) return
+    day.open = !day.open
+    this.setData({ businessHoursSchedule: schedule })
+    this.syncBusinessHours()
+  },
+
+  onBusinessDayTimeChange(e) {
+    const { index, field } = e.currentTarget.dataset
+    const schedule = (this.data.businessHoursSchedule || []).slice()
+    const day = schedule[Number(index)]
+    if (!day) return
+    day[field] = e.detail.value
+    this.setData({ businessHoursSchedule: schedule })
+    this.syncBusinessHours()
+  },
+
+  onBusinessHoursRemarkInput(e) {
+    this.setData({ businessHoursRemark: e.detail.value })
+    this.syncBusinessHours()
   },
 
   updateServices(services) {
@@ -188,7 +249,9 @@ Page({
 
   async onSave() {
     if (this.data.submitting) return
-    const message = validateDisplayForm(this.data.form)
+    const message = validateDisplayForm(this.data.form, {
+      businessHoursSchedule: this.data.businessHoursSchedule,
+    })
     if (message) {
       wx.showToast({ title: message, icon: 'none' })
       return

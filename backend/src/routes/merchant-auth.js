@@ -2,7 +2,10 @@ const express = require('express')
 const { ok } = require('../lib/response')
 const { requireAuth } = require('../middleware/auth')
 const { buildAuthSession } = require('../services/auth.service')
-const { resolveMerchantContext } = require('../services/merchant-context.service')
+const {
+  resolveMerchantContext,
+  userOwnsMerchantStore,
+} = require('../services/merchant-context.service')
 const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 
@@ -17,15 +20,18 @@ router.post('/auth/refresh-session', requireAuth(['user']), async (req, res, nex
       err.status = 404
       throw err
     }
-    const data = await buildAuthSession(user, { storeId: req.auth.storeId || '' })
+    const data = await buildAuthSession(user, {
+      merchantId: req.auth.merchantId || '',
+      storeId: req.auth.storeId || '',
+    })
     return ok(res, data)
   } catch (e) {
     next(e)
   }
 })
 
-/** 主账号切换当前工作台门店（刷新 JWT storeId） */
-router.post('/auth/switch-store', requireAuth(['merchant']), async (req, res, next) => {
+/** 主账号切换当前工作台门店（刷新 JWT merchantId + storeId） */
+router.post('/auth/switch-store', requireAuth(['user']), async (req, res, next) => {
   try {
     const storeId = String((req.body && req.body.storeId) || '').trim()
     if (!storeId) {
@@ -39,18 +45,33 @@ router.post('/auth/switch-store', requireAuth(['merchant']), async (req, res, ne
       err.status = 404
       throw err
     }
-    const ctx = await resolveMerchantContext(user.id, { storeId })
+
+    const owned = await userOwnsMerchantStore(user.id, storeId)
+    if (!owned) {
+      const err = new Error('门店不存在或不可用')
+      err.status = 404
+      throw err
+    }
+    if (owned.merchant.status !== 'ACTIVE' || owned.store.status !== 'ACTIVE') {
+      const err = new Error('该门店尚未通过审核')
+      err.status = 409
+      throw err
+    }
+
+    const ctx = await resolveMerchantContext(user.id, {
+      merchantId: owned.merchant.id,
+      storeId,
+    })
     if (!ctx || ctx.staffRole !== 'owner') {
       const err = new Error('仅店铺管理员可切换门店')
       err.status = 403
       throw err
     }
-    if (ctx.storeId !== storeId) {
-      const err = new Error('门店不存在或不可用')
-      err.status = 404
-      throw err
-    }
-    const data = await buildAuthSession(user, { storeId })
+
+    const data = await buildAuthSession(user, {
+      merchantId: owned.merchant.id,
+      storeId,
+    })
     return ok(res, data)
   } catch (e) {
     next(e)
