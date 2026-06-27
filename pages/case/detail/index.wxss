@@ -8,8 +8,34 @@
   margin-bottom: var(--space-lg);
 }
 
+.case-detail__panel--top {
+  margin-top: 0;
+}
+
+.case-detail__head-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.case-detail__head {
+  flex: 1;
+  min-width: 0;
+}
+
+.case-detail__head-actions {
+  flex-shrink: 0;
+  padding-top: var(--space-xs);
+}
+
 .case-detail__tags {
   margin-bottom: var(--space-sm);
+}
+
+.case-detail__head .case-detail__title {
+  margin-bottom: 0;
 }
 
 .case-detail__title {

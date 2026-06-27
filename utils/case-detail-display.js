@@ -38,9 +38,41 @@ function stripBoilerplateSummary(text) {
     .replace(/^这是一个/u, '')
     .replace(/^该案例为/u, '')
     .replace(/^本案例为/u, '')
-    .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。/gu, '')
-    .replace(/页面展示价格仅供参考。/gu, '')
+    .replace(/^.+?维修案例。/u, '')
+    .replace(/车辆主要问题为用户反馈的相关问题。?/gu, '')
+    .replace(/车辆主要问题为相关故障或养护需求。?/gu, '')
+    .replace(/门店根据车辆实际情况进行了检查，?/gu, '')
+    .replace(/门店根据检测结果，?/gu, '')
+    .replace(/根据检测结果，门店完成了.+?的处理。?/gu, '')
+    .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。?/gu, '')
+    .replace(/案例图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。?/gu, '')
+    .replace(/该类服务价格会受到车型、配件品牌、损伤程度、工时和维修方案影响，?/gu, '')
+    .replace(/页面展示价格仅供参考。?/gu, '')
     .replace(/维修维修/gu, '维修')
+    .replace(/，+/g, '，')
+    .replace(/^，+|，+$/g, '')
+}
+
+const TEMPLATE_SUMMARY_MARKERS = [
+  '用户反馈的相关问题',
+  '门店根据车辆实际情况进行了检查',
+  '门店根据检测结果',
+  '相关故障或养护需求',
+  '该类服务价格会受到',
+  '页面展示价格仅供参考',
+  '图片已进行车牌、人脸',
+]
+
+function isTemplateBoilerplateSummary(text) {
+  const v = normalizeText(text)
+  if (!v) return true
+  if (/^这是一个.+维修案例/u.test(v)) return true
+  if (/^.+维修案例。车辆主要问题为/u.test(v)) return true
+  if (v.includes('用户反馈的相关问题') && v.includes('门店根据车辆实际情况进行了检查')) {
+    return true
+  }
+  const hits = TEMPLATE_SUMMARY_MARKERS.filter((marker) => v.includes(marker)).length
+  return hits >= 2
 }
 
 const STAGE_GEO_FIELD = {
@@ -79,6 +111,54 @@ function resolveGeoFieldForNode(node, detail) {
   return ''
 }
 
+function collectNodeSummaryFacts(detail) {
+  const nodes = detail.displayNodes || detail.nodes || []
+  const facts = []
+  nodes.forEach((node) => {
+    const note = normalizeText(node.note)
+    if (!note) return
+    if (isGenericFaultDesc(note) || isGenericInspectResult(note) || isGenericRepairPlan(note, detail.serviceName)) {
+      return
+    }
+    if (facts.includes(note)) return
+    facts.push(note)
+  })
+  return facts
+}
+
+function buildDisplayAiSummary(detail) {
+  const parts = []
+  if (!isGenericFaultDesc(detail.faultDesc)) parts.push(normalizeText(detail.faultDesc))
+  if (!isGenericInspectResult(detail.inspectResult)) parts.push(normalizeText(detail.inspectResult))
+  if (!isGenericRepairPlan(detail.repairPlan, detail.serviceName)) {
+    parts.push(normalizeText(detail.repairPlan))
+  }
+
+  if (!parts.length) {
+    parts.push(...collectNodeSummaryFacts(detail))
+  }
+
+  const isAuthorized =
+    detail.authorizationTier === 'anonymous' || detail.authorizationTier === 'named'
+  const amount = detail.amount ?? detail.planAmount
+  if (isAuthorized && amount != null && Number(amount) > 0) {
+    parts.push(`当时方案参考费用约${Math.round(Number(amount))}元`)
+  }
+
+  if (parts.length) {
+    let text = parts.join('。')
+    if (!text.endsWith('。')) text += '。'
+    return text.length > 180 ? `${text.slice(0, 179)}…` : text
+  }
+
+  const raw = stripBoilerplateSummary(detail.aiSummary || detail.summary || '')
+  if (raw && raw.length >= 8 && !isTemplateBoilerplateSummary(raw) && !isTemplateBoilerplateSummary(detail.aiSummary)) {
+    return raw.length > 180 ? `${raw.slice(0, 179)}…` : raw
+  }
+
+  return ''
+}
+
 function prepareDisplayNodes(detail) {
   const narratives = detail.article?.nodeNarratives || detail.nodeNarratives || []
   const narrativeMap = {}
@@ -106,34 +186,6 @@ function prepareDisplayNodes(detail) {
       }
     })
     .filter((node) => (node.images && node.images.length) || node.note)
-}
-
-function buildDisplayAiSummary(detail) {
-  const raw = stripBoilerplateSummary(detail.aiSummary || detail.summary || '')
-  if (raw && raw.length >= 24 && !/^这是一个.+维修案例/u.test(raw)) {
-    return raw.length > 180 ? `${raw.slice(0, 179)}…` : raw
-  }
-
-  const parts = []
-  if (!isGenericFaultDesc(detail.faultDesc)) parts.push(normalizeText(detail.faultDesc))
-  if (!isGenericInspectResult(detail.inspectResult)) parts.push(normalizeText(detail.inspectResult))
-  if (!isGenericRepairPlan(detail.repairPlan, detail.serviceName)) {
-    parts.push(normalizeText(detail.repairPlan))
-  }
-
-  const isAuthorized =
-    detail.authorizationTier === 'anonymous' || detail.authorizationTier === 'named'
-  const amount = detail.amount ?? detail.planAmount
-  if (isAuthorized && amount != null && Number(amount) > 0) {
-    parts.push(`当时方案参考费用约${Math.round(Number(amount))}元`)
-  }
-
-  if (parts.length) {
-    let text = parts.join('。')
-    if (!text.endsWith('。')) text += '。'
-    return text.length > 180 ? `${text.slice(0, 179)}…` : text
-  }
-  return raw
 }
 
 function resolvePriceView(detail) {
@@ -167,16 +219,15 @@ function resolvePriceView(detail) {
 function enrichCaseDetailForPage(detail) {
   if (!detail || typeof detail !== 'object') return detail
   const displayNodes = detail.displayNodes || prepareDisplayNodes(detail)
-  const displayAiSummary = detail.displayAiSummary || buildDisplayAiSummary(detail)
-  const priceView = detail.priceView || resolvePriceView(detail)
-  return {
+  const enriched = {
     ...detail,
     title: polishCaseTitle(detail.title),
     displayNodes,
-    displayAiSummary,
-    priceView,
     showNarrativeBlock: false,
   }
+  enriched.displayAiSummary = buildDisplayAiSummary({ ...enriched, displayNodes })
+  enriched.priceView = detail.priceView || resolvePriceView(enriched)
+  return enriched
 }
 
 module.exports = {
@@ -184,4 +235,5 @@ module.exports = {
   prepareDisplayNodes,
   buildDisplayAiSummary,
   resolvePriceView,
+  isTemplateBoilerplateSummary,
 }

@@ -16,6 +16,7 @@ const {
 const { submitCaseDetailPage } = require('../../../utils/wx-search-submit')
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { enrichCaseDetailForPage } = require('../../../utils/case-detail-display')
+const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null

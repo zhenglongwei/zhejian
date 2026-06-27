@@ -31,9 +31,54 @@
       .replace(/^这是一个/u, '')
       .replace(/^该案例为/u, '')
       .replace(/^本案例为/u, '')
-      .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。/gu, '')
-      .replace(/页面展示价格仅供参考。/gu, '')
+      .replace(/^.+?维修案例。/u, '')
+      .replace(/车辆主要问题为用户反馈的相关问题。?/gu, '')
+      .replace(/门店根据车辆实际情况进行了检查，?/gu, '')
+      .replace(/门店根据检测结果，?/gu, '')
+      .replace(/根据检测结果，门店完成了.+?的处理。?/gu, '')
+      .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。?/gu, '')
+      .replace(/该类服务价格会受到车型、配件品牌、损伤程度、工时和维修方案影响，?/gu, '')
+      .replace(/页面展示价格仅供参考。?/gu, '')
       .replace(/维修维修/gu, '维修')
+      .replace(/，+/g, '，')
+      .replace(/^，+|，+$/g, '')
+  }
+
+  var TEMPLATE_SUMMARY_MARKERS = [
+    '用户反馈的相关问题',
+    '门店根据车辆实际情况进行了检查',
+    '门店根据检测结果',
+    '该类服务价格会受到',
+    '页面展示价格仅供参考',
+  ]
+
+  function isTemplateBoilerplateSummary(text) {
+    var v = normalizeText(text)
+    if (!v) return true
+    if (/^这是一个.+维修案例/u.test(v)) return true
+    if (/^.+维修案例。车辆主要问题为/u.test(v)) return true
+    if (v.indexOf('用户反馈的相关问题') !== -1 && v.indexOf('门店根据车辆实际情况进行了检查') !== -1) {
+      return true
+    }
+    var hits = 0
+    TEMPLATE_SUMMARY_MARKERS.forEach(function (marker) {
+      if (v.indexOf(marker) !== -1) hits += 1
+    })
+    return hits >= 2
+  }
+
+  function collectNodeSummaryFacts(data) {
+    var facts = []
+    ;(data.displayNodes || data.nodes || []).forEach(function (node) {
+      var note = normalizeText(node.note)
+      if (!note) return
+      if (isGenericFaultDesc(note) || isGenericInspectResult(note) || isGenericRepairPlan(note, data.serviceName)) {
+        return
+      }
+      if (facts.indexOf(note) !== -1) return
+      facts.push(note)
+    })
+    return facts
   }
 
   var STAGE_GEO_FIELD = {
@@ -141,16 +186,14 @@
   }
 
   function buildDisplayAiSummary(data) {
-    var raw = stripBoilerplateSummary(data.aiSummary || data.summary || '')
-    if (raw && raw.length >= 24 && !/^这是一个.+维修案例/u.test(raw)) {
-      return raw.length > 180 ? raw.slice(0, 179) + '…' : raw
-    }
-
     var parts = []
     if (!isGenericFaultDesc(data.faultDesc)) parts.push(normalizeText(data.faultDesc))
     if (!isGenericInspectResult(data.inspectResult)) parts.push(normalizeText(data.inspectResult))
     if (!isGenericRepairPlan(data.repairPlan, data.serviceName)) {
       parts.push(normalizeText(data.repairPlan))
+    }
+    if (!parts.length) {
+      parts = parts.concat(collectNodeSummaryFacts(data))
     }
 
     var isAuthorized = data.authorizationTier === 'anonymous' || data.authorizationTier === 'named'
@@ -164,12 +207,16 @@
       if (text.slice(-1) !== '。') text += '。'
       return text.length > 180 ? text.slice(0, 179) + '…' : text
     }
-    return raw
+
+    var raw = stripBoilerplateSummary(data.aiSummary || data.summary || '')
+    if (raw && raw.length >= 8 && !isTemplateBoilerplateSummary(raw) && !isTemplateBoilerplateSummary(data.aiSummary)) {
+      return raw.length > 180 ? raw.slice(0, 179) + '…' : raw
+    }
+    return ''
   }
 
   function enrichCaseForRender(data) {
     var next = Object.assign({}, data)
-    next.displayAiSummary = buildDisplayAiSummary(data)
     next.displayNodes = prepareDisplayNodes(data)
     next.nodes = next.displayNodes
     next.faultDesc = isGenericFaultDesc(data.faultDesc) ? '' : normalizeText(data.faultDesc)
@@ -177,6 +224,7 @@
     next.repairPlan = isGenericRepairPlan(data.repairPlan, data.serviceName)
       ? ''
       : normalizeText(data.repairPlan)
+    next.displayAiSummary = buildDisplayAiSummary(next)
     return next
   }
 

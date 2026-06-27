@@ -1,19 +1,7 @@
 <ui-tool-page-shell
-  title="{{shellTitle}}"
-  subtitle="{{shellSubtitle}}"
+  showBand="{{false}}"
   showCompliance="{{status === 'normal'}}"
 >
-  <ui-detail-top-actions
-    wx:if="{{status === 'normal'}}"
-    slot="bandExtra"
-    showFavorite="{{true}}"
-    isFavorited="{{isFavorited}}"
-    showShare="{{true}}"
-    shareDisabled="{{shareActionsDisabled}}"
-    bind:favorite="onTopFavoriteTap"
-    bind:share="onTopShareTap"
-  />
-
   <block wx:if="{{status === 'loading'}}">
     <view class="deep-link-detail__pad">
       <ui-skeleton rows="{{6}}" title="{{true}}" />
@@ -31,11 +19,25 @@
 
   <block wx:elif="{{detail}}">
     <view class="deep-link-detail__body case-detail__body">
-      <view class="surface-album-panel case-detail__panel">
-        <view class="case-detail__tags">
-          <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
+      <view class="surface-album-panel case-detail__panel case-detail__panel--top">
+        <view class="case-detail__head-row">
+          <view class="case-detail__head">
+            <view class="case-detail__tags">
+              <ui-tag-row authorizationTier="{{detail.authorizationTier}}" />
+            </view>
+            <text class="case-detail__title text-h1">{{detail.title}}</text>
+          </view>
+          <ui-detail-top-actions
+            wx:if="{{status === 'normal'}}"
+            class="case-detail__head-actions"
+            showFavorite="{{true}}"
+            isFavorited="{{isFavorited}}"
+            showShare="{{true}}"
+            shareDisabled="{{shareActionsDisabled}}"
+            bind:favorite="onTopFavoriteTap"
+            bind:share="onTopShareTap"
+          />
         </view>
-        <text class="case-detail__title text-h1">{{detail.title}}</text>
         <ui-ai-summary-block wx:if="{{detail.displayAiSummary}}" content="{{detail.displayAiSummary}}" />
 
         <ui-key-info-table
