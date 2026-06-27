@@ -13,6 +13,7 @@ const {
   rewriteMediaUrlForCurrentBase,
   assertPersistentImageUrl,
 } = require('../lib/media-storage')
+const { safeParseData } = require('./desensitize-engine/parse-ocr')
 
 const { RecognizeBusinessLicenseRequest } = Ocr
 const { RecognizeBusinessLicenseRequest: ViapiBizLicenseRequest } = ViapiOcr
@@ -32,16 +33,6 @@ function resolveImageSources(licensePhotoUrl) {
   return { publicUrl, imagePath }
 }
 
-function safeParseJson(value) {
-  if (!value) return null
-  if (typeof value === 'object') return value
-  try {
-    return JSON.parse(String(value))
-  } catch (e) {
-    return null
-  }
-}
-
 function pickField(obj, keys) {
   if (!obj || typeof obj !== 'object') return ''
   for (const key of keys) {
@@ -59,18 +50,75 @@ function normalizeCreditCode(value) {
   return code.replace(/\s+/g, '')
 }
 
+function unwrapLicensePayload(raw) {
+  let node = safeParseData(raw)
+  if (!node && raw && typeof raw === 'object') {
+    node = raw
+  }
+  if (!node) return null
+
+  for (let i = 0; i < 4; i += 1) {
+    if (node.data == null) break
+    if (typeof node.data === 'string') {
+      const inner = safeParseData(node.data)
+      if (!inner) break
+      node = inner
+      continue
+    }
+    if (typeof node.data === 'object' && !Array.isArray(node.data)) {
+      node = node.data
+      continue
+    }
+    break
+  }
+  return node
+}
+
 function mapLicenseOcrResult(raw) {
-  const parsed = safeParseJson(raw) || raw || {}
-  const data = parsed.data && typeof parsed.data === 'object' ? parsed.data : parsed
+  const data = unwrapLicensePayload(raw) || {}
   return {
-    legalName: pickField(data, ['companyName', 'CompanyName', 'title', 'Title']),
+    legalName: pickField(data, [
+      'companyName',
+      'CompanyName',
+      'name',
+      'Name',
+      'title',
+      'Title',
+      'enterpriseName',
+      'EnterpriseName',
+    ]),
     creditCode: normalizeCreditCode(
-      pickField(data, ['creditCode', 'CreditCode', 'registrationNumber', 'RegistrationNumber'])
+      pickField(data, [
+        'creditCode',
+        'CreditCode',
+        'unifiedSocialCreditCode',
+        'UnifiedSocialCreditCode',
+        'registrationNumber',
+        'RegistrationNumber',
+        'registerNumber',
+        'RegisterNumber',
+        'regNum',
+        'RegNum',
+      ])
     ),
-    legalPerson: pickField(data, ['legalPerson', 'LegalPerson', 'legalRepresentative', 'LegalRepresentative']),
-    businessScope: pickField(data, ['businessScope', 'BusinessScope']),
-    companyType: pickField(data, ['companyType', 'CompanyType']),
-    businessAddress: pickField(data, ['businessAddress', 'BusinessAddress', 'address', 'Address']),
+    legalPerson: pickField(data, [
+      'legalPerson',
+      'LegalPerson',
+      'legalRepresentative',
+      'LegalRepresentative',
+      'person',
+      'Person',
+    ]),
+    businessScope: pickField(data, ['businessScope', 'BusinessScope', 'scope', 'Scope']),
+    companyType: pickField(data, ['companyType', 'CompanyType', 'type', 'Type']),
+    businessAddress: pickField(data, [
+      'businessAddress',
+      'BusinessAddress',
+      'address',
+      'Address',
+      'companyAddress',
+      'CompanyAddress',
+    ]),
   }
 }
 
@@ -93,12 +141,14 @@ async function recognizeWithOcrApi(imagePath, publicUrl) {
       }
       const resp = await client.recognizeBusinessLicenseWithOptions(request, runtime)
       const body = resp?.body || {}
-      if (body.code && String(body.code) !== '200') {
-        const err = new Error(body.message || '营业执照识别失败')
-        err.code = body.code
+      const code = body.code ?? body.Code
+      if (code != null && String(code) !== '200') {
+        const err = new Error(body.message || body.Message || '营业执照识别失败')
+        err.code = code
         throw err
       }
-      const mapped = mapLicenseOcrResult(body.data)
+      const rawData = body.data ?? body.Data
+      const mapped = mapLicenseOcrResult(rawData)
       if (!mapped.legalName && !mapped.creditCode) {
         const err = new Error('未识别到营业执照关键信息，请手动填写')
         err.status = 422
@@ -123,7 +173,8 @@ async function recognizeWithViapi(publicUrl) {
   const request = new ViapiBizLicenseRequest({ imageURL: publicUrl })
   const resp = await client.recognizeBusinessLicenseWithOptions(request, runtime)
   const body = resp?.body || {}
-  const mapped = mapLicenseOcrResult(body.data)
+  const rawData = body.data ?? body.Data
+  const mapped = mapLicenseOcrResult(rawData)
   if (!mapped.legalName && !mapped.creditCode) {
     const err = new Error('未识别到营业执照关键信息，请手动填写')
     err.status = 422

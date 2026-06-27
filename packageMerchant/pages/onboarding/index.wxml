@@ -30,22 +30,27 @@
   </view>
 
   <view class="merchant-onboard__form">
+    <view class="merchant-form__section merchant-onboard__license-first">
+      <text class="merchant-form__label">营业执照照片 *</text>
+      <text class="text-caption merchant-onboard__optional-hint">请先上传营业执照，系统将自动识别主体名称与统一社会信用代码，识别结果可手动修改。</text>
+      <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--license" bindtap="onPickLicense">
+        <image wx:if="{{form.licensePhotoUrl}}" class="merchant-onboard__photo" src="{{form.licensePhotoUrl}}" mode="aspectFill" />
+        <view wx:else class="merchant-onboard__photo-placeholder">
+          <text class="merchant-onboard__photo-placeholder-title text-body">上传营业执照</text>
+          <text class="text-caption text-secondary">拍照或从相册选择</text>
+        </view>
+      </view>
+      <text wx:if="{{licenseOcrHint}}" class="text-caption merchant-onboard__ocr-hint">{{licenseOcrHint}}</text>
+    </view>
+
     <text class="merchant-onboard__section-title text-h3">商家主体</text>
     <view class="merchant-form__section">
       <text class="merchant-form__label">主体名称（与执照一致） *</text>
-      <input class="merchant-form__input" placeholder="营业执照上的名称" value="{{form.legalName}}" data-field="legalName" bindinput="onInput" />
+      <input class="merchant-form__input" placeholder="上传执照后自动识别，也可手动填写" value="{{form.legalName}}" data-field="legalName" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">统一社会信用代码 *</text>
       <input class="merchant-form__input" placeholder="18 位信用代码" value="{{form.creditCode}}" data-field="creditCode" bindinput="onInput" maxlength="18" />
-    </view>
-    <view class="merchant-form__section">
-      <text class="merchant-form__label">营业执照照片 *</text>
-      <text class="text-caption merchant-onboard__optional-hint">上传后可自动识别主体名称与信用代码，识别结果可手动修改。</text>
-      <view class="merchant-onboard__photo-slot" bindtap="onPickLicense">
-        <image wx:if="{{form.licensePhotoUrl}}" class="merchant-onboard__photo" src="{{form.licensePhotoUrl}}" mode="aspectFill" />
-        <text wx:else class="text-caption">点击上传</text>
-      </view>
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">联系邮箱</text>

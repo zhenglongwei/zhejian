@@ -21,7 +21,7 @@ const {
   MERCHANT_ONBOARDING_VALUE_ITEMS,
   MERCHANT_ONBOARDING_POSITIONING,
 } = require('../../../constants/merchant-onboarding-copy')
-const { uploadImage } = require('../../../utils/media-upload')
+const { uploadImage, normalizeStoredImageUrl } = require('../../../utils/media-upload')
 const {
   buildBusinessHoursEditorState,
   validateBusinessHours,
@@ -76,6 +76,7 @@ Page({
     status: 'loading',
     merchantId: '',
     newStoreMode: false,
+    licenseOcrHint: '',
   },
 
   onLoad(options = {}) {
@@ -300,59 +301,127 @@ Page({
     }
   },
 
-  applyLicenseOcrResult(result = {}) {
-    const patch = {}
+  applyLicenseOcrResult(result = {}, options = {}) {
     const form = this.data.form || {}
-    if (result.legalName && !form.legalName) {
-      patch['form.legalName'] = result.legalName
+    const patch = {}
+    const conflicts = []
+    const labels = {
+      legalName: '主体名称',
+      creditCode: '信用代码',
+      contactName: '负责人',
+      storeName: '门店名称',
+      address: '门店地址',
     }
-    if (result.creditCode && !form.creditCode) {
-      patch['form.creditCode'] = result.creditCode
+
+    const assignField = (field, value) => {
+      const next = String(value || '').trim()
+      if (!next) return
+      const current = String(form[field] || '').trim()
+      if (!current) {
+        patch[`form.${field}`] = next
+        return
+      }
+      if (current !== next) {
+        conflicts.push({ field, label: labels[field] || field, value: next })
+      }
     }
-    if (result.legalPerson && !form.contactName) {
-      patch['form.contactName'] = result.legalPerson
+
+    assignField('legalName', result.legalName)
+    assignField('creditCode', result.creditCode)
+    assignField('contactName', result.legalPerson)
+    if (!form.storeName && result.legalName) {
+      patch['form.storeName'] = result.legalName
     }
-    if (Object.keys(patch).length) {
-      this.setData(patch)
-      wx.showToast({ title: '已识别，请核对', icon: 'none' })
-      return
+    if (!form.address && result.businessAddress) {
+      patch['form.address'] = result.businessAddress
     }
-    if (result.legalName || result.creditCode) {
+
+    const applyPatch = (extraPatch = {}) => {
+      const merged = { ...patch, ...extraPatch }
+      if (Object.keys(merged).length) {
+        this.setData(merged)
+      }
+    }
+
+    const filledLabels = Object.keys(patch)
+      .map((key) => labels[key.replace('form.', '')])
+      .filter(Boolean)
+
+    if (conflicts.length) {
+      applyPatch()
+      const preview = conflicts.map((item) => `${item.label}：${item.value}`).join('\n')
       wx.showModal({
-        title: '识别到营业执照信息',
-        content: '是否用识别结果覆盖当前已填写的主体信息？',
+        title: '识别到新的营业执照信息',
+        content: `${preview}\n\n是否覆盖当前已填写内容？`,
         confirmText: '覆盖',
+        cancelText: '保留',
         success: (res) => {
-          if (!res.confirm) return
+          if (!res.confirm) {
+            this.setData({
+              licenseOcrHint: filledLabels.length
+                ? `已识别并填入：${filledLabels.join('、')}；其余字段已保留你的填写`
+                : '部分字段与当前填写不一致，已保留你的填写',
+            })
+            return
+          }
           const overwrite = {}
-          if (result.legalName) overwrite['form.legalName'] = result.legalName
-          if (result.creditCode) overwrite['form.creditCode'] = result.creditCode
-          if (result.legalPerson) overwrite['form.contactName'] = result.legalPerson
-          this.setData(overwrite)
+          conflicts.forEach((item) => {
+            overwrite[`form.${item.field}`] = item.value
+          })
+          applyPatch(overwrite)
+          this.setData({
+            licenseOcrHint: '已用识别结果更新主体信息，请核对后提交',
+          })
           wx.showToast({ title: '已更新，请核对', icon: 'none' })
         },
       })
+      if (filledLabels.length && !options.silent) {
+        wx.showToast({ title: `已识别：${filledLabels.join('、')}`, icon: 'none' })
+      }
       return
     }
+
+    if (Object.keys(patch).length) {
+      applyPatch()
+      this.setData({
+        licenseOcrHint: `已识别：${filledLabels.join('、')}，请核对后提交`,
+      })
+      wx.showToast({ title: '已识别，请核对', icon: 'success' })
+      return
+    }
+
+    if (result.legalName || result.creditCode) {
+      this.setData({ licenseOcrHint: '识别完成，当前填写与执照一致' })
+      wx.showToast({ title: '识别完成，信息一致', icon: 'none' })
+      return
+    }
+
+    this.setData({ licenseOcrHint: '未识别到主体名称或信用代码，请手动填写' })
     wx.showToast({ title: '未识别到关键信息，请手填', icon: 'none' })
   },
 
-  async runLicenseOcr(licensePhotoUrl) {
-    wx.showLoading({ title: '识别中', mask: true })
+  async onPickLicense() {
+    if (this.data.submitting) return
     try {
-      const result = await recognizeLicenseOcr(licensePhotoUrl)
+      const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+      const temp = res.tempFiles[0].tempFilePath
+      wx.showLoading({ title: '上传中', mask: true })
+      const url = await uploadImage(temp)
+      wx.showLoading({ title: '识别中', mask: true })
+      this.setData({
+        'form.licensePhotoUrl': url,
+        licenseOcrHint: '正在识别营业执照…',
+      })
+      const result = await recognizeLicenseOcr(normalizeStoredImageUrl(url))
+      wx.hideLoading()
       this.applyLicenseOcrResult(result)
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '识别失败，请手动填写', icon: 'none' })
-    } finally {
       wx.hideLoading()
+      if (this.data.form.licensePhotoUrl) {
+        this.setData({ licenseOcrHint: '照片已上传，识别未成功，请手动填写主体信息' })
+      }
+      wx.showToast({ title: (e && e.message) || '识别失败，请手动填写', icon: 'none' })
     }
-  },
-
-  onPickLicense() {
-    this.pickSingleImage('licensePhotoUrl', {
-      onUploaded: (url) => this.runLicenseOcr(url),
-    })
   },
 
   onPickFacade() {

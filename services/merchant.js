@@ -237,7 +237,9 @@ async function recognizeLicenseOcr(licensePhotoUrl) {
       provider: 'mock',
     }
   }
-  return post('/merchant/onboarding/license-ocr', { licensePhotoUrl })
+  return post('/merchant/onboarding/license-ocr', { licensePhotoUrl }, {
+    showLoading: false,
+  })
 }
 
 async function submitOnboarding(form) {
