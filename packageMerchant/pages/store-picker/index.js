@@ -14,15 +14,17 @@ function resolveEntryTagVariant(status) {
   return 'default'
 }
 
+function resolveActionHint(item = {}) {
+  if (item.canEnterWorkbench) return '进入工作台 ›'
+  if (item.status === MERCHANT_STATUS.PENDING) return '查看审核进度 ›'
+  return '继续填写 ›'
+}
+
 function decorateEntries(list = []) {
   return list.map((item) => ({
     ...item,
-    cardTags: [
-      {
-        text: item.statusLabel || '未知状态',
-        variant: resolveEntryTagVariant(item.status),
-      },
-    ],
+    tagVariant: resolveEntryTagVariant(item.status),
+    actionHint: resolveActionHint(item),
   }))
 }
 

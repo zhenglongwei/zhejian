@@ -5,6 +5,6 @@
     "ui-tag": "/components/tag/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",
-    "ui-store-card": "/components/store-card/index"
+    "ui-tool-page-shell": "/components/tool-page-shell/index"
   }
 }

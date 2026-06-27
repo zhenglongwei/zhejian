@@ -1,12 +1,12 @@
-<view class="merchant-store-picker bg-album">
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
   <block wx:if="{{status === 'loading'}}">
-    <view class="merchant-store-picker__pad">
+    <view class="merchant-store-picker__pad page-content">
       <ui-skeleton rows="{{3}}" title="{{true}}" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="merchant-store-picker__gate">
+    <view class="merchant-store-picker__gate page-content">
       <ui-empty
         theme="album"
         title="加载失败"
@@ -18,7 +18,7 @@
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
-    <view class="merchant-store-picker__gate">
+    <view class="merchant-store-picker__gate page-content">
       <ui-empty
         theme="album"
         title="{{copy.emptyTitle}}"
@@ -30,30 +30,34 @@
   </block>
 
   <block wx:else>
-    <view class="merchant-store-picker__intro">
-      <text class="text-h3">{{copy.title}}</text>
-      <text class="text-caption merchant-store-picker__sub">{{copy.subtitle}}</text>
-    </view>
+    <view class="merchant-store-picker">
+      <view class="merchant-store-picker__folio surface-album-folio">
+        <view class="merchant-store-picker__folio-inner">
+          <text class="merchant-store-picker__title text-h3">{{copy.title}}</text>
+          <text class="merchant-store-picker__sub text-caption text-secondary">{{copy.subtitle}}</text>
+        </view>
+      </view>
 
-    <view class="merchant-store-picker__list">
-      <view
-        wx:for="{{entries}}"
-        wx:key="storeId"
-        class="merchant-store-picker__item"
-        data-index="{{index}}"
-        bindtap="onEntryTap"
-      >
-        <ui-store-card
-          storeId="{{item.storeId}}"
-          name="{{item.storeName}}"
-          address="{{item.address}}"
-          cardTags="{{item.cardTags}}"
-        />
+      <view class="page-content merchant-store-picker__list merchant-list__scroll-pad">
+        <view
+          wx:for="{{entries}}"
+          wx:key="storeId"
+          class="merchant-store-picker__item surface-record-card"
+          data-index="{{index}}"
+          bindtap="onEntryTap"
+        >
+          <view class="merchant-store-picker__item-head">
+            <text class="merchant-store-picker__name text-body">{{item.storeName}}</text>
+            <ui-tag variant="{{item.tagVariant}}" text="{{item.statusLabel}}" />
+          </view>
+          <text wx:if="{{item.address}}" class="merchant-store-picker__addr text-caption text-secondary">{{item.address}}</text>
+          <text class="merchant-store-picker__action text-caption text-link">{{item.actionHint}}</text>
+        </view>
+      </view>
+
+      <view class="merchant-list-fab page-content">
+        <ui-button type="primary" block bind:btntap="onAddStore">{{copy.addStore}}</ui-button>
       </view>
     </view>
-
-    <view class="merchant-store-picker__footer safe-bottom">
-      <ui-button type="secondary" bind:btntap="onAddStore">{{copy.addStore}}</ui-button>
-    </view>
   </block>
-</view>
+</ui-tool-page-shell>

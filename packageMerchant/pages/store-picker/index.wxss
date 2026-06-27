@@ -1,41 +1,78 @@
+@import '../../../styles/merchant-form.wxss';
+
+.merchant-store-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-md);
+  background-color: var(--color-bg-album);
+}
+
 .merchant-store-picker__pad {
-  padding: var(--space-lg);
+  padding-top: var(--space-md);
 }
 
 .merchant-store-picker__gate {
-  min-height: 70vh;
+  min-height: 60vh;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
-  padding: var(--space-xl);
+  padding-top: var(--space-xl);
+  padding-bottom: var(--space-xl);
+  box-sizing: border-box;
 }
 
-.merchant-store-picker__intro {
-  padding: var(--space-lg) var(--space-md) var(--space-sm);
+.merchant-store-picker__folio {
+  margin: 0 calc(-1 * var(--page-padding-x));
+  padding: var(--space-lg) var(--page-padding-x);
+}
+
+.merchant-store-picker__folio-inner {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
+.merchant-store-picker__title {
+  color: var(--color-text-primary);
+}
+
 .merchant-store-picker__sub {
-  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
 .merchant-store-picker__list {
-  padding: 0 var(--space-md) var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
 }
 
-.merchant-store-picker__item {
-  background: var(--color-bg-container);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+.merchant-store-picker__item:active {
+  opacity: 0.72;
 }
 
-.merchant-store-picker__footer {
-  padding: var(--space-md);
-  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+.merchant-store-picker__item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.merchant-store-picker__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.merchant-store-picker__addr {
+  display: block;
+  margin-top: var(--space-xs);
+  line-height: 1.5;
+}
+
+.merchant-store-picker__action {
+  display: block;
+  margin-top: var(--space-sm);
 }
