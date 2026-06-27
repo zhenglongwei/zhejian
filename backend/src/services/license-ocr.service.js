@@ -1,3 +1,4 @@
+const fs = require('fs')
 const { RuntimeOptions } = require('@darabonba/typescript')
 const Ocr = require('@alicloud/ocr-api20210707')
 const ViapiOcr = require('@alicloud/ocr20191230')
@@ -8,15 +9,13 @@ const {
   openImageReadable,
 } = require('../lib/aliyun-clients')
 const {
-  parseObjectKeyFromPublicUrl,
-  resolveObjectKeyFilePath,
   rewriteMediaUrlForCurrentBase,
   assertPersistentImageUrl,
+  resolveMediaFilePathFromPublicUrl,
 } = require('../lib/media-storage')
 const { safeParseData } = require('./desensitize-engine/parse-ocr')
 
 const { RecognizeBusinessLicenseRequest } = Ocr
-const { RecognizeBusinessLicenseRequest: ViapiBizLicenseRequest } = ViapiOcr
 
 function runtimeOptions() {
   return new RuntimeOptions({
@@ -25,12 +24,22 @@ function runtimeOptions() {
   })
 }
 
-function resolveImageSources(licensePhotoUrl) {
+/**
+ * 营业执照 OCR 只走 ECS 本地文件流，不用公网 URL（自定义域名 Aliyun 不支持）。
+ */
+function resolveLicenseImagePath(licensePhotoUrl) {
   const persistent = assertPersistentImageUrl(licensePhotoUrl)
-  const publicUrl = rewriteMediaUrlForCurrentBase(persistent)
-  const objectKey = parseObjectKeyFromPublicUrl(publicUrl)
-  const imagePath = objectKey ? resolveObjectKeyFilePath(objectKey) : null
-  return { publicUrl, imagePath }
+  const candidates = [
+    resolveMediaFilePathFromPublicUrl(persistent),
+    resolveMediaFilePathFromPublicUrl(rewriteMediaUrlForCurrentBase(persistent)),
+  ].filter(Boolean)
+
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return filePath
+    }
+  }
+  return ''
 }
 
 function pickField(obj, keys) {
@@ -122,65 +131,47 @@ function mapLicenseOcrResult(raw) {
   }
 }
 
-async function recognizeWithOcrApi(imagePath, publicUrl) {
-  const client = getOcrClient()
-  const runtime = runtimeOptions()
-  const attempts = []
-  if (imagePath) attempts.push('body')
-  if (publicUrl) attempts.push('url')
-
-  let lastError = null
-  for (const mode of attempts) {
-    try {
-      let request
-      if (mode === 'body') {
-        request = new RecognizeBusinessLicenseRequest()
-        request.body = openImageReadable(imagePath)
-      } else {
-        request = new RecognizeBusinessLicenseRequest({ url: publicUrl })
-      }
-      const resp = await client.recognizeBusinessLicenseWithOptions(request, runtime)
-      const body = resp?.body || {}
-      const code = body.code ?? body.Code
-      if (code != null && String(code) !== '200') {
-        const err = new Error(body.message || body.Message || '营业执照识别失败')
-        err.code = code
-        throw err
-      }
-      const rawData = body.data ?? body.Data
-      const mapped = mapLicenseOcrResult(rawData)
-      if (!mapped.legalName && !mapped.creditCode) {
-        const err = new Error('未识别到营业执照关键信息，请手动填写')
-        err.status = 422
-        throw err
-      }
-      return { ...mapped, provider: 'ocr-api' }
-    } catch (err) {
-      lastError = err
-    }
-  }
-  throw lastError || new Error('营业执照识别失败')
-}
-
-async function recognizeWithViapi(publicUrl) {
-  if (!publicUrl) {
-    const err = new Error('缺少可访问的营业执照图片地址')
-    err.status = 400
-    throw err
-  }
-  const client = getViapiOcrClient()
-  const runtime = runtimeOptions()
-  const request = new ViapiBizLicenseRequest({ imageURL: publicUrl })
-  const resp = await client.recognizeBusinessLicenseWithOptions(request, runtime)
-  const body = resp?.body || {}
-  const rawData = body.data ?? body.Data
-  const mapped = mapLicenseOcrResult(rawData)
+function assertMappedLicense(mapped, provider) {
   if (!mapped.legalName && !mapped.creditCode) {
     const err = new Error('未识别到营业执照关键信息，请手动填写')
     err.status = 422
     throw err
   }
-  return { ...mapped, provider: 'viapi' }
+  return { ...mapped, provider }
+}
+
+async function recognizeWithOcrApiBody(imagePath) {
+  const client = getOcrClient()
+  const runtime = runtimeOptions()
+  const request = new RecognizeBusinessLicenseRequest()
+  request.body = openImageReadable(imagePath)
+  const resp = await client.recognizeBusinessLicenseWithOptions(request, runtime)
+  const body = resp?.body || {}
+  const code = body.code ?? body.Code
+  if (code != null && String(code) !== '200') {
+    const err = new Error(body.message || body.Message || '营业执照识别失败')
+    err.code = code
+    throw err
+  }
+  const rawData = body.data ?? body.Data
+  return assertMappedLicense(mapLicenseOcrResult(rawData), 'ocr-api-body')
+}
+
+async function recognizeWithViapiBody(imagePath) {
+  const client = getViapiOcrClient()
+  const runtime = runtimeOptions()
+  const AdvanceRequest = ViapiOcr.RecognizeBusinessLicenseAdvanceRequest
+  if (!AdvanceRequest || typeof client.recognizeBusinessLicenseAdvance !== 'function') {
+    const err = new Error('VIAPI 营业执照识别不可用')
+    err.status = 503
+    throw err
+  }
+  const request = new AdvanceRequest()
+  request.imageURLObject = openImageReadable(imagePath)
+  const resp = await client.recognizeBusinessLicenseAdvance(request, runtime)
+  const body = resp?.body || {}
+  const rawData = body.data ?? body.Data
+  return assertMappedLicense(mapLicenseOcrResult(rawData), 'viapi-body')
 }
 
 async function recognizeBusinessLicense(licensePhotoUrl) {
@@ -191,13 +182,24 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
     throw err
   }
 
-  const { publicUrl, imagePath } = resolveImageSources(url)
+  const imagePath = resolveLicenseImagePath(url)
+  if (!imagePath) {
+    const err = new Error('服务器未找到已上传的营业执照，请重新上传后再识别')
+    err.status = 400
+    throw err
+  }
+
+  console.info('[license-ocr] recognize via local file', {
+    imagePath,
+    sourceUrl: rewriteMediaUrlForCurrentBase(assertPersistentImageUrl(url)),
+  })
 
   try {
-    return await recognizeWithOcrApi(imagePath, publicUrl)
+    return await recognizeWithOcrApiBody(imagePath)
   } catch (ocrApiError) {
+    console.warn('[license-ocr] ocr-api body failed', ocrApiError && ocrApiError.message)
     try {
-      return await recognizeWithViapi(publicUrl)
+      return await recognizeWithViapiBody(imagePath)
     } catch (viapiError) {
       const err = new Error(
         viapiError.message || ocrApiError.message || '营业执照识别失败，请手动填写'
@@ -211,4 +213,5 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
 module.exports = {
   recognizeBusinessLicense,
   mapLicenseOcrResult,
+  resolveLicenseImagePath,
 }
