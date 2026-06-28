@@ -205,7 +205,9 @@ Page({
       geoOpportunity = geoOpp || null
       subscriptionEntry = subPanel
         ? buildMerchantSubscriptionEntry(subPanel.subscription, canManageStaff)
-        : null
+        : canManageStaff
+          ? buildMerchantSubscriptionEntry({ publicIndex: false }, true)
+          : null
 
       const heroes = pickMerchantHubAlbums(albumList || []).map((item) =>
         quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))

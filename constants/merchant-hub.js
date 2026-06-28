@@ -84,7 +84,7 @@ function buildMerchantHubDock(todos = {}) {
 
 function buildMerchantHubMoreLinks(canManageStaff = false) {
   if (!canManageStaff) return []
-  return MERCHANT_HUB_MORE_ITEMS.filter((item) => item.key !== 'subscription')
+  return MERCHANT_HUB_MORE_ITEMS.slice()
 }
 
 function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {

@@ -14,6 +14,18 @@ const {
   SUBSCRIPTION_TERM_DAYS,
   PLAN_CATALOG,
 } = require('../constants/merchant-subscription')
+const { assertPrismaDelegate } = require('../lib/prisma')
+
+const SUBSCRIPTION_SETUP_HINT =
+  'merchant_subscriptions 未就绪：请在 backend 执行 npm run db:setup:prod 后 pm2 restart zhejian-api'
+
+function subscriptionRepo() {
+  return prisma.merchantSubscription || null
+}
+
+function assertSubscriptionPrismaReady() {
+  assertPrismaDelegate('merchantSubscription', 'merchant_subscriptions')
+}
 
 function isSubscriptionActive(row) {
   if (!row) return false
@@ -61,11 +73,18 @@ function formatSubscriptionRow(row) {
 }
 
 async function getOrCreateSubscription(merchantId) {
-  let row = await prisma.merchantSubscription.findUnique({
+  const repo = subscriptionRepo()
+  if (!repo) {
+    const err = new Error(SUBSCRIPTION_SETUP_HINT)
+    err.status = 503
+    err.code = 100503
+    throw err
+  }
+  let row = await repo.findUnique({
     where: { merchantId },
   })
   if (!row) {
-    row = await prisma.merchantSubscription.create({
+    row = await repo.create({
       data: {
         id: newId('msub'),
         merchantId,
@@ -83,13 +102,21 @@ async function getMerchantSubscription(merchantId) {
 }
 
 async function merchantHasPublicIndex(merchantId) {
-  const row = await getOrCreateSubscription(merchantId)
-  return hasPublicIndexEntitlement(row)
+  if (!merchantId || !subscriptionRepo()) return false
+  try {
+    const row = await getOrCreateSubscription(merchantId)
+    return hasPublicIndexEntitlement(row)
+  } catch (e) {
+    console.warn('[merchant-subscription] merchantHasPublicIndex', e && e.message)
+    return false
+  }
 }
 
 async function resolveMerchantIdsWithPublicIndex() {
+  const repo = subscriptionRepo()
+  if (!repo) return new Set()
   const now = new Date()
-  const rows = await prisma.merchantSubscription.findMany({
+  const rows = await repo.findMany({
     where: {
       plan: { in: [...PUBLIC_INDEX_PLANS] },
       status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
@@ -176,6 +203,7 @@ function computeIndexingSlaDeadline(fromDate = new Date()) {
 }
 
 async function activateMerchantPlan(merchantId, plan, options = {}) {
+  assertSubscriptionPrismaReady()
   if (!PUBLIC_INDEX_PLANS.has(plan) && plan !== MERCHANT_PLAN.FREE) {
     const err = new Error('无效的套餐类型')
     err.status = 400
@@ -253,6 +281,7 @@ function listPlanCatalog(subscriptionRow) {
 }
 
 async function fetchMerchantSubscriptionPanel(auth) {
+  assertSubscriptionPrismaReady()
   const merchantId = auth.merchantId
   const row = await getOrCreateSubscription(merchantId)
   if (!hasPublicIndexEntitlement(row)) {
