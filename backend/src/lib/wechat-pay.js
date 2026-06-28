@@ -75,6 +75,8 @@ async function wechatPayRequest(method, urlPath, body) {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      // Node fetch 可能带系统 Accept-Language，微信 V3 不接受 → PARAM_ERROR
+      'Accept-Language': 'zh-CN',
       Authorization: authorization,
     },
     body: bodyStr,
