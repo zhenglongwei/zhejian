@@ -20,6 +20,7 @@ Page({
     status: 'loading',
     subscription: null,
     plans: [],
+    paymentTestMode: false,
     disclaimer: '',
     payingPlan: '',
     errorMessage: '',
@@ -37,6 +38,7 @@ Page({
         status: 'normal',
         subscription: data.subscription,
         plans: data.plans || [],
+        paymentTestMode: Boolean(data.paymentTestMode),
         disclaimer: data.disclaimer || '',
       })
     } catch (e) {

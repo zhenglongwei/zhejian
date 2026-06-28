@@ -90,6 +90,29 @@ const config = {
     notifyUrl:
       process.env.WECHAT_PAY_NOTIFY_URL ||
       `${resolvePublicBaseUrl()}/api/v1/pay/wechat/notify`,
+    /** 公钥模式：商户平台「微信支付公钥」页的公钥 ID */
+    publicKeyId: process.env.WECHAT_PAY_PUBLIC_KEY_ID || '',
+    publicKey: (() => {
+      const inline = process.env.WECHAT_PAY_PUBLIC_KEY || ''
+      if (inline) return inline.replace(/\\n/g, '\n')
+      try {
+        const fs = require('fs')
+        const keyPath = process.env.WECHAT_PAY_PUBLIC_KEY_PATH || ''
+        if (keyPath && fs.existsSync(keyPath)) {
+          return fs.readFileSync(keyPath, 'utf8')
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      return ''
+    })(),
+    /** 联调：设 1 则套餐实付 1 分（仅下单金额，权益仍按套餐） */
+    subscriptionTestAmountCents: (() => {
+      const raw = process.env.WECHAT_PAY_SUBSCRIPTION_TEST_AMOUNT_CENTS
+      if (!raw) return null
+      const n = Number(raw)
+      return Number.isFinite(n) && n >= 1 ? Math.round(n) : null
+    })(),
     get configured() {
       return Boolean(
         this.mchId &&
@@ -98,6 +121,9 @@ const config = {
           this.privateKey &&
           config.wechat.appId,
       )
+    },
+    get publicKeyMode() {
+      return Boolean(this.publicKeyId && this.publicKey)
     },
   },
   /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */

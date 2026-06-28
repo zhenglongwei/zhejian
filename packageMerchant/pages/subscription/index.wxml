@@ -40,6 +40,9 @@
         <text wx:else class="text-caption text-secondary">
           服务相册工具永久免费；公域收录需开通下方套餐
         </text>
+        <text wx:if="{{paymentTestMode}}" class="text-caption merchant-sub__test-hint">
+          当前为支付联调：实付按测试价扣款，套餐权益不变
+        </text>
       </view>
 
       <view class="merchant-sub__plans">

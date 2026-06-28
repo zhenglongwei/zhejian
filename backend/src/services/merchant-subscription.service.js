@@ -3,6 +3,7 @@
  */
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
+const { config } = require('../config')
 const { resolveSeoNoindex } = require('../utils/case-article-templates')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
@@ -263,19 +264,38 @@ function resolvePlanPriceCents(plan, subscriptionRow) {
   return base
 }
 
+/** 实际向微信下单的金额（分）；联调时可由 WECHAT_PAY_SUBSCRIPTION_TEST_AMOUNT_CENTS 覆盖 */
+function resolveChargeAmountCents(plan, subscriptionRow) {
+  const test = config.wechatPay.subscriptionTestAmountCents
+  if (test != null) return test
+  return resolvePlanPriceCents(plan, subscriptionRow)
+}
+
 function listPlanCatalog(subscriptionRow) {
+  const testCents = config.wechatPay.subscriptionTestAmountCents
   return PLAN_CATALOG.map((item) => {
-    const priceCents =
+    const listPriceCents =
       item.plan === MERCHANT_PLAN.FREE
         ? 0
         : resolvePlanPriceCents(item.plan, subscriptionRow)
+    const priceCents =
+      item.plan === MERCHANT_PLAN.FREE
+        ? 0
+        : testCents != null
+          ? testCents
+          : listPriceCents
+    const priceLabel =
+      testCents != null && item.plan !== MERCHANT_PLAN.FREE
+        ? `测试价 ¥${(testCents / 100).toFixed(2)} / 年`
+        : priceCents === item.priceCents
+          ? item.priceLabel
+          : `¥${(priceCents / 100).toFixed(0)} / 年`
     return {
       ...item,
       priceCents,
-      priceLabel:
-        priceCents === item.priceCents
-          ? item.priceLabel
-          : `¥${(priceCents / 100).toFixed(0)} / 年`,
+      listPriceCents,
+      priceLabel,
+      paymentTestMode: testCents != null && item.plan !== MERCHANT_PLAN.FREE,
     }
   })
 }
@@ -291,6 +311,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
   return {
     subscription,
     plans: listPlanCatalog(row),
+    paymentTestMode: config.wechatPay.subscriptionTestAmountCents != null,
     disclaimer:
       '公域自然排序仅依据案例完整度与车主反馈，与是否付费无关。付费仅解锁公域收录权限与页面优化服务，不承诺排名与到店效果。',
   }
@@ -308,6 +329,7 @@ module.exports = {
   syncMerchantCasesPublicIndex,
   activateMerchantPlan,
   resolvePlanPriceCents,
+  resolveChargeAmountCents,
   listPlanCatalog,
   fetchMerchantSubscriptionPanel,
   hasPublicIndexEntitlement,

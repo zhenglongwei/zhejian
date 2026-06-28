@@ -62,3 +62,7 @@
 .merchant-sub__line {
   display: block;
 }
+
+.merchant-sub__test-hint {
+  color: var(--color-warning);
+}

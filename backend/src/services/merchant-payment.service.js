@@ -11,6 +11,7 @@ const {
   getOrCreateSubscription,
   activateMerchantPlan,
   resolvePlanPriceCents,
+  resolveChargeAmountCents,
 } = require('./merchant-subscription.service')
 const {
   createJsapiOrder,
@@ -41,7 +42,7 @@ async function resolvePayerOpenid(userId) {
 async function createSubscriptionOrder(auth, plan) {
   assertPaidPlan(plan)
   const subscription = await getOrCreateSubscription(auth.merchantId)
-  const amount = resolvePlanPriceCents(plan, subscription)
+  const amount = resolveChargeAmountCents(plan, subscription)
   if (amount <= 0) {
     const err = new Error('订单金额无效')
     err.status = 400
