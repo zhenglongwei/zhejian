@@ -69,7 +69,10 @@ const config = {
   wechatPay: {
     mchId: process.env.WECHAT_PAY_MCH_ID || '',
     apiV3Key: process.env.WECHAT_PAY_API_V3_KEY || '',
-    certSerial: process.env.WECHAT_PAY_CERT_SERIAL || '',
+    certSerial: (() => {
+      const raw = process.env.WECHAT_PAY_CERT_SERIAL || ''
+      return raw.replace(/^serial=/i, '').replace(/:/g, '').trim().toUpperCase()
+    })(),
     privateKey: (() => {
       const inline = process.env.WECHAT_PAY_PRIVATE_KEY || ''
       if (inline) return inline.replace(/\\n/g, '\n')

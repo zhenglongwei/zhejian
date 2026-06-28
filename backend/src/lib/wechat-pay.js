@@ -9,11 +9,49 @@ function assertWechatPayConfigured() {
   }
 }
 
+function normalizeCertSerial(serial) {
+  return String(serial || '')
+    .replace(/^serial=/i, '')
+    .replace(/:/g, '')
+    .trim()
+    .toUpperCase()
+}
+
+function normalizePrivateKeyPem(raw) {
+  let pem = String(raw || '').trim()
+  if (!pem) return ''
+  if (pem.includes('\\n')) {
+    pem = pem.replace(/\\n/g, '\n')
+  }
+  if (!pem.endsWith('\n')) {
+    pem += '\n'
+  }
+  return pem
+}
+
+function getSigningPrivateKey() {
+  const pem = normalizePrivateKeyPem(config.wechatPay.privateKey)
+  if (!pem.includes('PRIVATE KEY')) {
+    const err = new Error('WECHAT_PAY_PRIVATE_KEY 格式无效，需 PEM（apiclient_key.pem）')
+    err.status = 503
+    throw err
+  }
+  try {
+    return crypto.createPrivateKey({ key: pem, format: 'pem' })
+  } catch (e) {
+    const err = new Error(
+      `微信支付私钥无法解析：${e.message}。请确认使用商户平台下载的 apiclient_key.pem`
+    )
+    err.status = 503
+    throw err
+  }
+}
+
 function signMessage(message) {
   const sign = crypto.createSign('RSA-SHA256')
-  sign.update(message)
+  sign.update(message, 'utf8')
   sign.end()
-  return sign.sign(config.wechatPay.privateKey, 'base64')
+  return sign.sign(getSigningPrivateKey(), 'base64')
 }
 
 function buildAuthorization(method, urlPath, body) {
@@ -22,20 +60,22 @@ function buildAuthorization(method, urlPath, body) {
   const bodyStr = body ? JSON.stringify(body) : ''
   const message = `${method}\n${urlPath}\n${timestamp}\n${nonce}\n${bodyStr}\n`
   const signature = signMessage(message)
+  const serialNo = normalizeCertSerial(config.wechatPay.certSerial)
   const authorization = [
     'WECHATPAY2-SHA256-RSA2048',
     `mchid="${config.wechatPay.mchId}"`,
     `nonce_str="${nonce}"`,
     `signature="${signature}"`,
     `timestamp="${timestamp}"`,
-    `serial_no="${config.wechatPay.certSerial}"`,
+    `serial_no="${serialNo}"`,
   ].join(',')
-  return { authorization, timestamp, nonce }
+  return { authorization, timestamp, nonce, serialNo }
 }
 
 async function wechatPayRequest(method, urlPath, body) {
   assertWechatPayConfigured()
   const { authorization } = buildAuthorization(method, urlPath, body)
+  const bodyStr = body ? JSON.stringify(body) : undefined
   const res = await fetch(`https://api.mch.weixin.qq.com${urlPath}`, {
     method,
     headers: {
@@ -43,12 +83,18 @@ async function wechatPayRequest(method, urlPath, body) {
       Accept: 'application/json',
       Authorization: authorization,
     },
-    body: body ? JSON.stringify(body) : undefined,
+    body: bodyStr,
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const err = new Error(data.message || data.code || '微信支付请求失败')
+    let message = data.message || data.code || '微信支付请求失败'
+    if (data.code === 'SIGN_ERROR') {
+      message =
+        '微信支付验签失败：请核对商户私钥(apiclient_key.pem)、证书序列号与商户号是否同一套证书。服务器可执行 node scripts/wechat-pay-smoke.js 诊断'
+    }
+    const err = new Error(message)
     err.status = 502
+    err.code = data.code
     err.details = data
     throw err
   }
@@ -110,9 +156,29 @@ function decryptNotifyResource(resource) {
   return JSON.parse(decoded.toString('utf8'))
 }
 
+/** 诊断：拉取平台证书，验证商户私钥 + 证书序列号是否配对 */
+async function probeWechatPayAuth() {
+  assertWechatPayConfigured()
+  const key = getSigningPrivateKey()
+  const serial = normalizeCertSerial(config.wechatPay.certSerial)
+  const data = await wechatPayRequest('GET', '/v3/certificates', null)
+  return {
+    ok: true,
+    mchId: config.wechatPay.mchId,
+    appId: config.wechat.appId,
+    certSerial: serial,
+    privateKeyType: key.asymmetricKeyType,
+    platformCertCount: Array.isArray(data.data) ? data.data.length : 0,
+    notifyUrl: config.wechatPay.notifyUrl,
+  }
+}
+
 module.exports = {
   assertWechatPayConfigured,
   createJsapiOrder,
   buildMiniProgramPayParams,
   decryptNotifyResource,
+  probeWechatPayAuth,
+  normalizeCertSerial,
+  getSigningPrivateKey,
 }

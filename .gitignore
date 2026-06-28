@@ -9,6 +9,7 @@ backend/node_modules/
 !**/.env.example
 !**/.env.production.example
 backend/.env
+backend/secrets/
 
 # WeChat devtools
 project.private.config.json
