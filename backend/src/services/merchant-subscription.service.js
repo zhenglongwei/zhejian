@@ -9,6 +9,8 @@ const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
   MERCHANT_PLAN,
   MERCHANT_PLAN_LABELS,
+  MERCHANT_PLAN_TAG_LABELS,
+  MERCHANT_PLAN_TAG_TIERS,
   MERCHANT_PLAN_PRICE_CENTS,
   MERCHANT_SUBSCRIPTION_STATUS,
   PUBLIC_INDEX_PLANS,
@@ -186,6 +188,84 @@ async function syncMerchantCasesPublicIndex(merchantId) {
   return { updated }
 }
 
+async function resolveLastPaidAmountCents(merchantId, plan) {
+  const order = await prisma.merchantPaymentOrder.findFirst({
+    where: {
+      merchantId,
+      plan,
+      status: 'paid',
+    },
+    orderBy: { paidAt: 'desc' },
+  })
+  if (order?.amount > 0) return order.amount
+  return MERCHANT_PLAN_PRICE_CENTS[plan] || 0
+}
+
+/**
+ * 按剩余天数折算当前套餐可抵扣金额（分）
+ */
+async function computeRemainingCreditCents(subscriptionRow) {
+  if (!subscriptionRow || !PUBLIC_INDEX_PLANS.has(subscriptionRow.plan)) return 0
+  if (!isSubscriptionActive(subscriptionRow) || !subscriptionRow.expiresAt) return 0
+  const now = Date.now()
+  const expiresAt = subscriptionRow.expiresAt.getTime()
+  if (expiresAt <= now) return 0
+
+  const paidCents = await resolveLastPaidAmountCents(
+    subscriptionRow.merchantId,
+    subscriptionRow.plan
+  )
+  if (paidCents <= 0) return 0
+
+  const remainingMs = expiresAt - now
+  const dayMs = 24 * 60 * 60 * 1000
+  const remainingDays = remainingMs / dayMs
+  return Math.max(0, Math.floor((paidCents * remainingDays) / SUBSCRIPTION_TERM_DAYS))
+}
+
+function buildPlanSwitchQuote(subscriptionRow, targetPlan, listPriceCents) {
+  const isCurrentPlan =
+    subscriptionRow?.plan === targetPlan &&
+    isSubscriptionActive(subscriptionRow) &&
+    hasPublicIndexEntitlement(subscriptionRow)
+  if (isCurrentPlan) {
+    return Promise.resolve({
+      isCurrentPlan: true,
+      creditCents: 0,
+      amountCents: 0,
+      refundExcessCents: 0,
+      creditYuan: '0.00',
+      amountYuan: '0.00',
+      refundExcessYuan: '0.00',
+      summary: '当前套餐',
+    })
+  }
+
+  return computeRemainingCreditCents(subscriptionRow).then((creditCents) => {
+    const applied = Math.min(creditCents, listPriceCents)
+    const amountCents = Math.max(0, listPriceCents - applied)
+    const refundExcessCents = Math.max(0, creditCents - listPriceCents)
+    let summary = ''
+    if (creditCents > 0 && amountCents > 0) {
+      summary = `剩余权益抵扣 ¥${(applied / 100).toFixed(2)}，实付 ¥${(amountCents / 100).toFixed(2)}`
+    } else if (creditCents > 0 && amountCents === 0 && refundExcessCents > 0) {
+      summary = `剩余权益 ¥${(creditCents / 100).toFixed(2)}，退回差额 ¥${(refundExcessCents / 100).toFixed(2)}`
+    } else if (creditCents > 0 && amountCents === 0) {
+      summary = `剩余权益全额抵扣，无需支付`
+    }
+    return {
+      isCurrentPlan: false,
+      creditCents,
+      amountCents,
+      refundExcessCents,
+      creditYuan: (creditCents / 100).toFixed(2),
+      amountYuan: (amountCents / 100).toFixed(2),
+      refundExcessYuan: (refundExcessCents / 100).toFixed(2),
+      summary,
+    }
+  })
+}
+
 function computeRenewExpiresAt(currentExpiresAt) {
   const now = new Date()
   const base =
@@ -213,20 +293,29 @@ async function activateMerchantPlan(merchantId, plan, options = {}) {
 
   const existing = await getOrCreateSubscription(merchantId)
   const now = new Date()
-  const isRenewal =
+  const isPlanChange =
     PUBLIC_INDEX_PLANS.has(existing.plan) &&
+    existing.plan !== plan &&
+    isSubscriptionActive(existing) &&
+    hasPublicIndexEntitlement(existing)
+  const isRenewal =
+    !isPlanChange &&
+    PUBLIC_INDEX_PLANS.has(existing.plan) &&
+    existing.plan === plan &&
     isSubscriptionActive(existing) &&
     existing.expiresAt
 
   let expiresAt = null
   if (PUBLIC_INDEX_PLANS.has(plan)) {
-    expiresAt = computeRenewExpiresAt(isRenewal ? existing.expiresAt : null)
+    expiresAt = isRenewal
+      ? computeRenewExpiresAt(existing.expiresAt)
+      : computeRenewExpiresAt(null)
   }
 
   const data = {
     plan,
     status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
-    startedAt: existing.startedAt || now,
+    startedAt: isRenewal ? existing.startedAt || now : now,
     expiresAt,
   }
 
@@ -300,6 +389,19 @@ function listPlanCatalog(subscriptionRow) {
   })
 }
 
+async function enrichPlanCatalogWithQuotes(subscriptionRow, plans) {
+  const enriched = []
+  for (const item of plans) {
+    if (item.plan === MERCHANT_PLAN.FREE) {
+      enriched.push({ ...item, switchQuote: null })
+      continue
+    }
+    const quote = await buildPlanSwitchQuote(subscriptionRow, item.plan, item.priceCents)
+    enriched.push({ ...item, switchQuote: quote })
+  }
+  return enriched
+}
+
 async function fetchMerchantSubscriptionPanel(auth) {
   assertSubscriptionPrismaReady()
   const merchantId = auth.merchantId
@@ -308,12 +410,22 @@ async function fetchMerchantSubscriptionPanel(auth) {
     await syncMerchantCasesPublicIndex(merchantId).catch(() => {})
   }
   const subscription = formatSubscriptionRow(row)
+  const plan = subscription.plan || MERCHANT_PLAN.FREE
+  subscription.planTag = {
+    tier: MERCHANT_PLAN_TAG_TIERS[plan] || 'basic',
+    text: MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
+  }
+  const creditCents = await computeRemainingCreditCents(row)
+  subscription.remainingCreditCents = creditCents
+  subscription.remainingCreditYuan = (creditCents / 100).toFixed(2)
+  const plans = listPlanCatalog(row)
+  const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
   return {
     subscription,
-    plans: listPlanCatalog(row),
+    plans: plansWithQuotes,
     paymentTestMode: config.wechatPay.subscriptionTestAmountCents != null,
     disclaimer:
-      '公域自然排序仅依据案例完整度与车主反馈，与是否付费无关。付费仅解锁公域收录权限与页面优化服务，不承诺排名与到店效果。',
+      '公域自然排序仅依据案例完整度与车主反馈，与是否付费无关。付费仅解锁公域收录权限与页面优化服务，不承诺排名与到店效果。调整套餐时按剩余天数折算未消费金额，差额原路退回或抵扣新套餐。',
   }
 }
 
@@ -334,4 +446,7 @@ module.exports = {
   fetchMerchantSubscriptionPanel,
   hasPublicIndexEntitlement,
   isSubscriptionActive,
+  computeRemainingCreditCents,
+  buildPlanSwitchQuote,
+  resolveLastPaidAmountCents,
 }

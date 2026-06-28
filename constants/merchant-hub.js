@@ -5,6 +5,7 @@
 
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
+const { buildMerchantPlanTag } = require('./merchant-plan-tier')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
@@ -19,11 +20,9 @@ const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'services', label: '服务方案' },
 ]
 
-/** 主账号 · 页内文字链（不占 Dock 格） */
+/** 主账号 · 页内文字链（不占 Dock 格）；套餐入口见扉页 Tag */
 const MERCHANT_HUB_MORE_ITEMS = [
-  { key: 'subscription', label: '套餐与公域收录' },
   { key: 'storeHome', label: '门店主页' },
-  { key: 'editStore', label: '编辑资料' },
   { key: 'staff', label: '员工管理' },
   { key: 'addStore', label: '注册新门店' },
   { key: 'switchStore', label: '切换门店' },
@@ -134,4 +133,5 @@ module.exports = {
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
   buildMerchantSubscriptionEntry,
+  buildMerchantPlanTag,
 }

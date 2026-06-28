@@ -33,6 +33,7 @@ const {
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
   buildMerchantSubscriptionEntry,
+  buildMerchantPlanTag,
 } = require('../../../constants/merchant-hub')
 
 const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
@@ -90,6 +91,7 @@ Page({
     switchingStore: false,
     geoOpportunity: null,
     subscriptionEntry: null,
+    planTag: null,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
@@ -149,6 +151,7 @@ Page({
     let geoOpportunity = null
     let albumHeroCards = []
     let subscriptionEntry = null
+    let planTag = null
 
     try {
       if (isMerchantOwner()) {
@@ -208,6 +211,11 @@ Page({
         : canManageStaff
           ? buildMerchantSubscriptionEntry({ publicIndex: false }, true)
           : null
+      planTag = subPanel
+        ? buildMerchantPlanTag(subPanel.subscription, canManageStaff)
+        : canManageStaff
+          ? buildMerchantPlanTag({ plan: 'free' }, true)
+          : null
 
       const heroes = pickMerchantHubAlbums(albumList || []).map((item) =>
         quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))
@@ -237,6 +245,7 @@ Page({
       canSwitchStore,
       geoOpportunity,
       subscriptionEntry,
+      planTag,
     })
   },
 
@@ -326,9 +335,7 @@ Page({
   onMoreLinkTap(e) {
     const { key } = e.currentTarget.dataset
     const handlers = {
-      subscription: () => this.onSubscription(),
       storeHome: () => this.onStoreHome(),
-      editStore: () => this.onEditStore(),
       staff: () => this.onStaffManage(),
       addStore: () => this.onAddStore(),
       switchStore: () => this.onSwitchStore(),
@@ -381,6 +388,10 @@ Page({
     this._navigateTo('/packageMerchant/pages/subscription/index')
   },
 
+  onPlanTagTap() {
+    this.onSubscription()
+  },
+
   onStoreHome() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
@@ -388,10 +399,6 @@ Page({
       return
     }
     this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1`)
-  },
-
-  onEditStore() {
-    this._navigateTo('/packageMerchant/pages/store/edit/index')
   },
 
   onCasePublishItemTap(e) {

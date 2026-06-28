@@ -152,6 +152,24 @@ function decryptNotifyResource(resource) {
   return JSON.parse(decoded.toString('utf8'))
 }
 
+/**
+ * 申请退款（国内）
+ * @param {{ transactionId: string, outRefundNo: string, refundAmount: number, totalAmount: number, reason?: string }} params
+ */
+async function createRefund(params) {
+  const path = '/v3/refund/domestic/refunds'
+  return wechatPayRequest('POST', path, {
+    transaction_id: params.transactionId,
+    out_refund_no: params.outRefundNo,
+    reason: params.reason || '套餐调整退差额',
+    amount: {
+      refund: params.refundAmount,
+      total: params.totalAmount,
+      currency: 'CNY',
+    },
+  })
+}
+
 /** 诊断：拉取平台证书，验证商户私钥 + 证书序列号是否配对 */
 async function probeWechatPayAuth() {
   assertWechatPayConfigured()
@@ -174,6 +192,7 @@ module.exports = {
   createJsapiOrder,
   buildMiniProgramPayParams,
   decryptNotifyResource,
+  createRefund,
   probeWechatPayAuth,
   normalizeCertSerial,
   getSigningPrivateKey,

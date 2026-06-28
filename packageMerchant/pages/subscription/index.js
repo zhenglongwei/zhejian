@@ -61,7 +61,22 @@ Page({
     this.setData({ payingPlan: plan })
     try {
       const order = await createSubscriptionOrder(plan)
+      if (order.immediate) {
+        const tip =
+          order.proration && Number(order.proration.refundExcessCents) > 0
+            ? `已切换，差额 ¥${order.proration.refundExcessYuan} 将原路退回`
+            : '套餐已切换'
+        wx.showToast({ title: tip, icon: 'success' })
+        await this.loadPanel()
+        return
+      }
+
       const prepay = await prepaySubscriptionOrder(order.orderId)
+      if (prepay.immediate) {
+        wx.showToast({ title: '套餐已切换', icon: 'success' })
+        await this.loadPanel()
+        return
+      }
       if (prepay.mock) {
         await mockPaySubscriptionOrder(order.orderId)
         wx.showToast({ title: '开发环境已开通', icon: 'success' })

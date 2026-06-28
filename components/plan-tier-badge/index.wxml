@@ -1,0 +1,6 @@
+<view wx:if="{{displayText}}" class="plan-tier-badge plan-tier-badge--{{tierClass}}">
+  <view class="plan-tier-badge__medal" aria-hidden="true">
+    <view class="plan-tier-badge__glyph" />
+  </view>
+  <text class="plan-tier-badge__text text-caption">{{displayText}}</text>
+</view>

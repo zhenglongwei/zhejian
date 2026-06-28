@@ -36,6 +36,10 @@ Component({
       type: String,
       value: '',
     },
+    planTag: {
+      type: Object,
+      value: null,
+    },
   },
 
   methods: {
@@ -49,6 +53,10 @@ Component({
 
     onOverviewTap() {
       this.triggerEvent('overviewtap')
+    },
+
+    onPlanTagTap() {
+      this.triggerEvent('plantagtap')
     },
   },
 })

@@ -27,6 +27,10 @@
   gap: var(--space-sm);
 }
 
+.merchant-sub__plan-fullname {
+  flex-basis: 100%;
+}
+
 .merchant-sub__plans {
   display: flex;
   flex-direction: column;
@@ -42,9 +46,22 @@
 
 .merchant-sub__plan-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
+}
+
+.merchant-sub__plan-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.merchant-sub__plan-name {
+  color: var(--color-text-primary);
 }
 
 .merchant-sub__price {
@@ -61,6 +78,11 @@
 
 .merchant-sub__line {
   display: block;
+}
+
+.merchant-sub__quote {
+  display: block;
+  color: var(--color-text-secondary);
 }
 
 .merchant-sub__test-hint {

@@ -81,10 +81,6 @@ Page({
     this.copyCurrentWebLink()
   },
 
-  onCopyWebLinkTap() {
-    this.copyCurrentWebLink()
-  },
-
   onBackHome() {
     reLaunchAppHome()
   },

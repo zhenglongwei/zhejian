@@ -16,6 +16,10 @@
       </view>
     </picker>
     <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
+    <view wx:if="{{planTag}}" class="merchant-store-header__tag-row" bindtap="onPlanTagTap">
+      <ui-plan-tier-badge tier="{{planTag.tier}}" text="{{planTag.text}}" />
+      <text class="merchant-store-header__tag-hint text-caption text-tertiary">查看方案 ›</text>
+    </view>
     <text wx:if="{{address}}" class="merchant-store-header__addr text-caption text-secondary">{{address}}</text>
     <text wx:if="{{overviewLine}}" class="merchant-store-header__overview text-caption text-tertiary" bindtap="onOverviewTap">{{overviewLine}}</text>
   </view>

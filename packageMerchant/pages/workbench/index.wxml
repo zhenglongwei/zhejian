@@ -63,6 +63,7 @@
           storeName="{{profile.storeName}}"
           address="{{profile.address}}"
           overviewLine="{{overviewLine}}"
+          planTag="{{planTag}}"
           canSwitchStore="{{canSwitchStore}}"
           switchingStore="{{switchingStore}}"
           storeOptions="{{storeOptions}}"
@@ -70,6 +71,7 @@
           showMessageEntry="{{false}}"
           bind:storechange="onStoreHeaderChange"
           bind:overviewtap="onOverviewTap"
+          bind:plantagtap="onPlanTagTap"
         />
       </view>
 

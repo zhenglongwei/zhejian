@@ -10,35 +10,3 @@
   padding: 0 var(--space-lg);
   box-sizing: border-box;
 }
-
-/* 对齐 H5 底栏 links 行第三项（约 33% 宽、贴底） */
-.h5-site__web-link {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  width: 34%;
-  height: 88rpx;
-  padding-bottom: env(safe-area-inset-bottom);
-  box-sizing: content-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 9999;
-}
-
-.h5-site__web-link-hit {
-  pointer-events: auto;
-  min-width: 120rpx;
-  padding: 8rpx 16rpx;
-  background-color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.h5-site__web-link-text {
-  font-size: 26rpx;
-  line-height: 36rpx;
-  color: #576b95;
-}

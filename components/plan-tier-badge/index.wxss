@@ -1,0 +1,102 @@
+.plan-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: var(--tag-height);
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+
+.plan-tier-badge__medal {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+}
+
+.plan-tier-badge__text {
+  line-height: var(--font-caption-lh);
+  white-space: nowrap;
+}
+
+/* 基础版 · 单页 */
+.plan-tier-badge--basic {
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
+}
+
+.plan-tier-badge--basic .plan-tier-badge__medal {
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-album-frame-line);
+}
+
+.plan-tier-badge--basic .plan-tier-badge__glyph {
+  width: 12rpx;
+  height: 8rpx;
+  border: 2rpx solid var(--color-album-frame-corner);
+  border-radius: 2rpx;
+  box-sizing: border-box;
+}
+
+/* 标准版 · 叠页 */
+.plan-tier-badge--standard {
+  color: var(--color-info);
+  background-color: var(--color-info-light);
+}
+
+.plan-tier-badge--standard .plan-tier-badge__medal {
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-info-light);
+}
+
+.plan-tier-badge--standard .plan-tier-badge__glyph {
+  position: relative;
+  width: 14rpx;
+  height: 12rpx;
+}
+
+.plan-tier-badge--standard .plan-tier-badge__glyph::before,
+.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 12rpx;
+  height: 8rpx;
+  border: 2rpx solid var(--color-info);
+  border-radius: 2rpx;
+  box-sizing: border-box;
+  background-color: var(--color-bg-card);
+}
+
+.plan-tier-badge--standard .plan-tier-badge__glyph::before {
+  top: 0;
+  opacity: 0.55;
+}
+
+.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+  top: 4rpx;
+  left: 2rpx;
+}
+
+/* 旗舰版 · 相册角标 */
+.plan-tier-badge--flagship {
+  color: var(--color-warning);
+  background-color: var(--color-warning-light);
+}
+
+.plan-tier-badge--flagship .plan-tier-badge__medal {
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-warning-light);
+}
+
+.plan-tier-badge--flagship .plan-tier-badge__glyph {
+  width: 12rpx;
+  height: 12rpx;
+  border-top: 3rpx solid var(--color-warning);
+  border-right: 3rpx solid var(--color-warning);
+  box-sizing: border-box;
+}

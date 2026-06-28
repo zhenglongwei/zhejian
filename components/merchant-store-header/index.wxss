@@ -46,6 +46,20 @@
   white-space: nowrap;
 }
 
+.merchant-store-header__tag-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.merchant-store-header__tag-row:active {
+  opacity: 0.72;
+}
+
+.merchant-store-header__tag-hint {
+  line-height: var(--font-caption-lh);
+}
+
 .merchant-store-header__overview {
   display: block;
   overflow: hidden;

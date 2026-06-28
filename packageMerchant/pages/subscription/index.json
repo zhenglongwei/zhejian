@@ -6,6 +6,7 @@
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-tag": "/components/tag/index"
+    "ui-tag": "/components/tag/index",
+    "ui-plan-tier-badge": "/components/plan-tier-badge/index"
   }
 }

@@ -10,13 +10,16 @@ const {
 const {
   getOrCreateSubscription,
   activateMerchantPlan,
-  resolvePlanPriceCents,
   resolveChargeAmountCents,
+  buildPlanSwitchQuote,
+  hasPublicIndexEntitlement,
+  isSubscriptionActive,
 } = require('./merchant-subscription.service')
 const {
   createJsapiOrder,
   buildMiniProgramPayParams,
   decryptNotifyResource,
+  createRefund,
 } = require('../lib/wechat-pay')
 
 const ORDER_TTL_MINUTES = 30
@@ -39,17 +42,144 @@ async function resolvePayerOpenid(userId) {
   return user.openid
 }
 
-async function createSubscriptionOrder(auth, plan) {
-  assertPaidPlan(plan)
-  const subscription = await getOrCreateSubscription(auth.merchantId)
-  const amount = resolveChargeAmountCents(plan, subscription)
-  if (amount <= 0) {
-    const err = new Error('订单金额无效')
+async function processPriorPlanRefund(merchantId, priorPlan, refundExcessCents) {
+  if (!refundExcessCents || refundExcessCents <= 0 || !priorPlan) return null
+
+  const lastOrder = await prisma.merchantPaymentOrder.findFirst({
+    where: {
+      merchantId,
+      plan: priorPlan,
+      status: MERCHANT_PAYMENT_STATUS.PAID,
+    },
+    orderBy: { paidAt: 'desc' },
+  })
+
+  if (!lastOrder?.wxTransactionId) {
+    if (config.devAuthEnabled) {
+      console.warn(
+        '[merchant-payment] dev skip refund',
+        priorPlan,
+        refundExcessCents
+      )
+      return { skipped: true, refundExcessCents }
+    }
+    const err = new Error('未找到可退款的支付单，请联系客服处理差额')
+    err.status = 409
+    throw err
+  }
+
+  if (refundExcessCents > lastOrder.amount) {
+    const err = new Error('退款金额超过原支付金额')
     err.status = 400
     throw err
   }
 
+  if (!config.wechatPay.configured) {
+    if (config.devAuthEnabled) {
+      return { skipped: true, refundExcessCents, mock: true }
+    }
+    const err = new Error('微信支付未配置，无法退款')
+    err.status = 503
+    throw err
+  }
+
+  return createRefund({
+    transactionId: lastOrder.wxTransactionId,
+    outRefundNo: newId('mref'),
+    refundAmount: refundExcessCents,
+    totalAmount: lastOrder.amount,
+    reason: '套餐调整退差额',
+  })
+}
+
+function readOrderProration(order) {
+  const meta = order?.notifyPayloadJson
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return { priorPlan: '', creditAppliedCents: 0, refundExcessCents: 0 }
+  }
+  if (meta.proration && typeof meta.proration === 'object') {
+    return {
+      priorPlan: meta.proration.priorPlan || '',
+      creditAppliedCents: Number(meta.proration.creditAppliedCents) || 0,
+      refundExcessCents: Number(meta.proration.refundExcessCents) || 0,
+    }
+  }
+  return { priorPlan: '', creditAppliedCents: 0, refundExcessCents: 0 }
+}
+
+async function createSubscriptionOrder(auth, plan) {
+  assertPaidPlan(plan)
+  const subscription = await getOrCreateSubscription(auth.merchantId)
+  const listPrice = resolveChargeAmountCents(plan, subscription)
+
+  if (
+    subscription.plan === plan &&
+    isSubscriptionActive(subscription) &&
+    hasPublicIndexEntitlement(subscription)
+  ) {
+    const err = new Error('当前已是该套餐，无需重复购买')
+    err.status = 409
+    throw err
+  }
+
+  const quote = await buildPlanSwitchQuote(subscription, plan, listPrice)
+  const amount = quote.amountCents
+  const priorPlan =
+    PUBLIC_INDEX_PLANS.has(subscription.plan) &&
+    isSubscriptionActive(subscription) &&
+    subscription.plan !== plan
+      ? subscription.plan
+      : ''
+
+  const proration = {
+    priorPlan,
+    creditAppliedCents: Math.min(quote.creditCents, listPrice),
+    refundExcessCents: quote.refundExcessCents,
+  }
+
   const orderExpiresAt = new Date(Date.now() + ORDER_TTL_MINUTES * 60 * 1000)
+
+  if (amount <= 0) {
+    const order = await prisma.merchantPaymentOrder.create({
+      data: {
+        id: newId('mpay'),
+        merchantId: auth.merchantId,
+        userId: auth.userId,
+        plan,
+        amount: 0,
+        status: MERCHANT_PAYMENT_STATUS.PAID,
+        paidAt: new Date(),
+        orderExpiresAt,
+        notifyPayloadJson: { proration, zeroAmountSwitch: true },
+      },
+    })
+
+    await processPriorPlanRefund(
+      auth.merchantId,
+      proration.priorPlan,
+      proration.refundExcessCents
+    )
+    const activated = await activateMerchantPlan(auth.merchantId, plan)
+
+    return {
+      orderId: order.id,
+      plan,
+      planLabel: MERCHANT_PLAN_LABELS[plan],
+      amount: 0,
+      amountYuan: '0.00',
+      orderExpiresAt: orderExpiresAt.toISOString(),
+      wechatPayConfigured: config.wechatPay.configured,
+      immediate: true,
+      subscription: activated,
+      proration: {
+        ...proration,
+        creditYuan: quote.creditYuan,
+        refundExcessYuan: quote.refundExcessYuan,
+        summary: quote.summary,
+      },
+    }
+  }
+
   const order = await prisma.merchantPaymentOrder.create({
     data: {
       id: newId('mpay'),
@@ -59,6 +189,7 @@ async function createSubscriptionOrder(auth, plan) {
       amount,
       status: MERCHANT_PAYMENT_STATUS.CREATED,
       orderExpiresAt,
+      notifyPayloadJson: { proration },
     },
   })
 
@@ -68,8 +199,15 @@ async function createSubscriptionOrder(auth, plan) {
     planLabel: MERCHANT_PLAN_LABELS[plan],
     amount,
     amountYuan: (amount / 100).toFixed(2),
+    listPriceYuan: (listPrice / 100).toFixed(2),
     orderExpiresAt: orderExpiresAt.toISOString(),
     wechatPayConfigured: config.wechatPay.configured,
+    proration: {
+      ...proration,
+      creditYuan: quote.creditYuan,
+      refundExcessYuan: quote.refundExcessYuan,
+      summary: quote.summary,
+    },
   }
 }
 
@@ -93,6 +231,14 @@ async function prepaySubscriptionOrder(auth, orderId) {
     const err = new Error('订单已过期，请重新下单')
     err.status = 409
     throw err
+  }
+
+  if (order.amount <= 0) {
+    return {
+      orderId: order.id,
+      immediate: true,
+      message: '无需支付，套餐已切换',
+    }
   }
 
   if (!config.wechatPay.configured) {
@@ -135,6 +281,8 @@ async function prepaySubscriptionOrder(auth, orderId) {
 }
 
 async function completePaidOrder(order, wxPayload = {}) {
+  const proration = readOrderProration(order)
+
   if (order.status === MERCHANT_PAYMENT_STATUS.PAID) {
     return { alreadyPaid: true, subscription: await activateMerchantPlan(order.merchantId, order.plan) }
   }
@@ -145,12 +293,25 @@ async function completePaidOrder(order, wxPayload = {}) {
       status: MERCHANT_PAYMENT_STATUS.PAID,
       paidAt: new Date(),
       wxTransactionId: wxPayload.transaction_id || wxPayload.transactionId || '',
-      notifyPayloadJson: wxPayload,
+      notifyPayloadJson: {
+        ...(order.notifyPayloadJson && typeof order.notifyPayloadJson === 'object'
+          ? order.notifyPayloadJson
+          : {}),
+        wxPayload,
+      },
     },
   })
 
+  if (proration.refundExcessCents > 0) {
+    await processPriorPlanRefund(
+      order.merchantId,
+      proration.priorPlan,
+      proration.refundExcessCents
+    )
+  }
+
   const subscription = await activateMerchantPlan(order.merchantId, order.plan)
-  return { alreadyPaid: false, subscription }
+  return { alreadyPaid: false, subscription, proration }
 }
 
 async function handleWechatPayNotify(body) {
