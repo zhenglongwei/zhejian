@@ -61,14 +61,8 @@ function buildAuthorization(method, urlPath, body) {
   const message = `${method}\n${urlPath}\n${timestamp}\n${nonce}\n${bodyStr}\n`
   const signature = signMessage(message)
   const serialNo = normalizeCertSerial(config.wechatPay.certSerial)
-  const authorization = [
-    'WECHATPAY2-SHA256-RSA2048',
-    `mchid="${config.wechatPay.mchId}"`,
-    `nonce_str="${nonce}"`,
-    `signature="${signature}"`,
-    `timestamp="${timestamp}"`,
-    `serial_no="${serialNo}"`,
-  ].join(',')
+  // 格式：认证类型 + 空格 + 签名参数（逗号分隔，无空格）
+  const authorization = `WECHATPAY2-SHA256-RSA2048 mchid="${config.wechatPay.mchId}",nonce_str="${nonce}",signature="${signature}",timestamp="${timestamp}",serial_no="${serialNo}"`
   return { authorization, timestamp, nonce, serialNo }
 }
 
