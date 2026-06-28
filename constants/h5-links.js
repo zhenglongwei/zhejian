@@ -97,10 +97,11 @@ function embedUrlForMiniappWebview(url) {
   try {
     const parsed = new URL(target)
     parsed.searchParams.set('from', 'miniapp')
+    parsed.searchParams.set('_wv', '2')
     return parsed.toString()
   } catch (e) {
     const sep = target.includes('?') ? '&' : '?'
-    return `${target}${sep}from=miniapp`
+    return `${target}${sep}from=miniapp&_wv=2`
   }
 }
 
@@ -112,12 +113,17 @@ function stripMiniappEmbedParam(url) {
     if (parsed.searchParams.get('from') === 'miniapp') {
       parsed.searchParams.delete('from')
     }
+    if (parsed.searchParams.get('_wv')) {
+      parsed.searchParams.delete('_wv')
+    }
     const cleaned = parsed.toString()
     return cleaned.endsWith('?') ? cleaned.slice(0, -1) : cleaned
   } catch (e) {
     return target
       .replace(/([?&])from=miniapp(?=&|$)/, '$1')
       .replace(/[?&]from=miniapp$/, '')
+      .replace(/([?&])_wv=[^&]+(?=&|$)/, '$1')
+      .replace(/[?&]_wv=[^&]+$/, '')
       .replace(/\?$/, '')
   }
 }

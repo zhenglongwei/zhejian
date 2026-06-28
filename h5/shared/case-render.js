@@ -903,6 +903,9 @@
       if (parsed.searchParams.get('from') === 'miniapp') {
         parsed.searchParams.delete('from')
       }
+      if (parsed.searchParams.get('_wv')) {
+        parsed.searchParams.delete('_wv')
+      }
       shareUrl = parsed.toString()
       if (shareUrl.endsWith('?')) shareUrl = shareUrl.slice(0, -1)
     } catch (e) {

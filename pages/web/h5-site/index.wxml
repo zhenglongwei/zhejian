@@ -12,5 +12,13 @@
       </view>
     </view>
   </block>
-  <web-view wx:else src="{{url}}" binderror="onWebViewError" />
+  <block wx:else>
+    <web-view src="{{url}}" binderror="onWebViewError" />
+    <!-- 覆盖 H5 底栏「小程序查看」：web-view 易缓存旧 JS，用原生 cover-view 保证文案与复制 -->
+    <cover-view class="h5-site__web-link">
+      <cover-view class="h5-site__web-link-hit" bindtap="onCopyWebLinkTap">
+        <cover-view class="h5-site__web-link-text">网页查看</cover-view>
+      </cover-view>
+    </cover-view>
+  </block>
 </view>
