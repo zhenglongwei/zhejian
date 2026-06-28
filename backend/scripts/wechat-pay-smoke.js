@@ -49,8 +49,20 @@ async function main() {
       '\n若 JSAPI 仍失败，请核对：小程序 AppID 已绑定该商户号、JSAPI 支付已开通、openid 属于该小程序。'
     )
   } catch (e) {
+    const apiCode = e.code || (e.details && e.details.code)
+    if (apiCode === 'RESOURCE_NOT_EXISTS') {
+      console.log('✅ 商户请求签名已通过（微信已识别商户身份）')
+      console.log('⚠️  平台侧未配置「微信支付公钥」，GET /v3/certificates 不可用，不影响 JSAPI 下单。')
+      console.log('')
+      console.log('建议在商户平台完成（支付回调验签更完整）：')
+      console.log('  登录 pay.weixin.qq.com → 账户中心 → API安全 → 微信支付公钥 → 申请/启用')
+      console.log('  指引: https://pay.weixin.qq.com/doc/v3/merchant/4012153196')
+      console.log('')
+      console.log('下一步：pm2 restart zhejian-api --update-env 后，在小程序「套餐与公域收录」试真实支付。')
+      process.exit(0)
+    }
     console.error('\n❌ 验签失败:', e.message)
-    if (e.code === 'SIGN_ERROR' || (e.details && e.details.code === 'SIGN_ERROR')) {
+    if (apiCode === 'SIGN_ERROR') {
       console.error('\n常见原因：')
       console.error('1. WECHAT_PAY_CERT_SERIAL 不是 apiclient_cert.pem 的序列号（需大写、无冒号）')
       console.error('   openssl x509 -in apiclient_cert.pem -noout -serial')
