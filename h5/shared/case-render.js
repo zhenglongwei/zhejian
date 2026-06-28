@@ -833,7 +833,7 @@
           encodeURIComponent(data.storeId) +
           '.html">本店主页</a>'
         : '') +
-      '<button type="button" class="h5-footer-link h5-footer-link-btn" id="h5-open-weapp-link">小程序查看</button>' +
+      '<button type="button" class="h5-footer-link h5-footer-link-btn" id="h5-copy-web-link">网页查看</button>' +
       '</div></footer>' +
       renderConsultSheet(data)
     )
@@ -894,6 +894,51 @@
       encodeURIComponent(data.id || '') +
       '&sourcePage=h5&source=h5&utm_source=h5'
     )
+  }
+
+  function copyShareablePageUrl() {
+    var shareUrl = window.location.href
+    try {
+      var parsed = new URL(window.location.href)
+      if (parsed.searchParams.get('from') === 'miniapp') {
+        parsed.searchParams.delete('from')
+      }
+      shareUrl = parsed.toString()
+      if (shareUrl.endsWith('?')) shareUrl = shareUrl.slice(0, -1)
+    } catch (e) {
+      shareUrl = String(window.location.href || '')
+        .replace(/([?&])from=miniapp(?=&|$)/, '$1')
+        .replace(/[?&]from=miniapp$/, '')
+        .replace(/\?$/, '')
+    }
+    var hint = '链接已复制，请在微信或浏览器中粘贴打开'
+    function showHint() {
+      alert(hint)
+    }
+    function fallbackCopy() {
+      var ta = document.createElement('textarea')
+      ta.value = shareUrl
+      ta.setAttribute('readonly', 'readonly')
+      ta.style.position = 'fixed'
+      ta.style.left = '-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      try {
+        if (document.execCommand('copy')) {
+          showHint()
+        } else {
+          alert(hint + '\n\n' + shareUrl)
+        }
+      } catch (err) {
+        alert(hint + '\n\n' + shareUrl)
+      }
+      document.body.removeChild(ta)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareUrl).then(showHint).catch(fallbackCopy)
+      return
+    }
+    fallbackCopy()
   }
 
   function openWeapp(path) {
@@ -1109,6 +1154,16 @@
       }
     }
 
+    function trackCopyWebLink() {
+      if (window.zhejianTrack) {
+        window.zhejianTrack.track('h5_copy_web_link_click', {
+          page_type: 'case',
+          caseId: caseId,
+          storeId: storeId,
+        })
+      }
+    }
+
     function trackConsultClick() {
       if (window.zhejianTrack) {
         window.zhejianTrack.track('h5_consult_click', {
@@ -1256,11 +1311,11 @@
     }
 
     if (articleMode) {
-      var weappLink = document.getElementById('h5-open-weapp-link')
-      if (weappLink) {
-        weappLink.addEventListener('click', function () {
-          trackOpenWeapp()
-          openWeapp(miniprogramCasePath(safeData))
+      var webLink = document.getElementById('h5-copy-web-link')
+      if (webLink) {
+        webLink.addEventListener('click', function () {
+          trackCopyWebLink()
+          copyShareablePageUrl()
         })
       }
       return

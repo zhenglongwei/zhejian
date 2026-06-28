@@ -87,7 +87,40 @@ function copyCaseH5Link(item) {
 }
 
 const MERCHANT_CASE_H5_COPY_HINT =
-  '链接已复制，请在浏览器或微信搜索中粘贴打开'
+  '链接已复制，请在微信或浏览器中粘贴打开'
+
+const H5_WEB_COPY_HINT = MERCHANT_CASE_H5_COPY_HINT
+
+function embedUrlForMiniappWebview(url) {
+  const target = String(url || '').trim()
+  if (!target) return target
+  try {
+    const parsed = new URL(target)
+    parsed.searchParams.set('from', 'miniapp')
+    return parsed.toString()
+  } catch (e) {
+    const sep = target.includes('?') ? '&' : '?'
+    return `${target}${sep}from=miniapp`
+  }
+}
+
+function stripMiniappEmbedParam(url) {
+  const target = String(url || '').trim()
+  if (!target) return target
+  try {
+    const parsed = new URL(target)
+    if (parsed.searchParams.get('from') === 'miniapp') {
+      parsed.searchParams.delete('from')
+    }
+    const cleaned = parsed.toString()
+    return cleaned.endsWith('?') ? cleaned.slice(0, -1) : cleaned
+  } catch (e) {
+    return target
+      .replace(/([?&])from=miniapp(?=&|$)/, '$1')
+      .replace(/[?&]from=miniapp$/, '')
+      .replace(/\?$/, '')
+  }
+}
 
 function parseCaseIdFromH5Url(url) {
   const target = String(url || '').trim()
@@ -104,7 +137,7 @@ function parseCaseIdFromH5Url(url) {
 }
 
 function buildH5SiteWebviewPath({ url, caseId, merchantCaseFallback } = {}) {
-  const target = String(url || '').trim()
+  const target = embedUrlForMiniappWebview(String(url || '').trim())
   if (!target) return H5_CONTENT_SITE_WEBVIEW_PATH
   const params = [`url=${encodeURIComponent(target)}`]
   const resolvedCaseId = String(caseId || parseCaseIdFromH5Url(target) || '').trim()
@@ -194,9 +227,9 @@ function copyMerchantCaseH5Link(item) {
 
 /** 优先 web-view 打开，失败则复制链接（DS-A-06） */
 function openH5ContentSite() {
-  const encoded = encodeURIComponent(H5_CONTENT_SITE_URL)
+  const webviewUrl = buildH5SiteWebviewPath({ url: H5_CONTENT_SITE_URL })
   wx.navigateTo({
-    url: `${H5_CONTENT_SITE_WEBVIEW_PATH}?url=${encoded}`,
+    url: webviewUrl,
     fail: () => {
       copyH5ContentSiteLink().catch(() => {
         wx.showToast({ title: '打开失败，请稍后重试', icon: 'none' })
@@ -211,19 +244,18 @@ function openH5ContentSite() {
  * @param {{ redirect?: boolean }} options
  */
 function openH5Url(url, options = {}) {
-  const target = String(url || '').trim()
+  const target = embedUrlForMiniappWebview(String(url || '').trim())
   if (!target) {
     wx.showToast({ title: '链接不可用', icon: 'none' })
     return Promise.resolve(false)
   }
-  const encoded = encodeURIComponent(target)
-  const webviewUrl = `${H5_CONTENT_SITE_WEBVIEW_PATH}?url=${encoded}`
+  const webviewUrl = buildH5SiteWebviewPath({ url: target })
   const opener = options.redirect ? wx.redirectTo : wx.navigateTo
   return new Promise((resolve) => {
     opener({
       url: webviewUrl,
       fail: () => {
-        copyTextToClipboard(target, H5_CONTENT_SITE_HINT)
+        copyTextToClipboard(stripMiniappEmbedParam(target), H5_CONTENT_SITE_HINT)
           .then(() => resolve(true))
           .catch(() => {
             wx.showToast({ title: '打开失败，请稍后重试', icon: 'none' })
@@ -254,7 +286,10 @@ module.exports = {
   H5_CONTENT_SITE_HINT,
   H5_CASE_LINK_HINT,
   MERCHANT_CASE_H5_COPY_HINT,
+  H5_WEB_COPY_HINT,
   H5_CONTENT_SITE_WEBVIEW_PATH,
+  embedUrlForMiniappWebview,
+  stripMiniappEmbedParam,
   buildCaseH5Url,
   buildCaseListH5Url,
   buildStoreListH5Url,
