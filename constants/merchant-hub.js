@@ -84,7 +84,28 @@ function buildMerchantHubDock(todos = {}) {
 
 function buildMerchantHubMoreLinks(canManageStaff = false) {
   if (!canManageStaff) return []
-  return MERCHANT_HUB_MORE_ITEMS.slice()
+  return MERCHANT_HUB_MORE_ITEMS.filter((item) => item.key !== 'subscription')
+}
+
+function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
+  if (!isOwner || !subscription || typeof subscription !== 'object') return null
+  const publicIndex = Boolean(subscription.publicIndex)
+  if (publicIndex) {
+    return {
+      title: subscription.planLabel || '当前套餐',
+      desc: subscription.expiresAt
+        ? `公域收录至 ${String(subscription.expiresAt).slice(0, 10)} · 点此管理`
+        : '公域收录已开通 · 点此管理',
+      action: '管理套餐',
+      tone: 'active',
+    }
+  }
+  return {
+    title: '公域收录未开通',
+    desc: '案例 H5 可分享，但搜索引擎不会收录；开通后可进 sitemap',
+    action: '了解套餐',
+    tone: 'upgrade',
+  }
 }
 
 function buildMerchantOverviewLine(overview = {}) {
@@ -112,4 +133,5 @@ module.exports = {
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
+  buildMerchantSubscriptionEntry,
 }

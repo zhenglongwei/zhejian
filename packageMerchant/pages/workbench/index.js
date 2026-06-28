@@ -13,6 +13,7 @@ const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
 const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
+const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-subscription')
 const { openH5ContentSite, openMerchantPublishedCase } = require('../../../constants/h5-links')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
@@ -31,6 +32,7 @@ const {
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
+  buildMerchantSubscriptionEntry,
 } = require('../../../constants/merchant-hub')
 
 const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
@@ -87,6 +89,7 @@ Page({
     canSwitchStore: false,
     switchingStore: false,
     geoOpportunity: null,
+    subscriptionEntry: null,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
@@ -145,6 +148,7 @@ Page({
     let canSwitchStore = false
     let geoOpportunity = null
     let albumHeroCards = []
+    let subscriptionEntry = null
 
     try {
       if (isMerchantOwner()) {
@@ -161,7 +165,8 @@ Page({
     }
 
     try {
-      const [stats, leadStats, dashStats, publishPanel, geoOpp, albumList] =
+      const canManageStaff = isMerchantOwner()
+      const [stats, leadStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
         await Promise.all([
           fetchMerchantAlbumStats(),
           fetchMerchantLeadStats(profile.storeId),
@@ -169,6 +174,9 @@ Page({
           fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
           fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
           fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
+          canManageStaff
+            ? fetchMerchantSubscriptionPanel().catch(() => null)
+            : Promise.resolve(null),
         ])
 
       todos = {
@@ -195,6 +203,9 @@ Page({
       }
 
       geoOpportunity = geoOpp || null
+      subscriptionEntry = subPanel
+        ? buildMerchantSubscriptionEntry(subPanel.subscription, canManageStaff)
+        : null
 
       const heroes = pickMerchantHubAlbums(albumList || []).map((item) =>
         quietMerchantHubAlbumTags(enrichMerchantAlbumListItem(item))
@@ -204,8 +215,8 @@ Page({
       // keep defaults
     }
 
-    const canManageStaff = isMerchantOwner()
     const todoSummary = buildMerchantTodoSummary(todos)
+    const canManageStaff = isMerchantOwner()
 
     this.setData({
       status: 'normal',
@@ -223,6 +234,7 @@ Page({
       storePickerIndex,
       canSwitchStore,
       geoOpportunity,
+      subscriptionEntry,
     })
   },
 

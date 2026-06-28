@@ -169,6 +169,20 @@
           </view>
         </block>
 
+        <block wx:if="{{subscriptionEntry}}">
+          <view class="surface-album-inset-divider" />
+          <view
+            class="merchant-hub__subscription surface-album-inset {{subscriptionEntry.tone === 'upgrade' ? 'merchant-hub__subscription--upgrade' : ''}}"
+            bindtap="onSubscription"
+          >
+            <view class="merchant-hub__subscription-main">
+              <text class="text-body merchant-hub__subscription-title">{{subscriptionEntry.title}}</text>
+              <text class="text-caption text-secondary">{{subscriptionEntry.desc}}</text>
+            </view>
+            <text class="text-caption text-link merchant-hub__subscription-action">{{subscriptionEntry.action}}</text>
+          </view>
+        </block>
+
         <view class="surface-album-inset-divider" />
         <view class="merchant-hub__dock">
           <view

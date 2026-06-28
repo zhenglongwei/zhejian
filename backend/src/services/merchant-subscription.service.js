@@ -255,6 +255,9 @@ function listPlanCatalog(subscriptionRow) {
 async function fetchMerchantSubscriptionPanel(auth) {
   const merchantId = auth.merchantId
   const row = await getOrCreateSubscription(merchantId)
+  if (!hasPublicIndexEntitlement(row)) {
+    await syncMerchantCasesPublicIndex(merchantId).catch(() => {})
+  }
   const subscription = formatSubscriptionRow(row)
   return {
     subscription,
