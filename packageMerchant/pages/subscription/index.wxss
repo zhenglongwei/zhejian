@@ -1,0 +1,64 @@
+.merchant-sub__pad {
+  padding: var(--space-md) var(--page-padding-x);
+}
+
+.merchant-sub__gate {
+  padding: var(--space-xl) var(--page-padding-x);
+}
+
+.merchant-sub {
+  padding: var(--space-md) var(--page-padding-x) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-sub__hero {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__current {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__plans {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-sub__plan {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__price {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.merchant-sub__highlights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-sub__line {
+  display: block;
+}

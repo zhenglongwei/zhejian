@@ -17,6 +17,7 @@ const { submitCaseDetailPage } = require('../../../utils/wx-search-submit')
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { enrichCaseDetailForPage } = require('../../../utils/case-detail-display')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
+const { copyMerchantCaseH5Link } = require('../../../constants/h5-links')
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -50,6 +51,7 @@ Page({
     loginSheetBindContext: 'favorite',
     pendingFavoriteToggle: false,
     storeIsolated: false,
+    showMerchantH5Copy: false,
   },
 
   onShow() {
@@ -71,11 +73,13 @@ Page({
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     this.pageOptions = options || {}
     this.caseId = options.id || ''
+    const merchantPreview =
+      options.merchantPreview === '1' || options.merchantPreview === 'true'
     const shareCtx = resolvePageShareContext(options, {
       storeId: options.storeId || '',
       source: 'case_detail',
     })
-    this.setData({ storeIsolated: shareCtx.isolated || isShareStoreIsolated(options) })
+    this.setData({ storeIsolated: shareCtx.isolated || isShareStoreIsolated(options), showMerchantH5Copy: merchantPreview })
     if (!this.caseId) {
       this.setData({ status: 'error', errorMessage: '案例不存在' })
       return
@@ -225,6 +229,17 @@ Page({
       return { query: `id=${encodeURIComponent(this.caseId)}` }
     }
     return { query: '' }
+  },
+
+  onCopyMerchantH5Link() {
+    const detail = this.data.detail || {}
+    copyMerchantCaseH5Link({
+      caseId: this.caseId,
+      slug: detail.slug,
+      canonicalPath: detail.canonicalPath,
+    }).catch(() => {
+      wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
+    })
   },
 
   onCall() {

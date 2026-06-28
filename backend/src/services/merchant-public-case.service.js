@@ -39,8 +39,11 @@ function resolvePublishLabel(row) {
   if (articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_WECHAT) {
     return { key: 'published_wechat', label: '已发公众号' }
   }
-  if (articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_H5) {
-    return { key: 'published_h5', label: '已发 H5' }
+  if (CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(articleStatus)) {
+    if (row.seoNoindex) {
+      return { key: 'published_h5_private', label: 'H5 私域' }
+    }
+    return { key: 'published_h5', label: 'H5 公域收录' }
   }
   if (
     articleStatus === CASE_ARTICLE_STATUS.READY ||
@@ -143,6 +146,7 @@ async function fetchMerchantCasePublishPanel(storeId) {
         coverImage: true,
         publishedAt: true,
         updatedAt: true,
+        seoNoindex: true,
       },
     }),
   ])

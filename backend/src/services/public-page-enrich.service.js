@@ -1,6 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { computeTransparency } = require('./merchant-daily-stats.service')
+const { merchantHasPublicIndex } = require('./merchant-subscription.service')
 const { STORE_EXTRAS } = require('../constants/content-seed')
 const {
   formatQualificationForClient,
@@ -270,10 +271,14 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     photosMeta.vehicleSpecialties.length > 0
       ? photosMeta.vehicleSpecialties
       : extras.vehicleSpecialties || []
+  const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
 
   return attachSectionMeta(
     {
       ...mapped,
+      seo: {
+        noindex: !publicIndex,
+      },
       contactName: merchantRow?.contactName || mapped.contactName || '',
       certifications,
       certWall,

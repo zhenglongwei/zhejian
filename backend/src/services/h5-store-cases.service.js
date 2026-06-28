@@ -84,7 +84,7 @@ async function getStoreCasesPagePayload(storeId, query = {}) {
     listCases({ storeId }),
   ])
 
-  const allowIndex = total > 0
+  const allowIndex = total > 0 && Boolean(store.seo && !store.seo.noindex)
   const hasFilters = Boolean(serviceName)
   const hasMore = listHasMore != null ? listHasMore : page * pageSize < total
   const city = extractCityFromStore(store)

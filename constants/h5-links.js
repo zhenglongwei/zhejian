@@ -65,10 +65,20 @@ function copyH5ContentSiteLink() {
   return copyTextToClipboard(H5_CONTENT_SITE_URL, H5_CONTENT_SITE_HINT)
 }
 
+function resolveCaseItemH5Url(item) {
+  if (!item) return ''
+  return (
+    item.h5Url ||
+    buildCaseH5Url({
+      slug: item.slug,
+      caseId: item.caseId,
+      canonicalPath: item.canonicalPath,
+    })
+  )
+}
+
 function copyCaseH5Link(item) {
-  const url =
-    (item && item.h5Url) ||
-    buildCaseH5Url({ slug: item && item.slug, caseId: item && item.caseId })
+  const url = resolveCaseItemH5Url(item)
   if (!url) {
     wx.showToast({ title: '案例尚未发布 H5', icon: 'none' })
     return Promise.resolve('')
@@ -76,8 +86,110 @@ function copyCaseH5Link(item) {
   return copyTextToClipboard(url, H5_CASE_LINK_HINT)
 }
 
+const MERCHANT_CASE_H5_COPY_HINT =
+  '链接已复制，请在浏览器或微信搜索中粘贴打开'
+
+function parseCaseIdFromH5Url(url) {
+  const target = String(url || '').trim()
+  if (!target) return ''
+  const idMatch = target.match(/[?&]id=([^&#]+)/i)
+  if (idMatch && idMatch[1]) {
+    try {
+      return decodeURIComponent(idMatch[1])
+    } catch (e) {
+      return idMatch[1]
+    }
+  }
+  return ''
+}
+
+function buildH5SiteWebviewPath({ url, caseId, merchantCaseFallback } = {}) {
+  const target = String(url || '').trim()
+  if (!target) return H5_CONTENT_SITE_WEBVIEW_PATH
+  const params = [`url=${encodeURIComponent(target)}`]
+  const resolvedCaseId = String(caseId || parseCaseIdFromH5Url(target) || '').trim()
+  if (merchantCaseFallback && resolvedCaseId) {
+    params.push(`caseId=${encodeURIComponent(resolvedCaseId)}`)
+    params.push('fallback=merchantCase')
+  }
+  return `${H5_CONTENT_SITE_WEBVIEW_PATH}?${params.join('&')}`
+}
+
+function buildMerchantCaseDetailPath(caseId) {
+  if (!caseId) return ''
+  return `/pages/case/detail/index?id=${encodeURIComponent(caseId)}&merchantPreview=1`
+}
+
+function redirectMerchantCasePreview(caseId) {
+  const path = buildMerchantCaseDetailPath(caseId)
+  if (!path) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    wx.redirectTo({
+      url: path,
+      success: () => resolve(true),
+      fail: () => resolve(false),
+    })
+  })
+}
+
+/**
+ * 商家工作台 · 已发布案例：优先 web-view 打开 H5，失败则跳转小程序案例页
+ * @param {{ caseId?, slug?, h5Url?, canonicalPath? }} item
+ */
+function openMerchantPublishedCase(item) {
+  const caseId = item && item.caseId
+  const url = resolveCaseItemH5Url(item)
+  if (!url && !caseId) {
+    wx.showToast({ title: '案例链接不可用', icon: 'none' })
+    return Promise.resolve(false)
+  }
+
+  const openMiniProgramFallback = () => {
+    if (!caseId) {
+      if (url) {
+        return copyTextToClipboard(url, MERCHANT_CASE_H5_COPY_HINT).then(() => true)
+      }
+      wx.showToast({ title: '打开失败，请稍后重试', icon: 'none' })
+      return Promise.resolve(false)
+    }
+    return new Promise((resolve) => {
+      wx.navigateTo({
+        url: buildMerchantCaseDetailPath(caseId),
+        fail: () => {
+          wx.showToast({ title: '打开失败，请稍后重试', icon: 'none' })
+          resolve(false)
+        },
+        success: () => resolve(true),
+      })
+    })
+  }
+
+  if (!url) {
+    return openMiniProgramFallback()
+  }
+
+  return new Promise((resolve) => {
+    wx.navigateTo({
+      url: buildH5SiteWebviewPath({ url, caseId, merchantCaseFallback: Boolean(caseId) }),
+      fail: () => {
+        openMiniProgramFallback().then(resolve)
+      },
+      success: () => resolve(true),
+    })
+  })
+}
+
 function copyCaseListH5Link() {
   return copyTextToClipboard(buildCaseListH5Url(), H5_CONTENT_SITE_HINT)
+}
+
+function copyMerchantCaseH5Link(item) {
+  const url = resolveCaseItemH5Url(item)
+  if (!url) {
+    wx.showToast({ title: '案例链接不可用', icon: 'none' })
+    return Promise.resolve('')
+  }
+  return copyTextToClipboard(url, MERCHANT_CASE_H5_COPY_HINT)
 }
 
 /** 优先 web-view 打开，失败则复制链接（DS-A-06） */
@@ -141,6 +253,7 @@ module.exports = {
   H5_CONTENT_SITE_URL,
   H5_CONTENT_SITE_HINT,
   H5_CASE_LINK_HINT,
+  MERCHANT_CASE_H5_COPY_HINT,
   H5_CONTENT_SITE_WEBVIEW_PATH,
   buildCaseH5Url,
   buildCaseListH5Url,
@@ -148,10 +261,17 @@ module.exports = {
   buildStoreH5Url,
   buildStoreCasesH5Url,
   buildGeoTopicH5Url,
+  buildMerchantCaseDetailPath,
+  buildH5SiteWebviewPath,
+  parseCaseIdFromH5Url,
+  resolveCaseItemH5Url,
+  redirectMerchantCasePreview,
   copyH5ContentSiteLink,
   copyCaseH5Link,
+  copyMerchantCaseH5Link,
   copyCaseListH5Link,
   openH5ContentSite,
   openH5Url,
   openGeoTopicH5,
+  openMerchantPublishedCase,
 }

@@ -493,6 +493,20 @@ router.post('/merchants/:merchantId/request-modify', async (req, res, next) => {
   }
 })
 
+router.post('/merchants/:merchantId/subscription/activate', async (req, res, next) => {
+  try {
+    const { activateMerchantPlan, MERCHANT_PLAN } = require('../services/merchant-subscription.service')
+    const plan = req.body?.plan || MERCHANT_PLAN.INDEX_99
+    const data = await activateMerchantPlan(req.params.merchantId, plan, {
+      founderFlag: req.body?.founderFlag,
+      founderRenewDiscount: req.body?.founderRenewDiscount,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/services', async (req, res, next) => {
   try {
     const data = await listAdminServicePlans(req.query)

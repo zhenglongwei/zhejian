@@ -211,6 +211,13 @@ async function generateAndSaveCaseArticle(caseId, options = {}) {
   payload.slug = await ensureUniqueCaseSlug(prisma, payload.slug, caseId)
   payload.canonicalPath = resolveCaseCanonicalPath({ slug: payload.slug, caseId })
 
+  const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
+  payload.seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+    city: row.city,
+    serviceName: row.serviceName,
+    imageCount: (album.images || []).length,
+  })
+
   let finalArticleStatus = payload.articleStatus
   if (options.persist !== false) {
     await prisma.publicCase.update({

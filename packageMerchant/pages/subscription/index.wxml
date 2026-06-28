@@ -1,0 +1,81 @@
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="merchant-sub__pad">
+      <ui-skeleton rows="{{4}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="merchant-sub__gate">
+      <ui-empty
+        theme="album"
+        title="加载失败"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="merchant-sub page-content">
+      <view class="merchant-sub__hero surface-album-panel">
+        <text class="text-h2">当前套餐</text>
+        <view class="merchant-sub__current">
+          <text class="text-h3">{{subscription.planLabel}}</text>
+          <ui-tag
+            wx:if="{{subscription.publicIndex}}"
+            variant="success"
+            text="公域收录已开通"
+          />
+          <ui-tag
+            wx:else
+            variant="info"
+            text="仅私域 / 微信内流通"
+          />
+        </view>
+        <text wx:if="{{subscription.expiresAt}}" class="text-caption text-secondary">
+          有效期至 {{subscription.expiresAt}}
+        </text>
+        <text wx:else class="text-caption text-secondary">
+          服务相册工具永久免费；公域收录需开通下方套餐
+        </text>
+      </view>
+
+      <view class="merchant-sub__plans">
+        <view
+          wx:for="{{plans}}"
+          wx:key="plan"
+          class="merchant-sub__plan surface-album-panel"
+        >
+          <view class="merchant-sub__plan-head">
+            <text class="text-h3">{{item.name}}</text>
+            <text class="text-body merchant-sub__price">{{item.priceLabel}}</text>
+          </view>
+          <view class="merchant-sub__highlights">
+            <text
+              wx:for="{{item.highlights}}"
+              wx:for-item="line"
+              wx:key="*this"
+              class="text-caption text-secondary merchant-sub__line"
+            >· {{line}}</text>
+          </view>
+          <ui-button
+            wx:if="{{item.plan !== 'free' && subscription.plan !== item.plan}}"
+            type="{{subscription.publicIndex && item.plan === subscription.plan ? 'ghost' : 'primary'}}"
+            size="sm"
+            loading="{{payingPlan === item.plan}}"
+            disabled="{{subscription.plan === item.plan && subscription.publicIndex}}"
+            data-plan="{{item.plan}}"
+            bind:btntap="onBuyPlan"
+          >
+            {{subscription.plan === item.plan && subscription.publicIndex ? '当前套餐' : '立即开通'}}
+          </ui-button>
+          <text wx:elif="{{item.plan === 'free'}}" class="text-caption text-tertiary">入驻即享</text>
+        </view>
+      </view>
+
+      <ui-compliance-notice type="history" text="{{disclaimer}}" />
+    </view>
+  </block>
+</ui-tool-page-shell>

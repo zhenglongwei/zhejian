@@ -890,6 +890,7 @@
     var certRows = buildCertRows(store.certifications)
 
     setShareMeta(store)
+    if (store.seo && store.seo.noindex) setNoIndex()
 
     var heroHtml = store.coverImage
       ? '<div class="h5-store-hero"><img class="h5-store-hero-img" src="' +

@@ -6,6 +6,7 @@ const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { fetchPublicCaseRows, listCases, listMerchants } = require('./content.service')
 const { listGeoPages, getGeoPageDetail } = require('./geo.service')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { resolveMerchantIdsWithPublicIndex } = require('./merchant-subscription.service')
 
 const SITEMAP_TYPES = new Set(['pages', 'cases', 'stores'])
 
@@ -44,11 +45,13 @@ async function collectCaseEntries() {
 
 async function collectStoreEntries() {
   const { list } = await listMerchants({ limit: 0 })
+  const publicIndexMerchantIds = await resolveMerchantIdsWithPublicIndex()
   const today = formatSitemapDate(new Date())
   const entries = []
 
   list.forEach((store) => {
     if (!store.id || store.status === 'offline') return
+    if (!publicIndexMerchantIds.has(store.merchantId)) return
     entries.push({
       loc: absUrl(`/store/${store.id}.html`),
       lastmod: today,

@@ -12,11 +12,8 @@ const {
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
-const {
-  fetchMerchantCasePublishPanel,
-  fetchMerchantCaseArticleExport,
-} = require('../../../services/merchant-public-case')
-const { copyCaseH5Link, openH5ContentSite } = require('../../../constants/h5-links')
+const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
+const { openH5ContentSite, openMerchantPublishedCase } = require('../../../constants/h5-links')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner } = require('../../../utils/auth')
@@ -36,9 +33,10 @@ const {
   buildMerchantOverviewLine,
 } = require('../../../constants/merchant-hub')
 
-const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat']
+const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
 
 function resolveCasePublishTagVariant(publishStatus) {
+  if (publishStatus === 'published_h5_private') return 'info'
   if (MERCHANT_CASE_PUBLISHED.includes(publishStatus)) return 'default'
   return 'info'
 }
@@ -314,6 +312,7 @@ Page({
   onMoreLinkTap(e) {
     const { key } = e.currentTarget.dataset
     const handlers = {
+      subscription: () => this.onSubscription(),
       storeHome: () => this.onStoreHome(),
       editStore: () => this.onEditStore(),
       staff: () => this.onStaffManage(),
@@ -364,6 +363,10 @@ Page({
     this._navigateTo('/packageMerchant/pages/dashboard/index')
   },
 
+  onSubscription() {
+    this._navigateTo('/packageMerchant/pages/subscription/index')
+  },
+
   onStoreHome() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
@@ -375,40 +378,6 @@ Page({
 
   onEditStore() {
     this._navigateTo('/packageMerchant/pages/store/edit/index')
-  },
-
-  async _copyCaseWechatExport(caseId, field) {
-    if (!caseId || this._wechatExportLoading) return
-    this._wechatExportLoading = true
-    wx.showLoading({ title: '生成中…', mask: true })
-    try {
-      const data = await fetchMerchantCaseArticleExport(caseId)
-      const text = field === 'markdown' ? data.markdown : data.html
-      if (!text) {
-        wx.showToast({ title: '导出内容为空', icon: 'none' })
-        return
-      }
-      await new Promise((resolve, reject) => {
-        wx.setClipboardData({
-          data: text,
-          success: resolve,
-          fail: reject,
-        })
-      })
-      wx.showToast({
-        title: field === 'markdown' ? 'Markdown 已复制' : 'HTML 已复制',
-        icon: 'none',
-        duration: 2500,
-      })
-    } catch (err) {
-      wx.showToast({
-        title: (err && err.message) || '导出失败',
-        icon: 'none',
-      })
-    } finally {
-      this._wechatExportLoading = false
-      wx.hideLoading()
-    }
   },
 
   onCasePublishItemTap(e) {
@@ -424,18 +393,7 @@ Page({
 
     const publishedKeys = ['published_h5', 'published_wechat']
     if (publishedKeys.includes(item.publishStatus) || item.h5Url) {
-      wx.showActionSheet({
-        itemList: ['复制 H5 链接', '复制公众号 HTML', '复制公众号 Markdown'],
-        success: (res) => {
-          if (res.tapIndex === 0) {
-            copyCaseH5Link(item).catch(() => {
-              wx.showToast({ title: '复制失败，请稍后重试', icon: 'none' })
-            })
-            return
-          }
-          this._copyCaseWechatExport(item.caseId, res.tapIndex === 1 ? 'html' : 'markdown')
-        },
-      })
+      openMerchantPublishedCase(item)
       return
     }
     if (item.albumId) {

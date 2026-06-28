@@ -493,6 +493,7 @@ function mapStoreRow(store, caseCount = 0) {
       : extras.environmentImages || []
   return {
     id: store.id,
+    merchantId: store.merchantId || '',
     name: store.name || '',
     status: extras.status || clientStatus,
     auditStatus: extras.auditStatus || 'approved',

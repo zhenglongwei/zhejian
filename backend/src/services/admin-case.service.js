@@ -533,6 +533,12 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     slug: articlePayload.slug,
     caseId,
   })
+  const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
+  articlePayload.seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+    city: row.city,
+    serviceName: row.serviceName,
+    imageCount: (album.images || []).length,
+  })
   stampPublishedH5OnPayload(articlePayload)
   const now = new Date()
 

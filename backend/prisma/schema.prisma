@@ -52,6 +52,8 @@ model Merchant {
   updatedAt         DateTime        @updatedAt @map("updated_at")
   stores            Store[]
   staff             MerchantStaff[]
+  subscription      MerchantSubscription?
+  paymentOrders     MerchantPaymentOrder[]
 
   @@index([ownerUserId])
   @@index([status])
@@ -758,4 +760,49 @@ model GeoPromptProbeResult {
   @@index([probedAt])
   @@index([engine, probedAt])
   @@map("geo_prompt_probe_result")
+}
+
+/// 商家 SaaS 套餐（免费 / 收录版 / 深度优化版）
+model MerchantSubscription {
+  id                    String    @id
+  merchantId            String    @unique @map("merchant_id")
+  plan                  String    @default("free")
+  status                String    @default("active")
+  startedAt             DateTime? @map("started_at")
+  expiresAt             DateTime? @map("expires_at")
+  founderFlag           Boolean   @default(false) @map("founder_flag")
+  founderRenewDiscount  Float?    @map("founder_renew_discount")
+  indexingSlaDeadline   DateTime? @map("indexing_sla_deadline")
+  indexingSlaMet        Boolean   @default(false) @map("indexing_sla_met")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  merchant              Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([plan])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("merchant_subscriptions")
+}
+
+/// 商家套餐支付单（微信 JSAPI）
+model MerchantPaymentOrder {
+  id                String    @id
+  merchantId        String    @map("merchant_id")
+  userId            String    @map("user_id")
+  plan              String
+  amount            Int
+  status            String    @default("created")
+  wxPrepayId        String    @default("") @map("wx_prepay_id") @db.VarChar(128)
+  wxTransactionId   String    @default("") @map("wx_transaction_id") @db.VarChar(64)
+  paidAt            DateTime? @map("paid_at")
+  orderExpiresAt    DateTime? @map("order_expires_at")
+  notifyPayloadJson Json?     @map("notify_payload_json")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  merchant          Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+  @@index([status])
+  @@index([wxTransactionId])
+  @@map("merchant_payment_orders")
 }

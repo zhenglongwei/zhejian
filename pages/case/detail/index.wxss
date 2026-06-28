@@ -4,6 +4,25 @@
   padding-top: var(--space-md);
 }
 
+.case-detail__merchant-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.case-detail__merchant-banner-text {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
 .case-detail__panel {
   margin-bottom: var(--space-lg);
 }

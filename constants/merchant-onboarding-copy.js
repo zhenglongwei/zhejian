@@ -12,7 +12,7 @@ const MERCHANT_ONBOARDING_VALUE_ITEMS = [
   },
   {
     title: 'H5 案例获客',
-    desc: '车主授权后，案例发布至内容站与公众号，可分享、被搜索引用。',
+    desc: '车主授权后生成 H5 页面；开通收录套餐后进入公域 sitemap，未开通时为私域可分享页（noindex）。',
   },
   {
     title: '咨询预约承接',
@@ -21,11 +21,11 @@ const MERCHANT_ONBOARDING_VALUE_ITEMS = [
 ]
 
 const MERCHANT_ONBOARDING_POSITIONING =
-  '辙见不分配平台流量、不承诺订单量。入驻开通工具能力；公开获客依赖你店案例内容与自主传播。'
+  '透明施工工具永久免费；公域搜索引擎收录为可选年费服务。辙见不做竞价排名、不抽佣，付费不承诺订单量。'
 
 const MERCHANT_WORKBENCH_GATE_NONE = {
   title: '商家工作台',
-  description: '入驻后可用服务相册工具、处理咨询线索；授权案例可发布至 H5 内容站',
+  description: '入驻后可用服务相册工具、处理咨询线索；公域收录可在「套餐与公域收录」开通',
 }
 
 const MERCHANT_WORKBENCH_GATE_PENDING = {

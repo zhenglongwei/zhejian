@@ -66,6 +66,37 @@ const config = {
       },
     },
   },
+  wechatPay: {
+    mchId: process.env.WECHAT_PAY_MCH_ID || '',
+    apiV3Key: process.env.WECHAT_PAY_API_V3_KEY || '',
+    certSerial: process.env.WECHAT_PAY_CERT_SERIAL || '',
+    privateKey: (() => {
+      const inline = process.env.WECHAT_PAY_PRIVATE_KEY || ''
+      if (inline) return inline.replace(/\\n/g, '\n')
+      try {
+        const fs = require('fs')
+        const keyPath = process.env.WECHAT_PAY_PRIVATE_KEY_PATH || ''
+        if (keyPath && fs.existsSync(keyPath)) {
+          return fs.readFileSync(keyPath, 'utf8')
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      return ''
+    })(),
+    notifyUrl:
+      process.env.WECHAT_PAY_NOTIFY_URL ||
+      `${resolvePublicBaseUrl()}/api/v1/pay/wechat/notify`,
+    get configured() {
+      return Boolean(
+        this.mchId &&
+          this.apiV3Key &&
+          this.certSerial &&
+          this.privateKey &&
+          config.wechat.appId,
+      )
+    },
+  },
   /** MVP：提交入驻后自动通过（运营审核后台就绪后设为 false） */
   merchantAutoApprove: process.env.MERCHANT_AUTO_APPROVE !== 'false',
   /** TEST-ONLY: 允许商家手填车主手机号；测试通过后设为 false 或删除环境变量 */

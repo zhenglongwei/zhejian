@@ -21,6 +21,7 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 
 /** 主账号 · 页内文字链（不占 Dock 格） */
 const MERCHANT_HUB_MORE_ITEMS = [
+  { key: 'subscription', label: '套餐与公域收录' },
   { key: 'storeHome', label: '门店主页' },
   { key: 'editStore', label: '编辑资料' },
   { key: 'staff', label: '员工管理' },

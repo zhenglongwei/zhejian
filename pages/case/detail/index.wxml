@@ -19,6 +19,14 @@
 
   <block wx:elif="{{detail}}">
     <view class="deep-link-detail__body case-detail__body">
+      <view wx:if="{{showMerchantH5Copy}}" class="case-detail__merchant-banner surface-album-panel">
+        <text class="case-detail__merchant-banner-text text-caption">
+          这是您的公开案例预览。如需分享给客户，可复制下方链接，在浏览器或微信搜索中粘贴打开。
+        </text>
+        <ui-button type="secondary" size="sm" block bind:btntap="onCopyMerchantH5Link">
+          复制 H5 链接
+        </ui-button>
+      </view>
       <view class="surface-album-panel case-detail__panel case-detail__panel--top">
         <view class="case-detail__head-row">
           <view class="case-detail__head">
