@@ -1,0 +1,53 @@
+.merchant-review-detail__pad,
+.merchant-review-detail__body {
+  padding: var(--space-md) var(--page-padding-x) calc(var(--space-xl) + var(--fixed-bottom-bar-height));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.merchant-review-detail__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-review-detail__section {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-review-detail__score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+  border-bottom: 1rpx solid var(--color-border-subtle);
+}
+
+.merchant-review-detail__score-row:last-child {
+  border-bottom: none;
+}
+
+.merchant-review-detail__tags,
+.merchant-review-detail__tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.merchant-review-detail__textarea {
+  width: 100%;
+  min-height: 180rpx;
+  box-sizing: border-box;
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-review-detail__counter {
+  display: block;
+  text-align: right;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-sm);
+}

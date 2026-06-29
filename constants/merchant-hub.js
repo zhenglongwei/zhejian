@@ -5,7 +5,7 @@
 
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
-const { buildMerchantPlanTag } = require('./merchant-plan-tier')
+const { buildMerchantPlanTag, resolveMerchantPlanTier } = require('./merchant-plan-tier')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
@@ -22,6 +22,7 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 
 /** 主账号 · 页内文字链（不占 Dock 格）；套餐入口见扉页 Tag */
 const MERCHANT_HUB_MORE_ITEMS = [
+  { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
   { key: 'storeHome', label: '门店主页' },
   { key: 'staff', label: '员工管理' },
   { key: 'addStore', label: '注册新门店' },
@@ -81,17 +82,28 @@ function buildMerchantHubDock(todos = {}) {
   return MERCHANT_HUB_DOCK_ITEMS.map((item) => attachDockBadge(item, todos))
 }
 
-function buildMerchantHubMoreLinks(canManageStaff = false) {
-  if (!canManageStaff) return []
-  return MERCHANT_HUB_MORE_ITEMS.slice()
+function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
+  const items = canManageStaff
+    ? MERCHANT_HUB_MORE_ITEMS
+    : MERCHANT_HUB_MORE_ITEMS.filter((item) => item.key === 'reviews')
+  return items.map((item) =>
+    attachNavIcon({
+      ...item,
+      desc: '',
+      badge: item.badgeKey ? formatSectionBadge(todos[item.badgeKey]) : '',
+    }),
+  )
 }
 
 function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
   if (!isOwner || !subscription || typeof subscription !== 'object') return null
+  const tierLabel =
+    (subscription.planTag && subscription.planTag.text) ||
+    resolveMerchantPlanTier(subscription.plan).text
   const publicIndex = Boolean(subscription.publicIndex)
   if (publicIndex) {
     return {
-      title: subscription.planLabel || '当前套餐',
+      title: tierLabel,
       desc: subscription.expiresAt
         ? `公域收录至 ${String(subscription.expiresAt).slice(0, 10)} · 点此管理`
         : '公域收录已开通 · 点此管理',

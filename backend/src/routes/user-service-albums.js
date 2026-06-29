@@ -15,6 +15,10 @@ const { publishServicePublicCase } = require('../services/public-case.service')
 const { createAlbumAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { createAlbumShareToken } = require('../services/album-share.service')
 const { submitServiceAlbumFeedback } = require('../services/album-feedback.service')
+const {
+  getAlbumReviewContext,
+  submitServiceAlbumReview,
+} = require('../services/album-review.service')
 
 const router = express.Router()
 
@@ -146,6 +150,28 @@ router.post('/service-albums/:albumId/feedback', requireAuth(['user']), async (r
       req.params.albumId,
       req.auth.userId,
       req.body || {}
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/review', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await getAlbumReviewContext(req.params.albumId, req.auth.userId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/review', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await submitServiceAlbumReview(
+      req.params.albumId,
+      req.auth.userId,
+      req.body || {},
     )
     return ok(res, data)
   } catch (e) {

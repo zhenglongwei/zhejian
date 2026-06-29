@@ -1,7 +1,5 @@
 {
   "component": true,
   "styleIsolation": "apply-shared",
-  "usingComponents": {
-    "ui-plan-tier-badge": "/components/plan-tier-badge/index"
-  }
+  "usingComponents": {}
 }

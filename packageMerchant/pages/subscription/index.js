@@ -4,6 +4,40 @@ const {
   prepaySubscriptionOrder,
   mockPaySubscriptionOrder,
 } = require('../../../services/merchant-subscription')
+const { resolveMerchantPlanTier } = require('../../../constants/merchant-plan-tier')
+
+function decorateSubscriptionPlans(plans = []) {
+  return (plans || []).map((item) => {
+    const tier = resolveMerchantPlanTier(item.plan)
+    return {
+      ...item,
+      tierLabel: tier.text,
+      isCurrentPlan: Boolean(item.switchQuote && item.switchQuote.isCurrentPlan),
+    }
+  })
+}
+
+function formatExpiresAt(iso) {
+  if (!iso) return ''
+  return String(iso).slice(0, 10)
+}
+
+function decorateSubscriptionPanel(data = {}) {
+  const subscription = data.subscription || {}
+  const tier =
+    (subscription.planTag && subscription.planTag.text) ||
+    resolveMerchantPlanTier(subscription.plan).text
+  return {
+    subscription: {
+      ...subscription,
+      tierLabel: tier,
+      expiresAtDisplay: formatExpiresAt(subscription.expiresAt),
+    },
+    plans: decorateSubscriptionPlans(data.plans),
+    paymentTestMode: Boolean(data.paymentTestMode),
+    disclaimer: data.disclaimer || '',
+  }
+}
 
 function requestWechatPayment(payment) {
   return new Promise((resolve, reject) => {
@@ -34,12 +68,13 @@ Page({
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const data = await fetchMerchantSubscriptionPanel()
+      const panel = decorateSubscriptionPanel(data)
       this.setData({
         status: 'normal',
-        subscription: data.subscription,
-        plans: data.plans || [],
-        paymentTestMode: Boolean(data.paymentTestMode),
-        disclaimer: data.disclaimer || '',
+        subscription: panel.subscription,
+        plans: panel.plans,
+        paymentTestMode: panel.paymentTestMode,
+        disclaimer: panel.disclaimer,
       })
     } catch (e) {
       this.setData({

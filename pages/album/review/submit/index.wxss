@@ -1,0 +1,44 @@
+.album-review-submit__body {
+  padding: var(--space-md) var(--page-padding-x) calc(var(--space-xl) + var(--fixed-bottom-bar-height));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.album-review-submit__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.album-review-submit__overall {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
+.album-review-submit__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.album-review-submit__textarea {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+}
+
+.album-review-submit__counter {
+  display: block;
+  text-align: right;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-review-submit__notice {
+  margin-top: var(--space-sm);
+}
+
+.album-review-submit__consent + .album-review-submit__consent {
+  margin-top: var(--space-sm);
+}

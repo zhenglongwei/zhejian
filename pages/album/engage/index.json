@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "评价与反馈",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-login-sheet": "/components/login-sheet/index"
+  }
+}

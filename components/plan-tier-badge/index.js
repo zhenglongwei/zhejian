@@ -14,15 +14,20 @@ Component({
       type: String,
       value: '',
     },
+    size: {
+      type: String,
+      value: 'md',
+    },
   },
 
   data: {
     tierClass: 'basic',
     displayText: '',
+    sizeClass: 'md',
   },
 
   observers: {
-    'tier, plan, text'() {
+    'tier, plan, text, size'() {
       this.syncDisplay()
     },
   },
@@ -43,7 +48,9 @@ Component({
         this.properties.text ||
         (resolved && resolved.text) ||
         '基础版'
-      this.setData({ tierClass, displayText })
+      const size = this.properties.size || 'md'
+      const sizeClass = size === 'sm' || size === 'lg' ? size : 'md'
+      this.setData({ tierClass, displayText, sizeClass })
     },
   },
 })

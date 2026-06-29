@@ -20,37 +20,16 @@
   <block wx:else>
     <view class="merchant-sub page-content">
       <view class="merchant-sub__hero surface-album-panel">
-        <text class="text-h2">当前套餐</text>
-        <view class="merchant-sub__current">
-          <ui-plan-tier-badge
-            wx:if="{{subscription.planTag}}"
-            tier="{{subscription.planTag.tier}}"
-            text="{{subscription.planTag.text}}"
-          />
-          <ui-plan-tier-badge
-            wx:else
-            plan="{{subscription.plan}}"
-          />
-          <text class="text-caption text-secondary merchant-sub__plan-fullname">{{subscription.planLabel}}</text>
-          <ui-tag
-            wx:if="{{subscription.publicIndex}}"
-            variant="success"
-            text="公域收录已开通"
-          />
-          <ui-tag
-            wx:else
-            variant="info"
-            text="仅私域 / 微信内流通"
-          />
-        </view>
-        <text wx:if="{{subscription.expiresAt}}" class="text-caption text-secondary">
-          有效期至 {{subscription.expiresAt}}
+        <text class="text-album-frame-page">当前方案</text>
+        <text class="text-h2 merchant-sub__tier-name">{{subscription.tierLabel}}</text>
+        <text class="text-caption text-secondary">
+          {{subscription.publicIndex ? '公域收录已开通' : '仅私域 / 微信内流通'}}
         </text>
-        <text wx:elif="{{subscription.remainingCreditCents > 0}}" class="text-caption text-secondary">
+        <text wx:if="{{subscription.expiresAtDisplay}}" class="text-caption text-tertiary">
+          有效期至 {{subscription.expiresAtDisplay}}
+        </text>
+        <text wx:elif="{{subscription.remainingCreditCents > 0}}" class="text-caption text-tertiary">
           剩余权益约 ¥{{subscription.remainingCreditYuan}}（按天折算）
-        </text>
-        <text wx:else class="text-caption text-secondary">
-          服务相册工具永久免费；公域收录需开通下方套餐
         </text>
         <text wx:if="{{paymentTestMode}}" class="text-caption merchant-sub__test-hint">
           当前为支付联调：实付按测试价扣款，套餐权益不变
@@ -61,13 +40,10 @@
         <view
           wx:for="{{plans}}"
           wx:key="plan"
-          class="merchant-sub__plan surface-album-panel"
+          class="merchant-sub__plan surface-album-panel {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}}"
         >
           <view class="merchant-sub__plan-head">
-            <view class="merchant-sub__plan-title">
-              <ui-plan-tier-badge plan="{{item.plan}}" />
-              <text class="text-h3 merchant-sub__plan-name">{{item.name}}</text>
-            </view>
+            <text class="text-h3 merchant-sub__plan-name">{{item.tierLabel}}</text>
             <text class="text-body merchant-sub__price">{{item.priceLabel}}</text>
           </view>
           <view class="merchant-sub__highlights">
@@ -79,15 +55,14 @@
             >· {{line}}</text>
           </view>
           <text
-            wx:if="{{item.switchQuote && item.switchQuote.summary && !item.switchQuote.isCurrentPlan}}"
-            class="text-caption merchant-sub__quote"
+            wx:if="{{item.switchQuote && item.switchQuote.summary && !item.isCurrentPlan}}"
+            class="text-caption text-tertiary merchant-sub__quote"
           >{{item.switchQuote.summary}}</text>
           <ui-button
-            wx:if="{{item.plan !== 'free' && !(item.switchQuote && item.switchQuote.isCurrentPlan)}}"
-            type="{{subscription.publicIndex && subscription.plan === item.plan ? 'ghost' : 'primary'}}"
+            wx:if="{{item.plan !== 'free' && !item.isCurrentPlan}}"
+            type="primary"
             size="sm"
             loading="{{payingPlan === item.plan}}"
-            disabled="{{item.switchQuote && item.switchQuote.isCurrentPlan}}"
             data-plan="{{item.plan}}"
             bind:btntap="onBuyPlan"
           >
@@ -95,7 +70,7 @@
             <block wx:elif="{{subscription.publicIndex && subscription.plan !== item.plan}}">切换套餐</block>
             <block wx:else>立即开通</block>
           </ui-button>
-          <text wx:elif="{{item.switchQuote && item.switchQuote.isCurrentPlan}}" class="text-caption text-tertiary">当前套餐</text>
+          <text wx:elif="{{item.isCurrentPlan}}" class="text-caption text-tertiary">当前方案</text>
           <text wx:elif="{{item.plan === 'free'}}" class="text-caption text-tertiary">入驻即享</text>
         </view>
       </view>

@@ -13,6 +13,7 @@ const {
   hasCaseFaqContent,
 } = require('../utils/case-faq-links')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
+const { listPublicReviewsForAlbum } = require('./album-review.service')
 const { getServiceItem } = require('../constants/service-catalog')
 const {
   SEED_SERVICES,
@@ -446,6 +447,8 @@ async function getCaseDetail(idOrSlug) {
 
   const faq = item.faq || []
   const faqLinks = item.faqLinks || []
+  const ownerReviews =
+    row && row.albumId ? await listPublicReviewsForAlbum(row.albumId) : []
   const display = applyPublicDisplayRules(item)
   const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
   const { pages: geoPagesForMatch } = await listGeoPages({ limit: 100 })
@@ -467,6 +470,7 @@ async function getCaseDetail(idOrSlug) {
     showStorePublicly,
     faq,
     faqLinks,
+    ownerReviews,
     relatedCases,
     relatedCaseTier,
     internalLinks,

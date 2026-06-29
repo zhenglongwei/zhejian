@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "车主评价",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "ui-tabs": "/components/tabs/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-tag": "/components/tag/index"
+  }
+}

@@ -1,102 +1,158 @@
+/**
+ * 方案档位 · 相册扉页 chip（暖灰线框，不用 info/warning 促销色）
+ */
 .plan-tier-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  height: var(--tag-height);
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-sm);
   box-sizing: border-box;
+  color: var(--color-text-secondary);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-album-list-thumb);
 }
 
-.plan-tier-badge__medal {
+.plan-tier-badge__mark {
   flex-shrink: 0;
-  width: 32rpx;
-  height: 32rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
 }
 
 .plan-tier-badge__text {
-  line-height: var(--font-caption-lh);
   white-space: nowrap;
+  font-weight: var(--font-weight-medium);
 }
 
-/* 基础版 · 单页 */
-.plan-tier-badge--basic {
-  color: var(--color-text-secondary);
-  background-color: var(--color-bg-muted);
+.plan-tier-badge--flagship {
+  color: var(--color-text-primary);
 }
 
-.plan-tier-badge--basic .plan-tier-badge__medal {
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-album-frame-line);
+.plan-tier-badge--flagship .plan-tier-badge__text {
+  font-weight: var(--font-weight-semibold);
 }
 
-.plan-tier-badge--basic .plan-tier-badge__glyph {
-  width: 12rpx;
-  height: 8rpx;
+/* md · 扉页 */
+.plan-tier-badge--size-md {
+  height: 44rpx;
+  padding: 0 var(--space-sm);
+}
+
+.plan-tier-badge--size-md .plan-tier-badge__mark {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.plan-tier-badge--size-md .plan-tier-badge__text {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+}
+
+/* lg · 套餐页当前方案 */
+.plan-tier-badge--size-lg {
+  height: 52rpx;
+  padding: 0 var(--space-md);
+  gap: var(--space-sm);
+}
+
+.plan-tier-badge--size-lg .plan-tier-badge__mark {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+.plan-tier-badge--size-lg .plan-tier-badge__text {
+  font-size: var(--font-body);
+  line-height: var(--font-body-lh);
+}
+
+/* 档位标记 · 统一 album-frame-corner 色 */
+.plan-tier-badge--size-md.plan-tier-badge--basic .plan-tier-badge__glyph {
+  width: 14rpx;
+  height: 10rpx;
   border: 2rpx solid var(--color-album-frame-corner);
   border-radius: 2rpx;
   box-sizing: border-box;
 }
 
-/* 标准版 · 叠页 */
-.plan-tier-badge--standard {
-  color: var(--color-info);
-  background-color: var(--color-info-light);
+.plan-tier-badge--size-lg.plan-tier-badge--basic .plan-tier-badge__glyph {
+  width: 16rpx;
+  height: 11rpx;
+  border: 2rpx solid var(--color-album-frame-corner);
+  border-radius: 2rpx;
+  box-sizing: border-box;
 }
 
-.plan-tier-badge--standard .plan-tier-badge__medal {
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-info-light);
-}
-
-.plan-tier-badge--standard .plan-tier-badge__glyph {
+.plan-tier-badge--size-md.plan-tier-badge--standard .plan-tier-badge__glyph {
   position: relative;
-  width: 14rpx;
-  height: 12rpx;
+  width: 16rpx;
+  height: 13rpx;
 }
 
-.plan-tier-badge--standard .plan-tier-badge__glyph::before,
-.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+.plan-tier-badge--size-md.plan-tier-badge--standard .plan-tier-badge__glyph::before,
+.plan-tier-badge--size-md.plan-tier-badge--standard .plan-tier-badge__glyph::after {
   content: '';
   position: absolute;
   left: 0;
-  width: 12rpx;
-  height: 8rpx;
-  border: 2rpx solid var(--color-info);
+  width: 13rpx;
+  height: 9rpx;
+  border: 2rpx solid var(--color-album-frame-corner);
   border-radius: 2rpx;
   box-sizing: border-box;
-  background-color: var(--color-bg-card);
+  background-color: var(--color-album-frame-inner);
 }
 
-.plan-tier-badge--standard .plan-tier-badge__glyph::before {
+.plan-tier-badge--size-md.plan-tier-badge--standard .plan-tier-badge__glyph::before {
   top: 0;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
-.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+.plan-tier-badge--size-md.plan-tier-badge--standard .plan-tier-badge__glyph::after {
   top: 4rpx;
-  left: 2rpx;
+  left: 3rpx;
 }
 
-/* 旗舰版 · 相册角标 */
-.plan-tier-badge--flagship {
-  color: var(--color-warning);
-  background-color: var(--color-warning-light);
+.plan-tier-badge--size-lg.plan-tier-badge--standard .plan-tier-badge__glyph {
+  position: relative;
+  width: 18rpx;
+  height: 15rpx;
 }
 
-.plan-tier-badge--flagship .plan-tier-badge__medal {
-  background-color: var(--color-bg-card);
-  border: 1rpx solid var(--color-warning-light);
+.plan-tier-badge--size-lg.plan-tier-badge--standard .plan-tier-badge__glyph::before,
+.plan-tier-badge--size-lg.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 15rpx;
+  height: 10rpx;
+  border: 2rpx solid var(--color-album-frame-corner);
+  border-radius: 2rpx;
+  box-sizing: border-box;
+  background-color: var(--color-album-frame-inner);
 }
 
-.plan-tier-badge--flagship .plan-tier-badge__glyph {
+.plan-tier-badge--size-lg.plan-tier-badge--standard .plan-tier-badge__glyph::before {
+  top: 0;
+  opacity: 0.45;
+}
+
+.plan-tier-badge--size-lg.plan-tier-badge--standard .plan-tier-badge__glyph::after {
+  top: 5rpx;
+  left: 3rpx;
+}
+
+.plan-tier-badge--size-md.plan-tier-badge--flagship .plan-tier-badge__glyph {
   width: 12rpx;
   height: 12rpx;
-  border-top: 3rpx solid var(--color-warning);
-  border-right: 3rpx solid var(--color-warning);
+  border-top: 3rpx solid var(--color-album-frame-corner);
+  border-right: 3rpx solid var(--color-album-frame-corner);
+  box-sizing: border-box;
+}
+
+.plan-tier-badge--size-lg.plan-tier-badge--flagship .plan-tier-badge__glyph {
+  width: 14rpx;
+  height: 14rpx;
+  border-top: 3rpx solid var(--color-album-frame-corner);
+  border-right: 3rpx solid var(--color-album-frame-corner);
   box-sizing: border-box;
 }

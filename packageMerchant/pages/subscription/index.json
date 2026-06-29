@@ -1,12 +1,10 @@
 {
-  "navigationBarTitleText": "套餐与公域收录",
+  "navigationBarTitleText": "套餐",
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-button": "/components/button/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-tag": "/components/tag/index",
-    "ui-plan-tier-badge": "/components/plan-tier-badge/index"
+    "ui-compliance-notice": "/components/compliance-notice/index"
   }
 }

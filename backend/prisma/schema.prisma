@@ -24,6 +24,7 @@ model User {
   reports   ContentReport[]
   searchHistory UserSearchHistory[]
   albumFeedback ServiceAlbumFeedback[]
+  albumReviews  ServiceAlbumReview[]
   favorites   UserFavorite[]
   vehicles    UserVehicle[]
 
@@ -388,6 +389,33 @@ model ServiceAlbumFeedback {
   @@index([userId, albumId, nodeId])
   @@index([status, createdAt])
   @@map("service_album_feedback")
+}
+
+model ServiceAlbumReview {
+  id                String    @id
+  albumId           String    @map("album_id")
+  userId            String    @map("user_id")
+  storeId           String    @default("") @map("store_id")
+  merchantId        String    @default("") @map("merchant_id")
+  scoresJson        Json      @map("scores_json")
+  overallScore      Float     @default(0) @map("overall_score")
+  content           String    @default("") @db.Text
+  tagsJson          Json      @default("[]") @map("tags_json")
+  imagesJson        Json      @default("[]") @map("images_json")
+  authorizePublic   Boolean   @default(false) @map("authorize_public")
+  consent           Boolean   @default(false)
+  status            String    @default("submitted")
+  merchantReply     String    @default("") @map("merchant_reply") @db.Text
+  merchantReplyAt   DateTime? @map("merchant_reply_at")
+  merchantReplierId String    @default("") @map("merchant_replier_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  user              User      @relation(fields: [userId], references: [id])
+
+  @@unique([albumId, userId])
+  @@index([merchantId, createdAt])
+  @@index([storeId, status])
+  @@map("service_album_reviews")
 }
 
 model MerchantReviewLog {

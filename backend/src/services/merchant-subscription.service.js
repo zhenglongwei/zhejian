@@ -414,6 +414,7 @@ async function fetchMerchantSubscriptionPanel(auth) {
   subscription.planTag = {
     tier: MERCHANT_PLAN_TAG_TIERS[plan] || 'basic',
     text: MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
+    canUpgrade: plan !== MERCHANT_PLAN.OPTIMIZE_299,
   }
   const creditCents = await computeRemainingCreditCents(row)
   subscription.remainingCreditCents = creditCents

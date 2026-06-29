@@ -1,0 +1,37 @@
+.album-engage__pad {
+  padding: var(--space-md) var(--page-padding-x);
+}
+
+.album-engage__body {
+  padding: var(--space-md) var(--page-padding-x) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.album-engage__section-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.album-engage__sub {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.album-engage__hint {
+  display: block;
+  line-height: var(--line-height-relaxed);
+}
+
+.album-engage__option-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.album-engage__option {
+  display: block;
+}

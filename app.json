@@ -21,6 +21,9 @@
     "pages/album/authorize/index",
     "pages/album/feedback/index",
     "pages/album/feedback/result/index",
+    "pages/album/engage/index",
+    "pages/album/review/submit/index",
+    "pages/album/review/result/index",
     "pages/mine/settings/index",
     "pages/mine/profile/index",
     "pages/mine/settings/document/index",
@@ -70,7 +73,9 @@
         "pages/dashboard/index",
         "pages/store/edit/index",
         "pages/message/index",
-        "pages/subscription/index"
+        "pages/subscription/index",
+        "pages/review/list/index",
+        "pages/review/detail/index"
       ]
     }
   ],

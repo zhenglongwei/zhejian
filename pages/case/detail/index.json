@@ -16,6 +16,7 @@
     "ui-store-card": "/components/store-card/index",
     "ui-tag-row": "/components/tag-row/index",
     "ui-faq-list": "/components/faq-list/index",
+    "ui-review-card": "/components/review-card/index",
     "ui-share-sheet": "/components/share-sheet/index",
     "ui-detail-report-entry": "/components/detail-report-entry/index",
     "ui-login-sheet": "/components/login-sheet/index"

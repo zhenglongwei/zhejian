@@ -10,6 +10,7 @@ const {
   fetchMerchantServiceAlbumList,
 } = require('../../../services/merchant-service-album')
 const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
+const { fetchMerchantReviewStats } = require('../../../services/merchant-album-review')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
 const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
@@ -72,6 +73,7 @@ Page({
     profile: null,
     todos: {
       pendingLeads: 0,
+      pendingReviews: 0,
       pendingUpload: 0,
       pendingAuth: 0,
       geoEvidenceBlocked: 0,
@@ -169,10 +171,11 @@ Page({
 
     try {
       const canManageStaff = isMerchantOwner()
-      const [stats, leadStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
+      const [stats, leadStats, reviewStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
         await Promise.all([
           fetchMerchantAlbumStats(),
           fetchMerchantLeadStats(profile.storeId),
+          fetchMerchantReviewStats({ storeId: profile.storeId }).catch(() => ({ pendingReply: 0 })),
           fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
           fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
           fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
@@ -184,6 +187,7 @@ Page({
 
       todos = {
         pendingLeads: leadStats.pending || 0,
+        pendingReviews: reviewStats.pendingReply || 0,
         pendingUpload: stats.pendingUpload || 0,
         pendingAuth: stats.pendingAuth || 0,
         geoEvidenceBlocked: stats.geoEvidenceBlocked || 0,
@@ -237,7 +241,7 @@ Page({
       albumHeroCards,
       albumSectionBadge: buildAlbumSectionBadge(todos),
       hubDock: buildMerchantHubDock(todos),
-      hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff),
+      hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff, todos),
       casePublishRecent,
       canManageStaff,
       storeOptions,
@@ -339,6 +343,7 @@ Page({
       staff: () => this.onStaffManage(),
       addStore: () => this.onAddStore(),
       switchStore: () => this.onSwitchStore(),
+      reviews: () => this.onReviewList(),
     }
     const fn = handlers[key]
     if (fn) fn()
@@ -374,6 +379,10 @@ Page({
     const tab =
       (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || 'pending'
     this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
+  },
+
+  onReviewList() {
+    this._navigateTo('/packageMerchant/pages/review/list/index?tab=pending')
   },
 
   onStaffManage() {

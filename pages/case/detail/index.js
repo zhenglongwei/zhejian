@@ -51,6 +51,7 @@ Page({
     loginSheetBindContext: 'favorite',
     pendingFavoriteToggle: false,
     storeIsolated: false,
+    ownerReviews: [],
     showMerchantH5Copy: false,
   },
 
@@ -111,6 +112,7 @@ Page({
         shellSubtitle: pageTitle,
         showStorePublicly: detail.showStorePublicly !== false,
         relatedCases,
+        ownerReviews: detail.ownerReviews || [],
         faqList: (detail.faq || []).filter((item) => item && item.title && item.url),
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),

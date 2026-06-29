@@ -1,0 +1,84 @@
+<view class="page merchant-review-detail">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-review-detail__pad">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="加载失败"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{review}}">
+    <view class="page-content merchant-review-detail__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <view class="merchant-review-detail__head">
+          <text class="text-h3">{{review.serviceName}}</text>
+          <text class="text-body">{{review.overallScore}} 分</text>
+        </view>
+        <text class="text-caption text-secondary">
+          {{review.ownerHint}} · {{review.createdAt}}
+        </text>
+        <view class="merchant-review-detail__tags">
+          <ui-tag wx:if="{{review.authorizePublic}}" variant="info" text="已授权公开摘要" />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-review-detail__section text-h3">评分明细</text>
+        <view
+          wx:for="{{scoreRows}}"
+          wx:key="label"
+          class="merchant-review-detail__score-row"
+        >
+          <text class="text-body">{{item.label}}</text>
+          <text class="text-body">{{item.value}} 星</text>
+        </view>
+      </ui-card>
+
+      <ui-card wx:if="{{review.content || review.tags.length}}" shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-review-detail__section text-h3">车主评价</text>
+        <text wx:if="{{review.content}}" class="text-body">{{review.content}}</text>
+        <view wx:if="{{review.tags.length}}" class="merchant-review-detail__tag-row">
+          <ui-tag
+            wx:for="{{review.tags}}"
+            wx:key="*this"
+            variant="default"
+            text="{{item}}"
+          />
+        </view>
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-review-detail__section text-h3">门店回复</text>
+        <textarea
+          class="merchant-review-detail__textarea text-body"
+          placeholder="可说明处理情况或补充说明，将展示给车主与公开案例读者"
+          value="{{replyDraft}}"
+          maxlength="500"
+          bindinput="onReplyInput"
+        />
+        <text class="text-caption merchant-review-detail__counter">{{replyLength}}/500</text>
+        <ui-compliance-notice type="history" text="回复须基于事实，不得含诱导好评或攻击性内容。" />
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button
+        type="primary"
+        slot="right"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:btntap="onSubmitReply"
+      >提交回复</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+</view>

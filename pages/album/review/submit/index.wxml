@@ -1,0 +1,85 @@
+<view class="page album-review-submit">
+  <view class="page-content album-review-submit__body">
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="album-review-submit__section-title text-h3">评价对象</text>
+      <text class="text-body">{{albumTitle}}</text>
+      <text wx:if="{{overallScore > 0}}" class="text-caption album-review-submit__overall">
+        综合 {{overallScore}} 分
+      </text>
+    </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="album-review-submit__section-title text-h3">服务评分 *</text>
+      <ui-rating-dimensions values="{{scores}}" bind:change="onScoresChange" />
+    </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="album-review-submit__section-title text-h3">可选标签</text>
+      <view class="album-review-submit__tags">
+        <ui-review-tag-chip
+          wx:for="{{tagItems}}"
+          wx:key="text"
+          text="{{item.text}}"
+          selected="{{item.selected}}"
+          bind:tap="onTagTap"
+        />
+      </view>
+    </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="album-review-submit__section-title text-h3">文字评价（选填）</text>
+      <textarea
+        class="album-review-submit__textarea text-body"
+        placeholder="可补充本次服务体验，最多 500 字"
+        value="{{content}}"
+        maxlength="500"
+        bindinput="onContentInput"
+      />
+      <text class="album-review-submit__counter text-caption">{{contentLength}}/500</text>
+    </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="album-review-submit__section-title text-h3">配图（选填）</text>
+      <ui-image-uploader
+        images="{{form.images}}"
+        maxCount="{{3}}"
+        bind:change="onImagesChange"
+      />
+      <view class="album-review-submit__notice">
+        <ui-compliance-notice type="reviewUpload" />
+      </view>
+    </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <view class="album-review-submit__consent">
+        <ui-checkbox-row checked="{{form.consent}}" bind:toggle="toggleConsent">
+          {{consentText}}
+        </ui-checkbox-row>
+      </view>
+      <view class="album-review-submit__consent">
+        <ui-checkbox-row checked="{{form.authorizePublic}}" bind:toggle="toggleAuthorizePublic">
+          {{publicConsentText}}
+        </ui-checkbox-row>
+      </view>
+    </ui-card>
+  </view>
+
+  <ui-fixed-bottom-bar>
+    <ui-button
+      type="primary"
+      slot="right"
+      block
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+      bind:btntap="onSubmit"
+    >提交评价</ui-button>
+  </ui-fixed-bottom-bar>
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="auto"
+    bindContext="album"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+  />
+</view>

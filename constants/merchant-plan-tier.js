@@ -26,6 +26,7 @@ function resolveMerchantPlanTier(plan) {
   return {
     tier,
     text: MERCHANT_PLAN_TIER_LABELS[tier] || MERCHANT_PLAN_TIER_LABELS[MERCHANT_PLAN_TIER.BASIC],
+    canUpgrade: tier !== MERCHANT_PLAN_TIER.FLAGSHIP,
   }
 }
 

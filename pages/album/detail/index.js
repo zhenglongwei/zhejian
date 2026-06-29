@@ -797,7 +797,7 @@ Page({
   },
 
   onEndPageFeedback(e) {
-    this.goFeedbackPage()
+    this.goEngagePage()
   },
 
   onRetry() {
@@ -988,6 +988,20 @@ Page({
 
   onOpenLinkedStore() {
     navigateToOwnerStoreDetail(this.data.linkedStoreId)
+  },
+
+  goEngagePage({ nodeId = '', nodeTitle = '' } = {}) {
+    const detail = this.data.detail
+    if (!detail || !this.albumId) return
+    const albumTitle = detail.serviceName || '我的服务相册'
+    if (nodeId) {
+      this.goFeedbackPage({ nodeId, nodeTitle })
+      return
+    }
+    let url =
+      `/pages/album/engage/index?albumId=${encodeURIComponent(this.albumId)}` +
+      `&albumTitle=${encodeURIComponent(albumTitle)}`
+    wx.navigateTo({ url })
   },
 
   goFeedbackPage({ nodeId = '', nodeTitle = '' } = {}) {

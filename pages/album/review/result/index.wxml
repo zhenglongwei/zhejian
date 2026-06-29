@@ -1,0 +1,14 @@
+<view class="page album-review-result page-content">
+  <view class="album-review-result__hero">
+    <text class="album-review-result__title text-h1">评价已提交</text>
+    <text class="album-review-result__desc text-body">{{successMessage}}</text>
+  </view>
+
+  <ui-card wx:if="{{reviewId}}" shadow="{{true}}" padding="{{true}}">
+    <text class="text-caption">评价编号：{{reviewId}}</text>
+  </ui-card>
+
+  <view class="album-review-result__actions">
+    <ui-button type="primary" block bind:btntap="onBackAlbum">返回相册</ui-button>
+  </view>
+</view>

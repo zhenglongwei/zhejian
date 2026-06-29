@@ -17,18 +17,11 @@
   padding: var(--space-md);
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
-.merchant-sub__current {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__plan-fullname {
-  flex-basis: 100%;
+.merchant-sub__tier-name {
+  color: var(--color-text-primary);
 }
 
 .merchant-sub__plans {
@@ -44,27 +37,25 @@
   gap: var(--space-sm);
 }
 
+.merchant-sub__plan--current {
+  border-color: var(--color-album-frame-corner);
+}
+
 .merchant-sub__plan-head {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-sm);
 }
 
-.merchant-sub__plan-title {
+.merchant-sub__plan-name {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-xs);
-}
-
-.merchant-sub__plan-name {
   color: var(--color-text-primary);
 }
 
 .merchant-sub__price {
+  flex-shrink: 0;
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
 }
@@ -82,7 +73,6 @@
 
 .merchant-sub__quote {
   display: block;
-  color: var(--color-text-secondary);
 }
 
 .merchant-sub__test-hint {

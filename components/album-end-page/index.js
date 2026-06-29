@@ -58,7 +58,7 @@ Component({
     },
     feedbackLabel: {
       type: String,
-      value: '反馈',
+      value: '评价与反馈',
     },
   },
 

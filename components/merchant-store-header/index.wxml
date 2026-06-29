@@ -1,25 +1,35 @@
 <view class="merchant-store-header">
   <view class="merchant-store-header__main">
-    <picker
-      wx:if="{{canSwitchStore}}"
-      class="merchant-store-header__picker"
-      mode="selector"
-      range="{{storeOptions}}"
-      range-key="name"
-      value="{{storePickerIndex}}"
-      disabled="{{switchingStore}}"
-      bindchange="onStoreChange"
-    >
-      <view class="merchant-store-header__title-row">
-        <text class="merchant-store-header__title text-h3">{{storeName}}</text>
-        <text class="merchant-store-header__caret text-caption">▾</text>
+    <view class="merchant-store-header__head-row">
+      <view class="merchant-store-header__title-wrap">
+        <picker
+          wx:if="{{canSwitchStore}}"
+          class="merchant-store-header__picker"
+          mode="selector"
+          range="{{storeOptions}}"
+          range-key="name"
+          value="{{storePickerIndex}}"
+          disabled="{{switchingStore}}"
+          bindchange="onStoreChange"
+        >
+          <view class="merchant-store-header__title-row">
+            <text class="merchant-store-header__title text-h3">{{storeName}}</text>
+            <text class="merchant-store-header__caret text-caption">▾</text>
+          </view>
+        </picker>
+        <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
       </view>
-    </picker>
-    <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
-    <view wx:if="{{planTag}}" class="merchant-store-header__tag-row" bindtap="onPlanTagTap">
-      <ui-plan-tier-badge tier="{{planTag.tier}}" text="{{planTag.text}}" />
-      <text class="merchant-store-header__tag-hint text-caption text-tertiary">查看方案 ›</text>
+
+      <view wx:if="{{planTag}}" class="merchant-store-header__plan-group" bindtap="onPlanTagTap">
+        <text class="merchant-store-header__sep text-caption text-tertiary">·</text>
+        <text class="merchant-store-header__tier text-caption text-secondary">{{planTag.text}}</text>
+        <text
+          wx:if="{{planTag.canUpgrade}}"
+          class="merchant-store-header__upgrade text-caption text-link"
+        >升级 ›</text>
+      </view>
     </view>
+
     <text wx:if="{{address}}" class="merchant-store-header__addr text-caption text-secondary">{{address}}</text>
     <text wx:if="{{overviewLine}}" class="merchant-store-header__overview text-caption text-tertiary" bindtap="onOverviewTap">{{overviewLine}}</text>
   </view>
