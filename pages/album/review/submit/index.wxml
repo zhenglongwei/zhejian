@@ -3,15 +3,23 @@
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="album-review-submit__section-title text-h3">评价对象</text>
       <text class="text-body">{{albumTitle}}</text>
-      <text wx:if="{{overallScore > 0}}" class="text-caption album-review-submit__overall">
-        综合 {{overallScore}} 分
-      </text>
+      <view wx:if="{{repairScore > 0 || albumScore > 0}}" class="album-review-submit__scores">
+        <text wx:if="{{repairScore > 0}}" class="text-caption">维修服务 {{repairScore}}</text>
+        <text wx:if="{{albumScore > 0}}" class="text-caption">相册记录 {{albumScore}}</text>
+      </view>
     </ui-card>
 
-    <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="album-review-submit__section-title text-h3">服务评分 *</text>
-      <ui-rating-dimensions values="{{scores}}" bind:change="onScoresChange" />
-    </ui-card>
+    <block wx:for="{{reviewGroups}}" wx:key="key" wx:for-item="group">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-review-submit__section-title text-h3">{{group.title}}</text>
+        <ui-rating-dimensions
+          values="{{scores}}"
+          dimensions="{{group.dimensions}}"
+          collapse-from="{{99}}"
+          bind:change="onScoresChange"
+        />
+      </ui-card>
+    </block>
 
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="album-review-submit__section-title text-h3">可选标签</text>
@@ -30,21 +38,17 @@
       <text class="album-review-submit__section-title text-h3">文字评价（选填）</text>
       <textarea
         class="album-review-submit__textarea text-body"
-        placeholder="可补充本次服务体验，最多 500 字"
+        placeholder="可补充本次服务与相册记录体验，最多 300 字"
         value="{{content}}"
-        maxlength="500"
+        maxlength="300"
         bindinput="onContentInput"
       />
-      <text class="album-review-submit__counter text-caption">{{contentLength}}/500</text>
+      <text class="album-review-submit__counter text-caption">{{contentLength}}/300</text>
     </ui-card>
 
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="album-review-submit__section-title text-h3">配图（选填）</text>
-      <ui-image-uploader
-        images="{{form.images}}"
-        maxCount="{{3}}"
-        bind:change="onImagesChange"
-      />
+      <ui-image-uploader images="{{form.images}}" maxCount="{{3}}" bind:change="onImagesChange" />
       <view class="album-review-submit__notice">
         <ui-compliance-notice type="reviewUpload" />
       </view>

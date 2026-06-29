@@ -67,11 +67,13 @@
           auth-hint="{{endPageAuthHint}}"
           show-share="{{showShareButton}}"
           show-feedback="{{true}}"
+          show-part-verify="{{showPartsEntry}}"
           show-contact="{{!!storePhone}}"
           show-store-browse="{{showStoreBrowse}}"
           bind:auth="onEndPageAuth"
           bind:share="onOpenShareSheet"
           bind:feedback="onEndPageFeedback"
+          bind:partverify="onEndPagePartVerify"
           bind:contact="onContactStore"
           bind:storebrowse="onOpenLinkedStore"
         />
@@ -98,9 +100,11 @@
       active-node-id="{{activeNodeId}}"
       show-archive="{{true}}"
       show-compare="{{showCompareEntry}}"
+      show-parts="{{showPartsEntry}}"
       bind:chaptertap="onChapterTap"
       bind:archivetap="onOpenInfoSheet"
       bind:comparetap="onOpenCompareOverlay"
+      bind:partstap="onOpenPartVerify"
     />
 
     <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
@@ -187,8 +191,11 @@
     store-name="{{linkedStoreName}}"
     store-subtitle="{{linkedStoreSubtitle}}"
     show-store-link="{{showStoreBrowse}}"
+    show-part-verify-entry="{{showPartsEntry}}"
+    part-verify-summary="{{partVerifySummary}}"
     bind:close="onCloseInfoSheet"
     bind:parttap="onInfoSheetPartTap"
+    bind:verifytap="onOpenPartVerify"
     bind:storetap="onOpenLinkedStore"
   />
 

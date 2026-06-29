@@ -48,6 +48,14 @@ Component({
       type: Boolean,
       value: false,
     },
+    showPartVerify: {
+      type: Boolean,
+      value: false,
+    },
+    partVerifyLabel: {
+      type: String,
+      value: '核对配件',
+    },
     storeBrowseLabel: {
       type: String,
       value: '查看门店主页',
@@ -56,7 +64,7 @@ Component({
       type: String,
       value: '联系门店',
     },
-    feedbackLabel: {
+.feedbackLabel: {
       type: String,
       value: '评价与反馈',
     },
@@ -74,6 +82,12 @@ Component({
 
     onFeedbackTap() {
       this.triggerEvent('feedback', {
+        albumId: this.properties.albumId || '',
+      })
+    },
+
+    onPartVerifyTap() {
+      this.triggerEvent('partverify', {
         albumId: this.properties.albumId || '',
       })
     },

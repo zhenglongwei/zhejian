@@ -197,6 +197,9 @@ function appendAlbumListPresentation(item, base = {}) {
     authAction,
     showShareButton: resolveUserAlbumShareVisible(merged),
     hasUnreadUpdate,
+    showPartVerifyLink: Number(merged.partCount) > 0 || Boolean(merged.showPartVerifyLink),
+    partVerifySummaryLabel:
+      (merged.partVerifySummary && merged.partVerifySummary.label) || '',
   }
 }
 

@@ -17,6 +17,7 @@
 .album-engage__sub {
   display: block;
   margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
 }
 
 .album-engage__hint {

@@ -74,6 +74,10 @@ Component({
       type: Boolean,
       value: false,
     },
+    showParts: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -144,6 +148,11 @@ Component({
     onCompareTap() {
       if (this.properties.disabled) return
       this.triggerEvent('comparetap')
+    },
+
+    onPartsTap() {
+      if (this.properties.disabled) return
+      this.triggerEvent('partstap')
     },
 
     onSegmentTap(e) {

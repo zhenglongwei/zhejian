@@ -31,6 +31,7 @@ const {
 } = require('../../../utils/share-store-context')
 const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-access')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
+const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { buildAlbumComparePairs, buildAlbumCompareHint } = require('../../../utils/album-compare-pairs')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
@@ -287,6 +288,8 @@ Page({
     linkedStoreName: '',
     linkedStoreSubtitle: '',
     showStoreBrowse: false,
+    showPartsEntry: false,
+    partVerifySummary: '',
   },
 
   onLoad(options) {
@@ -507,6 +510,18 @@ Page({
       const linkedStoreSubtitle = detail.serviceName || enriched.serviceName || ''
       const showStoreBrowse = Boolean(linkedStoreId)
 
+      let showPartsEntry = (enriched.parts || []).length > 0
+      let partVerifySummary = ''
+      if (checkAuth().ok) {
+        try {
+          const partCtx = await fetchAlbumPartVerifyContext(this.albumId)
+          showPartsEntry = Boolean(partCtx.hasParts)
+          partVerifySummary = (partCtx.summary && partCtx.summary.label) || ''
+        } catch (err) {
+          // ignore
+        }
+      }
+
       this.setData({
         detail: enriched,
         flipPages: flip.pages,
@@ -522,6 +537,8 @@ Page({
         linkedStoreName,
         linkedStoreSubtitle,
         showStoreBrowse,
+        showPartsEntry,
+        partVerifySummary,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
         showAuthSection,
@@ -1018,6 +1035,29 @@ Page({
       url += `&nodeTitle=${encodeURIComponent(nodeTitle)}`
     }
     wx.navigateTo({ url })
+  },
+
+  goPartVerifyPage() {
+    const detail = this.data.detail
+    if (!detail || !this.albumId) return
+    if (!checkAuth().ok) {
+      this.setData({ loginSheetVisible: true })
+      return
+    }
+    const albumTitle = detail.serviceName || '我的服务相册'
+    wx.navigateTo({
+      url:
+        `/pages/album/part-verify/index?albumId=${encodeURIComponent(this.albumId)}` +
+        `&albumTitle=${encodeURIComponent(albumTitle)}`,
+    })
+  },
+
+  onOpenPartVerify() {
+    this.goPartVerifyPage()
+  },
+
+  onEndPagePartVerify() {
+    this.goPartVerifyPage()
   },
 
   onOpenBenefitPolicy() {

@@ -1,0 +1,45 @@
+.album-part-verify__pad,
+.album-part-verify__body {
+  padding: var(--space-md) var(--page-padding-x) calc(var(--space-xl) + var(--fixed-bottom-bar-height));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.album-part-verify__intro,
+.album-part-verify__summary {
+  display: block;
+  margin-top: var(--space-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.album-part-verify__status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+}
+
+.album-part-verify__status {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.album-part-verify__status.is-active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.album-part-verify__textarea {
+  width: 100%;
+  min-height: 120rpx;
+  margin-bottom: var(--space-sm);
+  box-sizing: border-box;
+}
+
+.album-part-verify__notice {
+  margin-top: var(--space-sm);
+}

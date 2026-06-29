@@ -21,7 +21,7 @@
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-review-detail__head">
           <text class="text-h3">{{review.serviceName}}</text>
-          <text class="text-body">{{review.overallScore}} 分</text>
+          <text class="text-body">维修 {{review.repairScore}} · 记录 {{review.albumScore}}</text>
         </view>
         <text class="text-caption text-secondary">
           {{review.ownerHint}} · {{review.createdAt}}
@@ -38,7 +38,10 @@
           wx:key="label"
           class="merchant-review-detail__score-row"
         >
-          <text class="text-body">{{item.label}}</text>
+          <view class="merchant-review-detail__score-copy">
+            <text class="text-body">{{item.label}}</text>
+            <text wx:if="{{item.hint}}" class="text-caption text-secondary">{{item.hint}}</text>
+          </view>
           <text class="text-body">{{item.value}} 星</text>
         </view>
       </ui-card>

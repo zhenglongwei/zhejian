@@ -16,6 +16,14 @@
   color: var(--color-text-secondary);
 }
 
+.album-review-submit__scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
 .album-review-submit__tags {
   display: flex;
   flex-wrap: wrap;

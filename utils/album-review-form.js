@@ -1,19 +1,27 @@
-const { calcOverallScore } = require('./review-score')
-const { emptyReviewScores } = require('../constants/review-dimensions')
+const {
+  calcRepairScore,
+  calcAlbumScore,
+  calcOverallScore,
+} = require('./album-review-score')
+const { emptyAlbumReviewScores, ALL_REVIEW_DIMENSIONS } = require('../constants/album-review-dimensions')
 const {
   ALBUM_REVIEW_CONSENT_TEXT,
   ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   ALBUM_REVIEW_SUCCESS_MESSAGE,
 } = require('../constants/album-review')
 
-const REQUIRED_KEYS = ['scoreService', 'scoreProfessional', 'scoreProcess']
-const MAX_CONTENT = 500
+const MAX_CONTENT = 300
+
+const REVIEW_TAGS_REPAIR_POSITIVE = ['沟通及时', '解释清楚', '施工细致', '交付准时']
+const REVIEW_TAGS_REPAIR_NEGATIVE = ['沟通不足', '等待偏长', '对结果不放心']
+const REVIEW_TAGS_ALBUM_POSITIVE = ['过程记录充分', '照片清晰', '说明易懂']
+const REVIEW_TAGS_ALBUM_NEGATIVE = ['缺关键阶段', '图片不清', '说明难懂']
 
 function validateAlbumReviewForm(form) {
   const scores = form.scores || {}
-  for (const key of REQUIRED_KEYS) {
-    if (!scores[key] || scores[key] < 1) {
-      return { ok: false, message: '请完成服务态度、专业程度与维修过程透明三项评分' }
+  for (const dim of ALL_REVIEW_DIMENSIONS) {
+    if (!scores[dim.key] || scores[dim.key] < 1) {
+      return { ok: false, message: '请完成维修服务与相册记录的全部评分' }
     }
   }
   const content = String(form.content || '').trim()
@@ -27,9 +35,11 @@ function validateAlbumReviewForm(form) {
 }
 
 function buildAlbumReviewPayload(form) {
-  const scores = form.scores || emptyReviewScores()
+  const scores = form.scores || emptyAlbumReviewScores()
   return {
     scores,
+    repairScore: calcRepairScore(scores),
+    albumScore: calcAlbumScore(scores),
     overallScore: calcOverallScore(scores),
     content: String(form.content || '').trim(),
     tags: form.selectedTags || [],
@@ -39,10 +49,23 @@ function buildAlbumReviewPayload(form) {
   }
 }
 
+function resolveReviewTagPool(scores = {}) {
+  const repairAvg =
+    (Number(scores.repairAttitude) + Number(scores.repairTrust)) / 2 || 0
+  const albumAvg =
+    (Number(scores.albumSufficiency) + Number(scores.albumClarity)) / 2 || 0
+  const low = repairAvg <= 3 || albumAvg <= 3
+  if (low) {
+    return [...REVIEW_TAGS_REPAIR_NEGATIVE, ...REVIEW_TAGS_ALBUM_NEGATIVE]
+  }
+  return [...REVIEW_TAGS_REPAIR_POSITIVE, ...REVIEW_TAGS_ALBUM_POSITIVE]
+}
+
 module.exports = {
   ALBUM_REVIEW_CONSENT_TEXT,
   ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   ALBUM_REVIEW_SUCCESS_MESSAGE,
   validateAlbumReviewForm,
   buildAlbumReviewPayload,
+  resolveReviewTagPool,
 }

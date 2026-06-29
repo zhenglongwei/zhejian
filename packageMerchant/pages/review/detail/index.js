@@ -7,10 +7,13 @@ const {
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
 const { REVIEW_DIMENSIONS } = require('../../../../constants/review-dimensions')
+const { ALL_REVIEW_DIMENSIONS } = require('../../../../constants/album-review-dimensions')
 
 function buildScoreRows(scores = {}) {
-  return REVIEW_DIMENSIONS.map((dim) => ({
+  const dims = scores.repairAttitude != null ? ALL_REVIEW_DIMENSIONS : REVIEW_DIMENSIONS
+  return dims.map((dim) => ({
     label: dim.label,
+    hint: dim.hint || '',
     value: scores[dim.key] || 0,
   })).filter((row) => row.value > 0)
 }

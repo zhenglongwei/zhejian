@@ -142,3 +142,14 @@
   margin-top: var(--space-xs);
   color: var(--color-text-tertiary);
 }
+
+.album-info-sheet__verify {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.album-info-sheet__verify-hint {
+  color: var(--color-text-secondary);
+}

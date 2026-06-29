@@ -8,14 +8,21 @@ const {
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
 } = require('../services/album-review.service')
+const {
+  listMerchantPartVerifications,
+  fetchMerchantPartVerifyStats,
+} = require('../services/album-part-verification.service')
 
 const router = express.Router()
 
 router.get('/reviews/stats', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
-    const data = await fetchMerchantReviewStats(storeId)
-    return ok(res, data)
+    const [reviewStats, partStats] = await Promise.all([
+      fetchMerchantReviewStats(storeId),
+      fetchMerchantPartVerifyStats(storeId),
+    ])
+    return ok(res, { ...reviewStats, ...partStats })
   } catch (e) {
     next(e)
   }
@@ -51,6 +58,16 @@ router.post('/reviews/:reviewId/reply', requireAuth(['merchant']), async (req, r
       req.body || {},
     )
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/part-verifications', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const list = await listMerchantPartVerifications(storeId, req.query.tab)
+    return ok(res, { list })
   } catch (e) {
     next(e)
   }

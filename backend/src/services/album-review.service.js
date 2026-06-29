@@ -2,8 +2,9 @@ const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
 const {
+  REPAIR_REVIEW_KEYS,
+  ALBUM_REVIEW_KEYS,
   REVIEW_DIMENSION_KEYS,
-  REQUIRED_REVIEW_DIMENSION_KEYS,
   ALBUM_REVIEW_STATUS,
   MAX_REVIEW_CONTENT,
   MAX_REVIEW_TAGS,
@@ -16,11 +17,28 @@ const { getUserServiceAlbum } = require('./service-album.service')
 
 const COMPLETED_ALBUM_STATUSES = new Set(['completed'])
 
-function calcOverallScore(scores = {}) {
-  const values = REVIEW_DIMENSION_KEYS.map((key) => Number(scores[key]) || 0).filter((v) => v > 0)
+function avgKeys(scores, keys) {
+  const values = keys.map((key) => Number(scores[key]) || 0).filter((v) => v > 0)
   if (!values.length) return 0
   const sum = values.reduce((a, b) => a + b, 0)
   return Math.round((sum / values.length) * 10) / 10
+}
+
+function calcRepairScore(scores = {}) {
+  return avgKeys(scores, REPAIR_REVIEW_KEYS)
+}
+
+function calcAlbumScore(scores = {}) {
+  return avgKeys(scores, ALBUM_REVIEW_KEYS)
+}
+
+function calcOverallScore(scores = {}) {
+  const repair = calcRepairScore(scores)
+  const album = calcAlbumScore(scores)
+  if (!repair && !album) return 0
+  if (!repair) return album
+  if (!album) return repair
+  return Math.round(((repair + album) / 2) * 10) / 10
 }
 
 function sanitizeReviewImages(images) {
@@ -46,9 +64,9 @@ function sanitizeScores(raw = {}) {
 }
 
 function assertReviewScores(scores) {
-  for (const key of REQUIRED_REVIEW_DIMENSION_KEYS) {
+  for (const key of REVIEW_DIMENSION_KEYS) {
     if (!scores[key]) {
-      const err = new Error('请完成服务态度、专业程度与维修过程透明三项评分')
+      const err = new Error('请完成维修服务与相册记录的全部评分')
       err.status = 400
       throw err
     }
@@ -61,6 +79,8 @@ function mapReviewRow(row, extras = {}) {
   const images = Array.isArray(row.imagesJson) ? row.imagesJson : []
   const scores =
     row.scoresJson && typeof row.scoresJson === 'object' ? row.scoresJson : {}
+  const repairScore = row.repairScore || calcRepairScore(scores)
+  const albumScore = row.albumScore || calcAlbumScore(scores)
   return {
     id: row.id,
     albumId: row.albumId,
@@ -68,7 +88,9 @@ function mapReviewRow(row, extras = {}) {
     storeId: row.storeId,
     merchantId: row.merchantId,
     scores,
-    overallScore: row.overallScore,
+    repairScore,
+    albumScore,
+    overallScore: row.overallScore || calcOverallScore(scores),
     content: row.content || '',
     tags,
     images,
@@ -89,6 +111,8 @@ function mapPublicReviewRow(row) {
     orderId: '',
     displayName: '车主',
     overallScore: base.overallScore,
+    repairScore: base.repairScore,
+    albumScore: base.albumScore,
     content: base.content,
     tags: base.tags,
     serviceName: '',
@@ -104,13 +128,15 @@ async function loadAlbumMeta(albumId, userId) {
   const album = await getUserServiceAlbum(albumId, userId)
   const row = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { merchantId: true, storeId: true, status: true },
+    select: { merchantId: true, storeId: true, status: true, partsJson: true },
   })
   const eligible = COMPLETED_ALBUM_STATUSES.has(row?.status || album.status)
+  const parts = Array.isArray(row?.partsJson) ? row.partsJson : []
   return {
     album,
     merchantId: row?.merchantId || '',
     storeId: row?.storeId || album.store?.id || '',
+    partCount: parts.length,
     eligible,
     ineligibleReason: eligible ? '' : '维修完工后可评价本次服务',
   }
@@ -134,7 +160,7 @@ async function getAlbumReviewContext(albumId, userId) {
 }
 
 async function submitServiceAlbumReview(albumId, userId, payload = {}) {
-  const { album, eligible, merchantId, storeId } = await loadAlbumMeta(albumId, userId)
+  const { eligible, merchantId, storeId } = await loadAlbumMeta(albumId, userId)
   if (!eligible) {
     const err = new Error('维修完工后可评价本次服务')
     err.status = 409
@@ -165,6 +191,9 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
     throw err
   }
 
+  const repairScore = calcRepairScore(scores)
+  const albumScore = calcAlbumScore(scores)
+
   const row = await prisma.serviceAlbumReview.create({
     data: {
       id: newId('arv'),
@@ -173,6 +202,8 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       storeId,
       merchantId,
       scoresJson: scores,
+      repairScore,
+      albumScore,
       overallScore: calcOverallScore(scores),
       content,
       tagsJson: sanitizeTags(payload.tags),
@@ -237,11 +268,14 @@ async function listMerchantAlbumReviews(storeId, tab = 'pending') {
     const album = albumMap.get(row.albumId)
     const phone = album?.userPhone || ''
     const phoneTail = phone.length >= 4 ? phone.slice(-4) : ''
+    const mapped = mapReviewRow(row)
     return {
       id: row.id,
       albumId: row.albumId,
       serviceName: album?.serviceName || '服务相册',
-      overallScore: row.overallScore,
+      repairScore: mapped.repairScore,
+      albumScore: mapped.albumScore,
+      overallScore: mapped.overallScore,
       contentPreview: (row.content || '').slice(0, 60),
       authorizePublic: Boolean(row.authorizePublic),
       hasReply: Boolean(row.merchantReply),
@@ -276,7 +310,6 @@ async function getMerchantAlbumReviewById(reviewId, storeId) {
       id: true,
       serviceName: true,
       userPhone: true,
-      serviceId: true,
       status: true,
     },
   })
@@ -339,5 +372,7 @@ module.exports = {
   getMerchantAlbumReviewById,
   replyMerchantAlbumReview,
   mapPublicReviewRow,
+  calcRepairScore,
+  calcAlbumScore,
   calcOverallScore,
 }

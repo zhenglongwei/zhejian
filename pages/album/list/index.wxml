@@ -69,6 +69,7 @@
         bind:tap="onCardTap"
         bind:share="onCardShare"
         bind:authorize="onCardAuthorize"
+        bind:partverify="onCardPartVerify"
       />
     </view>
   </block>

@@ -1,7 +1,8 @@
 .rating-dimensions__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: var(--space-md);
   padding: var(--space-sm) 0;
   border-bottom: 1rpx solid var(--color-border);
 }
@@ -10,9 +11,20 @@
   border-bottom: none;
 }
 
-.rating-dimensions__label {
+.rating-dimensions__copy {
   flex: 1;
-  padding-right: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rating-dimensions__label {
+  padding-right: 0;
+}
+
+.rating-dimensions__hint {
+  color: var(--color-text-tertiary);
+  line-height: var(--line-height-relaxed);
 }
 
 .rating-dimensions__stars {

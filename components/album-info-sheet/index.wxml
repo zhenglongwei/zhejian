@@ -57,6 +57,14 @@
           qty="{{item.qty}}"
           bind:tap="onPartTap"
         />
+        <view wx:if="{{showPartVerifyEntry}}" class="album-info-sheet__verify">
+          <ui-button type="secondary" size="sm" block bind:btntap="onPartVerifyTap">
+            核对更换配件
+          </ui-button>
+          <text wx:if="{{partVerifySummary}}" class="text-caption album-info-sheet__verify-hint">
+            {{partVerifySummary}}
+          </text>
+        </view>
       </block>
 
       <block wx:if="{{hasNotes}}">

@@ -22,6 +22,7 @@
     "pages/album/feedback/index",
     "pages/album/feedback/result/index",
     "pages/album/engage/index",
+    "pages/album/part-verify/index",
     "pages/album/review/submit/index",
     "pages/album/review/result/index",
     "pages/mine/settings/index",

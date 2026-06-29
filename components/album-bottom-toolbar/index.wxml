@@ -33,6 +33,16 @@
           >
             <text class="album-bottom-toolbar__archive-text text-caption">档案</text>
           </view>
+          <view
+            wx:if="{{showParts}}"
+            class="album-bottom-toolbar__archive"
+            hover-class="album-bottom-toolbar__archive--hover"
+            catchtap="onPartsTap"
+            aria-role="button"
+            aria-label="配件"
+          >
+            <text class="album-bottom-toolbar__archive-text text-caption">配件</text>
+          </view>
         </view>
       </view>
       <album-progress-segments

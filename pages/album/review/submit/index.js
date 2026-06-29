@@ -1,31 +1,35 @@
-const { submitAlbumReview } = require('../../../services/album-review')
-const { persistLocalImages } = require('../../../utils/media-upload')
-const { checkAuth } = require('../../../utils/auth')
-const { emptyReviewScores } = require('../../../constants/review-dimensions')
+const { submitAlbumReview } = require('../../../../services/album-review')
+const { persistLocalImages } = require('../../../../utils/media-upload')
+const { checkAuth } = require('../../../../utils/auth')
 const {
-  REVIEW_TAGS_POSITIVE,
-  REVIEW_TAGS_NEGATIVE,
-} = require('../../../constants/review-tags')
+  ALBUM_REVIEW_GROUPS,
+  emptyAlbumReviewScores,
+} = require('../../../../constants/album-review-dimensions')
 const {
   toggleReviewTag,
   reconcileTagsForPool,
   buildTagItems,
-} = require('../../../utils/review-tag-fill')
-const { calcOverallScore } = require('../../../utils/review-score')
+} = require('../../../../utils/review-tag-fill')
+const {
+  calcRepairScore,
+  calcAlbumScore,
+} = require('../../../../utils/album-review-score')
 const {
   ALBUM_REVIEW_CONSENT_TEXT,
   ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   validateAlbumReviewForm,
   buildAlbumReviewPayload,
-} = require('../../../utils/album-review-form')
+  resolveReviewTagPool,
+} = require('../../../../utils/album-review-form')
 
 Page({
   data: {
-    status: 'ready',
     albumId: '',
     albumTitle: '',
-    scores: emptyReviewScores(),
-    overallScore: 0,
+    reviewGroups: ALBUM_REVIEW_GROUPS,
+    scores: emptyAlbumReviewScores(),
+    repairScore: 0,
+    albumScore: 0,
     content: '',
     contentLength: 0,
     selectedTags: [],
@@ -50,10 +54,11 @@ Page({
       setTimeout(() => wx.navigateBack(), 800)
       return
     }
+    wx.setNavigationBarTitle({ title: '服务与记录评价' })
     this.setData({
       albumId,
       albumTitle: albumTitle || '我的服务相册',
-      tagItems: buildTagItems(REVIEW_TAGS_POSITIVE, []),
+      tagItems: buildTagItems(resolveReviewTagPool({}), []),
     })
     if (!checkAuth().ok) {
       this.setData({ loginSheetVisible: true })
@@ -61,21 +66,17 @@ Page({
   },
 
   onScoresChange(e) {
-    const scores = (e.detail && e.detail.values) || emptyReviewScores()
+    const scores = { ...this.data.scores, ...((e.detail && e.detail.values) || {}) }
     this.setData({
       scores,
-      overallScore: calcOverallScore(scores),
+      repairScore: calcRepairScore(scores),
+      albumScore: calcAlbumScore(scores),
     })
     this.syncTagPool(scores)
   },
 
   syncTagPool(scores) {
-    const avg =
-      ['scoreService', 'scoreProfessional', 'scoreProcess']
-        .map((k) => scores[k] || 0)
-        .filter((v) => v > 0)
-    const low = avg.length && avg.reduce((a, b) => a + b, 0) / avg.length <= 3
-    const pool = low ? REVIEW_TAGS_NEGATIVE : REVIEW_TAGS_POSITIVE
+    const pool = resolveReviewTagPool(scores)
     const reconciled = reconcileTagsForPool({
       content: this.data.content,
       selectedTags: this.data.selectedTags,
@@ -104,7 +105,7 @@ Page({
       content: this.data.content,
       selectedTags: this.data.selectedTags,
       tagInsertions: this.data.tagInsertions,
-      maxLength: 500,
+      maxLength: 300,
     })
     if (result.overflow) {
       wx.showToast({ title: '内容过长', icon: 'none' })

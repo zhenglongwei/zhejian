@@ -1,0 +1,104 @@
+<view class="page album-part-verify">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content album-part-verify__pad">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty title="无法打开" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'empty'}}">
+    <view class="page-content">
+      <ui-empty
+        title="暂无登记配件"
+        description="门店尚未在相册中登记更换配件，可稍后再来或通过问题反馈联系门店。"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content album-part-verify__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3">{{albumTitle}}</text>
+        <text class="text-caption text-secondary album-part-verify__intro">
+          你可随时核对相册中登记的更换配件。此为车主自愿留痕，不代替门店告知义务。
+        </text>
+        <text wx:if="{{summaryLabel}}" class="text-caption album-part-verify__summary">{{summaryLabel}}</text>
+      </ui-card>
+
+      <ui-card
+        wx:for="{{parts}}"
+        wx:key="partKey"
+        shadow="{{true}}"
+        padding="{{true}}"
+        class="album-part-verify__part"
+      >
+        <album-part-row
+          variant="card"
+          name="{{item.name}}"
+          part-type="{{item.partType}}"
+          qty="{{item.qty}}"
+          thumb-url="{{item.thumbUrl}}"
+        />
+        <view class="album-part-verify__status-row">
+          <view
+            wx:for="{{statusOptions}}"
+            wx:for-item="opt"
+            wx:key="value"
+            class="album-part-verify__status {{item.status === opt.value ? 'is-active' : ''}}"
+            data-index="{{index}}"
+            data-status="{{opt.value}}"
+            bindtap="onStatusTap"
+          >
+            <text class="text-caption">{{opt.label}}</text>
+          </view>
+        </view>
+        <textarea
+          class="album-part-verify__textarea text-body"
+          placeholder="补充说明（选填）"
+          value="{{item.note}}"
+          maxlength="200"
+          data-index="{{index}}"
+          bindinput="onNoteInput"
+        />
+        <ui-image-uploader
+          images="{{item.images}}"
+          maxCount="{{3}}"
+          data-index="{{index}}"
+          bind:change="onImagesChange"
+        />
+      </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <ui-checkbox-row checked="{{consent}}" bind:toggle="toggleConsent">{{consentText}}</ui-checkbox-row>
+        <view class="album-part-verify__notice">
+          <ui-compliance-notice type="history" text="平台不鉴定配件真伪，仅留存车主核对记录。" />
+        </view>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button
+        type="primary"
+        slot="right"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:btntap="onSubmit"
+      >保存核对记录</ui-button>
+    </ui-fixed-bottom-bar>
+
+    <ui-login-sheet
+      visible="{{loginSheetVisible}}"
+      mode="auto"
+      bindContext="album"
+      bind:close="closeLoginSheet"
+      bind:cancel="closeLoginSheet"
+      bind:success="onLoginSuccess"
+    />
+  </block>
+</view>

@@ -8,6 +8,10 @@ Component({
       type: Object,
       value: {},
     },
+    dimensions: {
+      type: Array,
+      value: [],
+    },
     disabled: {
       type: Boolean,
       value: false,
@@ -23,10 +27,13 @@ Component({
     starRange: STAR_RANGE,
     expanded: false,
     visibleDimensions: [],
-    hasCollapsed: REVIEW_DIMENSIONS.length > COLLAPSE_FROM_INDEX,
+    hasCollapsed: false,
   },
 
   observers: {
+    dimensions(list) {
+      this.syncVisible(list)
+    },
     collapseFrom() {
       this.syncVisible()
     },
@@ -39,15 +46,18 @@ Component({
   },
 
   methods: {
-    syncVisible() {
+    resolveDimensions() {
+      const custom = this.properties.dimensions
+      return Array.isArray(custom) && custom.length ? custom : REVIEW_DIMENSIONS
+    },
+
+    syncVisible(dimensionsOverride) {
+      const dimensions = dimensionsOverride || this.resolveDimensions()
       const { collapseFrom } = this.properties
       const { expanded } = this.data
-      const dimensions = REVIEW_DIMENSIONS
       const hasCollapsed = dimensions.length > collapseFrom
       const visibleDimensions =
-        expanded || !hasCollapsed
-          ? dimensions
-          : dimensions.slice(0, collapseFrom)
+        expanded || !hasCollapsed ? dimensions : dimensions.slice(0, collapseFrom)
       this.setData({ visibleDimensions, hasCollapsed, dimensions })
     },
 

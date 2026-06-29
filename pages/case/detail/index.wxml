@@ -130,7 +130,7 @@
       </view>
 
       <view wx:if="{{ownerReviews.length}}" class="surface-album-panel case-detail__panel">
-        <text class="deep-link-detail__section-title text-h3">车主服务评价</text>
+        <text class="deep-link-detail__section-title text-h3">车主服务与记录评价</text>
         <text class="text-caption text-secondary case-detail__review-hint">
           经车主授权展示摘要，不含个人隐私与未脱敏图片
         </text>
@@ -140,6 +140,10 @@
             wx:key="reviewId"
             class="case-detail__review-item"
           >
+            <view class="case-detail__review-scores">
+              <text class="text-caption">维修服务 {{item.repairScore}}</text>
+              <text class="text-caption">相册记录 {{item.albumScore}}</text>
+            </view>
             <ui-review-card
               reviewId="{{item.reviewId}}"
               displayName="{{item.displayName}}"

@@ -427,6 +427,7 @@ async function resolveUserVehicleForFilter(userId, vehicleId) {
 
 function mapUserServiceAlbumListItem(album) {
   const view = buildAlbumView(album)
+  const parts = Array.isArray(album.partsJson) ? album.partsJson : []
   return {
     id: view.albumId,
     albumId: view.albumId,
@@ -447,6 +448,8 @@ function mapUserServiceAlbumListItem(album) {
     summaryLine: view.summaryLine,
     summaryRows: view.summaryRows,
     partsSummary: view.partsSummary,
+    partCount: parts.length,
+    showPartVerifyLink: parts.length > 0,
   }
 }
 
@@ -568,9 +571,19 @@ async function listUserServiceAlbums(userId, options = {}) {
     )
   }
 
-  return albums
+  const list = albums
     .map((album) => mapUserServiceAlbumListItem(album))
     .filter((item) => item.imageCount > 0)
+
+  const { getPartVerifySummariesForUser } = require('./album-part-verification.service')
+  const summaries = await getPartVerifySummariesForUser(
+    userId,
+    list.map((item) => item.albumId),
+  )
+  return list.map((item) => ({
+    ...item,
+    partVerifySummary: summaries[item.albumId] || null,
+  }))
 }
 
 async function getUserServiceAlbum(albumId, userId) {

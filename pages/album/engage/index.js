@@ -1,5 +1,6 @@
 const { fetchAlbumReviewContext } = require('../../../services/album-review')
-const { checkAuth, getSession } = require('../../../utils/auth')
+const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
+const { checkAuth } = require('../../../utils/auth')
 
 Page({
   data: {
@@ -7,10 +8,11 @@ Page({
     errorMessage: '',
     albumId: '',
     albumTitle: '',
-    storeName: '',
     eligible: false,
     ineligibleReason: '',
     hasReview: false,
+    hasParts: false,
+    partVerifySummary: '',
     loginSheetVisible: false,
   },
 
@@ -34,14 +36,18 @@ Page({
   async loadContext(fallbackTitle = '') {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const data = await fetchAlbumReviewContext(this.data.albumId)
+      const [reviewCtx, partCtx] = await Promise.all([
+        fetchAlbumReviewContext(this.data.albumId),
+        fetchAlbumPartVerifyContext(this.data.albumId).catch(() => null),
+      ])
       this.setData({
         status: 'normal',
-        albumTitle: data.albumTitle || fallbackTitle || '我的服务相册',
-        storeName: data.storeName || '',
-        eligible: Boolean(data.eligible),
-        ineligibleReason: data.ineligibleReason || '',
-        hasReview: Boolean(data.review && data.review.id),
+        albumTitle: reviewCtx.albumTitle || fallbackTitle || '我的服务相册',
+        eligible: Boolean(reviewCtx.eligible),
+        ineligibleReason: reviewCtx.ineligibleReason || '',
+        hasReview: Boolean(reviewCtx.review && reviewCtx.review.id),
+        hasParts: Boolean(partCtx && partCtx.hasParts),
+        partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
       })
     } catch (e) {
       this.setData({
@@ -87,12 +93,11 @@ Page({
 
   onOpenReview() {
     if (!this.ensureAuth()) return
-    const { hasReview, eligible } = this.data
-    if (hasReview) {
+    if (this.data.hasReview) {
       wx.showToast({ title: '你已评价过本次服务', icon: 'none' })
       return
     }
-    if (!eligible) {
+    if (!this.data.eligible) {
       wx.showToast({
         title: this.data.ineligibleReason || '暂不可评价',
         icon: 'none',
@@ -101,6 +106,13 @@ Page({
     }
     wx.navigateTo({
       url: `/pages/album/review/submit/index?${this.buildBaseQuery()}`,
+    })
+  },
+
+  onOpenPartVerify() {
+    if (!this.ensureAuth()) return
+    wx.navigateTo({
+      url: `/pages/album/part-verify/index?${this.buildBaseQuery()}`,
     })
   },
 

@@ -40,7 +40,7 @@
       >
         <view class="merchant-review-list__head">
           <text class="text-h3">{{item.serviceName}}</text>
-          <text class="text-caption">{{item.overallScore}} 分</text>
+          <text class="text-caption">维修 {{item.repairScore}} · 记录 {{item.albumScore}}</text>
         </view>
         <text class="text-caption text-secondary">{{item.ownerHint}} · {{item.createdAt}}</text>
         <text wx:if="{{item.contentPreview}}" class="text-body merchant-review-list__preview">

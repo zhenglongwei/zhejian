@@ -7,12 +7,7 @@
 
   <block wx:elif="{{status === 'error'}}">
     <view class="page-content">
-      <ui-empty
-        title="无法打开"
-        description="{{errorMessage}}"
-        actionText="返回"
-        bind:action="onBack"
-      />
+      <ui-empty title="无法打开" description="{{errorMessage}}" actionText="返回" bind:action="onBack" />
     </view>
   </block>
 
@@ -21,30 +16,46 @@
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="album-engage__section-title text-h3">关于本次服务</text>
         <text class="text-body">{{albumTitle}}</text>
-        <text wx:if="{{storeName}}" class="text-caption album-engage__sub">{{storeName}}</text>
       </ui-card>
 
       <text class="text-caption text-secondary album-engage__hint">
-        服务评价针对本次维修体验；问题反馈针对相册功能或展示，将转达门店与产品改进。
+        服务与记录评价在完工后填写；配件核对可随时进行；问题反馈用于反映具体疑问。
       </text>
 
       <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__option" bindtap="onOpenReview">
         <view class="album-engage__option-head">
-          <text class="text-h3">服务评价</text>
+          <text class="text-h3">服务与记录评价</text>
           <ui-tag wx:if="{{hasReview}}" variant="success" text="已评价" />
           <ui-tag wx:elif="{{!eligible}}" variant="info" text="完工后可评" />
         </view>
         <text class="text-caption text-secondary">
-          对门店服务态度、专业程度与维修过程打分，可选授权展示在公开案例。
+          维修服务与相册记录分开评分，可选授权展示在公开案例。
         </text>
+      </ui-card>
+
+      <ui-card
+        wx:if="{{hasParts}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+        class="album-engage__option"
+        bindtap="onOpenPartVerify"
+      >
+        <view class="album-engage__option-head">
+          <text class="text-h3">核对配件</text>
+          <ui-tag variant="info" text="可随时填写" />
+        </view>
+        <text class="text-caption text-secondary">
+          核对相册登记的更换配件是否与实物一致，与评价无关。
+        </text>
+        <text wx:if="{{partVerifySummary}}" class="text-caption album-engage__sub">{{partVerifySummary}}</text>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__option" bindtap="onOpenFeedback">
         <view class="album-engage__option-head">
-          <text class="text-h3">相册问题反馈</text>
+          <text class="text-h3">问题反馈</text>
         </view>
         <text class="text-caption text-secondary">
-          图片看不清、节点缺失、车辆信息有误等相册体验问题。
+          图片看不清、节点缺失、车辆信息有误等具体问题。
         </text>
       </ui-card>
     </view>

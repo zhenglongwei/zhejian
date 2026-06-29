@@ -44,6 +44,13 @@
       >{{contactLabel}}</ui-button>
 
       <ui-button
+        wx:if="{{showPartVerify}}"
+        type="ghost"
+        block
+        bind:btntap="onPartVerifyTap"
+      >{{partVerifyLabel}}</ui-button>
+
+      <ui-button
         wx:if="{{showFeedback}}"
         type="ghost"
         block

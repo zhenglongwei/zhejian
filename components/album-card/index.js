@@ -45,6 +45,12 @@ Component({
       this.triggerEvent('share', { id: item.albumId })
     },
 
+    onPartVerifyTap() {
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('partverify', { id: item.albumId, title: item.serviceName || '' })
+    },
+
     onAuthTap() {
       const { item } = this.properties
       if (!item || !item.albumId) return

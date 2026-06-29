@@ -96,6 +96,14 @@
   padding-right: 0;
 }
 
+.case-detail__review-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
 .case-detail__review-hint {
   display: block;
   margin-bottom: var(--space-sm);

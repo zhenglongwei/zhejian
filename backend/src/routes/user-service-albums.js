@@ -19,6 +19,10 @@ const {
   getAlbumReviewContext,
   submitServiceAlbumReview,
 } = require('../services/album-review.service')
+const {
+  loadAlbumPartsContext,
+  saveAlbumPartVerifications,
+} = require('../services/album-part-verification.service')
 
 const router = express.Router()
 
@@ -169,6 +173,28 @@ router.get('/service-albums/:albumId/review', requireAuth(['user']), async (req,
 router.post('/service-albums/:albumId/review', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await submitServiceAlbumReview(
+      req.params.albumId,
+      req.auth.userId,
+      req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/part-verifications', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await loadAlbumPartsContext(req.params.albumId, req.auth.userId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/part-verifications', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await saveAlbumPartVerifications(
       req.params.albumId,
       req.auth.userId,
       req.body || {},

@@ -196,6 +196,20 @@ Page({
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}${coverQuery}` })
   },
 
+  onCardPartVerify(e) {
+    const { id, title } = e.detail || {}
+    if (!id) return
+    if (!checkAuth().ok) {
+      this.setData({ loginSheetVisible: true })
+      return
+    }
+    wx.navigateTo({
+      url:
+        `/pages/album/part-verify/index?albumId=${encodeURIComponent(id)}` +
+        `&albumTitle=${encodeURIComponent(title || '')}`,
+    })
+  },
+
   async loadActionDetail(albumId) {
     const detail = await fetchServiceAlbum(albumId)
     this.actionAlbumId = albumId

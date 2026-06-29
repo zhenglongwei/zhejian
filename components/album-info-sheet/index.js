@@ -64,6 +64,14 @@ Component({
       type: Boolean,
       value: false,
     },
+    partVerifySummary: {
+      type: String,
+      value: '',
+    },
+    showPartVerifyEntry: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {
@@ -128,6 +136,10 @@ Component({
 
     onStoreTap() {
       this.triggerEvent('storetap')
+    },
+
+    onPartVerifyTap() {
+      this.triggerEvent('verifytap')
     },
   },
 })
