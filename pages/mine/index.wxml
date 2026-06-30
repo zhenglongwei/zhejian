@@ -56,10 +56,12 @@
               item="{{item}}"
               audience="user"
               showProgress="{{true}}"
-              showHeaderActions="{{false}}"
+              showHeaderActions="{{true}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
+              bind:authorize="onAlbumCardAuthorize"
+              bind:share="onAlbumCardShare"
             />
           </view>
         </block>
@@ -147,4 +149,47 @@
   bind:close="closeLoginSheet"
   bind:cancel="closeLoginSheet"
   bind:success="onLoginSheetSuccess"
+/>
+
+<ui-bottom-sheet
+  visible="{{authSheetVisible}}"
+  title="授权公示"
+  showActions="{{false}}"
+  scrollable="{{true}}"
+  bind:close="onCloseAuthSheet"
+>
+  <ui-album-authorize-section
+    checked="{{authChecked}}"
+    authTier="{{authTier}}"
+    submitting="{{authSubmitting}}"
+    showActions="{{false}}"
+    showRejectLink="{{true}}"
+    bind:toggle="onAuthCheckToggle"
+    bind:tierchange="onAuthTierChange"
+    bind:reject="onRejectAuth"
+    bind:policy="onOpenBenefitPolicy"
+  />
+  <view class="mine__auth-submit">
+    <ui-button
+      type="primary"
+      block
+      disabled="{{authSubmitting}}"
+      loading="{{authSubmitting}}"
+      bind:btntap="onSubmitAuth"
+    >确认并进入脱敏预览</ui-button>
+  </view>
+</ui-bottom-sheet>
+
+<ui-share-sheet
+  visible="{{shareSheetVisible}}"
+  showOwnerShare="{{showShareEntry}}"
+  shareIntent="{{shareSheetIntent}}"
+  shareUseOriginal="{{shareUseOriginal}}"
+  ownerSharePreparing="{{sharePreparing}}"
+  actionsDisabled="{{shareActionsDisabled}}"
+  bind:close="onCloseShareSheet"
+  bind:toggleoriginal="onShareOriginalToggle"
+  bind:copyownerlink="onCopyOwnerShareLink"
+  bind:copypublicweblink="onCopyPublicWebLink"
+  bind:sharetimeline="onShareTimelineGuide"
 />

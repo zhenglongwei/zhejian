@@ -1,5 +1,6 @@
 const { fetchAlbumReviewContext, submitAlbumReview } = require('../../../services/album-review')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
+const { fetchServiceAlbum } = require('../../../services/service-album')
 const { persistLocalImages } = require('../../../utils/media-upload')
 const { checkAuth } = require('../../../utils/auth')
 const {
@@ -16,49 +17,21 @@ const {
   calcAlbumScore,
 } = require('../../../utils/album-review-score')
 const {
-  ALBUM_REVIEW_CONSENT_TEXT,
-  ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   validateAlbumReviewForm,
   buildAlbumReviewPayload,
   resolveReviewTagPool,
 } = require('../../../utils/album-review-form')
 const {
-  resolveReviewStepLabel,
-  resolveReviewStepVariant,
-  resolveAuthorizeStepLabel,
-  resolveAuthorizeStepVariant,
-  buildFlowGuideText,
-  buildPublicConsentHint,
-  buildReviewSyncedHint,
-  buildReviewImageMaskHint,
-  canStartAuthorizePublic,
-} = require('../../../utils/album-public-case-flow')
+  albumAuthShareData,
+  buildAlbumActionState,
+  createAlbumAuthShareHandlers,
+} = require('../../../utils/album-auth-share-handlers')
 
-function buildFlowView(reviewCtx, hasReview) {
-  const publicCaseStatus = reviewCtx.publicCaseStatus || 'private'
-  const reviewAuthorizePublic = Boolean(reviewCtx.reviewAuthorizePublic)
-  const imagesMaskStatus = reviewCtx.imagesMaskStatus || 'none'
-  return {
-    publicCaseStatus,
-    canAuthorizePublic: Boolean(reviewCtx.canAuthorizePublic),
-    reviewAuthorizePublic,
-    imagesMaskStatus,
-    publicImagesReady: Boolean(reviewCtx.publicImagesReady),
-    imageMaskHint: buildReviewImageMaskHint(imagesMaskStatus),
-    flowGuideText: buildFlowGuideText(),
-    reviewStepLabel: resolveReviewStepLabel(hasReview),
-    reviewStepVariant: resolveReviewStepVariant(hasReview),
-    authorizeStepLabel: resolveAuthorizeStepLabel(publicCaseStatus),
-    authorizeStepVariant: resolveAuthorizeStepVariant(publicCaseStatus),
-    publicConsentHint: buildPublicConsentHint(publicCaseStatus),
-    reviewSyncedHint: buildReviewSyncedHint(
-      publicCaseStatus,
-      reviewAuthorizePublic,
-      imagesMaskStatus,
-    ),
-    showAuthorizeCta: canStartAuthorizePublic(publicCaseStatus, reviewCtx.eligible),
-  }
-}
+const authShareHandlers = createAlbumAuthShareHandlers({
+  onAuthChanged() {
+    return this.loadContext(this.data.albumTitle)
+  },
+})
 
 Page({
   data: {
@@ -84,28 +57,13 @@ Page({
     tagItems: [],
     form: {
       images: [],
-      consent: false,
-      authorizePublic: false,
     },
-    consentText: ALBUM_REVIEW_CONSENT_TEXT,
-    publicConsentText: ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
-    publicConsentHint: '',
-    reviewSyncedHint: '',
-    flowGuideText: '',
-    reviewStepLabel: '待填写',
-    reviewStepVariant: 'info',
-    authorizeStepLabel: '未授权',
-    authorizeStepVariant: 'info',
-    publicCaseStatus: 'private',
-    canAuthorizePublic: false,
-    reviewAuthorizePublic: false,
-    showAuthorizeCta: false,
-    imagesMaskStatus: 'none',
-    publicImagesReady: false,
-    imageMaskHint: '',
     submitting: false,
     loginSheetVisible: false,
+    ...albumAuthShareData(),
   },
+
+  ...authShareHandlers,
 
   onLoad(options) {
     const albumId = String(options.albumId || '').trim()
@@ -117,6 +75,7 @@ Page({
       })
       return
     }
+    this.actionAlbumId = albumId
     this.setData({
       albumId,
       albumTitle,
@@ -131,15 +90,21 @@ Page({
   async loadContext(fallbackTitle = '') {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const [reviewCtx, partCtx] = await Promise.all([
+      const [reviewCtx, partCtx, albumDetail] = await Promise.all([
         fetchAlbumReviewContext(this.data.albumId),
         fetchAlbumPartVerifyContext(this.data.albumId).catch(() => null),
+        fetchServiceAlbum(this.data.albumId).catch(() => null),
       ])
       const review = reviewCtx.review || null
       const hasReview = Boolean(review && review.id)
+      const actionState = albumDetail ? buildAlbumActionState(albumDetail) : {}
+      const albumTitle = reviewCtx.albumTitle || fallbackTitle || '我的服务相册'
+      wx.setNavigationBarTitle({
+        title: hasReview ? '评价已提交' : '评价与反馈',
+      })
       this.setData({
         status: 'normal',
-        albumTitle: reviewCtx.albumTitle || fallbackTitle || '我的服务相册',
+        albumTitle,
         eligible: Boolean(reviewCtx.eligible),
         ineligibleReason: reviewCtx.ineligibleReason || '',
         hasReview,
@@ -147,9 +112,8 @@ Page({
         existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
         hasParts: Boolean(partCtx && partCtx.hasParts),
         partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
-        consentText: reviewCtx.consentText || ALBUM_REVIEW_CONSENT_TEXT,
-        publicConsentText: reviewCtx.publicConsentText || ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
-        ...buildFlowView(reviewCtx, hasReview),
+        actionDetail: albumDetail,
+        ...actionState,
       })
     } catch (e) {
       this.setData({
@@ -205,10 +169,6 @@ Page({
     wx.navigateTo({
       url: `/pages/album/part-verify/index?${this.buildBaseQuery()}`,
     })
-  },
-
-  onGoAuthorize() {
-    wx.navigateBack({ delta: 1 })
   },
 
   onScoresChange(e) {
@@ -271,14 +231,6 @@ Page({
     this.setData({ 'form.images': e.detail.images || [] })
   },
 
-  toggleConsent() {
-    this.setData({ 'form.consent': !this.data.form.consent })
-  },
-
-  toggleAuthorizePublic() {
-    this.setData({ 'form.authorizePublic': !this.data.form.authorizePublic })
-  },
-
   async onSubmit() {
     if (this.data.submitting || this.data.hasReview) return
     if (!this.ensureAuth()) return
@@ -295,8 +247,7 @@ Page({
       content: this.data.content,
       selectedTags: this.data.selectedTags,
       images: this.data.form.images,
-      consent: this.data.form.consent,
-      authorizePublic: this.data.form.authorizePublic,
+      consent: true,
     }
     const validation = validateAlbumReviewForm(form)
     if (!validation.ok) {
@@ -315,34 +266,21 @@ Page({
         payload = { ...payload, images }
       }
       const review = await submitAlbumReview(this.data.albumId, payload)
-      const reviewAuthorizePublic = Boolean(payload.authorizePublic)
-      const imagesMaskStatus =
-        (review && review.imagesMaskStatus) ||
-        (reviewAuthorizePublic && form.images && form.images.length ? 'pending' : 'none')
-      const flowPatch = buildFlowView(
-        {
-          publicCaseStatus: this.data.publicCaseStatus,
-          eligible: this.data.eligible,
-          canAuthorizePublic: this.data.canAuthorizePublic,
-          reviewAuthorizePublic,
-          imagesMaskStatus,
-          publicImagesReady: Boolean(review && review.publicImagesReady),
-        },
-        true,
-      )
+      const hasImages = Boolean(form.images && form.images.length)
+      const imagesMaskStatus = (review && review.imagesMaskStatus) || (hasImages ? 'pending' : 'none')
+      wx.setNavigationBarTitle({ title: '评价已提交' })
       this.setData({
         hasReview: true,
         existingRepairScore: Number(review.repairScore) || payload.repairScore || 0,
         existingAlbumScore: Number(review.albumScore) || payload.albumScore || 0,
-        reviewAuthorizePublic,
-        ...flowPatch,
       })
+      await this.loadContext(this.data.albumTitle)
       const toastTitle =
-        reviewAuthorizePublic && form.images && form.images.length
-          ? flowPatch.publicImagesReady
-            ? '评价已提交，配图已脱敏'
-            : '评价已提交，配图脱敏处理中'
-          : '评价已提交'
+        hasImages && imagesMaskStatus === 'ready'
+          ? '评价已提交，配图已脱敏'
+          : hasImages
+            ? '评价已提交，配图脱敏处理中'
+            : '评价已提交'
       wx.showToast({ title: toastTitle, icon: 'success' })
     } catch (e) {
       wx.showToast({
@@ -352,5 +290,9 @@ Page({
     } finally {
       this.setData({ submitting: false })
     }
+  },
+
+  onShareAppMessage() {
+    return this.buildShareAppMessagePayload()
   },
 })

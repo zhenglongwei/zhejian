@@ -37,26 +37,7 @@ const {
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
 
-function initShareState(detail) {
-  const showShareEntry = canOwnerShareAlbum(detail)
-  const shareCase = buildShareableCaseFromAlbum(detail)
-  const showPublicCaseShare =
-    detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
-  const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
-  return {
-    showShareEntry,
-    showPublicCaseShare,
-    showShareButton: showShareEntry || showPublicCaseShare,
-    defaultShareIntent,
-    shareSheetIntent: defaultShareIntent,
-    shareActionsDisabled: showShareEntry,
-    shareReady: false,
-    shareToken: '',
-    shareUseOriginal: false,
-    sharePreparing: false,
-    shareMode: SHARE_MODE.DESENSITIZED,
-  }
-}
+const { initAlbumShareState } = require('../../../utils/album-share-state')
 
 Page({
   data: {
@@ -224,7 +205,7 @@ Page({
       wx.showLoading({ title: '加载中', mask: true })
       const detail = await this.loadActionDetail(id)
       wx.hideLoading()
-      const shareState = initShareState(detail)
+      const shareState = initAlbumShareState(detail)
       this.setData({
         ...shareState,
         shareSheetVisible: true,

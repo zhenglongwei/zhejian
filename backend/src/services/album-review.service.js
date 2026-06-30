@@ -218,11 +218,9 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
   const repairScore = calcRepairScore(scores)
   const albumScore = calcAlbumScore(scores)
   const sanitizedImages = sanitizeReviewImages(payload.images)
-  const authorizePublic = Boolean(payload.authorizePublic)
-  const initialMaskStatus =
-    authorizePublic && sanitizedImages.length
-      ? REVIEW_IMAGE_MASK_STATUS.PENDING
-      : REVIEW_IMAGE_MASK_STATUS.NONE
+  const initialMaskStatus = sanitizedImages.length
+    ? REVIEW_IMAGE_MASK_STATUS.PENDING
+    : REVIEW_IMAGE_MASK_STATUS.NONE
 
   let row = await prisma.serviceAlbumReview.create({
     data: {
@@ -240,13 +238,13 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       imagesJson: sanitizedImages,
       imagesMaskedJson: [],
       imagesMaskStatus: initialMaskStatus,
-      authorizePublic,
+      authorizePublic: false,
       consent: true,
       status: ALBUM_REVIEW_STATUS.SUBMITTED,
     },
   })
 
-  if (authorizePublic && sanitizedImages.length) {
+  if (sanitizedImages.length) {
     try {
       await maskReviewImagesForRow({
         reviewId: row.id,
@@ -269,7 +267,6 @@ async function listPublicReviewsForAlbum(albumId) {
   const rows = await prisma.serviceAlbumReview.findMany({
     where: {
       albumId,
-      authorizePublic: true,
       status: { in: [ALBUM_REVIEW_STATUS.SUBMITTED, ALBUM_REVIEW_STATUS.REPLIED] },
     },
     orderBy: { createdAt: 'desc' },

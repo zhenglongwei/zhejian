@@ -41,8 +41,7 @@ function hasUsableMaskedImages(row) {
 }
 
 function shouldRemaskReviewImages(row, { force = false } = {}) {
-  if (!row?.authorizePublic) return false
-  const rawUrls = parseRawReviewImages(row.imagesJson)
+  const rawUrls = parseRawReviewImages(row?.imagesJson)
   if (!rawUrls.length) return false
   if (force) return true
   if (row.imagesMaskStatus === REVIEW_IMAGE_MASK_STATUS.PENDING) return true
@@ -109,12 +108,9 @@ async function ensureReviewImagesMasked(row, options = {}) {
 }
 
 function getPublicReviewImages(row) {
-  if (!row?.authorizePublic) {
-    return { images: [], imagesApproved: false, imagesMaskStatus: REVIEW_IMAGE_MASK_STATUS.NONE }
-  }
-  const maskedUrls = parseMaskedReviewImages(row.imagesMaskedJson)
-  const rawUrls = parseRawReviewImages(row.imagesJson)
-  const status = String(row.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE)
+  const maskedUrls = parseMaskedReviewImages(row?.imagesMaskedJson)
+  const rawUrls = parseRawReviewImages(row?.imagesJson)
+  const status = String(row?.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE)
   const imagesApproved =
     maskedUrls.length > 0 &&
     [REVIEW_IMAGE_MASK_STATUS.READY, REVIEW_IMAGE_MASK_STATUS.PARTIAL].includes(status)

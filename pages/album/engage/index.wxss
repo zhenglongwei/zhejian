@@ -1,32 +1,3 @@
-.album-engage__flow-note {
-  display: block;
-  margin-top: var(--space-sm);
-  line-height: var(--line-height-relaxed);
-}
-
-.album-engage__flow-steps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.album-engage__flow-step {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.album-engage__flow-action {
-  margin-top: var(--space-md);
-}
-
-.album-engage__consent-hint {
-  display: block;
-  margin-top: var(--space-xs);
-  line-height: var(--line-height-relaxed);
-}
-
 .album-engage__pad {
   padding: var(--space-md) var(--page-padding-x);
 }
@@ -53,40 +24,50 @@
   padding-bottom: calc(var(--space-xl) + var(--fixed-bottom-bar-height));
 }
 
+.album-engage__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-engage__album-title {
+  display: block;
+  color: var(--color-text-primary);
+}
+
+.album-engage__done-hint {
+  display: block;
+}
+
+.album-engage__actions-card {
+  display: block;
+}
+
+.album-engage__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-engage__action-hint {
+  display: block;
+  text-align: center;
+}
+
+.album-engage__auth-submit {
+  padding: var(--space-md) var(--page-padding-x) var(--space-lg);
+}
+
+.album-engage__score-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
 .album-engage__section-title {
   display: block;
   margin-bottom: var(--space-sm);
-}
-
-.album-engage__scores {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-}
-
-.album-engage__sub {
-  display: block;
-  margin-top: var(--space-xs);
-  color: var(--color-text-secondary);
-}
-
-.album-engage__hint {
-  display: block;
-  line-height: var(--line-height-relaxed);
-}
-
-.album-engage__option-head {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.album-engage__option {
-  display: block;
 }
 
 .album-engage__tags {
@@ -112,6 +93,34 @@
   margin-top: var(--space-sm);
 }
 
-.album-engage__consent + .album-engage__consent {
-  margin-top: var(--space-sm);
+.album-engage__option-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.album-engage__cell-card {
+  display: block;
+}
+
+.album-engage__cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.album-engage__cell-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.album-engage__chevron {
+  font-size: var(--font-size-h2);
+  line-height: 1;
+  flex-shrink: 0;
 }

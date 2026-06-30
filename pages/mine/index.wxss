@@ -183,3 +183,7 @@
 .mine__h5-outlet:active {
   opacity: 0.72;
 }
+
+.mine__auth-submit {
+  padding: var(--space-md) var(--page-padding-x) var(--space-lg);
+}

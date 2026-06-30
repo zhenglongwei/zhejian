@@ -6,12 +6,14 @@
     "ui-card": "/components/card/index",
     "ui-button": "/components/button/index",
     "ui-tag": "/components/tag/index",
-    "ui-checkbox-row": "/components/checkbox-row/index",
     "ui-image-uploader": "/components/image-uploader/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "ui-rating-dimensions": "/components/rating-dimensions/index",
     "ui-review-tag-chip": "/components/review-tag-chip/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-login-sheet": "/components/login-sheet/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index",
+    "ui-album-authorize-section": "/components/album-authorize-section/index",
+    "ui-share-sheet": "/components/share-sheet/index"
   }
 }

@@ -40,6 +40,17 @@ function enrichRecentAlbums(albums = []) {
     )
 }
 
+const {
+  albumAuthShareData,
+  createAlbumAuthShareHandlers,
+} = require('../../utils/album-auth-share-handlers')
+
+const authShareHandlers = createAlbumAuthShareHandlers({
+  onAuthChanged() {
+    return this.loadPage({ silent: true })
+  },
+})
+
 Page({
   data: {
     status: 'loading',
@@ -64,7 +75,10 @@ Page({
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
     h5OutletText: MINE_H5_OUTLET_TEXT,
+    ...albumAuthShareData(),
   },
+
+  ...authShareHandlers,
 
   onLoad() {
     syncAppSession()
@@ -295,6 +309,20 @@ Page({
     const id = (e.detail && e.detail.id) || ''
     if (!id || !this.guardProtectedEntry(true)) return
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+  },
+
+  onAlbumCardAuthorize(e) {
+    if (!this.guardProtectedEntry(true)) return
+    return this.onCardAuthorize(e)
+  },
+
+  onAlbumCardShare(e) {
+    if (!this.guardProtectedEntry(true)) return
+    return this.onCardShare(e)
+  },
+
+  onShareAppMessage() {
+    return this.buildShareAppMessagePayload()
   },
 
   onTodoItemTap(e) {
