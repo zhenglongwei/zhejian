@@ -406,8 +406,9 @@ model ServiceAlbumReview {
   tagsJson          Json      @default("[]") @map("tags_json")
   imagesJson        Json      @default("[]") @map("images_json")
   imagesMaskedJson  Json      @default("[]") @map("images_masked_json")
-  imagesMaskStatus  String    @default("none") @map("images_mask_status")
-  authorizePublic   Boolean   @default(false) @map("authorize_public")
+  imagesMaskStatus        String    @default("none") @map("images_mask_status")
+  imagesPreviewConfirmed  Boolean   @default(false) @map("images_preview_confirmed")
+  authorizePublic         Boolean   @default(false) @map("authorize_public")
   consent           Boolean   @default(false)
   status            String    @default("submitted")
   merchantReply     String    @default("") @map("merchant_reply") @db.Text

@@ -6,6 +6,7 @@ const BIZ_TYPE = {
   SERVICE_PRE_MASK: 'service_pre_mask',
   ORDER_AUTHORIZE: 'order_authorize',
   SERVICE_AUTHORIZE: 'service_authorize',
+  SERVICE_REVIEW_PREVIEW: 'service_review_preview',
   MERCHANT_HISTORY: 'merchant_history',
 }
 
@@ -129,6 +130,10 @@ function buildMerchantColdStartTaskId(albumId) {
   return `task_mch_${albumId}`
 }
 
+function buildReviewPreviewTaskId(reviewId) {
+  return `task_review_preview_${reviewId}`
+}
+
 function albumToNodeView(album) {
   const imagesByNode = {}
   ;(album.images || []).forEach((img) => {
@@ -157,5 +162,6 @@ module.exports = {
   buildPreMaskTaskId,
   buildAuthorizeTaskId,
   buildMerchantColdStartTaskId,
+  buildReviewPreviewTaskId,
   albumToNodeView,
 }

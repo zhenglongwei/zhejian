@@ -99,28 +99,3 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
 }
-
-.album-engage__cell-card {
-  display: block;
-}
-
-.album-engage__cell {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.album-engage__cell-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2rpx;
-  flex: 1;
-  min-width: 0;
-}
-
-.album-engage__chevron {
-  font-size: var(--font-size-h2);
-  line-height: 1;
-  flex-shrink: 0;
-}

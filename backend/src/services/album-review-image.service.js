@@ -113,7 +113,8 @@ function getPublicReviewImages(row) {
   const status = String(row?.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE)
   const imagesApproved =
     maskedUrls.length > 0 &&
-    [REVIEW_IMAGE_MASK_STATUS.READY, REVIEW_IMAGE_MASK_STATUS.PARTIAL].includes(status)
+    [REVIEW_IMAGE_MASK_STATUS.READY, REVIEW_IMAGE_MASK_STATUS.PARTIAL].includes(status) &&
+    Boolean(row?.imagesPreviewConfirmed)
   return {
     images: imagesApproved ? maskedUrls : [],
     imagesApproved,

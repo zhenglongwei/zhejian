@@ -21,6 +21,15 @@ const {
   ensureReviewImagesMasked,
   getPublicReviewImages,
 } = require('./album-review-image.service')
+const { createReviewImagePreviewTask } = require('./desensitize.service')
+
+const AUTHORIZED_PUBLIC_STATUSES = new Set(['pending_review', 'public_approved'])
+
+function resolveNeedsReviewImagePreview(row, publicCaseStatus) {
+  if (!row || row.imagesPreviewConfirmed) return false
+  if (!parseRawReviewImages(row.imagesJson).length) return false
+  return AUTHORIZED_PUBLIC_STATUSES.has(publicCaseStatus || '')
+}
 
 const COMPLETED_ALBUM_STATUSES = new Set(['completed'])
 
@@ -104,6 +113,7 @@ function mapReviewRow(row, extras = {}) {
     images,
     imagesMaskStatus: row.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
     publicImagesReady: publicImages.imagesApproved,
+    imagesPreviewConfirmed: Boolean(row.imagesPreviewConfirmed),
     authorizePublic: Boolean(row.authorizePublic),
     status: row.status,
     merchantReply: row.merchantReply || '',
@@ -177,6 +187,7 @@ async function getAlbumReviewContext(albumId, userId) {
     reviewAuthorizePublic,
     imagesMaskStatus: existing?.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
     publicImagesReady: reviewMapped ? reviewMapped.publicImagesReady : false,
+    needsReviewImagePreview: resolveNeedsReviewImagePreview(existing, publicCaseStatus),
     review: reviewMapped,
     consentText: ALBUM_REVIEW_CONSENT_TEXT,
     publicConsentText: ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
@@ -184,7 +195,7 @@ async function getAlbumReviewContext(albumId, userId) {
 }
 
 async function submitServiceAlbumReview(albumId, userId, payload = {}) {
-  const { eligible, merchantId, storeId } = await loadAlbumMeta(albumId, userId)
+  const { eligible, merchantId, storeId, publicCaseStatus } = await loadAlbumMeta(albumId, userId)
   if (!eligible) {
     const err = new Error('维修完工后可评价本次服务')
     err.status = 409
@@ -260,7 +271,24 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
     }
   }
 
-  return mapReviewRow(row)
+  let reviewPreview = null
+  if (resolveNeedsReviewImagePreview(row, publicCaseStatus)) {
+    try {
+      reviewPreview = await createReviewImagePreviewTask(row.id, userId)
+    } catch (e) {
+      console.warn('[review] create preview task failed', {
+        reviewId: row.id,
+        message: e && e.message,
+      })
+    }
+  }
+
+  const mapped = mapReviewRow(row)
+  return {
+    ...mapped,
+    needsReviewImagePreview: Boolean(reviewPreview),
+    reviewPreviewTaskId: (reviewPreview && reviewPreview.taskId) || '',
+  }
 }
 
 async function listPublicReviewsForAlbum(albumId) {

@@ -8,7 +8,9 @@ const {
   applyManualMask,
   markAssetPreviewed,
   confirmOrderAuthorizeTask,
+  confirmReviewImagePreviewTask,
 } = require('../services/desensitize.service')
+const { BIZ_TYPE } = require('../services/desensitize.constants')
 
 const router = express.Router()
 
@@ -71,10 +73,22 @@ router.post('/tasks/:taskId/assets/:assetId/previewed', requireAuth(['user', 'me
 
 router.post('/tasks/:taskId/confirm', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
-    const task = await confirmOrderAuthorizeTask(req.params.taskId, {
+    const task = await getTaskById(req.params.taskId)
+    if (!task) {
+      const err = new Error('脱敏任务不存在')
+      err.status = 404
+      throw err
+    }
+    const payload = {
       liabilityAccepted: Boolean(req.body && req.body.liabilityAccepted),
-    })
-    return ok(res, { task })
+    }
+    let confirmed
+    if (task.bizType === BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
+      confirmed = await confirmReviewImagePreviewTask(req.params.taskId, payload)
+    } else {
+      confirmed = await confirmOrderAuthorizeTask(req.params.taskId, payload)
+    }
+    return ok(res, { task: confirmed })
   } catch (e) {
     next(e)
   }

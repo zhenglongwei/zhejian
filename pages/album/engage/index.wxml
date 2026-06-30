@@ -28,11 +28,17 @@
           <text wx:if="{{existingAlbumScore > 0}}" class="text-caption text-secondary">记录 {{existingAlbumScore}}</text>
         </view>
 
-        <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
+        <ui-card wx:if="{{hasReview && (showAuthAction || showShareButton || showStoreBrowse || hasParts || needsReviewImagePreview)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
           <view class="album-engage__actions">
+            <ui-button
+              wx:if="{{needsReviewImagePreview}}"
+              type="secondary"
+              block
+              bind:btntap="onOpenReviewImagePreview"
+            >核对评价配图</ui-button>
             <block wx:if="{{showAuthAction}}">
               <ui-button
-                type="primary"
+                type="secondary"
                 block
                 disabled="{{authDisabled}}"
                 bind:btntap="onOpenAuthorize"
@@ -51,6 +57,10 @@
               block
               bind:btntap="onOpenLinkedStore"
             >查看门店主页</ui-button>
+            <block wx:if="{{hasParts}}">
+              <ui-button type="secondary" block bind:btntap="onOpenPartVerify">核对配件</ui-button>
+              <text wx:if="{{partVerifySummary}}" class="album-engage__action-hint text-caption text-secondary">{{partVerifySummary}}</text>
+            </block>
           </view>
         </ui-card>
       </block>
@@ -117,20 +127,17 @@
       </block>
 
       <ui-card
-        wx:if="{{hasParts}}"
+        wx:if="{{hasParts && !hasReview}}"
         shadow="{{true}}"
         padding="{{true}}"
-        class="album-engage__cell-card"
-        bindtap="onOpenPartVerify"
+        class="album-engage__actions-card"
       >
-        <view class="album-engage__cell">
-          <view class="album-engage__cell-main">
-            <text class="text-body">核对配件</text>
-            <text wx:if="{{partVerifySummary}}" class="text-caption text-secondary">{{partVerifySummary}}</text>
-          </view>
-          <text class="album-engage__chevron text-secondary">›</text>
+        <view class="album-engage__actions">
+          <ui-button type="secondary" block bind:btntap="onOpenPartVerify">核对配件</ui-button>
+          <text wx:if="{{partVerifySummary}}" class="album-engage__action-hint text-caption text-secondary">{{partVerifySummary}}</text>
         </view>
       </ui-card>
+
     </view>
 
     <ui-fixed-bottom-bar wx:if="{{eligible && !hasReview}}">

@@ -183,6 +183,30 @@ router.post('/service-albums/:albumId/review', requireAuth(['user']), async (req
   }
 })
 
+router.post('/service-albums/:albumId/review/image-preview', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const { prisma } = require('../lib/prisma')
+    const { createReviewImagePreviewTask } = require('../services/desensitize.service')
+    const review = await prisma.serviceAlbumReview.findUnique({
+      where: {
+        albumId_userId: {
+          albumId: req.params.albumId,
+          userId: req.auth.userId,
+        },
+      },
+    })
+    if (!review) {
+      const err = new Error('请先提交评价')
+      err.status = 404
+      throw err
+    }
+    const data = await createReviewImagePreviewTask(review.id, req.auth.userId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/service-albums/:albumId/part-verifications', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await loadAlbumPartsContext(req.params.albumId, req.auth.userId)

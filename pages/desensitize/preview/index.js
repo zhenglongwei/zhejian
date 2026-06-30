@@ -46,12 +46,20 @@ Page({
     const taskId = (query && query.taskId) || ''
     const albumId = (query && query.albumId) || ''
     const orderId = (query && query.orderId) || ''
+    const albumTitle = decodeURIComponent((query && query.albumTitle) || '')
     const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
     const authTier = query && query.tier === 'anonymous' ? 'anonymous' : 'named'
-    const copyKey =
-      source === 'service' ? BIZ_TYPE.SERVICE_AUTHORIZE : BIZ_TYPE.ORDER_AUTHORIZE
-    const copy = LIABILITY_COPY[copyKey]
+    const isReviewPreview = source === 'review'
+    const copyKey = isReviewPreview
+      ? BIZ_TYPE.SERVICE_REVIEW_PREVIEW
+      : source === 'service'
+        ? BIZ_TYPE.SERVICE_AUTHORIZE
+        : BIZ_TYPE.ORDER_AUTHORIZE
+    const copy = LIABILITY_COPY[copyKey] || LIABILITY_COPY[BIZ_TYPE.SERVICE_AUTHORIZE]
+    wx.setNavigationBarTitle({
+      title: isReviewPreview ? '评价配图预览' : '脱敏预览',
+    })
     this.setData({
       taskId,
       albumId,
@@ -59,8 +67,9 @@ Page({
       source,
       fromPreMask,
       authTier,
+      albumTitle,
       liabilityText: copy.body,
-      confirmLabelShort: '确认授权公示',
+      confirmLabelShort: copy.confirmLabel || '确认授权公示',
     })
     if (!taskId) {
       this.setData({
@@ -97,7 +106,7 @@ Page({
 
   async loadAuthorizeAiSummary() {
     const { source, albumId } = this.data
-    if (source !== 'service' || !albumId) return ''
+    if (source === 'review' || source !== 'service' || !albumId) return ''
     try {
       const album = await fetchServiceAlbum(albumId)
       return buildAlbumAiSummary({
@@ -135,7 +144,15 @@ Page({
   },
 
   onBackAlbum() {
-    const { orderId, albumId, source } = this.data
+    const { orderId, albumId, source, albumTitle } = this.data
+    if (source === 'review' && albumId) {
+      wx.redirectTo({
+        url:
+          `/pages/album/engage/index?albumId=${encodeURIComponent(albumId)}` +
+          (albumTitle ? `&albumTitle=${encodeURIComponent(albumTitle)}` : ''),
+      })
+      return
+    }
     if (source === 'service' && albumId) {
       wx.redirectTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
       return
@@ -259,6 +276,13 @@ Page({
       await confirmOrderAuthorizeTask(this.data.taskId, {
         liabilityAccepted: true,
       })
+      if (this.data.source === 'review') {
+        wx.showToast({ title: '已确认评价配图', icon: 'success', duration: 2000 })
+        setTimeout(() => {
+          this.onBackAlbum()
+        }, 2000)
+        return
+      }
       if (this.data.source === 'service') {
         await submitServiceAlbumAuthorization(this.data.albumId, {
           agreed: true,
