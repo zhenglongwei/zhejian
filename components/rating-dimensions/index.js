@@ -23,7 +23,6 @@ Component({
   },
 
   data: {
-    dimensions: REVIEW_DIMENSIONS,
     starRange: STAR_RANGE,
     expanded: false,
     visibleDimensions: [],
@@ -31,10 +30,7 @@ Component({
   },
 
   observers: {
-    dimensions(list) {
-      this.syncVisible(list)
-    },
-    collapseFrom() {
+    'dimensions, collapseFrom'() {
       this.syncVisible()
     },
   },
@@ -51,14 +47,14 @@ Component({
       return Array.isArray(custom) && custom.length ? custom : REVIEW_DIMENSIONS
     },
 
-    syncVisible(dimensionsOverride) {
-      const dimensions = dimensionsOverride || this.resolveDimensions()
+    syncVisible() {
+      const dimensions = this.resolveDimensions()
       const { collapseFrom } = this.properties
       const { expanded } = this.data
       const hasCollapsed = dimensions.length > collapseFrom
       const visibleDimensions =
         expanded || !hasCollapsed ? dimensions : dimensions.slice(0, collapseFrom)
-      this.setData({ visibleDimensions, hasCollapsed, dimensions })
+      this.setData({ visibleDimensions, hasCollapsed })
     },
 
     onToggleExpand() {

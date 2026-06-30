@@ -64,7 +64,7 @@ Component({
       type: String,
       value: '联系门店',
     },
-.feedbackLabel: {
+    feedbackLabel: {
       type: String,
       value: '评价与反馈',
     },

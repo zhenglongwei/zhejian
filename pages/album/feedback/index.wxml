@@ -53,7 +53,7 @@
           bind:change="onImagesChange"
         />
         <view class="album-feedback__notice">
-          <ui-compliance-notice type="reviewUpload" />
+          <ui-compliance-notice type="reviewImageTip" />
         </view>
       </ui-card>
 

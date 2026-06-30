@@ -65,7 +65,7 @@ const ALBUM_REVIEW_CONSENT_TEXT =
   '我确认评价基于本次真实维修体验，不含虚假或诱导性内容；上传图片不含完整车牌、人脸等敏感信息。'
 
 const ALBUM_REVIEW_PUBLIC_CONSENT_TEXT =
-  '同意将评价摘要（脱敏后）展示在已授权公开案例中，不含个人隐私与未脱敏图片。'
+  '同意将评价文字、评分与脱敏后配图展示在已授权公开案例中。'
 
 const PART_VERIFY_CONSENT_TEXT =
   '我理解平台不鉴定配件真伪，仅留存我的自愿核对记录，不代替门店告知义务。'

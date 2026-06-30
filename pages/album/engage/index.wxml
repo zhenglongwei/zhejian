@@ -1,7 +1,7 @@
 <view class="page album-engage">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content album-engage__pad">
-      <ui-skeleton rows="{{4}}" title="{{true}}" />
+      <ui-skeleton rows="{{6}}" title="{{true}}" />
     </view>
   </block>
 
@@ -12,26 +12,125 @@
   </block>
 
   <block wx:else>
-    <view class="page-content album-engage__body">
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="album-engage__section-title text-h3">关于本次服务</text>
-        <text class="text-body">{{albumTitle}}</text>
-      </ui-card>
+    <view class="album-engage__header">
+      <text class="album-engage__feedback-link text-link text-caption" bindtap="onOpenFeedback">问题反馈</text>
+    </view>
 
-      <text class="text-caption text-secondary album-engage__hint">
-        服务与记录评价在完工后填写；配件核对可随时进行；问题反馈用于反映具体疑问。
-      </text>
-
-      <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__option" bindtap="onOpenReview">
-        <view class="album-engage__option-head">
-          <text class="text-h3">服务与记录评价</text>
-          <ui-tag wx:if="{{hasReview}}" variant="success" text="已评价" />
-          <ui-tag wx:elif="{{!eligible}}" variant="info" text="完工后可评" />
+    <view class="page-content album-engage__body {{eligible && !hasReview ? 'album-engage__body--with-bar' : ''}}">
+      <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__flow">
+        <text class="album-engage__section-title text-h3">你可以这样安排</text>
+        <view class="album-engage__flow-steps">
+          <view class="album-engage__flow-step">
+            <text class="text-body">① 服务与记录评价</text>
+            <ui-tag variant="{{reviewStepVariant}}" text="{{reviewStepLabel}}" />
+          </view>
+          <view class="album-engage__flow-step">
+            <text class="text-body">② 授权公示相册</text>
+            <ui-tag variant="{{authorizeStepVariant}}" text="{{authorizeStepLabel}}" />
+          </view>
         </view>
-        <text class="text-caption text-secondary">
-          维修服务与相册记录分开评分，可选授权展示在公开案例。
-        </text>
+        <text class="text-caption text-secondary album-engage__flow-note">{{flowGuideText}}</text>
+        <view wx:if="{{showAuthorizeCta}}" class="album-engage__flow-action">
+          <ui-button type="secondary" size="sm" block bind:btntap="onGoAuthorize">前往相册授权公示</ui-button>
+        </view>
       </ui-card>
+
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-engage__section-title text-h3">评价对象</text>
+        <text class="text-body">{{albumTitle}}</text>
+        <view wx:if="{{hasReview}}" class="album-engage__scores">
+          <ui-tag variant="success" text="已评价" />
+          <text wx:if="{{existingRepairScore > 0}}" class="text-caption text-secondary">维修服务 {{existingRepairScore}}</text>
+          <text wx:if="{{existingAlbumScore > 0}}" class="text-caption text-secondary">相册记录 {{existingAlbumScore}}</text>
+        </view>
+        <view wx:elif="{{repairScore > 0 || albumScore > 0}}" class="album-engage__scores">
+          <text wx:if="{{repairScore > 0}}" class="text-caption text-secondary">维修服务 {{repairScore}}</text>
+          <text wx:if="{{albumScore > 0}}" class="text-caption text-secondary">相册记录 {{albumScore}}</text>
+        </view>
+      </ui-card>
+
+      <block wx:if="{{hasReview}}">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="text-body">你已评价过本次服务，感谢你的反馈。</text>
+          <text wx:if="{{imageMaskHint}}" class="text-caption album-engage__sub">{{imageMaskHint}}</text>
+          <text wx:if="{{reviewSyncedHint}}" class="text-caption text-secondary album-engage__sub">{{reviewSyncedHint}}</text>
+        </ui-card>
+      </block>
+
+      <block wx:elif="{{!eligible}}">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <view class="album-engage__option-head">
+            <text class="text-h3">暂不可评价</text>
+            <ui-tag variant="info" text="完工后可评" />
+          </view>
+          <text class="text-caption text-secondary">{{ineligibleReason || '维修完工后可填写服务与记录评价。'}}</text>
+        </ui-card>
+      </block>
+
+      <block wx:else>
+        <text class="text-caption text-secondary album-engage__hint">
+          维修服务与相册记录分开评分；勾选公开后，文字、评分与脱敏配图可展示在授权公示案例中。
+        </text>
+
+        <block wx:for="{{reviewGroups}}" wx:key="key" wx:for-item="group">
+          <ui-card shadow="{{true}}" padding="{{true}}">
+            <text class="album-engage__section-title text-h3">{{group.title}}</text>
+            <ui-rating-dimensions
+              values="{{scores}}"
+              dimensions="{{group.dimensions}}"
+              collapse-from="{{99}}"
+              bind:change="onScoresChange"
+            />
+          </ui-card>
+        </block>
+
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">可选标签</text>
+          <view class="album-engage__tags">
+            <ui-review-tag-chip
+              wx:for="{{tagItems}}"
+              wx:key="text"
+              text="{{item.text}}"
+              selected="{{item.selected}}"
+              bind:tap="onTagTap"
+            />
+          </view>
+        </ui-card>
+
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">文字评价（选填）</text>
+          <textarea
+            class="album-engage__textarea text-body"
+            placeholder="可补充本次服务与相册记录体验，最多 300 字"
+            value="{{content}}"
+            maxlength="300"
+            bindinput="onContentInput"
+          />
+          <text class="album-engage__counter text-caption">{{contentLength}}/300</text>
+        </ui-card>
+
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">配图（选填）</text>
+          <ui-image-uploader images="{{form.images}}" maxCount="{{3}}" bind:change="onImagesChange" />
+          <view class="album-engage__notice">
+            <ui-compliance-notice type="reviewImageTip" />
+          </view>
+        </ui-card>
+
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <view class="album-engage__consent">
+            <ui-checkbox-row checked="{{form.consent}}" bind:toggle="toggleConsent">
+              {{consentText}}
+            </ui-checkbox-row>
+          </view>
+          <view class="album-engage__consent">
+            <ui-checkbox-row checked="{{form.authorizePublic}}" bind:toggle="toggleAuthorizePublic">
+              {{publicConsentText}}
+            </ui-checkbox-row>
+            <text class="text-caption text-secondary album-engage__consent-hint">{{publicConsentHint}}</text>
+          </view>
+        </ui-card>
+      </block>
 
       <ui-card
         wx:if="{{hasParts}}"
@@ -49,16 +148,18 @@
         </text>
         <text wx:if="{{partVerifySummary}}" class="text-caption album-engage__sub">{{partVerifySummary}}</text>
       </ui-card>
-
-      <ui-card shadow="{{true}}" padding="{{true}}" class="album-engage__option" bindtap="onOpenFeedback">
-        <view class="album-engage__option-head">
-          <text class="text-h3">问题反馈</text>
-        </view>
-        <text class="text-caption text-secondary">
-          图片看不清、节点缺失、车辆信息有误等具体问题。
-        </text>
-      </ui-card>
     </view>
+
+    <ui-fixed-bottom-bar wx:if="{{eligible && !hasReview}}">
+      <ui-button
+        type="primary"
+        slot="right"
+        block
+        loading="{{submitting}}"
+        disabled="{{submitting}}"
+        bind:btntap="onSubmit"
+      >提交评价</ui-button>
+    </ui-fixed-bottom-bar>
 
     <ui-login-sheet
       visible="{{loginSheetVisible}}"

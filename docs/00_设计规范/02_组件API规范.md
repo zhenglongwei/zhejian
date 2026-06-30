@@ -174,7 +174,7 @@
 |---|---|
 | **displayDisclaimer** | 用户端详情页内容免责（商家编辑页勿用） |
 | price / **casePrice** / **authorizedCaseFixed** / accident / history | 价格与案例价说明 |
-| authorize / **reviewUpload** / **desensitize** / **desensitizeGuide** / **desensitizePreMaskReview** | 授权与脱敏 |
+| authorize / **reviewImageTip** / **reportImageTip** / **desensitize** / **desensitizeGuide** / **desensitizePreMaskReview** | 授权与脱敏 |
 | **partRisk** / reward | 配件风险、活动奖励 |
 | consult / consultRecord / consultPrivacy / consultImage | 用户咨询 |
 | consultMerchant / consultImageMerchant | 商家线索 |
@@ -867,7 +867,7 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 |---|---|
 | tap | `{ reviewId, orderId }` |
 
-展示图片时须 `imagesApproved=true`，并内置 `ComplianceNotice type="reviewUpload"`。
+展示图片时须 `imagesApproved=true`；公开场景由页面级 `displayDisclaimer` 等承担合规说明，卡片内不再重复上传提示。
 
 #### ReviewTagChip（`components/review-tag-chip`）
 

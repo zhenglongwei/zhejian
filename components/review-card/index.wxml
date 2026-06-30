@@ -25,7 +25,7 @@
 
   <text wx:if="{{content}}" class="review-card__content text-body">{{content}}</text>
 
-  <view wx:if="{{imagesApproved && images.length}}" class="review-card__images">
+    <view wx:if="{{imagesApproved && images.length}}" class="review-card__images">
     <image
       wx:for="{{images}}"
       wx:key="*this"
@@ -33,9 +33,6 @@
       src="{{item}}"
       mode="aspectFill"
     />
-    <view class="review-card__image-notice">
-      <ui-compliance-notice type="reviewUpload" />
-    </view>
   </view>
 
   <view wx:if="{{tags.length}}" class="review-card__tags">

@@ -52,7 +52,7 @@
           bind:change="onImagesChange"
         />
         <view class="report-submit__notice">
-          <ui-compliance-notice type="reviewUpload" />
+          <ui-compliance-notice type="reportImageTip" />
         </view>
       </ui-card>
 

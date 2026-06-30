@@ -1,17 +1,69 @@
+.album-engage__flow-note {
+  display: block;
+  margin-top: var(--space-sm);
+  line-height: var(--line-height-relaxed);
+}
+
+.album-engage__flow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-engage__flow-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.album-engage__flow-action {
+  margin-top: var(--space-md);
+}
+
+.album-engage__consent-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  line-height: var(--line-height-relaxed);
+}
+
 .album-engage__pad {
   padding: var(--space-md) var(--page-padding-x);
 }
 
+.album-engage__header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: var(--space-xs) var(--page-padding-x) 0;
+}
+
+.album-engage__feedback-link {
+  padding: var(--space-xs) 0;
+}
+
 .album-engage__body {
-  padding: var(--space-md) var(--page-padding-x) var(--space-xl);
+  padding: var(--space-sm) var(--page-padding-x) var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
 
+.album-engage__body--with-bar {
+  padding-bottom: calc(var(--space-xl) + var(--fixed-bottom-bar-height));
+}
+
 .album-engage__section-title {
   display: block;
-  margin-bottom: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.album-engage__scores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
 .album-engage__sub {
@@ -35,4 +87,31 @@
 
 .album-engage__option {
   display: block;
+}
+
+.album-engage__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.album-engage__textarea {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+}
+
+.album-engage__counter {
+  display: block;
+  text-align: right;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+}
+
+.album-engage__notice {
+  margin-top: var(--space-sm);
+}
+
+.album-engage__consent + .album-engage__consent {
+  margin-top: var(--space-sm);
 }

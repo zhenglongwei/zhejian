@@ -50,7 +50,7 @@
       <text class="album-review-submit__section-title text-h3">配图（选填）</text>
       <ui-image-uploader images="{{form.images}}" maxCount="{{3}}" bind:change="onImagesChange" />
       <view class="album-review-submit__notice">
-        <ui-compliance-notice type="reviewUpload" />
+        <ui-compliance-notice type="reviewImageTip" />
       </view>
     </ui-card>
 

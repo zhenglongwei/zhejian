@@ -13,6 +13,6 @@ Page({
   },
 
   onBackAlbum() {
-    wx.navigateBack({ delta: 2 })
+    wx.navigateBack({ delta: 1 })
   },
 })

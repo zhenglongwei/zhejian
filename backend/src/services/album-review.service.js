@@ -14,6 +14,13 @@ const {
   ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
 } = require('../constants/album-review')
 const { getUserServiceAlbum } = require('./service-album.service')
+const {
+  REVIEW_IMAGE_MASK_STATUS,
+  parseRawReviewImages,
+  maskReviewImagesForRow,
+  ensureReviewImagesMasked,
+  getPublicReviewImages,
+} = require('./album-review-image.service')
 
 const COMPLETED_ALBUM_STATUSES = new Set(['completed'])
 
@@ -76,11 +83,12 @@ function assertReviewScores(scores) {
 function mapReviewRow(row, extras = {}) {
   if (!row) return null
   const tags = Array.isArray(row.tagsJson) ? row.tagsJson : []
-  const images = Array.isArray(row.imagesJson) ? row.imagesJson : []
+  const images = parseRawReviewImages(row.imagesJson)
   const scores =
     row.scoresJson && typeof row.scoresJson === 'object' ? row.scoresJson : {}
   const repairScore = row.repairScore || calcRepairScore(scores)
   const albumScore = row.albumScore || calcAlbumScore(scores)
+  const publicImages = getPublicReviewImages(row)
   return {
     id: row.id,
     albumId: row.albumId,
@@ -94,6 +102,8 @@ function mapReviewRow(row, extras = {}) {
     content: row.content || '',
     tags,
     images,
+    imagesMaskStatus: row.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
+    publicImagesReady: publicImages.imagesApproved,
     authorizePublic: Boolean(row.authorizePublic),
     status: row.status,
     merchantReply: row.merchantReply || '',
@@ -106,6 +116,7 @@ function mapReviewRow(row, extras = {}) {
 function mapPublicReviewRow(row) {
   const base = mapReviewRow(row)
   if (!base) return null
+  const pub = getPublicReviewImages(row)
   return {
     reviewId: base.id,
     orderId: '',
@@ -117,8 +128,8 @@ function mapPublicReviewRow(row) {
     tags: base.tags,
     serviceName: '',
     createdAtText: (base.createdAt || '').slice(0, 10),
-    images: [],
-    imagesApproved: false,
+    images: pub.images,
+    imagesApproved: pub.imagesApproved,
     merchantReply: base.merchantReply || '',
     merchantReplyAt: base.merchantReplyAt || '',
   }
@@ -139,21 +150,34 @@ async function loadAlbumMeta(albumId, userId) {
     partCount: parts.length,
     eligible,
     ineligibleReason: eligible ? '' : '维修完工后可评价本次服务',
+    publicCaseStatus: album.publicCaseStatus || 'private',
   }
 }
 
 async function getAlbumReviewContext(albumId, userId) {
-  const { album, eligible, ineligibleReason } = await loadAlbumMeta(albumId, userId)
-  const existing = await prisma.serviceAlbumReview.findUnique({
+  const { album, eligible, ineligibleReason, publicCaseStatus } = await loadAlbumMeta(albumId, userId)
+  let existing = await prisma.serviceAlbumReview.findUnique({
     where: { albumId_userId: { albumId, userId } },
   })
+  if (existing) {
+    existing = await ensureReviewImagesMasked(existing)
+  }
+  const canAuthorizePublic =
+    eligible && ['private', 'user_rejected'].includes(publicCaseStatus || 'private')
+  const reviewAuthorizePublic = existing ? Boolean(existing.authorizePublic) : false
+  const reviewMapped = existing ? mapReviewRow(existing) : null
   return {
     albumId,
     albumTitle: album.serviceName || '我的服务相册',
     storeName: album.store?.name || '',
     eligible,
     ineligibleReason,
-    review: existing ? mapReviewRow(existing) : null,
+    publicCaseStatus,
+    canAuthorizePublic,
+    reviewAuthorizePublic,
+    imagesMaskStatus: existing?.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
+    publicImagesReady: reviewMapped ? reviewMapped.publicImagesReady : false,
+    review: reviewMapped,
     consentText: ALBUM_REVIEW_CONSENT_TEXT,
     publicConsentText: ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   }
@@ -193,8 +217,14 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
 
   const repairScore = calcRepairScore(scores)
   const albumScore = calcAlbumScore(scores)
+  const sanitizedImages = sanitizeReviewImages(payload.images)
+  const authorizePublic = Boolean(payload.authorizePublic)
+  const initialMaskStatus =
+    authorizePublic && sanitizedImages.length
+      ? REVIEW_IMAGE_MASK_STATUS.PENDING
+      : REVIEW_IMAGE_MASK_STATUS.NONE
 
-  const row = await prisma.serviceAlbumReview.create({
+  let row = await prisma.serviceAlbumReview.create({
     data: {
       id: newId('arv'),
       albumId,
@@ -207,12 +237,30 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       overallScore: calcOverallScore(scores),
       content,
       tagsJson: sanitizeTags(payload.tags),
-      imagesJson: sanitizeReviewImages(payload.images),
-      authorizePublic: Boolean(payload.authorizePublic),
+      imagesJson: sanitizedImages,
+      imagesMaskedJson: [],
+      imagesMaskStatus: initialMaskStatus,
+      authorizePublic,
       consent: true,
       status: ALBUM_REVIEW_STATUS.SUBMITTED,
     },
   })
+
+  if (authorizePublic && sanitizedImages.length) {
+    try {
+      await maskReviewImagesForRow({
+        reviewId: row.id,
+        albumId,
+        rawUrls: sanitizedImages,
+      })
+      row = await prisma.serviceAlbumReview.findUnique({ where: { id: row.id } })
+    } catch (e) {
+      console.warn('[review] mask images failed', {
+        reviewId: row.id,
+        message: e && e.message,
+      })
+    }
+  }
 
   return mapReviewRow(row)
 }
@@ -227,7 +275,8 @@ async function listPublicReviewsForAlbum(albumId) {
     orderBy: { createdAt: 'desc' },
     take: 5,
   })
-  return rows.map(mapPublicReviewRow).filter(Boolean)
+  const prepared = await Promise.all(rows.map((row) => ensureReviewImagesMasked(row)))
+  return prepared.map(mapPublicReviewRow).filter(Boolean)
 }
 
 function resolveMerchantReviewTab(tab) {
