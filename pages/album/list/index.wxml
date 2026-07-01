@@ -9,8 +9,15 @@
   </view>
 
   <block wx:if="{{status === 'loading'}}">
-    <view class="album-list__list">
-      <ui-skeleton theme="album" variant="album-card" wx:for="{{[1,2,3]}}" wx:key="*this" />
+    <view class="album-list__catalog surface-album-catalog">
+      <view class="album-list__catalog-head">
+        <view class="album-list__catalog-accent" aria-hidden="true" />
+        <text class="album-list__catalog-title text-album-display">档案目录</text>
+      </view>
+      <view class="album-list__catalog-divider" />
+      <view class="album-list__list">
+        <ui-skeleton theme="album" variant="album-card" wx:for="{{[1,2,3]}}" wx:key="*this" />
+      </view>
     </view>
   </block>
 
@@ -38,7 +45,7 @@
     </view>
   </block>
 
-  <block wx:elif="{{status === 'empty' && activeTab === 'private'}}">
+  <block wx:elif="{{status === 'empty' && activeTab === 'all'}}">
     <view class="album-list__state">
       <ui-empty
         theme="album"
@@ -50,27 +57,45 @@
     </view>
   </block>
 
+  <block wx:elif="{{status === 'empty' && activeTab === 'publishable'}}">
+    <view class="album-list__state">
+      <ui-empty
+        theme="album"
+        title="暂无可公示相册"
+        description="相册完工且仍为私密记录时，可在此发起授权公示"
+      />
+    </view>
+  </block>
+
   <block wx:elif="{{status === 'empty'}}">
     <view class="album-list__state">
       <ui-empty
         theme="album"
-        title="暂无公开相册"
-        description="审核通过并公开展示的案例将出现在这里"
+        title="暂无已公示相册"
+        description="提交授权公示后，审核中与已通过的案例会出现在这里"
       />
     </view>
   </block>
 
   <block wx:else>
-    <view class="album-list__list">
-      <ui-album-card
-        wx:for="{{list}}"
-        wx:key="albumId"
-        item="{{item}}"
-        bind:tap="onCardTap"
-        bind:share="onCardShare"
-        bind:authorize="onCardAuthorize"
-        bind:partverify="onCardPartVerify"
-      />
+    <view class="album-list__catalog surface-album-catalog">
+      <view class="album-list__catalog-head">
+        <view class="album-list__catalog-accent" aria-hidden="true" />
+        <text class="album-list__catalog-title text-album-display">档案目录</text>
+      </view>
+      <view class="album-list__catalog-divider" />
+      <view class="album-list__list">
+        <ui-album-card
+          wx:for="{{list}}"
+          wx:key="albumId"
+          item="{{item}}"
+          bind:tap="onCardTap"
+          bind:share="onCardShare"
+          bind:authorize="onCardAuthorize"
+          bind:withdraw="onCardWithdraw"
+          bind:partverify="onCardPartVerify"
+        />
+      </view>
     </view>
   </block>
 </ui-tool-page-shell>
@@ -125,4 +150,16 @@
   bind:close="closeLoginSheet"
   bind:cancel="closeLoginSheet"
   bind:success="onLoginSheetSuccess"
+/>
+
+<ui-bottom-sheet
+  visible="{{withdrawSheetVisible}}"
+  title="撤回授权"
+  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
+  confirmText="确认撤回"
+  cancelText="取消"
+  loading="{{withdrawSheetLoading}}"
+  bind:close="onWithdrawSheetClose"
+  bind:cancel="onWithdrawSheetClose"
+  bind:confirm="onWithdrawSheetConfirm"
 />

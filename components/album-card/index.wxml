@@ -14,7 +14,7 @@
             <view wx:else class="album-card__thumb album-card__thumb--placeholder">
               <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
               <view
-                wx:if="{{showProgress && item.stageProgress.length}}"
+                wx:if="{{embedded && showProgress && item.stageProgress.length}}"
                 class="album-card__thumb-progress"
               >
                 <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
@@ -35,7 +35,7 @@
           <view wx:else class="album-card__thumb album-card__thumb--placeholder">
             <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
             <view
-              wx:if="{{showProgress && item.stageProgress.length}}"
+              wx:if="{{embedded && showProgress && item.stageProgress.length}}"
               class="album-card__thumb-progress"
             >
               <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
@@ -46,91 +46,98 @@
     </view>
 
     <view class="album-card__body">
-      <view class="album-card__head">
-        <text class="album-card__service text-body">{{item.serviceName}}</text>
-        <view
-          wx:if="{{audience === 'user' && showHeaderActions}}"
-          class="album-card__actions"
-          catchtap="onActionAreaTap"
-        >
-          <view
-            wx:if="{{item.showPartVerifyLink}}"
-            class="album-card__action"
-            data-action="partverify"
-            catchtap="onPartVerifyTap"
-          >
-            <text class="album-card__action-text text-caption">核对配件</text>
-          </view>
-          <view
-            wx:if="{{item.showShareButton}}"
-            class="album-card__action"
-            data-action="share"
-            catchtap="onShareTap"
-          >
-            <text class="album-card__action-text text-caption">分享</text>
-          </view>
-          <view
-            wx:if="{{item.authAction.show}}"
-            class="album-card__action {{item.authAction.disabled ? 'album-card__action--muted' : ''}}"
-            data-action="authorize"
-            catchtap="onAuthTap"
-          >
-            <text class="album-card__action-text text-caption">{{item.authAction.label}}</text>
-          </view>
-          <view
-            wx:if="{{item.withdrawAction.show}}"
-            class="album-card__action {{item.withdrawAction.disabled ? 'album-card__action--muted' : ''}}"
-            data-action="withdraw"
-            catchtap="onWithdrawTap"
-          >
-            <text class="album-card__action-text text-caption">{{item.withdrawAction.label}}</text>
-          </view>
+      <view class="album-card__main">
+        <text class="album-card__service {{embedded ? 'text-body' : 'text-album-display'}}">{{item.serviceName}}</text>
+
+        <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
+        <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+
+        <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
+        <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
+
+        <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
+          <ui-tag
+            wx:if="{{item.hasUnreadUpdate}}"
+            variant="warning"
+            text="有更新"
+          />
+          <ui-tag
+            wx:if="{{item.statusLabel}}"
+            variant="{{item.statusVariant}}"
+            text="{{item.statusLabel}}"
+          />
         </view>
+
+        <view
+          wx:if="{{showProgress && item.stageProgress.length && !embedded}}"
+          class="album-card__progress-wrap"
+        >
+          <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
+        </view>
+
+        <view wx:if="{{embedded && item.deliverDateText}}" class="album-card__inline-date">
+          <text class="album-card__date text-caption">{{item.deliverDateText}}</text>
+        </view>
+        <view wx:elif="{{embedded && item.updatedAtText}}" class="album-card__inline-date">
+          <text class="album-card__time text-caption {{item.hasUnreadUpdate ? 'album-card__time--fresh' : ''}}">更新于 {{item.updatedAtText}}</text>
+        </view>
+
+        <view wx:if="{{!embedded && (item.archivalDateText || item.updatedAtText)}}" class="album-card__footer">
+          <text wx:if="{{item.archivalDateText}}" class="text-album-archival-date">{{item.archivalDateText}}</text>
+          <text
+            wx:elif="{{item.updatedAtText}}"
+            class="text-album-archival-date {{item.hasUnreadUpdate ? 'album-card__time--fresh' : ''}}"
+          >更新 · {{item.updatedAtText}}</text>
+        </view>
+      </view>
+
+      <view
+        wx:if="{{audience === 'user' && showHeaderActions && (item.showPartVerifyLink || item.showShareButton || item.authAction.show || item.withdrawAction.show)}}"
+        class="album-card__actions album-card__actions--column"
+        catchtap="onActionAreaTap"
+      >
+        <view
+          wx:if="{{item.showPartVerifyLink}}"
+          class="album-card__action"
+          data-action="partverify"
+          catchtap="onPartVerifyTap"
+        >
+          <text class="album-card__action-text text-caption">核对配件</text>
+        </view>
+        <view
+          wx:if="{{item.showShareButton}}"
+          class="album-card__action"
+          data-action="share"
+          catchtap="onShareTap"
+        >
+          <text class="album-card__action-text text-caption">分享</text>
+        </view>
+        <view
+          wx:if="{{item.authAction.show}}"
+          class="album-card__action {{item.authAction.disabled ? 'album-card__action--muted' : ''}}"
+          data-action="authorize"
+          catchtap="onAuthTap"
+        >
+          <text class="album-card__action-text text-caption">{{item.authAction.label}}</text>
+        </view>
+        <view
+          wx:if="{{item.withdrawAction.show}}"
+          class="album-card__action {{item.withdrawAction.disabled ? 'album-card__action--muted' : ''}}"
+          data-action="withdraw"
+          catchtap="onWithdrawTap"
+        >
+          <text class="album-card__action-text text-caption">{{item.withdrawAction.label}}</text>
+        </view>
+      </view>
+
+      <view wx:elif="{{audience === 'merchant' && item.canShareToOwner}}" class="album-card__actions album-card__actions--column">
         <button
-          wx:elif="{{audience === 'merchant' && item.canShareToOwner}}"
           class="album-card__share-btn"
           open-type="share"
           catchtap="onShareTap"
           data-album-id="{{item.albumId}}"
         >分享</button>
       </view>
-
-      <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta text-caption">{{item.storeName}}</text>
-      <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
-
-      <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
-      <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
-
-      <view wx:if="{{item.statusLabel || item.visibilityLabel || item.hasUnreadUpdate}}" class="album-card__tags">
-        <ui-tag
-          wx:if="{{item.hasUnreadUpdate}}"
-          variant="warning"
-          text="有更新"
-        />
-        <ui-tag
-          wx:if="{{item.statusLabel}}"
-          variant="{{item.statusVariant}}"
-          text="{{item.statusLabel}}"
-        />
-        <ui-tag
-          wx:if="{{audience === 'user' && item.visibilityLabel}}"
-          variant="{{item.visibilityVariant}}"
-          text="{{item.visibilityLabel}}"
-        />
-      </view>
-
-      <view
-        wx:if="{{showProgress && item.stageProgress.length}}"
-        class="album-card__progress-wrap"
-      >
-        <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
-      </view>
-
-      <text wx:if="{{item.deliverDateText}}" class="album-card__date text-caption">{{item.deliverDateText}}</text>
-      <text
-        wx:elif="{{item.updatedAtText}}"
-        class="album-card__time text-caption {{item.hasUnreadUpdate ? 'album-card__time--fresh' : ''}}"
-      >更新于 {{item.updatedAtText}}</text>
     </view>
   </view>
 </view>

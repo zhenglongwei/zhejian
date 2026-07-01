@@ -21,12 +21,10 @@ const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5ContentSite } = require('../../constants/h5-links')
 
 function quietHubAlbumTags(item = {}) {
-  const reviewPending = item.publicCaseStatus === 'pending_review'
   return {
     ...item,
-    statusVariant: reviewPending ? item.statusVariant : 'default',
-    visibilityVariant:
-      item.visibilityLabel === '审核中' ? item.visibilityVariant : 'default',
+    visibilityLabel: '',
+    visibilityVariant: 'default',
   }
 }
 
@@ -35,7 +33,7 @@ function enrichRecentAlbums(albums = []) {
     .slice(0, 2)
     .map((item) =>
       quietHubAlbumTags(
-        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' })
+        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
       )
     )
 }
@@ -48,6 +46,17 @@ const {
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
     return this.loadPage({ silent: true })
+  },
+  syncWithdrawingState(withdrawingId) {
+    const cards = (this.data.albumHeroCards || []).map((item) =>
+      quietHubAlbumTags(
+        enrichServiceAlbumListItem(
+          { ...item, withdrawing: withdrawingId === item.albumId },
+          { audience: 'user', listTab: 'all' }
+        )
+      )
+    )
+    this.setData({ albumHeroCards: cards })
   },
 })
 
@@ -154,16 +163,13 @@ Page({
 
   async loadHubAlbums() {
     try {
-      const [privateList, publicList] = await Promise.all([
-        fetchUserServiceAlbums({ tab: 'private' }),
-        fetchUserServiceAlbums({ tab: 'public' }),
-      ])
-      const merged = [...(privateList || []), ...(publicList || [])]
+      const merged = await fetchUserServiceAlbums({ tab: 'all' })
+      const sorted = (merged || [])
         .slice()
         .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
       return {
-        recent: merged.slice(0, 2),
-        albumUnread: hasUnreadAlbums(merged),
+        recent: sorted.slice(0, 2),
+        albumUnread: hasUnreadAlbums(sorted),
       }
     } catch (e) {
       return { recent: [], albumUnread: false }
@@ -205,13 +211,10 @@ Page({
       let albumUnread = false
       let authList = []
       if (auth.ok) {
-        const [hub, authorizations] = await Promise.all([
-          this.loadHubAlbums(),
-          this.loadAuthList(),
-        ])
+        const hub = await this.loadHubAlbums()
         recentRaw = hub.recent
         albumUnread = hub.albumUnread
-        authList = authorizations
+        authList = await this.loadAuthList()
       } else if (Array.isArray(summary.recentAlbums)) {
         recentRaw = summary.recentAlbums
       }
@@ -298,11 +301,24 @@ Page({
   },
 
   onAlbumListTap() {
-    this.openMenuEntry('album', true)
+    this.openAlbumListTab('all')
+  },
+
+  onAlbumPublishableTap() {
+    this.openAlbumListTab('publishable')
+  },
+
+  onAlbumPublishedTap() {
+    this.openAlbumListTab('published')
+  },
+
+  openAlbumListTab(tab) {
+    if (!this.guardProtectedEntry(true)) return
+    wx.navigateTo({ url: `/pages/album/list/index?tab=${tab}` })
   },
 
   onAuthorizeTap() {
-    this.openMenuEntry('authorize')
+    this.openAlbumListTab('publishable')
   },
 
   onAlbumCardTap(e) {
@@ -321,14 +337,23 @@ Page({
     return this.onCardShare(e)
   },
 
+  onAlbumCardWithdraw(e) {
+    if (!this.guardProtectedEntry(true)) return
+    return this.onCardWithdraw(e)
+  },
+
   onShareAppMessage() {
     return this.buildShareAppMessagePayload()
   },
 
   onTodoItemTap(e) {
     const { action } = e.currentTarget.dataset
-    if (action === 'authorize') {
-      this.onAuthorizeTap()
+    if (action === 'authorize' || action === 'albumPublishable') {
+      this.openAlbumListTab('publishable')
+      return
+    }
+    if (action === 'albumPublished') {
+      this.openAlbumListTab('published')
     }
   },
 

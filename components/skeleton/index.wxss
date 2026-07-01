@@ -29,9 +29,10 @@
 .skeleton--album-card {
   box-sizing: border-box;
   padding: var(--space-md);
-  background: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  background: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-album-card-raised);
 }
 
 .skeleton__album-card {

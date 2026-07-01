@@ -4,8 +4,9 @@ const {
   prepareServiceAuthorizePreview,
   submitServiceAlbumAuthorization,
   recordAlbumShare,
+  withdrawAuthorization,
 } = require('../../../services/service-album')
-const { SERVICE_ALBUM_LIST_TABS } = require('../../../constants/service-album-status')
+const { SERVICE_ALBUM_LIST_TABS, normalizeServiceAlbumListTab } = require('../../../constants/service-album-status')
 const {
   enrichServiceAlbumListItem,
 } = require('../../../utils/service-album-display')
@@ -46,7 +47,7 @@ Page({
     needLogin: false,
     needPhone: false,
     tabs: SERVICE_ALBUM_LIST_TABS,
-    activeTab: 'private',
+    activeTab: 'all',
     list: [],
     loginSheetVisible: false,
     loginSheetMode: 'auto',
@@ -54,6 +55,10 @@ Page({
     authChecked: false,
     authTier: 'named',
     authSubmitting: false,
+    withdrawSheetVisible: false,
+    withdrawSheetLoading: false,
+    pendingWithdrawAlbumId: '',
+    withdrawingId: '',
     shareSheetVisible: false,
     showShareEntry: false,
     shareSheetIntent: 'owner',
@@ -65,6 +70,13 @@ Page({
     shareToken: '',
     shareReady: false,
     actionDetail: null,
+  },
+
+  onLoad(options = {}) {
+    const tab = normalizeServiceAlbumListTab(options.tab)
+    if (tab !== this.data.activeTab) {
+      this.setData({ activeTab: tab })
+    }
   },
 
   onShow() {
@@ -120,8 +132,8 @@ Page({
     }
 
     try {
-      const raw = await fetchUserServiceAlbums({ tab: this.data.activeTab })
-      const listTab = this.data.activeTab
+      const listTab = normalizeServiceAlbumListTab(this.data.activeTab)
+      const raw = await fetchUserServiceAlbums({ tab: listTab })
       const list = (raw || []).map((item) =>
         enrichServiceAlbumListItem(item, { listTab })
       )
@@ -142,8 +154,9 @@ Page({
 
   onTabChange(e) {
     const { key } = e.detail
-    if (key === this.data.activeTab) return
-    this.setData({ activeTab: key })
+    const tab = normalizeServiceAlbumListTab(key)
+    if (tab === this.data.activeTab) return
+    this.setData({ activeTab: tab })
     this.loadList({ forceLoading: true })
   },
 
@@ -346,6 +359,64 @@ Page({
 
   onOpenBenefitPolicy() {
     wx.navigateTo({ url: '/pages/benefit-sharing/index' })
+  },
+
+  onCardWithdraw(e) {
+    const { id, disabled } = e.detail || {}
+    if (!id || disabled || this.data.withdrawingId || this.data.withdrawSheetVisible) return
+    this.setData({
+      withdrawSheetVisible: true,
+      pendingWithdrawAlbumId: id,
+    })
+  },
+
+  onWithdrawSheetClose() {
+    if (this.data.withdrawSheetLoading) return
+    this.setData({
+      withdrawSheetVisible: false,
+      pendingWithdrawAlbumId: '',
+    })
+  },
+
+  onWithdrawSheetConfirm() {
+    const albumId = this.data.pendingWithdrawAlbumId
+    if (!albumId || this.data.withdrawSheetLoading) return
+    this.setData({ withdrawSheetVisible: false, withdrawSheetLoading: true })
+    this.doWithdraw(albumId)
+  },
+
+  async doWithdraw(albumId) {
+    this.setData({ withdrawingId: albumId })
+    this.syncListWithdrawing(albumId)
+    try {
+      await withdrawAuthorization(albumId)
+      wx.showToast({ title: '已撤回授权', icon: 'success' })
+      markListNeedRefresh(this)
+      await this.loadList({ silent: true })
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '撤回失败',
+        icon: 'none',
+      })
+    } finally {
+      this.setData({
+        withdrawingId: '',
+        withdrawSheetLoading: false,
+        pendingWithdrawAlbumId: '',
+      })
+      this.syncListWithdrawing('')
+    }
+  },
+
+  syncListWithdrawing(withdrawingId) {
+    const listTab = normalizeServiceAlbumListTab(this.data.activeTab)
+    const list = (this.data.list || []).map((item) =>
+      enrichServiceAlbumListItem(
+        { ...item, withdrawing: withdrawingId === item.albumId },
+        { listTab }
+      )
+    )
+    this.setData({ list })
   },
 
   async refreshShareToken(options = {}) {

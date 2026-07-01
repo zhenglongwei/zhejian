@@ -65,6 +65,16 @@ function formatDeliverDateText(value) {
   return `送修 ${m}-${day}`
 }
 
+/** 列表卡档案编号式日期（UI-ALB-G） */
+function formatArchivalDateText(value) {
+  const d = parseDate(value)
+  if (!d) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y} · ${m} · ${day}`
+}
+
 function formatUpdatedAtDisplay(value) {
   const d = parseDate(value)
   if (!d) return ''
@@ -302,6 +312,7 @@ module.exports = {
   buildSummaryLine,
   buildPartsSummary,
   formatDeliverDateText,
+  formatArchivalDateText,
   formatDateYMD,
   resolveIssueDesc,
   resolveInspectionResult,

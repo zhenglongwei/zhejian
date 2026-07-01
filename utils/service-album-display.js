@@ -14,6 +14,7 @@ const { canShareToOwner } = require('./service-album-share')
 const { canOwnerShareAlbum } = require('./album-owner-share')
 const { resolveImageSrc, resolveMediaUrl } = require('./desensitize-url')
 const { isAlbumUnread } = require('./album-unread-hint')
+const { formatArchivalDateText } = require('./album-summary')
 
 function resolveAlbumCoverUrl(item = {}) {
   if (item.coverUrl) {
@@ -72,21 +73,8 @@ function resolveAlbumAuthAction(item = {}) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
   const status = item.publicCaseStatus || 'private'
-  if (status === 'pending_review') {
-    return {
-      show: true,
-      label: '审核中',
-      disabled: true,
-      hint: '公开申请审核中，通过后将展示在案例页与公开网页。',
-    }
-  }
-  if (status === 'public_approved') {
-    return {
-      show: true,
-      label: '已公开',
-      disabled: true,
-      hint: '当前为公开相册，已在案例页与公开网页展示。',
-    }
+  if (status === 'pending_review' || status === 'public_approved') {
+    return { show: false, label: '', disabled: false, hint: '' }
   }
   if (
     status === 'private' ||
@@ -96,6 +84,32 @@ function resolveAlbumAuthAction(item = {}) {
     return { show: true, label: '授权公示', disabled: false, hint: '' }
   }
   return { show: false, label: '', disabled: false, hint: '' }
+}
+
+function resolveAlbumWithdrawAction(item = {}) {
+  const status = item.publicCaseStatus || 'private'
+  if (status === 'pending_review' || status === 'public_approved') {
+    return {
+      show: true,
+      label: '撤回公示',
+      disabled: Boolean(item.withdrawing),
+    }
+  }
+  return { show: false, label: '', disabled: false }
+}
+
+function resolveListAlbumActions(item = {}) {
+  const withdrawAction = resolveAlbumWithdrawAction(item)
+  if (withdrawAction.show) {
+    return {
+      authAction: { show: false, label: '', disabled: false, hint: '' },
+      withdrawAction,
+    }
+  }
+  return {
+    authAction: resolveAlbumAuthAction(item),
+    withdrawAction,
+  }
 }
 
 function resolveUserAlbumShareVisible(item = {}) {
@@ -184,7 +198,7 @@ function appendAlbumListPresentation(item, base = {}) {
   const coverUrl = resolveAlbumCoverUrl(merged)
   const coverInitial = resolveCoverInitial(merged)
   const stageProgress = buildAlbumListStageProgress(merged)
-  const authAction = resolveAlbumAuthAction(merged)
+  const { authAction, withdrawAction } = resolveListAlbumActions(merged)
   const hasUnreadUpdate = Boolean(base.hasUnreadUpdate)
   return {
     ...base,
@@ -192,9 +206,13 @@ function appendAlbumListPresentation(item, base = {}) {
     coverInitial,
     metaLine: buildAlbumMetaLine(merged),
     deliverDateText: merged.deliverDateText || '',
+    archivalDateText:
+      merged.archivalDateText ||
+      formatArchivalDateText(merged.createdAt || merged.updatedAt),
     summaryLine: merged.summaryLine || '',
     stageProgress,
     authAction,
+    withdrawAction,
     showShareButton: resolveUserAlbumShareVisible(merged),
     hasUnreadUpdate,
     showPartVerifyLink: Number(merged.partCount) > 0 || Boolean(merged.showPartVerifyLink),
@@ -205,7 +223,7 @@ function appendAlbumListPresentation(item, base = {}) {
 
 function enrichServiceAlbumListItem(item, options = {}) {
   const audience = options.audience || 'user'
-  const listTab = options.listTab || 'private'
+  const listTab = options.listTab || 'all'
   const status =
     item.status || (audience === 'merchant' ? 'draft' : 'in_progress')
   const base = {
@@ -231,8 +249,8 @@ function enrichServiceAlbumListItem(item, options = {}) {
     hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
   }
 
-  // 列表：私密 Tab 仅展示维修进度；公开 Tab 不展示状态 Tag
-  if (listTab === 'public') {
+  // 已公示 Tab：不展示维修进度 Tag（Tab 本身表达公示语义）
+  if (listTab === 'published') {
     return appendAlbumListPresentation(item, {
       ...base,
       ...unreadBase,
@@ -247,21 +265,14 @@ function enrichServiceAlbumListItem(item, options = {}) {
   }
 
   const repair = resolveRepairProgress(status)
-  const publicCaseStatus = item.publicCaseStatus || 'private'
-  const reviewTag =
-    publicCaseStatus === 'pending_review'
-      ? {
-          visibilityLabel: ALBUM_VISIBILITY_LABEL.pending_review,
-          visibilityVariant: ALBUM_VISIBILITY_VARIANT.pending_review,
-        }
-      : { visibilityLabel: '', visibilityVariant: 'default' }
 
   return appendAlbumListPresentation(item, {
     ...base,
     ...unreadBase,
     statusLabel: repair.statusLabel,
     statusVariant: repair.statusVariant,
-    ...reviewTag,
+    visibilityLabel: '',
+    visibilityVariant: 'default',
     ...privatePrice,
     summaryRows: summaryRowsFull,
     summaryRowsForDisplay,
@@ -347,7 +358,11 @@ function enrichAuthorizationItem(item) {
 /** 授权列表页 · 与相册列表同构（ui-album-card） */
 function enrichAuthorizationAlbumItem(item) {
   const publicCaseStatus = item.publicCaseStatus || 'private'
-  const base = enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' })
+  const listTab =
+    publicCaseStatus === 'pending_review' || publicCaseStatus === 'public_approved'
+      ? 'published'
+      : 'publishable'
+  const base = enrichServiceAlbumListItem(item, { audience: 'user', listTab })
   const cardAction = resolveAuthorizationCardAction({ ...item, publicCaseStatus })
 
   let authAction = { show: false, label: '', disabled: false, hint: '' }
@@ -416,5 +431,7 @@ module.exports = {
   buildAlbumListStageProgress,
   buildAlbumMetaLine,
   resolveAlbumAuthAction,
+  resolveAlbumWithdrawAction,
+  resolveListAlbumActions,
   resolveAuthorizationCardAction,
 }

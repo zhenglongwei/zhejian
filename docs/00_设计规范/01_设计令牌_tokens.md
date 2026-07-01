@@ -86,19 +86,19 @@ page {
   --color-bg-active: #f2f3f5;
 
   /**
-   * 工具相册域（卷七 UI-ALB）
+   * 工具相册域（卷七 UI-ALB · UI-ALB-G 清档案配色 2026-06-24）
    */
-  --color-bg-album: #f7f5f2;
+  --color-bg-album: #f8fafc;
   --color-bg-band: #f0f4fa;
   --color-album-active: #1677ff;
   --color-album-active-light: #e8f3ff;
-  --color-album-frame: #e8e4df;
-  --color-album-frame-line: #d9d4cd;
-  --color-album-frame-corner: #c4beb6;
-  --color-album-frame-inner: #faf9f7;
+  --color-album-frame: #eef2f8;
+  --color-album-frame-line: #e5eaf0;
+  --color-album-frame-corner: #1677ff;
+  --color-album-frame-inner: #ffffff;
   --color-nav-icon-well: #f2f3f5;
-  --color-album-toolbar-bg: rgba(247, 245, 242, 0.92);
-  --color-album-caption-bar: rgba(250, 249, 247, 0.96);
+  --color-album-toolbar-bg: rgba(248, 250, 252, 0.92);
+  --color-album-caption-bar: rgba(255, 255, 255, 0.96);
 
   /**
    * 功能色
@@ -205,9 +205,9 @@ page {
   --shadow-card: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
   --shadow-card-soft: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   --shadow-popup: 0 8rpx 40rpx rgba(0, 0, 0, 0.12);
-  --shadow-album-frame: 0 8rpx 32rpx rgba(60, 50, 40, 0.12),
-    0 2rpx 8rpx rgba(60, 50, 40, 0.06);
-  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(60, 50, 40, 0.08);
+  --shadow-album-frame: 0 8rpx 32rpx rgba(22, 45, 90, 0.1),
+    0 2rpx 8rpx rgba(22, 45, 90, 0.05);
+  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(22, 45, 90, 0.06);
   --shadow-album-compare-handle: 0 0 8rpx rgba(0, 0, 0, 0.35);
 
   /**
@@ -295,18 +295,22 @@ page {
 
 ---
 
-## 2.1.1 工具相册扩展 Token（UI-ALB-A-07）
+## 2.1.1 工具相册扩展 Token（UI-ALB-A-07 · UI-ALB-G 清档案 2026-06-24）
 
-> 真源：`11_工具相册UI线框.md` §2.2 / §3 · 设计体系 §10.1.1  
-> 用途：相框翻页详情、加高列表卡、沉浸导航、节点底栏、页脚。
+> 真源：`11_工具相册UI线框.md` §2.2 / §2.5 · 设计体系 §10.1.1  
+> 用途：相框翻页详情、加高列表卡、沉浸导航、节点底栏、页脚。  
+> **配色定调（UI-ALB-G）**：**清档案 Fresh Folio** — 冷白底 + 淡蓝空气感 + 主色蓝角饰；**禁止**回退暖褐 sepia（`#e8e4df` / `#c4beb6` 旧值已废弃）。
 
 | Token | 值 / 引用 | 用途 |
 | --- | --- | --- |
-| `--color-album-frame-corner` | `#c4beb6` | 相框 L 形角饰 |
-| `--color-album-frame-inner` | `#faf9f7` | 相框内衬 / 尾页暖底 |
+| `--color-bg-album` | `#f8fafc` | 工具页页面底（冷白） |
+| `--color-album-frame` | `#eef2f8` | 相框外 mat / folio 辅色 |
+| `--color-album-frame-line` | `#e5eaf0` | 相框描边、panel 分割线 |
+| `--color-album-frame-corner` | `#1677ff` | 相框 L 形角饰（主色蓝） |
+| `--color-album-frame-inner` | `#ffffff` | 相框内衬 / panel 白底 |
 | `--color-nav-icon-well` | `#f2f3f5` | 我的/设置菜单图标底块 |
-| `--color-album-toolbar-bg` | `rgba(247,245,242,0.92)` | 节点 Tab 底栏半透明底 |
-| `--color-album-caption-bar` | `rgba(250,249,247,0.96)` | 框内短文案条底 |
+| `--color-album-toolbar-bg` | `rgba(248,250,252,0.92)` | 节点 Tab 底栏半透明底 |
+| `--color-album-caption-bar` | `rgba(255,255,255,0.96)` | 框内短文案条底 |
 | `--color-album-immersive-caption-bg` | `rgba(22,20,18,0.88)` | 沉浸大图门店说明底条（高对比） |
 | `--color-bg-immersive` | `#000` | 沉浸翻页全屏底 |
 | `--color-album-immersive-border` | `rgba(255,255,255,0.14)` | 沉浸面板描边 |
@@ -320,9 +324,9 @@ page {
 | `--shadow-album-overlay-chip` | `0 4rpx 20rpx rgba(0,0,0,0.14)` | overlay chip 阴影 |
 | `--shadow-album-segment-active` | `0 0 12rpx rgba(22,119,255,0.45)` | 当前阶段进度光晕 |
 | `--shadow-album-compare-handle` | `0 0 8rpx rgba(0,0,0,0.35)` | 前后对比滑块中线/手柄阴影 |
-| `--color-album-end-finish` | `#8a8278` | 尾页「本册已阅」装饰线 |
-| `--shadow-album-frame` | 双层暖色阴影 | 详情全屏相框立体感 |
-| `--shadow-album-list-thumb` | 轻阴影 | 列表缩略图轻相框感 |
+| `--color-album-end-finish` | `#94bfff` | 尾页「本册已阅」装饰线（淡蓝，非褐灰） |
+| `--shadow-album-frame` | 双层冷色阴影 `rgba(22,45,90,…)` | 详情全屏相框立体感 |
+| `--shadow-album-list-thumb` | 轻冷色阴影 | 列表缩略图 / raised 卡轻相框感 |
 | `--size-album-list-thumb` | `176rpx` | 列表卡左缩略图边长（160～200 取中） |
 | `--size-album-list-card-min-height` | `220rpx` | 加高列表卡内容区最小高度 |
 | `--size-album-frame-border` | `24rpx` | 相框 mat 边宽 |
@@ -337,17 +341,18 @@ page {
 | `--radius-album-frame-inner` | `8rpx` | 框内大图圆角 |
 | `--radius-album-list-thumb` | `var(--radius-md)` | 列表缩略图圆角 |
 
-**工具类（B-01）**：`.bg-album` · `.bg-band` · `.text-album-display` · `.text-album-frame-page`（见 `tokens.wxss`）
+**工具类（B-01）**：`.bg-album` · `.bg-band` · `.text-album-display` · `.text-album-archival-date` · `.text-album-frame-page`（见 `tokens.wxss`）
 
 **工具页表面（UI-SURFACE · 2026-06-24）**：同一屏最多一张主 panel；内嵌卡片用 `--color-album-frame-inner` + `--shadow-album-list-thumb`，禁止叠多层 `#fff` + `--shadow-card`。
 
 | 工具类 | 用途 |
 | --- | --- |
 | `.surface-album-panel` | 工具页主内容区（我的/工作台单卡） |
-| `.surface-album-folio` | 扉页用户区暖色渐变 |
-| `.surface-album-well` | Dock / 快捷入口纸感 icon 底 |
+| `.surface-album-catalog` | 相册列表档案目录 folio 壳（淡蓝渐变 + 目录阴影） |
+| `.surface-album-folio` | 扉页淡蓝空气感渐变（白 → `--color-album-active-light` → 白） |
+| `.surface-album-well` | Dock / 快捷入口冷灰蓝 icon 底 |
 | `.surface-album-inset-divider` | panel 内分区线 |
-| `.nav-icon-tone-album` | Dock 彩色 PNG 暖灰统一（过渡；终态为单色线稿资源） |
+| `.nav-icon-tone-album` | Dock 彩色 PNG 冷灰统一（过渡；终态为单色线稿资源） |
 | `.surface-record-card` | 授权/消息/线索列表卡纸感壳 |
 | `.surface-album-metric-grid` / `.surface-album-metric-cell` | 工具页 KPI 内嵌格（无彩色底） |
 

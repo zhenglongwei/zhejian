@@ -40,22 +40,22 @@ page {
   --color-skeleton-shimmer: #eef0f3;
 
   /**
-   * 工具相册域（卷七 UI-ALB）
-   * 略暖「档案纸」底 + 页顶 band；用于我的/相册列表/详情等工具页。
+   * 工具相册域（卷七 UI-ALB · UI-ALB-G 清档案配色 2026-06-24）
+   * 冷白底 + 淡蓝空气感；相框角饰用主色蓝。禁止回退暖褐 sepia。
    */
-  --color-bg-album: #f7f5f2;
+  --color-bg-album: #f8fafc;
   --color-bg-band: #f0f4fa;
   --color-album-active: #1677ff;
   --color-album-active-light: #e8f3ff;
-  --color-album-frame: #e8e4df;
-  --color-album-frame-line: #d9d4cd;
-  --color-album-frame-corner: #c4beb6;
-  --color-album-frame-inner: #faf9f7;
+  --color-album-frame: #eef2f8;
+  --color-album-frame-line: #e5eaf0;
+  --color-album-frame-corner: #1677ff;
+  --color-album-frame-inner: #ffffff;
   --color-nav-icon-well: #f2f3f5;
-  --color-album-toolbar-bg: rgba(247, 245, 242, 0.92);
-  --color-album-caption-bar: rgba(250, 249, 247, 0.96);
+  --color-album-toolbar-bg: rgba(248, 250, 252, 0.92);
+  --color-album-caption-bar: rgba(255, 255, 255, 0.96);
   --color-album-immersive-caption-bg: rgba(22, 20, 18, 0.88);
-  --color-album-end-finish: #8a8278;
+  --color-album-end-finish: #94bfff;
   --color-bg-immersive: #000;
   --color-album-immersive-border: rgba(255, 255, 255, 0.14);
   --color-album-immersive-note: rgba(255, 255, 255, 0.88);
@@ -174,9 +174,13 @@ page {
   --shadow-card: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
   --shadow-card-soft: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
   --shadow-popup: 0 8rpx 40rpx rgba(0, 0, 0, 0.12);
-  --shadow-album-frame: 0 8rpx 32rpx rgba(60, 50, 40, 0.12),
-    0 2rpx 8rpx rgba(60, 50, 40, 0.06);
-  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(60, 50, 40, 0.08);
+  --shadow-album-frame: 0 8rpx 32rpx rgba(22, 45, 90, 0.1),
+    0 2rpx 8rpx rgba(22, 45, 90, 0.05);
+  --shadow-album-list-thumb: 0 2rpx 12rpx rgba(22, 45, 90, 0.06);
+  --shadow-album-catalog: 0 12rpx 40rpx rgba(22, 45, 90, 0.08),
+    0 2rpx 10rpx rgba(22, 45, 90, 0.04);
+  --shadow-album-card-raised: 0 6rpx 24rpx rgba(22, 45, 90, 0.07),
+    0 1rpx 4rpx rgba(22, 45, 90, 0.04);
   --shadow-album-immersive-panel: 0 8rpx 28rpx rgba(0, 0, 0, 0.28);
   --shadow-album-overlay-chip: 0 4rpx 20rpx rgba(0, 0, 0, 0.14);
   --shadow-album-caption-text: 0 1rpx 4rpx rgba(0, 0, 0, 0.45);
@@ -219,8 +223,9 @@ page {
   --size-nav-icon-well: 64rpx;
   --size-nav-icon: 40rpx;
   --size-album-cover: 128rpx;
-  --size-album-list-thumb: 176rpx;
-  --size-album-list-card-min-height: 220rpx;
+  --size-album-list-thumb: 192rpx;
+  --size-album-list-card-min-height: 240rpx;
+  --size-album-thumb-mat: 12rpx;
   --size-album-frame-border: 24rpx;
   --size-album-frame-corner: 32rpx;
   --size-album-frame-topbar: 64rpx;
@@ -818,11 +823,26 @@ page {
   box-sizing: border-box;
 }
 
+/** 相册列表 · 档案目录 folio 壳（UI-ALB-G） */
+.surface-album-catalog {
+  padding: var(--space-lg) var(--space-md) var(--space-md);
+  background: linear-gradient(
+    180deg,
+    var(--color-album-frame-inner) 0%,
+    var(--color-album-active-light) 200rpx,
+    var(--color-album-frame-inner) 100%
+  );
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-album-catalog);
+  box-sizing: border-box;
+}
+
 .surface-album-folio {
   background: linear-gradient(
     180deg,
-    var(--color-album-frame) 0%,
-    var(--color-album-frame-inner) 160rpx,
+    var(--color-album-frame-inner) 0%,
+    var(--color-album-active-light) 160rpx,
     var(--color-album-frame-inner) 100%
   );
   border-bottom: 1rpx solid var(--color-album-frame-line);
@@ -839,10 +859,10 @@ page {
   box-sizing: border-box;
 }
 
-/** 工具页 Dock：彩色 nav PNG 统一为暖灰线型（待替换为单色线稿资源前） */
+/** 工具页 Dock：彩色 nav PNG 统一为冷灰线型（待替换为单色线稿资源前） */
 .nav-icon-tone-album {
-  opacity: 0.88;
-  filter: grayscale(100%) brightness(0.58) sepia(0.22);
+  opacity: 0.9;
+  filter: grayscale(100%) brightness(0.62) sepia(0.06);
 }
 
 /** 列表记录卡（授权/消息/线索）— 与 album-card raised 同语法 */
@@ -905,6 +925,14 @@ page {
   font-weight: var(--font-weight-semibold);
   letter-spacing: 4rpx;
   color: var(--color-text-secondary);
+}
+
+.text-album-archival-date {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 3rpx;
+  color: var(--color-text-tertiary);
 }
 
 .text-album-frame-page {

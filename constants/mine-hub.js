@@ -52,28 +52,28 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
     items.push({
       key: 'pendingAuth',
       label: `${summary.pendingAuth} 本待授权公示`,
-      action: 'authorize',
+      action: 'albumPublishable',
     })
   }
   if (summary.pendingReview > 0) {
     items.push({
       key: 'pendingReview',
       label: `${summary.pendingReview} 本审核中`,
-      action: 'authorize',
+      action: 'albumPublished',
     })
   }
   if (summary.auditRejected > 0) {
     items.push({
       key: 'auditRejected',
       label: `${summary.auditRejected} 本审核未通过`,
-      action: 'authorize',
+      action: 'albumPublishable',
     })
   }
   if (summary.hasRecords && !items.length) {
     items.push({
       key: 'authorizeHub',
-      label: '我的公开授权',
-      action: 'authorize',
+      label: '查看已公示相册',
+      action: 'albumPublished',
     })
   }
 

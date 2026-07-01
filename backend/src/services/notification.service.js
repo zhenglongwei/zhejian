@@ -562,9 +562,9 @@ async function notifyAuthorizationSubmitted(albumId, agreed) {
         : '你已拒绝将本次服务相册公开为案例。',
       refType: 'album',
       refId: album.id,
-      jumpPath: `/pages/album/authorize/index`,
+      jumpPath: `/pages/album/list/index?tab=published`,
       wechatTemplateKey: 'audit',
-      wechatPage: 'pages/album/authorize/index',
+      wechatPage: 'pages/album/list/index?tab=published',
       wechatPayload: auditPayload,
     })
   }
@@ -601,7 +601,7 @@ async function notifyAuthorizationWithdrawn(albumId) {
       content: '你已撤回公开授权，案例将不再公开展示。',
       refType: 'album',
       refId: album.id,
-      jumpPath: '/pages/album/authorize/index',
+      jumpPath: '/pages/album/list/index?tab=publishable',
     })
   }
   return notifyMerchantOwner({
@@ -636,9 +636,11 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
       refId: album.id,
       jumpPath: approved && album.publicCase?.id
         ? `/pages/case/detail/index?id=${album.publicCase.id}`
-        : '/pages/album/authorize/index',
+        : '/pages/album/list/index?tab=publishable',
       wechatTemplateKey: 'audit',
-      wechatPage: 'pages/album/authorize/index',
+      wechatPage: approved && album.publicCase?.id
+        ? `pages/case/detail/index?id=${album.publicCase.id}`
+        : 'pages/album/list/index?tab=publishable',
       wechatPayload: auditPayload,
     })
   }

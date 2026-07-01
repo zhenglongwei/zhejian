@@ -45,7 +45,7 @@ async function mockMineSummary(user) {
   try {
     const { mockCountPendingAuth, mockFetchUserServiceAlbums } = require('./service-albums')
     albumPendingAuth = mockCountPendingAuth()
-    const list = await mockFetchUserServiceAlbums({ tab: 'private' })
+    const list = await mockFetchUserServiceAlbums({ tab: 'all' })
     hasAlbumBindings = (list || []).length > 0
     recentAlbums = (list || []).slice(0, 3)
   } catch (e) {

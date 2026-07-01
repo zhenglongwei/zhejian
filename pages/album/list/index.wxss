@@ -3,12 +3,42 @@
   padding-bottom: var(--space-xs);
 }
 
+.album-list__catalog {
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+
+.album-list__catalog-head {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.album-list__catalog-accent {
+  flex-shrink: 0;
+  width: 6rpx;
+  height: 32rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-album-active);
+}
+
+.album-list__catalog-title {
+  color: var(--color-text-primary);
+  letter-spacing: 5rpx;
+}
+
+.album-list__catalog-divider {
+  height: 1rpx;
+  margin: var(--space-md) 0 var(--space-sm);
+  background-color: var(--color-album-frame-line);
+  opacity: 0.85;
+}
+
 .album-list__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-xl);
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xs);
 }
 
 .album-list__state {

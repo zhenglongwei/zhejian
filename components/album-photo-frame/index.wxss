@@ -88,14 +88,15 @@
 }
 
 .album-photo-frame--thumb .album-photo-frame__mat {
-  padding: var(--space-xs);
+  padding: var(--size-album-thumb-mat);
 }
 
 .album-photo-frame--thumb .album-photo-frame__inner {
   min-height: 0;
+  box-shadow: inset 0 0 0 1rpx rgba(255, 255, 255, 0.72);
 }
 
 .album-photo-frame--thumb .album-photo-frame__corner {
-  width: 20rpx;
-  height: 20rpx;
+  width: 24rpx;
+  height: 24rpx;
 }

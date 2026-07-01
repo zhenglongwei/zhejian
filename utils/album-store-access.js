@@ -43,14 +43,8 @@ function collectStoreIdsFromAlbums(albums) {
 async function fetchUserAlbumStoreIds() {
   if (!checkAuth({ needPhone: false })) return new Set()
   try {
-    const [privateList, publicList] = await Promise.all([
-      fetchUserServiceAlbums({ tab: 'private' }),
-      fetchUserServiceAlbums({ tab: 'public' }),
-    ])
-    return collectStoreIdsFromAlbums([
-      ...(privateList || []),
-      ...(publicList || []),
-    ])
+    const albums = await fetchUserServiceAlbums({ tab: 'all' })
+    return collectStoreIdsFromAlbums(albums || [])
   } catch (e) {
     return new Set()
   }

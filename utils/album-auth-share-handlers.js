@@ -3,6 +3,7 @@ const {
   prepareServiceAuthorizePreview,
   submitServiceAlbumAuthorization,
   recordAlbumShare,
+  withdrawAuthorization,
 } = require('../services/service-album')
 const { promptAuthorizeAuditSubscribe } = require('./subscribe-message-prompt')
 const {
@@ -47,6 +48,10 @@ function albumAuthShareData() {
     authHint: '',
     showStoreBrowse: false,
     linkedStoreId: '',
+    withdrawSheetVisible: false,
+    withdrawSheetLoading: false,
+    pendingWithdrawAlbumId: '',
+    withdrawingId: '',
   }
 }
 
@@ -66,7 +71,7 @@ function buildAlbumActionState(detail = {}) {
 }
 
 function createAlbumAuthShareHandlers(options = {}) {
-  const { onAuthChanged, onShareMenuUpdate } = options
+  const { onAuthChanged, onShareMenuUpdate, syncWithdrawingState } = options
 
   return {
     async loadActionDetail(albumId) {
@@ -453,6 +458,58 @@ function createAlbumAuthShareHandlers(options = {}) {
       } catch (err) {
         wx.hideLoading()
         wx.showToast({ title: (err && err.message) || '加载失败', icon: 'none' })
+      }
+    },
+
+    onCardWithdraw(e) {
+      const { id, disabled } = e.detail || {}
+      if (!id || disabled || this.data.withdrawingId || this.data.withdrawSheetVisible) return
+      this.setData({
+        withdrawSheetVisible: true,
+        pendingWithdrawAlbumId: id,
+      })
+    },
+
+    onWithdrawSheetClose() {
+      if (this.data.withdrawSheetLoading) return
+      this.setData({
+        withdrawSheetVisible: false,
+        pendingWithdrawAlbumId: '',
+      })
+    },
+
+    onWithdrawSheetConfirm() {
+      const albumId = this.data.pendingWithdrawAlbumId
+      if (!albumId || this.data.withdrawSheetLoading) return
+      this.setData({ withdrawSheetVisible: false, withdrawSheetLoading: true })
+      this.doWithdraw(albumId)
+    },
+
+    async doWithdraw(albumId) {
+      this.setData({ withdrawingId: albumId })
+      if (syncWithdrawingState) {
+        syncWithdrawingState.call(this, albumId)
+      }
+      try {
+        await withdrawAuthorization(albumId)
+        wx.showToast({ title: '已撤回授权', icon: 'success' })
+        if (onAuthChanged) {
+          await onAuthChanged.call(this, { albumId, action: 'withdraw' })
+        }
+      } catch (e) {
+        wx.showToast({
+          title: (e && e.message) || '撤回失败',
+          icon: 'none',
+        })
+      } finally {
+        this.setData({
+          withdrawingId: '',
+          withdrawSheetLoading: false,
+          pendingWithdrawAlbumId: '',
+        })
+        if (syncWithdrawingState) {
+          syncWithdrawingState.call(this, '')
+        }
       }
     },
   }

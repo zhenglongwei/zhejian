@@ -17,10 +17,12 @@ const {
 const { createServiceAuthorizeTaskFromPreMask } = require('./desensitize')
 
 async function fetchUserServiceAlbums(options = {}) {
+  const { normalizeServiceAlbumListTab } = require('../constants/service-album-status')
+  const tab = normalizeServiceAlbumListTab(options.tab)
   if (ENV.mode === 'mock') {
-    return mockFetchUserServiceAlbums(options)
+    return mockFetchUserServiceAlbums({ ...options, tab })
   }
-  return get('/user/service-albums', options)
+  return get('/user/service-albums', { ...options, tab })
 }
 
 async function fetchServiceAlbum(albumId) {

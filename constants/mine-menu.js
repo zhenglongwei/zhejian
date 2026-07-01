@@ -13,18 +13,10 @@ const MINE_CORE_MENUS = [
   {
     key: 'album',
     label: '我的服务相册',
-    desc: '查看门店为你创建的服务相册',
+    desc: '全部、可公示与已公示相册',
     needPhone: true,
     url: '/pages/album/list/index',
     dotKey: 'albumUnread',
-  },
-  {
-    key: 'authorize',
-    label: '授权公示',
-    desc: '查看授权与审核状态',
-    needPhone: true,
-    url: '/pages/album/authorize/index',
-    badgeKey: 'albumPendingAuth',
   },
 ]
 

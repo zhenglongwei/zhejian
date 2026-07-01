@@ -5,9 +5,13 @@
 }
 
 .album-progress-segments--mini {
-  gap: 4rpx;
-  max-width: 320rpx;
-  margin-top: var(--space-xs);
+  gap: 5rpx;
+  max-width: 100%;
+  margin-top: 0;
+}
+
+.album-progress-segments--mini .album-progress-segments__seg {
+  height: 8rpx;
 }
 
 .album-progress-segments--toolbar {

@@ -40,7 +40,7 @@ Page({
       wx.showToast({ title: '请先登录并绑定手机号', icon: 'none' })
       return
     }
-    wx.navigateTo({ url: '/pages/album/authorize/index' })
+    wx.navigateTo({ url: '/pages/album/list/index?tab=publishable' })
   },
 
   onGoBack() {

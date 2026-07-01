@@ -41,9 +41,13 @@
               <text class="mine__section-link-text text-caption text-link">全部</text>
             </view>
             <text class="mine__section-divider text-caption text-secondary">·</text>
-            <view class="mine__section-link" bindtap="onAuthorizeTap">
-              <text class="mine__section-link-text text-caption text-link">授权公示</text>
+            <view class="mine__section-link" bindtap="onAlbumPublishableTap">
+              <text class="mine__section-link-text text-caption text-link">可公示</text>
               <text wx:if="{{pendingAuthBadge}}" class="mine__link-badge text-caption">{{pendingAuthBadge}}</text>
+            </view>
+            <text class="mine__section-divider text-caption text-secondary">·</text>
+            <view class="mine__section-link" bindtap="onAlbumPublishedTap">
+              <text class="mine__section-link-text text-caption text-link">已公示</text>
             </view>
           </view>
         </view>
@@ -62,6 +66,7 @@
               bind:tap="onAlbumCardTap"
               bind:authorize="onAlbumCardAuthorize"
               bind:share="onAlbumCardShare"
+              bind:withdraw="onAlbumCardWithdraw"
             />
           </view>
         </block>
@@ -179,6 +184,18 @@
     >确认并进入脱敏预览</ui-button>
   </view>
 </ui-bottom-sheet>
+
+<ui-bottom-sheet
+  visible="{{withdrawSheetVisible}}"
+  title="撤回授权"
+  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
+  confirmText="确认撤回"
+  cancelText="取消"
+  loading="{{withdrawSheetLoading}}"
+  bind:close="onWithdrawSheetClose"
+  bind:cancel="onWithdrawSheetClose"
+  bind:confirm="onWithdrawSheetConfirm"
+/>
 
 <ui-share-sheet
   visible="{{shareSheetVisible}}"

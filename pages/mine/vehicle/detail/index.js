@@ -63,7 +63,7 @@ Page({
         fetchUserServiceAlbums({ vehicleId: this.vehicleId, tab: 'all' }),
       ])
       const list = (albums || []).map((item) =>
-        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'private' }),
+        enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' }),
       )
       this.setData({
         vehicle,

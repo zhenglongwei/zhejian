@@ -102,7 +102,7 @@ function buildDevAlbumSandboxData() {
   const activeNodeId = (chapters[0] && chapters[0].nodeId) || 'stage_1'
   const userCardItem = enrichServiceAlbumListItem(detail, {
     audience: 'user',
-    listTab: 'private',
+    listTab: 'all',
   })
   const merchantCardItem = enrichServiceAlbumListItem(detail, {
     audience: 'merchant',

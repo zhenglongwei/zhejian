@@ -59,11 +59,24 @@ const SERVICE_ALBUM_STATUS_VARIANT = {
   [SERVICE_ALBUM_STATUS.PUBLISHED]: 'success',
 }
 
-/** 用户端列表 Tab（仅公开 / 私密） */
+/** 用户端列表 Tab（公示态三分 · 2026-06-24） */
 const SERVICE_ALBUM_LIST_TABS = [
-  { key: 'private', label: '私密相册' },
-  { key: 'public', label: '公开相册' },
+  { key: 'all', label: '全部' },
+  { key: 'publishable', label: '可公示' },
+  { key: 'published', label: '已公示' },
 ]
+
+/** @deprecated 兼容旧 tab 参数 */
+const SERVICE_ALBUM_LIST_TAB_ALIASES = {
+  private: 'publishable',
+  public: 'published',
+}
+
+function normalizeServiceAlbumListTab(tab) {
+  const key = String(tab || 'all').trim()
+  if (SERVICE_ALBUM_LIST_TABS.some((item) => item.key === key)) return key
+  return SERVICE_ALBUM_LIST_TAB_ALIASES[key] || 'all'
+}
 
 /** 商家端列表 Tab */
 const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
@@ -97,6 +110,8 @@ module.exports = {
   ALBUM_VISIBILITY_LABEL,
   ALBUM_VISIBILITY_VARIANT,
   SERVICE_ALBUM_LIST_TABS,
+  SERVICE_ALBUM_LIST_TAB_ALIASES,
+  normalizeServiceAlbumListTab,
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
   MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP,
 }
