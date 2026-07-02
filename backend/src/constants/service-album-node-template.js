@@ -79,7 +79,7 @@ const ALBUM_NODE_TEMPLATES = {
     templateName: '事故车维修',
     serviceItemId: 'item_accident',
     nodes: makeStageNodes(
-      ['接车记录', '损伤检测', '维修方案', '配件/材料', '修复过程', '完工验收'],
+      ['接车记录', '损伤检测', '维修方案', '配件/材料凭证', '修复过程', '完工验收'],
       ['recommended', 'required', 'required', 'recommended', 'optional', 'recommended']
     ),
   },

@@ -32,11 +32,11 @@ const SERVICE_ALBUM_STAGES = [
   {
     id: 'stage_4',
     title: '配件告知',
-    description: '录入更换配件的标准类型与凭证',
-    photoTips: '建议拍摄配件、包装、编码',
+    description: '',
+    photoTips: '根据维修方案拍摄新配件的包装、编码、note标类型等',
     notePlaceholder: '可补充配件品牌、编码或更换说明（选填）',
-    requiredLevelLabel: '建议录入',
-    requiredLevelVariant: 'info',
+    requiredLevelLabel: '',
+    requiredLevelVariant: 'default',
   },
   {
     id: 'stage_5',

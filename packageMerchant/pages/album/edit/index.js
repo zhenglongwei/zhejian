@@ -120,6 +120,7 @@ Page({
     compareAfterImages: [],
     comparePairPreview: [],
     isComparePairStage: false,
+    isPartsStage: false,
     planParts: [],
     planOcrLoading: false,
     planParseHint: '',
@@ -187,9 +188,13 @@ Page({
         requiredLevelVariant: node.requiredLevelVariant || meta.requiredLevelVariant,
       })
       const apiTitle = String(node.title || '').trim()
+      let title = apiTitle || stage.title
+      if (stage.id === STAGE_PARTS_ID && title === '配件/材料') {
+        title = '配件/材料凭证'
+      }
       return {
         id: stage.id,
-        title: apiTitle || stage.title,
+        title,
         description: mergedMeta.description,
         photoTips: mergedMeta.photoTips,
         compareGuidance: mergedMeta.compareGuidance,
@@ -216,11 +221,13 @@ Page({
   },
 
   refreshCompareStageFlags(stageIndex = this.data.stageIndex) {
+    const stageId = (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
+    const isPartsStage = stageId === STAGE_PARTS_ID
     const isComparePairStage =
       this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
       SERVICE_ALBUM_STAGES[stageIndex] &&
       SERVICE_ALBUM_STAGES[stageIndex].id === STAGE_COMPARE_ID
-    this.setData({ isComparePairStage })
+    this.setData({ isComparePairStage, isPartsStage })
     return isComparePairStage
   },
 

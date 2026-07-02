@@ -58,8 +58,8 @@ const TEMPLATE_STAGE_META = {
       requiredLevelVariant: 'danger',
     },
     stage_4: {
-      description: '配件/材料凭证',
-      photoTips: '包装、编码；note 标类型。',
+      description: '',
+      photoTips: '根据维修方案拍摄新配件的包装、编码、note标类型等',
     },
     stage_5: {
       description: '修复施工过程',
