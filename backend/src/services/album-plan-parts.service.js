@@ -8,6 +8,10 @@ const {
 } = require('../lib/plan-quote-parse')
 const { parsePlanQuoteImageWithFallback } = require('./plan-quote-parse.service')
 const { config } = require('../config')
+const {
+  extractPartCodeCandidates,
+  mergeCandidateLists,
+} = require('../lib/part-code-candidates')
 
 const STAGE_PLAN = 'stage_3'
 
@@ -217,12 +221,6 @@ async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {
     textPreview: result.textPreview || '',
   }
 }
-
-const { config } = require('../config')
-const {
-  extractPartCodeCandidates,
-  mergeCandidateLists,
-} = require('../lib/part-code-candidates')
 
 async function recognizePartLabelOcr(input) {
   let imageUrls = []
