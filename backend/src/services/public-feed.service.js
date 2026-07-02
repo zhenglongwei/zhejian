@@ -56,6 +56,8 @@ function mapCaseFeed(detail) {
     schemaGraph: detail.schemaGraph || null,
   }
 }
+
+function mapServiceFeed(payload) {
   const item = payload.item || {}
   const seo = payload.seo || {}
   return {
