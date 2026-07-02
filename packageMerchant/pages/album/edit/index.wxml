@@ -126,7 +126,7 @@
               <text class="text-body">方案配件目录</text>
               <ui-tag wx:if="{{planPartsLocked}}" variant="success" text="已锁定" />
             </view>
-            <text class="text-caption merchant-album-edit__parts-hint">在上方节点上传报价表图（含手写/拍照），点击识别后由智能解析提取配件目录，仍须人工核对后锁定。</text>
+            <text class="text-caption merchant-album-edit__parts-hint">上传本单维修报价/方案图（可含工时、更换、配件混排），智能解析提取零配件目录，须人工核对后锁定。</text>
             <view wx:if="{{planParseHint}}" class="merchant-album-edit__parse-hint">
               <text class="text-caption">{{planParseHint}}</text>
             </view>

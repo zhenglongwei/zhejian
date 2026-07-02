@@ -178,6 +178,7 @@ async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {
     ocrProvider: result.provider,
     parseMethod: result.parseMethod || '',
     parseHint: result.parseHint || '',
+    parseSummary: result.parseSummary || '',
     llmEngine: result.llmEngine || '',
     llmEngineLabel: result.llmEngineLabel || '',
     llmFailures: result.llmFailures || [],

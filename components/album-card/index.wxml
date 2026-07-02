@@ -45,9 +45,53 @@
       </block>
     </view>
 
-    <view class="album-card__body">
+    <!-- embedded：工作台/我的 Hero — 标题与分享同一行，正文纵向排列（避免侧栏挤成竖排） -->
+    <view wx:if="{{embedded}}" class="album-card__body album-card__body--stacked">
+      <view class="album-card__head {{audience === 'merchant' && item.canShareToOwner ? 'album-card__head--with-share' : ''}}">
+        <text class="album-card__service album-card__service--head text-body">{{item.serviceName}}</text>
+        <view
+          wx:if="{{audience === 'merchant' && item.canShareToOwner}}"
+          class="album-card__head-share"
+        >
+          <button
+            class="album-card__share-btn album-card__share-btn--head"
+            open-type="share"
+            catchtap="onShareTap"
+            data-album-id="{{item.albumId}}"
+          >分享</button>
+        </view>
+      </view>
+
+      <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
+      <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+
+      <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
+      <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
+
+      <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
+        <ui-tag
+          wx:if="{{item.hasUnreadUpdate}}"
+          variant="warning"
+          text="有更新"
+        />
+        <ui-tag
+          wx:if="{{item.statusLabel}}"
+          variant="{{item.statusVariant}}"
+          text="{{item.statusLabel}}"
+        />
+      </view>
+
+      <text wx:if="{{item.deliverDateText}}" class="album-card__date text-caption">{{item.deliverDateText}}</text>
+      <text
+        wx:elif="{{item.updatedAtText}}"
+        class="album-card__time text-caption {{item.hasUnreadUpdate ? 'album-card__time--fresh' : ''}}"
+      >更新于 {{item.updatedAtText}}</text>
+    </view>
+
+    <!-- raised：列表卡 — 主内容 + 右侧操作列 -->
+    <view wx:else class="album-card__body album-card__body--split">
       <view class="album-card__main">
-        <text class="album-card__service {{embedded ? 'text-body' : 'text-album-display'}}">{{item.serviceName}}</text>
+        <text class="album-card__service text-album-display">{{item.serviceName}}</text>
 
         <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
         <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
@@ -69,20 +113,13 @@
         </view>
 
         <view
-          wx:if="{{showProgress && item.stageProgress.length && !embedded}}"
+          wx:if="{{showProgress && item.stageProgress.length}}"
           class="album-card__progress-wrap"
         >
           <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
         </view>
 
-        <view wx:if="{{embedded && item.deliverDateText}}" class="album-card__inline-date">
-          <text class="album-card__date text-caption">{{item.deliverDateText}}</text>
-        </view>
-        <view wx:elif="{{embedded && item.updatedAtText}}" class="album-card__inline-date">
-          <text class="album-card__time text-caption {{item.hasUnreadUpdate ? 'album-card__time--fresh' : ''}}">更新于 {{item.updatedAtText}}</text>
-        </view>
-
-        <view wx:if="{{!embedded && (item.archivalDateText || item.updatedAtText)}}" class="album-card__footer">
+        <view wx:if="{{item.archivalDateText || item.updatedAtText}}" class="album-card__footer">
           <text wx:if="{{item.archivalDateText}}" class="text-album-archival-date">{{item.archivalDateText}}</text>
           <text
             wx:elif="{{item.updatedAtText}}"

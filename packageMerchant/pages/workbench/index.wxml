@@ -94,7 +94,7 @@
               item="{{item}}"
               audience="merchant"
               showProgress="{{true}}"
-              showHeaderActions="{{true}}"
+              showHeaderActions="{{false}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"

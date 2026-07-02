@@ -11,14 +11,17 @@ const {
 
 function buildParseHint(result = {}) {
   const base = PLAN_QUOTE_PARSE_HINT.llm
+  const summary = String(result.parseSummary || '').trim()
   const failures = Array.isArray(result.llmFailures) ? result.llmFailures : []
-  if (failures.length && result.llmEngineLabel) {
-    return `${base}（前序模型失败，已切换至 ${result.llmEngineLabel}）`
+  let hint = base
+  if (summary) {
+    hint = `${base} ${summary}`
+  } else if (failures.length && result.llmEngineLabel) {
+    hint = `${base}（前序模型失败，已切换至 ${result.llmEngineLabel}）`
+  } else if (result.llmEngineLabel) {
+    hint = `${base}（${result.llmEngineLabel}）`
   }
-  if (result.llmEngineLabel) {
-    return `${base}（${result.llmEngineLabel}）`
-  }
-  return base
+  return hint
 }
 
 async function parsePlanQuoteImage(imageUrl) {
