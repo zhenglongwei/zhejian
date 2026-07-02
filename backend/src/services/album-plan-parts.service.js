@@ -47,6 +47,37 @@ function resolvePlanQuoteThumbs(images = []) {
     .filter(Boolean)
 }
 
+function planPartsDraftToAlbumParts(planParts = [], existingParts = []) {
+  const existingByPlan = new Map()
+  ;(existingParts || []).forEach((part) => {
+    const key = String(part.planPartId || part.linkKey || '').trim()
+    if (key) existingByPlan.set(key, part)
+  })
+
+  const fromPlan = (planParts || []).map((plan) => {
+    const existing = existingByPlan.get(plan.planPartId)
+    return {
+      partId: existing?.partId || existing?.id || `part_${plan.planPartId}`,
+      planPartId: plan.planPartId,
+      linkKey: plan.planPartId,
+      partName: plan.name,
+      partType: existing?.partType || plan.partType,
+      partBrand: existing?.partBrand || plan.partBrand || '',
+      partCode: existing?.partCode || plan.partCode || '',
+      photos: Array.isArray(existing?.photos) ? existing.photos : [],
+      source: 'plan_linked',
+      qty: plan.qty || 1,
+    }
+  })
+
+  const extras = (existingParts || []).filter(
+    (part) =>
+      part.source === 'extra' ||
+      (!part.planPartId && !part.linkKey),
+  )
+  return [...fromPlan, ...extras]
+}
+
 function buildPlanPartsContext(album) {
   const planParts = mapPlanPartsJson(album.planPartsJson)
   const planAmount = resolvePlanAmount(album)
@@ -82,17 +113,7 @@ async function getMerchantPlanPartsContext(albumId, storeId, merchantId) {
 
 async function saveMerchantPlanPartsDraft(albumId, storeId, merchantId, payload = {}) {
   const album = await loadAlbumPlanRow(albumId, storeId, merchantId)
-  if (album.planPartsLockedAt) {
-    const err = new Error('方案配件目录已锁定，请先解锁后再修改')
-    err.status = 409
-    throw err
-  }
   const planParts = sanitizePlanPartsDraft(payload.planParts)
-  if (!planParts.length) {
-    const err = new Error('请至少添加一项方案配件')
-    err.status = 400
-    throw err
-  }
   await prisma.album.update({
     where: { id: albumId },
     data: { planPartsJson: planParts },
@@ -151,30 +172,41 @@ async function unlockMerchantPlanParts(albumId, storeId, merchantId) {
 
 async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {}) {
   const album = await loadAlbumPlanRow(albumId, storeId, merchantId)
-  if (album.planPartsLockedAt) {
-    const err = new Error('方案配件目录已锁定，请先解锁后再识别')
-    err.status = 409
-    throw err
-  }
   const imageUrl = String(payload.imageUrl || '').trim()
   const thumbs = resolvePlanQuoteThumbs(album.images)
   const targetUrl = imageUrl || thumbs[0] || ''
   if (!targetUrl) {
-    const err = new Error('请先在阶段三上传报价表图片')
+    const err = new Error('请先在维修方案节点上传报价单图片')
     err.status = 400
     throw err
   }
 
   const result = await parsePlanQuoteImageWithFallback(targetUrl)
 
-  const planParts = sanitizePlanPartsDraft(result.planPartsDraft)
+  const planParts = sanitizePlanPartsDraft(result.planPartsDraft).map((row) => ({
+    ...row,
+    status: 'confirmed',
+  }))
+  if (!planParts.length) {
+    const err = new Error('未识别到可登记的零配件，请手工添加')
+    err.status = 422
+    throw err
+  }
+
+  const existingParts = Array.isArray(album.partsJson) ? album.partsJson : []
+  const parts = planPartsDraftToAlbumParts(planParts, existingParts)
+
   await prisma.album.update({
     where: { id: albumId },
-    data: { planPartsJson: planParts },
+    data: {
+      planPartsJson: planParts,
+      partsJson: parts,
+    },
   })
   const updated = await loadAlbumPlanRow(albumId, storeId, merchantId)
   return {
     ...buildPlanPartsContext(updated),
+    parts,
     ocrProvider: result.provider,
     parseMethod: result.parseMethod || '',
     parseHint: result.parseHint || '',
@@ -228,4 +260,5 @@ module.exports = {
   recognizePartLabelOcr,
   syncPlanQuoteImageIds,
   buildPlanPartsContext,
+  planPartsDraftToAlbumParts,
 }

@@ -119,209 +119,68 @@
               showSuffix="{{false}}"
               showDisclaimer="{{false}}"
             />
+            <text class="text-caption merchant-album-edit__parts-hint">在上方节点上传本单报价/方案图（可含工时与配件混排），到「配件/材料」环节识别零配件并登记凭证。</text>
           </view>
+        </block>
 
-          <view class="merchant-album-edit__plan-parts">
-            <view class="merchant-album-edit__plan-parts-head">
-              <text class="text-body">方案配件目录</text>
-              <ui-tag wx:if="{{planPartsLocked}}" variant="success" text="已锁定" />
+        <block wx:if="{{stages[stageIndex].id === 'stage_4'}}">
+          <view class="merchant-album-edit__parts">
+            <view class="merchant-album-edit__wizard-head">
+              <text class="text-h3">配件/材料登记</text>
+              <text wx:if="{{partWizardProgress}}" class="text-caption text-secondary">凭证 {{partWizardProgress}}</text>
             </view>
-            <text class="text-caption merchant-album-edit__parts-hint">上传本单维修报价/方案图（可含工时、更换、配件混排），智能解析提取零配件目录，须人工核对后锁定。</text>
+            <text class="text-caption merchant-album-edit__parts-hint">识别报价单生成配件清单，逐项选择类型、填写编码并上传凭证图；识别有误可删除或修改。保存相册后车主可配件验真。</text>
             <view wx:if="{{planParseHint}}" class="merchant-album-edit__parse-hint">
               <text class="text-caption">{{planParseHint}}</text>
-            </view>
-            <view wx:if="{{amountMismatch}}" class="merchant-album-edit__warn">
-              <text class="text-caption">{{amountMismatchHint}}</text>
             </view>
             <view class="merchant-album-edit__plan-parts-actions">
               <ui-button
                 type="secondary"
                 size="sm"
                 loading="{{planOcrLoading}}"
-                disabled="{{planPartsLocked || planOcrLoading}}"
+                disabled="{{planOcrLoading}}"
                 bind:btntap="onRunPlanQuoteOcr"
-              >识别报价表</ui-button>
+              >识别报价单</ui-button>
               <ui-button
-                wx:if="{{!planPartsLocked}}"
                 type="ghost"
                 size="sm"
-                bind:btntap="onAddPlanPartRow"
-              >新增一行</ui-button>
+                bind:btntap="onAddPartRow"
+              >手工添加</ui-button>
             </view>
-            <view
-              wx:for="{{planParts}}"
-              wx:key="planPartId"
-              class="merchant-album-edit__plan-part-row"
-            >
-              <input
-                class="merchant-form__input"
-                placeholder="配件名称"
-                value="{{item.name}}"
-                disabled="{{planPartsLocked}}"
-                data-index="{{index}}"
-                data-field="name"
-                bindinput="onPlanPartInput"
-              />
-              <picker
-                mode="selector"
-                range="{{partTypeList}}"
-                disabled="{{planPartsLocked}}"
-                data-index="{{index}}"
-                bindchange="onPlanPartTypeChange"
-              >
-                <view class="merchant-form__picker">{{item.partType || partTypeList[0]}}</view>
-              </picker>
-              <view class="merchant-form__row">
-                <input
-                  class="merchant-form__input merchant-form__input--half"
-                  placeholder="品牌"
-                  value="{{item.partBrand}}"
-                  disabled="{{planPartsLocked}}"
-                  data-index="{{index}}"
-                  data-field="partBrand"
-                  bindinput="onPlanPartInput"
-                />
-                <input
-                  class="merchant-form__input merchant-form__input--half"
-                  placeholder="编码"
-                  value="{{item.partCode}}"
-                  disabled="{{planPartsLocked}}"
-                  data-index="{{index}}"
-                  data-field="partCode"
-                  bindinput="onPlanPartInput"
-                />
-              </view>
-              <view class="merchant-form__row merchant-album-edit__plan-part-meta">
-                <input
-                  class="merchant-form__input merchant-form__input--half"
-                  type="number"
-                  placeholder="数量"
-                  value="{{item.qty}}"
-                  disabled="{{planPartsLocked}}"
-                  data-index="{{index}}"
-                  data-field="qty"
-                  bindinput="onPlanPartInput"
-                />
-                <ui-button
-                  wx:if="{{!planPartsLocked}}"
-                  type="ghost"
-                  size="sm"
-                  data-index="{{index}}"
-                  bind:btntap="onRemovePlanPartRow"
-                >删除</ui-button>
-              </view>
-            </view>
-            <ui-compliance-notice type="planPartsLock" />
-            <view class="merchant-album-edit__plan-parts-foot">
-              <ui-button
-                wx:if="{{!planPartsLocked}}"
-                type="secondary"
-                size="sm"
-                loading="{{planPartsSaving}}"
-                bind:btntap="onSavePlanPartsDraft"
-              >保存目录</ui-button>
-              <ui-button
-                wx:if="{{!planPartsLocked}}"
-                type="primary"
-                size="sm"
-                loading="{{planPartsLocking}}"
-                bind:btntap="onLockPlanParts"
-              >确认并锁定</ui-button>
-              <ui-button
-                wx:if="{{planPartsLocked}}"
-                type="ghost"
-                size="sm"
-                bind:btntap="onUnlockPlanParts"
-              >解锁目录</ui-button>
-            </view>
-          </view>
-        </block>
 
-        <block wx:if="{{stages[stageIndex].id === 'stage_4'}}">
-          <block wx:if="{{planPartsLocked && partWizardRows.length}}">
-            <view class="merchant-album-edit__parts">
-              <view class="merchant-album-edit__wizard-head">
-                <text class="text-h3">配件清单向导</text>
-                <text class="text-caption text-secondary">进度 {{partWizardProgress}}</text>
-              </view>
-              <text class="text-caption merchant-album-edit__parts-hint">按方案目录逐项上传凭证图并登记编码；完成后车主可在验真页对照。</text>
-              <view
-                wx:for="{{partWizardRows}}"
-                wx:key="planPartId"
-                class="merchant-album-edit__wizard-row {{item.done ? 'is-done' : ''}}"
-              >
-                <view class="merchant-album-edit__wizard-summary" data-index="{{index}}" bindtap="onToggleWizardRow">
-                  <text class="text-body">{{item.done ? '✓' : '○'}} {{item.planName}} · {{item.partType}} ×{{item.qty || 1}}</text>
+            <view
+              wx:for="{{partWizardRows}}"
+              wx:key="planPartId"
+              class="merchant-album-edit__wizard-row {{item.done ? 'is-done' : ''}}"
+            >
+              <view class="merchant-album-edit__wizard-summary" data-index="{{index}}" bindtap="onToggleWizardRow">
+                <text class="text-body">{{item.done ? '✓' : '○'}} {{item.partName || item.planName}} · {{item.partType}}</text>
+                <view class="merchant-album-edit__wizard-summary-actions">
                   <text class="text-caption text-link">{{activeWizardIndex === index ? '收起' : '编辑'}}</text>
+                  <text class="text-caption text-link merchant-album-edit__wizard-remove" data-index="{{index}}" catchtap="onRemovePartRow">删除</text>
                 </view>
-                <block wx:if="{{activeWizardIndex === index}}">
-                  <input class="merchant-form__input" placeholder="登记名称" value="{{item.partName}}" data-index="{{index}}" data-field="partName" bindinput="onWizardInput" />
-                  <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
-                    <view class="merchant-form__picker">{{item.partType}}</view>
-                  </picker>
-                  <view class="merchant-form__row">
-                    <input class="merchant-form__input merchant-form__input--half" placeholder="品牌" value="{{item.partBrand}}" data-index="{{index}}" data-field="partBrand" bindinput="onWizardInput" />
-                    <input class="merchant-form__input merchant-form__input--half" placeholder="编码" value="{{item.partCode}}" data-index="{{index}}" data-field="partCode" bindinput="onWizardInput" />
-                  </view>
-                  <ui-image-uploader images="{{item.photos}}" maxCount="{{3}}" data-index="{{index}}" bind:change="onWizardPhotosChange" />
-                  <view class="merchant-album-edit__wizard-actions">
-                    <ui-button type="ghost" size="sm" loading="{{partLabelOcrLoading}}" data-index="{{index}}" bind:btntap="onRunPartLabelOcr">识别编码</ui-button>
-                    <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
-                  </view>
-                </block>
               </view>
-              <ui-button type="secondary" size="sm" block bind:btntap="onOpenExtraPartForm">添加方案外增项</ui-button>
-              <view wx:if="{{showExtraPartForm}}" class="merchant-album-edit__part-form">
-                <input class="merchant-form__input" placeholder="增项名称" value="{{extraPartForm.partName}}" data-field="partName" bindinput="onExtraPartInput" />
-                <picker mode="selector" range="{{partTypeList}}" value="{{extraPartForm.partTypeIndex}}" bindchange="onExtraPartTypeChange">
-                  <view class="merchant-form__picker">{{partTypeList[extraPartForm.partTypeIndex]}}</view>
+              <block wx:if="{{activeWizardIndex === index}}">
+                <input class="merchant-form__input" placeholder="配件名称" value="{{item.partName}}" data-index="{{index}}" data-field="partName" bindinput="onWizardInput" />
+                <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
+                  <view class="merchant-form__picker">{{item.partType}}</view>
                 </picker>
-                <input class="merchant-form__input" placeholder="增项说明（选填）" value="{{extraPartForm.extraReason}}" data-field="extraReason" bindinput="onExtraPartInput" />
-                <view class="merchant-album-edit__part-form-actions">
-                  <ui-button type="secondary" size="sm" bind:btntap="onCancelExtraPartForm">取消</ui-button>
-                  <ui-button type="primary" size="sm" bind:btntap="onAddExtraPart">确认增项</ui-button>
+                <view class="merchant-form__row">
+                  <input class="merchant-form__input merchant-form__input--half" placeholder="品牌" value="{{item.partBrand}}" data-index="{{index}}" data-field="partBrand" bindinput="onWizardInput" />
+                  <input class="merchant-form__input merchant-form__input--half" placeholder="编码" value="{{item.partCode}}" data-index="{{index}}" data-field="partCode" bindinput="onWizardInput" />
                 </view>
-              </view>
+                <ui-image-uploader images="{{item.photos}}" maxCount="{{3}}" data-index="{{index}}" bind:change="onWizardPhotosChange" />
+                <view class="merchant-album-edit__wizard-actions">
+                  <ui-button type="ghost" size="sm" loading="{{partLabelOcrLoading}}" data-index="{{index}}" bind:btntap="onRunPartLabelOcr">识别编码</ui-button>
+                  <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
+                </view>
+              </block>
             </view>
-          </block>
-          <block wx:else>
-          <view class="merchant-album-edit__parts">
-            <text class="text-h3">配件录入</text>
-            <text class="text-caption merchant-album-edit__parts-hint">记录配件类型与实际价格，供门店留痕；车主可在服务相册中查看，公开案例须另行授权。</text>
-            <view class="merchant-album-edit__parts-list">
-              <album-part-row
-                wx:for="{{parts}}"
-                wx:key="partId"
-                variant="inline"
-                tappable="{{false}}"
-                is-last="{{index === parts.length - 1}}"
-                name="{{item.partName}}"
-                part-type="{{item.partType}}"
-                type-variant="{{item.typeVariant}}"
-                price-amount="{{item.actualPrice}}"
-              />
+
+            <view wx:if="{{!partWizardRows.length}}" class="merchant-album-edit__parts-empty">
+              <text class="text-caption text-secondary">暂无配件，请识别报价单或手工添加</text>
             </view>
-            <view wx:if="{{showPartForm}}" id="part-form" class="merchant-album-edit__part-form">
-              <input class="merchant-form__input" placeholder="配件名称" value="{{partForm.partName}}" data-field="partName" bindinput="onPartInput" />
-              <input class="merchant-form__input" placeholder="品牌（选填）" value="{{partForm.partBrand}}" data-field="partBrand" bindinput="onPartInput" />
-              <picker mode="selector" range="{{partTypeList}}" value="{{partForm.partTypeIndex}}" bindchange="onPartTypeChange">
-                <view class="merchant-form__picker">{{partTypeList[partForm.partTypeIndex]}}</view>
-              </picker>
-              <input class="merchant-form__input" type="number" placeholder="价格（选填）" value="{{partForm.actualPrice}}" data-field="actualPrice" bindinput="onPartInput" />
-              <view class="merchant-album-edit__part-form-actions">
-                <ui-button type="secondary" size="sm" bind:btntap="onCancelPartForm">取消</ui-button>
-                <ui-button type="primary" size="sm" bind:btntap="onAddPart">确认添加</ui-button>
-              </view>
-            </view>
-            <ui-button
-              wx:if="{{!showPartForm}}"
-              type="secondary"
-              size="sm"
-              block="{{true}}"
-              bind:btntap="onOpenPartForm"
-            >添加配件</ui-button>
           </view>
-          </block>
         </block>
       </ui-card>
 

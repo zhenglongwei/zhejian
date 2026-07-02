@@ -1558,16 +1558,31 @@ async function mockRunMerchantPlanQuoteOcr(albumId) {
       partCode: '',
       qty: 1,
       unitPrice: 1680,
-      status: 'draft',
+      status: 'confirmed',
+    },
+  ]
+  raw.parts = [
+    {
+      partId: 'part_plan_headlight',
+      planPartId: 'plan_headlight',
+      linkKey: 'plan_headlight',
+      partName: '左前大灯总成',
+      partType: PART_TYPE.BRAND,
+      partBrand: '海拉',
+      partCode: '',
+      photos: [],
+      source: 'plan_linked',
+      qty: 1,
     },
   ]
   map[albumId] = raw
   saveAlbumMap(map)
   return {
     ...buildMockPlanPartsContext(raw),
+    parts: raw.parts || [],
     ocrProvider: 'mock',
     parseMethod: 'mock',
-    parseHint: '演示数据，请核对后再锁定。',
+    parseHint: '演示数据，请到配件/材料环节核对并上传凭证。',
     textPreview: '左前大灯总成 品牌件 ×1 1680元',
   }
 }

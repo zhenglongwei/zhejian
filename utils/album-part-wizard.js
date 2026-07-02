@@ -7,6 +7,27 @@ function resolvePartTypeIndex(partType) {
   return index >= 0 ? index : 0
 }
 
+function rowFromPart(part = {}, plan = null) {
+  const photos = Array.isArray(part.photos) ? part.photos : []
+  const partType = part.partType || plan?.partType || PART_TYPE.BRAND
+  const planPartId = String(part.planPartId || part.linkKey || plan?.planPartId || '').trim()
+  return {
+    planPartId: planPartId || `part_${part.partId || part.id || Date.now()}`,
+    planName: plan?.name || part.partName || part.name || '',
+    planType: plan?.partType || part.partType || PART_TYPE.BRAND,
+    qty: plan?.qty || part.qty || 1,
+    partId: part.partId || part.id || '',
+    partName: part.partName || part.name || plan?.name || '',
+    partBrand: part.partBrand || plan?.partBrand || '',
+    partCode: part.partCode || plan?.partCode || '',
+    partType,
+    partTypeIndex: resolvePartTypeIndex(partType),
+    photos,
+    source: part.source || (planPartId ? 'plan_linked' : 'extra'),
+    done: Boolean(photos.length && partType),
+  }
+}
+
 function buildPartWizardRows(planParts = [], parts = []) {
   const linked = new Map()
   const extras = []
@@ -21,34 +42,27 @@ function buildPartWizardRows(planParts = [], parts = []) {
     }
   })
 
-  const rows = (planParts || []).map((plan) => {
-    const existing = linked.get(plan.planPartId)
-    const photos = Array.isArray(existing?.photos) ? existing.photos : []
-    const partType = existing?.partType || plan.partType || PART_TYPE.BRAND
-    return {
-      planPartId: plan.planPartId,
-      planName: plan.name,
-      planType: plan.partType,
-      qty: plan.qty || 1,
-      partId: existing?.partId || existing?.id || '',
-      partName: existing?.partName || existing?.name || plan.name,
-      partBrand: existing?.partBrand || plan.partBrand || '',
-      partCode: existing?.partCode || plan.partCode || '',
-      partType,
-      partTypeIndex: resolvePartTypeIndex(partType),
-      photos,
-      source: 'plan_linked',
-      done: Boolean(existing && photos.length && partType),
-    }
-  })
+  let rows = []
+  if ((planParts || []).length) {
+    rows = (planParts || []).map((plan) => {
+      const existing = linked.get(plan.planPartId)
+      return rowFromPart(existing || {}, plan)
+    })
+  } else if ((parts || []).length) {
+    rows = (parts || [])
+      .filter((part) => part.source !== 'extra')
+      .map((part) => rowFromPart(part, null))
+  }
 
-  const doneCount = rows.filter((row) => row.done).length
+  const extraRows = extras.map((part) => rowFromPart(part, null))
+  const allRows = rows.concat(extraRows)
+  const doneCount = allRows.filter((row) => row.done).length
   return {
-    rows,
+    rows: allRows,
     extras,
-    progressLabel: planParts.length ? `${doneCount}/${planParts.length}` : '',
+    progressLabel: allRows.length ? `${doneCount}/${allRows.length}` : '',
     doneCount,
-    totalCount: planParts.length,
+    totalCount: allRows.length,
   }
 }
 
@@ -65,10 +79,13 @@ function mergeWizardRowIntoParts(parts = [], row = {}) {
     partType: row.partType || PART_TYPE.BRAND,
     photos: Array.isArray(row.photos) ? row.photos : [],
     source: row.source || 'plan_linked',
+    qty: row.qty || 1,
   }
   const index = list.findIndex(
     (item) =>
-      String(item.planPartId || item.linkKey || '') === String(row.planPartId || ''),
+      String(item.partId || item.id || '') === String(partId) ||
+      (row.planPartId &&
+        String(item.planPartId || item.linkKey || '') === String(row.planPartId)),
   )
   if (index >= 0) {
     list[index] = { ...list[index], ...payload }
@@ -93,10 +110,57 @@ function appendExtraPart(parts = [], form = {}) {
   return list
 }
 
+function appendManualPartRow(planParts = [], parts = [], form = {}) {
+  const planPartId = `plan_${Date.now()}`
+  const name = String(form.partName || '').trim()
+  const partType = form.partType || PART_TYPE.BRAND
+  const nextPlan = (planParts || []).concat([
+    {
+      planPartId,
+      name,
+      partType,
+      partBrand: String(form.partBrand || '').trim(),
+      partCode: String(form.partCode || '').trim(),
+      qty: 1,
+      status: 'confirmed',
+    },
+  ])
+  const nextParts = mergeWizardRowIntoParts(parts, {
+    planPartId,
+    planName: name,
+    partName: name,
+    partType,
+    partBrand: form.partBrand,
+    partCode: form.partCode,
+    photos: [],
+    source: 'plan_linked',
+    qty: 1,
+  })
+  return { planParts: nextPlan, parts: nextParts }
+}
+
+function removeWorkspaceRow(parts = [], planParts = [], row = {}) {
+  const planPartId = String(row.planPartId || '').trim()
+  const partId = String(row.partId || '').trim()
+  const nextParts = (parts || []).filter((part) => {
+    if (partId && String(part.partId || part.id || '') === partId) return false
+    if (planPartId && String(part.planPartId || part.linkKey || '') === planPartId) {
+      return false
+    }
+    return true
+  })
+  const nextPlan = planPartId
+    ? (planParts || []).filter((plan) => String(plan.planPartId || '') !== planPartId)
+    : planParts || []
+  return { planParts: nextPlan, parts: nextParts }
+}
+
 module.exports = {
   PART_TYPE_LIST,
   buildPartWizardRows,
   mergeWizardRowIntoParts,
   appendExtraPart,
+  appendManualPartRow,
+  removeWorkspaceRow,
   resolvePartTypeIndex,
 }

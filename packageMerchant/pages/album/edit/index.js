@@ -40,12 +40,11 @@ const {
 const {
   buildPartWizardRows,
   mergeWizardRowIntoParts,
+  appendManualPartRow,
   appendExtraPart,
+  removeWorkspaceRow,
 } = require('../../../../utils/album-part-wizard')
 const {
-  saveMerchantPlanPartsDraft,
-  lockMerchantPlanParts,
-  unlockMerchantPlanParts,
   runMerchantPlanQuoteOcr,
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
@@ -122,12 +121,7 @@ Page({
     comparePairPreview: [],
     isComparePairStage: false,
     planParts: [],
-    planPartsLocked: false,
     planOcrLoading: false,
-    planPartsSaving: false,
-    planPartsLocking: false,
-    amountMismatch: false,
-    amountMismatchHint: '',
     planParseHint: '',
     partWizardRows: [],
     partWizardExtras: [],
@@ -354,9 +348,6 @@ Page({
       geoEvidenceVariant,
       geoEvidenceLabel,
       planParts: detail.planParts || [],
-      planPartsLocked: Boolean(detail.planPartsLocked),
-      amountMismatch: Boolean(detail.amountMismatch),
-      amountMismatchHint: detail.amountMismatchHint || '',
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
@@ -688,6 +679,41 @@ Page({
     })
   },
 
+  mapPartsWithVariants(parts = []) {
+    return (parts || []).map((p) => ({
+      ...p,
+      typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
+    }))
+  },
+
+  async persistPartsCatalog(parts, planParts) {
+    const nextParts = this.mapPartsWithVariants(parts || this.data.parts)
+    const nextPlanParts = planParts != null ? planParts : this.data.planParts
+    const { payload, droppedStaleCount } = await this.buildSavePayload({
+      parts: nextParts,
+      planParts: nextPlanParts,
+    })
+    const detail = await saveMerchantServiceAlbum(this.albumId, payload)
+    this.applyAlbum(detail)
+    if (droppedStaleCount) this.notifyStaleImagesDropped(droppedStaleCount)
+  },
+
+  syncPlanPartsFromWizardRow(row = {}) {
+    const planPartId = String(row.planPartId || '').trim()
+    if (!planPartId) return this.data.planParts
+    return (this.data.planParts || []).map((plan) => {
+      if (String(plan.planPartId || '') !== planPartId) return plan
+      return {
+        ...plan,
+        name: String(row.partName || row.planName || plan.name || '').trim(),
+        partType: row.partType || plan.partType,
+        partBrand: String(row.partBrand || plan.partBrand || '').trim(),
+        partCode: String(row.partCode || plan.partCode || '').trim(),
+        qty: row.qty || plan.qty || 1,
+      }
+    })
+  },
+
   resolveStage3QuoteImage() {
     const node = (this.data.nodes || []).find((item) => item.id === STAGE_PLAN_ID)
     const images = (node && node.images) || []
@@ -698,46 +724,56 @@ Page({
     return ''
   },
 
-  onPlanPartInput(e) {
-    const { index, field } = e.currentTarget.dataset
-    const key = `planParts[${index}].${field}`
-    this.setData({ [key]: e.detail.value })
-  },
-
-  onPlanPartTypeChange(e) {
-    const index = Number(e.currentTarget.dataset.index)
-    const partType = PART_TYPE_LIST[Number(e.detail.value)] || PART_TYPE.OEM
-    this.setData({ [`planParts[${index}].partType`]: partType })
-  },
-
-  onAddPlanPartRow() {
-    const next = (this.data.planParts || []).concat([
+  onAddPartRow() {
+    const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
+      partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
+      partType: PART_TYPE.BRAND,
+    })
+    const mapped = this.mapPartsWithVariants(parts)
+    this.setData(
       {
-        planPartId: `plan_${Date.now()}`,
-        name: '',
-        partType: PART_TYPE.BRAND,
-        partBrand: '',
-        partCode: '',
-        qty: 1,
-        status: 'draft',
+        planParts,
+        parts: mapped,
+        activeWizardIndex: planParts.length - 1,
       },
-    ])
-    this.setData({ planParts: next })
+      () => this.refreshPartWizard(),
+    )
   },
 
-  onRemovePlanPartRow(e) {
+  async onRemovePartRow(e) {
     const index = Number(e.currentTarget.dataset.index)
-    if (Number.isNaN(index)) return
-    const next = (this.data.planParts || []).slice()
-    next.splice(index, 1)
-    this.setData({ planParts: next })
+    const row = this.data.partWizardRows[index]
+    if (!row) return
+    const { planParts, parts } = removeWorkspaceRow(
+      this.data.parts,
+      this.data.planParts,
+      row,
+    )
+    const mapped = this.mapPartsWithVariants(parts)
+    this.setData(
+      {
+        planParts,
+        parts: mapped,
+        activeWizardIndex: -1,
+      },
+      () => this.refreshPartWizard(),
+    )
+    try {
+      wx.showLoading({ title: '保存中', mask: true })
+      await this.persistPartsCatalog(mapped, planParts)
+      wx.hideLoading()
+      wx.showToast({ title: '已删除', icon: 'success' })
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: (err && err.message) || '删除失败', icon: 'none' })
+    }
   },
 
   async onRunPlanQuoteOcr() {
-    if (this.data.planOcrLoading || this.data.planPartsLocked) return
+    if (this.data.planOcrLoading) return
     let imageUrl = this.resolveStage3QuoteImage()
     if (!imageUrl) {
-      wx.showToast({ title: '请先在上方上传报价表图片', icon: 'none' })
+      wx.showToast({ title: '请先在维修方案节点上传报价单图片', icon: 'none' })
       return
     }
     this.setData({ planOcrLoading: true })
@@ -747,94 +783,23 @@ Page({
         imageUrl = await uploadImage(imageUrl)
       }
       const result = await runMerchantPlanQuoteOcr(this.albumId, { imageUrl })
-      this.setData({
-        planParts: result.planParts || [],
-        amountMismatch: Boolean(result.amountMismatch),
-        amountMismatchHint: result.amountMismatchHint || '',
-        planParseHint: result.parseHint || '',
-      })
-      wx.showToast({
-        title: '已智能解析，请核对',
-        icon: 'none',
-      })
+      const parts = this.mapPartsWithVariants(result.parts || [])
+      this.setData(
+        {
+          planParts: result.planParts || [],
+          parts,
+          planParseHint: result.parseHint || '',
+          activeWizardIndex: parts.length ? 0 : -1,
+        },
+        () => this.refreshPartWizard(),
+      )
+      wx.showToast({ title: '已生成配件清单，请逐项登记', icon: 'none' })
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '识别失败，可手工录入', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '识别失败，可手工添加', icon: 'none' })
     } finally {
       wx.hideLoading()
       this.setData({ planOcrLoading: false })
     }
-  },
-
-  async onSavePlanPartsDraft() {
-    if (this.data.planPartsSaving || this.data.planPartsLocked) return
-    this.setData({ planPartsSaving: true })
-    try {
-      wx.showLoading({ title: '保存中', mask: true })
-      const result = await saveMerchantPlanPartsDraft(this.albumId, {
-        planParts: this.data.planParts,
-      })
-      wx.hideLoading()
-      this.setData({
-        planParts: result.planParts || [],
-        amountMismatch: Boolean(result.amountMismatch),
-        amountMismatchHint: result.amountMismatchHint || '',
-      })
-      wx.showToast({ title: '目录已保存', icon: 'success' })
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
-    } finally {
-      this.setData({ planPartsSaving: false })
-    }
-  },
-
-  async onLockPlanParts() {
-    if (this.data.planPartsLocking || this.data.planPartsLocked) return
-    this.setData({ planPartsLocking: true })
-    try {
-      wx.showLoading({ title: '锁定中', mask: true })
-      await saveMerchantPlanPartsDraft(this.albumId, {
-        planParts: this.data.planParts,
-      })
-      const result = await lockMerchantPlanParts(this.albumId)
-      wx.hideLoading()
-      this.setData({
-        planParts: result.planParts || [],
-        planPartsLocked: Boolean(result.planPartsLocked),
-        amountMismatch: Boolean(result.amountMismatch),
-        amountMismatchHint: result.amountMismatchHint || '',
-      }, () => this.refreshPartWizard())
-      wx.showToast({ title: '方案目录已锁定', icon: 'success' })
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '锁定失败', icon: 'none' })
-    } finally {
-      this.setData({ planPartsLocking: false })
-    }
-  },
-
-  async onUnlockPlanParts() {
-    if (!this.data.planPartsLocked) return
-    wx.showModal({
-      title: '解锁方案目录',
-      content: '解锁后可修改方案配件目录，阶段四清单向导将暂停更新。',
-      success: async (res) => {
-        if (!res.confirm) return
-        try {
-          wx.showLoading({ title: '解锁中', mask: true })
-          const result = await unlockMerchantPlanParts(this.albumId)
-          wx.hideLoading()
-          this.setData({
-            planParts: result.planParts || [],
-            planPartsLocked: Boolean(result.planPartsLocked),
-          })
-          wx.showToast({ title: '已解锁', icon: 'success' })
-        } catch (e) {
-          wx.hideLoading()
-          wx.showToast({ title: (e && e.message) || '解锁失败', icon: 'none' })
-        }
-      },
-    })
   },
 
   onToggleWizardRow(e) {
@@ -905,12 +870,19 @@ Page({
     const uploaded = await persistLocalImages(photos)
     photos = uploaded.images
     const mergedRow = { ...row, photos }
-    const parts = mergeWizardRowIntoParts(this.data.parts, mergedRow).map((p) => ({
-      ...p,
-      typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
-    }))
+    const parts = this.mapPartsWithVariants(
+      mergeWizardRowIntoParts(this.data.parts, mergedRow),
+    )
     this.setData({ parts }, () => this.refreshPartWizard())
-    wx.showToast({ title: '已保存本项', icon: 'success' })
+    try {
+      wx.showLoading({ title: '保存中', mask: true })
+      await this.persistPartsCatalog(parts)
+      wx.hideLoading()
+      wx.showToast({ title: '已保存本项', icon: 'success' })
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
+    }
   },
 
   onOpenExtraPartForm() {
@@ -1037,7 +1009,7 @@ Page({
     wx.showToast({ title: '配件已添加', icon: 'success' })
   },
 
-  async buildSavePayload() {
+  async buildSavePayload(overrides = {}) {
     let nodesSource = this.data.nodes
     if (
       this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
@@ -1062,7 +1034,7 @@ Page({
     )
     const normalized = normalizePlanAmountPayload({
       nodes,
-      parts: this.data.parts,
+      parts: overrides.parts != null ? overrides.parts : this.data.parts,
       planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })
@@ -1072,7 +1044,13 @@ Page({
         normalized.userPhone = ownerCheck.phone
       }
     }
-    return { payload: normalized, droppedStaleCount }
+    return {
+      payload: {
+        ...normalized,
+        planParts: overrides.planParts != null ? overrides.planParts : this.data.planParts,
+      },
+      droppedStaleCount,
+    }
   },
 
   notifyStaleImagesDropped(count) {

@@ -27,6 +27,7 @@ const {
   rewriteMediaUrlForCurrentBase,
 } = require('../lib/media-storage')
 const { watermarkAlbumImageUrl } = require('../lib/album-watermark')
+const { sanitizePlanPartsDraft } = require('../lib/plan-quote-parse')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { config } = require('../config')
 const { getWxaCodeUnlimited } = require('../lib/wechat')
@@ -781,6 +782,10 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ...existing,
     ...normalized,
   })
+  const planPartsUpdate =
+    payload.planParts != null
+      ? sanitizePlanPartsDraft(payload.planParts)
+      : undefined
   const ownerUpdate = config.merchantOwnerPhoneTest
     ? await resolveOwnerPhoneUpdate(existing, payload)
     : {}
@@ -793,6 +798,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       storeNote: payload.storeNote ?? existing.storeNote,
       complexityLevel: payload.complexityLevel ?? existing.complexityLevel,
       partsJson: payload.parts ?? existing.partsJson,
+      planPartsJson: planPartsUpdate ?? existing.planPartsJson,
       priceMode: planAmount != null ? 'fixed' : existing.priceMode,
       minAmount: planAmount != null ? planAmount : existing.minAmount,
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,

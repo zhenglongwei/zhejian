@@ -239,11 +239,19 @@
   border-color: var(--color-primary);
 }
 
-.merchant-album-edit__wizard-summary {
+.merchant-album-edit__wizard-summary-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-sm);
+}
+
+.merchant-album-edit__wizard-remove {
+  color: var(--color-danger);
+}
+
+.merchant-album-edit__parts-empty {
+  padding: var(--space-md) 0;
 }
 
 .merchant-album-edit__body {
