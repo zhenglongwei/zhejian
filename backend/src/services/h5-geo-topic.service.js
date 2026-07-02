@@ -1,4 +1,5 @@
 const { getGeoPageDetail } = require('./geo.service')
+const { applyAggregateToVehicleTopicContent } = require('./geo-vehicle-topic.service')
 
 function mapCaseItem(item) {
   return {
@@ -72,6 +73,24 @@ async function getGeoTopicPagePayload(slugOrId) {
   const allowIndex = caseCount > 0 || storeCount > 0
 
   const serviceMeta = detail.serviceMeta || {}
+  let aiSummary = detail.aiSummary || detail.summary || ''
+  let faq = detail.faq || []
+  let aggregateStats = null
+
+  if (detail.pageType === 'vehicle_service' && detail.vehicleSeries) {
+    const vehicleAgg = applyAggregateToVehicleTopicContent({
+      cases: detail.relatedCases,
+      serviceName: serviceMeta.displayName || detail.title,
+      vehicleSeries: detail.vehicleSeries,
+      city: detail.city,
+      priceMode: serviceMeta.priceMode,
+      aiSummary,
+      faq,
+    })
+    aiSummary = vehicleAgg.aiSummary
+    faq = vehicleAgg.faq
+    aggregateStats = vehicleAgg.aggregateStats
+  }
 
   return {
     topic: {
@@ -85,7 +104,7 @@ async function getGeoTopicPagePayload(slugOrId) {
       pageTypeLabel: detail.pageTypeLabel,
       updatedAt: detail.updatedAt,
       keywords: detail.keywords || [],
-      aiSummary: detail.aiSummary || detail.summary || '',
+      aiSummary: aiSummary,
       isAccidentTopic: detail.isAccidentTopic,
       isServiceBase: detail.isServiceBase,
       serviceItemId: detail.serviceItemId || '',
@@ -99,7 +118,7 @@ async function getGeoTopicPagePayload(slugOrId) {
     relatedTopics: detail.relatedTopics || [],
     scenarios: detail.scenarios || [],
     priceFactors: detail.priceFactors || [],
-    faq: detail.faq || [],
+    faq: faq,
     faqLinks: detail.faqLinks || [],
     relatedCases: (detail.relatedCases || []).map(mapCaseItem),
     relatedStores: (detail.relatedStores || []).map(mapStoreItem),
@@ -107,7 +126,9 @@ async function getGeoTopicPagePayload(slugOrId) {
     stats: {
       caseCount,
       storeCount,
+      matchedCaseCount: aggregateStats?.sampleSize ?? null,
     },
+    aggregateStats,
     seo: buildTopicSeo(detail, { allowIndex }),
   }
 }

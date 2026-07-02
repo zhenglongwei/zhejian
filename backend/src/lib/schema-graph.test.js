@@ -2,6 +2,7 @@ const assert = require('assert')
 const {
   buildServicePageSchemaGraph,
   buildCasePageSchemaGraph,
+  buildHomePageSchemaGraph,
   entityId,
 } = require('./schema-graph')
 
@@ -47,6 +48,15 @@ function run() {
     },
   })
   assert.ok(caseGraph['@graph'].some((node) => node['@type'] === 'Article'))
+
+  const homeGraph = buildHomePageSchemaGraph({
+    baseUrl: base,
+    organizationSameAs: ['https://simplewin.cn'],
+  })
+  const homeOrg = homeGraph['@graph'].find((node) => node['@type'] === 'Organization')
+  assert.ok(Array.isArray(homeOrg.sameAs))
+  assert.strictEqual(homeOrg.sameAs[0], 'https://simplewin.cn')
+
   console.log('[schema-graph.test] ok')
 }
 

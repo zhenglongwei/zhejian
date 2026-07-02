@@ -17,14 +17,17 @@ function entityId(base, path, fragment) {
   return `${baseNorm}${pathNorm}${frag ? `#${frag}` : ''}`
 }
 
-function buildOrganizationNode(baseUrl) {
+function buildOrganizationNode(baseUrl, sameAs = []) {
   const base = normalizeBase(baseUrl)
-  return {
+  const node = {
     '@type': 'Organization',
     '@id': `${base}/#organization`,
     name: ORG_NAME,
     url: `${base}/`,
   }
+  const links = (sameAs || []).map((item) => String(item || '').trim()).filter(Boolean)
+  if (links.length) node.sameAs = links
+  return node
 }
 
 function buildDatasetNode({ baseUrl, canonicalPath, serviceName, aggregateStats }) {
@@ -83,7 +86,7 @@ function buildServicePageSchemaGraph(input) {
   const title = seo.title || `${item.name || '服务项目'} · 辙见`
   const description = seo.description || item.aiSummary || item.summary || ''
 
-  const organization = buildOrganizationNode(baseUrl)
+  const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
   const graph = [
     organization,
     {
@@ -144,7 +147,7 @@ function buildCasePageSchemaGraph(input) {
   const cover = data.coverImageDesensitized || data.coverImage || ''
   const showStore = Boolean(input.showStorePublicly && data.store && data.store.name)
 
-  const organization = buildOrganizationNode(baseUrl)
+  const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
   const graph = [organization]
 
   const articleId = entityId(
@@ -218,6 +221,33 @@ function buildCasePageSchemaGraph(input) {
   }
 }
 
+/**
+ * @param {{ baseUrl?: string, organizationSameAs?: string[] }} [input]
+ */
+function buildHomePageSchemaGraph(input = {}) {
+  const baseUrl = normalizeBase(input.baseUrl)
+  const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
+  const canonical = `${normalizeBase(baseUrl)}/`
+  return {
+    '@context': SCHEMA_CONTEXT,
+    '@graph': [
+      organization,
+      {
+        '@type': 'WebSite',
+        '@id': entityId(baseUrl, '/', 'website'),
+        name: ORG_NAME,
+        url: canonical,
+        publisher: { '@id': organization['@id'] },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${canonical}search/?q={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  }
+}
+
 module.exports = {
   SCHEMA_CONTEXT,
   normalizeBase,
@@ -226,4 +256,5 @@ module.exports = {
   buildDatasetNode,
   buildServicePageSchemaGraph,
   buildCasePageSchemaGraph,
+  buildHomePageSchemaGraph,
 }

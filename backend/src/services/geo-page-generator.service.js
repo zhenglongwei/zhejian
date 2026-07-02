@@ -41,6 +41,10 @@ function buildAiSummary(seed, serviceItem) {
   if (seed.pageType === 'fault_qa') {
     return `关于「${seed.title || serviceName}」的常见原因、检查建议与维修前准备说明。${STORE_CHECK_HINT}。`
   }
+  if (seed.pageType === 'vehicle_service' && seed.vehicleSeries) {
+    if (seed.aiSummary) return seed.aiSummary
+    return `${seed.vehicleSeries}${serviceName}相关脱敏案例参考：常见检查结论与费用影响因素说明。${STORE_CHECK_HINT}。`
+  }
   return `${serviceName}相关维修说明与参考信息，实际方案与费用以到店检测为准。`
 }
 
@@ -146,8 +150,14 @@ function generateGeoPageDrafts(seeds) {
   return (seeds || []).map(generateGeoPageDraft)
 }
 
+function generateVehicleSeriesDrafts(cases, options = {}) {
+  const { discoverVehicleSeriesTopicSeeds } = require('./geo-vehicle-topic.service')
+  return discoverVehicleSeriesTopicSeeds(cases, options).map(generateGeoPageDraft)
+}
+
 module.exports = {
   buildGeoPageId,
   generateGeoPageDraft,
   generateGeoPageDrafts,
+  generateVehicleSeriesDrafts,
 }

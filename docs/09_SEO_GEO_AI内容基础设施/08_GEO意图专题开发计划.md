@@ -205,8 +205,8 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-E01 | 车系聚合统计 | `geo-topic-matcher.js` | P2 | [ ] | 按 `vehicle.series` 计数 |
-| GEO-TOPIC-E02 | 自动生成 draft | `geo-page-generator.service.js` | P2 | [ ] | `bmw-3-brake-case` 类 |
+| GEO-TOPIC-E01 | 车系聚合统计 | `geo-vehicle-topic.service.js` | P2 | [x] | 按 `vehicleText` 计数 |
+| GEO-TOPIC-E02 | 自动生成 draft | `discoverVehicleSeriesTopicSeeds` | P2 | [x] | ≥N 例生成 seed |
 | GEO-TOPIC-E03 | H5 路由 | 复用 `/topic/` | P2 | [ ] | 不新建 `/car/` 除非单独立项 |
 | GEO-TOPIC-E04 | 与 DS-C-06 关系 | `docs/00_开发计划.md` | P2 | [ ] | 本阶段 = DS-C-06 轻量替代 |
 

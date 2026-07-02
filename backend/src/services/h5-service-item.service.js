@@ -225,6 +225,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
       : null,
     faq: aggregated.faq,
     aggregateStats: aggregated.aggregateStats,
+    organizationSameAs: config.geo?.organizationSameAs || [],
   })
 
   return {

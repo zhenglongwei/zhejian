@@ -1,9 +1,10 @@
 /**
- * GEO-IGAIN-E · 品牌词 / Direct 隐形归因（基于 event_tracking_log）
+ * GEO-IGAIN-E · 品牌词 / Direct 隐形归因（基于 event_tracking_log + brand_search_daily）
  */
 const { prisma } = require('../lib/prisma')
+const { isBrandAttributedRow, BRAND_PATTERN, parseEventParams } = require('../lib/brand-search-utils')
+const { queryBrandSearchDailyRange } = require('./brand-search-daily.service')
 
-const BRAND_PATTERN = /辙见|zhejian|geo\.simplewin/i
 const PAGE_VIEW_EVENTS = new Set([
   'h5_case_view',
   'h5_store_view',
@@ -12,24 +13,6 @@ const PAGE_VIEW_EVENTS = new Set([
   'h5_geo_topic_view',
   'h5_city_view',
 ])
-
-function parseEventParams(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-  return raw
-}
-
-function isBrandAttributedRow(row) {
-  const channel = String(row.channel || '').trim().toLowerCase()
-  const source = String(row.source || '').trim()
-  const referrer = String(row.referrer || '').trim()
-  if (channel === 'direct') return true
-  if (BRAND_PATTERN.test(source)) return true
-  if (BRAND_PATTERN.test(referrer)) return true
-  const params = parseEventParams(row.eventParams)
-  const keyword = String(params.keyword || params.q || params.searchTerm || '').trim()
-  if (keyword && BRAND_PATTERN.test(keyword)) return true
-  return false
-}
 
 function median(values) {
   const list = (values || []).filter((n) => Number.isFinite(n)).sort((a, b) => a - b)
@@ -50,6 +33,29 @@ async function computeBrandSearchAttribution(query = {}) {
   const baselineSince = new Date(since)
   baselineSince.setUTCDate(baselineSince.getUTCDate() - 28)
 
+  let baselineWeeklyMedian = 0
+  let baselineSource = 'event_log'
+  try {
+    const dailyRows = await queryBrandSearchDailyRange({
+      from: baselineSince,
+      to: new Date(since.getTime() - 1),
+    })
+    if (dailyRows.length >= 7) {
+      const baselineWeeks = [0, 0, 0, 0]
+      dailyRows.forEach((row) => {
+        const ts = new Date(row.statDate).getTime()
+        const dayDiff = Math.floor((since.getTime() - ts) / (24 * 60 * 60 * 1000))
+        if (dayDiff <= 0) return
+        const weekIndex = Math.min(3, Math.floor((dayDiff - 1) / 7))
+        baselineWeeks[weekIndex] += row.brandAttributedViews || 0
+      })
+      baselineWeeklyMedian = median(baselineWeeks)
+      baselineSource = 'brand_search_daily'
+    }
+  } catch (_err) {
+    baselineWeeklyMedian = 0
+  }
+
   const rows = await prisma.eventTrackingLog.findMany({
     where: {
       eventName: { in: [...PAGE_VIEW_EVENTS] },
@@ -66,7 +72,7 @@ async function computeBrandSearchAttribution(query = {}) {
   })
 
   const current = []
-  const baselineWeeks = [0, 0, 0, 0]
+  const baselineWeeks = baselineSource === 'brand_search_daily' ? null : [0, 0, 0, 0]
   rows.forEach((row) => {
     const isBrand = isBrandAttributedRow(row)
     if (!isBrand) return
@@ -75,13 +81,15 @@ async function computeBrandSearchAttribution(query = {}) {
       current.push(row)
       return
     }
+    if (baselineSource !== 'event_log' || !baselineWeeks) return
     const dayDiff = Math.floor((since.getTime() - ts) / (24 * 60 * 60 * 1000))
     const weekIndex = Math.min(3, Math.floor(dayDiff / 7))
     baselineWeeks[weekIndex] += 1
   })
 
   const currentCount = current.length
-  const baselineMedian = median(baselineWeeks)
+  const baselineMedian =
+    baselineSource === 'brand_search_daily' ? baselineWeeklyMedian : median(baselineWeeks)
   const scaledBaseline = baselineMedian * (days / 7)
   const uplift =
     scaledBaseline > 0 ? (currentCount - scaledBaseline) / scaledBaseline : currentCount > 0 ? 1 : 0
@@ -101,6 +109,7 @@ async function computeBrandSearchAttribution(query = {}) {
     brand_source_views: brandSourceCount,
     brand_search_submit_views: brandSearchCount,
     baseline_weekly_median: baselineMedian,
+    baseline_source: baselineSource,
     brand_search_uplift: uplift,
     sample_note: currentCount < 10 ? '品牌归因样本较少，仅供参考' : '',
   }

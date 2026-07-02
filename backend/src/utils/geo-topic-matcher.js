@@ -5,6 +5,7 @@ const { H5_SERVICE_ITEMS, resolveH5ServiceItemById } = require('../constants/h5-
 const { resolveAlbumNodeTemplate } = require('../constants/service-album-node-template')
 const { matchServiceName } = require('./service-case-link')
 const { buildGeoPageH5Path } = require('../schemas/geo-page.schema')
+const { seriesMatchesCase } = require('../services/geo-vehicle-topic.service')
 
 function buildServicePagePath(slug, city) {
   const base = `/service/${slug}.html`
@@ -72,6 +73,9 @@ function scoreGeoPageMatch(caseItem, page, serviceItem) {
   if (pageType === 'city_service' && caseCity && pageCity === caseCity) score += 50
   if (pageType === 'service_base' && serviceItem && page.slug === serviceItem.slug) score += 8
   if (pageType === 'fault_qa' && page.faultTag) score += 6
+  if (pageType === 'vehicle_service' && page.vehicleSeries) {
+    if (seriesMatchesCase(caseItem, page.vehicleSeries)) score += 35
+  }
 
   if (!serviceItem && caseItem.serviceName) {
     const haystack = [page.title, page.summary, ...(page.keywords || [])].join('')

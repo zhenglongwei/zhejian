@@ -198,6 +198,13 @@ const config = {
     timeoutMs: Number(process.env.PLAN_QUOTE_LLM_TIMEOUT_MS || 90000),
     enableThinking: process.env.PLAN_QUOTE_LLM_ENABLE_THINKING === 'true',
   },
+  /** GEO-IGAIN-C04 · 首页 Organization.sameAs（合规外链，逗号分隔） */
+  geo: {
+    organizationSameAs: String(process.env.GEO_ORG_SAME_AS || 'https://simplewin.cn')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  },
 }
 
 module.exports = { config }

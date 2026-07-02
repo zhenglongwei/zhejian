@@ -5,7 +5,8 @@ const { prisma } = require('../lib/prisma')
 const {
   isBrandAttributedRow,
   BRAND_PATTERN,
-} = require('./brand-search-attribution.service')
+  parseEventParams,
+} = require('../lib/brand-search-utils')
 
 const PAGE_VIEW_EVENTS = [
   'h5_case_view',
@@ -32,11 +33,6 @@ function resolveDayRange(dateInput) {
   const end = new Date(statDate)
   end.setUTCDate(end.getUTCDate() + 1)
   return { statDate, start, end }
-}
-
-function parseEventParams(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-  return raw
 }
 
 function aggregateRowMetrics(rows) {

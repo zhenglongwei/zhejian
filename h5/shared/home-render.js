@@ -50,6 +50,18 @@
     el.setAttribute('href', href)
   }
 
+  function ensureJsonLd(id, data) {
+    if (!data) return
+    var el = document.getElementById(id)
+    if (!el) {
+      el = document.createElement('script')
+      el.type = 'application/ld+json'
+      el.id = id
+      document.head.appendChild(el)
+    }
+    el.textContent = JSON.stringify(data)
+  }
+
   function setPageMeta() {
     var title = '辙见 · 透明汽车维修服务平台'
     var desc =
@@ -61,6 +73,27 @@
     ensureMeta('property', 'og:type', 'website')
     ensureMeta('property', 'og:site_name', '辙见')
     ensureLink('canonical', location.origin + '/')
+
+    var sameAs = ['https://simplewin.cn']
+    ensureJsonLd('home-schema-graph', {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          '@id': location.origin + '/#organization',
+          name: '辙见',
+          url: location.origin + '/',
+          sameAs: sameAs,
+        },
+        {
+          '@type': 'WebSite',
+          '@id': location.origin + '/#website',
+          name: '辙见',
+          url: location.origin + '/',
+          publisher: { '@id': location.origin + '/#organization' },
+        },
+      ],
+    })
   }
 
   function renderSiteNav() {

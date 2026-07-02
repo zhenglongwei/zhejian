@@ -471,6 +471,7 @@ async function getCaseDetail(idOrSlug) {
       seo: item.seo,
       canonicalPath: item.seo?.canonicalPath || item.canonicalPath,
     },
+    organizationSameAs: config.geo?.organizationSameAs || [],
   })
 
   return enrichCasePublicPage({

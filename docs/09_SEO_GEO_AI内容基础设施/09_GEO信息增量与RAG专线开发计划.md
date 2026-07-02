@@ -132,7 +132,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-B02 | 案例 Feed DTO | `public-feed.service.js` | P0 | [x] | 隐私字段过滤 |
 | GEO-IGAIN-B03 | 服务/专题 Feed DTO | 复用 A03 聚合 | P0 | [x] | |
 | GEO-IGAIN-B04 | 站点索引 Feed | `public-feed.service.js` | P1 | [x] | |
-| GEO-IGAIN-B05 | Nginx 反代 + 缓存头 | `simplewin.conf` | P0 | [~] | API 路径已通；`/public/v1` 裸路径反代待运维 |
+| GEO-IGAIN-B05 | Nginx 反代 + 缓存头 | `simplewin.conf` | P0 | [x] | `/public/v1/` → API |
 | GEO-IGAIN-B06 | 冒烟 | `h5-chain-smoke.js` 扩展 | P0 | [x] | |
 
 ---
@@ -158,8 +158,8 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-C01 | `@graph` 生成器 | `backend/src/lib/schema-graph.js` | P1 | [x] | 统一 `@id` |
 | GEO-IGAIN-C02 | 案例页 graph | `case-render.js`；Bot prerender | P1 | [x] | 优先 `data.schemaGraph` |
 | GEO-IGAIN-C03 | 服务页 Dataset Schema | `service-item-render.js` | P1 | [x] | 聚合统计入 `variableMeasured` |
-| GEO-IGAIN-C04 | 首页 Organization.sameAs | `home-render.js` | P2 | [ ] | 公众号等（合规外链） |
-| GEO-IGAIN-C05 | Schema 校验冒烟 | `case-bot-prerender-smoke.js` 扩展 | P1 | [x] | `@graph` + HowTo |
+| GEO-IGAIN-C04 | 首页 Organization.sameAs | `home-render.js` | P2 | [x] | `GEO_ORG_SAME_AS` |
+| GEO-IGAIN-C05 | Schema 校验冒烟 | `case-bot-prerender-smoke.js` | P1 | [x] | `bot-schema-assert` 解析 @graph |
 
 规范真源：[`03_结构化数据 Schema 规范.md`](./03_结构化数据 Schema 规范.md) §15–§16。
 
@@ -200,8 +200,8 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 
 | ID | 任务 | 说明 | 优先级 | 状态 |
 | ---: | --- | --- | ---: | ---: |
-| GEO-IGAIN-F01 | E01–E04 摘要含聚合 | 依赖 A01；`vehicle.series` 计数 | P2 | [ ] |
-| GEO-IGAIN-F02 | 车系 FAQ 衍生 | 至少 1 条案例统计型 FAQ | P2 | [ ] |
+| GEO-IGAIN-F01 | E01–E04 摘要含聚合 | 依赖 A01；`vehicle.series` 计数 | P2 | [x] | `geo-vehicle-topic.service.js` |
+| GEO-IGAIN-F02 | 车系 FAQ 衍生 | 至少 1 条案例统计型 FAQ | P2 | [x] | 专题页 runtime 注入 |
 
 ---
 

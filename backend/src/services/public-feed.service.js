@@ -74,6 +74,7 @@ function mapServiceFeed(payload) {
       geo: payload.geo,
       faq: payload.faq,
       aggregateStats: payload.aggregateStats,
+      organizationSameAs: config.geo?.organizationSameAs || [],
     }),
     faq: (payload.faq || []).map((row) => ({
       q: row.q || row.question || '',
@@ -119,8 +120,10 @@ async function getFeedIndexJson() {
     name: '辙见公开内容 Feed 索引',
     description: FEED_DISCLAIMER,
     feeds: {
-      cases: `${base}/api/v1/public/v1/cases/{slug}.json`,
-      services: `${base}/api/v1/public/v1/services/{slug}.json`,
+      cases: `${base}/public/v1/cases/{slug}.json`,
+      services: `${base}/public/v1/services/{slug}.json`,
+      casesApi: `${base}/api/v1/public/v1/cases/{slug}.json`,
+      servicesApi: `${base}/api/v1/public/v1/services/{slug}.json`,
       llmsTxt: `${base}/llms.txt`,
       sitemap: `${base}/sitemap.xml`,
     },

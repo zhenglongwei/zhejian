@@ -1,11 +1,12 @@
 /**
- * GEO-CITE-E04 · Bot 预渲染冒烟
+ * GEO-CITE-E04 / GEO-IGAIN-C05 · Bot 预渲染冒烟
  */
 require('dotenv').config()
 const { prisma } = require('../src/lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../src/constants/v2')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../src/constants/case-article-status')
 const { renderCaseBotHtml } = require('../src/services/h5-case-prerender.service')
+const { assertCaseBotSchemaGraph } = require('../src/lib/bot-schema-assert')
 
 async function main() {
   const row = await prisma.publicCase.findFirst({
@@ -24,21 +25,19 @@ async function main() {
   if (!html.includes('data-prerender="geo-cite-e"')) {
     throw new Error('missing bot prerender marker')
   }
-  const summary = String(row.aiSummary || '').trim()
-  if (summary && !html.includes(summary.slice(0, 20))) {
-    throw new Error('aiSummary not in prerender html')
-  }
-  if (!html.includes('application/ld+json')) {
-    throw new Error('missing JSON-LD')
-  }
-  if (!html.includes('"@graph"') && !html.includes('#organization')) {
-    throw new Error('missing schema @graph or organization @id')
-  }
-  if (!html.includes('HowTo')) {
-    throw new Error('missing HowTo schema')
-  }
 
-  console.log('[case-bot-prerender-smoke] ok', { caseId: row.id, bytes: html.length })
+  const summary = String(row.aiSummary || '').trim()
+  const schema = assertCaseBotSchemaGraph(html, {
+    requireSummaryInHtml: Boolean(summary),
+    summarySnippet: summary,
+  })
+
+  console.log('[case-bot-prerender-smoke] ok', {
+    caseId: row.id,
+    bytes: html.length,
+    graphNodes: schema.nodes.length,
+    howToSteps: schema.howToBlock.step.length,
+  })
 }
 
 main()
