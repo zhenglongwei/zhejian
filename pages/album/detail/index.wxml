@@ -61,12 +61,21 @@
           slot="endPage"
           album-id="{{albumId}}"
           album-title="{{detail.serviceName || ''}}"
-          show-auth="{{false}}"
-          show-share="{{false}}"
+          show-auth="{{endPageShowAuth}}"
+          auth-label="{{endPageAuthLabel}}"
+          auth-disabled="{{endPageAuthDisabled}}"
+          auth-hint="{{endPageAuthHint}}"
+          show-withdraw="{{endPageShowWithdraw}}"
+          withdraw-label="{{endPageWithdrawLabel}}"
+          status-hint="{{endPageStatusHint}}"
+          show-share="{{showShareButton}}"
           show-feedback="{{true}}"
           show-part-verify="{{showPartsEntry}}"
           show-contact="{{false}}"
           show-store-browse="{{false}}"
+          bind:auth="onEndPageAuth"
+          bind:share="onOpenShareSheet"
+          bind:withdraw="onEndPageWithdraw"
           bind:feedback="onEndPageFeedback"
           bind:partverify="onEndPagePartVerify"
         />
@@ -169,6 +178,18 @@
     bind:close="closeLoginSheet"
     bind:cancel="closeLoginSheet"
     bind:success="onLoginSheetSuccess"
+  />
+
+  <ui-bottom-sheet
+    visible="{{withdrawSheetVisible}}"
+    title="撤回授权"
+    hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
+    confirmText="确认撤回"
+    cancelText="取消"
+    loading="{{withdrawSheetLoading}}"
+    bind:close="onWithdrawSheetClose"
+    bind:cancel="onWithdrawSheetClose"
+    bind:confirm="onWithdrawSheetConfirm"
   />
 
   <album-info-sheet

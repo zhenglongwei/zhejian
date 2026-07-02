@@ -3,6 +3,7 @@ const {
   prepareServiceAuthorizePreview,
   submitServiceAlbumAuthorization,
   recordAlbumShare,
+  withdrawAuthorization,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -198,14 +199,20 @@ function buildPartsForSheet(parts) {
   }))
 }
 
-function buildEndPageAuthState(detail, showAuthSection) {
-  const status = detail && detail.publicCaseStatus
-  if (status === 'pending_review') {
+function buildEndPageActionState(detail, showAuthSection) {
+  const status = (detail && detail.publicCaseStatus) || 'private'
+  if (status === 'pending_review' || status === 'public_approved') {
     return {
-      endPageShowAuth: true,
-      endPageAuthLabel: '审核中',
-      endPageAuthDisabled: true,
-      endPageAuthHint: PUBLIC_CASE_HINT.pending_review,
+      endPageShowAuth: false,
+      endPageAuthLabel: '授权公示',
+      endPageAuthDisabled: false,
+      endPageAuthHint: '',
+      endPageShowWithdraw: true,
+      endPageWithdrawLabel: '撤回公示',
+      endPageStatusHint:
+        status === 'pending_review'
+          ? PUBLIC_CASE_HINT.pending_review
+          : PUBLIC_CASE_HINT.public_approved,
     }
   }
   if (showAuthSection) {
@@ -214,6 +221,9 @@ function buildEndPageAuthState(detail, showAuthSection) {
       endPageAuthLabel: '授权公示',
       endPageAuthDisabled: false,
       endPageAuthHint: '',
+      endPageShowWithdraw: false,
+      endPageWithdrawLabel: '撤回公示',
+      endPageStatusHint: '',
     }
   }
   return {
@@ -221,6 +231,10 @@ function buildEndPageAuthState(detail, showAuthSection) {
     endPageAuthLabel: '授权公示',
     endPageAuthDisabled: false,
     endPageAuthHint: '',
+    endPageShowWithdraw: false,
+    endPageWithdrawLabel: '撤回公示',
+    endPageStatusHint:
+      status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : '',
   }
 }
 
@@ -256,6 +270,11 @@ Page({
     endPageAuthLabel: '授权公示',
     endPageAuthDisabled: false,
     endPageAuthHint: '',
+    endPageShowWithdraw: false,
+    endPageWithdrawLabel: '撤回公示',
+    endPageStatusHint: '',
+    withdrawSheetVisible: false,
+    withdrawSheetLoading: false,
     shareSheetIntent: 'owner',
     shareActionsDisabled: false,
     viewerHeightPx: 0,
@@ -495,7 +514,7 @@ Page({
         templateName: enriched.templateName,
         serviceName: enriched.serviceName,
       })
-      const endPageAuth = buildEndPageAuthState(enriched, showAuthSection)
+      const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
       const linkedStoreId =
         (detail.store && detail.store.id) ||
@@ -612,7 +631,11 @@ Page({
     if (!isRepairCompleted(detail.status)) return false
     if ((detail.imageCount || 0) < 1) return false
     const status = detail.publicCaseStatus
-    return status === 'private' || status === 'authorization_pending'
+    return (
+      status === 'private' ||
+      status === 'authorization_pending' ||
+      status === 'user_rejected'
+    )
   },
 
   async refreshShareToken(options = {}) {
@@ -806,7 +829,40 @@ Page({
 
   onEndPageAuth() {
     if (this.data.endPageAuthDisabled) return
-    this.setData({ authSheetVisible: true, authChecked: false })
+    this.setData({ authSheetVisible: true, authChecked: false, authTier: 'named' })
+  },
+
+  onEndPageWithdraw() {
+    if (this.data.withdrawSheetLoading) return
+    this.setData({ withdrawSheetVisible: true })
+  },
+
+  onWithdrawSheetClose() {
+    if (this.data.withdrawSheetLoading) return
+    this.setData({ withdrawSheetVisible: false })
+  },
+
+  onWithdrawSheetConfirm() {
+    if (this.data.withdrawSheetLoading) return
+    this.setData({ withdrawSheetVisible: false, withdrawSheetLoading: true })
+    this.doWithdrawAuthorization()
+  },
+
+  async doWithdrawAuthorization() {
+    const albumId = this.albumId
+    if (!albumId) return
+    try {
+      await withdrawAuthorization(albumId)
+      wx.showToast({ title: '已撤回授权', icon: 'success' })
+      await this.loadAlbum()
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '撤回失败',
+        icon: 'none',
+      })
+    } finally {
+      this.setData({ withdrawSheetLoading: false })
+    }
   },
 
   onCloseAuthSheet() {

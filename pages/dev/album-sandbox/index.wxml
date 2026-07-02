@@ -36,6 +36,7 @@
         class="album-sandbox__card"
         item="{{userCardItem}}"
         audience="user"
+        showHeaderActions="{{true}}"
         bind:tap="onSandboxShare"
         bind:share="onSandboxShare"
         bind:authorize="onSandboxAuth"

@@ -12,6 +12,8 @@
     "ui-price-display": "/components/price-display/index",
     "ui-key-info-table": "/components/key-info-table/index",
     "album-part-row": "/components/album-part-row/index",
-    "album-compare-pair-editor": "/components/album-compare-pair-editor/index"
+    "album-compare-pair-editor": "/components/album-compare-pair-editor/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-image-uploader": "/components/image-uploader/index"
   }
 }

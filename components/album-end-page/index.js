@@ -52,9 +52,21 @@ Component({
       type: Boolean,
       value: false,
     },
+    showWithdraw: {
+      type: Boolean,
+      value: false,
+    },
+    withdrawLabel: {
+      type: String,
+      value: '撤回公示',
+    },
+    statusHint: {
+      type: String,
+      value: '',
+    },
     partVerifyLabel: {
       type: String,
-      value: '核对配件',
+      value: '配件验真',
     },
     storeBrowseLabel: {
       type: String,
@@ -78,6 +90,10 @@ Component({
 
     onShareTap() {
       this.triggerEvent('share')
+    },
+
+    onWithdrawTap() {
+      this.triggerEvent('withdraw')
     },
 
     onFeedbackTap() {

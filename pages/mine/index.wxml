@@ -60,13 +60,10 @@
               item="{{item}}"
               audience="user"
               showProgress="{{true}}"
-              showHeaderActions="{{true}}"
+              showHeaderActions="{{false}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
-              bind:authorize="onAlbumCardAuthorize"
-              bind:share="onAlbumCardShare"
-              bind:withdraw="onAlbumCardWithdraw"
             />
           </view>
         </block>
@@ -184,18 +181,6 @@
     >确认并进入脱敏预览</ui-button>
   </view>
 </ui-bottom-sheet>
-
-<ui-bottom-sheet
-  visible="{{withdrawSheetVisible}}"
-  title="撤回授权"
-  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
-  confirmText="确认撤回"
-  cancelText="取消"
-  loading="{{withdrawSheetLoading}}"
-  bind:close="onWithdrawSheetClose"
-  bind:cancel="onWithdrawSheetClose"
-  bind:confirm="onWithdrawSheetConfirm"
-/>
 
 <ui-share-sheet
   visible="{{shareSheetVisible}}"

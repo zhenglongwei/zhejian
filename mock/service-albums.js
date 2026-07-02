@@ -620,6 +620,15 @@ function buildMerchantAlbumView(raw) {
     updatedAtText: formatDateTime(album.updatedAt),
     completedAt: album.completedAt || '',
     completeness: buildMockCompleteness(album, nodes),
+    planParts: album.planParts || [],
+    planPartsLocked: Boolean(album.planPartsLockedAt),
+    planPartsLockedAt: album.planPartsLockedAt || '',
+    planQuoteThumbs: (() => {
+      const stage3 = (album.nodes || []).find((n) => n.id === 'stage_3')
+      return (stage3 && stage3.images) || []
+    })(),
+    amountMismatch: false,
+    amountMismatchHint: '',
   }
 }
 
@@ -1445,6 +1454,124 @@ async function mockRecognizeVehicleIntakeOcr(imageUrl) {
   }
 }
 
+function buildMockPlanPartsContext(raw) {
+  const { buildPlanAmountMismatchHint, sanitizePlanPartsDraft } = require('../backend/src/lib/plan-quote-parse')
+  const planParts = sanitizePlanPartsDraft(raw.planParts || [])
+  const amountCheck = buildPlanAmountMismatchHint(raw.planAmount, planParts)
+  const stage3 = (raw.nodes || []).find((n) => n.id === 'stage_3')
+  return {
+    planParts,
+    planPartsLocked: Boolean(raw.planPartsLockedAt),
+    planPartsLockedAt: raw.planPartsLockedAt || '',
+    planQuoteThumbs: (stage3 && stage3.images) || [],
+    planAmount: raw.planAmount,
+    amountMismatch: amountCheck.mismatch,
+    amountMismatchHint: amountCheck.hint,
+  }
+}
+
+async function mockFetchMerchantPlanParts(albumId) {
+  await delay(120)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在')
+    err.code = 404
+    throw err
+  }
+  return buildMockPlanPartsContext(raw)
+}
+
+async function mockSaveMerchantPlanPartsDraft(albumId, payload) {
+  await delay(180)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在')
+    err.code = 404
+    throw err
+  }
+  if (raw.planPartsLockedAt) {
+    const err = new Error('方案配件目录已锁定，请先解锁后再修改')
+    err.code = 409
+    throw err
+  }
+  const { sanitizePlanPartsDraft } = require('../backend/src/lib/plan-quote-parse')
+  raw.planParts = sanitizePlanPartsDraft(payload.planParts)
+  raw.updatedAt = new Date().toISOString()
+  map[albumId] = raw
+  saveAlbumMap(map)
+  return buildMockPlanPartsContext(raw)
+}
+
+async function mockLockMerchantPlanParts(albumId) {
+  await delay(180)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在')
+    err.code = 404
+    throw err
+  }
+  const { sanitizePlanPartsDraft } = require('../backend/src/lib/plan-quote-parse')
+  raw.planParts = sanitizePlanPartsDraft(raw.planParts || []).map((row) => ({
+    ...row,
+    status: 'confirmed',
+  }))
+  raw.planPartsLockedAt = new Date().toISOString()
+  map[albumId] = raw
+  saveAlbumMap(map)
+  return buildMockPlanPartsContext(raw)
+}
+
+async function mockUnlockMerchantPlanParts(albumId) {
+  await delay(120)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在')
+    err.code = 404
+    throw err
+  }
+  raw.planPartsLockedAt = ''
+  raw.planParts = (raw.planParts || []).map((row) => ({ ...row, status: 'draft' }))
+  map[albumId] = raw
+  saveAlbumMap(map)
+  return buildMockPlanPartsContext(raw)
+}
+
+async function mockRunMerchantPlanQuoteOcr(albumId) {
+  await delay(500)
+  const map = loadAlbumMap()
+  const raw = map[albumId]
+  if (!raw) {
+    const err = new Error('档案不存在')
+    err.code = 404
+    throw err
+  }
+  raw.planParts = [
+    {
+      planPartId: 'plan_headlight',
+      name: '左前大灯总成',
+      partType: PART_TYPE.BRAND,
+      partBrand: '海拉',
+      partCode: '',
+      qty: 1,
+      unitPrice: 1680,
+      status: 'draft',
+    },
+  ]
+  map[albumId] = raw
+  saveAlbumMap(map)
+  return {
+    ...buildMockPlanPartsContext(raw),
+    ocrProvider: 'mock',
+    parseMethod: 'mock',
+    parseHint: '演示数据，请核对后再锁定。',
+    textPreview: '左前大灯总成 品牌件 ×1 1680元',
+  }
+}
+
 module.exports = {
   mockFetchAlbumClaimPreview,
   mockClaimServiceAlbum,
@@ -1471,5 +1598,10 @@ module.exports = {
   mockFetchSharedAlbum,
   mockSwitchMerchantServiceAlbumTemplate,
   mockRecognizeVehicleIntakeOcr,
+  mockFetchMerchantPlanParts,
+  mockSaveMerchantPlanPartsDraft,
+  mockLockMerchantPlanParts,
+  mockUnlockMerchantPlanParts,
+  mockRunMerchantPlanQuoteOcr,
   MOCK_ALBUMS,
 }

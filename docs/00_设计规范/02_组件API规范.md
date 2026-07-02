@@ -351,7 +351,7 @@
 | audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
 | showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
 | framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
-| showHeaderActions | Boolean | true | 用户端是否展示右上分享/授权（merchant 忽略） |
+| showHeaderActions | Boolean | false | 用户端列表是否展示右上操作列（默认 **false**；商家端忽略，用 `canShareToOwner`） |
 
 | 事件 | 说明 |
 |---|---|

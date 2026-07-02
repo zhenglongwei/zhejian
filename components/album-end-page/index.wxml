@@ -8,6 +8,8 @@
 
     <text wx:if="{{albumTitle}}" class="album-end-page__album-title text-caption">{{albumTitle}}</text>
 
+    <text wx:if="{{statusHint}}" class="album-end-page__hint text-caption">{{statusHint}}</text>
+
     <view class="album-end-page__actions">
       <block wx:if="{{showAuth}}">
         <ui-button
@@ -21,6 +23,13 @@
           class="album-end-page__hint text-caption"
         >{{authHint}}</text>
       </block>
+
+      <ui-button
+        wx:if="{{showWithdraw}}"
+        type="secondary"
+        block
+        bind:btntap="onWithdrawTap"
+      >{{withdrawLabel}}</ui-button>
 
       <ui-button
         wx:if="{{showShare}}"

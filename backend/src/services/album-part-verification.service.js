@@ -7,19 +7,15 @@ const {
   MAX_PART_VERIFY_NOTE,
   MAX_PART_VERIFY_IMAGES,
   PART_VERIFY_CONSENT_TEXT,
+  PART_VERIFY_ONSITE_REMINDER,
 } = require('../constants/album-review')
 const { getUserServiceAlbum } = require('./service-album.service')
-
-function normalizeParts(partsJson) {
-  const list = Array.isArray(partsJson) ? partsJson : []
-  return list.map((part, index) => ({
-    partKey: String(part.partId || part.id || index),
-    name: part.name || part.partName || `配件 ${index + 1}`,
-    partType: part.partType || part.type || '',
-    qty: part.qty || part.quantity || 1,
-    thumbUrl: part.thumbUrl || part.imageUrl || '',
-  }))
-}
+const {
+  normalizePlanParts,
+  normalizeAlbumParts,
+  buildPartVerifyPairs,
+  hasStructuredPlanParts,
+} = require('../../../utils/album-part-pairs')
 
 function summarizeVerifications(parts, verificationMap) {
   let matched = 0
@@ -51,10 +47,30 @@ function summarizeVerifications(parts, verificationMap) {
 function buildSummaryLabel({ total, matched, question, pending }) {
   if (!total) return ''
   const parts = []
-  if (matched > 0) parts.push(`已核对 ${matched} 项`)
+  if (matched > 0) parts.push(`已验真 ${matched} 项`)
   if (question > 0) parts.push(`${question} 项有疑问`)
-  if (pending > 0) parts.push(`${pending} 项待核对`)
+  if (pending > 0) parts.push(`${pending} 项待验真`)
   return parts.join(' · ') || ''
+}
+
+function extractPlanSummary(albumView = {}) {
+  const rows = Array.isArray(albumView.summaryRows) ? albumView.summaryRows : []
+  const planRow = rows.find((row) => row && row.label === '维修方案')
+  if (planRow && planRow.value && planRow.value !== '—') {
+    return String(planRow.value).trim()
+  }
+  const nodes = Array.isArray(albumView.nodes) ? albumView.nodes : []
+  const stage3 = nodes.find(
+    (node) => node && (node.id === 'stage_3' || node.nodeId === 'stage_3'),
+  )
+  if (stage3 && stage3.note) {
+    return String(stage3.note).trim()
+  }
+  const planAmount = albumView.planAmount
+  if (planAmount != null && planAmount !== '' && Number.isFinite(Number(planAmount))) {
+    return `方案参考报价 ¥${Math.round(Number(planAmount))}（配件明细见门店方案说明或报价表）`
+  }
+  return ''
 }
 
 function mapVerificationRow(row) {
@@ -71,29 +87,95 @@ function mapVerificationRow(row) {
   }
 }
 
+function attachVerification(entry, verificationMap) {
+  const verification = mapVerificationRow(verificationMap.get(entry.partKey))
+  return { ...entry, verification }
+}
+
+function collectVerifyTargets(pairs, extras, albumParts) {
+  if (pairs.length || extras.length) {
+    return [...pairs, ...extras].map((entry) => ({
+      partKey: entry.partKey,
+      name: entry.albumPart?.name || entry.planPart?.name || '',
+      partType: entry.albumPart?.partType || entry.planPart?.partType || '',
+    }))
+  }
+  return albumParts
+}
+
+function resolvePlanQuoteThumbs(planQuoteImageIds, images = []) {
+  const ids = Array.isArray(planQuoteImageIds) ? planQuoteImageIds : []
+  const imageRows = Array.isArray(images) ? images : []
+  if (ids.length) {
+    return ids
+      .map((id) => {
+        const hit = imageRows.find((row) => row.id === id)
+        return hit?.rawUrl || String(id || '').trim()
+      })
+      .filter(Boolean)
+  }
+  return imageRows
+    .filter((row) => row.nodeId === 'stage_3')
+    .sort((a, b) => a.idx - b.idx)
+    .map((row) => row.rawUrl)
+    .filter(Boolean)
+}
+
 async function loadAlbumPartsContext(albumId, userId) {
   const album = await getUserServiceAlbum(albumId, userId)
   const row = await prisma.album.findUnique({
     where: { id: albumId },
-    select: { merchantId: true, storeId: true, partsJson: true },
+    select: {
+      merchantId: true,
+      storeId: true,
+      partsJson: true,
+      planPartsJson: true,
+      planQuoteImageIds: true,
+      planPartsLockedAt: true,
+      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+    },
   })
-  const parts = normalizeParts(row?.partsJson)
+
+  const albumParts = normalizeAlbumParts(row?.partsJson)
+  const planParts = normalizePlanParts(row?.planPartsJson)
+  const structuredPlanParts = hasStructuredPlanParts(
+    row?.planPartsJson,
+    row?.planPartsLockedAt,
+  )
+  const { pairs: rawPairs, extras: rawExtras } = structuredPlanParts
+    ? buildPartVerifyPairs(planParts, albumParts)
+    : { pairs: [], extras: [] }
+
   const verifications = await prisma.serviceAlbumPartVerification.findMany({
     where: { albumId, userId },
   })
   const verificationMap = new Map(verifications.map((v) => [v.partKey, v]))
-  const items = parts.map((part) => ({
+
+  const pairs = rawPairs.map((entry) => attachVerification(entry, verificationMap))
+  const extras = rawExtras.map((entry) => attachVerification(entry, verificationMap))
+  const verifyTargets = collectVerifyTargets(pairs, extras, albumParts)
+  const items = albumParts.map((part) => ({
     ...part,
     verification: mapVerificationRow(verificationMap.get(part.partKey)),
   }))
+  const planSummary = extractPlanSummary(album)
+  const planQuoteThumbs = resolvePlanQuoteThumbs(row?.planQuoteImageIds, row?.images)
+
   return {
     albumId,
     albumTitle: album.serviceName || '我的服务相册',
     storeName: album.store?.name || '',
+    storePhone: album.store?.phone || '',
     parts: items,
-    summary: summarizeVerifications(parts, verificationMap),
+    pairs,
+    extras,
+    summary: summarizeVerifications(verifyTargets, verificationMap),
     consentText: PART_VERIFY_CONSENT_TEXT,
-    hasParts: parts.length > 0,
+    onsiteReminder: PART_VERIFY_ONSITE_REMINDER,
+    planSummary,
+    planQuoteThumbs,
+    hasStructuredPlanParts: structuredPlanParts,
+    hasParts: albumParts.length > 0 || planParts.length > 0,
   }
 }
 
@@ -104,14 +186,14 @@ function sanitizeImages(images) {
 
 async function saveAlbumPartVerifications(albumId, userId, payload = {}) {
   if (!payload.consent) {
-    const err = new Error('请先阅读并勾选核对声明')
+    const err = new Error('请先阅读并勾选验真声明')
     err.status = 400
     throw err
   }
 
   const items = Array.isArray(payload.items) ? payload.items : []
   if (!items.length) {
-    const err = new Error('请至少核对一项配件')
+    const err = new Error('请至少验真一项配件')
     err.status = 400
     throw err
   }
@@ -121,7 +203,7 @@ async function saveAlbumPartVerifications(albumId, userId, payload = {}) {
     where: { id: albumId },
     select: { merchantId: true, storeId: true, partsJson: true },
   })
-  const parts = normalizeParts(row?.partsJson)
+  const parts = normalizeAlbumParts(row?.partsJson)
   const partMap = new Map(parts.map((p) => [p.partKey, p]))
   const storeId = row?.storeId || album.store?.id || ''
   const merchantId = row?.merchantId || ''
@@ -131,7 +213,7 @@ async function saveAlbumPartVerifications(albumId, userId, payload = {}) {
     const status = String(item.status || '').trim()
     if (!partKey) continue
     if (!VALID_PART_VERIFY_STATUSES.has(status)) {
-      const err = new Error('请选择核对结果')
+      const err = new Error('请选择验真结果')
       err.status = 400
       throw err
     }
@@ -175,7 +257,12 @@ async function getPartVerifySummariesForUser(userId, albumIds = []) {
 
   const albums = await prisma.album.findMany({
     where: { id: { in: ids } },
-    select: { id: true, partsJson: true },
+    select: {
+      id: true,
+      partsJson: true,
+      planPartsJson: true,
+      planPartsLockedAt: true,
+    },
   })
   const verifications = await prisma.serviceAlbumPartVerification.findMany({
     where: { userId, albumId: { in: ids } },
@@ -188,14 +275,20 @@ async function getPartVerifySummariesForUser(userId, albumIds = []) {
 
   const result = {}
   albums.forEach((album) => {
-    const parts = normalizeParts(album.partsJson)
-    if (!parts.length) return
+    const albumParts = normalizeAlbumParts(album.partsJson)
+    const planParts = normalizePlanParts(album.planPartsJson)
+    const structured = hasStructuredPlanParts(album.planPartsJson, album.planPartsLockedAt)
+    const { pairs, extras } = structured
+      ? buildPartVerifyPairs(planParts, albumParts)
+      : { pairs: [], extras: [] }
+    const verifyTargets = collectVerifyTargets(pairs, extras, albumParts)
+    if (!verifyTargets.length) return
     const verificationMap = new Map(
       (byAlbum.get(album.id) || []).map((row) => [row.partKey, row]),
     )
     result[album.id] = {
-      partCount: parts.length,
-      ...summarizeVerifications(parts, verificationMap),
+      partCount: verifyTargets.length,
+      ...summarizeVerifications(verifyTargets, verificationMap),
     }
   })
   return result
@@ -251,6 +344,6 @@ module.exports = {
   getPartVerifySummariesForUser,
   listMerchantPartVerifications,
   fetchMerchantPartVerifyStats,
-  normalizeParts,
+  normalizeAlbumParts,
   summarizeVerifications,
 }

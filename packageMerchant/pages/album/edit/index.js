@@ -24,7 +24,7 @@ const {
 } = require('../../../../utils/service-album-share')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
-const { persistAlbumNodeImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
+const { persistAlbumNodeImages, persistLocalImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -37,11 +37,25 @@ const {
   syncBeforeFromAssessment,
   applyCompareColumnsToNodes,
 } = require('../../../../utils/album-compare-stage-images')
+const {
+  buildPartWizardRows,
+  mergeWizardRowIntoParts,
+  appendExtraPart,
+} = require('../../../../utils/album-part-wizard')
+const {
+  saveMerchantPlanPartsDraft,
+  lockMerchantPlanParts,
+  unlockMerchantPlanParts,
+  runMerchantPlanQuoteOcr,
+  recognizePartLabelOcr,
+} = require('../../../../services/merchant-plan-parts')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
 const STAGE_COMPARE_ID = 'stage_5'
 const STAGE_ASSESSMENT_ID = 'stage_2'
+const STAGE_PLAN_ID = 'stage_3'
+const STAGE_PARTS_ID = 'stage_4'
 
 function normalizeOwnerPhone(value) {
   return String(value || '').replace(/\D/g, '')
@@ -107,6 +121,27 @@ Page({
     compareAfterImages: [],
     comparePairPreview: [],
     isComparePairStage: false,
+    planParts: [],
+    planPartsLocked: false,
+    planOcrLoading: false,
+    planPartsSaving: false,
+    planPartsLocking: false,
+    amountMismatch: false,
+    amountMismatchHint: '',
+    planParseHint: '',
+    partWizardRows: [],
+    partWizardExtras: [],
+    partWizardProgress: '',
+    activeWizardIndex: -1,
+    partLabelOcrLoading: false,
+    showExtraPartForm: false,
+    extraPartForm: {
+      partName: '',
+      partBrand: '',
+      partCode: '',
+      partTypeIndex: 0,
+      extraReason: '',
+    },
   },
 
   onLoad(options) {
@@ -318,9 +353,14 @@ Page({
       geoEvidence,
       geoEvidenceVariant,
       geoEvidenceLabel,
+      planParts: detail.planParts || [],
+      planPartsLocked: Boolean(detail.planPartsLocked),
+      amountMismatch: Boolean(detail.amountMismatch),
+      amountMismatchHint: detail.amountMismatchHint || '',
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
+      this.refreshPartWizard()
     })
     this.syncShareMenu(canShare)
   },
@@ -637,6 +677,295 @@ Page({
       wx.hideLoading()
       this.setData({ vehicleOcrLoading: false })
     }
+  },
+
+  refreshPartWizard() {
+    const wizard = buildPartWizardRows(this.data.planParts, this.data.parts)
+    this.setData({
+      partWizardRows: wizard.rows,
+      partWizardExtras: wizard.extras,
+      partWizardProgress: wizard.progressLabel,
+    })
+  },
+
+  resolveStage3QuoteImage() {
+    const node = (this.data.nodes || []).find((item) => item.id === STAGE_PLAN_ID)
+    const images = (node && node.images) || []
+    for (let i = images.length - 1; i >= 0; i -= 1) {
+      const url = normalizeStoredImageUrl(images[i])
+      if (url) return url
+    }
+    return ''
+  },
+
+  onPlanPartInput(e) {
+    const { index, field } = e.currentTarget.dataset
+    const key = `planParts[${index}].${field}`
+    this.setData({ [key]: e.detail.value })
+  },
+
+  onPlanPartTypeChange(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const partType = PART_TYPE_LIST[Number(e.detail.value)] || PART_TYPE.OEM
+    this.setData({ [`planParts[${index}].partType`]: partType })
+  },
+
+  onAddPlanPartRow() {
+    const next = (this.data.planParts || []).concat([
+      {
+        planPartId: `plan_${Date.now()}`,
+        name: '',
+        partType: PART_TYPE.BRAND,
+        partBrand: '',
+        partCode: '',
+        qty: 1,
+        status: 'draft',
+      },
+    ])
+    this.setData({ planParts: next })
+  },
+
+  onRemovePlanPartRow(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    if (Number.isNaN(index)) return
+    const next = (this.data.planParts || []).slice()
+    next.splice(index, 1)
+    this.setData({ planParts: next })
+  },
+
+  async onRunPlanQuoteOcr() {
+    if (this.data.planOcrLoading || this.data.planPartsLocked) return
+    let imageUrl = this.resolveStage3QuoteImage()
+    if (!imageUrl) {
+      wx.showToast({ title: '请先在上方上传报价表图片', icon: 'none' })
+      return
+    }
+    this.setData({ planOcrLoading: true })
+    wx.showLoading({ title: '识别中', mask: true })
+    try {
+      if (this.isTempImagePath(imageUrl)) {
+        imageUrl = await uploadImage(imageUrl)
+      }
+      const result = await runMerchantPlanQuoteOcr(this.albumId, { imageUrl })
+      this.setData({
+        planParts: result.planParts || [],
+        amountMismatch: Boolean(result.amountMismatch),
+        amountMismatchHint: result.amountMismatchHint || '',
+        planParseHint: result.parseHint || '',
+      })
+      wx.showToast({
+        title: '已智能解析，请核对',
+        icon: 'none',
+      })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '识别失败，可手工录入', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+      this.setData({ planOcrLoading: false })
+    }
+  },
+
+  async onSavePlanPartsDraft() {
+    if (this.data.planPartsSaving || this.data.planPartsLocked) return
+    this.setData({ planPartsSaving: true })
+    try {
+      wx.showLoading({ title: '保存中', mask: true })
+      const result = await saveMerchantPlanPartsDraft(this.albumId, {
+        planParts: this.data.planParts,
+      })
+      wx.hideLoading()
+      this.setData({
+        planParts: result.planParts || [],
+        amountMismatch: Boolean(result.amountMismatch),
+        amountMismatchHint: result.amountMismatchHint || '',
+      })
+      wx.showToast({ title: '目录已保存', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+    } finally {
+      this.setData({ planPartsSaving: false })
+    }
+  },
+
+  async onLockPlanParts() {
+    if (this.data.planPartsLocking || this.data.planPartsLocked) return
+    this.setData({ planPartsLocking: true })
+    try {
+      wx.showLoading({ title: '锁定中', mask: true })
+      await saveMerchantPlanPartsDraft(this.albumId, {
+        planParts: this.data.planParts,
+      })
+      const result = await lockMerchantPlanParts(this.albumId)
+      wx.hideLoading()
+      this.setData({
+        planParts: result.planParts || [],
+        planPartsLocked: Boolean(result.planPartsLocked),
+        amountMismatch: Boolean(result.amountMismatch),
+        amountMismatchHint: result.amountMismatchHint || '',
+      }, () => this.refreshPartWizard())
+      wx.showToast({ title: '方案目录已锁定', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '锁定失败', icon: 'none' })
+    } finally {
+      this.setData({ planPartsLocking: false })
+    }
+  },
+
+  async onUnlockPlanParts() {
+    if (!this.data.planPartsLocked) return
+    wx.showModal({
+      title: '解锁方案目录',
+      content: '解锁后可修改方案配件目录，阶段四清单向导将暂停更新。',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          wx.showLoading({ title: '解锁中', mask: true })
+          const result = await unlockMerchantPlanParts(this.albumId)
+          wx.hideLoading()
+          this.setData({
+            planParts: result.planParts || [],
+            planPartsLocked: Boolean(result.planPartsLocked),
+          })
+          wx.showToast({ title: '已解锁', icon: 'success' })
+        } catch (e) {
+          wx.hideLoading()
+          wx.showToast({ title: (e && e.message) || '解锁失败', icon: 'none' })
+        }
+      },
+    })
+  },
+
+  onToggleWizardRow(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    this.setData({
+      activeWizardIndex: this.data.activeWizardIndex === index ? -1 : index,
+    })
+  },
+
+  onWizardInput(e) {
+    const { index, field } = e.currentTarget.dataset
+    this.setData({ [`partWizardRows[${index}].${field}`]: e.detail.value })
+  },
+
+  onWizardTypeChange(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const partType = PART_TYPE_LIST[Number(e.detail.value)] || PART_TYPE.OEM
+    this.setData({
+      [`partWizardRows[${index}].partType`]: partType,
+      [`partWizardRows[${index}].partTypeIndex`]: Number(e.detail.value),
+    })
+  },
+
+  onWizardPhotosChange(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    this.setData({
+      [`partWizardRows[${index}].photos`]: (e.detail && e.detail.images) || [],
+    })
+  },
+
+  async onRunPartLabelOcr(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const row = this.data.partWizardRows[index]
+    if (!row || this.data.partLabelOcrLoading) return
+    let imageUrl = (row.photos && row.photos[0]) || ''
+    if (!imageUrl) {
+      wx.showToast({ title: '请先上传凭证图', icon: 'none' })
+      return
+    }
+    this.setData({ partLabelOcrLoading: true })
+    try {
+      if (this.isTempImagePath(imageUrl)) {
+        imageUrl = await uploadImage(imageUrl)
+        this.setData({ [`partWizardRows[${index}].photos`]: [imageUrl] })
+      }
+      const result = await recognizePartLabelOcr(this.albumId, imageUrl)
+      const patch = {}
+      if (result.partCode) patch[`partWizardRows[${index}].partCode`] = result.partCode
+      if (result.partBrand) patch[`partWizardRows[${index}].partBrand`] = result.partBrand
+      this.setData(patch)
+      wx.showToast({ title: '已识别，请核对', icon: 'none' })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '识别失败', icon: 'none' })
+    } finally {
+      this.setData({ partLabelOcrLoading: false })
+    }
+  },
+
+  async onSaveWizardRow(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const row = this.data.partWizardRows[index]
+    if (!row) return
+    if (!(row.photos && row.photos.length)) {
+      wx.showToast({ title: '请至少上传一张凭证图', icon: 'none' })
+      return
+    }
+    let photos = row.photos || []
+    const uploaded = await persistLocalImages(photos)
+    photos = uploaded.images
+    const mergedRow = { ...row, photos }
+    const parts = mergeWizardRowIntoParts(this.data.parts, mergedRow).map((p) => ({
+      ...p,
+      typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
+    }))
+    this.setData({ parts }, () => this.refreshPartWizard())
+    wx.showToast({ title: '已保存本项', icon: 'success' })
+  },
+
+  onOpenExtraPartForm() {
+    this.setData({ showExtraPartForm: true })
+  },
+
+  onCancelExtraPartForm() {
+    this.setData({
+      showExtraPartForm: false,
+      extraPartForm: {
+        partName: '',
+        partBrand: '',
+        partCode: '',
+        partTypeIndex: 0,
+        extraReason: '',
+      },
+    })
+  },
+
+  onExtraPartInput(e) {
+    const { field } = e.currentTarget.dataset
+    this.setData({ [`extraPartForm.${field}`]: e.detail.value })
+  },
+
+  onExtraPartTypeChange(e) {
+    this.setData({ 'extraPartForm.partTypeIndex': Number(e.detail.value) })
+  },
+
+  onAddExtraPart() {
+    const form = this.data.extraPartForm
+    const name = String(form.partName || '').trim()
+    if (!name) {
+      wx.showToast({ title: '请填写增项名称', icon: 'none' })
+      return
+    }
+    const partType = PART_TYPE_LIST[form.partTypeIndex] || PART_TYPE.AFTERMARKET
+    const parts = appendExtraPart(this.data.parts, {
+      partName: name,
+      partBrand: form.partBrand,
+      partCode: form.partCode,
+      partType,
+      extraReason: form.extraReason,
+      photos: [],
+    }).map((p) => ({
+      ...p,
+      typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
+    }))
+    this.setData({ parts, showExtraPartForm: false, extraPartForm: {
+      partName: '',
+      partBrand: '',
+      partCode: '',
+      partTypeIndex: 0,
+      extraReason: '',
+    }}, () => this.refreshPartWizard())
+    wx.showToast({ title: '增项已添加', icon: 'success' })
   },
 
   onPlanInput(e) {

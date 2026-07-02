@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "核对配件",
+  "navigationBarTitleText": "配件验真",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
@@ -11,6 +11,8 @@
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
     "album-part-row": "/components/album-part-row/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "part-verify-pair-card": "/components/part-verify-pair-card/index",
+    "ui-login-sheet": "/components/login-sheet/index",
+    "ui-privacy-banner": "/components/privacy-banner/index"
   }
 }

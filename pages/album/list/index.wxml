@@ -89,11 +89,8 @@
           wx:for="{{list}}"
           wx:key="albumId"
           item="{{item}}"
+          showHeaderActions="{{false}}"
           bind:tap="onCardTap"
-          bind:share="onCardShare"
-          bind:authorize="onCardAuthorize"
-          bind:withdraw="onCardWithdraw"
-          bind:partverify="onCardPartVerify"
         />
       </view>
     </view>

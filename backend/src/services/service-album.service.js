@@ -269,6 +269,8 @@ function buildMerchantView(album) {
   const planAmount = privatePrice.planAmount
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const hasOwner = albumHasOwner(album)
+  const { buildPlanPartsContext } = require('./album-plan-parts.service')
+  const planCtx = buildPlanPartsContext(album)
   const isCompleted =
     album.status === SERVICE_ALBUM_STATUS.COMPLETED ||
     album.status === SERVICE_ALBUM_STATUS.PUBLISHED ||
@@ -307,6 +309,12 @@ function buildMerchantView(album) {
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
     completeness: buildServiceAlbumCompleteness(album, nodes),
+    planParts: planCtx.planParts,
+    planPartsLocked: planCtx.planPartsLocked,
+    planPartsLockedAt: planCtx.planPartsLockedAt,
+    planQuoteThumbs: planCtx.planQuoteThumbs,
+    amountMismatch: planCtx.amountMismatch,
+    amountMismatchHint: planCtx.amountMismatchHint,
   }
 }
 
@@ -756,6 +764,8 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       album: existing,
       previousImageUrls,
     })
+    const { syncPlanQuoteImageIds } = require('./album-plan-parts.service')
+    await syncPlanQuoteImageIds(albumId)
   }
 
   let status = payload.status || existing.status

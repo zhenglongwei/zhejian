@@ -68,7 +68,10 @@ const ALBUM_REVIEW_PUBLIC_CONSENT_TEXT =
   '同意将评价文字、评分与脱敏后配图展示在已授权公开案例中。'
 
 const PART_VERIFY_CONSENT_TEXT =
-  '我理解平台不鉴定配件真伪，仅留存我的自愿核对记录，不代替门店告知义务。'
+  '我理解验真为本人自愿对照留痕，平台不鉴定配件真伪，也不保证与已装到车上的实物一致。'
+
+const PART_VERIFY_ONSITE_REMINDER =
+  '相册记录的是门店上传的登记与过程图，无法证明配件已正确装到车上。建议更换关键件时在场见证；若已完工，可联系门店展示旧件、包装或编码标签。平台不鉴定配件真伪，也不远程验收车上实物。'
 
 module.exports = {
   REPAIR_REVIEW_KEYS,
@@ -87,4 +90,5 @@ module.exports = {
   ALBUM_REVIEW_CONSENT_TEXT,
   ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   PART_VERIFY_CONSENT_TEXT,
+  PART_VERIFY_ONSITE_REMINDER,
 }

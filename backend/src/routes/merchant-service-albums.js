@@ -17,6 +17,14 @@ const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.servi
 const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
+const {
+  getMerchantPlanPartsContext,
+  saveMerchantPlanPartsDraft,
+  lockMerchantPlanParts,
+  unlockMerchantPlanParts,
+  runMerchantPlanQuoteOcr,
+  recognizePartLabelOcr,
+} = require('../services/album-plan-parts.service')
 
 const router = express.Router()
 
@@ -97,6 +105,87 @@ router.get('/service-albums/:albumId', requireAuth(['merchant']), async (req, re
       storeId,
       req.auth.merchantId,
     )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/plan-parts', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await getMerchantPlanPartsContext(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/plan-parts', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await saveMerchantPlanPartsDraft(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+      req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/plan-parts/lock', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await lockMerchantPlanParts(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/plan-parts/unlock', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await unlockMerchantPlanParts(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/plan-parts/ocr', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await runMerchantPlanQuoteOcr(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+      req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const data = await recognizePartLabelOcr(req.body?.imageUrl)
     return ok(res, data)
   } catch (e) {
     next(e)

@@ -39,9 +39,9 @@
             hover-class="album-bottom-toolbar__archive--hover"
             catchtap="onPartsTap"
             aria-role="button"
-            aria-label="配件"
+            aria-label="配件验真"
           >
-            <text class="album-bottom-toolbar__archive-text text-caption">配件</text>
+            <text class="album-bottom-toolbar__archive-text text-caption">验真</text>
           </view>
         </view>
       </view>

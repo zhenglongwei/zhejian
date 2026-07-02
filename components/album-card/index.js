@@ -22,7 +22,7 @@ Component({
     },
     showHeaderActions: {
       type: Boolean,
-      value: true,
+      value: false,
     },
     embedded: {
       type: Boolean,

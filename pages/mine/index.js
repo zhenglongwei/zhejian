@@ -47,17 +47,6 @@ const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
     return this.loadPage({ silent: true })
   },
-  syncWithdrawingState(withdrawingId) {
-    const cards = (this.data.albumHeroCards || []).map((item) =>
-      quietHubAlbumTags(
-        enrichServiceAlbumListItem(
-          { ...item, withdrawing: withdrawingId === item.albumId },
-          { audience: 'user', listTab: 'all' }
-        )
-      )
-    )
-    this.setData({ albumHeroCards: cards })
-  },
 })
 
 Page({
@@ -325,21 +314,6 @@ Page({
     const id = (e.detail && e.detail.id) || ''
     if (!id || !this.guardProtectedEntry(true)) return
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
-  },
-
-  onAlbumCardAuthorize(e) {
-    if (!this.guardProtectedEntry(true)) return
-    return this.onCardAuthorize(e)
-  },
-
-  onAlbumCardShare(e) {
-    if (!this.guardProtectedEntry(true)) return
-    return this.onCardShare(e)
-  },
-
-  onAlbumCardWithdraw(e) {
-    if (!this.guardProtectedEntry(true)) return
-    return this.onCardWithdraw(e)
   },
 
   onShareAppMessage() {

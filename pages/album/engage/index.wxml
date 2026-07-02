@@ -58,7 +58,7 @@
               bind:btntap="onOpenLinkedStore"
             >查看门店主页</ui-button>
             <block wx:if="{{hasParts}}">
-              <ui-button type="secondary" block bind:btntap="onOpenPartVerify">核对配件</ui-button>
+              <ui-button type="secondary" block bind:btntap="onOpenPartVerify">配件验真</ui-button>
               <text wx:if="{{partVerifySummary}}" class="album-engage__action-hint text-caption text-secondary">{{partVerifySummary}}</text>
             </block>
           </view>
@@ -133,7 +133,7 @@
         class="album-engage__actions-card"
       >
         <view class="album-engage__actions">
-          <ui-button type="secondary" block bind:btntap="onOpenPartVerify">核对配件</ui-button>
+          <ui-button type="secondary" block bind:btntap="onOpenPartVerify">配件验真</ui-button>
           <text wx:if="{{partVerifySummary}}" class="album-engage__action-hint text-caption text-secondary">{{partVerifySummary}}</text>
         </view>
       </ui-card>

@@ -186,6 +186,18 @@ const config = {
     timeoutMs: Number(process.env.GEO_VISION_TIMEOUT_MS || 90000),
     enableThinking: process.env.GEO_VISION_ENABLE_THINKING === 'true',
   },
+  /** B-PLAN · 报价表多模态 LLM（按序 failover） */
+  planQuoteLlm: {
+    apiUrl:
+      process.env.PLAN_QUOTE_LLM_API_URL ||
+      process.env.GEO_VISION_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey:
+      process.env.PLAN_QUOTE_LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.PLAN_QUOTE_LLM_MODEL || process.env.GEO_VISION_MODEL || 'qwen-vl-plus',
+    timeoutMs: Number(process.env.PLAN_QUOTE_LLM_TIMEOUT_MS || 90000),
+    enableThinking: process.env.PLAN_QUOTE_LLM_ENABLE_THINKING === 'true',
+  },
 }
 
 module.exports = { config }

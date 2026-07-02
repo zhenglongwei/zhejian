@@ -1,4 +1,4 @@
-<view class="page album-part-verify">
+<view class="page album-part-verify bg-album">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content album-part-verify__pad">
       <ui-skeleton rows="{{5}}" title="{{true}}" />
@@ -6,77 +6,248 @@
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <ui-empty title="无法打开" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+    <view class="page-content album-part-verify__pad">
+      <ui-empty theme="album" title="无法打开" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
-    <view class="page-content">
+    <view class="page-content album-part-verify__pad">
       <ui-empty
+        theme="album"
         title="暂无登记配件"
-        description="门店尚未在相册中登记更换配件，可稍后再来或通过问题反馈联系门店。"
+        description="门店尚未在相册中登记更换配件。你可先查看维修方案说明，或联系门店补录后再验真。"
       />
     </view>
   </block>
 
   <block wx:else>
     <view class="page-content album-part-verify__body">
-      <ui-card shadow="{{true}}" padding="{{true}}">
+      <view class="album-part-verify__hero surface-album-panel">
         <text class="text-h3">{{albumTitle}}</text>
-        <text class="text-caption text-secondary album-part-verify__intro">
-          你可随时核对相册中登记的更换配件。此为车主自愿留痕，不代替门店告知义务。
-        </text>
-        <text wx:if="{{summaryLabel}}" class="text-caption album-part-verify__summary">{{summaryLabel}}</text>
-      </ui-card>
-
-      <ui-card
-        wx:for="{{parts}}"
-        wx:key="partKey"
-        shadow="{{true}}"
-        padding="{{true}}"
-        class="album-part-verify__part"
-      >
-        <album-part-row
-          variant="card"
-          name="{{item.name}}"
-          part-type="{{item.partType}}"
-          qty="{{item.qty}}"
-          thumb-url="{{item.thumbUrl}}"
-        />
-        <view class="album-part-verify__status-row">
-          <view
-            wx:for="{{statusOptions}}"
-            wx:for-item="opt"
-            wx:key="value"
-            class="album-part-verify__status {{item.status === opt.value ? 'is-active' : ''}}"
-            data-index="{{index}}"
-            data-status="{{opt.value}}"
-            bindtap="onStatusTap"
-          >
-            <text class="text-caption">{{opt.label}}</text>
+        <text wx:if="{{storeName}}" class="text-caption text-secondary album-part-verify__store">{{storeName}}</text>
+        <text class="text-body album-part-verify__value">{{valueLine}}</text>
+        <ui-privacy-banner scene="partVerify" />
+        <view class="album-part-verify__steps">
+          <view wx:for="{{steps}}" wx:key="key" class="album-part-verify__step">
+            <text class="album-part-verify__step-title text-caption">{{item.title}}</text>
+            <text class="album-part-verify__step-desc text-caption text-secondary">{{item.desc}}</text>
           </view>
         </view>
-        <textarea
-          class="album-part-verify__textarea text-body"
-          placeholder="补充说明（选填）"
-          value="{{item.note}}"
-          maxlength="200"
-          data-index="{{index}}"
-          bindinput="onNoteInput"
-        />
-        <ui-image-uploader
-          images="{{item.images}}"
-          maxCount="{{3}}"
-          data-index="{{index}}"
-          bind:change="onImagesChange"
-        />
-      </ui-card>
+        <text wx:if="{{summaryLabel}}" class="text-caption album-part-verify__summary">{{summaryLabel}}</text>
+      </view>
+
+      <view wx:if="{{showDegradeHint}}" class="album-part-verify__hint surface-album-inset">
+        <text class="text-caption text-secondary">{{degradeHint}}</text>
+      </view>
+
+      <view wx:if="{{planSummary || planQuoteThumbs.length}}" class="surface-album-panel album-part-verify__section">
+        <text class="text-caption album-part-verify__section-label">{{planSectionTitle}}</text>
+        <text wx:if="{{planSummary}}" class="text-body album-part-verify__plan-text">{{planSummary}}</text>
+        <scroll-view
+          wx:if="{{planQuoteThumbs.length}}"
+          class="album-part-verify__quote-scroll"
+          scroll-x
+          enable-flex
+          show-scrollbar="{{false}}"
+        >
+          <view class="album-part-verify__quote-row">
+            <image
+              wx:for="{{planQuoteThumbs}}"
+              wx:key="*this"
+              class="album-part-verify__quote-thumb"
+              src="{{item}}"
+              mode="aspectFill"
+            />
+          </view>
+        </scroll-view>
+      </view>
+
+      <block wx:if="{{usePairsMode}}">
+        <view class="surface-album-panel album-part-verify__section">
+          <text class="text-caption album-part-verify__section-label">方案与相册对照</text>
+        </view>
+
+        <ui-card
+          wx:for="{{pairs}}"
+          wx:key="partKey"
+          shadow="{{true}}"
+          padding="{{true}}"
+          class="album-part-verify__part"
+        >
+          <part-verify-pair-card
+            title="{{item.title}}"
+            plan-name="{{item.planName}}"
+            plan-type="{{item.planType}}"
+            plan-type-variant="{{item.planTypeVariant}}"
+            plan-brand="{{item.planBrand}}"
+            plan-code="{{item.planCode}}"
+            plan-qty="{{item.planQty}}"
+            album-name="{{item.albumName}}"
+            album-type="{{item.albumType}}"
+            album-type-variant="{{item.albumTypeVariant}}"
+            album-brand="{{item.albumBrand}}"
+            album-code="{{item.albumCode}}"
+            album-qty="{{item.albumQty}}"
+            thumb-url="{{item.thumbUrl}}"
+            link-status="{{item.linkStatus}}"
+            link-hint="{{item.linkHint}}"
+            diff-labels="{{item.diffLabels}}"
+            show-plan-column="{{item.showPlanColumn}}"
+            show-album-column="{{item.showAlbumColumn}}"
+          />
+          <view class="album-part-verify__status-row">
+            <view
+              wx:for="{{statusOptions}}"
+              wx:for-item="opt"
+              wx:key="value"
+              class="album-part-verify__status {{item.status === opt.value ? 'is-active' : ''}}"
+              data-part-key="{{item.partKey}}"
+              data-status="{{opt.value}}"
+              bindtap="onStatusTap"
+            >
+              <text class="text-caption">{{opt.label}}</text>
+            </view>
+          </view>
+          <textarea
+            class="album-part-verify__textarea text-body"
+            placeholder="补充说明（选填）"
+            value="{{item.note}}"
+            maxlength="200"
+            data-part-key="{{item.partKey}}"
+            bindinput="onNoteInput"
+          />
+          <ui-image-uploader
+            images="{{item.images}}"
+            maxCount="{{3}}"
+            data-part-key="{{item.partKey}}"
+            bind:change="onImagesChange"
+          />
+        </ui-card>
+
+        <block wx:if="{{extras.length}}">
+          <view class="surface-album-panel album-part-verify__section">
+            <text class="text-caption album-part-verify__section-label">{{extraSectionTitle}}</text>
+          </view>
+          <ui-card
+            wx:for="{{extras}}"
+            wx:key="partKey"
+            shadow="{{true}}"
+            padding="{{true}}"
+            class="album-part-verify__part"
+          >
+            <part-verify-pair-card
+              title="{{item.title}}"
+              album-name="{{item.albumName}}"
+              album-type="{{item.albumType}}"
+              album-type-variant="{{item.albumTypeVariant}}"
+              album-brand="{{item.albumBrand}}"
+              album-code="{{item.albumCode}}"
+              album-qty="{{item.albumQty}}"
+              thumb-url="{{item.thumbUrl}}"
+              link-status="{{item.linkStatus}}"
+              link-hint="{{item.linkHint}}"
+              show-plan-column="{{false}}"
+              show-album-column="{{true}}"
+            />
+            <view class="album-part-verify__status-row">
+              <view
+                wx:for="{{statusOptions}}"
+                wx:for-item="opt"
+                wx:key="value"
+                class="album-part-verify__status {{item.status === opt.value ? 'is-active' : ''}}"
+                data-part-key="{{item.partKey}}"
+                data-status="{{opt.value}}"
+                bindtap="onStatusTap"
+              >
+                <text class="text-caption">{{opt.label}}</text>
+              </view>
+            </view>
+            <textarea
+              class="album-part-verify__textarea text-body"
+              placeholder="补充说明（选填）"
+              value="{{item.note}}"
+              maxlength="200"
+              data-part-key="{{item.partKey}}"
+              bindinput="onNoteInput"
+            />
+            <ui-image-uploader
+              images="{{item.images}}"
+              maxCount="{{3}}"
+              data-part-key="{{item.partKey}}"
+              bind:change="onImagesChange"
+            />
+          </ui-card>
+        </block>
+      </block>
+
+      <block wx:else>
+        <view class="surface-album-panel album-part-verify__section">
+          <text class="text-caption album-part-verify__section-label">{{albumSectionTitle}}</text>
+        </view>
+
+        <ui-card
+          wx:for="{{parts}}"
+          wx:key="partKey"
+          shadow="{{true}}"
+          padding="{{true}}"
+          class="album-part-verify__part"
+        >
+          <album-part-row
+            variant="card"
+            name="{{item.name}}"
+            part-type="{{item.partType}}"
+            qty="{{item.qty}}"
+            thumb-url="{{item.thumbUrl}}"
+          />
+          <text class="text-caption text-secondary album-part-verify__part-hint">对照上方维修方案，确认相册登记是否一致</text>
+          <view class="album-part-verify__status-row">
+            <view
+              wx:for="{{statusOptions}}"
+              wx:for-item="opt"
+              wx:key="value"
+              class="album-part-verify__status {{item.status === opt.value ? 'is-active' : ''}}"
+              data-part-key="{{item.partKey}}"
+              data-status="{{opt.value}}"
+              bindtap="onStatusTap"
+            >
+              <text class="text-caption">{{opt.label}}</text>
+            </view>
+          </view>
+          <textarea
+            class="album-part-verify__textarea text-body"
+            placeholder="补充说明（选填）"
+            value="{{item.note}}"
+            maxlength="200"
+            data-part-key="{{item.partKey}}"
+            bindinput="onNoteInput"
+          />
+          <ui-image-uploader
+            images="{{item.images}}"
+            maxCount="{{3}}"
+            data-part-key="{{item.partKey}}"
+            bind:change="onImagesChange"
+          />
+        </ui-card>
+      </block>
+
+      <view class="surface-album-panel album-part-verify__onsite">
+        <view class="album-part-verify__onsite-head" bindtap="onToggleOnsite">
+          <text class="text-body">关于已装到车上的配件</text>
+          <text class="text-caption text-link">{{onsiteExpanded ? '收起' : '展开'}}</text>
+        </view>
+        <block wx:if="{{onsiteExpanded}}">
+          <text class="text-caption text-secondary album-part-verify__onsite-body">{{onsiteReminder}}</text>
+          <view wx:if="{{storePhone}}" class="album-part-verify__onsite-action">
+            <ui-button type="ghost" size="sm" block bind:btntap="onContactStore">联系门店</ui-button>
+          </view>
+        </block>
+      </view>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <ui-checkbox-row checked="{{consent}}" bind:toggle="toggleConsent">{{consentText}}</ui-checkbox-row>
         <view class="album-part-verify__notice">
-          <ui-compliance-notice type="history" text="平台不鉴定配件真伪，仅留存车主核对记录。" />
+          <ui-compliance-notice type="partVerify" />
         </view>
       </ui-card>
     </view>
@@ -89,7 +260,7 @@
         loading="{{submitting}}"
         disabled="{{submitting}}"
         bind:btntap="onSubmit"
-      >保存核对记录</ui-button>
+      >保存验真记录</ui-button>
     </ui-fixed-bottom-bar>
 
     <ui-login-sheet

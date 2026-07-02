@@ -102,7 +102,7 @@
           data-action="partverify"
           catchtap="onPartVerifyTap"
         >
-          <text class="album-card__action-text text-caption">核对配件</text>
+          <text class="album-card__action-text text-caption">配件验真</text>
         </view>
         <view
           wx:if="{{item.showShareButton}}"

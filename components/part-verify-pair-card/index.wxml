@@ -1,0 +1,57 @@
+<view class="part-verify-pair-card">
+  <view wx:if="{{title}}" class="part-verify-pair-card__head">
+    <text class="text-body part-verify-pair-card__title">{{title}}</text>
+    <text wx:if="{{linkHint}}" class="text-caption text-secondary part-verify-pair-card__hint">{{linkHint}}</text>
+  </view>
+
+  <view wx:if="{{diffLabels.length}}" class="part-verify-pair-card__diff">
+    <text class="text-caption">字段差异：{{diffLabels.join('、')}}（仅供参考，非平台结论）</text>
+  </view>
+
+  <view class="part-verify-pair-card__grid">
+    <view wx:if="{{showPlanColumn}}" class="part-verify-pair-card__col">
+      <text class="text-caption part-verify-pair-card__col-label">方案</text>
+      <block wx:if="{{planName}}">
+        <text class="text-body">{{planName}}</text>
+        <view class="part-verify-pair-card__meta">
+          <ui-tag wx:if="{{planType}}" variant="{{planTypeVariant}}" text="{{planType}}" />
+          <text wx:if="{{planQty}}" class="text-caption text-secondary">×{{planQty}}</text>
+        </view>
+        <text wx:if="{{planBrand}}" class="text-caption text-secondary">品牌 {{planBrand}}</text>
+        <view wx:if="{{planCode}}" class="part-verify-pair-card__code-row">
+          <text class="text-caption text-secondary">编码 {{planCode}}</text>
+          <text class="text-caption text-link" data-code="{{planCode}}" catchtap="onCopyCode">复制</text>
+        </view>
+      </block>
+      <text wx:else class="text-caption text-secondary">未登记</text>
+    </view>
+
+    <view wx:if="{{showAlbumColumn}}" class="part-verify-pair-card__col">
+      <text class="text-caption part-verify-pair-card__col-label">相册登记</text>
+      <block wx:if="{{albumName}}">
+        <view class="part-verify-pair-card__album-head">
+          <view class="part-verify-pair-card__album-copy">
+            <text class="text-body">{{albumName}}</text>
+            <view class="part-verify-pair-card__meta">
+              <ui-tag wx:if="{{albumType}}" variant="{{albumTypeVariant}}" text="{{albumType}}" />
+              <text wx:if="{{albumQty}}" class="text-caption text-secondary">×{{albumQty}}</text>
+            </view>
+            <text wx:if="{{albumBrand}}" class="text-caption text-secondary">品牌 {{albumBrand}}</text>
+            <view wx:if="{{albumCode}}" class="part-verify-pair-card__code-row">
+              <text class="text-caption text-secondary">编码 {{albumCode}}</text>
+              <text class="text-caption text-link" data-code="{{albumCode}}" catchtap="onCopyCode">复制</text>
+            </view>
+          </view>
+          <image
+            wx:if="{{thumbUrl}}"
+            class="part-verify-pair-card__thumb"
+            src="{{thumbUrl}}"
+            mode="aspectFill"
+            catchtap="onPreviewThumb"
+          />
+        </view>
+      </block>
+      <text wx:else class="text-caption text-secondary">未登记</text>
+    </view>
+  </view>
+</view>
