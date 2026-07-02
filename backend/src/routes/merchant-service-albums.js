@@ -185,7 +185,13 @@ router.post('/service-albums/:albumId/plan-parts/ocr', requireAuth(['merchant'])
 
 router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const data = await recognizePartLabelOcr(req.body?.imageUrl)
+    const body = req.body || {}
+    const imageUrls = Array.isArray(body.imageUrls)
+      ? body.imageUrls
+      : body.imageUrl
+        ? [body.imageUrl]
+        : []
+    const data = await recognizePartLabelOcr({ imageUrls })
     return ok(res, data)
   } catch (e) {
     next(e)

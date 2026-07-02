@@ -232,6 +232,17 @@ async function verifyH5ServiceItem() {
   assert(apiItem.json.data?.seo?.robots, 'service item 缺少 seo.robots')
   assert(Array.isArray(apiItem.json.data?.featuredCases), 'service item 缺少 featuredCases')
   assert(Array.isArray(apiItem.json.data?.faq), 'service item 缺少 faq')
+  assert(apiItem.json.data?.aggregateStats != null, 'service item 缺少 aggregateStats')
+  if (apiItem.json.data?.stats?.caseCount > 0) {
+    assert(
+      apiItem.json.data.aggregateStats.sampleSize > 0,
+      '有案例时 aggregateStats.sampleSize 应 > 0'
+    )
+    assert(
+      String(apiItem.json.data.item.aiSummary || '').includes('例'),
+      '有案例时 aiSummary 应含样本统计'
+    )
+  }
   assert(
     apiItem.json.data?.seo?.canonicalPath === `/service/${slug}.html`,
     'service item canonicalPath 不正确'
@@ -269,6 +280,7 @@ async function verifyH5Sitemap() {
   const llmsText = await llmsRes.text()
   assert(llmsText.includes('辙见服务平台'), 'llms.txt 缺少站点标题')
   assert(llmsText.includes('/service/'), 'llms.txt 应含服务页链接')
+  assert(llmsText.includes('JSON Feed'), 'llms.txt 应声明 JSON Feed')
 
   const feedRes = await fetch(`${BASE}/feeds/topics.xml`)
   assert(feedRes.ok, `feeds/topics.xml HTTP ${feedRes.status}`)
@@ -301,6 +313,34 @@ async function verifyH5Sitemap() {
   const apiIndex = await api('GET', '/public/sitemap.xml')
   assert(apiIndex.ok, 'GET /public/sitemap.xml API 失败')
   console.log('[chain] ✅ sitemap.xml + robots.txt + 子 sitemap')
+}
+
+async function verifyPublicJsonFeed() {
+  const indexRes = await fetch(`${BASE}/api/v1/public/v1/index.json`)
+  assert(indexRes.ok, `GET /public/v1/index.json HTTP ${indexRes.status}`)
+  const indexJson = await indexRes.json()
+  assert(indexJson.feeds?.services, 'Feed index 缺少 services 入口')
+
+  const slug = 'brake-pad-replacement'
+  const serviceApi = await api('GET', `/public/h5/service-items/${slug}`)
+  assert(serviceApi.ok && serviceApi.json?.code === 0, 'service-items API 失败')
+  const allowIndex = serviceApi.json.data?.seo?.allowIndex
+
+  const feedRes = await fetch(`${BASE}/api/v1/public/v1/services/${slug}.json`)
+  if (allowIndex) {
+    assert(feedRes.ok, `GET /public/v1/services/${slug}.json HTTP ${feedRes.status}`)
+    const feedJson = await feedRes.json()
+    assert(feedJson.type === 'service', 'service feed type 错误')
+    assert(feedJson.aiSummary, 'service feed 缺少 aiSummary')
+    assert(feedJson.disclaimer, 'service feed 缺少 disclaimer')
+    assert(
+      feedJson.aiSummary === serviceApi.json.data?.item?.aiSummary,
+      'service feed 摘要应与 API 一致'
+    )
+  } else {
+    assert(feedRes.status === 404, 'noindex 服务 feed 应返回 404')
+  }
+  console.log('[chain] ✅ JSON Feed /public/v1/*')
 }
 
 async function verifyH5GeoTopic() {
@@ -552,6 +592,7 @@ async function main() {
   await verifyH5GeoTopic()
   await verifyH5Search()
   await verifyH5Sitemap()
+  await verifyPublicJsonFeed()
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
   await verifyH5StoreCases(storeId)

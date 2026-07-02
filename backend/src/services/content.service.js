@@ -47,6 +47,10 @@ const {
   enrichServicePublicPage,
 } = require('./public-page-enrich.service')
 const { applyCasePublicDisplay } = require('../utils/case-geo-display')
+const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
+const { config } = require('../config')
+const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
+const { matchServiceName } = require('../utils/service-case-link')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -217,6 +221,7 @@ function mapPublicCaseRow(row, album) {
       return { faq: parts.inline, faqLinks: parts.links }
     })(),
     slug: geoFields.slug || null,
+    seoNoindex: Boolean(row.seoNoindex),
   }
   return applyPublicDisplayRules(item)
 }
@@ -462,6 +467,21 @@ async function getCaseDetail(idOrSlug) {
     }
   )
 
+  const serviceSlug =
+    H5_SERVICE_ITEMS.find((entry) => matchServiceName(display.serviceName, entry.name))?.slug || ''
+  const schemaGraph = buildCasePageSchemaGraph({
+    baseUrl: config.publicBaseUrl,
+    showStorePublicly,
+    serviceSlug,
+    data: {
+      ...display,
+      faq,
+      store,
+      seo: item.seo,
+      canonicalPath: item.seo?.canonicalPath || item.canonicalPath,
+    },
+  })
+
   return enrichCasePublicPage({
     ...display,
     serviceItemId,
@@ -474,6 +494,7 @@ async function getCaseDetail(idOrSlug) {
     relatedCases,
     relatedCaseTier,
     internalLinks,
+    schemaGraph,
   })
 }
 

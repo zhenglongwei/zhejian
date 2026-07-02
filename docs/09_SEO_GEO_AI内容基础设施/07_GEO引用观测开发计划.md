@@ -13,7 +13,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 文档名称 | GEO 引用观测开发计划 |
-| 当前版本 | V1.8 |
+| 当前版本 | V1.9 |
 | 适用范围 | 运营后台、商家看板（只读指标）、定时任务、H5 爬虫日志扩展 |
 | 不在范围 | 对外售卖 GEO SaaS、承诺「AI 引用次数」、全平台 10+ 引擎商用监测合同 |
 | 任务 ID 前缀 | `GEO-OBS-*` |
@@ -74,9 +74,12 @@
 | **P0** | `prompt_intent_coverage` | 词库中至少有 1 条已发布专题（或案例聚合页）可对应的 prompt 占比 | 首批 30 专题后 **≥40%** |
 | **P1** | `prompt_probe_mention_rate` | 答案提及「辙见」或域名（无链接） | 与 citation 分开看 used-vs-cited |
 | **P1** | `post_citation_lead_rate` | 探测周内有 citation 的 URL，7 日内 `h5_consult_click`+`h5_call_click` / 该 URL UV | 建立基线；优化 CTA 后环比 |
-| **P2** | `crawler_view` | Bot 访问（已有） | 仅作必要非充分条件 |
+| **P1** | `brand_search_uplift` | 有 citation 的探测周，brand/direct 会话数相对前 4 周中位数的 uplift | 与 [`09_GEO信息增量与RAG专线开发计划.md`](./09_GEO信息增量与RAG专线开发计划.md) E 联调 |
+| **P2** | `crawler_view` | Bot 访问（已有） | 仅作必要非充分条件；**商家看板须与 mention 分拆展示** |
 
 **非主指标**：`h5_case_view`、页面停留、滚动深度（不用于 GEO 专项 Go/No-Go）。
+
+**隐形归因说明（2026-07-02）**：AI 答案常零点击；用户可能在 AI 种草后 **直接搜索品牌词或输入域名** 进入。`brand_search_uplift` 与 `prompt_probe_citation_rate` **并列** 观察，不得用爬虫 PV 替代。
 
 **Go/No-Go 复盘节点**（建议）：OBS-B 运行满 **8 周** — 若 citation 率与引后咨询均无趋势，启动「GEO 假设复盘」会议，而非加功能。
 
@@ -154,8 +157,9 @@
 | **C** | Citation gap + 商家机会分 | P2 | B、[`08`](./08_GEO意图专题开发计划.md) | 选题与招商数据 |
 | **D** | 多引擎扩展 + 自动化报告 | P2 | B | **开放 API**：千问/豆包/Kimi/文心/元宝（混元） |
 | **W** | 微信生态内观测（运营为主） | P2 | B、卷六 DS-D | **仅**小程序内搜一搜等；元宝 API 归 **D** |
+| **E** | 品牌词与隐形归因 | P1 | B、[`09`](./09_GEO信息增量与RAG专线开发计划.md) | `brand_search_uplift` 周报 |
 
-**推荐顺序**：`A → B`；`C` 待 [`08`](./08_GEO意图专题开发计划.md) 有 ≥10 个可索引专题后价值最大；**D 与 W 并行**，D 管开放 LLM，W 管微信内，**指标分报**。
+**推荐顺序**：`A → B`；`C` 待 [`08`](./08_GEO意图专题开发计划.md) 有 ≥10 个可索引专题后价值最大；**D 与 W 并行**；**E 与 IGAIN B 并行**（见 [`09`](./09_GEO信息增量与RAG专线开发计划.md) §7）。
 
 ---
 

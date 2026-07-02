@@ -58,15 +58,45 @@ async function runMerchantPlanQuoteOcr(albumId, payload = {}) {
   return post(`/merchant/service-albums/${albumId}/plan-parts/ocr`, withStore(payload))
 }
 
-async function recognizePartLabelOcr(albumId, imageUrl) {
+async function recognizePartLabelOcr(albumId, payload = {}) {
+  const imageUrls = Array.isArray(payload.imageUrls)
+    ? payload.imageUrls
+    : payload.imageUrl
+      ? [payload.imageUrl]
+      : []
   if (ENV.mode === 'mock') {
+    const urls = imageUrls.length ? imageUrls : ['mock://local']
+    const raw = urls.flatMap((url, imageIndex) => [
+      {
+        partCode: `MOCK-CODE-${imageIndex + 1}A`,
+        partBrand: imageIndex === 0 ? '演示品牌' : '',
+        imageIndex,
+        imageUrl: url,
+        snippet: `MOCK-CODE-${imageIndex + 1}A`,
+      },
+      {
+        partCode: `MOCK-CODE-${imageIndex + 1}B`,
+        partBrand: '',
+        imageIndex,
+        imageUrl: url,
+        snippet: `MOCK-CODE-${imageIndex + 1}B`,
+      },
+    ])
+    const seen = new Set()
+    const candidates = raw.filter((item) => {
+      if (seen.has(item.partCode)) return false
+      seen.add(item.partCode)
+      return true
+    })
     return {
-      partCode: 'MOCK-CODE-001',
-      partBrand: '演示品牌',
+      candidates,
+      partCode: candidates[0]?.partCode || '',
+      partBrand: candidates[0]?.partBrand || '',
+      imageCount: urls.length,
       provider: 'mock',
     }
   }
-  return post(`/merchant/service-albums/${albumId}/parts/label-ocr`, { imageUrl })
+  return post(`/merchant/service-albums/${albumId}/parts/label-ocr`, { imageUrls })
 }
 
 module.exports = {

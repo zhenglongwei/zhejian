@@ -218,32 +218,90 @@ async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {
   }
 }
 
-async function recognizePartLabelOcr(imageUrl) {
-  const url = String(imageUrl || '').trim()
-  if (!url) {
+const { config } = require('../config')
+const {
+  extractPartCodeCandidates,
+  mergeCandidateLists,
+} = require('../lib/part-code-candidates')
+
+async function recognizePartLabelOcr(input) {
+  let imageUrls = []
+  if (Array.isArray(input)) {
+    imageUrls = input
+  } else if (input && Array.isArray(input.imageUrls)) {
+    imageUrls = input.imageUrls
+  } else if (input && input.imageUrl) {
+    imageUrls = [input.imageUrl]
+  } else if (typeof input === 'string') {
+    imageUrls = [input]
+  }
+
+  imageUrls = imageUrls.map((url) => String(url || '').trim()).filter(Boolean)
+  if (!imageUrls.length) {
     const err = new Error('请先上传配件凭证图')
     err.status = 400
     throw err
   }
+
   try {
     const { recognizeGeneralText } = require('./plan-quote-ocr.service')
-    const text = await recognizeGeneralText(url)
-    const codeMatch =
-      text.match(/(?:编码|零件号|PN)[:：]?\s*([A-Z0-9-]{4,})/i) ||
-      text.match(/\b([A-Z0-9]{2,}[-/][A-Z0-9-]{3,})\b/)
-    const brandMatch = text.match(/(?:品牌|BRAND)[:：]?\s*([\u4e00-\u9fa5A-Za-z0-9]{2,12})/i)
+    const perImage = []
+    const failures = []
+
+    for (let imageIndex = 0; imageIndex < imageUrls.length; imageIndex += 1) {
+      const imageUrl = imageUrls[imageIndex]
+      try {
+        const text = await recognizeGeneralText(imageUrl)
+        perImage.push(extractPartCodeCandidates(text, imageIndex))
+      } catch (err) {
+        failures.push({
+          imageIndex,
+          message: err.message || '识别失败',
+        })
+      }
+    }
+
+    const candidates = mergeCandidateLists(perImage).map((item) => ({
+      ...item,
+      imageUrl: imageUrls[item.imageIndex] || imageUrls[0],
+    }))
+
     return {
-      partCode: codeMatch ? codeMatch[1].trim() : '',
-      partBrand: brandMatch ? brandMatch[1].trim() : '',
-      textPreview: String(text || '').slice(0, 120),
+      candidates,
+      partCode: candidates[0]?.partCode || '',
+      partBrand: candidates[0]?.partBrand || '',
+      imageCount: imageUrls.length,
+      failures,
       provider: 'ocr-api-general',
     }
   } catch (e) {
     if (config.nodeEnv !== 'production') {
+      const candidates = imageUrls.flatMap((url, imageIndex) => [
+        {
+          partCode: `MOCK-CODE-${imageIndex + 1}A`,
+          partBrand: imageIndex === 0 ? '演示品牌' : '',
+          imageIndex,
+          imageUrl: url,
+          snippet: `MOCK-CODE-${imageIndex + 1}A`,
+        },
+        {
+          partCode: `MOCK-CODE-${imageIndex + 1}B`,
+          partBrand: '',
+          imageIndex,
+          imageUrl: url,
+          snippet: `MOCK-CODE-${imageIndex + 1}B`,
+        },
+      ])
+      const merged = mergeCandidateLists([candidates])
       return {
-        partCode: 'MOCK-CODE-001',
-        partBrand: '',
-        textPreview: '',
+        candidates: merged.map((item) => ({
+          ...item,
+          imageUrl: imageUrls[item.imageIndex] || imageUrls[0],
+        })),
+        partCode: merged[0]?.partCode || '',
+        partBrand: merged[0]?.partBrand || '',
+        imageCount: imageUrls.length,
+        failures: [],
         provider: 'mock',
       }
     }

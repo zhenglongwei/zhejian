@@ -97,11 +97,20 @@
 
   function track(eventName, eventParams, extra) {
     if (!eventName) return
+    var attr = parseAttribution()
+  if (eventName === 'h5_search_submit') {
+    var keyword = String((eventParams && (eventParams.keyword || eventParams.q)) || '').trim()
+    if (/辙见|zhejian|geo\.simplewin/i.test(keyword)) {
+      attr.source = 'brand_search'
+    }
+  }
     queue.push(
       Object.assign(
         {
           eventName: eventName,
           eventParams: eventParams || {},
+          source: attr.source,
+          channel: attr.channel,
         },
         extra || {}
       )

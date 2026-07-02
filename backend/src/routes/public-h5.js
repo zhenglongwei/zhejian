@@ -18,6 +18,12 @@ const {
   getH5SearchSuggest,
   getH5SearchConfig,
 } = require('../services/h5-search.service')
+const {
+  getCaseFeedJson,
+  getServiceFeedJson,
+  getFeedIndexJson,
+  sendFeedJson,
+} = require('../services/public-feed.service')
 
 const router = express.Router()
 
@@ -56,6 +62,30 @@ router.get('/robots.txt', (req, res) => {
 router.get('/llms.txt', async (req, res, next) => {
   try {
     return sendText(res, await getLlmsTxt())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/v1/index.json', async (req, res, next) => {
+  try {
+    return sendFeedJson(res, await getFeedIndexJson())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/v1/cases/:caseId.json', async (req, res, next) => {
+  try {
+    return sendFeedJson(res, await getCaseFeedJson(req.params.caseId))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/v1/services/:slug.json', async (req, res, next) => {
+  try {
+    return sendFeedJson(res, await getServiceFeedJson(req.params.slug, req.query))
   } catch (e) {
     next(e)
   }

@@ -9,6 +9,7 @@ const { GEO_PROMPT_SEED } = require('../constants/geo-prompt-seed')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { parseProbeAnswer } = require('../utils/geo-probe-parse')
 const { mapPromptRow } = require('./admin-geo-prompt.service')
+const { computeBrandSearchAttribution } = require('./brand-search-attribution.service')
 const { computeGeoTopicHealthMetrics } = require('./geo-topic-health.service')
 const {
   resolveEnabledEngineConfigs,
@@ -374,6 +375,7 @@ async function buildGeoProbeReport(query = {}) {
   const coverage = await computeIntentCoverage(promptRows)
   const topicHealth = await computeGeoTopicHealthMetrics()
   const postCitationLeads = await computePostCitationLeads(scopedOkResults, days)
+  const brandAttribution = await computeBrandSearchAttribution({ days })
 
   const engineTierMap = new Map(listEngineDefinitions().map((item) => [item.id, item.tier]))
   const engineLabelMap = new Map(listEngineDefinitions().map((item) => [item.id, item.label]))
@@ -427,7 +429,10 @@ async function buildGeoProbeReport(query = {}) {
       topic_faq_completeness: topicHealth.topic_faq_completeness,
       topic_with_case_rate: topicHealth.topic_with_case_rate,
       post_citation_lead_rate: postCitationLeads.post_citation_lead_rate,
+      brand_search_uplift: brandAttribution.brand_search_uplift,
+      brand_attributed_views: brandAttribution.brand_attributed_views,
     },
+    brandAttribution,
     topicHealth,
     usedVsCited: {
       mentioned_only: usedOnlyCount,

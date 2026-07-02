@@ -48,6 +48,7 @@ const {
   runMerchantPlanQuoteOcr,
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
+const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
@@ -129,6 +130,10 @@ Page({
     partWizardProgress: '',
     activeWizardIndex: -1,
     partLabelOcrLoading: false,
+    partCodePickerVisible: false,
+    partCodeCandidates: [],
+    partCodePickerRowIndex: -1,
+    partCodePickerImageCount: 0,
     showExtraPartForm: false,
     extraPartForm: {
       partName: '',
@@ -147,6 +152,8 @@ Page({
     }
     this.initPage()
   },
+
+  noop() {},
 
   async initPage() {
     const profile = await fetchMerchantProfile()
@@ -603,6 +610,63 @@ Page({
     )
   },
 
+  async ensureWizardRowPhotosUploaded(rowIndex) {
+    const row = (this.data.partWizardRows || [])[rowIndex]
+    if (!row) return []
+    const photos = Array.isArray(row.photos) ? row.photos.slice() : []
+    let changed = false
+    for (let i = 0; i < photos.length; i += 1) {
+      if (!this.isTempImagePath(photos[i])) continue
+      photos[i] = await uploadImage(photos[i])
+      changed = true
+    }
+    if (changed) {
+      this.setData({ [`partWizardRows[${rowIndex}].photos`]: photos })
+    }
+    return photos
+  },
+
+  applyPartCodeCandidate(rowIndex, candidate = {}) {
+    const code = String(candidate.partCode || '').trim()
+    if (rowIndex < 0 || !code) return
+    const patch = {
+      [`partWizardRows[${rowIndex}].partCode`]: code,
+    }
+    const brand = String(candidate.partBrand || '').trim()
+    if (brand) {
+      patch[`partWizardRows[${rowIndex}].partBrand`] = brand
+    }
+    this.setData(patch)
+  },
+
+  openPartCodePicker(rowIndex, candidates = [], imageCount = 0) {
+    this.setData({
+      partCodePickerVisible: true,
+      partCodePickerRowIndex: rowIndex,
+      partCodeCandidates: mapPartCodeCandidatesForPicker(candidates),
+      partCodePickerImageCount: imageCount,
+    })
+  },
+
+  onClosePartCodePicker() {
+    this.setData({
+      partCodePickerVisible: false,
+      partCodeCandidates: [],
+      partCodePickerRowIndex: -1,
+      partCodePickerImageCount: 0,
+    })
+  },
+
+  onPickPartCodeCandidate(e) {
+    const pickIndex = Number(e.currentTarget.dataset.index)
+    const rowIndex = this.data.partCodePickerRowIndex
+    const candidate = (this.data.partCodeCandidates || [])[pickIndex]
+    if (!candidate || rowIndex < 0) return
+    this.onClosePartCodePicker()
+    this.applyPartCodeCandidate(rowIndex, candidate)
+    wx.showToast({ title: '已识别，请核对', icon: 'none' })
+  },
+
   applyVehicleOcrResult(result = {}) {
     const patch = {}
     const { vehicleBrand, vehicleSeries, vehiclePlate, vehicleVin } = this.data
@@ -734,7 +798,6 @@ Page({
   onAddPartRow() {
     const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
       partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
-      partType: PART_TYPE.BRAND,
     })
     const mapped = this.mapPartsWithVariants(parts)
     this.setData(
@@ -823,7 +886,7 @@ Page({
 
   onWizardTypeChange(e) {
     const index = Number(e.currentTarget.dataset.index)
-    const partType = PART_TYPE_LIST[Number(e.detail.value)] || PART_TYPE.OEM
+    const partType = PART_TYPE_LIST[Number(e.detail.value)] || ''
     this.setData({
       [`partWizardRows[${index}].partType`]: partType,
       [`partWizardRows[${index}].partTypeIndex`]: Number(e.detail.value),
@@ -841,24 +904,36 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     const row = this.data.partWizardRows[index]
     if (!row || this.data.partLabelOcrLoading) return
-    let imageUrl = (row.photos && row.photos[0]) || ''
-    if (!imageUrl) {
+    const photos = (row.photos || []).filter(Boolean)
+    if (!photos.length) {
       wx.showToast({ title: '请先上传凭证图', icon: 'none' })
       return
     }
     this.setData({ partLabelOcrLoading: true })
+    wx.showLoading({ title: '识别中', mask: true })
     try {
-      if (this.isTempImagePath(imageUrl)) {
-        imageUrl = await uploadImage(imageUrl)
-        this.setData({ [`partWizardRows[${index}].photos`]: [imageUrl] })
+      const imageUrls = await this.ensureWizardRowPhotosUploaded(index)
+      const result = await recognizePartLabelOcr(this.albumId, { imageUrls })
+      const candidates = result.candidates || []
+      wx.hideLoading()
+      if (!candidates.length) {
+        const failedCount = (result.failures || []).length
+        wx.showToast({
+          title: failedCount
+            ? '未识别到编码，请换图或手工填写'
+            : '未识别到疑似编码',
+          icon: 'none',
+        })
+        return
       }
-      const result = await recognizePartLabelOcr(this.albumId, imageUrl)
-      const patch = {}
-      if (result.partCode) patch[`partWizardRows[${index}].partCode`] = result.partCode
-      if (result.partBrand) patch[`partWizardRows[${index}].partBrand`] = result.partBrand
-      this.setData(patch)
-      wx.showToast({ title: '已识别，请核对', icon: 'none' })
+      if (candidates.length === 1) {
+        this.applyPartCodeCandidate(index, candidates[0])
+        wx.showToast({ title: '已识别，请核对', icon: 'none' })
+        return
+      }
+      this.openPartCodePicker(index, candidates, result.imageCount || imageUrls.length)
     } catch (err) {
+      wx.hideLoading()
       wx.showToast({ title: (err && err.message) || '识别失败', icon: 'none' })
     } finally {
       this.setData({ partLabelOcrLoading: false })
@@ -871,6 +946,10 @@ Page({
     if (!row) return
     if (!(row.photos && row.photos.length)) {
       wx.showToast({ title: '请至少上传一张凭证图', icon: 'none' })
+      return
+    }
+    if (!String(row.partType || '').trim()) {
+      wx.showToast({ title: '请选择配件类型', icon: 'none' })
       return
     }
     let photos = row.photos || []

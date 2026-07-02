@@ -49,6 +49,9 @@
     "case:geo-llm-smoke": "node scripts/case-geo-llm-smoke.js",
     "geo:citation-gap-smoke": "node scripts/geo-citation-gap-smoke.js",
     "case:bot-prerender-smoke": "node scripts/case-bot-prerender-smoke.js",
+    "geo:aggregate-smoke": "node scripts/geo-aggregate-smoke.js",
+    "test:geo-case-aggregate": "node src/services/geo-case-aggregate.test.js",
+    "test:schema-graph": "node src/lib/schema-graph.test.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

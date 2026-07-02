@@ -124,6 +124,37 @@
     </el-row>
 
     <el-row :gutter="16" class="mb-16">
+      <el-col :span="6">
+        <el-statistic
+          title="品牌归因 uplift（P1）"
+          :value="formatUplift(report.metrics?.brand_search_uplift)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="品牌归因访问"
+          :value="report.metrics?.brand_attributed_views || 0"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="Direct 访问"
+          :value="report.brandAttribution?.direct_views || 0"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="品牌词搜索提交"
+          :value="report.brandAttribution?.brand_search_submit_views || 0"
+        />
+      </el-col>
+    </el-row>
+    <p v-if="report.brandAttribution?.sample_note" class="metric-hint mb-16">
+      {{ report.brandAttribution.sample_note }}
+    </p>
+
+    <el-row :gutter="16" class="mb-16">
       <el-col :span="14">
         <el-card shadow="never" header="引擎对比（生态外 API 探测）">
           <el-table
@@ -276,6 +307,12 @@ const recentResultsHeader = computed(() => {
   }
   return '最近探测结果（全引擎 · 最多 20 条）'
 })
+
+function formatUplift(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '0.0'
+  return (num * 100).toFixed(1)
+}
 
 function formatRate(value) {
   const num = Number(value)

@@ -175,6 +175,9 @@
     if (cover) ensureMeta('property', 'og:image', cover)
     ensureLink('canonical', canonical)
 
+    if (data.schemaGraph) {
+      ensureJsonLd('case-schema-graph', data.schemaGraph)
+    } else {
     var articleSchema = {
       '@context': 'https://schema.org',
       '@type': 'Article',
@@ -239,11 +242,6 @@
     var faqInline = (data.faq || []).filter(function (item) {
       return item && item.q && item.a
     })
-    var faqLinks = (data.faqLinks || []).concat(
-      (data.faq || []).filter(function (item) {
-        return item && item.title && item.url
-      })
-    )
     if (faqInline.length) {
       ensureJsonLd('case-faq-inline-schema', {
         '@context': 'https://schema.org',
@@ -257,6 +255,13 @@
         }),
       })
     }
+    }
+
+    var faqLinks = (data.faqLinks || []).concat(
+      (data.faq || []).filter(function (item) {
+        return item && item.title && item.url
+      })
+    )
     if (faqLinks.length) {
       ensureJsonLd('case-faq-schema', {
         '@context': 'https://schema.org',

@@ -49,10 +49,17 @@
   function renderTrustMeta(data) {
     var geo = data.geo || {}
     var stats = data.stats || {}
+    var aggregate = data.aggregateStats || {}
     var parts = []
     var updated = formatTrustDate(geo.updatedAt)
     if (updated) parts.push('内容更新：' + updated)
     if (stats.caseCount > 0) parts.push('公开脱敏案例 ' + stats.caseCount + ' 条')
+    if (aggregate.windowLabel && aggregate.sampleSize > 0) {
+      parts.push(aggregate.windowLabel + ' 统计样本 ' + aggregate.sampleSize + ' 例')
+    }
+    if (aggregate.price && aggregate.price.text) {
+      parts.push(aggregate.price.text)
+    }
     if (!parts.length) return ''
     return '<p class="h5-topic-trust">' + escapeHtml(parts.join(' · ')) + '</p>'
   }
@@ -158,6 +165,9 @@
     if (geo.updatedAt) webPage.dateModified = geo.updatedAt
     if (geo.publishedAt) webPage.datePublished = geo.publishedAt
 
+    if (data.schemaGraph) {
+      injectJsonLd(data.schemaGraph)
+    } else {
     var graph = [
       webPage,
       {
@@ -185,6 +195,7 @@
       }
     }
     injectJsonLd({ '@context': 'https://schema.org', '@graph': graph })
+    }
     if (window.zhejianSeo) {
       window.zhejianSeo.applyBreadcrumbSchema(
         [

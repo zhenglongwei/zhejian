@@ -4,12 +4,12 @@
 | 项目   | 内容                                            |
 | ---- | --------------------------------------------- |
 | 文档名称 | 结构化数据 Schema 规范                               |
-| 当前版本 | V2.0                                          |
+| 当前版本 | V2.1                                          |
 | 所属模块 | SEO/GEO/AI内容基础设施                              |
 | 适用范围 | 首页、门店页、服务项目页、案例页、知识问答页、车型页、城市页                |
 | 核心目标 | 通过 Schema.org JSON-LD 提升搜索引擎和 AI 系统对页面内容的理解能力 |
 | 推荐格式 | JSON-LD                                       |
-| 关联文档 | 《公开页面信息架构》《AI可引用摘要规范》《FAQ生成规范》                |
+| 关联文档 | 《公开页面信息架构》《AI可引用摘要规范》《FAQ生成规范》《GEO信息增量与RAG专线开发计划》                |
 
 
 ---
@@ -32,11 +32,14 @@
 12. `Organization`
 13. `WebSite`
 14. `CollectionPage`
+15. `Dataset`（V2.1 · 服务页案例聚合统计）
 
 说明：
 
 - `AutoRepair` 是 `LocalBusiness` 的更具体类型，门店页优先使用；
 - 案例页可使用 `Article` + `Service` + `ImageObject` + `FAQPage`；
+- 服务页在含案例聚合统计时，额外输出 `Dataset`（与 `Service` 等同 `@graph`）；
+- 全站推荐使用 `@graph` + 稳定 `@id` 建立实体互链（见 §15）；
 - FAQ 内容必须与页面可见内容一致；
 - Review 必须来自真实评价。
 
@@ -51,7 +54,7 @@
 | 城市页     | CollectionPage, BreadcrumbList                         |
 | 城市服务项目页 | Service, CollectionPage, FAQPage, BreadcrumbList       |
 | 城市门店页   | CollectionPage, LocalBusiness 列表摘要, BreadcrumbList     |
-| 服务项目页   | Service, FAQPage, BreadcrumbList                       |
+| 服务项目页   | Service, FAQPage, Dataset（有聚合时）, BreadcrumbList                       |
 | 项目案例页   | CollectionPage, Article 列表摘要, BreadcrumbList           |
 | 车型页     | CollectionPage, FAQPage, BreadcrumbList                |
 | 车型案例页   | CollectionPage, Article 列表摘要, BreadcrumbList           |
@@ -457,7 +460,77 @@ Schema 中禁止包含：
 
 ---
 
-## **15. P0 验收标准**
+## **15. 实体图谱 @id 规范（V2.1）**
+
+> 任务真源：[`09_GEO信息增量与RAG专线开发计划.md`](./09_GEO信息增量与RAG专线开发计划.md) 阶段 C
+
+### **15.1 目标**
+
+让 AI 爬虫无需猜测实体关系：辙见平台、门店、服务、案例之间通过 **稳定 `@id`** 互链。
+
+### **15.2 @id 约定**
+
+| 实体 | @id 格式 |
+| --- | --- |
+| 平台 Organization | `{canonicalBase}/#organization` |
+| 门店 AutoRepair | `{canonicalBase}/store/{storeId}#autorepair` |
+| 服务 Service | `{canonicalBase}/service/{slug}#service` |
+| 案例 Article | `{canonicalBase}/case/{slug}#article` |
+| 聚合 Dataset | `{canonicalBase}/service/{slug}#dataset` |
+
+### **15.3 @graph 最小示例（服务页）**
+
+```json
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://geo.example.com/#organization",
+      "name": "辙见"
+    },
+    {
+      "@type": "Service",
+      "@id": "https://geo.example.com/service/brake-pad#service",
+      "name": "刹车片更换",
+      "provider": { "@id": "https://geo.example.com/#organization" }
+    },
+    {
+      "@type": "Dataset",
+      "@id": "https://geo.example.com/service/brake-pad#dataset",
+      "name": "刹车片更换脱敏案例聚合统计",
+      "description": "近12个月公开脱敏案例统计，样本N=23",
+      "isPartOf": { "@id": "https://geo.example.com/service/brake-pad#service" }
+    }
+  ]
+}
+```
+
+### **15.4 案例页互链**
+
+- `Article.publisher` → Organization `@id`
+- `Article.about` → Service `@id`（若有）
+- `Article.provider` → AutoRepair `@id`（门店页）
+
+---
+
+## **16. Dataset Schema（服务页聚合统计）**
+
+当服务页展示案例聚合统计（见《AI可引用摘要规范》§15）时，输出 `Dataset`：
+
+| 字段 | 说明 |
+| --- | --- |
+| name | `{服务名}脱敏案例聚合统计` |
+| description | 与页面可见统计句一致 |
+| temporalCoverage | 统计窗口，如 `P12M` |
+| variableMeasured | 样本量、价格区间、主因分布等（文本或 QuantitativeValue） |
+| isPartOf | 指向同页 `Service` `@id` |
+
+**禁止**：Dataset 中写入页面未展示的数字或隐私字段。
+
+---
+
+## **17. P0 验收标准**
 
 P0 必须满足：
 

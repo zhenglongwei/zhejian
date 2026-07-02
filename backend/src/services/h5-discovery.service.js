@@ -67,6 +67,7 @@ async function getLlmsTxt() {
     ...(caseLines.length ? caseLines : ['- （暂无公开案例）']),
     '',
     `Sitemap: ${absUrl('/sitemap.xml')}`,
+    `JSON Feed: ${absUrl('/api/v1/public/v1/index.json')}`,
     '',
   ].join('\n')
 }

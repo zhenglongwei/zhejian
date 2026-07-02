@@ -9,19 +9,21 @@ function resolvePartTypeIndex(partType) {
 
 function rowFromPart(part = {}, plan = null) {
   const photos = Array.isArray(part.photos) ? part.photos : []
-  const partType = part.partType || plan?.partType || PART_TYPE.BRAND
+  const quotedType = String(plan?.partType || '').trim()
+  const partType = quotedType || String(part.partType || '').trim()
+  const displayName = String(part.partName || part.name || plan?.name || '').trim()
   const planPartId = String(part.planPartId || part.linkKey || plan?.planPartId || '').trim()
   return {
     planPartId: planPartId || `part_${part.partId || part.id || Date.now()}`,
     planName: plan?.name || part.partName || part.name || '',
-    planType: plan?.partType || part.partType || PART_TYPE.BRAND,
+    planType: plan?.partType || '',
     qty: plan?.qty || part.qty || 1,
     partId: part.partId || part.id || '',
-    partName: part.partName || part.name || plan?.name || '',
+    partName: displayName,
     partBrand: part.partBrand || plan?.partBrand || '',
     partCode: part.partCode || plan?.partCode || '',
     partType,
-    partTypeIndex: resolvePartTypeIndex(partType),
+    partTypeIndex: partType ? resolvePartTypeIndex(partType) : 0,
     photos,
     source: part.source || (planPartId ? 'plan_linked' : 'extra'),
     done: Boolean(photos.length && partType),
@@ -113,12 +115,12 @@ function appendExtraPart(parts = [], form = {}) {
 function appendManualPartRow(planParts = [], parts = [], form = {}) {
   const planPartId = `plan_${Date.now()}`
   const name = String(form.partName || '').trim()
-  const partType = form.partType || PART_TYPE.BRAND
+  const quotedType = String(form.partType || '').trim()
   const nextPlan = (planParts || []).concat([
     {
       planPartId,
       name,
-      partType,
+      ...(quotedType ? { partType: quotedType } : {}),
       partBrand: String(form.partBrand || '').trim(),
       partCode: String(form.partCode || '').trim(),
       qty: 1,
@@ -129,7 +131,7 @@ function appendManualPartRow(planParts = [], parts = [], form = {}) {
     planPartId,
     planName: name,
     partName: name,
-    partType,
+    ...(quotedType ? { partType: quotedType } : {}),
     partBrand: form.partBrand,
     partCode: form.partCode,
     photos: [],

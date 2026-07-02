@@ -101,28 +101,38 @@
             <view
               wx:for="{{partWizardRows}}"
               wx:key="planPartId"
-              class="merchant-album-edit__wizard-row {{item.done ? 'is-done' : ''}}"
+              class="merchant-album-edit__wizard-row {{item.done ? 'is-done' : ''}} {{activeWizardIndex === index ? 'is-open' : ''}}"
             >
-              <view class="merchant-album-edit__wizard-head-row">
-                <text class="merchant-album-edit__wizard-title text-body">{{item.done ? '✓' : '○'}} {{item.partName || item.planName}} · {{item.partType}}</text>
-                <view class="merchant-album-edit__wizard-head-actions">
-                  <text class="text-caption text-link" data-index="{{index}}" catchtap="onToggleWizardRow">{{activeWizardIndex === index ? '收起' : '编辑'}}</text>
-                  <text class="text-caption merchant-album-edit__wizard-remove" data-index="{{index}}" catchtap="onRemovePartRow">删除</text>
-                </view>
+              <view class="merchant-album-edit__wizard-head-row" data-index="{{index}}" bindtap="onToggleWizardRow">
+                <text class="merchant-album-edit__wizard-title text-body">{{item.done ? '✓' : '○'}} {{item.partName || item.planName}}</text>
+                <text class="text-caption merchant-album-edit__wizard-remove" data-index="{{index}}" catchtap="onRemovePartRow">删除</text>
               </view>
               <block wx:if="{{activeWizardIndex === index}}">
                 <view class="merchant-album-edit__wizard-fields">
-                  <input class="merchant-form__input" placeholder="配件名称" value="{{item.partName}}" data-index="{{index}}" data-field="partName" bindinput="onWizardInput" />
+                  <view class="merchant-album-edit__wizard-photo">
+                    <ui-image-uploader
+                      class="merchant-album-edit__wizard-uploader"
+                      images="{{item.photos}}"
+                      maxCount="{{3}}"
+                      data-index="{{index}}"
+                      bind:change="onWizardPhotosChange"
+                    />
+                    <view class="merchant-album-edit__wizard-ocr-row">
+                      <view class="merchant-album-edit__wizard-ocr-slot">
+                        <text
+                          class="text-caption text-link merchant-album-edit__wizard-ocr-text {{partLabelOcrLoading ? 'is-loading' : ''}}"
+                          data-index="{{index}}"
+                          bindtap="onRunPartLabelOcr"
+                        >{{partLabelOcrLoading ? '识别中…' : '识别编码'}}</text>
+                      </view>
+                    </view>
+                  </view>
                   <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
-                    <view class="merchant-form__picker">{{item.partType}}</view>
+                    <view class="merchant-form__picker {{item.partType ? '' : 'is-placeholder'}}">{{item.partType || '请选择类型'}}</view>
                   </picker>
                   <input class="merchant-form__input" placeholder="品牌" value="{{item.partBrand}}" data-index="{{index}}" data-field="partBrand" bindinput="onWizardInput" />
                   <input class="merchant-form__input" placeholder="编码" value="{{item.partCode}}" data-index="{{index}}" data-field="partCode" bindinput="onWizardInput" />
-                  <ui-image-uploader images="{{item.photos}}" maxCount="{{3}}" data-index="{{index}}" bind:change="onWizardPhotosChange" />
-                  <view class="merchant-album-edit__wizard-actions">
-                    <ui-button type="ghost" size="sm" loading="{{partLabelOcrLoading}}" data-index="{{index}}" bind:btntap="onRunPartLabelOcr">识别编码</ui-button>
-                    <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
-                  </view>
+                  <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
                 </view>
               </block>
             </view>
@@ -270,4 +280,29 @@
       </view>
     </view>
   </block>
+
+  <view
+    wx:if="{{partCodePickerVisible}}"
+    class="merchant-album-edit__code-picker"
+    catchtouchmove="noop"
+  >
+    <view class="merchant-album-edit__code-picker-mask" bindtap="onClosePartCodePicker" />
+    <view class="merchant-album-edit__code-picker-panel safe-bottom">
+      <text class="merchant-album-edit__code-picker-title text-h3">选择配件编码</text>
+      <text class="merchant-album-edit__code-picker-hint text-caption text-secondary">已按顺序识别 {{partCodePickerImageCount}} 张凭证图，请选择正确编码</text>
+      <scroll-view scroll-y class="merchant-album-edit__code-picker-list" show-scrollbar="{{false}}">
+        <view
+          wx:for="{{partCodeCandidates}}"
+          wx:key="pickerKey"
+          class="merchant-album-edit__code-picker-item"
+          data-index="{{index}}"
+          bindtap="onPickPartCodeCandidate"
+        >
+          <text class="text-body">{{item.displayLabel}}</text>
+          <text wx:if="{{item.snippet && item.snippet !== item.partCode}}" class="text-caption text-secondary merchant-album-edit__code-picker-snippet">{{item.snippet}}</text>
+        </view>
+      </scroll-view>
+      <ui-button type="secondary" size="sm" block="{{true}}" bind:btntap="onClosePartCodePicker">取消</ui-button>
+    </view>
+  </view>
 </view>

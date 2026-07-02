@@ -4,6 +4,9 @@ const {
   loadGeoOverlayForServiceItem,
   mergeServiceItemWithGeo,
 } = require('./h5-service-geo-merge.service')
+const { applyAggregateToServiceContent } = require('./geo-case-aggregate.service')
+const { buildServicePageSchemaGraph } = require('../lib/schema-graph')
+const { config } = require('../config')
 const { orderCasesByIds } = require('../utils/geo-topic-matcher')
 
 const CASE_LIMIT = 6
@@ -191,6 +194,39 @@ async function getServiceItemPagePayload(slug, query = {}) {
       path: `/service/${related.slug}.html`,
     }))
 
+  const aggregated = applyAggregateToServiceContent({
+    cases: effectiveCases,
+    serviceName: item.name,
+    city: merged.cityFilter,
+    priceMode: item.priceMode,
+    aiSummary: merged.aiSummary,
+    faq: merged.faq,
+  })
+
+  const seo = buildSeo(item, { ...merged, aiSummary: aggregated.aiSummary }, geoPage, {
+    caseTotal: effectiveCaseTotal,
+  })
+
+  const schemaGraph = buildServicePageSchemaGraph({
+    baseUrl: config.publicBaseUrl,
+    item: {
+      slug: item.slug,
+      name: item.name,
+      summary: merged.summary,
+      aiSummary: aggregated.aiSummary,
+      cityFilter: merged.cityFilter,
+    },
+    seo,
+    geo: geoPage
+      ? {
+          updatedAt: geoPage.updatedAt || '',
+          publishedAt: geoPage.publishedAt || '',
+        }
+      : null,
+    faq: aggregated.faq,
+    aggregateStats: aggregated.aggregateStats,
+  })
+
   return {
     item: {
       slug: item.slug,
@@ -198,7 +234,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
       name: item.name,
       priceMode: item.priceMode,
       summary: merged.summary,
-      aiSummary: merged.aiSummary,
+      aiSummary: aggregated.aiSummary,
       scenarios: merged.scenarios,
       process: merged.process,
       priceFactors: merged.priceFactors,
@@ -217,15 +253,17 @@ async function getServiceItemPagePayload(slug, query = {}) {
     featuredCases,
     recommendedStores,
     relatedServices,
-    faq: merged.faq,
+    faq: aggregated.faq,
     faqLinks: merged.faqLinks,
+    aggregateStats: aggregated.aggregateStats,
     stats: {
       caseCount: effectiveCaseTotal,
       storeCount: recommendedStores.length,
+      sampleSize: aggregated.aggregateStats.sampleSize,
+      hasInformationGain: aggregated.aggregateStats.hasInformationGain,
     },
-    seo: buildSeo(item, merged, geoPage, {
-      caseTotal: effectiveCaseTotal,
-    }),
+    schemaGraph,
+    seo,
   }
 }
 
