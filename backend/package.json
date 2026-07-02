@@ -54,6 +54,8 @@
     "test:schema-graph": "node src/lib/schema-graph.test.js",
     "test:brand-search-daily": "node src/services/brand-search-daily.test.js",
     "brand-search:aggregate": "node scripts/brand-search-daily-aggregate.js",
+    "check:js-syntax": "node scripts/check-js-syntax.js",
+    "check:release-syntax": "npm run check:js-syntax && node scripts/check-release-syntax.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

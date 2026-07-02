@@ -1014,13 +1014,6 @@ async function submitPartConfirm(albumId, userId, _confirmId, _payload) {
 
 const ALBUM_CLAIM_PAGE = 'pages/album/claim/index'
 
-function albumHasOwner(album) {
-  return (
-    Boolean(String(album.userId || '').trim()) ||
-    Boolean(String(album.userPhone || '').trim())
-  )
-}
-
 async function getAlbumClaimPreview(albumId, userId = '') {
   const album = await loadAlbum(albumId)
   if (!album) {
