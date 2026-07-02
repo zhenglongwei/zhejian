@@ -31,6 +31,9 @@ async function main() {
   if (!html.includes('application/ld+json')) {
     throw new Error('missing JSON-LD')
   }
+  if (!html.includes('"@graph"') && !html.includes('#organization')) {
+    throw new Error('missing schema @graph or organization @id')
+  }
   if (!html.includes('HowTo')) {
     throw new Error('missing HowTo schema')
   }

@@ -159,7 +159,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-C02 | 案例页 graph | `case-render.js`；Bot prerender | P1 | [x] | 优先 `data.schemaGraph` |
 | GEO-IGAIN-C03 | 服务页 Dataset Schema | `service-item-render.js` | P1 | [x] | 聚合统计入 `variableMeasured` |
 | GEO-IGAIN-C04 | 首页 Organization.sameAs | `home-render.js` | P2 | [ ] | 公众号等（合规外链） |
-| GEO-IGAIN-C05 | Schema 校验冒烟 | `case-bot-prerender-smoke.js` 扩展 | P1 | [ ] | |
+| GEO-IGAIN-C05 | Schema 校验冒烟 | `case-bot-prerender-smoke.js` 扩展 | P1 | [x] | `@graph` + HowTo |
 
 规范真源：[`03_结构化数据 Schema 规范.md`](./03_结构化数据 Schema 规范.md) §15–§16。
 
@@ -185,10 +185,10 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
 | GEO-IGAIN-E01 | 品牌词事件定义 | `h5/shared/track.js` | P1 | [x] | `h5_search_submit` 含「辙见」→ `brand_search` |
-| GEO-IGAIN-E02 | 日聚合 `brand_search_daily` | migration + aggregate 脚本 | P1 | [ ] | |
+| GEO-IGAIN-E02 | 日聚合 `brand_search_daily` | migration + aggregate 脚本 | P1 | [x] | cron 日 job |
 | GEO-IGAIN-E03 | 与 probe 周关联分析 | `geo-prompt-probe.service.js` | P1 | [x] | 周报并入 `brand_search_uplift` |
 | GEO-IGAIN-E04 | 运营台周报 UI | `admin-web/.../probe-report` | P1 | [x] | |
-| GEO-IGAIN-E05 | 商家看板文案拆分 | `packageMerchant/pages/dashboard` | P1 | [ ] | 爬虫 ≠ 引用 |
+| GEO-IGAIN-E05 | 商家看板文案拆分 | `packageMerchant/pages/dashboard` | P1 | [x] | 爬虫 ≠ 引用 |
 
 指标定义真源：[`07_GEO引用观测开发计划.md`](./07_GEO引用观测开发计划.md) §2.5（增补）。
 

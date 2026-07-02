@@ -143,18 +143,26 @@ async function renderCaseBotHtml(caseIdOrSlug) {
   const title = data.seo?.title || data.title || '维修案例'
   const description = data.aiSummary || data.summary || data.seo?.description || ''
 
-  const articleSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: data.title || title,
-    description,
-    url: canonical,
-    datePublished: data.publishedAt || undefined,
-    image: data.coverImage || data.coverImageDesensitized || undefined,
+  const jsonLdBlocks = []
+  if (data.schemaGraph) {
+    jsonLdBlocks.push(data.schemaGraph)
+  } else {
+    jsonLdBlocks.push({
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: data.title || title,
+      description,
+      url: canonical,
+      datePublished: data.publishedAt || undefined,
+      image: data.coverImage || data.coverImageDesensitized || undefined,
+    })
   }
   const howTo = buildHowToSchema(data, data.nodes)
-  const imageObjects = buildImageObjectSchemas(data, data.nodes, canonical)
-  const jsonLdBlocks = [articleSchema, howTo, ...imageObjects].filter(Boolean)
+  if (howTo) jsonLdBlocks.push(howTo)
+  if (!data.schemaGraph) {
+    const imageObjects = buildImageObjectSchemas(data, data.nodes, canonical)
+    jsonLdBlocks.push(...imageObjects)
+  }
 
   const h5Root = path.join(__dirname, '..', '..', '..', 'h5')
   const templatePath = path.join(h5Root, 'case', 'view.html')

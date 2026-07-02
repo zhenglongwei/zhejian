@@ -122,6 +122,33 @@
   color: var(--color-text-tertiary);
 }
 
+.merchant-dash__hint--probe {
+  margin-top: var(--space-xs);
+}
+
+.merchant-dash__crawler-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-album-frame-inner);
+  border: 1rpx solid var(--color-album-frame-line);
+  box-sizing: border-box;
+}
+
+.merchant-dash__crawler-num {
+  color: var(--color-text-primary);
+}
+
+.merchant-dash__crawler-label {
+  color: var(--color-text-secondary);
+}
+
+.merchant-dash__crawler-tag {
+  color: var(--color-text-tertiary);
+}
+
 .merchant-dash__rates {
   color: var(--color-text-tertiary);
   text-align: right;

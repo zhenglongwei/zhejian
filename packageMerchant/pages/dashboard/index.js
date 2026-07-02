@@ -33,8 +33,15 @@ function buildExposureChips(display = {}) {
     { key: 'h5', label: 'H5 案例', value: display.h5CaseViewCount || '0' },
     { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
     { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
-    { key: 'crawler', label: '搜索/AI爬虫', value: display.crawlerViewCount || '0' },
   ]
+}
+
+function buildCrawlerMetric(display = {}) {
+  return {
+    value: display.crawlerViewCount || '0',
+    label: '搜索/AI 爬虫访问',
+    hint: '代理指标 · 非引用次数',
+  }
 }
 
 function buildLeadRows(display = {}) {
@@ -132,10 +139,18 @@ Page({
     storeName: '',
     heroKpis: buildHeroKpis(),
     exposureChips: buildExposureChips(),
+    crawlerMetric: buildCrawlerMetric(),
+    metricNotes: {
+      userExposure: 'H5 案例页、小程序内浏览与电话点击来自真实用户行为。',
+      crawlerProxy:
+        '「搜索/AI 爬虫访问」指已知 Bot 抓取本店公开页次数，不代表 AI 在对话中引用本店，也不代表收录或排名。',
+      probeInternal:
+        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被 AI 引用。',
+    },
     leadRows: buildLeadRows(),
     albumRows: buildAlbumRows(),
     complianceText:
-      '数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。搜索/AI 爬虫访问为代理指标，非引用次数。',
+      '数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（T+1）。爬虫访问为代理指标，非 AI 引用；平台答案探测不向商家展示引用次数。',
   },
 
   onLoad() {
@@ -238,17 +253,21 @@ Page({
       const hasInsights =
         topCases.length > 0 || topServices.length > 0 || suggestions.length > 0
 
+      const metricNotes = stats.metricNotes || this.data.metricNotes
+
       this.setData({
         status: hasMetrics || stats.lastAggregatedDate || hasInsights ? 'normal' : 'empty',
         lagHint: buildLagHint(stats.dataLag, stats.lastAggregatedDate),
         rangeLabel,
         display,
+        metricNotes,
         transparencyBreakdown: display.transparencyBreakdown,
         topCases,
         topServices,
         suggestions,
         heroKpis: buildHeroKpis(display),
         exposureChips: buildExposureChips(display),
+        crawlerMetric: buildCrawlerMetric(display),
         leadRows: buildLeadRows(display),
         albumRows: buildAlbumRows(display),
       })
@@ -263,6 +282,7 @@ Page({
         suggestions: [],
         heroKpis: buildHeroKpis(),
         exposureChips: buildExposureChips(),
+        crawlerMetric: buildCrawlerMetric(),
         leadRows: buildLeadRows(),
         albumRows: buildAlbumRows(),
       })

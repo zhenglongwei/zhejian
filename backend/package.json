@@ -52,6 +52,8 @@
     "geo:aggregate-smoke": "node scripts/geo-aggregate-smoke.js",
     "test:geo-case-aggregate": "node src/services/geo-case-aggregate.test.js",
     "test:schema-graph": "node src/lib/schema-graph.test.js",
+    "test:brand-search-daily": "node src/services/brand-search-daily.test.js",
+    "brand-search:aggregate": "node scripts/brand-search-daily-aggregate.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"
   },

@@ -27,7 +27,7 @@ const {
   isPubliclyVisible,
 } = require('../constants/service-plan')
 const { formatPlanRecord } = require('./service-plan-format')
-const { resolveRelatedCasesForService } = require('../utils/service-case-link')
+const { resolveRelatedCasesForService, matchServiceName } = require('../utils/service-case-link')
 const { resolveRelatedCasesForCase } = require('../utils/case-related-cases')
 const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-internal-links')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
@@ -50,7 +50,6 @@ const { applyCasePublicDisplay } = require('../utils/case-geo-display')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
 const { config } = require('../config')
 const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
-const { matchServiceName } = require('../utils/service-case-link')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -96,16 +95,6 @@ function matchRecord(record, keyword, fields) {
   const k = normalizeKeyword(keyword)
   if (!k) return true
   return fields.some((field) => includesKeyword(record[field], k))
-}
-
-function matchServiceName(serviceName, itemName) {
-  if (!itemName) return true
-  if (!serviceName) return false
-  return (
-    serviceName === itemName ||
-    serviceName.includes(itemName) ||
-    itemName.includes(serviceName)
-  )
 }
 
 function formatPublishedAt(value) {
@@ -327,7 +316,9 @@ async function listCases(query = {}) {
   if (query.serviceItemId) {
     const catalogItem = getServiceItem(query.serviceItemId)
     const itemName = catalogItem?.name || SERVICE_ITEM_NAME_MAP[query.serviceItemId] || ''
-    list = list.filter((c) => matchServiceName(c.serviceName, itemName))
+    if (itemName) {
+      list = list.filter((c) => matchServiceName(c.serviceName, itemName))
+    }
   }
   if (query.city) {
     const city = String(query.city).trim()

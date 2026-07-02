@@ -100,14 +100,25 @@
 
           <view class="surface-album-inset-divider" />
 
-          <text class="text-h3 merchant-dash__section-title">站外曝光</text>
+          <text class="text-h3 merchant-dash__section-title">站外曝光 · 真实用户</text>
+          <text class="text-caption merchant-dash__hint">{{metricNotes.userExposure}}</text>
           <view class="merchant-dash__chip-row">
             <view wx:for="{{exposureChips}}" wx:key="key" class="merchant-dash__chip">
               <text class="merchant-dash__chip-num text-body text-numeric">{{item.value}}</text>
               <text class="text-caption merchant-dash__chip-label">{{item.label}}</text>
             </view>
           </view>
-          <text class="text-caption merchant-dash__hint">搜索/AI 爬虫为代理指标，不代表引用或收录</text>
+
+          <view class="surface-album-inset-divider" />
+
+          <text class="text-h3 merchant-dash__section-title">爬虫访问 · 代理指标</text>
+          <view class="merchant-dash__crawler-card">
+            <text class="merchant-dash__crawler-num text-h2 text-numeric">{{crawlerMetric.value}}</text>
+            <text class="text-body merchant-dash__crawler-label">{{crawlerMetric.label}}</text>
+            <text class="text-caption merchant-dash__crawler-tag">{{crawlerMetric.hint}}</text>
+            <text class="text-caption merchant-dash__hint">{{metricNotes.crawlerProxy}}</text>
+            <text class="text-caption merchant-dash__hint merchant-dash__hint--probe">{{metricNotes.probeInternal}}</text>
+          </view>
 
           <view class="surface-album-inset-divider" />
 

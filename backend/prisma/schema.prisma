@@ -780,6 +780,21 @@ model CrawlerUrlDaily {
   @@map("crawler_url_daily")
 }
 
+/// GEO-IGAIN-E02 · 品牌词/Direct 隐形归因日聚合（平台级）
+model BrandSearchDaily {
+  id                     String   @id
+  statDate               DateTime @unique @map("stat_date") @db.Date
+  brandAttributedViews   Int      @default(0) @map("brand_attributed_views")
+  directViews            Int      @default(0) @map("direct_views")
+  brandSourceViews       Int      @default(0) @map("brand_source_views")
+  brandSearchSubmitViews Int      @default(0) @map("brand_search_submit_views")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([statDate])
+  @@map("brand_search_daily")
+}
+
 /// GEO-OBS-B01 · Prompt 探测词库
 model GeoPromptProbe {
   id         String   @id
