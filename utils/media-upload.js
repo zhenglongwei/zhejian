@@ -136,6 +136,36 @@ async function persistLocalImages(urls) {
 }
 
 /**
+ * @returns {{ rows: { before: string, after: string }[], droppedStaleCount: number }}
+ */
+async function persistComparePairRows(rows = []) {
+  const next = []
+  let droppedStaleCount = 0
+
+  for (const row of rows || []) {
+    let before = String((row && row.before) || '').trim()
+    let after = String((row && row.after) || '').trim()
+
+    if (before) {
+      const persisted = await persistLocalImages([before])
+      droppedStaleCount += persisted.droppedStaleCount
+      before = persisted.images[0] || ''
+    }
+    if (after) {
+      const persisted = await persistLocalImages([after])
+      droppedStaleCount += persisted.droppedStaleCount
+      after = persisted.images[0] || ''
+    }
+
+    if (before || after) {
+      next.push({ before, after })
+    }
+  }
+
+  return { rows: next, droppedStaleCount }
+}
+
+/**
  * @returns {{ nodes: object[], droppedStaleCount: number }}
  */
 async function persistAlbumNodeImages(nodes) {
@@ -143,9 +173,21 @@ async function persistAlbumNodeImages(nodes) {
   let droppedStaleCount = 0
 
   for (const node of nodes || []) {
-    const { images, droppedStaleCount: dropped } = await persistLocalImages(node.images || [])
-    droppedStaleCount += dropped
-    next.push({ ...node, images })
+    let comparePairRows = Array.isArray(node.comparePairRows) ? node.comparePairRows : []
+    let images = node.images || []
+
+    if (comparePairRows.length) {
+      const persisted = await persistComparePairRows(comparePairRows)
+      droppedStaleCount += persisted.droppedStaleCount
+      comparePairRows = persisted.rows
+      images = comparePairRows.map((row) => row.after).filter(Boolean)
+    } else {
+      const persistedImages = await persistLocalImages(images)
+      droppedStaleCount += persistedImages.droppedStaleCount
+      images = persistedImages.images
+    }
+
+    next.push({ ...node, images, comparePairRows })
   }
 
   return { nodes: next, droppedStaleCount }
@@ -157,5 +199,6 @@ module.exports = {
   normalizeStoredImageUrl,
   uploadImage,
   persistLocalImages,
+  persistComparePairRows,
   persistAlbumNodeImages,
 }

@@ -33,10 +33,10 @@ const {
 
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
-  resolveCompareColumnsFromNodes,
-  buildComparePairPreview,
-  syncBeforeFromAssessment,
-  applyCompareColumnsToNodes,
+  resolveComparePairRowsFromNodes,
+  applyComparePairRowsToNodes,
+  syncBeforeFromAssessmentRows,
+  normalizeComparePairRows,
 } = require('../../../../utils/album-compare-stage-images')
 const {
   buildPartWizardRows,
@@ -66,6 +66,8 @@ const {
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
+const ACCIDENT_TEMPLATE_ID = 'accident'
+const COMPARE_STAGE_TEMPLATE_IDS = new Set([BODY_PAINT_TEMPLATE_ID, ACCIDENT_TEMPLATE_ID])
 const STAGE_COMPARE_ID = 'stage_6'
 const STAGE_ASSESSMENT_ID = 'stage_2'
 const STAGE_PLAN_ID = 'stage_3'
@@ -164,9 +166,7 @@ Page({
     geoEvidence: null,
     geoEvidenceVariant: 'default',
     geoEvidenceLabel: '',
-    compareBeforeImages: [],
-    compareAfterImages: [],
-    comparePairPreview: [],
+    comparePairRows: [{ before: '', after: '' }],
     isComparePairStage: false,
     isPartsStage: false,
     planParts: [],
@@ -266,6 +266,7 @@ Page({
         compareGuidance: mergedMeta.compareGuidance,
         requiredLevelLabel: mergedMeta.requiredLevelLabel || '',
         requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
+        comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
         notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '补充本节点说明',
         images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
@@ -290,38 +291,24 @@ Page({
     const stageId = (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
     const isPartsStage = stageId === STAGE_PARTS_ID
     const isComparePairStage =
-      this.data.templateId === BODY_PAINT_TEMPLATE_ID && stageId === STAGE_COMPARE_ID
+      COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId) && stageId === STAGE_COMPARE_ID
     this.setData({ isComparePairStage, isPartsStage })
     return isComparePairStage
   },
 
-  initCompareColumnsFromNodes(nodes, templateId) {
-    if (templateId !== BODY_PAINT_TEMPLATE_ID) {
-      return {
-        beforeImages: [],
-        afterImages: [],
-        pairPreview: [],
-      }
+  initComparePairRowsFromNodes(nodes, templateId) {
+    if (!COMPARE_STAGE_TEMPLATE_IDS.has(templateId)) {
+      return [{ before: '', after: '' }]
     }
-    const { beforeImages, afterImages } = resolveCompareColumnsFromNodes(nodes)
-    return {
-      beforeImages,
-      afterImages,
-      pairPreview: buildComparePairPreview(beforeImages, afterImages),
-    }
+    const rows = resolveComparePairRowsFromNodes(nodes)
+    return rows.length ? rows : [{ before: '', after: '' }]
   },
 
-  applyCompareColumnsToPage(beforeImages, afterImages) {
-    const normalize = (list) =>
-      (list || []).map((url) => String(url || '').trim()).filter(Boolean)
-    const before = normalize(beforeImages)
-    const after = normalize(afterImages)
-    const assessment = this.resolveAssessmentImages()
-    const nodes = applyCompareColumnsToNodes(this.data.nodes, before, after, assessment)
+  applyComparePairRowsToPage(pairRows) {
+    const rows = normalizeComparePairRows(pairRows)
+    const nodes = applyComparePairRowsToNodes(this.data.nodes, rows)
     this.setData({
-      compareBeforeImages: before,
-      compareAfterImages: after,
-      comparePairPreview: buildComparePairPreview(before, after),
+      comparePairRows: rows.length ? rows : [{ before: '', after: '' }],
       nodes,
     })
   },
@@ -361,7 +348,7 @@ Page({
       showBottomPrimary = true
       bottomPrimaryText = '标记已完工'
     }
-    const compareColumns = this.initCompareColumnsFromNodes(nodes, detail.templateId || '')
+    const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     const geoEvidence =
       detail.completeness && detail.completeness.geoEvidence
         ? detail.completeness.geoEvidence
@@ -388,9 +375,7 @@ Page({
       statusVariant: display.statusVariant,
       stageTabs,
       nodes,
-      compareBeforeImages: compareColumns.beforeImages,
-      compareAfterImages: compareColumns.afterImages,
-      comparePairPreview: compareColumns.pairPreview,
+      comparePairRows,
       parts: (detail.parts || []).map((p) => ({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
@@ -466,22 +451,17 @@ Page({
     if (index >= 0) {
       this.setData({ stageIndex: index }, () => {
         const isCompare = this.refreshCompareStageFlags(index)
-        if (isCompare && this.data.templateId === BODY_PAINT_TEMPLATE_ID) {
-          const cols = this.initCompareColumnsFromNodes(this.data.nodes, this.data.templateId)
-          this.setData({
-            compareBeforeImages: cols.beforeImages,
-            compareAfterImages: cols.afterImages,
-            comparePairPreview: cols.pairPreview,
-          })
+        if (isCompare) {
+          const rows = this.initComparePairRowsFromNodes(this.data.nodes, this.data.templateId)
+          this.setData({ comparePairRows: rows })
         }
       })
     }
   },
 
-  onCompareColumnsChange(e) {
-    const beforeImages = (e.detail && e.detail.beforeImages) || []
-    const afterImages = (e.detail && e.detail.afterImages) || []
-    this.applyCompareColumnsToPage(beforeImages, afterImages)
+  onCompareRowsChange(e) {
+    const pairRows = (e.detail && e.detail.pairRows) || []
+    this.applyComparePairRowsToPage(pairRows)
   },
 
   onCompareNoteChange(e) {
@@ -499,13 +479,9 @@ Page({
       wx.showToast({ title: '请先在「损伤评估」上传近景', icon: 'none' })
       return
     }
-    const { beforeImages, afterImages } = syncBeforeFromAssessment(
-      this.data.compareBeforeImages,
-      this.data.compareAfterImages,
-      assessment,
-    )
-    this.applyCompareColumnsToPage(beforeImages, afterImages)
-    wx.showToast({ title: '已同步修复前照片', icon: 'success' })
+    const rows = syncBeforeFromAssessmentRows(this.data.comparePairRows, assessment)
+    this.applyComparePairRowsToPage(rows)
+    wx.showToast({ title: '已同步维修前照片', icon: 'success' })
   },
 
   onTemplateChange(e) {
@@ -564,27 +540,13 @@ Page({
     const updates = { nodes }
 
     if (
-      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
+      COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId) &&
       nodes[index].id === STAGE_ASSESSMENT_ID
     ) {
       const assessment = nodes[index].images || []
-      const synced = syncBeforeFromAssessment(
-        this.data.compareBeforeImages,
-        this.data.compareAfterImages,
-        assessment,
-      )
-      updates.compareBeforeImages = synced.beforeImages
-      updates.compareAfterImages = synced.afterImages
-      updates.comparePairPreview = buildComparePairPreview(
-        synced.beforeImages,
-        synced.afterImages,
-      )
-      updates.nodes = applyCompareColumnsToNodes(
-        nodes,
-        synced.beforeImages,
-        synced.afterImages,
-        assessment,
-      )
+      const rows = syncBeforeFromAssessmentRows(this.data.comparePairRows, assessment)
+      updates.comparePairRows = rows.length ? rows : [{ before: '', after: '' }]
+      updates.nodes = applyComparePairRowsToNodes(nodes, rows)
     }
 
     this.setData(updates)
@@ -1202,16 +1164,11 @@ Page({
 
   async buildSavePayload(overrides = {}) {
     let nodesSource = this.data.nodes
-    if (
-      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
-      (this.data.compareBeforeImages.length || this.data.compareAfterImages.length)
-    ) {
-      nodesSource = applyCompareColumnsToNodes(
-        nodesSource,
-        this.data.compareBeforeImages,
-        this.data.compareAfterImages,
-        this.resolveAssessmentImages(),
-      )
+    if (COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId)) {
+      const rows = normalizeComparePairRows(this.data.comparePairRows)
+      if (rows.length) {
+        nodesSource = applyComparePairRowsToNodes(nodesSource, rows)
+      }
     }
     const { nodes, droppedStaleCount } = await persistAlbumNodeImages(
       nodesSource.map((n) => ({
@@ -1220,6 +1177,7 @@ Page({
         status: (n.images && n.images.length) || n.note ? 'completed' : 'pending',
         images: n.images || [],
         note: n.note || '',
+        comparePairRows: Array.isArray(n.comparePairRows) ? n.comparePairRows : [],
         updatedAt: new Date().toISOString(),
       }))
     )

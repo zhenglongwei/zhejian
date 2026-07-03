@@ -31,7 +31,8 @@ const TEMPLATE_STAGE_META = {
     stage_6: {
       description: '完工效果，组织前后对比组',
       photoTips: '与检测记录同序同角上传修复后照片，便于车主端对比。',
-      compareGuidance: '下方可组织前后对比组；勿打乱与检测记录的序号对应。',
+      compareGuidance:
+        '建议按行上传一一对应的完工效果与维修前照片；完整配对可在车主端生成对比效果，维修前可留空。也可点「从检测记录填入维修前」按序同步。',
       requiredLevelLabel: '建议拍摄',
       requiredLevelVariant: 'info',
     },
@@ -62,12 +63,12 @@ const TEMPLATE_STAGE_META = {
     stage_5: {
       description: '修复施工过程',
       photoTips: '建议拍摄拆卸、修复、安装等关键环节。',
-      compareGuidance: '接车/检测 ↔ 完工验收的整页对比在车主端自动生成，本节点为过程记录。',
     },
     stage_6: {
       description: '完工验收',
       photoTips: '与接车/检测同序重拍各损伤部位。',
-      compareGuidance: '角度尽量一致，否则对比会错位。',
+      compareGuidance:
+        '建议按行上传一一对应的完工效果与维修前照片；完整配对可在车主端生成对比效果，维修前可留空。',
       requiredLevelLabel: '建议拍摄',
       requiredLevelVariant: 'info',
     },

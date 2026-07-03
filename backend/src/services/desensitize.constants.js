@@ -146,6 +146,10 @@ function albumToNodeView(album) {
     title: node.title,
     status: node.status,
     note: node.note || '',
+    comparePairRows: (Array.isArray(node.comparePairRows) ? node.comparePairRows : []).map((row) => ({
+      before: row.before ? rewriteMediaUrlForCurrentBase(String(row.before)) : '',
+      after: row.after ? rewriteMediaUrlForCurrentBase(String(row.after)) : '',
+    })),
     images: imagesByNode[node.nodeId] || [],
   }))
 }

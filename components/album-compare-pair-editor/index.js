@@ -1,3 +1,5 @@
+const { buildComparePairPreviewFromRows, normalizeComparePairRows } = require('../../utils/album-compare-stage-images')
+
 Component({
   options: {
     addGlobalClass: true,
@@ -7,20 +9,18 @@ Component({
     title: { type: String, value: '前后对比' },
     description: { type: String, value: '' },
     photoTips: { type: String, value: '' },
+    compareHint: {
+      type: String,
+      value: '建议尽量上传一一对应的照片组（左完工、右维修前），完整配对可在车主端生成对比效果；维修前可留空，仅展示完工图。',
+    },
+    afterColumnLabel: { type: String, value: '完工效果' },
+    beforeColumnLabel: { type: String, value: '维修前（可选）' },
     requiredLevelLabel: { type: String, value: '' },
     requiredLevelVariant: { type: String, value: 'default' },
     uploadHint: { type: String, value: '' },
     note: { type: String, value: '' },
     notePlaceholder: { type: String, value: '补充说明（可选）' },
-    beforeImages: {
-      type: Array,
-      value: [],
-    },
-    afterImages: {
-      type: Array,
-      value: [],
-    },
-    pairPreview: {
+    pairRows: {
       type: Array,
       value: [],
     },
@@ -32,27 +32,28 @@ Component({
       type: Boolean,
       value: false,
     },
+    showSyncAssessment: {
+      type: Boolean,
+      value: true,
+    },
   },
 
   data: {
-    countMismatch: false,
+    pairPreview: [],
   },
 
   observers: {
-    'beforeImages, afterImages'(beforeImages, afterImages) {
-      const beforeLen = (beforeImages || []).length
-      const afterLen = (afterImages || []).length
+    pairRows(rows) {
       this.setData({
-        countMismatch: beforeLen > 0 && afterLen > beforeLen,
+        pairPreview: buildComparePairPreviewFromRows(rows || []),
       })
     },
   },
 
   methods: {
-    emitColumns(beforeImages, afterImages) {
-      this.triggerEvent('columnschange', {
-        beforeImages: beforeImages || [],
-        afterImages: afterImages || [],
+    emitRows(rows) {
+      this.triggerEvent('rowschange', {
+        pairRows: normalizeComparePairRows(rows || []),
       })
     },
 
@@ -60,14 +61,31 @@ Component({
       this.triggerEvent('notechange', { value })
     },
 
-    onBeforeChange(e) {
+    onRowImageChange(e) {
+      const index = Number(e.currentTarget.dataset.index)
+      const field = e.currentTarget.dataset.field
+      if (!Number.isFinite(index) || (field !== 'before' && field !== 'after')) return
       const images = (e.detail && e.detail.images) || []
-      this.emitColumns(images, this.properties.afterImages || [])
+      const url = images[0] || ''
+      const rows = (this.properties.pairRows || []).map((row, i) => {
+        if (i !== index) return { ...row }
+        return { ...row, [field]: url }
+      })
+      this.emitRows(rows)
     },
 
-    onAfterChange(e) {
-      const images = (e.detail && e.detail.images) || []
-      this.emitColumns(this.properties.beforeImages || [], images)
+    onAddRow() {
+      const rows = (this.properties.pairRows || []).slice()
+      if (rows.length >= this.properties.maxCount) return
+      rows.push({ before: '', after: '' })
+      this.emitRows(rows)
+    },
+
+    onRemoveRow(e) {
+      const index = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(index)) return
+      const rows = (this.properties.pairRows || []).filter((_, i) => i !== index)
+      this.emitRows(rows.length ? rows : [{ before: '', after: '' }])
     },
 
     onNoteInput(e) {

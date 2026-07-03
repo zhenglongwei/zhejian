@@ -176,6 +176,7 @@ model AlbumNode {
   sortOrder Int          @default(0) @map("sort_order")
   status    String       @default("pending")
   note      String       @default("") @db.Text
+  comparePairRows Json   @default("[]") @map("compare_pair_rows")
   updatedAt DateTime?    @map("updated_at")
   album     Album        @relation(fields: [albumId], references: [id], onDelete: Cascade)
   images    AlbumImage[]

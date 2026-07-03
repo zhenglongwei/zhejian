@@ -110,6 +110,7 @@ function mapNodesForView(album) {
       title: node.title,
       status: node.status,
       note: node.note || '',
+      comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
       images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
       updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
       description: stageMeta.description || '',
@@ -399,6 +400,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         sortOrder: i,
         status: node.status || 'pending',
         note: node.note || '',
+        comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
         updatedAt: node.updatedAt ? new Date(node.updatedAt) : null,
       },
     })

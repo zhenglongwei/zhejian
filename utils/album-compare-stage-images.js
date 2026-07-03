@@ -1,11 +1,13 @@
 /**
- * 钣喷「前后对比」：修复前/后双栏；stage_6 存修复后，与 stage_2 同序号配对。
- * 兼容旧数据：stage_5 曾存对比图，读取时回退。
+ * 完工节点 · 逐行前后对比
+ * comparePairRows: [{ before, after }] — before 可空；after 写入 node.images 供车主浏览
  */
 
 const STAGE_ASSESSMENT_ID = 'stage_2'
+const STAGE_INTAKE_ID = 'stage_1'
 const STAGE_COMPARE_ID = 'stage_6'
 const LEGACY_COMPARE_STAGE_ID = 'stage_5'
+const MAX_COMPARE_PAIR_ROWS = 6
 
 function findNode(nodes, nodeId) {
   return (nodes || []).find((n) => n && (n.id === nodeId || n.nodeId === nodeId))
@@ -15,9 +17,15 @@ function normalizeList(images = []) {
   return (images || []).map((url) => String(url || '').trim()).filter(Boolean)
 }
 
-function arraysEqual(a = [], b = []) {
-  if (a.length !== b.length) return false
-  return a.every((url, index) => url === b[index])
+function normalizeComparePairRows(rows = []) {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .slice(0, MAX_COMPARE_PAIR_ROWS)
+    .map((row) => ({
+      before: String((row && row.before) || '').trim(),
+      after: String((row && row.after) || '').trim(),
+    }))
+    .filter((row) => row.before || row.after)
 }
 
 function splitInterleavedImages(images = []) {
@@ -31,148 +39,171 @@ function splitInterleavedImages(images = []) {
   return { beforeImages, afterImages }
 }
 
-function resolveCompareStorageNode(nodes = []) {
-  const primary = findNode(nodes, STAGE_COMPARE_ID)
-  const primaryImages = normalizeList(primary && primary.images)
-  if (primaryImages.length) {
-    return { node: primary, images: primaryImages, stageId: STAGE_COMPARE_ID }
-  }
-  const legacy = findNode(nodes, LEGACY_COMPARE_STAGE_ID)
-  const legacyImages = normalizeList(legacy && legacy.images)
-  if (legacyImages.length) {
-    return { node: legacy, images: legacyImages, stageId: LEGACY_COMPARE_STAGE_ID }
-  }
-  return { node: primary, images: [], stageId: STAGE_COMPARE_ID }
-}
-
-/** 从相册节点解析商家对比双栏数据 */
-function resolveCompareColumnsFromNodes(nodes = []) {
-  const stage2 = findNode(nodes, STAGE_ASSESSMENT_ID)
-  const assessment = normalizeList(stage2 && stage2.images)
-  const { images: stored } = resolveCompareStorageNode(nodes)
-
-  if (!stored.length) {
-    return {
-      beforeImages: assessment.slice(),
-      afterImages: [],
-      storageMode: 'after_only',
-    }
-  }
-
-  if (assessment.length > 0 && stored.length <= assessment.length) {
-    const partialAfterOnly =
-      stored.length < assessment.length || stored.length % 2 !== 0
-    if (partialAfterOnly || stored.length === assessment.length) {
-      return {
-        beforeImages: assessment.slice(),
-        afterImages: stored.slice(),
-        storageMode: 'after_only',
-      }
-    }
-  }
-
-  if (stored.length >= 2 && stored.length % 2 === 0) {
-    const { beforeImages, afterImages } = splitInterleavedImages(stored)
-    const hasAfter = afterImages.some(Boolean)
-    if (hasAfter) {
-      return {
-        beforeImages: beforeImages.length ? beforeImages : assessment.slice(),
-        afterImages: afterImages.filter(Boolean),
-        storageMode: 'interleaved',
-      }
-    }
-  }
-
-  if (assessment.length) {
-    const count = Math.min(assessment.length, stored.length)
-    return {
-      beforeImages: assessment.slice(0, count),
-      afterImages: stored.slice(0, count),
-      storageMode: 'after_only',
-    }
-  }
-
-  const split = splitInterleavedImages(stored)
-  return {
-    beforeImages: split.beforeImages,
-    afterImages: split.afterImages.filter(Boolean),
-    storageMode: 'interleaved',
-  }
-}
-
-function mergeCompareColumnsToStage6(beforeImages = [], afterImages = [], assessmentImages = []) {
-  const before = normalizeList(beforeImages)
-  const after = normalizeList(afterImages)
-  const assessment = normalizeList(assessmentImages)
-
-  if (!before.length && !after.length) return []
-
-  if (after.length && arraysEqual(before, assessment)) {
-    return after.slice()
-  }
-
-  const merged = []
-  const maxLen = Math.max(before.length, after.length)
-  for (let i = 0; i < maxLen; i += 1) {
-    if (before[i]) merged.push(before[i])
-    if (after[i]) merged.push(after[i])
-  }
-  return merged
-}
-
-function buildComparePairPreview(beforeImages = [], afterImages = []) {
+function rowsFromBeforeAfterLists(beforeImages = [], afterImages = []) {
   const maxLen = Math.max(beforeImages.length, afterImages.length, 0)
-  if (!maxLen) {
+  const rows = []
+  for (let i = 0; i < maxLen; i += 1) {
+    const before = String(beforeImages[i] || '').trim()
+    const after = String(afterImages[i] || '').trim()
+    if (!before && !after) continue
+    rows.push({ before, after })
+  }
+  return normalizeComparePairRows(rows)
+}
+
+function readStoredComparePairRows(node = {}) {
+  const raw = node.comparePairRows
+  if (Array.isArray(raw) && raw.length) {
+    return normalizeComparePairRows(raw)
+  }
+  return []
+}
+
+function migrateLegacyCompareRows(nodes = []) {
+  const stored = readStoredComparePairRows(findNode(nodes, STAGE_COMPARE_ID) || {})
+  if (stored.length) return stored
+
+  const completeNode = findNode(nodes, STAGE_COMPARE_ID)
+  const legacyNode = findNode(nodes, LEGACY_COMPARE_STAGE_ID)
+  const completeImages = normalizeList(completeNode && completeNode.images)
+  const legacyImages = normalizeList(legacyNode && legacyNode.images)
+  const storedImages = completeImages.length ? completeImages : legacyImages
+
+  if (!storedImages.length) return []
+
+  const assessment = normalizeList(findNode(nodes, STAGE_ASSESSMENT_ID)?.images)
+  const intake = normalizeList(findNode(nodes, STAGE_INTAKE_ID)?.images)
+
+  if (storedImages.length >= 2 && storedImages.length % 2 === 0) {
+    const { beforeImages, afterImages } = splitInterleavedImages(storedImages)
+    if (afterImages.some(Boolean)) {
+      return rowsFromBeforeAfterLists(
+        beforeImages.length ? beforeImages : assessment,
+        afterImages,
+      )
+    }
+  }
+
+  if (assessment.length && storedImages.length) {
+    if (storedImages.length <= assessment.length) {
+      return rowsFromBeforeAfterLists(assessment.slice(0, storedImages.length), storedImages)
+    }
+  }
+
+  if (intake.length && completeImages.length) {
+    const count = Math.min(intake.length, completeImages.length, MAX_COMPARE_PAIR_ROWS)
+    return rowsFromBeforeAfterLists(
+      intake.slice(0, count),
+      completeImages.slice(0, count),
+    )
+  }
+
+  return storedImages.map((after) => ({ before: '', after }))
+}
+
+function resolveComparePairRowsFromNodes(nodes = []) {
+  return migrateLegacyCompareRows(nodes)
+}
+
+function afterImagesFromRows(rows = []) {
+  return normalizeComparePairRows(rows)
+    .map((row) => row.after)
+    .filter(Boolean)
+}
+
+function buildComparePairPreviewFromRows(rows = []) {
+  const list = normalizeComparePairRows(rows)
+  if (!list.length) {
     return [{ index: 0, label: '第 1 组', beforeUrl: '', afterUrl: '', complete: false }]
   }
-  return Array.from({ length: maxLen }, (_, index) => {
-    const beforeUrl = beforeImages[index] || ''
-    const afterUrl = afterImages[index] || ''
-    return {
-      index,
-      label: `第 ${index + 1} 组`,
-      beforeUrl,
-      afterUrl,
-      complete: Boolean(beforeUrl && afterUrl),
-    }
-  })
+  return list.map((row, index) => ({
+    index,
+    label: `第 ${index + 1} 组`,
+    beforeUrl: row.before || '',
+    afterUrl: row.after || '',
+    complete: Boolean(row.before && row.after),
+  }))
 }
 
-function syncBeforeFromAssessment(beforeImages = [], afterImages = [], assessmentImages = []) {
-  const assessment = normalizeList(assessmentImages)
-  const after = normalizeList(afterImages)
-  if (!assessment.length) {
-    return {
-      beforeImages: normalizeList(beforeImages),
-      afterImages: after,
-    }
-  }
-  return {
-    beforeImages: assessment.slice(),
-    afterImages: after.slice(0, assessment.length),
-  }
-}
-
-function applyCompareColumnsToNodes(nodes = [], beforeImages = [], afterImages = [], assessmentImages = []) {
+function applyComparePairRowsToNodes(nodes = [], rows = []) {
   const list = (nodes || []).map((n) => ({ ...n }))
-  const idx = list.findIndex((n) => n.id === STAGE_COMPARE_ID)
+  const idx = list.findIndex((n) => n.id === STAGE_COMPARE_ID || n.nodeId === STAGE_COMPARE_ID)
   if (idx < 0) return list
+  const normalized = normalizeComparePairRows(rows)
   list[idx] = {
     ...list[idx],
-    images: mergeCompareColumnsToStage6(beforeImages, afterImages, assessmentImages),
+    comparePairRows: normalized,
+    images: afterImagesFromRows(normalized),
   }
   return list
 }
 
+function syncBeforeFromAssessmentRows(rows = [], assessmentImages = []) {
+  const assessment = normalizeList(assessmentImages)
+  const current = normalizeComparePairRows(rows)
+  if (!assessment.length) {
+    return current
+  }
+  const maxLen = Math.max(current.length, assessment.length, 1)
+  const next = []
+  for (let i = 0; i < Math.min(maxLen, MAX_COMPARE_PAIR_ROWS); i += 1) {
+    const existing = current[i] || { before: '', after: '' }
+    next.push({
+      before: assessment[i] || existing.before || '',
+      after: existing.after || '',
+    })
+  }
+  return normalizeComparePairRows(next)
+}
+
+/** @deprecated 兼容旧调用 */
+function resolveCompareColumnsFromNodes(nodes = []) {
+  const rows = resolveComparePairRowsFromNodes(nodes)
+  return {
+    beforeImages: rows.map((row) => row.before),
+    afterImages: rows.map((row) => row.after),
+    storageMode: 'rows',
+  }
+}
+
+function applyCompareColumnsToNodes(nodes = [], beforeImages = [], afterImages = [], assessmentImages = []) {
+  let rows = rowsFromBeforeAfterLists(beforeImages, afterImages)
+  if (assessmentImages && assessmentImages.length) {
+    rows = syncBeforeFromAssessmentRows(rows, assessmentImages)
+  }
+  return applyComparePairRowsToNodes(nodes, rows)
+}
+
+function buildComparePairPreview(beforeImages = [], afterImages = []) {
+  return buildComparePairPreviewFromRows(rowsFromBeforeAfterLists(beforeImages, afterImages))
+}
+
+function syncBeforeFromAssessment(beforeImages = [], afterImages = [], assessmentImages = []) {
+  const rows = syncBeforeFromAssessmentRows(
+    rowsFromBeforeAfterLists(beforeImages, afterImages),
+    assessmentImages,
+  )
+  return {
+    beforeImages: rows.map((row) => row.before),
+    afterImages: rows.map((row) => row.after),
+  }
+}
+
 module.exports = {
   STAGE_ASSESSMENT_ID,
+  STAGE_INTAKE_ID,
   STAGE_COMPARE_ID,
   LEGACY_COMPARE_STAGE_ID,
-  resolveCompareColumnsFromNodes,
-  mergeCompareColumnsToStage6,
-  mergeCompareColumnsToStage5: mergeCompareColumnsToStage6,
+  MAX_COMPARE_PAIR_ROWS,
+  normalizeComparePairRows,
+  resolveComparePairRowsFromNodes,
+  applyComparePairRowsToNodes,
+  buildComparePairPreviewFromRows,
   buildComparePairPreview,
+  syncBeforeFromAssessmentRows,
   syncBeforeFromAssessment,
+  resolveCompareColumnsFromNodes,
   applyCompareColumnsToNodes,
+  afterImagesFromRows,
   splitInterleavedImages,
 }

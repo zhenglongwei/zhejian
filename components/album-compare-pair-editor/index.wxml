@@ -10,45 +10,56 @@
 
   <text wx:if="{{description}}" class="album-compare-pair-editor__desc text-caption">{{description}}</text>
   <text wx:if="{{photoTips}}" class="album-compare-pair-editor__tips text-caption">拍摄建议：{{photoTips}}</text>
+  <text wx:if="{{compareHint}}" class="album-compare-pair-editor__compare-hint text-caption">{{compareHint}}</text>
 
-  <view class="album-compare-pair-editor__sections">
-    <view class="album-compare-pair-editor__section">
-      <text class="album-compare-pair-editor__section-title text-caption">修复前</text>
-      <text class="album-compare-pair-editor__section-hint text-caption">默认引用损伤评估，可增删</text>
-      <ui-image-uploader
-        images="{{beforeImages}}"
-        maxCount="{{maxCount}}"
-        variant="album"
-        disabled="{{disabled}}"
-        bind:change="onBeforeChange"
-      />
+  <view class="album-compare-pair-editor__table">
+    <view class="album-compare-pair-editor__table-head">
+      <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
+      <text class="album-compare-pair-editor__col-label text-caption">{{beforeColumnLabel}}</text>
     </view>
 
-    <view class="album-compare-pair-editor__section-divider" aria-hidden="true">
-      <view class="album-compare-pair-editor__section-divider-line" />
-      <text class="album-compare-pair-editor__section-divider-label text-caption">同序号配对</text>
-      <view class="album-compare-pair-editor__section-divider-line" />
-    </view>
-
-    <view class="album-compare-pair-editor__section">
-      <text class="album-compare-pair-editor__section-title text-caption">修复后</text>
-      <text class="album-compare-pair-editor__section-hint text-caption">与上方同序号一一对应</text>
-      <ui-image-uploader
-        images="{{afterImages}}"
-        maxCount="{{maxCount}}"
-        variant="album"
-        disabled="{{disabled}}"
-        bind:change="onAfterChange"
-      />
+    <view
+      wx:for="{{pairRows}}"
+      wx:key="index"
+      class="album-compare-pair-editor__table-row"
+    >
+      <view class="album-compare-pair-editor__cell">
+        <ui-image-uploader
+          images="{{item.after ? [item.after] : []}}"
+          maxCount="{{1}}"
+          variant="album"
+          disabled="{{disabled}}"
+          data-index="{{index}}"
+          data-field="after"
+          bind:change="onRowImageChange"
+        />
+      </view>
+      <view class="album-compare-pair-editor__cell">
+        <ui-image-uploader
+          images="{{item.before ? [item.before] : []}}"
+          maxCount="{{1}}"
+          variant="album"
+          disabled="{{disabled}}"
+          data-index="{{index}}"
+          data-field="before"
+          bind:change="onRowImageChange"
+        />
+      </view>
+      <text
+        wx:if="{{!disabled && pairRows.length > 1}}"
+        class="album-compare-pair-editor__remove text-caption text-link"
+        data-index="{{index}}"
+        catchtap="onRemoveRow"
+      >删除</text>
     </view>
   </view>
 
-  <view wx:if="{{countMismatch}}" class="album-compare-pair-editor__warn text-caption">
-    修复后 {{afterImages.length}} 张多于修复前 {{beforeImages.length}} 张，请删除多余或补齐修复前照片。
+  <view wx:if="{{!disabled && pairRows.length < maxCount}}" class="album-compare-pair-editor__add-row">
+    <ui-button type="secondary" size="sm" bind:btntap="onAddRow">添加一组</ui-button>
   </view>
 
   <view wx:if="{{pairPreview.length}}" class="album-compare-pair-editor__preview">
-    <text class="album-compare-pair-editor__preview-title text-caption">配对关系</text>
+    <text class="album-compare-pair-editor__preview-title text-caption">车主端对比预览（仅完整配对展示）</text>
     <view
       wx:for="{{pairPreview}}"
       wx:key="index"
@@ -80,20 +91,24 @@
           <text wx:else class="album-compare-pair-editor__preview-ph text-caption">后</text>
         </view>
         <text
-          wx:if="{{!item.complete}}"
+          wx:if="{{item.complete}}"
           class="album-compare-pair-editor__preview-status text-caption"
-        >待补全</text>
+        >可对比</text>
+        <text
+          wx:else
+          class="album-compare-pair-editor__preview-status text-caption"
+        >仅展示完工图</text>
       </view>
     </view>
   </view>
 
   <view class="album-compare-pair-editor__actions">
     <ui-button
-      wx:if="{{!disabled}}"
+      wx:if="{{!disabled && showSyncAssessment}}"
       type="secondary"
       size="sm"
       bind:btntap="onSyncFromAssessment"
-    >从损伤评估节点同步</ui-button>
+    >从检测记录填入维修前</ui-button>
   </view>
 
   <textarea
