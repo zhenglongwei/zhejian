@@ -49,6 +49,14 @@ const {
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
+const {
+  MERCHANT_PART_TYPE_LOCKED_TIP,
+  MERCHANT_PART_TYPE_MANUAL_TIP,
+  MERCHANT_PART_TYPE_CHANGE_TITLE,
+  MERCHANT_PART_TYPE_CHANGE_CONTENT,
+  MERCHANT_OWNER_VERIFY_GUIDE_TITLE,
+  MERCHANT_OWNER_VERIFY_GUIDE_STEPS,
+} = require('../../../../constants/part-verify-copy')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
@@ -134,6 +142,10 @@ Page({
     partCodeCandidates: [],
     partCodePickerRowIndex: -1,
     partCodePickerImageCount: 0,
+    merchantOwnerVerifyGuideTitle: MERCHANT_OWNER_VERIFY_GUIDE_TITLE,
+    merchantOwnerVerifyGuideSteps: MERCHANT_OWNER_VERIFY_GUIDE_STEPS,
+    merchantPartTypeLockedTip: MERCHANT_PART_TYPE_LOCKED_TIP,
+    merchantPartTypeManualTip: MERCHANT_PART_TYPE_MANUAL_TIP,
     showExtraPartForm: false,
     extraPartForm: {
       partName: '',
@@ -777,7 +789,7 @@ Page({
       return {
         ...plan,
         name: String(row.partName || row.planName || plan.name || '').trim(),
-        partType: row.partType || plan.partType,
+        partType: row.typeLocked && row.planType ? row.planType : row.partType || plan.partType,
         partBrand: String(row.partBrand || plan.partBrand || '').trim(),
         partCode: String(row.partCode || plan.partCode || '').trim(),
         qty: row.qty || plan.qty || 1,
@@ -886,10 +898,28 @@ Page({
 
   onWizardTypeChange(e) {
     const index = Number(e.currentTarget.dataset.index)
+    const row = (this.data.partWizardRows || [])[index]
+    if (row && row.typeLocked) {
+      this.showPartTypeChangeBlockedModal()
+      return
+    }
     const partType = PART_TYPE_LIST[Number(e.detail.value)] || ''
     this.setData({
       [`partWizardRows[${index}].partType`]: partType,
       [`partWizardRows[${index}].partTypeIndex`]: Number(e.detail.value),
+    })
+  },
+
+  onLockedPartTypeTap() {
+    this.showPartTypeChangeBlockedModal()
+  },
+
+  showPartTypeChangeBlockedModal() {
+    wx.showModal({
+      title: MERCHANT_PART_TYPE_CHANGE_TITLE,
+      content: MERCHANT_PART_TYPE_CHANGE_CONTENT,
+      showCancel: false,
+      confirmText: '知道了',
     })
   },
 
@@ -956,6 +986,9 @@ Page({
     const uploaded = await persistLocalImages(photos)
     photos = uploaded.images
     const mergedRow = { ...row, photos }
+    if (row.typeLocked && row.planType) {
+      mergedRow.partType = row.planType
+    }
     const parts = this.mapPartsWithVariants(
       mergeWizardRowIntoParts(this.data.parts, mergedRow),
     )

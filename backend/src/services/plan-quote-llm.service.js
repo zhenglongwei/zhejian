@@ -46,7 +46,7 @@ function mapLlmItemsToDraft(items = []) {
     .map((item, index) => ({
       planPartId: String(item.planPartId || item.id || `plan_${index + 1}`),
       name: String(item.name || item.partName || '').trim(),
-      partType: String(item.partType || item.type || PART_TYPE.BRAND).trim(),
+      partType: String(item.partType || item.type || '').trim(),
       partBrand: String(item.partBrand || item.brand || '').trim(),
       partCode: String(item.partCode || item.code || '').trim(),
       qty: Number(item.qty || item.quantity) > 0 ? Number(item.qty || item.quantity) : 1,
@@ -91,7 +91,7 @@ function buildLlmSystemPrompt() {
     '4. 纯工时/工位/喷漆/检测/拆装费，且无对应实物配件 → 不写入 items（itemKind=labor，include=false）。',
     '5. 「大修发动机、钣金修复、四轮定位」等整项作业若无单独列明配件 → 不臆造配件行。',
     '6. 工时价目参考表（修理项目×车型单价的通用价目，非某一单报价）→ sheetType=labor_catalog；其中「换××」且能对应实物者仍可提取为 items，其余忽略。',
-    '7. 禁止编造编码；看不清留空。partType 从枚举选最接近项，默认「品牌件」。',
+    '7. 禁止编造编码；看不清留空。partType **仅当报价表该行明确写出类型**（如原厂件/品牌件/副厂件）时填写，否则留空字符串，禁止默认臆造。',
     '8. 只输出 JSON，不要 markdown。',
     '',
     `partType 枚举：${PART_TYPE_VALUES.join('、')}`,

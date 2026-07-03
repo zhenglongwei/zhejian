@@ -27,7 +27,7 @@
     </view>
 
     <view wx:if="{{showAlbumColumn}}" class="part-verify-pair-card__col">
-      <text class="text-caption part-verify-pair-card__col-label">相册登记</text>
+      <text class="text-caption part-verify-pair-card__col-label">门店登记</text>
       <block wx:if="{{albumName}}">
         <view class="part-verify-pair-card__album-head">
           <view class="part-verify-pair-card__album-copy">

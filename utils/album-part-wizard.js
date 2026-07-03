@@ -11,6 +11,7 @@ function rowFromPart(part = {}, plan = null) {
   const photos = Array.isArray(part.photos) ? part.photos : []
   const quotedType = String(plan?.partType || '').trim()
   const partType = quotedType || String(part.partType || '').trim()
+  const typeLocked = Boolean(quotedType)
   const displayName = String(part.partName || part.name || plan?.name || '').trim()
   const planPartId = String(part.planPartId || part.linkKey || plan?.planPartId || '').trim()
   return {
@@ -23,6 +24,7 @@ function rowFromPart(part = {}, plan = null) {
     partBrand: part.partBrand || plan?.partBrand || '',
     partCode: part.partCode || plan?.partCode || '',
     partType,
+    typeLocked,
     partTypeIndex: partType ? resolvePartTypeIndex(partType) : 0,
     photos,
     source: part.source || (planPartId ? 'plan_linked' : 'extra'),
@@ -78,7 +80,10 @@ function mergeWizardRowIntoParts(parts = [], row = {}) {
     partName: String(row.partName || row.planName || '').trim(),
     partBrand: String(row.partBrand || '').trim(),
     partCode: String(row.partCode || '').trim(),
-    partType: row.partType || PART_TYPE.BRAND,
+    partType:
+      row.typeLocked && row.planType
+        ? row.planType
+        : String(row.partType || '').trim(),
     photos: Array.isArray(row.photos) ? row.photos : [],
     source: row.source || 'plan_linked',
     qty: row.qty || 1,

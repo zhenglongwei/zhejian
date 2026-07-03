@@ -28,14 +28,17 @@
         <text wx:if="{{storeName}}" class="text-caption text-secondary album-part-verify__store">{{storeName}}</text>
         <text class="text-body album-part-verify__value">{{valueLine}}</text>
         <ui-privacy-banner scene="partVerify" />
-        <view class="album-part-verify__steps">
-          <view wx:for="{{steps}}" wx:key="key" class="album-part-verify__step">
-            <text class="album-part-verify__step-title text-caption">{{item.title}}</text>
-            <text class="album-part-verify__step-desc text-caption text-secondary">{{item.desc}}</text>
-          </view>
-        </view>
-        <text wx:if="{{summaryLabel}}" class="text-caption album-part-verify__summary">{{summaryLabel}}</text>
       </view>
+
+      <view class="album-part-verify__method surface-album-panel">
+        <text class="text-h3 album-part-verify__method-title">{{methodTitle}}</text>
+        <view wx:for="{{methodSteps}}" wx:key="key" class="album-part-verify__method-step">
+          <text class="album-part-verify__method-step-title text-body">{{item.title}}</text>
+          <text class="text-caption text-secondary album-part-verify__method-step-desc">{{item.desc}}</text>
+        </view>
+      </view>
+
+      <text wx:if="{{summaryLabel}}" class="text-caption album-part-verify__summary">{{summaryLabel}}</text>
 
       <view wx:if="{{showDegradeHint}}" class="album-part-verify__hint surface-album-inset">
         <text class="text-caption text-secondary">{{degradeHint}}</text>
@@ -65,7 +68,7 @@
 
       <block wx:if="{{usePairsMode}}">
         <view class="surface-album-panel album-part-verify__section">
-          <text class="text-caption album-part-verify__section-label">方案与相册对照</text>
+          <text class="text-caption album-part-verify__section-label">{{albumSectionTitle}}</text>
         </view>
 
         <ui-card
@@ -96,6 +99,7 @@
             show-plan-column="{{item.showPlanColumn}}"
             show-album-column="{{item.showAlbumColumn}}"
           />
+          <text class="text-caption text-secondary album-part-verify__part-hint">{{partCardHint}}</text>
           <view class="album-part-verify__status-row">
             <view
               wx:for="{{statusOptions}}"
@@ -150,6 +154,7 @@
               show-plan-column="{{false}}"
               show-album-column="{{true}}"
             />
+            <text class="text-caption text-secondary album-part-verify__part-hint">{{partCardHint}}</text>
             <view class="album-part-verify__status-row">
               <view
                 wx:for="{{statusOptions}}"
@@ -200,7 +205,7 @@
             qty="{{item.qty}}"
             thumb-url="{{item.thumbUrl}}"
           />
-          <text class="text-caption text-secondary album-part-verify__part-hint">对照上方维修方案，确认相册登记是否一致</text>
+          <text class="text-caption text-secondary album-part-verify__part-hint">{{partCardHint}}</text>
           <view class="album-part-verify__status-row">
             <view
               wx:for="{{statusOptions}}"

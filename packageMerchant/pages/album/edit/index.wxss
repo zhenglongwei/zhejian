@@ -334,6 +334,36 @@
   color: var(--color-text-tertiary);
 }
 
+.merchant-album-edit__wizard-fields .merchant-form__picker.is-locked {
+  color: var(--color-text-primary);
+  background: var(--color-bg-muted);
+}
+
+.merchant-album-edit__type-tip,
+.merchant-album-edit__owner-verify-title {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.merchant-album-edit__type-tip {
+  margin-top: calc(-1 * var(--space-xs));
+}
+
+.merchant-album-edit__owner-verify-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-info-light);
+  border-left: 4rpx solid var(--color-info);
+}
+
+.merchant-album-edit__owner-verify-step {
+  display: block;
+}
+
 .merchant-album-edit__wizard-row.is-open {
   border-color: var(--color-primary);
 }

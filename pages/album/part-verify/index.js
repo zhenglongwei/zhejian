@@ -17,8 +17,10 @@ const {
   PART_VERIFY_PLAN_SECTION_TITLE,
   PART_VERIFY_EXTRA_SECTION_TITLE,
   PART_VERIFY_STATUS_OPTIONS,
-  PART_VERIFY_FIELD_DIFF_LABELS,
   PART_VERIFY_LINK_STATUS_HINT,
+  PART_VERIFY_METHOD_TITLE,
+  PART_VERIFY_METHOD_STEPS,
+  PART_VERIFY_PART_CARD_HINT,
 } = require('../../../constants/album-review')
 
 function mapVerificationFields(entry = {}) {
@@ -38,11 +40,7 @@ function resolveTypeVariant(partType) {
 function mapPairCard(entry = {}) {
   const plan = entry.planPart || {}
   const album = entry.albumPart || {}
-  const fieldDiffs = Array.isArray(entry.fieldDiffs) ? entry.fieldDiffs : []
-  const diffLabels = fieldDiffs
-    .map((key) => PART_VERIFY_FIELD_DIFF_LABELS[key] || key)
-    .filter(Boolean)
-  const title = plan.name || album.name || '配件项'
+  const title = album.name || plan.name || '配件项'
   return {
     partKey: entry.partKey,
     title,
@@ -61,14 +59,14 @@ function mapPairCard(entry = {}) {
     thumbUrl: album.thumbUrl || '',
     linkStatus: entry.linkStatus || 'linked',
     linkHint: PART_VERIFY_LINK_STATUS_HINT[entry.linkStatus] || '',
-    diffLabels,
-    showPlanColumn: Boolean(plan.name || entry.linkStatus === 'plan_only'),
+    diffLabels: [],
+    showPlanColumn: false,
     showAlbumColumn: Boolean(album.name || entry.linkStatus !== 'plan_only'),
     status: entry.status || 'skipped',
     note: entry.note || '',
     images: entry.images || [],
     partName: album.name || plan.name || '',
-    partType: album.partType || plan.partType || '',
+    partType: album.partType || '',
   }
 }
 
@@ -107,7 +105,10 @@ Page({
     showDegradeHint: false,
     degradeHint: PART_VERIFY_DEGRADE_HINT,
     valueLine: PART_VERIFY_VALUE_LINE,
+    methodTitle: PART_VERIFY_METHOD_TITLE,
+    methodSteps: PART_VERIFY_METHOD_STEPS,
     steps: PART_VERIFY_STEPS,
+    partCardHint: PART_VERIFY_PART_CARD_HINT,
     albumSectionTitle: PART_VERIFY_ALBUM_SECTION_TITLE,
     planSectionTitle: PART_VERIFY_PLAN_SECTION_TITLE,
     extraSectionTitle: PART_VERIFY_EXTRA_SECTION_TITLE,

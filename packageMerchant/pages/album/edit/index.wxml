@@ -98,6 +98,17 @@
               <text class="text-caption">{{planParseHint}}</text>
             </view>
 
+            <view class="merchant-album-edit__owner-verify-guide">
+              <text class="text-caption merchant-album-edit__owner-verify-title">{{merchantOwnerVerifyGuideTitle}}</text>
+              <view
+                wx:for="{{merchantOwnerVerifyGuideSteps}}"
+                wx:key="key"
+                class="merchant-album-edit__owner-verify-step"
+              >
+                <text class="text-caption">{{item.title}} {{item.desc}}</text>
+              </view>
+            </view>
+
             <view
               wx:for="{{partWizardRows}}"
               wx:key="planPartId"
@@ -127,9 +138,16 @@
                       </view>
                     </view>
                   </view>
-                  <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
-                    <view class="merchant-form__picker {{item.partType ? '' : 'is-placeholder'}}">{{item.partType || '请选择类型'}}</view>
-                  </picker>
+                  <block wx:if="{{item.typeLocked}}">
+                    <view class="merchant-form__picker is-locked" catchtap="onLockedPartTypeTap">{{item.partType}}</view>
+                    <text class="text-caption merchant-album-edit__type-tip">{{merchantPartTypeLockedTip}}</text>
+                  </block>
+                  <block wx:else>
+                    <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
+                      <view class="merchant-form__picker {{item.partType ? '' : 'is-placeholder'}}">{{item.partType || '请选择类型'}}</view>
+                    </picker>
+                    <text class="text-caption merchant-album-edit__type-tip">{{merchantPartTypeManualTip}}</text>
+                  </block>
                   <input class="merchant-form__input" placeholder="品牌" value="{{item.partBrand}}" data-index="{{index}}" data-field="partBrand" bindinput="onWizardInput" />
                   <input class="merchant-form__input" placeholder="编码" value="{{item.partCode}}" data-index="{{index}}" data-field="partCode" bindinput="onWizardInput" />
                   <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
