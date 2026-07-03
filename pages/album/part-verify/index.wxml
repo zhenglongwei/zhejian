@@ -32,9 +32,21 @@
 
       <view class="album-part-verify__method surface-album-panel">
         <text class="text-h3 album-part-verify__method-title">{{methodTitle}}</text>
-        <view wx:for="{{methodSteps}}" wx:key="key" class="album-part-verify__method-step">
-          <text class="album-part-verify__method-step-title text-body">{{item.title}}</text>
-          <text class="text-caption text-secondary album-part-verify__method-step-desc">{{item.desc}}</text>
+        <text class="text-body album-part-verify__method-body">{{storeMethodText}}</text>
+      </view>
+
+      <view class="surface-album-panel album-part-verify__guide-feedback">
+        <text class="text-body album-part-verify__guide-feedback-title">{{guideFeedbackTitle}}</text>
+        <view class="album-part-verify__status-row">
+          <view
+            wx:for="{{guideFeedbackOptions}}"
+            wx:key="value"
+            class="album-part-verify__status {{guideFeedback === item.value ? 'is-active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="onGuideFeedbackTap"
+          >
+            <text class="text-caption">{{item.label}}</text>
+          </view>
         </view>
       </view>
 

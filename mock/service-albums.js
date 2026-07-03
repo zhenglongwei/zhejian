@@ -629,6 +629,8 @@ function buildMerchantAlbumView(raw) {
     })(),
     amountMismatch: false,
     amountMismatchHint: '',
+    partVerifyGuideText: album.partVerifyGuideText || '',
+    partVerifyGuideInformed: Boolean(album.partVerifyGuideInformed),
   }
 }
 
@@ -992,6 +994,16 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
     userPhone,
     nodes: payload.nodes || raw.nodes,
     parts: payload.parts || raw.parts,
+    partVerifyGuideText:
+      payload.partVerifyGuideInformed != null && payload.partVerifyGuideInformed
+        ? ''
+        : payload.partVerifyGuideText != null
+          ? String(payload.partVerifyGuideText || '').trim()
+          : raw.partVerifyGuideText || '',
+    partVerifyGuideInformed:
+      payload.partVerifyGuideInformed != null
+        ? Boolean(payload.partVerifyGuideInformed)
+        : Boolean(raw.partVerifyGuideInformed),
     updatedAt: now,
   }
   if (next.status === SERVICE_ALBUM_STATUS.DRAFT && countAlbumImages(next.nodes) > 0) {

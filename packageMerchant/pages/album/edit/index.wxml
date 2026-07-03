@@ -99,14 +99,20 @@
             </view>
 
             <view class="merchant-album-edit__owner-verify-guide">
-              <text class="text-caption merchant-album-edit__owner-verify-title">{{merchantOwnerVerifyGuideTitle}}</text>
-              <view
-                wx:for="{{merchantOwnerVerifyGuideSteps}}"
-                wx:key="key"
-                class="merchant-album-edit__owner-verify-step"
-              >
-                <text class="text-caption">{{item.title}} {{item.desc}}</text>
-              </view>
+              <text class="text-body merchant-album-edit__owner-verify-title">{{partVerifyGuideTitle}}</text>
+              <text class="text-caption merchant-album-edit__owner-verify-hint">{{partVerifyGuideHint}}</text>
+              <textarea
+                wx:if="{{!partVerifyGuideInformed}}"
+                class="merchant-album-edit__owner-verify-input text-body"
+                placeholder="{{partVerifyGuidePlaceholder}}"
+                value="{{partVerifyGuideText}}"
+                maxlength="1000"
+                bindinput="onPartVerifyGuideInput"
+              />
+              <ui-checkbox-row
+                checked="{{partVerifyGuideInformed}}"
+                bind:toggle="togglePartVerifyGuideInformed"
+              >{{partVerifyGuideInformedLabel}}</ui-checkbox-row>
             </view>
 
             <view
@@ -173,7 +179,7 @@
             note="{{nodes[stageIndex].note}}"
             notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             images="{{nodes[stageIndex].images}}"
-            uploadHint="{{uploadPrivacyHint}}"
+            uploadHint="{{stages[stageIndex].id === 'stage_3' ? planStageUploadHint : uploadPrivacyHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
             bind:notechange="onNodeNoteChange"
@@ -182,7 +188,7 @@
 
         <block wx:if="{{stages[stageIndex].id === 'stage_3'}}">
           <view class="merchant-album-edit__plan">
-            <text class="merchant-form__label">方案报价</text>
+            <text class="merchant-album-edit__plan-label text-h3">方案报价</text>
             <input
               class="merchant-form__input"
               type="number"
@@ -198,7 +204,6 @@
               showSuffix="{{false}}"
               showDisclaimer="{{false}}"
             />
-            <text class="text-caption merchant-album-edit__parts-hint">在上方节点上传本单报价/方案图（可含工时与配件混排），到「配件/材料凭证」环节识别零配件并登记凭证。</text>
           </view>
         </block>
       </ui-card>

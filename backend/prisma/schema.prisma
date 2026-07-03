@@ -138,6 +138,9 @@ model Album {
   minAmount           Int?                @map("min_amount")
   maxAmount           Int?                @map("max_amount")
   partsJson           Json                @default("[]") @map("parts_json")
+  partVerifyGuideText String              @default("") @map("part_verify_guide_text") @db.Text
+  partVerifyGuideInformed Boolean         @default(false) @map("part_verify_guide_informed")
+  partVerifyGuideFeedback String          @default("") @map("part_verify_guide_feedback")
   planPartsJson       Json                @default("[]") @map("plan_parts_json")
   planQuoteImageIds   Json                @default("[]") @map("plan_quote_image_ids")
   planPartsLockedAt   DateTime?           @map("plan_parts_locked_at")

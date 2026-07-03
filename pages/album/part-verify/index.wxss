@@ -38,6 +38,22 @@
   display: block;
 }
 
+.album-part-verify__method-body {
+  display: block;
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+}
+
+.album-part-verify__guide-feedback {
+  padding: var(--space-md);
+  box-sizing: border-box;
+}
+
+.album-part-verify__guide-feedback-title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
 .album-part-verify__method-step {
   display: flex;
   flex-direction: column;

@@ -75,6 +75,11 @@ function buildMockPairsContext(albumId) {
     summary: { total: 2, matched: 0, question: 0, pending: 2, label: '2 项待验真' },
     consentText: PART_VERIFY_CONSENT_TEXT,
     onsiteReminder: PART_VERIFY_ONSITE_REMINDER,
+    partVerifyGuide: {
+      text: '海拉配件请访问品牌官网，在「配件查询」输入包装编码核对类型。',
+      informedOffline: false,
+      ownerFeedback: '',
+    },
   }
 }
 

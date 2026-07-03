@@ -263,6 +263,22 @@ function buildServiceAlbumCompleteness(album, nodes) {
   }
 }
 
+function sanitizePartVerifyGuidePayload(payload = {}, existing = {}) {
+  const informed =
+    payload.partVerifyGuideInformed != null
+      ? Boolean(payload.partVerifyGuideInformed)
+      : Boolean(existing.partVerifyGuideInformed)
+  const textRaw =
+    payload.partVerifyGuideText != null
+      ? String(payload.partVerifyGuideText || '')
+      : String(existing.partVerifyGuideText || '')
+  const { MAX_PART_VERIFY_GUIDE_TEXT } = require('../constants/album-review')
+  return {
+    partVerifyGuideText: informed ? '' : textRaw.trim().slice(0, MAX_PART_VERIFY_GUIDE_TEXT),
+    partVerifyGuideInformed: informed,
+  }
+}
+
 function buildMerchantView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
@@ -316,6 +332,8 @@ function buildMerchantView(album) {
     planQuoteThumbs: planCtx.planQuoteThumbs,
     amountMismatch: planCtx.amountMismatch,
     amountMismatchHint: planCtx.amountMismatchHint,
+    partVerifyGuideText: album.partVerifyGuideText || '',
+    partVerifyGuideInformed: Boolean(album.partVerifyGuideInformed),
   }
 }
 
@@ -789,6 +807,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   const ownerUpdate = config.merchantOwnerPhoneTest
     ? await resolveOwnerPhoneUpdate(existing, payload)
     : {}
+  const partVerifyGuide = sanitizePartVerifyGuidePayload(payload, existing)
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -799,6 +818,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       complexityLevel: payload.complexityLevel ?? existing.complexityLevel,
       partsJson: payload.parts ?? existing.partsJson,
       planPartsJson: planPartsUpdate ?? existing.planPartsJson,
+      ...partVerifyGuide,
       priceMode: planAmount != null ? 'fixed' : existing.priceMode,
       minAmount: planAmount != null ? planAmount : existing.minAmount,
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,

@@ -6,6 +6,7 @@ const {
   VALID_PART_VERIFY_STATUSES,
   MAX_PART_VERIFY_NOTE,
   MAX_PART_VERIFY_IMAGES,
+  VALID_PART_VERIFY_GUIDE_FEEDBACK,
   PART_VERIFY_CONSENT_TEXT,
   PART_VERIFY_ONSITE_REMINDER,
 } = require('../constants/album-review')
@@ -121,6 +122,14 @@ function resolvePlanQuoteThumbs(planQuoteImageIds, images = []) {
     .filter(Boolean)
 }
 
+function buildPartVerifyGuideView(row = {}) {
+  return {
+    text: String(row.partVerifyGuideText || '').trim(),
+    informedOffline: Boolean(row.partVerifyGuideInformed),
+    ownerFeedback: String(row.partVerifyGuideFeedback || '').trim(),
+  }
+}
+
 async function loadAlbumPartsContext(albumId, userId) {
   const album = await getUserServiceAlbum(albumId, userId)
   const row = await prisma.album.findUnique({
@@ -132,6 +141,9 @@ async function loadAlbumPartsContext(albumId, userId) {
       planPartsJson: true,
       planQuoteImageIds: true,
       planPartsLockedAt: true,
+      partVerifyGuideText: true,
+      partVerifyGuideInformed: true,
+      partVerifyGuideFeedback: true,
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
@@ -176,6 +188,7 @@ async function loadAlbumPartsContext(albumId, userId) {
     planQuoteThumbs,
     hasStructuredPlanParts: structuredPlanParts,
     hasParts: albumParts.length > 0 || planParts.length > 0,
+    partVerifyGuide: buildPartVerifyGuideView(row || {}),
   }
 }
 
@@ -207,6 +220,19 @@ async function saveAlbumPartVerifications(albumId, userId, payload = {}) {
   const partMap = new Map(parts.map((p) => [p.partKey, p]))
   const storeId = row?.storeId || album.store?.id || ''
   const merchantId = row?.merchantId || ''
+
+  if (payload.guideFeedback != null) {
+    const guideFeedback = String(payload.guideFeedback || '').trim()
+    if (!VALID_PART_VERIFY_GUIDE_FEEDBACK.has(guideFeedback)) {
+      const err = new Error('验真方式反馈无效')
+      err.status = 400
+      throw err
+    }
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { partVerifyGuideFeedback: guideFeedback },
+    })
+  }
 
   for (const item of items) {
     const partKey = String(item.partKey || '').trim()

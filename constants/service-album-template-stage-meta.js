@@ -18,7 +18,7 @@ const TEMPLATE_STAGE_META = {
     },
     stage_3: {
       description: '方案与费用留痕',
-      photoTips: '方案截图；note 写明修复方式。',
+      photoTips: '',
     },
     stage_4: {
       description: '施工过程记录',
@@ -53,7 +53,7 @@ const TEMPLATE_STAGE_META = {
     },
     stage_3: {
       description: '维修方案与费用确认',
-      photoTips: '方案截图；note 写检测结论。',
+      photoTips: '',
       requiredLevelLabel: '必拍',
       requiredLevelVariant: 'danger',
     },

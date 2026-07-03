@@ -10,7 +10,6 @@ const {
   PART_VERIFY_SUCCESS_MESSAGE,
   PART_VERIFY_PAGE_TITLE,
   PART_VERIFY_VALUE_LINE,
-  PART_VERIFY_STEPS,
   PART_VERIFY_DEGRADE_HINT,
   PART_VERIFY_ONSITE_REMINDER,
   PART_VERIFY_ALBUM_SECTION_TITLE,
@@ -19,9 +18,29 @@ const {
   PART_VERIFY_STATUS_OPTIONS,
   PART_VERIFY_LINK_STATUS_HINT,
   PART_VERIFY_METHOD_TITLE,
-  PART_VERIFY_METHOD_STEPS,
   PART_VERIFY_PART_CARD_HINT,
+  PART_VERIFY_STORE_METHOD_INFORMED,
+  PART_VERIFY_STORE_METHOD_FALLBACK,
+  PART_VERIFY_GUIDE_FEEDBACK_TITLE,
+  PART_VERIFY_GUIDE_FEEDBACK_OPTIONS,
 } = require('../../../constants/album-review')
+
+function resolveStoreMethodView(guide = {}) {
+  const text = String(guide.text || '').trim()
+  if (text) {
+    return { methodMode: 'text', storeMethodText: text }
+  }
+  if (guide.informedOffline) {
+    return {
+      methodMode: 'informed',
+      storeMethodText: PART_VERIFY_STORE_METHOD_INFORMED,
+    }
+  }
+  return {
+    methodMode: 'fallback',
+    storeMethodText: PART_VERIFY_STORE_METHOD_FALLBACK,
+  }
+}
 
 function mapVerificationFields(entry = {}) {
   const verification = entry.verification || {}
@@ -106,8 +125,8 @@ Page({
     degradeHint: PART_VERIFY_DEGRADE_HINT,
     valueLine: PART_VERIFY_VALUE_LINE,
     methodTitle: PART_VERIFY_METHOD_TITLE,
-    methodSteps: PART_VERIFY_METHOD_STEPS,
-    steps: PART_VERIFY_STEPS,
+    methodMode: 'fallback',
+    storeMethodText: PART_VERIFY_STORE_METHOD_FALLBACK,
     partCardHint: PART_VERIFY_PART_CARD_HINT,
     albumSectionTitle: PART_VERIFY_ALBUM_SECTION_TITLE,
     planSectionTitle: PART_VERIFY_PLAN_SECTION_TITLE,
@@ -119,6 +138,9 @@ Page({
     submitting: false,
     loginSheetVisible: false,
     statusOptions: PART_VERIFY_STATUS_OPTIONS,
+    guideFeedbackTitle: PART_VERIFY_GUIDE_FEEDBACK_TITLE,
+    guideFeedbackOptions: PART_VERIFY_GUIDE_FEEDBACK_OPTIONS,
+    guideFeedback: '',
   },
 
   onLoad(options) {
@@ -177,6 +199,9 @@ Page({
         verifyItems = parts
       }
 
+      const methodView = resolveStoreMethodView(data.partVerifyGuide || {})
+      const guideFeedback = String((data.partVerifyGuide && data.partVerifyGuide.ownerFeedback) || '')
+
       this.setData({
         status: 'normal',
         albumTitle: data.albumTitle || '我的服务相册',
@@ -194,6 +219,9 @@ Page({
         showDegradeHint: !data.hasStructuredPlanParts,
         onsiteReminder: data.onsiteReminder || PART_VERIFY_ONSITE_REMINDER,
         consentText: data.consentText || PART_VERIFY_CONSENT_TEXT,
+        methodMode: methodView.methodMode,
+        storeMethodText: methodView.storeMethodText,
+        guideFeedback,
       })
     } catch (e) {
       this.setData({
@@ -285,6 +313,13 @@ Page({
     }
   },
 
+  onGuideFeedbackTap(e) {
+    const value = String((e.currentTarget.dataset && e.currentTarget.dataset.value) || '')
+    this.setData({
+      guideFeedback: this.data.guideFeedback === value ? '' : value,
+    })
+  },
+
   onRetry() {
     this.loadContext()
   },
@@ -339,6 +374,7 @@ Page({
       }
       await saveAlbumPartVerifications(this.data.albumId, {
         consent: true,
+        guideFeedback: this.data.guideFeedback || '',
         items,
       })
       wx.showToast({ title: PART_VERIFY_SUCCESS_MESSAGE, icon: 'success' })

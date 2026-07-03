@@ -54,8 +54,10 @@ const {
   MERCHANT_PART_TYPE_MANUAL_TIP,
   MERCHANT_PART_TYPE_CHANGE_TITLE,
   MERCHANT_PART_TYPE_CHANGE_CONTENT,
-  MERCHANT_OWNER_VERIFY_GUIDE_TITLE,
-  MERCHANT_OWNER_VERIFY_GUIDE_STEPS,
+  MERCHANT_PART_VERIFY_GUIDE_TITLE,
+  MERCHANT_PART_VERIFY_GUIDE_HINT,
+  MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
+  MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
 } = require('../../../../constants/part-verify-copy')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
@@ -115,6 +117,7 @@ Page({
     ownerPhoneInput: '',
     uploadPrivacyHint:
       '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
+    planStageUploadHint: '请上传报价单/维修方案等照片。',
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -142,10 +145,14 @@ Page({
     partCodeCandidates: [],
     partCodePickerRowIndex: -1,
     partCodePickerImageCount: 0,
-    merchantOwnerVerifyGuideTitle: MERCHANT_OWNER_VERIFY_GUIDE_TITLE,
-    merchantOwnerVerifyGuideSteps: MERCHANT_OWNER_VERIFY_GUIDE_STEPS,
     merchantPartTypeLockedTip: MERCHANT_PART_TYPE_LOCKED_TIP,
     merchantPartTypeManualTip: MERCHANT_PART_TYPE_MANUAL_TIP,
+    partVerifyGuideTitle: MERCHANT_PART_VERIFY_GUIDE_TITLE,
+    partVerifyGuideHint: MERCHANT_PART_VERIFY_GUIDE_HINT,
+    partVerifyGuidePlaceholder: MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
+    partVerifyGuideInformedLabel: MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
+    partVerifyGuideText: '',
+    partVerifyGuideInformed: false,
     showExtraPartForm: false,
     extraPartForm: {
       partName: '',
@@ -374,6 +381,8 @@ Page({
       geoEvidenceVariant,
       geoEvidenceLabel,
       planParts: detail.planParts || [],
+      partVerifyGuideText: detail.partVerifyGuideText || '',
+      partVerifyGuideInformed: Boolean(detail.partVerifyGuideInformed),
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
@@ -923,6 +932,18 @@ Page({
     })
   },
 
+  onPartVerifyGuideInput(e) {
+    this.setData({ partVerifyGuideText: e.detail.value || '' })
+  },
+
+  togglePartVerifyGuideInformed() {
+    const next = !this.data.partVerifyGuideInformed
+    this.setData({
+      partVerifyGuideInformed: next,
+      ...(next ? { partVerifyGuideText: '' } : {}),
+    })
+  },
+
   onWizardPhotosChange(e) {
     const index = Number(e.currentTarget.dataset.index)
     this.setData({
@@ -1167,6 +1188,8 @@ Page({
       payload: {
         ...normalized,
         planParts: overrides.planParts != null ? overrides.planParts : this.data.planParts,
+        partVerifyGuideText: String(this.data.partVerifyGuideText || '').trim(),
+        partVerifyGuideInformed: Boolean(this.data.partVerifyGuideInformed),
       },
       droppedStaleCount,
     }
