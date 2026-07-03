@@ -3,6 +3,10 @@
  */
 const { ENV } = require('./config')
 const { get } = require('./request')
+const {
+  SERVICE_ALBUM_NODE_TITLES,
+  buildTemplateNodeTitleList,
+} = require('../constants/service-album-node-templates')
 
 const MOCK_TEMPLATE_OPTIONS = [
   { id: 'maintenance', name: '小保养' },
@@ -15,17 +19,11 @@ const MOCK_TEMPLATE_OPTIONS = [
   { id: 'accident', name: '事故车维修' },
 ]
 
-/** mock 切换模板时的六阶段标题 */
-const MOCK_TEMPLATE_NODE_TITLES = {
-  maintenance: ['接车记录', '机油/滤芯检测', '保养方案', '机油机滤材料', '更换过程', '完工检查'],
-  major_maintenance: ['接车记录', '综合检测', '保养方案', '更换材料', '施工过程', '完工确认'],
-  brake: ['接车记录', '刹车检测', '维修方案', '新旧配件对比', '更换过程', '试车检查'],
-  battery: ['接车记录', '电压检测', '更换方案', '新旧电瓶对比', '更换过程', '完工检查'],
-  tire: ['接车记录', '轮胎检测', '更换方案', '新旧轮胎对比', '换胎过程', '动平衡/完工'],
-  ac: ['接车记录', '空调检测', '维修方案', '滤芯/冷媒材料', '施工过程', '完工测试'],
-  body_paint: ['损伤状态', '损伤评估', '修复方案', '施工过程', '前后对比', '完工结果'],
-  accident: ['接车记录', '损伤检测', '维修方案', '配件/材料凭证', '修复过程', '完工验收'],
-}
+const MOCK_TEMPLATE_NODE_TITLES = Object.keys(SERVICE_ALBUM_NODE_TITLES).reduce((acc, key) => {
+  if (key === 'default') return acc
+  acc[key] = buildTemplateNodeTitleList(key)
+  return acc
+}, {})
 
 async function fetchServiceAlbumTemplateOptions() {
   if (ENV.mode === 'mock') {

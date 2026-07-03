@@ -385,6 +385,36 @@
   border: 1rpx solid var(--color-album-frame-line);
 }
 
+.merchant-album-edit__verify-mode-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-album-edit__verify-mode-card {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  border: 1rpx solid var(--color-border);
+  background: var(--color-bg-card);
+}
+
+.merchant-album-edit__verify-mode-card.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-bg-muted);
+}
+
+.merchant-album-edit__verify-mode-title {
+  display: block;
+  font-weight: var(--font-weight-medium);
+}
+
+.merchant-album-edit__verify-mode-desc {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .merchant-album-edit__wizard-row.is-open {
   border-color: var(--color-primary);
 }

@@ -6,13 +6,13 @@ const TEMPLATE_STAGE_META = {
   body_paint: {
     stage_1: {
       description: '各损伤部位远景，一处一图',
-      photoTips: '拍清位置即可；近景放到下一节点。',
+      photoTips: '拍清位置即可；近景放到检测记录。',
       requiredLevelLabel: '建议拍摄',
       requiredLevelVariant: 'info',
     },
     stage_2: {
       description: '各损伤点近景/特写',
-      photoTips: '顺序与上一节点对应（第1张对第1处…）。',
+      photoTips: '顺序与完工结果对比组对应（第1张对第1组…）。',
       requiredLevelLabel: '建议拍摄',
       requiredLevelVariant: 'info',
     },
@@ -21,19 +21,17 @@ const TEMPLATE_STAGE_META = {
       photoTips: '',
     },
     stage_4: {
-      description: '施工过程记录',
-      photoTips: '过程照即可。',
+      description: '登记本次使用的辅料/材料',
+      photoTips: '包装、标签、批次等凭证图；有方案目录时可从报价单识别。',
     },
     stage_5: {
-      description: '修复前/后分列上传，按序号配对',
-      photoTips: '上方默认引用损伤评估；下方上传同序号修复后照片。',
-      requiredLevelLabel: '必拍',
-      requiredLevelVariant: 'danger',
+      description: '施工过程记录',
+      photoTips: '建议拍摄拆卸、修复、安装等关键环节。',
     },
     stage_6: {
-      description: '完工效果，与「损伤状态」同序同角',
-      photoTips: '第1张对第1处…，用于车主端自动生成对比。',
-      compareGuidance: '勿在中间插入照片打乱序号。',
+      description: '完工效果，组织前后对比组',
+      photoTips: '与检测记录同序同角上传修复后照片，便于车主端对比。',
+      compareGuidance: '下方可组织前后对比组；勿打乱与检测记录的序号对应。',
       requiredLevelLabel: '建议拍摄',
       requiredLevelVariant: 'info',
     },
@@ -46,7 +44,7 @@ const TEMPLATE_STAGE_META = {
       requiredLevelVariant: 'info',
     },
     stage_2: {
-      description: '损伤检测（近景/读数）',
+      description: '检测记录（近景/读数）',
       photoTips: '顺序与后续「完工验收」对应。',
       requiredLevelLabel: '必拍',
       requiredLevelVariant: 'danger',
@@ -59,12 +57,12 @@ const TEMPLATE_STAGE_META = {
     },
     stage_4: {
       description: '',
-      photoTips: '根据维修方案拍摄新配件的包装、编码、note标类型等',
+      photoTips: '根据维修方案拍摄新配件的包装、编码等凭证图',
     },
     stage_5: {
       description: '修复施工过程',
-      photoTips: '过程照即可。',
-      compareGuidance: '对比看接车记录 ↔ 完工验收，本节点不参与自动对比。',
+      photoTips: '建议拍摄拆卸、修复、安装等关键环节。',
+      compareGuidance: '接车/检测 ↔ 完工验收的整页对比在车主端自动生成，本节点为过程记录。',
     },
     stage_6: {
       description: '完工验收',

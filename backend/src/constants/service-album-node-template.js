@@ -2,8 +2,10 @@
  * B-SVC-06 · service_item_id → 服务相册节点模板（Phase 1 常量，对齐 PRD §10 / 02_相册模板与节点规则 §12.1）
  */
 const { DEFAULT_STAGE_NODES } = require('./v2')
+const { SERVICE_ALBUM_NODE_TITLES } = require('../../../constants/service-album-node-templates')
 
-function makeStageNodes(titles, requiredLevels) {
+function makeStageNodes(templateId, requiredLevels) {
+  const titles = SERVICE_ALBUM_NODE_TITLES[templateId] || SERVICE_ALBUM_NODE_TITLES.default
   return DEFAULT_STAGE_NODES.map((base, i) => ({
     nodeId: base.nodeId,
     title: titles[i] || base.title,
@@ -18,70 +20,46 @@ const ALBUM_NODE_TEMPLATES = {
     templateId: 'maintenance',
     templateName: '小保养',
     serviceItemId: 'item_maintenance',
-    nodes: makeStageNodes(
-      ['接车记录', '机油/滤芯检测', '保养方案', '机油机滤材料', '更换过程', '完工检查'],
-      ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']
-    ),
+    nodes: makeStageNodes('maintenance', ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']),
   },
   major_maintenance: {
     templateId: 'major_maintenance',
     templateName: '大保养',
-    nodes: makeStageNodes(
-      ['接车记录', '综合检测', '保养方案', '更换材料', '施工过程', '完工确认'],
-      ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']
-    ),
+    nodes: makeStageNodes('major_maintenance', ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']),
   },
   brake: {
     templateId: 'brake',
     templateName: '刹车片/刹车盘',
     serviceItemId: 'item_brake_pad',
-    nodes: makeStageNodes(
-      ['接车记录', '刹车检测', '维修方案', '新旧配件对比', '更换过程', '试车检查'],
-      ['optional', 'recommended', 'recommended', 'required', 'recommended', 'recommended']
-    ),
+    nodes: makeStageNodes('brake', ['optional', 'recommended', 'recommended', 'required', 'recommended', 'recommended']),
   },
   battery: {
     templateId: 'battery',
     templateName: '电瓶更换',
     serviceItemId: 'item_battery',
-    nodes: makeStageNodes(
-      ['接车记录', '电压检测', '更换方案', '新旧电瓶对比', '更换过程', '完工检查'],
-      ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']
-    ),
+    nodes: makeStageNodes('battery', ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']),
   },
   tire: {
     templateId: 'tire',
     templateName: '轮胎更换',
-    nodes: makeStageNodes(
-      ['接车记录', '轮胎检测', '更换方案', '新旧轮胎对比', '换胎过程', '动平衡/完工'],
-      ['optional', 'recommended', 'recommended', 'recommended', 'recommended', 'recommended']
-    ),
+    nodes: makeStageNodes('tire', ['optional', 'recommended', 'recommended', 'recommended', 'recommended', 'recommended']),
   },
   ac: {
     templateId: 'ac',
     templateName: '空调服务',
-    nodes: makeStageNodes(
-      ['接车记录', '空调检测', '维修方案', '滤芯/冷媒材料', '施工过程', '完工测试'],
-      ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']
-    ),
+    nodes: makeStageNodes('ac', ['optional', 'recommended', 'recommended', 'recommended', 'optional', 'recommended']),
   },
   body_paint: {
     templateId: 'body_paint',
     templateName: '钣喷修复',
     serviceItemId: 'item_body_paint',
-    nodes: makeStageNodes(
-      ['损伤状态', '损伤评估', '修复方案', '施工过程', '前后对比', '完工结果'],
-      ['recommended', 'recommended', 'recommended', 'optional', 'required', 'recommended']
-    ),
+    nodes: makeStageNodes('body_paint', ['recommended', 'recommended', 'recommended', 'recommended', 'optional', 'required']),
   },
   accident: {
     templateId: 'accident',
     templateName: '事故车维修',
     serviceItemId: 'item_accident',
-    nodes: makeStageNodes(
-      ['接车记录', '损伤检测', '维修方案', '配件/材料凭证', '修复过程', '完工验收'],
-      ['recommended', 'required', 'required', 'recommended', 'optional', 'recommended']
-    ),
+    nodes: makeStageNodes('accident', ['recommended', 'required', 'required', 'recommended', 'optional', 'recommended']),
   },
   default: {
     templateId: 'default',

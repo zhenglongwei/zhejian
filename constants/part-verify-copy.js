@@ -11,15 +11,24 @@ const MERCHANT_PART_TYPE_CHANGE_TITLE = '无法直接修改类型'
 const MERCHANT_PART_TYPE_CHANGE_CONTENT =
   '该配件类型来自报价单识别，与方案绑定。若实际使用类型有变，请先与车主沟通确认，并在「维修方案」节点上传最新报价单后重新识别。'
 
-const MERCHANT_PART_VERIFY_GUIDE_TITLE = '车主验真方式'
+const MERCHANT_PART_VERIFY_GUIDE_TITLE = '车主验真方式（二选一）'
 
 const MERCHANT_PART_VERIFY_GUIDE_HINT =
-  '请填写本单配件的验真方式，将展示在车主验真页。不同品牌与来源差异较大，请按本单实际情况说明（如官网、小程序、电话查询渠道等）。'
+  '不同品牌与来源的验真渠道差异较大，请按本单配件填写；将展示在车主验真页。'
+
+const MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_TITLE = '填写验真说明'
+
+const MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_DESC = '车主可在验真页查看以下说明'
+
+const MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE = '已告知车主'
+
+const MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_DESC = '已通过线下/电话等方式说明，无需在平台填写'
 
 const MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER =
   '例：海拉配件请访问品牌官网，在「配件查询」输入包装编码核对类型与真伪信息。'
 
-const MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL = '已告知车主验真方式（线下/电话等，无需在平台填写）'
+/** @deprecated 使用双卡片模式文案 */
+const MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL = MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE
 
 const PART_VERIFY_VALUE_LINE =
   '根据门店提供的验真方式核对配件登记信息是否与实际情况一致。'
@@ -58,10 +67,8 @@ const PART_VERIFY_PLAN_SECTION_TITLE = '维修方案参考（可选）'
 const PART_VERIFY_PART_CARD_HINT =
   '请按页顶「门店验真方式」核对下方登记配件是否与实际情况一致。'
 
-/** @deprecated 车主端改展示门店填写内容 */
 const PART_VERIFY_METHOD_STEPS = []
 
-/** @deprecated */
 const PART_VERIFY_STEPS = PART_VERIFY_METHOD_STEPS
 
 module.exports = {
@@ -71,6 +78,10 @@ module.exports = {
   MERCHANT_PART_TYPE_CHANGE_CONTENT,
   MERCHANT_PART_VERIFY_GUIDE_TITLE,
   MERCHANT_PART_VERIFY_GUIDE_HINT,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_TITLE,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_DESC,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_DESC,
   MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
   MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
   PART_VERIFY_VALUE_LINE,

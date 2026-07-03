@@ -87,8 +87,8 @@ function resolveBodyPaintCompareColumns(nodes) {
 function buildBodyPaintComparePairs(nodes) {
   const assessmentNode = findNode(nodes, STAGE_ASSESSMENT_ID)
   const compareNode = findNode(nodes, STAGE_COMPARE_ID)
-  const beforeLabel = (assessmentNode && assessmentNode.title) || '损伤评估'
-  const afterLabel = (compareNode && compareNode.title) || '修复后'
+  const beforeLabel = (assessmentNode && assessmentNode.title) || '检测记录'
+  const afterLabel = (compareNode && compareNode.title) || '完工结果'
   const { beforeList, afterList } = resolveBodyPaintCompareColumns(nodes)
   const pairs = []
   const seen = new Set()

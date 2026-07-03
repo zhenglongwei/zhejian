@@ -18,6 +18,7 @@ const {
   recognizeVehicleIntakeOcr,
 } = require('../../../../services/merchant-service-album')
 const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
+const { resolveTemplateStageTitle } = require('../../../../constants/service-album-node-templates')
 const {
   canShareToOwner,
   buildOwnerShareMessage,
@@ -57,12 +58,15 @@ const {
   MERCHANT_PART_VERIFY_GUIDE_TITLE,
   MERCHANT_PART_VERIFY_GUIDE_HINT,
   MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
-  MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_TITLE,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_DESC,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE,
+  MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_DESC,
 } = require('../../../../constants/part-verify-copy')
 
 const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
-const STAGE_COMPARE_ID = 'stage_5'
+const STAGE_COMPARE_ID = 'stage_6'
 const STAGE_ASSESSMENT_ID = 'stage_2'
 const STAGE_PLAN_ID = 'stage_3'
 const STAGE_PARTS_ID = 'stage_4'
@@ -74,6 +78,38 @@ function normalizeOwnerPhone(value) {
 const OWNER_PHONE_HINT = ALLOW_TEST_OWNER_PHONE
   ? '【测试模式】可手填车主手机号；标记完工前须关联车主。正式环境须由车主扫码确认。'
   : '标记已完工前，须由车主扫码关联本人手机号（商家不可代填）。关联后车主可在小程序查看维修进度。'
+
+function migrateLegacyBodyPaintNodes(map = {}) {
+  if (!map || typeof map !== 'object') return map
+  const s4 = { ...(map.stage_4 || map['stage_4'] || {}) }
+  const s5 = { ...(map.stage_5 || map['stage_5'] || {}) }
+  const s6 = { ...(map.stage_6 || map['stage_6'] || {}) }
+  const s4Title = String(s4.title || '')
+  const s5Title = String(s5.title || '')
+  const legacyProcessOn4 = /施工过程|施工记录/.test(s4Title)
+  const legacyCompareOn5 = /前后对比|修复后/.test(s5Title)
+  const s4Images = Array.isArray(s4.images) ? s4.images : []
+  const s5Images = Array.isArray(s5.images) ? s5.images : []
+  const s6Images = Array.isArray(s6.images) ? s6.images : []
+
+  if (legacyProcessOn4 && s4Images.length && !s5Images.length) {
+    s5.images = s4Images.slice()
+    s4.images = []
+  }
+  if (legacyCompareOn5 && s5Images.length && !s6Images.length) {
+    s6.images = s5Images.slice()
+    s5.images = []
+  }
+  return {
+    ...map,
+    stage_4: s4,
+    stage_5: s5,
+    stage_6: s6,
+    'stage_4': s4,
+    'stage_5': s5,
+    'stage_6': s6,
+  }
+}
 
 Page({
   data: {
@@ -150,7 +186,11 @@ Page({
     partVerifyGuideTitle: MERCHANT_PART_VERIFY_GUIDE_TITLE,
     partVerifyGuideHint: MERCHANT_PART_VERIFY_GUIDE_HINT,
     partVerifyGuidePlaceholder: MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
-    partVerifyGuideInformedLabel: MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
+    partVerifyGuideModeTextTitle: MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_TITLE,
+    partVerifyGuideModeTextDesc: MERCHANT_PART_VERIFY_GUIDE_MODE_TEXT_DESC,
+    partVerifyGuideModeInformedTitle: MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE,
+    partVerifyGuideModeInformedDesc: MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_DESC,
+    partVerifyGuideMode: 'text',
     partVerifyGuideText: '',
     partVerifyGuideInformed: false,
     showExtraPartForm: false,
@@ -203,6 +243,9 @@ Page({
       if (key) map[key] = n
     })
     const tplId = String(templateId || '').trim()
+    if (tplId === BODY_PAINT_TEMPLATE_ID) {
+      Object.assign(map, migrateLegacyBodyPaintNodes(map))
+    }
     return SERVICE_ALBUM_STAGES.map((stage) => {
       const node = map[stage.id] || {}
       const meta = getStageMeta(stage.id) || stage
@@ -213,11 +256,8 @@ Page({
         requiredLevelLabel: node.requiredLevelLabel || meta.requiredLevelLabel,
         requiredLevelVariant: node.requiredLevelVariant || meta.requiredLevelVariant,
       })
-      const apiTitle = String(node.title || '').trim()
-      let title = apiTitle || stage.title
-      if (stage.id === STAGE_PARTS_ID && title === '配件/材料') {
-        title = '配件/材料凭证'
-      }
+      const templateTitle = resolveTemplateStageTitle(tplId, stage.id)
+      const title = templateTitle || stage.title
       return {
         id: stage.id,
         title,
@@ -250,9 +290,7 @@ Page({
     const stageId = (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
     const isPartsStage = stageId === STAGE_PARTS_ID
     const isComparePairStage =
-      this.data.templateId === BODY_PAINT_TEMPLATE_ID &&
-      SERVICE_ALBUM_STAGES[stageIndex] &&
-      SERVICE_ALBUM_STAGES[stageIndex].id === STAGE_COMPARE_ID
+      this.data.templateId === BODY_PAINT_TEMPLATE_ID && stageId === STAGE_COMPARE_ID
     this.setData({ isComparePairStage, isPartsStage })
     return isComparePairStage
   },
@@ -383,6 +421,7 @@ Page({
       planParts: detail.planParts || [],
       partVerifyGuideText: detail.partVerifyGuideText || '',
       partVerifyGuideInformed: Boolean(detail.partVerifyGuideInformed),
+      partVerifyGuideMode: detail.partVerifyGuideInformed ? 'informed' : 'text',
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
@@ -936,11 +975,23 @@ Page({
     this.setData({ partVerifyGuideText: e.detail.value || '' })
   },
 
-  togglePartVerifyGuideInformed() {
-    const next = !this.data.partVerifyGuideInformed
+  onPartVerifyGuideModeTap(e) {
+    const mode = String((e.currentTarget.dataset && e.currentTarget.dataset.mode) || '')
+    if (mode !== 'text' && mode !== 'informed') return
     this.setData({
-      partVerifyGuideInformed: next,
-      ...(next ? { partVerifyGuideText: '' } : {}),
+      partVerifyGuideMode: mode,
+      partVerifyGuideInformed: mode === 'informed',
+      ...(mode === 'informed' ? { partVerifyGuideText: '' } : {}),
+    })
+  },
+
+  togglePartVerifyGuideInformed() {
+    this.onPartVerifyGuideModeTap({
+      currentTarget: {
+        dataset: {
+          mode: this.data.partVerifyGuideMode === 'informed' ? 'text' : 'informed',
+        },
+      },
     })
   },
 
@@ -1188,8 +1239,11 @@ Page({
       payload: {
         ...normalized,
         planParts: overrides.planParts != null ? overrides.planParts : this.data.planParts,
-        partVerifyGuideText: String(this.data.partVerifyGuideText || '').trim(),
-        partVerifyGuideInformed: Boolean(this.data.partVerifyGuideInformed),
+        partVerifyGuideText:
+          this.data.partVerifyGuideMode === 'informed'
+            ? ''
+            : String(this.data.partVerifyGuideText || '').trim(),
+        partVerifyGuideInformed: this.data.partVerifyGuideMode === 'informed',
       },
       droppedStaleCount,
     }

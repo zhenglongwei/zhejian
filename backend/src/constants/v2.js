@@ -38,10 +38,10 @@ function isServiceAlbumRepairDone(status) {
 
 const DEFAULT_STAGE_NODES = [
   { nodeId: 'stage_1', title: '接车记录', sortOrder: 0 },
-  { nodeId: 'stage_2', title: '检测诊断', sortOrder: 1 },
+  { nodeId: 'stage_2', title: '检测记录', sortOrder: 1 },
   { nodeId: 'stage_3', title: '方案与报价', sortOrder: 2 },
-  { nodeId: 'stage_4', title: '配件告知', sortOrder: 3 },
-  { nodeId: 'stage_5', title: '施工记录', sortOrder: 4 },
+  { nodeId: 'stage_4', title: '配件/材料凭证', sortOrder: 3 },
+  { nodeId: 'stage_5', title: '施工过程', sortOrder: 4 },
   { nodeId: 'stage_6', title: '完工交付', sortOrder: 5 },
 ]
 

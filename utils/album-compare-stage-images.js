@@ -1,9 +1,11 @@
 /**
- * 钣喷「前后对比」：修复前/后双栏；stage_5 优先仅存修复后，与 stage_2 同序号配对。
+ * 钣喷「前后对比」：修复前/后双栏；stage_6 存修复后，与 stage_2 同序号配对。
+ * 兼容旧数据：stage_5 曾存对比图，读取时回退。
  */
 
 const STAGE_ASSESSMENT_ID = 'stage_2'
-const STAGE_COMPARE_ID = 'stage_5'
+const STAGE_COMPARE_ID = 'stage_6'
+const LEGACY_COMPARE_STAGE_ID = 'stage_5'
 
 function findNode(nodes, nodeId) {
   return (nodes || []).find((n) => n && (n.id === nodeId || n.nodeId === nodeId))
@@ -29,12 +31,25 @@ function splitInterleavedImages(images = []) {
   return { beforeImages, afterImages }
 }
 
+function resolveCompareStorageNode(nodes = []) {
+  const primary = findNode(nodes, STAGE_COMPARE_ID)
+  const primaryImages = normalizeList(primary && primary.images)
+  if (primaryImages.length) {
+    return { node: primary, images: primaryImages, stageId: STAGE_COMPARE_ID }
+  }
+  const legacy = findNode(nodes, LEGACY_COMPARE_STAGE_ID)
+  const legacyImages = normalizeList(legacy && legacy.images)
+  if (legacyImages.length) {
+    return { node: legacy, images: legacyImages, stageId: LEGACY_COMPARE_STAGE_ID }
+  }
+  return { node: primary, images: [], stageId: STAGE_COMPARE_ID }
+}
+
 /** 从相册节点解析商家对比双栏数据 */
 function resolveCompareColumnsFromNodes(nodes = []) {
   const stage2 = findNode(nodes, STAGE_ASSESSMENT_ID)
-  const stage5 = findNode(nodes, STAGE_COMPARE_ID)
   const assessment = normalizeList(stage2 && stage2.images)
-  const stored = normalizeList(stage5 && stage5.images)
+  const { images: stored } = resolveCompareStorageNode(nodes)
 
   if (!stored.length) {
     return {
@@ -44,7 +59,6 @@ function resolveCompareColumnsFromNodes(nodes = []) {
     }
   }
 
-  // 修复后专用：stage_5 张数 ≤ 损伤评估 → 同序号 after（仅真实 URL，不补空位）
   if (assessment.length > 0 && stored.length <= assessment.length) {
     const partialAfterOnly =
       stored.length < assessment.length || stored.length % 2 !== 0
@@ -57,7 +71,6 @@ function resolveCompareColumnsFromNodes(nodes = []) {
     }
   }
 
-  // 交错存储 [前,后,前,后…]
   if (stored.length >= 2 && stored.length % 2 === 0) {
     const { beforeImages, afterImages } = splitInterleavedImages(stored)
     const hasAfter = afterImages.some(Boolean)
@@ -87,7 +100,7 @@ function resolveCompareColumnsFromNodes(nodes = []) {
   }
 }
 
-function mergeCompareColumnsToStage5(beforeImages = [], afterImages = [], assessmentImages = []) {
+function mergeCompareColumnsToStage6(beforeImages = [], afterImages = [], assessmentImages = []) {
   const before = normalizeList(beforeImages)
   const after = normalizeList(afterImages)
   const assessment = normalizeList(assessmentImages)
@@ -146,7 +159,7 @@ function applyCompareColumnsToNodes(nodes = [], beforeImages = [], afterImages =
   if (idx < 0) return list
   list[idx] = {
     ...list[idx],
-    images: mergeCompareColumnsToStage5(beforeImages, afterImages, assessmentImages),
+    images: mergeCompareColumnsToStage6(beforeImages, afterImages, assessmentImages),
   }
   return list
 }
@@ -154,8 +167,10 @@ function applyCompareColumnsToNodes(nodes = [], beforeImages = [], afterImages =
 module.exports = {
   STAGE_ASSESSMENT_ID,
   STAGE_COMPARE_ID,
+  LEGACY_COMPARE_STAGE_ID,
   resolveCompareColumnsFromNodes,
-  mergeCompareColumnsToStage5,
+  mergeCompareColumnsToStage6,
+  mergeCompareColumnsToStage5: mergeCompareColumnsToStage6,
   buildComparePairPreview,
   syncBeforeFromAssessment,
   applyCompareColumnsToNodes,

@@ -101,18 +101,32 @@
             <view class="merchant-album-edit__owner-verify-guide">
               <text class="text-body merchant-album-edit__owner-verify-title">{{partVerifyGuideTitle}}</text>
               <text class="text-caption merchant-album-edit__owner-verify-hint">{{partVerifyGuideHint}}</text>
+              <view class="merchant-album-edit__verify-mode-row">
+                <view
+                  class="merchant-album-edit__verify-mode-card {{partVerifyGuideMode === 'text' ? 'is-active' : ''}}"
+                  data-mode="text"
+                  bindtap="onPartVerifyGuideModeTap"
+                >
+                  <text class="text-body merchant-album-edit__verify-mode-title">{{partVerifyGuideModeTextTitle}}</text>
+                  <text class="text-caption merchant-album-edit__verify-mode-desc">{{partVerifyGuideModeTextDesc}}</text>
+                </view>
+                <view
+                  class="merchant-album-edit__verify-mode-card {{partVerifyGuideMode === 'informed' ? 'is-active' : ''}}"
+                  data-mode="informed"
+                  bindtap="onPartVerifyGuideModeTap"
+                >
+                  <text class="text-body merchant-album-edit__verify-mode-title">{{partVerifyGuideModeInformedTitle}}</text>
+                  <text class="text-caption merchant-album-edit__verify-mode-desc">{{partVerifyGuideModeInformedDesc}}</text>
+                </view>
+              </view>
               <textarea
-                wx:if="{{!partVerifyGuideInformed}}"
+                wx:if="{{partVerifyGuideMode === 'text'}}"
                 class="merchant-album-edit__owner-verify-input text-body"
                 placeholder="{{partVerifyGuidePlaceholder}}"
                 value="{{partVerifyGuideText}}"
                 maxlength="1000"
                 bindinput="onPartVerifyGuideInput"
               />
-              <ui-checkbox-row
-                checked="{{partVerifyGuideInformed}}"
-                bind:toggle="togglePartVerifyGuideInformed"
-              >{{partVerifyGuideInformedLabel}}</ui-checkbox-row>
             </view>
 
             <view
