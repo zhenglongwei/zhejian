@@ -21,6 +21,13 @@
   padding: var(--space-xl) var(--space-md);
 }
 
+.album-end-page__privacy {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--size-album-end-content-width);
+  margin-bottom: var(--space-md);
+}
+
 .album-end-page__finisher {
   display: flex;
   gap: var(--space-sm);

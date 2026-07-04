@@ -1,7 +1,6 @@
 {
   "component": true,
   "usingComponents": {
-    "ui-privacy-banner": "/components/privacy-banner/index",
     "ui-key-info-table": "/components/key-info-table/index",
     "ui-tag": "/components/tag/index",
     "ui-button": "/components/button/index",

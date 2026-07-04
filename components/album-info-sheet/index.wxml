@@ -19,8 +19,6 @@
         <text class="text-caption">阅读进度 {{pageProgress}}</text>
       </view>
 
-      <ui-privacy-banner scene="{{scene}}" />
-
       <block wx:if="{{aiSummary}}">
         <view class="album-info-sheet__section-title text-caption">维修摘要</view>
         <ui-ai-summary-block content="{{aiSummary}}" />

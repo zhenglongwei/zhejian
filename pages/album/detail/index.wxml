@@ -100,16 +100,24 @@
       toolbar-bottom-pad-px="{{toolbarBottomPadPx}}"
       chapters="{{flipChapters}}"
       active-node-id="{{activeNodeId}}"
+      show-inspect="{{showInspectEntry}}"
       show-archive="{{true}}"
-      show-compare="{{showCompareEntry}}"
       show-parts="{{showPartsEntry}}"
       bind:chaptertap="onChapterTap"
       bind:archivetap="onOpenInfoSheet"
-      bind:comparetap="onOpenCompareOverlay"
+      bind:inspecttap="onOpenInspect"
       bind:partstap="onOpenPartVerify"
     />
 
     <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
+      <view
+        wx:if="{{!isEndPage}}"
+        class="album-detail__privacy-strip"
+        style="padding-top: {{navSafeTopPx}}px;"
+      >
+        <ui-privacy-banner scene="album" />
+      </view>
+
       <view
         wx:if="{{!isEndPage && progressPercent > 0}}"
         class="album-detail__progress-track"
@@ -212,53 +220,4 @@
     bind:verifytap="onOpenPartVerify"
     bind:storetap="onOpenLinkedStore"
   />
-
-  <view
-    wx:if="{{compareOverlayVisible && comparePairs.length}}"
-    class="album-detail__compare-overlay"
-  >
-    <tool-immersive-nav
-      overlay="{{true}}"
-      transparent="{{false}}"
-      tone="dark"
-      title="前后对比"
-      auto-back="{{false}}"
-      bind:back="onCloseCompareOverlay"
-    />
-    <view class="album-detail__compare-body">
-      <swiper
-        class="album-detail__compare-swiper"
-        style="height: {{compareSwiperHeightPx}}px;"
-        current="{{comparePairIndex}}"
-        bindchange="onComparePairChange"
-        bindanimationfinish="onComparePairChange"
-      >
-        <swiper-item
-          wx:for="{{comparePairs}}"
-          wx:key="id"
-          class="album-detail__compare-item"
-        >
-          <view
-            class="album-detail__compare-slider-wrap"
-            style="height: {{compareStageHeightPx}}px;"
-          >
-            <album-compare-slider
-              immersive="{{true}}"
-              stage-height="{{compareStageHeightPx}}"
-              pair-key="{{item.id}}"
-              before-url="{{item.beforeUrl}}"
-              after-url="{{item.afterUrl}}"
-              before-label="{{item.beforeLabel}}"
-              after-label="{{item.afterLabel}}"
-            />
-          </view>
-        </swiper-item>
-      </swiper>
-      <text
-        wx:if="{{comparePairs.length > 1}}"
-        class="album-detail__compare-pager text-caption"
-      >{{comparePairIndex + 1}} / {{comparePairs.length}}</text>
-      <text wx:if="{{compareHint}}" class="album-detail__compare-hint text-caption">{{compareHint}}</text>
-    </view>
-  </view>
 </view>

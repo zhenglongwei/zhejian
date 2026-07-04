@@ -34,14 +34,8 @@ const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-acces
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
-const { buildAlbumComparePairs, buildAlbumCompareHint } = require('../../../utils/album-compare-pairs')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
-
-function setComparePageOrientation(orientation) {
-  if (typeof wx.setPageOrientation !== 'function') return
-  wx.setPageOrientation({ orientation })
-}
 
 function getWindowMetrics() {
   try {
@@ -49,33 +43,6 @@ function getWindowMetrics() {
   } catch (err) {
     return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20, screenHeight: 667, safeArea: null }
   }
-}
-
-function resolveNavTotalHeightPx(win) {
-  const statusBarHeight = win.statusBarHeight || 20
-  try {
-    const menu = wx.getMenuButtonBoundingClientRect()
-    const gap = Math.max(menu.top - statusBarHeight, 0)
-    return statusBarHeight + menu.height + gap * 2
-  } catch (err) {
-    return statusBarHeight + 44
-  }
-}
-
-function resolveCompareLayoutMetrics(pairCount = 1) {
-  const win = getWindowMetrics()
-  const windowHeight = Math.floor(win.windowHeight || win.screenHeight || 667)
-  const navTotalPx = resolveNavTotalHeightPx(win)
-  const screenHeight = win.screenHeight || windowHeight
-  const safeBottom = (win.safeArea && win.safeArea.bottom) || screenHeight
-  const safeBottomInset = Math.max(screenHeight - safeBottom, 0)
-  const bodyPaddingPx = 24 + safeBottomInset + 16
-  const footerPx = 36 + (pairCount > 1 ? 28 : 0)
-  const swiperHeightPx = Math.max(
-    windowHeight - navTotalPx - bodyPaddingPx - footerPx,
-    220,
-  )
-  return { compareSwiperHeightPx: swiperHeightPx, compareStageHeightPx: swiperHeightPx }
 }
 
 function resolveToolbarBottomPadPx() {
@@ -296,13 +263,7 @@ Page({
     infoSheetSummaryRows: [],
     infoSheetAiSummary: '',
     infoSheetPageProgress: '',
-    comparePairs: [],
-    compareHint: '',
-    showCompareEntry: false,
-    compareOverlayVisible: false,
-    comparePairIndex: 0,
-    compareSwiperHeightPx: 400,
-    compareStageHeightPx: 360,
+    showInspectEntry: false,
     linkedStoreId: '',
     linkedStoreName: '',
     linkedStoreSubtitle: '',
@@ -312,10 +273,6 @@ Page({
   },
 
   onLoad(options) {
-    this._onCompareResize = () => {
-      if (this.data.compareOverlayVisible) this.updateCompareLayout()
-    }
-    if (wx.onWindowResize) wx.onWindowResize(this._onCompareResize)
     wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     if (options.token) {
       wx.redirectTo({
@@ -504,16 +461,6 @@ Page({
         id: detail.albumId,
       })
       const flip = buildAlbumFlipPages(enriched.nodes || [])
-      const comparePairs = buildAlbumComparePairs(enriched.nodes || [], {
-        templateId: enriched.templateId,
-        templateName: enriched.templateName,
-        serviceName: enriched.serviceName,
-      })
-      const compareHint = buildAlbumCompareHint(comparePairs, {
-        templateId: enriched.templateId,
-        templateName: enriched.templateName,
-        serviceName: enriched.serviceName,
-      })
       const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
       const linkedStoreId =
@@ -574,11 +521,7 @@ Page({
         shareToken: '',
         shareSheetVisible: false,
         chromeVisible: pageStatus === 'normal',
-        comparePairs,
-        compareHint,
-        showCompareEntry: comparePairs.length > 0,
-        compareOverlayVisible: false,
-        comparePairIndex: 0,
+        showInspectEntry: pageStatus === 'normal',
         ...endPageAuth,
       }, () => {
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
@@ -756,49 +699,12 @@ Page({
     this.setData({ infoSheetVisible: false })
   },
 
-  onOpenCompareOverlay() {
-    if (!this.data.comparePairs.length) return
-    setComparePageOrientation('auto')
-    const layout = resolveCompareLayoutMetrics(this.data.comparePairs.length)
-    this.setData({
-      compareOverlayVisible: true,
-      comparePairIndex: 0,
-      chromeVisible: false,
-      ...layout,
-    }, () => {
-      setTimeout(() => this.updateCompareLayout(), 80)
-    })
-  },
-
-  updateCompareLayout() {
-    if (!this.data.compareOverlayVisible) return
-    const layout = resolveCompareLayoutMetrics(this.data.comparePairs.length)
-    this.setData(layout)
-  },
-
-  onCloseCompareOverlay() {
-    const { status, isEndPage } = this.data
-    setComparePageOrientation('portrait')
-    this.setData({
-      compareOverlayVisible: false,
-      chromeVisible: status === 'normal' && !isEndPage,
-    })
+  onOpenInspect() {
+    if (!this.albumId) return
+    wx.navigateTo({ url: `/pages/album/inspect/index?albumId=${this.albumId}` })
   },
 
   onUnload() {
-    if (wx.offWindowResize && this._onCompareResize) {
-      wx.offWindowResize(this._onCompareResize)
-    }
-    if (this.data.compareOverlayVisible) {
-      setComparePageOrientation('portrait')
-    }
-  },
-
-  onComparePairChange(e) {
-    const index = (e.detail && e.detail.current) || 0
-    if (index !== this.data.comparePairIndex) {
-      this.setData({ comparePairIndex: index })
-    }
   },
 
   onInfoSheetPartTap(e) {

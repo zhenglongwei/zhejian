@@ -1,5 +1,9 @@
 <view class="album-end-page">
   <view class="album-end-page__sheet">
+    <view class="album-end-page__privacy">
+      <ui-privacy-banner scene="album" />
+    </view>
+
     <view class="album-end-page__finisher" aria-hidden="true">
       <view class="album-end-page__finisher-line" />
       <text class="album-end-page__finisher-label text-caption">本册已阅</text>

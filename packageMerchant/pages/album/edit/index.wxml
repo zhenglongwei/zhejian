@@ -25,33 +25,96 @@
               <ui-tag wx:if="{{templateName}}" variant="info" text="{{templateName}}" />
             </view>
           </view>
-          <picker
+          <view
             wx:if="{{canSwitchTemplate && templateOptions.length}}"
-            mode="selector"
-            range="{{templateOptions}}"
-            range-key="name"
-            value="{{templatePickerIndex}}"
-            disabled="{{switching || saving || completing}}"
-            bindchange="onTemplateChange"
+            class="merchant-album-edit__template-switch"
           >
-            <text class="text-link text-caption merchant-album-edit__switch">切换模板</text>
-          </picker>
+            <picker
+              mode="selector"
+              range="{{templateOptions}}"
+              range-key="name"
+              value="{{templatePickerIndex}}"
+              disabled="{{switching || saving || completing}}"
+              bindchange="onTemplateChange"
+            >
+              <view class="merchant-album-edit__template-switch-action">
+                <text class="merchant-album-edit__template-switch-text text-caption">切换模板</text>
+              </view>
+            </picker>
+            <view class="merchant-album-edit__template-switch-divider" aria-hidden="true" />
+            <view
+              class="merchant-album-edit__template-switch-help"
+              aria-role="button"
+              aria-label="切换模板说明"
+              catchtap="onTemplateSwitchHelp"
+            >
+              <text class="merchant-album-edit__template-switch-help-icon">?</text>
+            </view>
+          </view>
         </view>
-        <text
-          wx:if="{{canSwitchTemplate && templateOptions.length}}"
-          class="text-caption merchant-album-edit__switch-hint"
-        >如自动匹配不准确，可手动切换。切换不会删除已上传图片。</text>
-        <view wx:if="{{completeness}}" class="merchant-album-edit__progress">
-          <text class="text-caption">{{completeness.summaryText}}</text>
+
+        <view class="merchant-album-edit__meta">
+          <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">车型</text>
+            <view class="merchant-album-edit__meta-fields">
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="品牌 *"
+                value="{{vehicleBrand}}"
+                disabled="{{saving || completing || switching}}"
+                data-field="vehicleBrand"
+                bindinput="onVehicleInput"
+              />
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="车系 *"
+                value="{{vehicleSeries}}"
+                disabled="{{saving || completing || switching}}"
+                data-field="vehicleSeries"
+                bindinput="onVehicleInput"
+              />
+            </view>
+          </view>
+
+          <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">车主</text>
+            <view class="merchant-album-edit__meta-body">
+              <text
+                wx:if="{{hasOwner && detail.userPhoneDisplay}}"
+                class="text-body merchant-album-edit__owner-value"
+              >{{detail.userPhoneDisplay}}</text>
+              <block wx:elif="{{!hasOwner}}">
+                <text
+                  class="text-link text-body merchant-album-edit__owner-link"
+                  bindtap="onInviteOwnerScan"
+                >请车主扫码关联</text>
+                <block wx:if="{{allowTestOwnerPhone}}">
+                  <input
+                    class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
+                    type="number"
+                    maxlength="11"
+                    placeholder="测试手填手机号"
+                    value="{{ownerPhoneInput}}"
+                    disabled="{{saving || completing || switching}}"
+                    bindinput="onOwnerPhoneInput"
+                  />
+                  <text class="text-caption merchant-album-edit__owner-test-tip">填写后点击底部「保存」即可关联</text>
+                </block>
+              </block>
+              <text wx:else class="text-caption text-secondary">未关联</text>
+            </view>
+          </view>
         </view>
+
+        <view wx:if="{{albumStatsText}}" class="merchant-album-edit__stats">
+          <text class="text-caption merchant-album-edit__stats-text">{{albumStatsText}}</text>
+        </view>
+
         <view wx:if="{{geoEvidence}}" class="merchant-album-edit__geo">
           <ui-tag variant="{{geoEvidenceVariant}}" text="{{geoEvidenceLabel}}" />
           <text class="text-caption merchant-album-edit__geo-text">{{geoEvidence.summaryText}}</text>
         </view>
-        <ui-key-info-table rows="{{summaryRows}}" />
       </ui-card>
-
-      <ui-privacy-banner scene="album" />
 
       <view class="merchant-album-edit__tabs">
         <ui-tabs
@@ -219,83 +282,6 @@
             />
           </view>
         </block>
-      </ui-card>
-
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="text-h3">车型信息</text>
-        <text class="text-caption merchant-album-edit__vehicle-hint">品牌与车系为必填；车牌/VIN 选填，公开案例时将脱敏展示。</text>
-        <view class="merchant-form__row merchant-album-edit__vehicle-row">
-          <input
-            class="merchant-form__input merchant-form__input--half"
-            placeholder="品牌 *"
-            value="{{vehicleBrand}}"
-            data-field="vehicleBrand"
-            bindinput="onVehicleInput"
-          />
-          <input
-            class="merchant-form__input merchant-form__input--half"
-            placeholder="车系 *"
-            value="{{vehicleSeries}}"
-            data-field="vehicleSeries"
-            bindinput="onVehicleInput"
-          />
-        </view>
-        <view class="merchant-form__row merchant-album-edit__vehicle-row">
-          <input
-            class="merchant-form__input merchant-form__input--half"
-            placeholder="车牌（选填）"
-            value="{{vehiclePlate}}"
-            data-field="vehiclePlate"
-            bindinput="onVehicleInput"
-          />
-          <input
-            class="merchant-form__input merchant-form__input--half"
-            placeholder="VIN（选填）"
-            value="{{vehicleVin}}"
-            maxlength="17"
-            data-field="vehicleVin"
-            bindinput="onVehicleInput"
-          />
-        </view>
-        <view class="merchant-album-edit__ocr-row">
-          <ui-button
-            type="secondary"
-            size="sm"
-            loading="{{vehicleOcrLoading}}"
-            disabled="{{saving || completing}}"
-            bind:btntap="onVehicleOcrFromIntake"
-          >从接车照片识别</ui-button>
-          <text class="text-caption merchant-album-edit__ocr-hint">使用接车节点最新一张照片识别车牌/VIN，识别后可手动修改</text>
-        </view>
-      </ui-card>
-
-      <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__owner">
-        <text class="text-h3">关联车主</text>
-        <text class="text-caption merchant-album-edit__owner-hint">{{ownerPhoneHint}}</text>
-
-        <text wx:if="{{detail.userPhoneDisplay}}" class="text-body merchant-album-edit__owner-phone">
-          当前关联：{{detail.userPhoneDisplay}}
-        </text>
-
-        <block wx:if="{{!hasOwner && allowTestOwnerPhone}}">
-          <input
-            class="merchant-form__input"
-            type="number"
-            maxlength="11"
-            placeholder="车主手机号（测试手填）"
-            value="{{ownerPhoneInput}}"
-            bindinput="onOwnerPhoneInput"
-          />
-          <text class="text-caption merchant-album-edit__owner-test-tip">填写后点击底部「保存」即可关联</text>
-        </block>
-
-        <ui-button
-          wx:if="{{!hasOwner}}"
-          type="secondary"
-          size="sm"
-          block="{{true}}"
-          bind:btntap="onInviteOwnerScan"
-        >请车主扫码关联</ui-button>
       </ui-card>
         </view>
       </scroll-view>

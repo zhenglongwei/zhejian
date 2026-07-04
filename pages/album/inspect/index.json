@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "相册检查",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "album-compare-slider": "/components/album-compare-slider/index"
+  }
+}
