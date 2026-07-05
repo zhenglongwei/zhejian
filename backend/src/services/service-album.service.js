@@ -143,6 +143,7 @@ function resolveEvidenceItemsForAlbum(album, nodes) {
 }
 
 function buildListCoverUrl(album) {
+  const images = album.images || []
   if (images.length) {
     const url =
       images[0].rawUrl || images[0].url || images[0].imageUrl || ''
