@@ -16,6 +16,16 @@
   overflow: hidden;
 }
 
+.album-detail__bottom-toolbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: calc(var(--z-fixed) + 4);
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
 .album-detail__viewer {
   display: block;
   width: 100%;

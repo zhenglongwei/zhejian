@@ -236,6 +236,20 @@ function buildMethodDocumentPanel(documentItems = []) {
         howToCheck: '核对工项、部位、配件标准',
         ifMismatch: '增项、漏项、超定损范围',
         advice: ADVICE.CONFIRM_INSURER,
+        missingHints: {
+          left: {
+            risk: '没有定损单，无法以保险核损结果为基准核对后续施工。',
+            action: '向门店或保险公司索取定损单。',
+          },
+          right: {
+            risk: '无法核对定损项目是否按工单施工，增项或漏项难以及时发现。',
+            action: '向门店索取施工工单，并核对工项是否与定损一致。',
+          },
+          both: {
+            risk: '定损单与施工工单均缺，此项对照暂时无法进行。',
+            action: '向门店索取定损单与施工工单。',
+          },
+        },
       }),
       buildMethodRow({
         id: 'loss_settle',
@@ -246,6 +260,20 @@ function buildMethodDocumentPanel(documentItems = []) {
         howToCheck: '核对结算项目与金额',
         ifMismatch: '超范围、未告知增项',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          left: {
+            risk: '没有定损单，无法核对交车结算是否超出理赔范围。',
+            action: '向门店或保险公司索取定损单。',
+          },
+          right: {
+            risk: '无法核对交车费用是否与定损一致，自费或增项部分难核实。',
+            action: '向门店索取维修结算单，并核对项目与金额。',
+          },
+          both: {
+            risk: '定损单与结算单均缺，交车费用对照暂时无法进行。',
+            action: '向门店索取定损单与维修结算单。',
+          },
+        },
       }),
     )
   } else {
@@ -259,6 +287,20 @@ function buildMethodDocumentPanel(documentItems = []) {
         howToCheck: '核对项目是否一致',
         ifMismatch: '擅自改方案、增删项目',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          left: {
+            risk: '没有维修报价单，无法核对门店是否按约定方案施工。',
+            action: '向门店索取维修报价单或方案说明。',
+          },
+          right: {
+            risk: '无法核对报价项目是否落实到工单，擅自增删项目难发现。',
+            action: '向门店索取施工工单，并核对工项是否与报价一致。',
+          },
+          both: {
+            risk: '报价单与施工工单均缺，此项对照暂时无法进行。',
+            action: '向门店索取报价单与施工工单。',
+          },
+        },
       }),
       buildMethodRow({
         id: 'quote_settle',
@@ -269,6 +311,20 @@ function buildMethodDocumentPanel(documentItems = []) {
         howToCheck: '核对金额与项目',
         ifMismatch: '费用变动、增项',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          left: {
+            risk: '没有维修报价单，无法核对交车费用是否与事先约定一致。',
+            action: '向门店索取维修报价单。',
+          },
+          right: {
+            risk: '无法核对结算是否与报价一致，费用变动或增项难核实。',
+            action: '向门店索取维修结算单，并核对项目与金额。',
+          },
+          both: {
+            risk: '报价单与结算单均缺，交车费用对照暂时无法进行。',
+            action: '向门店索取报价单与维修结算单。',
+          },
+        },
       }),
       buildMethodRow({
         id: 'work_settle',
@@ -279,6 +335,20 @@ function buildMethodDocumentPanel(documentItems = []) {
         howToCheck: '核对交车结算',
         ifMismatch: '交车增项',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          left: {
+            risk: '没有施工工单，无法核对结算项目是否确有对应施工。',
+            action: '向门店索取施工工单。',
+          },
+          right: {
+            risk: '无法核对交车结算是否与工单一致，交车增项难发现。',
+            action: '向门店索取维修结算单，并与工单项目对照。',
+          },
+          both: {
+            risk: '施工工单与结算单均缺，交车对照暂时无法进行。',
+            action: '向门店索取施工工单与维修结算单。',
+          },
+        },
       }),
     )
   }
@@ -318,6 +388,20 @@ function buildMethodPartPanel(detail = {}, processImages = []) {
         howToCheck: '核对件名、数量',
         ifMismatch: '漏换、擅自增项',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          left: {
+            risk: '没有维修方案，无法以方案为基准核对实际更换的配件。',
+            action: '向门店索取维修方案或报价说明。',
+          },
+          right: {
+            risk: '相册未登记配件，无法对照方案核对实际更换情况。',
+            action: '向门店确认更换清单，并补录配件登记与凭证图。',
+          },
+          both: {
+            risk: '方案与登记均缺，配件对照暂时无法进行。',
+            action: '向门店索取维修方案并补录配件登记。',
+          },
+        },
       }),
     )
   }
@@ -345,6 +429,12 @@ function buildMethodPartPanel(detail = {}, processImages = []) {
         howToCheck: '看包装、标签、编码',
         ifMismatch: '类型不符、凭证缺失',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          right: {
+            risk: '没有配件凭证图，无法核对包装、标签与登记是否一致。',
+            action: '向门店索取配件外观、包装或编码照片。',
+          },
+        },
       }),
     )
   }
@@ -372,6 +462,12 @@ function buildMethodPartPanel(detail = {}, processImages = []) {
         howToCheck: '声称更换是否有旧件或拆下过程',
         ifMismatch: '以修代换、未真换',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          right: {
+            risk: '没有旧件或施工过程照片，无法确认配件是否真的更换，存在以修代换风险。',
+            action: '向门店确认更换情况，并索取旧件外观或拆下过程照片。',
+          },
+        },
       }),
     )
   }
@@ -431,6 +527,28 @@ function buildMethodCrossPanel(documentItems = [], detail = {}, processImages = 
         howToCheck: '工项是否有对应施工图',
         ifMismatch: '过程缺失、项实不符',
         advice: ADVICE.CONFIRM_STORE,
+        missingHints: {
+          right: {
+            risk: '没有施工过程照片，无法核对工单工项是否确有施工留痕。',
+            action: '向门店索取对应环节的过程照片。',
+          },
+        },
+      }),
+    )
+  } else if (has('work_order') && !processImages.length) {
+    methodRows.push(
+      buildMethodRow({
+        id: 'work_process',
+        leftLabel: '施工工单',
+        rightLabel: '过程图',
+        leftOk: true,
+        rightOk: false,
+        missingHints: {
+          right: {
+            risk: '没有施工过程照片，无法核对工单工项是否确有施工留痕。',
+            action: '向门店索取对应环节的过程照片。',
+          },
+        },
       }),
     )
   }

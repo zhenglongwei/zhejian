@@ -17,7 +17,8 @@
 .album-progress-segments--toolbar {
   flex-shrink: 0;
   gap: 6rpx;
-  max-width: 520rpx;
+  width: 100%;
+  max-width: none;
 }
 
 .album-progress-segments__seg {

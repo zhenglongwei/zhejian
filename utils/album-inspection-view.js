@@ -19,10 +19,13 @@ function nodeImages(node) {
 function buildDocumentItems(detail = {}) {
   const templateId = detail.templateId || ''
   const nodes = detail.nodes || []
+  const structured = Array.isArray(detail.evidenceItems) ? detail.evidenceItems : []
   const types = resolveDocumentTypesForTemplate(templateId)
   return types.map((def) => {
-    const node = findNode(nodes, def.stageId)
-    const images = nodeImages(node)
+    const structuredItem = structured.find((item) => item && item.id === def.id)
+    const images = structuredItem
+      ? (structuredItem.images || []).map((url) => String(url || '').trim()).filter(Boolean)
+      : nodeImages(findNode(nodes, def.stageId))
     const strength = bumpStrengthForAccident(def.strength, templateId)
     return {
       id: def.id,

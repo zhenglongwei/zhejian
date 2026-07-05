@@ -1,7 +1,7 @@
 <view
   wx:if="{{chapters.length || stages.length}}"
   class="album-bottom-toolbar {{embedded ? 'album-bottom-toolbar--embedded' : ''}} {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
-  style="{{overlay && toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
+  style="{{toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
 >
   <block wx:if="{{mode === 'progress'}}">
     <view class="album-bottom-toolbar__panel">

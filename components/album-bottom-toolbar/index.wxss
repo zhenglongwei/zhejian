@@ -16,7 +16,13 @@
   box-sizing: border-box;
   width: 100%;
   height: auto;
+  padding: 0 var(--space-md) var(--toolbar-bottom-pad, calc(env(safe-area-inset-bottom) + var(--space-md)));
   background: transparent;
+  pointer-events: none;
+}
+
+.album-bottom-toolbar--embedded .album-bottom-toolbar__panel,
+.album-bottom-toolbar--embedded .album-bottom-toolbar__scroll {
   pointer-events: auto;
 }
 

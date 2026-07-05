@@ -39,6 +39,12 @@ const { detectAlbumSaveChanges } = require('../utils/album-save-notify')
 const { maskPlate } = require('../utils/plate-mask')
 const { normalizePlate, normalizeVin } = require('./vehicle-intake-ocr.service')
 const { assessGeoEvidence } = require('../utils/case-geo-quality')
+const {
+  hydrateEvidenceItems,
+  sanitizeEvidenceItemsPayload,
+  mergeEvidenceIntoNodes,
+  countDocumentEvidence,
+} = require('../utils/album-evidence-items')
 
 function normalizeVehicleJson(vehicle = {}) {
   if (!vehicle || typeof vehicle !== 'object') return {}
@@ -127,8 +133,16 @@ function mapNodesForView(album) {
   })
 }
 
+function resolveEvidenceItemsForAlbum(album, nodes) {
+  const saved = Array.isArray(album.evidenceItemsJson) ? album.evidenceItemsJson : []
+  return hydrateEvidenceItems({
+    templateId: album.templateId,
+    savedItems: saved,
+    nodes,
+  })
+}
+
 function buildListCoverUrl(album) {
-  const images = album.images || []
   if (images.length) {
     const url =
       images[0].rawUrl || images[0].url || images[0].imageUrl || ''
@@ -191,6 +205,7 @@ function buildAlbumView(album) {
     imageCount,
     storeNote: album.storeNote || '',
     nodes,
+    evidenceItems: resolveEvidenceItemsForAlbum(album, nodes),
     pendingConfirms: album.pendingConfirmsJson || [],
     pendingCount: (album.pendingConfirmsJson || []).length,
     publicCaseStatus,
@@ -282,6 +297,7 @@ function sanitizePartVerifyGuidePayload(payload = {}, existing = {}) {
 
 function buildMerchantView(album) {
   const nodes = mapNodesForView(album)
+  const evidenceItems = resolveEvidenceItemsForAlbum(album, nodes)
   const imageCount = album.imageCount || countImages(nodes)
   const privatePrice = buildPrivateAlbumPrice(album)
   const planAmount = privatePrice.planAmount
@@ -311,6 +327,7 @@ function buildMerchantView(album) {
     templateId: album.templateId || '',
     templateName: album.templateName || '',
     nodes,
+    evidenceItems,
     parts: album.partsJson || [],
     planAmount,
     planMinAmount: planAmount,
@@ -777,11 +794,18 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   assertMerchantCannotSetOwnerPhone(payload)
 
   let imageCount = existing.imageCount
+  let evidenceItemsJson = Array.isArray(existing.evidenceItemsJson)
+    ? existing.evidenceItemsJson
+    : []
+  if (payload.evidenceItems != null) {
+    evidenceItemsJson = sanitizeEvidenceItemsPayload(payload.evidenceItems)
+  }
   if (payload.nodes) {
+    const mergedNodes = mergeEvidenceIntoNodes(payload.nodes, evidenceItemsJson)
     const previousImageUrls = new Set(
       (existing.images || []).map((img) => rewriteMediaUrlForCurrentBase(img.rawUrl))
     )
-    imageCount = await syncAlbumNodes(albumId, payload.nodes, {
+    imageCount = await syncAlbumNodes(albumId, mergedNodes, {
       album: existing,
       previousImageUrls,
     })
@@ -820,6 +844,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       complexityLevel: payload.complexityLevel ?? existing.complexityLevel,
       partsJson: payload.parts ?? existing.partsJson,
       planPartsJson: planPartsUpdate ?? existing.planPartsJson,
+      evidenceItemsJson,
       ...partVerifyGuide,
       priceMode: planAmount != null ? 'fixed' : existing.priceMode,
       minAmount: planAmount != null ? planAmount : existing.minAmount,

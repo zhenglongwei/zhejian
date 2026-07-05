@@ -29,8 +29,13 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
-
-const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
+const {
+  hydrateEvidenceItems,
+  filterEvidenceByStage,
+  sanitizeEvidenceItemsPayload,
+  mergeEvidenceIntoNodes,
+  applyProcessOnlyNodes,
+} = require('../../../../utils/album-evidence-items')
 const {
   resolveComparePairRowsFromNodes,
   applyComparePairRowsToNodes,
@@ -197,6 +202,10 @@ Page({
       partTypeIndex: 0,
       extraReason: '',
     },
+    evidenceItems: [],
+    stageEvidenceSlots: [],
+    showStageEvidenceSlots: false,
+    showStageProcessUploader: true,
   },
 
   onLoad(options) {
@@ -289,7 +298,27 @@ Page({
     const isComparePairStage =
       COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId) && stageId === STAGE_COMPARE_ID
     this.setData({ isComparePairStage, isPartsStage })
+    this.refreshStageEvidenceUI(stageIndex, { isComparePairStage })
     return isComparePairStage
+  },
+
+  refreshStageEvidenceUI(stageIndex = this.data.stageIndex, flags = {}) {
+    const stageId = (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
+    const stageEvidenceSlots = filterEvidenceByStage(this.data.evidenceItems, stageId)
+    const isComparePairStage =
+      flags.isComparePairStage != null
+        ? flags.isComparePairStage
+        : this.data.isComparePairStage
+    const showStageEvidenceSlots = stageEvidenceSlots.length > 0
+    const showStageProcessUploader =
+      !showStageEvidenceSlots ||
+      stageId === 'stage_5' ||
+      (stageId === STAGE_COMPARE_ID && !isComparePairStage)
+    this.setData({
+      stageEvidenceSlots,
+      showStageEvidenceSlots,
+      showStageProcessUploader,
+    })
   },
 
   initComparePairRowsFromNodes(nodes, templateId) {
@@ -310,7 +339,13 @@ Page({
   },
 
   applyAlbum(detail) {
-    const nodes = this.mergeNodes(detail.nodes, detail.templateId)
+    const mergedNodes = this.mergeNodes(detail.nodes, detail.templateId)
+    const evidenceItems = hydrateEvidenceItems({
+      templateId: detail.templateId,
+      savedItems: detail.evidenceItems || [],
+      nodes: mergedNodes,
+    })
+    const nodes = applyProcessOnlyNodes(mergedNodes, evidenceItems)
     const stageTabs = this.buildStageTabs(nodes)
     const planAmount = resolvePlanAmount(detail)
     const imageCount = detail.imageCount != null ? detail.imageCount : 0
@@ -402,6 +437,7 @@ Page({
       partVerifyGuideInformed: Boolean(detail.partVerifyGuideInformed),
       partVerifyGuideMode: detail.partVerifyGuideInformed ? 'informed' : 'text',
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
+      evidenceItems,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
       this.refreshPartWizard()
@@ -530,6 +566,31 @@ Page({
     } finally {
       this.setData({ switching: false })
     }
+  },
+
+  onEvidenceSlotsChange(e) {
+    const items = (e.detail && e.detail.items) || []
+    const stageId =
+      (this.data.stages[this.data.stageIndex] && this.data.stages[this.data.stageIndex].id) || ''
+    const otherItems = (this.data.evidenceItems || []).filter(
+      (item) => item && item.stageId !== stageId,
+    )
+    const stageItems = items.map((item) => ({ ...item, stageId: item.stageId || stageId }))
+    const evidenceItems = [...otherItems, ...stageItems]
+    this.setData({ evidenceItems }, () => {
+      this.refreshStageEvidenceUI(this.data.stageIndex)
+    })
+  },
+
+  async persistEvidenceItemImages(items) {
+    let droppedStaleCount = 0
+    const next = []
+    for (const item of items || []) {
+      const persisted = await persistLocalImages(item.images || [])
+      droppedStaleCount += persisted.droppedStaleCount || 0
+      next.push({ ...item, images: persisted.images })
+    }
+    return { items: next, droppedStaleCount }
   },
 
   onNodeImages(e) {
@@ -1090,7 +1151,10 @@ Page({
         nodesSource = applyComparePairRowsToNodes(nodesSource, rows)
       }
     }
-    const { nodes, droppedStaleCount } = await persistAlbumNodeImages(
+    const { items: evidenceItems, droppedStaleCount: evidenceDropped } =
+      await this.persistEvidenceItemImages(this.data.evidenceItems)
+    nodesSource = mergeEvidenceIntoNodes(nodesSource, evidenceItems)
+    const { nodes, droppedStaleCount: nodeDropped } = await persistAlbumNodeImages(
       nodesSource.map((n) => ({
         id: n.id,
         title: n.title,
@@ -1122,8 +1186,9 @@ Page({
             ? ''
             : String(this.data.partVerifyGuideText || '').trim(),
         partVerifyGuideInformed: this.data.partVerifyGuideMode === 'informed',
+        evidenceItems: sanitizeEvidenceItemsPayload(evidenceItems),
       },
-      droppedStaleCount,
+      droppedStaleCount: (nodeDropped || 0) + (evidenceDropped || 0),
     }
   },
 
@@ -1179,7 +1244,9 @@ Page({
         return
       }
     }
-    const hasImage = this.data.nodes.some((n) => (n.images || []).length > 0)
+    const hasImage =
+      this.data.nodes.some((n) => (n.images || []).length > 0) ||
+      (this.data.evidenceItems || []).some((item) => (item.images || []).length > 0)
     if (!hasImage) {
       wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
       return

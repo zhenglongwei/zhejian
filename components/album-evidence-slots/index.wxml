@@ -1,0 +1,32 @@
+<view wx:if="{{items.length}}" class="album-evidence-slots">
+  <view class="album-evidence-slots__intro">
+    <text class="text-caption text-secondary">按单据类型分别上传，便于车主对照检查。</text>
+  </view>
+
+  <view
+    wx:for="{{items}}"
+    wx:key="id"
+    wx:for-item="slot"
+    class="album-evidence-slots__slot"
+  >
+    <view class="album-evidence-slots__slot-head">
+      <text class="text-body album-evidence-slots__slot-label">{{slot.label}}</text>
+      <ui-tag
+        wx:if="{{slot.merchantLabel}}"
+        variant="{{slot.strength === 'strongly_recommended' ? 'warning' : 'info'}}"
+        text="{{slot.merchantLabel}}"
+      />
+    </view>
+    <text wx:if="{{slot.merchantHint}}" class="text-caption album-evidence-slots__slot-hint">{{slot.merchantHint}}</text>
+    <ui-image-uploader
+      class="album-evidence-slots__uploader"
+      images="{{slot.images}}"
+      maxCount="{{3}}"
+      disabled="{{disabled}}"
+      data-id="{{slot.id}}"
+      bind:change="onImagesChange"
+    />
+  </view>
+
+  <text wx:if="{{uploadHint}}" class="text-caption album-evidence-slots__upload-hint">{{uploadHint}}</text>
+</view>

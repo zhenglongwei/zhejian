@@ -42,25 +42,51 @@
 
   <view wx:if="{{layout === 'method' && methodRows.length}}" class="surface-album-inset album-inspection-matrix__table-wrap">
     <view class="album-inspection-matrix__table album-inspection-matrix__table--method">
-      <view class="album-inspection-matrix__row album-inspection-matrix__row--head">
-        <text class="album-inspection-matrix__method-label-head text-caption">对照</text>
-        <text class="album-inspection-matrix__method-col text-caption">怎么核对</text>
-        <text class="album-inspection-matrix__method-col text-caption">一致</text>
-        <text class="album-inspection-matrix__method-col text-caption">不一致</text>
-        <text class="album-inspection-matrix__method-advice-head text-caption">建议</text>
-      </view>
-
       <view
         wx:for="{{methodRows}}"
         wx:key="id"
         wx:for-item="row"
-        class="album-inspection-matrix__row album-inspection-matrix__row--method album-inspection-matrix__row--{{row.rowLevel}}"
+        class="album-inspection-matrix__method-card album-inspection-matrix__method-card--{{row.rowLevel}}"
       >
-        <text class="text-caption album-inspection-matrix__method-label">{{row.label}}</text>
-        <text class="text-caption album-inspection-matrix__method-col">{{row.howToCheck}}</text>
-        <text class="text-caption album-inspection-matrix__method-col">{{row.ifMatch}}</text>
-        <text class="text-caption album-inspection-matrix__method-col">{{row.ifMismatch}}</text>
-        <text class="text-caption album-inspection-matrix__method-advice">{{row.advice}}</text>
+        <text class="text-caption album-inspection-matrix__method-card-label">{{row.label}}</text>
+
+        <block wx:if="{{row.isMissing}}">
+          <view class="album-inspection-matrix__method-card-field">
+            <text class="text-caption album-inspection-matrix__method-card-key">缺少</text>
+            <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--missing">{{row.missingSummary}}</text>
+          </view>
+          <view class="album-inspection-matrix__method-card-field">
+            <text class="text-caption album-inspection-matrix__method-card-key">可能影响</text>
+            <text class="text-caption album-inspection-matrix__method-card-value">{{row.riskHint}}</text>
+          </view>
+          <view class="album-inspection-matrix__method-card-field">
+            <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+            <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{row.actionHint}}</text>
+          </view>
+        </block>
+
+        <block wx:else>
+          <view class="album-inspection-matrix__method-card-field">
+            <text class="text-caption album-inspection-matrix__method-card-key">怎么核对</text>
+            <text class="text-caption album-inspection-matrix__method-card-value">{{row.howToCheck}}</text>
+          </view>
+
+          <view class="album-inspection-matrix__method-card-pair">
+            <view class="album-inspection-matrix__method-card-pair-row">
+              <text class="text-caption album-inspection-matrix__method-card-key">一致</text>
+              <text class="text-caption album-inspection-matrix__method-card-value">{{row.ifMatch}}</text>
+            </view>
+            <view class="album-inspection-matrix__method-card-pair-row">
+              <text class="text-caption album-inspection-matrix__method-card-key">不一致</text>
+              <text class="text-caption album-inspection-matrix__method-card-value">{{row.ifMismatch}}</text>
+            </view>
+          </view>
+
+          <view class="album-inspection-matrix__method-card-field">
+            <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+            <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{row.advice}}</text>
+          </view>
+        </block>
       </view>
     </view>
   </view>

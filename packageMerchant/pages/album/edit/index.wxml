@@ -127,6 +127,13 @@
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <block wx:if="{{isComparePairStage}}">
+          <album-evidence-slots
+            wx:if="{{showStageEvidenceSlots}}"
+            items="{{stageEvidenceSlots}}"
+            disabled="{{saving || completing || switching}}"
+            uploadHint="{{uploadPrivacyHint}}"
+            bind:change="onEvidenceSlotsChange"
+          />
           <album-compare-pair-editor
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
@@ -244,7 +251,32 @@
           </view>
         </block>
         <block wx:else>
+          <album-evidence-slots
+            wx:if="{{showStageEvidenceSlots}}"
+            items="{{stageEvidenceSlots}}"
+            disabled="{{saving || completing || switching}}"
+            uploadHint="{{stages[stageIndex].id === 'stage_3' ? planStageUploadHint : uploadPrivacyHint}}"
+            bind:change="onEvidenceSlotsChange"
+          />
           <ui-album-node
+            wx:if="{{showStageProcessUploader}}"
+            mode="edit"
+            title="{{nodes[stageIndex].title}}"
+            description="{{nodes[stageIndex].description}}"
+            photoTips="{{nodes[stageIndex].photoTips}}"
+            compareGuidance="{{nodes[stageIndex].compareGuidance}}"
+            requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
+            requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
+            note="{{nodes[stageIndex].note}}"
+            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
+            images="{{nodes[stageIndex].images}}"
+            uploadHint="{{uploadPrivacyHint}}"
+            data-index="{{stageIndex}}"
+            bind:imageschange="onNodeImages"
+            bind:notechange="onNodeNoteChange"
+          />
+          <ui-album-node
+            wx:elif="{{!showStageEvidenceSlots}}"
             mode="edit"
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"

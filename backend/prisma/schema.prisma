@@ -144,6 +144,7 @@ model Album {
   planPartsJson       Json                @default("[]") @map("plan_parts_json")
   planQuoteImageIds   Json                @default("[]") @map("plan_quote_image_ids")
   planPartsLockedAt   DateTime?           @map("plan_parts_locked_at")
+  evidenceItemsJson   Json                @default("[]") @map("evidence_items_json")
   pendingConfirmsJson Json                @default("[]") @map("pending_confirms_json")
   status              String              @default("draft")
   templateId          String              @default("") @map("template_id")

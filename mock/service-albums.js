@@ -29,6 +29,11 @@ const {
 } = require('../utils/album-price')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
 const { albumMatchesUserVehicle } = require('../utils/album-vehicle-match')
+const {
+  hydrateEvidenceItems,
+  sanitizeEvidenceItemsPayload,
+  mergeEvidenceIntoNodes,
+} = require('../utils/album-evidence-items')
 
 const {
   resolveAlbumCoverUrl,
@@ -247,6 +252,35 @@ const MOCK_ALBUMS = [
         updatedAt: '2026-05-15T16:00:00.000Z',
       },
     ],
+    evidenceItems: [
+      {
+        id: 'repair_quote',
+        category: 'document',
+        type: 'repair_quote',
+        stageId: 'stage_3',
+        label: '维修报价单',
+        strength: 'strongly_recommended',
+        images: ['mock://service-album/alb_svc_completed/stage_3/quote'],
+      },
+      {
+        id: 'work_order',
+        category: 'document',
+        type: 'work_order',
+        stageId: 'stage_5',
+        label: '施工工单',
+        strength: 'recommended',
+        images: ['mock://service-album/alb_svc_completed/stage_5/0'],
+      },
+      {
+        id: 'settlement',
+        category: 'document',
+        type: 'settlement',
+        stageId: 'stage_6',
+        label: '维修结算单',
+        strength: 'recommended',
+        images: ['mock://service-album/alb_svc_completed/stage_6/0'],
+      },
+    ],
   },
   {
     albumId: 'alb_svc_body_paint',
@@ -436,6 +470,15 @@ function mapNodesForView(nodes) {
   }))
 }
 
+function resolveAlbumEvidenceItems(album, nodes) {
+  const saved = Array.isArray(album.evidenceItems) ? album.evidenceItems : []
+  return hydrateEvidenceItems({
+    templateId: album.templateId,
+    savedItems: saved,
+    nodes,
+  })
+}
+
 function buildAlbumViewModel(raw) {
   const album = applyConfirmOverrides(raw)
   const store = resolveStoreBlock(album.storeId)
@@ -455,6 +498,7 @@ function buildAlbumViewModel(raw) {
     imageCount,
     storeNote: album.storeNote || '',
     nodes,
+    evidenceItems: resolveAlbumEvidenceItems(album, nodes),
     pendingConfirms: album.pendingConfirms || [],
     pendingCount,
     publicCaseStatus,
@@ -604,6 +648,7 @@ function buildMerchantAlbumView(raw) {
     templateId: album.templateId || '',
     templateName: album.templateName || '',
     nodes,
+    evidenceItems: resolveAlbumEvidenceItems(album, nodes),
     parts: album.parts || [],
     planAmount: privatePrice.planAmount,
     planMinAmount: privatePrice.planAmount,
@@ -988,11 +1033,17 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
     ALLOW_TEST_OWNER_PHONE && payload.userPhone != null
       ? String(payload.userPhone || '').trim()
       : raw.userPhone
+  const evidenceItems =
+    payload.evidenceItems != null
+      ? sanitizeEvidenceItemsPayload(payload.evidenceItems)
+      : raw.evidenceItems || []
+  const mergedNodes = mergeEvidenceIntoNodes(payload.nodes || raw.nodes, evidenceItems)
   const next = {
     ...raw,
     ...normalized,
     userPhone,
-    nodes: payload.nodes || raw.nodes,
+    nodes: mergedNodes,
+    evidenceItems,
     parts: payload.parts || raw.parts,
     partVerifyGuideText:
       payload.partVerifyGuideInformed != null && payload.partVerifyGuideInformed
