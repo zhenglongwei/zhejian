@@ -14,7 +14,7 @@
 
   <block wx:elif="{{detail}}">
     <view class="merchant-album-edit__shell">
-      <scroll-view scroll-y class="merchant-album-edit__scroll" show-scrollbar="{{false}}">
+      <scroll-view scroll-y class="merchant-album-edit__scroll" show-scrollbar="{{false}}" scroll-into-view="{{inspScrollIntoView}}">
         <view class="page-content merchant-album-edit__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
         <view class="merchant-album-edit__head">
@@ -106,37 +106,52 @@
           </view>
         </view>
 
-        <view wx:if="{{albumStatsText}}" class="merchant-album-edit__stats">
-          <text class="text-caption merchant-album-edit__stats-text">{{albumStatsText}}</text>
-        </view>
-
         <view wx:if="{{geoEvidence}}" class="merchant-album-edit__geo">
           <ui-tag variant="{{geoEvidenceVariant}}" text="{{geoEvidenceLabel}}" />
           <text class="text-caption merchant-album-edit__geo-text">{{geoEvidence.summaryText}}</text>
         </view>
       </ui-card>
 
-      <view wx:if="{{merchantInspPanels.length}}" class="merchant-album-edit__insp">
+      <view wx:if="{{merchantInspPanels.length}}" id="merchant-insp-section" class="merchant-album-edit__insp">
         <ui-card shadow="{{true}}" padding="{{true}}">
-          <view class="merchant-album-edit__insp-head">
-            <text class="text-h3 merchant-album-edit__insp-title">留痕自检</text>
-            <text class="text-caption merchant-album-edit__insp-summary">
-              {{merchantInspSummary.done}}/{{merchantInspSummary.total}} 已留
-              <text wx:if="{{merchantInspSummary.missing}}"> · 缺 {{merchantInspSummary.missing}} 项</text>
-            </text>
+          <view
+            class="merchant-album-edit__insp-toggle"
+            bindtap="onToggleMerchantInsp"
+            aria-role="button"
+            aria-expanded="{{merchantInspExpanded}}"
+            aria-label="留痕自检"
+          >
+            <view class="merchant-album-edit__insp-toggle-main">
+              <view class="merchant-album-edit__insp-toggle-title-row">
+                <text class="text-body merchant-album-edit__insp-title">留痕自检</text>
+                <ui-tag
+                  wx:if="{{merchantInspCriticalMissing.length}}"
+                  variant="warning"
+                  text="缺必留"
+                />
+              </view>
+              <text class="text-caption merchant-album-edit__insp-summary">
+                {{merchantInspSummary.done}}/{{merchantInspSummary.total}} 已留
+                <text wx:if="{{merchantInspCriticalMissing.length}}"> · 缺 {{merchantInspCriticalMissing.length}} 项必留</text>
+                <text wx:elif="{{merchantInspSummary.missing}}"> · 缺 {{merchantInspSummary.missing}} 项</text>
+              </text>
+            </view>
+            <text class="text-caption merchant-album-edit__insp-chevron">{{merchantInspExpanded ? '收起' : '展开'}}</text>
           </view>
-          <text class="text-caption merchant-album-edit__insp-hint">{{merchantInspHint}}</text>
-          <album-inspection-matrix
-            wx:for="{{merchantInspPanels}}"
-            wx:key="id"
-            wx:for-item="panel"
-            title="{{panel.title}}"
-            layout="inventory"
-            rows="{{panel.rows}}"
-            importance-column-label="{{merchantInspColumnLabel}}"
-            compact="{{true}}"
-            bind:preview="onInspPreviewImage"
-          />
+          <block wx:if="{{merchantInspExpanded}}">
+            <text class="text-caption merchant-album-edit__insp-hint">{{merchantInspHint}}</text>
+            <album-inspection-matrix
+              wx:for="{{merchantInspPanels}}"
+              wx:key="id"
+              wx:for-item="panel"
+              title="{{panel.title}}"
+              layout="inventory"
+              rows="{{panel.rows}}"
+              importance-column-label="{{merchantInspColumnLabel}}"
+              compact="{{true}}"
+              bind:preview="onInspPreviewImage"
+            />
+          </block>
         </ui-card>
       </view>
 
@@ -327,14 +342,16 @@
           />
         </block>
 
-        <block wx:if="{{stages[stageIndex].id === 'stage_3'}}">
+        <block wx:if="{{stages[stageIndex].id === 'stage_6'}}">
           <view class="merchant-album-edit__plan">
-            <text class="merchant-album-edit__plan-label text-h3">方案报价</text>
+            <text class="merchant-album-edit__plan-label text-h3">最终费用</text>
+            <text class="text-caption merchant-album-edit__plan-hint">{{planAmountHint}}</text>
             <input
               class="merchant-form__input"
               type="number"
               placeholder="请输入本次实际费用"
               value="{{planAmount}}"
+              disabled="{{saving || completing || switching}}"
               data-field="planAmount"
               bindinput="onPlanInput"
             />
@@ -367,6 +384,33 @@
       </view>
     </view>
   </block>
+
+  <view
+    wx:if="{{inspCompleteModalVisible}}"
+    class="merchant-album-edit__insp-modal"
+    catchtouchmove="noop"
+  >
+    <view class="merchant-album-edit__insp-modal-mask" bindtap="onCloseInspCompleteModal" />
+    <view class="merchant-album-edit__insp-modal-panel safe-bottom">
+      <text class="merchant-album-edit__insp-modal-title text-h3">{{inspCompleteModalTitle}}</text>
+      <text class="merchant-album-edit__insp-modal-intro text-caption text-secondary">{{inspCompleteModalIntro}}</text>
+      <scroll-view scroll-y class="merchant-album-edit__insp-modal-list" show-scrollbar="{{false}}">
+        <view
+          wx:for="{{merchantInspCriticalMissing}}"
+          wx:key="id"
+          class="merchant-album-edit__insp-modal-item"
+        >
+          <text class="text-caption merchant-album-edit__insp-modal-item-tag">{{item.panelTitle}}</text>
+          <text class="text-body">{{item.label}}</text>
+        </view>
+      </scroll-view>
+      <view class="merchant-album-edit__insp-modal-actions">
+        <ui-button type="primary" block bind:btntap="onInspCompleteModalViewChecklist">留痕自检</ui-button>
+        <ui-button type="secondary" block bind:btntap="onCloseInspCompleteModal">先补传</ui-button>
+        <text class="text-link text-caption merchant-album-edit__insp-modal-skip" bindtap="onInspCompleteModalProceedAnyway">仍要完工</text>
+      </view>
+    </view>
+  </view>
 
   <view
     wx:if="{{partCodePickerVisible}}"

@@ -33,6 +33,34 @@ function buildMerchantEditInspectionView(state = {}) {
   })
 }
 
+const CRITICAL_IMPORTANCE_LABEL = '必留'
+
+function collectCriticalMissingFromPanels(panels = []) {
+  const items = []
+  ;(panels || []).forEach((panel) => {
+    ;(panel.rows || []).forEach((row) => {
+      if (row.present || row.importanceLabel !== CRITICAL_IMPORTANCE_LABEL) return
+      items.push({
+        id: row.id,
+        label: row.label,
+        panelTitle: panel.title || '',
+      })
+    })
+  })
+  return items
+}
+
+function formatCriticalMissingSummary(items = [], maxItems = 6) {
+  const list = items || []
+  if (!list.length) return ''
+  const head = list.slice(0, maxItems).map((item) => item.label).join('、')
+  if (list.length <= maxItems) return head
+  return `${head} 等 ${list.length} 项`
+}
+
 module.exports = {
   buildMerchantEditInspectionView,
+  collectCriticalMissingFromPanels,
+  formatCriticalMissingSummary,
+  CRITICAL_IMPORTANCE_LABEL,
 }

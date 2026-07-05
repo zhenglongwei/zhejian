@@ -8,7 +8,6 @@ const { PRICE_MODE } = require('../../../../constants/price-mode')
 const {
   resolvePlanAmount,
   normalizePlanAmountPayload,
-  formatPlanAmountLabel,
 } = require('../../../../utils/album-price')
 const {
   fetchMerchantServiceAlbum,
@@ -40,7 +39,7 @@ const {
   buildValidPlanPartIdSet,
   mergeEvidenceItemsForSave,
 } = require('../../../../utils/album-evidence-items')
-const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT } = require('../../../../constants/album-evidence-guide')
+const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT, MERCHANT_COMPLETE_INSP_TITLE, MERCHANT_COMPLETE_INSP_INTRO } = require('../../../../constants/album-evidence-guide')
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
@@ -60,7 +59,10 @@ const {
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
-const { buildMerchantEditInspectionView } = require('../../../../utils/album-merchant-inspection')
+const {
+  buildMerchantEditInspectionView,
+  collectCriticalMissingFromPanels,
+} = require('../../../../utils/album-merchant-inspection')
 const {
   MERCHANT_PART_TYPE_LOCKED_TIP,
   MERCHANT_PART_TYPE_MANUAL_TIP,
@@ -144,7 +146,6 @@ Page({
     errorMessage: '',
     albumId: '',
     detail: null,
-    albumStatsText: '',
     statusLabel: '',
     statusVariant: 'info',
     stages: SERVICE_ALBUM_STAGES,
@@ -153,6 +154,7 @@ Page({
     nodes: [],
     parts: [],
     planAmount: '',
+    planAmountHint: '交车时可在此填写本次实际费用，车主在相册中可见。',
     pricePreview: { mode: PRICE_MODE.FIXED, amount: null },
     partTypeList: PART_TYPE_LIST,
     partForm: {
@@ -236,6 +238,12 @@ Page({
     merchantInspSummary: { done: 0, total: 0, missing: 0 },
     merchantInspPanels: [],
     merchantInspColumnLabel: '规范',
+    merchantInspExpanded: false,
+    merchantInspCriticalMissing: [],
+    inspScrollIntoView: '',
+    inspCompleteModalVisible: false,
+    inspCompleteModalTitle: MERCHANT_COMPLETE_INSP_TITLE,
+    inspCompleteModalIntro: MERCHANT_COMPLETE_INSP_INTRO,
   },
 
   onLoad(options) {
@@ -249,9 +257,8 @@ Page({
 
   noop() {},
 
-  refreshMerchantInspection() {
-    if (this.data.status !== 'normal' || !this.data.detail) return
-    const view = buildMerchantEditInspectionView({
+  computeMerchantInspectionState() {
+    return buildMerchantEditInspectionView({
       detail: this.data.detail,
       templateId: this.data.templateId,
       templateName: this.data.templateName,
@@ -261,10 +268,60 @@ Page({
       planParts: this.data.planParts,
       comparePairRows: this.data.comparePairRows,
     })
+  },
+
+  refreshMerchantInspection() {
+    if (this.data.status !== 'normal' || !this.data.detail) return
+    const view = this.computeMerchantInspectionState()
+    const critical = collectCriticalMissingFromPanels(view.completeness.panels)
     this.setData({
       merchantInspSummary: view.completeness.summary,
       merchantInspPanels: view.completeness.panels,
       merchantInspColumnLabel: view.importanceColumnLabel,
+      merchantInspCriticalMissing: critical,
+    })
+  },
+
+  onToggleMerchantInsp() {
+    this.setData({ merchantInspExpanded: !this.data.merchantInspExpanded })
+  },
+
+  openMerchantInspSection() {
+    this.setData({
+      merchantInspExpanded: true,
+      inspScrollIntoView: 'merchant-insp-section',
+    })
+    setTimeout(() => {
+      if (this.data.inspScrollIntoView) {
+        this.setData({ inspScrollIntoView: '' })
+      }
+    }, 400)
+  },
+
+  onCloseInspCompleteModal() {
+    this.setData({ inspCompleteModalVisible: false })
+  },
+
+  onInspCompleteModalViewChecklist() {
+    this.setData({ inspCompleteModalVisible: false })
+    this.openMerchantInspSection()
+  },
+
+  onInspCompleteModalProceedAnyway() {
+    this.setData({ inspCompleteModalVisible: false })
+    this.showCompleteConfirmModal()
+  },
+
+  showCompleteConfirmModal() {
+    wx.showModal({
+      title: '标记已完工',
+      content:
+        '完工后服务相册将保存完整记录。车主可在小程序查看；公开案例须车主另行授权公示。',
+      confirmText: '确认完工',
+      success: (res) => {
+        if (!res.confirm) return
+        setTimeout(() => this.submitComplete(), 200)
+      },
     })
   },
 
@@ -400,20 +457,10 @@ Page({
     const nodes = applyProcessOnlyNodes(mergedNodes, evidenceItems)
     const stageTabs = this.buildStageTabs(nodes)
     const planAmount = resolvePlanAmount(detail)
-    const imageCount = detail.imageCount != null ? detail.imageCount : 0
     const canShare = canShareToOwner(detail)
     const isCompleted =
       detail.status === SERVICE_ALBUM_STATUS.COMPLETED ||
       detail.status === SERVICE_ALBUM_STATUS.PUBLISHED
-    const albumStatsChips = []
-    if (detail.completeness && detail.completeness.summaryText) {
-      albumStatsChips.push(detail.completeness.summaryText)
-    }
-    albumStatsChips.push(`过程图 ${imageCount} 张`)
-    if (planAmount != null) {
-      albumStatsChips.push(`方案报价 ${formatPlanAmountLabel(planAmount)}`)
-    }
-    const albumStatsText = albumStatsChips.join(' · ')
     const display = resolveMerchantAlbumDisplayStatus(detail.status)
     const hasOwnerPhone = Boolean(String(detail.userPhone || '').trim())
     const hasOwner = Boolean(detail.hasOwner) || hasOwnerPhone
@@ -451,7 +498,6 @@ Page({
     this.setData({
       status: 'normal',
       detail,
-      albumStatsText,
       statusLabel: display.statusLabel,
       statusVariant: display.statusVariant,
       stageTabs,
@@ -1335,16 +1381,20 @@ Page({
       return
     }
 
-    wx.showModal({
-      title: '标记已完工',
-      content:
-        '完工后服务相册将保存完整记录。车主可在小程序查看；公开案例须车主另行授权公示。',
-      confirmText: '确认完工',
-      success: (res) => {
-        if (!res.confirm) return
-        setTimeout(() => this.submitComplete(), 200)
-      },
+    const view = this.computeMerchantInspectionState()
+    const critical = collectCriticalMissingFromPanels(view.completeness.panels)
+    this.setData({
+      merchantInspSummary: view.completeness.summary,
+      merchantInspPanels: view.completeness.panels,
+      merchantInspColumnLabel: view.importanceColumnLabel,
+      merchantInspCriticalMissing: critical,
     })
+    if (critical.length) {
+      this.setData({ inspCompleteModalVisible: true })
+      return
+    }
+
+    this.showCompleteConfirmModal()
   },
 
   async submitComplete() {

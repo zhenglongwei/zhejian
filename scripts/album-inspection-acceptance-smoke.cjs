@@ -225,7 +225,10 @@ ok('AI 免责常量可用于结果区块', () => {
 })
 
 ok('商家编辑页自检列名「规范」且用必留/建议留', () => {
-  const { buildMerchantEditInspectionView } = require('../utils/album-merchant-inspection')
+  const {
+    buildMerchantEditInspectionView,
+    collectCriticalMissingFromPanels,
+  } = require('../utils/album-merchant-inspection')
   const { MERCHANT_INSPECTION_HINT } = require('../constants/album-evidence-guide')
   const view = buildMerchantEditInspectionView({
     detail: { serviceName: '刹车片更换' },
@@ -248,6 +251,8 @@ ok('商家编辑页自检列名「规范」且用必留/建议留', () => {
     assert(!['关键', '一般'].includes(row.importanceLabel), 'must not use owner labels')
   })
   assert.equal((view.method.panels || []).length, 0, 'merchant view is completeness-only')
+  const critical = collectCriticalMissingFromPanels(view.completeness.panels)
+  assert(Array.isArray(critical), 'critical missing list')
 })
 
 ok('规则 AI 建议含 focusAreas 且 suspectedIssues 为对象数组', () => {
