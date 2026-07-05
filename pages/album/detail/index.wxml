@@ -87,29 +87,27 @@
         src="{{heroCoverUrl}}"
         mode="aspectFill"
       />
-
-      <album-bottom-toolbar
-        wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
-        class="album-detail__bottom-toolbar"
-        embedded="{{true}}"
-        overlay="{{false}}"
-        mode="progress"
-        stages="{{stageProgress}}"
-        active-title="{{activeStageTitle}}"
-        caption-line="{{activeStageNote}}"
-        node-note-map="{{nodeNoteMap}}"
-        toolbar-bottom-pad-px="{{toolbarBottomPadPx}}"
-        chapters="{{flipChapters}}"
-        active-node-id="{{activeNodeId}}"
-        show-inspect="{{showInspectEntry}}"
-        show-archive="{{true}}"
-        show-parts="{{showPartsEntry}}"
-        bind:chaptertap="onChapterTap"
-        bind:archivetap="onOpenInfoSheet"
-        bind:inspecttap="onOpenInspect"
-        bind:partstap="onOpenPartVerify"
-      />
     </view>
+
+    <album-bottom-toolbar
+      wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
+      class="album-detail__bottom-toolbar"
+      style="{{toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
+      mode="progress"
+      stages="{{stageProgress}}"
+      active-title="{{activeStageTitle}}"
+      caption-line="{{activeStageNote}}"
+      node-note-map="{{nodeNoteMap}}"
+      chapters="{{flipChapters}}"
+      active-node-id="{{activeNodeId}}"
+      show-inspect="{{showInspectEntry}}"
+      show-archive="{{true}}"
+      show-parts="{{showPartsEntry}}"
+      bind:chaptertap="onChapterTap"
+      bind:archivetap="onOpenInfoSheet"
+      bind:inspecttap="onOpenInspect"
+      bind:partstap="onOpenPartVerify"
+    />
 
     <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
       <view

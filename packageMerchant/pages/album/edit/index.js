@@ -36,6 +36,7 @@ const {
   mergeEvidenceIntoNodes,
   applyProcessOnlyNodes,
 } = require('../../../../utils/album-evidence-items')
+const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
   applyComparePairRowsToNodes,

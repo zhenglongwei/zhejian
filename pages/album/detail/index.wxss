@@ -17,12 +17,13 @@
 }
 
 .album-detail__bottom-toolbar {
-  position: absolute;
+  position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: calc(var(--z-fixed) + 4);
   box-sizing: border-box;
+  padding: 0 var(--space-md) var(--toolbar-bottom-pad, calc(env(safe-area-inset-bottom) + var(--space-md)));
   pointer-events: none;
 }
 
