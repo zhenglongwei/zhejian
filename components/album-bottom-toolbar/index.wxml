@@ -1,81 +1,87 @@
 <view
-  wx:if="{{chapters.length || stages.length}}"
-  class="album-bottom-toolbar {{embedded ? 'album-bottom-toolbar--embedded' : ''}} {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{mode === 'progress' ? 'album-bottom-toolbar--progress' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+  wx:if="{{mode === 'progress' && stages.length}}"
+  class="album-bottom-toolbar album-bottom-toolbar--progress {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{embedded ? 'album-bottom-toolbar--embedded' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
   style="{{toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
 >
-  <block wx:if="{{mode === 'progress'}}">
-    <view class="album-bottom-toolbar__panel">
-      <view class="album-bottom-toolbar__panel-head">
-        <view class="album-bottom-toolbar__panel-copy">
-          <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
-          <view wx:if="{{displayNote || captionLine}}" class="album-bottom-toolbar__panel-note-box">
-            <text class="album-bottom-toolbar__panel-note" selectable>{{displayNote || captionLine}}</text>
-          </view>
-        </view>
-        <view class="album-bottom-toolbar__panel-actions">
-          <view
-            wx:if="{{showInspect || showCompare}}"
-            class="album-bottom-toolbar__archive"
-            hover-class="album-bottom-toolbar__archive--hover"
-            catchtap="onInspectTap"
-            aria-role="button"
-            aria-label="相册检查"
-          >
-            <text class="album-bottom-toolbar__archive-text text-caption">检查</text>
-          </view>
-          <view
-            wx:if="{{showArchive}}"
-            class="album-bottom-toolbar__archive"
-            hover-class="album-bottom-toolbar__archive--hover"
-            catchtap="onArchiveTap"
-            aria-role="button"
-            aria-label="档案"
-          >
-            <text class="album-bottom-toolbar__archive-text text-caption">档案</text>
-          </view>
-          <view
-            wx:if="{{showParts}}"
-            class="album-bottom-toolbar__archive"
-            hover-class="album-bottom-toolbar__archive--hover"
-            catchtap="onPartsTap"
-            aria-role="button"
-            aria-label="配件验真"
-          >
-            <text class="album-bottom-toolbar__archive-text text-caption">验真</text>
-          </view>
+  <view class="album-bottom-toolbar__panel">
+    <view class="album-bottom-toolbar__panel-head">
+      <view class="album-bottom-toolbar__panel-copy">
+        <text wx:if="{{activeTitle}}" class="album-bottom-toolbar__panel-node">{{activeTitle}}</text>
+        <view wx:if="{{displayNote || captionLine}}" class="album-bottom-toolbar__panel-note-box">
+          <text class="album-bottom-toolbar__panel-note" selectable>{{displayNote || captionLine}}</text>
         </view>
       </view>
-      <album-progress-segments
-        stages="{{stages}}"
-        variant="toolbar"
-        disabled="{{disabled}}"
-        bind:segmenttap="onSegmentTap"
+      <view class="album-bottom-toolbar__panel-actions">
+        <view
+          wx:if="{{showInspect || showCompare}}"
+          class="album-bottom-toolbar__archive"
+          hover-class="album-bottom-toolbar__archive--hover"
+          catchtap="onInspectTap"
+          aria-role="button"
+          aria-label="相册检查"
+        >
+          <text class="album-bottom-toolbar__archive-text text-caption">检查</text>
+        </view>
+        <view
+          wx:if="{{showArchive}}"
+          class="album-bottom-toolbar__archive"
+          hover-class="album-bottom-toolbar__archive--hover"
+          catchtap="onArchiveTap"
+          aria-role="button"
+          aria-label="档案"
+        >
+          <text class="album-bottom-toolbar__archive-text text-caption">档案</text>
+        </view>
+        <view
+          wx:if="{{showParts}}"
+          class="album-bottom-toolbar__archive"
+          hover-class="album-bottom-toolbar__archive--hover"
+          catchtap="onPartsTap"
+          aria-role="button"
+          aria-label="配件验真"
+        >
+          <text class="album-bottom-toolbar__archive-text text-caption">验真</text>
+        </view>
+      </view>
+    </view>
+    <view class="album-bottom-toolbar__segments">
+      <view
+        wx:for="{{stages}}"
+        wx:key="id"
+        class="album-bottom-toolbar__segment {{item.filled ? 'album-bottom-toolbar__segment--filled' : ''}} {{item.active ? 'album-bottom-toolbar__segment--active' : ''}}"
+        data-start-index="{{item.startIndex}}"
+        data-node-id="{{item.id}}"
+        bindtap="onSegmentTap"
       />
     </view>
-  </block>
+  </view>
+</view>
 
-  <block wx:else>
-    <scroll-view
-      class="album-bottom-toolbar__scroll"
-      scroll-x
-      enable-flex
-      show-scrollbar="{{false}}"
-      scroll-into-view="{{scrollIntoView}}"
-      scroll-with-animation
-    >
-      <view class="album-bottom-toolbar__inner">
-        <view
-          wx:for="{{chapters}}"
-          wx:key="nodeId"
-          id="album-chapter-{{item.nodeId}}"
-          class="album-bottom-toolbar__item {{activeNodeId === item.nodeId ? 'album-bottom-toolbar__item--active' : ''}}"
-          data-node-id="{{item.nodeId}}"
-          data-start-index="{{item.startIndex}}"
-          bindtap="onChapterTap"
-        >
-          <text class="album-bottom-toolbar__label text-caption">{{item.title}}</text>
-        </view>
+<view
+  wx:elif="{{chapters.length}}"
+  class="album-bottom-toolbar {{overlay ? 'album-bottom-toolbar--overlay' : ''}} {{embedded ? 'album-bottom-toolbar--embedded' : ''}} {{disabled ? 'album-bottom-toolbar--disabled' : ''}}"
+  style="{{toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
+>
+  <scroll-view
+    class="album-bottom-toolbar__scroll"
+    scroll-x
+    enable-flex
+    show-scrollbar="{{false}}"
+    scroll-into-view="{{scrollIntoView}}"
+    scroll-with-animation
+  >
+    <view class="album-bottom-toolbar__inner">
+      <view
+        wx:for="{{chapters}}"
+        wx:key="nodeId"
+        id="album-chapter-{{item.nodeId}}"
+        class="album-bottom-toolbar__item {{activeNodeId === item.nodeId ? 'album-bottom-toolbar__item--active' : ''}}"
+        data-node-id="{{item.nodeId}}"
+        data-start-index="{{item.startIndex}}"
+        bindtap="onChapterTap"
+      >
+        <text class="album-bottom-toolbar__label text-caption">{{item.title}}</text>
       </view>
-    </scroll-view>
-  </block>
+    </view>
+  </scroll-view>
 </view>

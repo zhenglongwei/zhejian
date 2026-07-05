@@ -98,7 +98,6 @@
       active-title="{{activeStageTitle}}"
       caption-line="{{activeStageNote}}"
       node-note-map="{{nodeNoteMap}}"
-      chapters="{{flipChapters}}"
       active-node-id="{{activeNodeId}}"
       show-inspect="{{showInspectEntry}}"
       show-archive="{{true}}"

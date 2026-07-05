@@ -1,6 +1,6 @@
 {
   "component": true,
-  "usingComponents": {
-    "album-progress-segments": "/components/album-progress-segments/index"
-  }
+  "virtualHost": true,
+  "styleIsolation": "isolated",
+  "usingComponents": {}
 }

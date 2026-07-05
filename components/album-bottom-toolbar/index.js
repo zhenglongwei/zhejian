@@ -167,7 +167,8 @@ Component({
     },
 
     onSegmentTap(e) {
-      const { nodeId, startIndex } = e.detail || {}
+      if (this.properties.disabled) return
+      const { nodeId, startIndex } = e.currentTarget.dataset
       if (!nodeId) return
       this.onChapterTap({
         currentTarget: {

@@ -204,3 +204,28 @@
   word-break: break-word;
   white-space: pre-wrap;
 }
+
+.album-bottom-toolbar__segments {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6rpx;
+  align-items: center;
+  width: 100%;
+}
+
+.album-bottom-toolbar__segment {
+  flex: 1;
+  height: 6rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-album-segment-idle);
+}
+
+.album-bottom-toolbar__segment--filled {
+  background: var(--color-album-segment-filled);
+}
+
+.album-bottom-toolbar__segment--active {
+  height: 8rpx;
+  background: var(--color-album-active);
+  box-shadow: var(--shadow-album-segment-active);
+}
