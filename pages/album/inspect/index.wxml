@@ -16,155 +16,128 @@
       <view class="surface-album-panel album-inspect__hero">
         <text class="text-h3">{{albumTitle}}</text>
         <text wx:if="{{storeName}}" class="text-caption text-secondary">{{storeName}}</text>
-        <text class="text-caption album-inspect__disclaimer">{{disclaimer}}</text>
       </view>
 
-      <view wx:if="{{ruleHints.length}}" class="album-inspect__hints">
-        <view
-          wx:for="{{ruleHints}}"
-          wx:key="text"
-          class="album-inspect__hint surface-album-inset"
-        >
-          <text class="text-caption">{{item.text}}</text>
-        </view>
+      <view class="album-inspect__tabs-wrap surface-album-inset">
+        <ui-tabs tabs="{{inspectTabs}}" active-key="{{activeTab}}" bind:change="onTabChange" />
       </view>
 
-      <block wx:for="{{sections}}" wx:key="id" wx:for-item="section">
-        <view wx:if="{{!section.empty || section.id === 'documents'}}" class="album-inspect__section">
-          <view class="album-inspect__section-head">
-            <text class="text-h3">{{section.title}}</text>
-            <text class="text-caption album-inspect__section-intro">{{section.intro}}</text>
-          </view>
-
-          <block wx:if="{{section.id === 'outcome'}}">
-            <ui-card wx:if="{{section.outcome.hasCompare}}" shadow="{{true}}" padding="{{true}}" class="album-inspect__card">
-              <text class="text-body album-inspect__item-title">前后对比</text>
-              <text class="text-caption text-secondary album-inspect__check-hint">{{section.outcome.checkHint}}</text>
-              <view
-                wx:for="{{section.outcome.comparePairs}}"
-                wx:key="id"
-                wx:for-item="pair"
-                class="album-inspect__compare-block"
-              >
-                <text class="text-caption album-inspect__compare-label">{{pair.title}}</text>
-                <album-compare-slider
-                  before-url="{{pair.beforeUrl}}"
-                  after-url="{{pair.afterUrl}}"
-                  before-label="{{pair.beforeLabel}}"
-                  after-label="{{pair.afterLabel}}"
-                  stage-height="{{compareStageHeightPx}}"
-                />
-              </view>
-            </ui-card>
-
-            <ui-card wx:if="{{section.outcome.completionImages.length}}" shadow="{{true}}" padding="{{true}}" class="album-inspect__card">
-              <text class="text-body album-inspect__item-title">完工效果</text>
-              <scroll-view class="album-inspect__thumb-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
-                <view class="album-inspect__thumb-row">
-                  <image
-                    wx:for="{{section.outcome.completionImages}}"
-                    wx:key="*this"
-                    class="album-inspect__thumb"
-                    src="{{item}}"
-                    mode="aspectFill"
-                    data-url="{{item}}"
-                    data-urls="{{section.outcome.completionImages}}"
-                    bindtap="onPreviewImage"
-                  />
-                </view>
-              </scroll-view>
-              <text wx:if="{{section.outcome.completionNote}}" class="text-caption album-inspect__note">{{section.outcome.completionNote}}</text>
-            </ui-card>
-          </block>
-
-          <block wx:else>
-            <ui-card
-              wx:for="{{section.items}}"
-              wx:key="id"
-              wx:for-item="item"
-              shadow="{{true}}"
-              padding="{{true}}"
-              class="album-inspect__card"
-            >
-              <view class="album-inspect__item-head">
-                <text class="text-body album-inspect__item-title">{{item.label}}</text>
-                <ui-tag wx:if="{{item.strengthLabel}}" variant="{{item.strengthVariant}}" text="{{item.strengthLabel}}" />
-                <ui-tag wx:if="{{item.missing}}" variant="warning" text="未见留痕" />
-              </view>
-              <text wx:if="{{item.checkHint}}" class="text-caption album-inspect__check-hint">{{item.checkHint}}</text>
-              <scroll-view
-                wx:if="{{item.images.length}}"
-                class="album-inspect__thumb-scroll"
-                scroll-x
-                enable-flex
-                show-scrollbar="{{false}}"
-              >
-                <view class="album-inspect__thumb-row">
-                  <image
-                    wx:for="{{item.images}}"
-                    wx:key="*this"
-                    class="album-inspect__thumb"
-                    src="{{item}}"
-                    mode="aspectFill"
-                    data-url="{{item}}"
-                    data-urls="{{item.images}}"
-                    bindtap="onPreviewImage"
-                  />
-                </view>
-              </scroll-view>
-              <text wx:if="{{item.note}}" class="text-caption album-inspect__note">{{item.note}}</text>
-              <view wx:if="{{item.anomalyHint}}" class="album-inspect__signal surface-album-inset">
-                <text class="text-caption album-inspect__signal-label">建议关注</text>
-                <text class="text-caption">{{item.anomalyHint}}</text>
-                <text wx:if="{{item.actionHint}}" class="text-caption album-inspect__action">{{item.actionHint}}</text>
-              </view>
-            </ui-card>
-
-            <view wx:if="{{section.id === 'parts' && section.empty}}" class="surface-album-inset album-inspect__empty-section">
-              <text class="text-caption text-secondary">门店尚未登记更换配件，可跳过本节或联系门店补录。</text>
-            </view>
-          </block>
+      <block wx:if="{{activeTab === 'completeness'}}">
+        <view class="album-inspect__summary surface-album-inset">
+          <text class="text-body">{{completenessSummary.done}}/{{completenessSummary.total}} 已有</text>
+          <text wx:if="{{completenessSummary.missing}}" class="text-caption text-secondary">缺 {{completenessSummary.missing}} 项</text>
         </view>
+        <text class="text-caption album-inspect__hint">{{completenessHint}}</text>
+
+        <album-inspection-matrix
+          wx:for="{{completenessPanels}}"
+          wx:key="id"
+          wx:for-item="panel"
+          title="{{panel.title}}"
+          layout="inventory"
+          rows="{{panel.rows}}"
+          bind:preview="onPreviewImage"
+        />
       </block>
 
-      <view wx:if="{{aiAdviceVisible && aiAdvice}}" class="surface-album-panel album-inspect__ai">
-        <text class="text-h3">智能检查建议</text>
-        <text class="text-caption album-inspect__ai-disclaimer">{{aiDisclaimer}}</text>
-        <block wx:if="{{aiAdvice.focusAreas && aiAdvice.focusAreas.length}}">
-          <text class="text-caption album-inspect__ai-label">建议重点</text>
-          <text wx:for="{{aiAdvice.focusAreas}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
-        </block>
-        <block wx:if="{{aiAdvice.suspectedIssues && aiAdvice.suspectedIssues.length}}">
-          <text class="text-caption album-inspect__ai-label">建议关注</text>
-          <text wx:for="{{aiAdvice.suspectedIssues}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item.text || item}}</text>
-        </block>
-        <block wx:if="{{aiAdvice.nextSteps && aiAdvice.nextSteps.length}}">
-          <text class="text-caption album-inspect__ai-label">后续建议</text>
-          <text wx:for="{{aiAdvice.nextSteps}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
-        </block>
-      </view>
-
-      <view class="album-inspect__actions surface-album-panel">
-        <text class="text-body album-inspect__actions-title">发现问题怎么办</text>
-        <text class="text-caption text-secondary">平台仅提供建议，不认定责任。你可：</text>
-        <view class="album-inspect__action-row">
-          <ui-button type="secondary" size="sm" bind:btntap="onOpenFeedback">相册内反馈</ui-button>
-          <ui-button wx:if="{{showPartVerifyEntry}}" type="secondary" size="sm" bind:btntap="onOpenPartVerify">配件验真</ui-button>
+      <block wx:elif="{{activeTab === 'method'}}">
+        <view wx:if="{{methodAnchorHint}}" class="album-inspect__summary surface-album-inset">
+          <text class="text-caption">{{methodAnchorHint}}</text>
         </view>
-      </view>
 
-      <ui-compliance-notice type="homePlatform" />
-    </view>
+        <album-inspection-matrix
+          wx:for="{{methodPanels}}"
+          wx:key="id"
+          wx:for-item="panel"
+          wx:if="{{panel.id !== 'outcome_method'}}"
+          title="{{panel.title}}"
+          subtitle="{{panel.subtitle}}"
+          layout="method"
+          method-rows="{{panel.methodRows}}"
+        />
 
-    <view class="album-inspect__bottom safe-bottom">
-      <view class="album-inspect__bottom-inner">
+        <view wx:if="{{outcome.hasCompare || outcome.completionImages.length}}" class="album-inspect__outcome">
+          <ui-card wx:if="{{outcome.hasCompare}}" shadow="{{true}}" padding="{{true}}" class="album-inspect__card">
+            <view
+              wx:for="{{outcome.comparePairs}}"
+              wx:key="id"
+              wx:for-item="pair"
+              class="album-inspect__compare-block"
+            >
+              <text class="text-caption album-inspect__compare-label">{{pair.title}}</text>
+              <album-compare-slider
+                before-url="{{pair.beforeUrl}}"
+                after-url="{{pair.afterUrl}}"
+                before-label="{{pair.beforeLabel}}"
+                after-label="{{pair.afterLabel}}"
+                stage-height="{{compareStageHeightPx}}"
+              />
+            </view>
+          </ui-card>
+          <scroll-view
+            wx:if="{{outcome.completionImages.length}}"
+            class="album-inspect__thumb-scroll"
+            scroll-x
+            enable-flex
+            show-scrollbar="{{false}}"
+          >
+            <view class="album-inspect__thumb-row">
+              <image
+                wx:for="{{outcome.completionImages}}"
+                wx:key="*this"
+                class="album-inspect__thumb"
+                src="{{item}}"
+                mode="aspectFill"
+                data-url="{{item}}"
+                data-urls="{{outcome.completionImages}}"
+                bindtap="onPreviewImageTap"
+              />
+            </view>
+          </scroll-view>
+        </view>
+
+        <album-inspection-matrix
+          wx:for="{{methodPanels}}"
+          wx:key="id"
+          wx:for-item="panel"
+          wx:if="{{panel.id === 'outcome_method'}}"
+          title="{{panel.title}}"
+          layout="method"
+          method-rows="{{panel.methodRows}}"
+        />
+      </block>
+
+      <view class="album-inspect__ai-trigger">
         <ui-button
-          type="primary"
+          type="secondary"
           block
           loading="{{aiLoading}}"
           disabled="{{aiLoading}}"
           bind:btntap="onGenerateAiAdvice"
-        >不懂？生成智能检查建议</ui-button>
+        >AI检查</ui-button>
+      </view>
+
+      <view wx:if="{{aiAdviceVisible && aiAdvice}}" class="surface-album-panel album-inspect__ai">
+        <text class="text-h3">AI检查结果</text>
+        <text class="text-caption album-inspect__ai-disclaimer">{{aiDisclaimer}}</text>
+        <block wx:if="{{aiAdvice.focusAreas && aiAdvice.focusAreas.length}}">
+          <text wx:for="{{aiAdvice.focusAreas}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
+        </block>
+        <block wx:if="{{aiAdvice.suspectedIssues && aiAdvice.suspectedIssues.length}}">
+          <text wx:for="{{aiAdvice.suspectedIssues}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item.text || item}}</text>
+        </block>
+        <block wx:if="{{aiAdvice.nextSteps && aiAdvice.nextSteps.length}}">
+          <text wx:for="{{aiAdvice.nextSteps}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
+        </block>
+      </view>
+    </view>
+
+    <view class="album-inspect__bottom safe-bottom">
+      <view class="album-inspect__bottom-inner">
+        <view class="album-inspect__bottom-row">
+          <ui-button type="secondary" block bind:btntap="onOpenFeedback">反馈</ui-button>
+          <ui-button wx:if="{{showPartVerifyEntry}}" type="secondary" block bind:btntap="onOpenPartVerify">配件验真</ui-button>
+        </view>
       </view>
     </view>
   </block>

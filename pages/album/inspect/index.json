@@ -5,8 +5,10 @@
     "ui-skeleton": "/components/skeleton/index",
     "ui-card": "/components/card/index",
     "ui-button": "/components/button/index",
+    "ui-tabs": "/components/tabs/index",
     "ui-tag": "/components/tag/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "album-compare-slider": "/components/album-compare-slider/index"
+    "album-compare-slider": "/components/album-compare-slider/index",
+    "album-inspection-matrix": "/components/album-inspection-matrix/index"
   }
 }

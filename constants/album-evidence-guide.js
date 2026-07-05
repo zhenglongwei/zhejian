@@ -28,6 +28,22 @@ const STRENGTH_VARIANT = {
   strongly_recommended: 'warning',
 }
 
+/** 车主检查 · 完整性 Tab「重要度」列（非商家必传/非用户必看） */
+const IMPORTANCE_LABEL = {
+  strongly_recommended: '关键',
+  recommended: '一般',
+  optional: '可选',
+}
+
+const COMPLETENESS_TAB_HINT =
+  '「重要度」表示缺该项时对核对有多关键，不是要求你必须查看，也不表示门店一定已上传。'
+
+const MERCHANT_EVIDENCE_LABEL = {
+  strongly_recommended: '必留',
+  recommended: '建议留',
+  optional: '可选',
+}
+
 /** 车主检查页 · 专业顺序 */
 const INSPECTION_SECTIONS = [
   {
@@ -127,14 +143,13 @@ const PROCESS_CHECKLIST_BY_TEMPLATE = {
   ],
 }
 
-const INSPECTION_DISCLAIMER =
-  '以下内容为辅助查看与建议，不构成鉴定结论或质量裁决。如有争议，请保留单据并与门店、保险公司或主管部门沟通。'
+const INSPECTION_DISCLAIMER = '辅助查看，不构成鉴定结论。'
 
 const AI_INSPECTION_DISCLAIMER =
-  '智能建议由系统根据相册留痕自动生成，仅供参考，可能存在遗漏或误判，请以实际单据与现场情况为准。'
+  '以下为 AI 辅助检查建议，不构成鉴定结论或质量裁决；可能存在遗漏或误判，请以实际单据与现场情况为准。'
 
 const AI_INSPECTION_CONSENT =
-  '将使用本相册的结构化摘要（不含原图）生成检查建议。是否继续？'
+  '将使用本相册的结构化摘要（不含原图）生成 AI 检查建议。是否继续？'
 
 function templateMatches(typeDef, templateId) {
   const tpl = String(templateId || '').trim() || 'default'
@@ -163,11 +178,22 @@ function bumpStrengthForAccident(strength, templateId) {
   return strength
 }
 
+function resolveOwnerImportance(strength) {
+  return IMPORTANCE_LABEL[strength] || IMPORTANCE_LABEL.recommended
+}
+
+function resolveMerchantEvidenceLabel(strength) {
+  return MERCHANT_EVIDENCE_LABEL[strength] || MERCHANT_EVIDENCE_LABEL.recommended
+}
+
 module.exports = {
   EVIDENCE_CATEGORY,
   EVIDENCE_STRENGTH,
   STRENGTH_LABEL,
   STRENGTH_VARIANT,
+  IMPORTANCE_LABEL,
+  MERCHANT_EVIDENCE_LABEL,
+  COMPLETENESS_TAB_HINT,
   INSPECTION_SECTIONS,
   DOCUMENT_TYPES,
   PROCESS_CHECKLIST_BY_TEMPLATE,
@@ -178,4 +204,6 @@ module.exports = {
   resolveDocumentTypesForTemplate,
   resolveProcessChecklist,
   bumpStrengthForAccident,
+  resolveOwnerImportance,
+  resolveMerchantEvidenceLabel,
 }

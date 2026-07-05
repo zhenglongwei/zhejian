@@ -5,7 +5,13 @@ const { fetchAlbumInspectionAdvice } = require('../../../services/album-inspecti
 const {
   AI_INSPECTION_DISCLAIMER,
   AI_INSPECTION_CONSENT,
+  COMPLETENESS_TAB_HINT,
 } = require('../../../constants/album-evidence-guide')
+
+const INSPECT_TABS = [
+  { key: 'completeness', label: '完整性' },
+  { key: 'method', label: '检查方法' },
+]
 
 Page({
   data: {
@@ -14,9 +20,14 @@ Page({
     albumId: '',
     albumTitle: '',
     storeName: '',
-    disclaimer: '',
-    sections: [],
-    ruleHints: [],
+    activeTab: 'completeness',
+    inspectTabs: INSPECT_TABS,
+    completenessSummary: { done: 0, total: 0, missing: 0 },
+    completenessHint: COMPLETENESS_TAB_HINT,
+    completenessPanels: [],
+    methodPanels: [],
+    methodAnchorHint: '',
+    outcome: {},
     showPartVerifyEntry: false,
     aiAdvice: null,
     aiAdviceVisible: false,
@@ -56,14 +67,19 @@ Page({
         ...detail,
         id: detail.albumId,
       })
-      const view = buildAlbumInspectionView(enriched)
+      const view = buildAlbumInspectionView({
+        ...enriched,
+        publicCaseStatus: detail.publicCaseStatus || enriched.publicCaseStatus,
+      })
       this.setData({
         status: 'normal',
         albumTitle: enriched.serviceName || '服务相册',
         storeName: (enriched.store && enriched.store.name) || detail.storeName || '',
-        disclaimer: view.disclaimer,
-        sections: view.sections,
-        ruleHints: view.ruleHints,
+        completenessSummary: view.completeness.summary,
+        completenessPanels: view.completeness.panels,
+        methodPanels: view.method.panels,
+        methodAnchorHint: view.method.anchorHint,
+        outcome: view.outcome,
         showPartVerifyEntry: view.showPartVerifyEntry,
         aiAdvice: null,
         aiAdviceVisible: false,
@@ -76,12 +92,27 @@ Page({
     }
   },
 
+  onTabChange(e) {
+    const { key } = e.detail || {}
+    if (!key || key === this.data.activeTab) return
+    this.setData({ activeTab: key })
+  },
+
   onRetry() {
     this.loadInspection()
   },
 
   onPreviewImage(e) {
+    const { url, urls } = e.detail || {}
+    this.previewImages(url, urls)
+  },
+
+  onPreviewImageTap(e) {
     const { url, urls } = e.currentTarget.dataset
+    this.previewImages(url, urls)
+  },
+
+  previewImages(url, urls) {
     const list = (urls || []).filter(Boolean)
     if (!url || !list.length) return
     wx.previewImage({ current: url, urls: list })
@@ -95,14 +126,10 @@ Page({
     wx.navigateTo({ url: `/pages/album/feedback/index?albumId=${this.albumId}` })
   },
 
-  onContactStore() {
-    wx.showToast({ title: '请通过门店电话或到店沟通', icon: 'none' })
-  },
-
   onGenerateAiAdvice() {
     if (this.data.aiLoading) return
     wx.showModal({
-      title: '生成智能建议',
+      title: 'AI检查',
       content: AI_INSPECTION_CONSENT,
       confirmText: '继续',
       cancelText: '取消',

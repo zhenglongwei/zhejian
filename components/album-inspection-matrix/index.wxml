@@ -1,0 +1,67 @@
+<view wx:if="{{rows.length || methodRows.length}}" class="album-inspection-matrix {{compact ? 'album-inspection-matrix--compact' : ''}}">
+  <view wx:if="{{title}}" class="album-inspection-matrix__head">
+    <text class="text-body album-inspection-matrix__title">{{title}}</text>
+    <text wx:if="{{subtitle}}" class="text-caption album-inspection-matrix__subtitle">{{subtitle}}</text>
+  </view>
+
+  <view wx:if="{{layout === 'inventory' && rows.length}}" class="surface-album-inset album-inspection-matrix__table-wrap">
+    <view class="album-inspection-matrix__table">
+      <view class="album-inspection-matrix__row album-inspection-matrix__row--head">
+        <text class="album-inspection-matrix__label album-inspection-matrix__label--head text-caption">项目</text>
+        <text class="album-inspection-matrix__importance-head text-caption">重要度</text>
+        <text class="album-inspection-matrix__status-head text-caption">状态</text>
+        <text class="album-inspection-matrix__thumb-head text-caption">图</text>
+      </view>
+
+      <view
+        wx:for="{{rows}}"
+        wx:key="id"
+        wx:for-item="row"
+        class="album-inspection-matrix__row album-inspection-matrix__row--inventory"
+      >
+        <text class="text-caption album-inspection-matrix__name album-inspection-matrix__label">{{row.label}}</text>
+        <text class="text-caption album-inspection-matrix__importance">{{row.importanceLabel}}</text>
+        <text class="album-inspection-matrix__status text-caption album-inspection-matrix__status--{{row.statusLevel}}">{{row.statusSymbol}}</text>
+        <view
+          class="album-inspection-matrix__thumb"
+          data-url="{{row.thumb}}"
+          data-urls="{{row.images}}"
+          bindtap="onPreviewRow"
+        >
+          <image
+            wx:if="{{row.thumb}}"
+            class="album-inspection-matrix__thumb-img"
+            src="{{row.thumb}}"
+            mode="aspectFill"
+          />
+          <text wx:else class="text-caption album-inspection-matrix__thumb-empty">无</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{layout === 'method' && methodRows.length}}" class="surface-album-inset album-inspection-matrix__table-wrap">
+    <view class="album-inspection-matrix__table album-inspection-matrix__table--method">
+      <view class="album-inspection-matrix__row album-inspection-matrix__row--head">
+        <text class="album-inspection-matrix__method-label-head text-caption">对照</text>
+        <text class="album-inspection-matrix__method-col text-caption">怎么核对</text>
+        <text class="album-inspection-matrix__method-col text-caption">一致</text>
+        <text class="album-inspection-matrix__method-col text-caption">不一致</text>
+        <text class="album-inspection-matrix__method-advice-head text-caption">建议</text>
+      </view>
+
+      <view
+        wx:for="{{methodRows}}"
+        wx:key="id"
+        wx:for-item="row"
+        class="album-inspection-matrix__row album-inspection-matrix__row--method album-inspection-matrix__row--{{row.rowLevel}}"
+      >
+        <text class="text-caption album-inspection-matrix__method-label">{{row.label}}</text>
+        <text class="text-caption album-inspection-matrix__method-col">{{row.howToCheck}}</text>
+        <text class="text-caption album-inspection-matrix__method-col">{{row.ifMatch}}</text>
+        <text class="text-caption album-inspection-matrix__method-col">{{row.ifMismatch}}</text>
+        <text class="text-caption album-inspection-matrix__method-advice">{{row.advice}}</text>
+      </view>
+    </view>
+  </view>
+</view>
