@@ -7,7 +7,7 @@ const config = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
 const { loadAlbum, buildAlbumView } = require('./service-album.service')
 const { buildPlanPartsContext } = require('./album-plan-parts.service')
-const { buildAlbumSummaryFields } = require('../../utils/album-summary')
+const { buildAlbumSummaryFields } = require('../utils/album-summary')
 const {
   buildRuleBasedAdvice,
   buildLlmContext,
@@ -15,7 +15,7 @@ const {
   buildLlmUserPrompt,
   extractAdviceJson,
   normalizeAdvicePayload,
-} = require('../../utils/album-inspection-advice')
+} = require('../utils/album-inspection-advice')
 
 async function assertUserAlbumAccess(albumId, userId) {
   const album = await loadAlbum(albumId)
