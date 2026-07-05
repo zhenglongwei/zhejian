@@ -181,20 +181,6 @@
   line-height: 1.5;
 }
 
-.merchant-album-edit__geo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-}
-
-.merchant-album-edit__geo-text {
-  flex: 1;
-  min-width: 0;
-  color: var(--color-text-secondary);
-}
-
 .merchant-album-edit__insp {
   margin-bottom: var(--space-md);
 }
@@ -383,12 +369,8 @@
   gap: var(--space-sm);
 }
 
-.merchant-album-edit__plan-parts-actions,
-.merchant-album-edit__plan-parts-foot,
 .merchant-album-edit__wizard-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  margin-top: var(--space-sm);
 }
 
 .merchant-album-edit__plan-part-row {
@@ -431,9 +413,23 @@
 
 .merchant-album-edit__parts-node-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
+}
+
+.merchant-album-edit__parts-head-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.merchant-album-edit__parts-add-link {
+  padding: 4rpx 0;
+  line-height: var(--font-caption-lh);
 }
 
 .merchant-album-edit__parts-node-title {
@@ -553,54 +549,85 @@
   line-height: 1.5;
 }
 
+.merchant-album-edit__owner-verify-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.merchant-album-edit__verify-radio-group {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-xs);
+}
+
+.merchant-album-edit__verify-radio-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+}
+
+.merchant-album-edit__verify-radio-item:active {
+  opacity: 0.85;
+}
+
+.merchant-album-edit__verify-radio-item + .merchant-album-edit__verify-radio-item {
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.merchant-album-edit__verify-radio-dot {
+  flex-shrink: 0;
+  width: 32rpx;
+  height: 32rpx;
+  margin-top: 4rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--color-border);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.merchant-album-edit__verify-radio-item.is-checked .merchant-album-edit__verify-radio-dot {
+  border-color: var(--color-primary);
+}
+
+.merchant-album-edit__verify-radio-dot-inner {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+}
+
+.merchant-album-edit__verify-radio-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
+.merchant-album-edit__verify-radio-label {
+  line-height: 1.4;
+}
+
+.merchant-album-edit__verify-radio-desc {
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
 .merchant-album-edit__owner-verify-input {
   width: 100%;
-  min-height: 160rpx;
+  min-height: 140rpx;
+  margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   box-sizing: border-box;
   border-radius: var(--radius-sm);
   border: 1rpx solid var(--color-border);
   background: var(--color-bg-card);
-}
-
-.merchant-album-edit__owner-verify-guide {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  border-radius: var(--radius-sm);
-  background: var(--color-album-frame-inner);
-  border: 1rpx solid var(--color-album-frame-line);
-}
-
-.merchant-album-edit__verify-mode-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.merchant-album-edit__verify-mode-card {
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-  border: 1rpx solid var(--color-border);
-  background: var(--color-bg-card);
-}
-
-.merchant-album-edit__verify-mode-card.is-active {
-  border-color: var(--color-primary);
-  background: var(--color-bg-muted);
-}
-
-.merchant-album-edit__verify-mode-title {
-  display: block;
-  font-weight: var(--font-weight-medium);
-}
-
-.merchant-album-edit__verify-mode-desc {
-  display: block;
-  margin-top: 4rpx;
-  color: var(--color-text-secondary);
-  line-height: 1.5;
 }
 
 .merchant-album-edit__wizard-row.is-open {

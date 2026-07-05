@@ -445,7 +445,12 @@ Page({
         ...detail,
         id: detail.albumId,
       })
-      const flip = buildAlbumFlipPages(enriched.nodes || [])
+      const flip = buildAlbumFlipPages({
+        nodes: enriched.nodes || [],
+        evidenceItems: enriched.evidenceItems || [],
+        parts: enriched.parts || [],
+        templateId: enriched.templateId || '',
+      })
       const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
       const storePhone = (enriched.store && enriched.store.phone) || ''
       const linkedStoreId =

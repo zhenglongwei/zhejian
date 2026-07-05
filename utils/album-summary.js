@@ -180,9 +180,11 @@ function normalizePartsForView(partsJson, nodes) {
       return {
         partId: p.partId || p.id || '',
         name: normalizePartName(p),
+        partName: normalizePartName(p),
         partType: p.partType || '',
         qty: normalizePartQty(p),
         thumbUrl,
+        photos,
       }
     })
 }

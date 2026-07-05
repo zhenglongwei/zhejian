@@ -105,11 +105,6 @@
             </view>
           </view>
         </view>
-
-        <view wx:if="{{geoEvidence}}" class="merchant-album-edit__geo">
-          <ui-tag variant="{{geoEvidenceVariant}}" text="{{geoEvidenceLabel}}" />
-          <text class="text-caption merchant-album-edit__geo-text">{{geoEvidence.summaryText}}</text>
-        </view>
       </ui-card>
 
       <view wx:if="{{merchantInspPanels.length}}" id="merchant-insp-section" class="merchant-album-edit__insp">
@@ -194,11 +189,17 @@
           <view class="merchant-album-edit__parts-node">
             <view class="merchant-album-edit__parts-node-head">
               <text class="text-h3 merchant-album-edit__parts-node-title">{{nodes[stageIndex].title}}</text>
-              <view
-                class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
-                bindtap="onRunPlanQuoteOcr"
-              >
-                <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : '从报价单识别'}}</text>
+              <view class="merchant-album-edit__parts-head-actions">
+                <view
+                  class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
+                  bindtap="onRunPlanQuoteOcr"
+                >
+                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : '从报价单识别'}}</text>
+                </view>
+                <text
+                  class="text-caption text-link merchant-album-edit__parts-add-link"
+                  bindtap="onAddPartRow"
+                >添加配件</text>
               </view>
             </view>
             <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].photoTips}}</text>
@@ -209,22 +210,36 @@
             <view class="merchant-album-edit__owner-verify-guide">
               <text class="text-body merchant-album-edit__owner-verify-title">{{partVerifyGuideTitle}}</text>
               <text class="text-caption merchant-album-edit__owner-verify-hint">{{partVerifyGuideHint}}</text>
-              <view class="merchant-album-edit__verify-mode-row">
+              <view class="merchant-album-edit__verify-radio-group" role="radiogroup">
                 <view
-                  class="merchant-album-edit__verify-mode-card {{partVerifyGuideMode === 'text' ? 'is-active' : ''}}"
+                  class="merchant-album-edit__verify-radio-item {{partVerifyGuideMode === 'text' ? 'is-checked' : ''}}"
                   data-mode="text"
                   bindtap="onPartVerifyGuideModeTap"
+                  aria-role="radio"
+                  aria-checked="{{partVerifyGuideMode === 'text'}}"
                 >
-                  <text class="text-body merchant-album-edit__verify-mode-title">{{partVerifyGuideModeTextTitle}}</text>
-                  <text class="text-caption merchant-album-edit__verify-mode-desc">{{partVerifyGuideModeTextDesc}}</text>
+                  <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
+                    <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-radio-dot-inner" />
+                  </view>
+                  <view class="merchant-album-edit__verify-radio-copy">
+                    <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeTextTitle}}</text>
+                    <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeTextDesc}}</text>
+                  </view>
                 </view>
                 <view
-                  class="merchant-album-edit__verify-mode-card {{partVerifyGuideMode === 'informed' ? 'is-active' : ''}}"
+                  class="merchant-album-edit__verify-radio-item {{partVerifyGuideMode === 'informed' ? 'is-checked' : ''}}"
                   data-mode="informed"
                   bindtap="onPartVerifyGuideModeTap"
+                  aria-role="radio"
+                  aria-checked="{{partVerifyGuideMode === 'informed'}}"
                 >
-                  <text class="text-body merchant-album-edit__verify-mode-title">{{partVerifyGuideModeInformedTitle}}</text>
-                  <text class="text-caption merchant-album-edit__verify-mode-desc">{{partVerifyGuideModeInformedDesc}}</text>
+                  <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
+                    <view wx:if="{{partVerifyGuideMode === 'informed'}}" class="merchant-album-edit__verify-radio-dot-inner" />
+                  </view>
+                  <view class="merchant-album-edit__verify-radio-copy">
+                    <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeInformedTitle}}</text>
+                    <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeInformedDesc}}</text>
+                  </view>
                 </view>
               </view>
               <textarea
@@ -266,6 +281,14 @@
                       </view>
                     </view>
                   </view>
+                  <input
+                    class="merchant-form__input"
+                    placeholder="配件名称 *"
+                    value="{{item.partName}}"
+                    data-index="{{index}}"
+                    data-field="partName"
+                    bindinput="onWizardInput"
+                  />
                   <block wx:if="{{item.typeLocked}}">
                     <view class="merchant-form__picker is-locked" catchtap="onLockedPartTypeTap">{{item.partType}}</view>
                     <text class="text-caption merchant-album-edit__type-tip">{{merchantPartTypeLockedTip}}</text>
@@ -283,8 +306,18 @@
               </block>
             </view>
 
+            <view wx:if="{{partWizardRows.length}}" class="merchant-album-edit__wizard-actions">
+              <ui-button
+                type="secondary"
+                size="sm"
+                block
+                disabled="{{saving || completing || switching}}"
+                bind:btntap="onAddPartRow"
+              >添加配件</ui-button>
+            </view>
+
             <view wx:if="{{!partWizardRows.length}}" class="merchant-album-edit__parts-empty">
-              <text class="text-caption text-secondary">暂无配件，请从报价单识别或</text>
+              <text class="text-caption text-secondary">暂无配件，可点右上角「添加配件」，或从报价单识别、</text>
               <text class="text-caption text-link" bindtap="onAddPartRow">手工添加</text>
             </view>
           </view>

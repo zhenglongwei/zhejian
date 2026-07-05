@@ -187,10 +187,6 @@ Page({
     templateName: '',
     canSwitchTemplate: false,
     switching: false,
-    completeness: null,
-    geoEvidence: null,
-    geoEvidenceVariant: 'default',
-    geoEvidenceLabel: '',
     comparePairRows: [{ before: '', after: '' }],
     isComparePairStage: false,
     isPartsStage: false,
@@ -272,14 +268,23 @@ Page({
 
   refreshMerchantInspection() {
     if (this.data.status !== 'normal' || !this.data.detail) return
-    const view = this.computeMerchantInspectionState()
-    const critical = collectCriticalMissingFromPanels(view.completeness.panels)
-    this.setData({
-      merchantInspSummary: view.completeness.summary,
-      merchantInspPanels: view.completeness.panels,
-      merchantInspColumnLabel: view.importanceColumnLabel,
-      merchantInspCriticalMissing: critical,
-    })
+    try {
+      const view = this.computeMerchantInspectionState()
+      const critical = collectCriticalMissingFromPanels(view.completeness.panels)
+      this.setData({
+        merchantInspSummary: view.completeness.summary,
+        merchantInspPanels: view.completeness.panels,
+        merchantInspColumnLabel: view.importanceColumnLabel,
+        merchantInspCriticalMissing: critical,
+      })
+    } catch (e) {
+      console.warn('[merchant-insp] refresh failed', e)
+      this.setData({
+        merchantInspSummary: { done: 0, total: 0, missing: 0 },
+        merchantInspPanels: [],
+        merchantInspCriticalMissing: [],
+      })
+    }
   },
 
   onToggleMerchantInsp() {
@@ -477,24 +482,6 @@ Page({
       bottomPrimaryText = '标记已完工'
     }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
-    const geoEvidence =
-      detail.completeness && detail.completeness.geoEvidence
-        ? detail.completeness.geoEvidence
-        : null
-    let geoEvidenceVariant = 'default'
-    let geoEvidenceLabel = ''
-    if (geoEvidence) {
-      if (geoEvidence.level === 'block') {
-        geoEvidenceVariant = 'warning'
-        geoEvidenceLabel = '公开证据待补'
-      } else if (geoEvidence.level === 'weak') {
-        geoEvidenceVariant = 'info'
-        geoEvidenceLabel = '可优化'
-      } else {
-        geoEvidenceVariant = 'success'
-        geoEvidenceLabel = '证据齐全'
-      }
-    }
     this.setData({
       status: 'normal',
       detail,
@@ -526,10 +513,6 @@ Page({
       templateName: detail.templateName || '',
       templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
       canSwitchTemplate,
-      completeness: detail.completeness || null,
-      geoEvidence,
-      geoEvidenceVariant,
-      geoEvidenceLabel,
       planParts: detail.planParts || [],
       partVerifyGuideText: detail.partVerifyGuideText || '',
       partVerifyGuideInformed: Boolean(detail.partVerifyGuideInformed),
@@ -1113,6 +1096,10 @@ Page({
       wx.showToast({ title: '请至少上传一张凭证图', icon: 'none' })
       return
     }
+    if (!String(row.partName || row.planName || '').trim()) {
+      wx.showToast({ title: '请填写配件名称', icon: 'none' })
+      return
+    }
     if (!String(row.partType || '').trim()) {
       wx.showToast({ title: '请选择配件类型', icon: 'none' })
       return
@@ -1124,13 +1111,14 @@ Page({
     if (row.typeLocked && row.planType) {
       mergedRow.partType = row.planType
     }
+    const planParts = this.syncPlanPartsFromWizardRow(mergedRow)
     const parts = this.mapPartsWithVariants(
       mergeWizardRowIntoParts(this.data.parts, mergedRow),
     )
-    this.setData({ parts }, () => this.refreshPartWizard())
+    this.setData({ parts, planParts }, () => this.refreshPartWizard())
     try {
       wx.showLoading({ title: '保存中', mask: true })
-      await this.persistPartsCatalog(parts)
+      await this.persistPartsCatalog(parts, planParts)
       wx.hideLoading()
       wx.showToast({ title: '已保存本项', icon: 'success' })
     } catch (err) {
