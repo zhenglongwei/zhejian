@@ -12,6 +12,8 @@
     "album-part-row": "/components/album-part-row/index",
     "album-compare-pair-editor": "/components/album-compare-pair-editor/index",
     "album-evidence-slots": "/components/album-evidence-slots/index",
+    "album-old-part-traces": "/components/album-old-part-traces/index",
+    "album-inspection-matrix": "/components/album-inspection-matrix/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-image-uploader": "/components/image-uploader/index"
   }

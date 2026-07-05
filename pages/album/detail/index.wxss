@@ -6,25 +6,21 @@
 
 .album-detail--immersive {
   height: 100vh;
+  overflow: hidden;
   background: var(--color-bg-immersive);
 }
 
-.album-detail__stage {
+.album-detail__shell {
   position: relative;
-  box-sizing: border-box;
   width: 100%;
+  height: 100vh;
   overflow: hidden;
 }
 
-.album-detail__bottom-toolbar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: calc(var(--z-fixed) + 4);
-  box-sizing: border-box;
-  padding: 0 var(--space-md) var(--toolbar-bottom-pad, calc(env(safe-area-inset-bottom) + var(--space-md)));
-  pointer-events: none;
+.album-detail__viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .album-detail__viewer {
@@ -33,43 +29,152 @@
   height: 100%;
 }
 
-.album-detail__hero {
-  position: absolute;
-  top: 0;
+.album-detail__dock {
+  position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: calc(var(--z-fixed) + 3);
+  box-sizing: border-box;
+  padding-right: var(--space-md);
+  padding-left: var(--space-md);
+}
+
+.album-detail__dock-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  box-sizing: border-box;
   width: 100%;
-  height: 100%;
-  opacity: 1;
-  transition: opacity 0.32s ease;
-  pointer-events: none;
+  max-height: 46vh;
+  padding: var(--space-sm) var(--space-md);
+  border: 1rpx solid var(--color-album-immersive-border);
+  border-radius: var(--radius-md);
+  background: var(--color-album-immersive-caption-bg);
 }
 
-.album-detail__hero--hide {
-  opacity: 0;
+.album-detail__dock-head {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  width: 100%;
 }
 
-.album-detail__chrome {
+.album-detail__dock-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.album-detail__dock-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-xs);
+  align-items: flex-start;
+}
+
+.album-detail__dock-action {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72rpx;
+  margin-top: 2rpx;
+  padding: 4rpx var(--space-sm);
+  border: 1rpx solid var(--color-album-immersive-border);
+  border-radius: var(--radius-full);
+  background: var(--color-album-nav-back);
+}
+
+.album-detail__dock-action--hover {
+  background: var(--color-album-nav-back-pressed);
+}
+
+.album-detail__dock-action-text {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-inverse);
+}
+
+.album-detail__dock-title {
+  flex-shrink: 0;
+  color: var(--color-text-inverse);
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--font-body-lh);
+}
+
+.album-detail__dock-note-box {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 32vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.album-detail__dock-note {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  color: var(--color-album-immersive-note);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.album-detail__dock-segments {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6rpx;
+  align-items: center;
+  width: 100%;
+}
+
+.album-detail__dock-seg {
+  flex: 1;
+  height: 6rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-album-segment-idle);
+}
+
+.album-detail__dock-seg.is-filled {
+  background: var(--color-album-segment-filled);
+}
+
+.album-detail__dock-seg.is-active {
+  height: 8rpx;
+  background: var(--color-album-active);
+  box-shadow: var(--shadow-album-segment-active);
+}
+
+.album-detail__top-chrome {
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
   z-index: calc(var(--z-fixed) + 2);
-  opacity: 0;
-  transition: opacity 0.22s ease;
+  height: 0;
   pointer-events: none;
 }
 
-.album-detail__chrome--visible {
-  opacity: 1;
+.album-detail__top-chrome .tool-immersive-nav-root,
+.album-detail__top-chrome .tool-immersive-nav--fixed {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+}
+
+.album-detail__top-chrome .tool-immersive-nav__back {
   pointer-events: auto;
 }
 
-.album-detail__privacy-strip {
+.album-detail__privacy {
   position: absolute;
-  top: 0;
   right: var(--page-padding-x);
   left: var(--page-padding-x);
   z-index: 2;
@@ -77,7 +182,7 @@
   pointer-events: none;
 }
 
-.album-detail__progress-track {
+.album-detail__read-progress {
   position: absolute;
   top: 0;
   right: 0;
@@ -89,7 +194,7 @@
   background: var(--color-album-progress-track);
 }
 
-.album-detail__progress-fill {
+.album-detail__read-progress-fill {
   height: 100%;
   border-radius: 0 3rpx 3rpx 0;
   background: var(--color-text-inverse);

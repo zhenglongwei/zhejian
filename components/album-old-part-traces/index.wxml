@@ -1,0 +1,57 @@
+<view class="album-old-part-traces">
+  <view class="album-old-part-traces__head">
+    <text class="text-body album-old-part-traces__title">旧件留痕</text>
+    <ui-tag variant="info" text="建议留" />
+  </view>
+  <text class="text-caption album-old-part-traces__intro">{{introHint}}</text>
+
+  <view
+    wx:for="{{displayRows}}"
+    wx:key="traceKey"
+    wx:for-index="rowIndex"
+    wx:for-item="row"
+    class="album-old-part-traces__row"
+  >
+    <view class="album-old-part-traces__row-head">
+      <text class="text-caption text-secondary">旧件图 {{rowIndex + 1}}</text>
+      <text
+        wx:if="{{!disabled}}"
+        class="text-caption text-link album-old-part-traces__remove"
+        data-index="{{rowIndex}}"
+        catchtap="onRemoveTrace"
+      >删除</text>
+    </view>
+    <ui-image-uploader
+      class="album-old-part-traces__uploader"
+      images="{{row.images}}"
+      maxCount="{{1}}"
+      disabled="{{disabled}}"
+      data-index="{{rowIndex}}"
+      bind:change="onImageChange"
+    />
+    <picker
+      wx:if="{{partOptions.length > 1}}"
+      mode="selector"
+      range="{{partOptions}}"
+      range-key="label"
+      value="{{row.planPartIndex}}"
+      data-index="{{rowIndex}}"
+      disabled="{{disabled}}"
+      bindchange="onPartPickChange"
+    >
+      <view class="album-old-part-traces__picker text-body">
+        {{row.pickerLabel}}
+      </view>
+    </picker>
+  </view>
+
+  <view
+    wx:if="{{!disabled && traces.length < maxCount}}"
+    class="album-old-part-traces__add text-body text-link"
+    bindtap="onAddTrace"
+  >
+    + 添加旧件图
+  </view>
+
+  <text wx:if="{{uploadHint}}" class="text-caption album-old-part-traces__upload-hint">{{uploadHint}}</text>
+</view>

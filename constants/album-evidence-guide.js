@@ -6,9 +6,18 @@
 const EVIDENCE_CATEGORY = {
   DOCUMENT: 'document',
   PART: 'part',
+  OLD_PART: 'old_part',
   PROCESS: 'process',
   OUTCOME: 'outcome',
 }
+
+/** B-EVID-06 · 阶段五旧件留痕（与单据槽、过程图分桶） */
+const OLD_PART_TRACE_TYPE = 'old_part_trace'
+const OLD_PART_TRACE_LABEL = '旧件留痕'
+const OLD_PART_TRACE_STAGE_ID = 'stage_5'
+const OLD_PART_TRACE_MAX_COUNT = 9
+const MERCHANT_OLD_PART_INTRO =
+  '更换类项目建议上传旧件或拆下照片；可多张。需要时可点选对应配件名称，便于车主核对；不选也可保存。'
 
 const EVIDENCE_STRENGTH = {
   OPTIONAL: 'optional',
@@ -37,6 +46,10 @@ const IMPORTANCE_LABEL = {
 
 const COMPLETENESS_TAB_HINT =
   '「重要度」表示缺该项时对核对有多关键，不是要求你必须查看，也不表示门店一定已上传。'
+
+/** 商家编辑页 · 留痕自检（A-MCH-INSP-01） */
+const MERCHANT_INSPECTION_HINT =
+  '「规范」表示本相册建议留痕程度（必留/建议留/可选）；缺项不会阻断保存或完工，但会影响车主核对体验。'
 
 const MERCHANT_EVIDENCE_LABEL = {
   strongly_recommended: '必留',
@@ -186,14 +199,27 @@ function resolveMerchantEvidenceLabel(strength) {
   return MERCHANT_EVIDENCE_LABEL[strength] || MERCHANT_EVIDENCE_LABEL.recommended
 }
 
+function resolveImportanceLabel(strength, audience = 'owner') {
+  if (audience === 'merchant') {
+    return resolveMerchantEvidenceLabel(strength)
+  }
+  return resolveOwnerImportance(strength)
+}
+
 module.exports = {
   EVIDENCE_CATEGORY,
+  OLD_PART_TRACE_TYPE,
+  OLD_PART_TRACE_LABEL,
+  OLD_PART_TRACE_STAGE_ID,
+  OLD_PART_TRACE_MAX_COUNT,
+  MERCHANT_OLD_PART_INTRO,
   EVIDENCE_STRENGTH,
   STRENGTH_LABEL,
   STRENGTH_VARIANT,
   IMPORTANCE_LABEL,
   MERCHANT_EVIDENCE_LABEL,
   COMPLETENESS_TAB_HINT,
+  MERCHANT_INSPECTION_HINT,
   INSPECTION_SECTIONS,
   DOCUMENT_TYPES,
   PROCESS_CHECKLIST_BY_TEMPLATE,
@@ -206,4 +232,5 @@ module.exports = {
   bumpStrengthForAccident,
   resolveOwnerImportance,
   resolveMerchantEvidenceLabel,
+  resolveImportanceLabel,
 }

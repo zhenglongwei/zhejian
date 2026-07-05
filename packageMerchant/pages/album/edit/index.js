@@ -35,7 +35,12 @@ const {
   sanitizeEvidenceItemsPayload,
   mergeEvidenceIntoNodes,
   applyProcessOnlyNodes,
+  isOldPartEvidenceItem,
+  extractOldPartTraces,
+  buildValidPlanPartIdSet,
+  mergeEvidenceItemsForSave,
 } = require('../../../../utils/album-evidence-items')
+const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT } = require('../../../../constants/album-evidence-guide')
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
@@ -55,6 +60,7 @@ const {
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
+const { buildMerchantEditInspectionView } = require('../../../../utils/album-merchant-inspection')
 const {
   MERCHANT_PART_TYPE_LOCKED_TIP,
   MERCHANT_PART_TYPE_MANUAL_TIP,
@@ -77,6 +83,21 @@ const STAGE_COMPARE_ID = 'stage_6'
 const STAGE_ASSESSMENT_ID = 'stage_2'
 const STAGE_PLAN_ID = 'stage_3'
 const STAGE_PARTS_ID = 'stage_4'
+const STAGE_PROCESS_ID = 'stage_5'
+
+function buildOldPartPartOptions(planParts = [], parts = []) {
+  const { rows } = buildPartWizardRows(planParts, parts)
+  const options = [{ planPartId: '', label: '不关联配件' }]
+  const seen = new Set([''])
+  rows.forEach((row) => {
+    const planPartId = String(row.planPartId || '').trim()
+    const label = String(row.partName || row.planName || '').trim()
+    if (!planPartId || !label || seen.has(planPartId)) return
+    seen.add(planPartId)
+    options.push({ planPartId, label })
+  })
+  return options
+}
 
 function normalizeOwnerPhone(value) {
   return String(value || '').replace(/\D/g, '')
@@ -207,6 +228,14 @@ Page({
     stageEvidenceSlots: [],
     showStageEvidenceSlots: false,
     showStageProcessUploader: true,
+    oldPartTraces: [],
+    oldPartPartOptions: [{ planPartId: '', label: '不关联配件' }],
+    showOldPartTraces: false,
+    oldPartIntroHint: MERCHANT_OLD_PART_INTRO,
+    merchantInspHint: MERCHANT_INSPECTION_HINT,
+    merchantInspSummary: { done: 0, total: 0, missing: 0 },
+    merchantInspPanels: [],
+    merchantInspColumnLabel: '规范',
   },
 
   onLoad(options) {
@@ -219,6 +248,25 @@ Page({
   },
 
   noop() {},
+
+  refreshMerchantInspection() {
+    if (this.data.status !== 'normal' || !this.data.detail) return
+    const view = buildMerchantEditInspectionView({
+      detail: this.data.detail,
+      templateId: this.data.templateId,
+      templateName: this.data.templateName,
+      nodes: this.data.nodes,
+      evidenceItems: this.data.evidenceItems,
+      parts: this.data.parts,
+      planParts: this.data.planParts,
+      comparePairRows: this.data.comparePairRows,
+    })
+    this.setData({
+      merchantInspSummary: view.completeness.summary,
+      merchantInspPanels: view.completeness.panels,
+      merchantInspColumnLabel: view.importanceColumnLabel,
+    })
+  },
 
   async initPage() {
     const profile = await fetchMerchantProfile()
@@ -313,12 +361,16 @@ Page({
     const showStageEvidenceSlots = stageEvidenceSlots.length > 0
     const showStageProcessUploader =
       !showStageEvidenceSlots ||
-      stageId === 'stage_5' ||
+      stageId === STAGE_PROCESS_ID ||
       (stageId === STAGE_COMPARE_ID && !isComparePairStage)
+    const showOldPartTraces =
+      stageId === STAGE_PROCESS_ID && !isComparePairStage && !this.data.isPartsStage
     this.setData({
       stageEvidenceSlots,
       showStageEvidenceSlots,
       showStageProcessUploader,
+      showOldPartTraces,
+      oldPartPartOptions: buildOldPartPartOptions(this.data.planParts, this.data.parts),
     })
   },
 
@@ -333,9 +385,8 @@ Page({
   applyComparePairRowsToPage(pairRows) {
     const rows = normalizeComparePairRows(pairRows)
     const nodes = applyComparePairRowsToNodes(this.data.nodes, rows)
-    this.setData({
-      comparePairRows: rows.length ? rows : [{ before: '', after: '' }],
-      nodes,
+    this.setData({ comparePairRows: rows.length ? rows : [{ before: '', after: '' }], nodes }, () => {
+      this.refreshMerchantInspection()
     })
   },
 
@@ -439,9 +490,11 @@ Page({
       partVerifyGuideMode: detail.partVerifyGuideInformed ? 'informed' : 'text',
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
       evidenceItems,
+      oldPartTraces: extractOldPartTraces(evidenceItems),
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
       this.refreshPartWizard()
+      this.refreshMerchantInspection()
     })
     this.syncShareMenu(canShare)
   },
@@ -574,12 +627,27 @@ Page({
     const stageId =
       (this.data.stages[this.data.stageIndex] && this.data.stages[this.data.stageIndex].id) || ''
     const otherItems = (this.data.evidenceItems || []).filter(
-      (item) => item && item.stageId !== stageId,
+      (item) =>
+        item &&
+        (item.stageId !== stageId || isOldPartEvidenceItem(item)),
     )
     const stageItems = items.map((item) => ({ ...item, stageId: item.stageId || stageId }))
     const evidenceItems = [...otherItems, ...stageItems]
     this.setData({ evidenceItems }, () => {
       this.refreshStageEvidenceUI(this.data.stageIndex)
+      this.refreshMerchantInspection()
+    })
+  },
+
+  onOldPartTracesChange(e) {
+    const traces = (e.detail && e.detail.traces) || []
+    const documentItems = (this.data.evidenceItems || []).filter(
+      (item) => !isOldPartEvidenceItem(item),
+    )
+    const validPlanPartIds = buildValidPlanPartIdSet(this.data.planParts, this.data.parts)
+    const evidenceItems = mergeEvidenceItemsForSave(documentItems, traces, validPlanPartIds)
+    this.setData({ oldPartTraces: traces, evidenceItems }, () => {
+      this.refreshMerchantInspection()
     })
   },
 
@@ -614,7 +682,9 @@ Page({
       updates.nodes = applyComparePairRowsToNodes(nodes, rows)
     }
 
-    this.setData(updates)
+    this.setData(updates, () => {
+      this.refreshMerchantInspection()
+    })
   },
 
   onNodeNoteChange(e) {
@@ -751,6 +821,9 @@ Page({
       partWizardRows: wizard.rows,
       partWizardExtras: wizard.extras,
       partWizardProgress: wizard.progressLabel,
+      oldPartPartOptions: buildOldPartPartOptions(this.data.planParts, this.data.parts),
+    }, () => {
+      this.refreshMerchantInspection()
     })
   },
 
@@ -1152,8 +1225,17 @@ Page({
         nodesSource = applyComparePairRowsToNodes(nodesSource, rows)
       }
     }
+    const validPlanPartIds = buildValidPlanPartIdSet(this.data.planParts, this.data.parts)
+    const documentEvidence = (this.data.evidenceItems || []).filter(
+      (item) => !isOldPartEvidenceItem(item),
+    )
+    const mergedEvidence = mergeEvidenceItemsForSave(
+      documentEvidence,
+      this.data.oldPartTraces,
+      validPlanPartIds,
+    )
     const { items: evidenceItems, droppedStaleCount: evidenceDropped } =
-      await this.persistEvidenceItemImages(this.data.evidenceItems)
+      await this.persistEvidenceItemImages(mergedEvidence)
     nodesSource = mergeEvidenceIntoNodes(nodesSource, evidenceItems)
     const { nodes, droppedStaleCount: nodeDropped } = await persistAlbumNodeImages(
       nodesSource.map((n) => ({
@@ -1187,7 +1269,7 @@ Page({
             ? ''
             : String(this.data.partVerifyGuideText || '').trim(),
         partVerifyGuideInformed: this.data.partVerifyGuideMode === 'informed',
-        evidenceItems: sanitizeEvidenceItemsPayload(evidenceItems),
+        evidenceItems: sanitizeEvidenceItemsPayload(evidenceItems, { validPlanPartIds }),
       },
       droppedStaleCount: (nodeDropped || 0) + (evidenceDropped || 0),
     }
@@ -1302,5 +1384,12 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
     })
+  },
+
+  onInspPreviewImage(e) {
+    const { url, urls } = e.detail || {}
+    const list = (urls || []).filter(Boolean)
+    if (!url || !list.length) return
+    wx.previewImage({ current: url, urls: list })
   },
 })

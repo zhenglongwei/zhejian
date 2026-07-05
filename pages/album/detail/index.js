@@ -253,8 +253,6 @@ Page({
     activeStageTitle: '',
     activeStageNote: '',
     nodeNoteMap: {},
-    heroCoverUrl: '',
-    heroVisible: false,
     navSafeTopPx: 0,
     toolbarBottomPadPx: 0,
     infoSheetVisible: false,
@@ -281,13 +279,8 @@ Page({
       return
     }
     this.albumId = options.albumId || options.id || ''
-    const heroCover = options.cover ? decodeURIComponent(options.cover) : ''
-    this.setData({
-      albumId: this.albumId,
-      heroCoverUrl: heroCover,
-      heroVisible: Boolean(heroCover),
-    })
     this.fromMerchantShare = options.from === 'merchant_share'
+    this.setData({ albumId: this.albumId })
     resolvePageShareContext(options, {
       albumId: this.albumId,
       source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
@@ -313,9 +306,6 @@ Page({
   },
 
   onShow() {
-    if (this.albumId && ['normal', 'empty'].includes(this.data.status)) {
-      this.loadAlbum()
-    }
     this.scheduleViewerLayout()
   },
 
@@ -395,11 +385,6 @@ Page({
         )
       }
     })
-  },
-
-  dismissHeroCover() {
-    if (!this.data.heroVisible) return
-    this.setData({ heroVisible: false })
   },
 
   onReady() {
@@ -529,7 +514,6 @@ Page({
         this.syncPageDisplay(0, total)
         this.syncStageProgress(flip.chapters, activeId, 0, enriched)
         this.scheduleViewerLayout()
-        setTimeout(() => this.dismissHeroCover(), 280)
       })
 
       if (linkedStoreId) {
@@ -683,6 +667,17 @@ Page({
         this.syncStageProgress(this.data.flipChapters, nodeId || '', nextIndex)
       },
     )
+  },
+
+  onProgressSegmentTap(e) {
+    const { nodeId, startIndex } = e.currentTarget.dataset
+    if (!nodeId) return
+    this.onChapterTap({
+      detail: {
+        nodeId,
+        startIndex: Number(startIndex) || 0,
+      },
+    })
   },
 
   onOpenInfoSheet() {

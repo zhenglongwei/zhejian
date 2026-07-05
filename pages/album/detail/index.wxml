@@ -1,21 +1,25 @@
 <view class="album-detail page {{detail ? 'album-detail--immersive' : 'bg-album'}}">
   <block wx:if="{{status === 'loading'}}">
-    <view class="album-detail__stage" style="height: {{viewerHeightPx}}px;">
-      <album-frame-viewer
-        class="album-detail__viewer"
-        immersive="{{true}}"
-        host-height="{{viewerHeightPx}}"
-        loading="{{true}}"
-        pages="{{[]}}"
-      />
+    <view class="album-detail__shell">
+      <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
+        <album-frame-viewer
+          class="album-detail__viewer"
+          immersive="{{true}}"
+          host-height="{{viewerHeightPx}}"
+          loading="{{true}}"
+          pages="{{[]}}"
+        />
+      </view>
+      <view class="album-detail__top-chrome">
+        <tool-immersive-nav
+          overlay="{{true}}"
+          transparent="{{true}}"
+          tone="light"
+          title=""
+          statusBarPlaceholder="{{false}}"
+        />
+      </view>
     </view>
-    <tool-immersive-nav
-      overlay="{{true}}"
-      transparent="{{true}}"
-      tone="light"
-      title=""
-      statusBarPlaceholder="{{false}}"
-    />
   </block>
 
   <block wx:elif="{{status === 'error'}}">
@@ -45,93 +49,121 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="album-detail__stage" style="height: {{viewerHeightPx}}px;">
-      <album-frame-viewer
-        class="album-detail__viewer"
-        immersive="{{true}}"
-        host-height="{{viewerHeightPx}}"
-        chrome-visible="{{chromeVisible}}"
-        show-immersive-caption="{{false}}"
-        pages="{{flipPages}}"
-        current="{{pageIndex}}"
-        bind:pagechange="onPageChange"
-        bind:togglechrome="onToggleChrome"
+    <view class="album-detail__shell">
+      <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
+        <album-frame-viewer
+          id="albumViewer"
+          class="album-detail__viewer"
+          immersive="{{true}}"
+          host-height="{{viewerHeightPx}}"
+          show-immersive-caption="{{false}}"
+          pages="{{flipPages}}"
+          current="{{pageIndex}}"
+          bind:pagechange="onPageChange"
+          bind:togglechrome="onToggleChrome"
+        >
+          <album-end-page
+            slot="endPage"
+            album-id="{{albumId}}"
+            album-title="{{detail.serviceName || ''}}"
+            show-auth="{{endPageShowAuth}}"
+            auth-label="{{endPageAuthLabel}}"
+            auth-disabled="{{endPageAuthDisabled}}"
+            auth-hint="{{endPageAuthHint}}"
+            show-withdraw="{{endPageShowWithdraw}}"
+            withdraw-label="{{endPageWithdrawLabel}}"
+            status-hint="{{endPageStatusHint}}"
+            show-share="{{showShareButton}}"
+            show-feedback="{{true}}"
+            show-part-verify="{{showPartsEntry}}"
+            show-contact="{{false}}"
+            show-store-browse="{{false}}"
+            bind:auth="onEndPageAuth"
+            bind:share="onOpenShareSheet"
+            bind:withdraw="onEndPageWithdraw"
+            bind:feedback="onEndPageFeedback"
+            bind:partverify="onEndPagePartVerify"
+          />
+        </album-frame-viewer>
+      </view>
+
+      <view
+        wx:if="{{stageProgress.length && !isEndPage}}"
+        class="album-detail__dock"
+        style="padding-bottom: {{toolbarBottomPadPx}}px;"
       >
-        <album-end-page
-          slot="endPage"
-          album-id="{{albumId}}"
-          album-title="{{detail.serviceName || ''}}"
-          show-auth="{{endPageShowAuth}}"
-          auth-label="{{endPageAuthLabel}}"
-          auth-disabled="{{endPageAuthDisabled}}"
-          auth-hint="{{endPageAuthHint}}"
-          show-withdraw="{{endPageShowWithdraw}}"
-          withdraw-label="{{endPageWithdrawLabel}}"
-          status-hint="{{endPageStatusHint}}"
-          show-share="{{showShareButton}}"
-          show-feedback="{{true}}"
-          show-part-verify="{{showPartsEntry}}"
-          show-contact="{{false}}"
-          show-store-browse="{{false}}"
-          bind:auth="onEndPageAuth"
-          bind:share="onOpenShareSheet"
-          bind:withdraw="onEndPageWithdraw"
-          bind:feedback="onEndPageFeedback"
-          bind:partverify="onEndPagePartVerify"
+        <view class="album-detail__dock-panel">
+          <view class="album-detail__dock-head">
+            <view class="album-detail__dock-copy">
+              <text wx:if="{{activeStageTitle}}" class="album-detail__dock-title">{{activeStageTitle}}</text>
+              <view wx:if="{{activeStageNote}}" class="album-detail__dock-note-box">
+                <text class="album-detail__dock-note" selectable>{{activeStageNote}}</text>
+              </view>
+            </view>
+            <view class="album-detail__dock-actions">
+              <view
+                wx:if="{{showInspectEntry}}"
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onOpenInspect"
+                aria-role="button"
+                aria-label="相册检查"
+              >
+                <text class="album-detail__dock-action-text text-caption">检查</text>
+              </view>
+              <view
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onOpenInfoSheet"
+                aria-role="button"
+                aria-label="档案"
+              >
+                <text class="album-detail__dock-action-text text-caption">档案</text>
+              </view>
+              <view
+                wx:if="{{showPartsEntry}}"
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onOpenPartVerify"
+                aria-role="button"
+                aria-label="配件验真"
+              >
+                <text class="album-detail__dock-action-text text-caption">验真</text>
+              </view>
+            </view>
+          </view>
+          <view class="album-detail__dock-segments">
+            <view
+              wx:for="{{stageProgress}}"
+              wx:key="id"
+              class="album-detail__dock-seg {{item.filled ? 'is-filled' : ''}} {{item.active ? 'is-active' : ''}}"
+              data-node-id="{{item.id}}"
+              data-start-index="{{item.startIndex}}"
+              bindtap="onProgressSegmentTap"
+            />
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{chromeVisible && !isEndPage}}" class="album-detail__top-chrome">
+        <tool-immersive-nav
+          overlay="{{true}}"
+          transparent="{{true}}"
+          tone="{{navTone}}"
+          title=""
+          statusBarPlaceholder="{{false}}"
         />
-      </album-frame-viewer>
-
-      <image
-        wx:if="{{heroVisible && heroCoverUrl}}"
-        class="album-detail__hero {{heroVisible ? '' : 'album-detail__hero--hide'}}"
-        src="{{heroCoverUrl}}"
-        mode="aspectFill"
-      />
-    </view>
-
-    <album-bottom-toolbar
-      wx:if="{{chromeVisible && stageProgress.length && !isEndPage}}"
-      class="album-detail__bottom-toolbar"
-      style="{{toolbarBottomPadPx ? '--toolbar-bottom-pad: ' + toolbarBottomPadPx + 'px;' : ''}}"
-      mode="progress"
-      stages="{{stageProgress}}"
-      active-title="{{activeStageTitle}}"
-      caption-line="{{activeStageNote}}"
-      node-note-map="{{nodeNoteMap}}"
-      active-node-id="{{activeNodeId}}"
-      show-inspect="{{showInspectEntry}}"
-      show-archive="{{true}}"
-      show-parts="{{showPartsEntry}}"
-      bind:chaptertap="onChapterTap"
-      bind:archivetap="onOpenInfoSheet"
-      bind:inspecttap="onOpenInspect"
-      bind:partstap="onOpenPartVerify"
-    />
-
-    <view class="album-detail__chrome {{chromeVisible ? 'album-detail__chrome--visible' : ''}}">
-      <view
-        wx:if="{{!isEndPage}}"
-        class="album-detail__privacy-strip"
-        style="padding-top: {{navSafeTopPx}}px;"
-      >
-        <ui-privacy-banner scene="album" />
+        <view class="album-detail__privacy" style="top: {{navSafeTopPx}}px;">
+          <ui-privacy-banner scene="album" />
+        </view>
+        <view
+          wx:if="{{progressPercent > 0}}"
+          class="album-detail__read-progress"
+          style="top: {{navSafeTopPx}}px;"
+        >
+          <view class="album-detail__read-progress-fill" style="width: {{progressPercent}}%;" />
+        </view>
       </view>
-
-      <view
-        wx:if="{{!isEndPage && progressPercent > 0}}"
-        class="album-detail__progress-track"
-        style="padding-top: {{navSafeTopPx}}px;"
-      >
-        <view class="album-detail__progress-fill" style="width: {{progressPercent}}%;" />
-      </view>
-
-      <tool-immersive-nav
-        overlay="{{true}}"
-        transparent="{{true}}"
-        tone="{{navTone}}"
-        title=""
-        statusBarPlaceholder="{{false}}"
-      />
     </view>
   </block>
 

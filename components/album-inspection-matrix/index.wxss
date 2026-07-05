@@ -199,3 +199,23 @@
   width: 64rpx;
   height: 64rpx;
 }
+
+.album-inspection-matrix__bundle-intro {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.album-inspection-matrix__bundle-intro + .album-inspection-matrix__bundle-section--first {
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-inspection-matrix__bundle-section {
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-inspection-matrix__bundle-section--first {
+  border-top: none;
+}

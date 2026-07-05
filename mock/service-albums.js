@@ -33,6 +33,7 @@ const {
   hydrateEvidenceItems,
   sanitizeEvidenceItemsPayload,
   mergeEvidenceIntoNodes,
+  buildValidPlanPartIdSet,
 } = require('../utils/album-evidence-items')
 
 const {
@@ -531,6 +532,9 @@ function buildAlbumViewModel(raw) {
     privatePrice,
   )
   Object.assign(view, summaryFields)
+  view.parts = album.parts || summaryFields.parts || []
+  view.planParts = album.planParts || []
+  view.planPartsLockedAt = album.planPartsLockedAt || ''
   return view
 }
 
@@ -1035,7 +1039,12 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
       : raw.userPhone
   const evidenceItems =
     payload.evidenceItems != null
-      ? sanitizeEvidenceItemsPayload(payload.evidenceItems)
+      ? sanitizeEvidenceItemsPayload(payload.evidenceItems, {
+          validPlanPartIds: buildValidPlanPartIdSet(
+            payload.planParts != null ? payload.planParts : raw.planParts,
+            payload.parts != null ? payload.parts : raw.parts,
+          ),
+        })
       : raw.evidenceItems || []
   const mergedNodes = mergeEvidenceIntoNodes(payload.nodes || raw.nodes, evidenceItems)
   const next = {

@@ -41,10 +41,6 @@
       </block>
 
       <block wx:elif="{{activeTab === 'method'}}">
-        <view wx:if="{{methodAnchorHint}}" class="album-inspect__summary surface-album-inset">
-          <text class="text-caption">{{methodAnchorHint}}</text>
-        </view>
-
         <album-inspection-matrix
           wx:for="{{methodPanels}}"
           wx:key="id"
@@ -52,8 +48,9 @@
           wx:if="{{panel.id !== 'outcome_method'}}"
           title="{{panel.title}}"
           subtitle="{{panel.subtitle}}"
-          layout="method"
+          layout="{{panel.layout || 'method'}}"
           method-rows="{{panel.methodRows}}"
+          document-bundle="{{panel.documentBundle}}"
         />
 
         <view wx:if="{{outcome.hasCompare || outcome.completionImages.length}}" class="album-inspect__outcome">

@@ -1,10 +1,15 @@
 /**
- * 服务相册 · 结构化 evidenceItems（B-EVID-01）
+ * 服务相册 · 结构化 evidenceItems（B-EVID-01 + B-EVID-06 旧件留痕）
  * 商家分槽上传 ↔ 车主检查页单据 presence 同源
  */
 const {
   DOCUMENT_TYPES,
   EVIDENCE_CATEGORY,
+  EVIDENCE_STRENGTH,
+  OLD_PART_TRACE_TYPE,
+  OLD_PART_TRACE_LABEL,
+  OLD_PART_TRACE_STAGE_ID,
+  OLD_PART_TRACE_MAX_COUNT,
   resolveDocumentTypesForTemplate,
   resolveMerchantEvidenceLabel,
   bumpStrengthForAccident,
@@ -13,6 +18,17 @@ const {
 
 function normalizeImageList(images) {
   return (images || []).map((url) => String(url || '').trim()).filter(Boolean)
+}
+
+function isOldPartEvidenceItem(item) {
+  if (!item) return false
+  if (item.category === EVIDENCE_CATEGORY.OLD_PART) return true
+  if (item.type === OLD_PART_TRACE_TYPE) return true
+  return String(item.id || '').startsWith('old_part_trace_')
+}
+
+function createOldPartTraceKey() {
+  return `t_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }
 
 function buildDocumentEvidenceCatalog(templateId = '') {
@@ -44,11 +60,11 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
   const catalog = buildDocumentEvidenceCatalog(templateId)
   const savedById = {}
   ;(savedItems || []).forEach((item) => {
-    if (item && item.id) savedById[item.id] = item
+    if (item && item.id && !isOldPartEvidenceItem(item)) savedById[item.id] = item
   })
 
   const legacyAssigned = {}
-  return catalog.map((def) => {
+  const documentItems = catalog.map((def) => {
     const saved = savedById[def.id] || {}
     let images = normalizeImageList(saved.images)
     if (!images.length) {
@@ -66,6 +82,13 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
       images,
     }
   })
+
+  const oldPartItems = (savedItems || [])
+    .filter(isOldPartEvidenceItem)
+    .map((item) => sanitizeOldPartEvidenceItem(item))
+    .filter(Boolean)
+
+  return [...documentItems, ...oldPartItems]
 }
 
 function defaultLegacySlotForStage(stageId, templateId) {
@@ -80,13 +103,21 @@ function defaultLegacySlotForStage(stageId, templateId) {
 }
 
 function filterEvidenceByStage(evidenceItems, stageId) {
-  return (evidenceItems || []).filter((item) => item && item.stageId === stageId)
+  return (evidenceItems || []).filter(
+    (item) =>
+      item &&
+      item.stageId === stageId &&
+      item.category === EVIDENCE_CATEGORY.DOCUMENT,
+  )
 }
 
 function resolveProcessImagesForStage(node, evidenceItems) {
   const stageId = (node && (node.id || node.nodeId)) || ''
   const docSet = new Set()
   filterEvidenceByStage(evidenceItems, stageId).forEach((item) => {
+    normalizeImageList(item.images).forEach((url) => docSet.add(url))
+  })
+  ;(evidenceItems || []).filter(isOldPartEvidenceItem).forEach((item) => {
     normalizeImageList(item.images).forEach((url) => docSet.add(url))
   })
   return normalizeImageList(node && node.images).filter((url) => !docSet.has(url))
@@ -105,8 +136,47 @@ function applyProcessOnlyNodes(nodes, evidenceItems) {
   })
 }
 
-function sanitizeEvidenceItemsPayload(items) {
-  return (items || [])
+function sanitizeOldPartEvidenceItem(item, validPlanPartIds) {
+  if (!item) return null
+  const images = normalizeImageList(item.images).slice(0, 1)
+  if (!images.length) return null
+
+  const rawKey = String(item.id || '').replace(/^old_part_trace_/, '').trim()
+  const traceKey = rawKey || createOldPartTraceKey()
+  let planPartId = String(item.planPartId || item.linkKey || '').trim()
+  if (validPlanPartIds && planPartId && !validPlanPartIds.has(planPartId)) {
+    planPartId = ''
+  }
+
+  return {
+    id: `old_part_trace_${traceKey}`,
+    type: OLD_PART_TRACE_TYPE,
+    category: EVIDENCE_CATEGORY.OLD_PART,
+    stageId: OLD_PART_TRACE_STAGE_ID,
+    label: OLD_PART_TRACE_LABEL,
+    strength: item.strength || EVIDENCE_STRENGTH.RECOMMENDED,
+    images,
+    planPartId,
+    linkKey: planPartId,
+  }
+}
+
+function sanitizeOldPartEvidenceItems(items, validPlanPartIds) {
+  const seen = new Set()
+  const next = []
+  ;(items || []).forEach((item) => {
+    const sanitized = sanitizeOldPartEvidenceItem(item, validPlanPartIds)
+    if (!sanitized) return
+    if (seen.has(sanitized.id)) return
+    seen.add(sanitized.id)
+    next.push(sanitized)
+  })
+  return next.slice(0, OLD_PART_TRACE_MAX_COUNT)
+}
+
+function sanitizeEvidenceItemsPayload(items, options = {}) {
+  const validPlanPartIds = options.validPlanPartIds
+  const documentItems = (items || [])
     .filter((item) => item && item.id && DOCUMENT_TYPES[item.id])
     .map((item) => {
       const def = DOCUMENT_TYPES[item.id]
@@ -120,6 +190,43 @@ function sanitizeEvidenceItemsPayload(items) {
         images: normalizeImageList(item.images),
       }
     })
+  const oldPartItems = sanitizeOldPartEvidenceItems(
+    (items || []).filter(isOldPartEvidenceItem),
+    validPlanPartIds,
+  )
+  return [...documentItems, ...oldPartItems]
+}
+
+function extractOldPartTraces(evidenceItems = []) {
+  return (evidenceItems || [])
+    .filter(isOldPartEvidenceItem)
+    .map((item) => {
+      const traceKey = String(item.id || '').replace(/^old_part_trace_/, '').trim()
+      return {
+        traceKey: traceKey || createOldPartTraceKey(),
+        images: normalizeImageList(item.images).slice(0, 1),
+        planPartId: String(item.planPartId || item.linkKey || '').trim(),
+      }
+    })
+}
+
+function buildOldPartEvidenceItems(traces = [], validPlanPartIds) {
+  return sanitizeOldPartEvidenceItems(
+    (traces || []).map((row) => {
+      const traceKey = String(row.traceKey || createOldPartTraceKey()).trim()
+      return {
+        id: `old_part_trace_${traceKey}`,
+        type: OLD_PART_TRACE_TYPE,
+        category: EVIDENCE_CATEGORY.OLD_PART,
+        stageId: OLD_PART_TRACE_STAGE_ID,
+        label: OLD_PART_TRACE_LABEL,
+        images: normalizeImageList(row.images).slice(0, 1),
+        planPartId: String(row.planPartId || '').trim(),
+        linkKey: String(row.planPartId || '').trim(),
+      }
+    }),
+    validPlanPartIds,
+  )
 }
 
 function collectDocumentImagesByStage(evidenceItems) {
@@ -169,6 +276,27 @@ function countDocumentEvidence(evidenceItems) {
   return { uploaded, total: items.length }
 }
 
+function buildValidPlanPartIdSet(planParts = [], parts = []) {
+  const ids = new Set()
+  ;(planParts || []).forEach((plan) => {
+    const id = String(plan.planPartId || plan.linkKey || '').trim()
+    if (id) ids.add(id)
+  })
+  ;(parts || []).forEach((part) => {
+    const id = String(part.planPartId || part.linkKey || '').trim()
+    if (id) ids.add(id)
+  })
+  return ids
+}
+
+function mergeEvidenceItemsForSave(documentItems, oldPartTraces, validPlanPartIds) {
+  const docs = (documentItems || []).filter(
+    (item) => item && item.category === EVIDENCE_CATEGORY.DOCUMENT,
+  )
+  const oldParts = buildOldPartEvidenceItems(oldPartTraces, validPlanPartIds)
+  return [...docs, ...oldParts]
+}
+
 module.exports = {
   buildDocumentEvidenceCatalog,
   hydrateEvidenceItems,
@@ -179,4 +307,10 @@ module.exports = {
   mergeEvidenceIntoNodes,
   countDocumentEvidence,
   normalizeImageList,
+  isOldPartEvidenceItem,
+  extractOldPartTraces,
+  buildOldPartEvidenceItems,
+  buildValidPlanPartIdSet,
+  mergeEvidenceItemsForSave,
+  createOldPartTraceKey,
 }

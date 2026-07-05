@@ -23,6 +23,9 @@ const {
   loadAlbumPartsContext,
   saveAlbumPartVerifications,
 } = require('../services/album-part-verification.service')
+const {
+  generateAlbumInspectionAdvice,
+} = require('../services/album-inspection-advice.service')
 
 const router = express.Router()
 
@@ -223,6 +226,15 @@ router.post('/service-albums/:albumId/part-verifications', requireAuth(['user'])
       req.auth.userId,
       req.body || {},
     )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/inspection-advice', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await generateAlbumInspectionAdvice(req.params.albumId, req.auth.userId)
     return ok(res, data)
   } catch (e) {
     next(e)

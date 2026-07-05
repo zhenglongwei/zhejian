@@ -2,6 +2,7 @@
   "navigationStyle": "custom",
   "navigationBarTitleText": "服务相册",
   "pageOrientation": "portrait",
+  "disableScroll": true,
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-button": "/components/button/index",
@@ -12,7 +13,6 @@
     "tool-immersive-nav": "/components/tool-immersive-nav/index",
     "album-frame-viewer": "/components/album-frame-viewer/index",
     "album-end-page": "/components/album-end-page/index",
-    "album-bottom-toolbar": "/components/album-bottom-toolbar/index",
     "ui-privacy-banner": "/components/privacy-banner/index",
     "album-info-sheet": "/components/album-info-sheet/index"
   }

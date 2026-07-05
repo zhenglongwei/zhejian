@@ -9,7 +9,9 @@ Component({
     layout: { type: String, value: 'inventory' },
     rows: { type: Array, value: [] },
     methodRows: { type: Array, value: [] },
+    documentBundle: { type: Object, value: null },
     compact: { type: Boolean, value: false },
+    importanceColumnLabel: { type: String, value: '重要度' },
   },
 
   methods: {

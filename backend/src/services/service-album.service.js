@@ -44,6 +44,7 @@ const {
   sanitizeEvidenceItemsPayload,
   mergeEvidenceIntoNodes,
   countDocumentEvidence,
+  buildValidPlanPartIdSet,
 } = require('../utils/album-evidence-items')
 
 function normalizeVehicleJson(vehicle = {}) {
@@ -230,9 +231,15 @@ function buildAlbumView(album) {
     formatPlanAmountLabel,
   }, privatePrice)
 
+  const { buildPlanPartsContext } = require('./album-plan-parts.service')
+  const planCtx = buildPlanPartsContext(album)
+
   return {
     ...view,
     ...summaryFields,
+    planParts: planCtx.planParts,
+    planPartsLocked: planCtx.planPartsLocked,
+    planPartsLockedAt: planCtx.planPartsLockedAt,
   }
 }
 
@@ -799,7 +806,12 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ? existing.evidenceItemsJson
     : []
   if (payload.evidenceItems != null) {
-    evidenceItemsJson = sanitizeEvidenceItemsPayload(payload.evidenceItems)
+    evidenceItemsJson = sanitizeEvidenceItemsPayload(payload.evidenceItems, {
+      validPlanPartIds: buildValidPlanPartIdSet(
+        payload.planParts != null ? payload.planParts : existing.planPartsJson,
+        payload.parts != null ? payload.parts : existing.partsJson,
+      ),
+    })
   }
   if (payload.nodes) {
     const mergedNodes = mergeEvidenceIntoNodes(payload.nodes, evidenceItemsJson)
@@ -1274,4 +1286,5 @@ module.exports = {
   getMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
   listServiceAlbumTemplateOptions,
+  loadAlbum,
 }

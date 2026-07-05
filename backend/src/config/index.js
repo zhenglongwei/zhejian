@@ -198,6 +198,19 @@ const config = {
     timeoutMs: Number(process.env.PLAN_QUOTE_LLM_TIMEOUT_MS || 90000),
     enableThinking: process.env.PLAN_QUOTE_LLM_ENABLE_THINKING === 'true',
   },
+  /** B-INSP-01 · 相册检查 AI 建议（文本-only，不含原图） */
+  inspLlm: {
+    enabled: process.env.INSP_LLM_ENABLED === 'true',
+    dryRun: process.env.INSP_LLM_DRY_RUN === 'true',
+    apiUrl:
+      process.env.INSP_LLM_API_URL ||
+      process.env.GEO_LLM_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey: process.env.INSP_LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
+    model: process.env.INSP_LLM_MODEL || process.env.GEO_LLM_MODEL || 'qwen-plus',
+    timeoutMs: Number(process.env.INSP_LLM_TIMEOUT_MS || 60000),
+    enableThinking: process.env.INSP_LLM_ENABLE_THINKING === 'true',
+  },
   /** GEO-IGAIN-C04 · 首页 Organization.sameAs（合规外链，逗号分隔） */
   geo: {
     organizationSameAs: String(process.env.GEO_ORG_SAME_AS || 'https://simplewin.cn')

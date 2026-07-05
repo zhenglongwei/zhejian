@@ -1,7 +1,7 @@
 const { buildAlbumComparePairs } = require('./album-compare-pairs')
 const { buildInspectionViews } = require('./album-inspection-matrix')
 const {
-  resolveOwnerImportance,
+  resolveImportanceLabel,
   bumpStrengthForAccident,
   resolveDocumentTypesForTemplate,
   resolveProcessChecklist,
@@ -16,7 +16,7 @@ function nodeImages(node) {
   return (node.images || []).map((url) => String(url || '').trim()).filter(Boolean)
 }
 
-function buildDocumentItems(detail = {}) {
+function buildDocumentItems(detail = {}, audience = 'owner') {
   const templateId = detail.templateId || ''
   const nodes = detail.nodes || []
   const structured = Array.isArray(detail.evidenceItems) ? detail.evidenceItems : []
@@ -32,7 +32,7 @@ function buildDocumentItems(detail = {}) {
       label: def.label,
       stageId: def.stageId,
       strength,
-      importanceLabel: resolveOwnerImportance(strength),
+      importanceLabel: resolveImportanceLabel(strength, audience),
       images,
       uploaded: images.length > 0,
     }
@@ -65,20 +65,25 @@ function buildOutcomeBlock(detail = {}) {
   }
 }
 
-function buildAlbumInspectionView(detail = {}) {
-  const documentItems = buildDocumentItems(detail)
+function buildAlbumInspectionView(detail = {}, options = {}) {
+  const audience = options.audience || 'owner'
+  const completenessOnly = Boolean(options.completenessOnly || audience === 'merchant')
+  const documentItems = buildDocumentItems(detail, audience)
   const processItems = buildProcessItems(detail)
   const outcome = buildOutcomeBlock(detail)
-  const views = buildInspectionViews(detail, documentItems, processItems, outcome)
+  const views = buildInspectionViews(detail, documentItems, processItems, outcome, { audience })
 
   const showPartVerifyEntry =
-    (detail.parts || []).length > 0 ||
-    views.completeness.panels.some((p) => p.id === 'parts' && (p.rows || []).length)
+    !completenessOnly &&
+    ((detail.parts || []).length > 0 ||
+      views.completeness.panels.some((p) => p.id === 'parts' && (p.rows || []).length))
 
   return {
+    audience,
+    importanceColumnLabel: audience === 'merchant' ? '规范' : '重要度',
     completeness: views.completeness,
-    method: views.method,
-    outcome,
+    method: completenessOnly ? { panels: [] } : views.method,
+    outcome: completenessOnly ? {} : outcome,
     showPartVerifyEntry,
   }
 }

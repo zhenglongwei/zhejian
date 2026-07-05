@@ -211,6 +211,34 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-album-edit__insp {
+  margin-bottom: var(--space-md);
+}
+
+.merchant-album-edit__insp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-album-edit__insp-title {
+  flex-shrink: 0;
+}
+
+.merchant-album-edit__insp-summary {
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.merchant-album-edit__insp-hint {
+  display: block;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+  line-height: 1.5;
+}
+
 .merchant-album-edit__tabs {
   margin: var(--space-md) 0;
 }

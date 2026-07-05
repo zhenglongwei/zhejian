@@ -163,6 +163,7 @@ model Album {
   authorization       AlbumAuthorization?
   publicCase          PublicCase?
   shareTokens         AlbumShareToken[]
+  inspectionReports   AlbumInspectionReport[]
 
   @@index([merchantId, status])
   @@index([userPhone])
@@ -626,6 +627,19 @@ model AlbumShareToken {
   @@index([albumId])
   @@index([userId])
   @@map("album_share_tokens")
+}
+
+model AlbumInspectionReport {
+  id          String   @id
+  albumId     String   @map("album_id")
+  userId      String   @map("user_id")
+  source      String   @default("rule")
+  payloadJson Json     @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  album       Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId, userId])
+  @@map("album_inspection_reports")
 }
 
 /// 卷二 B-STATS：商家门店日指标（T+1 聚合）
