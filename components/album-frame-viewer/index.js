@@ -30,7 +30,6 @@ function normalizePhotoPages(pages) {
       time: p.time || '',
       imageIndex: p.imageIndex,
       imageCountInNode: p.imageCountInNode,
-      imageLabel: p.imageLabel || p.nodeTitle || '',
     }))
     .filter((p) => p.imageUrl)
 }

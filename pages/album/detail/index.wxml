@@ -75,14 +75,12 @@
             status-hint="{{endPageStatusHint}}"
             show-share="{{showShareButton}}"
             show-feedback="{{true}}"
-            show-part-verify="{{showPartsEntry}}"
             show-contact="{{false}}"
             show-store-browse="{{false}}"
             bind:auth="onEndPageAuth"
             bind:share="onOpenShareSheet"
             bind:withdraw="onEndPageWithdraw"
             bind:feedback="onEndPageFeedback"
-            bind:partverify="onEndPagePartVerify"
           />
         </album-frame-viewer>
       </view>
@@ -128,7 +126,7 @@
                 aria-role="button"
                 aria-label="配件验真"
               >
-                <text class="album-detail__dock-action-text text-caption">验真</text>
+                <text class="album-detail__dock-action-text text-caption">配件验真</text>
               </view>
             </view>
           </view>
@@ -153,9 +151,6 @@
           title=""
           statusBarPlaceholder="{{false}}"
         />
-        <view class="album-detail__privacy" style="top: {{navSafeTopPx}}px;">
-          <ui-privacy-banner scene="album" />
-        </view>
         <view
           wx:if="{{progressPercent > 0}}"
           class="album-detail__read-progress"

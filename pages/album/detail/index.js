@@ -1018,10 +1018,6 @@ Page({
     this.goPartVerifyPage()
   },
 
-  onEndPagePartVerify() {
-    this.goPartVerifyPage()
-  },
-
   onOpenBenefitPolicy() {
     wx.navigateTo({ url: '/pages/benefit-sharing/index' })
   },

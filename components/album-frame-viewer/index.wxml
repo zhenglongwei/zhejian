@@ -41,9 +41,6 @@
                   mode="aspectFill"
                   show-menu-by-longpress="{{false}}"
                 />
-                <view wx:if="{{item.imageLabel}}" class="album-frame-viewer__image-label">
-                  <text class="album-frame-viewer__image-label-text text-caption">{{item.imageLabel}}</text>
-                </view>
               </view>
             </block>
             <block wx:else>
@@ -101,9 +98,6 @@
                     mode="aspectFill"
                     show-menu-by-longpress="{{false}}"
                   />
-                  <view wx:if="{{item.imageLabel}}" class="album-frame-viewer__image-label">
-                    <text class="album-frame-viewer__image-label-text text-caption">{{item.imageLabel}}</text>
-                  </view>
                 </view>
               </block>
               <block wx:else>

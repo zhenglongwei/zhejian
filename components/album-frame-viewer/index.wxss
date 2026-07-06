@@ -19,7 +19,6 @@
 }
 
 .album-frame-viewer__photo-tap {
-  position: relative;
   width: 100%;
   height: 100%;
 }
@@ -167,33 +166,9 @@
 }
 
 .album-frame-viewer__photo-wrap {
-  position: relative;
   flex: 1;
   min-height: 0;
   background: var(--color-bg-muted);
-}
-
-.album-frame-viewer__image-label {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  z-index: 2;
-  box-sizing: border-box;
-  max-width: 72%;
-  padding: var(--space-xs) var(--space-sm);
-  border: 1rpx solid var(--color-album-immersive-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-album-immersive-caption-bg);
-  box-shadow: var(--shadow-album-immersive-panel);
-  pointer-events: none;
-}
-
-.album-frame-viewer__image-label-text {
-  display: block;
-  overflow: hidden;
-  color: var(--color-text-inverse);
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 .album-frame-viewer__photo {

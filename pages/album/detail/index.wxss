@@ -81,7 +81,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 72rpx;
+  min-width: 0;
+  max-width: 168rpx;
   margin-top: 2rpx;
   padding: 4rpx var(--space-sm);
   border: 1rpx solid var(--color-album-immersive-border);
@@ -171,15 +172,6 @@
 
 .album-detail__top-chrome .tool-immersive-nav__back {
   pointer-events: auto;
-}
-
-.album-detail__privacy {
-  position: absolute;
-  right: var(--page-padding-x);
-  left: var(--page-padding-x);
-  z-index: 2;
-  box-sizing: border-box;
-  pointer-events: none;
 }
 
 .album-detail__read-progress {
