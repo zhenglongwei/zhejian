@@ -1,2 +1,4 @@
-/** Re-export shared album inspection advice for backend services. */
-module.exports = require('../../../utils/album-inspection-advice')
+/** Shared album inspection advice (vendor or monorepo utils). */
+const { resolveShared } = require('./resolve-shared')
+
+module.exports = resolveShared('utils/album-inspection-advice.js')

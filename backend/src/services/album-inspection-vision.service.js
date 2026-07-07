@@ -4,7 +4,7 @@
 const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
 const { resolvePlanQuoteImageSources } = require('../lib/plan-quote-image-source')
-const { collectVisionImageCandidates } = require('../../../utils/album-inspection-context')
+const { collectVisionImageCandidates } = require('../utils/album-inspection-context')
 
 function readEnv(name) {
   const raw = process.env[name]

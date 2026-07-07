@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "sync:shared-utils": "node scripts/sync-shared-utils.cjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",

@@ -31,6 +31,7 @@ cp .env.production.example .env   # 首次
 nano .env                         # DATABASE_URL、DEV_*_TOKEN、PORT=3100
 
 npm install
+npm run sync:shared-utils   # 同步相册检查等 shared utils 到 backend/vendor（必跑）
 npm run db:setup:prod
 
 # 若曾用 systemd，先停掉避免抢端口
@@ -38,7 +39,8 @@ sudo systemctl stop zhejian-api 2>/dev/null || true
 sudo systemctl disable zhejian-api 2>/dev/null || true
 
 pm2 start ecosystem.config.cjs
-pm2 restart zhejian-api          # 以后改代码/配置后
+pm2 restart zhejian-api
+pm2 logs zhejian-api --lines 30   # 应见 inspLlm enabled=true
 curl -s http://127.0.0.1:3100/api/v1/health
 
 pm2 save
