@@ -9,16 +9,60 @@ const {
   buildStageTimeline,
 } = require('./album-inspection-context')
 
-function normalizeAdvicePayload(raw = {}, source = 'rule') {
-  const pickLines = (list) =>
-    (Array.isArray(list) ? list : [])
-      .map((item) => {
-        if (typeof item === 'string') return item.trim()
-        if (item && typeof item.text === 'string') return item.text.trim()
-        return ''
-      })
-      .filter(Boolean)
+function pickLines(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (item && typeof item.text === 'string') return item.text.trim()
+      return ''
+    })
+    .filter(Boolean)
+}
 
+function normalizePhotoAppendix(rawList) {
+  return (Array.isArray(rawList) ? rawList : [])
+    .map((stage) => {
+      const stageId = String((stage && stage.stageId) || '').trim()
+      const stageTitle = String((stage && stage.stageTitle) || '').trim()
+      const photos = (Array.isArray(stage && stage.photos) ? stage.photos : [])
+        .map((photo) => {
+          const label = String((photo && photo.label) || '').trim()
+          const valid = photo && photo.valid !== false
+          const description = valid
+            ? String((photo && photo.description) || '').trim()
+            : '无效照片'
+          return { label, description, valid }
+        })
+        .filter((photo) => photo.label || photo.description)
+        .slice(0, 12)
+      return { stageId, stageTitle, photos }
+    })
+    .filter((stage) => stage.stageTitle && stage.photos.length)
+    .slice(0, 6)
+}
+
+function normalizeComparisons(rawList) {
+  return (Array.isArray(rawList) ? rawList : [])
+    .map((row) => ({
+      title: String((row && row.title) || '').trim(),
+      process: String((row && row.process) || '').trim(),
+      conclusion: String((row && row.conclusion) || '').trim(),
+    }))
+    .filter((row) => row.title && (row.process || row.conclusion))
+    .slice(0, 8)
+}
+
+function normalizeOverallOpinion(raw = {}) {
+  return {
+    summary: String(raw.summary || '').trim().slice(0, 400),
+    completeness: String(raw.completeness || '').trim().slice(0, 400),
+    missingItems: pickLines(raw.missingItems).slice(0, 8),
+    potentialIssues: pickLines(raw.potentialIssues).slice(0, 8),
+    recommendedActions: pickLines(raw.recommendedActions).slice(0, 8),
+  }
+}
+
+function mapLegacyToStructured(raw = {}) {
   const stageObservations = (Array.isArray(raw.stageObservations) ? raw.stageObservations : [])
     .map((row) => ({
       stageId: String((row && row.stageId) || '').trim(),
@@ -27,7 +71,6 @@ function normalizeAdvicePayload(raw = {}, source = 'rule') {
       concern: String((row && row.concern) || '').trim(),
     }))
     .filter((row) => row.observation)
-    .slice(0, 8)
 
   const partVerifyReminders = (Array.isArray(raw.partVerifyReminders) ? raw.partVerifyReminders : [])
     .map((row) => ({
@@ -38,15 +81,78 @@ function normalizeAdvicePayload(raw = {}, source = 'rule') {
     .filter((row) => row.partName && row.reason)
     .slice(0, 6)
 
+  const suspectedIssues = pickLines(raw.suspectedIssues).slice(0, 8)
+  const suggestedPhotos = pickLines(raw.suggestedPhotos).slice(0, 6)
+  const nextSteps = pickLines(raw.nextSteps).slice(0, 6)
+
+  const comparisonsFromStages = stageObservations.map((row) => ({
+    title: row.stageTitle || row.stageId,
+    process: row.observation,
+    conclusion: row.concern || '',
+  }))
+
   return {
+    overallOpinion: normalizeOverallOpinion({
+      summary: raw.summary,
+      completeness: raw.processStatus,
+      missingItems: suggestedPhotos,
+      potentialIssues: suspectedIssues,
+      recommendedActions: nextSteps,
+    }),
+    comparisons: comparisonsFromStages,
+    photoAppendix: [],
+    limitationNote: '',
+    partVerifyReminders,
+    focusAreas: pickLines(raw.focusAreas).slice(0, 6),
+    stageObservations: stageObservations.slice(0, 8),
+    suspectedIssues: suspectedIssues.map((text) => ({ text })),
+    suggestedPhotos,
+    nextSteps,
     summary: String(raw.summary || '').trim().slice(0, 280),
     processStatus: String(raw.processStatus || '').trim().slice(0, 280),
-    focusAreas: pickLines(raw.focusAreas).slice(0, 6),
-    stageObservations,
-    suspectedIssues: pickLines(raw.suspectedIssues).slice(0, 8).map((text) => ({ text })),
+  }
+}
+
+function normalizeAdvicePayload(raw = {}, source = 'rule') {
+  const hasStructured =
+    raw.overallOpinion ||
+    (Array.isArray(raw.comparisons) && raw.comparisons.length) ||
+    (Array.isArray(raw.photoAppendix) && raw.photoAppendix.length)
+
+  if (!hasStructured) {
+    const legacy = mapLegacyToStructured(raw)
+    return {
+      ...legacy,
+      source: String(source || 'rule'),
+    }
+  }
+
+  const overallOpinion = normalizeOverallOpinion(raw.overallOpinion || {})
+  const comparisons = normalizeComparisons(raw.comparisons)
+  const photoAppendix = normalizePhotoAppendix(raw.photoAppendix)
+  const limitationNote = String(raw.limitationNote || '').trim().slice(0, 500)
+  const partVerifyReminders = (Array.isArray(raw.partVerifyReminders) ? raw.partVerifyReminders : [])
+    .map((row) => ({
+      partName: String((row && row.partName) || '').trim(),
+      reason: String((row && row.reason) || '').trim(),
+      action: String((row && row.action) || '').trim(),
+    }))
+    .filter((row) => row.partName && row.reason)
+    .slice(0, 6)
+
+  return {
+    overallOpinion,
+    comparisons,
+    photoAppendix,
+    limitationNote,
     partVerifyReminders,
-    suggestedPhotos: pickLines(raw.suggestedPhotos).slice(0, 6),
-    nextSteps: pickLines(raw.nextSteps).slice(0, 6),
+    focusAreas: pickLines(raw.focusAreas).slice(0, 6),
+    summary: overallOpinion.summary.slice(0, 280),
+    processStatus: overallOpinion.completeness.slice(0, 280),
+    stageObservations: [],
+    suspectedIssues: overallOpinion.potentialIssues.map((text) => ({ text })),
+    suggestedPhotos: overallOpinion.missingItems,
+    nextSteps: overallOpinion.recommendedActions,
     source: String(source || 'rule'),
   }
 }
@@ -137,16 +243,25 @@ function buildRuleBasedAdvice(detail = {}, options = {}) {
 
   return normalizeAdvicePayload(
     {
-      summary,
-      processStatus,
+      overallOpinion: {
+        summary,
+        completeness: processStatus,
+        missingItems: missingLabels.slice(0, 5).map((label) => `${label}相关照片或单据`),
+        potentialIssues: suspectedIssues,
+        recommendedActions: nextSteps,
+      },
+      comparisons: stageObservations.slice(0, 4).map((row) => ({
+        title: row.stageTitle,
+        process: row.observation,
+        conclusion: row.concern || '建议结合前后节点一起看。',
+      })),
+      photoAppendix: [],
+      limitationNote:
+        '相册只能对照已上传内容，不能杜绝未入镜施工或事后换件；重大疑虑可到场验车验件、委托第三方鉴定，事故车可向保险公司申请复检。',
       focusAreas: focusStage
         ? [`优先看【${focusStage}】及前后相邻节点的照片与说明。`]
         : ['先看「完整性」缺什么，再按「检查方法」三段说明对照。'],
-      stageObservations: stageObservations.slice(0, 4),
-      suspectedIssues,
       partVerifyReminders,
-      suggestedPhotos: missingLabels.slice(0, 5).map((label) => `${label}相关照片或单据`),
-      nextSteps,
     },
     'rule',
   )
@@ -165,42 +280,52 @@ function buildLlmSystemPrompt() {
     '你是一名有15年一线经验的汽车维修质检顾问，正在为普通车主解读「服务相册」。',
     '',
     '## 维修流程（六节点，按时间顺序）',
-    '1. 接车记录：外观损伤、里程、故障描述是否清楚',
-    '2. 检测记录：检测照片与说明能否支撑后续方案',
-    '3. 方案与报价：报价单/定损单、费用与项目说明',
-    '4. 配件/材料：报价里的配件 vs 实际换件、配件照片',
-    '5. 施工过程：过程图、旧件图、施工工单是否对应',
+    '1. 接车记录：外观损伤、里程、故障描述',
+    '2. 检测记录：检测照片与说明',
+    '3. 方案与报价：报价单/定损单、费用与项目',
+    '4. 配件/材料：报价配件 vs 实际换件、配件照片',
+    '5. 施工过程：过程图、旧件图、施工工单',
     '6. 完工交付：完工效果、结算单、修前修后对比',
     '',
-    '## 如何读图（若提供 imageCaptions）',
-    '- 结合 stageTitle、label、门店 note 理解每张照片在流程中的位置',
-    '- 后节点必须联系前节点：例如施工图要对照报价/工单；配件图要对照报价清单',
-    '- 看不清的内容不要猜；不要编造车牌、手机号、具体金额',
+    '## 分析任务（按顺序完成，但 JSON 字段已固定）',
+    '',
+    '### A. photoAppendix（逐张读图，按节点分组，供附录展示）',
+    '- 结合 context 中 imageCaptions（若有）与节点说明，按六节点逐张描述照片内容',
+    '- 与本次维修无关的照片：valid=false，description 固定写「无效照片」，不要解释原因',
+    '- 相关的照片：valid=true，1～2 句客观描述（部位、单据类型、配件包装、施工环节等）',
+    '- 看不清的不猜；不要输出完整车牌、手机号、具体金额',
+    '',
+    '### B. comparisons（专业对比分析，供正文中间展示）',
+    '按汽修质检习惯，至少覆盖以下维度（有资料才写，没有则写「相册未提供，无法对比」）：',
+    '1. 单据之间：定损/报价 ↔ 施工工单 ↔ 结算单（项目、金额、时间线是否说得通）',
+    '2. 单据 ↔ 配件：报价/工单中的更换项目 vs 配件登记与配件照片',
+    '3. 单据/配件 ↔ 施工：工单与施工图、旧件图是否对得上',
+    '每条含 title（对比主题）、process（怎么对的、看到什么）、conclusion（一致/有差异/无法判断 + 简短说明）',
+    '',
+    '### C. overallOpinion（汇总 B 的结论，供正文开头展示）',
+    '- summary：2～3 句整体结论，车主一读就懂',
+    '- completeness：照片与单据是否齐全、能否支撑判断',
+    '- missingItems：建议门店或车主补齐什么（0～5 条）',
+    '- potentialIssues：可能风险或疑点（不下「造假/假件/没问题」等终局结论，0～5 条）',
+    '- recommendedActions：车主可采取的措施，用「向门店确认/索取」「到店验件」「配件验真」「第三方鉴定」「向保险公司核对」等表述（0～5 条）',
+    '',
+    '### D. limitationNote（报告末尾，1～2 句）',
+    '说明相册局限：即便图文一致也不能杜绝造假；如有疑虑可实车验件、第三方鉴定、保险复检等。',
     '',
     '## 车主可能在任意节点触发分析',
-    '- 若 context 含 focusStageId/focusStageTitle：先响应该节点，再简要联系前后节点',
-    '- 说明当前维修进展到哪一步、已留痕是否支撑判断、还缺什么',
+    '- 若 context 含 focusStageId/focusStageTitle：优先解读该节点，再联系前后节点',
     '',
-    '## 配件验真（重要边界）',
-    '- 平台不负责鉴定配件真伪，也不保证与车上实物一致',
-    '- 对刹车片、转向、电池、气囊等关键件：可提醒车主使用「配件验真」或到店查看包装/编码/旧件',
-    '- partVerifyReminders 写提醒，不要写「已验真」「假件」等结论',
+    '## 配件验真边界',
+    '- 平台不负责鉴定配件真伪；partVerifyReminders 仅写提醒（0～4 条），禁止写「已验真」「假件」',
     '',
-    '## 相册能力边界（必须牢记，勿给车主虚假安全感）',
-    '- 「资料自洽」≠「施工如实」：单据、配件图、施工图全部对得上，仍可能存在未入镜施工、旧件事后替换、以次充好、虚报或账外项目',
-    '- 相册价值：帮车主看懂流程、发现明显缺口与不一致，提高商家造假留痕成本；不能杜绝造假',
-    '- 禁止在核对通过时写「可以放心」「没有造假」「质量没问题」「可以交车」等结论',
-    '- 若留痕齐全、无明显疑点：仍应在 processStatus 或 nextSteps 中温和说明相册局限；建议关键节点到场、保留旧件、关键件验真',
-    '- 要尽可能接近全程可信：全程在场见证施工，或事后委托有资质第三方鉴定',
-    '- 事故维修如有怀疑：可向承保保险公司申请复检，或反映定损与施工不符',
+    '## 禁止表述',
+    '- 内部术语（留痕矩阵、分槽等）',
+    '- 「100%修好」「平台担保」「可以放心交车」「没有造假」「质量没问题」',
     '',
     '## 输出要求',
-    '- 大白话，短句，禁止「登记」「分槽」「留痕矩阵」等内部术语',
-    '- 禁止「100%修好」「平台担保」「已鉴定为真/假」「资料齐全即可放心」',
-    '- 行动建议用「向门店确认/索取」或「向保险公司核对」',
-    '- 只输出 JSON，不要 markdown。字段：',
-    '{"summary":"一句话总评","processStatus":"当前进展与相册能支撑的判断","focusAreas":["…"],"stageObservations":[{"stageId":"stage_x","stageTitle":"…","observation":"…","concern":"可选"}],"suspectedIssues":["…"],"partVerifyReminders":[{"partName":"…","reason":"…","action":"…"}],"suggestedPhotos":["…"],"nextSteps":["…"]}',
-    '- summary/processStatus 各 1～2 句；suspectedIssues 0～5 条；partVerifyReminders 0～4 条',
+    '- 大白话、短句；只输出 JSON，不要 markdown',
+    '- 字段结构：',
+    '{"overallOpinion":{"summary":"","completeness":"","missingItems":[],"potentialIssues":[],"recommendedActions":[]},"comparisons":[{"title":"","process":"","conclusion":""}],"photoAppendix":[{"stageId":"stage_x","stageTitle":"","photos":[{"label":"","description":"","valid":true}]}],"limitationNote":"","partVerifyReminders":[{"partName":"","reason":"","action":""}]}',
   ].join('\n')
 }
 
@@ -211,6 +336,7 @@ function buildLlmUserPrompt(context = {}) {
 
   return [
     focusHint,
+    '请按 system 要求完成 A→B→C→D 四步分析。',
     '以下是相册结构化摘要与（如有）AI读图说明；不含原图 URL：',
     JSON.stringify(context),
     '请生成车主能直接阅读的 JSON 检查报告。',

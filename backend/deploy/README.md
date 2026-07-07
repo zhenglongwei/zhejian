@@ -51,6 +51,22 @@ pm2 startup                      # 按提示执行一条 sudo 命令，开机自
 
 `services/config.js` → `ACTIVE_ENV = 'prod'`
 
+## Nginx 更新（AI 检查超时）
+
+生产真源：**`backend/deploy/simplewin.conf`**（与 `/etc/nginx/conf.d/simplewin.conf` 同步）。
+
+本次变更：`geo.simplewin.cn` 的 `location /api/` 增加 `proxy_send_timeout` / `proxy_read_timeout` **240s**（原 60s 会导致 AI 检查中途断开）。
+
+```bash
+# 服务器上（git pull 后）
+sudo cp /var/www/zhejian/backend/deploy/simplewin.conf /etc/nginx/conf.d/simplewin.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+若只改 `/api/` 片段、不覆盖整文件，见 `backend/deploy/nginx-api-location.snippet.conf`。
+
+独立 geo 模板（含 `__SSL_*__` 占位符）：`backend/deploy/nginx-geo.simplewin.cn.conf`。
+
 ## 验证脚本
 
 ```bash

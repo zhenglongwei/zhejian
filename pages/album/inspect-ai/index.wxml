@@ -15,7 +15,7 @@
     <view class="page-content album-inspect-ai__body">
       <view class="surface-album-panel album-inspect-ai__hero">
         <text class="text-h3">{{albumTitle}}</text>
-        <text class="text-caption text-secondary">以下为 AI 辅助检查记录，可多次发起；失败记录会保留原因说明。</text>
+        <text class="text-caption text-secondary">以下为 AI 辅助检查记录，可多次发起；分析可能需要 1～2 分钟，请勿重复点击。</text>
       </view>
 
       <view class="album-inspect-ai__trigger">
@@ -33,74 +33,123 @@
           wx:for="{{reports}}"
           wx:key="reportId"
           wx:for-item="report"
+          wx:for-index="reportIndex"
           class="surface-album-panel album-inspect-ai__report {{report.reportId === highlightReportId ? 'album-inspect-ai__report--highlight' : ''}}"
         >
-          <view class="album-inspect-ai__report-head">
-            <text class="text-body album-inspect-ai__report-time">{{report.createdAtText}}</text>
-            <ui-tag variant="{{report.status === 'failed' ? 'warning' : 'info'}}" text="{{report.status === 'failed' ? '调用失败' : '已完成'}}" />
+          <view
+            class="album-inspect-ai__report-head"
+            bindtap="onToggleReport"
+            data-id="{{report.reportId}}"
+          >
+            <view class="album-inspect-ai__report-head-main">
+              <text class="text-body album-inspect-ai__report-time">{{report.createdAtText}}</text>
+              <text wx:if="{{report.focusStageTitle}}" class="text-caption album-inspect-ai__report-focus">关注：{{report.focusStageTitle}}</text>
+            </view>
+            <view class="album-inspect-ai__report-head-side">
+              <ui-tag variant="{{report.status === 'failed' ? 'warning' : 'info'}}" text="{{report.status === 'failed' ? '调用失败' : '已完成'}}" />
+              <text class="album-inspect-ai__chevron">{{report.expanded ? '▾' : '▸'}}</text>
+            </view>
           </view>
-          <text wx:if="{{report.focusStageTitle}}" class="text-caption album-inspect-ai__report-focus">关注节点：{{report.focusStageTitle}}</text>
 
-          <block wx:if="{{report.status === 'failed'}}">
-            <text class="text-body album-inspect-ai__fail-title">{{report.errorTitle || '调用失败'}}</text>
-            <text class="text-body album-inspect-ai__fail-message">{{report.errorMessage}}</text>
-          </block>
-
-          <block wx:else>
-            <text class="text-caption album-inspect-ai__disclaimer">{{aiDisclaimer}}</text>
-            <text
-              wx:for="{{aiEvidenceLimitLines}}"
-              wx:key="*this"
-              class="text-caption album-inspect-ai__limit"
-            >{{item}}</text>
-
-            <text wx:if="{{report.advice.summary}}" class="text-body album-inspect-ai__summary">{{report.advice.summary}}</text>
-            <text wx:if="{{report.advice.processStatus}}" class="text-caption album-inspect-ai__process">{{report.advice.processStatus}}</text>
-
-            <block wx:if="{{report.advice.focusAreas.length}}">
-              <text class="text-caption album-inspect-ai__label">建议关注</text>
-              <text wx:for="{{report.advice.focusAreas}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+          <block wx:if="{{report.expanded}}">
+            <block wx:if="{{report.status === 'failed'}}">
+              <text class="text-body album-inspect-ai__fail-title">{{report.errorTitle || '调用失败'}}</text>
+              <text class="text-body album-inspect-ai__fail-message">{{report.errorMessage}}</text>
             </block>
 
-            <block wx:if="{{report.advice.stageObservations.length}}">
-              <text class="text-caption album-inspect-ai__label">各节点观察</text>
-              <view
-                wx:for="{{report.advice.stageObservations}}"
-                wx:key="stageId"
-                wx:for-item="stageRow"
-                class="album-inspect-ai__stage"
-              >
-                <text class="text-body album-inspect-ai__line">{{stageRow.stageTitle}}：{{stageRow.observation}}</text>
-                <text wx:if="{{stageRow.concern}}" class="text-caption album-inspect-ai__concern">{{stageRow.concern}}</text>
-              </view>
-            </block>
+            <block wx:else>
+              <text class="text-caption album-inspect-ai__disclaimer">{{aiDisclaimer}}</text>
 
-            <block wx:if="{{report.advice.suspectedIssues.length}}">
-              <text class="text-caption album-inspect-ai__label">可能的问题</text>
-              <text wx:for="{{report.advice.suspectedIssues}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item.text || item}}</text>
-            </block>
+              <block wx:if="{{report.advice.overallOpinion.summary}}">
+                <text class="text-caption album-inspect-ai__label">整体意见</text>
+                <text class="text-body album-inspect-ai__summary">{{report.advice.overallOpinion.summary}}</text>
+              </block>
 
-            <block wx:if="{{report.advice.partVerifyReminders.length}}">
-              <text class="text-caption album-inspect-ai__label">配件验真提醒</text>
-              <view
-                wx:for="{{report.advice.partVerifyReminders}}"
-                wx:key="partName"
-                wx:for-item="reminder"
-                class="album-inspect-ai__verify"
-              >
-                <text class="text-body album-inspect-ai__line">{{reminder.partName}}：{{reminder.reason}}</text>
-                <text wx:if="{{reminder.action}}" class="text-caption album-inspect-ai__action">{{reminder.action}}</text>
-              </view>
-            </block>
+              <text wx:if="{{report.advice.overallOpinion.completeness}}" class="text-caption album-inspect-ai__process">{{report.advice.overallOpinion.completeness}}</text>
 
-            <block wx:if="{{report.advice.suggestedPhotos.length}}">
-              <text class="text-caption album-inspect-ai__label">建议补充的照片</text>
-              <text wx:for="{{report.advice.suggestedPhotos}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
-            </block>
+              <block wx:if="{{report.advice.overallOpinion.missingItems.length}}">
+                <text class="text-caption album-inspect-ai__label">建议补齐</text>
+                <text wx:for="{{report.advice.overallOpinion.missingItems}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+              </block>
 
-            <block wx:if="{{report.advice.nextSteps.length}}">
-              <text class="text-caption album-inspect-ai__label">下一步建议</text>
-              <text wx:for="{{report.advice.nextSteps}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+              <block wx:if="{{report.advice.overallOpinion.potentialIssues.length}}">
+                <text class="text-caption album-inspect-ai__label">需留意</text>
+                <text wx:for="{{report.advice.overallOpinion.potentialIssues}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+              </block>
+
+              <block wx:if="{{report.advice.overallOpinion.recommendedActions.length}}">
+                <text class="text-caption album-inspect-ai__label">建议措施</text>
+                <text wx:for="{{report.advice.overallOpinion.recommendedActions}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+              </block>
+
+              <block wx:if="{{report.advice.comparisons.length}}">
+                <text class="text-caption album-inspect-ai__label">对比分析</text>
+                <view
+                  wx:for="{{report.advice.comparisons}}"
+                  wx:key="title"
+                  wx:for-item="cmp"
+                  class="album-inspect-ai__compare"
+                >
+                  <text class="text-body album-inspect-ai__compare-title">{{cmp.title}}</text>
+                  <text wx:if="{{cmp.process}}" class="text-body album-inspect-ai__line">{{cmp.process}}</text>
+                  <text wx:if="{{cmp.conclusion}}" class="text-caption album-inspect-ai__compare-conclusion">{{cmp.conclusion}}</text>
+                </view>
+              </block>
+
+              <block wx:if="{{report.advice.partVerifyReminders.length}}">
+                <text class="text-caption album-inspect-ai__label">配件验真提醒</text>
+                <view
+                  wx:for="{{report.advice.partVerifyReminders}}"
+                  wx:key="partName"
+                  wx:for-item="reminder"
+                  class="album-inspect-ai__verify"
+                >
+                  <text class="text-body album-inspect-ai__line">{{reminder.partName}}：{{reminder.reason}}</text>
+                  <text wx:if="{{reminder.action}}" class="text-caption album-inspect-ai__action">{{reminder.action}}</text>
+                </view>
+              </block>
+
+              <block wx:if="{{report.advice.limitationNote}}">
+                <text class="text-caption album-inspect-ai__label">相册说明</text>
+                <text class="text-caption album-inspect-ai__limit">{{report.advice.limitationNote}}</text>
+              </block>
+              <block wx:else>
+                <text
+                  wx:for="{{aiEvidenceLimitLines}}"
+                  wx:key="*this"
+                  class="text-caption album-inspect-ai__limit"
+                >{{item}}</text>
+              </block>
+
+              <block wx:if="{{report.advice.photoAppendix.length}}">
+                <view
+                  class="album-inspect-ai__appendix-head"
+                  bindtap="onToggleAppendix"
+                  data-id="{{report.reportId}}"
+                >
+                  <text class="text-caption album-inspect-ai__label album-inspect-ai__appendix-label">照片附录</text>
+                  <text class="album-inspect-ai__chevron">{{report.appendixExpanded ? '▾' : '▸'}}</text>
+                </view>
+                <block wx:if="{{report.appendixExpanded}}">
+                  <view
+                    wx:for="{{report.advice.photoAppendix}}"
+                    wx:key="stageId"
+                    wx:for-item="stageBlock"
+                    class="album-inspect-ai__appendix-stage"
+                  >
+                    <text class="text-body album-inspect-ai__appendix-stage-title">{{stageBlock.stageTitle}}</text>
+                    <view
+                      wx:for="{{stageBlock.photos}}"
+                      wx:key="label"
+                      wx:for-item="photoRow"
+                      class="album-inspect-ai__appendix-photo"
+                    >
+                      <text class="text-caption album-inspect-ai__appendix-photo-label">{{photoRow.label}}</text>
+                      <text class="text-body album-inspect-ai__line {{photoRow.valid ? '' : 'album-inspect-ai__invalid'}}">{{photoRow.description}}</text>
+                    </view>
+                  </view>
+                </block>
+              </block>
             </block>
           </block>
         </view>

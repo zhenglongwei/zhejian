@@ -31,6 +31,7 @@ function sanitizeQuery(data) {
  * @param {object} [options.data]
  * @param {boolean} [options.showLoading]
  * @param {string} [options.loadingText]
+ * @param {number} [options.timeout] wx.request 超时（毫秒），默认 60000
  */
 function request(options) {
   const {
@@ -39,6 +40,7 @@ function request(options) {
     data: rawData = {},
     showLoading = false,
     loadingText = '加载中',
+    timeout = 60000,
   } = options
 
   const data = method === 'GET' ? sanitizeQuery(rawData) : rawData
@@ -62,6 +64,7 @@ function request(options) {
       url: `${ENV.baseUrl}/api/${ENV.apiVersion}${url}`,
       method,
       data,
+      timeout,
       header: {
         'Content-Type': 'application/json',
         Authorization: token ? `Bearer ${token}` : '',

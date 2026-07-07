@@ -246,12 +246,12 @@ ok('AI 免责常量可用于结果区块', () => {
   assert(METHOD_TAB_HINT.length > 0, 'method hint should exist')
 })
 
-ok('AI 建议规则兜底含 summary/processStatus/partVerifyReminders', () => {
+ok('AI 建议规则兜底含 overallOpinion 与 partVerifyReminders', () => {
   const detail = baseDetail()
   const advice = buildRuleBasedAdvice(detail)
-  assert(advice.summary, 'expected summary')
-  assert(advice.processStatus, 'expected processStatus')
-  assert(Array.isArray(advice.stageObservations), 'expected stageObservations array')
+  assert(advice.overallOpinion && advice.overallOpinion.summary, 'expected overallOpinion.summary')
+  assert(advice.overallOpinion.completeness, 'expected overallOpinion.completeness')
+  assert(Array.isArray(advice.comparisons), 'expected comparisons array')
   assert(Array.isArray(advice.partVerifyReminders), 'expected partVerifyReminders array')
   assert(
     advice.partVerifyReminders.some((row) => /验真|真伪/.test(row.reason || row.action || '')),
@@ -259,39 +259,54 @@ ok('AI 建议规则兜底含 summary/processStatus/partVerifyReminders', () => {
   )
 })
 
-ok('focusStageId 影响规则兜底 processStatus', () => {
+ok('focusStageId 影响规则兜底 overallOpinion', () => {
   const detail = baseDetail()
   const advice = buildRuleBasedAdvice(detail, { focusStageId: 'stage_5' })
-  assert(/施工|stage_5|关注/.test(advice.processStatus + advice.focusAreas.join('')), 'expected focus hint')
+  const text =
+    advice.overallOpinion.completeness +
+    (advice.focusAreas || []).join('')
+  assert(/施工|stage_5|关注/.test(text), 'expected focus hint')
 })
 
-ok('LLM system prompt 含六节点与配件验真边界', () => {
+ok('LLM system prompt 含六节点与三段式报告结构', () => {
   const prompt = buildLlmSystemPrompt()
   assert(/接车|检测|报价|配件|施工|完工/.test(prompt), 'expected six stages')
+  assert(/overallOpinion|comparisons|photoAppendix|limitationNote/.test(prompt), 'expected structured report fields')
+  assert(/无效照片/.test(prompt), 'expected invalid photo handling')
+  assert(/单据之间|单据.*配件|施工/.test(prompt), 'expected comparison dimensions')
   assert(/不负责|不.*鉴定|验真/.test(prompt), 'expected verify boundary')
   assert(/focusStageId|任意节点/.test(prompt), 'expected any-node trigger guidance')
-  assert(/资料自洽|造假|第三方|保险公司/.test(prompt), 'expected evidence limit guidance')
 })
 
-ok('normalizeAdvicePayload 结构化 stageObservations', () => {
+ok('normalizeAdvicePayload 结构化 overallOpinion 与 comparisons', () => {
   const payload = normalizeAdvicePayload(
     {
-      summary: '  总评  ',
-      processStatus: '进展',
-      stageObservations: [
-        { stageId: 'stage_3', stageTitle: '方案', observation: '有报价单', concern: '' },
-        { stageId: '', observation: '' },
+      overallOpinion: {
+        summary: '  总评  ',
+        completeness: '较齐全',
+        missingItems: ['旧件图'],
+        potentialIssues: ['缺旧件'],
+        recommendedActions: ['向门店确认'],
+      },
+      comparisons: [
+        { title: '报价与结算', process: '项目一致', conclusion: '基本一致' },
+        { title: '', process: '', conclusion: '' },
       ],
-      partVerifyReminders: [{ partName: '刹车片', reason: '建议验真', action: '到店查看' }],
-      suspectedIssues: ['缺旧件'],
-      nextSteps: ['向门店确认'],
+      photoAppendix: [
+        {
+          stageId: 'stage_3',
+          stageTitle: '方案',
+          photos: [{ label: '报价单', description: '维修报价单', valid: true }],
+        },
+      ],
+      limitationNote: '相册不能杜绝造假',
     },
     'llm',
   )
+  assert.equal(payload.overallOpinion.summary, '总评')
+  assert.equal(payload.comparisons.length, 1)
+  assert.equal(payload.photoAppendix.length, 1)
   assert.equal(payload.summary, '总评')
-  assert.equal(payload.stageObservations.length, 1)
-  assert.equal(payload.partVerifyReminders.length, 1)
-  assert.equal(payload.suspectedIssues[0].text, '缺旧件')
 })
 
 ok('collectVisionImageCandidates 优先 focusStageId 附近', () => {

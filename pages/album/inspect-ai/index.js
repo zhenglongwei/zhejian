@@ -11,6 +11,24 @@ const {
   AI_INSPECTION_CONSENT,
 } = require('../../../constants/album-evidence-guide')
 
+function mapReports(items, options = {}) {
+  const highlightReportId = options.highlightReportId || ''
+  return (items || []).map((row, index) =>
+    buildInspectionReportListItem(
+      {
+        ...row,
+        payload: row.payload,
+      },
+      {
+        expanded: highlightReportId
+          ? row.reportId === highlightReportId || row.id === highlightReportId
+          : index === 0,
+        appendixExpanded: false,
+      },
+    ),
+  )
+}
+
 Page({
   data: {
     status: 'loading',
@@ -45,12 +63,22 @@ Page({
   async refreshReports() {
     try {
       const reportRes = await fetchAlbumInspectionReports(this.albumId)
-      const reports = (reportRes.items || []).map((row) =>
-        buildInspectionReportListItem({
+      const expandedMap = {}
+      this.data.reports.forEach((row) => {
+        expandedMap[row.reportId] = {
+          expanded: row.expanded,
+          appendixExpanded: row.appendixExpanded,
+        }
+      })
+      const reports = mapReports(reportRes.items || []).map((row) => {
+        const prev = expandedMap[row.reportId]
+        if (!prev) return row
+        return {
           ...row,
-          payload: row.payload,
-        }),
-      )
+          expanded: prev.expanded,
+          appendixExpanded: prev.appendixExpanded,
+        }
+      })
       this.setData({ reports })
     } catch (e) {
       // ignore background refresh errors
@@ -68,12 +96,7 @@ Page({
         ...detail,
         id: detail.albumId,
       })
-      const reports = (reportRes.items || []).map((row) =>
-        buildInspectionReportListItem({
-          ...row,
-          payload: row.payload,
-        }),
-      )
+      const reports = mapReports(reportRes.items || [])
       this.setData({
         status: 'normal',
         albumTitle: enriched.serviceName || '服务相册',
@@ -95,6 +118,26 @@ Page({
     this.loadPage()
   },
 
+  onToggleReport(e) {
+    const reportId = e.currentTarget.dataset.id
+    if (!reportId) return
+    const reports = this.data.reports.map((row) =>
+      row.reportId === reportId ? { ...row, expanded: !row.expanded } : row,
+    )
+    this.setData({ reports })
+  },
+
+  onToggleAppendix(e) {
+    const reportId = e.currentTarget.dataset.id
+    if (!reportId) return
+    const reports = this.data.reports.map((row) =>
+      row.reportId === reportId
+        ? { ...row, appendixExpanded: !row.appendixExpanded }
+        : row,
+    )
+    this.setData({ reports })
+  },
+
   onRunAiCheck() {
     if (this.data.aiLoading) return
     wx.showModal({
@@ -111,19 +154,15 @@ Page({
 
   async runAiAdvice() {
     this.setData({ aiLoading: true })
+    wx.showLoading({ title: 'AI 分析中…', mask: true })
     try {
       const result = await fetchAlbumInspectionAdvice(this.albumId, {
         focusStageId: this.focusStageId || '',
         triggerContext: this.triggerContext || 'inspect_page',
       })
       const reportRes = await fetchAlbumInspectionReports(this.albumId)
-      const reports = (reportRes.items || []).map((row) =>
-        buildInspectionReportListItem({
-          ...row,
-          payload: row.payload,
-        }),
-      )
       const highlightReportId = result.reportId || ''
+      const reports = mapReports(reportRes.items || [], { highlightReportId })
       this.setData({
         reports,
         highlightReportId,
@@ -139,6 +178,8 @@ Page({
     } catch (e) {
       this.setData({ aiLoading: false })
       wx.showToast({ title: (e && e.message) || '请求失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
     }
   },
 })

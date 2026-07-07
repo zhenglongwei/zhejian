@@ -31,6 +31,7 @@ async function fetchAlbumInspectionAdvice(albumId, options = {}) {
   }
   return post(`/user/service-albums/${albumId}/inspection-advice`, payload, {
     showLoading: false,
+    timeout: 240000,
   })
 }
 

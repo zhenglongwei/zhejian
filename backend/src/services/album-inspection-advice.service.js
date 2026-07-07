@@ -66,6 +66,16 @@ function buildFailurePayload(errorMessage, errorTitle = '调用失败') {
     source: 'failed',
     errorTitle,
     errorMessage: String(errorMessage || 'AI 检查调用失败').trim(),
+    overallOpinion: {
+      summary: '',
+      completeness: '',
+      missingItems: [],
+      potentialIssues: [],
+      recommendedActions: [],
+    },
+    comparisons: [],
+    photoAppendix: [],
+    limitationNote: '',
     summary: '',
     processStatus: '',
     focusAreas: [],
@@ -75,6 +85,18 @@ function buildFailurePayload(errorMessage, errorTitle = '调用失败') {
     suggestedPhotos: [],
     nextSteps: [],
   }
+}
+
+function resolveInspectionErrorMessage(error) {
+  const code = error && error.code
+  const message = String((error && error.message) || '').trim()
+  if (code === 'LLM_TIMEOUT' || message === 'llm_timeout') {
+    return 'AI 分析超时，请稍后重试（分析照片较多时可能需要更久）'
+  }
+  if (/fetch failed|ECONNRESET|ETIMEDOUT|network/i.test(message)) {
+    return 'AI 服务连接异常，请稍后重试'
+  }
+  return message || 'AI 检查调用失败'
 }
 
 function mapReportRow(row) {
@@ -141,7 +163,7 @@ async function callInspectionLlm(detail, requestOptions = {}) {
       ],
     })
   } catch (e) {
-    throw new Error((e && e.message) || '大模型请求失败')
+    throw new Error(resolveInspectionErrorMessage(e))
   }
 
   const parsed = extractAdviceJson(completion.text)
@@ -149,7 +171,13 @@ async function callInspectionLlm(detail, requestOptions = {}) {
     throw new Error('模型返回内容无法解析为检查报告')
   }
   const advice = normalizeAdvicePayload(parsed, 'llm')
-  if (!advice.summary && !advice.suspectedIssues.length && !advice.focusAreas.length) {
+  const opinion = advice.overallOpinion || {}
+  const hasContent =
+    opinion.summary ||
+    opinion.completeness ||
+    (advice.comparisons && advice.comparisons.length) ||
+    (advice.photoAppendix && advice.photoAppendix.length)
+  if (!hasContent) {
     throw new Error('模型返回的检查报告为空')
   }
   return advice
@@ -192,7 +220,7 @@ async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
       focusStageId: requestOptions.focusStageId || '',
     }
   } catch (e) {
-    const errorMessage = (e && e.message) || 'AI 检查调用失败'
+    const errorMessage = resolveInspectionErrorMessage(e)
     console.warn('[inspection-advice] llm failed', errorMessage)
     const failurePayload = buildFailurePayload(errorMessage)
     const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions)

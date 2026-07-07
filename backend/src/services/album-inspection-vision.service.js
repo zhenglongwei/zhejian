@@ -110,6 +110,17 @@ async function captionInspectionImage(item) {
   }
 }
 
+async function mapConcurrent(items, mapper, concurrency = 3) {
+  const list = Array.isArray(items) ? items : []
+  const results = []
+  for (let i = 0; i < list.length; i += concurrency) {
+    const batch = list.slice(i, i + concurrency)
+    const batchResults = await Promise.all(batch.map((item) => mapper(item)))
+    results.push(...batchResults)
+  }
+  return results
+}
+
 async function buildInspectionImageCaptions(detail = {}, options = {}) {
   const vision = getInspVisionConfig()
   if (!vision.enabled || vision.dryRun || !vision.apiKey) {
@@ -121,12 +132,8 @@ async function buildInspectionImageCaptions(detail = {}, options = {}) {
     maxImages: vision.maxImages,
   })
 
-  const captions = []
-  for (const item of candidates) {
-    const row = await captionInspectionImage(item)
-    if (row.caption) captions.push(row)
-  }
-  return captions
+  const rows = await mapConcurrent(candidates, captionInspectionImage, 3)
+  return rows.filter((row) => row.caption)
 }
 
 module.exports = {
