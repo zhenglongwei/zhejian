@@ -119,7 +119,7 @@ Page({
     navigateToOwnerStoreDetail(this.data.linkedStoreId)
   },
 
-  onOpenAiInspect() {
+  onGenerateAiAdvice() {
     const query = [
       `albumId=${this.albumId}`,
       this.focusStageId ? `focusStageId=${this.focusStageId}` : '',

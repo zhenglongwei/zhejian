@@ -6,33 +6,46 @@ const { chatCompletion } = require('../lib/dashscope-chat')
 const { resolvePlanQuoteImageSources } = require('../lib/plan-quote-image-source')
 const { collectVisionImageCandidates } = require('../../../utils/album-inspection-context')
 
+function readEnv(name) {
+  const raw = process.env[name]
+  if (raw == null || raw === '') return ''
+  return String(raw).trim()
+}
+
+function readEnvBool(name, defaultValue = false) {
+  const raw = readEnv(name)
+  if (!raw) return defaultValue
+  return raw.toLowerCase() === 'true'
+}
+
 function getInspVisionConfig() {
   const llm = config.inspLlm || {}
+  const visionEnabledRaw = readEnv('INSP_VISION_ENABLED')
   const visionEnabled =
-    process.env.INSP_VISION_ENABLED === 'true' ||
-    (process.env.INSP_VISION_ENABLED !== 'false' && llm.enabled)
+    visionEnabledRaw.toLowerCase() === 'true' ||
+    (visionEnabledRaw.toLowerCase() !== 'false' && llm.enabled)
   return {
     enabled: visionEnabled,
-    dryRun: process.env.INSP_VISION_DRY_RUN === 'true' || llm.dryRun,
+    dryRun: readEnvBool('INSP_VISION_DRY_RUN') || llm.dryRun,
     apiUrl: String(
-      process.env.INSP_VISION_API_URL ||
+      readEnv('INSP_VISION_API_URL') ||
         llm.apiUrl ||
-        process.env.GEO_VISION_API_URL ||
+        readEnv('GEO_VISION_API_URL') ||
         '',
     ).trim(),
     apiKey: String(
-      process.env.INSP_VISION_API_KEY ||
+      readEnv('INSP_VISION_API_KEY') ||
         llm.apiKey ||
-        process.env.DASHSCOPE_API_KEY ||
+        readEnv('DASHSCOPE_API_KEY') ||
         '',
     ).trim(),
     model: String(
-      process.env.INSP_VISION_MODEL ||
-        process.env.INSP_LLM_VISION_MODEL ||
+      readEnv('INSP_VISION_MODEL') ||
+        readEnv('INSP_LLM_VISION_MODEL') ||
         'qwen-vl-plus',
     ).trim(),
-    timeoutMs: Number(process.env.INSP_VISION_TIMEOUT_MS || llm.timeoutMs || 90000),
-    maxImages: Number(process.env.INSP_MAX_VISION_IMAGES || 8),
+    timeoutMs: Number(readEnv('INSP_VISION_TIMEOUT_MS') || llm.timeoutMs || 90000),
+    maxImages: Number(readEnv('INSP_MAX_VISION_IMAGES') || 8),
   }
 }
 

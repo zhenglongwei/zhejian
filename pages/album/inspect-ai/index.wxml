@@ -1,9 +1,114 @@
-{
-  "navigationBarTitleText": "AI 检查记录",
-  "usingComponents": {
-    "ui-empty": "/components/empty/index",
-    "ui-skeleton": "/components/skeleton/index",
-    "ui-button": "/components/button/index",
-    "ui-tag": "/components/tag/index"
-  }
-}
+<view class="page album-inspect-ai bg-album">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content album-inspect-ai__pad">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content album-inspect-ai__pad">
+      <ui-empty theme="album" title="无法打开 AI 检查" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="page-content album-inspect-ai__body">
+      <view class="surface-album-panel album-inspect-ai__hero">
+        <text class="text-h3">{{albumTitle}}</text>
+        <text class="text-caption text-secondary">以下为 AI 辅助检查记录，可多次发起；失败记录会保留原因说明。</text>
+      </view>
+
+      <view class="album-inspect-ai__trigger">
+        <ui-button
+          type="secondary"
+          block
+          loading="{{aiLoading}}"
+          disabled="{{aiLoading}}"
+          bind:btntap="onRunAiCheck"
+        >发起 AI 检查</ui-button>
+      </view>
+
+      <block wx:if="{{reports.length}}">
+        <view
+          wx:for="{{reports}}"
+          wx:key="reportId"
+          wx:for-item="report"
+          class="surface-album-panel album-inspect-ai__report {{report.reportId === highlightReportId ? 'album-inspect-ai__report--highlight' : ''}}"
+        >
+          <view class="album-inspect-ai__report-head">
+            <text class="text-body album-inspect-ai__report-time">{{report.createdAtText}}</text>
+            <ui-tag variant="{{report.status === 'failed' ? 'warning' : 'info'}}" text="{{report.status === 'failed' ? '调用失败' : '已完成'}}" />
+          </view>
+          <text wx:if="{{report.focusStageTitle}}" class="text-caption album-inspect-ai__report-focus">关注节点：{{report.focusStageTitle}}</text>
+
+          <block wx:if="{{report.status === 'failed'}}">
+            <text class="text-body album-inspect-ai__fail-title">{{report.errorTitle || '调用失败'}}</text>
+            <text class="text-body album-inspect-ai__fail-message">{{report.errorMessage}}</text>
+          </block>
+
+          <block wx:else>
+            <text class="text-caption album-inspect-ai__disclaimer">{{aiDisclaimer}}</text>
+            <text
+              wx:for="{{aiEvidenceLimitLines}}"
+              wx:key="*this"
+              class="text-caption album-inspect-ai__limit"
+            >{{item}}</text>
+
+            <text wx:if="{{report.advice.summary}}" class="text-body album-inspect-ai__summary">{{report.advice.summary}}</text>
+            <text wx:if="{{report.advice.processStatus}}" class="text-caption album-inspect-ai__process">{{report.advice.processStatus}}</text>
+
+            <block wx:if="{{report.advice.focusAreas.length}}">
+              <text class="text-caption album-inspect-ai__label">建议关注</text>
+              <text wx:for="{{report.advice.focusAreas}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+            </block>
+
+            <block wx:if="{{report.advice.stageObservations.length}}">
+              <text class="text-caption album-inspect-ai__label">各节点观察</text>
+              <view
+                wx:for="{{report.advice.stageObservations}}"
+                wx:key="stageId"
+                wx:for-item="stageRow"
+                class="album-inspect-ai__stage"
+              >
+                <text class="text-body album-inspect-ai__line">{{stageRow.stageTitle}}：{{stageRow.observation}}</text>
+                <text wx:if="{{stageRow.concern}}" class="text-caption album-inspect-ai__concern">{{stageRow.concern}}</text>
+              </view>
+            </block>
+
+            <block wx:if="{{report.advice.suspectedIssues.length}}">
+              <text class="text-caption album-inspect-ai__label">可能的问题</text>
+              <text wx:for="{{report.advice.suspectedIssues}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item.text || item}}</text>
+            </block>
+
+            <block wx:if="{{report.advice.partVerifyReminders.length}}">
+              <text class="text-caption album-inspect-ai__label">配件验真提醒</text>
+              <view
+                wx:for="{{report.advice.partVerifyReminders}}"
+                wx:key="partName"
+                wx:for-item="reminder"
+                class="album-inspect-ai__verify"
+              >
+                <text class="text-body album-inspect-ai__line">{{reminder.partName}}：{{reminder.reason}}</text>
+                <text wx:if="{{reminder.action}}" class="text-caption album-inspect-ai__action">{{reminder.action}}</text>
+              </view>
+            </block>
+
+            <block wx:if="{{report.advice.suggestedPhotos.length}}">
+              <text class="text-caption album-inspect-ai__label">建议补充的照片</text>
+              <text wx:for="{{report.advice.suggestedPhotos}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+            </block>
+
+            <block wx:if="{{report.advice.nextSteps.length}}">
+              <text class="text-caption album-inspect-ai__label">下一步建议</text>
+              <text wx:for="{{report.advice.nextSteps}}" wx:key="*this" class="text-body album-inspect-ai__line">{{item}}</text>
+            </block>
+          </block>
+        </view>
+      </block>
+
+      <view wx:else class="surface-album-panel album-inspect-ai__empty">
+        <text class="text-body text-secondary">暂无 AI 检查记录，可点击上方按钮发起。</text>
+      </view>
+    </view>
+  </block>
+</view>

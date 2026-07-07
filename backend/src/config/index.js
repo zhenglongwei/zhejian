@@ -1,4 +1,18 @@
-require('dotenv').config()
+const path = require('path')
+
+require('dotenv').config({ path: path.join(__dirname, '../../.env') })
+
+function envBool(name, defaultValue = false) {
+  const raw = process.env[name]
+  if (raw == null || raw === '') return defaultValue
+  return String(raw).trim().toLowerCase() === 'true'
+}
+
+function envStr(name, fallback = '') {
+  const raw = process.env[name]
+  if (raw == null || raw === '') return fallback
+  return String(raw).trim()
+}
 
 function resolvePublicBaseUrl() {
   if (process.env.PUBLIC_BASE_URL) {
@@ -200,16 +214,16 @@ const config = {
   },
   /** B-INSP-01 · 相册检查 AI（文本综合 + 可选 VL 读图） */
   inspLlm: {
-    enabled: process.env.INSP_LLM_ENABLED === 'true',
-    dryRun: process.env.INSP_LLM_DRY_RUN === 'true',
+    enabled: envBool('INSP_LLM_ENABLED'),
+    dryRun: envBool('INSP_LLM_DRY_RUN'),
     apiUrl:
-      process.env.INSP_LLM_API_URL ||
-      process.env.GEO_LLM_API_URL ||
+      envStr('INSP_LLM_API_URL') ||
+      envStr('GEO_LLM_API_URL') ||
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-    apiKey: process.env.INSP_LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
-    model: process.env.INSP_LLM_MODEL || process.env.GEO_LLM_MODEL || 'qwen-plus',
-    timeoutMs: Number(process.env.INSP_LLM_TIMEOUT_MS || 90000),
-    enableThinking: process.env.INSP_LLM_ENABLE_THINKING === 'true',
+    apiKey: envStr('INSP_LLM_API_KEY') || envStr('DASHSCOPE_API_KEY') || '',
+    model: envStr('INSP_LLM_MODEL') || envStr('GEO_LLM_MODEL') || 'qwen-plus',
+    timeoutMs: Number(envStr('INSP_LLM_TIMEOUT_MS') || 90000),
+    enableThinking: envBool('INSP_LLM_ENABLE_THINKING'),
   },
   /** GEO-IGAIN-C04 · 首页 Organization.sameAs（合规外链，逗号分隔） */
   geo: {
