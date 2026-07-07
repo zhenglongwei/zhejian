@@ -316,6 +316,7 @@ module.exports = {
   formatDeliverDateText,
   formatArchivalDateText,
   formatDateYMD,
+  formatUpdatedAtDisplay,
   resolveIssueDesc,
   resolveInspectionResult,
   resolveRepairSolution,

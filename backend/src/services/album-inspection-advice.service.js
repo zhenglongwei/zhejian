@@ -1,5 +1,5 @@
 /**
- * B-INSP-01 · 相册检查 AI 建议（规则兜底 + 多模态 LLM + 报告存储）
+ * B-INSP-01 · 相册检查 AI 建议（多模态 LLM + 报告存储，失败不兜底规则答案）
  */
 const { randomUUID } = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -10,7 +10,6 @@ const { buildPlanPartsContext } = require('./album-plan-parts.service')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
 const { buildInspectionImageCaptions } = require('./album-inspection-vision.service')
 const {
-  buildRuleBasedAdvice,
   buildLlmContext,
   buildLlmSystemPrompt,
   buildLlmUserPrompt,
@@ -61,9 +60,39 @@ function normalizeRequestOptions(body = {}) {
   }
 }
 
+function buildFailurePayload(errorMessage, errorTitle = '调用失败') {
+  return {
+    status: 'failed',
+    source: 'failed',
+    errorTitle,
+    errorMessage: String(errorMessage || 'AI 检查调用失败').trim(),
+    summary: '',
+    processStatus: '',
+    focusAreas: [],
+    stageObservations: [],
+    suspectedIssues: [],
+    partVerifyReminders: [],
+    suggestedPhotos: [],
+    nextSteps: [],
+  }
+}
+
+function mapReportRow(row) {
+  const payload = row.payloadJson || {}
+  return {
+    reportId: row.id,
+    createdAt: row.createdAt.toISOString(),
+    source: row.source,
+    status: payload.status || (row.source === 'failed' ? 'failed' : 'success'),
+    payload,
+  }
+}
+
 async function callInspectionLlm(detail, requestOptions = {}) {
   const llm = config.inspLlm || {}
-  if (!llm.enabled) return null
+  if (!llm.enabled) {
+    throw new Error('AI 检查服务未启用，请稍后再试')
+  }
   if (llm.dryRun) {
     return normalizeAdvicePayload(
       {
@@ -80,7 +109,9 @@ async function callInspectionLlm(detail, requestOptions = {}) {
       'llm',
     )
   }
-  if (!String(llm.apiKey || '').trim()) return null
+  if (!String(llm.apiKey || '').trim()) {
+    throw new Error('未配置大模型 API Key（INSP_LLM_API_KEY 或 DASHSCOPE_API_KEY）')
+  }
 
   let imageCaptions = []
   try {
@@ -94,25 +125,32 @@ async function callInspectionLlm(detail, requestOptions = {}) {
     imageCaptions,
   })
 
-  const completion = await chatCompletion({
-    apiUrl: llm.apiUrl,
-    apiKey: llm.apiKey,
-    model: llm.model,
-    temperature: 0.25,
-    enableThinking: llm.enableThinking,
-    timeoutMs: llm.timeoutMs,
-    responseFormat: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: buildLlmSystemPrompt() },
-      { role: 'user', content: buildLlmUserPrompt(context) },
-    ],
-  })
+  let completion
+  try {
+    completion = await chatCompletion({
+      apiUrl: llm.apiUrl,
+      apiKey: llm.apiKey,
+      model: llm.model,
+      temperature: 0.25,
+      enableThinking: llm.enableThinking,
+      timeoutMs: llm.timeoutMs,
+      responseFormat: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: buildLlmSystemPrompt() },
+        { role: 'user', content: buildLlmUserPrompt(context) },
+      ],
+    })
+  } catch (e) {
+    throw new Error((e && e.message) || '大模型请求失败')
+  }
 
   const parsed = extractAdviceJson(completion.text)
-  if (!parsed) return null
+  if (!parsed) {
+    throw new Error('模型返回内容无法解析为检查报告')
+  }
   const advice = normalizeAdvicePayload(parsed, 'llm')
   if (!advice.summary && !advice.suspectedIssues.length && !advice.focusAreas.length) {
-    return null
+    throw new Error('模型返回的检查报告为空')
   }
   return advice
 }
@@ -124,7 +162,7 @@ async function saveInspectionReport(albumId, userId, payload, requestOptions = {
       id,
       albumId,
       userId,
-      source: payload.source || 'rule',
+      source: payload.source || 'llm',
       payloadJson: {
         ...payload,
         request: requestOptions,
@@ -138,28 +176,50 @@ async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
   const album = await assertUserAlbumAccess(albumId, userId)
   const detail = buildInspectionDetail(album)
   const requestOptions = normalizeRequestOptions(body)
-  const ruleAdvice = buildRuleBasedAdvice(detail, requestOptions)
-  let advice = ruleAdvice
 
   try {
-    const llmAdvice = await callInspectionLlm(detail, requestOptions)
-    if (llmAdvice) {
-      advice = llmAdvice
+    const advice = await callInspectionLlm(detail, requestOptions)
+    const successPayload = {
+      ...advice,
+      status: 'success',
+      source: advice.source || 'llm',
+    }
+    const reportId = await saveInspectionReport(albumId, userId, successPayload, requestOptions)
+    return {
+      ...successPayload,
+      reportId,
+      generatedAt: new Date().toISOString(),
+      focusStageId: requestOptions.focusStageId || '',
     }
   } catch (e) {
-    console.warn('[inspection-advice] llm fallback to rule', e && e.message)
+    const errorMessage = (e && e.message) || 'AI 检查调用失败'
+    console.warn('[inspection-advice] llm failed', errorMessage)
+    const failurePayload = buildFailurePayload(errorMessage)
+    const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions)
+    return {
+      ...failurePayload,
+      reportId,
+      generatedAt: new Date().toISOString(),
+      focusStageId: requestOptions.focusStageId || '',
+    }
   }
+}
 
-  const reportId = await saveInspectionReport(albumId, userId, advice, requestOptions)
+async function listAlbumInspectionReports(albumId, userId, options = {}) {
+  await assertUserAlbumAccess(albumId, userId)
+  const limit = Math.max(1, Math.min(Number(options.limit) || 30, 50))
+  const rows = await prisma.albumInspectionReport.findMany({
+    where: { albumId, userId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
   return {
-    ...advice,
-    reportId,
-    generatedAt: new Date().toISOString(),
-    focusStageId: requestOptions.focusStageId || '',
+    items: rows.map(mapReportRow),
   }
 }
 
 module.exports = {
   generateAlbumInspectionAdvice,
+  listAlbumInspectionReports,
   buildInspectionDetail,
 }

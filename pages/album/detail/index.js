@@ -30,13 +30,10 @@ const {
   withStoreContextPath,
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
-const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-access')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
-const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
-const { AI_INSPECTION_CONSENT } = require('../../../constants/album-evidence-guide')
 
 function getWindowMetrics() {
   try {
@@ -149,24 +146,6 @@ function buildNodeNoteMap(nodes) {
   return map
 }
 
-function buildNodeNotesForSheet(nodes) {
-  return (nodes || [])
-    .filter((node) => node && String(node.note || '').trim())
-    .map((node) => ({
-      nodeId: node.id || node.nodeId || '',
-      nodeTitle: node.title || '',
-      thumbUrl: (node.images && node.images[0]) || '',
-      note: String(node.note || '').trim(),
-    }))
-}
-
-function buildPartsForSheet(parts) {
-  return (Array.isArray(parts) ? parts : []).map((part) => ({
-    ...part,
-    typeVariant: PART_TYPE_VARIANT[part.partType] || 'default',
-  }))
-}
-
 function buildEndPageActionState(detail, showAuthSection) {
   const status = (detail && detail.publicCaseStatus) || 'private'
   if (status === 'pending_review' || status === 'public_approved') {
@@ -256,19 +235,8 @@ Page({
     nodeNoteMap: {},
     navSafeTopPx: 0,
     toolbarBottomPadPx: 0,
-    infoSheetVisible: false,
-    infoSheetNodeNotes: [],
-    infoSheetParts: [],
-    infoSheetSummaryRows: [],
-    infoSheetAiSummary: '',
-    infoSheetPageProgress: '',
     showInspectEntry: false,
-    linkedStoreId: '',
-    linkedStoreName: '',
-    linkedStoreSubtitle: '',
-    showStoreBrowse: false,
     showPartsEntry: false,
-    partVerifySummary: '',
   },
 
   onLoad(options) {
@@ -468,12 +436,10 @@ Page({
       const showStoreBrowse = Boolean(linkedStoreId)
 
       let showPartsEntry = (enriched.parts || []).length > 0
-      let partVerifySummary = ''
       if (checkAuth().ok) {
         try {
           const partCtx = await fetchAlbumPartVerifyContext(this.albumId)
           showPartsEntry = Boolean(partCtx.hasParts)
-          partVerifySummary = (partCtx.summary && partCtx.summary.label) || ''
         } catch (err) {
           // ignore
         }
@@ -484,18 +450,8 @@ Page({
         flipPages: flip.pages,
         flipChapters: flip.chapters,
         nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
-        infoSheetNodeNotes: buildNodeNotesForSheet(enriched.nodes || []),
-        infoSheetParts: buildPartsForSheet(enriched.parts || []),
-        infoSheetSummaryRows: enriched.summaryRows || [],
-        infoSheetAiSummary: enriched.aiSummary || '',
-        infoSheetVisible: false,
         storePhone,
-        linkedStoreId,
-        linkedStoreName,
-        linkedStoreSubtitle,
-        showStoreBrowse,
         showPartsEntry,
-        partVerifySummary,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
         showAuthSection,
@@ -666,7 +622,6 @@ Page({
         activeNodeId: nodeId || '',
         isEndPage: false,
         chromeVisible: false,
-        infoSheetVisible: false,
       },
       () => {
         this.syncPageDisplay(nextIndex, total)
@@ -686,64 +641,19 @@ Page({
     })
   },
 
-  onOpenInfoSheet() {
-    const { pageIndex, flipPages } = this.data
-    const total = flipPages.length + (flipPages.length > 0 ? 1 : 0)
-    const progress = total > 0 ? `${pageIndex + 1} / ${total}` : ''
-    this.setData({
-      infoSheetVisible: true,
-      infoSheetPageProgress: progress,
-    })
-  },
-
-  onCloseInfoSheet() {
-    this.setData({ infoSheetVisible: false })
-  },
-
-  onOpenInspect() {
-    if (!this.albumId) return
-    wx.navigateTo({ url: `/pages/album/inspect/index?albumId=${this.albumId}` })
-  },
-
-  onOpenAiInspect() {
-    if (!this.albumId) return
-    wx.showModal({
-      title: 'AI分析',
-      content: AI_INSPECTION_CONSENT,
-      confirmText: '继续',
-      cancelText: '取消',
-      success: (res) => {
-        if (!res.confirm) return
-        const focusStageId = this.data.activeNodeId || ''
-        const query = [
-          `albumId=${this.albumId}`,
-          focusStageId ? `focusStageId=${focusStageId}` : '',
-          'runAi=1',
-          'triggerContext=album_detail',
-        ]
-          .filter(Boolean)
-          .join('&')
-        wx.navigateTo({ url: `/pages/album/inspect/index?${query}` })
-      },
-    })
-  },
-
-  onUnload() {
-  },
-
-  onInfoSheetPartTap(e) {
-    const { index } = e.detail || {}
-    const parts = this.data.infoSheetParts || []
-    const part = parts[Number(index) || 0]
+  jumpToAlbumPart(part) {
+    if (!part) return
     const chapters = this.data.flipChapters || []
     let targetChapter = chapters.find((c) => c && c.nodeId === 'stage_4')
-    if (!targetChapter && part && part.thumbUrl) {
+    if (!targetChapter && part.thumbUrl) {
       const flipPages = this.data.flipPages || []
       const pageIdx = flipPages.findIndex(
         (page) => page && page.imageUrl === part.thumbUrl,
       )
       if (pageIdx >= 0) {
-        this.onChapterTap({ detail: { startIndex: pageIdx, nodeId: flipPages[pageIdx].nodeId } })
+        this.onChapterTap({
+          detail: { startIndex: pageIdx, nodeId: flipPages[pageIdx].nodeId },
+        })
         return
       }
     }
@@ -755,6 +665,30 @@ Page({
         },
       })
     }
+  },
+
+  onOpenInspect() {
+    if (!this.albumId) return
+    const focusStageId = this.data.activeNodeId || ''
+    const query = [
+      `albumId=${this.albumId}`,
+      focusStageId ? `focusStageId=${focusStageId}` : '',
+      'triggerContext=album_detail',
+    ]
+      .filter(Boolean)
+      .join('&')
+    wx.navigateTo({
+      url: `/pages/album/inspect/index?${query}`,
+      events: {
+        jumptopart: ({ index } = {}) => {
+          const parts = (this.data.detail && this.data.detail.parts) || []
+          this.jumpToAlbumPart(parts[Number(index) || 0])
+        },
+      },
+    })
+  },
+
+  onUnload() {
   },
 
   onEndPageAuth() {
@@ -987,10 +921,6 @@ Page({
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
-  },
-
-  onOpenLinkedStore() {
-    navigateToOwnerStoreDetail(this.data.linkedStoreId)
   },
 
   goEngagePage({ nodeId = '', nodeTitle = '' } = {}) {

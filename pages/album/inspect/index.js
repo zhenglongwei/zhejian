@@ -1,11 +1,9 @@
 const { fetchServiceAlbum } = require('../../../services/service-album')
 const { enrichServiceAlbumListItem } = require('../../../utils/service-album-display')
 const { buildAlbumInspectionView } = require('../../../utils/album-inspection-view')
-const { fetchAlbumInspectionAdvice } = require('../../../services/album-inspection')
+const { buildInspectHeroMeta } = require('../../../utils/album-inspect-hero')
+const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-access')
 const {
-  AI_INSPECTION_DISCLAIMER,
-  AI_INSPECTION_EVIDENCE_LIMIT_LINES,
-  AI_INSPECTION_CONSENT,
   COMPLETENESS_TAB_HINT,
   METHOD_TAB_HINT,
 } = require('../../../constants/album-evidence-guide')
@@ -22,6 +20,10 @@ Page({
     albumId: '',
     albumTitle: '',
     storeName: '',
+    deliverDateText: '',
+    updatedAtText: '',
+    linkedStoreId: '',
+    showStoreLink: false,
     activeTab: 'completeness',
     inspectTabs: INSPECT_TABS,
     completenessSummary: { done: 0, total: 0, missing: 0 },
@@ -30,18 +32,12 @@ Page({
     completenessPanels: [],
     methodSections: [],
     showPartVerifyEntry: false,
-    aiAdvice: null,
-    aiAdviceVisible: false,
-    aiLoading: false,
-    aiDisclaimer: AI_INSPECTION_DISCLAIMER,
-    aiEvidenceLimitLines: AI_INSPECTION_EVIDENCE_LIMIT_LINES,
   },
 
   onLoad(options) {
     this.albumId = options.albumId || ''
     this.focusStageId = options.focusStageId || options.stageId || ''
     this.triggerContext = options.triggerContext || 'inspect_page'
-    this.autoRunAi = options.runAi === '1' || options.runAi === 'true'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '相册信息缺失' })
       return
@@ -61,22 +57,21 @@ Page({
         ...enriched,
         publicCaseStatus: detail.publicCaseStatus || enriched.publicCaseStatus,
       })
+      const hero = buildInspectHeroMeta(detail, enriched)
       this.setData({
         status: 'normal',
         albumTitle: enriched.serviceName || '服务相册',
-        storeName: (enriched.store && enriched.store.name) || detail.storeName || '',
+        storeName: hero.storeName,
+        deliverDateText: hero.deliverDateText,
+        updatedAtText: hero.updatedAtText,
+        linkedStoreId: hero.linkedStoreId,
+        showStoreLink: hero.showStoreLink,
         completenessSummary: view.completeness.summary,
         completenessPanels: view.completeness.panels,
         methodSections: view.method.sections || [],
         outcome: view.outcome,
         showPartVerifyEntry: view.showPartVerifyEntry,
-        aiAdvice: null,
-        aiAdviceVisible: false,
       })
-      if (this.autoRunAi) {
-        this.autoRunAi = false
-        this.onGenerateAiAdvice()
-      }
     } catch (e) {
       this.setData({
         status: 'error',
@@ -119,39 +114,20 @@ Page({
     wx.navigateTo({ url: `/pages/album/feedback/index?albumId=${this.albumId}` })
   },
 
-  onGenerateAiAdvice() {
-    if (this.data.aiLoading) return
-    wx.showModal({
-      title: 'AI检查',
-      content: AI_INSPECTION_CONSENT,
-      confirmText: '继续',
-      cancelText: '取消',
-      success: (res) => {
-        if (!res.confirm) return
-        this.runAiAdvice()
-      },
-    })
+  onOpenStoreDetail() {
+    if (!this.data.showStoreLink) return
+    navigateToOwnerStoreDetail(this.data.linkedStoreId)
   },
 
-  async runAiAdvice() {
-    this.setData({ aiLoading: true })
-    try {
-      const advice = await fetchAlbumInspectionAdvice(this.albumId, {
-        focusStageId: this.focusStageId || '',
-        triggerContext: this.triggerContext || 'inspect_page',
-      })
-      this.setData({
-        aiAdvice: advice,
-        aiAdviceVisible: true,
-        aiLoading: false,
-      })
-    } catch (e) {
-      this.setData({ aiLoading: false })
-      if (e && e.code === 'NOT_READY') {
-        wx.showToast({ title: e.message, icon: 'none', duration: 3000 })
-        return
-      }
-      wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
-    }
+  onOpenAiInspect() {
+    const query = [
+      `albumId=${this.albumId}`,
+      this.focusStageId ? `focusStageId=${this.focusStageId}` : '',
+      `triggerContext=${this.triggerContext || 'inspect_page'}`,
+      'runAi=1',
+    ]
+      .filter(Boolean)
+      .join('&')
+    wx.navigateTo({ url: `/pages/album/inspect-ai/index?${query}` })
   },
 })

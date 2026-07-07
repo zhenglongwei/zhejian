@@ -25,6 +25,7 @@ const {
 } = require('../services/album-part-verification.service')
 const {
   generateAlbumInspectionAdvice,
+  listAlbumInspectionReports,
 } = require('../services/album-inspection-advice.service')
 
 const router = express.Router()
@@ -225,6 +226,19 @@ router.post('/service-albums/:albumId/part-verifications', requireAuth(['user'])
       req.params.albumId,
       req.auth.userId,
       req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/inspection-reports', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await listAlbumInspectionReports(
+      req.params.albumId,
+      req.auth.userId,
+      { limit: req.query.limit },
     )
     return ok(res, data)
   } catch (e) {

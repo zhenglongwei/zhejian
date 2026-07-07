@@ -12,7 +12,6 @@
     "ui-login-sheet": "/components/login-sheet/index",
     "tool-immersive-nav": "/components/tool-immersive-nav/index",
     "album-frame-viewer": "/components/album-frame-viewer/index",
-    "album-end-page": "/components/album-end-page/index",
-    "album-info-sheet": "/components/album-info-sheet/index"
+    "album-end-page": "/components/album-end-page/index"
   }
 }

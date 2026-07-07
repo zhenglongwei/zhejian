@@ -17,6 +17,7 @@
     "pages/album/claim/index",
     "pages/album/detail/index",
     "pages/album/inspect/index",
+    "pages/album/inspect-ai/index",
     "pages/album/share/index",
     "pages/album/confirm/index",
     "pages/album/authorize/index",

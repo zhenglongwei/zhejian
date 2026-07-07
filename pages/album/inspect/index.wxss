@@ -14,6 +14,27 @@
   padding: var(--space-md);
 }
 
+.album-inspect__hero-store {
+  margin-top: var(--space-xs);
+}
+
+.album-inspect__hero-store-link {
+  text-decoration: underline;
+  text-underline-offset: 4rpx;
+}
+
+.album-inspect__hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+.album-inspect__hero-meta-item {
+  color: var(--color-text-tertiary);
+  line-height: 1.45;
+}
+
 .album-inspect__tabs-wrap {
   margin-bottom: var(--space-sm);
   padding: var(--space-xs) var(--space-sm);

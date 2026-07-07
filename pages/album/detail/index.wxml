@@ -105,28 +105,9 @@
                 hover-class="album-detail__dock-action--hover"
                 catchtap="onOpenInspect"
                 aria-role="button"
-                aria-label="相册检查"
+                aria-label="检查与档案"
               >
                 <text class="album-detail__dock-action-text text-caption">检查</text>
-              </view>
-              <view
-                wx:if="{{showInspectEntry}}"
-                class="album-detail__dock-action"
-                hover-class="album-detail__dock-action--hover"
-                catchtap="onOpenAiInspect"
-                aria-role="button"
-                aria-label="AI分析"
-              >
-                <text class="album-detail__dock-action-text text-caption">AI分析</text>
-              </view>
-              <view
-                class="album-detail__dock-action"
-                hover-class="album-detail__dock-action--hover"
-                catchtap="onOpenInfoSheet"
-                aria-role="button"
-                aria-label="档案"
-              >
-                <text class="album-detail__dock-action-text text-caption">档案</text>
               </view>
               <view
                 wx:if="{{showPartsEntry}}"
@@ -234,26 +215,5 @@
     bind:close="onWithdrawSheetClose"
     bind:cancel="onWithdrawSheetClose"
     bind:confirm="onWithdrawSheetConfirm"
-  />
-
-  <album-info-sheet
-    visible="{{infoSheetVisible}}"
-    scene="album"
-    summary-rows="{{infoSheetSummaryRows}}"
-    ai-summary="{{infoSheetAiSummary}}"
-    parts="{{infoSheetParts}}"
-    store-note="{{detail.storeNote || ''}}"
-    node-notes="{{infoSheetNodeNotes}}"
-    page-progress="{{infoSheetPageProgress}}"
-    store-id="{{linkedStoreId}}"
-    store-name="{{linkedStoreName}}"
-    store-subtitle="{{linkedStoreSubtitle}}"
-    show-store-link="{{showStoreBrowse}}"
-    show-part-verify-entry="{{showPartsEntry}}"
-    part-verify-summary="{{partVerifySummary}}"
-    bind:close="onCloseInfoSheet"
-    bind:parttap="onInfoSheetPartTap"
-    bind:verifytap="onOpenPartVerify"
-    bind:storetap="onOpenLinkedStore"
   />
 </view>
