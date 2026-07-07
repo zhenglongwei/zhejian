@@ -4,8 +4,10 @@ const { buildAlbumInspectionView } = require('../../../utils/album-inspection-vi
 const { fetchAlbumInspectionAdvice } = require('../../../services/album-inspection')
 const {
   AI_INSPECTION_DISCLAIMER,
+  AI_INSPECTION_EVIDENCE_LIMIT_LINES,
   AI_INSPECTION_CONSENT,
   COMPLETENESS_TAB_HINT,
+  METHOD_TAB_HINT,
 } = require('../../../constants/album-evidence-guide')
 
 const INSPECT_TABS = [
@@ -24,38 +26,27 @@ Page({
     inspectTabs: INSPECT_TABS,
     completenessSummary: { done: 0, total: 0, missing: 0 },
     completenessHint: COMPLETENESS_TAB_HINT,
+    methodHint: METHOD_TAB_HINT,
     completenessPanels: [],
-    methodPanels: [],
-    outcome: {},
+    methodSections: [],
     showPartVerifyEntry: false,
     aiAdvice: null,
     aiAdviceVisible: false,
     aiLoading: false,
     aiDisclaimer: AI_INSPECTION_DISCLAIMER,
-    compareStageHeightPx: 360,
+    aiEvidenceLimitLines: AI_INSPECTION_EVIDENCE_LIMIT_LINES,
   },
 
   onLoad(options) {
     this.albumId = options.albumId || ''
+    this.focusStageId = options.focusStageId || options.stageId || ''
+    this.triggerContext = options.triggerContext || 'inspect_page'
+    this.autoRunAi = options.runAi === '1' || options.runAi === 'true'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '相册信息缺失' })
       return
     }
     this.loadInspection()
-  },
-
-  onReady() {
-    this.updateCompareLayout()
-  },
-
-  updateCompareLayout() {
-    try {
-      const sys = wx.getSystemInfoSync()
-      const height = Math.max(280, Math.round((sys.windowWidth || 375) * 0.72))
-      this.setData({ compareStageHeightPx: height })
-    } catch (e) {
-      this.setData({ compareStageHeightPx: 360 })
-    }
   },
 
   async loadInspection() {
@@ -76,12 +67,16 @@ Page({
         storeName: (enriched.store && enriched.store.name) || detail.storeName || '',
         completenessSummary: view.completeness.summary,
         completenessPanels: view.completeness.panels,
-        methodPanels: view.method.panels,
+        methodSections: view.method.sections || [],
         outcome: view.outcome,
         showPartVerifyEntry: view.showPartVerifyEntry,
         aiAdvice: null,
         aiAdviceVisible: false,
       })
+      if (this.autoRunAi) {
+        this.autoRunAi = false
+        this.onGenerateAiAdvice()
+      }
     } catch (e) {
       this.setData({
         status: 'error',
@@ -141,7 +136,10 @@ Page({
   async runAiAdvice() {
     this.setData({ aiLoading: true })
     try {
-      const advice = await fetchAlbumInspectionAdvice(this.albumId)
+      const advice = await fetchAlbumInspectionAdvice(this.albumId, {
+        focusStageId: this.focusStageId || '',
+        triggerContext: this.triggerContext || 'inspect_page',
+      })
       this.setData({
         aiAdvice: advice,
         aiAdviceVisible: true,

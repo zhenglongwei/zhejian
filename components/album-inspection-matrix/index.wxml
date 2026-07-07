@@ -52,38 +52,38 @@
 
         <block wx:if="{{row.isMissing}}">
           <view class="album-inspection-matrix__method-card-field">
-            <text class="text-caption album-inspection-matrix__method-card-key">缺少</text>
+            <text class="text-caption album-inspection-matrix__method-card-key">还缺</text>
             <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--missing">{{row.missingSummary}}</text>
           </view>
           <view class="album-inspection-matrix__method-card-field">
-            <text class="text-caption album-inspection-matrix__method-card-key">可能影响</text>
+            <text class="text-caption album-inspection-matrix__method-card-key">会怎样</text>
             <text class="text-caption album-inspection-matrix__method-card-value">{{row.riskHint}}</text>
           </view>
           <view class="album-inspection-matrix__method-card-field">
-            <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+            <text class="text-caption album-inspection-matrix__method-card-key">怎么办</text>
             <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{row.actionHint}}</text>
           </view>
         </block>
 
         <block wx:else>
           <view class="album-inspection-matrix__method-card-field">
-            <text class="text-caption album-inspection-matrix__method-card-key">怎么核对</text>
+            <text class="text-caption album-inspection-matrix__method-card-key">这样看</text>
             <text class="text-caption album-inspection-matrix__method-card-value">{{row.howToCheck}}</text>
           </view>
 
           <view class="album-inspection-matrix__method-card-pair">
             <view class="album-inspection-matrix__method-card-pair-row">
-              <text class="text-caption album-inspection-matrix__method-card-key">一致</text>
+              <text class="text-caption album-inspection-matrix__method-card-key">对上了</text>
               <text class="text-caption album-inspection-matrix__method-card-value">{{row.ifMatch}}</text>
             </view>
             <view class="album-inspection-matrix__method-card-pair-row">
-              <text class="text-caption album-inspection-matrix__method-card-key">不一致</text>
+              <text class="text-caption album-inspection-matrix__method-card-key">对不上</text>
               <text class="text-caption album-inspection-matrix__method-card-value">{{row.ifMismatch}}</text>
             </view>
           </view>
 
           <view class="album-inspection-matrix__method-card-field">
-            <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+            <text class="text-caption album-inspection-matrix__method-card-key">怎么办</text>
             <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{row.advice}}</text>
           </view>
         </block>
@@ -96,32 +96,32 @@
 
     <view wx:if="{{documentBundle.missingBlock}}" class="album-inspection-matrix__bundle-section album-inspection-matrix__bundle-section--first">
       <view class="album-inspection-matrix__method-card-field">
-        <text class="text-caption album-inspection-matrix__method-card-key">可能影响</text>
+        <text class="text-caption album-inspection-matrix__method-card-key">会怎样</text>
         <text class="text-caption album-inspection-matrix__method-card-value">{{documentBundle.missingBlock.riskHint}}</text>
       </view>
       <view class="album-inspection-matrix__method-card-field">
-        <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+        <text class="text-caption album-inspection-matrix__method-card-key">怎么办</text>
         <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{documentBundle.missingBlock.actionHint}}</text>
       </view>
     </view>
 
     <view wx:if="{{documentBundle.checkGuide}}" class="album-inspection-matrix__bundle-section">
       <view class="album-inspection-matrix__method-card-field">
-        <text class="text-caption album-inspection-matrix__method-card-key">怎么核对</text>
+        <text class="text-caption album-inspection-matrix__method-card-key">这样看</text>
         <text class="text-caption album-inspection-matrix__method-card-value">{{documentBundle.checkGuide.howToCheck}}</text>
       </view>
       <view class="album-inspection-matrix__method-card-pair">
         <view class="album-inspection-matrix__method-card-pair-row">
-          <text class="text-caption album-inspection-matrix__method-card-key">一致</text>
+          <text class="text-caption album-inspection-matrix__method-card-key">对上了</text>
           <text class="text-caption album-inspection-matrix__method-card-value">{{documentBundle.checkGuide.ifMatch}}</text>
         </view>
         <view class="album-inspection-matrix__method-card-pair-row">
-          <text class="text-caption album-inspection-matrix__method-card-key">不一致</text>
+          <text class="text-caption album-inspection-matrix__method-card-key">对不上</text>
           <text class="text-caption album-inspection-matrix__method-card-value">{{documentBundle.checkGuide.ifMismatch}}</text>
         </view>
       </view>
       <view class="album-inspection-matrix__method-card-field">
-        <text class="text-caption album-inspection-matrix__method-card-key">建议</text>
+        <text class="text-caption album-inspection-matrix__method-card-key">怎么办</text>
         <text class="text-caption album-inspection-matrix__method-card-value album-inspection-matrix__method-card-value--primary">{{documentBundle.checkGuide.advice}}</text>
       </view>
     </view>

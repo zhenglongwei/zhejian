@@ -71,18 +71,21 @@ function buildAlbumInspectionView(detail = {}, options = {}) {
   const documentItems = buildDocumentItems(detail, audience)
   const processItems = buildProcessItems(detail)
   const outcome = buildOutcomeBlock(detail)
-  const views = buildInspectionViews(detail, documentItems, processItems, outcome, { audience })
-
+  const hasPartsInDetail = (detail.parts || []).length > 0
+  const views = buildInspectionViews(detail, documentItems, processItems, outcome, {
+    audience,
+    showPartVerify: !completenessOnly && hasPartsInDetail,
+  })
   const showPartVerifyEntry =
     !completenessOnly &&
-    ((detail.parts || []).length > 0 ||
+    (hasPartsInDetail ||
       views.completeness.panels.some((p) => p.id === 'parts' && (p.rows || []).length))
 
   return {
     audience,
     importanceColumnLabel: audience === 'merchant' ? '规范' : '重要度',
     completeness: views.completeness,
-    method: completenessOnly ? { panels: [] } : views.method,
+    method: completenessOnly ? { sections: [] } : views.method,
     outcome: completenessOnly ? {} : outcome,
     showPartVerifyEntry,
   }

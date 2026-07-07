@@ -234,7 +234,11 @@ router.post('/service-albums/:albumId/part-verifications', requireAuth(['user'])
 
 router.post('/service-albums/:albumId/inspection-advice', requireAuth(['user']), async (req, res, next) => {
   try {
-    const data = await generateAlbumInspectionAdvice(req.params.albumId, req.auth.userId)
+    const data = await generateAlbumInspectionAdvice(
+      req.params.albumId,
+      req.auth.userId,
+      req.body || {},
+    )
     return ok(res, data)
   } catch (e) {
     next(e)

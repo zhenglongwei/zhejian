@@ -1,14 +1,14 @@
 /**
- * 相册检查 · 方法表文案（简练、车主视角）
+ * 相册检查 · 方法表文案（车主视角、新手可读）
  */
 
 const ADVICE = {
-  ASK_STORE: '向门店索取',
+  ASK_STORE: '向门店要',
   CONFIRM_STORE: '向门店确认',
   CONFIRM_INSURER: '向保险公司核对',
 }
 
-const MATCH_OK = '正常'
+const MATCH_OK = '对得上，一般没问题'
 
 function resolveMissingSide(leftOk, rightOk) {
   if (!leftOk && !rightOk) return 'both'
@@ -30,12 +30,12 @@ function resolveMissingCopy({ leftOk, rightOk, leftLabel, rightLabel, missingHin
   const missingSummary = resolveMissingLabels(leftLabel, rightLabel, leftOk, rightOk)
 
   return {
-    missingSummary: missingSummary || '相关留痕',
+    missingSummary: missingSummary || '相关材料',
     riskHint:
       hints.risk ||
       (missingSummary
-        ? `暂无${missingSummary}，此项对照暂时无法进行。`
-        : '对照所需材料不齐，此项核对暂时无法进行。'),
+        ? `还没有${missingSummary}，这一步暂时没法核对。`
+        : '材料不齐，暂时没法核对。'),
     actionHint: hints.action || ADVICE.ASK_STORE,
   }
 }
@@ -52,7 +52,7 @@ function buildMethodRow({
   advice = ADVICE.CONFIRM_STORE,
   missingHints = {},
 }) {
-  const pairLabel = label || [leftLabel, rightLabel].filter(Boolean).join(' ↔ ')
+  const pairLabel = label || [leftLabel, rightLabel].filter(Boolean).join(' 与 ')
 
   if (!leftOk || !rightOk) {
     const missing = resolveMissingCopy({

@@ -41,67 +41,22 @@
       </block>
 
       <block wx:elif="{{activeTab === 'method'}}">
-        <album-inspection-matrix
-          wx:for="{{methodPanels}}"
-          wx:key="id"
-          wx:for-item="panel"
-          wx:if="{{panel.id !== 'outcome_method'}}"
-          title="{{panel.title}}"
-          subtitle="{{panel.subtitle}}"
-          layout="{{panel.layout || 'method'}}"
-          method-rows="{{panel.methodRows}}"
-          document-bundle="{{panel.documentBundle}}"
-        />
+        <text class="text-caption album-inspect__hint">{{methodHint}}</text>
 
-        <view wx:if="{{outcome.hasCompare || outcome.completionImages.length}}" class="album-inspect__outcome">
-          <ui-card wx:if="{{outcome.hasCompare}}" shadow="{{true}}" padding="{{true}}" class="album-inspect__card">
-            <view
-              wx:for="{{outcome.comparePairs}}"
-              wx:key="id"
-              wx:for-item="pair"
-              class="album-inspect__compare-block"
-            >
-              <text class="text-caption album-inspect__compare-label">{{pair.title}}</text>
-              <album-compare-slider
-                before-url="{{pair.beforeUrl}}"
-                after-url="{{pair.afterUrl}}"
-                before-label="{{pair.beforeLabel}}"
-                after-label="{{pair.afterLabel}}"
-                stage-height="{{compareStageHeightPx}}"
-              />
-            </view>
-          </ui-card>
-          <scroll-view
-            wx:if="{{outcome.completionImages.length}}"
-            class="album-inspect__thumb-scroll"
-            scroll-x
-            enable-flex
-            show-scrollbar="{{false}}"
-          >
-            <view class="album-inspect__thumb-row">
-              <image
-                wx:for="{{outcome.completionImages}}"
-                wx:key="*this"
-                class="album-inspect__thumb"
-                src="{{item}}"
-                mode="aspectFill"
-                data-url="{{item}}"
-                data-urls="{{outcome.completionImages}}"
-                bindtap="onPreviewImageTap"
-              />
-            </view>
-          </scroll-view>
+        <view
+          wx:for="{{methodSections}}"
+          wx:key="id"
+          wx:for-item="section"
+          class="surface-album-panel album-inspect__method-section"
+        >
+          <text class="text-body album-inspect__method-title">{{section.title}}</text>
+          <text
+            wx:for="{{section.paragraphs}}"
+            wx:key="text"
+            wx:for-item="para"
+            class="album-inspect__method-para album-inspect__method-para--{{para.tone}}"
+          >{{para.text}}</text>
         </view>
-
-        <album-inspection-matrix
-          wx:for="{{methodPanels}}"
-          wx:key="id"
-          wx:for-item="panel"
-          wx:if="{{panel.id === 'outcome_method'}}"
-          title="{{panel.title}}"
-          layout="method"
-          method-rows="{{panel.methodRows}}"
-        />
       </block>
 
       <view class="album-inspect__ai-trigger">
@@ -117,13 +72,58 @@
       <view wx:if="{{aiAdviceVisible && aiAdvice}}" class="surface-album-panel album-inspect__ai">
         <text class="text-h3">AI检查结果</text>
         <text class="text-caption album-inspect__ai-disclaimer">{{aiDisclaimer}}</text>
+        <text
+          wx:for="{{aiEvidenceLimitLines}}"
+          wx:key="*this"
+          class="text-caption album-inspect__ai-limit"
+        >{{item}}</text>
+
+        <text wx:if="{{aiAdvice.summary}}" class="text-body album-inspect__ai-summary">{{aiAdvice.summary}}</text>
+        <text wx:if="{{aiAdvice.processStatus}}" class="text-caption album-inspect__ai-process">{{aiAdvice.processStatus}}</text>
+
         <block wx:if="{{aiAdvice.focusAreas && aiAdvice.focusAreas.length}}">
+          <text class="text-caption album-inspect__ai-label">建议关注</text>
           <text wx:for="{{aiAdvice.focusAreas}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
         </block>
+
+        <block wx:if="{{aiAdvice.stageObservations && aiAdvice.stageObservations.length}}">
+          <text class="text-caption album-inspect__ai-label">各节点观察</text>
+          <view
+            wx:for="{{aiAdvice.stageObservations}}"
+            wx:key="stageId"
+            wx:for-item="stageRow"
+            class="album-inspect__ai-stage"
+          >
+            <text class="text-body album-inspect__ai-line">{{stageRow.stageTitle}}：{{stageRow.observation}}</text>
+            <text wx:if="{{stageRow.concern}}" class="text-caption album-inspect__ai-concern">{{stageRow.concern}}</text>
+          </view>
+        </block>
+
         <block wx:if="{{aiAdvice.suspectedIssues && aiAdvice.suspectedIssues.length}}">
+          <text class="text-caption album-inspect__ai-label">可能的问题</text>
           <text wx:for="{{aiAdvice.suspectedIssues}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item.text || item}}</text>
         </block>
+
+        <block wx:if="{{aiAdvice.partVerifyReminders && aiAdvice.partVerifyReminders.length}}">
+          <text class="text-caption album-inspect__ai-label">配件验真提醒</text>
+          <view
+            wx:for="{{aiAdvice.partVerifyReminders}}"
+            wx:key="partName"
+            wx:for-item="reminder"
+            class="album-inspect__ai-verify"
+          >
+            <text class="text-body album-inspect__ai-line">{{reminder.partName}}：{{reminder.reason}}</text>
+            <text wx:if="{{reminder.action}}" class="text-caption album-inspect__ai-action">{{reminder.action}}</text>
+          </view>
+        </block>
+
+        <block wx:if="{{aiAdvice.suggestedPhotos && aiAdvice.suggestedPhotos.length}}">
+          <text class="text-caption album-inspect__ai-label">建议补充的照片</text>
+          <text wx:for="{{aiAdvice.suggestedPhotos}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
+        </block>
+
         <block wx:if="{{aiAdvice.nextSteps && aiAdvice.nextSteps.length}}">
+          <text class="text-caption album-inspect__ai-label">下一步建议</text>
           <text wx:for="{{aiAdvice.nextSteps}}" wx:key="*this" class="text-body album-inspect__ai-line">{{item}}</text>
         </block>
       </view>

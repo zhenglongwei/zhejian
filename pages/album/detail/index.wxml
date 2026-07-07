@@ -110,6 +110,16 @@
                 <text class="album-detail__dock-action-text text-caption">检查</text>
               </view>
               <view
+                wx:if="{{showInspectEntry}}"
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onOpenAiInspect"
+                aria-role="button"
+                aria-label="AI分析"
+              >
+                <text class="album-detail__dock-action-text text-caption">AI分析</text>
+              </view>
+              <view
                 class="album-detail__dock-action"
                 hover-class="album-detail__dock-action--hover"
                 catchtap="onOpenInfoSheet"

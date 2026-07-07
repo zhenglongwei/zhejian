@@ -36,6 +36,7 @@ const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-ve
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const { PART_TYPE_VARIANT } = require('../../../constants/part-type')
+const { AI_INSPECTION_CONSENT } = require('../../../constants/album-evidence-guide')
 
 function getWindowMetrics() {
   try {
@@ -702,6 +703,29 @@ Page({
   onOpenInspect() {
     if (!this.albumId) return
     wx.navigateTo({ url: `/pages/album/inspect/index?albumId=${this.albumId}` })
+  },
+
+  onOpenAiInspect() {
+    if (!this.albumId) return
+    wx.showModal({
+      title: 'AI分析',
+      content: AI_INSPECTION_CONSENT,
+      confirmText: '继续',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) return
+        const focusStageId = this.data.activeNodeId || ''
+        const query = [
+          `albumId=${this.albumId}`,
+          focusStageId ? `focusStageId=${focusStageId}` : '',
+          'runAi=1',
+          'triggerContext=album_detail',
+        ]
+          .filter(Boolean)
+          .join('&')
+        wx.navigateTo({ url: `/pages/album/inspect/index?${query}` })
+      },
+    })
   },
 
   onUnload() {

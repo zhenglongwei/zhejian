@@ -1,5 +1,5 @@
 /**
- * B-INSP-01 · 相册检查 AI 建议（规则引擎 + 可选 LLM + 报告存储）
+ * B-INSP-01 · 相册检查 AI 建议（规则兜底 + 多模态 LLM + 报告存储）
  */
 const { randomUUID } = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -8,6 +8,7 @@ const { chatCompletion } = require('../lib/dashscope-chat')
 const { loadAlbum, buildAlbumView } = require('./service-album.service')
 const { buildPlanPartsContext } = require('./album-plan-parts.service')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
+const { buildInspectionImageCaptions } = require('./album-inspection-vision.service')
 const {
   buildRuleBasedAdvice,
   buildLlmContext,
@@ -47,30 +48,57 @@ function buildInspectionDetail(album) {
     ...summaryFields,
     planParts: planCtx.planParts,
     planPartsLockedAt: planCtx.planPartsLockedAt,
+    parts: summaryFields.parts || album.partsJson || [],
   }
 }
 
-async function callInspectionLlm(context) {
+function normalizeRequestOptions(body = {}) {
+  const focusStageId = String(body.focusStageId || body.stageId || '').trim()
+  const triggerContext = String(body.triggerContext || 'inspect_page').trim()
+  return {
+    focusStageId,
+    triggerContext: triggerContext || 'inspect_page',
+  }
+}
+
+async function callInspectionLlm(detail, requestOptions = {}) {
   const llm = config.inspLlm || {}
   if (!llm.enabled) return null
   if (llm.dryRun) {
     return normalizeAdvicePayload(
       {
-        focusAreas: ['（LLM dry-run）请优先查看完整性 Tab 中标记为 × 的项目。'],
+        summary: '（LLM 试运行）已收到相册摘要，正式环境将生成完整报告。',
+        processStatus: requestOptions.focusStageId
+          ? `当前关注节点：${requestOptions.focusStageId}`
+          : '全流程检查',
+        focusAreas: ['请优先查看完整性 Tab 中标记为 × 的项目。'],
         suspectedIssues: [],
+        partVerifyReminders: [],
         suggestedPhotos: [],
-        nextSteps: ['向门店确认缺失留痕项。'],
+        nextSteps: ['向门店确认缺失项。'],
       },
       'llm',
     )
   }
   if (!String(llm.apiKey || '').trim()) return null
 
+  let imageCaptions = []
+  try {
+    imageCaptions = await buildInspectionImageCaptions(detail, requestOptions)
+  } catch (e) {
+    console.warn('[inspection-advice] vision captions skipped', e && e.message)
+  }
+
+  const context = buildLlmContext(detail, {
+    ...requestOptions,
+    imageCaptions,
+  })
+
   const completion = await chatCompletion({
     apiUrl: llm.apiUrl,
     apiKey: llm.apiKey,
     model: llm.model,
-    temperature: 0.2,
+    temperature: 0.25,
     enableThinking: llm.enableThinking,
     timeoutMs: llm.timeoutMs,
     responseFormat: { type: 'json_object' },
@@ -82,10 +110,14 @@ async function callInspectionLlm(context) {
 
   const parsed = extractAdviceJson(completion.text)
   if (!parsed) return null
-  return normalizeAdvicePayload(parsed, 'llm')
+  const advice = normalizeAdvicePayload(parsed, 'llm')
+  if (!advice.summary && !advice.suspectedIssues.length && !advice.focusAreas.length) {
+    return null
+  }
+  return advice
 }
 
-async function saveInspectionReport(albumId, userId, payload) {
+async function saveInspectionReport(albumId, userId, payload, requestOptions = {}) {
   const id = randomUUID()
   await prisma.albumInspectionReport.create({
     data: {
@@ -93,32 +125,37 @@ async function saveInspectionReport(albumId, userId, payload) {
       albumId,
       userId,
       source: payload.source || 'rule',
-      payloadJson: payload,
+      payloadJson: {
+        ...payload,
+        request: requestOptions,
+      },
     },
   })
   return id
 }
 
-async function generateAlbumInspectionAdvice(albumId, userId) {
+async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
   const album = await assertUserAlbumAccess(albumId, userId)
   const detail = buildInspectionDetail(album)
-  const ruleAdvice = buildRuleBasedAdvice(detail)
+  const requestOptions = normalizeRequestOptions(body)
+  const ruleAdvice = buildRuleBasedAdvice(detail, requestOptions)
   let advice = ruleAdvice
 
   try {
-    const llmAdvice = await callInspectionLlm(buildLlmContext(detail))
-    if (llmAdvice && llmAdvice.focusAreas.length) {
+    const llmAdvice = await callInspectionLlm(detail, requestOptions)
+    if (llmAdvice) {
       advice = llmAdvice
     }
   } catch (e) {
     console.warn('[inspection-advice] llm fallback to rule', e && e.message)
   }
 
-  const reportId = await saveInspectionReport(albumId, userId, advice)
+  const reportId = await saveInspectionReport(albumId, userId, advice, requestOptions)
   return {
     ...advice,
     reportId,
     generatedAt: new Date().toISOString(),
+    focusStageId: requestOptions.focusStageId || '',
   }
 }
 

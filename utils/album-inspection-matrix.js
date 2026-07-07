@@ -14,7 +14,7 @@ const {
   DOCUMENT_TYPES,
   resolveDocumentTypesForTemplate,
 } = require('../constants/album-evidence-guide')
-const { buildMethodRow, buildWarnMethodRow, ADVICE } = require('./album-inspection-resolutions')
+const { buildMethodRow, buildWarnMethodRow, ADVICE, MATCH_OK } = require('./album-inspection-resolutions')
 const {
   isOldPartEvidenceItem,
   normalizeImageList,
@@ -345,8 +345,8 @@ function buildMethodDocumentPanel(documentItems = [], detail = {}) {
   const preLabel = anchorId === 'loss_assessment' ? '定损单' : '报价单'
   const intro =
     orderedIds.includes('loss_assessment') && anchorId === 'loss_assessment'
-      ? '定损单、施工工单、结算单沿施工时间线互相关联：定损定范围，工单对施工，结算对交车费用。建议整组对照，而不是两两分开看。'
-      : '报价单、施工工单、结算单沿施工时间线互相关联：报价定方案，工单对施工，结算对交车费用。建议整组对照，而不是两两分开看。'
+      ? '按顺序看：定损单（赔什么）→ 施工工单（做了什么）→ 结算单（付多少）。三份放一起看，比单张看更容易发现问题。'
+      : '按顺序看：报价单（做什么、多少钱）→ 施工工单（做了什么）→ 结算单（付多少）。三份放一起看，比单张看更容易发现问题。'
 
   const bundle = {
     intro,
@@ -365,7 +365,7 @@ function buildMethodDocumentPanel(documentItems = [], detail = {}) {
 
   return {
     id: 'doc_method',
-    title: '单据对照',
+    title: '单据怎么对',
     layout: 'document-bundle',
     documentBundle: bundle,
     empty: !orderedIds.length || (!bundle.checkGuide && !bundle.missingBlock),
@@ -379,7 +379,7 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
   const hasSettle = has('settlement')
   const advice =
     anchorId === 'loss_assessment' ? ADVICE.CONFIRM_INSURER : ADVICE.CONFIRM_STORE
-  const ifMismatch = '项目增删、金额变动、结算超范围且无说明。'
+  const ifMismatch = '项目或金额对不上，或有报价里没说的增项。'
 
   if (missingDocs.length === totalCount) {
     return null
@@ -387,8 +387,8 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
 
   if (hasPre && hasWork && hasSettle) {
     return {
-      howToCheck: `依次对照：① ${preLabel}定了哪些项目与金额；② 工单是否覆盖这些项目；③ 结算是否与前面一致、有无未告知增项。`,
-      ifMatch: '正常',
+      howToCheck: `① 看${preLabel}：做哪些项目、多少钱；② 看工单：是不是按${preLabel}施工；③ 看结算：实付是否一致、有无额外项目。`,
+      ifMatch: MATCH_OK,
       ifMismatch,
       advice,
     }
@@ -396,8 +396,8 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
 
   if (hasPre && hasSettle && !hasWork) {
     return {
-      howToCheck: `目前已有${preLabel}与结算单，可先核对项目与金额是否一致；补齐施工工单后，建议再核对工单是否覆盖${preLabel}项目。`,
-      ifMatch: '正常',
+      howToCheck: `先看${preLabel}和结算：项目和钱是否一致；有施工工单后，再核对工单是否覆盖了${preLabel}里的项目。`,
+      ifMatch: MATCH_OK,
       ifMismatch,
       advice,
     }
@@ -405,8 +405,8 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
 
   if (hasPre && hasWork && !hasSettle) {
     return {
-      howToCheck: `目前已有${preLabel}与施工工单，可先核对工项是否一致；交车时对照结算单，确认实付与项目是否匹配。`,
-      ifMatch: '正常',
+      howToCheck: `先看${preLabel}和工单：项目是否一致；交车时对照结算单，看实付是否匹配。`,
+      ifMatch: MATCH_OK,
       ifMismatch,
       advice,
     }
@@ -414,8 +414,8 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
 
   if (hasPre && !hasWork && !hasSettle) {
     return {
-      howToCheck: `目前仅有${preLabel}，可先确认方案与费用；后续补齐工单与结算单，再整组对照。`,
-      ifMatch: '正常',
+      howToCheck: `目前只有${preLabel}，先确认项目和费用；工单、结算补全后再一起看。`,
+      ifMatch: MATCH_OK,
       ifMismatch,
       advice,
     }
@@ -423,16 +423,16 @@ function buildDocumentCheckGuide({ has, anchorId, preLabel, missingDocs = [], to
 
   if (!hasPre && (hasWork || hasSettle)) {
     return {
-      howToCheck: `目前缺少${preLabel}，可先查看已有单据；建议向门店索取${preLabel}后再与工单、结算整组对照。`,
-      ifMatch: '正常',
+      howToCheck: `还缺${preLabel}，先看已有的单；建议向门店要${preLabel}，再和工单、结算一起对。`,
+      ifMatch: MATCH_OK,
       ifMismatch,
       advice,
     }
   }
 
   return {
-    howToCheck: '按施工前 → 施工中 → 交车时的顺序，把已有单据放在一起看项目与金额是否连贯。',
-    ifMatch: '正常',
+    howToCheck: '按「施工前 → 施工中 → 交车时」的顺序，把已有单据放一起看项目和金额是否连贯。',
+    ifMatch: MATCH_OK,
     ifMismatch,
     advice,
   }
@@ -444,20 +444,20 @@ function buildDocumentMissingBlock(missingDocs, anchorId) {
   const actions = []
 
   if (missingIds.includes('loss_assessment') && anchorId === 'loss_assessment') {
-    risks.push('缺少定损单时，无法以保险核损结果为基准核对后续施工与结算。')
-    actions.push('向门店或保险公司索取定损单')
+    risks.push('没有定损单，没法按保险定的范围核对后面做了什么、收了多少钱。')
+    actions.push('向门店或保险公司要定损单')
   }
   if (missingIds.includes('repair_quote')) {
-    risks.push('缺少报价单时，无法核对门店是否按事先约定的方案与费用施工。')
-    actions.push('向门店索取维修报价单或方案说明')
+    risks.push('没有报价单，没法核对门店是不是按事先说好的项目和价格施工。')
+    actions.push('向门店要维修报价单')
   }
   if (missingIds.includes('work_order')) {
-    risks.push('缺少施工工单时，无法核对报价/定损项目是否落实到施工，结算项目也难以逐项核实。')
-    actions.push('向门店索取施工工单')
+    risks.push('没有施工工单，没法核对报价里的项目有没有真的做，结算也难逐项看。')
+    actions.push('向门店要施工工单')
   }
   if (missingIds.includes('settlement')) {
-    risks.push('缺少结算单时，无法核对交车费用是否与报价/工单一致。')
-    actions.push('向门店索取维修结算单')
+    risks.push('没有结算单，没法核对交车时付的钱是否和报价、工单一致。')
+    actions.push('向门店要结算单')
   }
 
   const uniqueActions = [...new Set(actions)]
@@ -465,10 +465,10 @@ function buildDocumentMissingBlock(missingDocs, anchorId) {
   return {
     riskHint:
       risks.join('') ||
-      `部分单据缺失，对照暂时无法完整进行。`,
+      '部分单据缺失，暂时没法完整核对。',
     actionHint: uniqueActions.length
       ? `${uniqueActions.join('；')}。`
-      : `向门店索取缺失单据。`,
+      : '问门店要缺失的单据。',
   }
 }
 
@@ -493,25 +493,25 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
     methodRows.push(
       buildMethodRow({
         id: 'plan_album',
-        leftLabel: '方案',
-        rightLabel: '登记',
+        leftLabel: '报价里的配件',
+        rightLabel: '实际换的配件',
         leftOk: planParts.length > 0,
         rightOk: albumParts.length > 0 && !planOnly,
-        howToCheck: '核对件名、数量',
-        ifMismatch: '漏换、擅自增项',
+        howToCheck: '看报价里列了哪些件，相册里实际换的是不是同一批，数量对不对。',
+        ifMismatch: '该换的没换，或多了报价里没有的件',
         advice: ADVICE.CONFIRM_STORE,
         missingHints: {
           left: {
-            risk: '没有维修方案，无法以方案为基准核对实际更换的配件。',
-            action: '向门店索取维修方案或报价说明。',
+            risk: '没有报价里的配件清单，没法按「说好换什么」来核对。',
+            action: '向门店要报价单或配件清单。',
           },
           right: {
-            risk: '相册未登记配件，无法对照方案核对实际更换情况。',
-            action: '向门店确认更换清单，并补录配件登记与凭证图。',
+            risk: '相册里还没录入实际换了哪些配件，没法和报价对比。',
+            action: '向门店确认换了哪些件，并请补传到相册。',
           },
           both: {
-            risk: '方案与登记均缺，配件对照暂时无法进行。',
-            action: '向门店索取维修方案并补录配件登记。',
+            risk: '报价和实际换件信息都缺，配件暂时没法核对。',
+            action: '向门店要报价，并补传实际换件信息和照片。',
           },
         },
       }),
@@ -522,9 +522,9 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
     methodRows.push(
       buildWarnMethodRow({
         id: 'extra_parts',
-        label: '增项 ↔ 方案',
-        howToCheck: '核对增项是否在报价/工单内',
-        ifMismatch: '未经确认的增项',
+        label: '报价外的配件',
+        howToCheck: '看这些配件是否在报价单或工单里',
+        ifMismatch: '报价里没说过这项',
         advice: ADVICE.CONFIRM_STORE,
       }),
     )
@@ -534,17 +534,17 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
     methodRows.push(
       buildMethodRow({
         id: 'album_photo',
-        leftLabel: '登记',
-        rightLabel: '凭证图',
+        leftLabel: '配件信息',
+        rightLabel: '配件照片',
         leftOk: albumParts.length > 0,
         rightOk: albumParts.some((p) => p.thumbUrl),
-        howToCheck: '看包装、标签、编码',
-        ifMismatch: '类型不符、凭证缺失',
+        howToCheck: '看照片里的包装、标签、编码，是否和相册里写的配件一致。',
+        ifMismatch: '照片对不上，或没有照片',
         advice: ADVICE.CONFIRM_STORE,
         missingHints: {
           right: {
-            risk: '没有配件凭证图，无法核对包装、标签与登记是否一致。',
-            action: '向门店索取配件外观、包装或编码照片。',
+            risk: '没有配件照片，没法核对包装、标签是否和文字信息一致。',
+            action: '向门店要配件外观、包装或编码照片。',
           },
         },
       }),
@@ -555,9 +555,9 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
     methodRows.push(
       buildWarnMethodRow({
         id: 'type_mismatch',
-        label: '凭证 ↔ 方案类型',
-        howToCheck: '对照包装与方案配件类型',
-        ifMismatch: '未按告知类型更换',
+        label: '配件类型是否一致',
+        howToCheck: '对照照片和报价：原厂/品牌/拆车件是否和说好的一样',
+        ifMismatch: '和告知的类型不一样',
         advice: ADVICE.CONFIRM_STORE,
       }),
     )
@@ -577,22 +577,22 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
         buildMethodRow({
           id: `old_part_${trace.planPartId || trace.id}`,
           leftLabel: partName,
-          rightLabel: '旧件图',
+          rightLabel: '旧件照片',
           leftOk: hasCredential,
           rightOk: trace.images.length > 0,
           howToCheck: hasWork
-            ? '对照新件凭证、旧件图与施工工单是否为同一换件项'
-            : '对照新件凭证与旧件图；建议结合施工工单整组查看',
-          ifMismatch: '旧件与登记换件项不对应，存在以修代换风险',
+            ? '看新件照片、旧件照片、施工工单，是不是说的同一件'
+            : '看新件照片和旧件照片是否对得上；有工单的话一起看更清楚',
+          ifMismatch: '旧件照片对不上说的那件，要留意是否真换了',
           advice: ADVICE.CONFIRM_STORE,
           missingHints: {
             right: {
-              risk: '该换件项缺少旧件留痕，无法确认是否真的更换。',
-              action: '向门店索取该配件旧件外观或拆下过程照片。',
+              risk: '没有旧件照片，没法确认这件配件是不是真的换过。',
+              action: '向门店要旧件或拆下来的照片。',
             },
             left: {
-              risk: '该换件项缺少新件凭证图，无法与旧件图对照。',
-              action: '向门店索取配件包装、标签或编码照片。',
+              risk: '没有新件照片，没法和旧件照片对照。',
+              action: '向门店要配件包装、标签或编码照片。',
             },
           },
         }),
@@ -603,12 +603,12 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
       methodRows.push(
         buildMethodRow({
           id: 'old_part_unlinked',
-          leftLabel: hasWork ? '施工工单' : '换件登记',
-          rightLabel: '旧件图（未关联）',
+          leftLabel: hasWork ? '施工工单' : '换件清单',
+          rightLabel: '旧件照片（未标明对应哪件）',
           leftOk: hasWork || albumParts.length > 0,
           rightOk: unlinkedImages.length > 0,
-          howToCheck: '未关联具体配件的旧件图，可先整体查看是否有拆下留痕',
-          ifMismatch: '旧件图与工单或登记项难以逐项对应',
+          howToCheck: '这些旧件照片没标明对应哪件配件，可以先整体看有没有拆下来的痕迹',
+          ifMismatch: '旧件照片和工单/清单对不上号',
           advice: ADVICE.CONFIRM_STORE,
         }),
       )
@@ -618,17 +618,17 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
       methodRows.push(
         buildMethodRow({
           id: 'old_part_missing',
-          leftLabel: '换件项',
-          rightLabel: '旧件留痕',
+          leftLabel: '换件项目',
+          rightLabel: '旧件照片',
           leftOk: true,
           rightOk: false,
-          howToCheck: '声称更换是否留有旧件或拆下照片',
-          ifMismatch: '以修代换、未真换',
+          howToCheck: '说换了件，最好有旧件或拆下来的照片',
+          ifMismatch: '可能只修没换',
           advice: ADVICE.CONFIRM_STORE,
           missingHints: {
             right: {
-              risk: '没有旧件留痕，无法确认配件是否真的更换，存在以修代换风险。',
-              action: '向门店确认更换情况，并索取旧件外观或拆下过程照片。',
+              risk: '没有旧件照片，没法确认配件是不是真的换过。',
+              action: '向门店确认是否更换，并请补旧件或拆件照片。',
             },
           },
         }),
@@ -641,9 +641,9 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
       methodRows.push(
         buildWarnMethodRow({
           id: `rir_${pair.partKey}`,
-          label: `${pair.albumPart.name || '配件'} · 以修代换`,
-          howToCheck: '对照过程图确认维修范围',
-          ifMismatch: '范围与沟通不符',
+          label: `${pair.albumPart.name || '配件'} · 只修没换`,
+          howToCheck: '对照过程照片，看实际修了什么',
+          ifMismatch: '和沟通的范围不一致',
           advice: ADVICE.CONFIRM_STORE,
         }),
       )
@@ -652,7 +652,7 @@ function buildMethodPartPanel(detail = {}, oldPartTrace = {}, documentItems = []
 
   return {
     id: 'part_method',
-    title: '配件对照',
+    title: '配件怎么对',
     layout: 'method',
     methodRows,
     empty: !methodRows.length,
@@ -673,8 +673,8 @@ function buildMethodCrossPanel(documentItems = [], detail = {}, processImages = 
         rightLabel: '配件类型',
         leftOk: true,
         rightOk: true,
-        howToCheck: '理赔配件标准 vs 登记/凭证',
-        ifMismatch: '降级件、未批先换',
+        howToCheck: '看定损允许的配件标准，和相册里实际用的是否一致',
+        ifMismatch: '用了更低档的件，或没批就先换了',
         advice: ADVICE.CONFIRM_INSURER,
       }),
     )
@@ -685,16 +685,16 @@ function buildMethodCrossPanel(documentItems = [], detail = {}, processImages = 
       buildMethodRow({
         id: 'work_process',
         leftLabel: '施工工单',
-        rightLabel: '过程图',
+        rightLabel: '过程照片',
         leftOk: has('work_order'),
         rightOk: processImages.length > 0,
-        howToCheck: '工项是否有对应施工图',
-        ifMismatch: '过程缺失、项实不符',
+        howToCheck: '看工单上的项目，有没有对应的过程照片',
+        ifMismatch: '该拍的过程没有，或项目和照片对不上',
         advice: ADVICE.CONFIRM_STORE,
         missingHints: {
           right: {
-            risk: '没有施工过程照片，无法核对工单工项是否确有施工留痕。',
-            action: '向门店索取对应环节的过程照片。',
+            risk: '没有过程照片，没法核对工单上的项目是不是真的做了。',
+            action: '向门店要对应环节的过程照片。',
           },
         },
       }),
@@ -704,13 +704,13 @@ function buildMethodCrossPanel(documentItems = [], detail = {}, processImages = 
       buildMethodRow({
         id: 'work_process',
         leftLabel: '施工工单',
-        rightLabel: '过程图',
+        rightLabel: '过程照片',
         leftOk: true,
         rightOk: false,
         missingHints: {
           right: {
-            risk: '没有施工过程照片，无法核对工单工项是否确有施工留痕。',
-            action: '向门店索取对应环节的过程照片。',
+            risk: '没有过程照片，没法核对工单上的项目是不是真的做了。',
+            action: '向门店要对应环节的过程照片。',
           },
         },
       }),
@@ -719,7 +719,7 @@ function buildMethodCrossPanel(documentItems = [], detail = {}, processImages = 
 
   return {
     id: 'cross_method',
-    title: '交叉对照',
+    title: '还可以这样看',
     layout: 'method',
     methodRows,
     empty: !methodRows.length,
@@ -732,11 +732,11 @@ function buildMethodOutcomePanel(outcome = {}) {
     methodRows.push(
       buildMethodRow({
         id: 'compare_slider',
-        label: '前后对比',
+        label: '修前修后对比',
         leftOk: true,
         rightOk: true,
-        howToCheck: '同角度看损伤是否修复',
-        ifMismatch: '漏修、修复不足',
+        howToCheck: '同一角度对比：损伤处是否修好',
+        ifMismatch: '还有没修到的，或修得不够',
         advice: ADVICE.CONFIRM_STORE,
       }),
     )
@@ -745,18 +745,18 @@ function buildMethodOutcomePanel(outcome = {}) {
     methodRows.push(
       buildMethodRow({
         id: 'completion_check',
-        label: '完工 ↔ 接车损伤',
+        label: '修完后 与 进店时',
         leftOk: true,
         rightOk: true,
-        howToCheck: '对照接车图与工单范围',
-        ifMismatch: '外观未恢复、范围不符',
+        howToCheck: '对照进店时的损伤照片和完工照片，看外观是否恢复',
+        ifMismatch: '外观没恢复，或范围和工单不一致',
         advice: ADVICE.CONFIRM_STORE,
       }),
     )
   }
   return {
     id: 'outcome_method',
-    title: '完工对照',
+    title: '交车效果',
     layout: 'method',
     methodRows,
     empty: !methodRows.length,
@@ -764,17 +764,12 @@ function buildMethodOutcomePanel(outcome = {}) {
   }
 }
 
-function buildMethodView(detail = {}, documentItems = [], processItems = [], outcome = {}) {
-  const oldPartTrace = collectOldPartTraces(detail)
-  const processImages = collectProcessImages(detail)
-  const panels = [
-    buildMethodDocumentPanel(documentItems, detail),
-    buildMethodPartPanel(detail, oldPartTrace, documentItems),
-    buildMethodCrossPanel(documentItems, detail, processImages),
-    buildMethodOutcomePanel(outcome),
-  ].filter((panel) => !panel.empty)
-
-  return { panels }
+function buildMethodView(detail = {}, documentItems = [], processItems = [], outcome = {}, options = {}) {
+  const { buildMethodGuideSections } = require('./album-inspection-method-guide')
+  const sections = buildMethodGuideSections(detail, documentItems, {
+    showPartVerify: Boolean(options.showPartVerify),
+  })
+  return { sections }
 }
 
 function buildInspectionViews(
@@ -787,7 +782,7 @@ function buildInspectionViews(
   const audience = options.audience || 'owner'
   return {
     completeness: buildCompletenessView(detail, documentItems, processItems, outcome, audience),
-    method: buildMethodView(detail, documentItems, processItems, outcome),
+    method: buildMethodView(detail, documentItems, processItems, outcome, options),
   }
 }
 
@@ -798,4 +793,6 @@ module.exports = {
   buildMethodView,
   collectOldPartTraces,
   collectProcessImages,
+  buildDocumentPresence,
+  resolveDocumentAnchor,
 }

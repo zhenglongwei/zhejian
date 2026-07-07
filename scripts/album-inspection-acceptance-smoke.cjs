@@ -5,11 +5,25 @@
 const assert = require('assert')
 const { buildAlbumInspectionView } = require('../utils/album-inspection-view')
 const { collectOldPartTraces, collectProcessImages } = require('../utils/album-inspection-matrix')
+const { buildMethodGuideSections } = require('../utils/album-inspection-method-guide')
 const {
   AI_INSPECTION_DISCLAIMER,
+  AI_INSPECTION_EVIDENCE_LIMIT_LINES,
+  AI_INSPECTION_CONSENT,
   COMPLETENESS_TAB_HINT,
+  METHOD_TAB_HINT,
 } = require('../constants/album-evidence-guide')
 const { buildOldPartEvidenceItems } = require('../utils/album-evidence-items')
+const { buildDocumentItems } = require('../utils/album-inspection-view')
+const {
+  buildRuleBasedAdvice,
+  buildLlmSystemPrompt,
+  normalizeAdvicePayload,
+} = require('../utils/album-inspection-advice')
+const {
+  buildInspectionTimelineContext,
+  collectVisionImageCandidates,
+} = require('../utils/album-inspection-context')
 
 let passed = 0
 let failed = 0
@@ -85,8 +99,8 @@ function allInventoryRows(view) {
   return (view.completeness.panels || []).flatMap((panel) => panel.rows || [])
 }
 
-function allMethodRows(view) {
-  return (view.method.panels || []).flatMap((panel) => panel.methodRows || [])
+function methodSections(view) {
+  return view.method.sections || []
 }
 
 console.log('U-ALB-INSP-04 album-inspection acceptance smoke\n')
@@ -119,101 +133,92 @@ ok('过程图与旧件分桶', () => {
   assert.deepEqual(collectProcessImages(detail), ['https://cdn.example/proc.jpg'])
 })
 
-ok('方法 Tab 缺项长文仅在 method 面板', () => {
-  const view = buildAlbumInspectionView(
-    baseDetail({
-      evidenceItems: [
-        {
-          id: 'repair_quote',
-          category: 'document',
-          stageId: 'stage_3',
-          label: '维修报价单',
-          images: [],
-        },
-      ],
-      nodes: [{ id: 'stage_3', images: [] }],
-      parts: [],
-      planParts: [],
-    }),
-  )
+ok('方法 Tab 为三段式段落', () => {
+  const view = buildAlbumInspectionView(baseDetail())
+  const sections = methodSections(view)
+  assert.equal(sections.length, 3, 'expected 3 method sections')
+  assert.equal(sections[0].id, 'documents')
+  assert.equal(sections[1].id, 'old_parts')
+  assert.equal(sections[2].id, 'new_parts')
+  sections.forEach((section) => {
+    assert(section.paragraphs && section.paragraphs.length > 0, `empty paragraphs: ${section.id}`)
+    section.paragraphs.forEach((para) => {
+      assert(['body', 'issue', 'action'].includes(para.tone), `bad tone in ${section.id}`)
+    })
+  })
+})
+
+ok('方法 Tab 缺单据时输出 issue 段落', () => {
+  const detail = baseDetail({
+    evidenceItems: [],
+    nodes: [],
+    parts: [],
+    planParts: [],
+  })
+  const view = buildAlbumInspectionView(detail)
+  const docSection = methodSections(view).find((s) => s.id === 'documents')
+  assert(docSection, 'expected documents section')
+  const issues = docSection.paragraphs.filter((p) => p.tone === 'issue')
+  assert(issues.length > 0, 'expected issue paragraphs when docs missing')
   const invRows = allInventoryRows(view)
   invRows.forEach((row) => {
     assert(!row.actionHint, 'inventory must not contain actionHint')
   })
-  const docPanel = view.method.panels.find((p) => p.id === 'doc_method')
-  assert(docPanel && docPanel.documentBundle, 'expected document bundle in method tab')
-  assert(
-    docPanel.documentBundle.missingBlock || docPanel.documentBundle.checkGuide,
-    'expected method-side document guidance',
-  )
 })
 
-ok('方法 Tab 行级旧件对照（planPartId）', () => {
-  const view = buildAlbumInspectionView(baseDetail())
-  const rows = allMethodRows(view)
-  const linked = rows.find((r) => r.id === 'old_part_plan_1')
-  assert(linked, 'expected linked old part method row')
-  assert(linked.howToCheck, 'expected howToCheck on linked row')
+ok('方法 Tab 缺配件登记时输出 issue 段落', () => {
+  const detail = baseDetail({ parts: [] })
+  const documentItems = buildDocumentItems(detail)
+  const sections = buildMethodGuideSections(detail, documentItems, { showPartVerify: false })
+  const newSection = sections.find((s) => s.id === 'new_parts')
+  const issues = newSection.paragraphs.filter((p) => p.tone === 'issue')
+  assert(issues.some((p) => /报价|换了哪些/.test(p.text)), 'expected plan vs album issue')
 })
 
 ok('方法 Tab 建议文案合规前缀', () => {
-  const view = buildAlbumInspectionView(baseDetail())
-  const rows = allMethodRows(view)
-  rows.forEach((row) => {
-    if (row.advice) {
-      assert(
-        /向门店|向保险公司/.test(row.advice),
-        `advice out of compliance: ${row.advice}`,
-      )
-    }
-    if (row.actionHint) {
-      assert(
-        /向门店|向保险公司/.test(row.actionHint),
-        `actionHint out of compliance: ${row.actionHint}`,
-      )
-    }
+  const view = buildAlbumInspectionView(baseDetail({ parts: [] }))
+  const sections = methodSections(view)
+  sections.forEach((section) => {
+    section.paragraphs
+      .filter((p) => p.tone === 'action')
+      .forEach((para) => {
+        assert(
+          /向门店|向保险公司/.test(para.text),
+          `action out of compliance: ${para.text}`,
+        )
+      })
   })
-  const bundle = view.method.panels.find((p) => p.id === 'doc_method')?.documentBundle
-  if (bundle && bundle.checkGuide && bundle.checkGuide.advice) {
-    assert(/向门店|向保险公司/.test(bundle.checkGuide.advice))
-  }
 })
 
-ok('事故车定损锚点（模式 A）不出现报价↔工单 pairwise', () => {
-  const view = buildAlbumInspectionView(
-    baseDetail({
-      templateId: 'accident',
-      evidenceItems: [
-        {
-          id: 'loss_assessment',
-          category: 'document',
-          stageId: 'stage_3',
-          label: '定损单',
-          images: ['https://cdn.example/loss.jpg'],
-        },
-        {
-          id: 'work_order',
-          category: 'document',
-          stageId: 'stage_5',
-          label: '施工工单',
-          images: ['https://cdn.example/wo.jpg'],
-        },
-      ],
-      nodes: [
-        { id: 'stage_3', images: ['https://cdn.example/loss.jpg'] },
-        { id: 'stage_5', images: ['https://cdn.example/wo.jpg'] },
-      ],
-      parts: [],
-      planParts: [],
-    }),
-  )
-  const rows = allMethodRows(view)
-  const bad = rows.find(
-    (r) => r.label && /报价.*工单|repair_quote.*work_order/i.test(String(r.label)),
-  )
-  assert(!bad, 'mode A should not expose quote↔work pairwise row')
-  const bundle = view.method.panels.find((p) => p.id === 'doc_method')?.documentBundle
-  assert(bundle && bundle.intro && bundle.intro.includes('定损'), 'expected loss anchor intro')
+ok('事故车定损锚点文案', () => {
+  const detail = baseDetail({
+    templateId: 'accident',
+    evidenceItems: [
+      {
+        id: 'loss_assessment',
+        category: 'document',
+        stageId: 'stage_3',
+        label: '定损单',
+        images: ['https://cdn.example/loss.jpg'],
+      },
+      {
+        id: 'work_order',
+        category: 'document',
+        stageId: 'stage_5',
+        label: '施工工单',
+        images: ['https://cdn.example/wo.jpg'],
+      },
+    ],
+    nodes: [
+      { id: 'stage_3', images: ['https://cdn.example/loss.jpg'] },
+      { id: 'stage_5', images: ['https://cdn.example/wo.jpg'] },
+    ],
+    parts: [],
+    planParts: [],
+  })
+  const view = buildAlbumInspectionView(detail)
+  const docSection = methodSections(view).find((s) => s.id === 'documents')
+  assert(docSection.paragraphs.some((p) => /定损单/.test(p.text)), 'expected loss anchor copy')
 })
 
 ok('AI 免责常量可用于结果区块', () => {
@@ -221,7 +226,90 @@ ok('AI 免责常量可用于结果区块', () => {
     AI_INSPECTION_DISCLAIMER.includes('不构成') || AI_INSPECTION_DISCLAIMER.includes('鉴定'),
     'AI disclaimer should deny legal conclusion',
   )
+  assert(
+    AI_INSPECTION_CONSENT.includes('配件') || AI_INSPECTION_CONSENT.includes('验真'),
+    'consent should mention part verify boundary',
+  )
+  assert(
+    Array.isArray(AI_INSPECTION_EVIDENCE_LIMIT_LINES) && AI_INSPECTION_EVIDENCE_LIMIT_LINES.length >= 2,
+    'evidence limit lines should exist',
+  )
+  assert(
+    AI_INSPECTION_EVIDENCE_LIMIT_LINES.some((line) => /造假|作假/.test(line)),
+    'evidence limit should mention fraud boundary',
+  )
+  assert(
+    AI_INSPECTION_EVIDENCE_LIMIT_LINES.some((line) => /第三方|鉴定/.test(line)),
+    'evidence limit should mention third-party appraisal',
+  )
   assert(COMPLETENESS_TAB_HINT.includes('重要度'), 'completeness hint should explain importance')
+  assert(METHOD_TAB_HINT.length > 0, 'method hint should exist')
+})
+
+ok('AI 建议规则兜底含 summary/processStatus/partVerifyReminders', () => {
+  const detail = baseDetail()
+  const advice = buildRuleBasedAdvice(detail)
+  assert(advice.summary, 'expected summary')
+  assert(advice.processStatus, 'expected processStatus')
+  assert(Array.isArray(advice.stageObservations), 'expected stageObservations array')
+  assert(Array.isArray(advice.partVerifyReminders), 'expected partVerifyReminders array')
+  assert(
+    advice.partVerifyReminders.some((row) => /验真|真伪/.test(row.reason || row.action || '')),
+    'expected part verify reminder copy',
+  )
+})
+
+ok('focusStageId 影响规则兜底 processStatus', () => {
+  const detail = baseDetail()
+  const advice = buildRuleBasedAdvice(detail, { focusStageId: 'stage_5' })
+  assert(/施工|stage_5|关注/.test(advice.processStatus + advice.focusAreas.join('')), 'expected focus hint')
+})
+
+ok('LLM system prompt 含六节点与配件验真边界', () => {
+  const prompt = buildLlmSystemPrompt()
+  assert(/接车|检测|报价|配件|施工|完工/.test(prompt), 'expected six stages')
+  assert(/不负责|不.*鉴定|验真/.test(prompt), 'expected verify boundary')
+  assert(/focusStageId|任意节点/.test(prompt), 'expected any-node trigger guidance')
+  assert(/资料自洽|造假|第三方|保险公司/.test(prompt), 'expected evidence limit guidance')
+})
+
+ok('normalizeAdvicePayload 结构化 stageObservations', () => {
+  const payload = normalizeAdvicePayload(
+    {
+      summary: '  总评  ',
+      processStatus: '进展',
+      stageObservations: [
+        { stageId: 'stage_3', stageTitle: '方案', observation: '有报价单', concern: '' },
+        { stageId: '', observation: '' },
+      ],
+      partVerifyReminders: [{ partName: '刹车片', reason: '建议验真', action: '到店查看' }],
+      suspectedIssues: ['缺旧件'],
+      nextSteps: ['向门店确认'],
+    },
+    'llm',
+  )
+  assert.equal(payload.summary, '总评')
+  assert.equal(payload.stageObservations.length, 1)
+  assert.equal(payload.partVerifyReminders.length, 1)
+  assert.equal(payload.suspectedIssues[0].text, '缺旧件')
+})
+
+ok('collectVisionImageCandidates 优先 focusStageId 附近', () => {
+  const detail = baseDetail()
+  const all = collectVisionImageCandidates(detail, { maxImages: 4 })
+  const focused = collectVisionImageCandidates(detail, { focusStageId: 'stage_5', maxImages: 4 })
+  assert(all.length > 0, 'expected image candidates')
+  assert(focused.length > 0, 'expected focused candidates')
+  assert(
+    focused.some((item) => item.stageId === 'stage_5'),
+    'focused list should include focus stage',
+  )
+})
+
+ok('buildInspectionTimelineContext 含六节点时间线', () => {
+  const ctx = buildInspectionTimelineContext(baseDetail(), { focusStageId: 'stage_4' })
+  assert.equal(ctx.timeline.length, 6, 'expected 6 stages')
+  assert(ctx.focusStageId === 'stage_4' || ctx.focusStageTitle, 'expected focus meta')
 })
 
 ok('商家编辑页自检列名「规范」且用必留/建议留', () => {
@@ -250,14 +338,14 @@ ok('商家编辑页自检列名「规范」且用必留/建议留', () => {
     )
     assert(!['关键', '一般'].includes(row.importanceLabel), 'must not use owner labels')
   })
-  assert.equal((view.method.panels || []).length, 0, 'merchant view is completeness-only')
+  assert.equal((view.method.sections || []).length, 0, 'merchant view is completeness-only')
   const critical = collectCriticalMissingFromPanels(view.completeness.panels)
   assert(Array.isArray(critical), 'critical missing list')
 })
 
 ok('规则 AI 建议含 focusAreas 且 suspectedIssues 为对象数组', () => {
   const { buildRuleBasedAdvice } = require('../utils/album-inspection-advice')
-  const advice = buildRuleBasedAdvice(baseDetail())
+  const advice = buildRuleBasedAdvice(baseDetail({ parts: [] }))
   assert(advice.focusAreas.length > 0, 'expected focusAreas')
   assert.equal(advice.source, 'rule')
   advice.suspectedIssues.forEach((item) => {
