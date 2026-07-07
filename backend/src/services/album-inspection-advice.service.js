@@ -3,7 +3,7 @@
  */
 const { randomUUID } = require('crypto')
 const { prisma } = require('../lib/prisma')
-const config = require('../config')
+const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
 const { loadAlbum, buildAlbumView } = require('./service-album.service')
 const { buildPlanPartsContext } = require('./album-plan-parts.service')
