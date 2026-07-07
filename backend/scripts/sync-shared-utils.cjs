@@ -15,6 +15,7 @@ const FILES = [
   'constants/service-album-stages.js',
   'utils/album-inspection-advice.js',
   'utils/album-inspection-context.js',
+  'utils/album-inspection-content-fingerprint.js',
   'utils/album-inspection-view.js',
   'utils/album-inspection-matrix.js',
   'utils/album-inspection-method-guide.js',

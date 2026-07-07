@@ -54,9 +54,9 @@ const METHOD_TAB_HINT =
 const MERCHANT_INSPECTION_HINT =
   '「规范」表示本相册建议留痕程度（必留/建议留/可选）；缺项不会阻断保存或完工，但会影响车主核对体验。'
 
-const MERCHANT_COMPLETE_INSP_TITLE = '关键留痕未齐'
+const MERCHANT_COMPLETE_INSP_TITLE = '留痕尚未齐全'
 const MERCHANT_COMPLETE_INSP_INTRO =
-  '以下「必留」项尚未上传，建议先补传再标记完工。缺项不会阻断完工，但会影响车主核对。'
+  '以下留痕项尚未上传，建议先补传再标记完工。缺项不会阻断完工，但会影响车主核对与 AI 分析质量。'
 
 const MERCHANT_EVIDENCE_LABEL = {
   strongly_recommended: '必留',

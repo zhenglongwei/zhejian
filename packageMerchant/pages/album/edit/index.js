@@ -61,7 +61,7 @@ const {
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
 const {
   buildMerchantEditInspectionView,
-  collectCriticalMissingFromPanels,
+  collectMissingFromPanels,
 } = require('../../../../utils/album-merchant-inspection')
 const {
   MERCHANT_PART_TYPE_LOCKED_TIP,
@@ -235,7 +235,7 @@ Page({
     merchantInspPanels: [],
     merchantInspColumnLabel: '规范',
     merchantInspExpanded: false,
-    merchantInspCriticalMissing: [],
+    merchantInspMissingItems: [],
     inspScrollIntoView: '',
     inspCompleteModalVisible: false,
     inspCompleteModalTitle: MERCHANT_COMPLETE_INSP_TITLE,
@@ -270,19 +270,19 @@ Page({
     if (this.data.status !== 'normal' || !this.data.detail) return
     try {
       const view = this.computeMerchantInspectionState()
-      const critical = collectCriticalMissingFromPanels(view.completeness.panels)
+      const missing = collectMissingFromPanels(view.completeness.panels)
       this.setData({
         merchantInspSummary: view.completeness.summary,
         merchantInspPanels: view.completeness.panels,
         merchantInspColumnLabel: view.importanceColumnLabel,
-        merchantInspCriticalMissing: critical,
+        merchantInspMissingItems: missing,
       })
     } catch (e) {
       console.warn('[merchant-insp] refresh failed', e)
       this.setData({
         merchantInspSummary: { done: 0, total: 0, missing: 0 },
         merchantInspPanels: [],
-        merchantInspCriticalMissing: [],
+        merchantInspMissingItems: [],
       })
     }
   },
@@ -1370,14 +1370,14 @@ Page({
     }
 
     const view = this.computeMerchantInspectionState()
-    const critical = collectCriticalMissingFromPanels(view.completeness.panels)
+    const missing = collectMissingFromPanels(view.completeness.panels)
     this.setData({
       merchantInspSummary: view.completeness.summary,
       merchantInspPanels: view.completeness.panels,
       merchantInspColumnLabel: view.importanceColumnLabel,
-      merchantInspCriticalMissing: critical,
+      merchantInspMissingItems: missing,
     })
-    if (critical.length) {
+    if (missing.length) {
       this.setData({ inspCompleteModalVisible: true })
       return
     }

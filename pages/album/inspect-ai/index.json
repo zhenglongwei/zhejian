@@ -1,9 +1,10 @@
 {
-  "navigationBarTitleText": "AI 检查记录",
+  "navigationBarTitleText": "AI 分析记录",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-button": "/components/button/index",
-    "ui-tag": "/components/tag/index"
+    "ui-tag": "/components/tag/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
   }
 }

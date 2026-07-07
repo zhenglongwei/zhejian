@@ -7,7 +7,7 @@
 
   <block wx:elif="{{status === 'error'}}">
     <view class="page-content album-inspect-ai__pad">
-      <ui-empty theme="album" title="无法打开 AI 检查" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+      <ui-empty theme="album" title="无法打开 AI 分析" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
     </view>
   </block>
 
@@ -15,17 +15,27 @@
     <view class="page-content album-inspect-ai__body">
       <view class="surface-album-panel album-inspect-ai__hero">
         <text class="text-h3">{{albumTitle}}</text>
-        <text class="text-caption text-secondary">以下为 AI 辅助检查记录，可多次发起；分析可能需要 1～2 分钟，请勿重复点击。</text>
+        <view class="album-inspect-ai__notice-wrap">
+          <ui-compliance-notice type="aiInspection" />
+        </view>
+        <text
+          wx:for="{{aiEvidenceLimitLines}}"
+          wx:key="*this"
+          class="text-caption album-inspect-ai__limit"
+        >{{item}}</text>
+        <text wx:if="{{!canRunAiAnalysis && reports.length}}" class="text-caption album-inspect-ai__hint">相册自上次分析后暂无更新，可直接查看下方记录。</text>
+        <text wx:elif="{{!canRunAiAnalysis && !reports.length && !albumCompleted}}" class="text-caption album-inspect-ai__hint">施工节点留痕尚不足，请待相册内容更完整后再分析。</text>
+        <text wx:elif="{{!canRunAiAnalysis && !reports.length && albumCompleted}}" class="text-caption album-inspect-ai__hint">可发起首次 AI 分析；留痕较少时结果可能较简略。</text>
       </view>
 
-      <view class="album-inspect-ai__trigger">
+      <view wx:if="{{canRunAiAnalysis}}" class="album-inspect-ai__trigger">
         <ui-button
           type="secondary"
           block
           loading="{{aiLoading}}"
           disabled="{{aiLoading}}"
           bind:btntap="onRunAiCheck"
-        >发起 AI 检查</ui-button>
+        >发起 AI 分析</ui-button>
       </view>
 
       <block wx:if="{{reports.length}}">
@@ -33,7 +43,6 @@
           wx:for="{{reports}}"
           wx:key="reportId"
           wx:for-item="report"
-          wx:for-index="reportIndex"
           class="surface-album-panel album-inspect-ai__report {{report.reportId === highlightReportId ? 'album-inspect-ai__report--highlight' : ''}}"
         >
           <view
@@ -58,8 +67,6 @@
             </block>
 
             <block wx:else>
-              <text class="text-caption album-inspect-ai__disclaimer">{{aiDisclaimer}}</text>
-
               <block wx:if="{{report.advice.overallOpinion.summary}}">
                 <text class="text-caption album-inspect-ai__label">整体意见</text>
                 <text class="text-body album-inspect-ai__summary">{{report.advice.overallOpinion.summary}}</text>
@@ -113,13 +120,6 @@
                 <text class="text-caption album-inspect-ai__label">相册说明</text>
                 <text class="text-caption album-inspect-ai__limit">{{report.advice.limitationNote}}</text>
               </block>
-              <block wx:else>
-                <text
-                  wx:for="{{aiEvidenceLimitLines}}"
-                  wx:key="*this"
-                  class="text-caption album-inspect-ai__limit"
-                >{{item}}</text>
-              </block>
 
               <block wx:if="{{report.advice.photoAppendix.length}}">
                 <view
@@ -156,7 +156,7 @@
       </block>
 
       <view wx:else class="surface-album-panel album-inspect-ai__empty">
-        <text class="text-body text-secondary">暂无 AI 检查记录，可点击上方按钮发起。</text>
+        <text class="text-body text-secondary">暂无 AI 分析记录。</text>
       </view>
     </view>
   </block>

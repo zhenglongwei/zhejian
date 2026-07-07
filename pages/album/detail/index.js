@@ -518,7 +518,6 @@ Page({
   shouldShowAuth(detail) {
     if (!detail) return false
     if (!isRepairCompleted(detail.status)) return false
-    if ((detail.imageCount || 0) < 1) return false
     const status = detail.publicCaseStatus
     return (
       status === 'private' ||

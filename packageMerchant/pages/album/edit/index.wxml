@@ -429,11 +429,11 @@
       <text class="merchant-album-edit__insp-modal-intro text-caption text-secondary">{{inspCompleteModalIntro}}</text>
       <scroll-view scroll-y class="merchant-album-edit__insp-modal-list" show-scrollbar="{{false}}">
         <view
-          wx:for="{{merchantInspCriticalMissing}}"
+          wx:for="{{merchantInspMissingItems}}"
           wx:key="id"
           class="merchant-album-edit__insp-modal-item"
         >
-          <text class="text-caption merchant-album-edit__insp-modal-item-tag">{{item.panelTitle}}</text>
+          <text class="text-caption merchant-album-edit__insp-modal-item-tag">{{item.panelTitle}} · {{item.importanceLabel}}</text>
           <text class="text-body">{{item.label}}</text>
         </view>
       </scroll-view>

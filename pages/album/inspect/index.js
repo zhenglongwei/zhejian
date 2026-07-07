@@ -3,6 +3,11 @@ const { enrichServiceAlbumListItem } = require('../../../utils/service-album-dis
 const { buildAlbumInspectionView } = require('../../../utils/album-inspection-view')
 const { buildInspectHeroMeta } = require('../../../utils/album-inspect-hero')
 const { navigateToOwnerStoreDetail } = require('../../../utils/album-store-access')
+const { fetchAlbumInspectionReports } = require('../../../services/album-inspection')
+const {
+  shouldRunAiAnalysis,
+  shouldShowAiAnalysisEntry,
+} = require('../../../utils/album-inspection-analysis-gate')
 const {
   COMPLETENESS_TAB_HINT,
   METHOD_TAB_HINT,
@@ -32,6 +37,7 @@ Page({
     completenessPanels: [],
     methodSections: [],
     showPartVerifyEntry: false,
+    showAiAnalysisEntry: false,
   },
 
   onLoad(options) {
@@ -71,6 +77,7 @@ Page({
         methodSections: view.method.sections || [],
         outcome: view.outcome,
         showPartVerifyEntry: view.showPartVerifyEntry,
+        showAiAnalysisEntry: shouldShowAiAnalysisEntry(detail),
       })
     } catch (e) {
       this.setData({
@@ -119,15 +126,28 @@ Page({
     navigateToOwnerStoreDetail(this.data.linkedStoreId)
   },
 
-  onGenerateAiAdvice() {
-    const query = [
-      `albumId=${this.albumId}`,
-      this.focusStageId ? `focusStageId=${this.focusStageId}` : '',
-      `triggerContext=${this.triggerContext || 'inspect_page'}`,
-      'runAi=1',
-    ]
-      .filter(Boolean)
-      .join('&')
-    wx.navigateTo({ url: `/pages/album/inspect-ai/index?${query}` })
+  async onGenerateAiAdvice() {
+    if (!this.data.showAiAnalysisEntry) return
+    wx.showLoading({ title: '加载中', mask: true })
+    try {
+      const [detail, reportRes] = await Promise.all([
+        fetchServiceAlbum(this.albumId),
+        fetchAlbumInspectionReports(this.albumId),
+      ])
+      const runAi = shouldRunAiAnalysis(detail, reportRes.items || [])
+      const query = [
+        `albumId=${this.albumId}`,
+        this.focusStageId ? `focusStageId=${this.focusStageId}` : '',
+        `triggerContext=${this.triggerContext || 'inspect_page'}`,
+        runAi ? 'runAi=1' : '',
+      ]
+        .filter(Boolean)
+        .join('&')
+      wx.navigateTo({ url: `/pages/album/inspect-ai/index?${query}` })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
   },
 })

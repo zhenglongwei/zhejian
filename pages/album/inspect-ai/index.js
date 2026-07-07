@@ -6,10 +6,11 @@ const {
 } = require('../../../services/album-inspection')
 const { buildInspectionReportListItem } = require('../../../utils/album-inspection-report-display')
 const {
-  AI_INSPECTION_DISCLAIMER,
-  AI_INSPECTION_EVIDENCE_LIMIT_LINES,
-  AI_INSPECTION_CONSENT,
-} = require('../../../constants/album-evidence-guide')
+  shouldRunAiAnalysis,
+  shouldShowAiAnalysisEntry,
+  isAlbumCompleted,
+} = require('../../../utils/album-inspection-analysis-gate')
+const { AI_INSPECTION_EVIDENCE_LIMIT_LINES } = require('../../../constants/album-evidence-guide')
 
 function mapReports(items, options = {}) {
   const highlightReportId = options.highlightReportId || ''
@@ -38,7 +39,8 @@ Page({
     reports: [],
     highlightReportId: '',
     aiLoading: false,
-    aiDisclaimer: AI_INSPECTION_DISCLAIMER,
+    canRunAiAnalysis: false,
+    albumCompleted: false,
     aiEvidenceLimitLines: AI_INSPECTION_EVIDENCE_LIMIT_LINES,
   },
 
@@ -62,7 +64,10 @@ Page({
 
   async refreshReports() {
     try {
-      const reportRes = await fetchAlbumInspectionReports(this.albumId)
+      const [detail, reportRes] = await Promise.all([
+        fetchServiceAlbum(this.albumId),
+        fetchAlbumInspectionReports(this.albumId),
+      ])
       const expandedMap = {}
       this.data.reports.forEach((row) => {
         expandedMap[row.reportId] = {
@@ -79,7 +84,13 @@ Page({
           appendixExpanded: prev.appendixExpanded,
         }
       })
-      this.setData({ reports })
+      this.setData({
+        reports,
+        canRunAiAnalysis: shouldRunAiAnalysis(detail, reportRes.items || []),
+        albumCompleted: isAlbumCompleted(detail),
+      })
+      this.albumDetail = detail
+      this.rawReportItems = reportRes.items || []
     } catch (e) {
       // ignore background refresh errors
     }
@@ -97,14 +108,21 @@ Page({
         id: detail.albumId,
       })
       const reports = mapReports(reportRes.items || [])
+      const canRunAiAnalysis = shouldRunAiAnalysis(detail, reportRes.items || [])
+      this.albumDetail = detail
+      this.rawReportItems = reportRes.items || []
       this.setData({
         status: 'normal',
         albumTitle: enriched.serviceName || '服务相册',
         reports,
+        canRunAiAnalysis,
+        albumCompleted: isAlbumCompleted(detail),
       })
       if (this.pendingRunAi) {
         this.pendingRunAi = false
-        this.onRunAiCheck()
+        if (canRunAiAnalysis) {
+          this.runAiAdvice()
+        }
       }
     } catch (e) {
       this.setData({
@@ -140,16 +158,15 @@ Page({
 
   onRunAiCheck() {
     if (this.data.aiLoading) return
-    wx.showModal({
-      title: 'AI检查',
-      content: AI_INSPECTION_CONSENT,
-      confirmText: '继续',
-      cancelText: '取消',
-      success: (res) => {
-        if (!res.confirm) return
-        this.runAiAdvice()
-      },
-    })
+    if (!this.data.canRunAiAnalysis) {
+      wx.showToast({
+        title: '相册内容未更新，请查看下方记录',
+        icon: 'none',
+        duration: 2500,
+      })
+      return
+    }
+    this.runAiAdvice()
   },
 
   async runAiAdvice() {
@@ -163,14 +180,16 @@ Page({
       const reportRes = await fetchAlbumInspectionReports(this.albumId)
       const highlightReportId = result.reportId || ''
       const reports = mapReports(reportRes.items || [], { highlightReportId })
+      this.rawReportItems = reportRes.items || []
       this.setData({
         reports,
         highlightReportId,
         aiLoading: false,
+        canRunAiAnalysis: false,
       })
       if (result.status === 'failed') {
         wx.showToast({
-          title: result.errorMessage || 'AI 检查失败',
+          title: result.errorMessage || 'AI 分析失败',
           icon: 'none',
           duration: 3000,
         })

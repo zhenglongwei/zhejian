@@ -69,9 +69,6 @@ function resolveAlbumAuthAction(item = {}) {
   if (!isRepairCompleted(item.status)) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
-  if ((Number(item.imageCount) || 0) < 1) {
-    return { show: false, label: '', disabled: false, hint: '' }
-  }
   const status = item.publicCaseStatus || 'private'
   if (status === 'pending_review' || status === 'public_approved') {
     return { show: false, label: '', disabled: false, hint: '' }

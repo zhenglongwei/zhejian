@@ -50,6 +50,22 @@ function collectCriticalMissingFromPanels(panels = []) {
   return items
 }
 
+function collectMissingFromPanels(panels = []) {
+  const items = []
+  ;(panels || []).forEach((panel) => {
+    ;(panel.rows || []).forEach((row) => {
+      if (row.present || !row.label) return
+      items.push({
+        id: row.id,
+        label: row.label,
+        panelTitle: panel.title || '',
+        importanceLabel: row.importanceLabel || '',
+      })
+    })
+  })
+  return items
+}
+
 function formatCriticalMissingSummary(items = [], maxItems = 6) {
   const list = items || []
   if (!list.length) return ''
@@ -61,6 +77,7 @@ function formatCriticalMissingSummary(items = [], maxItems = 6) {
 module.exports = {
   buildMerchantEditInspectionView,
   collectCriticalMissingFromPanels,
+  collectMissingFromPanels,
   formatCriticalMissingSummary,
   CRITICAL_IMPORTANCE_LABEL,
 }

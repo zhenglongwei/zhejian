@@ -14,6 +14,17 @@
   padding: var(--space-md);
 }
 
+.album-inspect-ai__notice-wrap {
+  margin-top: var(--space-sm);
+}
+
+.album-inspect-ai__hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .album-inspect-ai__trigger {
   margin-bottom: var(--space-md);
   padding: 0 var(--page-padding-x);
@@ -73,13 +84,6 @@
   margin-top: var(--space-xs);
   line-height: 1.55;
   color: var(--color-text-primary);
-}
-
-.album-inspect-ai__disclaimer {
-  display: block;
-  margin-top: var(--space-sm);
-  color: var(--color-text-tertiary);
-  line-height: 1.5;
 }
 
 .album-inspect-ai__limit {

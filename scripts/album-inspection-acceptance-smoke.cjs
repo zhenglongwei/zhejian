@@ -368,5 +368,64 @@ ok('规则 AI 建议含 focusAreas 且 suspectedIssues 为对象数组', () => {
   })
 })
 
+ok('内容指纹随节点照片变化', () => {
+  const { buildAlbumInspectionContentFingerprint } = require('../utils/album-inspection-content-fingerprint')
+  const before = buildAlbumInspectionContentFingerprint(baseDetail())
+  const after = buildAlbumInspectionContentFingerprint(
+    baseDetail({
+      nodes: [
+        ...baseDetail().nodes,
+        { id: 'stage_5', images: ['https://cdn.example/extra.jpg'], note: '新增施工图' },
+      ],
+    }),
+  )
+  assert.notEqual(before, after, 'fingerprint should change when media changes')
+})
+
+ok('AI 分析门槛：stage_5 有内容且相册更新后才 rerun', () => {
+  const {
+    hasStageContentForAi,
+    shouldRunAiAnalysis,
+    shouldShowAiAnalysisEntry,
+    isAlbumCompleted,
+  } = require('../utils/album-inspection-analysis-gate')
+  const detail = baseDetail()
+  assert(hasStageContentForAi(detail), 'expected stage_5 filled in fixture')
+  assert(shouldShowAiAnalysisEntry(detail), 'in-progress with stage_5 should show entry')
+  assert(shouldRunAiAnalysis(detail, []), 'first analysis should run')
+
+  const { buildAlbumInspectionContentFingerprint } = require('../utils/album-inspection-content-fingerprint')
+  const fp = buildAlbumInspectionContentFingerprint(detail)
+  assert.equal(
+    shouldRunAiAnalysis(detail, [
+      {
+        createdAt: new Date().toISOString(),
+        source: 'llm',
+        payload: { status: 'success', contentFingerprint: fp },
+      },
+    ]),
+    false,
+    'same fingerprint should skip rerun',
+  )
+
+  const completedEmpty = baseDetail({
+    status: 'completed',
+    nodes: [],
+    evidenceItems: [],
+    parts: [],
+    planParts: [],
+  })
+  assert(isAlbumCompleted(completedEmpty), 'expected completed status')
+  assert(shouldShowAiAnalysisEntry(completedEmpty), 'completed album should show AI entry even without stage content')
+  assert(shouldRunAiAnalysis(completedEmpty, []), 'completed album first analysis should run')
+})
+
+ok('AI 分析门槛：维修中且 stage_5 无内容时不展示', () => {
+  const { hasStageContentForAi, shouldShowAiAnalysisEntry } = require('../utils/album-inspection-analysis-gate')
+  const empty = baseDetail({ nodes: [], evidenceItems: [], parts: [], planParts: [] })
+  assert.equal(hasStageContentForAi(empty), false)
+  assert.equal(shouldShowAiAnalysisEntry(empty), false)
+})
+
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

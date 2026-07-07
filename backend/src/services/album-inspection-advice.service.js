@@ -16,6 +16,9 @@ const {
   extractAdviceJson,
   normalizeAdvicePayload,
 } = require('../utils/album-inspection-advice')
+const {
+  buildAlbumInspectionContentFingerprint,
+} = require('../utils/album-inspection-content-fingerprint')
 
 async function assertUserAlbumAccess(albumId, userId) {
   const album = await loadAlbum(albumId)
@@ -183,8 +186,11 @@ async function callInspectionLlm(detail, requestOptions = {}) {
   return advice
 }
 
-async function saveInspectionReport(albumId, userId, payload, requestOptions = {}) {
+async function saveInspectionReport(albumId, userId, payload, requestOptions = {}, detail = null) {
   const id = randomUUID()
+  const contentFingerprint = detail
+    ? buildAlbumInspectionContentFingerprint(detail)
+    : payload.contentFingerprint || ''
   await prisma.albumInspectionReport.create({
     data: {
       id,
@@ -193,6 +199,7 @@ async function saveInspectionReport(albumId, userId, payload, requestOptions = {
       source: payload.source || 'llm',
       payloadJson: {
         ...payload,
+        contentFingerprint,
         request: requestOptions,
       },
     },
@@ -212,7 +219,7 @@ async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
       status: 'success',
       source: advice.source || 'llm',
     }
-    const reportId = await saveInspectionReport(albumId, userId, successPayload, requestOptions)
+    const reportId = await saveInspectionReport(albumId, userId, successPayload, requestOptions, detail)
     return {
       ...successPayload,
       reportId,
@@ -223,7 +230,7 @@ async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
     const errorMessage = resolveInspectionErrorMessage(e)
     console.warn('[inspection-advice] llm failed', errorMessage)
     const failurePayload = buildFailurePayload(errorMessage)
-    const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions)
+    const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions, detail)
     return {
       ...failurePayload,
       reportId,

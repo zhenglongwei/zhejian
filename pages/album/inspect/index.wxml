@@ -70,8 +70,8 @@
         </view>
       </block>
 
-      <view class="album-inspect__ai-trigger">
-        <ui-button type="secondary" block bind:btntap="onGenerateAiAdvice">AI检查</ui-button>
+      <view wx:if="{{showAiAnalysisEntry}}" class="album-inspect__ai-trigger">
+        <ui-button type="secondary" block bind:btntap="onGenerateAiAdvice">AI分析</ui-button>
       </view>
     </view>
 
