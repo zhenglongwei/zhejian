@@ -1,1 +1,3 @@
-module.exports = require('../../../utils/album-ai-summary')
+const { resolveShared } = require('./resolve-shared')
+
+module.exports = resolveShared('utils/album-ai-summary.js')

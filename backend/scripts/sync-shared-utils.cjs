@@ -23,6 +23,8 @@ const FILES = [
   'utils/album-compare-pairs.js',
   'utils/album-compare-stage-images.js',
   'utils/album-evidence-items.js',
+  'utils/album-summary.js',
+  'utils/album-ai-summary.js',
   'utils/desensitize-url.js',
 ]
 
