@@ -18,6 +18,11 @@
   margin-top: var(--space-sm);
 }
 
+.album-inspect-ai__notice-wrap .compliance-notice {
+  white-space: normal;
+  line-height: 1.55;
+}
+
 .album-inspect-ai__hint {
   display: block;
   margin-top: var(--space-xs);

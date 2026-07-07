@@ -7,9 +7,6 @@ const { buildAlbumInspectionView } = require('../utils/album-inspection-view')
 const { collectOldPartTraces, collectProcessImages } = require('../utils/album-inspection-matrix')
 const { buildMethodGuideSections } = require('../utils/album-inspection-method-guide')
 const {
-  AI_INSPECTION_DISCLAIMER,
-  AI_INSPECTION_EVIDENCE_LIMIT_LINES,
-  AI_INSPECTION_CONSENT,
   COMPLETENESS_TAB_HINT,
   METHOD_TAB_HINT,
 } = require('../constants/album-evidence-guide')
@@ -221,27 +218,17 @@ ok('事故车定损锚点文案', () => {
   assert(docSection.paragraphs.some((p) => /定损单/.test(p.text)), 'expected loss anchor copy')
 })
 
-ok('AI 免责常量可用于结果区块', () => {
-  assert(
-    AI_INSPECTION_DISCLAIMER.includes('不构成') || AI_INSPECTION_DISCLAIMER.includes('鉴定'),
-    'AI disclaimer should deny legal conclusion',
-  )
-  assert(
-    AI_INSPECTION_CONSENT.includes('配件') || AI_INSPECTION_CONSENT.includes('验真'),
-    'consent should mention part verify boundary',
-  )
-  assert(
-    Array.isArray(AI_INSPECTION_EVIDENCE_LIMIT_LINES) && AI_INSPECTION_EVIDENCE_LIMIT_LINES.length >= 2,
-    'evidence limit lines should exist',
-  )
-  assert(
-    AI_INSPECTION_EVIDENCE_LIMIT_LINES.some((line) => /造假|作假/.test(line)),
-    'evidence limit should mention fraud boundary',
-  )
-  assert(
-    AI_INSPECTION_EVIDENCE_LIMIT_LINES.some((line) => /第三方|鉴定/.test(line)),
-    'evidence limit should mention third-party appraisal',
-  )
+ok('AI 分析页警示文案融合为单一 compliance 条', () => {
+  const { COMPLIANCE_COPY } = require('../constants/compliance-copy')
+  const { AI_INSPECTION_PAGE_NOTICE } = require('../constants/album-evidence-guide')
+  const text = COMPLIANCE_COPY.aiInspection
+  assert.equal(text, AI_INSPECTION_PAGE_NOTICE)
+  assert(/不构成|鉴定/.test(text), 'AI notice should deny legal conclusion')
+  assert(/造假|无法覆盖|不一致/.test(text), 'AI notice should mention fraud boundary')
+  assert(/第三方|鉴定|保险/.test(text), 'AI notice should mention verification paths')
+})
+
+ok('检查页 Tab 提示常量', () => {
   assert(COMPLETENESS_TAB_HINT.includes('重要度'), 'completeness hint should explain importance')
   assert(METHOD_TAB_HINT.length > 0, 'method hint should exist')
 })

@@ -68,3 +68,39 @@
 .album-part-row__price {
   flex-shrink: 0;
 }
+
+.album-part-row__name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.album-part-row__thumb--verify {
+  width: var(--size-part-verify-thumb);
+  height: var(--size-part-verify-thumb);
+}
+
+.album-part-row__code-well {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  border: 1rpx solid var(--color-border);
+}
+
+.album-part-row__code-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.album-part-row__code-value {
+  word-break: break-all;
+  line-height: var(--line-height-relaxed);
+}

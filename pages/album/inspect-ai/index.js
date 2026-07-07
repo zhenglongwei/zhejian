@@ -10,7 +10,6 @@ const {
   shouldShowAiAnalysisEntry,
   isAlbumCompleted,
 } = require('../../../utils/album-inspection-analysis-gate')
-const { AI_INSPECTION_EVIDENCE_LIMIT_LINES } = require('../../../constants/album-evidence-guide')
 
 function mapReports(items, options = {}) {
   const highlightReportId = options.highlightReportId || ''
@@ -41,7 +40,6 @@ Page({
     aiLoading: false,
     canRunAiAnalysis: false,
     albumCompleted: false,
-    aiEvidenceLimitLines: AI_INSPECTION_EVIDENCE_LIMIT_LINES,
   },
 
   onLoad(options) {

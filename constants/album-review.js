@@ -17,6 +17,8 @@ const {
   PART_VERIFY_STATUS_OPTIONS,
   PART_VERIFY_CONSENT_TEXT,
   PART_VERIFY_VALUE_LINE,
+  PART_VERIFY_BOUNDARY_LINES,
+  PART_VERIFY_UPLOAD_HINT,
   PART_VERIFY_STEPS,
   PART_VERIFY_DEGRADE_HINT,
   PART_VERIFY_ALBUM_SECTION_TITLE,
@@ -37,7 +39,7 @@ const PART_VERIFY_PAGE_TITLE = '配件验真'
 const PART_VERIFY_ENTRY_LABEL = '配件验真'
 
 const PART_VERIFY_ONSITE_REMINDER =
-  '相册记录的是门店上传的登记与过程图，无法证明配件已正确装到车上。建议更换关键件时在场见证；若已完工，可联系门店展示旧件、包装或编码标签。平台不鉴定配件真伪，也不远程验收车上实物。'
+  '相册展示的是门店登记与过程图，不能证明配件已装到车上；平台不鉴定配件真伪，也不保证与车上实物一致。更换关键件建议在场或到店复核，可向门店查看旧件、包装与编码标签。'
 
 const PART_VERIFY_EXTRA_SECTION_TITLE = '方案外增项'
 
@@ -66,6 +68,8 @@ module.exports = {
   PART_VERIFY_PAGE_TITLE,
   PART_VERIFY_ENTRY_LABEL,
   PART_VERIFY_VALUE_LINE,
+  PART_VERIFY_BOUNDARY_LINES,
+  PART_VERIFY_UPLOAD_HINT,
   PART_VERIFY_STEPS,
   PART_VERIFY_DEGRADE_HINT,
   PART_VERIFY_ONSITE_REMINDER,

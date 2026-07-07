@@ -3,16 +3,11 @@
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
-    "ui-card": "/components/card/index",
     "ui-button": "/components/button/index",
-    "ui-tag": "/components/tag/index",
     "ui-checkbox-row": "/components/checkbox-row/index",
-    "ui-image-uploader": "/components/image-uploader/index",
-    "ui-compliance-notice": "/components/compliance-notice/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "album-part-row": "/components/album-part-row/index",
-    "part-verify-pair-card": "/components/part-verify-pair-card/index",
-    "ui-login-sheet": "/components/login-sheet/index",
-    "ui-privacy-banner": "/components/privacy-banner/index"
+    "ui-review-tag-chip": "/components/review-tag-chip/index",
+    "part-verify-item": "/components/part-verify-item/index",
+    "ui-login-sheet": "/components/login-sheet/index"
   }
 }

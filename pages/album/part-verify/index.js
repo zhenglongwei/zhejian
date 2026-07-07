@@ -9,20 +9,19 @@ const {
   PART_VERIFY_CONSENT_TEXT,
   PART_VERIFY_SUCCESS_MESSAGE,
   PART_VERIFY_PAGE_TITLE,
-  PART_VERIFY_VALUE_LINE,
   PART_VERIFY_DEGRADE_HINT,
-  PART_VERIFY_ONSITE_REMINDER,
   PART_VERIFY_ALBUM_SECTION_TITLE,
   PART_VERIFY_PLAN_SECTION_TITLE,
   PART_VERIFY_EXTRA_SECTION_TITLE,
   PART_VERIFY_STATUS_OPTIONS,
   PART_VERIFY_LINK_STATUS_HINT,
   PART_VERIFY_METHOD_TITLE,
-  PART_VERIFY_PART_CARD_HINT,
+  PART_VERIFY_METHOD_STEPS,
   PART_VERIFY_STORE_METHOD_INFORMED,
   PART_VERIFY_STORE_METHOD_FALLBACK,
   PART_VERIFY_GUIDE_FEEDBACK_TITLE,
   PART_VERIFY_GUIDE_FEEDBACK_OPTIONS,
+  PART_VERIFY_UPLOAD_HINT,
 } = require('../../../constants/album-review')
 
 function resolveStoreMethodView(guide = {}) {
@@ -49,6 +48,7 @@ function mapVerificationFields(entry = {}) {
     status: verification.status || 'skipped',
     note: verification.note || '',
     images: verification.images || [],
+    detailOpen: Boolean(verification.note || (verification.images && verification.images.length)),
   }
 }
 
@@ -123,16 +123,15 @@ Page({
     hasStructuredPlanParts: false,
     showDegradeHint: false,
     degradeHint: PART_VERIFY_DEGRADE_HINT,
-    valueLine: PART_VERIFY_VALUE_LINE,
+    methodSteps: PART_VERIFY_METHOD_STEPS,
     methodTitle: PART_VERIFY_METHOD_TITLE,
     methodMode: 'fallback',
     storeMethodText: PART_VERIFY_STORE_METHOD_FALLBACK,
-    partCardHint: PART_VERIFY_PART_CARD_HINT,
     albumSectionTitle: PART_VERIFY_ALBUM_SECTION_TITLE,
     planSectionTitle: PART_VERIFY_PLAN_SECTION_TITLE,
     extraSectionTitle: PART_VERIFY_EXTRA_SECTION_TITLE,
-    onsiteReminder: PART_VERIFY_ONSITE_REMINDER,
-    onsiteExpanded: false,
+    planExpanded: false,
+    guideFeedbackExpanded: false,
     consentText: PART_VERIFY_CONSENT_TEXT,
     consent: false,
     submitting: false,
@@ -141,6 +140,7 @@ Page({
     guideFeedbackTitle: PART_VERIFY_GUIDE_FEEDBACK_TITLE,
     guideFeedbackOptions: PART_VERIFY_GUIDE_FEEDBACK_OPTIONS,
     guideFeedback: '',
+    uploadHint: PART_VERIFY_UPLOAD_HINT,
   },
 
   onLoad(options) {
@@ -192,6 +192,9 @@ Page({
           }),
           name: part.name,
           partType: part.partType,
+          typeVariant: resolveTypeVariant(part.partType),
+          partBrand: part.partBrand || '',
+          partCode: part.partCode || '',
           qty: part.qty,
           thumbUrl: part.thumbUrl,
           partName: part.name,
@@ -217,7 +220,6 @@ Page({
         planSummary: data.planSummary || '',
         hasStructuredPlanParts: Boolean(data.hasStructuredPlanParts),
         showDegradeHint: !data.hasStructuredPlanParts,
-        onsiteReminder: data.onsiteReminder || PART_VERIFY_ONSITE_REMINDER,
         consentText: data.consentText || PART_VERIFY_CONSENT_TEXT,
         methodMode: methodView.methodMode,
         storeMethodText: methodView.storeMethodText,
@@ -235,8 +237,12 @@ Page({
     return (this.data.verifyItems || []).findIndex((item) => item.partKey === partKey)
   },
 
-  onToggleOnsite() {
-    this.setData({ onsiteExpanded: !this.data.onsiteExpanded })
+  onTogglePlan() {
+    this.setData({ planExpanded: !this.data.planExpanded })
+  },
+
+  onToggleGuideFeedback() {
+    this.setData({ guideFeedbackExpanded: !this.data.guideFeedbackExpanded })
   },
 
   onContactStore() {
@@ -248,30 +254,53 @@ Page({
     wx.makePhoneCall({ phoneNumber: phone })
   },
 
-  onStatusTap(e) {
-    const { partKey, status } = e.currentTarget.dataset
-    const index = this.findVerifyIndex(partKey)
-    if (index < 0) return
-    this.setData({ [`verifyItems[${index}].status`]: status })
-    this.syncDisplayLists(index, { status })
+  onItemStatusTap(e) {
+    const { partKey, status } = e.detail || {}
+    this.applyStatusChange(partKey, status)
   },
 
-  onNoteInput(e) {
-    const { partKey } = e.currentTarget.dataset
+  applyStatusChange(partKey, status) {
+    const index = this.findVerifyIndex(partKey)
+    if (index < 0 || !status) return
+    const overrides = { status }
+    if (status === 'question' && !this.data.verifyItems[index].detailOpen) {
+      overrides.detailOpen = true
+    }
+    this.setData({
+      [`verifyItems[${index}].status`]: status,
+      ...(overrides.detailOpen ? { [`verifyItems[${index}].detailOpen`]: true } : {}),
+    })
+    this.syncDisplayLists(index, overrides)
+  },
+
+  onItemNoteInput(e) {
+    const { partKey, value } = e.detail || {}
     const index = this.findVerifyIndex(partKey)
     if (index < 0) return
-    const note = e.detail.value || ''
+    const note = value || ''
     this.setData({ [`verifyItems[${index}].note`]: note })
     this.syncDisplayLists(index, { note })
   },
 
-  onImagesChange(e) {
-    const partKey = e.currentTarget.dataset.partKey
+  onItemImagesChange(e) {
+    const { partKey, images } = e.detail || {}
     const index = this.findVerifyIndex(partKey)
     if (index < 0) return
-    const images = e.detail.images || []
-    this.setData({ [`verifyItems[${index}].images`]: images })
-    this.syncDisplayLists(index, { images })
+    this.setData({ [`verifyItems[${index}].images`]: images || [] })
+    this.syncDisplayLists(index, { images: images || [] })
+  },
+
+  onItemDetailToggle(e) {
+    const { partKey } = e.detail || {}
+    this.applyDetailToggle(partKey)
+  },
+
+  applyDetailToggle(partKey) {
+    const index = this.findVerifyIndex(partKey)
+    if (index < 0) return
+    const nextOpen = !this.data.verifyItems[index].detailOpen
+    this.setData({ [`verifyItems[${index}].detailOpen`]: nextOpen })
+    this.syncDisplayLists(index, { detailOpen: nextOpen })
   },
 
   syncDisplayLists(index, overrides = {}) {
@@ -282,6 +311,7 @@ Page({
       status: item.status,
       note: item.note,
       images: item.images,
+      detailOpen: item.detailOpen,
     }
     if (this.data.usePairsMode) {
       const pairIndex = (this.data.pairs || []).findIndex((row) => row.partKey === item.partKey)
@@ -290,6 +320,7 @@ Page({
           [`pairs[${pairIndex}].status`]: patch.status,
           [`pairs[${pairIndex}].note`]: patch.note,
           [`pairs[${pairIndex}].images`]: patch.images,
+          [`pairs[${pairIndex}].detailOpen`]: patch.detailOpen,
         })
         return
       }
@@ -299,6 +330,7 @@ Page({
           [`extras[${extraIndex}].status`]: patch.status,
           [`extras[${extraIndex}].note`]: patch.note,
           [`extras[${extraIndex}].images`]: patch.images,
+          [`extras[${extraIndex}].detailOpen`]: patch.detailOpen,
         })
       }
       return
@@ -309,6 +341,7 @@ Page({
         [`parts[${partIndex}].status`]: patch.status,
         [`parts[${partIndex}].note`]: patch.note,
         [`parts[${partIndex}].images`]: patch.images,
+        [`parts[${partIndex}].detailOpen`]: patch.detailOpen,
       })
     }
   },
@@ -377,6 +410,25 @@ Page({
         guideFeedback: this.data.guideFeedback || '',
         items,
       })
+      const hasQuestion = items.some((row) => row.status === 'question')
+      if (hasQuestion) {
+        wx.showModal({
+          title: '验真记录已保存',
+          content: '你有配件标记为「有疑问」。如需进一步沟通，可向门店提交问题反馈。',
+          confirmText: '去反馈',
+          cancelText: '知道了',
+          success: (res) => {
+            if (res.confirm) {
+              wx.navigateTo({
+                url: `/pages/album/feedback/index?albumId=${encodeURIComponent(this.data.albumId)}`,
+              })
+              return
+            }
+            wx.navigateBack()
+          },
+        })
+        return
+      }
       wx.showToast({ title: PART_VERIFY_SUCCESS_MESSAGE, icon: 'success' })
       setTimeout(() => wx.navigateBack(), 600)
     } catch (e) {

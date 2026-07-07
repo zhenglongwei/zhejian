@@ -2,7 +2,33 @@
   class="album-part-row album-part-row--{{variant}} {{variant === 'card' && tappable ? 'album-part-row--tappable' : ''}} {{variant === 'inline' && isLast ? 'album-part-row--last' : ''}}"
   bindtap="onTap"
 >
-  <block wx:if="{{variant === 'card'}}">
+  <block wx:if="{{variant === 'verify'}}">
+    <image
+      wx:if="{{thumbUrl}}"
+      class="album-part-row__thumb album-part-row__thumb--verify"
+      src="{{thumbUrl}}"
+      mode="aspectFill"
+      catchtap="onPreviewThumb"
+    />
+    <view wx:else class="album-part-row__thumb album-part-row__thumb--verify album-part-row__thumb--placeholder" />
+    <view class="album-part-row__main">
+      <view class="album-part-row__name-row">
+        <text class="album-part-row__name text-body">{{name}}</text>
+        <ui-tag wx:if="{{partType}}" variant="{{typeVariant || 'default'}}" text="{{partType}}" />
+      </view>
+      <text wx:if="{{qty}}" class="album-part-row__qty text-caption text-secondary">数量 ×{{qty}}</text>
+      <text wx:if="{{partBrand}}" class="text-caption text-secondary">品牌 {{partBrand}}</text>
+      <view wx:if="{{partCode}}" class="album-part-row__code-well">
+        <view class="album-part-row__code-row">
+          <text class="text-caption text-secondary">编码</text>
+          <text class="text-body album-part-row__code-value">{{partCode}}</text>
+        </view>
+        <text class="text-caption text-link" data-code="{{partCode}}" catchtap="onCopyCode">复制编码</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{variant === 'card'}}">
     <image
       wx:if="{{thumbUrl}}"
       class="album-part-row__thumb"

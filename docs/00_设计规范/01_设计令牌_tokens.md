@@ -267,6 +267,8 @@ page {
   --size-store-card-thumb: 128rpx;
   --size-geo-card-cover: 160rpx;
   --size-geo-card-width: 520rpx;
+  --size-part-verify-thumb: 120rpx;
+  --size-part-verify-quote-height: 120rpx;
   --size-flow-step: var(--tag-height);
 
   --tabbar-height: 100rpx;

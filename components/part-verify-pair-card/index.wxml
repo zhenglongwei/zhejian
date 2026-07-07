@@ -1,6 +1,6 @@
-<view class="part-verify-pair-card">
-  <view wx:if="{{title}}" class="part-verify-pair-card__head">
-    <text class="text-body part-verify-pair-card__title">{{title}}</text>
+<view class="part-verify-pair-card part-verify-pair-card--{{layout}}">
+  <view wx:if="{{(title && layout !== 'album-only') || linkHint}}" class="part-verify-pair-card__head">
+    <text wx:if="{{title && layout !== 'album-only'}}" class="text-body part-verify-pair-card__title">{{title}}</text>
     <text wx:if="{{linkHint}}" class="text-caption text-secondary part-verify-pair-card__hint">{{linkHint}}</text>
   </view>
 
@@ -27,19 +27,22 @@
     </view>
 
     <view wx:if="{{showAlbumColumn}}" class="part-verify-pair-card__col">
-      <text class="text-caption part-verify-pair-card__col-label">门店登记</text>
+      <text wx:if="{{layout !== 'album-only'}}" class="text-caption part-verify-pair-card__col-label">门店登记</text>
       <block wx:if="{{albumName}}">
         <view class="part-verify-pair-card__album-head">
           <view class="part-verify-pair-card__album-copy">
-            <text class="text-body">{{albumName}}</text>
-            <view class="part-verify-pair-card__meta">
+            <view class="part-verify-pair-card__name-row">
+              <text class="text-body part-verify-pair-card__name">{{albumName}}</text>
               <ui-tag wx:if="{{albumType}}" variant="{{albumTypeVariant}}" text="{{albumType}}" />
-              <text wx:if="{{albumQty}}" class="text-caption text-secondary">×{{albumQty}}</text>
             </view>
+            <text wx:if="{{albumQty}}" class="text-caption text-secondary">数量 ×{{albumQty}}</text>
             <text wx:if="{{albumBrand}}" class="text-caption text-secondary">品牌 {{albumBrand}}</text>
-            <view wx:if="{{albumCode}}" class="part-verify-pair-card__code-row">
-              <text class="text-caption text-secondary">编码 {{albumCode}}</text>
-              <text class="text-caption text-link" data-code="{{albumCode}}" catchtap="onCopyCode">复制</text>
+            <view wx:if="{{albumCode}}" class="part-verify-pair-card__code-well">
+              <view class="part-verify-pair-card__code-row">
+                <text class="text-caption text-secondary">编码</text>
+                <text class="text-body part-verify-pair-card__code-value">{{albumCode}}</text>
+              </view>
+              <text class="text-caption text-link part-verify-pair-card__copy" data-code="{{albumCode}}" catchtap="onCopyCode">复制编码</text>
             </view>
           </view>
           <image

@@ -1,0 +1,9 @@
+{
+  "component": true,
+  "usingComponents": {
+    "part-verify-pair-card": "/components/part-verify-pair-card/index",
+    "album-part-row": "/components/album-part-row/index",
+    "ui-review-tag-chip": "/components/review-tag-chip/index",
+    "ui-image-uploader": "/components/image-uploader/index"
+  }
+}

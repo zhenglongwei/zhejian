@@ -18,11 +18,6 @@
         <view class="album-inspect-ai__notice-wrap">
           <ui-compliance-notice type="aiInspection" />
         </view>
-        <text
-          wx:for="{{aiEvidenceLimitLines}}"
-          wx:key="*this"
-          class="text-caption album-inspect-ai__limit"
-        >{{item}}</text>
         <text wx:if="{{!canRunAiAnalysis && reports.length}}" class="text-caption album-inspect-ai__hint">相册自上次分析后暂无更新，可直接查看下方记录。</text>
         <text wx:elif="{{!canRunAiAnalysis && !reports.length && !albumCompleted}}" class="text-caption album-inspect-ai__hint">施工节点留痕尚不足，请待相册内容更完整后再分析。</text>
         <text wx:elif="{{!canRunAiAnalysis && !reports.length && albumCompleted}}" class="text-caption album-inspect-ai__hint">可发起首次 AI 分析；留痕较少时结果可能较简略。</text>

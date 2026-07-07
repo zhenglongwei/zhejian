@@ -35,6 +35,10 @@ Component({
       type: Boolean,
       value: true,
     },
+    layout: {
+      type: String,
+      value: 'pair',
+    },
   },
 
   methods: {

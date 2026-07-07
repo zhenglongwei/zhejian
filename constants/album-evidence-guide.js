@@ -170,13 +170,17 @@ const AI_INSPECTION_DISCLAIMER =
   '以下为 AI 辅助检查建议，不构成鉴定结论或质量裁决；可能存在遗漏或误判，请以实际单据与现场情况为准。'
 
 /**
- * 相册证据能力边界（汽修专家口径 · 结果区固定展示）
- * 即便单据图文一致，也不能排除造假；相册仅提高留痕对照与作假成本。
+ * 相册证据能力边界（汽修专家口径 · 供 LLM prompt / 旧版分段展示引用）
+ * 页面展示请用 compliance-copy · aiInspection（AI_INSPECTION_PAGE_NOTICE）
  */
 const AI_INSPECTION_EVIDENCE_LIMIT_LINES = [
   '相册能帮你对照单据、照片与维修流程是否说得通，也能提高门店作假留痕的成本；但即便各项核对一致，也不能保证维修一定没有造假（例如未拍照环节、旧件事后替换、账外施工等相册无法覆盖的情形）。',
   '若要尽可能接近全程可信，通常只有两种方式：全程在场见证施工，或事后委托有资质的第三方鉴定。事故维修如有怀疑，可向承保保险公司申请复检，或反映定损与施工不符之处。',
 ]
+
+/** AI 分析页头部唯一警示 · 真源 compliance-copy.js · aiInspection */
+const { COMPLIANCE_COPY } = require('./compliance-copy')
+const AI_INSPECTION_PAGE_NOTICE = COMPLIANCE_COPY.aiInspection
 
 const AI_INSPECTION_CONSENT =
   '将使用本相册的结构化信息与部分照片（经服务端读取后生成文字说明，不向外发送原图）生成 AI 检查建议。平台不负责鉴定配件真伪；即便单据图文全部对得上，也不能排除造假可能，相册仅能提高作假成本。是否继续？'
@@ -246,6 +250,7 @@ module.exports = {
   INSPECTION_DISCLAIMER,
   AI_INSPECTION_DISCLAIMER,
   AI_INSPECTION_EVIDENCE_LIMIT_LINES,
+  AI_INSPECTION_PAGE_NOTICE,
   AI_INSPECTION_CONSENT,
   templateMatches,
   resolveDocumentTypesForTemplate,

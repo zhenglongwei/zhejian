@@ -1,0 +1,59 @@
+<view class="surface-album-panel part-verify-item">
+  <block wx:if="{{mode === 'pair'}}">
+    <part-verify-pair-card
+      layout="album-only"
+      title="{{item.title}}"
+      album-name="{{item.albumName}}"
+      album-type="{{item.albumType}}"
+      album-type-variant="{{item.albumTypeVariant}}"
+      album-brand="{{item.albumBrand}}"
+      album-code="{{item.albumCode}}"
+      album-qty="{{item.albumQty}}"
+      thumb-url="{{item.thumbUrl}}"
+      link-status="{{item.linkStatus}}"
+      link-hint="{{item.linkHint}}"
+      show-plan-column="{{false}}"
+      show-album-column="{{true}}"
+    />
+  </block>
+  <block wx:else>
+    <album-part-row
+      variant="verify"
+      name="{{item.name}}"
+      part-type="{{item.partType}}"
+      type-variant="{{item.typeVariant}}"
+      part-brand="{{item.partBrand}}"
+      part-code="{{item.partCode}}"
+      qty="{{item.qty}}"
+      thumb-url="{{item.thumbUrl}}"
+    />
+  </block>
+
+  <view class="part-verify-item__status-row">
+    <view
+      wx:for="{{statusOptions}}"
+      wx:for-item="opt"
+      wx:key="value"
+      data-status="{{opt.value}}"
+      bindtap="onStatusTap"
+    >
+      <ui-review-tag-chip text="{{opt.label}}" selected="{{item.status === opt.value}}" />
+    </view>
+  </view>
+
+  <view class="part-verify-item__detail-toggle" bindtap="onToggleDetail">
+    <text class="text-caption text-link">{{item.detailOpen ? '收起补充说明' : '补充说明与图片（选填）'}}</text>
+  </view>
+
+  <block wx:if="{{item.detailOpen}}">
+    <textarea
+      class="part-verify-item__textarea text-body"
+      placeholder="补充说明（选填）"
+      value="{{item.note}}"
+      maxlength="200"
+      bindinput="onNoteInput"
+    />
+    <text wx:if="{{uploadHint}}" class="text-caption text-secondary part-verify-item__upload-hint">{{uploadHint}}</text>
+    <ui-image-uploader images="{{item.images}}" maxCount="{{3}}" bind:change="onImagesChange" />
+  </block>
+</view>

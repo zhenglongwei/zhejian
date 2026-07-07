@@ -30,8 +30,21 @@ const MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER =
 /** @deprecated 使用双卡片模式文案 */
 const MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL = MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE
 
-const PART_VERIFY_VALUE_LINE =
-  '根据门店提供的验真方式核对配件登记信息是否与实际情况一致。'
+const PART_VERIFY_VALUE_LINE = '根据编码查询，核对登记类型'
+
+const PART_VERIFY_BOUNDARY_LINES = [
+  { key: 'plan', text: '方案/报价：商家留痕，可选查阅' },
+  { key: 'album', text: '相册登记：复制编码查询，对比登记类型' },
+]
+
+const PART_VERIFY_UPLOAD_HINT =
+  '补充图片避免完整车牌、人脸、证件等敏感信息，仅你与门店可见。'
+
+const PART_VERIFY_METHOD_STEPS = [
+  { step: '1', title: '复制编码', desc: '从下方配件卡复制登记编码' },
+  { step: '2', title: '自行查询', desc: '按门店验真方式在品牌官网或指定渠道查询' },
+  { step: '3', title: '对比登记类型', desc: '核对查询结果的配件类型是否与相册登记一致' },
+]
 
 const PART_VERIFY_METHOD_TITLE = '门店验真方式'
 
@@ -55,7 +68,7 @@ const PART_VERIFY_STATUS_OPTIONS = [
 ]
 
 const PART_VERIFY_CONSENT_TEXT =
-  '我理解验真为本人自愿对照留痕，平台不鉴定配件真伪，也不保证与已装到车上的实物一致。'
+  '我理解配件验真为本人自愿对照留痕。相册展示的是门店登记与过程图，不能证明配件已装到车上；平台不鉴定配件真伪，也不保证与车上实物一致。更换关键件建议在场或到店复核，可向门店查看旧件、包装与编码标签。'
 
 const PART_VERIFY_DEGRADE_HINT =
   '暂无结构化方案目录；你可仍按门店验真方式与相册登记项核对。'
@@ -66,8 +79,6 @@ const PART_VERIFY_PLAN_SECTION_TITLE = '维修方案参考（可选）'
 
 const PART_VERIFY_PART_CARD_HINT =
   '请按页顶「门店验真方式」核对下方登记配件是否与实际情况一致。'
-
-const PART_VERIFY_METHOD_STEPS = []
 
 const PART_VERIFY_STEPS = PART_VERIFY_METHOD_STEPS
 
@@ -85,6 +96,8 @@ module.exports = {
   MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER,
   MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL,
   PART_VERIFY_VALUE_LINE,
+  PART_VERIFY_BOUNDARY_LINES,
+  PART_VERIFY_UPLOAD_HINT,
   PART_VERIFY_METHOD_TITLE,
   PART_VERIFY_STORE_METHOD_INFORMED,
   PART_VERIFY_STORE_METHOD_FALLBACK,
