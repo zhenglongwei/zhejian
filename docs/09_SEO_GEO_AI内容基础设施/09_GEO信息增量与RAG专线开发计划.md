@@ -88,7 +88,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-A01 | 聚合服务 `geo-case-aggregate.service.js` | `backend/src/services/` | P0 | [x] | 读 `public_cases`；脱敏聚合 |
 | GEO-IGAIN-A02 | 主因/故障标签聚类（规则版） | `geo-case-aggregate.service.js` | P0 | [x] | 从 `inspectResult` 关键词；不调 LLM |
 | GEO-IGAIN-A03 | 注入服务页 API | `h5-service-item.service.js` | P0 | [x] | 返回 `aggregateStats` + 增强 `aiSummary` |
-| GEO-IGAIN-A04 | 注入专题/geo_pages 生成器 | `geo-page-generator.service.js` | P0 | [~] | 运行时注入 ✅；种子 draft 模板待补 |
+| GEO-IGAIN-A04 | 注入专题/geo_pages 生成器 | `geo-page-generator.service.js` | P0 | [x] | 种子 draft + 运行时 `h5-geo-topic` 全类型注入 |
 | GEO-IGAIN-A05 | H5 首屏展示统计条 | `service-render.js`；`topic-render.js` | P0 | [x] | `service-item-render` `renderTrustMeta` |
 | GEO-IGAIN-A06 | 案例衍生 FAQ（≥1 条） | `geo-case-aggregate.service.js` | P0 | [x] | `buildDerivedAggregateFaq` |
 | GEO-IGAIN-A07 | 运营台信息增量评分 | `admin-web` CaseGeoEditor / geo-pages edit | P1 | [ ] | 黄/绿标；无增量 warn |
@@ -223,7 +223,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 
 | 阶段 | 任务数 | [x] | [ ] | 备注 |
 | --- | ---: | ---: | ---: | --- |
-| A 聚合与摘要注入 | 8 | 7 | 1 | A04 种子 draft 待补 |
+| A 聚合与摘要注入 | 8 | 7 | 1 | A07 运营评分待做 |
 | B JSON Feed 专线 | 6 | 5 | 1 | B05 Nginx 裸路径待运维 |
 | C 实体图谱 Schema | 5 | 0 | 5 | P1 |
 | D 发现层 2.0 | 4 | 1 | 3 | D01 llms Feed 声明 ✅ |

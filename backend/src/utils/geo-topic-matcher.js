@@ -162,6 +162,40 @@ function orderCasesByIds(cases, ids, limit) {
   return [...ordered, ...rest].slice(0, limit)
 }
 
+/**
+ * 筛选与 geo 专题/种子意图匹配的案例（供生成器 draft 与运行时聚合）
+ * @param {object} page — geo_pages 行或种子伪页
+ * @param {object[]} cases
+ * @param {{ serviceItem?: object|null, minScore?: number }} [options]
+ */
+function filterCasesForGeoPage(page, cases, options = {}) {
+  const serviceItem = options.serviceItem || null
+  const minScore = options.minScore ?? 30
+  return (cases || []).filter(
+    (caseItem) => scoreGeoPageMatch(caseItem, page, serviceItem) >= minScore
+  )
+}
+
+/**
+ * @param {import('../constants/geo-topic-seed-list').GeoTopicSeed} seed
+ * @param {object} serviceItem
+ */
+function buildPseudoPageFromSeed(seed, serviceItem) {
+  return {
+    slug: seed.slug,
+    pageType: seed.pageType,
+    city: seed.city || '',
+    faultTag: seed.faultTag || '',
+    vehicleSeries: seed.vehicleSeries || '',
+    title: seed.title || seed.serviceName || serviceItem?.name || '',
+    summary: seed.summary || '',
+    keywords: seed.keywords || [],
+    serviceMeta: serviceItem ? { serviceItemId: serviceItem.serviceItemId } : {},
+    serviceId: serviceItem?.serviceItemId || seed.serviceItemId || '',
+    relatedServiceId: serviceItem?.serviceItemId || seed.serviceItemId || '',
+  }
+}
+
 module.exports = {
   buildServicePagePath,
   resolveServiceItemFromCase,
@@ -169,4 +203,6 @@ module.exports = {
   matchGeoPagesForCaseMount,
   mapGeoPageLink,
   orderCasesByIds,
+  filterCasesForGeoPage,
+  buildPseudoPageFromSeed,
 }

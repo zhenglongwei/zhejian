@@ -10,6 +10,7 @@ const { PrismaClient } = require('@prisma/client')
 const { GEO_TOPIC_SEED_LIST } = require('../src/constants/geo-topic-seed-list')
 const { GEO_PAGE_STATUS } = require('../src/constants/geo-page-status')
 const { generateGeoPageDrafts } = require('../src/services/geo-page-generator.service')
+const { listCases } = require('../src/services/content.service')
 const { normalizeFaq, normalizeFaqLinks, normalizeServiceMeta } = require('../src/schemas/geo-page.schema')
 
 const prisma = new PrismaClient()
@@ -45,7 +46,10 @@ function toDbRow(draft, status, publishedAt) {
 }
 
 async function main() {
-  const drafts = generateGeoPageDrafts(GEO_TOPIC_SEED_LIST)
+  const { list: allCases } = await listCases({ limit: 500 })
+  const drafts = generateGeoPageDrafts(GEO_TOPIC_SEED_LIST, { allCases })
+  const withStats = drafts.filter((draft) => draft.aiSummary.includes('例脱敏案例')).length
+  console.log(`[geo-seed-topics] drafts=${drafts.length} withAggregateSummary=${withStats} cases=${allCases.length}`)
   const status = PUBLISH ? GEO_PAGE_STATUS.PUBLISHED : GEO_PAGE_STATUS.DRAFT
   const publishedAt = PUBLISH ? new Date() : null
 

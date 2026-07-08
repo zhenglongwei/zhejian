@@ -1,9 +1,17 @@
 /**
- * GEO-TOPIC-D01 · 从意图种子 + 服务库生成 geo_pages draft
+ * GEO-TOPIC-D01 / GEO-IGAIN-A04 / GEO-TOPIC-G01-G02
+ * 从意图种子 + 服务库生成 geo_pages draft（摘要/FAQ 优先聚合统计，禁止无案例通用模板）
  */
 const { resolveH5ServiceItemById } = require('../constants/h5-service-items')
-const { getGeoFaqTemplate, STORE_CHECK_HINT } = require('../constants/geo-faq-templates')
+const { getGeoFaqTemplate } = require('../constants/geo-faq-templates')
 const { normalizeFaq, normalizeServiceMeta } = require('../schemas/geo-page.schema')
+const {
+  applyAggregateToServiceContent,
+} = require('./geo-case-aggregate.service')
+const {
+  filterCasesForGeoPage,
+  buildPseudoPageFromSeed,
+} = require('../utils/geo-topic-matcher')
 
 const SERVICE_KEY_BY_ITEM_ID = {
   item_brake_pad: 'brake_pad',
@@ -24,28 +32,6 @@ function buildGeoPageId(slug) {
 
 function resolveServiceKey(serviceItemId) {
   return SERVICE_KEY_BY_ITEM_ID[serviceItemId] || String(serviceItemId || '').trim()
-}
-
-function buildAiSummary(seed, serviceItem) {
-  if (seed.aiSummary) return seed.aiSummary
-  const serviceName = serviceItem?.name || seed.serviceName || '相关维修项目'
-  const city = String(seed.city || '').trim()
-
-  if (seed.pageType === 'city_service' && city) {
-    return `${city}${serviceName}常见咨询汇总：适用情况、参考价格影响因素与脱敏案例说明。${STORE_CHECK_HINT}。`
-  }
-  if (seed.pageType === 'city_fault' && city) {
-    const fault = seed.faultTag || seed.title || '相关故障'
-    return `${city}地区「${fault}」常见检查思路与可咨询门店说明，案例仅作过程参考。${STORE_CHECK_HINT}。`
-  }
-  if (seed.pageType === 'fault_qa') {
-    return `关于「${seed.title || serviceName}」的常见原因、检查建议与维修前准备说明。${STORE_CHECK_HINT}。`
-  }
-  if (seed.pageType === 'vehicle_service' && seed.vehicleSeries) {
-    if (seed.aiSummary) return seed.aiSummary
-    return `${seed.vehicleSeries}${serviceName}相关脱敏案例参考：常见检查结论与费用影响因素说明。${STORE_CHECK_HINT}。`
-  }
-  return `${serviceName}相关维修说明与参考信息，实际方案与费用以到店检测为准。`
 }
 
 function buildTitle(seed, serviceItem) {
@@ -69,18 +55,7 @@ function buildSummary(seed, serviceItem) {
   return `汇总${serviceName}相关常见问题、检查思路与费用影响因素，案例内容仅供参考。`
 }
 
-function buildSeoTitle(seed, serviceItem) {
-  if (seed.seoTitle) return seed.seoTitle
-  const title = buildTitle(seed, serviceItem)
-  return `${title}_透明汽车维修平台 · 辙见`
-}
-
-function buildSeoDescription(seed, serviceItem) {
-  if (seed.seoDescription) return seed.seoDescription
-  return buildAiSummary(seed, serviceItem).slice(0, 280)
-}
-
-function buildFaq(seed, serviceItem) {
+function buildTemplateFaq(seed, serviceItem) {
   if (Array.isArray(seed.faq) && seed.faq.length) return normalizeFaq(seed.faq)
   const serviceKey = resolveServiceKey(seed.serviceItemId)
   return getGeoFaqTemplate(seed.pageType, serviceKey, {
@@ -90,9 +65,72 @@ function buildFaq(seed, serviceItem) {
 }
 
 /**
+ * GEO-TOPIC-G01/G02 · 聚合统计驱动 aiSummary + 衍生 FAQ
  * @param {import('../constants/geo-topic-seed-list').GeoTopicSeed} seed
+ * @param {object} serviceItem
+ * @param {object[]} matchedCases
  */
-function generateGeoPageDraft(seed) {
+function buildAggregateContent(seed, serviceItem, matchedCases) {
+  const serviceName = serviceItem?.name || seed.serviceName || '相关维修项目'
+  const city = String(seed.city || '').trim()
+  const templateFaq = buildTemplateFaq(seed, serviceItem)
+
+  if (seed.aiSummary) {
+    const aggregated = applyAggregateToServiceContent({
+      cases: matchedCases,
+      serviceName,
+      city,
+      priceMode: serviceItem?.priceMode,
+      aiSummary: seed.aiSummary,
+      faq: templateFaq,
+    })
+    return {
+      aiSummary: seed.aiSummary,
+      faq: aggregated.faq,
+      aggregateStats: aggregated.aggregateStats,
+    }
+  }
+
+  const aggregated = applyAggregateToServiceContent({
+    cases: matchedCases,
+    serviceName,
+    city,
+    priceMode: serviceItem?.priceMode,
+    aiSummary: '',
+    faq: templateFaq,
+  })
+
+  return {
+    aiSummary: aggregated.aiSummary || '',
+    faq: aggregated.faq,
+    aggregateStats: aggregated.aggregateStats,
+  }
+}
+
+function resolveMatchedCases(seed, serviceItem, options = {}) {
+  const allCases = options.allCases || options.cases || []
+  if (!allCases.length) return []
+  const pseudoPage = buildPseudoPageFromSeed(seed, serviceItem)
+  return filterCasesForGeoPage(pseudoPage, allCases, { serviceItem })
+}
+
+function buildSeoTitle(seed, serviceItem) {
+  if (seed.seoTitle) return seed.seoTitle
+  const title = buildTitle(seed, serviceItem)
+  return `${title}_透明汽车维修平台 · 辙见`
+}
+
+function buildSeoDescription(seed, serviceItem, aiSummary) {
+  if (seed.seoDescription) return seed.seoDescription
+  const summary = String(aiSummary || buildSummary(seed, serviceItem)).trim()
+  return summary.slice(0, 280)
+}
+
+/**
+ * @param {import('../constants/geo-topic-seed-list').GeoTopicSeed} seed
+ * @param {{ allCases?: object[], cases?: object[] }} [options]
+ */
+function generateGeoPageDraft(seed, options = {}) {
   if (!seed || !seed.slug) {
     const err = new Error('种子缺少 slug')
     err.status = 400
@@ -108,7 +146,8 @@ function generateGeoPageDraft(seed) {
 
   const title = buildTitle(seed, serviceItem)
   const summary = buildSummary(seed, serviceItem)
-  const aiSummary = buildAiSummary(seed, serviceItem)
+  const matchedCases = resolveMatchedCases(seed, serviceItem, options)
+  const { aiSummary, faq } = buildAggregateContent(seed, serviceItem, matchedCases)
   const serviceMeta = normalizeServiceMeta({
     serviceItemId: serviceItem.serviceItemId,
     displayName: serviceItem.name,
@@ -132,31 +171,35 @@ function generateGeoPageDraft(seed) {
     keywords: seed.keywords || [serviceItem.name, ...(seed.city ? [seed.city] : [])],
     scenarios: seed.scenarios?.length ? seed.scenarios : serviceItem.scenarios || [],
     priceFactors: seed.priceFactors?.length ? seed.priceFactors : serviceItem.priceFactors || [],
-    faq: buildFaq(seed, serviceItem),
+    faq,
     faqLinks: seed.faqLinks || [],
     relatedCaseIds: seed.relatedCaseIds || [],
     relatedStoreIds: seed.relatedStoreIds || [],
     primaryStoreId: seed.primaryStoreId || '',
     relatedServiceId: serviceItem.serviceItemId,
     seoTitle: buildSeoTitle(seed, serviceItem),
-    seoDescription: buildSeoDescription(seed, serviceItem),
+    seoDescription: buildSeoDescription(seed, serviceItem, aiSummary),
     aiSummary,
     serviceMeta,
     promptId: seed.promptId || '',
   }
 }
 
-function generateGeoPageDrafts(seeds) {
-  return (seeds || []).map(generateGeoPageDraft)
+function generateGeoPageDrafts(seeds, options = {}) {
+  return (seeds || []).map((seed) => generateGeoPageDraft(seed, options))
 }
 
 function generateVehicleSeriesDrafts(cases, options = {}) {
   const { discoverVehicleSeriesTopicSeeds } = require('./geo-vehicle-topic.service')
-  return discoverVehicleSeriesTopicSeeds(cases, options).map(generateGeoPageDraft)
+  return discoverVehicleSeriesTopicSeeds(cases, options).map((seed) =>
+    generateGeoPageDraft(seed, { ...options, allCases: cases })
+  )
 }
 
 module.exports = {
   buildGeoPageId,
+  buildAggregateContent,
+  resolveMatchedCases,
   generateGeoPageDraft,
   generateGeoPageDrafts,
   generateVehicleSeriesDrafts,

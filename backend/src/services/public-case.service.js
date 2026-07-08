@@ -7,8 +7,11 @@ const { buildAlbumView } = require('./service-album.service')
 const { buildPublicCasePrice, buildPublicCaseDbPriceColumns } = require('../utils/album-price')
 const { buildPreMaskTaskId, buildMerchantColdStartTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const { mergeContentJsonGeo } = require('../schemas/case-geo-content.schema')
+const { resolveSnapshotVersion } = require('../schemas/case-snapshot.schema')
 const { assertGeoPublishable } = require('../utils/case-geo-quality')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
+const { buildCaseArticlePayload } = require('./case-article-generator.service')
+const { buildCaseSnapshot } = require('./case-snapshot.service')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -222,11 +225,41 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const albumView = buildAlbumView(album)
   const task = await resolvePublishTask(albumId, payload)
+  const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
+  const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
   const draft = buildCaseDraft(albumView, task, authorizationTier, {
     serviceItemId: album.serviceItemId || '',
     templateId: album.templateId || '',
   })
   const caseId = draft.id
+  const articlePayload = buildCaseArticlePayload({
+    caseId,
+    draft: {
+      ...draft,
+      contentJson: {
+        ...(draft.contentJson || {}),
+        nodes: nodesWithMask,
+      },
+    },
+    albumView: { ...albumView, nodes: nodesWithMask },
+    coldStart: false,
+    hasUserAuthorization: true,
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
+    previousArticleVersion: previousSnapshotVersion,
+  })
+  const { snapshot, contentJson } = buildCaseSnapshot({
+    albumView,
+    draft,
+    articlePayload,
+    nodesWithMask,
+    task,
+    authorizationTier,
+    previousSnapshotVersion,
+    parts: Array.isArray(album.partsJson) ? album.partsJson : [],
+    serviceItemId: album.serviceItemId || '',
+    templateId: album.templateId || '',
+  })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
   await prisma.publicCase.upsert({
@@ -236,10 +269,17 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       albumId,
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       authorizationTier,
-      title: draft.title,
-      summary: draft.summary,
-      coverImage: draft.coverImage,
-      contentJson: draft.contentJson,
+      title: snapshot.title,
+      summary: snapshot.summary,
+      coverImage: snapshot.coverImage,
+      contentJson,
+      articleBody: snapshot.articleBody,
+      aiSummary: articlePayload.aiSummary,
+      seoTitle: articlePayload.seoTitle,
+      seoDescription: articlePayload.seoDescription,
+      articleVersion: snapshot.version,
+      articleStatus: articlePayload.articleStatus,
+      articleGeneratedAt: articlePayload.articleGeneratedAt,
       storeId: draft.storeId,
       storeName: draft.storeName,
       serviceName: draft.serviceName,
@@ -252,10 +292,17 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     update: {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       authorizationTier,
-      title: draft.title,
-      summary: draft.summary,
-      coverImage: draft.coverImage,
-      contentJson: draft.contentJson,
+      title: snapshot.title,
+      summary: snapshot.summary,
+      coverImage: snapshot.coverImage,
+      contentJson,
+      articleBody: snapshot.articleBody,
+      aiSummary: articlePayload.aiSummary,
+      seoTitle: articlePayload.seoTitle,
+      seoDescription: articlePayload.seoDescription,
+      articleVersion: snapshot.version,
+      articleStatus: articlePayload.articleStatus,
+      articleGeneratedAt: articlePayload.articleGeneratedAt,
       storeId: draft.storeId,
       storeName: draft.storeName,
       serviceName: draft.serviceName,
@@ -281,9 +328,11 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     caseItem: {
       id: caseId,
       albumId,
-      title: draft.title,
+      title: snapshot.title,
       authorizationTier,
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      snapshotVersion: snapshot.version,
+      frozenAt: snapshot.frozenAt,
     },
     status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
     message: '已提交平台审核，通过后将公开展示',

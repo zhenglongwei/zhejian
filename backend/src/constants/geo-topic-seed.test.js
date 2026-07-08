@@ -7,6 +7,25 @@ const { GEO_TOPIC_SEED_LIST } = require('./geo-topic-seed-list')
 const { GEO_PROMPT_SEED } = require('./geo-prompt-seed')
 const { generateGeoPageDrafts } = require('../services/geo-page-generator.service')
 
+const MOCK_CASES = [
+  {
+    id: 'c1',
+    city: '杭州',
+    serviceName: '刹车片更换',
+    inspectResult: '刹车片磨损接近极限',
+    planAmount: 420,
+    seoNoindex: false,
+  },
+  {
+    id: 'c2',
+    city: '杭州',
+    serviceName: '小保养',
+    inspectResult: '机油老化',
+    planAmount: 380,
+    seoNoindex: false,
+  },
+]
+
 function run() {
   assert.strictEqual(GEO_TOPIC_SEED_LIST.length, 30)
   assert.strictEqual(GEO_PROMPT_SEED.length, 30)
@@ -29,9 +48,14 @@ function run() {
   drafts.forEach((draft) => {
     assert.ok(draft.id.startsWith('geop_'))
     assert.ok(draft.faq.length >= 1, `faq missing for ${draft.slug}`)
-    assert.ok(draft.aiSummary.includes('到店检测') || draft.aiSummary.includes('到店检查'))
+    assert.ok(!draft.aiSummary.includes('常见咨询汇总'), `forbidden template in ${draft.slug}`)
     assert.ok(draft.seoTitle.length > 0)
   })
+
+  const draftsWithCases = generateGeoPageDrafts(GEO_TOPIC_SEED_LIST, { allCases: MOCK_CASES })
+  const hzBrake = draftsWithCases.find((item) => item.slug === 'hangzhou-brake-pad')
+  assert.ok(hzBrake)
+  assert.ok(hzBrake.aiSummary.includes('例脱敏案例'))
 
   const byType = drafts.reduce((acc, item) => {
     acc[item.pageType] = (acc[item.pageType] || 0) + 1

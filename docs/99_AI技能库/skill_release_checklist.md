@@ -18,6 +18,7 @@
 3. `skill_price_compliance_check.md`（涉及价格的页面）
 4. `skill_privacy_desensitization_check.md`（涉及相册/案例的页面）
 5. `skill_tokens_sync.md`（若本版本改过 token）
+6. **`skill_case_snapshot_check.md`**（卷九或改动 public-case / content.service / 案例 H5 时）
 
 ## 检查范围
 
@@ -68,6 +69,7 @@
 - [ ] component-usage-review
 - [ ] price-compliance（如适用）
 - [ ] privacy-desensitization（如适用）
+- [ ] case-snapshot-check（卷九 / 案例快照相关改动）
 
 ## 上线建议
 

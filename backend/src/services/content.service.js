@@ -31,9 +31,9 @@ const { resolveRelatedCasesForService, matchServiceName } = require('../utils/se
 const { resolveRelatedCasesForCase } = require('../utils/case-related-cases')
 const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-internal-links')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
-const { buildPreMaskTaskId } = require('./desensitize.constants')
-const { getTaskById } = require('./desensitize.service')
-const { resolvePublicCaseNodes } = require('./public-case.service')
+const {
+  resolvePublicCaseContentNodes,
+} = require('../schemas/case-snapshot.schema')
 const {
   resolveGeoReadableFields,
   mapCaseArticleForApi,
@@ -182,7 +182,11 @@ function sanitizeNodes(nodes) {
 }
 
 function mapPublicCaseRow(row, album) {
-  const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  const rawContent = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  const content = {
+    ...rawContent,
+    nodes: resolvePublicCaseContentNodes(rawContent),
+  }
   const geoFields = resolveGeoReadableFields(row)
   const cover = pickCaseCover(row, content, album)
   const publicPrice = resolvePublicCasePriceFields(row, album)
@@ -272,44 +276,7 @@ async function fetchPublicCaseRows() {
   const visibleRows = rows.filter((row) => row.storeId && activeStoreIds.has(row.storeId))
   if (!visibleRows.length) return []
 
-  const albumIds = [...new Set(visibleRows.map((row) => row.albumId).filter(Boolean))]
-  const albums = albumIds.length
-    ? await prisma.album.findMany({
-        where: { id: { in: albumIds } },
-        include: {
-          nodes: { orderBy: { sortOrder: 'asc' } },
-          images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
-        },
-      })
-    : []
-  const albumMap = Object.fromEntries(albums.map((album) => [album.id, album]))
-
-  const taskByAlbum = {}
-  await Promise.all(
-    albumIds.map(async (albumId) => {
-      taskByAlbum[albumId] = await getTaskById(buildPreMaskTaskId(albumId))
-    })
-  )
-
-  return visibleRows.map((row) => {
-    const content =
-      row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
-    const task = taskByAlbum[row.albumId]
-    const album = albumMap[row.albumId]
-    if (album) {
-      content.nodes = resolvePublicCaseNodes(album, task, content.nodes || [])
-    }
-    const mapped = mapPublicCaseRow({ ...row, contentJson: content }, albumMap[row.albumId])
-    if (mapped.coverImage && mapped.coverImage !== row.coverImage) {
-      void prisma.publicCase
-        .update({
-          where: { id: row.id },
-          data: { coverImage: mapped.coverImage, contentJson: content },
-        })
-        .catch(() => {})
-    }
-    return mapped
-  })
+  return visibleRows.map((row) => mapPublicCaseRow(row, null))
 }
 
 async function listCases(query = {}) {
@@ -404,16 +371,7 @@ async function getCaseDetail(idOrSlug) {
           },
         })
       : null
-    const content =
-      row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
-    const task = row.albumId ? await getTaskById(buildPreMaskTaskId(row.albumId)) : null
-    if (album) {
-      content.nodes = resolvePublicCaseNodes(album, task, content.nodes || [])
-    }
-    item = attachCaseArticleAndSeo(
-      { ...row, contentJson: content },
-      mapPublicCaseRow({ ...row, contentJson: content }, album)
-    )
+    item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album))
   } else {
     const fallback = FALLBACK_PUBLIC_CASES.find(
       (c) => c.id === idOrSlug || c.slug === idOrSlug

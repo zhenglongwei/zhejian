@@ -381,6 +381,23 @@ async function loadAlbum(albumId) {
   })
 }
 
+const ALBUM_CONTENT_LOCKED_CODE = 'ALBUM_CONTENT_LOCKED'
+const ALBUM_CONTENT_LOCKED_MESSAGE =
+  '车主已提交授权，相册已锁定；如需修改请先由车主撤回公示。'
+
+function isAlbumContentLocked(album) {
+  return album?.authorization?.status === 'authorized'
+}
+
+function assertAlbumContentEditable(album) {
+  if (isAlbumContentLocked(album)) {
+    const err = new Error(ALBUM_CONTENT_LOCKED_MESSAGE)
+    err.status = 409
+    err.code = ALBUM_CONTENT_LOCKED_CODE
+    throw err
+  }
+}
+
 function canAccessMerchantAlbum(album, storeId, merchantId) {
   if (!album) return false
   if (merchantId && album.merchantId === merchantId) return true
@@ -804,6 +821,7 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
 async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  assertAlbumContentEditable(existing)
   assertMerchantCannotSetOwnerPhone(payload)
 
   let imageCount = existing.imageCount
@@ -891,6 +909,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
+  assertAlbumContentEditable(existing)
   assertAlbumHasOwnerPhone(existing)
   const imageCount = existing.imageCount || (existing.images || []).length
   if (imageCount < 1) {
@@ -1292,4 +1311,8 @@ module.exports = {
   switchMerchantServiceAlbumTemplate,
   listServiceAlbumTemplateOptions,
   loadAlbum,
+  isAlbumContentLocked,
+  assertAlbumContentEditable,
+  ALBUM_CONTENT_LOCKED_CODE,
+  ALBUM_CONTENT_LOCKED_MESSAGE,
 }

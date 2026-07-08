@@ -228,8 +228,8 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 依赖 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-G01 | `buildAiSummary` 改用聚合统计 | IGAIN-A04 | P0 | [ ] | 替换通用模板 |
-| GEO-TOPIC-G02 | 专题 FAQ ≥1 条案例衍生 | IGAIN-A06 | P0 | [ ] | 见 FAQ 规范 §19 |
+| GEO-TOPIC-G01 | `buildAiSummary` 改用聚合统计 | IGAIN-A04 | P0 | [x] | `geo-page-generator` + `h5-geo-topic` |
+| GEO-TOPIC-G02 | 专题 FAQ ≥1 条案例衍生 | IGAIN-A06 | P0 | [x] | `mergeDerivedFaq` 前置衍生条 |
 | GEO-TOPIC-G03 | `topic_with_stats_rate` 指标 | IGAIN-A07 | P1 | [ ] | 健康度扩展 |
 
 ---
@@ -267,11 +267,11 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | C 案例矩阵 | 6 | 5 | 1 | C06 运营批量挂载为 P2 |
 | D 首批 30 种子 | 6 | 6 | 0 | `geo:seed-topics` 已验收 |
 | E 车型轻量 | 4 | 0 | 4 | P2 |
-| G 信息增量 | 3 | 0 | 3 | P0 · 依赖 IGAIN-A |
+| G 信息增量 | 3 | 2 | 1 | G01/G02 ✅；G03 P1 待 A07 |
 | F 发现层 | 3 | 2 | 1 | F03 IndexNow 运维备忘 |
 | T 信任横切 | 4 | 4 | 0 | 服务页答案页 |
 | M 指标 | 4 | 4 | 0 | OBS 周报 + 健康度 |
-| **合计** | **47** | **38** | **9** | **余 G、E、C06、F03** |
+| **合计** | **47** | **40** | **7** | **余 G03、E、C06、F03** |
 
 ---
 
