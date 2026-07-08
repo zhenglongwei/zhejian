@@ -206,5 +206,9 @@ test('isAlbumContentLocked when authorization is authorized', () => {
   assert.equal(isAlbumContentLocked({ authorization: { status: 'authorized' } }), true)
   assert.equal(isAlbumContentLocked({ authorization: { status: 'user_rejected' } }), false)
   assert.equal(isAlbumContentLocked({}), false)
+  assert.equal(
+    isAlbumContentLocked({ complianceStatus: 'passed' }),
+    true
+  )
   assert.equal(ALBUM_CONTENT_LOCKED_MESSAGE.includes('撤回'), true)
 })

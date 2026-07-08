@@ -48,6 +48,12 @@ const {
   buildGeoProbeReport,
 } = require('../services/geo-prompt-probe.service')
 const { buildAdminCitationGaps } = require('../services/admin-geo-citation-gap.service')
+const {
+  listAdminAlbumCompliance,
+  getAdminAlbumComplianceDetail,
+  approveAdminAlbumCompliance,
+  rejectAdminAlbumCompliance,
+} = require('../services/admin-album-compliance.service')
 
 const {
   listAdminMerchants,
@@ -118,6 +124,49 @@ router.get('/cases', async (req, res, next) => {
 router.get('/cases/:caseId', async (req, res, next) => {
   try {
     const data = await getAdminCaseDetail(req.params.caseId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/album-compliance', async (req, res, next) => {
+  try {
+    const data = await listAdminAlbumCompliance(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/album-compliance/:albumId', async (req, res, next) => {
+  try {
+    const data = await getAdminAlbumComplianceDetail(req.params.albumId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/album-compliance/:albumId/approve', async (req, res, next) => {
+  try {
+    const data = await approveAdminAlbumCompliance(
+      req.params.albumId,
+      req.admin?.reviewerId || 'admin',
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/album-compliance/:albumId/reject', async (req, res, next) => {
+  try {
+    const data = await rejectAdminAlbumCompliance(
+      req.params.albumId,
+      req.body || {},
+      req.admin?.reviewerId || 'admin',
+    )
     return ok(res, data)
   } catch (e) {
     next(e)

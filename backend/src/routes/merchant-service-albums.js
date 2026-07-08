@@ -18,6 +18,10 @@ const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask 
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
 const {
+  runAlbumComplianceGate,
+  resubmitAlbumCompliance,
+} = require('../services/album-compliance.service')
+const {
   getMerchantPlanPartsContext,
   saveMerchantPlanPartsDraft,
   lockMerchantPlanParts,
@@ -222,16 +226,38 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       req.auth.merchantId,
     )
     const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId)
+    const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
       preMaskTaskId: preMaskTask.taskId,
       preMaskStatus: preMaskTask.preMaskStatus,
+      complianceStatus: compliance.complianceStatus,
+      compliancePassed: compliance.passed,
+      complianceRejectReason: compliance.rejectReason || '',
     })
   } catch (e) {
     next(e)
   }
 })
+
+router.post(
+  '/service-albums/:albumId/compliance-resubmit',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const data = await resubmitAlbumCompliance(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.post(
   '/service-albums/:albumId/switch-template',
@@ -300,11 +326,15 @@ router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, 
       req.auth.merchantId,
     )
     const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId)
+    const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
       preMaskTaskId: preMaskTask.taskId,
       preMaskStatus: preMaskTask.preMaskStatus,
+      complianceStatus: compliance.complianceStatus,
+      compliancePassed: compliance.passed,
+      complianceRejectReason: compliance.rejectReason || '',
     })
   } catch (e) {
     next(e)

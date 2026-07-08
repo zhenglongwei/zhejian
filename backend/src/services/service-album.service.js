@@ -14,6 +14,10 @@ const {
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
 const {
+  ALBUM_COMPLIANCE_STATUS,
+  USER_CONFIRM_HINT,
+} = require('../constants/album-compliance')
+const {
   resolveAlbumNodeTemplate,
   buildAlbumNodesFromTemplate,
   getTemplateNodeMetaMap,
@@ -99,10 +103,23 @@ function countImages(nodes) {
 
 function resolvePublicCaseStatus(album) {
   if (album.publicCaseStatus === 'user_rejected') return 'user_rejected'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE) return 'private'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) return 'public_approved'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) return 'pending_review'
   if (album.authorization?.status === 'authorized') return 'pending_review'
   return album.publicCaseStatus || 'private'
+}
+
+function canUserAccessAlbum(album, userId, phone = '') {
+  if (!album) return false
+  return album.userId === userId || (phone && album.userPhone === phone)
+}
+
+function isAlbumWithdrawable(album) {
+  if (album?.authorization?.status !== 'authorized') return false
+  const publicCase = album.publicCase
+  if (!publicCase) return true
+  return publicCase.status !== PUBLIC_CASE_STATUS.OFFLINE
 }
 
 function mapNodesForView(album) {
@@ -186,6 +203,30 @@ function buildStoreBlock(album) {
   }
 }
 
+function buildUserAlbumComplianceFields(album) {
+  const status = album.complianceStatus || ALBUM_COMPLIANCE_STATUS.NONE
+  const passed = status === ALBUM_COMPLIANCE_STATUS.PASSED
+  const pendingReview =
+    status === ALBUM_COMPLIANCE_STATUS.PENDING ||
+    status === ALBUM_COMPLIANCE_STATUS.SPOT_CHECK
+  const authorized = album.authorization?.status === 'authorized'
+  return {
+    complianceStatus: status,
+    contentFrozen: passed,
+    awaitingUserConfirm: passed && !authorized,
+    userConfirmHint: passed ? USER_CONFIRM_HINT : '',
+    compliancePendingHint: pendingReview ? '门店留档合规审核中' : '',
+    canAuthorizePublicCase:
+      passed &&
+      (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
+      !authorized,
+    complianceRejectReason:
+      status === ALBUM_COMPLIANCE_STATUS.REJECTED
+        ? album.complianceRejectReason || ''
+        : '',
+  }
+}
+
 function buildAlbumView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
@@ -240,6 +281,7 @@ function buildAlbumView(album) {
     planParts: planCtx.planParts,
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
+    ...buildUserAlbumComplianceFields(album),
   }
 }
 
@@ -360,6 +402,13 @@ function buildMerchantView(album) {
     amountMismatchHint: planCtx.amountMismatchHint,
     partVerifyGuideText: album.partVerifyGuideText || '',
     partVerifyGuideInformed: Boolean(album.partVerifyGuideInformed),
+    complianceStatus: album.complianceStatus || '',
+    complianceRejectReason:
+      album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED
+        ? album.complianceRejectReason || ''
+        : '',
+    canResubmitCompliance:
+      album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED && isCompleted,
   }
 }
 
@@ -386,6 +435,7 @@ const ALBUM_CONTENT_LOCKED_MESSAGE =
   '车主已提交授权，相册已锁定；如需修改请先由车主撤回公示。'
 
 function isAlbumContentLocked(album) {
+  if (album?.complianceStatus === ALBUM_COMPLIANCE_STATUS.PASSED) return true
   return album?.authorization?.status === 'authorized'
 }
 
@@ -922,6 +972,11 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     data: {
       status: SERVICE_ALBUM_STATUS.COMPLETED,
       completedAt: new Date(),
+      complianceStatus: ALBUM_COMPLIANCE_STATUS.PENDING,
+      compliancePassedAt: null,
+      complianceRejectReason: '',
+      complianceReviewMode: '',
+      complianceCheckedAt: null,
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
@@ -981,13 +1036,21 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
   }
   const user = await prisma.user.findUnique({ where: { id: userId } })
   const phone = user?.phone || ''
-  const allowed =
-    album.userId === userId || (phone && album.userPhone === phone)
+  const allowed = canUserAccessAlbum(album, userId, phone)
   if (!allowed) {
     const err = new Error('无权操作该相册')
     err.status = 403
     throw err
   }
+
+  if (album.authorization?.status === 'authorized') {
+    const err = new Error('已完成授权，如需重新公示请先撤回')
+    err.status = 409
+    throw err
+  }
+
+  const { assertAlbumCompliancePassed } = require('./album-compliance.service')
+  assertAlbumCompliancePassed(album)
 
   const agreed = payload.agreed !== false
   const tier = payload.tier || 'named'
@@ -1050,7 +1113,9 @@ async function fetchUserAuthorizations(userId) {
               : item.publicCaseStatus === 'user_rejected'
                 ? 'rejected'
                 : 'none',
-        canWithdraw: ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
+        canWithdraw:
+          auth?.status === 'authorized' &&
+          ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
         needsAuthorization,
       }
     })
@@ -1064,31 +1129,89 @@ async function withdrawAuthorization(albumId, userId) {
     err.status = 404
     throw err
   }
-  await prisma.albumAuthorization.deleteMany({ where: { albumId } })
-  await prisma.publicCase.deleteMany({ where: { albumId } })
-  await prisma.desensitizeTask.updateMany({
-    where: {
-      taskId: buildAuthorizeTaskId(albumId),
-      bizType: BIZ_TYPE.SERVICE_AUTHORIZE,
-    },
-    data: {
-      maskingConfirmed: false,
-      maskingConfirmedAt: null,
-    },
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = user?.phone || ''
+  if (!canUserAccessAlbum(album, userId, phone)) {
+    const err = new Error('无权操作该相册')
+    err.status = 403
+    throw err
+  }
+
+  if (!isAlbumWithdrawable(album)) {
+    const err = new Error(
+      album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
+        ? '该公示已撤回'
+        : '当前无进行中的授权公示，无法撤回'
+    )
+    err.status = 409
+    throw err
+  }
+
+  const publicCase = album.publicCase
+  const beforeStatus = publicCase?.status || 'none'
+
+  await prisma.$transaction(async (tx) => {
+    await tx.albumAuthorization.deleteMany({ where: { albumId } })
+
+    if (publicCase) {
+      await tx.publicCase.update({
+        where: { id: publicCase.id },
+        data: {
+          status: PUBLIC_CASE_STATUS.OFFLINE,
+          publishedAt: null,
+        },
+      })
+      if (tx.caseReviewLog) {
+        await tx.caseReviewLog.create({
+          data: {
+            id: newId('crl'),
+            caseId: publicCase.id,
+            reviewerId: userId,
+            reviewAction: 'user_withdraw',
+            reviewComment: '车主撤回授权公示',
+            beforeStatus,
+            afterStatus: PUBLIC_CASE_STATUS.OFFLINE,
+          },
+        })
+      }
+    }
+
+    await tx.desensitizeTask.updateMany({
+      where: {
+        taskId: buildAuthorizeTaskId(albumId),
+        bizType: BIZ_TYPE.SERVICE_AUTHORIZE,
+      },
+      data: {
+        maskingConfirmed: false,
+        maskingConfirmedAt: null,
+      },
+    })
+
+    await tx.album.update({
+      where: { id: albumId },
+      data: {
+        publicCaseStatus: 'private',
+        authorizationTier: 'private',
+        status: SERVICE_ALBUM_STATUS.COMPLETED,
+        complianceStatus: ALBUM_COMPLIANCE_STATUS.NONE,
+        compliancePassedAt: null,
+        complianceRejectReason: '',
+        complianceReviewMode: '',
+        complianceCheckedAt: null,
+      },
+    })
   })
-  await prisma.album.update({
-    where: { id: albumId },
-    data: {
-      publicCaseStatus: 'private',
-      authorizationTier: 'private',
-      status: SERVICE_ALBUM_STATUS.COMPLETED,
-    },
-  })
+
   const { notifyAuthorizationWithdrawn } = require('./notification.service')
   notifyAuthorizationWithdrawn(albumId).catch((e) => {
     console.warn('[notification] withdraw authorization', e && e.message)
   })
-  return { ok: true }
+  return {
+    ok: true,
+    publicCaseStatus: 'private',
+    caseStatus: publicCase ? PUBLIC_CASE_STATUS.OFFLINE : null,
+  }
 }
 
 /** Phase 1：配件确认 API 占位，直接返回当前相册 */
@@ -1315,4 +1438,7 @@ module.exports = {
   assertAlbumContentEditable,
   ALBUM_CONTENT_LOCKED_CODE,
   ALBUM_CONTENT_LOCKED_MESSAGE,
+  canUserAccessAlbum,
+  isAlbumWithdrawable,
+  buildUserAlbumComplianceFields,
 }

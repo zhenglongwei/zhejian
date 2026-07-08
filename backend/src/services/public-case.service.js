@@ -170,6 +170,25 @@ function canAccessMerchantAlbum(album, storeId, merchantId) {
   return false
 }
 
+function assertPublicCasePublishable(publicCase) {
+  if (!publicCase) return
+  const status = publicCase.status
+  if (status === PUBLIC_CASE_STATUS.OFFLINE) return
+  if (status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
+    const err = new Error('公示审核中，请耐心等待')
+    err.status = 409
+    throw err
+  }
+  if (status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    const err = new Error('案例已公开展示，如需修改请先撤回公示')
+    err.status = 409
+    throw err
+  }
+  const err = new Error('请先撤回当前公示后再重新提交')
+  err.status = 409
+  throw err
+}
+
 async function resolvePublishTask(albumId, payload = {}) {
   if (payload.taskId) {
     const task = await getTaskById(payload.taskId)
@@ -222,7 +241,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     throw err
   }
 
+  assertPublicCasePublishable(album.publicCase)
+
+  const { assertAlbumCompliancePassed } = require('./album-compliance.service')
+  assertAlbumCompliancePassed(album)
+
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
+  const wasOffline = album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
   const albumView = buildAlbumView(album)
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
@@ -311,6 +336,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
+      ...(wasOffline ? { slug: null } : {}),
     },
   })
 
@@ -498,4 +524,5 @@ module.exports = {
   resolvePublicCaseNodes,
   pickCover,
   resolvePublishTask,
+  assertPublicCasePublishable,
 }

@@ -155,6 +155,11 @@ model Album {
   authorizationTier   String              @default("private") @map("authorization_tier")
   imageCount          Int                 @default(0) @map("image_count")
   completedAt         DateTime?           @map("completed_at")
+  complianceStatus    String              @default("") @map("compliance_status") @db.VarChar(32)
+  compliancePassedAt  DateTime?           @map("compliance_passed_at")
+  complianceRejectReason String           @default("") @map("compliance_reject_reason") @db.Text
+  complianceReviewMode String             @default("") @map("compliance_review_mode") @db.VarChar(32)
+  complianceCheckedAt DateTime?           @map("compliance_checked_at")
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
   order               Order?              @relation(fields: [orderId], references: [id])
@@ -168,6 +173,7 @@ model Album {
   @@index([merchantId, status])
   @@index([userPhone])
   @@index([storeId])
+  @@index([complianceStatus])
   @@map("albums")
 }
 
