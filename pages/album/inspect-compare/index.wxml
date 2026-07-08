@@ -24,6 +24,7 @@
     <view class="album-inspect-compare__body">
       <swiper
         class="album-inspect-compare__swiper"
+        style="height: {{swiperHeightPx}}px;"
         current="{{pairIndex}}"
         bindchange="onPairChange"
         bindanimationfinish="onPairChange"
@@ -35,7 +36,7 @@
           class="album-inspect-compare__item"
         >
           <text wx:if="{{pair.title}}" class="text-body album-inspect-compare__title">{{pair.title}}</text>
-          <view class="album-inspect-compare__slider-wrap">
+          <view class="album-inspect-compare__slider-wrap" style="height: {{compareStageHeightPx}}px;">
             <album-compare-slider
               immersive="{{true}}"
               pair-key="{{pair.id}}"
@@ -43,6 +44,7 @@
               after-url="{{pair.afterUrl}}"
               before-label="{{pair.beforeLabel}}"
               after-label="{{pair.afterLabel}}"
+              stage-height="{{compareStageHeightPx}}"
             />
           </view>
         </swiper-item>

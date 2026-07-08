@@ -192,9 +192,14 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     throw err
   }
 
+  if (album.status !== 'completed' && album.status !== 'published') {
+    const err = new Error('相册尚未完工，暂无法提交公示')
+    err.status = 409
+    throw err
+  }
+
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const albumView = buildAlbumView(album)
-  assertGeoPublishable(albumView, { coldStart: false })
   const task = await resolvePublishTask(albumId, payload)
   const draft = buildCaseDraft(albumView, task, authorizationTier, {
     serviceItemId: album.serviceItemId || '',

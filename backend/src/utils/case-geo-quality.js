@@ -132,7 +132,7 @@ function assessGeoEvidence(input = {}) {
 }
 
 /**
- * 新提交公开审核时硬拦（存量已发布不在此路径）
+ * 商家冷启动提交公开审核时硬拦（用户授权公示不走此路径）
  * @param {object} albumView buildAlbumView 产物
  * @param {{ coldStart?: boolean }} [options]
  */

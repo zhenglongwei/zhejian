@@ -7,6 +7,27 @@ function setComparePageOrientation(orientation) {
   wx.setPageOrientation({ orientation })
 }
 
+function getWindowMetrics() {
+  try {
+    return typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+  } catch (err) {
+    return { windowWidth: 375, windowHeight: 667, statusBarHeight: 20 }
+  }
+}
+
+function resolveNavMetrics() {
+  try {
+    const windowInfo = getWindowMetrics()
+    const menuButton = wx.getMenuButtonBoundingClientRect()
+    const statusBarHeight = windowInfo.statusBarHeight || 20
+    const gap = menuButton.top - statusBarHeight
+    const navBarHeight = menuButton.height + gap * 2
+    return { navTotalHeight: statusBarHeight + navBarHeight }
+  } catch (err) {
+    return { navTotalHeight: 64 }
+  }
+}
+
 Page({
   data: {
     status: 'loading',
@@ -14,10 +35,14 @@ Page({
     comparePairs: [],
     compareHint: '',
     pairIndex: 0,
+    swiperHeightPx: 480,
+    compareStageHeightPx: 440,
   },
 
   onLoad(options) {
     this.albumId = options.albumId || ''
+    this._onWindowResize = () => this.updateCompareLayout()
+    if (wx.onWindowResize) wx.onWindowResize(this._onWindowResize)
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '相册信息缺失' })
       return
@@ -26,8 +51,34 @@ Page({
     this.loadCompare()
   },
 
+  onReady() {
+    this.updateCompareLayout()
+  },
+
+  onShow() {
+    this.updateCompareLayout()
+  },
+
   onUnload() {
+    if (wx.offWindowResize && this._onWindowResize) {
+      wx.offWindowResize(this._onWindowResize)
+    }
     setComparePageOrientation('portrait')
+  },
+
+  updateCompareLayout() {
+    const win = getWindowMetrics()
+    const nav = resolveNavMetrics()
+    const windowHeight = win.windowHeight || 667
+    const footerReserve = 96
+    const bodyPadding = 32
+    const titleReserve = 40
+    const swiperHeightPx = Math.max(
+      280,
+      windowHeight - nav.navTotalHeight - footerReserve - bodyPadding,
+    )
+    const compareStageHeightPx = Math.max(240, swiperHeightPx - titleReserve)
+    this.setData({ swiperHeightPx, compareStageHeightPx })
   },
 
   async loadCompare() {
@@ -50,12 +101,15 @@ Page({
         })
         return
       }
-      this.setData({
-        status: 'normal',
-        comparePairs,
-        compareHint: buildAlbumCompareHint(comparePairs),
-        pairIndex: 0,
-      })
+      this.setData(
+        {
+          status: 'normal',
+          comparePairs,
+          compareHint: buildAlbumCompareHint(comparePairs),
+          pairIndex: 0,
+        },
+        () => this.updateCompareLayout(),
+      )
     } catch (e) {
       this.setData({
         status: 'error',

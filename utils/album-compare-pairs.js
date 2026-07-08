@@ -1,4 +1,4 @@
-const { resolveImageSrcList } = require('./desensitize-url')
+const { resolveImageSrc } = require('./desensitize-url')
 const {
   resolveComparePairRowsFromNodes,
   STAGE_COMPARE_ID,
@@ -41,14 +41,16 @@ function buildAlbumComparePairs(nodes = [], options = {}) {
 
   rows.slice(0, MAX_COMPARE_PAIRS).forEach((row, index) => {
     if (!row.before || !row.after) return
+    const beforeUrl = resolveImageSrc(row.before) || row.before
+    const afterUrl = resolveImageSrc(row.after) || row.after
     pushPair(pairs, seen, {
       id: `completion_compare_${index}`,
       title:
         rows.length > 1
           ? `第 ${index + 1} 组 · 维修前 → ${afterLabel}`
           : `维修前 → ${afterLabel}`,
-      beforeUrl: row.before,
-      afterUrl: row.after,
+      beforeUrl,
+      afterUrl,
       beforeLabel: '维修前',
       afterLabel,
       source: 'completion_compare_rows',

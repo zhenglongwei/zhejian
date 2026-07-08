@@ -627,7 +627,12 @@ async function listUserServiceAlbums(userId, options = {}) {
 
   const list = albums
     .map((album) => mapUserServiceAlbumListItem(album))
-    .filter((item) => item.imageCount > 0)
+    .filter(
+      (item) =>
+        item.imageCount > 0 ||
+        item.status === 'completed' ||
+        item.status === 'published',
+    )
 
   const { getPartVerifySummariesForUser } = require('./album-part-verification.service')
   const summaries = await getPartVerifySummariesForUser(

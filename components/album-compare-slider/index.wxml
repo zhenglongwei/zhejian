@@ -10,14 +10,14 @@
       class="album-compare-slider__image album-compare-slider__image--before"
       src="{{beforeUrl}}"
       mode="aspectFill"
-      lazy-load="{{true}}"
+      lazy-load="{{!immersive}}"
     />
     <view class="album-compare-slider__after-wrap" style="width: {{splitPercent}}%;">
       <image
         class="album-compare-slider__image album-compare-slider__image--after"
         src="{{afterUrl}}"
         mode="aspectFill"
-        lazy-load="{{true}}"
+        lazy-load="{{!immersive}}"
         style="{{afterImageWidthPx ? 'width:' + afterImageWidthPx + 'px;' : ''}}"
       />
     </view>

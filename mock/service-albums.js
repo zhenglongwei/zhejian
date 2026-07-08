@@ -761,7 +761,12 @@ async function mockFetchUserServiceAlbums(options = {}) {
         partsSummary: view.partsSummary,
       }
     })
-    .filter((item) => item.imageCount > 0)
+    .filter(
+      (item) =>
+        item.imageCount > 0 ||
+        item.status === 'completed' ||
+        item.status === 'published',
+    )
 }
 
 async function mockFetchServiceAlbum(albumId) {

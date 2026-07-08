@@ -86,13 +86,14 @@ function countReady(assets) {
 }
 
 function allMaskingSucceeded(assets) {
-  if (!assets || !assets.length) return false
+  const list = assets || []
+  if (!list.length) return true
   const ok = new Set([
     ASSET_STATUS.MASKED_READY,
     ASSET_STATUS.MANUAL_MASKED,
     ASSET_STATUS.CONFIRMED,
   ])
-  return assets.every((a) => ok.has(a.status))
+  return list.every((a) => ok.has(a.status))
 }
 
 /**

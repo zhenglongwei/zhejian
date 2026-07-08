@@ -659,12 +659,14 @@ async function markAssetPreviewed(taskId, assetId, options = {}) {
 }
 
 function allMaskingSucceeded(rawAssets) {
+  const assets = rawAssets || []
+  if (!assets.length) return true
   const ok = new Set([
     ASSET_STATUS.MASKED_READY,
     ASSET_STATUS.MANUAL_MASKED,
     ASSET_STATUS.CONFIRMED,
   ])
-  return (rawAssets || []).length > 0 && rawAssets.every((a) => ok.has(a.status))
+  return assets.every((a) => ok.has(a.status))
 }
 
 async function confirmOrderAuthorizeTask(taskId, opts = {}) {

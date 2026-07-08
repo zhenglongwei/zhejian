@@ -1,5 +1,5 @@
 /**
- * GEO 证据链 block 提示（用户端 / 商家端共用）
+ * GEO 证据链 block 提示（商家冷启动提交等场景；用户授权公示不拦截）
  */
 
 const GEO_MISSING_LABELS = {
