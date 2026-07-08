@@ -43,6 +43,10 @@ export const COMPLIANCE_NOTICES = [
   '审核员仅查看脱敏图，不展示原图；请结合 OCR 摘要判断隐私风险。',
 ]
 
+/** 用户授权案例：质量由商家留档负责，运营台仅审合法合规 */
+export const USER_AUTHORIZED_REVIEW_NOTICE =
+  '用户授权案例：相册完整度与留档质量由商家负责，车主授权用于监督公示；平台审核仅确认授权有效、脱敏合规与内容合法，不因节点缺失或证据偏弱拦截通过。'
+
 export const DESENSITIZE_STATUS_TAG = {
   ready: { label: '已脱敏', type: 'success' },
   need_manual: { label: '需人工', type: 'warning' },

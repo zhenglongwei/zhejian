@@ -24,9 +24,18 @@
     />
 
     <el-alert
+      v-if="isUserAuthorized"
+      :title="USER_AUTHORIZED_REVIEW_NOTICE"
+      type="info"
+      :closable="false"
+      show-icon
+      class="notice"
+    />
+
+    <el-alert
       v-if="desensitizeAlert"
       :title="desensitizeAlert"
-      type="warning"
+      :type="isUserAuthorized ? 'info' : 'warning'"
       :closable="false"
       show-icon
       class="notice"
@@ -152,7 +161,7 @@ import {
   retryCaseAssetDesensitize,
   retryAllCaseDesensitize,
 } from '@/api/case-review'
-import { COMPLIANCE_NOTICES } from '@/constants/case-review'
+import { COMPLIANCE_NOTICES, USER_AUTHORIZED_REVIEW_NOTICE } from '@/constants/case-review'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
 import RiskLevelTag from '@/components/case-review/RiskLevelTag.vue'
 import DesensitizeComparePanel from '@/components/case-review/DesensitizeComparePanel.vue'
@@ -182,18 +191,20 @@ const priceText = computed(() => {
   return p.priceMode || '—'
 })
 
+const isUserAuthorized = computed(() => detail.value.source === 'user_authorized')
 const desensitizeSummary = computed(() => detail.value.desensitizeSummary || {})
 const hasRetryableAssets = computed(() =>
   (detail.value.mediaAssets || []).some((a) => a.canRetry)
 )
-const canReview = computed(
-  () =>
-    detail.value.status === 'pending_review' &&
-    !desensitizeSummary.value.hasBlockingIssues
-)
-const approveLabel = computed(() =>
-  desensitizeSummary.value.hasBlockingIssues ? '脱敏未完成' : '通过并公开'
-)
+const canReview = computed(() => {
+  if (detail.value.status !== 'pending_review') return false
+  if (isUserAuthorized.value) return true
+  return !desensitizeSummary.value.hasBlockingIssues
+})
+const approveLabel = computed(() => {
+  if (isUserAuthorized.value) return '通过并公开'
+  return desensitizeSummary.value.hasBlockingIssues ? '脱敏未完成' : '通过并公开'
+})
 const desensitizeAlert = computed(() => {
   const s = desensitizeSummary.value
   if (!s.hasBlockingIssues) return ''
@@ -201,6 +212,9 @@ const desensitizeAlert = computed(() => {
   if (s.needManualCount) parts.push(`${s.needManualCount} 张需人工`)
   if (s.failedCount) parts.push(`${s.failedCount} 张脱敏失败`)
   if (s.pendingCount) parts.push(`${s.pendingCount} 张待脱敏`)
+  if (isUserAuthorized.value) {
+    return `部分图片脱敏未完成（${parts.join('、')}），仅供参考。用户授权案例不因脱敏进度阻断通过；请结合 OCR 判断已脱敏素材的隐私与合规风险，必要时驳回。`
+  }
   return `脱敏未完成：${parts.join('、')}。请重试脱敏或要求商家修改后再审核通过。`
 })
 const showGeoEditor = computed(
@@ -274,22 +288,29 @@ function onGeoLlmChanged() {
 }
 
 async function onApprove() {
-  if (detail.value.geoQuality?.level === 'block') {
-    ElMessage.warning('案例 GEO 证据缺失（block），请要求商家补全或驳回')
-    return
-  }
-  if (detail.value.geoQuality?.level === 'weak') {
-    try {
-      await ElMessageBox.confirm(
-        '该案例 GEO 证据完整度偏弱，公开后 AI 可引用质量可能不足。确认仍要通过？',
-        '证据质量提醒',
-        { type: 'warning', confirmButtonText: '仍要通过' }
-      )
-    } catch {
+  if (isUserAuthorized.value) {
+    await ElMessageBox.confirm(
+      '用户授权案例：相册内容由商家留档负责，平台仅审核合法合规与隐私脱敏风险。确认通过并公开？',
+      '审核确认'
+    )
+  } else {
+    if (detail.value.geoQuality?.level === 'block') {
+      ElMessage.warning('案例 GEO 证据缺失（block），请要求商家补全或驳回')
       return
     }
-  } else {
-    await ElMessageBox.confirm('确认通过并公开该案例？', '审核确认')
+    if (detail.value.geoQuality?.level === 'weak') {
+      try {
+        await ElMessageBox.confirm(
+          '该案例 GEO 证据完整度偏弱，公开后 AI 可引用质量可能不足。确认仍要通过？',
+          '证据质量提醒',
+          { type: 'warning', confirmButtonText: '仍要通过' }
+        )
+      } catch {
+        return
+      }
+    } else {
+      await ElMessageBox.confirm('确认通过并公开该案例？', '审核确认')
+    }
   }
   submitting.value = true
   try {

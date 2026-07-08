@@ -452,8 +452,15 @@ async function appendReviewLog({
   })
 }
 
-async function assertCaseDesensitizeReady(caseId) {
+function shouldSkipUserAuthorizedQualityGates(source) {
+  return source === 'user_authorized'
+}
+
+async function assertCaseDesensitizeReady(caseId, options = {}) {
   const detail = await getAdminCaseDetail(caseId)
+  if (options.skipQualityGates || shouldSkipUserAuthorizedQualityGates(detail.source)) {
+    return detail
+  }
   if (detail.desensitizeSummary?.hasBlockingIssues) {
     const { failedCount = 0, needManualCount = 0, pendingCount = 0 } = detail.desensitizeSummary
     const err = new Error(
@@ -479,8 +486,6 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     throw err
   }
 
-  await assertCaseDesensitizeReady(caseId)
-
   const album = await prisma.album.findUnique({
     where: { id: row.albumId },
     include: {
@@ -490,11 +495,16 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
       publicCase: true,
     },
   })
+  const hasUserAuth = album.authorization?.status === 'authorized'
+  const caseSource = resolveCaseSource(album)
+  await assertCaseDesensitizeReady(caseId, {
+    skipQualityGates: shouldSkipUserAuthorizedQualityGates(caseSource),
+  })
+
   const task = await resolvePublishTask(row.albumId, {})
   const hasOwner =
     Boolean(String(album.userId || '').trim()) ||
     Boolean(String(album.userPhone || '').trim())
-  const hasUserAuth = album.authorization?.status === 'authorized'
   const coldStart = !hasUserAuth && !hasOwner
   const albumView = buildAlbumView(album)
   const draft = buildCaseDraft(albumView, task, row.authorizationTier, {

@@ -8,6 +8,7 @@
             v-if="geoQuality"
             :level="geoQuality.level"
             :summary-text="geoQuality.summaryText"
+            :informational="detail.source === 'user_authorized'"
           />
         </div>
         <div class="case-geo__actions">
