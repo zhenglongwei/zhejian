@@ -33,6 +33,15 @@
   gap: var(--space-xs);
 }
 
+.desensitize-preview__empty-auth {
+  margin: var(--space-4) 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .desensitize-preview__spacer {
   height: var(--page-fixed-clearance);
 }

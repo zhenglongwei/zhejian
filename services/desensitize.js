@@ -92,6 +92,7 @@ function allMaskingSucceeded(assets) {
     ASSET_STATUS.MASKED_READY,
     ASSET_STATUS.MANUAL_MASKED,
     ASSET_STATUS.CONFIRMED,
+    ASSET_STATUS.MASK_FAILED,
   ])
   return list.every((a) => ok.has(a.status))
 }
@@ -181,7 +182,7 @@ function buildPreMaskedAssetsFromNodes(nodes, albumId) {
 }
 
 function resolvePreMaskStatus(assets) {
-  if (!assets.length) return PRE_MASK_STATUS.FAILED
+  if (!assets.length) return PRE_MASK_STATUS.READY
   const failed = assets.filter((a) => a.status === ASSET_STATUS.MASK_FAILED).length
   if (failed === assets.length) return PRE_MASK_STATUS.FAILED
   if (failed > 0) return PRE_MASK_STATUS.PARTIAL_FAILED
@@ -507,9 +508,7 @@ async function createServiceAuthorizeTaskFromPreMask({ bizId, nodes }) {
     preMaskTask.preMaskStatus === PRE_MASK_STATUS.RUNNING ||
     preMaskTask.preMaskStatus === PRE_MASK_STATUS.IDLE
   ) {
-    if (nodes && nodes.length) {
-      preMaskTask = await ensureServicePreMaskTask(bizId, nodes, { instant: true })
-    }
+    preMaskTask = await ensureServicePreMaskTask(bizId, nodes || [], { instant: true })
   }
   if (!preMaskTask) {
     const err = new Error('预脱敏尚未就绪，请稍后再试')

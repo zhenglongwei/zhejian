@@ -333,21 +333,22 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
   const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
+  const preMaskAssetCount = (preMaskTask?.assets || []).length
+  const preMaskFailedNeedsRetry =
+    preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED && preMaskAssetCount > 0
   const needsPreMaskRefresh =
     !preMaskTask ||
     engineStale ||
-    [
-      PRE_MASK_STATUS.RUNNING,
-      PRE_MASK_STATUS.IDLE,
-      PRE_MASK_STATUS.FAILED,
-      null,
-    ].includes(preMaskTask.preMaskStatus) ||
+    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(
+      preMaskTask?.preMaskStatus
+    ) ||
+    preMaskFailedNeedsRetry ||
     stubArtifacts
 
   if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
       force:
-        preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts || engineStale,
+        preMaskFailedNeedsRetry || stubArtifacts || engineStale,
       preMaskBizType,
       authorizeBizType,
     })
@@ -665,6 +666,7 @@ function allMaskingSucceeded(rawAssets) {
     ASSET_STATUS.MASKED_READY,
     ASSET_STATUS.MANUAL_MASKED,
     ASSET_STATUS.CONFIRMED,
+    ASSET_STATUS.MASK_FAILED,
   ])
   return assets.every((a) => ok.has(a.status))
 }
@@ -882,21 +884,22 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
   let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
   const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
   const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
+  const preMaskAssetCount = (preMaskTask?.assets || []).length
+  const preMaskFailedNeedsRetry =
+    preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED && preMaskAssetCount > 0
   const needsPreMaskRefresh =
     !preMaskTask ||
     engineStale ||
-    [
-      PRE_MASK_STATUS.RUNNING,
-      PRE_MASK_STATUS.IDLE,
-      PRE_MASK_STATUS.FAILED,
-      null,
-    ].includes(preMaskTask.preMaskStatus) ||
+    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(
+      preMaskTask?.preMaskStatus
+    ) ||
+    preMaskFailedNeedsRetry ||
     stubArtifacts
 
   if (needsPreMaskRefresh) {
     await ensureOrderPreMaskTask(albumId, {
       force:
-        preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED || stubArtifacts || engineStale,
+        preMaskFailedNeedsRetry || stubArtifacts || engineStale,
       preMaskBizType,
       authorizeBizType: BIZ_TYPE.SERVICE_AUTHORIZE,
     })

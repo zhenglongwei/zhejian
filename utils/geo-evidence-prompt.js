@@ -18,12 +18,15 @@ function getGeoMissingFields(err) {
 
 function isGeoEvidenceIncompleteError(err) {
   if (!err || typeof err !== 'object') return false
-  if (err.code === 'GEO_EVIDENCE_INCOMPLETE' || err.code === 100007) return true
+  if (err.code === 'GEO_EVIDENCE_INCOMPLETE') return true
+  const quality = (err.data && err.data.geoQuality) || err.geoQuality
+  if (quality && quality.level === 'block') return true
   const fields = getGeoMissingFields(err)
   if (!fields.length) return false
-  if (err.code === 409) return true
-  const quality = (err.data && err.data.geoQuality) || err.geoQuality
-  return Boolean(quality && quality.level === 'block')
+  return fields.some((item) => {
+    const key = item.stage || item.field
+    return Boolean(key && GEO_MISSING_ORDER.includes(key))
+  })
 }
 
 function buildGeoEvidenceMissingLabels(missingFields = []) {

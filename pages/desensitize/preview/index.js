@@ -127,13 +127,15 @@ Page({
 
   applyTask(task, aiSummary = '') {
     const view = mapTaskToWorkbenchState(task)
+    const isEmptyServiceAuthorize =
+      this.data.source === 'service' && !(task.rawAssets || []).length
     this.setData({
       workbenchItems: view.workbenchItems,
       stats: view.stats,
-      canConfirm: view.canConfirm,
+      canConfirm: view.canConfirm || isEmptyServiceAuthorize,
       needPreviewHint: view.needPreviewHint,
       fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
-      status: view.pageStatus,
+      status: isEmptyServiceAuthorize ? 'normal' : view.pageStatus,
       aiSummary: aiSummary || this.data.aiSummary,
     })
     this._loaded = true
@@ -307,7 +309,7 @@ Page({
         this.onBackAlbum()
       }, 2000)
     } catch (e) {
-      if (isGeoEvidenceIncompleteError(e)) {
+      if (this.data.source !== 'service' && isGeoEvidenceIncompleteError(e)) {
         await showGeoEvidenceIncompleteModal(e, { audience: 'user' })
       } else {
         wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })

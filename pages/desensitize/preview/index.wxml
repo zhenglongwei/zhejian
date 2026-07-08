@@ -35,6 +35,9 @@
     <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
       建议逐张查看右侧脱敏图，确认效果符合预期后再授权公示。
     </view>
+    <view wx:if="{{!workbenchItems.length && source === 'service'}}" class="desensitize-preview__empty-auth text-caption">
+      本相册暂无过程图片。相册留档质量由商家负责；勾选确认项后可直接提交授权公示，便于监督门店留档情况。
+    </view>
     <ui-desensitize-workbench
       items="{{workbenchItems}}"
       processedCount="{{stats.processed}}"

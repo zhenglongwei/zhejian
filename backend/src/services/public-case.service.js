@@ -149,7 +149,7 @@ function canAccessMerchantAlbum(album, storeId, merchantId) {
 async function resolvePublishTask(albumId, payload = {}) {
   if (payload.taskId) {
     const task = await getTaskById(payload.taskId)
-    if (task && taskAssets(task).length) return task
+    if (task) return task
   }
   const mchTask = await getTaskById(buildMerchantColdStartTaskId(albumId))
   if (mchTask && taskAssets(mchTask).length && mchTask.maskingConfirmed) {
