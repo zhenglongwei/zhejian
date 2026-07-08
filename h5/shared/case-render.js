@@ -25,6 +25,18 @@
     return false
   }
 
+  function uniqueUrls(urls) {
+    var seen = {}
+    var out = []
+    ;(urls || []).forEach(function (url) {
+      var key = String(url || '').trim()
+      if (!key || seen[key]) return
+      seen[key] = true
+      out.push(key)
+    })
+    return out
+  }
+
   function pickNodeDesensitizedImages(node) {
     var urls = []
     ;(node.imagesDesensitized || []).forEach(function (img) {
@@ -33,7 +45,7 @@
     ;(node.images || []).forEach(function (img) {
       if (isDesensitizedUrl(img)) urls.push(img)
     })
-    return urls
+    return uniqueUrls(urls)
   }
 
   function pickCaseCover(data) {
@@ -780,7 +792,7 @@
         return (
           '<article class="h5-node h5-article-node">' +
           '<h3 class="h5-node-title">' +
-          escapeHtml(narrative.nodeName || node.title || '维修过程') +
+          escapeHtml(node.title || narrative.nodeName || '维修过程') +
           '</h3>' +
           (desc ? '<p class="h5-node-note">' + escapeHtml(desc) + '</p>' : '') +
           imgsHtml +

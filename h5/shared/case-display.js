@@ -143,7 +143,6 @@
         var narrative = narrativeMap[id]
         var note = normalizeText(node.note)
         if (!note && narrative && narrative.description) note = normalizeText(narrative.description)
-        if (!note) note = resolveGeoFieldForNode(node, data)
         if (
           isGenericFaultDesc(note) ||
           isGenericInspectResult(note) ||
@@ -165,6 +164,18 @@
       })
   }
 
+  function uniqueUrls(urls) {
+    var seen = {}
+    var out = []
+    ;(urls || []).forEach(function (url) {
+      var key = String(url || '').trim()
+      if (!key || seen[key]) return
+      seen[key] = true
+      out.push(key)
+    })
+    return out
+  }
+
   function pickNodeDesensitizedImages(node) {
     var urls = []
     ;(node.imagesDesensitized || []).forEach(function (img) {
@@ -173,7 +184,7 @@
     ;(node.images || []).forEach(function (img) {
       if (isDesensitizedUrl(img)) urls.push(img)
     })
-    return urls
+    return uniqueUrls(urls)
   }
 
   function isDesensitizedUrl(url) {

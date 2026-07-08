@@ -47,6 +47,22 @@ function taskAssets(task) {
   return task.rawAssets || task.assets || []
 }
 
+function dedupeUrls(urls) {
+  const seen = new Set()
+  const out = []
+  ;(urls || []).forEach((url) => {
+    const key = String(url || '').trim()
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    out.push(key)
+  })
+  return out
+}
+
+function resolveMaskedUrl(asset) {
+  return resolvePublicCaseMediaUrl(asset.maskedUrl || asset.preMaskedUrl || '')
+}
+
 function buildNodesFromTask(nodes, task) {
   const assets = taskAssets(task)
   if (!assets.length) {
@@ -56,28 +72,33 @@ function buildNodesFromTask(nodes, task) {
     }))
   }
 
-  const assetMap = {}
+  const assetsByNode = {}
   assets.forEach((asset) => {
-    const idx = asset.idx != null ? asset.idx : asset.index
     const nodeId = asset.nodeId || ''
-    const key = `${nodeId}_${idx}`
-    assetMap[key] = asset.maskedUrl || asset.preMaskedUrl || ''
+    if (!assetsByNode[nodeId]) assetsByNode[nodeId] = []
+    assetsByNode[nodeId].push(asset)
   })
 
   return (nodes || []).map((node) => {
     const nodeId = node.id || node.nodeId || ''
+    const nodeAssets = (assetsByNode[nodeId] || []).sort((a, b) => {
+      const ai = a.idx != null ? a.idx : a.index ?? 0
+      const bi = b.idx != null ? b.idx : b.index ?? 0
+      return ai - bi
+    })
+    const images = dedupeUrls(nodeAssets.map(resolveMaskedUrl).filter(Boolean))
     return {
       ...node,
-      images: (node.images || [])
-        .map((url, idx) => {
-          const fromTask = assetMap[`${nodeId}_${idx}`]
-          const safe = resolvePublicCaseMediaUrl(fromTask)
-          if (safe) return safe
-          return resolvePublicCaseMediaUrl(typeof url === 'string' ? url : '')
-        })
-        .filter(Boolean),
+      images,
     }
   })
+}
+
+/** 公开案例节点以相册真源为准，脱敏图以 pre-mask 任务为准 */
+function resolvePublicCaseNodes(album, task, fallbackNodes = []) {
+  const nodes = album ? buildAlbumView(album).nodes : fallbackNodes
+  if (!nodes.length) return fallbackNodes
+  return buildNodesFromTask(nodes, task)
 }
 
 function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
@@ -425,6 +446,7 @@ module.exports = {
   publishMerchantColdStartPublicCase,
   buildCaseDraft,
   buildNodesFromTask,
+  resolvePublicCaseNodes,
   pickCover,
   resolvePublishTask,
 }

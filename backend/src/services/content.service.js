@@ -33,7 +33,7 @@ const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const { buildPreMaskTaskId } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
-const { buildNodesFromTask } = require('./public-case.service')
+const { resolvePublicCaseNodes } = require('./public-case.service')
 const {
   resolveGeoReadableFields,
   mapCaseArticleForApi,
@@ -109,6 +109,16 @@ function sanitizeCover(url) {
   return resolvePublicCaseMediaUrl(url) || ''
 }
 
+function dedupeUrls(urls) {
+  const seen = new Set()
+  return (urls || []).filter((url) => {
+    const key = String(url || '').trim()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function collectNodeImageUrls(node) {
   const urls = []
   ;(node.imagesDesensitized || []).forEach((img) => {
@@ -120,7 +130,7 @@ function collectNodeImageUrls(node) {
       urls.push(img.maskedUrl, img.preMaskedUrl)
     }
   })
-  return urls.filter(Boolean)
+  return dedupeUrls(urls.filter(Boolean))
 }
 
 function pickCoverFromAlbum() {
@@ -285,8 +295,9 @@ async function fetchPublicCaseRows() {
     const content =
       row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
     const task = taskByAlbum[row.albumId]
-    if (task && Array.isArray(content.nodes)) {
-      content.nodes = buildNodesFromTask(content.nodes, task)
+    const album = albumMap[row.albumId]
+    if (album) {
+      content.nodes = resolvePublicCaseNodes(album, task, content.nodes || [])
     }
     const mapped = mapPublicCaseRow({ ...row, contentJson: content }, albumMap[row.albumId])
     if (mapped.coverImage && mapped.coverImage !== row.coverImage) {
@@ -396,8 +407,8 @@ async function getCaseDetail(idOrSlug) {
     const content =
       row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
     const task = row.albumId ? await getTaskById(buildPreMaskTaskId(row.albumId)) : null
-    if (task && Array.isArray(content.nodes)) {
-      content.nodes = buildNodesFromTask(content.nodes, task)
+    if (album) {
+      content.nodes = resolvePublicCaseNodes(album, task, content.nodes || [])
     }
     item = attachCaseArticleAndSeo(
       { ...row, contentJson: content },
