@@ -111,6 +111,18 @@
   margin-bottom: var(--space-md);
 }
 
+.album-inspect__action-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.album-inspect__action-row ui-button {
+  flex: 1;
+  min-width: 0;
+}
+
 .album-inspect__card {
   margin-bottom: var(--space-sm);
 }

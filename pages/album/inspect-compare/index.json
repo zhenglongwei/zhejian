@@ -1,0 +1,12 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "完工对照",
+  "pageOrientation": "auto",
+  "disableScroll": true,
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "tool-immersive-nav": "/components/tool-immersive-nav/index",
+    "album-compare-slider": "/components/album-compare-slider/index"
+  }
+}

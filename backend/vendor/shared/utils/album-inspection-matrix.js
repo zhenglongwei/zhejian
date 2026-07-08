@@ -288,24 +288,6 @@ function buildCompletenessOutcomePanel(outcome = {}, audience = 'owner') {
     ),
   )
 
-  ;(outcome.comparePairs || []).forEach((pair, index) => {
-    const complete = Boolean(pair.beforeUrl && pair.afterUrl)
-    const images = [pair.beforeUrl, pair.afterUrl].filter(Boolean)
-    rows.push(
-      finalizeInventoryRow(
-        {
-          id: pair.id || `compare_${index}`,
-          label: pair.title || `前后对比组 ${index + 1}`,
-          importanceLabel: importance,
-          present: complete,
-          thumb: pair.afterUrl || pair.beforeUrl || '',
-          images,
-        },
-        audience,
-      ),
-    )
-  })
-
   return { id: 'outcome', title: '完工', layout: 'inventory', rows, empty: !rows.length }
 }
 

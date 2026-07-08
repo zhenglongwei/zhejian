@@ -38,6 +38,7 @@ Page({
     methodSections: [],
     showPartVerifyEntry: false,
     showAiAnalysisEntry: false,
+    showCompareEntry: false,
   },
 
   onLoad(options) {
@@ -75,9 +76,9 @@ Page({
         completenessSummary: view.completeness.summary,
         completenessPanels: view.completeness.panels,
         methodSections: view.method.sections || [],
-        outcome: view.outcome,
         showPartVerifyEntry: view.showPartVerifyEntry,
         showAiAnalysisEntry: shouldShowAiAnalysisEntry(detail),
+        showCompareEntry: Boolean(view.outcome && view.outcome.hasCompare),
       })
     } catch (e) {
       this.setData({
@@ -115,6 +116,11 @@ Page({
 
   onOpenPartVerify() {
     wx.navigateTo({ url: `/pages/album/part-verify/index?albumId=${this.albumId}` })
+  },
+
+  onOpenCompare() {
+    if (!this.data.showCompareEntry) return
+    wx.navigateTo({ url: `/pages/album/inspect-compare/index?albumId=${this.albumId}` })
   },
 
   onOpenFeedback() {

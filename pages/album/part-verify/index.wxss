@@ -1,6 +1,7 @@
 .album-part-verify__pad,
 .album-part-verify__body {
-  padding: var(--space-md) var(--page-padding-x) calc(var(--space-xl) + var(--fixed-bottom-bar-height));
+  padding: var(--space-md) var(--page-padding-x)
+    calc(var(--space-xl) + var(--page-fixed-clearance));
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);

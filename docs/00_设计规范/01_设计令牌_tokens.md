@@ -237,6 +237,9 @@ page {
   --page-fixed-clearance: calc(
     var(--button-height) + var(--space-md) * 2 + env(safe-area-inset-bottom)
   );
+  --fixed-bottom-bar-height: calc(
+    var(--button-height) + var(--space-sm) * 2 + env(safe-area-inset-bottom)
+  );
 
   --tag-height: 40rpx;
 

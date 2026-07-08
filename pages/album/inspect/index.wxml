@@ -70,8 +70,19 @@
         </view>
       </block>
 
-      <view wx:if="{{showAiAnalysisEntry}}" class="album-inspect__ai-trigger">
-        <ui-button type="secondary" block bind:btntap="onGenerateAiAdvice">AI分析</ui-button>
+      <view wx:if="{{showCompareEntry || showAiAnalysisEntry}}" class="album-inspect__action-row">
+        <ui-button
+          wx:if="{{showCompareEntry}}"
+          type="secondary"
+          block
+          bind:btntap="onOpenCompare"
+        >完工对照</ui-button>
+        <ui-button
+          wx:if="{{showAiAnalysisEntry}}"
+          type="secondary"
+          block
+          bind:btntap="onGenerateAiAdvice"
+        >AI分析</ui-button>
       </view>
     </view>
 

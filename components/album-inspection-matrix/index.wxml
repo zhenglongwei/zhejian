@@ -22,18 +22,28 @@
         <text class="text-caption album-inspection-matrix__name album-inspection-matrix__label">{{row.label}}</text>
         <text class="text-caption album-inspection-matrix__importance">{{row.importanceLabel}}</text>
         <text class="album-inspection-matrix__status text-caption album-inspection-matrix__status--{{row.statusLevel}}">{{row.statusSymbol}}</text>
-        <view
-          class="album-inspection-matrix__thumb"
-          data-url="{{row.thumb}}"
-          data-urls="{{row.images}}"
-          bindtap="onPreviewRow"
-        >
-          <image
-            wx:if="{{row.thumb}}"
-            class="album-inspection-matrix__thumb-img"
-            src="{{row.thumb}}"
-            mode="aspectFill"
-          />
+        <view class="album-inspection-matrix__thumb">
+          <scroll-view
+            wx:if="{{row.images.length}}"
+            class="album-inspection-matrix__thumb-scroll"
+            scroll-x
+            enable-flex
+            show-scrollbar="{{false}}"
+          >
+            <view class="album-inspection-matrix__thumb-row">
+              <image
+                wx:for="{{row.images}}"
+                wx:key="*this"
+                wx:for-item="imgUrl"
+                class="album-inspection-matrix__thumb-img"
+                src="{{imgUrl}}"
+                mode="aspectFill"
+                data-url="{{imgUrl}}"
+                data-urls="{{row.images}}"
+                catchtap="onPreviewRow"
+              />
+            </view>
+          </scroll-view>
           <text wx:else class="text-caption album-inspection-matrix__thumb-empty">无</text>
         </view>
       </view>

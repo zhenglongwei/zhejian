@@ -1,0 +1,57 @@
+<view class="page album-inspect-compare">
+  <block wx:if="{{status === 'loading'}}">
+    <tool-immersive-nav title="完工对照" tone="dark" />
+    <view class="album-inspect-compare__pad">
+      <ui-skeleton rows="{{4}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <tool-immersive-nav title="完工对照" tone="dark" />
+    <view class="album-inspect-compare__pad">
+      <ui-empty
+        theme="album"
+        title="无法打开对照"
+        description="{{errorMessage}}"
+        actionText="重试"
+        bind:action="onRetry"
+      />
+    </view>
+  </block>
+
+  <block wx:else>
+    <tool-immersive-nav title="完工对照" tone="dark" />
+    <view class="album-inspect-compare__body">
+      <swiper
+        class="album-inspect-compare__swiper"
+        current="{{pairIndex}}"
+        bindchange="onPairChange"
+        bindanimationfinish="onPairChange"
+      >
+        <swiper-item
+          wx:for="{{comparePairs}}"
+          wx:key="id"
+          wx:for-item="pair"
+          class="album-inspect-compare__item"
+        >
+          <text wx:if="{{pair.title}}" class="text-body album-inspect-compare__title">{{pair.title}}</text>
+          <view class="album-inspect-compare__slider-wrap">
+            <album-compare-slider
+              immersive="{{true}}"
+              pair-key="{{pair.id}}"
+              before-url="{{pair.beforeUrl}}"
+              after-url="{{pair.afterUrl}}"
+              before-label="{{pair.beforeLabel}}"
+              after-label="{{pair.afterLabel}}"
+            />
+          </view>
+        </swiper-item>
+      </swiper>
+      <text
+        wx:if="{{comparePairs.length > 1}}"
+        class="text-caption album-inspect-compare__pager"
+      >{{pairIndex + 1}} / {{comparePairs.length}}</text>
+      <text wx:if="{{compareHint}}" class="text-caption album-inspect-compare__hint">{{compareHint}}</text>
+    </view>
+  </block>
+</view>
