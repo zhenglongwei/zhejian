@@ -95,8 +95,17 @@
       <el-empty v-if="!detail.mediaAssets?.length" description="暂无图片素材" />
     </el-card>
 
+    <el-alert
+      v-if="detail.snapshotFrozen"
+      title="案例快照已冻结：运营台不再提供代商家 LLM 润色。商家应在授权前于小程序使用「内容优化」。"
+      type="info"
+      :closable="false"
+      show-icon
+      class="section"
+    />
+
     <CaseGeoLlmReview
-      v-if="showGeoEditor"
+      v-if="showGeoEditor && !detail.snapshotFrozen"
       class="section"
       :case-id="detail.caseId"
       :editable="geoEditable"

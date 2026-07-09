@@ -138,6 +138,25 @@ V2.0 已取消平台交易订单。不再区分「历史案例相册」与「服
 
 **实现约束**：`assertGeoPublishable` 仅用于商家冷启动等路径；用户 `POST …/public-case` 不得因 GEO block 硬拦（口径不变）。
 
+### 4.5.7 案例快照分层与相册锁定（定稿 2026-07-09 · 卷九）
+
+> 真源：`13_案例全流程快照与GEO分层开发计划.md` · 代码：`case-snapshot.schema.js` · `case-enrichment.schema.js`
+
+| 层级 | 冻结时机 | 可变 | 读侧真源 |
+| --- | --- | --- | --- |
+| **CaseSnapshot** | 车主提交授权公示时写入 `content_json.snapshot` | **否**（公示后任何人不得改） | H5 / Feed / 小程序公开案例 **只读 snapshot** |
+| **GeoEnrichment** | 审核通过后可由运营维护 | **是**（SEO/FAQ/专题挂载；**不得**改 snapshot 事实与数字） | 页顶摘要、FAQ、TDK 等 **优先 enrichment** |
+| **相册 live 数据** | 闸门 A 通过后商家不可 save | 撤回授权后可再编辑 | **仅** 商家/车主私密查看；**不** 作为已公示案例真源 |
+
+**锁定规则**：
+
+1. **闸门 A 通过** 或 **车主已授权** → 商家 `save` / `complete` → **409**（文案：须车主撤回公示后方可改）。  
+2. **闸门 B 驳回** → **不解锁**商家；用户重试脱敏/改评价。  
+3. **用户撤回** → `publicCase` → `offline` 留痕；相册解锁；可再授权 → `snapshotVersion++` + 强制 `pending_review`。  
+4. **商家 299 内容优化**（可选）：仅 **完工后 + 授权前**；写 `albums.content_optimize_draft_json`，采用后更新节点说明；**授权时**一并打入 snapshot，**不**直接写 `public_cases`。
+
+**隐私**：公开链仅 snapshot 内 **脱敏图 URL**；禁止 live 相册原图回退到 H5/站外。
+
 ---
 
 ## 5. 公开案例 Tag（Phase 1）

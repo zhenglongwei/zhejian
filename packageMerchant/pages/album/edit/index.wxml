@@ -107,6 +107,22 @@
         </view>
       </ui-card>
 
+      <ui-card
+        wx:if="{{showContentOptimizeEntry}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+        class="merchant-album-edit__optimize-card"
+      >
+        <view class="merchant-album-edit__optimize-head">
+          <text class="text-h3">内容优化</text>
+          <ui-tag variant="info" text="授权前" />
+        </view>
+        <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
+          优化案例摘要与节点说明，提升公开展示质量；不修改图片与价格事实。
+        </text>
+        <ui-button type="secondary" block bind:btntap="onOpenContentOptimize">进入内容优化</ui-button>
+      </ui-card>
+
       <view wx:if="{{merchantInspPanels.length}}" id="merchant-insp-section" class="merchant-album-edit__insp">
         <ui-card shadow="{{true}}" padding="{{true}}">
           <view

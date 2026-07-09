@@ -2,6 +2,8 @@ const { prisma } = require('../lib/prisma')
 const { newId, maskPhone, toIso } = require('../lib/ids')
 const { REPORT_STATUS } = require('../constants/report')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { extractSnapshotFromContentJson } = require('../schemas/case-snapshot.schema')
+const { appendReviewLog } = require('./admin-case.service')
 const { forceUnpublishAdminServicePlan } = require('./admin-service-plan.service')
 
 const REPORT_TABS = {
@@ -235,7 +237,66 @@ async function rejectAdminReport(reportId, { reviewerId, comment = '' } = {}) {
   return getAdminReportDetail(reportId)
 }
 
-async function hideReportTarget(row, reviewerId, comment) {
+async function offlinePublicCasePreservingSnapshot(
+  caseId,
+  { reviewerId, reportId = '', comment = '' } = {}
+) {
+  const caseRow = await prisma.publicCase.findUnique({ where: { id: caseId } })
+  if (!caseRow) return false
+
+  const beforeStatus = caseRow.status
+  const snapshot = extractSnapshotFromContentJson(caseRow.contentJson)
+  const snapshotVersion = snapshot?.version || 0
+
+  await prisma.publicCase.update({
+    where: { id: caseId },
+    data: {
+      status: PUBLIC_CASE_STATUS.OFFLINE,
+      publishedAt: null,
+    },
+  })
+
+  const auditComment = buildReportOfflineAuditComment({
+    comment,
+    reportId,
+    snapshotVersion,
+    frozenAt: snapshot?.frozenAt || '',
+    hadSnapshot: Boolean(snapshot),
+  })
+
+  await appendReviewLog({
+    caseId,
+    reviewerId,
+    reviewAction: 'report_offline',
+    reviewComment: auditComment,
+    beforeStatus,
+    afterStatus: PUBLIC_CASE_STATUS.OFFLINE,
+    riskLevel: 'report',
+  })
+
+  return true
+}
+
+function buildReportOfflineAuditComment({
+  comment = '',
+  reportId = '',
+  snapshotVersion = 0,
+  frozenAt = '',
+  hadSnapshot = false,
+} = {}) {
+  const parts = [String(comment || '').trim() || '举报成立，下线公开案例']
+  if (reportId) parts.push(`reportId=${reportId}`)
+  if (hadSnapshot && snapshotVersion >= 1) {
+    parts.push(`snapshotVersion=${snapshotVersion}`)
+    if (frozenAt) parts.push(`frozenAt=${frozenAt}`)
+    parts.push('snapshotPreserved=1')
+  } else {
+    parts.push('snapshotPreserved=0')
+  }
+  return parts.join(' · ')
+}
+
+async function hideReportTarget(row, reviewerId, comment, reportId = '') {
   const reason = comment || '举报成立，隐藏相关内容'
   if (row.targetType === 'service') {
     await forceUnpublishAdminServicePlan(row.targetId, {
@@ -246,14 +307,12 @@ async function hideReportTarget(row, reviewerId, comment) {
     return '已要求下架服务方案'
   }
   if (row.targetType === 'case') {
-    const caseRow = await prisma.publicCase.findUnique({ where: { id: row.targetId } })
-    if (caseRow) {
-      await prisma.publicCase.update({
-        where: { id: row.targetId },
-        data: { status: PUBLIC_CASE_STATUS.OFFLINE },
-      })
-    }
-    return '已隐藏公开案例'
+    const hidden = await offlinePublicCasePreservingSnapshot(row.targetId, {
+      reviewerId,
+      reportId,
+      comment: reason,
+    })
+    return hidden ? '已隐藏公开案例（快照已保留留痕）' : '案例不存在或已下线'
   }
   if (row.targetType === 'store') {
     const store = await prisma.store.findUnique({ where: { id: row.targetId } })
@@ -281,7 +340,7 @@ async function resolveAdminReport(
 
   let resolution = String(comment || '').trim() || '举报成立'
   if (hideContent) {
-    const hideNote = await hideReportTarget(row, reviewerId, resolution)
+    const hideNote = await hideReportTarget(row, reviewerId, resolution, reportId)
     if (hideNote) {
       resolution = `${resolution}；${hideNote}`
     }
@@ -307,4 +366,6 @@ module.exports = {
   acceptAdminReport,
   rejectAdminReport,
   resolveAdminReport,
+  offlinePublicCasePreservingSnapshot,
+  buildReportOfflineAuditComment,
 }

@@ -12,6 +12,10 @@ const { assertGeoPublishable } = require('../utils/case-geo-quality')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
 const { buildCaseSnapshot } = require('./case-snapshot.service')
+const {
+  extractAlbumContentOptimizeDraft,
+} = require('../schemas/album-content-optimize.schema')
+const { mergeOptimizeDraftIntoCaseDraft } = require('./album-content-optimize.service')
 const { buildEnrichmentFromPublicCaseRow } = require('../schemas/case-enrichment.schema')
 
 function buildVehicleTitle(vehicle) {
@@ -255,10 +259,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
   const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
-  const draft = buildCaseDraft(albumView, task, authorizationTier, {
-    serviceItemId: album.serviceItemId || '',
-    templateId: album.templateId || '',
-  })
+  const draft = mergeOptimizeDraftIntoCaseDraft(
+    buildCaseDraft(albumView, task, authorizationTier, {
+      serviceItemId: album.serviceItemId || '',
+      templateId: album.templateId || '',
+    }),
+    extractAlbumContentOptimizeDraft(album)
+  )
   const caseId = draft.id
   const articlePayload = buildCaseArticlePayload({
     caseId,

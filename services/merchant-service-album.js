@@ -103,6 +103,18 @@ async function submitMerchantPublicCase(albumId, payload = {}) {
   return post(`/merchant/service-albums/${albumId}/public-case`, withStore(payload))
 }
 
+async function fetchMerchantAlbumContentOptimize(albumId) {
+  return get(`/merchant/service-albums/${albumId}/content-optimize`, withStore())
+}
+
+async function generateMerchantAlbumContentOptimize(albumId) {
+  return post(`/merchant/service-albums/${albumId}/content-optimize/generate`, withStore())
+}
+
+async function applyMerchantAlbumContentOptimize(albumId) {
+  return post(`/merchant/service-albums/${albumId}/content-optimize/apply`, withStore())
+}
+
 async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   if (ENV.mode === 'mock') {
     const { mockSwitchMerchantServiceAlbumTemplate } = require('../mock/service-albums')
@@ -127,6 +139,9 @@ module.exports = {
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,
   fetchMerchantAlbumGeoPreview,
+  fetchMerchantAlbumContentOptimize,
+  generateMerchantAlbumContentOptimize,
+  applyMerchantAlbumContentOptimize,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,

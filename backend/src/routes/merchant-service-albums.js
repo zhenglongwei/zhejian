@@ -18,6 +18,11 @@ const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask 
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
 const {
+  fetchAlbumContentOptimizePanel,
+  generateAlbumContentOptimizeDraft,
+  applyAlbumContentOptimizeDraft,
+} = require('../services/album-content-optimize.service')
+const {
   runAlbumComplianceGate,
   resubmitAlbumCompliance,
 } = require('../services/album-compliance.service')
@@ -290,6 +295,56 @@ router.get('/service-albums/:albumId/geo-preview', requireAuth(['merchant']), as
     next(e)
   }
 })
+
+router.get('/service-albums/:albumId/content-optimize', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await fetchAlbumContentOptimizePanel(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post(
+  '/service-albums/:albumId/content-optimize/generate',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const data = await generateAlbumContentOptimizeDraft(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
+
+router.post(
+  '/service-albums/:albumId/content-optimize/apply',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const data = await applyAlbumContentOptimizeDraft(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
 
 router.post('/service-albums/:albumId/cold-start-preview', requireAuth(['merchant']), async (req, res, next) => {
   try {

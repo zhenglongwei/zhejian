@@ -17,6 +17,7 @@
 
 - `docs/04_维修过程相册/06_自动脱敏规则.md`
 - `docs/00_设计规范/00_辙见平台设计体系.md`（§7、隐私相关）
+- `docs/04_维修过程相册/13_案例全流程快照与GEO分层开发计划.md`（§8 权限矩阵 · 快照 vs 提炼层）
 - 相关业务 PRD
 
 ## 检查规则
@@ -32,6 +33,17 @@
 9. **用户授权公示**（2026-07-08）：**不得** 因六阶段缺项/无过程图/GEO block 阻止车主提交或运营通过；C 端 **不得** 出现「请联系门店补齐关键材料」类质量门槛弹窗（见口径 §4.5.6、`04_公开案例审核.md` §9.3）。
 
 **口径**：`docs/04_维修过程相册/00_Phase1_服务相册产品口径.md` §4.5、§4.5.6。
+
+## 快照只读（卷九 · CASE-SNAP / CASE-FLOW-05）
+
+与 `skill_case_snapshot_check.md` 隐私子集对齐；公开链 **真源为 CaseSnapshot**，不是 live 相册。
+
+10. **读侧只读 snapshot**：`getCaseDetail` / `listCases` / H5 `case-render` / Feed **不得** 在运行时 merge `albums` 表 nodes 或 live 图片 URL（禁止 `resolvePublicCaseNodes(liveAlbum)` 作公示真源）。
+11. **公开展示图片来源**：仅 snapshot 内脱敏字段（如 `maskedUrl` / `desensitizedUrl`）；**禁止**回退 `rawUrl`、相册原图或商家上传未脱敏链路到 C 端/H5/站外。
+12. **授权后漂移**：车主授权并冻结 snapshot 后，商家改相册 DB **不得**改变已公示 H5 正文、过程节点文案与脱敏图（回归：`backend/scripts/case-snapshot-smoke.js` FLOW-02）。
+13. **提炼层与隐私**：`enrichment_json` 可变，但 **不得** 引入 snapshot 未含的敏感信息（完整车牌、手机号、人脸、住址等）；聚合 FAQ 统计来自 **脱敏公开集合**，数字不得与 snapshot 矛盾。
+14. **商家润色（CASE-MCH）**：润色仅在 **授权前** 写入相册草稿；打入 snapshot 时仍走脱敏资源；optimize 页/接口 **不** 单独暴露原图 URL 到公开链。
+15. **运营审核与 snapshot**：快照冻结（`snapshotFrozen`）后运营台 **不得** 代商家 LLM 改 snapshot 域；仅 enrichment 可编辑（若 UI 已拆分）。审核展示仍仅脱敏图。
 
 ## 推荐组件
 
@@ -50,6 +62,15 @@
 
 低 / 中 / 高
 
+## 快照只读（卷九）
+
+| 检查项 | 结果 |
+|---|---|
+| 公开 API/H5 仅读 snapshot | |
+| 无 live album 图片回退 | |
+| 授权后改相册不影响已公示内容 | |
+| enrichment 无新增敏感信息 | |
+
 ## 问题清单
 
 | 文件 | 问题 | 风险 | 建议 |
@@ -67,3 +88,4 @@
 - 不直接展示原图 URL 到公开页面。
 - 不允许把商家端上传原图用于用户分享页。
 - **运营审核台**不得展示原图；Admin 案例详情 API 不得返回 `rawUrl`。
+- 卷九公开链须同时满足 **§快照只读**；完整分层检查见 **`skill_case_snapshot_check.md`**。

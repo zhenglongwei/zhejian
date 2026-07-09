@@ -66,6 +66,7 @@
         "pages/album/create/index",
         "pages/album/invite/index",
         "pages/album/edit/index",
+        "pages/album/optimize/index",
         "pages/album/list/index",
         "pages/desensitize/workbench/index",
         "pages/service/list/index",

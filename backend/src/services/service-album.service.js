@@ -435,6 +435,12 @@ function buildMerchantView(album) {
         : '',
     canResubmitCompliance:
       album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED && isCompleted,
+    authorizationStatus: album.authorization?.status || '',
+    isAuthorized: album.authorization?.status === 'authorized',
+    contentOptimize: (() => {
+      const { summarizeOptimizeDraftForApi } = require('./album-content-optimize.service')
+      return summarizeOptimizeDraftForApi(album)
+    })(),
   }
 }
 

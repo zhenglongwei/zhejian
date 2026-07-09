@@ -45,12 +45,17 @@
 
 - [ ] `withdrawAuthorization` 校验 userId 归属
 - [ ] 运营台快照区只读；enrichment 区可编辑（若已实现 UI 拆分）
-- [ ] 公开链仅脱敏 URL（`privacy-desensitization-check` 子集）
+- [ ] 公开链仅脱敏 URL（`privacy-desensitization-check` **§快照只读** 子集）
 
 ### F. 合规
 
 - [ ] 用户授权路径：合规审核不 block GEO/脱敏进度（仅合规）
 - [ ] 价格展示符合四型（`price-compliance-check` 子集）
+
+## 与发版总检联用（CASE-FLOW-04）
+
+- 本 skill 为 **`release-checklist`** 卷九快照专项的 **阻塞性子检查**；通过后再汇总发版报告。
+- `privacy-desensitization-check` 已对齐 **§快照只读**；二者重叠项以本 skill 分层结论为准。
 
 ## 输出格式
 

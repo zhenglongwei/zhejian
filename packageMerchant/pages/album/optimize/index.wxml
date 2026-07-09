@@ -1,0 +1,57 @@
+<view class="page merchant-album-page album-optimize page-content">
+  <block wx:if="{{status === 'loading'}}">
+    <ui-skeleton rows="{{4}}" title="{{true}}" />
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <ui-empty title="无法优化" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+  </block>
+
+  <block wx:else>
+    <ui-compliance-notice type="displayDisclaimer" />
+
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <view class="album-optimize__head">
+        <text class="text-h3">优化能力</text>
+        <ui-tag variant="info" text="{{capability.planLabel || '免费版'}}" />
+      </view>
+      <text class="text-caption text-secondary">{{capability.hint}}</text>
+    </ui-card>
+
+    <ui-card wx:if="{{preview}}" shadow="{{true}}" padding="{{true}}">
+      <text class="text-h3 album-optimize__section">当前模板预览</text>
+      <text class="text-caption album-optimize__label">摘要</text>
+      <text class="text-body">{{preview.aiSummaryPreview || '—'}}</text>
+      <text class="text-caption album-optimize__label">质量</text>
+      <text class="text-body">{{preview.geoQuality.summaryText || '—'}}</text>
+    </ui-card>
+
+    <ui-card wx:if="{{draft}}" shadow="{{true}}" padding="{{true}}">
+      <view class="album-optimize__head">
+        <text class="text-h3">优化建议</text>
+        <ui-tag variant="success" text="{{draft.source === 'llm_v1' ? 'AI 润色' : '规则建议'}}" />
+      </view>
+      <text class="text-caption album-optimize__label">建议摘要</text>
+      <text class="text-body">{{draft.aiSummary || '—'}}</text>
+      <block wx:if="{{draft.suggestions && draft.suggestions.length}}">
+        <text class="text-caption album-optimize__label">提示</text>
+        <view wx:for="{{draft.suggestions}}" wx:key="text" class="album-optimize__tip">
+          <text class="text-caption">{{item.text}}</text>
+        </view>
+      </block>
+    </ui-card>
+
+    <view class="album-optimize__actions safe-bottom">
+      <ui-button type="secondary" block loading="{{generating}}" bind:btntap="onGenerate">
+        {{draft ? '重新生成' : '生成优化建议'}}
+      </ui-button>
+      <ui-button
+        wx:if="{{draft}}"
+        type="primary"
+        block
+        loading="{{applying}}"
+        bind:btntap="onApply"
+      >采用并写入相册</ui-button>
+    </view>
+  </block>
+</view>

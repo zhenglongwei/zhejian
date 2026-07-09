@@ -104,6 +104,46 @@ async function getMerchantSubscription(merchantId) {
   return formatSubscriptionRow(row)
 }
 
+/**
+ * CASE-MCH-02 · 商家内容优化能力（299=LLM，免费/99=规则建议）
+ * @param {object|null} subscriptionRow formatSubscriptionRow 或 prisma 行
+ */
+function resolveMerchantContentOptimizeCapability(subscription) {
+  const sub = subscription || {}
+  const active = sub.status === MERCHANT_SUBSCRIPTION_STATUS.ACTIVE
+  const plan = active ? sub.plan || MERCHANT_PLAN.FREE : MERCHANT_PLAN.FREE
+
+  const base = {
+    plan,
+    planLabel: MERCHANT_PLAN_LABELS[plan] || MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE],
+    mode: 'rule',
+    llmEnabled: false,
+    canGenerate: true,
+    canApply: true,
+  }
+
+  if (active && plan === MERCHANT_PLAN.OPTIMIZE_299) {
+    return {
+      ...base,
+      mode: 'llm',
+      llmEnabled: true,
+      hint: '深度优化版：可使用 AI 润色（授权前，商家确认后写入相册）',
+    }
+  }
+
+  if (active && plan === MERCHANT_PLAN.INDEX_99) {
+    return {
+      ...base,
+      hint: '收录版：提供规则建议；升级深度优化版可使用 AI 润色',
+    }
+  }
+
+  return {
+    ...base,
+    hint: '免费版：提供规则建议；升级套餐后可解锁更多优化能力',
+  }
+}
+
 async function merchantHasPublicIndex(merchantId) {
   if (!merchantId || !subscriptionRepo()) return false
   try {
@@ -447,6 +487,7 @@ module.exports = {
   fetchMerchantSubscriptionPanel,
   hasPublicIndexEntitlement,
   isSubscriptionActive,
+  resolveMerchantContentOptimizeCapability,
   computeRemainingCreditCents,
   buildPlanSwitchQuote,
   resolveLastPaidAmountCents,

@@ -507,6 +507,7 @@ Page({
       isCompleted,
       hasOwner,
       publicCaseStatus,
+      showContentOptimizeEntry: isCompleted && !detail.isAuthorized,
       showBottomPrimary,
       bottomPrimaryText,
       templateId: detail.templateId || '',
@@ -1415,6 +1416,13 @@ Page({
       title: '辙见 · 服务相册',
       path: TOOL_HOME_PATH,
     }
+  },
+
+  onOpenContentOptimize() {
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/optimize/index?albumId=${this.albumId}`,
+    })
   },
 
   onInviteOwnerScan() {

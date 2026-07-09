@@ -194,12 +194,12 @@
 
 | ID | 任务 | 涉及文档 | 优先级 | 状态 |
 | ---: | --- | --- | ---: | ---: |
-| CASE-DOC-01 | Phase1 口径 § 快照分层、授权锁定 | `00_Phase1_服务相册产品口径.md` | P0 | [ ] |
-| CASE-DOC-02 | 流程 §7 授权锁定、再授权重审 | `03_服务相册流程.md` | P0 | [ ] |
-| CASE-DOC-03 | 案例生成规则 § 快照 vs 提炼层 | `07_案例生成规则.md` | P0 | [ ] |
-| CASE-DOC-04 | 运营审核 § 合规-only、禁止改快照 | `04_公开案例审核.md` | P0 | [ ] |
-| CASE-DOC-05 | 299 润色边界（授权前/商家发起） | `09_招商方案和收费策略.md` | P1 | [ ] |
-| CASE-DOC-06 | 数据结构：snapshot / enrichment 字段 | `docs/11_数据结构与状态机/` 新增 § | P0 | [ ] |
+| CASE-DOC-01 | Phase1 口径 § 快照分层、授权锁定 | `00_Phase1_服务相册产品口径.md` | P0 | [x] | §4.5.7 |
+| CASE-DOC-02 | 流程 §7 授权锁定、再授权重审 | `03_服务相册流程.md` | P0 | [x] | §7.7 |
+| CASE-DOC-03 | 案例生成规则 § 快照 vs 提炼层 | `07_案例生成规则.md` | P0 | [x] | §19.3 |
+| CASE-DOC-04 | 运营审核 § 合规-only、禁止改快照 | `04_公开案例审核.md` | P0 | [x] | §8.7 |
+| CASE-DOC-05 | 299 润色边界（授权前/商家发起） | `09_招商方案和收费策略.md` | P1 | [x] | 299 套餐边界段 |
+| CASE-DOC-06 | 数据结构：snapshot / enrichment 字段 | `docs/11_数据结构与状态机/` 新增 § | P0 | [x] | `07_案例快照与提炼层字段.md` |
 
 ---
 
@@ -256,7 +256,7 @@
 | CASE-OPS-03 | 禁用公示后 `regenerate-article` 写快照字段 | `admin-case-article.service.js` | P0 | [x] | 有 snapshot 时仅 refresh 提炼层 |
 | CASE-OPS-04 | 禁用公示后 LLM adopt 写 title/body | `admin-case-geo-llm.service.js` | P0 | [x] | diff 只读 preview · adopt 409 |
 | CASE-OPS-05 | admin-web UI：快照只读 + 提炼层编辑区 | `admin-web/.../case-review/detail` | P1 | [x] | CaseGeoEditor 快照冻结态 |
-| CASE-OPS-06 | 举报下线保留快照 audit | `admin-report.service.js` | P1 | [ ] | status=offline |
+| CASE-OPS-06 | 举报下线保留快照 audit | `admin-report.service.js` | P1 | [x] | `report_offline` + snapshotPreserved 留痕 |
 
 ---
 
@@ -277,11 +277,11 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| CASE-MCH-01 | 商家端「内容优化」入口（completed + 未授权） | `packageMerchant/pages/album/` | P1 | [ ] | |
-| CASE-MCH-02 | plan gate：`OPTIMIZE_299` 可用 LLM；免费/99 仅规则建议 | `merchant-subscription.service.js` | P1 | [ ] | |
-| CASE-MCH-03 | 润色写相册草稿，**不**写 public_cases | 新 service | P1 | [ ] | 商家确认后 save |
-| CASE-MCH-04 | 授权时将草稿一并打入 snapshot | `public-case.service.js` | P1 | [ ] | |
-| CASE-MCH-05 | 运营台移除「代商家润色」入口 | admin-web | P2 | [ ] | 与 D5 一致 |
+| CASE-MCH-01 | 商家端「内容优化」入口（completed + 未授权） | `packageMerchant/pages/album/` | P1 | [x] | `edit` 入口 + `optimize` 页 |
+| CASE-MCH-02 | plan gate：`OPTIMIZE_299` 可用 LLM；免费/99 仅规则建议 | `merchant-subscription.service.js` | P1 | [x] | |
+| CASE-MCH-03 | 润色写相册草稿，**不**写 public_cases | 新 service | P1 | [x] | 商家确认后 save |
+| CASE-MCH-04 | 授权时将草稿一并打入 snapshot | `public-case.service.js` | P1 | [x] | |
+| CASE-MCH-05 | 运营台移除「代商家润色」入口 | admin-web | P2 | [x] | 快照冻结时隐藏 LLM 编辑 |
 
 ---
 
@@ -292,21 +292,21 @@
 | CASE-FLOW-01 | E2E 脚本：商家建册→完工→用户授权→审核→H5 | `scripts/case-snapshot-smoke.js` | P0 | [x] | FLOW-01 段 |
 | CASE-FLOW-02 | 漂移回归：授权后改 album 不影响 H5 | `case-snapshot-smoke.js` | P0 | [x] | FLOW-02 段 |
 | CASE-FLOW-03 | 撤回→再授权→重审→新 snapshotVersion | `case-snapshot-smoke.js` | P0 | [x] | FLOW-03 段 |
-| CASE-FLOW-04 | `release-checklist` 增补快照项 | skill | P1 | [ ] |
-| CASE-FLOW-05 | `privacy-desensitization-check` 对齐快照只读 | skill | P1 | [ ] |
+| CASE-FLOW-04 | `release-checklist` 增补快照项 | skill | P1 | [x] | 合规表 + 检查范围 11～13 |
+| CASE-FLOW-05 | `privacy-desensitization-check` 对齐快照只读 | skill | P1 | [x] | §快照只读 10～15 |
 
 ---
 
 ## 7. 推荐执行顺序
 
 ```text
-A 文档 (CASE-DOC-01～06) — 含双闸门口径
-  → B 快照+锁定 (CASE-SNAP-01～08)     ← 大部分 ✅
-  → B2 双闸门 (CASE-GATE-A/B)          ← A backend ✅ · B backend ✅ · admin-web/小程序 UI 待接
-  → C 运营收口 (CASE-OPS-01～05)       ← ✅
-  → F 验收 (CASE-FLOW-01～03)       ← ✅
-  → D 提炼层 (CASE-ENR-*)
-  → E 商家润色 (CASE-MCH-*)
+A 文档 (CASE-DOC-01～06)              ← ✅
+  → B 快照+锁定 (CASE-SNAP-01～08)     ← ✅
+  → B2 双闸门 (CASE-GATE-A/B)          ← ✅
+  → C 运营收口 (CASE-OPS-01～06)       ← ✅
+  → D 提炼层 (CASE-ENR-*)              ← ✅
+  → E 商家润色 (CASE-MCH-*)            ← ✅
+  → F 验收 (CASE-FLOW-01～05)          ← ✅
 ```
 
 **与 GEO 专项关系**：
@@ -338,14 +338,14 @@ A 文档 (CASE-DOC-01～06) — 含双闸门口径
 
 | 阶段 | 任务数 | P0 | 状态 |
 | --- | ---: | ---: | ---: |
-| A 文档 | 6 | 5 | 待开发 |
-| B 快照锁定 | 8 | 8 | **大部分 ✅** |
-| **B2 双闸门** | **8** | **8** | **← 当前 P0 Sprint** |
-| C 运营收口 | 6 | 4 | 待开发 |
-| D 提炼层 GEO | 6 | 0 | 待开发 |
-| E 商家润色 | 5 | 0 | 待开发 |
-| F 验收 | 5 | 3 | 待开发 |
-| **合计** | **44** | **28** | |
+| A 文档 | 6 | 5 | **✅** |
+| B 快照锁定 | 8 | 8 | **✅** |
+| **B2 双闸门** | **8** | **8** | **✅** |
+| C 运营收口 | 6 | 4 | **✅** |
+| D 提炼层 GEO | 6 | 0 | **✅** |
+| E 商家润色 | 5 | 0 | **✅** |
+| F 验收 | 5 | 3 | **✅** |
+| **合计** | **44** | **28** | **卷九 ✅** |
 
 ---
 
@@ -376,3 +376,7 @@ A 文档 (CASE-DOC-01～06) — 含双闸门口径
 | 2026-07-08 | V1.0 | 初稿：产品原则确认；快照/提炼分层；规则 vs LLM 建议；36 项任务 |
 | 2026-07-08 | V1.1 | 新增 §10 Agent Skills 四套 skill |
 | 2026-07-08 | V1.2 | **双闸门定稿**：D7～D11；A=完工合规+偏信任冻结展示；B=脱敏+用户内容；CASE-GATE-A/B 八项；SNAP-08 收口 |
+| 2026-07-09 | V1.3 | **阶段 E 完成**：CASE-MCH-01～05 商家授权前润色（套餐 gate + optimize 页 + snapshot 合并） |
+| 2026-07-09 | V1.4 | **阶段 F 完成**：CASE-FLOW-04/05 release-checklist + privacy skill 对齐快照只读 |
+| 2026-07-09 | V1.5 | **阶段 A 完成**：CASE-DOC-01～06 PRD/口径/数据结构同步 |
+| 2026-07-09 | V1.6 | **CASE-OPS-06**：举报下线 `report_offline` 留痕，保留 `content_json.snapshot` |
