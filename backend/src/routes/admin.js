@@ -426,6 +426,26 @@ router.get('/geo/citation-gaps', async (req, res, next) => {
   }
 })
 
+router.get('/geo/vehicle-topic-seeds', async (req, res, next) => {
+  try {
+    const { buildAdminVehicleTopicSeeds } = require('../services/admin-geo-vehicle-topic-seeds.service')
+    const data = await buildAdminVehicleTopicSeeds(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo/vehicle-topic-seeds/:slug/draft', async (req, res, next) => {
+  try {
+    const { createAdminGeoPageDraftFromVehicleSeed } = require('../services/admin-geo-vehicle-topic-seeds.service')
+    const data = await createAdminGeoPageDraftFromVehicleSeed(req.params.slug)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/geo/probe-report', async (req, res, next) => {
   try {
     const data = await buildGeoProbeReport(req.query)

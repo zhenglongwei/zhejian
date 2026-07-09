@@ -81,6 +81,8 @@
         />
       </view>
 
+      <text wx:if="{{item.statusHint}}" class="album-card__hint text-caption">{{item.statusHint}}</text>
+
       <text wx:if="{{item.deliverDateText}}" class="album-card__date text-caption">{{item.deliverDateText}}</text>
       <text
         wx:elif="{{item.updatedAtText}}"
@@ -111,6 +113,8 @@
             text="{{item.statusLabel}}"
           />
         </view>
+
+        <text wx:if="{{item.statusHint}}" class="album-card__hint text-caption">{{item.statusHint}}</text>
 
         <view
           wx:if="{{showProgress && item.stageProgress.length}}"

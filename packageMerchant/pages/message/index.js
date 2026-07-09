@@ -7,7 +7,7 @@ const {
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const { isLoggedIn } = require('../../../utils/auth')
-const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { promptMerchantWorkbenchSubscribe } = require('../../../utils/subscribe-message-prompt')
 
 Page({
   data: {
@@ -117,6 +117,6 @@ Page({
       this.onGoLogin()
       return
     }
-    requestMerchantNotificationSubscribe('merchant')
+    promptMerchantWorkbenchSubscribe()
   },
 })

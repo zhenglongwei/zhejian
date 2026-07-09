@@ -39,7 +39,7 @@ const {
   buildValidPlanPartIdSet,
   mergeEvidenceItemsForSave,
 } = require('../../../../utils/album-evidence-items')
-const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT, MERCHANT_COMPLETE_INSP_TITLE, MERCHANT_COMPLETE_INSP_INTRO } = require('../../../../constants/album-evidence-guide')
+const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT, MERCHANT_COMPLETE_INSP_TITLE, MERCHANT_COMPLETE_INSP_INTRO, MERCHANT_EXTRA_PART_SOP_STAGE3_HINT, MERCHANT_EXTRA_PART_SOP_STAGE4_HINT, MERCHANT_EXTRA_PART_SOP_LINK, MERCHANT_EXTRA_PART_SOP_MODAL_TITLE, MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT } = require('../../../../constants/album-evidence-guide')
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
@@ -59,6 +59,7 @@ const {
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
+const { promptMerchantAuditSubscribe } = require('../../../../utils/subscribe-message-prompt')
 const {
   buildMerchantEditInspectionView,
   collectMissingFromPanels,
@@ -190,6 +191,7 @@ Page({
     comparePairRows: [{ before: '', after: '' }],
     isComparePairStage: false,
     isPartsStage: false,
+    isPlanStage: false,
     planParts: [],
     planOcrLoading: false,
     planParseHint: '',
@@ -230,6 +232,9 @@ Page({
     oldPartPartOptions: [{ planPartId: '', label: '不关联配件' }],
     showOldPartTraces: false,
     oldPartIntroHint: MERCHANT_OLD_PART_INTRO,
+    extraPartSopStage3Hint: MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
+    extraPartSopStage4Hint: MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
+    extraPartSopLink: MERCHANT_EXTRA_PART_SOP_LINK,
     merchantInspHint: MERCHANT_INSPECTION_HINT,
     merchantInspSummary: { done: 0, total: 0, missing: 0 },
     merchantInspPanels: [],
@@ -406,9 +411,10 @@ Page({
   refreshCompareStageFlags(stageIndex = this.data.stageIndex) {
     const stageId = (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
     const isPartsStage = stageId === STAGE_PARTS_ID
+    const isPlanStage = stageId === STAGE_PLAN_ID
     const isComparePairStage =
       COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId) && stageId === STAGE_COMPARE_ID
-    this.setData({ isComparePairStage, isPartsStage })
+    this.setData({ isComparePairStage, isPartsStage, isPlanStage })
     this.refreshStageEvidenceUI(stageIndex, { isComparePairStage })
     return isComparePairStage
   },
@@ -602,6 +608,15 @@ Page({
     wx.showModal({
       title: '切换模板',
       content: TEMPLATE_SWITCH_HELP,
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
+  onExtraPartSopHelp() {
+    wx.showModal({
+      title: MERCHANT_EXTRA_PART_SOP_MODAL_TITLE,
+      content: MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT,
       showCancel: false,
       confirmText: '知道了',
     })
@@ -807,8 +822,11 @@ Page({
   applyPartCodeCandidate(rowIndex, candidate = {}) {
     const code = String(candidate.partCode || '').trim()
     if (rowIndex < 0 || !code) return
+    const row = (this.data.partWizardRows || [])[rowIndex] || {}
     const patch = {
       [`partWizardRows[${rowIndex}].partCode`]: code,
+      [`partWizardRows[${rowIndex}].partCodeFromOcr`]: true,
+      [`partWizardRows[${rowIndex}].ocrRevision`]: Number(row.ocrRevision || 0) + 1,
     }
     const brand = String(candidate.partBrand || '').trim()
     if (brand) {
@@ -1112,6 +1130,10 @@ Page({
     if (row.typeLocked && row.planType) {
       mergedRow.partType = row.planType
     }
+    if (row.partCodeFromOcr || row.ocrRevision) {
+      mergedRow.ocrRevision = row.ocrRevision || 1
+      mergedRow.confirmedAt = new Date().toISOString()
+    }
     const planParts = this.syncPlanPartsFromWizardRow(mergedRow)
     const parts = this.mapPartsWithVariants(
       mergeWizardRowIntoParts(this.data.parts, mergedRow),
@@ -1401,6 +1423,7 @@ Page({
       }
       const detail = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(detail)
+      promptMerchantAuditSubscribe(this.albumId)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })

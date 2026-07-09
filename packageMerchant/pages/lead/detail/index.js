@@ -18,6 +18,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { promptMerchantLeadSubscribe } = require('../../../../utils/subscribe-message-prompt')
 
 Page({
   data: {
@@ -93,6 +94,9 @@ Page({
         ...this.buildBottomBarState(lead.status),
         status: 'normal',
       })
+      if ([LEAD_STATUS.SUBMITTED, LEAD_STATUS.VIEWED].includes(lead.status)) {
+        promptMerchantLeadSubscribe(this.leadId)
+      }
     } catch (e) {
       this.setData({
         status: 'error',

@@ -88,6 +88,12 @@ function mergeWizardRowIntoParts(parts = [], row = {}) {
     source: row.source || 'plan_linked',
     qty: row.qty || 1,
   }
+  if (row.ocrRevision != null) {
+    payload.ocrRevision = row.ocrRevision
+  }
+  if (row.confirmedAt) {
+    payload.confirmedAt = row.confirmedAt
+  }
   const index = list.findIndex(
     (item) =>
       String(item.partId || item.id || '') === String(partId) ||

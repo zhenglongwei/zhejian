@@ -231,7 +231,7 @@
 | ---: | --- | --- | ---: | ---: | --- |
 | CASE-GATE-A-01 | 相册 `complianceStatus` 状态机（pending/passed/rejected） | `service-album.service.js` · schema | P0 | [x] | migration + complete 挂钩 |
 | CASE-GATE-A-02 | 自动规则引擎（禁词/导流/OCR 风险摘要） | `album-compliance.service.js` | P0 | [x] | 禁词+外链/微信/手机 |
-| CASE-GATE-A-03 | **A 通过后** merchant save 409 + 用户冻结展示 API 字段 | `service-album.service.js` · 用户详情页 | P0 | [x] | backend 字段；小程序 UI 待接 |
+| CASE-GATE-A-03 | **A 通过后** merchant save 409 + 用户冻结展示 API 字段 | `service-album.service.js` · 用户详情页 | P0 | [x] | backend ✅；详情/评价/列表卡 `statusHint` ✅ |
 | CASE-GATE-A-04 | 运营抽检队列「相册完工合规」 | `admin-album-compliance` · admin-web | P0 | [x] | list/detail + GateReviewNav |
 | CASE-GATE-B-01 | 案例审核范围收窄为脱敏+用户侧内容 | `admin-case.service.js` · PRD | P0 | [x] | 合规类驳回归 A；gateScope API |
 | CASE-GATE-B-02 | 结构化驳回原因 + 用户端可读 copy | API + 小程序 | P0 | [x] | backend + admin REJECT_REASONS + 用户 banner |
@@ -380,3 +380,4 @@ A 文档 (CASE-DOC-01～06)              ← ✅
 | 2026-07-09 | V1.4 | **阶段 F 完成**：CASE-FLOW-04/05 release-checklist + privacy skill 对齐快照只读 |
 | 2026-07-09 | V1.5 | **阶段 A 完成**：CASE-DOC-01～06 PRD/口径/数据结构同步 |
 | 2026-07-09 | V1.6 | **CASE-OPS-06**：举报下线 `report_offline` 留痕，保留 `content_json.snapshot` |
+| 2026-07-09 | V1.7 | **CASE-GATE-A-03 备注**：小程序详情/评价已接冻结提示；列表卡待补 |

@@ -219,6 +219,10 @@
               </view>
             </view>
             <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].photoTips}}</text>
+            <view class="merchant-album-edit__extra-sop">
+              <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage4Hint}}</text>
+              <text class="text-caption text-link merchant-album-edit__extra-sop-link" bindtap="onExtraPartSopHelp">{{extraPartSopLink}}</text>
+            </view>
             <view wx:if="{{planParseHint}}" class="merchant-album-edit__parse-hint">
               <text class="text-caption">{{planParseHint}}</text>
             </view>
@@ -389,6 +393,10 @@
             bind:imageschange="onNodeImages"
             bind:notechange="onNodeNoteChange"
           />
+          <view wx:if="{{isPlanStage}}" class="merchant-album-edit__extra-sop">
+            <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage3Hint}}</text>
+            <text class="text-caption text-link merchant-album-edit__extra-sop-link" bindtap="onExtraPartSopHelp">{{extraPartSopLink}}</text>
+          </view>
         </block>
 
         <block wx:if="{{stages[stageIndex].id === 'stage_6'}}">

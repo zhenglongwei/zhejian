@@ -118,7 +118,7 @@ function buildInspectionTimelineContext(detail = {}, options = {}) {
     timeline,
     partsSummary: albumPartsSummary(detail.parts),
     partPairStats: {
-      matched: pairs.filter((p) => p.linkStatus === 'matched').length,
+      matched: pairs.filter((p) => p.linkStatus === 'linked').length,
       planOnly: pairs.filter((p) => p.linkStatus === 'plan_only').length,
       extra: extras.length,
     },

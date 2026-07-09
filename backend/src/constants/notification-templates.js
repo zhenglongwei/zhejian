@@ -7,6 +7,7 @@ const SUBSCRIBE_TEMPLATE_KEYS = {
     album: ['album', 'audit'],
     authorize: ['audit'],
     lead: ['lead'],
+    audit: ['audit'],
     merchant: ['lead', 'audit'],
   },
   byTemplateId: {},

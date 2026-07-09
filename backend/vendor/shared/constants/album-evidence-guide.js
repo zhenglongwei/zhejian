@@ -19,6 +19,19 @@ const OLD_PART_TRACE_MAX_COUNT = 9
 const MERCHANT_OLD_PART_INTRO =
   '更换类项目建议上传旧件或拆下照片；可多张。需要时可点选对应配件名称，便于车主核对；不选也可保存。'
 
+/** B-PART · 施工增项留痕 SOP（Phase 1 · 见 docs/04/11_施工增项留痕SOP.md） */
+const MERCHANT_EXTRA_PART_SOP_STAGE3_HINT =
+  '施工中有新增项目？先线下取得客户确认，在本页补传增项单或最新报价单（签字/沟通截图），再到「配件凭证」按目录登记。'
+const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT =
+  '若新增更换件：请回「方案与报价」补传经确认的增项单，更新配件目录（从报价单识别或添加配件行），再回到本页上传凭证。'
+const MERCHANT_EXTRA_PART_SOP_LINK = '增项留痕指引'
+const MERCHANT_EXTRA_PART_SOP_MODAL_TITLE = '施工增项怎么留痕'
+const MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT =
+  '1. 线下：取得客户对增项项目与金额的确认（签字单或沟通截图）。\n' +
+  '2. 方案与报价：补传经确认的增项/报价单，更新方案总额与配件目录。\n' +
+  '3. 配件凭证：对新增项上传类型与凭证图。\n' +
+  '4. 相册仅作过程留痕，不代替门店审批或电子签。'
+
 const EVIDENCE_STRENGTH = {
   OPTIONAL: 'optional',
   RECOMMENDED: 'recommended',
@@ -234,6 +247,11 @@ module.exports = {
   OLD_PART_TRACE_STAGE_ID,
   OLD_PART_TRACE_MAX_COUNT,
   MERCHANT_OLD_PART_INTRO,
+  MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
+  MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
+  MERCHANT_EXTRA_PART_SOP_LINK,
+  MERCHANT_EXTRA_PART_SOP_MODAL_TITLE,
+  MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT,
   EVIDENCE_STRENGTH,
   STRENGTH_LABEL,
   STRENGTH_VARIANT,

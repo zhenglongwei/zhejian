@@ -152,6 +152,18 @@ function resolveListAlbumActions(item = {}) {
   }
 }
 
+/** 用户相册列表卡 · 双闸门/合规 inline 提示（CASE-GATE-A-03） */
+function resolveAlbumListStatusHint(item = {}, authAction = {}) {
+  if (authAction.hint) return authAction.hint
+  if (item.complianceRejectReason) {
+    return '门店留档合规审查未通过，请等待门店修改后重试'
+  }
+  if (item.publicCaseStatus === 'need_modify' && item.gateBRejectHint) {
+    return item.gateBRejectHint
+  }
+  return ''
+}
+
 function resolveUserAlbumShareVisible(item = {}) {
   const canOwnerShare = canOwnerShareAlbum({
     albumId: item.albumId,
@@ -239,6 +251,7 @@ function appendAlbumListPresentation(item, base = {}) {
   const coverInitial = resolveCoverInitial(merged)
   const stageProgress = buildAlbumListStageProgress(merged)
   const { authAction, withdrawAction } = resolveListAlbumActions(merged)
+  const statusHint = resolveAlbumListStatusHint(merged, authAction)
   const hasUnreadUpdate = Boolean(base.hasUnreadUpdate)
   return {
     ...base,
@@ -253,6 +266,7 @@ function appendAlbumListPresentation(item, base = {}) {
     stageProgress,
     authAction,
     withdrawAction,
+    statusHint,
     showShareButton: resolveUserAlbumShareVisible(merged),
     hasUnreadUpdate,
     showPartVerifyLink: Number(merged.partCount) > 0 || Boolean(merged.showPartVerifyLink),
@@ -474,6 +488,7 @@ module.exports = {
   buildAlbumListStageProgress,
   buildAlbumMetaLine,
   resolveAlbumAuthAction,
+  resolveAlbumListStatusHint,
   resolveAlbumWithdrawAction,
   resolveListAlbumActions,
   resolveAuthorizationCardAction,

@@ -1,4 +1,7 @@
-const { requestUserNotificationSubscribe } = require('./subscribe-message')
+const {
+  requestUserNotificationSubscribe,
+  requestMerchantNotificationSubscribe,
+} = require('./subscribe-message')
 
 const STORAGE_PREFIX = 'zj_subscribe_prompt_v1'
 
@@ -20,11 +23,9 @@ function markPrompted(storageKey) {
   }
 }
 
-/**
- * 场景弹窗 → 用户确认后再调 wx.requestSubscribeMessage（须在 confirm 点击链内）。
- */
-function promptUserNotificationSubscribe(options = {}) {
+function promptNotificationSubscribe(options = {}) {
   const {
+    requestSubscribe,
     scene = 'default',
     title = '开启微信通知',
     content = '',
@@ -51,12 +52,22 @@ function promptUserNotificationSubscribe(options = {}) {
           resolve({ accepted: false })
           return
         }
-        requestUserNotificationSubscribe(scene, { showToast })
+        requestSubscribe(scene, { showToast })
           .then((results) => resolve({ accepted: true, results }))
           .catch(() => resolve({ accepted: false }))
       },
       fail: () => resolve({ accepted: false }),
     })
+  })
+}
+
+/**
+ * 场景弹窗 → 用户确认后再调 wx.requestSubscribeMessage（须在 confirm 点击链内）。
+ */
+function promptUserNotificationSubscribe(options = {}) {
+  return promptNotificationSubscribe({
+    ...options,
+    requestSubscribe: requestUserNotificationSubscribe,
   })
 }
 
@@ -87,8 +98,52 @@ function promptAuthorizeAuditSubscribe(albumId = '') {
   })
 }
 
+/** 商家 · 新咨询线索 */
+function promptMerchantLeadSubscribe(leadId = '') {
+  const storageKey = leadId ? `merchant:lead:${leadId}` : 'merchant:lead'
+  return promptNotificationSubscribe({
+    requestSubscribe: requestMerchantNotificationSubscribe,
+    scene: 'lead',
+    title: '接收新咨询提醒',
+    content:
+      '开启微信通知后，可在有新咨询线索时收到提醒。微信为一次性订阅，每条通知需单独授权。',
+    confirmText: '开启通知',
+    storageKey,
+  })
+}
+
+/** 商家 · 案例/留档审核结果 */
+function promptMerchantAuditSubscribe(refId = '') {
+  const storageKey = refId ? `merchant:audit:${refId}` : 'merchant:audit'
+  return promptNotificationSubscribe({
+    requestSubscribe: requestMerchantNotificationSubscribe,
+    scene: 'audit',
+    title: '接收审核结果',
+    content:
+      '开启微信通知后，可在案例审核或留档合规审查有结果时收到提醒。微信为一次性订阅，每条通知需单独授权。',
+    confirmText: '开启通知',
+    storageKey,
+  })
+}
+
+/** 商家 · 工作台消息页：新咨询 + 审核结果 */
+function promptMerchantWorkbenchSubscribe() {
+  return promptNotificationSubscribe({
+    requestSubscribe: requestMerchantNotificationSubscribe,
+    scene: 'merchant',
+    title: '开启微信通知',
+    content:
+      '开启后可接收新咨询线索、案例审核与留档合规结果提醒。微信为一次性订阅，每条通知需单独授权。',
+    confirmText: '开启通知',
+    storageKey: 'merchant:workbench',
+  })
+}
+
 module.exports = {
   promptUserNotificationSubscribe,
   promptAlbumProgressSubscribe,
   promptAuthorizeAuditSubscribe,
+  promptMerchantLeadSubscribe,
+  promptMerchantAuditSubscribe,
+  promptMerchantWorkbenchSubscribe,
 }
