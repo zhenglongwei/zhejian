@@ -16,7 +16,8 @@
  *   SMOKE_USER_ID           默认 user_demo_1
  *   SMOKE_USER_PHONE        默认 13812345678
  *   SMOKE_MERCHANT_USER_ID  默认 user_demo_1
- *   DEV_ADMIN_TOKEN         运营 token
+ *   DEV_ADMIN_TOKEN         运营 token（仅 DEV_AUTH_ENABLED=true 时有效）
+ *   SMOKE_ADMIN_PASSWORD    运营登录密码（生产推荐；默认同 ADMIN_PASSWORD）
  *   SMOKE_KEEP_DATA=1       保留测试数据
  */
 require('dotenv').config()
@@ -42,7 +43,6 @@ const STORE_ID = process.env.SMOKE_STORE_ID || 'store_demo_1'
 const USER_ID = process.env.SMOKE_USER_ID || 'user_demo_1'
 const USER_PHONE = process.env.SMOKE_USER_PHONE || '13812345678'
 const MERCHANT_USER_ID = process.env.SMOKE_MERCHANT_USER_ID || 'user_demo_1'
-const ADMIN_TOKEN = process.env.DEV_ADMIN_TOKEN || process.env.DEV_SYSTEM_TOKEN || 'dev_system_token_change_me'
 
 const SNAP_V1_TAG = 'SNAP_V1'
 const SNAP_V2_TAG = 'SNAP_V2'
@@ -58,6 +58,39 @@ function assert(cond, msg) {
 
 function log(step, detail = '') {
   console.log(`[case-snapshot-smoke] ${step}${detail ? ` · ${detail}` : ''}`)
+}
+
+async function resolveAdminToken() {
+  if (process.env.SMOKE_ADMIN_TOKEN) {
+    return process.env.SMOKE_ADMIN_TOKEN
+  }
+
+  const devToken = process.env.DEV_ADMIN_TOKEN || process.env.DEV_SYSTEM_TOKEN || ''
+  if (devToken && process.env.DEV_AUTH_ENABLED !== 'false') {
+    return devToken
+  }
+
+  const password = process.env.SMOKE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || ''
+  if (!password) {
+    if (devToken) {
+      log('warn', 'DEV_AUTH_ENABLED=false，dev token 无效；请设 ADMIN_PASSWORD 或 SMOKE_ADMIN_PASSWORD')
+    }
+    throw new Error(
+      '无法获取运营 token：请设置 SMOKE_ADMIN_TOKEN、或 ADMIN_PASSWORD（.env）、或 DEV_AUTH_ENABLED=true + DEV_ADMIN_TOKEN'
+    )
+  }
+
+  const res = await fetch(`${BASE}/api/v1/admin/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok || json.code !== 0 || !json.data?.token) {
+    throw new Error(`admin login -> ${res.status} ${JSON.stringify(json)}`)
+  }
+  log('auth', '已用 ADMIN_PASSWORD 签发运营 JWT')
+  return json.data.token
 }
 
 async function api(method, apiPath, { token, body, headers = {} } = {}) {
@@ -255,6 +288,12 @@ async function main() {
   log('start', `BASE=${BASE} DESENSITIZE_ENGINE=${process.env.DESENSITIZE_ENGINE || '(default)'}`)
 
   await api('GET', '/health')
+  const adminToken = await resolveAdminToken()
+  await api('GET', '/admin/cases?page=1&pageSize=1', {
+    token: adminToken,
+    headers: { 'X-Client-Type': 'admin' },
+  })
+  log('auth', '运营 token 校验通过')
   const { token: merchantToken } = await resolveMerchantToken()
   const userToken = await resolveUserToken()
 
@@ -327,7 +366,7 @@ async function main() {
     if (!complete.compliancePassed && complete.complianceStatus === 'spot_check') {
       log('FLOW-01', '命中抽检，运营 Gate A 通过')
       await api('POST', `/admin/album-compliance/${albumId}/approve`, {
-        token: ADMIN_TOKEN,
+        token: adminToken,
         headers: { 'X-Client-Type': 'admin' },
         body: { comment: 'CASE-FLOW smoke 抽检通过' },
       })
@@ -355,7 +394,7 @@ async function main() {
     assert(isAlbumContentLocked(lockedAlbum), '授权后相册应锁定')
 
     const approved = await api('POST', `/admin/cases/${caseId}/approve`, {
-      token: ADMIN_TOKEN,
+      token: adminToken,
       headers: { 'X-Client-Type': 'admin' },
       body: { comment: 'CASE-FLOW-01 冒烟通过' },
     })
@@ -448,7 +487,7 @@ async function main() {
     assert(snapV2.nodes.some((n) => (n.note || '').includes('SNAP_V2')), 'snapshot 应冻结 V2 note')
 
     const approved2 = await api('POST', `/admin/cases/${caseId}/approve`, {
-      token: ADMIN_TOKEN,
+      token: adminToken,
       headers: { 'X-Client-Type': 'admin' },
       body: { comment: 'CASE-FLOW-03 再授权通过' },
     })
