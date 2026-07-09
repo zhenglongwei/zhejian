@@ -507,6 +507,12 @@ async function main() {
       snapshotVersions: [1, 2],
       slug,
     })
+    if (process.env.SMOKE_KEEP_DATA !== '1') {
+      log(
+        'hint',
+        `ENR-06: SMOKE_KEEP_DATA=1 重跑可保留数据；再执行 SMOKE_CASE_ID=${caseId} npm run case:enrichment-feed-smoke`
+      )
+    }
   } finally {
     if (tmpFile && fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)
     if (process.env.SMOKE_KEEP_DATA !== '1') {
