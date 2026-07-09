@@ -1,8 +1,14 @@
 /**
  * GEO-CITE-C07/C09/C12 · 运营 LLM diff 与采纳
+ * CASE-OPS-04 · 快照冻结后禁止 adopt 写入 title/body
  */
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const {
+  hasFrozenCaseSnapshot,
+  LLM_ADOPT_SNAPSHOT_FROZEN_CODE,
+  buildSnapshotFrozenError,
+} = require('../constants/case-enrichment')
 const { GEO_LLM_STATUS } = require('../constants/case-geo-llm-status')
 const { CASE_ARTICLE_GENERATION_SOURCE } = require('../constants/case-article-status')
 const { mergeContentJsonGeo } = require('../schemas/case-geo-content.schema')
@@ -34,6 +40,7 @@ async function getAdminCaseGeoLlmDiff(caseId) {
   const content =
     ctx.row.contentJson && typeof ctx.row.contentJson === 'object' ? ctx.row.contentJson : {}
   const geo = content.geo && typeof content.geo === 'object' ? content.geo : {}
+  const snapshotFrozen = hasFrozenCaseSnapshot(content)
 
   return {
     caseId,
@@ -43,10 +50,13 @@ async function getAdminCaseGeoLlmDiff(caseId) {
     llmVerify: geo.llmVerify || null,
     original: mapTemplateOriginal(ctx.templatePayload),
     suggestion: geo.llmDraft || null,
-    canAdopt: geo.llmStatus === GEO_LLM_STATUS.READY && Boolean(geo.llmDraft),
+    snapshotFrozen,
+    canAdopt:
+      !snapshotFrozen && geo.llmStatus === GEO_LLM_STATUS.READY && Boolean(geo.llmDraft),
     canReject: [GEO_LLM_STATUS.READY, GEO_LLM_STATUS.FAILED].includes(geo.llmStatus),
-    disclaimer:
-      'LLM 建议稿仅供运营审核；未采纳前不会发布到 H5。采纳后仍须点击「通过」才会公开。',
+    disclaimer: snapshotFrozen
+      ? '案例快照已冻结：LLM 建议稿仅供只读对照，不可采纳进正文或快照字段。'
+      : 'LLM 建议稿仅供运营审核；未采纳前不会发布到 H5。采纳后仍须点击「通过」才会公开。',
   }
 }
 
@@ -60,6 +70,16 @@ async function adoptAdminCaseGeoLlm(caseId, options = {}) {
   if (row.status !== PUBLIC_CASE_STATUS.PENDING_REVIEW) {
     const err = new Error('当前状态不可采纳 LLM 建议')
     err.status = 409
+    throw err
+  }
+
+  const contentCheck =
+    row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+  if (hasFrozenCaseSnapshot(contentCheck)) {
+    const err = buildSnapshotFrozenError(
+      '案例快照已冻结，不可采纳 LLM 建议写入正文或快照字段'
+    )
+    err.code = LLM_ADOPT_SNAPSHOT_FROZEN_CODE
     throw err
   }
 

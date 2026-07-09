@@ -35,6 +35,10 @@ const {
   resolvePublicCaseContentNodes,
 } = require('../schemas/case-snapshot.schema')
 const {
+  applySnapshotLayerToPublicCase,
+  buildCasePublicLayerMeta,
+} = require('../utils/case-public-layers')
+const {
   resolveGeoReadableFields,
   mapCaseArticleForApi,
   mapCaseSeoForApi,
@@ -219,14 +223,14 @@ function mapPublicCaseRow(row, album) {
     priceFactors:
       geoFields.priceFactors.length > 0 ? geoFields.priceFactors : content.priceFactors || [],
     nodes: sanitizeNodes(content.nodes),
-    ...(() => {
-      const parts = partitionCaseFaq(content.faq)
-      return { faq: parts.inline, faqLinks: parts.links }
-    })(),
+    faq: geoFields.faq || [],
+    faqLinks: geoFields.faqLinks || [],
     slug: geoFields.slug || null,
     seoNoindex: Boolean(row.seoNoindex),
+    ...buildCasePublicLayerMeta(row),
   }
-  return applyPublicDisplayRules(item)
+  const layered = applySnapshotLayerToPublicCase(row, item)
+  return applyPublicDisplayRules(layered)
 }
 
 function mapFallbackCase(item) {
@@ -245,10 +249,13 @@ function mapFallbackCase(item) {
 
 function attachCaseArticleAndSeo(row, item) {
   const sourceRow = row || {}
+  const geoFields = resolveGeoReadableFields(sourceRow)
   const seo = mapCaseSeoForApi(sourceRow)
   const article = mapCaseArticleForApi(sourceRow)
+  const layerMeta = buildCasePublicLayerMeta(sourceRow)
   return {
     ...item,
+    ...layerMeta,
     seoTitle: seo.title || item.title || '',
     seoDescription: seo.description || item.summary || '',
     seoNoindex: seo.noindex,
@@ -258,6 +265,17 @@ function attachCaseArticleAndSeo(row, item) {
     articleBody: article.body,
     seo,
     article,
+    enrichment: {
+      version: layerMeta.enrichmentVersion,
+      aiSummary: geoFields.aiSummary,
+      faq: geoFields.faq || [],
+      faqLinks: geoFields.faqLinks || [],
+      keyInfo: geoFields.keyInfo || [],
+      sections: geoFields.sections || [],
+      nodeNarratives: geoFields.nodeNarratives || [],
+      seoTitle: geoFields.seoTitle,
+      seoDescription: geoFields.seoDescription,
+    },
   }
 }
 

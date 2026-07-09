@@ -17,6 +17,7 @@ const {
   ALBUM_COMPLIANCE_STATUS,
   USER_CONFIRM_HINT,
 } = require('../constants/album-compliance')
+const { buildGateBUserPayload } = require('../constants/case-gate-b')
 const {
   resolveAlbumNodeTemplate,
   buildAlbumNodesFromTemplate,
@@ -104,6 +105,8 @@ function countImages(nodes) {
 function resolvePublicCaseStatus(album) {
   if (album.publicCaseStatus === 'user_rejected') return 'user_rejected'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE) return 'private'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.NEED_MODIFY) return 'need_modify'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.REJECTED) return 'need_modify'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) return 'public_approved'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) return 'pending_review'
   if (album.authorization?.status === 'authorized') return 'pending_review'
@@ -227,6 +230,28 @@ function buildUserAlbumComplianceFields(album) {
   }
 }
 
+function buildUserAlbumGateBFields(album) {
+  const gateB = buildGateBUserPayload(album.publicCase)
+  if (!gateB) {
+    return {
+      gateBRejectType: '',
+      gateBRejectReason: '',
+      gateBRejectHint: '',
+      gateBUserActions: [],
+      canResubmitPublicCase: false,
+      desensitizePreviewSource: '',
+    }
+  }
+  return {
+    gateBRejectType: gateB.rejectType,
+    gateBRejectReason: gateB.rejectReason,
+    gateBRejectHint: gateB.userHint,
+    gateBUserActions: gateB.userActions,
+    canResubmitPublicCase: gateB.canResubmitPublicCase,
+    desensitizePreviewSource: gateB.desensitizePreviewSource,
+  }
+}
+
 function buildAlbumView(album) {
   const nodes = mapNodesForView(album)
   const imageCount = album.imageCount || countImages(nodes)
@@ -282,6 +307,7 @@ function buildAlbumView(album) {
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
     ...buildUserAlbumComplianceFields(album),
+    ...buildUserAlbumGateBFields(album),
   }
 }
 

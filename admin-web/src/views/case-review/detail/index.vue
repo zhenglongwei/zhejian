@@ -1,5 +1,6 @@
 <template>
   <div v-loading="loading">
+    <GateReviewNav />
     <el-page-header @back="goBack">
       <template #content>
         <span class="detail-title">{{ detail.title || '案例审核' }}</span>
@@ -171,6 +172,7 @@ import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
 import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
 import CaseGeoEditor from '@/components/case-review/CaseGeoEditor.vue'
 import CaseGeoLlmReview from '@/components/case-review/CaseGeoLlmReview.vue'
+import GateReviewNav from '@/components/case-review/GateReviewNav.vue'
 
 const route = useRoute()
 const router = useRouter()

@@ -281,12 +281,17 @@ model PublicCase {
   articleGeneratedAt  DateTime? @map("article_generated_at")
   seoNoindex          Boolean   @default(false) @map("seo_noindex")
   canonicalPath       String    @default("") @map("canonical_path") @db.VarChar(512)
+  gateBRejectType     String    @default("") @map("gate_b_reject_type") @db.VarChar(32)
+  gateBRejectReason   String    @default("") @map("gate_b_reject_reason") @db.Text
+  enrichmentJson      Json?     @map("enrichment_json")
+  enrichmentVersion   Int       @default(0) @map("enrichment_version")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
   album               Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@index([status])
   @@index([articleStatus])
+  @@index([enrichmentVersion])
   @@map("public_cases")
 }
 

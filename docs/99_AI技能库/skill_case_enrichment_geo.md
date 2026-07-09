@@ -66,6 +66,8 @@
 ```bash
 cd backend && node scripts/geo-aggregate-smoke.js
 # 实现 CASE-ENR-06 后扩展 h5-chain-smoke enrichment 段
+npm run case:enrichment-feed-smoke   # 仅 ENR-06
+npm run h5:chain-smoke               # 全链路含 ENR-06（需 DATABASE_URL + snapshot 案例）
 ```
 
 ## 输出格式（计划阶段）

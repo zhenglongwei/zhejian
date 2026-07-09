@@ -8,7 +8,10 @@ const {
 const {
   enrichServiceAlbumListItem,
   isRepairCompleted,
+  buildAlbumGateBanner,
+  buildGateActionButtons,
 } = require('../../../utils/service-album-display')
+const { runGateUserAction } = require('../../../utils/album-gate-actions')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const { promptAuthorizeAuditSubscribe, promptAlbumProgressSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
@@ -69,6 +72,7 @@ const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时申请公开公示。',
   pending_review: '公开申请审核中，通过后将展示在案例页与公开网页。',
   public_approved: '当前为公开相册，已在案例页与公开网页展示。',
+  need_modify: '公示审核需你修改后重新提交，请按下方提示处理。',
 }
 
 function buildStageProgress(chapters, activeNodeId) {
@@ -148,6 +152,8 @@ function buildNodeNoteMap(nodes) {
 
 function buildEndPageActionState(detail, showAuthSection) {
   const status = (detail && detail.publicCaseStatus) || 'private'
+  const gateBanner = buildAlbumGateBanner(detail || {})
+  const gateActions = buildGateActionButtons(detail || {})
   if (status === 'pending_review' || status === 'public_approved') {
     return {
       endPageShowAuth: false,
@@ -157,20 +163,35 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPageShowWithdraw: true,
       endPageWithdrawLabel: '撤回公示',
       endPageStatusHint:
-        status === 'pending_review'
+        gateBanner ||
+        (status === 'pending_review'
           ? PUBLIC_CASE_HINT.pending_review
-          : PUBLIC_CASE_HINT.public_approved,
+          : PUBLIC_CASE_HINT.public_approved),
+      endPageGateActions: gateActions,
+    }
+  }
+  if (status === 'need_modify') {
+    return {
+      endPageShowAuth: false,
+      endPageAuthLabel: '重新提交公示',
+      endPageAuthDisabled: false,
+      endPageAuthHint: '',
+      endPageShowWithdraw: true,
+      endPageWithdrawLabel: '撤回公示',
+      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
+      endPageGateActions: gateActions,
     }
   }
   if (showAuthSection) {
     return {
       endPageShowAuth: true,
       endPageAuthLabel: '授权公示',
-      endPageAuthDisabled: false,
-      endPageAuthHint: '',
+      endPageAuthDisabled: Boolean(detail && detail.canAuthorizePublicCase === false),
+      endPageAuthHint: (detail && detail.userConfirmHint) || '',
       endPageShowWithdraw: false,
       endPageWithdrawLabel: '撤回公示',
-      endPageStatusHint: '',
+      endPageStatusHint: gateBanner,
+      endPageGateActions: gateActions,
     }
   }
   return {
@@ -181,7 +202,9 @@ function buildEndPageActionState(detail, showAuthSection) {
     endPageShowWithdraw: false,
     endPageWithdrawLabel: '撤回公示',
     endPageStatusHint:
-      status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : '',
+      gateBanner ||
+      (status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : ''),
+    endPageGateActions: gateActions,
   }
 }
 
@@ -220,7 +243,7 @@ Page({
     endPageShowWithdraw: false,
     endPageWithdrawLabel: '撤回公示',
     endPageStatusHint: '',
-    withdrawSheetVisible: false,
+    endPageGateActions: [],
     withdrawSheetLoading: false,
     shareSheetIntent: 'owner',
     shareActionsDisabled: false,
@@ -734,6 +757,12 @@ Page({
 
   onEndPageFeedback(e) {
     this.goEngagePage()
+  },
+
+  onEndPageGateAction(e) {
+    const key = e.detail && e.detail.key
+    if (!key) return
+    runGateUserAction(this, key, this.data.detail || {})
   },
 
   onRetry() {

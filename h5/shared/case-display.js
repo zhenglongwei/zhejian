@@ -131,6 +131,7 @@
   }
 
   function prepareDisplayNodes(data) {
+    var snapshotFrozen = Number(data.snapshotVersion) >= 1
     var narratives = (data.article && data.article.nodeNarratives) || data.nodeNarratives || []
     var narrativeMap = {}
     narratives.forEach(function (item) {
@@ -142,7 +143,9 @@
         var id = normalizeText(node.id || node.nodeId)
         var narrative = narrativeMap[id]
         var note = normalizeText(node.note)
-        if (!note && narrative && narrative.description) note = normalizeText(narrative.description)
+        if (!note && !snapshotFrozen && narrative && narrative.description) {
+          note = normalizeText(narrative.description)
+        }
         if (
           isGenericFaultDesc(note) ||
           isGenericInspectResult(note) ||
@@ -197,6 +200,18 @@
   }
 
   function buildDisplayAiSummary(data) {
+    if (Number(data.snapshotVersion) >= 1) {
+      var frozenRaw = stripBoilerplateSummary(data.aiSummary || data.summary || '')
+      if (
+        frozenRaw &&
+        frozenRaw.length >= 8 &&
+        !isTemplateBoilerplateSummary(frozenRaw)
+      ) {
+        return frozenRaw.length > 180 ? frozenRaw.slice(0, 179) + '…' : frozenRaw
+      }
+      return ''
+    }
+
     var parts = []
     if (!isGenericFaultDesc(data.faultDesc)) parts.push(normalizeText(data.faultDesc))
     if (!isGenericInspectResult(data.inspectResult)) parts.push(normalizeText(data.inspectResult))
@@ -228,7 +243,25 @@
 
   function enrichCaseForRender(data) {
     var next = Object.assign({}, data)
-    next.displayNodes = prepareDisplayNodes(data)
+    if (data.enrichment && typeof data.enrichment === 'object') {
+      if (data.enrichment.aiSummary) next.aiSummary = data.enrichment.aiSummary
+      if (data.enrichment.faq) next.faq = data.enrichment.faq
+      if (data.enrichment.faqLinks) next.faqLinks = data.enrichment.faqLinks
+      if (data.enrichment.keyInfo && data.enrichment.keyInfo.length) {
+        next.keyInfo = data.enrichment.keyInfo
+      }
+      if (data.enrichment.sections && data.enrichment.sections.length) {
+        next.article = Object.assign({}, next.article || {}, {
+          sections: data.enrichment.sections,
+        })
+      }
+      if (data.enrichment.nodeNarratives && data.enrichment.nodeNarratives.length) {
+        next.article = Object.assign({}, next.article || {}, {
+          nodeNarratives: data.enrichment.nodeNarratives,
+        })
+      }
+    }
+    next.displayNodes = prepareDisplayNodes(next)
     next.nodes = next.displayNodes
     next.faultDesc = isGenericFaultDesc(data.faultDesc) ? '' : normalizeText(data.faultDesc)
     next.inspectResult = isGenericInspectResult(data.inspectResult) ? '' : normalizeText(data.inspectResult)

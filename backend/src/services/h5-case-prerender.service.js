@@ -77,12 +77,19 @@ function buildImageObjectSchemas(data, nodes, canonical) {
 }
 
 function buildBotBodyHtml(data) {
-  const summary = data.aiSummary || data.summary || ''
-  const nodes = data.nodes || []
+  const summary = data.displayAiSummary || data.aiSummary || data.summary || ''
+  const nodes = data.displayNodes || data.nodes || []
+  const articleBody =
+    Number(data.snapshotVersion) >= 1
+      ? String(data.articleBody || data.article?.body || '').trim()
+      : String(data.article?.body || data.articleBody || '').trim()
   const sections = [
     `<h1>${escapeHtml(data.title || '维修案例')}</h1>`,
     summary
       ? `<section data-bot="ai-summary"><h2>案例摘要</h2><p>${escapeHtml(summary)}</p></section>`
+      : '',
+    articleBody
+      ? `<section data-bot="article-body"><h2>案例正文</h2><p>${escapeHtml(articleBody).replace(/\n/g, '<br>')}</p></section>`
       : '',
     nodes.length
       ? `<section data-bot="process"><h2>维修过程</h2>${nodes
@@ -141,7 +148,8 @@ async function renderCaseBotHtml(caseIdOrSlug) {
     resolveCaseCanonicalPath({ slug: data.slug || data.seo?.slug, caseId: data.id })
   const canonical = absoluteUrl(canonicalPath)
   const title = data.seo?.title || data.title || '维修案例'
-  const description = data.aiSummary || data.summary || data.seo?.description || ''
+  const description =
+    data.displayAiSummary || data.aiSummary || data.summary || data.seo?.description || ''
 
   const jsonLdBlocks = []
   if (data.schemaGraph) {
@@ -157,10 +165,10 @@ async function renderCaseBotHtml(caseIdOrSlug) {
       image: data.coverImage || data.coverImageDesensitized || undefined,
     })
   }
-  const howTo = buildHowToSchema(data, data.nodes)
+  const howTo = buildHowToSchema(data, data.displayNodes || data.nodes)
   if (howTo) jsonLdBlocks.push(howTo)
   if (!data.schemaGraph) {
-    const imageObjects = buildImageObjectSchemas(data, data.nodes, canonical)
+    const imageObjects = buildImageObjectSchemas(data, data.displayNodes || data.nodes, canonical)
     jsonLdBlocks.push(...imageObjects)
   }
 

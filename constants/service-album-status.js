@@ -38,6 +38,7 @@ const ALBUM_VISIBILITY_LABEL = {
   authorization_pending: '私密相册',
   pending_review: '审核中',
   public_approved: '公开相册',
+  need_modify: '需修改后重提',
 }
 
 const ALBUM_VISIBILITY_VARIANT = {
@@ -46,6 +47,7 @@ const ALBUM_VISIBILITY_VARIANT = {
   authorization_pending: 'default',
   pending_review: 'info',
   public_approved: 'success',
+  need_modify: 'warning',
 }
 
 const SERVICE_ALBUM_STATUS_VARIANT = {

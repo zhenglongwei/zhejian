@@ -26,6 +26,11 @@ const {
   buildAlbumActionState,
   createAlbumAuthShareHandlers,
 } = require('../../../utils/album-auth-share-handlers')
+const {
+  buildAlbumGateBanner,
+  buildGateActionButtons,
+  runGateUserAction,
+} = require('../../../utils/album-gate-actions')
 
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
@@ -61,6 +66,8 @@ Page({
     submitting: false,
     loginSheetVisible: false,
     needsReviewImagePreview: false,
+    gateBanner: '',
+    gateActions: [],
     ...albumAuthShareData(),
   },
 
@@ -99,6 +106,8 @@ Page({
       const review = reviewCtx.review || null
       const hasReview = Boolean(review && review.id)
       const actionState = albumDetail ? buildAlbumActionState(albumDetail) : {}
+      const gateBanner = albumDetail ? buildAlbumGateBanner(albumDetail) : ''
+      const gateActions = albumDetail ? buildGateActionButtons(albumDetail) : []
       const albumTitle = reviewCtx.albumTitle || fallbackTitle || '我的服务相册'
       wx.setNavigationBarTitle({
         title: hasReview ? '评价已提交' : '评价与反馈',
@@ -114,6 +123,8 @@ Page({
         hasParts: Boolean(partCtx && partCtx.hasParts),
         partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
         needsReviewImagePreview: Boolean(reviewCtx.needsReviewImagePreview),
+        gateBanner,
+        gateActions,
         actionDetail: albumDetail,
         ...actionState,
       })
@@ -330,6 +341,15 @@ Page({
     } finally {
       this.setData({ submitting: false })
     }
+  },
+
+  onGateActionTap(e) {
+    const key =
+      (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) ||
+      (e.detail && e.detail.key) ||
+      ''
+    if (!key) return
+    runGateUserAction(this, key, this.data.actionDetail || {})
   },
 
   onShareAppMessage() {

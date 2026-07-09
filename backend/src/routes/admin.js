@@ -24,6 +24,7 @@ const {
 } = require('../services/admin-geo-page.service')
 const {
   updateAdminCaseGeoContent,
+  updateAdminCaseEnrichment,
   regenerateAdminCaseArticle,
 } = require('../services/admin-case-article.service')
 const {
@@ -270,6 +271,17 @@ router.put('/cases/:caseId/faq', async (req, res, next) => {
 router.put('/cases/:caseId/geo-content', async (req, res, next) => {
   try {
     const data = await updateAdminCaseGeoContent(req.params.caseId, req.body || {}, {
+      reviewerId: req.admin?.reviewerId,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/cases/:caseId/enrichment', async (req, res, next) => {
+  try {
+    const data = await updateAdminCaseEnrichment(req.params.caseId, req.body || {}, {
       reviewerId: req.admin?.reviewerId,
     })
     return ok(res, data)

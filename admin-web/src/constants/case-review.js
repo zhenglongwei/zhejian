@@ -28,14 +28,24 @@ export const RISK_LEVEL_LABEL = {
 }
 
 export const REJECT_REASONS = [
-  '隐私未脱敏',
-  '授权不足',
-  '内容不真实',
-  '违规宣传',
-  '门店/资质异常',
-  '纠纷/投诉',
-  'SEO不合规',
+  'desensitize_incomplete',
+  'desensitize_manual',
+  'review_content',
+  'review_image',
+  'authorization',
+  'user_content',
+  'other',
 ]
+
+export const GATE_B_REJECT_LABEL = {
+  desensitize_incomplete: '脱敏不完整',
+  desensitize_manual: '需手工脱敏',
+  review_content: '评价文案',
+  review_image: '评价配图',
+  authorization: '授权信息',
+  user_content: '用户侧内容',
+  other: '其他',
+}
 
 export const COMPLIANCE_NOTICES = [
   '公开案例不代表平台对维修质量背书。',

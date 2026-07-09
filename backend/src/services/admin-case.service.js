@@ -24,6 +24,8 @@ const {
   resolveGeoReadableFields,
   mergeContentJsonGeo,
 } = require('../schemas/case-geo-content.schema')
+const { extractSnapshotFromContentJson, resolveSnapshotVersion } = require('../schemas/case-snapshot.schema')
+const { resolveCaseGeoEditPolicy } = require('../constants/case-enrichment')
 const { CASE_ARTICLE_GENERATION_SOURCE } = require('../constants/case-article-status')
 const {
   partitionCaseFaq,
@@ -32,6 +34,13 @@ const {
 } = require('../utils/case-faq-links')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
 const { applyManualGeoOverrides } = require('./admin-case-article.service')
+const {
+  GATE_B_SCOPE_LABEL,
+  normalizeGateBRejectType,
+  resolveGateBRejectMeta,
+  listGateBRejectReasonOptions,
+  buildGateBUserPayload,
+} = require('../constants/case-gate-b')
 
 const RISK_RANK = RISK_LEVEL_ORDER
 
@@ -101,7 +110,11 @@ function buildListWhere(query = {}) {
     where.status = PUBLIC_CASE_STATUS.PUBLIC_APPROVED
   } else if (tab === 'rejected') {
     where.status = {
-      in: [PUBLIC_CASE_STATUS.REJECTED, PUBLIC_CASE_STATUS.USER_REJECTED],
+      in: [
+        PUBLIC_CASE_STATUS.REJECTED,
+        PUBLIC_CASE_STATUS.USER_REJECTED,
+        PUBLIC_CASE_STATUS.NEED_MODIFY,
+      ],
     }
   } else if (tab === 'need_modify') {
     where.status = PUBLIC_CASE_STATUS.NEED_MODIFY
@@ -340,6 +353,8 @@ async function getAdminCaseDetail(caseId) {
     { coldStart: source === 'cold_start' }
   )
   const geoReadable = resolveGeoReadableFields(row)
+  const snapshot = extractSnapshotFromContentJson(contentJson)
+  const geoEditPolicy = resolveCaseGeoEditPolicy(contentJson)
 
   return {
     caseId: row.id,
@@ -408,6 +423,25 @@ async function getAdminCaseDetail(caseId) {
       error: geoReadable.geo?.llmError || '',
       adoptedAt: geoReadable.geo?.llmAdoptedAt || '',
     },
+    gateScope: GATE_B_SCOPE_LABEL,
+    gateBRejectReasonOptions: listGateBRejectReasonOptions(),
+    gateBReject: buildGateBUserPayload(row),
+    snapshotVersion: resolveSnapshotVersion(contentJson),
+    snapshotFrozen: geoEditPolicy.frozen,
+    enrichmentVersion: row.enrichmentVersion || geoReadable.enrichment?.version || 0,
+    enrichmentEditableFields: {
+      top: geoEditPolicy.topFields,
+      block: geoEditPolicy.blockFields,
+    },
+    snapshotPreview: snapshot
+      ? {
+          title: snapshot.title || row.title,
+          summary: snapshot.summary || row.summary,
+          articleBodyLength: String(snapshot.articleBody || row.articleBody || '').length,
+          nodeCount: Array.isArray(snapshot.nodes) ? snapshot.nodes.length : 0,
+          frozenAt: snapshot.frozenAt || '',
+        }
+      : null,
   }
 }
 
@@ -464,7 +498,7 @@ async function assertCaseDesensitizeReady(caseId, options = {}) {
   if (detail.desensitizeSummary?.hasBlockingIssues) {
     const { failedCount = 0, needManualCount = 0, pendingCount = 0 } = detail.desensitizeSummary
     const err = new Error(
-      `仍有 ${failedCount + needManualCount + pendingCount} 张图片未完成脱敏，请先重试或退回商家处理`
+      `仍有 ${failedCount + needManualCount + pendingCount} 张图片未完成脱敏，请驳回并告知车主在小程序重试脱敏或手工打码`
     )
     err.status = 409
     err.code = 'DESENSITIZE_INCOMPLETE'
@@ -495,87 +529,155 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
       publicCase: true,
     },
   })
-  const hasUserAuth = album.authorization?.status === 'authorized'
   const caseSource = resolveCaseSource(album)
   await assertCaseDesensitizeReady(caseId, {
     skipQualityGates: shouldSkipUserAuthorizedQualityGates(caseSource),
   })
 
-  const task = await resolvePublishTask(row.albumId, {})
-  const hasOwner =
-    Boolean(String(album.userId || '').trim()) ||
-    Boolean(String(album.userPhone || '').trim())
-  const coldStart = !hasUserAuth && !hasOwner
-  const albumView = buildAlbumView(album)
-  const draft = buildCaseDraft(albumView, task, row.authorizationTier, {
-    coldStart,
-    hasUserAuthorization: hasUserAuth,
-    serviceItemId: album.serviceItemId || '',
-    templateId: album.templateId || '',
-  })
-  const priceColumns = buildPublicCaseDbPriceColumns(draft)
-  let articlePayload = buildCaseArticlePayload({
-    caseId,
-    draft,
-    albumView,
-    coldStart,
-    hasUserAuthorization: hasUserAuth,
-    serviceItemId: album.serviceItemId || '',
-    templateId: album.templateId || '',
-    previousArticleVersion: row.articleVersion || 0,
-  })
-  articlePayload = applyManualGeoOverrides(row, articlePayload)
-  const prevGeo =
-    row.contentJson && typeof row.contentJson === 'object' && row.contentJson.geo
-      ? row.contentJson.geo
-      : {}
-  if (prevGeo.generationSource === CASE_ARTICLE_GENERATION_SOURCE.LLM_V1) {
-    articlePayload.contentJson = mergeContentJsonGeo(articlePayload.contentJson, {
-      generationSource: prevGeo.generationSource,
-      generationVersion: prevGeo.generationVersion || 'llm_v1',
-      riskChecked: true,
-      llmStatus: prevGeo.llmStatus,
-      llmAdoptedAt: prevGeo.llmAdoptedAt,
-    })
-  }
-  articlePayload.slug = await ensureUniqueCaseSlug(prisma, articlePayload.slug, caseId)
-  articlePayload.canonicalPath = resolveCaseCanonicalPath({
-    slug: articlePayload.slug,
-    caseId,
-  })
-  const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
-  articlePayload.seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
-    city: row.city,
-    serviceName: row.serviceName,
-    imageCount: (album.images || []).length,
-  })
-  stampPublishedH5OnPayload(articlePayload)
+  const contentJson =
+    row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
+  const snapshot = extractSnapshotFromContentJson(contentJson)
   const now = new Date()
 
-  await prisma.publicCase.update({
-    where: { id: caseId },
-    data: {
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      title: articlePayload.title,
-      summary: articlePayload.summary,
-      coverImage: draft.coverImage,
-      contentJson: articlePayload.contentJson,
-      minAmount: priceColumns.minAmount,
-      maxAmount: priceColumns.maxAmount,
-      priceMode: priceColumns.priceMode,
-      publishedAt: now,
-      seoTitle: articlePayload.seoTitle,
-      seoDescription: articlePayload.seoDescription,
-      aiSummary: articlePayload.aiSummary,
-      articleBody: articlePayload.articleBody,
-      articleStatus: articlePayload.articleStatus,
-      articleVersion: articlePayload.articleVersion,
-      articleGeneratedAt: articlePayload.articleGeneratedAt,
-      seoNoindex: articlePayload.seoNoindex,
+  if (snapshot) {
+    const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
+    let slug = row.slug || ''
+    if (!slug) {
+      slug = await ensureUniqueCaseSlug(
+        prisma,
+        row.title || snapshot.title || caseId,
+        caseId
+      )
+    }
+    const canonicalPath =
+      row.canonicalPath ||
+      resolveCaseCanonicalPath({
+        slug,
+        caseId,
+      })
+    const seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+      city: row.city || snapshot.city,
+      serviceName: row.serviceName || snapshot.serviceName,
+      imageCount: (snapshot.nodes || []).reduce(
+        (sum, n) => sum + (n.images || []).length,
+        0
+      ),
+    })
+    const publishPayload = { contentJson }
+    stampPublishedH5OnPayload(publishPayload)
+    const { CASE_ARTICLE_STATUS: ARTICLE_STATUS } = require('../constants/case-article-status')
+    const {
+      buildEnrichmentFromPublicCaseRow,
+      mergeCaseEnrichmentPatch,
+    } = require('../schemas/case-enrichment.schema')
+    const publishedAtIso = now.toISOString()
+    const enrichment = mergeCaseEnrichmentPatch(
+      buildEnrichmentFromPublicCaseRow(row),
+      {
+        publishedH5At: publishedAtIso,
+        seoNoindex,
+        slug,
+        canonicalPath,
+        geo: { publishedH5At: publishedAtIso },
+      },
+      { bumpVersion: false, previousVersion: row.enrichmentVersion ?? 0 }
+    )
+    await prisma.publicCase.update({
+      where: { id: caseId },
+      data: {
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        coverImage: row.coverImage || snapshot.coverImage || '',
+        contentJson: publishPayload.contentJson,
+        publishedAt: now,
+        seoNoindex,
+        slug,
+        canonicalPath,
+        articleStatus: publishPayload.articleStatus || ARTICLE_STATUS.PUBLISHED_H5,
+        enrichmentJson: enrichment,
+        enrichmentVersion: enrichment.version,
+        gateBRejectType: '',
+        gateBRejectReason: '',
+      },
+    })
+  } else {
+    const hasUserAuth = album.authorization?.status === 'authorized'
+    const task = await resolvePublishTask(row.albumId, {})
+    const hasOwner =
+      Boolean(String(album.userId || '').trim()) ||
+      Boolean(String(album.userPhone || '').trim())
+    const coldStart = !hasUserAuth && !hasOwner
+    const albumView = buildAlbumView(album)
+    const draft = buildCaseDraft(albumView, task, row.authorizationTier, {
+      coldStart,
+      hasUserAuthorization: hasUserAuth,
+      serviceItemId: album.serviceItemId || '',
+      templateId: album.templateId || '',
+    })
+    const priceColumns = buildPublicCaseDbPriceColumns(draft)
+    let articlePayload = buildCaseArticlePayload({
+      caseId,
+      draft,
+      albumView,
+      coldStart,
+      hasUserAuthorization: hasUserAuth,
+      serviceItemId: album.serviceItemId || '',
+      templateId: album.templateId || '',
+      previousArticleVersion: row.articleVersion || 0,
+    })
+    articlePayload = applyManualGeoOverrides(row, articlePayload)
+    const prevGeo =
+      row.contentJson && typeof row.contentJson === 'object' && row.contentJson.geo
+        ? row.contentJson.geo
+        : {}
+    if (prevGeo.generationSource === CASE_ARTICLE_GENERATION_SOURCE.LLM_V1) {
+      articlePayload.contentJson = mergeContentJsonGeo(articlePayload.contentJson, {
+        generationSource: prevGeo.generationSource,
+        generationVersion: prevGeo.generationVersion || 'llm_v1',
+        riskChecked: true,
+        llmStatus: prevGeo.llmStatus,
+        llmAdoptedAt: prevGeo.llmAdoptedAt,
+      })
+    }
+    articlePayload.slug = await ensureUniqueCaseSlug(prisma, articlePayload.slug, caseId)
+    articlePayload.canonicalPath = resolveCaseCanonicalPath({
       slug: articlePayload.slug,
-      canonicalPath: articlePayload.canonicalPath,
-    },
-  })
+      caseId,
+    })
+    const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
+    articlePayload.seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+      city: row.city,
+      serviceName: row.serviceName,
+      imageCount: (album.images || []).length,
+    })
+    stampPublishedH5OnPayload(articlePayload)
+
+    await prisma.publicCase.update({
+      where: { id: caseId },
+      data: {
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        title: articlePayload.title,
+        summary: articlePayload.summary,
+        coverImage: draft.coverImage,
+        contentJson: articlePayload.contentJson,
+        minAmount: priceColumns.minAmount,
+        maxAmount: priceColumns.maxAmount,
+        priceMode: priceColumns.priceMode,
+        publishedAt: now,
+        seoTitle: articlePayload.seoTitle,
+        seoDescription: articlePayload.seoDescription,
+        aiSummary: articlePayload.aiSummary,
+        articleBody: articlePayload.articleBody,
+        articleStatus: articlePayload.articleStatus,
+        articleVersion: articlePayload.articleVersion,
+        articleGeneratedAt: articlePayload.articleGeneratedAt,
+        seoNoindex: articlePayload.seoNoindex,
+        slug: articlePayload.slug,
+        canonicalPath: articlePayload.canonicalPath,
+        gateBRejectType: '',
+        gateBRejectReason: '',
+      },
+    })
+  }
 
   await prisma.album.update({
     where: { id: row.albumId },
@@ -594,6 +696,13 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     afterStatus: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
   })
 
+  try {
+    const { mountCaseOnGeoPages } = require('./case-article-publish.service')
+    await mountCaseOnGeoPages(caseId, prisma, { bumpVersion: true })
+  } catch (e) {
+    console.warn('[geo-mount] approve case', e && e.message)
+  }
+
   const { notifyCaseAuditResult } = require('./notification.service')
   notifyCaseAuditResult({ album, approved: true, comment }).catch((e) => {
     console.warn('[notification] case approve', e && e.message)
@@ -602,8 +711,16 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
   return getAdminCaseDetail(caseId)
 }
 
-async function rejectAdminCase(caseId, { reviewerId, comment = '', reasonType = '' } = {}) {
-  const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
+async function applyGateBReject(
+  caseId,
+  { reviewerId, comment = '', reasonType = '', reviewAction = 'reject' } = {}
+) {
+  const row = await prisma.publicCase.findUnique({
+    where: { id: caseId },
+    include: {
+      album: { include: { authorization: true } },
+    },
+  })
   if (!row) {
     const err = new Error('案例不存在')
     err.status = 404
@@ -615,72 +732,73 @@ async function rejectAdminCase(caseId, { reviewerId, comment = '', reasonType = 
     throw err
   }
 
+  const normalized = normalizeGateBRejectType(reasonType)
+  if (normalized.error === 'GATE_A_ONLY') {
+    const err = new Error('商家留档合规类问题请在「相册完工合规（闸门 A）」处理，不在案例公示审核驳回')
+    err.status = 400
+    err.code = 'GATE_A_ONLY'
+    throw err
+  }
+  const rejectType = normalized.type
+  const meta = resolveGateBRejectMeta(rejectType)
+  const rejectReason = String(comment || '').trim() || meta.label
+  const afterStatus = PUBLIC_CASE_STATUS.NEED_MODIFY
+
   await prisma.publicCase.update({
     where: { id: caseId },
-    data: { status: PUBLIC_CASE_STATUS.REJECTED },
+    data: {
+      status: afterStatus,
+      gateBRejectType: rejectType,
+      gateBRejectReason: rejectReason,
+    },
   })
+
   await prisma.album.update({
     where: { id: row.albumId },
-    data: { publicCaseStatus: 'private' },
+    data: {
+      publicCaseStatus: 'need_modify',
+    },
   })
 
   await appendReviewLog({
     caseId,
     reviewerId,
-    reviewAction: 'reject',
-    reviewComment: [reasonType, comment].filter(Boolean).join('：'),
+    reviewAction,
+    reviewComment: `${meta.label}：${rejectReason}`,
     beforeStatus: row.status,
-    afterStatus: PUBLIC_CASE_STATUS.REJECTED,
+    afterStatus,
   })
 
-  const album = await prisma.album.findUnique({
-    where: { id: row.albumId },
-    include: { publicCase: true },
-  })
+  const album = row.album
   const { notifyCaseAuditResult } = require('./notification.service')
   notifyCaseAuditResult({
     album,
     approved: false,
-    comment: [reasonType, comment].filter(Boolean).join('：'),
+    comment: meta.userHint,
+    rejectType,
   }).catch((e) => {
-    console.warn('[notification] case reject', e && e.message)
+    console.warn('[notification] case gate-b reject', e && e.message)
   })
 
   return getAdminCaseDetail(caseId)
 }
 
-async function requestModifyAdminCase(caseId, { reviewerId, comment = '', reasonType = '' } = {}) {
-  const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
-  if (!row) {
-    const err = new Error('案例不存在')
-    err.status = 404
-    throw err
-  }
-  if (row.status !== PUBLIC_CASE_STATUS.PENDING_REVIEW) {
-    const err = new Error('当前状态不可要求修改')
-    err.status = 409
-    throw err
-  }
-
-  await prisma.publicCase.update({
-    where: { id: caseId },
-    data: { status: PUBLIC_CASE_STATUS.NEED_MODIFY },
-  })
-  await prisma.album.update({
-    where: { id: row.albumId },
-    data: { publicCaseStatus: 'pending_review' },
-  })
-
-  await appendReviewLog({
-    caseId,
+async function rejectAdminCase(caseId, { reviewerId, comment = '', reasonType = '' } = {}) {
+  return applyGateBReject(caseId, {
     reviewerId,
-    reviewAction: 'request_modify',
-    reviewComment: [reasonType, comment].filter(Boolean).join('：'),
-    beforeStatus: row.status,
-    afterStatus: PUBLIC_CASE_STATUS.NEED_MODIFY,
+    comment,
+    reasonType,
+    reviewAction: 'reject',
   })
+}
 
-  return getAdminCaseDetail(caseId)
+async function requestModifyAdminCase(caseId, { reviewerId, comment = '', reasonType = '' } = {}) {
+  return applyGateBReject(caseId, {
+    reviewerId,
+    comment,
+    reasonType,
+    reviewAction: 'request_modify',
+  })
 }
 
 async function retryAdminCaseAsset(caseId, assetId, options = {}) {
@@ -756,6 +874,7 @@ module.exports = {
   approveAdminCase,
   rejectAdminCase,
   requestModifyAdminCase,
+  applyGateBReject,
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
   updateAdminCaseFaqLinks,

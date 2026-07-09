@@ -6,6 +6,7 @@
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 const { toIso } = require('../lib/ids')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
+const { partitionCaseFaq } = require('../utils/case-faq-links')
 
 const GEO_SECTION_KEYS = [
   'overview',
@@ -202,14 +203,17 @@ function mergeContentJsonGeo(contentJson, geoPatch) {
  * @param {object} row public_cases 行（含顶列 + contentJson）
  */
 function resolveGeoReadableFields(row) {
+  const { resolveCaseEnrichment } = require('./case-enrichment.schema')
+  const enrichment = resolveCaseEnrichment(row)
   const content = isPlainObject(row?.contentJson) ? row.contentJson : {}
-  const geo = extractGeoBlock(content)
+  const geo = enrichment?.geo || extractGeoBlock(content)
   const keyInfo = Array.isArray(geo.keyInfo) ? geo.keyInfo : []
   const priceFactors = Array.isArray(geo.priceFactors) ? geo.priceFactors : []
   const sections = Array.isArray(geo.sections) ? geo.sections : []
   const nodeNarratives = Array.isArray(geo.nodeNarratives) ? geo.nodeNarratives : []
   return {
     aiSummary:
+      normalizeString(enrichment?.aiSummary) ||
       normalizeString(row?.aiSummary) ||
       normalizeString(content.aiSummary) ||
       normalizeString(row?.summary),
@@ -222,13 +226,22 @@ function resolveGeoReadableFields(row) {
     sections,
     nodeNarratives,
     articleBody: normalizeString(row?.articleBody),
-    seoTitle: normalizeString(row?.seoTitle) || normalizeString(row?.title),
+    seoTitle:
+      normalizeString(enrichment?.seoTitle) ||
+      normalizeString(row?.seoTitle) ||
+      normalizeString(row?.title),
     seoDescription:
-      normalizeString(row?.seoDescription) || normalizeString(row?.summary),
-    seoNoindex: Boolean(row?.seoNoindex),
-    canonicalPath: normalizeString(row?.canonicalPath),
-    slug: row?.slug ? normalizeString(row.slug) : null,
+      normalizeString(enrichment?.seoDescription) ||
+      normalizeString(row?.seoDescription) ||
+      normalizeString(row?.summary),
+    seoNoindex: enrichment?.seoNoindex ?? Boolean(row?.seoNoindex),
+    canonicalPath:
+      normalizeString(enrichment?.canonicalPath) || normalizeString(row?.canonicalPath),
+    slug: enrichment?.slug ?? (row?.slug ? normalizeString(row.slug) : null),
     articleStatus: normalizeString(row?.articleStatus) || 'pending',
+    enrichment,
+    faq: enrichment?.faq || partitionCaseFaq(content.faq).inline,
+    faqLinks: enrichment?.faqLinks || partitionCaseFaq(content.faq).links,
     geo,
   }
 }
@@ -245,16 +258,18 @@ const ARTICLE_READY_STATUSES = new Set([
  * @param {object} row public_cases 行（含顶列 + contentJson）
  */
 function mapCaseArticleForApi(row) {
+  const { resolveSnapshotArticleBody } = require('../utils/case-public-layers')
   const fields = resolveGeoReadableFields(row)
   const geo = fields.geo || {}
+  const body = resolveSnapshotArticleBody(row) || fields.articleBody
   /** 仅有 published 态但无正文时不算 hasArticle（存量须 generate-content 补跑） */
-  const hasArticle = Boolean(String(fields.articleBody || '').trim())
+  const hasArticle = Boolean(String(body || '').trim())
   return {
     hasArticle,
     status: fields.articleStatus,
     version: Number.isFinite(row?.articleVersion) ? row.articleVersion : 0,
     generatedAt: row?.articleGeneratedAt ? toIso(row.articleGeneratedAt) : '',
-    body: fields.articleBody,
+    body,
     sections: fields.sections,
     nodeNarratives: fields.nodeNarratives,
     generationSource: geo.generationSource || '',

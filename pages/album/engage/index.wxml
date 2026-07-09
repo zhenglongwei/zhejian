@@ -19,6 +19,7 @@
     <view class="page-content album-engage__body {{eligible && !hasReview ? 'album-engage__body--with-bar' : ''}}">
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
+        <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
         <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，你可继续授权公示或分享相册</text>
       </view>
 
@@ -28,8 +29,16 @@
           <text wx:if="{{existingAlbumScore > 0}}" class="text-caption text-secondary">记录 {{existingAlbumScore}}</text>
         </view>
 
-        <ui-card wx:if="{{hasReview && (showAuthAction || showShareButton || showStoreBrowse || hasParts || needsReviewImagePreview)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
+        <ui-card wx:if="{{hasReview && (showAuthAction || showShareButton || showStoreBrowse || hasParts || needsReviewImagePreview || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
           <view class="album-engage__actions">
+            <ui-button
+              wx:for="{{gateActions}}"
+              wx:key="key"
+              type="secondary"
+              block
+              data-key="{{item.key}}"
+              bind:btntap="onGateActionTap"
+            >{{item.label}}</ui-button>
             <ui-button
               wx:if="{{needsReviewImagePreview}}"
               type="secondary"

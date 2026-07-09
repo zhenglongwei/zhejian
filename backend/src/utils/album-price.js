@@ -195,6 +195,60 @@ function buildPublicCaseDbPriceColumns(draft = {}) {
 }
 
 function resolvePublicCasePriceFields(row = {}, album = null) {
+  const { extractSnapshotFromContentJson } = require('../schemas/case-snapshot.schema')
+  const snapshot = extractSnapshotFromContentJson(row.contentJson)
+  if (snapshot) {
+    const tier = row.authorizationTier || snapshot.authorizationTier || PUBLIC_AUTH_TIER.NAMED
+    const hasUserAuth =
+      tier === PUBLIC_AUTH_TIER.ANONYMOUS || tier === PUBLIC_AUTH_TIER.NAMED
+    const price = snapshot.price && typeof snapshot.price === 'object' ? snapshot.price : null
+    const planAmount = price?.planAmount ?? snapshot.planAmount ?? null
+    const minAmount = price?.minAmount ?? row.minAmount ?? null
+    const maxAmount = price?.maxAmount ?? row.maxAmount ?? null
+    const amount = price?.amount ?? null
+    const priceMode = price?.priceMode || row.priceMode || ''
+
+    if (priceMode === PRICE_MODE.FIXED || (amount != null && amount > 0)) {
+      return buildPublicCasePrice(
+        {
+          id: row.id,
+          albumId: row.albumId,
+          authorizationTier: tier,
+          planAmount: planAmount ?? amount,
+          amount: amount ?? planAmount,
+        },
+        { hasUserAuthorization: hasUserAuth }
+      )
+    }
+
+    if (minAmount != null && maxAmount != null) {
+      return buildPublicCasePrice(
+        {
+          id: row.id,
+          albumId: row.albumId,
+          authorizationTier: tier,
+          minAmount,
+          maxAmount,
+          planAmount: planAmount ?? minAmount,
+        },
+        { hasUserAuthorization: hasUserAuth }
+      )
+    }
+
+    if (planAmount != null && planAmount > 0) {
+      return buildPublicCasePrice(
+        {
+          id: row.id,
+          albumId: row.albumId,
+          authorizationTier: tier,
+          planAmount,
+          amount: planAmount,
+        },
+        { hasUserAuthorization: hasUserAuth }
+      )
+    }
+  }
+
   const tier = row.authorizationTier || PUBLIC_AUTH_TIER.NAMED
   const hasUserAuth =
     tier === PUBLIC_AUTH_TIER.ANONYMOUS || tier === PUBLIC_AUTH_TIER.NAMED

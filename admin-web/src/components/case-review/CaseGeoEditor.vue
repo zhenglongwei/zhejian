@@ -3,7 +3,7 @@
     <template #header>
       <div class="case-geo__head">
         <div class="case-geo__head-main">
-          <span>GEO 文案（模板稿）</span>
+          <span>{{ snapshotFrozen ? '提炼层（SEO / 摘要）' : 'GEO 文案（模板稿）' }}</span>
           <GeoQualityTag
             v-if="geoQuality"
             :level="geoQuality.level"
@@ -23,6 +23,15 @@
     </template>
 
     <el-alert
+      v-if="snapshotFrozen"
+      title="案例快照已冻结：故障/检测/方案/正文来自用户授权瞬间，不可修改。下方仅可编辑 SEO 与 AI 摘要提炼层。"
+      type="warning"
+      :closable="false"
+      show-icon
+      class="case-geo__notice"
+    />
+    <el-alert
+      v-else
       title="摘要为 AI 可引用首屏内容，须基于节点事实、禁止编造。手改字段在「模板重生成」时不会被覆盖。"
       type="info"
       :closable="false"
@@ -45,12 +54,22 @@
       <el-row :gutter="16">
         <el-col :span="12">
           <el-form-item label="故障现象（聚合）">
-            <el-input v-model="form.faultDesc" type="textarea" :rows="3" />
+            <el-input
+              v-model="form.faultDesc"
+              type="textarea"
+              :rows="3"
+              :disabled="snapshotFrozen"
+            />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="检测结论（聚合）">
-            <el-input v-model="form.inspectResult" type="textarea" :rows="3" />
+            <el-input
+              v-model="form.inspectResult"
+              type="textarea"
+              :rows="3"
+              :disabled="snapshotFrozen"
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -58,12 +77,22 @@
       <el-row :gutter="16">
         <el-col :span="12">
           <el-form-item label="维修方案（聚合）">
-            <el-input v-model="form.repairPlan" type="textarea" :rows="3" />
+            <el-input
+              v-model="form.repairPlan"
+              type="textarea"
+              :rows="3"
+              :disabled="snapshotFrozen"
+            />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="完工确认（聚合）">
-            <el-input v-model="form.resultConfirm" type="textarea" :rows="3" />
+            <el-input
+              v-model="form.resultConfirm"
+              type="textarea"
+              :rows="3"
+              :disabled="snapshotFrozen"
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -82,16 +111,21 @@
       </el-form-item>
 
       <el-form-item label="正文（次级，过程段）">
-        <el-input v-model="form.articleBody" type="textarea" :rows="8" />
+        <el-input
+          v-model="form.articleBody"
+          type="textarea"
+          :rows="8"
+          :disabled="snapshotFrozen"
+        />
       </el-form-item>
     </el-form>
   </el-card>
 </template>
 
 <script setup>
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { updateCaseGeoContent, regenerateCaseArticle } from '@/api/case-review'
+import { updateCaseGeoContent, updateCaseEnrichment, regenerateCaseArticle } from '@/api/case-review'
 import GeoQualityTag from './GeoQualityTag.vue'
 
 const props = defineProps({
@@ -116,6 +150,18 @@ const form = reactive({
 })
 
 const geoQuality = ref(null)
+const snapshotFrozen = computed(() => Boolean(props.detail?.snapshotFrozen))
+
+function buildSavePayload() {
+  if (snapshotFrozen.value) {
+    return {
+      aiSummary: form.aiSummary,
+      seoTitle: form.seoTitle,
+      seoDescription: form.seoDescription,
+    }
+  }
+  return { ...form }
+}
 
 function syncFromDetail(detail) {
   const geo = detail.geo || {}
@@ -144,7 +190,8 @@ async function onSave() {
   }
   saving.value = true
   try {
-    const data = await updateCaseGeoContent(props.caseId, { ...form })
+    const saveApi = snapshotFrozen.value ? updateCaseEnrichment : updateCaseGeoContent
+    const data = await saveApi(props.caseId, buildSavePayload())
     emit('saved', data)
     ElMessage.success('GEO 文案已保存')
   } catch (e) {
@@ -158,8 +205,10 @@ async function onRegenerate() {
   if (!props.editable || regenerating.value) return
   try {
     await ElMessageBox.confirm(
-      '将按最新节点 note 重新生成模板稿；你已手改的字段会保留。是否继续？',
-      '模板重生成',
+      snapshotFrozen.value
+        ? '将基于授权快照重生成 SEO / 摘要提炼层，快照正文与节点不会被改动；手改字段会保留。是否继续？'
+        : '将按最新节点 note 重新生成模板稿；你已手改的字段会保留。是否继续？',
+      snapshotFrozen.value ? '提炼层重生成' : '模板重生成',
       { type: 'warning' }
     )
   } catch {

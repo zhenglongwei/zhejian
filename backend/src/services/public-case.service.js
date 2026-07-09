@@ -12,6 +12,7 @@ const { assertGeoPublishable } = require('../utils/case-geo-quality')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
 const { buildCaseSnapshot } = require('./case-snapshot.service')
+const { buildEnrichmentFromPublicCaseRow } = require('../schemas/case-enrichment.schema')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -174,6 +175,8 @@ function assertPublicCasePublishable(publicCase) {
   if (!publicCase) return
   const status = publicCase.status
   if (status === PUBLIC_CASE_STATUS.OFFLINE) return
+  if (status === PUBLIC_CASE_STATUS.NEED_MODIFY) return
+  if (status === PUBLIC_CASE_STATUS.REJECTED) return
   if (status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
     const err = new Error('公示审核中，请耐心等待')
     err.status = 409
@@ -287,6 +290,24 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
+  const enrichmentSeedRow = {
+    contentJson,
+    aiSummary: articlePayload.aiSummary,
+    seoTitle: articlePayload.seoTitle,
+    seoDescription: articlePayload.seoDescription,
+    seoNoindex: articlePayload.seoNoindex,
+    canonicalPath: articlePayload.canonicalPath,
+    slug: wasOffline ? null : album.publicCase?.slug,
+    articleVersion: snapshot.version,
+    enrichmentVersion: album.publicCase?.enrichmentVersion || 0,
+    updatedAt: new Date(),
+  }
+  const enrichment = buildEnrichmentFromPublicCaseRow(enrichmentSeedRow, {
+    version: wasOffline
+      ? (album.publicCase?.enrichmentVersion || 0) + 1
+      : Math.max(album.publicCase?.enrichmentVersion || 0, 1) || 1,
+  })
+
   await prisma.publicCase.upsert({
     where: { albumId },
     create: {
@@ -313,9 +334,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
+      enrichmentJson: enrichment,
+      enrichmentVersion: enrichment.version,
     },
     update: {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      gateBRejectType: '',
+      gateBRejectReason: '',
       authorizationTier,
       title: snapshot.title,
       summary: snapshot.summary,
@@ -336,6 +361,8 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
+      enrichmentJson: enrichment,
+      enrichmentVersion: enrichment.version,
       ...(wasOffline ? { slug: null } : {}),
     },
   })

@@ -13,7 +13,12 @@ const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 const { mapGeoPageRow } = require('../schemas/geo-page.schema')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { matchGeoPagesForCaseMount } = require('../utils/geo-topic-matcher')
-const { resolveServiceItemId } = require('../utils/case-internal-links')
+const {
+  buildCaseMountItemFromRow,
+  mergeTopicMountIds,
+} = require('../utils/case-geo-mount')
+const { resolveCaseEnrichment } = require('../schemas/case-enrichment.schema')
+const { persistCaseEnrichmentForRow } = require('./case-enrichment.service')
 
 function assertArticleTransition(fromStatus, toStatus) {
   const from = fromStatus || CASE_ARTICLE_STATUS.PENDING
@@ -69,31 +74,19 @@ const GEO_MOUNT_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
 /**
  * GEO-TOPIC-C02 · 案例发布 H5 后挂载到匹配 geo_pages.related_case_ids
+ * CASE-ENR-03：只写 geo_pages + enrichment_json.topicMountIds，不改 snapshot
+ * @param {string} caseId
+ * @param {object} db
+ * @param {{ enrichmentPatch?: object, bumpVersion?: boolean }} [options]
  */
-async function mountCaseOnGeoPages(caseId, db) {
+async function mountCaseOnGeoPages(caseId, db, options = {}) {
   const row = await db.publicCase.findUnique({
     where: { id: caseId },
     include: { album: true },
   })
-  if (!row) return { mounted: 0, targetIds: [] }
+  if (!row) return { mounted: 0, targetIds: [], topicMountIds: [] }
 
-  const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-  const geoContent =
-    content.geo && typeof content.geo === 'object' ? content.geo : {}
-  const caseItem = {
-    id: row.id,
-    city: row.city || '',
-    serviceName: row.serviceName || '',
-    serviceItemId: resolveServiceItemId(
-      { serviceName: row.serviceName, serviceItemId: content.serviceItemId },
-      row.album
-    ),
-    title: row.title || '',
-    summary: row.summary || '',
-    faultDesc: geoContent.faultDesc || content.faultDesc || '',
-    tags: content.tags || [],
-  }
-
+  const caseItem = buildCaseMountItemFromRow(row, row.album)
   const geoRows = await db.geoPage.findMany({
     where: { status: { in: GEO_MOUNT_STATUSES } },
   })
@@ -114,7 +107,58 @@ async function mountCaseOnGeoPages(caseId, db) {
     mounted += 1
   }
 
-  return { mounted, targetIds }
+  const enrichment = resolveCaseEnrichment(row)
+  const prevMountIds = enrichment?.topicMountIds || []
+  const mergedMountIds = mergeTopicMountIds(prevMountIds, targetIds)
+  const enrichmentPatch = options.enrichmentPatch || {}
+  const patch = {
+    ...enrichmentPatch,
+    topicMountIds: mergedMountIds,
+  }
+
+  const mountChanged =
+    mergedMountIds.length !== prevMountIds.length ||
+    mergedMountIds.some((id, index) => id !== prevMountIds[index])
+  const hasEnrichmentPatch = Boolean(
+    enrichmentPatch.geo ||
+      enrichmentPatch.publishedH5At ||
+      enrichmentPatch.publishedWechatAt ||
+      enrichmentPatch.aiSummary ||
+      enrichmentPatch.seoTitle ||
+      enrichmentPatch.seoDescription
+  )
+
+  if (mountChanged || hasEnrichmentPatch) {
+    await persistCaseEnrichmentForRow(row, patch, {
+      db,
+      bumpVersion: options.bumpVersion !== false,
+      syncContentJsonGeo: true,
+    })
+  }
+
+  const {
+    applyAggregateFaqToCaseEnrichment,
+    refreshGeoPagesAggregateFaq,
+  } = require('./case-enrichment-aggregate.service')
+
+  const freshRow = await db.publicCase.findUnique({
+    where: { id: caseId },
+    include: { album: true },
+  })
+  const enrichmentFaq = await applyAggregateFaqToCaseEnrichment(caseId, {
+    db,
+    row: freshRow || row,
+    bumpVersion: options.bumpVersion !== false,
+  })
+  const geoPageFaq = await refreshGeoPagesAggregateFaq(targetIds, db)
+
+  return {
+    mounted,
+    targetIds,
+    topicMountIds: mergedMountIds,
+    enrichmentFaq,
+    geoPageFaq,
+  }
 }
 
 /**
@@ -167,23 +211,20 @@ async function publishCaseArticleToH5(caseId, options = {}) {
   }
 
   const now = new Date().toISOString()
-  const contentJson =
-    row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
-  const geo =
-    contentJson.geo && typeof contentJson.geo === 'object' ? { ...contentJson.geo } : {}
-  geo.publishedH5At = now
-  if (options.actor) geo.publishedH5By = options.actor
-  contentJson.geo = geo
-
   await db.publicCase.update({
     where: { id: caseId },
     data: {
       articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5,
-      contentJson,
     },
   })
 
-  const geoMount = await mountCaseOnGeoPages(caseId, db)
+  const geoMount = await mountCaseOnGeoPages(caseId, db, {
+    enrichmentPatch: {
+      publishedH5At: now,
+      geo: { publishedH5At: now },
+    },
+    bumpVersion: true,
+  })
 
   return {
     caseId,
@@ -236,21 +277,24 @@ async function markCaseArticlePublishedWechat(caseId, options = {}) {
   assertArticleTransition(from, CASE_ARTICLE_STATUS.PUBLISHED_WECHAT)
 
   const now = new Date().toISOString()
-  const contentJson =
-    row.contentJson && typeof row.contentJson === 'object' ? { ...row.contentJson } : {}
-  const geo =
-    contentJson.geo && typeof contentJson.geo === 'object' ? { ...contentJson.geo } : {}
-  geo.publishedWechatAt = now
-  if (options.actor) geo.publishedWechatBy = options.actor
-  contentJson.geo = geo
-
   await db.publicCase.update({
     where: { id: caseId },
     data: {
       articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_WECHAT,
-      contentJson,
     },
   })
+
+  const fullRow = await db.publicCase.findUnique({ where: { id: caseId } })
+  if (fullRow) {
+    await persistCaseEnrichmentForRow(
+      fullRow,
+      {
+        publishedWechatAt: now,
+        geo: { publishedWechatAt: now },
+      },
+      { db, bumpVersion: true, syncContentJsonGeo: true }
+    )
+  }
 
   return {
     caseId,

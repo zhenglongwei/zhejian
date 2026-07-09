@@ -7,6 +7,7 @@
  *   npm run h5:chain-smoke
  *   SMOKE_BASE_URL=https://geo.simplewin.cn npm run h5:chain-smoke
  *   SMOKE_CASE_ID=case_xxx npm run h5:chain-smoke
+ *   SMOKE_SKIP_ENR=1 npm run h5:chain-smoke   # 跳过 CASE-ENR-06 enrichment/Feed 段
  *   npm run h5:chain-smoke -- --http-only   # 无 DATABASE_URL 时仅测 HTTP 前两步
  */
 require('dotenv').config()
@@ -29,6 +30,8 @@ const prisma = new PrismaClient()
 function assert(cond, msg) {
   if (!cond) throw new Error(msg)
 }
+
+const { verifyCaseEnrichmentFeedSegment: runEnrSegment } = require('./h5-chain-smoke-segment-enr')
 
 async function api(method, path, { body } = {}) {
   const res = await fetch(`${BASE}/api/v1${path}`, {
@@ -343,6 +346,18 @@ async function verifyPublicJsonFeed() {
   console.log('[chain] ✅ JSON Feed /public/v1/*')
 }
 
+/**
+ * CASE-ENR-06 · snapshot 不变时 enrichment 变更应反映于 Feed / 案例 API
+ */
+async function verifyCaseEnrichmentFeedSegment(caseId) {
+  const result = await runEnrSegment({ prisma, caseId, baseUrl: BASE })
+  if (result?.skipped) {
+    console.warn(`[chain] ⚠ ENR-06 skip (${result.reason})`)
+    return
+  }
+  console.log('[chain] ✅ CASE-ENR-06 enrichment → Feed/API 更新且 snapshot 不变')
+}
+
 async function verifyH5GeoTopic() {
   const slug = 'hangzhou-brake-pad'
   const redirectApi = await api('GET', `/public/h5/topic-redirect/${slug}`)
@@ -593,6 +608,9 @@ async function main() {
   await verifyH5Search()
   await verifyH5Sitemap()
   await verifyPublicJsonFeed()
+  if (useDb && process.env.SMOKE_SKIP_ENR !== '1') {
+    await verifyCaseEnrichmentFeedSegment(caseId)
+  }
   await verifyH5Assets(caseId)
   await verifyH5StoreAssets(storeId)
   await verifyH5StoreCases(storeId)

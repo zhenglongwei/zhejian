@@ -15,6 +15,10 @@ const { canOwnerShareAlbum } = require('./album-owner-share')
 const { resolveImageSrc, resolveMediaUrl } = require('./desensitize-url')
 const { isAlbumUnread } = require('./album-unread-hint')
 const { formatArchivalDateText } = require('./album-summary')
+const {
+  buildAlbumGateBanner,
+  buildGateActionButtons,
+} = require('./album-gate-actions')
 
 function resolveAlbumCoverUrl(item = {}) {
   if (item.coverUrl) {
@@ -69,16 +73,55 @@ function resolveAlbumAuthAction(item = {}) {
   if (!isRepairCompleted(item.status)) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
+  if (item.compliancePendingHint) {
+    return {
+      show: true,
+      label: '授权公示',
+      disabled: true,
+      hint: item.compliancePendingHint,
+    }
+  }
+  if (item.complianceRejectReason) {
+    return {
+      show: false,
+      label: '',
+      disabled: true,
+      hint: '门店留档合规审查未通过，请等待门店修改后重试',
+    }
+  }
   const status = item.publicCaseStatus || 'private'
+  if (status === 'need_modify' && item.canResubmitPublicCase) {
+    return {
+      show: true,
+      label: '重新提交公示',
+      disabled: false,
+      hint: item.gateBRejectHint || '',
+    }
+  }
   if (status === 'pending_review' || status === 'public_approved') {
     return { show: false, label: '', disabled: false, hint: '' }
+  }
+  if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
+    return {
+      show: true,
+      label: '授权公示',
+      disabled: true,
+      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可公示',
+    }
   }
   if (
     status === 'private' ||
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {
-    return { show: true, label: '授权公示', disabled: false, hint: '' }
+    const hint =
+      item.awaitingUserConfirm && item.userConfirmHint ? item.userConfirmHint : ''
+    return {
+      show: true,
+      label: '授权公示',
+      disabled: Boolean(hint && item.canAuthorizePublicCase === false),
+      hint,
+    }
   }
   return { show: false, label: '', disabled: false, hint: '' }
 }
@@ -295,6 +338,9 @@ function buildAuthorizationTags(publicCaseStatus, options = {}) {
   if (key === 'pending_review') {
     return [{ variant: 'info', text: '审核中' }]
   }
+  if (key === 'need_modify') {
+    return [{ variant: 'warning', text: '需修改后重提' }]
+  }
   if (key === 'user_rejected') {
     return [{ variant: 'warning', text: '审核未通过' }]
   }
@@ -431,4 +477,6 @@ module.exports = {
   resolveAlbumWithdrawAction,
   resolveListAlbumActions,
   resolveAuthorizationCardAction,
+  buildAlbumGateBanner,
+  buildGateActionButtons,
 }

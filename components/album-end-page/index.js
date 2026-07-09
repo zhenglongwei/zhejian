@@ -64,6 +64,10 @@ Component({
       type: String,
       value: '',
     },
+    gateActions: {
+      type: Array,
+      value: [],
+    },
     partVerifyLabel: {
       type: String,
       value: '配件验真',
@@ -114,6 +118,12 @@ Component({
 
     onStoreBrowseTap() {
       this.triggerEvent('storebrowse')
+    },
+
+    onGateActionTap(e) {
+      const key = e.currentTarget.dataset.key
+      if (!key) return
+      this.triggerEvent('gateaction', { key })
     },
   },
 })

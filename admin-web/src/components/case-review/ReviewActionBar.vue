@@ -1,7 +1,12 @@
 <template>
   <div class="review-bar">
     <el-select v-model="reasonType" placeholder="原因类型" clearable style="width: 200px">
-      <el-option v-for="r in rejectReasons" :key="r" :label="r" :value="r" />
+      <el-option
+        v-for="r in rejectReasons"
+        :key="r"
+        :label="GATE_B_REJECT_LABEL[r] || r"
+        :value="r"
+      />
     </el-select>
     <el-input
       v-model="comment"
@@ -22,7 +27,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { REJECT_REASONS as DEFAULT_REJECT_REASONS } from '@/constants/case-review'
+import { REJECT_REASONS as DEFAULT_REJECT_REASONS, GATE_B_REJECT_LABEL } from '@/constants/case-review'
 
 const props = defineProps({
   loading: { type: Boolean, default: false },

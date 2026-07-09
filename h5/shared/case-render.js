@@ -194,8 +194,11 @@
       '@context': 'https://schema.org',
       '@type': 'Article',
       headline: data.title || title,
-      description: data.aiSummary || data.summary || desc,
-      articleBody: (data.article && data.article.body) || data.articleBody || undefined,
+      description: data.displayAiSummary || data.aiSummary || data.summary || desc,
+      articleBody:
+        Number(data.snapshotVersion) >= 1
+          ? (data.article && data.article.body) || data.articleBody || undefined
+          : (data.article && data.article.body) || data.articleBody || undefined,
       url: canonical,
       datePublished: data.publishedAt || undefined,
       dateModified: data.updatedAt || data.publishedAt || undefined,
@@ -363,6 +366,15 @@
     var cover = pickCaseCover(base)
     base.coverImage = cover
     base.coverImageDesensitized = cover
+    if (Number(base.snapshotVersion) >= 1) {
+      base.contentSource = 'snapshot'
+      if (base.articleBody) {
+        base.article = Object.assign({}, base.article || {}, {
+          body: base.articleBody,
+          hasArticle: String(base.articleBody).trim().length > 20,
+        })
+      }
+    }
     if (window.zhejianCaseDisplay && window.zhejianCaseDisplay.enrichCaseForRender) {
       return window.zhejianCaseDisplay.enrichCaseForRender(base)
     }
@@ -746,7 +758,12 @@
   }
 
   function renderArticleLead(data) {
-    var text = data.displayAiSummary || data.aiSummary || data.summary || ''
+    var text =
+      data.displayAiSummary ||
+      (data.enrichment && data.enrichment.aiSummary) ||
+      data.aiSummary ||
+      data.summary ||
+      ''
     if (!text) return ''
     return (
       '<section class="h5-article-lead">' +
@@ -767,7 +784,10 @@
       .map(function (node) {
         var nodeId = node.id || node.nodeId || ''
         var narrative = narrativeMap[nodeId] || {}
-        var desc = narrative.description || node.note || ''
+        var snapshotFrozen = Number(data.snapshotVersion) >= 1
+        var desc = snapshotFrozen
+          ? node.note || ''
+          : narrative.description || node.note || ''
         var captions = narrative.imageCaptions || []
         var images = pickNodeDesensitizedImages(node)
         var imgsHtml = images

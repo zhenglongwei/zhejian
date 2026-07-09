@@ -46,6 +46,10 @@ export function updateCaseGeoContent(caseId, body) {
   return request.put(`/admin/cases/${caseId}/geo-content`, body)
 }
 
+export function updateCaseEnrichment(caseId, body) {
+  return request.put(`/admin/cases/${caseId}/enrichment`, body)
+}
+
 export function regenerateCaseArticle(caseId) {
   return request.post(`/admin/cases/${caseId}/regenerate-article`)
 }

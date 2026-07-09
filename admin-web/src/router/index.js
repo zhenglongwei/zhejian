@@ -19,6 +19,16 @@ const routes = [
         component: () => import('@/views/case-review/list/index.vue'),
       },
       {
+        path: 'cases/compliance',
+        name: 'album-compliance-list',
+        component: () => import('@/views/album-compliance/list/index.vue'),
+      },
+      {
+        path: 'cases/compliance/:albumId',
+        name: 'album-compliance-detail',
+        component: () => import('@/views/album-compliance/detail/index.vue'),
+      },
+      {
         path: 'cases/:caseId',
         name: 'case-detail',
         component: () => import('@/views/case-review/detail/index.vue'),

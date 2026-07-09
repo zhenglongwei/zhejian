@@ -1,6 +1,7 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">公开案例审核</h2>
+    <GateReviewNav />
+    <h2 class="page-title">案例公示审核（闸门 B）</h2>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
         v-for="tab in CASE_TABS"
@@ -83,6 +84,7 @@ import { fetchCaseList } from '@/api/case-review'
 import { CASE_TABS, CASE_SOURCE_OPTIONS, RISK_LEVEL_OPTIONS } from '@/constants/case-review'
 import RiskLevelTag from '@/components/case-review/RiskLevelTag.vue'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
+import GateReviewNav from '@/components/case-review/GateReviewNav.vue'
 
 const router = useRouter()
 const activeTab = ref('pending')

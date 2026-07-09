@@ -110,6 +110,14 @@ function collectNodeSummaryFacts(item, nodes) {
 }
 
 function buildDisplayAiSummary(item = {}) {
+  if (Number(item.snapshotVersion) >= 1) {
+    const raw = stripBoilerplateSummary(item.aiSummary || item.summary || '')
+    if (raw && raw.length >= 8 && !isTemplateBoilerplateSummary(raw)) {
+      return raw.length > 180 ? `${raw.slice(0, 179)}…` : raw
+    }
+    return ''
+  }
+
   const serviceName = item.serviceName || '维修服务'
   const parts = []
   if (!isGenericFaultDesc(item.faultDesc)) parts.push(normalizeText(item.faultDesc))
@@ -174,7 +182,8 @@ function buildNarrativeMap(nodeNarratives) {
  * @param {object} geo faultDesc/inspectResult/repairPlan/resultConfirm/nodeNarratives
  * @param {string} [serviceName]
  */
-function preparePublicCaseNodes(nodes, geo = {}, serviceName = '') {
+function preparePublicCaseNodes(nodes, geo = {}, serviceName = '', options = {}) {
+  const snapshotFrozen = Boolean(options.snapshotFrozen)
   const narrativeMap = buildNarrativeMap(geo.nodeNarratives)
   return (nodes || [])
     .map((node) => {
@@ -184,7 +193,7 @@ function preparePublicCaseNodes(nodes, geo = {}, serviceName = '') {
       if (!note && narrative && narrative.description) {
         note = normalizeText(narrative.description)
       }
-      if (!note) {
+      if (!note && !snapshotFrozen) {
         note = resolveGeoFieldForNode(node, geo, serviceName)
       }
       if (!note && (node.images || []).length > 0) {
@@ -227,7 +236,9 @@ function applyCasePublicDisplay(item = {}) {
       (item.geo && item.geo.nodeNarratives) ||
       [],
   }
-  const nodes = preparePublicCaseNodes(item.nodes, geo, serviceName)
+  const nodes = preparePublicCaseNodes(item.nodes, geo, serviceName, {
+    snapshotFrozen: Number(item.snapshotVersion) >= 1,
+  })
   const fixedAmount = resolveAuthorizedFixedPrice(item)
   const displayAiSummary = buildDisplayAiSummary({ ...item, nodes })
 

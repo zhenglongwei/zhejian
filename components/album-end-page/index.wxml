@@ -11,6 +11,14 @@
     <text wx:if="{{statusHint}}" class="album-end-page__hint text-caption">{{statusHint}}</text>
 
     <view class="album-end-page__actions">
+      <ui-button
+        wx:for="{{gateActions}}"
+        wx:key="key"
+        type="secondary"
+        block
+        data-key="{{item.key}}"
+        bind:btntap="onGateActionTap"
+      >{{item.label}}</ui-button>
       <block wx:if="{{showAuth}}">
         <ui-button
           type="primary"

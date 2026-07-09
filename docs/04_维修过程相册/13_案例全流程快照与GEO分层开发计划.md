@@ -136,8 +136,8 @@
 | G1 | A 通过后商家锁定 + 用户冻结展示 | 现仅「用户授权后」锁商家（SNAP-02） | 锁定时机偏晚 | **P0** |
 | G2 | H5 读快照 | ~~live merge~~ | CASE-SNAP-06 ✅ | — |
 | G3 | 授权时冻结整包 | ~~无 snapshot~~ | CASE-SNAP-01 ✅ | — |
-| G4 | 公示后快照不可改 | 运营仍可改 title/body | CASE-OPS 待做 | **P0** |
-| G5 | 审核通过不 rebuild | approve 从 live album 重建 | CASE-OPS 待做 | **P0** |
+| G4 | 公示后快照不可改 | 运营仍可改 title/body | CASE-OPS ✅ | — |
+| G5 | 审核通过不 rebuild | approve 从 live album 重建 | CASE-OPS-01 ✅ | — |
 | G6 | 再授权强制重审 | ~~撤回删行~~ | CASE-SNAP-03/04 ✅ | — |
 | G7 | 撤回校验车主 | ~~缺校验~~ | CASE-SNAP-05 ✅ | — |
 | G8 | 299 润色授权前 | LLM 在运营台 | CASE-MCH 待做 | **P1** |
@@ -232,11 +232,11 @@
 | CASE-GATE-A-01 | 相册 `complianceStatus` 状态机（pending/passed/rejected） | `service-album.service.js` · schema | P0 | [x] | migration + complete 挂钩 |
 | CASE-GATE-A-02 | 自动规则引擎（禁词/导流/OCR 风险摘要） | `album-compliance.service.js` | P0 | [x] | 禁词+外链/微信/手机 |
 | CASE-GATE-A-03 | **A 通过后** merchant save 409 + 用户冻结展示 API 字段 | `service-album.service.js` · 用户详情页 | P0 | [x] | backend 字段；小程序 UI 待接 |
-| CASE-GATE-A-04 | 运营抽检队列「相册完工合规」 | `admin-album-compliance` · admin-web | P0 | [ ] | backend API ✅；admin-web Tab 待做 |
-| CASE-GATE-B-01 | 案例审核范围收窄为脱敏+用户侧内容 | `admin-case.service.js` · PRD | P0 | [ ] | 合规类驳回归 A |
-| CASE-GATE-B-02 | 结构化驳回原因 + 用户端可读 copy | API + 小程序 | P0 | [ ] | desensitize / review 分 type |
-| CASE-GATE-B-03 | 用户驳回态：重试自动脱敏 / 手工脱敏 / 改评价 | 脱敏预览 · 评价页 | P0 | [ ] | `source=review` |
-| CASE-GATE-B-04 | B 驳回 **不** 调用相册解锁 | `service-album.service.js` | P0 | [ ] | 与 withdraw 区分 |
+| CASE-GATE-A-04 | 运营抽检队列「相册完工合规」 | `admin-album-compliance` · admin-web | P0 | [x] | list/detail + GateReviewNav |
+| CASE-GATE-B-01 | 案例审核范围收窄为脱敏+用户侧内容 | `admin-case.service.js` · PRD | P0 | [x] | 合规类驳回归 A；gateScope API |
+| CASE-GATE-B-02 | 结构化驳回原因 + 用户端可读 copy | API + 小程序 | P0 | [x] | backend + admin REJECT_REASONS + 用户 banner |
+| CASE-GATE-B-03 | 用户驳回态：重试自动脱敏 / 手工脱敏 / 改评价 | 脱敏预览 · 评价页 | P0 | [x] | detail/engage gateActions + album-gate-actions |
+| CASE-GATE-B-04 | B 驳回 **不** 调用相册解锁 | `service-album.service.js` | P0 | [x] | need_modify + 保持 authorization |
 
 **阶段 B2 验收**：
 
@@ -251,11 +251,11 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| CASE-OPS-01 | `approveAdminCase` **不再**从 live album 重建快照 | `admin-case.service.js` | P0 | [ ] | 仅改 status + published_h5 |
-| CASE-OPS-02 | 拆分 API：`PUT enrichment` vs 禁止 `PUT snapshot` | `admin-case-article.service.js` | P0 | [ ] | |
-| CASE-OPS-03 | 禁用公示后 `regenerate-article` 写快照字段 | `admin-case-article.service.js` | P0 | [ ] | |
-| CASE-OPS-04 | 禁用公示后 LLM adopt 写 title/body | `admin-case-geo-llm.service.js` | P0 | [ ] | pending 可保留只读 preview |
-| CASE-OPS-05 | admin-web UI：快照只读 + 提炼层编辑区 | `admin-web/.../case-review/detail` | P1 | [ ] | 合规审核文案 |
+| CASE-OPS-01 | `approveAdminCase` **不再**从 live album 重建快照 | `admin-case.service.js` | P0 | [x] | 有 snapshot 时只改 status + published_h5 |
+| CASE-OPS-02 | 拆分 API：`PUT enrichment` vs 禁止 `PUT snapshot` | `admin-case-article.service.js` | P0 | [x] | `PUT /enrichment` + SNAPSHOT_FROZEN |
+| CASE-OPS-03 | 禁用公示后 `regenerate-article` 写快照字段 | `admin-case-article.service.js` | P0 | [x] | 有 snapshot 时仅 refresh 提炼层 |
+| CASE-OPS-04 | 禁用公示后 LLM adopt 写 title/body | `admin-case-geo-llm.service.js` | P0 | [x] | diff 只读 preview · adopt 409 |
+| CASE-OPS-05 | admin-web UI：快照只读 + 提炼层编辑区 | `admin-web/.../case-review/detail` | P1 | [x] | CaseGeoEditor 快照冻结态 |
 | CASE-OPS-06 | 举报下线保留快照 audit | `admin-report.service.js` | P1 | [ ] | status=offline |
 
 ---
@@ -264,12 +264,12 @@
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| CASE-ENR-01 | `enrichment_json` schema + 迁移 | migration + schema | P1 | [ ] | 从 contentJson.geo 拆出 |
-| CASE-ENR-02 | H5 案例页：snapshot 正文 + enrichment 顶栏/FAQ | `case-render.js` | P1 | [ ] | |
-| CASE-ENR-03 | 专题挂载不改快照；`mountCaseOnGeoPages` 只写 enrichment/topic | `case-article-publish.service.js` | P1 | [ ] | 已有挂载保留 |
-| CASE-ENR-04 | IGAIN 聚合 FAQ 写入 enrichment / 专题 | 已有 `geo-case-aggregate` | P1 | [ ] | 与 TOPIC-G ✅ 衔接 |
-| CASE-ENR-05 | 提炼层变更不 bump snapshotVersion | 服务层 | P1 | [ ] | 只写 enrichment 版本 |
-| CASE-ENR-06 | 冒烟：snapshot 不变前提下改 enrichment → Feed 更新 | `h5-chain-smoke.js` | P1 | [ ] | |
+| CASE-ENR-01 | `enrichment_json` schema + 迁移 | migration + schema | P1 | [x] | `case-enrichment.schema.js` + backfill |
+| CASE-ENR-02 | H5 案例页：snapshot 正文 + enrichment 顶栏/FAQ | `case-render.js` | P1 | [x] | API 分层 + H5/Bot 同构 |
+| CASE-ENR-03 | 专题挂载不改快照；`mountCaseOnGeoPages` 只写 enrichment/topic | `case-article-publish.service.js` | P1 | [x] | topicMountIds + geo_pages |
+| CASE-ENR-04 | IGAIN 聚合 FAQ 写入 enrichment / 专题 | 已有 `geo-case-aggregate` | P1 | [x] | mount + backfill |
+| CASE-ENR-05 | 提炼层变更不 bump snapshotVersion | 服务层 | P1 | [x] | persistCaseEnrichment 快照守卫 |
+| CASE-ENR-06 | 冒烟：snapshot 不变前提下改 enrichment → Feed 更新 | `h5-chain-smoke.js` | P1 | [x] | verifyCaseEnrichmentFeedSegment |
 
 ---
 
@@ -289,9 +289,9 @@
 
 | ID | 任务 | 说明 | 优先级 | 状态 |
 | ---: | --- | --- | ---: | ---: |
-| CASE-FLOW-01 | E2E 脚本：商家建册→完工→用户授权→审核→H5 | `scripts/case-snapshot-smoke.js` | P0 | [ ] |
-| CASE-FLOW-02 | 漂移回归：授权后改 album 不影响 H5 | 自动化 | P0 | [ ] |
-| CASE-FLOW-03 | 撤回→再授权→重审→新 snapshotVersion | 自动化 | P0 | [ ] |
+| CASE-FLOW-01 | E2E 脚本：商家建册→完工→用户授权→审核→H5 | `scripts/case-snapshot-smoke.js` | P0 | [x] | FLOW-01 段 |
+| CASE-FLOW-02 | 漂移回归：授权后改 album 不影响 H5 | `case-snapshot-smoke.js` | P0 | [x] | FLOW-02 段 |
+| CASE-FLOW-03 | 撤回→再授权→重审→新 snapshotVersion | `case-snapshot-smoke.js` | P0 | [x] | FLOW-03 段 |
 | CASE-FLOW-04 | `release-checklist` 增补快照项 | skill | P1 | [ ] |
 | CASE-FLOW-05 | `privacy-desensitization-check` 对齐快照只读 | skill | P1 | [ ] |
 
@@ -302,9 +302,9 @@
 ```text
 A 文档 (CASE-DOC-01～06) — 含双闸门口径
   → B 快照+锁定 (CASE-SNAP-01～08)     ← 大部分 ✅
-  → B2 双闸门 (CASE-GATE-A/B)          ← **当前 P0 优先**
-  → C 运营收口 (CASE-OPS-01～04)
-  → F 验收 (CASE-FLOW-01～03)
+  → B2 双闸门 (CASE-GATE-A/B)          ← A backend ✅ · B backend ✅ · admin-web/小程序 UI 待接
+  → C 运营收口 (CASE-OPS-01～05)       ← ✅
+  → F 验收 (CASE-FLOW-01～03)       ← ✅
   → D 提炼层 (CASE-ENR-*)
   → E 商家润色 (CASE-MCH-*)
 ```

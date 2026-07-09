@@ -73,6 +73,7 @@
             show-withdraw="{{endPageShowWithdraw}}"
             withdraw-label="{{endPageWithdrawLabel}}"
             status-hint="{{endPageStatusHint}}"
+            gate-actions="{{endPageGateActions}}"
             show-share="{{showShareButton}}"
             show-feedback="{{true}}"
             show-contact="{{false}}"
@@ -81,6 +82,7 @@
             bind:share="onOpenShareSheet"
             bind:withdraw="onEndPageWithdraw"
             bind:feedback="onEndPageFeedback"
+            bind:gateaction="onEndPageGateAction"
           />
         </album-frame-viewer>
       </view>
