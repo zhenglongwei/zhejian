@@ -76,8 +76,21 @@ npm run deploy:verify -- https://geo.simplewin.cn
 
 ## 安全清单
 
-- [ ] 修改 `DEV_*_TOKEN` 默认值
+部署后**必跑**（只读，不输出密钥）：
+
+```bash
+cd backend
+npm run check:prod-env
+# 远程探测 dev 鉴权 / 默认密码是否仍可用
+npm run check:prod-env -- --probe https://geo.simplewin.cn
+```
+
+- [ ] `npm run check:prod-env` 无 CRIT
+- [ ] `DEV_AUTH_ENABLED=false`（生产）
+- [ ] `JWT_SECRET` / `ADMIN_PASSWORD` 为强随机串（非默认值）
+- [ ] `MERCHANT_AUTO_APPROVE=false`
+- [ ] 未设置 `WECHAT_PAY_SUBSCRIPTION_TEST_AMOUNT_CENTS`
+- [ ] `CRAWLER_INGEST_TOKEN` 已设置
 - [ ] MySQL 仅 127.0.0.1
 - [ ] 防火墙 80/443/22
 - [ ] 定期备份 `zhejian` 库
-- [ ] 真实微信登录上线后 `DEV_AUTH_ENABLED=false`

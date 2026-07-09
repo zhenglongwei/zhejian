@@ -15,6 +15,7 @@
     "db:setup": "npm run db:generate && npm run db:migrate && npm run db:seed",
     "db:setup:prod": "npm run db:generate && npm run db:migrate",
     "deploy:verify": "node scripts/verify-health.js",
+    "check:prod-env": "node scripts/check-production-env.js --strict",
     "desensitize:smoke": "node scripts/desensitize-smoke.js",
     "leads:smoke": "node scripts/merchant-leads-smoke.js",
     "stats:aggregate": "node scripts/merchant-daily-stats-aggregate.js",
