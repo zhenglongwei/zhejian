@@ -31,6 +31,9 @@
         <text wx:elif="{{subscription.remainingCreditCents > 0}}" class="text-caption text-tertiary">
           剩余权益约 ¥{{subscription.remainingCreditYuan}}（按天折算）
         </text>
+        <text wx:if="{{subscription.pendingPlanLabel}}" class="text-caption text-warning">
+          已预约：{{subscription.pendingEffectiveAtDisplay}} 后切换为 {{subscription.pendingPlanLabel}}
+        </text>
         <text wx:if="{{paymentTestMode}}" class="text-caption merchant-sub__test-hint">
           当前为支付联调：实付按测试价扣款，套餐权益不变
         </text>
@@ -53,6 +56,7 @@
             <view class="merchant-sub__plan-title-wrap">
               <text class="text-h3 merchant-sub__plan-name">{{item.tierLabel}}</text>
               <text wx:if="{{item.isCurrentPlan}}" class="merchant-sub__badge text-caption">当前</text>
+              <text wx:elif="{{item.isPendingPlan}}" class="merchant-sub__badge merchant-sub__badge--pending text-caption">已预约</text>
             </view>
             <view class="merchant-sub__plan-radio {{item.isSelected ? 'merchant-sub__plan-radio--on' : ''}}" aria-hidden="true" />
           </view>
@@ -69,6 +73,16 @@
       </view>
 
       <view wx:if="{{selectedQuoteSummary && !isCurrentSelection}}" class="merchant-sub__quote-panel surface-album-panel">
+        <view wx:if="{{showFeeBreakdown}}" class="merchant-sub__fee-breakdown">
+          <view wx:if="{{selectedRefundYuan && selectedRefundYuan !== '0.00'}}" class="merchant-sub__fee-row">
+            <text class="text-caption text-secondary">原方案退回</text>
+            <text class="text-body">¥{{selectedRefundYuan}}</text>
+          </view>
+          <view class="merchant-sub__fee-row">
+            <text class="text-caption text-secondary">新方案支付</text>
+            <text class="text-body merchant-sub__fee-pay">¥{{selectedPayYuan}}</text>
+          </view>
+        </view>
         <text class="text-caption text-tertiary">{{selectedQuoteSummary}}</text>
       </view>
 

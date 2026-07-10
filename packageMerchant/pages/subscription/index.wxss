@@ -82,6 +82,11 @@
   color: var(--color-text-secondary);
 }
 
+.merchant-sub__badge--pending {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
 .merchant-sub__plan-radio {
   width: 32rpx;
   height: 32rpx;
@@ -113,6 +118,27 @@
 
 .merchant-sub__quote-panel {
   padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__fee-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-sub__fee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__fee-pay {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
 .merchant-sub__test-hint {

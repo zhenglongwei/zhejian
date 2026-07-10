@@ -11,7 +11,10 @@ const {
   getOrCreateSubscription,
   activateMerchantPlan,
   resolveChargeAmountCents,
+  resolvePlanPriceCents,
+  formatSubscriptionRow,
   buildPlanSwitchQuote,
+  schedulePlanDowngrade,
   hasPublicIndexEntitlement,
   isSubscriptionActive,
 } = require('./merchant-subscription.service')
@@ -111,6 +114,8 @@ async function createSubscriptionOrder(auth, plan) {
   assertSwitchablePlan(plan)
   const subscription = await getOrCreateSubscription(auth.merchantId)
   const listPrice =
+    plan === MERCHANT_PLAN.FREE ? 0 : resolvePlanPriceCents(plan, subscription)
+  const chargePrice =
     plan === MERCHANT_PLAN.FREE ? 0 : resolveChargeAmountCents(plan, subscription)
 
   if (plan === MERCHANT_PLAN.FREE) {
@@ -129,7 +134,33 @@ async function createSubscriptionOrder(auth, plan) {
     throw err
   }
 
-  const quote = await buildPlanSwitchQuote(subscription, plan, listPrice)
+  const quote = await buildPlanSwitchQuote(
+    subscription,
+    plan,
+    listPrice,
+    chargePrice
+  )
+
+  if (quote.switchMode === 'downgrade_scheduled') {
+    if (quote.isPendingPlan) {
+      const err = new Error('已预约该方案，到期后自动切换')
+      err.status = 409
+      throw err
+    }
+    await schedulePlanDowngrade(auth.merchantId, plan)
+    const activated = await getOrCreateSubscription(auth.merchantId)
+    return {
+      scheduled: true,
+      plan,
+      planLabel: MERCHANT_PLAN_LABELS[plan],
+      effectiveAt: quote.effectiveAt,
+      subscription: formatSubscriptionRow(activated),
+      proration: {
+        summary: quote.summary,
+      },
+    }
+  }
+
   const amount = quote.amountCents
   const priorPlan =
     PUBLIC_INDEX_PLANS.has(subscription.plan) &&
@@ -140,7 +171,7 @@ async function createSubscriptionOrder(auth, plan) {
 
   const proration = {
     priorPlan,
-    creditAppliedCents: Math.min(quote.creditCents, listPrice),
+    creditAppliedCents: 0,
     refundExcessCents: quote.refundExcessCents,
   }
 

@@ -879,6 +879,7 @@ model MerchantSubscription {
   founderRenewDiscount  Float?    @map("founder_renew_discount")
   indexingSlaDeadline   DateTime? @map("indexing_sla_deadline")
   indexingSlaMet        Boolean   @default(false) @map("indexing_sla_met")
+  pendingPlan           String?   @map("pending_plan")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   merchant              Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
