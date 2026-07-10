@@ -3,6 +3,8 @@ const { config } = require('../config')
 const { ROLES } = require('../lib/jwt')
 const { hasRole } = require('../middleware/auth')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { PLAN_SALE_STATUS } = require('../constants/service-plan')
+const { STORE_EXTRAS } = require('../constants/content-seed')
 const { formatQualificationForClient } = require('../lib/onboarding-payload')
 const {
   verifyMediaSignature,
@@ -42,28 +44,63 @@ function storePhotosReferenceObjectKey(photosJson, objectKey) {
   return false
 }
 
-/**
- * 公开内容目录中的原图（门店门头/环境、已发布 GEO 封面、商家资质证照）允许匿名读。
- * 兜底：API 未补 signed query 或签名 secret 未配置时，仍保证首页/H5 公开展示可用。
- */
-async function canAccessViaPublicContentCatalog(objectKey) {
-  const key = String(objectKey || '').trim()
-  if (!key || !isOriginalUploadObjectKey(key)) return false
+function storeExtrasReferenceObjectKey(storeId, objectKey) {
+  const extras = STORE_EXTRAS[storeId] || {}
+  if (mediaUrlMatchesObjectKey(extras.coverImage, objectKey)) return true
+  if (Array.isArray(extras.environmentImages)) {
+    return extras.environmentImages.some((url) => mediaUrlMatchesObjectKey(url, objectKey))
+  }
+  return false
+}
 
-  const filename = objectKeyFilename(key)
+function normalizeJsonRow(value) {
+  if (!value) return null
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value)
+    } catch (e) {
+      return null
+    }
+  }
+  return value
+}
+
+async function matchPublicStorePhotos(objectKey) {
+  const filename = objectKeyFilename(objectKey)
   if (!filename) return false
 
-  const storeHit = await prisma.store.findFirst({
-    where: {
-      status: 'ACTIVE',
-      merchant: { status: 'ACTIVE' },
-      photosJson: { string_contains: filename },
-    },
-    select: { photosJson: true },
-  })
-  if (storeHit && storePhotosReferenceObjectKey(storeHit.photosJson, key)) {
-    return true
+  let rows = []
+  try {
+    rows = await prisma.$queryRaw`
+      SELECT id, photos_json AS photosJson
+      FROM stores
+      WHERE status = 'ACTIVE'
+        AND CAST(photos_json AS CHAR) LIKE ${`%${filename}%`}
+      LIMIT 32
+    `
+  } catch (e) {
+    rows = await prisma.store.findMany({
+      where: { status: 'ACTIVE' },
+      select: { id: true, photosJson: true },
+      take: 500,
+    })
   }
+
+  for (const row of rows) {
+    const storeId = row.id
+    const photosJson = normalizeJsonRow(row.photosJson)
+    if (storePhotosReferenceObjectKey(photosJson, objectKey)) return true
+    if (storeExtrasReferenceObjectKey(storeId, objectKey)) return true
+  }
+
+  return Object.keys(STORE_EXTRAS).some((storeId) =>
+    storeExtrasReferenceObjectKey(storeId, objectKey)
+  )
+}
+
+async function matchPublicGeoCover(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  if (!filename) return false
 
   const geoHit = await prisma.geoPage.findFirst({
     where: {
@@ -72,26 +109,53 @@ async function canAccessViaPublicContentCatalog(objectKey) {
     },
     select: { coverImage: true },
   })
-  if (geoHit && mediaUrlMatchesObjectKey(geoHit.coverImage, key)) {
-    return true
-  }
+  return Boolean(geoHit && mediaUrlMatchesObjectKey(geoHit.coverImage, objectKey))
+}
 
-  const merchantHit = await prisma.merchant.findFirst({
+async function matchPublicMerchantCredentials(objectKey) {
+  const merchants = await prisma.merchant.findMany({
     where: {
-      status: 'ACTIVE',
-      OR: [
-        { licensePhotoUrl: { contains: filename } },
-        { qualificationJson: { string_contains: filename } },
-      ],
+      stores: { some: { status: 'ACTIVE' } },
     },
     select: { licensePhotoUrl: true, qualificationJson: true },
+    take: 200,
   })
-  if (merchantHit) {
-    if (mediaUrlMatchesObjectKey(merchantHit.licensePhotoUrl, key)) return true
-    const qualification = formatQualificationForClient(merchantHit.qualificationJson)
-    if (mediaUrlMatchesObjectKey(qualification?.photoUrl, key)) return true
-  }
 
+  for (const merchant of merchants) {
+    if (mediaUrlMatchesObjectKey(merchant.licensePhotoUrl, objectKey)) return true
+    const qualification = formatQualificationForClient(merchant.qualificationJson)
+    if (mediaUrlMatchesObjectKey(qualification?.photoUrl, objectKey)) return true
+  }
+  return false
+}
+
+async function matchPublicServicePlanCover(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  if (!filename) return false
+
+  const planHit = await prisma.merchantServicePlan.findFirst({
+    where: {
+      saleStatus: PLAN_SALE_STATUS.ONLINE,
+      coverUrl: { contains: filename },
+    },
+    select: { coverUrl: true },
+  })
+  return Boolean(planHit && mediaUrlMatchesObjectKey(planHit.coverUrl, objectKey))
+}
+
+/**
+ * 公开内容目录中的原图（门店门头/环境、已发布 GEO 封面、商家资质证照）允许匿名读。
+ * 兜底：API 未补 signed query 或签名 secret 未配置时，仍保证首页/H5 公开展示可用。
+ */
+async function canAccessViaPublicContentCatalog(objectKey) {
+  const candidates = [...new Set([String(objectKey || '').trim(), baseObjectKey(objectKey)].filter(Boolean))]
+  for (const key of candidates) {
+    if (!key || !isOriginalUploadObjectKey(key)) continue
+    if (await matchPublicStorePhotos(key)) return true
+    if (await matchPublicGeoCover(key)) return true
+    if (await matchPublicMerchantCredentials(key)) return true
+    if (await matchPublicServicePlanCover(key)) return true
+  }
   return false
 }
 
