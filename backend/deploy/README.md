@@ -91,6 +91,8 @@ npm run check:prod-env -- --probe https://geo.simplewin.cn
 - [ ] `MERCHANT_AUTO_APPROVE=false`
 - [ ] 未设置 `WECHAT_PAY_SUBSCRIPTION_TEST_AMOUNT_CENTS`
 - [ ] `CRAWLER_INGEST_TOKEN` 已设置
+- [ ] Phase 2：`MEDIA_SIGNED_URLS` 核查通过（`check:prod-env` 无 HIGH）
+- [ ] Phase 2：`CORS_ALLOWED_ORIGINS` 已确认（或接受默认白名单）
 - [ ] MySQL 仅 127.0.0.1
 - [ ] 防火墙 80/443/22
 - [ ] 定期备份 `zhejian` 库

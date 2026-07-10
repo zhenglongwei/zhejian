@@ -15,11 +15,12 @@ const {
   resolveDesensitizedUploadFilePath,
 } = require('../lib/media-storage')
 const { createMediaFromUpload, runMediaDesensitize } = require('../services/media.service')
+const { canReadOriginalMedia } = require('../services/media-access.service')
 const { processUploadedImage } = require('../lib/image-process')
 
 ensureMediaDirs()
 
-function sendUploadFile(req, res, next) {
+async function sendUploadFile(req, res, next) {
   const filePath = resolveUploadFilePath(
     req.params.year,
     req.params.month,
@@ -28,6 +29,17 @@ function sendUploadFile(req, res, next) {
   if (!filePath) {
     return fail(res, 100004, '资源不存在', 404)
   }
+
+  const objectKey = `uploads/${req.params.year}/${req.params.month}/${req.params.filename}`
+  try {
+    const allowed = await canReadOriginalMedia(req, objectKey)
+    if (!allowed) {
+      return fail(res, 100003, '无权访问该资源', 403)
+    }
+  } catch (e) {
+    return next(e)
+  }
+
   fs.access(filePath, fs.constants.R_OK, (err) => {
     if (err) {
       return fail(res, 100004, '资源不存在', 404)
@@ -91,11 +103,15 @@ router.get('/files/uploads/desensitized/:albumId/:filename', (req, res, next) =>
   })
 })
 
-/** 公开读图（随机文件名，无鉴权；须走 /api/ 反代） */
-router.get('/files/uploads/:year/:month/:filename', sendUploadFile)
+/** 公开读原图（生产需 signed URL 或 Bearer 归属校验） */
+router.get('/files/uploads/:year/:month/:filename', (req, res, next) => {
+  sendUploadFile(req, res, next).catch(next)
+})
 
 /** 兼容旧 URL：/media/uploads/...（Nginx 已配 /media/ 反代时可用） */
-router.get('/legacy/uploads/:year/:month/:filename', sendUploadFile)
+router.get('/legacy/uploads/:year/:month/:filename', (req, res, next) => {
+  sendUploadFile(req, res, next).catch(next)
+})
 
 /** B-MEDIA-01/02：小程序直传 ECS 本地存储，返回可跨端访问的 HTTPS URL */
 router.post(

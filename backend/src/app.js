@@ -1,11 +1,12 @@
 const path = require('path')
 const express = require('express')
-const cors = require('cors')
 const helmet = require('helmet')
 const morgan = require('morgan')
 const { config } = require('./config')
 const { requestIdMiddleware } = require('./middleware/request-id')
 const { optionalAuth } = require('./middleware/auth')
+const { createCorsMiddleware } = require('./middleware/cors')
+const { applyRateLimits } = require('./middleware/rate-limit')
 const { notFoundHandler, errorHandler } = require('./middleware/error-handler')
 const { MEDIA_ROOT, ensureMediaDirs } = require('./lib/media-storage')
 const healthRoutes = require('./routes/health')
@@ -48,7 +49,8 @@ function createApp() {
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }))
-  app.use(cors({ origin: true, credentials: true }))
+  app.use(createCorsMiddleware())
+  applyRateLimits(app)
   app.use('/api/v1/pay', payWechatRoutes)
   app.use(express.json({ limit: '2mb' }))
   app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'))
@@ -56,7 +58,18 @@ function createApp() {
   app.use(optionalAuth)
 
   ensureMediaDirs()
-  app.use('/media', express.static(MEDIA_ROOT, { maxAge: '7d', fallthrough: true }))
+  /** 生产：仅静态暴露脱敏目录；原图必须走 /api/v1/media/files/… + signed URL */
+  if (config.nodeEnv === 'production') {
+    app.use(
+      '/media/uploads/desensitized',
+      express.static(path.join(MEDIA_ROOT, 'uploads', 'desensitized'), {
+        maxAge: '7d',
+        fallthrough: false,
+      })
+    )
+  } else {
+    app.use('/media', express.static(MEDIA_ROOT, { maxAge: '7d', fallthrough: true }))
+  }
 
   /** 本地 H5 联调：与 API 同域，无需部署到 geo.simplewin.cn（仅非 production） */
   if (config.nodeEnv !== 'production') {

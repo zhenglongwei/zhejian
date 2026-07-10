@@ -223,6 +223,35 @@ function checkWechatMini() {
   }
 }
 
+function checkPhase2Security() {
+  const signedEnabled = env('MEDIA_SIGNED_URLS_ENABLED') !== 'false' && isProductionContext()
+  if (signedEnabled) {
+    const secret = env('MEDIA_SIGNING_SECRET') || env('JWT_SECRET')
+    if (!secret || KNOWN_WEAK.JWT_SECRET.includes(secret)) {
+      add('HIGH', 'MEDIA_SIGNED_URLS', '原图 signed URL 已启用但 JWT_SECRET/MEDIA_SIGNING_SECRET 未配置或为弱值')
+    } else {
+      add('OK', 'MEDIA_SIGNED_URLS', `原图 signed URL 已启用（TTL ${env('MEDIA_SIGNED_URL_TTL_SEC') || '7200'}s）`)
+    }
+  } else if (isProductionContext()) {
+    add('MED', 'MEDIA_SIGNED_URLS', 'MEDIA_SIGNED_URLS_ENABLED=false（生产建议开启）')
+  }
+
+  if (isProductionContext()) {
+    const corsRaw = env('CORS_ALLOWED_ORIGINS')
+    if (corsRaw) {
+      add('OK', 'CORS_ALLOWED_ORIGINS', `已配置 ${corsRaw.split(',').filter(Boolean).length} 个 origin`)
+    } else {
+      add('OK', 'CORS_ALLOWED_ORIGINS', '使用默认白名单 geo.simplewin.cn + simplewin.cn')
+    }
+  }
+
+  if (env('RATE_LIMIT_ENABLED') === 'false' && isProductionContext()) {
+    add('MED', 'RATE_LIMIT_ENABLED', '全站限流已关闭（生产建议开启）')
+  } else if (isProductionContext()) {
+    add('OK', 'RATE_LIMIT_ENABLED', '全站限流已开启')
+  }
+}
+
 async function probeRemote(base) {
   console.log(`\n── 远程探测 ${base} ──`)
 
@@ -310,6 +339,7 @@ async function main() {
   checkCrawlerIngest()
   checkDesensitize()
   checkWechatMini()
+  checkPhase2Security()
 
   if (PROBE_BASE) {
     await probeRemote(PROBE_BASE)

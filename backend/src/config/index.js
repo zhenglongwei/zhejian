@@ -232,6 +232,39 @@ const config = {
       .map((item) => item.trim())
       .filter(Boolean),
   },
+  /** Phase 2 · 原图 signed URL（生产默认开启） */
+  media: {
+    get signedUrlsEnabled() {
+      if (process.env.MEDIA_SIGNED_URLS_ENABLED != null && process.env.MEDIA_SIGNED_URLS_ENABLED !== '') {
+        return envBool('MEDIA_SIGNED_URLS_ENABLED')
+      }
+      return (process.env.NODE_ENV || 'development') === 'production'
+    },
+    signingSecret: envStr('MEDIA_SIGNING_SECRET') || envStr('JWT_SECRET') || '',
+    signedUrlTtlSec: Number(process.env.MEDIA_SIGNED_URL_TTL_SEC || 7200),
+  },
+  /** Phase 2 · CORS 白名单（逗号分隔；生产未设则使用默认域） */
+  cors: {
+    allowedOrigins: (() => {
+      const raw = envStr('CORS_ALLOWED_ORIGINS')
+      if (raw) {
+        return raw.split(',').map((item) => item.trim()).filter(Boolean)
+      }
+      if ((process.env.NODE_ENV || 'development') === 'production') {
+        return ['https://geo.simplewin.cn', 'https://simplewin.cn']
+      }
+      return []
+    })(),
+  },
+  /** Phase 2 · API 限流 */
+  rateLimit: {
+    enabled: process.env.RATE_LIMIT_ENABLED !== 'false',
+    globalPerMin: Number(process.env.RATE_LIMIT_GLOBAL_PER_MIN || 300),
+    loginPer15Min: Number(process.env.RATE_LIMIT_LOGIN_PER_15MIN || 20),
+    uploadPerMin: Number(process.env.RATE_LIMIT_UPLOAD_PER_MIN || 30),
+    desensitizePerMin: Number(process.env.RATE_LIMIT_DESENSITIZE_PER_MIN || 20),
+    payNotifyPerMin: Number(process.env.RATE_LIMIT_PAY_NOTIFY_PER_MIN || 120),
+  },
 }
 
 module.exports = { config }
