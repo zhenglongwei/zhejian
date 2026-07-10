@@ -123,13 +123,17 @@
                 <ui-plan-tier-badge plan="{{item.plan}}" text="{{item.tierLabel}}" size="md" />
                 <text class="text-body merchant-sub__plan-name">{{item.name}}</text>
               </view>
-              <ui-tag wx:if="{{item.isCurrentPlan}}" variant="info" text="当前" />
-              <ui-tag wx:elif="{{item.isNextPlan}}" variant="warning" text="到期后" />
+              <view class="merchant-sub__plan-tags">
+                <ui-tag wx:if="{{item.trialEligible}}" variant="success" text="免费试用" />
+                <ui-tag wx:if="{{item.isCurrentPlan}}" variant="info" text="当前" />
+                <ui-tag wx:elif="{{item.isNextPlan}}" variant="warning" text="到期后" />
+              </view>
             </view>
 
             <view class="merchant-sub__price-row">
               <text class="text-price">¥{{item.priceAmount}}</text>
               <text class="text-caption text-secondary">{{item.priceSuffix}}</text>
+              <text wx:if="{{item.priceShowTrial}}" class="text-caption text-tertiary merchant-sub__price-list">¥{{item.priceListAmount}}/年</text>
             </view>
             <text wx:if="{{item.priceNote}}" class="text-caption text-tertiary">{{item.priceNote}}</text>
 

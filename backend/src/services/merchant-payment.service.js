@@ -18,6 +18,7 @@ const {
   hasPublicIndexEntitlement,
   isSubscriptionActive,
   canRenewSamePlan,
+  isEligibleForStandardTrial,
 } = require('./merchant-subscription.service')
 const {
   createJsapiOrder,
@@ -27,6 +28,54 @@ const {
 } = require('../lib/wechat-pay')
 
 const ORDER_TTL_MINUTES = 30
+
+async function activateZeroAmountSubscription(auth, plan, options = {}) {
+  const orderExpiresAt = new Date(Date.now() + ORDER_TTL_MINUTES * 60 * 1000)
+  const proration = {
+    priorPlan: '',
+    creditAppliedCents: 0,
+    refundExcessCents: 0,
+  }
+
+  const order = await prisma.merchantPaymentOrder.create({
+    data: {
+      id: newId('mpay'),
+      merchantId: auth.merchantId,
+      userId: auth.userId,
+      plan,
+      amount: 0,
+      status: MERCHANT_PAYMENT_STATUS.PAID,
+      paidAt: new Date(),
+      orderExpiresAt,
+      notifyPayloadJson: {
+        proration,
+        zeroAmountSwitch: true,
+        standardTrial: Boolean(options.isStandardTrial),
+      },
+    },
+  })
+
+  const activated = await activateMerchantPlan(auth.merchantId, plan, {
+    isStandardTrial: Boolean(options.isStandardTrial),
+  })
+
+  return {
+    orderId: order.id,
+    plan,
+    planLabel: MERCHANT_PLAN_LABELS[plan],
+    amount: 0,
+    amountYuan: '0.00',
+    orderExpiresAt: orderExpiresAt.toISOString(),
+    wechatPayConfigured: config.wechatPay.configured,
+    immediate: true,
+    trial: Boolean(options.isStandardTrial),
+    subscription: activated,
+    proration: {
+      ...proration,
+      summary: options.summary || '套餐已切换',
+    },
+  }
+}
 
 function assertSwitchablePlan(plan) {
   if (plan !== MERCHANT_PLAN.FREE && !PUBLIC_INDEX_PLANS.has(plan)) {
@@ -111,9 +160,28 @@ function readOrderProration(order) {
   return { priorPlan: '', creditAppliedCents: 0, refundExcessCents: 0 }
 }
 
-async function createSubscriptionOrder(auth, plan) {
+async function createSubscriptionOrder(auth, plan, options = {}) {
   assertSwitchablePlan(plan)
   const subscription = await getOrCreateSubscription(auth.merchantId)
+  const intentTrial = String(options.intent || '').trim() === 'trial'
+
+  if (
+    plan === MERCHANT_PLAN.INDEX_99 &&
+    subscription.plan === MERCHANT_PLAN.FREE &&
+    (intentTrial || (await isEligibleForStandardTrial(subscription)))
+  ) {
+    const eligible = await isEligibleForStandardTrial(subscription)
+    if (!eligible) {
+      const err = new Error('标准版免费试用已用完或不可用')
+      err.status = 409
+      throw err
+    }
+    return activateZeroAmountSubscription(auth, plan, {
+      isStandardTrial: true,
+      summary: '首次开通标准版，享 6 个月免费试用',
+    })
+  }
+
   const listPrice =
     plan === MERCHANT_PLAN.FREE ? 0 : resolvePlanPriceCents(plan, subscription)
   const chargePrice =
@@ -163,10 +231,43 @@ async function createSubscriptionOrder(auth, plan) {
     subscription,
     plan,
     listPrice,
-    chargePrice
+    chargePrice,
+    {
+      trialEligible:
+        plan === MERCHANT_PLAN.INDEX_99 &&
+        (await isEligibleForStandardTrial(subscription)),
+    }
   )
 
-  if (quote.switchMode === 'downgrade_scheduled') {
+  let effectiveQuote = quote
+  if (
+    plan === MERCHANT_PLAN.INDEX_99 &&
+    subscription.plan === MERCHANT_PLAN.FREE &&
+    quote.switchMode !== 'downgrade_scheduled' &&
+    (await isEligibleForStandardTrial(subscription))
+  ) {
+    effectiveQuote = {
+      ...quote,
+      switchMode: 'trial',
+      isCurrentPlan: false,
+      isPendingPlan: false,
+      refundCents: 0,
+      payCents: 0,
+      creditCents: 0,
+      amountCents: 0,
+      refundExcessCents: 0,
+      creditAppliedCents: 0,
+      listPriceCents: listPrice,
+      creditYuan: '0.00',
+      amountYuan: '0.00',
+      refundYuan: '0.00',
+      payYuan: '0.00',
+      refundExcessYuan: '0.00',
+      summary: '首次开通标准版，享 6 个月免费试用',
+    }
+  }
+
+  if (effectiveQuote.switchMode === 'downgrade_scheduled') {
     if (quote.isPendingPlan) {
       const err = new Error('已预约该方案，到期后自动切换')
       err.status = 409
@@ -191,7 +292,7 @@ async function createSubscriptionOrder(auth, plan) {
     }
   }
 
-  const amount = quote.amountCents
+  const amount = effectiveQuote.amountCents
   const priorPlan =
     PUBLIC_INDEX_PLANS.has(subscription.plan) &&
     isSubscriptionActive(subscription) &&
@@ -202,7 +303,7 @@ async function createSubscriptionOrder(auth, plan) {
   const proration = {
     priorPlan,
     creditAppliedCents: 0,
-    refundExcessCents: quote.refundExcessCents,
+    refundExcessCents: effectiveQuote.refundExcessCents,
   }
 
   const orderExpiresAt = new Date(Date.now() + ORDER_TTL_MINUTES * 60 * 1000)
@@ -221,7 +322,7 @@ async function createSubscriptionOrder(auth, plan) {
         notifyPayloadJson: {
           proration,
           zeroAmountSwitch: true,
-          standardTrial: quote.switchMode === 'trial',
+          standardTrial: effectiveQuote.switchMode === 'trial',
         },
       },
     })
@@ -232,7 +333,7 @@ async function createSubscriptionOrder(auth, plan) {
       proration.refundExcessCents
     )
     const activated = await activateMerchantPlan(auth.merchantId, plan, {
-      isStandardTrial: quote.switchMode === 'trial',
+      isStandardTrial: effectiveQuote.switchMode === 'trial',
     })
 
     return {
@@ -244,13 +345,13 @@ async function createSubscriptionOrder(auth, plan) {
       orderExpiresAt: orderExpiresAt.toISOString(),
       wechatPayConfigured: config.wechatPay.configured,
       immediate: true,
-      trial: quote.switchMode === 'trial',
+      trial: effectiveQuote.switchMode === 'trial',
       subscription: activated,
       proration: {
         ...proration,
-        creditYuan: quote.creditYuan,
-        refundExcessYuan: quote.refundExcessYuan,
-        summary: quote.summary,
+        creditYuan: effectiveQuote.creditYuan,
+        refundExcessYuan: effectiveQuote.refundExcessYuan,
+        summary: effectiveQuote.summary,
       },
     }
   }
@@ -279,9 +380,9 @@ async function createSubscriptionOrder(auth, plan) {
     wechatPayConfigured: config.wechatPay.configured,
     proration: {
       ...proration,
-      creditYuan: quote.creditYuan,
-      refundExcessYuan: quote.refundExcessYuan,
-      summary: quote.summary,
+      creditYuan: effectiveQuote.creditYuan,
+      refundExcessYuan: effectiveQuote.refundExcessYuan,
+      summary: effectiveQuote.summary,
     },
   }
 }

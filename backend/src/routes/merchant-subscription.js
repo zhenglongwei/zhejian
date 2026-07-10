@@ -21,7 +21,9 @@ router.get('/subscription', requireAuth(['merchant']), async (req, res, next) =>
 
 router.post('/subscription/orders', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const data = await createSubscriptionOrder(req.auth, req.body?.plan)
+    const data = await createSubscriptionOrder(req.auth, req.body?.plan, {
+      intent: req.body?.intent,
+    })
     return ok(res, data)
   } catch (e) {
     next(e)

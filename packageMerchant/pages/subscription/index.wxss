@@ -186,11 +186,23 @@
   color: var(--color-text-primary);
 }
 
+.merchant-sub__plan-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
 .merchant-sub__price-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-xs);
   flex-wrap: wrap;
+}
+
+.merchant-sub__price-list {
+  text-decoration: line-through;
 }
 
 .merchant-sub__features {

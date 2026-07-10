@@ -4,8 +4,8 @@ async function fetchMerchantSubscriptionPanel() {
   return get('/merchant/subscription')
 }
 
-async function createSubscriptionOrder(plan) {
-  return post('/merchant/subscription/orders', { plan })
+async function createSubscriptionOrder(plan, options = {}) {
+  return post('/merchant/subscription/orders', { plan, intent: options.intent })
 }
 
 async function prepaySubscriptionOrder(orderId) {

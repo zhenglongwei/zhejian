@@ -34,15 +34,25 @@ function formatExpiresAt(iso) {
   return String(iso).slice(0, 10)
 }
 
-function formatPlanPrice(item) {
+function resolveItemTrialEligible(item, subscription = {}) {
+  if (!item || item.plan !== 'index_99') return false
+  if (subscription.standardTrialUsed) return false
+  if ((subscription.plan || 'free') !== 'free' || subscription.pendingPlan) return false
+  return subscription.standardTrialEligible === true || item.trialEligible === true
+}
+
+function formatPlanPrice(item, subscription = {}) {
   if (!item || item.plan === 'free') {
-    return { amount: '0', suffix: '永久免费', note: '' }
+    return { amount: '0', suffix: '永久免费', note: '', showTrial: false, listAmount: '' }
   }
-  if (item.trialEligible) {
+  const trialEligible = resolveItemTrialEligible(item, subscription)
+  if (trialEligible) {
     return {
       amount: '0',
       suffix: '首 6 个月',
       note: '试用结束后 99 元/年续费',
+      showTrial: true,
+      listAmount: '99',
     }
   }
   const listYuan = ((item.listPriceCents || 0) / 100).toFixed(0)
@@ -51,6 +61,8 @@ function formatPlanPrice(item) {
       amount: ((item.priceCents || 0) / 100).toFixed(2),
       suffix: '元 / 年',
       note: `标价 ¥${listYuan} · 联调测试价`,
+      showTrial: false,
+      listAmount: '',
     }
   }
   if (item.listPriceCents && item.listPriceCents !== item.priceCents) {
@@ -59,9 +71,11 @@ function formatPlanPrice(item) {
       amount: discounted,
       suffix: '元 / 年',
       note: `原价 ¥${listYuan} / 年`,
+      showTrial: false,
+      listAmount: '',
     }
   }
-  return { amount: listYuan, suffix: '元 / 年', note: '' }
+  return { amount: listYuan, suffix: '元 / 年', note: '', showTrial: false, listAmount: '' }
 }
 
 function buildPublicIndexTag(subscription = {}) {
@@ -112,6 +126,7 @@ function resolvePlanSelectable(item, subscription = {}, planStatus = {}) {
   if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase' || quote.switchMode === 'trial') {
     return true
   }
+  if (resolveItemTrialEligible(item, subscription)) return true
   return false
 }
 
@@ -120,6 +135,8 @@ function resolveSelectionAction(selectedPlan, plans = [], subscription = {}) {
   const item = (plans || []).find((p) => p.plan === selectedPlan)
   if (!item) return null
   const quote = item.switchQuote || {}
+  const trialEligible = resolveItemTrialEligible(item, subscription)
+
   if (quote.switchMode === 'downgrade_scheduled') {
     return {
       type: 'schedule',
@@ -127,18 +144,24 @@ function resolveSelectionAction(selectedPlan, plans = [], subscription = {}) {
       label: `确认：到期后改为${item.tierLabel}`,
     }
   }
-  if (quote.switchMode === 'trial') {
+  if (quote.switchMode === 'trial' || (trialEligible && subscription.plan === 'free')) {
     return {
       type: 'trial',
       plan: selectedPlan,
-      label: '免费试用 6 个月',
+      label: '0元开通，免费试用6个月',
     }
   }
   if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase') {
+    const payLabel =
+      item.plan === subscription.plan
+        ? '支付续费一年'
+        : item.plan === 'index_99'
+          ? '支付开通标准版 ¥99/年'
+          : `支付开通${item.tierLabel}`
     return {
       type: 'pay',
       plan: selectedPlan,
-      label: item.plan === subscription.plan ? '支付续费一年' : `支付开通${item.tierLabel}`,
+      label: payLabel,
     }
   }
   return null
@@ -149,11 +172,13 @@ function decorateSubscriptionPlans(plans = [], subscription = {}, planStatus = {
   const pendingPlan = subscription.pendingPlan || ''
   return (plans || []).map((item) => {
     const tier = resolveMerchantPlanTier(item.plan)
-    const price = formatPlanPrice(item)
+    const trialEligible = resolveItemTrialEligible(item, subscription)
+    const price = formatPlanPrice({ ...item, trialEligible }, subscription)
     const highlights =
       PLAN_HIGHLIGHTS_FRIENDLY[item.plan] || item.highlights || []
     return {
       ...item,
+      trialEligible,
       tierLabel: tier.text,
       tier,
       highlights,
@@ -163,6 +188,8 @@ function decorateSubscriptionPlans(plans = [], subscription = {}, planStatus = {
       priceAmount: price.amount,
       priceSuffix: price.suffix,
       priceNote: price.note,
+      priceShowTrial: price.showTrial,
+      priceListAmount: price.listAmount,
     }
   })
 }
@@ -179,6 +206,7 @@ function decorateSubscriptionPanel(data = {}) {
     tierLabel: tier,
     expiresAtDisplay: formatExpiresAt(subscription.expiresAt),
     pendingEffectiveAtDisplay: formatExpiresAt(subscription.pendingEffectiveAt),
+    standardTrialEligible: subscription.standardTrialEligible === true,
   }
   const plans = decorateSubscriptionPlans(
     data.plans,
@@ -256,11 +284,11 @@ function confirmTrial(item) {
     wx.showModal({
       title: '确认免费试用',
       content: [
-        `开通「${item.tierLabel}」公域收录权益。`,
+        `0 元开通「${item.tierLabel}」公域收录权益。`,
         '首购享 6 个月免费试用，试用结束后需手动支付 99 元/年续费。',
         '不会自动扣款。',
       ].join('\n'),
-      confirmText: '开始试用',
+      confirmText: '0元开通',
       cancelText: '取消',
       success(res) {
         resolve(Boolean(res.confirm))
@@ -433,7 +461,8 @@ Page({
 
     this.setData({ paying: true })
     try {
-      const order = await createSubscriptionOrder(plan)
+      const orderOptions = kind === 'trial' ? { intent: 'trial' } : {}
+      const order = await createSubscriptionOrder(plan, orderOptions)
       const target = findPlan(this.data.plans, plan)
       const endDate = this.data.subscription.expiresAtDisplay
 
@@ -454,7 +483,7 @@ Page({
         return
       }
 
-      if (order.immediate) {
+      if (order.immediate || order.trial || order.amount === 0) {
         const tip =
           kind === 'renew'
             ? '续费成功'
@@ -466,6 +495,14 @@ Page({
         wx.showToast({ title: tip, icon: 'success' })
         this.setData({ selectedPlan: '' })
         await this.loadPanel()
+        return
+      }
+
+      if (kind === 'trial') {
+        wx.showToast({
+          title: '试用开通失败，请稍后重试',
+          icon: 'none',
+        })
         return
       }
 

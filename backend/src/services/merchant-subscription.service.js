@@ -188,8 +188,12 @@ function resolveMerchantContentOptimizeCapability(subscription) {
 }
 
 async function isEligibleForStandardTrial(subscriptionRow) {
-  if (!subscriptionRow || subscriptionRow.standardTrialUsed) return false
-  const prior = await prisma.merchantPaymentOrder.findFirst({
+  if (!subscriptionRow) return false
+  if (Boolean(subscriptionRow.standardTrialUsed)) return false
+  if (subscriptionRow.plan !== MERCHANT_PLAN.FREE) return false
+  if (subscriptionRow.pendingPlan) return false
+
+  const priorStandardOrder = await prisma.merchantPaymentOrder.findFirst({
     where: {
       merchantId: subscriptionRow.merchantId,
       plan: MERCHANT_PLAN.INDEX_99,
@@ -197,7 +201,7 @@ async function isEligibleForStandardTrial(subscriptionRow) {
     },
     select: { id: true },
   })
-  return !prior
+  return !priorStandardOrder
 }
 
 async function merchantHasPublicIndex(merchantId) {
@@ -657,7 +661,12 @@ async function activateMerchantPlan(merchantId, plan, options = {}) {
     pendingPlan: null,
   }
 
-  if (options.isStandardTrial) {
+  if (
+    resolvedPlan === MERCHANT_PLAN.INDEX_99 &&
+    (options.isStandardTrial ||
+      Boolean(existing.standardTrialUsed) ||
+      existing.plan === MERCHANT_PLAN.FREE)
+  ) {
     data.standardTrialUsed = true
   }
 
