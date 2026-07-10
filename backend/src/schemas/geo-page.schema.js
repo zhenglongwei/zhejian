@@ -2,6 +2,7 @@
  * GEO-TOPIC · GeoPage 数据契约（读/写共用）
  */
 const { toIso } = require('../lib/ids')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const {
   resolveH5ServiceItemBySlug,
   resolveH5ServiceItemById,
@@ -139,7 +140,7 @@ function mapGeoPageRow(row) {
     slug: row.slug,
     title: row.title || '',
     summary: row.summary || '',
-    coverImage: row.coverImage || '',
+    coverImage: resolveClientReadableMediaUrl(row.coverImage || ''),
     pageType: row.pageType || 'city_service',
     city: row.city || '',
     serviceId: row.serviceId || '',
@@ -199,7 +200,7 @@ function mapGeoListItem(page) {
     slug,
     title: page.title,
     summary: page.summary,
-    coverImage: page.coverImage || '',
+    coverImage: resolveClientReadableMediaUrl(page.coverImage || ''),
     city: page.city,
     pageType: page.pageType,
     keywords: page.keywords || [],

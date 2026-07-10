@@ -48,6 +48,18 @@ function rewriteMediaUrlForCurrentBase(url) {
   return value
 }
 
+/** 客户端可读媒体 URL：统一域名，原图自动补 signed query（/assets 静态资源除外） */
+function resolveClientReadableMediaUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  if (value.startsWith('/assets/')) return value
+  return rewriteMediaUrlForCurrentBase(value)
+}
+
+function resolveClientReadableMediaUrls(urls) {
+  return (urls || []).map(resolveClientReadableMediaUrl).filter(Boolean)
+}
+
 function resolveUploadFilePath(year, month, filename) {
   if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) return null
   if (!/^[a-f0-9]{32}(?:_thumb)?\.(jpe?g|png|webp)$/i.test(filename)) return null
@@ -166,6 +178,8 @@ module.exports = {
   resolveUploadDir,
   buildPublicMediaUrl,
   rewriteMediaUrlForCurrentBase,
+  resolveClientReadableMediaUrl,
+  resolveClientReadableMediaUrls,
   createStoredFilename,
   assertPersistentImageUrl,
   resolveUploadFilePath,

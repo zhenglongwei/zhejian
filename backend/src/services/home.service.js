@@ -12,14 +12,17 @@ const {
 const { listMerchants, fetchPublicCaseRows } = require('./content.service')
 const { listGeoPages } = require('./geo.service')
 const { filterIntentDiscoveryTopics } = require('../utils/geo-intent-discovery')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 
 function mapFeaturedCase(item) {
   return {
     id: item.id,
     albumId: item.albumId,
     authorizationTier: item.authorizationTier,
-    coverImage: item.coverImage || '',
-    coverImageDesensitized: item.coverImageDesensitized || item.coverImage || '',
+    coverImage: resolveClientReadableMediaUrl(item.coverImage || ''),
+    coverImageDesensitized: resolveClientReadableMediaUrl(
+      item.coverImageDesensitized || item.coverImage || ''
+    ),
     title: item.title,
     serviceName: item.serviceName,
     summary: item.summary,
@@ -51,7 +54,7 @@ async function fetchRecommendedMerchants(limit = 6) {
     longitude: store.longitude,
     businessHours: store.businessHours,
     caseCount: store.caseCount,
-    coverImage: store.coverImage,
+    coverImage: resolveClientReadableMediaUrl(store.coverImage),
     qualificationTags: store.qualificationTags,
     specialties: store.specialties,
     supportsAlbum: store.supportsAlbum,

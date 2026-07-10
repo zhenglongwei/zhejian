@@ -2,7 +2,13 @@ const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 const { ROLES } = require('../lib/jwt')
 const { hasRole } = require('../middleware/auth')
-const { verifyMediaSignature, isOriginalUploadObjectKey } = require('../lib/media-signed-url')
+const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { formatQualificationForClient } = require('../lib/onboarding-payload')
+const {
+  verifyMediaSignature,
+  isOriginalUploadObjectKey,
+  stripUrlQuery,
+} = require('../lib/media-signed-url')
 
 function mediaAssetRepo() {
   return prisma && prisma.mediaAsset ? prisma.mediaAsset : null
@@ -10,6 +16,83 @@ function mediaAssetRepo() {
 
 function baseObjectKey(objectKey) {
   return String(objectKey || '').replace(/_thumb(\.[^./]+)$/i, '$1')
+}
+
+function objectKeyFilename(objectKey) {
+  const parts = String(objectKey || '').split('/')
+  return parts[parts.length - 1] || ''
+}
+
+function mediaUrlMatchesObjectKey(url, objectKey) {
+  const normalized = stripUrlQuery(String(url || '').trim())
+  if (!normalized || !objectKey) return false
+  const key = String(objectKey).replace(/^\/+/, '')
+  if (normalized.includes(key)) return true
+  if (normalized.includes(`/media/files/${key}`)) return true
+  const filename = objectKeyFilename(key)
+  return filename ? normalized.endsWith(`/${filename}`) || normalized.endsWith(filename) : false
+}
+
+function storePhotosReferenceObjectKey(photosJson, objectKey) {
+  const photos = photosJson && typeof photosJson === 'object' && !Array.isArray(photosJson) ? photosJson : {}
+  if (mediaUrlMatchesObjectKey(photos.facadeUrl, objectKey)) return true
+  if (Array.isArray(photos.workshopUrls)) {
+    return photos.workshopUrls.some((url) => mediaUrlMatchesObjectKey(url, objectKey))
+  }
+  return false
+}
+
+/**
+ * 公开内容目录中的原图（门店门头/环境、已发布 GEO 封面、商家资质证照）允许匿名读。
+ * 兜底：API 未补 signed query 或签名 secret 未配置时，仍保证首页/H5 公开展示可用。
+ */
+async function canAccessViaPublicContentCatalog(objectKey) {
+  const key = String(objectKey || '').trim()
+  if (!key || !isOriginalUploadObjectKey(key)) return false
+
+  const filename = objectKeyFilename(key)
+  if (!filename) return false
+
+  const storeHit = await prisma.store.findFirst({
+    where: {
+      status: 'ACTIVE',
+      merchant: { status: 'ACTIVE' },
+      photosJson: { string_contains: filename },
+    },
+    select: { photosJson: true },
+  })
+  if (storeHit && storePhotosReferenceObjectKey(storeHit.photosJson, key)) {
+    return true
+  }
+
+  const geoHit = await prisma.geoPage.findFirst({
+    where: {
+      status: { in: [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX] },
+      coverImage: { contains: filename },
+    },
+    select: { coverImage: true },
+  })
+  if (geoHit && mediaUrlMatchesObjectKey(geoHit.coverImage, key)) {
+    return true
+  }
+
+  const merchantHit = await prisma.merchant.findFirst({
+    where: {
+      status: 'ACTIVE',
+      OR: [
+        { licensePhotoUrl: { contains: filename } },
+        { qualificationJson: { string_contains: filename } },
+      ],
+    },
+    select: { licensePhotoUrl: true, qualificationJson: true },
+  })
+  if (merchantHit) {
+    if (mediaUrlMatchesObjectKey(merchantHit.licensePhotoUrl, key)) return true
+    const qualification = formatQualificationForClient(merchantHit.qualificationJson)
+    if (mediaUrlMatchesObjectKey(qualification?.photoUrl, key)) return true
+  }
+
+  return false
 }
 
 async function canUserAccessAlbumRow(album, userId) {
@@ -76,6 +159,8 @@ async function canReadOriginalMedia(req, objectKey) {
   const sig = req.query?.sig
   if (verifyMediaSignature(objectKey, exp, sig)) return true
 
+  if (await canAccessViaPublicContentCatalog(objectKey)) return true
+
   const auth = req.auth || {}
   if (!auth.token) return false
   if (hasRole(auth, ROLES.SYSTEM)) return true
@@ -88,4 +173,6 @@ module.exports = {
   canReadOriginalMedia,
   canAccessViaAlbumImage,
   canAccessViaMediaAsset,
+  canAccessViaPublicContentCatalog,
+  mediaUrlMatchesObjectKey,
 }

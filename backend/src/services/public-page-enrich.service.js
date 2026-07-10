@@ -8,6 +8,7 @@ const {
   QUALIFICATION_LABELS,
 } = require('../lib/onboarding-payload')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const {
   STORE_SECTION_ORDER,
   CASE_SECTION_ORDER,
@@ -95,13 +96,17 @@ function dedupeCertRows(rows) {
   })
 }
 
+function resolvePublicCredentialImageUrl(url) {
+  return resolveClientReadableMediaUrl(url) || resolvePublicCaseMediaUrl(url) || ''
+}
+
 function buildCertWall(merchant, extras = {}) {
   const wall = []
   if (merchant?.licensePhotoUrl) {
     wall.push({
       type: 'license',
       label: '营业执照',
-      imageUrl: resolvePublicCaseMediaUrl(merchant.licensePhotoUrl) || merchant.licensePhotoUrl,
+      imageUrl: resolvePublicCredentialImageUrl(merchant.licensePhotoUrl),
       status: 'verified',
       text: merchant.legalName ? `${merchant.legalName} · 已认证` : '已认证',
     })
@@ -111,7 +116,7 @@ function buildCertWall(merchant, extras = {}) {
     wall.push({
       type: 'qualification',
       label: qualification.typeLabel || '维修资质',
-      imageUrl: resolvePublicCaseMediaUrl(qualification.photoUrl) || qualification.photoUrl,
+      imageUrl: resolvePublicCredentialImageUrl(qualification.photoUrl),
       status: 'verified',
       text: qualification.certNo ? `${qualification.certNo} · 已认证` : '已认证',
     })
@@ -121,7 +126,7 @@ function buildCertWall(merchant, extras = {}) {
     wall.push({
       type: 'brand_auth',
       label: '品牌授权',
-      imageUrl: resolvePublicCaseMediaUrl(brandAuth) || brandAuth,
+      imageUrl: resolvePublicCredentialImageUrl(brandAuth),
       status: 'verified',
       text: '已认证',
     })

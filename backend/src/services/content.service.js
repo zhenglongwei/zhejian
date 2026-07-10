@@ -1,6 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { resolveClientReadableMediaUrl, resolveClientReadableMediaUrls, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
 const { prepareSearchLists, parseSearchCoords, packSearchResults } = require('../utils/search-query')
 const {
@@ -110,7 +111,8 @@ function formatPublishedAt(value) {
 }
 
 function sanitizeCover(url) {
-  return resolvePublicCaseMediaUrl(url) || ''
+  const cover = resolvePublicCaseMediaUrl(url) || ''
+  return cover ? rewriteMediaUrlForCurrentBase(cover) : ''
 }
 
 function dedupeUrls(urls) {
@@ -489,12 +491,14 @@ function mapStoreRow(store, caseCount = 0) {
       : extras.longitude != null
         ? extras.longitude
         : null
-  const coverImage =
+  const coverImage = resolveClientReadableMediaUrl(
     photos.facadeUrl || extras.coverImage || ''
-  const environmentImages =
+  )
+  const environmentImages = resolveClientReadableMediaUrls(
     Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
       ? photos.workshopUrls
       : extras.environmentImages || []
+  )
   return {
     id: store.id,
     merchantId: store.merchantId || '',
