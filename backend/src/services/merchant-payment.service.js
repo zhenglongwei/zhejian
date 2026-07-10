@@ -1,6 +1,8 @@
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { config } = require('../config')
+const fs = require('fs')
+const path = require('path')
 const {
   MERCHANT_PLAN,
   MERCHANT_PLAN_LABELS,
@@ -23,6 +25,24 @@ const {
 } = require('../lib/wechat-pay')
 
 const ORDER_TTL_MINUTES = 30
+
+// #region agent log
+function agentLog(location, message, data, hypothesisId) {
+  try {
+    const line =
+      JSON.stringify({
+        sessionId: 'bddc5f',
+        runId: 'pre-fix',
+        hypothesisId,
+        location,
+        message,
+        data,
+        timestamp: Date.now(),
+      }) + '\n'
+    fs.appendFileSync(path.join(__dirname, '../../../debug-bddc5f.log'), line)
+  } catch (_) {}
+}
+// #endregion
 
 function assertPaidPlan(plan) {
   if (!PUBLIC_INDEX_PLANS.has(plan)) {
@@ -111,6 +131,21 @@ async function createSubscriptionOrder(auth, plan) {
   assertPaidPlan(plan)
   const subscription = await getOrCreateSubscription(auth.merchantId)
   const listPrice = resolveChargeAmountCents(plan, subscription)
+  // #region agent log
+  agentLog(
+    'merchant-payment.service.js:createSubscriptionOrder',
+    'create order entry',
+    {
+      merchantId: auth.merchantId,
+      plan,
+      currentPlan: subscription.plan,
+      listPrice,
+      active: isSubscriptionActive(subscription),
+      publicIndex: hasPublicIndexEntitlement(subscription),
+    },
+    'C'
+  )
+  // #endregion
 
   if (
     subscription.plan === plan &&
@@ -124,6 +159,23 @@ async function createSubscriptionOrder(auth, plan) {
 
   const quote = await buildPlanSwitchQuote(subscription, plan, listPrice)
   const amount = quote.amountCents
+  // #region agent log
+  agentLog(
+    'merchant-payment.service.js:createSubscriptionOrder',
+    'switch quote computed',
+    {
+      plan,
+      amount,
+      quote: {
+        isCurrentPlan: quote.isCurrentPlan,
+        creditCents: quote.creditCents,
+        refundExcessCents: quote.refundExcessCents,
+        summary: quote.summary,
+      },
+    },
+    'C'
+  )
+  // #endregion
   const priorPlan =
     PUBLIC_INDEX_PLANS.has(subscription.plan) &&
     isSubscriptionActive(subscription) &&
