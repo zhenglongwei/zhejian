@@ -311,6 +311,71 @@ async function computeRemainingCreditCents(subscriptionRow) {
   return Math.max(0, Math.floor((paidCents * remainingDays) / SUBSCRIPTION_TERM_DAYS))
 }
 
+const SUBSCRIPTION_RENEWAL_WINDOW_DAYS = 30
+
+function isWithinRenewalWindow(subscriptionRow) {
+  if (!subscriptionRow?.expiresAt) return false
+  const remainingMs = subscriptionRow.expiresAt.getTime() - Date.now()
+  return remainingMs <= SUBSCRIPTION_RENEWAL_WINDOW_DAYS * 24 * 60 * 60 * 1000
+}
+
+function canRenewSamePlan(subscriptionRow, plan) {
+  if (!subscriptionRow || subscriptionRow.plan !== plan) return false
+  if (subscriptionRow.pendingPlan) return false
+  if (!PUBLIC_INDEX_PLANS.has(plan)) return false
+  if (!isSubscriptionActive(subscriptionRow)) return true
+  return isWithinRenewalWindow(subscriptionRow)
+}
+
+function daysUntilSubscriptionExpiry(subscriptionRow) {
+  if (!subscriptionRow?.expiresAt) return null
+  const remainingMs = subscriptionRow.expiresAt.getTime() - Date.now()
+  return Math.ceil(remainingMs / (24 * 60 * 60 * 1000))
+}
+
+function resolveNextPeriodLabel(subscriptionRow) {
+  const currentPlan = subscriptionRow?.plan || MERCHANT_PLAN.FREE
+  if (subscriptionRow?.pendingPlan) {
+    return (
+      MERCHANT_PLAN_TAG_LABELS[subscriptionRow.pendingPlan] ||
+      MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE]
+    )
+  }
+  if (PUBLIC_INDEX_PLANS.has(currentPlan) && subscriptionRow?.expiresAt) {
+    return `同当前套餐（到期前需手动支付续费，不会自动扣款）`
+  }
+  return MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE]
+}
+
+function buildRenewalNotice(subscriptionRow) {
+  if (!subscriptionRow || !PUBLIC_INDEX_PLANS.has(subscriptionRow.plan)) {
+    return { show: false }
+  }
+  if (!isSubscriptionActive(subscriptionRow) && subscriptionRow.expiresAt) {
+    return {
+      show: true,
+      daysLeft: 0,
+      level: 'urgent',
+      message: '套餐已到期，请手动支付续费以恢复公域收录',
+      canPay: !subscriptionRow.pendingPlan,
+    }
+  }
+  const daysLeft = daysUntilSubscriptionExpiry(subscriptionRow)
+  if (daysLeft === null || daysLeft > SUBSCRIPTION_RENEWAL_WINDOW_DAYS) {
+    return { show: false }
+  }
+  return {
+    show: true,
+    daysLeft,
+    level: daysLeft <= 7 ? 'urgent' : 'warning',
+    message:
+      daysLeft <= 0
+        ? '套餐今日到期，请手动支付续费'
+        : `套餐还有 ${daysLeft} 天到期，不会自动续费，请及时支付`,
+    canPay: !subscriptionRow.pendingPlan && canRenewSamePlan(subscriptionRow, subscriptionRow.plan),
+  }
+}
+
 function buildPlanSwitchQuote(
   subscriptionRow,
   targetPlan,
@@ -345,6 +410,29 @@ function buildPlanSwitchQuote(
     isSubscriptionActive(subscriptionRow) &&
     hasPublicIndexEntitlement(subscriptionRow)
   if (isCurrentPaidPlan) {
+    if (canRenewSamePlan(subscriptionRow, targetPlan)) {
+      const payCents = chargePriceCents
+      const payYuan = (payCents / 100).toFixed(2)
+      const listPayYuan = (listPriceCents / 100).toFixed(2)
+      return Promise.resolve({
+        switchMode: 'renew',
+        isCurrentPlan: false,
+        isPendingPlan: false,
+        refundCents: 0,
+        payCents,
+        creditCents: 0,
+        amountCents: payCents,
+        refundExcessCents: 0,
+        creditAppliedCents: 0,
+        listPriceCents,
+        creditYuan: '0.00',
+        amountYuan: payYuan,
+        refundYuan: '0.00',
+        payYuan,
+        refundExcessYuan: '0.00',
+        summary: `续费一年 ¥${listPayYuan}`,
+      })
+    }
     return Promise.resolve({
       switchMode: 'current',
       isCurrentPlan: true,
@@ -449,6 +537,11 @@ async function schedulePlanDowngrade(merchantId, targetPlan) {
   }
   if (row.pendingPlan === targetPlan) {
     const err = new Error('已预约该方案，到期后自动切换')
+    err.status = 409
+    throw err
+  }
+  if (row.pendingPlan && row.pendingPlan !== targetPlan) {
+    const err = new Error('请先取消当前预约，再选择其他套餐')
     err.status = 409
     throw err
   }
@@ -620,12 +713,30 @@ async function fetchMerchantSubscriptionPanel(auth) {
   subscription.remainingCreditYuan = (creditCents / 100).toFixed(2)
   const plans = listPlanCatalog(row)
   const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
+  const renewalNotice = buildRenewalNotice(row)
   return {
     subscription,
     plans: plansWithQuotes,
+    planStatus: {
+      currentPlan: plan,
+      currentTierLabel:
+        MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
+      currentPlanLabel: subscription.planLabel,
+      expiresAtDisplay: subscription.expiresAt
+        ? String(subscription.expiresAt).slice(0, 10)
+        : '',
+      nextTierLabel: resolveNextPeriodLabel(row),
+      hasPendingChange: Boolean(subscription.pendingPlan),
+      pendingPlanLabel: subscription.pendingPlanLabel || '',
+      canCancelPending: Boolean(subscription.pendingPlan),
+      canScheduleChange:
+        hasPublicIndexEntitlement(row) &&
+        isSubscriptionActive(row) &&
+        !subscription.pendingPlan,
+      manualRenewOnly: true,
+    },
+    renewalNotice,
     paymentTestMode: config.wechatPay.subscriptionTestAmountCents != null,
-    disclaimer:
-      '公域自然排序仅依据案例完整度与车主反馈，与是否付费无关。付费仅解锁公域收录权限与页面优化服务，不承诺排名与到店效果。升级时按剩余天数退回原方案费用后支付新方案年费；降级不退费，预约在有效期结束后自动切换。',
   }
 }
 
@@ -651,4 +762,7 @@ module.exports = {
   buildPlanSwitchQuote,
   schedulePlanDowngrade,
   resolveLastPaidAmountCents,
+  canRenewSamePlan,
+  isWithinRenewalWindow,
+  daysUntilSubscriptionExpiry,
 }

@@ -17,6 +17,7 @@ const {
   schedulePlanDowngrade,
   hasPublicIndexEntitlement,
   isSubscriptionActive,
+  canRenewSamePlan,
 } = require('./merchant-subscription.service')
 const {
   createJsapiOrder,
@@ -119,19 +120,43 @@ async function createSubscriptionOrder(auth, plan) {
     plan === MERCHANT_PLAN.FREE ? 0 : resolveChargeAmountCents(plan, subscription)
 
   if (plan === MERCHANT_PLAN.FREE) {
-    if (subscription.plan === MERCHANT_PLAN.FREE) {
+    if (subscription.plan === MERCHANT_PLAN.FREE && !subscription.pendingPlan) {
       const err = new Error('当前已是基础版')
       err.status = 409
       throw err
     }
   } else if (
     subscription.plan === plan &&
+    !subscription.pendingPlan &&
+    !canRenewSamePlan(subscription, plan) &&
     isSubscriptionActive(subscription) &&
     hasPublicIndexEntitlement(subscription)
   ) {
     const err = new Error('当前已是该套餐，无需重复购买')
     err.status = 409
     throw err
+  }
+
+  if (
+    subscription.plan === plan &&
+    subscription.pendingPlan &&
+    isSubscriptionActive(subscription)
+  ) {
+    await prisma.merchantSubscription.update({
+      where: { merchantId: auth.merchantId },
+      data: { pendingPlan: null },
+    })
+    const activated = await getOrCreateSubscription(auth.merchantId)
+    return {
+      immediate: true,
+      keptCurrent: true,
+      plan,
+      planLabel: MERCHANT_PLAN_LABELS[plan],
+      subscription: formatSubscriptionRow(activated),
+      proration: {
+        summary: '已取消预约变更，继续当前套餐',
+      },
+    }
   }
 
   const quote = await buildPlanSwitchQuote(
@@ -144,6 +169,11 @@ async function createSubscriptionOrder(auth, plan) {
   if (quote.switchMode === 'downgrade_scheduled') {
     if (quote.isPendingPlan) {
       const err = new Error('已预约该方案，到期后自动切换')
+      err.status = 409
+      throw err
+    }
+    if (subscription.pendingPlan && subscription.pendingPlan !== plan) {
+      const err = new Error('请先取消当前预约，再选择其他套餐')
       err.status = 409
       throw err
     }

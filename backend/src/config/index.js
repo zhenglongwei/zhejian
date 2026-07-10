@@ -55,6 +55,7 @@ const config = {
       album: process.env.WECHAT_TMPL_ALBUM || '',
       audit: process.env.WECHAT_TMPL_AUDIT || '',
       lead: process.env.WECHAT_TMPL_LEAD || '',
+      subscription_renew: process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW || '',
     },
     subscribeFields: {
       consult: {
@@ -77,6 +78,12 @@ const config = {
         sender: process.env.WECHAT_TMPL_LEAD_FIELD_SENDER || 'name1',
         leadTime: process.env.WECHAT_TMPL_LEAD_FIELD_TIME || 'time1',
         tips: process.env.WECHAT_TMPL_LEAD_FIELD_TIPS || 'thing2',
+      },
+      subscription_renew: {
+        renewType:
+          process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW_FIELD_TYPE || 'phrase1',
+        renewDesc:
+          process.env.WECHAT_TMPL_SUBSCRIPTION_RENEW_FIELD_DESC || 'thing2',
       },
     },
   },

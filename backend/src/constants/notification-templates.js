@@ -9,6 +9,7 @@ const SUBSCRIBE_TEMPLATE_KEYS = {
     lead: ['lead'],
     audit: ['audit'],
     merchant: ['lead', 'audit'],
+    subscription: ['subscription_renew'],
   },
   byTemplateId: {},
 }
@@ -106,6 +107,24 @@ function buildSubscribePayload(templateKey, payload = {}) {
     if (fields.remark) {
       data[fields.remark] = { value: remark }
     }
+    return data
+  }
+
+  /** 续费通知：phrase1 续费类型 + thing2 续费说明 */
+  if (fields.renewType && fields.renewDesc) {
+    const renewType = clipWechatField(
+      payload.renewType || payload.phrase1 || '套餐续费',
+      20
+    )
+    const renewDesc = clipWechatField(
+      payload.renewDesc ||
+        payload.thing2 ||
+        content ||
+        '到期不会自动扣款，请手动支付',
+      20
+    )
+    data[fields.renewType] = { value: renewType }
+    data[fields.renewDesc] = { value: renewDesc }
     return data
   }
 

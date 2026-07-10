@@ -695,6 +695,55 @@ async function notifyMerchantAuditResult({ merchant, approved, needModify = fals
   })
 }
 
+function formatSubscriptionExpiresDate(value) {
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
+ * 套餐到期续费提醒（微信订阅 + 站内消息）
+ */
+async function notifySubscriptionRenewal(input = {}) {
+  const { merchantId, tierLabel, planLabel, expiresAt, daysLeft } = input
+  if (!merchantId || !expiresAt) return null
+
+  const expiresDisplay = formatSubscriptionExpiresDate(expiresAt)
+  const tier = tierLabel || '收录套餐'
+  const label = planLabel || tier
+  const left = Number(daysLeft)
+  let renewDesc = '到期不会自动扣款，请手动支付'
+  if (left <= 0) {
+    renewDesc = '已到期，请尽快支付续费'
+  } else if (left === 1) {
+    renewDesc = '明天到期，请手动支付续费'
+  } else if (left <= 7) {
+    renewDesc = `还有${left}天到期，请手动续费`
+  } else {
+    renewDesc = `${expiresDisplay}到期，请提前续费`
+  }
+
+  const milestone = left <= 0 ? '0d' : `${left}d`
+  return notifyMerchantOwner({
+    merchantId,
+    messageType: 'subscription_renew',
+    title: left <= 0 ? '套餐已到期' : '套餐即将到期',
+    content: `${tier}将于${expiresDisplay}到期，不会自动续费，请及时支付`,
+    refType: 'subscription',
+    refId: `${merchantId}:${expiresDisplay}:${milestone}`,
+    jumpPath: '/packageMerchant/pages/subscription/index',
+    wechatTemplateKey: 'subscription_renew',
+    wechatPage: 'packageMerchant/pages/subscription/index',
+    wechatPayload: {
+      renewType: label,
+      renewDesc,
+      phrase1: label,
+      thing2: renewDesc,
+    },
+  })
+}
+
 module.exports = {
   RECEIVER,
   createNotification,
@@ -716,4 +765,5 @@ module.exports = {
   notifyAuthorizationWithdrawn,
   notifyCaseAuditResult,
   notifyMerchantAuditResult,
+  notifySubscriptionRenewal,
 }
