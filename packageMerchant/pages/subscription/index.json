@@ -5,6 +5,7 @@
     "ui-button": "/components/button/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
-    "ui-compliance-notice": "/components/compliance-notice/index"
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

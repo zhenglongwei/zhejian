@@ -1,8 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { config } = require('../config')
-const fs = require('fs')
-const path = require('path')
 const {
   MERCHANT_PLAN,
   MERCHANT_PLAN_LABELS,
@@ -26,27 +24,9 @@ const {
 
 const ORDER_TTL_MINUTES = 30
 
-// #region agent log
-function agentLog(location, message, data, hypothesisId) {
-  try {
-    const line =
-      JSON.stringify({
-        sessionId: 'bddc5f',
-        runId: 'pre-fix',
-        hypothesisId,
-        location,
-        message,
-        data,
-        timestamp: Date.now(),
-      }) + '\n'
-    fs.appendFileSync(path.join(__dirname, '../../../debug-bddc5f.log'), line)
-  } catch (_) {}
-}
-// #endregion
-
-function assertPaidPlan(plan) {
-  if (!PUBLIC_INDEX_PLANS.has(plan)) {
-    const err = new Error('该套餐暂不支持在线购买')
+function assertSwitchablePlan(plan) {
+  if (plan !== MERCHANT_PLAN.FREE && !PUBLIC_INDEX_PLANS.has(plan)) {
+    const err = new Error('无效的套餐类型')
     err.status = 400
     throw err
   }
@@ -128,26 +108,18 @@ function readOrderProration(order) {
 }
 
 async function createSubscriptionOrder(auth, plan) {
-  assertPaidPlan(plan)
+  assertSwitchablePlan(plan)
   const subscription = await getOrCreateSubscription(auth.merchantId)
-  const listPrice = resolveChargeAmountCents(plan, subscription)
-  // #region agent log
-  agentLog(
-    'merchant-payment.service.js:createSubscriptionOrder',
-    'create order entry',
-    {
-      merchantId: auth.merchantId,
-      plan,
-      currentPlan: subscription.plan,
-      listPrice,
-      active: isSubscriptionActive(subscription),
-      publicIndex: hasPublicIndexEntitlement(subscription),
-    },
-    'C'
-  )
-  // #endregion
+  const listPrice =
+    plan === MERCHANT_PLAN.FREE ? 0 : resolveChargeAmountCents(plan, subscription)
 
-  if (
+  if (plan === MERCHANT_PLAN.FREE) {
+    if (subscription.plan === MERCHANT_PLAN.FREE) {
+      const err = new Error('当前已是基础版')
+      err.status = 409
+      throw err
+    }
+  } else if (
     subscription.plan === plan &&
     isSubscriptionActive(subscription) &&
     hasPublicIndexEntitlement(subscription)
@@ -159,23 +131,6 @@ async function createSubscriptionOrder(auth, plan) {
 
   const quote = await buildPlanSwitchQuote(subscription, plan, listPrice)
   const amount = quote.amountCents
-  // #region agent log
-  agentLog(
-    'merchant-payment.service.js:createSubscriptionOrder',
-    'switch quote computed',
-    {
-      plan,
-      amount,
-      quote: {
-        isCurrentPlan: quote.isCurrentPlan,
-        creditCents: quote.creditCents,
-        refundExcessCents: quote.refundExcessCents,
-        summary: quote.summary,
-      },
-    },
-    'C'
-  )
-  // #endregion
   const priorPlan =
     PUBLIC_INDEX_PLANS.has(subscription.plan) &&
     isSubscriptionActive(subscription) &&

@@ -264,6 +264,38 @@ async function computeRemainingCreditCents(subscriptionRow) {
 }
 
 function buildPlanSwitchQuote(subscriptionRow, targetPlan, listPriceCents) {
+  if (targetPlan === MERCHANT_PLAN.FREE) {
+    const isCurrentPlan = subscriptionRow?.plan === MERCHANT_PLAN.FREE
+    if (isCurrentPlan) {
+      return Promise.resolve({
+        isCurrentPlan: true,
+        creditCents: 0,
+        amountCents: 0,
+        refundExcessCents: 0,
+        creditYuan: '0.00',
+        amountYuan: '0.00',
+        refundExcessYuan: '0.00',
+        summary: '当前套餐',
+      })
+    }
+    return computeRemainingCreditCents(subscriptionRow).then((creditCents) => {
+      const summary =
+        creditCents > 0
+          ? `剩余权益 ¥${(creditCents / 100).toFixed(2)} 将原路退回，公域收录关闭`
+          : '切换后仅保留私域能力，公域收录关闭'
+      return {
+        isCurrentPlan: false,
+        creditCents,
+        amountCents: 0,
+        refundExcessCents: creditCents,
+        creditYuan: (creditCents / 100).toFixed(2),
+        amountYuan: '0.00',
+        refundExcessYuan: (creditCents / 100).toFixed(2),
+        summary,
+      }
+    })
+  }
+
   const isCurrentPlan =
     subscriptionRow?.plan === targetPlan &&
     isSubscriptionActive(subscriptionRow) &&
@@ -432,11 +464,9 @@ function listPlanCatalog(subscriptionRow) {
 async function enrichPlanCatalogWithQuotes(subscriptionRow, plans) {
   const enriched = []
   for (const item of plans) {
-    if (item.plan === MERCHANT_PLAN.FREE) {
-      enriched.push({ ...item, switchQuote: null })
-      continue
-    }
-    const quote = await buildPlanSwitchQuote(subscriptionRow, item.plan, item.priceCents)
+    const listPriceCents =
+      item.plan === MERCHANT_PLAN.FREE ? 0 : item.priceCents
+    const quote = await buildPlanSwitchQuote(subscriptionRow, item.plan, listPriceCents)
     enriched.push({ ...item, switchQuote: quote })
   }
   return enriched

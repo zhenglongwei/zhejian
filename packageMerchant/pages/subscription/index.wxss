@@ -7,7 +7,8 @@
 }
 
 .merchant-sub {
-  padding: var(--space-md) var(--page-padding-x) var(--space-xl);
+  padding: var(--space-md) var(--page-padding-x)
+    calc(var(--fixed-bottom-bar-height) + var(--space-xl));
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -24,10 +25,16 @@
   color: var(--color-text-primary);
 }
 
+.merchant-sub__section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
 .merchant-sub__plans {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .merchant-sub__plan {
@@ -35,6 +42,13 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  border: 1rpx solid var(--color-border);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.merchant-sub__plan--selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
 }
 
 .merchant-sub__plan--current {
@@ -43,19 +57,46 @@
 
 .merchant-sub__plan-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
 }
 
-.merchant-sub__plan-name {
+.merchant-sub__plan-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   flex: 1;
   min-width: 0;
+}
+
+.merchant-sub__plan-name {
   color: var(--color-text-primary);
 }
 
-.merchant-sub__price {
+.merchant-sub__badge {
   flex-shrink: 0;
+  padding: 2rpx var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-album-frame-corner);
+  color: var(--color-text-secondary);
+}
+
+.merchant-sub__plan-radio {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--color-border);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.merchant-sub__plan-radio--on {
+  border-color: var(--color-primary);
+  border-width: 10rpx;
+}
+
+.merchant-sub__price {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
 }
@@ -64,17 +105,34 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  margin-bottom: var(--space-xs);
 }
 
 .merchant-sub__line {
   display: block;
 }
 
-.merchant-sub__quote {
-  display: block;
+.merchant-sub__quote-panel {
+  padding: var(--space-sm) var(--space-md);
 }
 
 .merchant-sub__test-hint {
   color: var(--color-warning);
+}
+
+.merchant-sub__footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__footer-price {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.merchant-sub__footer-price-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
 }

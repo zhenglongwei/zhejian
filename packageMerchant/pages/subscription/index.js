@@ -6,29 +6,6 @@ const {
 } = require('../../../services/merchant-subscription')
 const { resolveMerchantPlanTier } = require('../../../constants/merchant-plan-tier')
 
-// #region agent log
-function agentLog(location, message, data, hypothesisId) {
-  wx.request({
-    url: 'http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',
-    method: 'POST',
-    header: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'bddc5f',
-    },
-    data: {
-      sessionId: 'bddc5f',
-      runId: 'pre-fix',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    },
-    fail: () => {},
-  })
-}
-// #endregion
-
 function decorateSubscriptionPlans(plans = []) {
   return (plans || []).map((item) => {
     const tier = resolveMerchantPlanTier(item.plan)
@@ -62,6 +39,33 @@ function decorateSubscriptionPanel(data = {}) {
   }
 }
 
+function findPlan(plans, plan) {
+  return (plans || []).find((item) => item.plan === plan) || null
+}
+
+function resolveSelectionState(subscription, plans, selectedPlan) {
+  const selected = findPlan(plans, selectedPlan)
+  const isCurrent = Boolean(selected && selected.isCurrentPlan)
+  const quote = (selected && selected.switchQuote) || {}
+  let actionLabel = '确认切换'
+  if (isCurrent) {
+    actionLabel = '当前方案'
+  } else if (selectedPlan === 'free') {
+    actionLabel = '降级为基础版'
+  } else if (subscription && subscription.publicIndex) {
+    actionLabel = '确认切换'
+  } else {
+    actionLabel = '立即开通'
+  }
+  return {
+    selectedQuoteSummary: quote.summary || '',
+    selectedPriceLabel: (selected && selected.priceLabel) || '',
+    actionDisabled: isCurrent || !selectedPlan,
+    actionLabel,
+    isCurrentSelection: isCurrent,
+  }
+}
+
 function requestWechatPayment(payment) {
   return new Promise((resolve, reject) => {
     wx.requestPayment({
@@ -72,19 +76,60 @@ function requestWechatPayment(payment) {
   })
 }
 
+function confirmDowngradeToFree() {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '降级为基础版',
+      content:
+        '切换后公域收录将关闭，已发布案例不再进入 sitemap。剩余年费将按天折算原路退回（如有）。',
+      confirmText: '确认降级',
+      cancelText: '取消',
+      success(res) {
+        resolve(Boolean(res.confirm))
+      },
+      fail() {
+        resolve(false)
+      },
+    })
+  })
+}
+
 Page({
   data: {
     status: 'loading',
     subscription: null,
     plans: [],
+    selectedPlan: '',
     paymentTestMode: false,
     disclaimer: '',
-    payingPlan: '',
+    paying: false,
     errorMessage: '',
+    selectedQuoteSummary: '',
+    selectedPriceLabel: '',
+    actionDisabled: true,
+    actionLabel: '当前方案',
+    isCurrentSelection: true,
   },
 
   onShow() {
     this.loadPanel()
+  },
+
+  applySelectionState(selectedPlan) {
+    const selection = resolveSelectionState(
+      this.data.subscription,
+      this.data.plans,
+      selectedPlan
+    )
+    const plans = (this.data.plans || []).map((item) => ({
+      ...item,
+      isSelected: item.plan === selectedPlan,
+    }))
+    this.setData({
+      selectedPlan,
+      plans,
+      ...selection,
+    })
   },
 
   async loadPanel() {
@@ -92,36 +137,25 @@ Page({
     try {
       const data = await fetchMerchantSubscriptionPanel()
       const panel = decorateSubscriptionPanel(data)
+      const selectedPlan = panel.subscription.plan || 'free'
+      const selection = resolveSelectionState(
+        panel.subscription,
+        panel.plans,
+        selectedPlan
+      )
+      const plans = panel.plans.map((item) => ({
+        ...item,
+        isSelected: item.plan === selectedPlan,
+      }))
       this.setData({
         status: 'normal',
         subscription: panel.subscription,
-        plans: panel.plans,
+        plans,
+        selectedPlan,
         paymentTestMode: panel.paymentTestMode,
         disclaimer: panel.disclaimer,
+        ...selection,
       })
-      // #region agent log
-      agentLog(
-        'subscription/index.js:loadPanel',
-        'panel loaded',
-        {
-          currentPlan: panel.subscription && panel.subscription.plan,
-          publicIndex: panel.subscription && panel.subscription.publicIndex,
-          plans: (panel.plans || []).map((p) => ({
-            plan: p.plan,
-            isCurrentPlan: p.isCurrentPlan,
-            hasButton: p.plan !== 'free' && !p.isCurrentPlan,
-            switchQuote: p.switchQuote
-              ? {
-                  isCurrentPlan: p.switchQuote.isCurrentPlan,
-                  amountCents: p.switchQuote.amountCents,
-                  summary: p.switchQuote.summary,
-                }
-              : null,
-          })),
-        },
-        'B'
-      )
-      // #endregion
     } catch (e) {
       this.setData({
         status: 'error',
@@ -134,66 +168,43 @@ Page({
     this.loadPanel()
   },
 
-  async onBuyPlan(e) {
+  onSelectPlan(e) {
     const plan = e.currentTarget.dataset.plan
-    // #region agent log
-    agentLog(
-      'subscription/index.js:onBuyPlan',
-      'buy plan tapped',
-      {
-        plan,
-        payingPlan: this.data.payingPlan,
-        currentTargetDataset: (e.currentTarget && e.currentTarget.dataset) || {},
-        targetDataset: (e.target && e.target.dataset) || {},
-        detail: e.detail || {},
-      },
-      'A'
-    )
-    // #endregion
-    if (!plan || plan === 'free') return
-    if (this.data.payingPlan) return
+    if (!plan || plan === this.data.selectedPlan) return
+    this.applySelectionState(plan)
+  },
 
-    this.setData({ payingPlan: plan })
+  async onConfirmSwitch() {
+    const plan = this.data.selectedPlan
+    if (!plan || this.data.actionDisabled || this.data.paying) return
+
+    if (plan === 'free' && this.data.subscription && this.data.subscription.publicIndex) {
+      const confirmed = await confirmDowngradeToFree()
+      if (!confirmed) return
+    }
+
+    await this.executeSwitch(plan)
+  },
+
+  async executeSwitch(plan) {
+    if (!plan || this.data.paying) return
+
+    this.setData({ paying: true })
     try {
       const order = await createSubscriptionOrder(plan)
-      // #region agent log
-      agentLog(
-        'subscription/index.js:onBuyPlan',
-        'create order response',
-        {
-          plan,
-          orderId: order && order.orderId,
-          immediate: Boolean(order && order.immediate),
-          amount: order && order.amount,
-        },
-        'C'
-      )
-      // #endregion
       if (order.immediate) {
         const tip =
           order.proration && Number(order.proration.refundExcessCents) > 0
             ? `已切换，差额 ¥${order.proration.refundExcessYuan} 将原路退回`
-            : '套餐已切换'
+            : plan === 'free'
+              ? '已切换为基础版'
+              : '套餐已切换'
         wx.showToast({ title: tip, icon: 'success' })
         await this.loadPanel()
         return
       }
 
       const prepay = await prepaySubscriptionOrder(order.orderId)
-      // #region agent log
-      agentLog(
-        'subscription/index.js:onBuyPlan',
-        'prepay response',
-        {
-          plan,
-          orderId: order.orderId,
-          immediate: Boolean(prepay && prepay.immediate),
-          mock: Boolean(prepay && prepay.mock),
-          hasPayment: Boolean(prepay && prepay.payment),
-        },
-        'D'
-      )
-      // #endregion
       if (prepay.immediate) {
         wx.showToast({ title: '套餐已切换', icon: 'success' })
         await this.loadPanel()
@@ -209,34 +220,13 @@ Page({
       await requestWechatPayment(prepay.payment)
       wx.showToast({ title: '支付成功', icon: 'success' })
       await this.loadPanel()
-      // #region agent log
-      agentLog(
-        'subscription/index.js:onBuyPlan',
-        'switch completed after payment',
-        { plan, currentPlan: this.data.subscription && this.data.subscription.plan },
-        'E'
-      )
-      // #endregion
     } catch (e) {
-      const msg = (e && e.errMsg) || (e && e.message) || '支付未完成'
-      // #region agent log
-      agentLog(
-        'subscription/index.js:onBuyPlan',
-        'buy plan error',
-        {
-          plan,
-          msg,
-          code: e && e.code,
-          status: e && e.status,
-        },
-        'C'
-      )
-      // #endregion
+      const msg = (e && e.errMsg) || (e && e.message) || '操作未完成'
       if (!/cancel/i.test(msg)) {
         wx.showToast({ title: msg, icon: 'none' })
       }
     } finally {
-      this.setData({ payingPlan: '' })
+      this.setData({ paying: false })
     }
   },
 })

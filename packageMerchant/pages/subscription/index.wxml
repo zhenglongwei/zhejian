@@ -36,16 +36,27 @@
         </text>
       </view>
 
+      <view class="merchant-sub__section-head">
+        <text class="text-h3">选择方案</text>
+        <text class="text-caption text-tertiary">点击对比后，在底部确认切换</text>
+      </view>
+
       <view class="merchant-sub__plans">
         <view
           wx:for="{{plans}}"
           wx:key="plan"
-          class="merchant-sub__plan surface-album-panel {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}}"
+          class="merchant-sub__plan surface-album-panel {{item.isSelected ? 'merchant-sub__plan--selected' : ''}} {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}}"
+          data-plan="{{item.plan}}"
+          bindtap="onSelectPlan"
         >
           <view class="merchant-sub__plan-head">
-            <text class="text-h3 merchant-sub__plan-name">{{item.tierLabel}}</text>
-            <text class="text-body merchant-sub__price">{{item.priceLabel}}</text>
+            <view class="merchant-sub__plan-title-wrap">
+              <text class="text-h3 merchant-sub__plan-name">{{item.tierLabel}}</text>
+              <text wx:if="{{item.isCurrentPlan}}" class="merchant-sub__badge text-caption">当前</text>
+            </view>
+            <view class="merchant-sub__plan-radio {{item.isSelected ? 'merchant-sub__plan-radio--on' : ''}}" aria-hidden="true" />
           </view>
+          <text class="text-body merchant-sub__price">{{item.priceLabel}}</text>
           <view class="merchant-sub__highlights">
             <text
               wx:for="{{item.highlights}}"
@@ -54,28 +65,30 @@
               class="text-caption text-secondary merchant-sub__line"
             >· {{line}}</text>
           </view>
-          <text
-            wx:if="{{item.switchQuote && item.switchQuote.summary && !item.isCurrentPlan}}"
-            class="text-caption text-tertiary merchant-sub__quote"
-          >{{item.switchQuote.summary}}</text>
-          <ui-button
-            wx:if="{{item.plan !== 'free' && !item.isCurrentPlan}}"
-            type="primary"
-            size="sm"
-            loading="{{payingPlan === item.plan}}"
-            data-plan="{{item.plan}}"
-            bind:btntap="onBuyPlan"
-          >
-            <block wx:if="{{item.switchQuote && item.switchQuote.amountCents === 0 && item.switchQuote.creditCents > 0}}">确认切换</block>
-            <block wx:elif="{{subscription.publicIndex && subscription.plan !== item.plan}}">切换套餐</block>
-            <block wx:else>立即开通</block>
-          </ui-button>
-          <text wx:elif="{{item.isCurrentPlan}}" class="text-caption text-tertiary">当前方案</text>
-          <text wx:elif="{{item.plan === 'free'}}" class="text-caption text-tertiary">入驻即享</text>
         </view>
+      </view>
+
+      <view wx:if="{{selectedQuoteSummary && !isCurrentSelection}}" class="merchant-sub__quote-panel surface-album-panel">
+        <text class="text-caption text-tertiary">{{selectedQuoteSummary}}</text>
       </view>
 
       <ui-compliance-notice type="history" text="{{disclaimer}}" />
     </view>
+
+    <ui-fixed-bottom-bar safeArea="{{true}}">
+      <view class="merchant-sub__footer">
+        <view class="merchant-sub__footer-price">
+          <text class="text-caption text-tertiary">已选</text>
+          <text class="text-body merchant-sub__footer-price-value">{{selectedPriceLabel}}</text>
+        </view>
+        <ui-button
+          type="primary"
+          block
+          loading="{{paying}}"
+          disabled="{{actionDisabled}}"
+          bind:btntap="onConfirmSwitch"
+        >{{actionLabel}}</ui-button>
+      </view>
+    </ui-fixed-bottom-bar>
   </block>
 </ui-tool-page-shell>
