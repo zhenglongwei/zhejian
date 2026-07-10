@@ -18,91 +18,147 @@
   </block>
 
   <block wx:else>
-    <view class="merchant-sub page-content">
-      <view class="merchant-sub__hero surface-album-panel">
-        <text class="text-album-frame-page">当前方案</text>
-        <text class="text-h2 merchant-sub__tier-name">{{subscription.tierLabel}}</text>
-        <text class="text-caption text-secondary">
-          {{subscription.publicIndex ? '公域收录已开通' : '仅私域 / 微信内流通'}}
-        </text>
-        <text wx:if="{{subscription.expiresAtDisplay}}" class="text-caption text-tertiary">
-          有效期至 {{subscription.expiresAtDisplay}}
-        </text>
-        <text wx:elif="{{subscription.remainingCreditCents > 0}}" class="text-caption text-tertiary">
-          剩余权益约 ¥{{subscription.remainingCreditYuan}}（按天折算）
-        </text>
-        <text wx:if="{{subscription.pendingPlanLabel}}" class="text-caption text-warning">
-          已预约：{{subscription.pendingEffectiveAtDisplay}} 后切换为 {{subscription.pendingPlanLabel}}
-        </text>
-        <text wx:if="{{paymentTestMode}}" class="text-caption merchant-sub__test-hint">
-          当前为支付联调：实付按测试价扣款，套餐权益不变
-        </text>
+    <view class="merchant-sub">
+      <view class="merchant-sub__folio surface-album-folio">
+        <view class="merchant-sub__folio-main">
+          <view class="merchant-sub__folio-row">
+            <ui-plan-tier-badge
+              plan="{{subscription.plan}}"
+              text="{{currentHero.tierLabel}}"
+              size="lg"
+            />
+            <ui-tag variant="{{publicIndexTag.variant}}" text="{{publicIndexTag.text}}" />
+          </view>
+          <text wx:if="{{currentHero.planLabel}}" class="text-body text-secondary">{{currentHero.planLabel}}</text>
+          <text class="text-caption text-tertiary merchant-sub__folio-hint">相册工具永久免费；收录套餐到期不会自动扣款，需手动支付</text>
+        </view>
       </view>
 
-      <view class="merchant-sub__section-head">
-        <text class="text-h3">选择方案</text>
-        <text class="text-caption text-tertiary">点击对比后，在底部确认切换</text>
-      </view>
+      <view class="merchant-sub__main surface-album-panel">
+        <view class="merchant-sub__status">
+          <view class="merchant-sub__status-row">
+            <text class="text-caption text-secondary merchant-sub__status-label">当前套餐</text>
+            <text class="text-body merchant-sub__status-value">{{planStatus.currentTierLabel}}<text wx:if="{{planStatus.currentPlanLabel}}" class="text-caption text-secondary"> · {{planStatus.currentPlanLabel}}</text></text>
+          </view>
+          <view wx:if="{{planStatus.expiresAtDisplay}}" class="merchant-sub__status-row">
+            <text class="text-caption text-secondary merchant-sub__status-label">用到</text>
+            <text class="text-body merchant-sub__status-value">{{planStatus.expiresAtDisplay}}</text>
+          </view>
+          <view class="merchant-sub__status-row">
+            <text class="text-caption text-secondary merchant-sub__status-label">到期后</text>
+            <text class="text-body merchant-sub__status-value">{{planStatus.nextTierLabel}}</text>
+          </view>
+        </view>
 
-      <view class="merchant-sub__plans">
-        <view
-          wx:for="{{plans}}"
-          wx:key="plan"
-          class="merchant-sub__plan surface-album-panel {{item.isSelected ? 'merchant-sub__plan--selected' : ''}} {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}}"
-          data-plan="{{item.plan}}"
-          bindtap="onSelectPlan"
-        >
-          <view class="merchant-sub__plan-head">
-            <view class="merchant-sub__plan-title-wrap">
-              <text class="text-h3 merchant-sub__plan-name">{{item.tierLabel}}</text>
-              <text wx:if="{{item.isCurrentPlan}}" class="merchant-sub__badge text-caption">当前</text>
-              <text wx:elif="{{item.isPendingPlan}}" class="merchant-sub__badge merchant-sub__badge--pending text-caption">已预约</text>
+        <block wx:if="{{renewalNotice.show}}">
+          <view class="surface-album-inset-divider" />
+          <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
+            <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
+            <view wx:if="{{renewalNotice.canPay}}" class="merchant-sub__action">
+              <ui-button
+                type="primary"
+                size="sm"
+                loading="{{paying}}"
+                disabled="{{paying}}"
+                bind:btntap="onRenew"
+              >支付续费一年</ui-button>
             </view>
-            <view class="merchant-sub__plan-radio {{item.isSelected ? 'merchant-sub__plan-radio--on' : ''}}" aria-hidden="true" />
+            <ui-message-subscribe-banner
+              title="到期前微信提醒你"
+              description="不会自动扣款；开启后可在到期前收到续费提醒"
+              buttonText="开启提醒"
+              bind:subscribe="onSubscribeRenewNotice"
+            />
           </view>
-          <text class="text-body merchant-sub__price">{{item.priceLabel}}</text>
-          <view class="merchant-sub__highlights">
-            <text
-              wx:for="{{item.highlights}}"
-              wx:for-item="line"
-              wx:key="*this"
-              class="text-caption text-secondary merchant-sub__line"
-            >· {{line}}</text>
+        </block>
+
+        <block wx:if="{{planStatus.hasPendingChange}}">
+          <view class="surface-album-inset-divider" />
+          <text class="text-caption text-secondary merchant-sub__hint">已预约变更。想改选其他套餐，请先取消本次预约。</text>
+          <view class="merchant-sub__action">
+            <ui-button
+              type="secondary"
+              size="sm"
+              loading="{{paying}}"
+              disabled="{{paying}}"
+              bind:btntap="onCancelPending"
+            >取消预约变更</ui-button>
+          </view>
+        </block>
+
+        <view class="surface-album-inset-divider" />
+
+        <view class="merchant-sub__section-head">
+          <text class="merchant-sub__section-title text-h3">开通后能帮你什么</text>
+        </view>
+        <view class="merchant-sub__benefits">
+          <view
+            wx:for="{{gateBenefits}}"
+            wx:key="*this"
+            class="merchant-sub__benefit"
+          >
+            <text class="merchant-sub__benefit-dot" aria-hidden="true" />
+            <text class="text-caption text-secondary">{{item}}</text>
           </view>
         </view>
-      </view>
 
-      <view wx:if="{{selectedQuoteSummary && !isCurrentSelection}}" class="merchant-sub__quote-panel surface-album-panel">
-        <view wx:if="{{showFeeBreakdown}}" class="merchant-sub__fee-breakdown">
-          <view wx:if="{{selectedRefundYuan && selectedRefundYuan !== '0.00'}}" class="merchant-sub__fee-row">
-            <text class="text-caption text-secondary">原方案退回</text>
-            <text class="text-body">¥{{selectedRefundYuan}}</text>
-          </view>
-          <view class="merchant-sub__fee-row">
-            <text class="text-caption text-secondary">新方案支付</text>
-            <text class="text-body merchant-sub__fee-pay">¥{{selectedPayYuan}}</text>
+        <view class="surface-album-inset-divider" />
+
+        <view class="merchant-sub__section-head">
+          <text class="merchant-sub__section-title text-h3">套餐介绍</text>
+          <text wx:if="{{planStatus.canScheduleChange}}" class="text-caption text-tertiary">点选更低档位可预约到期后切换；点选更高档位可立即支付升级</text>
+          <text wx:elif="{{planStatus.hasPendingChange}}" class="text-caption text-tertiary">已有预约时不可改选，请先取消预约</text>
+        </view>
+
+        <view class="merchant-sub__plan-list">
+          <view
+            wx:for="{{plans}}"
+            wx:key="plan"
+            class="merchant-sub__plan surface-record-card {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}} {{item.isNextPlan ? 'merchant-sub__plan--next' : ''}} {{selectedPlan === item.plan ? 'merchant-sub__plan--selected' : ''}} {{item.selectable ? 'merchant-sub__plan--selectable' : ''}}"
+            data-plan="{{item.plan}}"
+            bindtap="onSelectPlan"
+          >
+            <view class="merchant-sub__plan-head">
+              <view class="merchant-sub__plan-title">
+                <ui-plan-tier-badge plan="{{item.plan}}" text="{{item.tierLabel}}" size="md" />
+                <text class="text-body merchant-sub__plan-name">{{item.name}}</text>
+              </view>
+              <ui-tag wx:if="{{item.isCurrentPlan}}" variant="info" text="当前" />
+              <ui-tag wx:elif="{{item.isNextPlan}}" variant="warning" text="到期后" />
+            </view>
+
+            <view class="merchant-sub__price-row">
+              <text class="text-price">¥{{item.priceAmount}}</text>
+              <text class="text-caption text-secondary">{{item.priceSuffix}}</text>
+            </view>
+            <text wx:if="{{item.priceNote}}" class="text-caption text-tertiary">{{item.priceNote}}</text>
+
+            <view class="merchant-sub__features">
+              <view
+                wx:for="{{item.highlights}}"
+                wx:for-item="line"
+                wx:key="*this"
+                class="merchant-sub__feature"
+              >
+                <text class="merchant-sub__feature-dot" aria-hidden="true" />
+                <text class="text-caption text-secondary">{{line}}</text>
+              </view>
+            </view>
           </view>
         </view>
-        <text class="text-caption text-tertiary">{{selectedQuoteSummary}}</text>
-      </view>
 
-      <ui-compliance-notice type="history" text="{{disclaimer}}" />
+        <block wx:if="{{selectionAction}}">
+          <view class="merchant-sub__action">
+            <ui-button
+              type="{{selectionAction.type === 'schedule' ? 'secondary' : 'primary'}}"
+              size="sm"
+              loading="{{paying}}"
+              disabled="{{paying}}"
+              bind:btntap="onConfirmSelection"
+            >{{selectionAction.label}}</ui-button>
+          </view>
+        </block>
+      </view>
     </view>
-
-    <ui-fixed-bottom-bar safeArea="{{true}}">
-      <view class="merchant-sub__footer">
-        <view class="merchant-sub__footer-price">
-          <text class="text-caption text-tertiary">已选</text>
-          <text class="text-body merchant-sub__footer-price-value">{{selectedPriceLabel}}</text>
-        </view>
-        <ui-button
-          type="primary"
-          block
-          loading="{{paying}}"
-          disabled="{{actionDisabled}}"
-          bind:btntap="onConfirmSwitch"
-        >{{actionLabel}}</ui-button>
-      </view>
-    </ui-fixed-bottom-bar>
   </block>
 </ui-tool-page-shell>

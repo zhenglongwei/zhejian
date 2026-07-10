@@ -3,162 +3,213 @@
 }
 
 .merchant-sub__gate {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   padding: var(--space-xl) var(--page-padding-x);
+  box-sizing: border-box;
 }
 
 .merchant-sub {
-  padding: var(--space-md) var(--page-padding-x)
-    calc(var(--fixed-bottom-bar-height) + var(--space-xl));
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  padding-top: var(--space-sm);
+  padding-bottom: var(--space-md);
+  background-color: var(--color-bg-album);
 }
 
-.merchant-sub__hero {
-  padding: var(--space-md);
+.merchant-sub__folio {
+  margin: 0 calc(-1 * var(--page-padding-x));
+  padding: var(--space-lg) var(--page-padding-x);
+}
+
+.merchant-sub__folio-main {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
-.merchant-sub__tier-name {
+.merchant-sub__folio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__folio-hint {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.merchant-sub__main {
+  display: flex;
+  flex-direction: column;
+}
+
+.merchant-sub__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__status-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.merchant-sub__status-label {
+  flex: 0 0 128rpx;
+}
+
+.merchant-sub__status-value {
+  flex: 1;
+  min-width: 0;
   color: var(--color-text-primary);
+  line-height: var(--font-body-lh);
+}
+
+.merchant-sub__renewal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-sub__renewal--warning {
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-sub__renewal--urgent .merchant-sub__renewal-text {
+  color: var(--color-warning);
+}
+
+.merchant-sub__renewal-text {
+  color: var(--color-text-primary);
+  line-height: var(--font-body-lh);
+}
+
+.merchant-sub__hint {
+  display: block;
+  line-height: var(--font-body-lh);
+}
+
+.merchant-sub__action {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-xs);
 }
 
 .merchant-sub__section-head {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
 }
 
-.merchant-sub__plans {
+.merchant-sub__section-title {
+  color: var(--color-text-primary);
+}
+
+.merchant-sub__benefits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-sub__benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__benefit-dot {
+  flex-shrink: 0;
+  width: 12rpx;
+  height: 12rpx;
+  margin-top: 10rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-album-frame-corner);
+}
+
+.merchant-sub__plan-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
 }
 
 .merchant-sub__plan {
-  padding: var(--space-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  border: 1rpx solid var(--color-border);
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.15s ease;
+}
+
+.merchant-sub__plan--current {
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-sub__plan--next {
+  border-color: var(--color-warning);
+}
+
+.merchant-sub__plan--selectable:active {
+  opacity: 0.85;
 }
 
 .merchant-sub__plan--selected {
   border-color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.merchant-sub__plan--current {
-  border-color: var(--color-album-frame-corner);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .merchant-sub__plan-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
 }
 
-.merchant-sub__plan-title-wrap {
+.merchant-sub__plan-title {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-xs);
   flex: 1;
   min-width: 0;
 }
 
 .merchant-sub__plan-name {
-  color: var(--color-text-primary);
-}
-
-.merchant-sub__badge {
-  flex-shrink: 0;
-  padding: 2rpx var(--space-xs);
-  border-radius: var(--radius-sm);
-  background: var(--color-album-frame-corner);
-  color: var(--color-text-secondary);
-}
-
-.merchant-sub__badge--pending {
-  background: var(--color-warning-light);
-  color: var(--color-warning);
-}
-
-.merchant-sub__plan-radio {
-  width: 32rpx;
-  height: 32rpx;
-  border-radius: 50%;
-  border: 2rpx solid var(--color-border);
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.merchant-sub__plan-radio--on {
-  border-color: var(--color-primary);
-  border-width: 10rpx;
-}
-
-.merchant-sub__price {
-  color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
-}
-
-.merchant-sub__highlights {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.merchant-sub__line {
-  display: block;
-}
-
-.merchant-sub__quote-panel {
-  padding: var(--space-sm) var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__fee-breakdown {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.merchant-sub__fee-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__fee-pay {
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
 }
 
-.merchant-sub__test-hint {
-  color: var(--color-warning);
-}
-
-.merchant-sub__footer {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__footer-price {
+.merchant-sub__price-row {
   display: flex;
   align-items: baseline;
   gap: var(--space-xs);
+  flex-wrap: wrap;
 }
 
-.merchant-sub__footer-price-value {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
+.merchant-sub__features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.merchant-sub__feature {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__feature-dot {
+  flex-shrink: 0;
+  width: 12rpx;
+  height: 12rpx;
+  margin-top: 10rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-album-frame-corner);
 }

@@ -144,6 +144,24 @@ async function matchPublicServicePlanCover(objectKey) {
   return Boolean(planHit && mediaUrlMatchesObjectKey(planHit.coverUrl, objectKey))
 }
 
+/** 服务相册原图：album_images 表引用（商家/车主编辑页 <image> 无法带 Bearer） */
+async function matchAlbumImageMedia(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  const needle = String(objectKey || '').trim()
+  if (!filename && !needle) return false
+
+  const row = await prisma.albumImage.findFirst({
+    where: {
+      OR: [
+        { rawUrl: { contains: filename || needle } },
+        { rawUrl: { endsWith: filename || needle } },
+      ],
+    },
+    select: { rawUrl: true },
+  })
+  return Boolean(row && mediaUrlMatchesObjectKey(row.rawUrl, objectKey))
+}
+
 /** 用户头像：写入 users.avatar_url 后需供 <image> 匿名加载 */
 async function matchPublicUserAvatar(objectKey) {
   const filename = objectKeyFilename(objectKey)
@@ -240,6 +258,7 @@ async function canReadOriginalMedia(req, objectKey) {
   const sig = req.query?.sig
   if (verifyMediaSignature(objectKey, exp, sig)) return true
 
+  if (await matchAlbumImageMedia(objectKey)) return true
   if (await canAccessViaPublicContentCatalog(objectKey)) return true
 
   const auth = req.auth || {}

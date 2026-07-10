@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
-const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const { resolvePlanAmount } = require('../utils/album-price')
 const {
   sanitizePlanPartsDraft,
@@ -35,7 +35,7 @@ function resolvePlanQuoteThumbs(images = []) {
   return (images || [])
     .filter((row) => row.nodeId === STAGE_PLAN)
     .sort((a, b) => a.idx - b.idx)
-    .map((row) => rewriteMediaUrlForCurrentBase(row.rawUrl))
+    .map((row) => resolveClientReadableMediaUrl(row.rawUrl))
     .filter(Boolean)
 }
 

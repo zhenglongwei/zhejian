@@ -30,7 +30,10 @@ const { buildAuthorizeTaskId, BIZ_TYPE } = require('./desensitize.constants')
 const {
   assertPersistentImageUrl,
   rewriteMediaUrlForCurrentBase,
+  resolveClientReadableMediaUrl,
+  resolveClientReadableMediaUrls,
 } = require('../lib/media-storage')
+const { stripUrlQuery } = require('../lib/media-signed-url')
 const { watermarkAlbumImageUrl } = require('../lib/album-watermark')
 const { sanitizePlanPartsDraft } = require('../lib/plan-quote-parse')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
@@ -143,7 +146,7 @@ function mapNodesForView(album) {
       status: node.status,
       note: node.note || '',
       comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
-      images: (node.images || []).map((url) => rewriteMediaUrlForCurrentBase(url)),
+      images: (node.images || []).map((url) => resolveClientReadableMediaUrl(url)),
       updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
       description: stageMeta.description || '',
       photoTips: stageMeta.photoTips || '',
@@ -159,13 +162,28 @@ function mapNodesForView(album) {
   })
 }
 
+function mapEvidenceItemsForClient(items) {
+  return (items || []).map((item) => ({
+    ...item,
+    images: resolveClientReadableMediaUrls(item.images || []),
+  }))
+}
+
+function mapPartsForClient(parts) {
+  return (parts || []).map((part) => ({
+    ...part,
+    photos: resolveClientReadableMediaUrls(part.photos || []),
+  }))
+}
+
 function resolveEvidenceItemsForAlbum(album, nodes) {
   const saved = Array.isArray(album.evidenceItemsJson) ? album.evidenceItemsJson : []
-  return hydrateEvidenceItems({
+  const items = hydrateEvidenceItems({
     templateId: album.templateId,
     savedItems: saved,
     nodes,
   })
+  return mapEvidenceItemsForClient(items)
 }
 
 function buildListCoverUrl(album) {
@@ -173,7 +191,7 @@ function buildListCoverUrl(album) {
   if (images.length) {
     const url =
       images[0].rawUrl || images[0].url || images[0].imageUrl || ''
-    return rewriteMediaUrlForCurrentBase(url)
+    return resolveClientReadableMediaUrl(url)
   }
   const nodes = mapNodesForView(album)
   for (const node of nodes) {
@@ -409,7 +427,7 @@ function buildMerchantView(album) {
     templateName: album.templateName || '',
     nodes,
     evidenceItems,
-    parts: album.partsJson || [],
+    parts: mapPartsForClient(album.partsJson || []),
     planAmount,
     planMinAmount: planAmount,
     planMaxAmount: planAmount,
@@ -533,6 +551,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
           previousUrls,
         })
       }
+      rawUrl = stripUrlQuery(rawUrl)
       imageRows.push({
         id: `img_${albumId}_${nodeId}_${idx}`,
         albumId,
