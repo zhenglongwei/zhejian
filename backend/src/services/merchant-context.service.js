@@ -161,6 +161,7 @@ module.exports = {
   resolveMerchantContext,
   listMerchantStoresForUser,
   resolveStoreIdForStaff,
+  loadActiveStoreForMerchant,
   userOwnsMerchantStore,
   ACTIVE_MERCHANT_STATUS,
   ACTIVE_STAFF_STATUS,

@@ -36,6 +36,11 @@ const { sanitizePlanPartsDraft } = require('../lib/plan-quote-parse')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { config } = require('../config')
 const { getWxaCodeUnlimited } = require('../lib/wechat')
+const {
+  canAccessMerchantAlbum,
+  assertMerchantAlbum,
+} = require('../lib/merchant-album-access')
+const { loadActiveStoreForMerchant } = require('./merchant-context.service')
 
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
@@ -480,20 +485,6 @@ function assertAlbumContentEditable(album) {
   }
 }
 
-function canAccessMerchantAlbum(album, storeId, merchantId) {
-  if (!album) return false
-  if (merchantId && album.merchantId === merchantId) return true
-  if (storeId && album.storeId === storeId) return true
-  return false
-}
-
-function assertMerchantAlbum(album, storeId, merchantId) {
-  if (!canAccessMerchantAlbum(album, storeId, merchantId)) {
-    const err = new Error('档案不存在或已被删除')
-    err.status = 404
-    throw err
-  }
-}
 
 async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
   const nodes = nodesPayload.length ? nodesPayload : DEFAULT_STAGE_NODES.map((n) => ({
@@ -841,6 +832,12 @@ async function resolveServiceItemIdForAlbum(payload = {}) {
 }
 
 async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
+  const store = await loadActiveStoreForMerchant(merchantId, storeId)
+  if (!store) {
+    const err = new Error('门店不存在或无权访问')
+    err.status = 404
+    throw err
+  }
   assertMerchantCannotSetOwnerPhone(payload)
   const normalized = normalizePlanAmountPayload(payload)
   const planAmount = resolvePlanAmount(normalized)
@@ -852,8 +849,8 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
     data: {
       id: albumId,
       merchantId,
-      storeId,
-      storeName: payload.storeName || payload.store_name || '门店',
+      storeId: store.id,
+      storeName: payload.storeName || payload.store_name || store.name || '门店',
       serviceId: payload.serviceId || '',
       serviceName,
       userPhone: payload.userPhone || '',
@@ -1473,4 +1470,6 @@ module.exports = {
   canUserAccessAlbum,
   isAlbumWithdrawable,
   buildUserAlbumComplianceFields,
+  canAccessMerchantAlbum,
+  assertMerchantAlbum,
 }

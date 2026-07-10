@@ -131,6 +131,77 @@ function buildMiniProgramPayParams(prepayId) {
   }
 }
 
+function loadWechatPayPublicKey() {
+  const pem = normalizePrivateKeyPem(config.wechatPay.publicKey)
+  if (!pem || !pem.includes('PUBLIC KEY')) return null
+  try {
+    return crypto.createPublicKey({ key: pem, format: 'pem' })
+  } catch (e) {
+    return null
+  }
+}
+
+const NOTIFY_TIMESTAMP_TOLERANCE_SEC = 300
+
+/**
+ * 验证微信支付 V3 回调签名（公钥模式或已配置平台公钥）
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @param {string} rawBody
+ */
+function verifyWechatPayNotifySignature(headers, rawBody) {
+  assertWechatPayConfigured()
+  const signature = String(headers['wechatpay-signature'] || headers['Wechatpay-Signature'] || '').trim()
+  const timestamp = String(headers['wechatpay-timestamp'] || headers['Wechatpay-Timestamp'] || '').trim()
+  const nonce = String(headers['wechatpay-nonce'] || headers['Wechatpay-Nonce'] || '').trim()
+  const serial = normalizeCertSerial(
+    headers['wechatpay-serial'] || headers['Wechatpay-Serial'] || ''
+  )
+
+  if (!signature || !timestamp || !nonce) {
+    const err = new Error('微信支付回调缺少签名头')
+    err.status = 401
+    throw err
+  }
+
+  const ts = Number(timestamp)
+  if (!Number.isFinite(ts)) {
+    const err = new Error('微信支付回调时间戳无效')
+    err.status = 401
+    throw err
+  }
+  const skew = Math.abs(Math.floor(Date.now() / 1000) - ts)
+  if (skew > NOTIFY_TIMESTAMP_TOLERANCE_SEC) {
+    const err = new Error('微信支付回调已过期')
+    err.status = 401
+    throw err
+  }
+
+  const publicKey = loadWechatPayPublicKey()
+  if (!publicKey) {
+    const err = new Error('未配置微信支付公钥，无法验证回调签名')
+    err.status = 503
+    throw err
+  }
+
+  if (config.wechatPay.publicKeyId) {
+    const expectedSerial = normalizeCertSerial(config.wechatPay.publicKeyId)
+    if (serial && expectedSerial && serial !== expectedSerial) {
+      const err = new Error('微信支付回调证书序列号不匹配')
+      err.status = 401
+      throw err
+    }
+  }
+
+  const message = `${timestamp}\n${nonce}\n${rawBody}\n`
+  const ok = crypto.createVerify('RSA-SHA256').update(message, 'utf8').end().verify(publicKey, signature, 'base64')
+  if (!ok) {
+    const err = new Error('微信支付回调验签失败')
+    err.status = 401
+    throw err
+  }
+  return true
+}
+
 function decryptNotifyResource(resource) {
   assertWechatPayConfigured()
   const { ciphertext, associated_data: associatedData, nonce } = resource || {}
@@ -192,6 +263,7 @@ module.exports = {
   createJsapiOrder,
   buildMiniProgramPayParams,
   decryptNotifyResource,
+  verifyWechatPayNotifySignature,
   createRefund,
   probeWechatPayAuth,
   normalizeCertSerial,

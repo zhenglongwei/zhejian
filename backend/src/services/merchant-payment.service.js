@@ -321,6 +321,17 @@ async function handleWechatPayNotify(body) {
     return { handled: false, reason: decrypted.trade_state }
   }
 
+  if (decrypted.appid && decrypted.appid !== config.wechat.appId) {
+    const err = new Error('回调 appid 不匹配')
+    err.status = 400
+    throw err
+  }
+  if (decrypted.mchid && decrypted.mchid !== config.wechatPay.mchId) {
+    const err = new Error('回调 mchid 不匹配')
+    err.status = 400
+    throw err
+  }
+
   const order = await prisma.merchantPaymentOrder.findUnique({
     where: { id: decrypted.out_trade_no },
   })
@@ -328,12 +339,19 @@ async function handleWechatPayNotify(body) {
     return { handled: false, reason: 'order_not_found' }
   }
 
+  const paidTotal = Number(decrypted.amount && decrypted.amount.total)
+  if (!Number.isFinite(paidTotal) || paidTotal !== Number(order.amount)) {
+    const err = new Error('回调金额与订单不一致')
+    err.status = 400
+    throw err
+  }
+
   await completePaidOrder(order, decrypted)
   return { handled: true }
 }
 
 async function mockPaySubscriptionOrder(auth, orderId) {
-  if (!config.devAuthEnabled) {
+  if (config.nodeEnv === 'production' || !config.devAuthEnabled) {
     const err = new Error('不允许 mock 支付')
     err.status = 403
     throw err

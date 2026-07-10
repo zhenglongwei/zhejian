@@ -230,7 +230,7 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       storeId,
       req.auth.merchantId,
     )
-    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId)
+    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, { auth: req.auth || {} })
     const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
@@ -380,7 +380,7 @@ router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, 
       storeId,
       req.auth.merchantId,
     )
-    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId)
+    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, { auth: req.auth || {} })
     const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,

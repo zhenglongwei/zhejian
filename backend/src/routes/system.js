@@ -15,6 +15,7 @@ router.post('/albums/:albumId/pre-mask', requireAuth(['system', 'merchant']), as
   try {
     const task = await ensureOrderPreMaskTask(req.params.albumId, {
       force: Boolean(req.body && req.body.force),
+      auth: req.auth || {},
     })
     return ok(res, task)
   } catch (e) {

@@ -87,7 +87,7 @@ async function loadMerchantAlbum(albumId, storeId, merchantId) {
       publicCase: true,
     },
   })
-  if (!canAccessMerchantAlbum(album, storeId, merchantId)) {
+  if (!canAccessMerchantAlbum(album, merchantId)) {
     const err = new Error('相册不存在或无权访问')
     err.status = 404
     throw err

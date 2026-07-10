@@ -168,12 +168,7 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
   }
 }
 
-function canAccessMerchantAlbum(album, storeId, merchantId) {
-  if (!album) return false
-  if (merchantId && album.merchantId === merchantId) return true
-  if (storeId && album.storeId === storeId) return true
-  return false
-}
+const { canAccessMerchantAlbum } = require('../lib/merchant-album-access')
 
 function assertPublicCasePublishable(publicCase) {
   if (!publicCase) return
@@ -413,7 +408,7 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
       publicCase: true,
     },
   })
-  if (!album || !canAccessMerchantAlbum(album, storeId, merchantId)) {
+  if (!album || !canAccessMerchantAlbum(album, merchantId)) {
     const err = new Error('档案不存在或已被删除')
     err.status = 404
     throw err

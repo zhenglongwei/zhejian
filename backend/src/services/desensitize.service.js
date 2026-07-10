@@ -19,6 +19,7 @@ const { isStubCopyArtifact } = require('../lib/media-file-compare')
 const { parseObjectKeyFromPublicUrl } = require('../lib/media-storage')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
 const { ROLES } = require('../lib/jwt')
+const { assertMerchantAlbumAccess } = require('../lib/merchant-album-access')
 const { ALBUM_REVIEW_STATUS } = require('../constants/album-review')
 const {
   ensureReviewImagesMasked,
@@ -112,6 +113,71 @@ function canIncludePrivacyDetections(options = {}) {
   return roles.includes(ROLES.SYSTEM)
 }
 
+async function assertDesensitizeTaskAccess(task, auth = {}) {
+  if (!task) {
+    const err = new Error('脱敏任务不存在')
+    err.status = 404
+    throw err
+  }
+  const roles = auth.roles || []
+  if (roles.includes(ROLES.SYSTEM)) return
+
+  if (task.bizType === BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
+    const review = await prisma.serviceAlbumReview.findUnique({
+      where: { id: task.bizId },
+      select: { userId: true },
+    })
+    if (!review || review.userId !== auth.userId) {
+      const err = new Error('无权访问该脱敏任务')
+      err.status = 403
+      throw err
+    }
+    return
+  }
+
+  const albumId = String(task.bizId || task.albumId || '').trim()
+  if (!albumId) {
+    const err = new Error('无权访问该脱敏任务')
+    err.status = 403
+    throw err
+  }
+
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { userId: true, userPhone: true, merchantId: true },
+  })
+  if (!album) {
+    const err = new Error('无权访问该脱敏任务')
+    err.status = 403
+    throw err
+  }
+
+  if (roles.includes(ROLES.MERCHANT) && auth.merchantId && album.merchantId === auth.merchantId) {
+    return
+  }
+
+  if (roles.includes(ROLES.USER) && auth.userId) {
+    if (album.userId === auth.userId) return
+    if (album.userPhone) {
+      const user = await prisma.user.findUnique({
+        where: { id: auth.userId },
+        select: { phone: true },
+      })
+      if (user?.phone && album.userPhone === user.phone) return
+    }
+  }
+
+  const err = new Error('无权访问该脱敏任务')
+  err.status = 403
+  throw err
+}
+
+function normalizeTaskAuthOptions(options = {}) {
+  if (options.auth) return options.auth
+  if (options.roles) return { roles: options.roles }
+  return null
+}
+
 async function enrichTaskWithPrivacyDetections(mapped, options = {}) {
   if (!mapped || !canIncludePrivacyDetections(options)) return mapped
   const rawAssets = await Promise.all(
@@ -133,6 +199,10 @@ async function getTaskById(taskId, options = {}) {
     include: { assets: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] } },
   })
   const mapped = mapTaskRecord(task)
+  const auth = normalizeTaskAuthOptions(options)
+  if (mapped && auth) {
+    await assertDesensitizeTaskAccess(mapped, auth)
+  }
   return enrichTaskWithPrivacyDetections(mapped, options)
 }
 
@@ -222,6 +292,16 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
     err.code = 100004
     err.status = 404
     throw err
+  }
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth && !(auth.roles || []).includes(ROLES.SYSTEM)) {
+    if ((auth.roles || []).includes(ROLES.MERCHANT) && auth.merchantId) {
+      assertMerchantAlbumAccess(album, auth.merchantId)
+    } else {
+      const err = new Error('无权触发预脱敏')
+      err.status = 403
+      throw err
+    }
   }
   const { preMaskBizType, authorizeBizType } = {
     ...resolveAlbumBizTypes(album),
@@ -493,6 +573,9 @@ async function runAutoMask(taskId, options = {}) {
     err.status = 404
     throw err
   }
+  const mapped = mapTaskRecord(task)
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth) await assertDesensitizeTaskAccess(mapped, auth)
   if (
     task.bizType === BIZ_TYPE.ORDER_PRE_MASK ||
     task.bizType === BIZ_TYPE.SERVICE_PRE_MASK
@@ -555,6 +638,10 @@ async function retryAsset(taskId, assetId, options = {}) {
     err.status = 404
     throw err
   }
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth) {
+    await assertDesensitizeTaskAccess(mapTaskRecord(asset.task), auth)
+  }
   const masked = await resolveDesensitizedUrlForAsset(asset.rawUrl, {
     albumId: asset.task.bizId,
     nodeId: asset.nodeId,
@@ -601,6 +688,8 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
     err.status = 404
     throw err
   }
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth) await assertDesensitizeTaskAccess(mapTaskRecord(task), auth)
   if (task.maskingConfirmed) {
     const err = new Error('脱敏已确认，无法修改')
     err.status = 409
@@ -652,6 +741,11 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
 }
 
 async function markAssetPreviewed(taskId, assetId, options = {}) {
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth) {
+    const task = await prisma.desensitizeTask.findUnique({ where: { taskId } })
+    if (task) await assertDesensitizeTaskAccess(mapTaskRecord(task), auth)
+  }
   await prisma.desensitizeAsset.updateMany({
     where: { taskId, assetId },
     data: { previewed: true },
@@ -678,6 +772,8 @@ async function confirmOrderAuthorizeTask(taskId, opts = {}) {
     throw err
   }
   const task = await getTaskById(taskId)
+  const auth = normalizeTaskAuthOptions(opts)
+  if (auth) await assertDesensitizeTaskAccess(task, auth)
   const authTypes = [
     BIZ_TYPE.ORDER_AUTHORIZE,
     BIZ_TYPE.SERVICE_AUTHORIZE,
@@ -809,6 +905,8 @@ async function confirmReviewImagePreviewTask(taskId, opts = {}) {
     throw err
   }
   const task = await getTaskById(taskId)
+  const auth = normalizeTaskAuthOptions(opts)
+  if (auth) await assertDesensitizeTaskAccess(task, auth)
   if (!task || task.bizType !== BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
     const err = new Error('任务类型不匹配')
     err.status = 400

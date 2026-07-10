@@ -154,6 +154,7 @@ router.post(
         albumId,
         nodeId,
         idx: idx != null ? Number(idx) : 0,
+        auth: req.auth || {},
       })
       return ok(res, {
         taskId: `task_des_${req.params.mediaId}`,

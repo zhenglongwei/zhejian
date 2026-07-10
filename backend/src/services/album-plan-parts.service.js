@@ -12,21 +12,9 @@ const {
   extractPartCodeCandidates,
   mergeCandidateLists,
 } = require('../lib/part-code-candidates')
+const { assertMerchantAlbum } = require('../lib/merchant-album-access')
 
 const STAGE_PLAN = 'stage_3'
-
-function assertMerchantAlbumRow(album, storeId, merchantId) {
-  if (!album) {
-    const err = new Error('档案不存在或已被删除')
-    err.status = 404
-    throw err
-  }
-  if (merchantId && album.merchantId === merchantId) return
-  if (storeId && album.storeId === storeId) return
-  const err = new Error('档案不存在或已被删除')
-  err.status = 404
-  throw err
-}
 
 async function loadAlbumPlanRow(albumId, storeId, merchantId) {
   const album = await prisma.album.findUnique({
@@ -35,7 +23,7 @@ async function loadAlbumPlanRow(albumId, storeId, merchantId) {
       images: { where: { nodeId: STAGE_PLAN }, orderBy: { idx: 'asc' } },
     },
   })
-  assertMerchantAlbumRow(album, storeId, merchantId)
+  assertMerchantAlbum(album, storeId, merchantId)
   return album
 }
 

@@ -14,6 +14,7 @@ const { isStubCopyArtifact } = require('../lib/media-file-compare')
 const { processImage, ENGINE_VERSION } = require('./desensitize-engine')
 const { writeMaskedImage } = require('./desensitize-engine/masker')
 const { loadSharp } = require('../lib/image-process')
+const { ROLES } = require('../lib/jwt')
 const {
   persistPrivacyDetectionResults,
   hasPrivacyDetectionRecords,
@@ -93,6 +94,43 @@ async function getMediaById(mediaId) {
   const repo = mediaAssetRepo()
   if (!repo) return null
   return repo.findUnique({ where: { id: mediaId } })
+}
+
+async function assertMediaDesensitizeAccess(media, auth = {}, context = {}) {
+  if (!media) {
+    const err = new Error('媒体资源不存在')
+    err.status = 404
+    throw err
+  }
+  const roles = auth.roles || []
+  if (roles.includes(ROLES.SYSTEM)) return
+
+  if (media.uploaderId && auth.userId && media.uploaderId === auth.userId) return
+
+  const albumId = String(context.albumId || '').trim()
+  if (albumId) {
+    const album = await prisma.album.findUnique({
+      where: { id: albumId },
+      select: { merchantId: true, userId: true, userPhone: true },
+    })
+    if (album && roles.includes(ROLES.MERCHANT) && auth.merchantId === album.merchantId) {
+      return
+    }
+    if (album && roles.includes(ROLES.USER) && auth.userId) {
+      if (album.userId === auth.userId) return
+      if (album.userPhone) {
+        const user = await prisma.user.findUnique({
+          where: { id: auth.userId },
+          select: { phone: true },
+        })
+        if (user?.phone && album.userPhone === user.phone) return
+      }
+    }
+  }
+
+  const err = new Error('无权处理该媒体资源')
+  err.status = 403
+  throw err
 }
 
 function mapEngineResultToStatus(engineResult) {
@@ -198,6 +236,9 @@ async function runMediaDesensitize(mediaId, context = {}) {
     const err = new Error('媒体资源不存在')
     err.status = 404
     throw err
+  }
+  if (context.auth) {
+    await assertMediaDesensitizeAccess(media, context.auth, context)
   }
 
   const cacheOk = shouldUseCachedDesensitize(media, context) && !context.force

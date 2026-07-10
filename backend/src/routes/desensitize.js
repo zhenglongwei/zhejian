@@ -14,9 +14,16 @@ const { BIZ_TYPE } = require('../services/desensitize.constants')
 
 const router = express.Router()
 
+function taskAuthOptions(req) {
+  return { auth: req.auth || {} }
+}
+
 router.get('/tasks/:taskId', requireAuth(['user', 'merchant', 'system']), async (req, res, next) => {
   try {
-    const task = await getTaskById(req.params.taskId, { roles: req.auth?.roles || [] })
+    const task = await getTaskById(req.params.taskId, {
+      ...taskAuthOptions(req),
+      roles: req.auth?.roles || [],
+    })
     if (!task) {
       const err = new Error('脱敏任务不存在')
       err.status = 404
@@ -30,7 +37,7 @@ router.get('/tasks/:taskId', requireAuth(['user', 'merchant', 'system']), async 
 
 router.post('/tasks/:taskId/auto-mask', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
-    const task = await runAutoMask(req.params.taskId)
+    const task = await runAutoMask(req.params.taskId, taskAuthOptions(req))
     return ok(res, task)
   } catch (e) {
     next(e)
@@ -39,7 +46,7 @@ router.post('/tasks/:taskId/auto-mask', requireAuth(['user', 'merchant']), async
 
 router.post('/tasks/:taskId/assets/:assetId/retry', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
-    const task = await retryAsset(req.params.taskId, req.params.assetId)
+    const task = await retryAsset(req.params.taskId, req.params.assetId, taskAuthOptions(req))
     return ok(res, task)
   } catch (e) {
     next(e)
@@ -54,7 +61,7 @@ router.post(
       const task = await applyManualMask(req.params.taskId, req.params.assetId, {
         regions: req.body && req.body.regions,
         mode: req.body && req.body.mode,
-      })
+      }, taskAuthOptions(req))
       return ok(res, task)
     } catch (e) {
       next(e)
@@ -64,7 +71,7 @@ router.post(
 
 router.post('/tasks/:taskId/assets/:assetId/previewed', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
-    const task = await markAssetPreviewed(req.params.taskId, req.params.assetId)
+    const task = await markAssetPreviewed(req.params.taskId, req.params.assetId, taskAuthOptions(req))
     return ok(res, task)
   } catch (e) {
     next(e)
@@ -73,7 +80,8 @@ router.post('/tasks/:taskId/assets/:assetId/previewed', requireAuth(['user', 'me
 
 router.post('/tasks/:taskId/confirm', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
-    const task = await getTaskById(req.params.taskId)
+    const authOpts = taskAuthOptions(req)
+    const task = await getTaskById(req.params.taskId, authOpts)
     if (!task) {
       const err = new Error('脱敏任务不存在')
       err.status = 404
@@ -81,6 +89,7 @@ router.post('/tasks/:taskId/confirm', requireAuth(['user', 'merchant']), async (
     }
     const payload = {
       liabilityAccepted: Boolean(req.body && req.body.liabilityAccepted),
+      ...authOpts,
     }
     let confirmed
     if (task.bizType === BIZ_TYPE.SERVICE_REVIEW_PREVIEW) {
