@@ -47,7 +47,7 @@ Component({
       const displayText =
         this.properties.text ||
         (resolved && resolved.text) ||
-        '基础版'
+        '免费版'
       const size = this.properties.size || 'md'
       const sizeClass = size === 'sm' || size === 'lg' ? size : 'md'
       this.setData({ tierClass, displayText, sizeClass })

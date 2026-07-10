@@ -122,13 +122,13 @@ function buildRuleOptimizeDraft(albumView, capability) {
       })
     })
   }
-  if (capability.mode === 'rule' && capability.plan !== 'optimize_299') {
+  if (capability.mode === 'rule') {
     suggestions.unshift({
       type: 'info',
       text:
-        capability.plan === 'index_99'
-          ? '当前为收录版：可使用规则建议优化文案；AI 深度润色需升级至深度优化版（299）。'
-          : '当前为免费版：仅提供规则建议；升级套餐后可使用 AI 深度润色（授权前）。',
+        capability.plan === 'index_99' || capability.plan === 'optimize_299'
+          ? '当前为标准版：可使用规则建议优化文案（授权前，商家确认后写入相册）。'
+          : '当前为免费版：提供规则建议；开通标准版后可公域收录。',
     })
   }
 

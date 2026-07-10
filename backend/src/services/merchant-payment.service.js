@@ -218,7 +218,11 @@ async function createSubscriptionOrder(auth, plan) {
         status: MERCHANT_PAYMENT_STATUS.PAID,
         paidAt: new Date(),
         orderExpiresAt,
-        notifyPayloadJson: { proration, zeroAmountSwitch: true },
+        notifyPayloadJson: {
+          proration,
+          zeroAmountSwitch: true,
+          standardTrial: quote.switchMode === 'trial',
+        },
       },
     })
 
@@ -227,7 +231,9 @@ async function createSubscriptionOrder(auth, plan) {
       proration.priorPlan,
       proration.refundExcessCents
     )
-    const activated = await activateMerchantPlan(auth.merchantId, plan)
+    const activated = await activateMerchantPlan(auth.merchantId, plan, {
+      isStandardTrial: quote.switchMode === 'trial',
+    })
 
     return {
       orderId: order.id,
@@ -238,6 +244,7 @@ async function createSubscriptionOrder(auth, plan) {
       orderExpiresAt: orderExpiresAt.toISOString(),
       wechatPayConfigured: config.wechatPay.configured,
       immediate: true,
+      trial: quote.switchMode === 'trial',
       subscription: activated,
       proration: {
         ...proration,
@@ -352,7 +359,16 @@ async function completePaidOrder(order, wxPayload = {}) {
   const proration = readOrderProration(order)
 
   if (order.status === MERCHANT_PAYMENT_STATUS.PAID) {
-    return { alreadyPaid: true, subscription: await activateMerchantPlan(order.merchantId, order.plan) }
+    return {
+      alreadyPaid: true,
+      subscription: await activateMerchantPlan(order.merchantId, order.plan, {
+        isStandardTrial: Boolean(
+          order.notifyPayloadJson &&
+            typeof order.notifyPayloadJson === 'object' &&
+            order.notifyPayloadJson.standardTrial
+        ),
+      }),
+    }
   }
 
   await prisma.merchantPaymentOrder.update({
@@ -378,7 +394,13 @@ async function completePaidOrder(order, wxPayload = {}) {
     )
   }
 
-  const subscription = await activateMerchantPlan(order.merchantId, order.plan)
+  const subscription = await activateMerchantPlan(order.merchantId, order.plan, {
+    isStandardTrial: Boolean(
+      order.notifyPayloadJson &&
+        typeof order.notifyPayloadJson === 'object' &&
+        order.notifyPayloadJson.standardTrial
+    ),
+  })
   return { alreadyPaid: false, subscription, proration }
 }
 

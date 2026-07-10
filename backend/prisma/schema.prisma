@@ -867,7 +867,7 @@ model GeoPromptProbeResult {
   @@map("geo_prompt_probe_result")
 }
 
-/// 商家 SaaS 套餐（免费 / 收录版 / 深度优化版）
+/// 商家 SaaS 套餐（免费 / 标准版）
 model MerchantSubscription {
   id                    String    @id
   merchantId            String    @unique @map("merchant_id")
@@ -880,6 +880,7 @@ model MerchantSubscription {
   indexingSlaDeadline   DateTime? @map("indexing_sla_deadline")
   indexingSlaMet        Boolean   @default(false) @map("indexing_sla_met")
   pendingPlan           String?   @map("pending_plan")
+  standardTrialUsed     Boolean   @default(false) @map("standard_trial_used")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   merchant              Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)

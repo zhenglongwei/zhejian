@@ -106,7 +106,7 @@
 
         <view class="merchant-sub__section-head">
           <text class="merchant-sub__section-title text-h3">套餐介绍</text>
-          <text wx:if="{{planStatus.canScheduleChange}}" class="text-caption text-tertiary">点选更低档位可预约到期后切换；点选更高档位可立即支付升级</text>
+          <text wx:if="{{planStatus.canScheduleChange}}" class="text-caption text-tertiary">点选免费版可预约到期后切换；标准版首购可享 6 个月免费试用</text>
           <text wx:elif="{{planStatus.hasPendingChange}}" class="text-caption text-tertiary">已有预约时不可改选，请先取消预约</text>
         </view>
 

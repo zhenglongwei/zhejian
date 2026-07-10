@@ -13,8 +13,10 @@ const {
   MERCHANT_PLAN_TAG_TIERS,
   MERCHANT_PLAN_PRICE_CENTS,
   MERCHANT_SUBSCRIPTION_STATUS,
+  MERCHANT_PAYMENT_STATUS,
   PUBLIC_INDEX_PLANS,
   SUBSCRIPTION_TERM_DAYS,
+  STANDARD_TRIAL_DAYS,
   PLAN_CATALOG,
 } = require('../constants/merchant-subscription')
 const { assertPrismaDelegate } = require('../lib/prisma')
@@ -25,7 +27,7 @@ const SUBSCRIPTION_SETUP_HINT =
 const PLAN_RANK = {
   [MERCHANT_PLAN.FREE]: 0,
   [MERCHANT_PLAN.INDEX_99]: 1,
-  [MERCHANT_PLAN.OPTIMIZE_299]: 2,
+  [MERCHANT_PLAN.OPTIMIZE_299]: 1,
 }
 
 function compareMerchantPlans(fromPlan, toPlan) {
@@ -73,6 +75,7 @@ function formatSubscriptionRow(row) {
       founderRenewDiscount: null,
       indexingSlaDeadline: null,
       indexingSlaMet: false,
+      standardTrialUsed: false,
     }
   }
   const active = isSubscriptionActive(row)
@@ -95,6 +98,7 @@ function formatSubscriptionRow(row) {
       ? MERCHANT_PLAN_TAG_LABELS[row.pendingPlan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE]
       : null,
     pendingEffectiveAt: row.pendingPlan && row.expiresAt ? row.expiresAt.toISOString() : null,
+    standardTrialUsed: Boolean(row.standardTrialUsed),
   }
 }
 
@@ -153,7 +157,7 @@ async function getMerchantSubscription(merchantId) {
 }
 
 /**
- * CASE-MCH-02 · 商家内容优化能力（299=LLM，免费/99=规则建议）
+ * CASE-MCH-02 · 商家内容优化能力（规则建议；公域套餐与免费版一致）
  * @param {object|null} subscriptionRow formatSubscriptionRow 或 prisma 行
  */
 function resolveMerchantContentOptimizeCapability(subscription) {
@@ -170,26 +174,30 @@ function resolveMerchantContentOptimizeCapability(subscription) {
     canApply: true,
   }
 
-  if (active && plan === MERCHANT_PLAN.OPTIMIZE_299) {
+  if (active && PUBLIC_INDEX_PLANS.has(plan)) {
     return {
       ...base,
-      mode: 'llm',
-      llmEnabled: true,
-      hint: '深度优化版：可使用 AI 润色（授权前，商家确认后写入相册）',
-    }
-  }
-
-  if (active && plan === MERCHANT_PLAN.INDEX_99) {
-    return {
-      ...base,
-      hint: '收录版：提供规则建议；升级深度优化版可使用 AI 润色',
+      hint: '标准版：提供规则建议优化文案（授权前，商家确认后写入相册）',
     }
   }
 
   return {
     ...base,
-    hint: '免费版：提供规则建议；升级套餐后可解锁更多优化能力',
+    hint: '免费版：提供规则建议；开通标准版后可公域收录',
   }
+}
+
+async function isEligibleForStandardTrial(subscriptionRow) {
+  if (!subscriptionRow || subscriptionRow.standardTrialUsed) return false
+  const prior = await prisma.merchantPaymentOrder.findFirst({
+    where: {
+      merchantId: subscriptionRow.merchantId,
+      plan: MERCHANT_PLAN.INDEX_99,
+      status: MERCHANT_PAYMENT_STATUS.PAID,
+    },
+    select: { id: true },
+  })
+  return !prior
 }
 
 async function merchantHasPublicIndex(merchantId) {
@@ -320,9 +328,13 @@ function isWithinRenewalWindow(subscriptionRow) {
 }
 
 function canRenewSamePlan(subscriptionRow, plan) {
-  if (!subscriptionRow || subscriptionRow.plan !== plan) return false
-  if (subscriptionRow.pendingPlan) return false
+  if (!subscriptionRow || subscriptionRow.pendingPlan) return false
   if (!PUBLIC_INDEX_PLANS.has(plan)) return false
+  const currentPlan = subscriptionRow.plan
+  const matchesCurrent =
+    currentPlan === plan ||
+    (currentPlan === MERCHANT_PLAN.OPTIMIZE_299 && plan === MERCHANT_PLAN.INDEX_99)
+  if (!matchesCurrent) return false
   if (!isSubscriptionActive(subscriptionRow)) return true
   return isWithinRenewalWindow(subscriptionRow)
 }
@@ -380,9 +392,11 @@ function buildPlanSwitchQuote(
   subscriptionRow,
   targetPlan,
   listPriceCents,
-  chargePriceCents = listPriceCents
+  chargePriceCents = listPriceCents,
+  options = {}
 ) {
   const currentPlan = subscriptionRow?.plan || MERCHANT_PLAN.FREE
+  const trialEligible = Boolean(options.trialEligible)
 
   if (targetPlan === MERCHANT_PLAN.FREE && currentPlan === MERCHANT_PLAN.FREE) {
     return Promise.resolve({
@@ -406,7 +420,8 @@ function buildPlanSwitchQuote(
   }
 
   const isCurrentPaidPlan =
-    currentPlan === targetPlan &&
+    (currentPlan === targetPlan ||
+      (currentPlan === MERCHANT_PLAN.OPTIMIZE_299 && targetPlan === MERCHANT_PLAN.INDEX_99)) &&
     isSubscriptionActive(subscriptionRow) &&
     hasPublicIndexEntitlement(subscriptionRow)
   if (isCurrentPaidPlan) {
@@ -487,6 +502,33 @@ function buildPlanSwitchQuote(
     })
   }
 
+  if (
+    targetPlan === MERCHANT_PLAN.INDEX_99 &&
+    trialEligible &&
+    currentPlan === MERCHANT_PLAN.FREE &&
+    !subscriptionRow?.pendingPlan
+  ) {
+    return Promise.resolve({
+      switchMode: 'trial',
+      isCurrentPlan: false,
+      isPendingPlan: false,
+      refundCents: 0,
+      payCents: 0,
+      creditCents: 0,
+      amountCents: 0,
+      refundExcessCents: 0,
+      creditAppliedCents: 0,
+      listPriceCents,
+      creditYuan: '0.00',
+      amountYuan: '0.00',
+      refundYuan: '0.00',
+      payYuan: '0.00',
+      refundExcessYuan: '0.00',
+      summary: `首次开通标准版，享 ${STANDARD_TRIAL_DAYS / 30} 个月免费试用`,
+      trialDays: STANDARD_TRIAL_DAYS,
+    })
+  }
+
   return computeRemainingCreditCents(subscriptionRow).then((refundCents) => {
     const payCents = chargePriceCents
     const listPayYuan = (listPriceCents / 100).toFixed(2)
@@ -552,14 +594,14 @@ async function schedulePlanDowngrade(merchantId, targetPlan) {
   return getOrCreateSubscription(merchantId)
 }
 
-function computeRenewExpiresAt(currentExpiresAt) {
+function computeRenewExpiresAt(currentExpiresAt, termDays = SUBSCRIPTION_TERM_DAYS) {
   const now = new Date()
   const base =
     currentExpiresAt && currentExpiresAt.getTime() > now.getTime()
       ? currentExpiresAt
       : now
   const next = new Date(base)
-  next.setDate(next.getDate() + SUBSCRIPTION_TERM_DAYS)
+  next.setDate(next.getDate() + termDays)
   return next
 }
 
@@ -587,26 +629,39 @@ async function activateMerchantPlan(merchantId, plan, options = {}) {
   const isRenewal =
     !isPlanChange &&
     PUBLIC_INDEX_PLANS.has(existing.plan) &&
-    existing.plan === plan &&
+    (existing.plan === plan ||
+      (existing.plan === MERCHANT_PLAN.OPTIMIZE_299 && plan === MERCHANT_PLAN.INDEX_99)) &&
     isSubscriptionActive(existing) &&
-    existing.expiresAt
+    existing.expiresAt &&
+    !options.isStandardTrial
 
   let expiresAt = null
-  if (PUBLIC_INDEX_PLANS.has(plan)) {
+  const resolvedPlan =
+    plan === MERCHANT_PLAN.INDEX_99 && existing.plan === MERCHANT_PLAN.OPTIMIZE_299
+      ? MERCHANT_PLAN.INDEX_99
+      : plan
+  if (PUBLIC_INDEX_PLANS.has(resolvedPlan)) {
+    const termDays = options.isStandardTrial
+      ? STANDARD_TRIAL_DAYS
+      : SUBSCRIPTION_TERM_DAYS
     expiresAt = isRenewal
-      ? computeRenewExpiresAt(existing.expiresAt)
-      : computeRenewExpiresAt(null)
+      ? computeRenewExpiresAt(existing.expiresAt, SUBSCRIPTION_TERM_DAYS)
+      : computeRenewExpiresAt(null, termDays)
   }
 
   const data = {
-    plan,
+    plan: resolvedPlan,
     status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
     startedAt: isRenewal ? existing.startedAt || now : now,
     expiresAt,
     pendingPlan: null,
   }
 
-  if (PUBLIC_INDEX_PLANS.has(plan) && !existing.indexingSlaMet) {
+  if (options.isStandardTrial) {
+    data.standardTrialUsed = true
+  }
+
+  if (PUBLIC_INDEX_PLANS.has(resolvedPlan) && !existing.indexingSlaMet) {
     data.indexingSlaDeadline = computeIndexingSlaDeadline(now)
   }
 
@@ -647,8 +702,9 @@ function resolveChargeAmountCents(plan, subscriptionRow) {
   return resolvePlanPriceCents(plan, subscriptionRow)
 }
 
-function listPlanCatalog(subscriptionRow) {
+function listPlanCatalog(subscriptionRow, options = {}) {
   const testCents = config.wechatPay.subscriptionTestAmountCents
+  const trialEligible = Boolean(options.trialEligible)
   return PLAN_CATALOG.map((item) => {
     const listPriceCents =
       item.plan === MERCHANT_PLAN.FREE
@@ -660,23 +716,28 @@ function listPlanCatalog(subscriptionRow) {
         : testCents != null
           ? testCents
           : listPriceCents
-    const priceLabel =
+    let priceLabel =
       testCents != null && item.plan !== MERCHANT_PLAN.FREE
         ? `测试价 ¥${(testCents / 100).toFixed(2)} / 年`
         : priceCents === item.priceCents
           ? item.priceLabel
           : `¥${(priceCents / 100).toFixed(0)} / 年`
+    if (item.plan === MERCHANT_PLAN.INDEX_99 && trialEligible && testCents == null) {
+      priceLabel = item.trialLabel || priceLabel
+    }
     return {
       ...item,
       priceCents,
       listPriceCents,
       priceLabel,
+      trialEligible: item.plan === MERCHANT_PLAN.INDEX_99 && trialEligible,
       paymentTestMode: testCents != null && item.plan !== MERCHANT_PLAN.FREE,
     }
   })
 }
 
 async function enrichPlanCatalogWithQuotes(subscriptionRow, plans) {
+  const trialEligible = await isEligibleForStandardTrial(subscriptionRow)
   const enriched = []
   for (const item of plans) {
     const listPriceCents =
@@ -687,7 +748,10 @@ async function enrichPlanCatalogWithQuotes(subscriptionRow, plans) {
       subscriptionRow,
       item.plan,
       listPriceCents,
-      chargePriceCents
+      chargePriceCents,
+      {
+        trialEligible: item.plan === MERCHANT_PLAN.INDEX_99 && trialEligible,
+      }
     )
     enriched.push({ ...item, switchQuote: quote })
   }
@@ -706,12 +770,14 @@ async function fetchMerchantSubscriptionPanel(auth) {
   subscription.planTag = {
     tier: MERCHANT_PLAN_TAG_TIERS[plan] || 'basic',
     text: MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
-    canUpgrade: plan !== MERCHANT_PLAN.OPTIMIZE_299,
+    canUpgrade: !PUBLIC_INDEX_PLANS.has(plan) || !hasPublicIndexEntitlement(row),
   }
+  const standardTrialEligible = await isEligibleForStandardTrial(row)
+  subscription.standardTrialEligible = standardTrialEligible
   const creditCents = await computeRemainingCreditCents(row)
   subscription.remainingCreditCents = creditCents
   subscription.remainingCreditYuan = (creditCents / 100).toFixed(2)
-  const plans = listPlanCatalog(row)
+  const plans = listPlanCatalog(row, { trialEligible: standardTrialEligible })
   const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
   const renewalNotice = buildRenewalNotice(row)
   return {
@@ -758,6 +824,7 @@ module.exports = {
   hasPublicIndexEntitlement,
   isSubscriptionActive,
   resolveMerchantContentOptimizeCapability,
+  isEligibleForStandardTrial,
   computeRemainingCreditCents,
   buildPlanSwitchQuote,
   schedulePlanDowngrade,

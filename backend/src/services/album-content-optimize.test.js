@@ -20,19 +20,20 @@ const sampleAlbumView = {
   ],
 }
 
-test('resolveMerchantContentOptimizeCapability gates LLM to optimize_299', () => {
+test('resolveMerchantContentOptimizeCapability uses rule mode for all plans', () => {
   const free = resolveMerchantContentOptimizeCapability({
     plan: MERCHANT_PLAN.FREE,
     status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
   })
   assert.equal(free.llmEnabled, false)
+  assert.equal(free.mode, 'rule')
 
-  const flagship = resolveMerchantContentOptimizeCapability({
-    plan: MERCHANT_PLAN.OPTIMIZE_299,
+  const standard = resolveMerchantContentOptimizeCapability({
+    plan: MERCHANT_PLAN.INDEX_99,
     status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
   })
-  assert.equal(flagship.llmEnabled, true)
-  assert.equal(flagship.mode, 'llm')
+  assert.equal(standard.llmEnabled, false)
+  assert.equal(standard.mode, 'rule')
 })
 
 test('buildRuleOptimizeDraft produces geo and nodeNotes', () => {

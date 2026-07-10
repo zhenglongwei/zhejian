@@ -7,7 +7,7 @@ const {
 const { resolveMerchantPlanTier } = require('../../../constants/merchant-plan-tier')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 
-const PLAN_RANK = { free: 0, index_99: 1, optimize_299: 2 }
+const PLAN_RANK = { free: 0, index_99: 1 }
 
 const GATE_BENEFITS = [
   '未开通：案例和门店页只能在微信里分享，百度等搜索引擎搜不到',
@@ -24,12 +24,8 @@ const PLAN_HIGHLIGHTS_FRIENDLY = {
   index_99: [
     '授权案例可被百度、微信搜一搜找到',
     '门店介绍页也能被搜索到',
+    '首购免费试用 6 个月，之后 99 元/年',
     '含免费版全部功能',
-  ],
-  optimize_299: [
-    '含收录版全部功能',
-    '关键词与页面优化，更容易被搜到',
-    '可用 AI 润色案例文案',
   ],
 }
 
@@ -41,6 +37,13 @@ function formatExpiresAt(iso) {
 function formatPlanPrice(item) {
   if (!item || item.plan === 'free') {
     return { amount: '0', suffix: '永久免费', note: '' }
+  }
+  if (item.trialEligible) {
+    return {
+      amount: '0',
+      suffix: '首 6 个月',
+      note: '试用结束后 99 元/年续费',
+    }
   }
   const listYuan = ((item.listPriceCents || 0) / 100).toFixed(0)
   if (item.paymentTestMode) {
@@ -106,7 +109,9 @@ function resolvePlanSelectable(item, subscription = {}, planStatus = {}) {
   if (item.plan === currentPlan) return false
   const quote = item.switchQuote || {}
   if (quote.switchMode === 'downgrade_scheduled') return true
-  if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase') return true
+  if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase' || quote.switchMode === 'trial') {
+    return true
+  }
   return false
 }
 
@@ -120,6 +125,13 @@ function resolveSelectionAction(selectedPlan, plans = [], subscription = {}) {
       type: 'schedule',
       plan: selectedPlan,
       label: `确认：到期后改为${item.tierLabel}`,
+    }
+  }
+  if (quote.switchMode === 'trial') {
+    return {
+      type: 'trial',
+      plan: selectedPlan,
+      label: '免费试用 6 个月',
     }
   }
   if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase') {
@@ -229,6 +241,27 @@ function confirmCancelPending(subscription) {
       content: `取消后，到期仍将保持「${subscription.tierLabel}」，不再改为「${nextLabel}」。`,
       confirmText: '确认取消',
       cancelText: '返回',
+      success(res) {
+        resolve(Boolean(res.confirm))
+      },
+      fail() {
+        resolve(false)
+      },
+    })
+  })
+}
+
+function confirmTrial(item) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '确认免费试用',
+      content: [
+        `开通「${item.tierLabel}」公域收录权益。`,
+        '首购享 6 个月免费试用，试用结束后需手动支付 99 元/年续费。',
+        '不会自动扣款。',
+      ].join('\n'),
+      confirmText: '开始试用',
+      cancelText: '取消',
       success(res) {
         resolve(Boolean(res.confirm))
       },
@@ -379,6 +412,13 @@ Page({
       return
     }
 
+    if (action.type === 'trial') {
+      const confirmed = await confirmTrial(item)
+      if (!confirmed) return
+      await this.executeOrder(action.plan, 'trial')
+      return
+    }
+
     const confirmed = await confirmPay(item, this.data.subscription, 'pay')
     if (!confirmed) return
     await this.executeOrder(action.plan, 'pay')
@@ -418,9 +458,11 @@ Page({
         const tip =
           kind === 'renew'
             ? '续费成功'
-            : order.proration && Number(order.proration.refundExcessCents) > 0
-              ? `已升级，原套餐剩余 ¥${order.proration.refundExcessYuan} 将原路退回`
-              : '套餐已切换'
+            : kind === 'trial' || order.trial
+              ? '已开通 6 个月免费试用'
+              : order.proration && Number(order.proration.refundExcessCents) > 0
+                ? `已升级，原套餐剩余 ¥${order.proration.refundExcessYuan} 将原路退回`
+                : '套餐已切换'
         wx.showToast({ title: tip, icon: 'success' })
         this.setData({ selectedPlan: '' })
         await this.loadPanel()
