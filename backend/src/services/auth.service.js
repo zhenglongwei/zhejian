@@ -4,6 +4,8 @@ const { newId, maskPhone } = require('../lib/ids')
 const { signSessionToken, ROLES } = require('../lib/jwt')
 const { code2Session, getPhoneNumber } = require('../lib/wechat')
 const { USER_STATUS } = require('../constants/user')
+const { stripUrlQuery } = require('../lib/media-signed-url')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const { resolveMerchantContext } = require('./merchant-context.service')
 const { linkPendingStaffForUser } = require('./merchant-staff.service')
 const {
@@ -13,12 +15,16 @@ const {
 
 const MINE_RECENT_ALBUMS_LIMIT = 3
 
+function normalizeStoredAvatarUrl(url) {
+  return stripUrlQuery(String(url || '').trim()).slice(0, 512)
+}
+
 function formatUserPayload(user) {
   const phone = user.phone || ''
   return {
     userId: user.id,
     nickname: user.nickname || '',
-    avatarUrl: user.avatarUrl || '',
+    avatarUrl: resolveClientReadableMediaUrl(user.avatarUrl || ''),
     phoneDisplay: phone ? maskPhone(phone) : '',
     isPhoneBound: Boolean(phone),
   }
@@ -195,7 +201,7 @@ async function updateUserProfile(userId, payload = {}) {
     data.nickname = String(payload.nickname || '').trim().slice(0, 32)
   }
   if (payload.avatarUrl !== undefined) {
-    data.avatarUrl = String(payload.avatarUrl || '').trim().slice(0, 512)
+    data.avatarUrl = normalizeStoredAvatarUrl(payload.avatarUrl)
   }
 
   if (!Object.keys(data).length) {

@@ -2,6 +2,7 @@ const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 const { ROLES } = require('../lib/jwt')
 const { hasRole } = require('../middleware/auth')
+const { USER_STATUS } = require('../constants/user')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { PLAN_SALE_STATUS } = require('../constants/service-plan')
 const { STORE_EXTRAS } = require('../constants/content-seed')
@@ -143,14 +144,30 @@ async function matchPublicServicePlanCover(objectKey) {
   return Boolean(planHit && mediaUrlMatchesObjectKey(planHit.coverUrl, objectKey))
 }
 
+/** 用户头像：写入 users.avatar_url 后需供 <image> 匿名加载 */
+async function matchPublicUserAvatar(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  if (!filename) return false
+
+  const userHit = await prisma.user.findFirst({
+    where: {
+      status: USER_STATUS.ACTIVE,
+      avatarUrl: { contains: filename },
+    },
+    select: { avatarUrl: true },
+  })
+  return Boolean(userHit && mediaUrlMatchesObjectKey(userHit.avatarUrl, objectKey))
+}
+
 /**
- * 公开内容目录中的原图（门店门头/环境、已发布 GEO 封面、商家资质证照）允许匿名读。
- * 兜底：API 未补 signed query 或签名 secret 未配置时，仍保证首页/H5 公开展示可用。
+ * 公开内容目录中的原图（用户头像、门店门头/环境、GEO 封面、商家证照等）允许匿名读。
+ * 兜底：API 未补 signed query 时，仍保证小程序/H5 <image> 可加载。
  */
 async function canAccessViaPublicContentCatalog(objectKey) {
   const candidates = [...new Set([String(objectKey || '').trim(), baseObjectKey(objectKey)].filter(Boolean))]
   for (const key of candidates) {
     if (!key || !isOriginalUploadObjectKey(key)) continue
+    if (await matchPublicUserAvatar(key)) return true
     if (await matchPublicStorePhotos(key)) return true
     if (await matchPublicGeoCover(key)) return true
     if (await matchPublicMerchantCredentials(key)) return true
