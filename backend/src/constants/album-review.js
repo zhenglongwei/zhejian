@@ -71,7 +71,7 @@ const PART_VERIFY_GUIDE_FEEDBACK = {
 const VALID_PART_VERIFY_GUIDE_FEEDBACK = new Set(Object.values(PART_VERIFY_GUIDE_FEEDBACK))
 
 const { resolveShared } = require('../utils/resolve-shared')
-const { AUTHORIZATION_CONSENT } = resolveShared('constants/compliance-copy')
+const { AUTHORIZATION_CONSENT } = resolveShared('constants/compliance-copy.js')
 
 const ALBUM_REVIEW_CONSENT_TEXT = AUTHORIZATION_CONSENT.album_review.text
 

@@ -7,12 +7,12 @@ const LEGAL_VERSION = '2.0.0'
 const LEGAL_EFFECTIVE_DATE = '2026-07-11'
 
 const LEGAL_OPERATOR = {
-  name: '【辙见运营主体全称】',
-  uscc: '【统一社会信用代码】',
-  address: '【注册地址】',
-  privacyEmail: '【个人信息保护负责人/客服邮箱】',
-  privacyPhone: '【客服电话，如有】',
-  jurisdiction: '【辙见运营主体住所地】',
+  name: '杭州盈简科技有限公司',
+  uscc: '91330114MA8GFYDX3E',
+  address: '浙江省杭州市钱塘区下沙街道财通中心1512室托管2024A016',
+  privacyEmail: 'business@simplewin.cn',
+  privacyPhone: '18658823459',
+  jurisdiction: '浙江省杭州市钱塘区',
 }
 
 /** 用户服务协议赔偿责任上限（格式条款，上线前法务确认） */
