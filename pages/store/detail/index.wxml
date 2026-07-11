@@ -228,8 +228,8 @@
             theme="album"
             title="该门店暂未配置可预约服务"
             description="你可以联系门店了解服务方案"
-            actionText="联系门店"
-            bind:action="onCall"
+            actionText="留言咨询"
+            bind:action="onConsultMessage"
           />
         </block>
         <view wx:else class="store-detail__evidence-stack">
@@ -274,8 +274,8 @@
             theme="album"
             title="该门店暂无公开案例"
             description="你可以查看服务或联系门店了解维修能力"
-            actionText="联系门店"
-            bind:action="onCall"
+            actionText="留言咨询"
+            bind:action="onConsultMessage"
           />
         </block>
         <view wx:else class="store-detail__evidence-stack">

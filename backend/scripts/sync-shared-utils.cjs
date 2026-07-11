@@ -11,6 +11,7 @@ const VENDOR_ROOT = path.join(BACKEND_ROOT, 'vendor/shared')
 
 const FILES = [
   'constants/part-type.js',
+  'constants/legal-meta.js',
   'constants/compliance-copy.js',
   'constants/album-evidence-guide.js',
   'constants/service-album-stages.js',

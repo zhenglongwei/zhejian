@@ -1,0 +1,43 @@
+@import '../../../styles/merchant-form.wxss';
+
+.consult-submit__pad {
+  padding-top: var(--space-md);
+}
+
+.consult-submit__body {
+  padding-top: var(--space-md);
+  padding-bottom: var(--page-fixed-clearance);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.consult-submit__section-title {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.consult-submit__notice {
+  margin-top: var(--space-sm);
+}
+
+.consult-submit__field {
+  margin-top: var(--space-md);
+}
+
+.consult-submit__field:first-of-type {
+  margin-top: 0;
+}
+
+.consult-submit__footer-note {
+  margin-bottom: var(--space-md);
+}
+
+.consult-submit__consent {
+  margin-top: var(--space-sm);
+}
+
+.consult-submit__case-hint {
+  display: block;
+  color: var(--color-text-secondary);
+}

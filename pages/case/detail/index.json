@@ -19,6 +19,7 @@
     "ui-review-card": "/components/review-card/index",
     "ui-share-sheet": "/components/share-sheet/index",
     "ui-detail-report-entry": "/components/detail-report-entry/index",
-    "ui-login-sheet": "/components/login-sheet/index"
+    "ui-login-sheet": "/components/login-sheet/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

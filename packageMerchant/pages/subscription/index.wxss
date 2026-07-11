@@ -1,4 +1,15 @@
-.merchant-sub__pad {
+.merchant-sub__consent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-sub__consent-link {
+  color: var(--color-primary);
+  margin-left: var(--space-lg);
+}
+
   padding: var(--space-md) var(--page-padding-x);
 }
 

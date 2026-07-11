@@ -8,6 +8,7 @@ const {
   getUserLeadById,
   cancelUserLead,
 } = require('../services/lead.service')
+const { buildAuthMetaFromReq } = require('../lib/auth-request-meta')
 
 const router = express.Router()
 
@@ -31,7 +32,11 @@ router.get('/leads', requireAuth(['user']), async (req, res, next) => {
 
 router.post('/leads', requireAuth(['user']), async (req, res, next) => {
   try {
-    const data = await createLead(req.auth.userId, req.body || {})
+    const data = await createLead(
+      req.auth.userId,
+      req.body || {},
+      buildAuthMetaFromReq(req)
+    )
     return ok(res, data)
   } catch (e) {
     next(e)

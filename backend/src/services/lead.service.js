@@ -90,7 +90,7 @@ function sanitizeLeadImages(images) {
   return images.map((url) => assertPersistentImageUrl(url)).filter(Boolean)
 }
 
-async function createLead(userId, payload = {}) {
+async function createLead(userId, payload = {}, meta = {}) {
   if (!payload.storeId) {
     const err = new Error('缺少门店信息')
     err.status = 400
@@ -98,6 +98,11 @@ async function createLead(userId, payload = {}) {
   }
   if (!payload.platformConsent) {
     const err = new Error('请先阅读并同意平台说明')
+    err.status = 400
+    throw err
+  }
+  if (Boolean(payload.isAccident) && !payload.accidentConsent) {
+    const err = new Error('请先确认事故车检测报价说明')
     err.status = 400
     throw err
   }
@@ -141,6 +146,20 @@ async function createLead(userId, payload = {}) {
     include: { statusLogs: { orderBy: { createdAt: 'asc' } } },
   })
   const mapped = mapLeadRecord(lead)
+  const { recordAuthorizationLogs } = require('./authorization-log.service')
+  const consentEntries = Array.isArray(payload.authorizationConsents)
+    ? payload.authorizationConsents
+    : []
+  if (consentEntries.length) {
+    await recordAuthorizationLogs(
+      userId,
+      consentEntries.map((item) => ({
+        ...item,
+        businessId: item.businessId || lead.id,
+      })),
+      meta
+    )
+  }
   const { notifyNewLead } = require('./notification.service')
   notifyNewLead(mapped).catch((e) => {
     console.warn('[notification] new lead', e && e.message)

@@ -266,6 +266,15 @@
 </ui-tool-page-shell>
 
 <block wx:if="{{detail && status === 'normal'}}">
+  <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
+    <ui-button
+      type="primary"
+      slot="right"
+      disabled="{{!bookable}}"
+      bind:btntap="onConsultSubmit"
+    >{{consultSubmitLabel}}</ui-button>
+  </ui-fixed-bottom-bar>
+
   <ui-login-sheet
     visible="{{loginSheetVisible}}"
     mode="{{loginSheetMode}}"

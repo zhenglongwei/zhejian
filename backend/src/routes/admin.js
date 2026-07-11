@@ -82,6 +82,11 @@ const {
   resolveAdminReport,
 } = require('../services/admin-report.service')
 
+const {
+  listAdminAuthorizationLogs,
+  getAdminAuthorizationLogDetail,
+} = require('../services/admin-authorization-log.service')
+
 const router = express.Router()
 
 router.post('/auth/login', async (req, res, next) => {
@@ -719,6 +724,24 @@ router.post('/reports/:reportId/resolve', async (req, res, next) => {
       comment: req.body?.comment || '',
       hideContent: Boolean(req.body?.hideContent),
     })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/authorization-logs', async (req, res, next) => {
+  try {
+    const data = await listAdminAuthorizationLogs(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/authorization-logs/:logId', async (req, res, next) => {
+  try {
+    const data = await getAdminAuthorizationLogDetail(req.params.logId)
     return ok(res, data)
   } catch (e) {
     next(e)

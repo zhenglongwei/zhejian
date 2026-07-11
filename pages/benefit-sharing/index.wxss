@@ -1,3 +1,38 @@
-.benefit-sharing {
-  padding-top: var(--space-xl);
+.legal-doc {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-xl);
+}
+
+.legal-doc__updated {
+  display: block;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-lg);
+}
+
+.legal-doc__section {
+  margin-bottom: var(--space-lg);
+}
+
+.legal-doc__heading {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.legal-doc__body {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.benefit-sharing__footer {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+}
+
+.benefit-sharing__link {
+  color: var(--color-primary);
+  margin-left: var(--space-xs);
 }

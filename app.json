@@ -47,6 +47,10 @@
     "pages/desensitize/preview/index",
     "pages/desensitize/mask/index",
     "pages/benefit-sharing/index",
+    "pages/consult/submit/index",
+    "pages/consult/result/index",
+    "pages/consult/index/index",
+    "pages/consult/detail/index",
     "pages/review/submit/index",
     "pages/review/result/index",
     "pages/review/rules/index",
@@ -79,6 +83,7 @@
         "pages/store/edit/index",
         "pages/message/index",
         "pages/subscription/index",
+        "pages/legal-document/index",
         "pages/review/list/index",
         "pages/review/detail/index"
       ]
@@ -91,6 +96,7 @@
     "backgroundColor": "#f5f6f7"
   },
   "style": "v2",
+  "__usePrivacyCheck__": true,
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
   "preloadRule": {

@@ -5,7 +5,11 @@ async function fetchMerchantSubscriptionPanel() {
 }
 
 async function createSubscriptionOrder(plan, options = {}) {
-  return post('/merchant/subscription/orders', { plan, intent: options.intent })
+  const body = { plan, intent: options.intent }
+  if (options.subscriptionConsent) {
+    body.subscriptionConsent = options.subscriptionConsent
+  }
+  return post('/merchant/subscription/orders', body)
 }
 
 async function prepaySubscriptionOrder(orderId) {

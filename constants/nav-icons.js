@@ -4,6 +4,7 @@ const NAV_ICON_MAP = {
   album: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'primary-light' },
   authorize: { icon: `${NAV_ICON_BASE}/authorize.png`, iconBg: 'success-light' },
   message: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'info-light' },
+  consult: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'info-light' },
   vehicle: { icon: `${NAV_ICON_BASE}/vehicle.png`, iconBg: 'primary-light' },
   settings: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'warning-light' },
   help: { icon: `${NAV_ICON_BASE}/help.png`, iconBg: 'info-light' },

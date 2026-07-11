@@ -52,6 +52,12 @@
 
         <block wx:if="{{renewalNotice.show}}">
           <view class="surface-album-inset-divider" />
+          <view wx:if="{{renewalNotice.canPay}}" class="merchant-sub__consent">
+            <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
+              <text class="text-caption">{{payConsentText}}</text>
+            </ui-checkbox-row>
+            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与公域收录服务协议》</text>
+          </view>
           <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
             <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
             <view wx:if="{{renewalNotice.canPay}}" class="merchant-sub__action">
@@ -152,6 +158,12 @@
         </view>
 
         <block wx:if="{{selectionAction}}">
+          <view wx:if="{{showPayConsent}}" class="merchant-sub__consent">
+            <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
+              <text class="text-caption">{{payConsentText}}</text>
+            </ui-checkbox-row>
+            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与公域收录服务协议》</text>
+          </view>
           <view class="merchant-sub__action">
             <ui-button
               type="{{selectionAction.type === 'schedule' ? 'secondary' : 'primary'}}"

@@ -6,6 +6,7 @@ const {
 } = require('../../../services/merchant-subscription')
 const { resolveMerchantPlanTier } = require('../../../constants/merchant-plan-tier')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
+const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 
 const PLAN_RANK = { free: 0, index_99: 1 }
 
@@ -225,6 +226,21 @@ function decorateSubscriptionPanel(data = {}) {
   }
 }
 
+function needsSubscriptionPayConsent(action, renewalNotice = {}) {
+  if (renewalNotice && renewalNotice.canPay) return true
+  if (!action) return false
+  return action.type === 'pay' || action.type === 'trial'
+}
+
+function buildSubscriptionPayConsent() {
+  const item = AUTHORIZATION_CONSENT.subscription_pay
+  return {
+    authType: item.authType,
+    authTextVersion: item.version,
+    authTextSnapshot: item.text,
+  }
+}
+
 function findPlan(plans, plan) {
   return (plans || []).find((item) => item.plan === plan) || null
 }
@@ -351,6 +367,9 @@ Page({
     paymentTestMode: false,
     paying: false,
     errorMessage: '',
+    payConsent: false,
+    payConsentText: AUTHORIZATION_CONSENT.subscription_pay.text,
+    showPayConsent: false,
   },
 
   onShow() {
@@ -391,7 +410,26 @@ Page({
       paymentTestMode: panel.paymentTestMode,
       selectedPlan,
       selectionAction,
+      showPayConsent: needsSubscriptionPayConsent(selectionAction, panel.renewalNotice),
+      payConsent: false,
     })
+  },
+
+  onTogglePayConsent() {
+    this.setData({ payConsent: !this.data.payConsent })
+  },
+
+  onOpenSubscriptionAgreement() {
+    wx.navigateTo({
+      url: '/packageMerchant/pages/legal-document/index?type=subscription',
+    })
+  },
+
+  ensurePayConsent() {
+    if (!this.data.showPayConsent && !this.data.renewalNotice?.canPay) return true
+    if (this.data.payConsent) return true
+    wx.showToast({ title: '请先阅读并同意套餐协议', icon: 'none' })
+    return false
   },
 
   onRetry() {
@@ -408,7 +446,12 @@ Page({
       this.data.plans,
       this.data.subscription
     )
-    this.setData({ selectedPlan, selectionAction })
+    this.setData({
+      selectedPlan,
+      selectionAction,
+      showPayConsent: needsSubscriptionPayConsent(selectionAction, this.data.renewalNotice),
+      payConsent: false,
+    })
   },
 
   async onCancelPending() {
@@ -420,6 +463,7 @@ Page({
 
   async onRenew() {
     if (this.data.paying || !this.data.renewalNotice?.canPay) return
+    if (!this.ensurePayConsent()) return
     const item = findPlan(this.data.plans, this.data.subscription.plan)
     if (!item) return
     const confirmed = await confirmPay(item, this.data.subscription, 'renew')
@@ -441,12 +485,14 @@ Page({
     }
 
     if (action.type === 'trial') {
+      if (!this.ensurePayConsent()) return
       const confirmed = await confirmTrial(item)
       if (!confirmed) return
       await this.executeOrder(action.plan, 'trial')
       return
     }
 
+    if (!this.ensurePayConsent()) return
     const confirmed = await confirmPay(item, this.data.subscription, 'pay')
     if (!confirmed) return
     await this.executeOrder(action.plan, 'pay')
@@ -462,6 +508,10 @@ Page({
     this.setData({ paying: true })
     try {
       const orderOptions = kind === 'trial' ? { intent: 'trial' } : {}
+      const needsConsent = kind === 'pay' || kind === 'trial' || kind === 'renew'
+      if (needsConsent) {
+        orderOptions.subscriptionConsent = buildSubscriptionPayConsent()
+      }
       const order = await createSubscriptionOrder(plan, orderOptions)
       const target = findPlan(this.data.plans, plan)
       const endDate = this.data.subscription.expiresAtDisplay

@@ -26,10 +26,43 @@ const {
   decryptNotifyResource,
   createRefund,
 } = require('../lib/wechat-pay')
+const { recordAuthorizationLog } = require('./authorization-log.service')
 
 const ORDER_TTL_MINUTES = 30
 
+function assertSubscriptionPayConsent(options = {}) {
+  const consent = options.subscriptionConsent || options.consent
+  if (
+    !consent ||
+    consent.authType !== 'subscription_pay' ||
+    !consent.authTextVersion ||
+    !consent.authTextSnapshot
+  ) {
+    const err = new Error('请先阅读并同意《套餐与公域收录服务协议》')
+    err.status = 400
+    throw err
+  }
+  return consent
+}
+
+async function logSubscriptionPayConsent(auth, orderId, options = {}) {
+  const consent = options.subscriptionConsent || options.consent
+  if (!consent || !auth?.userId || !orderId) return null
+  const meta = options.authMeta || {}
+  return recordAuthorizationLog(
+    auth.userId,
+    {
+      authType: consent.authType,
+      businessId: orderId,
+      authTextVersion: consent.authTextVersion,
+      authTextSnapshot: consent.authTextSnapshot,
+    },
+    meta
+  )
+}
+
 async function activateZeroAmountSubscription(auth, plan, options = {}) {
+  assertSubscriptionPayConsent(options)
   const orderExpiresAt = new Date(Date.now() + ORDER_TTL_MINUTES * 60 * 1000)
   const proration = {
     priorPlan: '',
@@ -58,6 +91,8 @@ async function activateZeroAmountSubscription(auth, plan, options = {}) {
   const activated = await activateMerchantPlan(auth.merchantId, plan, {
     isStandardTrial: Boolean(options.isStandardTrial),
   })
+
+  await logSubscriptionPayConsent(auth, order.id, options)
 
   return {
     orderId: order.id,
@@ -162,6 +197,9 @@ function readOrderProration(order) {
 
 async function createSubscriptionOrder(auth, plan, options = {}) {
   assertSwitchablePlan(plan)
+  if (plan !== MERCHANT_PLAN.FREE) {
+    assertSubscriptionPayConsent(options)
+  }
   const subscription = await getOrCreateSubscription(auth.merchantId)
   const intentTrial = String(options.intent || '').trim() === 'trial'
 
@@ -336,6 +374,8 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
       isStandardTrial: effectiveQuote.switchMode === 'trial',
     })
 
+    await logSubscriptionPayConsent(auth, order.id, options)
+
     return {
       orderId: order.id,
       plan,
@@ -368,6 +408,8 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
       notifyPayloadJson: { proration },
     },
   })
+
+  await logSubscriptionPayConsent(auth, order.id, options)
 
   return {
     orderId: order.id,

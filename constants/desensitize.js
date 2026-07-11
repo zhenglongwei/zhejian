@@ -35,6 +35,8 @@ const ASSET_STATUS = {
   CONFIRMED: 'confirmed',
 }
 
+const { AUTHORIZATION_CONSENT } = require('./compliance-copy')
+
 const LIABILITY_COPY = {
   [BIZ_TYPE.MERCHANT_HISTORY]: {
     body:
@@ -42,11 +44,11 @@ const LIABILITY_COPY = {
     confirmLabel: '确认脱敏结果并提交审核',
   },
   [BIZ_TYPE.ORDER_AUTHORIZE]: {
-    body: '本人已逐张核对脱敏效果，同意授权公示。',
+    body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
     confirmLabel: '确认并公开',
   },
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
-    body: '本人已逐张核对脱敏效果，同意授权公示。',
+    body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
     confirmLabel: '确认并公开',
   },
   [BIZ_TYPE.SERVICE_REVIEW_PREVIEW]: {

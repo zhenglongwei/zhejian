@@ -10,8 +10,9 @@ const ALBUM_FEEDBACK_TYPE_OPTIONS = [
   { value: 'other', label: '其他' },
 ]
 
-const ALBUM_FEEDBACK_CONSENT_TEXT =
-  '我理解平台仅协助将反馈转达门店，不介入线下维修质量判定与售后仲裁。'
+const { AUTHORIZATION_CONSENT } = require('./compliance-copy')
+
+const ALBUM_FEEDBACK_CONSENT_TEXT = AUTHORIZATION_CONSENT.album_feedback.text
 
 const ALBUM_FEEDBACK_SUCCESS_MESSAGE =
   '反馈已提交，平台将协助转达门店。如有紧急问题，建议同时电话联系门店。'

@@ -67,6 +67,10 @@
       '</div>' +
       renderLinkList('服务城市', CITY_LINKS) +
       renderLinkList('维修项目', SERVICE_LINKS) +
+      '<div class="h5-site-nav-legal">' +
+      '<a class="h5-site-nav-link" href="/privacy/">隐私政策</a>' +
+      '<a class="h5-site-nav-link" href="/terms/">用户协议</a>' +
+      '</div>' +
       (options.extraHtml || '') +
       '</nav>'
     )

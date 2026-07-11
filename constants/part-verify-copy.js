@@ -1,4 +1,5 @@
 /** 配件验真 · 商家端与车主端文案（2026-07-03 口径修订） */
+const { AUTHORIZATION_CONSENT } = require('./compliance-copy')
 
 const MERCHANT_PART_TYPE_LOCKED_TIP =
   '此类型来自报价单识别，不可修改。若需变更，请先与车主沟通，并在「维修方案」节点上传最新报价单。'
@@ -67,8 +68,7 @@ const PART_VERIFY_STATUS_OPTIONS = [
   { value: 'skipped', label: '暂未验真' },
 ]
 
-const PART_VERIFY_CONSENT_TEXT =
-  '我理解配件验真为本人自愿对照留痕。相册展示的是门店登记与过程图，不能证明配件已装到车上；平台不鉴定配件真伪，也不保证与车上实物一致。更换关键件建议在场或到店复核，可向门店查看旧件、包装与编码标签。'
+const PART_VERIFY_CONSENT_TEXT = AUTHORIZATION_CONSENT.part_verify.text
 
 const PART_VERIFY_DEGRADE_HINT =
   '暂无结构化方案目录；你可仍按门店验真方式与相册登记项核对。'

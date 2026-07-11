@@ -8,8 +8,17 @@ const MINE_VEHICLE_ITEM = {
   url: '/pages/mine/vehicle/index',
 }
 
+const MINE_CONSULT_ITEM = {
+  key: 'consult',
+  label: '我的咨询',
+  desc: '留言与预约记录',
+  needPhone: true,
+  url: '/pages/consult/index/index',
+}
+
 /** 程序路由仍保留；首页不再单独展示 */
 const MINE_CORE_MENUS = [
+  MINE_CONSULT_ITEM,
   {
     key: 'album',
     label: '我的服务相册',
@@ -49,6 +58,7 @@ const MINE_MERCHANT_ITEM = {
 
 /** 首页底部快捷 dock（非列表菜单） */
 const MINE_HUB_DOCK = [
+  MINE_CONSULT_ITEM,
   MINE_TOOL_MENUS[0],
   MINE_PUBLIC_MENUS[1],
   MINE_MERCHANT_ITEM,
@@ -79,6 +89,7 @@ function buildMineHubDock() {
 }
 
 module.exports = {
+  MINE_CONSULT_ITEM,
   MINE_CORE_MENUS,
   MINE_VEHICLE_ITEM,
   MINE_TOOL_MENUS,

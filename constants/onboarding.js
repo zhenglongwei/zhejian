@@ -8,8 +8,9 @@ const ONBOARDING_QUALIFICATION_OPTIONS = [
   { value: 'new_energy', label: '新能源专项资质' },
 ]
 
-const ONBOARDING_COMPLIANCE_TEXT =
-  '我已阅读并同意：提交资料真实有效；展示内容由本店负责；平台仅提供展示与咨询转接，不作交易撮合与质量担保。'
+const { AUTHORIZATION_CONSENT } = require('./compliance-copy')
+
+const ONBOARDING_COMPLIANCE_TEXT = AUTHORIZATION_CONSENT.merchant_onboard.text
 
 function findQualificationLabel(value) {
   const item = ONBOARDING_QUALIFICATION_OPTIONS.find((o) => o.value === value)

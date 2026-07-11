@@ -28,6 +28,7 @@ model User {
   partVerifications ServiceAlbumPartVerification[]
   favorites   UserFavorite[]
   vehicles    UserVehicle[]
+  authorizationLogs AuthorizationLog[]
 
   @@index([unionid])
   @@index([status])
@@ -238,6 +239,28 @@ model ConsultLead {
   @@index([userId, status])
   @@index([storeId, status])
   @@map("consult_leads")
+}
+
+model AuthorizationLog {
+  id               String    @id
+  userId           String    @map("user_id")
+  authType         String    @map("auth_type") @db.VarChar(64)
+  businessId       String    @default("") @map("business_id") @db.VarChar(64)
+  authStatus       String    @default("authorized") @map("auth_status") @db.VarChar(32)
+  authTextVersion  String    @map("auth_text_version") @db.VarChar(32)
+  authTextSnapshot String    @map("auth_text_snapshot") @db.Text
+  clientType       String    @default("miniprogram") @map("client_type") @db.VarChar(32)
+  ip               String    @default("") @db.VarChar(64)
+  deviceInfo       String    @default("") @map("device_info") @db.Text
+  remark           String    @default("") @db.VarChar(255)
+  authTime         DateTime  @default(now()) @map("auth_time")
+  revokeTime       DateTime? @map("revoke_time")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  user             User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, authType])
+  @@index([businessId])
+  @@map("authorization_logs")
 }
 
 model LeadStatusLog {

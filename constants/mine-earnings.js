@@ -8,8 +8,9 @@ const EARNINGS_STATUS = {
   ACTIVE: 'active',
 }
 
-const EARNINGS_COMPLIANCE =
-  '分享收益按平台规则与实际浏览、到店等效果结算，审核通过后发放；非好评返现、非分享领现。'
+const { COMPLIANCE_COPY } = require('./compliance-copy')
+
+const EARNINGS_COMPLIANCE = COMPLIANCE_COPY.publicCaseIncentive
 
 const EARNINGS_RULE_STEPS = [
   {

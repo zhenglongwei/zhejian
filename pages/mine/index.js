@@ -289,6 +289,10 @@ Page({
     wx.navigateTo({ url: '/pages/mine/help/index' })
   },
 
+  onConsultListTap() {
+    this.openMenuEntry('consult', true)
+  },
+
   onAlbumListTap() {
     this.openAlbumListTab('all')
   },
@@ -350,6 +354,10 @@ Page({
 
   onDockTap(e) {
     const { key } = e.currentTarget.dataset
+    if (key === 'consult') {
+      this.openMenuEntry('consult', true)
+      return
+    }
     if (key === 'settings') {
       wx.navigateTo({ url: '/pages/mine/settings/index' })
       return

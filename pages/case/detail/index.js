@@ -3,6 +3,7 @@ const {
   buildPublicCaseSharePayload,
   copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
+const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const {
   resolvePageShareContext,
@@ -18,6 +19,8 @@ const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { enrichCaseDetailForPage } = require('../../../utils/case-detail-display')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 const { copyMerchantCaseH5Link } = require('../../../constants/h5-links')
+
+const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -42,13 +45,15 @@ Page({
     relatedCases: [],
     faqList: [],
     showStorePublicly: true,
+    bottomLeftActions: BOTTOM_LEFT_ACTIONS,
     isFavorited: false,
     shareSheetVisible: false,
     shareSheetIntent: 'publicCase',
     shareActionsDisabled: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'favorite',
+    loginSheetBindContext: 'consult',
+    pendingConsultAction: false,
     pendingFavoriteToggle: false,
     storeIsolated: false,
     ownerReviews: [],
@@ -147,12 +152,21 @@ Page({
   },
 
   closeLoginSheet() {
-    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+    this.setData({
+      loginSheetVisible: false,
+      pendingConsultAction: false,
+      pendingFavoriteToggle: false,
+    })
   },
 
   onLoginSheetSuccess() {
     const pendingFavorite = this.data.pendingFavoriteToggle
-    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+    const pendingConsult = this.data.pendingConsultAction
+    this.setData({
+      loginSheetVisible: false,
+      pendingConsultAction: false,
+      pendingFavoriteToggle: false,
+    })
     if (pendingFavorite) {
       toggleFavorite(this, {
         targetType: 'case',
@@ -160,6 +174,10 @@ Page({
         showFavorite: true,
         injectIntoBottomBar: false,
       })
+      return
+    }
+    if (pendingConsult) {
+      this.onConsultSubmit()
       return
     }
     this.syncFavoriteState()
@@ -252,6 +270,45 @@ Page({
       return
     }
     wx.makePhoneCall({ phoneNumber: phone })
+  },
+
+  onBottomLeftAction(e) {
+    const { key } = e.detail
+    if (key === 'call') this.onCall()
+  },
+
+  ensureConsultAuth() {
+    const auth = checkAuth({ needPhone: true })
+    if (!auth.ok) {
+      this.setData({
+        loginSheetVisible: true,
+        loginSheetMode: auth.reason === 'bindPhone' ? 'bindPhone' : 'auto',
+        loginSheetBindContext: 'consult',
+        pendingConsultAction: true,
+      })
+      return false
+    }
+    return true
+  },
+
+  onConsultSubmit() {
+    if (this._messageNavigating) return
+    const { detail } = this.data
+    if (!detail || !detail.storeId) {
+      wx.showToast({ title: '门店信息不完整', icon: 'none' })
+      return
+    }
+    if (!this.ensureConsultAuth()) return
+    this._messageNavigating = true
+    wx.navigateTo({
+      url: withStoreContextPath(
+        `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
+        { storeId: detail.storeId }
+      ),
+      complete: () => {
+        this._messageNavigating = false
+      },
+    })
   },
 
   onStoreTap(e) {

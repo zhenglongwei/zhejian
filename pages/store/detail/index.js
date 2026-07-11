@@ -430,6 +430,17 @@ Page({
     this.onCallStore()
   },
 
+  onConsultMessage() {
+    if (this.data.isPreview) {
+      this.previewBlockedToast()
+      return
+    }
+    if (!this.storeId) return
+    wx.navigateTo({
+      url: `/pages/consult/submit/index?storeId=${encodeURIComponent(this.storeId)}&sourcePage=store`,
+    })
+  },
+
   onTopFavoriteTap() {
     toggleFavorite(this, {
       targetType: 'store',

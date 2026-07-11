@@ -7,6 +7,7 @@
     "ui-skeleton": "/components/skeleton/index",
     "ui-plan-tier-badge": "/components/plan-tier-badge/index",
     "ui-tag": "/components/tag/index",
-    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index"
+    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index",
+    "ui-checkbox-row": "/components/checkbox-row/index"
   }
 }

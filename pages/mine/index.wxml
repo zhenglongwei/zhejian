@@ -85,6 +85,15 @@
           </view>
         </block>
 
+        <view class="surface-album-inset-divider" />
+        <view class="mine__consult-entry" bindtap="onConsultListTap">
+          <view class="mine__consult-main">
+            <text class="text-body">我的咨询</text>
+            <text class="text-caption text-secondary">查看留言与预约记录</text>
+          </view>
+          <text class="mine__todo-arrow text-caption">›</text>
+        </view>
+
         <block wx:if="{{todoSummary}}">
           <view class="surface-album-inset-divider" />
           <view class="mine__todo">

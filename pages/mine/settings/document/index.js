@@ -3,6 +3,7 @@ const { getLegalDocument } = require('../../../../constants/settings-legal')
 Page({
   data: {
     updatedAt: '',
+    version: '',
     sections: [],
   },
 
@@ -12,6 +13,7 @@ Page({
     wx.setNavigationBarTitle({ title: doc.title })
     this.setData({
       updatedAt: doc.updatedAt,
+      version: doc.version || '',
       sections: doc.sections || [],
     })
   },

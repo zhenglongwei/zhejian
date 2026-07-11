@@ -12,9 +12,24 @@ App({
       resolveCityContext().then((ctx) => {
         this.globalData.cityContext = ctx
       })
+      this.bindPrivacyAuthorization()
     } catch (err) {
       console.warn('[app] onLaunch init failed', err)
     }
+  },
+
+  bindPrivacyAuthorization() {
+    if (typeof wx.onNeedPrivacyAuthorization !== 'function') return
+    wx.onNeedPrivacyAuthorization((resolve) => {
+      if (typeof wx.requirePrivacyAuthorize === 'function') {
+        wx.requirePrivacyAuthorize({
+          success: () => resolve({ event: 'agree' }),
+          fail: () => resolve({ event: 'disagree' }),
+        })
+        return
+      }
+      resolve({ event: 'agree' })
+    })
   },
   globalData: {
     city: '杭州',

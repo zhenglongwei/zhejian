@@ -1,8 +1,10 @@
 const { fetchServiceDetail } = require('../../../services/service')
 const { findStore } = require('../../../services/store')
 const { PRICE_MODE } = require('../../../constants/price-mode')
+const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
+const { getSubmitButtonLabel } = require('../../../utils/lead-form')
 const {
   resolvePageShareContext,
   filterCasesByStore,
@@ -16,6 +18,14 @@ const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { submitServiceDetailPage } = require('../../../utils/wx-search-submit')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
+function buildBottomLeftActions(showCasesLink) {
+  const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+  if (showCasesLink) {
+    actions.push({ key: 'cases', type: 'ghost', text: '查看案例' })
+  }
+  return actions
+}
+
 Page({
   data: {
     shellTitle: DEEP_LINK_SHELL.service.title,
@@ -27,11 +37,15 @@ Page({
     isAccident: false,
     showPriceFactors: false,
     bookable: false,
+    consultSubmitLabel: '预约到店',
     casesAnchor: 'cases-section',
+    showCasesLink: false,
+    bottomLeftActions: buildBottomLeftActions(false),
     isFavorited: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    loginSheetBindContext: 'general',
+    loginSheetBindContext: 'consult',
+    pendingConsultAction: false,
     pendingFavoriteToggle: false,
     storeIsolated: false,
   },
@@ -91,6 +105,7 @@ Page({
       const store = detailView.storeId ? findStore(detailView.storeId) : null
       const storePhone = (store && store.phone) || ''
       const pageTitle = detailView.name || detailView.serviceName || DEEP_LINK_SHELL.service.subtitle
+      const showCasesLink = Boolean((detailView.relatedCases || []).length)
       this.setData({
         detail: detailView,
         shellSubtitle: pageTitle,
@@ -101,6 +116,9 @@ Page({
           detailView.priceMode === PRICE_MODE.CONSULT ||
           detailView.priceMode === PRICE_MODE.ACCIDENT,
         bookable: Boolean(detailView.bookable),
+        consultSubmitLabel: getSubmitButtonLabel(detailView.priceMode, 'service'),
+        showCasesLink,
+        bottomLeftActions: buildBottomLeftActions(showCasesLink),
         status: 'normal',
         storeIsolated: storeIsolated && Boolean(storeId),
       })
@@ -158,6 +176,50 @@ Page({
     wx.makePhoneCall({ phoneNumber: storePhone })
   },
 
+  onBottomLeftAction(e) {
+    const { key } = e.detail
+    if (key === 'call') this.onCall()
+    else if (key === 'cases') this.onViewCases()
+  },
+
+  onViewCases() {
+    wx.pageScrollTo({ selector: `#${this.data.casesAnchor}`, duration: 300 })
+  },
+
+  ensureConsultAuth() {
+    const auth = checkAuth({ needPhone: true })
+    if (!auth.ok) {
+      this.setData({
+        loginSheetVisible: true,
+        loginSheetMode: auth.reason === 'bindPhone' ? 'bindPhone' : 'auto',
+        loginSheetBindContext: 'consult',
+        pendingConsultAction: true,
+      })
+      return false
+    }
+    return true
+  },
+
+  onConsultSubmit() {
+    if (this._messageNavigating) return
+    const { detail, bookable } = this.data
+    if (!detail || !bookable) {
+      wx.showToast({ title: '当前服务暂不可预约', icon: 'none' })
+      return
+    }
+    if (!this.ensureConsultAuth()) return
+    this._messageNavigating = true
+    wx.navigateTo({
+      url: withStoreContextPath(
+        `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
+        { storeId: detail.storeId }
+      ),
+      complete: () => {
+        this._messageNavigating = false
+      },
+    })
+  },
+
   onTopFavoriteTap() {
     toggleFavorite(this, {
       targetType: 'service',
@@ -168,14 +230,20 @@ Page({
   },
 
   closeLoginSheet() {
-    this.setData({ loginSheetVisible: false, pendingFavoriteToggle: false })
+    this.setData({
+      loginSheetVisible: false,
+      pendingConsultAction: false,
+      pendingFavoriteToggle: false,
+    })
   },
 
   onLoginSheetSuccess() {
     const pendingFavorite = this.data.pendingFavoriteToggle
+    const pendingConsult = this.data.pendingConsultAction
     this.setData({
       loginSheetVisible: false,
       pendingFavoriteToggle: false,
+      pendingConsultAction: false,
     })
     if (pendingFavorite) {
       toggleFavorite(this, {
@@ -184,6 +252,10 @@ Page({
         showFavorite: true,
         injectIntoBottomBar: false,
       })
+      return
+    }
+    if (pendingConsult) {
+      this.onConsultSubmit()
       return
     }
     this.syncFavoriteState()

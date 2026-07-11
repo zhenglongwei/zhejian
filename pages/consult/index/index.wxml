@@ -1,0 +1,35 @@
+<view class="page consult-list">
+  <ui-list-page-shell
+    tabs="{{tabs}}"
+    activeKey="{{activeTab}}"
+    status="{{status}}"
+    errorMessage="{{errorMessage}}"
+    tabsCard="{{true}}"
+    emptyTitle="暂无咨询记录"
+    emptyDescription="浏览服务或门店后，可提交咨询/预约"
+    emptyActionText="去看看服务"
+    unauthTitle="登录后查看咨询"
+    unauthDescription="登录后可查看你提交过的咨询与预约记录"
+    bind:tabchange="onTabChange"
+    bind:retry="onRetry"
+    bind:emptyaction="onGoService"
+    bind:unauthaction="onLoginTap"
+  >
+    <ui-lead-card
+      wx:for="{{list}}"
+      wx:key="id"
+      item="{{item}}"
+      audience="user"
+      bind:tap="onCardTap"
+    />
+  </ui-list-page-shell>
+
+  <ui-login-sheet
+    visible="{{loginSheetVisible}}"
+    mode="{{loginSheetMode}}"
+    bindContext="consult"
+    bind:close="closeLoginSheet"
+    bind:cancel="closeLoginSheet"
+    bind:success="onLoginSheetSuccess"
+  />
+</view>

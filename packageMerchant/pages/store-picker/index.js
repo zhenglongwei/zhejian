@@ -28,6 +28,8 @@ function decorateEntries(list = []) {
   }))
 }
 
+const WORKBENCH_URL = '/packageMerchant/pages/workbench/index'
+
 Page({
   data: {
     status: 'loading',
@@ -37,29 +39,73 @@ Page({
     switching: false,
   },
 
-  onShow() {
+  onLoad() {
+    this._alive = true
+    this._routeReady = false
+    this._loadGen = 0
+  },
+
+  onReady() {
+    this._routeReady = true
     this.loadEntries()
   },
 
+  onShow() {
+    if (this._routeReady && this._hasShown) {
+      this.loadEntries()
+    }
+    this._hasShown = true
+  },
+
+  onUnload() {
+    this._alive = false
+  },
+
+  redirectAway(url) {
+    if (!this._alive || this._redirecting) return
+    this._redirecting = true
+    const run = () => {
+      if (!this._alive) {
+        this._redirecting = false
+        return
+      }
+      wx.redirectTo({
+        url,
+        complete: () => {
+          this._redirecting = false
+        },
+      })
+    }
+    if (this._routeReady) {
+      wx.nextTick(run)
+    } else {
+      setTimeout(run, 0)
+    }
+  },
+
   async loadEntries() {
+    const gen = ++this._loadGen
     if (!this.data.switching) {
       this.setData({ status: 'loading', errorMessage: '' })
     }
 
     try {
       await refreshMerchantSession().catch(() => null)
+      if (!this._alive || gen !== this._loadGen) return
 
       if (isMerchant() && !isMerchantOwner()) {
-        wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+        this.redirectAway(WORKBENCH_URL)
         return
       }
 
       const data = await fetchMerchantWorkbenchEntries()
+      if (!this._alive || gen !== this._loadGen) return
+
       const entries = decorateEntries(data.list || [])
 
       if (!entries.length) {
         if (isMerchant()) {
-          wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+          this.redirectAway(WORKBENCH_URL)
           return
         }
         this.setData({ status: 'empty', entries: [] })
@@ -68,6 +114,7 @@ Page({
 
       this.setData({ status: 'normal', entries })
     } catch (e) {
+      if (!this._alive || gen !== this._loadGen) return
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '门店列表加载失败',
@@ -109,11 +156,11 @@ Page({
       wx.showLoading({ title: '进入工作台', mask: true })
       await switchMerchantStore(entry.storeId)
       wx.hideLoading()
-      const url = '/packageMerchant/pages/workbench/index'
+      if (!this._alive) return
       if (options.redirect) {
-        wx.redirectTo({ url })
+        this.redirectAway(WORKBENCH_URL)
       } else {
-        wx.navigateTo({ url })
+        wx.navigateTo({ url: WORKBENCH_URL })
       }
     } catch (e) {
       wx.hideLoading()

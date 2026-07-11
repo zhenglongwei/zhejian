@@ -142,8 +142,9 @@ Component({
 
     onAgreementLinkTap(e) {
       const { type } = e.currentTarget.dataset
-      const label = type === 'privacy' ? '隐私政策' : '用户协议'
-      wx.showToast({ title: `${label}页将在后续版本开放`, icon: 'none' })
+      wx.navigateTo({
+        url: `/pages/mine/settings/document/index?type=${type === 'privacy' ? 'privacy' : 'agreement'}`,
+      })
     },
 
     async onWechatLoginTap() {

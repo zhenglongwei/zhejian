@@ -88,6 +88,23 @@
   opacity: 0.72;
 }
 
+.mine__consult-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) 0;
+}
+
+.mine__consult-entry:active {
+  opacity: 0.72;
+}
+
+.mine__consult-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .mine__todo-headline {
   display: block;
   margin-bottom: var(--space-sm);

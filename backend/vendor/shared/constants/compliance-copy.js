@@ -1,4 +1,103 @@
-/** 合规文案真源 · 同步设计体系 §9.4 · compliance-notice 引用 */
+/** 合规文案真源 · L3 提示 + L2 场景授权短句 · 同步设计体系 §9.4 */
+const { LEGAL_VERSION } = require('./legal-meta')
+
+/** L2 场景授权勾选文案 — 须与 authorization_log.auth_type + auth_text_version 留痕 */
+const AUTHORIZATION_CONSENT = {
+  login: {
+    authType: 'login',
+    version: LEGAL_VERSION,
+    text: '我已阅读并同意《用户服务协议》和《隐私政策》',
+  },
+  consult_transfer: {
+    authType: 'consult_transfer',
+    version: LEGAL_VERSION,
+    text:
+      '我已知晓实际维修服务由门店线下提供，同意将咨询信息发送给所选门店，并知晓平台仅提供信息展示与咨询转接',
+  },
+  accident_ack: {
+    authType: 'accident_ack',
+    version: LEGAL_VERSION,
+    text: '我已知晓事故车须到店检测后由门店报价，平台不提供线上最终报价',
+  },
+  album_claim: {
+    authType: 'album_claim',
+    version: LEGAL_VERSION,
+    text:
+      '我同意使用当前绑定手机号关联此服务相册；相册内容默认仅本人可见，公开须另行授权',
+  },
+  case_public: {
+    authType: 'case_public',
+    version: LEGAL_VERSION,
+    text:
+      '我已阅读《公开案例与隐私说明》，核对公开内容与脱敏效果，同意按所选档位授权公示',
+  },
+  desensitize_confirm: {
+    authType: 'desensitize_confirm',
+    version: LEGAL_VERSION,
+    text: '本人已逐张核对脱敏效果，同意授权公示',
+  },
+  case_revoke: {
+    authType: 'case_revoke',
+    version: LEGAL_VERSION,
+    text: '我确认撤回公开授权，知晓公开案例将下架',
+  },
+  merchant_onboard: {
+    authType: 'merchant_onboard',
+    version: LEGAL_VERSION,
+    text:
+      '我已阅读并同意《商家服务协议》，确认提交资料真实有效，展示内容由本店负责',
+  },
+  merchant_history: {
+    authType: 'merchant_history',
+    version: LEGAL_VERSION,
+    text:
+      '我确认上传内容已取得必要授权或不含他人隐私，对真实性及合法性承担全部责任',
+  },
+  subscription_pay: {
+    authType: 'subscription_pay',
+    version: LEGAL_VERSION,
+    text:
+      '我已阅读并同意《套餐与公域收录服务协议》，知晓服务内容、价格及到期规则',
+  },
+  album_review: {
+    authType: 'album_review',
+    version: LEGAL_VERSION,
+    text:
+      '我确认反馈基于本次真实维修体验，不含虚假或诱导性内容；上传图片不含完整车牌、人脸等敏感信息',
+  },
+  review_public: {
+    authType: 'review_public',
+    version: LEGAL_VERSION,
+    text: '同意将反馈文字、评分与脱敏后配图展示在已授权公开案例中',
+  },
+  part_verify: {
+    authType: 'part_verify',
+    version: LEGAL_VERSION,
+    text:
+      '我理解验真为自愿对照留痕，平台不鉴定配件真伪，也不保证与已装到车上的实物一致',
+  },
+  album_feedback: {
+    authType: 'album_feedback',
+    version: LEGAL_VERSION,
+    text: '我理解平台仅协助将反馈转达门店，不介入线下维修质量判定与售后仲裁',
+  },
+  report: {
+    authType: 'report',
+    version: LEGAL_VERSION,
+    text: '我确认举报内容真实，知晓恶意举报可能承担法律责任',
+  },
+  deactivate: {
+    authType: 'deactivate',
+    version: LEGAL_VERSION,
+    text: '我已了解注销后果，确认申请注销',
+  },
+}
+
+function getAuthorizationConsent(authType) {
+  const entry = Object.values(AUTHORIZATION_CONSENT).find((item) => item.authType === authType)
+  return entry || null
+}
+
 const COMPLIANCE_COPY = {
   price: '实际费用以门店检测结果为准，以下价格为参考区间。',
   casePrice:
@@ -16,17 +115,19 @@ const COMPLIANCE_COPY = {
     '请按门店提供的验真方式核对登记信息；平台不鉴定配件真伪，也不保证与已装到车上的实物一致；关键更换建议在场或到店复核。',
   planPartsLock:
     '识别结果仅供参考，请以你确认的报价表为准；确认后将锁定方案配件目录，供阶段四录入与车主验真参考。',
-  reward: '评价奖励须符合活动规则，审核通过后发放，非「好评返现」。',
+  /** 公示激励合规短句 · 非好评返现 */
+  publicCaseIncentive:
+    '公示激励按平台规则与实际浏览、到店等效果结算，审核通过后发放；非好评返现、非分享领现。',
+  /** @deprecated 使用 publicCaseIncentive */
+  reward: '公示激励按平台规则与实际浏览、到店等效果结算，审核通过后发放；非好评返现、非分享领现。',
   desensitize:
     '以下为脱敏预览，公开展示仅使用脱敏图，不含完整车牌、人脸、手机号等信息。请逐张核对后再确认。',
   desensitizeGuide:
     '请先点击底部「一键 AI 脱敏」生成预览；手工打码将在后续版本开放。',
   desensitizePreMaskReview:
     '以下为自动脱敏预览，请逐张核对原图与脱敏图；如有遗漏可使用手工打码补充（即将开放）。',
-  /** 车主评价/相册反馈 · 配图上传提示 */
   reviewImageTip:
     '配图默认仅你与门店可见；授权公示后自动脱敏并在公开案例中展示；建议尽量避免完整车牌、人脸、证件。',
-  /** 举报凭证截图 */
   reportImageTip: '截图将随举报一并提交，仅用于核实处理。请勿上传与举报无关的内容。',
   /** @deprecated 使用 reviewImageTip 或 reportImageTip */
   reviewUpload:
@@ -47,10 +148,8 @@ const COMPLIANCE_COPY = {
     '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
   aiInspection:
     'AI 分析基于本相册的文字摘要与部分照片说明，供你对照单据、流程与配件留痕，不构成鉴定结论或质量裁决，可能存在遗漏或误判。平台不鉴定配件真伪；即便各项看起来一致，也不能排除未入镜施工、事后换件等相册无法覆盖的情形。若仍有重大疑虑，建议到场验车验件、委托有资质第三方鉴定；事故维修可向保险公司申请复检。',
-  reportConsent:
-    '信息仅供查阅，举报不代表内容已核实；恶意举报可能承担法律责任。',
-  albumClaim:
-    '我同意使用当前绑定手机号关联此服务相册，用于查看本次维修留档。相册内容仅本人可见，公开须经我另行授权。',
+  reportConsent: AUTHORIZATION_CONSENT.report.text,
+  albumClaim: AUTHORIZATION_CONSENT.album_claim.text,
   /** @deprecated 使用 displayDisclaimer */
   platformDisplay:
     '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
@@ -60,6 +159,8 @@ const COMPLIANCE_COPY = {
 const REPORT_SUCCESS_MESSAGE = '已收到，我们将在 3 个工作日内处理'
 
 module.exports = {
+  AUTHORIZATION_CONSENT,
+  getAuthorizationConsent,
   COMPLIANCE_COPY,
   REPORT_SUCCESS_MESSAGE,
 }

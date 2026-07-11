@@ -7,6 +7,7 @@ const {
   prepaySubscriptionOrder,
   mockPaySubscriptionOrder,
 } = require('../services/merchant-payment.service')
+const { buildAuthMetaFromReq } = require('../lib/auth-request-meta')
 
 const router = express.Router()
 
@@ -23,6 +24,8 @@ router.post('/subscription/orders', requireAuth(['merchant']), async (req, res, 
   try {
     const data = await createSubscriptionOrder(req.auth, req.body?.plan, {
       intent: req.body?.intent,
+      subscriptionConsent: req.body?.subscriptionConsent,
+      authMeta: buildAuthMetaFromReq(req),
     })
     return ok(res, data)
   } catch (e) {

@@ -70,14 +70,14 @@ const PART_VERIFY_GUIDE_FEEDBACK = {
 
 const VALID_PART_VERIFY_GUIDE_FEEDBACK = new Set(Object.values(PART_VERIFY_GUIDE_FEEDBACK))
 
-const ALBUM_REVIEW_CONSENT_TEXT =
-  '我确认评价基于本次真实维修体验，不含虚假或诱导性内容；上传图片不含完整车牌、人脸等敏感信息。'
+const { resolveShared } = require('../utils/resolve-shared')
+const { AUTHORIZATION_CONSENT } = resolveShared('constants/compliance-copy')
 
-const ALBUM_REVIEW_PUBLIC_CONSENT_TEXT =
-  '同意将评价文字、评分与脱敏后配图展示在已授权公开案例中。'
+const ALBUM_REVIEW_CONSENT_TEXT = AUTHORIZATION_CONSENT.album_review.text
 
-const PART_VERIFY_CONSENT_TEXT =
-  '我理解验真为本人自愿对照留痕，平台不鉴定配件真伪，也不保证与已装到车上的实物一致。'
+const ALBUM_REVIEW_PUBLIC_CONSENT_TEXT = AUTHORIZATION_CONSENT.review_public.text
+
+const PART_VERIFY_CONSENT_TEXT = AUTHORIZATION_CONSENT.part_verify.text
 
 const PART_VERIFY_ONSITE_REMINDER =
   '相册记录的是门店上传的登记与过程图，无法证明配件已正确装到车上。建议更换关键件时在场见证；若已完工，可联系门店展示旧件、包装或编码标签。平台不鉴定配件真伪，也不远程验收车上实物。'

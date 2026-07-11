@@ -8,7 +8,7 @@ function goHomeWithToast(title) {
 }
 
 function redirectToConsultList() {
-  goHomeWithToast('咨询功能已下线，请直接联系门店')
+  wx.redirectTo({ url: '/pages/consult/index/index' })
 }
 
 function redirectOrderConfirm() {

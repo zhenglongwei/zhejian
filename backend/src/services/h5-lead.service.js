@@ -123,23 +123,36 @@ async function createH5Lead(payload = {}) {
     serviceName = caseRow?.serviceName || ''
   }
 
-  const lead = await createLead(userId, {
-    storeId,
-    storeName: store.name || '',
-    storePhone: store.phone || '',
-    caseId,
-    serviceName,
-    serviceId: payload.serviceId || '',
-    sourcePage: payload.sourcePage || 'h5_case',
-    leadType: 'message',
-    description,
-    platformConsent: true,
-    contact: {
-      name: name || 'H5访客',
-      phone,
-      phoneDisplay: maskPhone(phone),
+  const lead = await createLead(
+    userId,
+    {
+      storeId,
+      storeName: store.name || '',
+      storePhone: store.phone || '',
+      caseId,
+      serviceName,
+      serviceId: payload.serviceId || '',
+      sourcePage: payload.sourcePage || 'h5_case',
+      leadType: 'message',
+      description,
+      platformConsent: true,
+      contact: {
+        name: name || 'H5访客',
+        phone,
+        phoneDisplay: maskPhone(phone),
+      },
+      authorizationConsents: [
+        {
+          authType: 'consult_transfer',
+          authTextVersion: payload.authTextVersion || '2.0.0',
+          authTextSnapshot:
+            payload.authTextSnapshot ||
+            '我已知晓实际维修服务由门店线下提供，同意将咨询信息发送给所选门店，并知晓平台仅提供信息展示与咨询转接',
+        },
+      ],
     },
-  })
+    { clientType: 'h5', ip: String(payload.clientIp || '').slice(0, 64) }
+  )
 
   return {
     leadId: lead.id,

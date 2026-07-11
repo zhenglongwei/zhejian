@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "公开案例与隐私说明",
-  "usingComponents": {
-    "ui-empty": "/components/empty/index"
-  }
+  "navigationBarTitleText": "公开案例与隐私说明"
 }
