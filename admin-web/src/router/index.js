@@ -93,6 +93,16 @@ const routes = [
         name: 'report-detail',
         component: () => import('@/views/report-review/detail/index.vue'),
       },
+      {
+        path: 'authorization-logs',
+        name: 'authorization-log-list',
+        component: () => import('@/views/authorization-logs/list/index.vue'),
+      },
+      {
+        path: 'authorization-logs/:logId',
+        name: 'authorization-log-detail',
+        component: () => import('@/views/authorization-logs/detail/index.vue'),
+      },
     ],
   },
 ]
