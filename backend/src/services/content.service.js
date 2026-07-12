@@ -35,7 +35,9 @@ const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.serv
 const {
   resolvePublicCaseContentNodes,
   extractPublicViewFromContentJson,
+  extractSnapshotFromContentJson,
 } = require('../schemas/case-snapshot.schema')
+const { resolveCaseMileageKm } = require('./geo-case-aggregate.service')
 const {
   applySnapshotLayerToPublicCase,
   buildCasePublicLayerMeta,
@@ -233,9 +235,13 @@ function mapPublicCaseRow(row, album) {
     faqLinks: geoFields.faqLinks || [],
     slug: geoFields.slug || null,
     seoNoindex: Boolean(row.seoNoindex),
+    trustMeta: geoFields.trustMeta || null,
     ...buildCasePublicLayerMeta(row),
   }
   const layered = applySnapshotLayerToPublicCase(row, item)
+  const snapshot = extractSnapshotFromContentJson(rawContent)
+  layered.vehicleMileage = snapshot?.vehicle?.mileage ?? null
+  layered.mileageKm = resolveCaseMileageKm(layered)
   return applyPublicDisplayRules(layered)
 }
 
@@ -281,7 +287,9 @@ function attachCaseArticleAndSeo(row, item) {
       nodeNarratives: geoFields.nodeNarratives || [],
       seoTitle: geoFields.seoTitle,
       seoDescription: geoFields.seoDescription,
+      trustMeta: geoFields.trustMeta || null,
     },
+    trustMeta: geoFields.trustMeta || null,
   }
 }
 
@@ -463,12 +471,14 @@ async function getCaseDetail(idOrSlug) {
       store,
       seo: item.seo,
       canonicalPath: item.seo?.canonicalPath || item.canonicalPath,
+      trustMeta: item.trustMeta || item.enrichment?.trustMeta || null,
     },
     organizationSameAs: config.geo?.organizationSameAs || [],
   })
 
   return enrichCasePublicPage({
     ...display,
+    trustMeta: item.trustMeta || item.enrichment?.trustMeta || null,
     serviceItemId,
     storePhone,
     store,

@@ -1,8 +1,10 @@
 <view class="checkbox-row" bindtap="onToggle">
-  <view class="checkbox-row__box {{checked ? 'checkbox-row__box--on' : ''}} {{disabled ? 'checkbox-row__box--disabled' : ''}}">
-    <text wx:if="{{checked}}" class="checkbox-row__mark">✓</text>
+  <view class="checkbox-row__check">
+    <view class="checkbox-row__box {{checked ? 'checkbox-row__box--on' : ''}} {{disabled ? 'checkbox-row__box--disabled' : ''}}">
+      <text wx:if="{{checked}}" class="checkbox-row__mark">✓</text>
+    </view>
   </view>
-  <view class="checkbox-row__label text-caption">
+  <view class="checkbox-row__label">
     <slot />
   </view>
 </view>

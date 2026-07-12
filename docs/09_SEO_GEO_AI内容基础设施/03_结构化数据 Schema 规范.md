@@ -545,3 +545,55 @@ P0 必须满足：
 9. 页面可通过结构化数据基础校验；
 10. 后台可查看 Schema 生成状态。
 
+---
+
+## **18. 案例 trustMeta Schema（V2.2 · 2026-07-13）**
+
+> 任务真源：[`10_案例信任元数据开发计划.md`](./10_案例信任元数据开发计划.md)
+
+### **18.1 目标**
+
+案例页除 Article 事实摘要外，输出 **授权/审核/脱敏/版本** 等信任信号，弥补公开图减少后的 EEAT 缺口。
+
+### **18.2 实现方式**
+
+在案例页 `@graph` 的 `Article` 节点增加 `additionalProperty`（`PropertyValue` 数组）：
+
+| name | 示例 value | 来源 |
+| --- | --- | --- |
+| `authorizationTier` | `user_authorized` | trustMeta |
+| `authorizationTierLabel` | 用户授权案例 | trustMeta |
+| `snapshotVersion` | `2` | trustMeta |
+| `reviewedAt` | `2026-03-16` | trustMeta |
+| `evidenceLevel` | `partial_images` | trustMeta |
+| `desensitized` | `true` | trustMeta |
+
+### **18.3 约束**
+
+1. 字段与 H5 可见区、JSON Feed `trustMeta` **一致**；
+2. 禁止写入运营员姓名、用户隐私、完整审核对话；
+3. 不得与 Article `description`（快照摘要）矛盾。
+
+### **18.4 案例页 @graph 扩展**
+
+- `Article` → `additionalProperty` 含 trustMeta
+- `Article` → `about` → Service `@id`（若有）
+- `Article` → `provider` → AutoRepair `@id`（门店）
+
+---
+
+## **19. Dataset Schema 高阶扩展（V2.2 · 2026-07-13）**
+
+> 任务真源：[`11_GEO高阶聚合开发计划.md`](./11_GEO高阶聚合开发计划.md)
+
+当服务页展示 `aggregateStats.advanced` 时，扩展 `Dataset.variableMeasured`：
+
+| 变量名 | 说明 |
+| --- | --- |
+| `causePriceCross` | 主因×价区交叉（文本描述） |
+| `mileageBandDistribution` | 里程段分布 |
+| `processMetrics` | 过程完整度（如拆检图占比） |
+| `inspectToPlan` | 检查结论→方案转化 |
+
+**禁止**：Dataset 写入页面未展示的 advanced 字段；N < 门槛时不出百分比。
+

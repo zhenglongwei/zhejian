@@ -12,7 +12,7 @@ const {
   getSitemapXmlByType,
   getRobotsTxt,
 } = require('../services/h5-sitemap.service')
-const { getLlmsTxt, getTopicsFeedXml } = require('../services/h5-discovery.service')
+const { getLlmsTxt, getLlmsFullTxt, getTopicsFeedXml } = require('../services/h5-discovery.service')
 const {
   searchH5Content,
   getH5SearchSuggest,
@@ -62,6 +62,14 @@ router.get('/robots.txt', (req, res) => {
 router.get('/llms.txt', async (req, res, next) => {
   try {
     return sendText(res, await getLlmsTxt())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/llms-full.txt', async (req, res, next) => {
+  try {
+    return sendText(res, await getLlmsFullTxt())
   } catch (e) {
     next(e)
   }

@@ -7,7 +7,7 @@ const AUTHORIZATION_CONSENT = {
     authType: 'login',
     version: LEGAL_VERSION,
     text:
-      '我已阅读并同意《用户服务协议》《隐私政策》及《用户隐私保护指引》（含位置信息等个人信息处理说明）',
+      '我已阅读并同意《用户服务协议》《隐私政策》及《用户隐私保护指引》',
   },
   consult_transfer: {
     authType: 'consult_transfer',

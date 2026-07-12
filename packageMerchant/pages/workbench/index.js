@@ -36,6 +36,7 @@ const {
   buildMerchantSubscriptionEntry,
   buildMerchantPlanTag,
 } = require('../../../constants/merchant-hub')
+const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
 
 const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
 
@@ -315,7 +316,9 @@ Page({
   onAlbumCardTap(e) {
     const id = (e.detail && e.detail.id) || ''
     if (!id) return
-    this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${id}`)
+    const item =
+      (this.data.albumHeroCards || []).find((row) => row.albumId === id) || { albumId: id }
+    this._navigateTo(buildMerchantAlbumEntryPath(id, item))
   },
 
   onTodoItemTap(e) {
@@ -427,7 +430,7 @@ Page({
       return
     }
     if (item.albumId) {
-      this._navigateTo(`/packageMerchant/pages/album/edit/index?albumId=${item.albumId}`)
+      this._navigateTo(buildMerchantAlbumEntryPath(item.albumId, item))
       return
     }
     if (item.caseId) {

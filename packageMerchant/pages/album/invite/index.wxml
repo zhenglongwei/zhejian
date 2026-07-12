@@ -19,7 +19,7 @@
       <view class="album-invite__head">
         <text class="text-h3">{{detail.serviceName}}</text>
         <ui-tag wx:if="{{detail.hasOwner}}" variant="success" text="已关联车主" />
-        <ui-tag wx:else variant="info" text="待车主扫码" />
+        <ui-tag wx:else variant="info" text="待车主确认" />
       </view>
       <text class="text-caption album-invite__meta">{{detail.storeName}}</text>
       <text wx:if="{{detail.userPhoneDisplay}}" class="text-body album-invite__phone">
@@ -28,8 +28,8 @@
     </ui-card>
 
     <ui-card wx:if="{{!detail.hasOwner}}" shadow="{{true}}" padding="{{true}}" class="album-invite__qr-card">
-      <text class="text-h3 album-invite__section">请车主微信扫码</text>
-      <text class="text-caption album-invite__hint">请向车主说明服务相册用途，车主扫码后将先阅读隐私说明并确认，关联成功后方可上传过程图。</text>
+      <text class="text-h3 album-invite__section">请车主扫码或打开分享链接</text>
+      <text class="text-caption album-invite__hint">请向车主说明服务相册用途。车主可现场扫码，或由你通过微信分享链接；打开后须先阅读隐私说明并确认，关联成功后方可上传过程图。</text>
       <view class="album-invite__qr-wrap">
         <image
           wx:if="{{qrcodeDataUrl}}"
@@ -45,18 +45,24 @@
     </ui-card>
 
     <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="text-caption album-invite__steps">1. 向车主说明维修留档用途\n2. 车主扫码并确认隐私说明\n3. 关联成功后开始上传节点图片</text>
+      <text class="text-caption album-invite__steps">1. 向车主说明维修留档用途\n2. 车主扫码或打开你分享的链接\n3. 阅读隐私说明并确认关联\n4. 关联成功后开始上传节点图片</text>
     </ui-card>
   </block>
 
   <view class="merchant-form__spacer" />
-  <ui-fixed-bottom-bar>
-    <ui-button type="secondary" size="sm" slot="left" bind:btntap="onCopyPath">复制认领路径</ui-button>
+  <ui-fixed-bottom-bar wx:if="{{status === 'normal'}}">
+    <ui-button
+      wx:if="{{!detail.hasOwner}}"
+      type="secondary"
+      size="sm"
+      slot="left"
+      openType="share"
+    >分享给车主</ui-button>
     <ui-button
       type="primary"
       slot="right"
       disabled="{{!detail.hasOwner}}"
       bind:btntap="onContinue"
-    >{{detail.hasOwner ? '继续编辑相册' : '等待车主扫码关联'}}</ui-button>
+    >{{detail.hasOwner ? '继续编辑相册' : '等待车主确认关联'}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

@@ -209,6 +209,8 @@ function getRobotsTxt() {
     '',
     `Sitemap: ${base}/sitemap.xml`,
     `LLMs-Txt: ${base}/llms.txt`,
+    `LLMs-Full: ${base}/llms-full.txt`,
+    `LLMs-Feed: ${base}/public/v1/index.json`,
     '',
   ].join('\n')
 }

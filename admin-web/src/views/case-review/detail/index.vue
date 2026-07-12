@@ -104,6 +104,18 @@
       class="section"
     />
 
+    <el-card v-if="detail.trustMeta" shadow="never" class="section">
+      <template #header>信任元数据（只读）</template>
+      <el-descriptions :column="1" border size="small">
+        <el-descriptions-item label="授权档">{{ detail.trustMeta.authorizationTierLabel }}</el-descriptions-item>
+        <el-descriptions-item label="快照版本">v{{ detail.trustMeta.snapshotVersion }}</el-descriptions-item>
+        <el-descriptions-item label="证据级别">{{ detail.trustMeta.evidenceLevelLabel }}</el-descriptions-item>
+        <el-descriptions-item label="公开图数">{{ detail.trustMeta.publicImageCount }}</el-descriptions-item>
+        <el-descriptions-item label="审核时间">{{ detail.trustMeta.reviewedAt }}</el-descriptions-item>
+        <el-descriptions-item label="信任说明">{{ detail.trustMeta.trustStatement }}</el-descriptions-item>
+      </el-descriptions>
+    </el-card>
+
     <CaseGeoLlmReview
       v-if="showGeoEditor && !detail.snapshotFrozen"
       class="section"

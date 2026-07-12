@@ -19,6 +19,7 @@ const {
   shouldShowListLoading,
 } = require('../../../../utils/list-page-show')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
+const { buildMerchantAlbumEntryPath } = require('../../../../utils/merchant-album-nav')
 
 Page({
   data: {
@@ -110,8 +111,9 @@ Page({
   onCardTap(e) {
     const { id } = e.detail
     if (!id) return
+    const item = (this.data.list || []).find((row) => row.albumId === id) || { albumId: id }
     markListNeedRefresh(this)
-    wx.navigateTo({ url: `/packageMerchant/pages/album/edit/index?albumId=${id}` })
+    wx.navigateTo({ url: buildMerchantAlbumEntryPath(id, item) })
   },
 
   onRetry() {

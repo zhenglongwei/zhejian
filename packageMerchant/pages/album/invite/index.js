@@ -6,7 +6,8 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
-const { buildAlbumClaimPath } = require('../../../../utils/album-claim')
+const { buildAlbumClaimShareMessage } = require('../../../../utils/album-claim')
+const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 
 Page({
   data: {
@@ -16,7 +17,6 @@ Page({
     detail: null,
     qrcodeDataUrl: '',
     qrcodeMessage: '正在生成小程序码…',
-    claimPath: '',
   },
 
   onLoad(options) {
@@ -29,6 +29,7 @@ Page({
   },
 
   onShow() {
+    wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
     if (this.albumId) {
       if (this.data.status === 'normal') {
         this.refreshOwnerStatus()
@@ -77,7 +78,6 @@ Page({
         fetchMerchantAlbumClaimQrcode(this.albumId).catch((e) => ({
           qrcodeAvailable: false,
           message: (e && e.message) || '暂无法生成小程序码',
-          claimPath: buildAlbumClaimPath(this.albumId),
         })),
       ])
       this.setData({
@@ -86,8 +86,7 @@ Page({
         qrcodeDataUrl: qrcode.qrcodeAvailable ? qrcode.qrcodeDataUrl || '' : '',
         qrcodeMessage: qrcode.qrcodeAvailable
           ? ''
-          : qrcode.message || '暂无法生成小程序码，可复制认领路径发给车主',
-        claimPath: qrcode.claimPath || detail.claimPath || buildAlbumClaimPath(this.albumId),
+          : qrcode.message || '暂无法生成小程序码，请分享链接发给车主',
       })
     } catch (e) {
       this.setData({
@@ -118,19 +117,24 @@ Page({
     this.loadPage()
   },
 
-  onCopyPath() {
-    const path = this.data.claimPath || buildAlbumClaimPath(this.albumId)
-    wx.setClipboardData({
-      data: path,
-      success: () => {
-        wx.showToast({ title: '路径已复制', icon: 'success' })
-      },
+  onShareAppMessage() {
+    const detail = this.data.detail || {}
+    if (!this.albumId || detail.hasOwner) {
+      return {
+        title: '辙见 · 服务相册',
+        path: TOOL_HOME_PATH,
+      }
+    }
+    return buildAlbumClaimShareMessage({
+      albumId: this.albumId,
+      storeName: detail.storeName,
+      serviceName: detail.serviceName,
     })
   },
 
   onContinue() {
     if (!this.data.detail || !this.data.detail.hasOwner) {
-      wx.showToast({ title: '请等待车主扫码并确认', icon: 'none' })
+      wx.showToast({ title: '请等待车主确认关联', icon: 'none' })
       return
     }
     wx.redirectTo({

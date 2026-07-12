@@ -219,36 +219,104 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 
 ---
 
-## 10. 进度汇总
+## 10. 阶段 G · 聚合全覆盖与运营评分（P0 · 2026-07-13）
+
+> **背景**：IGAIN A～F 核心能力已上线，但部分已发布页仍缺 N= 统计句、运营台无信息增量评分。本阶段收口 **覆盖率** 与 **质量闸门**。
+
+### 10.1 目标
+
+1. 已 index 服务/专题页 `information_gain_rate` ≥ **80%**（从 50% 提升）；
+2. 运营台对无 N= 统计的已发布页 **黄标 warn**；
+3. 存量 `geo_pages` 批量注入聚合统计。
+
+### 10.2 任务表
+
+| ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
+| ---: | --- | --- | ---: | ---: | --- |
+| GEO-IGAIN-G01 | 运营台信息增量评分 | `admin-web` CaseGeoEditor / geo-pages | P0 | [x] | 黄/绿标；无 N= warn |
+| GEO-IGAIN-G02 | 存量服务页批量 refresh | `scripts/geo-aggregate-backfill.js` | P0 | [x] | 已发布全量 |
+| GEO-IGAIN-G03 | `information_gain_rate` 周报 | `geo-topic-health.service.js` | P1 | [ ] | 对接 OBS 周报 |
+| GEO-IGAIN-G04 | 无案例页强制 noindex 审计 | `h5-service-item.service.js` | P1 | [ ] | caseCount=0 |
+| GEO-IGAIN-G05 | 动态 `updated_at` 策略 | 聚合重算钩子 | P1 | [~] | computedAt 已写入 |
+| GEO-IGAIN-G06 | 冒烟 | `geo-aggregate-smoke.js` 扩展 | P0 | [x] | 覆盖率断言 |
+
+### 10.3 验收
+
+1. 运营台编辑页可见信息增量评分；
+2. 已 index 页 ≥80% 含 N= 统计句；
+3. 统计变更后页面 `updated_at` 与 Feed `Last-Modified` 同步更新。
+
+---
+
+## 11. 阶段 H · JSON Feed 与发现层全量对接（P1 · 2026-07-13）
+
+> **背景**：Feed 与 llms.txt 2.0 核心已上线，余 **全量索引、robots 声明、trustMeta/高阶聚合字段** 对接。
+
+### 11.1 目标
+
+1. 已 index 案例/服务/专题 **100%** 有对应 Feed 200；
+2. `llms.txt` 声明全量入口与字段说明；
+3. Feed 字段与 H5/Schema **三处一致**（含 trustMeta、advanced 聚合）。
+
+### 11.2 任务表
+
+| ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
+| ---: | --- | --- | ---: | ---: | --- |
+| GEO-IGAIN-H01 | `llms-full.txt` 分页索引 | `h5-discovery.service.js` | P1 | [x] | 全量 slug 列表 |
+| GEO-IGAIN-H02 | robots Feed 声明 | `h5-sitemap.service.js` | P1 | [x] | LLMs-Feed |
+| GEO-IGAIN-H03 | Feed 接入 trustMeta | `public-feed.service.js` | P0 | [x] | 依赖 GEO-TRUST-06 |
+| GEO-IGAIN-H04 | Feed 接入 advanced 聚合 | `public-feed.service.js` | P1 | [x] | 依赖 GEO-AGG-09 |
+| GEO-IGAIN-H05 | `index.json` 扩展 | `public-feed.service.js` | P1 | [x] | 专题+统计说明 |
+| GEO-IGAIN-H06 | Feed 一致性审计脚本 | `public-feed-parity-smoke.js` | P0 | [x] | H5=Feed=Schema |
+| GEO-IGAIN-H07 | ETag 缓存验证 | `public-h5.js` | P2 | [ ] | 聚合更新后失效 |
+| GEO-IGAIN-H08 | GPTBot robots 审计 | 协同 OBS-D04 | P1 | [ ] | |
+
+### 11.3 验收
+
+1. `public_feed_availability` = **100%**；
+2. `h5-chain-smoke` 含 Feed parity 断言；
+3. `llms.txt` 含 Feed URL、字段契约、统计窗口说明。
+
+---
+
+## 12. 进度汇总
 
 | 阶段 | 任务数 | [x] | [ ] | 备注 |
 | --- | ---: | ---: | ---: | --- |
-| A 聚合与摘要注入 | 8 | 7 | 1 | A07 运营评分待做 |
-| B JSON Feed 专线 | 6 | 5 | 1 | B05 Nginx 裸路径待运维 |
-| C 实体图谱 Schema | 5 | 0 | 5 | P1 |
-| D 发现层 2.0 | 4 | 1 | 3 | D01 llms Feed 声明 ✅ |
-| E 品牌词归因 | 5 | 0 | 5 | P1 |
-| F 车型联动 | 2 | 0 | 2 | P2 |
-| **合计** | **30** | **13** | **17** | |
+| A 聚合与摘要注入 | 8 | 8 | 0 | ✅ |
+| B JSON Feed 专线 | 6 | 6 | 0 | ✅ |
+| C 实体图谱 Schema | 5 | 5 | 0 | ✅ |
+| D 发现层 2.0 | 4 | 3 | 1 | D02 llms-full 待做 |
+| E 品牌词归因 | 5 | 5 | 0 | ✅ |
+| F 车型联动 | 2 | 2 | 0 | ✅ |
+| **G 聚合全覆盖** | 6 | 4 | 2 | G03/G04 待 OBS |
+| **H Feed 全量对接** | 8 | 6 | 2 | H07/H08 待做 |
+| **合计** | **44** | **39** | **5** | |
 
 ---
 
-## 11. 推荐执行顺序
+## 13. 推荐执行顺序
 
-| 顺序 | 内容 | 优先级 |
-| ---: | --- | ---: |
-| 1 | **GEO-IGAIN A**（聚合统计 → 摘要/FAQ 注入） | P0 |
-| 2 | **GEO-IGAIN B**（JSON Feed 专线） | P0 |
-| 3 | **GEO-IGAIN E**（品牌词归因，与 OBS 周报合并） | P1 |
-| 4 | **GEO-IGAIN C**（实体 @graph + Dataset） | P1 |
-| 5 | **GEO-IGAIN D**（llms.txt 2.0） | P1 |
-| 6 | **GEO-IGAIN F** + **GEO-TOPIC E**（车型轻量） | P2 |
-| 7 | **GEO-CITE D** vision 开生产（图说/alt 信息增量） | P2 |
+| 顺序 | 内容 | 优先级 | 状态 |
+| ---: | --- | ---: | ---: |
+| 1 | **GEO-IGAIN A**（聚合统计 → 摘要/FAQ 注入） | P0 | ✅ |
+| 2 | **GEO-IGAIN B**（JSON Feed 专线） | P0 | ✅ |
+| 3 | **GEO-IGAIN E**（品牌词归因，与 OBS 周报合并） | P1 | ✅ |
+| 4 | **GEO-IGAIN C**（实体 @graph + Dataset） | P1 | ✅ |
+| 5 | **GEO-IGAIN D**（llms.txt 2.0） | P1 | ✅ |
+| 6 | **GEO-IGAIN F** + **GEO-TOPIC E**（车型轻量） | P2 | ✅ |
+| 7 | **GEO-TRUST**（案例信任元数据） | P0 | 待开发 |
+| 8 | **GEO-IGAIN G**（聚合全覆盖 + 运营评分） | P0 | 待开发 |
+| 9 | **GEO-AGG**（高阶二维聚合） | P0/P1 | 待开发 |
+| 10 | **GEO-IGAIN H**（Feed 全量对接 + parity） | P1 | 待开发 |
+| 11 | **GEO-TOPIC H**（50～100 意图专题扩容） | P1 | 待开发 |
+| 12 | **GEO-CITE D** vision 开生产（图说/alt 信息增量） | P2 | [~] |
 
 ---
 
-## 12. 修订记录
+## 14. 修订记录
 
 | 日期 | 版本 | 说明 |
 | --- | --- | --- |
 | 2026-07-02 | V1.0 | 初稿：信息增量、JSON Feed、实体图谱、品牌词归因；承接 GEO 三件套 Phase 2 |
+| 2026-07-13 | V1.1 | 新增阶段 G（聚合全覆盖）、H（Feed 全量对接）；进度汇总与执行顺序更新 |

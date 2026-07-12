@@ -440,6 +440,7 @@ async function getAdminCaseDetail(caseId) {
           frozenAt: snapshot.frozenAt || '',
         }
       : null,
+    trustMeta: geoReadable.trustMeta || geoReadable.enrichment?.trustMeta || null,
   }
 }
 
@@ -694,6 +695,17 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
     beforeStatus: row.status,
     afterStatus: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
   })
+
+  try {
+    const { refreshCaseTrustMeta } = require('./case-trust-meta.service')
+    await refreshCaseTrustMeta(caseId, {
+      album,
+      reviewedAt: now,
+      reviewComment: comment,
+    })
+  } catch (e) {
+    console.warn('[trust-meta] approve refresh', e && e.message)
+  }
 
   try {
     const { mountCaseOnGeoPages } = require('./case-article-publish.service')

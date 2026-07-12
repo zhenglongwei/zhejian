@@ -4,7 +4,7 @@
 require('dotenv').config()
 const { aggregatePublicCases, buildAggregateAiSummary } = require('../src/services/geo-case-aggregate.service')
 const { getServiceItemPagePayload } = require('../src/services/h5-service-item.service')
-const { getServiceFeedJson } = require('../src/services/public-feed.service')
+const { getServiceFeedJson, getFeedIndexJson } = require('../src/services/public-feed.service')
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg)
@@ -18,6 +18,7 @@ async function main() {
   ]
   const stats = aggregatePublicCases(mockCases, { priceMode: 'range' })
   assert(stats.sampleSize === 3, 'sampleSize 应为 3')
+  assert(stats.informationGainScore >= 1, '应有 informationGainScore')
   const summary = buildAggregateAiSummary({
     serviceName: '刹车片更换',
     city: '杭州',
@@ -41,7 +42,20 @@ async function main() {
     assert(feed.type === 'service', 'Feed type 应为 service')
     assert(feed.aiSummary === payload.item.aiSummary, 'Feed 摘要应与页面一致')
     assert(feed.disclaimer, 'Feed 应含 disclaimer')
+    if (payload.aggregateStats?.sampleSize) {
+      assert(
+        feed.aggregateStats?.sampleSize === payload.aggregateStats.sampleSize,
+        'Feed aggregateStats.sampleSize 不一致'
+      )
+      if (payload.aggregateStats.advanced) {
+        assert(feed.aggregateStats?.advanced, 'Feed 应含 advanced')
+      }
+    }
   }
+
+  const index = await getFeedIndexJson()
+  assert(index.stats?.serviceCount >= 1, 'index.json 应含 stats')
+  assert(index.fieldContract?.trustMeta, 'index.json 应含 fieldContract')
 
   console.log('[geo-aggregate-smoke] ok', {
     slug,

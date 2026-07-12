@@ -20,6 +20,12 @@ function run() {
       sampleSize: 5,
       price: { text: '方案价参考区间 ¥300–¥500（仅供参考）' },
       causeDistribution: [{ label: '片厚不足', count: 3 }],
+      advanced: {
+        causePriceCross: [{ cause: '片厚不足', count: 3, priceMedian: 420 }],
+        processMetrics: { sampleCount: 5, hasPublicImageRate: 0.4 },
+        mileageBands: [{ band: 'mid', bandLabel: '5–10万km', count: 3, topCause: '片厚不足' }],
+        inspectToPlan: [{ inspect: '片厚不足', topPlan: '更换相关', count: 3 }],
+      },
     },
     faq: [{ q: '常见问题', a: '答案' }],
   })
@@ -27,6 +33,10 @@ function run() {
   assert.strictEqual(serviceGraph['@context'], 'https://schema.org')
   assert.ok(Array.isArray(serviceGraph['@graph']))
   assert.ok(serviceGraph['@graph'].some((node) => node['@type'] === 'Dataset'))
+  const dataset = serviceGraph['@graph'].find((node) => node['@type'] === 'Dataset')
+  assert.ok(dataset.variableMeasured.some((item) => item.name === 'causePriceCross'))
+  assert.ok(dataset.variableMeasured.some((item) => item.name === 'mileageBandDistribution'))
+  assert.ok(dataset.variableMeasured.some((item) => item.name === 'inspectToPlan'))
   assert.ok(serviceGraph['@graph'].some((node) => node['@type'] === 'Service' && node['@id']))
   assert.strictEqual(
     entityId(base, '/service/brake-pad-replacement.html', 'service'),

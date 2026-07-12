@@ -409,9 +409,15 @@
   }
 
   function renderTags(data) {
+    var meta = data.trustMeta
     var tier = data.authorizationTier
     var html = ''
-    if (tier === 'anonymous') {
+    if (meta && meta.authorizationTierLabel) {
+      html +=
+        '<span class="h5-tag h5-tag--order">' +
+        escapeHtml(meta.authorizationTierLabel) +
+        '</span>'
+    } else if (tier === 'anonymous') {
       html += '<span class="h5-tag h5-tag--desensitized">匿名授权</span>'
     } else if (tier === 'named') {
       html += '<span class="h5-tag h5-tag--order">授权公示</span>'
@@ -425,8 +431,57 @@
     return html
   }
 
-  function renderTrustAttestation() {
-    return ''
+  function renderTrustAttestation(data) {
+    var meta = data && data.trustMeta
+    if (!meta) return ''
+
+    var summaryText =
+      meta.trustStatement ||
+      (meta.authorizationTierLabel
+        ? '本案例为' + meta.authorizationTierLabel + '，经脱敏与审核后公开。'
+        : '')
+
+    var detailRows = []
+    if (meta.authorizedAt) {
+      detailRows.push(['授权时间', String(meta.authorizedAt).slice(0, 10)])
+    }
+    if (meta.reviewedAt) {
+      detailRows.push(['审核时间', String(meta.reviewedAt).slice(0, 10)])
+    }
+    if (meta.snapshotVersion != null) {
+      detailRows.push(['快照版本', 'v' + meta.snapshotVersion])
+    }
+    if (meta.publicImageCount != null) {
+      detailRows.push(['公开图数量', String(meta.publicImageCount)])
+    }
+    if (meta.evidenceLevelLabel) {
+      detailRows.push(['证据级别', meta.evidenceLevelLabel])
+    }
+    if (meta.auditLogSummary) {
+      detailRows.push(['审核摘要', meta.auditLogSummary])
+    }
+
+    var body = detailRows
+      .map(function (row) {
+        return (
+          '<p><strong>' +
+          escapeHtml(row[0]) +
+          '：</strong>' +
+          escapeHtml(row[1]) +
+          '</p>'
+        )
+      })
+      .join('')
+
+    return (
+      '<details class="h5-trust-attestation">' +
+      '<summary class="h5-trust-attestation__title">' +
+      escapeHtml(summaryText) +
+      '</summary>' +
+      '<div class="h5-trust-attestation__body">' +
+      body +
+      '</div></details>'
+    )
   }
 
   function renderKeyInfo(rows) {

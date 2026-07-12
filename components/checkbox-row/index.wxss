@@ -4,11 +4,17 @@
   gap: var(--space-sm);
 }
 
-.checkbox-row__box {
+.checkbox-row__check {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--font-caption-lh);
+}
+
+.checkbox-row__box {
   width: 32rpx;
   height: 32rpx;
-  margin-top: calc((var(--font-caption-lh) - 32rpx) / 2);
   border: 2rpx solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   display: flex;
@@ -35,6 +41,9 @@
 .checkbox-row__label {
   flex: 1;
   min-width: 0;
-  color: var(--color-text-secondary);
+}
+
+.checkbox-row__label text {
+  font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
 }

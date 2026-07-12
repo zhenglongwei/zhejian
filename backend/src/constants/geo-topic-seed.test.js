@@ -3,7 +3,7 @@
  * 运行：node src/constants/geo-topic-seed.test.js
  */
 const assert = require('assert')
-const { GEO_TOPIC_SEED_LIST } = require('./geo-topic-seed-list')
+const { GEO_TOPIC_SEED_LIST, GEO_TOPIC_SEED_ALL } = require('./geo-topic-seed-list')
 const { GEO_PROMPT_SEED } = require('./geo-prompt-seed')
 const { generateGeoPageDrafts } = require('../services/geo-page-generator.service')
 
@@ -28,11 +28,12 @@ const MOCK_CASES = [
 
 function run() {
   assert.strictEqual(GEO_TOPIC_SEED_LIST.length, 30)
-  assert.strictEqual(GEO_PROMPT_SEED.length, 30)
+  assert.ok(GEO_TOPIC_SEED_ALL.length >= 50, '扩容种子应 ≥50')
+  assert.strictEqual(GEO_PROMPT_SEED.length, GEO_TOPIC_SEED_ALL.length)
 
   const slugs = new Set()
   const promptIds = new Set()
-  GEO_TOPIC_SEED_LIST.forEach((seed) => {
+  GEO_TOPIC_SEED_ALL.forEach((seed) => {
     assert.ok(seed.slug, 'slug required')
     assert.ok(seed.promptId, 'promptId required')
     assert.ok(seed.promptText, 'promptText required')
@@ -43,8 +44,8 @@ function run() {
     promptIds.add(seed.promptId)
   })
 
-  const drafts = generateGeoPageDrafts(GEO_TOPIC_SEED_LIST)
-  assert.strictEqual(drafts.length, 30)
+  const drafts = generateGeoPageDrafts(GEO_TOPIC_SEED_ALL)
+  assert.strictEqual(drafts.length, GEO_TOPIC_SEED_ALL.length)
   drafts.forEach((draft) => {
     assert.ok(draft.id.startsWith('geop_'))
     assert.ok(draft.faq.length >= 1, `faq missing for ${draft.slug}`)
@@ -61,11 +62,10 @@ function run() {
     acc[item.pageType] = (acc[item.pageType] || 0) + 1
     return acc
   }, {})
-  assert.strictEqual(byType.city_service, 5)
-  assert.strictEqual(byType.fault_qa, 16)
-  assert.strictEqual(byType.city_fault, 9)
+  assert.ok(byType.city_service >= 5)
+  assert.ok(byType.fault_qa >= 16)
 
-  console.log('[geo-topic-seed.test] ok', byType)
+  console.log('[geo-topic-seed.test] ok', { total: drafts.length, byType })
 }
 
 run()

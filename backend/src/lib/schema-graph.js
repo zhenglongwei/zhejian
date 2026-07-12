@@ -30,6 +30,29 @@ function buildOrganizationNode(baseUrl, sameAs = []) {
   return node
 }
 
+function formatAdvancedDatasetLines(advanced) {
+  if (!advanced || typeof advanced !== 'object') return []
+  const lines = []
+  ;(advanced.causePriceCross || []).forEach((item) => {
+    lines.push(`causePriceCross：「${item.cause}」${item.count} 例（方案价中位 ¥${item.priceMedian}）`)
+  })
+  if (advanced.processMetrics?.sampleCount) {
+    const rate = Math.round((advanced.processMetrics.hasPublicImageRate || 0) * 100)
+    lines.push(`processMetrics：${advanced.processMetrics.sampleCount} 例中有公开过程图占比约 ${rate}%`)
+  }
+  ;(advanced.mileageBands || advanced.mileageBandDistribution || []).forEach((item) => {
+    const label = item.bandLabel || item.band || 'unknown'
+    const cause = item.topCause ? `，主因「${item.topCause}」` : ''
+    lines.push(`mileageBandDistribution：${label}（${item.count} 例${cause}）`)
+  })
+  ;(advanced.inspectToPlan || []).forEach((item) => {
+    lines.push(
+      `inspectToPlan：${item.inspect || item.inspectLabel} → ${item.topPlan || item.planLabel}（${item.count} 例）`
+    )
+  })
+  return lines
+}
+
 function buildDatasetNode({ baseUrl, canonicalPath, serviceName, aggregateStats }) {
   const stats = aggregateStats || {}
   if (!stats.sampleSize || stats.sampleSize < 1) return null
@@ -40,6 +63,23 @@ function buildDatasetNode({ baseUrl, canonicalPath, serviceName, aggregateStats 
   ;(stats.causeDistribution || []).forEach((item) => {
     parts.push(`${item.label}（${item.count} 例）`)
   })
+  formatAdvancedDatasetLines(stats.advanced).forEach((line) => parts.push(line))
+
+  const variableMeasured = parts.map((text) => {
+    const advancedKey = text.split('：')[0]
+    const knownKeys = [
+      'causePriceCross',
+      'mileageBandDistribution',
+      'processMetrics',
+      'inspectToPlan',
+    ]
+    const name = knownKeys.includes(advancedKey) ? advancedKey : 'aggregateMetric'
+    return {
+      '@type': 'PropertyValue',
+      name,
+      value: knownKeys.includes(advancedKey) ? text.slice(text.indexOf('：') + 1) : text,
+    }
+  })
 
   return {
     '@type': 'Dataset',
@@ -47,11 +87,7 @@ function buildDatasetNode({ baseUrl, canonicalPath, serviceName, aggregateStats 
     name: `${serviceName || '维修服务'}脱敏案例聚合统计`,
     description: parts.join('；'),
     temporalCoverage: 'P12M',
-    variableMeasured: parts.map((text) => ({
-      '@type': 'PropertyValue',
-      name: 'aggregateMetric',
-      value: text,
-    })),
+    variableMeasured,
     isPartOf: { '@id': entityId(baseUrl, canonicalPath, 'service') },
     url: canonical,
   }
@@ -75,6 +111,50 @@ function buildFaqNode(faq) {
 
 function buildTrustAdditionalProperties(input = {}) {
   const data = input.data || {}
+  const trustMeta = data.trustMeta && typeof data.trustMeta === 'object' ? data.trustMeta : null
+  if (trustMeta) {
+    const props = [
+      {
+        '@type': 'PropertyValue',
+        name: 'authorizationTier',
+        value: trustMeta.authorizationTier,
+      },
+      {
+        '@type': 'PropertyValue',
+        name: 'authorizationTierLabel',
+        value: trustMeta.authorizationTierLabel,
+      },
+      {
+        '@type': 'PropertyValue',
+        name: 'snapshotVersion',
+        value: String(trustMeta.snapshotVersion),
+      },
+      {
+        '@type': 'PropertyValue',
+        name: 'reviewedAt',
+        value: String(trustMeta.reviewedAt || '').slice(0, 10),
+      },
+      {
+        '@type': 'PropertyValue',
+        name: 'evidenceLevel',
+        value: trustMeta.evidenceLevel,
+      },
+      {
+        '@type': 'PropertyValue',
+        name: 'desensitized',
+        value: trustMeta.desensitized ? 'true' : 'false',
+      },
+    ]
+    if (trustMeta.publicImageCount != null) {
+      props.push({
+        '@type': 'PropertyValue',
+        name: 'publicImageCount',
+        value: String(trustMeta.publicImageCount),
+      })
+    }
+    return props
+  }
+
   const snapshot =
     (data.contentJson && data.contentJson.snapshot) || data.snapshot || {}
   const publicView = snapshot.publicView || {}

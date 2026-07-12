@@ -47,6 +47,45 @@
       </el-table>
     </el-card>
 
+    <el-card shadow="never" header="Gap 专题推荐（一键建草稿）" class="mb-16">
+      <el-table :data="report.topicRecommendations || []" border stripe size="small">
+        <el-table-column prop="city" label="城市" width="90" />
+        <el-table-column prop="serviceName" label="服务/意图" min-width="120" />
+        <el-table-column prop="slug" label="推荐 slug" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="pageType" label="类型" width="110" />
+        <el-table-column prop="citationGapScore" label="Gap 分" width="80" />
+        <el-table-column prop="matchedCaseCount" label="匹配案例" width="90" />
+        <el-table-column label="信息增量" width="90">
+          <template #default="{ row }">
+            {{ row.draftPreview?.hasInformationGain ? '有 N=' : '待补' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip />
+        <el-table-column label="操作" width="140" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.recommendedAction === 'create_draft'"
+              link
+              type="primary"
+              :loading="creatingGapSlug === row.slug"
+              @click="onCreateGapDraft(row)"
+            >
+              创建草稿
+            </el-button>
+            <el-button
+              v-else-if="row.recommendedAction === 'edit_draft'"
+              link
+              type="primary"
+              @click="onEditGapTopic(row)"
+            >
+              编辑草稿
+            </el-button>
+            <span v-else class="text-muted">—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
     <el-card shadow="never" header="专题待办（T+）">
       <el-table :data="report.topicTodos || []" border size="small">
         <el-table-column prop="city" label="城市" width="100" />
@@ -127,7 +166,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { fetchCitationGaps, fetchVehicleTopicSeeds, createVehicleTopicDraft } from '@/api/geo-obs'
+import { fetchCitationGaps, fetchVehicleTopicSeeds, createVehicleTopicDraft, createGapTopicDraft } from '@/api/geo-obs'
 
 const router = useRouter()
 const loading = ref(false)
@@ -137,6 +176,7 @@ const vehicleLoading = ref(false)
 const vehicleMinSample = ref(3)
 const vehicleReport = ref({})
 const creatingSlug = ref('')
+const creatingGapSlug = ref('')
 
 async function loadData() {
   loading.value = true
@@ -161,6 +201,29 @@ async function loadVehicleSeeds() {
   } finally {
     vehicleLoading.value = false
   }
+}
+
+async function onCreateGapDraft(row) {
+  if (!row?.slug) return
+  creatingGapSlug.value = row.slug
+  try {
+    const created = await createGapTopicDraft(row.slug)
+    ElMessage.success('已根据 Gap 推荐创建草稿，请核对后发布')
+    router.push({ name: 'geo-page-edit', params: { pageId: created.id || created.slug } })
+    await loadData()
+  } catch (e) {
+    ElMessage.error(e?.message || '创建失败')
+  } finally {
+    creatingGapSlug.value = ''
+  }
+}
+
+function onEditGapTopic(row) {
+  if (!row?.topicId) {
+    router.push({ name: 'geo-page-list', query: { q: row.slug } })
+    return
+  }
+  router.push({ name: 'geo-page-edit', params: { pageId: row.topicId } })
 }
 
 async function onCreateVehicleDraft(row) {

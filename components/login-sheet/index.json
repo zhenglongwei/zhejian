@@ -1,7 +1,5 @@
 {
   "component": true,
   "styleIsolation": "apply-shared",
-  "usingComponents": {
-    "ui-checkbox-row": "/components/checkbox-row/index"
-  }
+  "usingComponents": {}
 }

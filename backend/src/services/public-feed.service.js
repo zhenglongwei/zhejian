@@ -4,10 +4,14 @@
 const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
 const { getServiceItemPagePayload } = require('./h5-service-item.service')
-const { resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
+const { H5_SERVICE_ITEMS, resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
 const { STORE_CHECK_HINT } = require('../constants/geo-faq-templates')
-const { getLlmsTxt } = require('./h5-discovery.service')
+const { getLlmsTxt, getLlmsFullTxt } = require('./h5-discovery.service')
 const { buildServicePageSchemaGraph } = require('../lib/schema-graph')
+const { parseAggregateStats } = require('../schemas/geo-aggregate.schema')
+const { listGeoPages } = require('./geo.service')
+const { fetchPublicCaseRows } = require('./content.service')
+const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 
 const FEED_DISCLAIMER =
   '数据来自已授权且脱敏的公开案例，仅供参考，不构成线上报价或维修承诺。'
@@ -21,7 +25,11 @@ function sendFeedJson(res, body) {
 function isIndexableSeo(seo) {
   if (!seo) return false
   if (seo.allowIndex === false) return false
-  return String(seo.robots || '').toLowerCase().startsWith('index')
+  if (seo.noindex === true) return false
+  const robots = String(seo.robots || '').toLowerCase().trim()
+  if (!robots) return true
+  if (robots.startsWith('noindex')) return false
+  return robots.startsWith('index')
 }
 
 function mapCaseFeed(detail) {
@@ -53,6 +61,7 @@ function mapCaseFeed(detail) {
     updatedAt: detail.publishedAt || '',
     disclaimer: FEED_DISCLAIMER,
     complianceTail: STORE_CHECK_HINT,
+    trustMeta: detail.trustMeta || detail.enrichment?.trustMeta || null,
     schemaGraph: detail.schemaGraph || null,
   }
 }
@@ -60,13 +69,15 @@ function mapCaseFeed(detail) {
 function mapServiceFeed(payload) {
   const item = payload.item || {}
   const seo = payload.seo || {}
+  const parsedStats = parseAggregateStats(payload.aggregateStats || null)
+  const aggregateStats = parsedStats.ok ? parsedStats.data : payload.aggregateStats || null
   return {
     type: 'service',
     slug: item.slug || '',
     name: item.name || '',
     cityFilter: item.cityFilter || '',
     aiSummary: item.aiSummary || item.summary || '',
-    aggregateStats: payload.aggregateStats || null,
+    aggregateStats,
     schemaGraph: payload.schemaGraph || buildServicePageSchemaGraph({
       baseUrl: config.publicBaseUrl,
       item: payload.item,
@@ -116,16 +127,38 @@ async function getServiceFeedJson(slug, query = {}) {
 
 async function getFeedIndexJson() {
   const base = String(config.publicBaseUrl || '').replace(/\/$/, '')
+  const [geoPages, cases] = await Promise.all([
+    listGeoPages({ status: GEO_PAGE_STATUS.PUBLISHED, limit: 500 }),
+    fetchPublicCaseRows(),
+  ])
+  const topicCount = (geoPages.list || []).filter(
+    (page) => page.pageType && page.pageType !== 'service_base'
+  ).length
+
   return {
     name: '辙见公开内容 Feed 索引',
     description: FEED_DISCLAIMER,
+    stats: {
+      serviceCount: H5_SERVICE_ITEMS.length,
+      topicCount,
+      caseCount: cases.length,
+      statsWindow: '近12个月',
+    },
+    fieldContract: {
+      trustMeta: '案例授权档、快照版本、证据等级、脱敏标记',
+      aggregateStats: 'sampleSize、causeDistribution、price、computedAt',
+      advanced: 'N≥5 时含 causePriceCross、processMetrics',
+      complianceTail: STORE_CHECK_HINT,
+    },
     feeds: {
       cases: `${base}/public/v1/cases/{slug}.json`,
       services: `${base}/public/v1/services/{slug}.json`,
       casesApi: `${base}/api/v1/public/v1/cases/{slug}.json`,
       servicesApi: `${base}/api/v1/public/v1/services/{slug}.json`,
       llmsTxt: `${base}/llms.txt`,
+      llmsFullTxt: `${base}/llms-full.txt`,
       sitemap: `${base}/sitemap.xml`,
+      topicsRss: `${base}/feeds/topics.xml`,
     },
     llmsTxtPreview: (await getLlmsTxt()).split('\n').slice(0, 12).join('\n'),
   }

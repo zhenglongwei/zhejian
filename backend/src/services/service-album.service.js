@@ -881,6 +881,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       imageCount: view.imageCount,
       userPhone: view.userPhone,
       userPhoneDisplay: view.userPhoneDisplay,
+      hasOwner: view.hasOwner,
       updatedAt: view.updatedAt,
       coverUrl: buildListCoverUrl(album),
     }

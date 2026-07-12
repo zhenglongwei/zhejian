@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "请车主扫码关联",
+  "navigationBarTitleText": "请车主确认关联",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",

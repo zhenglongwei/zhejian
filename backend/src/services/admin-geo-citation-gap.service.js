@@ -11,6 +11,9 @@ const {
   median,
   GAP_ACTION,
 } = require('../utils/geo-citation-gap')
+const { GEO_TOPIC_SEED_ALL } = require('../constants/geo-topic-seed-list')
+const { listCases } = require('./content.service')
+const { buildGapTopicRecommendations } = require('./geo-gap-topic-recommend.service')
 
 const PUBLIC_GEO_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
@@ -216,6 +219,18 @@ async function buildAdminCitationGaps(query = {}) {
     (item) => !item.hasTopic && item.activePromptCount > 0
   )
 
+  const pageBySlug = new Map(
+    geoPages.filter((page) => page.slug).map((page) => [page.slug, page])
+  )
+  const { list: allCases } = await listCases({ limit: 500 })
+  const topicRecommendations = buildGapTopicRecommendations({
+    gaps: topGaps,
+    seeds: GEO_TOPIC_SEED_ALL,
+    pageBySlug,
+    allCases,
+    limit: Math.min(limit, 10),
+  })
+
   return {
     period: { days, since: since.toISOString(), until: new Date().toISOString() },
     metrics: {
@@ -233,6 +248,7 @@ async function buildAdminCitationGaps(query = {}) {
       citationGapScore: item.citationGapScore,
       reason: '词库有意图但无已发布专题',
     })),
+    topicRecommendations,
     disclaimer:
       'Citation gap 基于同城同服务公开案例数、专题覆盖与内部 prompt 探测，不代表外部流量或排名。',
   }

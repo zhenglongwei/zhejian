@@ -2,7 +2,7 @@
  * GEO-OBS-B02 / GEO-TOPIC-D02 · Prompt 词库种子（与 geo-topic-seed-list 一一对应）
  * 供后续 geo_prompt_probe 表与 OBS 探测使用；当前为常量映射。
  */
-const { GEO_TOPIC_SEED_LIST } = require('./geo-topic-seed-list')
+const { GEO_TOPIC_SEED_ALL } = require('./geo-topic-seed-list')
 
 const PROMPT_TYPE = {
   KNOWLEDGE: 'B',
@@ -25,7 +25,7 @@ function buildPromptRow(seed) {
   }
 }
 
-const GEO_PROMPT_SEED = GEO_TOPIC_SEED_LIST.map(buildPromptRow)
+const GEO_PROMPT_SEED = GEO_TOPIC_SEED_ALL.map(buildPromptRow)
 
 function findPromptByTopicSlug(slug) {
   return GEO_PROMPT_SEED.find((row) => row.topicSlug === slug) || null

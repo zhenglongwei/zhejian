@@ -398,10 +398,20 @@ const GEO_TOPIC_SEED_LIST = [
   },
 ]
 
+const { GEO_TOPIC_SEED_EXPAND_LIST } = require('./geo-topic-seed-expand-list')
+
+const GEO_TOPIC_SEED_ALL = [...GEO_TOPIC_SEED_LIST, ...GEO_TOPIC_SEED_EXPAND_LIST]
+
 if (GEO_TOPIC_SEED_LIST.length !== 30) {
-  throw new Error(`GEO_TOPIC_SEED_LIST 须为 30 条，当前 ${GEO_TOPIC_SEED_LIST.length} 条`)
+  throw new Error(`GEO_TOPIC_SEED_LIST 首批须为 30 条，当前 ${GEO_TOPIC_SEED_LIST.length} 条`)
+}
+
+if (GEO_TOPIC_SEED_ALL.length < 50) {
+  throw new Error(`GEO_TOPIC_SEED_ALL 扩容后须 ≥50 条，当前 ${GEO_TOPIC_SEED_ALL.length} 条`)
 }
 
 module.exports = {
   GEO_TOPIC_SEED_LIST,
+  GEO_TOPIC_SEED_EXPAND_LIST,
+  GEO_TOPIC_SEED_ALL,
 }

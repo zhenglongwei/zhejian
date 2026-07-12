@@ -242,6 +242,7 @@ function resolveGeoReadableFields(row) {
     enrichment,
     faq: enrichment?.faq || partitionCaseFaq(content.faq).inline,
     faqLinks: enrichment?.faqLinks || partitionCaseFaq(content.faq).links,
+    trustMeta: enrichment?.trustMeta || null,
     geo,
   }
 }

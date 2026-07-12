@@ -5,12 +5,10 @@
     <text class="login-sheet__title text-h2">{{displayTitle}}</text>
     <text class="login-sheet__desc text-caption">{{displayDescription}}</text>
 
-    <view wx:if="{{needAgreement}}" class="login-sheet__agreement">
-      <ui-checkbox-row checked="{{agreed}}" bind:toggle="toggleAgreement">
-        <text>
-          我已阅读并同意<text class="login-sheet__link" data-type="terms" catchtap="onAgreementLinkTap">《用户服务协议》</text>、<text class="login-sheet__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text>及<text class="login-sheet__link" catchtap="onPrivacyContractTap">《用户隐私保护指引》</text>（含位置信息等个人信息处理说明）
-        </text>
-      </ui-checkbox-row>
+    <view wx:if="{{needAgreement}}" class="login-sheet__agreement" bindtap="toggleAgreement">
+      <text class="login-sheet__consent text-caption">
+        <text class="login-sheet__consent-box {{agreed ? 'login-sheet__consent-box--on' : ''}}">{{agreed ? '✓' : ' '}}</text>我已阅读并同意<text class="login-sheet__link" data-type="terms" catchtap="onAgreementLinkTap">《用户服务协议》</text>、<text class="login-sheet__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text>及<text class="login-sheet__link" catchtap="onPrivacyContractTap">《用户隐私保护指引》</text>
+      </text>
     </view>
 
     <view wx:if="{{errorMessage}}" class="login-sheet__error text-caption">{{errorMessage}}</view>

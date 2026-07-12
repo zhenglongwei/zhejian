@@ -23,6 +23,10 @@ const {
 } = require('../../../../utils/service-album-share')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
+const {
+  resolveAlbumHasOwner,
+  MERCHANT_ALBUM_INVITE_PAGE,
+} = require('../../../../utils/merchant-album-nav')
 const { persistAlbumNodeImages, persistLocalImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
@@ -459,12 +463,9 @@ Page({
   },
 
   redirectToInviteIfNoOwner(detail) {
-    const hasOwner =
-      Boolean(detail && detail.hasOwner) ||
-      Boolean(detail && String(detail.userPhone || '').trim())
-    if (hasOwner || this.data.allowTestOwnerPhone) return
+    if (resolveAlbumHasOwner(detail || {})) return
     wx.redirectTo({
-      url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
+      url: `${MERCHANT_ALBUM_INVITE_PAGE}?albumId=${encodeURIComponent(this.albumId)}`,
     })
   },
 

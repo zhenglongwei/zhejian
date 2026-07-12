@@ -26,6 +26,58 @@ function escapeXml(value) {
     .replace(/"/g, '&quot;')
 }
 
+async function getLlmsFullTxt() {
+  const [geoPages, cases] = await Promise.all([
+    listGeoPages({ status: GEO_PAGE_STATUS.PUBLISHED, limit: 500 }),
+    fetchPublicCaseRows(),
+  ])
+
+  const serviceLines = H5_SERVICE_ITEMS.map((item) => {
+    return `- [${item.name}](${absUrl(`/service/${item.slug}.html`)}) · JSON: ${absUrl(`/public/v1/services/${item.slug}.json`)}`
+  })
+
+  const intentLines = (geoPages.list || [])
+    .filter((page) => page.pageType && page.pageType !== 'service_base')
+    .map((page) => {
+      const path = page.h5Path || `/service/${page.slug}.html`
+      return `- [${page.title || page.slug}](${absUrl(path)})`
+    })
+
+  const caseLines = cases.map((item) => {
+    const path =
+      item.canonicalPath ||
+      (item.slug ? `/case/${item.slug}.html` : `/case/view.html?id=${item.id}`)
+    const jsonPath = item.slug
+      ? `/public/v1/cases/${item.slug}.json`
+      : `/public/v1/cases/${item.id}.json`
+    return `- [${item.title || '公开案例'}](${absUrl(path)}) · JSON: ${absUrl(jsonPath)}`
+  })
+
+  return [
+    '# 辙见服务平台 · 全量索引',
+    '> 供 AI/RAG 爬虫获取完整 slug 列表；摘要与统计以各 JSON Feed 为准。',
+    '',
+    '## 字段契约',
+    '- `trustMeta`：案例授权档、快照版本、证据等级（见单案 Feed）',
+    '- `aggregateStats`：近12个月脱敏案例聚合；含 `advanced.causePriceCross` 等',
+    '- `computedAt`：聚合重算时间；统计变更时 `updatedAt` 同步更新',
+    '',
+    `## 标准服务（${serviceLines.length}）`,
+    ...serviceLines,
+    '',
+    `## 意图专题（${intentLines.length}）`,
+    ...(intentLines.length ? intentLines : ['- （暂无已发布意图专题）']),
+    '',
+    `## 公开脱敏案例（${caseLines.length}）`,
+    ...(caseLines.length ? caseLines : ['- （暂无公开案例）']),
+    '',
+    `精简索引: ${absUrl('/llms.txt')}`,
+    `Feed 索引: ${absUrl('/public/v1/index.json')}`,
+    `Sitemap: ${absUrl('/sitemap.xml')}`,
+    '',
+  ].join('\n')
+}
+
 async function getLlmsTxt() {
   const [geoPages, cases] = await Promise.all([
     listGeoPages({ status: GEO_PAGE_STATUS.PUBLISHED, limit: LLMS_SERVICE_LIMIT }),
@@ -69,6 +121,11 @@ async function getLlmsTxt() {
     `Sitemap: ${absUrl('/sitemap.xml')}`,
     `JSON Feed: ${absUrl('/public/v1/index.json')}`,
     `JSON Feed (API): ${absUrl('/api/v1/public/v1/index.json')}`,
+    `全量索引: ${absUrl('/llms-full.txt')}`,
+    '',
+    '## 统计窗口',
+    '- aggregateStats.windowLabel = 近12个月',
+    '- N<3 不出百分比；advanced 需 N≥5',
     '',
   ].join('\n')
 }
@@ -118,6 +175,7 @@ async function getTopicsFeedXml() {
 
 module.exports = {
   getLlmsTxt,
+  getLlmsFullTxt,
   getTopicsFeedXml,
   absUrl,
 }

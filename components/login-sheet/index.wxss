@@ -53,6 +53,31 @@
   margin-top: var(--space-lg);
 }
 
+.login-sheet__consent {
+  display: block;
+}
+
+.login-sheet__consent-box {
+  display: inline-block;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: var(--space-sm);
+  vertical-align: middle;
+  border: 2rpx solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  text-align: center;
+  font-size: var(--font-caption);
+  line-height: 28rpx;
+  color: transparent;
+}
+
+.login-sheet__consent-box--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .login-sheet__link {
   display: inline;
   color: var(--color-primary);

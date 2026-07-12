@@ -9,6 +9,7 @@ const {
   normalizeCaseFaqInline,
   normalizeCaseFaqLinks,
 } = require('../utils/case-faq-links')
+const { normalizeCaseTrustMeta } = require('./case-trust-meta.schema')
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -52,6 +53,7 @@ function normalizeCaseEnrichment(raw) {
     geo,
     publishedH5At: normalizeString(raw.publishedH5At || geo.publishedH5At),
     publishedWechatAt: normalizeString(raw.publishedWechatAt || geo.publishedWechatAt),
+    trustMeta: normalizeCaseTrustMeta(raw.trustMeta),
   }
 }
 
@@ -104,6 +106,7 @@ function buildEnrichmentFromPublicCaseRow(row, options = {}) {
     geo: Object.keys(geo).length ? geo : existing?.geo || {},
     publishedH5At: geo.publishedH5At || existing?.publishedH5At || '',
     publishedWechatAt: geo.publishedWechatAt || existing?.publishedWechatAt || '',
+    trustMeta: existing?.trustMeta || null,
   })
 }
 
@@ -149,6 +152,10 @@ function mergeCaseEnrichmentPatch(enrichment, patch = {}, options = {}) {
       patch.topicMountIds != null
         ? normalizeStringArray(patch.topicMountIds)
         : base.topicMountIds,
+    trustMeta:
+      patch.trustMeta != null
+        ? normalizeCaseTrustMeta(patch.trustMeta)
+        : base.trustMeta,
   })
 
   return merged

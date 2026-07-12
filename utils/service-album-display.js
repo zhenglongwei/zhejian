@@ -338,8 +338,10 @@ function enrichServiceAlbumListItem(item, options = {}) {
 
 function enrichMerchantAlbumListItem(item) {
   const base = enrichServiceAlbumListItem(item, { audience: 'merchant' })
+  const { resolveAlbumHasOwner } = require('./merchant-album-nav')
   return {
     ...base,
+    hasOwner: resolveAlbumHasOwner(base),
     canShareToOwner: canShareToOwner(item),
   }
 }

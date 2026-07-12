@@ -11,6 +11,7 @@ async function main() {
     intentCount: report.metrics.intent_count,
     topGaps: (report.topGaps || []).length,
     topicTodos: (report.topicTodos || []).length,
+    topicRecommendations: (report.topicRecommendations || []).length,
   })
 }
 

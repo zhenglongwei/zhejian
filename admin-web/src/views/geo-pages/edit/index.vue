@@ -55,6 +55,22 @@
 
       <el-form-item label="AI 摘要（H5 首屏）">
         <el-input v-model="form.aiSummary" type="textarea" :rows="4" maxlength="300" show-word-limit />
+        <el-alert
+          v-if="informationGainLevel === 'warn'"
+          class="gain-alert"
+          title="信息增量不足：已发布页建议摘要含「N= 例脱敏案例」等统计句"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+        <el-alert
+          v-else-if="informationGainLevel === 'ok' && form.status === 'published'"
+          class="gain-alert"
+          title="信息增量评分：已含案例统计句"
+          type="success"
+          :closable="false"
+          show-icon
+        />
       </el-form-item>
 
       <el-form-item label="关键词（逗号分隔）">
@@ -161,6 +177,15 @@ const publishing = ref(false)
 const templateLoading = ref(false)
 
 const isCreate = computed(() => route.name === 'geo-page-create')
+
+const informationGainLevel = computed(() => {
+  const text = String(form.aiSummary || '').trim()
+  if (!text) return form.status === 'published' ? 'warn' : 'none'
+  const hasSample = /\d+\s*例脱敏|收录\s*\d+\s*例|N\s*=\s*\d+/i.test(text)
+  if (form.status === 'published' && !hasSample) return 'warn'
+  if (hasSample) return 'ok'
+  return 'none'
+})
 
 const form = reactive({
   title: '',
