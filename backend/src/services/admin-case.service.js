@@ -65,7 +65,7 @@ function maxRiskLevel(levels) {
   let bestRank = 0
   ;(levels || []).forEach((level) => {
     const key = String(level || '').toLowerCase()
-    const rank = RISK_RANK[key] || 0
+    const rank = RISK_LEVEL_ORDER[key] || 0
     if (rank > bestRank) {
       bestRank = rank
       best = key
@@ -75,8 +75,8 @@ function maxRiskLevel(levels) {
 }
 
 function isHighRisk(level) {
-  const rank = RISK_RANK[String(level || '').toLowerCase()] || 0
-  return rank >= RISK_RANK.medium
+  const rank = RISK_LEVEL_ORDER[String(level || '').toLowerCase()] || 0
+  return rank >= RISK_LEVEL_ORDER.medium
 }
 
 async function loadPreMaskTask(albumId) {
