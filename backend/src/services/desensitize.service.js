@@ -444,6 +444,10 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
     throw err
   }
 
+  const { buildAlbumView } = require('./service-album.service')
+  const { assertPublicCaseQualityReady } = require('./public-case-quality.service')
+  assertPublicCaseQualityReady(buildAlbumView(album))
+
   const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
   const nodeViews = albumToNodeView(album)
   const versionedFingerprint = `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`

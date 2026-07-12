@@ -295,3 +295,36 @@
 .h5-related-case-list .h5-media-list-item + .h5-media-list-item {
   margin-top: 0;
 }
+
+.h5-trust-attestation {
+  margin: var(--space-md) 0 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+}
+
+.h5-trust-attestation__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.h5-trust-attestation__title {
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+}
+
+.h5-trust-attestation__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.h5-trust-attestation__body {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}

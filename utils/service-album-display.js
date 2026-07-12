@@ -73,6 +73,9 @@ function resolveAlbumAuthAction(item = {}) {
   if (!isRepairCompleted(item.status)) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
+  if (item.publicCaseScorePass === false || item.publicCaseQualityReady === false) {
+    return { show: false, label: '', disabled: false, hint: '' }
+  }
   if (item.compliancePendingHint) {
     return {
       show: true,
@@ -373,6 +376,10 @@ function resolveAuthorizationCardAction(item = {}) {
       buttonType: 'ghost',
       disabled: Boolean(item.withdrawing),
     }
+  }
+
+  if (item.publicCaseScorePass === false || item.publicCaseQualityReady === false) {
+    return { action: '', label: '', buttonType: 'ghost', disabled: true }
   }
 
   if (

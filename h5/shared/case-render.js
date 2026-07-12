@@ -414,15 +414,19 @@
     if (tier === 'anonymous') {
       html += '<span class="h5-tag h5-tag--desensitized">匿名授权</span>'
     } else if (tier === 'named') {
-      html += '<span class="h5-tag h5-tag--order">实名授权</span>'
+      html += '<span class="h5-tag h5-tag--order">授权公示</span>'
     } else if (tier === 'private') {
       html += '<span class="h5-tag h5-tag--audited">门店留档</span>'
     } else {
-      html += '<span class="h5-tag h5-tag--order">已授权</span>'
+      html += '<span class="h5-tag h5-tag--order">用户授权案例</span>'
     }
     html += '<span class="h5-tag h5-tag--desensitized">已脱敏</span>'
     html += '<span class="h5-tag h5-tag--audited">已审核</span>'
     return html
+  }
+
+  function renderTrustAttestation() {
+    return ''
   }
 
   function renderKeyInfo(rows) {
@@ -1422,6 +1426,7 @@
       '<div class="h5-tags">' +
       renderTags(safeData) +
       '</div>' +
+      renderTrustAttestation(safeData) +
       renderDisclaimerBlock() +
       '</header>'
 

@@ -16,7 +16,11 @@ const {
   extractAlbumContentOptimizeDraft,
 } = require('../schemas/album-content-optimize.schema')
 const { mergeOptimizeDraftIntoCaseDraft } = require('./album-content-optimize.service')
-const { buildEnrichmentFromPublicCaseRow } = require('../schemas/case-enrichment.schema')
+const {
+  buildEnrichmentFromPublicCaseRow,
+  mergeCaseEnrichmentPatch,
+} = require('../schemas/case-enrichment.schema')
+const { assertPublicCaseQualityReady } = require('./public-case-quality.service')
 const { config } = require('../config')
 const {
   buildPublicView,
@@ -253,10 +257,12 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const { assertAlbumCompliancePassed } = require('./album-compliance.service')
   assertAlbumCompliancePassed(album)
 
+  const albumView = buildAlbumView(album)
+  assertPublicCaseQualityReady(albumView)
+
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
   const tier = authorizationTier === 'anonymous' ? 'named' : authorizationTier
   const wasOffline = album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
-  const albumView = buildAlbumView(album)
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
   const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
@@ -323,6 +329,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       ? (album.publicCase?.enrichmentVersion || 0) + 1
       : Math.max(album.publicCase?.enrichmentVersion || 0, 1) || 1,
   })
+  const enrichmentFinal = enrichment
 
   await prisma.publicCase.upsert({
     where: { albumId },
@@ -350,8 +357,8 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
-      enrichmentJson: enrichment,
-      enrichmentVersion: enrichment.version,
+      enrichmentJson: enrichmentFinal,
+      enrichmentVersion: enrichmentFinal.version,
     },
     update: {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
@@ -377,8 +384,8 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
-      enrichmentJson: enrichment,
-      enrichmentVersion: enrichment.version,
+      enrichmentJson: enrichmentFinal,
+      enrichmentVersion: enrichmentFinal.version,
       ...(wasOffline ? { slug: null } : {}),
     },
   })

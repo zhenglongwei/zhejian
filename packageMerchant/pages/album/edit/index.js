@@ -1383,14 +1383,51 @@ Page({
     const report = copyQuality || null
     if (!report || !Array.isArray(report.suggestions) || !report.suggestions.length) return
     const blocks = report.suggestions.filter((s) => s.level === 'block')
-    const lines = (blocks.length ? blocks : report.suggestions)
+    if (!blocks.length) return
+    const lines = blocks
       .slice(0, 3)
       .map((s) => s.message)
       .filter(Boolean)
     if (!lines.length) return
     wx.showModal({
-      title: blocks.length ? '文案需修改' : '文案体检',
+      title: '文案需修改',
       content: [report.summaryText, ...lines].filter(Boolean).join('\n'),
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
+  notifyPublicCaseQuality(quality) {
+    const report = quality || null
+    if (!report || report.publicCaseScore == null) return
+    const pass = Boolean(report.publicCaseScorePass)
+    const threshold = report.publicCaseScoreThreshold || 70
+    const privacyBlocks = Array.isArray(report.privacyBlocks) ? report.privacyBlocks : []
+    const qualityTips = (Array.isArray(report.qualitySuggestions)
+      ? report.qualitySuggestions
+      : (report.publicCaseSuggestions || []).filter((s) => s.category === 'quality')
+    )
+      .slice(0, 3)
+      .map((s) => s.message)
+      .filter(Boolean)
+    const privacyLines = privacyBlocks
+      .slice(0, 2)
+      .map((s) => s.message)
+      .filter(Boolean)
+    const contentParts = [
+      `质量分 ${report.publicCaseScore}（标准 ≥${threshold}）`,
+      privacyBlocks.length
+        ? '隐私/合规：须先处理下列问题，与质量分无关。'
+        : pass
+          ? '已达标，可引导车主授权公示。'
+          : '质量分未达标，暂不宜引导车主授权公示。',
+      report.publicCaseScoreSummary || '',
+      privacyLines.length ? `必改项：\n${privacyLines.join('\n')}` : '',
+      qualityTips.length ? `改善建议：\n${qualityTips.join('\n')}` : '',
+    ].filter(Boolean)
+    wx.showModal({
+      title: pass ? '公示就绪评估' : privacyBlocks.length ? '公示就绪 · 隐私/合规未过' : '公示就绪评估 · 质量分未达标',
+      content: contentParts.join('\n'),
       showCancel: false,
       confirmText: '知道了',
     })
@@ -1480,6 +1517,7 @@ Page({
         this.notifyStaleImagesDropped(droppedStaleCount)
       }
       this.notifyCopyQuality(completed && completed.copyQuality)
+      this.notifyPublicCaseQuality(completed)
       const detail = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(detail)
       promptMerchantAuditSubscribe(this.albumId)

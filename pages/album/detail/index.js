@@ -541,6 +541,7 @@ Page({
 
   shouldShowAuth(detail) {
     if (!detail) return false
+    if (detail.publicCaseScorePass === false || detail.publicCaseQualityReady === false) return false
     if (!isRepairCompleted(detail.status)) return false
     const status = detail.publicCaseStatus
     return (

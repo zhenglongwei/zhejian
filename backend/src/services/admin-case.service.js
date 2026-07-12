@@ -42,8 +42,6 @@ const {
   buildGateBUserPayload,
 } = require('../constants/case-gate-b')
 
-const RISK_RANK = RISK_LEVEL_ORDER
-
 function resolveCaseSource(album) {
   if (!album) return 'user_authorized'
   if (album.authorization?.status === 'authorized') return 'user_authorized'
@@ -555,7 +553,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
         slug,
         caseId,
       })
-    const seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+    const seoNoindexBase = await resolveCaseSeoNoindexForStore(row.storeId, {
       city: row.city || snapshot.city,
       serviceName: row.serviceName || snapshot.serviceName,
       imageCount: (snapshot.nodes || []).reduce(
@@ -563,6 +561,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
         0
       ),
     })
+    const seoNoindex = seoNoindexBase
     const publishPayload = { contentJson }
     stampPublishedH5OnPayload(publishPayload)
     const { CASE_ARTICLE_STATUS: ARTICLE_STATUS } = require('../constants/case-article-status')

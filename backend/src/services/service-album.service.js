@@ -59,6 +59,10 @@ const {
 const { resolveImagePublicFields } = require('./public-gate.service')
 const { assessCopyQuality } = require('./copy-quality.service')
 const {
+  assessPublicCaseQuality,
+  assertPublicCaseQualityReady,
+} = require('./public-case-quality.service')
+const {
   hydrateEvidenceItems,
   sanitizeEvidenceItemsPayload,
   mergeEvidenceIntoNodes,
@@ -272,13 +276,14 @@ function buildStoreBlock(album) {
   }
 }
 
-function buildUserAlbumComplianceFields(album) {
+function buildUserAlbumComplianceFields(album, quality = {}) {
   const status = album.complianceStatus || ALBUM_COMPLIANCE_STATUS.NONE
   const passed = status === ALBUM_COMPLIANCE_STATUS.PASSED
   const pendingReview =
     status === ALBUM_COMPLIANCE_STATUS.PENDING ||
     status === ALBUM_COMPLIANCE_STATUS.SPOT_CHECK
   const authorized = album.authorization?.status === 'authorized'
+  const qualityReady = quality.publicCaseScorePass === true
   return {
     complianceStatus: status,
     contentFrozen: passed,
@@ -288,7 +293,8 @@ function buildUserAlbumComplianceFields(album) {
     canAuthorizePublicCase:
       passed &&
       (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
-      !authorized,
+      !authorized &&
+      qualityReady,
     complianceRejectReason:
       status === ALBUM_COMPLIANCE_STATUS.REJECTED
         ? album.complianceRejectReason || ''
@@ -368,6 +374,7 @@ function buildAlbumView(album) {
 
   const { buildPlanPartsContext } = require('./album-plan-parts.service')
   const planCtx = buildPlanPartsContext(album)
+  const quality = assessPublicCaseQuality(view)
 
   return {
     ...view,
@@ -375,7 +382,8 @@ function buildAlbumView(album) {
     planParts: planCtx.planParts,
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
-    ...buildUserAlbumComplianceFields(album),
+    ...quality,
+    ...buildUserAlbumComplianceFields(album, quality),
     ...buildUserAlbumGateBFields(album),
   }
 }
@@ -678,6 +686,15 @@ function mapUserServiceAlbumListItem(album) {
     partsSummary: view.partsSummary,
     partCount: parts.length,
     showPartVerifyLink: parts.length > 0,
+    canAuthorizePublicCase: view.canAuthorizePublicCase,
+    publicCaseScorePass: view.publicCaseScorePass,
+    /** @deprecated */ publicCaseQualityReady: view.publicCaseScorePass,
+    compliancePendingHint: view.compliancePendingHint,
+    complianceRejectReason: view.complianceRejectReason,
+    awaitingUserConfirm: view.awaitingUserConfirm,
+    userConfirmHint: view.userConfirmHint,
+    gateBRejectHint: view.gateBRejectHint,
+    canResubmitPublicCase: view.canResubmitPublicCase,
   }
 }
 
@@ -1085,7 +1102,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   if (payload._imageGateResults && payload._imageGateResults.length) {
     view.imageGateResults = payload._imageGateResults
   }
-  view.copyQuality = assessCopyQuality(view)
+  Object.assign(view, assessPublicCaseQuality(view))
   return view
 }
 
@@ -1128,7 +1145,7 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     console.warn('[notification] album completed', e && e.message)
   })
   const view = buildMerchantView(album)
-  view.copyQuality = assessCopyQuality(view)
+  Object.assign(view, assessPublicCaseQuality(view))
   return view
 }
 
@@ -1195,6 +1212,11 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
   assertAlbumCompliancePassed(album)
 
   const agreed = payload.agreed !== false
+  if (agreed) {
+    const albumView = buildAlbumView(album)
+    assertPublicCaseQualityReady(albumView)
+  }
+
   const tier = 'named'
   const status = agreed ? 'authorized' : 'user_rejected'
   const publicCaseStatus = agreed ? 'pending_review' : 'user_rejected'
@@ -1234,7 +1256,9 @@ async function fetchUserAuthorizations(userId) {
       const needsAuthorization =
         item.status === 'completed' &&
         item.publicCaseStatus === 'private' &&
-        !auth
+        !auth &&
+        item.publicCaseScorePass !== false &&
+        item.canAuthorizePublicCase !== false
       if (!auth && item.publicCaseStatus === 'private' && !needsAuthorization) return null
       const authStatus =
         auth?.status === 'user_rejected'

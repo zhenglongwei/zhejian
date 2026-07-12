@@ -43,11 +43,16 @@ function run() {
       title: '测试案例',
       serviceName: '刹车片更换',
       city: '杭州',
+      status: 'public_approved',
+      albumId: 'alb_001',
       store: { id: 'store_1', name: '测试门店' },
       faq: [{ q: 'Q', a: 'A' }],
     },
   })
   assert.ok(caseGraph['@graph'].some((node) => node['@type'] === 'Article'))
+  const article = caseGraph['@graph'].find((node) => node['@type'] === 'Article')
+  assert.ok(Array.isArray(article.additionalProperty))
+  assert.ok(article.additionalProperty.some((item) => item.name === 'contentType'))
 
   const homeGraph = buildHomePageSchemaGraph({
     baseUrl: base,

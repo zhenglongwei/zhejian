@@ -73,6 +73,64 @@ function buildFaqNode(faq) {
   }
 }
 
+function buildTrustAdditionalProperties(input = {}) {
+  const data = input.data || {}
+  const snapshot =
+    (data.contentJson && data.contentJson.snapshot) || data.snapshot || {}
+  const publicView = snapshot.publicView || {}
+  const props = [
+    {
+      '@type': 'PropertyValue',
+      name: 'contentType',
+      value: 'user_authorized_service_case',
+    },
+    {
+      '@type': 'PropertyValue',
+      name: 'authorizationTier',
+      value: data.authorizationTier || 'named',
+    },
+    {
+      '@type': 'PropertyValue',
+      name: 'platformAuditStatus',
+      value: data.status === 'public_approved' ? 'audited' : 'pending_review',
+    },
+  ]
+  const snapVersion = snapshot.version ?? data.snapshotVersion
+  if (snapVersion != null) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'snapshotVersion',
+      value: String(snapVersion),
+    })
+  }
+  if (data.albumId) {
+    props.push({ '@type': 'PropertyValue', name: 'sourceAlbumId', value: String(data.albumId) })
+  }
+  const publicMediaCount = publicView.publicMediaCount ?? data.publicMediaCount
+  if (publicMediaCount != null) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'publicMediaCount',
+      value: String(publicMediaCount),
+    })
+  }
+  const hasRepairPlanText = publicView.hasRepairPlanText ?? data.hasRepairPlanText
+  if (hasRepairPlanText != null) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'hasRepairPlanText',
+      value: hasRepairPlanText ? 'true' : 'false',
+    })
+  }
+  if (data.storeId) {
+    props.push({ '@type': 'PropertyValue', name: 'storeId', value: String(data.storeId) })
+  }
+  if (data.serviceName) {
+    props.push({ '@type': 'PropertyValue', name: 'serviceName', value: String(data.serviceName) })
+  }
+  return props
+}
+
 /**
  * @param {object} input
  */
@@ -175,6 +233,9 @@ function buildCasePageSchemaGraph(input) {
       : { '@id': organization['@id'] },
     publisher: { '@id': organization['@id'] },
     mainEntityOfPage: { '@id': entityId(baseUrl, canonicalPath.replace(/^https?:\/\/[^/]+/, ''), 'webpage') },
+    additionalProperty: buildTrustAdditionalProperties({
+      data,
+    }),
   })
 
   graph.push({
@@ -254,6 +315,7 @@ module.exports = {
   entityId,
   buildOrganizationNode,
   buildDatasetNode,
+  buildTrustAdditionalProperties,
   buildServicePageSchemaGraph,
   buildCasePageSchemaGraph,
   buildHomePageSchemaGraph,

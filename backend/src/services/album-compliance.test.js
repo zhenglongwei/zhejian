@@ -75,11 +75,14 @@ test('isAlbumContentLocked when compliance passed without authorization', () => 
 })
 
 test('buildUserAlbumComplianceFields exposes frozen confirm hint', () => {
-  const fields = buildUserAlbumComplianceFields({
-    status: 'completed',
-    complianceStatus: ALBUM_COMPLIANCE_STATUS.PASSED,
-    authorization: null,
-  })
+  const fields = buildUserAlbumComplianceFields(
+    {
+      status: 'completed',
+      complianceStatus: ALBUM_COMPLIANCE_STATUS.PASSED,
+      authorization: null,
+    },
+    { publicCaseScorePass: true },
+  )
   assert.equal(fields.contentFrozen, true)
   assert.equal(fields.awaitingUserConfirm, true)
   assert.equal(fields.userConfirmHint, USER_CONFIRM_HINT)
