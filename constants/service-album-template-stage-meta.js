@@ -2,6 +2,16 @@
  * 服务相册模板 × 六阶段 — 节点说明与拍摄指引（对齐 04/02_相册模板与节点规则 §11）
  */
 
+/** PV-REFORM · 单上传自动分流：阶段级公示/留档提示 */
+const STAGE_PUBLIC_UPLOAD_HINTS = {
+  stage_1: '本阶段照片仅用于留档，不会进入公示。',
+  stage_2: '建议拍损伤近景；含车牌或整车全景的图仅留档。',
+  stage_3: '报价单照片仅留档；公示展示方案文字与金额，请填写方案说明或金额。',
+  stage_4: '建议拍零件/包装特写；含个人信息单据整页仅留档。',
+  stage_5: '建议拍施工细节；避免车牌、人员正脸与环境全景。',
+  stage_6: '建议拍修复局部；避免整车外观与环境照。',
+}
+
 const TEMPLATE_STAGE_META = {
   body_paint: {
     stage_1: {
@@ -95,11 +105,13 @@ function applyTemplateStageMeta(templateId, stageId, base = {}) {
     compareGuidance: meta.compareGuidance || base.compareGuidance || '',
     requiredLevelLabel: meta.requiredLevelLabel || base.requiredLevelLabel || '',
     requiredLevelVariant: meta.requiredLevelVariant || base.requiredLevelVariant || 'default',
+    publicUploadHint: STAGE_PUBLIC_UPLOAD_HINTS[stageId] || '',
   }
 }
 
 module.exports = {
   TEMPLATE_STAGE_META,
+  STAGE_PUBLIC_UPLOAD_HINTS,
   getTemplateStageMetaMap,
   resolveTemplateStageMeta,
   applyTemplateStageMeta,

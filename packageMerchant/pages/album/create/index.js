@@ -200,10 +200,10 @@ Page({
           series: vehicleSeries,
         },
       })
-      wx.showToast({ title: '服务相册已创建', icon: 'success' })
+      wx.showToast({ title: '请车主扫码关联', icon: 'success' })
       setTimeout(() => {
         wx.redirectTo({
-          url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+          url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`,
         })
       }, 400)
     } catch (e) {

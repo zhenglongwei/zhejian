@@ -196,16 +196,21 @@ model AlbumNode {
 }
 
 model AlbumImage {
-  id        String    @id
-  albumId   String    @map("album_id")
-  nodeId    String    @map("node_id")
-  idx       Int       @default(0)
-  rawUrl    String    @map("raw_url") @db.VarChar(512)
-  createdAt DateTime  @default(now()) @map("created_at")
-  album     Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  node      AlbumNode @relation(fields: [albumId, nodeId], references: [albumId, nodeId], onDelete: Cascade)
+  id                  String    @id
+  albumId             String    @map("album_id")
+  nodeId              String    @map("node_id")
+  idx                 Int       @default(0)
+  rawUrl              String    @map("raw_url") @db.VarChar(512)
+  visibility          String    @default("private")
+  publicGateStatus    String    @default("pending") @map("public_gate_status")
+  publicGateReason    String    @default("") @map("public_gate_reason") @db.VarChar(64)
+  publicGateCheckedAt DateTime? @map("public_gate_checked_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  album               Album     @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  node                AlbumNode @relation(fields: [albumId, nodeId], references: [albumId, nodeId], onDelete: Cascade)
 
   @@index([albumId, nodeId])
+  @@index([albumId, visibility, publicGateStatus])
   @@map("album_images")
 }
 

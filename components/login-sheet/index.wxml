@@ -7,7 +7,9 @@
 
     <view wx:if="{{needAgreement}}" class="login-sheet__agreement">
       <ui-checkbox-row checked="{{agreed}}" bind:toggle="toggleAgreement">
-        <text>我已阅读并同意<text class="login-sheet__link" data-type="terms" catchtap="onAgreementLinkTap">《用户协议》</text>和<text class="login-sheet__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text></text>
+        <text>
+          我已阅读并同意<text class="login-sheet__link" data-type="terms" catchtap="onAgreementLinkTap">《用户服务协议》</text>、<text class="login-sheet__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text>及<text class="login-sheet__link" catchtap="onPrivacyContractTap">《用户隐私保护指引》</text>（含位置信息等个人信息处理说明）
+        </text>
       </ui-checkbox-row>
     </view>
 
@@ -16,9 +18,19 @@
     <view class="login-sheet__actions">
       <block wx:if="{{step === 'login'}}">
         <button
-          class="btn btn--primary btn--block {{loading || (needAgreement && !agreed) ? 'btn--disabled' : ''}}"
+          wx:if="{{needAgreement}}"
+          id="privacy-agree-btn"
+          class="btn btn--primary btn--block {{loading || !agreed ? 'btn--disabled' : ''}}"
           loading="{{loading}}"
-          disabled="{{loading || (needAgreement && !agreed)}}"
+          disabled="{{loading || !agreed}}"
+          open-type="agreePrivacyAuthorization"
+          bindagreeprivacyauthorization="onAgreePrivacyAndLogin"
+        >{{primaryLabel}}</button>
+        <button
+          wx:else
+          class="btn btn--primary btn--block {{loading ? 'btn--disabled' : ''}}"
+          loading="{{loading}}"
+          disabled="{{loading}}"
           bindtap="onWechatLoginTap"
         >{{primaryLabel}}</button>
       </block>

@@ -8,6 +8,7 @@ const {
   createMerchantServiceAlbum,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
+  fetchMerchantCopyQuality,
   fetchMerchantAlbumStats,
   getMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
@@ -207,6 +208,20 @@ router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']
   }
 })
 
+router.post('/service-albums/:albumId/copy-quality', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await fetchMerchantCopyQuality(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/service-albums/:albumId', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
@@ -225,7 +240,7 @@ router.post('/service-albums/:albumId', requireAuth(['merchant']), async (req, r
 router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
-    await completeMerchantServiceAlbum(
+    const view = await completeMerchantServiceAlbum(
       req.params.albumId,
       storeId,
       req.auth.merchantId,
@@ -240,6 +255,7 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       complianceStatus: compliance.complianceStatus,
       compliancePassed: compliance.passed,
       complianceRejectReason: compliance.rejectReason || '',
+      copyQuality: view.copyQuality || null,
     })
   } catch (e) {
     next(e)

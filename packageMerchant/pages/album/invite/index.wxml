@@ -29,7 +29,7 @@
 
     <ui-card wx:if="{{!detail.hasOwner}}" shadow="{{true}}" padding="{{true}}" class="album-invite__qr-card">
       <text class="text-h3 album-invite__section">请车主微信扫码</text>
-      <text class="text-caption album-invite__hint">向车主说明服务相册用途，车主同意后再扫码关联手机号。</text>
+      <text class="text-caption album-invite__hint">请向车主说明服务相册用途，车主扫码后将先阅读隐私说明并确认，关联成功后方可上传过程图。</text>
       <view class="album-invite__qr-wrap">
         <image
           wx:if="{{qrcodeDataUrl}}"
@@ -45,13 +45,18 @@
     </ui-card>
 
     <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="text-caption album-invite__steps">1. 向车主说明维修留档用途\n2. 车主扫码并确认关联\n3. 关联成功后开始或继续上传节点</text>
+      <text class="text-caption album-invite__steps">1. 向车主说明维修留档用途\n2. 车主扫码并确认隐私说明\n3. 关联成功后开始上传节点图片</text>
     </ui-card>
   </block>
 
   <view class="merchant-form__spacer" />
   <ui-fixed-bottom-bar>
     <ui-button type="secondary" size="sm" slot="left" bind:btntap="onCopyPath">复制认领路径</ui-button>
-    <ui-button type="primary" slot="right" bind:btntap="onContinue">{{detail.hasOwner ? '继续编辑相册' : '先开始留档'}}</ui-button>
+    <ui-button
+      type="primary"
+      slot="right"
+      disabled="{{!detail.hasOwner}}"
+      bind:btntap="onContinue"
+    >{{detail.hasOwner ? '继续编辑相册' : '等待车主扫码关联'}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

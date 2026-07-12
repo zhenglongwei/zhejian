@@ -17,6 +17,11 @@ const {
 } = require('../schemas/album-content-optimize.schema')
 const { mergeOptimizeDraftIntoCaseDraft } = require('./album-content-optimize.service')
 const { buildEnrichmentFromPublicCaseRow } = require('../schemas/case-enrichment.schema')
+const { config } = require('../config')
+const {
+  buildPublicView,
+  pickPublicViewCover,
+} = require('./build-public-view.service')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -249,18 +254,26 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   assertAlbumCompliancePassed(album)
 
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
+  const tier = authorizationTier === 'anonymous' ? 'named' : authorizationTier
   const wasOffline = album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
   const albumView = buildAlbumView(album)
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
   const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
+  const publicView = config.publicViewV2
+    ? buildPublicView(albumView, task, { authorizationTier: tier })
+    : null
   const draft = mergeOptimizeDraftIntoCaseDraft(
-    buildCaseDraft(albumView, task, authorizationTier, {
+    buildCaseDraft(albumView, task, tier, {
       serviceItemId: album.serviceItemId || '',
       templateId: album.templateId || '',
     }),
     extractAlbumContentOptimizeDraft(album)
   )
+  if (publicView) {
+    const cover = pickPublicViewCover(publicView)
+    if (cover) draft.coverImage = cover
+  }
   const caseId = draft.id
   const articlePayload = buildCaseArticlePayload({
     caseId,
@@ -284,11 +297,12 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     articlePayload,
     nodesWithMask,
     task,
-    authorizationTier,
+    authorizationTier: tier,
     previousSnapshotVersion,
     parts: Array.isArray(album.partsJson) ? album.partsJson : [],
     serviceItemId: album.serviceItemId || '',
     templateId: album.templateId || '',
+    publicView,
   })
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
@@ -316,7 +330,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       id: caseId,
       albumId,
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
-      authorizationTier,
+      authorizationTier: tier,
       title: snapshot.title,
       summary: snapshot.summary,
       coverImage: snapshot.coverImage,
@@ -343,7 +357,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       gateBRejectType: '',
       gateBRejectReason: '',
-      authorizationTier,
+      authorizationTier: tier,
       title: snapshot.title,
       summary: snapshot.summary,
       coverImage: snapshot.coverImage,
@@ -384,7 +398,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       id: caseId,
       albumId,
       title: snapshot.title,
-      authorizationTier,
+      authorizationTier: tier,
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       snapshotVersion: snapshot.version,
       frozenAt: snapshot.frozenAt,

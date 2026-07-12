@@ -21,19 +21,29 @@ App({
   bindPrivacyAuthorization() {
     if (typeof wx.onNeedPrivacyAuthorization !== 'function') return
     wx.onNeedPrivacyAuthorization((resolve) => {
-      if (typeof wx.requirePrivacyAuthorize === 'function') {
-        wx.requirePrivacyAuthorize({
-          success: () => resolve({ event: 'agree' }),
-          fail: () => resolve({ event: 'disagree' }),
-        })
+      this.globalData.pendingPrivacyAuthorization = { resolve }
+      if (this.privacyPopup && typeof this.privacyPopup.show === 'function') {
+        this.privacyPopup.show()
         return
       }
-      resolve({ event: 'agree' })
+      // 等待页面内弹窗挂载，勿立即拒绝
     })
+  },
+
+  completePrivacyAuthorization(agreed) {
+    const pending = this.globalData.pendingPrivacyAuthorization
+    if (!pending || typeof pending.resolve !== 'function') return
+    if (agreed) {
+      pending.resolve({ buttonId: 'privacy-agree-btn', event: 'agree' })
+    } else {
+      pending.resolve({ event: 'disagree' })
+    }
+    this.globalData.pendingPrivacyAuthorization = null
   },
   globalData: {
     city: '杭州',
     cityContext: null,
+    pendingPrivacyAuthorization: null,
     userInfo: null,
     token: '',
     pendingServiceCategory: '',

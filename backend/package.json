@@ -30,6 +30,7 @@
     "crawler:url-aggregate": "node scripts/crawler-url-daily-aggregate.js",
     "cases:smoke": "node scripts/public-case-smoke.js",
     "case:snapshot-smoke": "node scripts/case-snapshot-smoke.js",
+    "case:offline-anonymous": "node scripts/offline-anonymous-public-cases.js",
     "case:enrichment-backfill": "node scripts/backfill-case-enrichment.js",
     "case:enrichment-faq-backfill": "node scripts/backfill-case-enrichment-faq.js",
     "case:enrichment-feed-smoke": "node scripts/case-enrichment-feed-smoke.js",

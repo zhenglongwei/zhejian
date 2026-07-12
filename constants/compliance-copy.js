@@ -6,7 +6,8 @@ const AUTHORIZATION_CONSENT = {
   login: {
     authType: 'login',
     version: LEGAL_VERSION,
-    text: '我已阅读并同意《用户服务协议》和《隐私政策》',
+    text:
+      '我已阅读并同意《用户服务协议》《隐私政策》及《用户隐私保护指引》（含位置信息等个人信息处理说明）',
   },
   consult_transfer: {
     authType: 'consult_transfer',
@@ -24,6 +25,25 @@ const AUTHORIZATION_CONSENT = {
     version: LEGAL_VERSION,
     text:
       '我同意使用当前绑定手机号关联此服务相册；相册内容默认仅本人可见，公开须另行授权',
+  },
+  album_processing: {
+    authType: 'album_processing',
+    version: LEGAL_VERSION,
+    text:
+      '我知晓门店将为本车创建服务相册，同意辙见处理维修过程图片（含自动脱敏、OCR 识别、AI 辅助阅读等），仅用于本人查看与争议留档；公开至互联网须另行授权',
+  },
+  /** @deprecated PV-REFORM 废止原图私人分享；保留仅供历史留痕查询 */
+  share_raw: {
+    authType: 'share_raw',
+    version: LEGAL_VERSION,
+    text:
+      '我知晓原图分享可能泄露车牌、人脸等隐私信息，自行承担传播风险，并承诺不向不特定公众传播',
+  },
+  merchant_album_owner: {
+    authType: 'merchant_album_owner',
+    version: LEGAL_VERSION,
+    text:
+      '我确认已向车主说明服务相册用途，车主将扫码确认关联后方可上传维修过程图片',
   },
   case_public: {
     authType: 'case_public',
@@ -44,8 +64,7 @@ const AUTHORIZATION_CONSENT = {
   merchant_onboard: {
     authType: 'merchant_onboard',
     version: LEGAL_VERSION,
-    text:
-      '我已阅读并同意《商家服务协议》，确认提交资料真实有效，展示内容由本店负责',
+    text: '我已阅读并同意《商家服务协议》，并确认所提交入驻资料真实有效',
   },
   merchant_history: {
     authType: 'merchant_history',
@@ -150,6 +169,13 @@ const COMPLIANCE_COPY = {
     'AI 分析基于本相册的文字摘要与部分照片说明，供你对照单据、流程与配件留痕，不构成鉴定结论或质量裁决，可能存在遗漏或误判。平台不鉴定配件真伪；即便各项看起来一致，也不能排除未入镜施工、事后换件等相册无法覆盖的情形。若仍有重大疑虑，建议到场验车验件、委托有资质第三方鉴定；事故维修可向保险公司申请复检。',
   reportConsent: AUTHORIZATION_CONSENT.report.text,
   albumClaim: AUTHORIZATION_CONSENT.album_claim.text,
+  albumProcessing: AUTHORIZATION_CONSENT.album_processing.text,
+  albumClaimPrivacyIntro:
+    '门店为你创建了服务相册，用于记录本次维修过程。关联前请阅读以下说明：\n\n' +
+    '1. 相册默认仅你与门店可见，不会自动公开\n' +
+    '2. 平台将处理维修过程图片（含脱敏、OCR、AI 辅助阅读），用于留档与争议证据\n' +
+    '3. 公开至 H5/搜索引擎须你另行授权并脱敏审核\n' +
+    '4. 你可随时在「我的服务相册」撤回公开授权',
   /** @deprecated 使用 displayDisclaimer */
   platformDisplay:
     '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',

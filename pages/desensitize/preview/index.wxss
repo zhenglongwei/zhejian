@@ -7,6 +7,16 @@
   margin-bottom: var(--space-md);
 }
 
+.desensitize-preview__public-hint,
+.desensitize-preview__public-count {
+  margin-bottom: var(--space-md);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-subtle);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .desensitize-preview__ready {
   display: flex;
   flex-wrap: wrap;

@@ -60,7 +60,7 @@
     </view>
 
     <view class="merchant-form__section">
-      <text class="text-caption album-create__scan-hint">创建后请在编辑页请车主扫码关联手机号，关联完成后方可标记已完工。手机号由车主本人授权，商家不可代填。</text>
+      <text class="text-caption album-create__scan-hint">创建后将立即展示车主扫码页，须车主扫码并确认隐私说明后方可上传过程图。手机号由车主本人授权，商家不可代填。</text>
     </view>
   </block>
 
@@ -72,6 +72,6 @@
       loading="{{submitting}}"
       disabled="{{status === 'loading'}}"
       bind:btntap="onSubmit"
-    >创建服务相册</ui-button>
+    >创建并请车主扫码</ui-button>
   </ui-fixed-bottom-bar>
 </view>

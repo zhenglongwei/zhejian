@@ -6,7 +6,7 @@ const PLAN_QUOTE_PARSE_METHOD = {
 }
 
 const PLAN_QUOTE_PARSE_HINT = {
-  llm: '已通过智能解析识别报价表，请核对后再锁定。',
+  llm: '已通过 OCR 辅助录入识别报价表，请核对后再锁定。',
   mock: '演示数据，请核对后再锁定。',
 }
 

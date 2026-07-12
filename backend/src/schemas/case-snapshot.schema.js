@@ -12,6 +12,53 @@ function normalizeString(value, maxLen = 0) {
   return text.slice(0, maxLen)
 }
 
+function normalizePublicViewMedia(media) {
+  if (!Array.isArray(media)) return []
+  return media
+    .map((item) => {
+      const row = isPlainObject(item) ? item : {}
+      const maskedUrl = normalizeString(row.maskedUrl)
+      if (!maskedUrl) return null
+      return {
+        nodeId: normalizeString(row.nodeId),
+        idx: Number.isFinite(Number(row.idx)) ? Number(row.idx) : 0,
+        maskedUrl,
+        caption: normalizeString(row.caption, 48),
+      }
+    })
+    .filter(Boolean)
+}
+
+function normalizePublicViewFacts(facts) {
+  const src = isPlainObject(facts) ? facts : {}
+  return {
+    faultDesc: normalizeString(src.faultDesc, 200),
+    inspectResult: normalizeString(src.inspectResult, 300),
+    repairPlan: normalizeString(src.repairPlan, 400),
+    resultConfirm: normalizeString(src.resultConfirm, 200),
+  }
+}
+
+function normalizePublicView(raw) {
+  if (!isPlainObject(raw)) return null
+  const version = Number.isFinite(Number(raw.version)) ? Number(raw.version) : 0
+  if (version < 1) return null
+  return {
+    version,
+    authorizationTier: normalizeString(raw.authorizationTier || 'named'),
+    storeName: normalizeString(raw.storeName),
+    storeId: normalizeString(raw.storeId),
+    serviceName: normalizeString(raw.serviceName),
+    city: normalizeString(raw.city),
+    media: normalizePublicViewMedia(raw.media),
+    facts: normalizePublicViewFacts(raw.facts),
+    publicMediaCount: Number.isFinite(Number(raw.publicMediaCount))
+      ? Number(raw.publicMediaCount)
+      : normalizePublicViewMedia(raw.media).length,
+    hasRepairPlanText: Boolean(raw.hasRepairPlanText),
+  }
+}
+
 function normalizeSnapshotNodes(nodes) {
   if (!Array.isArray(nodes)) return []
   return nodes.map((node) => {
@@ -73,6 +120,7 @@ function normalizeCaseSnapshot(raw) {
     city: normalizeString(raw.city),
     serviceItemId: normalizeString(raw.serviceItemId),
     templateId: normalizeString(raw.templateId),
+    publicView: normalizePublicView(raw.publicView),
   }
 }
 
@@ -95,13 +143,18 @@ function resolveSnapshotVersion(contentJson) {
 }
 
 /**
- * H5/API 读侧 nodes 真源：有 snapshot 则只读 snapshot.nodes，否则回退 contentJson.nodes（存量）
+ * H5/API 读侧 nodes 真源：有 publicView 且开启 V2 时优先 publicView；否则 snapshot.nodes
  * @param {unknown} contentJson
  * @returns {object[]}
  */
 function resolvePublicCaseContentNodes(contentJson) {
   if (!isPlainObject(contentJson)) return []
   const snapshot = extractSnapshotFromContentJson(contentJson)
+  const { config } = require('../config')
+  if (config.publicViewV2 && snapshot?.publicView?.media?.length) {
+    const { publicViewToSnapshotNodes } = require('../services/build-public-view.service')
+    return publicViewToSnapshotNodes(snapshot.publicView, snapshot.nodes || [])
+  }
   if (snapshot) {
     return Array.isArray(snapshot.nodes) ? snapshot.nodes : []
   }
@@ -111,9 +164,20 @@ function resolvePublicCaseContentNodes(contentJson) {
   return []
 }
 
+/**
+ * @param {unknown} contentJson
+ * @returns {object|null}
+ */
+function extractPublicViewFromContentJson(contentJson) {
+  const snapshot = extractSnapshotFromContentJson(contentJson)
+  return snapshot?.publicView || null
+}
+
 module.exports = {
   normalizeCaseSnapshot,
+  normalizePublicView,
   extractSnapshotFromContentJson,
+  extractPublicViewFromContentJson,
   resolveSnapshotVersion,
   resolvePublicCaseContentNodes,
   normalizeSnapshotNodes,

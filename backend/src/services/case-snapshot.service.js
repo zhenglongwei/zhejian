@@ -13,6 +13,7 @@ const { normalizeCaseSnapshot } = require('../schemas/case-snapshot.schema')
  * @param {string} [input.authorizationTier='named']
  * @param {number} [input.previousSnapshotVersion=0]
  * @param {object[]} [input.parts=[]]
+ * @param {object|null} [input.publicView]
  * @param {string} [input.serviceItemId='']
  * @param {string} [input.templateId='']
  */
@@ -20,12 +21,18 @@ function buildCaseSnapshot(input = {}) {
   const albumView = input.albumView || {}
   const draft = input.draft || {}
   const articlePayload = input.articlePayload || {}
-  const nodesWithMask = input.nodesWithMask || []
+  let nodesWithMask = input.nodesWithMask || []
   const task = input.task || null
   const authorizationTier = input.authorizationTier || 'named'
   const previousSnapshotVersion = Number.isFinite(input.previousSnapshotVersion)
     ? input.previousSnapshotVersion
     : 0
+  const publicView = input.publicView || null
+
+  if (publicView && publicView.media && publicView.media.length) {
+    const { publicViewToSnapshotNodes } = require('./build-public-view.service')
+    nodesWithMask = publicViewToSnapshotNodes(publicView, nodesWithMask)
+  }
 
   const version = previousSnapshotVersion + 1
   const frozenAt = new Date().toISOString()
@@ -65,6 +72,7 @@ function buildCaseSnapshot(input = {}) {
     city: draft.city,
     serviceItemId: input.serviceItemId || '',
     templateId: input.templateId || albumView.templateId || '',
+    publicView,
   })
 
   const contentJson = {

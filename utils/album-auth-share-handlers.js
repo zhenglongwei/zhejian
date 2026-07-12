@@ -18,7 +18,6 @@ const {
   SHARE_MODE,
   SHARE_CHANNEL,
 } = require('./album-owner-share')
-const { ORIGINAL_SHARE_RISK } = require('../constants/album-share')
 const { withStoreContextPath, TOOL_HOME_PATH } = require('./share-store-context')
 const { initAlbumShareState } = require('./album-share-state')
 const { resolveAlbumAuthAction } = require('./service-album-display')
@@ -146,10 +145,8 @@ function createAlbumAuthShareHandlers(options = {}) {
       this.setData({ authChecked: !this.data.authChecked })
     },
 
-    onAuthTierChange(e) {
-      const tier = e.detail && e.detail.tier
-      if (tier !== 'named' && tier !== 'anonymous') return
-      this.setData({ authTier: tier })
+    onAuthTierChange() {
+      this.setData({ authTier: 'named' })
     },
 
     onSubmitAuth() {
@@ -172,7 +169,7 @@ function createAlbumAuthShareHandlers(options = {}) {
         const preview = await prepareServiceAuthorizePreview(albumId)
         wx.hideLoading()
         wx.navigateTo({
-          url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service&tier=${this.data.authTier}`,
+          url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service`,
         })
       } catch (e) {
         wx.hideLoading()
@@ -237,7 +234,7 @@ function createAlbumAuthShareHandlers(options = {}) {
     },
 
     async refreshShareToken(opts = {}) {
-      const { actionDetail, shareUseOriginal } = this.data
+      const { actionDetail } = this.data
       const defaultShareIntent = opts.defaultShareIntent || this.data.defaultShareIntent || 'owner'
       const channel = opts.channel || SHARE_CHANNEL.WECHAT
 
@@ -246,7 +243,7 @@ function createAlbumAuthShareHandlers(options = {}) {
         return null
       }
 
-      const mode = shareUseOriginal ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
+      const mode = SHARE_MODE.DESENSITIZED
       if (!opts.silent) {
         this.setData({ sharePreparing: true, shareReady: false, shareActionsDisabled: true })
       }
@@ -281,28 +278,7 @@ function createAlbumAuthShareHandlers(options = {}) {
     },
 
     onShareOriginalToggle() {
-      const { shareUseOriginal, sharePreparing } = this.data
-      if (sharePreparing) return
-
-      if (!shareUseOriginal) {
-        wx.showModal({
-          title: '分享原图',
-          content: ORIGINAL_SHARE_RISK,
-          confirmText: '仍要分享原图',
-          cancelText: '取消',
-          success: (res) => {
-            if (!res.confirm) return
-            this.setData({ shareUseOriginal: true }, () => {
-              this.refreshShareToken()
-            })
-          },
-        })
-        return
-      }
-
-      this.setData({ shareUseOriginal: false }, () => {
-        this.refreshShareToken()
-      })
+      // PV-REFORM：私人分享仅脱敏，原图开关已移除
     },
 
     async onCopyOwnerShareLink() {

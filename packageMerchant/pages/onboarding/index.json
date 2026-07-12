@@ -3,6 +3,8 @@
   "usingComponents": {
     "ui-button": "/components/button/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
+    "ui-checkbox-row": "/components/checkbox-row/index",
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
   }
 }

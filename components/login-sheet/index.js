@@ -1,5 +1,6 @@
 const { wechatLogin, bindPhone } = require('../../services/user')
 const { getSession } = require('../../utils/auth')
+const { AUTHORIZATION_CONSENT } = require('../../constants/compliance-copy')
 
 const COPY = {
   login: {
@@ -67,6 +68,7 @@ Component({
     loading: false,
     errorMessage: '',
     agreed: false,
+    consentText: AUTHORIZATION_CONSENT.login.text,
     displayTitle: '',
     displayDescription: '',
     primaryLabel: '',
@@ -147,10 +149,31 @@ Component({
       })
     },
 
+    onPrivacyContractTap() {
+      if (typeof wx.openPrivacyContract === 'function') {
+        wx.openPrivacyContract({})
+        return
+      }
+      wx.navigateTo({ url: '/pages/mine/settings/document/index?type=privacy' })
+    },
+
     async onWechatLoginTap() {
       if (this.data.loading) return
+      await this.runWechatLogin()
+    },
+
+    async onAgreePrivacyAndLogin() {
+      if (this.data.loading) return
       if (this.data.needAgreement && !this.data.agreed) {
-        this.setData({ errorMessage: '请先阅读并同意用户协议与隐私政策' })
+        this.setData({ errorMessage: '请先阅读并同意相关协议与隐私保护指引' })
+        return
+      }
+      await this.runWechatLogin()
+    },
+
+    async runWechatLogin() {
+      if (this.data.needAgreement && !this.data.agreed) {
+        this.setData({ errorMessage: '请先阅读并同意相关协议与隐私保护指引' })
         return
       }
 

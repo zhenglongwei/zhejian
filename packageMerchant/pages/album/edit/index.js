@@ -180,8 +180,8 @@ Page({
     ownerPhoneInput: '',
     allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
     uploadPrivacyHint:
-      '原图供服务相册与车主查看；公开须车主授权并脱敏。请勿上传车牌、手机号、证件等敏感信息。',
-    planStageUploadHint: '请上传报价单/维修方案等照片。',
+      '上传后系统自动区分留档与可公示素材；含车牌/单据整页的图片不会进入公示。',
+    planStageUploadHint: '请上传报价单/维修方案等照片（仅留档）；并填写方案金额或项目说明。',
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -458,6 +458,30 @@ Page({
     })
   },
 
+  redirectToInviteIfNoOwner(detail) {
+    const hasOwner =
+      Boolean(detail && detail.hasOwner) ||
+      Boolean(detail && String(detail.userPhone || '').trim())
+    if (hasOwner || this.data.allowTestOwnerPhone) return
+    wx.redirectTo({
+      url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
+    })
+  },
+
+  requireOwnerLinked(actionLabel) {
+    if (this.data.hasOwner || this.data.allowTestOwnerPhone) return true
+    wx.showModal({
+      title: '请先请车主扫码',
+      content: `${actionLabel || '上传过程图'}前，须车主扫码并确认隐私说明。`,
+      confirmText: '去扫码页',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) this.onInviteOwnerScan()
+      },
+    })
+    return false
+  },
+
   applyAlbum(detail) {
     const mergedNodes = this.mergeNodes(detail.nodes, detail.templateId)
     const evidenceItems = hydrateEvidenceItems({
@@ -531,6 +555,7 @@ Page({
       this.refreshCompareStageFlags(this.data.stageIndex)
       this.refreshPartWizard()
       this.refreshMerchantInspection()
+      this.redirectToInviteIfNoOwner(detail)
     })
     this.syncShareMenu(canShare)
   },
@@ -988,7 +1013,7 @@ Page({
         },
         () => this.refreshPartWizard(),
       )
-      wx.showToast({ title: '已生成配件清单，请逐项登记', icon: 'none' })
+      wx.showToast({ title: '已辅助填入配件清单，请核对', icon: 'none' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '识别失败，可手工添加', icon: 'none' })
     } finally {
@@ -1342,9 +1367,39 @@ Page({
     })
   },
 
+  notifyImageGateResults(results) {
+    const list = Array.isArray(results) ? results : []
+    const hints = [...new Set(list.map((item) => item.hint).filter(Boolean))]
+    if (!hints.length) return
+    wx.showModal({
+      title: '公开素材提示',
+      content: hints.slice(0, 3).join('\n'),
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
+  notifyCopyQuality(copyQuality) {
+    const report = copyQuality || null
+    if (!report || !Array.isArray(report.suggestions) || !report.suggestions.length) return
+    const blocks = report.suggestions.filter((s) => s.level === 'block')
+    const lines = (blocks.length ? blocks : report.suggestions)
+      .slice(0, 3)
+      .map((s) => s.message)
+      .filter(Boolean)
+    if (!lines.length) return
+    wx.showModal({
+      title: blocks.length ? '文案需修改' : '文案体检',
+      content: [report.summaryText, ...lines].filter(Boolean).join('\n'),
+      showCancel: false,
+      confirmText: '知道了',
+    })
+  },
+
   async onSave() {
     if (this.data.saving) return
     if (!this.validateVehicle()) return
+    if (!this.requireOwnerLinked('保存相册')) return
     if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
       const ownerCheck = this.validateOwnerPhoneInput()
       if (!ownerCheck.ok) {
@@ -1361,6 +1416,8 @@ Page({
       wx.showToast({ title: '已保存', icon: 'success' })
       this.applyAlbum(detail)
       this.notifyStaleImagesDropped(droppedStaleCount)
+      this.notifyImageGateResults(detail && detail.imageGateResults)
+      this.notifyCopyQuality(detail && detail.copyQuality)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
@@ -1372,6 +1429,7 @@ Page({
   onComplete() {
     if (this.data.completing || this.data.saving) return
     if (!this.validateVehicle()) return
+    if (!this.requireOwnerLinked('标记完工')) return
     if (!this.data.hasOwner) {
       if (this.data.allowTestOwnerPhone) {
         const ownerCheck = this.validateOwnerPhoneInput()
@@ -1415,12 +1473,13 @@ Page({
       wx.showLoading({ title: '提交中', mask: true })
       const { payload, droppedStaleCount } = await this.buildSavePayload()
       await saveMerchantServiceAlbum(this.albumId, payload)
-      await completeMerchantServiceAlbum(this.albumId)
+      const completed = await completeMerchantServiceAlbum(this.albumId)
       wx.hideLoading()
       wx.showToast({ title: '已标记完工', icon: 'success', duration: 1500 })
       if (droppedStaleCount > 0) {
         this.notifyStaleImagesDropped(droppedStaleCount)
       }
+      this.notifyCopyQuality(completed && completed.copyQuality)
       const detail = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(detail)
       promptMerchantAuditSubscribe(this.albumId)

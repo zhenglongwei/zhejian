@@ -45,14 +45,7 @@
     </view>
 
     <view wx:if="{{showOwnerShare}}" class="share-sheet__footer">
-      <text class="share-sheet__privacy-text text-caption">为保护您的隐私，分享默认使用脱敏后的信息，您也可以使用：</text>
-      <ui-checkbox-row
-        checked="{{shareUseOriginal}}"
-        disabled="{{ownerSharePreparing}}"
-        bind:toggle="onToggleOriginal"
-      >
-        <text>原图分享</text>
-      </ui-checkbox-row>
+      <text class="share-sheet__privacy-text text-caption">私人分享仅使用脱敏后的图片，完整留档请在小程序内查看。</text>
     </view>
   </view>
 </ui-bottom-sheet>

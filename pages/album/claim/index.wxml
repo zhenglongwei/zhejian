@@ -41,10 +41,16 @@
 
       <block wx:else>
         <ui-card shadow="{{true}}" padding="{{true}}">
-          <ui-checkbox-row checked="{{agreed}}" bind:toggle="onAgreeToggle">
-            <text class="text-caption">{{consentText}}</text>
+          <ui-checkbox-row checked="{{agreedClaim}}" bind:toggle="onClaimConsentToggle">
+            <text class="text-caption">{{consentClaimText}}</text>
           </ui-checkbox-row>
         </ui-card>
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <ui-checkbox-row checked="{{agreedProcessing}}" bind:toggle="onProcessingConsentToggle">
+            <text class="text-caption">{{consentProcessingText}}</text>
+          </ui-checkbox-row>
+        </ui-card>
+        <text class="text-caption album-claim__policy-link" bindtap="onOpenPrivacyPolicy">查看《隐私政策》全文</text>
       </block>
     </view>
 
@@ -53,7 +59,7 @@
         type="primary"
         slot="right"
         loading="{{submitting}}"
-        disabled="{{!agreed || submitting}}"
+        disabled="{{!privacyAcknowledged || !agreedClaim || !agreedProcessing || submitting}}"
         bind:btntap="onClaimTap"
       >确认关联</ui-button>
     </ui-fixed-bottom-bar>
@@ -62,6 +68,21 @@
       <ui-button type="primary" slot="right" bind:btntap="onViewAlbum">查看服务相册</ui-button>
     </ui-fixed-bottom-bar>
   </block>
+
+  <view wx:if="{{privacyModalVisible}}" class="album-claim__modal">
+    <view class="album-claim__modal-mask" catchtap="onPrivacyModalCancel" />
+    <view class="album-claim__modal-panel safe-bottom">
+      <text class="text-h3 album-claim__modal-title">服务相册与隐私说明</text>
+      <scroll-view scroll-y class="album-claim__modal-scroll" enhanced show-scrollbar="{{true}}">
+        <text class="text-body album-claim__modal-body">{{privacyIntroText}}</text>
+      </scroll-view>
+      <text class="text-caption album-claim__policy-link album-claim__policy-link--modal" bindtap="onOpenPrivacyPolicy">查看《隐私政策》全文</text>
+      <view class="album-claim__modal-actions">
+        <ui-button type="secondary" bind:btntap="onPrivacyModalCancel">暂不关联</ui-button>
+        <ui-button type="primary" bind:btntap="onPrivacyAcknowledge">我已阅读，继续</ui-button>
+      </view>
+    </view>
+  </view>
 
   <ui-login-sheet
     visible="{{loginSheetVisible}}"

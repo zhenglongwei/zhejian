@@ -128,7 +128,10 @@ function parseEngineIdList(raw) {
 }
 
 function isPlanQuoteLlmGloballyEnabled() {
-  return process.env.PLAN_QUOTE_LLM_ENABLED !== 'false'
+  if (process.env.PLAN_QUOTE_LLM_ENABLED != null && process.env.PLAN_QUOTE_LLM_ENABLED !== '') {
+    return process.env.PLAN_QUOTE_LLM_ENABLED !== 'false'
+  }
+  return (process.env.NODE_ENV || 'development') !== 'production'
 }
 
 function isEngineExplicitlyDisabled(def) {

@@ -10,7 +10,21 @@ const ONBOARDING_QUALIFICATION_OPTIONS = [
 
 const { AUTHORIZATION_CONSENT } = require('./compliance-copy')
 
+const ONBOARDING_AGREEMENT_LINK = '《商家服务协议》'
+
 const ONBOARDING_COMPLIANCE_TEXT = AUTHORIZATION_CONSENT.merchant_onboard.text
+
+function buildOnboardingConsentParts() {
+  const text = ONBOARDING_COMPLIANCE_TEXT
+  const linkIndex = text.indexOf(ONBOARDING_AGREEMENT_LINK)
+  if (linkIndex < 0) {
+    return { before: text, after: '' }
+  }
+  return {
+    before: text.slice(0, linkIndex),
+    after: text.slice(linkIndex + ONBOARDING_AGREEMENT_LINK.length),
+  }
+}
 
 function findQualificationLabel(value) {
   const item = ONBOARDING_QUALIFICATION_OPTIONS.find((o) => o.value === value)
@@ -20,5 +34,7 @@ function findQualificationLabel(value) {
 module.exports = {
   ONBOARDING_QUALIFICATION_OPTIONS,
   ONBOARDING_COMPLIANCE_TEXT,
+  ONBOARDING_AGREEMENT_LINK,
+  buildOnboardingConsentParts,
   findQualificationLabel,
 }

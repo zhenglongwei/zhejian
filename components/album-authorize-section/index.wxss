@@ -26,6 +26,12 @@
   min-width: 0;
 }
 
+.album-authorize-section__notice {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
 .album-authorize-section__tiers {
   display: flex;
   flex-direction: column;

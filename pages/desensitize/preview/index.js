@@ -35,6 +35,9 @@ Page({
     liabilityAccepted: false,
     confirmLabelShort: '确认授权公示',
     needPreviewHint: false,
+    publicViewHint: '',
+    publicMediaCount: 0,
+    hasRepairPlanText: false,
     errorMessage: '',
     autoMaskLoading: false,
     confirmLoading: false,
@@ -49,7 +52,6 @@ Page({
     const albumTitle = decodeURIComponent((query && query.albumTitle) || '')
     const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
-    const authTier = query && query.tier === 'anonymous' ? 'anonymous' : 'named'
     const isReviewPreview = source === 'review'
     const copyKey = isReviewPreview
       ? BIZ_TYPE.SERVICE_REVIEW_PREVIEW
@@ -66,7 +68,7 @@ Page({
       orderId,
       source,
       fromPreMask,
-      authTier,
+      authTier: 'named',
       albumTitle,
       liabilityText: copy.body,
       confirmLabelShort: copy.confirmLabel || '确认授权公示',
@@ -127,15 +129,29 @@ Page({
 
   applyTask(task, aiSummary = '') {
     const view = mapTaskToWorkbenchState(task)
+    const publicMediaCount = Number.isFinite(Number(task.publicMediaCount))
+      ? Number(task.publicMediaCount)
+      : (task.rawAssets || []).length
+    const hasRepairPlanText = Boolean(task.hasRepairPlanText)
+    const publicViewHint = task.publicViewHint || ''
+    const isTextOnlyAuthorize =
+      this.data.source === 'service' &&
+      !(task.rawAssets || []).length &&
+      hasRepairPlanText
     const isEmptyServiceAuthorize =
-      this.data.source === 'service' && !(task.rawAssets || []).length
+      this.data.source === 'service' &&
+      !(task.rawAssets || []).length &&
+      !hasRepairPlanText
     this.setData({
       workbenchItems: view.workbenchItems,
       stats: view.stats,
-      canConfirm: view.canConfirm || isEmptyServiceAuthorize,
+      canConfirm: view.canConfirm || isTextOnlyAuthorize || isEmptyServiceAuthorize,
       needPreviewHint: view.needPreviewHint,
       fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
-      status: isEmptyServiceAuthorize ? 'normal' : view.pageStatus,
+      publicViewHint,
+      publicMediaCount,
+      hasRepairPlanText,
+      status: isTextOnlyAuthorize || isEmptyServiceAuthorize ? 'normal' : view.pageStatus,
       aiSummary: aiSummary || this.data.aiSummary,
     })
     this._loaded = true
@@ -288,7 +304,7 @@ Page({
       if (this.data.source === 'service') {
         await submitServiceAlbumAuthorization(this.data.albumId, {
           agreed: true,
-          tier: this.data.authTier,
+          tier: 'named',
         })
         await submitServicePublicCaseReview({
           albumId: this.data.albumId,

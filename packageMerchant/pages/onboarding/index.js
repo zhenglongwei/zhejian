@@ -8,13 +8,10 @@ const {
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
-  MERCHANT_SERVICE_TAG_OPTIONS,
-  MERCHANT_SERVICE_TAG_MAX,
-  MERCHANT_SERVICE_TAG_NAME_MAX,
-} = require('../../../constants/merchant-service-tags')
-const {
   ONBOARDING_QUALIFICATION_OPTIONS,
   ONBOARDING_COMPLIANCE_TEXT,
+  ONBOARDING_AGREEMENT_LINK,
+  buildOnboardingConsentParts,
 } = require('../../../constants/onboarding')
 const {
   MERCHANT_ONBOARDING_HERO,
@@ -23,10 +20,9 @@ const {
 } = require('../../../constants/merchant-onboarding-copy')
 const { uploadImage, normalizeStoredImageUrl } = require('../../../utils/media-upload')
 const {
-  buildBusinessHoursEditorState,
-  validateBusinessHours,
-} = require('../../../utils/business-hours')
-const { createBusinessHoursPageHandlers } = require('../../../utils/business-hours-page')
+  chooseStoreLocation,
+  getChooseLocationFailMessage,
+} = require('../../../utils/choose-location')
 
 const EMPTY_FORM = {
   storeName: '',
@@ -57,20 +53,15 @@ const EMPTY_FORM = {
 Page({
   data: {
     form: { ...EMPTY_FORM },
-    serviceOptions: MERCHANT_SERVICE_TAG_OPTIONS,
-    serviceTags: [],
     qualificationOptions: ONBOARDING_QUALIFICATION_OPTIONS,
     qualificationIndex: 0,
     complianceText: ONBOARDING_COMPLIANCE_TEXT,
+    consentTextBefore: buildOnboardingConsentParts().before,
+    consentTextAfter: buildOnboardingConsentParts().after,
+    agreementLink: ONBOARDING_AGREEMENT_LINK,
     heroCopy: MERCHANT_ONBOARDING_HERO,
     valueItems: MERCHANT_ONBOARDING_VALUE_ITEMS,
     positioningNotice: MERCHANT_ONBOARDING_POSITIONING,
-    customServiceInput: '',
-    businessHoursDaily: { start: '09:00', end: '18:00' },
-    businessHoursClosures: [],
-    businessHoursPreview: '',
-    showClosureForm: false,
-    closureDraft: { startDate: '', endDate: '', note: '' },
     agreed: false,
     submitting: false,
     status: 'loading',
@@ -91,16 +82,21 @@ Page({
     const qualIndex = ONBOARDING_QUALIFICATION_OPTIONS.findIndex(
       (o) => o.value === (q.type || 'class_3')
     )
+    const hasLocation =
+      profile.latitude != null &&
+      profile.longitude != null &&
+      String(profile.latitude) !== '' &&
+      String(profile.longitude) !== ''
     return {
       form: {
         storeName: profile.storeName || '',
         contactName: profile.contactName || '',
         phone: profile.phone || '',
         storePhone: profile.storePhone || profile.phone || '',
-        address: profile.address || '',
-        latitude: profile.latitude != null ? String(profile.latitude) : '',
-        longitude: profile.longitude != null ? String(profile.longitude) : '',
-        locationLabel: profile.address || '',
+        address: hasLocation ? profile.address || '' : '',
+        latitude: hasLocation ? String(profile.latitude) : '',
+        longitude: hasLocation ? String(profile.longitude) : '',
+        locationLabel: hasLocation ? profile.address || '' : '',
         businessHours: profile.businessHours || '',
         intro: profile.intro || '',
         services: profile.services || [],
@@ -118,25 +114,6 @@ Page({
         brandAuthPhotoUrl: photos.brandAuthUrl || '',
       },
       qualificationIndex: qualIndex >= 0 ? qualIndex : 0,
-      serviceTags: this.buildTagViews(profile.services || []),
-    }
-  },
-
-  ...createBusinessHoursPageHandlers(),
-
-  buildBusinessHoursState(raw) {
-    return buildBusinessHoursEditorState(raw)
-  },
-
-  applyBusinessHoursPatch(patch, rawBusinessHours) {
-    const hours = this.buildBusinessHoursState(rawBusinessHours)
-    return {
-      ...patch,
-      businessHoursDaily: hours.businessHoursDaily,
-      businessHoursClosures: hours.businessHoursClosures,
-      businessHoursPreview: hours.businessHoursPreview,
-      showClosureForm: hours.showClosureForm,
-      closureDraft: hours.closureDraft,
     }
   },
 
@@ -145,9 +122,10 @@ Page({
       try {
         const profile = await beginNewMerchantStore()
         const patch = this.profileToForm(profile)
-        const hours = this.buildBusinessHoursState(patch.form.businessHours)
         this.setData({
-          ...this.applyBusinessHoursPatch({ ...patch, status: 'normal', profile, merchantId: profile.merchantId || '' }, patch.form.businessHours),
+          ...patch,
+          status: 'normal',
+          profile,
           merchantId: profile.merchantId || '',
           newStoreMode: true,
         })
@@ -178,84 +156,15 @@ Page({
           : profile.status === MERCHANT_STATUS.REJECTED
             ? 'rejected'
             : 'normal'
-      this.setData(this.applyBusinessHoursPatch({ ...patch, status, profile, merchantId: profile.merchantId || '' }, patch.form.businessHours))
+      this.setData({ ...patch, status, profile, merchantId: profile.merchantId || '' })
       return
     }
-    const hours = this.buildBusinessHoursState('')
-    this.setData({
-      status: 'normal',
-      serviceTags: this.buildTagViews([]),
-      businessHoursDaily: hours.businessHoursDaily,
-      businessHoursClosures: hours.businessHoursClosures,
-      businessHoursPreview: hours.businessHoursPreview,
-      showClosureForm: hours.showClosureForm,
-      closureDraft: hours.closureDraft,
-    })
+    this.setData({ status: 'normal' })
   },
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value })
-  },
-
-  buildTagViews(services) {
-    const preset = this.data.serviceOptions
-    const selected = services || []
-    const presetTags = preset.map((name) => ({
-      name,
-      selected: selected.indexOf(name) >= 0,
-    }))
-    const customTags = selected
-      .filter((name) => preset.indexOf(name) < 0)
-      .map((name) => ({ name, selected: true }))
-    return presetTags.concat(customTags)
-  },
-
-  updateServices(services) {
-    this.setData({
-      'form.services': services,
-      serviceTags: this.buildTagViews(services),
-    })
-  },
-
-  onToggleService(e) {
-    const { name } = e.currentTarget.dataset
-    const list = this.data.form.services.slice()
-    const idx = list.indexOf(name)
-    if (idx >= 0) {
-      list.splice(idx, 1)
-    } else if (list.length >= MERCHANT_SERVICE_TAG_MAX) {
-      wx.showToast({ title: `最多选择 ${MERCHANT_SERVICE_TAG_MAX} 项`, icon: 'none' })
-      return
-    } else {
-      list.push(name)
-    }
-    this.updateServices(list)
-  },
-
-  onCustomServiceInput(e) {
-    this.setData({ customServiceInput: e.detail.value })
-  },
-
-  onCustomServiceCommit() {
-    const name = (this.data.customServiceInput || '').trim()
-    if (!name) return
-    if (name.length > MERCHANT_SERVICE_TAG_NAME_MAX) {
-      wx.showToast({ title: `不超过 ${MERCHANT_SERVICE_TAG_NAME_MAX} 字`, icon: 'none' })
-      return
-    }
-    const list = this.data.form.services.slice()
-    if (list.indexOf(name) >= 0) {
-      this.setData({ customServiceInput: '' })
-      return
-    }
-    if (list.length >= MERCHANT_SERVICE_TAG_MAX) {
-      wx.showToast({ title: `最多选择 ${MERCHANT_SERVICE_TAG_MAX} 项`, icon: 'none' })
-      return
-    }
-    list.push(name)
-    this.setData({ customServiceInput: '' })
-    this.updateServices(list)
   },
 
   onQualificationChange(e) {
@@ -267,20 +176,33 @@ Page({
     })
   },
 
-  onChooseLocation() {
-    wx.chooseLocation({
-      success: (res) => {
-        this.setData({
-          'form.address': res.address || res.name || this.data.form.address,
-          'form.latitude': String(res.latitude),
-          'form.longitude': String(res.longitude),
-          'form.locationLabel': res.name || res.address || '',
-        })
-      },
-      fail: () => {
-        wx.showToast({ title: '请授权位置或手动填写地址', icon: 'none' })
-      },
-    })
+  async onChooseLocation() {
+    if (this._choosingLocation) return
+    this._choosingLocation = true
+    try {
+      const { form } = this.data
+      const privacyPopup = this.selectComponent('#privacyAuthorizePopup')
+      const res = await chooseStoreLocation(
+        {
+          latitude: form.latitude,
+          longitude: form.longitude,
+        },
+        { privacyPopup }
+      )
+      this.setData({
+        'form.address': res.address || res.name || '',
+        'form.latitude': String(res.latitude),
+        'form.longitude': String(res.longitude),
+        'form.locationLabel': res.name || res.address || '',
+      })
+    } catch (err) {
+      const message = getChooseLocationFailMessage(err)
+      if (message) {
+        wx.showToast({ title: message, icon: 'none' })
+      }
+    } finally {
+      this._choosingLocation = false
+    }
   },
 
   async pickSingleImage(field, options = {}) {
@@ -310,7 +232,6 @@ Page({
       creditCode: '信用代码',
       contactName: '负责人',
       storeName: '门店名称',
-      address: '门店地址',
     }
 
     const assignField = (field, value) => {
@@ -331,9 +252,6 @@ Page({
     assignField('contactName', result.legalPerson)
     if (!form.storeName && result.legalName) {
       patch['form.storeName'] = result.legalName
-    }
-    if (!form.address && result.businessAddress) {
-      patch['form.address'] = result.businessAddress
     }
 
     const applyPatch = (extraPatch = {}) => {
@@ -470,8 +388,14 @@ Page({
     this.setData({ 'form.workshopPhotoUrls': list })
   },
 
-  onAgreeChange(e) {
-    this.setData({ agreed: e.detail.value.length > 0 })
+  onToggleAgreement() {
+    this.setData({ agreed: !this.data.agreed })
+  },
+
+  onOpenMerchantAgreement() {
+    wx.navigateTo({
+      url: '/packageMerchant/pages/legal-document/index?type=merchant',
+    })
   },
 
   buildPayload() {
@@ -511,16 +435,6 @@ Page({
     if (!f.qualificationType || !f.qualificationPhotoUrl) {
       wx.showToast({ title: '请完善维修资质信息', icon: 'none' })
       return false
-    }
-    if (f.businessHours) {
-      const hoursMessage = validateBusinessHours(
-        this.data.businessHoursDaily,
-        this.data.businessHoursClosures
-      )
-      if (hoursMessage) {
-        wx.showToast({ title: hoursMessage, icon: 'none' })
-        return false
-      }
     }
     if (!this.data.agreed) {
       wx.showToast({ title: '请阅读并同意入驻说明', icon: 'none' })

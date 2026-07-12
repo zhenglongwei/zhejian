@@ -196,7 +196,7 @@ const { COMPLIANCE_COPY } = require('./compliance-copy')
 const AI_INSPECTION_PAGE_NOTICE = COMPLIANCE_COPY.aiInspection
 
 const AI_INSPECTION_CONSENT =
-  '将使用本相册的结构化信息与部分照片（经服务端读取后生成文字说明，不向外发送原图）生成 AI 检查建议。平台不负责鉴定配件真伪；即便单据图文全部对得上，也不能排除造假可能，相册仅能提高作假成本。是否继续？'
+  '将使用本相册的结构化信息与部分照片说明生成 AI 检查建议。若开启图像识别，可能将照片发送至 AI 服务商分析（不用于用户画像）。平台不负责鉴定配件真伪。是否继续？'
 
 function templateMatches(typeDef, templateId) {
   const tpl = String(templateId || '').trim() || 'default'

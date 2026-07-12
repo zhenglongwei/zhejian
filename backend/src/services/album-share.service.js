@@ -5,7 +5,7 @@ const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { albumToNodeView, BIZ_TYPE, buildDesensitizedUrl } = require('./desensitize.constants')
 const { getTaskById } = require('./desensitize.service')
 
-const VALID_MODES = new Set(['desensitized', 'original'])
+const VALID_MODES = new Set(['desensitized'])
 const VALID_CHANNELS = new Set(['wechat', 'link', ''])
 
 function getShareTokenModel() {
@@ -143,17 +143,14 @@ async function assertOwnerAccess(album, userId) {
   }
 }
 
-async function buildSharedAlbumView(album, mode) {
-  const nodes =
-    mode === 'original'
-      ? mapNodesForShare(album, 'original')
-      : await resolveDesensitizedNodes(album)
+async function buildSharedAlbumView(album) {
+  const nodes = await resolveDesensitizedNodes(album)
   const store = buildStoreBlock(album)
   const vehicle = album.vehicleJson || {}
 
   return {
     albumId: album.id,
-    shareMode: mode,
+    shareMode: 'desensitized',
     serviceName: album.serviceName || '—',
     store: {
       name: store.name,
@@ -163,10 +160,7 @@ async function buildSharedAlbumView(album, mode) {
     storeNote: album.storeNote || '',
     nodes,
     sharedAt: toIso(new Date()),
-    disclaimer:
-      mode === 'original'
-        ? '本页由车主选择原图分享，可能包含隐私信息，请勿二次传播。'
-        : '本页为车主分享的脱敏服务过程，不含完整车牌、手机号等隐私信息。',
+    disclaimer: '本页为车主分享的脱敏服务过程，不含完整车牌、手机号等隐私信息。',
   }
 }
 
@@ -174,7 +168,7 @@ async function createAlbumShareToken(albumId, userId, payload = {}) {
   const album = await loadAlbum(albumId)
   await assertOwnerAccess(album, userId)
 
-  const mode = VALID_MODES.has(payload.mode) ? payload.mode : 'desensitized'
+  const mode = 'desensitized'
   const channel = VALID_CHANNELS.has(payload.channel) ? payload.channel : ''
   const tokenId = newId('sh_alb')
   const model = getShareTokenModel()
@@ -233,7 +227,7 @@ async function getSharedAlbumByToken(token) {
     throw err
   }
 
-  return buildSharedAlbumView(record.album, record.mode)
+  return buildSharedAlbumView(record.album)
 }
 
 module.exports = {

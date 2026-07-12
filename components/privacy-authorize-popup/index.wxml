@@ -1,0 +1,19 @@
+<view wx:if="{{visible}}" class="privacy-auth-popup">
+  <view class="privacy-auth-popup__mask mask" catchtap="onDisagree" />
+  <view class="privacy-auth-popup__panel popup safe-bottom" catchtap="noop">
+    <text class="privacy-auth-popup__title text-h3">{{title}}</text>
+    <text class="privacy-auth-popup__desc text-body">
+      {{description}}
+      <text class="privacy-auth-popup__link" catchtap="onOpenPrivacyContract">查看《用户隐私保护指引》</text>
+    </text>
+    <view class="privacy-auth-popup__actions">
+      <button class="privacy-auth-popup__btn privacy-auth-popup__btn--ghost" bindtap="onDisagree">暂不</button>
+      <button
+        id="privacy-agree-btn"
+        class="privacy-auth-popup__btn privacy-auth-popup__btn--primary"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="onAgree"
+      >同意并继续</button>
+    </view>
+  </view>
+</view>

@@ -1,35 +1,58 @@
-<view class="page merchant-onboard page-content merchant-form-page" wx:if="{{status === 'pending'}}">
-  <view class="merchant-onboard__hero">
-    <text class="text-h1">入驻审核中</text>
-    <text class="text-body merchant-onboard__sub">我们将在 1–3 个工作日内完成审核，通过后商家工作台自动开通。</text>
-  </view>
-  <ui-compliance-notice type="history" text="审核期间可返回本页刷新状态；通过后须刷新登录态以使用商家功能。" />
-  <view class="merchant-onboard__actions">
-    <ui-button type="primary" loading="{{submitting}}" bind:btntap="onRefreshAudit">刷新审核状态</ui-button>
+<view class="merchant-onboard bg-album" wx:if="{{status === 'pending'}}">
+  <view class="page-content merchant-onboard__top">
+    <view class="merchant-onboard__folio surface-album-folio">
+      <view class="merchant-onboard__folio-inner">
+        <text class="merchant-onboard__title text-h2">入驻审核中</text>
+        <text class="merchant-onboard__sub text-caption text-secondary">我们将在 1–3 个工作日内完成审核，通过后商家工作台自动开通。</text>
+      </view>
+    </view>
+    <view class="merchant-onboard__panel surface-album-panel">
+      <ui-compliance-notice type="history" text="审核期间可返回本页刷新状态；通过后须刷新登录态以使用商家功能。" />
+      <view class="merchant-onboard__actions">
+        <ui-button type="primary" loading="{{submitting}}" bind:btntap="onRefreshAudit">刷新审核状态</ui-button>
+      </view>
+    </view>
   </view>
 </view>
 
-<view class="page merchant-onboard page-content merchant-form-page" wx:elif="{{status === 'normal' || status === 'rejected' || status === 'need_modify'}}">
-  <view class="merchant-onboard__hero">
-    <text class="text-h1">{{heroCopy.title}}</text>
-    <text class="text-body merchant-onboard__sub">{{heroCopy.subtitle}}</text>
-  </view>
-  <view class="merchant-onboard__values">
-    <view wx:for="{{valueItems}}" wx:key="title" class="merchant-onboard__value-item">
-      <text class="text-body merchant-onboard__value-title">{{item.title}}</text>
-      <text class="text-caption merchant-onboard__value-desc">{{item.desc}}</text>
+<view class="merchant-onboard bg-album" wx:elif="{{status === 'normal' || status === 'rejected' || status === 'need_modify'}}">
+  <view class="page-content merchant-onboard__top">
+    <view class="merchant-onboard__folio surface-album-folio">
+      <view class="merchant-onboard__folio-inner">
+        <text class="merchant-onboard__title text-h2">{{heroCopy.title}}</text>
+        <text class="merchant-onboard__sub text-caption text-secondary">{{heroCopy.subtitle}}</text>
+      </view>
+    </view>
+
+    <view class="merchant-onboard__panel surface-album-panel">
+      <view class="merchant-onboard__section-head">
+        <text class="merchant-onboard__panel-title text-h3">入驻后可使用</text>
+      </view>
+      <view class="merchant-onboard__benefits">
+        <view wx:for="{{valueItems}}" wx:key="title" class="merchant-onboard__benefit">
+          <view class="merchant-onboard__benefit-dot" />
+          <view class="merchant-onboard__benefit-text">
+            <text class="text-body merchant-onboard__benefit-title">{{item.title}}</text>
+            <text class="text-caption merchant-onboard__benefit-desc">{{item.desc}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="surface-album-inset-divider" />
+      <view class="merchant-onboard__notices">
+        <ui-compliance-notice type="history" text="{{positioningNotice}}" />
+        <ui-compliance-notice type="history" text="入驻资料仅用于资质审核与门店展示，请确保信息真实有效。" />
+      </view>
+    </view>
+
+    <view wx:if="{{status === 'rejected'}}" class="merchant-onboard__reject surface-album-panel">
+      <text class="text-caption">上次审核未通过{{profile.rejectReason ? '：' + profile.rejectReason : ''}}，请修改后重新提交。</text>
+    </view>
+    <view wx:if="{{status === 'need_modify'}}" class="merchant-onboard__reject surface-album-panel">
+      <text class="text-caption">请按审核意见修改{{profile.rejectReason ? '：' + profile.rejectReason : ''}}，修改后重新提交。</text>
     </view>
   </view>
-  <ui-compliance-notice type="history" text="{{positioningNotice}}" />
-  <ui-compliance-notice type="history" text="入驻资料仅用于资质审核与门店展示，请确保信息真实有效。" />
-  <view wx:if="{{status === 'rejected'}}" class="merchant-onboard__reject text-caption">
-    上次审核未通过{{profile.rejectReason ? '：' + profile.rejectReason : ''}}，请修改后重新提交。
-  </view>
-  <view wx:if="{{status === 'need_modify'}}" class="merchant-onboard__reject text-caption">
-    请按审核意见修改{{profile.rejectReason ? '：' + profile.rejectReason : ''}}，修改后重新提交。
-  </view>
 
-  <view class="merchant-onboard__form">
+  <view class="page-content merchant-form-page merchant-onboard__form">
     <view class="merchant-form__section merchant-onboard__license-first">
       <text class="merchant-form__label">营业执照照片 *</text>
       <text class="text-caption merchant-onboard__optional-hint">请先上传营业执照，系统将自动识别主体名称与统一社会信用代码，识别结果可手动修改。</text>
@@ -77,14 +100,14 @@
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店地址 *</text>
-      <input class="merchant-form__input" placeholder="详细地址" value="{{form.address}}" data-field="address" bindinput="onInput" />
-      <ui-button type="ghost" size="sm" custom-class="merchant-onboard__loc-btn" bind:btntap="onChooseLocation">地图选点</ui-button>
-      <text wx:if="{{form.latitude}}" class="text-caption merchant-onboard__loc-hint">已选坐标 {{form.latitude}}, {{form.longitude}}</text>
-    </view>
-    <view class="merchant-form__section merchant-hours">
-      <text class="merchant-form__label">营业时间</text>
-      <text class="text-caption merchant-onboard__optional-hint">选填，可审核通过后在工作台完善</text>
-      <include src="../../templates/business-hours-editor.wxml" />
+      <text class="text-caption merchant-onboard__optional-hint">须在地图上选点，不可手填；审核通过后可在工作台修改</text>
+      <view
+        class="merchant-form__input merchant-onboard__address-picker {{form.address ? '' : 'merchant-onboard__address-picker--empty'}}"
+        hover-class="merchant-onboard__address-picker--active"
+        catchtap="onChooseLocation"
+      >
+        <text class="merchant-onboard__address-text">{{form.address || '点击选择门店地址'}}</text>
+      </view>
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店简介</text>
@@ -150,24 +173,11 @@
       </view>
     </view>
 
-    <text class="merchant-onboard__section-title text-h3">擅长服务</text>
-    <text class="text-caption merchant-onboard__optional-hint">可审核通过后完善</text>
-    <view class="merchant-form__section">
-      <view class="merchant-onboard__chips">
-        <view wx:for="{{serviceTags}}" wx:key="name" class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}" data-name="{{item.name}}" bindtap="onToggleService">{{item.name}}</view>
-      </view>
-      <view class="merchant-onboard__custom-line">
-        <text class="merchant-onboard__custom-label text-body">自定义</text>
-        <input class="merchant-onboard__custom-input" value="{{customServiceInput}}" maxlength="16" confirm-type="done" bindinput="onCustomServiceInput" bindblur="onCustomServiceCommit" bindconfirm="onCustomServiceCommit" />
-      </view>
+    <view class="merchant-onboard__agree">
+      <ui-checkbox-row checked="{{agreed}}" bind:toggle="onToggleAgreement">
+        <text>{{consentTextBefore}}<text class="merchant-onboard__agree-link" catchtap="onOpenMerchantAgreement">{{agreementLink}}</text>{{consentTextAfter}}</text>
+      </ui-checkbox-row>
     </view>
-
-    <label class="merchant-onboard__agree">
-      <checkbox-group bindchange="onAgreeChange">
-        <checkbox value="1" checked="{{agreed}}" />
-      </checkbox-group>
-      <text class="text-caption">{{complianceText}}</text>
-    </label>
   </view>
 
   <view class="merchant-form__spacer" />
@@ -175,4 +185,6 @@
     <ui-button type="secondary" size="sm" slot="left" loading="{{submitting}}" bind:btntap="onSaveDraft">保存草稿</ui-button>
     <ui-button type="primary" slot="right" loading="{{submitting}}" bind:btntap="onSubmit">提交入驻</ui-button>
   </ui-fixed-bottom-bar>
+
+  <privacy-authorize-popup id="privacyAuthorizePopup" />
 </view>

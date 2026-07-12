@@ -53,6 +53,12 @@ const { maskPlate } = require('../utils/plate-mask')
 const { normalizePlate, normalizeVin } = require('./vehicle-intake-ocr.service')
 const { assessGeoEvidence } = require('../utils/case-geo-quality')
 const {
+  VISIBILITY,
+  PUBLIC_GATE_STATUS,
+} = require('../constants/album-public-visibility-policy')
+const { resolveImagePublicFields } = require('./public-gate.service')
+const { assessCopyQuality } = require('./copy-quality.service')
+const {
   hydrateEvidenceItems,
   sanitizeEvidenceItemsPayload,
   mergeEvidenceIntoNodes,
@@ -133,6 +139,42 @@ function isAlbumWithdrawable(album) {
   return publicCase.status !== PUBLIC_CASE_STATUS.OFFLINE
 }
 
+function mapImageMeta(album) {
+  return (album.images || []).map((img) => ({
+    id: img.id,
+    nodeId: img.nodeId,
+    idx: img.idx,
+    rawUrl: rewriteMediaUrlForCurrentBase(img.rawUrl),
+    visibility: img.visibility || VISIBILITY.PRIVATE,
+    publicGateStatus: img.publicGateStatus || PUBLIC_GATE_STATUS.PENDING,
+    publicGateReason: img.publicGateReason || '',
+    publicGateCheckedAt: img.publicGateCheckedAt ? toIso(img.publicGateCheckedAt) : '',
+  }))
+}
+
+function countPublicMedia(imageMeta = []) {
+  return imageMeta.filter(
+    (row) =>
+      row.visibility === VISIBILITY.PUBLIC &&
+      row.publicGateStatus === PUBLIC_GATE_STATUS.PASSED,
+  ).length
+}
+
+function buildImageGateCache(existingImages = []) {
+  const cache = new Map()
+  existingImages.forEach((row) => {
+    const key = stripUrlQuery(rewriteMediaUrlForCurrentBase(row.rawUrl))
+    if (!key) return
+    cache.set(key, {
+      visibility: row.visibility,
+      publicGateStatus: row.publicGateStatus,
+      publicGateReason: row.publicGateReason,
+      publicGateCheckedAt: row.publicGateCheckedAt,
+    })
+  })
+  return cache
+}
+
 function mapNodesForView(album) {
   const nodeViews = albumToNodeView(album)
   const templateMeta = getTemplateNodeMetaMap(album.templateId)
@@ -150,6 +192,7 @@ function mapNodesForView(album) {
       updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
       description: stageMeta.description || '',
       photoTips: stageMeta.photoTips || '',
+      publicUploadHint: stageMeta.publicUploadHint || '',
       compareGuidance: stageMeta.compareGuidance || '',
       requiredLevelLabel:
         requiredLevel === 'required'
@@ -285,6 +328,7 @@ function buildAlbumView(album) {
   const privatePrice = buildPrivateAlbumPrice(album)
   const planAmount = privatePrice.planAmount
 
+  const imageMeta = mapImageMeta(album)
   const view = {
     albumId: album.id,
     serviceName: album.serviceName || '—',
@@ -294,6 +338,8 @@ function buildAlbumView(album) {
     vehicleDisplay,
     vehicle,
     imageCount,
+    imageMeta,
+    publicMediaCount: countPublicMedia(imageMeta),
     storeNote: album.storeNote || '',
     nodes,
     evidenceItems: resolveEvidenceItemsForAlbum(album, nodes),
@@ -434,6 +480,8 @@ function buildMerchantView(album) {
     priceMode: privatePrice.priceMode,
     amount: privatePrice.amount,
     imageCount,
+    imageMeta: mapImageMeta(album),
+    publicMediaCount: countPublicMedia(mapImageMeta(album)),
     publicCaseStatus,
     publicCaseId: album.publicCase?.id || '',
     canSubmitColdStartPublicCase,
@@ -514,6 +562,8 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
   }))
   const albumContext = options.album || null
   const previousUrls = options.previousImageUrls || new Set()
+  const gateCache = buildImageGateCache(options.existingImages || [])
+  const imageGateResults = []
 
   await prisma.albumNode.deleteMany({ where: { albumId } })
   await prisma.albumImage.deleteMany({ where: { albumId } })
@@ -552,12 +602,27 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         })
       }
       rawUrl = stripUrlQuery(rawUrl)
+      const gateFields = await resolveImagePublicFields(nodeId, rawUrl, gateCache)
+      if (gateFields.hint) {
+        imageGateResults.push({
+          nodeId,
+          idx,
+          visibility: gateFields.visibility,
+          publicGateStatus: gateFields.publicGateStatus,
+          publicGateReason: gateFields.publicGateReason,
+          hint: gateFields.hint,
+        })
+      }
       imageRows.push({
         id: `img_${albumId}_${nodeId}_${idx}`,
         albumId,
         nodeId,
         idx,
         rawUrl,
+        visibility: gateFields.visibility,
+        publicGateStatus: gateFields.publicGateStatus,
+        publicGateReason: gateFields.publicGateReason,
+        publicGateCheckedAt: gateFields.publicGateCheckedAt,
       })
       imageCount += 1
     }
@@ -567,7 +632,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
     await prisma.albumImage.createMany({ data: imageRows })
   }
 
-  return imageCount
+  return { imageCount, imageGateResults }
 }
 
 function buildUserAlbumWhere(userId, phone) {
@@ -827,6 +892,15 @@ function assertAlbumHasOwnerPhone(album) {
   throw err
 }
 
+function payloadTouchesMedia(payload = {}) {
+  if (payload.nodes != null) return true
+  if (payload.evidenceItems != null) {
+    const items = Array.isArray(payload.evidenceItems) ? payload.evidenceItems : []
+    return items.some((item) => (Array.isArray(item.images) ? item.images : []).length > 0)
+  }
+  return false
+}
+
 function assertMerchantCannotSetOwnerPhone(payload = {}) {
   if (config.merchantOwnerPhoneTest) return
   if (payload.userPhone == null || payload.userPhone === '') return
@@ -921,6 +995,9 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   assertMerchantAlbum(existing, storeId, merchantId)
   assertAlbumContentEditable(existing)
   assertMerchantCannotSetOwnerPhone(payload)
+  if (payloadTouchesMedia(payload)) {
+    assertAlbumHasOwnerPhone(existing)
+  }
 
   let imageCount = existing.imageCount
   let evidenceItemsJson = Array.isArray(existing.evidenceItemsJson)
@@ -939,10 +1016,13 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     const previousImageUrls = new Set(
       (existing.images || []).map((img) => rewriteMediaUrlForCurrentBase(img.rawUrl))
     )
-    imageCount = await syncAlbumNodes(albumId, mergedNodes, {
+    const syncResult = await syncAlbumNodes(albumId, mergedNodes, {
       album: existing,
       previousImageUrls,
+      existingImages: existing.images || [],
     })
+    imageCount = syncResult.imageCount
+    payload._imageGateResults = syncResult.imageGateResults
     const { syncPlanQuoteImageIds } = require('./album-plan-parts.service')
     await syncPlanQuoteImageIds(albumId)
   }
@@ -1001,7 +1081,19 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     })
   }
 
-  return buildMerchantView(album)
+  const view = buildMerchantView(album)
+  if (payload._imageGateResults && payload._imageGateResults.length) {
+    view.imageGateResults = payload._imageGateResults
+  }
+  view.copyQuality = assessCopyQuality(view)
+  return view
+}
+
+async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  const view = buildMerchantView(album)
+  return assessCopyQuality(view)
 }
 
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
@@ -1035,7 +1127,9 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
   })
-  return buildMerchantView(album)
+  const view = buildMerchantView(album)
+  view.copyQuality = assessCopyQuality(view)
+  return view
 }
 
 async function fetchMerchantAlbumStats(storeId, merchantId = '') {
@@ -1101,7 +1195,7 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
   assertAlbumCompliancePassed(album)
 
   const agreed = payload.agreed !== false
-  const tier = payload.tier || 'named'
+  const tier = 'named'
   const status = agreed ? 'authorized' : 'user_rejected'
   const publicCaseStatus = agreed ? 'pending_review' : 'user_rejected'
 
@@ -1348,6 +1442,28 @@ async function claimServiceAlbumByUser(albumId, userId, payload = {}) {
     },
   })
 
+  const consentEntries = Array.isArray(payload.authorizationConsents)
+    ? payload.authorizationConsents
+    : []
+  if (consentEntries.length) {
+    const { recordAuthorizationLogs } = require('./authorization-log.service')
+    await recordAuthorizationLogs(
+      userId,
+      consentEntries.map((item) => ({
+        authType: item.authType,
+        businessId: String(item.businessId || albumId),
+        authTextVersion: item.authTextVersion,
+        authTextSnapshot: item.authTextSnapshot,
+        remark: item.remark || '',
+      })),
+      {
+        clientType: payload.clientType || 'miniprogram',
+        ip: payload.ip || '',
+        deviceInfo: payload.deviceInfo || '',
+      }
+    )
+  }
+
   return getUserServiceAlbum(albumId, userId)
 }
 
@@ -1481,6 +1597,7 @@ module.exports = {
   getMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
   listServiceAlbumTemplateOptions,
+  fetchMerchantCopyQuality,
   loadAlbum,
   isAlbumContentLocked,
   assertAlbumContentEditable,

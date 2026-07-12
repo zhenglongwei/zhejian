@@ -34,3 +34,66 @@
   margin-top: var(--space-sm);
   color: var(--color-text-secondary);
 }
+
+.album-claim__policy-link {
+  display: block;
+  padding: 0 var(--space-md);
+  color: var(--color-primary);
+}
+
+.album-claim__policy-link--modal {
+  padding: 0;
+  margin-bottom: var(--space-sm);
+}
+
+.album-claim__modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1000);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.album-claim__modal-mask {
+  position: absolute;
+  inset: 0;
+  background: var(--color-overlay, rgba(0, 0, 0, 0.45));
+}
+
+.album-claim__modal-panel {
+  position: relative;
+  width: 100%;
+  max-height: 78vh;
+  padding: var(--space-lg) var(--space-md) var(--space-md);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-bg-elevated, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-claim__modal-title {
+  color: var(--color-text-primary);
+}
+
+.album-claim__modal-scroll {
+  max-height: 42vh;
+}
+
+.album-claim__modal-body {
+  display: block;
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.album-claim__modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.album-claim__modal-actions ui-button {
+  flex: 1;
+}

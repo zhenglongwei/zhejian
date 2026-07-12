@@ -34,6 +34,7 @@ const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const {
   resolvePublicCaseContentNodes,
+  extractPublicViewFromContentJson,
 } = require('../schemas/case-snapshot.schema')
 const {
   applySnapshotLayerToPublicCase,
@@ -194,6 +195,8 @@ function mapPublicCaseRow(row, album) {
     nodes: resolvePublicCaseContentNodes(rawContent),
   }
   const geoFields = resolveGeoReadableFields(row)
+  const publicView = extractPublicViewFromContentJson(rawContent)
+  const viewFacts = publicView?.facts || {}
   const cover = pickCaseCover(row, content, album)
   const publicPrice = resolvePublicCasePriceFields(row, album)
   const item = {
@@ -219,9 +222,10 @@ function mapPublicCaseRow(row, album) {
     tags: content.tags || ['authorized', 'desensitized', 'audited'],
     aiSummary: geoFields.aiSummary,
     keyInfo: geoFields.keyInfo.length ? geoFields.keyInfo : content.keyInfo || [],
-    faultDesc: geoFields.faultDesc,
-    inspectResult: geoFields.inspectResult,
-    repairPlan: geoFields.repairPlan,
+    faultDesc: viewFacts.faultDesc || geoFields.faultDesc,
+    inspectResult: viewFacts.inspectResult || geoFields.inspectResult,
+    repairPlan: viewFacts.repairPlan || geoFields.repairPlan,
+    resultConfirm: viewFacts.resultConfirm || geoFields.resultConfirm,
     priceFactors:
       geoFields.priceFactors.length > 0 ? geoFields.priceFactors : content.priceFactors || [],
     nodes: sanitizeNodes(content.nodes),

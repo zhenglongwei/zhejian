@@ -181,7 +181,7 @@
             wx:if="{{showStageEvidenceSlots}}"
             items="{{stageEvidenceSlots}}"
             disabled="{{saving || completing || switching}}"
-            uploadHint="{{uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             bind:change="onEvidenceSlotsChange"
           />
           <album-compare-pair-editor
@@ -193,7 +193,7 @@
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             note="{{nodes[stageIndex].note}}"
             notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
-            uploadHint="{{uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             pairRows="{{comparePairRows}}"
             disabled="{{saving || completing || switching}}"
             bind:rowschange="onCompareRowsChange"
@@ -210,7 +210,7 @@
                   class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
                   bindtap="onRunPlanQuoteOcr"
                 >
-                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : '从报价单识别'}}</text>
+                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR 辅助录入'}}</text>
                 </view>
                 <text
                   class="text-caption text-link merchant-album-edit__parts-add-link"
@@ -347,7 +347,7 @@
             wx:if="{{showStageEvidenceSlots}}"
             items="{{stageEvidenceSlots}}"
             disabled="{{saving || completing || switching}}"
-            uploadHint="{{stages[stageIndex].id === 'stage_3' ? planStageUploadHint : uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             bind:change="onEvidenceSlotsChange"
           />
           <album-old-part-traces
@@ -356,7 +356,7 @@
             partOptions="{{oldPartPartOptions}}"
             introHint="{{oldPartIntroHint}}"
             disabled="{{saving || completing || switching}}"
-            uploadHint="{{uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             bind:change="onOldPartTracesChange"
           />
           <ui-album-node
@@ -371,7 +371,7 @@
             note="{{nodes[stageIndex].note}}"
             notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             images="{{nodes[stageIndex].images}}"
-            uploadHint="{{uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
             bind:notechange="onNodeNoteChange"
@@ -388,7 +388,7 @@
             note="{{nodes[stageIndex].note}}"
             notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             images="{{nodes[stageIndex].images}}"
-            uploadHint="{{stages[stageIndex].id === 'stage_3' ? planStageUploadHint : uploadPrivacyHint}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
             bind:notechange="onNodeNoteChange"

@@ -28,6 +28,12 @@
     <view wx:if="{{aiSummary}}" class="desensitize-preview__summary">
       <ui-ai-summary-block content="{{aiSummary}}" />
     </view>
+    <view wx:if="{{publicViewHint}}" class="desensitize-preview__public-hint text-caption">
+      {{publicViewHint}}
+    </view>
+    <view wx:elif="{{source === 'service' && publicMediaCount > 0}}" class="desensitize-preview__public-count text-caption">
+      本次授权公示含 {{publicMediaCount}} 张过程图（已通过公开素材筛选）。
+    </view>
     <view wx:if="{{fromPreMask}}" class="desensitize-preview__ready">
       <ui-tag variant="desensitized" text="已自动脱敏" />
       <text class="desensitize-preview__ready-hint text-caption">敏感信息已预处理，请逐张核对后再授权公示。</text>
@@ -35,8 +41,11 @@
     <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
       建议逐张查看右侧脱敏图，确认效果符合预期后再授权公示。
     </view>
-    <view wx:if="{{!workbenchItems.length && source === 'service'}}" class="desensitize-preview__empty-auth text-caption">
-      本相册暂无过程图片。相册留档质量由商家负责；勾选确认项后可直接提交授权公示，便于监督门店留档情况。
+    <view wx:if="{{!workbenchItems.length && source === 'service' && hasRepairPlanText}}" class="desensitize-preview__empty-auth text-caption">
+      本相册暂无可公示的过程图，但含维修方案文字说明。勾选确认项后可授权，公开案例将以文字为主。
+    </view>
+    <view wx:elif="{{!workbenchItems.length && source === 'service'}}" class="desensitize-preview__empty-auth text-caption">
+      本相册暂无可公示的过程图。勾选确认项后仍可授权，公开案例将以文字为主；相册留档质量由商家负责。
     </view>
     <ui-desensitize-workbench
       items="{{workbenchItems}}"

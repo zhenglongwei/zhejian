@@ -90,10 +90,24 @@ function mapPreMaskAssetToAuthorizeInput(asset) {
 }
 
 async function buildAuthorizeAssetInputs(albumId, preMaskTask) {
+  const album = await loadAlbumWithRelations(albumId)
   const includeReview = await shouldIncludeReviewInAuthorizePreview(albumId)
   const reviewAssets = includeReview ? await buildReviewAuthorizeAssetInputs(albumId) : []
-  const albumAssets = (preMaskTask.assets || []).map(mapPreMaskAssetToAuthorizeInput)
+  let albumAssets = (preMaskTask.assets || []).map(mapPreMaskAssetToAuthorizeInput)
+  if (config.publicViewV2 && album) {
+    albumAssets = albumAssets.filter((asset) => isPublicAuthorizeAsset(album, asset))
+  }
   return [...albumAssets, ...reviewAssets]
+}
+
+function isPublicAuthorizeAsset(album, asset) {
+  const row = (album.images || []).find(
+    (img) =>
+      String(img.nodeId) === String(asset.nodeId) &&
+      Number(img.idx) === Number(asset.idx != null ? asset.idx : asset.index),
+  )
+  if (!row) return false
+  return row.visibility === 'public' && row.publicGateStatus === 'passed'
 }
 
 async function loadAlbumWithRelations(albumId) {
@@ -193,6 +207,27 @@ async function enrichTaskWithPrivacyDetections(mapped, options = {}) {
   return { ...mapped, rawAssets }
 }
 
+async function enrichTaskWithPublicViewPreview(mapped, taskRecord) {
+  if (!mapped || !taskRecord || mapped.bizType !== BIZ_TYPE.SERVICE_AUTHORIZE) return mapped
+  if (!config.publicViewV2) return mapped
+  const album = await prisma.album.findUnique({
+    where: { id: taskRecord.bizId },
+    include: {
+      nodes: { orderBy: { sortOrder: 'asc' } },
+      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+    },
+  })
+  if (!album) return mapped
+  const preMaskTask = await findPreMaskTask(taskRecord.bizId)
+  const preview = buildAuthorizePreviewPayload(album, taskRecord, preMaskTask)
+  return {
+    ...mapped,
+    publicMediaCount: preview.publicMediaCount,
+    hasRepairPlanText: preview.hasRepairPlanText,
+    publicViewHint: preview.publicViewHint,
+  }
+}
+
 async function getTaskById(taskId, options = {}) {
   const task = await prisma.desensitizeTask.findUnique({
     where: { taskId },
@@ -203,7 +238,9 @@ async function getTaskById(taskId, options = {}) {
   if (mapped && auth) {
     await assertDesensitizeTaskAccess(mapped, auth)
   }
-  return enrichTaskWithPrivacyDetections(mapped, options)
+  let enriched = await enrichTaskWithPrivacyDetections(mapped, options)
+  enriched = await enrichTaskWithPublicViewPreview(enriched, task)
+  return enriched
 }
 
 function resolveAlbumBizTypes(album) {
@@ -553,6 +590,13 @@ function preMaskHasReadyAssets(preMaskTask) {
 
 function buildAuthorizePreviewPayload(album, task, preMaskTask) {
   const preMaskReady = preMaskTask ? preMaskHasReadyAssets(preMaskTask) : true
+  const { buildAlbumView } = require('./service-album.service')
+  const { buildPublicView } = require('./build-public-view.service')
+  const albumView = buildAlbumView(album)
+  const publicView = config.publicViewV2
+    ? buildPublicView(albumView, preMaskTask, { authorizationTier: 'named' })
+    : null
+  const publicMediaCount = publicView ? publicView.publicMediaCount : (task.assets || []).length
   return {
     taskId: task.taskId,
     albumId: album.id,
@@ -560,6 +604,12 @@ function buildAuthorizePreviewPayload(album, task, preMaskTask) {
     fromPreMask: Boolean((task.fromPreMask ?? true) && preMaskReady),
     preMaskTaskId: task.preMaskTaskId || '',
     preMaskVersion: task.preMaskVersion || 0,
+    publicMediaCount,
+    hasRepairPlanText: publicView ? publicView.hasRepairPlanText : true,
+    publicViewHint:
+      publicMediaCount < 1
+        ? '当前暂无可公示的过程图（含敏感信息的图片已自动仅留档）。仍可授权，但公开案例将以文字为主。'
+        : '',
   }
 }
 

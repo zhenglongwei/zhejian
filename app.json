@@ -95,6 +95,18 @@
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f5f6f7"
   },
+  "permission": {
+    "scope.userLocation": {
+      "desc": "你的位置信息将用于在地图上选择门店地址与展示距离"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "chooseLocation"
+  ],
+  "usingComponents": {
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
+  },
   "style": "v2",
   "__usePrivacyCheck__": true,
   "sitemapLocation": "sitemap.json",

@@ -10,6 +10,7 @@
   margin-left: var(--space-lg);
 }
 
+.merchant-sub__pad {
   padding: var(--space-md) var(--page-padding-x);
 }
 

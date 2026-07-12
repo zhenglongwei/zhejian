@@ -169,6 +169,8 @@ const config = {
     /** 引擎升级时递增，使旧 pre-mask READY 缓存失效 */
     cacheVersion: process.env.DESENSITIZE_CACHE_VERSION || 'aliyun-v7',
   },
+  /** PV-REFORM · PublicView 读侧（H5/Feed 优先 snapshot.publicView） */
+  publicViewV2: envBool('PUBLIC_VIEW_V2', true),
   geoProbe: {
     enabled: process.env.GEO_PROBE_ENABLED === 'true',
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',

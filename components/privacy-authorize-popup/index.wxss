@@ -1,0 +1,71 @@
+.privacy-auth-popup {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-popup);
+}
+
+.privacy-auth-popup__mask {
+  position: absolute;
+  inset: 0;
+  background-color: var(--color-mask);
+}
+
+.privacy-auth-popup__panel {
+  position: absolute;
+  left: var(--space-md);
+  right: var(--space-md);
+  bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+  padding: var(--space-lg);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popup);
+}
+
+.privacy-auth-popup__title {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.privacy-auth-popup__desc {
+  display: block;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.privacy-auth-popup__link {
+  color: var(--color-primary);
+}
+
+.privacy-auth-popup__actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.privacy-auth-popup__btn {
+  flex: 1;
+  margin: 0;
+  padding: 0 var(--space-md);
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: var(--font-body);
+  border-radius: var(--radius-md);
+  border: none;
+}
+
+.privacy-auth-popup__btn::after {
+  border: none;
+}
+
+.privacy-auth-popup__btn--ghost {
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-muted);
+}
+
+.privacy-auth-popup__btn--primary {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+}

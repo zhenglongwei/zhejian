@@ -27,6 +27,7 @@ const {
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
+const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 const {
   resolvePageShareContext,
   markShareStoreContext,
@@ -549,8 +550,23 @@ Page({
     )
   },
 
+  buildShareRawConsent(albumId) {
+    return [
+      {
+        authType: AUTHORIZATION_CONSENT.share_raw.authType,
+        authTextVersion: AUTHORIZATION_CONSENT.share_raw.version,
+        authTextSnapshot: AUTHORIZATION_CONSENT.share_raw.text,
+        businessId: albumId,
+      },
+    ]
+  },
+
+  buildSharePayload(albumId, channel) {
+    return { mode: SHARE_MODE.DESENSITIZED, channel }
+  },
+
   async refreshShareToken(options = {}) {
-    const { detail, shareUseOriginal } = this.data
+    const { detail } = this.data
     const defaultShareIntent =
       options.defaultShareIntent || this.data.defaultShareIntent || 'owner'
     const channel = options.channel || SHARE_CHANNEL.WECHAT
@@ -560,13 +576,16 @@ Page({
       return null
     }
 
-    const mode = shareUseOriginal ? SHARE_MODE.ORIGINAL : SHARE_MODE.DESENSITIZED
+    const mode = SHARE_MODE.DESENSITIZED
     if (!options.silent) {
       this.setData({ sharePreparing: true, shareReady: false, shareActionsDisabled: true })
     }
 
     try {
-      const result = await recordAlbumShare(detail.albumId, { mode, channel })
+      const result = await recordAlbumShare(
+        detail.albumId,
+        this.buildSharePayload(detail.albumId, channel)
+      )
       const ready = Boolean(result.shareToken)
       this.setData({
         shareToken: result.shareToken || '',
@@ -784,30 +803,7 @@ Page({
     })
   },
 
-  onShareOriginalToggle() {
-    const { shareUseOriginal, sharePreparing } = this.data
-    if (sharePreparing) return
-
-    if (!shareUseOriginal) {
-      wx.showModal({
-        title: '原图分享风险提示',
-        content: ORIGINAL_SHARE_RISK,
-        confirmText: '仍用原图',
-        cancelText: '取消',
-        success: (res) => {
-          if (!res.confirm) return
-          this.setData({ shareUseOriginal: true }, () => {
-            this.refreshShareToken()
-          })
-        },
-      })
-      return
-    }
-
-    this.setData({ shareUseOriginal: false }, () => {
-      this.refreshShareToken()
-    })
-  },
+  onShareOriginalToggle() {},
 
   async onCopyOwnerShareLink() {
     if (this.data.sharePreparing) return
@@ -818,10 +814,14 @@ Page({
       })
       token = (result && result.shareToken) || this.data.shareToken
     } else {
-      await recordAlbumShare(this.data.detail.albumId, {
-        mode: this.data.shareMode,
-        channel: SHARE_CHANNEL.OWNER_H5_LINK,
-      })
+      await recordAlbumShare(
+        this.data.detail.albumId,
+        this.buildSharePayload(
+          this.data.detail.albumId,
+          this.data.shareMode,
+          SHARE_CHANNEL.OWNER_H5_LINK
+        )
+      )
     }
     if (!token) {
       wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
@@ -857,10 +857,8 @@ Page({
     this.setData({ authChecked: !this.data.authChecked })
   },
 
-  onAuthTierChange(e) {
-    const tier = e.detail && e.detail.tier
-    if (tier !== 'named' && tier !== 'anonymous') return
-    this.setData({ authTier: tier })
+  onAuthTierChange() {
+    this.setData({ authTier: 'named' })
   },
 
   onSubmitAuth() {
@@ -881,7 +879,7 @@ Page({
       const preview = await prepareServiceAuthorizePreview(this.albumId)
       wx.hideLoading()
       wx.navigateTo({
-        url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service&tier=${this.data.authTier}`,
+        url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service`,
       })
     } catch (e) {
       wx.hideLoading()

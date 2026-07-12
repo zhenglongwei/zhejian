@@ -1,5 +1,5 @@
 const { fetchAlbumClaimPreview, claimServiceAlbum } = require('../../../services/service-album')
-const { COMPLIANCE_COPY } = require('../../../constants/compliance-copy')
+const { AUTHORIZATION_CONSENT, COMPLIANCE_COPY } = require('../../../constants/compliance-copy')
 const { resolveAlbumIdFromOptions } = require('../../../utils/album-claim')
 const { markMerchantToolEntry } = require('../../../utils/tool-entry-context')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
@@ -9,13 +9,18 @@ Page({
     status: 'loading',
     errorMessage: '',
     preview: null,
-    agreed: false,
+    privacyAcknowledged: false,
+    privacyModalVisible: false,
+    agreedClaim: false,
+    agreedProcessing: false,
     submitting: false,
     needLogin: false,
     needPhone: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
-    consentText: COMPLIANCE_COPY.albumClaim,
+    consentClaimText: AUTHORIZATION_CONSENT.album_claim.text,
+    consentProcessingText: AUTHORIZATION_CONSENT.album_processing.text,
+    privacyIntroText: COMPLIANCE_COPY.albumClaimPrivacyIntro,
   },
 
   onLoad(options) {
@@ -48,8 +53,13 @@ Page({
     try {
       const preview = await fetchAlbumClaimPreview(this.albumId)
       this.syncAuthState()
-      const status = preview.alreadyOwner || preview.claimable ? 'ready' : 'ready'
-      this.setData({ preview, status })
+      const showPrivacyModal = Boolean(preview.claimable && !preview.alreadyOwner)
+      this.setData({
+        preview,
+        status: 'ready',
+        privacyModalVisible: showPrivacyModal,
+        privacyAcknowledged: !showPrivacyModal,
+      })
     } catch (e) {
       this.setData({
         status: 'error',
@@ -63,9 +73,50 @@ Page({
     this.loadPreview()
   },
 
-  onAgreeToggle(e) {
+  onPrivacyAcknowledge() {
+    this.setData({
+      privacyAcknowledged: true,
+      privacyModalVisible: false,
+    })
+  },
+
+  onPrivacyModalCancel() {
+    wx.navigateBack({
+      fail: () => {
+        wx.switchTab({ url: '/pages/mine/index' })
+      },
+    })
+  },
+
+  onOpenPrivacyPolicy() {
+    wx.navigateTo({ url: '/pages/mine/settings/document/index?type=privacy' })
+  },
+
+  onClaimConsentToggle(e) {
     const checked = e.detail && e.detail.checked
-    this.setData({ agreed: Boolean(checked) })
+    this.setData({ agreedClaim: Boolean(checked) })
+  },
+
+  onProcessingConsentToggle(e) {
+    const checked = e.detail && e.detail.checked
+    this.setData({ agreedProcessing: Boolean(checked) })
+  },
+
+  buildAuthorizationConsents() {
+    return [
+      {
+        authType: AUTHORIZATION_CONSENT.album_claim.authType,
+        authTextVersion: AUTHORIZATION_CONSENT.album_claim.version,
+        authTextSnapshot: AUTHORIZATION_CONSENT.album_claim.text,
+        businessId: this.albumId,
+      },
+      {
+        authType: AUTHORIZATION_CONSENT.album_processing.authType,
+        authTextVersion: AUTHORIZATION_CONSENT.album_processing.version,
+        authTextSnapshot: AUTHORIZATION_CONSENT.album_processing.text,
+        businessId: this.albumId,
+      },
+    ]
   },
 
   ensureAuth() {
@@ -89,8 +140,12 @@ Page({
 
   onClaimTap() {
     if (this.data.submitting) return
-    if (!this.data.agreed) {
-      wx.showToast({ title: '请先阅读并同意关联说明', icon: 'none' })
+    if (!this.data.privacyAcknowledged) {
+      this.setData({ privacyModalVisible: true })
+      return
+    }
+    if (!this.data.agreedClaim || !this.data.agreedProcessing) {
+      wx.showToast({ title: '请阅读并勾选全部确认项', icon: 'none' })
       return
     }
     if (!this.ensureAuth()) return
@@ -100,7 +155,10 @@ Page({
   async submitClaim() {
     this.setData({ submitting: true })
     try {
-      await claimServiceAlbum(this.albumId, { agreed: true })
+      await claimServiceAlbum(this.albumId, {
+        agreed: true,
+        authorizationConsents: this.buildAuthorizationConsents(),
+      })
       wx.showToast({ title: '关联成功', icon: 'success' })
       setTimeout(() => {
         wx.redirectTo({
@@ -129,7 +187,13 @@ Page({
   onLoginSheetSuccess() {
     this.setData({ loginSheetVisible: false })
     this.syncAuthState()
-    if (this.data.agreed && this.data.preview && this.data.preview.claimable) {
+    if (
+      this.data.privacyAcknowledged &&
+      this.data.agreedClaim &&
+      this.data.agreedProcessing &&
+      this.data.preview &&
+      this.data.preview.claimable
+    ) {
       this.submitClaim()
     }
   },
