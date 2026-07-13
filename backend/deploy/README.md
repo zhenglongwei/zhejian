@@ -125,11 +125,30 @@ npm run case:trust-meta-backfill
 # 100 条种子专题入库（默认 draft 模式，不降级已发布）
 npm run geo:batch-draft
 
+# 覆盖率只计「已发布」；新种子默认为 draft，生产须发布：
+npm run geo:batch-draft:publish
+npm run geo:aggregate-refresh
+
 # OBS 词库同步
 npm run geo:probe-seed-sync
+
+# 诊断缺口：npm run geo:production-status
+# 一键收口：npm run geo:production-bootstrap
 ```
 
-若需验收环境一次性全发布（生产慎用）：
+生产首次推荐一键：
+
+```bash
+npm run geo:production-bootstrap
+```
+
+若仅验收环境、不发布：
+
+```bash
+npm run geo:production-bootstrap -- --skip-publish
+```
+
+旧式分步（等价于 bootstrap）：
 
 ```bash
 npm run geo:batch-draft:publish
