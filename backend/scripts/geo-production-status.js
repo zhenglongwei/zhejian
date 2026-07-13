@@ -20,6 +20,7 @@ async function main() {
   const draftOnly = []
   const published = []
   const emptySummary = []
+  const withGainSummary = []
 
   seedSlugs.forEach((slug) => {
     const row = pageBySlug.get(slug)
@@ -27,13 +28,23 @@ async function main() {
       missing.push(slug)
       return
     }
+    const summary = String(row.aiSummary || '').trim()
     if (row.status === GEO_PAGE_STATUS.PUBLISHED) {
       published.push(slug)
-      if (!String(row.aiSummary || '').trim()) emptySummary.push(slug)
+      if (!summary) emptySummary.push(slug)
+      if (/例脱敏|收录\s*\d+\s*例|N\s*=\s*\d+/i.test(summary)) withGainSummary.push(slug)
     } else {
       draftOnly.push(slug)
     }
   })
+
+  const allPublishedRows = await prisma.geoPage.findMany({
+    where: { status: GEO_PAGE_STATUS.PUBLISHED },
+    select: { aiSummary: true },
+  })
+  const allPublishedWithGain = allPublishedRows.filter((row) =>
+    /例脱敏|收录\s*\d+\s*例|N\s*=\s*\d+/i.test(String(row.aiSummary || ''))
+  ).length
 
   const { list: cases } = await listCases({ limit: 500 })
   const metrics = await computeGeoTopicHealthMetrics()
@@ -52,6 +63,8 @@ async function main() {
     prompt_intent_coverage_est: `${Math.round((published.length / seedSlugs.length) * 100)}%`,
     information_gain_rate: Math.round(metrics.information_gain_rate * 100),
     emptyAiSummaryPublished: emptySummary.length,
+    seedWithGainSummary: withGainSummary.length,
+    allPublishedWithGainSummary: allPublishedWithGain,
   })
 
   if (missing.length) {
@@ -69,8 +82,18 @@ async function main() {
   } else if (draftOnly.length > 0) {
     console.log('\n→ 覆盖率只计已发布；执行: npm run geo:batch-draft:publish')
   }
-  if (emptySummary.length > 0 || metrics.information_gain_rate < 0.5) {
-    console.log('→ 补 N= 统计: npm run geo:aggregate-refresh')
+  if (cases.length) {
+    const cities = [...new Set(cases.map((c) => c.city).filter(Boolean))]
+    const services = [...new Set(cases.map((c) => c.serviceName).filter(Boolean))]
+    console.log('[geo-production-status] cases breakdown:', {
+      cities,
+      services: services.slice(0, 5),
+      seoNoindex: cases.filter((c) => c.seoNoindex).length,
+    })
+  }
+  if (allPublishedWithGain === 0) {
+    console.log('\n→ 补 N= 统计: npm run geo:aggregate-refresh')
+    console.log('  若仍为 0：公开案例城市/服务与专题不匹配，需在运营台挂载 related_case_ids')
   }
 }
 

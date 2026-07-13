@@ -169,6 +169,14 @@ async function batchUpsertGeoPageDrafts(options = {}) {
       continue
     }
 
+    const existingFull = await client.geoPage.findUnique({
+      where: { id: existing.id },
+      select: { aiSummary: true },
+    })
+    if (!String(content.aiSummary || '').trim() && String(existingFull?.aiSummary || '').trim()) {
+      delete content.aiSummary
+    }
+
     const statusFields = resolveStatusForUpdate(existing, mode)
     await client.geoPage.update({
       where: { id: existing.id },

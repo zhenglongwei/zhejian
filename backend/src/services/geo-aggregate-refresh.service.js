@@ -151,7 +151,7 @@ async function refreshGeoPageAggregate(row, allCases = [], options = {}) {
 
   if (
     nextSummary &&
-    canAutoRefreshAiSummary(page, row) &&
+    (canAutoRefreshAiSummary(page, row) || !String(page.aiSummary || '').trim()) &&
     nextSummary !== String(page.aiSummary || '').trim()
   ) {
     data.aiSummary = nextSummary
