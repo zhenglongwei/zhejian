@@ -1,7 +1,9 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
   }
 
   function escapeHtml(str) {

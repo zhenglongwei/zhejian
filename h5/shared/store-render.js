@@ -5,16 +5,18 @@
     return
   }
 
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
-      '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
+      PC.displayDisclaimer ||
+      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
-    price: '实际费用以门店检测结果为准，以下价格为参考区间。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
+    price: PC.price || '实际费用以门店检测结果为准，以下价格为参考区间。',
     casePrice:
+      PC.casePrice ||
       '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
-    caseCompliance:
-      '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
   }
 
   function renderDisclaimerBlock() {
@@ -374,12 +376,12 @@
     var summary = item.aiSummary || item.summary || ''
     summary = summary.replace(/^该案例经车主授权[，,]?/u, '').replace(/^该案例为/u, '')
     if (summary.length > 56) summary = summary.slice(0, 56) + '…'
-    return summary || '含脱敏过程图片，详情见案例页。'
+    return summary || '含过程图片，详情见案例页。'
   }
 
   var TRANSPARENCY_BREAKDOWN_META = {
     album: { label: '相册完整率', max: 30, hint: '服务相册六阶段节点完成比例' },
-    case: { label: '公开案例', max: 25, hint: '已审核脱敏案例数量' },
+    case: { label: '公开案例', max: 25, hint: '已审核案例数量' },
     serviceProfile: { label: '服务资料', max: 15, hint: '上架服务的名称、摘要、封面与价格' },
     qualification: { label: '资质认证', max: 15, hint: '营业执照与维修资质证照' },
     leadResponse: { label: '咨询响应', max: 15, hint: '近7日咨询回复情况' },
@@ -682,7 +684,7 @@
   function renderCases(cases, store) {
     var storeId = store && store.id ? store.id : ''
     var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
-    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
+    var caseNote = COPY.casePrice
     var section =
       '<div class="h5-folio-panel" id="store-cases"><h2 class="h5-folio-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
@@ -694,12 +696,7 @@
     var cards = cases
       .map(function (item) {
         if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
-          return window.zhejianH5Ui.renderCaseListItem(
-            Object.assign({}, item, {
-              title: buildStoreCaseCardTitle(item),
-              summary: buildStoreCaseCardLead(item),
-            }),
-            {
+          return window.zhejianH5Ui.renderCaseListItem(item, {
             href: casePagePath(item),
             extraAttrs: ' data-case-id="' + escapeHtml(item.id) + '"',
             className: 'h5-media-list-item h5-media-list-item--folio',

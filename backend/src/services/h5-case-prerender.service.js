@@ -5,6 +5,8 @@ const fs = require('fs')
 const path = require('path')
 const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
+const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
+const { config } = require('../config')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 
 const BOT_UA_RE =
@@ -155,15 +157,19 @@ async function renderCaseBotHtml(caseIdOrSlug) {
   if (data.schemaGraph) {
     jsonLdBlocks.push(data.schemaGraph)
   } else {
-    jsonLdBlocks.push({
-      '@context': 'https://schema.org',
-      '@type': 'Article',
-      headline: data.title || title,
-      description,
-      url: canonical,
-      datePublished: data.publishedAt || undefined,
-      image: data.coverImage || data.coverImageDesensitized || undefined,
-    })
+    jsonLdBlocks.push(
+      buildCasePageSchemaGraph({
+        baseUrl: config.publicBaseUrl,
+        showStorePublicly: Boolean(data.showStorePublicly && data.store && data.store.name),
+        serviceSlug: '',
+        data: {
+          ...data,
+          faq: data.faq || [],
+          trustMeta: data.trustMeta || null,
+        },
+        organizationSameAs: config.geo?.organizationSameAs || [],
+      })
+    )
   }
   const howTo = buildHowToSchema(data, data.displayNodes || data.nodes)
   if (howTo) jsonLdBlocks.push(howTo)

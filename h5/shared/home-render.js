@@ -1,10 +1,13 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
-      '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
+      PC.displayDisclaimer ||
+      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
-    price: '案例价格仅为参考区间，实际费用以门店检测为准。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
+    price: PC.listNote || '案例价格仅为参考，实际费用以门店检测为准。',
   }
 
   function escapeHtml(str) {
@@ -65,7 +68,7 @@
   function setPageMeta() {
     var title = '辙见 · 透明汽车维修服务平台'
     var desc =
-      '辙见提供透明汽车维修信息与咨询预约工具。查看真实脱敏维修案例，浏览可信门店，了解维修过程与价格参考。'
+      '辙见提供透明汽车维修信息与咨询预约工具。查看真实维修案例，浏览可信门店，了解维修过程与价格参考。'
     document.title = title
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
@@ -329,7 +332,8 @@
       escapeHtml(
         (typeof data.protectionText === 'string' && data.protectionText) ||
           (data.protectionText && data.protectionText.body) ||
-          '公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。'
+          PC.footnote ||
+          '页面内容为维修信息展示，不构成平台对维修质量或价格的担保。'
       ) +
       '</p>' +
       '</div>'

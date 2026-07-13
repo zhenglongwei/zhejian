@@ -1,11 +1,12 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
-      '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
+      PC.displayDisclaimer ||
+      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
-    desensitize:
-      '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
   }
 
   var TAG_MAP = {
@@ -152,7 +153,7 @@
       vehicle +
       '提供' +
       service +
-      '的维修过程，包括故障现象、施工过程、维修结果和价格影响因素，图片已做隐私脱敏处理。'
+      '的维修过程，包括故障现象、施工过程、维修结果和价格影响因素。'
     )
   }
 
@@ -161,7 +162,7 @@
     var vehicle = vehicleLabel(data)
     var service = data.serviceName || '维修服务'
     var stage = (node && node.title) || '维修过程'
-    return (city + vehicle + service + stage).trim() || '脱敏维修过程图片'
+    return (city + vehicle + service + stage).trim() || '维修过程图片'
   }
 
   function setShareMeta(data) {
@@ -215,6 +216,7 @@
         '@type': 'WebPage',
         '@id': canonical,
       },
+      additionalProperty: buildClientTrustAdditionalProperty(data),
     }
     ensureJsonLd('case-article-schema', articleSchema)
 
@@ -408,80 +410,77 @@
     return false
   }
 
-  function renderTags(data) {
-    var meta = data.trustMeta
-    var tier = data.authorizationTier
-    var html = ''
-    if (meta && meta.authorizationTierLabel) {
-      html +=
-        '<span class="h5-tag h5-tag--order">' +
-        escapeHtml(meta.authorizationTierLabel) +
-        '</span>'
-    } else if (tier === 'anonymous') {
-      html += '<span class="h5-tag h5-tag--desensitized">匿名授权</span>'
-    } else if (tier === 'named') {
-      html += '<span class="h5-tag h5-tag--order">授权公示</span>'
-    } else if (tier === 'private') {
-      html += '<span class="h5-tag h5-tag--audited">门店留档</span>'
-    } else {
-      html += '<span class="h5-tag h5-tag--order">用户授权案例</span>'
+  function buildClientTrustAdditionalProperty(data) {
+    var tm = data && data.trustMeta
+    if (!tm) {
+      return [
+        { '@type': 'PropertyValue', name: 'desensitized', value: 'true' },
+        { '@type': 'PropertyValue', name: 'desensitizedLabel', value: '已脱敏' },
+        { '@type': 'PropertyValue', name: 'reviewStatusLabel', value: '已审核' },
+        { '@type': 'PropertyValue', name: 'platformAuditStatus', value: 'audited' },
+        {
+          '@type': 'PropertyValue',
+          name: 'contentTrustLabels',
+          value: '已脱敏 · 已审核',
+        },
+      ]
     }
-    html += '<span class="h5-tag h5-tag--desensitized">已脱敏</span>'
-    html += '<span class="h5-tag h5-tag--audited">已审核</span>'
-    return html
+    var labels = []
+    if (tm.authorizationTierLabel) labels.push(tm.authorizationTierLabel)
+    if (tm.desensitized !== false) labels.push('已脱敏')
+    if ((tm.reviewStatus || 'approved') === 'approved') labels.push('已审核')
+    var props = [
+      { '@type': 'PropertyValue', name: 'authorizationTier', value: tm.authorizationTier },
+      {
+        '@type': 'PropertyValue',
+        name: 'authorizationTierLabel',
+        value: tm.authorizationTierLabel,
+      },
+      { '@type': 'PropertyValue', name: 'snapshotVersion', value: String(tm.snapshotVersion) },
+      { '@type': 'PropertyValue', name: 'reviewedAt', value: String(tm.reviewedAt || '').slice(0, 10) },
+      { '@type': 'PropertyValue', name: 'evidenceLevel', value: tm.evidenceLevel },
+      { '@type': 'PropertyValue', name: 'desensitized', value: tm.desensitized !== false ? 'true' : 'false' },
+      { '@type': 'PropertyValue', name: 'desensitizedLabel', value: '已脱敏' },
+      { '@type': 'PropertyValue', name: 'reviewStatusLabel', value: '已审核' },
+      { '@type': 'PropertyValue', name: 'platformAuditStatus', value: 'audited' },
+    ]
+    if (labels.length) {
+      props.push({
+        '@type': 'PropertyValue',
+        name: 'contentTrustLabels',
+        value: labels.join(' · '),
+      })
+    }
+    if (tm.trustStatement) {
+      props.push({ '@type': 'PropertyValue', name: 'trustStatement', value: tm.trustStatement })
+    }
+    if (tm.evidenceLevelLabel) {
+      props.push({
+        '@type': 'PropertyValue',
+        name: 'evidenceLevelLabel',
+        value: tm.evidenceLevelLabel,
+      })
+    }
+    if (tm.auditLogSummary) {
+      props.push({ '@type': 'PropertyValue', name: 'auditLogSummary', value: tm.auditLogSummary })
+    }
+    if (tm.publicImageCount != null) {
+      props.push({
+        '@type': 'PropertyValue',
+        name: 'publicImageCount',
+        value: String(tm.publicImageCount),
+      })
+    }
+    return props
   }
 
-  function renderTrustAttestation(data) {
-    var meta = data && data.trustMeta
-    if (!meta) return ''
+  // 可见区不展示授权/脱敏标签；信任信号写入 JSON-LD（见 schema-graph / trustMeta §18）
+  function renderTags() {
+    return ''
+  }
 
-    var summaryText =
-      meta.trustStatement ||
-      (meta.authorizationTierLabel
-        ? '本案例为' + meta.authorizationTierLabel + '，经脱敏与审核后公开。'
-        : '')
-
-    var detailRows = []
-    if (meta.authorizedAt) {
-      detailRows.push(['授权时间', String(meta.authorizedAt).slice(0, 10)])
-    }
-    if (meta.reviewedAt) {
-      detailRows.push(['审核时间', String(meta.reviewedAt).slice(0, 10)])
-    }
-    if (meta.snapshotVersion != null) {
-      detailRows.push(['快照版本', 'v' + meta.snapshotVersion])
-    }
-    if (meta.publicImageCount != null) {
-      detailRows.push(['公开图数量', String(meta.publicImageCount)])
-    }
-    if (meta.evidenceLevelLabel) {
-      detailRows.push(['证据级别', meta.evidenceLevelLabel])
-    }
-    if (meta.auditLogSummary) {
-      detailRows.push(['审核摘要', meta.auditLogSummary])
-    }
-
-    var body = detailRows
-      .map(function (row) {
-        return (
-          '<p><strong>' +
-          escapeHtml(row[0]) +
-          '：</strong>' +
-          escapeHtml(row[1]) +
-          '</p>'
-        )
-      })
-      .join('')
-
-    return (
-      '<details class="h5-trust-attestation">' +
-      '<summary class="h5-trust-attestation__title">' +
-      escapeHtml(summaryText) +
-      '</summary>' +
-      '<div class="h5-trust-attestation__body">' +
-      body +
-      '</div></details>'
-    )
+  function renderTrustAttestation() {
+    return ''
   }
 
   function renderKeyInfo(rows) {
@@ -516,7 +515,7 @@
         '" loading="lazy" />'
       )
     }
-    return '<div class="h5-placeholder-img">脱敏图片暂未就绪</div>'
+    return '<div class="h5-placeholder-img">' + escapeHtml((PC.imagePlaceholder || '图片暂未就绪')) + '</div>'
   }
 
   function renderNodes(data, nodes) {
@@ -543,9 +542,6 @@
     return (
       '<div class="h5-folio-panel" id="case-process"><h2 class="h5-folio-section-title">维修过程</h2>' +
       '<p class="h5-section-note">各节点说明来自门店填写或 AI 看图草稿；无图片且无说明的节点不展示。</p>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.desensitize) +
-      '</p>' +
       items +
       '</div>'
     )
@@ -740,7 +736,7 @@
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
-            '" alt="脱敏案例封面" loading="lazy" />'
+            '" alt="' + escapeHtml((PC.caseCoverAlt || '案例封面')) + '" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
           '<a class="h5-media-list-item" href="' +
@@ -883,9 +879,6 @@
     return (
       '<section class="h5-card">' +
       '<h2 class="h5-section-title">维修过程图集</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.desensitize) +
-      '</p>' +
       items +
       '</section>'
     )
@@ -1608,7 +1601,7 @@
       return '案例不存在或未公开展示'
     }
     if (err && err.name === 'TypeError') return '网络异常，请稍后重试'
-    return '案例不存在、未公开或脱敏内容未就绪'
+    return PC.caseLoadError || '案例不存在、未公开或内容未就绪'
   }
 
   function loadCase(caseId) {

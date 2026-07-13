@@ -1,9 +1,9 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     casePrice:
+      PC.casePrice ||
       '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
-    caseCompliance:
-      '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
   }
 
   function escapeHtml(str) {
@@ -216,7 +216,7 @@
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
-            '" alt="脱敏案例封面" loading="lazy" />'
+            '" alt="案例封面" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
           '<a class="h5-media-list-item" href="' +
@@ -324,14 +324,14 @@
       escapeHtml(
         '以下为' +
           store.name +
-          '已审核、已脱敏的公开维修案例' +
+          '已审核的公开维修案例' +
           (pagination.total ? '（共 ' + pagination.total + ' 条）' : '') +
           '。价格仅为参考，实际费用以门店检测为准。'
       ) +
       '</p>' +
       (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
         ? window.zhejianH5Ui.renderDisclaimer(
-            COPY.casePrice + ' ' + COPY.caseCompliance,
+            COPY.casePrice,
             ''
           )
         : '<div class="h5-banner">' +
@@ -350,7 +350,7 @@
       '</div>' +
       renderPagination(store.id, pagination, data.filters) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。</p>' +
+      '<p class="h5-compliance h5-home-footnote">公开内容经审核，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
 
     var app = document.getElementById('app')

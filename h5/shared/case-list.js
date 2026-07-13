@@ -23,7 +23,7 @@
     if (!window.zhejianSeo) return
     window.zhejianSeo.applyPageSeo({
       title: '公开案例 · 辙见',
-      description: '辙见公开案例列表 · 已审核、已脱敏的维修案例，价格仅为参考。',
+      description: '辙见公开案例列表 · 已审核的维修案例，价格仅为参考。',
       canonicalPath: '/case/',
       robots: 'index,follow',
     })
@@ -50,7 +50,7 @@
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
-      '<p class="h5-summary">展示已审核、已脱敏的维修案例；价格仅为参考。</p>' +
+      '<p class="h5-summary">展示已审核的维修案例；价格仅为参考。</p>' +
       '</header>' +
       '<div class="h5-card h5-case-list-empty"><p>' +
       safeMessage +
@@ -94,7 +94,7 @@
       '<header class="h5-header">' +
       '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
-      '<p class="h5-summary">以下为已审核、已脱敏公示案例，数据来自平台数据库。</p>' +
+      '<p class="h5-summary">以下为已审核公示案例，数据来自平台数据库。</p>' +
       renderDisclaimer() +
       '</header>' +
       '<div class="h5-media-list">' +

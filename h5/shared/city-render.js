@@ -1,9 +1,12 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
-      '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
+      PC.displayDisclaimer ||
+      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
   }
 
   function escapeHtml(str) {
@@ -70,7 +73,7 @@
       seo.description ||
       '查看' +
         cityName +
-        '汽车维修保养门店、真实维修案例与透明度说明。公开案例已脱敏审核，价格仅供参考。'
+        '汽车维修保养门店、真实维修案例与透明度说明。公开案例经审核，价格仅供参考。'
     var canonical = location.origin + (seo.canonicalPath || location.pathname.replace(/\/$/, ''))
     var robots = seo.robots || 'index,follow'
 
@@ -214,7 +217,7 @@
       '最新维修案例</h2>' +
       '<p class="h5-compliance">' +
       escapeHtml(
-        '公开案例已脱敏审核。' +
+        '公开案例经审核。' +
           ((cases[0] && cases[0].priceNotice) || '案例价格仅为参考区间，实际费用以门店检测为准。')
       ) +
       '</p>' +
@@ -281,7 +284,7 @@
       escapeHtml(
         '平台收录' +
           cityName +
-          '本地维修门店与已审核、已脱敏公开案例。' +
+          '本地维修门店与已审核公开案例。' +
           parts.join('，') +
           '。不含交易评价，数据来自公开留档与审核信息。'
       ) +
@@ -423,7 +426,7 @@
     var summary =
       '平台收录' +
       cityName +
-      '本地可提供汽车维修保养服务的维修门店，并展示已审核、已脱敏的真实维修案例。用户可查看参考价格、维修流程、门店信息和透明度指标后，通过小程序预约到店服务。'
+      '本地可提供汽车维修保养服务的维修门店，并展示已审核的真实维修案例。用户可查看参考价格、维修流程、门店信息和透明度指标后，通过小程序预约到店服务。'
 
     setPageMeta(data)
 
@@ -463,7 +466,7 @@
       escapeHtml(
         (typeof data.protectionText === 'string' && data.protectionText) ||
           (data.protectionText && data.protectionText.body) ||
-          '公开内容经审核与脱敏处理，不构成平台对维修质量或价格的担保。'
+          '公开内容经审核，不构成平台对维修质量或价格的担保。'
       ) +
       '</p>' +
       '</div>'

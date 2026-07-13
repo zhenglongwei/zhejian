@@ -57,12 +57,33 @@ function run() {
       albumId: 'alb_001',
       store: { id: 'store_1', name: '测试门店' },
       faq: [{ q: 'Q', a: 'A' }],
+      trustMeta: {
+        snapshotVersion: 2,
+        authorizationTier: 'user_authorized',
+        authorizationTierLabel: '用户授权案例',
+        reviewStatus: 'approved',
+        reviewedAt: '2026-03-16T00:00:00.000Z',
+        desensitized: true,
+        evidenceLevel: 'partial_images',
+        evidenceLevelLabel: '含少量脱敏过程图',
+        trustStatement:
+          '本案例为用户授权案例；经隐私脱敏与平台审核后公开（快照版本 v2，2026-03-16）。含少量脱敏过程图。价格与方案以快照记录为准，仅供参考。',
+        auditLogSummary: '脱敏复核通过；平台合规审核通过',
+        publicImageCount: 2,
+      },
     },
   })
   assert.ok(caseGraph['@graph'].some((node) => node['@type'] === 'Article'))
   const article = caseGraph['@graph'].find((node) => node['@type'] === 'Article')
   assert.ok(Array.isArray(article.additionalProperty))
-  assert.ok(article.additionalProperty.some((item) => item.name === 'contentType'))
+  assert.ok(article.additionalProperty.some((item) => item.name === 'desensitized'))
+  assert.ok(article.additionalProperty.some((item) => item.name === 'contentTrustLabels'))
+  assert.match(
+    article.additionalProperty.find((item) => item.name === 'contentTrustLabels').value,
+    /用户授权案例 · 已脱敏 · 已审核/
+  )
+  assert.ok(article.additionalProperty.some((item) => item.name === 'trustStatement'))
+  assert.ok(article.additionalProperty.some((item) => item.name === 'desensitizedLabel'))
 
   const homeGraph = buildHomePageSchemaGraph({
     baseUrl: base,

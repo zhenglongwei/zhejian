@@ -51,7 +51,7 @@ test('resolveMountVehicleText falls back to snapshot vehicle', () => {
       vehicle: { brand: '奥迪', series: 'A4' },
     }
   )
-  assert.equal(text, '奥迪A4（已脱敏）')
+  assert.equal(text, '奥迪A4')
 })
 
 test('mergeTopicMountIds preserves existing mounts', () => {

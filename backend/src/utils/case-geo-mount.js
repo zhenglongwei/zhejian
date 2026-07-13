@@ -10,7 +10,7 @@ function resolveMountVehicleText(content = {}, snapshot = null) {
   if (snapshot?.vehicle && typeof snapshot.vehicle === 'object') {
     const v = snapshot.vehicle
     const title = [v.brand, v.series, v.model].filter(Boolean).join('')
-    return title ? `${title}（已脱敏）` : ''
+    return title ? title : ''
   }
   return ''
 }

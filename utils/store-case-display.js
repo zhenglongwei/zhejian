@@ -19,7 +19,10 @@ function stripBoilerplate(text) {
 }
 
 function pickVehicleLabel(item) {
-  if (item.vehicleText) return String(item.vehicleText).trim()
+  if (item.vehicleText) {
+    const raw = String(item.vehicleText).trim()
+    return raw.replace(/\s*[（(]\s*已脱敏\s*[）)]\s*/gu, '').trim()
+  }
   const row = (item.keyInfo || []).find(
     (entry) => entry && (entry.label === '车型' || entry.label === '车辆')
   )

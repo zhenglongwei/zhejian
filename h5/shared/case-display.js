@@ -27,16 +27,17 @@
   }
 
   function stripBoilerplateSummary(text) {
-    return normalizeText(text)
+    var value = normalizeText(text)
+    if (window.zhejianPublicCopy && window.zhejianPublicCopy.stripPublicBoilerplate) {
+      value = window.zhejianPublicCopy.stripPublicBoilerplate(value)
+    }
+    return value
       .replace(/^这是一个/u, '')
-      .replace(/^该案例为/u, '')
-      .replace(/^本案例为/u, '')
       .replace(/^.+?维修案例。/u, '')
       .replace(/车辆主要问题为用户反馈的相关问题。?/gu, '')
       .replace(/门店根据车辆实际情况进行了检查，?/gu, '')
       .replace(/门店根据检测结果，?/gu, '')
       .replace(/根据检测结果，门店完成了.+?的处理。?/gu, '')
-      .replace(/图片已进行车牌、人脸、VIN、手机号等隐私脱敏，并通过平台审核。?/gu, '')
       .replace(/该类服务价格会受到车型、配件品牌、损伤程度、工时和维修方案影响，?/gu, '')
       .replace(/页面展示价格仅供参考。?/gu, '')
       .replace(/维修维修/gu, '维修')

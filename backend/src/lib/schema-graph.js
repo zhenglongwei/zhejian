@@ -109,6 +109,73 @@ function buildFaqNode(faq) {
   }
 }
 
+function buildContentTrustLabels(trustMeta) {
+  if (!trustMeta || typeof trustMeta !== 'object') return ''
+  const labels = []
+  const authLabel = String(trustMeta.authorizationTierLabel || '').trim()
+  if (authLabel) labels.push(authLabel)
+  else if (trustMeta.authorizationTier === 'user_authorized') labels.push('用户授权案例')
+  else if (trustMeta.authorizationTier === 'merchant_history') labels.push('商家历史案例')
+
+  if (trustMeta.desensitized !== false) labels.push('已脱敏')
+  if (String(trustMeta.reviewStatus || 'approved') === 'approved') labels.push('已审核')
+  return labels.join(' · ')
+}
+
+function appendTrustMetaSchemaProperties(props, trustMeta) {
+  if (!trustMeta || typeof trustMeta !== 'object') return props
+
+  const contentTrustLabels = buildContentTrustLabels(trustMeta)
+  if (contentTrustLabels) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'contentTrustLabels',
+      value: contentTrustLabels,
+    })
+  }
+  if (trustMeta.trustStatement) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'trustStatement',
+      value: String(trustMeta.trustStatement),
+    })
+  }
+  if (String(trustMeta.reviewStatus || 'approved') === 'approved') {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'reviewStatusLabel',
+      value: '已审核',
+    })
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'platformAuditStatus',
+      value: 'audited',
+    })
+  }
+  if (trustMeta.desensitized !== false) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'desensitizedLabel',
+      value: '已脱敏',
+    })
+  }
+  if (trustMeta.evidenceLevelLabel) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'evidenceLevelLabel',
+      value: String(trustMeta.evidenceLevelLabel),
+    })
+  }
+  if (trustMeta.auditLogSummary) {
+    props.push({
+      '@type': 'PropertyValue',
+      name: 'auditLogSummary',
+      value: String(trustMeta.auditLogSummary),
+    })
+  }
+  return props
+}
+
 function buildTrustAdditionalProperties(input = {}) {
   const data = input.data || {}
   const trustMeta = data.trustMeta && typeof data.trustMeta === 'object' ? data.trustMeta : null
@@ -152,7 +219,7 @@ function buildTrustAdditionalProperties(input = {}) {
         value: String(trustMeta.publicImageCount),
       })
     }
-    return props
+    return appendTrustMetaSchemaProperties(props, trustMeta)
   }
 
   const snapshot =
@@ -208,6 +275,17 @@ function buildTrustAdditionalProperties(input = {}) {
   if (data.serviceName) {
     props.push({ '@type': 'PropertyValue', name: 'serviceName', value: String(data.serviceName) })
   }
+  props.push(
+    { '@type': 'PropertyValue', name: 'desensitized', value: 'true' },
+    { '@type': 'PropertyValue', name: 'desensitizedLabel', value: '已脱敏' },
+    { '@type': 'PropertyValue', name: 'reviewStatusLabel', value: '已审核' },
+    { '@type': 'PropertyValue', name: 'platformAuditStatus', value: 'audited' },
+    {
+      '@type': 'PropertyValue',
+      name: 'contentTrustLabels',
+      value: '已脱敏 · 已审核',
+    }
+  )
   return props
 }
 
@@ -395,6 +473,7 @@ module.exports = {
   entityId,
   buildOrganizationNode,
   buildDatasetNode,
+  buildContentTrustLabels,
   buildTrustAdditionalProperties,
   buildServicePageSchemaGraph,
   buildCasePageSchemaGraph,

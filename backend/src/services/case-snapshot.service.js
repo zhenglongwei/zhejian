@@ -81,7 +81,9 @@ function buildCaseSnapshot(input = {}) {
     nodes: nodesWithMask,
     vehicleText:
       draft.contentJson?.vehicleText ||
-      `${(albumView.vehicle && albumView.vehicle.brand) || ''}（已脱敏）`,
+      [(albumView.vehicle && albumView.vehicle.brand), albumView.vehicle && albumView.vehicle.series]
+        .filter(Boolean)
+        .join(''),
     tags: draft.contentJson?.tags || [],
     coldStart: draft.contentJson?.coldStart || false,
   }

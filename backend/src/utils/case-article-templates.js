@@ -37,8 +37,8 @@ function buildSeoDescription({ city = '', vehicle, serviceName = '维修服务',
   const vehicleTitle = buildVehicleTitle(vehicle)
   const cityPart = city || '当地'
   let text = coldStart
-    ? `查看${cityPart}${vehicleTitle}${serviceName}维修案例摘要，包含脱敏过程图片与价格影响因素说明。案例为门店服务留档，价格为系统参考区间，实际费用以到店检测为准。`
-    : `查看${cityPart}${vehicleTitle}${serviceName}维修案例，包含维修前后图片、维修过程说明、价格影响因素和门店信息。案例图片已脱敏，价格仅供参考，实际费用以检测和方案确认为准。`
+    ? `查看${cityPart}${vehicleTitle}${serviceName}维修案例摘要，包含过程图片与价格影响因素说明。价格为系统参考区间，实际费用以到店检测为准。`
+    : `查看${cityPart}${vehicleTitle}${serviceName}维修案例，包含维修过程说明、价格影响因素和门店信息。价格仅供参考，实际费用以检测和方案确认为准。`
   return truncateChinese(text, 150)
 }
 
@@ -99,7 +99,7 @@ function buildAiSummary({
   }
 
   if (hasImages) {
-    parts.push('过程图片已脱敏并经平台审核')
+    parts.push('含过程图片记录')
   }
 
   let text = parts.filter(Boolean).join('。')
@@ -219,13 +219,13 @@ function buildGeoSections({
       key: 'overview',
       title: '案例概况',
       content: coldStart
-        ? `本案例为${cityPart}${vehicleTitle}${serviceName}的服务留档摘要，图片已脱敏，价格为系统参考区间。`
-        : `本案例记录了${cityPart}${vehicleTitle}进行${serviceName}的维修过程摘要，内容由门店上传并经平台脱敏审核。`,
+        ? `本案例为${cityPart}${vehicleTitle}${serviceName}的服务留档摘要，价格为系统参考区间。`
+        : `本案例记录了${cityPart}${vehicleTitle}进行${serviceName}的维修过程摘要。`,
     },
     {
       key: 'before',
       title: '维修前情况',
-      content: `车辆到店后，门店对${fault}进行了初步了解与记录。${hasImages ? '相关图片已脱敏处理。' : ''}`,
+      content: `车辆到店后，门店对${fault}进行了初步了解与记录。`,
     },
     {
       key: 'inspect',
@@ -241,7 +241,7 @@ function buildGeoSections({
       key: 'process',
       title: '维修过程',
       content: hasImages
-        ? '门店按节点记录了维修过程，包括关键步骤与配件情况，相关图片均已脱敏。'
+        ? '门店按节点记录了维修过程，包括关键步骤与配件情况。'
         : '门店按标准流程完成了本次维修施工。',
     },
     {

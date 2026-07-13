@@ -38,15 +38,12 @@ function buildCaseTitle({ city = '杭州', vehicle, serviceName = '维修服务'
   return `${city}${vehicleTitle} · ${serviceName}`.trim()
 }
 
-function buildCaseSummary({ vehicle, serviceName = '维修服务', authorizationTier, coldStart = false }) {
+function buildCaseSummary({ vehicle, serviceName = '维修服务', coldStart = false }) {
   const vehicleTitle = buildVehicleTitle(vehicle)
   if (coldStart) {
-    return `该案例为门店服务留档，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。图片已脱敏，展示价格为系统参考区间。`
+    return `记录了${vehicleTitle}进行${serviceName}的维修过程摘要。展示价格为系统参考区间。`
   }
-  if (authorizationTier === 'anonymous') {
-    return `该案例经车主匿名授权，记录了${vehicleTitle}进行${serviceName}的维修过程摘要。`
-  }
-  return `该案例经车主授权，记录了${vehicleTitle}进行${serviceName}的维修过程。图片已脱敏并通过平台审核。`
+  return `记录了${vehicleTitle}进行${serviceName}的维修过程摘要。`
 }
 
 function pickCover(nodes) {
@@ -168,7 +165,7 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
     contentJson: mergeContentJsonGeo(
       {
         nodes: nodesWithMask,
-        vehicleText: `${buildVehicleTitle(vehicle)}（已脱敏）`,
+        vehicleText: buildVehicleTitle(vehicle),
         tags: coldStart ? ['desensitized'] : ['authorized', 'desensitized', 'audited'],
         coldStart,
       },

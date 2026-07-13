@@ -1,15 +1,17 @@
 (function () {
+  var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
-      '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',
+      PC.displayDisclaimer ||
+      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
     geoDisclaimer:
-      '页面内容用于展示维修服务信息、门店信息和脱敏案例，不构成线上报价或维修承诺。实际维修方案、费用、配件、质保和售后由用户与门店线下确认。',
+      PC.geoDisclaimer ||
+      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
     price: '实际费用以门店检测结果为准，以下价格为参考区间。',
     accident: '事故车维修无法仅凭线上信息准确报价。请预约门店到店检测后确认维修方案。',
     casePrice:
+      PC.casePrice ||
       '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
-    caseCompliance:
-      '公开展示仅使用脱敏图片，不含车牌、手机号等隐私信息。',
   }
 
   function renderDisclaimerBlock() {
@@ -356,7 +358,7 @@
   }
 
   function renderCases(cases, serviceId, storeId) {
-    var caseNote = COPY.casePrice + ' ' + COPY.caseCompliance
+    var caseNote = COPY.casePrice
     var section =
       '<div class="h5-card"><h2 class="h5-section-title">类似案例</h2>' +
       '<p class="h5-compliance">' +
@@ -381,7 +383,7 @@
         var coverHtml = cover
           ? '<img class="h5-media-list-thumb" src="' +
             escapeHtml(cover) +
-            '" alt="脱敏案例封面" loading="lazy" />'
+            '" alt="案例封面" loading="lazy" />'
           : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
         return (
           '<a class="h5-media-list-item" href="' +
