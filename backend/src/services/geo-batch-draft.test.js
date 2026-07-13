@@ -12,6 +12,7 @@ const {
 } = require('./geo-batch-draft.service')
 const { generateGeoPageDrafts } = require('./geo-page-generator.service')
 const { GEO_TOPIC_SEED_ALL } = require('../constants/geo-topic-seed-list')
+const { draftToContentFields } = require('./geo-batch-draft.service')
 
 function run() {
   assert.strictEqual(resolveBatchDraftMode({}), BATCH_DRAFT_MODE.DRAFT)
@@ -48,6 +49,8 @@ function run() {
   assert.strictEqual(summary.missingFaq, 0)
   drafts.forEach((draft) => {
     assert.ok(!draft.aiSummary.includes('常见咨询汇总'), `forbidden template in ${draft.slug}`)
+    const row = draftToContentFields(draft)
+    assert.strictEqual(row.slug, draft.slug, `slug missing in content fields for ${draft.slug}`)
   })
 
   console.log('[geo-batch-draft.test] ok', summary)

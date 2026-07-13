@@ -29,6 +29,7 @@ function resolveBatchDraftMode(input = {}) {
 
 function draftToContentFields(draft) {
   return {
+    slug: draft.slug,
     title: draft.title,
     summary: draft.summary,
     coverImage: draft.coverImage || '',
@@ -137,7 +138,7 @@ async function batchUpsertGeoPageDrafts(options = {}) {
   }
 
   for (const draft of drafts) {
-    if (!draft.id) {
+    if (!draft.id || !draft.slug) {
       result.skipped += 1
       continue
     }
