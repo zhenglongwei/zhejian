@@ -22,6 +22,7 @@
           />
         </el-select>
         <el-button @click="onSyncSeeds">同步词库</el-button>
+        <el-button :loading="batchDrafting" @click="onBatchDraft">批量生成草稿</el-button>
         <el-button type="primary" :loading="probing" @click="onRunProbe">运行探测</el-button>
       </div>
     </div>
@@ -98,6 +99,47 @@
     <el-row :gutter="16" class="mb-16">
       <el-col :span="6">
         <el-statistic
+          title="信息增量率 (G03)"
+          :value="formatRate(report.metrics?.information_gain_rate)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="有案例含 N= 率"
+          :value="formatRate(report.metrics?.topic_with_stats_rate)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="聚合新鲜度 (G05)"
+          :value="formatRate(report.metrics?.aggregate_freshness)"
+          suffix="%"
+        />
+      </el-col>
+      <el-col :span="6">
+        <el-statistic
+          title="含 N= 摘要专题"
+          :value="report.topicHealth?.information_gain_count || 0"
+        />
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="16" class="mb-16">
+      <el-col :span="6">
+        <el-statistic title="可收录专题" :value="report.topicHealth?.indexable_count || 0" />
+      </el-col>
+      <el-col :span="18">
+        <el-link type="primary" :underline="false" @click="$router.push({ name: 'geo-topic-health' })">
+          查看专题健康度看板 →
+        </el-link>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="16" class="mb-16">
+      <el-col :span="6">
+        <el-statistic
           title="仅提及（无链接）"
           :value="report.usedVsCited?.mentioned_only || 0"
         />
@@ -153,6 +195,38 @@
     <p v-if="report.brandAttribution?.sample_note" class="metric-hint mb-16">
       {{ report.brandAttribution.sample_note }}
     </p>
+
+    <el-card shadow="never" header="咨询词 Prompt 候选（H05 · 脱敏审查）" class="mb-16">
+      <el-alert
+        v-if="leadReport.disclaimer"
+        class="mb-16"
+        type="info"
+        :closable="false"
+        :title="leadReport.disclaimer"
+        show-icon
+      />
+      <el-table v-loading="leadLoading" :data="leadReport.candidates || []" border stripe size="small">
+        <el-table-column prop="prompt" label="候选 Prompt" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="service" label="服务" width="120" />
+        <el-table-column prop="city" label="城市" width="90" />
+        <el-table-column prop="promptType" label="类型" width="70" />
+        <el-table-column prop="leadCount" label="咨询数" width="80" />
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.recommendedAction !== 'skip_duplicate'"
+              link
+              type="primary"
+              :loading="approvingKey === row.candidateKey"
+              @click="onApproveLeadCandidate(row)"
+            >
+              批准入库
+            </el-button>
+            <span v-else class="hint">已重复</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-row :gutter="16" class="mb-16">
       <el-col :span="14">
@@ -236,11 +310,22 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { fetchProbeReport, runProbeBatch, syncProbeSeeds } from '@/api/geo-obs'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  fetchProbeReport,
+  runProbeBatch,
+  syncProbeSeeds,
+  runSeedTopicsBatchDraft,
+  fetchLeadPromptCandidates,
+  approveLeadPromptCandidate,
+} from '@/api/geo-obs'
 
 const loading = ref(false)
 const probing = ref(false)
+const batchDrafting = ref(false)
+const leadLoading = ref(false)
+const approvingKey = ref('')
+const leadReport = ref({ candidates: [] })
 const days = ref(7)
 const selectedEngine = ref('')
 const report = ref({ metrics: {}, recentResults: [], byEngine: [] })
@@ -357,10 +442,59 @@ async function loadReport() {
   }
 }
 
+async function loadLeadCandidates() {
+  leadLoading.value = true
+  try {
+    leadReport.value = await fetchLeadPromptCandidates({ days: 30, minCount: 2, limit: 15 })
+  } finally {
+    leadLoading.value = false
+  }
+}
+
+async function onApproveLeadCandidate(row) {
+  if (!row?.candidateKey) return
+  approvingKey.value = row.candidateKey
+  try {
+    await approveLeadPromptCandidate(row.candidateKey)
+    ElMessage.success('已批准入库为 OBS prompt')
+    await loadLeadCandidates()
+    await loadReport()
+  } catch (e) {
+    ElMessage.error(e?.message || '批准失败')
+  } finally {
+    approvingKey.value = ''
+  }
+}
+
 async function onSyncSeeds() {
   const data = await syncProbeSeeds()
   ElMessage.success(`词库同步完成：新增 ${data.created}，更新 ${data.updated}`)
   await loadReport()
+}
+
+async function onBatchDraft() {
+  try {
+    await ElMessageBox.confirm(
+      '将按 100 条种子词库刷新专题内容与 FAQ。已发布专题不会被降级为草稿；发布仍须走审核闸门。',
+      '批量生成草稿',
+      { type: 'warning', confirmButtonText: '开始生成', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+
+  batchDrafting.value = true
+  try {
+    const data = await runSeedTopicsBatchDraft()
+    ElMessage.success(
+      `批量草稿完成：新建 ${data.created}，更新 ${data.updated}，保留已发布 ${data.preservedPublished}`
+    )
+    await loadReport()
+  } catch (e) {
+    ElMessage.error(e?.message || '批量生成失败')
+  } finally {
+    batchDrafting.value = false
+  }
 }
 
 async function onRunProbe() {
@@ -374,7 +508,10 @@ async function onRunProbe() {
   }
 }
 
-onMounted(loadReport)
+onMounted(() => {
+  loadReport()
+  loadLeadCandidates()
+})
 </script>
 
 <style scoped>

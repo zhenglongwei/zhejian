@@ -96,3 +96,85 @@ npm run check:prod-env -- --probe https://geo.simplewin.cn
 - [ ] MySQL 仅 127.0.0.1
 - [ ] 防火墙 80/443/22
 - [ ] 定期备份 `zhejian` 库
+
+## GEO 二期上线清单（2026-07-13）
+
+> 代码合并后，在服务器 `backend/` 依次执行；运营动作在 admin-web 完成。
+
+### 1. 拉代码与构建
+
+```bash
+cd /var/www/zhejian
+git pull
+cd backend && npm install && npm run sync:shared-utils && npm run db:migrate
+cd ../admin-web && npm install && npm run build
+pm2 restart zhejian-api
+```
+
+### 2. 存量数据回填（首次或案例/专题有增量时）
+
+```bash
+cd /var/www/zhejian/backend
+
+# 卷九前案例补 snapshot（trustMeta 前置）
+npm run case:snapshot-legacy-backfill
+
+# trustMeta 写入 enrichment
+npm run case:trust-meta-backfill
+
+# 100 条种子专题入库（默认 draft 模式，不降级已发布）
+npm run geo:batch-draft
+
+# OBS 词库同步
+npm run geo:probe-seed-sync
+```
+
+若需验收环境一次性全发布（生产慎用）：
+
+```bash
+npm run geo:batch-draft:publish
+```
+
+### 3. 冒烟验收（服务器本机）
+
+```bash
+npm run test:geo-topic-seed
+npm run test:geo-batch-draft
+npm run geo:batch-draft-smoke
+npm run geo:prompt-coverage-smoke
+npm run geo:topic-scale-smoke
+npm run geo:robots-audit-smoke
+npm run geo:aggregate-refresh-smoke
+npm run public:feed-parity-smoke
+npm run deploy:verify -- https://geo.simplewin.cn
+```
+
+### 4. `.env` GEO 相关（生产必查）
+
+```bash
+PUBLIC_BASE_URL=https://geo.simplewin.cn
+GEO_PROBE_ENABLED=true          # 要跑 Citation Gap 时
+GEO_PROBE_DRY_RUN=false
+GEO_PROBE_ENGINES=qwen,doubao   # 按实际有 Key 的引擎
+DASHSCOPE_API_KEY=sk-xxx        # 或对应引擎 Key
+DEV_AUTH_ENABLED=false
+```
+
+### 5. 定时任务（crontab）
+
+| 任务 | 脚本 | 建议时间 |
+| --- | --- | --- |
+| 专题聚合重算 | `geo-aggregate-refresh-cron.sh` | 每天 02:00 |
+| OBS 词库探测 | `geo-prompt-probe-cron.sh` | 每周一 03:00 |
+| 商家看板日聚合 | `stats-aggregate-cron.sh` | 每天 00:00 |
+
+详见 [`docs/部署上手指南.md`](../../docs/部署上手指南.md) §7。
+
+### 6. 运营台动作
+
+1. 登录 `https://geo.simplewin.cn/admin/` → **GEO 探测**
+2. **同步词库** → **批量生成草稿**（刷新 100 条专题内容，不降级已发布）
+3. 在 **专题健康度** 看板检查告警项
+4. 逐条或批量合规后，在专题编辑页走 **H06 发布闸门** 发布
+
+完整步骤亦见 [`docs/12_测试验收部署与安全合规/B-INF_生产与真机联调.md`](../../docs/12_测试验收部署与安全合规/B-INF_生产与真机联调.md)。

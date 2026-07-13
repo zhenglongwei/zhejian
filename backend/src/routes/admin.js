@@ -1,5 +1,7 @@
 const express = require('express')
 const { ok } = require('../lib/response')
+const { prisma } = require('../lib/prisma')
+const { mapGeoPageRow } = require('../schemas/geo-page.schema')
 const { requireAuth } = require('../middleware/auth')
 const { requireAdmin } = require('../middleware/require-admin')
 const { config } = require('../config')
@@ -49,6 +51,7 @@ const {
   buildGeoProbeReport,
 } = require('../services/geo-prompt-probe.service')
 const { buildAdminCitationGaps } = require('../services/admin-geo-citation-gap.service')
+const { buildAdminGeoTopicHealth } = require('../services/admin-geo-topic-health.service')
 const {
   listAdminAlbumCompliance,
   getAdminAlbumComplianceDetail,
@@ -377,6 +380,24 @@ router.get('/geo-pages/:pageId', async (req, res, next) => {
   }
 })
 
+router.get('/geo-pages/:pageId/publish-readiness', async (req, res, next) => {
+  try {
+    const row = await prisma.geoPage.findFirst({
+      where: { OR: [{ id: req.params.pageId }, { slug: req.params.pageId }] },
+    })
+    if (!row) {
+      const err = new Error('专题不存在')
+      err.status = 404
+      throw err
+    }
+    const { buildAdminGeoPagePublishReadiness } = require('../services/geo-topic-publish-sop.service')
+    const data = await buildAdminGeoPagePublishReadiness(mapGeoPageRow(row))
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/geo-pages', async (req, res, next) => {
   try {
     const data = await createAdminGeoPage(req.body || {})
@@ -425,6 +446,15 @@ router.get('/geo/crawler-stats', async (req, res, next) => {
 router.get('/geo/citation-gaps', async (req, res, next) => {
   try {
     const data = await buildAdminCitationGaps(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/topic-health', async (req, res, next) => {
+  try {
+    const data = await buildAdminGeoTopicHealth(req.query)
     return ok(res, data)
   } catch (e) {
     next(e)
@@ -507,6 +537,16 @@ router.post('/geo/probe-seed-sync', async (req, res, next) => {
   }
 })
 
+router.post('/geo/seed-topics/batch-draft', async (req, res, next) => {
+  try {
+    const { runAdminGeoSeedBatchDraft } = require('../services/admin-geo-batch-draft.service')
+    const data = await runAdminGeoSeedBatchDraft(req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/geo/prompts', async (req, res, next) => {
   try {
     const data = await listAdminGeoPrompts(req.query)
@@ -537,6 +577,26 @@ router.post('/geo/prompts', async (req, res, next) => {
 router.put('/geo/prompts/:promptId', async (req, res, next) => {
   try {
     const data = await updateAdminGeoPrompt(req.params.promptId, req.body)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/lead-prompt-candidates', async (req, res, next) => {
+  try {
+    const { buildAdminLeadPromptCandidates } = require('../services/admin-geo-lead-prompt-candidate.service')
+    const data = await buildAdminLeadPromptCandidates(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo/lead-prompt-candidates/:candidateKey/approve', async (req, res, next) => {
+  try {
+    const { approveAdminLeadPromptCandidate } = require('../services/admin-geo-lead-prompt-candidate.service')
+    const data = await approveAdminLeadPromptCandidate(req.params.candidateKey, req.body || {})
     return ok(res, data)
   } catch (e) {
     next(e)

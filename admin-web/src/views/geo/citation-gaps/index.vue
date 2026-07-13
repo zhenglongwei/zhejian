@@ -48,6 +48,14 @@
     </el-card>
 
     <el-card shadow="never" header="Gap 专题推荐（一键建草稿）" class="mb-16">
+      <el-alert
+        v-if="!(report.topicRecommendations || []).length && !(report.topicTodos || []).length"
+        class="mb-16"
+        type="info"
+        :closable="false"
+        title="当前无待建专题：种子专题已覆盖主要意图，或公开案例/探测样本尚不足。可查看下方「车型选题雷达」或「专题健康度」排查内容缺口。"
+        show-icon
+      />
       <el-table :data="report.topicRecommendations || []" border stripe size="small">
         <el-table-column prop="city" label="城市" width="90" />
         <el-table-column prop="serviceName" label="服务/意图" min-width="120" />
@@ -129,6 +137,13 @@
         <el-table-column prop="vehicleSeries" label="车型/车系" width="120" />
         <el-table-column prop="serviceName" label="服务" min-width="120" />
         <el-table-column prop="caseCount" label="案例数" width="80" />
+        <el-table-column label="可发布" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.publishReadiness?.canPublish ? 'success' : 'warning'" size="small">
+              {{ row.publishReadiness?.canPublish ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="专题" width="90">
           <template #default="{ row }">
             {{ row.hasTopic ? (row.topicStatus === 'published' ? '已发布' : '草稿') : '无' }}

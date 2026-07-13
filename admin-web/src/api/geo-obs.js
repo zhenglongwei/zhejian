@@ -12,6 +12,18 @@ export function fetchCitationGaps(params) {
   return request.get('/admin/geo/citation-gaps', { params })
 }
 
+export function fetchTopicHealth(params) {
+  return request.get('/admin/geo/topic-health', { params })
+}
+
+export function fetchLeadPromptCandidates(params) {
+  return request.get('/admin/geo/lead-prompt-candidates', { params })
+}
+
+export function approveLeadPromptCandidate(candidateKey) {
+  return request.post(`/admin/geo/lead-prompt-candidates/${encodeURIComponent(candidateKey)}/approve`)
+}
+
 export function fetchGapTopicRecommendations(params) {
   return request.get('/admin/geo/gap-topic-recommendations', { params })
 }
@@ -34,6 +46,10 @@ export function runProbeBatch(body) {
 
 export function syncProbeSeeds() {
   return request.post('/admin/geo/probe-seed-sync')
+}
+
+export function runSeedTopicsBatchDraft(body = {}) {
+  return request.post('/admin/geo/seed-topics/batch-draft', body)
 }
 
 export function fetchGeoPromptList(params) {

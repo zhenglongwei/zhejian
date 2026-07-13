@@ -3,7 +3,7 @@
  */
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
-const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { GEO_PAGE_STATUS, GEO_PAGE_TYPE } = require('../constants/geo-page-status')
 const {
   mapGeoPageRow,
   mapGeoListItem,
@@ -14,6 +14,12 @@ const {
 } = require('../schemas/geo-page.schema')
 const { getGeoPageDetail } = require('./geo.service')
 const { getGeoFaqTemplate } = require('../constants/geo-faq-templates')
+const { listCases } = require('./content.service')
+const {
+  validateVehicleTopicPublishGate,
+  ensureVehicleTopicPromptBinding,
+} = require('./geo-vehicle-topic.service')
+const { validateGeoTopicPublishSop } = require('./geo-topic-publish-sop.service')
 
 function assertSlug(slug) {
   const value = String(slug || '').trim()
@@ -76,7 +82,11 @@ async function getAdminGeoPageDetail(idOrSlug) {
     err.status = 404
     throw err
   }
-  return getGeoPageDetail(row.slug, { publicRead: false })
+  const detail = await getGeoPageDetail(row.slug, { publicRead: false })
+  const { buildAdminGeoPagePublishReadiness } = require('./geo-topic-publish-sop.service')
+  const page = mapGeoPageRow(row)
+  detail.publishReadiness = await buildAdminGeoPagePublishReadiness(page)
+  return detail
 }
 
 async function createAdminGeoPage(payload = {}) {
@@ -187,11 +197,19 @@ async function setAdminGeoPageStatus(idOrSlug, status) {
 
   if (nextStatus === GEO_PAGE_STATUS.PUBLISHED) {
     const page = mapGeoPageRow(row)
+    const { list: cases } = await listCases({ limit: 500 })
+    await validateGeoTopicPublishSop(page, cases)
+
     const relatedCaseCount = Array.isArray(page.relatedCaseIds) ? page.relatedCaseIds.length : 0
     validateGeoFaqItems(page.faq || [], {
       requireStoreCheckHint: relatedCaseCount === 0,
       relatedCaseCount,
     })
+
+    if (page.pageType === GEO_PAGE_TYPE.VEHICLE_SERVICE) {
+      validateVehicleTopicPublishGate(page, cases)
+      await ensureVehicleTopicPromptBinding(page)
+    }
   }
 
   const publishedAt =

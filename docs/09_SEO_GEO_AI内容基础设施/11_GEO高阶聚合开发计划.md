@@ -149,8 +149,8 @@
 | GEO-AGG-08 | 高阶 FAQ 衍生 | `buildDerivedAggregateFaq` 扩展 | P1 | [x] | 里程/转化 FAQ |
 | GEO-AGG-09 | JSON Feed 扩展 | `public-feed.service.js` | P0 | [x] | |
 | GEO-AGG-10 | Dataset Schema §19 | `schema-graph.js` | P1 | [x] | |
-| GEO-AGG-11 | 日级重算 cron | `geo-aggregate-refresh-cron.sh` | P1 | [ ] | 可选缓存表 |
-| GEO-AGG-12 | 运营台信息增量评分升级 | `admin-web` geo-pages | P1 | [~] | 基础黄绿标 ✅ |
+| GEO-AGG-11 | 日级重算 cron | `geo-aggregate-refresh-cron.sh` | P1 | [x] | `serviceMeta.aggregateCache` |
+| GEO-AGG-12 | 运营台信息增量评分升级 | `admin-web` geo-pages | P1 | [x] | 健康度含 aggregate_freshness |
 | GEO-AGG-13 | 冒烟 | `geo-aggregate-advanced-smoke.js` | P0 | [x] | |
 | GEO-AGG-14 | 下钻 API | `GET /public/v1/.../cases?cause=` | P2 | [ ] | 案例 id 列表 |
 

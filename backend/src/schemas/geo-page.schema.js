@@ -127,6 +127,15 @@ function normalizeServiceMeta(value) {
     referencePriceHint: String(meta.referencePriceHint || '').trim(),
     process: parseJsonArray(meta.process),
     relatedSlugs: parseJsonArray(meta.relatedSlugs),
+    ...(meta.aggregateCache && typeof meta.aggregateCache === 'object'
+      ? {
+          aggregateCache: {
+            computedAt: String(meta.aggregateCache.computedAt || '').trim(),
+            sampleSize: Number(meta.aggregateCache.sampleSize) || 0,
+            signature: String(meta.aggregateCache.signature || '').trim(),
+          },
+        }
+      : {}),
   }
 }
 

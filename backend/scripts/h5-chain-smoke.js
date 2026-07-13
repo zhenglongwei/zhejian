@@ -277,6 +277,10 @@ async function verifyH5Sitemap() {
   assert(robotsRes.ok, `robots.txt HTTP ${robotsRes.status}`)
   const robotsText = await robotsRes.text()
   assert(robotsText.includes('Sitemap:'), 'robots.txt 缺少 Sitemap 声明')
+  assert(robotsText.includes('LLMs-Feed:'), 'robots.txt 缺少 LLMs-Feed 声明')
+  const { auditRobotsTxt } = require('../src/services/geo-robots-audit.service')
+  const robotsAudit = auditRobotsTxt(robotsText)
+  assert(robotsAudit.passed, `robots.txt 审计未通过: ${robotsAudit.missing.join(',')} ${robotsAudit.blockedBots.join(',')}`)
 
   const llmsRes = await fetch(`${BASE}/llms.txt`)
   assert(llmsRes.ok, `llms.txt HTTP ${llmsRes.status}`)

@@ -1,91 +1,36 @@
 /**
- * GEO-TOPIC-D03 · 导入首批 30 条意图种子到 geo_pages
+ * GEO-TOPIC-D03 / GEO-TOPIC-H04 · 种子词库批量入库
  *
  * 用法：
- *   node scripts/geo-seed-topics.js
- *   node scripts/geo-seed-topics.js --publish
+ *   node scripts/geo-seed-topics.js              # draft 模式（默认，不降级已发布）
+ *   node scripts/geo-seed-topics.js --publish    # 强制发布
+ *   node scripts/geo-seed-topics.js --content-only
  */
 require('dotenv').config()
 const { PrismaClient } = require('@prisma/client')
-const { GEO_TOPIC_SEED_ALL } = require('../src/constants/geo-topic-seed-list')
-const { GEO_PAGE_STATUS } = require('../src/constants/geo-page-status')
-const { generateGeoPageDrafts } = require('../src/services/geo-page-generator.service')
-const { listCases } = require('../src/services/content.service')
-const { normalizeFaq, normalizeFaqLinks, normalizeServiceMeta } = require('../src/schemas/geo-page.schema')
+const {
+  BATCH_DRAFT_MODE,
+  batchUpsertGeoPageDrafts,
+} = require('../src/services/geo-batch-draft.service')
 
 const prisma = new PrismaClient()
-const PUBLISH = process.argv.includes('--publish')
+const argv = process.argv.slice(2)
 
-function toDbRow(draft, status, publishedAt) {
-  return {
-    slug: draft.slug,
-    title: draft.title,
-    summary: draft.summary,
-    coverImage: draft.coverImage || '',
-    pageType: draft.pageType,
-    city: draft.city || '',
-    serviceId: draft.serviceId || '',
-    faultTag: draft.faultTag || '',
-    vehicleSeries: draft.vehicleSeries || '',
-    keywordsJson: draft.keywords || [],
-    scenariosJson: draft.scenarios || [],
-    priceFactorsJson: draft.priceFactors || [],
-    faqJson: normalizeFaq(draft.faq || []),
-    faqLinksJson: normalizeFaqLinks(draft.faqLinks || []),
-    relatedCaseIdsJson: draft.relatedCaseIds || [],
-    relatedStoreIdsJson: draft.relatedStoreIds || [],
-    primaryStoreId: draft.primaryStoreId || '',
-    relatedServiceId: draft.relatedServiceId || '',
-    seoTitle: draft.seoTitle || '',
-    seoDescription: draft.seoDescription || '',
-    aiSummary: draft.aiSummary || '',
-    serviceMetaJson: normalizeServiceMeta(draft.serviceMeta || {}),
-    status,
-    publishedAt,
-  }
+function resolveMode() {
+  if (argv.includes('--publish')) return BATCH_DRAFT_MODE.PUBLISH
+  if (argv.includes('--content-only')) return BATCH_DRAFT_MODE.CONTENT_ONLY
+  return BATCH_DRAFT_MODE.DRAFT
 }
 
 async function main() {
-  const { list: allCases } = await listCases({ limit: 500 })
-  const drafts = generateGeoPageDrafts(GEO_TOPIC_SEED_ALL, { allCases })
-  const withStats = drafts.filter((draft) => draft.aiSummary.includes('例脱敏案例')).length
-  console.log(`[geo-seed-topics] drafts=${drafts.length} withAggregateSummary=${withStats} cases=${allCases.length}`)
-  const status = PUBLISH ? GEO_PAGE_STATUS.PUBLISHED : GEO_PAGE_STATUS.DRAFT
-  const publishedAt = PUBLISH ? new Date() : null
-
-  let created = 0
-  let updated = 0
-  let skipped = 0
-
-  for (const draft of drafts) {
-    if (!draft.id) {
-      console.warn('[geo-seed-topics] skip invalid slug draft')
-      skipped += 1
-      continue
-    }
-
-    const data = toDbRow(draft, status, publishedAt)
-    const existing = await prisma.geoPage.findUnique({ where: { slug: draft.slug } })
-
-    if (existing) {
-      if (existing.pageType === 'service_base') {
-        console.warn(`[geo-seed-topics] skip service_base slug=${draft.slug}`)
-        skipped += 1
-        continue
-      }
-      await prisma.geoPage.update({ where: { id: existing.id }, data })
-      updated += 1
-      continue
-    }
-
-    await prisma.geoPage.create({
-      data: { id: draft.id, ...data },
-    })
-    created += 1
-  }
+  const mode = resolveMode()
+  const result = await batchUpsertGeoPageDrafts({ mode, client: prisma })
 
   console.log(
-    `[geo-seed-topics] done total=${drafts.length} created=${created} updated=${updated} skipped=${skipped} publish=${PUBLISH}`
+    `[geo-seed-topics] drafts=${result.draftCount} withAggregateSummary=${result.withAggregateSummary} cases=${result.caseCount}`
+  )
+  console.log(
+    `[geo-seed-topics] done total=${result.draftCount} created=${result.created} updated=${result.updated} skipped=${result.skipped} preservedPublished=${result.preservedPublished} mode=${mode}`
   )
 }
 

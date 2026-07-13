@@ -7,6 +7,7 @@ const { listCases } = require('./content.service')
 const {
   discoverVehicleSeriesTopicSeeds,
   MIN_VEHICLE_TOPIC_SAMPLE,
+  assessVehicleTopicPublishReadiness,
 } = require('./geo-vehicle-topic.service')
 const { generateVehicleSeriesDrafts } = require('./geo-page-generator.service')
 const { createAdminGeoPage } = require('./admin-geo-page.service')
@@ -19,6 +20,25 @@ function mapSeedRow(seed, options = {}) {
   const caseCount = Array.isArray(seed.relatedCaseIds) ? seed.relatedCaseIds.length : 0
   const hasTopic = Boolean(page)
   const topicStatus = page ? page.status : ''
+  const publishReadiness = assessVehicleTopicPublishReadiness(
+    {
+      slug,
+      vehicleSeries: seed.vehicleSeries || '',
+      serviceId: seed.serviceItemId || '',
+      relatedServiceId: seed.serviceItemId || '',
+      relatedCaseIds: seed.relatedCaseIds || [],
+      aiSummary: draft?.aiSummary || '',
+    },
+    []
+  )
+  publishReadiness.caseCount = caseCount
+  publishReadiness.canPublish = caseCount >= MIN_VEHICLE_TOPIC_SAMPLE
+  if (!seed.vehicleSeries) {
+    publishReadiness.canPublish = false
+    publishReadiness.note = '须填写车系'
+  } else if (caseCount < MIN_VEHICLE_TOPIC_SAMPLE) {
+    publishReadiness.note = `样本不足，需 ≥${MIN_VEHICLE_TOPIC_SAMPLE} 例同车系案例`
+  }
   let recommendedAction = 'create_draft'
   if (hasTopic && topicStatus === GEO_PAGE_STATUS.PUBLISHED) {
     recommendedAction = 'published'
@@ -36,8 +56,10 @@ function mapSeedRow(seed, options = {}) {
     caseCount,
     relatedCaseIds: seed.relatedCaseIds || [],
     keywords: seed.keywords || [],
+    promptId: seed.promptId || '',
     hasTopic,
     topicStatus,
+    publishReadiness,
     recommendedAction,
     draftPreview: draft
       ? {

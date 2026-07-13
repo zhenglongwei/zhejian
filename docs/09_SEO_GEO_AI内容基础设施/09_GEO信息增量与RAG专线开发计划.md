@@ -91,7 +91,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-A04 | 注入专题/geo_pages 生成器 | `geo-page-generator.service.js` | P0 | [x] | 种子 draft + 运行时 `h5-geo-topic` 全类型注入 |
 | GEO-IGAIN-A05 | H5 首屏展示统计条 | `service-render.js`；`topic-render.js` | P0 | [x] | `service-item-render` `renderTrustMeta` |
 | GEO-IGAIN-A06 | 案例衍生 FAQ（≥1 条） | `geo-case-aggregate.service.js` | P0 | [x] | `buildDerivedAggregateFaq` |
-| GEO-IGAIN-A07 | 运营台信息增量评分 | `admin-web` CaseGeoEditor / geo-pages edit | P1 | [ ] | 黄/绿标；无增量 warn |
+| GEO-IGAIN-A07 | 运营台信息增量评分 | `admin-web` CaseGeoEditor / geo-pages edit | P1 | [x] | 黄/绿标；无 N= warn |
 | GEO-IGAIN-A08 | 冒烟 | `backend/scripts/geo-aggregate-smoke.js` | P0 | [x] | 聚合 → API → Feed |
 
 ### 3.3 摘要句式模板（规范真源见 [`04_AI可引用摘要规范.md`](./04_AI可引用摘要规范.md) §15）
@@ -235,9 +235,9 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | ---: | --- | --- | ---: | ---: | --- |
 | GEO-IGAIN-G01 | 运营台信息增量评分 | `admin-web` CaseGeoEditor / geo-pages | P0 | [x] | 黄/绿标；无 N= warn |
 | GEO-IGAIN-G02 | 存量服务页批量 refresh | `scripts/geo-aggregate-backfill.js` | P0 | [x] | 已发布全量 |
-| GEO-IGAIN-G03 | `information_gain_rate` 周报 | `geo-topic-health.service.js` | P1 | [ ] | 对接 OBS 周报 |
-| GEO-IGAIN-G04 | 无案例页强制 noindex 审计 | `h5-service-item.service.js` | P1 | [ ] | caseCount=0 |
-| GEO-IGAIN-G05 | 动态 `updated_at` 策略 | 聚合重算钩子 | P1 | [~] | computedAt 已写入 |
+| GEO-IGAIN-G03 | `information_gain_rate` 周报 | `geo-topic-health.service.js` | P1 | [x] | OBS 探测周报 + 健康度看板 |
+| GEO-IGAIN-G04 | 无案例页强制 noindex 审计 | `h5-service-item.service.js` | P1 | [x] | `geo:service-noindex-smoke` |
+| GEO-IGAIN-G05 | 动态 `updated_at` 策略 | 聚合重算钩子 | P1 | [x] | 内容变更写 updatedAt + computedAt |
 | GEO-IGAIN-G06 | 冒烟 | `geo-aggregate-smoke.js` 扩展 | P0 | [x] | 覆盖率断言 |
 
 ### 10.3 验收
@@ -269,7 +269,7 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | GEO-IGAIN-H05 | `index.json` 扩展 | `public-feed.service.js` | P1 | [x] | 专题+统计说明 |
 | GEO-IGAIN-H06 | Feed 一致性审计脚本 | `public-feed-parity-smoke.js` | P0 | [x] | H5=Feed=Schema |
 | GEO-IGAIN-H07 | ETag 缓存验证 | `public-h5.js` | P2 | [ ] | 聚合更新后失效 |
-| GEO-IGAIN-H08 | GPTBot robots 审计 | 协同 OBS-D04 | P1 | [ ] | |
+| GEO-IGAIN-H08 | GPTBot robots 审计 | `geo-robots-audit.service.js` | P1 | [x] | `geo:robots-audit-smoke` |
 
 ### 11.3 验收
 
@@ -289,9 +289,9 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | D 发现层 2.0 | 4 | 3 | 1 | D02 llms-full 待做 |
 | E 品牌词归因 | 5 | 5 | 0 | ✅ |
 | F 车型联动 | 2 | 2 | 0 | ✅ |
-| **G 聚合全覆盖** | 6 | 4 | 2 | G03/G04 待 OBS |
-| **H Feed 全量对接** | 8 | 6 | 2 | H07/H08 待做 |
-| **合计** | **44** | **39** | **5** | |
+| **G 聚合全覆盖** | 6 | 6 | 0 | ✅ |
+| **H Feed 全量对接** | 8 | 7 | 1 | H07 ETag P2 可选 |
+| **合计** | **44** | **43** | **1** | |
 
 ---
 

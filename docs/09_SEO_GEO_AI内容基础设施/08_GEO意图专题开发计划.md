@@ -109,7 +109,7 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | **B** | 页内 FAQ + FAQPage Schema | P0 | A | AI 可引用的问答块 | [x] |
 | **C** | 案例↔服务页矩阵 + 自动挂载 | P1 | A、[`06`](./06_GEO案例引用优化开发计划.md) | 内链密度 | [x] |
 | **D** | 意图模板批量生成 + 首批 30 种子 | P1 | A、B | 种子内容网 | [x] |
-| **E** | 车型+服务轻量专题 | P2 | C | 覆盖 `DS-C-06` 子集 | [ ] |
+| **E** | 车型+服务轻量专题 | P1 | C | 覆盖 `DS-C-06` 子集 | [x] |
 | **F** | llms.txt / 专题 Feed | P2 | A | 可选发现层 | [x] |
 
 **推荐顺序**：`A → B → D` ✅ → `C` ✅ → **GEO-OBS B**（验 citation）→ `E/F`（按需）。
@@ -218,18 +218,20 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | ---: | --- | --- | ---: | ---: | --- |
 | GEO-TOPIC-E01 | 车系聚合统计 | `geo-vehicle-topic.service.js` | P2 | [x] | 按 `vehicleText` 计数 |
 | GEO-TOPIC-E02 | 自动生成 draft | `discoverVehicleSeriesTopicSeeds` | P2 | [x] | ≥N 例生成 seed |
-| GEO-TOPIC-E03 | 运营审核发布流程 | `admin-geo-page.service.js` | P1 | [ ] | draft→published；**不** auto-publish |
-| GEO-TOPIC-E04 | 车系专题词库绑定 | `geo-prompt-seed.js` | P1 | [ ] | 每专题 ≥1 C 类 prompt |
-| GEO-TOPIC-E05 | 摘要含车系 N= + 主因 | `h5-geo-topic.service.js` | P1 | [ ] | IGAIN-F 联动 |
-| GEO-TOPIC-E06 | 车系 FAQ 衍生 | runtime 注入 | P1 | [ ] | ≥1 条统计型 FAQ |
-| GEO-TOPIC-E07 | 与 DS-C-06 关系文档 | `docs/00_开发计划.md` | P1 | [ ] | 轻量替代，不建 `/car/` |
-| GEO-TOPIC-E08 | 冒烟 | `geo-vehicle-topic-smoke.js` | P1 | [ ] | |
+| GEO-TOPIC-E03 | 运营审核发布流程 | `admin-geo-page.service.js` | P1 | [x] | 样本闸门；不 auto-publish |
+| GEO-TOPIC-E04 | 车系专题词库绑定 | `geo-prompt-seed.js` | P1 | [x] | 发布时 upsert C 类 prompt |
+| GEO-TOPIC-E05 | 摘要含车系 N= + 主因 | `h5-geo-topic.service.js` | P1 | [x] | `applyAggregateToVehicleTopicContent` |
+| GEO-TOPIC-E06 | 车系 FAQ 衍生 | runtime 注入 | P1 | [x] | `mergeDerivedFaq` |
+| GEO-TOPIC-E07 | 与 DS-C-06 关系文档 | `docs/00_开发计划.md` | P1 | [x] | 轻量 `/topic/`，不建 `/car/` |
+| GEO-TOPIC-E08 | 冒烟 | `geo-vehicle-topic-smoke.js` | P1 | [x] | |
 
 ### 9.3 验收
 
 1. 车系+服务 N≥5 的专题 ≥10 条已发布且 sitemap 可发现；
 2. 每条绑定 ≥1 条 C 类 prompt（OBS 词库）；
 3. 摘要含 N= 与统计窗口；无案例不 index。
+
+**与 DS-C-06 关系**：车型轻量专题统一走 `/topic/{slug}`（`vehicle_service`），由案例样本驱动选题与发布闸门；**不**单独建设 `/car/` 全量车型库页。DS-C-06 以本阶段 E 线能力降级替代。
 
 ---
 
@@ -279,23 +281,29 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 
 | ID | 任务 | 涉及文件 | 优先级 | 状态 | 备注 |
 | ---: | --- | --- | ---: | ---: | --- |
-| GEO-TOPIC-H01 | 词库扩展至 80～100 条 | `geo-prompt-seed.js` | P0 | [~] | 当前 51 条 |
+| GEO-TOPIC-H01 | 词库扩展至 80～100 条 | `geo-prompt-seed.js` | P0 | [x] | 100 条；h01 + h01b |
 | GEO-TOPIC-H02 | Gap→专题自动推荐 | `geo-citation-gap.js` + admin API | P0 | [x] | citation-gaps + 一键草稿 |
 | GEO-TOPIC-H03 | 种子清单扩展 | `geo-topic-seed-list.js` | P1 | [x] | GEO_TOPIC_SEED_ALL=51 |
-| GEO-TOPIC-H04 | 批量 draft 生成 | `geo-page-generator.service.js` | P1 | [~] | `geo:seed-topics` 就绪 |
-| GEO-TOPIC-H05 | 咨询词脱敏入库规则 | `lead` → prompt 候选 | P1 | [ ] | 合规审查 |
-| GEO-TOPIC-H06 | 发布审核 SOP | 运营文档 §10.6 | P1 | [ ] | 无 N= 不发布 |
-| GEO-TOPIC-H07 | `prompt_intent_coverage` ≥70% | OBS 周报 | P1 | [ ] | 词库 80+ 前提 |
-| GEO-TOPIC-H08 | 专题健康度看板 | `geo-topic-health.service.js` | P1 | [ ] | 含 stats/advanced 覆盖 |
-| GEO-TOPIC-H09 | 冒烟 | `geo-topic-scale-smoke.js` | P1 | [ ] | ≥50 published |
+| GEO-TOPIC-H04 | 批量 draft 生成 | `geo-batch-draft.service.js` | P1 | [x] | draft 模式不降级已发布；运营台/API |
+| GEO-TOPIC-H05 | 咨询词脱敏入库规则 | `lead` → prompt 候选 | P1 | [x] | 脱敏+人工批准入库 |
+| GEO-TOPIC-H06 | 发布审核 SOP | `geo-topic-publish-sop.service.js` | P1 | [x] | API 闸门+运营台清单 |
+| GEO-TOPIC-H07 | `prompt_intent_coverage` ≥70% | OBS 周报 | P1 | [x] | `geo:prompt-coverage-smoke` |
+| GEO-TOPIC-H08 | 专题健康度看板 | `geo-topic-health.service.js` | P1 | [x] | admin `/geo/topic-health` |
+| GEO-TOPIC-H09 | 冒烟 | `geo-topic-scale-smoke.js` | P1 | [x] | ≥50 published |
 
 ### 10.6 运营发布 SOP（每条）
+
+> **系统闸门（H06）**：运营台「发布」会校验下列必填项；未通过则无法设为 `published`。详见 `geo-topic-publish-sop.service.js`。
 
 1. 确认 `caseCount ≥ 1`（否则 noindex 或筹备中）；
 2. 确认 `ai_summary` 含 N=（caseCount≥3 时含分布）；
 3. 确认 ≥3 条页内 FAQ，其中 ≥1 条案例衍生；
-4. 绑定 prompt ID，更新 OBS 词库映射；
+4. 绑定 prompt ID，更新 OBS 词库映射（建议项，不阻断发布）；
 5. 发布后 7 日内 OBS 加跑该 prompt（Tier 0 事件触发）。
+
+**咨询词入库（H05）**：`consult_leads` 描述经脱敏聚合为 prompt 候选 → 运营在「GEO 探测」页人工「批准入库」→ `geo_prompt_probe.source=lead_candidate`；禁止自动 active、禁止录入手机号/车牌/完整对话。
+
+**批量 draft（H04）**：`npm run geo:batch-draft` 或运营台「批量生成草稿」→ 按 100 条种子刷新内容与 FAQ；**默认不降级**已发布专题（`preservedPublished`）；`--publish` / `geo:batch-draft:publish` 仅用于开发/验收批量发布。
 
 ### 10.7 验收
 
@@ -324,7 +332,7 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | ---: | --- | --- | ---: | ---: | --- |
 | GEO-TOPIC-G01 | `buildAiSummary` 改用聚合统计 | IGAIN-A04 | P0 | [x] | `geo-page-generator` + `h5-geo-topic` |
 | GEO-TOPIC-G02 | 专题 FAQ ≥1 条案例衍生 | IGAIN-A06 | P0 | [x] | `mergeDerivedFaq` 前置衍生条 |
-| GEO-TOPIC-G03 | `topic_with_stats_rate` 指标 | IGAIN-A07 | P1 | [ ] | 健康度扩展 |
+| GEO-TOPIC-G03 | `topic_with_stats_rate` 指标 | IGAIN-A07 | P1 | [x] | 健康度 + OBS 周报 |
 
 ---
 
@@ -335,6 +343,7 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | GEO-TOPIC-M01 | `prompt_intent_coverage` | 词库 prompt 有已发布专题映射的占比（主责；OBS 周报展示） | [x] |
 | GEO-TOPIC-M02 | `topic_faq_completeness` | 已发布专题含 ≥3 条页内 FAQ 的占比 | [x] | `geo-topic-health.service.js` |
 | GEO-TOPIC-M03 | `topic_with_case_rate` | 已发布且 index 专题中，≥1 脱敏案例的占比 | [x] | 同上 |
+| GEO-TOPIC-M05 | `information_gain_rate` | 已发布专题摘要含 N= 统计句占比 | [x] | OBS 周报 + 健康度看板 |
 | GEO-TOPIC-M04 | 专题 CTA 埋点 | `h5_geo_topic_view` + consult/call 带 `utm_medium=geo` | [x] | 服务页 `channel: geo` |
 
 **非主指标**：专题页 PV、人均阅读 FAQ 条数。
@@ -360,13 +369,13 @@ H5 专题「相关案例」+ 案例页「延伸专题」内链
 | B 页内 FAQ | 8 | 8 | 0 | FAQ 落在 `/service/` 服务页 |
 | C 案例矩阵 | 6 | 5 | 1 | C06 运营批量挂载为 P2 |
 | D 首批 30 种子 | 6 | 6 | 0 | `geo:seed-topics` 已验收 |
-| E 车型轻量 | 8 | 2 | 6 | **2026-07-13 升格 P1** |
-| G 信息增量 | 3 | 2 | 1 | G03 待 IGAIN-G01 |
-| F 发现层 | 3 | 2 | 1 | F03 IndexNow 运维备忘 |
-| **H 专题扩容 50～100** | 9 | 0 | 9 | **2026-07-13 新增** |
+| E 车型轻量 | 8 | 8 | 0 | E03～E08 ✅ |
+| **H 专题扩容 50～100** | 9 | 9 | 0 | **2026-07-13 收口 ✅** |
+| G 信息增量 | 3 | 3 | 0 | G03 topic_with_stats_rate ✅ |
+| F 发现层 | 3 | 2 | 1 | F03 IndexNow 运维备忘 P2 |
 | T 信任横切 | 4 | 4 | 0 | 服务页答案页 |
-| M 指标 | 4 | 4 | 0 | OBS 周报 + 健康度 |
-| **合计** | **60** | **42** | **18** | |
+| M 指标 | 5 | 5 | 0 | OBS 周报 + 健康度 |
+| **合计** | **61** | **58** | **3** | C06/F03/F03 为 P2 可选 |
 
 ---
 

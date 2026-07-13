@@ -28,7 +28,7 @@ const MOCK_CASES = [
 
 function run() {
   assert.strictEqual(GEO_TOPIC_SEED_LIST.length, 30)
-  assert.ok(GEO_TOPIC_SEED_ALL.length >= 50, '扩容种子应 ≥50')
+  assert.ok(GEO_TOPIC_SEED_ALL.length >= 100, 'H01 目标应 ≥100 条')
   assert.strictEqual(GEO_PROMPT_SEED.length, GEO_TOPIC_SEED_ALL.length)
 
   const slugs = new Set()

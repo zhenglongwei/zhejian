@@ -8,6 +8,7 @@ const { normalizeFaq, normalizeServiceMeta } = require('../schemas/geo-page.sche
 const {
   applyAggregateToServiceContent,
 } = require('./geo-case-aggregate.service')
+const { applyAggregateToVehicleTopicContent } = require('./geo-vehicle-topic.service')
 const {
   filterCasesForGeoPage,
   buildPseudoPageFromSeed,
@@ -74,6 +75,23 @@ function buildAggregateContent(seed, serviceItem, matchedCases) {
   const serviceName = serviceItem?.name || seed.serviceName || '相关维修项目'
   const city = String(seed.city || '').trim()
   const templateFaq = buildTemplateFaq(seed, serviceItem)
+
+  if (seed.pageType === 'vehicle_service' && seed.vehicleSeries) {
+    const aggregated = applyAggregateToVehicleTopicContent({
+      cases: matchedCases,
+      serviceName: serviceItem?.name || seed.serviceName || '相关维修项目',
+      vehicleSeries: seed.vehicleSeries,
+      city: seed.city,
+      priceMode: serviceItem?.priceMode,
+      aiSummary: seed.aiSummary || '',
+      faq: templateFaq,
+    })
+    return {
+      aiSummary: aggregated.aiSummary || seed.aiSummary || '',
+      faq: aggregated.faq,
+      aggregateStats: aggregated.aggregateStats,
+    }
+  }
 
   if (seed.aiSummary) {
     const aggregated = applyAggregateToServiceContent({

@@ -374,6 +374,8 @@ async function buildGeoProbeReport(query = {}) {
   const usedOnlyCount = scopedOkResults.filter((row) => row.mentioned && !row.citedUrl).length
   const coverage = await computeIntentCoverage(promptRows)
   const topicHealth = await computeGeoTopicHealthMetrics()
+  const { computeAggregateFreshnessMetrics } = require('./geo-aggregate-refresh.service')
+  const aggregateFreshness = await computeAggregateFreshnessMetrics()
   const postCitationLeads = await computePostCitationLeads(scopedOkResults, days)
   const brandAttribution = await computeBrandSearchAttribution({ days })
 
@@ -428,6 +430,10 @@ async function buildGeoProbeReport(query = {}) {
       covered_prompt_count: coverage.coveredPromptCount,
       topic_faq_completeness: topicHealth.topic_faq_completeness,
       topic_with_case_rate: topicHealth.topic_with_case_rate,
+      topic_with_stats_rate: topicHealth.topic_with_stats_rate,
+      information_gain_rate: topicHealth.information_gain_rate,
+      aggregate_freshness: aggregateFreshness.aggregate_freshness,
+      published_topic_count: topicHealth.published_count,
       post_citation_lead_rate: postCitationLeads.post_citation_lead_rate,
       brand_search_uplift: brandAttribution.brand_search_uplift,
       brand_attributed_views: brandAttribution.brand_attributed_views,

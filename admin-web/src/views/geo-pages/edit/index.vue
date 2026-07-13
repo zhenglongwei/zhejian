@@ -38,6 +38,11 @@
             <el-input v-model="form.city" />
           </el-form-item>
         </el-col>
+        <el-col v-if="form.pageType === 'vehicle_service'" :span="8">
+          <el-form-item label="车系" required>
+            <el-input v-model="form.vehicleSeries" placeholder="如：宝马3系" />
+          </el-form-item>
+        </el-col>
         <el-col :span="8">
           <el-form-item label="状态">
             <el-select v-model="form.status" style="width: 100%">
@@ -48,6 +53,33 @@
           </el-form-item>
         </el-col>
       </el-row>
+
+      <el-form-item v-if="form.pageType === 'vehicle_service'" label="车型专题发布说明">
+        <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+          title="车型专题须人工审核发布：同车系案例 ≥3 例方可发布；≥5 例时摘要须含 N= 统计句。不会从雷达自动发布。"
+        />
+      </el-form-item>
+
+      <el-form-item v-if="!isCreate && publishReadiness.checks?.length" label="发布审核 SOP（H06）">
+        <el-alert
+          :type="publishReadiness.canPublish ? 'success' : 'warning'"
+          :closable="false"
+          show-icon
+          :title="publishReadiness.canPublish ? '满足发布门槛，可人工发布' : '未满足发布门槛，请先补齐下列项'"
+        />
+        <ul class="sop-list">
+          <li v-for="item in publishReadiness.checks" :key="item.id">
+            <el-tag :type="item.passed ? 'success' : item.required ? 'danger' : 'info'" size="small">
+              {{ item.passed ? '通过' : item.required ? '必填' : '建议' }}
+            </el-tag>
+            <span>{{ item.label }}</span>
+            <span class="sop-detail">{{ item.detail }}</span>
+          </li>
+        </ul>
+      </el-form-item>
 
       <el-form-item label="摘要">
         <el-input v-model="form.summary" type="textarea" :rows="3" maxlength="500" show-word-limit />
@@ -144,7 +176,13 @@
 
     <div class="actions">
       <el-button @click="goBack">返回</el-button>
-      <el-button v-if="!isCreate && form.status !== 'published'" type="success" :loading="publishing" @click="onPublish">
+      <el-button
+        v-if="!isCreate && form.status !== 'published'"
+        type="success"
+        :loading="publishing"
+        :disabled="publishReadiness.canPublish === false"
+        @click="onPublish"
+      >
         发布
       </el-button>
       <el-button v-if="!isCreate && form.status === 'published'" :loading="publishing" @click="onUnpublish">
@@ -175,6 +213,7 @@ const loading = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
 const templateLoading = ref(false)
+const publishReadiness = ref({ checks: [], canPublish: true })
 
 const isCreate = computed(() => route.name === 'geo-page-create')
 
@@ -194,6 +233,7 @@ const form = reactive({
   aiSummary: '',
   pageType: 'city_service',
   city: '杭州',
+  vehicleSeries: '',
   status: 'draft',
   primaryStoreId: '',
   relatedServiceId: '',
@@ -236,6 +276,7 @@ function syncFromDetail(detail) {
     aiSummary: detail.aiSummary || '',
     pageType: detail.pageType || 'city_service',
     city: detail.city || '',
+    vehicleSeries: detail.vehicleSeries || '',
     status: detail.status || 'draft',
     primaryStoreId: detail.primaryStoreId || '',
     relatedServiceId: detail.relatedServiceId || '',
@@ -251,6 +292,7 @@ function syncFromDetail(detail) {
   priceFactorsText.value = (detail.priceFactors || []).join('\n')
   relatedCaseIdsText.value = (detail.relatedCaseIds || []).join(', ')
   relatedStoreIdsText.value = (detail.relatedStoreIds || []).join(', ')
+  publishReadiness.value = detail.publishReadiness || { checks: [], canPublish: true }
 }
 
 async function loadDetail() {
@@ -382,5 +424,20 @@ onMounted(loadDetail)
   display: flex;
   gap: 8px;
   margin-top: 24px;
+}
+.sop-list {
+  margin: 8px 0 0;
+  padding-left: 0;
+  list-style: none;
+}
+.sop-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.sop-detail {
+  color: var(--el-text-color-secondary);
 }
 </style>

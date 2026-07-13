@@ -7,7 +7,7 @@
  * @property {string} slug
  * @property {string} promptId
  * @property {string} promptText
- * @property {'city_service'|'fault_qa'|'city_fault'} pageType
+ * @property {'city_service'|'fault_qa'|'city_fault'|'vehicle_service'} pageType
  * @property {string} serviceItemId
  * @property {string} [serviceName]
  * @property {string} [city]
@@ -399,19 +399,36 @@ const GEO_TOPIC_SEED_LIST = [
 ]
 
 const { GEO_TOPIC_SEED_EXPAND_LIST } = require('./geo-topic-seed-expand-list')
+const { GEO_TOPIC_SEED_H01_LIST } = require('./geo-topic-seed-h01-list')
+const { GEO_TOPIC_SEED_H01B_LIST } = require('./geo-topic-seed-h01b-list')
 
-const GEO_TOPIC_SEED_ALL = [...GEO_TOPIC_SEED_LIST, ...GEO_TOPIC_SEED_EXPAND_LIST]
+const GEO_TOPIC_SEED_ALL = [
+  ...GEO_TOPIC_SEED_LIST,
+  ...GEO_TOPIC_SEED_EXPAND_LIST,
+  ...GEO_TOPIC_SEED_H01_LIST,
+  ...GEO_TOPIC_SEED_H01B_LIST,
+]
 
 if (GEO_TOPIC_SEED_LIST.length !== 30) {
   throw new Error(`GEO_TOPIC_SEED_LIST 首批须为 30 条，当前 ${GEO_TOPIC_SEED_LIST.length} 条`)
 }
 
-if (GEO_TOPIC_SEED_ALL.length < 50) {
-  throw new Error(`GEO_TOPIC_SEED_ALL 扩容后须 ≥50 条，当前 ${GEO_TOPIC_SEED_ALL.length} 条`)
+if (GEO_TOPIC_SEED_H01_LIST.length < 29) {
+  throw new Error(`GEO_TOPIC_SEED_H01_LIST H01 扩容须 ≥29 条，当前 ${GEO_TOPIC_SEED_H01_LIST.length} 条`)
+}
+
+if (GEO_TOPIC_SEED_H01B_LIST.length < 15) {
+  throw new Error(`GEO_TOPIC_SEED_H01B_LIST H01 续批须 ≥15 条，当前 ${GEO_TOPIC_SEED_H01B_LIST.length} 条`)
+}
+
+if (GEO_TOPIC_SEED_ALL.length < 100) {
+  throw new Error(`GEO_TOPIC_SEED_ALL H01 目标须 ≥100 条，当前 ${GEO_TOPIC_SEED_ALL.length} 条`)
 }
 
 module.exports = {
   GEO_TOPIC_SEED_LIST,
   GEO_TOPIC_SEED_EXPAND_LIST,
+  GEO_TOPIC_SEED_H01_LIST,
+  GEO_TOPIC_SEED_H01B_LIST,
   GEO_TOPIC_SEED_ALL,
 }
