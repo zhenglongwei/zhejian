@@ -792,7 +792,7 @@ function buildSuggestItems(keyword, services, merchants, cases, geoPages) {
       type: 'geo',
       typeLabel: typeLabels.geo,
       targetId: item.id,
-      path: item.h5Path || `/topic/${item.slug || item.id}`,
+      path: item.h5Path || '',
     })
   })
 

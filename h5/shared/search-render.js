@@ -113,9 +113,8 @@
   }
 
   function geoHref(item) {
-    if (item.h5Path) return item.h5Path
-    var slug = item.slug || item.id
-    return '/topic/' + encodeURIComponent(slug)
+    if (item.h5Path && item.h5Path.indexOf('/service/') === 0) return item.h5Path
+    return ''
   }
 
   function formatServicePrice(item) {
@@ -288,6 +287,9 @@
     if (!geoPages || !geoPages.length) return ''
     var ui = window.zhejianH5Ui
     var items = geoPages
+      .filter(function (item) {
+        return geoHref(item)
+      })
       .map(function (item) {
         if (ui && ui.renderEntryCard) {
           return ui.renderEntryCard({

@@ -8,6 +8,7 @@ const {
   resolveH5ServiceItemById,
   H5_SERVICE_ITEMS,
 } = require('../constants/h5-service-items')
+const { buildGeoPageServicePath } = require('../utils/geo-page-service-resolve')
 
 const MAX_FAQ_ITEMS = 20
 const MAX_FAQ_Q_LEN = 120
@@ -176,30 +177,7 @@ function mapGeoPageRow(row) {
 }
 
 function buildGeoPageH5Path(page) {
-  const slug = page.slug || page.id
-  if (resolveH5ServiceItemBySlug(slug)) {
-    return `/service/${slug}.html`
-  }
-  const meta = page.serviceMeta || {}
-  const candidateIds = [
-    meta.serviceItemId,
-    page.serviceId,
-    page.relatedServiceId,
-  ].filter((id) => String(id || '').startsWith('item_'))
-  for (const itemId of candidateIds) {
-    const item = resolveH5ServiceItemById(itemId)
-    if (item) {
-      const qs = page.city ? `?city=${encodeURIComponent(page.city)}` : ''
-      return `/service/${item.slug}.html${qs}`
-    }
-  }
-  const haystack = [page.title, page.summary, ...(page.keywords || [])].join('')
-  const matched = H5_SERVICE_ITEMS.find((item) => item.name && haystack.includes(item.name))
-  if (matched) {
-    const qs = page.city ? `?city=${encodeURIComponent(page.city)}` : ''
-    return `/service/${matched.slug}.html${qs}`
-  }
-  return `/topic/${slug}`
+  return buildGeoPageServicePath(page) || ''
 }
 
 function mapGeoListItem(page) {

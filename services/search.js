@@ -53,7 +53,7 @@ function filterGeoPages(keyword) {
       title: page.title,
       summary: page.summary,
       updatedAt: page.updatedAt,
-      h5Path: `/topic/${slug}`,
+      h5Path: '',
     }
   })
 }

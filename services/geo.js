@@ -17,6 +17,13 @@ function pickByIds(list, ids) {
   return (list || []).filter((item) => idSet.has(item.id))
 }
 
+const MOCK_GEO_H5_PATH = {
+  'hangzhou-brake-pad': '/service/brake-pad-replacement.html?city=%E6%9D%AD%E5%B7%9E',
+  'hangzhou-body-paint': '/service/body-paint-repair.html?city=%E6%9D%AD%E5%B7%9E',
+  'hangzhou-accident-guide': '/service/accident-repair.html?city=%E6%9D%AD%E5%B7%9E',
+  'bmw-3-series-maintenance': '/service/car-maintenance.html?city=%E6%9D%AD%E5%B7%9E',
+}
+
 async function fetchGeoPageDetailMock(id) {
   await delay()
   const page = GEO_PAGES.find((item) => item.id === id)
@@ -51,7 +58,7 @@ async function fetchGeoPageDetailMock(id) {
   return {
     ...page,
     slug,
-    h5Path: `/topic/${slug}`,
+    h5Path: MOCK_GEO_H5_PATH[slug] || '',
     relatedCases,
     relatedStores,
     relatedCaseCount: relatedCases.length,

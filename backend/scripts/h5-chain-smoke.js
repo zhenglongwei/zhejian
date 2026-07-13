@@ -372,6 +372,13 @@ async function verifyH5GeoTopic() {
   const legacyApi = await api('GET', `/public/h5/topics/${slug}`)
   assert(legacyApi.ok && legacyApi.json?.code === 0, 'GET /public/h5/topics/:slug 兼容失败')
   assert(legacyApi.json.data?.redirect?.location, 'topics API 应返回 redirect')
+
+  for (const legacySlug of ['bmw-3-series-maintenance', 'store-demo-hangzhou', 'hangzhou-body-paint']) {
+    const legacyRedirect = await api('GET', `/public/h5/topic-redirect/${legacySlug}`)
+    assert(legacyRedirect.ok && legacyRedirect.json?.code === 0, `legacy redirect 失败: ${legacySlug}`)
+    assert(legacyRedirect.json.data?.location, `legacy 缺 location: ${legacySlug}`)
+  }
+
   console.log('[chain] ✅ 旧专题 URL 重定向至服务项目页 /service/{slug}.html')
 }
 

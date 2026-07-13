@@ -293,8 +293,11 @@
     if (!topics || !topics.length) return ''
     var ui = window.zhejianH5Ui
     var items = topics
+      .filter(function (topic) {
+        return topic.h5Path && topic.h5Path.indexOf('/service/') === 0
+      })
       .map(function (topic) {
-        var href = topic.h5Path || '/topic/' + encodeURIComponent(topic.slug || topic.id)
+        var href = topic.h5Path
         if (ui && ui.renderEntryCard) {
           return ui.renderEntryCard({
             href: href,

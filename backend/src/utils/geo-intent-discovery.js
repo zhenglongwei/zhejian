@@ -11,6 +11,8 @@ const DISCOVERY_PAGE_TYPES = new Set([
   'case_agg',
 ])
 
+const { isPublicDiscoverableGeoPage } = require('./geo-page-service-resolve')
+
 function filterIntentDiscoveryTopics(list, options = {}) {
   const limit = options.limit != null ? Number(options.limit) : 6
   const requireCases = options.requireCases === true
@@ -18,7 +20,9 @@ function filterIntentDiscoveryTopics(list, options = {}) {
   const filtered = (list || []).filter((item) => {
     if (!item || item.status === 'draft') return false
     if (item.pageType === 'service_base') return false
+    if (item.pageType === 'merchant_geo') return false
     if (!DISCOVERY_PAGE_TYPES.has(item.pageType)) return false
+    if (!isPublicDiscoverableGeoPage(item)) return false
     if (requireCases && !(item.relatedCaseCount > 0)) return false
     return true
   })

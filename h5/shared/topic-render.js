@@ -22,7 +22,8 @@
       '<p class="h5-summary">' +
       escapeHtml(message || '该专题已合并至服务项目页。') +
       '</p></header>' +
-      '<div class="h5-home-quick"><a class="h5-btn" href="/">返回首页</a></div></div>'
+      '<div class="h5-home-quick"><a class="h5-btn" href="/">返回首页</a>' +
+      '<a class="h5-btn h5-btn--secondary" href="/service/brake-pad-replacement.html" style="margin-left:8px">浏览服务项目</a></div></div>'
   }
 
   function redirectToService() {
