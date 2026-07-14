@@ -304,6 +304,117 @@
     )
   }
 
+  function buildClientStoreSchemaGraph(store, canonical) {
+    var transparency = store.transparency || {}
+    var dimensions = transparency.dimensions || []
+    var additionalProperty = []
+    if (transparency.score != null) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'transparencyScore',
+        value: String(transparency.score),
+      })
+    }
+    if (transparency.asOfDate) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'transparencyAsOfDate',
+        value: String(transparency.asOfDate),
+      })
+    }
+    if (transparency.summary) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'transparencySummary',
+        value: String(transparency.summary),
+      })
+    }
+    dimensions.forEach(function (dim) {
+      if (!dim || !dim.id) return
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: 'transparency.' + dim.id,
+        value: String(dim.displayValue != null ? dim.displayValue : dim.value),
+        description: dim.meaning || dim.label || '',
+      })
+      var evidence = dim.evidence || {}
+      var evidenceUrl = evidence.url || evidence.anchor || ''
+      if (evidenceUrl) {
+        if (evidenceUrl.charAt(0) === '#') evidenceUrl = canonical + evidenceUrl
+        else if (evidenceUrl.charAt(0) === '/') evidenceUrl = location.origin + evidenceUrl
+        additionalProperty.push({
+          '@type': 'PropertyValue',
+          name: 'transparency.' + dim.id + '.evidenceUrl',
+          value: evidenceUrl,
+        })
+      }
+      if (Array.isArray(evidence.preview) && evidence.preview.length) {
+        additionalProperty.push({
+          '@type': 'PropertyValue',
+          name: 'transparency.' + dim.id + '.evidencePreview',
+          value: evidence.preview
+            .map(function (item) {
+              return item.title || ''
+            })
+            .filter(Boolean)
+            .join('；'),
+        })
+      }
+      if (Array.isArray(evidence.items) && evidence.items.length) {
+        additionalProperty.push({
+          '@type': 'PropertyValue',
+          name: 'transparency.' + dim.id + '.evidenceItems',
+          value: evidence.items
+            .map(function (item) {
+              return [item.name, item.text].filter(Boolean).join(' ')
+            })
+            .filter(Boolean)
+            .join('；'),
+        })
+      }
+      if (evidence.note) {
+        additionalProperty.push({
+          '@type': 'PropertyValue',
+          name: 'transparency.' + dim.id + '.evidenceNote',
+          value: String(evidence.note),
+        })
+      }
+    })
+
+    var graph = [
+      {
+        '@type': 'Organization',
+        '@id': location.origin + '/#organization',
+        name: '辙见',
+        url: location.origin + '/',
+      },
+      {
+        '@type': 'AutoRepair',
+        '@id': canonical + '#autorepair',
+        name: store.name,
+        description: store.aiSummary || store.intro || transparency.summary || undefined,
+        url: canonical,
+        image: store.coverImage || undefined,
+        address: store.address || undefined,
+        telephone: store.phone || undefined,
+        additionalProperty: additionalProperty.length ? additionalProperty : undefined,
+      },
+    ]
+    if (store.faq && store.faq.length) {
+      graph.push({
+        '@type': 'FAQPage',
+        mainEntity: store.faq.map(function (item) {
+          return {
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: { '@type': 'Answer', text: item.a },
+          }
+        }),
+      })
+    }
+    return { '@context': 'https://schema.org', '@graph': graph }
+  }
+
   function setShareMeta(store) {
     var desc = buildPageDescription(store)
     var title = buildPageTitle(store)
@@ -317,6 +428,8 @@
 
     if (store.schemaGraph) {
       ensureJsonLd('store-schema-graph', store.schemaGraph)
+    } else if (store.transparency && store.transparency.dimensions && store.transparency.dimensions.length) {
+      ensureJsonLd('store-schema-graph', buildClientStoreSchemaGraph(store, canonical))
     } else {
       var schema = {
         '@context': 'https://schema.org',
