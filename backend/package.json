@@ -90,6 +90,8 @@
     "test:geo-aggregate-schema": "node src/schemas/geo-aggregate.schema.test.js",
     "test:schema-graph": "node src/lib/schema-graph.test.js",
     "test:store-transparency": "node src/schemas/store-transparency.schema.test.js",
+    "test:store-public-display": "node src/utils/store-public-display.test.js",
+    "test:store-public-faq": "node src/utils/store-public-faq.test.js",
     "test:brand-search-daily": "node src/services/brand-search-daily.test.js",
     "test:bot-schema-assert": "node src/lib/bot-schema-assert.test.js",
     "test:geo-vehicle-topic": "node src/services/geo-vehicle-topic.test.js",

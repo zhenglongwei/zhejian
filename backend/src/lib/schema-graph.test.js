@@ -127,6 +127,24 @@ function run() {
   const storeNode = storeGraph['@graph'].find((node) => node['@type'] === 'AutoRepair')
   assert.ok(storeNode.additionalProperty.some((item) => item.name === 'transparencyScore'))
 
+  const emptyStoreGraph = buildStorePageSchemaGraph({
+    baseUrl: base,
+    store: {
+      id: 'store_empty',
+      name: '空门店',
+      caseCount: 0,
+      transparency: {
+        exposed: false,
+        score: null,
+        caseCount: 0,
+        summary: '该门店公开案例完善中',
+        dimensions: [],
+      },
+    },
+  })
+  const emptyNode = emptyStoreGraph['@graph'].find((node) => node['@type'] === 'AutoRepair')
+  assert.ok(!(emptyNode.additionalProperty || []).some((item) => item.name === 'transparencyScore'))
+
   console.log('[schema-graph.test] ok')
 }
 

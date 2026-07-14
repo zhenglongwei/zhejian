@@ -136,6 +136,7 @@ function mapStoreFeed(detail) {
     address: detail.address || '',
     phone: detail.phone || '',
     aiSummary: detail.aiSummary || detail.intro || '',
+    casePreviews: Array.isArray(detail.casePreviews) ? detail.casePreviews : [],
     transparency,
     certifications: detail.certifications || [],
     certWall: (detail.certWall || []).map((row) => ({
@@ -148,6 +149,7 @@ function mapStoreFeed(detail) {
       q: row.q || row.question || '',
       a: row.a || row.answer || '',
     })),
+    faqSource: detail.faqSource || '',
     schemaGraph:
       detail.schemaGraph ||
       buildStorePageSchemaGraph({
@@ -155,6 +157,7 @@ function mapStoreFeed(detail) {
         store: detail,
         transparency,
         faq: detail.faq,
+        casePreviews: detail.casePreviews,
         organizationSameAs: config.geo?.organizationSameAs || [],
       }),
     canonicalPath: seo.canonicalPath || `/store/${detail.id}.html`,
@@ -196,7 +199,7 @@ async function getFeedIndexJson() {
     fieldContract: {
       trustMeta: '案例授权档、快照版本、证据等级、脱敏标记',
       transparency:
-        '门店透明度 score + dimensions[]（value/meaning/evidence.url|anchor）',
+        '公开：案例/过程资料齐全度/服务/资质 dimensions；无案例不出分；咨询响应仅后台',
       aggregateStats: 'sampleSize、causeDistribution、price、computedAt',
       advanced: 'N≥5 时含 causePriceCross、processMetrics',
       complianceTail: STORE_CHECK_HINT,

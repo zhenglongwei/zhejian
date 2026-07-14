@@ -1,7 +1,18 @@
 /**
  * 门店透明度 · dimensions + evidence 契约（面向 AI Agent）
  * 人机同源：页面卡片 / Schema / Feed 共用同一结构
+ *
+ * 诚实空态（对照表 §3）：公开案例数 = 0 时不对外暴露总分与分项百分数。
+ * P2：内部 KPI 下沉或白话化；咨询响应不下发公开页。
  */
+
+/** 对外公开分项 id（不含后台专用） */
+const PUBLIC_DIMENSION_IDS = new Set([
+  'public_cases',
+  'album_completeness',
+  'service_profile',
+  'qualification',
+])
 
 const DIMENSION_DEFS = [
   {
@@ -10,23 +21,27 @@ const DIMENSION_DEFS = [
     breakdownKey: 'case',
     maxScore: 25,
     unit: 'count',
-    meaning: '已审核并公开展示的维修案例数量',
+    audience: 'public',
+    meaning: '已审核并公开展示的维修案例数量，可点开查看过程说明',
   },
   {
     id: 'album_completeness',
-    label: '相册完整率',
+    label: '过程资料齐全度',
     breakdownKey: 'album',
     maxScore: 30,
     unit: 'percent',
-    meaning: '服务相册六阶段节点完成比例（聚合指标，不含私密相册链接）',
+    audience: 'public',
+    meaning:
+      '近一段时间服务过程中，关键接车、检查、方案等资料的齐全比例（聚合统计，不展示用户私密相册链接）',
   },
   {
     id: 'service_profile',
-    label: '服务资料',
+    label: '可预约服务',
     breakdownKey: 'serviceProfile',
     maxScore: 15,
     unit: 'count',
-    meaning: '可预约服务数量及资料完整度',
+    audience: 'public',
+    meaning: '本店已上架、可预约的服务方案数量',
   },
   {
     id: 'qualification',
@@ -34,7 +49,8 @@ const DIMENSION_DEFS = [
     breakdownKey: 'qualification',
     maxScore: 15,
     unit: 'score',
-    meaning: '营业执照与维修资质等平台核验信息',
+    audience: 'public',
+    meaning: '营业执照与维修资质等平台核验信息，可在本页资质区查看',
   },
   {
     id: 'lead_response',
@@ -42,9 +58,13 @@ const DIMENSION_DEFS = [
     breakdownKey: 'leadResponse',
     maxScore: 15,
     unit: 'score',
-    meaning: '近7日咨询线索被门店联系的响应情况',
+    audience: 'internal',
+    meaning: '近7日咨询线索被门店联系的响应情况（仅商家后台）',
   },
 ]
+
+const PUBLIC_METHODOLOGY =
+  '资料完整度综合公开案例、过程资料齐全情况、可预约服务与资质核验等可验证信息，按日更新。咨询响应等经营指标仅在商家后台展示。'
 
 function truncate(text, maxLen) {
   const value = String(text || '').trim()
@@ -55,8 +75,10 @@ function truncate(text, maxLen) {
 
 /**
  * @param {object} input
+ * @param {{ audience?: 'public'|'all' }} [options]
  */
-function buildTransparencyDimensions(input = {}) {
+function buildTransparencyDimensions(input = {}, options = {}) {
+  const audience = options.audience === 'all' ? 'all' : 'public'
   const storeId = String(input.storeId || '').trim()
   const breakdown = input.breakdown || {}
   const caseCount = Number(input.caseCount) || 0
@@ -71,18 +93,28 @@ function buildTransparencyDimensions(input = {}) {
     .map((item) => ({
       id: item.id || '',
       title: truncate(item.title || item.serviceName || '公开案例', 40),
-      path: item.slug
-        ? `/case/${encodeURIComponent(item.slug)}.html`
-        : item.id
-          ? `/case/view.html?id=${encodeURIComponent(item.id)}`
-          : '',
+      path:
+        item.path ||
+        (item.slug
+          ? `/case/${encodeURIComponent(item.slug)}.html`
+          : item.id
+            ? `/case/view.html?id=${encodeURIComponent(item.id)}`
+            : ''),
     }))
     .filter((item) => item.title)
     .slice(0, 3)
 
   const casesPath = storeId ? `/store/${encodeURIComponent(storeId)}/cases` : ''
 
-  return DIMENSION_DEFS.map((def) => {
+  // 无公开案例：不组装 KPI 分项（资质墙走独立区块）
+  if (caseCount <= 0) return []
+
+  const defs =
+    audience === 'all'
+      ? DIMENSION_DEFS
+      : DIMENSION_DEFS.filter((def) => def.audience !== 'internal')
+
+  const built = defs.map((def) => {
     const scorePart =
       breakdown[def.breakdownKey] != null ? Number(breakdown[def.breakdownKey]) : null
 
@@ -93,7 +125,7 @@ function buildTransparencyDimensions(input = {}) {
         value: caseCount,
         displayValue: String(caseCount),
         unit: def.unit,
-        scorePart,
+        scorePart: null,
         maxScore: def.maxScore,
         meaning: def.meaning,
         evidence: {
@@ -109,21 +141,24 @@ function buildTransparencyDimensions(input = {}) {
 
     if (def.id === 'album_completeness') {
       const rate = albumRate != null ? albumRate : 0
+      const hasSample = albumRate != null && albumRate > 0
       return {
         id: def.id,
         label: def.label,
         value: rate,
-        displayValue: albumRate != null ? `${rate}%` : '—',
+        displayValue: hasSample ? `约 ${rate}%` : '—',
         unit: def.unit,
-        scorePart,
+        scorePart: null,
         maxScore: def.maxScore,
         meaning: def.meaning,
         evidence: {
           type: 'aggregate_note',
           url: '',
-          anchor: '#store-transparency',
-          note: '完整率为平台聚合统计，不公开私密服务相册原图。',
-          available: albumRate != null && albumRate > 0,
+          anchor: '#store-cases',
+          note: hasSample
+            ? '根据近期服务过程资料抽样统计，不开放用户私密相册原图链接。'
+            : '',
+          available: hasSample,
         },
       }
     }
@@ -135,7 +170,7 @@ function buildTransparencyDimensions(input = {}) {
         value: serviceCount,
         displayValue: String(serviceCount),
         unit: def.unit,
-        scorePart,
+        scorePart: null,
         maxScore: def.maxScore,
         meaning: def.meaning,
         evidence: {
@@ -168,7 +203,7 @@ function buildTransparencyDimensions(input = {}) {
         value: scorePart != null ? scorePart : verified ? def.maxScore : 0,
         displayValue: verified ? '已核验' : '完善中',
         unit: def.unit,
-        scorePart,
+        scorePart: null,
         maxScore: def.maxScore,
         meaning: def.meaning,
         evidence: {
@@ -182,7 +217,7 @@ function buildTransparencyDimensions(input = {}) {
       }
     }
 
-    // lead_response
+    // lead_response · 仅 audience=all
     const hasScore = scorePart != null && scorePart > 0
     return {
       id: def.id,
@@ -202,21 +237,70 @@ function buildTransparencyDimensions(input = {}) {
       },
     }
   })
+
+  return built.filter((dim) => dim && dim.evidence && dim.evidence.available)
 }
 
+/**
+ * 是否对外暴露透明度 KPI（有公开案例才暴露）
+ * @param {{ caseCount?: number, exposed?: boolean }} raw
+ */
+function isTransparencyExposed(raw = {}) {
+  if (raw.exposed === false) return false
+  if (raw.exposed === true) return true
+  return Number(raw.caseCount) > 0
+}
+
+const EMPTY_CASE_SUMMARY = '该门店公开案例完善中，可先查看资质认证与门店资料。'
+
+/**
+ * 将原始统计规范为对外 payload；无公开案例时不出总分/分项。
+ * @param {object} raw
+ */
 function normalizeTransparencyPayload(raw = {}) {
-  const dimensions = Array.isArray(raw.dimensions)
-    ? raw.dimensions
+  const caseCount = Number(raw.caseCount) || 0
+  const serviceCount = Number(raw.serviceCount) || 0
+  const exposed = isTransparencyExposed({ ...raw, caseCount })
+
+  if (!exposed) {
+    return {
+      exposed: false,
+      score: null,
+      caseCount,
+      albumCompleteRate: null,
+      serviceCount,
+      summary: String(raw.summary || EMPTY_CASE_SUMMARY),
+      breakdown: null,
+      methodology: '',
+      asOfDate: '',
+      dimensions: [],
+    }
+  }
+
+  let dimensions = Array.isArray(raw.dimensions)
+    ? raw.dimensions.filter((dim) => dim && dim.evidence && dim.evidence.available !== false)
     : buildTransparencyDimensions(raw)
+
+  // 公开读侧：过滤内部 KPI，并清掉加权 scorePart
+  dimensions = dimensions
+    .filter((dim) => dim && PUBLIC_DIMENSION_IDS.has(dim.id))
+    .map((dim) => ({ ...dim, scorePart: null }))
+
+  const scoreNum = Number(raw.score)
+  const score = Number.isFinite(scoreNum) && scoreNum >= 10 ? Math.round(scoreNum) : null
+
   return {
-    score: Number(raw.score) || 0,
-    caseCount: Number(raw.caseCount) || 0,
+    exposed: true,
+    score,
+    caseCount,
     albumCompleteRate:
-      raw.albumCompleteRate != null ? Number(raw.albumCompleteRate) : null,
-    serviceCount: Number(raw.serviceCount) || 0,
+      raw.albumCompleteRate != null && Number(raw.albumCompleteRate) > 0
+        ? Number(raw.albumCompleteRate)
+        : null,
+    serviceCount,
     summary: String(raw.summary || ''),
-    breakdown: raw.breakdown || null,
-    methodology: String(raw.methodology || ''),
+    breakdown: null,
+    methodology: String(raw.methodology || PUBLIC_METHODOLOGY),
     asOfDate: String(raw.asOfDate || ''),
     dimensions,
   }
@@ -224,6 +308,10 @@ function normalizeTransparencyPayload(raw = {}) {
 
 module.exports = {
   DIMENSION_DEFS,
+  PUBLIC_DIMENSION_IDS,
+  PUBLIC_METHODOLOGY,
+  EMPTY_CASE_SUMMARY,
   buildTransparencyDimensions,
   normalizeTransparencyPayload,
+  isTransparencyExposed,
 }

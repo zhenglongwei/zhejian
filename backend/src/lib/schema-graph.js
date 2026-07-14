@@ -475,28 +475,37 @@ function buildStorePageSchemaGraph(input = {}) {
   const baseUrl = normalizeBase(input.baseUrl)
   const store = input.store || {}
   const transparency = input.transparency || store.transparency || {}
-  const dimensions = Array.isArray(transparency.dimensions) ? transparency.dimensions : []
+  const caseCount =
+    Number(transparency.caseCount != null ? transparency.caseCount : store.caseCount) || 0
+  const dimsRaw = Array.isArray(transparency.dimensions) ? transparency.dimensions : []
+  const exposed =
+    transparency.exposed === true ||
+    (transparency.exposed !== false &&
+      (caseCount > 0 ||
+        dimsRaw.some((dim) => dim && dim.id === 'public_cases' && Number(dim.value) > 0)))
+  const dimensions = exposed ? dimsRaw : []
   const faq = input.faq || store.faq || []
   const storeId = store.id || ''
   const canonicalPath = (store.seo && store.seo.canonicalPath) || `/store/${storeId}.html`
   const canonical = entityId(baseUrl, canonicalPath, '')
   const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
 
-  const additionalProperty = [
-    {
+  const additionalProperty = []
+  if (exposed && transparency.score != null && Number(transparency.score) > 0) {
+    additionalProperty.push({
       '@type': 'PropertyValue',
       name: 'transparencyScore',
-      value: String(transparency.score || 0),
-    },
-  ]
-  if (transparency.asOfDate) {
+      value: String(transparency.score),
+    })
+  }
+  if (exposed && transparency.asOfDate) {
     additionalProperty.push({
       '@type': 'PropertyValue',
       name: 'transparencyAsOfDate',
       value: String(transparency.asOfDate),
     })
   }
-  if (transparency.summary) {
+  if (exposed && transparency.summary) {
     additionalProperty.push({
       '@type': 'PropertyValue',
       name: 'transparencySummary',
@@ -506,13 +515,14 @@ function buildStorePageSchemaGraph(input = {}) {
 
   dimensions.forEach((dim) => {
     if (!dim || !dim.id) return
+    if (dim.evidence && dim.evidence.available === false) return
     additionalProperty.push({
       '@type': 'PropertyValue',
       name: `transparency.${dim.id}`,
       value: String(dim.displayValue != null ? dim.displayValue : dim.value),
       description: dim.meaning || dim.label || '',
     })
-    if (dim.scorePart != null) {
+    if (dim.scorePart != null && Number(dim.scorePart) > 0) {
       additionalProperty.push({
         '@type': 'PropertyValue',
         name: `transparency.${dim.id}.scorePart`,
@@ -562,7 +572,7 @@ function buildStorePageSchemaGraph(input = {}) {
     '@type': 'AutoRepair',
     '@id': entityId(baseUrl, canonicalPath, 'autorepair'),
     name: store.name || '维修门店',
-    description: store.aiSummary || store.intro || transparency.summary || '',
+    description: store.aiSummary || store.intro || (exposed ? transparency.summary : '') || '',
     url: canonical,
     address: store.address
       ? {
@@ -574,7 +584,7 @@ function buildStorePageSchemaGraph(input = {}) {
       : undefined,
     telephone: store.phone || undefined,
     image: store.coverImage || store.storefrontImage || undefined,
-    additionalProperty,
+    additionalProperty: additionalProperty.length ? additionalProperty : undefined,
   }
 
   const graph = [
@@ -611,18 +621,36 @@ function buildStorePageSchemaGraph(input = {}) {
   if (faqNode) graph.push(faqNode)
 
   const caseDim = dimensions.find((item) => item.id === 'public_cases')
-  const preview = caseDim?.evidence?.preview || []
+  const previewFromInput = Array.isArray(input.casePreviews)
+    ? input.casePreviews
+    : Array.isArray(store.casePreviews)
+      ? store.casePreviews
+      : []
+  const preview =
+    previewFromInput.length > 0
+      ? previewFromInput
+      : caseDim?.evidence?.preview || []
   if (preview.length) {
     graph.push({
       '@type': 'ItemList',
       '@id': entityId(baseUrl, canonicalPath, 'case-list'),
       name: `${store.name || '门店'}公开案例`,
-      numberOfItems: caseDim?.value || preview.length,
+      numberOfItems:
+        caseDim?.value ||
+        Number(transparency.caseCount) ||
+        Number(store.caseCount) ||
+        preview.length,
       itemListElement: preview.map((item, index) => ({
         '@type': 'ListItem',
         position: index + 1,
         name: item.title,
-        url: item.path ? entityId(baseUrl, item.path, '') : undefined,
+        url: item.path
+          ? entityId(baseUrl, item.path, '')
+          : item.slug
+            ? entityId(baseUrl, `/case/${encodeURIComponent(item.slug)}.html`, '')
+            : item.id
+              ? entityId(baseUrl, `/case/view.html?id=${encodeURIComponent(item.id)}`, '')
+              : undefined,
       })),
     })
   }

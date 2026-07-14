@@ -14,8 +14,19 @@ const {
   CASE_SECTION_ORDER,
   SERVICE_SECTION_ORDER,
 } = require('../schemas/public-page-sections.schema')
-const { buildTransparencyDimensions } = require('../schemas/store-transparency.schema')
+const {
+  buildTransparencyDimensions,
+  normalizeTransparencyPayload,
+  EMPTY_CASE_SUMMARY,
+  PUBLIC_METHODOLOGY,
+} = require('../schemas/store-transparency.schema')
 const { buildStorePageSchemaGraph } = require('../lib/schema-graph')
+const {
+  filterPublicSpecialties,
+  filterPublicEnvironmentImages,
+} = require('../utils/store-public-display')
+const { mapStoreCasePreview } = require('../utils/store-case-preview')
+const { buildStorePublicFaq, sanitizeFaq } = require('../utils/store-public-faq')
 const { config } = require('../config')
 
 const STAFF_ROLE_LABELS = {
@@ -26,21 +37,6 @@ const STAFF_ROLE_LABELS = {
   staff: '员工',
 }
 
-const DEFAULT_STORE_FAQ = [
-  {
-    q: '如何预约该门店？',
-    a: '可通过页面预约入口或电话联系门店，确认到店时间与检测项目。',
-  },
-  {
-    q: '公开案例的价格是否准确？',
-    a: '案例价格为当时维修方案参考；实际费用以到店检测与门店报价为准。',
-  },
-  {
-    q: '如何查看更多维修案例？',
-    a: '可在本页案例区查看摘要，进入具体案例了解维修过程、参考价格与门店信息。',
-  },
-]
-
 function readPhotosMeta(photosJson) {
   const raw = photosJson && typeof photosJson === 'object' && !Array.isArray(photosJson) ? photosJson : {}
   return {
@@ -48,18 +44,6 @@ function readPhotosMeta(photosJson) {
     staffPublic: Array.isArray(raw.staffPublic) ? raw.staffPublic : [],
     vehicleSpecialties: Array.isArray(raw.vehicleSpecialties) ? raw.vehicleSpecialties : [],
   }
-}
-
-function sanitizeFaq(items) {
-  return (items || [])
-    .map((item) => {
-      if (!item || typeof item !== 'object') return null
-      const q = String(item.q || item.question || '').trim()
-      const a = String(item.a || item.answer || '').trim()
-      if (!q || !a) return null
-      return { q, a }
-    })
-    .filter(Boolean)
 }
 
 function buildCertifications(merchant, extras = {}) {
@@ -223,17 +207,25 @@ async function loadTransparency(store, merchantId, options = {}) {
     }
   }
 
+  if (caseCount <= 0) {
+    return normalizeTransparencyPayload({
+      caseCount: 0,
+      serviceCount,
+      summary: EMPTY_CASE_SUMMARY,
+    })
+  }
+
   const parts = []
   if (caseCount > 0) parts.push(`已公开 ${caseCount} 个维修案例`)
-  if (albumRate != null && albumRate > 0) parts.push(`近 30 天相册完整率 ${albumRate}%`)
-  if (score >= 10) parts.push(`透明度评分 ${Math.round(Number(score))} 分`)
   if (serviceCount > 0) parts.push(`已上架 ${serviceCount} 个可预约服务`)
+  if (albumRate != null && albumRate > 0) {
+    parts.push(`近期服务过程资料齐全度约 ${albumRate}%`)
+  }
 
   const summary =
-    parts.length > 0 ? `该门店${parts.join('，')}。` : '该门店正在完善辙见公开资料。'
-
-  const methodology =
-    '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
+    parts.length > 0
+      ? `该门店${parts.join('，')}。可点开案例与资质区核查依据。`
+      : '该门店正在完善辙见公开资料。'
 
   const dimensions = buildTransparencyDimensions({
     storeId: store.id,
@@ -246,25 +238,20 @@ async function loadTransparency(store, merchantId, options = {}) {
     casePreviews,
   })
 
-  return {
-    score: score >= 10 ? Math.round(Number(score)) : 0,
+  return normalizeTransparencyPayload({
+    score: score >= 10 ? Math.round(Number(score)) : null,
     caseCount,
     albumCompleteRate: albumRate,
     serviceCount,
     summary,
-    breakdown,
-    methodology,
+    methodology: PUBLIC_METHODOLOGY,
     asOfDate: lastRow?.statDate ? String(lastRow.statDate).slice(0, 10) : '',
     dimensions,
-  }
+  })
 }
 
-function resolveStoreFaq(photosMeta, extras) {
-  const fromPhotos = sanitizeFaq(photosMeta.publicFaq)
-  if (fromPhotos.length) return fromPhotos
-  const fromExtras = sanitizeFaq(extras.faq)
-  if (fromExtras.length) return fromExtras
-  return DEFAULT_STORE_FAQ
+function resolveStoreFaq(ctx) {
+  return buildStorePublicFaq(ctx)
 }
 
 function attachSectionMeta(payload, sectionOrder) {
@@ -298,16 +285,15 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     take: 3,
     select: { id: true, title: true, serviceName: true, contentJson: true },
   })
-  const casePreviews = casePreviewRows.map((row) => {
-    const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
-    const geo = content.geo || {}
-    return {
-      id: row.id,
-      title: row.title || row.serviceName || '',
-      serviceName: row.serviceName || '',
-      slug: geo.slug || content.slug || '',
-    }
-  })
+  const casePreviews = casePreviewRows.map((row) => mapStoreCasePreview(row))
+
+  const vehicleSpecialties = filterPublicSpecialties(
+    photosMeta.vehicleSpecialties.length > 0
+      ? photosMeta.vehicleSpecialties
+      : extras.vehicleSpecialties || []
+  )
+  const specialties = filterPublicSpecialties(mapped.specialties || [])
+  const environmentImages = filterPublicEnvironmentImages(mapped.environmentImages || [])
 
   const transparency = await loadTransparency(storeRow, storeRow.merchantId, {
     serviceCount: options.serviceCount || 0,
@@ -315,15 +301,28 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     certWall,
     casePreviews,
   })
-  const faq = resolveStoreFaq(photosMeta, extras)
-  const vehicleSpecialties =
-    photosMeta.vehicleSpecialties.length > 0
-      ? photosMeta.vehicleSpecialties
-      : extras.vehicleSpecialties || []
+
+  const customFaq = [...sanitizeFaq(photosMeta.publicFaq), ...sanitizeFaq(extras.faq)]
+  const { faq, faqSource } = resolveStoreFaq({
+    storeName: mapped.name || storeRow.name,
+    customFaq,
+    specialties,
+    vehicleSpecialties,
+    casePreviews,
+    caseCount: mapped.caseCount != null ? mapped.caseCount : casePreviews.length,
+    serviceNames: Array.isArray(options.serviceNames) ? options.serviceNames : [],
+    address: mapped.address || storeRow.address || '',
+    businessHours: mapped.businessHours || storeRow.businessHours || '',
+    phone: mapped.phone || storeRow.phone || '',
+  })
+
   const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
 
   const payload = {
     ...mapped,
+    specialties,
+    environmentImages,
+    casePreviews,
     seo: {
       noindex: !publicIndex,
       allowIndex: publicIndex,
@@ -336,6 +335,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     staffPublic,
     transparency,
     faq,
+    faqSource,
     vehicleSpecialties,
     aiSummary: mapped.aiSummary || mapped.intro || '',
     auditMeta: {
@@ -355,6 +355,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     store: payload,
     transparency,
     faq,
+    casePreviews,
     organizationSameAs: config.geo?.organizationSameAs || [],
   })
 
@@ -396,5 +397,5 @@ module.exports = {
   loadStaffPublic,
   loadTransparency,
   sanitizeFaq,
-  DEFAULT_STORE_FAQ,
+  buildStorePublicFaq,
 }

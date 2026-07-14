@@ -620,12 +620,18 @@ P0 必须满足：
 | `transparency.{dimensionId}.evidencePreview` | 案例标题预览（可选） |
 | `transparency.{dimensionId}.evidenceItems` | 资质条目文案（可选） |
 
-稳定 `dimensionId`：`public_cases`、`album_completeness`、`service_profile`、`qualification`、`lead_response`。
+稳定公开 `dimensionId`：`public_cases`、`album_completeness`（对外文案「过程资料齐全度」）、`service_profile`、`qualification`。
+
+`lead_response`（咨询响应）为**后台专用**，不得写入公开页 / Schema / Feed。
 
 ### **20.3 约束**
 
 1. Schema / Feed / 页面可见卡片数字与证据一致；禁止 Schema 多写无证据分数。
-2. `album_completeness` 仅聚合率，不得链接私密相册。
+2. `album_completeness` 仅聚合率，不得链接私密相册；无有效样本时**不输出**该分项；对外使用白话「过程资料齐全度」，避免「六阶段」黑话作主标签。
 3. 资质图仅写入已公开展示的脱敏/证照墙 URL。
 4. Bot 预渲染须内嵌同一 `@graph`。
+5. **诚实空态（对照表 §3）**：公开案例数 = 0 时，**禁止**输出 `transparencyScore`、分项百分数与空壳 `dimensions`；页面、Feed、Schema 同源。保留资质 `ImageObject` 与身份信息。
+6. 分项仅在 `evidence.available === true` 时进入对外 `dimensions`（有证据才度量）。
+7. **P2**：公开读侧不输出分项 `scorePart` 加权分，不输出咨询响应；算法说明用白话，不下发「25/30/15」权重表。
 
+> 验收清单：[`12_公开页AI可信度验收对照表.md`](./12_公开页AI可信度验收对照表.md)

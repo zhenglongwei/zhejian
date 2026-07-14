@@ -29,6 +29,7 @@ function absoluteUrl(pathname, baseUrl) {
 function buildStoreBotBodyHtml(store) {
   const transparency = store.transparency || {}
   const dimensions = transparency.dimensions || []
+  const casePreviews = Array.isArray(store.casePreviews) ? store.casePreviews : []
   const sections = [
     `<h1>${escapeHtml(store.name || '维修门店')}</h1>`,
     store.aiSummary || store.intro
@@ -36,12 +37,33 @@ function buildStoreBotBodyHtml(store) {
           store.aiSummary || store.intro
         )}</p></section>`
       : '',
-    transparency.score != null
-      ? `<section data-bot="transparency" id="store-transparency"><h2>透明度指标</h2><p>综合 ${escapeHtml(
-          String(transparency.score)
-        )} / 100${
-          transparency.asOfDate ? ` · 截至 ${escapeHtml(transparency.asOfDate)}` : ''
-        }</p><p>${escapeHtml(transparency.summary || '')}</p>${dimensions
+    casePreviews.length
+      ? `<section data-bot="store-cases" id="store-cases"><h2>真实维修案例</h2><ul>${casePreviews
+          .map((item) => {
+            const href = item.path || (item.slug ? `/case/${item.slug}.html` : '')
+            const title = escapeHtml(item.title || item.serviceName || '公开案例')
+            return href
+              ? `<li><a href="${escapeHtml(href)}">${title}</a></li>`
+              : `<li>${title}</li>`
+          })
+          .join('')}</ul></section>`
+      : Number(store.caseCount) > 0
+        ? `<section data-bot="store-cases" id="store-cases"><h2>真实维修案例</h2><p>该门店已公开 ${escapeHtml(
+            String(store.caseCount)
+          )} 个维修案例，详见页面案例区。</p></section>`
+        : '',
+    transparency.exposed !== false &&
+    dimensions.length > 0 &&
+    (transparency.score != null || Number(transparency.caseCount) > 0)
+      ? `<section data-bot="transparency" id="store-transparency"><h2>透明度指标</h2>${
+          transparency.score != null && Number(transparency.score) > 0
+            ? `<p>综合 ${escapeHtml(String(transparency.score))} / 100${
+                transparency.asOfDate
+                  ? ` · 截至 ${escapeHtml(transparency.asOfDate)}`
+                  : ''
+              }</p>`
+            : ''
+        }<p>${escapeHtml(transparency.summary || '')}</p>${dimensions
           .map((dim) => {
             const evidence = dim.evidence || {}
             const evidenceUrl = evidence.url || evidence.anchor || ''

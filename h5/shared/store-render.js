@@ -294,92 +294,101 @@
     var city = extractCity(store)
     var region = store.address || ''
     var services = (store.specialties || []).slice(0, 4).join('、') || '汽车维修保养'
+    var caseHint =
+      store.caseCount > 0 ? '可查看真实维修案例与门店资料。' : '可查看门店资质与预约入口。'
     return (
       store.name +
       '位于' +
       (city || region || '') +
       '，提供' +
       services +
-      '等汽车维修保养服务，可查看真实维修案例、透明度指标、门店环境和预约入口。'
+      '等汽车维修保养服务，' +
+      caseHint
     )
   }
 
   function buildClientStoreSchemaGraph(store, canonical) {
     var transparency = store.transparency || {}
     var dimensions = transparency.dimensions || []
+    var caseCount = Number(store.caseCount != null ? store.caseCount : transparency.caseCount) || 0
+    var exposed =
+      transparency.exposed === true ||
+      (transparency.exposed !== false && caseCount > 0 && dimensions.length > 0)
     var additionalProperty = []
-    if (transparency.score != null) {
+    if (exposed && transparency.score != null && Number(transparency.score) > 0) {
       additionalProperty.push({
         '@type': 'PropertyValue',
         name: 'transparencyScore',
         value: String(transparency.score),
       })
     }
-    if (transparency.asOfDate) {
+    if (exposed && transparency.asOfDate) {
       additionalProperty.push({
         '@type': 'PropertyValue',
         name: 'transparencyAsOfDate',
         value: String(transparency.asOfDate),
       })
     }
-    if (transparency.summary) {
+    if (exposed && transparency.summary) {
       additionalProperty.push({
         '@type': 'PropertyValue',
         name: 'transparencySummary',
         value: String(transparency.summary),
       })
     }
-    dimensions.forEach(function (dim) {
-      if (!dim || !dim.id) return
-      additionalProperty.push({
-        '@type': 'PropertyValue',
-        name: 'transparency.' + dim.id,
-        value: String(dim.displayValue != null ? dim.displayValue : dim.value),
-        description: dim.meaning || dim.label || '',
+    if (exposed) {
+      dimensions.forEach(function (dim) {
+        if (!dim || !dim.id) return
+        additionalProperty.push({
+          '@type': 'PropertyValue',
+          name: 'transparency.' + dim.id,
+          value: String(dim.displayValue != null ? dim.displayValue : dim.value),
+          description: dim.meaning || dim.label || '',
+        })
+        var evidence = dim.evidence || {}
+        var evidenceUrl = evidence.url || evidence.anchor || ''
+        if (evidenceUrl) {
+          if (evidenceUrl.charAt(0) === '#') evidenceUrl = canonical + evidenceUrl
+          else if (evidenceUrl.charAt(0) === '/') evidenceUrl = location.origin + evidenceUrl
+          additionalProperty.push({
+            '@type': 'PropertyValue',
+            name: 'transparency.' + dim.id + '.evidenceUrl',
+            value: evidenceUrl,
+          })
+        }
+        if (Array.isArray(evidence.preview) && evidence.preview.length) {
+          additionalProperty.push({
+            '@type': 'PropertyValue',
+            name: 'transparency.' + dim.id + '.evidencePreview',
+            value: evidence.preview
+              .map(function (item) {
+                return item.title || ''
+              })
+              .filter(Boolean)
+              .join('；'),
+          })
+        }
+        if (Array.isArray(evidence.items) && evidence.items.length) {
+          additionalProperty.push({
+            '@type': 'PropertyValue',
+            name: 'transparency.' + dim.id + '.evidenceItems',
+            value: evidence.items
+              .map(function (item) {
+                return [item.name, item.text].filter(Boolean).join(' ')
+              })
+              .filter(Boolean)
+              .join('；'),
+          })
+        }
+        if (evidence.note) {
+          additionalProperty.push({
+            '@type': 'PropertyValue',
+            name: 'transparency.' + dim.id + '.evidenceNote',
+            value: String(evidence.note),
+          })
+        }
       })
-      var evidence = dim.evidence || {}
-      var evidenceUrl = evidence.url || evidence.anchor || ''
-      if (evidenceUrl) {
-        if (evidenceUrl.charAt(0) === '#') evidenceUrl = canonical + evidenceUrl
-        else if (evidenceUrl.charAt(0) === '/') evidenceUrl = location.origin + evidenceUrl
-        additionalProperty.push({
-          '@type': 'PropertyValue',
-          name: 'transparency.' + dim.id + '.evidenceUrl',
-          value: evidenceUrl,
-        })
-      }
-      if (Array.isArray(evidence.preview) && evidence.preview.length) {
-        additionalProperty.push({
-          '@type': 'PropertyValue',
-          name: 'transparency.' + dim.id + '.evidencePreview',
-          value: evidence.preview
-            .map(function (item) {
-              return item.title || ''
-            })
-            .filter(Boolean)
-            .join('；'),
-        })
-      }
-      if (Array.isArray(evidence.items) && evidence.items.length) {
-        additionalProperty.push({
-          '@type': 'PropertyValue',
-          name: 'transparency.' + dim.id + '.evidenceItems',
-          value: evidence.items
-            .map(function (item) {
-              return [item.name, item.text].filter(Boolean).join(' ')
-            })
-            .filter(Boolean)
-            .join('；'),
-        })
-      }
-      if (evidence.note) {
-        additionalProperty.push({
-          '@type': 'PropertyValue',
-          name: 'transparency.' + dim.id + '.evidenceNote',
-          value: String(evidence.note),
-        })
-      }
-    })
+    }
 
     var graph = [
       {
@@ -428,32 +437,8 @@
 
     if (store.schemaGraph) {
       ensureJsonLd('store-schema-graph', store.schemaGraph)
-    } else if (store.transparency && store.transparency.dimensions && store.transparency.dimensions.length) {
-      ensureJsonLd('store-schema-graph', buildClientStoreSchemaGraph(store, canonical))
     } else {
-      var schema = {
-        '@context': 'https://schema.org',
-        '@type': 'AutoRepair',
-        name: store.name,
-        url: canonical,
-        image: store.coverImage || undefined,
-        address: store.address || undefined,
-      }
-      if (store.phone) schema.telephone = store.phone
-      ensureJsonLd('store-schema', schema)
-      if (store.faq && store.faq.length) {
-        ensureJsonLd('store-faq-schema', {
-          '@context': 'https://schema.org',
-          '@type': 'FAQPage',
-          mainEntity: store.faq.map(function (item) {
-            return {
-              '@type': 'Question',
-              name: item.q,
-              acceptedAnswer: { '@type': 'Answer', text: item.a },
-            }
-          }),
-        })
-      }
+      ensureJsonLd('store-schema-graph', buildClientStoreSchemaGraph(store, canonical))
     }
     if (window.zhejianSeo) {
       window.zhejianSeo.applyBreadcrumbSchema(
@@ -535,8 +520,14 @@
   function renderTransparencyPanel(store, serviceCount) {
     var transparency = store.transparency || {}
     var dimensions = transparency.dimensions || []
+    var caseCount = Number(store.caseCount != null ? store.caseCount : transparency.caseCount) || 0
+    var exposed =
+      transparency.exposed === true ||
+      (transparency.exposed !== false && caseCount > 0 && dimensions.length > 0)
+    if (!exposed) return ''
+
     var scoreLine =
-      transparency.score > 0
+      transparency.score != null && Number(transparency.score) > 0
         ? '<p class="h5-transparency-score">综合 ' +
           escapeHtml(String(transparency.score)) +
           ' / 100' +
@@ -547,7 +538,7 @@
         : ''
     var summary = transparency.summary
       ? '<p class="h5-section-note">' + escapeHtml(transparency.summary) + '</p>'
-      : '<p class="h5-section-note">依据公开案例、相册完整率、服务资料与资质等可验证信息评估门店资料完整度。</p>'
+      : '<p class="h5-section-note">依据公开案例、服务资料与资质等可验证信息评估门店资料完整度。</p>'
 
     function evidenceHref(dim) {
       var evidence = dim.evidence || {}
@@ -648,18 +639,23 @@
           '</div>'
         : ''
 
-    var methodology =
-      transparency.methodology ||
-      '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
-    var methodologyBlock =
-      '<details class="h5-transparency-method">' +
-      '<summary>算法说明</summary>' +
-      '<p class="h5-transparency">' +
-      escapeHtml(methodology) +
-      '</p></details>'
+    var methodology = transparency.methodology || ''
+    var methodologyBlock = methodology
+      ? '<details class="h5-transparency-method">' +
+        '<summary>算法说明</summary>' +
+        '<p class="h5-transparency">' +
+        escapeHtml(methodology) +
+        '</p></details>'
+      : ''
 
+    var sectionTitle =
+      transparency.score != null && Number(transparency.score) > 0
+        ? '资料完整度'
+        : '公开案例证据'
     return (
-      '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">透明度指标</h2>' +
+      '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">' +
+      sectionTitle +
+      '</h2>' +
       scoreLine +
       summary +
       cards +
@@ -819,7 +815,7 @@
       escapeHtml(COPY.price) +
       '</p>'
     if (!services || !services.length) {
-      return section + '<div class="h5-empty-block">暂无可预约服务</div></div>'
+      return section + '<div class="h5-empty-block">服务方案完善中</div></div>'
     }
     var cards = services
       .map(function (svc) {
@@ -864,7 +860,7 @@
       escapeHtml(caseNote) +
       '</p>'
     if (!cases || !cases.length) {
-      return section + '<div class="h5-empty-block">该门店暂无公开案例</div></div>'
+      return section + '<div class="h5-empty-block">公开案例完善中</div></div>'
     }
     var cards = cases
       .map(function (item) {
@@ -1114,10 +1110,10 @@
     html += renderKeyInfo(buildInfoRows(store), '门店信息')
     html += renderCertSection(store, certRows)
     html += renderStaff(store.staffPublic)
-    html += renderTransparencyPanel(store, (services || []).length)
-    html += renderSpecialties(store.specialties)
-    html += renderServices(services, store.id, bookingEnabled)
     html += renderCases(cases, store)
+    html += renderServices(services, store.id, bookingEnabled)
+    html += renderSpecialties(store.specialties)
+    html += renderTransparencyPanel(store, (services || []).length)
     html += renderEnvironment(store.environmentImages)
     html += renderStoreFaq(store.faq)
 

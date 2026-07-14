@@ -31,6 +31,10 @@ const { formatPlanRecord } = require('./service-plan-format')
 const { resolveRelatedCasesForService, matchServiceName } = require('../utils/service-case-link')
 const { resolveRelatedCasesForCase } = require('../utils/case-related-cases')
 const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-internal-links')
+const {
+  filterPublicSpecialties,
+  filterPublicEnvironmentImages,
+} = require('../utils/store-public-display')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const {
   resolvePublicCaseContentNodes,
@@ -508,10 +512,12 @@ function mapStoreRow(store, caseCount = 0) {
   const coverImage = resolveClientReadableMediaUrl(
     photos.facadeUrl || extras.coverImage || ''
   )
-  const environmentImages = resolveClientReadableMediaUrls(
-    Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
-      ? photos.workshopUrls
-      : extras.environmentImages || []
+  const environmentImages = filterPublicEnvironmentImages(
+    resolveClientReadableMediaUrls(
+      Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
+        ? photos.workshopUrls
+        : extras.environmentImages || []
+    )
   )
   return {
     id: store.id,
@@ -526,7 +532,9 @@ function mapStoreRow(store, caseCount = 0) {
     phone: store.phone || '',
     intro: store.intro || extras.aiSummary || '',
     qualificationTags: extras.qualificationTags || [],
-    specialties: Array.isArray(store.servicesJson) ? store.servicesJson : extras.specialties || [],
+    specialties: filterPublicSpecialties(
+      Array.isArray(store.servicesJson) ? store.servicesJson : extras.specialties || []
+    ),
     score: extras.score || 0,
     caseCount,
     supportsAlbum: extras.supportsAlbum !== false,
@@ -602,10 +610,22 @@ async function getMerchantDetail(id) {
     err.status = 410
     throw err
   }
+  const onlinePlans = await prisma.merchantServicePlan.findMany({
+    where: { storeId: store.id, saleStatus: 'ONLINE' },
+    take: 8,
+    select: { name: true, serviceItemId: true },
+    orderBy: { updatedAt: 'desc' },
+  })
+  const serviceNames = onlinePlans
+    .map((plan) => {
+      if (plan.name) return plan.name
+      const item = getServiceItem(plan.serviceItemId)
+      return item?.name || ''
+    })
+    .filter(Boolean)
   return enrichStorePublicPage(mapped, store, store.merchant, {
-    serviceCount: await prisma.merchantServicePlan.count({
-      where: { storeId: store.id, saleStatus: 'ONLINE' },
-    }),
+    serviceCount: onlinePlans.length,
+    serviceNames,
   })
 }
 
