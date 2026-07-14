@@ -87,6 +87,79 @@
   margin-top: var(--space-xs);
 }
 
+.h5-transparency-score {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-evidence-grid {
+  display: grid;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0;
+}
+
+.h5-evidence-card {
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card, #fff);
+}
+
+.h5-evidence-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.h5-evidence-card__label {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-evidence-card__value {
+  font-size: var(--font-title-sm, 1.125rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.h5-evidence-card__meaning {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.h5-evidence-note {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-evidence-preview {
+  margin: var(--space-xs) 0 0;
+  padding-left: 1.1em;
+  font-size: var(--font-caption);
+}
+
+.h5-evidence-link {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption);
+}
+
+.h5-transparency-method {
+  margin-top: var(--space-sm);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.h5-transparency-method summary {
+  cursor: pointer;
+}
+
 .h5-cert-empty {
   font-size: var(--font-caption);
   color: var(--color-text-tertiary);

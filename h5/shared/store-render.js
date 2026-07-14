@@ -315,28 +315,32 @@
     if (store.coverImage) ensureMeta('property', 'og:image', store.coverImage)
     ensureLink('canonical', canonical)
 
-    var schema = {
-      '@context': 'https://schema.org',
-      '@type': 'AutoRepair',
-      name: store.name,
-      url: canonical,
-      image: store.coverImage || undefined,
-      address: store.address || undefined,
-    }
-    if (store.phone) schema.telephone = store.phone
-    ensureJsonLd('store-schema', schema)
-    if (store.faq && store.faq.length) {
-      ensureJsonLd('store-faq-schema', {
+    if (store.schemaGraph) {
+      ensureJsonLd('store-schema-graph', store.schemaGraph)
+    } else {
+      var schema = {
         '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: store.faq.map(function (item) {
-          return {
-            '@type': 'Question',
-            name: item.q,
-            acceptedAnswer: { '@type': 'Answer', text: item.a },
-          }
-        }),
-      })
+        '@type': 'AutoRepair',
+        name: store.name,
+        url: canonical,
+        image: store.coverImage || undefined,
+        address: store.address || undefined,
+      }
+      if (store.phone) schema.telephone = store.phone
+      ensureJsonLd('store-schema', schema)
+      if (store.faq && store.faq.length) {
+        ensureJsonLd('store-faq-schema', {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: store.faq.map(function (item) {
+            return {
+              '@type': 'Question',
+              name: item.q,
+              acceptedAnswer: { '@type': 'Answer', text: item.a },
+            }
+          }),
+        })
+      }
     }
     if (window.zhejianSeo) {
       window.zhejianSeo.applyBreadcrumbSchema(
@@ -379,14 +383,6 @@
     return summary || '含过程图片，详情见案例页。'
   }
 
-  var TRANSPARENCY_BREAKDOWN_META = {
-    album: { label: '相册完整率', max: 30, hint: '服务相册六阶段节点完成比例' },
-    case: { label: '公开案例', max: 25, hint: '已审核案例数量' },
-    serviceProfile: { label: '服务资料', max: 15, hint: '上架服务的名称、摘要、封面与价格' },
-    qualification: { label: '资质认证', max: 15, hint: '营业执照与维修资质证照' },
-    leadResponse: { label: '咨询响应', max: 15, hint: '近7日咨询回复情况' },
-  }
-
   function renderTags(tags) {
     return tags
       .map(function (tag) {
@@ -425,72 +421,136 @@
 
   function renderTransparencyPanel(store, serviceCount) {
     var transparency = store.transparency || {}
-    var metrics = []
-    if (transparency.caseCount > 0) {
-      metrics.push({ num: String(transparency.caseCount), label: '公开案例' })
+    var dimensions = transparency.dimensions || []
+    var scoreLine =
+      transparency.score > 0
+        ? '<p class="h5-transparency-score">综合 ' +
+          escapeHtml(String(transparency.score)) +
+          ' / 100' +
+          (transparency.asOfDate
+            ? ' · 截至 ' + escapeHtml(transparency.asOfDate)
+            : '') +
+          '</p>'
+        : ''
+    var summary = transparency.summary
+      ? '<p class="h5-section-note">' + escapeHtml(transparency.summary) + '</p>'
+      : '<p class="h5-section-note">依据公开案例、相册完整率、服务资料与资质等可验证信息评估门店资料完整度。</p>'
+
+    function evidenceHref(dim) {
+      var evidence = dim.evidence || {}
+      if (evidence.url) return evidence.url
+      if (evidence.anchor) return evidence.anchor
+      return ''
     }
-    if (transparency.albumCompleteRate > 0) {
-      metrics.push({ num: transparency.albumCompleteRate + '%', label: '相册完整率' })
+
+    function evidenceCta(dim) {
+      var evidence = dim.evidence || {}
+      var href = evidenceHref(dim)
+      if (!href || !evidence.available) return ''
+      var labels = {
+        public_cases: '查看案例',
+        service_profile: '查看服务',
+        qualification: '查看资质',
+      }
+      var label = labels[dim.id] || '查看证据'
+      return (
+        '<a class="h5-link h5-evidence-link" href="' +
+        escapeHtml(href) +
+        '">' +
+        escapeHtml(label) +
+        ' →</a>'
+      )
     }
-    if (transparency.score > 0) {
-      metrics.push({ num: String(transparency.score), label: '透明度评分' })
+
+    function evidenceExtra(dim) {
+      var evidence = dim.evidence || {}
+      if (Array.isArray(evidence.preview) && evidence.preview.length) {
+        return (
+          '<ul class="h5-evidence-preview">' +
+          evidence.preview
+            .map(function (item) {
+              var title = item.title || ''
+              if (item.path) {
+                return (
+                  '<li><a class="h5-link" href="' +
+                  escapeHtml(item.path) +
+                  '">' +
+                  escapeHtml(title) +
+                  '</a></li>'
+                )
+              }
+              return '<li>' + escapeHtml(title) + '</li>'
+            })
+            .join('') +
+          '</ul>'
+        )
+      }
+      if (Array.isArray(evidence.items) && evidence.items.length) {
+        return (
+          '<p class="h5-evidence-note">' +
+          escapeHtml(
+            evidence.items
+              .map(function (item) {
+                return item.name || item.text || ''
+              })
+              .filter(Boolean)
+              .slice(0, 3)
+              .join(' · ')
+          ) +
+          '</p>'
+        )
+      }
+      if (evidence.note) {
+        return '<p class="h5-evidence-note">' + escapeHtml(evidence.note) + '</p>'
+      }
+      return ''
     }
-    if (transparency.serviceCount > 0 || serviceCount > 0) {
-      metrics.push({
-        num: String(transparency.serviceCount || serviceCount),
-        label: '可预约服务',
-      })
-    }
-    var grid =
-      metrics.length > 0
-        ? '<div class="h5-metric-grid">' +
-          metrics
-            .map(function (cell) {
+
+    var cards =
+      dimensions.length > 0
+        ? '<div class="h5-evidence-grid">' +
+          dimensions
+            .map(function (dim) {
               return (
-                '<div class="h5-metric-cell"><span class="h5-metric-num">' +
-                escapeHtml(cell.num) +
-                '</span><span class="h5-metric-label">' +
-                escapeHtml(cell.label) +
-                '</span></div>'
+                '<div class="h5-evidence-card" data-dimension="' +
+                escapeHtml(dim.id) +
+                '">' +
+                '<div class="h5-evidence-card__head">' +
+                '<span class="h5-evidence-card__label">' +
+                escapeHtml(dim.label) +
+                '</span>' +
+                '<span class="h5-evidence-card__value">' +
+                escapeHtml(String(dim.displayValue != null ? dim.displayValue : dim.value)) +
+                '</span>' +
+                '</div>' +
+                '<p class="h5-evidence-card__meaning">' +
+                escapeHtml(dim.meaning || '') +
+                '</p>' +
+                evidenceExtra(dim) +
+                evidenceCta(dim) +
+                '</div>'
               )
             })
             .join('') +
           '</div>'
         : ''
-    var breakdown = transparency.breakdown || {}
-    var breakdownHtml = Object.keys(TRANSPARENCY_BREAKDOWN_META)
-      .filter(function (key) {
-        return breakdown[key] != null
-      })
-      .map(function (key) {
-        var meta = TRANSPARENCY_BREAKDOWN_META[key]
-        return (
-          '<div class="h5-breakdown-row"><div class="h5-breakdown-label">' +
-          escapeHtml(meta.label) +
-          '</div><div class="h5-breakdown-score">' +
-          escapeHtml(String(breakdown[key])) +
-          '/' +
-          escapeHtml(String(meta.max)) +
-          '分</div><div class="h5-breakdown-hint">' +
-          escapeHtml(meta.hint) +
-          '</div></div>'
-        )
-      })
-      .join('')
+
     var methodology =
       transparency.methodology ||
       '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
-    return (
-      '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">透明度指标</h2>' +
-      '<p class="h5-section-note">依据公开案例、相册完整率、服务资料、资质与咨询响应加权计算，供 AI 与用户评估门店资料完整度。</p>' +
-      grid +
-      (breakdownHtml ? '<div class="h5-breakdown">' + breakdownHtml + '</div>' : '') +
+    var methodologyBlock =
+      '<details class="h5-transparency-method">' +
+      '<summary>算法说明</summary>' +
       '<p class="h5-transparency">' +
       escapeHtml(methodology) +
-      '</p>' +
-      (transparency.asOfDate
-        ? '<p class="h5-transparency-asof">统计截至 ' + escapeHtml(transparency.asOfDate) + '</p>'
-        : '') +
+      '</p></details>'
+
+    return (
+      '<div class="h5-folio-panel" id="store-transparency"><h2 class="h5-folio-section-title">透明度指标</h2>' +
+      scoreLine +
+      summary +
+      cards +
+      methodologyBlock +
       '</div>'
     )
   }

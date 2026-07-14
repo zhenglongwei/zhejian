@@ -93,6 +93,40 @@ function run() {
   assert.ok(Array.isArray(homeOrg.sameAs))
   assert.strictEqual(homeOrg.sameAs[0], 'https://simplewin.cn')
 
+  const { buildStorePageSchemaGraph } = require('./schema-graph')
+  const storeGraph = buildStorePageSchemaGraph({
+    baseUrl: base,
+    store: {
+      id: 'store_1',
+      name: '测试门店',
+      transparency: {
+        score: 80,
+        asOfDate: '2026-07-13',
+        summary: '已公开案例与资质',
+        dimensions: [
+          {
+            id: 'public_cases',
+            label: '公开案例',
+            value: 2,
+            displayValue: '2',
+            meaning: '公开案例数',
+            evidence: {
+              type: 'case_list',
+              url: '/store/store_1/cases',
+              anchor: '#store-cases',
+              available: true,
+              preview: [{ title: '案例A', path: '/case/a.html' }],
+            },
+          },
+        ],
+      },
+      faq: [{ q: 'Q', a: 'A' }],
+    },
+  })
+  assert.ok(storeGraph['@graph'].some((node) => node['@type'] === 'AutoRepair'))
+  const storeNode = storeGraph['@graph'].find((node) => node['@type'] === 'AutoRepair')
+  assert.ok(storeNode.additionalProperty.some((item) => item.name === 'transparencyScore'))
+
   console.log('[schema-graph.test] ok')
 }
 

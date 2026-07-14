@@ -21,6 +21,7 @@ const {
 const {
   getCaseFeedJson,
   getServiceFeedJson,
+  getStoreFeedJson,
   getFeedIndexJson,
   sendFeedJson,
 } = require('../services/public-feed.service')
@@ -94,6 +95,14 @@ router.get('/v1/cases/:caseId.json', async (req, res, next) => {
 router.get('/v1/services/:slug.json', async (req, res, next) => {
   try {
     return sendFeedJson(res, await getServiceFeedJson(req.params.slug, req.query))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/v1/stores/:storeId.json', async (req, res, next) => {
+  try {
+    return sendFeedJson(res, await getStoreFeedJson(req.params.storeId))
   } catch (e) {
     next(e)
   }
@@ -211,6 +220,18 @@ router.get('/h5/case/:caseId/bot-html', async (req, res, next) => {
   try {
     const { renderCaseBotHtml } = require('../services/h5-case-prerender.service')
     const html = await renderCaseBotHtml(req.params.caseId)
+    res.set('Content-Type', 'text/html; charset=utf-8')
+    res.set('Cache-Control', 'public, max-age=300')
+    return res.send(html)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/stores/:storeId/bot-html', async (req, res, next) => {
+  try {
+    const { renderStoreBotHtml } = require('../services/h5-store-prerender.service')
+    const html = await renderStoreBotHtml(req.params.storeId)
     res.set('Content-Type', 'text/html; charset=utf-8')
     res.set('Cache-Control', 'public, max-age=300')
     return res.send(html)

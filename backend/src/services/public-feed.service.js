@@ -2,16 +2,16 @@
  * GEO-IGAIN-B · 公开 JSON Feed（RAG 友好 · 与页面可见内容一致）
  */
 const { config } = require('../config')
-const { getCaseDetail } = require('./content.service')
+const { getCaseDetail, fetchPublicCaseRows, getMerchantDetail } = require('./content.service')
 const { getServiceItemPagePayload } = require('./h5-service-item.service')
 const { H5_SERVICE_ITEMS, resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
 const { STORE_CHECK_HINT } = require('../constants/geo-faq-templates')
 const { getLlmsTxt, getLlmsFullTxt } = require('./h5-discovery.service')
-const { buildServicePageSchemaGraph } = require('../lib/schema-graph')
+const { buildServicePageSchemaGraph, buildStorePageSchemaGraph } = require('../lib/schema-graph')
 const { parseAggregateStats } = require('../schemas/geo-aggregate.schema')
 const { listGeoPages } = require('./geo.service')
-const { fetchPublicCaseRows } = require('./content.service')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
+const { normalizeTransparencyPayload } = require('../schemas/store-transparency.schema')
 
 const FEED_DISCLAIMER =
   '数据来自已授权且脱敏的公开案例，仅供参考，不构成线上报价或维修承诺。'
@@ -125,6 +125,55 @@ async function getServiceFeedJson(slug, query = {}) {
   return mapServiceFeed(payload)
 }
 
+function mapStoreFeed(detail) {
+  const seo = detail.seo || {}
+  const transparency = normalizeTransparencyPayload(detail.transparency || {})
+  return {
+    type: 'store',
+    id: detail.id,
+    name: detail.name || '',
+    city: detail.city || '',
+    address: detail.address || '',
+    phone: detail.phone || '',
+    aiSummary: detail.aiSummary || detail.intro || '',
+    transparency,
+    certifications: detail.certifications || [],
+    certWall: (detail.certWall || []).map((row) => ({
+      label: row.label || '',
+      text: row.text || '',
+      status: row.status || '',
+      imageUrl: row.imageUrl || '',
+    })),
+    faq: (detail.faq || []).map((row) => ({
+      q: row.q || row.question || '',
+      a: row.a || row.answer || '',
+    })),
+    schemaGraph:
+      detail.schemaGraph ||
+      buildStorePageSchemaGraph({
+        baseUrl: config.publicBaseUrl,
+        store: detail,
+        transparency,
+        faq: detail.faq,
+        organizationSameAs: config.geo?.organizationSameAs || [],
+      }),
+    canonicalPath: seo.canonicalPath || `/store/${detail.id}.html`,
+    updatedAt: detail.updatedAt || transparency.asOfDate || '',
+    disclaimer: FEED_DISCLAIMER,
+    complianceTail: STORE_CHECK_HINT,
+  }
+}
+
+async function getStoreFeedJson(storeId) {
+  const detail = await getMerchantDetail(storeId)
+  if (!detail || !isIndexableSeo(detail.seo)) {
+    const err = new Error('门店不存在或未开放收录')
+    err.status = 404
+    throw err
+  }
+  return mapStoreFeed(detail)
+}
+
 async function getFeedIndexJson() {
   const base = String(config.publicBaseUrl || '').replace(/\/$/, '')
   const [geoPages, cases] = await Promise.all([
@@ -146,6 +195,8 @@ async function getFeedIndexJson() {
     },
     fieldContract: {
       trustMeta: '案例授权档、快照版本、证据等级、脱敏标记',
+      transparency:
+        '门店透明度 score + dimensions[]（value/meaning/evidence.url|anchor）',
       aggregateStats: 'sampleSize、causeDistribution、price、computedAt',
       advanced: 'N≥5 时含 causePriceCross、processMetrics',
       complianceTail: STORE_CHECK_HINT,
@@ -153,8 +204,10 @@ async function getFeedIndexJson() {
     feeds: {
       cases: `${base}/public/v1/cases/{slug}.json`,
       services: `${base}/public/v1/services/{slug}.json`,
+      stores: `${base}/public/v1/stores/{storeId}.json`,
       casesApi: `${base}/api/v1/public/v1/cases/{slug}.json`,
       servicesApi: `${base}/api/v1/public/v1/services/{slug}.json`,
+      storesApi: `${base}/api/v1/public/v1/stores/{storeId}.json`,
       llmsTxt: `${base}/llms.txt`,
       llmsFullTxt: `${base}/llms-full.txt`,
       sitemap: `${base}/sitemap.xml`,
@@ -167,8 +220,10 @@ async function getFeedIndexJson() {
 module.exports = {
   getCaseFeedJson,
   getServiceFeedJson,
+  getStoreFeedJson,
   getFeedIndexJson,
   sendFeedJson,
   mapCaseFeed,
   mapServiceFeed,
+  mapStoreFeed,
 }

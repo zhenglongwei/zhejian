@@ -6,7 +6,6 @@ const path = require('path')
 const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
-const { config } = require('../config')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 
 const BOT_UA_RE =

@@ -467,6 +467,172 @@ function buildHomePageSchemaGraph(input = {}) {
   }
 }
 
+/**
+ * 门店页 · AutoRepair + 透明度 dimensions 证据链（面向 Agent）
+ * @param {object} input
+ */
+function buildStorePageSchemaGraph(input = {}) {
+  const baseUrl = normalizeBase(input.baseUrl)
+  const store = input.store || {}
+  const transparency = input.transparency || store.transparency || {}
+  const dimensions = Array.isArray(transparency.dimensions) ? transparency.dimensions : []
+  const faq = input.faq || store.faq || []
+  const storeId = store.id || ''
+  const canonicalPath = (store.seo && store.seo.canonicalPath) || `/store/${storeId}.html`
+  const canonical = entityId(baseUrl, canonicalPath, '')
+  const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
+
+  const additionalProperty = [
+    {
+      '@type': 'PropertyValue',
+      name: 'transparencyScore',
+      value: String(transparency.score || 0),
+    },
+  ]
+  if (transparency.asOfDate) {
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: 'transparencyAsOfDate',
+      value: String(transparency.asOfDate),
+    })
+  }
+  if (transparency.summary) {
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: 'transparencySummary',
+      value: String(transparency.summary),
+    })
+  }
+
+  dimensions.forEach((dim) => {
+    if (!dim || !dim.id) return
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: `transparency.${dim.id}`,
+      value: String(dim.displayValue != null ? dim.displayValue : dim.value),
+      description: dim.meaning || dim.label || '',
+    })
+    if (dim.scorePart != null) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: `transparency.${dim.id}.scorePart`,
+        value: `${dim.scorePart}/${dim.maxScore || ''}`,
+      })
+    }
+    const evidence = dim.evidence || {}
+    const evidenceUrl = evidence.url
+      ? entityId(baseUrl, evidence.url, '')
+      : evidence.anchor
+        ? `${canonical}${evidence.anchor}`
+        : ''
+    if (evidenceUrl) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: `transparency.${dim.id}.evidenceUrl`,
+        value: evidenceUrl,
+      })
+    }
+    if (evidence.note) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: `transparency.${dim.id}.evidenceNote`,
+        value: String(evidence.note),
+      })
+    }
+    if (Array.isArray(evidence.preview) && evidence.preview.length) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: `transparency.${dim.id}.evidencePreview`,
+        value: evidence.preview.map((item) => item.title || '').filter(Boolean).join('；'),
+      })
+    }
+    if (Array.isArray(evidence.items) && evidence.items.length) {
+      additionalProperty.push({
+        '@type': 'PropertyValue',
+        name: `transparency.${dim.id}.evidenceItems`,
+        value: evidence.items
+          .map((item) => [item.name, item.text].filter(Boolean).join(' '))
+          .filter(Boolean)
+          .join('；'),
+      })
+    }
+  })
+
+  const autoRepair = {
+    '@type': 'AutoRepair',
+    '@id': entityId(baseUrl, canonicalPath, 'autorepair'),
+    name: store.name || '维修门店',
+    description: store.aiSummary || store.intro || transparency.summary || '',
+    url: canonical,
+    address: store.address
+      ? {
+          '@type': 'PostalAddress',
+          streetAddress: store.address,
+          addressLocality: store.city || '',
+          addressCountry: 'CN',
+        }
+      : undefined,
+    telephone: store.phone || undefined,
+    image: store.coverImage || store.storefrontImage || undefined,
+    additionalProperty,
+  }
+
+  const graph = [
+    organization,
+    {
+      '@type': 'WebPage',
+      '@id': entityId(baseUrl, canonicalPath, 'webpage'),
+      name: store.name || '门店',
+      description: autoRepair.description,
+      url: canonical,
+      about: { '@id': autoRepair['@id'] },
+      isPartOf: { '@id': organization['@id'] },
+    },
+    autoRepair,
+  ]
+
+  const certImages = (store.certWall || [])
+    .filter((row) => row && row.imageUrl)
+    .slice(0, 4)
+  certImages.forEach((row, index) => {
+    graph.push({
+      '@type': 'ImageObject',
+      '@id': entityId(baseUrl, canonicalPath, `credential-${index + 1}`),
+      name: row.label || '资质证明',
+      contentUrl: String(row.imageUrl).startsWith('http')
+        ? row.imageUrl
+        : entityId(baseUrl, row.imageUrl, ''),
+      description: row.text || row.label || '平台核验资质',
+      isPartOf: { '@id': autoRepair['@id'] },
+    })
+  })
+
+  const faqNode = buildFaqNode(faq)
+  if (faqNode) graph.push(faqNode)
+
+  const caseDim = dimensions.find((item) => item.id === 'public_cases')
+  const preview = caseDim?.evidence?.preview || []
+  if (preview.length) {
+    graph.push({
+      '@type': 'ItemList',
+      '@id': entityId(baseUrl, canonicalPath, 'case-list'),
+      name: `${store.name || '门店'}公开案例`,
+      numberOfItems: caseDim?.value || preview.length,
+      itemListElement: preview.map((item, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: item.title,
+        url: item.path ? entityId(baseUrl, item.path, '') : undefined,
+      })),
+    })
+  }
+
+  return {
+    '@context': SCHEMA_CONTEXT,
+    '@graph': graph,
+  }
+}
+
 module.exports = {
   SCHEMA_CONTEXT,
   normalizeBase,
@@ -478,4 +644,5 @@ module.exports = {
   buildServicePageSchemaGraph,
   buildCasePageSchemaGraph,
   buildHomePageSchemaGraph,
+  buildStorePageSchemaGraph,
 }

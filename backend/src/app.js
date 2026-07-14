@@ -101,6 +101,21 @@ function createApp() {
     app.use('/fixtures', express.static(path.join(h5Root, 'fixtures')))
     app.use('/case', express.static(path.join(h5Root, 'case')))
     app.use('/album', express.static(path.join(h5Root, 'album')))
+    app.get(/^\/store\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
+      if (req.path === '/store/index.html' || req.path === '/store/view.html') return next()
+      const { isCrawlerRequest, renderStoreBotHtml } = require('./services/h5-store-prerender.service')
+      if (isCrawlerRequest(req)) {
+        const storeId = req.path.replace(/^\/store\//, '').replace(/\.html$/i, '')
+        try {
+          const html = await renderStoreBotHtml(storeId)
+          res.set('Content-Type', 'text/html; charset=utf-8')
+          return res.send(html)
+        } catch (e) {
+          if (e.status !== 404) return next(e)
+        }
+      }
+      return res.sendFile(path.join(h5Root, 'store', 'view.html'))
+    })
     app.get(/^\/store\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
       res.sendFile(path.join(h5Root, 'store', 'cases.html'))
     })

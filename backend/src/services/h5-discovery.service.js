@@ -121,6 +121,7 @@ async function getLlmsTxt() {
     `Sitemap: ${absUrl('/sitemap.xml')}`,
     `JSON Feed: ${absUrl('/public/v1/index.json')}`,
     `JSON Feed (API): ${absUrl('/api/v1/public/v1/index.json')}`,
+    `门店 Feed: ${absUrl('/public/v1/stores/{storeId}.json')}（含 transparency.dimensions 证据链）`,
     `全量索引: ${absUrl('/llms-full.txt')}`,
     '',
     '## 统计窗口',

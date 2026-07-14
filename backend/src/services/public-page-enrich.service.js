@@ -14,6 +14,9 @@ const {
   CASE_SECTION_ORDER,
   SERVICE_SECTION_ORDER,
 } = require('../schemas/public-page-sections.schema')
+const { buildTransparencyDimensions } = require('../schemas/store-transparency.schema')
+const { buildStorePageSchemaGraph } = require('../lib/schema-graph')
+const { config } = require('../config')
 
 const STAFF_ROLE_LABELS = {
   owner: '管理员',
@@ -179,7 +182,11 @@ async function loadStaffPublic(merchantId, storeId, photosMeta = {}, extras = {}
   }))
 }
 
-async function loadTransparency(store, merchantId, serviceCount = 0) {
+async function loadTransparency(store, merchantId, options = {}) {
+  const serviceCount = Number(options.serviceCount) || 0
+  const certifications = options.certifications || []
+  const certWall = options.certWall || []
+  const casePreviews = options.casePreviews || []
   const extras = STORE_EXTRAS[store.id] || {}
   const lastRow = await prisma.merchantDailyStats.findFirst({
     where: { merchantId, storeId: store.id },
@@ -225,6 +232,20 @@ async function loadTransparency(store, merchantId, serviceCount = 0) {
   const summary =
     parts.length > 0 ? `该门店${parts.join('，')}。` : '该门店正在完善辙见公开资料。'
 
+  const methodology =
+    '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
+
+  const dimensions = buildTransparencyDimensions({
+    storeId: store.id,
+    caseCount,
+    albumCompleteRate: albumRate,
+    serviceCount,
+    breakdown,
+    certifications,
+    certWall,
+    casePreviews,
+  })
+
   return {
     score: score >= 10 ? Math.round(Number(score)) : 0,
     caseCount,
@@ -232,9 +253,9 @@ async function loadTransparency(store, merchantId, serviceCount = 0) {
     serviceCount,
     summary,
     breakdown,
-    methodology:
-      '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。',
+    methodology,
     asOfDate: lastRow?.statDate ? String(lastRow.statDate).slice(0, 10) : '',
+    dimensions,
   }
 }
 
@@ -270,7 +291,30 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     photosMeta,
     extras
   )
-  const transparency = await loadTransparency(storeRow, storeRow.merchantId, options.serviceCount || 0)
+
+  const casePreviewRows = await prisma.publicCase.findMany({
+    where: { storeId: storeRow.id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    orderBy: { publishedAt: 'desc' },
+    take: 3,
+    select: { id: true, title: true, serviceName: true, contentJson: true },
+  })
+  const casePreviews = casePreviewRows.map((row) => {
+    const content = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
+    const geo = content.geo || {}
+    return {
+      id: row.id,
+      title: row.title || row.serviceName || '',
+      serviceName: row.serviceName || '',
+      slug: geo.slug || content.slug || '',
+    }
+  })
+
+  const transparency = await loadTransparency(storeRow, storeRow.merchantId, {
+    serviceCount: options.serviceCount || 0,
+    certifications,
+    certWall,
+    casePreviews,
+  })
   const faq = resolveStoreFaq(photosMeta, extras)
   const vehicleSpecialties =
     photosMeta.vehicleSpecialties.length > 0
@@ -278,33 +322,43 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       : extras.vehicleSpecialties || []
   const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
 
-  return attachSectionMeta(
-    {
-      ...mapped,
-      seo: {
-        noindex: !publicIndex,
-      },
-      contactName: merchantRow?.contactName || mapped.contactName || '',
-      certifications,
-      certWall,
-      staffPublic,
-      transparency,
-      faq,
-      vehicleSpecialties,
-      aiSummary: mapped.aiSummary || mapped.intro || '',
-      auditMeta: {
-        auditor: '辙见平台运营',
-        basis: '营业执照、维修资质证照、门店实景照片',
-        approvedAt:
-          merchantRow?.approvedAt instanceof Date
-            ? merchantRow.approvedAt.toISOString().slice(0, 10)
-            : merchantRow?.approvedAt
-              ? String(merchantRow.approvedAt).slice(0, 10)
-              : '',
-      },
+  const payload = {
+    ...mapped,
+    seo: {
+      noindex: !publicIndex,
+      allowIndex: publicIndex,
+      robots: publicIndex ? 'index,follow' : 'noindex,follow',
+      canonicalPath: `/store/${storeRow.id}.html`,
     },
-    STORE_SECTION_ORDER
-  )
+    contactName: merchantRow?.contactName || mapped.contactName || '',
+    certifications,
+    certWall,
+    staffPublic,
+    transparency,
+    faq,
+    vehicleSpecialties,
+    aiSummary: mapped.aiSummary || mapped.intro || '',
+    auditMeta: {
+      auditor: '辙见平台运营',
+      basis: '营业执照、维修资质证照、门店实景照片',
+      approvedAt:
+        merchantRow?.approvedAt instanceof Date
+          ? merchantRow.approvedAt.toISOString().slice(0, 10)
+          : merchantRow?.approvedAt
+            ? String(merchantRow.approvedAt).slice(0, 10)
+            : '',
+    },
+  }
+
+  payload.schemaGraph = buildStorePageSchemaGraph({
+    baseUrl: config.publicBaseUrl,
+    store: payload,
+    transparency,
+    faq,
+    organizationSameAs: config.geo?.organizationSameAs || [],
+  })
+
+  return attachSectionMeta(payload, STORE_SECTION_ORDER)
 }
 
 function enrichCasePublicPage(payload) {

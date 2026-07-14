@@ -597,3 +597,35 @@ P0 必须满足：
 
 **禁止**：Dataset 写入页面未展示的 advanced 字段；N < 门槛时不出百分比。
 
+---
+
+## **20. 门店透明度 dimensions Schema（V2.3 · 2026-07-14）**
+
+> 面向 AI Agent：指标必须可落到证据 URL / 同页锚点。
+
+### **20.1 目标**
+
+门店页 `AutoRepair` 输出透明度总分与分项，每项含 `meaning` 与 `evidenceUrl`（或证据预览文案），与 H5 卡片、JSON Feed `/public/v1/stores/{id}.json` 同源。
+
+### **20.2 additionalProperty 约定**
+
+| name | 说明 |
+| --- | --- |
+| `transparencyScore` | 总分 0–100 |
+| `transparencyAsOfDate` | 统计截止日 |
+| `transparencySummary` | 人类/机器可读摘要句 |
+| `transparency.{dimensionId}` | 分项展示值 |
+| `transparency.{dimensionId}.scorePart` | 分项得分/满分 |
+| `transparency.{dimensionId}.evidenceUrl` | 证据列表 URL 或 `#锚点` |
+| `transparency.{dimensionId}.evidencePreview` | 案例标题预览（可选） |
+| `transparency.{dimensionId}.evidenceItems` | 资质条目文案（可选） |
+
+稳定 `dimensionId`：`public_cases`、`album_completeness`、`service_profile`、`qualification`、`lead_response`。
+
+### **20.3 约束**
+
+1. Schema / Feed / 页面可见卡片数字与证据一致；禁止 Schema 多写无证据分数。
+2. `album_completeness` 仅聚合率，不得链接私密相册。
+3. 资质图仅写入已公开展示的脱敏/证照墙 URL。
+4. Bot 预渲染须内嵌同一 `@graph`。
+
