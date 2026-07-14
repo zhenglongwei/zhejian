@@ -145,7 +145,9 @@ sudo bash scripts/server-install.sh
 ### 3.1 公众平台
 
 1. 登录 [微信公众平台](https://mp.weixin.qq.com/) → 开发 → 开发管理 → 开发设置  
-2. **服务器域名** → request 合法域名添加：`https://geo.simplewin.cn`  
+2. **服务器域名** → request 合法域名添加：  
+   - 生产：`https://geo.simplewin.cn`  
+   - 预发（若使用）：`https://staging.geo.simplewin.cn`（搭建见 `B-INF_预发环境搭建.md`）  
 3. 保存后等待生效（约几分钟）
 
 ### 3.2 小程序工程
@@ -153,7 +155,8 @@ sudo bash scripts/server-install.sh
 1. 打开 `services/config.js`，设置：
 
 ```javascript
-const ACTIVE_ENV = 'prod'
+const ACTIVE_ENV = 'prod'      // 正式 / 提审
+// const ACTIVE_ENV = 'staging' // 体验版联调预发（提审前改回 prod）
 ```
 
 2. 微信开发者工具 → 详情 → 本地设置：  

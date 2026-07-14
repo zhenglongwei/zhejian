@@ -1,6 +1,7 @@
 # 阿里云部署指南（B-INF）
 
-目标：**geo.simplewin.cn** 提供 `/api/v1/`（Node）、`/admin/`、`/case/` 静态 H5。
+目标：**geo.simplewin.cn** 提供 `/api/v1/`（Node）、`/admin/`、`/case/` 静态 H5。  
+预发：**staging.geo.simplewin.cn** 同结构、同机另一目录（见下「预发」）。
 
 | 路径 | 说明 |
 | --- | --- |
@@ -9,6 +10,7 @@
 | `/case/` | `h5/case/` |
 
 **完整步骤**：`docs/12_测试验收部署与安全合规/B-INF_生产与真机联调.md`  
+**预发搭建**：`docs/12_测试验收部署与安全合规/B-INF_预发环境搭建.md`  
 **用户向**：`docs/部署上手指南.md`
 
 ## 快速命令
@@ -49,7 +51,28 @@ pm2 startup                      # 按提示执行一条 sudo 命令，开机自
 
 ## 小程序
 
-`services/config.js` → `ACTIVE_ENV = 'prod'`
+- 生产：`services/config.js` → `ACTIVE_ENV = 'prod'`
+- 预发联调：`ACTIVE_ENV = 'staging'`（须微信合法域名含 `https://staging.geo.simplewin.cn`；提审前改回 `prod`）
+
+## 预发（staging.geo.simplewin.cn）
+
+同机隔离：目录 `/var/www/zhejian-staging`、端口 **3101**、库 **`zhejian_staging`**、PM2 **`zhejian-api-staging`**。
+
+```bash
+# 详见 B-INF_预发环境搭建.md；摘要：
+cd /var/www/zhejian-staging/backend
+cp .env.staging.example .env   # 编辑 PORT/DATABASE_URL/PUBLIC_BASE_URL/JWT 等
+npm install && npm run sync:shared-utils && npm run db:setup:prod
+pm2 start ecosystem.staging.config.cjs
+
+sudo certbot certonly --nginx -d staging.geo.simplewin.cn
+sudo cp deploy/nginx-staging.geo.simplewin.cn.conf \
+  /etc/nginx/conf.d/staging.geo.simplewin.cn.conf
+sudo nginx -t && sudo systemctl reload nginx
+curl -s https://staging.geo.simplewin.cn/api/v1/health
+```
+
+**勿**用生产 `simplewin.conf` 覆盖预发配置；预发独立 conf 文件。
 
 ## Nginx 更新（AI 检查超时）
 

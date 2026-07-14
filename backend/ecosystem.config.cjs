@@ -1,5 +1,5 @@
 /**
- * PM2 · 辙见 API（geo.simplewin.cn）
+ * PM2 · 辙见 API 生产（geo.simplewin.cn）
  *
  * 服务器用法（在 /var/www/zhejian/backend）：
  *   pm2 start ecosystem.config.cjs
@@ -8,6 +8,7 @@
  *   pm2 save && pm2 startup
  *
  * 与 simplewin.cn 官网共存：backend/.env 使用 PORT=3100
+ * 预发请用 ecosystem.staging.config.cjs（zhejian-api-staging · PORT=3101）
  */
 module.exports = {
   apps: [
