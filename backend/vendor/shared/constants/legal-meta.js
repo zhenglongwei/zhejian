@@ -2,9 +2,9 @@
  * 协议体系元数据 — 法务定稿前占位，上线前须替换为真实主体信息
  * @see docs/12_测试验收部署与安全合规/11_协议文案汇编.md
  */
-const LEGAL_VERSION = '2.0.2'
+const LEGAL_VERSION = '2.0.3'
 
-const LEGAL_EFFECTIVE_DATE = '2026-07-12'
+const LEGAL_EFFECTIVE_DATE = '2026-07-15'
 
 const LEGAL_OPERATOR = {
   name: '杭州盈简科技有限公司',

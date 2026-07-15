@@ -37,6 +37,7 @@ const {
 } = require('../services/admin-case-geo-llm.service')
 const { markCaseArticlePublishedWechat } = require('../services/case-article-publish.service')
 const { exportCaseArticleForWechat } = require('../services/case-article-export.service')
+const { exportGeoCasePack } = require('../services/admin-geo-case-pack.service')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 const { getAdminCrawlerStats } = require('../services/admin-crawler-stats.service')
 const {
@@ -437,6 +438,15 @@ router.post('/geo-pages/:pageId/unpublish', async (req, res, next) => {
 router.get('/geo/crawler-stats', async (req, res, next) => {
   try {
     const data = await getAdminCrawlerStats(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/geo/case-pack-export', async (req, res, next) => {
+  try {
+    const data = await exportGeoCasePack(req.query)
     return ok(res, data)
   } catch (e) {
     next(e)

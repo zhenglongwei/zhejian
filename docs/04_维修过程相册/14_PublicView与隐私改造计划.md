@@ -144,11 +144,14 @@ publicGateCheckedAt   DateTime?
 - `facts.repairPlan`：`buildPublicRepairPlan()`（note + planParts + planAmount，不含图）  
 - `scrub-pii-text.js`：note / planParts / caption 共用  
 
-### 4.4 报价 OCR 定位
+### 4.4 单据 OCR 定位（报价 / 定损 / 结算）
 
-- UI 文案：**「OCR 辅助录入」**（非「AI 智能解析」）  
-- 生产 `PLAN_QUOTE_LLM_ENABLED=false`  
-- OCR 结果只写结构化字段，不上传报价单图到 LLM/VL  
+- UI 文案：**「OCR 辅助录入」**（非「AI 智能解析」）
+- 覆盖单据：**报价单、定损单、结算单**
+- 触发前：**商家端明示同意**（提交阿里云 OCR，仅辅助填表）
+- 生产 `PLAN_QUOTE_LLM_ENABLED=false`（不默认 VL 通读原图）
+- OCR 结果只写结构化字段 / 节点说明草稿，**不上传单据图到公开页或通用大模型写专题**
+- 隐私政策与《商家服务协议》须披露第三方 OCR 用途（见 `10_隐私协议与授权规则.md` §17）
 
 ### 4.5 回滚
 

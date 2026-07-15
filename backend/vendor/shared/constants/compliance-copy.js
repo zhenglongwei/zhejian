@@ -6,7 +6,8 @@ const AUTHORIZATION_CONSENT = {
   login: {
     authType: 'login',
     version: LEGAL_VERSION,
-    text: '我已阅读并同意《用户服务协议》和《隐私政策》',
+    text:
+      '我已阅读并同意《用户服务协议》《隐私政策》及《用户隐私保护指引》',
   },
   consult_transfer: {
     authType: 'consult_transfer',
@@ -70,6 +71,12 @@ const AUTHORIZATION_CONSENT = {
     version: LEGAL_VERSION,
     text:
       '我确认上传内容已取得必要授权或不含他人隐私，对真实性及合法性承担全部责任',
+  },
+  merchant_document_ocr: {
+    authType: 'merchant_document_ocr',
+    version: LEGAL_VERSION,
+    text:
+      '我同意将本张单据图提交阿里云 OCR 文字识别，仅用于辅助填写方案/定损/结算信息；识别结果须由我核对确认。单据原图不进入公开页。',
   },
   subscription_pay: {
     authType: 'subscription_pay',
@@ -172,9 +179,11 @@ const COMPLIANCE_COPY = {
   albumClaimPrivacyIntro:
     '门店为你创建了服务相册，用于记录本次维修过程。关联前请阅读以下说明：\n\n' +
     '1. 相册默认仅你与门店可见，不会自动公开\n' +
-    '2. 平台将处理维修过程图片（含脱敏、OCR、AI 辅助阅读），用于留档与争议证据\n' +
+    '2. 平台将处理维修过程图片（含脱敏、OCR、AI 辅助阅读），用于留档与争议证据；门店可能对报价单/定损单/结算单使用 OCR 辅助录入，公开页不含单据原图\n' +
     '3. 公开至 H5/搜索引擎须你另行授权并脱敏审核\n' +
     '4. 你可随时在「我的服务相册」撤回公开授权',
+  merchantDocumentOcr:
+    AUTHORIZATION_CONSENT.merchant_document_ocr.text,
   /** @deprecated 使用 displayDisclaimer */
   platformDisplay:
     '本页内容由商家自行发布或经车主授权展示，仅供参考。实际方案与费用请与门店线下确认。',

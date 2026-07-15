@@ -210,7 +210,7 @@
                   class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
                   bindtap="onRunPlanQuoteOcr"
                 >
-                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR 辅助录入'}}</text>
+                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR 辅助录入（报价/定损/结算）'}}</text>
                 </view>
                 <text
                   class="text-caption text-link merchant-album-edit__parts-add-link"

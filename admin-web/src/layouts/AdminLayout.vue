@@ -1,14 +1,20 @@
 <template>
   <el-container class="admin-layout">
-    <el-aside width="200px" class="admin-layout__aside">
+    <el-aside width="220px" class="admin-layout__aside">
       <div class="admin-layout__brand">辙见运营</div>
-      <el-menu :default-active="activeMenu" router>
+      <el-menu :default-active="activeMenu" :default-openeds="openedMenus" router>
         <el-menu-item index="/cases">案例审核</el-menu-item>
-        <el-menu-item index="/geo-pages">GEO 专题</el-menu-item>
-        <el-menu-item index="/geo/crawler-stats">GEO 爬虫</el-menu-item>
-        <el-menu-item index="/geo/probe-report">GEO 探测</el-menu-item>
-        <el-menu-item index="/geo/citation-gaps">Citation Gap</el-menu-item>
-        <el-menu-item index="/geo/topic-health">专题健康度</el-menu-item>
+
+        <el-sub-menu index="geo-group">
+          <template #title>GEO</template>
+          <el-menu-item index="/geo">数据看板</el-menu-item>
+          <el-menu-item index="/geo/probe-report">GEO 探测</el-menu-item>
+          <el-menu-item index="/geo-pages">专题工作台</el-menu-item>
+          <el-menu-item index="/geo/crawler-stats">爬虫明细</el-menu-item>
+          <el-menu-item index="/geo/citation-gaps">Citation Gap</el-menu-item>
+          <el-menu-item index="/geo/topic-health">专题健康度</el-menu-item>
+        </el-sub-menu>
+
         <el-menu-item index="/merchants">商家审核</el-menu-item>
         <el-menu-item index="/services">服务监管</el-menu-item>
         <el-menu-item index="/reports">举报管理</el-menu-item>
@@ -36,7 +42,10 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
+const openedMenus = ['geo-group']
+
 const activeMenu = computed(() => {
+  if (route.path === '/geo' || route.path === '/geo/') return '/geo'
   if (route.path.startsWith('/cases')) return '/cases'
   if (route.path.startsWith('/geo-pages')) return '/geo-pages'
   if (route.path.startsWith('/geo/crawler-stats')) return '/geo/crawler-stats'

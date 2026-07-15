@@ -12,7 +12,12 @@ const routes = [
     path: '/',
     component: () => import('@/layouts/AdminLayout.vue'),
     children: [
-      { path: '', redirect: '/cases' },
+      { path: '', redirect: '/geo' },
+      {
+        path: 'geo',
+        name: 'geo-dashboard',
+        component: () => import('@/views/geo/dashboard/index.vue'),
+      },
       {
         path: 'cases',
         name: 'case-list',
@@ -123,7 +128,7 @@ router.beforeEach((to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.name === 'login' && auth.token) {
-    return { name: 'case-list' }
+    return { name: 'geo-dashboard' }
   }
   return true
 })

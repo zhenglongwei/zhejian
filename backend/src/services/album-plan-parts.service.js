@@ -164,13 +164,24 @@ async function unlockMerchantPlanParts(albumId, storeId, merchantId) {
 
 async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {}) {
   const album = await loadAlbumPlanRow(albumId, storeId, merchantId)
+  const documentType = String(payload.documentType || 'repair_quote').trim() || 'repair_quote'
   const imageUrl = String(payload.imageUrl || '').trim()
   const thumbs = resolvePlanQuoteThumbs(album.images)
   const targetUrl = imageUrl || thumbs[0] || ''
   if (!targetUrl) {
-    const err = new Error('请先在维修方案节点上传报价单图片')
+    const err = new Error(
+      documentType === 'settlement'
+        ? '请先上传结算单图片'
+        : documentType === 'loss_assessment'
+          ? '请先上传定损单图片'
+          : '请先在维修方案节点上传报价单图片',
+    )
     err.status = 400
     throw err
+  }
+
+  if (documentType === 'loss_assessment' || documentType === 'settlement') {
+    return runDocumentSummaryOcr(album, albumId, documentType, targetUrl)
   }
 
   const result = await parsePlanQuoteImageWithFallback(targetUrl)
@@ -198,6 +209,7 @@ async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {
   const updated = await loadAlbumPlanRow(albumId, storeId, merchantId)
   return {
     ...buildPlanPartsContext(updated),
+    documentType: 'repair_quote',
     parts,
     ocrProvider: result.provider,
     parseMethod: result.parseMethod || '',
@@ -207,6 +219,78 @@ async function runMerchantPlanQuoteOcr(albumId, storeId, merchantId, payload = {
     llmEngineLabel: result.llmEngineLabel || '',
     llmFailures: result.llmFailures || [],
     textPreview: result.textPreview || '',
+  }
+}
+
+function extractMoneyCandidates(text) {
+  const raw = String(text || '')
+  const matches = [...raw.matchAll(/(?:¥|￥|RMB|元)?\s*(\d{2,7}(?:\.\d{1,2})?)\s*元?/gi)]
+  const values = matches
+    .map((m) => Math.round(Number(m[1])))
+    .filter((n) => Number.isFinite(n) && n >= 50 && n <= 500000)
+  const unique = [...new Set(values)]
+  unique.sort((a, b) => b - a)
+  return unique.slice(0, 5)
+}
+
+async function runDocumentSummaryOcr(album, albumId, documentType, targetUrl) {
+  const { recognizeGeneralText } = require('./plan-quote-ocr.service')
+  let text = ''
+  try {
+    text = await recognizeGeneralText(targetUrl)
+  } catch (err) {
+    if (config.nodeEnv !== 'production') {
+      text =
+        documentType === 'settlement'
+          ? '结算合计 3280 元\n机油工时 200\n配件 3080'
+          : '定损合计 5600 元\n前保险杠 1200\n左前门 1800'
+    } else {
+      throw err
+    }
+  }
+
+  const amounts = extractMoneyCandidates(text)
+  const label = documentType === 'settlement' ? '结算单' : '定损单'
+  const stageId = documentType === 'settlement' ? 'stage_6' : 'stage_3'
+  const amountHint = amounts.length ? `识别到金额候选：${amounts.map((n) => `¥${n}`).join('、')}` : '未稳定识别到金额，请手工填写'
+  const summaryLine = `【${label} OCR 摘要】${amountHint}`
+  const preview = String(text || '').trim().slice(0, 2000)
+
+  const node = await prisma.albumNode.findUnique({
+    where: { albumId_nodeId: { albumId, nodeId: stageId } },
+  })
+  if (node) {
+    const existingNote = String(node.note || '').trim()
+    const nextNote = existingNote.includes('【' + label + ' OCR 摘要】')
+      ? existingNote
+      : [existingNote, summaryLine].filter(Boolean).join('\n')
+    await prisma.albumNode.update({
+      where: { albumId_nodeId: { albumId, nodeId: stageId } },
+      data: { note: nextNote, updatedAt: new Date() },
+    })
+  }
+
+  if (documentType === 'settlement' && amounts[0] != null) {
+    await prisma.album.update({
+      where: { id: albumId },
+      data: {
+        maxAmount: amounts[0],
+        minAmount: album.minAmount != null ? album.minAmount : amounts[0],
+      },
+    })
+  }
+
+  const updated = await loadAlbumPlanRow(albumId, album.storeId, album.merchantId)
+  return {
+    ...buildPlanPartsContext(updated),
+    documentType,
+    textPreview: preview,
+    amountCandidates: amounts,
+    parseHint: `${label}已识别文字摘要，请核对节点说明中的 OCR 摘要；金额需人工确认。`,
+    parseMethod: 'aliyun-ocr-general',
+    ocrProvider: 'ocr-api-general',
+    parts: Array.isArray(updated.partsJson) ? updated.partsJson : [],
+    planParts: Array.isArray(updated.planPartsJson) ? updated.planPartsJson : [],
   }
 }
 

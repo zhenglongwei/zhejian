@@ -55,3 +55,7 @@ export function runSeedTopicsBatchDraft(body = {}) {
 export function fetchGeoPromptList(params) {
   return request.get('/admin/geo/prompts', { params })
 }
+
+export function exportGeoCasePack(params) {
+  return request.get('/admin/geo/case-pack-export', { params })
+}

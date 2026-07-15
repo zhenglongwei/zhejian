@@ -62,6 +62,14 @@ const {
   runMerchantPlanQuoteOcr,
   recognizePartLabelOcr,
 } = require('../../../../services/merchant-plan-parts')
+const { AUTHORIZATION_CONSENT } = require('../../../../constants/compliance-copy')
+
+const MERCHANT_OCR_CONSENT_KEY = 'merchant_document_ocr_consent_v1'
+const DOCUMENT_OCR_OPTIONS = [
+  { label: '报价单', value: 'repair_quote' },
+  { label: '定损单', value: 'loss_assessment' },
+  { label: '结算单', value: 'settlement' },
+]
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
 const { promptMerchantAuditSubscribe } = require('../../../../utils/subscribe-message-prompt')
 const {
@@ -992,35 +1000,144 @@ Page({
 
   async onRunPlanQuoteOcr() {
     if (this.data.planOcrLoading) return
+    const consented = await this.ensureDocumentOcrConsent()
+    if (!consented) return
+
+    const documentType = await this.pickDocumentOcrType()
+    if (!documentType) return
+
     let imageUrl = this.resolveStage3QuoteImage()
-    if (!imageUrl) {
+    if (!imageUrl && documentType === 'repair_quote') {
       wx.showToast({ title: '请先在维修方案节点上传报价单图片', icon: 'none' })
       return
     }
+    if (!imageUrl) {
+      imageUrl = this.resolveLatestStageImage(
+        documentType === 'settlement' ? 'stage_6' : 'stage_3',
+      )
+    }
+    if (!imageUrl) {
+      wx.showToast({
+        title:
+          documentType === 'settlement'
+            ? '请先上传结算单图片'
+            : documentType === 'loss_assessment'
+              ? '请先上传定损单图片'
+              : '请先上传单据图片',
+        icon: 'none',
+      })
+      return
+    }
+
     this.setData({ planOcrLoading: true })
     wx.showLoading({ title: '识别中', mask: true })
     try {
       if (this.isTempImagePath(imageUrl)) {
         imageUrl = await uploadImage(imageUrl)
       }
-      const result = await runMerchantPlanQuoteOcr(this.albumId, { imageUrl })
-      const parts = this.mapPartsWithVariants(result.parts || [])
-      this.setData(
-        {
-          planParts: result.planParts || [],
-          parts,
-          planParseHint: result.parseHint || '',
-          activeWizardIndex: parts.length ? 0 : -1,
-        },
-        () => this.refreshPartWizard(),
-      )
-      wx.showToast({ title: '已辅助填入配件清单，请核对', icon: 'none' })
+      const result = await runMerchantPlanQuoteOcr(this.albumId, {
+        imageUrl,
+        documentType,
+      })
+      if (documentType === 'repair_quote') {
+        const parts = this.mapPartsWithVariants(result.parts || [])
+        this.setData(
+          {
+            planParts: result.planParts || [],
+            parts,
+            planParseHint: result.parseHint || '',
+            activeWizardIndex: parts.length ? 0 : -1,
+          },
+          () => this.refreshPartWizard(),
+        )
+        wx.showToast({ title: '已辅助填入配件清单，请核对', icon: 'none' })
+      } else {
+        this.setData({ planParseHint: result.parseHint || '' })
+        const preview = String(result.textPreview || '').slice(0, 500)
+        const amounts = (result.amountCandidates || []).map((n) => `¥${n}`).join('、')
+        wx.showModal({
+          title: documentType === 'settlement' ? '结算单识别结果' : '定损单识别结果',
+          content:
+            (amounts ? `金额候选：${amounts}\n\n` : '') +
+            (preview || '已写入节点 OCR 摘要，请打开对应阶段核对说明文字。'),
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        try {
+          const detail = await fetchMerchantServiceAlbum(this.albumId)
+          if (detail && detail.nodes) {
+            this.setData({ nodes: detail.nodes })
+          }
+        } catch (_) {
+          /* ignore refresh errors */
+        }
+      }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '识别失败，可手工添加', icon: 'none' })
     } finally {
       wx.hideLoading()
       this.setData({ planOcrLoading: false })
     }
+  },
+
+  ensureDocumentOcrConsent() {
+    return new Promise((resolve) => {
+      try {
+        if (wx.getStorageSync(MERCHANT_OCR_CONSENT_KEY) === '1') {
+          resolve(true)
+          return
+        }
+      } catch (_) {
+        /* continue */
+      }
+      const text =
+        (AUTHORIZATION_CONSENT.merchant_document_ocr &&
+          AUTHORIZATION_CONSENT.merchant_document_ocr.text) ||
+        '将把单据图提交阿里云 OCR 识别，仅用于辅助填表；原图不进入公开页。'
+      wx.showModal({
+        title: '单据 OCR 说明',
+        content: text,
+        confirmText: '同意并识别',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            try {
+              wx.setStorageSync(MERCHANT_OCR_CONSENT_KEY, '1')
+            } catch (_) {
+              /* ignore */
+            }
+            resolve(true)
+          } else {
+            resolve(false)
+          }
+        },
+        fail: () => resolve(false),
+      })
+    })
+  },
+
+  pickDocumentOcrType() {
+    return new Promise((resolve) => {
+      wx.showActionSheet({
+        itemList: DOCUMENT_OCR_OPTIONS.map((item) => item.label),
+        success: (res) => {
+          const opt = DOCUMENT_OCR_OPTIONS[res.tapIndex]
+          resolve(opt ? opt.value : '')
+        },
+        fail: () => resolve(''),
+      })
+    })
+  },
+
+  resolveLatestStageImage(stageId) {
+    const nodes = this.data.nodes || []
+    const node = nodes.find((item) => item.nodeId === stageId || item.id === stageId)
+    const images = (node && (node.images || node.media)) || []
+    for (let i = images.length - 1; i >= 0; i -= 1) {
+      const url = images[i] && (images[i].url || images[i].src || images[i])
+      if (url) return url
+    }
+    return this.resolveStage3QuoteImage()
   },
 
   onToggleWizardRow(e) {
