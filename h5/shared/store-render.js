@@ -735,9 +735,34 @@
       })
       .join('')
     return (
-      '<div class="h5-folio-panel" id="store-staff"><h2 class="h5-folio-section-title">员工资质</h2><div class="h5-staff-list">' +
+      '<div class="h5-folio-panel" id="store-staff"><h2 class="h5-folio-section-title">技师公示</h2><div class="h5-staff-list">' +
       items +
       '</div></div>'
+    )
+  }
+
+  function renderCapabilityAndFreshness(store) {
+    var statusText = STATUS_TEXT[store.businessStatus || store.status] || ''
+    var freshness = (store.freshness && store.freshness.summary) || ''
+    var brands = (store.specialtyBrands || []).join('、')
+    var notAccepting = (store.notAccepting || []).join('、')
+    var equipment = (store.equipmentTags || [])
+      .map(function (item) {
+        return item.label || item
+      })
+      .filter(Boolean)
+      .join('、')
+    var bits = []
+    if (statusText) bits.push('<p class="h5-section-note">当前：' + escapeHtml(statusText) + '</p>')
+    if (freshness) bits.push('<p class="h5-section-note">' + escapeHtml(freshness) + '</p>')
+    if (brands) bits.push('<p>擅长品牌：' + escapeHtml(brands) + '</p>')
+    if (notAccepting) bits.push('<p>暂不承接：' + escapeHtml(notAccepting) + '</p>')
+    if (equipment) bits.push('<p>设备/场：' + escapeHtml(equipment) + '</p>')
+    if (!bits.length) return ''
+    return (
+      '<div class="h5-folio-panel" id="store-capability"><h2 class="h5-folio-section-title">营业与能力</h2>' +
+      bits.join('') +
+      '</div>'
     )
   }
 
@@ -1075,6 +1100,7 @@
     }
 
     html += renderKeyInfo(buildInfoRows(store), '门店信息')
+    html += renderCapabilityAndFreshness(store)
     html += renderCertSection(store, certRows)
     html += renderStaff(store.staffPublic)
     html += renderCases(cases, store)

@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { shanghaiDayBounds } = require('../lib/shanghai-date')
-const { LEAD_STATUS } = require('../constants/v2')
+const { LEAD_STATUS, PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { getServiceItem } = require('../constants/service-catalog')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
 
@@ -233,6 +233,20 @@ function buildSuggestions(ctx) {
     tips.push('门店透明度分偏低，建议补充公开案例、完善服务资料并跟进咨询线索。')
   }
 
+  if (ctx.daysSinceLastPublicCase != null && ctx.daysSinceLastPublicCase > 30) {
+    tips.push(
+      `超过 ${ctx.daysSinceLastPublicCase} 天无新公开案例，建议完工后邀请车主授权公示以保持新鲜度。`
+    )
+  }
+
+  if (ctx.capabilityIncomplete) {
+    tips.push('技师或设备能力资料尚未完善/未过审，建议提交能力墙信息以提升可信展示。')
+  }
+
+  if (ctx.brandAuthExpiring) {
+    tips.push('品牌授权即将过期或已过期，建议更新授权证明与有效期。')
+  }
+
   if (!tips.length) {
     tips.push('继续保持案例更新与线索跟进，站外浏览数据将按日汇总展示。')
   }
@@ -254,18 +268,68 @@ async function loadRealtimeTodos(storeIds, merchantId) {
 }
 
 async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
-  const [topCases, topServices, staleLeadCount, todos] = await Promise.all([
+  const [topCases, topServices, staleLeadCount, todos, stores] = await Promise.all([
     fetchTopCases(storeIds, range),
     fetchTopServices(merchantId, storeIds, range),
     countStaleLeads(storeIds),
     loadRealtimeTodos(storeIds, merchantId),
+    prisma.store.findMany({
+      where: { id: { in: storeIds } },
+      select: { capabilityJson: true },
+    }),
   ])
+
+  let capabilityIncomplete = false
+  let brandAuthExpiring = false
+  let daysSinceLastPublicCase = null
+  const today = new Date()
+  for (const store of stores) {
+    const cap =
+      store.capabilityJson && typeof store.capabilityJson === 'object'
+        ? store.capabilityJson
+        : {}
+    const tech = Array.isArray(cap.technicians) ? cap.technicians.length : 0
+    const eq = Array.isArray(cap.equipmentTags) ? cap.equipmentTags.length : 0
+    if (tech === 0 && eq === 0) capabilityIncomplete = true
+    if (cap.reviewStatus === 'pending' || cap.reviewStatus === 'rejected') {
+      capabilityIncomplete = true
+    }
+    const until = String(cap.brandAuthValidUntil || '').trim()
+    if (until) {
+      const diff = Math.floor(
+        (new Date(`${until}T12:00:00+08:00`) - today) / (24 * 3600 * 1000)
+      )
+      if (diff <= 30) brandAuthExpiring = true
+    }
+  }
+
+  const lastCase = await prisma.publicCase.findFirst({
+    where: {
+      storeId: { in: storeIds },
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+    },
+    orderBy: { publishedAt: 'desc' },
+    select: { publishedAt: true },
+  })
+  if (lastCase?.publishedAt) {
+    const published =
+      lastCase.publishedAt instanceof Date
+        ? lastCase.publishedAt
+        : new Date(lastCase.publishedAt)
+    daysSinceLastPublicCase = Math.max(
+      0,
+      Math.floor((today - published) / (24 * 3600 * 1000))
+    )
+  }
 
   const suggestions = buildSuggestions({
     ...ctx,
     ...todos,
     staleLeadCount,
     topCases,
+    capabilityIncomplete,
+    brandAuthExpiring,
+    daysSinceLastPublicCase,
   })
 
   return { topCases, topServices, suggestions, staleLeadCount, ...todos }

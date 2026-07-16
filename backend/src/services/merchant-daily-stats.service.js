@@ -189,6 +189,7 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
         legalName: true,
         creditCode: true,
         contactPhone: true,
+        qualificationJson: true,
       },
     }),
     prisma.consultLead.count({
@@ -204,9 +205,9 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
   ])
 
   const albumScore = Math.round(
-    (albumCompleteRate != null ? albumCompleteRate : 0) * 30
+    (albumCompleteRate != null ? albumCompleteRate : 0) * 25
   )
-  const caseScore = Math.round(Math.min(publicCaseCount / 3, 1) * 25)
+  const caseScore = Math.round(Math.min(publicCaseCount / 3, 1) * 20)
 
   const onlinePlans = plans.filter((p) => p.saleStatus === 'ONLINE')
   const profileComplete = onlinePlans.filter(
@@ -223,12 +224,63 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
     if (merchant.legalName) qualParts += 1
     if (merchant.creditCode) qualParts += 1
     if (merchant.contactPhone) qualParts += 1
-    qualScore = Math.round((qualParts / 4) * 15)
+    const qualification =
+      merchant.qualificationJson && typeof merchant.qualificationJson === 'object'
+        ? merchant.qualificationJson
+        : {}
+    if (qualification.photoUrl || qualification.type) qualParts += 1
+    const validUntil = String(qualification.validUntil || '').trim()
+    if (validUntil && validUntil >= formatShanghaiDate(new Date(statDate + 'T12:00:00+08:00'))) {
+      qualParts += 1
+    } else if (validUntil) {
+      qualParts += 0
+    } else if (qualification.photoUrl || qualification.type) {
+      qualParts += 0.5
+    }
+    qualScore = Math.round(Math.min(qualParts / 5, 1) * 15)
   }
 
-  let leadScore = 8
+  const store = await prisma.store.findUnique({
+    where: { id: storeId },
+    select: { capabilityJson: true },
+  })
+  const capability =
+    store?.capabilityJson && typeof store.capabilityJson === 'object'
+      ? store.capabilityJson
+      : {}
+  const techCount = Array.isArray(capability.technicians) ? capability.technicians.length : 0
+  const eqCount = Array.isArray(capability.equipmentTags) ? capability.equipmentTags.length : 0
+  const capabilityScore = Math.min(5, (techCount > 0 ? 3 : 0) + (eqCount > 0 ? 2 : 0))
+
+  const lastCase = await prisma.publicCase.findFirst({
+    where: { storeId, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
+    orderBy: { publishedAt: 'desc' },
+    select: { publishedAt: true },
+  })
+  let freshnessScore = 0
+  if (lastCase?.publishedAt) {
+    const publishedStr =
+      lastCase.publishedAt instanceof Date
+        ? lastCase.publishedAt.toISOString().slice(0, 10)
+        : String(lastCase.publishedAt).slice(0, 10)
+    const days = Math.max(
+      0,
+      Math.floor(
+        (new Date(`${statDate}T12:00:00+08:00`) - new Date(`${publishedStr}T12:00:00+08:00`)) /
+          (24 * 3600 * 1000)
+      )
+    )
+    if (days <= 30) freshnessScore = 10
+    else if (days <= 90) freshnessScore = 6
+    else if (days <= 180) freshnessScore = 3
+  }
+  if (capability.lastProfileVerifiedAt) {
+    freshnessScore = Math.min(10, freshnessScore + 2)
+  }
+
+  let leadScore = 5
   if (weekSubmit > 0) {
-    leadScore = Math.round(Math.min(weekContacted / weekSubmit, 1) * 15)
+    leadScore = Math.round(Math.min(weekContacted / weekSubmit, 1) * 10)
   }
 
   const breakdown = {
@@ -236,6 +288,8 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
     case: caseScore,
     serviceProfile: serviceScore,
     qualification: qualScore,
+    freshness: freshnessScore,
+    capability: capabilityScore,
     leadResponse: leadScore,
   }
   const transparencyScore = Math.min(
@@ -244,6 +298,8 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
       breakdown.case +
       breakdown.serviceProfile +
       breakdown.qualification +
+      breakdown.freshness +
+      breakdown.capability +
       breakdown.leadResponse
   )
 

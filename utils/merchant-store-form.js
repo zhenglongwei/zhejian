@@ -19,6 +19,33 @@ const EMPTY_DISPLAY_FORM = {
   workshopPhotoUrls: [],
   receptionPhotoUrl: '',
   brandAuthPhotoUrl: '',
+  brandAuthValidUntil: '',
+  specialtyBrandsText: '',
+  notAcceptingText: '',
+  technicians: [],
+  equipmentTags: [],
+}
+
+const EQUIPMENT_PRESETS = [
+  '烤漆房',
+  '四轮定位',
+  '诊断电脑',
+  '新能源工位',
+  '举升机',
+  '轮胎动平衡',
+  '空调冷媒机',
+]
+
+function splitTags(text) {
+  return String(text || '')
+    .split(/[,，、\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20)
+}
+
+function joinTags(list) {
+  return (list || []).join('、')
 }
 
 function buildServiceTagViews(services, options = MERCHANT_SERVICE_TAG_OPTIONS) {
@@ -43,7 +70,12 @@ function profileToDisplayForm(profile) {
     facadePhotoUrl: photos.facadeUrl || '',
     workshopPhotoUrls: photos.workshopUrls || [],
     receptionPhotoUrl: photos.receptionUrl || '',
-    brandAuthPhotoUrl: photos.brandAuthUrl || '',
+    brandAuthPhotoUrl: photos.brandAuthUrl || profile.brandAuthPhotoUrl || '',
+    brandAuthValidUntil: profile.brandAuthValidUntil || '',
+    specialtyBrandsText: joinTags(profile.specialtyBrands),
+    notAcceptingText: joinTags(profile.notAccepting),
+    technicians: Array.isArray(profile.technicians) ? profile.technicians : [],
+    equipmentTags: Array.isArray(profile.equipmentTags) ? profile.equipmentTags : [],
   }
 }
 
@@ -66,12 +98,37 @@ function profileToBasicReadonly(profile) {
 }
 
 function buildDisplayPayload(form, storeId) {
+  const equipmentTags = (form.equipmentTags || [])
+    .map((item) => {
+      if (typeof item === 'string') return { id: item, label: item, imageUrl: '' }
+      return {
+        id: item.id || item.label,
+        label: item.label || '',
+        imageUrl: item.imageUrl || '',
+      }
+    })
+    .filter((item) => item.label)
+  const technicians = (form.technicians || [])
+    .map((item, index) => ({
+      id: item.id || `tech_${index + 1}`,
+      name: String(item.name || '').trim(),
+      role: String(item.role || '维修技师').trim() || '维修技师',
+      years: String(item.years || '').trim(),
+      credentials: splitTags(item.credentialsText || joinTags(item.credentials)),
+    }))
+    .filter((item) => item.name)
+
   return {
     storeId,
     storePhone: form.storePhone,
     businessHours: form.businessHours,
     intro: form.intro,
     services: form.services || [],
+    specialtyBrands: splitTags(form.specialtyBrandsText),
+    notAccepting: splitTags(form.notAcceptingText),
+    technicians,
+    equipmentTags,
+    brandAuthValidUntil: form.brandAuthValidUntil || '',
     photos: {
       facadeUrl: form.facadePhotoUrl,
       workshopUrls: form.workshopPhotoUrls || [],
@@ -109,6 +166,7 @@ function validateDisplayForm(form, options = {}) {
 
 module.exports = {
   EMPTY_DISPLAY_FORM,
+  EQUIPMENT_PRESETS,
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
@@ -119,4 +177,6 @@ module.exports = {
   validateDisplayForm,
   parseBusinessHours,
   formatBusinessHours,
+  splitTags,
+  joinTags,
 }

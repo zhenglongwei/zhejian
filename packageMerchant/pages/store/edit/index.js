@@ -4,6 +4,7 @@ const { uploadImage } = require('../../../../utils/media-upload')
 const { isMerchantOwner } = require('../../../../utils/auth')
 const {
   EMPTY_DISPLAY_FORM,
+  EQUIPMENT_PRESETS,
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
@@ -12,9 +13,32 @@ const {
   profileToBasicReadonly,
   buildDisplayPayload,
   validateDisplayForm,
+  joinTags,
 } = require('../../../../utils/merchant-store-form')
 const { buildBusinessHoursEditorState } = require('../../../../utils/business-hours')
 const { createBusinessHoursPageHandlers } = require('../../../../utils/business-hours-page')
+
+function buildEquipmentTagViews(selected) {
+  const set = {}
+  ;(selected || []).forEach((item) => {
+    const name = typeof item === 'string' ? item : item.label
+    if (name) set[name] = true
+  })
+  return EQUIPMENT_PRESETS.map((name) => ({
+    name,
+    selected: !!set[name],
+  }))
+}
+
+function normalizeTechniciansForForm(list) {
+  return (list || []).map((item, index) => ({
+    id: item.id || `tech_${index + 1}`,
+    name: item.name || '',
+    role: item.role || '维修技师',
+    years: item.years || '',
+    credentialsText: item.credentialsText || joinTags(item.credentials),
+  }))
+}
 
 Page({
   data: {
@@ -22,6 +46,7 @@ Page({
     form: { ...EMPTY_DISPLAY_FORM },
     basic: {},
     serviceTags: [],
+    equipmentTagViews: buildEquipmentTagViews([]),
     serviceOptions: MERCHANT_SERVICE_TAG_OPTIONS,
     customServiceInput: '',
     businessHoursDaily: { start: '09:00', end: '18:00' },
@@ -31,6 +56,8 @@ Page({
     closureDraft: { startDate: '', endDate: '', note: '' },
     submitting: false,
     storeId: '',
+    capabilityReviewStatus: 'none',
+    capabilityRejectReason: '',
   },
 
   ...createBusinessHoursPageHandlers(),
@@ -54,6 +81,7 @@ Page({
       }
 
       const form = profileToDisplayForm(profile)
+      form.technicians = normalizeTechniciansForForm(form.technicians)
       const hours = buildBusinessHoursEditorState(form.businessHours)
       this.setData({
         status: 'normal',
@@ -63,12 +91,15 @@ Page({
         },
         basic: profileToBasicReadonly(profile),
         serviceTags: buildServiceTagViews(form.services),
+        equipmentTagViews: buildEquipmentTagViews(form.equipmentTags),
         businessHoursDaily: hours.businessHoursDaily,
         businessHoursClosures: hours.businessHoursClosures,
         businessHoursPreview: hours.businessHoursPreview,
         showClosureForm: false,
         closureDraft: hours.closureDraft,
         storeId: profile.storeId || '',
+        capabilityReviewStatus: profile.capabilityReviewStatus || 'none',
+        capabilityRejectReason: profile.capabilityRejectReason || '',
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
@@ -101,6 +132,48 @@ Page({
       list.push(name)
     }
     this.updateServices(list)
+  },
+
+  onToggleEquipment(e) {
+    const { name } = e.currentTarget.dataset
+    const current = (this.data.form.equipmentTags || []).slice()
+    const labels = current.map((item) => (typeof item === 'string' ? item : item.label))
+    const idx = labels.indexOf(name)
+    if (idx >= 0) {
+      current.splice(idx, 1)
+    } else {
+      current.push({ id: name, label: name, imageUrl: '' })
+    }
+    this.setData({
+      'form.equipmentTags': current,
+      equipmentTagViews: buildEquipmentTagViews(current),
+    })
+  },
+
+  onAddTech() {
+    const list = (this.data.form.technicians || []).slice()
+    if (list.length >= 3) return
+    list.push({
+      id: `tech_${Date.now()}`,
+      name: '',
+      role: '维修技师',
+      years: '',
+      credentialsText: '',
+    })
+    this.setData({ 'form.technicians': list })
+  },
+
+  onRemoveTech(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.technicians || []).slice()
+    list.splice(index, 1)
+    this.setData({ 'form.technicians': list })
+  },
+
+  onTechInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    this.setData({ [`form.technicians[${index}].${field}`]: e.detail.value })
   },
 
   onCustomServiceInput(e) {
@@ -217,10 +290,18 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      await updateStoreDisplayProfile(
+      const profile = await updateStoreDisplayProfile(
         buildDisplayPayload(this.data.form, this.data.storeId)
       )
-      wx.showToast({ title: '已保存', icon: 'success' })
+      const reviewStatus = (profile && profile.capabilityReviewStatus) || 'none'
+      this.setData({
+        capabilityReviewStatus: reviewStatus,
+        capabilityRejectReason: (profile && profile.capabilityRejectReason) || '',
+      })
+      wx.showToast({
+        title: reviewStatus === 'pending' ? '已保存，能力变更待审核' : '已保存',
+        icon: 'none',
+      })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
     } finally {

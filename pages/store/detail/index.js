@@ -256,6 +256,13 @@ Page({
             : '证照图片待商家补充；以下为平台资料审核结果。',
         staffPublic: store.staffPublic || [],
         faqList: store.faq || [],
+        specialtyBrandsText: (store.specialtyBrands || []).join('、'),
+        notAcceptingText: (store.notAccepting || []).join('、'),
+        equipmentTagsText: (store.equipmentTags || [])
+          .map((item) => item.label || item)
+          .filter(Boolean)
+          .join('、'),
+        freshnessSummary: (store.freshness && store.freshness.summary) || '',
         auditMeta,
         auditNote,
         transparencyMetrics: buildTransparencyMetrics({

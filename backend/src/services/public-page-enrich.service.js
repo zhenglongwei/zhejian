@@ -27,6 +27,15 @@ const {
 } = require('../utils/store-public-display')
 const { mapStoreCasePreview } = require('../utils/store-case-preview')
 const { buildStorePublicFaq, sanitizeFaq } = require('../utils/store-public-faq')
+const {
+  buildPublicCapabilityView,
+  readCapabilityJson,
+} = require('../utils/store-capability')
+const {
+  resolveStoreBusinessStatus,
+  buildFreshnessSummary,
+} = require('../utils/store-business-status')
+const { formatShanghaiDate } = require('../lib/shanghai-date')
 const { config } = require('../config')
 
 const STAFF_ROLE_LABELS = {
@@ -109,14 +118,19 @@ function buildCertWall(merchant, extras = {}) {
     })
   }
   const brandAuth = extras.brandAuthUrl
+  const brandAuthValidUntil = extras.brandAuthValidUntil || ''
   if (brandAuth) {
-    wall.push({
-      type: 'brand_auth',
-      label: '品牌授权',
-      imageUrl: resolvePublicCredentialImageUrl(brandAuth),
-      status: 'verified',
-      text: '已认证',
-    })
+    const expired =
+      brandAuthValidUntil && brandAuthValidUntil < formatShanghaiDate()
+    if (!expired) {
+      wall.push({
+        type: 'brand_auth',
+        label: '品牌授权',
+        imageUrl: resolvePublicCredentialImageUrl(brandAuth),
+        status: 'verified',
+        text: brandAuthValidUntil ? `已认证 · 有效期至 ${brandAuthValidUntil}` : '已认证',
+      })
+    }
   }
   return wall
 }
@@ -219,14 +233,18 @@ async function loadTransparency(store, merchantId, options = {}) {
   if (caseCount > 0) parts.push(`已公开 ${caseCount} 个维修案例`)
   if (serviceCount > 0) parts.push(`已上架 ${serviceCount} 个可预约服务`)
   if (albumRate != null && albumRate > 0) {
-    parts.push(`近期服务过程资料齐全度约 ${albumRate}%`)
+    parts.push(`近期已完工过程资料齐全度约 ${albumRate}%`)
+  }
+  if (options.lastPublicCaseAt) {
+    parts.push(`最近公开案例于 ${options.lastPublicCaseAt}`)
   }
 
   const summary =
     parts.length > 0
-      ? `该门店${parts.join('，')}。可点开案例与资质区核查依据。`
+      ? `该门店${parts.join('，')}。可点开案例与资质区核查依据。过程齐全度不代表可浏览进行中相册。`
       : '该门店正在完善辙见公开资料。'
 
+  const capability = options.capability || {}
   const dimensions = buildTransparencyDimensions({
     storeId: store.id,
     caseCount,
@@ -236,6 +254,12 @@ async function loadTransparency(store, merchantId, options = {}) {
     certifications,
     certWall,
     casePreviews,
+    lastPublicCaseAt: options.lastPublicCaseAt || '',
+    lastProfileVerifiedAt: capability.lastProfileVerifiedAt || '',
+    technicianCount: Array.isArray(capability.technicians) ? capability.technicians.length : 0,
+    equipmentCount: Array.isArray(capability.equipmentTags)
+      ? capability.equipmentTags.length
+      : 0,
   })
 
   return normalizeTransparencyPayload({
@@ -266,31 +290,52 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
   const photosMeta = readPhotosMeta(storeRow.photosJson)
   const photosRaw =
     storeRow.photosJson && typeof storeRow.photosJson === 'object' ? storeRow.photosJson : {}
+  const publicCapability = buildPublicCapabilityView(storeRow.capabilityJson, photosRaw)
+  const capability = readCapabilityJson(storeRow.capabilityJson)
 
   const certifications = buildCertifications(merchantRow, extras)
   const certWall = buildCertWall(merchantRow, {
     ...extras,
-    brandAuthUrl: photosRaw.brandAuthUrl || photosRaw.receptionUrl || '',
+    brandAuthUrl: publicCapability.brandAuth?.imageUrl || '',
+    brandAuthValidUntil: publicCapability.brandAuth?.validUntil || '',
   })
-  const staffPublic = await loadStaffPublic(
-    storeRow.merchantId,
-    storeRow.id,
-    photosMeta,
-    extras
-  )
+
+  // 优先展示已审核技师公示卡；无则降级员工账号（无技能标签）
+  let staffPublic = publicCapability.techniciansPublic || []
+  if (!staffPublic.length) {
+    staffPublic = await loadStaffPublic(
+      storeRow.merchantId,
+      storeRow.id,
+      photosMeta,
+      extras
+    )
+  }
 
   const casePreviewRows = await prisma.publicCase.findMany({
     where: { storeId: storeRow.id, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED },
     orderBy: { publishedAt: 'desc' },
     take: 3,
-    select: { id: true, title: true, serviceName: true, contentJson: true },
+    select: {
+      id: true,
+      title: true,
+      serviceName: true,
+      contentJson: true,
+      publishedAt: true,
+    },
   })
   const casePreviews = casePreviewRows.map((row) => mapStoreCasePreview(row))
+  const lastPublicCaseAt = casePreviewRows[0]?.publishedAt
+    ? casePreviewRows[0].publishedAt instanceof Date
+      ? casePreviewRows[0].publishedAt.toISOString().slice(0, 10)
+      : String(casePreviewRows[0].publishedAt).slice(0, 10)
+    : ''
 
   const vehicleSpecialties = filterPublicSpecialties(
-    photosMeta.vehicleSpecialties.length > 0
-      ? photosMeta.vehicleSpecialties
-      : extras.vehicleSpecialties || []
+    publicCapability.specialtyBrands.length > 0
+      ? publicCapability.specialtyBrands
+      : photosMeta.vehicleSpecialties.length > 0
+        ? photosMeta.vehicleSpecialties
+        : extras.vehicleSpecialties || []
   )
   const specialties = filterPublicSpecialties(mapped.specialties || [])
   const environmentImages = filterPublicEnvironmentImages(mapped.environmentImages || [])
@@ -300,7 +345,26 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     certifications,
     certWall,
     casePreviews,
+    capability,
+    lastPublicCaseAt,
   })
+
+  const freshness = {
+    lastPublicCaseAt,
+    lastProfileVerifiedAt: publicCapability.lastProfileVerifiedAt || '',
+    summary: buildFreshnessSummary({
+      lastPublicCaseAt,
+      lastProfileVerifiedAt: publicCapability.lastProfileVerifiedAt || '',
+    }),
+  }
+
+  const businessStatus =
+    mapped.businessStatus ||
+    resolveStoreBusinessStatus({
+      storeStatus: storeRow.status,
+      businessHours: mapped.businessHours || storeRow.businessHours || '',
+      bookingPaused: capability.bookingPaused,
+    })
 
   const customFaq = [...sanitizeFaq(photosMeta.publicFaq), ...sanitizeFaq(extras.faq)]
   const { faq, faqSource } = resolveStoreFaq({
@@ -320,7 +384,14 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
 
   const payload = {
     ...mapped,
+    status: businessStatus,
+    businessStatus,
     specialties,
+    specialtyBrands: publicCapability.specialtyBrands,
+    notAccepting: publicCapability.notAccepting,
+    equipmentTags: publicCapability.equipmentTags,
+    brandAuth: publicCapability.brandAuth,
+    freshness,
     environmentImages,
     casePreviews,
     seo: {

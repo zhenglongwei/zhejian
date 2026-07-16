@@ -83,11 +83,69 @@
     </view>
   </view>
   <view class="merchant-form__section">
-    <text class="merchant-form__label">品牌授权证明</text>
+    <text class="merchant-form__label">品牌授权证明（变更需审核）</text>
     <view class="merchant-onboard__photo-slot" bindtap="onPickBrandAuth">
       <image wx:if="{{form.brandAuthPhotoUrl}}" class="merchant-onboard__photo" src="{{form.brandAuthPhotoUrl}}" mode="aspectFill" />
       <text wx:else class="text-caption">选填</text>
     </view>
+    <input
+      class="merchant-form__input"
+      placeholder="授权有效期 YYYY-MM-DD"
+      value="{{form.brandAuthValidUntil}}"
+      data-field="brandAuthValidUntil"
+      bindinput="onInput"
+    />
+  </view>
+
+  <text class="merchant-onboard__section-title text-h3">活店与能力（卷十一）</text>
+  <view wx:if="{{capabilityReviewStatus === 'pending'}}" class="merchant-form__section">
+    <text class="text-caption">技师/设备/授权变更审核中，通过前公开页仍显示上一版。</text>
+  </view>
+  <view wx:if="{{capabilityReviewStatus === 'rejected'}}" class="merchant-form__section">
+    <text class="text-caption">能力变更已驳回：{{capabilityRejectReason || '请修改后重新提交'}}</text>
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">擅长品牌（即时生效）</text>
+    <input
+      class="merchant-form__input"
+      placeholder="如：宝马、奥迪、本田（顿号分隔）"
+      value="{{form.specialtyBrandsText}}"
+      data-field="specialtyBrandsText"
+      bindinput="onInput"
+    />
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">暂不承接（即时生效）</text>
+    <input
+      class="merchant-form__input"
+      placeholder="如：大型货车、改装车"
+      value="{{form.notAcceptingText}}"
+      data-field="notAcceptingText"
+      bindinput="onInput"
+    />
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">设备/场标签（须审核）</text>
+    <view class="merchant-onboard__chips">
+      <view
+        wx:for="{{equipmentTagViews}}"
+        wx:key="name"
+        class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
+        data-name="{{item.name}}"
+        bindtap="onToggleEquipment"
+      >{{item.name}}</view>
+    </view>
+  </view>
+  <view class="merchant-form__section">
+    <text class="merchant-form__label">技师公示（须审核，最多 3 人）</text>
+    <view wx:for="{{form.technicians}}" wx:key="id" class="merchant-form__section">
+      <input class="merchant-form__input" placeholder="称呼" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
+      <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
+      <input class="merchant-form__input" placeholder="年限" value="{{item.years}}" data-index="{{index}}" data-field="years" bindinput="onTechInput" />
+      <input class="merchant-form__input" placeholder="资质标签（顿号分隔）" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
+      <text class="text-caption" data-index="{{index}}" bindtap="onRemoveTech">删除该技师</text>
+    </view>
+    <ui-button wx:if="{{form.technicians.length < 3}}" type="secondary" size="sm" bind:btntap="onAddTech">添加技师</ui-button>
   </view>
 
   <view class="merchant-store-edit__readonly">

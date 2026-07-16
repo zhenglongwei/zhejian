@@ -14,11 +14,13 @@ const {
   formatQualificationForClient,
   formatPhotosForClient,
 } = require('../lib/onboarding-payload')
+const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
 
 function formatOnboardingProfile(merchant, store) {
   if (!merchant || !store) return null
   const photos = formatPhotosForClient(store.photosJson)
   const qualification = formatQualificationForClient(merchant.qualificationJson)
+  const capabilityEditor = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
   return {
     status: toFrontStatus(merchant.status),
     merchantId: merchant.id,
@@ -39,6 +41,14 @@ function formatOnboardingProfile(merchant, store) {
     contactEmail: merchant.contactEmail || '',
     qualification,
     photos,
+    specialtyBrands: capabilityEditor.specialtyBrands,
+    notAccepting: capabilityEditor.notAccepting,
+    technicians: capabilityEditor.technicians,
+    equipmentTags: capabilityEditor.equipmentTags,
+    brandAuthValidUntil: capabilityEditor.brandAuthValidUntil,
+    capabilityReviewStatus: capabilityEditor.reviewStatus,
+    capabilityRejectReason: capabilityEditor.rejectReason,
+    lastProfileVerifiedAt: capabilityEditor.lastProfileVerifiedAt,
     rejectReason: merchant.rejectReason || '',
     agreedAt: toIso(merchant.agreedAt),
     submittedAt: toIso(merchant.submittedAt),

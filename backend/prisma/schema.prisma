@@ -74,6 +74,7 @@ model Store {
   businessHours String   @default("") @map("business_hours")
   intro         String   @default("") @db.Text
   photosJson    Json     @default("{}") @map("photos_json")
+  capabilityJson Json    @default("{}") @map("capability_json")
   servicesJson  Json     @default("[]") @map("services_json")
   status        String   @default("DRAFT")
   createdAt     DateTime @default(now()) @map("created_at")

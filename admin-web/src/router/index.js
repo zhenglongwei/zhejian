@@ -49,6 +49,16 @@ const routes = [
         component: () => import('@/views/merchant-review/detail/index.vue'),
       },
       {
+        path: 'store-capability',
+        name: 'store-capability-list',
+        component: () => import('@/views/store-capability-review/list/index.vue'),
+      },
+      {
+        path: 'store-capability/:storeId',
+        name: 'store-capability-detail',
+        component: () => import('@/views/store-capability-review/detail/index.vue'),
+      },
+      {
         path: 'services',
         name: 'service-list',
         component: () => import('@/views/service-review/list/index.vue'),

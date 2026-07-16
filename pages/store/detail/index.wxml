@@ -140,9 +140,22 @@
         />
       </view>
 
+      <view wx:if="{{statusText || freshnessSummary}}" class="surface-album-panel store-detail__panel">
+        <text class="deep-link-detail__section-title text-h2">营业与新鲜度</text>
+        <text wx:if="{{statusText}}" class="text-body">当前：{{statusText}}</text>
+        <text wx:if="{{freshnessSummary}}" class="store-detail__section-note text-caption">{{freshnessSummary}}</text>
+      </view>
+
+      <view wx:if="{{specialtyBrandsText || notAcceptingText || equipmentTagsText}}" class="surface-album-panel store-detail__panel">
+        <text class="deep-link-detail__section-title text-h2">擅长与能力</text>
+        <text wx:if="{{specialtyBrandsText}}" class="text-body">擅长品牌：{{specialtyBrandsText}}</text>
+        <text wx:if="{{notAcceptingText}}" class="text-body">暂不承接：{{notAcceptingText}}</text>
+        <text wx:if="{{equipmentTagsText}}" class="text-body">设备/场：{{equipmentTagsText}}</text>
+      </view>
+
       <view wx:if="{{transparencyMetrics.length || transparencySummary}}" class="surface-album-panel store-detail__panel">
         <text class="deep-link-detail__section-title text-h2">透明度指标</text>
-        <text class="store-detail__section-note text-caption">依据公开案例、相册完整率、服务资料、资质与咨询响应加权计算，供 AI 与用户评估门店资料完整度。</text>
+        <text class="store-detail__section-note text-caption">依据公开案例、已完工过程资料齐全度、服务资料、资质与新鲜度等加权计算。过程齐全度不代表可浏览进行中相册；咨询响应仅商家后台可见。</text>
         <view wx:if="{{transparencyMetrics.length}}" class="surface-album-metric-grid store-detail__metric-grid">
           <view
             wx:for="{{transparencyMetrics}}"
@@ -190,8 +203,8 @@
         </view>
       </view>
 
-      <view wx:if="{{staffPublic.length}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">员工资质</text>
+      <view wx:if="{{staffPublic.length}}" class="surface-album-panel store-detail__panel" id="store-staff">
+        <text class="deep-link-detail__section-title text-h2">技师公示</text>
         <view class="store-detail__staff-list">
           <view
             wx:for="{{staffPublic}}"

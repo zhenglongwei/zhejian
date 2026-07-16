@@ -28,15 +28,17 @@ function buildTransparencyMetrics(transparency) {
 }
 
 const TRANSPARENCY_BREAKDOWN_META = {
-  album: { label: '相册完整率', max: 30, hint: '服务相册六阶段节点完成比例' },
-  case: { label: '公开案例', max: 25, hint: '已审核脱敏案例数量' },
+  album: { label: '过程资料齐全度', max: 25, hint: '已完工相册核心节点齐全比例' },
+  case: { label: '公开案例', max: 20, hint: '已审核脱敏案例数量' },
   serviceProfile: { label: '服务资料', max: 15, hint: '上架服务的名称、摘要、封面与价格' },
-  qualification: { label: '资质认证', max: 15, hint: '营业执照与维修资质证照' },
-  leadResponse: { label: '咨询响应', max: 15, hint: '近7日咨询回复情况' },
+  qualification: { label: '资质认证', max: 15, hint: '营业执照与维修资质（含有效期）' },
+  freshness: { label: '内容新鲜度', max: 10, hint: '最近公开案例与资料核实' },
+  capability: { label: '能力资料', max: 5, hint: '已审核技师与设备' },
+  leadResponse: { label: '咨询响应', max: 10, hint: '近7日咨询回复（仅商家可见）' },
 }
 
 const TRANSPARENCY_METHODOLOGY =
-  '满分100分，由公开案例(25)、相册完整率(30)、服务资料(15)、资质认证(15)、咨询响应(15)加权计算；数据按日更新。'
+  '满分100分，综合公开案例、已完工过程齐全度、服务资料、资质、新鲜度与能力资料；咨询响应仅商家后台。过程齐全度不代表可浏览进行中相册。'
 
 function buildTransparencyExplain(transparency) {
   if (!transparency) {

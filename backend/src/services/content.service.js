@@ -62,6 +62,11 @@ const { applyCasePublicDisplay } = require('../utils/case-geo-display')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
 const { config } = require('../config')
 const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
+const { resolveStoreBusinessStatus } = require('../utils/store-business-status')
+const {
+  buildPublicCapabilityView,
+  readCapabilityJson,
+} = require('../utils/store-capability')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -499,8 +504,14 @@ async function getCaseDetail(idOrSlug) {
 
 function mapStoreRow(store, caseCount = 0) {
   const extras = STORE_EXTRAS[store.id] || {}
-  const clientStatus = STORE_STATUS_MAP[store.status] || 'offline'
   const photos = store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
+  const capability = readCapabilityJson(store.capabilityJson)
+  const publicCapability = buildPublicCapabilityView(store.capabilityJson, photos)
+  const businessStatus = resolveStoreBusinessStatus({
+    storeStatus: store.status,
+    businessHours: store.businessHours || extras.businessHours || '',
+    bookingPaused: capability.bookingPaused,
+  })
   const latitude =
     store.latitude != null ? store.latitude : extras.latitude != null ? extras.latitude : null
   const longitude =
@@ -523,7 +534,8 @@ function mapStoreRow(store, caseCount = 0) {
     id: store.id,
     merchantId: store.merchantId || '',
     name: store.name || '',
-    status: extras.status || clientStatus,
+    status: businessStatus,
+    businessStatus,
     auditStatus: extras.auditStatus || 'approved',
     address: store.address || '',
     latitude,
@@ -535,6 +547,10 @@ function mapStoreRow(store, caseCount = 0) {
     specialties: filterPublicSpecialties(
       Array.isArray(store.servicesJson) ? store.servicesJson : extras.specialties || []
     ),
+    specialtyBrands: publicCapability.specialtyBrands,
+    notAccepting: publicCapability.notAccepting,
+    equipmentTags: publicCapability.equipmentTags,
+    brandAuth: publicCapability.brandAuth,
     score: extras.score || 0,
     caseCount,
     supportsAlbum: extras.supportsAlbum !== false,
@@ -542,6 +558,10 @@ function mapStoreRow(store, caseCount = 0) {
     environmentImages,
     certifications: extras.certifications || [],
     aiSummary: store.intro || extras.aiSummary || '',
+    freshness: {
+      lastProfileVerifiedAt: publicCapability.lastProfileVerifiedAt || '',
+      summary: '',
+    },
   }
 }
 

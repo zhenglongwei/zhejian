@@ -72,6 +72,13 @@ const {
 } = require('../services/admin-merchant.service')
 
 const {
+  listStoreCapabilityReviews,
+  getStoreCapabilityReviewDetail,
+  approveStoreCapability,
+  rejectStoreCapability,
+} = require('../services/admin-store-capability.service')
+
+const {
   listAdminServicePlans,
   getAdminServicePlanDetail,
   recordSpotCheckServicePlan,
@@ -648,6 +655,52 @@ router.post('/geo/lead-prompt-candidates/:candidateKey/approve', async (req, res
 router.get('/merchants', async (req, res, next) => {
   try {
     const data = await listAdminMerchants(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/store-capability-reviews', async (req, res, next) => {
+  try {
+    const data = await listStoreCapabilityReviews(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/store-capability-reviews/:storeId', async (req, res, next) => {
+  try {
+    const data = await getStoreCapabilityReviewDetail(req.params.storeId)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/store-capability-reviews/:storeId/approve', async (req, res, next) => {
+  try {
+    const data = await approveStoreCapability(req.params.storeId, {
+      userId: req.admin?.reviewerId || req.auth?.userId,
+      name: req.admin?.name,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/store-capability-reviews/:storeId/reject', async (req, res, next) => {
+  try {
+    const data = await rejectStoreCapability(
+      req.params.storeId,
+      req.body?.reason || req.body?.comment || '',
+      {
+        userId: req.admin?.reviewerId || req.auth?.userId,
+        name: req.admin?.name,
+      }
+    )
     return ok(res, data)
   } catch (e) {
     next(e)

@@ -16,6 +16,7 @@
         </el-sub-menu>
 
         <el-menu-item index="/merchants">商家审核</el-menu-item>
+        <el-menu-item index="/store-capability">门店能力变更</el-menu-item>
         <el-menu-item index="/services">服务监管</el-menu-item>
         <el-menu-item index="/reports">举报管理</el-menu-item>
         <el-menu-item index="/authorization-logs">授权留痕</el-menu-item>
@@ -53,6 +54,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/geo/citation-gaps')) return '/geo/citation-gaps'
   if (route.path.startsWith('/geo/topic-health')) return '/geo/topic-health'
   if (route.path.startsWith('/merchants')) return '/merchants'
+  if (route.path.startsWith('/store-capability')) return '/store-capability'
   if (route.path.startsWith('/services')) return '/services'
   if (route.path.startsWith('/reports')) return '/reports'
   if (route.path.startsWith('/authorization-logs')) return '/authorization-logs'

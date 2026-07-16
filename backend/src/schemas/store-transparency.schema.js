@@ -12,6 +12,8 @@ const PUBLIC_DIMENSION_IDS = new Set([
   'album_completeness',
   'service_profile',
   'qualification',
+  'content_freshness',
+  'capability_profile',
 ])
 
 const DIMENSION_DEFS = [
@@ -19,7 +21,7 @@ const DIMENSION_DEFS = [
     id: 'public_cases',
     label: '公开案例',
     breakdownKey: 'case',
-    maxScore: 25,
+    maxScore: 20,
     unit: 'count',
     audience: 'public',
     meaning: '已审核并公开展示的维修案例数量，可点开查看过程说明',
@@ -28,11 +30,11 @@ const DIMENSION_DEFS = [
     id: 'album_completeness',
     label: '过程资料齐全度',
     breakdownKey: 'album',
-    maxScore: 30,
+    maxScore: 25,
     unit: 'percent',
     audience: 'public',
     meaning:
-      '近一段时间服务过程中，关键接车、检查、方案等资料的齐全比例（聚合统计，不展示用户私密相册链接）',
+      '已完工服务相册中，关键接车、检查、方案等资料的齐全比例（聚合统计，不展示进行中或私密相册）',
   },
   {
     id: 'service_profile',
@@ -50,13 +52,31 @@ const DIMENSION_DEFS = [
     maxScore: 15,
     unit: 'score',
     audience: 'public',
-    meaning: '营业执照与维修资质等平台核验信息，可在本页资质区查看',
+    meaning: '营业执照与维修资质等平台核验信息（含有效期），可在本页资质区查看',
+  },
+  {
+    id: 'content_freshness',
+    label: '内容新鲜度',
+    breakdownKey: 'freshness',
+    maxScore: 10,
+    unit: 'score',
+    audience: 'public',
+    meaning: '最近公开案例与资料核实时间，用于判断门店内容是否持续更新',
+  },
+  {
+    id: 'capability_profile',
+    label: '能力资料',
+    breakdownKey: 'capability',
+    maxScore: 5,
+    unit: 'score',
+    audience: 'public',
+    meaning: '已审核展示的技师或设备能力信息完善程度',
   },
   {
     id: 'lead_response',
     label: '咨询响应',
     breakdownKey: 'leadResponse',
-    maxScore: 15,
+    maxScore: 10,
     unit: 'score',
     audience: 'internal',
     meaning: '近7日咨询线索被门店联系的响应情况（仅商家后台）',
@@ -64,7 +84,7 @@ const DIMENSION_DEFS = [
 ]
 
 const PUBLIC_METHODOLOGY =
-  '资料完整度综合公开案例、过程资料齐全情况、可预约服务与资质核验等可验证信息，按日更新。咨询响应等经营指标仅在商家后台展示。'
+  '资料完整度综合公开案例、已完工过程资料齐全情况、可预约服务、资质核验、内容新鲜度与已审核能力资料等可验证信息，按日更新。过程齐全度不代表可浏览他人进行中相册。咨询响应等经营指标仅在商家后台展示。'
 
 function truncate(text, maxLen) {
   const value = String(text || '').trim()
@@ -213,6 +233,57 @@ function buildTransparencyDimensions(input = {}, options = {}) {
           items,
           images,
           available: verified,
+        },
+      }
+    }
+
+    if (def.id === 'content_freshness') {
+      const lastCaseAt = String(input.lastPublicCaseAt || '').trim()
+      const verifiedAt = String(input.lastProfileVerifiedAt || '').trim()
+      const hasFresh = Boolean(lastCaseAt || verifiedAt || (scorePart != null && scorePart > 0))
+      const bits = []
+      if (lastCaseAt) bits.push(`最近公开案例 ${lastCaseAt}`)
+      if (verifiedAt) bits.push(`资料核实 ${verifiedAt}`)
+      return {
+        id: def.id,
+        label: def.label,
+        value: scorePart != null ? scorePart : 0,
+        displayValue: bits.length ? bits.join(' · ') : hasFresh ? '有更新' : '—',
+        unit: def.unit,
+        scorePart: null,
+        maxScore: def.maxScore,
+        meaning: def.meaning,
+        evidence: {
+          type: 'freshness',
+          url: casesPath,
+          anchor: '#store-cases',
+          note: bits.join(' · '),
+          available: hasFresh,
+        },
+      }
+    }
+
+    if (def.id === 'capability_profile') {
+      const techCount = Number(input.technicianCount) || 0
+      const eqCount = Number(input.equipmentCount) || 0
+      const hasCap = techCount > 0 || eqCount > 0 || (scorePart != null && scorePart > 0)
+      return {
+        id: def.id,
+        label: def.label,
+        value: scorePart != null ? scorePart : 0,
+        displayValue: hasCap
+          ? `技师 ${techCount} · 设备 ${eqCount}`
+          : '完善中',
+        unit: def.unit,
+        scorePart: null,
+        maxScore: def.maxScore,
+        meaning: def.meaning,
+        evidence: {
+          type: 'capability',
+          url: '',
+          anchor: '#store-staff',
+          note: hasCap ? '仅展示已审核通过的技师与设备信息' : '',
+          available: hasCap,
         },
       }
     }

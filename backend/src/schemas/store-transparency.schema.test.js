@@ -22,9 +22,12 @@ function run() {
     casePreviews: [{ id: 'c1', title: '杭州保养案例', slug: 'hangzhou-maintenance' }],
   })
 
-  // 公开默认不含咨询响应
-  assert.strictEqual(dimensions.length, 4)
+  // 公开默认不含咨询响应；含新鲜度/能力（有证据才进列表）
+  assert.ok(dimensions.length >= 4)
   assert.ok(!dimensions.some((item) => item.id === 'lead_response'))
+  assert.ok(dimensions.some((item) => item.id === 'public_cases'))
+  assert.ok(dimensions.some((item) => item.id === 'album_completeness'))
+  assert.ok(dimensions.some((item) => item.id === 'qualification'))
   const album = dimensions.find((item) => item.id === 'album_completeness')
   assert.strictEqual(album.label, '过程资料齐全度')
   assert.ok(String(album.displayValue).includes('86'))
