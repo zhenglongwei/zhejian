@@ -15,6 +15,7 @@ const {
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
 const { fetchStatsInsights } = require('./merchant-stats-insights.service')
+const { loadStoreCapabilityById } = require('../utils/store-capability-load')
 
 const ACTIVE_MERCHANT_STATUS = 'ACTIVE'
 const CORE_NODE_DONE_MIN = 4
@@ -240,14 +241,7 @@ async function computeTransparency(merchantId, storeId, statDate, albumCompleteR
     qualScore = Math.round(Math.min(qualParts / 5, 1) * 15)
   }
 
-  const store = await prisma.store.findUnique({
-    where: { id: storeId },
-    select: { capabilityJson: true },
-  })
-  const capability =
-    store?.capabilityJson && typeof store.capabilityJson === 'object'
-      ? store.capabilityJson
-      : {}
+  const capability = await loadStoreCapabilityById(storeId)
   const techCount = Array.isArray(capability.technicians) ? capability.technicians.length : 0
   const eqCount = Array.isArray(capability.equipmentTags) ? capability.equipmentTags.length : 0
   const capabilityScore = Math.min(5, (techCount > 0 ? 3 : 0) + (eqCount > 0 ? 2 : 0))

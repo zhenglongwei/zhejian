@@ -3,6 +3,7 @@ const { shanghaiDayBounds } = require('../lib/shanghai-date')
 const { LEAD_STATUS, PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { getServiceItem } = require('../constants/service-catalog')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
+const { loadStoreCapabilitiesByIds } = require('../utils/store-capability-load')
 
 const TOP_LIMIT = 5
 const H5_CASE_VIEW_EVENT = 'h5_case_view'
@@ -273,10 +274,7 @@ async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
     fetchTopServices(merchantId, storeIds, range),
     countStaleLeads(storeIds),
     loadRealtimeTodos(storeIds, merchantId),
-    prisma.store.findMany({
-      where: { id: { in: storeIds } },
-      select: { capabilityJson: true },
-    }),
+    loadStoreCapabilitiesByIds(storeIds),
   ])
 
   let capabilityIncomplete = false
