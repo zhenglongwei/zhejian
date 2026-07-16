@@ -1,6 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { shanghaiDayBounds } = require('../lib/shanghai-date')
 const { LEAD_STATUS } = require('../constants/v2')
+const { getServiceItem } = require('../constants/service-catalog')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
 
 const TOP_LIMIT = 5
@@ -56,7 +57,16 @@ async function loadServiceNameMap(merchantId, storeIds, serviceIds) {
     },
     select: { serviceItemId: true, name: true },
   })
-  return Object.fromEntries(rows.map((r) => [r.serviceItemId, r.name || r.serviceItemId]))
+  return Object.fromEntries(
+    rows.map((r) => [r.serviceItemId, String(r.name || '').trim()]).filter(([, name]) => name)
+  )
+}
+
+function resolveServiceDisplayName(serviceId, nameFromPlan) {
+  const planName = String(nameFromPlan || '').trim()
+  if (planName && planName !== serviceId && !/^item_/.test(planName)) return planName
+  const catalog = getServiceItem(serviceId)
+  return (catalog && catalog.name) || planName || serviceId
 }
 
 async function fetchTopCases(storeIds, range) {
@@ -169,7 +179,7 @@ async function fetchTopServices(merchantId, storeIds, range) {
       const leadCount = leadMap[serviceId] || 0
       return {
         serviceId,
-        name: nameMap[serviceId] || serviceId,
+        name: resolveServiceDisplayName(serviceId, nameMap[serviceId]),
         viewCount,
         leadCount,
         leadRate: buildLeadRate(viewCount, leadCount),

@@ -167,7 +167,7 @@
             <text class="text-h3 merchant-dash__section-title">案例 / 服务排行</text>
             <text class="text-caption merchant-dash__hint">按站外浏览与区间留资统计，转化率为留资÷浏览</text>
             <block wx:if="{{topCases.length}}">
-              <text class="text-body merchant-dash__rank-sub">案例 TOP</text>
+              <text class="text-body merchant-dash__rank-sub">案例榜</text>
               <view class="merchant-dash__timeline">
                 <view wx:for="{{topCases}}" wx:key="rank" class="merchant-dash__timeline-item">
                   <view class="merchant-dash__timeline-rail">
@@ -182,7 +182,7 @@
               </view>
             </block>
             <block wx:if="{{topServices.length}}">
-              <text class="text-body merchant-dash__rank-sub">服务 TOP</text>
+              <text class="text-body merchant-dash__rank-sub">服务榜</text>
               <view class="merchant-dash__timeline">
                 <view wx:for="{{topServices}}" wx:key="rank" class="merchant-dash__timeline-item">
                   <view class="merchant-dash__timeline-rail">

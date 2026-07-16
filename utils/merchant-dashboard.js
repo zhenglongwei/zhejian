@@ -27,7 +27,7 @@ function sumViews(summary) {
 function buildLagHint(dataLag, lastAggregatedDate) {
   if (dataLag === 'T+1') {
     const date = lastAggregatedDate ? `（更新至 ${lastAggregatedDate}）` : ''
-    return `站外浏览、电话点击与搜索/AI 爬虫访问按日统计，次日更新${date}`
+    return `站外浏览、电话点击与搜索/智能助手爬虫访问按日统计，次日更新${date}`
   }
   return ''
 }
@@ -44,7 +44,7 @@ function formatRankRows(items, titleKey) {
     const mp = item.mpViewCount || 0
     const viewDetail =
       h5 > 0 || mp > 0
-        ? `H5 ${formatCount(h5)} · 小程序 ${formatCount(mp)}`
+        ? `网页 ${formatCount(h5)} · 小程序 ${formatCount(mp)}`
         : ''
     return {
       rank: index + 1,

@@ -20,11 +20,11 @@ const ACTIVE_MERCHANT_STATUS = 'ACTIVE'
 const CORE_NODE_DONE_MIN = 4
 
 const MERCHANT_METRIC_NOTES = {
-  userExposure: 'H5 案例页、小程序内浏览与电话点击来自真实用户行为。',
+  userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为。',
   crawlerProxy:
-    '「搜索/AI 爬虫访问」指已知 Bot 抓取本店公开页次数，不代表 AI 在对话中引用本店，也不代表收录或排名。',
+    '「搜索/智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名。',
   probeInternal:
-    '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被 AI 引用。',
+    '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用。',
 }
 
 const STORE_VIEW_EVENTS = new Set(['store_view', 'h5_store_view'])
