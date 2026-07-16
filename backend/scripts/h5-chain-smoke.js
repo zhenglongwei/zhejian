@@ -235,6 +235,7 @@ async function verifyH5ServiceItem() {
   assert(apiItem.json.data?.seo?.robots, 'service item 缺少 seo.robots')
   assert(Array.isArray(apiItem.json.data?.featuredCases), 'service item 缺少 featuredCases')
   assert(Array.isArray(apiItem.json.data?.relatedTopics), 'service item 缺少 relatedTopics')
+  assert(Array.isArray(apiItem.json.data?.serviceOffers), 'service item 缺少 serviceOffers')
   assert(apiItem.json.data?.aggregateStats != null, 'service item 缺少 aggregateStats')
   if (apiItem.json.data?.stats?.caseCount > 0) {
     assert(

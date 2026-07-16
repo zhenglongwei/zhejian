@@ -222,90 +222,151 @@
     return '到店检测后报价'
   }
 
-  function renderStoreCases(cases) {
-    if (!cases || !cases.length) {
-      return '<p class="h5-compliance">该店暂无本服务公开案例。</p>'
+  function getServiceOffers(data) {
+    if (data.serviceOffers && data.serviceOffers.length) return data.serviceOffers.slice()
+    return (data.recommendedStores || []).map(function (store) {
+      return {
+        servicePlanId: store.servicePlanId,
+        servicePlanName: store.servicePlanName || '',
+        planPath: store.planPath || (store.servicePlanId ? servicePlanPath(store.servicePlanId) : storePagePath(store.id)),
+        storeId: store.id,
+        storeName: store.name,
+        storePath: storePagePath(store.id),
+        address: store.address || '',
+        priceText: buildStorePriceText(store),
+        sortPrice: store.minAmount != null ? store.minAmount : store.amount,
+        caseCount: store.caseCount || 0,
+        transparencyScore: store.score || 0,
+        distanceKm: store.distanceKm,
+      }
+    })
+  }
+
+  function sortOffers(offers, mode) {
+    var list = offers.slice()
+    if (mode === 'price') {
+      list.sort(function (a, b) {
+        var pa = a.sortPrice == null ? Number.POSITIVE_INFINITY : Number(a.sortPrice)
+        var pb = b.sortPrice == null ? Number.POSITIVE_INFINITY : Number(b.sortPrice)
+        return pa - pb
+      })
+    } else if (mode === 'cases') {
+      list.sort(function (a, b) {
+        return (b.caseCount || 0) - (a.caseCount || 0)
+      })
+    } else if (mode === 'transparency') {
+      list.sort(function (a, b) {
+        return (b.transparencyScore || 0) - (a.transparencyScore || 0)
+      })
+    } else if (mode === 'distance') {
+      list.sort(function (a, b) {
+        var da = a.distanceKm == null ? Number.POSITIVE_INFINITY : Number(a.distanceKm)
+        var db = b.distanceKm == null ? Number.POSITIVE_INFINITY : Number(b.distanceKm)
+        return da - db
+      })
+    } else {
+      list.sort(function (a, b) {
+        var caseDiff = (b.caseCount || 0) - (a.caseCount || 0)
+        if (caseDiff) return caseDiff
+        var scoreDiff = (b.transparencyScore || 0) - (a.transparencyScore || 0)
+        if (scoreDiff) return scoreDiff
+        var pa = a.sortPrice == null ? Number.POSITIVE_INFINITY : Number(a.sortPrice)
+        var pb = b.sortPrice == null ? Number.POSITIVE_INFINITY : Number(b.sortPrice)
+        return pa - pb
+      })
     }
-    return (
-      '<div class="h5-media-list">' +
-      cases
-        .map(function (entry) {
-          if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
-            return window.zhejianH5Ui.renderCaseListItem(entry, {
-              href: casePagePath(entry),
-              extraAttrs: ' data-case-id="' + escapeHtml(entry.id) + '"',
-            })
-          }
-          var cover = pickCaseCover(entry)
-          var coverHtml = cover
-            ? '<img class="h5-media-list-thumb" src="' +
-              escapeHtml(cover) +
-              '" alt="' +
-              escapeHtml(entry.title || '案例') +
-              '" loading="lazy" />'
-            : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
+    return list
+  }
+
+  function renderOfferMetrics(offer) {
+    var bits = []
+    bits.push('方案价 ' + (offer.priceText || '到店确认'))
+    bits.push('本店案例 ' + (offer.caseCount || 0) + ' 条')
+    if (offer.transparencyScore > 0) bits.push('透明度 ' + offer.transparencyScore)
+    if (offer.distanceKm != null) bits.push('约 ' + offer.distanceKm + ' km')
+    return bits.join(' · ')
+  }
+
+  function renderServiceOfferList(offers, item, sortOptions, activeSort) {
+    var options = sortOptions && sortOptions.length
+      ? sortOptions
+      : [
+          { value: 'recommend', label: '综合推荐' },
+          { value: 'price', label: '价格优先' },
+          { value: 'cases', label: '案例更多' },
+          { value: 'transparency', label: '透明度更高' },
+          { value: 'distance', label: '距离更近' },
+        ]
+    var sortBar =
+      '<div class="h5-offer-sort" id="service-offer-sort" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">' +
+      options
+        .map(function (opt) {
+          var active = opt.value === activeSort
           return (
-            '<a class="h5-media-list-item" href="' +
-            casePagePath(entry) +
-            '" data-case-id="' +
-            escapeHtml(entry.id) +
-            '">' +
-            coverHtml +
-            '<div class="h5-media-list-body">' +
-            '<div class="h5-media-list-title">' +
-            escapeHtml(entry.title || entry.serviceName || '公开案例') +
-            '</div></div></a>'
+            '<button type="button" class="h5-btn h5-btn--secondary' +
+            (active ? ' is-active' : '') +
+            '" data-sort="' +
+            escapeHtml(opt.value) +
+            '"' +
+            (active ? ' aria-current="true" style="font-weight:600"' : '') +
+            '>' +
+            escapeHtml(opt.label) +
+            '</button>'
           )
         })
         .join('') +
       '</div>'
-    )
-  }
 
-  function renderStoreServices(stores, item) {
-    if (!stores || !stores.length) {
+    if (!offers || !offers.length) {
       return (
-        '<div class="h5-card"><h2 class="h5-section-title">可预约门店服务</h2>' +
-        '<div class="h5-empty-block">暂无门店上架该服务，请稍后再查看或打开小程序咨询。</div></div>'
+        '<div class="h5-card" id="service-offers">' +
+        '<h2 class="h5-section-title">' +
+        escapeHtml(item.name) +
+        '服务列表</h2>' +
+        sortBar +
+        '<div class="h5-empty-block">暂无门店上架该服务，请稍后再查看。</div></div>'
       )
     }
-    var blocks = stores
-      .map(function (store) {
-        var href = store.planPath || (store.servicePlanId
-          ? servicePlanPath(store.servicePlanId)
-          : storePagePath(store.id))
-        var meta = [store.address, '方案参考 ' + buildStorePriceText(store)]
-          .filter(Boolean)
-          .join(' · ')
+
+    var cards = offers
+      .map(function (offer) {
+        var href = offer.planPath || servicePlanPath(offer.servicePlanId)
+        var title =
+          (offer.servicePlanName ? offer.servicePlanName + ' · ' : '') + (offer.storeName || '门店服务')
         return (
-          '<section class="h5-card h5-store-service" data-store-id="' +
-          escapeHtml(store.id) +
-          '">' +
-          '<h3 class="h5-section-title">' +
-          escapeHtml(store.name) +
-          '</h3>' +
-          '<p class="h5-media-list-meta">' +
-          escapeHtml(meta) +
-          '</p>' +
-          '<p class="h5-compliance">以下案例均来自本店该服务公开留档。</p>' +
-          renderStoreCases(store.cases) +
-          '<div class="h5-home-quick" style="margin-top:12px">' +
-          '<a class="h5-btn" href="' +
+          '<a class="h5-media-list-item h5-service-offer" href="' +
           escapeHtml(href) +
-          '">进入该店服务方案</a>' +
-          '<a class="h5-btn h5-btn--secondary" href="' +
-          storePagePath(store.id) +
-          '">门店主页</a>' +
-          '</div></section>'
+          '" data-store-id="' +
+          escapeHtml(offer.storeId || '') +
+          '" data-plan-id="' +
+          escapeHtml(offer.servicePlanId || '') +
+          '">' +
+          '<div class="h5-media-list-body">' +
+          '<div class="h5-media-list-title">' +
+          escapeHtml(title) +
+          '</div>' +
+          '<div class="h5-media-list-meta">' +
+          escapeHtml(offer.address || '') +
+          '</div>' +
+          '<div class="h5-media-list-meta">' +
+          escapeHtml(renderOfferMetrics(offer)) +
+          '</div>' +
+          '<div class="h5-compliance">案例仅含该店本服务公开留档 · 点击查看服务详情</div>' +
+          '</div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
+
     return (
-      '<div id="service-stores">' +
-      '<h2 class="h5-section-title" style="margin:0 0 12px">可预约门店服务</h2>' +
-      '<p class="h5-compliance" style="margin-bottom:12px">每家店展示其真实服务方案与本店案例，不会跨店混挂。</p>' +
-      blocks +
-      '</div>'
+      '<div class="h5-card" id="service-offers">' +
+      '<h2 class="h5-section-title">' +
+      escapeHtml(item.name) +
+      '服务列表</h2>' +
+      '<p class="h5-compliance">以下每项是一家门店的真实服务方案，可按价格、案例数、透明度、距离挑选；进入后只看该店案例。</p>' +
+      sortBar +
+      '<div class="h5-media-list" id="service-offer-list">' +
+      cards +
+      '</div></div>'
     )
   }
 
@@ -427,55 +488,51 @@
     )
   }
 
-  function renderPrimaryCta(data, item) {
-    var preferred = data.preferredLanding
-    var top = (data.recommendedStores || [])[0]
-    var planHref =
-      (preferred && preferred.path) ||
-      (top && (top.planPath || (top.servicePlanId ? servicePlanPath(top.servicePlanId) : ''))) ||
-      ''
-    var primary =
-      planHref
-        ? '<a class="h5-btn" href="' +
-          escapeHtml(planHref) +
-          '">' +
-          (preferred && preferred.storeName
-            ? '进入「' + escapeHtml(preferred.storeName) + '」服务方案'
-            : '进入门店服务方案') +
-          '</a>'
-        : '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>'
-    var secondary = planHref
-      ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>'
-      : '<a class="h5-btn h5-btn--secondary" href="#service-stores">查看门店列表</a>'
-    return '<div class="h5-home-quick h5-topic-cta">' + primary + secondary + '</div>'
-  }
-
   function bindInteractions(data) {
     var item = data.item || {}
-    document.querySelectorAll('[data-case-id]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track(
-            'h5_service_case_click',
-            geoTrackParams(item, {
-              caseId: el.getAttribute('data-case-id') || '',
-            })
-          )
-        }
+    var offers = getServiceOffers(data)
+    var activeSort = 'recommend'
+
+    function paintOfferList(mode) {
+      activeSort = mode || 'recommend'
+      var sorted = sortOffers(offers, activeSort)
+      var host = document.getElementById('service-offers')
+      if (!host) return
+      var next = document.createElement('div')
+      next.innerHTML = renderServiceOfferList(sorted, item, data.sortOptions, activeSort)
+      var replacement = next.firstChild
+      if (replacement) host.replaceWith(replacement)
+      bindSortButtons()
+      bindOfferClicks()
+    }
+
+    function bindSortButtons() {
+      document.querySelectorAll('#service-offer-sort [data-sort]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          paintOfferList(btn.getAttribute('data-sort') || 'recommend')
+        })
       })
-    })
-    document.querySelectorAll('[data-store-id]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track(
-            'h5_service_store_click',
-            geoTrackParams(item, {
-              storeId: el.getAttribute('data-store-id') || '',
-            })
-          )
-        }
+    }
+
+    function bindOfferClicks() {
+      document.querySelectorAll('[data-plan-id]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          if (window.zhejianTrack) {
+            window.zhejianTrack.track(
+              'h5_service_offer_click',
+              geoTrackParams(item, {
+                storeId: el.getAttribute('data-store-id') || '',
+                planId: el.getAttribute('data-plan-id') || '',
+              })
+            )
+          }
+        })
       })
-    })
+    }
+
+    bindSortButtons()
+    bindOfferClicks()
+
     var weappBtn = document.getElementById('h5-open-weapp-btn')
     if (weappBtn) {
       weappBtn.addEventListener('click', function () {
@@ -504,8 +561,9 @@
     var cityNote = item.cityFilter
       ? '<p class="h5-compliance">当前按「' +
         escapeHtml(item.cityFilter) +
-        '」筛选可预约门店；去掉城市参数可看全国门店。</p>'
+        '」筛选服务列表；去掉城市参数可看全国。</p>'
       : ''
+    var offers = sortOffers(getServiceOffers(data), 'recommend')
 
     var html =
       '<div class="h5-page">' +
@@ -521,17 +579,19 @@
       '<header class="h5-header h5-topic-header">' +
       '<h1 class="h5-title">' +
       escapeHtml(item.name) +
-      ' · 门店服务</h1>' +
+      '</h1>' +
       (answerText
         ? '<div class="h5-topic-answer">' + escapeHtml(answerText) + '</div>'
-        : '') +
+        : '<p class="h5-summary">对比各门店该服务的方案价、本店案例数与透明度，再进入详情。</p>') +
       renderTrustMeta(data) +
       cityNote +
       '</header>' +
-      renderPrimaryCta(data, item) +
-      renderArticleBody(data.articleBody) +
+      '<div class="h5-home-quick h5-topic-cta">' +
+      '<a class="h5-btn" href="#service-offers">查看服务列表</a>' +
+      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>' +
+      '</div>' +
       renderReferencePrice(data.referencePrice, item) +
-      renderStoreServices(data.recommendedStores, item) +
+      renderServiceOfferList(offers, item, data.sortOptions, 'recommend') +
       renderRelatedTopics(data.relatedTopics) +
       renderRelated(data.relatedServices) +
       renderSiteNav() +
@@ -550,6 +610,7 @@
         serviceName: item.name,
         caseCount: (data.stats && data.stats.caseCount) || 0,
         storeCount: (data.stats && data.stats.storeCount) || 0,
+        offerCount: offers.length,
         geoPageId: (data.geo && data.geo.id) || '',
         geoSlug: (data.geo && data.geo.slug) || item.slug || '',
       })
@@ -566,6 +627,39 @@
     }
   }
 
+  function appendGeoQuery(url) {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) {
+        resolve(url)
+        return
+      }
+      var done = false
+      var timer = setTimeout(function () {
+        if (done) return
+        done = true
+        resolve(url)
+      }, 1200)
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          if (done) return
+          done = true
+          clearTimeout(timer)
+          var lat = pos.coords.latitude
+          var lng = pos.coords.longitude
+          var join = url.indexOf('?') >= 0 ? '&' : '?'
+          resolve(url + join + 'lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng))
+        },
+        function () {
+          if (done) return
+          done = true
+          clearTimeout(timer)
+          resolve(url)
+        },
+        { timeout: 1000, maximumAge: 600000 }
+      )
+    })
+  }
+
   function tryLoadServiceItem(slug) {
     if (!slug || looksLikePlanId(slug)) return Promise.resolve(false)
 
@@ -575,7 +669,10 @@
       encodeURIComponent(slug) +
       (city ? '?city=' + encodeURIComponent(city) : '')
 
-    return fetch(apiUrl)
+    return appendGeoQuery(apiUrl)
+      .then(function (url) {
+        return fetch(url)
+      })
       .then(function (res) {
         return res.json().then(function (body) {
           return { ok: res.ok, status: res.status, body: body }
@@ -584,14 +681,8 @@
       .then(function (result) {
         if (result.status === 404) return false
         if (!result.ok || result.body.code !== 0 || !result.body.data) return false
-        var data = result.body.data
-        var landing = data.preferredLanding
-        if (landing && landing.autoRedirect && landing.path) {
-          window.location.replace(landing.path)
-          return true
-        }
         window.__H5_SERVICE_ITEM_HANDLED__ = true
-        renderPage(data)
+        renderPage(result.body.data)
         return true
       })
       .catch(function () {

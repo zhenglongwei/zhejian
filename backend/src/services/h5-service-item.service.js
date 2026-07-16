@@ -9,27 +9,47 @@ const { applyAggregateToServiceContent, aggregatePublicCases } = require('./geo-
 const { buildServicePageSchemaGraph } = require('../lib/schema-graph')
 const { config } = require('../config')
 
-const STORE_LIMIT = 8
-const STORE_CASE_LIMIT = 3
+const OFFER_LIMIT = 30
 
-function mapCaseListItem(item) {
-  return {
-    id: item.id,
-    slug: item.slug || (item.seo && item.seo.slug) || '',
-    title: item.title,
-    serviceName: item.serviceName,
-    summary: item.summary,
-    coverImage: item.coverImage || '',
-    coverImageDesensitized: item.coverImageDesensitized || item.coverImage || '',
-    priceMode: item.priceMode || 'range',
-    amount: item.amount,
-    minAmount: item.minAmount,
-    maxAmount: item.maxAmount,
-    authorizationTier: item.authorizationTier,
-    storeId: item.storeId,
-    storeName: item.storeName,
-    city: item.city || '',
+function toFiniteNumber(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return null
+  const toRad = (d) => (d * Math.PI) / 180
+  const R = 6371
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10
+}
+
+function resolvePlanSortPrice(plan) {
+  if (plan.priceMode === 'accident' || plan.priceMode === 'consult') return null
+  const amount = toFiniteNumber(plan.amount)
+  if (amount != null && amount > 0) return amount
+  const min = toFiniteNumber(plan.minAmount)
+  if (min != null && min > 0) return min
+  const max = toFiniteNumber(plan.maxAmount)
+  if (max != null && max > 0) return max
+  return null
+}
+
+function buildPlanPriceText(plan) {
+  if (plan.priceMode === 'accident') return '到店检测后报价'
+  if (plan.priceMode === 'consult') return '到店检测后确认'
+  if (plan.amount != null) return `¥${plan.amount}`
+  if (plan.minAmount != null && plan.maxAmount != null) {
+    return plan.minAmount === plan.maxAmount
+      ? `¥${plan.minAmount}`
+      : `¥${plan.minAmount}–¥${plan.maxAmount}`
   }
+  if (plan.minAmount != null) return `¥${plan.minAmount} 起`
+  return '到店确认'
 }
 
 function buildCaseReferencePrice(item, cases) {
@@ -52,11 +72,14 @@ function buildCaseReferencePrice(item, cases) {
       price.low === price.high
         ? `¥${price.low}`
         : `¥${price.low}–¥${price.high}`,
-    note: `基于全平台 ${price.sampleSize} 条脱敏案例汇总，仅供参考；进店后可查看该店方案价与本店案例。`,
+    note: `基于全平台 ${price.sampleSize} 条脱敏案例汇总，仅供参考。进店后可查看该店方案价与本店案例。`,
   }
 }
 
-function buildRecommendedStores(plans, merchants, casesByStore) {
+/**
+ * 一项服务 = 一家门店的一条在售方案（比价列表行）
+ */
+function buildServiceOffers(plans, merchants, casesByStore, geo = {}) {
   const merchantMap = new Map((merchants || []).map((m) => [m.id, m]))
   const byStore = new Map()
 
@@ -67,65 +90,77 @@ function buildRecommendedStores(plans, merchants, casesByStore) {
       byStore.set(plan.storeId, plan)
       return
     }
-    const existingAmount = existing.minAmount ?? existing.amount ?? Infinity
-    const planAmount = plan.minAmount ?? plan.amount ?? Infinity
-    if (planAmount < existingAmount) byStore.set(plan.storeId, plan)
+    const existingPrice = resolvePlanSortPrice(existing) ?? Infinity
+    const planPrice = resolvePlanSortPrice(plan) ?? Infinity
+    if (planPrice < existingPrice) byStore.set(plan.storeId, plan)
   })
+
+  const userLat = toFiniteNumber(geo.lat)
+  const userLng = toFiniteNumber(geo.lng)
 
   return [...byStore.entries()]
     .map(([storeId, plan]) => {
       const store = merchantMap.get(storeId)
-      const storeCases = (casesByStore.get(storeId) || []).map(mapCaseListItem)
+      const storeCases = casesByStore.get(storeId) || []
+      const sortPrice = resolvePlanSortPrice(plan)
+      const transparencyScore = toFiniteNumber(store.score) || 0
+      const distanceKm = haversineKm(userLat, userLng, store.latitude, store.longitude)
       return {
-        id: store.id,
-        name: store.name,
-        address: store.address,
-        businessHours: store.businessHours,
-        phone: store.phone || '',
-        city: store.city || '',
-        caseCount: storeCases.length,
-        score: store.score || 0,
+        id: plan.id,
         servicePlanId: plan.id,
         servicePlanName: plan.name || plan.serviceName || '',
-        planPath: plan.id ? `/service/${plan.id}.html` : `/store/${store.id}.html`,
+        planPath: `/service/${plan.id}.html`,
+        storeId: store.id,
+        storeName: store.name,
+        storePath: `/store/${store.id}.html`,
+        address: store.address || '',
+        city: store.city || '',
+        phone: store.phone || '',
+        businessHours: store.businessHours || '',
+        latitude: store.latitude,
+        longitude: store.longitude,
+        distanceKm,
         priceMode: plan.priceMode,
         minAmount: plan.minAmount,
         maxAmount: plan.maxAmount,
         amount: plan.amount,
-        cases: storeCases.slice(0, STORE_CASE_LIMIT),
+        priceText: buildPlanPriceText(plan),
+        sortPrice,
+        caseCount: storeCases.length,
+        transparencyScore,
+        // V2.0 无交易评价：用透明度分代替「口碑」指标，供排序与展示
+        metrics: {
+          price: sortPrice,
+          distanceKm,
+          caseCount: storeCases.length,
+          transparencyScore,
+        },
       }
     })
     .sort((a, b) => {
       const caseDiff = (b.caseCount || 0) - (a.caseCount || 0)
       if (caseDiff !== 0) return caseDiff
-      return (b.score || 0) - (a.score || 0)
+      const scoreDiff = (b.transparencyScore || 0) - (a.transparencyScore || 0)
+      if (scoreDiff !== 0) return scoreDiff
+      const priceA = a.sortPrice == null ? Infinity : a.sortPrice
+      const priceB = b.sortPrice == null ? Infinity : b.sortPrice
+      if (priceA !== priceB) return priceA - priceB
+      const distA = a.distanceKm == null ? Infinity : a.distanceKm
+      const distB = b.distanceKm == null ? Infinity : b.distanceKm
+      return distA - distB
     })
-    .slice(0, STORE_LIMIT)
+    .slice(0, OFFER_LIMIT)
 }
 
-function buildPreferredLanding(stores, { cityFilter }) {
-  if (!stores || stores.length !== 1) return null
-  const store = stores[0]
-  if (!store.servicePlanId || !store.planPath) return null
-  return {
-    path: store.planPath,
-    storeId: store.id,
-    storeName: store.name,
-    servicePlanId: store.servicePlanId,
-    reason: cityFilter ? 'city_single_store' : 'single_store',
-    autoRedirect: Boolean(cityFilter),
-  }
-}
-
-function buildSeo(item, merged, geoPage, { caseTotal, storeCount }) {
+function buildSeo(item, merged, geoPage, { caseTotal, offerCount }) {
   const forceNoindex = geoPage?.status === 'noindex'
-  const allowIndex = !forceNoindex && (caseTotal > 0 || storeCount > 0)
+  const allowIndex = !forceNoindex && (caseTotal > 0 || offerCount > 0)
   const title =
-    merged.seoTitle || `${item.name}门店服务与价格参考_透明汽车维修平台 · 辙见`
+    merged.seoTitle || `${item.name}门店服务对比与价格参考_透明汽车维修平台 · 辙见`
   const description =
     merged.seoDescription ||
     merged.aiSummary ||
-    `查看可提供${item.name}的真实门店服务方案、本店案例与全平台价格参考，预约到店检测。`
+    `对比可提供${item.name}的门店服务方案：参考价格、本店案例数、透明度等，选择后进入该店服务详情。`
   return {
     title,
     description,
@@ -187,11 +222,14 @@ async function getServiceItemPagePayload(slug, query = {}) {
     casesByStore.get(c.storeId).push(c)
   })
 
-  const recommendedStores = buildRecommendedStores(plans, merchants, casesByStore)
-  const preferredLanding = buildPreferredLanding(recommendedStores, {
-    cityFilter: merged.cityFilter,
+  const serviceOffers = buildServiceOffers(plans, merchants, casesByStore, {
+    lat: query.lat,
+    lng: query.lng,
   })
-  const referencePrice = buildCaseReferencePrice(item, effectiveCases.length ? effectiveCases : allCases)
+  const referencePrice = buildCaseReferencePrice(
+    item,
+    effectiveCases.length ? effectiveCases : allCases
+  )
 
   const relatedServices = (item.relatedSlugs || [])
     .map((relatedSlug) => resolveH5ServiceItemBySlug(relatedSlug))
@@ -213,7 +251,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
 
   const seo = buildSeo(item, { ...merged, aiSummary: aggregated.aiSummary }, geoPage, {
     caseTotal: effectiveCaseTotal || caseTotal,
-    storeCount: recommendedStores.length,
+    offerCount: serviceOffers.length,
   })
 
   const schemaGraph = buildServicePageSchemaGraph({
@@ -257,18 +295,42 @@ async function getServiceItemPagePayload(slug, query = {}) {
         }
       : null,
     referencePrice,
+    /** 比价列表：每家店一项真实服务方案 */
+    serviceOffers,
+    /** 兼容旧前端字段名 */
+    recommendedStores: serviceOffers.map((offer) => ({
+      id: offer.storeId,
+      name: offer.storeName,
+      address: offer.address,
+      servicePlanId: offer.servicePlanId,
+      planPath: offer.planPath,
+      priceMode: offer.priceMode,
+      minAmount: offer.minAmount,
+      maxAmount: offer.maxAmount,
+      amount: offer.amount,
+      caseCount: offer.caseCount,
+      score: offer.transparencyScore,
+      cases: [],
+    })),
     featuredCases: [],
-    recommendedStores,
-    preferredLanding,
+    preferredLanding: null,
     relatedServices,
     relatedTopics,
+    sortOptions: [
+      { value: 'recommend', label: '综合推荐' },
+      { value: 'price', label: '价格优先' },
+      { value: 'cases', label: '案例更多' },
+      { value: 'transparency', label: '透明度更高' },
+      { value: 'distance', label: '距离更近' },
+    ],
     faq: [],
     faqLinks: [],
-    articleBody: merged.articleBody || '',
+    articleBody: '',
     aggregateStats: aggregated.aggregateStats,
     stats: {
       caseCount: effectiveCaseTotal || caseTotal,
-      storeCount: recommendedStores.length,
+      storeCount: serviceOffers.length,
+      offerCount: serviceOffers.length,
       sampleSize: aggregated.aggregateStats.sampleSize,
       hasInformationGain: aggregated.aggregateStats.hasInformationGain,
     },
