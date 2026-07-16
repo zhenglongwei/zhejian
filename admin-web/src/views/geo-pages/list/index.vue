@@ -47,7 +47,22 @@
       show-icon
     />
 
-    <el-table v-if="list.length" :data="list" border stripe @row-click="goEdit">
+    <div v-if="selectedRows.length" class="batch-bar">
+      <span>已选 {{ selectedRows.length }} 项</span>
+      <el-button :loading="batchUnpublishing" @click="onBatchUnpublish">批量下架</el-button>
+      <el-button type="danger" :loading="batchDeleting" @click="onBatchDelete">批量删除</el-button>
+    </div>
+
+    <el-table
+      v-if="list.length"
+      ref="tableRef"
+      :data="list"
+      border
+      stripe
+      @row-click="goEdit"
+      @selection-change="onSelectionChange"
+    >
+      <el-table-column type="selection" width="48" />
       <el-table-column prop="title" label="标题" min-width="220" show-overflow-tooltip />
       <el-table-column prop="slug" label="slug" width="200" show-overflow-tooltip />
       <el-table-column prop="city" label="城市" width="100" />
@@ -62,9 +77,25 @@
         </template>
       </el-table-column>
       <el-table-column prop="updatedAt" label="更新时间" width="170" />
-      <el-table-column label="操作" width="90" fixed="right">
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click.stop="goEdit(row)">编辑</el-button>
+          <el-button
+            v-if="row.status !== 'draft'"
+            link
+            type="warning"
+            @click.stop="onUnpublish(row)"
+          >
+            下架
+          </el-button>
+          <el-button
+            link
+            type="danger"
+            :disabled="row.status !== 'draft'"
+            @click.stop="onDelete(row)"
+          >
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -130,8 +161,14 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { fetchGeoPageList } from '@/api/geo-pages'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  fetchGeoPageList,
+  unpublishGeoPage,
+  deleteGeoPage,
+  batchUnpublishGeoPages,
+  batchDeleteGeoPages,
+} from '@/api/geo-pages'
 import { exportGeoCasePack } from '@/api/geo-obs'
 import {
   GEO_PAGE_STATUS_OPTIONS,
@@ -140,8 +177,12 @@ import {
 } from '@/constants/geo-pages'
 
 const router = useRouter()
+const tableRef = ref(null)
 const loading = ref(false)
 const list = ref([])
+const selectedRows = ref([])
+const batchUnpublishing = ref(false)
+const batchDeleting = ref(false)
 const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
@@ -183,6 +224,117 @@ function onSearch() {
 function onPageChange(p) {
   page.value = p
   loadList()
+}
+
+function onSelectionChange(rows) {
+  selectedRows.value = rows || []
+}
+
+function getSelectedIds() {
+  return selectedRows.value.map((row) => row.id || row.slug).filter(Boolean)
+}
+
+async function onUnpublish(row) {
+  const id = row.id || row.slug
+  if (!id) return
+  try {
+    await ElMessageBox.confirm(`确认下架「${row.title || id}」？下架后可删除。`, '下架确认', {
+      type: 'warning',
+    })
+    await unpublishGeoPage(id)
+    ElMessage.success('已下架')
+    loadList()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '下架失败')
+    }
+  }
+}
+
+async function onDelete(row) {
+  const id = row.id || row.slug
+  if (!id) return
+  if (row.status !== 'draft') {
+    ElMessage.warning('须先下架为草稿后再删除')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认删除「${row.title || id}」？删除后不可恢复，关联案例挂载将同步解除。`,
+      '删除确认',
+      { type: 'warning' },
+    )
+    await deleteGeoPage(id)
+    ElMessage.success('已删除')
+    loadList()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '删除失败')
+    }
+  }
+}
+
+async function onBatchUnpublish() {
+  const ids = getSelectedIds()
+  if (!ids.length) {
+    ElMessage.warning('请先勾选专题')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确认批量下架 ${ids.length} 个专题？`, '批量下架', {
+      type: 'warning',
+    })
+    batchUnpublishing.value = true
+    const data = await batchUnpublishGeoPages(ids)
+    const msg = `下架 ${data.success || 0} 项，跳过 ${data.skipped || 0} 项，失败 ${data.failed || 0} 项`
+    if (data.failed) {
+      ElMessage.warning(msg)
+    } else {
+      ElMessage.success(msg)
+    }
+    loadList()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '批量下架失败')
+    }
+  } finally {
+    batchUnpublishing.value = false
+  }
+}
+
+async function onBatchDelete() {
+  const ids = getSelectedIds()
+  if (!ids.length) {
+    ElMessage.warning('请先勾选专题')
+    return
+  }
+  const nonDraft = selectedRows.value.filter((row) => row.status !== 'draft')
+  if (nonDraft.length) {
+    ElMessage.warning(`有 ${nonDraft.length} 项未下架，须先下架为草稿后再删除`)
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `确认批量删除 ${ids.length} 个草稿专题？删除后不可恢复。`,
+      '批量删除',
+      { type: 'warning' },
+    )
+    batchDeleting.value = true
+    const data = await batchDeleteGeoPages(ids)
+    const msg = `删除 ${data.success || 0} 项，失败 ${data.failed || 0} 项`
+    if (data.failed) {
+      ElMessage.warning(msg)
+    } else {
+      ElMessage.success(msg)
+    }
+    loadList()
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '批量删除失败')
+    }
+  } finally {
+    batchDeleting.value = false
+  }
 }
 
 function goCreate() {
@@ -250,6 +402,15 @@ onMounted(loadList)
 }
 .filter-form {
   margin-bottom: 16px;
+}
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 4px;
 }
 .pager {
   margin-top: 16px;

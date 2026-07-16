@@ -196,6 +196,126 @@ async function updateAdminGeoPage(idOrSlug, payload = {}) {
   return getAdminGeoPageDetail(row.id)
 }
 
+async function deleteAdminGeoPage(idOrSlug) {
+  const row = await prisma.geoPage.findFirst({
+    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+  })
+  if (!row) {
+    const err = new Error('专题不存在')
+    err.status = 404
+    throw err
+  }
+  if (row.status !== GEO_PAGE_STATUS.DRAFT) {
+    const err = new Error('须先下架为草稿后再删除')
+    err.status = 409
+    throw err
+  }
+
+  const caseIds = parseJsonArray(row.relatedCaseIdsJson)
+  await syncGeoPageCaseMounts(row.id, caseIds, [])
+  await prisma.geoPage.delete({ where: { id: row.id } })
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    deleted: true,
+  }
+}
+
+function normalizeBatchIds(ids) {
+  if (!Array.isArray(ids)) return []
+  return [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))]
+}
+
+async function batchUnpublishAdminGeoPages(ids = []) {
+  const pageIds = normalizeBatchIds(ids)
+  if (!pageIds.length) {
+    const err = new Error('请选择要下架的专题')
+    err.status = 400
+    throw err
+  }
+
+  const rows = await prisma.geoPage.findMany({
+    where: {
+      OR: [...pageIds.map((id) => ({ id })), ...pageIds.map((slug) => ({ slug }))],
+    },
+  })
+  const found = new Map()
+  rows.forEach((row) => {
+    found.set(row.id, row)
+    found.set(row.slug, row)
+  })
+
+  const results = []
+  for (const ref of pageIds) {
+    const row = found.get(ref)
+    if (!row) {
+      results.push({ id: ref, ok: false, error: '专题不存在' })
+      continue
+    }
+    if (row.status === GEO_PAGE_STATUS.DRAFT) {
+      results.push({ id: row.id, slug: row.slug, ok: true, skipped: true, message: '已是草稿' })
+      continue
+    }
+    try {
+      await setAdminGeoPageStatus(row.id, GEO_PAGE_STATUS.DRAFT)
+      results.push({ id: row.id, slug: row.slug, ok: true, unpublished: true })
+    } catch (e) {
+      results.push({ id: row.id, slug: row.slug, ok: false, error: e.message || '下架失败' })
+    }
+  }
+
+  return {
+    total: pageIds.length,
+    success: results.filter((item) => item.unpublished).length,
+    skipped: results.filter((item) => item.skipped).length,
+    failed: results.filter((item) => !item.ok).length,
+    results,
+  }
+}
+
+async function batchDeleteAdminGeoPages(ids = []) {
+  const pageIds = normalizeBatchIds(ids)
+  if (!pageIds.length) {
+    const err = new Error('请选择要删除的专题')
+    err.status = 400
+    throw err
+  }
+
+  const rows = await prisma.geoPage.findMany({
+    where: {
+      OR: [...pageIds.map((id) => ({ id })), ...pageIds.map((slug) => ({ slug }))],
+    },
+  })
+  const found = new Map()
+  rows.forEach((row) => {
+    found.set(row.id, row)
+    found.set(row.slug, row)
+  })
+
+  const results = []
+  for (const ref of pageIds) {
+    const row = found.get(ref)
+    if (!row) {
+      results.push({ id: ref, ok: false, error: '专题不存在' })
+      continue
+    }
+    try {
+      const data = await deleteAdminGeoPage(row.id)
+      results.push({ id: data.id, slug: data.slug, ok: true, deleted: true })
+    } catch (e) {
+      results.push({ id: row.id, slug: row.slug, ok: false, error: e.message || '删除失败' })
+    }
+  }
+
+  return {
+    total: pageIds.length,
+    success: results.filter((item) => item.deleted).length,
+    failed: results.filter((item) => !item.ok).length,
+    results,
+  }
+}
+
 async function setAdminGeoPageStatus(idOrSlug, status) {
   const nextStatus = String(status || '').trim()
   if (!Object.values(GEO_PAGE_STATUS).includes(nextStatus)) {
@@ -253,5 +373,8 @@ module.exports = {
   createAdminGeoPage,
   updateAdminGeoPage,
   setAdminGeoPageStatus,
+  deleteAdminGeoPage,
+  batchUnpublishAdminGeoPages,
+  batchDeleteAdminGeoPages,
   getGeoFaqTemplate,
 }

@@ -22,6 +22,9 @@ const {
   getAdminGeoPageDetail,
   createAdminGeoPage,
   updateAdminGeoPage,
+  deleteAdminGeoPage,
+  batchUnpublishAdminGeoPages,
+  batchDeleteAdminGeoPages,
   getGeoFaqTemplate,
 } = require('../services/admin-geo-page.service')
 const {
@@ -372,6 +375,26 @@ router.get('/geo-pages/faq-template', async (req, res, next) => {
   }
 })
 
+router.post('/geo-pages/batch-unpublish', async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : []
+    const data = await batchUnpublishAdminGeoPages(ids)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/geo-pages/batch-delete', async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : []
+    const data = await batchDeleteAdminGeoPages(ids)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/geo-pages/:pageId', async (req, res, next) => {
   try {
     const data = await getAdminGeoPageDetail(req.params.pageId)
@@ -429,6 +452,15 @@ router.post('/geo-pages/:pageId/publish', async (req, res, next) => {
 router.post('/geo-pages/:pageId/unpublish', async (req, res, next) => {
   try {
     const data = await setAdminGeoPageStatus(req.params.pageId, 'draft')
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/geo-pages/:pageId', async (req, res, next) => {
+  try {
+    const data = await deleteAdminGeoPage(req.params.pageId)
     return ok(res, data)
   } catch (e) {
     next(e)

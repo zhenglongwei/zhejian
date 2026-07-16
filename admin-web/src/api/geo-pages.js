@@ -27,3 +27,15 @@ export function publishGeoPage(pageId) {
 export function unpublishGeoPage(pageId) {
   return request.post(`/admin/geo-pages/${pageId}/unpublish`)
 }
+
+export function deleteGeoPage(pageId) {
+  return request.delete(`/admin/geo-pages/${pageId}`)
+}
+
+export function batchUnpublishGeoPages(ids) {
+  return request.post('/admin/geo-pages/batch-unpublish', { ids })
+}
+
+export function batchDeleteGeoPages(ids) {
+  return request.post('/admin/geo-pages/batch-delete', { ids })
+}
