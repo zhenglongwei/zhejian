@@ -4,7 +4,8 @@
 const { prisma } = require('../lib/prisma')
 const { GEO_PAGE_STATUS } = require('../constants/geo-page-status')
 const { mapGeoPageRow } = require('../schemas/geo-page.schema')
-const { normalizeFaq } = require('../schemas/geo-page.schema')
+const { listGeoPages } = require('./geo-page-store.service')
+const { filterTopicsForServiceItem } = require('../utils/geo-intent-discovery')
 
 const PUBLISHED_STATUSES = [GEO_PAGE_STATUS.PUBLISHED, GEO_PAGE_STATUS.NOINDEX]
 
@@ -27,6 +28,12 @@ async function loadGeoOverlayForServiceItem(item) {
   return mapGeoPageRow(row)
 }
 
+async function listPublishedTopicsForServiceItem(item, options = {}) {
+  if (!item) return []
+  const { list } = await listGeoPages({ limit: 0 })
+  return filterTopicsForServiceItem(list, item, options)
+}
+
 function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
   if (!geoPage) {
     return {
@@ -35,8 +42,6 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       scenarios: item.scenarios || [],
       process: item.process || [],
       priceFactors: item.priceFactors || [],
-      faq: normalizeFaq(item.faq || []),
-      faqLinks: [],
       articleBody: '',
       seoTitle: '',
       seoDescription: '',
@@ -52,8 +57,6 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       ? geoPage.serviceMeta.process
       : item.process || [],
     priceFactors: geoPage.priceFactors?.length ? geoPage.priceFactors : item.priceFactors || [],
-    faq: geoPage.faq?.length ? geoPage.faq : [],
-    faqLinks: geoPage.faqLinks || [],
     articleBody: geoPage.articleBody || geoPage.serviceMeta?.articleBody || '',
     seoTitle: geoPage.seoTitle || '',
     seoDescription: geoPage.seoDescription || '',
@@ -63,5 +66,6 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
 
 module.exports = {
   loadGeoOverlayForServiceItem,
+  listPublishedTopicsForServiceItem,
   mergeServiceItemWithGeo,
 }

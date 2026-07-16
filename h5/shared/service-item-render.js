@@ -181,23 +181,6 @@
         url: canonical,
       },
     ]
-    if (data.faq && data.faq.length) {
-      var visibleFaq = data.faq.filter(function (entry) {
-        return entry && entry.q && entry.a
-      })
-      if (visibleFaq.length) {
-        graph.push({
-          '@type': 'FAQPage',
-          mainEntity: visibleFaq.map(function (entry) {
-            return {
-              '@type': 'Question',
-              name: entry.q,
-              acceptedAnswer: { '@type': 'Answer', text: entry.a },
-            }
-          }),
-        })
-      }
-    }
     injectJsonLd({ '@context': 'https://schema.org', '@graph': graph })
     }
     if (window.zhejianSeo) {
@@ -418,66 +401,64 @@
     )
   }
 
-  function renderFaq(faq) {
-    if (!faq || !faq.length) return ''
-    var items = faq
-      .filter(function (entry) {
-        return entry && entry.q && entry.a
+  function renderRelatedTopics(topics) {
+    if (!topics || !topics.length) return ''
+    var ui = window.zhejianH5Ui
+    var items = topics
+      .filter(function (topic) {
+        return topic.h5Path && topic.h5Path.indexOf('/service/') === 0
       })
-      .map(function (entry) {
+      .map(function (topic) {
+        var href = topic.h5Path
+        if (ui && ui.renderEntryCard) {
+          return ui.renderEntryCard({
+            href: href,
+            name: topic.title,
+            summary: topic.summary || '阅读专题说明与相关案例',
+          })
+        }
         return (
-          '<div class="h5-faq-item"><div class="h5-faq-q">' +
-          escapeHtml(entry.q) +
-          '</div><div class="h5-faq-a">' +
-          escapeHtml(entry.a) +
-          '</div></div>'
+          '<a class="h5-entry-card" href="' +
+          escapeHtml(href) +
+          '"><div class="h5-entry-card__body"><div class="h5-entry-card__title">' +
+          escapeHtml(topic.title) +
+          '</div>' +
+          (topic.summary
+            ? '<div class="h5-entry-card__summary">' + escapeHtml(topic.summary) + '</div>'
+            : '') +
+          '</div><span class="h5-entry-card__hint">›</span></a>'
         )
       })
       .join('')
     if (!items) return ''
     return (
-      '<section class="h5-card h5-topic-faq" id="service-faq">' +
-      '<h2 class="h5-section-title">常见问题</h2>' +
+      '<section class="h5-card" id="service-related-topics">' +
+      '<h2 class="h5-section-title">相关专题</h2>' +
+      '<div class="h5-entry-list">' +
       items +
-      '</section>'
-    )
-  }
-
-  function renderFaqLinks(faqLinks) {
-    if (!faqLinks || !faqLinks.length) return ''
-    var items = faqLinks
-      .map(function (entry) {
-        var href = String(entry.url || '').replace(/"/g, '&quot;')
-        return (
-          '<a class="h5-faq-link" href="' +
-          href +
-          '" target="_blank" rel="noopener noreferrer">' +
-          '<span class="h5-faq-link__title">' +
-          escapeHtml(entry.title) +
-          '</span>' +
-          '<span class="h5-faq-link__hint">公众号文章</span>' +
-          '</a>'
-        )
-      })
-      .join('')
-    return (
-      '<div class="h5-card" id="service-faq-links">' +
-      '<h2 class="h5-section-title">延伸阅读</h2>' +
-      '<div class="h5-faq-links">' +
-      items +
-      '</div></div>'
+      '</div></section>'
     )
   }
 
   function renderReferencePrice(price, item) {
-    if (!price || !price.text) return ''
+    if (!price || price.sampleSize < 1) return ''
     var compliance =
       item.priceMode === 'accident' || price.mode === 'accident' ? COPY.accident : COPY.price
+    var rangeText = ''
+    if (price.min != null && price.max != null) {
+      rangeText =
+        price.min === price.max
+          ? '价格：¥' + price.min
+          : '价格区间：¥' + price.min + '–¥' + price.max
+    } else if (price.text) {
+      rangeText = String(price.text)
+    }
+    var avgLine =
+      price.average != null ? '<p class="h5-price">案例均价：¥' + price.average + '</p>' : ''
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">参考价格</h2>' +
-      '<p class="h5-price">' +
-      escapeHtml(price.text) +
-      '</p>' +
+      '<div class="h5-card"><h2 class="h5-section-title">价格参考</h2>' +
+      (rangeText ? '<p class="h5-price">' + escapeHtml(rangeText) + '</p>' : '') +
+      avgLine +
       (price.note ? '<p class="h5-price-note">' + escapeHtml(price.note) + '</p>' : '') +
       '<p class="h5-compliance">' +
       escapeHtml(compliance) +
@@ -606,12 +587,11 @@
       '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>' +
       '</div>' +
       renderArticleBody(data.articleBody) +
-      renderFaq(data.faq) +
+      renderRelatedTopics(data.relatedTopics) +
       renderReferencePrice(data.referencePrice, item) +
       renderSupplementSection(data, item) +
       renderEvidenceSection(data, item) +
       renderRelated(data.relatedServices) +
-      renderFaqLinks(data.faqLinks) +
       renderSiteNav() +
       renderDisclaimerBlock() +
       '</div>'

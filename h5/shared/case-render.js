@@ -256,45 +256,6 @@
       })
     }
 
-    var faqInline = (data.faq || []).filter(function (item) {
-      return item && item.q && item.a
-    })
-    if (faqInline.length) {
-      ensureJsonLd('case-faq-inline-schema', {
-        '@context': 'https://schema.org',
-        '@type': 'FAQPage',
-        mainEntity: faqInline.map(function (item) {
-          return {
-            '@type': 'Question',
-            name: item.q,
-            acceptedAnswer: { '@type': 'Answer', text: item.a },
-          }
-        }),
-      })
-    }
-    }
-
-    var faqLinks = (data.faqLinks || []).concat(
-      (data.faq || []).filter(function (item) {
-        return item && item.title && item.url
-      })
-    )
-    if (faqLinks.length) {
-      ensureJsonLd('case-faq-schema', {
-        '@context': 'https://schema.org',
-        '@type': 'ItemList',
-        name: '延伸阅读',
-        itemListElement: faqLinks.map(function (item, index) {
-          return {
-            '@type': 'ListItem',
-            position: index + 1,
-            name: item.title,
-            url: item.url,
-          }
-        }),
-      })
-    }
-
     var processNodes = (data.nodes || []).filter(function (node) {
       return node && (node.title || node.note)
     })
@@ -583,26 +544,18 @@
         path: links.service.path,
       })
     }
-    if (links.faq && links.faq.path) {
-      entries.push({
-        type: 'faq',
-        label: links.faq.label || '常见问题',
-        hint: '维修说明与 FAQ',
-        path: links.faq.path,
-        isAnchor: links.faq.isAnchor,
-      })
-    } else if (links.geoTopic && links.geoTopic.path) {
+    if (links.geoTopic && links.geoTopic.path) {
       entries.push({
         type: 'geo',
-        label: links.geoTopic.title || '相关服务说明',
-        hint: '流程、价格与常见问题',
+        label: links.geoTopic.title || '相关专题',
+        hint: '阅读专题说明与相关案例',
         path: links.geoTopic.path,
       })
     } else if (links.relatedService && links.relatedService.path) {
       entries.push({
         type: 'geo',
         label: links.relatedService.name || '相关服务',
-        hint: '服务项目说明与 FAQ',
+        hint: '查看服务项目专题',
         path: links.relatedService.path,
       })
     }
@@ -629,7 +582,7 @@
     return (
       '<div class="h5-card" id="case-internal-links">' +
       '<h2 class="h5-section-title">延伸浏览</h2>' +
-      '<p class="h5-compliance">通过以下链接查看门店、服务项目、同类案例与常见问题，便于对比参考。</p>' +
+      '<p class="h5-compliance">通过以下链接查看门店、服务项目、同类案例与相关专题，便于对比参考。</p>' +
       '<div class="h5-internal-links">' +
       items +
       '</div></div>'
@@ -641,14 +594,14 @@
     if (!links) return ''
     var target = links.geoTopic || links.relatedService
     if (!target || !target.path) return ''
-    var title = target.title || (links.relatedService && links.relatedService.name) || '相关服务说明'
+    var title = target.title || (links.relatedService && links.relatedService.name) || '相关专题'
     var summary = target.summary || ''
     return (
       '<div class="h5-card" id="case-related-service">' +
-      '<h2 class="h5-section-title">相关服务说明</h2>' +
+      '<h2 class="h5-section-title">相关专题</h2>' +
       (summary
         ? '<p class="h5-summary">' + escapeHtml(summary) + '</p>'
-        : '<p class="h5-compliance">查看该服务项目的流程说明、参考价格与常见问题。</p>') +
+        : '<p class="h5-compliance">查看该服务项目的专题说明、流程与价格参考。</p>') +
       '<a class="h5-btn h5-btn--secondary" href="' +
       escapeHtml(target.path) +
       '">查看' +
@@ -1508,7 +1461,6 @@
     html += renderStoreSection(safeData)
     html += renderRelatedServiceCard(safeData)
     html += renderInternalLinks(safeData)
-    html += renderFaq(safeData)
     html += renderRelatedCases(
       safeData.relatedCases,
       safeData.id,

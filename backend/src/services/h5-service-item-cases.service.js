@@ -118,7 +118,6 @@ async function getServiceItemCasesPagePayload(slug, query = {}) {
       activeCity: city,
       activeStoreId: storeId,
     },
-    faq: item.faq || [],
     pagination: {
       page,
       pageSize,

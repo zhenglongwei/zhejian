@@ -100,16 +100,6 @@ function buildStoreBotBodyHtml(store) {
           )
           .join('')}</ul></section>`
       : '',
-    (store.faq || []).length
-      ? `<section data-bot="faq"><h2>常见问题</h2>${(store.faq || [])
-          .map(
-            (item) =>
-              `<article><h3>${escapeHtml(item.q || item.question || '')}</h3><p>${escapeHtml(
-                item.a || item.answer || ''
-              )}</p></article>`
-          )
-          .join('')}</section>`
-      : '',
   ]
   return sections.filter(Boolean).join('\n')
 }

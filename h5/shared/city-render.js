@@ -96,43 +96,9 @@
         'city-breadcrumb'
       )
     }
-
-    if (data.faq && data.faq.length) {
-      injectJsonLd({
-        '@context': 'https://schema.org',
-        '@graph': [
-          {
-            '@type': 'WebPage',
-            name: title,
-            description: desc,
-            url: canonical,
-          },
-          {
-            '@type': 'FAQPage',
-            mainEntity: data.faq.map(function (item) {
-              return {
-                '@type': 'Question',
-                name: item.q,
-                acceptedAnswer: {
-                  '@type': 'Answer',
-                  text: item.a,
-                },
-              }
-            }),
-          },
-        ],
-      })
-    }
   }
 
   function renderSiteNav() {
-    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
-      return window.zhejianSiteNav.render()
-    }
-    return ''
-  }
-
-  function renderDisclaimer() {
     if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
       return window.zhejianH5Ui.renderDisclaimer(
         COPY.displayDisclaimer,
@@ -318,7 +284,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">常见维修问题</h2>' +
+      '<div class="h5-card"><h2 class="h5-section-title">相关专题</h2>' +
       '<div class="h5-entry-list">' +
       items +
       '</div></div>'
@@ -457,7 +423,6 @@
       renderStores(data.recommendedMerchants, cityName) +
       renderGeoTopics(data.geoTopics) +
       renderIntro((data.platformIntro && data.platformIntro.points) || []) +
-      renderFaq(data.faq) +
       renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">' +
       escapeHtml(

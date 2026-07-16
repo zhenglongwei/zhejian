@@ -132,15 +132,17 @@ function computePriceStats(cases, priceMode) {
   const high = Math.max(...amounts)
   const sorted = [...amounts].sort((a, b) => a - b)
   const mid = sorted[Math.floor(sorted.length / 2)]
+  const average = Math.round(amounts.reduce((sum, value) => sum + value, 0) / amounts.length)
   return {
     low: Math.round(low),
     high: Math.round(high),
     median: Math.round(mid),
+    average,
     sampleSize: amounts.length,
     text:
       low === high
         ? `方案价参考约 ¥${Math.round(low)}（${PRICE_DISCLAIMER}）`
-        : `方案价参考区间 ¥${Math.round(low)}–¥${Math.round(high)}（中位数 ¥${Math.round(mid)}，${PRICE_DISCLAIMER}）`,
+        : `方案价参考区间 ¥${Math.round(low)}–¥${Math.round(high)}（均价 ¥${average}，${PRICE_DISCLAIMER}）`,
   }
 }
 

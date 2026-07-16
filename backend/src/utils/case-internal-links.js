@@ -156,26 +156,18 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
     }
   }
 
-  if (ctx.hasFaq) {
+  if (geoTopic) {
     links.push({
-      type: 'faq',
-      label: '延伸阅读',
-      hint: '公众号科普文章',
-      path: '#case-faq',
-      isAnchor: true,
-    })
-  } else if (geoTopic) {
-    links.push({
-      type: 'faq',
-      label: `${geoTopic.title || service?.name || '服务'} FAQ`,
-      hint: '服务项目说明与常见问题',
+      type: 'geo',
+      label: geoTopic.title || service?.name || '相关专题',
+      hint: '阅读专题说明与相关案例',
       path: geoTopic.path,
     })
   } else if (service) {
     links.push({
-      type: 'faq',
-      label: '服务项目 FAQ',
-      hint: `了解${service.name}常见问题`,
+      type: 'geo',
+      label: `${service.name}专题`,
+      hint: '查看服务项目相关专题',
       path: service.path,
     })
   }
@@ -198,18 +190,18 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
         ? { label: `${city}本地维修`, path: cityPath }
         : null,
     service,
-    faq: ctx.hasFaq
-      ? { label: '延伸阅读', path: '#case-faq', isAnchor: true }
-      : geoTopic
+    geoTopic: geoTopic
+      ? {
+          title: geoTopic.title || '相关专题',
+          path: geoTopic.path,
+        }
+      : service
         ? {
-            label: geoTopic.title || '相关服务说明',
-            path: geoTopic.path,
+            title: `${service.name}专题`,
+            path: service.path,
           }
-        : service
-          ? { label: '服务 FAQ', path: service.path }
-          : null,
+        : null,
     city: cityPath ? { name: city, path: cityPath } : null,
-    geoTopic: geoTopic,
     relatedService: geoMatch.serviceItem
       ? {
           slug: geoMatch.serviceItem.slug,

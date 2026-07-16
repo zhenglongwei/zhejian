@@ -172,7 +172,7 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">常见维修问题</h2>' +
+      '<div class="h5-card"><h2 class="h5-section-title">相关专题</h2>' +
       '<div class="h5-entry-list">' +
       items +
       '</div></div>'

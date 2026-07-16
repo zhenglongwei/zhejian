@@ -349,7 +349,6 @@
       renderCaseCards(data.cases, item) +
       '</div>' +
       renderPagination(item.slug, pagination, data.filters) +
-      renderFaq(data.faq) +
       renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">公开内容经审核，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'

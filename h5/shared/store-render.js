@@ -409,18 +409,6 @@
         additionalProperty: additionalProperty.length ? additionalProperty : undefined,
       },
     ]
-    if (store.faq && store.faq.length) {
-      graph.push({
-        '@type': 'FAQPage',
-        mainEntity: store.faq.map(function (item) {
-          return {
-            '@type': 'Question',
-            name: item.q,
-            acceptedAnswer: { '@type': 'Answer', text: item.a },
-          }
-        }),
-      })
-    }
     return { '@context': 'https://schema.org', '@graph': graph }
   }
 
@@ -1114,7 +1102,6 @@
     html += renderSpecialties(store.specialties)
     html += renderTransparencyPanel(store, (services || []).length)
     html += renderEnvironment(store.environmentImages)
-    html += renderStoreFaq(store.faq)
 
     html += '<div class="h5-body-spacer"></div></div>'
 

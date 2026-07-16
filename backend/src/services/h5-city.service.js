@@ -12,27 +12,6 @@ const { listCases, listMerchants } = require('./content.service')
 const { listGeoPages } = require('./geo.service')
 const { filterIntentDiscoveryTopics } = require('../utils/geo-intent-discovery')
 
-const CITY_FAQ = {
-  hangzhou: [
-    {
-      q: '杭州汽车维修一般怎么选门店？',
-      a: '建议先查看公开维修案例了解流程与价格影响因素，再选择可预约的本地门店到店检测。页面案例均已脱敏审核，价格仅供参考。',
-    },
-    {
-      q: '杭州刹车片更换、小保养大概多少钱？',
-      a: '费用因车型、配件品牌、损伤程度和门店工时不同而变化，页面展示的价格仅为参考区间，实际费用需到店检测后确认。',
-    },
-    {
-      q: '事故车维修可以在杭州线上确认最终价格吗？',
-      a: '事故车维修无法仅凭线上信息准确报价，需到店检测或拆检后确认维修方案和费用。本页案例仅用于了解常见流程。',
-    },
-    {
-      q: '如何在杭州预约本地门店？',
-      a: '点击页面中的预约入口，可打开小程序查看门店和服务并提交咨询预约。复杂项目建议先电话或留言确认到店时间。',
-    },
-  ],
-}
-
 function mapFeaturedCase(item) {
   return {
     id: item.id,
@@ -125,7 +104,6 @@ async function getCityPagePayload(citySlug) {
     protectionText: HOME_PROTECTION_TEXT,
     priceNotice:
       '案例价格仅为参考区间，复杂维修与事故车需到店检测后确认，实际费用以门店为准。',
-    faq: CITY_FAQ[city.slug] || [],
     stats: {
       caseCount,
       storeCount,

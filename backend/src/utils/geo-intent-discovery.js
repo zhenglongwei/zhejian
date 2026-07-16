@@ -36,7 +36,26 @@ function filterIntentDiscoveryTopics(list, options = {}) {
   return ranked.slice(0, Math.max(0, limit))
 }
 
+function topicMatchesServiceItem(page, item) {
+  if (!page || !item) return false
+  const meta = page.serviceMeta || {}
+  const ids = [page.serviceId, page.relatedServiceId, meta.serviceItemId].filter(Boolean)
+  if (ids.includes(item.serviceItemId)) return true
+  const path = String(page.h5Path || '').trim()
+  if (path && path.startsWith(`/service/${item.slug}.html`)) return true
+  return false
+}
+
+function filterTopicsForServiceItem(list, item, options = {}) {
+  const limit = options.limit != null ? Number(options.limit) : 12
+  if (!item) return []
+
+  const related = (list || []).filter((page) => topicMatchesServiceItem(page, item))
+  return filterIntentDiscoveryTopics(related, { limit })
+}
+
 module.exports = {
   DISCOVERY_PAGE_TYPES,
   filterIntentDiscoveryTopics,
+  filterTopicsForServiceItem,
 }

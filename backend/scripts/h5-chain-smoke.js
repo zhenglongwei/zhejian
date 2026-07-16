@@ -58,7 +58,7 @@ async function pickTargetFromApi() {
     const detail = await api('GET', `/user/cases/${encodeURIComponent(item.id)}`)
     if (!detail.ok || detail.json?.code !== 0) continue
     const links = detail.json.data?.internalLinks
-    if (links?.service?.path && links?.faq?.path) {
+    if (links?.service?.path && links?.geoTopic?.path) {
       return { id: item.id, storeId: item.storeId }
     }
   }
@@ -144,7 +144,7 @@ async function verifyH5City() {
   assert(apiCity.json.data?.city?.slug === 'hangzhou', 'city slug 不正确')
   assert(Array.isArray(apiCity.json.data?.featuredCases), 'city 缺少 featuredCases')
   assert(Array.isArray(apiCity.json.data?.recommendedMerchants), 'city 缺少 recommendedMerchants')
-  assert(Array.isArray(apiCity.json.data?.faq), 'city 缺少 faq')
+  assert(Array.isArray(apiCity.json.data?.geoTopics), 'city 缺少 geoTopics')
   assert(apiCity.json.data?.seo?.canonicalPath === '/city/hangzhou', 'city canonicalPath 不正确')
   console.log('[chain] ✅ H5 城市页 /city/hangzhou + GET /public/h5/cities/hangzhou')
 }
@@ -234,7 +234,7 @@ async function verifyH5ServiceItem() {
   assert(apiItem.json.data?.stats?.caseCount != null, 'service item 缺少 stats.caseCount')
   assert(apiItem.json.data?.seo?.robots, 'service item 缺少 seo.robots')
   assert(Array.isArray(apiItem.json.data?.featuredCases), 'service item 缺少 featuredCases')
-  assert(Array.isArray(apiItem.json.data?.faq), 'service item 缺少 faq')
+  assert(Array.isArray(apiItem.json.data?.relatedTopics), 'service item 缺少 relatedTopics')
   assert(apiItem.json.data?.aggregateStats != null, 'service item 缺少 aggregateStats')
   if (apiItem.json.data?.stats?.caseCount > 0) {
     assert(
@@ -434,7 +434,7 @@ async function verifyH5CaseInternalLinks(caseId) {
   assert(links && typeof links === 'object', '案例缺少 internalLinks')
   assert(links.store?.path || data.authorizationTier === 'anonymous', '案例应有门店内链')
   assert(links.service?.path, '案例应有服务项目内链')
-  assert(links.faq?.path, '案例应有 FAQ 内链')
+  assert(links.geoTopic?.path, '案例应有专题内链')
   assert(Array.isArray(data.relatedCases), '案例缺少 relatedCases')
   assert(
     data.relatedCases.length >= 1 || data.authorizationTier === 'anonymous',

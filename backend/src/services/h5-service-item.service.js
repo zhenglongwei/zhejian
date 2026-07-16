@@ -2,9 +2,10 @@ const { resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
 const { listCases, listMerchants, listServices } = require('./content.service')
 const {
   loadGeoOverlayForServiceItem,
+  listPublishedTopicsForServiceItem,
   mergeServiceItemWithGeo,
 } = require('./h5-service-geo-merge.service')
-const { applyAggregateToServiceContent } = require('./geo-case-aggregate.service')
+const { applyAggregateToServiceContent, aggregatePublicCases } = require('./geo-case-aggregate.service')
 const { buildServicePageSchemaGraph } = require('../lib/schema-graph')
 const { config } = require('../config')
 const { orderCasesByIds } = require('../utils/geo-topic-matcher')
@@ -32,46 +33,27 @@ function mapCaseListItem(item) {
   }
 }
 
-function buildReferencePrice(item, plans) {
-  if (item.priceMode === 'accident') {
-    return {
-      mode: 'accident',
-      text: item.referencePriceHint,
-      note: '事故车维修不支持线上最终报价，需到店检测或拆检后确认。',
-    }
-  }
+function buildCaseReferencePrice(item, cases) {
+  if (!cases || !cases.length) return null
 
-  const amounts = []
-  ;(plans || []).forEach((plan) => {
-    if (plan.amount != null) amounts.push(Number(plan.amount))
-    if (plan.minAmount != null) amounts.push(Number(plan.minAmount))
-    if (plan.maxAmount != null) amounts.push(Number(plan.maxAmount))
+  const stats = aggregatePublicCases(cases, {
+    serviceName: item.name,
+    priceMode: item.priceMode,
   })
-  const valid = amounts.filter((n) => Number.isFinite(n) && n > 0)
-
-  if (item.priceMode === 'fixed' && valid.length) {
-    const min = Math.min(...valid)
-    return {
-      mode: 'fixed',
-      text: '参考价格：¥' + min + ' 起',
-      note: item.referencePriceHint,
-    }
-  }
-
-  if (valid.length) {
-    const min = Math.min(...valid)
-    const max = Math.max(...valid)
-    return {
-      mode: 'range',
-      text: min === max ? '参考价格：¥' + min : '参考区间：¥' + min + '–¥' + max,
-      note: item.referencePriceHint,
-    }
-  }
+  const price = stats.price
+  if (!price || !price.sampleSize) return null
 
   return {
-    mode: item.priceMode || 'consult',
-    text: item.referencePriceHint || '需到店检测后确认维修方案和费用',
-    note: '实际费用以门店检测为准。',
+    mode: item.priceMode || 'range',
+    min: price.low,
+    max: price.high,
+    average: price.average,
+    sampleSize: price.sampleSize,
+    text:
+      price.low === price.high
+        ? `¥${price.low}`
+        : `¥${price.low}–¥${price.high}`,
+    note: `基于 ${price.sampleSize} 条脱敏案例汇总，实际费用以门店检测为准。`,
   }
 }
 
@@ -153,6 +135,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
   const cityFilter = String(query.city || '').trim()
   const geoPage = await loadGeoOverlayForServiceItem(item)
   const merged = mergeServiceItemWithGeo(item, geoPage, cityFilter)
+  const relatedTopics = await listPublishedTopicsForServiceItem(item, { limit: 12 })
 
   const [{ list: allCases, total: caseTotal }, { list: plans }] = await Promise.all([
     listCases({ serviceItemId: item.serviceItemId }),
@@ -183,7 +166,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
   }
 
   const recommendedStores = buildRecommendedStores(plans, merchants, caseCountByStore)
-  const referencePrice = buildReferencePrice(item, plans)
+  const referencePrice = buildCaseReferencePrice(item, effectiveCases)
 
   const relatedServices = (item.relatedSlugs || [])
     .map((relatedSlug) => resolveH5ServiceItemBySlug(relatedSlug))
@@ -200,7 +183,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
     city: merged.cityFilter,
     priceMode: item.priceMode,
     aiSummary: merged.aiSummary,
-    faq: merged.faq,
+    faq: [],
   })
 
   const seo = buildSeo(item, { ...merged, aiSummary: aggregated.aiSummary }, geoPage, {
@@ -223,7 +206,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
           publishedAt: geoPage.publishedAt || '',
         }
       : null,
-    faq: aggregated.faq,
+    faq: [],
     aggregateStats: aggregated.aggregateStats,
     organizationSameAs: config.geo?.organizationSameAs || [],
   })
@@ -254,8 +237,9 @@ async function getServiceItemPagePayload(slug, query = {}) {
     featuredCases,
     recommendedStores,
     relatedServices,
-    faq: aggregated.faq,
-    faqLinks: merged.faqLinks,
+    relatedTopics,
+    faq: [],
+    faqLinks: [],
     articleBody: merged.articleBody || '',
     aggregateStats: aggregated.aggregateStats,
     stats: {
