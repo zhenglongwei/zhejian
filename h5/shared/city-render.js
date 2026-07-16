@@ -327,13 +327,6 @@
     )
   }
 
-  function buildWeappPath(citySlug) {
-    return (
-      'pages/index/index?source=h5&page_type=city&city_slug=' +
-      encodeURIComponent(citySlug || 'hangzhou')
-    )
-  }
-
   function bindInteractions(data) {
     var citySlug = (data.city && data.city.slug) || 'hangzhou'
     var cityName = (data.city && data.city.name) || '杭州'
@@ -361,21 +354,6 @@
         }
       })
     })
-
-    var weappBtn = document.getElementById('h5-open-weapp-btn')
-    if (weappBtn) {
-      weappBtn.addEventListener('click', function () {
-        var path = buildWeappPath(citySlug)
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_open_weapp_click', {
-            pageType: 'city',
-            city: cityName,
-            citySlug: citySlug,
-          })
-        }
-        alert('请打开微信小程序继续。路径：' + path)
-      })
-    }
 
     if (window.zhejianTrack && window.zhejianTrack.bindScrollDepth) {
       window.zhejianTrack.bindScrollDepth({
@@ -415,7 +393,6 @@
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>' +
       '</div>' +
       renderServiceEntries(data.serviceEntries, cityName) +
       renderStats(data.stats, cityName) +

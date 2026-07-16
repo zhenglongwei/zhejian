@@ -910,13 +910,31 @@
   }
 
   function renderLegacyFooter(data) {
+    var phone = data.storePhone || (data.store && data.store.phone) || ''
     return (
       '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner h5-footer-inner--triple">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn-footer">打开小程序</button>' +
-      '<button type="button" class="h5-btn" id="h5-message-btn">留言</button>' +
-      '</div></footer>'
+      '<div class="h5-footer-inner h5-footer-inner--dual">' +
+      (phone
+        ? '<a class="h5-btn h5-btn--secondary" id="h5-call-btn" href="tel:' +
+          escapeHtml(phone) +
+          '">电话咨询</a>'
+        : '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话咨询</button>') +
+      '<button type="button" class="h5-btn" id="h5-consult-open-btn">留言咨询</button>' +
+      '</div>' +
+      '<div class="h5-footer-links">' +
+      (buildStoreNavUrl(data.store)
+        ? '<a class="h5-footer-link" id="h5-nav-link" href="' +
+          escapeHtml(buildStoreNavUrl(data.store)) +
+          '" target="_blank" rel="noopener">门店导航</a>'
+        : '') +
+      (data.storeId
+        ? '<a class="h5-footer-link" href="/store/' +
+          encodeURIComponent(data.storeId) +
+          '.html">本店主页</a>'
+        : '') +
+      '<button type="button" class="h5-footer-link h5-footer-link-btn" id="h5-copy-web-link">网页查看</button>' +
+      '</div></footer>' +
+      renderConsultSheet(data)
     )
   }
 
@@ -987,9 +1005,7 @@
     fallbackCopy()
   }
 
-  function openWeapp(path) {
-    alert('请打开微信小程序继续。路径：' + path)
-  }
+  function openWeapp() {}
 
   function renderPriceFactors(factors) {
     if (!factors || !factors.length) return ''
@@ -1232,7 +1248,7 @@
       } else if (articleMode) {
         openConsultSheet()
       } else {
-        alert('暂无门店电话，请打开小程序留言咨询。')
+        openConsultSheet()
       }
     }
 
@@ -1367,30 +1383,13 @@
       return
     }
 
-    ;['h5-open-weapp-btn', 'h5-open-weapp-btn-footer'].forEach(function (id) {
-      var btn = document.getElementById(id)
-      if (btn) {
-        btn.addEventListener('click', function () {
-          trackOpenWeapp()
-          openWeapp(miniprogramCasePath(safeData))
-        })
-      }
-    })
-
-    ;['h5-message-btn', 'h5-consult-top-btn'].forEach(function (id) {
-      var btn = document.getElementById(id)
-      if (btn) {
-        btn.addEventListener('click', function () {
-          trackConsultClick()
-          var phone = safeData.storePhone || (safeData.store && safeData.store.phone) || ''
-          if (phone) {
-            window.location.href = 'tel:' + phone
-          } else {
-            alert('暂无门店电话，请稍后再试。')
-          }
-        })
-      }
-    })
+    var webLinkLegacy = document.getElementById('h5-copy-web-link')
+    if (webLinkLegacy) {
+      webLinkLegacy.addEventListener('click', function () {
+        trackCopyWebLink()
+        copyShareablePageUrl()
+      })
+    }
   }
 
   function renderCase(data) {
@@ -1434,7 +1433,11 @@
     if (articleMode) {
       html +=
         '<div class="h5-top-actions">' +
-        '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn-top">电话咨询</button>' +
+        (safeData.storePhone || (safeData.store && safeData.store.phone)
+          ? '<a class="h5-btn h5-btn--secondary" id="h5-call-btn-top" href="tel:' +
+            escapeHtml(safeData.storePhone || safeData.store.phone) +
+            '">电话咨询</a>'
+          : '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn-top">电话咨询</button>') +
         '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
         '</div>' +
         renderArticleLead(safeData) +
@@ -1445,8 +1448,12 @@
     } else {
       html +=
         '<div class="h5-top-actions">' +
-        '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
-        '<button type="button" class="h5-btn" id="h5-consult-top-btn">预约类似服务</button>' +
+        (safeData.storePhone || (safeData.store && safeData.store.phone)
+          ? '<a class="h5-btn h5-btn--secondary" id="h5-call-btn-top" href="tel:' +
+            escapeHtml(safeData.storePhone || safeData.store.phone) +
+            '">电话咨询</a>'
+          : '') +
+        '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
         '</div>' +
         (safeData.displayAiSummary || safeData.aiSummary
           ? '<div class="h5-folio-summary">' +

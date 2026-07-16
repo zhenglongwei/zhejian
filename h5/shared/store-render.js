@@ -957,14 +957,6 @@
       })
     })
 
-    var openWeappBtn = document.getElementById('h5-open-weapp-btn')
-    if (openWeappBtn) {
-      openWeappBtn.addEventListener('click', function () {
-        trackOpenWeapp(storeId)
-        openWeapp(miniprogramPath('store/detail/index', storeId))
-      })
-    }
-
     var bookBtn = document.getElementById('h5-book-btn')
     if (bookBtn) {
       bookBtn.addEventListener('click', function () {
@@ -1024,19 +1016,6 @@
     }
   }
 
-  function trackOpenWeapp(storeId) {
-    if (window.zhejianTrack) {
-      window.zhejianTrack.track('h5_open_weapp_click', {
-        storeId: storeId,
-        page_type: 'store',
-      })
-    }
-  }
-
-  function openWeapp(path) {
-    alert('请打开微信小程序继续。路径：' + path)
-  }
-
   function renderStore(store, services, cases) {
     var bookingEnabled = store.status !== 'suspended' && store.status !== 'offline'
     var statusText = STATUS_TEXT[store.status] || store.status || ''
@@ -1080,12 +1059,13 @@
       suspendedNotice +
       '</header>' +
       heroHtml +
-      '<div class="h5-top-actions">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
-      (bookingEnabled
-        ? '<button type="button" class="h5-btn" id="h5-book-top-btn">预约该门店</button>'
-        : '') +
-      '</div>'
+      (store.phone
+        ? '<div class="h5-top-actions">' +
+          '<a class="h5-btn" href="tel:' +
+          escapeHtml(store.phone) +
+          '" id="h5-book-top-btn">电话预约</a>' +
+          '</div>'
+        : '')
 
     if (store.aiSummary || store.intro) {
       html +=
@@ -1107,12 +1087,16 @@
 
     html +=
       '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner h5-footer-inner--triple">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>' +
+      '<div class="h5-footer-inner h5-footer-inner--' +
+      (store.phone || store.latitude != null ? 'triple' : 'dual') +
+      '">' +
+      (store.phone
+        ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>'
+        : '') +
       '<button type="button" class="h5-btn h5-btn--secondary" id="h5-nav-btn">导航</button>' +
-      '<button type="button" class="h5-btn" id="h5-book-btn">' +
-      (bookingEnabled ? '留言预约' : '暂停预约') +
-      '</button>' +
+      (bookingEnabled && store.phone
+        ? '<button type="button" class="h5-btn" id="h5-book-btn">电话预约</button>'
+        : '') +
       '</div></footer>'
 
     var app = document.getElementById('app')

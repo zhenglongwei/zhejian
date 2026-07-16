@@ -520,29 +520,6 @@
     return store.status !== 'suspended' && store.status !== 'offline'
   }
 
-  function miniprogramServicePath(serviceId, storeId) {
-    return (
-      '/pages/service/detail/index?id=' +
-      encodeURIComponent(serviceId) +
-      '&source=h5&utm_source=h5&page_type=service' +
-      (storeId ? '&store_id=' + encodeURIComponent(storeId) : '')
-    )
-  }
-
-  function miniprogramConsultPath(serviceId, storeId) {
-    return (
-      '/pages/consult/submit/index?serviceId=' +
-      encodeURIComponent(serviceId) +
-      '&storeId=' +
-      encodeURIComponent(storeId || '') +
-      '&sourcePage=service&source=h5&utm_source=h5'
-    )
-  }
-
-  function openWeapp(path) {
-    alert('请打开微信小程序继续。路径：' + path)
-  }
-
   function bindServiceInteractions(service, store, bookingEnabled) {
     var serviceId = service.id
     var storeId = service.storeId || (store && store.id) || ''
@@ -571,56 +548,18 @@
       })
     }
 
-    var openWeappBtn = document.getElementById('h5-open-weapp-btn')
-    if (openWeappBtn) {
-      openWeappBtn.addEventListener('click', function () {
+    ;['h5-consult-top-btn', 'h5-call-btn'].forEach(function (id) {
+      var el = document.getElementById(id)
+      if (!el) return
+      el.addEventListener('click', function () {
         if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_open_weapp_click', {
-            page_type: 'service',
+          window.zhejianTrack.track(id === 'h5-call-btn' ? 'h5_call_click' : 'h5_consult_click', {
             serviceId: serviceId,
             storeId: storeId,
           })
         }
-        openWeapp(miniprogramServicePath(serviceId, storeId))
       })
-    }
-
-    var consultBtn = document.getElementById('h5-consult-btn')
-    if (consultBtn) {
-      consultBtn.addEventListener('click', function () {
-        if (!bookingEnabled) return
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_consult_click', {
-            serviceId: serviceId,
-            storeId: storeId,
-          })
-        }
-        var phone = (store && store.phone) || ''
-        if (phone) {
-          window.location.href = 'tel:' + phone
-        } else {
-          alert('暂无门店电话，请稍后再试。')
-        }
-      })
-    }
-
-    var callBtn = document.getElementById('h5-call-btn')
-    if (callBtn) {
-      callBtn.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_call_click', {
-            serviceId: serviceId,
-            storeId: storeId,
-          })
-        }
-        var phone = (store && store.phone) || ''
-        if (phone) {
-          window.location.href = 'tel:' + phone
-        } else {
-          alert('暂无门店电话，请稍后再试。')
-        }
-      })
-    }
+    })
   }
 
   function renderService(service, store, cases) {
@@ -663,12 +602,13 @@
       pausedNotice +
       '</header>' +
       heroHtml +
-      '<div class="h5-top-actions">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序</button>' +
-      (bookingEnabled
-        ? '<button type="button" class="h5-btn" id="h5-consult-top-btn">留言咨询</button>'
-        : '') +
-      '</div>'
+      ((store && store.phone)
+        ? '<div class="h5-top-actions">' +
+          '<a class="h5-btn" id="h5-consult-top-btn" href="tel:' +
+          escapeHtml(store.phone) +
+          '">电话咨询</a>' +
+          '</div>'
+        : '')
 
     html +=
       '<div class="h5-card"><h2 class="h5-section-title">参考价格</h2>' +
@@ -720,12 +660,17 @@
 
     html +=
       '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner h5-footer-inner--triple">' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn-footer">打开小程序</button>' +
-      '<button type="button" class="h5-btn" id="h5-consult-btn"' +
-      (bookingEnabled ? '' : ' disabled') +
-      '>留言咨询</button>' +
+      '<div class="h5-footer-inner h5-footer-inner--dual">' +
+      ((store && store.phone)
+        ? '<a class="h5-btn" id="h5-call-btn" href="tel:' +
+          escapeHtml(store.phone) +
+          '">电话咨询</a>'
+        : '<span class="h5-compliance">门店电话暂未公示</span>') +
+      (store && store.id
+        ? '<a class="h5-btn h5-btn--secondary" href="/store/' +
+          encodeURIComponent(store.id) +
+          '.html">门店主页</a>'
+        : '') +
       '</div></footer>'
 
     var app = document.getElementById('app')
@@ -733,38 +678,6 @@
 
     if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
       window.zhejianH5Ui.bindDisclaimerToggles()
-    }
-
-    var consultTop = document.getElementById('h5-consult-top-btn')
-    if (consultTop) {
-      consultTop.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_consult_click', {
-            serviceId: service.id,
-            storeId: service.storeId,
-          })
-        }
-        var phone = (store && store.phone) || ''
-        if (phone) {
-          window.location.href = 'tel:' + phone
-        } else {
-          alert('暂无门店电话，请稍后再试。')
-        }
-      })
-    }
-
-    var openWeappFooter = document.getElementById('h5-open-weapp-btn-footer')
-    if (openWeappFooter) {
-      openWeappFooter.addEventListener('click', function () {
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track('h5_open_weapp_click', {
-            page_type: 'service',
-            serviceId: service.id,
-            storeId: service.storeId,
-          })
-        }
-        openWeapp(miniprogramServicePath(service.id, service.storeId))
-      })
     }
 
     bindServiceInteractions(service, store, bookingEnabled)

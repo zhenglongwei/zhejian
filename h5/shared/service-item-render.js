@@ -532,25 +532,6 @@
 
     bindSortButtons()
     bindOfferClicks()
-
-    var weappBtn = document.getElementById('h5-open-weapp-btn')
-    if (weappBtn) {
-      weappBtn.addEventListener('click', function () {
-        var path =
-          'pages/index/index?source=h5&page_type=service&service_slug=' +
-          encodeURIComponent(item.slug || '') +
-          '&service_item_id=' +
-          encodeURIComponent(item.serviceItemId || '') +
-          '&utm_medium=geo&utm_source=h5'
-        if (window.zhejianTrack) {
-          window.zhejianTrack.track(
-            'h5_open_weapp_click',
-            geoTrackParams(item, { cta: 'weapp_booking' })
-          )
-        }
-        alert('请打开微信小程序继续。路径：/' + path)
-      })
-    }
   }
 
   function renderPage(data) {
@@ -588,7 +569,6 @@
       '</header>' +
       '<div class="h5-home-quick h5-topic-cta">' +
       '<a class="h5-btn" href="#service-offers">查看服务列表</a>' +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>' +
       '</div>' +
       renderReferencePrice(data.referencePrice, item) +
       renderServiceOfferList(offers, item, data.sortOptions, 'recommend') +
