@@ -316,6 +316,7 @@
       }
       ensureJsonLd('case-store-schema', storeSchema)
     }
+    }
   }
 
   function sanitizeCaseForDisplay(data) {
