@@ -143,7 +143,7 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
       label: service.name,
       hint: service.isMerchantPlan
         ? '查看门店服务方案详情'
-        : '服务项目说明、流程与参考价格',
+        : '查看可预约门店与本店案例',
       path: service.path,
     })
     if (service.casesPath) {

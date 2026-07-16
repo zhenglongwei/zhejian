@@ -195,22 +195,6 @@
     }
   }
 
-  function renderBulletSection(title, items) {
-    if (!items || !items.length) return ''
-    var lis = items
-      .map(function (text) {
-        return '<li>' + escapeHtml(text) + '</li>'
-      })
-      .join('')
-    return (
-      '<div class="h5-card"><h2 class="h5-section-title">' +
-      escapeHtml(title) +
-      '</h2><ul class="h5-bullet-list">' +
-      lis +
-      '</ul></div>'
-    )
-  }
-
   function isDesensitizedUrl(url) {
     if (!url) return false
     var value = String(url)
@@ -238,113 +222,90 @@
     return '到店检测后报价'
   }
 
-  function renderCases(cases, item, stats) {
-    var caseNote = COPY.casePrice
-    var section =
-      '<div class="h5-card"><h2 class="h5-section-title">真实维修案例</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(caseNote) +
-      '</p>'
+  function renderStoreCases(cases) {
     if (!cases || !cases.length) {
-      return (
-        section +
-        '<div class="h5-empty-block">该服务项目暂无公开案例，可先查看推荐门店并预约咨询。</div></div>'
-      )
+      return '<p class="h5-compliance">该店暂无本服务公开案例。</p>'
     }
-    var total = (stats && stats.caseCount) || cases.length
-    var cards = cases
-      .map(function (entry) {
-        if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
-          return window.zhejianH5Ui.renderCaseListItem(entry, {
-            href: casePagePath(entry),
-            extraAttrs: ' data-case-id="' + escapeHtml(entry.id) + '"',
-          })
-        }
-        var cover = pickCaseCover(entry)
-        var coverHtml = cover
-          ? '<img class="h5-media-list-thumb" src="' +
-            escapeHtml(cover) +
-            '" alt="' +
-            escapeHtml((item.name || '') + '案例封面') +
-            '" loading="lazy" />'
-          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
-        return (
-          '<a class="h5-media-list-item" href="' +
-          casePagePath(entry) +
-          '" data-case-id="' +
-          escapeHtml(entry.id) +
-          '">' +
-          coverHtml +
-          '<div class="h5-media-list-body">' +
-          '<div class="h5-media-list-title">' +
-          escapeHtml(entry.title || entry.serviceName || '公开案例') +
-          '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml([entry.city, entry.storeName].filter(Boolean).join(' · ')) +
-          '</div></div></a>'
-        )
-      })
-      .join('')
-    var moreLink =
-      total > cases.length
-        ? '<p class="h5-home-more"><a class="h5-link" href="/service/' +
-          encodeURIComponent(item.slug) +
-          '/cases">查看全部 ' +
-          total +
-          ' 个案例 ›</a></p>'
-        : ''
-    return section + '<div class="h5-media-list">' + cards + '</div>' + moreLink + '</div>'
+    return (
+      '<div class="h5-media-list">' +
+      cases
+        .map(function (entry) {
+          if (window.zhejianH5Ui && window.zhejianH5Ui.renderCaseListItem) {
+            return window.zhejianH5Ui.renderCaseListItem(entry, {
+              href: casePagePath(entry),
+              extraAttrs: ' data-case-id="' + escapeHtml(entry.id) + '"',
+            })
+          }
+          var cover = pickCaseCover(entry)
+          var coverHtml = cover
+            ? '<img class="h5-media-list-thumb" src="' +
+              escapeHtml(cover) +
+              '" alt="' +
+              escapeHtml(entry.title || '案例') +
+              '" loading="lazy" />'
+            : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
+          return (
+            '<a class="h5-media-list-item" href="' +
+            casePagePath(entry) +
+            '" data-case-id="' +
+            escapeHtml(entry.id) +
+            '">' +
+            coverHtml +
+            '<div class="h5-media-list-body">' +
+            '<div class="h5-media-list-title">' +
+            escapeHtml(entry.title || entry.serviceName || '公开案例') +
+            '</div></div></a>'
+          )
+        })
+        .join('') +
+      '</div>'
+    )
   }
 
-  function renderStores(stores) {
+  function renderStoreServices(stores, item) {
     if (!stores || !stores.length) {
       return (
-        '<div class="h5-card"><h2 class="h5-section-title">推荐门店</h2>' +
-        '<div class="h5-empty-block">暂无门店上架该服务项目，请稍后再查看。</div></div>'
+        '<div class="h5-card"><h2 class="h5-section-title">可预约门店服务</h2>' +
+        '<div class="h5-empty-block">暂无门店上架该服务，请稍后再查看或打开小程序咨询。</div></div>'
       )
     }
-    var cards = stores
+    var blocks = stores
       .map(function (store) {
-        var href = store.servicePlanId
+        var href = store.planPath || (store.servicePlanId
           ? servicePlanPath(store.servicePlanId)
-          : storePagePath(store.id)
-        var cover = store.coverImage || ''
-        var thumb = cover
-          ? '<img class="h5-media-list-thumb" src="' +
-            escapeHtml(cover) +
-            '" alt="' +
-            escapeHtml(store.name) +
-            '" loading="lazy" />'
-          : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>'
-        var meta = [
-          store.address,
-          '参考 ' + buildStorePriceText(store),
-          store.caseCount ? '案例 ' + store.caseCount : '',
-        ]
+          : storePagePath(store.id))
+        var meta = [store.address, '方案参考 ' + buildStorePriceText(store)]
           .filter(Boolean)
           .join(' · ')
         return (
-          '<a class="h5-media-list-item" href="' +
-          href +
-          '" data-store-id="' +
+          '<section class="h5-card h5-store-service" data-store-id="' +
           escapeHtml(store.id) +
           '">' +
-          thumb +
-          '<div class="h5-media-list-body">' +
-          '<div class="h5-media-list-title">' +
+          '<h3 class="h5-section-title">' +
           escapeHtml(store.name) +
-          '</div>' +
-          '<div class="h5-media-list-meta">' +
+          '</h3>' +
+          '<p class="h5-media-list-meta">' +
           escapeHtml(meta) +
-          '</div></div></a>'
+          '</p>' +
+          '<p class="h5-compliance">以下案例均来自本店该服务公开留档。</p>' +
+          renderStoreCases(store.cases) +
+          '<div class="h5-home-quick" style="margin-top:12px">' +
+          '<a class="h5-btn" href="' +
+          escapeHtml(href) +
+          '">进入该店服务方案</a>' +
+          '<a class="h5-btn h5-btn--secondary" href="' +
+          storePagePath(store.id) +
+          '">门店主页</a>' +
+          '</div></section>'
         )
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">推荐门店</h2>' +
-      '<div class="h5-media-list">' +
-      cards +
-      '</div></div>'
+      '<div id="service-stores">' +
+      '<h2 class="h5-section-title" style="margin:0 0 12px">可预约门店服务</h2>' +
+      '<p class="h5-compliance" style="margin-bottom:12px">每家店展示其真实服务方案与本店案例，不会跨店混挂。</p>' +
+      blocks +
+      '</div>'
     )
   }
 
@@ -466,38 +427,27 @@
     )
   }
 
-  function renderEvidenceSection(data, item) {
-    var caseCount = (data.featuredCases || []).length
-    var storeCount = (data.recommendedStores || []).length
-    var summaryText =
-      '相关证据（' +
-      caseCount +
-      ' 条案例' +
-      (storeCount ? ' · ' + storeCount + ' 家门店' : '') +
-      '）'
-    return (
-      '<details class="h5-topic-evidence">' +
-      '<summary class="h5-topic-evidence__summary">' +
-      escapeHtml(summaryText) +
-      '</summary>' +
-      '<div class="h5-topic-evidence__body">' +
-      renderCases(data.featuredCases, item, data.stats) +
-      renderStores(data.recommendedStores) +
-      '</div></details>'
-    )
-  }
-
-  function renderSupplementSection(data, item) {
-    var html = ''
-    html += renderBulletSection('什么情况需要做', item.scenarios)
-    html += renderBulletSection('维修流程', item.process)
-    html += renderBulletSection('价格影响因素', item.priceFactors)
-    if (!html) return ''
-    return (
-      '<details class="h5-topic-supplement"><summary class="h5-topic-evidence__summary">服务说明</summary><div class="h5-topic-evidence__body">' +
-      html +
-      '</div></details>'
-    )
+  function renderPrimaryCta(data, item) {
+    var preferred = data.preferredLanding
+    var top = (data.recommendedStores || [])[0]
+    var planHref =
+      (preferred && preferred.path) ||
+      (top && (top.planPath || (top.servicePlanId ? servicePlanPath(top.servicePlanId) : ''))) ||
+      ''
+    var primary =
+      planHref
+        ? '<a class="h5-btn" href="' +
+          escapeHtml(planHref) +
+          '">' +
+          (preferred && preferred.storeName
+            ? '进入「' + escapeHtml(preferred.storeName) + '」服务方案'
+            : '进入门店服务方案') +
+          '</a>'
+        : '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>'
+    var secondary = planHref
+      ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-open-weapp-btn">打开小程序预约</button>'
+      : '<a class="h5-btn h5-btn--secondary" href="#service-stores">查看门店列表</a>'
+    return '<div class="h5-home-quick h5-topic-cta">' + primary + secondary + '</div>'
   }
 
   function bindInteractions(data) {
@@ -552,9 +502,9 @@
 
     var answerText = item.aiSummary || item.summary || ''
     var cityNote = item.cityFilter
-      ? '<p class="h5-compliance">当前展示与「' +
+      ? '<p class="h5-compliance">当前按「' +
         escapeHtml(item.cityFilter) +
-        '」相关的案例与门店，全国内容请去掉筛选条件访问。</p>'
+        '」筛选可预约门店；去掉城市参数可看全国门店。</p>'
       : ''
 
     var html =
@@ -571,26 +521,18 @@
       '<header class="h5-header h5-topic-header">' +
       '<h1 class="h5-title">' +
       escapeHtml(item.name) +
-      '案例、流程与价格参考</h1>' +
+      ' · 门店服务</h1>' +
       (answerText
         ? '<div class="h5-topic-answer">' + escapeHtml(answerText) + '</div>'
         : '') +
       renderTrustMeta(data) +
       cityNote +
       '</header>' +
-      '<div class="h5-home-quick h5-topic-cta">' +
-      '<a class="h5-btn h5-btn--secondary" href="/service/' +
-      encodeURIComponent(item.slug) +
-      '/cases' +
-      (item.cityFilter ? '?city=' + encodeURIComponent(item.cityFilter) : '') +
-      '">浏览公开案例</a>' +
-      '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>' +
-      '</div>' +
+      renderPrimaryCta(data, item) +
       renderArticleBody(data.articleBody) +
-      renderRelatedTopics(data.relatedTopics) +
       renderReferencePrice(data.referencePrice, item) +
-      renderSupplementSection(data, item) +
-      renderEvidenceSection(data, item) +
+      renderStoreServices(data.recommendedStores, item) +
+      renderRelatedTopics(data.relatedTopics) +
       renderRelated(data.relatedServices) +
       renderSiteNav() +
       renderDisclaimerBlock() +
@@ -607,6 +549,7 @@
       var trackPayload = geoTrackParams(item, {
         serviceName: item.name,
         caseCount: (data.stats && data.stats.caseCount) || 0,
+        storeCount: (data.stats && data.stats.storeCount) || 0,
         geoPageId: (data.geo && data.geo.id) || '',
         geoSlug: (data.geo && data.geo.slug) || item.slug || '',
       })
@@ -641,8 +584,14 @@
       .then(function (result) {
         if (result.status === 404) return false
         if (!result.ok || result.body.code !== 0 || !result.body.data) return false
+        var data = result.body.data
+        var landing = data.preferredLanding
+        if (landing && landing.autoRedirect && landing.path) {
+          window.location.replace(landing.path)
+          return true
+        }
         window.__H5_SERVICE_ITEM_HANDLED__ = true
-        renderPage(result.body.data)
+        renderPage(data)
         return true
       })
       .catch(function () {

@@ -48,14 +48,22 @@ function buildCitySeo(city, { storeCount, caseCount }) {
   }
 }
 
-function mapServiceEntries(entries) {
+function mapServiceEntries(entries, cityName) {
+  const cityQs = cityName ? `?city=${encodeURIComponent(cityName)}` : ''
   return entries
     .filter((e) => e.status === 'enabled')
     .sort((a, b) => a.sort - b.sort)
-    .map((entry) => ({
-      ...entry,
-      h5Path: SERVICE_ENTRY_H5_LINKS[entry.id] || '/case/',
-    }))
+    .map((entry) => {
+      const base = SERVICE_ENTRY_H5_LINKS[entry.id] || '/case/'
+      const h5Path =
+        base.startsWith('/service/') && cityQs && !base.includes('?')
+          ? `${base}${cityQs}`
+          : base
+      return {
+        ...entry,
+        h5Path,
+      }
+    })
 }
 
 async function getCityPagePayload(citySlug) {
@@ -95,7 +103,7 @@ async function getCityPagePayload(citySlug) {
       name: city.name,
       isServiceCity: city.isServiceCity,
     },
-    serviceEntries: mapServiceEntries(HOME_SERVICE_ENTRIES),
+    serviceEntries: mapServiceEntries(HOME_SERVICE_ENTRIES, city.name),
     accidentEntry: HOME_ACCIDENT_ENTRY,
     geoTopics: cityGeoTopics,
     recommendedMerchants,
