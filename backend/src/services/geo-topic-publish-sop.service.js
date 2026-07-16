@@ -11,7 +11,6 @@ const {
 } = require('./geo-vehicle-topic.service')
 
 const DERIVED_FAQ_PATTERN = /例脱敏|收录\s*\d+\s*例|N\s*=\s*\d+/i
-const MIN_FAQ_COUNT = 3
 const STATS_CASE_THRESHOLD = 3
 
 function hasDerivedFaq(faq = []) {
@@ -26,9 +25,9 @@ function assessGeoTopicPublishSop(page, cases = []) {
   const matchedCases = resolveAggregateCasesForPage(page, cases)
   const caseCount = matchedCases.length
   const faq = Array.isArray(page.faq) ? page.faq : []
-  const faqCount = faq.length
-  const hasGain = hasInformationGainSummary(page.aiSummary || '')
-  const derivedFaq = hasDerivedFaq(faq)
+  const hasGain = hasInformationGainSummary(page.aiSummary || page.summary || '')
+  const articleLen = String(page.articleBody || page.serviceMeta?.articleBody || '').trim().length
+  const summaryLen = String(page.summary || page.aiSummary || '').trim().length
 
   const checks = [
     {
@@ -43,24 +42,24 @@ function assessGeoTopicPublishSop(page, cases = []) {
       label:
         caseCount >= STATS_CASE_THRESHOLD
           ? '摘要含 N= 统计句（案例≥3）'
-          : '摘要含案例统计句（有样本时）',
-      required: caseCount >= 1,
+          : '摘要建议含案例统计句（有样本时）',
+      required: false,
       passed: caseCount === 0 || hasGain,
-      detail: hasGain ? '已含统计句' : '缺少 N= / 收录统计',
+      detail: hasGain ? '已含统计句' : '缺少 N= / 收录统计（建议补，不阻断）',
     },
     {
-      id: 'faq_count',
-      label: '页内 FAQ ≥3 条',
+      id: 'article_body',
+      label: '专题正文（文章）',
       required: true,
-      passed: faqCount >= MIN_FAQ_COUNT,
-      detail: `当前 ${faqCount} 条`,
+      passed: articleLen >= 80,
+      detail: articleLen >= 80 ? '已填写正文' : '请粘贴外部大模型生成的专题正文（建议 ≥80 字）',
     },
     {
-      id: 'derived_faq',
-      label: '至少 1 条案例衍生 FAQ',
-      required: caseCount >= 1,
-      passed: caseCount === 0 || derivedFaq,
-      detail: derivedFaq ? '已含衍生条' : 'FAQ 缺统计型答案',
+      id: 'summary',
+      label: '摘要',
+      required: true,
+      passed: summaryLen >= 20,
+      detail: summaryLen >= 20 ? '已填写摘要' : '请填写 AI 友好摘要',
     },
   ]
 
@@ -69,10 +68,11 @@ function assessGeoTopicPublishSop(page, cases = []) {
     slug: page.slug,
     pageType: page.pageType,
     caseCount,
-    faqCount,
+    faqCount: faq.length,
+    hasDerivedFaq: hasDerivedFaq(faq),
     checks,
     canPublish: checks.filter((item) => item.required).every((item) => item.passed),
-    sopVersion: 'GEO-TOPIC-H06',
+    sopVersion: 'GEO-TOPIC-H06-article',
     note: '发布后 7 日内请对该专题绑定 prompt 加跑 OBS 探测（Tier 0）。',
   }
 }
@@ -147,7 +147,6 @@ async function buildAdminGeoPagePublishReadiness(page) {
 }
 
 module.exports = {
-  MIN_FAQ_COUNT,
   STATS_CASE_THRESHOLD,
   hasDerivedFaq,
   assessGeoTopicPublishSop,

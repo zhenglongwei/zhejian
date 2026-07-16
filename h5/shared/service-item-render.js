@@ -393,6 +393,31 @@
     return ''
   }
 
+  function renderArticleBody(text) {
+    if (!text || !String(text).trim()) return ''
+    var paragraphs = String(text)
+      .split(/\n{2,}/)
+      .map(function (block) {
+        return String(block || '').trim()
+      })
+      .filter(Boolean)
+      .map(function (block) {
+        return (
+          '<p class="h5-article-p">' +
+          escapeHtml(block).replace(/\n/g, '<br/>') +
+          '</p>'
+        )
+      })
+      .join('')
+    return (
+      '<section class="h5-card h5-topic-article" id="service-article">' +
+      '<h2 class="h5-section-title">专题正文</h2>' +
+      '<div class="h5-article-body">' +
+      paragraphs +
+      '</div></section>'
+    )
+  }
+
   function renderFaq(faq) {
     if (!faq || !faq.length) return ''
     var items = faq
@@ -563,7 +588,6 @@
           escapeHtml(item.name) +
           '</nav>') +
       '<header class="h5-header h5-topic-header">' +
-      '<div class="h5-brand">辙见服务平台 · 服务项目</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(item.name) +
       '案例、流程与价格参考</h1>' +
@@ -581,6 +605,7 @@
       '">浏览公开案例</a>' +
       '<button type="button" class="h5-btn" id="h5-open-weapp-btn">打开小程序预约</button>' +
       '</div>' +
+      renderArticleBody(data.articleBody) +
       renderFaq(data.faq) +
       renderReferencePrice(data.referencePrice, item) +
       renderSupplementSection(data, item) +

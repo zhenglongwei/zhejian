@@ -11,6 +11,7 @@ const {
   normalizeFaq,
   validateGeoFaqItems,
   buildGeoPageH5Path,
+  parseJsonArray,
 } = require('../schemas/geo-page.schema')
 const { getGeoPageDetail } = require('./geo.service')
 const { getGeoFaqTemplate } = require('../constants/geo-faq-templates')
@@ -20,6 +21,8 @@ const {
   ensureVehicleTopicPromptBinding,
 } = require('./geo-vehicle-topic.service')
 const { validateGeoTopicPublishSop } = require('./geo-topic-publish-sop.service')
+const { suggestGeoPageSlug, ensureUniqueGeoPageSlug } = require('../utils/geo-page-slug')
+const { syncGeoPageCaseMounts } = require('./geo-page-case-mount.service')
 
 function assertSlug(slug) {
   const value = String(slug || '').trim()
@@ -90,20 +93,29 @@ async function getAdminGeoPageDetail(idOrSlug) {
 }
 
 async function createAdminGeoPage(payload = {}) {
-  const slug = assertSlug(payload.slug)
-  const exists = await prisma.geoPage.findUnique({ where: { slug } })
-  if (exists) {
-    const err = new Error('slug 已存在')
-    err.status = 409
-    throw err
-  }
   if (!String(payload.title || '').trim()) {
     const err = new Error('标题不能为空')
     err.status = 400
     throw err
   }
 
-  const data = buildGeoPageWriteData(payload)
+  let slug = String(payload.slug || '').trim()
+  if (!slug) {
+    slug = suggestGeoPageSlug({
+      title: payload.title,
+      city: payload.city,
+      keywords: payload.keywords,
+    })
+  }
+  slug = await ensureUniqueGeoPageSlug(prisma, slug)
+  assertSlug(slug)
+
+  const data = buildGeoPageWriteData({
+    ...payload,
+    slug,
+    faq: payload.faq != null ? payload.faq : [],
+    faqLinks: payload.faqLinks != null ? payload.faqLinks : [],
+  })
   const row = await prisma.geoPage.create({
     data: {
       id: newId('geop'),
@@ -133,6 +145,11 @@ async function createAdminGeoPage(payload = {}) {
     },
   })
 
+  const caseIds = parseJsonArray(data.relatedCaseIdsJson ?? payload.relatedCaseIds)
+  if (caseIds.length) {
+    await syncGeoPageCaseMounts(row.id, [], caseIds)
+  }
+
   return getAdminGeoPageDetail(row.id)
 }
 
@@ -146,17 +163,13 @@ async function updateAdminGeoPage(idOrSlug, payload = {}) {
     throw err
   }
 
+  const previousCaseIds = parseJsonArray(row.relatedCaseIdsJson)
   const data = buildGeoPageWriteData(payload, mapGeoPageRow(row))
-  if (payload.slug != null) {
+  if (payload.slug != null && String(payload.slug).trim()) {
     const slug = assertSlug(payload.slug)
     if (slug !== row.slug) {
-      const exists = await prisma.geoPage.findUnique({ where: { slug } })
-      if (exists) {
-        const err = new Error('slug 已存在')
-        err.status = 409
-        throw err
-      }
-      data.slug = slug
+      const unique = await ensureUniqueGeoPageSlug(prisma, slug, row.id)
+      data.slug = unique
     }
   }
 
@@ -174,6 +187,11 @@ async function updateAdminGeoPage(idOrSlug, payload = {}) {
       relatedStoreIdsJson: data.relatedStoreIdsJson ?? row.relatedStoreIdsJson,
     },
   })
+
+  if (payload.relatedCaseIds != null) {
+    const nextCaseIds = parseJsonArray(data.relatedCaseIdsJson)
+    await syncGeoPageCaseMounts(row.id, previousCaseIds, nextCaseIds)
+  }
 
   return getAdminGeoPageDetail(row.id)
 }
@@ -201,8 +219,10 @@ async function setAdminGeoPageStatus(idOrSlug, status) {
     await validateGeoTopicPublishSop(page, cases)
 
     const relatedCaseCount = Array.isArray(page.relatedCaseIds) ? page.relatedCaseIds.length : 0
+    const hasArticle = String(page.articleBody || page.serviceMeta?.articleBody || '').trim().length >= 80
     validateGeoFaqItems(page.faq || [], {
-      requireStoreCheckHint: relatedCaseCount === 0,
+      allowEmpty: hasArticle,
+      requireStoreCheckHint: !hasArticle && relatedCaseCount === 0,
       relatedCaseCount,
     })
 

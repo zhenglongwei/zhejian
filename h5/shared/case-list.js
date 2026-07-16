@@ -48,7 +48,6 @@
       '<div class="h5-page">' +
       renderBreadcrumb() +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">展示已审核的维修案例；价格仅为参考。</p>' +
       '</header>' +
@@ -92,7 +91,6 @@
       '<div class="h5-page">' +
       renderBreadcrumb() +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见 · 公开案例</div>' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">以下为已审核公示案例，数据来自平台数据库。</p>' +
       renderDisclaimer() +

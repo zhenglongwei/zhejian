@@ -2,45 +2,32 @@
   <div v-loading="loading">
     <el-page-header @back="goBack">
       <template #content>
-        <span>{{ isCreate ? '新建 GEO 专题' : form.title || '编辑 GEO 专题' }}</span>
+        <span>{{ isCreate ? '新建专题文章' : form.title || '编辑专题文章' }}</span>
       </template>
     </el-page-header>
 
+    <el-alert
+      class="mt-16"
+      type="info"
+      :closable="false"
+      show-icon
+      title="流程：站外了解用户问题 → 本站搜索/导出案例 → 外部大模型写稿 → 回填标题、摘要、关键词、正文，并勾选关联案例。"
+    />
+
     <el-form label-position="top" class="geo-form">
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <el-form-item label="标题" required>
-            <el-input v-model="form.title" maxlength="80" show-word-limit />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="slug" required>
-            <el-input v-model="form.slug" placeholder="hangzhou-brake-pad" :disabled="!isCreate" />
-          </el-form-item>
-        </el-col>
-      </el-row>
+      <el-form-item label="标题" required>
+        <el-input
+          v-model="form.title"
+          maxlength="80"
+          show-word-limit
+          placeholder="对 AI 搜索友好的专题标题，如：杭州吉利帝豪刹车片更换参考"
+        />
+      </el-form-item>
 
       <el-row :gutter="16">
         <el-col :span="8">
-          <el-form-item label="页面类型">
-            <el-select v-model="form.pageType" style="width: 100%">
-              <el-option
-                v-for="opt in GEO_PAGE_TYPE_OPTIONS"
-                :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
-              />
-            </el-select>
-          </el-form-item>
-        </el-col>
-        <el-col :span="8">
           <el-form-item label="城市">
-            <el-input v-model="form.city" />
-          </el-form-item>
-        </el-col>
-        <el-col v-if="form.pageType === 'vehicle_service'" :span="8">
-          <el-form-item label="车系" required>
-            <el-input v-model="form.vehicleSeries" placeholder="如：宝马3系" />
+            <el-input v-model="form.city" placeholder="如：杭州" />
           </el-form-item>
         </el-col>
         <el-col :span="8">
@@ -52,23 +39,111 @@
             </el-select>
           </el-form-item>
         </el-col>
+        <el-col :span="8">
+          <el-form-item label="公开地址（自动生成）">
+            <el-input :model-value="slugPreview" disabled />
+          </el-form-item>
+        </el-col>
       </el-row>
 
-      <el-form-item v-if="form.pageType === 'vehicle_service'" label="车型专题发布说明">
-        <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-          title="车型专题须人工审核发布：同车系案例 ≥3 例方可发布；≥5 例时摘要须含 N= 统计句。不会从雷达自动发布。"
+      <el-form-item label="摘要" required>
+        <el-input
+          v-model="form.summary"
+          type="textarea"
+          :rows="3"
+          maxlength="300"
+          show-word-limit
+          placeholder="首屏答案段：说清楚城市/服务、能给读者什么参考。有案例时建议带「收录 N 例」等可引用事实。"
         />
       </el-form-item>
 
-      <el-form-item v-if="!isCreate && publishReadiness.checks?.length" label="发布审核 SOP（H06）">
+      <el-form-item label="关键词">
+        <el-select
+          v-model="keywordTags"
+          multiple
+          filterable
+          allow-create
+          default-first-option
+          style="width: 100%"
+          placeholder="输入后回车添加，如：刹车片、帝豪、杭州"
+        />
+      </el-form-item>
+
+      <el-form-item label="正文" required>
+        <el-input
+          v-model="form.articleBody"
+          type="textarea"
+          :rows="16"
+          placeholder="粘贴外部大模型生成的专题全文。可用空行分段。"
+        />
+      </el-form-item>
+
+      <el-form-item label="关联案例">
+        <div class="case-picker">
+          <div class="case-picker__search">
+            <el-input
+              v-model="caseKeyword"
+              clearable
+              placeholder="按标题 / 服务 / 城市 / 门店搜索已公示案例"
+              @keyup.enter="searchCases"
+            />
+            <el-button type="primary" :loading="caseSearching" @click="searchCases">搜索</el-button>
+          </div>
+          <el-table
+            v-if="caseSearchList.length"
+            :data="caseSearchList"
+            size="small"
+            border
+            max-height="260"
+            @selection-change="onCaseSelectionChange"
+            ref="caseTableRef"
+          >
+            <el-table-column type="selection" width="48" :selectable="() => true" />
+            <el-table-column prop="title" label="案例" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="serviceName" label="服务" width="120" />
+            <el-table-column prop="city" label="城市" width="80" />
+            <el-table-column prop="storeName" label="门店" width="140" show-overflow-tooltip />
+          </el-table>
+          <el-empty v-else-if="caseSearched" description="未找到案例，可先到案例审核确认已公示" :image-size="64" />
+
+          <div v-if="selectedCases.length" class="selected-block">
+            <div class="selected-title">已选 {{ selectedCases.length }} 条</div>
+            <el-tag
+              v-for="item in selectedCases"
+              :key="item.caseId"
+              class="selected-tag"
+              closable
+              @close="removeSelectedCase(item.caseId)"
+            >
+              {{ item.title || item.caseId }}
+            </el-tag>
+          </div>
+        </div>
+      </el-form-item>
+
+      <el-form-item v-if="suggestedStores.length || suggestedServices.length" label="由案例带出">
+        <div v-if="suggestedStores.length" class="suggest-row">
+          <span class="suggest-label">门店</span>
+          <el-checkbox-group v-model="selectedStoreIds">
+            <el-checkbox v-for="store in suggestedStores" :key="store.id" :label="store.id">
+              {{ store.name }}
+            </el-checkbox>
+          </el-checkbox-group>
+        </div>
+        <div v-if="suggestedServices.length" class="suggest-row">
+          <span class="suggest-label">服务</span>
+          <el-radio-group v-model="form.relatedServiceName">
+            <el-radio v-for="name in suggestedServices" :key="name" :label="name">{{ name }}</el-radio>
+          </el-radio-group>
+        </div>
+      </el-form-item>
+
+      <el-form-item v-if="!isCreate && publishReadiness.checks?.length" label="发布前检查">
         <el-alert
           :type="publishReadiness.canPublish ? 'success' : 'warning'"
           :closable="false"
           show-icon
-          :title="publishReadiness.canPublish ? '满足发布门槛，可人工发布' : '未满足发布门槛，请先补齐下列项'"
+          :title="publishReadiness.canPublish ? '可发布' : '请先补齐下列项'"
         />
         <ul class="sop-list">
           <li v-for="item in publishReadiness.checks" :key="item.id">
@@ -79,98 +154,6 @@
             <span class="sop-detail">{{ item.detail }}</span>
           </li>
         </ul>
-      </el-form-item>
-
-      <el-form-item label="摘要">
-        <el-input v-model="form.summary" type="textarea" :rows="3" maxlength="500" show-word-limit />
-      </el-form-item>
-
-      <el-form-item label="AI 摘要（H5 首屏）">
-        <el-input v-model="form.aiSummary" type="textarea" :rows="4" maxlength="300" show-word-limit />
-        <el-alert
-          v-if="informationGainLevel === 'warn'"
-          class="gain-alert"
-          title="信息增量不足：已发布页建议摘要含「N= 例脱敏案例」等统计句"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
-        <el-alert
-          v-else-if="informationGainLevel === 'ok' && form.status === 'published'"
-          class="gain-alert"
-          title="信息增量评分：已含案例统计句"
-          type="success"
-          :closable="false"
-          show-icon
-        />
-      </el-form-item>
-
-      <el-form-item label="关键词（逗号分隔）">
-        <el-input v-model="keywordsText" placeholder="刹车片, 杭州" />
-      </el-form-item>
-
-      <el-form-item label="适用场景（每行一条）">
-        <el-input v-model="scenariosText" type="textarea" :rows="3" />
-      </el-form-item>
-
-      <el-form-item label="价格影响因素（每行一条）">
-        <el-input v-model="priceFactorsText" type="textarea" :rows="3" />
-      </el-form-item>
-
-      <el-form-item label="页内 FAQ">
-        <div class="faq-toolbar">
-          <el-button size="small" :loading="templateLoading" @click="onApplyFaqTemplate">
-            应用合规模板
-          </el-button>
-        </div>
-        <div v-for="(item, index) in form.faq" :key="index" class="faq-row">
-          <el-input v-model="item.q" placeholder="问题" class="faq-q" />
-          <el-input v-model="item.a" placeholder="答案" type="textarea" :rows="2" class="faq-a" />
-          <el-button link type="danger" @click="removeFaq(index)">删除</el-button>
-        </div>
-        <el-button link type="primary" @click="addFaq">+ 添加问答</el-button>
-      </el-form-item>
-
-      <el-form-item label="延伸阅读（公众号链接）">
-        <div v-for="(item, index) in form.faqLinks" :key="'link-' + index" class="faq-row faq-row--link">
-          <el-input v-model="item.title" placeholder="文章标题" class="faq-q" />
-          <el-input v-model="item.url" placeholder="https://mp.weixin.qq.com/s/..." class="faq-a" />
-          <el-button link type="danger" @click="removeFaqLink(index)">删除</el-button>
-        </div>
-        <el-button link type="primary" @click="addFaqLink">+ 添加链接</el-button>
-      </el-form-item>
-
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <el-form-item label="关联案例 ID（逗号分隔）">
-            <el-input v-model="relatedCaseIdsText" placeholder="case_001, case_002" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="关联门店 ID（逗号分隔）">
-            <el-input v-model="relatedStoreIdsText" placeholder="store_demo_1" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <el-form-item label="主门店 ID">
-            <el-input v-model="form.primaryStoreId" />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item label="关联服务 ID">
-            <el-input v-model="form.relatedServiceId" />
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-form-item label="SEO 标题">
-        <el-input v-model="form.seoTitle" maxlength="80" show-word-limit />
-      </el-form-item>
-      <el-form-item label="SEO 描述">
-        <el-input v-model="form.seoDescription" type="textarea" :rows="2" maxlength="160" show-word-limit />
       </el-form-item>
     </el-form>
 
@@ -194,7 +177,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -203,96 +186,221 @@ import {
   updateGeoPage,
   publishGeoPage,
   unpublishGeoPage,
-  fetchGeoFaqTemplate,
 } from '@/api/geo-pages'
-import { GEO_PAGE_TYPE_OPTIONS } from '@/constants/geo-pages'
+import { fetchCaseList } from '@/api/case-review'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
 const publishing = ref(false)
-const templateLoading = ref(false)
 const publishReadiness = ref({ checks: [], canPublish: true })
 
 const isCreate = computed(() => route.name === 'geo-page-create')
-
-const informationGainLevel = computed(() => {
-  const text = String(form.aiSummary || '').trim()
-  if (!text) return form.status === 'published' ? 'warn' : 'none'
-  const hasSample = /\d+\s*例脱敏|收录\s*\d+\s*例|N\s*=\s*\d+/i.test(text)
-  if (form.status === 'published' && !hasSample) return 'warn'
-  if (hasSample) return 'ok'
-  return 'none'
-})
 
 const form = reactive({
   title: '',
   slug: '',
   summary: '',
-  aiSummary: '',
-  pageType: 'city_service',
+  articleBody: '',
   city: '杭州',
-  vehicleSeries: '',
   status: 'draft',
-  primaryStoreId: '',
+  pageType: 'city_service',
   relatedServiceId: '',
-  seoTitle: '',
-  seoDescription: '',
-  faq: [{ q: '', a: '' }],
-  faqLinks: [{ title: '', url: '' }],
+  relatedServiceName: '',
+  primaryStoreId: '',
 })
 
-const keywordsText = ref('')
-const scenariosText = ref('')
-const priceFactorsText = ref('')
-const relatedCaseIdsText = ref('')
-const relatedStoreIdsText = ref('')
+const keywordTags = ref([])
+const caseKeyword = ref('')
+const caseSearching = ref(false)
+const caseSearched = ref(false)
+const caseSearchList = ref([])
+const selectedCases = ref([])
+const selectedStoreIds = ref([])
+const caseTableRef = ref(null)
+const pendingSelectionIds = ref([])
 
-function splitLines(text) {
-  return String(text || '')
-    .split(/[\n,，]/)
-    .map((s) => s.trim())
-    .filter(Boolean)
+const slugPreview = computed(() => {
+  if (form.slug) return `/service/… 或专题短链：${form.slug}`
+  return '保存时自动生成（无需手填）'
+})
+
+const suggestedStores = computed(() => {
+  const map = new Map()
+  selectedCases.value.forEach((item) => {
+    if (!item.storeId) return
+    if (!map.has(item.storeId)) {
+      map.set(item.storeId, { id: item.storeId, name: item.storeName || item.storeId })
+    }
+  })
+  return [...map.values()]
+})
+
+const suggestedServices = computed(() => {
+  const set = new Set()
+  selectedCases.value.forEach((item) => {
+    if (item.serviceName) set.add(item.serviceName)
+  })
+  return [...set]
+})
+
+watch(suggestedStores, (stores) => {
+  const valid = new Set(stores.map((s) => s.id))
+  selectedStoreIds.value = selectedStoreIds.value.filter((id) => valid.has(id))
+  if (!selectedStoreIds.value.length && stores.length) {
+    selectedStoreIds.value = stores.map((s) => s.id)
+  }
+  if (!form.primaryStoreId && stores[0]) form.primaryStoreId = stores[0].id
+})
+
+watch(suggestedServices, (names) => {
+  if (!form.relatedServiceName && names[0]) form.relatedServiceName = names[0]
+})
+
+function goBack() {
+  router.push({ name: 'geo-page-list' })
+}
+
+function mapCaseRow(row) {
+  return {
+    caseId: row.caseId || row.id,
+    title: row.title || '',
+    serviceName: row.serviceName || '',
+    city: row.city || '',
+    storeId: row.storeId || '',
+    storeName: row.storeName || '',
+  }
+}
+
+async function searchCases() {
+  caseSearching.value = true
+  caseSearched.value = true
+  try {
+    const data = await fetchCaseList({
+      tab: 'approved',
+      keyword: caseKeyword.value || undefined,
+      page: 1,
+      pageSize: 30,
+    })
+    caseSearchList.value = (data.list || []).map(mapCaseRow)
+    await nextTick()
+    syncTableSelection()
+  } catch (e) {
+    ElMessage.error(e?.message || '搜索失败')
+  } finally {
+    caseSearching.value = false
+  }
+}
+
+function syncTableSelection() {
+  const table = caseTableRef.value
+  if (!table) return
+  const selectedIds = new Set(selectedCases.value.map((item) => item.caseId))
+  caseSearchList.value.forEach((row) => {
+    table.toggleRowSelection(row, selectedIds.has(row.caseId))
+  })
+}
+
+function onCaseSelectionChange(rows) {
+  const fromSearch = (rows || []).map(mapCaseRow)
+  const keepOutside = selectedCases.value.filter(
+    (item) => !caseSearchList.value.some((row) => row.caseId === item.caseId),
+  )
+  const merged = new Map()
+  ;[...keepOutside, ...fromSearch].forEach((item) => {
+    if (item.caseId) merged.set(item.caseId, item)
+  })
+  selectedCases.value = [...merged.values()]
+}
+
+function removeSelectedCase(caseId) {
+  selectedCases.value = selectedCases.value.filter((item) => item.caseId !== caseId)
+  nextTick(syncTableSelection)
 }
 
 function buildPayload() {
+  const relatedCaseIds = selectedCases.value.map((item) => item.caseId).filter(Boolean)
+  const relatedStoreIds = selectedStoreIds.value.length
+    ? selectedStoreIds.value
+    : suggestedStores.value.map((s) => s.id)
   return {
-    ...form,
-    keywords: splitLines(keywordsText.value),
-    scenarios: splitLines(scenariosText.value),
-    priceFactors: splitLines(priceFactorsText.value),
-    relatedCaseIds: splitLines(relatedCaseIdsText.value),
-    faq: (form.faq || []).filter((item) => item.q && item.a),
-    faqLinks: (form.faqLinks || []).filter((item) => item.title && item.url),
+    title: form.title,
+    summary: form.summary,
+    articleBody: form.articleBody,
+    city: form.city,
+    status: form.status,
+    pageType: form.pageType || 'city_service',
+    keywords: keywordTags.value,
+    relatedCaseIds,
+    relatedStoreIds,
+    primaryStoreId: form.primaryStoreId || relatedStoreIds[0] || '',
+    relatedServiceId: form.relatedServiceId || '',
+    faq: [],
+    faqLinks: [],
+    scenarios: [],
+    priceFactors: [],
   }
 }
 
 function syncFromDetail(detail) {
-  Object.assign(form, {
-    title: detail.title || '',
-    slug: detail.slug || '',
-    summary: detail.summary || '',
-    aiSummary: detail.aiSummary || '',
-    pageType: detail.pageType || 'city_service',
-    city: detail.city || '',
-    vehicleSeries: detail.vehicleSeries || '',
-    status: detail.status || 'draft',
-    primaryStoreId: detail.primaryStoreId || '',
-    relatedServiceId: detail.relatedServiceId || '',
-    seoTitle: detail.seoTitle || '',
-    seoDescription: detail.seoDescription || '',
-    faq: (detail.faq || []).length ? detail.faq.map((item) => ({ ...item })) : [{ q: '', a: '' }],
-    faqLinks: (detail.faqLinks || []).length
-      ? detail.faqLinks.map((item) => ({ ...item }))
-      : [{ title: '', url: '' }],
-  })
-  keywordsText.value = (detail.keywords || []).join(', ')
-  scenariosText.value = (detail.scenarios || []).join('\n')
-  priceFactorsText.value = (detail.priceFactors || []).join('\n')
-  relatedCaseIdsText.value = (detail.relatedCaseIds || []).join(', ')
-  relatedStoreIdsText.value = (detail.relatedStoreIds || []).join(', ')
+  form.title = detail.title || ''
+  form.slug = detail.slug || ''
+  form.summary = detail.summary || detail.aiSummary || ''
+  form.articleBody = detail.articleBody || detail.serviceMeta?.articleBody || ''
+  form.city = detail.city || ''
+  form.status = detail.status || 'draft'
+  form.pageType = detail.pageType || 'city_service'
+  form.relatedServiceId = detail.relatedServiceId || ''
+  form.primaryStoreId = detail.primaryStoreId || ''
+  keywordTags.value = [...(detail.keywords || [])]
+  selectedStoreIds.value = [...(detail.relatedStoreIds || [])]
   publishReadiness.value = detail.publishReadiness || { checks: [], canPublish: true }
+
+  const fromDetailCases = (detail.relatedCases || []).map((item) =>
+    mapCaseRow({
+      caseId: item.id || item.caseId,
+      title: item.title,
+      serviceName: item.serviceName,
+      city: item.city,
+      storeId: item.storeId,
+      storeName: item.storeName,
+    }),
+  )
+  if (fromDetailCases.length) {
+    selectedCases.value = fromDetailCases
+  } else if ((detail.relatedCaseIds || []).length) {
+    pendingSelectionIds.value = [...detail.relatedCaseIds]
+    selectedCases.value = detail.relatedCaseIds.map((id) => ({
+      caseId: id,
+      title: id,
+      serviceName: '',
+      city: '',
+      storeId: '',
+      storeName: '',
+    }))
+  } else {
+    selectedCases.value = []
+  }
+
+  if (detail.relatedCases?.[0]?.serviceName) {
+    form.relatedServiceName = detail.relatedCases[0].serviceName
+  }
+}
+
+async function hydratePendingCases() {
+  if (!pendingSelectionIds.value.length) return
+  try {
+    const data = await fetchCaseList({ tab: 'approved', page: 1, pageSize: 50 })
+    const map = new Map((data.list || []).map((row) => [row.caseId, mapCaseRow(row)]))
+    selectedCases.value = pendingSelectionIds.value.map(
+      (id) => map.get(id) || { caseId: id, title: id, serviceName: '', city: '', storeId: '', storeName: '' },
+    )
+  } catch {
+    /* keep placeholders */
+  } finally {
+    pendingSelectionIds.value = []
+  }
 }
 
 async function loadDetail() {
@@ -301,59 +409,23 @@ async function loadDetail() {
   try {
     const detail = await fetchGeoPageDetail(route.params.pageId)
     syncFromDetail(detail)
+    await hydratePendingCases()
   } finally {
     loading.value = false
   }
 }
 
-function addFaq() {
-  form.faq.push({ q: '', a: '' })
-}
-
-function removeFaq(index) {
-  form.faq.splice(index, 1)
-  if (!form.faq.length) form.faq.push({ q: '', a: '' })
-}
-
-function addFaqLink() {
-  form.faqLinks.push({ title: '', url: '' })
-}
-
-function removeFaqLink(index) {
-  form.faqLinks.splice(index, 1)
-  if (!form.faqLinks.length) form.faqLinks.push({ title: '', url: '' })
-}
-
-async function onApplyFaqTemplate() {
-  templateLoading.value = true
-  try {
-    const result = await fetchGeoFaqTemplate({
-      pageType: form.pageType,
-      serviceId: form.relatedServiceId || form.serviceId,
-      city: form.city,
-      title: form.title,
-    })
-    const list = result?.faq || []
-    if (!list.length) {
-      ElMessage.warning('暂无匹配模板')
-      return
-    }
-    form.faq = list.map((item) => ({ q: item.q, a: item.a }))
-    ElMessage.success('已填入合规 FAQ 模板，请核对后保存')
-  } catch (e) {
-    ElMessage.error(e?.message || '加载模板失败')
-  } finally {
-    templateLoading.value = false
-  }
-}
-
-function goBack() {
-  router.push({ name: 'geo-page-list' })
-}
-
 async function onSave() {
-  if (!form.title.trim() || !form.slug.trim()) {
-    ElMessage.warning('请填写标题与 slug')
+  if (!form.title.trim()) {
+    ElMessage.warning('请填写标题')
+    return
+  }
+  if (!form.summary.trim()) {
+    ElMessage.warning('请填写摘要')
+    return
+  }
+  if (!form.articleBody.trim()) {
+    ElMessage.warning('请填写正文')
     return
   }
   saving.value = true
@@ -379,6 +451,7 @@ async function onSave() {
 async function onPublish() {
   publishing.value = true
   try {
+    await onSave()
     const detail = await publishGeoPage(route.params.pageId)
     syncFromDetail(detail)
     ElMessage.success('已发布')
@@ -402,23 +475,48 @@ async function onUnpublish() {
   }
 }
 
-onMounted(loadDetail)
+onMounted(async () => {
+  await loadDetail()
+  if (!isCreate.value) {
+    caseKeyword.value = form.city || ''
+  }
+})
 </script>
 
 <style scoped>
+.mt-16 {
+  margin-top: 16px;
+}
 .geo-form {
   margin-top: 16px;
-  max-width: 960px;
+  max-width: 920px;
 }
-.faq-row {
-  display: grid;
-  grid-template-columns: 1fr 2fr auto;
+.case-picker__search {
+  display: flex;
   gap: 8px;
-  margin-bottom: 8px;
-  align-items: start;
+  margin-bottom: 12px;
 }
-.faq-toolbar {
+.selected-block {
+  margin-top: 12px;
+}
+.selected-title {
+  font-size: 13px;
   margin-bottom: 8px;
+  color: var(--el-text-color-secondary);
+}
+.selected-tag {
+  margin: 0 8px 8px 0;
+}
+.suggest-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.suggest-label {
+  flex: 0 0 48px;
+  color: var(--el-text-color-secondary);
+  line-height: 32px;
 }
 .actions {
   display: flex;

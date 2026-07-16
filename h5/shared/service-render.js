@@ -650,7 +650,6 @@
       escapeHtml(service.name) +
       '</nav>' +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见服务平台 · 服务详情</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(service.name) +
       '</h1>' +

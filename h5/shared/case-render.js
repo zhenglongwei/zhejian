@@ -1467,7 +1467,6 @@
       '<div class="h5-page">' +
       breadcrumbHtml +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见 · 公开维修案例</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(safeData.title) +
       '</h1>' +

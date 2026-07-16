@@ -65,6 +65,10 @@ function findGeoFaqViolation(text) {
  * @param {{ requireStoreCheckHint?: boolean, relatedCaseCount?: number }} [options]
  */
 function validateGeoFaqItems(items, options = {}) {
+  // 文章型专题：有正文时可无 FAQ
+  if (options.allowEmpty && (!items || !items.length)) {
+    return []
+  }
   if (!items.length) {
     const err = new Error('至少填写 1 条页内 FAQ')
     err.status = 400
@@ -128,6 +132,7 @@ function normalizeServiceMeta(value) {
     referencePriceHint: String(meta.referencePriceHint || '').trim(),
     process: parseJsonArray(meta.process),
     relatedSlugs: parseJsonArray(meta.relatedSlugs),
+    articleBody: String(meta.articleBody || '').trim(),
     ...(meta.aggregateCache && typeof meta.aggregateCache === 'object'
       ? {
           aggregateCache: {
@@ -145,6 +150,7 @@ function normalizeServiceMeta(value) {
  */
 function mapGeoPageRow(row) {
   if (!row) return null
+  const serviceMeta = normalizeServiceMeta(row.serviceMetaJson)
   return {
     id: row.id,
     slug: row.slug,
@@ -168,7 +174,8 @@ function mapGeoPageRow(row) {
     seoTitle: row.seoTitle || '',
     seoDescription: row.seoDescription || '',
     aiSummary: row.aiSummary || '',
-    serviceMeta: normalizeServiceMeta(row.serviceMetaJson),
+    articleBody: serviceMeta.articleBody || '',
+    serviceMeta,
     status: row.status || 'draft',
     publishedAt: row.publishedAt ? toIso(row.publishedAt) : '',
     updatedAt: row.updatedAt ? toIso(row.updatedAt) : '',
@@ -218,7 +225,30 @@ function buildGeoPageWriteData(payload = {}, existing = null) {
   if (payload.seoDescription != null) data.seoDescription = String(payload.seoDescription).trim()
   if (payload.aiSummary != null) data.aiSummary = String(payload.aiSummary).trim()
   if (payload.status != null) data.status = String(payload.status).trim()
-  if (payload.serviceMeta != null) data.serviceMetaJson = normalizeServiceMeta(payload.serviceMeta)
+
+  const nextMeta =
+    payload.serviceMeta != null
+      ? normalizeServiceMeta(payload.serviceMeta)
+      : normalizeServiceMeta(base.serviceMeta || base.serviceMetaJson || {})
+  if (payload.articleBody != null) {
+    nextMeta.articleBody = String(payload.articleBody || '').trim()
+  }
+  if (payload.serviceMeta != null || payload.articleBody != null) {
+    data.serviceMetaJson = nextMeta
+  }
+
+  // 文章型字段兼容：标题/摘要自动回填 SEO / AI 摘要
+  if (payload.title != null && payload.seoTitle == null) {
+    data.seoTitle = String(payload.title).trim().slice(0, 80)
+  }
+  if (payload.summary != null) {
+    if (payload.seoDescription == null) {
+      data.seoDescription = String(payload.summary).trim().slice(0, 160)
+    }
+    if (payload.aiSummary == null) {
+      data.aiSummary = String(payload.summary).trim().slice(0, 300)
+    }
+  }
 
   if (payload.keywords != null) data.keywordsJson = parseJsonArray(payload.keywords)
   if (payload.scenarios != null) data.scenariosJson = parseJsonArray(payload.scenarios)

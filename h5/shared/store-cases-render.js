@@ -316,7 +316,6 @@
           escapeHtml(store.name) +
           '</a> › 维修案例</nav>') +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见服务平台 · 门店案例集</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(store.name) +
       ' · 公开维修案例</h1>' +

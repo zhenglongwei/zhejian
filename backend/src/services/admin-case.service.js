@@ -124,7 +124,14 @@ function buildListWhere(query = {}) {
 
   if (query.storeId) where.storeId = String(query.storeId)
   if (query.keyword) {
-    where.title = { contains: String(query.keyword) }
+    const kw = String(query.keyword)
+    where.OR = [
+      { title: { contains: kw } },
+      { serviceName: { contains: kw } },
+      { city: { contains: kw } },
+      { storeName: { contains: kw } },
+      { summary: { contains: kw } },
+    ]
   }
 
   return { tab, where }
@@ -172,6 +179,7 @@ async function listAdminCases(query = {}) {
       storeId: row.storeId,
       storeName: row.storeName,
       serviceName: row.serviceName,
+      city: row.city || '',
       status: row.status,
       riskLevel,
       imageCount,

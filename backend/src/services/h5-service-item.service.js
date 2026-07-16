@@ -256,6 +256,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
     relatedServices,
     faq: aggregated.faq,
     faqLinks: merged.faqLinks,
+    articleBody: merged.articleBody || '',
     aggregateStats: aggregated.aggregateStats,
     stats: {
       caseCount: effectiveCaseTotal,

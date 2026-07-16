@@ -37,6 +37,7 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       priceFactors: item.priceFactors || [],
       faq: normalizeFaq(item.faq || []),
       faqLinks: [],
+      articleBody: '',
       seoTitle: '',
       seoDescription: '',
       cityFilter: cityFilter || '',
@@ -51,8 +52,9 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       ? geoPage.serviceMeta.process
       : item.process || [],
     priceFactors: geoPage.priceFactors?.length ? geoPage.priceFactors : item.priceFactors || [],
-    faq: geoPage.faq?.length ? geoPage.faq : normalizeFaq(item.faq || []),
+    faq: geoPage.faq?.length ? geoPage.faq : [],
     faqLinks: geoPage.faqLinks || [],
+    articleBody: geoPage.articleBody || geoPage.serviceMeta?.articleBody || '',
     seoTitle: geoPage.seoTitle || '',
     seoDescription: geoPage.seoDescription || '',
     cityFilter: cityFilter || geoPage.city || '',

@@ -493,7 +493,6 @@
       '<div class="h5-page">' +
       renderBreadcrumb() +
       '<header class="h5-header">' +
-      '<div class="h5-brand">辙见内容站</div>' +
       '<h1 class="h5-title">搜索</h1>' +
       '<p class="h5-summary">搜索公开案例、门店、服务与维修专题（小程序内不提供全站搜索）。</p>' +
       '</header>' +

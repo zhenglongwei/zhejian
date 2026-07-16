@@ -439,9 +439,6 @@
           ])
         : '') +
       '<header class="h5-header h5-home-hero">' +
-      '<div class="h5-brand"><a class="h5-link" href="/">辙见服务平台</a> · ' +
-      escapeHtml(cityName) +
-      '</div>' +
       '<h1 class="h5-title">' +
       escapeHtml(cityName) +
       '透明汽车维修服务平台</h1>' +
