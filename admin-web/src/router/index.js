@@ -59,6 +59,11 @@ const routes = [
         component: () => import('@/views/store-capability-review/detail/index.vue'),
       },
       {
+        path: 'store-expiry',
+        name: 'store-expiry-list',
+        component: () => import('@/views/store-expiry/list/index.vue'),
+      },
+      {
         path: 'services',
         name: 'service-list',
         component: () => import('@/views/service-review/list/index.vue'),

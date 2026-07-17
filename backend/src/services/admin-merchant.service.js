@@ -10,6 +10,7 @@ const {
   formatQualificationForClient,
   formatPhotosForClient,
 } = require('../lib/onboarding-payload')
+const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
 
 function buildListWhere(query = {}) {
   const tab = String(query.tab || 'pending').toLowerCase()
@@ -160,6 +161,7 @@ async function getAdminMerchantDetail(merchantId) {
   const reviewLogs = await fetchMerchantReviewLogs(merchantId)
   const qualification = formatQualificationForClient(merchant.qualificationJson)
   const photos = formatPhotosForClient(store.photosJson)
+  const capability = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
 
   return {
     merchantId: merchant.id,
@@ -180,6 +182,12 @@ async function getAdminMerchantDetail(merchantId) {
     contactEmail: merchant.contactEmail || '',
     qualification,
     photos,
+    specialtyBrands: capability.specialtyBrands,
+    notAccepting: capability.notAccepting,
+    equipmentTags: capability.equipmentTags,
+    technicians: capability.technicians,
+    brandAuthValidUntil: capability.brandAuthValidUntil,
+    capabilityReviewStatus: capability.reviewStatus,
     status: merchant.status,
     statusLabel: merchantStatusLabel(merchant.status),
     rejectReason: merchant.rejectReason || '',

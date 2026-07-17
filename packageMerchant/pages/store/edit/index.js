@@ -194,6 +194,39 @@ Page({
     })
   },
 
+  async onPickEquipmentImage(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.equipmentTags || []).slice()
+    if (!list[index]) return
+    const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+    const temp = res.tempFiles[0].tempFilePath
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const url = await uploadImage(temp)
+      list[index] = { ...list[index], imageUrl: url }
+      this.setData({ 'form.equipmentTags': list })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onClearEquipmentImage(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.equipmentTags || []).slice()
+    if (!list[index]) return
+    list[index] = { ...list[index], imageUrl: '' }
+    this.setData({ 'form.equipmentTags': list })
+  },
+
+  onPreviewEquipmentImage(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const item = (this.data.form.equipmentTags || [])[index]
+    if (!item || !item.imageUrl) return
+    wx.previewImage({ urls: [item.imageUrl], current: item.imageUrl })
+  },
+
   onAddTech() {
     const list = (this.data.form.technicians || []).slice()
     if (list.length >= 3) return

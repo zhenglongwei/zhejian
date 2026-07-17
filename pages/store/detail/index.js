@@ -43,6 +43,20 @@ const STATUS_TEXT = {
   offline: '暂不可预约',
 }
 
+function buildHeroImages(store) {
+  const out = []
+  const seen = new Set()
+  const push = (raw) => {
+    const url = String(raw || '').trim()
+    if (!url || seen.has(url)) return
+    seen.add(url)
+    out.push(url)
+  }
+  push(store && store.coverImage)
+  ;((store && store.environmentImages) || []).forEach(push)
+  return out
+}
+
 function buildStoreBasicFields(store) {
   if (!store) {
     return {
@@ -118,6 +132,7 @@ Page({
     loginSheetBindContext: 'favorite',
     pendingFavoriteToggle: false,
     storeIsolated: false,
+    heroImages: [],
   },
 
   onLoad(options) {
@@ -263,6 +278,7 @@ Page({
           .filter(Boolean)
           .join('、'),
         freshnessSummary: (store.freshness && store.freshness.summary) || '',
+        heroImages: buildHeroImages(store),
         auditMeta,
         auditNote,
         transparencyMetrics: buildTransparencyMetrics({
@@ -514,5 +530,12 @@ Page({
     const url = e.currentTarget.dataset.url
     if (!url) return
     wx.previewImage({ urls: [url], current: url })
+  },
+
+  onPreviewEnvironment(e) {
+    const url = e.currentTarget.dataset.url
+    const list = this.data.heroImages || []
+    if (!url || !list.length) return
+    wx.previewImage({ urls: list, current: url })
   },
 })

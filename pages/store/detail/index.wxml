@@ -132,11 +132,32 @@
         </view>
       </view>
 
-      <view wx:if="{{store.coverImage}}" class="store-detail__hero">
+      <view wx:if="{{heroImages.length}}" class="store-detail__hero">
+        <swiper
+          wx:if="{{heroImages.length > 1}}"
+          class="store-detail__hero-swiper"
+          indicator-dots
+          autoplay
+          circular
+          interval="4000"
+        >
+          <swiper-item wx:for="{{heroImages}}" wx:key="*this">
+            <image
+              class="store-detail__hero-img"
+              src="{{item}}"
+              mode="aspectFill"
+              data-url="{{item}}"
+              bindtap="onPreviewEnvironment"
+            />
+          </swiper-item>
+        </swiper>
         <image
+          wx:else
           class="store-detail__hero-img"
-          src="{{store.coverImage}}"
+          src="{{heroImages[0]}}"
           mode="aspectFill"
+          data-url="{{heroImages[0]}}"
+          bindtap="onPreviewEnvironment"
         />
       </view>
 

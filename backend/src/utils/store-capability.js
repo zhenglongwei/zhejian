@@ -103,6 +103,52 @@ function isDateExpired(isoDate, today = formatShanghaiDate()) {
   return d < today
 }
 
+/** 有效期状态：none | ok | expiring(≤30天) | expired */
+function resolveValidUntilState(isoDate, today = formatShanghaiDate()) {
+  const until = String(isoDate || '').trim()
+  if (!until) return { status: 'none', daysLeft: null, validUntil: '' }
+  const start = new Date(`${today}T12:00:00+08:00`)
+  const end = new Date(`${until}T12:00:00+08:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return { status: 'none', daysLeft: null, validUntil: until }
+  }
+  const daysLeft = Math.floor((end - start) / (24 * 3600 * 1000))
+  if (daysLeft < 0) return { status: 'expired', daysLeft, validUntil: until }
+  if (daysLeft <= 30) return { status: 'expiring', daysLeft, validUntil: until }
+  return { status: 'ok', daysLeft, validUntil: until }
+}
+
+const LIST_SCORE_PENALTY = {
+  expired: 25,
+  expiring: 8,
+}
+
+/**
+ * 公开列表轻降权（不对用户展示文案）
+ * @returns {number} 应从 score 扣除的分值
+ */
+function computeStoreListScorePenalty(
+  { brandAuthValidUntil = '', qualificationValidUntil = '' } = {},
+  today = formatShanghaiDate()
+) {
+  let penalty = 0
+  for (const until of [brandAuthValidUntil, qualificationValidUntil]) {
+    const state = resolveValidUntilState(until, today)
+    if (state.status === 'expired') penalty += LIST_SCORE_PENALTY.expired
+    else if (state.status === 'expiring') penalty += LIST_SCORE_PENALTY.expiring
+  }
+  return penalty
+}
+
+/** 已审设备实景图 URL 列表（公开面） */
+function collectApprovedEquipmentImageUrls(publicCapability) {
+  const tags =
+    publicCapability && Array.isArray(publicCapability.equipmentTags)
+      ? publicCapability.equipmentTags
+      : []
+  return tags.map((t) => String(t.imageUrl || '').trim()).filter(Boolean)
+}
+
 function brandAuthIsPublic(capability, brandAuthUrl, today = formatShanghaiDate()) {
   const url = String(brandAuthUrl || '').trim()
   if (!url) return false
@@ -269,6 +315,7 @@ function buildMerchantCapabilityEditorView(capabilityRaw, photos = {}) {
 
 module.exports = {
   EQUIPMENT_TAG_PRESETS,
+  LIST_SCORE_PENALTY,
   emptyCapability,
   readCapabilityJson,
   mergeCapabilityFromMerchantEdit,
@@ -277,6 +324,9 @@ module.exports = {
   buildPublicCapabilityView,
   buildMerchantCapabilityEditorView,
   isDateExpired,
+  resolveValidUntilState,
+  computeStoreListScorePenalty,
+  collectApprovedEquipmentImageUrls,
   brandAuthIsPublic,
   capabilityNeedsReview,
   normalizeTechnicians,

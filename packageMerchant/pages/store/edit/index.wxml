@@ -230,6 +230,39 @@
           bindconfirm="onCustomEquipmentCommit"
         />
       </view>
+      <view wx:if="{{form.equipmentTags.length}}" class="merchant-store-edit__eq-list">
+        <text class="text-caption">已选设备可挂实景图（须审后进入用户端环境轮播）</text>
+        <view
+          wx:for="{{form.equipmentTags}}"
+          wx:key="id"
+          class="merchant-store-edit__eq-row"
+        >
+          <text class="merchant-store-edit__eq-label text-body">{{item.label}}</text>
+          <view class="merchant-store-edit__eq-media">
+            <image
+              wx:if="{{item.imageUrl}}"
+              class="merchant-store-edit__eq-thumb"
+              src="{{item.imageUrl}}"
+              mode="aspectFill"
+              data-index="{{index}}"
+              bindtap="onPreviewEquipmentImage"
+            />
+            <view
+              class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add merchant-store-edit__eq-pick"
+              data-index="{{index}}"
+              bindtap="onPickEquipmentImage"
+            >
+              <text class="text-caption">{{item.imageUrl ? '更换' : '上传实景'}}</text>
+            </view>
+            <text
+              wx:if="{{item.imageUrl}}"
+              class="merchant-store-edit__eq-clear text-caption"
+              data-index="{{index}}"
+              bindtap="onClearEquipmentImage"
+            >清除</text>
+          </view>
+        </view>
+      </view>
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">技师公示（须审核，最多 3 人）</text>

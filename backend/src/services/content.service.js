@@ -66,6 +66,8 @@ const { resolveStoreBusinessStatus } = require('../utils/store-business-status')
 const {
   buildPublicCapabilityView,
   readCapabilityJson,
+  computeStoreListScorePenalty,
+  collectApprovedEquipmentImageUrls,
 } = require('../utils/store-capability')
 
 const STORE_STATUS_MAP = {
@@ -523,13 +525,25 @@ function mapStoreRow(store, caseCount = 0) {
   const coverImage = resolveClientReadableMediaUrl(
     photos.facadeUrl || extras.coverImage || ''
   )
+  const workshopUrls =
+    Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
+      ? photos.workshopUrls
+      : extras.environmentImages || []
+  const equipmentImageUrls = collectApprovedEquipmentImageUrls(publicCapability)
   const environmentImages = filterPublicEnvironmentImages(
-    resolveClientReadableMediaUrls(
-      Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
-        ? photos.workshopUrls
-        : extras.environmentImages || []
-    )
+    resolveClientReadableMediaUrls([...workshopUrls, ...equipmentImageUrls])
   )
+  const qualificationJson =
+    store.merchant &&
+    store.merchant.qualificationJson &&
+    typeof store.merchant.qualificationJson === 'object'
+      ? store.merchant.qualificationJson
+      : {}
+  const scorePenalty = computeStoreListScorePenalty({
+    brandAuthValidUntil: capability.brandAuthValidUntil,
+    qualificationValidUntil: String(qualificationJson.validUntil || '').trim(),
+  })
+  const baseScore = Number(extras.score) || 0
   return {
     id: store.id,
     merchantId: store.merchantId || '',
@@ -551,7 +565,7 @@ function mapStoreRow(store, caseCount = 0) {
     notAccepting: publicCapability.notAccepting,
     equipmentTags: publicCapability.equipmentTags,
     brandAuth: publicCapability.brandAuth,
-    score: extras.score || 0,
+    score: Math.max(0, baseScore - scorePenalty),
     caseCount,
     supportsAlbum: extras.supportsAlbum !== false,
     coverImage,
@@ -580,6 +594,9 @@ async function countCasesByStore(storeId) {
 async function listActiveStores() {
   return prisma.store.findMany({
     where: { status: 'ACTIVE' },
+    include: {
+      merchant: { select: { qualificationJson: true } },
+    },
     orderBy: { updatedAt: 'desc' },
   })
 }

@@ -113,11 +113,53 @@
           <el-image :src="detail.photos.brandAuthUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.brandAuthUrl]" />
         </el-col>
       </el-row>
+      <el-descriptions v-if="detail.brandAuthValidUntil || detail.photos?.brandAuthUrl" :column="2" border size="small" class="sub-desc">
+        <el-descriptions-item label="授权有效期至">{{ detail.brandAuthValidUntil || '—' }}</el-descriptions-item>
+        <el-descriptions-item label="能力变更状态">{{ detail.capabilityReviewStatus || '—' }}</el-descriptions-item>
+      </el-descriptions>
       <el-empty
         v-if="!detail.licensePhotoUrl && !detail.photos?.facadeUrl"
         description="未上传资质材料"
         :image-size="48"
       />
+    </el-card>
+
+    <el-card shadow="never" class="section">
+      <template #header>能力资料（入驻/展示，卷十一）</template>
+      <el-descriptions :column="2" border size="small">
+        <el-descriptions-item label="擅长品牌">
+          {{ (detail.specialtyBrands || []).join('、') || '—' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="暂不承接">
+          {{ (detail.notAccepting || []).join('、') || '—' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="设备/场" :span="2">
+          {{
+            (detail.equipmentTags || [])
+              .map((item) => item.label || item)
+              .filter(Boolean)
+              .join('、') || '—'
+          }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-table
+        v-if="detail.technicians?.length"
+        :data="detail.technicians"
+        border
+        size="small"
+        class="tech-table"
+      >
+        <el-table-column prop="name" label="称呼" width="120" />
+        <el-table-column prop="role" label="角色" width="120" />
+        <el-table-column prop="years" label="年限" width="100" />
+        <el-table-column label="资质标签">
+          <template #default="{ row }">
+            {{ (row.credentials || []).join('、') || '—' }}
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-else description="未填写技师公示卡" :image-size="48" />
+      <p class="capability-tip">入驻通过后，技师/设备/授权变更走「门店能力变更」队列审后亮。</p>
     </el-card>
 
     <el-card v-if="detail.rejectReason" shadow="never" class="section">
@@ -280,5 +322,16 @@ onMounted(loadDetail)
   height: 140px;
   border-radius: 6px;
   border: 1px solid var(--el-border-color-lighter);
+}
+.sub-desc {
+  margin-top: 12px;
+}
+.tech-table {
+  margin-top: 12px;
+}
+.capability-tip {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

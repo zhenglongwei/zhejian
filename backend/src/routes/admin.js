@@ -78,6 +78,8 @@ const {
   rejectStoreCapability,
 } = require('../services/admin-store-capability.service')
 
+const { listStoreExpiryFollowUps } = require('../services/admin-store-expiry.service')
+
 const {
   listAdminServicePlans,
   getAdminServicePlanDetail,
@@ -664,6 +666,15 @@ router.get('/merchants', async (req, res, next) => {
 router.get('/store-capability-reviews', async (req, res, next) => {
   try {
     const data = await listStoreCapabilityReviews(req.query)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/store-expiry-followups', async (req, res, next) => {
+  try {
+    const data = await listStoreExpiryFollowUps(req.query)
     return ok(res, data)
   } catch (e) {
     next(e)
