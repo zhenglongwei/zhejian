@@ -19,15 +19,22 @@ const { buildBusinessHoursEditorState } = require('../../../../utils/business-ho
 const { createBusinessHoursPageHandlers } = require('../../../../utils/business-hours-page')
 
 function buildEquipmentTagViews(selected) {
+  const labels = []
   const set = {}
   ;(selected || []).forEach((item) => {
     const name = typeof item === 'string' ? item : item.label
-    if (name) set[name] = true
+    if (!name || set[name]) return
+    set[name] = true
+    labels.push(name)
   })
-  return EQUIPMENT_PRESETS.map((name) => ({
+  const presetViews = EQUIPMENT_PRESETS.map((name) => ({
     name,
     selected: !!set[name],
   }))
+  const customViews = labels
+    .filter((name) => EQUIPMENT_PRESETS.indexOf(name) < 0)
+    .map((name) => ({ name, selected: true }))
+  return presetViews.concat(customViews)
 }
 
 function normalizeTechniciansForForm(list) {
@@ -49,6 +56,7 @@ Page({
     equipmentTagViews: buildEquipmentTagViews([]),
     serviceOptions: MERCHANT_SERVICE_TAG_OPTIONS,
     customServiceInput: '',
+    customEquipmentInput: '',
     businessHoursDaily: { start: '09:00', end: '18:00' },
     businessHoursClosures: [],
     businessHoursPreview: '',
@@ -83,16 +91,19 @@ Page({
       const form = profileToDisplayForm(profile)
       form.technicians = normalizeTechniciansForForm(form.technicians)
       const hours = buildBusinessHoursEditorState(form.businessHours)
+      const daily = hours.businessHoursDaily || { start: '09:00', end: '18:00' }
+      if (!daily.start) daily.start = '09:00'
+      if (!daily.end) daily.end = '18:00'
       this.setData({
         status: 'normal',
         form: {
           ...form,
-          businessHours: hours.businessHoursPreview,
+          businessHours: hours.businessHoursPreview || form.businessHours,
         },
         basic: profileToBasicReadonly(profile),
         serviceTags: buildServiceTagViews(form.services),
         equipmentTagViews: buildEquipmentTagViews(form.equipmentTags),
-        businessHoursDaily: hours.businessHoursDaily,
+        businessHoursDaily: daily,
         businessHoursClosures: hours.businessHoursClosures,
         businessHoursPreview: hours.businessHoursPreview,
         showClosureForm: false,
@@ -101,6 +112,10 @@ Page({
         capabilityReviewStatus: profile.capabilityReviewStatus || 'none',
         capabilityRejectReason: profile.capabilityRejectReason || '',
       })
+      // 保证预览文案与 picker 初始值一致
+      if (typeof this.syncBusinessHours === 'function') {
+        this.syncBusinessHours()
+      }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
       setTimeout(() => wx.navigateBack(), 1500)
@@ -145,6 +160,35 @@ Page({
       current.push({ id: name, label: name, imageUrl: '' })
     }
     this.setData({
+      'form.equipmentTags': current,
+      equipmentTagViews: buildEquipmentTagViews(current),
+    })
+  },
+
+  onCustomEquipmentInput(e) {
+    this.setData({ customEquipmentInput: e.detail.value })
+  },
+
+  onCustomEquipmentCommit() {
+    const name = (this.data.customEquipmentInput || '').trim()
+    if (!name) return
+    if (name.length > MERCHANT_SERVICE_TAG_NAME_MAX) {
+      wx.showToast({ title: `不超过 ${MERCHANT_SERVICE_TAG_NAME_MAX} 字`, icon: 'none' })
+      return
+    }
+    const current = (this.data.form.equipmentTags || []).slice()
+    const labels = current.map((item) => (typeof item === 'string' ? item : item.label))
+    if (labels.indexOf(name) >= 0) {
+      this.setData({ customEquipmentInput: '' })
+      return
+    }
+    if (current.length >= 16) {
+      wx.showToast({ title: '设备标签过多', icon: 'none' })
+      return
+    }
+    current.push({ id: name, label: name, imageUrl: '' })
+    this.setData({
+      customEquipmentInput: '',
       'form.equipmentTags': current,
       equipmentTagViews: buildEquipmentTagViews(current),
     })
@@ -279,6 +323,9 @@ Page({
 
   async onSave() {
     if (this.data.submitting) return
+    if (typeof this.syncBusinessHours === 'function') {
+      this.syncBusinessHours()
+    }
     const message = validateDisplayForm(this.data.form, {
       businessHoursDaily: this.data.businessHoursDaily,
       businessHoursClosures: this.data.businessHoursClosures,

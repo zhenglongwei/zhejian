@@ -14,142 +14,244 @@
 <view class="page merchant-store-edit page-content merchant-form-page" wx:elif="{{status === 'normal'}}">
   <ui-compliance-notice type="history" text="以下展示信息由本店自行维护，请确保真实有效。" />
 
-  <text class="merchant-onboard__section-title text-h3">展示资料（可编辑）</text>
-  <text class="text-caption merchant-store-edit__hint">审核通过后可随时修改，保存后用户端与 H5 门店页即时更新。</text>
+  <!-- ① 基础展示：即时生效 -->
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">基础展示</text>
+    <text class="merchant-store-edit__panel-hint text-caption">电话、营业时间、简介保存后立即对用户端与 H5 生效。</text>
 
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">门店电话 *</text>
-    <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
-  </view>
-  <view class="merchant-form__section merchant-hours">
-    <text class="merchant-form__label">营业时间 *</text>
-    <include src="../../templates/business-hours-editor.wxml" />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">门店简介</text>
-    <textarea class="merchant-form__textarea" placeholder="选填，用户端门店详情展示" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
-  </view>
-
-  <text class="merchant-onboard__section-title text-h3">擅长服务 *</text>
-  <view class="merchant-form__section">
-    <view class="merchant-onboard__chips">
-      <view
-        wx:for="{{serviceTags}}"
-        wx:key="name"
-        class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
-        data-name="{{item.name}}"
-        bindtap="onToggleService"
-      >{{item.name}}</view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门店电话 *</text>
+      <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
     </view>
-    <view class="merchant-onboard__custom-line">
-      <text class="merchant-onboard__custom-label text-body">自定义</text>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">营业时间 *</text>
+      <text class="text-caption merchant-hours__hint">点击时间可修改每日营业时段；长假可添加临时休息。</text>
+
+      <view class="merchant-hours__daily">
+        <text class="merchant-hours__daily-label">每日营业</text>
+        <view class="merchant-hours__daily-times">
+          <picker mode="time" value="{{businessHoursDaily.start}}" data-field="start" bindchange="onDailyTimeChange">
+            <view class="merchant-hours__time">{{businessHoursDaily.start || '09:00'}}</view>
+          </picker>
+          <text class="merchant-hours__sep">至</text>
+          <picker mode="time" value="{{businessHoursDaily.end}}" data-field="end" bindchange="onDailyTimeChange">
+            <view class="merchant-hours__time">{{businessHoursDaily.end || '18:00'}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="merchant-hours__closures">
+        <view class="merchant-hours__closures-head">
+          <text class="merchant-form__label merchant-form__label--sub">临时休息</text>
+          <text class="merchant-hours__add" bindtap="onToggleClosureForm">{{showClosureForm ? '收起' : '+ 添加'}}</text>
+        </view>
+
+        <view wx:if="{{showClosureForm}}" class="merchant-hours__closure-form">
+          <view class="merchant-hours__closure-row">
+            <text class="merchant-hours__closure-label">开始</text>
+            <picker mode="date" value="{{closureDraft.startDate}}" data-field="startDate" bindchange="onClosureDraftDateChange">
+              <view class="merchant-hours__date">{{closureDraft.startDate || '选择日期'}}</view>
+            </picker>
+          </view>
+          <view class="merchant-hours__closure-row">
+            <text class="merchant-hours__closure-label">结束</text>
+            <picker mode="date" value="{{closureDraft.endDate}}" data-field="endDate" bindchange="onClosureDraftDateChange">
+              <view class="merchant-hours__date">{{closureDraft.endDate || '选择日期'}}</view>
+            </picker>
+          </view>
+          <input
+            class="merchant-form__input"
+            placeholder="说明（选填），如：春节、国庆"
+            value="{{closureDraft.note}}"
+            bindinput="onClosureDraftNoteInput"
+          />
+          <view class="merchant-hours__closure-actions">
+            <ui-button type="secondary" size="sm" bind:btntap="onCancelClosureForm">取消</ui-button>
+            <ui-button type="primary" size="sm" bind:btntap="onConfirmClosure">确认</ui-button>
+          </view>
+        </view>
+
+        <text wx:if="{{!businessHoursClosures.length && !showClosureForm}}" class="merchant-hours__closure-empty text-caption">暂无临时休息；非营业时段用户端将显示「休息中」</text>
+
+        <view
+          wx:for="{{businessHoursClosures}}"
+          wx:key="id"
+          class="merchant-hours__closure-item"
+        >
+          <text class="merchant-hours__closure-text">{{item.displayText}}</text>
+          <text class="merchant-hours__closure-remove" data-id="{{item.id}}" bindtap="onRemoveClosure">删除</text>
+        </view>
+      </view>
+
+      <view class="merchant-hours__preview">
+        <text class="merchant-hours__preview-label text-caption">用户端展示文案</text>
+        <text class="merchant-hours__preview-value text-body">{{businessHoursPreview || '请设置营业时间'}}</text>
+      </view>
+    </view>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门店简介</text>
+      <textarea class="merchant-form__textarea" placeholder="选填，用户端门店详情展示" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
+    </view>
+  </view>
+
+  <!-- ② 擅长服务：即时生效 -->
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">擅长服务 *</text>
+    <text class="merchant-store-edit__panel-hint text-caption">即时生效。可点选预设，也可自定义添加。</text>
+    <view class="merchant-form__section">
+      <view class="merchant-onboard__chips">
+        <view
+          wx:for="{{serviceTags}}"
+          wx:key="name"
+          class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
+          data-name="{{item.name}}"
+          bindtap="onToggleService"
+        >{{item.name}}</view>
+      </view>
+      <view class="merchant-onboard__custom-line">
+        <text class="merchant-onboard__custom-label text-body">自定义</text>
+        <input
+          class="merchant-onboard__custom-input"
+          value="{{customServiceInput}}"
+          maxlength="16"
+          confirm-type="done"
+          placeholder="输入后回车添加"
+          bindinput="onCustomServiceInput"
+          bindblur="onCustomServiceCommit"
+          bindconfirm="onCustomServiceCommit"
+        />
+      </view>
+    </view>
+  </view>
+
+  <!-- ③ 门店照片 -->
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">门店照片</text>
+    <text class="merchant-store-edit__panel-hint text-caption">门头与工位即时更新；品牌授权变更需运营审核通过后才对外展示。</text>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门头照片 *</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
+        <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">点击上传</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">工位照片 *（至少 1 张）</text>
+      <view class="merchant-onboard__photo-grid">
+        <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
+          <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
+          <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+        </view>
+        <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
+          <text class="text-caption">+</text>
+        </view>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">接待区照片</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickReception">
+        <image wx:if="{{form.receptionPhotoUrl}}" class="merchant-onboard__photo" src="{{form.receptionPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">选填</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">品牌授权证明（变更需审核）</text>
+      <view class="merchant-onboard__photo-slot" bindtap="onPickBrandAuth">
+        <image wx:if="{{form.brandAuthPhotoUrl}}" class="merchant-onboard__photo" src="{{form.brandAuthPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">选填</text>
+      </view>
       <input
-        class="merchant-onboard__custom-input"
-        value="{{customServiceInput}}"
-        maxlength="16"
-        confirm-type="done"
-        bindinput="onCustomServiceInput"
-        bindblur="onCustomServiceCommit"
-        bindconfirm="onCustomServiceCommit"
+        class="merchant-form__input merchant-store-edit__auth-date"
+        placeholder="授权有效期，如 2027-12-31"
+        value="{{form.brandAuthValidUntil}}"
+        data-field="brandAuthValidUntil"
+        bindinput="onInput"
+      />
+      <text class="text-caption merchant-store-edit__field-tip">过期后用户端自动不再展示「品牌授权」。</text>
+    </view>
+  </view>
+
+  <!-- ④ 能力墙 -->
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">能力与边界</text>
+    <text class="merchant-store-edit__panel-hint text-caption">擅长品牌、暂不承接即时生效；技师与设备须运营审核通过后才出现在用户端/H5。</text>
+
+    <view wx:if="{{capabilityReviewStatus === 'pending'}}" class="merchant-store-edit__banner merchant-store-edit__banner--pending">
+      <text class="text-caption">技师/设备/授权变更审核中，通过前公开页仍显示上一版。</text>
+    </view>
+    <view wx:if="{{capabilityReviewStatus === 'rejected'}}" class="merchant-store-edit__banner merchant-store-edit__banner--reject">
+      <text class="text-caption">能力变更已驳回：{{capabilityRejectReason || '请修改后重新提交'}}</text>
+    </view>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">擅长品牌（即时生效）</text>
+      <input
+        class="merchant-form__input"
+        placeholder="如：宝马、奥迪、本田（顿号分隔）"
+        value="{{form.specialtyBrandsText}}"
+        data-field="specialtyBrandsText"
+        bindinput="onInput"
       />
     </view>
-  </view>
-
-  <text class="merchant-onboard__section-title text-h3">门店照片</text>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">门头照片 *</text>
-    <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
-      <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
-      <text wx:else class="text-caption">点击上传</text>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">暂不承接（即时生效）</text>
+      <input
+        class="merchant-form__input"
+        placeholder="如：大型货车、改装车"
+        value="{{form.notAcceptingText}}"
+        data-field="notAcceptingText"
+        bindinput="onInput"
+      />
     </view>
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">工位照片 *（至少 1 张）</text>
-    <view class="merchant-onboard__photo-grid">
-      <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
-        <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-        <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">设备/场（须审核）</text>
+      <view class="merchant-onboard__chips">
+        <view
+          wx:for="{{equipmentTagViews}}"
+          wx:key="name"
+          class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
+          data-name="{{item.name}}"
+          bindtap="onToggleEquipment"
+        >{{item.name}}</view>
       </view>
-      <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
-        <text class="text-caption">+</text>
+      <view class="merchant-onboard__custom-line">
+        <text class="merchant-onboard__custom-label text-body">自定义</text>
+        <input
+          class="merchant-onboard__custom-input"
+          value="{{customEquipmentInput}}"
+          maxlength="16"
+          confirm-type="done"
+          placeholder="输入后回车添加"
+          bindinput="onCustomEquipmentInput"
+          bindblur="onCustomEquipmentCommit"
+          bindconfirm="onCustomEquipmentCommit"
+        />
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">技师公示（须审核，最多 3 人）</text>
+      <view wx:for="{{form.technicians}}" wx:key="id" class="merchant-store-edit__tech-card">
+        <input class="merchant-form__input" placeholder="称呼 *" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
+        <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
+        <view class="merchant-form__row">
+          <input class="merchant-form__input merchant-form__input--half" placeholder="年限" value="{{item.years}}" data-index="{{index}}" data-field="years" bindinput="onTechInput" />
+          <input class="merchant-form__input merchant-form__input--half" placeholder="资质标签" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
+        </view>
+        <text class="merchant-store-edit__tech-remove text-caption" data-index="{{index}}" bindtap="onRemoveTech">删除该技师</text>
+      </view>
+      <view wx:if="{{form.technicians.length < 3}}" class="merchant-store-edit__add-tech">
+        <ui-button type="secondary" size="sm" bind:btntap="onAddTech">添加技师</ui-button>
       </view>
     </view>
   </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">接待区照片</text>
-    <view class="merchant-onboard__photo-slot" bindtap="onPickReception">
-      <image wx:if="{{form.receptionPhotoUrl}}" class="merchant-onboard__photo" src="{{form.receptionPhotoUrl}}" mode="aspectFill" />
-      <text wx:else class="text-caption">选填</text>
-    </view>
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">品牌授权证明（变更需审核）</text>
-    <view class="merchant-onboard__photo-slot" bindtap="onPickBrandAuth">
-      <image wx:if="{{form.brandAuthPhotoUrl}}" class="merchant-onboard__photo" src="{{form.brandAuthPhotoUrl}}" mode="aspectFill" />
-      <text wx:else class="text-caption">选填</text>
-    </view>
-    <input
-      class="merchant-form__input"
-      placeholder="授权有效期 YYYY-MM-DD"
-      value="{{form.brandAuthValidUntil}}"
-      data-field="brandAuthValidUntil"
-      bindinput="onInput"
-    />
-  </view>
 
-  <text class="merchant-onboard__section-title text-h3">活店与能力（卷十一）</text>
-  <view wx:if="{{capabilityReviewStatus === 'pending'}}" class="merchant-form__section">
-    <text class="text-caption">技师/设备/授权变更审核中，通过前公开页仍显示上一版。</text>
-  </view>
-  <view wx:if="{{capabilityReviewStatus === 'rejected'}}" class="merchant-form__section">
-    <text class="text-caption">能力变更已驳回：{{capabilityRejectReason || '请修改后重新提交'}}</text>
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">擅长品牌（即时生效）</text>
-    <input
-      class="merchant-form__input"
-      placeholder="如：宝马、奥迪、本田（顿号分隔）"
-      value="{{form.specialtyBrandsText}}"
-      data-field="specialtyBrandsText"
-      bindinput="onInput"
-    />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">暂不承接（即时生效）</text>
-    <input
-      class="merchant-form__input"
-      placeholder="如：大型货车、改装车"
-      value="{{form.notAcceptingText}}"
-      data-field="notAcceptingText"
-      bindinput="onInput"
-    />
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">设备/场标签（须审核）</text>
-    <view class="merchant-onboard__chips">
-      <view
-        wx:for="{{equipmentTagViews}}"
-        wx:key="name"
-        class="merchant-onboard__chip {{item.selected ? 'merchant-onboard__chip--on' : ''}}"
-        data-name="{{item.name}}"
-        bindtap="onToggleEquipment"
-      >{{item.name}}</view>
-    </view>
-  </view>
-  <view class="merchant-form__section">
-    <text class="merchant-form__label">技师公示（须审核，最多 3 人）</text>
-    <view wx:for="{{form.technicians}}" wx:key="id" class="merchant-form__section">
-      <input class="merchant-form__input" placeholder="称呼" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
-      <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
-      <input class="merchant-form__input" placeholder="年限" value="{{item.years}}" data-index="{{index}}" data-field="years" bindinput="onTechInput" />
-      <input class="merchant-form__input" placeholder="资质标签（顿号分隔）" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
-      <text class="text-caption" data-index="{{index}}" bindtap="onRemoveTech">删除该技师</text>
-    </view>
-    <ui-button wx:if="{{form.technicians.length < 3}}" type="secondary" size="sm" bind:btntap="onAddTech">添加技师</ui-button>
-  </view>
-
-  <view class="merchant-store-edit__readonly">
-    <text class="merchant-onboard__section-title text-h3">基本资料（只读）</text>
+  <!-- ⑤ 只读基本资料 -->
+  <view class="merchant-store-edit__panel merchant-store-edit__panel--muted">
+    <text class="merchant-store-edit__panel-title text-h3">基本资料（只读）</text>
+    <text class="merchant-store-edit__panel-hint text-caption">主体、资质、名称与地址变更请联系平台运营。</text>
     <view class="merchant-store-edit__readonly-row">
       <text class="merchant-store-edit__readonly-label">门店名称</text>
       <text class="merchant-store-edit__readonly-value">{{basic.storeName}}</text>
@@ -178,9 +280,10 @@
       <text class="merchant-store-edit__readonly-label">资质类型</text>
       <text class="merchant-store-edit__readonly-value">{{basic.qualificationTypeLabel}}</text>
     </view>
-    <image wx:if="{{basic.licensePhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.licensePhotoUrl}}" mode="aspectFill" />
-    <image wx:if="{{basic.qualificationPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.qualificationPhotoUrl}}" mode="aspectFill" />
-    <text class="merchant-store-edit__readonly-tip">主体、资质、名称与地址变更请联系平台运营处理。</text>
+    <view class="merchant-store-edit__readonly-photos" wx:if="{{basic.licensePhotoUrl || basic.qualificationPhotoUrl}}">
+      <image wx:if="{{basic.licensePhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.licensePhotoUrl}}" mode="aspectFill" />
+      <image wx:if="{{basic.qualificationPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.qualificationPhotoUrl}}" mode="aspectFill" />
+    </view>
   </view>
 
   <view class="merchant-form__spacer" />
