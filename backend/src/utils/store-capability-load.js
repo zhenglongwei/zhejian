@@ -1,6 +1,6 @@
 /**
- * 安全读取 stores.capability_json。
- * 兼容：迁移未执行 / Prisma Client 未 generate 时不抛错，返回 {}。
+ * 安全读写 stores.capability_json。
+ * 兼容：迁移未执行 / Prisma Client 未 generate 时不抛错。
  */
 
 const { prisma } = require('../lib/prisma')
@@ -16,6 +16,11 @@ function asCapabilityObject(value) {
     }
   }
   return {}
+}
+
+function isCapabilityFieldError(err) {
+  const msg = String((err && err.message) || err || '')
+  return /capabilityJson|capability_json|Unknown (arg|field|column)|does not exist/i.test(msg)
 }
 
 async function loadStoreCapabilityById(storeId) {
@@ -39,6 +44,15 @@ async function loadStoreCapabilityById(storeId) {
       return {}
     }
   }
+}
+
+/** 从已查出的 store 行取能力；Prisma 无字段时走 SQL */
+async function resolveStoreCapabilityJson(store) {
+  if (!store || !store.id) return {}
+  if (store.capabilityJson !== undefined) {
+    return asCapabilityObject(store.capabilityJson)
+  }
+  return loadStoreCapabilityById(store.id)
 }
 
 async function loadStoreCapabilitiesByIds(storeIds) {
@@ -70,8 +84,58 @@ async function loadStoreCapabilitiesByIds(storeIds) {
   }
 }
 
+async function saveStoreCapabilityJsonRaw(storeId, capability) {
+  const id = String(storeId || '').trim()
+  if (!id) {
+    const err = new Error('未找到门店')
+    err.status = 400
+    throw err
+  }
+  const json = JSON.stringify(capability && typeof capability === 'object' ? capability : {})
+  await prisma.$executeRawUnsafe(
+    'UPDATE stores SET capability_json = CAST(? AS JSON) WHERE id = ?',
+    json,
+    id
+  )
+}
+
+/**
+ * 写入能力 JSON；Prisma 字段不可用时降级为原生 SQL。
+ */
+async function saveStoreCapabilityJson(storeId, capability) {
+  const id = String(storeId || '').trim()
+  try {
+    await prisma.store.update({
+      where: { id },
+      data: { capabilityJson: capability },
+    })
+    return { ok: true, via: 'prisma' }
+  } catch (e) {
+    if (!isCapabilityFieldError(e)) throw e
+    try {
+      await saveStoreCapabilityJsonRaw(id, capability)
+      console.warn(
+        '[store-capability] prisma capabilityJson write failed, used raw SQL',
+        e.message
+      )
+      return { ok: true, via: 'raw' }
+    } catch (rawErr) {
+      const err = new Error(
+        '门店能力字段未就绪：请在服务器执行 npx prisma migrate deploy && npx prisma generate 后重启 API'
+      )
+      err.status = 503
+      err.cause = rawErr
+      throw err
+    }
+  }
+}
+
 module.exports = {
   asCapabilityObject,
+  isCapabilityFieldError,
   loadStoreCapabilityById,
+  resolveStoreCapabilityJson,
   loadStoreCapabilitiesByIds,
+  saveStoreCapabilityJson,
+  saveStoreCapabilityJsonRaw,
 }

@@ -5,6 +5,14 @@
       <el-menu :default-active="activeMenu" :default-openeds="openedMenus" router>
         <el-menu-item index="/cases">案例审核</el-menu-item>
 
+        <el-sub-menu index="merchant-group">
+          <template #title>商家</template>
+          <el-menu-item index="/merchants">入驻审核</el-menu-item>
+          <el-menu-item index="/merchants/capability">能力变更</el-menu-item>
+          <el-menu-item index="/merchants/expiry">资质到期</el-menu-item>
+          <el-menu-item index="/services">服务监管</el-menu-item>
+        </el-sub-menu>
+
         <el-sub-menu index="geo-group">
           <template #title>GEO</template>
           <el-menu-item index="/geo">数据看板</el-menu-item>
@@ -15,12 +23,8 @@
           <el-menu-item index="/geo/topic-health">专题健康度</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/merchants">商家审核</el-menu-item>
-        <el-menu-item index="/store-capability">门店能力变更</el-menu-item>
-        <el-menu-item index="/store-expiry">资质授权催办</el-menu-item>
-        <el-menu-item index="/services">服务监管</el-menu-item>
         <el-menu-item index="/reports">举报管理</el-menu-item>
-        <el-menu-item index="/authorization-logs">授权留痕</el-menu-item>
+        <el-menu-item index="/authorization-logs">用户授权记录</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -44,7 +48,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const openedMenus = ['geo-group']
+const openedMenus = ['merchant-group', 'geo-group']
 
 const activeMenu = computed(() => {
   if (route.path === '/geo' || route.path === '/geo/') return '/geo'
@@ -54,9 +58,13 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/geo/probe-report')) return '/geo/probe-report'
   if (route.path.startsWith('/geo/citation-gaps')) return '/geo/citation-gaps'
   if (route.path.startsWith('/geo/topic-health')) return '/geo/topic-health'
+  if (route.path.startsWith('/merchants/capability') || route.path.startsWith('/store-capability')) {
+    return '/merchants/capability'
+  }
+  if (route.path.startsWith('/merchants/expiry') || route.path.startsWith('/store-expiry')) {
+    return '/merchants/expiry'
+  }
   if (route.path.startsWith('/merchants')) return '/merchants'
-  if (route.path.startsWith('/store-capability')) return '/store-capability'
-  if (route.path.startsWith('/store-expiry')) return '/store-expiry'
   if (route.path.startsWith('/services')) return '/services'
   if (route.path.startsWith('/reports')) return '/reports'
   if (route.path.startsWith('/authorization-logs')) return '/authorization-logs'

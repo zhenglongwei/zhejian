@@ -1,7 +1,10 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">门店能力变更审核</h2>
-    <p class="page-desc">审核技师公示卡、设备/场标签、品牌授权（含有效期）。营业时间等即时字段不进本队列。</p>
+    <h2 class="page-title">商家审核</h2>
+    <MerchantHubNav active="capability" />
+    <p class="page-desc">
+      已入驻商家修改技师公示、设备/场（含实景）、品牌授权及有效期后进入本队列；通过前公示页仍显示旧版。营业时间、擅长品牌、暂不承接即时生效，不进本队列。
+    </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane label="待审核" name="pending" />
       <el-tab-pane label="已驳回" name="rejected" />
@@ -39,6 +42,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchStoreCapabilityList } from '@/api/store-capability-review'
+import MerchantHubNav from '@/components/merchant-review/MerchantHubNav.vue'
 
 const router = useRouter()
 const activeTab = ref('pending')
@@ -83,14 +87,19 @@ onMounted(loadList)
 <style scoped>
 .page-title {
   margin: 0 0 8px;
+  font-size: 20px;
 }
 .page-desc {
   margin: 0 0 16px;
   color: var(--el-text-color-secondary);
   font-size: 13px;
+  line-height: 1.5;
 }
 .pager {
   margin-top: 16px;
   justify-content: flex-end;
+}
+:deep(.el-table__row) {
+  cursor: pointer;
 }
 </style>

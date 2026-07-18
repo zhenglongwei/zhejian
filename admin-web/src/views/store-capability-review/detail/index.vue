@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading">
-    <el-page-header @back="goBack" content="门店能力变更详情" />
+    <el-page-header @back="goBack" content="能力变更详情" />
     <template v-if="detail">
       <el-descriptions title="门店" :column="2" border class="block">
         <el-descriptions-item label="门店">{{ detail.storeName }}</el-descriptions-item>

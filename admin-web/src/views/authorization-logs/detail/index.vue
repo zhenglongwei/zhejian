@@ -2,7 +2,7 @@
   <div v-loading="loading">
     <el-page-header @back="goBack">
       <template #content>
-        <span class="detail-title">授权留痕详情</span>
+        <span class="detail-title">用户授权记录详情</span>
         <el-tag v-if="detail.authTypeLabel" class="detail-tag">{{ detail.authTypeLabel }}</el-tag>
         <el-tag
           v-if="detail.authStatus"

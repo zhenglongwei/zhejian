@@ -1,9 +1,9 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">授权留痕</h2>
+    <h2 class="page-title">用户授权记录</h2>
 
     <el-alert
-      title="记录用户勾选授权时的文案快照与上下文，用于合规核对与争议追溯；只读查询，不可修改。"
+      title="这是用户在小程序/H5 勾选协议时的合规留痕（如案例公开、相册关联、入驻协议等），不是「品牌授权证明」。类型多是因为不同业务场景各记一条，便于争议追溯；日常运营可按「案例公开 / 相册」筛选查看。"
       type="info"
       :closable="false"
       show-icon

@@ -1,8 +1,9 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">资质 / 授权催办</h2>
+    <h2 class="page-title">商家审核</h2>
+    <MerchantHubNav active="expiry" />
     <p class="page-desc">
-      品牌授权或维修资质即将过期（≤30 天）或已过期的门店。公开面已自动隐藏过期授权；列表排序已轻降权。请人工联系商家续期。
+      系统按「有效期 vs 今天」自动扫描，无需人工录入。品牌授权或维修资质：即将过期（≤30 天）或已过期会出现在此列表。过期授权已在公示页自动隐藏，并参与列表轻降权；运营据此联系商家续期即可。
     </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane label="全部" name="all" />
@@ -15,7 +16,7 @@
       class="asof"
       type="info"
       :closable="false"
-      :title="`统计截至 ${asOfDate}`"
+      :title="`自动扫描截至 ${asOfDate}（刷新页面即可更新）`"
     />
 
     <el-table v-if="list.length" :data="list" border stripe>
@@ -37,7 +38,7 @@
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-else-if="!loading" description="暂无催办项" />
+    <el-empty v-else-if="!loading" description="当前没有即将到期或已过期的资质/授权" />
 
     <el-pagination
       v-if="total > 0"
@@ -54,6 +55,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { fetchStoreExpiryFollowUps } from '@/api/store-expiry'
+import MerchantHubNav from '@/components/merchant-review/MerchantHubNav.vue'
 
 const activeTab = ref('all')
 const loading = ref(false)

@@ -1,6 +1,10 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">商家入驻审核</h2>
+    <h2 class="page-title">商家审核</h2>
+    <MerchantHubNav active="onboarding" />
+    <p class="page-desc">
+      审核商家首次入驻申请（主体、执照、门店基础信息）。已通过商家的技师/设备/品牌授权变更请切换到「能力变更」。
+    </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
         v-for="tab in MERCHANT_TABS"
@@ -52,6 +56,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchMerchantList } from '@/api/merchant-review'
 import { MERCHANT_TABS } from '@/constants/merchant-review'
+import MerchantHubNav from '@/components/merchant-review/MerchantHubNav.vue'
 
 const router = useRouter()
 const activeTab = ref('pending')
@@ -100,8 +105,14 @@ onMounted(loadList)
 
 <style scoped>
 .page-title {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   font-size: 20px;
+}
+.page-desc {
+  margin: 0 0 16px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .filter-form {
   margin-bottom: 12px;

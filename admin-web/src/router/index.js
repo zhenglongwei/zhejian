@@ -44,25 +44,35 @@ const routes = [
         component: () => import('@/views/merchant-review/list/index.vue'),
       },
       {
-        path: 'merchants/:merchantId',
-        name: 'merchant-detail',
-        component: () => import('@/views/merchant-review/detail/index.vue'),
-      },
-      {
-        path: 'store-capability',
+        path: 'merchants/capability',
         name: 'store-capability-list',
         component: () => import('@/views/store-capability-review/list/index.vue'),
       },
       {
-        path: 'store-capability/:storeId',
+        path: 'merchants/capability/:storeId',
         name: 'store-capability-detail',
         component: () => import('@/views/store-capability-review/detail/index.vue'),
       },
       {
-        path: 'store-expiry',
+        path: 'merchants/expiry',
         name: 'store-expiry-list',
         component: () => import('@/views/store-expiry/list/index.vue'),
       },
+      {
+        path: 'merchants/:merchantId',
+        name: 'merchant-detail',
+        component: () => import('@/views/merchant-review/detail/index.vue'),
+      },
+      // 旧路径兼容
+      { path: 'store-capability', redirect: { name: 'store-capability-list' } },
+      {
+        path: 'store-capability/:storeId',
+        redirect: (to) => ({
+          name: 'store-capability-detail',
+          params: { storeId: to.params.storeId },
+        }),
+      },
+      { path: 'store-expiry', redirect: { name: 'store-expiry-list' } },
       {
         path: 'services',
         name: 'service-list',
