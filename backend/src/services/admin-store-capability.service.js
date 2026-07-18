@@ -1,5 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const {
   readCapabilityJson,
   approveCapabilityPending,
@@ -11,6 +12,24 @@ const {
   saveStoreCapabilityJson,
   isCapabilityFieldError,
 } = require('../utils/store-capability-load')
+
+function resignEquipmentTags(list) {
+  if (!Array.isArray(list)) return []
+  return list.map((item) => ({
+    ...item,
+    imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+  }))
+}
+
+/** 运营台 <img> 不带 Bearer，须返回新鲜 signed URL */
+function resignPendingForAdmin(pending) {
+  if (!pending || typeof pending !== 'object') return null
+  return {
+    ...pending,
+    brandAuthUrl: resolveClientReadableMediaUrl(pending.brandAuthUrl || ''),
+    equipmentTags: resignEquipmentTags(pending.equipmentTags),
+  }
+}
 
 async function appendCapabilityReviewLog({
   merchantId,
@@ -119,6 +138,7 @@ async function getStoreCapabilityReviewDetail(storeId) {
     store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
   const editor = buildMerchantCapabilityEditorView(capabilityJson, photos)
   const cap = readCapabilityJson(capabilityJson)
+  const pending = resignPendingForAdmin(cap.pending)
 
   return {
     storeId: store.id,
@@ -130,17 +150,22 @@ async function getStoreCapabilityReviewDetail(storeId) {
     contactPhone: store.merchant?.contactPhone || '',
     merchantStatus: store.merchant?.status || '',
     reviewStatus: cap.reviewStatus,
-    pending: cap.pending,
+    pending,
     published: {
       technicians: cap.technicians,
-      equipmentTags: cap.equipmentTags,
+      equipmentTags: resignEquipmentTags(cap.equipmentTags),
       brandAuthValidUntil: cap.brandAuthValidUntil,
-      brandAuthUrl: photos.brandAuthUrl || '',
+      brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
       specialtyBrands: cap.specialtyBrands,
       notAccepting: cap.notAccepting,
       lastProfileVerifiedAt: cap.lastProfileVerifiedAt,
     },
-    editor,
+    editor: {
+      ...editor,
+      brandAuthPhotoUrl: resolveClientReadableMediaUrl(editor.brandAuthPhotoUrl || ''),
+      equipmentTags: resignEquipmentTags(editor.equipmentTags),
+      publishedEquipmentTags: resignEquipmentTags(editor.publishedEquipmentTags),
+    },
   }
 }
 

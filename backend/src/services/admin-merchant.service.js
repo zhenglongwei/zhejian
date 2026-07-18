@@ -11,6 +11,18 @@ const {
   formatPhotosForClient,
 } = require('../lib/onboarding-payload')
 const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+
+function resignPhotoMap(photos = {}) {
+  return {
+    facadeUrl: resolveClientReadableMediaUrl(photos.facadeUrl || ''),
+    workshopUrls: (photos.workshopUrls || [])
+      .map((url) => resolveClientReadableMediaUrl(url))
+      .filter(Boolean),
+    receptionUrl: resolveClientReadableMediaUrl(photos.receptionUrl || ''),
+    brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
+  }
+}
 
 function buildListWhere(query = {}) {
   const tab = String(query.tab || 'pending').toLowerCase()
@@ -160,7 +172,7 @@ async function getAdminMerchantDetail(merchantId) {
   const services = Array.isArray(store.servicesJson) ? store.servicesJson : []
   const reviewLogs = await fetchMerchantReviewLogs(merchantId)
   const qualification = formatQualificationForClient(merchant.qualificationJson)
-  const photos = formatPhotosForClient(store.photosJson)
+  const photos = resignPhotoMap(formatPhotosForClient(store.photosJson))
   const capability = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
 
   return {
@@ -178,13 +190,19 @@ async function getAdminMerchantDetail(merchantId) {
     services,
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
-    licensePhotoUrl: merchant.licensePhotoUrl || '',
+    licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
     contactEmail: merchant.contactEmail || '',
-    qualification,
+    qualification: {
+      ...qualification,
+      photoUrl: resolveClientReadableMediaUrl(qualification.photoUrl || ''),
+    },
     photos,
     specialtyBrands: capability.specialtyBrands,
     notAccepting: capability.notAccepting,
-    equipmentTags: capability.equipmentTags,
+    equipmentTags: (capability.equipmentTags || []).map((item) => ({
+      ...item,
+      imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+    })),
     technicians: capability.technicians,
     brandAuthValidUntil: capability.brandAuthValidUntil,
     capabilityReviewStatus: capability.reviewStatus,
