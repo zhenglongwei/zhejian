@@ -15,6 +15,7 @@ const {
   formatPhotosForClient,
 } = require('../lib/onboarding-payload')
 const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
+const { resolveStoreCapabilityJson } = require('../utils/store-capability-load')
 
 function formatOnboardingProfile(merchant, store) {
   if (!merchant || !store) return null
@@ -176,7 +177,11 @@ async function getOnboardingProfile(userId, options = {}) {
     preferIncomplete,
   })
   if (!found) return null
-  return formatOnboardingProfile(found.merchant, found.store)
+  const capabilityJson = await resolveStoreCapabilityJson(found.store)
+  return formatOnboardingProfile(found.merchant, {
+    ...found.store,
+    capabilityJson,
+  })
 }
 
 async function listWorkbenchStoreEntries(userId) {

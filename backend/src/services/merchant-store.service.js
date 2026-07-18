@@ -10,6 +10,11 @@ const {
   buildMerchantCapabilityEditorView,
   readCapabilityJson,
 } = require('../utils/store-capability')
+const {
+  resolveStoreCapabilityJson,
+  saveStoreCapabilityJson,
+  isCapabilityFieldError,
+} = require('../utils/store-capability-load')
 
 const STAFF_ROLE_OWNER = 'owner'
 const STAFF_STATUS_ACTIVE = 'ACTIVE'
@@ -76,11 +81,13 @@ async function loadOwnedActiveStore(merchantId, storeId) {
   return store
 }
 
-function attachCapabilityToProfile(profile, store) {
+function attachCapabilityToProfile(profile, store, capabilityOverride) {
   if (!profile || !store) return profile
   const photos =
     store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
-  const capabilityEditor = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
+  const capabilityRaw =
+    capabilityOverride !== undefined ? capabilityOverride : store.capabilityJson
+  const capabilityEditor = buildMerchantCapabilityEditorView(capabilityRaw, photos)
   return {
     ...profile,
     ...capabilityEditor,
@@ -99,6 +106,7 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
   }
 
   const existing = await loadOwnedActiveStore(auth.merchantId, storeId)
+  const existingCapability = await resolveStoreCapabilityJson(existing)
 
   let payload = parseStoreDisplayForm(rawForm)
   payload = validateStoreDisplayPayload(payload)
@@ -112,13 +120,14 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
   const brandAuthChanged = nextBrandAuthUrl !== prevBrandAuthUrl
   const photosToSave = {
     ...payload.photos,
-    brandAuthUrl: brandAuthChanged && nextBrandAuthUrl
-      ? prevBrandAuthUrl
-      : nextBrandAuthUrl || prevBrandAuthUrl,
+    brandAuthUrl:
+      brandAuthChanged && nextBrandAuthUrl
+        ? prevBrandAuthUrl
+        : nextBrandAuthUrl || prevBrandAuthUrl,
   }
 
   const { capability, needsReview } = mergeCapabilityFromMerchantEdit(
-    existing.capabilityJson,
+    existingCapability,
     {
       specialtyBrands: rawForm.specialtyBrands,
       notAccepting: rawForm.notAccepting,
@@ -139,24 +148,51 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     capability.pending.brandAuthUrl = nextBrandAuthUrl || prevBrandAuthUrl
   }
 
-  const updatedStore = await prisma.store.update({
-    where: { id: storeId },
-    data: {
-      phone: payload.storePhone,
-      businessHours: payload.businessHours,
-      intro: payload.intro,
-      servicesJson: payload.services,
-      photosJson: photosToSave,
-      capabilityJson: capability,
-    },
-  })
+  const baseData = {
+    phone: payload.storePhone,
+    businessHours: payload.businessHours,
+    intro: payload.intro,
+    servicesJson: payload.services,
+    photosJson: photosToSave,
+  }
+
+  let updatedStore
+  try {
+    updatedStore = await prisma.store.update({
+      where: { id: storeId },
+      data: {
+        ...baseData,
+        capabilityJson: capability,
+      },
+    })
+  } catch (e) {
+    if (!isCapabilityFieldError(e)) throw e
+    // 基础字段先落库，能力 JSON 走兼容写入
+    updatedStore = await prisma.store.update({
+      where: { id: storeId },
+      data: baseData,
+    })
+    await saveStoreCapabilityJson(storeId, capability)
+    updatedStore = { ...updatedStore, capabilityJson: capability }
+  }
+
+  if (needsReview) {
+    console.info(
+      '[store-capability] pending review',
+      storeId,
+      'tech',
+      (capability.pending?.technicians || []).length,
+      'eq',
+      (capability.pending?.equipmentTags || []).length
+    )
+  }
 
   const merchant = await prisma.merchant.findUnique({
     where: { id: auth.merchantId },
   })
 
   const profile = formatOnboardingProfile(merchant, updatedStore)
-  return attachCapabilityToProfile(profile, updatedStore)
+  return attachCapabilityToProfile(profile, updatedStore, capability)
 }
 
 module.exports = {

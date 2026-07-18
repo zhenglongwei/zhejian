@@ -6,6 +6,11 @@ const {
   rejectCapabilityPending,
   buildMerchantCapabilityEditorView,
 } = require('../utils/store-capability')
+const {
+  resolveStoreCapabilityJson,
+  saveStoreCapabilityJson,
+  isCapabilityFieldError,
+} = require('../utils/store-capability-load')
 
 async function appendCapabilityReviewLog({
   merchantId,
@@ -49,8 +54,15 @@ async function listStoreCapabilityReviews(query = {}) {
     take: 500,
   })
 
-  const filtered = stores.filter((store) => {
-    const cap = readCapabilityJson(store.capabilityJson)
+  const withCap = await Promise.all(
+    stores.map(async (store) => {
+      const capabilityJson = await resolveStoreCapabilityJson(store)
+      return { store, capabilityJson }
+    })
+  )
+
+  const filtered = withCap.filter(({ capabilityJson }) => {
+    const cap = readCapabilityJson(capabilityJson)
     if (tab === 'pending') return cap.reviewStatus === 'pending'
     if (tab === 'rejected') return cap.reviewStatus === 'rejected'
     return cap.reviewStatus === 'pending' || cap.reviewStatus === 'rejected'
@@ -60,8 +72,8 @@ async function listStoreCapabilityReviews(query = {}) {
   const slice = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   return {
-    list: slice.map((store) => {
-      const cap = readCapabilityJson(store.capabilityJson)
+    list: slice.map(({ store, capabilityJson }) => {
+      const cap = readCapabilityJson(capabilityJson)
       return {
         storeId: store.id,
         storeName: store.name,
@@ -102,10 +114,11 @@ async function getStoreCapabilityReviewDetail(storeId) {
     throw err
   }
 
+  const capabilityJson = await resolveStoreCapabilityJson(store)
   const photos =
     store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
-  const cap = readCapabilityJson(store.capabilityJson)
-  const editor = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
+  const editor = buildMerchantCapabilityEditorView(capabilityJson, photos)
+  const cap = readCapabilityJson(capabilityJson)
 
   return {
     storeId: store.id,
@@ -114,16 +127,39 @@ async function getStoreCapabilityReviewDetail(storeId) {
     merchantId: store.merchantId,
     merchantName: store.merchant?.name || '',
     contactName: store.merchant?.contactName || '',
+    contactPhone: store.merchant?.contactPhone || '',
+    merchantStatus: store.merchant?.status || '',
     reviewStatus: cap.reviewStatus,
+    pending: cap.pending,
     published: {
       technicians: cap.technicians,
       equipmentTags: cap.equipmentTags,
       brandAuthValidUntil: cap.brandAuthValidUntil,
       brandAuthUrl: photos.brandAuthUrl || '',
+      specialtyBrands: cap.specialtyBrands,
+      notAccepting: cap.notAccepting,
       lastProfileVerifiedAt: cap.lastProfileVerifiedAt,
     },
-    pending: cap.pending,
     editor,
+  }
+}
+
+async function persistApprovedCapability(storeId, capability, photos) {
+  try {
+    await prisma.store.update({
+      where: { id: storeId },
+      data: {
+        capabilityJson: capability,
+        photosJson: photos,
+      },
+    })
+  } catch (e) {
+    if (!isCapabilityFieldError(e)) throw e
+    await prisma.store.update({
+      where: { id: storeId },
+      data: { photosJson: photos },
+    })
+    await saveStoreCapabilityJson(storeId, capability)
   }
 }
 
@@ -134,34 +170,29 @@ async function approveStoreCapability(storeId, adminUser = {}) {
     err.status = 404
     throw err
   }
-  const cap = readCapabilityJson(store.capabilityJson)
+  const capabilityJson = await resolveStoreCapabilityJson(store)
+  const cap = readCapabilityJson(capabilityJson)
   if (cap.reviewStatus !== 'pending' || !cap.pending) {
     const err = new Error('当前无可审核的能力变更')
     err.status = 400
     throw err
   }
 
-  const { capability, brandAuthUrl } = approveCapabilityPending(store.capabilityJson)
+  const { capability, brandAuthUrl } = approveCapabilityPending(capabilityJson)
   const photos =
     store.photosJson && typeof store.photosJson === 'object' ? { ...store.photosJson } : {}
   if (brandAuthUrl) {
     photos.brandAuthUrl = brandAuthUrl
   }
 
-  await prisma.store.update({
-    where: { id: storeId },
-    data: {
-      capabilityJson: capability,
-      photosJson: photos,
-    },
-  })
+  await persistApprovedCapability(storeId, capability, photos)
 
   await appendCapabilityReviewLog({
     merchantId: store.merchantId,
     storeId,
     reviewerId: String(adminUser.userId || adminUser.id || 'admin_system'),
     reviewAction: 'approve_capability',
-    reviewComment: `门店能力变更通过`,
+    reviewComment: '门店能力变更通过',
   })
 
   return getStoreCapabilityReviewDetail(storeId)
@@ -174,18 +205,24 @@ async function rejectStoreCapability(storeId, reason = '', adminUser = {}) {
     err.status = 404
     throw err
   }
-  const cap = readCapabilityJson(store.capabilityJson)
+  const capabilityJson = await resolveStoreCapabilityJson(store)
+  const cap = readCapabilityJson(capabilityJson)
   if (cap.reviewStatus !== 'pending' || !cap.pending) {
     const err = new Error('当前无可审核的能力变更')
     err.status = 400
     throw err
   }
 
-  const capability = rejectCapabilityPending(store.capabilityJson, reason)
-  await prisma.store.update({
-    where: { id: storeId },
-    data: { capabilityJson: capability },
-  })
+  const capability = rejectCapabilityPending(capabilityJson, reason)
+  try {
+    await prisma.store.update({
+      where: { id: storeId },
+      data: { capabilityJson: capability },
+    })
+  } catch (e) {
+    if (!isCapabilityFieldError(e)) throw e
+    await saveStoreCapabilityJson(storeId, capability)
+  }
 
   await appendCapabilityReviewLog({
     merchantId: store.merchantId,
