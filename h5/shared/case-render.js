@@ -10,7 +10,7 @@
   }
 
   var TAG_MAP = {
-    authorized: { text: '已授权', cls: 'h5-tag--order' },
+    authorized: { text: '已发布', cls: 'h5-tag--order' },
     named: { text: '实名授权', cls: 'h5-tag--order' },
     anonymous: { text: '匿名授权', cls: 'h5-tag--desensitized' },
     desensitized: { text: '已脱敏', cls: 'h5-tag--desensitized' },

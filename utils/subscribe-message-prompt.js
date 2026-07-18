@@ -84,14 +84,14 @@ function promptAlbumProgressSubscribe(albumId) {
   })
 }
 
-/** 提交授权公示后：引导接收审核结果 */
+/** 提交发布到公开网站后：引导接收审核结果 */
 function promptAuthorizeAuditSubscribe(albumId = '') {
   const storageKey = albumId ? `authorize:audit:${albumId}` : 'authorize:audit'
   return promptUserNotificationSubscribe({
     scene: 'authorize',
     title: '接收审核结果',
     content:
-      '你已提交授权公示，开启微信通知后可在审核通过或未通过时收到提醒。微信为一次性订阅，每条通知需单独授权。',
+      '你已提交发布到公开网站，开启微信通知后可在审核通过或未通过时收到提醒。微信为一次性订阅，每条通知需单独授权。',
     confirmText: '开启通知',
     storageKey,
     skipIfPrompted: false,

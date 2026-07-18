@@ -2,6 +2,6 @@
   "component": true,
   "usingComponents": {
     "ui-bottom-sheet": "/components/bottom-sheet/index",
-    "ui-checkbox-row": "/components/checkbox-row/index"
+    "ui-button": "/components/button/index"
   }
 }

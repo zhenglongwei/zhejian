@@ -4,6 +4,7 @@ const {
   submitServiceAlbumAuthorization,
   recordAlbumShare,
   withdrawAuthorization,
+  fetchAlbumSocialCopy,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -38,6 +39,10 @@ const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
+const {
+  buildSocialDraft,
+  copyTextToClipboard,
+} = require('../../../utils/album-social-copy')
 
 function getWindowMetrics() {
   try {
@@ -70,10 +75,21 @@ function measureImmersiveLayout() {
 }
 
 const PUBLIC_CASE_HINT = {
-  user_rejected: '当前为私密相册，你可随时申请公开公示。',
-  pending_review: '公开申请审核中，通过后将展示在案例页与公开网页。',
-  public_approved: '当前为公开相册，已在案例页与公开网页展示。',
-  need_modify: '公示审核需你修改后重新提交，请按下方提示处理。',
+  user_rejected: '当前为私密相册，你可随时发布到公开网站。',
+  pending_review: '发布审核中，通过后将展示在公开网站。',
+  public_approved: '已在公开网站展示（已脱敏、已审核）。',
+  need_modify: '审核需你修改后重新发布，请按下方提示处理。',
+}
+
+const HONOR_HINT =
+  '帮助同城车主少踩坑：可将脱敏后的维修记录发布到公开网站（须审核）。'
+
+function resolvePublishSheetState(detail) {
+  const status = (detail && detail.publicCaseStatus) || 'private'
+  if (status === 'public_approved') return 'approved'
+  if (status === 'pending_review') return 'pending'
+  if (status === 'need_modify') return 'need_modify'
+  return 'idle'
 }
 
 function buildStageProgress(chapters, activeNodeId) {
@@ -158,11 +174,11 @@ function buildEndPageActionState(detail, showAuthSection) {
   if (status === 'pending_review' || status === 'public_approved') {
     return {
       endPageShowAuth: false,
-      endPageAuthLabel: '授权公示',
+      endPageAuthLabel: '发布到公开网站',
       endPageAuthDisabled: false,
       endPageAuthHint: '',
       endPageShowWithdraw: true,
-      endPageWithdrawLabel: '撤回公示',
+      endPageWithdrawLabel: '撤回发布',
       endPageStatusHint:
         gateBanner ||
         (status === 'pending_review'
@@ -174,11 +190,11 @@ function buildEndPageActionState(detail, showAuthSection) {
   if (status === 'need_modify') {
     return {
       endPageShowAuth: false,
-      endPageAuthLabel: '重新提交公示',
+      endPageAuthLabel: '重新发布',
       endPageAuthDisabled: false,
       endPageAuthHint: '',
       endPageShowWithdraw: true,
-      endPageWithdrawLabel: '撤回公示',
+      endPageWithdrawLabel: '撤回发布',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
       endPageGateActions: gateActions,
     }
@@ -186,22 +202,22 @@ function buildEndPageActionState(detail, showAuthSection) {
   if (showAuthSection) {
     return {
       endPageShowAuth: true,
-      endPageAuthLabel: '授权公示',
+      endPageAuthLabel: '发布到公开网站',
       endPageAuthDisabled: Boolean(detail && detail.canAuthorizePublicCase === false),
       endPageAuthHint: (detail && detail.userConfirmHint) || '',
       endPageShowWithdraw: false,
-      endPageWithdrawLabel: '撤回公示',
+      endPageWithdrawLabel: '撤回发布',
       endPageStatusHint: gateBanner,
       endPageGateActions: gateActions,
     }
   }
   return {
     endPageShowAuth: false,
-    endPageAuthLabel: '授权公示',
+    endPageAuthLabel: '发布到公开网站',
     endPageAuthDisabled: false,
     endPageAuthHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '撤回公示',
+    endPageWithdrawLabel: '撤回发布',
     endPageStatusHint:
       gateBanner ||
       (status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : ''),
@@ -238,15 +254,23 @@ Page({
     activeNodeId: '',
     storePhone: '',
     endPageShowAuth: false,
-    endPageAuthLabel: '授权公示',
+    endPageAuthLabel: '发布到公开网站',
     endPageAuthDisabled: false,
     endPageAuthHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '撤回公示',
+    endPageWithdrawLabel: '撤回发布',
     endPageStatusHint: '',
     endPageGateActions: [],
     withdrawSheetLoading: false,
     shareSheetIntent: 'owner',
+    shareHonorHint: HONOR_HINT,
+    socialPlatform: 'xiaohongshu',
+    socialDraftText: '',
+    socialDraftLoading: false,
+    socialDraftWaitHint: '',
+    publishSheetState: 'idle',
+    publishSheetDisabled: false,
+    publishSheetHint: '',
     shareActionsDisabled: false,
     viewerHeightPx: 0,
     progressPercent: 0,
@@ -430,7 +454,15 @@ Page({
       const shareCase = buildShareableCaseFromAlbum(detail)
       const showPublicCaseShare =
         detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
-      const showShareButton = showShareEntry || showPublicCaseShare
+      const publishSheetState = resolvePublishSheetState(detail)
+      const showShareButton =
+        isRepairCompleted(detail.status) &&
+        (showShareEntry ||
+          showPublicCaseShare ||
+          showAuthSection ||
+          publishSheetState === 'pending' ||
+          publishSheetState === 'need_modify' ||
+          publishSheetState === 'approved')
       const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
       const shareSheetIntent = defaultShareIntent
       const shareActionsDisabled = showShareEntry
@@ -445,6 +477,15 @@ Page({
         templateId: enriched.templateId || '',
       })
       const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
+      const socialPlatform = this.data.socialPlatform || 'xiaohongshu'
+      const socialDraftText = buildSocialDraft(enriched, socialPlatform)
+      const publishSheetHint =
+        publishSheetState === 'idle'
+          ? '预览即将上网的内容，确认后进入审核。'
+          : ''
+      const publishSheetDisabled =
+        Boolean(enriched.canAuthorizePublicCase === false) &&
+        (publishSheetState === 'idle' || publishSheetState === 'need_modify')
       const storePhone = (enriched.store && enriched.store.phone) || ''
       const linkedStoreId =
         (detail.store && detail.store.id) ||
@@ -485,6 +526,12 @@ Page({
         defaultShareIntent,
         shareSheetIntent,
         shareActionsDisabled,
+        socialPlatform,
+        socialDraftText,
+        publishSheetState,
+        publishSheetHint,
+        publishSheetDisabled,
+        shareHonorHint: HONOR_HINT,
         authChecked: false,
         authSheetVisible: false,
         status: pageStatus,
@@ -619,7 +666,15 @@ Page({
 
   async onOpenShareSheet() {
     if (!this.data.showShareButton) return
-    this.setData({ shareSheetVisible: true })
+    const detail = this.data.detail || {}
+    const platform = this.data.socialPlatform || 'xiaohongshu'
+    this.setData({
+      shareSheetVisible: true,
+      socialDraftText: '',
+      socialDraftWaitHint: '',
+      publishSheetState: resolvePublishSheetState(detail),
+    })
+    this.loadSocialDraft(platform)
     if (this.data.showShareEntry && !this.data.shareReady && !this.data.sharePreparing) {
       await this.refreshShareToken({ silent: true })
     }
@@ -627,6 +682,89 @@ Page({
 
   onCloseShareSheet() {
     this.setData({ shareSheetVisible: false })
+  },
+
+  async loadSocialDraft(platform) {
+    const albumId = this.albumId || (this.data.detail && this.data.detail.albumId)
+    if (!albumId) return
+    this.setData({ socialDraftLoading: true, socialDraftWaitHint: '' })
+    try {
+      const data = await fetchAlbumSocialCopy(albumId, platform)
+      if (this.data.socialPlatform !== platform) {
+        this.setData({ socialDraftLoading: false })
+        return
+      }
+      if (data && data.status === 'generating') {
+        this.setData({
+          socialDraftLoading: false,
+          socialDraftText: '',
+          socialDraftWaitHint: (data && data.message) || '文案准备中，请稍后再试',
+        })
+        return
+      }
+      const text = (data && (data.text || data.body)) || ''
+      this.setData({
+        socialDraftText: text,
+        socialDraftLoading: false,
+        socialDraftWaitHint: '',
+      })
+    } catch (err) {
+      this.setData({
+        socialDraftLoading: false,
+        socialDraftWaitHint: '',
+        socialDraftText: buildSocialDraft(this.data.detail || {}, platform),
+      })
+    }
+  },
+
+  onSocialPlatformChange(e) {
+    const platform = (e.detail && e.detail.platform) || 'xiaohongshu'
+    this.setData({
+      socialPlatform: platform,
+      socialDraftText: '',
+      socialDraftWaitHint: '',
+    })
+    this.loadSocialDraft(platform)
+  },
+
+  async onCopySocialDraft(e) {
+    const platform =
+      (e.detail && e.detail.platform) || this.data.socialPlatform || 'xiaohongshu'
+    if (this.data.socialDraftWaitHint) {
+      wx.showToast({ title: this.data.socialDraftWaitHint, icon: 'none' })
+      return
+    }
+    const text = this.data.socialDraftText
+    if (!text) {
+      wx.showToast({ title: '文案尚未就绪', icon: 'none' })
+      return
+    }
+    try {
+      await copyTextToClipboard(text)
+      if (canOwnerShareAlbum(this.data.detail)) {
+        await recordAlbumShare(this.data.detail.albumId, {
+          mode: SHARE_MODE.DESENSITIZED,
+          channel: `social_copy_${platform}`,
+        })
+      }
+    } catch (err) {
+      // toast already in copyTextToClipboard
+    }
+  },
+
+  onSharePublish() {
+    const state = this.data.publishSheetState
+    if (state === 'approved' || state === 'pending') return
+    if (this.data.publishSheetDisabled) {
+      wx.showToast({ title: this.data.endPageAuthHint || '暂不可发布', icon: 'none' })
+      return
+    }
+    this.setData({ shareSheetVisible: false })
+    if (state === 'need_modify') {
+      this.openAuthorizePreview()
+      return
+    }
+    this.onEndPageAuth()
   },
 
   onPageChange(e) {
@@ -759,7 +897,7 @@ Page({
     if (!albumId) return
     try {
       await withdrawAuthorization(albumId)
-      wx.showToast({ title: '已撤回授权', icon: 'success' })
+      wx.showToast({ title: '已撤回发布', icon: 'success' })
       await this.loadAlbum()
     } catch (e) {
       wx.showToast({
@@ -836,9 +974,13 @@ Page({
   },
 
   async onCopyPublicWebLink() {
+    if (this.data.publishSheetState !== 'approved' && !this.data.showPublicCaseShare) {
+      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
+      return
+    }
     const shareCase = buildShareableCaseFromAlbum(this.data.detail)
     if (!shareCase || !shareCase.id) {
-      wx.showToast({ title: '公示案例尚未就绪', icon: 'none' })
+      wx.showToast({ title: '公开案例尚未就绪', icon: 'none' })
       return
     }
     try {
@@ -897,10 +1039,10 @@ Page({
     const { detail, authSubmitting } = this.data
     if (!detail || authSubmitting) return
     wx.showModal({
-      title: '拒绝公示',
+      title: '暂不发布',
       content:
-        '拒绝后，本次服务相册仍仅作为你的私密记录保存，不会生成公开案例。',
-      confirmText: '确认拒绝',
+        '确认后，本次服务相册仍仅作为你的私密记录保存，不会发布到公开网站。',
+      confirmText: '确认',
       cancelText: '再想想',
       success: (res) => {
         if (!res.confirm) return
@@ -918,7 +1060,7 @@ Page({
       await submitServiceAlbumAuthorization(detail.albumId, { agreed })
       wx.hideLoading()
       wx.showToast({
-        title: agreed ? '已授权公示' : '已记录你的选择',
+        title: agreed ? '已提交发布' : '已记录你的选择',
         icon: 'success',
       })
       if (agreed) {

@@ -45,14 +45,14 @@ const LIABILITY_COPY = {
   },
   [BIZ_TYPE.ORDER_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
-    confirmLabel: '确认并公开',
+    confirmLabel: '确认发布到公开网站',
   },
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
-    confirmLabel: '确认并公开',
+    confirmLabel: '确认发布到公开网站',
   },
   [BIZ_TYPE.SERVICE_REVIEW_PREVIEW]: {
-    body: '本人已逐张核对评价配图脱敏效果，同意在授权公开案例中展示。',
+    body: '本人已逐张核对评价配图脱敏效果，同意在已发布公开案例中展示。',
     confirmLabel: '确认评价配图',
   },
   [BIZ_TYPE.STANDALONE_TOOL]: {

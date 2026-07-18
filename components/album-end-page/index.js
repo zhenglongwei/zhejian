@@ -18,7 +18,7 @@ Component({
     },
     authLabel: {
       type: String,
-      value: '授权公示',
+      value: '发布到公开网站',
     },
     authDisabled: {
       type: Boolean,
@@ -58,7 +58,7 @@ Component({
     },
     withdrawLabel: {
       type: String,
-      value: '撤回公示',
+      value: '撤回发布',
     },
     statusHint: {
       type: String,

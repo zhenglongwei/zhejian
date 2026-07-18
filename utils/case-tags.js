@@ -6,16 +6,16 @@ const {
 const MAX_TAGS = 3
 
 /**
- * 公开案例标准标签行（Phase 1：匿名/实名授权 · 已脱敏 · 已审核）
+ * 公开案例标准标签行（Phase 1：已发布 · 已脱敏 · 已审核）
  */
 function buildCaseTags(authorizationTier) {
   const tier = normalizePublicAuthTier(authorizationTier)
   const authTag =
     tier === PUBLIC_AUTH_TIER.ANONYMOUS
-      ? { variant: 'desensitized', text: '匿名授权' }
+      ? { variant: 'desensitized', text: '已发布' }
       : tier === PUBLIC_AUTH_TIER.NAMED
-        ? { variant: 'order', text: '实名授权' }
-        : { variant: 'order', text: '已授权' }
+        ? { variant: 'order', text: '已发布' }
+        : { variant: 'order', text: '已发布' }
 
   return [
     authTag,

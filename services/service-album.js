@@ -111,6 +111,28 @@ async function fetchSharedAlbum(token) {
   return get(`/user/shared-albums/${encodeURIComponent(token)}`)
 }
 
+/** USER-PUB · 多平台社交媒体长文（车主复制） */
+async function fetchAlbumSocialCopy(albumId, platform = 'xiaohongshu') {
+  if (ENV.mode === 'mock') {
+    const { buildSocialDraft } = require('../utils/album-social-copy')
+    const detail = await mockFetchServiceAlbum(albumId)
+    const text = buildSocialDraft(detail, platform)
+    return {
+      status: 'ready',
+      platform,
+      platformLabel: platform,
+      title: '',
+      body: text,
+      text,
+      tips: '',
+      source: 'rule',
+    }
+  }
+  return get(`/user/service-albums/${encodeURIComponent(albumId)}/social-copy`, {
+    platform,
+  })
+}
+
 module.exports = {
   fetchUserServiceAlbums,
   fetchServiceAlbum,
@@ -123,4 +145,5 @@ module.exports = {
   fetchSharedAlbum,
   fetchAlbumClaimPreview,
   claimServiceAlbum,
+  fetchAlbumSocialCopy,
 }

@@ -206,7 +206,7 @@ function createAlbumAuthShareHandlers(options = {}) {
         await submitServiceAlbumAuthorization(albumId, { agreed })
         wx.hideLoading()
         wx.showToast({
-          title: agreed ? '已授权公示' : '已记录你的选择',
+          title: agreed ? '已提交发布' : '已记录你的选择',
           icon: 'success',
         })
         if (agreed) {

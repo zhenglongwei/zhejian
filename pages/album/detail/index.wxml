@@ -157,12 +157,15 @@
 
   <ui-bottom-sheet
     visible="{{authSheetVisible}}"
-    title="授权公示"
+    title="发布到公开网站"
     showActions="{{false}}"
     scrollable="{{true}}"
     bind:close="onCloseAuthSheet"
   >
     <ui-album-authorize-section
+      title="发布到公开网站"
+      confirmText="确认并进入脱敏预览"
+      rejectText="暂不发布"
       checked="{{authChecked}}"
       authTier="{{authTier}}"
       submitting="{{authSubmitting}}"
@@ -186,16 +189,29 @@
 
   <ui-share-sheet
     visible="{{shareSheetVisible}}"
+    variant="owner"
     showOwnerShare="{{showShareEntry}}"
     shareIntent="{{shareSheetIntent}}"
     shareUseOriginal="{{shareUseOriginal}}"
     ownerSharePreparing="{{sharePreparing}}"
     actionsDisabled="{{shareActionsDisabled}}"
+    honorHint="{{shareHonorHint}}"
+    socialPlatform="{{socialPlatform}}"
+  socialDraftText="{{socialDraftText}}"
+  socialDraftLoading="{{socialDraftLoading}}"
+  socialDraftWaitHint="{{socialDraftWaitHint}}"
+    publishState="{{publishSheetState}}"
+    publishDisabled="{{publishSheetDisabled}}"
+    publishHint="{{publishSheetHint}}"
+    showPublicWebLink="{{showPublicCaseShare}}"
     bind:close="onCloseShareSheet"
     bind:toggleoriginal="onShareOriginalToggle"
     bind:copyownerlink="onCopyOwnerShareLink"
     bind:copypublicweblink="onCopyPublicWebLink"
     bind:sharetimeline="onShareTimelineGuide"
+    bind:socialplatformchange="onSocialPlatformChange"
+    bind:copysocial="onCopySocialDraft"
+    bind:publish="onSharePublish"
   />
 
   <ui-login-sheet

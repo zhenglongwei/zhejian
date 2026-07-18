@@ -891,7 +891,31 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
 async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
-  return buildMerchantView(album)
+  const view = buildMerchantView(album)
+  Object.assign(view, assessPublicCaseQuality(view))
+  const {
+    readPackageFromAlbum,
+    mergeQualitySuggestionsIntoCopyQuality,
+  } = require('./album-content-package.service')
+  const pkg = readPackageFromAlbum(album)
+  if (view.copyQuality) {
+    view.copyQuality = mergeQualitySuggestionsIntoCopyQuality(view.copyQuality, pkg)
+  }
+  view.contentPackageStatus = (pkg && pkg.status) || ''
+  return view
+}
+
+async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  const view = buildMerchantView(album)
+  let quality = assessCopyQuality(view)
+  const {
+    readPackageFromAlbum,
+    mergeQualitySuggestionsIntoCopyQuality,
+  } = require('./album-content-package.service')
+  quality = mergeQualitySuggestionsIntoCopyQuality(quality, readPackageFromAlbum(album))
+  return quality
 }
 
 function albumHasOwner(album) {
@@ -1107,13 +1131,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   return view
 }
 
-async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
-  const album = await loadAlbum(albumId)
-  assertMerchantAlbum(album, storeId, merchantId)
-  const view = buildMerchantView(album)
-  return assessCopyQuality(view)
-}
-
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
@@ -1144,6 +1161,11 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   const { notifyAlbumCompleted } = require('./notification.service')
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
+  })
+  // USER-PUB · 完工一次异步生成内容包（质量建议 + 多平台长文），车主侧读缓存
+  const { triggerContentPackageOnComplete } = require('./album-content-package.service')
+  triggerContentPackageOnComplete(albumId).catch((e) => {
+    console.warn('[album-content-package] trigger failed', albumId, e && e.message)
   })
   const view = buildMerchantView(album)
   Object.assign(view, assessPublicCaseQuality(view))
@@ -1624,6 +1646,7 @@ module.exports = {
   listServiceAlbumTemplateOptions,
   fetchMerchantCopyQuality,
   loadAlbum,
+  buildMerchantView,
   isAlbumContentLocked,
   assertAlbumContentEditable,
   ALBUM_CONTENT_LOCKED_CODE,

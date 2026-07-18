@@ -51,7 +51,7 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
   if (summary.pendingAuth > 0) {
     items.push({
       key: 'pendingAuth',
-      label: `${summary.pendingAuth} 本待授权公示`,
+      label: `${summary.pendingAuth} 本待发布到公开网站`,
       action: 'albumPublishable',
     })
   }

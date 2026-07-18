@@ -33,7 +33,7 @@ Page({
     canConfirm: false,
     liabilityText: '',
     liabilityAccepted: false,
-    confirmLabelShort: '确认授权公示',
+    confirmLabelShort: '确认发布到公开网站',
     needPreviewHint: false,
     publicViewHint: '',
     publicMediaCount: 0,
@@ -71,7 +71,7 @@ Page({
       authTier: 'named',
       albumTitle,
       liabilityText: copy.body,
-      confirmLabelShort: copy.confirmLabel || '确认授权公示',
+      confirmLabelShort: copy.confirmLabel || '确认发布到公开网站',
     })
     if (!taskId) {
       this.setData({

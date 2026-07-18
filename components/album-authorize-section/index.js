@@ -10,7 +10,7 @@ Component({
     },
     title: {
       type: String,
-      value: '授权公示',
+      value: '发布到公开网站',
     },
     showPolicyLink: {
       type: Boolean,
@@ -22,11 +22,11 @@ Component({
     },
     confirmText: {
       type: String,
-      value: '确认授权公示',
+      value: '确认并进入脱敏预览',
     },
     rejectText: {
       type: String,
-      value: '拒绝公示',
+      value: '暂不发布',
     },
     authTier: {
       type: String,

@@ -79,7 +79,7 @@ function resolveAlbumAuthAction(item = {}) {
   if (item.compliancePendingHint) {
     return {
       show: true,
-      label: '授权公示',
+      label: '发布到公开网站',
       disabled: true,
       hint: item.compliancePendingHint,
     }
@@ -107,9 +107,9 @@ function resolveAlbumAuthAction(item = {}) {
   if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
     return {
       show: true,
-      label: '授权公示',
+      label: '发布到公开网站',
       disabled: true,
-      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可公示',
+      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可发布',
     }
   }
   if (
@@ -121,7 +121,7 @@ function resolveAlbumAuthAction(item = {}) {
       item.awaitingUserConfirm && item.userConfirmHint ? item.userConfirmHint : ''
     return {
       show: true,
-      label: '授权公示',
+      label: '发布到公开网站',
       disabled: Boolean(hint && item.canAuthorizePublicCase === false),
       hint,
     }
@@ -134,7 +134,7 @@ function resolveAlbumWithdrawAction(item = {}) {
   if (status === 'pending_review' || status === 'public_approved') {
     return {
       show: true,
-      label: '撤回公示',
+      label: '撤回发布',
       disabled: Boolean(item.withdrawing),
     }
   }
@@ -348,7 +348,7 @@ function enrichMerchantAlbumListItem(item) {
 
 function buildAuthorizationTags(publicCaseStatus, options = {}) {
   if (options.needsAuthorization) {
-    return [{ variant: 'warning', text: '待授权公示' }]
+    return [{ variant: 'warning', text: '待发布' }]
   }
   const key = publicCaseStatus || 'private'
   if (key === 'public_approved') {
@@ -392,7 +392,7 @@ function resolveAuthorizationCardAction(item = {}) {
   ) {
     return {
       action: 'authorize',
-      label: '授权公示',
+      label: '发布到公开网站',
       buttonType: 'secondary',
       disabled: false,
     }
@@ -458,7 +458,7 @@ function enrichAuthorizationAlbumItem(item) {
     showShareButton: false,
     authAction,
     withdrawAction,
-    statusLabel: needsAuth ? '待授权公示' : base.statusLabel,
+    statusLabel: needsAuth ? '待发布到公开网站' : base.statusLabel,
     statusVariant: needsAuth ? 'warning' : 'default',
     visibilityLabel: visibility.visibilityLabel,
     visibilityVariant:

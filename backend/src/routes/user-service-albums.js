@@ -27,6 +27,10 @@ const {
   generateAlbumInspectionAdvice,
   listAlbumInspectionReports,
 } = require('../services/album-inspection-advice.service')
+const {
+  generateAlbumSocialCopy,
+  listSocialPlatforms,
+} = require('../services/album-social-copy.service')
 
 const router = express.Router()
 
@@ -147,6 +151,28 @@ router.post('/service-albums/:albumId/share', requireAuth(['user']), async (req,
       req.body || {}
     )
     return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** USER-PUB · 多平台社交媒体长文（车主复制用，不上网） */
+router.get('/service-albums/:albumId/social-copy', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await generateAlbumSocialCopy(
+      req.params.albumId,
+      req.auth.userId,
+      req.query.platform
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/social-copy/platforms', requireAuth(['user']), async (req, res, next) => {
+  try {
+    return ok(res, { platforms: listSocialPlatforms() })
   } catch (e) {
     next(e)
   }

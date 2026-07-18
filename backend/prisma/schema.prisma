@@ -163,6 +163,7 @@ model Album {
   complianceReviewMode String             @default("") @map("compliance_review_mode") @db.VarChar(32)
   complianceCheckedAt DateTime?           @map("compliance_checked_at")
   contentOptimizeDraftJson Json?          @map("content_optimize_draft_json")
+  contentPackageJson  Json?               @map("content_package_json")
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
   order               Order?              @relation(fields: [orderId], references: [id])

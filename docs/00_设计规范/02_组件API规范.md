@@ -695,35 +695,45 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 
 ---
 
-### 3.6d ShareSheet（`components/share-sheet`）· **Phase 1 新增**
+### 3.6d ShareSheet（`components/share-sheet`）· **Phase 1 · USER-PUB 修订**
 
 相册详情 / 案例详情 **半屏分享** 业务组件；组合 **bottom-sheet**（`showActions=false` `scrollable=true`），**不含** 默认 confirm/cancel 双按钮栏。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | visible | Boolean | false | 是否展示 |
-| showOwnerShare | Boolean | false | 是否展示底部原图分享区（私人分享） |
-| shareIntent | String | owner | `owner` 私人 · `publicCase` 平台公示 |
-| shareUseOriginal | Boolean | false | 原图分享（**仅 showOwnerShare**） |
+| variant | String | simple | `simple` 门店/案例三渠道；`owner` 车主服务相册三列意图 |
+| showOwnerShare | Boolean | false | simple 态底部隐私说明 |
+| shareIntent | String | owner | `owner` / `publicCase` / `publicStore`（simple 态） |
+| shareUseOriginal | Boolean | false | 遗留；原图分享已废止 |
 | ownerSharePreparing | Boolean | false | token 准备中 |
-| actionsDisabled | Boolean | false | 禁用三渠道入口 |
+| actionsDisabled | Boolean | false | 禁用微信渠道入口 |
+| honorHint | String | '' | owner 态荣誉鼓励短句（无现金） |
+| socialPlatform | String | xiaohongshu | 小红书 / 知乎 / 头条 |
+| socialDraftText | String | '' | 社交媒体长文预览 |
+| publishState | String | idle | `idle` / `pending` / `approved` / `need_modify` |
+| publishDisabled | Boolean | false | 禁用发布按钮 |
+| publishHint | String | '' | 发布列说明 |
+| showPublicWebLink | Boolean | false | 过审后展示「复制公开网页链接」 |
 
 | 事件 | 说明 |
 |---|---|
 | close | 关闭面板 |
-| toggleoriginal | 切换原图（页面侧风险 Modal） |
-| copyownerlink | 复制私人分享文案+公网链接 |
-| copypublicweblink | 复制公示案例文案+公网链接 |
-| sharetimeline | 朋友圈引导（页面侧 Modal + 右上角 ···） |
+| copyownerlink | 复制私人分享公网链接 |
+| copypublicweblink | 复制公开案例网页链接（仅过审） |
+| sharetimeline | 朋友圈引导 |
+| socialplatformchange | `{ platform }` 切换社交媒体 Tab |
+| copysocial | `{ platform }` 一键复制长文 |
+| publish | 预览并发布到公开网站 |
 
 **内置结构**：
 
-- 三列渠道：朋友圈 / 转发给朋友（`open-type="share"`）/ 转发到社交媒体（复制链接）
-- 底部隐私说明 + `CheckboxRow`（原图分享，仅 `showOwnerShare`）
+- **simple**：朋友圈 / 转发给朋友 / 复制链接
+- **owner**：① 发给微信 · ② 复制去社交媒体 · ③ 发布到公开网站
 
 **约束**：
 
-- 禁止奖励诱导文案；渠道说明使用 `text-caption`
+- 禁止奖励诱导 / 分享领钱文案；可用荣誉鼓励
 - z-index 继承 bottom-sheet（`--z-popup`）
 - 不得与 `LoginSheet` 同时打开
 

@@ -5,6 +5,7 @@ const {
   submitServiceAlbumAuthorization,
   recordAlbumShare,
   withdrawAuthorization,
+  fetchAlbumSocialCopy,
 } = require('../../../services/service-album')
 const { SERVICE_ALBUM_LIST_TABS, normalizeServiceAlbumListTab } = require('../../../constants/service-album-status')
 const {
@@ -40,6 +41,10 @@ const {
 } = require('../../../utils/share-store-context')
 
 const { initAlbumShareState } = require('../../../utils/album-share-state')
+const {
+  buildSocialDraft,
+  copyTextToClipboard,
+} = require('../../../utils/album-social-copy')
 
 Page({
   data: {
@@ -71,6 +76,15 @@ Page({
     shareToken: '',
     shareReady: false,
     actionDetail: null,
+    shareHonorHint: '',
+    socialPlatform: 'xiaohongshu',
+    socialDraftText: '',
+    socialDraftLoading: false,
+    socialDraftWaitHint: '',
+    publishSheetState: 'idle',
+    publishSheetDisabled: false,
+    publishSheetHint: '',
+    showPublicCaseShare: false,
   },
 
   onLoad(options = {}) {
@@ -220,7 +234,10 @@ Page({
       this.setData({
         ...shareState,
         shareSheetVisible: true,
+        socialDraftText: '',
+        socialDraftWaitHint: '',
       })
+      this.loadSocialDraft(shareState.socialPlatform || this.data.socialPlatform || 'xiaohongshu')
       if (shareState.showShareEntry) {
         await this.refreshShareToken({ silent: true })
       } else {
@@ -237,7 +254,7 @@ Page({
     if (!id) return
     if (disabled) {
       wx.showModal({
-        title: '公示状态',
+        title: '发布状态',
         content: hint || '当前暂不可操作',
         showCancel: false,
       })
@@ -264,6 +281,95 @@ Page({
 
   onCloseShareSheet() {
     this.setData({ shareSheetVisible: false })
+  },
+
+  async loadSocialDraft(platform) {
+    const albumId =
+      this.actionAlbumId ||
+      (this.data.actionDetail && this.data.actionDetail.albumId)
+    if (!albumId) return
+    this.setData({ socialDraftLoading: true, socialDraftWaitHint: '' })
+    try {
+      const data = await fetchAlbumSocialCopy(albumId, platform)
+      if (this.data.socialPlatform !== platform) {
+        this.setData({ socialDraftLoading: false })
+        return
+      }
+      if (data && data.status === 'generating') {
+        this.setData({
+          socialDraftLoading: false,
+          socialDraftText: '',
+          socialDraftWaitHint: (data && data.message) || '文案准备中，请稍后再试',
+        })
+        return
+      }
+      const text = (data && (data.text || data.body)) || ''
+      this.setData({
+        socialDraftText: text,
+        socialDraftLoading: false,
+        socialDraftWaitHint: '',
+      })
+    } catch (err) {
+      this.setData({
+        socialDraftLoading: false,
+        socialDraftWaitHint: '',
+        socialDraftText: buildSocialDraft(this.data.actionDetail || {}, platform),
+      })
+    }
+  },
+
+  onSocialPlatformChange(e) {
+    const platform = (e.detail && e.detail.platform) || 'xiaohongshu'
+    this.setData({
+      socialPlatform: platform,
+      socialDraftText: '',
+      socialDraftWaitHint: '',
+    })
+    this.loadSocialDraft(platform)
+  },
+
+  async onCopySocialDraft(e) {
+    const platform =
+      (e.detail && e.detail.platform) || this.data.socialPlatform || 'xiaohongshu'
+    if (this.data.socialDraftWaitHint) {
+      wx.showToast({ title: this.data.socialDraftWaitHint, icon: 'none' })
+      return
+    }
+    const text = this.data.socialDraftText
+    if (!text) {
+      wx.showToast({ title: '文案尚未就绪', icon: 'none' })
+      return
+    }
+    try {
+      await copyTextToClipboard(text)
+      if (canOwnerShareAlbum(this.data.actionDetail)) {
+        await recordAlbumShare(this.data.actionDetail.albumId, {
+          mode: SHARE_MODE.DESENSITIZED,
+          channel: `social_copy_${platform}`,
+        })
+      }
+    } catch (err) {
+      // toast in helper
+    }
+  },
+
+  onSharePublish() {
+    const state = this.data.publishSheetState
+    if (state === 'approved' || state === 'pending') return
+    if (this.data.publishSheetDisabled) {
+      wx.showToast({ title: '暂不可发布', icon: 'none' })
+      return
+    }
+    this.setData({ shareSheetVisible: false })
+    if (state === 'need_modify') {
+      this.openAuthorizePreview()
+      return
+    }
+    this.setData({
+      authSheetVisible: true,
+      authChecked: false,
+      authTier: 'named',
+    })
   },
 
   onAuthCheckToggle() {
@@ -312,9 +418,9 @@ Page({
     const { actionDetail, authSubmitting } = this.data
     if (!actionDetail || authSubmitting) return
     wx.showModal({
-      title: '拒绝公示',
-      content: '拒绝后，本次服务相册仍仅作为你的私密记录保存，不会生成公开案例。',
-      confirmText: '确认拒绝',
+      title: '暂不发布',
+      content: '确认后，本次服务相册仍仅作为你的私密记录保存，不会发布到公开网站。',
+      confirmText: '确认',
       cancelText: '再想想',
       success: (res) => {
         if (!res.confirm) return
@@ -332,7 +438,7 @@ Page({
       await submitServiceAlbumAuthorization(albumId, { agreed })
       wx.hideLoading()
       wx.showToast({
-        title: agreed ? '已授权公示' : '已记录你的选择',
+        title: agreed ? '已提交发布' : '已记录你的选择',
         icon: 'success',
       })
       if (agreed) {
@@ -386,7 +492,7 @@ Page({
     this.syncListWithdrawing(albumId)
     try {
       await withdrawAuthorization(albumId)
-      wx.showToast({ title: '已撤回授权', icon: 'success' })
+      wx.showToast({ title: '已撤回发布', icon: 'success' })
       markListNeedRefresh(this)
       await this.loadList({ silent: true })
     } catch (e) {
@@ -513,7 +619,11 @@ Page({
   async onCopyPublicWebLink() {
     const shareCase = buildShareableCaseFromAlbum(this.data.actionDetail)
     if (!shareCase || !shareCase.id) {
-      wx.showToast({ title: '公示案例尚未就绪', icon: 'none' })
+      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
+      return
+    }
+    if (this.data.publishSheetState !== 'approved' && !this.data.showPublicCaseShare) {
+      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
       return
     }
     try {
