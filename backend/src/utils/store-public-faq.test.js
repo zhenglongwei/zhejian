@@ -30,6 +30,25 @@ function run() {
   assert.ok(withCases.faq.some((item) => item.a.includes('大众 · 刹车片更换')))
   assert.ok(withCases.faq.some((item) => item.q.includes('擅长哪些车型')))
 
+  const withCapability = buildStorePublicFaq({
+    storeName: '能力店',
+    specialties: ['四轮定位'],
+    specialtyBrands: ['宝马', '奥迪'],
+    equipmentTags: [{ label: '四轮定位' }, { label: '举升机' }],
+    notAccepting: ['大型货车'],
+  })
+  assert.ok(withCapability.faq.some((item) => /宝马|设备|四轮定位/.test(item.q + item.a)))
+  assert.ok(withCapability.faq.some((item) => item.a.includes('暂不承接') || item.q.includes('暂不承接')))
+
+  const { buildCapabilitySummaryLine } = require('./store-public-faq')
+  const summary = buildCapabilitySummaryLine({
+    specialtyBrands: ['宝马'],
+    equipmentTags: ['烤漆房'],
+    notAccepting: [],
+  })
+  assert.ok(summary.includes('公开能力资料'))
+  assert.ok(summary.includes('宝马'))
+
   const custom = buildStorePublicFaq({
     storeName: '定制店',
     customFaq: [{ q: '是否接待事故车？', a: '接待，需预约到店查勘。' }],

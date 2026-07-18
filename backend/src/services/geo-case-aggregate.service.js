@@ -461,7 +461,34 @@ function buildDerivedAggregateFaq(input) {
     })
   }
 
+  // P2-03：服务页轻量挂「设备能力」提示（不编造门店数量）
+  const equipmentHint = matchServiceEquipmentHint(serviceName)
+  if (equipmentHint) {
+    answers.push({
+      q: `做${serviceName}一般需要哪些设备条件？`,
+      a: `与「${equipmentHint}」相关的施工通常依赖相应设备/场。辙见门店页会公示已审核的设备标签（若商家已填写并通过审核）；请到具体门店页查看，并以到店确认是否承接为准。${STORE_CHECK_HINT}。`,
+    })
+  }
+
   return answers.slice(0, 3)
+}
+
+const SERVICE_EQUIPMENT_HINTS = [
+  { re: /四轮定位|定位仪/, label: '四轮定位' },
+  { re: /烤漆|钣喷|喷漆/, label: '烤漆房' },
+  { re: /诊断|电脑检测|故障码/, label: '诊断电脑' },
+  { re: /新能源|电动车|电池/, label: '新能源工位' },
+  { re: /轮胎|动平衡|补胎/, label: '轮胎动平衡' },
+  { re: /空调|冷媒/, label: '空调冷媒机' },
+  { re: /举升|底盘/, label: '举升机' },
+]
+
+function matchServiceEquipmentHint(serviceName) {
+  const text = String(serviceName || '')
+  for (const item of SERVICE_EQUIPMENT_HINTS) {
+    if (item.re.test(text)) return item.label
+  }
+  return ''
 }
 
 function mergeDerivedFaq(existingFaq, derivedFaq) {

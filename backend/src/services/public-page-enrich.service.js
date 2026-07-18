@@ -26,7 +26,7 @@ const {
   filterPublicEnvironmentImages,
 } = require('../utils/store-public-display')
 const { mapStoreCasePreview } = require('../utils/store-case-preview')
-const { buildStorePublicFaq, sanitizeFaq } = require('../utils/store-public-faq')
+const { buildStorePublicFaq, sanitizeFaq, buildCapabilitySummaryLine } = require('../utils/store-public-faq')
 const {
   buildPublicCapabilityView,
   readCapabilityJson,
@@ -372,6 +372,9 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     customFaq,
     specialties,
     vehicleSpecialties,
+    specialtyBrands: publicCapability.specialtyBrands,
+    equipmentTags: publicCapability.equipmentTags,
+    notAccepting: publicCapability.notAccepting,
     casePreviews,
     caseCount: mapped.caseCount != null ? mapped.caseCount : casePreviews.length,
     serviceNames: Array.isArray(options.serviceNames) ? options.serviceNames : [],
@@ -379,6 +382,17 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     businessHours: mapped.businessHours || storeRow.businessHours || '',
     phone: mapped.phone || storeRow.phone || '',
   })
+
+  const capabilitySummary = buildCapabilitySummaryLine({
+    specialtyBrands: publicCapability.specialtyBrands,
+    equipmentTags: publicCapability.equipmentTags,
+    notAccepting: publicCapability.notAccepting,
+  })
+  const baseSummary = mapped.aiSummary || mapped.intro || ''
+  const aiSummary =
+    capabilitySummary && !baseSummary.includes('公开能力资料')
+      ? [baseSummary, capabilitySummary].filter(Boolean).join(' ')
+      : baseSummary
 
   const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
 
@@ -408,7 +422,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     faq,
     faqSource,
     vehicleSpecialties,
-    aiSummary: mapped.aiSummary || mapped.intro || '',
+    aiSummary,
     auditMeta: {
       auditor: '辙见平台运营',
       basis: '营业执照、维修资质证照、门店实景照片',
