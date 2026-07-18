@@ -1107,6 +1107,7 @@
     html += renderServices(services, store.id, bookingEnabled)
     html += renderSpecialties(store.specialties)
     html += renderTransparencyPanel(store, (services || []).length)
+    html += renderStoreFaq(store.faq)
     html += renderEnvironment(store.environmentImages)
 
     html += '<div class="h5-body-spacer"></div></div>'
