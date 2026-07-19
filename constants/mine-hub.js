@@ -20,8 +20,11 @@ const MINE_SHARE_INCENTIVE_TITLE = '公示激励'
 const MINE_SHARE_INCENTIVE_COMPLIANCE =
   '按平台规则与实际浏览、到店效果结算；分享卡片不含收益诱导文案。'
 
-/** 无相册时弱引导：内容站门店列表（非小程序内逛店） */
-const MINE_H5_OUTLET_TEXT = '想了解提供服务相册的门店？前往辙见内容站'
+/** 无相册空态弱引导（引流 H5，非小程序内逛店） */
+const MINE_EMPTY_H5_GUIDE_TEXT = '了解提供服务相册的门店 → 打开内容站'
+
+/** 未登录公域冷启动底部出口（兼容旧文案位） */
+const MINE_H5_OUTLET_TEXT = MINE_EMPTY_H5_GUIDE_TEXT
 
 function summarizeAuthorizationTodos(authList = [], badges = {}) {
   const pendingAuth =
@@ -93,6 +96,7 @@ module.exports = {
   MINE_TODO_SECTION_TITLE,
   MINE_SHARE_INCENTIVE_TITLE,
   MINE_SHARE_INCENTIVE_COMPLIANCE,
+  MINE_EMPTY_H5_GUIDE_TEXT,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,

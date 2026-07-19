@@ -12,17 +12,14 @@ const {
   MINE_ALBUM_EMPTY_HINT,
   MINE_GUEST_TOOL_HINT,
   MINE_SHARE_INCENTIVE_TITLE,
+  MINE_EMPTY_H5_GUIDE_TEXT,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,
 } = require('../../constants/mine-hub')
 const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
-const {
-  openH5ContentSite,
-  openH5Url,
-  buildStoreListH5Url,
-} = require('../../constants/h5-links')
+const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
 function quietHubAlbumTags(item = {}) {
   return {
@@ -66,7 +63,8 @@ Page({
     todoSummary: null,
     shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
     showShareIncentive: false,
-    showH5Link: false,
+    showEmptyH5Guide: false,
+    showGuestH5Link: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     loginSheetBindContext: 'album',
@@ -76,6 +74,7 @@ Page({
     guestToolHint: MINE_GUEST_TOOL_HINT,
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
+    emptyH5GuideText: MINE_EMPTY_H5_GUIDE_TEXT,
     h5OutletText: MINE_H5_OUTLET_TEXT,
     ...albumAuthShareData(),
   },
@@ -117,9 +116,10 @@ Page({
     const hasAlbumBindings = Boolean(
       (summary && summary.hasAlbumBindings) || (albums && albums.length)
     )
-    const showH5Link = loggedIn
-      ? !hasAlbumBindings
-      : shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
+    // 已登录无相册：空态内弱引导；未登录公域冷启动：底部出口
+    const showEmptyH5Guide = loggedIn && !hasAlbumBindings
+    const showGuestH5Link =
+      !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
     this.setData({
       menuSections: buildMineMenuSections(badges),
       albumHeroCards: albums,
@@ -127,8 +127,9 @@ Page({
       todoSummary,
       vehicleSummary,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
-      showShareIncentive: loggedIn,
-      showH5Link,
+      showShareIncentive: loggedIn && hasAlbumBindings,
+      showEmptyH5Guide,
+      showGuestH5Link,
     })
   },
 
@@ -288,11 +289,7 @@ Page({
   },
 
   onH5OutletTap() {
-    if (this.data.isLoggedIn && !(this.data.albumHeroCards || []).length) {
-      openH5Url(buildStoreListH5Url())
-      return
-    }
-    openH5ContentSite()
+    openH5Url(buildStoreListH5Url())
   },
 
   onHelpFromSettings() {

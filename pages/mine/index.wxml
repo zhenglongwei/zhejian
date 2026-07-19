@@ -76,6 +76,13 @@
             actionText="使用说明"
             bind:action="onHelpFromSettings"
           />
+          <view
+            wx:if="{{showEmptyH5Guide}}"
+            class="mine__empty-h5"
+            bindtap="onH5OutletTap"
+          >
+            <text class="text-caption text-link">{{emptyH5GuideText}}</text>
+          </view>
         </block>
 
         <block wx:else>
@@ -143,7 +150,7 @@
       </view>
 
       <view
-        wx:if="{{showH5Link}}"
+        wx:if="{{showGuestH5Link}}"
         class="mine__h5-outlet"
         bindtap="onH5OutletTap"
       >
