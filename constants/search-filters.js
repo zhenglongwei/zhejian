@@ -16,7 +16,6 @@ const SORT_OPTIONS = {
   ],
   merchant: [
     { key: 'relevance', label: '综合' },
-    { key: 'distance', label: '距离最近', requiresLocation: true },
     { key: 'case_count', label: '案例数优先' },
   ],
   case: [
@@ -34,14 +33,6 @@ const TOGGLE_FILTERS = {
     tabs: ['merchant', 'service'],
   },
 }
-
-const DISTANCE_KM_OPTIONS = [
-  { value: '', label: '不限距离' },
-  { value: '1', label: '1km 内' },
-  { value: '3', label: '3km 内' },
-  { value: '5', label: '5km 内' },
-  { value: '10', label: '10km 内' },
-]
 
 const CATEGORY_OPTIONS = [
   { value: '', label: '全部分类' },
@@ -70,7 +61,6 @@ function createEmptyFilters() {
     openNow: false,
     accidentCapable: false,
     categoryId: '',
-    maxDistanceKm: '',
     authorizationTier: '',
   }
 }
@@ -79,7 +69,6 @@ function hasActiveFilters(filters = {}) {
   if (!filters) return false
   if (filters.supportAlbum || filters.openNow || filters.accidentCapable) return true
   if (filters.categoryId) return true
-  if (filters.maxDistanceKm) return true
   if (filters.authorizationTier) return true
   return false
 }
@@ -102,16 +91,6 @@ function getFilterSections(tab) {
       key: 'categoryId',
       label: '服务分类',
       options: CATEGORY_OPTIONS,
-    })
-  }
-
-  if (tab === 'merchant') {
-    sections.push({
-      type: 'select',
-      key: 'maxDistanceKm',
-      label: '距离范围',
-      options: DISTANCE_KM_OPTIONS,
-      requiresLocation: true,
     })
   }
 
@@ -139,7 +118,6 @@ module.exports = {
   SORT_OPTIONS,
   FILTER_OPTIONS,
   TOGGLE_FILTERS,
-  DISTANCE_KM_OPTIONS,
   CATEGORY_OPTIONS,
   CASE_AUTH_OPTIONS,
   CATEGORY_CASE_KEYWORDS,

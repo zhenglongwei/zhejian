@@ -23,7 +23,6 @@ const {
 } = require('../../../utils/share-store-context')
 const { addSearchHistory } = require('../../../utils/search-history')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
-const { resolveCityContext } = require('../../../utils/city-location')
 const { PRICE_MODE } = require('../../../constants/price-mode')
 
 const TAB_LABEL = {
@@ -101,7 +100,6 @@ Page({
     filters: createEmptyFilters(),
     filterSections: [],
     hasActiveFilters: false,
-    locationGranted: false,
     emptyTitle: '本店暂无相关结果',
     emptyDescription: '换个关键词试试，或返回查询页',
     emptyActionText: '返回查询页',
@@ -153,9 +151,6 @@ Page({
   },
 
   async bootstrapSearch() {
-    const ctx = await resolveCityContext()
-    this.coords = ctx.coords
-    this.setData({ locationGranted: ctx.locationGranted })
     this.runSearch()
   },
 
@@ -170,31 +165,6 @@ Page({
 
   syncFilterSections(tab) {
     this.setData({ filterSections: getFilterSections(tab) })
-  },
-
-  async ensureLocationForAction(actionLabel) {
-    if (this.data.locationGranted && this.coords) return true
-    return new Promise((resolve) => {
-      wx.showModal({
-        title: '开启定位',
-        content: `开启定位后可使用${actionLabel}`,
-        confirmText: '去开启',
-        success: async (res) => {
-          if (!res.confirm) {
-            resolve(false)
-            return
-          }
-          const ctx = await resolveCityContext()
-          this.coords = ctx.coords
-          this.setData({ locationGranted: ctx.locationGranted })
-          if (!ctx.locationGranted) {
-            wx.showToast({ title: '暂未获取定位', icon: 'none' })
-          }
-          resolve(ctx.locationGranted)
-        },
-        fail: () => resolve(false),
-      })
-    })
   },
 
   async runSearch() {
@@ -219,9 +189,6 @@ Page({
         sort: this.data.sortKey,
         filters: this.data.filters,
         storeId: this.storeId,
-      }
-      if (this.coords) {
-        query.coords = this.coords
       }
 
       const result = await searchContent(query)
@@ -363,11 +330,6 @@ Page({
 
   async onSelectFilter(e) {
     const { key, value } = e.currentTarget.dataset
-    const section = (this.data.filterSections || []).find((item) => item.key === key)
-    if (section && section.requiresLocation && value) {
-      const ok = await this.ensureLocationForAction('距离筛选')
-      if (!ok) return
-    }
     const filters = { ...this.data.filters, [key]: value }
     this.setData({
       filters,
@@ -386,10 +348,6 @@ Page({
       success: async (res) => {
         const picked = sortOptions[res.tapIndex]
         if (!picked || picked.key === sortKey) return
-        if (picked.requiresLocation) {
-          const ok = await this.ensureLocationForAction('距离排序')
-          if (!ok) return
-        }
         this.setData({ sortKey: picked.key, sortLabel: picked.label }, () =>
           this.runSearch()
         )

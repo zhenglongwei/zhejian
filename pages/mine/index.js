@@ -18,7 +18,11 @@ const {
 } = require('../../constants/mine-hub')
 const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
-const { openH5ContentSite } = require('../../constants/h5-links')
+const {
+  openH5ContentSite,
+  openH5Url,
+  buildStoreListH5Url,
+} = require('../../constants/h5-links')
 
 function quietHubAlbumTags(item = {}) {
   return {
@@ -110,6 +114,12 @@ Page({
       albumPendingAuth: summary && summary.albumPendingAuth,
     })
     const todoSummary = buildMineTodoSummary(badges, authSummary)
+    const hasAlbumBindings = Boolean(
+      (summary && summary.hasAlbumBindings) || (albums && albums.length)
+    )
+    const showH5Link = loggedIn
+      ? !hasAlbumBindings
+      : shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
     this.setData({
       menuSections: buildMineMenuSections(badges),
       albumHeroCards: albums,
@@ -118,11 +128,7 @@ Page({
       vehicleSummary,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
       showShareIncentive: loggedIn,
-      showH5Link:
-        !loggedIn &&
-        shouldShowH5PublicCaseLink({
-          hasAlbumBindings: Boolean(summary && summary.hasAlbumBindings),
-        }),
+      showH5Link,
     })
   },
 
@@ -282,6 +288,10 @@ Page({
   },
 
   onH5OutletTap() {
+    if (this.data.isLoggedIn && !(this.data.albumHeroCards || []).length) {
+      openH5Url(buildStoreListH5Url())
+      return
+    }
     openH5ContentSite()
   },
 

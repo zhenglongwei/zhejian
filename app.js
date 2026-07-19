@@ -1,6 +1,5 @@
 const { ENV } = require('./services/config')
 const { syncAppSession } = require('./utils/auth')
-const { resolveCityContext } = require('./utils/city-location')
 const { recordAppLaunchEntry } = require('./utils/tool-entry-context')
 
 App({
@@ -9,9 +8,6 @@ App({
     try {
       syncAppSession()
       this.globalData.toolEntryContext = recordAppLaunchEntry(options || {})
-      resolveCityContext().then((ctx) => {
-        this.globalData.cityContext = ctx
-      })
       this.bindPrivacyAuthorization()
     } catch (err) {
       console.warn('[app] onLaunch init failed', err)
@@ -42,7 +38,6 @@ App({
   },
   globalData: {
     city: '杭州',
-    cityContext: null,
     pendingPrivacyAuthorization: null,
     userInfo: null,
     token: '',

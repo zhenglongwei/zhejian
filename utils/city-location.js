@@ -1,32 +1,7 @@
 /**
- * 城市定位 — MVP 首发杭州，定位仅用于距离展示与服务范围提示
+ * 门店距离计算（纯函数）
+ * 小程序不再调用 wx.getLocation；距离展示仅在调用方显式传入坐标时生效（如 H5）。
  */
-const DEFAULT_CITY = {
-  code: 'hangzhou',
-  name: '杭州',
-  isServiceCity: true,
-}
-
-/** 杭州大致矩形范围（gcj02，MVP 够用） */
-const HANGZHOU_BOUNDS = {
-  minLat: 29.75,
-  maxLat: 30.65,
-  minLng: 119.72,
-  maxLng: 120.55,
-}
-
-const STORAGE_OUTSIDE_NOTICE = 'city_outside_notice_v1'
-const OUTSIDE_SERVICE_NOTICE = '当前服务暂以杭州为主，你仍可浏览案例和服务信息'
-
-function isInHangzhou(latitude, longitude) {
-  if (latitude == null || longitude == null) return false
-  return (
-    latitude >= HANGZHOU_BOUNDS.minLat &&
-    latitude <= HANGZHOU_BOUNDS.maxLat &&
-    longitude >= HANGZHOU_BOUNDS.minLng &&
-    longitude <= HANGZHOU_BOUNDS.maxLng
-  )
-}
 
 function toRadians(deg) {
   return (deg * Math.PI) / 180
@@ -52,91 +27,6 @@ function formatDistance(meters) {
   return `${(meters / 1000).toFixed(1)}km`
 }
 
-function requestUserLocation() {
-  return new Promise((resolve) => {
-    function callGetLocation() {
-      wx.getLocation({
-        type: 'gcj02',
-        isHighAccuracy: true,
-        success(res) {
-          resolve({
-            granted: true,
-            latitude: res.latitude,
-            longitude: res.longitude,
-          })
-        },
-        fail(err) {
-          console.warn('[city-location] getLocation fail', err && err.errMsg)
-          resolve({ granted: false, errMsg: err && err.errMsg })
-        },
-      })
-    }
-
-    if (typeof wx.getPrivacySetting === 'function') {
-      wx.getPrivacySetting({
-        success(res) {
-          if (res.needAuthorization) {
-            console.warn('[city-location] need privacy authorization in MP admin / user agree')
-            resolve({ granted: false, needPrivacy: true })
-            return
-          }
-          callGetLocation()
-        },
-        fail: callGetLocation,
-      })
-      return
-    }
-
-    callGetLocation()
-  })
-}
-
-/**
- * @returns {Promise<{
- *   city: typeof DEFAULT_CITY,
- *   locationGranted: boolean,
- *   inServiceArea: boolean,
- *   coords: { latitude: number, longitude: number } | null,
- *   outsideNotice: string
- * }>}
- */
-async function resolveCityContext() {
-  const loc = await requestUserLocation()
-  if (!loc.granted) {
-    return {
-      city: DEFAULT_CITY,
-      locationGranted: false,
-      inServiceArea: true,
-      coords: null,
-      outsideNotice: '',
-      outsideServiceNotice: '',
-    }
-  }
-
-  const inServiceArea = isInHangzhou(loc.latitude, loc.longitude)
-  let outsideNotice = ''
-  if (!inServiceArea) {
-    try {
-      const shown = wx.getStorageSync(STORAGE_OUTSIDE_NOTICE)
-      if (!shown) {
-        outsideNotice = OUTSIDE_SERVICE_NOTICE
-        wx.setStorageSync(STORAGE_OUTSIDE_NOTICE, 1)
-      }
-    } catch (e) {
-      outsideNotice = OUTSIDE_SERVICE_NOTICE
-    }
-  }
-
-  return {
-    city: DEFAULT_CITY,
-    locationGranted: true,
-    inServiceArea,
-    coords: { latitude: loc.latitude, longitude: loc.longitude },
-    outsideNotice,
-    outsideServiceNotice: inServiceArea ? '' : OUTSIDE_SERVICE_NOTICE,
-  }
-}
-
 function enrichStoreWithDistance(store, coords) {
   if (!store || !coords || store.latitude == null || store.longitude == null) {
     return store
@@ -160,10 +50,6 @@ function enrichStoresWithDistance(stores, coords) {
 }
 
 module.exports = {
-  DEFAULT_CITY,
-  OUTSIDE_SERVICE_NOTICE,
-  resolveCityContext,
   enrichStoresWithDistance,
   formatDistance,
-  isInHangzhou,
 }

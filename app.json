@@ -97,11 +97,10 @@
   },
   "permission": {
     "scope.userLocation": {
-      "desc": "你的位置信息将用于在地图上选择门店地址与展示距离"
+      "desc": "用于商家在地图上选择门店地址"
     }
   },
   "requiredPrivateInfos": [
-    "getLocation",
     "chooseLocation"
   ],
   "usingComponents": {

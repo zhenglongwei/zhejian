@@ -1,4 +1,4 @@
-/** H5 城市 slug 表 — MVP 仅杭州；与 utils/city-location.js DEFAULT_CITY 对齐 */
+/** H5 城市 slug 表 — MVP 仅杭州；与 constants/search-filters.js DEFAULT_CITY 对齐 */
 const CITIES = [
   {
     slug: 'hangzhou',

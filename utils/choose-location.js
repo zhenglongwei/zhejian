@@ -1,6 +1,6 @@
 /**
  * 微信地图选点 — 入驻/门店编辑等场景共用
- * 后台须声明「收集你选择的位置信息」（与 getLocation 的「收集你的位置信息」不同）
+ * 后台须声明「收集你选择的位置信息」（chooseLocation；小程序不采集用户实时位置）
  */
 const { requestPrivacyAuthorization } = require('./privacy-authorize')
 

@@ -20,7 +20,8 @@ const MINE_SHARE_INCENTIVE_TITLE = '公示激励'
 const MINE_SHARE_INCENTIVE_COMPLIANCE =
   '按平台规则与实际浏览、到店效果结算；分享卡片不含收益诱导文案。'
 
-const MINE_H5_OUTLET_TEXT = '想了解公开维修案例？前往辙见内容站'
+/** 无相册时弱引导：内容站门店列表（非小程序内逛店） */
+const MINE_H5_OUTLET_TEXT = '想了解提供服务相册的门店？前往辙见内容站'
 
 function summarizeAuthorizationTodos(authList = [], badges = {}) {
   const pendingAuth =
