@@ -30,7 +30,7 @@
             <ui-tag variant="{{publicIndexTag.variant}}" text="{{publicIndexTag.text}}" />
           </view>
           <text wx:if="{{currentHero.planLabel}}" class="text-body text-secondary">{{currentHero.planLabel}}</text>
-          <text class="text-caption text-tertiary merchant-sub__folio-hint">相册工具永久免费；收录套餐到期不会自动扣款，需手动支付</text>
+          <text class="text-caption text-tertiary merchant-sub__folio-hint">公开案例基础收录不另收费；专业版年费支付通道按产品节奏开放，到期不会自动扣款</text>
         </view>
       </view>
 
@@ -56,7 +56,7 @@
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
               <text class="text-caption">{{payConsentText}}</text>
             </ui-checkbox-row>
-            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与公域收录服务协议》</text>
+            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与工具服务协议》</text>
           </view>
           <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
             <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
@@ -95,7 +95,7 @@
         <view class="surface-album-inset-divider" />
 
         <view class="merchant-sub__section-head">
-          <text class="merchant-sub__section-title text-h3">开通后能帮你什么</text>
+          <text class="merchant-sub__section-title text-h3">产品怎么收费</text>
         </view>
         <view class="merchant-sub__benefits">
           <view
@@ -162,7 +162,7 @@
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
               <text class="text-caption">{{payConsentText}}</text>
             </ui-checkbox-row>
-            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与公域收录服务协议》</text>
+            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与工具服务协议》</text>
           </view>
           <view class="merchant-sub__action">
             <ui-button

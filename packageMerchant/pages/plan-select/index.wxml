@@ -1,0 +1,48 @@
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
+  <view class="plan-select bg-album">
+    <view class="page-content plan-select__top">
+      <view class="plan-select__folio surface-album-folio">
+        <view class="plan-select__folio-inner">
+          <text class="plan-select__title text-h2">{{hero.title}}</text>
+          <text class="plan-select__sub text-caption text-secondary">{{hero.subtitle}}</text>
+        </view>
+      </view>
+
+      <view class="plan-select__panel surface-album-panel">
+        <ui-compliance-notice type="history" text="{{positioning}}" />
+      </view>
+
+      <view
+        wx:for="{{options}}"
+        wx:key="id"
+        class="plan-select__card surface-album-panel {{selectedId === item.id ? 'plan-select__card--active' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onSelect"
+      >
+        <view class="plan-select__card-head">
+          <view class="plan-select__card-title-row">
+            <text class="text-h3">{{item.name}}</text>
+            <ui-tag wx:if="{{item.recommended}}" variant="success" text="推荐" />
+          </view>
+          <view class="plan-select__price-row">
+            <text class="plan-select__price text-h2">{{item.priceLabel}}</text>
+            <text class="text-caption text-secondary">{{item.priceNote}}</text>
+          </view>
+        </view>
+        <view class="plan-select__bullets">
+          <text wx:for="{{item.bullets}}" wx:for-item="bullet" wx:key="*this" class="text-caption plan-select__bullet">· {{bullet}}</text>
+        </view>
+      </view>
+
+      <view class="plan-select__panel surface-album-panel">
+        <text class="text-caption text-secondary">{{footer}}</text>
+        <text class="text-caption text-link plan-select__link" bindtap="onOpenAgreement">查看《套餐与工具服务协议》</text>
+        <view class="plan-select__action">
+          <ui-button type="primary" block loading="{{submitting}}" bind:btntap="onConfirm">
+            {{selectedId === 'tool_480' ? '选专业版并进入工作台' : '用体验版进入工作台'}}
+          </ui-button>
+        </view>
+      </view>
+    </view>
+  </view>
+</ui-tool-page-shell>

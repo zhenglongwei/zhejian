@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "套餐与公域收录",
+  "navigationBarTitleText": "套餐与工具权益",
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-button": "/components/button/index",

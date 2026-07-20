@@ -310,12 +310,17 @@
       <text class="merchant-store-edit__readonly-value">{{basic.phone}}</text>
     </view>
     <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">资质类型</text>
+      <text class="merchant-store-edit__readonly-label">基础资质</text>
       <text class="merchant-store-edit__readonly-value">{{basic.qualificationTypeLabel}}</text>
     </view>
-    <view class="merchant-store-edit__readonly-photos" wx:if="{{basic.licensePhotoUrl || basic.qualificationPhotoUrl}}">
+    <view class="merchant-store-edit__readonly-row" wx:if="{{basic.newEnergyEnabled}}">
+      <text class="merchant-store-edit__readonly-label">新能源专项</text>
+      <text class="merchant-store-edit__readonly-value">{{basic.newEnergyTypeLabel}}</text>
+    </view>
+    <view class="merchant-store-edit__readonly-photos" wx:if="{{basic.licensePhotoUrl || basic.qualificationPhotoUrl || basic.newEnergyPhotoUrl}}">
       <image wx:if="{{basic.licensePhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.licensePhotoUrl}}" mode="aspectFill" />
       <image wx:if="{{basic.qualificationPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.qualificationPhotoUrl}}" mode="aspectFill" />
+      <image wx:if="{{basic.newEnergyPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.newEnergyPhotoUrl}}" mode="aspectFill" />
     </view>
   </view>
 

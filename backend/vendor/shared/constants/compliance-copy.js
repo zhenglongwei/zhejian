@@ -82,7 +82,7 @@ const AUTHORIZATION_CONSENT = {
     authType: 'subscription_pay',
     version: LEGAL_VERSION,
     text:
-      '我已阅读并同意《套餐与公域收录服务协议》，知晓服务内容、价格及到期规则',
+      '我已阅读并同意《套餐与工具服务协议》，知晓服务内容、价格及到期规则',
   },
   album_review: {
     authType: 'album_review',

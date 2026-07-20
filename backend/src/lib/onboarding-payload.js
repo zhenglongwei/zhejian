@@ -1,11 +1,15 @@
 const { assertPersistentImageUrl } = require('./media-storage')
 
+/** 基础维修等级（互斥单选） */
+const BASE_QUALIFICATION_TYPES = new Set(['class_1', 'class_2', 'class_3', 'record'])
+
+/** 专项能力（可与基础等级并存） */
+const SPECIALTY_QUALIFICATION_TYPES = new Set(['new_energy'])
+
+/** 含历史互斥枚举，供兼容读取 */
 const QUALIFICATION_TYPES = new Set([
-  'class_1',
-  'class_2',
-  'class_3',
-  'record',
-  'new_energy',
+  ...BASE_QUALIFICATION_TYPES,
+  ...SPECIALTY_QUALIFICATION_TYPES,
 ])
 
 const QUALIFICATION_LABELS = {
@@ -16,18 +20,107 @@ const QUALIFICATION_LABELS = {
   new_energy: '新能源专项资质',
 }
 
+/** 门店头标/列表短文案 */
+const QUALIFICATION_TAG_LABELS = {
+  class_1: '一类维修资质',
+  class_2: '二类维修资质',
+  class_3: '三类维修资质',
+  record: '维修经营备案',
+  new_energy: '新能源专项',
+}
+
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) return []
   return value.map((s) => String(s).trim()).filter(Boolean)
 }
 
+function emptyNewEnergy() {
+  return {
+    enabled: false,
+    photoUrl: '',
+    certNo: '',
+    validUntil: '',
+  }
+}
+
+function normalizeNewEnergy(raw, legacyFallback = null) {
+  const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const fallback = legacyFallback || emptyNewEnergy()
+  const photoUrl = String(src.photoUrl || fallback.photoUrl || '').trim()
+  const certNo = String(src.certNo || fallback.certNo || '').trim()
+  const validUntil = String(src.validUntil || fallback.validUntil || '').trim()
+  const enabledExplicit = src.enabled === true || src.enabled === 'true' || src.enabled === 1
+  const enabled =
+    enabledExplicit ||
+    fallback.enabled ||
+    Boolean(photoUrl) ||
+    Boolean(certNo) ||
+    Boolean(validUntil)
+
+  return {
+    enabled: Boolean(enabled),
+    photoUrl: enabled ? photoUrl : '',
+    certNo: enabled ? certNo : '',
+    validUntil: enabled ? validUntil : '',
+  }
+}
+
+/**
+ * 归一化资质：
+ * - baseType：一类/二类/三类/备案（必填）
+ * - newEnergy：新能源专项（可选，可与基础并存）
+ * - type / photoUrl / certNo / validUntil：镜像基础等级，兼容旧读方
+ * - 旧数据 type=new_energy：迁入 newEnergy，baseType 为空待补填
+ */
 function normalizeQualification(raw = {}) {
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const legacyType = QUALIFICATION_TYPES.has(src.type) ? src.type : ''
+  const legacyIsNewEnergyOnly = legacyType === 'new_energy'
+
+  let baseType = BASE_QUALIFICATION_TYPES.has(src.baseType) ? src.baseType : ''
+  if (!baseType && BASE_QUALIFICATION_TYPES.has(legacyType)) {
+    baseType = legacyType
+  }
+
+  const specialtyFromList = normalizeStringArray(src.specialties).filter((item) =>
+    SPECIALTY_QUALIFICATION_TYPES.has(item)
+  )
+
+  const legacyNewEnergyFallback = legacyIsNewEnergyOnly
+    ? {
+        enabled: true,
+        photoUrl: String(src.photoUrl || '').trim(),
+        certNo: String(src.certNo || '').trim(),
+        validUntil: String(src.validUntil || '').trim(),
+      }
+    : specialtyFromList.includes('new_energy')
+      ? { enabled: true, photoUrl: '', certNo: '', validUntil: '' }
+      : null
+
+  const newEnergy = normalizeNewEnergy(src.newEnergy, legacyNewEnergyFallback)
+
+  const specialties = []
+  if (newEnergy.enabled) {
+    specialties.push('new_energy')
+  }
+
+  let photoUrl = String(src.photoUrl || '').trim()
+  let certNo = String(src.certNo || '').trim()
+  let validUntil = String(src.validUntil || '').trim()
+  if (legacyIsNewEnergyOnly) {
+    photoUrl = ''
+    certNo = ''
+    validUntil = ''
+  }
+
   return {
-    type: QUALIFICATION_TYPES.has(src.type) ? src.type : '',
-    photoUrl: String(src.photoUrl || '').trim(),
-    certNo: String(src.certNo || '').trim(),
-    validUntil: String(src.validUntil || '').trim(),
+    baseType,
+    type: baseType || (legacyIsNewEnergyOnly ? 'new_energy' : ''),
+    photoUrl,
+    certNo,
+    validUntil,
+    specialties,
+    newEnergy,
   }
 }
 
@@ -67,19 +160,36 @@ function parseOnboardingForm(form = {}) {
   const longitude =
     form.longitude != null && form.longitude !== '' ? Number(form.longitude) : null
 
-  const qualification = normalizeQualification(form.qualification || {
-    type: form.qualificationType,
-    photoUrl: form.qualificationPhotoUrl,
-    certNo: form.qualificationNo,
-    validUntil: form.qualificationValidUntil,
-  })
+  const newEnergyEnabled =
+    form.newEnergyEnabled === true ||
+    form.newEnergyEnabled === 'true' ||
+    form.newEnergyEnabled === 1
 
-  const photos = normalizePhotos(form.photos || {
-    facadeUrl: form.facadePhotoUrl,
-    workshopUrls: form.workshopPhotoUrls,
-    receptionUrl: form.receptionPhotoUrl,
-    brandAuthUrl: form.brandAuthPhotoUrl,
-  })
+  const qualification = normalizeQualification(
+    form.qualification || {
+      baseType: form.qualificationBaseType || form.qualificationType,
+      type: form.qualificationType,
+      photoUrl: form.qualificationPhotoUrl,
+      certNo: form.qualificationNo,
+      validUntil: form.qualificationValidUntil,
+      specialties: newEnergyEnabled ? ['new_energy'] : [],
+      newEnergy: {
+        enabled: newEnergyEnabled,
+        photoUrl: form.newEnergyPhotoUrl,
+        certNo: form.newEnergyNo,
+        validUntil: form.newEnergyValidUntil,
+      },
+    }
+  )
+
+  const photos = normalizePhotos(
+    form.photos || {
+      facadeUrl: form.facadePhotoUrl,
+      workshopUrls: form.workshopPhotoUrls,
+      receptionUrl: form.receptionPhotoUrl,
+      brandAuthUrl: form.brandAuthPhotoUrl,
+    }
+  )
 
   return {
     storeName,
@@ -115,6 +225,21 @@ function sanitizePhotoPayload(photos) {
   }
 }
 
+function sanitizeQualificationPayload(qualification) {
+  const q = normalizeQualification(qualification)
+  const next = {
+    ...q,
+    photoUrl: q.photoUrl ? assertPersistentImageUrl(q.photoUrl) : '',
+    newEnergy: {
+      ...q.newEnergy,
+      photoUrl: q.newEnergy.photoUrl
+        ? assertPersistentImageUrl(q.newEnergy.photoUrl)
+        : '',
+    },
+  }
+  return next
+}
+
 /** 入驻提交：仅校验基本资料（主体/资质/门店标识），其他资料可审核后完善 */
 function validateBasicOnboardingPayload(payload) {
   if (!payload.storeName || !payload.contactName || !payload.phone || !payload.address) {
@@ -137,8 +262,15 @@ function validateBasicOnboardingPayload(payload) {
     err.status = 400
     throw err
   }
-  if (!payload.qualification.type || !payload.qualification.photoUrl) {
-    const err = new Error('请填写维修资质类型并上传资质照片')
+
+  const q = normalizeQualification(payload.qualification)
+  if (!q.baseType || !q.photoUrl) {
+    const err = new Error('请填写基础维修资质类型并上传资质照片')
+    err.status = 400
+    throw err
+  }
+  if (q.newEnergy.enabled && !q.newEnergy.photoUrl) {
+    const err = new Error('请上传新能源专项资质照片')
     err.status = 400
     throw err
   }
@@ -148,10 +280,7 @@ function validateBasicOnboardingPayload(payload) {
   return {
     ...payload,
     licensePhotoUrl: assertPersistentImageUrl(payload.licensePhotoUrl),
-    qualification: {
-      ...payload.qualification,
-      photoUrl: assertPersistentImageUrl(payload.qualification.photoUrl),
-    },
+    qualification: sanitizeQualificationPayload(q),
     photos,
   }
 }
@@ -215,10 +344,43 @@ function validateStoreDisplayPayload(payload) {
 
 function formatQualificationForClient(json) {
   const q = normalizeQualification(json)
+  const baseTypeLabel = QUALIFICATION_LABELS[q.baseType] || ''
+  const typeLabel =
+    baseTypeLabel ||
+    QUALIFICATION_LABELS[q.type] ||
+    q.type ||
+    '—'
+  const specialtyLabels = q.specialties
+    .map((item) => QUALIFICATION_LABELS[item])
+    .filter(Boolean)
+
   return {
     ...q,
-    typeLabel: QUALIFICATION_LABELS[q.type] || q.type || '—',
+    typeLabel,
+    baseTypeLabel,
+    specialtyLabels,
+    newEnergy: {
+      ...q.newEnergy,
+      typeLabel: QUALIFICATION_LABELS.new_energy,
+    },
   }
+}
+
+/** 从资质 JSON 生成门店头标标签 */
+function buildQualificationTags(json) {
+  const q = normalizeQualification(json)
+  const tags = []
+  if (q.baseType && QUALIFICATION_TAG_LABELS[q.baseType]) {
+    tags.push(QUALIFICATION_TAG_LABELS[q.baseType])
+  } else if (q.type === 'new_energy') {
+    tags.push(QUALIFICATION_TAG_LABELS.new_energy)
+  }
+  if (q.newEnergy.enabled && QUALIFICATION_TAG_LABELS.new_energy) {
+    if (!tags.includes(QUALIFICATION_TAG_LABELS.new_energy)) {
+      tags.push(QUALIFICATION_TAG_LABELS.new_energy)
+    }
+  }
+  return tags
 }
 
 function formatPhotosForClient(json) {
@@ -226,14 +388,19 @@ function formatPhotosForClient(json) {
 }
 
 module.exports = {
+  BASE_QUALIFICATION_TYPES,
+  SPECIALTY_QUALIFICATION_TYPES,
   QUALIFICATION_TYPES,
   QUALIFICATION_LABELS,
+  QUALIFICATION_TAG_LABELS,
   parseOnboardingForm,
   parseStoreDisplayForm,
   validateBasicOnboardingPayload,
   validateSubmitPayload,
   validateStoreDisplayPayload,
   formatQualificationForClient,
+  buildQualificationTags,
   formatPhotosForClient,
   normalizeServices,
+  normalizeQualification,
 }

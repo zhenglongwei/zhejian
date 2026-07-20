@@ -8,9 +8,9 @@ const MERCHANT_PLAN = {
 }
 
 const MERCHANT_PLAN_LABELS = {
-  [MERCHANT_PLAN.FREE]: '免费版',
-  [MERCHANT_PLAN.INDEX_99]: '标准版',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版',
+  [MERCHANT_PLAN.FREE]: '体验版',
+  [MERCHANT_PLAN.INDEX_99]: '专业版（过渡）',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '专业版（过渡）',
 }
 
 /** 工作台扉页方案档位 Tag（不绑定具体权益） */
@@ -26,9 +26,9 @@ const MERCHANT_PLAN_TIER_BY_PLAN = {
 }
 
 const MERCHANT_PLAN_TAG_LABELS = {
-  [MERCHANT_PLAN.FREE]: '免费版',
-  [MERCHANT_PLAN.INDEX_99]: '标准版',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版',
+  [MERCHANT_PLAN.FREE]: '体验版',
+  [MERCHANT_PLAN.INDEX_99]: '专业版',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '专业版',
 }
 
 const MERCHANT_PLAN_TAG_TIERS = MERCHANT_PLAN_TIER_BY_PLAN
@@ -72,9 +72,9 @@ const PLAN_CATALOG = [
     priceCents: 0,
     priceLabel: '0 元 / 永久',
     highlights: [
-      '服务相册全功能永久免费',
+      '体验版：相册工具可先用；正式后可能有月额度',
       '车主扫码查看与微信内分享',
-      '工单数据永久留存',
+      '车主发布案例基础收录不另收费',
     ],
     publicIndex: false,
   },
@@ -82,13 +82,12 @@ const PLAN_CATALOG = [
     plan: MERCHANT_PLAN.INDEX_99,
     name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.INDEX_99],
     priceCents: MERCHANT_PLAN_PRICE_CENTS[MERCHANT_PLAN.INDEX_99],
-    priceLabel: '99 元 / 年',
-    trialLabel: '首购免费试用 6 个月',
+    priceLabel: '目标 480 元 / 年（支付目录改造中）',
+    trialLabel: '验证期可先试用',
     highlights: [
-      '授权案例生成公域 H5 并进入 sitemap',
-      '支持搜索引擎与大模型抓取收录',
-      '门店 H5 页公域可检索',
-      '含免费版全部功能',
+      '对应新口径专业版工具权益（历史套餐码兼容）',
+      '公开与基础收录不另收费',
+      '正式价与目录见过线后 BIZ-SUB（tool_480）',
     ],
     publicIndex: true,
   },

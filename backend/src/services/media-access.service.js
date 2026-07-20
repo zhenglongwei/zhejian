@@ -126,6 +126,7 @@ async function matchPublicMerchantCredentials(objectKey) {
     if (mediaUrlMatchesObjectKey(merchant.licensePhotoUrl, objectKey)) return true
     const qualification = formatQualificationForClient(merchant.qualificationJson)
     if (mediaUrlMatchesObjectKey(qualification?.photoUrl, objectKey)) return true
+    if (mediaUrlMatchesObjectKey(qualification?.newEnergy?.photoUrl, objectKey)) return true
   }
   return false
 }

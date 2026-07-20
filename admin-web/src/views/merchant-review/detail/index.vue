@@ -64,13 +64,24 @@
         <el-card shadow="never">
           <template #header>维修资质</template>
           <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="类型">{{ detail.qualification?.typeLabel || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="基础资质">{{ detail.qualification?.baseTypeLabel || detail.qualification?.typeLabel || '—' }}</el-descriptions-item>
             <el-descriptions-item label="编号">{{ detail.qualification?.certNo || '—' }}</el-descriptions-item>
             <el-descriptions-item label="有效期至">{{ detail.qualification?.validUntil || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="新能源专项">
+              {{ detail.qualification?.newEnergy?.enabled ? '有' : '无' }}
+            </el-descriptions-item>
+            <template v-if="detail.qualification?.newEnergy?.enabled">
+              <el-descriptions-item label="新能源编号">{{ detail.qualification?.newEnergy?.certNo || '—' }}</el-descriptions-item>
+              <el-descriptions-item label="新能源有效期至">{{ detail.qualification?.newEnergy?.validUntil || '—' }}</el-descriptions-item>
+            </template>
           </el-descriptions>
           <div v-if="detail.qualification?.photoUrl" class="photo-block">
-            <div class="photo-label">资质照片</div>
+            <div class="photo-label">基础资质照片</div>
             <el-image :src="detail.qualification.photoUrl" fit="cover" class="review-photo" :preview-src-list="[detail.qualification.photoUrl]" />
+          </div>
+          <div v-if="detail.qualification?.newEnergy?.photoUrl" class="photo-block">
+            <div class="photo-label">新能源专项照片</div>
+            <el-image :src="detail.qualification.newEnergy.photoUrl" fit="cover" class="review-photo" :preview-src-list="[detail.qualification.newEnergy.photoUrl]" />
           </div>
         </el-card>
       </el-col>

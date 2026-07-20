@@ -1,10 +1,8 @@
 const { isLoggedIn, clearSession } = require('../../../utils/auth')
-const { HOME_PLATFORM_IDENTITY } = require('../../../constants/home-entries')
 
 Page({
   data: {
     isLoggedIn: false,
-    platformNotice: HOME_PLATFORM_IDENTITY,
   },
 
   onShow() {

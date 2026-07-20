@@ -69,10 +69,19 @@ function buildCertifications(merchant, extras = {}) {
     pushRow('营业执照', merchant.legalName ? `${merchant.legalName} · 已认证` : '已认证')
   }
   const qualification = formatQualificationForClient(merchant?.qualificationJson)
-  if (qualification?.photoUrl || qualification?.type) {
-    const label = qualification.typeLabel || QUALIFICATION_LABELS[qualification.type] || '维修资质'
+  if (qualification?.photoUrl || qualification?.baseType || qualification?.type) {
+    const label =
+      qualification.baseTypeLabel ||
+      qualification.typeLabel ||
+      QUALIFICATION_LABELS[qualification.baseType || qualification.type] ||
+      '维修资质'
     const text = qualification.certNo ? `${qualification.certNo} · 已认证` : '已认证'
     pushRow(label, text)
+  }
+  if (qualification?.newEnergy?.enabled) {
+    const ne = qualification.newEnergy
+    const text = ne.certNo ? `${ne.certNo} · 已认证` : '已认证'
+    pushRow(ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质', text)
   }
   if (extras.certifications?.length) {
     extras.certifications.forEach((item) => {
@@ -111,10 +120,23 @@ function buildCertWall(merchant, extras = {}) {
   if (qualification?.photoUrl) {
     wall.push({
       type: 'qualification',
-      label: qualification.typeLabel || '维修资质',
+      label:
+        qualification.baseTypeLabel ||
+        qualification.typeLabel ||
+        '维修资质',
       imageUrl: resolvePublicCredentialImageUrl(qualification.photoUrl),
       status: 'verified',
       text: qualification.certNo ? `${qualification.certNo} · 已认证` : '已认证',
+    })
+  }
+  if (qualification?.newEnergy?.enabled && qualification.newEnergy.photoUrl) {
+    const ne = qualification.newEnergy
+    wall.push({
+      type: 'qualification_new_energy',
+      label: ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质',
+      imageUrl: resolvePublicCredentialImageUrl(ne.photoUrl),
+      status: 'verified',
+      text: ne.certNo ? `${ne.certNo} · 已认证` : '已认证',
     })
   }
   const brandAuth = extras.brandAuthUrl

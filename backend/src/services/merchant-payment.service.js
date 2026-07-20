@@ -38,7 +38,7 @@ function assertSubscriptionPayConsent(options = {}) {
     !consent.authTextVersion ||
     !consent.authTextSnapshot
   ) {
-    const err = new Error('请先阅读并同意《套餐与公域收录服务协议》')
+    const err = new Error('请先阅读并同意《套餐与工具服务协议》')
     err.status = 400
     throw err
   }

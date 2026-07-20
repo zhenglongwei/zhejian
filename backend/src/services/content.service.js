@@ -69,6 +69,7 @@ const {
   computeStoreListScorePenalty,
   collectApprovedEquipmentImageUrls,
 } = require('../utils/store-capability')
+const { buildQualificationTags } = require('../lib/onboarding-payload')
 
 const STORE_STATUS_MAP = {
   ACTIVE: 'open',
@@ -544,6 +545,11 @@ function mapStoreRow(store, caseCount = 0) {
     qualificationValidUntil: String(qualificationJson.validUntil || '').trim(),
   })
   const baseScore = Number(extras.score) || 0
+  const qualificationTagsFromJson = buildQualificationTags(qualificationJson)
+  const qualificationTags =
+    qualificationTagsFromJson.length > 0
+      ? qualificationTagsFromJson
+      : extras.qualificationTags || []
   return {
     id: store.id,
     merchantId: store.merchantId || '',
@@ -557,7 +563,7 @@ function mapStoreRow(store, caseCount = 0) {
     businessHours: store.businessHours || extras.businessHours || '',
     phone: store.phone || '',
     intro: store.intro || extras.aiSummary || '',
-    qualificationTags: extras.qualificationTags || [],
+    qualificationTags,
     specialties: filterPublicSpecialties(
       Array.isArray(store.servicesJson) ? store.servicesJson : extras.specialties || []
     ),

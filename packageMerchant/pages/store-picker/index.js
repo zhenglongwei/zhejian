@@ -6,6 +6,10 @@ const {
 } = require('../../../services/merchant')
 const { MERCHANT_STORE_PICKER_COPY } = require('../../../constants/merchant-onboarding-copy')
 const { isMerchant, isMerchantOwner } = require('../../../utils/auth')
+const {
+  hasAcknowledgedMerchantPlan,
+  buildPlanSelectUrl,
+} = require('../../../utils/merchant-plan-select')
 
 function resolveEntryTagVariant(status) {
   if (status === MERCHANT_STATUS.APPROVED) return 'success'
@@ -140,6 +144,12 @@ Page({
     if (!entry || this.data.switching) return
 
     if (entry.canEnterWorkbench) {
+      if (!hasAcknowledgedMerchantPlan(entry.merchantId)) {
+        wx.redirectTo({
+          url: buildPlanSelectUrl(entry.merchantId, 'store-picker'),
+        })
+        return
+      }
       await this.enterStore(entry)
       return
     }

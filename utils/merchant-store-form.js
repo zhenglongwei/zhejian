@@ -90,10 +90,15 @@ function profileToBasicReadonly(profile) {
     contactName: profile.contactName || '—',
     phone: profile.phone || '—',
     contactEmail: profile.contactEmail || '—',
-    qualificationTypeLabel: q.typeLabel || findQualificationLabel(q.type) || '—',
+    qualificationTypeLabel: q.baseTypeLabel || q.typeLabel || findQualificationLabel(q.baseType || q.type) || '—',
     qualificationPhotoUrl: q.photoUrl || '',
     qualificationNo: q.certNo || '—',
     qualificationValidUntil: q.validUntil || '—',
+    newEnergyEnabled: Boolean(q.newEnergy && q.newEnergy.enabled),
+    newEnergyTypeLabel: (q.newEnergy && q.newEnergy.typeLabel) || '新能源专项资质',
+    newEnergyPhotoUrl: (q.newEnergy && q.newEnergy.photoUrl) || '',
+    newEnergyNo: (q.newEnergy && q.newEnergy.certNo) || '—',
+    newEnergyValidUntil: (q.newEnergy && q.newEnergy.validUntil) || '—',
   }
 }
 

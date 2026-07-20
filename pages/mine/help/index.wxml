@@ -1,12 +1,6 @@
 <ui-tool-page-shell>
   <view class="help-center">
     <view class="help-center__main surface-album-panel">
-      <view class="help-center__tabs">
-        <ui-tabs tabs="{{tabs}}" activeKey="{{activeTab}}" bind:change="onTabChange" />
-      </view>
-
-      <view class="surface-album-inset-divider" />
-
       <view wx:for="{{sections}}" wx:key="heading" class="help-center__section">
         <text class="help-center__heading text-h3">{{item.heading}}</text>
         <text class="help-center__body text-body">{{item.body}}</text>

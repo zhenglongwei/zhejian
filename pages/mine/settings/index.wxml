@@ -1,7 +1,6 @@
 <ui-tool-page-shell
   showBand="{{false}}"
-  complianceText="{{platformNotice}}"
-  showCompliance="{{true}}"
+  showCompliance="{{false}}"
 >
   <view class="settings-page">
     <view class="settings-page__main surface-album-panel">

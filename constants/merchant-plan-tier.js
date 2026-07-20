@@ -15,8 +15,8 @@ const MERCHANT_PLAN_TIER_BY_PLAN = {
 }
 
 const MERCHANT_PLAN_TIER_LABELS = {
-  [MERCHANT_PLAN_TIER.BASIC]: '免费版',
-  [MERCHANT_PLAN_TIER.STANDARD]: '标准版',
+  [MERCHANT_PLAN_TIER.BASIC]: '体验版',
+  [MERCHANT_PLAN_TIER.STANDARD]: '专业版',
 }
 
 function resolveMerchantPlanTier(plan) {

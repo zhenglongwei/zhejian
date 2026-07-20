@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "选择套餐",
+  "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index"
+  }
+}

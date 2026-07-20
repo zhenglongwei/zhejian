@@ -100,22 +100,11 @@ function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
   const tierLabel =
     (subscription.planTag && subscription.planTag.text) ||
     resolveMerchantPlanTier(subscription.plan).text
-  const publicIndex = Boolean(subscription.publicIndex)
-  if (publicIndex) {
-    return {
-      title: tierLabel,
-      desc: subscription.expiresAt
-        ? `公域收录至 ${String(subscription.expiresAt).slice(0, 10)} · 点此管理`
-        : '公域收录已开通 · 点此管理',
-      action: '管理套餐',
-      tone: 'active',
-    }
-  }
   return {
-    title: '公域收录未开通',
-    desc: '案例 H5 可分享，但搜索引擎不会收录；开通后可进 sitemap',
-    action: '了解套餐',
-    tone: 'upgrade',
+    title: '套餐与工具权益',
+    desc: `当前：${tierLabel} · 公开案例基础收录不另收费`,
+    action: '查看说明',
+    tone: subscription.plan && subscription.plan !== 'free' ? 'active' : 'upgrade',
   }
 }
 

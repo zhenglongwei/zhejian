@@ -68,6 +68,7 @@
         "pages/workbench/index",
         "pages/store-picker/index",
         "pages/onboarding/index",
+        "pages/plan-select/index",
         "pages/album/create/index",
         "pages/album/invite/index",
         "pages/album/edit/index",

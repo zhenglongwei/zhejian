@@ -8,21 +8,21 @@ const {
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
-  ONBOARDING_QUALIFICATION_OPTIONS,
+  ONBOARDING_BASE_QUALIFICATION_OPTIONS,
   ONBOARDING_COMPLIANCE_TEXT,
   ONBOARDING_AGREEMENT_LINK,
   buildOnboardingConsentParts,
 } = require('../../../constants/onboarding')
 const {
   MERCHANT_ONBOARDING_HERO,
-  MERCHANT_ONBOARDING_VALUE_ITEMS,
-  MERCHANT_ONBOARDING_POSITIONING,
 } = require('../../../constants/merchant-onboarding-copy')
+const { redirectAfterMerchantApproved } = require('../../../utils/merchant-plan-select')
 const { uploadImage, normalizeStoredImageUrl } = require('../../../utils/media-upload')
 const {
   chooseStoreLocation,
   getChooseLocationFailMessage,
 } = require('../../../utils/choose-location')
+const { DESIGN_TOKENS } = require('../../../constants/design-tokens')
 
 const EMPTY_FORM = {
   storeName: '',
@@ -44,6 +44,10 @@ const EMPTY_FORM = {
   qualificationPhotoUrl: '',
   qualificationNo: '',
   qualificationValidUntil: '',
+  newEnergyEnabled: false,
+  newEnergyPhotoUrl: '',
+  newEnergyNo: '',
+  newEnergyValidUntil: '',
   facadePhotoUrl: '',
   workshopPhotoUrls: [],
   receptionPhotoUrl: '',
@@ -76,15 +80,14 @@ Page({
   data: {
     form: { ...EMPTY_FORM },
     today: formatToday(),
-    qualificationOptions: ONBOARDING_QUALIFICATION_OPTIONS,
+    qualificationOptions: ONBOARDING_BASE_QUALIFICATION_OPTIONS,
     qualificationIndex: 0,
     complianceText: ONBOARDING_COMPLIANCE_TEXT,
     consentTextBefore: buildOnboardingConsentParts().before,
     consentTextAfter: buildOnboardingConsentParts().after,
     agreementLink: ONBOARDING_AGREEMENT_LINK,
     heroCopy: MERCHANT_ONBOARDING_HERO,
-    valueItems: MERCHANT_ONBOARDING_VALUE_ITEMS,
-    positioningNotice: MERCHANT_ONBOARDING_POSITIONING,
+    switchColor: DESIGN_TOKENS.COLOR_PRIMARY,
     agreed: false,
     submitting: false,
     status: 'loading',
@@ -102,9 +105,18 @@ Page({
   profileToForm(profile) {
     const q = profile.qualification || {}
     const photos = profile.photos || {}
-    const qualIndex = ONBOARDING_QUALIFICATION_OPTIONS.findIndex(
-      (o) => o.value === (q.type || 'class_3')
+    const ne = q.newEnergy || {}
+    const baseType =
+      q.baseType ||
+      (q.type && q.type !== 'new_energy' ? q.type : '') ||
+      'class_3'
+    const qualIndex = ONBOARDING_BASE_QUALIFICATION_OPTIONS.findIndex(
+      (o) => o.value === baseType
     )
+    const newEnergyEnabled =
+      Boolean(ne.enabled) ||
+      (Array.isArray(q.specialties) && q.specialties.indexOf('new_energy') >= 0) ||
+      q.type === 'new_energy'
     const hasLocation =
       profile.latitude != null &&
       profile.longitude != null &&
@@ -127,10 +139,19 @@ Page({
         creditCode: profile.creditCode || '',
         licensePhotoUrl: profile.licensePhotoUrl || '',
         contactEmail: profile.contactEmail || '',
-        qualificationType: q.type || 'class_3',
-        qualificationPhotoUrl: q.photoUrl || '',
-        qualificationNo: q.certNo || '',
-        qualificationValidUntil: normalizeDateValue(q.validUntil),
+        qualificationType: baseType,
+        qualificationPhotoUrl: q.type === 'new_energy' ? '' : q.photoUrl || '',
+        qualificationNo: q.type === 'new_energy' ? '' : q.certNo || '',
+        qualificationValidUntil: normalizeDateValue(
+          q.type === 'new_energy' ? '' : q.validUntil
+        ),
+        newEnergyEnabled,
+        newEnergyPhotoUrl:
+          ne.photoUrl || (q.type === 'new_energy' ? q.photoUrl || '' : ''),
+        newEnergyNo: ne.certNo || (q.type === 'new_energy' ? q.certNo || '' : ''),
+        newEnergyValidUntil: normalizeDateValue(
+          ne.validUntil || (q.type === 'new_energy' ? q.validUntil : '')
+        ),
         facadePhotoUrl: photos.facadeUrl || '',
         workshopPhotoUrls: photos.workshopUrls || [],
         receptionPhotoUrl: photos.receptionUrl || '',
@@ -164,7 +185,7 @@ Page({
       preferIncomplete: !this.targetMerchantId,
     })
     if (profile && profile.status === MERCHANT_STATUS.APPROVED && !this.targetMerchantId) {
-      wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
+      redirectAfterMerchantApproved(profile.merchantId, 'onboarding')
       return
     }
     if (profile && profile.status === MERCHANT_STATUS.PENDING) {
@@ -192,7 +213,7 @@ Page({
 
   onQualificationChange(e) {
     const index = Number(e.detail.value)
-    const item = ONBOARDING_QUALIFICATION_OPTIONS[index]
+    const item = ONBOARDING_BASE_QUALIFICATION_OPTIONS[index]
     this.setData({
       qualificationIndex: index,
       'form.qualificationType': item ? item.value : '',
@@ -201,6 +222,24 @@ Page({
 
   onValidUntilChange(e) {
     this.setData({ 'form.qualificationValidUntil': e.detail.value || '' })
+  },
+
+  onNewEnergyToggle(e) {
+    const enabled = Boolean(e.detail.value)
+    this.setData({
+      'form.newEnergyEnabled': enabled,
+      ...(enabled
+        ? {}
+        : {
+            'form.newEnergyPhotoUrl': '',
+            'form.newEnergyNo': '',
+            'form.newEnergyValidUntil': '',
+          }),
+    })
+  },
+
+  onNewEnergyValidUntilChange(e) {
+    this.setData({ 'form.newEnergyValidUntil': e.detail.value || '' })
   },
 
   async onChooseLocation() {
@@ -377,6 +416,10 @@ Page({
     this.pickSingleImage('qualificationPhotoUrl')
   },
 
+  onPickNewEnergy() {
+    this.pickSingleImage('newEnergyPhotoUrl')
+  },
+
   onPickReception() {
     this.pickSingleImage('receptionPhotoUrl')
   },
@@ -431,10 +474,20 @@ Page({
       ...form,
       merchantId: merchantId || (profile && profile.merchantId) || '',
       qualification: {
+        baseType: form.qualificationType,
         type: form.qualificationType,
         photoUrl: form.qualificationPhotoUrl,
         certNo: form.qualificationNo,
         validUntil: normalizeDateValue(form.qualificationValidUntil),
+        specialties: form.newEnergyEnabled ? ['new_energy'] : [],
+        newEnergy: {
+          enabled: Boolean(form.newEnergyEnabled),
+          photoUrl: form.newEnergyEnabled ? form.newEnergyPhotoUrl : '',
+          certNo: form.newEnergyEnabled ? form.newEnergyNo : '',
+          validUntil: form.newEnergyEnabled
+            ? normalizeDateValue(form.newEnergyValidUntil)
+            : '',
+        },
       },
       photos: {
         facadeUrl: form.facadePhotoUrl,
@@ -460,7 +513,11 @@ Page({
       return false
     }
     if (!f.qualificationType || !f.qualificationPhotoUrl) {
-      wx.showToast({ title: '请完善维修资质信息', icon: 'none' })
+      wx.showToast({ title: '请完善基础维修资质信息', icon: 'none' })
+      return false
+    }
+    if (f.newEnergyEnabled && !f.newEnergyPhotoUrl) {
+      wx.showToast({ title: '请上传新能源专项资质照片', icon: 'none' })
       return false
     }
     if (!this.data.agreed) {
@@ -493,7 +550,7 @@ Page({
       if (profile.status === MERCHANT_STATUS.APPROVED) {
         wx.showToast({ title: '入驻已通过', icon: 'success' })
         setTimeout(() => {
-          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
+          redirectAfterMerchantApproved(profile.merchantId, 'submit')
         }, 600)
         return
       }
@@ -524,7 +581,7 @@ Page({
       if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
         wx.showToast({ title: '审核已通过', icon: 'success' })
         setTimeout(() => {
-          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
+          redirectAfterMerchantApproved(profile.merchantId, 'audit')
         }, 600)
         return
       }

@@ -1,0 +1,90 @@
+.plan-select {
+  min-height: 100vh;
+  padding-bottom: var(--page-fixed-clearance);
+  box-sizing: border-box;
+}
+
+.plan-select__top {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-sm);
+}
+
+.plan-select__folio {
+  margin: 0 calc(-1 * var(--page-padding-x));
+  padding: var(--space-xl) var(--page-padding-x) var(--space-lg);
+}
+
+.plan-select__folio-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.plan-select__title {
+  color: var(--color-text-primary);
+}
+
+.plan-select__sub {
+  line-height: var(--font-body-lh);
+}
+
+.plan-select__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.plan-select__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+}
+
+.plan-select__card--active {
+  border-color: var(--color-brand);
+}
+
+.plan-select__card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.plan-select__card-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.plan-select__price-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.plan-select__price {
+  color: var(--color-text-primary);
+}
+
+.plan-select__bullets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.plan-select__bullet {
+  color: var(--color-text-secondary);
+  line-height: var(--font-body-lh);
+}
+
+.plan-select__link {
+  align-self: flex-start;
+}
+
+.plan-select__action {
+  margin-top: var(--space-sm);
+}
