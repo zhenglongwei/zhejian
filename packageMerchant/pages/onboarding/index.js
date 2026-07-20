@@ -50,9 +50,32 @@ const EMPTY_FORM = {
   brandAuthPhotoUrl: '',
 }
 
+function padDatePart(n) {
+  return String(n).padStart(2, '0')
+}
+
+function formatToday() {
+  const d = new Date()
+  return `${d.getFullYear()}-${padDatePart(d.getMonth() + 1)}-${padDatePart(d.getDate())}`
+}
+
+/** 归一为 YYYY-MM-DD，无法识别则返回空串 */
+function normalizeDateValue(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return ''
+  const matched = text.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/)
+  if (!matched) return ''
+  const y = Number(matched[1])
+  const m = Number(matched[2])
+  const day = Number(matched[3])
+  if (!y || m < 1 || m > 12 || day < 1 || day > 31) return ''
+  return `${y}-${padDatePart(m)}-${padDatePart(day)}`
+}
+
 Page({
   data: {
     form: { ...EMPTY_FORM },
+    today: formatToday(),
     qualificationOptions: ONBOARDING_QUALIFICATION_OPTIONS,
     qualificationIndex: 0,
     complianceText: ONBOARDING_COMPLIANCE_TEXT,
@@ -107,7 +130,7 @@ Page({
         qualificationType: q.type || 'class_3',
         qualificationPhotoUrl: q.photoUrl || '',
         qualificationNo: q.certNo || '',
-        qualificationValidUntil: q.validUntil || '',
+        qualificationValidUntil: normalizeDateValue(q.validUntil),
         facadePhotoUrl: photos.facadeUrl || '',
         workshopPhotoUrls: photos.workshopUrls || [],
         receptionPhotoUrl: photos.receptionUrl || '',
@@ -174,6 +197,10 @@ Page({
       qualificationIndex: index,
       'form.qualificationType': item ? item.value : '',
     })
+  },
+
+  onValidUntilChange(e) {
+    this.setData({ 'form.qualificationValidUntil': e.detail.value || '' })
   },
 
   async onChooseLocation() {
@@ -407,7 +434,7 @@ Page({
         type: form.qualificationType,
         photoUrl: form.qualificationPhotoUrl,
         certNo: form.qualificationNo,
-        validUntil: form.qualificationValidUntil,
+        validUntil: normalizeDateValue(form.qualificationValidUntil),
       },
       photos: {
         facadeUrl: form.facadePhotoUrl,

@@ -94,9 +94,8 @@
       <input class="merchant-form__input" type="number" placeholder="审核与通知联系" value="{{form.phone}}" data-field="phone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门店电话</text>
-      <text class="text-caption merchant-onboard__optional-hint">可审核通过后完善</text>
-      <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
+      <text class="merchant-form__label">联系电话</text>
+      <input class="merchant-form__input" type="number" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店地址 *</text>
@@ -163,7 +162,11 @@
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">有效期至</text>
-      <input class="merchant-form__input" placeholder="如 2027-12-31" value="{{form.qualificationValidUntil}}" data-field="qualificationValidUntil" bindinput="onInput" />
+      <picker mode="date" value="{{form.qualificationValidUntil || today}}" bindchange="onValidUntilChange">
+        <view class="merchant-form__picker {{form.qualificationValidUntil ? '' : 'merchant-form__picker--placeholder'}}">
+          {{form.qualificationValidUntil || '请选择'}}
+        </view>
+      </picker>
     </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">品牌授权证明</text>

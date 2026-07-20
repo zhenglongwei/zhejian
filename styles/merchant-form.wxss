@@ -48,6 +48,10 @@
   border: 1rpx solid var(--color-border);
 }
 
+.merchant-form__picker--placeholder {
+  color: var(--color-text-tertiary);
+}
+
 .merchant-form__textarea {
   width: 100%;
   min-height: 160rpx;
