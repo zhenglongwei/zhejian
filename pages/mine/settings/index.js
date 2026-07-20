@@ -26,11 +26,7 @@ Page({
       return
     }
     if (key === 'about') {
-      wx.showModal({
-        title: '关于辙见',
-        content: HOME_PLATFORM_IDENTITY,
-        showCancel: false,
-      })
+      wx.navigateTo({ url: '/pages/mine/settings/about/index' })
       return
     }
     if (key === 'deactivate') {

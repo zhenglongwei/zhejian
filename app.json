@@ -31,6 +31,7 @@
     "pages/mine/settings/index",
     "pages/mine/profile/index",
     "pages/mine/settings/document/index",
+    "pages/mine/settings/about/index",
     "pages/mine/settings/deactivate/index",
     "pages/mine/favorite/index",
     "pages/mine/vehicle/index",

@@ -9,10 +9,10 @@ const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
 const {
   MINE_ALBUM_SECTION_TITLE,
-  MINE_ALBUM_EMPTY_HINT,
+  MINE_ALBUM_EMPTY_TITLE,
+  MINE_ALBUM_EMPTY_ACTION,
   MINE_GUEST_TOOL_HINT,
   MINE_SHARE_INCENTIVE_TITLE,
-  MINE_EMPTY_H5_GUIDE_TEXT,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,
@@ -63,18 +63,17 @@ Page({
     todoSummary: null,
     shareIncentivePreview: buildMineEarningsPreview({ loggedIn: false }),
     showShareIncentive: false,
-    showEmptyH5Guide: false,
     showGuestH5Link: false,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     loginSheetBindContext: 'album',
     menuSections: buildMineMenuSections({}),
     albumSectionTitle: MINE_ALBUM_SECTION_TITLE,
-    albumEmptyHint: MINE_ALBUM_EMPTY_HINT,
+    albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,
+    albumEmptyAction: MINE_ALBUM_EMPTY_ACTION,
     guestToolHint: MINE_GUEST_TOOL_HINT,
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
-    emptyH5GuideText: MINE_EMPTY_H5_GUIDE_TEXT,
     h5OutletText: MINE_H5_OUTLET_TEXT,
     ...albumAuthShareData(),
   },
@@ -116,8 +115,7 @@ Page({
     const hasAlbumBindings = Boolean(
       (summary && summary.hasAlbumBindings) || (albums && albums.length)
     )
-    // 已登录无相册：空态内弱引导；未登录公域冷启动：底部出口
-    const showEmptyH5Guide = loggedIn && !hasAlbumBindings
+    // 已登录无相册：空态主按钮进 H5 门店列表；未登录公域冷启动：底部出口
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
     this.setData({
@@ -128,7 +126,6 @@ Page({
       vehicleSummary,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
       showShareIncentive: loggedIn && hasAlbumBindings,
-      showEmptyH5Guide,
       showGuestH5Link,
     })
   },
@@ -292,8 +289,8 @@ Page({
     openH5Url(buildStoreListH5Url())
   },
 
-  onHelpFromSettings() {
-    wx.navigateTo({ url: '/pages/mine/help/index' })
+  onEmptyMerchantsTap() {
+    openH5Url(buildStoreListH5Url())
   },
 
   onConsultListTap() {

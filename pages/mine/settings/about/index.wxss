@@ -1,37 +1,38 @@
-.help-center {
+.about-page {
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);
 }
 
-.help-center__main {
+.about-page__main {
   display: flex;
   flex-direction: column;
 }
 
-.help-center__tabs {
+.about-page__block {
   margin-bottom: 0;
 }
 
-.help-center__section {
-  margin-bottom: var(--space-lg);
-}
-
-.help-center__section:last-of-type {
-  margin-bottom: 0;
-}
-
-.help-center__heading {
+.about-page__heading {
   display: block;
   margin-bottom: var(--space-sm);
 }
 
-.help-center__body {
+.about-page__body {
   display: block;
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
-.help-center__actions {
+.about-page__note {
+  margin-top: var(--space-md);
+}
+
+.about-page__note-title {
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.about-page__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);

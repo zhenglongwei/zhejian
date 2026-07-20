@@ -30,7 +30,7 @@ band → 工具说明（未登录）
 | 原菜单 | 去向 |
 | --- | --- |
 | 消息通知 | 设置内说明（微信服务通知） |
-| 使用说明 | 设置 → 帮助 |
+| 使用说明 | 设置 → 关于辙见（精简）/ 使用说明与帮助（详解） |
 | 公开授权 | 相册区头「授权公示」 |
 | 我的车辆 | 个人中心 `pages/mine/profile` |
 
@@ -39,7 +39,7 @@ band → 工具说明（未登录）
 | 状态 | 相册 Hero | H5 | 待办 | 公示激励 |
 | --- | --- | --- | --- | --- |
 | 未登录 | 登录引导 | 条件 ✅ | 隐藏 | 隐藏或弱链明细 |
-| 已登录无相册 | empty + 扫一扫说明 | ❌ | 有则展示 | 弱卡 |
+| 已登录无相册 | empty「暂无相册」+「查看支持相册的商家 →」 | 主按钮进门店列表 | 有则展示 | 隐藏 |
 | 已登录有相册 | 1～2 档案卡 | ❌ | 有则展示 | 弱卡 |
 
 ## 组件与常量
@@ -51,6 +51,7 @@ band → 工具说明（未登录）
 | 相册 Hero | `components/album-card` · `showHeaderActions="{{false}}"` |
 | 菜单 | `components/cell` + `constants/mine-menu.js` |
 | 文案/待办 | `constants/mine-hub.js` |
+| 关于辙见 | `pages/mine/settings/about` · `constants/about-zhejian.js` |
 | H5 | `utils/tool-entry-context.js` · `constants/h5-links.js` |
 
 ## 禁止清单

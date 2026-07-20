@@ -1,6 +1,4 @@
 const {
-  HELP_CENTER_IDENTITY,
-  HELP_CENTER_ABOUT,
   buildHelpCenterTabs,
   getHelpPathSections,
 } = require('../../../constants/help-content')
@@ -11,9 +9,7 @@ Page({
   data: {
     tabs: buildHelpCenterTabs(),
     activeTab: 'owner',
-    identity: HELP_CENTER_IDENTITY,
     sections: getHelpPathSections('owner'),
-    about: HELP_CENTER_ABOUT,
   },
 
   onTabChange(e) {
@@ -23,6 +19,10 @@ Page({
       activeTab: key,
       sections: getHelpPathSections(key),
     })
+  },
+
+  onOpenAbout() {
+    wx.navigateTo({ url: '/pages/mine/settings/about/index' })
   },
 
   onOpenH5Site() {

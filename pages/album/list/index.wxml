@@ -49,10 +49,9 @@
     <view class="album-list__state">
       <ui-empty
         theme="album"
-        title="暂无服务相册"
-        description="请扫描商家二维码。"
-        actionText="查看更多公开案例"
-        bind:action="onOpenH5Cases"
+        title="{{albumEmptyTitle}}"
+        actionText="{{albumEmptyAction}}"
+        bind:action="onOpenAlbumMerchants"
       />
     </view>
   </block>

@@ -141,16 +141,30 @@ function requireAuth(roles = []) {
     if (!auth || !auth.token || !auth.roles.length) {
       return fail(res, 100002, '未授权', 401)
     }
+    // roles 为 OR：满足任一角色即可。勿在通过后因「列表含 merchant」再强制 merchantId。
     if (roles.length && !canAccessRole(req, roles)) {
+      const allowUser = roles.includes(ROLES.USER)
+      const allowMerchant = roles.includes(ROLES.MERCHANT)
+      const allowSystem = roles.includes(ROLES.SYSTEM)
+      const asUser = allowUser && Boolean(auth.userId) && hasRole(auth, ROLES.USER)
+      const asMerchant =
+        allowMerchant && Boolean(auth.merchantId) && hasRole(auth, ROLES.MERCHANT)
+      const asSystem = allowSystem && hasRole(auth, ROLES.SYSTEM)
+
+      if (allowMerchant && !auth.merchantId && !asUser && !asSystem) {
+        return fail(res, 100003, '尚未开通商家身份', 403)
+      }
+      if (allowUser && !auth.userId && !asMerchant && !asSystem) {
+        return fail(res, 100002, '登录已失效，请重新登录', 401)
+      }
       return fail(res, 100003, '无权限', 403)
     }
-    if (roles.includes(ROLES.USER) && !auth.userId) {
-      return fail(res, 100002, '登录已失效，请重新登录', 401)
-    }
-    if (roles.includes(ROLES.MERCHANT) && !auth.merchantId) {
-      return fail(res, 100003, '尚未开通商家身份', 403)
-    }
-    if (roles.includes(ROLES.USER) && auth.userId && !auth.isDevToken) {
+    if (
+      roles.includes(ROLES.USER) &&
+      auth.userId &&
+      hasRole(auth, ROLES.USER) &&
+      !auth.isDevToken
+    ) {
       try {
         const user = await prisma.user.findUnique({
           where: { id: auth.userId },

@@ -1,0 +1,34 @@
+<ui-tool-page-shell showBand="{{false}}">
+  <view class="about-page">
+    <view class="about-page__main surface-album-panel">
+      <view class="about-page__block">
+        <text class="about-page__heading text-h3">{{identity.heading}}</text>
+        <text class="about-page__body text-body">{{identity.body}}</text>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view class="about-page__block">
+        <text class="about-page__heading text-h3">服务相册从哪来</text>
+        <text class="about-page__body text-body">{{albumTip}}</text>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view class="about-page__block">
+        <text class="about-page__heading text-h3">平台说明</text>
+        <view wx:for="{{notes}}" wx:key="title" class="about-page__note">
+          <text class="about-page__note-title text-body">{{item.title}}</text>
+          <text class="about-page__body text-caption">{{item.desc}}</text>
+        </view>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
+      <view class="about-page__actions">
+        <ui-button type="ghost" size="sm" bind:btntap="onOpenHelp">使用说明与帮助</ui-button>
+        <ui-button type="secondary" size="sm" bind:btntap="onOpenMerchants">查看支持相册的商家 →</ui-button>
+      </view>
+    </view>
+  </view>
+</ui-tool-page-shell>

@@ -201,18 +201,6 @@
   opacity: 0.72;
 }
 
-/* 相册空态内弱引导：紧贴 Empty，一眼可见 */
-.mine__empty-h5 {
-  margin-top: var(--space-sm);
-  padding: var(--space-xs) var(--space-md) var(--space-sm);
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.mine__empty-h5:active {
-  opacity: 0.72;
-}
-
 .mine__auth-submit {
   padding: var(--space-md) var(--page-padding-x) var(--space-lg);
 }

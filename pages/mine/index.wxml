@@ -71,18 +71,10 @@
         <block wx:elif="{{isLoggedIn}}">
           <ui-empty
             theme="album"
-            title="暂无服务相册"
-            description="{{albumEmptyHint}}"
-            actionText="使用说明"
-            bind:action="onHelpFromSettings"
+            title="{{albumEmptyTitle}}"
+            actionText="{{albumEmptyAction}}"
+            bind:action="onEmptyMerchantsTap"
           />
-          <view
-            wx:if="{{showEmptyH5Guide}}"
-            class="mine__empty-h5"
-            bindtap="onH5OutletTap"
-          >
-            <text class="text-caption text-link">{{emptyH5GuideText}}</text>
-          </view>
         </block>
 
         <block wx:else>

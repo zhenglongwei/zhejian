@@ -8,8 +8,10 @@ const MINE_TOOL_HERO_SUBTITLE = '查看门店为你创建的汽车维修档案'
 const MINE_GUEST_TOOL_HINT =
   '门店创建相册后，请用微信「扫一扫」打开门店码或分享链接；登录后可在此翻阅汽车维修档案。'
 
-const MINE_ALBUM_EMPTY_HINT =
-  '暂无服务相册。若门店已发码，请用微信扫一扫打开；创建后会出现在下方。'
+/** 已登录无相册：空态标题与主 CTA（使用说明见设置 → 关于辙见） */
+const MINE_ALBUM_EMPTY_TITLE = '暂无相册'
+
+const MINE_ALBUM_EMPTY_ACTION = '查看支持相册的商家 →'
 
 const MINE_ALBUM_SECTION_TITLE = '我的服务相册'
 
@@ -20,11 +22,8 @@ const MINE_SHARE_INCENTIVE_TITLE = '公示激励'
 const MINE_SHARE_INCENTIVE_COMPLIANCE =
   '按平台规则与实际浏览、到店效果结算；分享卡片不含收益诱导文案。'
 
-/** 无相册空态弱引导（引流 H5，非小程序内逛店） */
-const MINE_EMPTY_H5_GUIDE_TEXT = '了解提供服务相册的门店 → 打开内容站'
-
-/** 未登录公域冷启动底部出口（兼容旧文案位） */
-const MINE_H5_OUTLET_TEXT = MINE_EMPTY_H5_GUIDE_TEXT
+/** 未登录公域冷启动底部出口 */
+const MINE_H5_OUTLET_TEXT = '了解提供服务相册的门店 → 打开内容站'
 
 function summarizeAuthorizationTodos(authList = [], badges = {}) {
   const pendingAuth =
@@ -91,12 +90,12 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
 module.exports = {
   MINE_TOOL_HERO_SUBTITLE,
   MINE_GUEST_TOOL_HINT,
-  MINE_ALBUM_EMPTY_HINT,
+  MINE_ALBUM_EMPTY_TITLE,
+  MINE_ALBUM_EMPTY_ACTION,
   MINE_ALBUM_SECTION_TITLE,
   MINE_TODO_SECTION_TITLE,
   MINE_SHARE_INCENTIVE_TITLE,
   MINE_SHARE_INCENTIVE_COMPLIANCE,
-  MINE_EMPTY_H5_GUIDE_TEXT,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,

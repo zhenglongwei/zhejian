@@ -1,11 +1,4 @@
-/** DS-D-10 · 帮助中心：车主 / 商家双路径 + 平台说明 */
-
-const HELP_CENTER_IDENTITY = {
-  heading: '辙见是什么',
-  body:
-    '辙见提供服务相册查看与授权留痕工具，不是在线交易平台。' +
-    '实际维修、报价、收款与售后由门店线下提供和承担；公开案例与 GEO 内容在 H5 内容站浏览。',
-}
+/** DS-D-10 · 帮助中心：车主 / 商家操作说明（平台身份见「关于辙见」） */
 
 const HELP_CENTER_PATHS = [
   {
@@ -89,22 +82,16 @@ const HELP_CENTER_PATHS = [
   },
 ]
 
+/** 兼容旧引用：平台身份已迁至 constants/about-zhejian.js */
+const {
+  ABOUT_ZHEJIAN_IDENTITY,
+  ABOUT_ZHEJIAN_NOTES,
+} = require('./about-zhejian')
+
+const HELP_CENTER_IDENTITY = ABOUT_ZHEJIAN_IDENTITY
 const HELP_CENTER_ABOUT = {
   heading: '关于平台',
-  items: [
-    {
-      title: '非交易平台',
-      desc: '不提供在线支付、订单仲裁或维修质量担保；争议请与门店协商或通过行政/司法途径解决。',
-    },
-    {
-      title: '公开展示在 H5',
-      desc: '小程序侧重工具与私域承接；公开案例、门店聚合与 GEO 专题请在 H5 内容站浏览。',
-    },
-    {
-      title: '合规与举报',
-      desc: '禁止夸大宣传、虚假价格与未授权公开。用户可举报虚假信息，平台将事后核查处置。',
-    },
-  ],
+  items: ABOUT_ZHEJIAN_NOTES,
 }
 
 /** 兼容旧版弹窗摘要 */
