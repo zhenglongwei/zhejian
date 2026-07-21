@@ -30,7 +30,7 @@
             <ui-tag variant="{{publicIndexTag.variant}}" text="{{publicIndexTag.text}}" />
           </view>
           <text wx:if="{{currentHero.planLabel}}" class="text-body text-secondary">{{currentHero.planLabel}}</text>
-          <text class="text-caption text-tertiary merchant-sub__folio-hint">公开案例基础收录不另收费；专业版年费支付通道按产品节奏开放，到期不会自动扣款</text>
+          <text class="text-caption text-tertiary merchant-sub__folio-hint">公开案例基础收录不另收费；标准版年费支付通道按产品节奏开放，到期不会自动扣款</text>
         </view>
       </view>
 

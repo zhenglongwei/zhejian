@@ -15,7 +15,7 @@ function hasAcknowledgedMerchantPlan(merchantId) {
 function saveMerchantPlanAck(merchantId, planId) {
   const key = planSelectStorageKey(merchantId)
   const payload = {
-    planId: planId || 'free',
+    planId: planId || 'tool_480',
     at: Date.now(),
   }
   try {

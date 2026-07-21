@@ -1,8 +1,9 @@
 const {
   PLAN_SELECT_HERO,
-  PLAN_SELECT_POSITIONING,
-  PLAN_SELECT_OPTIONS,
+  PLAN_SELECT_SUMMARY,
+  PLAN_SELECT_ROWS,
   PLAN_SELECT_FOOTER,
+  PLAN_SELECT_CTA,
 } = require('../../../constants/merchant-plan-select-copy')
 const { saveMerchantPlanAck } = require('../../../utils/merchant-plan-select')
 const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../services/merchant')
@@ -10,16 +11,15 @@ const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../services/mer
 Page({
   data: {
     hero: PLAN_SELECT_HERO,
-    positioning: PLAN_SELECT_POSITIONING,
-    options: PLAN_SELECT_OPTIONS,
+    summary: PLAN_SELECT_SUMMARY,
+    rows: PLAN_SELECT_ROWS,
     footer: PLAN_SELECT_FOOTER,
-    selectedId: 'tool_480',
+    cta: PLAN_SELECT_CTA,
     merchantId: '',
     submitting: false,
   },
 
   onLoad(options = {}) {
-    this.from = options.from || ''
     this.setData({ merchantId: options.merchantId || '' })
     this.ensureApproved()
   },
@@ -40,26 +40,15 @@ Page({
         this.setData({ merchantId: profile.merchantId })
       }
     } catch (e) {
-      /* 无档案时仍允许看说明，确认时再拦 */
+      /* ignore */
     }
-  },
-
-  onSelect(e) {
-    const { id } = e.currentTarget.dataset
-    if (!id || id === this.data.selectedId) return
-    this.setData({ selectedId: id })
   },
 
   onConfirm() {
     if (this.data.submitting) return
-    const planId = this.data.selectedId || 'free'
     this.setData({ submitting: true })
-    saveMerchantPlanAck(this.data.merchantId, planId)
-    const tip =
-      planId === 'tool_480'
-        ? '已选专业版：验证期可先试用，支付通道开放后再开通'
-        : '已选体验版，可进入工作台'
-    wx.showToast({ title: tip, icon: 'none', duration: 2200 })
+    saveMerchantPlanAck(this.data.merchantId, 'tool_480')
+    wx.showToast({ title: '已开始试用', icon: 'success' })
     setTimeout(() => {
       this.setData({ submitting: false })
       wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })

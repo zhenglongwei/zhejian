@@ -8,9 +8,9 @@ const MERCHANT_PLAN = {
 }
 
 const MERCHANT_PLAN_LABELS = {
-  [MERCHANT_PLAN.FREE]: '体验版',
-  [MERCHANT_PLAN.INDEX_99]: '专业版（过渡）',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '专业版（过渡）',
+  [MERCHANT_PLAN.FREE]: '试用期',
+  [MERCHANT_PLAN.INDEX_99]: '标准版（过渡）',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版（过渡）',
 }
 
 /** 工作台扉页方案档位 Tag（不绑定具体权益） */
@@ -26,9 +26,9 @@ const MERCHANT_PLAN_TIER_BY_PLAN = {
 }
 
 const MERCHANT_PLAN_TAG_LABELS = {
-  [MERCHANT_PLAN.FREE]: '体验版',
-  [MERCHANT_PLAN.INDEX_99]: '专业版',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '专业版',
+  [MERCHANT_PLAN.FREE]: '试用期',
+  [MERCHANT_PLAN.INDEX_99]: '标准版',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版',
 }
 
 const MERCHANT_PLAN_TAG_TIERS = MERCHANT_PLAN_TIER_BY_PLAN
@@ -63,18 +63,18 @@ const SELLABLE_PLANS = new Set([MERCHANT_PLAN.FREE, MERCHANT_PLAN.INDEX_99])
 const SUBSCRIPTION_TERM_DAYS = 365
 
 /** 标准版首购免费试用天数 */
-const STANDARD_TRIAL_DAYS = 180
+const STANDARD_TRIAL_DAYS = 90
 
 const PLAN_CATALOG = [
   {
     plan: MERCHANT_PLAN.FREE,
     name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE],
     priceCents: 0,
-    priceLabel: '0 元 / 永久',
+    priceLabel: '试用期内免费',
     highlights: [
-      '体验版：相册工具可先用；正式后可能有月额度',
-      '车主扫码查看与微信内分享',
+      '试用期内可用服务相册、车主查看与私域分享',
       '车主发布案例基础收录不另收费',
+      '试用结束后按标准版年费续费',
     ],
     publicIndex: false,
   },
@@ -83,9 +83,9 @@ const PLAN_CATALOG = [
     name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.INDEX_99],
     priceCents: MERCHANT_PLAN_PRICE_CENTS[MERCHANT_PLAN.INDEX_99],
     priceLabel: '目标 480 元 / 年（支付目录改造中）',
-    trialLabel: '验证期可先试用',
+    trialLabel: '新开通含 90 天免费试用',
     highlights: [
-      '对应新口径专业版工具权益（历史套餐码兼容）',
+      '标准版工具权益（历史套餐码兼容）',
       '公开与基础收录不另收费',
       '正式价与目录见过线后 BIZ-SUB（tool_480）',
     ],

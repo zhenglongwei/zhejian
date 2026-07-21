@@ -1,55 +1,44 @@
 /**
- * 审核通过后 · 套餐选择页文案
- * 对齐 docs/01_…/10_商业模式产品需求调整.md · 验证期公示免费 + 专业版 480
+ * 审核通过后 · 套餐说明页
+ * 当前仅一档：标准版 480 元/年；新店含 90 天免费试用
  */
 
 const PLAN_SELECT_HERO = {
-  title: '选择使用方式',
-  subtitle:
-    '辙见是透明成交与合规留证的专用工具，和现有开单/收银软件一起用。' +
-    '公开案例由车主发布，基础收录不另收费。',
+  title: '标准版说明',
+  subtitle: '透明成交与合规留证工具，与现有开单软件一起用。',
 }
 
-const PLAN_SELECT_POSITIONING =
-  '不做竞价排名、不抽佣；付费不买综合排序，也不承诺一定有多少咨询或到店。' +
-  '验证期样板店可先免费试用工具；正式扣费以过线后开通支付为准。'
+/** 套餐摘要 */
+const PLAN_SELECT_SUMMARY = {
+  name: '标准版',
+  priceLabel: '480 元 / 年',
+  trialLabel: '新开通含 90 天免费试用',
+}
 
-const PLAN_SELECT_OPTIONS = [
-  {
-    id: 'free',
-    name: '体验版',
-    priceLabel: '0 元',
-    priceNote: '验证期可先使用；正式后将有月额度限制',
-    recommended: false,
-    bullets: [
-      '创建服务相册，车主扫码查看过程',
-      '私域分享相册与报告',
-      '车主可「发布到公开网站」（须审核）；基础收录不另收费',
-    ],
-    cta: '先用体验版',
-  },
-  {
-    id: 'tool_480',
-    name: '专业版',
-    priceLabel: '480 元 / 年',
-    priceNote: '低门槛覆盖成本；工具费不是平台主收入预期',
-    recommended: true,
-    bullets: [
-      '含体验版能力，更高额度 / 不限量使用（正式开通后）',
-      '面向留证与确认等专业能力（按产品节奏上线）',
-      '公开与基础收录同样不另收费',
-      '验证期：可先标记意向并免费试用，过线后再支付',
-    ],
-    cta: '选专业版（验证期先试用）',
-  },
+/**
+ * 功能与限制对照表
+ * @type {{ item: string, value: string }[]}
+ */
+const PLAN_SELECT_ROWS = [
+  { item: '服务相册（过程记录、车主扫码查看）', value: '可用' },
+  { item: '私域分享相册 / 报告', value: '可用' },
+  { item: '车主「发布到公开网站」', value: '可用（须审核）' },
+  { item: '公开案例基础收录', value: '不另收费' },
+  { item: '咨询线索工作台', value: '可用' },
+  { item: '相册用量', value: '试用期内不限；正式开通后按年费权益' },
+  { item: '费用', value: '试用 90 天免费，之后 480 元/年' },
+  { item: '不包含', value: '竞价排名、订单量保证、交易抽佣' },
 ]
 
 const PLAN_SELECT_FOOTER =
-  '选定后可进入工作台。之后可在「套餐与工具权益」查看说明；支付通道按产品节奏开放。'
+  '确认后进入工作台。试用结束后可在「套餐与工具权益」续费；支付以届时页面为准。'
+
+const PLAN_SELECT_CTA = '开始 90 天试用并进入工作台'
 
 module.exports = {
   PLAN_SELECT_HERO,
-  PLAN_SELECT_POSITIONING,
-  PLAN_SELECT_OPTIONS,
+  PLAN_SELECT_SUMMARY,
+  PLAN_SELECT_ROWS,
   PLAN_SELECT_FOOTER,
+  PLAN_SELECT_CTA,
 }

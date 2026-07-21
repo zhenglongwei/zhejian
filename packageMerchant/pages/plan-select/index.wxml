@@ -9,28 +9,26 @@
       </view>
 
       <view class="plan-select__panel surface-album-panel">
-        <ui-compliance-notice type="history" text="{{positioning}}" />
-      </view>
-
-      <view
-        wx:for="{{options}}"
-        wx:key="id"
-        class="plan-select__card surface-album-panel {{selectedId === item.id ? 'plan-select__card--active' : ''}}"
-        data-id="{{item.id}}"
-        bindtap="onSelect"
-      >
-        <view class="plan-select__card-head">
-          <view class="plan-select__card-title-row">
-            <text class="text-h3">{{item.name}}</text>
-            <ui-tag wx:if="{{item.recommended}}" variant="success" text="推荐" />
+        <view class="plan-select__summary">
+          <view class="plan-select__summary-row">
+            <text class="text-h3">{{summary.name}}</text>
+            <ui-tag variant="success" text="当前方案" />
           </view>
-          <view class="plan-select__price-row">
-            <text class="plan-select__price text-h2">{{item.priceLabel}}</text>
-            <text class="text-caption text-secondary">{{item.priceNote}}</text>
-          </view>
+          <text class="plan-select__price text-h2">{{summary.priceLabel}}</text>
+          <text class="text-caption text-secondary">{{summary.trialLabel}}</text>
         </view>
-        <view class="plan-select__bullets">
-          <text wx:for="{{item.bullets}}" wx:for-item="bullet" wx:key="*this" class="text-caption plan-select__bullet">· {{bullet}}</text>
+
+        <view class="surface-album-inset-divider" />
+
+        <view class="plan-select__table">
+          <view class="plan-select__tr plan-select__tr--head">
+            <text class="plan-select__th text-caption">项目</text>
+            <text class="plan-select__th plan-select__th--value text-caption">说明</text>
+          </view>
+          <view wx:for="{{rows}}" wx:key="item" class="plan-select__tr">
+            <text class="plan-select__td text-caption">{{item.item}}</text>
+            <text class="plan-select__td plan-select__td--value text-caption">{{item.value}}</text>
+          </view>
         </view>
       </view>
 
@@ -38,9 +36,7 @@
         <text class="text-caption text-secondary">{{footer}}</text>
         <text class="text-caption text-link plan-select__link" bindtap="onOpenAgreement">查看《套餐与工具服务协议》</text>
         <view class="plan-select__action">
-          <ui-button type="primary" block loading="{{submitting}}" bind:btntap="onConfirm">
-            {{selectedId === 'tool_480' ? '选专业版并进入工作台' : '用体验版进入工作台'}}
-          </ui-button>
+          <ui-button type="primary" block loading="{{submitting}}" bind:btntap="onConfirm">{{cta}}</ui-button>
         </view>
       </view>
     </view>

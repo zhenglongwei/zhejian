@@ -9,7 +9,7 @@ const MERCHANT_ONBOARDING_HERO = {
 const MERCHANT_ONBOARDING_VALUE_ITEMS = []
 
 const MERCHANT_ONBOARDING_POSITIONING =
-  '辙见是透明成交与合规留证的专用工具，与现有开单系统并存。车主发布的公开案例基础收录不另收费；工具专业版年费以套餐页为准。不做竞价排名、不抽佣，付费不承诺订单量。'
+  '辙见是透明成交与合规留证的专用工具，与现有开单系统并存。车主发布的公开案例基础收录不另收费；工具标准版年费以套餐页为准（当前 480 元/年，含试用说明）。不做竞价排名、不抽佣，付费不承诺订单量。'
 
 const MERCHANT_WORKBENCH_GATE_NONE = {
   title: '商家工作台',
