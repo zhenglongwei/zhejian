@@ -15,10 +15,30 @@ const { requestMerchantNotificationSubscribe } = require('../../../utils/subscri
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 
 const STANDARD_PLAN_IDS = ['tool_480', 'index_99', 'optimize_299']
+const DAY_MS = 24 * 60 * 60 * 1000
 
 function formatExpiresAt(iso) {
   if (!iso) return ''
   return String(iso).slice(0, 10)
+}
+
+/** 是否处于标准版 90 天试用期内（已开通、未付年费周期） */
+function isActiveTrialPeriod(subscription = {}) {
+  const plan = subscription.plan || 'free'
+  if (!STANDARD_PLAN_IDS.includes(plan)) return false
+  if (!subscription.standardTrialUsed) return false
+  if (!subscription.expiresAt) return false
+  const end = new Date(subscription.expiresAt).getTime()
+  if (!(end > Date.now())) return false
+  const start = subscription.startedAt
+    ? new Date(subscription.startedAt).getTime()
+    : NaN
+  if (Number.isFinite(start) && start > 0) {
+    const spanDays = Math.ceil((end - start) / DAY_MS)
+    return spanDays <= 100
+  }
+  const daysLeft = Math.ceil((end - Date.now()) / DAY_MS)
+  return daysLeft > 0 && daysLeft <= 95
 }
 
 /**
@@ -28,18 +48,31 @@ function buildStatusView(subscription = {}, planStatus = {}) {
   const plan = subscription.plan || 'free'
   const expiresAtDisplay =
     planStatus.expiresAtDisplay || formatExpiresAt(subscription.expiresAt)
-  const isTrial = plan === 'free'
+  const isFree = plan === 'free'
   const isStandard = STANDARD_PLAN_IDS.includes(plan)
+  const onTrial = isActiveTrialPeriod(subscription)
 
-  if (isTrial) {
+  if (isFree) {
     return {
       folioTitle: '标准版',
-      folioTag: '未开通年费',
+      folioTag: '未开通',
       folioTagVariant: 'info',
       folioSub: '',
-      currentStatus: '未开通年费',
+      currentStatus: '尚未开通试用',
       expiresAtDisplay: '',
       nextLabel: '可先免费试用 90 天；结束后需手动续费，不会自动扣款',
+    }
+  }
+
+  if (onTrial) {
+    return {
+      folioTitle: '标准版',
+      folioTag: '试用中',
+      folioTagVariant: 'success',
+      folioSub: expiresAtDisplay ? `试用至 ${expiresAtDisplay}` : '',
+      currentStatus: '90 天免费试用中',
+      expiresAtDisplay,
+      nextLabel: '试用结束后需手动支付续费，不会自动扣款',
     }
   }
 

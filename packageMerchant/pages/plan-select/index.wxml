@@ -33,8 +33,17 @@
       </view>
 
       <view class="plan-select__panel surface-album-panel">
-        <text class="text-caption text-secondary">{{footer}}</text>
-        <text class="text-caption text-link plan-select__link" bindtap="onOpenAgreement">查看《套餐与工具服务协议》</text>
+        <text wx:if="{{alreadyActive}}" class="text-caption text-secondary">{{activeHint}}</text>
+        <text wx:else class="text-caption text-secondary">{{footer}}</text>
+
+        <block wx:if="{{!alreadyActive}}">
+          <view class="plan-select__consent">
+            <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
+              <text class="text-caption">{{payConsentBefore}}<text class="text-link" catchtap="onOpenAgreement">{{payConsentLink}}</text>{{payConsentAfter}}</text>
+            </ui-checkbox-row>
+          </view>
+        </block>
+
         <view class="plan-select__action">
           <ui-button type="primary" block loading="{{submitting}}" bind:btntap="onConfirm">{{cta}}</ui-button>
         </view>

@@ -5,7 +5,7 @@
 
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
-const { buildMerchantPlanTag, resolveMerchantPlanTier } = require('./merchant-plan-tier')
+const { buildMerchantPlanTag, resolveMerchantPlanTier, isActiveTrialPeriod } = require('./merchant-plan-tier')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
@@ -97,14 +97,19 @@ function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
 
 function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
   if (!isOwner || !subscription || typeof subscription !== 'object') return null
-  const tierLabel =
-    (subscription.planTag && subscription.planTag.text) ||
-    resolveMerchantPlanTier(subscription.plan).text
+  const onTrial = isActiveTrialPeriod(subscription)
+  const tierLabel = onTrial
+    ? '试用中'
+    : (subscription.planTag && subscription.planTag.text) ||
+      resolveMerchantPlanTier(subscription.plan).text
+  const end = subscription.expiresAt ? String(subscription.expiresAt).slice(0, 10) : ''
   return {
     title: '套餐与工具权益',
-    desc: `当前：${tierLabel} · 公开案例基础收录不另收费`,
-    action: '查看说明',
-    tone: subscription.plan && subscription.plan !== 'free' ? 'active' : 'upgrade',
+    desc: onTrial && end
+      ? `标准版试用中，至 ${end}`
+      : `当前：${tierLabel}`,
+    action: onTrial || (subscription.plan && subscription.plan !== 'free') ? '查看说明' : '开通试用',
+    tone: onTrial || (subscription.plan && subscription.plan !== 'free') ? 'active' : 'upgrade',
   }
 }
 

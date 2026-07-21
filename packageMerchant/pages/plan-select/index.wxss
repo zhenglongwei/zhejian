@@ -93,8 +93,8 @@
   color: var(--color-text-tertiary);
 }
 
-.plan-select__link {
-  align-self: flex-start;
+.plan-select__consent {
+  margin-top: var(--space-xs);
 }
 
 .plan-select__action {
