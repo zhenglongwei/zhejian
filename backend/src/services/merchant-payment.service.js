@@ -216,7 +216,7 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     }
     return activateZeroAmountSubscription(auth, plan, {
       isStandardTrial: true,
-      summary: '首次开通标准版，享 6 个月免费试用',
+      summary: '首次开通标准版，享 90 天免费试用',
     })
   }
 
@@ -301,7 +301,7 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
       refundYuan: '0.00',
       payYuan: '0.00',
       refundExcessYuan: '0.00',
-      summary: '首次开通标准版，享 6 个月免费试用',
+      summary: '首次开通标准版，享 90 天免费试用',
     }
   }
 

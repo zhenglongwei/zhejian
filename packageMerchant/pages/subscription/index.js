@@ -5,90 +5,24 @@ const {
   mockPaySubscriptionOrder,
 } = require('../../../services/merchant-subscription')
 const { resolveMerchantPlanTier } = require('../../../constants/merchant-plan-tier')
+const {
+  PLAN_SELECT_SUMMARY,
+  PLAN_SELECT_ROWS,
+  PLAN_SELECT_FOOTER,
+  SUBSCRIPTION_COPY,
+} = require('../../../constants/merchant-plan-select-copy')
 const { requestMerchantNotificationSubscribe } = require('../../../utils/subscribe-message')
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 
-const PLAN_RANK = { free: 0, index_99: 1 }
-
-const GATE_BENEFITS = [
-  '辙见是透明成交与合规留证工具，和现有开单软件一起用',
-  '仅一档标准版：480 元/年；新开通含 90 天免费试用',
-  '车主发布的公开案例：基础展示与收录不另收费',
-  '不做竞价排名、不抽佣；付费不承诺订单量',
-]
-
-const PLAN_HIGHLIGHTS_FRIENDLY = {
-  free: [
-    '当前为试用期：可创建相册、车主查看与私域分享',
-    '公开案例由车主发布，基础收录不另收费',
-    '试用结束后按标准版 480 元/年续费（支付通道按产品节奏开放）',
-  ],
-  index_99: [
-    '标准版工具权益（历史套餐码兼容展示）',
-    '标价口径 480 元/年；公开与基础收录不另收费',
-    '支付通道开放前可能仅作说明或意向登记',
-  ],
-  tool_480: [
-    '标准版：服务相册、私域分享、咨询线索等',
-    '公开案例基础收录不另收费',
-    '480 元/年；新开通含 90 天免费试用',
-  ],
-}
+const STANDARD_PLAN_IDS = ['tool_480', 'index_99', 'optimize_299']
 
 function formatExpiresAt(iso) {
   if (!iso) return ''
   return String(iso).slice(0, 10)
 }
 
-function resolveItemTrialEligible(item, subscription = {}) {
-  if (!item || item.plan !== 'index_99') return false
-  if (subscription.standardTrialUsed) return false
-  if ((subscription.plan || 'free') !== 'free' || subscription.pendingPlan) return false
-  return subscription.standardTrialEligible === true || item.trialEligible === true
-}
-
-function formatPlanPrice(item, subscription = {}) {
-  if (!item || item.plan === 'free') {
-    return { amount: '0', suffix: '永久免费', note: '', showTrial: false, listAmount: '' }
-  }
-  const trialEligible = resolveItemTrialEligible(item, subscription)
-  if (trialEligible) {
-    return {
-      amount: '0',
-      suffix: '首 90 天',
-      note: '试用结束后 480 元/年续费',
-      showTrial: true,
-      listAmount: '480',
-    }
-  }
-  const listYuan = ((item.listPriceCents || 0) / 100).toFixed(0)
-  if (item.paymentTestMode) {
-    return {
-      amount: ((item.priceCents || 0) / 100).toFixed(2),
-      suffix: '元 / 年',
-      note: `标价 ¥${listYuan} · 联调测试价`,
-      showTrial: false,
-      listAmount: '',
-    }
-  }
-  if (item.listPriceCents && item.listPriceCents !== item.priceCents) {
-    const discounted = ((item.priceCents || 0) / 100).toFixed(0)
-    return {
-      amount: discounted,
-      suffix: '元 / 年',
-      note: `原价 ¥${listYuan} / 年`,
-      showTrial: false,
-      listAmount: '',
-    }
-  }
-  return { amount: listYuan, suffix: '元 / 年', note: '', showTrial: false, listAmount: '' }
-}
-
-function buildPublicIndexTag(subscription = {}) {
-  if (subscription.publicIndex) {
-    return { variant: 'success', text: '可被搜索收录' }
-  }
-  return { variant: 'info', text: '仅微信内分享' }
+function buildPublicIndexTag() {
+  return { variant: 'success', text: '公开收录不另收费' }
 }
 
 function buildFounderHint(subscription = {}) {
@@ -108,7 +42,7 @@ function buildCurrentHero(subscription = {}) {
   const isFree = subscription.plan === 'free' || !subscription.expiresAt
   let validityText = ''
   if (isFree) {
-    validityText = '永久有效'
+    validityText = '试用期内'
   } else if (subscription.expiresAtDisplay) {
     validityText = `有效期至 ${subscription.expiresAtDisplay}`
   }
@@ -118,86 +52,53 @@ function buildCurrentHero(subscription = {}) {
     planLabel,
     validityText,
     isFree,
-    publicIndexTag: buildPublicIndexTag(subscription),
+    publicIndexTag: buildPublicIndexTag(),
     founderHint: buildFounderHint(subscription),
   }
 }
 
-function resolvePlanSelectable(item, subscription = {}, planStatus = {}) {
-  if (!item || planStatus.hasPendingChange) return false
-  const currentPlan = subscription.plan || 'free'
-  if (item.plan === currentPlan) return false
-  const quote = item.switchQuote || {}
-  if (quote.switchMode === 'downgrade_scheduled') return true
-  if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase' || quote.switchMode === 'trial') {
-    return true
-  }
-  if (resolveItemTrialEligible(item, subscription)) return true
-  return false
-}
-
-function resolveSelectionAction(selectedPlan, plans = [], subscription = {}) {
-  if (!selectedPlan) return null
-  const item = (plans || []).find((p) => p.plan === selectedPlan)
-  if (!item) return null
-  const quote = item.switchQuote || {}
-  const trialEligible = resolveItemTrialEligible(item, subscription)
-
-  if (quote.switchMode === 'downgrade_scheduled') {
-    return {
-      type: 'schedule',
-      plan: selectedPlan,
-      label: `确认：到期后改为${item.tierLabel}`,
-    }
-  }
-  if (quote.switchMode === 'trial' || (trialEligible && subscription.plan === 'free')) {
-    return {
-      type: 'trial',
-      plan: selectedPlan,
-      label: '0元开通，免费试用6个月',
-    }
-  }
-  if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase') {
-    const payLabel =
-      item.plan === subscription.plan
-        ? '支付续费一年'
-        : item.plan === 'index_99'
-          ? '支付开通标准版 ¥99/年'
-          : `支付开通${item.tierLabel}`
-    return {
-      type: 'pay',
-      plan: selectedPlan,
-      label: payLabel,
-    }
+function findStandardPlan(plans = []) {
+  for (let i = 0; i < STANDARD_PLAN_IDS.length; i += 1) {
+    const hit = (plans || []).find((p) => p.plan === STANDARD_PLAN_IDS[i])
+    if (hit) return hit
   }
   return null
 }
 
-function decorateSubscriptionPlans(plans = [], subscription = {}, planStatus = {}) {
-  const currentPlan = subscription.plan || 'free'
-  const pendingPlan = subscription.pendingPlan || ''
-  return (plans || []).map((item) => {
-    const tier = resolveMerchantPlanTier(item.plan)
-    const trialEligible = resolveItemTrialEligible(item, subscription)
-    const price = formatPlanPrice({ ...item, trialEligible }, subscription)
-    const highlights =
-      PLAN_HIGHLIGHTS_FRIENDLY[item.plan] || item.highlights || []
+function resolveItemTrialEligible(item, subscription = {}) {
+  if (!item || !STANDARD_PLAN_IDS.includes(item.plan)) return false
+  if (subscription.standardTrialUsed) return false
+  if ((subscription.plan || 'free') !== 'free' || subscription.pendingPlan) return false
+  return subscription.standardTrialEligible === true || item.trialEligible === true
+}
+
+function resolvePrimaryAction(plans = [], subscription = {}, planStatus = {}, renewalNotice = {}) {
+  if (renewalNotice && renewalNotice.canPay) return null
+  if (planStatus && planStatus.hasPendingChange) return null
+  const item = findStandardPlan(plans)
+  if (!item) return null
+
+  const trialEligible = resolveItemTrialEligible(item, subscription)
+  if (trialEligible) {
     return {
-      ...item,
-      trialEligible,
-      tierLabel: tier.text,
-      tier,
-      highlights,
-      isCurrentPlan: item.plan === currentPlan,
-      isNextPlan: Boolean(pendingPlan && item.plan === pendingPlan),
-      selectable: resolvePlanSelectable(item, subscription, planStatus),
-      priceAmount: price.amount,
-      priceSuffix: price.suffix,
-      priceNote: price.note,
-      priceShowTrial: price.showTrial,
-      priceListAmount: price.listAmount,
+      type: 'trial',
+      plan: item.plan,
+      label: SUBSCRIPTION_COPY.trialCta,
     }
-  })
+  }
+
+  const currentPlan = subscription.plan || 'free'
+  if (STANDARD_PLAN_IDS.includes(currentPlan)) return null
+
+  const quote = item.switchQuote || {}
+  if (quote.switchMode === 'upgrade' || quote.switchMode === 'purchase') {
+    return {
+      type: 'pay',
+      plan: item.plan,
+      label: SUBSCRIPTION_COPY.payCta,
+    }
+  }
+  return null
 }
 
 function decorateSubscriptionPanel(data = {}) {
@@ -214,19 +115,21 @@ function decorateSubscriptionPanel(data = {}) {
     pendingEffectiveAtDisplay: formatExpiresAt(subscription.pendingEffectiveAt),
     standardTrialEligible: subscription.standardTrialEligible === true,
   }
-  const plans = decorateSubscriptionPlans(
-    data.plans,
-    decoratedSubscription,
-    planStatus
-  )
+  const renewalNotice = data.renewalNotice || { show: false }
+  const plans = data.plans || []
   return {
     subscription: decoratedSubscription,
     planStatus,
-    renewalNotice: data.renewalNotice || { show: false },
+    renewalNotice,
     currentHero: buildCurrentHero(decoratedSubscription),
-    publicIndexTag: buildPublicIndexTag(decoratedSubscription),
-    gateBenefits: GATE_BENEFITS,
+    publicIndexTag: buildPublicIndexTag(),
     plans,
+    primaryAction: resolvePrimaryAction(
+      plans,
+      decoratedSubscription,
+      planStatus,
+      renewalNotice
+    ),
     paymentTestMode: Boolean(data.paymentTestMode),
   }
 }
@@ -260,28 +163,6 @@ function requestWechatPayment(payment) {
   })
 }
 
-function confirmSchedule(item, subscription) {
-  return new Promise((resolve) => {
-    const endDate = subscription.expiresAtDisplay || '当前套餐结束日'
-    wx.showModal({
-      title: '确认到期后切换',
-      content: [
-        `当前「${subscription.tierLabel}」用到 ${endDate}。`,
-        `到期后自动改为「${item.tierLabel}」，本期不退费。`,
-        '之后若想改选其他套餐，需先取消本次预约。',
-      ].join('\n'),
-      confirmText: '确认',
-      cancelText: '取消',
-      success(res) {
-        resolve(Boolean(res.confirm))
-      },
-      fail() {
-        resolve(false)
-      },
-    })
-  })
-}
-
 function confirmCancelPending(subscription) {
   return new Promise((resolve) => {
     const nextLabel = subscription.pendingPlanLabel || '其他套餐'
@@ -300,16 +181,12 @@ function confirmCancelPending(subscription) {
   })
 }
 
-function confirmTrial(item) {
+function confirmTrial() {
   return new Promise((resolve) => {
     wx.showModal({
-      title: '确认免费试用',
-      content: [
-        `0 元登记「${item.tierLabel}」试用意向（验证期）。`,
-        '首购享 6 个月免费试用，试用结束后需手动支付 99 元/年续费。',
-        '不会自动扣款。',
-      ].join('\n'),
-      confirmText: '0元开通',
+      title: SUBSCRIPTION_COPY.trialConfirmTitle,
+      content: SUBSCRIPTION_COPY.trialConfirmLines.join('\n'),
+      confirmText: '开始试用',
       cancelText: '取消',
       success(res) {
         resolve(Boolean(res.confirm))
@@ -327,12 +204,12 @@ function confirmPay(item, subscription, actionType) {
     const payYuan =
       quote.listPriceCents > 0
         ? (quote.listPriceCents / 100).toFixed(2)
-        : quote.payYuan || '0.00'
+        : quote.payYuan || '480.00'
     const lines = []
     if (actionType === 'renew') {
-      lines.push(`续费「${item.tierLabel}」一年`)
+      lines.push('续费「标准版」一年')
     } else {
-      lines.push(`${subscription.tierLabel} → ${item.tierLabel}`)
+      lines.push('开通「标准版」')
       lines.push('支付后立即生效。')
     }
     if (quote.refundYuan && quote.refundYuan !== '0.00') {
@@ -365,10 +242,14 @@ Page({
     renewalNotice: null,
     currentHero: null,
     publicIndexTag: null,
-    gateBenefits: [],
+    folioHint: SUBSCRIPTION_COPY.folioHint,
+    agreementLink: SUBSCRIPTION_COPY.agreementLink,
+    renewCta: SUBSCRIPTION_COPY.renewCta,
+    planSummary: PLAN_SELECT_SUMMARY,
+    planRows: PLAN_SELECT_ROWS,
+    planFooter: PLAN_SELECT_FOOTER,
     plans: [],
-    selectedPlan: '',
-    selectionAction: null,
+    primaryAction: null,
     paymentTestMode: false,
     paying: false,
     errorMessage: '',
@@ -382,11 +263,10 @@ Page({
   },
 
   async loadPanel() {
-    this.setData({ status: 'loading', errorMessage: '', selectedPlan: '' })
+    this.setData({ status: 'loading', errorMessage: '' })
     try {
       const data = await fetchMerchantSubscriptionPanel()
       const panel = decorateSubscriptionPanel(data)
-      panel.selectedPlan = ''
       this.applyPanel(panel)
       this.setData({ status: 'normal', paying: false })
     } catch (e) {
@@ -398,24 +278,16 @@ Page({
   },
 
   applyPanel(panel) {
-    const selectedPlan = panel.selectedPlan !== undefined ? panel.selectedPlan : this.data.selectedPlan
-    const selectionAction = resolveSelectionAction(
-      selectedPlan,
-      panel.plans,
-      panel.subscription
-    )
     this.setData({
       subscription: panel.subscription,
       planStatus: panel.planStatus,
       renewalNotice: panel.renewalNotice,
       currentHero: panel.currentHero,
       publicIndexTag: panel.publicIndexTag,
-      gateBenefits: panel.gateBenefits,
       plans: panel.plans,
+      primaryAction: panel.primaryAction,
       paymentTestMode: panel.paymentTestMode,
-      selectedPlan,
-      selectionAction,
-      showPayConsent: needsSubscriptionPayConsent(selectionAction, panel.renewalNotice),
+      showPayConsent: needsSubscriptionPayConsent(panel.primaryAction, panel.renewalNotice),
       payConsent: false,
     })
   },
@@ -441,24 +313,6 @@ Page({
     this.loadPanel()
   },
 
-  onSelectPlan(e) {
-    const plan = e.currentTarget.dataset.plan
-    const item = findPlan(this.data.plans, plan)
-    if (!item || !item.selectable || this.data.paying) return
-    const selectedPlan = this.data.selectedPlan === plan ? '' : plan
-    const selectionAction = resolveSelectionAction(
-      selectedPlan,
-      this.data.plans,
-      this.data.subscription
-    )
-    this.setData({
-      selectedPlan,
-      selectionAction,
-      showPayConsent: needsSubscriptionPayConsent(selectionAction, this.data.renewalNotice),
-      payConsent: false,
-    })
-  },
-
   async onCancelPending() {
     if (this.data.paying || !this.data.planStatus?.canCancelPending) return
     const confirmed = await confirmCancelPending(this.data.subscription)
@@ -469,29 +323,24 @@ Page({
   async onRenew() {
     if (this.data.paying || !this.data.renewalNotice?.canPay) return
     if (!this.ensurePayConsent()) return
-    const item = findPlan(this.data.plans, this.data.subscription.plan)
+    const item =
+      findPlan(this.data.plans, this.data.subscription.plan) ||
+      findStandardPlan(this.data.plans)
     if (!item) return
     const confirmed = await confirmPay(item, this.data.subscription, 'renew')
     if (!confirmed) return
-    await this.executeOrder(this.data.subscription.plan, 'renew')
+    await this.executeOrder(item.plan, 'renew')
   },
 
-  async onConfirmSelection() {
-    const action = this.data.selectionAction
+  async onConfirmPrimary() {
+    const action = this.data.primaryAction
     if (!action || this.data.paying) return
     const item = findPlan(this.data.plans, action.plan)
     if (!item) return
 
-    if (action.type === 'schedule') {
-      const confirmed = await confirmSchedule(item, this.data.subscription)
-      if (!confirmed) return
-      await this.executeOrder(action.plan, 'schedule')
-      return
-    }
-
     if (action.type === 'trial') {
       if (!this.ensurePayConsent()) return
-      const confirmed = await confirmTrial(item)
+      const confirmed = await confirmTrial()
       if (!confirmed) return
       await this.executeOrder(action.plan, 'trial')
       return
@@ -518,22 +367,15 @@ Page({
         orderOptions.subscriptionConsent = buildSubscriptionPayConsent()
       }
       const order = await createSubscriptionOrder(plan, orderOptions)
-      const target = findPlan(this.data.plans, plan)
-      const endDate = this.data.subscription.expiresAtDisplay
 
       if (order.keptCurrent || kind === 'cancel') {
         wx.showToast({ title: '已取消预约变更', icon: 'success' })
-        this.setData({ selectedPlan: '' })
         await this.loadPanel()
         return
       }
 
       if (order.scheduled || kind === 'schedule') {
-        const tip = endDate
-          ? `已登记，${endDate} 起改为${target ? target.tierLabel : '新套餐'}`
-          : '已登记套餐变更'
-        wx.showToast({ title: tip, icon: 'success' })
-        this.setData({ selectedPlan: '' })
+        wx.showToast({ title: '已登记套餐变更', icon: 'success' })
         await this.loadPanel()
         return
       }
@@ -543,12 +385,9 @@ Page({
           kind === 'renew'
             ? '续费成功'
             : kind === 'trial' || order.trial
-              ? '已开通 6 个月免费试用'
-              : order.proration && Number(order.proration.refundExcessCents) > 0
-                ? `已升级，原套餐剩余 ¥${order.proration.refundExcessYuan} 将原路退回`
-                : '套餐已切换'
+              ? '已开始 90 天免费试用'
+              : '套餐已开通'
         wx.showToast({ title: tip, icon: 'success' })
-        this.setData({ selectedPlan: '' })
         await this.loadPanel()
         return
       }
@@ -563,8 +402,7 @@ Page({
 
       const prepay = await prepaySubscriptionOrder(order.orderId)
       if (prepay.immediate) {
-        wx.showToast({ title: kind === 'renew' ? '续费成功' : '套餐已切换', icon: 'success' })
-        this.setData({ selectedPlan: '' })
+        wx.showToast({ title: kind === 'renew' ? '续费成功' : '套餐已开通', icon: 'success' })
         await this.loadPanel()
         return
       }
@@ -574,14 +412,12 @@ Page({
           title: kind === 'renew' ? '开发环境已续费' : '开发环境已开通',
           icon: 'success',
         })
-        this.setData({ selectedPlan: '' })
         await this.loadPanel()
         return
       }
 
       await requestWechatPayment(prepay.payment)
       wx.showToast({ title: kind === 'renew' ? '续费成功' : '支付成功', icon: 'success' })
-      this.setData({ selectedPlan: '' })
       await this.loadPanel()
     } catch (e) {
       const msg = (e && e.errMsg) || (e && e.message) || '操作未完成'

@@ -30,14 +30,14 @@
             <ui-tag variant="{{publicIndexTag.variant}}" text="{{publicIndexTag.text}}" />
           </view>
           <text wx:if="{{currentHero.planLabel}}" class="text-body text-secondary">{{currentHero.planLabel}}</text>
-          <text class="text-caption text-tertiary merchant-sub__folio-hint">公开案例基础收录不另收费；标准版年费支付通道按产品节奏开放，到期不会自动扣款</text>
+          <text class="text-caption text-tertiary merchant-sub__folio-hint">{{folioHint}}</text>
         </view>
       </view>
 
       <view class="merchant-sub__main surface-album-panel">
         <view class="merchant-sub__status">
           <view class="merchant-sub__status-row">
-            <text class="text-caption text-secondary merchant-sub__status-label">当前套餐</text>
+            <text class="text-caption text-secondary merchant-sub__status-label">当前状态</text>
             <text class="text-body merchant-sub__status-value">{{planStatus.currentTierLabel}}<text wx:if="{{planStatus.currentPlanLabel}}" class="text-caption text-secondary"> · {{planStatus.currentPlanLabel}}</text></text>
           </view>
           <view wx:if="{{planStatus.expiresAtDisplay}}" class="merchant-sub__status-row">
@@ -56,7 +56,7 @@
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
               <text class="text-caption">{{payConsentText}}</text>
             </ui-checkbox-row>
-            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与工具服务协议》</text>
+            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
           </view>
           <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
             <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
@@ -67,7 +67,7 @@
                 loading="{{paying}}"
                 disabled="{{paying}}"
                 bind:btntap="onRenew"
-              >支付续费一年</ui-button>
+              >{{renewCta}}</ui-button>
             </view>
             <ui-message-subscribe-banner
               title="到期前微信提醒你"
@@ -80,7 +80,7 @@
 
         <block wx:if="{{planStatus.hasPendingChange}}">
           <view class="surface-album-inset-divider" />
-          <text class="text-caption text-secondary merchant-sub__hint">已预约变更。想改选其他套餐，请先取消本次预约。</text>
+          <text class="text-caption text-secondary merchant-sub__hint">已预约变更。若要取消，请点下方按钮。</text>
           <view class="merchant-sub__action">
             <ui-button
               type="secondary"
@@ -94,84 +94,47 @@
 
         <view class="surface-album-inset-divider" />
 
-        <view class="merchant-sub__section-head">
-          <text class="merchant-sub__section-title text-h3">产品怎么收费</text>
+        <view class="merchant-sub__summary">
+          <view class="merchant-sub__summary-row">
+            <text class="text-h3">{{planSummary.name}}</text>
+            <ui-tag variant="info" text="当前方案" />
+          </view>
+          <text class="merchant-sub__price text-h2">{{planSummary.priceLabel}}</text>
+          <text class="text-caption text-secondary">{{planSummary.trialLabel}}</text>
         </view>
-        <view class="merchant-sub__benefits">
-          <view
-            wx:for="{{gateBenefits}}"
-            wx:key="*this"
-            class="merchant-sub__benefit"
-          >
-            <text class="merchant-sub__benefit-dot" aria-hidden="true" />
-            <text class="text-caption text-secondary">{{item}}</text>
+
+        <view class="surface-album-inset-divider" />
+
+        <view class="merchant-sub__table">
+          <view class="merchant-sub__tr merchant-sub__tr--head">
+            <text class="merchant-sub__th text-caption">项目</text>
+            <text class="merchant-sub__th merchant-sub__th--value text-caption">说明</text>
+          </view>
+          <view wx:for="{{planRows}}" wx:key="item" class="merchant-sub__tr">
+            <text class="merchant-sub__td text-caption">{{item.item}}</text>
+            <text class="merchant-sub__td merchant-sub__td--value text-caption">{{item.value}}</text>
           </view>
         </view>
 
         <view class="surface-album-inset-divider" />
 
-        <view class="merchant-sub__section-head">
-          <text class="merchant-sub__section-title text-h3">套餐介绍</text>
-          <text wx:if="{{planStatus.canScheduleChange}}" class="text-caption text-tertiary">点选免费版可预约到期后切换；标准版首购可享 6 个月免费试用</text>
-          <text wx:elif="{{planStatus.hasPendingChange}}" class="text-caption text-tertiary">已有预约时不可改选，请先取消预约</text>
-        </view>
+        <text class="text-caption text-secondary merchant-sub__hint">{{planFooter}}</text>
+        <text class="text-caption text-link merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
 
-        <view class="merchant-sub__plan-list">
-          <view
-            wx:for="{{plans}}"
-            wx:key="plan"
-            class="merchant-sub__plan surface-record-card {{item.isCurrentPlan ? 'merchant-sub__plan--current' : ''}} {{item.isNextPlan ? 'merchant-sub__plan--next' : ''}} {{selectedPlan === item.plan ? 'merchant-sub__plan--selected' : ''}} {{item.selectable ? 'merchant-sub__plan--selectable' : ''}}"
-            data-plan="{{item.plan}}"
-            bindtap="onSelectPlan"
-          >
-            <view class="merchant-sub__plan-head">
-              <view class="merchant-sub__plan-title">
-                <ui-plan-tier-badge plan="{{item.plan}}" text="{{item.tierLabel}}" size="md" />
-                <text class="text-body merchant-sub__plan-name">{{item.name}}</text>
-              </view>
-              <view class="merchant-sub__plan-tags">
-                <ui-tag wx:if="{{item.trialEligible}}" variant="success" text="免费试用" />
-                <ui-tag wx:if="{{item.isCurrentPlan}}" variant="info" text="当前" />
-                <ui-tag wx:elif="{{item.isNextPlan}}" variant="warning" text="到期后" />
-              </view>
-            </view>
-
-            <view class="merchant-sub__price-row">
-              <text class="text-price">¥{{item.priceAmount}}</text>
-              <text class="text-caption text-secondary">{{item.priceSuffix}}</text>
-              <text wx:if="{{item.priceShowTrial}}" class="text-caption text-tertiary merchant-sub__price-list">¥{{item.priceListAmount}}/年</text>
-            </view>
-            <text wx:if="{{item.priceNote}}" class="text-caption text-tertiary">{{item.priceNote}}</text>
-
-            <view class="merchant-sub__features">
-              <view
-                wx:for="{{item.highlights}}"
-                wx:for-item="line"
-                wx:key="*this"
-                class="merchant-sub__feature"
-              >
-                <text class="merchant-sub__feature-dot" aria-hidden="true" />
-                <text class="text-caption text-secondary">{{line}}</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
-        <block wx:if="{{selectionAction}}">
-          <view wx:if="{{showPayConsent}}" class="merchant-sub__consent">
+        <block wx:if="{{primaryAction}}">
+          <view wx:if="{{showPayConsent}}" class="merchant-sub__consent merchant-sub__consent--spaced">
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
               <text class="text-caption">{{payConsentText}}</text>
             </ui-checkbox-row>
-            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">查看《套餐与工具服务协议》</text>
           </view>
-          <view class="merchant-sub__action">
+          <view class="merchant-sub__action merchant-sub__action--block">
             <ui-button
-              type="{{selectionAction.type === 'schedule' ? 'secondary' : 'primary'}}"
-              size="sm"
+              type="primary"
+              block
               loading="{{paying}}"
               disabled="{{paying}}"
-              bind:btntap="onConfirmSelection"
-            >{{selectionAction.label}}</ui-button>
+              bind:btntap="onConfirmPrimary"
+            >{{primaryAction.label}}</ui-button>
           </view>
         </block>
       </view>

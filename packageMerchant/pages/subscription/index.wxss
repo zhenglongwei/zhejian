@@ -5,6 +5,11 @@
   margin-bottom: var(--space-md);
 }
 
+.merchant-sub__consent--spaced {
+  margin-top: var(--space-md);
+  margin-bottom: 0;
+}
+
 .merchant-sub__consent-link {
   color: var(--color-primary);
   margin-left: var(--space-lg);
@@ -92,10 +97,6 @@
   background-color: var(--color-bg-muted);
 }
 
-.merchant-sub__renewal--warning {
-  background-color: var(--color-bg-muted);
-}
-
 .merchant-sub__renewal--urgent .merchant-sub__renewal-text {
   color: var(--color-warning);
 }
@@ -110,130 +111,74 @@
   line-height: var(--font-body-lh);
 }
 
+.merchant-sub__link {
+  align-self: flex-start;
+  margin-top: var(--space-xs);
+}
+
 .merchant-sub__action {
   display: flex;
   justify-content: center;
   padding-top: var(--space-xs);
 }
 
-.merchant-sub__section-head {
+.merchant-sub__action--block {
+  margin-top: var(--space-md);
+}
+
+.merchant-sub__summary {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
-  margin-bottom: var(--space-sm);
 }
 
-.merchant-sub__section-title {
+.merchant-sub__summary-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merchant-sub__price {
   color: var(--color-text-primary);
 }
 
-.merchant-sub__benefits {
+.merchant-sub__table {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
 }
 
-.merchant-sub__benefit {
+.merchant-sub__tr {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+  box-sizing: border-box;
 }
 
-.merchant-sub__benefit-dot {
-  flex-shrink: 0;
-  width: 12rpx;
-  height: 12rpx;
-  margin-top: 10rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-album-frame-corner);
+.merchant-sub__tr--head {
+  padding-top: 0;
 }
 
-.merchant-sub__plan-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+.merchant-sub__tr:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
-.merchant-sub__plan {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  transition: border-color 0.15s ease;
+.merchant-sub__th,
+.merchant-sub__td {
+  flex: 1.4;
+  color: var(--color-text-secondary);
+  line-height: var(--font-body-lh);
 }
 
-.merchant-sub__plan--current {
-  background-color: var(--color-bg-muted);
-}
-
-.merchant-sub__plan--next {
-  border-color: var(--color-warning);
-}
-
-.merchant-sub__plan--selectable:active {
-  opacity: 0.85;
-}
-
-.merchant-sub__plan--selected {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-card-soft);
-}
-
-.merchant-sub__plan-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__plan-title {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+.merchant-sub__th--value,
+.merchant-sub__td--value {
   flex: 1;
-  min-width: 0;
-}
-
-.merchant-sub__plan-name {
-  font-weight: var(--font-weight-medium);
+  text-align: right;
   color: var(--color-text-primary);
 }
 
-.merchant-sub__plan-tags {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
-
-.merchant-sub__price-row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-xs);
-  flex-wrap: wrap;
-}
-
-.merchant-sub__price-list {
-  text-decoration: line-through;
-}
-
-.merchant-sub__features {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.merchant-sub__feature {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.merchant-sub__feature-dot {
-  flex-shrink: 0;
-  width: 12rpx;
-  height: 12rpx;
-  margin-top: 10rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-album-frame-corner);
+.merchant-sub__th {
+  color: var(--color-text-tertiary);
 }

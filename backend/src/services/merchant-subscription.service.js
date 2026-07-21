@@ -372,7 +372,7 @@ function buildRenewalNotice(subscriptionRow) {
       show: true,
       daysLeft: 0,
       level: 'urgent',
-      message: '套餐已到期，请手动支付续费以恢复公域收录',
+      message: '标准版已到期，请手动支付续费以继续使用完整工具权益',
       canPay: !subscriptionRow.pendingPlan,
     }
   }
@@ -528,7 +528,7 @@ function buildPlanSwitchQuote(
       refundYuan: '0.00',
       payYuan: '0.00',
       refundExcessYuan: '0.00',
-      summary: `首次开通标准版，享 ${STANDARD_TRIAL_DAYS / 30} 个月免费试用`,
+      summary: `首次开通标准版，享 ${STANDARD_TRIAL_DAYS} 天免费试用`,
       trialDays: STANDARD_TRIAL_DAYS,
     })
   }
