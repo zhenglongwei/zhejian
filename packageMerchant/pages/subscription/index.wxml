@@ -22,15 +22,10 @@
       <view class="merchant-sub__folio surface-album-folio">
         <view class="merchant-sub__folio-main">
           <view class="merchant-sub__folio-row">
-            <ui-plan-tier-badge
-              plan="{{subscription.plan}}"
-              text="{{currentHero.tierLabel}}"
-              size="lg"
-            />
-            <ui-tag variant="{{publicIndexTag.variant}}" text="{{publicIndexTag.text}}" />
+            <text class="text-h2 merchant-sub__folio-title">{{statusView.folioTitle}}</text>
+            <ui-tag wx:if="{{statusView.folioTag}}" variant="{{statusView.folioTagVariant}}" text="{{statusView.folioTag}}" />
           </view>
-          <text wx:if="{{currentHero.planLabel}}" class="text-body text-secondary">{{currentHero.planLabel}}</text>
-          <text class="text-caption text-tertiary merchant-sub__folio-hint">{{folioHint}}</text>
+          <text wx:if="{{statusView.folioSub}}" class="text-caption text-secondary">{{statusView.folioSub}}</text>
         </view>
       </view>
 
@@ -38,25 +33,24 @@
         <view class="merchant-sub__status">
           <view class="merchant-sub__status-row">
             <text class="text-caption text-secondary merchant-sub__status-label">当前状态</text>
-            <text class="text-body merchant-sub__status-value">{{planStatus.currentTierLabel}}<text wx:if="{{planStatus.currentPlanLabel}}" class="text-caption text-secondary"> · {{planStatus.currentPlanLabel}}</text></text>
+            <text class="text-body merchant-sub__status-value">{{statusView.currentStatus}}</text>
           </view>
-          <view wx:if="{{planStatus.expiresAtDisplay}}" class="merchant-sub__status-row">
+          <view wx:if="{{statusView.expiresAtDisplay}}" class="merchant-sub__status-row">
             <text class="text-caption text-secondary merchant-sub__status-label">用到</text>
-            <text class="text-body merchant-sub__status-value">{{planStatus.expiresAtDisplay}}</text>
+            <text class="text-body merchant-sub__status-value">{{statusView.expiresAtDisplay}}</text>
           </view>
-          <view class="merchant-sub__status-row">
+          <view wx:if="{{statusView.nextLabel}}" class="merchant-sub__status-row">
             <text class="text-caption text-secondary merchant-sub__status-label">到期后</text>
-            <text class="text-body merchant-sub__status-value">{{planStatus.nextTierLabel}}</text>
+            <text class="text-body merchant-sub__status-value">{{statusView.nextLabel}}</text>
           </view>
         </view>
 
         <block wx:if="{{renewalNotice.show}}">
           <view class="surface-album-inset-divider" />
-          <view wx:if="{{renewalNotice.canPay}}" class="merchant-sub__consent">
+          <view wx:if="{{renewalNotice.canPay && showPayConsent}}" class="merchant-sub__consent">
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
-              <text class="text-caption">{{payConsentText}}</text>
+              <text class="text-caption">{{payConsentBefore}}<text class="text-link" catchtap="onOpenSubscriptionAgreement">{{payConsentLink}}</text>{{payConsentAfter}}</text>
             </ui-checkbox-row>
-            <text class="text-caption text-tertiary merchant-sub__consent-link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
           </view>
           <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
             <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
@@ -119,12 +113,11 @@
         <view class="surface-album-inset-divider" />
 
         <text class="text-caption text-secondary merchant-sub__hint">{{planFooter}}</text>
-        <text class="text-caption text-link merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
 
         <block wx:if="{{primaryAction}}">
           <view wx:if="{{showPayConsent}}" class="merchant-sub__consent merchant-sub__consent--spaced">
             <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
-              <text class="text-caption">{{payConsentText}}</text>
+              <text class="text-caption">{{payConsentBefore}}<text class="text-link" catchtap="onOpenSubscriptionAgreement">{{payConsentLink}}</text>{{payConsentAfter}}</text>
             </ui-checkbox-row>
           </view>
           <view class="merchant-sub__action merchant-sub__action--block">

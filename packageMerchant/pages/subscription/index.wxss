@@ -10,11 +10,6 @@
   margin-bottom: 0;
 }
 
-.merchant-sub__consent-link {
-  color: var(--color-primary);
-  margin-left: var(--space-lg);
-}
-
 .merchant-sub__pad {
   padding: var(--space-md) var(--page-padding-x);
 }
@@ -55,9 +50,8 @@
   gap: var(--space-sm);
 }
 
-.merchant-sub__folio-hint {
-  display: block;
-  margin-top: var(--space-xs);
+.merchant-sub__folio-title {
+  color: var(--color-text-primary);
 }
 
 .merchant-sub__main {
@@ -109,11 +103,6 @@
 .merchant-sub__hint {
   display: block;
   line-height: var(--font-body-lh);
-}
-
-.merchant-sub__link {
-  align-self: flex-start;
-  margin-top: var(--space-xs);
 }
 
 .merchant-sub__action {

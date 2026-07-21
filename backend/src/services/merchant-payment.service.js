@@ -217,6 +217,8 @@ async function createSubscriptionOrder(auth, plan, options = {}) {
     return activateZeroAmountSubscription(auth, plan, {
       isStandardTrial: true,
       summary: '首次开通标准版，享 90 天免费试用',
+      subscriptionConsent: options.subscriptionConsent || options.consent,
+      authMeta: options.authMeta,
     })
   }
 

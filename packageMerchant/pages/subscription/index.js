@@ -21,39 +21,50 @@ function formatExpiresAt(iso) {
   return String(iso).slice(0, 10)
 }
 
-function buildPublicIndexTag() {
-  return { variant: 'success', text: '公开收录不另收费' }
-}
+/**
+ * 页头 / 状态区展示：标准版是唯一方案，「试用」只是状态，避免多处重复「试用期」
+ */
+function buildStatusView(subscription = {}, planStatus = {}) {
+  const plan = subscription.plan || 'free'
+  const expiresAtDisplay =
+    planStatus.expiresAtDisplay || formatExpiresAt(subscription.expiresAt)
+  const isTrial = plan === 'free'
+  const isStandard = STANDARD_PLAN_IDS.includes(plan)
 
-function buildFounderHint(subscription = {}) {
-  if (!subscription.founderFlag) return ''
-  const discount = subscription.founderRenewDiscount
-  if (discount && Number(discount) > 0 && Number(discount) < 1) {
-    const pct = Math.round(Number(discount) * 100)
-    return `样板店续费享 ${pct / 10} 折优惠`
+  if (isTrial) {
+    return {
+      folioTitle: '标准版',
+      folioTag: '未开通年费',
+      folioTagVariant: 'info',
+      folioSub: '',
+      currentStatus: '未开通年费',
+      expiresAtDisplay: '',
+      nextLabel: '可先免费试用 90 天；结束后需手动续费，不会自动扣款',
+    }
   }
-  return '样板店专属权益'
-}
 
-function buildCurrentHero(subscription = {}) {
-  const tier = resolveMerchantPlanTier(subscription.plan || 'free')
-  const tierLabel = subscription.tierLabel || tier.text
-  const planLabel = subscription.planLabel || ''
-  const isFree = subscription.plan === 'free' || !subscription.expiresAt
-  let validityText = ''
-  if (isFree) {
-    validityText = '试用期内'
-  } else if (subscription.expiresAtDisplay) {
-    validityText = `有效期至 ${subscription.expiresAtDisplay}`
+  if (isStandard) {
+    return {
+      folioTitle: '标准版',
+      folioTag: '已开通',
+      folioTagVariant: 'success',
+      folioSub: expiresAtDisplay ? `有效期至 ${expiresAtDisplay}` : '',
+      currentStatus: '已开通',
+      expiresAtDisplay,
+      nextLabel: planStatus.hasPendingChange
+        ? planStatus.pendingPlanLabel || planStatus.nextTierLabel || ''
+        : '到期前需手动续费，不会自动扣款',
+    }
   }
+
   return {
-    tier,
-    tierLabel,
-    planLabel,
-    validityText,
-    isFree,
-    publicIndexTag: buildPublicIndexTag(),
-    founderHint: buildFounderHint(subscription),
+    folioTitle: planStatus.currentTierLabel || '标准版',
+    folioTag: '',
+    folioTagVariant: 'info',
+    folioSub: '',
+    currentStatus: planStatus.currentTierLabel || '',
+    expiresAtDisplay,
+    nextLabel: planStatus.nextTierLabel || '',
   }
 }
 
@@ -121,8 +132,7 @@ function decorateSubscriptionPanel(data = {}) {
     subscription: decoratedSubscription,
     planStatus,
     renewalNotice,
-    currentHero: buildCurrentHero(decoratedSubscription),
-    publicIndexTag: buildPublicIndexTag(),
+    statusView: buildStatusView(decoratedSubscription, planStatus),
     plans,
     primaryAction: resolvePrimaryAction(
       plans,
@@ -240,10 +250,7 @@ Page({
     subscription: null,
     planStatus: null,
     renewalNotice: null,
-    currentHero: null,
-    publicIndexTag: null,
-    folioHint: SUBSCRIPTION_COPY.folioHint,
-    agreementLink: SUBSCRIPTION_COPY.agreementLink,
+    statusView: null,
     renewCta: SUBSCRIPTION_COPY.renewCta,
     planSummary: PLAN_SELECT_SUMMARY,
     planRows: PLAN_SELECT_ROWS,
@@ -254,7 +261,9 @@ Page({
     paying: false,
     errorMessage: '',
     payConsent: false,
-    payConsentText: AUTHORIZATION_CONSENT.subscription_pay.text,
+    payConsentBefore: '我已阅读并同意',
+    payConsentLink: '《套餐与工具服务协议》',
+    payConsentAfter: '，知晓服务内容、价格及到期规则',
     showPayConsent: false,
   },
 
@@ -282,8 +291,7 @@ Page({
       subscription: panel.subscription,
       planStatus: panel.planStatus,
       renewalNotice: panel.renewalNotice,
-      currentHero: panel.currentHero,
-      publicIndexTag: panel.publicIndexTag,
+      statusView: panel.statusView,
       plans: panel.plans,
       primaryAction: panel.primaryAction,
       paymentTestMode: panel.paymentTestMode,

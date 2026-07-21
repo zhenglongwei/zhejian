@@ -20,13 +20,10 @@ const PLAN_SELECT_SUMMARY = {
  * @type {{ item: string, value: string }[]}
  */
 const PLAN_SELECT_ROWS = [
-  { item: '服务相册（过程记录、车主扫码查看）', value: '可用' },
-  { item: '私域分享相册 / 报告', value: '可用' },
-  { item: '车主「发布到公开网站」', value: '可用（须审核）' },
-  { item: '公开案例基础收录', value: '不另收费' },
-  { item: '咨询线索工作台', value: '可用' },
-  { item: '费用', value: '试用 90 天免费，之后 480 元/年' },
-  { item: '不包含', value: '竞价排名、订单量保证、交易抽佣' },
+  { item: '服务相册（过程记录）', value: '可用' },
+  { item: '分享相册', value: '可用' },
+  { item: 'GEO公域曝光', value: '赠送' },
+  { item: 'GEO数据看板', value: '赠送' },
 ]
 
 const PLAN_SELECT_FOOTER =
@@ -36,7 +33,6 @@ const PLAN_SELECT_CTA = '开始 90 天试用并进入工作台'
 
 /** 工作台 · 套餐与工具权益页 */
 const SUBSCRIPTION_COPY = {
-  folioHint: '仅一档标准版；公开案例基础收录不另收费；到期不会自动扣款。',
   sectionTitle: '标准版说明',
   agreementLink: '查看《套餐与工具服务协议》',
   trialCta: '开始 90 天免费试用',
