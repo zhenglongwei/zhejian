@@ -15,9 +15,18 @@ const {
   saveStoreCapabilityJson,
   isCapabilityFieldError,
 } = require('../utils/store-capability-load')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 
 const STAFF_ROLE_OWNER = 'owner'
 const STAFF_STATUS_ACTIVE = 'ACTIVE'
+
+function resignEquipmentTags(tags) {
+  return (tags || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    if (!item.imageUrl) return item
+    return { ...item, imageUrl: resolveClientReadableMediaUrl(item.imageUrl) }
+  })
+}
 
 async function assertMerchantOwner(auth) {
   const merchantId = auth.merchantId
@@ -91,6 +100,10 @@ function attachCapabilityToProfile(profile, store, capabilityOverride) {
   return {
     ...profile,
     ...capabilityEditor,
+    equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
+    brandAuthPhotoUrl: resolveClientReadableMediaUrl(
+      capabilityEditor.brandAuthPhotoUrl || photos.brandAuthUrl || ''
+    ),
     capabilityReviewStatus: capabilityEditor.reviewStatus,
   }
 }

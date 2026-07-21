@@ -39,6 +39,8 @@ function mediaUrlMatchesObjectKey(url, objectKey) {
 function storePhotosReferenceObjectKey(photosJson, objectKey) {
   const photos = photosJson && typeof photosJson === 'object' && !Array.isArray(photosJson) ? photosJson : {}
   if (mediaUrlMatchesObjectKey(photos.facadeUrl, objectKey)) return true
+  if (mediaUrlMatchesObjectKey(photos.receptionUrl, objectKey)) return true
+  if (mediaUrlMatchesObjectKey(photos.brandAuthUrl, objectKey)) return true
   if (Array.isArray(photos.workshopUrls)) {
     return photos.workshopUrls.some((url) => mediaUrlMatchesObjectKey(url, objectKey))
   }

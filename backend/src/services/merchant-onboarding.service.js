@@ -16,11 +16,45 @@ const {
 } = require('../lib/onboarding-payload')
 const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
 const { resolveStoreCapabilityJson } = require('../utils/store-capability-load')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+
+/** 商家端 <image> 无法带 Bearer，读侧须返回新鲜 signed URL */
+function resignPhotoMap(photos = {}) {
+  return {
+    facadeUrl: resolveClientReadableMediaUrl(photos.facadeUrl || ''),
+    workshopUrls: (photos.workshopUrls || [])
+      .map((url) => resolveClientReadableMediaUrl(url))
+      .filter(Boolean),
+    receptionUrl: resolveClientReadableMediaUrl(photos.receptionUrl || ''),
+    brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
+  }
+}
+
+function resignQualification(qualification) {
+  if (!qualification || typeof qualification !== 'object') return qualification
+  const next = { ...qualification }
+  if (next.photoUrl) next.photoUrl = resolveClientReadableMediaUrl(next.photoUrl)
+  if (next.newEnergy && typeof next.newEnergy === 'object') {
+    next.newEnergy = {
+      ...next.newEnergy,
+      photoUrl: resolveClientReadableMediaUrl(next.newEnergy.photoUrl || ''),
+    }
+  }
+  return next
+}
+
+function resignEquipmentTags(tags) {
+  return (tags || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    if (!item.imageUrl) return item
+    return { ...item, imageUrl: resolveClientReadableMediaUrl(item.imageUrl) }
+  })
+}
 
 function formatOnboardingProfile(merchant, store) {
   if (!merchant || !store) return null
-  const photos = formatPhotosForClient(store.photosJson)
-  const qualification = formatQualificationForClient(merchant.qualificationJson)
+  const photos = resignPhotoMap(formatPhotosForClient(store.photosJson))
+  const qualification = resignQualification(formatQualificationForClient(merchant.qualificationJson))
   const capabilityEditor = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
   return {
     status: toFrontStatus(merchant.status),
@@ -38,15 +72,18 @@ function formatOnboardingProfile(merchant, store) {
     services: Array.isArray(store.servicesJson) ? store.servicesJson : [],
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
-    licensePhotoUrl: merchant.licensePhotoUrl || '',
+    licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
     contactEmail: merchant.contactEmail || '',
     qualification,
     photos,
     specialtyBrands: capabilityEditor.specialtyBrands,
     notAccepting: capabilityEditor.notAccepting,
     technicians: capabilityEditor.technicians,
-    equipmentTags: capabilityEditor.equipmentTags,
+    equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
     brandAuthValidUntil: capabilityEditor.brandAuthValidUntil,
+    brandAuthPhotoUrl: resolveClientReadableMediaUrl(
+      capabilityEditor.brandAuthPhotoUrl || photos.brandAuthUrl || ''
+    ),
     capabilityReviewStatus: capabilityEditor.reviewStatus,
     capabilityRejectReason: capabilityEditor.rejectReason,
     lastProfileVerifiedAt: capabilityEditor.lastProfileVerifiedAt,
