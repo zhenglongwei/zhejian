@@ -538,4 +538,16 @@ Page({
     if (!url || !list.length) return
     wx.previewImage({ urls: list, current: url })
   },
+
+  onPreviewStaffCredential(e) {
+    const url = e.currentTarget.dataset.url
+    const id = e.currentTarget.dataset.id
+    if (!url) return
+    const member = (this.data.staffPublic || []).find((item) => item.id === id)
+    const list =
+      member && Array.isArray(member.credentialPhotoUrls) && member.credentialPhotoUrls.length
+        ? member.credentialPhotoUrls
+        : [url]
+    wx.previewImage({ urls: list, current: url })
+  },
 })

@@ -723,13 +723,33 @@
             return '<li class="h5-staff-cred">' + escapeHtml(cred) + '</li>'
           })
           .join('')
+        var roleLine = escapeHtml(member.role || '员工')
+        if (member.years) roleLine += ' · ' + escapeHtml(member.years)
+        var avatar = member.avatarUrl
+          ? '<img class="h5-staff-avatar" src="' +
+            escapeHtml(member.avatarUrl) +
+            '" alt="" loading="lazy" />'
+          : ''
+        var photos = (member.credentialPhotoUrls || [])
+          .map(function (url) {
+            return (
+              '<img class="h5-staff-photo" src="' +
+              escapeHtml(url) +
+              '" alt="资质证明" loading="lazy" />'
+            )
+          })
+          .join('')
         return (
-          '<div class="h5-staff-item"><div class="h5-staff-name">' +
+          '<div class="h5-staff-item">' +
+          '<div class="h5-staff-head">' +
+          avatar +
+          '<div class="h5-staff-meta"><div class="h5-staff-name">' +
           escapeHtml(member.name) +
           '</div><div class="h5-staff-role">' +
-          escapeHtml(member.role || '员工') +
-          '</div>' +
+          roleLine +
+          '</div></div></div>' +
           (creds ? '<ul class="h5-staff-creds">' + creds + '</ul>' : '') +
+          (photos ? '<div class="h5-staff-photos">' + photos + '</div>' : '') +
           '</div>'
         )
       })

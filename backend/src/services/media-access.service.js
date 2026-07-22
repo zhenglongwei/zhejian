@@ -80,6 +80,37 @@ function normalizeJsonRow(value) {
   return value
 }
 
+function storeCapabilityReferenceObjectKey(capabilityJson, objectKey) {
+  const cap = normalizeJsonRow(capabilityJson)
+  if (!cap || typeof cap !== 'object') return false
+  const lists = [cap.technicians, cap.pending && cap.pending.technicians].filter(Boolean)
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue
+    for (const tech of list) {
+      if (!tech || typeof tech !== 'object') continue
+      if (mediaUrlMatchesObjectKey(tech.avatarUrl, objectKey)) return true
+      if (Array.isArray(tech.credentialPhotoUrls)) {
+        if (tech.credentialPhotoUrls.some((url) => mediaUrlMatchesObjectKey(url, objectKey))) {
+          return true
+        }
+      }
+    }
+  }
+  if (Array.isArray(cap.equipmentTags)) {
+    if (cap.equipmentTags.some((item) => mediaUrlMatchesObjectKey(item && item.imageUrl, objectKey))) {
+      return true
+    }
+  }
+  if (cap.pending && Array.isArray(cap.pending.equipmentTags)) {
+    if (
+      cap.pending.equipmentTags.some((item) => mediaUrlMatchesObjectKey(item && item.imageUrl, objectKey))
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 async function matchPublicStorePhotos(objectKey) {
   const filename = objectKeyFilename(objectKey)
   if (!filename) return false
@@ -87,16 +118,19 @@ async function matchPublicStorePhotos(objectKey) {
   let rows = []
   try {
     rows = await prisma.$queryRaw`
-      SELECT id, photos_json AS photosJson
+      SELECT id, photos_json AS photosJson, capability_json AS capabilityJson
       FROM stores
       WHERE status = 'ACTIVE'
-        AND CAST(photos_json AS CHAR) LIKE ${`%${filename}%`}
+        AND (
+          CAST(photos_json AS CHAR) LIKE ${`%${filename}%`}
+          OR CAST(capability_json AS CHAR) LIKE ${`%${filename}%`}
+        )
       LIMIT 32
     `
   } catch (e) {
     rows = await prisma.store.findMany({
       where: { status: 'ACTIVE' },
-      select: { id: true, photosJson: true },
+      select: { id: true, photosJson: true, capabilityJson: true },
       take: 500,
     })
   }
@@ -105,6 +139,7 @@ async function matchPublicStorePhotos(objectKey) {
     const storeId = row.id
     const photosJson = normalizeJsonRow(row.photosJson)
     if (storePhotosReferenceObjectKey(photosJson, objectKey)) return true
+    if (storeCapabilityReferenceObjectKey(row.capabilityJson, objectKey)) return true
     if (storeExtrasReferenceObjectKey(storeId, objectKey)) return true
   }
 

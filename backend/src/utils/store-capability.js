@@ -3,7 +3,7 @@
  * capabilityJson：即时字段 + 已审公开 + 待审快照
  */
 
-const { assertPersistentImageUrl } = require('../lib/media-storage')
+const { assertPersistentImageUrl, resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const { formatShanghaiDate } = require('../lib/shanghai-date')
 
 const EQUIPMENT_TAG_PRESETS = [
@@ -26,35 +26,51 @@ function normalizeStringArray(value, max = 20) {
     .slice(0, max)
 }
 
+function persistOptionalImageUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  try {
+    return assertPersistentImageUrl(value)
+  } catch (_) {
+    return ''
+  }
+}
+
 function normalizeTechnician(raw = {}, index = 0) {
   const credentials = normalizeStringArray(raw.credentials || raw.tags, 8)
   const name = String(raw.name || '').trim()
   if (!name) return null
+  const avatarUrl = persistOptionalImageUrl(raw.avatarUrl || raw.photoUrl || raw.avatar)
+  const credentialPhotoUrls = normalizeStringArray(
+    Array.isArray(raw.credentialPhotoUrls)
+      ? raw.credentialPhotoUrls
+      : raw.credentialPhotoUrl
+        ? [raw.credentialPhotoUrl]
+        : [],
+    6
+  )
+    .map((url) => persistOptionalImageUrl(url))
+    .filter(Boolean)
   return {
     id: String(raw.id || `tech_${index + 1}`).trim(),
     name: name.slice(0, 32),
     role: String(raw.role || '维修技师').trim().slice(0, 32) || '维修技师',
     years: String(raw.years || '').trim().slice(0, 16),
     credentials,
+    avatarUrl,
+    credentialPhotoUrls,
   }
 }
 
 function normalizeTechnicians(list) {
   if (!Array.isArray(list)) return []
-  return list.map((item, i) => normalizeTechnician(item, i)).filter(Boolean).slice(0, 12)
+  return list.map((item, i) => normalizeTechnician(item, i)).filter(Boolean)
 }
 
 function normalizeEquipmentTag(raw = {}, index = 0) {
   const label = String(raw.label || raw.name || '').trim()
   if (!label) return null
-  let imageUrl = String(raw.imageUrl || '').trim()
-  if (imageUrl) {
-    try {
-      imageUrl = assertPersistentImageUrl(imageUrl)
-    } catch (_) {
-      imageUrl = ''
-    }
-  }
+  const imageUrl = persistOptionalImageUrl(raw.imageUrl)
   return {
     id: String(raw.id || `eq_${index + 1}`).trim(),
     label: label.slice(0, 32),
@@ -65,16 +81,6 @@ function normalizeEquipmentTag(raw = {}, index = 0) {
 function normalizeEquipmentTags(list) {
   if (!Array.isArray(list)) return []
   return list.map((item, i) => normalizeEquipmentTag(item, i)).filter(Boolean).slice(0, 16)
-}
-
-function persistOptionalImageUrl(url) {
-  const value = String(url || '').trim()
-  if (!value) return ''
-  try {
-    return assertPersistentImageUrl(value)
-  } catch (_) {
-    return ''
-  }
 }
 
 /**
@@ -415,6 +421,10 @@ function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
       role: t.role,
       years: t.years,
       credentials: t.credentials,
+      avatarUrl: resolveClientReadableMediaUrl(t.avatarUrl || ''),
+      credentialPhotoUrls: (t.credentialPhotoUrls || [])
+        .map((url) => resolveClientReadableMediaUrl(url))
+        .filter(Boolean),
     })),
     equipmentTags: capability.equipmentTags,
     brandAuthItems: publicItems,

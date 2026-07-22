@@ -13,6 +13,17 @@ const {
   isCapabilityFieldError,
 } = require('../utils/store-capability-load')
 
+function resignTechnicians(list) {
+  if (!Array.isArray(list)) return []
+  return list.map((item) => ({
+    ...item,
+    avatarUrl: resolveClientReadableMediaUrl(item.avatarUrl || ''),
+    credentialPhotoUrls: (item.credentialPhotoUrls || [])
+      .map((url) => resolveClientReadableMediaUrl(url))
+      .filter(Boolean),
+  }))
+}
+
 function resignEquipmentTags(list) {
   if (!Array.isArray(list)) return []
   return list.map((item) => ({
@@ -48,6 +59,7 @@ function resignPendingForAdmin(pending) {
             ]
           : [])
     ),
+    technicians: resignTechnicians(pending.technicians),
     equipmentTags: resignEquipmentTags(pending.equipmentTags),
   }
 }
@@ -173,7 +185,7 @@ async function getStoreCapabilityReviewDetail(storeId) {
     reviewStatus: cap.reviewStatus,
     pending,
     published: {
-      technicians: cap.technicians,
+      technicians: resignTechnicians(cap.technicians),
       equipmentTags: resignEquipmentTags(cap.equipmentTags),
       brandAuthValidUntil: cap.brandAuthValidUntil,
       brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),

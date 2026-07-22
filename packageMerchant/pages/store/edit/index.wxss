@@ -87,6 +87,16 @@
   margin-top: var(--space-xs);
 }
 
+.merchant-store-edit__tech-media {
+  margin-top: var(--space-sm);
+}
+
+.merchant-store-edit__tech-media-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-secondary);
+}
+
 .merchant-store-edit__tech-remove {
   display: block;
   margin-top: var(--space-sm);
@@ -143,6 +153,33 @@
 
 .merchant-store-edit__eq-clear {
   color: var(--color-text-tertiary);
+}
+
+.merchant-store-edit__subhead {
+  margin-top: var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-store-edit__subhead--review {
+  margin-top: var(--space-xl);
+  border-color: var(--color-border);
+  background-color: var(--color-bg-page);
+}
+
+.merchant-store-edit__subhead-title {
+  display: block;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.merchant-store-edit__subhead-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
 }
 
 .merchant-store-edit__brand-card {

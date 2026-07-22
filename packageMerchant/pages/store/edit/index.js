@@ -47,6 +47,12 @@ function normalizeTechniciansForForm(list) {
     role: item.role || '维修技师',
     years: item.years || '',
     credentialsText: item.credentialsText || joinTags(item.credentials),
+    avatarUrl: item.avatarUrl || '',
+    credentialPhotoUrls: Array.isArray(item.credentialPhotoUrls)
+      ? item.credentialPhotoUrls.filter(Boolean)
+      : item.credentialPhotoUrl
+        ? [item.credentialPhotoUrl]
+        : [],
   }))
 }
 
@@ -232,13 +238,14 @@ Page({
 
   onAddTech() {
     const list = (this.data.form.technicians || []).slice()
-    if (list.length >= 3) return
     list.push({
       id: `tech_${Date.now()}`,
       name: '',
       role: '维修技师',
       years: '',
       credentialsText: '',
+      avatarUrl: '',
+      credentialPhotoUrls: [],
     })
     this.setData({ 'form.technicians': list })
   },
@@ -254,6 +261,87 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     this.setData({ [`form.technicians[${index}].${field}`]: e.detail.value })
+  },
+
+  async onPickTechAvatar(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.technicians || []).slice()
+    if (!list[index]) return
+    const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+    const temp = res.tempFiles[0].tempFilePath
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const url = await uploadImage(temp)
+      list[index] = { ...list[index], avatarUrl: url }
+      this.setData({ 'form.technicians': list })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onClearTechAvatar(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.technicians || []).slice()
+    if (!list[index]) return
+    list[index] = { ...list[index], avatarUrl: '' }
+    this.setData({ 'form.technicians': list })
+  },
+
+  async onPickTechCredential(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.technicians || []).slice()
+    if (!list[index]) return
+    const current = Array.isArray(list[index].credentialPhotoUrls)
+      ? list[index].credentialPhotoUrls.slice()
+      : []
+    const remain = 6 - current.length
+    if (remain <= 0) {
+      wx.showToast({ title: '资质证明最多 6 张', icon: 'none' })
+      return
+    }
+    const res = await wx.chooseMedia({ count: Math.min(remain, 3), mediaType: ['image'] })
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const urls = []
+      for (const file of res.tempFiles) {
+        urls.push(await uploadImage(file.tempFilePath))
+      }
+      list[index] = {
+        ...list[index],
+        credentialPhotoUrls: current.concat(urls),
+      }
+      this.setData({ 'form.technicians': list })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onRemoveTechCredential(e) {
+    const techIndex = Number(e.currentTarget.dataset.index)
+    const photoIndex = Number(e.currentTarget.dataset.photoIndex)
+    const list = (this.data.form.technicians || []).slice()
+    if (!list[techIndex]) return
+    const photos = Array.isArray(list[techIndex].credentialPhotoUrls)
+      ? list[techIndex].credentialPhotoUrls.slice()
+      : []
+    photos.splice(photoIndex, 1)
+    list[techIndex] = { ...list[techIndex], credentialPhotoUrls: photos }
+    this.setData({ 'form.technicians': list })
+  },
+
+  onPreviewTechImage(e) {
+    const url = e.currentTarget.dataset.url
+    const techIndex = Number(e.currentTarget.dataset.index)
+    if (!url) return
+    const tech = (this.data.form.technicians || [])[techIndex]
+    const creds =
+      tech && Array.isArray(tech.credentialPhotoUrls) ? tech.credentialPhotoUrls.filter(Boolean) : []
+    const urls = creds.indexOf(url) >= 0 ? creds : [url]
+    wx.previewImage({ urls, current: url })
   },
 
   onCustomServiceInput(e) {
@@ -356,6 +444,11 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     this.setData({ [`form.brandAuthItems[${index}].${field}`]: e.detail.value })
+  },
+
+  onBrandAuthDateChange(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    this.setData({ [`form.brandAuthItems[${index}].validUntil`]: e.detail.value })
   },
 
   async onPickBrandAuthImage(e) {

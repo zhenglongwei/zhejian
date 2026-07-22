@@ -72,6 +72,19 @@ function resignQualification(qualification) {
   return next
 }
 
+function resignTechnicians(list) {
+  return (list || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    return {
+      ...item,
+      avatarUrl: resolveClientReadableMediaUrl(item.avatarUrl || ''),
+      credentialPhotoUrls: (item.credentialPhotoUrls || [])
+        .map((url) => resolveClientReadableMediaUrl(url))
+        .filter(Boolean),
+    }
+  })
+}
+
 function resignEquipmentTags(tags) {
   return (tags || []).map((item) => {
     if (!item || typeof item !== 'object') return item
@@ -107,7 +120,7 @@ function formatOnboardingProfile(merchant, store) {
     photos,
     specialtyBrands: capabilityEditor.specialtyBrands,
     notAccepting: capabilityEditor.notAccepting,
-    technicians: capabilityEditor.technicians,
+    technicians: resignTechnicians(capabilityEditor.technicians),
     equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
     brandAuthItems: resignBrandAuthItems(capabilityEditor.brandAuthItems),
     brandAuthValidUntil: capabilityEditor.brandAuthValidUntil,

@@ -211,6 +211,25 @@
   padding: var(--space-md);
 }
 
+.store-detail__staff-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.store-detail__staff-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-bg-muted);
+  flex-shrink: 0;
+}
+
+.store-detail__staff-meta {
+  flex: 1;
+  min-width: 0;
+}
+
 .store-detail__staff-name {
   display: block;
   font-weight: 600;
@@ -234,6 +253,20 @@
   background: var(--color-bg-muted);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
+}
+
+.store-detail__staff-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.store-detail__staff-photo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
 }
 
 .store-detail__section-links {

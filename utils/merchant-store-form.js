@@ -191,6 +191,10 @@ function buildDisplayPayload(form, storeId) {
       role: String(item.role || '维修技师').trim() || '维修技师',
       years: String(item.years || '').trim(),
       credentials: splitTags(item.credentialsText || joinTags(item.credentials)),
+      avatarUrl: String(item.avatarUrl || '').trim(),
+      credentialPhotoUrls: Array.isArray(item.credentialPhotoUrls)
+        ? item.credentialPhotoUrls.map((url) => String(url || '').trim()).filter(Boolean).slice(0, 6)
+        : [],
     }))
     .filter((item) => item.name)
 

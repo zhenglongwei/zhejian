@@ -30,6 +30,19 @@ function resignEquipmentTags(tags) {
   })
 }
 
+function resignTechnicians(list) {
+  return (list || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    return {
+      ...item,
+      avatarUrl: resolveClientReadableMediaUrl(item.avatarUrl || ''),
+      credentialPhotoUrls: (item.credentialPhotoUrls || [])
+        .map((url) => resolveClientReadableMediaUrl(url))
+        .filter(Boolean),
+    }
+  })
+}
+
 function resignBrandAuthItems(items) {
   return (items || []).map((item) => {
     if (!item || typeof item !== 'object') return item
@@ -113,6 +126,7 @@ function attachCapabilityToProfile(profile, store, capabilityOverride) {
   return {
     ...profile,
     ...capabilityEditor,
+    technicians: resignTechnicians(capabilityEditor.technicians),
     equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
     brandAuthItems,
     brandAuthPhotoUrl: resolveClientReadableMediaUrl(

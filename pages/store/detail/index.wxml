@@ -232,8 +232,18 @@
             wx:key="id"
             class="surface-record-card store-detail__staff-card"
           >
-            <text class="store-detail__staff-name text-body">{{item.name}}</text>
-            <text class="store-detail__staff-role text-caption">{{item.role}}</text>
+            <view class="store-detail__staff-head">
+              <image
+                wx:if="{{item.avatarUrl}}"
+                class="store-detail__staff-avatar"
+                src="{{item.avatarUrl}}"
+                mode="aspectFill"
+              />
+              <view class="store-detail__staff-meta">
+                <text class="store-detail__staff-name text-body">{{item.name}}</text>
+                <text class="store-detail__staff-role text-caption">{{item.role}}{{item.years ? ' · ' + item.years : ''}}</text>
+              </view>
+            </view>
             <view wx:if="{{item.credentials.length}}" class="store-detail__staff-creds">
               <text
                 wx:for="{{item.credentials}}"
@@ -241,6 +251,20 @@
                 wx:key="*this"
                 class="store-detail__staff-cred text-caption"
               >{{cred}}</text>
+            </view>
+            <view wx:if="{{item.credentialPhotoUrls && item.credentialPhotoUrls.length}}" class="store-detail__staff-photos">
+              <image
+                wx:for="{{item.credentialPhotoUrls}}"
+                wx:for-item="photo"
+                wx:for-index="photoIndex"
+                wx:key="photoIndex"
+                class="store-detail__staff-photo"
+                src="{{photo}}"
+                mode="aspectFill"
+                data-url="{{photo}}"
+                data-id="{{item.id}}"
+                bindtap="onPreviewStaffCredential"
+              />
             </view>
           </view>
         </view>

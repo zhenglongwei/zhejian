@@ -21,6 +21,33 @@
                 {{ (row.credentials || []).join('、') }}
               </template>
             </el-table-column>
+            <el-table-column label="头像" width="88">
+              <template #default="{ row }">
+                <el-image
+                  v-if="row.avatarUrl"
+                  :src="row.avatarUrl"
+                  style="width: 56px; height: 56px"
+                  fit="cover"
+                  :preview-src-list="[row.avatarUrl]"
+                />
+                <span v-else>—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="资质证明" min-width="160">
+              <template #default="{ row }">
+                <div v-if="(row.credentialPhotoUrls || []).length" class="tech-photos">
+                  <el-image
+                    v-for="(url, idx) in row.credentialPhotoUrls"
+                    :key="idx"
+                    :src="url"
+                    style="width: 48px; height: 48px; margin-right: 6px"
+                    fit="cover"
+                    :preview-src-list="row.credentialPhotoUrls"
+                  />
+                </div>
+                <span v-else>—</span>
+              </template>
+            </el-table-column>
           </el-table>
 
           <h4 class="mt">设备/场</h4>
@@ -178,5 +205,10 @@ onMounted(loadDetail)
   margin-top: 20px;
   display: flex;
   gap: 12px;
+}
+.tech-photos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
 }
 </style>
