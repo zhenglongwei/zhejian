@@ -79,8 +79,6 @@ function resolveInviteFromDetail(detail = {}) {
     albumId: detail.albumId || detail.id,
     vehicleLabel: detail.vehicleDisplay,
     serviceName: detail.serviceName,
-    storeThankYou: detail.storePublishThankYou,
-    albumThankYou: detail.publishThankYou,
   })
 }
 
@@ -89,9 +87,9 @@ function inviteUiFieldsFromDetail(detail = {}) {
   return {
     authSheetTitle: invite.sheetTitle || AUTH_SHEET_TITLE,
     authPitch: invite.pitch || '',
-    authBenefitLine: invite.benefitLine || '',
+    authBenefitLine: '',
     authControlLine: invite.controlLine || CONTROL_LINE,
-    authDisclaimer: invite.disclaimer || '',
+    authDisclaimer: '',
     authConsentText: invite.consentCheckbox || CONSENT_CHECKBOX,
     authConfirmText: invite.confirmText || AUTH_CONFIRM_TEXT,
     authRejectText: invite.rejectText || AUTH_REJECT_TEXT,

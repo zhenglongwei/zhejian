@@ -123,40 +123,6 @@
         <ui-button type="secondary" block bind:btntap="onOpenContentOptimize">进入内容优化</ui-button>
       </ui-card>
 
-      <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="text-h3">车主答谢（本本相册）</text>
-        <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
-          覆盖门店默认答谢。车主侧仅展示「本店线下兑现」。立减/返现由本店支付给车主；延保可直接写入质保说明，赠送服务可到店核销或后续用服务二维码领取。
-        </text>
-        <view class="merchant-form__section">
-          <text class="merchant-form__label">答谢策略</text>
-          <picker mode="selector" range="{{thankYouModeOptions}}" value="{{thankYouModeIndex}}" bindchange="onThankYouModeChange" disabled="{{saving || completing || detail.isAuthorized}}">
-            <view class="merchant-form__input">{{thankYouModeOptions[thankYouModeIndex]}}</view>
-          </picker>
-          <text wx:if="{{thankYouMode === 'inherit'}}" class="text-caption text-secondary">{{storeThankYouPreview}}</text>
-        </view>
-        <block wx:if="{{thankYouMode === 'custom'}}">
-          <view class="merchant-form__section">
-            <text class="merchant-form__label">立减 / 返现（元）</text>
-            <input class="merchant-form__input" type="number" placeholder="如 50" value="{{thankYouDiscountYuan}}" data-field="thankYouDiscountYuan" bindinput="onThankYouInput" disabled="{{saving || completing || detail.isAuthorized}}" />
-            <text class="text-caption text-secondary">由本店支付给车主</text>
-          </view>
-          <view class="merchant-form__section">
-            <text class="merchant-form__label">赠送服务（非现金）</text>
-            <input class="merchant-form__input" placeholder="如：精洗一次" value="{{thankYouGiftText}}" data-field="thankYouGiftText" bindinput="onThankYouInput" maxlength="40" disabled="{{saving || completing || detail.isAuthorized}}" />
-          </view>
-          <view class="merchant-form__section">
-            <text class="merchant-form__label">延长质保（天）</text>
-            <input class="merchant-form__input" type="number" placeholder="如 30" value="{{thankYouWarrantyDays}}" data-field="thankYouWarrantyDays" bindinput="onThankYouInput" disabled="{{saving || completing || detail.isAuthorized}}" />
-            <text class="text-caption text-secondary">可直接并入本次质保说明</text>
-          </view>
-          <view class="merchant-form__section">
-            <text class="merchant-form__label">自定义答谢句（选填）</text>
-            <textarea class="merchant-form__textarea" placeholder="填写后优先展示此句" value="{{thankYouBenefitText}}" data-field="thankYouBenefitText" bindinput="onThankYouInput" maxlength="120" disabled="{{saving || completing || detail.isAuthorized}}" />
-          </view>
-        </block>
-      </ui-card>
-
       <view wx:if="{{merchantInspPanels.length}}" id="merchant-insp-section" class="merchant-album-edit__insp">
         <ui-card shadow="{{true}}" padding="{{true}}">
           <view

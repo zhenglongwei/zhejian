@@ -5,12 +5,6 @@
 
 const { assertPersistentImageUrl, resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const { formatShanghaiDate } = require('../lib/shanghai-date')
-const { resolveShared } = require('./resolve-shared')
-
-const {
-  EMPTY_PUBLISH_THANK_YOU,
-  normalizePublishThankYou,
-} = resolveShared('utils/publish-thank-you.js')
 
 const EQUIPMENT_TAG_PRESETS = [
   '烤漆房',
@@ -168,7 +162,6 @@ function emptyCapability() {
     reviewStatus: 'none',
     lastProfileVerifiedAt: '',
     pending: null,
-    publishThankYou: { ...EMPTY_PUBLISH_THANK_YOU },
   }
 }
 
@@ -186,7 +179,6 @@ function readCapabilityJson(raw) {
       : 'none',
     lastProfileVerifiedAt: String(src.lastProfileVerifiedAt || '').trim(),
     pending: src.pending && typeof src.pending === 'object' ? src.pending : null,
-    publishThankYou: normalizePublishThankYou(src.publishThankYou),
   }
 }
 
@@ -357,10 +349,6 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     specialtyBrands,
     notAccepting,
     bookingPaused: form.bookingPaused === true ? true : prev.bookingPaused,
-    publishThankYou:
-      form.publishThankYou != null
-        ? normalizePublishThankYou(form.publishThankYou)
-        : prev.publishThankYou,
   }
 
   if (needsReview) {
@@ -493,7 +481,6 @@ function buildMerchantCapabilityEditorView(capabilityRaw, photos = {}) {
     publishedEquipmentTags: capability.equipmentTags,
     publishedBrandAuthItems: publishedItems,
     lastProfileVerifiedAt: capability.lastProfileVerifiedAt,
-    publishThankYou: capability.publishThankYou,
   }
 }
 

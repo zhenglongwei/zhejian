@@ -70,44 +70,17 @@ const {
   buildValidPlanPartIdSet,
 } = require('../utils/album-evidence-items')
 const { resolveShared } = require('../utils/resolve-shared')
-const { readCapabilityJson } = require('../utils/store-capability')
 
-const {
-  normalizeAlbumPublishThankYou,
-  normalizePublishThankYou,
-  buildPublishInviteCopy,
-  EMPTY_PUBLISH_THANK_YOU,
-  EMPTY_ALBUM_THANK_YOU,
-} = resolveShared('utils/publish-thank-you.js')
+const { buildPublishInviteCopy } = resolveShared('utils/publish-thank-you.js')
 
-async function loadStorePublishThankYou(storeId) {
-  const id = String(storeId || '').trim()
-  if (!id) return { ...EMPTY_PUBLISH_THANK_YOU }
-  try {
-    const store = await prisma.store.findUnique({
-      where: { id },
-      select: { capabilityJson: true },
-    })
-    return normalizePublishThankYou(readCapabilityJson(store?.capabilityJson).publishThankYou)
-  } catch (_) {
-    return { ...EMPTY_PUBLISH_THANK_YOU }
-  }
-}
-
-async function attachPublishInviteFields(view, album) {
-  const albumThankYou = normalizeAlbumPublishThankYou(album && album.publishThankYouJson)
-  const storeThankYou = await loadStorePublishThankYou(album && album.storeId)
+function attachPublishInviteFields(view, album) {
   const publishInvite = buildPublishInviteCopy({
     albumId: album && album.id,
     vehicleLabel: view.vehicleDisplay,
     serviceName: view.serviceName,
-    storeThankYou,
-    albumThankYou,
   })
   return {
     ...view,
-    publishThankYou: albumThankYou,
-    storePublishThankYou: storeThankYou,
     publishInvite,
   }
 }
@@ -935,7 +908,7 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   assertMerchantAlbum(album, storeId, merchantId)
   let view = buildMerchantView(album)
   Object.assign(view, assessPublicCaseQuality(view))
-  view = await attachPublishInviteFields(view, album)
+  view = attachPublishInviteFields(view, album)
   const {
     readPackageFromAlbum,
     mergeQualitySuggestionsIntoCopyQuality,
@@ -1140,10 +1113,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     ? await resolveOwnerPhoneUpdate(existing, payload)
     : {}
   const partVerifyGuide = sanitizePartVerifyGuidePayload(payload, existing)
-  const publishThankYouUpdate =
-    payload.publishThankYou != null
-      ? normalizeAlbumPublishThankYou(payload.publishThankYou)
-      : undefined
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -1161,9 +1130,6 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       maxAmount: planAmount != null ? planAmount : existing.maxAmount,
       status,
       imageCount,
-      ...(publishThankYouUpdate != null
-        ? { publishThankYouJson: publishThankYouUpdate }
-        : {}),
       ...ownerUpdate,
     },
     include: {
@@ -1185,7 +1151,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     view.imageGateResults = payload._imageGateResults
   }
   Object.assign(view, assessPublicCaseQuality(view))
-  view = await attachPublishInviteFields(view, album)
+  view = attachPublishInviteFields(view, album)
   return view
 }
 

@@ -119,10 +119,6 @@ Page({
     this.setData({ [`form.${field}`]: e.detail.value })
   },
 
-  onThankYouEnabledChange(e) {
-    this.setData({ 'form.thankYouEnabled': Boolean(e.detail && e.detail.value) })
-  },
-
   updateServices(services) {
     this.setData({
       'form.services': services,

@@ -189,7 +189,6 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
       brandAuthItems: submittedBrandAuthItems,
       brandAuthValidUntil: payload.brandAuthValidUntil || rawForm.brandAuthValidUntil,
       bookingPaused: rawForm.bookingPaused,
-      publishThankYou: rawForm.publishThankYou,
     },
     prevPhotos
   )

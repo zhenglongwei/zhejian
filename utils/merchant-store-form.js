@@ -26,11 +26,6 @@ const EMPTY_DISPLAY_FORM = {
   notAcceptingText: '',
   technicians: [],
   equipmentTags: [],
-  thankYouEnabled: false,
-  thankYouDiscountYuan: '',
-  thankYouGiftText: '',
-  thankYouWarrantyDays: '',
-  thankYouBenefitText: '',
 }
 
 const EQUIPMENT_PRESETS = [
@@ -152,10 +147,6 @@ function createEmptyBrandAuthItem() {
 
 function profileToDisplayForm(profile) {
   const photos = profile.photos || {}
-  const thankYou =
-    (profile.publishThankYou && typeof profile.publishThankYou === 'object'
-      ? profile.publishThankYou
-      : null) || {}
   return {
     storePhone: profile.storePhone || profile.phone || '',
     businessHours: profile.businessHours || '',
@@ -180,13 +171,6 @@ function profileToDisplayForm(profile) {
         }))
       : [],
     equipmentTags: Array.isArray(profile.equipmentTags) ? profile.equipmentTags : [],
-    thankYouEnabled: thankYou.enabled === true,
-    thankYouDiscountYuan:
-      thankYou.discountYuan > 0 ? String(thankYou.discountYuan) : '',
-    thankYouGiftText: thankYou.giftText || '',
-    thankYouWarrantyDays:
-      thankYou.warrantyExtraDays > 0 ? String(thankYou.warrantyExtraDays) : '',
-    thankYouBenefitText: thankYou.benefitText || '',
   }
 }
 
@@ -243,16 +227,6 @@ function buildDisplayPayload(form, storeId) {
     0,
     RECEPTION_PHOTO_MAX
   )
-  const discountYuan = Number(form.thankYouDiscountYuan) || 0
-  const warrantyExtraDays = Number(form.thankYouWarrantyDays) || 0
-  const giftText = String(form.thankYouGiftText || '').trim()
-  const benefitText = String(form.thankYouBenefitText || '').trim()
-  const thankYouEnabled =
-    form.thankYouEnabled === true ||
-    discountYuan > 0 ||
-    warrantyExtraDays > 0 ||
-    Boolean(giftText) ||
-    Boolean(benefitText)
 
   return {
     storeId,
@@ -266,13 +240,6 @@ function buildDisplayPayload(form, storeId) {
     equipmentTags,
     brandAuthItems,
     brandAuthValidUntil: brandAuthItems[0]?.validUntil || '',
-    publishThankYou: {
-      enabled: thankYouEnabled,
-      discountYuan,
-      giftText,
-      warrantyExtraDays,
-      benefitText,
-    },
     photos: {
       facadeUrl: form.facadePhotoUrl,
       workshopUrls: normalizeWorkshopPhotoUrls(form.workshopPhotoUrls),
