@@ -980,6 +980,12 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
   const serviceItemId = await resolveServiceItemIdForAlbum(payload)
   const template = resolveAlbumNodeTemplate({ serviceItemId, serviceName })
   const albumId = newId('alb_svc')
+  const userPhone = String(payload.userPhone || '').trim()
+  let userId = ''
+  if (config.merchantOwnerPhoneTest && userPhone) {
+    const user = await prisma.user.findFirst({ where: { phone: userPhone } })
+    userId = user ? user.id : ''
+  }
   const album = await prisma.album.create({
     data: {
       id: albumId,
@@ -988,7 +994,8 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       storeName: payload.storeName || payload.store_name || store.name || '门店',
       serviceId: payload.serviceId || '',
       serviceName,
-      userPhone: payload.userPhone || '',
+      userPhone,
+      userId,
       complexityLevel: payload.complexityLevel || 'L1',
       vehicleJson: normalizeVehicleJson(payload.vehicle || {}),
       priceMode: planAmount != null ? 'fixed' : '',

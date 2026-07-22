@@ -59,7 +59,21 @@
       </view>
     </view>
 
-    <view class="merchant-form__section">
+    <view wx:if="{{allowTestOwnerPhone}}" class="merchant-form__section">
+      <text class="merchant-form__label">车主手机号（测试选填）</text>
+      <input
+        class="merchant-form__input"
+        type="number"
+        maxlength="11"
+        placeholder="填写后车主登录即可匹配相册"
+        value="{{form.userPhone}}"
+        data-field="userPhone"
+        bindinput="onInput"
+      />
+      <text class="text-caption album-create__test-tip">仅测试环境显示；正式环境须车主扫码关联，商家不可代填。</text>
+    </view>
+
+    <view wx:else class="merchant-form__section">
       <text class="text-caption album-create__scan-hint">创建后将立即展示车主扫码页，须车主扫码并确认隐私说明后方可上传过程图。手机号由车主本人授权，商家不可代填。</text>
     </view>
   </block>
@@ -72,6 +86,6 @@
       loading="{{submitting}}"
       disabled="{{status === 'loading'}}"
       bind:btntap="onSubmit"
-    >创建并请车主扫码</ui-button>
+    >{{allowTestOwnerPhone ? '创建相册' : '创建并请车主扫码'}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

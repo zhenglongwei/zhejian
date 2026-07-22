@@ -6,8 +6,13 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 
 const DEFAULT_COMPLEXITY = 'L2'
+
+function normalizeOwnerPhone(value) {
+  return String(value || '').replace(/\D/g, '')
+}
 
 function buildServiceQuickOptions(profile, publishedList) {
   const map = new Map()
@@ -64,6 +69,7 @@ function resolveServiceMeta(options, serviceName) {
 Page({
   data: {
     status: 'loading',
+    allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
     serviceQuickOptions: [],
     serviceSuggestTags: [],
     serviceSuggestVisible: false,
@@ -72,6 +78,7 @@ Page({
       serviceId: '',
       vehicleBrand: '',
       vehicleSeries: '',
+      userPhone: '',
       complexityLevel: DEFAULT_COMPLEXITY,
     },
     submitting: false,
@@ -184,11 +191,20 @@ Page({
       return
     }
 
+    let userPhone = ''
+    if (this.data.allowTestOwnerPhone) {
+      userPhone = normalizeOwnerPhone(this.data.form.userPhone)
+      if (userPhone && userPhone.length !== 11) {
+        wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
+        return
+      }
+    }
+
     const meta = resolveServiceMeta(this.data.serviceQuickOptions, serviceName)
 
     this.setData({ submitting: true })
     try {
-      const album = await createMerchantServiceAlbum({
+      const payload = {
         storeId: this.data.storeId,
         storeName: this.data.storeName,
         serviceId: meta.serviceId,
@@ -199,13 +215,26 @@ Page({
           brand: vehicleBrand,
           series: vehicleSeries,
         },
-      })
-      wx.showToast({ title: '请车主扫码关联', icon: 'success' })
-      setTimeout(() => {
-        wx.redirectTo({
-          url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`,
-        })
-      }, 400)
+      }
+      if (userPhone) {
+        payload.userPhone = userPhone
+      }
+      const album = await createMerchantServiceAlbum(payload)
+      if (userPhone) {
+        wx.showToast({ title: '已关联车主手机号', icon: 'success' })
+        setTimeout(() => {
+          wx.redirectTo({
+            url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+          })
+        }, 400)
+      } else {
+        wx.showToast({ title: '请车主扫码关联', icon: 'success' })
+        setTimeout(() => {
+          wx.redirectTo({
+            url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`,
+          })
+        }, 400)
+      }
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })
     } finally {
