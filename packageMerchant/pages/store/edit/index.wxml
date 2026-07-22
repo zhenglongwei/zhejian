@@ -160,26 +160,75 @@
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">接待区照片</text>
-      <view class="merchant-onboard__photo-slot" bindtap="onPickReception">
-        <image wx:if="{{form.receptionPhotoUrl}}" class="merchant-onboard__photo" src="{{form.receptionPhotoUrl}}" mode="aspectFill" />
-        <text wx:else class="text-caption">选填</text>
+      <text class="merchant-form__label">接待区照片（最多 6 张）</text>
+      <view class="merchant-onboard__photo-grid">
+        <view
+          wx:for="{{form.receptionPhotoUrls}}"
+          wx:key="index"
+          class="merchant-onboard__photo-wrap"
+        >
+          <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
+          <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveReception">×</text>
+        </view>
+        <view
+          wx:if="{{form.receptionPhotoUrls.length < 6}}"
+          class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add"
+          bindtap="onPickReception"
+        >
+          <text class="text-caption merchant-store-edit__photo-add-text">添加接待区</text>
+        </view>
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">品牌授权证明（变更需审核）</text>
-      <view class="merchant-onboard__photo-slot" bindtap="onPickBrandAuth">
-        <image wx:if="{{form.brandAuthPhotoUrl}}" class="merchant-onboard__photo" src="{{form.brandAuthPhotoUrl}}" mode="aspectFill" />
-        <text wx:else class="text-caption">选填</text>
+      <text class="merchant-form__label">品牌授权证明（变更需审核，最多 8 个品牌）</text>
+      <text class="text-caption merchant-store-edit__field-tip">每个品牌单独上传证明图并填写有效期；过期后该品牌授权不再对外展示。</text>
+      <view
+        wx:for="{{form.brandAuthItems}}"
+        wx:key="id"
+        class="merchant-store-edit__brand-card"
+      >
+        <input
+          class="merchant-form__input"
+          placeholder="品牌名称 *，如：宝马"
+          value="{{item.brandName}}"
+          data-index="{{index}}"
+          data-field="brandName"
+          bindinput="onBrandAuthInput"
+        />
+        <input
+          class="merchant-form__input merchant-store-edit__auth-date"
+          placeholder="授权有效期 *，如 2027-12-31"
+          value="{{item.validUntil}}"
+          data-index="{{index}}"
+          data-field="validUntil"
+          bindinput="onBrandAuthInput"
+        />
+        <view class="merchant-store-edit__brand-media">
+          <image
+            wx:if="{{item.imageUrl}}"
+            class="merchant-store-edit__eq-thumb"
+            src="{{item.imageUrl}}"
+            mode="aspectFill"
+          />
+          <view
+            class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add merchant-store-edit__eq-pick"
+            data-index="{{index}}"
+            bindtap="onPickBrandAuthImage"
+          >
+            <text class="text-caption">{{item.imageUrl ? '更换证明' : '上传证明'}}</text>
+          </view>
+          <text
+            wx:if="{{item.imageUrl}}"
+            class="merchant-store-edit__eq-clear text-caption"
+            data-index="{{index}}"
+            bindtap="onClearBrandAuthImage"
+          >清除图片</text>
+        </view>
+        <text class="merchant-store-edit__tech-remove text-caption" data-index="{{index}}" bindtap="onRemoveBrandAuth">删除该品牌授权</text>
       </view>
-      <input
-        class="merchant-form__input merchant-store-edit__auth-date"
-        placeholder="授权有效期，如 2027-12-31"
-        value="{{form.brandAuthValidUntil}}"
-        data-field="brandAuthValidUntil"
-        bindinput="onInput"
-      />
-      <text class="text-caption merchant-store-edit__field-tip">过期后用户端自动不再展示「品牌授权」。</text>
+      <view wx:if="{{form.brandAuthItems.length < 8}}" class="merchant-store-edit__add-tech">
+        <ui-button type="secondary" size="sm" bind:btntap="onAddBrandAuth">添加品牌授权</ui-button>
+      </view>
     </view>
   </view>
 

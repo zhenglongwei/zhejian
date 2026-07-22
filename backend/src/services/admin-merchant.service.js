@@ -14,13 +14,40 @@ const { buildMerchantCapabilityEditorView } = require('../utils/store-capability
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 
 function resignPhotoMap(photos = {}) {
+  const receptionUrls = (
+    Array.isArray(photos.receptionUrls)
+      ? photos.receptionUrls
+      : photos.receptionUrl
+        ? [photos.receptionUrl]
+        : []
+  )
+    .map((url) => resolveClientReadableMediaUrl(url))
+    .filter(Boolean)
+  const brandAuthItems = (Array.isArray(photos.brandAuthItems) ? photos.brandAuthItems : [])
+    .map((item) => ({
+      ...item,
+      imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+    }))
+    .filter((item) => item.imageUrl)
+  if (!brandAuthItems.length && photos.brandAuthUrl) {
+    brandAuthItems.push({
+      id: 'brand_auth_1',
+      brandName: '品牌授权',
+      imageUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl),
+      validUntil: '',
+    })
+  }
   return {
     facadeUrl: resolveClientReadableMediaUrl(photos.facadeUrl || ''),
     workshopUrls: (photos.workshopUrls || [])
       .map((url) => resolveClientReadableMediaUrl(url))
       .filter(Boolean),
-    receptionUrl: resolveClientReadableMediaUrl(photos.receptionUrl || ''),
-    brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
+    receptionUrls,
+    receptionUrl: receptionUrls[0] || '',
+    brandAuthItems,
+    brandAuthUrl: resolveClientReadableMediaUrl(
+      brandAuthItems[0]?.imageUrl || photos.brandAuthUrl || ''
+    ),
   }
 }
 

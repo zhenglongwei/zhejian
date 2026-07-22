@@ -52,8 +52,34 @@ async function listStoreExpiryFollowUps(query = {}) {
       merchantStatus: store.merchant?.status || '',
     }
     const cap = readCapabilityJson(store.capabilityJson)
-    const brandState = resolveValidUntilState(cap.brandAuthValidUntil, today)
-    pushItem(items, base, 'brand_auth', '品牌授权', brandState)
+    const photos =
+      store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
+    const brandItems =
+      Array.isArray(photos.brandAuthItems) && photos.brandAuthItems.length
+        ? photos.brandAuthItems
+        : photos.brandAuthUrl
+          ? [
+              {
+                brandName: '品牌授权',
+                validUntil: cap.brandAuthValidUntil || '',
+              },
+            ]
+          : cap.brandAuthValidUntil
+            ? [{ brandName: '品牌授权', validUntil: cap.brandAuthValidUntil }]
+            : []
+    if (brandItems.length) {
+      brandItems.forEach((item) => {
+        const label = String(item.brandName || '品牌授权').trim() || '品牌授权'
+        const brandState = resolveValidUntilState(
+          String(item.validUntil || cap.brandAuthValidUntil || '').trim(),
+          today
+        )
+        pushItem(items, base, 'brand_auth', label, brandState)
+      })
+    } else {
+      const brandState = resolveValidUntilState(cap.brandAuthValidUntil, today)
+      pushItem(items, base, 'brand_auth', '品牌授权', brandState)
+    }
 
     const qual =
       store.merchant?.qualificationJson && typeof store.merchant.qualificationJson === 'object'

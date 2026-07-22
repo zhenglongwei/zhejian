@@ -10,6 +10,9 @@ const {
   validateBusinessHours,
 } = require('./business-hours')
 
+const BRAND_AUTH_ITEM_MAX = 8
+const RECEPTION_PHOTO_MAX = 6
+
 const EMPTY_DISPLAY_FORM = {
   storePhone: '',
   businessHours: '',
@@ -17,9 +20,8 @@ const EMPTY_DISPLAY_FORM = {
   services: [],
   facadePhotoUrl: '',
   workshopPhotoUrls: [],
-  receptionPhotoUrl: '',
-  brandAuthPhotoUrl: '',
-  brandAuthValidUntil: '',
+  receptionPhotoUrls: [],
+  brandAuthItems: [],
   specialtyBrandsText: '',
   notAcceptingText: '',
   technicians: [],
@@ -68,6 +70,68 @@ function normalizeWorkshopPhotoUrls(value) {
   return single ? [single] : []
 }
 
+function normalizeReceptionPhotoUrls(photos = {}) {
+  if (Array.isArray(photos.receptionUrls)) {
+    return photos.receptionUrls.map((url) => String(url || '').trim()).filter(Boolean).slice(0, RECEPTION_PHOTO_MAX)
+  }
+  if (Array.isArray(photos.receptionPhotoUrls)) {
+    return photos.receptionPhotoUrls.map((url) => String(url || '').trim()).filter(Boolean).slice(0, RECEPTION_PHOTO_MAX)
+  }
+  const single = String(photos.receptionUrl || photos.receptionPhotoUrl || '').trim()
+  return single ? [single] : []
+}
+
+function normalizeBrandAuthItems(list, fallbackValidUntil = '') {
+  if (!Array.isArray(list) || !list.length) return []
+  return list
+    .map((item, index) => {
+      if (!item || typeof item !== 'object') return null
+      const imageUrl = String(item.imageUrl || item.url || item.photoUrl || '').trim()
+      if (!imageUrl) return null
+      const brandName = String(item.brandName || item.name || item.brand || '').trim() || '品牌授权'
+      return {
+        id: String(item.id || `brand_auth_${index + 1}`).trim(),
+        brandName: brandName.slice(0, 32),
+        imageUrl,
+        validUntil: String(item.validUntil || fallbackValidUntil || '').trim(),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, BRAND_AUTH_ITEM_MAX)
+}
+
+function readBrandAuthItemsFromProfile(profile) {
+  const photos = profile.photos || {}
+  if (Array.isArray(profile.brandAuthItems) && profile.brandAuthItems.length) {
+    return normalizeBrandAuthItems(profile.brandAuthItems, profile.brandAuthValidUntil)
+  }
+  if (Array.isArray(photos.brandAuthItems) && photos.brandAuthItems.length) {
+    return normalizeBrandAuthItems(photos.brandAuthItems, profile.brandAuthValidUntil)
+  }
+  const legacyUrl = String(photos.brandAuthUrl || profile.brandAuthPhotoUrl || '').trim()
+  if (!legacyUrl) return []
+  return normalizeBrandAuthItems(
+    [
+      {
+        id: 'brand_auth_1',
+        brandName: '品牌授权',
+        imageUrl: legacyUrl,
+        validUntil: profile.brandAuthValidUntil || '',
+      },
+    ],
+    profile.brandAuthValidUntil
+  )
+}
+
+function createEmptyBrandAuthItem() {
+  return {
+    id: `brand_auth_${Date.now()}`,
+    brandName: '',
+    imageUrl: '',
+    validUntil: '',
+  }
+}
+
 function profileToDisplayForm(profile) {
   const photos = profile.photos || {}
   return {
@@ -77,9 +141,8 @@ function profileToDisplayForm(profile) {
     services: profile.services || [],
     facadePhotoUrl: photos.facadeUrl || '',
     workshopPhotoUrls: normalizeWorkshopPhotoUrls(photos.workshopUrls),
-    receptionPhotoUrl: photos.receptionUrl || '',
-    brandAuthPhotoUrl: photos.brandAuthUrl || profile.brandAuthPhotoUrl || '',
-    brandAuthValidUntil: profile.brandAuthValidUntil || '',
+    receptionPhotoUrls: normalizeReceptionPhotoUrls(photos),
+    brandAuthItems: readBrandAuthItemsFromProfile(profile),
     specialtyBrandsText: joinTags(profile.specialtyBrands),
     notAcceptingText: joinTags(profile.notAccepting),
     technicians: Array.isArray(profile.technicians) ? profile.technicians : [],
@@ -131,6 +194,12 @@ function buildDisplayPayload(form, storeId) {
     }))
     .filter((item) => item.name)
 
+  const brandAuthItems = normalizeBrandAuthItems(form.brandAuthItems)
+  const receptionPhotoUrls = normalizeWorkshopPhotoUrls(form.receptionPhotoUrls).slice(
+    0,
+    RECEPTION_PHOTO_MAX
+  )
+
   return {
     storeId,
     storePhone: form.storePhone,
@@ -141,12 +210,15 @@ function buildDisplayPayload(form, storeId) {
     notAccepting: splitTags(form.notAcceptingText),
     technicians,
     equipmentTags,
-    brandAuthValidUntil: form.brandAuthValidUntil || '',
+    brandAuthItems,
+    brandAuthValidUntil: brandAuthItems[0]?.validUntil || '',
     photos: {
       facadeUrl: form.facadePhotoUrl,
       workshopUrls: normalizeWorkshopPhotoUrls(form.workshopPhotoUrls),
-      receptionUrl: form.receptionPhotoUrl,
-      brandAuthUrl: form.brandAuthPhotoUrl,
+      receptionUrls: receptionPhotoUrls,
+      receptionUrl: receptionPhotoUrls[0] || '',
+      brandAuthItems,
+      brandAuthUrl: brandAuthItems[0]?.imageUrl || '',
     },
   }
 }
@@ -174,12 +246,30 @@ function validateDisplayForm(form, options = {}) {
   if (!normalizeWorkshopPhotoUrls(form.workshopPhotoUrls).length) {
     return '请至少上传一张工位照片'
   }
+  const brandAuthItems = Array.isArray(form.brandAuthItems) ? form.brandAuthItems : []
+  for (let i = 0; i < brandAuthItems.length; i += 1) {
+    const item = brandAuthItems[i] || {}
+    const brandName = String(item.brandName || '').trim()
+    const imageUrl = String(item.imageUrl || '').trim()
+    const validUntil = String(item.validUntil || '').trim()
+    if (!brandName) {
+      return `请填写第 ${i + 1} 条品牌授权的品牌名称`
+    }
+    if (!imageUrl) {
+      return `请为「${brandName}」上传授权证明图片`
+    }
+    if (!validUntil) {
+      return `请填写「${brandName}」的授权有效期`
+    }
+  }
   return ''
 }
 
 module.exports = {
   EMPTY_DISPLAY_FORM,
   EQUIPMENT_PRESETS,
+  BRAND_AUTH_ITEM_MAX,
+  RECEPTION_PHOTO_MAX,
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
@@ -192,4 +282,8 @@ module.exports = {
   formatBusinessHours,
   splitTags,
   joinTags,
+  normalizeBrandAuthItems,
+  createEmptyBrandAuthItem,
+  normalizeReceptionPhotoUrls,
+  normalizeWorkshopPhotoUrls,
 }

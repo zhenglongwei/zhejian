@@ -1,4 +1,5 @@
 const { assertPersistentImageUrl } = require('./media-storage')
+const { normalizeBrandAuthItems, earliestBrandAuthValidUntil } = require('../utils/store-capability')
 
 /** 基础维修等级（互斥单选） */
 const BASE_QUALIFICATION_TYPES = new Set(['class_1', 'class_2', 'class_3', 'record'])
@@ -126,11 +127,24 @@ function normalizeQualification(raw = {}) {
 
 function normalizePhotos(raw = {}) {
   const src = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  const receptionUrls = normalizeStringArray(
+    Array.isArray(src.receptionUrls)
+      ? src.receptionUrls
+      : src.receptionUrl
+        ? [src.receptionUrl]
+        : []
+  ).slice(0, 6)
+  const brandAuthItems = Array.isArray(src.brandAuthItems)
+    ? src.brandAuthItems
+    : []
+  const legacyBrandAuthUrl = String(src.brandAuthUrl || '').trim()
   return {
     facadeUrl: String(src.facadeUrl || '').trim(),
-    workshopUrls: normalizeStringArray(src.workshopUrls),
-    receptionUrl: String(src.receptionUrl || '').trim(),
-    brandAuthUrl: String(src.brandAuthUrl || '').trim(),
+    workshopUrls: normalizeStringArray(src.workshopUrls).slice(0, 6),
+    receptionUrls,
+    receptionUrl: receptionUrls[0] || '',
+    brandAuthItems,
+    brandAuthUrl: legacyBrandAuthUrl || String(brandAuthItems[0]?.imageUrl || '').trim(),
   }
 }
 
@@ -186,7 +200,9 @@ function parseOnboardingForm(form = {}) {
     form.photos || {
       facadeUrl: form.facadePhotoUrl,
       workshopUrls: form.workshopPhotoUrls,
+      receptionUrls: form.receptionPhotoUrls,
       receptionUrl: form.receptionPhotoUrl,
+      brandAuthItems: form.brandAuthItems,
       brandAuthUrl: form.brandAuthPhotoUrl,
     }
   )
@@ -217,11 +233,32 @@ function assertPersistentOptional(url) {
 }
 
 function sanitizePhotoPayload(photos) {
+  const receptionUrls = normalizeStringArray(
+    Array.isArray(photos.receptionUrls)
+      ? photos.receptionUrls
+      : photos.receptionUrl
+        ? [photos.receptionUrl]
+        : []
+  )
+    .map((u) => assertPersistentOptional(u))
+    .filter(Boolean)
+    .slice(0, 6)
+  const brandAuthItems = normalizeBrandAuthItems(
+    Array.isArray(photos.brandAuthItems) ? photos.brandAuthItems : []
+  )
+  const legacyBrandAuthUrl = assertPersistentOptional(
+    photos.brandAuthUrl || brandAuthItems[0]?.imageUrl || ''
+  )
   return {
     facadeUrl: assertPersistentOptional(photos.facadeUrl),
-    workshopUrls: photos.workshopUrls.map((u) => assertPersistentOptional(u)).filter(Boolean),
-    receptionUrl: assertPersistentOptional(photos.receptionUrl),
-    brandAuthUrl: assertPersistentOptional(photos.brandAuthUrl),
+    workshopUrls: (photos.workshopUrls || [])
+      .map((u) => assertPersistentOptional(u))
+      .filter(Boolean)
+      .slice(0, 6),
+    receptionUrls,
+    receptionUrl: receptionUrls[0] || '',
+    brandAuthItems,
+    brandAuthUrl: legacyBrandAuthUrl,
   }
 }
 
@@ -294,16 +331,26 @@ function parseStoreDisplayForm(form = {}) {
     form.photos || {
       facadeUrl: form.facadePhotoUrl,
       workshopUrls: form.workshopPhotoUrls,
+      receptionUrls: form.receptionPhotoUrls,
       receptionUrl: form.receptionPhotoUrl,
+      brandAuthItems: form.brandAuthItems,
       brandAuthUrl: form.brandAuthPhotoUrl,
     }
   )
+  if (Array.isArray(form.brandAuthItems)) {
+    photos.brandAuthItems = normalizeBrandAuthItems(form.brandAuthItems)
+    photos.brandAuthUrl = photos.brandAuthItems[0]?.imageUrl || photos.brandAuthUrl || ''
+  }
 
   return {
     storePhone: String(form.storePhone || '').trim(),
     businessHours: String(form.businessHours || '').trim(),
     intro: String(form.intro || '').trim(),
     services: normalizeServices(form.services),
+    brandAuthItems: photos.brandAuthItems,
+    brandAuthValidUntil:
+      earliestBrandAuthValidUntil(photos.brandAuthItems) ||
+      String(form.brandAuthValidUntil || '').trim(),
     photos,
   }
 }

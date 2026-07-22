@@ -41,22 +41,65 @@
           </el-table>
 
           <h4 class="mt">品牌授权</h4>
-          <p>有效期：{{ detail.pending.brandAuthValidUntil || '—' }}</p>
-          <el-image
-            v-if="detail.pending.brandAuthUrl"
-            :src="detail.pending.brandAuthUrl"
-            style="width: 160px; height: 120px"
-            fit="cover"
-            :preview-src-list="[detail.pending.brandAuthUrl]"
-          />
+          <el-table
+            :data="detail.pending.brandAuthItems || []"
+            border
+            size="small"
+            empty-text="无品牌授权变更"
+          >
+            <el-table-column prop="brandName" label="品牌" min-width="120" />
+            <el-table-column prop="validUntil" label="有效期" width="140" />
+            <el-table-column label="证明" width="100">
+              <template #default="{ row }">
+                <el-image
+                  v-if="row.imageUrl"
+                  :src="row.imageUrl"
+                  style="width: 64px; height: 64px"
+                  fit="cover"
+                  :preview-src-list="[row.imageUrl]"
+                />
+                <span v-else>—</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <template v-if="!(detail.pending.brandAuthItems || []).length && detail.pending.brandAuthUrl">
+            <p>有效期：{{ detail.pending.brandAuthValidUntil || '—' }}</p>
+            <el-image
+              :src="detail.pending.brandAuthUrl"
+              style="width: 160px; height: 120px"
+              fit="cover"
+              :preview-src-list="[detail.pending.brandAuthUrl]"
+            />
+          </template>
         </template>
         <el-empty v-else description="无待审快照" />
       </el-card>
 
       <el-card class="block" header="当前已公开">
         <p>技师 {{ (detail.published?.technicians || []).length }} · 设备 {{ (detail.published?.equipmentTags || []).length }}</p>
-        <p>授权有效期：{{ detail.published?.brandAuthValidUntil || '—' }}</p>
-        <p>资料核实：{{ detail.published?.lastProfileVerifiedAt || '—' }}</p>
+        <el-table
+          class="mt"
+          :data="detail.published?.brandAuthItems || []"
+          border
+          size="small"
+          empty-text="暂无已公开品牌授权"
+        >
+          <el-table-column prop="brandName" label="品牌" min-width="120" />
+          <el-table-column prop="validUntil" label="有效期" width="140" />
+          <el-table-column label="证明" width="100">
+            <template #default="{ row }">
+              <el-image
+                v-if="row.imageUrl"
+                :src="row.imageUrl"
+                style="width: 64px; height: 64px"
+                fit="cover"
+                :preview-src-list="[row.imageUrl]"
+              />
+              <span v-else>—</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <p class="mt">资料核实：{{ detail.published?.lastProfileVerifiedAt || '—' }}</p>
       </el-card>
 
       <div v-if="detail.reviewStatus === 'pending'" class="actions">

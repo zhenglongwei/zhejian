@@ -9,6 +9,8 @@ const {
   mergeCapabilityFromMerchantEdit,
   buildMerchantCapabilityEditorView,
   readCapabilityJson,
+  readBrandAuthItemsFromPhotos,
+  brandAuthItemsSignature,
 } = require('../utils/store-capability')
 const {
   resolveStoreCapabilityJson,
@@ -25,6 +27,16 @@ function resignEquipmentTags(tags) {
     if (!item || typeof item !== 'object') return item
     if (!item.imageUrl) return item
     return { ...item, imageUrl: resolveClientReadableMediaUrl(item.imageUrl) }
+  })
+}
+
+function resignBrandAuthItems(items) {
+  return (items || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    return {
+      ...item,
+      imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+    }
   })
 }
 
@@ -97,12 +109,17 @@ function attachCapabilityToProfile(profile, store, capabilityOverride) {
   const capabilityRaw =
     capabilityOverride !== undefined ? capabilityOverride : store.capabilityJson
   const capabilityEditor = buildMerchantCapabilityEditorView(capabilityRaw, photos)
+  const brandAuthItems = resignBrandAuthItems(capabilityEditor.brandAuthItems)
   return {
     ...profile,
     ...capabilityEditor,
     equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
+    brandAuthItems,
     brandAuthPhotoUrl: resolveClientReadableMediaUrl(
-      capabilityEditor.brandAuthPhotoUrl || photos.brandAuthUrl || ''
+      brandAuthItems[0]?.imageUrl ||
+        capabilityEditor.brandAuthPhotoUrl ||
+        photos.brandAuthUrl ||
+        ''
     ),
     capabilityReviewStatus: capabilityEditor.reviewStatus,
   }
@@ -126,17 +143,26 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
 
   const prevPhotos =
     existing.photosJson && typeof existing.photosJson === 'object' ? existing.photosJson : {}
-  const prevBrandAuthUrl = String(prevPhotos.brandAuthUrl || '').trim()
-  const nextBrandAuthUrl = String(payload.photos.brandAuthUrl || '').trim()
+  const publishedBrandAuthItems = readBrandAuthItemsFromPhotos(prevPhotos)
+  const submittedBrandAuthItems = readBrandAuthItemsFromPhotos(
+    {
+      brandAuthItems: rawForm.brandAuthItems || payload.brandAuthItems || payload.photos.brandAuthItems,
+      brandAuthUrl: payload.photos.brandAuthUrl,
+      brandAuthValidUntil: payload.brandAuthValidUntil || rawForm.brandAuthValidUntil,
+    },
+    payload.brandAuthValidUntil || rawForm.brandAuthValidUntil
+  )
+  const brandAuthChanged =
+    brandAuthItemsSignature(submittedBrandAuthItems) !==
+    brandAuthItemsSignature(publishedBrandAuthItems)
 
-  // 须审：品牌授权图变更时，photos 暂不覆盖已通过图（待审通过后再写）
-  const brandAuthChanged = nextBrandAuthUrl !== prevBrandAuthUrl
+  // 须审：品牌授权变更时，photos 暂不覆盖已通过授权（待审通过后再写）
   const photosToSave = {
     ...payload.photos,
-    brandAuthUrl:
-      brandAuthChanged && nextBrandAuthUrl
-        ? prevBrandAuthUrl
-        : nextBrandAuthUrl || prevBrandAuthUrl,
+    brandAuthItems: brandAuthChanged ? publishedBrandAuthItems : submittedBrandAuthItems,
+    brandAuthUrl: brandAuthChanged
+      ? publishedBrandAuthItems[0]?.imageUrl || prevPhotos.brandAuthUrl || ''
+      : submittedBrandAuthItems[0]?.imageUrl || '',
   }
 
   const { capability, needsReview } = mergeCapabilityFromMerchantEdit(
@@ -146,20 +172,12 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
       notAccepting: rawForm.notAccepting,
       technicians: rawForm.technicians,
       equipmentTags: rawForm.equipmentTags,
-      brandAuthValidUntil: rawForm.brandAuthValidUntil,
-      brandAuthChanged,
-      prevBrandAuthUrl,
+      brandAuthItems: submittedBrandAuthItems,
+      brandAuthValidUntil: payload.brandAuthValidUntil || rawForm.brandAuthValidUntil,
       bookingPaused: rawForm.bookingPaused,
     },
-    {
-      brandAuthUrl: nextBrandAuthUrl || prevBrandAuthUrl,
-    }
+    prevPhotos
   )
-
-  // pending 里保留商家提交的新授权图
-  if (needsReview && capability.pending) {
-    capability.pending.brandAuthUrl = nextBrandAuthUrl || prevBrandAuthUrl
-  }
 
   const baseData = {
     phone: payload.storePhone,
@@ -196,7 +214,9 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
       'tech',
       (capability.pending?.technicians || []).length,
       'eq',
-      (capability.pending?.equipmentTags || []).length
+      (capability.pending?.equipmentTags || []).length,
+      'brandAuth',
+      (capability.pending?.brandAuthItems || []).length
     )
   }
 

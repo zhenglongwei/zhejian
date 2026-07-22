@@ -208,7 +208,7 @@
         <view wx:if="{{certWall.length}}" class="store-detail__cert-wall">
           <view
             wx:for="{{certWall}}"
-            wx:key="label"
+            wx:key="id"
             class="store-detail__cert-wall-item"
             bindtap="onPreviewCert"
             data-url="{{item.imageUrl}}"

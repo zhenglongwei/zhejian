@@ -530,13 +530,17 @@ function mapStoreRow(store, caseCount = 0) {
     Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
       ? photos.workshopUrls
       : extras.environmentImages || []
-  const receptionUrl = String(photos.receptionUrl || '').trim()
+  const receptionUrls = Array.isArray(photos.receptionUrls)
+    ? photos.receptionUrls
+    : photos.receptionUrl
+      ? [photos.receptionUrl]
+      : []
   const equipmentImageUrls = collectApprovedEquipmentImageUrls(publicCapability)
   // 环境轮播顺序：工位 → 接待区 → 已审设备实景（门头单独作 coverImage）
   const environmentImages = filterPublicEnvironmentImages(
     resolveClientReadableMediaUrls([
       ...workshopUrls,
-      ...(receptionUrl ? [receptionUrl] : []),
+      ...receptionUrls,
       ...equipmentImageUrls,
     ])
   )
@@ -548,6 +552,7 @@ function mapStoreRow(store, caseCount = 0) {
       : {}
   const scorePenalty = computeStoreListScorePenalty({
     brandAuthValidUntil: capability.brandAuthValidUntil,
+    brandAuthItems: publicCapability.brandAuthItems,
     qualificationValidUntil: String(qualificationJson.validUntil || '').trim(),
   })
   const baseScore = Number(extras.score) || 0
@@ -577,6 +582,7 @@ function mapStoreRow(store, caseCount = 0) {
     notAccepting: publicCapability.notAccepting,
     equipmentTags: publicCapability.equipmentTags,
     brandAuth: publicCapability.brandAuth,
+    brandAuthItems: publicCapability.brandAuthItems || [],
     score: Math.max(0, baseScore - scorePenalty),
     caseCount,
     supportsAlbum: extras.supportsAlbum !== false,

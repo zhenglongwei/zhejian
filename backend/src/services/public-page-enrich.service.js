@@ -139,19 +139,38 @@ function buildCertWall(merchant, extras = {}) {
       text: ne.certNo ? `${ne.certNo} · 已认证` : '已认证',
     })
   }
-  const brandAuth = extras.brandAuthUrl
-  const brandAuthValidUntil = extras.brandAuthValidUntil || ''
-  if (brandAuth) {
-    const expired =
-      brandAuthValidUntil && brandAuthValidUntil < formatShanghaiDate()
-    if (!expired) {
+  const brandAuthItems = Array.isArray(extras.brandAuthItems) ? extras.brandAuthItems : []
+  if (brandAuthItems.length) {
+    brandAuthItems.forEach((item) => {
+      const imageUrl = item && item.imageUrl
+      const validUntil = (item && item.validUntil) || ''
+      if (!imageUrl) return
+      if (validUntil && validUntil < formatShanghaiDate()) return
+      const brandName = String((item && item.brandName) || '').trim() || '品牌授权'
       wall.push({
         type: 'brand_auth',
-        label: '品牌授权',
-        imageUrl: resolvePublicCredentialImageUrl(brandAuth),
+        id: String((item && item.id) || brandName),
+        label: brandName,
+        imageUrl: resolvePublicCredentialImageUrl(imageUrl),
         status: 'verified',
-        text: brandAuthValidUntil ? `已认证 · 有效期至 ${brandAuthValidUntil}` : '已认证',
+        text: validUntil ? `已认证 · 有效期至 ${validUntil}` : '已认证',
       })
+    })
+  } else {
+    const brandAuth = extras.brandAuthUrl
+    const brandAuthValidUntil = extras.brandAuthValidUntil || ''
+    if (brandAuth) {
+      const expired =
+        brandAuthValidUntil && brandAuthValidUntil < formatShanghaiDate()
+      if (!expired) {
+        wall.push({
+          type: 'brand_auth',
+          label: '品牌授权',
+          imageUrl: resolvePublicCredentialImageUrl(brandAuth),
+          status: 'verified',
+          text: brandAuthValidUntil ? `已认证 · 有效期至 ${brandAuthValidUntil}` : '已认证',
+        })
+      }
     }
   }
   return wall
@@ -318,6 +337,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
   const certifications = buildCertifications(merchantRow, extras)
   const certWall = buildCertWall(merchantRow, {
     ...extras,
+    brandAuthItems: publicCapability.brandAuthItems || [],
     brandAuthUrl: publicCapability.brandAuth?.imageUrl || '',
     brandAuthValidUntil: publicCapability.brandAuth?.validUntil || '',
   })
@@ -427,6 +447,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     notAccepting: publicCapability.notAccepting,
     equipmentTags: publicCapability.equipmentTags,
     brandAuth: publicCapability.brandAuth,
+    brandAuthItems: publicCapability.brandAuthItems || [],
     freshness,
     environmentImages,
     casePreviews,

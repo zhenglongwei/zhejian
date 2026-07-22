@@ -16,6 +16,8 @@ const EQUIPMENT_TAG_PRESETS = [
   '空调冷媒机',
 ]
 
+const BRAND_AUTH_ITEM_MAX = 8
+
 function normalizeStringArray(value, max = 20) {
   if (!Array.isArray(value)) return []
   return value
@@ -63,6 +65,80 @@ function normalizeEquipmentTag(raw = {}, index = 0) {
 function normalizeEquipmentTags(list) {
   if (!Array.isArray(list)) return []
   return list.map((item, i) => normalizeEquipmentTag(item, i)).filter(Boolean).slice(0, 16)
+}
+
+function persistOptionalImageUrl(url) {
+  const value = String(url || '').trim()
+  if (!value) return ''
+  try {
+    return assertPersistentImageUrl(value)
+  } catch (_) {
+    return ''
+  }
+}
+
+/**
+ * 单条品牌授权：品牌名 + 证明图 + 有效期
+ * 无品牌名且无图则丢弃；有图无品牌名时品牌名回落为「品牌授权」
+ */
+function normalizeBrandAuthItem(raw = {}, index = 0) {
+  if (!raw || typeof raw !== 'object') return null
+  const brandName = String(raw.brandName || raw.name || raw.brand || '').trim().slice(0, 32)
+  const imageUrl = persistOptionalImageUrl(raw.imageUrl || raw.url || raw.photoUrl)
+  const validUntil = String(raw.validUntil || raw.brandAuthValidUntil || '').trim().slice(0, 16)
+  if (!imageUrl && !brandName) return null
+  if (!imageUrl) return null
+  return {
+    id: String(raw.id || `brand_auth_${index + 1}`).trim().slice(0, 40),
+    brandName: brandName || '品牌授权',
+    imageUrl,
+    validUntil,
+  }
+}
+
+function normalizeBrandAuthItems(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((item, i) => normalizeBrandAuthItem(item, i))
+    .filter(Boolean)
+    .slice(0, BRAND_AUTH_ITEM_MAX)
+}
+
+/** 读 photosJson / pending：兼容旧 brandAuthUrl + brandAuthValidUntil */
+function readBrandAuthItemsFromPhotos(photos = {}, fallbackValidUntil = '') {
+  const src = photos && typeof photos === 'object' && !Array.isArray(photos) ? photos : {}
+  if (Array.isArray(src.brandAuthItems) && src.brandAuthItems.length) {
+    return normalizeBrandAuthItems(src.brandAuthItems)
+  }
+  const legacyUrl = String(src.brandAuthUrl || '').trim()
+  if (!legacyUrl) return []
+  return normalizeBrandAuthItems([
+    {
+      id: 'brand_auth_1',
+      brandName: '品牌授权',
+      imageUrl: legacyUrl,
+      validUntil: String(src.brandAuthValidUntil || fallbackValidUntil || '').trim(),
+    },
+  ])
+}
+
+function brandAuthItemsSignature(list) {
+  return JSON.stringify(
+    normalizeBrandAuthItems(list).map((item) => ({
+      id: item.id,
+      brandName: item.brandName,
+      imageUrl: item.imageUrl,
+      validUntil: item.validUntil,
+    }))
+  )
+}
+
+function earliestBrandAuthValidUntil(items) {
+  const dates = normalizeBrandAuthItems(items)
+    .map((item) => item.validUntil)
+    .filter(Boolean)
+    .sort()
+  return dates[0] || ''
 }
 
 function emptyCapability() {
@@ -125,18 +201,30 @@ const LIST_SCORE_PENALTY = {
 
 /**
  * 公开列表轻降权（不对用户展示文案）
- * @returns {number} 应从 score 扣除的分值
+ * brandAuthValidUntil 可为单值；若传入 brandAuthItems 则按各条累计最差后再封顶（同旧：过期/临期各计一次取最严重）
  */
 function computeStoreListScorePenalty(
-  { brandAuthValidUntil = '', qualificationValidUntil = '' } = {},
+  { brandAuthValidUntil = '', qualificationValidUntil = '', brandAuthItems } = {},
   today = formatShanghaiDate()
 ) {
   let penalty = 0
-  for (const until of [brandAuthValidUntil, qualificationValidUntil]) {
+  const authUntils = Array.isArray(brandAuthItems)
+    ? normalizeBrandAuthItems(brandAuthItems).map((item) => item.validUntil).filter(Boolean)
+    : brandAuthValidUntil
+      ? [brandAuthValidUntil]
+      : []
+  let authPenalty = 0
+  for (const until of authUntils) {
     const state = resolveValidUntilState(until, today)
-    if (state.status === 'expired') penalty += LIST_SCORE_PENALTY.expired
-    else if (state.status === 'expiring') penalty += LIST_SCORE_PENALTY.expiring
+    if (state.status === 'expired') authPenalty = Math.max(authPenalty, LIST_SCORE_PENALTY.expired)
+    else if (state.status === 'expiring') {
+      authPenalty = Math.max(authPenalty, LIST_SCORE_PENALTY.expiring)
+    }
   }
+  penalty += authPenalty
+  const qualState = resolveValidUntilState(qualificationValidUntil, today)
+  if (qualState.status === 'expired') penalty += LIST_SCORE_PENALTY.expired
+  else if (qualState.status === 'expiring') penalty += LIST_SCORE_PENALTY.expiring
   return penalty
 }
 
@@ -149,12 +237,19 @@ function collectApprovedEquipmentImageUrls(publicCapability) {
   return tags.map((t) => String(t.imageUrl || '').trim()).filter(Boolean)
 }
 
+function filterPublicBrandAuthItems(items, today = formatShanghaiDate()) {
+  return normalizeBrandAuthItems(items).filter((item) => {
+    if (!item.imageUrl) return false
+    if (item.validUntil && isDateExpired(item.validUntil, today)) return false
+    return true
+  })
+}
+
 function brandAuthIsPublic(capability, brandAuthUrl, today = formatShanghaiDate()) {
   const url = String(brandAuthUrl || '').trim()
   if (!url) return false
   const until = capability.brandAuthValidUntil
   if (until && isDateExpired(until, today)) return false
-  // 有待审品牌授权变更时，公开仍用已通过的 validUntil；URL 以 photos 已落库为准
   return true
 }
 
@@ -165,8 +260,20 @@ function capabilityNeedsReview(nextPending, prev) {
   const eqChanged =
     JSON.stringify(nextPending.equipmentTags || []) !== JSON.stringify(prev.equipmentTags || [])
   const authChanged =
-    String(nextPending.brandAuthUrl || '') !== String(nextPending.prevBrandAuthUrl || '') ||
-    String(nextPending.brandAuthValidUntil || '') !== String(prev.brandAuthValidUntil || '')
+    brandAuthItemsSignature(nextPending.brandAuthItems) !==
+      brandAuthItemsSignature(
+        nextPending.prevBrandAuthItems ||
+          (nextPending.prevBrandAuthUrl
+            ? [
+                {
+                  id: 'brand_auth_1',
+                  brandName: '品牌授权',
+                  imageUrl: nextPending.prevBrandAuthUrl,
+                  validUntil: prev.brandAuthValidUntil,
+                },
+              ]
+            : [])
+      )
   return techChanged || eqChanged || authChanged
 }
 
@@ -188,33 +295,45 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     form.technicians != null ? normalizeTechnicians(form.technicians) : prev.technicians
   const submittedEquipment =
     form.equipmentTags != null ? normalizeEquipmentTags(form.equipmentTags) : prev.equipmentTags
-  const brandAuthUrl = String(photos.brandAuthUrl || form.brandAuthPhotoUrl || '').trim()
-  const brandAuthValidUntil = String(
-    form.brandAuthValidUntil != null ? form.brandAuthValidUntil : prev.brandAuthValidUntil
-  ).trim()
 
-  const prevBrandAuthUrl = String(form.prevBrandAuthUrl || photos._prevBrandAuthUrl || '').trim()
+  const publishedBrandAuthItems = readBrandAuthItemsFromPhotos(photos, prev.brandAuthValidUntil)
+  let submittedBrandAuthItems = publishedBrandAuthItems
+  if (form.brandAuthItems != null) {
+    submittedBrandAuthItems = normalizeBrandAuthItems(form.brandAuthItems)
+  } else if (photos.brandAuthItems != null || form.brandAuthPhotoUrl || photos.brandAuthUrl) {
+    submittedBrandAuthItems = readBrandAuthItemsFromPhotos(
+      {
+        brandAuthItems: form.brandAuthItems || photos.brandAuthItems,
+        brandAuthUrl: form.brandAuthPhotoUrl || photos.brandAuthUrl,
+        brandAuthValidUntil: form.brandAuthValidUntil,
+      },
+      form.brandAuthValidUntil || prev.brandAuthValidUntil
+    )
+  }
 
   const reviewPayload = {
     submittedAt: new Date().toISOString(),
     technicians: submittedTechnicians,
     equipmentTags: submittedEquipment,
-    brandAuthUrl,
-    brandAuthValidUntil,
-    prevBrandAuthUrl,
+    brandAuthItems: submittedBrandAuthItems,
+    // 兼容旧运营台字段
+    brandAuthUrl: submittedBrandAuthItems[0]?.imageUrl || '',
+    brandAuthValidUntil:
+      earliestBrandAuthValidUntil(submittedBrandAuthItems) ||
+      String(form.brandAuthValidUntil || prev.brandAuthValidUntil || '').trim(),
+    prevBrandAuthItems: publishedBrandAuthItems,
+    prevBrandAuthUrl: publishedBrandAuthItems[0]?.imageUrl || '',
   }
 
   const techChanged =
     JSON.stringify(submittedTechnicians) !== JSON.stringify(prev.technicians || [])
   const eqChanged =
     JSON.stringify(submittedEquipment) !== JSON.stringify(prev.equipmentTags || [])
-  const authUntilChanged = brandAuthValidUntil !== String(prev.brandAuthValidUntil || '')
-  // 品牌授权图变化由调用方传入 prevBrandAuthUrl 比较；若未传则仅看 validUntil + 有图
-  const authUrlChanged =
-    form.brandAuthChanged === true ||
-    (prevBrandAuthUrl && brandAuthUrl !== prevBrandAuthUrl)
+  const authChanged =
+    brandAuthItemsSignature(submittedBrandAuthItems) !==
+    brandAuthItemsSignature(publishedBrandAuthItems)
 
-  const needsReview = techChanged || eqChanged || authUntilChanged || authUrlChanged
+  const needsReview = techChanged || eqChanged || authChanged
 
   const next = {
     ...prev,
@@ -235,21 +354,37 @@ function approveCapabilityPending(prevRaw, options = {}) {
   const prev = readCapabilityJson(prevRaw)
   const pending = prev.pending
   if (!pending) {
-    return { capability: prev, brandAuthUrl: null }
+    return { capability: prev, brandAuthUrl: null, brandAuthItems: null }
   }
   const today = formatShanghaiDate()
+  const brandAuthItems = normalizeBrandAuthItems(
+    pending.brandAuthItems ||
+      (pending.brandAuthUrl
+        ? [
+            {
+              id: 'brand_auth_1',
+              brandName: '品牌授权',
+              imageUrl: pending.brandAuthUrl,
+              validUntil: pending.brandAuthValidUntil,
+            },
+          ]
+        : [])
+  )
   const next = {
     ...prev,
     technicians: normalizeTechnicians(pending.technicians),
     equipmentTags: normalizeEquipmentTags(pending.equipmentTags),
-    brandAuthValidUntil: String(pending.brandAuthValidUntil || '').trim(),
+    brandAuthValidUntil:
+      earliestBrandAuthValidUntil(brandAuthItems) ||
+      String(pending.brandAuthValidUntil || '').trim(),
     pending: null,
     reviewStatus: 'none',
     lastProfileVerifiedAt: options.verifiedAt || today,
   }
   return {
     capability: next,
-    brandAuthUrl: String(pending.brandAuthUrl || '').trim() || null,
+    brandAuthUrl: brandAuthItems[0]?.imageUrl || null,
+    brandAuthItems,
   }
 }
 
@@ -267,10 +402,9 @@ function rejectCapabilityPending(prevRaw, reason = '') {
 function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
   const capability = readCapabilityJson(capabilityRaw)
   const today = options.today || formatShanghaiDate()
-  const brandAuthUrl = String(photos.brandAuthUrl || '').trim()
-  const showBrandAuth = Boolean(
-    brandAuthUrl && !isDateExpired(capability.brandAuthValidUntil, today)
-  )
+  const publishedItems = readBrandAuthItemsFromPhotos(photos, capability.brandAuthValidUntil)
+  const publicItems = filterPublicBrandAuthItems(publishedItems, today)
+  const first = publicItems[0] || null
 
   return {
     specialtyBrands: capability.specialtyBrands,
@@ -283,11 +417,13 @@ function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
       credentials: t.credentials,
     })),
     equipmentTags: capability.equipmentTags,
-    brandAuth: showBrandAuth
+    brandAuthItems: publicItems,
+    brandAuth: first
       ? {
           verified: true,
-          validUntil: capability.brandAuthValidUntil || '',
-          imageUrl: brandAuthUrl,
+          validUntil: first.validUntil || '',
+          imageUrl: first.imageUrl,
+          brandName: first.brandName || '品牌授权',
         }
       : null,
     lastProfileVerifiedAt: capability.lastProfileVerifiedAt || '',
@@ -298,23 +434,43 @@ function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
 function buildMerchantCapabilityEditorView(capabilityRaw, photos = {}) {
   const capability = readCapabilityJson(capabilityRaw)
   const pending = capability.pending
+  const publishedItems = readBrandAuthItemsFromPhotos(photos, capability.brandAuthValidUntil)
+  const editorItems = pending?.brandAuthItems
+    ? normalizeBrandAuthItems(pending.brandAuthItems)
+    : pending?.brandAuthUrl
+      ? normalizeBrandAuthItems([
+          {
+            id: 'brand_auth_1',
+            brandName: '品牌授权',
+            imageUrl: pending.brandAuthUrl,
+            validUntil: pending.brandAuthValidUntil || capability.brandAuthValidUntil,
+          },
+        ])
+      : publishedItems
+
   return {
     specialtyBrands: capability.specialtyBrands,
     notAccepting: capability.notAccepting,
     technicians: pending?.technicians || capability.technicians,
     equipmentTags: pending?.equipmentTags || capability.equipmentTags,
-    brandAuthValidUntil: pending?.brandAuthValidUntil || capability.brandAuthValidUntil,
-    brandAuthPhotoUrl: String(photos.brandAuthUrl || '').trim(),
+    brandAuthItems: editorItems,
+    brandAuthValidUntil:
+      earliestBrandAuthValidUntil(editorItems) ||
+      pending?.brandAuthValidUntil ||
+      capability.brandAuthValidUntil,
+    brandAuthPhotoUrl: editorItems[0]?.imageUrl || '',
     reviewStatus: capability.reviewStatus,
     rejectReason: pending?.rejectReason || '',
     publishedTechnicians: capability.technicians,
     publishedEquipmentTags: capability.equipmentTags,
+    publishedBrandAuthItems: publishedItems,
     lastProfileVerifiedAt: capability.lastProfileVerifiedAt,
   }
 }
 
 module.exports = {
   EQUIPMENT_TAG_PRESETS,
+  BRAND_AUTH_ITEM_MAX,
   LIST_SCORE_PENALTY,
   emptyCapability,
   readCapabilityJson,
@@ -331,5 +487,10 @@ module.exports = {
   capabilityNeedsReview,
   normalizeTechnicians,
   normalizeEquipmentTags,
+  normalizeBrandAuthItems,
+  readBrandAuthItemsFromPhotos,
+  filterPublicBrandAuthItems,
+  brandAuthItemsSignature,
+  earliestBrandAuthValidUntil,
   normalizeStringArray,
 }

@@ -41,6 +41,18 @@ function storePhotosReferenceObjectKey(photosJson, objectKey) {
   if (mediaUrlMatchesObjectKey(photos.facadeUrl, objectKey)) return true
   if (mediaUrlMatchesObjectKey(photos.receptionUrl, objectKey)) return true
   if (mediaUrlMatchesObjectKey(photos.brandAuthUrl, objectKey)) return true
+  if (Array.isArray(photos.receptionUrls)) {
+    if (photos.receptionUrls.some((url) => mediaUrlMatchesObjectKey(url, objectKey))) return true
+  }
+  if (Array.isArray(photos.brandAuthItems)) {
+    if (
+      photos.brandAuthItems.some((item) =>
+        mediaUrlMatchesObjectKey(item && item.imageUrl, objectKey)
+      )
+    ) {
+      return true
+    }
+  }
   if (Array.isArray(photos.workshopUrls)) {
     return photos.workshopUrls.some((url) => mediaUrlMatchesObjectKey(url, objectKey))
   }

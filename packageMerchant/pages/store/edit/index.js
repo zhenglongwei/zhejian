@@ -8,12 +8,15 @@ const {
   MERCHANT_SERVICE_TAG_MAX,
   MERCHANT_SERVICE_TAG_NAME_MAX,
   MERCHANT_SERVICE_TAG_OPTIONS,
+  BRAND_AUTH_ITEM_MAX,
+  RECEPTION_PHOTO_MAX,
   buildServiceTagViews,
   profileToDisplayForm,
   profileToBasicReadonly,
   buildDisplayPayload,
   validateDisplayForm,
   joinTags,
+  createEmptyBrandAuthItem,
 } = require('../../../../utils/merchant-store-form')
 const { buildBusinessHoursEditorState } = require('../../../../utils/business-hours')
 const { createBusinessHoursPageHandlers } = require('../../../../utils/business-hours-page')
@@ -296,12 +299,89 @@ Page({
     this.pickSingleImage('facadePhotoUrl')
   },
 
-  onPickReception() {
-    this.pickSingleImage('receptionPhotoUrl')
+  receptionPhotoList() {
+    const list = this.data.form && this.data.form.receptionPhotoUrls
+    return Array.isArray(list) ? list : []
   },
 
-  onPickBrandAuth() {
-    this.pickSingleImage('brandAuthPhotoUrl')
+  async onPickReception() {
+    const current = this.receptionPhotoList()
+    const remain = RECEPTION_PHOTO_MAX - current.length
+    if (remain <= 0) {
+      wx.showToast({ title: `接待区照片最多 ${RECEPTION_PHOTO_MAX} 张`, icon: 'none' })
+      return
+    }
+    const res = await wx.chooseMedia({ count: Math.min(remain, 3), mediaType: ['image'] })
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const urls = []
+      for (const file of res.tempFiles) {
+        urls.push(await uploadImage(file.tempFilePath))
+      }
+      this.setData({
+        'form.receptionPhotoUrls': current.concat(urls),
+      })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onRemoveReception(e) {
+    const { index } = e.currentTarget.dataset
+    const list = this.receptionPhotoList().slice()
+    list.splice(Number(index), 1)
+    this.setData({ 'form.receptionPhotoUrls': list })
+  },
+
+  onAddBrandAuth() {
+    const list = (this.data.form.brandAuthItems || []).slice()
+    if (list.length >= BRAND_AUTH_ITEM_MAX) {
+      wx.showToast({ title: `最多 ${BRAND_AUTH_ITEM_MAX} 个品牌授权`, icon: 'none' })
+      return
+    }
+    list.push(createEmptyBrandAuthItem())
+    this.setData({ 'form.brandAuthItems': list })
+  },
+
+  onRemoveBrandAuth(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.brandAuthItems || []).slice()
+    list.splice(index, 1)
+    this.setData({ 'form.brandAuthItems': list })
+  },
+
+  onBrandAuthInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    this.setData({ [`form.brandAuthItems[${index}].${field}`]: e.detail.value })
+  },
+
+  async onPickBrandAuthImage(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.brandAuthItems || []).slice()
+    if (!list[index]) return
+    const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+    const temp = res.tempFiles[0].tempFilePath
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const url = await uploadImage(temp)
+      list[index] = { ...list[index], imageUrl: url }
+      this.setData({ 'form.brandAuthItems': list })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
+  onClearBrandAuthImage(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const list = (this.data.form.brandAuthItems || []).slice()
+    if (!list[index]) return
+    list[index] = { ...list[index], imageUrl: '' }
+    this.setData({ 'form.brandAuthItems': list })
   },
 
   workshopPhotoList() {

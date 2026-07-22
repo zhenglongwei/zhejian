@@ -292,10 +292,20 @@ async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
     if (cap.reviewStatus === 'pending' || cap.reviewStatus === 'rejected') {
       capabilityIncomplete = true
     }
+    const untils = []
     const until = String(cap.brandAuthValidUntil || '').trim()
-    if (until) {
+    if (until) untils.push(until)
+    const photos =
+      store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
+    if (Array.isArray(photos.brandAuthItems)) {
+      photos.brandAuthItems.forEach((item) => {
+        const u = String((item && item.validUntil) || '').trim()
+        if (u) untils.push(u)
+      })
+    }
+    for (const u of untils) {
       const diff = Math.floor(
-        (new Date(`${until}T12:00:00+08:00`) - today) / (24 * 3600 * 1000)
+        (new Date(`${u}T12:00:00+08:00`) - today) / (24 * 3600 * 1000)
       )
       if (diff <= 30) brandAuthExpiring = true
     }

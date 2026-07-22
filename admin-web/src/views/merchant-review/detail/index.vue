@@ -115,16 +115,20 @@
           <div class="photo-label">工位 {{ idx + 1 }}</div>
           <el-image :src="url" fit="cover" class="review-photo" :preview-src-list="[url]" />
         </el-col>
-        <el-col v-if="detail.photos?.receptionUrl" :span="6">
-          <div class="photo-label">接待区</div>
-          <el-image :src="detail.photos.receptionUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.receptionUrl]" />
+        <el-col v-for="(url, idx) in (detail.photos?.receptionUrls || (detail.photos?.receptionUrl ? [detail.photos.receptionUrl] : []))" :key="'r-' + idx" :span="6">
+          <div class="photo-label">接待区 {{ idx + 1 }}</div>
+          <el-image :src="url" fit="cover" class="review-photo" :preview-src-list="[url]" />
         </el-col>
-        <el-col v-if="detail.photos?.brandAuthUrl" :span="6">
-          <div class="photo-label">品牌授权</div>
-          <el-image :src="detail.photos.brandAuthUrl" fit="cover" class="review-photo" :preview-src-list="[detail.photos.brandAuthUrl]" />
+        <el-col
+          v-for="(item, idx) in (detail.photos?.brandAuthItems || (detail.photos?.brandAuthUrl ? [{ brandName: '品牌授权', imageUrl: detail.photos.brandAuthUrl, validUntil: detail.brandAuthValidUntil }] : []))"
+          :key="'ba-' + idx"
+          :span="6"
+        >
+          <div class="photo-label">{{ item.brandName || '品牌授权' }}{{ item.validUntil ? ` · ${item.validUntil}` : '' }}</div>
+          <el-image :src="item.imageUrl" fit="cover" class="review-photo" :preview-src-list="[item.imageUrl]" />
         </el-col>
       </el-row>
-      <el-descriptions v-if="detail.brandAuthValidUntil || detail.photos?.brandAuthUrl" :column="2" border size="small" class="sub-desc">
+      <el-descriptions v-if="detail.brandAuthValidUntil || detail.photos?.brandAuthUrl || (detail.photos?.brandAuthItems || []).length" :column="2" border size="small" class="sub-desc">
         <el-descriptions-item label="授权有效期至">{{ detail.brandAuthValidUntil || '—' }}</el-descriptions-item>
         <el-descriptions-item label="能力变更状态">{{ detail.capabilityReviewStatus || '—' }}</el-descriptions-item>
       </el-descriptions>

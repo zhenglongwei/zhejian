@@ -14,19 +14,48 @@ const {
   formatQualificationForClient,
   formatPhotosForClient,
 } = require('../lib/onboarding-payload')
-const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
+const {
+  buildMerchantCapabilityEditorView,
+  readBrandAuthItemsFromPhotos,
+} = require('../utils/store-capability')
 const { resolveStoreCapabilityJson } = require('../utils/store-capability-load')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 
 /** 商家端 <image> 无法带 Bearer，读侧须返回新鲜 signed URL */
+function resignBrandAuthItems(items) {
+  return (items || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    return {
+      ...item,
+      imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+    }
+  })
+}
+
 function resignPhotoMap(photos = {}) {
+  const receptionUrls = (
+    Array.isArray(photos.receptionUrls)
+      ? photos.receptionUrls
+      : photos.receptionUrl
+        ? [photos.receptionUrl]
+        : []
+  )
+    .map((url) => resolveClientReadableMediaUrl(url))
+    .filter(Boolean)
+  const brandAuthItems = resignBrandAuthItems(
+    readBrandAuthItemsFromPhotos(photos, photos.brandAuthValidUntil || '')
+  )
   return {
     facadeUrl: resolveClientReadableMediaUrl(photos.facadeUrl || ''),
     workshopUrls: (photos.workshopUrls || [])
       .map((url) => resolveClientReadableMediaUrl(url))
       .filter(Boolean),
-    receptionUrl: resolveClientReadableMediaUrl(photos.receptionUrl || ''),
-    brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
+    receptionUrls,
+    receptionUrl: receptionUrls[0] || '',
+    brandAuthItems,
+    brandAuthUrl: resolveClientReadableMediaUrl(
+      brandAuthItems[0]?.imageUrl || photos.brandAuthUrl || ''
+    ),
   }
 }
 
@@ -80,6 +109,7 @@ function formatOnboardingProfile(merchant, store) {
     notAccepting: capabilityEditor.notAccepting,
     technicians: capabilityEditor.technicians,
     equipmentTags: resignEquipmentTags(capabilityEditor.equipmentTags),
+    brandAuthItems: resignBrandAuthItems(capabilityEditor.brandAuthItems),
     brandAuthValidUntil: capabilityEditor.brandAuthValidUntil,
     brandAuthPhotoUrl: resolveClientReadableMediaUrl(
       capabilityEditor.brandAuthPhotoUrl || photos.brandAuthUrl || ''

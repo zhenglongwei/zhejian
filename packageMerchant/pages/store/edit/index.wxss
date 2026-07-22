@@ -145,8 +145,24 @@
   color: var(--color-text-tertiary);
 }
 
-.merchant-store-edit__add-tech {
+.merchant-store-edit__brand-card {
   margin-top: var(--space-sm);
+  padding: var(--space-md);
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-store-edit__brand-card .merchant-form__input {
+  margin-top: var(--space-xs);
+}
+
+.merchant-store-edit__brand-media {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .merchant-store-edit__readonly-row {

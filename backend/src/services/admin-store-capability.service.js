@@ -22,11 +22,32 @@ function resignEquipmentTags(list) {
 }
 
 /** 运营台 <img> 不带 Bearer，须返回新鲜 signed URL */
+function resignBrandAuthItems(list) {
+  if (!Array.isArray(list)) return []
+  return list.map((item) => ({
+    ...item,
+    imageUrl: resolveClientReadableMediaUrl(item.imageUrl || ''),
+  }))
+}
+
 function resignPendingForAdmin(pending) {
   if (!pending || typeof pending !== 'object') return null
   return {
     ...pending,
     brandAuthUrl: resolveClientReadableMediaUrl(pending.brandAuthUrl || ''),
+    brandAuthItems: resignBrandAuthItems(
+      pending.brandAuthItems ||
+        (pending.brandAuthUrl
+          ? [
+              {
+                id: 'brand_auth_1',
+                brandName: '品牌授权',
+                imageUrl: pending.brandAuthUrl,
+                validUntil: pending.brandAuthValidUntil || '',
+              },
+            ]
+          : [])
+    ),
     equipmentTags: resignEquipmentTags(pending.equipmentTags),
   }
 }
@@ -156,6 +177,20 @@ async function getStoreCapabilityReviewDetail(storeId) {
       equipmentTags: resignEquipmentTags(cap.equipmentTags),
       brandAuthValidUntil: cap.brandAuthValidUntil,
       brandAuthUrl: resolveClientReadableMediaUrl(photos.brandAuthUrl || ''),
+      brandAuthItems: resignBrandAuthItems(
+        Array.isArray(photos.brandAuthItems) && photos.brandAuthItems.length
+          ? photos.brandAuthItems
+          : photos.brandAuthUrl
+            ? [
+                {
+                  id: 'brand_auth_1',
+                  brandName: '品牌授权',
+                  imageUrl: photos.brandAuthUrl,
+                  validUntil: cap.brandAuthValidUntil || '',
+                },
+              ]
+            : []
+      ),
       specialtyBrands: cap.specialtyBrands,
       notAccepting: cap.notAccepting,
       lastProfileVerifiedAt: cap.lastProfileVerifiedAt,
@@ -163,6 +198,7 @@ async function getStoreCapabilityReviewDetail(storeId) {
     editor: {
       ...editor,
       brandAuthPhotoUrl: resolveClientReadableMediaUrl(editor.brandAuthPhotoUrl || ''),
+      brandAuthItems: resignBrandAuthItems(editor.brandAuthItems),
       equipmentTags: resignEquipmentTags(editor.equipmentTags),
       publishedEquipmentTags: resignEquipmentTags(editor.publishedEquipmentTags),
     },
@@ -203,10 +239,13 @@ async function approveStoreCapability(storeId, adminUser = {}) {
     throw err
   }
 
-  const { capability, brandAuthUrl } = approveCapabilityPending(capabilityJson)
+  const { capability, brandAuthUrl, brandAuthItems } = approveCapabilityPending(capabilityJson)
   const photos =
     store.photosJson && typeof store.photosJson === 'object' ? { ...store.photosJson } : {}
-  if (brandAuthUrl) {
+  if (Array.isArray(brandAuthItems)) {
+    photos.brandAuthItems = brandAuthItems
+    photos.brandAuthUrl = brandAuthItems[0]?.imageUrl || brandAuthUrl || ''
+  } else if (brandAuthUrl) {
     photos.brandAuthUrl = brandAuthUrl
   }
 

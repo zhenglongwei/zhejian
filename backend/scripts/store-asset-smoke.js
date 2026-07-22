@@ -184,7 +184,7 @@ function main() {
       businessHours: '09:00-18:00',
       photosJson: {
         workshopUrls: ['/media/w1.jpg'],
-        receptionUrl: '/media/reception1.jpg',
+        receptionUrls: ['/media/reception1.jpg', '/media/reception2.jpg'],
       },
       capabilityJson: {
         brandAuthValidUntil: '2020-01-01',
@@ -207,6 +207,10 @@ function main() {
   assert.ok(
     demoted.environmentImages.some((u) => String(u).includes('reception1.jpg')),
     'reception image should merge into environmentImages'
+  )
+  assert.ok(
+    demoted.environmentImages.some((u) => String(u).includes('reception2.jpg')),
+    'multiple reception images should merge into environmentImages'
   )
   // 设备图并入环境（resolveClientReadableMediaUrls 可能改写路径前缀，用后缀判断）
   assert.ok(
