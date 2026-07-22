@@ -164,6 +164,8 @@ model Album {
   complianceCheckedAt DateTime?           @map("compliance_checked_at")
   contentOptimizeDraftJson Json?          @map("content_optimize_draft_json")
   contentPackageJson  Json?               @map("content_package_json")
+  /// 本本相册对「门店答谢」的覆盖：inherit | custom | off
+  publishThankYouJson Json?               @map("publish_thank_you_json")
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
   order               Order?              @relation(fields: [orderId], references: [id])

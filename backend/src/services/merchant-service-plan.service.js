@@ -145,7 +145,10 @@ async function listMerchantServicePlans(merchantId, storeId, query = {}) {
 async function getMerchantServicePlan(planId, merchantId, storeId) {
   const store = await loadStoreForMerchant(storeId, merchantId)
   const plan = await loadOwnedPlan(planId, merchantId, storeId)
-  return attachRelatedCasesToService(formatPlanRecord(plan, store), { limit: 3 })
+  return attachRelatedCasesToService(formatPlanRecord(plan, store), {
+    limit: 3,
+    sameStoreOnly: true,
+  })
 }
 
 async function createMerchantServicePlan(merchantId, storeId, payload = {}) {

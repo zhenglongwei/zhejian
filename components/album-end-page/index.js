@@ -18,7 +18,7 @@ Component({
     },
     authLabel: {
       type: String,
-      value: '发布到公开网站',
+      value: '分享脱敏报告',
     },
     authDisabled: {
       type: Boolean,

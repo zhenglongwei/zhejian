@@ -33,7 +33,9 @@ router.get('/cases', async (req, res, next) => {
 
 router.get('/cases/:id', async (req, res, next) => {
   try {
-    const data = await getCaseDetail(req.params.id)
+    const relatedStoreOnly =
+      req.query.relatedStoreOnly === '1' || req.query.relatedStoreOnly === 'true'
+    const data = await getCaseDetail(req.params.id, { relatedStoreOnly })
     return ok(res, data)
   } catch (e) {
     return next(e)
@@ -78,7 +80,12 @@ router.get('/services', async (req, res, next) => {
 
 router.get('/services/:id', async (req, res, next) => {
   try {
-    const data = await getServiceDetail(req.params.id)
+    const sameStoreOnly =
+      req.query.sameStoreOnly === '1' ||
+      req.query.sameStoreOnly === 'true' ||
+      req.query.relatedStoreOnly === '1' ||
+      req.query.relatedStoreOnly === 'true'
+    const data = await getServiceDetail(req.params.id, { sameStoreOnly })
     return ok(res, data)
   } catch (e) {
     return next(e)

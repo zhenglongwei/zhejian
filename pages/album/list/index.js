@@ -45,6 +45,15 @@ const {
 } = require('../../../utils/share-store-context')
 
 const { initAlbumShareState } = require('../../../utils/album-share-state')
+const { inviteUiFieldsFromDetail } = require('../../../utils/album-auth-share-handlers')
+const {
+  AUTH_ACTION_LABEL,
+  AUTH_CONFIRM_TEXT,
+  AUTH_REJECT_TEXT,
+  AUTH_SHEET_TITLE,
+  CONTROL_LINE,
+  CONSENT_CHECKBOX,
+} = require('../../../utils/publish-thank-you')
 const {
   buildSocialDraft,
   copyTextToClipboard,
@@ -65,6 +74,14 @@ Page({
     authChecked: false,
     authTier: 'named',
     authSubmitting: false,
+    authSheetTitle: AUTH_SHEET_TITLE,
+    authPitch: '',
+    authBenefitLine: '',
+    authControlLine: CONTROL_LINE,
+    authDisclaimer: '',
+    authConsentText: CONSENT_CHECKBOX,
+    authConfirmText: AUTH_CONFIRM_TEXT,
+    authRejectText: AUTH_REJECT_TEXT,
     withdrawSheetVisible: false,
     withdrawSheetLoading: false,
     pendingWithdrawAlbumId: '',
@@ -225,7 +242,10 @@ Page({
   async loadActionDetail(albumId) {
     const detail = await fetchServiceAlbum(albumId)
     this.actionAlbumId = albumId
-    this.setData({ actionDetail: detail })
+    this.setData({
+      actionDetail: detail,
+      ...inviteUiFieldsFromDetail(detail),
+    })
     return detail
   },
 

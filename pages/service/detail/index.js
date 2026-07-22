@@ -7,7 +7,6 @@ const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
 const { getSubmitButtonLabel } = require('../../../utils/lead-form')
 const {
   resolvePageShareContext,
-  filterCasesByStore,
   withStoreContextPath,
   getShareStoreId,
   isShareStoreIsolated,
@@ -16,7 +15,8 @@ const {
 
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { submitServiceDetailPage } = require('../../../utils/wx-search-submit')
-const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
+const { assertOwnerStoreAccess, isStoreContextIsolated, userHasBoundAlbum } = require('../../../utils/album-store-access')
+const { isolateRelatedCases } = require('../../../utils/isolate-related-cases')
 
 function buildBottomLeftActions(showCasesLink) {
   const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
@@ -87,7 +87,14 @@ Page({
   async loadDetail() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const detail = await fetchServiceDetail(this.serviceId, { audience: 'user' })
+      const preferSameStore =
+        this.data.storeIsolated ||
+        isShareStoreIsolated(this.pageOptions) ||
+        (await userHasBoundAlbum())
+      const detail = await fetchServiceDetail(this.serviceId, {
+        audience: 'user',
+        sameStoreOnly: preferSameStore,
+      })
       const storeId = detail.storeId || getShareStoreId()
       const access = await assertOwnerStoreAccess(storeId, this.pageOptions)
       if (!access.allowed) {
@@ -99,9 +106,16 @@ Page({
       }
       let relatedCases = detail.relatedCases || []
       if (storeIsolated && storeId) {
-        relatedCases = filterCasesByStore(relatedCases, storeId)
+        relatedCases = await isolateRelatedCases(relatedCases, {
+          storeId,
+          limit: 3,
+        })
       }
-      const detailView = { ...detail, relatedCases }
+      const detailView = {
+        ...detail,
+        relatedCases,
+        availableMerchants: storeIsolated ? [] : detail.availableMerchants || [],
+      }
       const store = detailView.storeId ? findStore(detailView.storeId) : null
       const storePhone = (store && store.phone) || ''
       const pageTitle = detailView.name || detailView.serviceName || DEEP_LINK_SHELL.service.subtitle

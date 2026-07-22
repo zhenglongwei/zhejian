@@ -103,9 +103,11 @@ async function fetchCaseList(query = {}) {
   return { list, total: list.length }
 }
 
-async function fetchCaseDetail(id) {
+async function fetchCaseDetail(id, opts = {}) {
   if (ENV.mode !== 'mock') {
-    return get(`/user/cases/${id}`)
+    const query = {}
+    if (opts.relatedStoreOnly) query.relatedStoreOnly = '1'
+    return get(`/user/cases/${id}`, query)
   }
   await delay()
   const item = mergeCases().find((c) => c.id === id)
@@ -115,13 +117,14 @@ async function fetchCaseDetail(id) {
     throw err
   }
   const faq = (item.faq || []).filter((entry) => entry && entry.title && entry.url)
-  const relatedCases = mergeCases()
-    .filter(
-      (c) =>
-        c.id !== item.id &&
-        (c.serviceName === item.serviceName || c.storeId === item.storeId)
-    )
-    .slice(0, 3)
+  const all = mergeCases().filter((c) => c.id !== item.id)
+  const relatedPool = opts.relatedStoreOnly
+    ? all.filter((c) => c.storeId && c.storeId === item.storeId)
+    : all.filter(
+        (c) =>
+          c.serviceName === item.serviceName || c.storeId === item.storeId
+      )
+  const relatedCases = relatedPool.slice(0, 3)
   const store = item.storeId ? findStore(item.storeId) : null
   const display = applyPublicDisplayRules(item)
   return {

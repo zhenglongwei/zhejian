@@ -1,16 +1,28 @@
 <ui-card shadow="{{true}}" padding="{{true}}">
   <view class="album-authorize-section">
     <text class="album-authorize-section__title text-h3">{{title}}</text>
-    <ui-compliance-notice type="authorize" />
-    <view class="album-authorize-section__notice">
-      <text class="text-caption">发布并通过审核后，将在公开网站（H5/GEO）展示脱敏素材，并展示服务门店名称。你可随时撤回。</text>
+
+    <view wx:if="{{pitch}}" class="album-authorize-section__pitch">
+      <text class="text-body">{{pitch}}</text>
     </view>
+
+    <view wx:if="{{benefitLine}}" class="album-authorize-section__benefit">
+      <text class="text-body album-authorize-section__benefit-text">{{benefitLine}}</text>
+      <text wx:if="{{disclaimer}}" class="text-caption album-authorize-section__disclaimer">{{disclaimer}}</text>
+    </view>
+
+    <view class="album-authorize-section__control">
+      <text class="text-caption">{{controlLine}}</text>
+    </view>
+
+    <ui-compliance-notice type="authorize" />
+
     <ui-checkbox-row
       checked="{{checked}}"
       disabled="{{submitting}}"
       bind:toggle="onToggle"
     >
-      <text>我已核对即将上网的内容，确认发布本次服务相册到公开网站（含门店名称）。</text>
+      <text>{{consentText}}</text>
       <text
         wx:if="{{showPolicyLink}}"
         class="text-link"

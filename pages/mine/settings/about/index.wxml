@@ -27,7 +27,12 @@
 
       <view class="about-page__actions">
         <ui-button type="ghost" size="sm" bind:btntap="onOpenHelp">使用说明与帮助</ui-button>
-        <ui-button type="secondary" size="sm" bind:btntap="onOpenMerchants">浏览门店→</ui-button>
+        <ui-button
+          wx:if="{{showPublicMerchantsLink}}"
+          type="secondary"
+          size="sm"
+          bind:btntap="onOpenMerchants"
+        >浏览门店→</ui-button>
       </view>
     </view>
   </view>

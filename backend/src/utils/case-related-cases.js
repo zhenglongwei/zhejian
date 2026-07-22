@@ -60,12 +60,16 @@ function mergeTiers(tiers, limit) {
 /**
  * @param {object} caseItem
  * @param {object[]} allCases
- * @param {{ limit?: number, serviceItemId?: string }} [opts]
+ * @param {{ limit?: number, serviceItemId?: string, sameStoreOnly?: boolean }} [opts]
  */
 function resolveRelatedCasesForCase(caseItem, allCases, opts = {}) {
   const limit = opts.limit != null ? opts.limit : 3
   const excludeId = caseItem.id
-  const pool = dedupeCases(allCases, excludeId)
+  const sameStoreOnly = Boolean(opts.sameStoreOnly) && Boolean(caseItem.storeId)
+  let pool = dedupeCases(allCases, excludeId)
+  if (sameStoreOnly) {
+    pool = pool.filter((c) => c.storeId === caseItem.storeId)
+  }
 
   const catalogItem = opts.serviceItemId ? getServiceItem(opts.serviceItemId) : null
   const itemName = catalogItem?.name || caseItem.serviceName || ''
@@ -94,15 +98,17 @@ function resolveRelatedCasesForCase(caseItem, allCases, opts = {}) {
       !tier2.some((t) => t.id === c.id) &&
       !tier3.some((t) => t.id === c.id)
   )
-  const tier5 = pool.filter(
-    (c) =>
-      city &&
-      c.city === city &&
-      !tier1.some((t) => t.id === c.id) &&
-      !tier2.some((t) => t.id === c.id) &&
-      !tier3.some((t) => t.id === c.id) &&
-      !tier4.some((t) => t.id === c.id)
-  )
+  const tier5 = sameStoreOnly
+    ? []
+    : pool.filter(
+        (c) =>
+          city &&
+          c.city === city &&
+          !tier1.some((t) => t.id === c.id) &&
+          !tier2.some((t) => t.id === c.id) &&
+          !tier3.some((t) => t.id === c.id) &&
+          !tier4.some((t) => t.id === c.id)
+      )
 
   const relatedCases = mergeTiers([tier1, tier2, tier3, tier4, tier5], limit)
   let tier = 'none'

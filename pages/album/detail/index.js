@@ -28,6 +28,8 @@ const {
   SHARE_CHANNEL,
 } = require('../../../utils/album-owner-share')
 const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
+const { inviteUiFieldsFromDetail } = require('../../../utils/album-auth-share-handlers')
+const { AUTH_ACTION_LABEL, AUTH_CONFIRM_TEXT, AUTH_REJECT_TEXT, AUTH_SHEET_TITLE, CONTROL_LINE, CONSENT_CHECKBOX } = require('../../../utils/publish-thank-you')
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
 const {
   resolvePageShareContext,
@@ -75,14 +77,14 @@ function measureImmersiveLayout() {
 }
 
 const PUBLIC_CASE_HINT = {
-  user_rejected: '当前为私密相册，你可随时发布到公开网站。',
-  pending_review: '发布审核中，通过后将展示在公开网站。',
-  public_approved: '已在公开网站展示（已脱敏、已审核）。',
-  need_modify: '审核需你修改后重新发布，请按下方提示处理。',
+  user_rejected: '当前为私密相册，你可随时分享脱敏报告。',
+  pending_review: '审核中，通过后将展示给同城车友参考。',
+  public_approved: '已展示给同城车友参考（已脱敏、已审核）。',
+  need_modify: '审核需你修改后重新分享，请按下方提示处理。',
 }
 
 const HONOR_HINT =
-  '帮助同城车主少踩坑：可将脱敏后的维修记录发布到公开网站（须审核）。'
+  '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友（须审核）。'
 
 function resolvePublishSheetState(detail) {
   const status = (detail && detail.publicCaseStatus) || 'private'
@@ -168,17 +170,18 @@ function buildNodeNoteMap(nodes) {
 }
 
 function buildEndPageActionState(detail, showAuthSection) {
+  const { AUTH_ACTION_LABEL } = require('../../../utils/publish-thank-you')
   const status = (detail && detail.publicCaseStatus) || 'private'
   const gateBanner = buildAlbumGateBanner(detail || {})
   const gateActions = buildGateActionButtons(detail || {})
   if (status === 'pending_review' || status === 'public_approved') {
     return {
       endPageShowAuth: false,
-      endPageAuthLabel: '发布到公开网站',
+      endPageAuthLabel: AUTH_ACTION_LABEL,
       endPageAuthDisabled: false,
       endPageAuthHint: '',
       endPageShowWithdraw: true,
-      endPageWithdrawLabel: '撤回发布',
+      endPageWithdrawLabel: '一键下架',
       endPageStatusHint:
         gateBanner ||
         (status === 'pending_review'
@@ -190,11 +193,11 @@ function buildEndPageActionState(detail, showAuthSection) {
   if (status === 'need_modify') {
     return {
       endPageShowAuth: false,
-      endPageAuthLabel: '重新发布',
+      endPageAuthLabel: '重新分享脱敏报告',
       endPageAuthDisabled: false,
       endPageAuthHint: '',
       endPageShowWithdraw: true,
-      endPageWithdrawLabel: '撤回发布',
+      endPageWithdrawLabel: '一键下架',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
       endPageGateActions: gateActions,
     }
@@ -202,22 +205,22 @@ function buildEndPageActionState(detail, showAuthSection) {
   if (showAuthSection) {
     return {
       endPageShowAuth: true,
-      endPageAuthLabel: '发布到公开网站',
+      endPageAuthLabel: AUTH_ACTION_LABEL,
       endPageAuthDisabled: Boolean(detail && detail.canAuthorizePublicCase === false),
       endPageAuthHint: (detail && detail.userConfirmHint) || '',
       endPageShowWithdraw: false,
-      endPageWithdrawLabel: '撤回发布',
+      endPageWithdrawLabel: '一键下架',
       endPageStatusHint: gateBanner,
       endPageGateActions: gateActions,
     }
   }
   return {
     endPageShowAuth: false,
-    endPageAuthLabel: '发布到公开网站',
+    endPageAuthLabel: AUTH_ACTION_LABEL,
     endPageAuthDisabled: false,
     endPageAuthHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '撤回发布',
+    endPageWithdrawLabel: '一键下架',
     endPageStatusHint:
       gateBanner ||
       (status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : ''),
@@ -246,6 +249,14 @@ Page({
     authTier: 'named',
     authSubmitting: false,
     authSheetVisible: false,
+    authSheetTitle: AUTH_SHEET_TITLE,
+    authPitch: '',
+    authBenefitLine: '',
+    authControlLine: CONTROL_LINE,
+    authDisclaimer: '',
+    authConsentText: CONSENT_CHECKBOX,
+    authConfirmText: AUTH_CONFIRM_TEXT,
+    authRejectText: AUTH_REJECT_TEXT,
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     flipPages: [],
@@ -254,11 +265,11 @@ Page({
     activeNodeId: '',
     storePhone: '',
     endPageShowAuth: false,
-    endPageAuthLabel: '发布到公开网站',
+    endPageAuthLabel: AUTH_ACTION_LABEL,
     endPageAuthDisabled: false,
     endPageAuthHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '撤回发布',
+    endPageWithdrawLabel: '一键下架',
     endPageStatusHint: '',
     endPageGateActions: [],
     withdrawSheetLoading: false,
@@ -541,6 +552,7 @@ Page({
         chromeVisible: pageStatus === 'normal',
         showInspectEntry: pageStatus === 'normal',
         ...endPageAuth,
+        ...inviteUiFieldsFromDetail(enriched),
       }, () => {
         const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
         const activeId = (flip.chapters[0] && flip.chapters[0].nodeId) || ''
@@ -873,7 +885,12 @@ Page({
 
   onEndPageAuth() {
     if (this.data.endPageAuthDisabled) return
-    this.setData({ authSheetVisible: true, authChecked: false, authTier: 'named' })
+    this.setData({
+      authSheetVisible: true,
+      authChecked: false,
+      authTier: 'named',
+      ...inviteUiFieldsFromDetail(this.data.detail || {}),
+    })
   },
 
   onEndPageWithdraw() {
@@ -1039,9 +1056,9 @@ Page({
     const { detail, authSubmitting } = this.data
     if (!detail || authSubmitting) return
     wx.showModal({
-      title: '暂不发布',
+      title: '暂时先不分享',
       content:
-        '确认后，本次服务相册仍仅作为你的私密记录保存，不会发布到公开网站。',
+        '确认后，本次服务相册仍仅作为你的私密记录保存，不会展示给同城车友。',
       confirmText: '确认',
       cancelText: '再想想',
       success: (res) => {

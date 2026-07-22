@@ -133,11 +133,19 @@ async function buildServiceDetailViewModel(record, opts = {}) {
   let relatedCases = Array.isArray(record.relatedCases) ? record.relatedCases : null
   let caseTotal = record.caseTotal
   let caseLinkTier = record.caseLinkTier
+  const sameStoreOnly = audience === 'merchant' || Boolean(opts.sameStoreOnly)
   if (!relatedCases) {
-    const resolved = resolveRelatedCases(record, (await fetchCaseList()).list, { limit: 3 })
+    const resolved = resolveRelatedCases(record, (await fetchCaseList()).list, {
+      limit: 3,
+      sameStoreOnly,
+    })
     relatedCases = resolved.list
     caseTotal = resolved.total
     caseLinkTier = resolved.tier
+  } else if (sameStoreOnly && record.storeId) {
+    relatedCases = relatedCases.filter((c) => c.storeId === record.storeId)
+    caseTotal = relatedCases.length
+    if (!relatedCases.length) caseLinkTier = 'none'
   }
 
   let availableMerchants = []
@@ -219,17 +227,19 @@ async function fetchServiceList(query = {}) {
 /**
  * 服务详情 — 用户端 / 商家预览
  * @param {string} id
- * @param {{ audience?: 'user'|'merchant' }} [opts]
+ * @param {{ audience?: 'user'|'merchant', sameStoreOnly?: boolean }} [opts]
  */
 async function fetchServiceDetail(id, opts = {}) {
   const audience = opts.audience || 'user'
+  const sameStoreOnly =
+    Boolean(opts.sameStoreOnly) || audience === 'merchant'
 
   if (ENV.mode !== 'mock') {
     const record =
       audience === 'merchant'
         ? await get(`/merchant/service-plans/${id}`)
-        : await get(`/user/services/${id}`)
-    return buildServiceDetailViewModel(record, opts)
+        : await get(`/user/services/${id}`, sameStoreOnly ? { sameStoreOnly: '1' } : {})
+    return buildServiceDetailViewModel(record, { ...opts, sameStoreOnly })
   }
 
   await delay()
@@ -244,7 +254,7 @@ async function fetchServiceDetail(id, opts = {}) {
     err.code = 404
     throw err
   }
-  return buildServiceDetailViewModel(record, { audience })
+  return buildServiceDetailViewModel(record, { audience, sameStoreOnly })
 }
 
 function normalizeServiceItem(item) {

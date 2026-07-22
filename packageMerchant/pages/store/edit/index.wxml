@@ -96,6 +96,39 @@
     </view>
   </view>
 
+  <!-- ①b 车主答谢：即时生效 -->
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">车主答谢（可选）</text>
+    <text class="merchant-store-edit__panel-hint text-caption">即时生效。车主分享脱敏案例时展示「本店线下兑现」。单本相册可在相册编辑页覆盖。</text>
+
+    <view class="merchant-form__section merchant-form__section--row">
+      <text class="merchant-form__label">开启门店答谢</text>
+      <switch checked="{{form.thankYouEnabled}}" bindchange="onThankYouEnabledChange" color="var(--color-primary)" />
+    </view>
+
+    <block wx:if="{{form.thankYouEnabled}}">
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">立减 / 返现（元）</text>
+        <input class="merchant-form__input" type="number" placeholder="如 50，可不填" value="{{form.thankYouDiscountYuan}}" data-field="thankYouDiscountYuan" bindinput="onInput" />
+        <text class="text-caption text-secondary">由门店自行支付给车主，请在店内完成兑付说明与留痕。</text>
+      </view>
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">赠送服务（非现金）</text>
+        <input class="merchant-form__input" placeholder="如：精洗一次 / 玻璃水 / 保养一次" value="{{form.thankYouGiftText}}" data-field="thankYouGiftText" bindinput="onInput" maxlength="40" />
+        <text class="text-caption text-secondary">建议到店核销；后续可生成服务二维码供车主领取。</text>
+      </view>
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">延长质保（天）</text>
+        <input class="merchant-form__input" type="number" placeholder="如 30，可不填" value="{{form.thankYouWarrantyDays}}" data-field="thankYouWarrantyDays" bindinput="onInput" />
+        <text class="text-caption text-secondary">可直接并入本次维修质保期说明，无需另行兑付现金。</text>
+      </view>
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">自定义答谢句（选填）</text>
+        <textarea class="merchant-form__textarea" placeholder="若填写则优先展示此句，不再自动拼接立减/赠项/延保" value="{{form.thankYouBenefitText}}" data-field="thankYouBenefitText" bindinput="onInput" maxlength="120" />
+      </view>
+    </block>
+  </view>
+
   <!-- ② 擅长服务：即时生效 -->
   <view class="merchant-store-edit__panel">
     <text class="merchant-store-edit__panel-title text-h3">擅长服务 *</text>

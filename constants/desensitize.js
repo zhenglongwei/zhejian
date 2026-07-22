@@ -45,11 +45,11 @@ const LIABILITY_COPY = {
   },
   [BIZ_TYPE.ORDER_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
-    confirmLabel: '确认发布到公开网站',
+    confirmLabel: '愿意分享这份脱敏报告',
   },
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
-    confirmLabel: '确认发布到公开网站',
+    confirmLabel: '愿意分享这份脱敏报告',
   },
   [BIZ_TYPE.SERVICE_REVIEW_PREVIEW]: {
     body: '本人已逐张核对评价配图脱敏效果，同意在已发布公开案例中展示。',

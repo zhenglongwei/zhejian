@@ -26,10 +26,11 @@ function dedupeCases(list) {
 /**
  * @param {object} service
  * @param {object[]} allCases
- * @param {{ limit?: number }} [opts]
+ * @param {{ limit?: number, sameStoreOnly?: boolean }} [opts]
  */
 function resolveRelatedCases(service, allCases, opts = {}) {
   const limit = opts.limit != null ? opts.limit : 3
+  const sameStoreOnly = Boolean(opts.sameStoreOnly)
   const item = getServiceItem(service.serviceItemId)
   const itemName = item ? item.name : ''
   const categoryId = service.categoryId
@@ -50,19 +51,23 @@ function resolveRelatedCases(service, allCases, opts = {}) {
           c.serviceName.indexOf(service.categoryName.replace('服务', '')) !== -1))
   )
 
-  const tier3 = allCases.filter(
-    (c) =>
-      !tier1.some((t) => t.id === c.id) &&
-      !tier2.some((t) => t.id === c.id) &&
-      matchServiceName(c.serviceName, itemName)
-  )
+  const tier3 = sameStoreOnly
+    ? []
+    : allCases.filter(
+        (c) =>
+          !tier1.some((t) => t.id === c.id) &&
+          !tier2.some((t) => t.id === c.id) &&
+          matchServiceName(c.serviceName, itemName)
+      )
 
-  const tier4 = allCases.filter(
-    (c) =>
-      !tier1.some((t) => t.id === c.id) &&
-      !tier2.some((t) => t.id === c.id) &&
-      !tier3.some((t) => t.id === c.id)
-  )
+  const tier4 = sameStoreOnly
+    ? []
+    : allCases.filter(
+        (c) =>
+          !tier1.some((t) => t.id === c.id) &&
+          !tier2.some((t) => t.id === c.id) &&
+          !tier3.some((t) => t.id === c.id)
+      )
 
   let tier = 'none'
   let merged = []

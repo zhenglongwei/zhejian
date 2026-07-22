@@ -10,7 +10,7 @@
       <ui-empty
         theme="album"
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看授权'}}"
-        description="管理授权公示、审核与撤回"
+        description="管理脱敏案例分享、审核与下架"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
         bind:action="onLoginTap"
       />
@@ -34,7 +34,7 @@
       <ui-empty
         theme="album"
         title="暂无授权记录"
-        description="相册完工后可在此授权公示、查看审核结果或撤回授权"
+        description="相册完工后可在此分享脱敏报告、查看审核结果或一键下架"
       />
     </view>
   </block>
@@ -58,12 +58,20 @@
 
 <ui-bottom-sheet
   visible="{{authSheetVisible}}"
-  title="授权公示"
+  title="{{authSheetTitle}}"
   showActions="{{false}}"
   scrollable="{{true}}"
   bind:close="onCloseAuthSheet"
 >
   <ui-album-authorize-section
+    title="{{authSheetTitle}}"
+    pitch="{{authPitch}}"
+    benefitLine="{{authBenefitLine}}"
+    controlLine="{{authControlLine}}"
+    disclaimer="{{authDisclaimer}}"
+    consentText="{{authConsentText}}"
+    confirmText="{{authConfirmText}}"
+    rejectText="{{authRejectText}}"
     checked="{{authChecked}}"
     authTier="{{authTier}}"
     submitting="{{authSubmitting}}"
@@ -81,7 +89,7 @@
       disabled="{{authSubmitting}}"
       loading="{{authSubmitting}}"
       bind:btntap="onSubmitAuth"
-    >确认并进入脱敏预览</ui-button>
+    >{{authConfirmText}}</ui-button>
   </view>
 </ui-bottom-sheet>
 

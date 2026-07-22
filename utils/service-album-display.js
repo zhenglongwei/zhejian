@@ -70,6 +70,7 @@ function buildAlbumMetaLine(item = {}) {
 }
 
 function resolveAlbumAuthAction(item = {}) {
+  const { AUTH_ACTION_LABEL } = require('./publish-thank-you')
   if (!isRepairCompleted(item.status)) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
@@ -79,7 +80,7 @@ function resolveAlbumAuthAction(item = {}) {
   if (item.compliancePendingHint) {
     return {
       show: true,
-      label: '发布到公开网站',
+      label: AUTH_ACTION_LABEL,
       disabled: true,
       hint: item.compliancePendingHint,
     }
@@ -96,7 +97,7 @@ function resolveAlbumAuthAction(item = {}) {
   if (status === 'need_modify' && item.canResubmitPublicCase) {
     return {
       show: true,
-      label: '重新提交公示',
+      label: '重新分享脱敏报告',
       disabled: false,
       hint: item.gateBRejectHint || '',
     }
@@ -107,9 +108,9 @@ function resolveAlbumAuthAction(item = {}) {
   if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
     return {
       show: true,
-      label: '发布到公开网站',
+      label: AUTH_ACTION_LABEL,
       disabled: true,
-      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可发布',
+      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可分享',
     }
   }
   if (
@@ -121,7 +122,7 @@ function resolveAlbumAuthAction(item = {}) {
       item.awaitingUserConfirm && item.userConfirmHint ? item.userConfirmHint : ''
     return {
       show: true,
-      label: '发布到公开网站',
+      label: AUTH_ACTION_LABEL,
       disabled: Boolean(hint && item.canAuthorizePublicCase === false),
       hint,
     }

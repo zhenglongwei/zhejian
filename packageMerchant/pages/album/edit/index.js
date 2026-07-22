@@ -257,6 +257,14 @@ Page({
     inspCompleteModalVisible: false,
     inspCompleteModalTitle: MERCHANT_COMPLETE_INSP_TITLE,
     inspCompleteModalIntro: MERCHANT_COMPLETE_INSP_INTRO,
+    thankYouModeIndex: 0,
+    thankYouModeOptions: ['跟随门店默认', '本本相册单独设置', '本次不展示答谢'],
+    thankYouMode: 'inherit',
+    thankYouDiscountYuan: '',
+    thankYouGiftText: '',
+    thankYouWarrantyDays: '',
+    thankYouBenefitText: '',
+    storeThankYouPreview: '',
   },
 
   onLoad(options) {
@@ -338,7 +346,7 @@ Page({
     wx.showModal({
       title: '标记已完工',
       content:
-        '完工后服务相册将保存完整记录。车主可在小程序查看；公开案例须车主另行授权公示。',
+        '完工后服务相册将保存完整记录。车主可在小程序查看；分享脱敏案例须由车主自行确认。',
       confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return
@@ -560,6 +568,7 @@ Page({
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
       evidenceItems,
       oldPartTraces: extractOldPartTraces(evidenceItems),
+      ...this.mapThankYouFromDetail(detail),
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
       this.refreshPartWizard()
@@ -967,6 +976,33 @@ Page({
       },
       () => this.refreshPartWizard(),
     )
+  },
+
+  onAddPartByPhotos() {
+    if (this.data.saving || this.data.completing || this.data.switching) return
+    wx.chooseMedia({
+      count: 3,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        const paths = (res.tempFiles || []).map((f) => f.tempFilePath).filter(Boolean)
+        if (!paths.length) return
+        const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
+          partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
+          photos: paths,
+        })
+        const mapped = this.mapPartsWithVariants(parts)
+        this.setData(
+          {
+            planParts,
+            parts: mapped,
+            activeWizardIndex: planParts.length - 1,
+          },
+          () => this.refreshPartWizard(),
+        )
+      },
+    })
   },
 
   async onRemovePartRow(e) {
@@ -1417,6 +1453,56 @@ Page({
     wx.showToast({ title: '配件已添加', icon: 'success' })
   },
 
+  mapThankYouFromDetail(detail = {}) {
+    const albumCfg = detail.publishThankYou || { mode: 'inherit' }
+    const mode = albumCfg.mode || 'inherit'
+    const modeIndex = mode === 'custom' ? 1 : mode === 'off' ? 2 : 0
+    const storeCfg = detail.storePublishThankYou || {}
+    const invite = detail.publishInvite || {}
+    return {
+      thankYouMode: mode,
+      thankYouModeIndex: modeIndex,
+      thankYouDiscountYuan:
+        albumCfg.discountYuan > 0 ? String(albumCfg.discountYuan) : '',
+      thankYouGiftText: albumCfg.giftText || '',
+      thankYouWarrantyDays:
+        albumCfg.warrantyExtraDays > 0 ? String(albumCfg.warrantyExtraDays) : '',
+      thankYouBenefitText: albumCfg.benefitText || '',
+      storeThankYouPreview: storeCfg.enabled
+        ? invite.benefitLine || '门店已开启答谢（跟随门店默认）'
+        : '门店尚未配置答谢',
+    }
+  },
+
+  onThankYouModeChange(e) {
+    const index = Number(e.detail.value) || 0
+    const mode = index === 1 ? 'custom' : index === 2 ? 'off' : 'inherit'
+    this.setData({
+      thankYouModeIndex: index,
+      thankYouMode: mode,
+    })
+  },
+
+  onThankYouInput(e) {
+    const { field } = e.currentTarget.dataset
+    if (!field) return
+    this.setData({ [field]: e.detail.value })
+  },
+
+  buildPublishThankYouPayload() {
+    const mode = this.data.thankYouMode || 'inherit'
+    if (mode === 'off') return { mode: 'off' }
+    if (mode === 'inherit') return { mode: 'inherit' }
+    return {
+      mode: 'custom',
+      enabled: true,
+      discountYuan: Number(this.data.thankYouDiscountYuan) || 0,
+      giftText: String(this.data.thankYouGiftText || '').trim(),
+      warrantyExtraDays: Number(this.data.thankYouWarrantyDays) || 0,
+      benefitText: String(this.data.thankYouBenefitText || '').trim(),
+    }
+  },
+
   async buildSavePayload(overrides = {}) {
     let nodesSource = this.data.nodes
     if (COMPARE_STAGE_TEMPLATE_IDS.has(this.data.templateId)) {
@@ -1470,6 +1556,7 @@ Page({
             : String(this.data.partVerifyGuideText || '').trim(),
         partVerifyGuideInformed: this.data.partVerifyGuideMode === 'informed',
         evidenceItems: sanitizeEvidenceItemsPayload(evidenceItems, { validPlanPartIds }),
+        publishThankYou: this.buildPublishThankYouPayload(),
       },
       droppedStaleCount: (nodeDropped || 0) + (evidenceDropped || 0),
     }

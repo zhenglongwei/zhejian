@@ -662,12 +662,50 @@
   border-color: var(--color-primary);
 }
 
+.merchant-album-edit__parts-upload-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: var(--size-album-list-card-min-height);
+  padding: var(--space-lg) var(--space-md);
+  box-sizing: border-box;
+  border: 2rpx dashed var(--color-album-frame-line);
+  border-radius: var(--radius-album-list-thumb);
+  background: var(--color-album-frame-inner);
+}
+
+.merchant-album-edit__parts-upload-cta--hover {
+  opacity: 0.88;
+}
+
+.merchant-album-edit__parts-upload-cta.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.merchant-album-edit__parts-upload-icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.merchant-album-edit__parts-upload-title {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.merchant-album-edit__parts-upload-desc {
+  text-align: center;
+  line-height: 1.5;
+}
+
 .merchant-album-edit__parts-empty {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4rpx;
-  padding: var(--space-md) 0;
+  padding: var(--space-xs) 0;
 }
 
 .merchant-album-edit__body {

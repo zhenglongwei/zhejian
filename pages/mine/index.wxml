@@ -163,12 +163,20 @@
 
 <ui-bottom-sheet
   visible="{{authSheetVisible}}"
-  title="授权公示"
+  title="{{authSheetTitle}}"
   showActions="{{false}}"
   scrollable="{{true}}"
   bind:close="onCloseAuthSheet"
 >
   <ui-album-authorize-section
+    title="{{authSheetTitle}}"
+    pitch="{{authPitch}}"
+    benefitLine="{{authBenefitLine}}"
+    controlLine="{{authControlLine}}"
+    disclaimer="{{authDisclaimer}}"
+    consentText="{{authConsentText}}"
+    confirmText="{{authConfirmText}}"
+    rejectText="{{authRejectText}}"
     checked="{{authChecked}}"
     authTier="{{authTier}}"
     submitting="{{authSubmitting}}"
@@ -186,7 +194,7 @@
       disabled="{{authSubmitting}}"
       loading="{{authSubmitting}}"
       bind:btntap="onSubmitAuth"
-    >确认并进入脱敏预览</ui-button>
+    >{{authConfirmText}}</ui-button>
   </view>
 </ui-bottom-sheet>
 

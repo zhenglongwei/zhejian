@@ -20,7 +20,7 @@
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
         <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
-        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，你可继续授权公示或分享相册</text>
+        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，你可继续分享脱敏报告或发给微信</text>
       </view>
 
       <block wx:if="{{hasReview}}">
@@ -162,12 +162,20 @@
 
     <ui-bottom-sheet
       visible="{{authSheetVisible}}"
-      title="授权公示"
+      title="{{authSheetTitle}}"
       showActions="{{false}}"
       scrollable="{{true}}"
       bind:close="onCloseAuthSheet"
     >
       <ui-album-authorize-section
+        title="{{authSheetTitle}}"
+        pitch="{{authPitch}}"
+        benefitLine="{{authBenefitLine}}"
+        controlLine="{{authControlLine}}"
+        disclaimer="{{authDisclaimer}}"
+        consentText="{{authConsentText}}"
+        confirmText="{{authConfirmText}}"
+        rejectText="{{authRejectText}}"
         checked="{{authChecked}}"
         authTier="{{authTier}}"
         submitting="{{authSubmitting}}"
@@ -185,7 +193,7 @@
           disabled="{{authSubmitting}}"
           loading="{{authSubmitting}}"
           bind:btntap="onSubmitAuth"
-        >确认并进入脱敏预览</ui-button>
+        >{{authConfirmText}}</ui-button>
       </view>
     </ui-bottom-sheet>
 

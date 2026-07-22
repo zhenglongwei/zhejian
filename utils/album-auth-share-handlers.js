@@ -21,6 +21,15 @@ const {
 const { withStoreContextPath, TOOL_HOME_PATH } = require('./share-store-context')
 const { initAlbumShareState } = require('./album-share-state')
 const { resolveAlbumAuthAction } = require('./service-album-display')
+const {
+  AUTH_ACTION_LABEL,
+  AUTH_SHEET_TITLE,
+  AUTH_CONFIRM_TEXT,
+  AUTH_REJECT_TEXT,
+  CONTROL_LINE,
+  CONSENT_CHECKBOX,
+  buildPublishInviteCopy,
+} = require('./publish-thank-you')
 
 function albumAuthShareData() {
   return {
@@ -28,6 +37,14 @@ function albumAuthShareData() {
     authChecked: false,
     authTier: 'named',
     authSubmitting: false,
+    authSheetTitle: AUTH_SHEET_TITLE,
+    authPitch: '',
+    authBenefitLine: '',
+    authControlLine: CONTROL_LINE,
+    authDisclaimer: '',
+    authConsentText: CONSENT_CHECKBOX,
+    authConfirmText: AUTH_CONFIRM_TEXT,
+    authRejectText: AUTH_REJECT_TEXT,
     shareSheetVisible: false,
     showShareEntry: false,
     showPublicCaseShare: false,
@@ -43,7 +60,7 @@ function albumAuthShareData() {
     actionDetail: null,
     showAuthAction: false,
     authDisabled: false,
-    authLabel: '授权公示',
+    authLabel: AUTH_ACTION_LABEL,
     authHint: '',
     showStoreBrowse: false,
     linkedStoreId: '',
@@ -54,15 +71,44 @@ function albumAuthShareData() {
   }
 }
 
+function resolveInviteFromDetail(detail = {}) {
+  if (detail.publishInvite && detail.publishInvite.pitch) {
+    return detail.publishInvite
+  }
+  return buildPublishInviteCopy({
+    albumId: detail.albumId || detail.id,
+    vehicleLabel: detail.vehicleDisplay,
+    serviceName: detail.serviceName,
+    storeThankYou: detail.storePublishThankYou,
+    albumThankYou: detail.publishThankYou,
+  })
+}
+
+function inviteUiFieldsFromDetail(detail = {}) {
+  const invite = resolveInviteFromDetail(detail)
+  return {
+    authSheetTitle: invite.sheetTitle || AUTH_SHEET_TITLE,
+    authPitch: invite.pitch || '',
+    authBenefitLine: invite.benefitLine || '',
+    authControlLine: invite.controlLine || CONTROL_LINE,
+    authDisclaimer: invite.disclaimer || '',
+    authConsentText: invite.consentCheckbox || CONSENT_CHECKBOX,
+    authConfirmText: invite.confirmText || AUTH_CONFIRM_TEXT,
+    authRejectText: invite.rejectText || AUTH_REJECT_TEXT,
+  }
+}
+
 function buildAlbumActionState(detail = {}) {
   const authAction = resolveAlbumAuthAction(detail)
   const shareState = initAlbumShareState(detail)
   const linkedStoreId = (detail.store && detail.store.id) || ''
+  const inviteFields = inviteUiFieldsFromDetail(detail)
   return {
     showAuthAction: authAction.show,
     authDisabled: authAction.disabled,
-    authLabel: authAction.label || '授权公示',
+    authLabel: authAction.label || AUTH_ACTION_LABEL,
     authHint: authAction.hint || '',
+    ...inviteFields,
     showStoreBrowse: Boolean(linkedStoreId),
     linkedStoreId,
     ...shareState,
@@ -495,4 +541,6 @@ module.exports = {
   albumAuthShareData,
   buildAlbumActionState,
   createAlbumAuthShareHandlers,
+  inviteUiFieldsFromDetail,
+  resolveInviteFromDetail,
 }

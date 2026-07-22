@@ -145,7 +145,7 @@ function appendManualPartRow(planParts = [], parts = [], form = {}) {
     ...(quotedType ? { partType: quotedType } : {}),
     partBrand: form.partBrand,
     partCode: form.partCode,
-    photos: [],
+    photos: Array.isArray(form.photos) ? form.photos : [],
     source: 'plan_linked',
     qty: 1,
   })

@@ -379,7 +379,8 @@ async function listCases(query = {}) {
   return { list, total }
 }
 
-async function getCaseDetail(idOrSlug) {
+async function getCaseDetail(idOrSlug, opts = {}) {
+  const relatedStoreOnly = Boolean(opts.relatedStoreOnly)
   let row = await prisma.publicCase.findFirst({
     where: {
       id: idOrSlug,
@@ -435,6 +436,7 @@ async function getCaseDetail(idOrSlug) {
   const { relatedCases, relatedCaseTier } = resolveRelatedCasesForCase(item, allCases, {
     limit: 3,
     serviceItemId,
+    sameStoreOnly: relatedStoreOnly,
   })
 
   let storePhone = ''
@@ -768,7 +770,8 @@ async function attachRelatedCasesToService(record, opts = {}) {
   }
 }
 
-async function getServiceDetail(id) {
+async function getServiceDetail(id, opts = {}) {
+  const sameStoreOnly = Boolean(opts.sameStoreOnly)
   const row = await prisma.merchantServicePlan.findUnique({ where: { id } })
   if (row && isPubliclyVisible(row)) {
     const store = await prisma.store.findUnique({ where: { id: row.storeId } })
@@ -784,7 +787,7 @@ async function getServiceDetail(id) {
           status: 'published',
           onlinePaymentEnabled: false,
         },
-        { limit: 3 }
+        { limit: 3, sameStoreOnly }
       )
     )
   }
@@ -811,7 +814,7 @@ async function getServiceDetail(id) {
   return enrichServicePublicPage(
     await attachRelatedCasesToService(
       { ...record, storeName: store.name || record.storeName },
-      { limit: 3 }
+      { limit: 3, sameStoreOnly }
     )
   )
 }

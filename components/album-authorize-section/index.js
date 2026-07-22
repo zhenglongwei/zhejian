@@ -1,3 +1,11 @@
+const {
+  AUTH_SHEET_TITLE,
+  AUTH_CONFIRM_TEXT,
+  AUTH_REJECT_TEXT,
+  CONSENT_CHECKBOX,
+  CONTROL_LINE,
+} = require('../../utils/publish-thank-you')
+
 Component({
   properties: {
     checked: {
@@ -10,7 +18,27 @@ Component({
     },
     title: {
       type: String,
-      value: '发布到公开网站',
+      value: AUTH_SHEET_TITLE,
+    },
+    pitch: {
+      type: String,
+      value: '',
+    },
+    benefitLine: {
+      type: String,
+      value: '',
+    },
+    controlLine: {
+      type: String,
+      value: CONTROL_LINE,
+    },
+    disclaimer: {
+      type: String,
+      value: '',
+    },
+    consentText: {
+      type: String,
+      value: CONSENT_CHECKBOX,
     },
     showPolicyLink: {
       type: Boolean,
@@ -22,11 +50,11 @@ Component({
     },
     confirmText: {
       type: String,
-      value: '确认并进入脱敏预览',
+      value: AUTH_CONFIRM_TEXT,
     },
     rejectText: {
       type: String,
-      value: '暂不发布',
+      value: AUTH_REJECT_TEXT,
     },
     authTier: {
       type: String,

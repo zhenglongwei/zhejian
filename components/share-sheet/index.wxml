@@ -117,7 +117,7 @@
       </view>
 
       <view class="share-sheet__section">
-        <text class="share-sheet__section-title text-body">③ 发布到公开网站</text>
+        <text class="share-sheet__section-title text-body">③ 分享脱敏案例给同城车友</text>
         <text class="share-sheet__section-hint text-caption">须预览确认；人工审核通过后才会展示</text>
         <text wx:if="{{publishHint}}" class="share-sheet__publish-hint text-caption">{{publishHint}}</text>
 
@@ -156,7 +156,7 @@
       </view>
 
       <view class="share-sheet__footer">
-        <text class="share-sheet__privacy-text text-caption">发给微信或复制文案不会自动上网；仅「发布到公开网站」并过审后才会出现在案例站。</text>
+        <text class="share-sheet__privacy-text text-caption">发给微信或复制文案不会自动上网；仅「分享脱敏案例」并过审后才会出现在案例站。</text>
       </view>
     </block>
   </view>

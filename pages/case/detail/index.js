@@ -7,7 +7,6 @@ const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const {
   resolvePageShareContext,
-  filterCasesByStore,
   withStoreContextPath,
   getShareStoreId,
   isShareStoreIsolated,
@@ -17,7 +16,8 @@ const {
 const { submitCaseDetailPage } = require('../../../utils/wx-search-submit')
 const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { enrichCaseDetailForPage } = require('../../../utils/case-detail-display')
-const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
+const { assertOwnerStoreAccess, isStoreContextIsolated, userHasBoundAlbum } = require('../../../utils/album-store-access')
+const { isolateRelatedCases } = require('../../../utils/isolate-related-cases')
 const { copyMerchantCaseH5Link } = require('../../../constants/h5-links')
 
 const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
@@ -96,7 +96,13 @@ Page({
   async loadDetail() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const rawDetail = await fetchCaseDetail(this.caseId)
+      const preferSameStore =
+        this.data.storeIsolated ||
+        isShareStoreIsolated(this.pageOptions) ||
+        (await userHasBoundAlbum())
+      const rawDetail = await fetchCaseDetail(this.caseId, {
+        relatedStoreOnly: preferSameStore,
+      })
       const detail = enrichCaseDetailForPage(rawDetail)
       const storeId = detail.storeId || getShareStoreId()
       const access = await assertOwnerStoreAccess(storeId, this.pageOptions)
@@ -109,7 +115,11 @@ Page({
       }
       let relatedCases = detail.relatedCases || []
       if (storeIsolated && storeId) {
-        relatedCases = filterCasesByStore(relatedCases, storeId)
+        relatedCases = await isolateRelatedCases(relatedCases, {
+          storeId,
+          excludeId: this.caseId,
+          limit: 3,
+        })
       }
       const pageTitle = detail.title || detail.serviceName || DEEP_LINK_SHELL.case.subtitle
       this.setData({

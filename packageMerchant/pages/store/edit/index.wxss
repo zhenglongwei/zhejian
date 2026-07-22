@@ -10,6 +10,14 @@
   border: 1rpx solid var(--color-border);
 }
 
+.merchant-form__section--row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
 .merchant-store-edit__panel--muted {
   background-color: var(--color-bg-muted);
 }
