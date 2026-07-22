@@ -29,6 +29,9 @@ const MERCHANT_STORE_PICKER_COPY = {
   emptyTitle: '还没有门店',
   emptyDescription: '注册门店并通过审核后，可在此进入商家工作台',
   addStore: '注册新门店',
+  deleteAction: '删除',
+  deleteConfirmTitle: '删除该门店申请？',
+  deleteConfirmContent: '删除后不可恢复。仅草稿、需修改或已驳回的申请可删除。',
 }
 
 module.exports = {

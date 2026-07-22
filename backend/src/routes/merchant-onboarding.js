@@ -7,6 +7,7 @@ const {
   submitOnboarding,
   listWorkbenchStoreEntries,
   beginNewStoreRegistration,
+  discardMerchantApplication,
 } = require('../services/merchant-onboarding.service')
 const { recognizeBusinessLicense } = require('../services/license-ocr.service')
 
@@ -67,6 +68,15 @@ router.post('/onboarding/license-ocr', requireAuth(['user']), async (req, res, n
 router.post('/onboarding/submit', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await submitOnboarding(req.auth.userId, req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/onboarding/:merchantId', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await discardMerchantApplication(req.auth.userId, req.params.merchantId)
     return ok(res, data)
   } catch (e) {
     next(e)

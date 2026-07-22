@@ -144,6 +144,13 @@ const INCOMPLETE_MERCHANT_STATUSES = [
   MERCHANT_STATUS.AUDIT_REJECTED,
 ]
 
+/** 门店选择页允许商家自行删除的申请态（不含待审核 / 已通过） */
+const DELETABLE_MERCHANT_STATUSES = [
+  MERCHANT_STATUS.DRAFT,
+  MERCHANT_STATUS.NEED_MODIFY,
+  MERCHANT_STATUS.AUDIT_REJECTED,
+]
+
 async function loadOwnedMerchant(userId, merchantId, storeStatuses = null) {
   const storeWhere = storeStatuses ? { status: { in: storeStatuses } } : undefined
   return prisma.merchant.findFirst({
@@ -289,9 +296,58 @@ async function listWorkbenchStoreEntries(userId) {
         statusLabel: merchantStatusLabel(merchant.status),
         canEnterWorkbench:
           merchant.status === MERCHANT_STATUS.ACTIVE && store.status === STORE_STATUS.ACTIVE,
+        canDelete: DELETABLE_MERCHANT_STATUSES.includes(merchant.status),
       },
     ]
   })
+}
+
+/**
+ * 主账号删除未通过审核的门店申请（草稿 / 需修改 / 已驳回）
+ * 软关闭：主体 CLOSED，门店 OFFLINE，员工置 INACTIVE
+ */
+async function discardMerchantApplication(userId, merchantId) {
+  const id = String(merchantId || '').trim()
+  if (!id) {
+    const err = new Error('缺少商家 ID')
+    err.status = 400
+    throw err
+  }
+
+  const merchant = await prisma.merchant.findFirst({
+    where: {
+      id,
+      ownerUserId: userId,
+      status: { not: MERCHANT_STATUS.CLOSED },
+    },
+  })
+  if (!merchant) {
+    const err = new Error('门店申请不存在')
+    err.status = 404
+    throw err
+  }
+  if (!DELETABLE_MERCHANT_STATUSES.includes(merchant.status)) {
+    const err = new Error('仅草稿、需修改或已驳回的申请可删除')
+    err.status = 409
+    throw err
+  }
+
+  await prisma.$transaction([
+    prisma.merchant.update({
+      where: { id: merchant.id },
+      data: { status: MERCHANT_STATUS.CLOSED },
+    }),
+    prisma.store.updateMany({
+      where: { merchantId: merchant.id },
+      data: { status: STORE_STATUS.OFFLINE },
+    }),
+    prisma.merchantStaff.updateMany({
+      where: { merchantId: merchant.id, status: 'ACTIVE' },
+      data: { status: 'INACTIVE' },
+    }),
+  ])
+
+  return { ok: true, merchantId: merchant.id }
 }
 
 async function beginNewStoreRegistration(userId) {
@@ -572,4 +628,5 @@ module.exports = {
   activateMerchant,
   listWorkbenchStoreEntries,
   beginNewStoreRegistration,
+  discardMerchantApplication,
 }

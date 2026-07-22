@@ -344,16 +344,11 @@ Page({
     const handlers = {
       storeHome: () => this.onStoreHome(),
       staff: () => this.onStaffManage(),
-      addStore: () => this.onAddStore(),
       switchStore: () => this.onSwitchStore(),
       reviews: () => this.onReviewList(),
     }
     const fn = handlers[key]
     if (fn) fn()
-  },
-
-  onAddStore() {
-    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index?newStore=1' })
   },
 
   onSwitchStore() {

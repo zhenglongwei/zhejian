@@ -3,10 +3,11 @@
  * API: /api/v1/merchant/onboarding*
  */
 const { ENV } = require('./config')
-const { get, put, post } = require('./request')
+const { get, put, post, del } = require('./request')
 const { saveSession, getSession } = require('../utils/auth')
 
 const STORAGE_KEY = 'merchant_profile_v1'
+const DISCARDED_KEY = 'merchant_discarded_ids_v1'
 
 const MERCHANT_STATUS = {
   NONE: 'none',
@@ -16,6 +17,12 @@ const MERCHANT_STATUS = {
   APPROVED: 'approved',
   REJECTED: 'rejected',
 }
+
+const DELETABLE_STATUSES = [
+  MERCHANT_STATUS.DRAFT,
+  MERCHANT_STATUS.NEED_MODIFY,
+  MERCHANT_STATUS.REJECTED,
+]
 
 function delay(ms = 200) {
   return new Promise((r) => setTimeout(r, ms))
@@ -32,6 +39,29 @@ function getLocalProfile() {
 function saveLocalProfile(data) {
   wx.setStorageSync(STORAGE_KEY, data)
   return data
+}
+
+function getDiscardedMerchantIds() {
+  try {
+    const list = wx.getStorageSync(DISCARDED_KEY)
+    return Array.isArray(list) ? list.map(String) : []
+  } catch (e) {
+    return []
+  }
+}
+
+function markMerchantDiscarded(merchantId) {
+  const id = String(merchantId || '').trim()
+  if (!id) return
+  const ids = getDiscardedMerchantIds()
+  if (!ids.includes(id)) {
+    ids.push(id)
+    wx.setStorageSync(DISCARDED_KEY, ids)
+  }
+}
+
+function canDeleteMerchantStatus(status) {
+  return DELETABLE_STATUSES.includes(status)
 }
 
 function applyAuthSession(session) {
@@ -54,6 +84,7 @@ async function refreshMerchantSession() {
 async function fetchMerchantWorkbenchEntries() {
   if (ENV.mode === 'mock') {
     await delay(120)
+    const discarded = new Set(getDiscardedMerchantIds())
     const profile = getLocalProfile()
     if (!profile || profile.status === MERCHANT_STATUS.NONE) {
       return { list: [], total: 0 }
@@ -65,8 +96,17 @@ async function fetchMerchantWorkbenchEntries() {
         storeName: profile.storeName || '演示门店',
         address: profile.address || '',
         status: profile.status || MERCHANT_STATUS.APPROVED,
-        statusLabel: '已通过',
+        statusLabel: profile.status === MERCHANT_STATUS.DRAFT
+          ? '草稿'
+          : profile.status === MERCHANT_STATUS.NEED_MODIFY
+            ? '需修改'
+            : profile.status === MERCHANT_STATUS.REJECTED
+              ? '已驳回'
+              : profile.status === MERCHANT_STATUS.PENDING
+                ? '待审核'
+                : '已通过',
         canEnterWorkbench: profile.status === MERCHANT_STATUS.APPROVED,
+        canDelete: canDeleteMerchantStatus(profile.status || MERCHANT_STATUS.APPROVED),
       },
     ]
     if (profile.storeId === 'store_demo_1') {
@@ -78,11 +118,46 @@ async function fetchMerchantWorkbenchEntries() {
         status: MERCHANT_STATUS.APPROVED,
         statusLabel: '已通过',
         canEnterWorkbench: true,
+        canDelete: false,
       })
     }
-    return { list, total: list.length }
+    const filtered = list.filter((item) => !discarded.has(String(item.merchantId)))
+    return { list: filtered, total: filtered.length }
   }
   return get('/merchant/workbench-entries')
+}
+
+async function discardMerchantApplication(merchantId) {
+  const id = String(merchantId || '').trim()
+  if (!id) {
+    const err = new Error('缺少商家 ID')
+    err.code = 400
+    throw err
+  }
+
+  if (ENV.mode === 'mock') {
+    await delay(150)
+    markMerchantDiscarded(id)
+    const profile = getLocalProfile()
+    if (profile && String(profile.merchantId || '') === id) {
+      try {
+        wx.removeStorageSync(STORAGE_KEY)
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    return { ok: true, merchantId: id }
+  }
+
+  const data = await del(`/merchant/onboarding/${id}`, {}, {
+    showLoading: true,
+    loadingText: '删除中',
+  })
+  const session = getSession()
+  if (session?.merchant && String(session.merchant.merchantId || '') === id) {
+    await refreshMerchantSession().catch(() => null)
+  }
+  return data
 }
 
 async function beginNewMerchantStore() {
@@ -293,10 +368,12 @@ module.exports = {
   fetchMerchantStores,
   switchMerchantStore,
   beginNewMerchantStore,
+  discardMerchantApplication,
   submitOnboarding,
   saveOnboardingDraft,
   refreshMerchantSession,
   getProfile,
   cacheMerchantProfile,
   recognizeLicenseOcr,
+  canDeleteMerchantStatus,
 }

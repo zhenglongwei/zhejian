@@ -51,7 +51,15 @@
             <ui-tag variant="{{item.tagVariant}}" text="{{item.statusLabel}}" />
           </view>
           <text wx:if="{{item.address}}" class="merchant-store-picker__addr text-caption text-secondary">{{item.address}}</text>
-          <text class="merchant-store-picker__action text-caption text-link">{{item.actionHint}}</text>
+          <view class="merchant-store-picker__item-foot">
+            <text class="merchant-store-picker__action text-caption text-link">{{item.actionHint}}</text>
+            <text
+              wx:if="{{item.canDelete}}"
+              class="merchant-store-picker__delete text-caption text-danger"
+              data-index="{{index}}"
+              catchtap="onDeleteTap"
+            >{{copy.deleteAction}}</text>
+          </view>
         </view>
       </view>
 

@@ -76,3 +76,20 @@
   display: block;
   margin-top: var(--space-sm);
 }
+
+.merchant-store-picker__item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.merchant-store-picker__item-foot .merchant-store-picker__action {
+  margin-top: 0;
+}
+
+.merchant-store-picker__delete {
+  flex-shrink: 0;
+  padding: var(--space-xs) 0;
+}

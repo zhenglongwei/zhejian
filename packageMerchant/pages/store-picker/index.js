@@ -2,7 +2,9 @@ const {
   fetchMerchantWorkbenchEntries,
   switchMerchantStore,
   refreshMerchantSession,
+  discardMerchantApplication,
   MERCHANT_STATUS,
+  canDeleteMerchantStatus,
 } = require('../../../services/merchant')
 const { MERCHANT_STORE_PICKER_COPY } = require('../../../constants/merchant-onboarding-copy')
 const { isMerchant, isMerchantOwner } = require('../../../utils/auth')
@@ -29,6 +31,10 @@ function decorateEntries(list = []) {
     ...item,
     tagVariant: resolveEntryTagVariant(item.status),
     actionHint: resolveActionHint(item),
+    canDelete:
+      typeof item.canDelete === 'boolean'
+        ? item.canDelete
+        : canDeleteMerchantStatus(item.status),
   }))
 }
 
@@ -41,6 +47,7 @@ Page({
     copy: MERCHANT_STORE_PICKER_COPY,
     errorMessage: '',
     switching: false,
+    deleting: false,
   },
 
   onLoad() {
@@ -89,7 +96,7 @@ Page({
 
   async loadEntries() {
     const gen = ++this._loadGen
-    if (!this.data.switching) {
+    if (!this.data.switching && !this.data.deleting) {
       this.setData({ status: 'loading', errorMessage: '' })
     }
 
@@ -141,7 +148,7 @@ Page({
   async onEntryTap(e) {
     const index = Number(e.currentTarget.dataset.index)
     const entry = this.data.entries[index]
-    if (!entry || this.data.switching) return
+    if (!entry || this.data.switching || this.data.deleting) return
 
     if (entry.canEnterWorkbench) {
       if (!hasAcknowledgedMerchantPlan(entry.merchantId)) {
@@ -157,6 +164,38 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/onboarding/index?merchantId=${entry.merchantId}`,
     })
+  },
+
+  onDeleteTap(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const entry = this.data.entries[index]
+    if (!entry || !entry.canDelete || this.data.deleting || this.data.switching) return
+
+    const copy = this.data.copy
+    wx.showModal({
+      title: copy.deleteConfirmTitle,
+      content: copy.deleteConfirmContent,
+      confirmText: copy.deleteAction,
+      confirmColor: '#f53f3f',
+      success: (res) => {
+        if (res.confirm) this.deleteEntry(entry)
+      },
+    })
+  },
+
+  async deleteEntry(entry) {
+    if (!entry || this.data.deleting) return
+    this.setData({ deleting: true })
+    try {
+      await discardMerchantApplication(entry.merchantId)
+      if (!this._alive) return
+      wx.showToast({ title: '已删除', icon: 'success' })
+      await this.loadEntries()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
+    } finally {
+      if (this._alive) this.setData({ deleting: false })
+    }
   },
 
   async enterStore(entry, options = {}) {

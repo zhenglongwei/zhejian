@@ -24,8 +24,7 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 const MERCHANT_HUB_MORE_ITEMS = [
   { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
   { key: 'storeHome', label: '门店主页' },
-  { key: 'staff', label: '员工管理' },
-  { key: 'addStore', label: '注册新门店' },
+  { key: 'staff', label: '账号管理' },
   { key: 'switchStore', label: '切换门店' },
 ]
 
