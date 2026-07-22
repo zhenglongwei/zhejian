@@ -1,9 +1,8 @@
-const { PRICE_MODE } = require('../constants/price-mode')
+const { PRICE_MODE, normalizePriceMode } = require('../constants/price-mode')
 
 function getSubmitButtonLabel(priceMode, mode = 'service') {
   if (mode === 'message') return '提交留言'
-  if (priceMode === PRICE_MODE.ACCIDENT) return '预约到店检测'
-  if (priceMode === PRICE_MODE.FIXED) return '咨询预约'
+  if (normalizePriceMode(priceMode) === PRICE_MODE.FIXED) return '咨询预约'
   return '预约到店'
 }
 

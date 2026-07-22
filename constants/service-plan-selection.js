@@ -110,7 +110,7 @@ function resolveServiceSelection(label, catalogItems = []) {
     id: CUSTOM_SERVICE_ITEM_ID,
     categoryId: CUSTOM_CATEGORY_ID,
     name: trimmed,
-    defaultPriceMode: 'range',
+    defaultPriceMode: 'consult',
     label: trimmed,
     isCustom: true,
   }

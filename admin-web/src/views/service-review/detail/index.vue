@@ -40,9 +40,13 @@
             <el-descriptions-item v-if="detail.priceMode === 'fixed'" label="一口价">
               ¥{{ detail.amount }}
             </el-descriptions-item>
-            <el-descriptions-item v-if="detail.priceMode === 'range'" label="参考区间">
-              ¥{{ detail.minAmount }} – ¥{{ detail.maxAmount }}
+            <el-descriptions-item
+              v-else-if="detail.amount != null"
+              label="参考价"
+            >
+              ¥{{ detail.amount }}
             </el-descriptions-item>
+            <el-descriptions-item v-else label="参考价">未填写</el-descriptions-item>
             <el-descriptions-item label="接受咨询/预约">
               {{ detail.acceptAppointment !== false ? '是' : '否（已限制）' }}
             </el-descriptions-item>

@@ -11,7 +11,11 @@ function applySearchFilters(list, tab, filters = {}) {
       next = next.filter((item) => item.categoryId === filters.categoryId)
     }
     if (filters.accidentCapable) {
-      next = next.filter((item) => item.priceMode === 'accident')
+      next = next.filter(
+        (item) =>
+          item.categoryId === 'cat_accident' ||
+          item.serviceItemId === 'item_accident'
+      )
     }
   }
 

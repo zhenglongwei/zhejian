@@ -55,7 +55,11 @@ function normalizeTechnician(raw = {}, index = 0) {
     id: String(raw.id || `tech_${index + 1}`).trim(),
     name: name.slice(0, 32),
     role: String(raw.role || '维修技师').trim().slice(0, 32) || '维修技师',
-    years: String(raw.years || '').trim().slice(0, 16),
+    years: (() => {
+      const yearsRaw = String(raw.years || '').trim()
+      const match = yearsRaw.match(/(\d+)/)
+      return match ? `${match[1]}年` : ''
+    })(),
     credentials,
     avatarUrl,
     credentialPhotoUrls,
@@ -419,7 +423,10 @@ function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
       id: t.id,
       name: t.name,
       role: t.role,
-      years: t.years,
+      years: (() => {
+        const match = String(t.years || '').match(/(\d+)/)
+        return match ? `${match[1]}年` : ''
+      })(),
       credentials: t.credentials,
       avatarUrl: resolveClientReadableMediaUrl(t.avatarUrl || ''),
       credentialPhotoUrls: (t.credentialPhotoUrls || [])

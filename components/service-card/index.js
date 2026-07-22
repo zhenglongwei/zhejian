@@ -1,10 +1,12 @@
-const { PRICE_MODE, PRICE_MODE_LABEL } = require('../../constants/price-mode')
+const {
+  PRICE_MODE,
+  PRICE_MODE_LABEL,
+  normalizePriceMode,
+} = require('../../constants/price-mode')
 
 const MODE_TAG_VARIANT = {
   [PRICE_MODE.FIXED]: 'success',
-  [PRICE_MODE.RANGE]: 'onsite',
   [PRICE_MODE.CONSULT]: 'onsite',
-  [PRICE_MODE.ACCIDENT]: 'accident',
 }
 
 const MAX_TAGS = 3
@@ -15,7 +17,7 @@ Component({
     name: { type: String, value: '' },
     categoryName: { type: String, value: '' },
     summary: { type: String, value: '' },
-    priceMode: { type: String, value: PRICE_MODE.RANGE },
+    priceMode: { type: String, value: PRICE_MODE.CONSULT },
     amount: { type: null, value: null },
     minAmount: { type: null, value: null },
     maxAmount: { type: null, value: null },
@@ -54,15 +56,16 @@ Component({
         categoryName,
         showTags,
       } = this.properties
+      const normalized = normalizePriceMode(priceMode)
       if (!showTags) {
         this.setData({
           tagList: [],
-          showPriceSuffix: priceMode !== PRICE_MODE.FIXED,
+          showPriceSuffix: normalized !== PRICE_MODE.FIXED,
         })
         return
       }
-      const modeLabel = PRICE_MODE_LABEL[priceMode] || priceMode
-      const modeVariant = MODE_TAG_VARIANT[priceMode] || 'default'
+      const modeLabel = PRICE_MODE_LABEL[normalized] || normalized
+      const modeVariant = MODE_TAG_VARIANT[normalized] || 'default'
       const tags = []
       if (statusLabel) {
         tags.push({ variant: statusVariant, text: statusLabel })
@@ -73,7 +76,7 @@ Component({
       }
       this.setData({
         tagList: tags.slice(0, MAX_TAGS),
-        showPriceSuffix: priceMode !== PRICE_MODE.FIXED,
+        showPriceSuffix: normalized !== PRICE_MODE.FIXED,
       })
     },
     onTap() {

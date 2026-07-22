@@ -1,11 +1,9 @@
-const { formatYuan, formatPriceRange } = require('../../utils/format')
-const { PRICE_MODE } = require('../../constants/price-mode')
-
-const DISCLAIMERS = {
-  [PRICE_MODE.RANGE]: '实际费用以门店检测结果为准',
-  [PRICE_MODE.CONSULT]: '到店检测后报价',
-  [PRICE_MODE.ACCIDENT]: '不线上报价，请预约到店检测后确认方案',
-}
+const { formatYuan } = require('../../utils/format')
+const {
+  PRICE_MODE,
+  normalizePriceMode,
+  resolveReferenceAmount,
+} = require('../../constants/price-mode')
 
 Component({
   properties: {
@@ -19,7 +17,7 @@ Component({
     currency: { type: String, value: '¥' },
     showDisclaimer: { type: Boolean, value: true },
     showSuffix: { type: Boolean, value: true },
-    /** 覆盖默认免责文案 */
+    /** 覆盖默认副文案 */
     disclaimerText: { type: String, value: '' },
   },
   data: {
@@ -50,24 +48,27 @@ Component({
         disclaimerText,
       } = this.properties
 
+      const normalized = normalizePriceMode(mode)
       let priceText = ''
       let showPrice = true
       let disclaimer = ''
 
-      if (mode === PRICE_MODE.FIXED) {
+      if (normalized === PRICE_MODE.FIXED) {
         priceText = `${currency}${formatYuan(amount)}${showSuffix ? ' 起' : ''}`
-      } else if (mode === PRICE_MODE.RANGE) {
-        priceText = `参考区间 ${formatPriceRange(minAmount, maxAmount, currency)}`
-      } else if (mode === PRICE_MODE.CONSULT) {
-        showPrice = false
-        priceText = '到店检测后报价'
-      } else if (mode === PRICE_MODE.ACCIDENT) {
-        showPrice = false
-        priceText = '预约到店检测后报价'
-      }
-
-      if (showDisclaimer) {
-        disclaimer = disclaimerText || DISCLAIMERS[mode] || ''
+        // 一口价不展示「参考价 / 到店检测」类提示
+        disclaimer = ''
+      } else {
+        const ref = resolveReferenceAmount({ amount, minAmount, maxAmount })
+        if (ref != null) {
+          priceText = `参考价 ${currency}${formatYuan(ref)}`
+          disclaimer = showDisclaimer
+            ? disclaimerText || '到店检测后确定'
+            : ''
+        } else {
+          priceText = '到店检测后确定'
+          showPrice = false
+          disclaimer = ''
+        }
       }
 
       this.setData({ priceText, disclaimer, showPrice })

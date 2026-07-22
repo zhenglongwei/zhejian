@@ -48,9 +48,6 @@
     >
       <view class="merchant-form__picker">{{priceModes[priceModeIndex].label}}</view>
     </picker>
-    <view wx:if="{{pricePreview.mode === 'accident'}}" class="merchant-form__notice">
-      <ui-compliance-notice type="accident" />
-    </view>
   </view>
 
   <view class="merchant-form__section">
@@ -125,17 +122,6 @@
     />
   </view>
 
-  <view wx:if="{{showPriceFields && priceModes[priceModeIndex].value === 'range'}}" class="merchant-form__section">
-    <text class="merchant-form__label">价格影响因素</text>
-    <textarea
-      class="merchant-form__textarea"
-      placeholder="每行一项，如：车型与年款"
-      value="{{form.priceFactorsText}}"
-      data-field="priceFactorsText"
-      bindinput="onInput"
-    />
-  </view>
-
   <view class="merchant-form__section">
     <text class="merchant-form__label">咨询与预约</text>
     <view class="merchant-form__switch-row">
@@ -187,52 +173,30 @@
     </block>
   </view>
 
-  <view wx:if="{{showPriceFields}}" class="merchant-form__section">
+  <view class="merchant-form__section">
     <text class="merchant-form__label">
-      {{priceModes[priceModeIndex].value === 'fixed' ? '一口价（元）' : '参考价格区间（元）'}}
+      {{priceModes[priceModeIndex].value === 'fixed' ? '一口价（元）*' : '参考价（元，选填）'}}
     </text>
-    <block wx:if="{{priceModes[priceModeIndex].value === 'fixed'}}">
-      <input
-        class="merchant-form__input"
-        type="number"
-        placeholder="售价（元）"
-        value="{{form.amount}}"
-        data-field="amount"
-        bindinput="onInput"
-      />
-    </block>
-    <block wx:else>
-      <view class="merchant-form__row">
-        <input
-          class="merchant-form__input merchant-form__input--half"
-          type="number"
-          placeholder="下限（元）"
-          value="{{form.minAmount}}"
-          data-field="minAmount"
-          bindinput="onInput"
-        />
-        <text>—</text>
-        <input
-          class="merchant-form__input merchant-form__input--half"
-          type="number"
-          placeholder="上限（元）"
-          value="{{form.maxAmount}}"
-          data-field="maxAmount"
-          bindinput="onInput"
-        />
-      </view>
-    </block>
+    <text
+      wx:if="{{priceModes[priceModeIndex].value === 'consult'}}"
+      class="merchant-form__hint text-caption"
+    >不填则用户端只展示「到店检测后确定」</text>
+    <input
+      class="merchant-form__input"
+      type="number"
+      placeholder="{{priceModes[priceModeIndex].value === 'fixed' ? '售价（元）' : '参考价（元）'}}"
+      value="{{form.amount}}"
+      data-field="amount"
+      bindinput="onInput"
+    />
     <view class="merchant-form__price-preview">
       <ui-price-display
         mode="{{pricePreview.mode}}"
         amount="{{pricePreview.amount}}"
-        minAmount="{{pricePreview.minAmount}}"
-        maxAmount="{{pricePreview.maxAmount}}"
-        showDisclaimer="{{true}}"
-        showSuffix="{{pricePreview.mode !== 'fixed'}}"
+        showDisclaimer="{{pricePreview.mode === 'consult'}}"
+        showSuffix="{{false}}"
       />
     </view>
-    <ui-compliance-notice wx:if="{{pricePreview.mode === 'range'}}" type="price" />
   </view>
 
   <view class="merchant-form__spacer" />

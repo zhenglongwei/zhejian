@@ -100,8 +100,9 @@ function buildCaseH5Url(data, publicBaseUrl) {
 }
 
 function formatPriceLine(data) {
-  if (data.priceMode === 'appointment') return '价格：到店检测后确认'
-  if (data.priceMode === 'accident') return '价格：事故车需到店检测评估'
+  if (data.priceMode === 'appointment' || data.priceMode === 'consult' || data.priceMode === 'accident') {
+    return '价格：到店检测后确定'
+  }
   const min = data.minAmount != null ? Number(data.minAmount) : null
   const max = data.maxAmount != null ? Number(data.maxAmount) : null
   if (min != null && max != null && Number.isFinite(min) && Number.isFinite(max)) {

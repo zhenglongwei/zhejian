@@ -23,7 +23,6 @@ const {
 } = require('../../../utils/share-store-context')
 const { addSearchHistory } = require('../../../utils/search-history')
 const { buildStoreCardTags } = require('../../../utils/store-tags')
-const { PRICE_MODE } = require('../../../constants/price-mode')
 
 const TAB_LABEL = {
   all: '全部',
@@ -68,13 +67,8 @@ function buildTabEmptyHint(activeTab, counts) {
 function resolveServiceComplianceNotices(services) {
   const list = services || []
   return {
-    showServicePriceNotice: list.some(
-      (item) =>
-        item.priceMode === PRICE_MODE.FIXED || item.priceMode === PRICE_MODE.RANGE
-    ),
-    showServiceAccidentNotice: list.some(
-      (item) => item.priceMode === PRICE_MODE.ACCIDENT
-    ),
+    showServicePriceNotice: false,
+    showServiceAccidentNotice: false,
   }
 }
 

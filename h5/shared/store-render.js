@@ -724,7 +724,12 @@
           })
           .join('')
         var roleLine = escapeHtml(member.role || '员工')
-        if (member.years) roleLine += ' · ' + escapeHtml(member.years)
+        var yearsText = ''
+        if (member.years != null && String(member.years).trim()) {
+          var yearsMatch = String(member.years).match(/(\d+)/)
+          yearsText = yearsMatch ? yearsMatch[1] + '年' : String(member.years).trim()
+        }
+        if (yearsText) roleLine += ' · ' + escapeHtml(yearsText)
         var avatar = member.avatarUrl
           ? '<img class="h5-staff-avatar" src="' +
             escapeHtml(member.avatarUrl) +

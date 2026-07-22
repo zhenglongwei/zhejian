@@ -1,7 +1,7 @@
 /**
  * 服务方案常量 — 与 PRD §3、price-mode 对齐
  */
-const { PRICE_MODE } = require('./price-mode')
+const { PRICE_MODE, PRICE_MODE_OPTIONS } = require('./price-mode')
 
 const SERVICE_STATUS = {
   DRAFT: 'draft',
@@ -47,7 +47,7 @@ const SERVICE_ITEMS = {
     id: 'item_brake_pad',
     categoryId: 'cat_brake',
     name: '刹车片更换',
-    defaultPriceMode: PRICE_MODE.RANGE,
+    defaultPriceMode: PRICE_MODE.CONSULT,
     complexity: 'L2',
     allowOnlinePayment: false,
   },
@@ -55,7 +55,7 @@ const SERVICE_ITEMS = {
     id: 'item_body_paint',
     categoryId: 'cat_body',
     name: '钣喷修复',
-    defaultPriceMode: PRICE_MODE.RANGE,
+    defaultPriceMode: PRICE_MODE.CONSULT,
     complexity: 'L3',
     allowOnlinePayment: false,
   },
@@ -71,7 +71,7 @@ const SERVICE_ITEMS = {
     id: 'item_accident',
     categoryId: 'cat_accident',
     name: '事故车维修预约',
-    defaultPriceMode: PRICE_MODE.ACCIDENT,
+    defaultPriceMode: PRICE_MODE.CONSULT,
     complexity: 'L4',
     allowOnlinePayment: false,
   },
@@ -79,7 +79,7 @@ const SERVICE_ITEMS = {
     id: 'item_custom',
     categoryId: 'cat_other',
     name: '自定义服务',
-    defaultPriceMode: PRICE_MODE.RANGE,
+    defaultPriceMode: PRICE_MODE.CONSULT,
     complexity: 'L2',
     allowOnlinePayment: false,
     selectable: false,
@@ -89,13 +89,6 @@ const SERVICE_ITEMS = {
 const SERVICE_ITEM_LIST = Object.values(SERVICE_ITEMS).filter(
   (item) => item.selectable !== false
 )
-
-const PRICE_MODE_OPTIONS = [
-  { value: PRICE_MODE.FIXED, label: '一口价' },
-  { value: PRICE_MODE.RANGE, label: '参考区间' },
-  { value: PRICE_MODE.CONSULT, label: '到店检测后报价' },
-  { value: PRICE_MODE.ACCIDENT, label: '事故车预约到店' },
-]
 
 function getCategoryName(categoryId) {
   const cat = SERVICE_CATEGORIES.find((c) => c.id === categoryId)

@@ -34,12 +34,6 @@
           minAmount="{{confirm.service.minAmount}}"
           maxAmount="{{confirm.service.maxAmount}}"
         />
-        <view wx:if="{{showPriceCompliance}}" class="consult-submit__notice">
-          <ui-compliance-notice type="price" />
-        </view>
-        <view wx:if="{{isAccident}}" class="consult-submit__notice">
-          <ui-compliance-notice type="accident" />
-        </view>
         <view wx:if="{{confirm.consultGuide}}" class="consult-submit__notice">
           <text class="text-caption">门店说明：{{confirm.consultGuide}}</text>
         </view>

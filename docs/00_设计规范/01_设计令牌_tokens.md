@@ -899,10 +899,8 @@ page {
 
 | 价格模式      | 推荐 Token / Class                      | 说明              |
 | --------- | ------------------------------------- | --------------- |
-| 一口价 / 套餐价 | `text-price` / `text-price-sm`        | 可展示明确金额         |
-| 参考区间      | `tag--reference` / `notice--warning`  | 必须提示实际费用以门店检测为准 |
-| 到店检测      | `tag--onsite` / `notice--warning`     | 不展示确定金额         |
-| 事故车维修     | `tag--accident` / `compliance-notice` | 禁止线上报价暗示        |
+| 一口价 / 套餐价 | `text-price` / `text-price-sm`        | 可展示明确金额；无参考价类提示 |
+| 到店检测后确定   | `tag--onsite`                         | 参考价选填；不填则不展示金额  |
 
 
 ### **4.2 案例来源标签**

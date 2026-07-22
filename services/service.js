@@ -12,7 +12,7 @@ const {
   getCategoryName,
   getServiceItem,
 } = require('../constants/service')
-const { PRICE_MODE, PRICE_MODE_LABEL } = require('../constants/price-mode')
+const { PRICE_MODE, PRICE_MODE_LABEL, normalizePriceMode, isAccidentCategory } = require('../constants/price-mode')
 const {
   buildAppointmentSection,
   normalizeAppointmentJson,
@@ -97,24 +97,25 @@ function buildHeadTags(record) {
   if (record.categoryName) {
     tags.push({ variant: 'default', text: record.categoryName })
   }
-  const modeLabel = PRICE_MODE_LABEL[record.priceMode]
+  const normalized = normalizePriceMode(record.priceMode)
+  const modeLabel = PRICE_MODE_LABEL[normalized]
   if (modeLabel) {
-    const variant =
-      record.priceMode === PRICE_MODE.FIXED
-        ? 'success'
-        : record.priceMode === PRICE_MODE.ACCIDENT
-          ? 'accident'
-          : 'onsite'
+    const variant = normalized === PRICE_MODE.FIXED ? 'success' : 'onsite'
     tags.push({ variant, text: modeLabel })
   }
   return tags.slice(0, 3)
 }
 
 function buildKeyInfoRows(record, templateFields) {
+  const normalized = normalizePriceMode(record.priceMode)
   return [
     { label: '服务分类', value: record.categoryName || '—' },
     { label: '提供门店', value: record.storeName || '—' },
-    { label: '费用确认', value: '到店检测后由门店报价' },
+    {
+      label: '费用确认',
+      value:
+        normalized === PRICE_MODE.FIXED ? '一口价' : '到店检测后确定',
+    },
     { label: '服务类型', value: templateFields.complexityLabel || '常规维修' },
   ]
 }
@@ -150,19 +151,25 @@ async function buildServiceDetailViewModel(record, opts = {}) {
   }
 
   const status = record.status || SERVICE_STATUS.DRAFT
+  const displayPriceMode = normalizePriceMode(record.priceMode)
   const viewModel = {
     ...record,
+    priceMode: displayPriceMode,
     detail: record.detail || record.summary || '',
     aiSummary: record.aiSummary || record.summary || '',
     ...templateFields,
     applicableVehicles: appointmentJson.applicableVehicles,
-    headTags: buildHeadTags(record),
-    keyInfoRows: buildKeyInfoRows(record, templateFields),
+    headTags: buildHeadTags({ ...record, priceMode: displayPriceMode }),
+    keyInfoRows: buildKeyInfoRows(
+      { ...record, priceMode: displayPriceMode },
+      templateFields
+    ),
     relatedCases,
     caseTotal,
     caseLinkTier,
     availableMerchants,
     appointmentSection: buildAppointmentSection(record),
+    isAccidentService: isAccidentCategory(record),
     bookable:
       status === SERVICE_STATUS.PUBLISHED && record.acceptAppointment !== false,
   }
@@ -304,7 +311,9 @@ function buildMockServiceRecord(payload, existing, submitReview) {
   const item = getServiceItem(payload.serviceItemId)
   const now = Date.now()
   const id = payload.id || existing?.id || `svc_${now}`
-  const priceMode = payload.priceMode || item?.defaultPriceMode || PRICE_MODE.RANGE
+  const priceMode = normalizePriceMode(
+    payload.priceMode || item?.defaultPriceMode || PRICE_MODE.CONSULT
+  )
 
   let status = SERVICE_STATUS.DRAFT
   if (submitReview) {

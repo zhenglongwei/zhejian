@@ -145,21 +145,18 @@
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
-| mode | String | **fixed** 一口价/套餐 · **range** 参考区间 · **consult** 到店检测 · **accident** 事故车 |
-| amount | Number | fixed 时展示金额（分或元，项目内统一） |
-| minAmount | Number | range 下限 |
-| maxAmount | Number | range 上限 |
+| mode | String | **fixed** 一口价 · **consult** 到店检测后确定（`range`/`accident` 存量兼容，展示前归一为 consult） |
+| amount | Number | fixed 必填金额；consult 为可选参考价 |
+| minAmount / maxAmount | Number | 存量区间兼容；新录入不再使用 |
 | currency | String | 默认 ¥ |
-| showDisclaimer | Boolean | range/consult/accident 默认 true |
+| showDisclaimer | Boolean | consult 且有参考价时，副文案为「到店检测后确定」 |
 
 **合规约束**
 
-| mode | 是否展示确定金额 | 必须文案 |
+| mode | 是否展示确定金额 | 文案 |
 |---|---|---|
-| fixed | 是 | 可展示「起」 |
-| range | 否（仅区间） | 实际费用以门店检测结果为准 |
-| consult | 否 | 到店检测后报价 |
-| accident | 否 | 不线上报价；预约到店检测 |
+| fixed | 是 | **不**展示参考价 / 到店检测类提示 |
+| consult | 参考价选填；不填则不展示金额 | 主文案「到店检测后确定」；有参考价时主文案「参考价 ¥X」+ 副文案「到店检测后确定」 |
 
 ---
 

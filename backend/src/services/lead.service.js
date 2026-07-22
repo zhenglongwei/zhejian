@@ -404,7 +404,9 @@ async function fetchLeadConfirm(userId, params = {}) {
           phone: store.phone || '',
           bookable: store.status !== 'offline',
         },
-        isAccident: service.priceMode === 'accident',
+        isAccident:
+          service.categoryId === 'cat_accident' ||
+          service.serviceItemId === 'item_accident',
         consultGuide: appointment.consultGuide || '',
         bookingDates: [],
         defaultContact,

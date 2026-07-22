@@ -124,13 +124,12 @@ function getAuthorizationConsent(authType) {
 }
 
 const COMPLIANCE_COPY = {
-  price: '实际费用以门店检测结果为准，以下价格为参考区间。',
+  price: '到店检测后确定。',
   casePrice:
     '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
   authorizedCaseFixed:
     '本案例为车主授权公示，价格为当时方案报价，不构成线上报价承诺。',
-  accident:
-    '事故车维修无法仅凭线上信息准确报价。请预约门店到店检测后确认维修方案。',
+  accident: '到店检测后确定。',
   history: '价格仅供参考，不代表本页报价或最终成交价。',
   authorize:
     '授权公示后，你的服务相册经脱敏处理可供其他车主参考。公开版不展示完整车牌、手机号等信息，请你核对后再确认。公开展示须完成审核。',

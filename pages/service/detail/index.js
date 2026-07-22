@@ -1,6 +1,6 @@
 const { fetchServiceDetail } = require('../../../services/service')
 const { findStore } = require('../../../services/store')
-const { PRICE_MODE } = require('../../../constants/price-mode')
+const { isAccidentCategory } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
@@ -110,11 +110,8 @@ Page({
         detail: detailView,
         shellSubtitle: pageTitle,
         storePhone,
-        isAccident: detailView.priceMode === PRICE_MODE.ACCIDENT,
-        showPriceFactors:
-          detailView.priceMode === PRICE_MODE.RANGE ||
-          detailView.priceMode === PRICE_MODE.CONSULT ||
-          detailView.priceMode === PRICE_MODE.ACCIDENT,
+        isAccident: Boolean(detailView.isAccidentService) || isAccidentCategory(detailView),
+        showPriceFactors: Boolean((detailView.priceFactors || []).length),
         bookable: Boolean(detailView.bookable),
         consultSubmitLabel: getSubmitButtonLabel(detailView.priceMode, 'service'),
         showCasesLink,

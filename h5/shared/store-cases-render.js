@@ -116,24 +116,29 @@
   }
 
   function buildPriceDisplay(data) {
-    var mode = data.priceMode || 'range'
+    var mode = data.priceMode === 'fixed' ? 'fixed' : 'consult'
     var currency = '¥'
     var fixedAmount = resolveFixedAmount(data)
     var isAuthorized =
       data.authorizationTier === 'named' || data.authorizationTier === 'anonymous'
 
-    if (mode === 'accident') return { priceText: '预约到店检测后报价' }
     if (fixedAmount != null && (mode === 'fixed' || isAuthorized)) {
       return { priceText: currency + fixedAmount }
     }
-    if (mode === 'consult') return { priceText: '到店检测后报价' }
-    if (data.minAmount != null && data.maxAmount != null) {
-      return {
-        priceText:
-          '参考区间 ' + currency + data.minAmount + ' - ' + currency + data.maxAmount,
+    if (mode === 'consult') {
+      var ref = null
+      if (data.amount != null && data.amount !== '') {
+        var a = Number(data.amount)
+        if (Number.isFinite(a)) ref = a
       }
+      if (ref == null && data.minAmount != null) {
+        var min = Number(data.minAmount)
+        if (Number.isFinite(min)) ref = min
+      }
+      if (ref != null) return { priceText: '参考价 ' + currency + ref }
+      return { priceText: '到店检测后确定' }
     }
-    return { priceText: stripPriceSuffix(data.priceText || '到店检测后报价') }
+    return { priceText: stripPriceSuffix(data.priceText || '到店检测后确定') }
   }
 
   function setPageMeta(data) {

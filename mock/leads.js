@@ -177,7 +177,9 @@ async function mockFetchLeadConfirm({ serviceId, storeId, caseId, sourcePage }) 
     const session = getSession()
     const user = session.user || {}
     const bookingDates = buildBookingDates(7)
-    const isAccident = record.priceMode === PRICE_MODE.ACCIDENT
+    const isAccident =
+      record.categoryId === 'cat_accident' ||
+      record.serviceItemId === 'item_accident'
 
     return {
       mode: 'service',

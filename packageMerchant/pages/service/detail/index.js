@@ -8,6 +8,7 @@ const {
   resumeServiceAppointment,
 } = require('../../../../services/merchant-service-plan-actions')
 const { SERVICE_STATUS } = require('../../../../constants/service')
+const { isAccidentCategory } = require('../../../../constants/price-mode')
 
 /** 避免 showModal 确定后点击穿透再次弹出确认框 */
 const MODAL_CLOSE_DELAY_MS = 320
@@ -79,11 +80,8 @@ Page({
               : 'draft'
       this.setData({
         detail,
-        isAccident: detail.priceMode === 'accident',
-        showPriceFactors:
-          detail.priceMode === 'range' ||
-          detail.priceMode === 'consult' ||
-          detail.priceMode === 'accident',
+        isAccident: Boolean(detail.isAccidentService) || isAccidentCategory(detail),
+        showPriceFactors: Boolean((detail.priceFactors || []).length),
         bannerText:
           st === SERVICE_STATUS.SUSPENDED && detail.rejectReason
             ? `${BANNER_TEXT.suspended}（${detail.rejectReason}）`

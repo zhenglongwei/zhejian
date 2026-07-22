@@ -7,9 +7,9 @@
     geoDisclaimer:
       PC.geoDisclaimer ||
       '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
-    price: '实际费用以门店检测结果为准，以下价格为参考区间。',
-    accident: '事故车维修无法仅凭线上信息准确报价。请预约门店到店检测后确认维修方案。',
-    casePrice:
+  accident: '到店检测后确定。',
+  price: '到店检测后确定。',
+  casePrice:
       PC.casePrice ||
       '车主授权公示的案例展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
   }
@@ -36,9 +36,9 @@
 
   var PRICE_MODE_LABEL = {
     fixed: '一口价',
-    range: '参考区间',
-    consult: '到店检测',
-    accident: '事故车',
+    range: '到店检测后确定',
+    consult: '到店检测后确定',
+    accident: '到店检测后确定',
   }
 
   var COMPLEXITY_LABEL = {
@@ -165,19 +165,30 @@
     return null
   }
 
+  function normalizePriceMode(mode) {
+    if (mode === 'fixed') return 'fixed'
+    return 'consult'
+  }
+
+  function resolveReferenceAmount(data) {
+    if (data.amount != null && data.amount !== '') {
+      var amount = Number(data.amount)
+      if (Number.isFinite(amount)) return amount
+    }
+    var min = data.minAmount != null ? Number(data.minAmount) : NaN
+    if (Number.isFinite(min)) return min
+    var max = data.maxAmount != null ? Number(data.maxAmount) : NaN
+    if (Number.isFinite(max)) return max
+    return null
+  }
+
   function buildPriceDisplay(data) {
-    var mode = data.priceMode || 'range'
+    var mode = normalizePriceMode(data.priceMode || 'consult')
     var currency = '¥'
     var fixedAmount = resolveFixedAmount(data)
     var isAuthorized =
       data.authorizationTier === 'named' || data.authorizationTier === 'anonymous'
 
-    if (mode === 'accident') {
-      return {
-        priceText: '预约到店检测后报价',
-        note: COPY.accident,
-      }
-    }
     if (fixedAmount != null && (mode === 'fixed' || isAuthorized)) {
       return {
         priceText: currency + fixedAmount,
@@ -185,21 +196,21 @@
       }
     }
     if (mode === 'consult') {
-      return {
-        priceText: '到店检测后报价',
-        note: COPY.price,
+      var ref = resolveReferenceAmount(data)
+      if (ref != null) {
+        return {
+          priceText: '参考价 ' + currency + ref,
+          note: '到店检测后确定',
+        }
       }
-    }
-    if (data.minAmount != null && data.maxAmount != null) {
       return {
-        priceText:
-          '参考区间 ' + currency + data.minAmount + ' - ' + currency + data.maxAmount,
-        note: COPY.price,
+        priceText: '到店检测后确定',
+        note: '',
       }
     }
     return {
-      priceText: stripPriceSuffix(data.priceText || '到店检测后报价'),
-      note: COPY.price,
+      priceText: stripPriceSuffix(data.priceText || '到店检测后确定'),
+      note: '',
     }
   }
 
@@ -218,9 +229,9 @@
     if (service.categoryName) {
       tags.push({ cls: 'h5-tag--info', text: service.categoryName })
     }
-    var mode = service.priceMode || 'range'
-    var modeLabel = PRICE_MODE_LABEL[mode] || '参考价'
-    var variant = mode === 'fixed' ? 'h5-tag--order' : mode === 'accident' ? 'h5-tag--history' : 'h5-tag--reference'
+    var mode = normalizePriceMode(service.priceMode || 'consult')
+    var modeLabel = PRICE_MODE_LABEL[mode] || '到店检测后确定'
+    var variant = mode === 'fixed' ? 'h5-tag--order' : 'h5-tag--reference'
     tags.push({ cls: variant, text: modeLabel })
     return tags.slice(0, 3)
   }
@@ -244,10 +255,14 @@
       COMPLEXITY_LABEL[service.complexityLevel] ||
       COMPLEXITY_LABEL.L2 ||
       '常规维修'
+    var mode = normalizePriceMode(service.priceMode || 'consult')
     return [
       { label: '服务分类', value: service.categoryName || '—' },
       { label: '提供门店', value: service.storeName || '—' },
-      { label: '费用确认', value: '到店检测后由门店报价' },
+      {
+        label: '费用确认',
+        value: mode === 'fixed' ? '一口价' : '到店检测后确定',
+      },
       { label: '服务类型', value: complexity },
     ]
   }
@@ -484,11 +499,17 @@
         telephone: store && store.phone ? store.phone : undefined,
       },
     }
-    if (price.priceText && service.priceMode !== 'accident') {
+    if (price.priceText && normalizePriceMode(service.priceMode) === 'fixed') {
       schema.offers = {
         '@type': 'Offer',
         priceCurrency: 'CNY',
-        description: price.priceText + '（参考价，非最终成交价）',
+        description: price.priceText,
+      }
+    } else if (price.priceText && price.note) {
+      schema.offers = {
+        '@type': 'Offer',
+        priceCurrency: 'CNY',
+        description: price.priceText + '（到店检测后确定）',
       }
     }
     ensureJsonLd('service-schema', schema)
@@ -567,7 +588,6 @@
     var headTags = buildHeadTags(service)
     var price = buildPriceDisplay(service)
     var appointment = buildAppointmentSection(service)
-    var isAccident = service.priceMode === 'accident'
 
     setShareMeta(service, store)
 
@@ -611,15 +631,11 @@
         : '')
 
     html +=
-      '<div class="h5-card"><h2 class="h5-section-title">参考价格</h2>' +
+      '<div class="h5-card"><h2 class="h5-section-title">价格</h2>' +
       '<p class="h5-price">' +
       escapeHtml(stripPriceSuffix(price.priceText)) +
       '</p>' +
       (price.note ? '<p class="h5-price-note">' + escapeHtml(price.note) + '</p>' : '') +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.price) +
-      '</p>' +
-      (isAccident ? '<p class="h5-compliance">' + escapeHtml(COPY.accident) + '</p>' : '') +
       '</div>'
 
     if (service.summary) {

@@ -1,5 +1,9 @@
-const { PRICE_MODE } = require('../../../../constants/price-mode')
-const { PRICE_MODE_OPTIONS } = require('../../../../constants/service')
+const {
+  PRICE_MODE,
+  PRICE_MODE_OPTIONS,
+  normalizePriceMode,
+  resolveReferenceAmount,
+} = require('../../../../constants/price-mode')
 const {
   buildServiceTagOptions,
   buildMatchedTagViews,
@@ -27,11 +31,13 @@ const {
 const { DESIGN_TOKENS } = require('../../../../constants/design-tokens')
 const { uploadImage } = require('../../../../utils/media-upload')
 
-const PRICE_MODE_PICKER = PRICE_MODE_OPTIONS.filter(
-  (o) => o.value !== PRICE_MODE.CONSULT
-)
-
 const SERVICE_NAME_MAX = 32
+
+function pickerIndexForMode(mode) {
+  const normalized = normalizePriceMode(mode)
+  const idx = PRICE_MODE_OPTIONS.findIndex((o) => o.value === normalized)
+  return idx >= 0 ? idx : 0
+}
 
 Page({
   data: {
@@ -45,7 +51,7 @@ Page({
     selectedCategoryId: '',
     itemsReady: false,
     switchColor: DESIGN_TOKENS.COLOR_PRIMARY,
-    priceModes: PRICE_MODE_PICKER,
+    priceModes: PRICE_MODE_OPTIONS,
     priceModeIndex: 0,
     form: {
       name: '',
@@ -55,10 +61,7 @@ Page({
       includedItemsText: '',
       excludedItemsText: '',
       applicableVehiclesText: '',
-      priceFactorsText: '',
       amount: '',
-      minAmount: '',
-      maxAmount: '',
       acceptConsult: true,
       slotNote: '',
       advanceRequired: false,
@@ -66,13 +69,10 @@ Page({
       holidayNote: '',
       consultGuide: '',
     },
-    showPriceFields: true,
     submitting: false,
     pricePreview: {
-      mode: PRICE_MODE.RANGE,
+      mode: PRICE_MODE.FIXED,
       amount: null,
-      minAmount: null,
-      maxAmount: null,
     },
   },
 
@@ -119,18 +119,18 @@ Page({
         this.data.serviceItems,
         this.storeName
       )
-      let priceModeIndex = PRICE_MODE_PICKER.findIndex(
-        (o) => o.value === detail.priceMode
-      )
-      if (priceModeIndex < 0) priceModeIndex = 0
-      const mode = PRICE_MODE_PICKER[priceModeIndex].value
+      const priceModeIndex = pickerIndexForMode(detail.priceMode)
+      const mode = PRICE_MODE_OPTIONS[priceModeIndex].value
       const appointmentForm = appointmentFormFromJson(
         detail.appointmentJson,
         detail.acceptAppointment
       )
+      const refAmount =
+        mode === PRICE_MODE.FIXED
+          ? detail.amount
+          : resolveReferenceAmount(detail)
       this.setData({
         priceModeIndex,
-        showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
         form: {
           name: detail.name || '',
           coverUrl: detail.coverUrl || '',
@@ -141,10 +141,7 @@ Page({
           applicableVehiclesText: lineListToText(
             (detail.appointmentJson && detail.appointmentJson.applicableVehicles) || []
           ),
-          priceFactorsText: (detail.priceFactors || []).join('\n'),
-          amount: detail.amount != null ? String(detail.amount) : '',
-          minAmount: detail.minAmount != null ? String(detail.minAmount) : '',
-          maxAmount: detail.maxAmount != null ? String(detail.maxAmount) : '',
+          amount: refAmount != null ? String(refAmount) : '',
           ...appointmentForm,
         },
       })
@@ -212,18 +209,13 @@ Page({
     const resolved = resolveServiceSelection(label, this.data.serviceItems)
     if (!resolved) return
 
-    let priceModeIndex = PRICE_MODE_PICKER.findIndex(
-      (o) => o.value === resolved.defaultPriceMode
-    )
-    if (priceModeIndex < 0) priceModeIndex = 0
-    const mode = PRICE_MODE_PICKER[priceModeIndex].value
+    const priceModeIndex = pickerIndexForMode(resolved.defaultPriceMode)
     const patch = {
       selectedServiceLabel: resolved.label,
       selectedServiceItemId: resolved.id,
       selectedCategoryId: resolved.categoryId || '',
       nameQuery: resolved.label,
       matchedTags: this.refreshMatchedTags(resolved.label, resolved.label),
-      showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
     }
     if (!opts.preservePriceMode) {
       patch.priceModeIndex = priceModeIndex
@@ -258,13 +250,7 @@ Page({
       nameQuery: query,
     }
     if (opts.updatePriceMode) {
-      let priceModeIndex = PRICE_MODE_PICKER.findIndex(
-        (o) => o.value === resolved.defaultPriceMode
-      )
-      if (priceModeIndex < 0) priceModeIndex = 0
-      const mode = PRICE_MODE_PICKER[priceModeIndex].value
-      patch.priceModeIndex = priceModeIndex
-      patch.showPriceFields = mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE
+      patch.priceModeIndex = pickerIndexForMode(resolved.defaultPriceMode)
     }
     this.setData(patch, () => {
       if (opts.updatePriceMode) this.syncPricePreview()
@@ -317,14 +303,7 @@ Page({
 
   onPriceModeChange(e) {
     const index = Number(e.detail.value)
-    const mode = PRICE_MODE_PICKER[index].value
-    this.setData(
-      {
-        priceModeIndex: index,
-        showPriceFields: mode === PRICE_MODE.FIXED || mode === PRICE_MODE.RANGE,
-      },
-      () => this.syncPricePreview()
-    )
+    this.setData({ priceModeIndex: index }, () => this.syncPricePreview())
   },
 
   onAcceptConsultChange(e) {
@@ -356,40 +335,25 @@ Page({
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value }, () => {
-      if (
-        field === 'amount' ||
-        field === 'minAmount' ||
-        field === 'maxAmount'
-      ) {
-        this.syncPricePreview()
-      }
+      if (field === 'amount') this.syncPricePreview()
     })
   },
 
   syncPricePreview() {
-    const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
+    const mode = PRICE_MODE_OPTIONS[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
-    const min = parseInt(this.data.form.minAmount, 10)
-    const max = parseInt(this.data.form.maxAmount, 10)
     this.setData({
       pricePreview: {
         mode,
         amount: Number.isFinite(amount) ? amount : null,
-        minAmount: Number.isFinite(min) ? min : null,
-        maxAmount: Number.isFinite(max) ? max : null,
       },
     })
   },
 
-  parsePriceFactors(text) {
-    return parseLineList(text)
-  },
-
   buildPayload() {
-    const mode = PRICE_MODE_PICKER[this.data.priceModeIndex].value
+    const mode = PRICE_MODE_OPTIONS[this.data.priceModeIndex].value
     const amount = parseInt(this.data.form.amount, 10)
-    const minAmount = parseInt(this.data.form.minAmount, 10)
-    const maxAmount = parseInt(this.data.form.maxAmount, 10)
+    const amountVal = Number.isFinite(amount) ? amount : null
     const query = extractNameQuery(this.data.form.name, this.storeName)
     const resolved =
       resolveServiceSelection(query, this.data.serviceItems) || {}
@@ -404,17 +368,17 @@ Page({
       includedItems: parseLineList(this.data.form.includedItemsText),
       excludedItems: parseLineList(this.data.form.excludedItemsText),
       priceMode: mode,
-      amount: Number.isFinite(amount) ? amount : null,
-      minAmount: Number.isFinite(minAmount) ? minAmount : null,
-      maxAmount: Number.isFinite(maxAmount) ? maxAmount : null,
-      priceFactors: this.parsePriceFactors(this.data.form.priceFactorsText),
+      amount: amountVal,
+      minAmount: null,
+      maxAmount: null,
+      priceFactors: [],
       acceptAppointment: this.data.form.acceptConsult !== false,
       appointmentJson: appointmentJsonFromForm(this.data.form),
       storeName: this.storeName,
     }
   },
 
-  validate() {
+  validate(requireFixedAmount) {
     if (!this.data.itemsReady) {
       wx.showToast({ title: '服务项目加载中', icon: 'none' })
       return false
@@ -434,11 +398,19 @@ Page({
       wx.showToast({ title: '请填写有效的服务名称', icon: 'none' })
       return false
     }
+    const mode = PRICE_MODE_OPTIONS[this.data.priceModeIndex].value
+    if (requireFixedAmount && mode === PRICE_MODE.FIXED) {
+      const amount = parseInt(form.amount, 10)
+      if (!Number.isFinite(amount) || amount <= 0) {
+        wx.showToast({ title: '请填写一口价', icon: 'none' })
+        return false
+      }
+    }
     return true
   },
 
   async onSaveDraft() {
-    if (this.data.submitting || !this.validate()) return
+    if (this.data.submitting || !this.validate(false)) return
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), false)
@@ -452,7 +424,7 @@ Page({
   },
 
   async onSubmit() {
-    if (this.data.submitting || !this.validate()) return
+    if (this.data.submitting || !this.validate(true)) return
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), true)

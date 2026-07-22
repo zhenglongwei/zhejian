@@ -15,6 +15,7 @@ const {
 } = require('../../../utils/share-store-context')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
 const {
+  formatTechnicianYearsDisplay,
   buildCertRows,
   buildTransparencyMetrics,
   buildTransparencyExplain,
@@ -269,7 +270,12 @@ Page({
           certWall.length > 0
             ? ''
             : '证照图片待商家补充；以下为平台资料审核结果。',
-        staffPublic: store.staffPublic || [],
+        staffPublic: (store.staffPublic || []).map((item) => ({
+          ...item,
+          years: formatTechnicianYearsDisplay(item.years),
+          credentials: item.credentials || [],
+          credentialPhotoUrls: item.credentialPhotoUrls || [],
+        })),
         faqList: store.faq || [],
         specialtyBrandsText: (store.specialtyBrands || []).join('、'),
         notAcceptingText: (store.notAccepting || []).join('、'),

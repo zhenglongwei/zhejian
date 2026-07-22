@@ -8,9 +8,30 @@ function formatPublishedDate(value) {
   return String(value).slice(0, 10)
 }
 
+function normalizePriceMode(mode) {
+  if (mode === 'fixed') return 'fixed'
+  return 'consult'
+}
+
+function resolveAmount(row, priceMode) {
+  if (row.amount != null && Number.isFinite(Number(row.amount))) {
+    return Number(row.amount)
+  }
+  if (priceMode === 'consult') {
+    if (row.minAmount != null && Number.isFinite(Number(row.minAmount))) {
+      return Number(row.minAmount)
+    }
+    if (row.maxAmount != null && Number.isFinite(Number(row.maxAmount))) {
+      return Number(row.maxAmount)
+    }
+  }
+  return row.amount != null ? Number(row.amount) : null
+}
+
 function formatPlanRecord(row, store) {
   const item = getServiceItem(row.serviceItemId)
   const status = deriveClientStatus(row)
+  const priceMode = normalizePriceMode(row.priceMode)
   return {
     id: row.id,
     serviceItemId: row.serviceItemId,
@@ -19,10 +40,10 @@ function formatPlanRecord(row, store) {
     name: row.name,
     summary: row.summary,
     detail: row.detail,
-    priceMode: row.priceMode,
-    amount: row.amount,
-    minAmount: row.minAmount,
-    maxAmount: row.maxAmount,
+    priceMode,
+    amount: resolveAmount(row, priceMode),
+    minAmount: null,
+    maxAmount: null,
     priceFactors: Array.isArray(row.priceFactors) ? row.priceFactors : [],
     includedItems: Array.isArray(row.includedItems) ? row.includedItems : [],
     excludedItems: Array.isArray(row.excludedItems) ? row.excludedItems : [],

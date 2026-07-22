@@ -50,6 +50,19 @@ function joinTags(list) {
   return (list || []).join('、')
 }
 
+function parseTechnicianYearsInput(value) {
+  const match = String(value || '')
+    .trim()
+    .match(/(\d+)/)
+  return match ? match[1] : ''
+}
+
+/** 展示/落库：数字后固定带「年」 */
+function formatTechnicianYears(value) {
+  const num = parseTechnicianYearsInput(value)
+  return num ? `${num}年` : ''
+}
+
 function buildServiceTagViews(services, options = MERCHANT_SERVICE_TAG_OPTIONS) {
   const selected = services || []
   const presetTags = options.map((name) => ({
@@ -145,7 +158,18 @@ function profileToDisplayForm(profile) {
     brandAuthItems: readBrandAuthItemsFromProfile(profile),
     specialtyBrandsText: joinTags(profile.specialtyBrands),
     notAcceptingText: joinTags(profile.notAccepting),
-    technicians: Array.isArray(profile.technicians) ? profile.technicians : [],
+    technicians: Array.isArray(profile.technicians)
+      ? profile.technicians.map((item, index) => ({
+          ...item,
+          id: item.id || `tech_${index + 1}`,
+          years: parseTechnicianYearsInput(item.years || ''),
+          credentialsText: item.credentialsText || joinTags(item.credentials),
+          avatarUrl: item.avatarUrl || '',
+          credentialPhotoUrls: Array.isArray(item.credentialPhotoUrls)
+            ? item.credentialPhotoUrls.filter(Boolean)
+            : [],
+        }))
+      : [],
     equipmentTags: Array.isArray(profile.equipmentTags) ? profile.equipmentTags : [],
   }
 }
@@ -189,7 +213,7 @@ function buildDisplayPayload(form, storeId) {
       id: item.id || `tech_${index + 1}`,
       name: String(item.name || '').trim(),
       role: String(item.role || '维修技师').trim() || '维修技师',
-      years: String(item.years || '').trim(),
+      years: formatTechnicianYears(item.years),
       credentials: splitTags(item.credentialsText || joinTags(item.credentials)),
       avatarUrl: String(item.avatarUrl || '').trim(),
       credentialPhotoUrls: Array.isArray(item.credentialPhotoUrls)
@@ -286,6 +310,8 @@ module.exports = {
   formatBusinessHours,
   splitTags,
   joinTags,
+  parseTechnicianYearsInput,
+  formatTechnicianYears,
   normalizeBrandAuthItems,
   createEmptyBrandAuthItem,
   normalizeReceptionPhotoUrls,

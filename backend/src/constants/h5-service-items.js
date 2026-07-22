@@ -38,7 +38,7 @@ const H5_SERVICE_ITEMS = [
     slug: 'brake-pad-replacement',
     serviceItemId: 'item_brake_pad',
     name: '刹车片更换',
-    priceMode: 'range',
+    priceMode: 'consult',
     summary:
       '刹车片更换是车辆制动系统常见保养项目之一。当刹车片磨损接近更换标准，或出现刹车异响、制动距离变长等情况时，建议到店检查刹车片、刹车盘和卡钳状态后确认是否需要更换。',
     scenarios: [
@@ -112,7 +112,7 @@ const H5_SERVICE_ITEMS = [
     slug: 'body-paint-repair',
     serviceItemId: 'item_body_paint',
     name: '钣喷修复',
-    priceMode: 'range',
+    priceMode: 'consult',
     summary:
       '钣喷修复用于处理车身刮擦、凹陷、漆面损伤等问题。费用通常与损伤面积、是否需钣金整形及喷漆部位有关，需到店检测后确认方案。',
     scenarios: [
@@ -147,9 +147,9 @@ const H5_SERVICE_ITEMS = [
     slug: 'accident-repair',
     serviceItemId: 'item_accident',
     name: '事故车维修',
-    priceMode: 'accident',
+    priceMode: 'consult',
     summary:
-      '事故车维修需根据车辆损伤程度、拆检结果和配件情况确认维修方案。平台页面仅提供案例参考和门店信息，不支持线上最终报价。',
+      '事故车维修费用需到店检测后确定。平台页面提供案例参考和门店信息。',
     scenarios: [
       '碰撞、刮蹭事故需评估维修范围',
       '需拆检确认隐藏损伤',

@@ -41,12 +41,12 @@ function mapStoreListItem(item) {
 }
 
 function buildReferencePrice(meta, plans) {
-  const priceMode = meta.priceMode || 'range'
-  if (priceMode === 'accident') {
+  const priceMode = meta.priceMode === 'fixed' ? 'fixed' : 'consult'
+  if (priceMode === 'consult' && (meta.slug === 'accident' || meta.id === 'item_accident')) {
     return {
-      mode: 'accident',
-      text: meta.referencePriceHint || '需到店检测后确认方案和费用',
-      note: '事故车维修不支持线上最终报价，需到店检测或拆检后确认。',
+      mode: 'consult',
+      text: meta.referencePriceHint || '到店检测后确定',
+      note: '',
     }
   }
 
@@ -62,7 +62,7 @@ function buildReferencePrice(meta, plans) {
     const min = Math.min(...valid)
     return {
       mode: 'fixed',
-      text: '参考价格：¥' + min + ' 起',
+      text: '¥' + min + ' 起',
       note: meta.referencePriceHint || '',
     }
   }
@@ -71,16 +71,16 @@ function buildReferencePrice(meta, plans) {
     const min = Math.min(...valid)
     const max = Math.max(...valid)
     return {
-      mode: 'range',
-      text: min === max ? '参考价格：¥' + min : '参考区间：¥' + min + '–¥' + max,
-      note: meta.referencePriceHint || '',
+      mode: 'consult',
+      text: min === max ? '参考价 ¥' + min : '参考价 ¥' + min + '–¥' + max,
+      note: '到店检测后确定',
     }
   }
 
   return {
-    mode: priceMode || 'consult',
-    text: meta.referencePriceHint || '需到店检测后确认维修方案和费用',
-    note: '实际费用以门店检测为准。',
+    mode: 'consult',
+    text: meta.referencePriceHint || '到店检测后确定',
+    note: '',
   }
 }
 

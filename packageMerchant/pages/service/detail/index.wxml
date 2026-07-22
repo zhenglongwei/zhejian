@@ -70,13 +70,9 @@
           amount="{{detail.amount}}"
           minAmount="{{detail.minAmount}}"
           maxAmount="{{detail.maxAmount}}"
-          showDisclaimer="{{true}}"
-          showSuffix="{{detail.priceMode !== 'fixed'}}"
+          showDisclaimer="{{detail.priceMode === 'consult'}}"
+          showSuffix="{{false}}"
         />
-        <view class="service-detail__notice">
-          <ui-compliance-notice type="price" wx:if="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}" />
-          <ui-compliance-notice type="accident" wx:if="{{isAccident}}" />
-        </view>
       </view>
 
       <ui-ai-summary-block content="{{detail.summary}}" />

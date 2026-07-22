@@ -1,7 +1,6 @@
 const { fetchLeadConfirm, createLead } = require('../../../services/lead')
 const { fetchDefaultVehicle } = require('../../../services/vehicle')
 const { persistLocalImages } = require('../../../utils/media-upload')
-const { PRICE_MODE } = require('../../../constants/price-mode')
 const { checkAuth, getSession, maskPhone } = require('../../../utils/auth')
 const {
   validateLeadForm,
@@ -115,14 +114,8 @@ Page({
         confirm,
         isMessageMode,
         isAccident: Boolean(confirm.isAccident),
-        showPriceCompliance:
-          !isMessageMode &&
-          (confirm.service.priceMode === PRICE_MODE.RANGE ||
-            confirm.service.priceMode === PRICE_MODE.CONSULT),
-        priceDisclaimerText:
-          !isMessageMode && confirm.service.priceMode === PRICE_MODE.FIXED
-            ? '标注价格为参考，实际费用以门店确认为准'
-            : '',
+        showPriceCompliance: false,
+        priceDisclaimerText: '',
         submitLabel: getSubmitButtonLabel(
           isMessageMode ? null : confirm.service.priceMode,
           confirm.mode

@@ -40,22 +40,6 @@ function buildEquipmentTagViews(selected) {
   return presetViews.concat(customViews)
 }
 
-function normalizeTechniciansForForm(list) {
-  return (list || []).map((item, index) => ({
-    id: item.id || `tech_${index + 1}`,
-    name: item.name || '',
-    role: item.role || '维修技师',
-    years: item.years || '',
-    credentialsText: item.credentialsText || joinTags(item.credentials),
-    avatarUrl: item.avatarUrl || '',
-    credentialPhotoUrls: Array.isArray(item.credentialPhotoUrls)
-      ? item.credentialPhotoUrls.filter(Boolean)
-      : item.credentialPhotoUrl
-        ? [item.credentialPhotoUrl]
-        : [],
-  }))
-}
-
 Page({
   data: {
     status: 'loading',
@@ -98,7 +82,6 @@ Page({
       }
 
       const form = profileToDisplayForm(profile)
-      form.technicians = normalizeTechniciansForForm(form.technicians)
       const hours = buildBusinessHoursEditorState(form.businessHours)
       const daily = hours.businessHoursDaily || { start: '09:00', end: '18:00' }
       if (!daily.start) daily.start = '09:00'
@@ -261,6 +244,12 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     this.setData({ [`form.technicians[${index}].${field}`]: e.detail.value })
+  },
+
+  onTechYearsInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const digits = String(e.detail.value || '').replace(/[^\d]/g, '').slice(0, 2)
+    this.setData({ [`form.technicians[${index}].years`]: digits })
   },
 
   async onPickTechAvatar(e) {

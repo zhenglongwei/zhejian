@@ -87,6 +87,25 @@
   margin-top: var(--space-xs);
 }
 
+.merchant-store-edit__years-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.merchant-store-edit__years-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-store-edit__years-unit {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  padding-right: var(--space-xs);
+}
+
 .merchant-store-edit__tech-media {
   margin-top: var(--space-sm);
 }

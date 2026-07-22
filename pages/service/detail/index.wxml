@@ -156,13 +156,9 @@
           amount="{{detail.amount}}"
           minAmount="{{detail.minAmount}}"
           maxAmount="{{detail.maxAmount}}"
-          showDisclaimer="{{true}}"
-          showSuffix="{{detail.priceMode !== 'fixed'}}"
+          showDisclaimer="{{detail.priceMode === 'consult'}}"
+          showSuffix="{{false}}"
         />
-        <view class="deep-link-detail__notice">
-          <ui-compliance-notice type="price" wx:if="{{detail.priceMode === 'range' || detail.priceMode === 'consult'}}" />
-          <ui-compliance-notice type="accident" wx:if="{{isAccident}}" />
-        </view>
         <view wx:if="{{storePhone}}" class="surface-album-well service-detail__contact-well">
           <view
             class="deep-link-detail__info-row deep-link-detail__info-row--tap deep-link-detail__info-row--last service-detail__phone-row"

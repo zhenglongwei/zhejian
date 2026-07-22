@@ -344,7 +344,18 @@
         <input class="merchant-form__input" placeholder="称呼 *" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
         <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
         <view class="merchant-form__row">
-          <input class="merchant-form__input merchant-form__input--half" placeholder="年限" value="{{item.years}}" data-index="{{index}}" data-field="years" bindinput="onTechInput" />
+          <view class="merchant-store-edit__years-field">
+            <input
+              class="merchant-form__input merchant-store-edit__years-input"
+              type="digit"
+              placeholder="年限"
+              value="{{item.years}}"
+              data-index="{{index}}"
+              data-field="years"
+              bindinput="onTechYearsInput"
+            />
+            <text class="merchant-store-edit__years-unit text-body">年</text>
+          </view>
           <input class="merchant-form__input merchant-form__input--half" placeholder="资质标签" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
         </view>
         <view class="merchant-store-edit__tech-media">

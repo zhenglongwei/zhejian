@@ -1,7 +1,7 @@
 /**
  * 服务详情模板 — 商家未填字段时的默认文案（MOCK，联调后由 API 返回）
  */
-const { PRICE_MODE } = require('../constants/price-mode')
+const { PRICE_MODE, normalizePriceMode } = require('../constants/price-mode')
 const { getServiceItem } = require('../constants/service')
 
 const COMPLEXITY_LABEL = {
@@ -24,8 +24,8 @@ const DEFAULT_FAQ = [
 
 const ACCIDENT_FAQ = [
   {
-    q: '事故车可以线上报价吗？',
-    a: '事故车维修无法仅凭线上图片准确报价，需到店检测或拆检后确认维修方案和费用。',
+    q: '事故车价格怎么定？',
+    a: '事故车维修费用需到店检测后确定。',
   },
   ...DEFAULT_FAQ,
 ]
@@ -94,10 +94,10 @@ const ITEM_TEMPLATES = {
 function getDefaultPriceFactors(serviceItemId, priceMode) {
   const tpl = ITEM_TEMPLATES[serviceItemId]
   if (tpl && tpl.defaultPriceFactors) return tpl.defaultPriceFactors
-  if (priceMode === PRICE_MODE.ACCIDENT) {
+  if (serviceItemId === 'item_accident') {
     return ITEM_TEMPLATES.item_accident.defaultPriceFactors
   }
-  if (priceMode === PRICE_MODE.RANGE || priceMode === PRICE_MODE.CONSULT) {
+  if (normalizePriceMode(priceMode) === PRICE_MODE.CONSULT) {
     return ['车型', '配件品牌', '损伤程度', '门店检测结果']
   }
   return []
@@ -106,7 +106,7 @@ function getDefaultPriceFactors(serviceItemId, priceMode) {
 function getServiceFlow(serviceItemId, priceMode) {
   const tpl = ITEM_TEMPLATES[serviceItemId]
   if (tpl && tpl.serviceFlow) return tpl.serviceFlow
-  if (priceMode === PRICE_MODE.ACCIDENT) {
+  if (serviceItemId === 'item_accident') {
     return ITEM_TEMPLATES.item_accident.serviceFlow
   }
   return [
@@ -118,8 +118,9 @@ function getServiceFlow(serviceItemId, priceMode) {
   ]
 }
 
-function getFaq(priceMode) {
-  return priceMode === PRICE_MODE.ACCIDENT ? ACCIDENT_FAQ : DEFAULT_FAQ
+function getFaq(priceMode, serviceItemId) {
+  if (serviceItemId === 'item_accident') return ACCIDENT_FAQ
+  return DEFAULT_FAQ
 }
 
 function getComplexityLabel(serviceItemId) {
@@ -158,7 +159,7 @@ function applyDetailTemplate(record) {
         ? record.priceFactors
         : getDefaultPriceFactors(record.serviceItemId, priceMode),
     serviceFlow: getServiceFlow(record.serviceItemId, priceMode),
-    faq: getFaq(priceMode),
+    faq: getFaq(priceMode, record.serviceItemId),
     complexityLabel: getComplexityLabel(record.serviceItemId),
   }
 }

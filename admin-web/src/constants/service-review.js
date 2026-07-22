@@ -23,9 +23,9 @@ export const COMPLIANCE_NOTICES = [
 
 export const PRICE_MODE_LABEL = {
   fixed: '一口价',
-  range: '参考区间',
-  consult: '到店检测',
-  accident: '事故车预约',
+  range: '到店检测后确定',
+  consult: '到店检测后确定',
+  accident: '到店检测后确定',
 }
 
 export const SPOT_CHECK_RESULTS = [

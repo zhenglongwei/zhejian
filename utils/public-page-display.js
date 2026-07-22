@@ -2,6 +2,15 @@
  * 公开深链页展示辅助（与 backend PublicPageSections 同序）
  */
 
+/** 技师年限展示：纯数字补「年」，已有单位不重复 */
+function formatTechnicianYearsDisplay(years) {
+  const raw = String(years == null ? '' : years).trim()
+  if (!raw) return ''
+  const match = raw.match(/(\d+)/)
+  if (!match) return raw
+  return `${match[1]}年`
+}
+
 function buildCertRows(certifications) {
   return (certifications || []).map((item) => ({
     label: item.label,
@@ -65,6 +74,7 @@ function buildTransparencyExplain(transparency) {
 }
 
 module.exports = {
+  formatTechnicianYearsDisplay,
   buildCertRows,
   buildTransparencyMetrics,
   buildTransparencyExplain,

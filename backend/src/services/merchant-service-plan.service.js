@@ -20,8 +20,19 @@ function normalizeStringArray(value) {
   return value.map((s) => String(s).trim()).filter(Boolean)
 }
 
+function normalizePriceMode(mode) {
+  if (mode === 'fixed') return 'fixed'
+  return 'consult'
+}
+
 function buildPlanData(payload, item, existing) {
-  const priceMode = payload.priceMode || item?.defaultPriceMode || 'range'
+  const priceMode = normalizePriceMode(
+    payload.priceMode || item?.defaultPriceMode || 'consult'
+  )
+  const rawAmount =
+    payload.amount != null && payload.amount !== ''
+      ? Number(payload.amount)
+      : null
   return {
     serviceItemId: payload.serviceItemId || existing?.serviceItemId,
     categoryId: item?.categoryId || payload.categoryId || existing?.categoryId || '',
@@ -29,9 +40,9 @@ function buildPlanData(payload, item, existing) {
     summary: String(payload.summary || existing?.summary || '').trim(),
     detail: String(payload.detail || payload.summary || existing?.detail || '').trim(),
     priceMode,
-    amount: payload.amount != null ? Number(payload.amount) : null,
-    minAmount: payload.minAmount != null ? Number(payload.minAmount) : null,
-    maxAmount: payload.maxAmount != null ? Number(payload.maxAmount) : null,
+    amount: Number.isFinite(rawAmount) ? rawAmount : null,
+    minAmount: null,
+    maxAmount: null,
     priceFactors: normalizeStringArray(payload.priceFactors ?? existing?.priceFactors),
     includedItems: normalizeStringArray(payload.includedItems ?? existing?.includedItems),
     excludedItems: normalizeStringArray(payload.excludedItems ?? existing?.excludedItems),
@@ -47,7 +58,7 @@ function buildPlanData(payload, item, existing) {
   }
 }
 
-function validatePlanPayload(data) {
+function validatePlanPayload(data, opts = {}) {
   if (!data.serviceItemId) {
     const err = new Error('请选择或填写服务类型')
     err.status = 400
@@ -63,6 +74,14 @@ function validatePlanPayload(data) {
     const err = new Error('请填写服务名称')
     err.status = 400
     throw err
+  }
+  if (opts.requireFixedAmount && data.priceMode === 'fixed') {
+    const amount = Number(data.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      const err = new Error('一口价须填写有效金额')
+      err.status = 400
+      throw err
+    }
   }
   return item
 }
@@ -196,7 +215,7 @@ async function publishMerchantServicePlan(planId, merchantId, storeId) {
 
   const item = getServiceItem(existing.serviceItemId)
   const data = buildPlanData(existing, item, existing)
-  validatePlanPayload(data)
+  validatePlanPayload(data, { requireFixedAmount: true })
 
   const row = await prisma.merchantServicePlan.update({
     where: { id: planId },
