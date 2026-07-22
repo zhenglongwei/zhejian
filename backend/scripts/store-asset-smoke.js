@@ -182,7 +182,10 @@ function main() {
       name: '过期店',
       status: 'ACTIVE',
       businessHours: '09:00-18:00',
-      photosJson: { workshopUrls: ['/media/w1.jpg'] },
+      photosJson: {
+        workshopUrls: ['/media/w1.jpg'],
+        receptionUrl: '/media/reception1.jpg',
+      },
       capabilityJson: {
         brandAuthValidUntil: '2020-01-01',
         equipmentTags: [{ id: 'eq1', label: '烤漆房', imageUrl: '/media/eq1.jpg' }],
@@ -200,6 +203,11 @@ function main() {
   )
   assert.ok(demoted.score <= 0 || demoted.score < 100)
   assert.ok(demoted.environmentImages.includes('/media/w1.jpg') || demoted.environmentImages.length >= 1)
+  // 接待区并入环境（排在工位之后）
+  assert.ok(
+    demoted.environmentImages.some((u) => String(u).includes('reception1.jpg')),
+    'reception image should merge into environmentImages'
+  )
   // 设备图并入环境（resolveClientReadableMediaUrls 可能改写路径前缀，用后缀判断）
   assert.ok(
     demoted.environmentImages.some((u) => String(u).includes('eq1.jpg')),

@@ -60,6 +60,14 @@ function buildServiceTagViews(services, options = MERCHANT_SERVICE_TAG_OPTIONS) 
   return presetTags.concat(customTags)
 }
 
+function normalizeWorkshopPhotoUrls(value) {
+  if (Array.isArray(value)) {
+    return value.map((url) => String(url || '').trim()).filter(Boolean).slice(0, 6)
+  }
+  const single = String(value || '').trim()
+  return single ? [single] : []
+}
+
 function profileToDisplayForm(profile) {
   const photos = profile.photos || {}
   return {
@@ -68,7 +76,7 @@ function profileToDisplayForm(profile) {
     intro: profile.intro || '',
     services: profile.services || [],
     facadePhotoUrl: photos.facadeUrl || '',
-    workshopPhotoUrls: photos.workshopUrls || [],
+    workshopPhotoUrls: normalizeWorkshopPhotoUrls(photos.workshopUrls),
     receptionPhotoUrl: photos.receptionUrl || '',
     brandAuthPhotoUrl: photos.brandAuthUrl || profile.brandAuthPhotoUrl || '',
     brandAuthValidUntil: profile.brandAuthValidUntil || '',
@@ -136,7 +144,7 @@ function buildDisplayPayload(form, storeId) {
     brandAuthValidUntil: form.brandAuthValidUntil || '',
     photos: {
       facadeUrl: form.facadePhotoUrl,
-      workshopUrls: form.workshopPhotoUrls || [],
+      workshopUrls: normalizeWorkshopPhotoUrls(form.workshopPhotoUrls),
       receptionUrl: form.receptionPhotoUrl,
       brandAuthUrl: form.brandAuthPhotoUrl,
     },
@@ -163,7 +171,7 @@ function validateDisplayForm(form, options = {}) {
   if (!form.facadePhotoUrl) {
     return '请上传门头照片'
   }
-  if (!form.workshopPhotoUrls || !form.workshopPhotoUrls.length) {
+  if (!normalizeWorkshopPhotoUrls(form.workshopPhotoUrls).length) {
     return '请至少上传一张工位照片'
   }
   return ''

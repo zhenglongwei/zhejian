@@ -530,9 +530,15 @@ function mapStoreRow(store, caseCount = 0) {
     Array.isArray(photos.workshopUrls) && photos.workshopUrls.length
       ? photos.workshopUrls
       : extras.environmentImages || []
+  const receptionUrl = String(photos.receptionUrl || '').trim()
   const equipmentImageUrls = collectApprovedEquipmentImageUrls(publicCapability)
+  // 环境轮播顺序：工位 → 接待区 → 已审设备实景（门头单独作 coverImage）
   const environmentImages = filterPublicEnvironmentImages(
-    resolveClientReadableMediaUrls([...workshopUrls, ...equipmentImageUrls])
+    resolveClientReadableMediaUrls([
+      ...workshopUrls,
+      ...(receptionUrl ? [receptionUrl] : []),
+      ...equipmentImageUrls,
+    ])
   )
   const qualificationJson =
     store.merchant &&

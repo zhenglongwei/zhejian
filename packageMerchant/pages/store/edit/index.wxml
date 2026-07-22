@@ -139,14 +139,23 @@
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">工位照片 *（至少 1 张）</text>
+      <text class="merchant-form__label">工位照片 *（至少 1 张，最多 6 张）</text>
+      <text class="text-caption merchant-store-edit__field-tip">预览轮播会展示：门头 + 工位 + 接待区 + 已审设备实景。</text>
       <view class="merchant-onboard__photo-grid">
-        <view wx:for="{{form.workshopPhotoUrls}}" wx:key="*this" class="merchant-onboard__photo-wrap">
+        <view
+          wx:for="{{form.workshopPhotoUrls}}"
+          wx:key="index"
+          class="merchant-onboard__photo-wrap"
+        >
           <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
           <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
         </view>
-        <view class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
-          <text class="text-caption">+</text>
+        <view
+          wx:if="{{form.workshopPhotoUrls.length < 6}}"
+          class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add"
+          bindtap="onPickWorkshop"
+        >
+          <text class="text-caption merchant-store-edit__photo-add-text">添加工位</text>
         </view>
       </view>
     </view>

@@ -304,8 +304,14 @@ Page({
     this.pickSingleImage('brandAuthPhotoUrl')
   },
 
+  workshopPhotoList() {
+    const list = this.data.form && this.data.form.workshopPhotoUrls
+    return Array.isArray(list) ? list : []
+  },
+
   async onPickWorkshop() {
-    const remain = 6 - (this.data.form.workshopPhotoUrls || []).length
+    const current = this.workshopPhotoList()
+    const remain = 6 - current.length
     if (remain <= 0) {
       wx.showToast({ title: '工位照片最多 6 张', icon: 'none' })
       return
@@ -318,7 +324,7 @@ Page({
         urls.push(await uploadImage(file.tempFilePath))
       }
       this.setData({
-        'form.workshopPhotoUrls': (this.data.form.workshopPhotoUrls || []).concat(urls),
+        'form.workshopPhotoUrls': current.concat(urls),
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
@@ -329,7 +335,7 @@ Page({
 
   onRemoveWorkshop(e) {
     const { index } = e.currentTarget.dataset
-    const list = (this.data.form.workshopPhotoUrls || []).slice()
+    const list = this.workshopPhotoList().slice()
     list.splice(Number(index), 1)
     this.setData({ 'form.workshopPhotoUrls': list })
   },

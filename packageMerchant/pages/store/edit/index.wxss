@@ -46,7 +46,25 @@
 .merchant-store-edit__field-tip {
   display: block;
   margin-top: var(--space-xs);
+  margin-bottom: var(--space-sm);
   color: var(--color-text-tertiary);
+}
+
+.merchant-store-edit__photo-add-text {
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.merchant-onboard__photo-wrap {
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-onboard__photo-slot--add {
+  flex-shrink: 0;
 }
 
 .merchant-store-edit__auth-date {
