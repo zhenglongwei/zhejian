@@ -191,9 +191,9 @@ Page({
     bottomPrimaryText: '',
     ownerPhoneInput: '',
     allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
-    uploadPrivacyHint:
-      '上传后系统自动区分留档与可公示素材；含车牌/单据整页的图片不会进入公示。',
-    planStageUploadHint: '请上传报价单/维修方案等照片（仅留档）；并填写方案金额或项目说明。',
+    uploadPrivacyHint: '',
+    planStageUploadHint: '上传报价单，并填写方案说明',
+    commonShootAvoidTags: ['少拍清晰车牌', '避免人脸入镜', '避免车钥匙入镜', '避免私人物品特写'],
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -250,7 +250,7 @@ Page({
     merchantInspHint: MERCHANT_INSPECTION_HINT,
     merchantInspSummary: { done: 0, total: 0, missing: 0 },
     merchantInspPanels: [],
-    merchantInspColumnLabel: '规范',
+    merchantInspColumnLabel: '建议',
     merchantInspExpanded: false,
     merchantInspMissingItems: [],
     inspScrollIntoView: '',
@@ -495,33 +495,66 @@ Page({
   applyAlbum(detail) {
     let mergedNodes = this.mergeNodes(detail.nodes, detail.templateId)
     const coach = detail.albumCoach
+    const defaultAvoidTags = ['少拍清晰车牌', '避免人脸入镜', '避免车钥匙入镜', '避免私人物品特写']
+    let commonShootAvoidTags = defaultAvoidTags
     if (coach && coach.stages) {
+      const sampleAvoid =
+        (coach.stages.stage_2 && coach.stages.stage_2.shoot_avoid) ||
+        (coach.stages.stage_1 && coach.stages.stage_1.shoot_avoid) ||
+        []
+      const fromCoach = sampleAvoid
+        .map((x) => x && x.title)
+        .filter(Boolean)
+        .slice(0, 4)
+      if (fromCoach.length) commonShootAvoidTags = fromCoach
+
       mergedNodes = mergedNodes.map((n) => {
         const stageCoach = coach.stages[n.id]
-        if (!stageCoach) return n
+        if (!stageCoach) {
+          return {
+            ...n,
+            publicUploadHint: '',
+            photoTips: '',
+            compareGuidance: '',
+          }
+        }
         const prefer = (stageCoach.shoot_prefer || [])
           .map((x) => x.title)
           .filter(Boolean)
+          .slice(0, 2)
           .join('；')
-        const avoid = (stageCoach.shoot_avoid || [])
-          .slice(0, 4)
-          .map((x) => x.title)
-          .filter(Boolean)
-          .join('、')
+        const stageHint = prefer || String(n.description || '').trim()
         const noteHint = stageCoach.note_hints && stageCoach.note_hints[0]
-        const hintParts = [
-          n.publicUploadHint,
-          prefer ? `建议拍：${prefer}` : '',
-          avoid ? `尽量别拍：${avoid}` : '',
-        ].filter(Boolean)
+        let notePlaceholder = n.notePlaceholder
+        if (noteHint) {
+          const exampleRaw = String(noteHint.example || '').trim()
+          const example = /^示例[:：]/.test(exampleRaw)
+            ? exampleRaw
+            : exampleRaw
+              ? `示例：${exampleRaw}`
+              : ''
+          const bullets = (noteHint.bullets || []).filter(Boolean).slice(0, 3)
+          notePlaceholder = example
+            ? bullets.length
+              ? `${example}（${bullets.join(' / ')}）`
+              : example
+            : n.notePlaceholder
+        }
         return {
           ...n,
-          publicUploadHint: hintParts.join('。'),
-          notePlaceholder: noteHint
-            ? `${noteHint.example || ''}（${(noteHint.bullets || []).join(' / ')}）`
-            : n.notePlaceholder,
+          publicUploadHint: stageHint,
+          photoTips: '',
+          compareGuidance: '',
+          notePlaceholder,
         }
       })
+    } else {
+      mergedNodes = mergedNodes.map((n) => ({
+        ...n,
+        publicUploadHint: String(n.description || '').trim(),
+        photoTips: '',
+        compareGuidance: '',
+      }))
     }
     const evidenceItems = hydrateEvidenceItems({
       templateId: detail.templateId,
@@ -559,6 +592,7 @@ Page({
       stageTabs,
       nodes,
       comparePairRows,
+      commonShootAvoidTags,
       parts: (detail.parts || []).map((p) => ({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',

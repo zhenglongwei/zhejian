@@ -12,7 +12,7 @@ const COMMON_AVOID = [
   {
     code: 'plate_full',
     title: '少拍清晰车牌',
-    detail: '需整车时注意角度；含车牌全景通常仅留档、难进公开。',
+    detail: '需整车时注意角度，少拍清晰车牌特写。',
     severity: 'warn',
   },
   {
@@ -24,12 +24,12 @@ const COMMON_AVOID = [
   {
     code: 'key',
     title: '避免车钥匙入镜',
-    detail: '遥控、钥匙串等与故障无关且易暴露隐私。',
+    detail: '遥控、钥匙串等与故障无关。',
     severity: 'warn',
   },
   {
     code: 'cabin_privacy',
-    title: '避免特殊内饰/私人物品特写',
+    title: '避免私人物品特写',
     detail: '与故障无关的座舱陈设、私人物品勿拍特写。',
     severity: 'info',
   },
@@ -47,8 +47,8 @@ const COMMON_AVOID = [
   },
   {
     code: 'doc_amount',
-    title: '单据金额勿当公开素材',
-    detail: '工单/结算单含金额、姓名；单据图仅留档。',
+    title: '单据金额勿入镜',
+    detail: '工单/结算单含金额、姓名时勿作展示素材。',
     severity: 'warn',
   },
 ]
@@ -60,7 +60,7 @@ const COMMON_STAGES = {
       {
         code: 'arrival_overview',
         title: '到店外观与诉求相关部位',
-        detail: '知悉本阶段图仅留档、不进公开。',
+        detail: '拍清到店相关部位即可。',
         strength: 'tip',
       },
     ],
@@ -68,7 +68,7 @@ const COMMON_STAGES = {
       {
         title: '备注怎么写',
         example: '到店诉求一句话；外观未见新增异常。',
-        bullets: ['到店诉求一句话', '异常外观点（如有）'],
+        bullets: ['到店诉求一句话', '异常外观点'],
       },
     ],
     geo_angle: [],
@@ -92,7 +92,7 @@ const COMMON_STAGES = {
       {
         title: '备注怎么写',
         example: '现象 + 检查手段 + 结论（排除了什么）。',
-        bullets: ['现象', '检测手段', '结论（排除了什么）'],
+        bullets: ['现象', '检测手段', '结论'],
       },
     ],
     geo_angle: ['avoid_pitfall'],
@@ -102,15 +102,15 @@ const COMMON_STAGES = {
       {
         code: 'plan_fields',
         title: '填方案文字与项目名',
-        detail: '报价单图仅留档；公开不展示金额，请把方案要点写进备注。',
+        detail: '方案要点写进备注；报价单可附图。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '方案要点；为何不采用过度方案；金额只填字段、不进公开稿。',
-        bullets: ['方案要点', '为何不做过度维修', '金额只填字段、不进公开稿'],
+        example: '方案要点；为何不采用过度方案。',
+        bullets: ['方案要点', '为何不做过度维修'],
       },
     ],
     geo_angle: ['avoid_pitfall'],
@@ -120,15 +120,15 @@ const COMMON_STAGES = {
       {
         code: 'part_closeup',
         title: '配件/材料包装或标签特写',
-        detail: '名称清晰即可；含个人信息的整页单据仅留档。',
+        detail: '名称清晰即可。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '材料或配件名称 · 用途一句；可按品牌官网渠道核对包装信息。',
-        bullets: ['名称', '用途/品质说明（无编码亦可）'],
+        example: '材料或配件名称 · 用途一句。',
+        bullets: ['名称', '用途说明'],
       },
     ],
     geo_angle: ['liability'],
@@ -138,21 +138,21 @@ const COMMON_STAGES = {
       {
         code: 'protect',
         title: '防护与现场规范',
-        detail: '遮蔽、防护垫、工具摆放等 5S 素材。',
+        detail: '遮蔽、防护垫、工具摆放等。',
         strength: 'tip',
       },
       {
         code: 'key_process',
         title: '关键工序打卡',
-        detail: '本服务类型的关键步骤特写（按类型补充）。',
+        detail: '本服务类型的关键步骤特写。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '已完成关键工序；质检关注点一句（勿写绝对化承诺）。',
-        bullets: ['关键工序', '规范要点', '质检关注'],
+        example: '已完成关键工序；质检关注点一句。',
+        bullets: ['关键工序', '质检关注'],
       },
     ],
     geo_angle: ['standard_5s'],
@@ -162,15 +162,15 @@ const COMMON_STAGES = {
       {
         code: 'result_local',
         title: '完工局部与复查',
-        detail: '修复/更换部位近景；少拍整车招摇全景。',
+        detail: '修复/更换部位近景；少拍整车全景。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '验收项已查；旧件/材料交接情况（如有）。',
-        bullets: ['质检项', '交接与养护说明（如有）'],
+        example: '验收项已查；交接情况一句。',
+        bullets: ['质检项', '交接说明'],
       },
     ],
     geo_angle: ['standard_5s', 'liability'],
@@ -373,7 +373,7 @@ const SERVICE_PACKS = {
           {
             code: 'damage_far',
             title: '损伤部位远景（一处一图）',
-            detail: '拍清位置即可；近景放到检测记录。含车牌整车多仅留档。',
+            detail: '拍清位置即可；近景放到检测记录。',
             strength: 'strong',
           },
         ],
@@ -392,12 +392,12 @@ const SERVICE_PACKS = {
           {
             code: 'damage_closeup',
             title: '各损伤点近景/特写',
-            detail: '顺序与完工对比组一一对应。',
+            detail: '顺序与完工对照一一对应。',
             strength: 'strong',
           },
           {
             code: 'damage_multi_angle',
-            title: '多角度损伤（可选）',
+            title: '多角度损伤',
             detail: '侧面、斜角有助于判断深度。',
             strength: 'tip',
           },
@@ -406,7 +406,7 @@ const SERVICE_PACKS = {
           {
             title: '备注怎么写',
             example: '右前门中度划痕，漆下未见钣金变形；建议局部补漆，不必整面喷。',
-            bullets: ['现象', '检查手段', '结论（钣金与否 / 补漆范围）'],
+            bullets: ['现象', '检查手段', '结论'],
           },
         ],
         geo_angle: ['avoid_pitfall'],
@@ -415,8 +415,8 @@ const SERVICE_PACKS = {
         note_hints: [
           {
             title: '备注怎么写',
-            example: '局部补漆不拆件；珍珠漆需调色过渡；工期视天气与烤漆排程，以门店沟通为准。',
-            bullets: ['修复方式', '是否拆件', '金额只填字段、不进公开稿'],
+            example: '局部补漆不拆件；珍珠漆需调色过渡；工期视天气与烤漆排程。',
+            bullets: ['修复方式', '是否拆件'],
           },
         ],
         geo_angle: ['avoid_pitfall'],
@@ -427,14 +427,14 @@ const SERVICE_PACKS = {
           {
             code: 'paint_material',
             title: '漆与辅料包装/标签',
-            detail: '色漆、清漆、腻子等凭证特写；含个人信息单据仅留档。',
+            detail: '色漆、清漆、腻子等凭证特写。',
             strength: 'strong',
           },
         ],
         note_hints: [
           {
             title: '备注怎么写',
-            example: '本次使用色漆+清漆；包装批号已拍照留档，可按品牌官网渠道核对。',
+            example: '本次使用色漆+清漆；包装批号已拍照，可按品牌官网核对。',
             bullets: ['材料名称', '用途一句'],
           },
         ],
@@ -484,8 +484,8 @@ const SERVICE_PACKS = {
         note_hints: [
           {
             title: '备注怎么写',
-            example: '自然光下过渡区复查；漆面养护期内避免高压水枪；质保范围以门店说明为准。',
-            bullets: ['验收项', '养护/质保一句（无绝对承诺）'],
+            example: '自然光下过渡区复查；养护期内避免高压水枪；质保以门店说明为准。',
+            bullets: ['验收项', '养护/质保'],
           },
         ],
         geo_angle: ['standard_5s', 'liability'],
@@ -497,7 +497,7 @@ const SERVICE_PACKS = {
 
 const COMPLETE_CHECKLIST = [
   { code: 'stage_2_note', stageId: 'stage_2', title: '建议补充检测结论备注', strength: 'strong' },
-  { code: 'stage_3_note', stageId: 'stage_3', title: '建议补充方案说明（公开不展示金额）', strength: 'strong' },
+  { code: 'stage_3_note', stageId: 'stage_3', title: '建议补充方案说明', strength: 'strong' },
   { code: 'stage_5_image', stageId: 'stage_5', title: '建议上传施工过程图', strength: 'tip' },
   { code: 'stage_6_image', stageId: 'stage_6', title: '建议上传交付/复查图', strength: 'tip' },
 ]

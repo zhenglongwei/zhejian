@@ -1,7 +1,7 @@
 <view class="album-old-part-traces">
   <view class="album-old-part-traces__head">
-    <text class="text-body album-old-part-traces__title">旧件留痕</text>
-    <ui-tag variant="info" text="建议留" />
+    <text class="text-body album-old-part-traces__title">旧件照片</text>
+    <ui-tag variant="info" text="建议" />
   </view>
   <text class="text-caption album-old-part-traces__intro">{{introHint}}</text>
 

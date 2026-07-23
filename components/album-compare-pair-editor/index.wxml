@@ -9,13 +9,17 @@
   </view>
 
   <text wx:if="{{description}}" class="album-compare-pair-editor__desc text-caption">{{description}}</text>
-  <text wx:if="{{photoTips}}" class="album-compare-pair-editor__tips text-caption">拍摄建议：{{photoTips}}</text>
-  <text wx:if="{{compareHint}}" class="album-compare-pair-editor__compare-hint text-caption">{{compareHint}}</text>
 
   <view class="album-compare-pair-editor__table">
-    <view class="album-compare-pair-editor__table-head">
-      <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
-      <text class="album-compare-pair-editor__col-label text-caption">{{beforeColumnLabel}}</text>
+    <view class="album-compare-pair-editor__table-head album-compare-pair-editor__table-head--labels">
+      <view class="album-compare-pair-editor__col-head">
+        <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
+        <text class="album-compare-pair-editor__col-sub text-caption">同角拍摄</text>
+      </view>
+      <view class="album-compare-pair-editor__col-head">
+        <text class="album-compare-pair-editor__col-label text-caption">{{beforeColumnLabel}}</text>
+        <text class="album-compare-pair-editor__col-sub text-caption">可后补</text>
+      </view>
     </view>
 
     <view
@@ -59,7 +63,7 @@
   </view>
 
   <view wx:if="{{pairPreview.length}}" class="album-compare-pair-editor__preview">
-    <text class="album-compare-pair-editor__preview-title text-caption">车主端对比预览（仅完整配对展示）</text>
+    <text class="album-compare-pair-editor__preview-title text-caption">配对预览</text>
     <view
       wx:for="{{pairPreview}}"
       wx:key="index"
@@ -97,7 +101,7 @@
         <text
           wx:else
           class="album-compare-pair-editor__preview-status text-caption"
-        >仅展示完工图</text>
+        >仅完工</text>
       </view>
     </view>
   </view>

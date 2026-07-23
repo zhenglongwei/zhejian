@@ -13,24 +13,20 @@ const EVIDENCE_CATEGORY = {
 
 /** B-EVID-06 · 阶段五旧件留痕（与单据槽、过程图分桶） */
 const OLD_PART_TRACE_TYPE = 'old_part_trace'
-const OLD_PART_TRACE_LABEL = '旧件留痕'
+const OLD_PART_TRACE_LABEL = '旧件照片'
 const OLD_PART_TRACE_STAGE_ID = 'stage_5'
 const OLD_PART_TRACE_MAX_COUNT = 9
-const MERCHANT_OLD_PART_INTRO =
-  '更换类项目建议上传旧件或拆下照片；可多张。需要时可点选对应配件名称，便于车主核对；不选也可保存。'
+const MERCHANT_OLD_PART_INTRO = '更换类项目可上传旧件或拆下照片，便于车主核对。'
 
-/** B-PART · 施工增项留痕 SOP（Phase 1 · 见 docs/04/11_施工增项留痕SOP.md） */
-const MERCHANT_EXTRA_PART_SOP_STAGE3_HINT =
-  '施工中有新增项目？先线下取得客户确认，在本页补传增项单或最新报价单（签字/沟通截图），再到「配件凭证」按目录登记。'
-const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT =
-  '若新增更换件：请回「方案与报价」补传经确认的增项单，更新配件目录（从报价单识别或添加配件行），再回到本页上传凭证。'
-const MERCHANT_EXTRA_PART_SOP_LINK = '增项留痕指引'
-const MERCHANT_EXTRA_PART_SOP_MODAL_TITLE = '施工增项怎么留痕'
+/** B-PART · 施工增项 SOP（Phase 1 · 见 docs/04/11_施工增项留痕SOP.md） */
+const MERCHANT_EXTRA_PART_SOP_STAGE3_HINT = '有增项？先取得客户确认，在本页补传增项/报价单，再到配件凭证登记。'
+const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT = '有新增更换件？先回方案补传增项单并更新目录，再回本页上传凭证。'
+const MERCHANT_EXTRA_PART_SOP_LINK = '增项怎么做'
+const MERCHANT_EXTRA_PART_SOP_MODAL_TITLE = '施工增项怎么做'
 const MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT =
-  '1. 线下：取得客户对增项项目与金额的确认（签字单或沟通截图）。\n' +
-  '2. 方案与报价：补传经确认的增项/报价单，更新方案总额与配件目录。\n' +
-  '3. 配件凭证：对新增项上传类型与凭证图。\n' +
-  '4. 相册仅作过程留痕，不代替门店审批或电子签。'
+  '1. 线下取得客户对增项的确认（签字单或沟通截图）。\n' +
+  '2. 在「方案」补传增项/报价单，更新总额与配件目录。\n' +
+  '3. 在「配件凭证」为新增项上传类型与凭证图。'
 
 const EVIDENCE_STRENGTH = {
   OPTIONAL: 'optional',
@@ -39,7 +35,7 @@ const EVIDENCE_STRENGTH = {
 }
 
 const STRENGTH_LABEL = {
-  optional: '可选',
+  optional: '参考',
   recommended: '建议',
   strongly_recommended: '强烈建议',
 }
@@ -54,7 +50,7 @@ const STRENGTH_VARIANT = {
 const IMPORTANCE_LABEL = {
   strongly_recommended: '关键',
   recommended: '一般',
-  optional: '可选',
+  optional: '参考',
 }
 
 const COMPLETENESS_TAB_HINT =
@@ -65,16 +61,16 @@ const METHOD_TAB_HINT =
 
 /** 商家编辑页 · 留痕自检（A-MCH-INSP-01） */
 const MERCHANT_INSPECTION_HINT =
-  '「规范」表示本相册建议留痕程度（必留/建议留/可选）；缺项不会阻断保存或完工，但会影响车主核对体验。'
+  '「建议」列表示完整程度（必拍/建议）；缺项不阻断保存或完工，但会影响车主核对。'
 
-const MERCHANT_COMPLETE_INSP_TITLE = '留痕尚未齐全'
+const MERCHANT_COMPLETE_INSP_TITLE = '建议补传后再完工'
 const MERCHANT_COMPLETE_INSP_INTRO =
-  '以下留痕项尚未上传，建议先补传再标记完工。缺项不会阻断完工，但会影响车主核对与 AI 分析质量。'
+  '以下项尚未上传。缺项不阻断完工，但会影响车主核对与后续分析。'
 
 const MERCHANT_EVIDENCE_LABEL = {
-  strongly_recommended: '必留',
-  recommended: '建议留',
-  optional: '可选',
+  strongly_recommended: '必拍',
+  recommended: '建议',
+  optional: '参考',
 }
 
 /** 车主检查页 · 专业顺序 */
@@ -127,7 +123,7 @@ const DOCUMENT_TYPES = {
     stageId: 'stage_3',
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.STRONGLY_RECOMMENDED,
-    merchantHint: '门店施工方案与费用报价；可与报价 OCR 目录、方案报价金额一并留痕。',
+    merchantHint: '施工方案与费用报价；可与方案金额、配件目录一并上传。',
     ownerCheckHint: '核对项目、配件类型与金额是否与沟通一致；事故车可与定损单对照差异原因。',
     anomalyHint: '报价主要项目与定损差异大，或金额明显超出定损总额且无说明。',
     actionHint: '要求门店说明自费/增项部分；保留报价单照片。',
@@ -139,10 +135,10 @@ const DOCUMENT_TYPES = {
     stageId: 'stage_5',
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.RECOMMENDED,
-    merchantHint: '派工/施工工单，含工项、工时或配件摘要；建议在正式施工过程中上传。',
+    merchantHint: '派工/施工工单：工项、工时或配件摘要。',
     ownerCheckHint: '核对工项是否与报价/定损对应；是否出现未告知的增项。',
     anomalyHint: '工单项目较报价明显增加，或工项描述与后续结算不一致。',
-    actionHint: '施工中途或交车前向门店确认增项原因并留痕。',
+    actionHint: '施工中或交车前向门店确认增项原因。',
   },
   settlement: {
     id: 'settlement',
@@ -151,7 +147,7 @@ const DOCUMENT_TYPES = {
     stageId: 'stage_6',
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.RECOMMENDED,
-    merchantHint: '交车结算单据，含实付金额与项目汇总。',
+    merchantHint: '交车结算单据：实付金额与项目汇总。',
     ownerCheckHint: '核对结算与报价/工单是否一致；有无未告知增项或重复收费。',
     anomalyHint: '结算金额高于报价且无书面或沟通说明；项目数量对不上。',
     actionHint: '先与门店沟通；必要时保留结算单并通过正规投诉渠道反映。',

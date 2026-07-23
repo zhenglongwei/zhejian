@@ -83,7 +83,7 @@ function buildAlbumInspectionView(detail = {}, options = {}) {
 
   return {
     audience,
-    importanceColumnLabel: audience === 'merchant' ? '规范' : '重要度',
+    importanceColumnLabel: audience === 'merchant' ? '建议' : '重要度',
     completeness: views.completeness,
     method: completenessOnly ? { sections: [] } : views.method,
     outcome: completenessOnly ? {} : outcome,

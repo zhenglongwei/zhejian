@@ -53,9 +53,25 @@
   border-bottom: 1rpx solid var(--color-border);
 }
 
+.album-compare-pair-editor__table-head--labels {
+  grid-template-columns: 1fr 1fr;
+}
+
+.album-compare-pair-editor__col-head {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rpx;
+}
+
 .album-compare-pair-editor__col-label {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
+}
+
+.album-compare-pair-editor__col-sub {
+  color: var(--color-text-tertiary);
 }
 
 .album-compare-pair-editor__table-row {

@@ -76,7 +76,7 @@ function buildMockPairsContext(albumId) {
     consentText: PART_VERIFY_CONSENT_TEXT,
     onsiteReminder: PART_VERIFY_ONSITE_REMINDER,
     partVerifyGuide: {
-      text: '请按本单配件品牌，到官网或授权渠道输入包装编码核对类型。',
+      text: '示例：请按本单配件品牌，到官网或授权渠道输入包装编码核对类型。',
       informedOffline: false,
       ownerFeedback: '',
     },

@@ -20,7 +20,7 @@
       <text
         wx:if="{{!compact && photoTips}}"
         class="album-node__tips text-caption"
-      >拍摄建议：{{photoTips}}</text>
+      >{{photoTips}}</text>
       <view
         wx:if="{{!compact && compareGuidance}}"
         class="album-node__compare-guide album-node__compare-guide--compact"

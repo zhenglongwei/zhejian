@@ -45,9 +45,11 @@ function resolveStageRules(stageId, pack, rules) {
   return {
     shoot_avoid: rules.COMMON_AVOID,
     shoot_prefer: shootPrefer,
-    note_hints: (specific.note_hints && specific.note_hints.length
-      ? specific.note_hints
-      : common.note_hints) || [],
+    note_hints: withExamplePrefixOnNoteHints(
+      (specific.note_hints && specific.note_hints.length
+        ? specific.note_hints
+        : common.note_hints) || [],
+    ),
     geo_angle: Array.from(
       new Set([...(common.geo_angle || []), ...(specific.geo_angle || [])]),
     ),
@@ -56,6 +58,32 @@ function resolveStageRules(stageId, pack, rules) {
 
 function nodeImageCount(node = {}) {
   return Array.isArray(node.images) ? node.images.filter(Boolean).length : 0
+}
+
+/** 备注示例统一加「示例：」前缀，避免商家当成必填原文 */
+function formatNoteExample(example = '') {
+  const text = String(example || '').trim()
+  if (!text) return ''
+  if (/^示例[:：]/.test(text)) return text
+  return `示例：${text}`
+}
+
+function formatNotePlaceholder(noteHint) {
+  if (!noteHint) return ''
+  const example = formatNoteExample(noteHint.example)
+  if (!example) return ''
+  const bullets = (noteHint.bullets || []).filter(Boolean)
+  return bullets.length ? `${example}（${bullets.join(' / ')}）` : example
+}
+
+function withExamplePrefixOnNoteHints(list = []) {
+  return (list || []).map((item) => {
+    if (!item || typeof item !== 'object') return item
+    return {
+      ...item,
+      example: formatNoteExample(item.example),
+    }
+  })
 }
 
 function buildCompletenessReport(albumView = {}, rules = null) {
@@ -135,9 +163,7 @@ function resolveAlbumCoach(albumView = {}, options = {}) {
         ]
       : [],
     uploadInlineHints: preferTitles.slice(0, 2),
-    notePlaceholder: noteHint
-      ? `${noteHint.example || ''}（${(noteHint.bullets || []).join(' / ')}）`
-      : '',
+    notePlaceholder: formatNotePlaceholder(noteHint),
     avoidSummary: avoidTitles.slice(0, 4).join('；'),
     draftPromptHints: active ? active.geo_angle || [] : [],
     completenessReport: buildCompletenessReport(albumView, rules),

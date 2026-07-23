@@ -146,20 +146,20 @@
             bindtap="onToggleMerchantInsp"
             aria-role="button"
             aria-expanded="{{merchantInspExpanded}}"
-            aria-label="留痕自检"
+            aria-label="完整性自检"
           >
             <view class="merchant-album-edit__insp-toggle-main">
               <view class="merchant-album-edit__insp-toggle-title-row">
-                <text class="text-body merchant-album-edit__insp-title">留痕自检</text>
+                <text class="text-body merchant-album-edit__insp-title">完整性自检</text>
                 <ui-tag
                   wx:if="{{merchantInspCriticalMissing.length}}"
                   variant="warning"
-                  text="缺必留"
+                  text="缺必拍"
                 />
               </view>
               <text class="text-caption merchant-album-edit__insp-summary">
-                {{merchantInspSummary.done}}/{{merchantInspSummary.total}} 已留
-                <text wx:if="{{merchantInspCriticalMissing.length}}"> · 缺 {{merchantInspCriticalMissing.length}} 项必留</text>
+                {{merchantInspSummary.done}}/{{merchantInspSummary.total}} 已传
+                <text wx:if="{{merchantInspCriticalMissing.length}}"> · 缺 {{merchantInspCriticalMissing.length}} 项必拍</text>
                 <text wx:elif="{{merchantInspSummary.missing}}"> · 缺 {{merchantInspSummary.missing}} 项</text>
               </text>
             </view>
@@ -189,6 +189,17 @@
           scrollable="{{true}}"
           bind:change="onStageTabChange"
         />
+      </view>
+
+      <view wx:if="{{commonShootAvoidTags.length}}" class="merchant-album-edit__shoot-common">
+        <text class="text-caption merchant-album-edit__shoot-common-label">拍摄注意</text>
+        <view class="merchant-album-edit__shoot-common-tags">
+          <text
+            wx:for="{{commonShootAvoidTags}}"
+            wx:key="*this"
+            class="merchant-album-edit__shoot-common-tag text-caption"
+          >{{item}}</text>
+        </view>
       </view>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
@@ -248,44 +259,53 @@
               <text class="text-caption merchant-album-edit__owner-verify-hint">{{partVerifyGuideHint}}</text>
               <view class="merchant-album-edit__verify-radio-group" role="radiogroup">
                 <view
-                  class="merchant-album-edit__verify-radio-item {{partVerifyGuideMode === 'text' ? 'is-checked' : ''}}"
-                  data-mode="text"
-                  bindtap="onPartVerifyGuideModeTap"
-                  aria-role="radio"
-                  aria-checked="{{partVerifyGuideMode === 'text'}}"
+                  class="merchant-album-edit__verify-option {{partVerifyGuideMode === 'text' ? 'is-checked' : ''}}"
                 >
-                  <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
-                    <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-radio-dot-inner" />
+                  <view
+                    class="merchant-album-edit__verify-radio-item"
+                    data-mode="text"
+                    bindtap="onPartVerifyGuideModeTap"
+                    aria-role="radio"
+                    aria-checked="{{partVerifyGuideMode === 'text'}}"
+                  >
+                    <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
+                      <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-radio-dot-inner" />
+                    </view>
+                    <view class="merchant-album-edit__verify-radio-copy">
+                      <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeTextTitle}}</text>
+                      <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeTextDesc}}</text>
+                    </view>
                   </view>
-                  <view class="merchant-album-edit__verify-radio-copy">
-                    <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeTextTitle}}</text>
-                    <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeTextDesc}}</text>
+                  <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-option-body">
+                    <textarea
+                      class="merchant-album-edit__owner-verify-input text-body"
+                      placeholder="{{partVerifyGuidePlaceholder}}"
+                      value="{{partVerifyGuideText}}"
+                      maxlength="1000"
+                      bindinput="onPartVerifyGuideInput"
+                    />
                   </view>
                 </view>
                 <view
-                  class="merchant-album-edit__verify-radio-item {{partVerifyGuideMode === 'informed' ? 'is-checked' : ''}}"
-                  data-mode="informed"
-                  bindtap="onPartVerifyGuideModeTap"
-                  aria-role="radio"
-                  aria-checked="{{partVerifyGuideMode === 'informed'}}"
+                  class="merchant-album-edit__verify-option {{partVerifyGuideMode === 'informed' ? 'is-checked' : ''}}"
                 >
-                  <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
-                    <view wx:if="{{partVerifyGuideMode === 'informed'}}" class="merchant-album-edit__verify-radio-dot-inner" />
-                  </view>
-                  <view class="merchant-album-edit__verify-radio-copy">
-                    <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeInformedTitle}}</text>
-                    <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeInformedDesc}}</text>
+                  <view
+                    class="merchant-album-edit__verify-radio-item"
+                    data-mode="informed"
+                    bindtap="onPartVerifyGuideModeTap"
+                    aria-role="radio"
+                    aria-checked="{{partVerifyGuideMode === 'informed'}}"
+                  >
+                    <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
+                      <view wx:if="{{partVerifyGuideMode === 'informed'}}" class="merchant-album-edit__verify-radio-dot-inner" />
+                    </view>
+                    <view class="merchant-album-edit__verify-radio-copy">
+                      <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeInformedTitle}}</text>
+                      <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeInformedDesc}}</text>
+                    </view>
                   </view>
                 </view>
               </view>
-              <textarea
-                wx:if="{{partVerifyGuideMode === 'text'}}"
-                class="merchant-album-edit__owner-verify-input text-body"
-                placeholder="{{partVerifyGuidePlaceholder}}"
-                value="{{partVerifyGuideText}}"
-                maxlength="1000"
-                bindinput="onPartVerifyGuideInput"
-              />
             </view>
 
             <view
@@ -488,7 +508,7 @@
         </view>
       </scroll-view>
       <view class="merchant-album-edit__insp-modal-actions">
-        <ui-button type="primary" block bind:btntap="onInspCompleteModalViewChecklist">留痕自检</ui-button>
+        <ui-button type="primary" block bind:btntap="onInspCompleteModalViewChecklist">完整性自检</ui-button>
         <ui-button type="secondary" block bind:btntap="onCloseInspCompleteModal">先补传</ui-button>
         <text class="text-link text-caption merchant-album-edit__insp-modal-skip" bindtap="onInspCompleteModalProceedAnyway">仍要完工</text>
       </view>

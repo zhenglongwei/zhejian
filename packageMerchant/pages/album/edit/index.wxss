@@ -302,7 +302,37 @@
 }
 
 .merchant-album-edit__tabs {
-  margin: var(--space-md) 0;
+  margin: var(--space-md) 0 var(--space-sm);
+}
+
+.merchant-album-edit__shoot-common {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-album-edit__shoot-common-label {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.merchant-album-edit__shoot-common-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-album-edit__shoot-common-tag {
+  padding: 4rpx var(--space-sm);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
 }
 
 .merchant-album-edit__plan,
@@ -577,22 +607,36 @@
 .merchant-album-edit__verify-radio-group {
   display: flex;
   flex-direction: column;
+  gap: var(--space-sm);
   margin-top: var(--space-xs);
+}
+
+.merchant-album-edit__verify-option {
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  overflow: hidden;
+}
+
+.merchant-album-edit__verify-option.is-checked {
+  border-color: var(--color-primary);
+  background: var(--color-bg-card);
 }
 
 .merchant-album-edit__verify-radio-item {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  padding: var(--space-sm) 0;
+  padding: var(--space-sm) var(--space-md);
 }
 
 .merchant-album-edit__verify-radio-item:active {
   opacity: 0.85;
 }
 
-.merchant-album-edit__verify-radio-item + .merchant-album-edit__verify-radio-item {
-  border-top: 1rpx solid var(--color-album-frame-line);
+.merchant-album-edit__verify-option-body {
+  padding: 0 var(--space-md) var(--space-md);
+  margin-left: calc(32rpx + var(--space-sm));
 }
 
 .merchant-album-edit__verify-radio-dot {
@@ -608,7 +652,7 @@
   justify-content: center;
 }
 
-.merchant-album-edit__verify-radio-item.is-checked .merchant-album-edit__verify-radio-dot {
+.merchant-album-edit__verify-option.is-checked .merchant-album-edit__verify-radio-dot {
   border-color: var(--color-primary);
 }
 
@@ -639,7 +683,6 @@
 .merchant-album-edit__owner-verify-input {
   width: 100%;
   min-height: 140rpx;
-  margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   box-sizing: border-box;
   border-radius: var(--radius-sm);
