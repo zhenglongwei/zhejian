@@ -26,7 +26,7 @@ const MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE = '已告知车主'
 const MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_DESC = '已通过线下/电话等方式说明，无需在平台填写'
 
 const MERCHANT_PART_VERIFY_GUIDE_PLACEHOLDER =
-  '例：海拉配件请访问品牌官网，在「配件查询」输入包装编码核对类型与真伪信息。'
+  '例：请按本单配件品牌，到官网或授权渠道输入包装编码，核对类型与真伪信息。'
 
 /** @deprecated 使用双卡片模式文案 */
 const MERCHANT_PART_VERIFY_GUIDE_INFORMED_LABEL = MERCHANT_PART_VERIFY_GUIDE_MODE_INFORMED_TITLE

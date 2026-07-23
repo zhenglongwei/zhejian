@@ -39,9 +39,12 @@ function mergeByCode(baseList = [], overrideList = []) {
 function resolveStageRules(stageId, pack, rules) {
   const common = (rules.COMMON_STAGES && rules.COMMON_STAGES[stageId]) || {}
   const specific = (pack && pack.stages && pack.stages[stageId]) || {}
+  const shootPrefer = specific.replace_shoot_prefer
+    ? specific.shoot_prefer || []
+    : mergeByCode(common.shoot_prefer, specific.shoot_prefer)
   return {
     shoot_avoid: rules.COMMON_AVOID,
-    shoot_prefer: mergeByCode(common.shoot_prefer, specific.shoot_prefer),
+    shoot_prefer: shootPrefer,
     note_hints: (specific.note_hints && specific.note_hints.length
       ? specific.note_hints
       : common.note_hints) || [],

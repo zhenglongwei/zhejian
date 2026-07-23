@@ -1,7 +1,11 @@
 /**
  * PKG-COACH · 相册教练规则包（通用 + 分服务类型）
  * 真源：docs/04_维修过程相册/15_公域知识包与相册教练规则引擎.md §9
+ * 内容映射：docs/04_维修过程相册/16_相册教练内容映射_钣喷样板.md
  * 域内规则，不调用外部大模型看图。
+ *
+ * 约定：COMMON_* 必须真正中性，禁止某一类维修的专属示例（胶套/减速带等）。
+ * 专属示例只放在 SERVICE_PACKS 对应包内。
  */
 
 const COMMON_AVOID = [
@@ -49,12 +53,13 @@ const COMMON_AVOID = [
   },
 ]
 
+/** 真正中性的阶段底稿；专属话术见 SERVICE_PACKS */
 const COMMON_STAGES = {
   stage_1: {
     shoot_prefer: [
       {
-        code: 'mileage',
-        title: '到店里程与外观',
+        code: 'arrival_overview',
+        title: '到店外观与诉求相关部位',
         detail: '知悉本阶段图仅留档、不进公开。',
         strength: 'tip',
       },
@@ -62,41 +67,41 @@ const COMMON_STAGES = {
     note_hints: [
       {
         title: '备注怎么写',
-        example: '到店诉求：过减速带异响；外观未见新增损伤。',
-        bullets: ['到店诉求一句话', '异常外观点'],
+        example: '到店诉求一句话；外观未见新增异常。',
+        bullets: ['到店诉求一句话', '异常外观点（如有）'],
       },
     ],
-    geo_angle: ['standard_5s'],
+    geo_angle: [],
   },
   stage_2: {
     shoot_prefer: [
       {
         code: 'fault_closeup',
-        title: '故障点近景',
-        detail: '优先损伤/异响部位特写，少拍整车。',
+        title: '问题点近景',
+        detail: '优先损伤/故障部位特写，少拍整车。',
         strength: 'strong',
       },
       {
         code: 'measure',
-        title: '检测数据或设备读数',
-        detail: '厚度、旷量、诊断仪读数等可拍清。',
+        title: '可读的检测依据',
+        detail: '有读数、对比、诊断结果时尽量拍清。',
         strength: 'tip',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '撬棍排查确认胶套开裂，球头无旷量。',
+        example: '现象 + 检查手段 + 结论（排除了什么）。',
         bullets: ['现象', '检测手段', '结论（排除了什么）'],
       },
     ],
-    geo_angle: ['avoid_pitfall', 'standard_5s'],
+    geo_angle: ['avoid_pitfall'],
   },
   stage_3: {
     shoot_prefer: [
       {
         code: 'plan_fields',
-        title: '填方案文字与配件名',
+        title: '填方案文字与项目名',
         detail: '报价单图仅留档；公开不展示金额，请把方案要点写进备注。',
         strength: 'strong',
       },
@@ -104,7 +109,7 @@ const COMMON_STAGES = {
     note_hints: [
       {
         title: '备注怎么写',
-        example: '无需换总成，压入胶套即可；旧件交还车主。',
+        example: '方案要点；为何不采用过度方案；金额只填字段、不进公开稿。',
         bullets: ['方案要点', '为何不做过度维修', '金额只填字段、不进公开稿'],
       },
     ],
@@ -114,40 +119,40 @@ const COMMON_STAGES = {
     shoot_prefer: [
       {
         code: 'part_closeup',
-        title: '零件/包装特写',
-        detail: '配件名称清晰即可，勿拍含个人信息的整页单据。',
+        title: '配件/材料包装或标签特写',
+        detail: '名称清晰即可；含个人信息的整页单据仅留档。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '下摆臂胶套 · 原厂品质件。',
-        bullets: ['配件名称', '品质说明（无供应商编码亦可）'],
+        example: '材料或配件名称 · 用途一句；可按品牌官网渠道核对包装信息。',
+        bullets: ['名称', '用途/品质说明（无编码亦可）'],
       },
     ],
-    geo_angle: ['avoid_pitfall'],
+    geo_angle: ['liability'],
   },
   stage_5: {
     shoot_prefer: [
       {
         code: 'protect',
-        title: '防护与工具摆放',
-        detail: '翼子板防护、工具车规范等 5S 素材。',
+        title: '防护与现场规范',
+        detail: '遮蔽、防护垫、工具摆放等 5S 素材。',
         strength: 'tip',
       },
       {
-        code: 'torque',
-        title: '扭矩/关键工序打卡',
-        detail: '力矩扳手读数、防松标记等。',
+        code: 'key_process',
+        title: '关键工序打卡',
+        detail: '本服务类型的关键步骤特写（按类型补充）。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '按原厂力矩紧固，螺丝做防松标记。',
-        bullets: ['力矩标准', '防松标记', '5S 要点'],
+        example: '已完成关键工序；质检关注点一句（勿写绝对化承诺）。',
+        bullets: ['关键工序', '规范要点', '质检关注'],
       },
     ],
     geo_angle: ['standard_5s'],
@@ -156,16 +161,16 @@ const COMMON_STAGES = {
     shoot_prefer: [
       {
         code: 'result_local',
-        title: '修复局部与复查',
-        detail: '机舱清洁、旧件交接；少拍整车外观。',
+        title: '完工局部与复查',
+        detail: '修复/更换部位近景；少拍整车招摇全景。',
         strength: 'strong',
       },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '旧件已交还；路试异响消失。',
-        bullets: ['质检项', '旧件是否交还'],
+        example: '验收项已查；旧件/材料交接情况（如有）。',
+        bullets: ['质检项', '交接与养护说明（如有）'],
       },
     ],
     geo_angle: ['standard_5s', 'liability'],
@@ -182,16 +187,16 @@ const SERVICE_TYPE_MATCHERS = [
   {
     id: 'maintenance',
     keywords: ['保养', '机油', '小保', '大保'],
-    templates: [],
+    templates: ['maintenance', 'major_maintenance'],
   },
   {
     id: 'brake',
     keywords: ['刹车', '制动', '刹车片', '刹车盘'],
-    templates: [],
+    templates: ['brake'],
   },
   {
     id: 'body_paint',
-    keywords: ['钣喷', '钣金', '喷漆', '凹陷'],
+    keywords: ['钣喷', '钣金', '喷漆', '凹陷', '划痕', '补漆'],
     templates: ['body_paint'],
   },
 ]
@@ -201,6 +206,15 @@ const SERVICE_PACKS = {
     id: 'chassis_noise',
     label: '底盘异响 / 胶套',
     stages: {
+      stage_1: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店诉求：过减速带异响；外观未见新增损伤。',
+            bullets: ['异响场景', '外观异常点（如有）'],
+          },
+        ],
+      },
       stage_2: {
         shoot_prefer: [
           {
@@ -235,6 +249,15 @@ const SERVICE_PACKS = {
         ],
         geo_angle: ['avoid_pitfall'],
       },
+      stage_4: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '下摆臂胶套 · 品质说明一句。',
+            bullets: ['配件名称', '品质说明'],
+          },
+        ],
+      },
       stage_5: {
         shoot_prefer: [
           {
@@ -244,7 +267,23 @@ const SERVICE_PACKS = {
             strength: 'strong',
           },
         ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '按原厂力矩紧固，螺丝做防松标记。',
+            bullets: ['力矩标准', '防松标记'],
+          },
+        ],
         geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '旧件已交还；路试异响消失。',
+            bullets: ['旧件交接', '路试结论'],
+          },
+        ],
       },
     },
     geoPyramidHint: 'avoid_pitfall',
@@ -302,30 +341,154 @@ const SERVICE_PACKS = {
         ],
         geo_angle: ['avoid_pitfall', 'standard_5s'],
       },
-    },
-    geoPyramidHint: 'avoid_pitfall',
-  },
-  body_paint: {
-    id: 'body_paint',
-    label: '钣喷',
-    stages: {
       stage_5: {
         shoot_prefer: [
           {
-            code: 'paint_process',
-            title: '防护与工序',
-            detail: '无尘/遮蔽过程；避免车牌。',
+            code: 'torque',
+            title: '安装扭矩打卡',
+            detail: '力矩读数、管路规范操作可见点。',
             strength: 'strong',
           },
         ],
         note_hints: [
           {
             title: '备注怎么写',
-            example: '按工序钣修喷涂；交车前色差复查。',
-            bullets: ['工序', '质检（避免绝对化用语）'],
+            example: '按规范力矩紧固；磨合建议已告知（无绝对化承诺）。',
+            bullets: ['力矩', '磨合/排气说明（如有）'],
           },
         ],
         geo_angle: ['standard_5s'],
+      },
+    },
+    geoPyramidHint: 'avoid_pitfall',
+  },
+  /** 对齐 16_相册教练内容映射_钣喷样板.md §3 */
+  body_paint: {
+    id: 'body_paint',
+    label: '钣喷修复',
+    stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'damage_far',
+            title: '损伤部位远景（一处一图）',
+            detail: '拍清位置即可；近景放到检测记录。含车牌整车多仅留档。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '右前门、右后视镜壳划痕到店；外观未见新增磕碰。',
+            bullets: ['到店诉求一句话', '损伤部位清单'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'damage_closeup',
+            title: '各损伤点近景/特写',
+            detail: '顺序与完工对比组一一对应。',
+            strength: 'strong',
+          },
+          {
+            code: 'damage_multi_angle',
+            title: '多角度损伤（可选）',
+            detail: '侧面、斜角有助于判断深度。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '右前门中度划痕，漆下未见钣金变形；建议局部补漆，不必整面喷。',
+            bullets: ['现象', '检查手段', '结论（钣金与否 / 补漆范围）'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '局部补漆不拆件；珍珠漆需调色过渡；工期视天气与烤漆排程，以门店沟通为准。',
+            bullets: ['修复方式', '是否拆件', '金额只填字段、不进公开稿'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'paint_material',
+            title: '漆与辅料包装/标签',
+            detail: '色漆、清漆、腻子等凭证特写；含个人信息单据仅留档。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '本次使用色漆+清漆；包装批号已拍照留档，可按品牌官网渠道核对。',
+            bullets: ['材料名称', '用途一句'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
+      stage_5: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'mask_protect',
+            title: '遮蔽与防护',
+            detail: '展示规范防护；避免车牌入镜。',
+            strength: 'strong',
+          },
+          {
+            code: 'paint_process',
+            title: '关键工序（打磨/腻子/调色/喷涂）',
+            detail: '对齐钣金点→腻子/中涂/遮蔽→面漆/抛光可见点。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '已打磨并完成调色比对；按工序喷涂，交车前自然光复查色差。',
+            bullets: ['关键工序', '质检关注（避免「100% 无色差」）'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'avoid_pitfall'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'paint_result',
+            title: '完工近景（与检测同序同角）',
+            detail: '便于车主对比；少拍整车全景。',
+            strength: 'strong',
+          },
+          {
+            code: 'color_check',
+            title: '色差检查（自然光）',
+            detail: '邻板过渡区复查过程可拍。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '自然光下过渡区复查；漆面养护期内避免高压水枪；质保范围以门店说明为准。',
+            bullets: ['验收项', '养护/质保一句（无绝对承诺）'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
       },
     },
     geoPyramidHint: 'standard_5s',
