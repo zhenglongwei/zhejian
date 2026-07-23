@@ -172,7 +172,7 @@ function sanitizeDraft(raw, platformId) {
   }
 }
 
-function buildRulePackage(albumView, ruleQuality) {
+function buildRulePackage(albumView, ruleQuality, merchantCaseDraft = null) {
   const { buildFacts, buildRuleDraft } = require('./album-social-copy.service')
   const facts = buildFacts(albumView)
   const drafts = {}
@@ -192,16 +192,20 @@ function buildRulePackage(albumView, ruleQuality) {
       .slice(0, 800),
     qualitySuggestions: (ruleQuality && ruleQuality.suggestions) || [],
     drafts,
+    merchantCaseDraft,
     generatedAt: new Date().toISOString(),
     error: '',
   }
 }
 
-async function buildLlmPackage(albumView, ruleQuality) {
+async function buildLlmPackage(albumView, ruleQuality, merchantCaseDraft = null) {
   const cfg = getPackageLlmConfig()
   if (!cfg.enabled || cfg.dryRun || !cfg.apiKey) return null
 
   const { buildFacts, buildRuleDraft } = require('./album-social-copy.service')
+  const {
+    mergeLlmSectionsIntoDraft,
+  } = require('./merchant-case-draft.service')
   const facts = buildFacts(albumView)
   const platforms = SOCIAL_PLATFORM_LIST.map((p) => ({
     id: p.id,
@@ -215,6 +219,11 @@ async function buildLlmPackage(albumView, ruleQuality) {
     facts,
     platforms,
     ruleQualityHints: (ruleQuality && ruleQuality.suggestions) || [],
+    merchantCaseDraftHint: {
+      title: merchantCaseDraft && merchantCaseDraft.title,
+      sectionKeys: ['symptom', 'diagnosis', 'plan', 'process', 'handover'],
+      note: '可选：输出 merchantCaseDraft（仅文字章节，禁止金额与图片 URL）',
+    },
   }
 
   const completion = await chatCompletion({
@@ -251,12 +260,21 @@ async function buildLlmPackage(albumView, ruleQuality) {
     ? parsed.qualitySuggestions
     : []
 
+  let nextMerchantDraft = merchantCaseDraft
+  if (parsed.merchantCaseDraft && merchantCaseDraft) {
+    nextMerchantDraft = mergeLlmSectionsIntoDraft(
+      merchantCaseDraft,
+      parsed.merchantCaseDraft,
+    )
+  }
+
   return {
     status: CONTENT_PACKAGE_STATUS.READY,
     source: CONTENT_PACKAGE_SOURCE.LLM,
     factSummary: sanitizeGeoLlmText(parsed.factSummary || '').slice(0, 800),
     qualitySuggestions,
     drafts,
+    merchantCaseDraft: nextMerchantDraft,
     generatedAt: new Date().toISOString(),
     error: '',
   }
@@ -300,18 +318,35 @@ async function runAlbumContentPackage(albumId) {
       return persistSkippedIncompletePackage(id)
     }
 
+    let preMaskTask = null
+    try {
+      const { findPreMaskTask } = require('./desensitize.service')
+      preMaskTask = await findPreMaskTask(id)
+    } catch (_) {
+      preMaskTask = null
+    }
+
+    const {
+      buildRuleMerchantCaseDraft,
+    } = require('./merchant-case-draft.service')
+    const merchantCaseDraft = buildRuleMerchantCaseDraft(albumView, preMaskTask)
+
     let packageData = null
     try {
-      packageData = await buildLlmPackage(albumView, ruleQuality)
+      packageData = await buildLlmPackage(albumView, ruleQuality, merchantCaseDraft)
     } catch (e) {
       console.warn('[album-content-package] llm failed', id, e && e.message)
       packageData = null
     }
 
     if (!packageData) {
-      packageData = buildRulePackage(albumView, ruleQuality)
+      packageData = buildRulePackage(albumView, ruleQuality, merchantCaseDraft)
       packageData.source = CONTENT_PACKAGE_SOURCE.RULE_FALLBACK
       packageData.error = 'llm_unavailable_or_failed'
+    }
+
+    if (!packageData.merchantCaseDraft) {
+      packageData.merchantCaseDraft = merchantCaseDraft
     }
 
     packageData.triggeredAt = triggeredAt

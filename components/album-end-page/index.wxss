@@ -2,7 +2,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
@@ -13,13 +13,12 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  padding: var(--space-xl) var(--space-md);
-  text-align: center;
+  padding: var(--space-xl) var(--space-lg);
 }
 
 .album-end-page__finisher {
@@ -29,34 +28,100 @@
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--size-album-end-content-width);
-  margin-bottom: var(--space-md);
+  max-width: 560rpx;
+  margin: 0 auto var(--space-md);
 }
 
 .album-end-page__finisher-line {
   flex: 1;
-  max-width: 120rpx;
+  max-width: 96rpx;
   height: 1rpx;
   background: var(--color-album-end-finish);
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .album-end-page__finisher-label {
   flex-shrink: 0;
   color: var(--color-album-end-finish);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.16em;
 }
 
 .album-end-page__album-title {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--size-album-end-content-width);
-  margin-bottom: var(--space-lg);
+  max-width: 560rpx;
+  margin: 0 auto var(--space-lg);
   overflow: hidden;
   text-align: center;
   white-space: nowrap;
   text-overflow: ellipsis;
+  font-size: var(--font-h3);
+  line-height: var(--font-h3-lh);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.album-end-page__invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560rpx;
+  margin: 0 auto var(--space-lg);
+  padding: var(--space-lg);
+  text-align: left;
+  border-radius: var(--radius-lg);
+}
+
+.album-end-page__eyebrow {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  letter-spacing: 0.08em;
+  color: var(--color-primary);
+}
+
+.album-end-page__pitch {
+  display: block;
+  font-size: var(--font-body);
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+
+.album-end-page__trust {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-album-frame-line);
+}
+
+.album-end-page__trust-label {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+.album-end-page__control {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.album-end-page__status {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560rpx;
+  margin: 0 auto var(--space-md);
+  text-align: center;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
   color: var(--color-text-tertiary);
 }
 
@@ -64,9 +129,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  align-items: stretch;
   box-sizing: border-box;
   width: 100%;
-  max-width: var(--size-album-end-content-width);
+  max-width: 560rpx;
+  margin: 0 auto;
   align-self: center;
 }
 
@@ -76,10 +143,31 @@
   justify-content: center;
 }
 
-.album-end-page__hint {
-  display: block;
-  margin-top: calc(-1 * var(--space-xs));
-  margin-bottom: var(--space-xs);
-  text-align: center;
-  color: var(--color-text-tertiary);
+.album-end-page__preview-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.album-end-page__status--tight {
+  margin-bottom: 0;
+}
+
+.album-end-page__feedback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm) 0;
+}
+
+.album-end-page__feedback--hover {
+  opacity: 0.72;
+}
+
+.album-end-page__feedback-text {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 4rpx;
 }

@@ -1,0 +1,56 @@
+@import '../../../styles/tokens.wxss';
+
+.album-owner-share__body {
+  padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.album-owner-share__pitch {
+  display: block;
+  line-height: 1.65;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.album-owner-share__control {
+  display: block;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.album-owner-share__published-hint {
+  display: block;
+  margin-top: var(--space-xs);
+  margin-bottom: var(--space-md);
+  line-height: 1.5;
+}
+
+.album-owner-share__channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-owner-share__channel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-page);
+}
+
+.album-owner-share__channel-btn {
+  margin: 0;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-page);
+  text-align: left;
+  line-height: 1.4;
+}
+
+.album-owner-share__channel-btn::after {
+  border: none;
+}

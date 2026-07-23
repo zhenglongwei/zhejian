@@ -56,5 +56,9 @@ Component({
       const { id } = e.currentTarget.dataset
       this.triggerEvent('manualmask', { assetId: id })
     },
+    onExclude(e) {
+      const { id } = e.currentTarget.dataset
+      this.triggerEvent('exclude', { assetId: id })
+    },
   },
 })

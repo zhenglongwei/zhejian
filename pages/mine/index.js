@@ -3,7 +3,7 @@ const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
-const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
+const { enrichServiceAlbumListItem, isRepairCompleted } = require('../../utils/service-album-display')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
@@ -32,11 +32,15 @@ function quietHubAlbumTags(item = {}) {
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
-    .map((item) =>
-      quietHubAlbumTags(
+    .map((item) => {
+      const enriched = quietHubAlbumTags(
         enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
       )
-    )
+      return {
+        ...enriched,
+        showOwnerShare: isRepairCompleted(enriched.status),
+      }
+    })
 }
 
 const {
@@ -322,6 +326,12 @@ Page({
     const id = (e.detail && e.detail.id) || ''
     if (!id || !this.guardProtectedEntry(true)) return
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+  },
+
+  onAlbumOwnerShare(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id || !this.guardProtectedEntry(true)) return
+    wx.navigateTo({ url: `/pages/album/owner-share/index?albumId=${id}` })
   },
 
   onShareAppMessage() {

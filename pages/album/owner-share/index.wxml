@@ -1,0 +1,98 @@
+<view class="page album-owner-share">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty
+        title="暂时无法打开"
+        description="{{errorMessage}}"
+        actionText="返回"
+        bind:action="onBack"
+      />
+    </view>
+  </block>
+
+  <block wx:elif="{{mode === 'invite'}}">
+    <view class="page-content album-owner-share__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-owner-share__pitch text-body">{{invitePitch}}</text>
+        <text class="album-owner-share__control text-caption">{{controlLine}}</text>
+        <ui-compliance-notice type="authorize" />
+        <ui-checkbox-row checked="{{authChecked}}" bind:toggle="onAuthCheckToggle">
+          <text>{{consentText}}</text>
+          <text class="text-link" catchtap="onOpenPolicy">《公开案例与隐私说明》</text>
+        </ui-checkbox-row>
+      </ui-card>
+    </view>
+
+    <ui-fixed-bottom-bar>
+      <ui-button type="secondary" block bind:btntap="onPreviewTap" loading="{{previewLoading}}">{{previewLabel}}</ui-button>
+      <ui-button
+        type="primary"
+        block
+        disabled="{{shareDisabled}}"
+        loading="{{previewLoading}}"
+        bind:btntap="onSharePublishTap"
+      >{{confirmText}}</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+
+  <block wx:elif="{{mode === 'published'}}">
+    <view class="page-content album-owner-share__body">
+      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="text-h3">分享给更多人</text>
+        <text class="text-caption text-secondary album-owner-share__published-hint">案例已通过审核。可发给微信，或复制长文到自媒体。</text>
+
+        <view class="album-owner-share__channels">
+          <view class="album-owner-share__channel" bindtap="onTimelineTap">
+            <text class="text-body">分享到朋友圈</text>
+            <text class="text-caption text-secondary">按提示操作</text>
+          </view>
+          <button class="album-owner-share__channel album-owner-share__channel-btn" open-type="share">
+            <text class="text-body">分享给朋友</text>
+            <text class="text-caption text-secondary">微信好友</text>
+          </button>
+          <view class="album-owner-share__channel" bindtap="onOpenSocial">
+            <text class="text-body">分享到自媒体</text>
+            <text class="text-caption text-secondary">生成文章并复制</text>
+          </view>
+        </view>
+      </ui-card>
+    </view>
+
+    <ui-share-sheet
+      visible="{{shareSheetVisible}}"
+      variant="owner"
+      showOwnerShare="{{true}}"
+      shareIntent="owner"
+      honorHint=""
+      publishState="approved"
+      showPublicWebLink="{{true}}"
+      socialPlatform="{{socialPlatform}}"
+      socialDraftText="{{socialDraftText}}"
+      socialDraftLoading="{{socialDraftLoading}}"
+      socialDraftWaitHint="{{socialDraftWaitHint}}"
+      bind:close="onCloseShareSheet"
+      bind:timeline="onShareTimelineGuide"
+      bind:copyownerlink="onCopyOwnerShareLink"
+      bind:copypublic="onCopyPublicCaseLink"
+      bind:socialplatform="onSocialPlatformChange"
+      bind:copysocial="onCopySocialDraft"
+    />
+  </block>
+
+  <block wx:elif="{{mode === 'pending'}}">
+    <view class="page-content">
+      <ui-empty
+        title="审核中"
+        description="脱敏案例已提交，通过后即可分享给朋友与自媒体。"
+        actionText="返回"
+        bind:action="onBack"
+      />
+    </view>
+  </block>
+</view>

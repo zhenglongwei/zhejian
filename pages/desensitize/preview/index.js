@@ -5,6 +5,7 @@ const {
   retryAsset,
   confirmOrderAuthorizeTask,
   markAssetPreviewed,
+  excludeAuthorizeAsset,
 } = require('../../../services/desensitize')
 const { submitAlbumAuthorization } = require('../../../services/order-album')
 const { submitServiceAlbumAuthorization } = require('../../../services/service-album')
@@ -111,6 +112,11 @@ Page({
     if (source === 'review' || source !== 'service' || !albumId) return ''
     try {
       const album = await fetchServiceAlbum(albumId)
+      if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
+      if (album.merchantCaseDraft) {
+        const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
+        return draftToAiSummary(album.merchantCaseDraft)
+      }
       return buildAlbumAiSummary({
         serviceName: album.serviceName,
         vehicle: album.vehicle,
@@ -128,7 +134,9 @@ Page({
   },
 
   applyTask(task, aiSummary = '') {
-    const view = mapTaskToWorkbenchState(task)
+    const allowExclude =
+      this.data.source === 'service' || this.data.source === 'order'
+    const view = mapTaskToWorkbenchState(task, { allowExclude })
     const publicMediaCount = Number.isFinite(Number(task.publicMediaCount))
       ? Number(task.publicMediaCount)
       : (task.rawAssets || []).length
@@ -206,6 +214,31 @@ Page({
       current: url,
       urls: urls.length ? urls : [url],
     })
+  },
+
+  async onExcludeAsset(e) {
+    const assetId = e.detail && e.detail.assetId
+    if (!assetId || !this.data.taskId) return
+    if (this.data.source === 'review') {
+      wx.showToast({ title: '评价配图请在评价页调整', icon: 'none' })
+      return
+    }
+    try {
+      const res = await new Promise((resolve) => {
+        wx.showModal({
+          title: '不公开此图',
+          content: '将从即将上网的配图中移除（相册留档仍在）。不可再自行加回，需门店重新选图后完工。',
+          confirmText: '移除',
+          success: resolve,
+        })
+      })
+      if (!res.confirm) return
+      const task = await excludeAuthorizeAsset(this.data.taskId, assetId)
+      this.applyTask(task)
+      wx.showToast({ title: '已移出公开包', icon: 'success' })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '移除失败', icon: 'none' })
+    }
   },
 
   async onAutoMask() {

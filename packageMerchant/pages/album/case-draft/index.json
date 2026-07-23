@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "公开案例稿",
+  "usingComponents": {
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-empty": "/components/empty/index",
+    "ui-card": "/components/card/index",
+    "ui-button": "/components/button/index",
+    "ui-compliance-notice": "/components/compliance-notice/index"
+  }
+}

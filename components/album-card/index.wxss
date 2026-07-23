@@ -160,6 +160,12 @@
   line-height: var(--font-body-lh);
   text-align: right;
   box-sizing: border-box;
+  color: var(--color-primary);
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .album-card__main {

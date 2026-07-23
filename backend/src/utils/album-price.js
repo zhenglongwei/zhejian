@@ -142,38 +142,15 @@ function buildPrivateAlbumPrice(source = {}) {
 }
 
 function buildPublicCasePrice(source = {}, options = {}) {
-  const amount = resolvePlanAmount(source)
-  const hasUserAuth =
-    options.hasUserAuthorization != null
-      ? options.hasUserAuthorization
-      : hasUserPublicAuthorization(source)
-
-  if (amount == null) {
-    return {
-      priceMode: PRICE_MODE.CONSULT,
-      amount: null,
-      minAmount: null,
-      maxAmount: null,
-      planAmount: null,
-    }
-  }
-
-  if (hasUserAuth) {
-    return {
-      priceMode: PRICE_MODE.FIXED,
-      amount,
-      minAmount: null,
-      maxAmount: null,
-      planAmount: amount,
-    }
-  }
-
-  const seedKey =
-    source.albumId || source.caseId || source.id || String(amount)
-  const range = computePublicPriceRange(amount, seedKey)
+  // PKG-COACH：公域一律不展示成交金额（私域仍用 buildPrivateAlbumPrice）
+  void source
+  void options
   return {
-    ...range,
-    planAmount: amount,
+    priceMode: PRICE_MODE.CONSULT,
+    amount: null,
+    minAmount: null,
+    maxAmount: null,
+    planAmount: null,
   }
 }
 

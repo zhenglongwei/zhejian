@@ -86,7 +86,6 @@ function buildFacts(albumView = {}) {
       model: vehicle.model || '',
     },
     storeNote: String(albumView.storeNote || '').trim().slice(0, 300),
-    planAmount: albumView.planAmount != null ? albumView.planAmount : null,
     nodes,
     publicCaseStatus: albumView.publicCaseStatus || 'private',
   }
@@ -141,9 +140,6 @@ function buildRuleDraft(facts, platformId) {
       `前阵子做了一次${serviceName}${vehicle ? `（${vehicle}）` : ''}，把过程记一下，给有类似情况的人当个参考。`,
       storeBit ? `门店在${storeBit}。` : '',
       notes.length ? `当时大致情况：\n${notes.map((x) => `- ${x}`).join('\n')}` : '具体细节不多，就不硬写了。',
-      facts.planAmount != null
-        ? `当时方案参考费用大概 ${facts.planAmount} 元，实际以到店确认为准。`
-        : '',
       '我不是修车的，内容仅个人经历。过程在辙见服务相册里留了档。',
     ]
       .filter(Boolean)
@@ -161,7 +157,6 @@ function buildRuleDraft(facts, platformId) {
       vehicle ? `车：${vehicle}` : '',
       `项目：${serviceName}`,
       notes.length ? notes.join('\n') : '门店按流程做了检查和处理，我这边主要留了过程记录。',
-      facts.planAmount != null ? `当时方案参考约 ${facts.planAmount} 元（到店为准）。` : '',
       '内容已脱敏。仅供参考。',
     ]
       .filter(Boolean)
@@ -175,7 +170,7 @@ function buildRuleDraft(facts, platformId) {
       storeBit ? `去的是${storeBit}。` : '',
       notes.length ? `过程里我记下了这些：\n\n${notes.join('\n\n')}` : '',
       facts.storeNote ? `门店说明：${facts.storeNote}` : '',
-      '公开发出去的版本会脱敏。费用和方案仍以到店沟通为准。',
+      '公开发出去的版本会脱敏。方案细节仍以到店沟通为准。',
     ]
       .filter(Boolean)
       .join('\n\n')
@@ -193,7 +188,7 @@ function buildRuleDraft(facts, platformId) {
       storeBit ? `店：${storeBit}` : '',
       notes[0] || '过程在相册留了档。',
       notes[1] || '',
-      '仅个人经历，方案费用到店确认。',
+      '仅个人经历，方案到店确认。',
     ].filter(Boolean)
     return {
       title: '',

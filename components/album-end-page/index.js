@@ -1,3 +1,5 @@
+const { PREVIEW_LABEL, FEEDBACK_LABEL, CONTROL_LINE } = require('../../utils/publish-thank-you')
+
 Component({
   options: {
     addGlobalClass: true,
@@ -12,29 +14,33 @@ Component({
       type: String,
       value: '',
     },
-    showAuth: {
-      type: Boolean,
-      value: false,
-    },
-    authLabel: {
-      type: String,
-      value: '分享脱敏报告',
-    },
-    authDisabled: {
-      type: Boolean,
-      value: false,
-    },
-    authHint: {
+    invitePitch: {
       type: String,
       value: '',
     },
-    showShare: {
+    inviteEyebrow: {
+      type: String,
+      value: '',
+    },
+    controlLine: {
+      type: String,
+      value: CONTROL_LINE,
+    },
+    showPreview: {
       type: Boolean,
       value: false,
     },
-    shareLabel: {
+    previewLabel: {
       type: String,
-      value: '分享',
+      value: PREVIEW_LABEL,
+    },
+    previewDisabled: {
+      type: Boolean,
+      value: false,
+    },
+    previewHint: {
+      type: String,
+      value: '',
     },
     showFeedback: {
       type: Boolean,
@@ -48,17 +54,13 @@ Component({
       type: Boolean,
       value: false,
     },
-    showPartVerify: {
-      type: Boolean,
-      value: false,
-    },
     showWithdraw: {
       type: Boolean,
       value: false,
     },
     withdrawLabel: {
       type: String,
-      value: '撤回发布',
+      value: '一键下架',
     },
     statusHint: {
       type: String,
@@ -67,10 +69,6 @@ Component({
     gateActions: {
       type: Array,
       value: [],
-    },
-    partVerifyLabel: {
-      type: String,
-      value: '配件验真',
     },
     storeBrowseLabel: {
       type: String,
@@ -82,18 +80,14 @@ Component({
     },
     feedbackLabel: {
       type: String,
-      value: '评价与反馈',
+      value: FEEDBACK_LABEL,
     },
   },
 
   methods: {
-    onAuthTap() {
-      if (this.properties.authDisabled) return
-      this.triggerEvent('auth')
-    },
-
-    onShareTap() {
-      this.triggerEvent('share')
+    onPreviewTap() {
+      if (this.properties.previewDisabled) return
+      this.triggerEvent('preview')
     },
 
     onWithdrawTap() {
@@ -102,12 +96,6 @@ Component({
 
     onFeedbackTap() {
       this.triggerEvent('feedback', {
-        albumId: this.properties.albumId || '',
-      })
-    },
-
-    onPartVerifyTap() {
-      this.triggerEvent('partverify', {
         albumId: this.properties.albumId || '',
       })
     },

@@ -58,12 +58,14 @@ function normalizeAlbumContentPackage(raw) {
   if (!isPlainObject(raw)) return null
   const status = normalizeString(raw.status) || CONTENT_PACKAGE_STATUS.PENDING
   const allowed = new Set(Object.values(CONTENT_PACKAGE_STATUS))
+  const { normalizeMerchantCaseDraft } = require('../services/merchant-case-draft.service')
   return {
     status: allowed.has(status) ? status : CONTENT_PACKAGE_STATUS.PENDING,
     source: normalizeString(raw.source) || '',
     factSummary: normalizeString(raw.factSummary).slice(0, 800),
     qualitySuggestions: normalizeQualitySuggestions(raw.qualitySuggestions),
     drafts: normalizeDrafts(raw.drafts),
+    merchantCaseDraft: normalizeMerchantCaseDraft(raw.merchantCaseDraft),
     triggeredAt: normalizeString(raw.triggeredAt),
     generatedAt: normalizeString(raw.generatedAt),
     error: normalizeString(raw.error).slice(0, 500),
@@ -77,6 +79,7 @@ function emptyGeneratingPackage(triggeredAt = new Date().toISOString()) {
     factSummary: '',
     qualitySuggestions: [],
     drafts: {},
+    merchantCaseDraft: null,
     triggeredAt,
     generatedAt: '',
     error: '',

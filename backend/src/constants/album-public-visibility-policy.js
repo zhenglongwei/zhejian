@@ -23,8 +23,11 @@ const PUBLIC_GATE_STATUS = {
   SKIPPED: 'skipped',
 }
 
-/** H5/Feed 软上限（不截断留档，仅限制 snapshot.publicView.media） */
+/** H5/Feed 硬上限（不截断留档，仅限制 snapshot.publicView.media） */
 const PUBLIC_MEDIA_SOFT_CAP = 30
+
+/** PKG-COACH：公开关键帧默认张数（可被 buildPublicView options.softCap 覆盖） */
+const PUBLIC_MEDIA_KEYFRAME_DEFAULT = 8
 
 function resolveStageImagePolicy(nodeId) {
   return STAGE_IMAGE_POLICY[String(nodeId || '').trim()] || 'gate'
@@ -39,6 +42,7 @@ module.exports = {
   VISIBILITY,
   PUBLIC_GATE_STATUS,
   PUBLIC_MEDIA_SOFT_CAP,
+  PUBLIC_MEDIA_KEYFRAME_DEFAULT,
   resolveStageImagePolicy,
   isAlwaysPrivateStage,
 }

@@ -8,6 +8,7 @@ const { scrubPiiText } = require('../utils/scrub-pii-text')
 const { extractGeoFromAlbumNodes, findStageNode } = require('../utils/album-geo-extract')
 const {
   PUBLIC_MEDIA_SOFT_CAP,
+  PUBLIC_MEDIA_KEYFRAME_DEFAULT,
   PUBLIC_GATE_STATUS,
   VISIBILITY,
 } = require('../constants/album-public-visibility-policy')
@@ -50,14 +51,10 @@ function buildPublicRepairPlan(albumView = {}) {
       return type ? `${name}（${type}）` : name
     })
     .filter(Boolean)
-  const planAmount = albumView.planAmount
-
   const chunks = []
   if (note) chunks.push(note)
   if (parts.length) chunks.push(`主要项目：${parts.join('、')}`)
-  if (planAmount != null && Number.isFinite(Number(planAmount))) {
-    chunks.push(`方案参考费用约 ${Math.round(Number(planAmount))} 元`)
-  }
+  // PKG-COACH：公域藏价，不把 planAmount 写入公开方案文案
   return chunks.join('。').slice(0, 400)
 }
 
@@ -88,8 +85,12 @@ function captionForNode(nodes, nodeId) {
  */
 function buildPublicView(albumView = {}, task = null, options = {}) {
   const nodes = albumView.nodes || []
-  const softCap = options.softCap != null ? options.softCap : PUBLIC_MEDIA_SOFT_CAP
-  const publicRows = listPublicImageRows(albumView).slice(0, softCap)
+  const softCap =
+    options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
+  const publicRows = listPublicImageRows(albumView).slice(
+    0,
+    Math.min(softCap, PUBLIC_MEDIA_SOFT_CAP),
+  )
 
   const media = publicRows
     .map((row) => {
@@ -107,7 +108,7 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
   const geo = extractGeoFromAlbumNodes(nodes, {
     coldStart: false,
     serviceName: albumView.serviceName,
-    planAmount: albumView.planAmount,
+    includePlanAmount: false,
     storeNote: albumView.storeNote,
   })
 

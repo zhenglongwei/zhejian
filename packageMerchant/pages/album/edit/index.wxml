@@ -114,6 +114,22 @@
         class="merchant-album-edit__optimize-card"
       >
         <view class="merchant-album-edit__optimize-head">
+          <text class="text-h3">公开案例稿</text>
+          <ui-tag variant="info" text="完工后" />
+        </view>
+        <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
+          预览并修订将给车主看的结构化案例正文与脱敏配图（不含金额）。车主只能评价、删图，不能改正文。
+        </text>
+        <ui-button type="primary" block bind:btntap="onOpenCaseDraft">编辑公开案例稿</ui-button>
+      </ui-card>
+
+      <ui-card
+        wx:if="{{showContentOptimizeEntry}}"
+        shadow="{{true}}"
+        padding="{{true}}"
+        class="merchant-album-edit__optimize-card"
+      >
+        <view class="merchant-album-edit__optimize-head">
           <text class="text-h3">内容优化</text>
           <ui-tag variant="info" text="授权前" />
         </view>

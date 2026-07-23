@@ -37,15 +37,19 @@ function stageSnapshot(node) {
 
 /**
  * @param {object[]} nodes
- * @param {{ coldStart?: boolean, serviceName?: string, planAmount?: number|null, storeNote?: string }} [options]
+ * @param {{ coldStart?: boolean, serviceName?: string, planAmount?: number|null, includePlanAmount?: boolean, storeNote?: string }} [options]
  */
 function extractGeoFromAlbumNodes(nodes, options = {}) {
   const coldStart = Boolean(options.coldStart)
   const serviceName = options.serviceName || '维修服务'
   const storeNote = String(options.storeNote || '').trim()
+  const includePlanAmount = options.includePlanAmount === true
   const planAmountRaw = options.planAmount
   const planAmount =
-    planAmountRaw != null && planAmountRaw !== '' && Number.isFinite(Number(planAmountRaw))
+    includePlanAmount &&
+    planAmountRaw != null &&
+    planAmountRaw !== '' &&
+    Number.isFinite(Number(planAmountRaw))
       ? Number(planAmountRaw)
       : null
 

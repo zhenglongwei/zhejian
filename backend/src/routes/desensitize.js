@@ -7,6 +7,7 @@ const {
   retryAsset,
   applyManualMask,
   markAssetPreviewed,
+  excludeAuthorizeAsset,
   confirmOrderAuthorizeTask,
   confirmReviewImagePreviewTask,
 } = require('../services/desensitize.service')
@@ -72,6 +73,20 @@ router.post(
 router.post('/tasks/:taskId/assets/:assetId/previewed', requireAuth(['user', 'merchant']), async (req, res, next) => {
   try {
     const task = await markAssetPreviewed(req.params.taskId, req.params.assetId, taskAuthOptions(req))
+    return ok(res, task)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** PKG-COACH：车主从公开配图包移除（可删不可加） */
+router.post('/tasks/:taskId/assets/:assetId/exclude', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const task = await excludeAuthorizeAsset(
+      req.params.taskId,
+      req.params.assetId,
+      taskAuthOptions(req),
+    )
     return ok(res, task)
   } catch (e) {
     next(e)

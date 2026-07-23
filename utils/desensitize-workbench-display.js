@@ -38,12 +38,17 @@ function buildWorkbenchItems(task) {
     tagVariant: TAG_VARIANT[asset.status] || 'info',
     showRetry: asset.status === ASSET_STATUS.MASK_FAILED,
     showManualMask: manualMaskStatuses.has(asset.status),
+    showExclude: false,
   }))
 }
 
-function mapTaskToWorkbenchState(task) {
+function mapTaskToWorkbenchState(task, options = {}) {
   const stats = getWorkbenchStats(task)
-  const workbenchItems = buildWorkbenchItems(task)
+  const allowExclude = Boolean(options.allowExclude)
+  const workbenchItems = buildWorkbenchItems(task).map((item) => ({
+    ...item,
+    showExclude: allowExclude,
+  }))
   return {
     workbenchItems,
     stats,

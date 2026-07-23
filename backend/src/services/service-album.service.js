@@ -871,7 +871,20 @@ async function getUserServiceAlbum(albumId, userId) {
     err.status = 403
     throw err
   }
-  return attachPublishInviteFields(buildAlbumView(album), album)
+  let view = attachPublishInviteFields(buildAlbumView(album), album)
+  try {
+    const { readPackageFromAlbum } = require('./album-content-package.service')
+    const { draftToAiSummary } = require('./merchant-case-draft.service')
+    const pkg = readPackageFromAlbum(album)
+    view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
+    view.contentPackageStatus = (pkg && pkg.status) || ''
+    if (view.merchantCaseDraft) {
+      view.merchantCaseDraftSummary = draftToAiSummary(view.merchantCaseDraft)
+    }
+  } catch (_) {
+    view.merchantCaseDraft = null
+  }
+  return view
 }
 
 async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '') {
@@ -918,6 +931,13 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     view.copyQuality = mergeQualitySuggestionsIntoCopyQuality(view.copyQuality, pkg)
   }
   view.contentPackageStatus = (pkg && pkg.status) || ''
+  view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
+  try {
+    const { resolveAlbumCoach } = require('./album-coach.service')
+    view.albumCoach = resolveAlbumCoach(view)
+  } catch (e) {
+    view.albumCoach = null
+  }
   return view
 }
 
@@ -932,6 +952,115 @@ async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
   } = require('./album-content-package.service')
   quality = mergeQualitySuggestionsIntoCopyQuality(quality, readPackageFromAlbum(album))
   return quality
+}
+
+/** PKG-COACH：读取商家案例草稿 */
+async function getMerchantCaseDraft(albumId, storeId, merchantId = '') {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const {
+    buildRuleMerchantCaseDraft,
+    normalizeMerchantCaseDraft,
+  } = require('./merchant-case-draft.service')
+  const pkg = readPackageFromAlbum(album)
+  if (pkg && pkg.merchantCaseDraft) {
+    return {
+      draft: pkg.merchantCaseDraft,
+      contentPackageStatus: pkg.status || '',
+      editable: !isAlbumContentLocked(album),
+    }
+  }
+  const view = buildMerchantView(album)
+  let preMaskTask = null
+  try {
+    const { findPreMaskTask } = require('./desensitize.service')
+    preMaskTask = await findPreMaskTask(albumId)
+  } catch (_) {
+    preMaskTask = null
+  }
+  const draft = buildRuleMerchantCaseDraft(view, preMaskTask)
+  return {
+    draft: normalizeMerchantCaseDraft(draft),
+    contentPackageStatus: (pkg && pkg.status) || '',
+    editable: !isAlbumContentLocked(album),
+  }
+}
+
+/** PKG-COACH：商家确认/修订案例草稿（正文可改，配图列表可删减不可旁路加图） */
+async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload = {}) {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  assertAlbumContentEditable(album)
+  const {
+    readPackageFromAlbum,
+  } = require('./album-content-package.service')
+  const {
+    normalizeMerchantCaseDraft,
+    pickDraftMedia,
+    buildRuleMerchantCaseDraft,
+  } = require('./merchant-case-draft.service')
+
+  const pkg = readPackageFromAlbum(album) || {
+    status: 'ready',
+    source: 'merchant_edit',
+    factSummary: '',
+    qualitySuggestions: [],
+    drafts: {},
+    triggeredAt: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+    error: '',
+  }
+
+  const view = buildMerchantView(album)
+  let preMaskTask = null
+  try {
+    const { findPreMaskTask } = require('./desensitize.service')
+    preMaskTask = await findPreMaskTask(albumId)
+  } catch (_) {
+    preMaskTask = null
+  }
+
+  const allowedMedia = pickDraftMedia(view, preMaskTask)
+  const allowedKeys = new Set(
+    allowedMedia.map((m) => `${m.nodeId}:${m.idx}`),
+  )
+  const incoming = payload.draft || payload
+  let media = Array.isArray(incoming.media) ? incoming.media : []
+  media = media.filter((m) => allowedKeys.has(`${m.nodeId}:${m.idx}`))
+  if (!media.length && Array.isArray(pkg.merchantCaseDraft && pkg.merchantCaseDraft.media)) {
+    media = pkg.merchantCaseDraft.media.filter((m) =>
+      allowedKeys.has(`${m.nodeId}:${m.idx}`),
+    )
+  }
+  if (!media.length) media = allowedMedia
+
+  const base =
+    pkg.merchantCaseDraft ||
+    buildRuleMerchantCaseDraft(view, preMaskTask)
+
+  const draft = normalizeMerchantCaseDraft({
+    ...base,
+    title: incoming.title != null ? incoming.title : base.title,
+    sections: incoming.sections || base.sections,
+    media,
+    source: 'merchant_edit',
+    generatedAt: base.generatedAt || new Date().toISOString(),
+    confirmedAt: payload.confirm
+      ? new Date().toISOString()
+      : base.confirmedAt || '',
+  })
+
+  const nextPkg = {
+    ...pkg,
+    merchantCaseDraft: draft,
+    generatedAt: pkg.generatedAt || new Date().toISOString(),
+  }
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { contentPackageJson: nextPkg },
+  })
+  return { draft, contentPackageStatus: nextPkg.status || '', editable: true }
 }
 
 function albumHasOwner(album) {
@@ -1669,6 +1798,8 @@ module.exports = {
   switchMerchantServiceAlbumTemplate,
   listServiceAlbumTemplateOptions,
   fetchMerchantCopyQuality,
+  getMerchantCaseDraft,
+  saveMerchantCaseDraft,
   loadAlbum,
   buildMerchantView,
   isAlbumContentLocked,

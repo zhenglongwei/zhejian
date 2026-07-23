@@ -6,9 +6,18 @@
       <view class="album-end-page__finisher-line" />
     </view>
 
-    <text wx:if="{{albumTitle}}" class="album-end-page__album-title text-caption">{{albumTitle}}</text>
+    <text wx:if="{{albumTitle}}" class="album-end-page__album-title">{{albumTitle}}</text>
 
-    <text wx:if="{{statusHint}}" class="album-end-page__hint text-caption">{{statusHint}}</text>
+    <view wx:if="{{invitePitch}}" class="album-end-page__invite surface-album-panel">
+      <text wx:if="{{inviteEyebrow}}" class="album-end-page__eyebrow">{{inviteEyebrow}}</text>
+      <text class="album-end-page__pitch">{{invitePitch}}</text>
+      <view wx:if="{{controlLine}}" class="album-end-page__trust">
+        <text class="album-end-page__trust-label">你的控制权</text>
+        <text class="album-end-page__control">{{controlLine}}</text>
+      </view>
+    </view>
+
+    <text wx:if="{{statusHint}}" class="album-end-page__status">{{statusHint}}</text>
 
     <view class="album-end-page__actions">
       <ui-button
@@ -19,18 +28,18 @@
         data-key="{{item.key}}"
         bind:btntap="onGateActionTap"
       >{{item.label}}</ui-button>
-      <block wx:if="{{showAuth}}">
+
+      <view wx:if="{{showPreview}}" class="album-end-page__preview-wrap">
         <ui-button
           type="primary"
-          block
-          disabled="{{authDisabled}}"
-          bind:btntap="onAuthTap"
-        >{{authLabel}}</ui-button>
-        <text
-          wx:if="{{authDisabled && authHint}}"
-          class="album-end-page__hint text-caption"
-        >{{authHint}}</text>
-      </block>
+          disabled="{{previewDisabled}}"
+          bind:btntap="onPreviewTap"
+        >{{previewLabel}}</ui-button>
+      </view>
+      <text
+        wx:if="{{showPreview && previewDisabled && previewHint}}"
+        class="album-end-page__status album-end-page__status--tight"
+      >{{previewHint}}</text>
 
       <ui-button
         wx:if="{{showWithdraw}}"
@@ -38,13 +47,6 @@
         block
         bind:btntap="onWithdrawTap"
       >{{withdrawLabel}}</ui-button>
-
-      <ui-button
-        wx:if="{{showShare}}"
-        type="secondary"
-        block
-        bind:btntap="onShareTap"
-      >{{shareLabel}}</ui-button>
 
       <ui-button
         wx:if="{{showStoreBrowse}}"
@@ -60,12 +62,15 @@
         bind:btntap="onContactTap"
       >{{contactLabel}}</ui-button>
 
-      <ui-button
+      <view
         wx:if="{{showFeedback}}"
-        type="ghost"
-        block
-        bind:btntap="onFeedbackTap"
-      >{{feedbackLabel}}</ui-button>
+        class="album-end-page__feedback"
+        bindtap="onFeedbackTap"
+        hover-class="album-end-page__feedback--hover"
+        hover-stay-time="80"
+      >
+        <text class="album-end-page__feedback-text">{{feedbackLabel}}</text>
+      </view>
     </view>
   </view>
 </view>

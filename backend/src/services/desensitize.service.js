@@ -807,6 +807,57 @@ async function markAssetPreviewed(taskId, assetId, options = {}) {
   return getTaskById(taskId, options)
 }
 
+/**
+ * PKG-COACH：车主从公开配图包移除（可删不可加）
+ * 将对应 album_images 标为仅留档，并删除授权任务资产，避免重建任务时再次进入。
+ */
+async function excludeAuthorizeAsset(taskId, assetId, options = {}) {
+  const { VISIBILITY, PUBLIC_GATE_STATUS } = require('../constants/album-public-visibility-policy')
+  const row = await prisma.desensitizeAsset.findUnique({
+    where: { taskId_assetId: { taskId, assetId } },
+    include: { task: true },
+  })
+  if (!row || !row.task) {
+    const err = new Error('图片资源不存在')
+    err.status = 404
+    throw err
+  }
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth) {
+    await assertDesensitizeTaskAccess(mapTaskRecord(row.task), auth)
+  }
+  const bizType = row.task.bizType
+  if (
+    bizType !== BIZ_TYPE.SERVICE_AUTHORIZE &&
+    bizType !== BIZ_TYPE.ORDER_AUTHORIZE
+  ) {
+    const err = new Error('仅公开授权预览支持移除配图')
+    err.status = 400
+    throw err
+  }
+
+  const albumId = row.task.bizId
+  await prisma.albumImage.updateMany({
+    where: {
+      albumId,
+      nodeId: row.nodeId,
+      idx: row.idx,
+    },
+    data: {
+      visibility: VISIBILITY.PRIVATE,
+      publicGateStatus: PUBLIC_GATE_STATUS.REJECTED,
+      publicGateReason: 'user_excluded',
+      publicGateCheckedAt: new Date(),
+    },
+  })
+
+  await prisma.desensitizeAsset.delete({
+    where: { taskId_assetId: { taskId, assetId } },
+  })
+
+  return getTaskById(taskId, options)
+}
+
 function allMaskingSucceeded(rawAssets) {
   const assets = rawAssets || []
   if (!assets.length) return true
@@ -1158,6 +1209,7 @@ module.exports = {
   albumToNodeView,
   getTaskById,
   canIncludePrivacyDetections,
+  findPreMaskTask,
   ensureOrderPreMaskTask,
   createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
@@ -1165,6 +1217,7 @@ module.exports = {
   retryAsset,
   applyManualMask,
   markAssetPreviewed,
+  excludeAuthorizeAsset,
   confirmOrderAuthorizeTask,
   confirmReviewImagePreviewTask,
   createReviewImagePreviewTask,

@@ -28,6 +28,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 用户端 Hero：右上角进入车主分享页 */
+    showOwnerShare: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   methods: {
@@ -43,6 +48,12 @@ Component({
       const { item } = this.properties
       if (!item || !item.albumId) return
       this.triggerEvent('share', { id: item.albumId })
+    },
+
+    onOwnerShareTap() {
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('ownershare', { id: item.albumId })
     },
 
     onPartVerifyTap() {

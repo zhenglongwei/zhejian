@@ -170,16 +170,45 @@ function buildNodeNoteMap(nodes) {
 }
 
 function buildEndPageActionState(detail, showAuthSection) {
-  const { AUTH_ACTION_LABEL } = require('../../../utils/publish-thank-you')
+  const {
+    PREVIEW_LABEL,
+    CONTROL_LINE,
+    canShowPublishInvite,
+    buildPublishInviteCopy,
+  } = require('../../../utils/publish-thank-you')
   const status = (detail && detail.publicCaseStatus) || 'private'
   const gateBanner = buildAlbumGateBanner(detail || {})
   const gateActions = buildGateActionButtons(detail || {})
+  const invite = buildPublishInviteCopy({
+    albumId: detail && (detail.albumId || detail.id),
+    vehicleLabel: detail && detail.vehicleDisplay,
+    serviceName: detail && detail.serviceName,
+  })
+  const showInvite = canShowPublishInvite(detail || {}) && showAuthSection
+
+  const inviteFields = showInvite || status === 'need_modify'
+    ? {
+        endPageInvitePitch: invite.pitch,
+        endPageInviteEyebrow: invite.officerTitle
+          ? `诚邀 · ${invite.officerTitle}`
+          : '诚邀分享这份维修记录',
+        endPageControlLine: CONTROL_LINE,
+      }
+    : {
+        endPageInvitePitch: '',
+        endPageInviteEyebrow: '',
+        endPageControlLine: '',
+      }
+
   if (status === 'pending_review' || status === 'public_approved') {
     return {
-      endPageShowAuth: false,
-      endPageAuthLabel: AUTH_ACTION_LABEL,
-      endPageAuthDisabled: false,
-      endPageAuthHint: '',
+      endPageInvitePitch: '',
+      endPageInviteEyebrow: '',
+      endPageControlLine: '',
+      endPageShowPreview: false,
+      endPagePreviewLabel: PREVIEW_LABEL,
+      endPagePreviewDisabled: false,
+      endPagePreviewHint: '',
       endPageShowWithdraw: true,
       endPageWithdrawLabel: '一键下架',
       endPageStatusHint:
@@ -192,33 +221,41 @@ function buildEndPageActionState(detail, showAuthSection) {
   }
   if (status === 'need_modify') {
     return {
-      endPageShowAuth: false,
-      endPageAuthLabel: '重新分享脱敏报告',
-      endPageAuthDisabled: false,
-      endPageAuthHint: '',
+      ...inviteFields,
+      endPageShowPreview: true,
+      endPagePreviewLabel: PREVIEW_LABEL,
+      endPagePreviewDisabled: false,
+      endPagePreviewHint: '',
       endPageShowWithdraw: true,
       endPageWithdrawLabel: '一键下架',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
       endPageGateActions: gateActions,
     }
   }
-  if (showAuthSection) {
+  if (showInvite) {
+    const disabled = Boolean(detail && detail.canAuthorizePublicCase === false)
     return {
-      endPageShowAuth: true,
-      endPageAuthLabel: AUTH_ACTION_LABEL,
-      endPageAuthDisabled: Boolean(detail && detail.canAuthorizePublicCase === false),
-      endPageAuthHint: (detail && detail.userConfirmHint) || '',
+      ...inviteFields,
+      endPageShowPreview: true,
+      endPagePreviewLabel: PREVIEW_LABEL,
+      endPagePreviewDisabled: disabled,
+      endPagePreviewHint: disabled
+        ? (detail && detail.userConfirmHint) || ''
+        : '',
       endPageShowWithdraw: false,
       endPageWithdrawLabel: '一键下架',
-      endPageStatusHint: gateBanner,
+      endPageStatusHint: '',
       endPageGateActions: gateActions,
     }
   }
   return {
-    endPageShowAuth: false,
-    endPageAuthLabel: AUTH_ACTION_LABEL,
-    endPageAuthDisabled: false,
-    endPageAuthHint: '',
+    endPageInvitePitch: '',
+    endPageInviteEyebrow: '',
+    endPageControlLine: '',
+    endPageShowPreview: false,
+    endPagePreviewLabel: PREVIEW_LABEL,
+    endPagePreviewDisabled: false,
+    endPagePreviewHint: '',
     endPageShowWithdraw: false,
     endPageWithdrawLabel: '一键下架',
     endPageStatusHint:
@@ -264,10 +301,13 @@ Page({
     pageIndex: 0,
     activeNodeId: '',
     storePhone: '',
-    endPageShowAuth: false,
-    endPageAuthLabel: AUTH_ACTION_LABEL,
-    endPageAuthDisabled: false,
-    endPageAuthHint: '',
+    endPageInvitePitch: '',
+    endPageInviteEyebrow: '',
+    endPageControlLine: CONTROL_LINE,
+    endPageShowPreview: false,
+    endPagePreviewLabel: '预览脱敏案例',
+    endPagePreviewDisabled: false,
+    endPagePreviewHint: '',
     endPageShowWithdraw: false,
     endPageWithdrawLabel: '一键下架',
     endPageStatusHint: '',
@@ -768,15 +808,14 @@ Page({
     const state = this.data.publishSheetState
     if (state === 'approved' || state === 'pending') return
     if (this.data.publishSheetDisabled) {
-      wx.showToast({ title: this.data.endPageAuthHint || '暂不可发布', icon: 'none' })
+      wx.showToast({
+        title: this.data.endPagePreviewHint || '暂不可分享',
+        icon: 'none',
+      })
       return
     }
     this.setData({ shareSheetVisible: false })
-    if (state === 'need_modify') {
-      this.openAuthorizePreview()
-      return
-    }
-    this.onEndPageAuth()
+    this.openAuthorizePreview()
   },
 
   onPageChange(e) {
@@ -883,14 +922,9 @@ Page({
   onUnload() {
   },
 
-  onEndPageAuth() {
-    if (this.data.endPageAuthDisabled) return
-    this.setData({
-      authSheetVisible: true,
-      authChecked: false,
-      authTier: 'named',
-      ...inviteUiFieldsFromDetail(this.data.detail || {}),
-    })
+  onEndPagePreview() {
+    if (this.data.endPagePreviewDisabled) return
+    this.openAuthorizePreview()
   },
 
   onEndPageWithdraw() {

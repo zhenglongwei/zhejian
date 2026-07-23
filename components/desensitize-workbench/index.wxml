@@ -43,7 +43,7 @@
           <text class="desensitize-wb__hint text-caption">用于公开展示</text>
         </view>
       </view>
-      <view class="desensitize-wb__item-actions" wx:if="{{item.showRetry || item.showManualMask}}">
+      <view class="desensitize-wb__item-actions" wx:if="{{item.showRetry || item.showManualMask || item.showExclude}}">
         <ui-button
           wx:if="{{item.showManualMask}}"
           type="secondary"
@@ -52,6 +52,13 @@
           data-id="{{item.id}}"
         >手工打码</ui-button>
         <ui-button wx:if="{{item.showRetry}}" type="ghost" size="sm" bind:btntap="onRetry" data-id="{{item.id}}">重试</ui-button>
+        <ui-button
+          wx:if="{{item.showExclude}}"
+          type="ghost"
+          size="sm"
+          bind:btntap="onExclude"
+          data-id="{{item.id}}"
+        >不公开此图</ui-button>
       </view>
     </view>
   </view>

@@ -58,6 +58,7 @@
       bind:preview="onPreview"
       bind:retry="onRetryAsset"
       bind:manualmask="onManualMaskItem"
+      bind:exclude="onExcludeAsset"
     />
     <view class="desensitize-preview__spacer" />
     <ui-fixed-bottom-bar>

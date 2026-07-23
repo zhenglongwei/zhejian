@@ -9,6 +9,8 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   fetchMerchantCopyQuality,
+  getMerchantCaseDraft,
+  saveMerchantCaseDraft,
   fetchMerchantAlbumStats,
   getMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
@@ -202,6 +204,35 @@ router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']
         ? [body.imageUrl]
         : []
     const data = await recognizePartLabelOcr({ imageUrls })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/case-draft', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await getMerchantCaseDraft(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/service-albums/:albumId/case-draft', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await saveMerchantCaseDraft(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+      req.body || {},
+    )
     return ok(res, data)
   } catch (e) {
     next(e)

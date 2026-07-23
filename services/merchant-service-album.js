@@ -2,7 +2,7 @@
  * V2.0 商家服务相册 — API: /api/merchant/service-albums/*
  */
 const { ENV } = require('./config')
-const { get, post } = require('./request')
+const { get, post, put } = require('./request')
 const { getProfile } = require('./merchant')
 const { getSession } = require('../utils/auth')
 const {
@@ -115,6 +115,14 @@ async function applyMerchantAlbumContentOptimize(albumId) {
   return post(`/merchant/service-albums/${albumId}/content-optimize/apply`, withStore())
 }
 
+async function fetchMerchantCaseDraft(albumId) {
+  return get(`/merchant/service-albums/${albumId}/case-draft`, withStore())
+}
+
+async function saveMerchantCaseDraft(albumId, payload = {}) {
+  return put(`/merchant/service-albums/${albumId}/case-draft`, withStore(payload))
+}
+
 async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   if (ENV.mode === 'mock') {
     const { mockSwitchMerchantServiceAlbumTemplate } = require('../mock/service-albums')
@@ -142,6 +150,8 @@ module.exports = {
   fetchMerchantAlbumContentOptimize,
   generateMerchantAlbumContentOptimize,
   applyMerchantAlbumContentOptimize,
+  fetchMerchantCaseDraft,
+  saveMerchantCaseDraft,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,

@@ -401,6 +401,7 @@ Page({
         requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
         comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
         notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '补充本节点说明',
+        publicUploadHint: mergedMeta.publicUploadHint || '',
         images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
         note: node.note || '',
       }
@@ -492,7 +493,36 @@ Page({
   },
 
   applyAlbum(detail) {
-    const mergedNodes = this.mergeNodes(detail.nodes, detail.templateId)
+    let mergedNodes = this.mergeNodes(detail.nodes, detail.templateId)
+    const coach = detail.albumCoach
+    if (coach && coach.stages) {
+      mergedNodes = mergedNodes.map((n) => {
+        const stageCoach = coach.stages[n.id]
+        if (!stageCoach) return n
+        const prefer = (stageCoach.shoot_prefer || [])
+          .map((x) => x.title)
+          .filter(Boolean)
+          .join('；')
+        const avoid = (stageCoach.shoot_avoid || [])
+          .slice(0, 4)
+          .map((x) => x.title)
+          .filter(Boolean)
+          .join('、')
+        const noteHint = stageCoach.note_hints && stageCoach.note_hints[0]
+        const hintParts = [
+          n.publicUploadHint,
+          prefer ? `建议拍：${prefer}` : '',
+          avoid ? `尽量别拍：${avoid}` : '',
+        ].filter(Boolean)
+        return {
+          ...n,
+          publicUploadHint: hintParts.join('。'),
+          notePlaceholder: noteHint
+            ? `${noteHint.example || ''}（${(noteHint.bullets || []).join(' / ')}）`
+            : n.notePlaceholder,
+        }
+      })
+    }
     const evidenceItems = hydrateEvidenceItems({
       templateId: detail.templateId,
       savedItems: detail.evidenceItems || [],
@@ -1687,6 +1717,13 @@ Page({
     if (!this.albumId) return
     wx.navigateTo({
       url: `/packageMerchant/pages/album/optimize/index?albumId=${this.albumId}`,
+    })
+  },
+
+  onOpenCaseDraft() {
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}`,
     })
   },
 

@@ -1,7 +1,6 @@
 <ui-card shadow="{{true}}" padding="{{true}}">
   <view class="album-authorize-section">
-    <text class="album-authorize-section__title text-h3">{{title}}</text>
-
+    <text wx:if="{{title && !pitch}}" class="album-authorize-section__title text-h3">{{title}}</text>
     <view wx:if="{{pitch}}" class="album-authorize-section__pitch">
       <text class="text-body">{{pitch}}</text>
     </view>

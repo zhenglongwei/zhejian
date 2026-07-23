@@ -49,12 +49,13 @@ const AUTHORIZATION_CONSENT = {
     authType: 'case_public',
     version: LEGAL_VERSION,
     text:
-      '我已阅读《公开案例与隐私说明》，核对脱敏效果，同意将本次维修记录在隐去个人信息后供同城车友参考；我可随时下架',
+      '我已阅读《公开案例与隐私说明》，核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架',
   },
   desensitize_confirm: {
     authType: 'desensitize_confirm',
     version: LEGAL_VERSION,
-    text: '本人已逐张核对脱敏效果，同意将脱敏后的维修记录供同城车友参考；我可随时下架',
+    text:
+      '本人已核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架',
   },
   case_revoke: {
     authType: 'case_revoke',
@@ -126,9 +127,9 @@ function getAuthorizationConsent(authType) {
 const COMPLIANCE_COPY = {
   price: '到店检测后确定。',
   casePrice:
-    '车主已分享脱敏案例的展示当时方案报价；其余案例价格为系统参考区间，实际费用以门店检测为准。',
+    '公开案例不展示成交金额；方案与费用请与门店到店确认。',
   authorizedCaseFixed:
-    '本案例为车主分享的脱敏维修记录，价格为当时方案报价，不构成线上报价承诺。',
+    '本案例为车主分享的脱敏维修记录，公开页不展示成交金额；方案与费用请到店确认。',
   accident: '到店检测后确定。',
   history: '价格仅供参考，不代表本页报价或最终成交价。',
   authorize:

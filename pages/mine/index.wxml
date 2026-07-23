@@ -61,9 +61,11 @@
               audience="user"
               showProgress="{{true}}"
               showHeaderActions="{{false}}"
+              showOwnerShare="{{item.showOwnerShare}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
+              bind:ownershare="onAlbumOwnerShare"
             />
           </view>
         </block>

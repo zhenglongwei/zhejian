@@ -1096,10 +1096,11 @@
 
   function buildPriceDisplay(data) {
     var mode = data.priceMode || 'range'
-    var currency = '¥'
-    var fixedAmount = resolveFixedAmount(data)
-    var isAuthorized =
-      data.authorizationTier === 'named' || data.authorizationTier === 'anonymous'
+
+    // PKG-COACH：公开案例页不展示金额区块（含参考区间 / 到店报价套话）
+    if (mode === 'consult' || mode === 'fixed' || mode === 'range' || !mode) {
+      return null
+    }
 
     if (mode === 'accident') {
       return {
@@ -1109,41 +1110,12 @@
         compliance: '本案例不构成线上报价承诺。',
       }
     }
-    if (fixedAmount != null && (mode === 'fixed' || isAuthorized)) {
-      return {
-        sectionTitle: '方案报价',
-        priceText: currency + fixedAmount,
-        disclaimer: '',
-        compliance:
-          '本案例为车主授权公示，展示当时方案参考费用，不构成线上报价承诺。',
-      }
-    }
-    if (mode === 'consult') {
-      return {
-        sectionTitle: '价格说明',
-        priceText: '到店检测后报价',
-        disclaimer: '实际费用以门店检测结果为准。',
-        compliance: '本案例价格仅为参考，不构成线上报价承诺。',
-      }
-    }
-    if (data.minAmount != null && data.maxAmount != null) {
-      return {
-        sectionTitle: '价格说明',
-        priceText: '参考区间 ' + currency + data.minAmount + ' - ' + currency + data.maxAmount,
-        disclaimer: '实际费用以门店检测结果为准。',
-        compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
-      }
-    }
-    return {
-      sectionTitle: '价格说明',
-      priceText: stripPriceSuffix(data.priceText || '到店检测后报价'),
-      disclaimer: '实际费用以门店检测结果为准。',
-      compliance: '本案例价格仅为参考区间，不构成线上报价承诺。',
-    }
+    return null
   }
 
   function renderPriceSection(data) {
     var display = buildPriceDisplay(data)
+    if (!display) return ''
     display.priceText = stripPriceSuffix(display.priceText)
     var disclaimerHtml = display.disclaimer
       ? '<span class="h5-price-note">' + escapeHtml(display.disclaimer) + '</span>'

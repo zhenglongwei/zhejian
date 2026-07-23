@@ -735,6 +735,18 @@ async function markAssetPreviewed(taskId, assetId) {
   return persistTask({ ...task, rawAssets, updatedAt: Date.now() })
 }
 
+/** PKG-COACH：从公开配图包移除（可删不可加） */
+async function excludeAuthorizeAsset(taskId, assetId) {
+  if (useApi()) {
+    return normalizeTaskAssets(
+      await post(`/desensitize/tasks/${taskId}/assets/${assetId}/exclude`)
+    )
+  }
+  const task = await fetchTask(taskId)
+  const rawAssets = (task.rawAssets || []).filter((a) => a.id !== assetId)
+  return persistTask({ ...task, rawAssets, updatedAt: Date.now() })
+}
+
 /** A-MASK-05：手工打码（框选区域 + 马赛克/模糊） */
 async function applyManualMask(taskId, assetId, payload = {}) {
   if (useApi()) {
@@ -903,6 +915,7 @@ module.exports = {
   applyManualMask,
   confirmTask,
   markAssetPreviewed,
+  excludeAuthorizeAsset,
   allPreviewed,
   isAlbumReadyForReview,
   getWorkbenchStats,
