@@ -25,6 +25,7 @@
 
         <el-menu-item index="/reports">举报管理</el-menu-item>
         <el-menu-item index="/authorization-logs">用户授权记录</el-menu-item>
+        <el-menu-item index="/album-coach">相册教练规则</el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
@@ -68,6 +69,7 @@ const activeMenu = computed(() => {
   if (route.path.startsWith('/services')) return '/services'
   if (route.path.startsWith('/reports')) return '/reports'
   if (route.path.startsWith('/authorization-logs')) return '/authorization-logs'
+  if (route.path.startsWith('/album-coach')) return '/album-coach'
   return route.path
 })
 

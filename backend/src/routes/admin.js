@@ -934,4 +934,87 @@ router.get('/authorization-logs/:logId', async (req, res, next) => {
   }
 })
 
+/** PKG-COACH-P1-06 · 相册教练规则包运营配置 */
+router.get('/album-coach/packs', async (req, res, next) => {
+  try {
+    const {
+      listAdminCoachPacks,
+    } = require('../services/album-coach-config.service')
+    return ok(res, listAdminCoachPacks())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/album-coach/packs', async (req, res, next) => {
+  try {
+    const { createAdminCoachPack } = require('../services/album-coach-config.service')
+    const data = createAdminCoachPack(req.body || {}, {
+      updatedBy: req.admin?.reviewerId || req.user?.id || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/album-coach/packs/:packId', async (req, res, next) => {
+  try {
+    const { getAdminCoachPack } = require('../services/album-coach-config.service')
+    return ok(res, getAdminCoachPack(req.params.packId))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.put('/album-coach/packs/:packId', async (req, res, next) => {
+  try {
+    const { saveAdminCoachPack } = require('../services/album-coach-config.service')
+    const data = saveAdminCoachPack(req.params.packId, req.body || {}, {
+      updatedBy: req.admin?.reviewerId || req.user?.id || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.delete('/album-coach/packs/:packId', async (req, res, next) => {
+  try {
+    const { resetAdminCoachPack } = require('../services/album-coach-config.service')
+    const data = resetAdminCoachPack(req.params.packId, {
+      updatedBy: req.admin?.reviewerId || req.user?.id || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/album-coach/reload', async (req, res, next) => {
+  try {
+    const { reloadAdminCoachConfig } = require('../services/album-coach-config.service')
+    return ok(res, reloadAdminCoachConfig())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/album-coach/preview', async (req, res, next) => {
+  try {
+    const { resolveAlbumCoach } = require('../services/album-coach.service')
+    const data = resolveAlbumCoach(
+      {
+        serviceName: req.body?.serviceName || '',
+        templateId: req.body?.templateId || '',
+        nodes: req.body?.nodes || [],
+      },
+      { stageId: req.body?.stageId || 'stage_2' },
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 module.exports = router

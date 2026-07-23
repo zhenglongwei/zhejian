@@ -138,6 +138,11 @@ const routes = [
         name: 'authorization-log-detail',
         component: () => import('@/views/authorization-logs/detail/index.vue'),
       },
+      {
+        path: 'album-coach',
+        name: 'album-coach',
+        component: () => import('@/views/album-coach/index.vue'),
+      },
     ],
   },
 ]

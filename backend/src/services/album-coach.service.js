@@ -1,25 +1,22 @@
 /**
  * PKG-COACH · 相册教练解析
  * 按服务类型合并通用包与专用包；输出商家编辑页可用的提示结构。
+ * 规则优先读运营覆盖（album-coach-config），再回落到内置常量。
  */
-const {
-  COMMON_AVOID,
-  COMMON_STAGES,
-  SERVICE_TYPE_MATCHERS,
-  SERVICE_PACKS,
-  COMPLETE_CHECKLIST,
-} = require('../constants/album-coach-rules')
+const { getRuntimeRules } = require('./album-coach-config.service')
 
 function normalizeText(value = '') {
   return String(value || '').trim().toLowerCase()
 }
 
-function resolveServicePackId(albumView = {}) {
+function resolveServicePackId(albumView = {}, rules = null) {
+  const runtime = rules || getRuntimeRules()
+  const matchers = runtime.SERVICE_TYPE_MATCHERS || []
   const templateId = normalizeText(albumView.templateId)
   const serviceName = normalizeText(albumView.serviceName)
   const haystack = `${templateId} ${serviceName}`
 
-  for (const matcher of SERVICE_TYPE_MATCHERS) {
+  for (const matcher of matchers) {
     if ((matcher.templates || []).some((t) => templateId === normalizeText(t))) {
       return matcher.id
     }
@@ -39,11 +36,11 @@ function mergeByCode(baseList = [], overrideList = []) {
   return Array.from(map.values())
 }
 
-function resolveStageRules(stageId, pack) {
-  const common = COMMON_STAGES[stageId] || {}
+function resolveStageRules(stageId, pack, rules) {
+  const common = (rules.COMMON_STAGES && rules.COMMON_STAGES[stageId]) || {}
   const specific = (pack && pack.stages && pack.stages[stageId]) || {}
   return {
-    shoot_avoid: COMMON_AVOID,
+    shoot_avoid: rules.COMMON_AVOID,
     shoot_prefer: mergeByCode(common.shoot_prefer, specific.shoot_prefer),
     note_hints: (specific.note_hints && specific.note_hints.length
       ? specific.note_hints
@@ -58,7 +55,9 @@ function nodeImageCount(node = {}) {
   return Array.isArray(node.images) ? node.images.filter(Boolean).length : 0
 }
 
-function buildCompletenessReport(albumView = {}) {
+function buildCompletenessReport(albumView = {}, rules = null) {
+  const runtime = rules || getRuntimeRules()
+  const checklist = runtime.COMPLETE_CHECKLIST || []
   const nodes = albumView.nodes || []
   const byId = {}
   nodes.forEach((n) => {
@@ -66,7 +65,7 @@ function buildCompletenessReport(albumView = {}) {
   })
 
   const gaps = []
-  COMPLETE_CHECKLIST.forEach((item) => {
+  checklist.forEach((item) => {
     const node = byId[item.stageId]
     if (!node) {
       gaps.push({ ...item, reason: 'missing_stage' })
@@ -90,12 +89,13 @@ function buildCompletenessReport(albumView = {}) {
  * @param {{ stageId?: string }} [options]
  */
 function resolveAlbumCoach(albumView = {}, options = {}) {
-  const packId = resolveServicePackId(albumView)
-  const pack = packId ? SERVICE_PACKS[packId] : null
+  const rules = getRuntimeRules()
+  const packId = resolveServicePackId(albumView, rules)
+  const pack = packId ? rules.SERVICE_PACKS[packId] : null
   const stageId = options.stageId || ''
   const stages = {}
   ;['stage_1', 'stage_2', 'stage_3', 'stage_4', 'stage_5', 'stage_6'].forEach((id) => {
-    stages[id] = resolveStageRules(id, pack)
+    stages[id] = resolveStageRules(id, pack, rules)
   })
 
   const active = stageId && stages[stageId] ? stages[stageId] : null
@@ -103,10 +103,10 @@ function resolveAlbumCoach(albumView = {}, options = {}) {
   const preferTitles = (active && active.shoot_prefer ? active.shoot_prefer : [])
     .map((x) => x.title)
     .filter(Boolean)
-  const avoidTitles = COMMON_AVOID.map((x) => x.title)
+  const avoidTitles = (rules.COMMON_AVOID || []).map((x) => x.title)
 
   return {
-    version: 1,
+    version: rules.meta?.version || 1,
     servicePackId: packId || 'common',
     servicePackLabel: (pack && pack.label) || '通用',
     geoPyramidHint: (pack && pack.geoPyramidHint) || '',
@@ -137,7 +137,11 @@ function resolveAlbumCoach(albumView = {}, options = {}) {
       : '',
     avoidSummary: avoidTitles.slice(0, 4).join('；'),
     draftPromptHints: active ? active.geo_angle || [] : [],
-    completenessReport: buildCompletenessReport(albumView),
+    completenessReport: buildCompletenessReport(albumView, rules),
+    configMeta: {
+      updatedAt: rules.meta?.updatedAt || null,
+      updatedBy: rules.meta?.updatedBy || '',
+    },
   }
 }
 
