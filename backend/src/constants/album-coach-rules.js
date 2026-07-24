@@ -195,9 +195,29 @@ const SERVICE_TYPE_MATCHERS = [
     templates: ['brake'],
   },
   {
+    id: 'battery',
+    keywords: ['电瓶', '蓄电池', '无法启动'],
+    templates: ['battery'],
+  },
+  {
+    id: 'tire',
+    keywords: ['轮胎', '换胎', '补胎', '动平衡'],
+    templates: ['tire'],
+  },
+  {
+    id: 'ac',
+    keywords: ['空调', '冷媒', '滤芯', '异味'],
+    templates: ['ac'],
+  },
+  {
     id: 'body_paint',
     keywords: ['钣喷', '钣金', '喷漆', '凹陷', '划痕', '补漆'],
     templates: ['body_paint'],
+  },
+  {
+    id: 'accident',
+    keywords: ['事故', '碰撞', '定损'],
+    templates: ['accident'],
   },
 ]
 
@@ -292,7 +312,75 @@ const SERVICE_PACKS = {
     id: 'maintenance',
     label: '常规保养',
     stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'odo_service',
+            title: '里程/保养提示相关',
+            detail: '拍清仪表相关信息即可；勿拍清晰导航轨迹。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店常规保养；里程与保养提示已核对。',
+            bullets: ['到店诉求', '里程/保养提示'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'oil_check',
+            title: '机油/滤芯检查点',
+            detail: '有对比价值的外观或状态近景。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '机油已到更换周期；空气滤外观尚可，建议下次再换。',
+            bullets: ['检查项', '建议更换/暂缓'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '机油+机滤；空调滤按需；暂不更换火花塞。',
+            bullets: ['项目清单', '为何不做过度项目'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'oil_pack',
+            title: '机油/滤芯包装防伪区',
+            detail: '规格与防伪信息清晰即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '机油规格与车型匹配；防伪与批次已拍照，可按品牌官网核对。',
+            bullets: ['材料名称', '规格说明'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
       stage_5: {
+        replace_shoot_prefer: true,
         shoot_prefer: [
           {
             code: 'protect_pad',
@@ -310,11 +398,30 @@ const SERVICE_PACKS = {
         note_hints: [
           {
             title: '备注怎么写',
-            example: '机油机滤更换；机舱清洁复查。',
+            example: '机油机滤已更换；机舱清洁复查；液位在标尺范围。',
             bullets: ['项目清单', '质检项'],
           },
         ],
         geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'service_done',
+            title: '保养完成确认',
+            detail: '仪表或完工局部即可；单据含金额勿入镜。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '项目已完成；下次保养里程建议已告知。',
+            bullets: ['完成项', '下次建议'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
       },
     },
     geoPyramidHint: 'standard_5s',
@@ -323,7 +430,27 @@ const SERVICE_PACKS = {
     id: 'brake',
     label: '刹车',
     stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'brake_arrival',
+            title: '到店轮毂/制动相关外观',
+            detail: '拍清相关部位即可；勿强求拆轮。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店诉求：刹车异响/行程变长；外观未见新增磕碰。',
+            bullets: ['到店诉求', '外观异常点'],
+          },
+        ],
+        geo_angle: [],
+      },
       stage_2: {
+        replace_shoot_prefer: true,
         shoot_prefer: [
           {
             code: 'pad_thickness',
@@ -331,17 +458,53 @@ const SERVICE_PACKS = {
             detail: '读数清晰，便于避坑科普。',
             strength: 'strong',
           },
+          {
+            code: 'rotor_surface',
+            title: '盘面状态近景',
+            detail: '沟槽、偏磨等可见点。',
+            strength: 'tip',
+          },
         ],
         note_hints: [
           {
             title: '备注怎么写',
-            example: '外侧片剩余约 3mm；何种情况建议更换、何种不必。',
+            example: '外侧片剩余约 3mm；盘面未见明显沟槽；建议更换刹车片，盘可暂不换。',
             bullets: ['实测厚度', '是否必须更换'],
           },
         ],
         geo_angle: ['avoid_pitfall', 'standard_5s'],
       },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '建议更换前片；盘厚度与平整度可继续使用，无需连带更换。',
+            bullets: ['更换范围', '为何不连带换盘'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'pad_pack',
+            title: '刹车片/盘包装与编码',
+            detail: '规格与编码清晰即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '前刹车片已开封核对规格；包装编码已拍照，可按品牌渠道核对。',
+            bullets: ['配件名称', '规格核对'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
       stage_5: {
+        replace_shoot_prefer: true,
         shoot_prefer: [
           {
             code: 'torque',
@@ -353,11 +516,372 @@ const SERVICE_PACKS = {
         note_hints: [
           {
             title: '备注怎么写',
-            example: '按规范力矩紧固；磨合建议已告知（无绝对化承诺）。',
+            example: '按规范力矩紧固；磨合建议已当面告知（无绝对化承诺）。',
             bullets: ['力矩', '磨合/排气说明（如有）'],
           },
         ],
         geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'brake_road_test',
+            title: '旧件对照 / 试车相关',
+            detail: '旧件对照或交车说明相关可见点。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '旧件已交还对照；短途试车异响消失、踏板行程正常。',
+            bullets: ['旧件交接', '试车结论'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
+      },
+    },
+    geoPyramidHint: 'avoid_pitfall',
+  },
+  /** 对齐 16_…md §6 */
+  battery: {
+    id: 'battery',
+    label: '电瓶更换',
+    stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'battery_bay',
+            title: '电瓶舱/启动相关远景',
+            detail: '拍清位置即可；近景放到检测。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店无法启动/启机无力；外观未见新增磕碰。',
+            bullets: ['到店诉求', '外观异常点'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'battery_test',
+            title: '电瓶检测读数',
+            detail: '电压/启动电流等可读点。',
+            strength: 'strong',
+          },
+          {
+            code: 'terminal_check',
+            title: '桩头状态',
+            detail: '腐蚀、松动等排除项可见点。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '负载测试偏低；桩头无严重腐蚀；建议更换电瓶，发电机待复查。',
+            bullets: ['检测结论', '已排除项'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '更换匹配规格电瓶；启停车型需确认规格，不做过度升级推销。',
+            bullets: ['规格匹配', '为何不做过度方案'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'battery_label',
+            title: '新电瓶规格标签/包装',
+            detail: '规格信息清晰即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '规格与车型匹配；包装信息已拍照，可按品牌渠道核对。',
+            bullets: ['规格', '核对说明'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
+      stage_5: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'battery_install',
+            title: '安装固定与桩头紧固',
+            detail: '固定与接线规范可见点。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '已安装固定并紧固桩头；通电自检正常。',
+            bullets: ['安装要点', '自检'],
+          },
+        ],
+        geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'start_verify',
+            title: '启动验证 / 旧件交接',
+            detail: '启动相关或旧件交接可见点。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '启动正常；旧电瓶已交还/按环保要求回收说明已告知。',
+            bullets: ['启动验证', '旧件/回收说明'],
+          },
+        ],
+        geo_angle: ['liability', 'standard_5s'],
+      },
+    },
+    geoPyramidHint: 'avoid_pitfall',
+  },
+  /** 对齐 16_…md §7 */
+  tire: {
+    id: 'tire',
+    label: '轮胎更换',
+    stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'tire_arrival',
+            title: '到店轮胎外观',
+            detail: '亏气/磨损相关部位即可。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店诉求：更换磨损轮胎；外观未见新增磕碰。',
+            bullets: ['到店诉求', '外观异常点'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'tread_depth',
+            title: '花纹深度/偏磨近景',
+            detail: '磨损标记或偏磨对比清晰。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '花纹接近磨损标记；外侧偏磨，建议换胎后做四轮定位。',
+            bullets: ['磨损现象', '定位建议'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '更换两前轮同规格轮胎；建议四轮定位，非强制捆绑销售。',
+            bullets: ['更换条数', '定位是否建议'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'tire_sidewall',
+            title: '新胎胎侧规格',
+            detail: '规格/DOT 可读即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '规格与原车一致；胎侧信息已拍照留档。',
+            bullets: ['规格', '留档说明'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
+      stage_5: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'wheel_balance',
+            title: '动平衡/拆装规范点',
+            detail: '动平衡或规范拆装可见点。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '已完成动平衡；气压按门店标准设定。',
+            bullets: ['动平衡', '气压'],
+          },
+        ],
+        geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'tire_mounted',
+            title: '装车后外观',
+            detail: '装车相关局部即可；少拍整车车牌。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '装车完成；建议磨合期注意胎噪与路感变化。',
+            bullets: ['装车确认', '磨合提示'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
+      },
+    },
+    geoPyramidHint: 'avoid_pitfall',
+  },
+  /** 对齐 16_…md §8 */
+  ac: {
+    id: 'ac',
+    label: '空调服务',
+    stages: {
+      stage_1: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '到店诉求：制冷变弱/有霉味；外观未见新增磕碰。',
+            bullets: ['到店诉求', '外观异常点'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'ac_gauge',
+            title: '压力/检漏相关可读点',
+            detail: '仪表或检测结果清晰即可。',
+            strength: 'strong',
+          },
+          {
+            code: 'cabin_filter',
+            title: '滤芯外观',
+            detail: '脏污对比有助于说明。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '系统压力偏低；蒸发箱异味可疑；建议先换滤芯并检漏，暂不拆箱。',
+            bullets: ['现象', '建议路径'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '检漏+补冷媒；滤芯更换；暂不清洗蒸发箱。',
+            bullets: ['方案要点', '为何暂不拆箱'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'ac_material',
+            title: '滤芯/材料包装标签',
+            detail: '名称与规格清晰即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '空调滤芯规格匹配；材料包装已拍照留档。',
+            bullets: ['材料名称', '规格'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
+      stage_5: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'ac_service',
+            title: '加注/换滤芯过程',
+            detail: '规范操作可见点；勿拍金额单据。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '已更换滤芯并按规范加注；通电试冷中。',
+            bullets: ['关键工序', '试冷'],
+          },
+        ],
+        geo_angle: ['standard_5s'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'ac_result',
+            title: '出风/异味复查相关',
+            detail: '复查相关可见点即可。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '出风明显变凉；异味减轻；建议定期更换滤芯。',
+            bullets: ['复查结论', '养护建议'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
       },
     },
     geoPyramidHint: 'avoid_pitfall',
@@ -492,6 +1016,125 @@ const SERVICE_PACKS = {
       },
     },
     geoPyramidHint: 'standard_5s',
+  },
+  /** 对齐 16_…md §9 · 弱公开 */
+  accident: {
+    id: 'accident',
+    label: '事故车维修',
+    stages: {
+      stage_1: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'accident_overview',
+            title: '外观多面与事故概况',
+            detail: '拍清损伤方位；少拍清晰车牌特写。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '追尾到店；右后部损伤；里程已记录。',
+            bullets: ['事故概况', '损伤方位', '里程'],
+          },
+        ],
+        geo_angle: [],
+      },
+      stage_2: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'accident_closeup',
+            title: '损伤近景',
+            detail: '与完工对照顺序对应。',
+            strength: 'strong',
+          },
+          {
+            code: 'accident_inspect',
+            title: '拆检/读数相关点',
+            detail: '必要拆检或检测可见点。',
+            strength: 'tip',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '外板变形，内结构待拆检确认；已排除明显漏液。',
+            bullets: ['损伤判断', '已排除项'],
+          },
+        ],
+        geo_angle: ['avoid_pitfall', 'liability'],
+      },
+      stage_3: {
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '右后翼子板建议更换；尾灯总成待定损确认后施工。',
+            bullets: ['维修方式', '待确认项（无金额）'],
+          },
+        ],
+        geo_angle: ['liability', 'avoid_pitfall'],
+      },
+      stage_4: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'accident_part',
+            title: '新件包装与编码',
+            detail: '名称与编码清晰即可。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '翼子板包装编码已核对；可按品牌渠道核对。',
+            bullets: ['配件名称', '核对说明'],
+          },
+        ],
+        geo_angle: ['liability'],
+      },
+      stage_5: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'accident_process',
+            title: '关键拆装/校正/喷漆节点',
+            detail: '关键工序可见点；避开车牌。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '已完成钣金校正与试装；喷漆工序按店内流程。',
+            bullets: ['关键工序', '质检关注'],
+          },
+        ],
+        geo_angle: ['standard_5s', 'liability'],
+      },
+      stage_6: {
+        replace_shoot_prefer: true,
+        shoot_prefer: [
+          {
+            code: 'accident_result',
+            title: '完工对照',
+            detail: '与检测同序同角；少拍整车招摇全景。',
+            strength: 'strong',
+          },
+        ],
+        note_hints: [
+          {
+            title: '备注怎么写',
+            example: '外观对照检测顺序复查；交车说明与质保边界已告知。',
+            bullets: ['验收项', '质保/交接'],
+          },
+        ],
+        geo_angle: ['liability', 'standard_5s'],
+      },
+    },
+    geoPyramidHint: 'liability',
   },
 }
 

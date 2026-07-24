@@ -21,9 +21,38 @@ Component({
       type: String,
       value: 'default',
     },
+    /** grid 缩略图网格 · cta 大号上传入口（配件凭证等） */
+    layout: {
+      type: String,
+      value: 'grid',
+    },
+    ctaTitle: {
+      type: String,
+      value: '上传图片',
+    },
+    ctaDesc: {
+      type: String,
+      value: '',
+    },
+    /** 空态时「+」占满一行，便于配件凭证入口点选 */
+    fullWidthAdd: {
+      type: Boolean,
+      value: false,
+    },
   },
   data: {
     uploading: false,
+    isCtaLayout: false,
+  },
+  observers: {
+    layout(val) {
+      this.setData({ isCtaLayout: String(val || '') === 'cta' })
+    },
+  },
+  lifetimes: {
+    attached() {
+      this.setData({ isCtaLayout: String(this.properties.layout || '') === 'cta' })
+    },
   },
   methods: {
     emitChange(list) {
@@ -37,15 +66,46 @@ Component({
         wx.showToast({ title: `最多上传 ${this.properties.maxCount} 张`, icon: 'none' })
         return
       }
-      wx.chooseMedia({
-        count: Math.min(remain, 9),
-        mediaType: ['image'],
+      const count = Math.min(remain, 9)
+      const onSuccess = (paths) => {
+        const list = (paths || []).filter(Boolean)
+        if (!list.length) return
+        this.emitChange(current.concat(list))
+      }
+      const onFail = (err) => {
+        const msg = String((err && err.errMsg) || '')
+        if (/cancel/i.test(msg)) return
+        wx.showToast({ title: '无法打开相册，请检查权限', icon: 'none' })
+      }
+      if (typeof wx.chooseMedia === 'function') {
+        wx.chooseMedia({
+          count,
+          mediaType: ['image'],
+          sizeType: ['compressed'],
+          sourceType: ['album', 'camera'],
+          success: (res) => {
+            onSuccess((res.tempFiles || []).map((f) => f.tempFilePath))
+          },
+          fail: (err) => {
+            const msg = String((err && err.errMsg) || '')
+            if (/cancel/i.test(msg)) return
+            wx.chooseImage({
+              count,
+              sizeType: ['compressed'],
+              sourceType: ['album', 'camera'],
+              success: (res) => onSuccess(res.tempFilePaths || []),
+              fail: onFail,
+            })
+          },
+        })
+        return
+      }
+      wx.chooseImage({
+        count,
         sizeType: ['compressed'],
         sourceType: ['album', 'camera'],
-        success: (res) => {
-          const paths = (res.tempFiles || []).map((f) => f.tempFilePath)
-          this.emitChange(current.concat(paths))
-        },
+        success: (res) => onSuccess(res.tempFilePaths || []),
+        fail: onFail,
       })
     },
     onRemove(e) {

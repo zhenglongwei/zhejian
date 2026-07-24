@@ -210,7 +210,11 @@ Page({
     partWizardRows: [],
     partWizardExtras: [],
     partWizardProgress: '',
+    partsCtaDraftPhotos: [],
     activeWizardIndex: -1,
+    /** 配件项内仅挂载当前编辑的原生 input，避免挡住「上传凭证图」 */
+    wizardFocusField: '',
+    wizardPickingIndex: -1,
     partLabelOcrLoading: false,
     partCodePickerVisible: false,
     partCodeCandidates: [],
@@ -228,6 +232,8 @@ Page({
     partVerifyGuideMode: 'text',
     partVerifyGuideText: '',
     partVerifyGuideInformed: false,
+    /** 未激活时不挂载原生 textarea，避免挡住上方上传按钮 */
+    partVerifyTextareaReady: false,
     showExtraPartForm: false,
     extraPartForm: {
       partName: '',
@@ -621,6 +627,9 @@ Page({
       partVerifyGuideText: detail.partVerifyGuideText || '',
       partVerifyGuideInformed: Boolean(detail.partVerifyGuideInformed),
       partVerifyGuideMode: detail.partVerifyGuideInformed ? 'informed' : 'text',
+      partVerifyTextareaReady: Boolean(
+        !detail.partVerifyGuideInformed && String(detail.partVerifyGuideText || '').trim(),
+      ),
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
       evidenceItems,
       oldPartTraces: extractOldPartTraces(evidenceItems),
@@ -1033,31 +1042,234 @@ Page({
     )
   },
 
+  onPartsCtaPhotosChange(e) {
+    const photos = ((e.detail && e.detail.images) || []).filter(Boolean)
+    if (!photos.length) {
+      this.setData({ partsCtaDraftPhotos: [] })
+      return
+    }
+    this.applyPartsCtaPhotos(photos)
+  },
+
+  applyPartsCtaPhotos(photos) {
+    const list = (photos || []).filter(Boolean)
+    if (!list.length) return
+    const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
+      partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
+      photos: list,
+    })
+    const mapped = this.mapPartsWithVariants(parts)
+    this.setData(
+      {
+        planParts,
+        parts: mapped,
+        activeWizardIndex: Math.max((planParts || []).length - 1, 0),
+        partsCtaDraftPhotos: [],
+      },
+      () => this.refreshPartWizard(),
+    )
+  },
+
   onAddPartByPhotos() {
-    if (this.data.saving || this.data.completing || this.data.switching) return
-    wx.chooseMedia({
-      count: 3,
-      mediaType: ['image'],
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
+    if (this.data.saving || this.data.completing || this.data.switching) {
+      wx.showToast({ title: '请稍候再试', icon: 'none' })
+      return
+    }
+    this.setData({ wizardFocusField: '' })
+    this.onAddPartRow()
+    wx.showToast({ title: '请先上传凭证图', icon: 'none' })
+  },
+
+  isDevtoolsEnv() {
+    try {
+      const info = wx.getSystemInfoSync() || {}
+      return String(info.platform || '').toLowerCase() === 'devtools'
+    } catch (err) {
+      return false
+    }
+  },
+
+  pickImages({ count = 3, onSuccess, onFail, onComplete } = {}) {
+    const finish = (err, paths) => {
+      if (typeof onComplete === 'function') onComplete()
+      if (err) {
+        if (typeof onFail === 'function') onFail(err)
+        return
+      }
+      if (typeof onSuccess === 'function') onSuccess((paths || []).filter(Boolean))
+    }
+    const isCancel = (err) => /cancel/i.test(String((err && err.errMsg) || ''))
+    // 只用一种选图 API，取消时绝不串第二套，否则会「取消后又弹一次」
+    if (typeof wx.chooseMedia === 'function') {
+      wx.chooseMedia({
+        count,
+        mediaType: ['image'],
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: (res) => finish(null, (res.tempFiles || []).map((f) => f.tempFilePath)),
+        fail: (err) => {
+          if (isCancel(err) || typeof wx.chooseImage !== 'function') {
+            finish(err)
+            return
+          }
+          // 非取消的真实失败才回退 chooseImage
+          wx.chooseImage({
+            count,
+            sizeType: ['compressed'],
+            sourceType: ['album', 'camera'],
+            success: (res) => finish(null, res.tempFilePaths || []),
+            fail: finish,
+          })
+        },
+      })
+      return
+    }
+    if (typeof wx.chooseImage === 'function') {
+      wx.chooseImage({
+        count,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: (res) => finish(null, res.tempFilePaths || []),
+        fail: finish,
+      })
+      return
+    }
+    finish({ errMsg: 'chooseImage:fail not support' })
+  },
+
+  /**
+   * 开发者工具常无法调起系统相册（平台限制）。提供占位图，便于继续测填写/保存。
+   */
+  offerDevtoolsPhotoMock({ index, current, reason }) {
+    const inTools = this.isDevtoolsEnv()
+    const title = inTools ? '开发者工具无法打开相册' : '无法打开相册'
+    const content = inTools
+      ? '这是微信开发者工具的已知限制，不是配件页逻辑没写通。可插入占位图继续测流程，真实选图请用真机预览。'
+      : `选图失败：${reason || '请检查相册权限后重试'}。也可先插入占位图继续填写。`
+    wx.showModal({
+      title,
+      content,
+      confirmText: '用占位图',
+      cancelText: '知道了',
       success: (res) => {
-        const paths = (res.tempFiles || []).map((f) => f.tempFilePath).filter(Boolean)
-        if (!paths.length) return
-        const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
-          partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
-          photos: paths,
+        if (!res.confirm) return
+        const mock = '/assets/icon/add.png'
+        this.setData({
+          [`partWizardRows[${index}].photos`]: (current || []).concat(mock).slice(0, 3),
         })
-        const mapped = this.mapPartsWithVariants(parts)
-        this.setData(
-          {
-            planParts,
-            parts: mapped,
-            activeWizardIndex: planParts.length - 1,
-          },
-          () => this.refreshPartWizard(),
-        )
+        wx.showToast({ title: '已插入占位图', icon: 'none' })
       },
     })
+  },
+
+  onWizardFieldFocus(e) {
+    const field = String((e.currentTarget.dataset && e.currentTarget.dataset.field) || '')
+    if (!field) return
+    this.setData({ wizardFocusField: field })
+  },
+
+  onWizardFieldBlur() {
+    this.setData({ wizardFocusField: '' })
+  },
+
+  onWizardAddPhotos(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    this.openWizardPhotoPicker(index)
+  },
+
+  openWizardPhotoPicker(index) {
+    if (!Number.isFinite(index) || index < 0) {
+      wx.showToast({ title: '配件项无效，请重试', icon: 'none' })
+      return
+    }
+    if (this._wizardPhotoPickLock) {
+      wx.showToast({ title: '正在打开相册…', icon: 'none' })
+      return
+    }
+    const row = this.data.partWizardRows[index]
+    if (!row) {
+      wx.showToast({ title: '配件项不存在', icon: 'none' })
+      return
+    }
+    if (this.data.saving || this.data.completing || this.data.switching) {
+      wx.showToast({ title: '请稍候再试', icon: 'none' })
+      return
+    }
+    const current = Array.isArray(row.photos) ? row.photos.filter(Boolean) : []
+    const remain = Math.max(3 - current.length, 0)
+    if (remain <= 0) {
+      wx.showToast({ title: '最多上传 3 张', icon: 'none' })
+      return
+    }
+
+    this._wizardPhotoPickLock = true
+    let settled = false
+    const unlock = () => {
+      if (settled) return
+      settled = true
+      this._wizardPhotoPickLock = false
+      if (this.data.wizardPickingIndex === index) {
+        this.setData({ wizardPickingIndex: -1, wizardFocusField: '' })
+      } else {
+        this.setData({ wizardFocusField: '' })
+      }
+    }
+
+    this.setData({
+      wizardPickingIndex: index,
+      wizardFocusField: '',
+    })
+
+    const inTools = this.isDevtoolsEnv()
+
+    this.pickImages({
+      count: remain,
+      onSuccess: (paths) => {
+        unlock()
+        if (!paths.length) {
+          if (inTools) {
+            this.offerDevtoolsPhotoMock({ index, current, reason: '未选择图片' })
+          } else {
+            wx.showToast({ title: '未选择图片', icon: 'none' })
+          }
+          return
+        }
+        this.setData({
+          [`partWizardRows[${index}].photos`]: current.concat(paths).slice(0, 3),
+        })
+      },
+      onFail: (err) => {
+        const msg = String((err && err.errMsg) || '')
+        console.warn('[wizard-photo] pick fail', err)
+        unlock()
+        // 用户取消：安静退出。仅真实失败时提示；开发者工具可选用占位图。
+        if (/cancel/i.test(msg)) return
+        if (inTools) {
+          this.offerDevtoolsPhotoMock({ index, current, reason: msg || '选图失败' })
+          return
+        }
+        wx.showToast({ title: '无法打开相册，请检查权限', icon: 'none' })
+      },
+    })
+  },
+
+  onWizardRemovePhoto(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const photoIndex = Number(e.currentTarget.dataset.photoIndex)
+    const row = this.data.partWizardRows[index]
+    if (!row) return
+    const photos = (row.photos || []).slice()
+    photos.splice(photoIndex, 1)
+    this.setData({ [`partWizardRows[${index}].photos`]: photos })
+  },
+
+  onWizardPreviewPhoto(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const photoIndex = Number(e.currentTarget.dataset.photoIndex)
+    const row = this.data.partWizardRows[index]
+    const urls = (row && row.photos) || []
+    if (!urls.length) return
+    wx.previewImage({ current: urls[photoIndex] || urls[0], urls })
   },
 
   async onRemovePartRow(e) {
@@ -1235,6 +1447,7 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     this.setData({
       activeWizardIndex: this.data.activeWizardIndex === index ? -1 : index,
+      wizardFocusField: '',
     })
   },
 
@@ -1274,13 +1487,19 @@ Page({
     this.setData({ partVerifyGuideText: e.detail.value || '' })
   },
 
+  onActivatePartVerifyTextarea() {
+    this.setData({ partVerifyTextareaReady: true })
+  },
+
   onPartVerifyGuideModeTap(e) {
     const mode = String((e.currentTarget.dataset && e.currentTarget.dataset.mode) || '')
     if (mode !== 'text' && mode !== 'informed') return
     this.setData({
       partVerifyGuideMode: mode,
       partVerifyGuideInformed: mode === 'informed',
-      ...(mode === 'informed' ? { partVerifyGuideText: '' } : {}),
+      ...(mode === 'informed'
+        ? { partVerifyGuideText: '', partVerifyTextareaReady: false }
+        : {}),
     })
   },
 
@@ -1291,13 +1510,6 @@ Page({
           mode: this.data.partVerifyGuideMode === 'informed' ? 'text' : 'informed',
         },
       },
-    })
-  },
-
-  onWizardPhotosChange(e) {
-    const index = Number(e.currentTarget.dataset.index)
-    this.setData({
-      [`partWizardRows[${index}].photos`]: (e.detail && e.detail.images) || [],
     })
   },
 

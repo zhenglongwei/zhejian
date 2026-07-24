@@ -1,28 +1,50 @@
-<view class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}}">
-  <view
-    wx:for="{{images}}"
-    wx:key="*this"
-    class="image-uploader__item image-placeholder"
-    data-index="{{index}}"
-    bindtap="onPreview"
-  >
-    <image class="image-uploader__img" src="{{item}}" mode="aspectFill" />
+<view
+  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !images.length ? 'image-uploader--full-add' : ''}}"
+>
+  <block wx:if="{{isCtaLayout}}">
+    <button
+      wx:if="{{images.length < maxCount && !disabled}}"
+      class="image-uploader__cta"
+      hover-class="image-uploader__cta--hover"
+      hover-stay-time="80"
+      plain
+      bindtap="onAdd"
+    >
+      <image
+        class="image-uploader__cta-icon"
+        src="{{addIconSrc}}"
+        mode="aspectFit"
+      />
+      <view class="image-uploader__cta-title">{{ctaTitle}}</view>
+      <view wx:if="{{ctaDesc}}" class="image-uploader__cta-desc">{{ctaDesc}}</view>
+    </button>
+  </block>
+  <block wx:else>
     <view
-      wx:if="{{!disabled}}"
-      class="image-uploader__remove"
+      wx:for="{{images}}"
+      wx:key="*this"
+      class="image-uploader__item image-placeholder"
       data-index="{{index}}"
-      catchtap="onRemove"
-    >×</view>
-  </view>
-  <view
-    wx:if="{{images.length < maxCount && !disabled}}"
-    class="image-uploader__add image-placeholder"
-    bindtap="onAdd"
-  >
-    <image
-      class="image-uploader__add-icon"
-      src="{{addIconSrc}}"
-      mode="aspectFit"
-    />
-  </view>
+      bindtap="onPreview"
+    >
+      <image class="image-uploader__img" src="{{item}}" mode="aspectFill" />
+      <view
+        wx:if="{{!disabled}}"
+        class="image-uploader__remove"
+        data-index="{{index}}"
+        catchtap="onRemove"
+      >×</view>
+    </view>
+    <view
+      wx:if="{{images.length < maxCount && !disabled}}"
+      class="image-uploader__add image-placeholder"
+      catchtap="onAdd"
+    >
+      <image
+        class="image-uploader__add-icon"
+        src="{{addIconSrc}}"
+        mode="aspectFit"
+      />
+    </view>
+  </block>
 </view>

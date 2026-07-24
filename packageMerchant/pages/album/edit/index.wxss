@@ -517,9 +517,16 @@
   min-width: 0;
 }
 
+.merchant-album-edit__wizard-head-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-md);
+}
+
 .merchant-album-edit__wizard-remove {
   flex-shrink: 0;
-  padding: var(--space-xs) 0 var(--space-xs) var(--space-sm);
+  padding: var(--space-xs) 0;
   color: var(--color-danger);
 }
 
@@ -534,34 +541,89 @@
 
 .merchant-album-edit__wizard-photo {
   width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
-.merchant-album-edit__wizard-uploader {
+.merchant-album-edit__wizard-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+}
+
+.merchant-album-edit__wizard-photo-item,
+.merchant-album-edit__wizard-photo-add {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-album-list-thumb);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.merchant-album-edit__wizard-photo-item {
+  border: 1rpx solid var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+}
+
+.merchant-album-edit__wizard-photo-img {
   width: 100%;
-  display: block;
+  height: 100%;
 }
 
-.merchant-album-edit__wizard-uploader .image-uploader {
-  width: 100%;
-  grid-template-columns: repeat(3, minmax(var(--size-album-list-thumb), 1fr));
+.merchant-album-edit__wizard-photo-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 36rpx;
+  text-align: center;
+  background-color: var(--color-mask);
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  border-bottom-left-radius: var(--radius-sm);
 }
 
-.merchant-album-edit__wizard-uploader .image-uploader__item,
-.merchant-album-edit__wizard-uploader .image-uploader__add {
-  min-height: var(--size-album-list-thumb);
-}
-
-.merchant-album-edit__wizard-ocr-row {
-  width: 100%;
+.merchant-album-edit__wizard-photo-add {
   display: flex;
-}
-
-.merchant-album-edit__wizard-ocr-slot {
-  width: calc((100% - var(--space-xs) * 2) / 3);
-  margin-top: var(--space-xs);
-  display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  border: 2rpx dashed var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+}
+
+.merchant-album-edit__wizard-photo-add.is-empty {
+  grid-column: 1 / -1;
+  aspect-ratio: auto;
+  min-height: var(--size-album-list-card-min-height);
+}
+
+.merchant-album-edit__wizard-photo-add--hover {
+  opacity: 0.88;
+}
+
+.merchant-album-edit__wizard-photo-add-icon {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.merchant-album-edit__wizard-photo-add-text {
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+}
+
+.merchant-album-edit__wizard-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+}
+
+.merchant-album-edit__wizard-field-proxy.is-placeholder {
+  color: var(--color-text-tertiary);
 }
 
 .merchant-album-edit__wizard-ocr-text.is-loading {
@@ -706,26 +768,26 @@
 }
 
 .merchant-album-edit__parts-upload-cta {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
+  width: 100%;
   min-height: var(--size-album-list-card-min-height);
+  margin: var(--space-sm) 0 0;
   padding: var(--space-lg) var(--space-md);
   box-sizing: border-box;
   border: 2rpx dashed var(--color-album-frame-line);
   border-radius: var(--radius-album-list-thumb);
   background: var(--color-album-frame-inner);
+  line-height: 1.4;
 }
 
 .merchant-album-edit__parts-upload-cta--hover {
   opacity: 0.88;
-}
-
-.merchant-album-edit__parts-upload-cta.is-disabled {
-  opacity: 0.5;
-  pointer-events: none;
 }
 
 .merchant-album-edit__parts-upload-icon {
@@ -734,6 +796,7 @@
 }
 
 .merchant-album-edit__parts-upload-title {
+  font-size: var(--font-body);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
@@ -741,6 +804,12 @@
 .merchant-album-edit__parts-upload-desc {
   text-align: center;
   line-height: 1.5;
+}
+
+.merchant-album-edit__owner-verify-input--proxy {
+  display: flex;
+  align-items: flex-start;
+  color: var(--color-text-secondary);
 }
 
 .merchant-album-edit__parts-empty {
