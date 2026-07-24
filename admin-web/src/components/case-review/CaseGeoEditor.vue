@@ -24,7 +24,7 @@
 
     <el-alert
       v-if="snapshotFrozen"
-      title="案例快照已冻结：故障/检测/方案/正文来自用户授权瞬间，不可修改。下方仅可编辑 SEO 与 AI 摘要提炼层。"
+      title="案例正文已冻结（商家确认稿）。下方「案例摘要」来自商家确认，运营仅可做合规修订（去金额/营销等）；搜索描述由摘要自动派生，不再单独填写。"
       type="warning"
       :closable="false"
       show-icon
@@ -32,7 +32,7 @@
     />
     <el-alert
       v-else
-      title="摘要为 AI 可引用首屏内容，须基于节点事实、禁止编造。手改字段在「模板重生成」时不会被覆盖。"
+      title="案例摘要由商家在完工预览确认；此处仅临时编辑。搜索描述由摘要自动派生。"
       type="info"
       :closable="false"
       show-icon
@@ -40,16 +40,19 @@
     />
 
     <el-form label-position="top" class="case-geo__form">
-      <el-form-item label="AI 摘要（100–250 字，优先）">
+      <el-form-item label="案例摘要（100–250 字 · 页内与搜索共用）">
         <el-input
           v-model="form.aiSummary"
           type="textarea"
           :rows="5"
-          maxlength="300"
+          maxlength="250"
           show-word-limit
-          placeholder="可引用摘要，将展示在 H5 首屏"
+          placeholder="商家确认的案例摘要；勿写金额。保存后搜索描述自动派生。"
         />
       </el-form-item>
+      <p class="case-geo__derived">
+        搜索描述（自动派生，只读）：{{ derivedSeoDescription || '（保存摘要后生成）' }}
+      </p>
 
       <el-row :gutter="16">
         <el-col :span="12">
@@ -100,17 +103,8 @@
       <el-form-item label="SEO 标题">
         <el-input v-model="form.seoTitle" maxlength="80" show-word-limit />
       </el-form-item>
-      <el-form-item label="SEO 描述">
-        <el-input
-          v-model="form.seoDescription"
-          type="textarea"
-          :rows="2"
-          maxlength="160"
-          show-word-limit
-        />
-      </el-form-item>
 
-      <el-form-item label="正文（次级，过程段）">
+      <el-form-item v-if="!snapshotFrozen" label="正文（次级，过程段）">
         <el-input
           v-model="form.articleBody"
           type="textarea"
@@ -145,33 +139,47 @@ const form = reactive({
   repairPlan: '',
   resultConfirm: '',
   seoTitle: '',
-  seoDescription: '',
   articleBody: '',
 })
 
 const geoQuality = ref(null)
 const snapshotFrozen = computed(() => Boolean(props.detail?.snapshotFrozen))
 
+const derivedSeoDescription = computed(() => {
+  const text = String(form.aiSummary || '').trim()
+  if (!text) return ''
+  if (text.length <= 160) return text
+  return `${text.slice(0, 157)}…`
+})
+
 function buildSavePayload() {
   if (snapshotFrozen.value) {
     return {
       aiSummary: form.aiSummary,
       seoTitle: form.seoTitle,
-      seoDescription: form.seoDescription,
     }
   }
-  return { ...form }
+  return {
+    aiSummary: form.aiSummary,
+    faultDesc: form.faultDesc,
+    inspectResult: form.inspectResult,
+    repairPlan: form.repairPlan,
+    resultConfirm: form.resultConfirm,
+    seoTitle: form.seoTitle,
+    articleBody: form.articleBody,
+  }
 }
 
 function syncFromDetail(detail) {
   const geo = detail.geo || {}
-  form.aiSummary = detail.aiSummary || ''
+  const draftSummary =
+    (detail.confirmedCaseDraft && detail.confirmedCaseDraft.caseSummary) || ''
+  form.aiSummary = detail.aiSummary || draftSummary || ''
   form.faultDesc = geo.faultDesc || detail.geoPreview?.faultDesc || ''
   form.inspectResult = geo.inspectResult || detail.geoPreview?.inspectResult || ''
   form.repairPlan = geo.repairPlan || detail.geoPreview?.repairPlan || ''
   form.resultConfirm = geo.resultConfirm || detail.geoPreview?.resultConfirm || ''
   form.seoTitle = detail.seo?.title || ''
-  form.seoDescription = detail.seo?.description || ''
   form.articleBody = detail.articleBody || detail.article?.body || ''
   geoQuality.value = detail.geoQuality || null
 }
@@ -185,15 +193,15 @@ watch(
 async function onSave() {
   if (!props.editable || saving.value) return
   const len = (form.aiSummary || '').trim().length
-  if (len > 0 && (len < 50 || len > 300)) {
-    ElMessage.warning('AI 摘要建议控制在 100–250 字（当前长度可能偏离）')
+  if (len > 0 && (len < 50 || len > 250)) {
+    ElMessage.warning('案例摘要建议控制在 100–250 字（当前长度可能偏离）')
   }
   saving.value = true
   try {
     const saveApi = snapshotFrozen.value ? updateCaseEnrichment : updateCaseGeoContent
     const data = await saveApi(props.caseId, buildSavePayload())
     emit('saved', data)
-    ElMessage.success('GEO 文案已保存')
+    ElMessage.success('已保存（搜索描述已由摘要派生）')
   } catch (e) {
     ElMessage.error(e?.message || '保存失败')
   } finally {
@@ -249,5 +257,12 @@ async function onRegenerate() {
 
 .case-geo__notice {
   margin-bottom: 16px;
+}
+
+.case-geo__derived {
+  margin: -8px 0 16px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 </style>

@@ -19,9 +19,13 @@
 
     <div v-else class="confirmed-draft__body">
       <p class="confirmed-draft__hint">
-        正文为商家确认稿；配图仅为脱敏图。请按此结构与车主授权预览、公网案例页对照审核。
+        正文与案例摘要为商家确认稿；配图仅为脱敏图。搜索描述由摘要自动派生。请按此与车主/H5 对照审核。
       </p>
       <h2 class="confirmed-draft__title">{{ draft.title || '（无标题）' }}</h2>
+      <section v-if="draft.caseSummary" class="confirmed-draft__section">
+        <h3 class="confirmed-draft__sec-title">案例摘要</h3>
+        <p class="confirmed-draft__sec-body">{{ draft.caseSummary }}</p>
+      </section>
       <section
         v-for="sec in draft.sections"
         :key="sec.key"

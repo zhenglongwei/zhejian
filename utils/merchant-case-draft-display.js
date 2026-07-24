@@ -4,6 +4,8 @@
 function draftToPlainText(draft = {}) {
   if (!draft || typeof draft !== 'object') return ''
   const parts = [String(draft.title || '').trim()]
+  const summary = String(draft.caseSummary || '').trim()
+  if (summary) parts.push(summary)
   ;(draft.sections || []).forEach((sec) => {
     const body = String((sec && sec.body) || '').trim()
     if (!body) return
@@ -13,7 +15,9 @@ function draftToPlainText(draft = {}) {
 }
 
 function draftToAiSummary(draft = {}) {
-  return draftToPlainText(draft).slice(0, 600)
+  const summary = String((draft && draft.caseSummary) || '').trim()
+  if (summary) return summary.slice(0, 250)
+  return draftToPlainText(draft).slice(0, 250)
 }
 
 module.exports = {

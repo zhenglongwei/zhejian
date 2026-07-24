@@ -750,6 +750,13 @@
         escapeHtml(draft.title) +
         '</h2>'
       : ''
+    var summaryHtml = draft.caseSummary
+      ? '<section class="h5-article-section h5-card h5-confirmed-summary">' +
+        '<h2 class="h5-section-title">案例摘要</h2>' +
+        '<div class="h5-article-text">' +
+        escapeHtml(draft.caseSummary).replace(/\n/g, '<br>') +
+        '</div></section>'
+      : ''
     var sectionsHtml = draft.sections
       .map(function (section) {
         var mediaHtml = (section.media || [])
@@ -790,6 +797,7 @@
       '<div class="h5-confirmed-draft">' +
       '<p class="h5-confirmed-draft-hint">门店确认案例稿 · 配图已脱敏</p>' +
       titleHtml +
+      summaryHtml +
       sectionsHtml +
       '</div>'
     )
@@ -1474,7 +1482,7 @@
           : '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn-top">电话咨询</button>') +
         '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
         '</div>' +
-        renderArticleLead(safeData) +
+        (hasConfirmedCaseDraft(safeData) ? '' : renderArticleLead(safeData)) +
         renderKeyInfo(safeData.keyInfo) +
         renderPriceSection(safeData)
       if (hasConfirmedCaseDraft(safeData)) {

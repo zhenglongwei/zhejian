@@ -6,8 +6,8 @@ const { extractSnapshotFromContentJson } = require('../schemas/case-snapshot.sch
 const SNAPSHOT_FROZEN_CODE = 'SNAPSHOT_FROZEN'
 const LLM_ADOPT_SNAPSHOT_FROZEN_CODE = 'LLM_ADOPT_SNAPSHOT_FROZEN'
 
-/** 无快照时运营可手改（存量 / 冷启动） */
-const LEGACY_GEO_EDITABLE_TOP_FIELDS = ['aiSummary', 'seoTitle', 'seoDescription', 'articleBody']
+/** 无快照时运营可手改（存量 / 冷启动）；SEO 描述由案例摘要派生，不单列主输入 */
+const LEGACY_GEO_EDITABLE_TOP_FIELDS = ['aiSummary', 'seoTitle', 'articleBody']
 const LEGACY_GEO_EDITABLE_BLOCK_FIELDS = [
   'faultDesc',
   'inspectResult',
@@ -16,7 +16,7 @@ const LEGACY_GEO_EDITABLE_BLOCK_FIELDS = [
 ]
 
 /** 有快照时仅提炼层字段（不写 snapshot / 正文 / 节点聚合段） */
-const ENRICHMENT_EDITABLE_TOP_FIELDS = ['aiSummary', 'seoTitle', 'seoDescription']
+const ENRICHMENT_EDITABLE_TOP_FIELDS = ['aiSummary', 'seoTitle']
 const ENRICHMENT_EDITABLE_BLOCK_FIELDS = []
 
 const SNAPSHOT_PAYLOAD_FORBIDDEN_KEYS = [

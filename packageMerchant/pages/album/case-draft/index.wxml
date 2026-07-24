@@ -33,7 +33,17 @@
         bindinput="onTitleInput"
         placeholder="地域｜车型｜项目"
       />
-      <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。</text>
+      <text class="text-caption case-draft__label">案例摘要（规则自动拼接 · 页内与搜索共用）</text>
+      <textarea
+        class="case-draft__textarea case-draft__summary"
+        value="{{caseSummary}}"
+        disabled="{{!editable}}"
+        maxlength="250"
+        auto-height
+        bindinput="onSummaryInput"
+        placeholder="由章节自动拼接；点「AI 润色」会用摘要专用提示词润色。勿写金额。"
+      />
+      <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。搜索描述由本摘要自动截取，无需另填。</text>
     </ui-card>
 
     <ui-card

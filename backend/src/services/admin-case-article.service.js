@@ -16,7 +16,7 @@ const {
   buildEnrichmentFromPublicCaseRow,
 } = require('../schemas/case-enrichment.schema')
 const { mergeContentJsonGeo, resolveGeoReadableFields } = require('../schemas/case-geo-content.schema')
-const { buildCaseArticlePayload } = require('./case-article-generator.service')
+const { buildCaseArticlePayload, applyConfirmedMerchantCaseDraft } = require('./case-article-generator.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildCaseDraft, resolvePublishTask, buildNodesFromTask } = require('./public-case.service')
 const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
@@ -123,18 +123,29 @@ async function updateAdminCaseGeoContent(caseId, payload = {}, options = {}) {
   const data = {
     contentJson: nextContent,
   }
+  const { stripAmountText, deriveSeoDescriptionFromSummary } = require('./merchant-case-draft.service')
   if (topUpdates.aiSummary) {
-    data.aiSummary = topUpdates.aiSummary
-    data.summary = topUpdates.aiSummary.slice(0, 200)
+    const cleaned = stripAmountText(topUpdates.aiSummary).slice(0, 250)
+    data.aiSummary = cleaned
+    data.summary = cleaned.slice(0, 200)
+    data.seoDescription = deriveSeoDescriptionFromSummary(cleaned)
+    topUpdates.seoDescription = data.seoDescription
   }
   if (topUpdates.seoTitle) data.seoTitle = topUpdates.seoTitle
-  if (topUpdates.seoDescription) data.seoDescription = topUpdates.seoDescription
+  if (!topUpdates.aiSummary && topUpdates.seoDescription) {
+    data.seoDescription = topUpdates.seoDescription
+  }
   if (topUpdates.articleBody) data.articleBody = topUpdates.articleBody
 
   const enrichmentPatch = buildEnrichmentPatchFromGeoPayload(payload)
-  if (topUpdates.aiSummary) enrichmentPatch.aiSummary = topUpdates.aiSummary
+  if (topUpdates.aiSummary) {
+    enrichmentPatch.aiSummary = data.aiSummary
+    enrichmentPatch.seoDescription = data.seoDescription
+  }
   if (topUpdates.seoTitle) enrichmentPatch.seoTitle = topUpdates.seoTitle
-  if (topUpdates.seoDescription) enrichmentPatch.seoDescription = topUpdates.seoDescription
+  if (!topUpdates.aiSummary && topUpdates.seoDescription) {
+    enrichmentPatch.seoDescription = topUpdates.seoDescription
+  }
   enrichmentPatch.geo = {
     ...(enrichmentPatch.geo || {}),
     ...geoPatch,
@@ -231,11 +242,13 @@ function buildEnrichmentRegeneratePayload(row, snapshot, content) {
     templateId: snapshot.templateId || '',
     previousArticleVersion: row.articleVersion || 0,
   })
+  const merchantDraft = content.merchantCaseDraft || snapshot.merchantCaseDraft || null
+  const freshApplied = applyConfirmedMerchantCaseDraft(fresh, merchantDraft)
 
   const pick = (field, freshValue, currentValue) =>
     manualFields.has(field) ? currentValue : freshValue
 
-  const freshGeo = fresh.contentJson?.geo || {}
+  const freshGeo = freshApplied.contentJson?.geo || fresh.contentJson?.geo || {}
   const mergedGeo = {
     ...prevGeo,
     keyInfo: freshGeo.keyInfo || prevGeo.keyInfo,
@@ -252,9 +265,18 @@ function buildEnrichmentRegeneratePayload(row, snapshot, content) {
     riskChecked: prevGeo.riskChecked ?? freshGeo.riskChecked,
   }
 
-  const aiSummary = pick('aiSummary', fresh.aiSummary, row.aiSummary || readable.aiSummary)
-  const seoTitle = pick('seoTitle', fresh.seoTitle, row.seoTitle)
-  const seoDescription = pick('seoDescription', fresh.seoDescription, row.seoDescription)
+  const aiSummary = pick(
+    'aiSummary',
+    freshApplied.aiSummary,
+    row.aiSummary || readable.aiSummary,
+  )
+  const seoTitle = pick('seoTitle', freshApplied.seoTitle, row.seoTitle)
+  const { deriveSeoDescriptionFromSummary } = require('./merchant-case-draft.service')
+  const seoDescription = pick(
+    'seoDescription',
+    freshApplied.seoDescription || deriveSeoDescriptionFromSummary(aiSummary || ''),
+    row.seoDescription,
+  )
 
   const mergedContentJson = mergeContentJsonGeo(
     {

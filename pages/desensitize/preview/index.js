@@ -44,6 +44,7 @@ Page({
     confirmLoading: false,
     aiSummary: '',
     caseDraftTitle: '',
+    caseDraftSummary: '',
     caseDraftSections: [],
     caseDraftMedia: [],
     caseDraftMissing: false,
@@ -122,6 +123,7 @@ Page({
         this.setData({
           caseDraftMissing: true,
           caseDraftTitle: '',
+          caseDraftSummary: '',
           caseDraftSections: [],
           caseDraftMedia: [],
         })
@@ -133,15 +135,17 @@ Page({
         // 车主授权预览只展示脱敏图
         displayUrl: m.maskedUrl || '',
       }))
+      const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
+      const caseDraftSummary = draft.caseSummary || draftToAiSummary(draft) || ''
       this.setData({
         caseDraftMissing: false,
         caseDraftTitle: draft.title || '',
+        caseDraftSummary,
         caseDraftSections: sections,
         caseDraftMedia: media,
       })
       if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
-      const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
-      return draftToAiSummary(draft)
+      return caseDraftSummary
     } catch (e) {
       return ''
     }
@@ -151,6 +155,7 @@ Page({
     const { draftToPlainText } = require('../../../utils/merchant-case-draft-display')
     const text = draftToPlainText({
       title: this.data.caseDraftTitle,
+      caseSummary: this.data.caseDraftSummary,
       sections: this.data.caseDraftSections,
     })
     if (!text) {

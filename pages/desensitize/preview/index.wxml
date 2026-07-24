@@ -28,12 +28,16 @@
     <view wx:if="{{caseDraftMissing && source === 'service'}}" class="desensitize-preview__draft-missing text-caption">
       门店尚未确认案例稿，暂时无法发布到公开网站。请联系门店完成案例预览确认。
     </view>
-    <view wx:if="{{caseDraftTitle || caseDraftSections.length}}" class="desensitize-preview__case-draft">
+    <view wx:if="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
       <text class="text-h3 desensitize-preview__case-title">将公示的案例文案（只读）</text>
       <text class="text-caption text-secondary desensitize-preview__case-hint">
-        正文与门店确认稿一致，不可修改。下方配图为脱敏图，与正式公示一致。
+        摘要与正文与门店确认稿一致，不可修改。下方配图为脱敏图，与正式公示一致。
       </text>
       <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
+      <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
+        <text class="text-body desensitize-preview__case-sec-title">案例摘要</text>
+        <text class="text-caption desensitize-preview__case-sec-body">{{caseDraftSummary}}</text>
+      </view>
       <block wx:for="{{caseDraftSections}}" wx:key="key">
         <view class="desensitize-preview__case-section">
           <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>

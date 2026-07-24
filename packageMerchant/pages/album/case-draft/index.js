@@ -19,6 +19,7 @@ Page({
     polishing: false,
     completing: false,
     title: '',
+    caseSummary: '',
     sections: [],
     media: [],
     confirmed: false,
@@ -70,6 +71,7 @@ Page({
         editable: Boolean(data.editable),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
         title: draft.title || '',
+        caseSummary: draft.caseSummary || '',
         sections: (draft.sections || []).map((sec) => ({ ...sec })),
         media: this.mapMedia(draft.media || []),
       })
@@ -87,6 +89,10 @@ Page({
 
   onTitleInput(e) {
     this.setData({ title: e.detail.value || '' })
+  },
+
+  onSummaryInput(e) {
+    this.setData({ caseSummary: e.detail.value || '' })
   },
 
   onSectionInput(e) {
@@ -109,6 +115,7 @@ Page({
   buildDraftPayload() {
     return {
       title: this.data.title,
+      caseSummary: this.data.caseSummary,
       sections: this.data.sections,
       media: (this.data.media || []).map((item) => ({
         nodeId: item.nodeId,
@@ -133,6 +140,7 @@ Page({
       const draft = data.draft || {}
       this.setData({
         title: draft.title || this.data.title,
+        caseSummary: draft.caseSummary || this.data.caseSummary,
         sections: (draft.sections || []).map((sec) => ({ ...sec })),
         media: this.mapMedia(draft.media || this.data.media),
         confirmed: false,
@@ -157,6 +165,7 @@ Page({
       const draft = data.draft || {}
       this.setData({
         title: draft.title || '',
+        caseSummary: draft.caseSummary || '',
         sections: draft.sections || [],
         media: this.mapMedia(draft.media || []),
         editable: Boolean(data.editable),

@@ -148,7 +148,11 @@ function buildCaseArticlePayload(input) {
  */
 function applyConfirmedMerchantCaseDraft(payload, merchantCaseDraft) {
   if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) return payload
-  const { draftToAiSummary, normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const {
+    draftToAiSummary,
+    normalizeMerchantCaseDraft,
+    deriveSeoDescriptionFromSummary,
+  } = require('./merchant-case-draft.service')
   const draft = normalizeMerchantCaseDraft(merchantCaseDraft)
   if (!draft) return payload
 
@@ -157,6 +161,10 @@ function applyConfirmedMerchantCaseDraft(payload, merchantCaseDraft) {
     .map((sec) => `## ${sec.title}\n\n${sec.body}`)
     .join('\n\n')
     .slice(0, 12000)
+
+  const caseSummary = draftToAiSummary(draft)
+  const seoDescription =
+    deriveSeoDescriptionFromSummary(caseSummary) || payload.seoDescription || ''
 
   const content =
     payload.contentJson && typeof payload.contentJson === 'object' ? { ...payload.contentJson } : {}
@@ -172,8 +180,9 @@ function applyConfirmedMerchantCaseDraft(payload, merchantCaseDraft) {
   return {
     ...payload,
     title: draft.title || payload.title,
-    summary: draftToAiSummary(draft).slice(0, 200) || payload.summary,
-    aiSummary: draftToAiSummary(draft) || payload.aiSummary,
+    summary: caseSummary.slice(0, 200) || payload.summary,
+    aiSummary: caseSummary || payload.aiSummary,
+    seoDescription,
     articleBody: articleBody || payload.articleBody,
     contentJson: content,
   }

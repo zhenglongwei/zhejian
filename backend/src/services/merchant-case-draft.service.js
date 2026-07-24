@@ -143,6 +143,29 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
     .filter(Boolean)
 }
 
+function buildRuleCaseSummary(draftLike = {}, albumView = {}) {
+  const title = stripAmountText(draftLike.title || buildTitle(albumView) || '')
+  const sections = Array.isArray(draftLike.sections) ? draftLike.sections : []
+  const bits = []
+  sections.forEach((sec) => {
+    const body = stripAmountText(sec && sec.body)
+    if (body) bits.push(body)
+  })
+  let summary = bits.join('。').replace(/。+/g, '。').trim()
+  if (!summary && title) summary = title
+  if (summary && !/[。！？]$/u.test(summary)) summary = `${summary}。`
+  // 目标约 100–250 字；过短保留，过长截断
+  return stripAmountText(summary).slice(0, 250)
+}
+
+/** SEO meta description：由案例摘要派生，不另起炉灶 */
+function deriveSeoDescriptionFromSummary(caseSummary = '') {
+  const text = stripAmountText(caseSummary)
+  if (!text) return ''
+  if (text.length <= 160) return text
+  return `${text.slice(0, 157)}…`
+}
+
 function normalizeMerchantCaseDraft(raw) {
   if (!raw || typeof raw !== 'object') return null
   const sectionsIn = Array.isArray(raw.sections) ? raw.sections : []
@@ -188,9 +211,16 @@ function normalizeMerchantCaseDraft(raw) {
         .slice(0, PUBLIC_MEDIA_KEYFRAME_DEFAULT)
     : []
 
+  const title = stripAmountText(raw.title || '').slice(0, 80)
+  let caseSummary = stripAmountText(raw.caseSummary || raw.summary || '').slice(0, 250)
+  if (!caseSummary) {
+    caseSummary = buildRuleCaseSummary({ title, sections })
+  }
+
   return {
     version: 1,
-    title: stripAmountText(raw.title || '').slice(0, 80),
+    title,
+    caseSummary,
     sections,
     media,
     source: String(raw.source || 'rule').slice(0, 32),
@@ -200,10 +230,13 @@ function normalizeMerchantCaseDraft(raw) {
 }
 
 function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options = {}) {
+  const sections = buildRuleSections(albumView)
+  const title = buildTitle(albumView)
   const draft = {
     version: 1,
-    title: buildTitle(albumView),
-    sections: buildRuleSections(albumView),
+    title,
+    sections,
+    caseSummary: buildRuleCaseSummary({ title, sections }, albumView),
     media: pickDraftMedia(albumView, preMaskTask, options),
     source: 'rule',
     generatedAt: new Date().toISOString(),
@@ -214,22 +247,29 @@ function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options 
 
 function mergeLlmSectionsIntoDraft(baseDraft, llmDraft) {
   if (!llmDraft || typeof llmDraft !== 'object') return baseDraft
-  const next = normalizeMerchantCaseDraft({
+  const nextSections = llmDraft.sections || baseDraft.sections
+  const nextTitle = llmDraft.title || baseDraft.title
+  // 正文润色不写入 caseSummary；摘要由规则拼接 + 摘要专用润色处理
+  const caseSummary =
+    stripAmountText(baseDraft.caseSummary || '').slice(0, 250) ||
+    buildRuleCaseSummary({ title: nextTitle, sections: nextSections })
+  return normalizeMerchantCaseDraft({
     ...baseDraft,
-    title: llmDraft.title || baseDraft.title,
-    sections: llmDraft.sections || baseDraft.sections,
+    title: nextTitle,
+    sections: nextSections,
+    caseSummary,
     media: baseDraft.media,
     source: 'llm',
     generatedAt: new Date().toISOString(),
     confirmedAt: baseDraft.confirmedAt || '',
   })
-  return next
 }
 
 function draftToPlainText(draft) {
   const normalized = normalizeMerchantCaseDraft(draft)
   if (!normalized) return ''
   const parts = [normalized.title]
+  if (normalized.caseSummary) parts.push(normalized.caseSummary)
   normalized.sections.forEach((sec) => {
     if (!sec.body) return
     parts.push(`【${sec.title}】${sec.body}`)
@@ -238,7 +278,10 @@ function draftToPlainText(draft) {
 }
 
 function draftToAiSummary(draft) {
-  return draftToPlainText(draft).slice(0, 600)
+  const normalized = normalizeMerchantCaseDraft(draft)
+  if (!normalized) return ''
+  if (normalized.caseSummary) return normalized.caseSummary.slice(0, 250)
+  return draftToPlainText(draft).slice(0, 250)
 }
 
 module.exports = {
@@ -250,4 +293,6 @@ module.exports = {
   draftToPlainText,
   draftToAiSummary,
   buildTitle,
+  buildRuleCaseSummary,
+  deriveSeoDescriptionFromSummary,
 }

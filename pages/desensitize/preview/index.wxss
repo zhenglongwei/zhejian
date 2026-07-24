@@ -35,6 +35,10 @@
   line-height: 1.5;
 }
 
+.desensitize-preview__case-summary {
+  margin-bottom: var(--space-md);
+}
+
 .desensitize-preview__case-heading {
   display: block;
   margin-bottom: var(--space-md);
