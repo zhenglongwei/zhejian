@@ -10,7 +10,7 @@ const { mergeContentJsonGeo } = require('../schemas/case-geo-content.schema')
 const { resolveSnapshotVersion } = require('../schemas/case-snapshot.schema')
 const { assertGeoPublishable } = require('../utils/case-geo-quality')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
-const { buildCaseArticlePayload } = require('./case-article-generator.service')
+const { buildCaseArticlePayload, applyConfirmedMerchantCaseDraft } = require('./case-article-generator.service')
 const { buildCaseSnapshot } = require('./case-snapshot.service')
 const {
   extractAlbumContentOptimizeDraft,
@@ -260,6 +260,17 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const { assertAlbumCompliancePassed } = require('./album-compliance.service')
   assertAlbumCompliancePassed(album)
 
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const contentPkg = readPackageFromAlbum(album)
+  const merchantCaseDraft =
+    contentPkg && contentPkg.merchantCaseDraft ? contentPkg.merchantCaseDraft : null
+  if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
+    const err = new Error('门店尚未确认案例稿，暂无法发布到公开网站')
+    err.status = 409
+    err.code = 'CASE_DRAFT_REQUIRED'
+    throw err
+  }
+
   const albumView = buildAlbumView(album)
   assertPublicCaseQualityReady(albumView)
 
@@ -284,7 +295,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     if (cover) draft.coverImage = cover
   }
   const caseId = draft.id
-  const articlePayload = buildCaseArticlePayload({
+  let articlePayload = buildCaseArticlePayload({
     caseId,
     draft: {
       ...draft,
@@ -300,6 +311,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     templateId: album.templateId || '',
     previousArticleVersion: previousSnapshotVersion,
   })
+  articlePayload = applyConfirmedMerchantCaseDraft(articlePayload, merchantCaseDraft)
   const { snapshot, contentJson } = buildCaseSnapshot({
     albumView,
     draft,
@@ -313,6 +325,9 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     templateId: album.templateId || '',
     publicView,
   })
+  if (contentJson && typeof contentJson === 'object') {
+    contentJson.merchantCaseDraft = merchantCaseDraft
+  }
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
   const enrichmentSeedRow = {

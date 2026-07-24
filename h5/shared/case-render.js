@@ -742,6 +742,68 @@
     return map
   }
 
+  function renderConfirmedCaseDraft(data) {
+    var draft = data.confirmedCaseDraft
+    if (!draft || !draft.sections || !draft.sections.length) return ''
+    var titleHtml = draft.title
+      ? '<h2 class="h5-section-title h5-confirmed-draft-title">' +
+        escapeHtml(draft.title) +
+        '</h2>'
+      : ''
+    var sectionsHtml = draft.sections
+      .map(function (section) {
+        var mediaHtml = (section.media || [])
+          .map(function (m) {
+            if (!m || !m.maskedUrl) return ''
+            return (
+              '<figure class="h5-figure">' +
+              '<img class="h5-node-img" src="' +
+              escapeHtml(m.maskedUrl) +
+              '" alt="' +
+              escapeHtml(m.caption || section.title || data.title || '案例配图') +
+              '" loading="lazy" />' +
+              (m.caption
+                ? '<figcaption class="h5-figure-caption">' +
+                  escapeHtml(m.caption) +
+                  '</figcaption>'
+                : '') +
+              '</figure>'
+            )
+          })
+          .join('')
+        return (
+          '<section class="h5-article-section h5-card h5-confirmed-section">' +
+          '<h2 class="h5-section-title">' +
+          escapeHtml(section.title || '') +
+          '</h2>' +
+          (section.body
+            ? '<div class="h5-article-text">' +
+              escapeHtml(section.body).replace(/\n/g, '<br>') +
+              '</div>'
+            : '') +
+          (mediaHtml ? '<div class="h5-confirmed-media">' + mediaHtml + '</div>' : '') +
+          '</section>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-confirmed-draft">' +
+      '<p class="h5-confirmed-draft-hint">门店确认案例稿 · 配图已脱敏</p>' +
+      titleHtml +
+      sectionsHtml +
+      '</div>'
+    )
+  }
+
+  function hasConfirmedCaseDraft(data) {
+    return Boolean(
+      data &&
+        data.confirmedCaseDraft &&
+        data.confirmedCaseDraft.sections &&
+        data.confirmedCaseDraft.sections.length
+    )
+  }
+
   function renderArticleSections(data) {
     var skipKeys = { before: 1, inspect: 1, plan: 1, process: 1, overview: 1 }
     var hasProcessNodes = (data.displayNodes || data.nodes || []).length > 0
@@ -1414,9 +1476,14 @@
         '</div>' +
         renderArticleLead(safeData) +
         renderKeyInfo(safeData.keyInfo) +
-        renderPriceSection(safeData) +
-        renderArticleSections(safeData) +
-        renderArticleProcess(safeData, safeData.displayNodes || safeData.nodes)
+        renderPriceSection(safeData)
+      if (hasConfirmedCaseDraft(safeData)) {
+        html += renderConfirmedCaseDraft(safeData)
+      } else {
+        html +=
+          renderArticleSections(safeData) +
+          renderArticleProcess(safeData, safeData.displayNodes || safeData.nodes)
+      }
     } else {
       html +=
         '<div class="h5-top-actions">' +
@@ -1433,9 +1500,14 @@
             '</div>'
           : '') +
         renderKeyInfo(safeData.keyInfo) +
-        renderPriceSection(safeData) +
-        renderNodes(safeData, safeData.displayNodes || safeData.nodes) +
-        renderPriceFactors(safeData.priceFactors)
+        renderPriceSection(safeData)
+      if (hasConfirmedCaseDraft(safeData)) {
+        html += renderConfirmedCaseDraft(safeData)
+      } else {
+        html +=
+          renderNodes(safeData, safeData.displayNodes || safeData.nodes) +
+          renderPriceFactors(safeData.priceFactors)
+      }
     }
 
     html += renderStoreSection(safeData)

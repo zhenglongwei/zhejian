@@ -314,6 +314,29 @@ async function generateAlbumSocialCopy(albumId, userId, platformRaw) {
   })
   const pkg = readPackageFromAlbum(row)
 
+  if (
+    pkg &&
+    pkg.merchantCaseDraft &&
+    pkg.merchantCaseDraft.confirmedAt
+  ) {
+    const { draftToPlainText, normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+    const draft = normalizeMerchantCaseDraft(pkg.merchantCaseDraft)
+    const title = (draft && draft.title) || ''
+    const body = draftToPlainText(draft)
+    const text = composeCopy(title, body)
+    return {
+      status: CONTENT_PACKAGE_STATUS.READY,
+      platform,
+      platformLabel: meta.label,
+      platforms: SOCIAL_PLATFORM_LIST,
+      title,
+      body,
+      text,
+      tips: '来自门店确认案例稿，可直接粘贴；请勿添加金额或诱导分享领钱。',
+      source: 'merchant_case_draft',
+    }
+  }
+
   if (isPackageGenerating(pkg)) {
     return {
       status: CONTENT_PACKAGE_STATUS.GENERATING,

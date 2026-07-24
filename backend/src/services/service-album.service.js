@@ -955,7 +955,7 @@ async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
 }
 
 /** PKG-COACH：读取商家案例草稿 */
-async function getMerchantCaseDraft(albumId, storeId, merchantId = '') {
+async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options = {}) {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   const { readPackageFromAlbum } = require('./album-content-package.service')
@@ -964,11 +964,13 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '') {
     normalizeMerchantCaseDraft,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
-  if (pkg && pkg.merchantCaseDraft) {
+  const forceRule = Boolean(options.forceRule)
+  if (!forceRule && pkg && pkg.merchantCaseDraft) {
     return {
       draft: pkg.merchantCaseDraft,
       contentPackageStatus: pkg.status || '',
       editable: !isAlbumContentLocked(album),
+      confirmed: Boolean(pkg.merchantCaseDraft.confirmedAt),
     }
   }
   const view = buildMerchantView(album)
@@ -984,6 +986,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '') {
     draft: normalizeMerchantCaseDraft(draft),
     contentPackageStatus: (pkg && pkg.status) || '',
     editable: !isAlbumContentLocked(album),
+    confirmed: false,
   }
 }
 
@@ -1060,7 +1063,122 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     where: { id: albumId },
     data: { contentPackageJson: nextPkg },
   })
-  return { draft, contentPackageStatus: nextPkg.status || '', editable: true }
+  return {
+    draft,
+    contentPackageStatus: nextPkg.status || '',
+    editable: true,
+    confirmed: Boolean(draft.confirmedAt),
+  }
+}
+
+/** CASE-DRAFT-LOCK · 导出确认稿（商家自媒体复制） */
+async function exportMerchantCaseDraftCopy(albumId, storeId, merchantId = '') {
+  const data = await getMerchantCaseDraft(albumId, storeId, merchantId)
+  const draft = data.draft
+  if (!draft || !draft.confirmedAt) {
+    const err = new Error('请先确认案例稿后再导出')
+    err.status = 409
+    err.code = 'CASE_DRAFT_REQUIRED'
+    throw err
+  }
+  const { draftToPlainText } = require('./merchant-case-draft.service')
+  const body = draftToPlainText(draft)
+  const title = draft.title || ''
+  const text = [title, body].filter(Boolean).join('\n\n')
+  return {
+    title,
+    body,
+    text,
+    tips: '可复制到门店自媒体账号自行发布；平台不代发。请勿添加金额或诱导领钱话术。',
+    source: 'merchant_case_draft',
+  }
+}
+
+/** CASE-DRAFT-LOCK · 主动 AI 润色（保留 media） */
+async function polishMerchantCaseDraft(albumId, storeId, merchantId = '', payload = {}) {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  assertAlbumContentEditable(album)
+  const view = buildMerchantView(album)
+  const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const { polishMerchantCaseDraftWithLlm } = require('./merchant-case-draft-polish.service')
+
+  let baseDraft = payload.draft || null
+  if (!baseDraft) {
+    const current = await getMerchantCaseDraft(albumId, storeId, merchantId)
+    baseDraft = current.draft
+  }
+  const polished = await polishMerchantCaseDraftWithLlm(baseDraft, view)
+  return {
+    draft: normalizeMerchantCaseDraft(polished),
+    editable: true,
+    confirmed: false,
+  }
+}
+
+async function refreshCaseDraftMediaAfterMask(albumId) {
+  const album = await loadAlbum(albumId)
+  if (!album) return null
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const { pickDraftMedia, normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const pkg = readPackageFromAlbum(album)
+  if (!pkg || !pkg.merchantCaseDraft) return null
+
+  const view = buildMerchantView(album)
+  let preMaskTask = null
+  try {
+    const { findPreMaskTask } = require('./desensitize.service')
+    preMaskTask = await findPreMaskTask(albumId)
+  } catch (_) {
+    preMaskTask = null
+  }
+  const freshMedia = pickDraftMedia(view, preMaskTask)
+  const prev = pkg.merchantCaseDraft
+  const keepKeys = new Set(
+    (Array.isArray(prev.media) ? prev.media : []).map((m) => `${m.nodeId}:${m.idx}`),
+  )
+  const media = keepKeys.size
+    ? freshMedia.filter((m) => keepKeys.has(`${m.nodeId}:${m.idx}`))
+    : freshMedia
+  const draft = normalizeMerchantCaseDraft({
+    ...prev,
+    media: media.length ? media : freshMedia,
+  })
+  const nextPkg = { ...pkg, merchantCaseDraft: draft }
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { contentPackageJson: nextPkg },
+  })
+  return draft
+}
+
+/**
+ * CASE-DRAFT-LOCK · 确认案例稿并完工 + 触发脱敏
+ * 路由层还应调用 ensureOrderPreMaskTask / runAlbumComplianceGate
+ */
+async function confirmAndCompleteMerchantCaseDraft(
+  albumId,
+  storeId,
+  merchantId = '',
+  payload = {},
+) {
+  await saveMerchantCaseDraft(albumId, storeId, merchantId, {
+    ...(payload || {}),
+    confirm: true,
+    draft: payload.draft || payload,
+  })
+  const view = await completeMerchantServiceAlbum(albumId, storeId, merchantId)
+  return view
+}
+
+function assertMerchantCaseDraftConfirmed(album) {
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const pkg = readPackageFromAlbum(album)
+  if (pkg && pkg.merchantCaseDraft && pkg.merchantCaseDraft.confirmedAt) return
+  const err = new Error('请先在案例预览页确认案例稿后再完工')
+  err.status = 409
+  err.code = 'CASE_DRAFT_REQUIRED'
+  throw err
 }
 
 function albumHasOwner(album) {
@@ -1289,6 +1407,7 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   assertMerchantAlbum(existing, storeId, merchantId)
   assertAlbumContentEditable(existing)
   assertAlbumHasOwnerPhone(existing)
+  assertMerchantCaseDraftConfirmed(existing)
   const imageCount = existing.imageCount || (existing.images || []).length
   if (imageCount < 1) {
     const err = new Error('请至少上传一张过程图')
@@ -1315,7 +1434,7 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
   })
-  // USER-PUB · 完工一次异步生成内容包（质量建议 + 多平台长文），车主侧读缓存
+  // 社交长文等仍可异步生成；商家案例正文已由确认稿锁定，不再依赖此包写正文
   const { triggerContentPackageOnComplete } = require('./album-content-package.service')
   triggerContentPackageOnComplete(albumId).catch((e) => {
     console.warn('[album-content-package] trigger failed', albumId, e && e.message)
@@ -1800,6 +1919,10 @@ module.exports = {
   fetchMerchantCopyQuality,
   getMerchantCaseDraft,
   saveMerchantCaseDraft,
+  polishMerchantCaseDraft,
+  confirmAndCompleteMerchantCaseDraft,
+  refreshCaseDraftMediaAfterMask,
+  exportMerchantCaseDraftCopy,
   loadAlbum,
   buildMerchantView,
   isAlbumContentLocked,

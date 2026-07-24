@@ -143,6 +143,43 @@ function buildCaseArticlePayload(input) {
 }
 
 /**
+ * CASE-DRAFT-LOCK · 已确认商家案例稿覆盖模板生成的正文
+ * SEO 标题等可保留模板；公开正文 / 摘要以确认稿为准
+ */
+function applyConfirmedMerchantCaseDraft(payload, merchantCaseDraft) {
+  if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) return payload
+  const { draftToAiSummary, normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const draft = normalizeMerchantCaseDraft(merchantCaseDraft)
+  if (!draft) return payload
+
+  const articleBody = (draft.sections || [])
+    .filter((sec) => String(sec.body || '').trim())
+    .map((sec) => `## ${sec.title}\n\n${sec.body}`)
+    .join('\n\n')
+    .slice(0, 12000)
+
+  const content =
+    payload.contentJson && typeof payload.contentJson === 'object' ? { ...payload.contentJson } : {}
+  content.merchantCaseDraft = draft
+  content.generationSource = CASE_ARTICLE_GENERATION_SOURCE.MERCHANT_CASE_DRAFT
+  if (content.geo && typeof content.geo === 'object') {
+    content.geo = {
+      ...content.geo,
+      generationSource: CASE_ARTICLE_GENERATION_SOURCE.MERCHANT_CASE_DRAFT,
+    }
+  }
+
+  return {
+    ...payload,
+    title: draft.title || payload.title,
+    summary: draftToAiSummary(draft).slice(0, 200) || payload.summary,
+    aiSummary: draftToAiSummary(draft) || payload.aiSummary,
+    articleBody: articleBody || payload.articleBody,
+    contentJson: content,
+  }
+}
+
+/**
  * 从 DB 读取案例并生成写入（供 system API / 补跑）
  * @param {string} caseId
  * @param {{ force?: boolean, persist?: boolean }} [options]
@@ -261,5 +298,6 @@ async function generateAndSaveCaseArticle(caseId, options = {}) {
 
 module.exports = {
   buildCaseArticlePayload,
+  applyConfirmedMerchantCaseDraft,
   generateAndSaveCaseArticle,
 }

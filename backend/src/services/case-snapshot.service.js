@@ -73,6 +73,10 @@ function buildCaseSnapshot(input = {}) {
     serviceItemId: input.serviceItemId || '',
     templateId: input.templateId || albumView.templateId || '',
     publicView,
+    merchantCaseDraft:
+      (articlePayload.contentJson && articlePayload.contentJson.merchantCaseDraft) ||
+      draft.contentJson?.merchantCaseDraft ||
+      null,
   })
 
   const contentJson = {

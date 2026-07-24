@@ -14,6 +14,7 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   switchMerchantServiceAlbumTemplate,
+  exportMerchantCaseDraftCopy,
 } = require('../../../../services/merchant-service-album')
 const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
 const { resolveTemplateStageTitle } = require('../../../../constants/service-album-node-templates')
@@ -187,6 +188,8 @@ Page({
     isCompleted: false,
     hasOwner: false,
     publicCaseStatus: 'private',
+    showContentOptimizeEntry: false,
+    caseDraftConfirmed: false,
     showBottomPrimary: false,
     bottomPrimaryText: '',
     ownerPhoneInput: '',
@@ -342,15 +345,74 @@ Page({
 
   showCompleteConfirmModal() {
     wx.showModal({
-      title: '标记已完工',
+      title: '进入案例预览',
       content:
-        '完工后服务相册将保存完整记录。车主可在小程序查看；分享脱敏案例须由车主自行确认。',
-      confirmText: '确认完工',
+        '将先生成案例文案预览（按相册节点拼稿，不自动调用大模型）。你可改定或点「AI 润色」，确认后才会真正完工并开始脱敏。',
+      confirmText: '去预览',
       success: (res) => {
         if (!res.confirm) return
-        setTimeout(() => this.submitComplete(), 200)
+        setTimeout(() => this.goCaseDraftForComplete(), 200)
       },
     })
+  },
+
+  async goCaseDraftForComplete() {
+    if (!this.albumId) return
+    try {
+      wx.showLoading({ title: '准备预览', mask: true })
+      const { payload, droppedStaleCount } = await this.buildSavePayload()
+      await saveMerchantServiceAlbum(this.albumId, payload)
+      wx.hideLoading()
+      if (droppedStaleCount > 0) {
+        this.notifyStaleImagesDropped(droppedStaleCount)
+      }
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+      return
+    }
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=complete`,
+    })
+  },
+
+  async submitComplete() {
+    // 保留兼容：直接完工须已确认案例稿；主路径改走案例预览
+    if (this.data.completing) return
+    this.setData({ completing: true })
+    try {
+      wx.showLoading({ title: '提交中', mask: true })
+      const { payload, droppedStaleCount } = await this.buildSavePayload()
+      await saveMerchantServiceAlbum(this.albumId, payload)
+      const completed = await completeMerchantServiceAlbum(this.albumId)
+      wx.hideLoading()
+      wx.showToast({ title: '已标记完工', icon: 'success', duration: 1500 })
+      if (droppedStaleCount > 0) {
+        this.notifyStaleImagesDropped(droppedStaleCount)
+      }
+      this.notifyCopyQuality(completed && completed.copyQuality)
+      this.notifyPublicCaseQuality(completed)
+      const detail = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(detail)
+      promptMerchantAuditSubscribe(this.albumId)
+    } catch (e) {
+      wx.hideLoading()
+      const msg = (e && e.message) || '操作失败'
+      if (String(e && e.code) === 'CASE_DRAFT_REQUIRED' || /案例稿/.test(msg)) {
+        wx.showModal({
+          title: '请先确认案例稿',
+          content: msg,
+          confirmText: '去预览',
+          success: (res) => {
+            if (res.confirm) this.goCaseDraftForComplete()
+          },
+        })
+      } else {
+        wx.showToast({ title: msg, icon: 'none' })
+      }
+    } finally {
+      this.setData({ completing: false })
+    }
   },
 
   async initPage() {
@@ -617,6 +679,9 @@ Page({
       hasOwner,
       publicCaseStatus,
       showContentOptimizeEntry: isCompleted && !detail.isAuthorized,
+      caseDraftConfirmed: Boolean(
+        detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
+      ),
       showBottomPrimary,
       bottomPrimaryText,
       templateId: detail.templateId || '',
@@ -1924,32 +1989,6 @@ Page({
     this.showCompleteConfirmModal()
   },
 
-  async submitComplete() {
-    if (this.data.completing) return
-    this.setData({ completing: true })
-    try {
-      wx.showLoading({ title: '提交中', mask: true })
-      const { payload, droppedStaleCount } = await this.buildSavePayload()
-      await saveMerchantServiceAlbum(this.albumId, payload)
-      const completed = await completeMerchantServiceAlbum(this.albumId)
-      wx.hideLoading()
-      wx.showToast({ title: '已标记完工', icon: 'success', duration: 1500 })
-      if (droppedStaleCount > 0) {
-        this.notifyStaleImagesDropped(droppedStaleCount)
-      }
-      this.notifyCopyQuality(completed && completed.copyQuality)
-      this.notifyPublicCaseQuality(completed)
-      const detail = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(detail)
-      promptMerchantAuditSubscribe(this.albumId)
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ completing: false })
-    }
-  },
-
   onShareAppMessage() {
     const payload = buildOwnerShareMessage(this.data.detail)
     if (payload) return payload
@@ -1971,6 +2010,25 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}`,
     })
+  },
+
+  async onCopyCaseDraftExport() {
+    if (!this.albumId) return
+    try {
+      wx.showLoading({ title: '准备文案', mask: true })
+      const data = await exportMerchantCaseDraftCopy(this.albumId)
+      wx.hideLoading()
+      const text = (data && data.text) || ''
+      if (!text) {
+        wx.showToast({ title: '暂无可复制文案', icon: 'none' })
+        return
+      }
+      await wx.setClipboardData({ data: text })
+      wx.showToast({ title: '已复制，可发自媒体', icon: 'success' })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
   },
 
   onInviteOwnerScan() {

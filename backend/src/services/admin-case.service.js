@@ -25,6 +25,7 @@ const {
   mergeContentJsonGeo,
 } = require('../schemas/case-geo-content.schema')
 const { extractSnapshotFromContentJson, resolveSnapshotVersion } = require('../schemas/case-snapshot.schema')
+const { buildConfirmedCaseDraftView } = require('../utils/confirmed-case-draft-view')
 const { resolveCaseGeoEditPolicy } = require('../constants/case-enrichment')
 const { CASE_ARTICLE_GENERATION_SOURCE } = require('../constants/case-article-status')
 const {
@@ -432,6 +433,7 @@ async function getAdminCaseDetail(caseId) {
     geoPreview: geoPack.geoPreview,
     aiSummary: row.aiSummary || geoReadable.aiSummary || '',
     articleBody: row.articleBody || geoReadable.articleBody || '',
+    confirmedCaseDraft: buildConfirmedCaseDraftView(contentJson, row),
     seo: mapCaseSeoForApi(row),
     article: mapCaseArticleForApi(row),
     geo: geoReadable.geo || {},

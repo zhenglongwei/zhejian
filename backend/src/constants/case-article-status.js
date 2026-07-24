@@ -28,6 +28,7 @@ const CASE_ARTICLE_GENERATION_SOURCE = {
   AI: 'ai',
   LLM_V1: 'llm_v1',
   MANUAL: 'manual',
+  MERCHANT_CASE_DRAFT: 'merchant_case_draft',
 }
 
 /** DS-B-04 · 合法 article_status 跃迁（from → to[]） */

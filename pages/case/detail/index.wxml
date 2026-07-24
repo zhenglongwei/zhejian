@@ -55,7 +55,35 @@
         />
       </view>
 
-      <view wx:if="{{detail.displayNodes.length}}" class="surface-album-folio case-detail__panel case-detail__evidence">
+      <view
+        wx:if="{{detail.confirmedCaseDraft && detail.confirmedCaseDraft.sections.length}}"
+        class="surface-album-folio case-detail__panel case-detail__evidence"
+      >
+        <text class="deep-link-detail__section-title text-h2">案例正文</text>
+        <text class="case-detail__process-note text-caption">门店确认案例稿 · 配图已脱敏</text>
+        <block wx:for="{{detail.confirmedCaseDraft.sections}}" wx:key="key">
+          <view class="case-detail__draft-section">
+            <text class="text-body case-detail__draft-sec-title">{{item.title}}</text>
+            <text wx:if="{{item.body}}" class="text-caption case-detail__draft-sec-body">{{item.body}}</text>
+            <view wx:if="{{item.media.length}}" class="case-detail__draft-media">
+              <image
+                wx:for="{{item.media}}"
+                wx:for-item="m"
+                wx:for-index="mi"
+                wx:key="mi"
+                class="case-detail__draft-thumb"
+                src="{{m.maskedUrl}}"
+                mode="aspectFill"
+                data-section-key="{{item.key}}"
+                data-index="{{mi}}"
+                bindtap="onPreviewDraftMedia"
+              />
+            </view>
+          </view>
+        </block>
+      </view>
+
+      <view wx:elif="{{detail.displayNodes.length}}" class="surface-album-folio case-detail__panel case-detail__evidence">
         <text class="deep-link-detail__section-title text-h2">维修过程</text>
         <text class="case-detail__process-note text-caption">无图片且无说明的节点不展示；说明缺失时系统可依据图片生成草稿供门店确认。</text>
         <ui-album-node

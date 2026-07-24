@@ -1,7 +1,25 @@
+.case-draft__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-sm);
+}
+
 .case-draft__hint {
   display: block;
   margin-top: var(--space-sm);
   margin-bottom: var(--space-md);
+}
+
+.case-draft__mask-tip {
+  display: block;
+  margin-top: var(--space-sm);
+}
+
+.case-draft__section-media {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .case-draft__label {

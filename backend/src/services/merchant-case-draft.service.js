@@ -14,7 +14,7 @@ const {
   VISIBILITY,
   PUBLIC_GATE_STATUS,
 } = require('../constants/album-public-visibility-policy')
-const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { resolvePublicCaseMediaUrl, resolveDisplayMediaUrl } = require('../lib/media-url')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 
@@ -112,6 +112,7 @@ function resolveMaskedFromTask(task, nodeId, idx, rawUrl) {
 
 /**
  * 域内选关键帧并挂到小节（图不进 LLM）
+ * 确认脱敏前可用 previewUrl（原图预览位）；脱敏后写 maskedUrl
  */
 function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
   const softCap = options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
@@ -119,18 +120,22 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
   const nodes = albumView.nodes || []
   return rows
     .map((row) => {
+      const previewUrl =
+        resolveDisplayMediaUrl(row.rawUrl || '') ||
+        rewriteMediaUrlForCurrentBase(String(row.rawUrl || '').trim())
       const maskedUrl = resolveMaskedFromTask(
         preMaskTask,
         row.nodeId,
         row.idx,
         row.rawUrl,
       )
-      if (!maskedUrl) return null
+      if (!maskedUrl && !previewUrl) return null
       const node = findNode(nodes, row.nodeId)
       return {
         nodeId: row.nodeId,
         idx: Number(row.idx || 0),
-        maskedUrl,
+        maskedUrl: maskedUrl || '',
+        previewUrl: previewUrl || maskedUrl || '',
         caption: stripAmountText(node && node.note).slice(0, 48),
         sectionKey: MEDIA_SECTION_BY_NODE[row.nodeId] || 'process',
       }
@@ -161,11 +166,20 @@ function normalizeMerchantCaseDraft(raw) {
   const media = Array.isArray(raw.media)
     ? raw.media
         .map((item) => {
-          if (!item || !item.maskedUrl) return null
+          if (!item) return null
+          const maskedUrl = resolvePublicCaseMediaUrl(item.maskedUrl || '')
+          // 确认脱敏前允许原图预览位；公开/导出仍优先 maskedUrl
+          const previewRaw = String(item.previewUrl || item.rawUrl || '').trim()
+          const previewUrl =
+            resolveDisplayMediaUrl(previewRaw) ||
+            rewriteMediaUrlForCurrentBase(previewRaw) ||
+            maskedUrl
+          if (!maskedUrl && !previewUrl) return null
           return {
             nodeId: String(item.nodeId || ''),
             idx: Number(item.idx || 0),
-            maskedUrl: resolvePublicCaseMediaUrl(item.maskedUrl),
+            maskedUrl: maskedUrl || '',
+            previewUrl: previewUrl || '',
             caption: stripAmountText(item.caption || '').slice(0, 48),
             sectionKey: String(item.sectionKey || MEDIA_SECTION_BY_NODE[item.nodeId] || 'process'),
           }

@@ -218,10 +218,20 @@ function resolvePriceView(detail) {
 
 function enrichCaseDetailForPage(detail) {
   if (!detail || typeof detail !== 'object') return detail
-  const displayNodes = detail.displayNodes || prepareDisplayNodes(detail)
+  const confirmedCaseDraft = detail.confirmedCaseDraft || null
+  const hasConfirmedDraft =
+    confirmedCaseDraft &&
+    Array.isArray(confirmedCaseDraft.sections) &&
+    confirmedCaseDraft.sections.length > 0
+  const displayNodes = hasConfirmedDraft
+    ? []
+    : detail.displayNodes || prepareDisplayNodes(detail)
   const enriched = {
     ...detail,
-    title: polishCaseTitle(detail.title),
+    title: polishCaseTitle(
+      (hasConfirmedDraft && confirmedCaseDraft.title) || detail.title,
+    ),
+    confirmedCaseDraft: hasConfirmedDraft ? confirmedCaseDraft : null,
     displayNodes,
     showNarrativeBlock: false,
   }

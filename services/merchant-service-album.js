@@ -123,6 +123,21 @@ async function saveMerchantCaseDraft(albumId, payload = {}) {
   return put(`/merchant/service-albums/${albumId}/case-draft`, withStore(payload))
 }
 
+async function polishMerchantCaseDraft(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/case-draft/ai-polish`, withStore(payload))
+}
+
+async function confirmAndCompleteMerchantCaseDraft(albumId, payload = {}) {
+  return post(
+    `/merchant/service-albums/${albumId}/case-draft/confirm-and-complete`,
+    withStore(payload),
+  )
+}
+
+async function exportMerchantCaseDraftCopy(albumId) {
+  return get(`/merchant/service-albums/${albumId}/case-draft/export-copy`, withStore())
+}
+
 async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   if (ENV.mode === 'mock') {
     const { mockSwitchMerchantServiceAlbumTemplate } = require('../mock/service-albums')
@@ -152,6 +167,9 @@ module.exports = {
   applyMerchantAlbumContentOptimize,
   fetchMerchantCaseDraft,
   saveMerchantCaseDraft,
+  polishMerchantCaseDraft,
+  confirmAndCompleteMerchantCaseDraft,
+  exportMerchantCaseDraftCopy,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,

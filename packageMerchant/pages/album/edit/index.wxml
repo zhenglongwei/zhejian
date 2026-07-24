@@ -120,7 +120,16 @@
         <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
           预览并修订将给车主看的结构化案例正文与脱敏配图（不含金额）。车主只能评价、删图，不能改正文。
         </text>
-        <ui-button type="primary" block bind:btntap="onOpenCaseDraft">编辑公开案例稿</ui-button>
+        <ui-button type="primary" block bind:btntap="onOpenCaseDraft">
+          {{caseDraftConfirmed ? '查看公开案例稿' : '编辑公开案例稿'}}
+        </ui-button>
+        <ui-button
+          wx:if="{{caseDraftConfirmed}}"
+          type="secondary"
+          block
+          class="merchant-album-edit__export-btn"
+          bind:btntap="onCopyCaseDraftExport"
+        >复制发自媒体</ui-button>
       </ui-card>
 
       <ui-card

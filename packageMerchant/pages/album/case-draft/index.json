@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "公开案例稿",
+  "navigationBarTitleText": "案例预览",
   "usingComponents": {
     "ui-skeleton": "/components/skeleton/index",
     "ui-empty": "/components/empty/index",

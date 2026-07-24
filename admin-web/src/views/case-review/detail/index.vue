@@ -84,6 +84,8 @@
       </el-col>
     </el-row>
 
+    <ConfirmedCaseDraftPanel class="section" :draft="detail.confirmedCaseDraft" />
+
     <el-card shadow="never" class="section">
       <template #header>
         <div class="section-head">
@@ -227,6 +229,7 @@ import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
 import CaseGeoEditor from '@/components/case-review/CaseGeoEditor.vue'
 import CaseGeoLlmReview from '@/components/case-review/CaseGeoLlmReview.vue'
 import GateReviewNav from '@/components/case-review/GateReviewNav.vue'
+import ConfirmedCaseDraftPanel from '@/components/case-review/ConfirmedCaseDraftPanel.vue'
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)

@@ -43,6 +43,10 @@ Page({
     autoMaskLoading: false,
     confirmLoading: false,
     aiSummary: '',
+    caseDraftTitle: '',
+    caseDraftSections: [],
+    caseDraftMedia: [],
+    caseDraftMissing: false,
   },
 
   onLoad(query) {
@@ -112,25 +116,51 @@ Page({
     if (source === 'review' || source !== 'service' || !albumId) return ''
     try {
       const album = await fetchServiceAlbum(albumId)
-      if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
-      if (album.merchantCaseDraft) {
-        const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
-        return draftToAiSummary(album.merchantCaseDraft)
+      const draft = album.merchantCaseDraft || null
+      const confirmed = Boolean(draft && draft.confirmedAt)
+      if (!confirmed) {
+        this.setData({
+          caseDraftMissing: true,
+          caseDraftTitle: '',
+          caseDraftSections: [],
+          caseDraftMedia: [],
+        })
+        return ''
       }
-      return buildAlbumAiSummary({
-        serviceName: album.serviceName,
-        vehicle: album.vehicle,
-        nodes: album.nodes,
-        storeNote: album.storeNote,
-        storeName: (album.store && album.store.name) || album.storeName,
-        city: (album.store && album.store.city) || '',
-        partsJson: album.parts,
-        imageCount: album.imageCount,
-        scene: 'authorize',
+      const sections = (draft.sections || []).filter((s) => String(s.body || '').trim())
+      const media = (draft.media || []).map((m) => ({
+        ...m,
+        // 车主授权预览只展示脱敏图
+        displayUrl: m.maskedUrl || '',
+      }))
+      this.setData({
+        caseDraftMissing: false,
+        caseDraftTitle: draft.title || '',
+        caseDraftSections: sections,
+        caseDraftMedia: media,
       })
+      if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
+      const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
+      return draftToAiSummary(draft)
     } catch (e) {
       return ''
     }
+  },
+
+  onCopyCaseDraft() {
+    const { draftToPlainText } = require('../../../utils/merchant-case-draft-display')
+    const text = draftToPlainText({
+      title: this.data.caseDraftTitle,
+      sections: this.data.caseDraftSections,
+    })
+    if (!text) {
+      wx.showToast({ title: '暂无可复制文案', icon: 'none' })
+      return
+    }
+    wx.setClipboardData({
+      data: text,
+      success: () => wx.showToast({ title: '已复制文案', icon: 'success' }),
+    })
   },
 
   applyTask(task, aiSummary = '') {
@@ -314,6 +344,10 @@ Page({
 
   async onConfirm() {
     if (this.data.confirmLoading) return
+    if (this.data.source === 'service' && this.data.caseDraftMissing) {
+      wx.showToast({ title: '门店尚未确认案例稿', icon: 'none' })
+      return
+    }
     if (!this.data.liabilityAccepted) {
       wx.showToast({ title: '请勾选确认项', icon: 'none' })
       return

@@ -11,6 +11,10 @@ const {
   fetchMerchantCopyQuality,
   getMerchantCaseDraft,
   saveMerchantCaseDraft,
+  polishMerchantCaseDraft,
+  confirmAndCompleteMerchantCaseDraft,
+  refreshCaseDraftMediaAfterMask,
+  exportMerchantCaseDraftCopy,
   fetchMerchantAlbumStats,
   getMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
@@ -238,6 +242,64 @@ router.put('/service-albums/:albumId/case-draft', requireAuth(['merchant']), asy
     next(e)
   }
 })
+
+router.post('/service-albums/:albumId/case-draft/ai-polish', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await polishMerchantCaseDraft(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+      req.body || {},
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/service-albums/:albumId/case-draft/export-copy', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const data = await exportMerchantCaseDraftCopy(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post(
+  '/service-albums/:albumId/case-draft/confirm-and-complete',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const view = await confirmAndCompleteMerchantCaseDraft(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+        req.body || {},
+      )
+      const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, {
+        auth: req.auth || {},
+      })
+      await refreshCaseDraftMediaAfterMask(req.params.albumId)
+      const compliance = await runAlbumComplianceGate(req.params.albumId)
+      return ok(res, {
+        ...view,
+        albumStatus: 'completed',
+        preMaskTaskId: preMaskTask && preMaskTask.taskId,
+        complianceStatus: compliance && compliance.complianceStatus,
+      })
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.post('/service-albums/:albumId/copy-quality', requireAuth(['merchant']), async (req, res, next) => {
   try {

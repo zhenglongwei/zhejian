@@ -121,6 +121,7 @@ function normalizeCaseSnapshot(raw) {
     serviceItemId: normalizeString(raw.serviceItemId),
     templateId: normalizeString(raw.templateId),
     publicView: normalizePublicView(raw.publicView),
+    merchantCaseDraft: isPlainObject(raw.merchantCaseDraft) ? raw.merchantCaseDraft : null,
   }
 }
 

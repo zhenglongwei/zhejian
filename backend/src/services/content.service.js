@@ -46,6 +46,7 @@ const {
   applySnapshotLayerToPublicCase,
   buildCasePublicLayerMeta,
 } = require('../utils/case-public-layers')
+const { buildConfirmedCaseDraftView } = require('../utils/confirmed-case-draft-view')
 const {
   resolveGeoReadableFields,
   mapCaseArticleForApi,
@@ -254,6 +255,10 @@ function mapPublicCaseRow(row, album) {
   const snapshot = extractSnapshotFromContentJson(rawContent)
   layered.vehicleMileage = snapshot?.vehicle?.mileage ?? null
   layered.mileageKm = resolveCaseMileageKm(layered)
+  layered.confirmedCaseDraft = buildConfirmedCaseDraftView(rawContent, row)
+  if (layered.confirmedCaseDraft && layered.confirmedCaseDraft.title) {
+    layered.title = layered.confirmedCaseDraft.title
+  }
   return applyPublicDisplayRules(layered)
 }
 

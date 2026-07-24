@@ -4,16 +4,25 @@
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <ui-empty title="无法加载案例稿" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
+    <ui-empty title="无法加载案例预览" description="{{errorMessage}}" actionText="重试" bind:action="onRetry" />
   </block>
 
   <block wx:else>
+    <view class="case-draft__toolbar" wx:if="{{editable}}">
+      <ui-button
+        type="secondary"
+        size="sm"
+        loading="{{polishing}}"
+        bind:btntap="onAiPolish"
+      >AI 润色</ui-button>
+    </view>
+
     <ui-compliance-notice type="displayDisclaimer" />
 
     <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="text-h3">公开案例稿</text>
+      <text class="text-h3">{{fromComplete ? '案例预览（确认后完工）' : '公开案例稿'}}</text>
       <text class="text-caption text-secondary case-draft__hint">
-        正文属于门店服务内容，车主端只读展示。公开不写金额；配图可删不可旁路加图。
+        默认按相册节点文字与配图拼成预览，不自动调用大模型。点右上角「AI 润色」可润色正文；配图绑定不变。确认后的文案即上网真源，车主只读。
       </text>
       <text class="text-caption case-draft__label">标题</text>
       <input
@@ -24,6 +33,7 @@
         bindinput="onTitleInput"
         placeholder="地域｜车型｜项目"
       />
+      <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。</text>
     </ui-card>
 
     <ui-card
@@ -44,12 +54,31 @@
         bindinput="onSectionInput"
         placeholder="根据节点备注生成，可修订；勿写金额"
       />
+      <view class="case-draft__section-media">
+        <block wx:for="{{media}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
+          <view
+            class="case-draft__media-item"
+            wx:if="{{m.sectionKey === item.key}}"
+          >
+            <image class="case-draft__thumb" src="{{m.displayUrl}}" mode="aspectFill" />
+            <text class="text-caption">{{m.caption || m.nodeId}}</text>
+            <ui-button
+              wx:if="{{editable}}"
+              type="ghost"
+              size="sm"
+              data-node-id="{{m.nodeId}}"
+              data-idx="{{m.idx}}"
+              bind:btntap="onRemoveMedia"
+            >移除</ui-button>
+          </view>
+        </block>
+      </view>
     </ui-card>
 
-    <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="text-h3">脱敏配图</text>
-      <text class="text-caption text-secondary">仅公开池脱敏图；可移除，不可从手机另加。</text>
-      <view class="case-draft__media" wx:if="{{media.length}}">
+    <ui-card shadow="{{true}}" padding="{{true}}" wx:if="{{media.length}}">
+      <text class="text-h3">全部配图</text>
+      <text class="text-caption text-secondary">以下为原图便于核对；确认完工后系统脱敏，车主与正式公示只看脱敏图。</text>
+      <view class="case-draft__media">
         <view
           class="case-draft__media-item"
           wx:for="{{media}}"
@@ -57,8 +86,8 @@
           wx:for-index="mIndex"
           wx:key="mIndex"
         >
-          <image class="case-draft__thumb" src="{{item.maskedUrl}}" mode="aspectFill" />
-          <text class="text-caption">{{item.caption || item.nodeId}}</text>
+          <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
+          <text class="text-caption">{{item.caption || item.nodeId}} · {{item.sectionKey}}</text>
           <ui-button
             wx:if="{{editable}}"
             type="ghost"
@@ -69,12 +98,28 @@
           >移除</ui-button>
         </view>
       </view>
-      <text wx:else class="text-caption text-secondary">暂无可用公开配图（完工后脱敏完成会自动嵌入）</text>
+    </ui-card>
+    <ui-card shadow="{{true}}" padding="{{true}}" wx:else>
+      <text class="text-caption text-secondary">暂无公开配图。请在相册中将过程图设为可公示，或完工脱敏后再嵌入。</text>
     </ui-card>
 
-    <view class="case-draft__actions" wx:if="{{editable}}">
-      <ui-button type="secondary" block loading="{{saving}}" bind:btntap="onSaveDraft">保存草稿</ui-button>
-      <ui-button type="primary" block loading="{{saving}}" bind:btntap="onConfirmDraft">确认案例稿</ui-button>
+    <view class="case-draft__actions">
+      <ui-button type="secondary" block bind:btntap="onCopyExport">复制文案</ui-button>
+      <ui-button wx:if="{{editable}}" type="secondary" block loading="{{saving}}" bind:btntap="onSaveDraft">保存草稿</ui-button>
+      <ui-button
+        wx:if="{{editable && fromComplete}}"
+        type="primary"
+        block
+        loading="{{completing}}"
+        bind:btntap="onConfirmAndComplete"
+      >确认并完工</ui-button>
+      <ui-button
+        wx:elif="{{editable}}"
+        type="primary"
+        block
+        loading="{{saving}}"
+        bind:btntap="onConfirmDraft"
+      >确认案例稿</ui-button>
     </view>
   </block>
 </view>

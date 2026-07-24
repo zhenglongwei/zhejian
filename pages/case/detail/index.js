@@ -272,6 +272,19 @@ Page({
     })
   },
 
+  onPreviewDraftMedia(e) {
+    const sectionKey = e.currentTarget.dataset.sectionKey
+    const index = Number(e.currentTarget.dataset.index || 0)
+    const draft = this.data.detail && this.data.detail.confirmedCaseDraft
+    const section = ((draft && draft.sections) || []).find((s) => s.key === sectionKey)
+    const urls = ((section && section.media) || []).map((m) => m.maskedUrl).filter(Boolean)
+    if (!urls.length) return
+    wx.previewImage({
+      current: urls[index] || urls[0],
+      urls,
+    })
+  },
+
   onCall() {
     const { detail } = this.data
     const phone = detail && detail.storePhone

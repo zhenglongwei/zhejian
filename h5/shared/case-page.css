@@ -178,6 +178,24 @@
   margin-bottom: var(--space-lg);
 }
 
+.h5-confirmed-draft {
+  margin-bottom: var(--space-lg);
+}
+
+.h5-confirmed-draft-hint {
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.h5-confirmed-draft-title {
+  margin: 0 0 var(--space-lg);
+}
+
+.h5-confirmed-media {
+  margin-top: var(--space-md);
+}
+
 .h5-article-text {
   font-size: var(--font-body);
   line-height: var(--line-height-article);

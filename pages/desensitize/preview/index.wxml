@@ -25,7 +25,34 @@
     <view class="desensitize-preview__banner">
       <ui-privacy-banner scene="desensitize" />
     </view>
-    <view wx:if="{{aiSummary}}" class="desensitize-preview__summary">
+    <view wx:if="{{caseDraftMissing && source === 'service'}}" class="desensitize-preview__draft-missing text-caption">
+      门店尚未确认案例稿，暂时无法发布到公开网站。请联系门店完成案例预览确认。
+    </view>
+    <view wx:if="{{caseDraftTitle || caseDraftSections.length}}" class="desensitize-preview__case-draft">
+      <text class="text-h3 desensitize-preview__case-title">将公示的案例文案（只读）</text>
+      <text class="text-caption text-secondary desensitize-preview__case-hint">
+        正文与门店确认稿一致，不可修改。下方配图为脱敏图，与正式公示一致。
+      </text>
+      <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
+      <block wx:for="{{caseDraftSections}}" wx:key="key">
+        <view class="desensitize-preview__case-section">
+          <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>
+          <text class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
+          <view class="desensitize-preview__case-media">
+            <block wx:for="{{caseDraftMedia}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
+              <image
+                wx:if="{{m.sectionKey === item.key && m.displayUrl}}"
+                class="desensitize-preview__case-thumb"
+                src="{{m.displayUrl}}"
+                mode="aspectFill"
+              />
+            </block>
+          </view>
+        </view>
+      </block>
+      <ui-button type="secondary" block bind:btntap="onCopyCaseDraft">复制文案</ui-button>
+    </view>
+    <view wx:if="{{aiSummary && !caseDraftSections.length}}" class="desensitize-preview__summary">
       <ui-ai-summary-block content="{{aiSummary}}" />
     </view>
     <view wx:if="{{publicViewHint}}" class="desensitize-preview__public-hint text-caption">
