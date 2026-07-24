@@ -53,3 +53,11 @@ export function updateCaseEnrichment(caseId, body) {
 export function regenerateCaseArticle(caseId) {
   return request.post(`/admin/cases/${caseId}/regenerate-article`)
 }
+
+export function passCaseSpotCheck(caseId, body) {
+  return request.post(`/admin/cases/${caseId}/spot-check/pass`, body)
+}
+
+export function failCaseSpotCheck(caseId, body) {
+  return request.post(`/admin/cases/${caseId}/spot-check/fail`, body)
+}

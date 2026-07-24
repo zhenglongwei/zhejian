@@ -26,6 +26,12 @@ const {
   buildPublicView,
   pickPublicViewCover,
 } = require('./build-public-view.service')
+const {
+  GATE_B_RISK,
+  SPOT_CHECK_STATUS,
+  evaluateGateBRisk,
+  shouldSpotCheckGateB,
+} = require('./gate-b-risk.service')
 
 function buildVehicleTitle(vehicle) {
   if (!vehicle || typeof vehicle !== 'object') return '该车辆'
@@ -328,6 +334,22 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   })
   const enrichmentFinal = enrichment
 
+  const riskEval = await evaluateGateBRisk({
+    album,
+    albumView,
+    task,
+    caseId,
+  })
+  const gateBRisk = riskEval.risk
+  const contentJsonWithGateB = {
+    ...contentJson,
+    gateB: {
+      risk: gateBRisk,
+      reasons: riskEval.reasons,
+      evaluatedAt: new Date().toISOString(),
+    },
+  }
+
   await prisma.publicCase.upsert({
     where: { albumId },
     create: {
@@ -338,7 +360,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       title: snapshot.title,
       summary: snapshot.summary,
       coverImage: snapshot.coverImage,
-      contentJson,
+      contentJson: contentJsonWithGateB,
       articleBody: snapshot.articleBody,
       aiSummary: articlePayload.aiSummary,
       seoTitle: articlePayload.seoTitle,
@@ -354,6 +376,8 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
       publishedAt: null,
+      gateBRisk,
+      spotCheckStatus: SPOT_CHECK_STATUS.NONE,
       enrichmentJson: enrichmentFinal,
       enrichmentVersion: enrichmentFinal.version,
     },
@@ -361,11 +385,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       gateBRejectType: '',
       gateBRejectReason: '',
+      gateBRisk,
+      spotCheckStatus: SPOT_CHECK_STATUS.NONE,
       authorizationTier: tier,
       title: snapshot.title,
       summary: snapshot.summary,
       coverImage: snapshot.coverImage,
-      contentJson,
+      contentJson: contentJsonWithGateB,
       articleBody: snapshot.articleBody,
       aiSummary: articlePayload.aiSummary,
       seoTitle: articlePayload.seoTitle,
@@ -397,6 +423,43 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const { scheduleCaseGeoLlmOptimization } = require('./case-geo-llm.service')
   scheduleCaseGeoLlmOptimization(caseId)
 
+  if (gateBRisk === GATE_B_RISK.LOW) {
+    const { approveAdminCase } = require('./admin-case.service')
+    await approveAdminCase(caseId, {
+      reviewerId: 'system',
+      comment: 'gate_b_auto_low_risk',
+      reviewAction: 'auto_approve',
+    })
+
+    let spotCheckStatus = SPOT_CHECK_STATUS.NONE
+    if (shouldSpotCheckGateB(caseId)) {
+      spotCheckStatus = SPOT_CHECK_STATUS.PENDING
+      await prisma.publicCase.update({
+        where: { id: caseId },
+        data: { spotCheckStatus },
+      })
+    }
+
+    return {
+      caseItem: {
+        id: caseId,
+        albumId,
+        title: snapshot.title,
+        authorizationTier: tier,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        snapshotVersion: snapshot.version,
+        frozenAt: snapshot.frozenAt,
+        gateBRisk,
+        spotCheckStatus,
+      },
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+      gateBRisk,
+      spotCheckStatus,
+      autoApproved: true,
+      message: '已发布到公开网站，同城车友可参考（已脱敏）',
+    }
+  }
+
   return {
     caseItem: {
       id: caseId,
@@ -406,8 +469,13 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
       snapshotVersion: snapshot.version,
       frozenAt: snapshot.frozenAt,
+      gateBRisk,
+      spotCheckStatus: SPOT_CHECK_STATUS.NONE,
     },
     status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    gateBRisk,
+    spotCheckStatus: SPOT_CHECK_STATUS.NONE,
+    autoApproved: false,
     message: '已提交平台审核，通过后将公开展示',
   }
 }

@@ -55,11 +55,31 @@
           <RiskLevelTag :level="row.riskLevel" />
         </template>
       </el-table-column>
+      <el-table-column label="闸门B" width="100">
+        <template #default="{ row }">
+          {{ row.gateBRisk === 'high' ? '高风险' : row.gateBRisk === 'low' ? '低风险' : '—' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="status" label="状态" width="110" />
+      <el-table-column label="抽检" width="90">
+        <template #default="{ row }">
+          {{
+            row.spotCheckStatus === 'pending'
+              ? '待抽检'
+              : row.spotCheckStatus === 'passed'
+                ? '已通过'
+                : row.spotCheckStatus === 'failed'
+                  ? '已下架'
+                  : '—'
+          }}
+        </template>
+      </el-table-column>
       <el-table-column prop="submittedAt" label="提交时间" width="170" />
       <el-table-column label="操作" width="90" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click.stop="goDetail(row)">审核</el-button>
+          <el-button link type="primary" @click.stop="goDetail(row)">
+            {{ activeTab === 'spot_check' ? '抽检' : '审核' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>

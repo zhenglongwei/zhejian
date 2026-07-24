@@ -34,7 +34,7 @@ Component({
       const resolvedType = type === 'platformDisplay' ? 'displayDisclaimer' : type
       this.setData({
         content: text || COMPLIANCE_COPY[resolvedType] || COMPLIANCE_COPY.price,
-        prewrap: resolvedType === 'partRisk',
+        prewrap: resolvedType === 'partRisk' || resolvedType === 'aiInspection',
       })
     },
   },

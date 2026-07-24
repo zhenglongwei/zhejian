@@ -50,6 +50,20 @@
             <el-descriptions-item label="案例 ID">{{ detail.caseId }}</el-descriptions-item>
             <el-descriptions-item label="相册 ID">{{ detail.albumId }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
+            <el-descriptions-item label="闸门 B 风险">
+              {{ detail.gateBRisk === 'high' ? '高风险' : detail.gateBRisk === 'low' ? '低风险' : '—' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="抽检状态">
+              {{
+                detail.spotCheckStatus === 'pending'
+                  ? '待抽检'
+                  : detail.spotCheckStatus === 'passed'
+                    ? '抽检通过'
+                    : detail.spotCheckStatus === 'failed'
+                      ? '抽检下架'
+                      : '—'
+              }}
+            </el-descriptions-item>
             <el-descriptions-item label="门店">{{ detail.storeName }}</el-descriptions-item>
             <el-descriptions-item label="服务">{{ detail.serviceName }}</el-descriptions-item>
             <el-descriptions-item label="价格">{{ priceText }}</el-descriptions-item>
@@ -135,7 +149,24 @@
 
     <el-card shadow="never" class="section">
       <template #header>审核操作</template>
+      <div v-if="isSpotCheckQueue" class="spot-check-bar">
+        <el-alert
+          title="该案例已自动过审并上线，本页仅做事后抽检；不通过将下架公开页（快照保留）。"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="notice"
+        />
+        <el-input
+          v-model="spotCheckComment"
+          placeholder="抽检意见（下架时建议填写）"
+          style="flex: 1; min-width: 200px"
+        />
+        <el-button type="success" :loading="submitting" @click="onSpotCheckPass">抽检通过</el-button>
+        <el-button type="danger" :loading="submitting" @click="onSpotCheckFail">抽检不通过·下架</el-button>
+      </div>
       <ReviewActionBar
+        v-else
         ref="actionRef"
         :loading="submitting"
         :can-review="canReview"
@@ -182,6 +213,8 @@ import {
   requestModifyCase,
   retryCaseAssetDesensitize,
   retryAllCaseDesensitize,
+  passCaseSpotCheck,
+  failCaseSpotCheck,
 } from '@/api/case-review'
 import { COMPLIANCE_NOTICES, USER_AUTHORIZED_REVIEW_NOTICE } from '@/constants/case-review'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
@@ -202,6 +235,7 @@ const retryAllLoading = ref(false)
 const retryingAssetId = ref('')
 const detail = ref({})
 const actionRef = ref(null)
+const spotCheckComment = ref('')
 
 const priceText = computed(() => {
   const p = detail.value.price
@@ -214,11 +248,16 @@ const priceText = computed(() => {
 })
 
 const isUserAuthorized = computed(() => detail.value.source === 'user_authorized')
+const isSpotCheckQueue = computed(
+  () =>
+    detail.value.status === 'public_approved' && detail.value.spotCheckStatus === 'pending'
+)
 const desensitizeSummary = computed(() => detail.value.desensitizeSummary || {})
 const hasRetryableAssets = computed(() =>
   (detail.value.mediaAssets || []).some((a) => a.canRetry)
 )
 const canReview = computed(() => {
+  if (isSpotCheckQueue.value) return false
   if (detail.value.status !== 'pending_review') return false
   if (isUserAuthorized.value) return true
   return !desensitizeSummary.value.hasBlockingIssues
@@ -380,6 +419,38 @@ async function onRequestModify() {
   }
 }
 
+async function onSpotCheckPass() {
+  await ElMessageBox.confirm('确认抽检通过？案例保持公开。', '抽检确认')
+  submitting.value = true
+  try {
+    detail.value = await passCaseSpotCheck(route.params.caseId, {
+      comment: spotCheckComment.value,
+    })
+    ElMessage.success('抽检通过')
+    spotCheckComment.value = ''
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function onSpotCheckFail() {
+  await ElMessageBox.confirm(
+    '确认抽检不通过并下架？公开页将不可见，案例快照保留。',
+    '抽检下架',
+    { type: 'warning' }
+  )
+  submitting.value = true
+  try {
+    detail.value = await failCaseSpotCheck(route.params.caseId, {
+      comment: spotCheckComment.value,
+    })
+    ElMessage.success('已下架公开案例')
+    spotCheckComment.value = ''
+  } finally {
+    submitting.value = false
+  }
+}
+
 onMounted(loadDetail)
 </script>
 
@@ -403,5 +474,15 @@ onMounted(loadDetail)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.spot-check-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.spot-check-bar .notice {
+  width: 100%;
+  margin-top: 0;
 }
 </style>

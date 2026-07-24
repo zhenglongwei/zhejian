@@ -645,11 +645,11 @@ Page({
   async onCopyPublicWebLink() {
     const shareCase = buildShareableCaseFromAlbum(this.data.actionDetail)
     if (!shareCase || !shareCase.id) {
-      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
+      wx.showToast({ title: '发布通过后可复制公开链接', icon: 'none' })
       return
     }
     if (this.data.publishSheetState !== 'approved' && !this.data.showPublicCaseShare) {
-      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
+      wx.showToast({ title: '发布通过后可复制公开链接', icon: 'none' })
       return
     }
     try {

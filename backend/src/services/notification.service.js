@@ -540,52 +540,49 @@ async function notifyAlbumNodeUpdated(album, meta = {}) {
   })
 }
 
+/**
+ * 车主提交/拒绝公示授权后的通知。
+ * 同意公示：不通知车主（提交页已有成功提示；微信订阅额度留给审核结果 notifyCaseAuditResult）。
+ * 仅通知商家「车主已提交」。拒绝公示：仅站内告知车主，不发审核类微信订阅。
+ */
 async function notifyAuthorizationSubmitted(albumId, agreed) {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
     include: { publicCase: true },
   })
   if (!album) return null
-  const userId = await resolveAlbumUserId(album)
-  const auditPayload = {
-    caseNo: album.publicCase?.id || album.id,
-    auditStatus: agreed ? '待审核' : '已拒绝授权',
-    remark: agreed ? '已提交，等待平台审核' : '未公开为案例',
+  if (!agreed) {
+    const userId = await resolveAlbumUserId(album)
+    if (userId) {
+      await notifyUser({
+        receiverId: userId,
+        messageType: 'authorize',
+        title: '已拒绝公开授权',
+        content: '你已拒绝将本次服务相册公开为案例。',
+        refType: 'album',
+        refId: album.id,
+        jumpPath: `/pages/album/list/index?tab=publishable`,
+      })
+    }
+    return null
   }
-  if (userId) {
-    await notifyUser({
-      receiverId: userId,
-      messageType: 'authorize',
-      title: agreed ? '公开授权已提交' : '已拒绝公开授权',
-      content: agreed
-        ? '你的授权已提交，案例脱敏后将进入平台审核。'
-        : '你已拒绝将本次服务相册公开为案例。',
-      refType: 'album',
-      refId: album.id,
-      jumpPath: `/pages/album/list/index?tab=published`,
-      wechatTemplateKey: 'audit',
-      wechatPage: 'pages/album/list/index?tab=published',
-      wechatPayload: auditPayload,
-    })
-  }
-  if (agreed) {
-    await notifyMerchantOwner({
-      merchantId: album.merchantId,
-      messageType: 'authorize',
-      title: '车主已提交公开授权',
-      content: `${album.serviceName || '服务相册'}等待平台审核。`,
-      refType: 'album',
-      refId: album.id,
-      jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
-      wechatTemplateKey: 'audit',
-      wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
-      wechatPayload: {
-        ...auditPayload,
-        auditStatus: '待审核',
-        remark: '车主已提交公开授权',
-      },
-    })
-  }
+  const caseNo = album.publicCase?.id || album.id
+  await notifyMerchantOwner({
+    merchantId: album.merchantId,
+    messageType: 'authorize',
+    title: '车主已提交公开授权',
+    content: `${album.serviceName || '服务相册'}等待平台审核。`,
+    refType: 'album',
+    refId: album.id,
+    jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
+    wechatTemplateKey: 'audit',
+    wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
+    wechatPayload: {
+      caseNo,
+      auditStatus: '待审核',
+      remark: '车主已提交公开授权',
+    },
+  })
   return null
 }
 
@@ -619,12 +616,12 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
   const userId = await resolveAlbumUserId(album)
   const title = approved ? '案例审核已通过' : '案例审核未通过'
   const content = approved
-    ? '你的案例已完成脱敏审核并公开展示。'
-    : truncate(comment || '案例未通过审核，私密相册仍可查看。', 120)
+    ? '你的案例已通过审核并公开展示，点击查看公开案例。'
+    : truncate(comment || '案例未通过审核。可在「我的相册」查看私密相册，修改后可重新提交公示。', 120)
   const auditPayload = {
     caseNo: album.publicCase?.id || album.id,
     auditStatus: approved ? '审核通过' : '审核未通过',
-    remark: approved ? '已脱敏公开展示' : truncate(comment || '请修改后重新提交', 20),
+    remark: approved ? '点击查看公开案例' : truncate(comment || '可改后重新提交', 20),
   }
   if (userId) {
     await notifyUser({

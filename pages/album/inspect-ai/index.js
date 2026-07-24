@@ -7,7 +7,6 @@ const {
 const { buildInspectionReportListItem } = require('../../../utils/album-inspection-report-display')
 const {
   shouldRunAiAnalysis,
-  shouldShowAiAnalysisEntry,
   isAlbumCompleted,
 } = require('../../../utils/album-inspection-analysis-gate')
 
@@ -46,7 +45,6 @@ Page({
     this.albumId = options.albumId || ''
     this.focusStageId = options.focusStageId || options.stageId || ''
     this.triggerContext = options.triggerContext || 'inspect_page'
-    this.pendingRunAi = options.runAi === '1' || options.runAi === 'true'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '相册信息缺失' })
       return
@@ -116,12 +114,6 @@ Page({
         canRunAiAnalysis,
         albumCompleted: isAlbumCompleted(detail),
       })
-      if (this.pendingRunAi) {
-        this.pendingRunAi = false
-        if (canRunAiAnalysis) {
-          this.runAiAdvice()
-        }
-      }
     } catch (e) {
       this.setData({
         status: 'error',
@@ -157,8 +149,11 @@ Page({
   onRunAiCheck() {
     if (this.data.aiLoading) return
     if (!this.data.canRunAiAnalysis) {
+      const title = this.data.albumCompleted
+        ? '本相册试用已用完，请查看下方记录'
+        : '相册完工后可试用 AI 分析'
       wx.showToast({
-        title: '相册内容未更新，请查看下方记录',
+        title,
         icon: 'none',
         duration: 2500,
       })
@@ -179,11 +174,13 @@ Page({
       const highlightReportId = result.reportId || ''
       const reports = mapReports(reportRes.items || [], { highlightReportId })
       this.rawReportItems = reportRes.items || []
+      const detail = this.albumDetail || {}
       this.setData({
         reports,
         highlightReportId,
         aiLoading: false,
-        canRunAiAnalysis: false,
+        canRunAiAnalysis: shouldRunAiAnalysis(detail, reportRes.items || []),
+        albumCompleted: isAlbumCompleted(detail),
       })
       if (result.status === 'failed') {
         wx.showToast({

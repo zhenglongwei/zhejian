@@ -41,6 +41,7 @@ const {
   listGateBRejectReasonOptions,
   buildGateBUserPayload,
 } = require('../constants/case-gate-b')
+const { SPOT_CHECK_STATUS } = require('./gate-b-risk.service')
 
 function resolveCaseSource(album) {
   if (!album) return 'user_authorized'
@@ -106,6 +107,10 @@ function buildListWhere(query = {}) {
     where.status = PUBLIC_CASE_STATUS.PENDING_REVIEW
   } else if (tab === 'approved') {
     where.status = PUBLIC_CASE_STATUS.PUBLIC_APPROVED
+    where.spotCheckStatus = { not: SPOT_CHECK_STATUS.PENDING }
+  } else if (tab === 'spot_check') {
+    where.status = PUBLIC_CASE_STATUS.PUBLIC_APPROVED
+    where.spotCheckStatus = SPOT_CHECK_STATUS.PENDING
   } else if (tab === 'rejected') {
     where.status = {
       in: [
@@ -167,7 +172,10 @@ async function listAdminCases(query = {}) {
       imageCount = album.imageCount || agg.imageCount
     }
     if (query.source && query.source !== source) continue
-    if (tab === 'high_risk' && !isHighRisk(riskLevel)) continue
+    if (tab === 'high_risk') {
+      const gateHigh = String(row.gateBRisk || '').toLowerCase() === 'high'
+      if (!gateHigh && !isHighRisk(riskLevel)) continue
+    }
     if (query.riskLevel && query.riskLevel !== riskLevel) continue
 
     items.push({
@@ -181,6 +189,8 @@ async function listAdminCases(query = {}) {
       serviceName: row.serviceName,
       city: row.city || '',
       status: row.status,
+      gateBRisk: row.gateBRisk || '',
+      spotCheckStatus: row.spotCheckStatus || '',
       riskLevel,
       imageCount,
       authorizationStatus: album?.authorization?.status || '',
@@ -368,6 +378,8 @@ async function getAdminCaseDetail(caseId) {
     title: row.title,
     summary: row.summary,
     status: row.status,
+    gateBRisk: row.gateBRisk || '',
+    spotCheckStatus: row.spotCheckStatus || '',
     source,
     sourceLabel: sourceLabel(source),
     storeId: row.storeId,
@@ -514,7 +526,7 @@ async function assertCaseDesensitizeReady(caseId, options = {}) {
   return detail
 }
 
-async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
+async function approveAdminCase(caseId, { reviewerId, comment = '', reviewAction = 'approve' } = {}) {
   const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
   if (!row) {
     const err = new Error('案例不存在')
@@ -698,7 +710,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '' } = {}) {
   await appendReviewLog({
     caseId,
     reviewerId,
-    reviewAction: 'approve',
+    reviewAction: reviewAction || 'approve',
     reviewComment: comment,
     beforeStatus: row.status,
     afterStatus: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
@@ -887,6 +899,94 @@ async function updateAdminCaseFaqLinks(caseId, payload = {}) {
   return getAdminCaseDetail(caseId)
 }
 
+async function passGateBSpotCheck(caseId, { reviewerId, comment = '' } = {}) {
+  const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
+  if (!row) {
+    const err = new Error('案例不存在')
+    err.status = 404
+    throw err
+  }
+  if (
+    row.status !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED ||
+    row.spotCheckStatus !== SPOT_CHECK_STATUS.PENDING
+  ) {
+    const err = new Error('当前不在抽检队列')
+    err.status = 409
+    throw err
+  }
+
+  await prisma.publicCase.update({
+    where: { id: caseId },
+    data: { spotCheckStatus: SPOT_CHECK_STATUS.PASSED },
+  })
+
+  await appendReviewLog({
+    caseId,
+    reviewerId,
+    reviewAction: 'spot_check_pass',
+    reviewComment: comment || '自动过审抽检通过',
+    beforeStatus: row.status,
+    afterStatus: row.status,
+    riskLevel: row.gateBRisk || 'low',
+  })
+
+  return getAdminCaseDetail(caseId)
+}
+
+async function failGateBSpotCheck(caseId, { reviewerId, comment = '' } = {}) {
+  const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
+  if (!row) {
+    const err = new Error('案例不存在')
+    err.status = 404
+    throw err
+  }
+  if (
+    row.status !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED ||
+    row.spotCheckStatus !== SPOT_CHECK_STATUS.PENDING
+  ) {
+    const err = new Error('当前不在抽检队列')
+    err.status = 409
+    throw err
+  }
+
+  const beforeStatus = row.status
+  const snapshot = extractSnapshotFromContentJson(row.contentJson)
+
+  await prisma.publicCase.update({
+    where: { id: caseId },
+    data: {
+      status: PUBLIC_CASE_STATUS.OFFLINE,
+      publishedAt: null,
+      spotCheckStatus: SPOT_CHECK_STATUS.FAILED,
+    },
+  })
+
+  await prisma.album.update({
+    where: { id: row.albumId },
+    data: {
+      publicCaseStatus: 'offline',
+    },
+  })
+
+  const parts = [
+    String(comment || '').trim() || '自动过审抽检不通过，已下架',
+    snapshot?.version ? `snapshotVersion=${snapshot.version}` : '',
+    snapshot ? 'snapshotPreserved=1' : 'snapshotPreserved=0',
+  ].filter(Boolean)
+
+  await appendReviewLog({
+    caseId,
+    reviewerId,
+    reviewAction: 'spot_check_fail',
+    reviewComment: parts.join(' · '),
+    beforeStatus,
+    afterStatus: PUBLIC_CASE_STATUS.OFFLINE,
+    riskLevel: row.gateBRisk || 'low',
+  })
+
+  return getAdminCaseDetail(caseId)
+}
+
 module.exports = {
   listAdminCases,
   getAdminCaseDetail,
@@ -900,4 +1000,6 @@ module.exports = {
   appendReviewLog,
   resolveCaseSource,
   sourceLabel,
+  passGateBSpotCheck,
+  failGateBSpotCheck,
 }

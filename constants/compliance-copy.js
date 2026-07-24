@@ -133,7 +133,7 @@ const COMPLIANCE_COPY = {
   accident: '到店检测后确定。',
   history: '价格仅供参考，不代表本页报价或最终成交价。',
   authorize:
-    '分享前请核对脱敏效果。公开站不展示完整车牌、手机号等信息；审核通过后可供同城车友参考，你可随时下架。',
+    '分享前请核对脱敏效果。公开站不展示完整车牌、手机号等信息；低风险立即展示，高风险审核通过后可供同城车友参考，你可随时下架。',
   partRisk:
     '该配件并非主机厂原厂件。请确认你已了解配件差异及后续年检、二手车检测、保险理赔或质保判断中可能被识别为非原厂件的风险。',
   partVerify:
@@ -172,7 +172,9 @@ const COMPLIANCE_COPY = {
   displayDisclaimer:
     '本页内容由商家自行发布或经车主确认展示，仅供参考。实际方案与费用请与门店线下确认。',
   aiInspection:
-    'AI 分析基于本相册的文字摘要与部分照片说明，供你对照单据、流程与配件留痕，不构成鉴定结论或质量裁决，可能存在遗漏或误判。平台不鉴定配件真伪；即便各项看起来一致，也不能排除未入镜施工、事后换件等相册无法覆盖的情形。若仍有重大疑虑，建议到场验车验件、委托有资质第三方鉴定；事故维修可向保险公司申请复检。',
+    'AI 分析基于本相册摘要与部分照片说明，供对照单据与留痕，不构成鉴定结论，可能有遗漏或误判。\n\n' +
+    '平台不鉴定配件真伪；相册无法覆盖未入镜施工、事后换件等情况。\n\n' +
+    '重大疑虑请到场验车验件，或委托有资质第三方；事故维修可向保险公司申请复检。',
   reportConsent: AUTHORIZATION_CONSENT.report.text,
   albumClaim: AUTHORIZATION_CONSENT.album_claim.text,
   albumProcessing: AUTHORIZATION_CONSENT.album_processing.text,

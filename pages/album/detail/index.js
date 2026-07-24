@@ -79,7 +79,7 @@ function measureImmersiveLayout() {
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时分享脱敏报告。',
   pending_review: '审核中，通过后将展示给同城车友参考。',
-  public_approved: '已展示给同城车友参考（已脱敏、已审核）。',
+  public_approved: '已发布到公开网站，同城车友可参考（已脱敏、已审核）。',
   need_modify: '审核需你修改后重新分享，请按下方提示处理。',
 }
 
@@ -1026,7 +1026,7 @@ Page({
 
   async onCopyPublicWebLink() {
     if (this.data.publishSheetState !== 'approved' && !this.data.showPublicCaseShare) {
-      wx.showToast({ title: '审核通过后可复制公开链接', icon: 'none' })
+      wx.showToast({ title: '发布通过后可复制公开链接', icon: 'none' })
       return
     }
     const shareCase = buildShareableCaseFromAlbum(this.data.detail)

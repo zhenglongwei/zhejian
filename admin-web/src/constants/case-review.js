@@ -1,6 +1,7 @@
 export const CASE_TABS = [
   { key: 'pending', label: '待审核' },
   { key: 'high_risk', label: '高风险' },
+  { key: 'spot_check', label: '自动过审抽检' },
   { key: 'approved', label: '已通过' },
   { key: 'rejected', label: '已驳回' },
 ]

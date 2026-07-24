@@ -118,7 +118,7 @@
 
       <view class="share-sheet__section">
         <text class="share-sheet__section-title text-body">③ 分享脱敏案例给同城车友</text>
-        <text class="share-sheet__section-hint text-caption">须预览确认；人工审核通过后才会展示</text>
+        <text class="share-sheet__section-hint text-caption">须预览确认；低风险立即展示，高风险审核通过后展示</text>
         <text wx:if="{{publishHint}}" class="share-sheet__publish-hint text-caption">{{publishHint}}</text>
 
         <block wx:if="{{publishState === 'approved'}}">

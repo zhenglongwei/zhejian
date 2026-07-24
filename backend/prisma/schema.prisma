@@ -316,6 +316,8 @@ model PublicCase {
   canonicalPath       String    @default("") @map("canonical_path") @db.VarChar(512)
   gateBRejectType     String    @default("") @map("gate_b_reject_type") @db.VarChar(32)
   gateBRejectReason   String    @default("") @map("gate_b_reject_reason") @db.Text
+  gateBRisk           String    @default("") @map("gate_b_risk") @db.VarChar(16)
+  spotCheckStatus     String    @default("") @map("spot_check_status") @db.VarChar(32)
   enrichmentJson      Json?     @map("enrichment_json")
   enrichmentVersion   Int       @default(0) @map("enrichment_version")
   createdAt           DateTime  @default(now()) @map("created_at")
@@ -325,6 +327,8 @@ model PublicCase {
   @@index([status])
   @@index([articleStatus])
   @@index([enrichmentVersion])
+  @@index([gateBRisk])
+  @@index([spotCheckStatus])
   @@map("public_cases")
 }
 

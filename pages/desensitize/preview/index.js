@@ -339,19 +339,32 @@ Page({
           agreed: true,
           tier: 'named',
         })
-        await submitServicePublicCaseReview({
+        const result = await submitServicePublicCaseReview({
           albumId: this.data.albumId,
           taskId: this.data.taskId,
         })
-      } else {
-        await submitAlbumAuthorization(this.data.albumId, { agreed: true })
-        if (this.data.orderId) {
-          await submitOrderPublicCaseReview({
-            orderId: this.data.orderId,
-            albumId: this.data.albumId,
-            taskId: this.data.taskId,
-          })
-        }
+        const autoApproved =
+          (result && result.autoApproved) ||
+          (result && result.status === 'public_approved')
+        wx.showToast({
+          title: autoApproved
+            ? (result && result.message) || '已发布到公开网站'
+            : (result && result.message) || '已提交审核，通过后将自动展示',
+          icon: 'success',
+          duration: 2000,
+        })
+        setTimeout(() => {
+          this.onBackAlbum()
+        }, 2000)
+        return
+      }
+      await submitAlbumAuthorization(this.data.albumId, { agreed: true })
+      if (this.data.orderId) {
+        await submitOrderPublicCaseReview({
+          orderId: this.data.orderId,
+          albumId: this.data.albumId,
+          taskId: this.data.taskId,
+        })
       }
       wx.showToast({ title: '已提交审核，通过后将自动展示', icon: 'success', duration: 2000 })
       setTimeout(() => {

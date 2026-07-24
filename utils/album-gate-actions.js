@@ -79,13 +79,23 @@ async function runGateUserAction(page, actionKey, detail = {}) {
   if (actionKey === 'resubmit_public_case') {
     try {
       wx.showLoading({ title: '提交中', mask: true })
-      await submitServicePublicCaseReview({ albumId })
+      const result = await submitServicePublicCaseReview({ albumId })
       wx.hideLoading()
-      wx.showToast({ title: '已重新提交审核', icon: 'success' })
+      const autoApproved =
+        (result && result.autoApproved) ||
+        (result && result.status === 'public_approved')
+      wx.showToast({
+        title: autoApproved
+          ? (result && result.message) || '已发布到公开网站'
+          : (result && result.message) || '已重新提交审核',
+        icon: 'success',
+      })
       if (typeof page.loadContext === 'function') {
         await page.loadContext()
       } else if (typeof page.loadDetail === 'function') {
         await page.loadDetail()
+      } else if (typeof page.loadAlbum === 'function') {
+        await page.loadAlbum()
       }
     } catch (e) {
       wx.hideLoading()

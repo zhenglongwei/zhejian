@@ -19,6 +19,33 @@ const {
 const {
   buildAlbumInspectionContentFingerprint,
 } = require('../utils/album-inspection-content-fingerprint')
+const { isServiceAlbumRepairDone } = require('../constants/v2')
+
+function isSuccessfulInspectionReport(row = {}) {
+  const payload = row.payloadJson || {}
+  if (payload.status === 'failed') return false
+  const source = row.source || payload.source || ''
+  if (source === 'failed' || source === 'rule') return false
+  return true
+}
+
+async function assertAiAnalysisTrialAvailable(albumId, userId, album) {
+  if (!isServiceAlbumRepairDone(album.status)) {
+    const err = new Error('相册完工后才可试用 AI 分析')
+    err.status = 400
+    throw err
+  }
+  const rows = await prisma.albumInspectionReport.findMany({
+    where: { albumId, userId },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+  if (rows.some(isSuccessfulInspectionReport)) {
+    const err = new Error('本相册 AI 分析试用次数已用完')
+    err.status = 400
+    throw err
+  }
+}
 
 async function assertUserAlbumAccess(albumId, userId) {
   const album = await loadAlbum(albumId)
@@ -209,6 +236,7 @@ async function saveInspectionReport(albumId, userId, payload, requestOptions = {
 
 async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
   const album = await assertUserAlbumAccess(albumId, userId)
+  await assertAiAnalysisTrialAvailable(albumId, userId, album)
   const detail = buildInspectionDetail(album)
   const requestOptions = normalizeRequestOptions(body)
 

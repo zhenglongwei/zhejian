@@ -15,6 +15,8 @@ const {
   retryAdminCaseAsset,
   retryAllAdminCaseAssets,
   updateAdminCaseFaqLinks,
+  passGateBSpotCheck,
+  failGateBSpotCheck,
 } = require('../services/admin-case.service')
 const {
   setAdminGeoPageStatus,
@@ -207,6 +209,30 @@ router.get('/cases/:caseId/article-export', async (req, res, next) => {
 router.post('/cases/:caseId/approve', async (req, res, next) => {
   try {
     const data = await approveAdminCase(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/spot-check/pass', async (req, res, next) => {
+  try {
+    const data = await passGateBSpotCheck(req.params.caseId, {
+      reviewerId: req.admin?.reviewerId,
+      comment: req.body?.comment || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/cases/:caseId/spot-check/fail', async (req, res, next) => {
+  try {
+    const data = await failGateBSpotCheck(req.params.caseId, {
       reviewerId: req.admin?.reviewerId,
       comment: req.body?.comment || '',
     })

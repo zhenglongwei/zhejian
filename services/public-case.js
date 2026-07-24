@@ -155,7 +155,13 @@ async function submitServicePublicCaseReview(payload) {
     caseId: caseItem.id,
   })
 
-  return { caseItem, status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED }
+  return {
+    caseItem,
+    status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+    autoApproved: true,
+    gateBRisk: 'low',
+    message: '已发布到公开网站，同城车友可参考（已脱敏）',
+  }
 }
 
 /** @deprecated V1 订单链路，R8 移除 */
