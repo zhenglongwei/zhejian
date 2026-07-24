@@ -169,8 +169,8 @@ const COMMON_STAGES = {
     note_hints: [
       {
         title: '备注怎么写',
-        example: '验收项已查；交接情况一句。',
-        bullets: ['质检项', '交接说明'],
+        example: '短途试车异响消失，旧件已交还对照；踏板行程正常。',
+        bullets: ['验收结论', '旧件交接', '勿写金额'],
       },
     ],
     geo_angle: ['standard_5s', 'liability'],

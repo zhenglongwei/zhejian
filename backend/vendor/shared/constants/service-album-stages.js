@@ -52,7 +52,8 @@ const SERVICE_ALBUM_STAGES = [
     title: '完工交付',
     description: '完工展示、试车说明与交付检查',
     photoTips: '建议拍摄完工效果、试车相关说明',
-    notePlaceholder: '说明试车/交付结果与完工确认，便于生成可引用摘要',
+    notePlaceholder:
+      '示例：短途试车异响消失，旧件已交还对照；踏板行程正常。（验收结论 / 旧件交接 / 勿写金额）',
     requiredLevelLabel: '',
     requiredLevelVariant: 'default',
   },
