@@ -9,7 +9,6 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
-const { groupMediaBySection } = require('../../../../utils/merchant-case-draft-display')
 
 Page({
   data: {
@@ -23,9 +22,10 @@ Page({
     completing: false,
     title: '',
     caseSummary: '',
+    titleHeight: 40,
+    summaryHeight: 40,
     sections: [],
     media: [],
-    mediaGroups: [],
     confirmed: false,
   },
 
@@ -52,6 +52,35 @@ Page({
     await this.loadDraft()
   },
 
+  /** 按正文字号估算 textarea 高度，避免微信 auto-height 异步赋值失效 */
+  measureTextHeight(text = '', minLines = 1) {
+    let windowWidth = 375
+    try {
+      const info = typeof wx.getWindowInfo === 'function' ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      windowWidth = info.windowWidth || 375
+    } catch (_) {
+      windowWidth = 375
+    }
+    const rpx = windowWidth / 750
+    const linePx = 40 * rpx
+    const padY = 16 * rpx * 2
+    // 页边距 32*2 + 卡片内边距 24*2 + 文本框左右 padding 16*2
+    const textWidth = Math.max(120, windowWidth - 144 * rpx)
+    const charPx = 28 * rpx
+    const cols = Math.max(6, Math.floor(textWidth / charPx))
+    const raw = String(text || '')
+    let lines = 0
+    if (!raw) {
+      lines = minLines
+    } else {
+      raw.split('\n').forEach((row) => {
+        const len = Array.from(row).length
+        lines += Math.max(1, Math.ceil(len / cols))
+      })
+    }
+    return Math.ceil(Math.max(minLines, lines) * linePx + padY + 2)
+  },
+
   mediaDisplayUrl(item) {
     // 商家预览优先原图；脱敏图留给车主/正式公示
     return (item && (item.previewUrl || item.maskedUrl)) || ''
@@ -64,15 +93,25 @@ Page({
     }))
   },
 
+  mapSections(list) {
+    return (list || []).map((sec) => ({
+      ...sec,
+      bodyHeight: this.measureTextHeight(sec && sec.body, 1),
+    }))
+  },
+
   applyDraftView(draft = {}, extra = {}) {
-    const sections = (draft.sections || []).map((sec) => ({ ...sec }))
+    const title = draft.title || ''
+    const caseSummary = draft.caseSummary || ''
+    const sections = this.mapSections(draft.sections || [])
     const media = this.mapMedia(draft.media || [])
     this.setData({
-      title: draft.title || '',
-      caseSummary: draft.caseSummary || '',
+      title,
+      caseSummary,
+      titleHeight: this.measureTextHeight(title, 1),
+      summaryHeight: this.measureTextHeight(caseSummary, 2),
       sections,
       media,
-      mediaGroups: groupMediaBySection(media, sections),
       ...extra,
     })
   },
@@ -101,23 +140,30 @@ Page({
   },
 
   onTitleInput(e) {
-    this.setData({ title: e.detail.value || '' })
+    const title = e.detail.value || ''
+    this.setData({
+      title,
+      titleHeight: this.measureTextHeight(title, 1),
+    })
   },
 
   onSummaryInput(e) {
-    this.setData({ caseSummary: e.detail.value || '' })
+    const caseSummary = e.detail.value || ''
+    this.setData({
+      caseSummary,
+      summaryHeight: this.measureTextHeight(caseSummary, 2),
+    })
   },
 
   onSectionInput(e) {
     const { key } = e.currentTarget.dataset
     const value = e.detail.value || ''
     const sections = (this.data.sections || []).map((sec) =>
-      sec.key === key ? { ...sec, body: value } : sec,
+      sec.key === key
+        ? { ...sec, body: value, bodyHeight: this.measureTextHeight(value, 1) }
+        : sec,
     )
-    this.setData({
-      sections,
-      mediaGroups: groupMediaBySection(this.data.media, sections),
-    })
+    this.setData({ sections })
   },
 
   onRemoveMedia(e) {
@@ -125,17 +171,18 @@ Page({
     const media = (this.data.media || []).filter(
       (item) => !(String(item.nodeId) === String(nodeId) && Number(item.idx) === Number(idx)),
     )
-    this.setData({
-      media,
-      mediaGroups: groupMediaBySection(media, this.data.sections),
-    })
+    this.setData({ media })
   },
 
   buildDraftPayload() {
     return {
       title: this.data.title,
       caseSummary: this.data.caseSummary,
-      sections: this.data.sections,
+      sections: (this.data.sections || []).map((sec) => ({
+        key: sec.key,
+        title: sec.title,
+        body: sec.body,
+      })),
       media: (this.data.media || []).map((item) => ({
         nodeId: item.nodeId,
         idx: item.idx,

@@ -210,7 +210,7 @@ Page({
     isCompleted: false,
     hasOwner: false,
     publicCaseStatus: 'private',
-    showContentOptimizeEntry: false,
+    showCaseDraftEntry: false,
     caseDraftConfirmed: false,
     showBottomPrimary: false,
     bottomPrimaryText: '',
@@ -710,7 +710,7 @@ Page({
       isCompleted,
       hasOwner,
       publicCaseStatus,
-      showContentOptimizeEntry: isCompleted && !detail.isAuthorized,
+      showCaseDraftEntry: isCompleted && !detail.isAuthorized,
       caseDraftConfirmed: Boolean(
         detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
       ),
@@ -2081,13 +2081,6 @@ Page({
       title: '辙见 · 服务相册',
       path: TOOL_HOME_PATH,
     }
-  },
-
-  onOpenContentOptimize() {
-    if (!this.albumId) return
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/optimize/index?albumId=${this.albumId}`,
-    })
   },
 
   onOpenCaseDraft() {

@@ -46,34 +46,16 @@
 
 .case-draft__textarea {
   box-sizing: border-box;
+  display: block;
   width: 100%;
-  min-height: 72rpx;
   padding: var(--space-sm) var(--space-md);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--font-body);
-  line-height: 1.6;
+  line-height: var(--font-body-lh);
   color: var(--color-text-primary);
   background: var(--color-bg-elevated, #fff);
-}
-
-.case-draft__title {
-  min-height: 72rpx;
-}
-
-.case-draft__summary {
-  min-height: 88rpx;
-}
-
-.case-draft__media {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-}
-
-.case-draft__media-group {
-  margin-top: var(--space-md);
+  overflow: hidden;
 }
 
 .case-draft__media-item {

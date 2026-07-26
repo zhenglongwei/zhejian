@@ -27,20 +27,22 @@
       <text class="text-caption case-draft__label">标题</text>
       <textarea
         class="case-draft__textarea case-draft__title"
+        style="height: {{titleHeight}}px;"
         value="{{title}}"
         disabled="{{!editable}}"
         maxlength="120"
-        auto-height
+        disable-default-padding
         bindinput="onTitleInput"
         placeholder="门店名｜地址｜车型｜项目"
       />
       <text class="text-caption case-draft__label">案例摘要</text>
       <textarea
         class="case-draft__textarea case-draft__summary"
+        style="height: {{summaryHeight}}px;"
         value="{{caseSummary}}"
         disabled="{{!editable}}"
         maxlength="250"
-        auto-height
+        disable-default-padding
         bindinput="onSummaryInput"
         placeholder="由章节自动拼接；点「AI 润色」会用摘要专用提示词润色。勿写金额。"
       />
@@ -57,10 +59,11 @@
       <text class="text-body case-draft__section-title">{{item.title}}</text>
       <textarea
         class="case-draft__textarea"
+        style="height: {{item.bodyHeight}}px;"
         value="{{item.body}}"
         disabled="{{!editable}}"
         maxlength="600"
-        auto-height
+        disable-default-padding
         data-key="{{item.key}}"
         bindinput="onSectionInput"
         placeholder="根据节点备注生成，可修订；勿写金额"
@@ -86,39 +89,7 @@
       </view>
     </ui-card>
 
-    <ui-card shadow="{{true}}" padding="{{true}}" wx:if="{{mediaGroups.length}}">
-      <text class="text-h3">全部配图</text>
-      <text class="text-caption text-secondary case-draft__mask-tip">以下为原图便于核对；确认完工后系统脱敏，车主与正式公示只看脱敏图。每个节点一段说明，图片依次排列，不再逐张重复描述。</text>
-      <view
-        class="case-draft__media-group"
-        wx:for="{{mediaGroups}}"
-        wx:for-item="group"
-        wx:key="key"
-      >
-        <text class="text-body case-draft__section-title">{{group.title}}</text>
-        <view class="case-draft__media">
-          <view
-            class="case-draft__media-item"
-            wx:for="{{group.items}}"
-            wx:for-item="item"
-            wx:for-index="mIndex"
-            wx:key="mIndex"
-          >
-            <view class="case-draft__thumb-wrap">
-              <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
-              <view
-                wx:if="{{editable}}"
-                class="case-draft__thumb-remove"
-                data-node-id="{{item.nodeId}}"
-                data-idx="{{item.idx}}"
-                catchtap="onRemoveMedia"
-              >×</view>
-            </view>
-          </view>
-        </view>
-      </view>
-    </ui-card>
-    <ui-card shadow="{{true}}" padding="{{true}}" wx:else>
+    <ui-card shadow="{{true}}" padding="{{true}}" wx:if="{{!media.length}}">
       <text class="text-caption text-secondary">暂无公开配图。请在相册中将过程图设为可公示，或完工脱敏后再嵌入。</text>
     </ui-card>
 
