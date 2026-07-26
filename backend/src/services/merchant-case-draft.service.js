@@ -101,6 +101,71 @@ function buildRuleSections(albumView = {}) {
   })
 }
 
+const HANDOVER_PLACEHOLDER = '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
+
+function draftBodyHasWarranty(body = '') {
+  return /质保时长|质保范围/.test(String(body || ''))
+}
+
+/**
+ * 未确认稿：把相册「质保承诺」字段同步进交车与质保章节（及摘要，若尚无质保句）
+ */
+function syncWarrantyIntoDraft(draft, albumView = {}) {
+  if (!draft || typeof draft !== 'object') return draft
+  const { formatWarrantyCommitmentText, findWarrantyEvidenceItem } = require('../utils/album-evidence-items')
+  const warrantyText = scrubPiiText(
+    formatWarrantyCommitmentText(findWarrantyEvidenceItem(albumView.evidenceItems || []) || {}),
+  )
+  if (!warrantyText) return draft
+
+  const sectionsIn = Array.isArray(draft.sections) ? draft.sections : []
+  const sections = sectionsIn.map((sec) => ({ ...sec }))
+  const idx = sections.findIndex((sec) => sec && sec.key === 'handover')
+  let sectionsChanged = false
+
+  if (idx < 0) {
+    const ruleHandover = buildRuleSections(albumView).find((sec) => sec.key === 'handover')
+    sections.push({
+      key: 'handover',
+      title: (ruleHandover && ruleHandover.title) || '交车与质保',
+      body: ((ruleHandover && ruleHandover.body) || warrantyText).slice(0, 600),
+    })
+    sectionsChanged = true
+  } else if (!draftBodyHasWarranty(sections[idx].body)) {
+    const body = String(sections[idx].body || '').trim()
+    let nextBody = body
+    if (!body || body === HANDOVER_PLACEHOLDER) {
+      const ruleHandover = buildRuleSections(albumView).find((sec) => sec.key === 'handover')
+      nextBody = (ruleHandover && ruleHandover.body) || warrantyText
+    } else {
+      nextBody = `${body.replace(/[。；;\s]+$/u, '')}。${warrantyText}`
+    }
+    sections[idx] = {
+      ...sections[idx],
+      body: stripAmountText(nextBody).slice(0, 600),
+    }
+    sectionsChanged = true
+  }
+
+  let caseSummary = String(draft.caseSummary || '').trim()
+  let summaryChanged = false
+  if (caseSummary && !draftBodyHasWarranty(caseSummary)) {
+    const prefix = /[。！？]$/u.test(caseSummary) ? caseSummary : `${caseSummary}。`
+    caseSummary = stripAmountText(`${prefix}${warrantyText}。`).slice(0, 250)
+    summaryChanged = true
+  } else if (!caseSummary) {
+    caseSummary = buildRuleCaseSummary({ title: draft.title, sections }, albumView)
+    summaryChanged = true
+  }
+
+  if (!sectionsChanged && !summaryChanged) return draft
+  return normalizeMerchantCaseDraft({
+    ...draft,
+    sections,
+    caseSummary,
+  })
+}
+
 function listPublicImageMeta(albumView = {}) {
   const meta = Array.isArray(albumView.imageMeta) ? albumView.imageMeta : []
   return meta
@@ -317,4 +382,5 @@ module.exports = {
   buildTitle,
   buildRuleCaseSummary,
   deriveSeoDescriptionFromSummary,
+  syncWarrantyIntoDraft,
 }

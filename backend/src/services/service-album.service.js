@@ -996,6 +996,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     buildRuleMerchantCaseDraft,
     buildTitle,
     normalizeMerchantCaseDraft,
+    syncWarrantyIntoDraft,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
@@ -1005,16 +1006,32 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   if (!forceRule && pkg && pkg.merchantCaseDraft) {
     let draft = pkg.merchantCaseDraft
     const confirmed = Boolean(draft.confirmedAt)
-    // 未确认且可编辑：按新规则自动重拼标题一次（门店名｜地址｜车型｜项目）
+    // 未确认且可编辑：重拼标题，并把相册已填质保同步进「交车与质保」
     if (editable && !confirmed) {
+      const prevTitle = draft.title || ''
+      const prevHandover = ((draft.sections || []).find((s) => s && s.key === 'handover') || {}).body || ''
+      const prevSummary = draft.caseSummary || ''
       const nextTitle = buildTitle(view)
-      if (nextTitle && nextTitle !== draft.title) {
-        draft = normalizeMerchantCaseDraft({ ...draft, title: nextTitle })
+      let next = draft
+      if (nextTitle && nextTitle !== prevTitle) {
+        next = { ...next, title: nextTitle }
+      }
+      next = syncWarrantyIntoDraft(next, view)
+      next = normalizeMerchantCaseDraft(next)
+      const nextHandover = ((next.sections || []).find((s) => s && s.key === 'handover') || {}).body || ''
+      if (
+        next.title !== prevTitle ||
+        nextHandover !== prevHandover ||
+        (next.caseSummary || '') !== prevSummary
+      ) {
+        draft = next
         const nextPkg = { ...pkg, merchantCaseDraft: draft }
         await prisma.album.update({
           where: { id: albumId },
           data: { contentPackageJson: nextPkg },
         })
+      } else {
+        draft = next
       }
     }
     return {

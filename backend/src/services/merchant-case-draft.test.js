@@ -98,6 +98,20 @@ function run() {
   assert.ok(handover2.body.includes('配件 1 年'))
   assert.ok(handover2.body.includes('非事故二次损伤'))
 
+  const { syncWarrantyIntoDraft } = require('./merchant-case-draft.service')
+  const stale = normalizeMerchantCaseDraft({
+    title: '旧标题',
+    sections: [
+      { key: 'handover', title: '交车与质保', body: '旧件已交还' },
+    ],
+    media: [],
+  })
+  const synced = syncWarrantyIntoDraft(stale, {
+    evidenceItems: [{ id: 'warranty', duration: '漆面 2 年', scope: '', note: '' }],
+  })
+  assert.ok(synced.sections.find((s) => s.key === 'handover').body.includes('漆面 2 年'))
+  assert.ok(synced.caseSummary.includes('质保时长'))
+
   const normalized = normalizeMerchantCaseDraft({
     title: '测试',
     sections: [{ key: 'symptom', body: '约 99 元' }],

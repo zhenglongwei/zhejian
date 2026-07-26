@@ -13,6 +13,7 @@ const { chatCompletion } = require('../lib/dashscope-chat')
   mergeLlmSectionsIntoDraft,
   buildRuleCaseSummary,
   buildTitle,
+  syncWarrantyIntoDraft,
   stripAmountText,
 } = require('./merchant-case-draft.service')
 
@@ -223,12 +224,14 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
 
   // 顶栏标题保持「门店名｜地址｜车型｜项目」规则结构，便于检索；LLM 只润色章节
   const structuredTitle = buildTitle(albumView) || afterSections.title
-  return normalizeMerchantCaseDraft({
+  const withTitle = normalizeMerchantCaseDraft({
     ...afterSections,
     title: structuredTitle,
     caseSummary,
     source: 'llm',
   })
+  // 润色后若模型丢掉质保句，从相册质保字段补回
+  return syncWarrantyIntoDraft(withTitle, albumView)
 }
 
 module.exports = {

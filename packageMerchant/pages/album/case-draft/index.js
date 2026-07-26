@@ -9,6 +9,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { groupMediaBySection } = require('../../../../utils/merchant-case-draft-display')
 
 Page({
   data: {
@@ -24,6 +25,7 @@ Page({
     caseSummary: '',
     sections: [],
     media: [],
+    mediaGroups: [],
     confirmed: false,
   },
 
@@ -62,20 +64,29 @@ Page({
     }))
   },
 
+  applyDraftView(draft = {}, extra = {}) {
+    const sections = (draft.sections || []).map((sec) => ({ ...sec }))
+    const media = this.mapMedia(draft.media || [])
+    this.setData({
+      title: draft.title || '',
+      caseSummary: draft.caseSummary || '',
+      sections,
+      media,
+      mediaGroups: groupMediaBySection(media, sections),
+      ...extra,
+    })
+  },
+
   async loadDraft() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
       const data = await fetchMerchantCaseDraft(this.albumId)
       const draft = data.draft || {}
-      this.setData({
+      this.applyDraftView(draft, {
         status: 'normal',
         albumId: this.albumId,
         editable: Boolean(data.editable),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
-        title: draft.title || '',
-        caseSummary: draft.caseSummary || '',
-        sections: (draft.sections || []).map((sec) => ({ ...sec })),
-        media: this.mapMedia(draft.media || []),
       })
     } catch (e) {
       this.setData({
@@ -103,7 +114,10 @@ Page({
     const sections = (this.data.sections || []).map((sec) =>
       sec.key === key ? { ...sec, body: value } : sec,
     )
-    this.setData({ sections })
+    this.setData({
+      sections,
+      mediaGroups: groupMediaBySection(this.data.media, sections),
+    })
   },
 
   onRemoveMedia(e) {
@@ -111,7 +125,10 @@ Page({
     const media = (this.data.media || []).filter(
       (item) => !(String(item.nodeId) === String(nodeId) && Number(item.idx) === Number(idx)),
     )
-    this.setData({ media })
+    this.setData({
+      media,
+      mediaGroups: groupMediaBySection(media, this.data.sections),
+    })
   },
 
   buildDraftPayload() {
@@ -140,13 +157,13 @@ Page({
       })
       wx.hideLoading()
       const draft = data.draft || {}
-      this.setData({
-        title: draft.title || this.data.title,
-        caseSummary: draft.caseSummary || this.data.caseSummary,
-        sections: (draft.sections || []).map((sec) => ({ ...sec })),
-        media: this.mapMedia(draft.media || this.data.media),
-        confirmed: false,
-      })
+      this.applyDraftView(
+        {
+          ...draft,
+          media: draft.media && draft.media.length ? draft.media : this.data.media,
+        },
+        { confirmed: false },
+      )
       wx.showToast({ title: '已润色，可继续修改', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
@@ -165,11 +182,7 @@ Page({
         draft: this.buildDraftPayload(),
       })
       const draft = data.draft || {}
-      this.setData({
-        title: draft.title || '',
-        caseSummary: draft.caseSummary || '',
-        sections: draft.sections || [],
-        media: this.mapMedia(draft.media || []),
+      this.applyDraftView(draft, {
         editable: Boolean(data.editable),
         confirmed: Boolean(data.confirmed || draft.confirmedAt),
       })
@@ -235,6 +248,7 @@ Page({
         const { draftToPlainText } = require('../../../../utils/merchant-case-draft-display')
         text = draftToPlainText({
           title: this.data.title,
+          caseSummary: this.data.caseSummary,
           sections: this.data.sections,
         })
       }

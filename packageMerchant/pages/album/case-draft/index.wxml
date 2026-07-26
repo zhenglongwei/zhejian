@@ -81,34 +81,40 @@
                 catchtap="onRemoveMedia"
               >×</view>
             </view>
-            <text class="text-caption">{{m.caption || m.nodeId}}</text>
           </view>
         </block>
       </view>
     </ui-card>
 
-    <ui-card shadow="{{true}}" padding="{{true}}" wx:if="{{media.length}}">
+    <ui-card shadow="{{true}}" padding="{{true}}" wx:if="{{mediaGroups.length}}">
       <text class="text-h3">全部配图</text>
-      <text class="text-caption text-secondary">以下为原图便于核对；确认完工后系统脱敏，车主与正式公示只看脱敏图。</text>
-      <view class="case-draft__media">
-        <view
-          class="case-draft__media-item"
-          wx:for="{{media}}"
-          wx:for-item="item"
-          wx:for-index="mIndex"
-          wx:key="mIndex"
-        >
-          <view class="case-draft__thumb-wrap">
-            <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
-            <view
-              wx:if="{{editable}}"
-              class="case-draft__thumb-remove"
-              data-node-id="{{item.nodeId}}"
-              data-idx="{{item.idx}}"
-              catchtap="onRemoveMedia"
-            >×</view>
+      <text class="text-caption text-secondary case-draft__mask-tip">以下为原图便于核对；确认完工后系统脱敏，车主与正式公示只看脱敏图。每个节点一段说明，图片依次排列，不再逐张重复描述。</text>
+      <view
+        class="case-draft__media-group"
+        wx:for="{{mediaGroups}}"
+        wx:for-item="group"
+        wx:key="key"
+      >
+        <text class="text-body case-draft__section-title">{{group.title}}</text>
+        <view class="case-draft__media">
+          <view
+            class="case-draft__media-item"
+            wx:for="{{group.items}}"
+            wx:for-item="item"
+            wx:for-index="mIndex"
+            wx:key="mIndex"
+          >
+            <view class="case-draft__thumb-wrap">
+              <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
+              <view
+                wx:if="{{editable}}"
+                class="case-draft__thumb-remove"
+                data-node-id="{{item.nodeId}}"
+                data-idx="{{item.idx}}"
+                catchtap="onRemoveMedia"
+              >×</view>
+            </view>
           </view>
-          <text class="text-caption">{{item.caption || item.nodeId}} · {{item.sectionKey}}</text>
         </view>
       </view>
     </ui-card>

@@ -72,6 +72,10 @@
   margin-top: var(--space-md);
 }
 
+.case-draft__media-group {
+  margin-top: var(--space-md);
+}
+
 .case-draft__media-item {
   display: flex;
   flex-direction: column;
