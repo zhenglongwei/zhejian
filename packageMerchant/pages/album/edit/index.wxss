@@ -5,6 +5,14 @@
   padding-top: var(--space-md);
 }
 
+.merchant-album-edit__lock-banner {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
 .merchant-album-edit__shell {
   height: 100vh;
   display: flex;
@@ -935,4 +943,30 @@
 .merchant-album-edit__optimize-hint {
   display: block;
   margin-bottom: var(--space-3);
+}
+
+.merchant-album-edit__draft-title {
+  display: block;
+  margin-bottom: var(--space-2);
+  line-height: 1.45;
+}
+
+.merchant-album-edit__draft-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  line-height: 1.55;
+  margin-bottom: var(--space-3);
+}
+
+.merchant-album-edit__draft-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.merchant-album-edit__draft-action-gap {
+  margin-left: 0;
 }

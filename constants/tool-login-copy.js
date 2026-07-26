@@ -9,7 +9,7 @@ const TOOL_GUEST_LOGIN_DESC =
 
 const TOOL_GUEST_ALBUM_HINT = '登录后查看记录'
 
-const TOOL_GUEST_LOGIN_BUTTON = '微信一键登录'
+const TOOL_GUEST_LOGIN_BUTTON = '一键登录'
 
 module.exports = {
   TOOL_GUEST_LOGIN_TITLE,

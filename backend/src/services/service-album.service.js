@@ -534,6 +534,8 @@ function buildMerchantView(album) {
       album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED && isCompleted,
     authorizationStatus: album.authorization?.status || '',
     isAuthorized: album.authorization?.status === 'authorized',
+    contentLocked: isAlbumContentLocked(album),
+    editable: !isAlbumContentLocked(album),
     contentOptimize: (() => {
       const { summarizeOptimizeDraftForApi } = require('./album-content-optimize.service')
       return summarizeOptimizeDraftForApi(album)

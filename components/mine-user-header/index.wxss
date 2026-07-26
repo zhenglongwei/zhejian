@@ -4,6 +4,16 @@
   gap: var(--space-md);
 }
 
+.mine-user-header--guest {
+  justify-content: center;
+}
+
+.mine-user-header--guest .mine-user-header__meta {
+  flex: 0 1 auto;
+  align-items: center;
+  width: auto;
+}
+
 .mine-user-header__avatar-shell {
   position: relative;
   flex-shrink: 0;
@@ -134,7 +144,10 @@
 }
 
 .mine-user-header__guest {
-  width: 100%;
+  display: flex;
+  justify-content: center;
+  width: auto;
+  min-width: 280rpx;
 }
 
 .mine-user-header__bind-desc {

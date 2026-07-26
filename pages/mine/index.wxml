@@ -18,10 +18,6 @@
 
   <block wx:else>
     <view class="mine__hub">
-      <view wx:if="{{!isLoggedIn}}" class="mine__tool-hint surface-album-panel">
-        <text class="text-caption text-secondary">{{guestToolHint}}</text>
-      </view>
-
       <view class="mine__folio surface-album-folio">
         <ui-mine-user-header
           variant="hub"

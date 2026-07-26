@@ -1,10 +1,10 @@
 <view
-  class="mine-user-header {{variant === 'hub' ? 'mine-user-header--hub' : ''}}"
+  class="mine-user-header {{variant === 'hub' ? 'mine-user-header--hub' : ''}} {{!isLoggedIn ? 'mine-user-header--guest' : ''}}"
   bindtap="{{variant === 'hub' ? 'onHubTap' : ''}}"
 >
-  <view class="mine-user-header__avatar-shell">
+  <view wx:if="{{isLoggedIn}}" class="mine-user-header__avatar-shell">
     <button
-      wx:if="{{isLoggedIn && variant === 'profile'}}"
+      wx:if="{{variant === 'profile'}}"
       class="mine-user-header__avatar-btn"
       open-type="chooseAvatar"
       bind:chooseavatar="onChooseAvatar"
@@ -18,7 +18,7 @@
       />
       <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder" />
     </button>
-    <block wx:elif="{{isLoggedIn}}">
+    <block wx:else>
       <image
         wx:if="{{displayAvatarUrl}}"
         class="mine-user-header__avatar"
@@ -27,11 +27,7 @@
       />
       <view wx:else class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder" />
     </block>
-    <view
-      wx:else
-      class="mine-user-header__avatar mine-user-header__avatar--placeholder image-placeholder"
-    />
-    <text wx:if="{{isLoggedIn && variant === 'profile'}}" class="mine-user-header__avatar-hint">换头像</text>
+    <text wx:if="{{variant === 'profile'}}" class="mine-user-header__avatar-hint">换头像</text>
   </view>
 
   <view class="mine-user-header__meta">
@@ -64,7 +60,7 @@
     </block>
     <block wx:else>
       <view class="mine-user-header__guest" catch:tap="onLoginTap">
-        <ui-button type="primary" block bind:btntap="onLoginTap">{{guestLoginButton}}</ui-button>
+        <ui-button type="primary" bind:btntap="onLoginTap">{{guestLoginButton}}</ui-button>
       </view>
     </block>
   </view>

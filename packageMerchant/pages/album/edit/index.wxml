@@ -17,11 +17,15 @@
       <scroll-view scroll-y class="merchant-album-edit__scroll" show-scrollbar="{{false}}" scroll-into-view="{{inspScrollIntoView}}">
         <view class="page-content merchant-album-edit__body">
       <ui-card shadow="{{true}}" padding="{{true}}">
+        <view wx:if="{{lockHint}}" class="merchant-album-edit__lock-banner">
+          <text class="text-caption">{{lockHint}}</text>
+        </view>
         <view class="merchant-album-edit__head">
           <view class="merchant-album-edit__head-main">
             <text class="text-h3">{{detail.serviceName}}</text>
             <view class="merchant-album-edit__head-tags">
               <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
+              <ui-tag wx:if="{{readOnly}}" variant="info" text="仅查看" />
               <ui-tag wx:if="{{templateName}}" variant="info" text="{{templateName}}" />
             </view>
           </view>
@@ -34,7 +38,7 @@
               range="{{templateOptions}}"
               range-key="name"
               value="{{templatePickerIndex}}"
-              disabled="{{switching || saving || completing}}"
+              disabled="{{readOnly || switching || saving || completing}}"
               bindchange="onTemplateChange"
             >
               <view class="merchant-album-edit__template-switch-action">
@@ -61,7 +65,7 @@
                 class="merchant-album-edit__meta-input"
                 placeholder="品牌 *"
                 value="{{vehicleBrand}}"
-                disabled="{{saving || completing || switching}}"
+                disabled="{{readOnly || saving || completing || switching}}"
                 data-field="vehicleBrand"
                 bindinput="onVehicleInput"
               />
@@ -69,7 +73,7 @@
                 class="merchant-album-edit__meta-input"
                 placeholder="车系 *"
                 value="{{vehicleSeries}}"
-                disabled="{{saving || completing || switching}}"
+                disabled="{{readOnly || saving || completing || switching}}"
                 data-field="vehicleSeries"
                 bindinput="onVehicleInput"
               />
@@ -85,17 +89,19 @@
               >{{detail.userPhoneDisplay}}</text>
               <block wx:elif="{{!hasOwner}}">
                 <text
+                  wx:if="{{!readOnly}}"
                   class="text-link text-body merchant-album-edit__owner-link"
                   bindtap="onInviteOwnerScan"
                 >请车主扫码关联</text>
-                <block wx:if="{{allowTestOwnerPhone}}">
+                <text wx:else class="text-caption text-secondary">未关联车主</text>
+                <block wx:if="{{allowTestOwnerPhone && !readOnly}}">
                   <input
                     class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
                     type="number"
                     maxlength="11"
                     placeholder="测试手填手机号"
                     value="{{ownerPhoneInput}}"
-                    disabled="{{saving || completing || switching}}"
+                    disabled="{{readOnly || saving || completing || switching}}"
                     bindinput="onOwnerPhoneInput"
                   />
                   <text class="text-caption merchant-album-edit__owner-test-tip">填写后点击底部「保存」即可关联</text>
@@ -115,21 +121,24 @@
       >
         <view class="merchant-album-edit__optimize-head">
           <text class="text-h3">公开案例稿</text>
-          <ui-tag variant="info" text="完工后" />
+          <ui-tag variant="info" text="{{readOnly ? '仅查看' : '可修订'}}" />
         </view>
-        <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
-          {{caseDraftConfirmed ? '案例稿已确认完工，仅可查看与复制文字；确认前请在预览页完成校对与 AI 润色。驳回前不可再改，撤回发布也不会解锁。' : '预览并修订将给车主看的案例正文与配图（不含金额）。确认并完工后不可再改。'}}
-        </text>
-        <ui-button type="primary" block bind:btntap="onOpenCaseDraft">
-          {{caseDraftConfirmed ? '查看公开案例稿' : '编辑公开案例稿'}}
-        </ui-button>
-        <ui-button
-          wx:if="{{caseDraftConfirmed}}"
-          type="secondary"
-          block
-          class="merchant-album-edit__export-btn"
-          bind:btntap="onCopyCaseDraftExport"
-        >复制发自媒体</ui-button>
+        <block wx:if="{{caseDraftHasPreview}}">
+          <text wx:if="{{caseDraftPreviewTitle}}" class="text-body merchant-album-edit__draft-title">{{caseDraftPreviewTitle}}</text>
+          <text wx:if="{{caseDraftPreviewSummary}}" class="text-caption text-secondary merchant-album-edit__draft-summary">{{caseDraftPreviewSummary}}</text>
+          <view class="merchant-album-edit__draft-actions">
+            <text class="text-caption text-link" bindtap="onOpenCaseDraft">查看全文</text>
+            <text
+              wx:if="{{caseDraftConfirmed}}"
+              class="text-caption text-link merchant-album-edit__draft-action-gap"
+              bindtap="onCopyCaseDraftExport"
+            >复制发自媒体</text>
+          </view>
+        </block>
+        <block wx:else>
+          <text class="text-caption text-secondary merchant-album-edit__optimize-hint">暂无案例摘要</text>
+          <text class="text-caption text-link" bindtap="onOpenCaseDraft">查看全文</text>
+        </block>
       </ui-card>
 
       <view wx:if="{{merchantInspPanels.length}}" id="merchant-insp-section" class="merchant-album-edit__insp">
@@ -200,7 +209,7 @@
           <album-evidence-slots
             wx:if="{{showStageEvidenceSlots}}"
             items="{{stageEvidenceSlots}}"
-            disabled="{{saving || completing || switching}}"
+            disabled="{{readOnly || saving || completing || switching}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             bind:change="onEvidenceSlotsChange"
           />
@@ -215,7 +224,7 @@
             notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             pairRows="{{comparePairRows}}"
-            disabled="{{saving || completing || switching}}"
+            disabled="{{readOnly || saving || completing || switching}}"
             bind:rowschange="onCompareRowsChange"
             bind:notechange="onCompareNoteChange"
             bind:syncfromassessment="onSyncCompareFromAssessment"
@@ -225,7 +234,7 @@
           <view class="merchant-album-edit__parts-node">
             <view class="merchant-album-edit__parts-node-head">
               <text class="text-h3 merchant-album-edit__parts-node-title">{{nodes[stageIndex].title}}</text>
-              <view class="merchant-album-edit__parts-head-actions">
+              <view wx:if="{{!readOnly}}" class="merchant-album-edit__parts-head-actions">
                 <view
                   class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
                   bindtap="onRunPlanQuoteOcr"
@@ -377,11 +386,15 @@
               </block>
             </view>
 
-            <view wx:if="{{!partWizardRows.length}}" class="merchant-album-edit__parts-empty">
+            <view wx:if="{{!partWizardRows.length && !readOnly}}" class="merchant-album-edit__parts-empty">
               <text class="text-caption text-secondary">暂无配件项，可点下方添加，或用上方 OCR 从报价单识别</text>
+            </view>
+            <view wx:elif="{{!partWizardRows.length && readOnly}}" class="merchant-album-edit__parts-empty">
+              <text class="text-caption text-secondary">暂无配件项</text>
             </view>
 
             <view
+              wx:if="{{!readOnly}}"
               class="merchant-album-edit__parts-upload-cta"
               hover-class="merchant-album-edit__parts-upload-cta--hover"
               hover-stay-time="80"
@@ -471,7 +484,7 @@
           <album-evidence-slots
             wx:if="{{showStageEvidenceSlots}}"
             items="{{stageEvidenceSlots}}"
-            disabled="{{saving || completing || switching}}"
+            disabled="{{readOnly || saving || completing || switching}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             bind:change="onEvidenceSlotsChange"
           />
@@ -480,13 +493,13 @@
             traces="{{oldPartTraces}}"
             partOptions="{{oldPartPartOptions}}"
             introHint="{{oldPartIntroHint}}"
-            disabled="{{saving || completing || switching}}"
+            disabled="{{readOnly || saving || completing || switching}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             bind:change="onOldPartTracesChange"
           />
-          <ui-album-node
+            <ui-album-node
             wx:if="{{showStageProcessUploader}}"
-            mode="edit"
+            mode="{{readOnly ? 'view' : 'edit'}}"
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
             photoTips="{{nodes[stageIndex].photoTips}}"
@@ -503,7 +516,7 @@
           />
           <ui-album-node
             wx:elif="{{!showStageEvidenceSlots}}"
-            mode="edit"
+            mode="{{readOnly ? 'view' : 'edit'}}"
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
             photoTips="{{nodes[stageIndex].photoTips}}"
@@ -538,7 +551,7 @@
               maxlength="80"
               placeholder="{{warrantyDurationPlaceholder}}"
               value="{{warrantyDuration}}"
-              disabled="{{saving || completing || switching}}"
+              disabled="{{readOnly || saving || completing || switching}}"
               data-field="duration"
               bindinput="onWarrantyFieldInput"
             />
@@ -548,7 +561,7 @@
               maxlength="200"
               placeholder="{{warrantyScopePlaceholder}}"
               value="{{warrantyScope}}"
-              disabled="{{saving || completing || switching}}"
+              disabled="{{readOnly || saving || completing || switching}}"
               data-field="scope"
               bindinput="onWarrantyFieldInput"
               auto-height
@@ -559,7 +572,7 @@
               maxlength="300"
               placeholder="{{warrantyNotePlaceholder}}"
               value="{{warrantyNote}}"
-              disabled="{{saving || completing || switching}}"
+              disabled="{{readOnly || saving || completing || switching}}"
               data-field="note"
               bindinput="onWarrantyFieldInput"
               auto-height
@@ -573,7 +586,7 @@
               type="number"
               placeholder="请输入本次实际费用"
               value="{{planAmount}}"
-              disabled="{{saving || completing || switching}}"
+              disabled="{{readOnly || saving || completing || switching}}"
               data-field="planAmount"
               bindinput="onPlanInput"
             />
@@ -590,7 +603,7 @@
         </view>
       </scroll-view>
 
-      <view class="merchant-album-edit__bottom safe-bottom">
+      <view wx:if="{{showBottomBar}}" class="merchant-album-edit__bottom safe-bottom">
         <view class="merchant-album-edit__bottom-inner">
           <button
             class="btn btn--secondary btn--block merchant-album-edit__bottom-btn"

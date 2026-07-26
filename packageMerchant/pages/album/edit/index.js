@@ -24,10 +24,32 @@ const {
 } = require('../../../../utils/service-album-share')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { resolveMerchantAlbumDisplayStatus } = require('../../../../utils/service-album-display')
+const { draftToAiSummary } = require('../../../../utils/merchant-case-draft-display')
 const {
   resolveAlbumHasOwner,
   MERCHANT_ALBUM_INVITE_PAGE,
 } = require('../../../../utils/merchant-album-nav')
+
+const CASE_DRAFT_PREVIEW_MAX = 120
+
+function buildCaseDraftPreview(draft) {
+  if (!draft || typeof draft !== 'object') {
+    return { title: '', summary: '', hasDraft: false }
+  }
+  const title = String(draft.title || '').trim()
+  let summary = String(draft.caseSummary || '').trim()
+  if (!summary) summary = draftToAiSummary(draft)
+  summary = String(summary || '').trim()
+  const clipped =
+    summary.length > CASE_DRAFT_PREVIEW_MAX
+      ? `${summary.slice(0, CASE_DRAFT_PREVIEW_MAX).trim()}…`
+      : summary
+  return {
+    title,
+    summary: clipped,
+    hasDraft: Boolean(title || clipped || draft.confirmedAt),
+  }
+}
 const { persistAlbumNodeImages, persistLocalImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
@@ -208,12 +230,19 @@ Page({
     vehiclePlate: '',
     vehicleVin: '',
     isCompleted: false,
+    readOnly: false,
+    formDisabled: false,
+    lockHint: '',
     hasOwner: false,
     publicCaseStatus: 'private',
     showCaseDraftEntry: false,
     caseDraftConfirmed: false,
+    caseDraftPreviewTitle: '',
+    caseDraftPreviewSummary: '',
+    caseDraftHasPreview: false,
     showBottomPrimary: false,
     bottomPrimaryText: '',
+    showBottomBar: true,
     ownerPhoneInput: '',
     allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
     uploadPrivacyHint: '',
@@ -668,22 +697,46 @@ Page({
     const isCompleted =
       detail.status === SERVICE_ALBUM_STATUS.COMPLETED ||
       detail.status === SERVICE_ALBUM_STATUS.PUBLISHED
+    const readOnly =
+      detail.contentLocked === true ||
+      detail.editable === false ||
+      (isCompleted && detail.complianceStatus !== 'rejected')
     const display = resolveMerchantAlbumDisplayStatus(detail.status)
     const hasOwnerPhone = Boolean(String(detail.userPhone || '').trim())
     const hasOwner = Boolean(detail.hasOwner) || hasOwnerPhone
     const publicCaseStatus = detail.publicCaseStatus || 'private'
     const canSwitchTemplate =
-      !isCompleted && publicCaseStatus === 'private' && detail.status !== 'pending_review'
+      !readOnly &&
+      !isCompleted &&
+      publicCaseStatus === 'private' &&
+      detail.status !== 'pending_review'
     let showBottomPrimary = false
     let bottomPrimaryText = ''
     if (
+      !readOnly &&
       detail.status !== SERVICE_ALBUM_STATUS.COMPLETED &&
       detail.status !== SERVICE_ALBUM_STATUS.PUBLISHED
     ) {
       showBottomPrimary = true
       bottomPrimaryText = '标记已完工'
     }
+    const caseDraftConfirmed = Boolean(
+      detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
+    )
+    const caseDraftPreview = buildCaseDraftPreview(detail.merchantCaseDraft)
+    const showCaseDraftEntry = isCompleted && !detail.isAuthorized
+    let lockHint = ''
+    if (readOnly) {
+      if (detail.complianceStatus === 'pending' || detail.complianceStatus === 'spot_check') {
+        lockHint = '已确认完工，案例审核中。相册只读；驳回后方可再改。'
+      } else if (detail.isAuthorized) {
+        lockHint = '车主已发布或已提交发布，相册只读。'
+      } else {
+        lockHint = '已确认完工，相册只读。仅平台审核驳回后可再编辑。'
+      }
+    }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
+    wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
     this.setData({
       status: 'normal',
       detail,
@@ -708,14 +761,19 @@ Page({
       vehiclePlate: (detail.vehicle && (detail.vehicle.plate || detail.vehicle.plateDisplay)) || '',
       vehicleVin: (detail.vehicle && detail.vehicle.vin) || '',
       isCompleted,
+      readOnly,
+      formDisabled: readOnly,
+      lockHint,
       hasOwner,
       publicCaseStatus,
-      showCaseDraftEntry: isCompleted && !detail.isAuthorized,
-      caseDraftConfirmed: Boolean(
-        detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
-      ),
+      showCaseDraftEntry,
+      caseDraftConfirmed,
+      caseDraftPreviewTitle: caseDraftPreview.title,
+      caseDraftPreviewSummary: caseDraftPreview.summary,
+      caseDraftHasPreview: caseDraftPreview.hasDraft,
       showBottomPrimary,
       bottomPrimaryText,
+      showBottomBar: !readOnly,
       templateId: detail.templateId || '',
       templateName: detail.templateName || '',
       templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
@@ -958,6 +1016,7 @@ Page({
   },
 
   onNodeImages(e) {
+    if (this.data.readOnly) return
     let index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) {
       index = this.data.stageIndex
@@ -1008,6 +1067,7 @@ Page({
   },
 
   onVehicleInput(e) {
+    if (this.data.readOnly) return
     const { field } = e.currentTarget.dataset
     this.setData({ [field]: e.detail.value })
   },
@@ -1173,6 +1233,7 @@ Page({
   },
 
   onAddPartRow() {
+    if (this.data.readOnly) return
     const { planParts, parts } = appendManualPartRow(this.data.planParts, this.data.parts, {
       partName: `配件 ${(this.data.partWizardRows || []).length + 1}`,
     })
@@ -1447,6 +1508,7 @@ Page({
   },
 
   async onRunPlanQuoteOcr() {
+    if (this.data.readOnly) return
     if (this.data.planOcrLoading) return
     const consented = await this.ensureDocumentOcrConsent()
     if (!consented) return
@@ -1637,6 +1699,7 @@ Page({
   },
 
   onPartVerifyGuideModeTap(e) {
+    if (this.data.readOnly) return
     const mode = String((e.currentTarget.dataset && e.currentTarget.dataset.mode) || '')
     if (mode !== 'text' && mode !== 'informed') return
     this.setData({
@@ -2005,6 +2068,10 @@ Page({
   },
 
   async onSave() {
+    if (this.data.readOnly) {
+      wx.showToast({ title: this.data.lockHint || '相册已锁定，仅可查看', icon: 'none' })
+      return
+    }
     if (this.data.saving) return
     if (!this.validateVehicle()) return
     if (!this.requireOwnerLinked('保存相册')) return
@@ -2035,6 +2102,10 @@ Page({
   },
 
   onComplete() {
+    if (this.data.readOnly) {
+      wx.showToast({ title: this.data.lockHint || '相册已锁定，仅可查看', icon: 'none' })
+      return
+    }
     if (this.data.completing || this.data.saving) return
     if (!this.validateVehicle()) return
     if (!this.requireOwnerLinked('标记完工')) return

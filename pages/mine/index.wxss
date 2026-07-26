@@ -11,11 +11,6 @@
   background-color: var(--color-bg-album);
 }
 
-.mine__tool-hint {
-  padding-top: var(--space-sm);
-  padding-bottom: var(--space-sm);
-}
-
 .mine__folio {
   margin: 0 calc(-1 * var(--page-padding-x));
   padding: var(--space-lg) var(--page-padding-x);
