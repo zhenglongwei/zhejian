@@ -94,18 +94,36 @@ async function resolveAdminToken() {
 }
 
 async function api(method, apiPath, { token, body, headers = {} } = {}) {
-  const res = await fetch(`${BASE}/api/v1${apiPath}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(`${BASE}/api/v1${apiPath}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+    })
+  } catch (err) {
+    const cause = err && (err.cause || err)
+    const code = cause && (cause.code || cause.errno)
+    throw new Error(
+      [
+        `无法连接 API ${BASE}${apiPath ? `/api/v1${apiPath}` : ''}（${method}）`,
+        code ? `code=${code}` : '',
+        (err && err.message) || 'fetch failed',
+        '请先启动 backend（如 pm2 / npm run start），或设置 SMOKE_BASE_URL 指向实际地址',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    )
+  }
   const json = await res.json().catch(() => ({}))
   if (!res.ok || (json.code != null && json.code !== 0)) {
-    throw new Error(`${method} ${apiPath} -> ${res.status} ${JSON.stringify(json)}`)
+    const e = new Error(`${method} ${apiPath} -> ${res.status} ${JSON.stringify(json)}`)
+    e.status = res.status
+    throw e
   }
   return json.data
 }
@@ -142,7 +160,12 @@ async function uploadImage(token, filePath) {
 async function resolveMerchantToken() {
   const { buildAuthSession } = require('../src/services/auth.service')
   const owner = await prisma.user.findUnique({ where: { id: MERCHANT_USER_ID } })
-  assert(owner, `商家用户不存在: ${MERCHANT_USER_ID}`)
+  assert(
+    owner,
+    `商家用户不存在: ${MERCHANT_USER_ID}。预发/生产无本地 seed 时请设置环境变量，例如：\n` +
+      `  SMOKE_MERCHANT_USER_ID=实际商家用户ID SMOKE_USER_ID=实际车主用户ID SMOKE_STORE_ID=实际门店ID\n` +
+      `或仅本地：npm run db:seed 后再跑（勿在生产库随意 seed）`
+  )
   const session = await buildAuthSession(owner)
   return { token: session.token, merchantId: session.merchant.merchantId }
 }
@@ -150,7 +173,10 @@ async function resolveMerchantToken() {
 async function resolveUserToken() {
   const { buildAuthSession } = require('../src/services/auth.service')
   const user = await prisma.user.findUnique({ where: { id: USER_ID } })
-  assert(user, `用户不存在: ${USER_ID}`)
+  assert(
+    user,
+    `用户不存在: ${USER_ID}。请设置 SMOKE_USER_ID（车主须有手机号，且与相册关联手机一致；默认 seed 为 user_demo_1）`
+  )
   const session = await buildAuthSession(user)
   return session.token
 }
@@ -287,7 +313,15 @@ async function cleanup({ albumId, caseId }) {
 async function main() {
   log('start', `BASE=${BASE} DESENSITIZE_ENGINE=${process.env.DESENSITIZE_ENGINE || '(default)'}`)
 
-  await api('GET', '/health')
+  try {
+    await api('GET', '/health')
+  } catch (err) {
+    throw new Error(
+      `${err.message}\n提示：冒烟脚本不会自己起服务。staging 上先确认 API 在监听，例如：\n` +
+        `  curl -sS ${BASE}/api/v1/health\n` +
+        `  pm2 list   # 或 systemctl / docker 看 backend 是否 online`
+    )
+  }
   const adminToken = await resolveAdminToken()
   await api('GET', '/admin/cases?page=1&pageSize=1', {
     token: adminToken,
