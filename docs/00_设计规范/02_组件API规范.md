@@ -349,10 +349,15 @@
 | showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
 | framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
 | showHeaderActions | Boolean | false | 用户端列表是否展示右上操作列（默认 **false**；商家端忽略，用 `canShareToOwner`） |
+| selectable | Boolean | false | 下载档案单选模式 |
+| selected | Boolean | false | 是否选中 |
+| selectDisabled | Boolean | false | 不可选（如无照片） |
 
 | 事件 | 说明 |
 |---|---|
-| tap | `{ id: albumId }` 点击卡片主体（非右上按钮区） |
+| tap | `{ id: albumId }` 点击卡片主体（非右上按钮区；`selectable` 时不触发） |
+| select | `{ id: albumId }` 单选模式下点选 |
+| selectdisabled | `{ id: albumId }` 单选模式下点到不可选项 |
 | share | `{ id: albumId }` 用户端分享 |
 | authorize | `{ id: albumId, publicCaseStatus }` 用户端授权/公示 |
 

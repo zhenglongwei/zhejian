@@ -3,9 +3,23 @@
   padding-bottom: var(--space-xs);
 }
 
+.album-list__download-hint {
+  margin: var(--space-xs) 0 var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  background-color: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
 .album-list__catalog {
   margin-top: var(--space-sm);
   margin-bottom: var(--space-xl);
+}
+
+.album-list__catalog--with-bar {
+  margin-bottom: calc(var(--space-xl) + 140rpx);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .album-list__catalog-head {

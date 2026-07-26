@@ -11,6 +11,7 @@
     "ui-bottom-sheet": "/components/bottom-sheet/index",
     "ui-album-authorize-section": "/components/album-authorize-section/index",
     "ui-button": "/components/button/index",
-    "ui-share-sheet": "/components/share-sheet/index"
+    "ui-share-sheet": "/components/share-sheet/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
   }
 }

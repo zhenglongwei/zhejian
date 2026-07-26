@@ -58,6 +58,10 @@ const {
   buildSocialDraft,
   copyTextToClipboard,
 } = require('../../../utils/album-social-copy')
+const {
+  downloadAlbumArchiveFile,
+  shareArchiveFile,
+} = require('../../../utils/album-archive-download')
 
 Page({
   data: {
@@ -68,6 +72,20 @@ Page({
     tabs: SERVICE_ALBUM_LIST_TABS,
     activeTab: 'all',
     list: [],
+    showDownloadBar: false,
+    downloadMode: false,
+    selectedAlbumId: '',
+    archiveDownloading: false,
+    downloadCancelActions: [{ key: 'cancel', text: '取消', type: 'secondary' }],
+    downloadConfirmActions: [
+      {
+        key: 'confirm',
+        text: '确认下载',
+        type: 'primary',
+        disabled: true,
+        loading: false,
+      },
+    ],
     loginSheetVisible: false,
     loginSheetMode: 'auto',
     authSheetVisible: false,
@@ -145,6 +163,9 @@ Page({
         needPhone: false,
         list: [],
         errorMessage: '',
+        showDownloadBar: false,
+        downloadMode: false,
+        selectedAlbumId: '',
       })
       return
     }
@@ -157,6 +178,9 @@ Page({
         needPhone: auth.reason === 'bindPhone',
         list: [],
         errorMessage: '',
+        showDownloadBar: false,
+        downloadMode: false,
+        selectedAlbumId: '',
       })
       return
     }
@@ -178,12 +202,21 @@ Page({
       this.setData({
         list,
         status: list.length ? 'normal' : 'empty',
+        showDownloadBar: list.length > 0,
+        selectedAlbumId:
+          this.data.downloadMode &&
+          list.some((item) => item.albumId === this.data.selectedAlbumId)
+            ? this.data.selectedAlbumId
+            : '',
       })
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
         list: [],
+        showDownloadBar: false,
+        downloadMode: false,
+        selectedAlbumId: '',
       })
     } finally {
       this._listLoading = false
@@ -194,7 +227,11 @@ Page({
     const { key } = e.detail
     const tab = normalizeServiceAlbumListTab(key)
     if (tab === this.data.activeTab) return
-    this.setData({ activeTab: tab })
+    this.setData({
+      activeTab: tab,
+      downloadMode: false,
+      selectedAlbumId: '',
+    })
     this.loadList({ forceLoading: true })
   },
 
@@ -219,10 +256,112 @@ Page({
   },
 
   onCardTap(e) {
+    if (this.data.downloadMode) return
     const { id } = e.detail
     if (!id) return
     markListNeedRefresh(this)
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
+  },
+
+  syncDownloadConfirmActions(extra = {}) {
+    const selectedAlbumId =
+      extra.selectedAlbumId !== undefined
+        ? extra.selectedAlbumId
+        : this.data.selectedAlbumId
+    const archiveDownloading =
+      extra.archiveDownloading !== undefined
+        ? extra.archiveDownloading
+        : this.data.archiveDownloading
+    this.setData({
+      ...extra,
+      downloadConfirmActions: [
+        {
+          key: 'confirm',
+          text: '确认下载',
+          type: 'primary',
+          disabled: !selectedAlbumId || archiveDownloading,
+          loading: Boolean(archiveDownloading),
+        },
+      ],
+    })
+  },
+
+  onEnterDownloadMode() {
+    if (this.data.status !== 'normal' || !(this.data.list || []).length) {
+      wx.showToast({ title: '暂无可下载相册', icon: 'none' })
+      return
+    }
+    this.syncDownloadConfirmActions({
+      downloadMode: true,
+      selectedAlbumId: '',
+      archiveDownloading: false,
+    })
+  },
+
+  onCancelDownloadMode() {
+    if (this.data.archiveDownloading) return
+    this.syncDownloadConfirmActions({
+      downloadMode: false,
+      selectedAlbumId: '',
+    })
+  },
+
+  onDownloadBarLeft(e) {
+    const key = (e.detail && e.detail.key) || ''
+    if (key === 'cancel') this.onCancelDownloadMode()
+  },
+
+  onDownloadBarRight(e) {
+    const key = (e.detail && e.detail.key) || ''
+    if (key === 'confirm') this.onConfirmDownloadArchive()
+  },
+
+  onDownloadSelect(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id) return
+    const nextId = id === this.data.selectedAlbumId ? '' : id
+    this.syncDownloadConfirmActions({ selectedAlbumId: nextId })
+  },
+
+  onDownloadSelectDisabled() {
+    wx.showToast({ title: '该相册暂无照片', icon: 'none' })
+  },
+
+  async onConfirmDownloadArchive() {
+    const albumId = this.data.selectedAlbumId
+    if (!albumId || this.data.archiveDownloading) return
+    const item = (this.data.list || []).find((row) => row.albumId === albumId)
+    if (!item || !(item.imageCount > 0)) {
+      wx.showToast({ title: '该相册暂无照片', icon: 'none' })
+      return
+    }
+
+    this.syncDownloadConfirmActions({ archiveDownloading: true })
+    wx.showLoading({ title: '正在打包原图', mask: true })
+    try {
+      const fileName = `${item.serviceName || '服务相册'}-原图档案`
+      const result = await downloadAlbumArchiveFile(albumId, { fileName })
+      wx.hideLoading()
+      const shared = await shareArchiveFile(result.filePath, result.fileName)
+      if (shared) {
+        wx.showToast({ title: '请转发到文件传输助手保存', icon: 'none', duration: 2500 })
+        this.syncDownloadConfirmActions({
+          downloadMode: false,
+          selectedAlbumId: '',
+          archiveDownloading: false,
+        })
+      } else {
+        wx.showToast({ title: '已取消转发', icon: 'none' })
+        this.syncDownloadConfirmActions({ archiveDownloading: false })
+      }
+    } catch (err) {
+      wx.hideLoading()
+      wx.showToast({
+        title: (err && err.message) || '下载失败',
+        icon: 'none',
+      })
+      this.syncDownloadConfirmActions({ archiveDownloading: false })
+    }
   },
 
   onCardPartVerify(e) {

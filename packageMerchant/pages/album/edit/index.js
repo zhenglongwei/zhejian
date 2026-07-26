@@ -43,14 +43,36 @@ const {
   extractOldPartTraces,
   buildValidPlanPartIdSet,
   mergeEvidenceItemsForSave,
+  extractWarrantyFields,
+  findWarrantyEvidenceItem,
+  patchWarrantyFieldsInEvidence,
 } = require('../../../../utils/album-evidence-items')
-const { MERCHANT_OLD_PART_INTRO, MERCHANT_INSPECTION_HINT, MERCHANT_COMPLETE_INSP_TITLE, MERCHANT_COMPLETE_INSP_INTRO, MERCHANT_EXTRA_PART_SOP_STAGE3_HINT, MERCHANT_EXTRA_PART_SOP_STAGE4_HINT, MERCHANT_EXTRA_PART_SOP_LINK, MERCHANT_EXTRA_PART_SOP_MODAL_TITLE, MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT } = require('../../../../constants/album-evidence-guide')
+const {
+  MERCHANT_OLD_PART_INTRO,
+  MERCHANT_INSPECTION_HINT,
+  MERCHANT_COMPLETE_INSP_TITLE,
+  MERCHANT_COMPLETE_INSP_INTRO,
+  MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
+  MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
+  MERCHANT_EXTRA_PART_SOP_LINK,
+  MERCHANT_EXTRA_PART_SOP_MODAL_TITLE,
+  MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT,
+  WARRANTY_DOCUMENT_ID,
+  MERCHANT_WARRANTY_INTRO,
+  MERCHANT_WARRANTY_DURATION_LABEL,
+  MERCHANT_WARRANTY_DURATION_PLACEHOLDER,
+  MERCHANT_WARRANTY_SCOPE_LABEL,
+  MERCHANT_WARRANTY_SCOPE_PLACEHOLDER,
+  MERCHANT_WARRANTY_NOTE_LABEL,
+  MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
+} = require('../../../../constants/album-evidence-guide')
 const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
   applyComparePairRowsToNodes,
   syncBeforeFromAssessmentRows,
   normalizeComparePairRows,
+  padComparePairRowsForEdit,
 } = require('../../../../utils/album-compare-stage-images')
 const {
   buildPartWizardRows,
@@ -253,6 +275,16 @@ Page({
     oldPartPartOptions: [{ planPartId: '', label: '不关联配件' }],
     showOldPartTraces: false,
     oldPartIntroHint: MERCHANT_OLD_PART_INTRO,
+    warrantyIntro: MERCHANT_WARRANTY_INTRO,
+    warrantyDurationLabel: MERCHANT_WARRANTY_DURATION_LABEL,
+    warrantyDurationPlaceholder: MERCHANT_WARRANTY_DURATION_PLACEHOLDER,
+    warrantyScopeLabel: MERCHANT_WARRANTY_SCOPE_LABEL,
+    warrantyScopePlaceholder: MERCHANT_WARRANTY_SCOPE_PLACEHOLDER,
+    warrantyNoteLabel: MERCHANT_WARRANTY_NOTE_LABEL,
+    warrantyNotePlaceholder: MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
+    warrantyDuration: '',
+    warrantyScope: '',
+    warrantyNote: '',
     extraPartSopStage3Hint: MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
     extraPartSopStage4Hint: MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
     extraPartSopLink: MERCHANT_EXTRA_PART_SOP_LINK,
@@ -527,14 +559,13 @@ Page({
     if (!COMPARE_STAGE_TEMPLATE_IDS.has(templateId)) {
       return [{ before: '', after: '' }]
     }
-    const rows = resolveComparePairRowsFromNodes(nodes)
-    return rows.length ? rows : [{ before: '', after: '' }]
+    return padComparePairRowsForEdit(resolveComparePairRowsFromNodes(nodes))
   },
 
   applyComparePairRowsToPage(pairRows) {
-    const rows = normalizeComparePairRows(pairRows)
+    const rows = padComparePairRowsForEdit(pairRows)
     const nodes = applyComparePairRowsToNodes(this.data.nodes, rows)
-    this.setData({ comparePairRows: rows.length ? rows : [{ before: '', after: '' }], nodes }, () => {
+    this.setData({ comparePairRows: rows, nodes }, () => {
       this.refreshMerchantInspection()
     })
   },
@@ -629,6 +660,7 @@ Page({
       savedItems: detail.evidenceItems || [],
       nodes: mergedNodes,
     })
+    const warrantyFields = extractWarrantyFields(findWarrantyEvidenceItem(evidenceItems) || {})
     const nodes = applyProcessOnlyNodes(mergedNodes, evidenceItems)
     const stageTabs = this.buildStageTabs(nodes)
     const planAmount = resolvePlanAmount(detail)
@@ -698,6 +730,9 @@ Page({
       ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
       evidenceItems,
       oldPartTraces: extractOldPartTraces(evidenceItems),
+      warrantyDuration: warrantyFields.duration,
+      warrantyScope: warrantyFields.scope,
+      warrantyNote: warrantyFields.note,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
       this.refreshPartWizard()
@@ -843,17 +878,60 @@ Page({
     const items = (e.detail && e.detail.items) || []
     const stageId =
       (this.data.stages[this.data.stageIndex] && this.data.stages[this.data.stageIndex].id) || ''
+    const prevWarranty = findWarrantyEvidenceItem(this.data.evidenceItems) || {}
     const otherItems = (this.data.evidenceItems || []).filter(
       (item) =>
         item &&
         (item.stageId !== stageId || isOldPartEvidenceItem(item)),
     )
-    const stageItems = items.map((item) => ({ ...item, stageId: item.stageId || stageId }))
+    const stageItems = items.map((item) => {
+      const next = { ...item, stageId: item.stageId || stageId }
+      if (item && item.id === WARRANTY_DOCUMENT_ID) {
+        return {
+          ...next,
+          ...extractWarrantyFields({
+            duration: this.data.warrantyDuration || prevWarranty.duration,
+            scope: this.data.warrantyScope || prevWarranty.scope,
+            note: this.data.warrantyNote || prevWarranty.note,
+          }),
+        }
+      }
+      return next
+    })
     const evidenceItems = [...otherItems, ...stageItems]
     this.setData({ evidenceItems }, () => {
       this.refreshStageEvidenceUI(this.data.stageIndex)
       this.refreshMerchantInspection()
     })
+  },
+
+  syncWarrantyFieldsIntoEvidence(fields = {}) {
+    const nextFields = extractWarrantyFields({
+      duration: fields.duration != null ? fields.duration : this.data.warrantyDuration,
+      scope: fields.scope != null ? fields.scope : this.data.warrantyScope,
+      note: fields.note != null ? fields.note : this.data.warrantyNote,
+    })
+    const evidenceItems = patchWarrantyFieldsInEvidence(this.data.evidenceItems, nextFields)
+    this.setData(
+      {
+        evidenceItems,
+        warrantyDuration: nextFields.duration,
+        warrantyScope: nextFields.scope,
+        warrantyNote: nextFields.note,
+      },
+      () => this.refreshMerchantInspection(),
+    )
+  },
+
+  onWarrantyFieldInput(e) {
+    const field = e.currentTarget.dataset.field
+    if (!field) return
+    const value = e.detail.value
+    const patch = {}
+    if (field === 'duration') patch.duration = value
+    if (field === 'scope') patch.scope = value
+    if (field === 'note') patch.note = value
+    this.syncWarrantyFieldsIntoEvidence(patch)
   },
 
   onOldPartTracesChange(e) {
@@ -894,8 +972,10 @@ Page({
       nodes[index].id === STAGE_ASSESSMENT_ID
     ) {
       const assessment = nodes[index].images || []
-      const rows = syncBeforeFromAssessmentRows(this.data.comparePairRows, assessment)
-      updates.comparePairRows = rows.length ? rows : [{ before: '', after: '' }]
+      const rows = padComparePairRowsForEdit(
+        syncBeforeFromAssessmentRows(this.data.comparePairRows, assessment)
+      )
+      updates.comparePairRows = rows
       updates.nodes = applyComparePairRowsToNodes(nodes, rows)
     }
 
@@ -1794,8 +1874,13 @@ Page({
       }
     }
     const validPlanPartIds = buildValidPlanPartIdSet(this.data.planParts, this.data.parts)
-    const documentEvidence = (this.data.evidenceItems || []).filter(
-      (item) => !isOldPartEvidenceItem(item),
+    const documentEvidence = patchWarrantyFieldsInEvidence(
+      (this.data.evidenceItems || []).filter((item) => !isOldPartEvidenceItem(item)),
+      {
+        duration: this.data.warrantyDuration,
+        scope: this.data.warrantyScope,
+        note: this.data.warrantyNote,
+      },
     )
     const mergedEvidence = mergeEvidenceItemsForSave(
       documentEvidence,

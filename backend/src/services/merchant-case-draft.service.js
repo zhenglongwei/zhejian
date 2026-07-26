@@ -61,6 +61,10 @@ function buildRuleSections(albumView = {}) {
     .map((row) => scrubPiiText(row.name || ''))
     .filter(Boolean)
     .slice(0, 8)
+  const { formatWarrantyCommitmentText, findWarrantyEvidenceItem } = require('../utils/album-evidence-items')
+  const warrantyText = formatWarrantyCommitmentText(
+    findWarrantyEvidenceItem(albumView.evidenceItems || []) || {},
+  )
 
   return MERCHANT_CASE_SECTION_KEYS.map((def) => {
     let body = noteForStages(nodes, def.stageIds)
@@ -68,8 +72,14 @@ function buildRuleSections(albumView = {}) {
       const partLine = `主要项目：${partsNames.join('、')}`
       body = body ? `${body}。${partLine}` : partLine
     }
-    if (def.key === 'handover' && !body) {
-      body = '旧件与交车确认以门店留档为准。'
+    if (def.key === 'handover') {
+      if (warrantyText) {
+        const warrantyLine = scrubPiiText(warrantyText)
+        body = body ? `${body}。${warrantyLine}` : warrantyLine
+      }
+      if (!body) {
+        body = '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
+      }
     }
     return {
       key: def.key,

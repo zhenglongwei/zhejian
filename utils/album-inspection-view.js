@@ -5,7 +5,9 @@ const {
   bumpStrengthForAccident,
   resolveDocumentTypesForTemplate,
   resolveProcessChecklist,
+  WARRANTY_DOCUMENT_ID,
 } = require('../constants/album-evidence-guide')
+const { hasWarrantyCommitment } = require('./album-evidence-items')
 
 function findNode(nodes, stageId) {
   return (nodes || []).find((n) => n && (n.id === stageId || n.nodeId === stageId))
@@ -27,6 +29,10 @@ function buildDocumentItems(detail = {}, audience = 'owner') {
       ? (structuredItem.images || []).map((url) => String(url || '').trim()).filter(Boolean)
       : nodeImages(findNode(nodes, def.stageId))
     const strength = bumpStrengthForAccident(def.strength, templateId)
+    const uploaded =
+      def.id === WARRANTY_DOCUMENT_ID
+        ? hasWarrantyCommitment({ ...(structuredItem || {}), images })
+        : images.length > 0
     return {
       id: def.id,
       label: def.label,
@@ -34,7 +40,7 @@ function buildDocumentItems(detail = {}, audience = 'owner') {
       strength,
       importanceLabel: resolveImportanceLabel(strength, audience),
       images,
-      uploaded: images.length > 0,
+      uploaded,
     }
   })
 }

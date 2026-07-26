@@ -70,8 +70,27 @@ function run() {
   assert.strictEqual(draft.media[0].sectionKey, 'diagnosis')
 
   const summary = draftToAiSummary(draft)
-  assert.ok(summary.includes('诊断'))
+  assert.ok(summary.includes('胶套开裂'))
+  assert.ok(summary.includes('旧件已交还'))
   assert.ok(!/1280/.test(summary))
+
+  const handover = draft.sections.find((s) => s.key === 'handover')
+  assert.ok(handover && handover.title.includes('质保'))
+  const withWarranty = buildRuleMerchantCaseDraft({
+    ...albumView,
+    evidenceItems: [
+      {
+        id: 'warranty',
+        duration: '配件 1 年',
+        scope: '非事故二次损伤',
+        note: '',
+        images: [],
+      },
+    ],
+  })
+  const handover2 = withWarranty.sections.find((s) => s.key === 'handover')
+  assert.ok(handover2.body.includes('配件 1 年'))
+  assert.ok(handover2.body.includes('非事故二次损伤'))
 
   const normalized = normalizeMerchantCaseDraft({
     title: '测试',

@@ -84,6 +84,26 @@ router.get('/service-albums/:albumId', requireAuth(['user']), async (req, res, n
   }
 })
 
+/** 车主下载全部原图压缩包（按节点名命名） */
+router.get('/service-albums/:albumId/archive', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const { buildOwnerAlbumArchive } = require('../services/album-owner-archive.service')
+    const archive = await buildOwnerAlbumArchive(req.params.albumId, req.auth.userId)
+    const asciiName = 'album-archive.zip'
+    const encoded = encodeURIComponent(archive.fileName)
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiName}"; filename*=UTF-8''${encoded}`,
+    )
+    res.setHeader('X-Image-Count', String(archive.imageCount))
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(200).send(archive.buffer)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/service-albums/:albumId/confirm', requireAuth(['user']), async (req, res, next) => {
   try {
     const { confirmId, ...payload } = req.body || {}

@@ -441,6 +441,10 @@ function buildDocumentMissingBlock(missingDocs, anchorId) {
     risks.push('没有结算单，没法核对交车时付的钱是否和报价、工单一致。')
     actions.push('向门店要结算单')
   }
+  if (missingIds.includes('warranty')) {
+    risks.push('没有质保承诺留档，交车后难核对质保时长与范围。')
+    actions.push('向门店确认质保说明并要求相册留档')
+  }
 
   const uniqueActions = [...new Set(actions)]
 

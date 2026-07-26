@@ -8,8 +8,12 @@
     />
   </view>
 
+  <view wx:if="{{downloadMode}}" class="album-list__download-hint text-caption">
+    点选一本相册，确认后打包下载全部原图（按节点名命名）。仅供本人留档，请勿公开传播原图。
+  </view>
+
   <block wx:if="{{status === 'loading'}}">
-    <view class="album-list__catalog surface-album-catalog">
+    <view class="album-list__catalog surface-album-catalog {{showDownloadBar ? 'album-list__catalog--with-bar' : ''}}">
       <view class="album-list__catalog-head">
         <view class="album-list__catalog-accent" aria-hidden="true" />
         <text class="album-list__catalog-title text-album-display">档案目录</text>
@@ -77,7 +81,7 @@
   </block>
 
   <block wx:else>
-    <view class="album-list__catalog surface-album-catalog">
+    <view class="album-list__catalog surface-album-catalog {{showDownloadBar ? 'album-list__catalog--with-bar' : ''}}">
       <view class="album-list__catalog-head">
         <view class="album-list__catalog-accent" aria-hidden="true" />
         <text class="album-list__catalog-title text-album-display">档案目录</text>
@@ -89,12 +93,28 @@
           wx:key="albumId"
           item="{{item}}"
           showHeaderActions="{{false}}"
+          selectable="{{downloadMode}}"
+          selected="{{downloadMode && selectedAlbumId === item.albumId}}"
+          selectDisabled="{{downloadMode && !(item.imageCount > 0)}}"
           bind:tap="onCardTap"
+          bind:select="onDownloadSelect"
+          bind:selectdisabled="onDownloadSelectDisabled"
         />
       </view>
     </view>
   </block>
 </ui-tool-page-shell>
+
+<ui-fixed-bottom-bar
+  wx:if="{{showDownloadBar && downloadMode}}"
+  leftActions="{{downloadCancelActions}}"
+  rightActions="{{downloadConfirmActions}}"
+  bind:leftaction="onDownloadBarLeft"
+  bind:rightaction="onDownloadBarRight"
+/>
+<ui-fixed-bottom-bar wx:elif="{{showDownloadBar}}">
+  <ui-button type="secondary" block bind:btntap="onEnterDownloadMode">下载档案</ui-button>
+</ui-fixed-bottom-bar>
 
 <ui-bottom-sheet
   visible="{{authSheetVisible}}"

@@ -33,12 +33,33 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 下载档案：单选模式 */
+    selectable: {
+      type: Boolean,
+      value: false,
+    },
+    selected: {
+      type: Boolean,
+      value: false,
+    },
+    selectDisabled: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   methods: {
     onTap() {
-      const { item } = this.properties
+      const { item, selectable, selectDisabled } = this.properties
       if (!item || !item.albumId) return
+      if (selectable) {
+        if (selectDisabled) {
+          this.triggerEvent('selectdisabled', { id: item.albumId })
+          return
+        }
+        this.triggerEvent('select', { id: item.albumId })
+        return
+      }
       this.triggerEvent('tap', { id: item.albumId })
     },
 

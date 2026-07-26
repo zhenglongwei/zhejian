@@ -1,5 +1,14 @@
-<view class="album-card__shell {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}}">
+<view class="album-card__shell {{embedded ? 'album-card__shell--embedded' : 'album-card__shell--raised'}} {{selectable ? 'album-card__shell--selectable' : ''}} {{selected ? 'is-selected' : ''}} {{selectable && selectDisabled ? 'is-disabled' : ''}}">
   <view class="album-card__inner" data-id="{{item.albumId}}" bindtap="onTap">
+    <view
+      wx:if="{{selectable}}"
+      class="album-card__select {{selected ? 'is-on' : ''}} {{selectDisabled ? 'is-disabled' : ''}}"
+      aria-role="radio"
+      aria-checked="{{selected}}"
+      aria-label="选择下载"
+    >
+      <view class="album-card__select-dot" />
+    </view>
     <view class="album-card__thumb-col">
       <block wx:if="{{framed}}">
         <album-photo-frame variant="thumb">

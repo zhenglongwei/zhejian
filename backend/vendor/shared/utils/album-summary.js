@@ -3,6 +3,11 @@
  * 口径：docs/02_用户端小程序/07_维修相册查看页.md §14.4
  */
 
+const {
+  extractWarrantyFields,
+  findWarrantyEvidenceItem,
+} = require('./album-evidence-items')
+
 const STAGE_IDS = {
   RECEIVE: 'stage_1',
   INSPECTION: 'stage_2',
@@ -202,6 +207,10 @@ function buildSummaryRows(input = {}) {
     imageCount,
     planAmount,
     formatPlanAmountLabel,
+    warrantyDuration,
+    warrantyScope,
+    warrantyNote,
+    warrantyHasImages,
   } = input
 
   const issueDesc = resolveIssueDesc(vehicle, nodes)
@@ -237,6 +246,17 @@ function buildSummaryRows(input = {}) {
         : `¥${planAmount}`
     rows.push({ label: '方案报价', value: label })
   }
+  if (warrantyDuration) {
+    rows.push({ label: '质保时长', value: warrantyDuration })
+  }
+  if (warrantyScope) {
+    rows.push({ label: '质保范围', value: warrantyScope })
+  }
+  if (warrantyNote) {
+    rows.push({ label: '质保说明', value: warrantyNote })
+  } else if (warrantyHasImages && !warrantyDuration && !warrantyScope) {
+    rows.push({ label: '质保承诺', value: '已上传承诺书' })
+  }
   rows.push({
     label: '图片总数',
     value: `${Number(imageCount) || 0} 张`,
@@ -254,6 +274,14 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
   const vehicle = album.vehicleJson || viewCtx.vehicle || {}
   const nodes = viewCtx.nodes || []
   const partsJson = album.partsJson || viewCtx.parts || []
+  const evidenceItems = viewCtx.evidenceItems || album.evidenceItemsJson || []
+  const warrantyItem = findWarrantyEvidenceItem(evidenceItems)
+  const warrantyFields = extractWarrantyFields(warrantyItem || {})
+  const warrantyHasImages = Boolean(
+    warrantyItem &&
+      Array.isArray(warrantyItem.images) &&
+      warrantyItem.images.some((url) => String(url || '').trim()),
+  )
 
   const issueDesc = resolveIssueDesc(vehicle, nodes)
   const partsSummary = buildPartsSummary(partsJson)
@@ -277,6 +305,10 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
     planAmount: privatePrice.planAmount,
     partsJson,
     formatPlanAmountLabel: viewCtx.formatPlanAmountLabel,
+    warrantyDuration: warrantyFields.duration,
+    warrantyScope: warrantyFields.scope,
+    warrantyNote: warrantyFields.note,
+    warrantyHasImages,
   })
 
   const { buildAlbumAiSummary } = require('./album-ai-summary')

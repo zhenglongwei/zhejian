@@ -165,12 +165,18 @@ const COMMON_STAGES = {
         detail: '修复/更换部位近景；少拍整车全景。',
         strength: 'strong',
       },
+      {
+        code: 'warranty_letter',
+        title: '质保承诺书（强烈建议）',
+        detail: '有纸质承诺书请拍条款页；裁切避开姓名电话。无承诺书请在质保字段填写时长与范围。',
+        strength: 'strong',
+      },
     ],
     note_hints: [
       {
         title: '备注怎么写',
-        example: '短途试车异响消失，旧件已交还对照；踏板行程正常。',
-        bullets: ['验收结论', '旧件交接', '勿写金额'],
+        example: '短途试车异响消失，旧件已交还对照；质保以门店承诺书为准。',
+        bullets: ['验收结论', '旧件交接', '质保边界', '勿写金额'],
       },
     ],
     geo_angle: ['standard_5s', 'liability'],

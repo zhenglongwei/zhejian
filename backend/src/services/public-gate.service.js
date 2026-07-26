@@ -13,6 +13,8 @@ const {
 } = require('../constants/album-public-visibility-policy')
 
 const BLOCK_TAGS = new Set(['plate', 'vin', 'face', 'phone', 'document'])
+/** 质保承诺书本质是单据图，但需进入公示池并走脱敏；仅忽略 document 标签 */
+const WARRANTY_GATE_BLOCK_TAGS = new Set(['plate', 'vin', 'face', 'phone'])
 
 const GATE_HINTS = {
   plate: '检测到车牌信息，已保存为留档，不可进入公示素材',
@@ -28,7 +30,7 @@ function gateHintForReason(reason = '') {
   return GATE_HINTS[reason] || GATE_HINTS.document
 }
 
-async function checkPublicGateForImage(rawUrl) {
+async function checkPublicGateForImage(rawUrl, options = {}) {
   if (config.desensitize.engine === 'dev') {
     return { passed: true, riskTags: [], reason: '' }
   }
@@ -50,6 +52,7 @@ async function checkPublicGateForImage(rawUrl) {
 
   const objectKey = parseObjectKeyFromPublicUrl(rawUrl)
   const publicUrl = objectKey ? buildPublicMediaUrl(objectKey) : ''
+  const blockTags = options.ignoreDocumentTag ? WARRANTY_GATE_BLOCK_TAGS : BLOCK_TAGS
 
   try {
     const detection = await detectSensitiveRegions(localPath, {
@@ -58,9 +61,9 @@ async function checkPublicGateForImage(rawUrl) {
       imageHeight,
     })
     const tags = Array.isArray(detection.riskTags) ? detection.riskTags : []
-    const blocked = tags.some((tag) => BLOCK_TAGS.has(tag)) || Boolean(detection.plateMaskMiss)
+    const blocked = tags.some((tag) => blockTags.has(tag)) || Boolean(detection.plateMaskMiss)
     const reason = blocked
-      ? tags.find((tag) => BLOCK_TAGS.has(tag)) || (detection.plateMaskMiss ? 'plate' : 'document')
+      ? tags.find((tag) => blockTags.has(tag)) || (detection.plateMaskMiss ? 'plate' : 'document')
       : ''
     return {
       passed: !blocked,
@@ -77,8 +80,9 @@ async function checkPublicGateForImage(rawUrl) {
  * @param {string} nodeId
  * @param {string} rawUrl
  * @param {Map<string, object>} [gateCache] normalizedUrl -> prior gate fields
+ * @param {{ ignoreDocumentTag?: boolean }} [options]
  */
-async function resolveImagePublicFields(nodeId, rawUrl, gateCache = new Map()) {
+async function resolveImagePublicFields(nodeId, rawUrl, gateCache = new Map(), options = {}) {
   const normalizedUrl = String(rawUrl || '').trim()
   if (isAlwaysPrivateStage(nodeId)) {
     return {
@@ -101,7 +105,9 @@ async function resolveImagePublicFields(nodeId, rawUrl, gateCache = new Map()) {
     }
   }
 
-  const gate = await checkPublicGateForImage(normalizedUrl)
+  const gate = await checkPublicGateForImage(normalizedUrl, {
+    ignoreDocumentTag: Boolean(options.ignoreDocumentTag),
+  })
   if (gate.passed) {
     return {
       visibility: VISIBILITY.PUBLIC,

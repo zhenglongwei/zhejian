@@ -1,5 +1,5 @@
 <view
-  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !images.length ? 'image-uploader--full-add' : ''}}"
+  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !images.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}}"
 >
   <block wx:if="{{isCtaLayout}}">
     <button

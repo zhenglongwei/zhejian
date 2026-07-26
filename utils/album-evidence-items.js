@@ -1,5 +1,5 @@
 /**
- * 服务相册 · 结构化 evidenceItems（B-EVID-01 + B-EVID-06 旧件留痕）
+ * 服务相册 · 结构化 evidenceItems（B-EVID-01 + B-EVID-06 旧件留痕 + B-EVID-07 质保）
  * 商家分槽上传 ↔ 车主检查页单据 presence 同源
  */
 const {
@@ -10,6 +10,8 @@ const {
   OLD_PART_TRACE_LABEL,
   OLD_PART_TRACE_STAGE_ID,
   OLD_PART_TRACE_MAX_COUNT,
+  WARRANTY_DOCUMENT_ID,
+  WARRANTY_FIELD_MAX_LEN,
   resolveDocumentTypesForTemplate,
   resolveMerchantEvidenceLabel,
   bumpStrengthForAccident,
@@ -18,6 +20,47 @@ const {
 
 function normalizeImageList(images) {
   return (images || []).map((url) => String(url || '').trim()).filter(Boolean)
+}
+
+function normalizeWarrantyText(value, maxLen) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen)
+}
+
+function extractWarrantyFields(item = {}) {
+  return {
+    duration: normalizeWarrantyText(item.duration, WARRANTY_FIELD_MAX_LEN.duration),
+    scope: normalizeWarrantyText(item.scope, WARRANTY_FIELD_MAX_LEN.scope),
+    note: normalizeWarrantyText(item.note, WARRANTY_FIELD_MAX_LEN.note),
+  }
+}
+
+function hasWarrantyTextFields(item = {}) {
+  const fields = extractWarrantyFields(item)
+  return Boolean(fields.duration || fields.scope || fields.note)
+}
+
+function hasWarrantyCommitment(item = {}) {
+  return normalizeImageList(item.images).length > 0 || hasWarrantyTextFields(item)
+}
+
+function formatWarrantyCommitmentText(item = {}) {
+  const fields = extractWarrantyFields(item)
+  const parts = []
+  if (fields.duration) parts.push(`质保时长：${fields.duration}`)
+  if (fields.scope) parts.push(`质保范围：${fields.scope}`)
+  if (fields.note) parts.push(fields.note)
+  return parts.join('；').slice(0, 500)
+}
+
+function findWarrantyEvidenceItem(evidenceItems = []) {
+  return (
+    (evidenceItems || []).find(
+      (item) => item && (item.id === WARRANTY_DOCUMENT_ID || item.type === WARRANTY_DOCUMENT_ID),
+    ) || null
+  )
 }
 
 function isOldPartEvidenceItem(item) {
@@ -77,10 +120,17 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
         images = legacyPool.slice()
       }
     }
-    return {
+    const base = {
       ...def,
       images,
     }
+    if (def.id === WARRANTY_DOCUMENT_ID) {
+      return {
+        ...base,
+        ...extractWarrantyFields(saved),
+      }
+    }
+    return base
   })
 
   const oldPartItems = (savedItems || [])
@@ -180,7 +230,7 @@ function sanitizeEvidenceItemsPayload(items, options = {}) {
     .filter((item) => item && item.id && DOCUMENT_TYPES[item.id])
     .map((item) => {
       const def = DOCUMENT_TYPES[item.id]
-      return {
+      const row = {
         id: def.id,
         category: EVIDENCE_CATEGORY.DOCUMENT,
         type: def.id,
@@ -189,6 +239,10 @@ function sanitizeEvidenceItemsPayload(items, options = {}) {
         strength: item.strength || def.strength,
         images: normalizeImageList(item.images),
       }
+      if (def.id === WARRANTY_DOCUMENT_ID) {
+        Object.assign(row, extractWarrantyFields(item))
+      }
+      return row
     })
   const oldPartItems = sanitizeOldPartEvidenceItems(
     (items || []).filter(isOldPartEvidenceItem),
@@ -297,6 +351,37 @@ function mergeEvidenceItemsForSave(documentItems, oldPartTraces, validPlanPartId
   return [...docs, ...oldParts]
 }
 
+function patchWarrantyFieldsInEvidence(evidenceItems = [], fields = {}) {
+  const nextFields = extractWarrantyFields(fields)
+  let found = false
+  const next = (evidenceItems || []).map((item) => {
+    if (!item || item.id !== WARRANTY_DOCUMENT_ID) return item
+    found = true
+    return {
+      ...item,
+      ...nextFields,
+    }
+  })
+  if (found) return next
+  const def = DOCUMENT_TYPES[WARRANTY_DOCUMENT_ID]
+  if (!def) return next
+  return [
+    ...next,
+    {
+      id: def.id,
+      category: EVIDENCE_CATEGORY.DOCUMENT,
+      type: def.id,
+      stageId: def.stageId,
+      label: def.label,
+      strength: def.strength,
+      merchantLabel: resolveMerchantEvidenceLabel(def.strength),
+      merchantHint: def.merchantHint || '',
+      images: [],
+      ...nextFields,
+    },
+  ]
+}
+
 module.exports = {
   buildDocumentEvidenceCatalog,
   hydrateEvidenceItems,
@@ -313,4 +398,11 @@ module.exports = {
   buildValidPlanPartIdSet,
   mergeEvidenceItemsForSave,
   createOldPartTraceKey,
+  extractWarrantyFields,
+  hasWarrantyTextFields,
+  hasWarrantyCommitment,
+  formatWarrantyCommitmentText,
+  findWarrantyEvidenceItem,
+  patchWarrantyFieldsInEvidence,
+  WARRANTY_DOCUMENT_ID,
 }

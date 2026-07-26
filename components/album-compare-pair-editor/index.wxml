@@ -10,109 +10,77 @@
 
   <text wx:if="{{description}}" class="album-compare-pair-editor__desc text-caption">{{description}}</text>
 
-  <view class="album-compare-pair-editor__table">
-    <view class="album-compare-pair-editor__table-head album-compare-pair-editor__table-head--labels">
-      <view class="album-compare-pair-editor__col-head">
-        <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
-        <text class="album-compare-pair-editor__col-sub text-caption">同角拍摄</text>
-      </view>
-      <view class="album-compare-pair-editor__col-head">
-        <text class="album-compare-pair-editor__col-label text-caption">{{beforeColumnLabel}}</text>
-        <text class="album-compare-pair-editor__col-sub text-caption">可后补</text>
-      </view>
+  <view class="album-compare-pair-editor__cols">
+    <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
+    <view class="album-compare-pair-editor__bridge-spacer" aria-hidden="true" />
+    <text class="album-compare-pair-editor__col-label text-caption">{{beforeColumnLabel}}</text>
+  </view>
+
+  <view
+    wx:for="{{displayRows}}"
+    wx:key="index"
+    class="album-compare-pair-editor__group"
+  >
+    <view class="album-compare-pair-editor__group-head" wx:if="{{displayRows.length > 1 || !disabled}}">
+      <text class="text-caption album-compare-pair-editor__group-label">{{item.label}}</text>
+      <text
+        wx:if="{{!disabled && displayRows.length > 1}}"
+        class="album-compare-pair-editor__remove text-caption text-link"
+        data-index="{{item.index}}"
+        catchtap="onRemoveRow"
+      >删除</text>
     </view>
 
-    <view
-      wx:for="{{pairRows}}"
-      wx:key="index"
-      class="album-compare-pair-editor__table-row"
-    >
+    <view class="album-compare-pair-editor__pair {{item.linked ? 'is-linked' : ''}}">
       <view class="album-compare-pair-editor__cell">
         <ui-image-uploader
           images="{{item.after ? [item.after] : []}}"
           maxCount="{{1}}"
+          columns="{{1}}"
           variant="album"
           disabled="{{disabled}}"
-          data-index="{{index}}"
+          data-index="{{item.index}}"
           data-field="after"
           bind:change="onRowImageChange"
         />
       </view>
+
+      <view
+        wx:if="{{item.linked}}"
+        class="album-compare-pair-editor__bridge"
+        aria-hidden="true"
+      >
+        <view class="album-compare-pair-editor__bridge-line" />
+        <view class="album-compare-pair-editor__bridge-dot album-compare-pair-editor__bridge-dot--left" />
+        <view class="album-compare-pair-editor__bridge-dot album-compare-pair-editor__bridge-dot--right" />
+      </view>
+      <view wx:else class="album-compare-pair-editor__bridge-spacer" aria-hidden="true" />
+
       <view class="album-compare-pair-editor__cell">
         <ui-image-uploader
           images="{{item.before ? [item.before] : []}}"
           maxCount="{{1}}"
+          columns="{{1}}"
           variant="album"
           disabled="{{disabled}}"
-          data-index="{{index}}"
+          data-index="{{item.index}}"
           data-field="before"
           bind:change="onRowImageChange"
         />
       </view>
-      <text
-        wx:if="{{!disabled && pairRows.length > 1}}"
-        class="album-compare-pair-editor__remove text-caption text-link"
-        data-index="{{index}}"
-        catchtap="onRemoveRow"
-      >删除</text>
     </view>
   </view>
 
-  <view wx:if="{{!disabled && pairRows.length < maxCount}}" class="album-compare-pair-editor__add-row">
-    <ui-button type="secondary" size="sm" bind:btntap="onAddRow">添加一组</ui-button>
-  </view>
-
-  <view wx:if="{{pairPreview.length}}" class="album-compare-pair-editor__preview">
-    <text class="album-compare-pair-editor__preview-title text-caption">配对预览</text>
-    <view
-      wx:for="{{pairPreview}}"
-      wx:key="index"
-      class="album-compare-pair-editor__preview-row"
-    >
-      <text class="album-compare-pair-editor__preview-label text-caption">{{item.label}}</text>
-      <view class="album-compare-pair-editor__preview-body">
-        <view class="album-compare-pair-editor__preview-thumb {{item.beforeUrl ? '' : 'album-compare-pair-editor__preview-thumb--empty'}}">
-          <image
-            wx:if="{{item.beforeUrl}}"
-            class="album-compare-pair-editor__preview-img"
-            src="{{item.beforeUrl}}"
-            mode="aspectFill"
-          />
-          <text wx:else class="album-compare-pair-editor__preview-ph text-caption">前</text>
-        </view>
-        <view class="album-compare-pair-editor__preview-bridge" aria-hidden="true">
-          <view class="album-compare-pair-editor__preview-line" />
-          <view class="album-compare-pair-editor__preview-dot album-compare-pair-editor__preview-dot--left" />
-          <view class="album-compare-pair-editor__preview-dot album-compare-pair-editor__preview-dot--right" />
-        </view>
-        <view class="album-compare-pair-editor__preview-thumb {{item.afterUrl ? '' : 'album-compare-pair-editor__preview-thumb--empty'}}">
-          <image
-            wx:if="{{item.afterUrl}}"
-            class="album-compare-pair-editor__preview-img"
-            src="{{item.afterUrl}}"
-            mode="aspectFill"
-          />
-          <text wx:else class="album-compare-pair-editor__preview-ph text-caption">后</text>
-        </view>
-        <text
-          wx:if="{{item.complete}}"
-          class="album-compare-pair-editor__preview-status text-caption"
-        >可对比</text>
-        <text
-          wx:else
-          class="album-compare-pair-editor__preview-status text-caption"
-        >仅完工</text>
-      </view>
+  <view
+    wx:if="{{!disabled && (displayRows.length < maxCount || showSyncAssessment)}}"
+    class="album-compare-pair-editor__actions"
+  >
+    <view wx:if="{{displayRows.length < maxCount}}" class="album-compare-pair-editor__action">
+      <ui-button type="secondary" size="sm" block="{{true}}" bind:btntap="onAddRow">添加一组</ui-button>
     </view>
-  </view>
-
-  <view class="album-compare-pair-editor__actions">
-    <ui-button
-      wx:if="{{!disabled && showSyncAssessment}}"
-      type="secondary"
-      size="sm"
-      bind:btntap="onSyncFromAssessment"
-    >从检测记录填入维修前</ui-button>
+    <view wx:if="{{showSyncAssessment}}" class="album-compare-pair-editor__action">
+      <ui-button type="secondary" size="sm" block="{{true}}" bind:btntap="onSyncFromAssessment">从检测记录填入维修前</ui-button>
+    </view>
   </view>
 
   <textarea

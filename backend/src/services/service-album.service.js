@@ -68,6 +68,8 @@ const {
   mergeEvidenceIntoNodes,
   countDocumentEvidence,
   buildValidPlanPartIdSet,
+  findWarrantyEvidenceItem,
+  normalizeImageList,
 } = require('../utils/album-evidence-items')
 const { resolveShared } = require('../utils/resolve-shared')
 
@@ -586,6 +588,11 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
   const albumContext = options.album || null
   const previousUrls = options.previousImageUrls || new Set()
   const gateCache = buildImageGateCache(options.existingImages || [])
+  const warrantyUrlSet = new Set(
+    normalizeImageList(
+      (options.warrantyImageUrls || findWarrantyEvidenceItem(options.evidenceItems || [])?.images || []),
+    ).map((url) => stripUrlQuery(url)),
+  )
   const imageGateResults = []
 
   await prisma.albumNode.deleteMany({ where: { albumId } })
@@ -625,7 +632,9 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         })
       }
       rawUrl = stripUrlQuery(rawUrl)
-      const gateFields = await resolveImagePublicFields(nodeId, rawUrl, gateCache)
+      const gateFields = await resolveImagePublicFields(nodeId, rawUrl, gateCache, {
+        ignoreDocumentTag: warrantyUrlSet.has(rawUrl),
+      })
       if (gateFields.hint) {
         imageGateResults.push({
           nodeId,
@@ -1332,6 +1341,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       album: existing,
       previousImageUrls,
       existingImages: existing.images || [],
+      evidenceItems: evidenceItemsJson,
     })
     imageCount = syncResult.imageCount
     payload._imageGateResults = syncResult.imageGateResults

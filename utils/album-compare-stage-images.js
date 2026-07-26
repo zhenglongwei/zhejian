@@ -28,6 +28,17 @@ function normalizeComparePairRows(rows = []) {
     .filter((row) => row.before || row.after)
 }
 
+/** 编辑态保留空行（否则「添加一组」会被 normalize 滤掉） */
+function padComparePairRowsForEdit(rows = []) {
+  if (!Array.isArray(rows) || !rows.length) {
+    return [{ before: '', after: '' }]
+  }
+  return rows.slice(0, MAX_COMPARE_PAIR_ROWS).map((row) => ({
+    before: String((row && row.before) || '').trim(),
+    after: String((row && row.after) || '').trim(),
+  }))
+}
+
 function splitInterleavedImages(images = []) {
   const list = normalizeList(images)
   const beforeImages = []
@@ -196,6 +207,7 @@ module.exports = {
   LEGACY_COMPARE_STAGE_ID,
   MAX_COMPARE_PAIR_ROWS,
   normalizeComparePairRows,
+  padComparePairRowsForEdit,
   resolveComparePairRowsFromNodes,
   applyComparePairRowsToNodes,
   buildComparePairPreviewFromRows,

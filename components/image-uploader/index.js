@@ -39,19 +39,31 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 网格列数；对照编辑等单槽场景传 1 */
+    columns: {
+      type: Number,
+      value: 3,
+    },
   },
   data: {
     uploading: false,
     isCtaLayout: false,
+    isSingleColumn: false,
   },
   observers: {
     layout(val) {
       this.setData({ isCtaLayout: String(val || '') === 'cta' })
     },
+    columns(val) {
+      this.setData({ isSingleColumn: Number(val) === 1 })
+    },
   },
   lifetimes: {
     attached() {
-      this.setData({ isCtaLayout: String(this.properties.layout || '') === 'cta' })
+      this.setData({
+        isCtaLayout: String(this.properties.layout || '') === 'cta',
+        isSingleColumn: Number(this.properties.columns) === 1,
+      })
     },
   },
   methods: {

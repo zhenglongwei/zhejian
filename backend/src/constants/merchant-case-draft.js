@@ -8,7 +8,7 @@ const MERCHANT_CASE_SECTION_KEYS = [
   { key: 'diagnosis', title: '诊断与数据', stageIds: ['stage_2'] },
   { key: 'plan', title: '方案与避坑', stageIds: ['stage_3'] },
   { key: 'process', title: '施工与 5S 标准', stageIds: ['stage_5', 'stage_4'] },
-  { key: 'handover', title: '旧件与责任边界', stageIds: ['stage_6'] },
+  { key: 'handover', title: '交车与质保', stageIds: ['stage_6'] },
 ]
 
 /** 配图优先挂到这些小节 */
