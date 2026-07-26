@@ -8,10 +8,11 @@ const fs = require('fs')
 const path = require('path')
 const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
-const {
+  const {
   normalizeMerchantCaseDraft,
   mergeLlmSectionsIntoDraft,
   buildRuleCaseSummary,
+  buildTitle,
   stripAmountText,
 } = require('./merchant-case-draft.service')
 
@@ -220,8 +221,11 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
     caseSummary = ruleSummary || afterSections.caseSummary || ''
   }
 
+  // 顶栏标题保持「门店名｜地址｜车型｜项目」规则结构，便于检索；LLM 只润色章节
+  const structuredTitle = buildTitle(albumView) || afterSections.title
   return normalizeMerchantCaseDraft({
     ...afterSections,
+    title: structuredTitle,
     caseSummary,
     source: 'llm',
   })

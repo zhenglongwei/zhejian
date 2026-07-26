@@ -1,13 +1,19 @@
-.case-draft__toolbar {
+.case-draft {
+  padding-bottom: var(--page-fixed-clearance);
+}
+
+.case-draft__intro {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-sm);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .case-draft__hint {
   display: block;
-  margin-top: var(--space-sm);
-  margin-bottom: var(--space-md);
+  margin: 0;
 }
 
 .case-draft__mask-tip {
@@ -28,17 +34,6 @@
   color: var(--color-text-secondary);
 }
 
-.case-draft__input {
-  box-sizing: border-box;
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-body);
-  color: var(--color-text-primary);
-  background: var(--color-bg-elevated, #fff);
-}
-
 .case-draft__section {
   margin-top: var(--space-md);
 }
@@ -52,7 +47,7 @@
 .case-draft__textarea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 160rpx;
+  min-height: 72rpx;
   padding: var(--space-sm) var(--space-md);
   border: 1rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -60,6 +55,14 @@
   line-height: 1.6;
   color: var(--color-text-primary);
   background: var(--color-bg-elevated, #fff);
+}
+
+.case-draft__title {
+  min-height: 72rpx;
+}
+
+.case-draft__summary {
+  min-height: 88rpx;
 }
 
 .case-draft__media {
@@ -75,16 +78,41 @@
   gap: var(--space-xs);
 }
 
+.case-draft__thumb-wrap {
+  position: relative;
+  width: 100%;
+}
+
 .case-draft__thumb {
+  display: block;
   width: 100%;
   height: 280rpx;
   border-radius: var(--radius-md);
   background: var(--color-bg-muted, #f5f5f5);
 }
 
-.case-draft__actions {
+.case-draft__thumb-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: var(--z-content);
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 44rpx;
+  text-align: center;
+  background-color: var(--color-mask);
+  color: var(--color-text-inverse);
+  font-size: var(--font-body);
+  border-radius: 0 var(--radius-md) 0 var(--radius-sm);
+}
+
+.case-draft__spacer {
+  height: var(--space-lg);
+}
+
+.case-draft__bar-left {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  margin: var(--space-lg) 0 calc(var(--space-xl) + env(safe-area-inset-bottom));
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
 }

@@ -8,32 +8,33 @@
   </block>
 
   <block wx:else>
-    <view class="case-draft__toolbar" wx:if="{{editable}}">
-      <ui-button
-        type="secondary"
-        size="sm"
-        loading="{{polishing}}"
-        bind:btntap="onAiPolish"
-      >AI 润色</ui-button>
-    </view>
-
     <ui-compliance-notice type="displayDisclaimer" />
 
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="text-h3">{{fromComplete ? '案例预览（确认后完工）' : '公开案例稿'}}</text>
-      <text class="text-caption text-secondary case-draft__hint">
-        默认按相册节点文字与配图拼成预览，不自动调用大模型。点右上角「AI 润色」可润色正文；配图绑定不变。确认后的文案即上网真源，车主只读。
-      </text>
+      <view class="case-draft__intro">
+        <text class="text-caption text-secondary case-draft__hint">
+          本预览由相册各节点文字与配图拼接而成。确认后即作为案例真源；经车主授权后，可发布到公开网站，也可复制文字发自媒体、朋友圈等。默认不调用大模型；点「AI 润色」可润色正文，配图绑定不变。
+        </text>
+        <ui-button
+          wx:if="{{editable}}"
+          type="secondary"
+          size="sm"
+          loading="{{polishing}}"
+          bind:btntap="onAiPolish"
+        >AI 润色</ui-button>
+      </view>
       <text class="text-caption case-draft__label">标题</text>
-      <input
-        class="case-draft__input"
+      <textarea
+        class="case-draft__textarea case-draft__title"
         value="{{title}}"
         disabled="{{!editable}}"
-        maxlength="80"
+        maxlength="120"
+        auto-height
         bindinput="onTitleInput"
-        placeholder="地域｜车型｜项目"
+        placeholder="门店名｜地址｜车型｜项目"
       />
-      <text class="text-caption case-draft__label">案例摘要（规则自动拼接 · 页内与搜索共用）</text>
+      <text class="text-caption case-draft__label">案例摘要</text>
       <textarea
         class="case-draft__textarea case-draft__summary"
         value="{{caseSummary}}"
@@ -70,16 +71,17 @@
             class="case-draft__media-item"
             wx:if="{{m.sectionKey === item.key}}"
           >
-            <image class="case-draft__thumb" src="{{m.displayUrl}}" mode="aspectFill" />
+            <view class="case-draft__thumb-wrap">
+              <image class="case-draft__thumb" src="{{m.displayUrl}}" mode="aspectFill" />
+              <view
+                wx:if="{{editable}}"
+                class="case-draft__thumb-remove"
+                data-node-id="{{m.nodeId}}"
+                data-idx="{{m.idx}}"
+                catchtap="onRemoveMedia"
+              >×</view>
+            </view>
             <text class="text-caption">{{m.caption || m.nodeId}}</text>
-            <ui-button
-              wx:if="{{editable}}"
-              type="ghost"
-              size="sm"
-              data-node-id="{{m.nodeId}}"
-              data-idx="{{m.idx}}"
-              bind:btntap="onRemoveMedia"
-            >移除</ui-button>
           </view>
         </block>
       </view>
@@ -96,16 +98,17 @@
           wx:for-index="mIndex"
           wx:key="mIndex"
         >
-          <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
+          <view class="case-draft__thumb-wrap">
+            <image class="case-draft__thumb" src="{{item.displayUrl}}" mode="aspectFill" />
+            <view
+              wx:if="{{editable}}"
+              class="case-draft__thumb-remove"
+              data-node-id="{{item.nodeId}}"
+              data-idx="{{item.idx}}"
+              catchtap="onRemoveMedia"
+            >×</view>
+          </view>
           <text class="text-caption">{{item.caption || item.nodeId}} · {{item.sectionKey}}</text>
-          <ui-button
-            wx:if="{{editable}}"
-            type="ghost"
-            size="sm"
-            data-node-id="{{item.nodeId}}"
-            data-idx="{{item.idx}}"
-            bind:btntap="onRemoveMedia"
-          >移除</ui-button>
         </view>
       </view>
     </ui-card>
@@ -113,23 +116,33 @@
       <text class="text-caption text-secondary">暂无公开配图。请在相册中将过程图设为可公示，或完工脱敏后再嵌入。</text>
     </ui-card>
 
-    <view class="case-draft__actions">
-      <ui-button type="secondary" block bind:btntap="onCopyExport">复制文案</ui-button>
-      <ui-button wx:if="{{editable}}" type="secondary" block loading="{{saving}}" bind:btntap="onSaveDraft">保存草稿</ui-button>
-      <ui-button
-        wx:if="{{editable && fromComplete}}"
-        type="primary"
-        block
-        loading="{{completing}}"
-        bind:btntap="onConfirmAndComplete"
-      >确认并完工</ui-button>
-      <ui-button
-        wx:elif="{{editable}}"
-        type="primary"
-        block
-        loading="{{saving}}"
-        bind:btntap="onConfirmDraft"
-      >确认案例稿</ui-button>
-    </view>
+    <view class="case-draft__spacer" />
   </block>
+
+  <ui-fixed-bottom-bar wx:if="{{status === 'normal'}}" safeArea="{{true}}">
+    <view slot="left" class="case-draft__bar-left">
+      <ui-button type="ghost" size="sm" bind:btntap="onCopyExport">复制文案</ui-button>
+      <ui-button
+        wx:if="{{editable}}"
+        type="secondary"
+        size="sm"
+        loading="{{saving}}"
+        bind:btntap="onSaveDraft"
+      >保存草稿</ui-button>
+    </view>
+    <ui-button
+      wx:if="{{editable && fromComplete}}"
+      slot="right"
+      type="primary"
+      loading="{{completing}}"
+      bind:btntap="onConfirmAndComplete"
+    >确认并完工</ui-button>
+    <ui-button
+      wx:elif="{{editable}}"
+      slot="right"
+      type="primary"
+      loading="{{saving}}"
+      bind:btntap="onConfirmDraft"
+    >确认案例稿</ui-button>
+  </ui-fixed-bottom-bar>
 </view>

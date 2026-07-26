@@ -4,9 +4,11 @@ const {
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
+} = require('../../../../services/merchant-service-album')
+const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
-} = require('../../../../services/merchant-service-album')
+} = require('../../../../services/merchant')
 
 Page({
   data: {
@@ -203,7 +205,8 @@ Page({
       await this.loadDraft()
       wx.showModal({
         title: '已确认并完工',
-        content: '公开配图已开始脱敏。可复制确认稿发自媒体（平台不代发），或返回相册继续邀请车主。',
+        content:
+          '公开配图已开始脱敏。可复制当前文字发自媒体（不含配图，平台不代发），或返回相册继续邀请车主。',
         confirmText: '复制文案',
         cancelText: '返回相册',
         success: (res) => {
@@ -240,7 +243,7 @@ Page({
         return
       }
       await wx.setClipboardData({ data: text })
-      wx.showToast({ title: '已复制文案', icon: 'success' })
+      wx.showToast({ title: '已复制文字（不含图）', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })

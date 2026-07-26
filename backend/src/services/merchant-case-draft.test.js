@@ -14,6 +14,8 @@ function run() {
   const albumView = {
     serviceName: '底盘异响治理',
     vehicleDisplay: '宝马 3系',
+    storeName: '武侯精修店',
+    storeAddress: '武侯区某路 88 号',
     store: { city: '成都', name: '武侯店' },
     planAmount: 1280,
     planParts: [{ name: '下摆臂胶套', partType: '原厂品质' }],
@@ -60,7 +62,11 @@ function run() {
   }
 
   const draft = buildRuleMerchantCaseDraft(albumView, preMaskTask)
-  assert.ok(draft.title.includes('成都'))
+  assert.ok(draft.title.includes('武侯精修店'))
+  assert.ok(draft.title.includes('武侯区某路 88 号'))
+  assert.ok(draft.title.includes('宝马 3系'))
+  assert.ok(draft.title.includes('底盘异响治理'))
+  assert.ok(!draft.title.includes('成都'))
   assert.ok(draft.sections.length === 5)
   const plan = draft.sections.find((s) => s.key === 'plan')
   assert.ok(plan.body.includes('下摆臂胶套'))

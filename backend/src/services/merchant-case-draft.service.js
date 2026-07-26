@@ -46,13 +46,25 @@ function noteForStages(nodes, stageIds = []) {
   return parts.join('。').slice(0, 500)
 }
 
+function projectLabel(serviceName = '') {
+  const service = scrubPiiText(serviceName || '维修服务')
+  if (/过程记录|维修案例|案例$/.test(service)) return service
+  return `${service}过程记录`
+}
+
+/** 标题：门店名｜地址｜车型｜项目（缺项跳过，总长截断） */
 function buildTitle(albumView = {}) {
-  const city = scrubPiiText(albumView.store?.city || albumView.city || '')
+  const storeName = scrubPiiText(
+    albumView.storeName || albumView.store?.name || '',
+  )
+  const address = scrubPiiText(
+    albumView.storeAddress || albumView.store?.address || albumView.address || '',
+  )
   const vehicle = scrubPiiText(albumView.vehicleDisplay || '')
-  const service = scrubPiiText(albumView.serviceName || '维修服务')
-  const head = [city, vehicle].filter(Boolean).join('｜')
-  if (head) return `${head}｜${service}过程记录`.slice(0, 80)
-  return `${service}过程记录`.slice(0, 80)
+  const project = projectLabel(albumView.serviceName || '维修服务')
+  const parts = [storeName, address, vehicle, project].filter(Boolean)
+  if (parts.length) return parts.join('｜').slice(0, 120)
+  return project.slice(0, 120)
 }
 
 function buildRuleSections(albumView = {}) {
@@ -221,7 +233,7 @@ function normalizeMerchantCaseDraft(raw) {
         .slice(0, PUBLIC_MEDIA_KEYFRAME_DEFAULT)
     : []
 
-  const title = stripAmountText(raw.title || '').slice(0, 80)
+  const title = stripAmountText(raw.title || '').slice(0, 120)
   let caseSummary = stripAmountText(raw.caseSummary || raw.summary || '').slice(0, 250)
   if (!caseSummary) {
     caseSummary = buildRuleCaseSummary({ title, sections })

@@ -963,6 +963,30 @@ async function fetchMerchantCopyQuality(albumId, storeId, merchantId = '') {
   return quality
 }
 
+/** 案例标题用地名：从门店表补门店名、地址 */
+async function withStoreTitleFields(album, view) {
+  const base = {
+    ...view,
+    storeName: (view && view.storeName) || album.storeName || '',
+    storeAddress: (view && view.storeAddress) || '',
+  }
+  if (!album.storeId) return base
+  try {
+    const store = await prisma.store.findUnique({
+      where: { id: album.storeId },
+      select: { name: true, address: true },
+    })
+    if (!store) return base
+    return {
+      ...base,
+      storeName: store.name || album.storeName || base.storeName || '',
+      storeAddress: store.address || '',
+    }
+  } catch (_) {
+    return base
+  }
+}
+
 /** PKG-COACH：读取商家案例草稿 */
 async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options = {}) {
   const album = await loadAlbum(albumId)
@@ -970,19 +994,37 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   const { readPackageFromAlbum } = require('./album-content-package.service')
   const {
     buildRuleMerchantCaseDraft,
+    buildTitle,
     normalizeMerchantCaseDraft,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
+  const view = await withStoreTitleFields(album, buildMerchantView(album))
+  const editable = !isAlbumContentLocked(album)
+
   if (!forceRule && pkg && pkg.merchantCaseDraft) {
+    let draft = pkg.merchantCaseDraft
+    const confirmed = Boolean(draft.confirmedAt)
+    // 未确认且可编辑：按新规则自动重拼标题一次（门店名｜地址｜车型｜项目）
+    if (editable && !confirmed) {
+      const nextTitle = buildTitle(view)
+      if (nextTitle && nextTitle !== draft.title) {
+        draft = normalizeMerchantCaseDraft({ ...draft, title: nextTitle })
+        const nextPkg = { ...pkg, merchantCaseDraft: draft }
+        await prisma.album.update({
+          where: { id: albumId },
+          data: { contentPackageJson: nextPkg },
+        })
+      }
+    }
     return {
-      draft: pkg.merchantCaseDraft,
+      draft,
       contentPackageStatus: pkg.status || '',
-      editable: !isAlbumContentLocked(album),
-      confirmed: Boolean(pkg.merchantCaseDraft.confirmedAt),
+      editable,
+      confirmed,
     }
   }
-  const view = buildMerchantView(album)
+
   let preMaskTask = null
   try {
     const { findPreMaskTask } = require('./desensitize.service')
@@ -994,7 +1036,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   return {
     draft: normalizeMerchantCaseDraft(draft),
     contentPackageStatus: (pkg && pkg.status) || '',
-    editable: !isAlbumContentLocked(album),
+    editable,
     confirmed: false,
   }
 }
@@ -1024,7 +1066,7 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     error: '',
   }
 
-  const view = buildMerchantView(album)
+  const view = await withStoreTitleFields(album, buildMerchantView(album))
   let preMaskTask = null
   try {
     const { findPreMaskTask } = require('./desensitize.service')
@@ -1108,7 +1150,7 @@ async function polishMerchantCaseDraft(albumId, storeId, merchantId = '', payloa
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   assertAlbumContentEditable(album)
-  const view = buildMerchantView(album)
+  const view = await withStoreTitleFields(album, buildMerchantView(album))
   const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
   const { polishMerchantCaseDraftWithLlm } = require('./merchant-case-draft-polish.service')
 

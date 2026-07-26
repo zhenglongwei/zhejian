@@ -379,7 +379,7 @@ Page({
     wx.showModal({
       title: '进入案例预览',
       content:
-        '将先生成案例文案预览（按相册节点拼稿，不自动调用大模型）。你可改定或点「AI 润色」，确认后才会真正完工并开始脱敏。',
+        '将先生成案例文案预览',
       confirmText: '去预览',
       success: (res) => {
         if (!res.confirm) return
