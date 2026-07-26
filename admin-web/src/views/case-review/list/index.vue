@@ -1,7 +1,14 @@
 <template>
   <div v-loading="loading">
     <GateReviewNav />
-    <h2 class="page-title">案例公示审核（闸门 B）</h2>
+    <h2 class="page-title">案例公示审核（闸门 B · 遗留）</h2>
+    <el-alert
+      type="info"
+      :closable="false"
+      show-icon
+      style="margin-bottom: 12px"
+      title="自 2026-07-26 起，车主发布不再写入本队列（已改由完工合规一审后直接上线）。本页仅保留历史待审 / 抽检与事后下架。"
+    />
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
         v-for="tab in CASE_TABS"

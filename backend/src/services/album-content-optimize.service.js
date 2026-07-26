@@ -9,6 +9,7 @@ const { SERVICE_ALBUM_STATUS } = require('../constants/v2')
 const {
   buildAlbumView,
   isAlbumContentLocked,
+  resolveAlbumContentLockedMessage,
   canAccessMerchantAlbum,
 } = require('./service-album.service')
 const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
@@ -61,7 +62,7 @@ function assertMerchantCanOptimizeAlbum(album) {
     throw err
   }
   if (isAlbumContentLocked(album)) {
-    const err = new Error('车主已授权，相册内容已锁定，不可再优化')
+    const err = new Error(resolveAlbumContentLockedMessage(album))
     err.status = 409
     err.code = 'ALBUM_CONTENT_LOCKED'
     throw err

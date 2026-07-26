@@ -75,7 +75,7 @@
             preview-hint="{{endPagePreviewHint}}"
             show-withdraw="{{endPageShowWithdraw}}"
             withdraw-label="{{endPageWithdrawLabel}}"
-            status-hint="{{endPageStatusHint}}"
+            status-hint="{{showCompliancePending ? compliancePendingHint : endPageStatusHint}}"
             gate-actions="{{endPageGateActions}}"
             show-feedback="{{true}}"
             show-contact="{{false}}"

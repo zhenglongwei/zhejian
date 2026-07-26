@@ -78,13 +78,13 @@ function measureImmersiveLayout() {
 
 const PUBLIC_CASE_HINT = {
   user_rejected: '当前为私密相册，你可随时分享脱敏报告。',
-  pending_review: '审核中，通过后将展示给同城车友参考。',
+  pending_review: '正在发布到公开网站…',
   public_approved: '已发布到公开网站，同城车友可参考（已脱敏、已审核）。',
-  need_modify: '审核需你修改后重新分享，请按下方提示处理。',
+  need_modify: '请按提示处理后重新发布。',
 }
 
 const HONOR_HINT =
-  '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友（须审核）。'
+  '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友。'
 
 function resolvePublishSheetState(detail) {
   const status = (detail && detail.publicCaseStatus) || 'private'
@@ -322,6 +322,8 @@ Page({
     publishSheetState: 'idle',
     publishSheetDisabled: false,
     publishSheetHint: '',
+    compliancePendingHint: '',
+    showCompliancePending: false,
     shareActionsDisabled: false,
     viewerHeightPx: 0,
     progressPercent: 0,
@@ -532,11 +534,17 @@ Page({
       const socialDraftText = buildSocialDraft(enriched, socialPlatform)
       const publishSheetHint =
         publishSheetState === 'idle'
-          ? '预览即将上网的内容，确认后进入审核。'
+          ? '预览即将上网的内容，确认后立即发布（已过门店案例审核）。'
           : ''
       const publishSheetDisabled =
         Boolean(enriched.canAuthorizePublicCase === false) &&
         (publishSheetState === 'idle' || publishSheetState === 'need_modify')
+      const compliancePendingHint = String(enriched.compliancePendingHint || '').trim()
+      const showCompliancePending =
+        Boolean(compliancePendingHint) &&
+        isRepairCompleted(enriched.status) &&
+        enriched.complianceStatus !== 'passed' &&
+        enriched.complianceStatus !== 'rejected'
       const storePhone = (enriched.store && enriched.store.phone) || ''
       const linkedStoreId =
         (detail.store && detail.store.id) ||
@@ -582,6 +590,8 @@ Page({
         publishSheetState,
         publishSheetHint,
         publishSheetDisabled,
+        compliancePendingHint,
+        showCompliancePending,
         shareHonorHint: HONOR_HINT,
         authChecked: false,
         authSheetVisible: false,
@@ -640,6 +650,9 @@ Page({
 
   shouldShowAuth(detail) {
     if (!detail) return false
+    // 平台一审通过前：可看私密相册，不可看案例/发布入口
+    if (detail.caseVisibleToOwner === false) return false
+    if (detail.complianceStatus && detail.complianceStatus !== 'passed') return false
     if (detail.publicCaseScorePass === false || detail.publicCaseQualityReady === false) return false
     if (!isRepairCompleted(detail.status)) return false
     const status = detail.publicCaseStatus

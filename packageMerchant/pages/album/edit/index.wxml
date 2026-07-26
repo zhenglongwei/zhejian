@@ -118,7 +118,7 @@
           <ui-tag variant="info" text="完工后" />
         </view>
         <text class="text-caption text-secondary merchant-album-edit__optimize-hint">
-          预览并修订将给车主看的结构化案例正文与脱敏配图（不含金额）。车主只能评价、删图，不能改正文。
+          {{caseDraftConfirmed ? '案例稿已确认完工，仅可查看与复制文字；确认前请在预览页完成校对与 AI 润色。驳回前不可再改，撤回发布也不会解锁。' : '预览并修订将给车主看的案例正文与配图（不含金额）。确认并完工后不可再改。'}}
         </text>
         <ui-button type="primary" block bind:btntap="onOpenCaseDraft">
           {{caseDraftConfirmed ? '查看公开案例稿' : '编辑公开案例稿'}}

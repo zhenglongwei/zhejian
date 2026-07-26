@@ -13,8 +13,11 @@
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="text-h3">{{fromComplete ? '案例预览（确认后完工）' : '公开案例稿'}}</text>
       <view class="case-draft__intro">
-        <text class="text-caption text-secondary case-draft__hint">
-          本预览由相册各节点文字与配图拼接而成。确认后即作为案例真源；经车主授权后，可发布到公开网站，也可复制文字发自媒体、朋友圈等。默认不调用大模型；点「AI 润色」可润色正文，配图绑定不变。
+        <text wx:if="{{editable}}" class="text-caption text-secondary case-draft__hint">
+          本预览由相册各节点文字与配图拼接而成。请先校对或点下方「AI 润色」（配图绑定不变）；确认并完工后不可再改。经平台审核通过后，由车主发布到公开网站；也可复制文字发自媒体、朋友圈等。
+        </text>
+        <text wx:else class="text-caption text-secondary case-draft__hint">
+          本预览为已确认的案例真源（只读）。确认并完工后不可再改、不可再 AI 润色；仅平台审核驳回后方可再编辑，车主撤回发布不会解锁。经审核通过后由车主发布到公开网站；也可复制文字发自媒体。
         </text>
         <ui-button
           wx:if="{{editable}}"
@@ -44,7 +47,7 @@
         maxlength="250"
         disable-default-padding
         bindinput="onSummaryInput"
-        placeholder="由章节自动拼接；点「AI 润色」会用摘要专用提示词润色。勿写金额。"
+        placeholder="{{editable ? '由章节自动拼接；点「AI 润色」会用摘要专用提示词润色。勿写金额。' : '已确认，只读'}}"
       />
       <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。搜索描述由本摘要自动截取，无需另填。</text>
     </ui-card>

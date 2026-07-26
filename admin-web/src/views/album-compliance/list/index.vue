@@ -1,7 +1,10 @@
 <template>
   <div v-loading="loading">
     <GateReviewNav />
-    <h2 class="page-title">相册完工合规（闸门 A）</h2>
+    <h2 class="page-title">相册完工合规（平台一审）</h2>
+    <p class="page-desc text-secondary" style="margin: 0 0 12px;">
+      商家确认并完工后的唯一阻塞审核。通过后车主才可看案例稿并自行发布；车主发布不再进入闸门 B。
+    </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
         v-for="tab in ALBUM_COMPLIANCE_TABS"

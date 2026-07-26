@@ -61,7 +61,7 @@ Page({
       if (panel.isAuthorized) {
         this.setData({
           status: 'error',
-          errorMessage: '车主已授权，内容已锁定，无法再优化',
+          errorMessage: '车主已提交发布，内容已锁定，无法再优化',
         })
         return
       }

@@ -306,7 +306,8 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
     contentFrozen: passed,
     awaitingUserConfirm: passed && !authorized,
     userConfirmHint: passed ? USER_CONFIRM_HINT : '',
-    compliancePendingHint: pendingReview ? '门店留档合规审核中' : '',
+    compliancePendingHint: pendingReview ? '门店案例审核中' : '',
+    caseVisibleToOwner: passed,
     canAuthorizePublicCase:
       passed &&
       (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
@@ -559,17 +560,58 @@ async function loadAlbum(albumId) {
 }
 
 const ALBUM_CONTENT_LOCKED_CODE = 'ALBUM_CONTENT_LOCKED'
+/** @deprecated 请用 resolveAlbumContentLockedMessage(album)；保留给旧测试兼容 */
 const ALBUM_CONTENT_LOCKED_MESSAGE =
-  '车主已提交授权，相册已锁定；如需修改请先由车主撤回公示。'
+  '相册已确认完工并锁定，正文与留档不可再改。仅平台审核驳回后方可再编辑；车主撤回发布不会解锁。'
 
+function isAlbumCompletedStatus(status = '') {
+  const s = String(status || '')
+  return (
+    s === SERVICE_ALBUM_STATUS.COMPLETED ||
+    s === SERVICE_ALBUM_STATUS.PUBLISHED ||
+    s === SERVICE_ALBUM_STATUS.PENDING_AUTHORIZATION ||
+    s === 'published'
+  )
+}
+
+/**
+ * 商家留档/案例稿锁定（2026-07-26 · 完工一审）：
+ * - 确认并完工后一律锁定（含一审 pending / spot_check / passed，以及撤回后）
+ * - 仅平台一审驳回 → 解锁，便于商家改正再完工
+ * - 车主已提交发布 → 锁定（与完工锁定叠加）
+ * - 撤回发布 **不** 清合规态、**不** 解锁
+ */
 function isAlbumContentLocked(album) {
-  if (album?.complianceStatus === ALBUM_COMPLIANCE_STATUS.PASSED) return true
-  return album?.authorization?.status === 'authorized'
+  if (!album) return false
+  if (album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED) return false
+  if (album.authorization?.status === 'authorized') return true
+
+  const compliance = album.complianceStatus || ALBUM_COMPLIANCE_STATUS.NONE
+  if (
+    compliance === ALBUM_COMPLIANCE_STATUS.PASSED ||
+    compliance === ALBUM_COMPLIANCE_STATUS.PENDING ||
+    compliance === ALBUM_COMPLIANCE_STATUS.SPOT_CHECK
+  ) {
+    return true
+  }
+
+  // 已完工即锁定（含撤回后仍 completed + 合规态保留 passed）
+  if (isAlbumCompletedStatus(album.status)) {
+    return true
+  }
+  return false
+}
+
+function resolveAlbumContentLockedMessage(album = {}) {
+  if (album?.authorization?.status === 'authorized') {
+    return '车主已提交发布，相册已锁定；撤回发布后仍不可再改（要改请新建相册）。'
+  }
+  return ALBUM_CONTENT_LOCKED_MESSAGE
 }
 
 function assertAlbumContentEditable(album) {
   if (isAlbumContentLocked(album)) {
-    const err = new Error(ALBUM_CONTENT_LOCKED_MESSAGE)
+    const err = new Error(resolveAlbumContentLockedMessage(album))
     err.status = 409
     err.code = ALBUM_CONTENT_LOCKED_CODE
     throw err
@@ -882,13 +924,24 @@ async function getUserServiceAlbum(albumId, userId) {
   }
   let view = attachPublishInviteFields(buildAlbumView(album), album)
   try {
-    const { readPackageFromAlbum } = require('./album-content-package.service')
-    const { draftToAiSummary } = require('./merchant-case-draft.service')
-    const pkg = readPackageFromAlbum(album)
-    view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
-    view.contentPackageStatus = (pkg && pkg.status) || ''
-    if (view.merchantCaseDraft) {
-      view.merchantCaseDraftSummary = draftToAiSummary(view.merchantCaseDraft)
+    const passed = album.complianceStatus === ALBUM_COMPLIANCE_STATUS.PASSED
+    // 一审通过前：车主可看私密相册，不可看案例稿
+    if (!passed) {
+      view.merchantCaseDraft = null
+      view.merchantCaseDraftSummary = null
+      view.contentPackageStatus = ''
+      view.caseDraftHiddenReason = album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED
+        ? 'compliance_rejected'
+        : 'compliance_pending'
+    } else {
+      const { readPackageFromAlbum } = require('./album-content-package.service')
+      const { draftToAiSummary } = require('./merchant-case-draft.service')
+      const pkg = readPackageFromAlbum(album)
+      view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
+      view.contentPackageStatus = (pkg && pkg.status) || ''
+      if (view.merchantCaseDraft) {
+        view.merchantCaseDraftSummary = draftToAiSummary(view.merchantCaseDraft)
+      }
     }
   } catch (_) {
     view.merchantCaseDraft = null
@@ -1724,11 +1777,7 @@ async function withdrawAuthorization(albumId, userId) {
         publicCaseStatus: 'private',
         authorizationTier: 'private',
         status: SERVICE_ALBUM_STATUS.COMPLETED,
-        complianceStatus: ALBUM_COMPLIANCE_STATUS.NONE,
-        compliancePassedAt: null,
-        complianceRejectReason: '',
-        complianceReviewMode: '',
-        complianceCheckedAt: null,
+        // 2026-07-26：撤回不解锁——保留一审通过态，商家仍不可改
       },
     })
   })
@@ -1995,6 +2044,7 @@ module.exports = {
   loadAlbum,
   buildMerchantView,
   isAlbumContentLocked,
+  resolveAlbumContentLockedMessage,
   assertAlbumContentEditable,
   ALBUM_CONTENT_LOCKED_CODE,
   ALBUM_CONTENT_LOCKED_MESSAGE,

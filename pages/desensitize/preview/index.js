@@ -99,6 +99,18 @@ Page({
   async loadTask() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
+      if (this.data.source === 'service' && this.data.albumId) {
+        const album = await fetchServiceAlbum(this.data.albumId)
+        if (album.caseVisibleToOwner === false || album.complianceStatus !== 'passed') {
+          this.setData({
+            status: 'error',
+            errorMessage: album.compliancePendingHint || '门店案例审核中，通过后方可预览与发布',
+            caseDraftMissing: true,
+          })
+          return
+        }
+        this._authorizeAlbum = album
+      }
       const [task, aiSummary] = await Promise.all([
         fetchTask(this.data.taskId),
         this.loadAuthorizeAiSummary(),
@@ -116,7 +128,7 @@ Page({
     const { source, albumId } = this.data
     if (source === 'review' || source !== 'service' || !albumId) return ''
     try {
-      const album = await fetchServiceAlbum(albumId)
+      const album = this._authorizeAlbum || (await fetchServiceAlbum(albumId))
       const draft = album.merchantCaseDraft || null
       const confirmed = Boolean(draft && draft.confirmedAt)
       if (!confirmed) {

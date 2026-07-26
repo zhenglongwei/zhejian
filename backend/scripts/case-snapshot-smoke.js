@@ -379,10 +379,15 @@ async function main() {
     const authTaskId = await userConfirmAuthorizePreview(userToken, albumId)
     const published = await userAuthorizeAndPublish({ userToken, albumId, authTaskId })
     caseId = published.caseItem?.id || published.id
-    assert(published.status === PUBLIC_CASE_STATUS.PENDING_REVIEW, '提交后应为 pending_review')
+    assert(
+      published.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED ||
+        published.autoApproved === true,
+      '提交后应直接公开（不再经闸门 B）'
+    )
     assert(published.caseItem?.snapshotVersion === 1, '首次 snapshotVersion 应为 1')
 
     const rowV1 = await prisma.publicCase.findUnique({ where: { id: caseId } })
+    assert(rowV1.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, '发布后 publicCase 应为已通过')
     const snapV1 = extractSnapshotFromContentJson(rowV1.contentJson)
     assert(snapV1 && snapV1.version === 1, 'snapshot.version 应为 1')
     assert(snapV1.nodes.some((n) => (n.note || '').includes('SNAP_V1')), 'snapshot 应冻结 V1 note')
@@ -391,18 +396,9 @@ async function main() {
       where: { id: albumId },
       include: { authorization: true },
     })
-    assert(isAlbumContentLocked(lockedAlbum), '授权后相册应锁定')
+    assert(isAlbumContentLocked(lockedAlbum), '发布后相册应锁定')
 
-    const approved = await api('POST', `/admin/cases/${caseId}/approve`, {
-      token: adminToken,
-      headers: { 'X-Client-Type': 'admin' },
-      body: { comment: 'CASE-FLOW-01 冒烟通过' },
-    })
-    assert(approved.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, '审核通过后状态错误')
-    assert(approved.snapshotFrozen === true, '运营详情应标记 snapshotFrozen')
-    log('FLOW-01', `运营通过 slug=${approved.slug || rowV1.slug}`)
-
-    const slug = approved.slug || rowV1.slug
+    const slug = rowV1.slug
     assert(slug, '应有 slug')
     await assertH5Readable({
       caseId,
@@ -410,7 +406,7 @@ async function main() {
       snapshotMarker: SNAP_V1_TAG,
       labelPrefix: 'FLOW-01',
     })
-    log('FLOW-01', '✅ 建册→授权→审核→H5 OK')
+    log('FLOW-01', '✅ 建册→发布直上 H5 OK')
 
     await prisma.albumNode.updateMany({
       where: { albumId, nodeId: 'stage_2' },
@@ -456,50 +452,50 @@ async function main() {
     await api('POST', `/user/service-albums/${albumId}/withdraw-authorization`, {
       token: userToken,
     })
-    const unlocked = await prisma.album.findUnique({
+    const stillLocked = await prisma.album.findUnique({
       where: { id: albumId },
       include: { authorization: true },
     })
-    assert(!isAlbumContentLocked(unlocked), '撤回后相册应解锁')
-    log('FLOW-03', '用户撤回 OK')
+    assert(isAlbumContentLocked(stillLocked), '撤回后相册仍应锁定')
+    assert(
+      stillLocked.complianceStatus === 'passed' || stillLocked.complianceStatus === 'spot_check',
+      '撤回后应保留一审通过态'
+    )
+    log('FLOW-03', '用户撤回后仍锁定 OK')
 
-    await api('POST', `/merchant/service-albums/${albumId}`, {
-      token: merchantToken,
-      body: {
-        storeId: STORE_ID,
-        nodes: await loadAlbumNodesForSave(albumId, {
-          stage_2: { note: SNAP_V2_NOTE },
-        }),
-      },
-    })
-    const compliance = await runAlbumComplianceGate(albumId)
-    assert(compliance.passed, '再授权前合规应通过')
-    await waitForPreMaskReady(albumId)
+    let saveAfterWithdraw = false
+    try {
+      await api('POST', `/merchant/service-albums/${albumId}`, {
+        token: merchantToken,
+        body: { storeId: STORE_ID, storeNote: '撤回后尝试修改' },
+      })
+    } catch (err) {
+      saveAfterWithdraw = String(err.message || '').includes(ALBUM_CONTENT_LOCKED_MESSAGE) ||
+        Number(err.status) === 409
+    }
+    assert(saveAfterWithdraw, '撤回后 merchant save 仍应 409')
 
     const authTaskId2 = await userConfirmAuthorizePreview(userToken, albumId)
     const republished = await userAuthorizeAndPublish({ userToken, albumId, authTaskId: authTaskId2 })
-    assert(republished.caseItem?.snapshotVersion === 2, '再授权 snapshotVersion 应为 2')
-    assert(republished.status === PUBLIC_CASE_STATUS.PENDING_REVIEW, '再授权应 pending_review')
+    assert(republished.caseItem?.snapshotVersion === 2, '再发布 snapshotVersion 应为 2')
+    assert(
+      republished.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED || republished.autoApproved === true,
+      '再发布应直接公开'
+    )
 
     const rowV2 = await prisma.publicCase.findUnique({ where: { id: caseId } })
     const snapV2 = extractSnapshotFromContentJson(rowV2.contentJson)
     assert(snapV2 && snapV2.version === 2, 'snapshot.version 应为 2')
-    assert(snapV2.nodes.some((n) => (n.note || '').includes('SNAP_V2')), 'snapshot 应冻结 V2 note')
-
-    const approved2 = await api('POST', `/admin/cases/${caseId}/approve`, {
-      token: adminToken,
-      headers: { 'X-Client-Type': 'admin' },
-      body: { comment: 'CASE-FLOW-03 再授权通过' },
-    })
-    assert(approved2.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, '重审通过状态错误')
+    assert(snapV2.nodes.some((n) => (n.note || '').includes('SNAP_V1')), '再发布仍冻结原锁定内容（商家未改）')
+    assert(rowV2.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED, '再发布后应为已通过')
 
     await assertH5Readable({
       caseId,
-      slug: approved2.slug || slug,
-      snapshotMarker: SNAP_V2_TAG,
+      slug: rowV2.slug || slug,
+      snapshotMarker: SNAP_V1_TAG,
       labelPrefix: 'FLOW-03',
     })
-    log('FLOW-03', '✅ 撤回→再授权→重审 OK')
+    log('FLOW-03', '✅ 撤回→仍锁定→再发布直上 OK')
 
     console.log('[case-snapshot-smoke] ALL OK', {
       albumId,
