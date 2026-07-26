@@ -20,6 +20,7 @@ Page({
     saving: false,
     polishing: false,
     completing: false,
+    canRevertPolish: false,
     title: '',
     caseSummary: '',
     titleHeight: 40,
@@ -28,6 +29,9 @@ Page({
     media: [],
     confirmed: false,
   },
+
+  /** 仅保留最近一次「AI 润色」前的文案，不落库 */
+  _prePolishSnapshot: null,
 
   onLoad(options) {
     this.albumId = options.albumId || ''
@@ -121,17 +125,31 @@ Page({
     try {
       const data = await fetchMerchantCaseDraft(this.albumId)
       const draft = data.draft || {}
+      this._prePolishSnapshot = null
       this.applyDraftView(draft, {
         status: 'normal',
         albumId: this.albumId,
         editable: Boolean(data.editable),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
+        canRevertPolish: false,
       })
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
+    }
+  },
+
+  capturePrePolishSnapshot() {
+    this._prePolishSnapshot = {
+      title: this.data.title || '',
+      caseSummary: this.data.caseSummary || '',
+      sections: (this.data.sections || []).map((sec) => ({
+        key: sec.key,
+        title: sec.title,
+        body: sec.body || '',
+      })),
     }
   },
 
@@ -196,6 +214,7 @@ Page({
 
   async onAiPolish() {
     if (!this.data.editable || this.data.polishing || this.data.saving) return
+    this.capturePrePolishSnapshot()
     this.setData({ polishing: true })
     try {
       wx.showLoading({ title: 'AI 润色中', mask: true })
@@ -209,15 +228,33 @@ Page({
           ...draft,
           media: draft.media && draft.media.length ? draft.media : this.data.media,
         },
-        { confirmed: false },
+        { confirmed: false, canRevertPolish: true },
       )
-      wx.showToast({ title: '已润色，可继续修改', icon: 'success' })
+      wx.showToast({ title: '已润色，可恢复或继续改', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
+      this._prePolishSnapshot = null
+      this.setData({ canRevertPolish: false })
       wx.showToast({ title: (e && e.message) || '润色失败', icon: 'none' })
     } finally {
       this.setData({ polishing: false })
     }
+  },
+
+  onRevertPolish() {
+    if (!this.data.editable || !this.data.canRevertPolish || !this._prePolishSnapshot) return
+    const snap = this._prePolishSnapshot
+    this._prePolishSnapshot = null
+    this.applyDraftView(
+      {
+        title: snap.title,
+        caseSummary: snap.caseSummary,
+        sections: snap.sections,
+        media: this.data.media,
+      },
+      { canRevertPolish: false },
+    )
+    wx.showToast({ title: '已恢复润色前', icon: 'success' })
   },
 
   async onSave(confirm) {
@@ -261,7 +298,13 @@ Page({
         draft: this.buildDraftPayload(),
       })
       wx.hideLoading()
-      this.setData({ confirmed: true, editable: false, fromComplete: false })
+      this._prePolishSnapshot = null
+      this.setData({
+        confirmed: true,
+        editable: false,
+        fromComplete: false,
+        canRevertPolish: false,
+      })
       await this.loadDraft()
       wx.showModal({
         title: '已确认并完工',

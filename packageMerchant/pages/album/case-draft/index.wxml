@@ -14,18 +14,26 @@
       <text class="text-h3">{{fromComplete ? '案例预览（确认后完工）' : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          本预览由相册各节点文字与配图拼接而成。请先校对或点下方「AI 润色」（配图绑定不变）；确认并完工后不可再改。经平台审核通过后，由车主发布到公开网站；也可复制文字发自媒体、朋友圈等。
+          本预览由相册节点文字与配图拼接而成，AI 润色可选：不点也能校对后直接确认完工。点润色只改文字、配图不变；润色后可「恢复润色前」。确认并完工后不可再改。经平台审核通过后由车主发布到公开网站；也可复制文字发自媒体。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
           本预览为已确认的案例真源（只读）。确认并完工后不可再改、不可再 AI 润色；仅平台审核驳回后方可再编辑，车主撤回发布不会解锁。经审核通过后由车主发布到公开网站；也可复制文字发自媒体。
         </text>
-        <ui-button
-          wx:if="{{editable}}"
-          type="secondary"
-          size="sm"
-          loading="{{polishing}}"
-          bind:btntap="onAiPolish"
-        >AI 润色</ui-button>
+        <view wx:if="{{editable}}" class="case-draft__polish-actions">
+          <ui-button
+            type="secondary"
+            size="sm"
+            loading="{{polishing}}"
+            bind:btntap="onAiPolish"
+          >AI 润色</ui-button>
+          <ui-button
+            wx:if="{{canRevertPolish}}"
+            type="ghost"
+            size="sm"
+            disabled="{{polishing}}"
+            bind:btntap="onRevertPolish"
+          >恢复润色前</ui-button>
+        </view>
       </view>
       <text class="text-caption case-draft__label">标题</text>
       <textarea
@@ -47,7 +55,7 @@
         maxlength="250"
         disable-default-padding
         bindinput="onSummaryInput"
-        placeholder="{{editable ? '由章节自动拼接；点「AI 润色」会用摘要专用提示词润色。勿写金额。' : '已确认，只读'}}"
+        placeholder="{{editable ? '由章节自动拼接；AI 润色可选。勿写金额。' : '已确认，只读'}}"
       />
       <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。搜索描述由本摘要自动截取，无需另填。</text>
     </ui-card>

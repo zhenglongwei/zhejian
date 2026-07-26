@@ -16,6 +16,13 @@
   margin: 0;
 }
 
+.case-draft__polish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
 .case-draft__mask-tip {
   display: block;
   margin-top: var(--space-sm);
