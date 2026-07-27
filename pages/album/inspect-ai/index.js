@@ -8,6 +8,7 @@ const { buildInspectionReportListItem } = require('../../../utils/album-inspecti
 const {
   shouldRunAiAnalysis,
   isAlbumCompleted,
+  findLatestInflightReport,
 } = require('../../../utils/album-inspection-analysis-gate')
 
 function mapReports(items, options = {}) {
@@ -28,6 +29,19 @@ function mapReports(items, options = {}) {
   )
 }
 
+function resolvePendingHint(reportItems = []) {
+  const inflight = findLatestInflightReport(reportItems)
+  if (!inflight) return ''
+  const status = (inflight.payload && inflight.payload.status) || inflight.status
+  if (status === 'queued') {
+    return '已在排队：配图脱敏完成后将自动分析，完成后会通知你。'
+  }
+  if (status === 'running') {
+    return '分析进行中，完成后会通知你查看。'
+  }
+  return ''
+}
+
 Page({
   data: {
     status: 'loading',
@@ -39,15 +53,20 @@ Page({
     aiLoading: false,
     canRunAiAnalysis: false,
     albumCompleted: false,
+    pendingHint: '',
   },
 
   onLoad(options) {
     this.albumId = options.albumId || ''
     this.focusStageId = options.focusStageId || options.stageId || ''
     this.triggerContext = options.triggerContext || 'inspect_page'
+    const highlightReportId = (options && options.highlightReportId) || ''
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '相册信息缺失' })
       return
+    }
+    if (highlightReportId) {
+      this.setData({ highlightReportId })
     }
     this.loadPage()
   },
@@ -103,7 +122,9 @@ Page({
         ...detail,
         id: detail.albumId,
       })
-      const reports = mapReports(reportRes.items || [])
+      const reports = mapReports(reportRes.items || [], {
+        highlightReportId: this.data.highlightReportId || '',
+      })
       const canRunAiAnalysis = shouldRunAiAnalysis(detail, reportRes.items || [])
       this.albumDetail = detail
       this.rawReportItems = reportRes.items || []
@@ -113,6 +134,7 @@ Page({
         reports,
         canRunAiAnalysis,
         albumCompleted: isAlbumCompleted(detail),
+        pendingHint: resolvePendingHint(reportRes.items || []),
       })
     } catch (e) {
       this.setData({
@@ -149,9 +171,18 @@ Page({
   onRunAiCheck() {
     if (this.data.aiLoading) return
     if (!this.data.canRunAiAnalysis) {
-      const title = this.data.albumCompleted
-        ? '本相册试用已用完，请查看下方记录'
-        : '相册完工后可试用 AI 分析'
+      const inflight = (this.rawReportItems || []).find((row) => {
+        const status = (row.payload && row.payload.status) || row.status
+        return status === 'queued' || status === 'running'
+      })
+      let title = '相册完工后可试用 AI 分析'
+      if (this.data.albumCompleted) {
+        title = inflight
+          ? inflight.payload && inflight.payload.status === 'queued'
+            ? '已在排队，脱敏完成后自动分析'
+            : '分析进行中，完成后会通知你'
+          : '本相册试用已用完，请查看下方记录'
+      }
       wx.showToast({
         title,
         icon: 'none',
@@ -164,7 +195,7 @@ Page({
 
   async runAiAdvice() {
     this.setData({ aiLoading: true })
-    wx.showLoading({ title: 'AI 分析中…', mask: true })
+    wx.showLoading({ title: '提交中…', mask: true })
     try {
       const result = await fetchAlbumInspectionAdvice(this.albumId, {
         focusStageId: this.focusStageId || '',
@@ -181,8 +212,25 @@ Page({
         aiLoading: false,
         canRunAiAnalysis: shouldRunAiAnalysis(detail, reportRes.items || []),
         albumCompleted: isAlbumCompleted(detail),
+        pendingHint: resolvePendingHint(reportRes.items || []),
       })
-      if (result.status === 'failed') {
+      if (result.status === 'queued') {
+        wx.showModal({
+          title: '已加入排队',
+          content:
+            result.errorMessage ||
+            '配图脱敏处理中。脱敏完成后将自动开始 AI 分析，完成后会通知你查看。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+      } else if (result.status === 'running') {
+        wx.showModal({
+          title: '分析已开始',
+          content: result.errorMessage || 'AI 分析进行中，完成后会通知你查看。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+      } else if (result.status === 'failed') {
         wx.showToast({
           title: result.errorMessage || 'AI 分析失败',
           icon: 'none',

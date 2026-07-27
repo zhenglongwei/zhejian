@@ -1,5 +1,11 @@
 const { config } = require('../config')
 const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { stripUrlQuery } = require('../lib/media-signed-url')
+
+/** 指纹用稳定 URL（去掉 signed query），避免授权时误判过期重跑 OCR */
+function stableMediaUrlForFingerprint(url) {
+  return stripUrlQuery(rewriteMediaUrlForCurrentBase(url) || url || '')
+}
 
 const BIZ_TYPE = {
   ORDER_PRE_MASK: 'order_pre_mask',
@@ -37,7 +43,10 @@ function nodesFingerprint(nodes) {
   return JSON.stringify(
     (nodes || []).map((n) => ({
       id: n.nodeId || n.id,
-      images: (n.images || []).map((img) => (typeof img === 'string' ? img : img.rawUrl || img.url)),
+      images: (n.images || []).map((img) => {
+        const raw = typeof img === 'string' ? img : img.rawUrl || img.url
+        return stableMediaUrlForFingerprint(raw)
+      }),
     }))
   )
 }
@@ -138,6 +147,7 @@ function albumToNodeView(album) {
   const imagesByNode = {}
   ;(album.images || []).forEach((img) => {
     if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
+    // 脱敏处理用可读 URL；指纹在 nodesFingerprint 内再 strip query
     imagesByNode[img.nodeId].push(rewriteMediaUrlForCurrentBase(img.rawUrl))
   })
   return (album.nodes || []).map((node) => ({

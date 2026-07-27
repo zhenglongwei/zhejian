@@ -18,9 +18,11 @@
         <view class="album-inspect-ai__notice-wrap">
           <ui-compliance-notice type="aiInspection" />
         </view>
-        <text wx:if="{{!canRunAiAnalysis && reports.length}}" class="text-caption album-inspect-ai__hint">本相册试用已用完，可直接查看下方记录。</text>
+        <text wx:if="{{!canRunAiAnalysis && reports.length}}" class="text-caption album-inspect-ai__hint">
+          {{pendingHint || '本相册试用已用完，可直接查看下方记录。'}}
+        </text>
         <text wx:elif="{{!canRunAiAnalysis && !albumCompleted}}" class="text-caption album-inspect-ai__hint">相册完工后可试用 AI 分析 1 次。</text>
-        <text wx:elif="{{canRunAiAnalysis}}" class="text-caption album-inspect-ai__hint">本相册可试用 AI 分析 1 次；留痕较少时结果可能较简略。</text>
+        <text wx:elif="{{canRunAiAnalysis}}" class="text-caption album-inspect-ai__hint">本相册可试用 AI 分析 1 次；配图将使用脱敏图进行分析。</text>
       </view>
 
       <view wx:if="{{canRunAiAnalysis}}" class="album-inspect-ai__trigger">
@@ -50,18 +52,18 @@
               <text wx:if="{{report.focusStageTitle}}" class="text-caption album-inspect-ai__report-focus">关注：{{report.focusStageTitle}}</text>
             </view>
             <view class="album-inspect-ai__report-head-side">
-              <ui-tag variant="{{report.status === 'failed' ? 'warning' : 'info'}}" text="{{report.status === 'failed' ? '调用失败' : '已完成'}}" />
+              <ui-tag variant="{{report.statusTagVariant || (report.status === 'failed' ? 'warning' : 'info')}}" text="{{report.statusTagText || (report.status === 'failed' ? '调用失败' : '已完成')}}" />
               <text class="album-inspect-ai__chevron">{{report.expanded ? '▾' : '▸'}}</text>
             </view>
           </view>
 
           <block wx:if="{{report.expanded}}">
-            <block wx:if="{{report.status === 'failed'}}">
-              <text class="text-body album-inspect-ai__fail-title">{{report.errorTitle || '调用失败'}}</text>
+            <block wx:if="{{report.status === 'failed' || report.status === 'queued' || report.status === 'running'}}">
+              <text class="text-body album-inspect-ai__fail-title">{{report.errorTitle || '处理中'}}</text>
               <text class="text-body album-inspect-ai__fail-message">{{report.errorMessage}}</text>
             </block>
 
-            <block wx:else>
+            <block wx:elif="{{report.advice}}">
               <block wx:if="{{report.advice.overallOpinion.summary}}">
                 <text class="text-caption album-inspect-ai__label">整体意见</text>
                 <text class="text-body album-inspect-ai__summary">{{report.advice.overallOpinion.summary}}</text>

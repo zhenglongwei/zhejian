@@ -217,10 +217,8 @@ function createAlbumAuthShareHandlers(options = {}) {
         })
       } catch (e) {
         wx.hideLoading()
-        wx.showToast({
-          title: (e && e.message) || '预览加载失败',
-          icon: 'none',
-        })
+        const { showAuthorizePreviewError } = require('./authorize-preview-error')
+        showAuthorizePreviewError(e)
       } finally {
         this.setData({ authSubmitting: false })
       }

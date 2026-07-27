@@ -1,6 +1,6 @@
 /**
  * 相册 AI 分析 · 入口门槛与是否可发起
- * 规则：仅完工后可见；成功分析 1 次后不可再发起（失败可重试）
+ * 规则：仅完工后可见；成功分析 1 次后不可再发起；排队/分析中不可重复发起（失败可重试）
  */
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('../constants/service-album-status')
 
@@ -8,11 +8,29 @@ function resolveReportPayload(row = {}) {
   return row.payload || row.payloadJson || {}
 }
 
+function resolveReportStatus(row = {}) {
+  const payload = resolveReportPayload(row)
+  if (payload.status) return payload.status
+  const source = row.source || payload.source || ''
+  if (source === 'failed' || source === 'rule') return 'failed'
+  if (source === 'queued') return 'queued'
+  if (source === 'running') return 'running'
+  return 'success'
+}
+
+function isInflightReport(row = {}) {
+  const status = resolveReportStatus(row)
+  return status === 'queued' || status === 'running'
+}
+
 function isSuccessfulReport(row = {}) {
   const payload = resolveReportPayload(row)
   if (payload.status === 'failed') return false
+  if (isInflightReport(row)) return false
   const source = row.source || payload.source || ''
-  if (source === 'failed' || source === 'rule') return false
+  if (source === 'failed' || source === 'rule' || source === 'queued' || source === 'running') {
+    return false
+  }
   return true
 }
 
@@ -33,9 +51,17 @@ function findLatestSuccessfulReport(reportItems = []) {
   return sorted.find((row) => isSuccessfulReport(row)) || null
 }
 
-/** 完工后且尚无成功报告时可发起 */
+function findLatestInflightReport(reportItems = []) {
+  const sorted = [...reportItems].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+  )
+  return sorted.find((row) => isInflightReport(row)) || null
+}
+
+/** 完工后且尚无成功/进行中报告时可发起 */
 function shouldRunAiAnalysis(detail = {}, reportItems = []) {
   if (!shouldShowAiAnalysisEntry(detail)) return false
+  if (findLatestInflightReport(reportItems)) return false
   return !findLatestSuccessfulReport(reportItems)
 }
 
@@ -44,5 +70,8 @@ module.exports = {
   shouldShowAiAnalysisEntry,
   shouldRunAiAnalysis,
   findLatestSuccessfulReport,
+  findLatestInflightReport,
   isSuccessfulReport,
+  isInflightReport,
+  resolveReportStatus,
 }

@@ -71,7 +71,8 @@ async function runGateUserAction(page, actionKey, detail = {}) {
       })
     } catch (e) {
       wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '加载失败', icon: 'none' })
+      const { showAuthorizePreviewError } = require('./authorize-preview-error')
+      showAuthorizePreviewError(e)
     }
     return
   }

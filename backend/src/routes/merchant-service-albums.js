@@ -13,7 +13,6 @@ const {
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
-  refreshCaseDraftMediaAfterMask,
   exportMerchantCaseDraftCopy,
   fetchMerchantAlbumStats,
   getMerchantAlbumClaimQrcode,
@@ -21,7 +20,7 @@ const {
   listServiceAlbumTemplateOptions,
 } = require('../services/service-album.service')
 const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.service')
-const { ensureOrderPreMaskTask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
+const { scheduleAlbumPreMask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
 const {
@@ -284,15 +283,14 @@ router.post(
         req.auth.merchantId,
         req.body || {},
       )
-      const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, {
+      scheduleAlbumPreMask(req.params.albumId, {
         auth: req.auth || {},
       })
-      await refreshCaseDraftMediaAfterMask(req.params.albumId)
       const compliance = await runAlbumComplianceGate(req.params.albumId)
       return ok(res, {
         ...view,
         albumStatus: 'completed',
-        preMaskTaskId: preMaskTask && preMaskTask.taskId,
+        preMaskStatus: 'running',
         complianceStatus: compliance && compliance.complianceStatus,
       })
     } catch (e) {
@@ -338,13 +336,12 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       storeId,
       req.auth.merchantId,
     )
-    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, { auth: req.auth || {} })
+    scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
     const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
-      preMaskTaskId: preMaskTask.taskId,
-      preMaskStatus: preMaskTask.preMaskStatus,
+      preMaskStatus: 'running',
       complianceStatus: compliance.complianceStatus,
       compliancePassed: compliance.passed,
       complianceRejectReason: compliance.rejectReason || '',
@@ -489,13 +486,12 @@ router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, 
       storeId,
       req.auth.merchantId,
     )
-    const preMaskTask = await ensureOrderPreMaskTask(req.params.albumId, { auth: req.auth || {} })
+    scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
     const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
-      preMaskTaskId: preMaskTask.taskId,
-      preMaskStatus: preMaskTask.preMaskStatus,
+      preMaskStatus: 'running',
       complianceStatus: compliance.complianceStatus,
       compliancePassed: compliance.passed,
       complianceRejectReason: compliance.rejectReason || '',

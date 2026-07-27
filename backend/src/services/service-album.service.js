@@ -1276,8 +1276,7 @@ async function refreshCaseDraftMediaAfterMask(albumId) {
 }
 
 /**
- * CASE-DRAFT-LOCK · 确认案例稿并完工 + 触发脱敏
- * 路由层还应调用 ensureOrderPreMaskTask / runAlbumComplianceGate
+ * CASE-DRAFT-LOCK · 确认案例稿并完工；路由层异步 scheduleAlbumPreMask + runAlbumComplianceGate
  */
 async function confirmAndCompleteMerchantCaseDraft(
   albumId,

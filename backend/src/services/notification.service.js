@@ -508,6 +508,102 @@ async function notifyAlbumCompleted(album) {
   })
 }
 
+async function notifyAlbumPreMaskReady(album) {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'album_pre_mask_ready',
+    title: '相册配图已脱敏完成',
+    content: '可以核对脱敏图并发布到公开网站了。若已预约 AI 分析，系统将自动开始。',
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'album',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '脱敏完成',
+      tips: '可核对脱敏图并发布',
+      storeName: album.storeName,
+    },
+  })
+}
+
+async function notifyAlbumPreMaskFailed(album) {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'album_pre_mask_failed',
+    title: '相册配图脱敏未完成',
+    content: '暂无法发布到公开网站或进行 AI 读图分析，请稍后再试或联系门店。',
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'album',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '脱敏失败',
+      tips: '暂无法发布或 AI 分析',
+      storeName: album.storeName,
+    },
+  })
+}
+
+async function notifyAlbumInspectionReady(album, reportId = '') {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const qs = reportId
+    ? `albumId=${encodeURIComponent(album.id)}&highlightReportId=${encodeURIComponent(reportId)}`
+    : `albumId=${encodeURIComponent(album.id)}`
+  const jumpPath = `/pages/album/inspect-ai/index?${qs}`
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'album_inspection_ready',
+    title: '相册 AI 分析已完成',
+    content: '可以查看分析结果了。',
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'album',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '分析完成',
+      tips: '可查看 AI 分析报告',
+      storeName: album.storeName,
+    },
+  })
+}
+
+async function notifyAlbumInspectionFailed(album, errorMessage = '') {
+  const userId = await resolveAlbumUserId(album)
+  if (!userId) return null
+  const jumpPath = `/pages/album/inspect-ai/index?albumId=${encodeURIComponent(album.id)}`
+  const tips = String(errorMessage || '请稍后重试').slice(0, 20)
+  return notifyUser({
+    receiverId: userId,
+    messageType: 'album_inspection_failed',
+    title: '相册 AI 分析失败',
+    content: String(errorMessage || '分析未成功，可稍后重试。').slice(0, 120),
+    refType: 'album',
+    refId: album.id,
+    jumpPath,
+    wechatTemplateKey: 'album',
+    wechatPage: jumpPath.replace(/^\//, ''),
+    wechatPayload: {
+      serviceName: album.serviceName || '服务相册',
+      status: '分析失败',
+      tips,
+      storeName: album.storeName,
+    },
+  })
+}
+
 async function notifyAlbumNodeUpdated(album, meta = {}) {
   const userId = await resolveAlbumUserId(album)
   if (!userId) return null
@@ -757,6 +853,10 @@ module.exports = {
   notifyLeadClosed,
   notifyNewLead,
   notifyAlbumCompleted,
+  notifyAlbumPreMaskReady,
+  notifyAlbumPreMaskFailed,
+  notifyAlbumInspectionReady,
+  notifyAlbumInspectionFailed,
   notifyAlbumNodeUpdated,
   notifyAuthorizationSubmitted,
   notifyAuthorizationWithdrawn,

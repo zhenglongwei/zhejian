@@ -83,6 +83,8 @@ function buildInspectionReportListItem(row = {}, uiOptions = {}) {
       errorTitle: '历史记录',
       errorMessage: '该记录为旧版规则引擎生成，非大模型结果，请重新发起 AI 检查。',
       advice: null,
+      statusTagText: '历史记录',
+      statusTagVariant: 'warning',
     }
   }
 
@@ -92,6 +94,32 @@ function buildInspectionReportListItem(row = {}, uiOptions = {}) {
       errorTitle: payload.errorTitle || '调用失败',
       errorMessage: payload.errorMessage || '',
       advice: null,
+      statusTagText: '调用失败',
+      statusTagVariant: 'warning',
+    }
+  }
+
+  if (status === 'queued') {
+    return {
+      ...base,
+      errorTitle: payload.errorTitle || '排队中',
+      errorMessage:
+        payload.errorMessage ||
+        '配图脱敏处理中，已排队。完成后将自动分析并通知你。',
+      advice: null,
+      statusTagText: '排队中',
+      statusTagVariant: 'info',
+    }
+  }
+
+  if (status === 'running') {
+    return {
+      ...base,
+      errorTitle: payload.errorTitle || '分析中',
+      errorMessage: payload.errorMessage || 'AI 分析进行中，完成后会通知你。',
+      advice: null,
+      statusTagText: '分析中',
+      statusTagVariant: 'info',
     }
   }
 
@@ -100,6 +128,8 @@ function buildInspectionReportListItem(row = {}, uiOptions = {}) {
     errorTitle: '',
     errorMessage: '',
     advice: normalizeReportAdvice(payload),
+    statusTagText: '已完成',
+    statusTagVariant: 'info',
   }
 }
 

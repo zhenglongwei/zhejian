@@ -16,7 +16,8 @@ const {
 } = require('./desensitize.constants')
 const { resolveDesensitizedUrlForAsset, ensureMediaRecordFromUrl, applyManualMaskToAsset } = require('./media.service')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
-const { parseObjectKeyFromPublicUrl } = require('../lib/media-storage')
+const { parseObjectKeyFromPublicUrl, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { stripUrlQuery } = require('../lib/media-signed-url')
 const { listPrivacyDetectionsByImageId } = require('./privacy-detection.service')
 const { ROLES } = require('../lib/jwt')
 const { assertMerchantAlbumAccess } = require('../lib/merchant-album-access')
@@ -322,6 +323,152 @@ function notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus) {
   scheduleCaseGeoLlmForAlbum(albumId, { trigger: 'pre_mask_ready' })
 }
 
+function notifyPreMaskLifecycle(albumId, preMaskStatus) {
+  setImmediate(() => {
+    Promise.resolve()
+      .then(async () => {
+        if ([PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskStatus)) {
+          const { notifyAlbumPreMaskReady } = require('./notification.service')
+          const album = await prisma.album.findUnique({ where: { id: albumId } })
+          if (album) {
+            await notifyAlbumPreMaskReady(album).catch((e) => {
+              console.warn('[notification] pre-mask ready', e && e.message)
+            })
+          }
+          const { flushQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
+          await flushQueuedInspectionAdviceForAlbum(albumId).catch((e) => {
+            console.warn('[inspection-advice] flush queued', e && e.message)
+          })
+          return
+        }
+        if (preMaskStatus === PRE_MASK_STATUS.FAILED) {
+          const { cancelQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
+          await cancelQueuedInspectionAdviceForAlbum(albumId, '配图脱敏未完成，暂无法进行 AI 分析').catch(
+            (e) => {
+              console.warn('[inspection-advice] cancel queued', e && e.message)
+            },
+          )
+          const { notifyAlbumPreMaskFailed } = require('./notification.service')
+          const album = await prisma.album.findUnique({ where: { id: albumId } })
+          if (album) {
+            await notifyAlbumPreMaskFailed(album).catch((e) => {
+              console.warn('[notification] pre-mask failed', e && e.message)
+            })
+          }
+        }
+      })
+      .catch((e) => {
+        console.warn('[desensitize] pre-mask lifecycle notify failed', albumId, e && e.message)
+      })
+  })
+}
+
+/**
+ * 完工后异步预脱敏：不阻塞商家接口；完成后刷新案例稿配图并通知车主。
+ */
+function scheduleAlbumPreMask(albumId, options = {}) {
+  const id = String(albumId || '').trim()
+  if (!id) return
+  setImmediate(() => {
+    ;(async () => {
+      try {
+        await ensureOrderPreMaskTask(id, options)
+        const { refreshCaseDraftMediaAfterMask } = require('./service-album.service')
+        await refreshCaseDraftMediaAfterMask(id)
+      } catch (e) {
+        console.warn('[desensitize] scheduleAlbumPreMask failed', id, e && e.message)
+        try {
+          const { cancelQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
+          await cancelQueuedInspectionAdviceForAlbum(
+            id,
+            '配图脱敏处理失败，暂无法进行 AI 分析',
+          )
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    })()
+  })
+}
+
+function buildVersionedFingerprint(album) {
+  const nodeViews = albumToNodeView(album)
+  return `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`
+}
+
+/**
+ * 授权 / AI 共用：预脱敏是否可直接复用（不现场补跑 OCR）
+ * @returns {{ state: 'ready'|'pending'|'failed', task?: object, reason?: string }}
+ */
+async function getAlbumPreMaskReadiness(albumId) {
+  const album = await loadAlbumWithRelations(albumId)
+  if (!album) {
+    return { state: 'failed', reason: '相册不存在' }
+  }
+  const { preMaskBizType } = resolveAlbumBizTypes(album)
+  const versionedFingerprint = buildVersionedFingerprint(album)
+  const preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
+  if (!preMaskTask) {
+    return { state: 'pending', reason: 'pre_mask_missing' }
+  }
+  if (
+    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null, undefined].includes(
+      preMaskTask.preMaskStatus,
+    )
+  ) {
+    return { state: 'pending', task: preMaskTask, reason: 'pre_mask_running' }
+  }
+  if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED) {
+    return { state: 'failed', task: preMaskTask, reason: 'pre_mask_failed' }
+  }
+  if (
+    ![PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskTask.preMaskStatus)
+  ) {
+    return { state: 'pending', task: preMaskTask, reason: 'pre_mask_unknown' }
+  }
+
+  const engineStale = preMaskTask.fingerprint !== versionedFingerprint
+  const stubArtifacts = await preMaskTaskHasStubArtifacts(preMaskTask)
+  if (engineStale || stubArtifacts) {
+    return {
+      state: 'pending',
+      task: preMaskTask,
+      reason: engineStale ? 'fingerprint_stale' : 'stub_artifacts',
+      needsForceRefresh: true,
+    }
+  }
+  return { state: 'ready', task: preMaskTask }
+}
+
+/** rawUrl / nodeId:idx → 脱敏图 URL，供 AI Vision 等复用 */
+async function buildPreMaskUrlLookup(albumId) {
+  const readiness = await getAlbumPreMaskReadiness(albumId)
+  if (readiness.state !== 'ready' || !readiness.task) {
+    return { ready: false, byRawUrl: new Map(), byNodeIdx: new Map() }
+  }
+  const byRawUrl = new Map()
+  const byNodeIdx = new Map()
+  ;(readiness.task.assets || []).forEach((asset) => {
+    const masked = String(asset.maskedUrl || asset.preMaskedUrl || '').trim()
+    if (!masked) return
+    const raw = String(asset.rawUrl || '').trim()
+    if (raw) {
+      byRawUrl.set(raw, masked)
+      byRawUrl.set(stripUrlQuery(raw), masked)
+      try {
+        byRawUrl.set(rewriteMediaUrlForCurrentBase(raw), masked)
+        byRawUrl.set(stripUrlQuery(rewriteMediaUrlForCurrentBase(raw)), masked)
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (asset.nodeId != null && asset.idx != null) {
+      byNodeIdx.set(`${asset.nodeId}:${Number(asset.idx)}`, masked)
+    }
+  })
+  return { ready: true, byRawUrl, byNodeIdx, task: readiness.task }
+}
+
 async function ensureOrderPreMaskTask(albumId, options = {}) {
   const album = await loadAlbumWithRelations(albumId)
   if (!album) {
@@ -431,8 +578,16 @@ async function ensureOrderPreMaskTask(albumId, options = {}) {
   })
 
   notifyPreMaskReadyForGeoLlm(albumId, preMaskStatus)
+  notifyPreMaskLifecycle(albumId, preMaskStatus)
 
   return getTaskById(taskId)
+}
+
+function throwAuthorizePreMaskNotReady(message, code = 100007) {
+  const err = new Error(message)
+  err.code = code
+  err.status = 409
+  throw err
 }
 
 async function createAlbumAuthorizeTaskFromPreMask(albumId) {
@@ -448,51 +603,30 @@ async function createAlbumAuthorizeTaskFromPreMask(albumId) {
   const { assertPublicCaseQualityReady } = require('./public-case-quality.service')
   assertPublicCaseQualityReady(buildAlbumView(album))
 
-  const { preMaskBizType, authorizeBizType } = resolveAlbumBizTypes(album)
-  const nodeViews = albumToNodeView(album)
-  const versionedFingerprint = `${nodesFingerprint(nodeViews)}@${config.desensitize.cacheVersion}`
-  let preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
-  const stubArtifacts = preMaskTask ? await preMaskTaskHasStubArtifacts(preMaskTask) : false
-  const engineStale = Boolean(preMaskTask && preMaskTask.fingerprint !== versionedFingerprint)
-  const preMaskAssetCount = (preMaskTask?.assets || []).length
-  const preMaskFailedNeedsRetry =
-    preMaskTask?.preMaskStatus === PRE_MASK_STATUS.FAILED && preMaskAssetCount > 0
-  const needsPreMaskRefresh =
-    !preMaskTask ||
-    engineStale ||
-    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null].includes(
-      preMaskTask?.preMaskStatus
-    ) ||
-    preMaskFailedNeedsRetry ||
-    stubArtifacts
+  const { authorizeBizType } = resolveAlbumBizTypes(album)
+  const readiness = await getAlbumPreMaskReadiness(albumId)
 
-  if (needsPreMaskRefresh) {
-    await ensureOrderPreMaskTask(albumId, {
-      force:
-        preMaskFailedNeedsRetry || stubArtifacts || engineStale,
-      preMaskBizType,
-      authorizeBizType,
-    })
-    preMaskTask = await findPreMaskTask(albumId, preMaskBizType)
+  if (readiness.state === 'pending') {
+    if (readiness.needsForceRefresh) {
+      scheduleAlbumPreMask(albumId, {
+        force: true,
+        auth: { roles: [ROLES.SYSTEM] },
+      })
+    }
+    throwAuthorizePreMaskNotReady('配图脱敏处理中，完成后会通知你，请稍后再试')
   }
 
+  if (readiness.state === 'failed') {
+    throwAuthorizePreMaskNotReady('配图脱敏未完成，暂无法发布到公开网站')
+  }
+
+  const preMaskTask = readiness.task
   if (!preMaskTask) {
-    const err = new Error('预脱敏尚未就绪，请稍后再试')
-    err.code = 100007
-    err.status = 409
-    throw err
+    throwAuthorizePreMaskNotReady('配图脱敏处理中，完成后会通知你，请稍后再试')
   }
 
   if (preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED) {
-    const failedAssets = (preMaskTask.assets || []).filter(
-      (a) => a.status === ASSET_STATUS.MASK_FAILED
-    )
-    console.warn('[desensitize] pre-mask all failed, open authorize workbench', {
-      albumId,
-      preMaskStatus: preMaskTask.preMaskStatus,
-      total: (preMaskTask.assets || []).length,
-      failed: failedAssets.length,
-    })
+    throwAuthorizePreMaskNotReady('配图脱敏未完成，暂无法发布到公开网站')
   }
 
   const authTaskId = buildAuthorizeTaskId(album.id)
@@ -680,6 +814,7 @@ async function refreshPreMaskStatusForTask(taskId) {
     data: { preMaskStatus },
   })
   notifyPreMaskReadyForGeoLlm(task.bizId, preMaskStatus)
+  notifyPreMaskLifecycle(task.bizId, preMaskStatus)
 }
 
 async function retryAsset(taskId, assetId, options = {}) {
@@ -1211,6 +1346,9 @@ module.exports = {
   canIncludePrivacyDetections,
   findPreMaskTask,
   ensureOrderPreMaskTask,
+  scheduleAlbumPreMask,
+  getAlbumPreMaskReadiness,
+  buildPreMaskUrlLookup,
   createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
   runAutoMask,

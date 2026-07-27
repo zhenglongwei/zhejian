@@ -1,10 +1,14 @@
 /**
  * B-INSP-01 · 相册检查 · 多模态读图（百炼 VL）
+ * 仅使用预脱敏产物，禁止原图出域。
  */
 const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
 const { resolvePlanQuoteImageSources } = require('../lib/plan-quote-image-source')
 const { collectVisionImageCandidates } = require('../utils/album-inspection-context')
+const { stripUrlQuery } = require('../lib/media-signed-url')
+const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { buildPreMaskUrlLookup } = require('./desensitize.service')
 
 function readEnv(name) {
   const raw = process.env[name]
@@ -47,6 +51,44 @@ function getInspVisionConfig() {
     timeoutMs: Number(readEnv('INSP_VISION_TIMEOUT_MS') || llm.timeoutMs || 90000),
     maxImages: Number(readEnv('INSP_MAX_VISION_IMAGES') || 8),
   }
+}
+
+function lookupMaskedUrl(candidate, lookup) {
+  if (!lookup || !lookup.ready) return ''
+  const url = String(candidate.url || '').trim()
+  if (!url) return ''
+  const variants = [
+    url,
+    stripUrlQuery(url),
+    rewriteMediaUrlForCurrentBase(url),
+    stripUrlQuery(rewriteMediaUrlForCurrentBase(url)),
+  ]
+  for (const key of variants) {
+    if (key && lookup.byRawUrl.has(key)) return lookup.byRawUrl.get(key)
+  }
+  return ''
+}
+
+async function remapCandidatesToDesensitized(detail, candidates) {
+  const albumId = detail.albumId || detail.id || ''
+  if (!albumId) return []
+  const lookup = await buildPreMaskUrlLookup(albumId)
+  if (!lookup.ready) {
+    console.warn('[inspection-vision] skip vision: pre-mask not ready', { albumId })
+    return []
+  }
+  const remapped = []
+  for (const item of candidates) {
+    const maskedUrl = lookupMaskedUrl(item, lookup)
+    if (!maskedUrl) continue
+    remapped.push({
+      ...item,
+      url: maskedUrl,
+      rawUrl: item.url,
+      desensitized: true,
+    })
+  }
+  return remapped
 }
 
 async function captionInspectionImage(item) {
@@ -131,8 +173,13 @@ async function buildInspectionImageCaptions(detail = {}, options = {}) {
     focusStageId: options.focusStageId,
     maxImages: vision.maxImages,
   })
+  const desensitizedCandidates = await remapCandidatesToDesensitized(detail, candidates)
+  if (!desensitizedCandidates.length) {
+    console.info('[inspection-vision] no desensitized candidates, text-only LLM')
+    return []
+  }
 
-  const rows = await mapConcurrent(candidates, captionInspectionImage, 3)
+  const rows = await mapConcurrent(desensitizedCandidates, captionInspectionImage, 3)
   return rows.filter((row) => row.caption)
 }
 

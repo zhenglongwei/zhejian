@@ -1,5 +1,6 @@
 /**
- * B-INSP-01 · 相册检查 AI 建议（多模态 LLM + 报告存储，失败不兜底规则答案）
+ * B-INSP-01 · 相册检查 AI 建议
+ * - Vision 仅用脱敏图；预脱敏未就绪则排队，就绪后后台分析并通知
  */
 const { randomUUID } = require('crypto')
 const { prisma } = require('../lib/prisma')
@@ -20,13 +21,32 @@ const {
   buildAlbumInspectionContentFingerprint,
 } = require('../utils/album-inspection-content-fingerprint')
 const { isServiceAlbumRepairDone } = require('../constants/v2')
+const {
+  getAlbumPreMaskReadiness,
+  scheduleAlbumPreMask,
+} = require('./desensitize.service')
+const { ROLES } = require('../lib/jwt')
+
+const INFLIGHT_STATUSES = new Set(['queued', 'running'])
+
+function readPayload(row = {}) {
+  return row.payloadJson || row.payload || {}
+}
 
 function isSuccessfulInspectionReport(row = {}) {
-  const payload = row.payloadJson || {}
+  const payload = readPayload(row)
   if (payload.status === 'failed') return false
+  if (INFLIGHT_STATUSES.has(payload.status)) return false
   const source = row.source || payload.source || ''
-  if (source === 'failed' || source === 'rule') return false
+  if (source === 'failed' || source === 'rule' || source === 'queued' || source === 'running') {
+    return false
+  }
   return true
+}
+
+function isInflightInspectionReport(row = {}) {
+  const payload = readPayload(row)
+  return INFLIGHT_STATUSES.has(payload.status)
 }
 
 async function assertAiAnalysisTrialAvailable(albumId, userId, album) {
@@ -117,6 +137,28 @@ function buildFailurePayload(errorMessage, errorTitle = '调用失败') {
   }
 }
 
+function buildQueuedPayload(requestOptions = {}, message = '') {
+  return {
+    status: 'queued',
+    source: 'queued',
+    errorTitle: '排队中',
+    errorMessage:
+      message ||
+      '配图脱敏处理中，已为你排队。脱敏完成后将自动开始 AI 分析，完成后会通知你。',
+    request: requestOptions,
+  }
+}
+
+function buildRunningPayload(requestOptions = {}, message = '') {
+  return {
+    status: 'running',
+    source: 'running',
+    errorTitle: '分析中',
+    errorMessage: message || 'AI 分析进行中，完成后会通知你。',
+    request: requestOptions,
+  }
+}
+
 function resolveInspectionErrorMessage(error) {
   const code = error && error.code
   const message = String((error && error.message) || '').trim()
@@ -137,6 +179,16 @@ function mapReportRow(row) {
     source: row.source,
     status: payload.status || (row.source === 'failed' ? 'failed' : 'success'),
     payload,
+  }
+}
+
+function buildInflightResponse(row) {
+  const payload = readPayload(row)
+  return {
+    ...payload,
+    reportId: row.id,
+    generatedAt: row.createdAt.toISOString(),
+    focusStageId: (payload.request && payload.request.focusStageId) || '',
   }
 }
 
@@ -234,37 +286,197 @@ async function saveInspectionReport(albumId, userId, payload, requestOptions = {
   return id
 }
 
-async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
-  const album = await assertUserAlbumAccess(albumId, userId)
-  await assertAiAnalysisTrialAvailable(albumId, userId, album)
-  const detail = buildInspectionDetail(album)
-  const requestOptions = normalizeRequestOptions(body)
+async function updateInspectionReport(reportId, payload, source) {
+  await prisma.albumInspectionReport.update({
+    where: { id: reportId },
+    data: {
+      source: source || payload.source || 'llm',
+      payloadJson: payload,
+    },
+  })
+}
+
+async function findLatestInflightReport(albumId, userId) {
+  const rows = await prisma.albumInspectionReport.findMany({
+    where: { albumId, userId },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  })
+  return rows.find(isInflightInspectionReport) || null
+}
+
+async function notifyInspectionOutcome(albumId, reportId, ok, errorMessage = '') {
+  try {
+    const album = await prisma.album.findUnique({ where: { id: albumId } })
+    if (!album) return
+    const {
+      notifyAlbumInspectionReady,
+      notifyAlbumInspectionFailed,
+    } = require('./notification.service')
+    if (ok) {
+      await notifyAlbumInspectionReady(album, reportId)
+    } else {
+      await notifyAlbumInspectionFailed(album, errorMessage)
+    }
+  } catch (e) {
+    console.warn('[inspection-advice] notify outcome failed', e && e.message)
+  }
+}
+
+async function runInspectionAdviceJob(reportId) {
+  const row = await prisma.albumInspectionReport.findUnique({ where: { id: reportId } })
+  if (!row) return
+  const payload = readPayload(row)
+  if (!INFLIGHT_STATUSES.has(payload.status)) return
+
+  const requestOptions = normalizeRequestOptions(payload.request || {})
+  const runningPayload = {
+    ...buildRunningPayload(requestOptions),
+    contentFingerprint: payload.contentFingerprint || '',
+    request: requestOptions,
+  }
+  await updateInspectionReport(reportId, runningPayload, 'running')
 
   try {
+    const album = await loadAlbum(row.albumId)
+    if (!album) throw new Error('相册不存在或已被删除')
+    const readiness = await getAlbumPreMaskReadiness(row.albumId)
+    if (readiness.state !== 'ready') {
+      throw new Error(
+        readiness.state === 'failed'
+          ? '配图脱敏未完成，暂无法进行 AI 分析'
+          : '配图脱敏尚未就绪，请稍后再试',
+      )
+    }
+    const detail = buildInspectionDetail(album)
     const advice = await callInspectionLlm(detail, requestOptions)
     const successPayload = {
       ...advice,
       status: 'success',
       source: advice.source || 'llm',
+      contentFingerprint: buildAlbumInspectionContentFingerprint(detail),
+      request: requestOptions,
     }
-    const reportId = await saveInspectionReport(albumId, userId, successPayload, requestOptions, detail)
+    await updateInspectionReport(reportId, successPayload, successPayload.source)
+    await notifyInspectionOutcome(row.albumId, reportId, true)
+  } catch (e) {
+    const errorMessage = resolveInspectionErrorMessage(e)
+    console.warn('[inspection-advice] job failed', reportId, errorMessage)
+    const failurePayload = {
+      ...buildFailurePayload(errorMessage),
+      request: requestOptions,
+      contentFingerprint: payload.contentFingerprint || '',
+    }
+    await updateInspectionReport(reportId, failurePayload, 'failed')
+    await notifyInspectionOutcome(row.albumId, reportId, false, errorMessage)
+  }
+}
+
+function scheduleInspectionAdviceJob(reportId) {
+  const id = String(reportId || '').trim()
+  if (!id) return
+  setImmediate(() => {
+    runInspectionAdviceJob(id).catch((e) => {
+      console.warn('[inspection-advice] schedule job failed', id, e && e.message)
+    })
+  })
+}
+
+async function flushQueuedInspectionAdviceForAlbum(albumId) {
+  const id = String(albumId || '').trim()
+  if (!id) return { flushed: 0 }
+  const rows = await prisma.albumInspectionReport.findMany({
+    where: { albumId: id },
+    orderBy: { createdAt: 'asc' },
+    take: 50,
+  })
+  let flushed = 0
+  for (const row of rows) {
+    const payload = readPayload(row)
+    if (payload.status !== 'queued') continue
+    scheduleInspectionAdviceJob(row.id)
+    flushed += 1
+  }
+  return { flushed }
+}
+
+async function cancelQueuedInspectionAdviceForAlbum(albumId, errorMessage = '') {
+  const id = String(albumId || '').trim()
+  if (!id) return { cancelled: 0 }
+  const rows = await prisma.albumInspectionReport.findMany({
+    where: { albumId: id },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+  let cancelled = 0
+  const message = errorMessage || '配图脱敏未完成，暂无法进行 AI 分析'
+  for (const row of rows) {
+    const payload = readPayload(row)
+    if (payload.status !== 'queued') continue
+    const requestOptions = normalizeRequestOptions(payload.request || {})
+    const failurePayload = {
+      ...buildFailurePayload(message, '排队取消'),
+      request: requestOptions,
+      contentFingerprint: payload.contentFingerprint || '',
+    }
+    await updateInspectionReport(row.id, failurePayload, 'failed')
+    await notifyInspectionOutcome(id, row.id, false, message)
+    cancelled += 1
+  }
+  return { cancelled }
+}
+
+async function generateAlbumInspectionAdvice(albumId, userId, body = {}) {
+  const album = await assertUserAlbumAccess(albumId, userId)
+  const requestOptions = normalizeRequestOptions(body)
+
+  const inflight = await findLatestInflightReport(albumId, userId)
+  if (inflight) {
+    return buildInflightResponse(inflight)
+  }
+
+  await assertAiAnalysisTrialAvailable(albumId, userId, album)
+
+  const readiness = await getAlbumPreMaskReadiness(albumId)
+  if (readiness.state === 'pending') {
+    if (readiness.needsForceRefresh) {
+      scheduleAlbumPreMask(albumId, {
+        force: true,
+        auth: { roles: [ROLES.SYSTEM] },
+      })
+    }
+    const queuedPayload = buildQueuedPayload(requestOptions)
+    const reportId = await saveInspectionReport(albumId, userId, queuedPayload, requestOptions)
     return {
-      ...successPayload,
+      ...queuedPayload,
       reportId,
       generatedAt: new Date().toISOString(),
       focusStageId: requestOptions.focusStageId || '',
     }
-  } catch (e) {
-    const errorMessage = resolveInspectionErrorMessage(e)
-    console.warn('[inspection-advice] llm failed', errorMessage)
-    const failurePayload = buildFailurePayload(errorMessage)
-    const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions, detail)
+  }
+
+  if (readiness.state === 'failed') {
+    const failurePayload = buildFailurePayload(
+      '配图脱敏未完成，暂无法进行 AI 分析',
+      '脱敏未完成',
+    )
+    const reportId = await saveInspectionReport(albumId, userId, failurePayload, requestOptions)
     return {
       ...failurePayload,
       reportId,
       generatedAt: new Date().toISOString(),
       focusStageId: requestOptions.focusStageId || '',
     }
+  }
+
+  const runningPayload = buildRunningPayload(requestOptions)
+  const reportId = await saveInspectionReport(albumId, userId, runningPayload, requestOptions)
+  scheduleInspectionAdviceJob(reportId)
+  return {
+    ...runningPayload,
+    reportId,
+    generatedAt: new Date().toISOString(),
+    focusStageId: requestOptions.focusStageId || '',
   }
 }
 
@@ -285,4 +497,8 @@ module.exports = {
   generateAlbumInspectionAdvice,
   listAlbumInspectionReports,
   buildInspectionDetail,
+  flushQueuedInspectionAdviceForAlbum,
+  cancelQueuedInspectionAdviceForAlbum,
+  scheduleInspectionAdviceJob,
+  runInspectionAdviceJob,
 }

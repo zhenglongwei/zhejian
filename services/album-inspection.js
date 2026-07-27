@@ -29,9 +29,10 @@ async function fetchAlbumInspectionAdvice(albumId, options = {}) {
       focusStageId: payload.focusStageId || '',
     }
   }
+  // 排队/异步分析：接口快速返回，无需等大模型
   return post(`/user/service-albums/${albumId}/inspection-advice`, payload, {
     showLoading: false,
-    timeout: 240000,
+    timeout: 60000,
   })
 }
 
