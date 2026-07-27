@@ -202,21 +202,34 @@ test('buildCaseSnapshot increments snapshotVersion on re-authorization', () => {
   assert.equal(snapshot.version, 2)
 })
 
-test('isAlbumContentLocked when authorization is authorized', () => {
+test('isAlbumContentLocked by case review status', () => {
   assert.equal(isAlbumContentLocked({ authorization: { status: 'authorized' } }), true)
   assert.equal(isAlbumContentLocked({ authorization: { status: 'user_rejected' } }), false)
   assert.equal(isAlbumContentLocked({}), false)
   assert.equal(
-    isAlbumContentLocked({ complianceStatus: 'passed' }),
+    isAlbumContentLocked({
+      status: 'completed',
+      publicCase: { status: 'pending_review' },
+    }),
     true
   )
   assert.equal(
-    isAlbumContentLocked({ status: 'completed', complianceStatus: 'pending' }),
+    isAlbumContentLocked({
+      status: 'completed',
+      publicCase: { status: 'review_passed' },
+    }),
     true
   )
   assert.equal(
-    isAlbumContentLocked({ status: 'completed', complianceStatus: '' }),
-    true
+    isAlbumContentLocked({
+      status: 'completed',
+      publicCase: { status: 'rejected' },
+    }),
+    false
+  )
+  assert.equal(
+    isAlbumContentLocked({ status: 'completed', publicCaseStatus: 'rejected' }),
+    false
   )
   assert.equal(ALBUM_CONTENT_LOCKED_MESSAGE.includes('完工'), true)
 })

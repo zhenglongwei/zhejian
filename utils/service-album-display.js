@@ -90,7 +90,7 @@ function resolveAlbumAuthAction(item = {}) {
       show: false,
       label: '',
       disabled: true,
-      hint: '门店留档合规审查未通过，请等待门店修改后重试',
+      hint: '门店案例未通过审核，请等待门店修改后重试',
     }
   }
   const status = item.publicCaseStatus || 'private'
@@ -102,7 +102,10 @@ function resolveAlbumAuthAction(item = {}) {
       hint: item.gateBRejectHint || '',
     }
   }
-  if (status === 'pending_review' || status === 'public_approved') {
+  if (status === 'pending_review' || status === 'rejected') {
+    return { show: false, label: '', disabled: false, hint: '' }
+  }
+  if (status === 'public_approved') {
     return { show: false, label: '', disabled: false, hint: '' }
   }
   if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
@@ -156,14 +159,29 @@ function resolveListAlbumActions(item = {}) {
   }
 }
 
-/** 用户相册列表卡 · 双闸门/合规 inline 提示（CASE-GATE-A-03） */
+/** 用户相册列表卡 · 案例审 inline 提示 */
 function resolveAlbumListStatusHint(item = {}, authAction = {}) {
+  if (item.ownerAlbumLocked || item.caseVisibleToOwner === false) {
+    if (item.compliancePendingHint) return item.compliancePendingHint
+    if (item.publicCaseStatus === 'pending_desensitize') {
+      return '门店案例配图处理中，通过后方可查看'
+    }
+    if (item.publicCaseStatus === 'pending_review') {
+      return '门店案例审核中，通过后方可查看'
+    }
+    if (item.publicCaseStatus === 'rejected' || item.complianceRejectReason) {
+      return '门店案例未通过审核，暂不可查看'
+    }
+  }
   if (authAction.hint) return authAction.hint
   if (item.complianceRejectReason) {
-    return '门店留档合规审查未通过，请等待门店修改后重试'
+    return '门店案例未通过审核，请等待门店修改后重试'
   }
   if (item.publicCaseStatus === 'need_modify' && item.gateBRejectHint) {
     return item.gateBRejectHint
+  }
+  if (item.publicCaseStatus === 'rejected') {
+    return '门店案例未通过审核，请等待门店修改后重试'
   }
   return ''
 }

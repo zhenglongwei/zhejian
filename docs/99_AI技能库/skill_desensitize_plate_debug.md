@@ -185,13 +185,22 @@ nslookup facebody.cn-shanghai.aliyuncs.com
 #### 5.3 任务链
 
 ```text
-merchant complete → ensureOrderPreMaskTask → authorize-preview → desensitize task
+merchant confirm-and-complete
+  → scheduleAlbumPreMask（异步，不阻塞完工）
+  → ensureOrderPreMaskTask → 刷新案例稿配图 → 通知车主脱敏就绪
+  →（若有排队中的 AI）flush → inspection-advice 后台跑 → 通知车主
+
+authorize-preview
+  → getAlbumPreMaskReadiness
+  → ready：复用脱敏图建 service_authorize
+  → pending/failed：409 稍后再试 / 暂无法发布（不现场补跑 OCR）
 ```
 
 | 状态 | 查 |
 |---|---|
-| `pre-mask not ready` / 100007 | pre-mask task assets 是否 `MASK_FAILED` |
-| authorize 200 但图未变 | authorize 是否复用旧 pre-mask（看 `fingerprint` / `preMaskVersion`） |
+| `pre-mask not ready` / 100007 | 完工异步是否仍在跑；`pre_mask_status`；指纹是否因 signed query 误判（指纹应 strip query） |
+| authorize 200 但图未变 | authorize 是否复用旧 pre-mask（看 `fingerprint` / `preMaskVersion`）；stub 是否触发后台 force 刷新 |
+| 授权卡住像在脱敏 | 确认是否仍走旧同步补跑路径；现行实现不应在 authorize 内 `ensureOrderPreMaskTask` 整批 OCR |
 
 ---
 

@@ -1,6 +1,5 @@
 <template>
   <div v-loading="loading">
-    <GateReviewNav />
     <el-page-header @back="goBack">
       <template #content>
         <span class="detail-title">{{ detail.title || '案例审核' }}</span>
@@ -50,20 +49,6 @@
             <el-descriptions-item label="案例 ID">{{ detail.caseId }}</el-descriptions-item>
             <el-descriptions-item label="相册 ID">{{ detail.albumId }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ detail.status }}</el-descriptions-item>
-            <el-descriptions-item label="闸门 B 风险">
-              {{ detail.gateBRisk === 'high' ? '高风险' : detail.gateBRisk === 'low' ? '低风险' : '—' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="抽检状态">
-              {{
-                detail.spotCheckStatus === 'pending'
-                  ? '待抽检'
-                  : detail.spotCheckStatus === 'passed'
-                    ? '抽检通过'
-                    : detail.spotCheckStatus === 'failed'
-                      ? '抽检下架'
-                      : '—'
-              }}
-            </el-descriptions-item>
             <el-descriptions-item label="门店">{{ detail.storeName }}</el-descriptions-item>
             <el-descriptions-item label="服务">{{ detail.serviceName }}</el-descriptions-item>
             <el-descriptions-item label="价格">{{ priceText }}</el-descriptions-item>
@@ -172,10 +157,10 @@
         ref="actionRef"
         :loading="submitting"
         :can-review="canReview"
-        :approve-label="approveLabel"
+        approve-label="通过"
+        comment-placeholder="审核意见（驳回时建议填写）"
         @approve="onApprove"
         @reject="onReject"
-        @request-modify="onRequestModify"
       />
     </el-card>
 
@@ -189,7 +174,7 @@
     />
 
     <CaseFaqEditor
-      v-if="detail.status === 'public_approved'"
+      v-if="detail.status === 'public_approved' || detail.status === 'review_passed'"
       class="section"
       :case-id="detail.caseId"
       :faq="detail.faq"
@@ -212,7 +197,6 @@ import {
   fetchCaseDetail,
   approveCase,
   rejectCase,
-  requestModifyCase,
   retryCaseAssetDesensitize,
   retryAllCaseDesensitize,
   passCaseSpotCheck,
@@ -228,7 +212,6 @@ import ArticleExportPanel from '@/components/case-review/ArticleExportPanel.vue'
 import CaseFaqEditor from '@/components/case-review/CaseFaqEditor.vue'
 import CaseGeoEditor from '@/components/case-review/CaseGeoEditor.vue'
 import CaseGeoLlmReview from '@/components/case-review/CaseGeoLlmReview.vue'
-import GateReviewNav from '@/components/case-review/GateReviewNav.vue'
 import ConfirmedCaseDraftPanel from '@/components/case-review/ConfirmedCaseDraftPanel.vue'
 const route = useRoute()
 const router = useRouter()
@@ -261,13 +244,7 @@ const hasRetryableAssets = computed(() =>
 )
 const canReview = computed(() => {
   if (isSpotCheckQueue.value) return false
-  if (detail.value.status !== 'pending_review') return false
-  if (isUserAuthorized.value) return true
-  return !desensitizeSummary.value.hasBlockingIssues
-})
-const approveLabel = computed(() => {
-  if (isUserAuthorized.value) return '通过并公开'
-  return desensitizeSummary.value.hasBlockingIssues ? '脱敏未完成' : '通过并公开'
+  return detail.value.status === 'pending_review'
 })
 const desensitizeAlert = computed(() => {
   const s = desensitizeSummary.value
@@ -276,19 +253,20 @@ const desensitizeAlert = computed(() => {
   if (s.needManualCount) parts.push(`${s.needManualCount} 张需人工`)
   if (s.failedCount) parts.push(`${s.failedCount} 张脱敏失败`)
   if (s.pendingCount) parts.push(`${s.pendingCount} 张待脱敏`)
-  if (isUserAuthorized.value) {
-    return `部分图片脱敏未完成（${parts.join('、')}），仅供参考。用户授权案例不因脱敏进度阻断通过；请结合 OCR 判断已脱敏素材的隐私与合规风险，必要时驳回。`
-  }
-  return `脱敏未完成：${parts.join('、')}。请重试脱敏或要求商家修改后再审核通过。`
+  return `部分图片脱敏未完成（${parts.join('、')}），仅供参考；不阻断通过。可结合 OCR 判断隐私风险，必要时驳回。`
 })
 const showGeoEditor = computed(
   () =>
     detail.value.caseId &&
-    (detail.value.status === 'pending_review' || detail.value.status === 'public_approved')
+    (detail.value.status === 'pending_review' ||
+      detail.value.status === 'review_passed' ||
+      detail.value.status === 'public_approved')
 )
 const geoEditable = computed(
   () =>
-    detail.value.status === 'pending_review' || detail.value.status === 'public_approved'
+    detail.value.status === 'pending_review' ||
+    detail.value.status === 'review_passed' ||
+    detail.value.status === 'public_approved'
 )
 
 async function loadDetail() {
@@ -352,37 +330,17 @@ function onGeoLlmChanged() {
 }
 
 async function onApprove() {
-  if (isUserAuthorized.value) {
-    await ElMessageBox.confirm(
-      '用户授权案例：相册内容由商家留档负责，平台仅审核合法合规与隐私脱敏风险。确认通过并公开？',
-      '审核确认'
-    )
-  } else {
-    if (detail.value.geoQuality?.level === 'block') {
-      ElMessage.warning('案例 GEO 证据缺失（block），请要求商家补全或驳回')
-      return
-    }
-    if (detail.value.geoQuality?.level === 'weak') {
-      try {
-        await ElMessageBox.confirm(
-          '该案例 GEO 证据完整度偏弱，公开后 AI 可引用质量可能不足。确认仍要通过？',
-          '证据质量提醒',
-          { type: 'warning', confirmButtonText: '仍要通过' }
-        )
-      } catch {
-        return
-      }
-    } else {
-      await ElMessageBox.confirm('确认通过并公开该案例？', '审核确认')
-    }
-  }
+  await ElMessageBox.confirm(
+    '确认通过该案例？通过后不上线，车主可查看案例稿并自行发布到公开网站。',
+    '审核确认'
+  )
   submitting.value = true
   try {
     const payload = actionRef.value?.getPayload() || {}
     detail.value = await approveCase(route.params.caseId, {
       comment: payload.comment,
     })
-    ElMessage.success('已通过并公开')
+    ElMessage.success('已通过，待车主发布')
     actionRef.value?.reset()
   } finally {
     submitting.value = false
@@ -395,27 +353,15 @@ async function onReject() {
     ElMessage.warning('请填写驳回原因')
     return
   }
-  await ElMessageBox.confirm('确认驳回该案例？', '审核确认', { type: 'warning' })
+  await ElMessageBox.confirm(
+    '确认驳回？商家将可修改相册与案例稿，并再次确认完工送审。',
+    '审核确认',
+    { type: 'warning' }
+  )
   submitting.value = true
   try {
     detail.value = await rejectCase(route.params.caseId, payload)
-    ElMessage.success('已驳回')
-    actionRef.value?.reset()
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function onRequestModify() {
-  const payload = actionRef.value?.getPayload() || {}
-  if (!payload.comment && !payload.reasonType) {
-    ElMessage.warning('请填写修改说明')
-    return
-  }
-  submitting.value = true
-  try {
-    detail.value = await requestModifyCase(route.params.caseId, payload)
-    ElMessage.success('已标记为要求修改')
+    ElMessage.success('已驳回，商家已解锁')
     actionRef.value?.reset()
   } finally {
     submitting.value = false

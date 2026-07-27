@@ -1,7 +1,6 @@
 export const CASE_TABS = [
   { key: 'pending', label: '待审核' },
-  { key: 'high_risk', label: '高风险' },
-  { key: 'spot_check', label: '自动过审抽检' },
+  { key: 'desensitizing', label: '脱敏处理中' },
   { key: 'approved', label: '已通过' },
   { key: 'rejected', label: '已驳回' },
 ]
@@ -29,34 +28,36 @@ export const RISK_LEVEL_LABEL = {
 }
 
 export const REJECT_REASONS = [
-  'desensitize_incomplete',
-  'desensitize_manual',
-  'review_content',
-  'review_image',
-  'authorization',
-  'user_content',
+  'banned_phrase',
+  'external_contact',
+  'privacy',
+  'misleading',
   'other',
 ]
 
 export const GATE_B_REJECT_LABEL = {
+  banned_phrase: '违规宣传/禁词',
+  external_contact: '外部导流/联系方式',
+  privacy: '隐私未处理好',
+  misleading: '表述不实或误导',
+  other: '其他',
   desensitize_incomplete: '脱敏不完整',
   desensitize_manual: '需手工脱敏',
   review_content: '评价文案',
   review_image: '评价配图',
   authorization: '授权信息',
   user_content: '用户侧内容',
-  other: '其他',
 }
 
 export const COMPLIANCE_NOTICES = [
-  '公开案例不代表平台对维修质量背书。',
-  '价格仅供参考，复杂项目以到店检测为准。',
-  '审核员仅查看脱敏图，不展示原图；请结合 OCR 摘要判断隐私风险。',
+  '审核对象为商家确认的公示案例稿与脱敏配图，不是整本私密相册。',
+  '脱敏结束后才进入待审；失败/需人工也会进待审并标出问题，可重试脱敏或驳回商家。',
+  '通过后不上线；车主可查看案例稿并自行发布到公开网站。',
+  '驳回后解锁商家，可改相册节点与案例稿，再次确认完工后重新进审。本期不做运营手工打码。',
 ]
 
-/** 用户授权案例：质量由商家留档负责，运营台仅审合法合规 */
 export const USER_AUTHORIZED_REVIEW_NOTICE =
-  '用户授权案例：相册完整度与留档质量由商家负责，车主授权用于监督公示；平台审核仅确认授权有效、脱敏合规与内容合法，不因节点缺失或证据偏弱拦截通过。'
+  '平台审核商家确认的公示案例内容（合法合规与隐私风险）。通过后由车主决定是否发布到公开网站。'
 
 export const DESENSITIZE_STATUS_TAG = {
   ready: { label: '已脱敏', type: 'success' },

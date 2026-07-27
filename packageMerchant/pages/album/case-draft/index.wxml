@@ -14,10 +14,10 @@
       <text class="text-h3">{{fromComplete ? '案例预览（确认后完工）' : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          本预览由相册节点文字与配图拼接而成，AI 润色可选：不点也能校对后直接确认完工。点润色只改文字、配图不变；润色后可「恢复润色前」。确认并完工后不可再改。经平台审核通过后由车主发布到公开网站；也可复制文字发自媒体。
+          本预览由相册节点文字与配图拼接而成，AI 润色可选：不点也能校对后直接确认完工。点润色只改文字、配图不变；润色后可「恢复润色前」。确认并完工后进入平台案例审核，通过前不可再改；驳回后可再编辑。经平台审核通过后由车主发布到公开网站；也可复制文字发自媒体。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
-          本预览为已确认的案例真源（只读）。确认并完工后不可再改、不可再 AI 润色；仅平台审核驳回后方可再编辑，车主撤回发布不会解锁。经审核通过后由车主发布到公开网站；也可复制文字发自媒体。
+          本预览为已确认的案例真源（只读）。确认并完工后进入平台案例审核；仅审核驳回后方可再编辑，车主撤回发布不会解锁。经审核通过后由车主发布到公开网站；也可复制文字发自媒体。
         </text>
         <view wx:if="{{editable}}" class="case-draft__polish-actions">
           <ui-button

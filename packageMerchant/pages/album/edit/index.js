@@ -720,6 +720,10 @@ Page({
       showBottomPrimary = true
       bottomPrimaryText = '标记已完工'
     }
+    // 驳回后仍为 completed，需再次确认完工送审
+    if (!readOnly && isCompleted && detail.complianceStatus === 'rejected') {
+      showBottomPrimary = false
+    }
     const caseDraftConfirmed = Boolean(
       detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
     )
@@ -727,13 +731,28 @@ Page({
     const showCaseDraftEntry = isCompleted && !detail.isAuthorized
     let lockHint = ''
     if (readOnly) {
-      if (detail.complianceStatus === 'pending' || detail.complianceStatus === 'spot_check') {
-        lockHint = '已确认完工，案例审核中。相册只读；驳回后方可再改。'
+      if (
+        publicCaseStatus === 'pending_desensitize' ||
+        detail.publicCaseStatus === 'pending_desensitize'
+      ) {
+        lockHint = '已确认完工，配图脱敏处理中。相册与案例稿只读；脱敏结束后进入案例审核。'
+      } else if (detail.complianceStatus === 'pending' || publicCaseStatus === 'pending_review') {
+        lockHint = '已确认完工，案例审核中。相册与案例稿只读；驳回后方可再改。'
       } else if (detail.isAuthorized) {
         lockHint = '车主已发布或已提交发布，相册只读。'
+      } else if (
+        detail.complianceStatus === 'passed' ||
+        publicCaseStatus === 'review_passed' ||
+        publicCaseStatus === 'public_approved'
+      ) {
+        lockHint = '案例已通过审核，相册只读。车主可查看并发布；撤回不会解锁。'
       } else {
-        lockHint = '已确认完工，相册只读。仅平台审核驳回后可再编辑。'
+        lockHint = '已确认完工，相册只读。仅平台案例审核驳回后可再编辑。'
       }
+    } else if (detail.complianceStatus === 'rejected') {
+      lockHint = detail.complianceRejectReason
+        ? `审核未通过：${detail.complianceRejectReason}。可改相册与案例稿后，再次确认完工送审。`
+        : '审核未通过。可改相册与案例稿后，再次确认完工送审。'
     }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })

@@ -25,13 +25,11 @@ const routes = [
       },
       {
         path: 'cases/compliance',
-        name: 'album-compliance-list',
-        component: () => import('@/views/album-compliance/list/index.vue'),
+        redirect: { name: 'case-list' },
       },
       {
         path: 'cases/compliance/:albumId',
-        name: 'album-compliance-detail',
-        component: () => import('@/views/album-compliance/detail/index.vue'),
+        redirect: { name: 'case-list' },
       },
       {
         path: 'cases/:caseId',

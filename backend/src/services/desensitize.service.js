@@ -327,14 +327,21 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
   setImmediate(() => {
     Promise.resolve()
       .then(async () => {
-        if ([PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskStatus)) {
-          const { notifyAlbumPreMaskReady } = require('./notification.service')
-          const album = await prisma.album.findUnique({ where: { id: albumId } })
-          if (album) {
-            await notifyAlbumPreMaskReady(album).catch((e) => {
-              console.warn('[notification] pre-mask ready', e && e.message)
-            })
+        const terminal = [
+          PRE_MASK_STATUS.READY,
+          PRE_MASK_STATUS.PARTIAL_FAILED,
+          PRE_MASK_STATUS.FAILED,
+        ].includes(preMaskStatus)
+        if (terminal) {
+          try {
+            const { promoteAlbumCaseToPendingReview } = require('./public-case.service')
+            await promoteAlbumCaseToPendingReview(albumId)
+          } catch (e) {
+            console.warn('[case-review] promote after pre-mask failed', albumId, e && e.message)
           }
+        }
+        if ([PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskStatus)) {
+          // 车主审前不可见相册：脱敏就绪不再通知车主打开相册；仅刷新案例稿配图链路
           const { flushQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
           await flushQueuedInspectionAdviceForAlbum(albumId).catch((e) => {
             console.warn('[inspection-advice] flush queued', e && e.message)
@@ -348,13 +355,6 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
               console.warn('[inspection-advice] cancel queued', e && e.message)
             },
           )
-          const { notifyAlbumPreMaskFailed } = require('./notification.service')
-          const album = await prisma.album.findUnique({ where: { id: albumId } })
-          if (album) {
-            await notifyAlbumPreMaskFailed(album).catch((e) => {
-              console.warn('[notification] pre-mask failed', e && e.message)
-            })
-          }
         }
       })
       .catch((e) => {
@@ -375,8 +375,21 @@ function scheduleAlbumPreMask(albumId, options = {}) {
         await ensureOrderPreMaskTask(id, options)
         const { refreshCaseDraftMediaAfterMask } = require('./service-album.service')
         await refreshCaseDraftMediaAfterMask(id)
+        // 兜底：确保脱敏结束后升入待审（lifecycle 已调过则 no-op）
+        try {
+          const { promoteAlbumCaseToPendingReview } = require('./public-case.service')
+          await promoteAlbumCaseToPendingReview(id)
+        } catch (_) {
+          /* ignore */
+        }
       } catch (e) {
         console.warn('[desensitize] scheduleAlbumPreMask failed', id, e && e.message)
+        try {
+          const { promoteAlbumCaseToPendingReview } = require('./public-case.service')
+          await promoteAlbumCaseToPendingReview(id)
+        } catch (_) {
+          /* ignore */
+        }
         try {
           const { cancelQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
           await cancelQueuedInspectionAdviceForAlbum(

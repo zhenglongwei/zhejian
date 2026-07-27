@@ -17,7 +17,7 @@
 <script setup>
 const props = defineProps({
   logs: { type: Array, default: () => [] },
-  approveLabel: { type: String, default: '通过并公开' },
+  approveLabel: { type: String, default: '通过' },
 })
 
 function actionLabel(action) {

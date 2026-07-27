@@ -14,7 +14,6 @@ const {
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
 const {
-  ALBUM_COMPLIANCE_STATUS,
   USER_CONFIRM_HINT,
 } = require('../constants/album-compliance')
 const { buildGateBUserPayload } = require('../constants/case-gate-b')
@@ -141,9 +140,13 @@ function resolvePublicCaseStatus(album) {
   if (album.publicCaseStatus === 'user_rejected') return 'user_rejected'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE) return 'private'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.NEED_MODIFY) return 'need_modify'
-  if (album.publicCase?.status === PUBLIC_CASE_STATUS.REJECTED) return 'need_modify'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.REJECTED) return 'rejected'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.REVIEW_PASSED) return 'review_passed'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) return 'public_approved'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) return 'pending_review'
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
+    return 'pending_desensitize'
+  }
   if (album.authorization?.status === 'authorized') return 'pending_review'
   return album.publicCaseStatus || 'private'
 }
@@ -294,29 +297,50 @@ function buildStoreBlock(album) {
 }
 
 function buildUserAlbumComplianceFields(album, quality = {}) {
-  const status = album.complianceStatus || ALBUM_COMPLIANCE_STATUS.NONE
-  const passed = status === ALBUM_COMPLIANCE_STATUS.PASSED
-  const pendingReview =
-    status === ALBUM_COMPLIANCE_STATUS.PENDING ||
-    status === ALBUM_COMPLIANCE_STATUS.SPOT_CHECK
+  const {
+    isCaseReviewPassed,
+    isCaseReviewPending,
+    isCaseReviewRejected,
+    isOwnerAlbumBlocked,
+    mapCaseReviewToComplianceCompat,
+    resolvePublicCaseRowStatus,
+  } = require('./case-review-gate.service')
+  const passed = isCaseReviewPassed(album)
+  const pendingReview = isCaseReviewPending(album)
+  const rejected = isCaseReviewRejected(album)
+  const status = resolvePublicCaseRowStatus(album)
   const authorized = album.authorization?.status === 'authorized'
   const qualityReady = quality.publicCaseScorePass === true
+  const rejectReason =
+    rejected && album.publicCase
+      ? album.publicCase.gateBRejectReason || ''
+      : rejected
+        ? album.complianceRejectReason || ''
+        : ''
+  let compliancePendingHint = ''
+  if (status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
+    compliancePendingHint = '门店案例配图处理中，通过后方可查看'
+  } else if (pendingReview) {
+    compliancePendingHint = '门店案例审核中，通过后方可查看'
+  } else if (rejected) {
+    compliancePendingHint = '门店案例未通过审核，暂不可查看'
+  }
   return {
-    complianceStatus: status,
+    // 兼容旧字段名：语义已切为「案例审」而非相册合规
+    complianceStatus: mapCaseReviewToComplianceCompat(album),
+    publicCaseStatus: status || album.publicCaseStatus || '',
     contentFrozen: passed,
     awaitingUserConfirm: passed && !authorized,
     userConfirmHint: passed ? USER_CONFIRM_HINT : '',
-    compliancePendingHint: pendingReview ? '门店案例审核中' : '',
+    compliancePendingHint,
     caseVisibleToOwner: passed,
+    ownerAlbumLocked: isOwnerAlbumBlocked(album),
     canAuthorizePublicCase:
       passed &&
       (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
       !authorized &&
       qualityReady,
-    complianceRejectReason:
-      status === ALBUM_COMPLIANCE_STATUS.REJECTED
-        ? album.complianceRejectReason || ''
-        : '',
+    complianceRejectReason: rejectReason,
   }
 }
 
@@ -525,13 +549,19 @@ function buildMerchantView(album) {
     amountMismatchHint: planCtx.amountMismatchHint,
     partVerifyGuideText: album.partVerifyGuideText || '',
     partVerifyGuideInformed: Boolean(album.partVerifyGuideInformed),
-    complianceStatus: album.complianceStatus || '',
-    complianceRejectReason:
-      album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED
-        ? album.complianceRejectReason || ''
-        : '',
-    canResubmitCompliance:
-      album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED && isCompleted,
+    complianceStatus: (() => {
+      const { mapCaseReviewToComplianceCompat } = require('./case-review-gate.service')
+      return mapCaseReviewToComplianceCompat(album) || album.complianceStatus || ''
+    })(),
+    complianceRejectReason: (() => {
+      const { isCaseReviewRejected } = require('./case-review-gate.service')
+      if (!isCaseReviewRejected(album)) return ''
+      return (album.publicCase && album.publicCase.gateBRejectReason) || album.complianceRejectReason || ''
+    })(),
+    canResubmitCompliance: (() => {
+      const { isCaseReviewRejected } = require('./case-review-gate.service')
+      return isCaseReviewRejected(album) && isCompleted
+    })(),
     authorizationStatus: album.authorization?.status || '',
     isAuthorized: album.authorization?.status === 'authorized',
     contentLocked: isAlbumContentLocked(album),
@@ -564,7 +594,7 @@ async function loadAlbum(albumId) {
 const ALBUM_CONTENT_LOCKED_CODE = 'ALBUM_CONTENT_LOCKED'
 /** @deprecated 请用 resolveAlbumContentLockedMessage(album)；保留给旧测试兼容 */
 const ALBUM_CONTENT_LOCKED_MESSAGE =
-  '相册已确认完工并锁定，正文与留档不可再改。仅平台审核驳回后方可再编辑；车主撤回发布不会解锁。'
+  '相册已确认完工并锁定，正文与案例稿不可再改。仅平台案例审核驳回后方可再编辑；车主撤回发布不会解锁。'
 
 function isAlbumCompletedStatus(status = '') {
   const s = String(status || '')
@@ -577,36 +607,28 @@ function isAlbumCompletedStatus(status = '') {
 }
 
 /**
- * 商家留档/案例稿锁定（2026-07-26 · 完工一审）：
- * - 确认并完工后一律锁定（含一审 pending / spot_check / passed，以及撤回后）
- * - 仅平台一审驳回 → 解锁，便于商家改正再完工
- * - 车主已提交发布 → 锁定（与完工锁定叠加）
- * - 撤回发布 **不** 清合规态、**不** 解锁
+ * 商家留档/案例稿锁定（案例审核收口）：
+ * - 确认完工进待审 / 审过 / 已发布 / 撤回后 → 锁定
+ * - 仅案例审驳回 → 解锁（可改相册节点 + 案例稿，再确认完工送审）
+ * - 车主已授权发布 → 锁定
  */
 function isAlbumContentLocked(album) {
   if (!album) return false
-  if (album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED) return false
+  const { isCaseReviewRejected, isCaseReviewContentLocked } = require('./case-review-gate.service')
+  if (isCaseReviewRejected(album)) return false
   if (album.authorization?.status === 'authorized') return true
-
-  const compliance = album.complianceStatus || ALBUM_COMPLIANCE_STATUS.NONE
-  if (
-    compliance === ALBUM_COMPLIANCE_STATUS.PASSED ||
-    compliance === ALBUM_COMPLIANCE_STATUS.PENDING ||
-    compliance === ALBUM_COMPLIANCE_STATUS.SPOT_CHECK
-  ) {
-    return true
-  }
-
-  // 已完工即锁定（含撤回后仍 completed + 合规态保留 passed）
-  if (isAlbumCompletedStatus(album.status)) {
-    return true
-  }
+  if (isCaseReviewContentLocked(album)) return true
+  if (isAlbumCompletedStatus(album.status)) return true
   return false
 }
 
 function resolveAlbumContentLockedMessage(album = {}) {
   if (album?.authorization?.status === 'authorized') {
     return '车主已提交发布，相册已锁定；撤回发布后仍不可再改（要改请新建相册）。'
+  }
+  const { isCaseReviewPending } = require('./case-review-gate.service')
+  if (isCaseReviewPending(album)) {
+    return '案例审核中，相册与案例稿只读；驳回后方可再改。'
   }
   return ALBUM_CONTENT_LOCKED_MESSAGE
 }
@@ -759,6 +781,8 @@ function mapUserServiceAlbumListItem(album) {
     /** @deprecated */ publicCaseQualityReady: view.publicCaseScorePass,
     compliancePendingHint: view.compliancePendingHint,
     complianceRejectReason: view.complianceRejectReason,
+    caseVisibleToOwner: view.caseVisibleToOwner,
+    ownerAlbumLocked: Boolean(view.ownerAlbumLocked),
     awaitingUserConfirm: view.awaitingUserConfirm,
     userConfirmHint: view.userConfirmHint,
     gateBRejectHint: view.gateBRejectHint,
@@ -924,17 +948,21 @@ async function getUserServiceAlbum(albumId, userId) {
     err.status = 403
     throw err
   }
+  const { assertOwnerAlbumAccessible, isCaseReviewPassed, isCaseReviewRejected } = require(
+    './case-review-gate.service',
+  )
+  assertOwnerAlbumAccessible(album)
   let view = attachPublishInviteFields(buildAlbumView(album), album)
   try {
-    const passed = album.complianceStatus === ALBUM_COMPLIANCE_STATUS.PASSED
-    // 一审通过前：车主可看私密相册，不可看案例稿
+    const passed = isCaseReviewPassed(album)
+    // 案例审通过后才开放案例稿（审前整本相册已被 assertOwnerAlbumAccessible 拦住）
     if (!passed) {
       view.merchantCaseDraft = null
       view.merchantCaseDraftSummary = null
       view.contentPackageStatus = ''
-      view.caseDraftHiddenReason = album.complianceStatus === ALBUM_COMPLIANCE_STATUS.REJECTED
-        ? 'compliance_rejected'
-        : 'compliance_pending'
+      view.caseDraftHiddenReason = isCaseReviewRejected(album)
+        ? 'case_review_rejected'
+        : 'case_review_pending'
     } else {
       const { readPackageFromAlbum } = require('./album-content-package.service')
       const { draftToAiSummary } = require('./merchant-case-draft.service')
@@ -1276,7 +1304,7 @@ async function refreshCaseDraftMediaAfterMask(albumId) {
 }
 
 /**
- * CASE-DRAFT-LOCK · 确认案例稿并完工；路由层异步 scheduleAlbumPreMask + runAlbumComplianceGate
+ * CASE-DRAFT-LOCK · 确认案例稿并完工；路由层异步 scheduleAlbumPreMask + enqueueAlbumCaseForReview
  */
 async function confirmAndCompleteMerchantCaseDraft(
   albumId,
@@ -1542,17 +1570,16 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     data: {
       status: SERVICE_ALBUM_STATUS.COMPLETED,
       completedAt: new Date(),
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.PENDING,
-      compliancePassedAt: null,
-      complianceRejectReason: '',
-      complianceReviewMode: '',
-      complianceCheckedAt: null,
+      publicCaseStatus: 'pending_desensitize',
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+      publicCase: true,
     },
   })
+  const { enqueueAlbumCaseForReview } = require('./public-case.service')
+  const queued = await enqueueAlbumCaseForReview(albumId)
   const { notifyAlbumCompleted } = require('./notification.service')
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
@@ -1562,8 +1589,10 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   triggerContentPackageOnComplete(albumId).catch((e) => {
     console.warn('[album-content-package] trigger failed', albumId, e && e.message)
   })
-  const view = buildMerchantView(album)
+  const view = buildMerchantView(await loadAlbum(albumId))
   Object.assign(view, assessPublicCaseQuality(view))
+  view.caseReviewStatus = queued.status
+  view.caseId = queued.caseId
   return view
 }
 
@@ -1626,8 +1655,8 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
     throw err
   }
 
-  const { assertAlbumCompliancePassed } = require('./album-compliance.service')
-  assertAlbumCompliancePassed(album)
+  const { assertCaseReviewPassed } = require('./case-review-gate.service')
+  assertCaseReviewPassed(album)
 
   const agreed = payload.agreed !== false
   if (agreed) {
@@ -1637,7 +1666,14 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
 
   const tier = 'named'
   const status = agreed ? 'authorized' : 'user_rejected'
-  const publicCaseStatus = agreed ? 'pending_review' : 'user_rejected'
+  // 授权不改变案例审状态；已通过保持 review_passed，拒绝仅标记 user_rejected
+  const publicCaseStatus = agreed
+    ? album.publicCase?.status === PUBLIC_CASE_STATUS.REVIEW_PASSED ||
+      album.publicCase?.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED ||
+      album.publicCaseStatus === 'review_passed'
+      ? 'review_passed'
+      : album.publicCaseStatus || 'review_passed'
+    : 'user_rejected'
 
   await prisma.albumAuthorization.upsert({
     where: { albumId },

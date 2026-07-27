@@ -1,14 +1,9 @@
 <template>
   <div v-loading="loading">
-    <GateReviewNav />
-    <h2 class="page-title">案例公示审核（闸门 B · 遗留）</h2>
-    <el-alert
-      type="info"
-      :closable="false"
-      show-icon
-      style="margin-bottom: 12px"
-      title="自 2026-07-26 起，车主发布不再写入本队列（已改由完工合规一审后直接上线）。本页仅保留历史待审 / 抽检与事后下架。"
-    />
+    <h2 class="page-title">案例审核</h2>
+    <p class="page-desc">
+      商家确认完工并完成配图脱敏后进入待审。审公示案例稿与脱敏配图；通过后车主可查看并发布；驳回后商家可改再送审。脱敏异常可重试，本期不支持运营手工打码。
+    </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
         v-for="tab in CASE_TABS"
@@ -32,16 +27,6 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="风险">
-        <el-select v-model="filters.riskLevel" clearable style="width: 120px">
-          <el-option
-            v-for="opt in RISK_LEVEL_OPTIONS"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
-          />
-        </el-select>
-      </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="loadList">查询</el-button>
       </el-form-item>
@@ -57,36 +42,15 @@
       <el-table-column prop="storeName" label="门店" width="140" show-overflow-tooltip />
       <el-table-column prop="serviceName" label="服务项目" width="120" show-overflow-tooltip />
       <el-table-column prop="imageCount" label="图片数" width="80" />
-      <el-table-column label="风险等级" width="100">
+      <el-table-column prop="status" label="状态" width="120">
         <template #default="{ row }">
-          <RiskLevelTag :level="row.riskLevel" />
-        </template>
-      </el-table-column>
-      <el-table-column label="闸门B" width="100">
-        <template #default="{ row }">
-          {{ row.gateBRisk === 'high' ? '高风险' : row.gateBRisk === 'low' ? '低风险' : '—' }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="status" label="状态" width="110" />
-      <el-table-column label="抽检" width="90">
-        <template #default="{ row }">
-          {{
-            row.spotCheckStatus === 'pending'
-              ? '待抽检'
-              : row.spotCheckStatus === 'passed'
-                ? '已通过'
-                : row.spotCheckStatus === 'failed'
-                  ? '已下架'
-                  : '—'
-          }}
+          {{ statusLabel(row.status) }}
         </template>
       </el-table-column>
       <el-table-column prop="submittedAt" label="提交时间" width="170" />
       <el-table-column label="操作" width="90" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click.stop="goDetail(row)">
-            {{ activeTab === 'spot_check' ? '抽检' : '审核' }}
-          </el-button>
+          <el-button link type="primary" @click.stop="goDetail(row)">审核</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -108,10 +72,8 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchCaseList } from '@/api/case-review'
-import { CASE_TABS, CASE_SOURCE_OPTIONS, RISK_LEVEL_OPTIONS } from '@/constants/case-review'
-import RiskLevelTag from '@/components/case-review/RiskLevelTag.vue'
+import { CASE_TABS, CASE_SOURCE_OPTIONS } from '@/constants/case-review'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
-import GateReviewNav from '@/components/case-review/GateReviewNav.vue'
 
 const router = useRouter()
 const activeTab = ref('pending')
@@ -123,8 +85,20 @@ const pageSize = ref(20)
 const filters = reactive({
   keyword: '',
   source: '',
-  riskLevel: '',
 })
+
+function statusLabel(status) {
+  const map = {
+    pending_desensitize: '脱敏处理中',
+    pending_review: '待审核',
+    review_passed: '已通过·待发布',
+    public_approved: '已发布',
+    rejected: '已驳回',
+    need_modify: '已驳回',
+    offline: '已下线',
+  }
+  return map[status] || status || '—'
+}
 
 async function loadList() {
   loading.value = true
@@ -135,7 +109,6 @@ async function loadList() {
       pageSize: pageSize.value,
       keyword: filters.keyword || undefined,
       source: filters.source || undefined,
-      riskLevel: filters.riskLevel || undefined,
     })
     list.value = data.list || []
     total.value = data.total || 0
@@ -164,8 +137,14 @@ onMounted(loadList)
 
 <style scoped>
 .page-title {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   font-size: 20px;
+}
+.page-desc {
+  margin: 0 0 16px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 .filter-form {
   margin-bottom: 12px;

@@ -29,11 +29,22 @@ test('buildGateBUserPayload for need_modify', () => {
   assert.equal(payload.desensitizePreviewSource, 'review')
 })
 
-test('B gate reject keeps merchant album locked when compliance passed + authorized', () => {
+test('B gate reject unlocks merchant album when case rejected', () => {
   assert.equal(
     isAlbumContentLocked({
-      complianceStatus: 'passed',
-      authorization: { status: 'authorized' },
+      status: 'completed',
+      publicCase: { status: 'rejected' },
+      authorization: { status: 'none' },
+    }),
+    false
+  )
+})
+
+test('case pending_review keeps merchant album locked', () => {
+  assert.equal(
+    isAlbumContentLocked({
+      status: 'completed',
+      publicCase: { status: 'pending_review' },
     }),
     true
   )

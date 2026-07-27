@@ -178,13 +178,28 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
 const { canAccessMerchantAlbum } = require('../lib/merchant-album-access')
 
 function assertPublicCasePublishable(publicCase) {
-  if (!publicCase) return
+  if (!publicCase) {
+    const err = new Error('须先由门店确认完工并通过平台案例审核')
+    err.status = 409
+    err.code = 'CASE_REVIEW_REQUIRED'
+    throw err
+  }
   const status = publicCase.status
+  if (status === PUBLIC_CASE_STATUS.REVIEW_PASSED) return
   if (status === PUBLIC_CASE_STATUS.OFFLINE) return
-  if (status === PUBLIC_CASE_STATUS.NEED_MODIFY) return
-  if (status === PUBLIC_CASE_STATUS.REJECTED) return
+  if (status === PUBLIC_CASE_STATUS.NEED_MODIFY || status === PUBLIC_CASE_STATUS.REJECTED) {
+    const err = new Error('案例未通过审核，请等待门店修改后重新送审')
+    err.status = 409
+    err.code = 'CASE_REVIEW_REJECTED'
+    throw err
+  }
   if (status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
-    const err = new Error('公示审核中，请耐心等待')
+    const err = new Error('案例审核中，请耐心等待')
+    err.status = 409
+    throw err
+  }
+  if (status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
+    const err = new Error('案例配图脱敏处理中，请稍后再试')
     err.status = 409
     throw err
   }
@@ -196,6 +211,109 @@ function assertPublicCasePublishable(publicCase) {
   const err = new Error('请先撤回当前公示后再重新提交')
   err.status = 409
   throw err
+}
+
+/**
+ * 商家确认完工后写入案例：先 pending_desensitize，脱敏结束后再升为 pending_review
+ */
+async function enqueueAlbumCaseForReview(albumId) {
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    include: { publicCase: true },
+  })
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const pkg = readPackageFromAlbum(album)
+  const merchantCaseDraft = pkg && pkg.merchantCaseDraft
+  if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
+    const err = new Error('请先在案例预览页确认案例稿后再完工')
+    err.status = 409
+    err.code = 'CASE_DRAFT_REQUIRED'
+    throw err
+  }
+
+  const caseId = (album.publicCase && album.publicCase.id) || newId('case')
+  const title = String(merchantCaseDraft.title || album.serviceName || '服务案例').trim()
+  const summary = String(merchantCaseDraft.caseSummary || '').trim()
+  const contentJson = { merchantCaseDraft }
+  const status = PUBLIC_CASE_STATUS.PENDING_DESENSITIZE
+
+  await prisma.publicCase.upsert({
+    where: { albumId },
+    create: {
+      id: caseId,
+      albumId,
+      status,
+      authorizationTier: 'named',
+      title,
+      summary,
+      coverImage: '',
+      contentJson,
+      storeId: album.storeId || '',
+      storeName: album.storeName || '',
+      serviceName: album.serviceName || '',
+      city: album.city || '',
+      publishedAt: null,
+      gateBRejectType: '',
+      gateBRejectReason: '',
+      gateBRisk: '',
+      spotCheckStatus: '',
+    },
+    update: {
+      status,
+      title,
+      summary,
+      contentJson,
+      storeId: album.storeId || '',
+      storeName: album.storeName || '',
+      serviceName: album.serviceName || '',
+      city: album.city || '',
+      publishedAt: null,
+      gateBRejectType: '',
+      gateBRejectReason: '',
+      gateBRisk: '',
+      spotCheckStatus: '',
+    },
+  })
+
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { publicCaseStatus: status },
+  })
+
+  return { caseId, status }
+}
+
+/**
+ * 脱敏结束（就绪/部分失败/失败）后升入运营待审；已过审/已发布不回退
+ */
+async function promoteAlbumCaseToPendingReview(albumId) {
+  const id = String(albumId || '').trim()
+  if (!id) return null
+  const row = await prisma.publicCase.findUnique({ where: { albumId: id } })
+  if (!row) return null
+  if (row.status !== PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
+    return { caseId: row.id, status: row.status, promoted: false }
+  }
+
+  await prisma.publicCase.update({
+    where: { id: row.id },
+    data: { status: PUBLIC_CASE_STATUS.PENDING_REVIEW },
+  })
+  await prisma.album.update({
+    where: { id },
+    data: { publicCaseStatus: PUBLIC_CASE_STATUS.PENDING_REVIEW },
+  })
+
+  return {
+    caseId: row.id,
+    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+    promoted: true,
+  }
 }
 
 async function resolvePublishTask(albumId, payload = {}) {
@@ -252,8 +370,8 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 
   assertPublicCasePublishable(album.publicCase)
 
-  const { assertAlbumCompliancePassed } = require('./album-compliance.service')
-  assertAlbumCompliancePassed(album)
+  const { assertCaseReviewPassed } = require('./case-review-gate.service')
+  assertCaseReviewPassed(album)
 
   const { readPackageFromAlbum } = require('./album-content-package.service')
   const contentPkg = readPackageFromAlbum(album)
@@ -359,7 +477,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     create: {
       id: caseId,
       albumId,
-      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
       authorizationTier: tier,
       title: snapshot.title,
       summary: snapshot.summary,
@@ -379,14 +497,14 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       minAmount: priceColumns.minAmount,
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
-      publishedAt: null,
+      publishedAt: new Date(),
       gateBRisk: 'skipped',
       spotCheckStatus: SPOT_CHECK_STATUS.NONE,
       enrichmentJson: enrichmentFinal,
       enrichmentVersion: enrichmentFinal.version,
     },
     update: {
-      status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
       gateBRejectType: '',
       gateBRejectReason: '',
       gateBRisk: 'skipped',
@@ -410,7 +528,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
       minAmount: priceColumns.minAmount,
       maxAmount: priceColumns.maxAmount,
       priceMode: priceColumns.priceMode,
-      publishedAt: null,
+      publishedAt: new Date(),
       enrichmentJson: enrichmentFinal,
       enrichmentVersion: enrichmentFinal.version,
       ...(wasOffline ? { slug: null } : {}),
@@ -420,18 +538,19 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   await prisma.album.update({
     where: { id: albumId },
     data: {
-      publicCaseStatus: 'pending_review',
+      publicCaseStatus: 'public_approved',
+      status: 'published',
     },
   })
 
   const { scheduleCaseGeoLlmOptimization } = require('./case-geo-llm.service')
   scheduleCaseGeoLlmOptimization(caseId)
 
-  const { approveAdminCase } = require('./admin-case.service')
-  await approveAdminCase(caseId, {
+  const { finalizePublishedCaseSideEffects } = require('./admin-case.service')
+  await finalizePublishedCaseSideEffects(caseId, {
     reviewerId: 'system',
-    comment: 'publish_after_compliance_passed',
-    reviewAction: 'auto_approve',
+    comment: 'user_publish_after_case_review',
+    reviewAction: 'user_publish',
   })
 
   return {
@@ -608,6 +727,8 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
 module.exports = {
   publishServicePublicCase,
   publishMerchantColdStartPublicCase,
+  enqueueAlbumCaseForReview,
+  promoteAlbumCaseToPendingReview,
   buildCaseDraft,
   buildNodesFromTask,
   resolvePublicCaseNodes,

@@ -62,11 +62,11 @@ H5 案例详情 / GET /user/cases/:id / JSON Feed case DTO
 
 | 动作 | 行为 |
 | --- | --- |
-| 用户撤回 | `public_cases.status=offline` 或等价留痕；**不** hard delete 审计行（实现定稿）；相册解锁 |
-| 再授权 | 新 snapshot 包、`snapshotVersion++`、强制 `pending_review` |
+| 用户撤回 | `public_cases.status=offline` 或等价留痕；**不** hard delete 审计行；**不**解锁商家（与案例审驳回区分） |
+| 再发布 | 新 snapshot 包、`snapshotVersion++`；若已 `review_passed` 则不强制重审 |
 | 归属校验 | `withdrawAuthorization(albumId, userId)` 必须校验 album 归属 |
 
-**CASE-SNAP-08（已定稿）**：运营驳回/要求修改 **不** 解锁相册；仅用户撤回后可改。
+**CASE-REVIEW-ONCE（2026-07-27）**：案例审 **驳回** → **解锁商家**改相册+案例稿再送审；**无**「要求修改」。通过 → `review_passed` 不上线。
 
 ## 实现检查清单
 

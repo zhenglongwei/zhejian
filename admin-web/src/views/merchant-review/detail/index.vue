@@ -190,6 +190,7 @@
         :can-review="detail.status === 'PENDING_AUDIT'"
         :approve-label="APPROVE_ACTION_LABEL"
         :reason-options="MERCHANT_REJECT_REASONS"
+        :show-request-modify="true"
         @approve="onApprove"
         @reject="onReject"
         @request-modify="onRequestModify"

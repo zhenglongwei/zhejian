@@ -60,38 +60,42 @@ test('assertAlbumCompliancePassed blocks pending and rejected', () => {
   )
 })
 
-test('isAlbumContentLocked when compliance passed without authorization', () => {
-  assert.equal(
-    isAlbumContentLocked({ complianceStatus: ALBUM_COMPLIANCE_STATUS.PASSED }),
-    true
-  )
+test('isAlbumContentLocked when case review passed without authorization', () => {
   assert.equal(
     isAlbumContentLocked({
       status: 'completed',
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.PENDING,
+      publicCase: { status: 'review_passed' },
     }),
     true
   )
   assert.equal(
     isAlbumContentLocked({
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.REJECTED,
+      status: 'completed',
+      publicCase: { status: 'pending_review' },
+    }),
+    true
+  )
+  assert.equal(
+    isAlbumContentLocked({
+      status: 'completed',
+      publicCase: { status: 'rejected' },
       authorization: null,
     }),
     false
   )
-  // 已完工即锁定（含合规态尚未写入 / 撤回后仍 completed）
+  // 已完工即锁定
   assert.equal(
     isAlbumContentLocked({
       status: 'completed',
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.NONE,
+      publicCaseStatus: '',
     }),
     true
   )
-  // 撤回后仍保持 passed → 仍锁定
+  // 撤回后仍锁定
   assert.equal(
     isAlbumContentLocked({
       status: 'completed',
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.PASSED,
+      publicCase: { status: 'offline' },
       authorization: { status: 'withdrawn' },
     }),
     true
@@ -102,7 +106,7 @@ test('buildUserAlbumComplianceFields exposes frozen confirm hint', () => {
   const fields = buildUserAlbumComplianceFields(
     {
       status: 'completed',
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.PASSED,
+      publicCase: { status: 'review_passed' },
       authorization: null,
     },
     { publicCaseScorePass: true },
@@ -112,13 +116,14 @@ test('buildUserAlbumComplianceFields exposes frozen confirm hint', () => {
   assert.equal(fields.userConfirmHint, USER_CONFIRM_HINT)
   assert.equal(fields.canAuthorizePublicCase, true)
   assert.equal(fields.caseVisibleToOwner, true)
+  assert.equal(fields.complianceStatus, 'passed')
 })
 
-test('buildUserAlbumComplianceFields hides case before compliance passed', () => {
+test('buildUserAlbumComplianceFields hides case before review passed', () => {
   const pending = buildUserAlbumComplianceFields(
     {
       status: 'completed',
-      complianceStatus: ALBUM_COMPLIANCE_STATUS.PENDING,
+      publicCase: { status: 'pending_review' },
       authorization: null,
     },
     { publicCaseScorePass: true },
@@ -126,6 +131,7 @@ test('buildUserAlbumComplianceFields hides case before compliance passed', () =>
   assert.equal(pending.caseVisibleToOwner, false)
   assert.equal(pending.canAuthorizePublicCase, false)
   assert.ok(pending.compliancePendingHint)
+  assert.equal(pending.complianceStatus, 'pending')
 })
 
 test('shouldSpotCheckAlbum is deterministic for album id', () => {

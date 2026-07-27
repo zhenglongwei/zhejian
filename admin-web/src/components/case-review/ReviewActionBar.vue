@@ -1,6 +1,12 @@
 <template>
   <div class="review-bar">
-    <el-select v-model="reasonType" placeholder="原因类型" clearable style="width: 200px">
+    <el-select
+      v-if="showReasonType"
+      v-model="reasonType"
+      placeholder="原因类型"
+      clearable
+      style="width: 200px"
+    >
       <el-option
         v-for="r in rejectReasons"
         :key="r"
@@ -10,13 +16,19 @@
     </el-select>
     <el-input
       v-model="comment"
-      placeholder="审核意见（驳回/要求修改时建议填写）"
+      :placeholder="commentPlaceholder"
       style="flex: 1; min-width: 200px"
     />
     <el-button type="success" :loading="loading" :disabled="!canReview" @click="$emit('approve')">
       {{ approveLabel }}
     </el-button>
-    <el-button type="warning" :loading="loading" :disabled="!canReview" @click="$emit('request-modify')">
+    <el-button
+      v-if="showRequestModify"
+      type="warning"
+      :loading="loading"
+      :disabled="!canReview"
+      @click="$emit('request-modify')"
+    >
       要求修改
     </el-button>
     <el-button type="danger" :loading="loading" :disabled="!canReview" @click="$emit('reject')">
@@ -32,8 +44,11 @@ import { REJECT_REASONS as DEFAULT_REJECT_REASONS, GATE_B_REJECT_LABEL } from '@
 const props = defineProps({
   loading: { type: Boolean, default: false },
   canReview: { type: Boolean, default: true },
-  approveLabel: { type: String, default: '通过并公开' },
+  approveLabel: { type: String, default: '通过' },
   reasonOptions: { type: Array, default: null },
+  showRequestModify: { type: Boolean, default: false },
+  showReasonType: { type: Boolean, default: true },
+  commentPlaceholder: { type: String, default: '审核意见（驳回时建议填写）' },
 })
 
 defineEmits(['approve', 'reject', 'request-modify'])

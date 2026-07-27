@@ -534,7 +534,7 @@ Page({
       const socialDraftText = buildSocialDraft(enriched, socialPlatform)
       const publishSheetHint =
         publishSheetState === 'idle'
-          ? '预览即将上网的内容，确认后立即发布（已过门店案例审核）。'
+          ? '预览即将上网的内容，确认后立即发布（已过平台案例审核）。'
           : ''
       const publishSheetDisabled =
         Boolean(enriched.canAuthorizePublicCase === false) &&
@@ -650,8 +650,8 @@ Page({
 
   shouldShowAuth(detail) {
     if (!detail) return false
-    // 平台一审通过前：可看私密相册，不可看案例/发布入口
-    if (detail.caseVisibleToOwner === false) return false
+    // 案例审通过前：整本相册不可见；通过后才开放案例/发布入口
+    if (detail.ownerAlbumLocked || detail.caseVisibleToOwner === false) return false
     if (detail.complianceStatus && detail.complianceStatus !== 'passed') return false
     if (detail.publicCaseScorePass === false || detail.publicCaseQualityReady === false) return false
     if (!isRepairCompleted(detail.status)) return false

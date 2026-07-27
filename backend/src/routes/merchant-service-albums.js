@@ -29,10 +29,6 @@ const {
   applyAlbumContentOptimizeDraft,
 } = require('../services/album-content-optimize.service')
 const {
-  runAlbumComplianceGate,
-  resubmitAlbumCompliance,
-} = require('../services/album-compliance.service')
-const {
   getMerchantPlanPartsContext,
   saveMerchantPlanPartsDraft,
   lockMerchantPlanParts,
@@ -286,12 +282,12 @@ router.post(
       scheduleAlbumPreMask(req.params.albumId, {
         auth: req.auth || {},
       })
-      const compliance = await runAlbumComplianceGate(req.params.albumId)
       return ok(res, {
         ...view,
         albumStatus: 'completed',
         preMaskStatus: 'running',
-        complianceStatus: compliance && compliance.complianceStatus,
+        caseReviewStatus: view.caseReviewStatus || 'pending_review',
+        complianceStatus: view.complianceStatus || 'pending',
       })
     } catch (e) {
       next(e)
@@ -337,14 +333,14 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       req.auth.merchantId,
     )
     scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
-    const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
       preMaskStatus: 'running',
-      complianceStatus: compliance.complianceStatus,
-      compliancePassed: compliance.passed,
-      complianceRejectReason: compliance.rejectReason || '',
+      caseReviewStatus: view.caseReviewStatus || 'pending_review',
+      complianceStatus: view.complianceStatus || 'pending',
+      compliancePassed: false,
+      complianceRejectReason: '',
       copyQuality: view.copyQuality || null,
     })
   } catch (e) {
@@ -357,13 +353,11 @@ router.post(
   requireAuth(['merchant']),
   async (req, res, next) => {
     try {
-      const storeId = resolveStoreId(req)
-      const data = await resubmitAlbumCompliance(
-        req.params.albumId,
-        storeId,
-        req.auth.merchantId,
-      )
-      return ok(res, data)
+      // 兼容旧入口：驳回后再次确认完工即可重新进审，无需单独合规重提
+      const err = new Error('请修改相册与案例稿后，在案例预览页再次「确认并完工」以重新送审')
+      err.status = 410
+      err.code = 'COMPLIANCE_RESUBMIT_REMOVED'
+      throw err
     } catch (e) {
       next(e)
     }
@@ -487,14 +481,14 @@ router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, 
       req.auth.merchantId,
     )
     scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
-    const compliance = await runAlbumComplianceGate(req.params.albumId)
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
       preMaskStatus: 'running',
-      complianceStatus: compliance.complianceStatus,
-      compliancePassed: compliance.passed,
-      complianceRejectReason: compliance.rejectReason || '',
+      caseReviewStatus: 'pending_review',
+      complianceStatus: 'pending',
+      compliancePassed: false,
+      complianceRejectReason: '',
     })
   } catch (e) {
     next(e)

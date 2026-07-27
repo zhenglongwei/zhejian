@@ -46,7 +46,11 @@ const DEFAULT_STAGE_NODES = [
 ]
 
 const PUBLIC_CASE_STATUS = {
+  /** 完工后脱敏处理中，尚未进入运营人审 */
+  PENDING_DESENSITIZE: 'pending_desensitize',
   PENDING_REVIEW: 'pending_review',
+  /** 运营案例审通过，待车主发布（不上线） */
+  REVIEW_PASSED: 'review_passed',
   PUBLIC_APPROVED: 'public_approved',
   USER_REJECTED: 'user_rejected',
   REJECTED: 'rejected',

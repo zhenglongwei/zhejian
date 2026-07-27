@@ -18,7 +18,7 @@ function buildAlbumGateBanner(detail = {}) {
     lines.push(detail.compliancePendingHint)
   }
   if (detail.complianceRejectReason) {
-    lines.push(`门店留档未通过合规审查：${detail.complianceRejectReason}`)
+    lines.push(`案例未通过审核：${detail.complianceRejectReason}`)
   }
   if (detail.awaitingUserConfirm && detail.userConfirmHint) {
     lines.push(detail.userConfirmHint)

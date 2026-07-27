@@ -486,26 +486,8 @@ async function notifyNewLead(lead) {
 }
 
 async function notifyAlbumCompleted(album) {
-  const userId = await resolveAlbumUserId(album)
-  if (!userId) return null
-  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
-  return notifyUser({
-    receiverId: userId,
-    messageType: 'album_completed',
-    title: '服务相册已完工',
-    content: `${album.storeName || '门店'}的服务相册已更新，可查看完整留档。`,
-    refType: 'album',
-    refId: album.id,
-    jumpPath,
-    wechatTemplateKey: 'album',
-    wechatPage: jumpPath.replace(/^\//, ''),
-    wechatPayload: {
-      serviceName: album.serviceName || '服务相册',
-      status: '已完工',
-      tips: '服务相册已更新，可查看留档',
-      storeName: album.storeName,
-    },
-  })
+  // 案例审通过前车主不可见相册：完工不再推「可查看完整留档」，改由审过后通知
+  return null
 }
 
 async function notifyAlbumPreMaskReady(album) {
@@ -708,18 +690,24 @@ async function notifyAuthorizationWithdrawn(albumId) {
   })
 }
 
-async function notifyCaseAuditResult({ album, approved, comment = '' }) {
+async function notifyCaseAuditResult({ album, approved, comment = '', reviewPassedOnly = false }) {
   const userId = await resolveAlbumUserId(album)
   const title = approved ? '案例审核已通过' : '案例审核未通过'
   const content = approved
-    ? '你的案例已通过审核并公开展示，点击查看公开案例。'
-    : truncate(comment || '案例未通过审核。可在「我的相册」查看私密相册，修改后可重新提交公示。', 120)
+    ? reviewPassedOnly
+      ? '门店案例已通过平台审核，你可查看案例稿并自行发布到公开网站。'
+      : '你的案例已通过审核并公开展示，点击查看公开案例。'
+    : truncate(comment || '案例未通过审核。门店将修改后重新送审。', 120)
   const auditPayload = {
     caseNo: album.publicCase?.id || album.id,
     auditStatus: approved ? '审核通过' : '审核未通过',
-    remark: approved ? '点击查看公开案例' : truncate(comment || '可改后重新提交', 20),
+    remark: approved
+      ? reviewPassedOnly
+        ? '可查看案例并发布'
+        : '点击查看公开案例'
+      : truncate(comment || '门店将修改后送审', 20),
   }
-  if (userId) {
+  if (userId && approved) {
     await notifyUser({
       receiverId: userId,
       messageType: 'case_audit',
@@ -727,13 +715,9 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
       content,
       refType: 'album',
       refId: album.id,
-      jumpPath: approved && album.publicCase?.id
-        ? `/pages/case/detail/index?id=${album.publicCase.id}`
-        : '/pages/album/list/index?tab=publishable',
+      jumpPath: `/pages/album/detail/index?albumId=${album.id}`,
       wechatTemplateKey: 'audit',
-      wechatPage: approved && album.publicCase?.id
-        ? `pages/case/detail/index?id=${album.publicCase.id}`
-        : 'pages/album/list/index?tab=publishable',
+      wechatPage: `pages/album/detail/index?albumId=${album.id}`,
       wechatPayload: auditPayload,
     })
   }
@@ -741,7 +725,9 @@ async function notifyCaseAuditResult({ album, approved, comment = '' }) {
     merchantId: album.merchantId,
     messageType: 'case_audit',
     title,
-    content,
+    content: approved
+      ? '案例已通过审核，车主可查看并发布。'
+      : truncate(comment || '请按审核意见修改相册与案例稿后，再次确认完工送审。', 120),
     refType: 'album',
     refId: album.id,
     jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,

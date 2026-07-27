@@ -46,14 +46,20 @@ test('isAlbumWithdrawable requires authorized and non-offline publicCase', () =>
   assert.equal(isAlbumWithdrawable({ authorization: null }), false)
 })
 
-test('assertPublicCasePublishable allows first publish and re-auth from offline', () => {
-  assert.doesNotThrow(() => assertPublicCasePublishable(null))
+test('assertPublicCasePublishable allows review_passed and offline', () => {
+  assert.doesNotThrow(() =>
+    assertPublicCasePublishable({ status: PUBLIC_CASE_STATUS.REVIEW_PASSED })
+  )
   assert.doesNotThrow(() =>
     assertPublicCasePublishable({ status: PUBLIC_CASE_STATUS.OFFLINE })
   )
 })
 
-test('assertPublicCasePublishable blocks duplicate pending or approved', () => {
+test('assertPublicCasePublishable blocks pending, rejected, approved', () => {
+  assert.throws(
+    () => assertPublicCasePublishable(null),
+    (err) => err.code === 'CASE_REVIEW_REQUIRED'
+  )
   assert.throws(
     () => assertPublicCasePublishable({ status: PUBLIC_CASE_STATUS.PENDING_REVIEW }),
     (err) => err.status === 409
@@ -63,7 +69,7 @@ test('assertPublicCasePublishable blocks duplicate pending or approved', () => {
     (err) => err.status === 409
   )
   assert.throws(
-    () => assertPublicCasePublishable({ status: PUBLIC_CASE_STATUS.NEED_MODIFY }),
-    (err) => err.status === 409
+    () => assertPublicCasePublishable({ status: PUBLIC_CASE_STATUS.REJECTED }),
+    (err) => err.code === 'CASE_REVIEW_REJECTED'
   )
 })
