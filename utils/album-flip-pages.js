@@ -39,7 +39,17 @@ function collectStageImageEntries(stageId, node, evidenceItems, parts) {
   const seen = new Set()
 
   if (stageId === 'stage_3' || stageId === 'stage_5' || stageId === 'stage_6') {
-    filterEvidenceByStage(evidenceItems, stageId).forEach((item) => {
+    // 质保等专用槽先于结算单，避免历史脏数据里同 URL 被结算单先占标签
+    const stageDocs = filterEvidenceByStage(evidenceItems, stageId).slice().sort((a, b) => {
+      const rank = (item) => {
+        if (!item) return 9
+        if (item.id === 'warranty') return 0
+        if (item.id === 'settlement') return 8
+        return 1
+      }
+      return rank(a) - rank(b)
+    })
+    stageDocs.forEach((item) => {
       const label = String(item.label || '').trim() || nodeTitle
       pushImageEntries(entries, item.images, label, seen)
     })

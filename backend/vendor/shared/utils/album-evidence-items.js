@@ -99,6 +99,26 @@ function findNodeImages(nodes, stageId) {
   return normalizeImageList(node && node.images)
 }
 
+/**
+ * 各单据槽互不混同：质保图不得出现在结算单，反之亦然。
+ * 用于纠正历史「阶段六整节点图塞进结算单」脏数据。
+ */
+function scrubCrossSlotDocumentImages(documentItems = []) {
+  const warrantyUrls = new Set()
+  ;(documentItems || []).forEach((item) => {
+    if (!item || item.id !== WARRANTY_DOCUMENT_ID) return
+    normalizeImageList(item.images).forEach((url) => warrantyUrls.add(url))
+  })
+  if (!warrantyUrls.size) return documentItems || []
+
+  return (documentItems || []).map((item) => {
+    if (!item || item.id !== 'settlement') return item
+    const images = normalizeImageList(item.images).filter((url) => !warrantyUrls.has(url))
+    if (images.length === normalizeImageList(item.images).length) return item
+    return { ...item, images }
+  })
+}
+
 function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } = {}) {
   const catalog = buildDocumentEvidenceCatalog(templateId)
   const savedById = {}
@@ -106,18 +126,29 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
     if (item && item.id && !isOldPartEvidenceItem(item)) savedById[item.id] = item
   })
 
+  // 已明确挂在某单据槽的图，不得再被其它槽的「旧节点兼容」逻辑吞并
+  const claimedUrls = new Set()
+  Object.keys(savedById).forEach((id) => {
+    normalizeImageList(savedById[id].images).forEach((url) => claimedUrls.add(url))
+  })
+
   const legacyAssigned = {}
   const documentItems = catalog.map((def) => {
     const saved = savedById[def.id] || {}
     let images = normalizeImageList(saved.images)
     if (!images.length) {
-      const legacyKey = def.stageId
-      if (!legacyAssigned[legacyKey]) {
-        legacyAssigned[legacyKey] = findNodeImages(nodes, legacyKey)
-      }
-      const legacyPool = legacyAssigned[legacyKey] || []
-      if (legacyPool.length && def.id === defaultLegacySlotForStage(def.stageId, templateId)) {
-        images = legacyPool.slice()
+      const legacySlot = defaultLegacySlotForStage(def.stageId, templateId)
+      if (legacySlot && def.id === legacySlot) {
+        const legacyKey = def.stageId
+        if (!legacyAssigned[legacyKey]) {
+          legacyAssigned[legacyKey] = findNodeImages(nodes, legacyKey).filter(
+            (url) => !claimedUrls.has(url),
+          )
+        }
+        const legacyPool = legacyAssigned[legacyKey] || []
+        if (legacyPool.length) {
+          images = legacyPool.slice()
+        }
       }
     }
     const base = {
@@ -138,9 +169,12 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
     .map((item) => sanitizeOldPartEvidenceItem(item))
     .filter(Boolean)
 
-  return [...documentItems, ...oldPartItems]
+  return [...scrubCrossSlotDocumentImages(documentItems), ...oldPartItems]
 }
 
+/**
+ * 仅单槽阶段可做「节点旧图 → 单据槽」兼容；阶段六有结算单+质保，禁止整包塞给结算单。
+ */
 function defaultLegacySlotForStage(stageId, templateId) {
   if (stageId === 'stage_3') {
     return templateMatches(DOCUMENT_TYPES.loss_assessment, templateId)
@@ -148,7 +182,7 @@ function defaultLegacySlotForStage(stageId, templateId) {
       : 'repair_quote'
   }
   if (stageId === 'stage_5') return 'work_order'
-  if (stageId === 'stage_6') return 'settlement'
+  if (stageId === 'stage_6') return ''
   return ''
 }
 
@@ -226,24 +260,26 @@ function sanitizeOldPartEvidenceItems(items, validPlanPartIds) {
 
 function sanitizeEvidenceItemsPayload(items, options = {}) {
   const validPlanPartIds = options.validPlanPartIds
-  const documentItems = (items || [])
-    .filter((item) => item && item.id && DOCUMENT_TYPES[item.id])
-    .map((item) => {
-      const def = DOCUMENT_TYPES[item.id]
-      const row = {
-        id: def.id,
-        category: EVIDENCE_CATEGORY.DOCUMENT,
-        type: def.id,
-        stageId: def.stageId,
-        label: def.label,
-        strength: item.strength || def.strength,
-        images: normalizeImageList(item.images),
-      }
-      if (def.id === WARRANTY_DOCUMENT_ID) {
-        Object.assign(row, extractWarrantyFields(item))
-      }
-      return row
-    })
+  const documentItems = scrubCrossSlotDocumentImages(
+    (items || [])
+      .filter((item) => item && item.id && DOCUMENT_TYPES[item.id])
+      .map((item) => {
+        const def = DOCUMENT_TYPES[item.id]
+        const row = {
+          id: def.id,
+          category: EVIDENCE_CATEGORY.DOCUMENT,
+          type: def.id,
+          stageId: def.stageId,
+          label: def.label,
+          strength: item.strength || def.strength,
+          images: normalizeImageList(item.images),
+        }
+        if (def.id === WARRANTY_DOCUMENT_ID) {
+          Object.assign(row, extractWarrantyFields(item))
+        }
+        return row
+      }),
+  )
   const oldPartItems = sanitizeOldPartEvidenceItems(
     (items || []).filter(isOldPartEvidenceItem),
     validPlanPartIds,
@@ -385,6 +421,7 @@ function patchWarrantyFieldsInEvidence(evidenceItems = [], fields = {}) {
 module.exports = {
   buildDocumentEvidenceCatalog,
   hydrateEvidenceItems,
+  scrubCrossSlotDocumentImages,
   filterEvidenceByStage,
   resolveProcessImagesForStage,
   applyProcessOnlyNodes,
