@@ -1,6 +1,8 @@
 {
   "navigationBarTitleText": "复制图文文章",
   "usingComponents": {
-    "ui-button": "/components/button/index"
+    "ui-button": "/components/button/index",
+    "ui-empty": "/components/empty/index",
+    "ui-skeleton": "/components/skeleton/index"
   }
 }

@@ -1,16 +1,62 @@
 <view class="page article-copy">
   <block wx:if="{{status === 'loading'}}">
-    <view class="page-content">
-      <text class="text-caption text-secondary">正在准备可粘贴的图文…</text>
+    <view class="page-content article-copy__pad">
+      <ui-skeleton rows="{{5}}" title="{{true}}" />
     </view>
   </block>
+
   <block wx:elif="{{status === 'error'}}">
-    <view class="page-content">
-      <text class="text-body">{{errorMessage}}</text>
-      <ui-button type="secondary" block bind:btntap="onFallbackCopy">复制 HTML 备用</ui-button>
+    <view class="page-content article-copy__pad">
+      <ui-empty
+        title="暂时无法复制"
+        description="{{errorMessage}}"
+        actionText="返回"
+        bind:action="onBack"
+      />
     </view>
   </block>
+
   <block wx:else>
-    <web-view wx:if="{{webviewUrl}}" src="{{webviewUrl}}" />
+    <view class="page-content article-copy__body">
+      <text class="article-copy__hint text-caption text-secondary">
+        以下为将复制的图文预览。点底部按钮复制后，可粘贴到公众号、知乎、头条等编辑器。
+      </text>
+
+      <view class="article-copy__paper">
+        <text class="article-copy__title text-h2">{{title}}</text>
+        <view wx:if="{{summary}}" class="article-copy__summary">
+          <text class="text-body article-copy__sec-title">案例摘要</text>
+          <text class="text-caption article-copy__sec-body">{{summary}}</text>
+        </view>
+        <block wx:for="{{sections}}" wx:key="key">
+          <view class="article-copy__section">
+            <text class="text-body article-copy__sec-title">{{item.title}}</text>
+            <text wx:if="{{item.body}}" class="text-caption article-copy__sec-body">{{item.body}}</text>
+            <view wx:if="{{item.images.length}}" class="article-copy__media">
+              <image
+                wx:for="{{item.images}}"
+                wx:for-item="img"
+                wx:key="url"
+                class="article-copy__thumb"
+                src="{{img.url}}"
+                mode="widthFix"
+                data-url="{{img.url}}"
+                bindtap="onPreviewImage"
+              />
+            </view>
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <view class="article-copy__dock safe-bottom">
+      <ui-button
+        type="primary"
+        block
+        loading="{{copying}}"
+        disabled="{{copying || !html}}"
+        bind:btntap="onCopyArticle"
+      >复制图文文章</ui-button>
+    </view>
   </block>
 </view>

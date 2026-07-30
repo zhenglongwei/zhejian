@@ -485,10 +485,23 @@ Page({
         return
       }
       if (this.data.source === 'service') {
-        await submitServiceAlbumAuthorization(this.data.albumId, {
-          agreed: true,
-          tier: 'named',
-        })
+        const detail = this.data.detail || this._authorizeAlbum || {}
+        const publicStatus = String(detail.publicCaseStatus || '')
+        if (publicStatus === 'public_approved') {
+          wx.showToast({ title: '已在公开网站展示', icon: 'success' })
+          this.setData({ shareSheetVisible: false })
+          return
+        }
+        const alreadyAuthorized =
+          detail.isAuthorized === true ||
+          detail.authorizationStatus === 'authorized' ||
+          (detail.authorization && detail.authorization.status === 'authorized')
+        if (!alreadyAuthorized) {
+          await submitServiceAlbumAuthorization(this.data.albumId, {
+            agreed: true,
+            tier: 'named',
+          })
+        }
         const result = await submitServicePublicCaseReview({
           albumId: this.data.albumId,
           taskId: this.data.taskId,

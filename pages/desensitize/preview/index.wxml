@@ -99,36 +99,41 @@
       <ui-bottom-sheet
         visible="{{shareSheetVisible}}"
         title="分享报告"
-        hint="请先勾选上方确认项。发给微信不会自动上网；「官方网站」才会发布到公开站。"
+        hint="发给微信不会自动上网；仅「官方网站」会发布到公开站。"
         showActions="{{false}}"
         bind:close="onCloseShareSheet"
       >
-        <view class="desensitize-preview__share-channels">
-          <view class="desensitize-preview__share-channel" bindtap="onPublishOfficial">
-            <view class="desensitize-preview__share-icon desensitize-preview__share-icon--site">站</view>
-            <view class="desensitize-preview__share-copy">
-              <text class="text-body">分享到官方网站</text>
-              <text class="text-caption text-secondary">发布脱敏案例到公开站</text>
+        <view class="desensitize-preview__share-panel">
+          <view class="desensitize-preview__share-channels">
+            <view class="desensitize-preview__share-channel" bindtap="onPublishOfficial">
+              <view class="desensitize-preview__share-icon desensitize-preview__share-icon--site">
+                <text class="desensitize-preview__share-icon-text">站</text>
+              </view>
+              <text class="desensitize-preview__share-label text-caption">官方网站</text>
+              <text class="desensitize-preview__share-desc text-caption">发布到公开站</text>
             </view>
+
+            <view class="desensitize-preview__share-channel" bindtap="onShareTimelineGuide">
+              <view class="desensitize-preview__share-icon">
+                <image class="desensitize-preview__share-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
+              </view>
+              <text class="desensitize-preview__share-label text-caption">朋友圈</text>
+              <text class="desensitize-preview__share-desc text-caption">右上角发出</text>
+            </view>
+
+            <button
+              class="desensitize-preview__share-channel desensitize-preview__share-channel-btn"
+              open-type="share"
+              hover-class="desensitize-preview__share-channel--active"
+            >
+              <view class="desensitize-preview__share-icon">
+                <image class="desensitize-preview__share-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
+              </view>
+              <text class="desensitize-preview__share-label text-caption">转发给朋友</text>
+              <text class="desensitize-preview__share-desc text-caption">好友或群</text>
+            </button>
           </view>
-          <view class="desensitize-preview__share-channel" bindtap="onShareTimelineGuide">
-            <view class="desensitize-preview__share-icon">
-              <image class="desensitize-preview__share-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
-            </view>
-            <view class="desensitize-preview__share-copy">
-              <text class="text-body">分享到朋友圈</text>
-              <text class="text-caption text-secondary">按提示从右上角发出</text>
-            </view>
-          </view>
-          <button class="desensitize-preview__share-channel desensitize-preview__share-channel-btn" open-type="share">
-            <view class="desensitize-preview__share-icon">
-              <image class="desensitize-preview__share-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
-            </view>
-            <view class="desensitize-preview__share-copy">
-              <text class="text-body">转发给朋友</text>
-              <text class="text-caption text-secondary">发给微信好友或群</text>
-            </view>
-          </button>
+          <text class="desensitize-preview__share-foot text-caption text-secondary" bindtap="onCloseShareSheet">取消</text>
         </view>
       </ui-bottom-sheet>
     </block>

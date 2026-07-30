@@ -378,9 +378,22 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   assertCaseReviewPassed(album)
 
   const { readPackageFromAlbum } = require('./album-content-package.service')
+  const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const { pickConfirmedDraftRaw } = require('../utils/confirmed-case-draft-view')
   const contentPkg = readPackageFromAlbum(album)
-  const merchantCaseDraft =
-    contentPkg && contentPkg.merchantCaseDraft ? contentPkg.merchantCaseDraft : null
+  const fromPkg = contentPkg && contentPkg.merchantCaseDraft
+  const pc = album.publicCase
+  const contentJson =
+    pc && pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}
+  let merchantCaseDraft = pickConfirmedDraftRaw(contentJson, {
+    merchantCaseDraft: fromPkg,
+  })
+  if (!merchantCaseDraft && fromPkg && fromPkg.confirmedAt) {
+    merchantCaseDraft = fromPkg
+  }
+  merchantCaseDraft = merchantCaseDraft
+    ? normalizeMerchantCaseDraft(merchantCaseDraft)
+    : null
   if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
     const err = new Error('门店尚未确认案例稿，暂无法发布到公开网站')
     err.status = 409

@@ -3,7 +3,7 @@ const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
-const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
+const { enrichServiceAlbumListItem, isRepairCompleted } = require('../../utils/service-album-display')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
@@ -20,6 +20,10 @@ const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
+const MINE_HERO_HINT_REVIEWING = '相册正在加急审核'
+const MINE_HERO_HINT_COMPLETED = '相册已完工'
+const MINE_HERO_TOAST_REVIEWING = '正在审核，暂不可查看'
+
 function quietHubAlbumTags(item = {}) {
   return {
     ...item,
@@ -28,10 +32,21 @@ function quietHubAlbumTags(item = {}) {
   }
 }
 
+function isMineHeroAlbumBlocked(item = {}) {
+  return Boolean(item.ownerAlbumLocked || item.caseVisibleToOwner === false)
+}
+
 /** Hero 右上角分享：案例审通过且车主可查看，并满足既有分享条件 */
 function resolveMineHeroOwnerShare(item = {}) {
-  if (item.ownerAlbumLocked || item.caseVisibleToOwner === false) return false
+  if (isMineHeroAlbumBlocked(item)) return false
   return Boolean(item.showShareButton)
+}
+
+/** Hero 橙色提示：只告知能不能看（完工前依赖「有更新」Tag，不重复文案） */
+function resolveMineHeroStatusHint(item = {}) {
+  if (!isRepairCompleted(item.status)) return ''
+  if (isMineHeroAlbumBlocked(item)) return MINE_HERO_HINT_REVIEWING
+  return MINE_HERO_HINT_COMPLETED
 }
 
 function enrichRecentAlbums(albums = []) {
@@ -44,6 +59,7 @@ function enrichRecentAlbums(albums = []) {
       return {
         ...enriched,
         showOwnerShare: resolveMineHeroOwnerShare(enriched),
+        statusHint: resolveMineHeroStatusHint(enriched),
       }
     })
 }
@@ -329,6 +345,11 @@ Page({
   onAlbumCardTap(e) {
     const id = (e.detail && e.detail.id) || ''
     if (!id || !this.guardProtectedEntry(true)) return
+    const card = (this.data.albumHeroCards || []).find((item) => item.albumId === id)
+    if (card && isMineHeroAlbumBlocked(card)) {
+      wx.showToast({ title: MINE_HERO_TOAST_REVIEWING, icon: 'none' })
+      return
+    }
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
   },
 

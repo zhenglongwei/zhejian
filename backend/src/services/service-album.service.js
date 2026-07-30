@@ -1768,6 +1768,13 @@ async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {
   }
 
   if (album.authorization?.status === 'authorized') {
+    // 幂等：已授权且再次同意 → 直接返回，便于「发布到公开网站」重试
+    if (payload.agreed !== false) {
+      return {
+        publicCaseStatus: resolvePublicCaseStatus(album),
+        alreadyAuthorized: true,
+      }
+    }
     const err = new Error('已完成授权，如需重新公示请先撤回')
     err.status = 409
     throw err
