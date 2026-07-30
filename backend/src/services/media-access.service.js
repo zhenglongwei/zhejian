@@ -212,6 +212,56 @@ async function matchAlbumImageMedia(objectKey) {
   return Boolean(row && mediaUrlMatchesObjectKey(row.rawUrl, objectKey))
 }
 
+/** partsJson 配件凭证图是否引用该 objectKey（含 thumbUrl / imageUrl / photos） */
+function albumPartsReferenceObjectKey(partsJson, objectKey) {
+  let parts = partsJson
+  if (!Array.isArray(parts)) {
+    parts = normalizeJsonRow(partsJson)
+  }
+  if (!Array.isArray(parts)) return false
+  for (const part of parts) {
+    if (!part || typeof part !== 'object') continue
+    if (mediaUrlMatchesObjectKey(part.thumbUrl, objectKey)) return true
+    if (mediaUrlMatchesObjectKey(part.imageUrl, objectKey)) return true
+    if (Array.isArray(part.photos)) {
+      if (part.photos.some((url) => mediaUrlMatchesObjectKey(url, objectKey))) return true
+    }
+  }
+  return false
+}
+
+/**
+ * 服务相册配件凭证原图：仅存 parts_json、未进 album_images 时，
+ * 签名过期后仍须允许车主/商家 <image> 匿名加载（与 matchAlbumImageMedia 同口径）。
+ */
+async function matchAlbumPartsMedia(objectKey) {
+  const filename = objectKeyFilename(objectKey)
+  if (!filename) return false
+
+  let rows = []
+  try {
+    rows = await prisma.$queryRaw`
+      SELECT parts_json AS partsJson
+      FROM albums
+      WHERE CAST(parts_json AS CHAR) LIKE ${`%${filename}%`}
+      LIMIT 32
+    `
+  } catch (e) {
+    rows = await prisma.album.findMany({
+      select: { partsJson: true },
+      take: 500,
+    })
+  }
+
+  for (const row of rows) {
+    const partsJson = normalizeJsonRow(row.partsJson)
+    if (albumPartsReferenceObjectKey(partsJson != null ? partsJson : row.partsJson, objectKey)) {
+      return true
+    }
+  }
+  return false
+}
+
 /** 用户头像：写入 users.avatar_url 后需供 <image> 匿名加载 */
 async function matchPublicUserAvatar(objectKey) {
   const filename = objectKeyFilename(objectKey)
@@ -309,6 +359,7 @@ async function canReadOriginalMedia(req, objectKey) {
   if (verifyMediaSignature(objectKey, exp, sig)) return true
 
   if (await matchAlbumImageMedia(objectKey)) return true
+  if (await matchAlbumPartsMedia(objectKey)) return true
   if (await canAccessViaPublicContentCatalog(objectKey)) return true
 
   const auth = req.auth || {}
@@ -325,4 +376,6 @@ module.exports = {
   canAccessViaMediaAsset,
   canAccessViaPublicContentCatalog,
   mediaUrlMatchesObjectKey,
+  albumPartsReferenceObjectKey,
+  matchAlbumPartsMedia,
 }

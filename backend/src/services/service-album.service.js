@@ -237,10 +237,19 @@ function mapEvidenceItemsForClient(items) {
 }
 
 function mapPartsForClient(parts) {
-  return (parts || []).map((part) => ({
-    ...part,
-    photos: resolveClientReadableMediaUrls(part.photos || []),
-  }))
+  return (parts || []).map((part) => {
+    const photos = resolveClientReadableMediaUrls(part.photos || [])
+    const next = { ...part, photos }
+    if (part.thumbUrl) {
+      next.thumbUrl = resolveClientReadableMediaUrl(part.thumbUrl)
+    } else if (photos[0]) {
+      next.thumbUrl = photos[0]
+    }
+    if (part.imageUrl) {
+      next.imageUrl = resolveClientReadableMediaUrl(part.imageUrl)
+    }
+    return next
+  })
 }
 
 function resolveEvidenceItemsForAlbum(album, nodes) {
