@@ -3,7 +3,7 @@ const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
-const { enrichServiceAlbumListItem, isRepairCompleted } = require('../../utils/service-album-display')
+const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
@@ -28,6 +28,12 @@ function quietHubAlbumTags(item = {}) {
   }
 }
 
+/** Hero 右上角分享：案例审通过且车主可查看，并满足既有分享条件 */
+function resolveMineHeroOwnerShare(item = {}) {
+  if (item.ownerAlbumLocked || item.caseVisibleToOwner === false) return false
+  return Boolean(item.showShareButton)
+}
+
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
@@ -37,7 +43,7 @@ function enrichRecentAlbums(albums = []) {
       )
       return {
         ...enriched,
-        showOwnerShare: isRepairCompleted(enriched.status),
+        showOwnerShare: resolveMineHeroOwnerShare(enriched),
       }
     })
 }

@@ -120,7 +120,7 @@ async function polishCaseSummaryWithLlm(draft, albumView = {}) {
     apiKey: cfg.apiKey,
     model: cfg.model,
     timeoutMs: Math.min(cfg.timeoutMs, 60000),
-    temperature: 0.55,
+    temperature: 0.7,
     enableThinking: false,
     messages: [
       {
@@ -180,7 +180,7 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
     apiKey: cfg.apiKey,
     model: cfg.model,
     timeoutMs: cfg.timeoutMs,
-    temperature: 0.65,
+    temperature: 0.75,
     enableThinking: false,
     messages: [
       {

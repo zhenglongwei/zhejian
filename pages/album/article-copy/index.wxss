@@ -1,0 +1,11 @@
+.article-copy {
+  min-height: 100vh;
+  background: var(--color-bg-page);
+}
+
+.page-content {
+  padding: var(--space-lg) var(--page-padding-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}

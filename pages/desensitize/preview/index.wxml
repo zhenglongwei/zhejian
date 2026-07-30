@@ -33,7 +33,7 @@
       <view wx:elif="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
         <text class="text-h3 desensitize-preview__case-title">将公示的案例文案</text>
         <text class="text-caption text-secondary desensitize-preview__case-hint">
-          摘要与正文与门店确认稿一致，不可修改。
+          摘要、正文与脱敏配图与门店确认稿一致，不可修改；以下即公开网站将展示的内容。
         </text>
         <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
         <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
@@ -44,35 +44,93 @@
           <view class="desensitize-preview__case-section">
             <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>
             <text class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
+            <view class="desensitize-preview__case-media">
+              <block wx:for="{{caseDraftMedia}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
+                <image
+                  wx:if="{{m.sectionKey === item.key && m.displayUrl}}"
+                  class="desensitize-preview__case-thumb"
+                  src="{{m.displayUrl}}"
+                  mode="aspectFill"
+                  data-url="{{m.displayUrl}}"
+                  bindtap="onDraftImageTap"
+                />
+              </block>
+            </view>
           </view>
         </block>
-        <ui-button type="secondary" block bind:btntap="onCopyCaseDraft">复制文案</ui-button>
       </view>
       <view wx:elif="{{aiSummary}}" class="desensitize-preview__summary">
         <ui-ai-summary-block content="{{aiSummary}}" />
       </view>
 
-      <view class="desensitize-preview__consent">
-        <ui-checkbox-row checked="{{liabilityAccepted}}" bind:toggle="onConsentToggle">
-          <text>{{liabilityText}}</text>
-          <text
-            wx:if="{{policyLinkText}}"
-            class="text-link"
-            catchtap="onOpenPolicy"
-          >{{policyLinkText}}</text>
-        </ui-checkbox-row>
+      <view class="desensitize-preview__spacer desensitize-preview__spacer--dock" />
+      <view class="desensitize-preview__dock safe-bottom">
+        <view class="desensitize-preview__consent">
+          <ui-checkbox-row checked="{{liabilityAccepted}}" bind:toggle="onConsentToggle">
+            <text>{{liabilityText}}</text>
+            <text
+              wx:if="{{policyLinkText}}"
+              class="text-link"
+              catchtap="onOpenPolicy"
+            >{{policyLinkText}}</text>
+          </ui-checkbox-row>
+        </view>
+        <view class="desensitize-preview__dock-actions desensitize-preview__dock-actions--row">
+          <view class="desensitize-preview__dock-btn">
+            <ui-button
+              type="secondary"
+              block
+              bind:btntap="onOpenArticleCopy"
+              disabled="{{caseDraftMissing}}"
+            >复制文案</ui-button>
+          </view>
+          <view class="desensitize-preview__dock-btn">
+            <ui-button
+              type="primary"
+              block
+              loading="{{confirmLoading}}"
+              disabled="{{confirmLoading || caseDraftMissing}}"
+              bind:btntap="onShareReportTap"
+            >{{confirmLabelShort}}</ui-button>
+          </view>
+        </view>
       </view>
 
-      <view class="desensitize-preview__spacer" />
-      <ui-fixed-bottom-bar>
-        <ui-button
-          type="primary"
-          block
-          loading="{{confirmLoading}}"
-          disabled="{{confirmLoading || caseDraftMissing}}"
-          bind:btntap="onConfirm"
-        >{{confirmLabelShort}}</ui-button>
-      </ui-fixed-bottom-bar>
+      <ui-bottom-sheet
+        visible="{{shareSheetVisible}}"
+        title="分享报告"
+        hint="请先勾选上方确认项。发给微信不会自动上网；「官方网站」才会发布到公开站。"
+        showActions="{{false}}"
+        bind:close="onCloseShareSheet"
+      >
+        <view class="desensitize-preview__share-channels">
+          <view class="desensitize-preview__share-channel" bindtap="onPublishOfficial">
+            <view class="desensitize-preview__share-icon desensitize-preview__share-icon--site">站</view>
+            <view class="desensitize-preview__share-copy">
+              <text class="text-body">分享到官方网站</text>
+              <text class="text-caption text-secondary">发布脱敏案例到公开站</text>
+            </view>
+          </view>
+          <view class="desensitize-preview__share-channel" bindtap="onShareTimelineGuide">
+            <view class="desensitize-preview__share-icon">
+              <image class="desensitize-preview__share-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
+            </view>
+            <view class="desensitize-preview__share-copy">
+              <text class="text-body">分享到朋友圈</text>
+              <text class="text-caption text-secondary">按提示从右上角发出</text>
+            </view>
+          </view>
+          <button class="desensitize-preview__share-channel desensitize-preview__share-channel-btn" open-type="share">
+            <view class="desensitize-preview__share-icon">
+              <image class="desensitize-preview__share-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
+            </view>
+            <view class="desensitize-preview__share-copy">
+              <text class="text-body">转发给朋友</text>
+              <text class="text-caption text-secondary">发给微信好友或群</text>
+            </view>
+          </button>
+        </view>
+      </ui-bottom-sheet>
     </block>
 
     <!-- 订单授权 / 评价配图等：保留脱敏对比工作台 -->

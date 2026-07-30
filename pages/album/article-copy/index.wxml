@@ -1,0 +1,16 @@
+<view class="page article-copy">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content">
+      <text class="text-caption text-secondary">正在准备可粘贴的图文…</text>
+    </view>
+  </block>
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <text class="text-body">{{errorMessage}}</text>
+      <ui-button type="secondary" block bind:btntap="onFallbackCopy">复制 HTML 备用</ui-button>
+    </view>
+  </block>
+  <block wx:else>
+    <web-view wx:if="{{webviewUrl}}" src="{{webviewUrl}}" />
+  </block>
+</view>

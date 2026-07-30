@@ -190,6 +190,76 @@ router.get('/service-albums/:albumId/social-copy', requireAuth(['user']), async 
   }
 })
 
+/**
+ * 车主预览页 · 案例稿图文导出（JSON）
+ * 用于小程序侧组装 / 调试；正式「可粘贴成文」走 clipboard HTML 页。
+ */
+router.get(
+  '/service-albums/:albumId/draft-article-export',
+  requireAuth(['user']),
+  async (req, res, next) => {
+    try {
+      const { config } = require('../config')
+      const {
+        buildDraftArticleExport,
+      } = require('../utils/merchant-case-draft-article')
+      const album = await getUserServiceAlbum(req.params.albumId, req.auth.userId)
+      const draft = album && album.merchantCaseDraft
+      if (!draft) {
+        const err = new Error('案例稿暂不可用')
+        err.status = 404
+        throw err
+      }
+      const data = buildDraftArticleExport(draft, {
+        publicBaseUrl: config.publicBaseUrl || '',
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+/**
+ * 车主预览页 · 图文剪贴板页（web-view）
+ * 支持 Header Bearer 或 query.access_token（供小程序 web-view 打开）。
+ */
+router.get('/service-albums/:albumId/draft-article-clipboard', async (req, res, next) => {
+  try {
+    const { parseBearer, resolveAuth, hasRole } = require('../middleware/auth')
+    const { ROLES } = require('../lib/jwt')
+    const { config } = require('../config')
+    const {
+      buildDraftArticleExport,
+      buildDraftArticleClipboardPage,
+    } = require('../utils/merchant-case-draft-article')
+
+    const token =
+      String(req.query.access_token || '').trim() || parseBearer(req) || (req.auth && req.auth.token) || ''
+    const auth = resolveAuth(token)
+    if (!auth.userId || !hasRole(auth, ROLES.USER)) {
+      res.status(401).type('html').send('<!doctype html><p>请先登录后再复制文章</p>')
+      return
+    }
+
+    const album = await getUserServiceAlbum(req.params.albumId, auth.userId)
+    const draft = album && album.merchantCaseDraft
+    if (!draft) {
+      res.status(404).type('html').send('<!doctype html><p>案例稿暂不可用</p>')
+      return
+    }
+    const exportData = buildDraftArticleExport(draft, {
+      publicBaseUrl: config.publicBaseUrl || '',
+    })
+    res
+      .status(200)
+      .type('html')
+      .send(buildDraftArticleClipboardPage(exportData))
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/social-copy/platforms', requireAuth(['user']), async (req, res, next) => {
   try {
     return ok(res, { platforms: listSocialPlatforms() })

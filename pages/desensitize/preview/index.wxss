@@ -122,10 +122,102 @@
 }
 
 .desensitize-preview__consent {
-  margin-top: var(--space-md);
-  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--page-padding-x) 0;
+}
+
+.desensitize-preview__dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-fixed);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card);
+  box-sizing: border-box;
+}
+
+.desensitize-preview__dock-actions {
+  padding: var(--space-sm) var(--page-padding-x) var(--space-md);
+}
+
+.desensitize-preview__dock-actions--row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.desensitize-preview__dock-btn {
+  flex: 1;
+  min-width: 0;
+}
+
+.desensitize-preview__share-channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: 0 var(--page-padding-x) var(--space-md);
+}
+
+.desensitize-preview__share-channel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-md);
   padding: var(--space-md);
   border-radius: var(--radius-md);
-  background: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
+  border: 1px solid var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+}
+
+.desensitize-preview__share-channel-btn {
+  margin: 0;
+  width: 100%;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-album-frame-line);
+  background: var(--color-album-frame-inner);
+  text-align: left;
+  line-height: 1.4;
+}
+
+.desensitize-preview__share-channel-btn::after {
+  border: none;
+}
+
+.desensitize-preview__share-icon {
+  flex-shrink: 0;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-album-active-light);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.desensitize-preview__share-icon--site {
+  background: var(--color-primary-light);
+}
+
+.desensitize-preview__share-img {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+.desensitize-preview__share-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.desensitize-preview__spacer {
+  height: var(--page-fixed-clearance);
+}
+
+.desensitize-preview__spacer--dock {
+  height: calc(360rpx + env(safe-area-inset-bottom));
 }

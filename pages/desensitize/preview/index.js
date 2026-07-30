@@ -20,6 +20,7 @@ const {
 const { mapTaskToWorkbenchState } = require('../../../utils/desensitize-workbench-display')
 const { fetchServiceAlbum } = require('../../../services/service-album')
 const { buildAlbumAiSummary } = require('../../../utils/album-ai-summary')
+const { buildOwnerSharePayload } = require('../../../utils/album-owner-share')
 
 Page({
   data: {
@@ -44,16 +45,17 @@ Page({
     errorMessage: '',
     autoMaskLoading: false,
     confirmLoading: false,
+    shareSheetVisible: false,
     aiSummary: '',
     caseDraftTitle: '',
     caseDraftSummary: '',
     caseDraftSections: [],
     caseDraftMedia: [],
     caseDraftMissing: false,
+    detail: null,
   },
 
   onLoad(query) {
-    wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
     const taskId = (query && query.taskId) || ''
     const albumId = (query && query.albumId) || ''
     const orderId = (query && query.orderId) || ''
@@ -72,6 +74,11 @@ Page({
     wx.setNavigationBarTitle({
       title: isReviewPreview ? '评价配图预览' : isDraftOnly ? '预览案例文案' : '脱敏预览',
     })
+    if (isDraftOnly) {
+      wx.showShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    } else {
+      wx.hideShareMenu({ menus: ['shareAppMessage', 'shareTimeline'] })
+    }
     this.setData({
       taskId,
       albumId,
@@ -116,6 +123,7 @@ Page({
           return
         }
         this._authorizeAlbum = album
+        this.setData({ detail: album })
       }
       const [task, aiSummary] = await Promise.all([
         fetchTask(this.data.taskId),
@@ -151,6 +159,13 @@ Page({
         return ''
       }
       const sections = (draft.sections || []).filter((s) => String(s.body || '').trim())
+      const media = (draft.media || [])
+        .map((m) => ({
+          ...m,
+          // 车主发布预览只展示脱敏图（与公开站一致）
+          displayUrl: m.maskedUrl || '',
+        }))
+        .filter((m) => m.displayUrl)
       const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
       const caseDraftSummary = draft.caseSummary || draftToAiSummary(draft) || ''
       this.setData({
@@ -158,7 +173,7 @@ Page({
         caseDraftTitle: draft.title || '',
         caseDraftSummary,
         caseDraftSections: sections,
-        caseDraftMedia: [],
+        caseDraftMedia: media,
       })
       if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
       return caseDraftSummary
@@ -167,21 +182,82 @@ Page({
     }
   },
 
-  onCopyCaseDraft() {
-    const { draftToPlainText } = require('../../../utils/merchant-case-draft-display')
-    const text = draftToPlainText({
-      title: this.data.caseDraftTitle,
-      caseSummary: this.data.caseDraftSummary,
-      sections: this.data.caseDraftSections,
+  onDraftImageTap(e) {
+    const url = e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url
+    if (!url) return
+    const urls = (this.data.caseDraftMedia || [])
+      .map((m) => m.displayUrl)
+      .filter(Boolean)
+    wx.previewImage({
+      current: url,
+      urls: urls.length ? urls : [url],
     })
-    if (!text) {
-      wx.showToast({ title: '暂无可复制文案', icon: 'none' })
+  },
+
+  onCopyCaseDraft() {
+    this.onOpenArticleCopy()
+  },
+
+  onOpenArticleCopy() {
+    if (this.data.caseDraftMissing) {
+      wx.showToast({ title: '案例稿暂时无法加载', icon: 'none' })
       return
     }
-    wx.setClipboardData({
-      data: text,
-      success: () => wx.showToast({ title: '已复制文案', icon: 'success' }),
+    const albumId = this.data.albumId
+    if (!albumId) return
+    wx.navigateTo({
+      url: `/pages/album/article-copy/index?albumId=${encodeURIComponent(albumId)}`,
     })
+  },
+
+  onShareReportTap() {
+    if (this.data.caseDraftMissing) {
+      wx.showToast({ title: '案例稿暂时无法加载', icon: 'none' })
+      return
+    }
+    if (!this.data.liabilityAccepted) {
+      wx.showToast({ title: '请先勾选确认项', icon: 'none' })
+      return
+    }
+    this.setData({ shareSheetVisible: true })
+  },
+
+  onCloseShareSheet() {
+    this.setData({ shareSheetVisible: false })
+  },
+
+  onShareTimelineGuide() {
+    this.setData({ shareSheetVisible: false })
+    wx.showModal({
+      title: '分享到朋友圈',
+      content: '请点击右上角 ···，选择「分享到朋友圈」。',
+      showCancel: false,
+    })
+  },
+
+  async onPublishOfficial() {
+    this.setData({ shareSheetVisible: false })
+    await this.onConfirm()
+  },
+
+  onShareAppMessage() {
+    const detail = this.data.detail || this._authorizeAlbum || {}
+    return (
+      buildOwnerSharePayload(detail) || {
+        title: detail.serviceName ? `${detail.serviceName} · 服务相册` : '服务相册',
+        path: `/pages/album/detail/index?albumId=${this.data.albumId}`,
+      }
+    )
+  },
+
+  onShareTimeline() {
+    const detail = this.data.detail || this._authorizeAlbum || {}
+    const payload = buildOwnerSharePayload(detail) || {}
+    return {
+      title: payload.title || detail.serviceName || '服务相册',
+      query: `albumId=${encodeURIComponent(this.data.albumId || '')}`,
+      imageUrl: payload.imageUrl || '',
+    }
   },
 
   applyTask(task, aiSummary = '') {
