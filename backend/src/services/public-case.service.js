@@ -383,9 +383,9 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const contentPkg = readPackageFromAlbum(album)
   const fromPkg = contentPkg && contentPkg.merchantCaseDraft
   const pc = album.publicCase
-  const contentJson =
+  const existingContentJson =
     pc && pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}
-  let merchantCaseDraft = pickConfirmedDraftRaw(contentJson, {
+  let merchantCaseDraft = pickConfirmedDraftRaw(existingContentJson, {
     merchantCaseDraft: fromPkg,
   })
   if (!merchantCaseDraft && fromPkg && fromPkg.confirmedAt) {
