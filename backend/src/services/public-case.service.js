@@ -215,8 +215,10 @@ function assertPublicCasePublishable(publicCase) {
 
 /**
  * 商家确认完工后写入案例：先 pending_desensitize，脱敏结束后再升为 pending_review
+ * @param {string} albumId
+ * @param {object|null} draftOverride 确认瞬间的案例稿（优先于相册 contentPackage，避免异步包覆盖）
  */
-async function enqueueAlbumCaseForReview(albumId) {
+async function enqueueAlbumCaseForReview(albumId, draftOverride = null) {
   const album = await prisma.album.findUnique({
     where: { id: albumId },
     include: { publicCase: true },
@@ -227,8 +229,10 @@ async function enqueueAlbumCaseForReview(albumId) {
     throw err
   }
   const { readPackageFromAlbum } = require('./album-content-package.service')
+  const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
-  const merchantCaseDraft = pkg && pkg.merchantCaseDraft
+  const fromPkg = pkg && pkg.merchantCaseDraft
+  const merchantCaseDraft = normalizeMerchantCaseDraft(draftOverride || fromPkg)
   if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
     const err = new Error('请先在案例预览页确认案例稿后再完工')
     err.status = 409

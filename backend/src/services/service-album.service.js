@@ -1088,6 +1088,26 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   const { isCaseReviewRejected } = require('./case-review-gate.service')
   const resubmit = isCaseReviewRejected(album)
 
+  // 已送审/锁定：优先读 public_cases 里送审快照，与运营台同源
+  if (!editable && !forceRule && !resubmit) {
+    const pc = album.publicCase
+    const content =
+      pc && pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : null
+    const submitted =
+      content && content.merchantCaseDraft
+        ? normalizeMerchantCaseDraft(content.merchantCaseDraft)
+        : null
+    if (submitted && submitted.confirmedAt) {
+      return {
+        draft: submitted,
+        contentPackageStatus: (pkg && pkg.status) || '',
+        editable: false,
+        confirmed: true,
+        resubmit: false,
+      }
+    }
+  }
+
   if (!forceRule && pkg && pkg.merchantCaseDraft) {
     let draft = pkg.merchantCaseDraft
     const confirmed = Boolean(draft.confirmedAt)
@@ -1342,6 +1362,35 @@ async function refreshCaseDraftMediaAfterMask(albumId) {
     where: { id: albumId },
     data: { contentPackageJson: nextPkg },
   })
+
+  // 同步更新送审快照中的配图，不改动已确认正文
+  if (album.publicCase && album.publicCase.id && draft.confirmedAt) {
+    const content =
+      album.publicCase.contentJson && typeof album.publicCase.contentJson === 'object'
+        ? { ...album.publicCase.contentJson }
+        : {}
+    const prevSubmitted = content.merchantCaseDraft || {}
+    content.merchantCaseDraft = normalizeMerchantCaseDraft({
+      ...prevSubmitted,
+      ...draft,
+      // 正文以送审快照为准；仅刷新配图与确认时间戳
+      title: prevSubmitted.title || draft.title,
+      caseSummary: prevSubmitted.caseSummary || draft.caseSummary,
+      sections: prevSubmitted.sections || draft.sections,
+      media: draft.media,
+      confirmedAt: prevSubmitted.confirmedAt || draft.confirmedAt,
+      source: prevSubmitted.source || draft.source,
+    })
+    await prisma.publicCase.update({
+      where: { id: album.publicCase.id },
+      data: {
+        contentJson: content,
+        title: String(content.merchantCaseDraft.title || album.publicCase.title || ''),
+        summary: String(content.merchantCaseDraft.caseSummary || album.publicCase.summary || ''),
+      },
+    })
+  }
+
   return draft
 }
 
@@ -1354,12 +1403,14 @@ async function confirmAndCompleteMerchantCaseDraft(
   merchantId = '',
   payload = {},
 ) {
-  await saveMerchantCaseDraft(albumId, storeId, merchantId, {
+  const saved = await saveMerchantCaseDraft(albumId, storeId, merchantId, {
     ...(payload || {}),
     confirm: true,
     draft: payload.draft || payload,
   })
-  const view = await completeMerchantServiceAlbum(albumId, storeId, merchantId)
+  const view = await completeMerchantServiceAlbum(albumId, storeId, merchantId, {
+    merchantCaseDraft: saved && saved.draft,
+  })
   return view
 }
 
@@ -1595,7 +1646,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   return view
 }
 
-async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
+async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', options = {}) {
   const existing = await loadAlbum(albumId)
   assertMerchantAlbum(existing, storeId, merchantId)
   assertAlbumContentEditable(existing)
@@ -1621,12 +1672,12 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '') {
     },
   })
   const { enqueueAlbumCaseForReview } = require('./public-case.service')
-  const queued = await enqueueAlbumCaseForReview(albumId)
+  const queued = await enqueueAlbumCaseForReview(albumId, options.merchantCaseDraft || null)
   const { notifyAlbumCompleted } = require('./notification.service')
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
   })
-  // 社交长文等仍可异步生成；商家案例正文已由确认稿锁定，不再依赖此包写正文
+  // 社交长文等仍可异步生成；已确认的商家案例正文不得被内容包规则稿覆盖
   const { triggerContentPackageOnComplete } = require('./album-content-package.service')
   triggerContentPackageOnComplete(albumId).catch((e) => {
     console.warn('[album-content-package] trigger failed', albumId, e && e.message)

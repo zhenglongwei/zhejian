@@ -7,7 +7,9 @@
       <div class="confirmed-draft__head">
         <span>公示案例稿（只读 · 与车主/H5 同源）</span>
         <el-tag v-if="draft" size="small" type="success">已定稿</el-tag>
-        <el-tag v-else size="small" type="warning">无确认稿</el-tag>
+        <el-tag v-if="draft && draft.source === 'llm'" size="small" type="warning">AI 润色</el-tag>
+        <el-tag v-else-if="draft && draft.source === 'rule'" size="small">规则稿</el-tag>
+        <el-tag v-if="!draft" size="small" type="warning">无确认稿</el-tag>
       </div>
     </template>
 

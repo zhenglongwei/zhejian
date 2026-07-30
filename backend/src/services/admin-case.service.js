@@ -439,7 +439,15 @@ async function getAdminCaseDetail(caseId) {
     geoPreview: geoPack.geoPreview,
     aiSummary: row.aiSummary || geoReadable.aiSummary || '',
     articleBody: row.articleBody || geoReadable.articleBody || '',
-    confirmedCaseDraft: buildConfirmedCaseDraftView(contentJson, row),
+    confirmedCaseDraft: buildConfirmedCaseDraftView(contentJson, {
+      ...row,
+      merchantCaseDraft:
+        (contentJson && contentJson.merchantCaseDraft) ||
+        (album.contentPackageJson &&
+          typeof album.contentPackageJson === 'object' &&
+          album.contentPackageJson.merchantCaseDraft) ||
+        null,
+    }),
     seo: mapCaseSeoForApi(row),
     article: mapCaseArticleForApi(row),
     geo: geoReadable.geo || {},

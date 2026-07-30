@@ -36,6 +36,9 @@ Page({
   /** 仅保留最近一次「AI 润色」前的文案，不落库 */
   _prePolishSnapshot: null,
 
+  /** 页面工作稿：同步更新，避免 setData 未完成就提交旧文 */
+  _workingDraft: null,
+
   onLoad(options) {
     this.albumId = options.albumId || ''
     const fromComplete = options.from === 'complete' || options.gate === '1'
@@ -119,6 +122,24 @@ Page({
         title: resubmit ? '案例预览 · 重新提交' : '案例预览 · 确认完工',
       })
     }
+    this._workingDraft = {
+      title,
+      caseSummary,
+      sections: sections.map((sec) => ({
+        key: sec.key,
+        title: sec.title,
+        body: sec.body || '',
+      })),
+      media: media.map((item) => ({
+        nodeId: item.nodeId,
+        idx: item.idx,
+        maskedUrl: item.maskedUrl || '',
+        previewUrl: item.previewUrl || '',
+        caption: item.caption || '',
+        sectionKey: item.sectionKey || '',
+      })),
+      source: draft.source || (this._workingDraft && this._workingDraft.source) || 'merchant_edit',
+    }
     this.setData({
       ...extra,
       title,
@@ -173,6 +194,7 @@ Page({
 
   onTitleInput(e) {
     const title = e.detail.value || ''
+    if (this._workingDraft) this._workingDraft.title = title
     this.setData({
       title,
       titleHeight: this.measureTextHeight(title, 1),
@@ -181,6 +203,7 @@ Page({
 
   onSummaryInput(e) {
     const caseSummary = e.detail.value || ''
+    if (this._workingDraft) this._workingDraft.caseSummary = caseSummary
     this.setData({
       caseSummary,
       summaryHeight: this.measureTextHeight(caseSummary, 2),
@@ -195,6 +218,13 @@ Page({
         ? { ...sec, body: value, bodyHeight: this.measureTextHeight(value, 1) }
         : sec,
     )
+    if (this._workingDraft) {
+      this._workingDraft.sections = sections.map((sec) => ({
+        key: sec.key,
+        title: sec.title,
+        body: sec.body || '',
+      }))
+    }
     this.setData({ sections })
   },
 
@@ -203,10 +233,40 @@ Page({
     const media = (this.data.media || []).filter(
       (item) => !(String(item.nodeId) === String(nodeId) && Number(item.idx) === Number(idx)),
     )
+    if (this._workingDraft) {
+      this._workingDraft.media = media.map((item) => ({
+        nodeId: item.nodeId,
+        idx: item.idx,
+        maskedUrl: item.maskedUrl || '',
+        previewUrl: item.previewUrl || '',
+        caption: item.caption || '',
+        sectionKey: item.sectionKey || '',
+      }))
+    }
     this.setData({ media })
   },
 
   buildDraftPayload() {
+    if (this._workingDraft) {
+      return {
+        title: this._workingDraft.title || '',
+        caseSummary: this._workingDraft.caseSummary || '',
+        sections: (this._workingDraft.sections || []).map((sec) => ({
+          key: sec.key,
+          title: sec.title,
+          body: sec.body,
+        })),
+        media: (this._workingDraft.media || []).map((item) => ({
+          nodeId: item.nodeId,
+          idx: item.idx,
+          maskedUrl: item.maskedUrl || '',
+          previewUrl: item.previewUrl || '',
+          caption: item.caption || '',
+          sectionKey: item.sectionKey || '',
+        })),
+        source: this._workingDraft.source || 'merchant_edit',
+      }
+    }
     return {
       title: this.data.title,
       caseSummary: this.data.caseSummary,
@@ -223,6 +283,7 @@ Page({
         caption: item.caption || '',
         sectionKey: item.sectionKey || '',
       })),
+      source: 'merchant_edit',
     }
   },
 

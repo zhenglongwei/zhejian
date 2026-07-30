@@ -329,7 +329,15 @@ async function runAlbumContentPackage(albumId) {
     const {
       buildRuleMerchantCaseDraft,
     } = require('./merchant-case-draft.service')
-    const merchantCaseDraft = buildRuleMerchantCaseDraft(albumView, preMaskTask)
+    // 已确认的公示案例稿不得被社交内容包的规则/LLM 结果覆盖
+    const preservedConfirmed =
+      existing &&
+      existing.merchantCaseDraft &&
+      existing.merchantCaseDraft.confirmedAt
+        ? existing.merchantCaseDraft
+        : null
+    const merchantCaseDraft =
+      preservedConfirmed || buildRuleMerchantCaseDraft(albumView, preMaskTask)
 
     let packageData = null
     try {
@@ -345,7 +353,9 @@ async function runAlbumContentPackage(albumId) {
       packageData.error = 'llm_unavailable_or_failed'
     }
 
-    if (!packageData.merchantCaseDraft) {
+    if (preservedConfirmed) {
+      packageData.merchantCaseDraft = preservedConfirmed
+    } else if (!packageData.merchantCaseDraft) {
       packageData.merchantCaseDraft = merchantCaseDraft
     }
 
@@ -376,7 +386,19 @@ async function runAlbumContentPackage(albumId) {
 
 async function markContentPackageGenerating(albumId) {
   const triggeredAt = new Date().toISOString()
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { contentPackageJson: true },
+  })
+  const existing = normalizeAlbumContentPackage(album && album.contentPackageJson)
+  const preservedDraft =
+    existing &&
+    existing.merchantCaseDraft &&
+    existing.merchantCaseDraft.confirmedAt
+      ? existing.merchantCaseDraft
+      : null
   const pkg = emptyGeneratingPackage(triggeredAt)
+  if (preservedDraft) pkg.merchantCaseDraft = preservedDraft
   await prisma.album.update({
     where: { id: albumId },
     data: { contentPackageJson: pkg },
