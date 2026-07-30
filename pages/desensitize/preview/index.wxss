@@ -121,6 +121,11 @@
   line-height: 1.5;
 }
 
-.desensitize-preview__spacer {
-  height: var(--page-fixed-clearance);
+.desensitize-preview__consent {
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
 }

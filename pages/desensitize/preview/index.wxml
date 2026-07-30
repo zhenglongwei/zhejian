@@ -12,7 +12,7 @@
     />
   </block>
 
-  <block wx:elif="{{status === 'empty'}}">
+  <block wx:elif="{{status === 'empty' && !isDraftOnly}}">
     <ui-empty
       title="暂无待核对图片"
       description="请返回服务相册重试"
@@ -22,100 +22,116 @@
   </block>
 
   <block wx:else>
-    <view class="desensitize-preview__banner">
-      <ui-privacy-banner scene="desensitize" />
-    </view>
-    <view wx:if="{{caseDraftMissing && source === 'service'}}" class="desensitize-preview__draft-missing text-caption">
-      案例稿暂时无法加载，请稍后重试。若持续出现，请联系门店或客服。
-    </view>
-    <view wx:if="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
-      <text class="text-h3 desensitize-preview__case-title">将公示的案例文案（只读）</text>
-      <text class="text-caption text-secondary desensitize-preview__case-hint">
-        摘要与正文与门店确认稿一致，不可修改。下方配图为脱敏图，与正式公示一致。
-      </text>
-      <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
-      <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
-        <text class="text-body desensitize-preview__case-sec-title">案例摘要</text>
-        <text class="text-caption desensitize-preview__case-sec-body">{{caseDraftSummary}}</text>
+    <!-- 车主发布：只读预览将上网案例文案（不含原图/脱敏对比工作台） -->
+    <block wx:if="{{isDraftOnly}}">
+      <view class="desensitize-preview__banner">
+        <ui-privacy-banner text="以下为即将发布到公开网站的案例文案（只读）。确认无误后再勾选并发布。" />
       </view>
-      <block wx:for="{{caseDraftSections}}" wx:key="key">
-        <view class="desensitize-preview__case-section">
-          <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>
-          <text class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
-          <view class="desensitize-preview__case-media">
-            <block wx:for="{{caseDraftMedia}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
-              <image
-                wx:if="{{m.sectionKey === item.key && m.displayUrl}}"
-                class="desensitize-preview__case-thumb"
-                src="{{m.displayUrl}}"
-                mode="aspectFill"
-              />
-            </block>
-          </view>
+      <view wx:if="{{caseDraftMissing}}" class="desensitize-preview__draft-missing text-caption">
+        案例稿暂时无法加载，请稍后重试。若持续出现，请联系门店或客服。
+      </view>
+      <view wx:elif="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
+        <text class="text-h3 desensitize-preview__case-title">将公示的案例文案</text>
+        <text class="text-caption text-secondary desensitize-preview__case-hint">
+          摘要与正文与门店确认稿一致，不可修改。
+        </text>
+        <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
+        <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
+          <text class="text-body desensitize-preview__case-sec-title">案例摘要</text>
+          <text class="text-caption desensitize-preview__case-sec-body">{{caseDraftSummary}}</text>
         </view>
-      </block>
-      <ui-button type="secondary" block bind:btntap="onCopyCaseDraft">复制文案</ui-button>
-    </view>
-    <view wx:if="{{aiSummary && !caseDraftSections.length}}" class="desensitize-preview__summary">
-      <ui-ai-summary-block content="{{aiSummary}}" />
-    </view>
-    <view wx:if="{{publicViewHint}}" class="desensitize-preview__public-hint text-caption">
-      {{publicViewHint}}
-    </view>
-    <view wx:elif="{{source === 'service' && publicMediaCount > 0}}" class="desensitize-preview__public-count text-caption">
-      本次授权公示含 {{publicMediaCount}} 张过程图（已通过公开素材筛选）。
-    </view>
-    <view wx:if="{{fromPreMask}}" class="desensitize-preview__ready">
-      <ui-tag variant="desensitized" text="已自动脱敏" />
-      <text class="desensitize-preview__ready-hint text-caption">敏感信息已预处理，请逐张核对后再授权公示。</text>
-    </view>
-    <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
-      建议逐张查看右侧脱敏图，确认效果符合预期后再授权公示。
-    </view>
-    <view wx:if="{{!workbenchItems.length && source === 'service' && hasRepairPlanText}}" class="desensitize-preview__empty-auth text-caption">
-      本相册暂无可公示的过程图，但含维修方案文字说明。勾选确认项后可授权，公开案例将以文字为主。
-    </view>
-    <view wx:elif="{{!workbenchItems.length && source === 'service'}}" class="desensitize-preview__empty-auth text-caption">
-      本相册暂无可公示的过程图。勾选确认项后仍可授权，公开案例将以文字为主；相册留档质量由商家负责。
-    </view>
-    <ui-desensitize-workbench
-      items="{{workbenchItems}}"
-      processedCount="{{stats.processed}}"
-      totalCount="{{stats.total}}"
-      failedCount="{{stats.failed}}"
-      liabilityText="{{liabilityText}}"
-      liabilityAccepted="{{liabilityAccepted}}"
-      policyLinkText="{{policyLinkText}}"
-      bind:liabilitychange="onLiabilityChange"
-      bind:policy="onOpenPolicy"
-      bind:preview="onPreview"
-      bind:retry="onRetryAsset"
-      bind:manualmask="onManualMaskItem"
-      bind:exclude="onExcludeAsset"
-    />
-    <view class="desensitize-preview__spacer" />
-    <ui-fixed-bottom-bar>
-      <view slot="left" class="desensitize-preview__bar-left">
-        <ui-button
-          wx:if="{{!fromPreMask}}"
-          type="primary"
-          size="sm"
-          loading="{{autoMaskLoading}}"
-          bind:btntap="onAutoMask"
-        >一键 AI 脱敏</ui-button>
-        <ui-button
-          type="ghost"
-          size="sm"
-          bind:btntap="onManualMask"
-        >手工打码</ui-button>
+        <block wx:for="{{caseDraftSections}}" wx:key="key">
+          <view class="desensitize-preview__case-section">
+            <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>
+            <text class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
+          </view>
+        </block>
+        <ui-button type="secondary" block bind:btntap="onCopyCaseDraft">复制文案</ui-button>
       </view>
-      <ui-button
-        type="primary"
-        slot="right"
-        loading="{{confirmLoading}}"
-        disabled="{{confirmLoading}}"
-        bind:btntap="onConfirm"
-      >{{confirmLabelShort}}</ui-button>
-    </ui-fixed-bottom-bar>
+      <view wx:elif="{{aiSummary}}" class="desensitize-preview__summary">
+        <ui-ai-summary-block content="{{aiSummary}}" />
+      </view>
+
+      <view class="desensitize-preview__consent">
+        <ui-checkbox-row checked="{{liabilityAccepted}}" bind:toggle="onConsentToggle">
+          <text>{{liabilityText}}</text>
+          <text
+            wx:if="{{policyLinkText}}"
+            class="text-link"
+            catchtap="onOpenPolicy"
+          >{{policyLinkText}}</text>
+        </ui-checkbox-row>
+      </view>
+
+      <view class="desensitize-preview__spacer" />
+      <ui-fixed-bottom-bar>
+        <ui-button
+          type="primary"
+          block
+          loading="{{confirmLoading}}"
+          disabled="{{confirmLoading || caseDraftMissing}}"
+          bind:btntap="onConfirm"
+        >{{confirmLabelShort}}</ui-button>
+      </ui-fixed-bottom-bar>
+    </block>
+
+    <!-- 订单授权 / 评价配图等：保留脱敏对比工作台 -->
+    <block wx:else>
+      <view class="desensitize-preview__banner">
+        <ui-privacy-banner scene="desensitize" />
+      </view>
+      <view wx:if="{{aiSummary}}" class="desensitize-preview__summary">
+        <ui-ai-summary-block content="{{aiSummary}}" />
+      </view>
+      <view wx:if="{{publicViewHint}}" class="desensitize-preview__public-hint text-caption">
+        {{publicViewHint}}
+      </view>
+      <view wx:if="{{fromPreMask}}" class="desensitize-preview__ready">
+        <ui-tag variant="desensitized" text="已自动脱敏" />
+        <text class="desensitize-preview__ready-hint text-caption">敏感信息已预处理，请逐张核对后再授权公示。</text>
+      </view>
+      <view wx:if="{{needPreviewHint}}" class="desensitize-preview__preview-hint text-caption">
+        建议逐张查看右侧脱敏图，确认效果符合预期后再授权公示。
+      </view>
+      <ui-desensitize-workbench
+        items="{{workbenchItems}}"
+        processedCount="{{stats.processed}}"
+        totalCount="{{stats.total}}"
+        failedCount="{{stats.failed}}"
+        liabilityText="{{liabilityText}}"
+        liabilityAccepted="{{liabilityAccepted}}"
+        policyLinkText="{{policyLinkText}}"
+        bind:liabilitychange="onLiabilityChange"
+        bind:policy="onOpenPolicy"
+        bind:preview="onPreview"
+        bind:retry="onRetryAsset"
+        bind:manualmask="onManualMaskItem"
+        bind:exclude="onExcludeAsset"
+      />
+      <view class="desensitize-preview__spacer" />
+      <ui-fixed-bottom-bar>
+        <view slot="left" class="desensitize-preview__bar-left">
+          <ui-button
+            wx:if="{{!fromPreMask}}"
+            type="primary"
+            size="sm"
+            loading="{{autoMaskLoading}}"
+            bind:btntap="onAutoMask"
+          >一键 AI 脱敏</ui-button>
+          <ui-button
+            type="ghost"
+            size="sm"
+            bind:btntap="onManualMask"
+          >手工打码</ui-button>
+        </view>
+        <ui-button
+          type="primary"
+          slot="right"
+          loading="{{confirmLoading}}"
+          disabled="{{confirmLoading}}"
+          bind:btntap="onConfirm"
+        >{{confirmLabelShort}}</ui-button>
+      </ui-fixed-bottom-bar>
+    </block>
   </block>
 </view>

@@ -34,7 +34,6 @@
         <view class="album-owner-share__control-bar">
           <text class="album-owner-share__control text-caption">{{controlLine}}</text>
         </view>
-        <text class="album-owner-share__next-hint text-caption text-secondary">下一步预览脱敏效果；勾选确认并愿意分享，在预览页完成。</text>
       </ui-card>
     </view>
 

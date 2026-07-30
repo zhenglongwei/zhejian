@@ -29,6 +29,7 @@ Page({
     orderId: '',
     source: 'order',
     fromPreMask: false,
+    isDraftOnly: false,
     workbenchItems: [],
     stats: { total: 0, processed: 0, failed: 0 },
     canConfirm: false,
@@ -60,6 +61,7 @@ Page({
     const source = (query && query.source) || (orderId ? 'order' : 'service')
     const fromPreMask = query && query.fromPreMask === '1'
     const isReviewPreview = source === 'review'
+    const isDraftOnly = source === 'service'
     const copyKey = isReviewPreview
       ? BIZ_TYPE.SERVICE_REVIEW_PREVIEW
       : source === 'service'
@@ -68,7 +70,7 @@ Page({
     const copy = LIABILITY_COPY[copyKey] || LIABILITY_COPY[BIZ_TYPE.SERVICE_AUTHORIZE]
     const showPolicyLink = !isReviewPreview
     wx.setNavigationBarTitle({
-      title: isReviewPreview ? '评价配图预览' : '脱敏预览',
+      title: isReviewPreview ? '评价配图预览' : isDraftOnly ? '预览案例文案' : '脱敏预览',
     })
     this.setData({
       taskId,
@@ -76,6 +78,7 @@ Page({
       orderId,
       source,
       fromPreMask,
+      isDraftOnly,
       authTier: 'named',
       albumTitle,
       liabilityText: copy.body,
@@ -148,11 +151,6 @@ Page({
         return ''
       }
       const sections = (draft.sections || []).filter((s) => String(s.body || '').trim())
-      const media = (draft.media || []).map((m) => ({
-        ...m,
-        // 车主授权预览只展示脱敏图
-        displayUrl: m.maskedUrl || '',
-      }))
       const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
       const caseDraftSummary = draft.caseSummary || draftToAiSummary(draft) || ''
       this.setData({
@@ -160,7 +158,7 @@ Page({
         caseDraftTitle: draft.title || '',
         caseDraftSummary,
         caseDraftSections: sections,
-        caseDraftMedia: media,
+        caseDraftMedia: [],
       })
       if (album.merchantCaseDraftSummary) return album.merchantCaseDraftSummary
       return caseDraftSummary
@@ -187,6 +185,24 @@ Page({
   },
 
   applyTask(task, aiSummary = '') {
+    const isDraftOnly = this.data.source === 'service'
+    if (isDraftOnly) {
+      this.setData({
+        isDraftOnly: true,
+        workbenchItems: [],
+        stats: { total: 0, processed: 0, failed: 0 },
+        canConfirm: true,
+        needPreviewHint: false,
+        fromPreMask: this.data.fromPreMask || Boolean(task && task.fromPreMask),
+        publicViewHint: '',
+        publicMediaCount: 0,
+        hasRepairPlanText: Boolean(task && task.hasRepairPlanText),
+        status: 'normal',
+        aiSummary: aiSummary || this.data.aiSummary,
+      })
+      this._loaded = true
+      return
+    }
     const allowExclude =
       this.data.source === 'service' || this.data.source === 'order'
     const view = mapTaskToWorkbenchState(task, { allowExclude })
@@ -195,27 +211,24 @@ Page({
       : (task.rawAssets || []).length
     const hasRepairPlanText = Boolean(task.hasRepairPlanText)
     const publicViewHint = task.publicViewHint || ''
-    const isTextOnlyAuthorize =
-      this.data.source === 'service' &&
-      !(task.rawAssets || []).length &&
-      hasRepairPlanText
-    const isEmptyServiceAuthorize =
-      this.data.source === 'service' &&
-      !(task.rawAssets || []).length &&
-      !hasRepairPlanText
     this.setData({
+      isDraftOnly: false,
       workbenchItems: view.workbenchItems,
       stats: view.stats,
-      canConfirm: view.canConfirm || isTextOnlyAuthorize || isEmptyServiceAuthorize,
+      canConfirm: view.canConfirm,
       needPreviewHint: view.needPreviewHint,
       fromPreMask: this.data.fromPreMask || Boolean(task.fromPreMask),
       publicViewHint,
       publicMediaCount,
       hasRepairPlanText,
-      status: isTextOnlyAuthorize || isEmptyServiceAuthorize ? 'normal' : view.pageStatus,
+      status: view.pageStatus,
       aiSummary: aiSummary || this.data.aiSummary,
     })
     this._loaded = true
+  },
+
+  onConsentToggle() {
+    this.setData({ liabilityAccepted: !this.data.liabilityAccepted })
   },
 
   onRetryLoad() {
@@ -372,7 +385,7 @@ Page({
   async onConfirm() {
     if (this.data.confirmLoading) return
     if (this.data.source === 'service' && this.data.caseDraftMissing) {
-      wx.showToast({ title: '门店尚未确认案例稿', icon: 'none' })
+      wx.showToast({ title: '案例稿暂时无法加载', icon: 'none' })
       return
     }
     if (!this.data.liabilityAccepted) {
