@@ -405,10 +405,10 @@ Page({
   },
 
   showCompleteConfirmModal() {
+    const isResubmit = this.data.detail && this.data.detail.complianceStatus === 'rejected'
     wx.showModal({
-      title: '进入案例预览',
-      content:
-        '将先生成案例文案预览',
+      title: isResubmit ? '重新提交' : '确认完工',
+      content: '将打开案例预览，确认后提交审核',
       confirmText: '去预览',
       success: (res) => {
         if (!res.confirm) return
@@ -718,11 +718,12 @@ Page({
       detail.status !== SERVICE_ALBUM_STATUS.PUBLISHED
     ) {
       showBottomPrimary = true
-      bottomPrimaryText = '标记已完工'
+      bottomPrimaryText = '确认完工'
     }
-    // 驳回后仍为 completed，需再次确认完工送审
+    // 驳回后仍为 completed：主按钮改为「重新提交」
     if (!readOnly && isCompleted && detail.complianceStatus === 'rejected') {
-      showBottomPrimary = false
+      showBottomPrimary = true
+      bottomPrimaryText = '重新提交'
     }
     const caseDraftConfirmed = Boolean(
       detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
@@ -751,8 +752,8 @@ Page({
       }
     } else if (detail.complianceStatus === 'rejected') {
       lockHint = detail.complianceRejectReason
-        ? `审核未通过：${detail.complianceRejectReason}。可改相册与案例稿后，再次确认完工送审。`
-        : '审核未通过。可改相册与案例稿后，再次确认完工送审。'
+        ? `审核未通过：${detail.complianceRejectReason}`
+        : '审核未通过'
     }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
@@ -2175,8 +2176,10 @@ Page({
 
   onOpenCaseDraft() {
     if (!this.albumId) return
+    const isResubmit = this.data.detail && this.data.detail.complianceStatus === 'rejected'
+    const q = isResubmit ? `&from=complete` : ''
     wx.navigateTo({
-      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}`,
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}${q}`,
     })
   },
 

@@ -1085,6 +1085,8 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   const forceRule = Boolean(options.forceRule)
   const view = await withStoreTitleFields(album, buildMerchantView(album))
   const editable = !isAlbumContentLocked(album)
+  const { isCaseReviewRejected } = require('./case-review-gate.service')
+  const resubmit = isCaseReviewRejected(album)
 
   if (!forceRule && pkg && pkg.merchantCaseDraft) {
     let draft = pkg.merchantCaseDraft
@@ -1122,6 +1124,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
       contentPackageStatus: pkg.status || '',
       editable,
       confirmed,
+      resubmit,
     }
   }
 
@@ -1138,6 +1141,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     contentPackageStatus: (pkg && pkg.status) || '',
     editable,
     confirmed: false,
+    resubmit,
   }
 }
 
@@ -1196,9 +1200,11 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
   const draft = normalizeMerchantCaseDraft({
     ...base,
     title: incoming.title != null ? incoming.title : base.title,
+    caseSummary:
+      incoming.caseSummary != null ? incoming.caseSummary : base.caseSummary,
     sections: incoming.sections || base.sections,
     media,
-    source: 'merchant_edit',
+    source: incoming.source || base.source || 'merchant_edit',
     generatedAt: base.generatedAt || new Date().toISOString(),
     confirmedAt: payload.confirm
       ? new Date().toISOString()
@@ -1214,11 +1220,13 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     where: { id: albumId },
     data: { contentPackageJson: nextPkg },
   })
+  const { isCaseReviewRejected } = require('./case-review-gate.service')
   return {
     draft,
     contentPackageStatus: nextPkg.status || '',
     editable: true,
     confirmed: Boolean(draft.confirmedAt),
+    resubmit: isCaseReviewRejected(album),
   }
 }
 
@@ -1245,14 +1253,16 @@ async function exportMerchantCaseDraftCopy(albumId, storeId, merchantId = '') {
   }
 }
 
-/** CASE-DRAFT-LOCK · 主动 AI 润色（保留 media） */
+/** CASE-DRAFT-LOCK · 主动 AI 润色（保留 media；结果落库，需再次确认完工） */
 async function polishMerchantCaseDraft(albumId, storeId, merchantId = '', payload = {}) {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   assertAlbumContentEditable(album)
   const view = await withStoreTitleFields(album, buildMerchantView(album))
+  const { readPackageFromAlbum } = require('./album-content-package.service')
   const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
   const { polishMerchantCaseDraftWithLlm } = require('./merchant-case-draft-polish.service')
+  const { isCaseReviewRejected } = require('./case-review-gate.service')
 
   let baseDraft = payload.draft || null
   if (!baseDraft) {
@@ -1260,10 +1270,42 @@ async function polishMerchantCaseDraft(albumId, storeId, merchantId = '', payloa
     baseDraft = current.draft
   }
   const polished = await polishMerchantCaseDraftWithLlm(baseDraft, view)
+  const draft = normalizeMerchantCaseDraft({
+    ...polished,
+    // 保留当前配图；润色后须重新确认完工才送审
+    media: Array.isArray(baseDraft && baseDraft.media)
+      ? baseDraft.media
+      : polished.media || [],
+    confirmedAt: '',
+    source: 'llm',
+  })
+
+  const pkg = readPackageFromAlbum(album) || {
+    status: 'ready',
+    source: 'merchant_edit',
+    factSummary: '',
+    qualitySuggestions: [],
+    drafts: {},
+    triggeredAt: new Date().toISOString(),
+    generatedAt: new Date().toISOString(),
+    error: '',
+  }
+  await prisma.album.update({
+    where: { id: albumId },
+    data: {
+      contentPackageJson: {
+        ...pkg,
+        merchantCaseDraft: draft,
+        generatedAt: new Date().toISOString(),
+      },
+    },
+  })
+
   return {
-    draft: normalizeMerchantCaseDraft(polished),
+    draft,
     editable: true,
     confirmed: false,
+    resubmit: isCaseReviewRejected(album),
   }
 }
 

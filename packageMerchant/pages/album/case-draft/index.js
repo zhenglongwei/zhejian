@@ -16,6 +16,7 @@ Page({
     errorMessage: '',
     albumId: '',
     fromComplete: false,
+    resubmit: false,
     editable: false,
     saving: false,
     polishing: false,
@@ -28,6 +29,8 @@ Page({
     sections: [],
     media: [],
     confirmed: false,
+    primaryActionText: '确认完工',
+    showCompletePrimary: false,
   },
 
   /** 仅保留最近一次「AI 润色」前的文案，不落库 */
@@ -41,9 +44,6 @@ Page({
       return
     }
     this.setData({ fromComplete })
-    if (fromComplete) {
-      wx.setNavigationBarTitle({ title: '案例预览 · 确认完工' })
-    }
     this.initPage()
   },
 
@@ -109,14 +109,27 @@ Page({
     const caseSummary = draft.caseSummary || ''
     const sections = this.mapSections(draft.sections || [])
     const media = this.mapMedia(draft.media || [])
+    const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
+    const resubmit = extra.resubmit != null ? Boolean(extra.resubmit) : this.data.resubmit
+    const fromComplete = this.data.fromComplete
+    const showCompletePrimary = Boolean(editable && (fromComplete || resubmit))
+    const primaryActionText = resubmit ? '重新提交' : '确认完工'
+    if (showCompletePrimary) {
+      wx.setNavigationBarTitle({
+        title: resubmit ? '案例预览 · 重新提交' : '案例预览 · 确认完工',
+      })
+    }
     this.setData({
+      ...extra,
       title,
       caseSummary,
       titleHeight: this.measureTextHeight(title, 1),
       summaryHeight: this.measureTextHeight(caseSummary, 2),
       sections,
       media,
-      ...extra,
+      resubmit,
+      primaryActionText,
+      showCompletePrimary,
     })
   },
 
@@ -130,6 +143,7 @@ Page({
         status: 'normal',
         albumId: this.albumId,
         editable: Boolean(data.editable),
+        resubmit: Boolean(data.resubmit),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
         canRevertPolish: false,
       })
@@ -269,6 +283,7 @@ Page({
       this.applyDraftView(draft, {
         editable: Boolean(data.editable),
         confirmed: Boolean(data.confirmed || draft.confirmedAt),
+        resubmit: data.resubmit != null ? Boolean(data.resubmit) : this.data.resubmit,
       })
       wx.showToast({
         title: confirm ? '已确认案例稿' : '已保存',
@@ -292,8 +307,9 @@ Page({
   async onConfirmAndComplete() {
     if (!this.data.editable || this.data.completing) return
     this.setData({ completing: true })
+    const isResubmit = this.data.resubmit
     try {
-      wx.showLoading({ title: '确认并完工中', mask: true })
+      wx.showLoading({ title: isResubmit ? '重新提交中' : '确认完工中', mask: true })
       await confirmAndCompleteMerchantCaseDraft(this.albumId, {
         draft: this.buildDraftPayload(),
       })
@@ -303,13 +319,16 @@ Page({
         confirmed: true,
         editable: false,
         fromComplete: false,
+        resubmit: false,
+        showCompletePrimary: false,
         canRevertPolish: false,
       })
       await this.loadDraft()
       wx.showModal({
-        title: '已确认并完工',
-        content:
-          '案例稿已锁定，并进入平台案例审核。审核通过后车主可查看并发布；驳回后你可再改相册与案例稿。可复制当前文字发自媒体（不含配图，平台不代发），或返回相册。',
+        title: isResubmit ? '已重新提交' : '已确认完工',
+        content: isResubmit
+          ? '已再次进入平台案例审核。审核通过后车主可查看并发布。'
+          : '案例稿已锁定，并进入平台案例审核。审核通过后车主可查看并发布；驳回后可再改并重新提交。',
         confirmText: '复制文案',
         cancelText: '返回相册',
         success: (res) => {
