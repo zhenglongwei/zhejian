@@ -18,47 +18,75 @@
 
   <block wx:elif="{{mode === 'invite'}}">
     <view class="page-content album-owner-share__body">
+      <view class="surface-album-catalog album-owner-share__hero">
+        <view class="album-owner-share__seal" aria-hidden="true">
+          <view class="album-owner-share__seal-ring">
+            <text class="album-owner-share__seal-mark">证</text>
+          </view>
+        </view>
+        <ui-tag wx:if="{{officerTitle}}" variant="order" text="{{officerTitle}}" />
+        <text class="album-owner-share__hero-title text-h2">{{inviteHeroTitle}}</text>
+        <text class="album-owner-share__hero-sub text-caption">{{inviteHeroSub}}</text>
+      </view>
+
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="album-owner-share__pitch text-body">{{invitePitch}}</text>
-        <text class="album-owner-share__control text-caption">{{controlLine}}</text>
-        <ui-compliance-notice type="authorize" />
-        <ui-checkbox-row checked="{{authChecked}}" bind:toggle="onAuthCheckToggle">
-          <text>{{consentText}}</text>
-          <text class="text-link" catchtap="onOpenPolicy">《公开案例与隐私说明》</text>
-        </ui-checkbox-row>
+        <view class="album-owner-share__control-bar">
+          <text class="album-owner-share__control text-caption">{{controlLine}}</text>
+        </view>
+        <text class="album-owner-share__next-hint text-caption text-secondary">下一步预览脱敏效果；勾选确认并愿意分享，在预览页完成。</text>
       </ui-card>
     </view>
 
     <ui-fixed-bottom-bar>
-      <ui-button type="secondary" block bind:btntap="onPreviewTap" loading="{{previewLoading}}">{{previewLabel}}</ui-button>
-      <ui-button
-        type="primary"
-        block
-        disabled="{{shareDisabled}}"
-        loading="{{previewLoading}}"
-        bind:btntap="onSharePublishTap"
-      >{{confirmText}}</ui-button>
+      <ui-button type="primary" block bind:btntap="onPreviewTap" loading="{{previewLoading}}">{{previewLabel}}</ui-button>
     </ui-fixed-bottom-bar>
   </block>
 
   <block wx:elif="{{mode === 'published'}}">
     <view class="page-content album-owner-share__body">
+      <view class="surface-album-catalog album-owner-share__hero album-owner-share__hero--ready">
+        <view class="album-owner-share__seal album-owner-share__seal--ready" aria-hidden="true">
+          <view class="album-owner-share__seal-ring album-owner-share__seal-ring--ready">
+            <text class="album-owner-share__seal-mark album-owner-share__seal-mark--ready">✓</text>
+          </view>
+        </view>
+        <ui-tag variant="audited" text="已通过审核" />
+        <text class="album-owner-share__hero-title text-h2">{{publishedHeroTitle}}</text>
+        <text class="album-owner-share__hero-sub text-caption">{{publishedHeroSub}}</text>
+      </view>
+
       <ui-card shadow="{{true}}" padding="{{true}}">
-        <text class="text-h3">分享给更多人</text>
-        <text class="text-caption text-secondary album-owner-share__published-hint">案例已通过审核。可发给微信，或复制长文到自媒体。</text>
+        <text class="album-owner-share__section-title text-body">选一个方式发出去</text>
+        <text class="text-caption text-secondary album-owner-share__published-hint">{{publishedHint}}</text>
 
         <view class="album-owner-share__channels">
           <view class="album-owner-share__channel" bindtap="onTimelineTap">
-            <text class="text-body">分享到朋友圈</text>
-            <text class="text-caption text-secondary">按提示操作</text>
+            <view class="album-owner-share__channel-icon">
+              <image class="album-owner-share__channel-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
+            </view>
+            <view class="album-owner-share__channel-copy">
+              <text class="text-body">分享到朋友圈</text>
+              <text class="text-caption text-secondary">按提示从右上角发出</text>
+            </view>
           </view>
           <button class="album-owner-share__channel album-owner-share__channel-btn" open-type="share">
-            <text class="text-body">分享给朋友</text>
-            <text class="text-caption text-secondary">微信好友</text>
+            <view class="album-owner-share__channel-icon">
+              <image class="album-owner-share__channel-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
+            </view>
+            <view class="album-owner-share__channel-copy">
+              <text class="text-body">分享给朋友</text>
+              <text class="text-caption text-secondary">发给微信好友或群</text>
+            </view>
           </button>
           <view class="album-owner-share__channel" bindtap="onOpenSocial">
-            <text class="text-body">分享到自媒体</text>
-            <text class="text-caption text-secondary">生成文章并复制</text>
+            <view class="album-owner-share__channel-icon">
+              <image class="album-owner-share__channel-img" src="/assets/share/icon-social.svg" mode="aspectFit" />
+            </view>
+            <view class="album-owner-share__channel-copy">
+              <text class="text-body">分享到自媒体</text>
+              <text class="text-caption text-secondary">生成文章并复制</text>
+            </view>
           </view>
         </view>
       </ui-card>

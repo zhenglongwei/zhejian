@@ -28,12 +28,20 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 勾选文案后的协议链接，如《公开案例与隐私说明》 */
+    policyLinkText: {
+      type: String,
+      value: '',
+    },
   },
   methods: {
     onLiabilityToggle() {
       this.triggerEvent('liabilitychange', {
         accepted: !this.properties.liabilityAccepted,
       })
+    },
+    onPolicyTap() {
+      this.triggerEvent('policy')
     },
     onPreviewRaw(e) {
       const { id, url } = e.currentTarget.dataset

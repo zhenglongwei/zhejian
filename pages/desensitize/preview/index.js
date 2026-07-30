@@ -34,6 +34,7 @@ Page({
     canConfirm: false,
     liabilityText: '',
     liabilityAccepted: false,
+    policyLinkText: '',
     confirmLabelShort: '确认发布到公开网站',
     needPreviewHint: false,
     publicViewHint: '',
@@ -65,6 +66,7 @@ Page({
         ? BIZ_TYPE.SERVICE_AUTHORIZE
         : BIZ_TYPE.ORDER_AUTHORIZE
     const copy = LIABILITY_COPY[copyKey] || LIABILITY_COPY[BIZ_TYPE.SERVICE_AUTHORIZE]
+    const showPolicyLink = !isReviewPreview
     wx.setNavigationBarTitle({
       title: isReviewPreview ? '评价配图预览' : '脱敏预览',
     })
@@ -77,6 +79,7 @@ Page({
       authTier: 'named',
       albumTitle,
       liabilityText: copy.body,
+      policyLinkText: showPolicyLink ? '《公开案例与隐私说明》' : '',
       confirmLabelShort: copy.confirmLabel || '确认发布到公开网站',
     })
     if (!taskId) {
@@ -130,8 +133,11 @@ Page({
     try {
       const album = this._authorizeAlbum || (await fetchServiceAlbum(albumId))
       const draft = album.merchantCaseDraft || null
-      const confirmed = Boolean(draft && draft.confirmedAt)
-      if (!confirmed) {
+      // 案例审已通过 ⇒ 产品上必已确认案例稿；仅当稿体完全缺失时视为异常
+      const reviewPassed =
+        album.caseVisibleToOwner === true || album.complianceStatus === 'passed'
+      const hasDraft = Boolean(draft && (draft.confirmedAt || reviewPassed))
+      if (!hasDraft) {
         this.setData({
           caseDraftMissing: true,
           caseDraftTitle: '',
@@ -241,6 +247,10 @@ Page({
 
   onLiabilityChange(e) {
     this.setData({ liabilityAccepted: !!(e.detail && e.detail.accepted) })
+  },
+
+  onOpenPolicy() {
+    wx.navigateTo({ url: '/pages/benefit-sharing/index' })
   },
 
   async onPreview(e) {

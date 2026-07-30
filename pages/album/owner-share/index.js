@@ -9,8 +9,6 @@ const {
   canShowPublishInvite,
   isPublicShareReady,
   CONTROL_LINE,
-  CONSENT_CHECKBOX,
-  AUTH_CONFIRM_TEXT,
   PREVIEW_LABEL,
 } = require('../../../utils/publish-thank-you')
 const { initAlbumShareState } = require('../../../utils/album-share-state')
@@ -34,14 +32,16 @@ Page({
     albumId: '',
     mode: 'invite',
     detail: null,
+    officerTitle: '',
+    inviteHeroTitle: '爱车满血复活',
+    inviteHeroSub: '',
     invitePitch: '',
     controlLine: CONTROL_LINE,
-    consentText: CONSENT_CHECKBOX,
-    confirmText: AUTH_CONFIRM_TEXT,
     previewLabel: PREVIEW_LABEL,
-    authChecked: false,
+    publishedHeroTitle: '可以分享啦',
+    publishedHeroSub: '脱敏案例已通过审核，欢迎发给需要的人',
+    publishedHint: '可发给微信好友、朋友圈，或复制长文到自媒体。帮助同城车主少踩坑。',
     previewLoading: false,
-    shareDisabled: true,
     shareSheetVisible: false,
     socialPlatform: 'xiaohongshu',
     socialDraftText: '',
@@ -88,16 +88,18 @@ Page({
       }
 
       const shareState = initAlbumShareState(detail)
+      const officerTitle = invite.officerTitle || ''
       this.setData({
         status: 'normal',
         detail,
         mode,
+        officerTitle,
+        inviteHeroSub: officerTitle
+          ? `诚邀成为「${officerTitle}」，把脱敏过程分享给同城车友`
+          : '把脱敏过程分享给同城车友，帮助更多人避开修车陷阱',
         invitePitch: invite.pitch,
         controlLine: invite.controlLine,
-        consentText: invite.consentCheckbox,
-        confirmText: invite.confirmText,
         previewLabel: invite.previewLabel,
-        shareDisabled: !this.data.authChecked,
         ...shareState,
       })
       if (mode === 'published') {
@@ -111,27 +113,7 @@ Page({
     }
   },
 
-  onAuthCheckToggle() {
-    const authChecked = !this.data.authChecked
-    this.setData({
-      authChecked,
-      shareDisabled: !authChecked,
-    })
-  },
-
-  onOpenPolicy() {
-    wx.navigateTo({ url: '/pages/benefit-sharing/index' })
-  },
-
   async onPreviewTap() {
-    await this.runAuthorizePreview()
-  },
-
-  async onSharePublishTap() {
-    if (!this.data.authChecked) {
-      wx.showToast({ title: '请先勾选确认项', icon: 'none' })
-      return
-    }
     await this.runAuthorizePreview()
   },
 

@@ -965,9 +965,34 @@ async function getUserServiceAlbum(albumId, userId) {
         : 'case_review_pending'
     } else {
       const { readPackageFromAlbum } = require('./album-content-package.service')
-      const { draftToAiSummary } = require('./merchant-case-draft.service')
+      const {
+        draftToAiSummary,
+        normalizeMerchantCaseDraft,
+      } = require('./merchant-case-draft.service')
+      const { pickConfirmedDraftRaw } = require('../utils/confirmed-case-draft-view')
       const pkg = readPackageFromAlbum(album)
-      view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
+      const fromPkg = (pkg && pkg.merchantCaseDraft) || null
+      const pc = album.publicCase
+      const contentJson =
+        pc && pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}
+      // 审通过 ⇒ 完工前必已确认案例稿；优先读送审快照，再回落相册内容包
+      let confirmedRaw = pickConfirmedDraftRaw(contentJson, {
+        merchantCaseDraft: fromPkg,
+      })
+      if (!confirmedRaw && fromPkg) {
+        const fallbackAt =
+          (pc && pc.updatedAt && (pc.updatedAt.toISOString ? pc.updatedAt.toISOString() : String(pc.updatedAt))) ||
+          (album.updatedAt &&
+            (album.updatedAt.toISOString ? album.updatedAt.toISOString() : String(album.updatedAt))) ||
+          new Date().toISOString()
+        confirmedRaw = {
+          ...fromPkg,
+          confirmedAt: fromPkg.confirmedAt || fallbackAt,
+        }
+      }
+      view.merchantCaseDraft = confirmedRaw
+        ? normalizeMerchantCaseDraft(confirmedRaw)
+        : null
       view.contentPackageStatus = (pkg && pkg.status) || ''
       if (view.merchantCaseDraft) {
         view.merchantCaseDraftSummary = draftToAiSummary(view.merchantCaseDraft)

@@ -26,7 +26,7 @@
       <ui-privacy-banner scene="desensitize" />
     </view>
     <view wx:if="{{caseDraftMissing && source === 'service'}}" class="desensitize-preview__draft-missing text-caption">
-      门店尚未确认案例稿，暂时无法发布到公开网站。请联系门店完成案例预览确认。
+      案例稿暂时无法加载，请稍后重试。若持续出现，请联系门店或客服。
     </view>
     <view wx:if="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
       <text class="text-h3 desensitize-preview__case-title">将公示的案例文案（只读）</text>
@@ -85,7 +85,9 @@
       failedCount="{{stats.failed}}"
       liabilityText="{{liabilityText}}"
       liabilityAccepted="{{liabilityAccepted}}"
+      policyLinkText="{{policyLinkText}}"
       bind:liabilitychange="onLiabilityChange"
+      bind:policy="onOpenPolicy"
       bind:preview="onPreview"
       bind:retry="onRetryAsset"
       bind:manualmask="onManualMaskItem"
