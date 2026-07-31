@@ -1,6 +1,7 @@
 const { getCategoryName, getServiceItem } = require('../constants/service-catalog')
 const { deriveClientStatus } = require('../constants/service-plan')
 const { toIso } = require('../lib/ids')
+const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 
 function formatPublishedDate(value) {
   if (!value) return ''
@@ -32,6 +33,7 @@ function formatPlanRecord(row, store) {
   const item = getServiceItem(row.serviceItemId)
   const status = deriveClientStatus(row)
   const priceMode = normalizePriceMode(row.priceMode)
+  const coverUrl = resolveClientReadableMediaUrl(row.coverUrl || '')
   return {
     id: row.id,
     serviceItemId: row.serviceItemId,
@@ -51,7 +53,8 @@ function formatPlanRecord(row, store) {
       row.appointmentJson && typeof row.appointmentJson === 'object'
         ? row.appointmentJson
         : {},
-    coverUrl: row.coverUrl || '',
+    coverUrl,
+    coverImage: coverUrl,
     storeId: row.storeId,
     storeName: store?.name || '',
     merchantId: row.merchantId,

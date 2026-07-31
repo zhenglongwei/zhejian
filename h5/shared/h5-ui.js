@@ -78,15 +78,22 @@
     normalizePublicMediaUrl: normalizePublicMediaUrl,
     resolveH5ImageSrc: resolveH5ImageSrc,
   }
-})(typeof window !== 'undefined' ? window : globalThis)
+})(typeof window !== 'undefined' ? window : globalThis);
 
 (function (global) {
+  if (global.zhejianH5Ui) return
+
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
+  }
+
+  function mediaSrc(url) {
+    var fn = global.zhejianPublicCopy && global.zhejianPublicCopy.resolveH5ImageSrc
+    return fn ? fn(url) : url || ''
   }
 
   function stripPriceSuffix(text) {
@@ -281,7 +288,7 @@
 
   function renderStoreListItem(store, options) {
     options = options || {}
-    var cover = (store && store.coverImage) || ''
+    var cover = mediaSrc((store && store.coverImage) || '')
     var thumb = cover
       ? '<img class="h5-media-list-thumb" src="' +
         escapeHtml(cover) +
@@ -320,7 +327,9 @@
 
   function renderServiceListItem(item, options) {
     options = options || {}
-    var cover = (item && (item.coverImage || item.thumbImage)) || ''
+    var cover = mediaSrc(
+      (item && (item.coverImage || item.thumbImage || item.coverUrl)) || ''
+    )
     var thumb = cover
       ? '<img class="h5-media-list-thumb" src="' +
         escapeHtml(cover) +
