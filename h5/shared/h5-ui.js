@@ -26,11 +26,12 @@
       .trim()
   }
 
-  /** 旧路径 → /api/v1/media/files/…，便于走 OSS 302 */
+  /** 旧路径 → /api/v1/media/files/…，便于走 OSS 302（已是 api 路径则勿再拼） */
   function normalizePublicMediaUrl(url) {
     if (!url) return ''
     var value = String(url).trim()
     if (!value || value.indexOf('mock://') === 0) return ''
+    if (value.indexOf('/api/v1/media/files/') !== -1) return value
     if (value.indexOf('/media/files/') !== -1) {
       return value.replace(/\/media\/files\//, '/api/v1/media/files/')
     }
