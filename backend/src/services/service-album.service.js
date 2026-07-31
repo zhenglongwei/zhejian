@@ -10,6 +10,8 @@ const {
 } = require('../utils/album-price')
 const {
   SERVICE_ALBUM_STATUS,
+  SERVICE_ALBUM_REPAIR_DONE_STATUSES,
+  isServiceAlbumRepairDone,
   DEFAULT_STAGE_NODES,
   PUBLIC_CASE_STATUS,
 } = require('../constants/v2')
@@ -812,9 +814,9 @@ async function attachOwnerReviewState(userId, list = []) {
   })
   const reviewed = new Set(rows.map((row) => row.albumId))
   return list.map((item) => {
-    // 完工 + 案例审通过（与 caseVisibleToOwner 一致）后方可评价
+    // 已完工（含 published 等）+ 案例审通过后方可评价
     const reviewEligible =
-      item.status === 'completed' && Boolean(item.caseVisibleToOwner)
+      isServiceAlbumRepairDone(item.status) && Boolean(item.caseVisibleToOwner)
     const hasReview = reviewed.has(item.albumId)
     return {
       ...item,
@@ -834,7 +836,7 @@ async function countUserPendingOwnerReviews(userId) {
   const albums = await prisma.album.findMany({
     where: {
       ...buildUserAlbumWhere(userId, phone),
-      status: 'completed',
+      status: { in: [...SERVICE_ALBUM_REPAIR_DONE_STATUSES] },
       imageCount: { gt: 0 },
     },
     select: {

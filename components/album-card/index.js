@@ -77,6 +77,7 @@ Component({
 
   methods: {
     syncQuickActions() {
+      const { isRepairCompleted } = require('../../utils/service-album-display')
       const { item, showQuickActions, audience } = this.properties
       if (!showQuickActions || audience !== 'user' || !item) {
         this.setData({ quickVisible: false })
@@ -103,11 +104,18 @@ Component({
       const quickShare = {
         show: Boolean(item.showShareButton || item.showOwnerShare),
       }
+      // 已完工且车主可见：始终给出评价入口（未评「去评价」、已评「追评」）
+      // 兼容 API 仅认 completed、而公示后 status 为 published 的情况
+      const reviewEligible =
+        Boolean(item.reviewEligible) ||
+        Boolean(item.pendingOwnerReview) ||
+        (isRepairCompleted(item.status) && item.caseVisibleToOwner !== false)
       let quickReview = { show: false, label: '去评价' }
-      if (item.hasReview) {
-        quickReview = { show: true, label: '追评' }
-      } else if (item.pendingOwnerReview || item.reviewEligible) {
-        quickReview = { show: true, label: '去评价' }
+      if (reviewEligible || item.hasReview) {
+        quickReview = {
+          show: true,
+          label: item.hasReview ? '追评' : '去评价',
+        }
       }
 
       const quickVisible =
