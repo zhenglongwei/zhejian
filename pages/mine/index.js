@@ -49,6 +49,15 @@ function resolveMineHeroStatusHint(item = {}) {
   return MINE_HERO_HINT_COMPLETED
 }
 
+function resolveMineHeroOwnerReview(item = {}) {
+  if (isMineHeroAlbumBlocked(item)) return { show: false, label: '去评价' }
+  if (item.hasReview) return { show: true, label: '已评价' }
+  if (item.pendingOwnerReview || item.reviewEligible) {
+    return { show: true, label: '去评价' }
+  }
+  return { show: false, label: '去评价' }
+}
+
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
@@ -56,9 +65,12 @@ function enrichRecentAlbums(albums = []) {
       const enriched = quietHubAlbumTags(
         enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
       )
+      const ownerReview = resolveMineHeroOwnerReview(enriched)
       return {
         ...enriched,
         showOwnerShare: resolveMineHeroOwnerShare(enriched),
+        showOwnerReview: ownerReview.show,
+        ownerReviewLabel: ownerReview.label,
         statusHint: resolveMineHeroStatusHint(enriched),
       }
     })
@@ -186,7 +198,12 @@ Page({
       const merged = await fetchUserServiceAlbums({ tab: 'all' })
       const sorted = (merged || [])
         .slice()
-        .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+        .sort((a, b) => {
+          const pendingA = a && a.pendingOwnerReview ? 1 : 0
+          const pendingB = b && b.pendingOwnerReview ? 1 : 0
+          if (pendingA !== pendingB) return pendingB - pendingA
+          return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+        })
       return {
         recent: sorted.slice(0, 2),
         albumUnread: hasUnreadAlbums(sorted),
@@ -362,6 +379,17 @@ Page({
     wx.navigateTo({ url: `/pages/album/owner-share/index?albumId=${id}` })
   },
 
+  onAlbumOwnerReview(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id || !this.guardProtectedEntry(true)) return
+    const title = (e.detail && e.detail.title) || ''
+    let url = `/pages/album/engage/index?albumId=${encodeURIComponent(id)}`
+    if (title) {
+      url += `&albumTitle=${encodeURIComponent(title)}`
+    }
+    wx.navigateTo({ url })
+  },
+
   onShareAppMessage() {
     return this.buildShareAppMessagePayload()
   },
@@ -369,6 +397,15 @@ Page({
   onTodoItemTap(e) {
     const { action } = e.currentTarget.dataset
     if (action === 'albumPendingOwnerReview') {
+      const pending = (this.data.albumHeroCards || []).find(
+        (item) => item && item.pendingOwnerReview && item.albumId
+      )
+      if (pending) {
+        this.onAlbumOwnerReview({
+          detail: { id: pending.albumId, title: pending.serviceName || '' },
+        })
+        return
+      }
       this.openAlbumListTab('all')
       return
     }

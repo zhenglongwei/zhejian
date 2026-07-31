@@ -58,10 +58,13 @@
               showProgress="{{true}}"
               showHeaderActions="{{false}}"
               showOwnerShare="{{item.showOwnerShare}}"
+              showOwnerReview="{{item.showOwnerReview}}"
+              ownerReviewLabel="{{item.ownerReviewLabel}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
               bind:ownershare="onAlbumOwnerShare"
+              bind:ownerreview="onAlbumOwnerReview"
             />
           </view>
         </block>

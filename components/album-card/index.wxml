@@ -54,13 +54,13 @@
       </block>
     </view>
 
-    <!-- embedded：工作台/我的 Hero — 标题与分享同一行，正文纵向排列（避免侧栏挤成竖排） -->
+    <!-- embedded：工作台/我的 Hero — 标题与右上操作同一行，正文纵向排列（避免侧栏挤成竖排） -->
     <view wx:if="{{embedded}}" class="album-card__body album-card__body--stacked">
-      <view class="album-card__head {{(audience === 'merchant' && item.canShareToOwner) || (audience === 'user' && showOwnerShare) ? 'album-card__head--with-share' : ''}}">
+      <view class="album-card__head {{(audience === 'merchant' && item.canShareToOwner) || (audience === 'user' && (showOwnerShare || showOwnerReview)) ? 'album-card__head--with-share' : ''}}">
         <text class="album-card__service album-card__service--head text-body">{{item.serviceName}}</text>
         <view
           wx:if="{{audience === 'merchant' && item.canShareToOwner}}"
-          class="album-card__head-share"
+          class="album-card__head-actions"
         >
           <button
             class="album-card__share-btn album-card__share-btn--head"
@@ -70,10 +70,16 @@
           >分享</button>
         </view>
         <view
-          wx:elif="{{audience === 'user' && showOwnerShare}}"
-          class="album-card__head-share"
+          wx:elif="{{audience === 'user' && (showOwnerShare || showOwnerReview)}}"
+          class="album-card__head-actions"
         >
           <view
+            wx:if="{{showOwnerReview}}"
+            class="album-card__share-btn album-card__share-btn--head"
+            catchtap="onOwnerReviewTap"
+          >{{ownerReviewLabel}}</view>
+          <view
+            wx:if="{{showOwnerShare}}"
             class="album-card__share-btn album-card__share-btn--head"
             catchtap="onOwnerShareTap"
           >分享</view>

@@ -165,7 +165,7 @@
 }
 
 .album-card__head--with-share {
-  padding-right: 80rpx;
+  padding-right: 96rpx;
 }
 
 .album-card__service--head {
@@ -176,22 +176,34 @@
   text-overflow: ellipsis;
 }
 
+.album-card__head-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  width: 96rpx;
+}
+
 .album-card__head-share {
   position: absolute;
   top: 0;
   right: 0;
   z-index: 1;
-  width: 80rpx;
+  width: 96rpx;
   height: var(--font-body-lh);
 }
 
 .album-card__share-btn--head {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 80rpx !important;
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 96rpx !important;
   min-width: 0 !important;
-  max-width: 80rpx;
+  max-width: 96rpx;
   height: var(--font-body-lh);
   padding: 0;
   margin: 0;

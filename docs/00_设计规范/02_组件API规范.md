@@ -349,6 +349,10 @@
 | showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
 | framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
 | showHeaderActions | Boolean | false | 用户端列表是否展示右上操作列（默认 **false**；商家端忽略，用 `canShareToOwner`） |
+| embedded | Boolean | false | Hero / 工作台嵌入态（纵向堆叠） |
+| showOwnerShare | Boolean | false | 用户端 Hero：右上「分享」 |
+| showOwnerReview | Boolean | false | 用户端 Hero：右上「去评价 / 已评价」（在分享上方） |
+| ownerReviewLabel | String | `去评价` | 评价按钮文案 |
 | selectable | Boolean | false | 下载档案单选模式 |
 | selected | Boolean | false | 是否选中 |
 | selectDisabled | Boolean | false | 不可选（如无照片） |
@@ -359,6 +363,8 @@
 | select | `{ id: albumId }` 单选模式下点选 |
 | selectdisabled | `{ id: albumId }` 单选模式下点到不可选项 |
 | share | `{ id: albumId }` 用户端分享 |
+| ownershare | `{ id: albumId }` 用户端 Hero 进车主分享页 |
+| ownerreview | `{ id: albumId, title? }` 用户端 Hero 进评价页 |
 | authorize | `{ id: albumId, publicCaseStatus }` 用户端授权/公示 |
 
 **用户端卡片信息块（合并摘要，非四行表）**

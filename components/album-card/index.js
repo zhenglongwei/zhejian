@@ -33,6 +33,15 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 用户端 Hero：右上角去评价 / 已评价 */
+    showOwnerReview: {
+      type: Boolean,
+      value: false,
+    },
+    ownerReviewLabel: {
+      type: String,
+      value: '去评价',
+    },
     /** 下载档案：单选模式 */
     selectable: {
       type: Boolean,
@@ -75,6 +84,15 @@ Component({
       const { item } = this.properties
       if (!item || !item.albumId) return
       this.triggerEvent('ownershare', { id: item.albumId })
+    },
+
+    onOwnerReviewTap() {
+      const { item } = this.properties
+      if (!item || !item.albumId) return
+      this.triggerEvent('ownerreview', {
+        id: item.albumId,
+        title: item.serviceName || '',
+      })
     },
 
     onPartVerifyTap() {
