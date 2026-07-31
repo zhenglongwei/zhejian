@@ -459,22 +459,23 @@ Token：`--color-album-frame` / `--color-album-frame-line` / `--color-album-fram
 
 #### AlbumEndPage（`components/album-end-page` · 卷七 UI-ALB）
 
-虚拟 **尾页**：暖底 `--color-album-frame-inner` + 授权/分享/反馈三按钮（按状态显隐）。
+虚拟 **尾页**：暖底 `--color-album-frame-inner` + 发布/分享/服务评价等按钮（按状态显隐）。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| showAuth | Boolean | false | 是否展示授权公示 |
-| authLabel | String | `授权公示` | 主按钮文案 |
-| authDisabled | Boolean | false | 审核中等弱态 |
-| authHint | String | `''` | 审核中等弱态说明（`authDisabled` 时展示） |
-| showShare | Boolean | false | 是否展示分享 |
-| showFeedback | Boolean | true | 是否展示反馈 |
+| showPreview | Boolean | false | 预览脱敏案例 / 发布入口 |
+| showFeedback | Boolean | true | 是否展示服务评价入口 |
+| pendingOwnerReview | Boolean | false | 案例审通过且未评：评价为主按钮「说说这次维修体验」；已评为次按钮「查看评价」 |
+| showWithdraw | Boolean | false | 一键下架 |
+| showContact / showStoreBrowse | Boolean | false | 联系门店 / 门店主页 |
+| gateActions | Array | `[]` | 闸门操作按钮 |
 
 | 事件 | 说明 |
 |---|---|
-| auth | 授权公示 |
-| share | 分享 |
-| feedback | `{ albumId? }` 跳转反馈页 |
+| preview | 预览脱敏案例 |
+| withdraw | 撤回发布 |
+| feedback | `{ albumId? }` → `pages/album/engage` |
+| gateaction | `{ key }` |
 
 #### AlbumInfoSheet（`components/album-info-sheet` · 卷七 UI-ALB）
 

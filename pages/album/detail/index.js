@@ -39,12 +39,23 @@ const {
 } = require('../../../utils/share-store-context')
 const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
+const { fetchAlbumReviewContext } = require('../../../services/album-review')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const {
   buildSocialDraft,
   copyTextToClipboard,
 } = require('../../../utils/album-social-copy')
+const {
+  shouldShowAlbumReviewNudge,
+  recordAlbumReviewVisit,
+  dismissAlbumReviewNudge,
+  clearAlbumReviewNudge,
+} = require('../../../utils/album-review-nudge')
+const {
+  REVIEW_DOCK_LABEL,
+  REVIEW_NUDGE_TEXT,
+} = require('../../../utils/publish-thank-you')
 
 function getWindowMetrics() {
   try {
@@ -338,6 +349,12 @@ Page({
     toolbarBottomPadPx: 0,
     showInspectEntry: false,
     showPartsEntry: false,
+    showEvaluateEntry: false,
+    pendingOwnerReview: false,
+    hasOwnerReview: false,
+    showReviewNudge: false,
+    reviewDockLabel: REVIEW_DOCK_LABEL,
+    reviewNudgeText: REVIEW_NUDGE_TEXT,
   },
 
   onLoad(options) {
@@ -560,12 +577,34 @@ Page({
       const showStoreBrowse = Boolean(linkedStoreId)
 
       let showPartsEntry = (enriched.parts || []).length > 0
+      let pendingOwnerReview = false
+      let hasOwnerReview = false
       if (checkAuth().ok) {
         try {
           const partCtx = await fetchAlbumPartVerifyContext(this.albumId)
           showPartsEntry = Boolean(partCtx.hasParts)
         } catch (err) {
           // ignore
+        }
+        try {
+          const reviewCtx = await fetchAlbumReviewContext(this.albumId)
+          hasOwnerReview = Boolean(reviewCtx.review && reviewCtx.review.id)
+          pendingOwnerReview = Boolean(reviewCtx.eligible) && !hasOwnerReview
+          if (hasOwnerReview) {
+            clearAlbumReviewNudge(this.albumId)
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+      const showEvaluateEntry = pendingOwnerReview
+      let showReviewNudge = false
+      if (pendingOwnerReview) {
+        if (!this._reviewVisitCounted) {
+          this._reviewVisitCounted = true
+          showReviewNudge = recordAlbumReviewVisit(this.albumId)
+        } else {
+          showReviewNudge = shouldShowAlbumReviewNudge(this.albumId)
         }
       }
 
@@ -576,6 +615,10 @@ Page({
         nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
         storePhone,
         showPartsEntry,
+        showEvaluateEntry,
+        pendingOwnerReview,
+        hasOwnerReview,
+        showReviewNudge,
         pageIndex: 0,
         activeNodeId: (flip.chapters[0] && flip.chapters[0].nodeId) || '',
         showAuthSection,
@@ -979,6 +1022,15 @@ Page({
 
   onEndPageFeedback(e) {
     this.goEngagePage()
+  },
+
+  onOpenEngage() {
+    this.goEngagePage()
+  },
+
+  onDismissReviewNudge() {
+    dismissAlbumReviewNudge(this.albumId)
+    this.setData({ showReviewNudge: false })
   },
 
   onEndPageGateAction(e) {

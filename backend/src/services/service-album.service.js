@@ -796,7 +796,63 @@ function mapUserServiceAlbumListItem(album) {
     userConfirmHint: view.userConfirmHint,
     gateBRejectHint: view.gateBRejectHint,
     canResubmitPublicCase: view.canResubmitPublicCase,
+    reviewEligible: false,
+    hasReview: false,
+    pendingOwnerReview: false,
   }
+}
+
+async function attachOwnerReviewState(userId, list = []) {
+  if (!userId || !list.length) return list
+  const albumIds = list.map((item) => item.albumId).filter(Boolean)
+  if (!albumIds.length) return list
+  const rows = await prisma.serviceAlbumReview.findMany({
+    where: { userId, albumId: { in: albumIds } },
+    select: { albumId: true },
+  })
+  const reviewed = new Set(rows.map((row) => row.albumId))
+  return list.map((item) => {
+    // 完工 + 案例审通过（与 caseVisibleToOwner 一致）后方可评价
+    const reviewEligible =
+      item.status === 'completed' && Boolean(item.caseVisibleToOwner)
+    const hasReview = reviewed.has(item.albumId)
+    return {
+      ...item,
+      reviewEligible,
+      hasReview,
+      pendingOwnerReview: reviewEligible && !hasReview,
+    }
+  })
+}
+
+/** 完工且案例审通过、未写服务评价的相册数（我的待办；非案例审 pending_review） */
+async function countUserPendingOwnerReviews(userId) {
+  if (!userId) return 0
+  const { isCaseReviewPassed } = require('./case-review-gate.service')
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } })
+  const phone = user?.phone || ''
+  const albums = await prisma.album.findMany({
+    where: {
+      ...buildUserAlbumWhere(userId, phone),
+      status: 'completed',
+      imageCount: { gt: 0 },
+    },
+    select: {
+      id: true,
+      status: true,
+      publicCaseStatus: true,
+      publicCase: { select: { status: true } },
+    },
+  })
+  if (!albums.length) return 0
+  const albumIds = albums.filter((row) => isCaseReviewPassed(row)).map((row) => row.id)
+  if (!albumIds.length) return 0
+  const reviewed = await prisma.serviceAlbumReview.findMany({
+    where: { userId, albumId: { in: albumIds } },
+    select: { albumId: true },
+  })
+  const reviewedSet = new Set(reviewed.map((row) => row.albumId))
+  return albumIds.filter((id) => !reviewedSet.has(id)).length
 }
 
 async function countUserAlbumsForVehicle(userId, vehicleRow) {
@@ -917,7 +973,7 @@ async function listUserServiceAlbums(userId, options = {}) {
     )
   }
 
-  const list = albums
+  let list = albums
     .map((album) => mapUserServiceAlbumListItem(album))
     .filter(
       (item) =>
@@ -925,6 +981,8 @@ async function listUserServiceAlbums(userId, options = {}) {
         item.status === 'completed' ||
         item.status === 'published',
     )
+
+  list = await attachOwnerReviewState(userId, list)
 
   const { getPartVerifySummariesForUser } = require('./album-part-verification.service')
   const summaries = await getPartVerifySummariesForUser(
@@ -2186,6 +2244,7 @@ module.exports = {
   listUserServiceAlbums,
   listUserRecentServiceAlbums,
   countUserServiceAlbumBindings,
+  countUserPendingOwnerReviews,
   getUserServiceAlbum,
   listMerchantServiceAlbums,
   getMerchantServiceAlbum,

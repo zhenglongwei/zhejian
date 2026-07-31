@@ -77,7 +77,8 @@
             withdraw-label="{{endPageWithdrawLabel}}"
             status-hint="{{showCompliancePending ? compliancePendingHint : endPageStatusHint}}"
             gate-actions="{{endPageGateActions}}"
-            show-feedback="{{true}}"
+            show-feedback="{{pendingOwnerReview || hasOwnerReview}}"
+            pending-owner-review="{{pendingOwnerReview}}"
             show-contact="{{false}}"
             show-store-browse="{{false}}"
             bind:preview="onEndPagePreview"
@@ -94,6 +95,22 @@
         style="padding-bottom: {{toolbarBottomPadPx}}px;"
       >
         <view class="album-detail__dock-panel">
+          <view
+            wx:if="{{showReviewNudge}}"
+            class="album-detail__review-nudge"
+          >
+            <text class="album-detail__review-nudge-text text-caption">{{reviewNudgeText}}</text>
+            <view class="album-detail__review-nudge-actions">
+              <text
+                class="album-detail__review-nudge-link text-caption"
+                catchtap="onOpenEngage"
+              >去评价</text>
+              <text
+                class="album-detail__review-nudge-close text-caption"
+                catchtap="onDismissReviewNudge"
+              >关闭</text>
+            </view>
+          </view>
           <view class="album-detail__dock-head">
             <view class="album-detail__dock-copy">
               <text wx:if="{{activeStageTitle}}" class="album-detail__dock-title">{{activeStageTitle}}</text>
@@ -111,6 +128,16 @@
                 aria-label="检查与档案"
               >
                 <text class="album-detail__dock-action-text text-caption">检查</text>
+              </view>
+              <view
+                wx:if="{{showEvaluateEntry}}"
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onOpenEngage"
+                aria-role="button"
+                aria-label="评价"
+              >
+                <text class="album-detail__dock-action-text text-caption">{{reviewDockLabel}}</text>
               </view>
               <view
                 wx:if="{{showPartsEntry}}"

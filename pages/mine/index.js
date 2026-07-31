@@ -124,16 +124,19 @@ Page({
       return count > 99 ? '99+' : String(count)
     }
     const pendingAuth = Number(source.albumPendingAuth) || 0
+    const pendingOwnerReview = Number(source.albumPendingOwnerReview) || 0
     return {
       unreadNotification: format(source.unreadNotificationCount),
       albumUnread: Boolean(albumUnread),
       albumPendingAuth: format(pendingAuth),
+      albumPendingOwnerReview: format(pendingOwnerReview),
     }
   },
 
   syncHubView(badges, albums = [], loggedIn = false, summary = null, vehicleSummary = '', authList = []) {
     const authSummary = summarizeAuthorizationTodos(authList, {
       albumPendingAuth: summary && summary.albumPendingAuth,
+      albumPendingOwnerReview: summary && summary.albumPendingOwnerReview,
     })
     const todoSummary = buildMineTodoSummary(badges, authSummary)
     const hasAlbumBindings = Boolean(
@@ -365,6 +368,10 @@ Page({
 
   onTodoItemTap(e) {
     const { action } = e.currentTarget.dataset
+    if (action === 'albumPendingOwnerReview') {
+      this.openAlbumListTab('all')
+      return
+    }
     if (action === 'authorize' || action === 'albumPublishable') {
       this.openAlbumListTab('publishable')
       return

@@ -151,7 +151,16 @@ async function loadAlbumMeta(albumId, userId) {
     where: { id: albumId },
     select: { merchantId: true, storeId: true, status: true, partsJson: true },
   })
-  const eligible = COMPLETED_ALBUM_STATUSES.has(row?.status || album.status)
+  const completed = COMPLETED_ALBUM_STATUSES.has(row?.status || album.status)
+  // 与车主可见整本相册一致：须平台案例审通过（review_passed / public_approved / offline）
+  const reviewPassed = Boolean(album.caseVisibleToOwner)
+  const eligible = completed && reviewPassed
+  let ineligibleReason = ''
+  if (!completed) {
+    ineligibleReason = '维修完工后可评价本次服务'
+  } else if (!reviewPassed) {
+    ineligibleReason = '平台案例审核通过后可评价本次服务'
+  }
   const parts = Array.isArray(row?.partsJson) ? row.partsJson : []
   return {
     album,
@@ -159,7 +168,7 @@ async function loadAlbumMeta(albumId, userId) {
     storeId: row?.storeId || album.store?.id || '',
     partCount: parts.length,
     eligible,
-    ineligibleReason: eligible ? '' : '维修完工后可评价本次服务',
+    ineligibleReason,
     publicCaseStatus: album.publicCaseStatus || 'private',
   }
 }
@@ -195,9 +204,10 @@ async function getAlbumReviewContext(albumId, userId) {
 }
 
 async function submitServiceAlbumReview(albumId, userId, payload = {}) {
-  const { eligible, merchantId, storeId, publicCaseStatus } = await loadAlbumMeta(albumId, userId)
+  const { eligible, ineligibleReason, merchantId, storeId, publicCaseStatus } =
+    await loadAlbumMeta(albumId, userId)
   if (!eligible) {
-    const err = new Error('维修完工后可评价本次服务')
+    const err = new Error(ineligibleReason || '平台案例审核通过后可评价本次服务')
     err.status = 409
     throw err
   }

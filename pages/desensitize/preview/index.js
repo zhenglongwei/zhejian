@@ -1,4 +1,5 @@
 const { BIZ_TYPE, LIABILITY_COPY } = require('../../../constants/desensitize')
+const { splitConsentWithPolicyLink } = require('../../../constants/compliance-copy')
 const {
   fetchTask,
   runAutoMask,
@@ -35,6 +36,7 @@ Page({
     stats: { total: 0, processed: 0, failed: 0 },
     canConfirm: false,
     liabilityText: '',
+    liabilityTextAfter: '',
     liabilityAccepted: false,
     policyLinkText: '',
     confirmLabelShort: '确认发布到公开网站',
@@ -71,6 +73,7 @@ Page({
         : BIZ_TYPE.ORDER_AUTHORIZE
     const copy = LIABILITY_COPY[copyKey] || LIABILITY_COPY[BIZ_TYPE.SERVICE_AUTHORIZE]
     const showPolicyLink = !isReviewPreview
+    const consentParts = splitConsentWithPolicyLink(copy.body, showPolicyLink)
     wx.setNavigationBarTitle({
       title: isReviewPreview ? '评价配图预览' : isDraftOnly ? '预览案例文案' : '脱敏预览',
     })
@@ -88,8 +91,9 @@ Page({
       isDraftOnly,
       authTier: 'named',
       albumTitle,
-      liabilityText: copy.body,
-      policyLinkText: showPolicyLink ? '《公开案例与隐私说明》' : '',
+      liabilityText: consentParts.before,
+      liabilityTextAfter: consentParts.after,
+      policyLinkText: consentParts.link,
       confirmLabelShort: copy.confirmLabel || '确认发布到公开网站',
     })
     if (!taskId) {

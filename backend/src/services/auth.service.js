@@ -11,6 +11,7 @@ const { linkPendingStaffForUser } = require('./merchant-staff.service')
 const {
   listUserRecentServiceAlbums,
   countUserServiceAlbumBindings,
+  countUserPendingOwnerReviews,
 } = require('./service-album.service')
 
 const MINE_RECENT_ALBUMS_LIMIT = 3
@@ -236,8 +237,14 @@ async function fetchMineSummary(userId) {
 
   const phone = user.phone || ''
   const merchantCtx = await resolveMerchantContext(userId)
-  const [consultPending, albumPendingAuth, unreadNotificationCount, recentAlbums, albumBindingCount] =
-    await Promise.all([
+  const [
+    consultPending,
+    albumPendingAuth,
+    unreadNotificationCount,
+    recentAlbums,
+    albumBindingCount,
+    albumPendingOwnerReview,
+  ] = await Promise.all([
     prisma.consultLead.count({
       where: {
         userId,
@@ -262,6 +269,7 @@ async function fetchMineSummary(userId) {
     })(),
     listUserRecentServiceAlbums(userId, MINE_RECENT_ALBUMS_LIMIT),
     countUserServiceAlbumBindings(userId),
+    countUserPendingOwnerReviews(userId),
   ])
 
   return {
@@ -270,6 +278,7 @@ async function fetchMineSummary(userId) {
     merchant: formatMerchantPayload(merchantCtx),
     consultPending,
     albumPendingAuth,
+    albumPendingOwnerReview,
     unreadNotificationCount,
     authorizeCount: 0,
     recentAlbums,

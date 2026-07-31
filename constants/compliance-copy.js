@@ -49,13 +49,13 @@ const AUTHORIZATION_CONSENT = {
     authType: 'case_public',
     version: LEGAL_VERSION,
     text:
-      '我已阅读《公开案例与隐私说明》，核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架',
+      '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。',
   },
   desensitize_confirm: {
     authType: 'desensitize_confirm',
     version: LEGAL_VERSION,
     text:
-      '本人已核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架',
+      '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。',
   },
   case_revoke: {
     authType: 'case_revoke',
@@ -122,6 +122,31 @@ const AUTHORIZATION_CONSENT = {
 function getAuthorizationConsent(authType) {
   const entry = Object.values(AUTHORIZATION_CONSENT).find((item) => item.authType === authType)
   return entry || null
+}
+
+/** 公开案例协议书名号（勾选文案中可点开的链接） */
+const PUBLIC_CASE_POLICY_LINK = '《公开案例与隐私说明》'
+
+/**
+ * 将含协议书名号的勾选文案拆成「前文 + 链接 + 后文」，便于链接插在句中。
+ * @param {string} fullText
+ * @param {boolean} [showLink=true]
+ */
+function splitConsentWithPolicyLink(fullText, showLink = true) {
+  const text = String(fullText || '')
+  const link = PUBLIC_CASE_POLICY_LINK
+  const idx = text.indexOf(link)
+  if (!showLink) {
+    return { before: text, link: '', after: '' }
+  }
+  if (idx < 0) {
+    return { before: text, link, after: '' }
+  }
+  return {
+    before: text.slice(0, idx),
+    link,
+    after: text.slice(idx + link.length),
+  }
 }
 
 const COMPLIANCE_COPY = {
@@ -197,6 +222,8 @@ const REPORT_SUCCESS_MESSAGE = '已收到，我们将在 3 个工作日内处理
 module.exports = {
   AUTHORIZATION_CONSENT,
   getAuthorizationConsent,
+  PUBLIC_CASE_POLICY_LINK,
+  splitConsentWithPolicyLink,
   COMPLIANCE_COPY,
   REPORT_SUCCESS_MESSAGE,
 }

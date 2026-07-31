@@ -1,4 +1,9 @@
-const { PREVIEW_LABEL, FEEDBACK_LABEL, CONTROL_LINE } = require('../../utils/publish-thank-you')
+const {
+  PREVIEW_LABEL,
+  FEEDBACK_LABEL_PENDING,
+  FEEDBACK_LABEL_DONE,
+  CONTROL_LINE,
+} = require('../../utils/publish-thank-you')
 
 Component({
   options: {
@@ -46,6 +51,11 @@ Component({
       type: Boolean,
       value: true,
     },
+    /** 已完工且未提交服务评价：尾页主按钮 */
+    pendingOwnerReview: {
+      type: Boolean,
+      value: false,
+    },
     showContact: {
       type: Boolean,
       value: false,
@@ -78,9 +88,27 @@ Component({
       type: String,
       value: '联系门店',
     },
-    feedbackLabel: {
-      type: String,
-      value: FEEDBACK_LABEL,
+  },
+
+  data: {
+    resolvedFeedbackLabel: FEEDBACK_LABEL_PENDING,
+  },
+
+  observers: {
+    pendingOwnerReview(pending) {
+      this.setData({
+        resolvedFeedbackLabel: pending ? FEEDBACK_LABEL_PENDING : FEEDBACK_LABEL_DONE,
+      })
+    },
+  },
+
+  lifetimes: {
+    attached() {
+      this.setData({
+        resolvedFeedbackLabel: this.properties.pendingOwnerReview
+          ? FEEDBACK_LABEL_PENDING
+          : FEEDBACK_LABEL_DONE,
+      })
     },
   },
 

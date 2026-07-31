@@ -33,7 +33,8 @@ const SERVICE_ALBUM_STAGES = [
     id: 'stage_4',
     title: '配件/材料凭证',
     description: '',
-    photoTips: '根据维修方案拍摄新配件的包装、编码等凭证图',
+    photoTips:
+      '请按配件逐项上传凭证：带零件号、批号及供应商印章的零件本体、包装，以及正规进货发票等',
     notePlaceholder: '可补充配件品牌、编码或更换说明（选填）',
     requiredLevelLabel: '',
     requiredLevelVariant: 'default',

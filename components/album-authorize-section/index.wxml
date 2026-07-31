@@ -21,12 +21,13 @@
       disabled="{{submitting}}"
       bind:toggle="onToggle"
     >
-      <text>{{consentText}}</text>
+      <text>{{consentBefore}}</text>
       <text
-        wx:if="{{showPolicyLink}}"
+        wx:if="{{consentLink}}"
         class="text-link"
         catchtap="onPolicyTap"
-      >{{policyLinkText}}</text>
+      >{{consentLink}}</text>
+      <text wx:if="{{consentAfter}}">{{consentAfter}}</text>
     </ui-checkbox-row>
     <view wx:if="{{!showActions && showRejectLink}}" class="album-authorize-section__reject-link">
       <text class="text-caption text-link" bindtap="onReject">{{rejectText}}</text>

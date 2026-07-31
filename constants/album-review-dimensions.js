@@ -1,4 +1,4 @@
-/** 车主服务评价 · 维修服务 + 相册记录 */
+/** 车主服务评价 · 维修服务 + 相册记录（首屏两域一星，细项仍四维） */
 
 const REPAIR_REVIEW_DIMENSIONS = [
   { key: 'repairAttitude', label: '服务态度', hint: '沟通是否尊重、及时、耐心' },
@@ -19,6 +19,22 @@ const ALBUM_REVIEW_GROUPS = [
   { key: 'album', title: '相册记录', dimensions: ALBUM_REVIEW_DIMENSIONS },
 ]
 
+/** 首屏：两域各一星，写入时同步同域细项 */
+const DOMAIN_REVIEW_DIMENSIONS = [
+  {
+    key: 'repairDomain',
+    label: '维修服务',
+    hint: '态度与专业是否让人放心',
+    mapsTo: ['repairAttitude', 'repairTrust'],
+  },
+  {
+    key: 'albumDomain',
+    label: '过程相册',
+    hint: '记录是否充分、图文是否清楚',
+    mapsTo: ['albumSufficiency', 'albumClarity'],
+  },
+]
+
 const ALL_REVIEW_DIMENSIONS = [...REPAIR_REVIEW_DIMENSIONS, ...ALBUM_REVIEW_DIMENSIONS]
 
 function emptyAlbumReviewScores() {
@@ -28,10 +44,31 @@ function emptyAlbumReviewScores() {
   }, {})
 }
 
+function domainScoresFromDetail(scores = {}) {
+  return {
+    repairDomain: Number(scores.repairAttitude) || Number(scores.repairTrust) || 0,
+    albumDomain: Number(scores.albumSufficiency) || Number(scores.albumClarity) || 0,
+  }
+}
+
+function applyDomainScore(scores = {}, domainKey, value) {
+  const domain = DOMAIN_REVIEW_DIMENSIONS.find((item) => item.key === domainKey)
+  if (!domain) return { ...scores }
+  const next = { ...scores }
+  const star = Number(value) || 0
+  domain.mapsTo.forEach((key) => {
+    next[key] = star
+  })
+  return next
+}
+
 module.exports = {
   REPAIR_REVIEW_DIMENSIONS,
   ALBUM_REVIEW_DIMENSIONS,
   ALBUM_REVIEW_GROUPS,
+  DOMAIN_REVIEW_DIMENSIONS,
   ALL_REVIEW_DIMENSIONS,
   emptyAlbumReviewScores,
+  domainScoresFromDetail,
+  applyDomainScore,
 }

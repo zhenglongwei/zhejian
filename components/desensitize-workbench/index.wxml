@@ -71,6 +71,7 @@
         class="text-link"
         catchtap="onPolicyTap"
       >{{policyLinkText}}</text>
+      <text wx:if="{{liabilityTextAfter}}">{{liabilityTextAfter}}</text>
     </ui-checkbox-row>
   </view>
 </view>

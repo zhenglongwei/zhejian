@@ -27,7 +27,7 @@ const CONTROL_LINE =
   '我们承诺：案例仅用于技术科普，绝不泄露您的任何隐私。您可随时在「我的服务相册」点击下架，公开站将尽快删除相关内容（第三方缓存清除可能有延迟）。'
 
 const CONSENT_CHECKBOX =
-  '我已核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架。'
+  '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。'
 
 const AUTH_ACTION_LABEL = '分享脱敏报告'
 const AUTH_SHEET_TITLE = '分享脱敏案例'
@@ -35,7 +35,12 @@ const AUTH_CONFIRM_TEXT = '愿意分享这份脱敏报告'
 const AUTH_REJECT_TEXT = '暂时先不分享'
 const SHARE_COLUMN_PUBLISH_LABEL = '分享脱敏案例给同城车友'
 const PREVIEW_LABEL = '预览脱敏案例'
+/** @deprecated 兼容旧引用；未评态请用 FEEDBACK_LABEL_PENDING */
 const FEEDBACK_LABEL = '评价与反馈'
+const FEEDBACK_LABEL_PENDING = '说说这次维修体验'
+const FEEDBACK_LABEL_DONE = '查看评价'
+const REVIEW_DOCK_LABEL = '评价'
+const REVIEW_NUDGE_TEXT = '还差一步：说说这次维修体验'
 
 function hashSeed(input) {
   const text = String(input || '')
@@ -102,7 +107,7 @@ function buildPublishInviteCopy(options = {}) {
     rejectText: AUTH_REJECT_TEXT,
     actionLabel: AUTH_ACTION_LABEL,
     previewLabel: PREVIEW_LABEL,
-    feedbackLabel: FEEDBACK_LABEL,
+    feedbackLabel: FEEDBACK_LABEL_PENDING,
     consentCheckbox: CONSENT_CHECKBOX,
   }
 }
@@ -134,6 +139,10 @@ module.exports = {
   SHARE_COLUMN_PUBLISH_LABEL,
   PREVIEW_LABEL,
   FEEDBACK_LABEL,
+  FEEDBACK_LABEL_PENDING,
+  FEEDBACK_LABEL_DONE,
+  REVIEW_DOCK_LABEL,
+  REVIEW_NUDGE_TEXT,
   pickEncourageLine,
   pickExperienceOfficerTitle,
   buildGuidePitch,

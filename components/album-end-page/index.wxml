@@ -21,6 +21,13 @@
 
     <view class="album-end-page__actions">
       <ui-button
+        wx:if="{{showFeedback && pendingOwnerReview}}"
+        type="primary"
+        block
+        bind:btntap="onFeedbackTap"
+      >{{resolvedFeedbackLabel}}</ui-button>
+
+      <ui-button
         wx:for="{{gateActions}}"
         wx:key="key"
         type="secondary"
@@ -31,7 +38,7 @@
 
       <view wx:if="{{showPreview}}" class="album-end-page__preview-wrap">
         <ui-button
-          type="primary"
+          type="{{pendingOwnerReview ? 'secondary' : 'primary'}}"
           disabled="{{previewDisabled}}"
           bind:btntap="onPreviewTap"
         >{{previewLabel}}</ui-button>
@@ -62,15 +69,12 @@
         bind:btntap="onContactTap"
       >{{contactLabel}}</ui-button>
 
-      <view
-        wx:if="{{showFeedback}}"
-        class="album-end-page__feedback"
-        bindtap="onFeedbackTap"
-        hover-class="album-end-page__feedback--hover"
-        hover-stay-time="80"
-      >
-        <text class="album-end-page__feedback-text">{{feedbackLabel}}</text>
-      </view>
+      <ui-button
+        wx:if="{{showFeedback && !pendingOwnerReview}}"
+        type="secondary"
+        block
+        bind:btntap="onFeedbackTap"
+      >{{resolvedFeedbackLabel}}</ui-button>
     </view>
   </view>
 </view>

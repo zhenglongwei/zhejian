@@ -28,6 +28,8 @@ const MINE_H5_OUTLET_TEXT = '了解提供服务相册的门店 → 打开内容�
 function summarizeAuthorizationTodos(authList = [], badges = {}) {
   const pendingAuth =
     Number(String(badges.albumPendingAuth || '').replace(/\+/g, '')) || 0
+  const pendingOwnerReview =
+    Number(String(badges.albumPendingOwnerReview || '').replace(/\+/g, '')) || 0
   let pendingReview = 0
   let auditRejected = 0
 
@@ -43,6 +45,7 @@ function summarizeAuthorizationTodos(authList = [], badges = {}) {
     pendingAuth,
     pendingReview,
     auditRejected,
+    pendingOwnerReview,
     hasRecords: (authList || []).length > 0,
   }
 }
@@ -51,6 +54,13 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
   const summary = authSummary || summarizeAuthorizationTodos([], badges)
   const items = []
 
+  if (summary.pendingOwnerReview > 0) {
+    items.push({
+      key: 'pendingOwnerReview',
+      label: `${summary.pendingOwnerReview} 本待评价`,
+      action: 'albumPendingOwnerReview',
+    })
+  }
   if (summary.pendingAuth > 0) {
     items.push({
       key: 'pendingAuth',

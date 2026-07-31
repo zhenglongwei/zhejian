@@ -29,6 +29,37 @@
   height: 100%;
 }
 
+.album-detail__review-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  padding: var(--space-xs) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.album-detail__review-nudge-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-primary);
+}
+
+.album-detail__review-nudge-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.album-detail__review-nudge-link {
+  color: var(--color-primary);
+}
+
+.album-detail__review-nudge-close {
+  color: var(--color-text-secondary);
+}
+
 .album-detail__dock {
   position: fixed;
   right: 0;

@@ -86,11 +86,16 @@
       <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
       <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
 
-      <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
+      <view wx:if="{{item.statusLabel || item.hasUnreadUpdate || item.pendingOwnerReview}}" class="album-card__tags">
         <ui-tag
           wx:if="{{item.hasUnreadUpdate}}"
           variant="warning"
           text="有更新"
+        />
+        <ui-tag
+          wx:if="{{item.pendingOwnerReview}}"
+          variant="warning"
+          text="待评价"
         />
         <ui-tag
           wx:if="{{item.statusLabel}}"
@@ -119,11 +124,16 @@
         <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
         <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
 
-        <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
+        <view wx:if="{{item.statusLabel || item.hasUnreadUpdate || item.pendingOwnerReview}}" class="album-card__tags">
           <ui-tag
             wx:if="{{item.hasUnreadUpdate}}"
             variant="warning"
             text="有更新"
+          />
+          <ui-tag
+            wx:if="{{item.pendingOwnerReview}}"
+            variant="warning"
+            text="待评价"
           />
           <ui-tag
             wx:if="{{item.statusLabel}}"

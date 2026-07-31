@@ -17,24 +17,21 @@
   </block>
 
   <block wx:elif="{{mode === 'invite'}}">
-    <view class="page-content album-owner-share__body">
-      <view class="surface-album-catalog album-owner-share__hero">
-        <view class="album-owner-share__seal" aria-hidden="true">
-          <view class="album-owner-share__seal-ring">
-            <text class="album-owner-share__seal-mark">证</text>
-          </view>
+    <view class="page-content album-owner-share__body album-owner-share__body--invite">
+      <view class="album-owner-share__hero album-owner-share__hero--invite">
+        <view class="album-owner-share__avatar-wrap" aria-hidden="true">
+          <image
+            class="album-owner-share__avatar"
+            src="/assets/share/officer-avatar.png"
+            mode="aspectFit"
+          />
         </view>
-        <ui-tag wx:if="{{officerTitle}}" variant="order" text="{{officerTitle}}" />
-        <text class="album-owner-share__hero-title text-h2">{{inviteHeroTitle}}</text>
-        <text class="album-owner-share__hero-sub text-caption">{{inviteHeroSub}}</text>
-      </view>
-
-      <ui-card shadow="{{true}}" padding="{{true}}">
+        <text class="album-owner-share__officer text-body">{{officerTitle}}</text>
         <text class="album-owner-share__pitch text-body">{{invitePitch}}</text>
-        <view class="album-owner-share__control-bar">
-          <text class="album-owner-share__control text-caption">{{controlLine}}</text>
+        <view class="notice notice--info album-owner-share__tip">
+          <text class="album-owner-share__tip-text">{{controlLine}}</text>
         </view>
-      </ui-card>
+      </view>
     </view>
 
     <ui-fixed-bottom-bar>

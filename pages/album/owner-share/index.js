@@ -32,9 +32,7 @@ Page({
     albumId: '',
     mode: 'invite',
     detail: null,
-    officerTitle: '',
-    inviteHeroTitle: '爱车满血复活',
-    inviteHeroSub: '',
+    officerTitle: '透明维修体验官',
     invitePitch: '',
     controlLine: CONTROL_LINE,
     previewLabel: PREVIEW_LABEL,
@@ -88,18 +86,15 @@ Page({
       }
 
       const shareState = initAlbumShareState(detail)
-      const officerTitle = invite.officerTitle || ''
+      const officerTitle = invite.officerTitle || '透明维修体验官'
       this.setData({
         status: 'normal',
         detail,
         mode,
         officerTitle,
-        inviteHeroSub: officerTitle
-          ? `诚邀成为「${officerTitle}」，把脱敏过程分享给同城车友`
-          : '把脱敏过程分享给同城车友，帮助更多人避开修车陷阱',
         invitePitch: invite.pitch,
-        controlLine: invite.controlLine,
-        previewLabel: invite.previewLabel,
+        controlLine: invite.controlLine || CONTROL_LINE,
+        previewLabel: invite.previewLabel || PREVIEW_LABEL,
         ...shareState,
       })
       if (mode === 'published') {

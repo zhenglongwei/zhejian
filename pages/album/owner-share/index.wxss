@@ -7,6 +7,11 @@
   padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
+.album-owner-share__body--invite {
+  min-height: 70vh;
+  justify-content: center;
+}
+
 .album-owner-share__hero {
   display: flex;
   flex-direction: column;
@@ -17,6 +22,20 @@
   padding-bottom: var(--space-lg);
 }
 
+.album-owner-share__hero--invite {
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    180deg,
+    var(--color-warning-light) 0%,
+    var(--color-album-frame-inner) 55%,
+    var(--color-album-frame-inner) 100%
+  );
+  border: 1rpx solid var(--color-album-frame-line);
+  box-shadow: var(--shadow-card-soft);
+}
+
 .album-owner-share__hero--ready {
   background: linear-gradient(
     180deg,
@@ -24,6 +43,49 @@
     var(--color-success-light) 200rpx,
     var(--color-album-frame-inner) 100%
   );
+}
+
+.album-owner-share__avatar-wrap {
+  width: 280rpx;
+  height: 280rpx;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  background: var(--color-album-frame-inner);
+  box-shadow: var(--shadow-card-soft);
+}
+
+.album-owner-share__avatar {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.album-owner-share__officer {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: 2rpx;
+}
+
+.album-owner-share__pitch {
+  display: block;
+  line-height: 1.65;
+  color: var(--color-text-primary);
+  max-width: 560rpx;
+  padding: 0 var(--space-sm);
+}
+
+.album-owner-share__tip {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  margin-top: var(--space-xs);
+}
+
+.album-owner-share__tip-text {
+  display: block;
+  font-size: var(--font-caption);
+  line-height: 1.55;
 }
 
 .album-owner-share__seal {
@@ -73,33 +135,6 @@
   color: var(--color-text-secondary);
   line-height: 1.55;
   max-width: 560rpx;
-}
-
-.album-owner-share__pitch {
-  display: block;
-  line-height: 1.65;
-  color: var(--color-text-primary);
-  margin-bottom: var(--space-md);
-}
-
-.album-owner-share__control-bar {
-  margin-bottom: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-muted);
-  border: 1rpx solid var(--color-border);
-}
-
-.album-owner-share__control {
-  display: block;
-  line-height: 1.55;
-  color: var(--color-text-secondary);
-}
-
-.album-owner-share__next-hint {
-  display: block;
-  margin-top: var(--space-md);
-  line-height: 1.5;
 }
 
 .album-owner-share__section-title {

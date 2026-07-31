@@ -4,14 +4,14 @@
  * 对外避免「授权公示」等压迫短句；主文案走荣誉 + 控制权。
  */
 
-/** 亲切单句鼓励；按相册稳定随机取一句 */
+/** 亲切单句鼓励；按相册稳定随机取一句（少字，不重复称号） */
 const ENCOURAGE_LINES = [
-  '恭喜您的爱车满血复活！我们为您整理了一份脱敏避坑指南。是否愿意作为「透明维修体验官」，分享给同城车友，帮助更多人避开修车陷阱？',
-  '这份脱敏后的维修记录，说不定能帮到下一位同款车主。愿意当一回「避坑体验官」，把它分享出去吗？',
-  '修车过程留得清楚，本身就是最好的口碑。欢迎成为透明维修体验官，让同城车友少走弯路。',
-  '谢谢您一路跟进服务相册。若方便，诚邀您以透明维修体验官的身份，把这份脱敏案例分享给需要的人。',
-  '您的案例很有参考价值。成为避坑体验官，分享给同城车友，帮助更多人避开修车陷阱。',
-  '修好了就更值得被看见。邀请您做透明维修体验官，把脱敏后的过程分享出去，帮帮后来的车友。',
+  '这份脱敏避坑指南已整理好，诚邀您分享给同城车友，帮更多人少踩坑。',
+  '这份脱敏后的维修记录，说不定能帮到下一位同款车主，愿意分享出去吗？',
+  '修车过程留得清楚，本身就是最好的口碑。欢迎把脱敏案例分享给同城车友。',
+  '谢谢您一路跟进服务相册。若方便，把这份脱敏案例分享给需要的人吧。',
+  '您的案例很有参考价值。分享给同城车友，帮助更多人避开修车陷阱。',
+  '修好了就更值得被看见。把脱敏后的过程分享出去，帮帮后来的车友。',
 ]
 
 const EXPERIENCE_OFFICER_TITLES = [
@@ -23,11 +23,12 @@ const EXPERIENCE_OFFICER_TITLES = [
   '透明修车观察员',
 ]
 
+/** 邀请页 / 授权区短提示（完整承诺见法律专页） */
 const CONTROL_LINE =
-  '我们承诺：案例仅用于技术科普，绝不泄露您的任何隐私。您可随时在「我的服务相册」点击下架，公开站将尽快删除相关内容（第三方缓存清除可能有延迟）。'
+  '仅用于技术科普，不泄露隐私。可随时在「我的服务相册」下架。'
 
 const CONSENT_CHECKBOX =
-  '我已核对脱敏效果，同意以体验官身份将门店脱敏案例说明与精选过程图供同城车友参考（不含金额与完整工单）；我可随时下架。'
+  '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。'
 
 const AUTH_ACTION_LABEL = '分享脱敏报告'
 const AUTH_SHEET_TITLE = '分享脱敏案例'
@@ -35,7 +36,12 @@ const AUTH_CONFIRM_TEXT = '愿意分享这份脱敏报告'
 const AUTH_REJECT_TEXT = '暂时先不分享'
 const SHARE_COLUMN_PUBLISH_LABEL = '分享脱敏案例给同城车友'
 const PREVIEW_LABEL = '预览脱敏案例'
+/** @deprecated 兼容旧引用；未评态请用 FEEDBACK_LABEL_PENDING */
 const FEEDBACK_LABEL = '评价与反馈'
+const FEEDBACK_LABEL_PENDING = '说说这次维修体验'
+const FEEDBACK_LABEL_DONE = '查看评价'
+const REVIEW_DOCK_LABEL = '评价'
+const REVIEW_NUDGE_TEXT = '还差一步：说说这次维修体验'
 
 function hashSeed(input) {
   const text = String(input || '')
@@ -57,16 +63,15 @@ function pickExperienceOfficerTitle(seed = '') {
 }
 
 /**
- * 有车型/项目时生成带情绪价值的邀请句（仍无金额）
+ * 有车型/项目时生成带情绪价值的邀请句（仍无金额；不重复称号）
  */
 function buildGuidePitch(options = {}) {
   const seed = options.seed || options.albumId || 'zhejian'
-  const officerTitle = pickExperienceOfficerTitle(seed)
   const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
   const project = String(options.serviceName || options.project || '').trim()
   if (vehicle || project) {
     const label = [vehicle, project].filter(Boolean).join(' · ')
-    return `恭喜您的爱车满血复活！我们为您整理了一份《${label}避坑指南》。是否愿意作为「${officerTitle}」，将这份脱敏报告分享给同城车友，帮助更多人避开修车陷阱？`
+    return `我们为您整理了《${label}避坑指南》，诚邀您分享给同城车友，帮更多人少踩坑。`
   }
   return pickEncourageLine(seed)
 }
@@ -102,7 +107,7 @@ function buildPublishInviteCopy(options = {}) {
     rejectText: AUTH_REJECT_TEXT,
     actionLabel: AUTH_ACTION_LABEL,
     previewLabel: PREVIEW_LABEL,
-    feedbackLabel: FEEDBACK_LABEL,
+    feedbackLabel: FEEDBACK_LABEL_PENDING,
     consentCheckbox: CONSENT_CHECKBOX,
   }
 }
@@ -134,6 +139,11 @@ module.exports = {
   SHARE_COLUMN_PUBLISH_LABEL,
   PREVIEW_LABEL,
   FEEDBACK_LABEL,
+  FEEDBACK_LABEL_PENDING,
+  FEEDBACK_LABEL_DONE,
+  REVIEW_DOCK_LABEL,
+  REVIEW_NUDGE_TEXT,
+  hashSeed,
   pickEncourageLine,
   pickExperienceOfficerTitle,
   buildGuidePitch,

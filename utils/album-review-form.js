@@ -21,7 +21,7 @@ function validateAlbumReviewForm(form) {
   const scores = form.scores || {}
   for (const dim of ALL_REVIEW_DIMENSIONS) {
     if (!scores[dim.key] || scores[dim.key] < 1) {
-      return { ok: false, message: '请完成维修服务与相册记录的全部评分' }
+      return { ok: false, message: '请完成维修服务与过程相册评分' }
     }
   }
   const content = String(form.content || '').trim()

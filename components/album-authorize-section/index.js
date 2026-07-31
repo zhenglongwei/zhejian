@@ -5,6 +5,7 @@ const {
   CONSENT_CHECKBOX,
   CONTROL_LINE,
 } = require('../../utils/publish-thank-you')
+const { splitConsentWithPolicyLink } = require('../../constants/compliance-copy')
 
 Component({
   properties: {
@@ -67,6 +68,37 @@ Component({
     showRejectLink: {
       type: Boolean,
       value: true,
+    },
+  },
+
+  data: {
+    consentBefore: '',
+    consentLink: '',
+    consentAfter: '',
+  },
+
+  observers: {
+    'consentText, showPolicyLink'(consentText, showPolicyLink) {
+      const parts = splitConsentWithPolicyLink(consentText, showPolicyLink)
+      this.setData({
+        consentBefore: parts.before,
+        consentLink: parts.link,
+        consentAfter: parts.after,
+      })
+    },
+  },
+
+  lifetimes: {
+    attached() {
+      const parts = splitConsentWithPolicyLink(
+        this.properties.consentText,
+        this.properties.showPolicyLink,
+      )
+      this.setData({
+        consentBefore: parts.before,
+        consentLink: parts.link,
+        consentAfter: parts.after,
+      })
     },
   },
 

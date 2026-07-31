@@ -301,6 +301,7 @@
                         </view>
                       </view>
                     </view>
+                    <text class="text-caption text-secondary merchant-album-edit__wizard-photo-hint">{{partPhotoUploadHint}}</text>
                     <view class="merchant-album-edit__wizard-photo-actions">
                       <text
                         class="text-caption text-link merchant-album-edit__wizard-ocr-text {{partLabelOcrLoading ? 'is-loading' : ''}}"

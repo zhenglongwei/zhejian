@@ -24,11 +24,15 @@ Component({
       type: String,
       value: '',
     },
+    liabilityTextAfter: {
+      type: String,
+      value: '',
+    },
     liabilityAccepted: {
       type: Boolean,
       value: false,
     },
-    /** 勾选文案后的协议链接，如《公开案例与隐私说明》 */
+    /** 勾选文案中的协议链接，如《公开案例与隐私说明》 */
     policyLinkText: {
       type: String,
       value: '',

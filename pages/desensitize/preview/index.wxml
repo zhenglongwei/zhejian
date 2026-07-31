@@ -25,16 +25,12 @@
     <!-- 车主发布：只读预览将上网案例文案（不含原图/脱敏对比工作台） -->
     <block wx:if="{{isDraftOnly}}">
       <view class="desensitize-preview__banner">
-        <ui-privacy-banner text="以下为即将发布到公开网站的案例文案（只读）。确认无误后再勾选并发布。" />
+        <ui-privacy-banner text="以下为即将发布到公开网站的案例文案。我们筛选了关键节点照片，删除了可能暴露您隐私的照片，并对一部分照片进行了马赛克处理。请您确认。公开以后，您可随时撤回您的案例。" />
       </view>
       <view wx:if="{{caseDraftMissing}}" class="desensitize-preview__draft-missing text-caption">
         案例稿暂时无法加载，请稍后重试。若持续出现，请联系门店或客服。
       </view>
       <view wx:elif="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
-        <text class="text-h3 desensitize-preview__case-title">将公示的案例文案</text>
-        <text class="text-caption text-secondary desensitize-preview__case-hint">
-          摘要、正文与脱敏配图与门店确认稿一致，不可修改；以下即公开网站将展示的内容。
-        </text>
         <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
         <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
           <text class="text-body desensitize-preview__case-sec-title">案例摘要</text>
@@ -73,6 +69,7 @@
               class="text-link"
               catchtap="onOpenPolicy"
             >{{policyLinkText}}</text>
+            <text wx:if="{{liabilityTextAfter}}">{{liabilityTextAfter}}</text>
           </ui-checkbox-row>
         </view>
         <view class="desensitize-preview__dock-actions desensitize-preview__dock-actions--row">
@@ -162,6 +159,7 @@
         totalCount="{{stats.total}}"
         failedCount="{{stats.failed}}"
         liabilityText="{{liabilityText}}"
+        liabilityTextAfter="{{liabilityTextAfter}}"
         liabilityAccepted="{{liabilityAccepted}}"
         policyLinkText="{{policyLinkText}}"
         bind:liabilitychange="onLiabilityChange"

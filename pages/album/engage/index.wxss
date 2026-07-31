@@ -70,6 +70,26 @@
   margin-bottom: var(--space-sm);
 }
 
+.album-engage__section-hint {
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.album-engage__more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-xs);
+}
+
+.album-engage__more-text {
+  color: var(--color-primary);
+}
+
+.album-engage__more-hint {
+  display: block;
+}
+
 .album-engage__tags {
   display: flex;
   flex-wrap: wrap;

@@ -294,6 +294,9 @@ function appendAlbumListPresentation(item, base = {}) {
     showPartVerifyLink: Number(merged.partCount) > 0 || Boolean(merged.showPartVerifyLink),
     partVerifySummaryLabel:
       (merged.partVerifySummary && merged.partVerifySummary.label) || '',
+    pendingOwnerReview: Boolean(merged.pendingOwnerReview),
+    reviewEligible: Boolean(merged.reviewEligible),
+    hasReview: Boolean(merged.hasReview),
   }
 }
 
