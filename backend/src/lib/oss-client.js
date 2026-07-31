@@ -160,17 +160,33 @@ async function putObject(objectKey, body, options = {}) {
 
 /** 连通性探测：列前缀（空前缀也行），用于迁移脚本启动自检 */
 async function probeOssConnectivity() {
+  const creds = await resolveAliyunCreds()
   const client = await getOssClient()
   const endpointHost = activeEndpointHost()
-  await withTimeout(
-    client.list({ 'max-keys': 1, prefix: 'uploads/' }),
-    20000,
-    `List uploads/ via ${endpointHost}`,
-  )
+  const ak = creds.accessKeyId || ''
+  const akHint = ak.length > 8 ? `${ak.slice(0, 4)}…${ak.slice(-4)}` : '(empty)'
+  const credSource =
+    process.env.ALIBABA_CLOUD_ACCESS_KEY_ID || process.env.ALIYUN_ACCESS_KEY_ID
+      ? 'env_access_key'
+      : 'ecs_ram_role'
+  try {
+    await withTimeout(
+      client.list({ 'max-keys': 1, prefix: 'uploads/' }),
+      20000,
+      `List uploads/ via ${endpointHost}`,
+    )
+  } catch (e) {
+    const msg = String((e && e.message) || e)
+    e.message = `${msg} | bucket=${client.options.bucket} endpoint=${endpointHost} cred=${credSource} ak=${akHint} sts=${Boolean(creds.securityToken)}`
+    throw e
+  }
   return {
     bucket: client.options.bucket,
     endpoint: endpointHost,
     internal: preferInternal(),
+    credSource,
+    accessKeyHint: akHint,
+    hasStsToken: Boolean(creds.securityToken),
   }
 }
 

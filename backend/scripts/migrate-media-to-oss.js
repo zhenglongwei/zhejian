@@ -66,7 +66,9 @@ async function main() {
     console.log('[migrate-oss] probing OSS connectivity…')
     try {
       const info = await probeOssConnectivity()
-      console.log(`[migrate-oss] probe ok bucket=${info.bucket} endpoint=${info.endpoint}`)
+      console.log(
+        `[migrate-oss] probe ok bucket=${info.bucket} endpoint=${info.endpoint} cred=${info.credSource} ak=${info.accessKeyHint}`,
+      )
     } catch (e) {
       console.error('[migrate-oss] probe failed:', e && e.message)
       console.error(
