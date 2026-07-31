@@ -108,16 +108,13 @@ function resolveAlbumAuthAction(item = {}) {
   if (status === 'public_approved') {
     return { show: false, label: '', disabled: false, hint: '' }
   }
+  // 已授权待上网 / 不可再授权：不展示「发布」（撤回见 withdraw）
   if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
-    return {
-      show: true,
-      label: AUTH_ACTION_LABEL,
-      disabled: true,
-      hint: item.userConfirmHint || item.compliancePendingHint || '暂不可分享',
-    }
+    return { show: false, label: '', disabled: false, hint: '' }
   }
   if (
     status === 'private' ||
+    status === 'review_passed' ||
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {
@@ -136,6 +133,14 @@ function resolveAlbumAuthAction(item = {}) {
 function resolveAlbumWithdrawAction(item = {}) {
   const status = item.publicCaseStatus || 'private'
   if (status === 'pending_review' || status === 'public_approved') {
+    return {
+      show: true,
+      label: '撤回发布',
+      disabled: Boolean(item.withdrawing),
+    }
+  }
+  // 案例审已通过且车主已授权、尚未标为 pending_review 时也可撤回
+  if (status === 'review_passed' && item.awaitingUserConfirm === false && item.canAuthorizePublicCase === false) {
     return {
       show: true,
       label: '撤回发布',

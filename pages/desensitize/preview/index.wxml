@@ -72,24 +72,14 @@
             <text wx:if="{{liabilityTextAfter}}">{{liabilityTextAfter}}</text>
           </ui-checkbox-row>
         </view>
-        <view class="desensitize-preview__dock-actions desensitize-preview__dock-actions--row">
-          <view class="desensitize-preview__dock-btn">
-            <ui-button
-              type="secondary"
-              block
-              bind:btntap="onOpenArticleCopy"
-              disabled="{{caseDraftMissing}}"
-            >复制文案</ui-button>
-          </view>
-          <view class="desensitize-preview__dock-btn">
-            <ui-button
-              type="primary"
-              block
-              loading="{{confirmLoading}}"
-              disabled="{{confirmLoading || caseDraftMissing}}"
-              bind:btntap="onShareReportTap"
-            >{{confirmLabelShort}}</ui-button>
-          </view>
+        <view class="desensitize-preview__dock-actions">
+          <ui-button
+            type="primary"
+            block
+            loading="{{confirmLoading}}"
+            disabled="{{confirmLoading || caseDraftMissing}}"
+            bind:btntap="onShareReportTap"
+          >{{confirmLabelShort}}</ui-button>
         </view>
       </view>
 

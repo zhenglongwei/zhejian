@@ -24,16 +24,21 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 用户端卡底快捷栏：发布/撤回 · 分享 · 去评价/追评 */
+    showQuickActions: {
+      type: Boolean,
+      value: false,
+    },
     embedded: {
       type: Boolean,
       value: false,
     },
-    /** 用户端 Hero：右上角进入车主分享页 */
+    /** 兼容旧 Hero 右上「分享」 */
     showOwnerShare: {
       type: Boolean,
       value: false,
     },
-    /** 用户端 Hero：右上角去评价 / 已评价 */
+    /** 兼容旧 Hero 右上评价 */
     showOwnerReview: {
       type: Boolean,
       value: false,
@@ -42,7 +47,6 @@ Component({
       type: String,
       value: '去评价',
     },
-    /** 下载档案：单选模式 */
     selectable: {
       type: Boolean,
       value: false,
@@ -57,7 +61,66 @@ Component({
     },
   },
 
+  data: {
+    quickVisible: false,
+    quickPublish: { show: false, label: '发布', disabled: false },
+    quickWithdraw: { show: false, label: '撤回', disabled: false },
+    quickShare: { show: false },
+    quickReview: { show: false, label: '去评价' },
+  },
+
+  observers: {
+    'item, showQuickActions, audience': function () {
+      this.syncQuickActions()
+    },
+  },
+
   methods: {
+    syncQuickActions() {
+      const { item, showQuickActions, audience } = this.properties
+      if (!showQuickActions || audience !== 'user' || !item) {
+        this.setData({ quickVisible: false })
+        return
+      }
+      const blocked = Boolean(item.ownerAlbumLocked || item.caseVisibleToOwner === false)
+      if (blocked) {
+        this.setData({ quickVisible: false })
+        return
+      }
+
+      const withdraw = item.withdrawAction || {}
+      const auth = item.authAction || {}
+      const quickWithdraw = {
+        show: Boolean(withdraw.show),
+        label: '撤回',
+        disabled: Boolean(withdraw.disabled),
+      }
+      const quickPublish = {
+        show: !quickWithdraw.show && Boolean(auth.show),
+        label: '发布',
+        disabled: Boolean(auth.disabled),
+      }
+      const quickShare = {
+        show: Boolean(item.showShareButton || item.showOwnerShare),
+      }
+      let quickReview = { show: false, label: '去评价' }
+      if (item.hasReview) {
+        quickReview = { show: true, label: '追评' }
+      } else if (item.pendingOwnerReview || item.reviewEligible) {
+        quickReview = { show: true, label: '去评价' }
+      }
+
+      const quickVisible =
+        quickPublish.show || quickWithdraw.show || quickShare.show || quickReview.show
+      this.setData({
+        quickVisible,
+        quickPublish,
+        quickWithdraw,
+        quickShare,
+        quickReview,
+      })
+    },
+
     onTap() {
       const { item, selectable, selectDisabled } = this.properties
       if (!item || !item.albumId) return

@@ -348,24 +348,26 @@
 | audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
 | showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
 | framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
-| showHeaderActions | Boolean | false | 用户端列表是否展示右上操作列（默认 **false**；商家端忽略，用 `canShareToOwner`） |
+| showHeaderActions | Boolean | false | 用户端旧版右上操作列（默认 **false**；优先用 `showQuickActions`） |
+| showQuickActions | Boolean | false | 用户端卡底快捷栏：发布/撤回 · 分享 · 去评价/追评（我的 Hero / 相册列表开） |
 | embedded | Boolean | false | Hero / 工作台嵌入态（纵向堆叠） |
-| showOwnerShare | Boolean | false | 用户端 Hero：右上「分享」 |
-| showOwnerReview | Boolean | false | 用户端 Hero：右上「去评价 / 已评价」（在分享上方） |
-| ownerReviewLabel | String | `去评价` | 评价按钮文案 |
+| showOwnerShare | Boolean | false | 兼容旧 Hero 右上「分享」（`showQuickActions` 开启时由快捷栏承接） |
+| showOwnerReview | Boolean | false | 兼容旧 Hero 右上评价（同上） |
+| ownerReviewLabel | String | `去评价` | 兼容旧属性；快捷栏已评用「追评」 |
 | selectable | Boolean | false | 下载档案单选模式 |
 | selected | Boolean | false | 是否选中 |
 | selectDisabled | Boolean | false | 不可选（如无照片） |
 
 | 事件 | 说明 |
 |---|---|
-| tap | `{ id: albumId }` 点击卡片主体（非右上按钮区；`selectable` 时不触发） |
+| tap | `{ id: albumId }` 点击卡片主体（非快捷栏；`selectable` 时不触发） |
 | select | `{ id: albumId }` 单选模式下点选 |
 | selectdisabled | `{ id: albumId }` 单选模式下点到不可选项 |
-| share | `{ id: albumId }` 用户端分享 |
-| ownershare | `{ id: albumId }` 用户端 Hero 进车主分享页 |
-| ownerreview | `{ id: albumId, title? }` 用户端 Hero 进评价页 |
-| authorize | `{ id: albumId, publicCaseStatus }` 用户端授权/公示 |
+| share | `{ id: albumId }` 用户端分享（快捷栏「分享」亦可走 `ownershare`） |
+| ownershare | `{ id: albumId }` 进车主分享页 |
+| ownerreview | `{ id: albumId, title? }` 进评价/查看评价页 |
+| authorize | `{ id, publicCaseStatus, disabled?, hint? }` 发布到公开网站 |
+| withdraw | `{ id, disabled? }` 撤回发布 |
 
 **用户端卡片信息块（合并摘要，非四行表）**
 
@@ -738,7 +740,7 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 **内置结构**：
 
 - **simple**：朋友圈 / 转发给朋友 / 复制链接
-- **owner**：① 发给微信 · ② 复制去社交媒体 · ③ 发布到公开网站
+- **owner**：① 发给微信 · ② 发布到公开网站（**用户端不做「复制去社交媒体 / 复制文案」**）
 
 **约束**：
 

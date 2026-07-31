@@ -92,13 +92,18 @@
           wx:for="{{list}}"
           wx:key="albumId"
           item="{{item}}"
-          showHeaderActions="{{false}}"
+          audience="user"
+          showQuickActions="{{!downloadMode}}"
           selectable="{{downloadMode}}"
           selected="{{downloadMode && selectedAlbumId === item.albumId}}"
           selectDisabled="{{downloadMode && !(item.imageCount > 0)}}"
           bind:tap="onCardTap"
           bind:select="onDownloadSelect"
           bind:selectdisabled="onDownloadSelectDisabled"
+          bind:authorize="onCardAuthorize"
+          bind:withdraw="onCardWithdraw"
+          bind:ownershare="onAlbumOwnerShare"
+          bind:ownerreview="onAlbumOwnerReview"
         />
       </view>
     </view>
@@ -162,10 +167,6 @@
   ownerSharePreparing="{{sharePreparing}}"
   actionsDisabled="{{shareActionsDisabled}}"
   honorHint="{{shareHonorHint}}"
-  socialPlatform="{{socialPlatform}}"
-  socialDraftText="{{socialDraftText}}"
-  socialDraftLoading="{{socialDraftLoading}}"
-  socialDraftWaitHint="{{socialDraftWaitHint}}"
   publishState="{{publishSheetState}}"
   publishDisabled="{{publishSheetDisabled}}"
   publishHint="{{publishSheetHint}}"
@@ -175,8 +176,6 @@
   bind:copyownerlink="onCopyOwnerShareLink"
   bind:copypublicweblink="onCopyPublicWebLink"
   bind:sharetimeline="onShareTimelineGuide"
-  bind:socialplatformchange="onSocialPlatformChange"
-  bind:copysocial="onCopySocialDraft"
   bind:publish="onSharePublish"
 />
 

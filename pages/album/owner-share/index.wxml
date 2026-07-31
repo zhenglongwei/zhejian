@@ -75,45 +75,16 @@
               <text class="text-caption text-secondary">发给微信好友或群</text>
             </view>
           </button>
-          <view class="album-owner-share__channel" bindtap="onOpenSocial">
-            <view class="album-owner-share__channel-icon">
-              <image class="album-owner-share__channel-img" src="/assets/share/icon-social.svg" mode="aspectFit" />
-            </view>
-            <view class="album-owner-share__channel-copy">
-              <text class="text-body">分享到自媒体</text>
-              <text class="text-caption text-secondary">生成文章并复制</text>
-            </view>
-          </view>
         </view>
       </ui-card>
     </view>
-
-    <ui-share-sheet
-      visible="{{shareSheetVisible}}"
-      variant="owner"
-      showOwnerShare="{{true}}"
-      shareIntent="owner"
-      honorHint=""
-      publishState="approved"
-      showPublicWebLink="{{true}}"
-      socialPlatform="{{socialPlatform}}"
-      socialDraftText="{{socialDraftText}}"
-      socialDraftLoading="{{socialDraftLoading}}"
-      socialDraftWaitHint="{{socialDraftWaitHint}}"
-      bind:close="onCloseShareSheet"
-      bind:timeline="onShareTimelineGuide"
-      bind:copyownerlink="onCopyOwnerShareLink"
-      bind:copypublic="onCopyPublicCaseLink"
-      bind:socialplatform="onSocialPlatformChange"
-      bind:copysocial="onCopySocialDraft"
-    />
   </block>
 
   <block wx:elif="{{mode === 'pending'}}">
     <view class="page-content">
       <ui-empty
         title="审核中"
-        description="脱敏案例已提交，通过后即可分享给朋友与自媒体。"
+        description="脱敏案例已提交，通过后即可分享给朋友。"
         actionText="返回"
         bind:action="onBack"
       />

@@ -273,6 +273,25 @@ Page({
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
   },
 
+  onAlbumOwnerShare(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id) return
+    markListNeedRefresh(this)
+    wx.navigateTo({ url: `/pages/album/owner-share/index?albumId=${id}` })
+  },
+
+  onAlbumOwnerReview(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id) return
+    const title = (e.detail && e.detail.title) || ''
+    let url = `/pages/album/engage/index?albumId=${encodeURIComponent(id)}`
+    if (title) {
+      url += `&albumTitle=${encodeURIComponent(title)}`
+    }
+    markListNeedRefresh(this)
+    wx.navigateTo({ url })
+  },
+
   syncDownloadConfirmActions(extra = {}) {
     const selectedAlbumId =
       extra.selectedAlbumId !== undefined

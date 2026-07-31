@@ -54,12 +54,12 @@
       </block>
     </view>
 
-    <!-- embedded：工作台/我的 Hero — 标题与右上操作同一行，正文纵向排列（避免侧栏挤成竖排） -->
+    <!-- embedded：工作台/我的 Hero — 标题与正文纵向排列 -->
     <view wx:if="{{embedded}}" class="album-card__body album-card__body--stacked">
-      <view class="album-card__head {{(audience === 'merchant' && item.canShareToOwner) || (audience === 'user' && (showOwnerShare || showOwnerReview)) ? 'album-card__head--with-share' : ''}}">
+      <view class="album-card__head {{!showQuickActions && audience === 'user' && (showOwnerShare || showOwnerReview) ? 'album-card__head--with-share' : ''}} {{!showQuickActions && audience === 'merchant' && item.canShareToOwner ? 'album-card__head--with-share' : ''}}">
         <text class="album-card__service album-card__service--head text-body">{{item.serviceName}}</text>
         <view
-          wx:if="{{audience === 'merchant' && item.canShareToOwner}}"
+          wx:if="{{!showQuickActions && audience === 'merchant' && item.canShareToOwner}}"
           class="album-card__head-actions"
         >
           <button
@@ -70,7 +70,7 @@
           >分享</button>
         </view>
         <view
-          wx:elif="{{audience === 'user' && (showOwnerShare || showOwnerReview)}}"
+          wx:elif="{{!showQuickActions && audience === 'user' && (showOwnerShare || showOwnerReview)}}"
           class="album-card__head-actions"
         >
           <view
@@ -119,7 +119,7 @@
       >更新于 {{item.updatedAtText}}</text>
     </view>
 
-    <!-- raised：列表卡 — 主内容 + 右侧操作列 -->
+    <!-- raised：列表卡 — 主内容（快捷栏在卡底独立一行） -->
     <view wx:else class="album-card__body album-card__body--split">
       <view class="album-card__main">
         <text class="album-card__service text-album-display">{{item.serviceName}}</text>
@@ -167,7 +167,7 @@
       </view>
 
       <view
-        wx:if="{{audience === 'user' && showHeaderActions && (item.showPartVerifyLink || item.showShareButton || item.authAction.show || item.withdrawAction.show)}}"
+        wx:if="{{!showQuickActions && audience === 'user' && showHeaderActions && (item.showPartVerifyLink || item.showShareButton || item.authAction.show || item.withdrawAction.show)}}"
         class="album-card__actions album-card__actions--column"
         catchtap="onActionAreaTap"
       >
@@ -213,6 +213,41 @@
           data-album-id="{{item.albumId}}"
         >分享</button>
       </view>
+    </view>
+  </view>
+
+  <view
+    wx:if="{{audience === 'user' && showQuickActions && quickVisible}}"
+    class="album-card__quick"
+    catchtap="onActionAreaTap"
+  >
+    <view
+      wx:if="{{quickPublish.show}}"
+      class="album-card__quick-item {{quickPublish.disabled ? 'is-muted' : ''}}"
+      catchtap="onAuthTap"
+    >
+      <text class="album-card__quick-text text-caption">{{quickPublish.label}}</text>
+    </view>
+    <view
+      wx:if="{{quickWithdraw.show}}"
+      class="album-card__quick-item {{quickWithdraw.disabled ? 'is-muted' : ''}}"
+      catchtap="onWithdrawTap"
+    >
+      <text class="album-card__quick-text text-caption">{{quickWithdraw.label}}</text>
+    </view>
+    <view
+      wx:if="{{quickShare.show}}"
+      class="album-card__quick-item"
+      catchtap="onOwnerShareTap"
+    >
+      <text class="album-card__quick-text text-caption">分享</text>
+    </view>
+    <view
+      wx:if="{{quickReview.show}}"
+      class="album-card__quick-item"
+      catchtap="onOwnerReviewTap"
+    >
+      <text class="album-card__quick-text text-caption">{{quickReview.label}}</text>
     </view>
   </view>
 </view>

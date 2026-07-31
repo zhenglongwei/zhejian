@@ -36,7 +36,7 @@ function isMineHeroAlbumBlocked(item = {}) {
   return Boolean(item.ownerAlbumLocked || item.caseVisibleToOwner === false)
 }
 
-/** Hero 右上角分享：案例审通过且车主可查看，并满足既有分享条件 */
+/** Hero 快捷栏分享：案例审通过且车主可查看，并满足既有分享条件 */
 function resolveMineHeroOwnerShare(item = {}) {
   if (isMineHeroAlbumBlocked(item)) return false
   return Boolean(item.showShareButton)
@@ -49,15 +49,6 @@ function resolveMineHeroStatusHint(item = {}) {
   return MINE_HERO_HINT_COMPLETED
 }
 
-function resolveMineHeroOwnerReview(item = {}) {
-  if (isMineHeroAlbumBlocked(item)) return { show: false, label: '去评价' }
-  if (item.hasReview) return { show: true, label: '已评价' }
-  if (item.pendingOwnerReview || item.reviewEligible) {
-    return { show: true, label: '去评价' }
-  }
-  return { show: false, label: '去评价' }
-}
-
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
@@ -65,12 +56,9 @@ function enrichRecentAlbums(albums = []) {
       const enriched = quietHubAlbumTags(
         enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
       )
-      const ownerReview = resolveMineHeroOwnerReview(enriched)
       return {
         ...enriched,
-        showOwnerShare: resolveMineHeroOwnerShare(enriched),
-        showOwnerReview: ownerReview.show,
-        ownerReviewLabel: ownerReview.label,
+        showShareButton: resolveMineHeroOwnerShare(enriched),
         statusHint: resolveMineHeroStatusHint(enriched),
       }
     })
@@ -84,6 +72,15 @@ const {
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
     return this.loadPage({ silent: true })
+  },
+  syncWithdrawingState(withdrawingId) {
+    const cards = enrichRecentAlbums(
+      (this.data.albumHeroCards || []).map((item) => ({
+        ...item,
+        withdrawing: withdrawingId === item.albumId,
+      }))
+    )
+    this.setData({ albumHeroCards: cards })
   },
 })
 

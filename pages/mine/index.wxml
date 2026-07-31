@@ -56,15 +56,14 @@
               item="{{item}}"
               audience="user"
               showProgress="{{true}}"
-              showHeaderActions="{{false}}"
-              showOwnerShare="{{item.showOwnerShare}}"
-              showOwnerReview="{{item.showOwnerReview}}"
-              ownerReviewLabel="{{item.ownerReviewLabel}}"
+              showQuickActions="{{true}}"
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
               bind:ownershare="onAlbumOwnerShare"
               bind:ownerreview="onAlbumOwnerReview"
+              bind:authorize="onCardAuthorize"
+              bind:withdraw="onCardWithdraw"
             />
           </view>
         </block>
@@ -201,6 +200,7 @@
 
 <ui-share-sheet
   visible="{{shareSheetVisible}}"
+  variant="owner"
   showOwnerShare="{{showShareEntry}}"
   shareIntent="{{shareSheetIntent}}"
   shareUseOriginal="{{shareUseOriginal}}"
@@ -211,4 +211,16 @@
   bind:copyownerlink="onCopyOwnerShareLink"
   bind:copypublicweblink="onCopyPublicWebLink"
   bind:sharetimeline="onShareTimelineGuide"
+/>
+
+<ui-bottom-sheet
+  visible="{{withdrawSheetVisible}}"
+  title="撤回发布"
+  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
+  confirmText="确认撤回"
+  cancelText="取消"
+  loading="{{withdrawSheetLoading}}"
+  bind:close="onWithdrawSheetClose"
+  bind:cancel="onWithdrawSheetClose"
+  bind:confirm="onWithdrawSheetConfirm"
 />
