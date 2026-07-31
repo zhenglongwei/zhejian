@@ -41,10 +41,18 @@ function buildPublicMediaUrl(relativePath) {
 function rewriteMediaUrlForCurrentBase(url) {
   const value = stripUrlQuery(String(url || '').trim())
   if (!value) return ''
+  const desKey = parseDesensitizedObjectKeyFromPublicUrl(value)
+  if (desKey) return buildPublicMediaUrl(desKey)
   const objectKey = parseObjectKeyFromPublicUrl(value)
   if (objectKey) return buildPublicMediaUrl(objectKey)
-  const legacy = value.match(/\/media\/uploads\/(\d{4}\/\d{2}\/[a-f0-9]{32}(?:_thumb)?\.(?:jpe?g|png|webp))/i)
-  if (legacy) return buildPublicMediaUrl(`uploads/${legacy[1]}`)
+  const legacyOriginal = value.match(
+    /\/media\/uploads\/(\d{4}\/\d{2}\/[a-f0-9]{32}(?:_thumb)?\.(?:jpe?g|png|webp))/i
+  )
+  if (legacyOriginal) return buildPublicMediaUrl(`uploads/${legacyOriginal[1]}`)
+  const legacyDesensitized = value.match(
+    /\/media\/uploads\/(desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
+  )
+  if (legacyDesensitized) return buildPublicMediaUrl(`uploads/${legacyDesensitized[1]}`)
   return value
 }
 
@@ -87,11 +95,19 @@ function parseObjectKeyFromPublicUrl(url) {
 /** 从公开 URL 解析脱敏产物路径，如 uploads/desensitized/album/node_0.jpg */
 function parseDesensitizedObjectKeyFromPublicUrl(url) {
   if (!url) return ''
-  const value = String(url).trim()
+  const value = stripUrlQuery(String(url).trim())
   const match = value.match(
-    /\/media\/files\/(uploads\/desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
+    /\/(?:api\/v1\/)?media\/files\/(uploads\/desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
   )
   if (match) return match[1]
+  const legacyFiles = value.match(
+    /\/media\/files\/(uploads\/desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
+  )
+  if (legacyFiles) return legacyFiles[1]
+  const legacyUploads = value.match(
+    /\/media\/uploads\/(desensitized\/[\w-]+\/[\w-]+_\d+\.(?:jpe?g|png|webp))/i
+  )
+  if (legacyUploads) return `uploads/${legacyUploads[1]}`
   return ''
 }
 

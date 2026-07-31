@@ -168,6 +168,23 @@
       })
   }
 
+  function isDesensitizedUrl(url) {
+    if (!url) return false
+    var value = String(url)
+    if (value.indexOf('mock://desensitized/') === 0) return true
+    if (value.indexOf('/files/uploads/desensitized/') !== -1) return true
+    if (value.indexOf('/media/files/uploads/desensitized/') !== -1) return true
+    if (value.indexOf('/media/uploads/desensitized/') !== -1) return true
+    return false
+  }
+
+  function mediaSrc(url) {
+    var fn =
+      (window.zhejianH5Ui && window.zhejianH5Ui.resolveH5ImageSrc) ||
+      (window.zhejianPublicCopy && window.zhejianPublicCopy.resolveH5ImageSrc)
+    return fn ? fn(url) : url
+  }
+
   function uniqueUrls(urls) {
     var seen = {}
     var out = []
@@ -175,7 +192,7 @@
       var key = String(url || '').trim()
       if (!key || seen[key]) return
       seen[key] = true
-      out.push(key)
+      out.push(mediaSrc(key))
     })
     return out
   }
@@ -189,15 +206,6 @@
       if (isDesensitizedUrl(img)) urls.push(img)
     })
     return uniqueUrls(urls)
-  }
-
-  function isDesensitizedUrl(url) {
-    if (!url) return false
-    var value = String(url)
-    if (value.indexOf('mock://desensitized/') === 0) return true
-    if (value.indexOf('/files/uploads/desensitized/') !== -1) return true
-    if (value.indexOf('/media/files/uploads/desensitized/') !== -1) return true
-    return false
   }
 
   function buildDisplayAiSummary(data) {

@@ -20,13 +20,22 @@ function isDesensitizedMediaUrl(url) {
   if (value.includes('mock://desensitized/')) return true
   if (value.includes('/files/uploads/desensitized/')) return true
   if (value.includes('/media/files/uploads/desensitized/')) return true
+  if (value.includes('/media/uploads/desensitized/')) return true
   return false
 }
 
 /** 公开案例：仅返回脱敏产物 URL，禁止原图 uploads/YYYY/MM */
 function resolvePublicCaseMediaUrl(url) {
   if (!isDesensitizedMediaUrl(url)) return ''
-  return resolveDisplayMediaUrl(url)
+  const display = resolveDisplayMediaUrl(url)
+  if (!display) return ''
+  // 统一到 /api/v1/media/files/…，供 H5 <img> 走 OSS 302
+  try {
+    const { rewriteMediaUrlForCurrentBase } = require('./media-storage')
+    return rewriteMediaUrlForCurrentBase(display) || display
+  } catch (e) {
+    return display
+  }
 }
 
 /** 公开案例封面：允许持久化 upload URL，拦截占位路径与本机临时路径 */

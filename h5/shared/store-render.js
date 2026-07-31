@@ -63,15 +63,23 @@
     if (value.indexOf('mock://desensitized/') === 0) return true
     if (value.indexOf('/files/uploads/desensitized/') !== -1) return true
     if (value.indexOf('/media/files/uploads/desensitized/') !== -1) return true
+    if (value.indexOf('/media/uploads/desensitized/') !== -1) return true
     return false
+  }
+
+  function mediaSrc(url) {
+    var fn =
+      (window.zhejianH5Ui && window.zhejianH5Ui.resolveH5ImageSrc) ||
+      (window.zhejianPublicCopy && window.zhejianPublicCopy.resolveH5ImageSrc)
+    return fn ? fn(url) : url
   }
 
   function pickCaseCover(data) {
     if (data.coverImageDesensitized && isDesensitizedUrl(data.coverImageDesensitized)) {
-      return data.coverImageDesensitized
+      return mediaSrc(data.coverImageDesensitized)
     }
     if (data.coverImage && isDesensitizedUrl(data.coverImage)) {
-      return data.coverImage
+      return mediaSrc(data.coverImage)
     }
     return ''
   }
@@ -1077,7 +1085,7 @@
 
     var heroHtml = store.coverImage
       ? '<div class="h5-store-hero"><img class="h5-store-hero-img" src="' +
-        escapeHtml(store.coverImage) +
+        escapeHtml(mediaSrc(store.coverImage)) +
         '" alt="' +
         escapeHtml(store.name) +
         '门头" loading="eager" /></div>'

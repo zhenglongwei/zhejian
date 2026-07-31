@@ -26,6 +26,24 @@
       .trim()
   }
 
+  /** 旧路径 → /api/v1/media/files/…，便于走 OSS 302 */
+  function normalizePublicMediaUrl(url) {
+    if (!url) return ''
+    var value = String(url).trim()
+    if (!value || value.indexOf('mock://') === 0) return ''
+    if (value.indexOf('/media/files/') !== -1) {
+      return value.replace(/\/media\/files\//, '/api/v1/media/files/')
+    }
+    if (value.indexOf('/media/uploads/') !== -1) {
+      return value.replace(/\/media\/uploads\//, '/api/v1/media/files/uploads/')
+    }
+    return value
+  }
+
+  function resolveH5ImageSrc(url) {
+    return normalizePublicMediaUrl(url)
+  }
+
   function stripPublicBoilerplate(text) {
     return String(text || '')
       .trim()
@@ -57,6 +75,8 @@
     H5: H5,
     sanitizeVehicleLabel: sanitizeVehicleLabel,
     stripPublicBoilerplate: stripPublicBoilerplate,
+    normalizePublicMediaUrl: normalizePublicMediaUrl,
+    resolveH5ImageSrc: resolveH5ImageSrc,
   }
 })(typeof window !== 'undefined' ? window : globalThis)
 
@@ -121,9 +141,14 @@
   }
 
   function pickListCover(item) {
-    return (
+    var raw =
       (item && (item.coverImageDesensitized || item.coverImage)) || ''
-    )
+    var normalize =
+      (global.zhejianPublicCopy && global.zhejianPublicCopy.resolveH5ImageSrc) ||
+      function (u) {
+        return u
+      }
+    return normalize(raw)
   }
 
   function renderDisclaimer(primary, secondary) {
@@ -344,6 +369,10 @@
     buildPriceDisplay: buildPriceDisplay,
     caseHref: caseHref,
     pickListCover: pickListCover,
+    resolveH5ImageSrc: function (url) {
+      var fn = global.zhejianPublicCopy && global.zhejianPublicCopy.resolveH5ImageSrc
+      return fn ? fn(url) : url
+    },
     renderDisclaimer: renderDisclaimer,
     bindDisclaimerToggles: bindDisclaimerToggles,
     renderCaseListItem: renderCaseListItem,

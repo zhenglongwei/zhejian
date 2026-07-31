@@ -58,10 +58,24 @@ function createApp() {
   app.use(optionalAuth)
 
   ensureMediaDirs()
+  /** 兼容旧路径：/media/files/… → /api/v1/media/files/…（H5 快照/库内遗留） */
+  app.use('/media/files', (req, res) => {
+    const rest = String(req.url || '').replace(/^\//, '')
+    return res.redirect(302, `/api/v1/media/files/${rest}`)
+  })
   /** 生产：仅静态暴露脱敏目录；原图必须走 /api/v1/media/files/… + signed URL */
   if (config.nodeEnv === 'production') {
     app.use(
       '/media/uploads/desensitized',
+      (req, res, next) => {
+        // OSS 开启后优先走 API 读图（302 签名 URL），避免本地盘已迁走导致 404
+        const { isOssEnabled } = require('./lib/oss-client')
+        if (isOssEnabled()) {
+          const rest = String(req.url || '').replace(/^\//, '')
+          return res.redirect(302, `/api/v1/media/files/uploads/desensitized/${rest}`)
+        }
+        return next()
+      },
       express.static(path.join(MEDIA_ROOT, 'uploads', 'desensitized'), {
         maxAge: '7d',
         fallthrough: false,
