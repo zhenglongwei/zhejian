@@ -261,6 +261,19 @@ const config = {
         'OSS_INTERNAL_ENDPOINT',
         'oss-cn-hangzhou-internal.aliyuncs.com',
       ),
+      /**
+       * 生产默认走内网；若 ECS 访问 -internal 卡住，设 OSS_USE_INTERNAL_ENDPOINT=false
+       * 迁移脚本也读此开关。
+       */
+      useInternalEndpoint: (() => {
+        if (
+          process.env.OSS_USE_INTERNAL_ENDPOINT != null &&
+          process.env.OSS_USE_INTERNAL_ENDPOINT !== ''
+        ) {
+          return envBool('OSS_USE_INTERNAL_ENDPOINT')
+        }
+        return (process.env.NODE_ENV || 'development') === 'production'
+      })(),
       uploadTokenTtlSec: Number(process.env.OSS_UPLOAD_TOKEN_TTL_SEC || 900),
       signedUrlTtlSec: Number(process.env.OSS_SIGNED_URL_TTL_SEC || 7200),
       desensitizedSignedUrlTtlSec: Number(

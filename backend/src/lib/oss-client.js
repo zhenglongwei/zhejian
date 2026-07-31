@@ -25,7 +25,30 @@ function publicHost() {
 }
 
 function preferInternal() {
+  const cfg = ossConfig()
+  if (typeof cfg.useInternalEndpoint === 'boolean') return cfg.useInternalEndpoint
   return (config.nodeEnv || 'development') === 'production'
+}
+
+function activeEndpointHost() {
+  const cfg = ossConfig()
+  const host = preferInternal()
+    ? String(cfg.internalEndpoint || cfg.endpoint || '').replace(/^https?:\/\//, '')
+    : String(cfg.endpoint || '').replace(/^https?:\/\//, '')
+  return host || 'oss-cn-hangzhou.aliyuncs.com'
+}
+
+function withTimeout(promise, ms, label) {
+  const timeoutMs = Number(ms) || 30000
+  let timer
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`${label || 'OSS'} 超时（${timeoutMs}ms）。可尝试 OSS_USE_INTERNAL_ENDPOINT=false`)
+      err.code = 'OSS_TIMEOUT'
+      reject(err)
+    }, timeoutMs)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
 async function resolveAliyunCreds() {
@@ -38,7 +61,7 @@ async function resolveAliyunCreds() {
     return cachedCredMeta
   }
   const cred = getCredential()
-  const raw = await cred.getCredential()
+  const raw = await withTimeout(cred.getCredential(), 15000, '获取阿里云凭证')
   cachedCredMeta = {
     accessKeyId: raw.accessKeyId || '',
     accessKeySecret: raw.accessKeySecret || '',
@@ -53,6 +76,34 @@ async function resolveAliyunCreds() {
   return cachedCredMeta
 }
 
+function buildOssOptions(creds, endpointHost) {
+  const cfg = ossConfig()
+  const hasSts = Boolean(creds.securityToken)
+  const options = {
+    accessKeyId: creds.accessKeyId,
+    accessKeySecret: creds.accessKeySecret,
+    stsToken: hasSts ? creds.securityToken : undefined,
+    bucket: cfg.bucket,
+    region: `oss-${cfg.region || 'cn-hangzhou'}`,
+    endpoint: endpointHost ? `https://${endpointHost}` : undefined,
+    secure: true,
+    timeout: Number(process.env.OSS_REQUEST_TIMEOUT_MS || 30000),
+  }
+  if (hasSts) {
+    options.refreshSTSTokenInterval = 10 * 60 * 1000
+    options.refreshSTSToken = async () => {
+      resetOssClient()
+      const next = await resolveAliyunCreds()
+      return {
+        accessKeyId: next.accessKeyId,
+        accessKeySecret: next.accessKeySecret,
+        stsToken: next.securityToken,
+      }
+    }
+  }
+  return options
+}
+
 async function getOssClient() {
   if (!isOssEnabled()) {
     const err = new Error('OSS 未开启（OSS_ENABLED）')
@@ -63,21 +114,9 @@ async function getOssClient() {
     ossClientPromise = (async () => {
       // eslint-disable-next-line global-require, import/no-extraneous-dependencies
       const OSS = require('ali-oss')
-      const cfg = ossConfig()
       const creds = await resolveAliyunCreds()
-      const endpointHost = preferInternal()
-        ? String(cfg.internalEndpoint || cfg.endpoint || '').replace(/^https?:\/\//, '')
-        : String(cfg.endpoint || '').replace(/^https?:\/\//, '')
-      return new OSS({
-        accessKeyId: creds.accessKeyId,
-        accessKeySecret: creds.accessKeySecret,
-        stsToken: creds.securityToken || undefined,
-        bucket: cfg.bucket,
-        region: `oss-${cfg.region || 'cn-hangzhou'}`,
-        endpoint: endpointHost ? `https://${endpointHost}` : undefined,
-        secure: true,
-        timeout: 120000,
-      })
+      const endpointHost = activeEndpointHost()
+      return new OSS(buildOssOptions(creds, endpointHost))
     })().catch((e) => {
       ossClientPromise = null
       throw e
@@ -94,12 +133,16 @@ function resetOssClient() {
 
 async function headObject(objectKey) {
   const client = await getOssClient()
-  return client.head(objectKey)
+  return withTimeout(client.head(objectKey), client.options.timeout || 30000, `Head ${objectKey}`)
 }
 
 async function getObjectBuffer(objectKey) {
   const client = await getOssClient()
-  const result = await client.get(objectKey)
+  const result = await withTimeout(
+    client.get(objectKey),
+    client.options.timeout || 30000,
+    `Get ${objectKey}`,
+  )
   if (Buffer.isBuffer(result.content)) return result.content
   return Buffer.from(result.content)
 }
@@ -108,7 +151,27 @@ async function putObject(objectKey, body, options = {}) {
   const client = await getOssClient()
   const headers = {}
   if (options.contentType) headers['Content-Type'] = options.contentType
-  return client.put(objectKey, body, { headers })
+  return withTimeout(
+    client.put(objectKey, body, { headers }),
+    client.options.timeout || 30000,
+    `Put ${objectKey}`,
+  )
+}
+
+/** 连通性探测：列前缀（空前缀也行），用于迁移脚本启动自检 */
+async function probeOssConnectivity() {
+  const client = await getOssClient()
+  const endpointHost = activeEndpointHost()
+  await withTimeout(
+    client.list({ 'max-keys': 1, prefix: 'uploads/' }),
+    20000,
+    `List uploads/ via ${endpointHost}`,
+  )
+  return {
+    bucket: client.options.bucket,
+    endpoint: endpointHost,
+    internal: preferInternal(),
+  }
 }
 
 async function objectExists(objectKey) {
@@ -140,15 +203,12 @@ async function signObjectUrl(objectKey, opts = {}) {
   if (endpointStr.includes('-internal')) {
     // eslint-disable-next-line global-require, import/no-extraneous-dependencies
     const OSS = require('ali-oss')
-    signClient = new OSS({
+    const creds = {
       accessKeyId: client.options.accessKeyId,
       accessKeySecret: client.options.accessKeySecret,
-      stsToken: client.options.stsToken,
-      bucket: client.options.bucket,
-      region: client.options.region,
-      endpoint: `https://${publicEndpoint}`,
-      secure: true,
-    })
+      securityToken: client.options.stsToken || '',
+    }
+    signClient = new OSS(buildOssOptions(creds, publicEndpoint))
   }
   return signClient.signatureUrl(objectKey, { expires })
 }
@@ -202,12 +262,15 @@ module.exports = {
   isOssEnabled,
   ossConfig,
   publicHost,
+  preferInternal,
+  activeEndpointHost,
   resetOssClient,
   getOssClient,
   headObject,
   getObjectBuffer,
   putObject,
   objectExists,
+  probeOssConnectivity,
   signObjectUrl,
   createPostObjectToken,
   contentTypeForKey,
