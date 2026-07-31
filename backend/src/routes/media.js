@@ -16,20 +16,99 @@ const {
 } = require('../lib/media-storage')
 const { createMediaFromUpload, runMediaDesensitize } = require('../services/media.service')
 const { canReadOriginalMedia } = require('../services/media-access.service')
-const { processUploadedImage } = require('../lib/image-process')
+const {
+  processUploadedImage,
+  processUploadedImageBuffer,
+  buildThumbObjectKey,
+} = require('../lib/image-process')
+const { isOssEnabled, createPostObjectToken, contentTypeForKey } = require('../lib/oss-client')
+const {
+  mediaObjectExists,
+  readMediaBuffer,
+  writeMediaBuffer,
+  signReadableUrlForObjectKey,
+  materializeMediaFile,
+} = require('../lib/media-blob')
+const { config } = require('../config')
 
 ensureMediaDirs()
 
-async function sendUploadFile(req, res, next) {
-  const filePath = resolveUploadFilePath(
-    req.params.year,
-    req.params.month,
-    req.params.filename
-  )
-  if (!filePath) {
-    return fail(res, 100004, '资源不存在', 404)
+const MAX_UPLOAD_BYTES =
+  (config.media && config.media.oss && config.media.oss.maxUploadBytes) || 10 * 1024 * 1024
+
+function assertImageMeta({ fileName, fileType, fileSize }) {
+  const ext = path.extname(String(fileName || '')).toLowerCase()
+  const mime = String(fileType || '').toLowerCase()
+  const allowedExt = ['.jpg', '.jpeg', '.png', '.webp']
+  const allowedMime = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedExt.includes(ext) && !allowedMime.includes(mime)) {
+    const err = new Error('仅支持 jpg / png / webp 图片')
+    err.status = 400
+    throw err
+  }
+  if (fileSize != null && Number(fileSize) > MAX_UPLOAD_BYTES) {
+    const err = new Error('单张图片不能超过 10MB')
+    err.status = 400
+    throw err
+  }
+  let safeExt = ext
+  if (!allowedExt.includes(safeExt)) {
+    if (mime === 'image/png') safeExt = '.png'
+    else if (mime === 'image/webp') safeExt = '.webp'
+    else safeExt = '.jpg'
+  }
+  return safeExt
+}
+
+async function finalizeUploadedObject(objectKey, uploaderId = '') {
+  const key = String(objectKey || '').replace(/\\/g, '/')
+  if (!/^uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(jpe?g|png|webp)$/i.test(key)) {
+    const err = new Error('无效的 objectKey')
+    err.status = 400
+    throw err
   }
 
+  const exists = await mediaObjectExists(key)
+  if (!exists) {
+    const err = new Error('上传对象不存在，请重新上传')
+    err.status = 404
+    throw err
+  }
+
+  const rawBuf = await readMediaBuffer(key)
+  const processed = await processUploadedImageBuffer(rawBuf, key)
+  if (processed.processed && processed.strippedBuffer) {
+    await writeMediaBuffer(key, processed.strippedBuffer, {
+      contentType: contentTypeForKey(key),
+    })
+    if (processed.thumbObjectKey && processed.thumbBuffer) {
+      await writeMediaBuffer(processed.thumbObjectKey, processed.thumbBuffer, {
+        contentType: 'image/jpeg',
+      })
+    }
+  }
+
+  const url = buildPublicMediaUrl(key)
+  const thumbUrl = processed.thumbObjectKey
+    ? buildPublicMediaUrl(processed.thumbObjectKey)
+    : ''
+  const media = await createMediaFromUpload({
+    objectKey: key,
+    url,
+    uploaderId,
+  })
+  return {
+    mediaId: media.id,
+    url,
+    mediaUrl: url,
+    thumbUrl,
+    width: processed.width || null,
+    height: processed.height || null,
+    objectKey: key,
+  }
+}
+
+async function sendUploadFile(req, res, next) {
   const objectKey = `uploads/${req.params.year}/${req.params.month}/${req.params.filename}`
   try {
     const allowed = await canReadOriginalMedia(req, objectKey)
@@ -38,6 +117,27 @@ async function sendUploadFile(req, res, next) {
     }
   } catch (e) {
     return next(e)
+  }
+
+  if (isOssEnabled()) {
+    try {
+      const signed = await signReadableUrlForObjectKey(objectKey)
+      if (signed) {
+        res.set('Cache-Control', 'private, max-age=300')
+        return res.redirect(302, signed)
+      }
+    } catch (e) {
+      console.warn('[media] oss sign redirect failed', e && e.message)
+    }
+  }
+
+  const filePath = resolveUploadFilePath(
+    req.params.year,
+    req.params.month,
+    req.params.filename
+  )
+  if (!filePath) {
+    return fail(res, 100004, '资源不存在', 404)
   }
 
   fs.access(filePath, fs.constants.R_OK, (err) => {
@@ -69,7 +169,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_UPLOAD_BYTES },
   fileFilter(req, file, cb) {
     const ext = path.extname(file.originalname || '').toLowerCase()
     const mime = String(file.mimetype || '').toLowerCase()
@@ -85,8 +185,19 @@ const upload = multer({
 
 const router = express.Router()
 
-/** 脱敏图公开读（须在 /:year/:month 之前注册） */
-router.get('/files/uploads/desensitized/:albumId/:filename', (req, res, next) => {
+router.get('/files/uploads/desensitized/:albumId/:filename', async (req, res, next) => {
+  const objectKey = `uploads/desensitized/${req.params.albumId}/${req.params.filename}`
+  if (isOssEnabled()) {
+    try {
+      const signed = await signReadableUrlForObjectKey(objectKey)
+      if (signed) {
+        res.set('Cache-Control', 'private, max-age=300')
+        return res.redirect(302, signed)
+      }
+    } catch (e) {
+      console.warn('[media] desensitized oss redirect failed', e && e.message)
+    }
+  }
   const filePath = resolveDesensitizedUploadFilePath(req.params.albumId, req.params.filename)
   if (!filePath) {
     return fail(res, 100004, '资源不存在', 404)
@@ -103,17 +214,59 @@ router.get('/files/uploads/desensitized/:albumId/:filename', (req, res, next) =>
   })
 })
 
-/** 公开读原图（生产需 signed URL 或 Bearer 归属校验） */
 router.get('/files/uploads/:year/:month/:filename', (req, res, next) => {
   sendUploadFile(req, res, next).catch(next)
 })
 
-/** 兼容旧 URL：/media/uploads/...（Nginx 已配 /media/ 反代时可用） */
 router.get('/legacy/uploads/:year/:month/:filename', (req, res, next) => {
   sendUploadFile(req, res, next).catch(next)
 })
 
-/** B-MEDIA-01/02：小程序直传 ECS 本地存储，返回可跨端访问的 HTTPS URL */
+router.post(
+  '/upload-token',
+  requireAuth([ROLES.USER, ROLES.MERCHANT]),
+  async (req, res, next) => {
+    try {
+      if (!isOssEnabled()) {
+        return fail(res, 100001, 'OSS 未开启，请使用直传上传接口', 503)
+      }
+      const { fileName, fileType, fileSize } = req.body || {}
+      if (!fileName) {
+        return fail(res, 100001, '缺少 fileName', 400)
+      }
+      const safeExt = assertImageMeta({ fileName, fileType, fileSize })
+      const subdir = buildUploadSubdir()
+      const filename = createStoredFilename(`x${safeExt}`)
+      const objectKey = `uploads/${subdir}/${filename}`.replace(/\\/g, '/')
+      const token = await createPostObjectToken({ objectKey })
+      return ok(res, token)
+    } catch (e) {
+      return next(e)
+    }
+  }
+)
+
+router.post(
+  '/upload-complete',
+  requireAuth([ROLES.USER, ROLES.MERCHANT]),
+  async (req, res, next) => {
+    try {
+      if (!isOssEnabled()) {
+        return fail(res, 100001, 'OSS 未开启', 503)
+      }
+      const objectKey = String((req.body && req.body.objectKey) || '').trim()
+      if (!objectKey) {
+        return fail(res, 100001, '缺少 objectKey', 400)
+      }
+      const uploaderId = (req.auth && req.auth.userId) || ''
+      const data = await finalizeUploadedObject(objectKey, uploaderId)
+      return ok(res, data)
+    } catch (e) {
+      return next(e)
+    }
+  }
+)
+
 router.post(
   '/upload',
   requireAuth([ROLES.USER, ROLES.MERCHANT]),
@@ -133,6 +286,30 @@ router.post(
         const subdir = req.mediaSubdir || buildUploadSubdir()
         const relativePath = `uploads/${subdir}/${req.file.filename}`.replace(/\\/g, '/')
         const processed = await processUploadedImage(req.file.path, relativePath)
+
+        if (isOssEnabled()) {
+          const mainBuf = await fs.promises.readFile(req.file.path)
+          await writeMediaBuffer(relativePath, mainBuf, {
+            contentType: contentTypeForKey(relativePath),
+          })
+          if (processed.thumbPath && processed.thumbObjectKey && fs.existsSync(processed.thumbPath)) {
+            const thumbBuf = await fs.promises.readFile(processed.thumbPath)
+            await writeMediaBuffer(processed.thumbObjectKey, thumbBuf, {
+              contentType: 'image/jpeg',
+            })
+            try {
+              fs.unlinkSync(processed.thumbPath)
+            } catch (e2) {
+              /* ignore */
+            }
+          }
+          try {
+            fs.unlinkSync(req.file.path)
+          } catch (e2) {
+            /* ignore */
+          }
+        }
+
         const url = buildPublicMediaUrl(relativePath)
         const thumbUrl = processed.thumbObjectKey
           ? buildPublicMediaUrl(processed.thumbObjectKey)
@@ -159,7 +336,6 @@ router.post(
   }
 )
 
-/** B-MEDIA-07：对 mediaId 创建脱敏产物（B-MASK-03 真实打码） */
 router.post(
   '/:mediaId/desensitize',
   requireAuth([ROLES.USER, ROLES.MERCHANT]),
@@ -185,3 +361,6 @@ router.post(
 )
 
 module.exports = router
+module.exports.finalizeUploadedObject = finalizeUploadedObject
+module.exports.buildThumbObjectKey = buildThumbObjectKey
+module.exports.materializeMediaFile = materializeMediaFile

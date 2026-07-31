@@ -1,4 +1,3 @@
-const fs = require('fs')
 const { RuntimeOptions } = require('@darabonba/typescript')
 const Ocr = require('@alicloud/ocr-api20210707')
 const ViapiOcr = require('@alicloud/ocr20191230')
@@ -11,8 +10,10 @@ const {
 const {
   rewriteMediaUrlForCurrentBase,
   assertPersistentImageUrl,
-  resolveMediaFilePathFromPublicUrl,
+  parseObjectKeyFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
 } = require('../lib/media-storage')
+const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-blob')
 const { safeParseData } = require('./desensitize-engine/parse-ocr')
 
 const { RecognizeBusinessLicenseRequest } = Ocr
@@ -25,21 +26,23 @@ function runtimeOptions() {
 }
 
 /**
- * 营业执照 OCR 只走 ECS 本地文件流，不用公网 URL（自定义域名 Aliyun 不支持）。
+ * 营业执照 OCR：优先 OSS/本地物化文件流，不用公网 URL（自定义域名 Aliyun 不支持）。
+ * @returns {Promise<{ filePath: string, cleanup: function }|null>}
  */
-function resolveLicenseImagePath(licensePhotoUrl) {
+async function resolveLicenseImageMaterialized(licensePhotoUrl) {
   const persistent = assertPersistentImageUrl(licensePhotoUrl)
-  const candidates = [
-    resolveMediaFilePathFromPublicUrl(persistent),
-    resolveMediaFilePathFromPublicUrl(rewriteMediaUrlForCurrentBase(persistent)),
-  ].filter(Boolean)
-
-  for (const filePath of candidates) {
-    if (fs.existsSync(filePath)) {
-      return filePath
-    }
+  const key =
+    objectKeyFromPublicUrl(persistent) ||
+    parseObjectKeyFromPublicUrl(persistent) ||
+    parseDesensitizedObjectKeyFromPublicUrl(persistent) ||
+    objectKeyFromPublicUrl(rewriteMediaUrlForCurrentBase(persistent)) ||
+    parseObjectKeyFromPublicUrl(rewriteMediaUrlForCurrentBase(persistent))
+  if (!key) return null
+  try {
+    return await materializeMediaFile(key)
+  } catch (e) {
+    return null
   }
-  return ''
 }
 
 function pickField(obj, keys) {
@@ -182,36 +185,41 @@ async function recognizeBusinessLicense(licensePhotoUrl) {
     throw err
   }
 
-  const imagePath = resolveLicenseImagePath(url)
-  if (!imagePath) {
+  const materialized = await resolveLicenseImageMaterialized(url)
+  if (!materialized || !materialized.filePath) {
     const err = new Error('服务器未找到已上传的营业执照，请重新上传后再识别')
     err.status = 400
     throw err
   }
 
+  const imagePath = materialized.filePath
   console.info('[license-ocr] recognize via local file', {
     imagePath,
     sourceUrl: rewriteMediaUrlForCurrentBase(assertPersistentImageUrl(url)),
   })
 
   try {
-    return await recognizeWithOcrApiBody(imagePath)
-  } catch (ocrApiError) {
-    console.warn('[license-ocr] ocr-api body failed', ocrApiError && ocrApiError.message)
     try {
-      return await recognizeWithViapiBody(imagePath)
-    } catch (viapiError) {
-      const err = new Error(
-        viapiError.message || ocrApiError.message || '营业执照识别失败，请手动填写'
-      )
-      err.status = viapiError.status || ocrApiError.status || 502
-      throw err
+      return await recognizeWithOcrApiBody(imagePath)
+    } catch (ocrApiError) {
+      console.warn('[license-ocr] ocr-api body failed', ocrApiError && ocrApiError.message)
+      try {
+        return await recognizeWithViapiBody(imagePath)
+      } catch (viapiError) {
+        const err = new Error(
+          viapiError.message || ocrApiError.message || '营业执照识别失败，请手动填写'
+        )
+        err.status = viapiError.status || ocrApiError.status || 502
+        throw err
+      }
     }
+  } finally {
+    if (materialized.cleanup) await materialized.cleanup()
   }
 }
 
 module.exports = {
   recognizeBusinessLicense,
   mapLicenseOcrResult,
-  resolveLicenseImagePath,
+  resolveLicenseImageMaterialized,
 }

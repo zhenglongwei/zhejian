@@ -3,6 +3,11 @@ const Ocr = require('@alicloud/ocr-api20210707')
 const { config } = require('../config')
 const { getOcrClient, openImageReadable } = require('../lib/aliyun-clients')
 const { resolvePlanQuoteImageSources } = require('../lib/plan-quote-image-source')
+const {
+  parseObjectKeyFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
+} = require('../lib/media-storage')
+const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-blob')
 const { safeParseData, unwrapOcrRoot } = require('./desensitize-engine/parse-ocr')
 
 const { RecognizeGeneralRequest } = Ocr
@@ -12,11 +17,6 @@ function runtimeOptions() {
     connectTimeout: config.desensitize.apiTimeoutMs,
     readTimeout: config.desensitize.apiTimeoutMs,
   })
-}
-
-function resolveImageSources(imageUrl) {
-  const { publicUrl, imagePath } = resolvePlanQuoteImageSources(imageUrl)
-  return { publicUrl, imagePath: imagePath || null }
 }
 
 function collectOcrTexts(data) {
@@ -42,60 +42,64 @@ function collectOcrTexts(data) {
 }
 
 async function recognizeGeneralText(imageUrl) {
-  const { publicUrl, imagePath } = resolveImageSources(imageUrl)
+  const sources = await resolvePlanQuoteImageSources(imageUrl)
+  const publicUrl = sources.publicUrl || sources.visionUrl || ''
+  const objectKey =
+    objectKeyFromPublicUrl(imageUrl) ||
+    parseObjectKeyFromPublicUrl(imageUrl) ||
+    parseDesensitizedObjectKeyFromPublicUrl(imageUrl)
+
+  let materialized = null
+  let imagePath = null
+  if (objectKey) {
+    try {
+      materialized = await materializeMediaFile(objectKey)
+      imagePath = materialized.filePath
+    } catch (e) {
+      imagePath = null
+    }
+  }
+
   const client = getOcrClient()
   const runtime = runtimeOptions()
   const attempts = []
   if (imagePath) attempts.push('body')
-  if (publicUrl) attempts.push('url')
+  if (publicUrl && !String(publicUrl).startsWith('data:')) attempts.push('url')
 
   let lastError = null
-  for (const mode of attempts) {
-    try {
-      let request
-      if (mode === 'body') {
-        request = new RecognizeGeneralRequest()
-        request.body = openImageReadable(imagePath)
-      } else {
-        request = new RecognizeGeneralRequest({ url: publicUrl })
+  try {
+    for (const mode of attempts) {
+      try {
+        let request
+        if (mode === 'body') {
+          request = new RecognizeGeneralRequest()
+          request.body = openImageReadable(imagePath)
+        } else {
+          request = new RecognizeGeneralRequest({ url: publicUrl })
+        }
+        const resp = await client.recognizeGeneralWithOptions(request, runtime)
+        const rawBody = resp && resp.body
+        if (rawBody && rawBody.code && String(rawBody.code) !== '200') {
+          const err = new Error(rawBody.message || 'OCR 失败')
+          err.code = rawBody.code
+          throw err
+        }
+        return collectOcrTexts(rawBody && rawBody.data)
+      } catch (err) {
+        lastError = err
       }
-      const resp = await client.recognizeGeneralWithOptions(request, runtime)
-      const rawBody = resp?.body
-      if (rawBody?.code && String(rawBody.code) !== '200') {
-        const err = new Error(rawBody.message || 'OCR 识别失败')
-        err.code = rawBody.code
-        throw err
-      }
-      return collectOcrTexts(rawBody?.data).join('\n')
-    } catch (err) {
-      lastError = err
+    }
+  } finally {
+    if (materialized && materialized.cleanup) {
+      await materialized.cleanup()
     }
   }
-  if (lastError) throw lastError
-  return ''
-}
 
-function mockPlanQuoteRows() {
-  return {
-    provider: 'mock',
-    textPreview: '左前大灯总成 品牌件 ×1 1680元',
-    planPartsDraft: [
-      {
-        planPartId: 'plan_headlight',
-        name: '左前大灯总成',
-        partType: '品牌件',
-        partBrand: '海拉',
-        partCode: '',
-        qty: 1,
-        unitPrice: 1680,
-        lineTotal: 1680,
-        status: 'draft',
-      },
-    ],
-  }
+  if (lastError) throw lastError
+  return []
 }
 
 module.exports = {
-  mockPlanQuoteRows,
   recognizeGeneralText,
+  collectOcrTexts,
 }

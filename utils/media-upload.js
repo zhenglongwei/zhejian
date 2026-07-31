@@ -1,5 +1,7 @@
 /**
  * B-MEDIA：本地临时图 → 服务端持久 URL
+ * OSS 开启时：upload-token → PostObject 直传 → upload-complete
+ * 否则：wx.uploadFile 到 POST /media/upload
  */
 const { ENV } = require('../services/config')
 const { normalizePublicMediaUrl } = require('./desensitize-url')
@@ -58,21 +60,101 @@ function canAccessLocalFile(filePath) {
   })
 }
 
-function uploadImage(tempFilePath) {
-  if (ENV.mode === 'mock') {
-    return Promise.resolve(tempFilePath)
-  }
+function authHeaders() {
   const token = wx.getStorageSync('token') || ''
+  return {
+    Authorization: token ? `Bearer ${token}` : '',
+    'X-Client-Type': ENV.clientType,
+    'X-App-Version': ENV.appVersion,
+  }
+}
+
+function requestJson(method, path, data) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: `${ENV.baseUrl}/api/${ENV.apiVersion}${path}`,
+      method,
+      data: data || {},
+      header: {
+        ...authHeaders(),
+        'Content-Type': 'application/json',
+      },
+      success(res) {
+        const body = res.data || {}
+        if (res.statusCode === 401) {
+          reject({ code: 401, message: body.message || '请先登录' })
+          return
+        }
+        if (res.statusCode >= 400 || (body.code !== 0 && body.code !== undefined)) {
+          reject({ code: body.code || res.statusCode, message: body.message || '请求失败' })
+          return
+        }
+        resolve(body.data || {})
+      },
+      fail(err) {
+        reject({
+          code: 'NETWORK_ERROR',
+          message: '网络异常，请稍后重试',
+          detail: err,
+        })
+      },
+    })
+  })
+}
+
+function guessFileName(tempFilePath) {
+  const raw = String(tempFilePath || '')
+  const m = raw.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)
+  const ext = m ? `.${m[1].toLowerCase()}` : '.jpg'
+  const safe = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.jpg'
+  return `upload${safe}`
+}
+
+function postObjectToOss(tempFilePath, token) {
+  return new Promise((resolve, reject) => {
+    const formData = {
+      key: token.key || token.objectKey,
+      policy: token.policy,
+      OSSAccessKeyId: token.OSSAccessKeyId,
+      signature: token.signature,
+      success_action_status: token.success_action_status || '200',
+    }
+    if (token.securityToken) {
+      formData['x-oss-security-token'] = token.securityToken
+    }
+    wx.uploadFile({
+      url: token.host,
+      filePath: tempFilePath,
+      name: 'file',
+      formData,
+      success(res) {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(true)
+          return
+        }
+        reject({
+          code: res.statusCode,
+          message: `OSS 上传失败(${res.statusCode})`,
+        })
+      },
+      fail(err) {
+        reject({
+          code: 'NETWORK_ERROR',
+          message: '图片上传失败，请检查网络后重试',
+          detail: err,
+        })
+      },
+    })
+  })
+}
+
+function uploadViaServer(tempFilePath) {
   return new Promise((resolve, reject) => {
     wx.uploadFile({
       url: `${ENV.baseUrl}/api/${ENV.apiVersion}/media/upload`,
       filePath: tempFilePath,
       name: 'file',
-      header: {
-        Authorization: token ? `Bearer ${token}` : '',
-        'X-Client-Type': ENV.clientType,
-        'X-App-Version': ENV.appVersion,
-      },
+      header: authHeaders(),
       success(res) {
         let body = {}
         try {
@@ -104,6 +186,49 @@ function uploadImage(tempFilePath) {
         })
       },
     })
+  })
+}
+
+async function uploadViaOss(tempFilePath) {
+  const fileName = guessFileName(tempFilePath)
+  let token
+  try {
+    token = await requestJson('POST', '/media/upload-token', {
+      fileName,
+      fileSize: 0,
+    })
+  } catch (e) {
+    if (e && (e.code === 100001 || e.code === 503 || String(e.message || '').includes('OSS'))) {
+      return uploadViaServer(tempFilePath)
+    }
+    throw e
+  }
+  await postObjectToOss(tempFilePath, token)
+  const done = await requestJson('POST', '/media/upload-complete', {
+    objectKey: token.objectKey || token.key,
+  })
+  const url = done.url || done.mediaUrl || ''
+  if (!url) {
+    throw { message: '上传失败：未返回图片地址' }
+  }
+  return url
+}
+
+function uploadImage(tempFilePath) {
+  if (ENV.mode === 'mock') {
+    return Promise.resolve(tempFilePath)
+  }
+  // 优先 OSS 直传；服务端未开 OSS 时 upload-token 失败再降级 multipart
+  return uploadViaOss(tempFilePath).catch((err) => {
+    const msg = String((err && err.message) || '')
+    if (
+      msg.includes('OSS 未开启') ||
+      msg.includes('请使用直传') ||
+      (err && Number(err.code) === 503)
+    ) {
+      return uploadViaServer(tempFilePath)
+    }
+    return Promise.reject(err)
   })
 }
 

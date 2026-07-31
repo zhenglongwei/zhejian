@@ -174,18 +174,25 @@ OTHER
 
 # **9. API 列表**
 
-## **9.1 获取上传凭证**
+## **9.1 获取上传凭证（阿里云 OSS PostObject）**
 
 ### **接口**
 
 ```
-POST /api/media/upload-token
+POST /api/v1/media/upload-token
 
 ```
 
 ### **说明**
 
-前端上传图片或视频前，先向后端申请上传凭证。
+小程序上传前向后端申请 **PostObject** 表单字段；文件直传私有 Bucket `zhejianoss`（地域 `cn-hangzhou`），不经 ECS 中转。
+须登录（用户 / 商家）。`OSS_ENABLED=true` 时可用；未开启时返回业务错误，可降级走 `POST /media/upload`。
+
+对象路径约定（与现网一致）：
+
+```
+uploads/YYYY/MM/{32位hex}.{jpg|jpeg|png|webp}
+```
 
 ---
 
@@ -195,10 +202,7 @@ POST /api/media/upload-token
 {
   "fileName": "brake-before.jpg",
   "fileType": "image/jpeg",
-  "fileSize": 2048000,
-  "bizType": "ORDER_BEFORE",
-  "bizId": "order_123456",
-  "clientType": "merchant-miniapp"
+  "fileSize": 2048000
 }
 
 ```
@@ -208,14 +212,11 @@ POST /api/media/upload-token
 ### **字段说明**
 
 
-| 字段         | 类型     | 必填  | 说明            |
-| ---------- | ------ | --- | ------------- |
-| fileName   | string | 是   | 原始文件名         |
-| fileType   | string | 是   | MIME 类型       |
-| fileSize   | number | 是   | 文件大小，单位 byte  |
-| bizType    | string | 是   | 媒体用途          |
-| bizId      | string | 否   | 业务 ID，例如订单 ID |
-| clientType | string | 是   | 上传端           |
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| fileName | string | 是 | 原始文件名（用于推断扩展名） |
+| fileType | string | 否 | MIME；与扩展名二选一校验 |
+| fileSize | number | 否 | 字节；超过 10MB 拒绝 |
 
 
 ---
@@ -227,19 +228,22 @@ POST /api/media/upload-token
   "code": 0,
   "message": "success",
   "data": {
-    "mediaId": "media_10001",
-    "uploadUrl": "https://cos.example.com/upload-url",
-    "method": "PUT",
-    "headers": {
-      "Content-Type": "image/jpeg"
-    },
-    "objectKey": "media/order/order_123456/before/media_10001.jpg",
-    "expireAt": "2025-01-01T12:00:00+08:00"
-  },
-  "requestId": "req_xxx"
+    "host": "https://zhejianoss.oss-cn-hangzhou.aliyuncs.com",
+    "objectKey": "uploads/2026/07/a1b2c3d4e5f6789012345678abcdef01.jpg",
+    "key": "uploads/2026/07/a1b2c3d4e5f6789012345678abcdef01.jpg",
+    "policy": "<base64-policy>",
+    "signature": "<base64-hmac-sha1>",
+    "OSSAccessKeyId": "<ak>",
+    "success_action_status": "200",
+    "securityToken": "",
+    "expireAt": "2026-07-31T12:15:00.000Z",
+    "maxSize": 10485760
+  }
 }
 
 ```
+
+`securityToken`：ECS RAM 角色临时凭证时非空，须一并放入 `wx.uploadFile` 的 `formData`（字段名 `x-oss-security-token`）。
 
 ---
 
@@ -247,12 +251,10 @@ POST /api/media/upload-token
 
 ```
 校验登录态
-→ 校验文件类型
-→ 校验文件大小
-→ 校验业务权限
-→ 创建 media_asset 记录
-→ 生成对象存储上传凭证
-→ 返回上传地址
+→ 校验扩展名 / MIME / 大小
+→ 生成 objectKey
+→ 用服务端凭证签 PostObject policy（短 TTL，默认 15 分钟）
+→ 返回 host + 表单字段（不落 media_assets，完成后再建）
 
 ```
 
@@ -263,13 +265,14 @@ POST /api/media/upload-token
 ### **接口**
 
 ```
-POST /api/media/upload-complete
+POST /api/v1/media/upload-complete
 
 ```
 
 ### **说明**
 
-如果对象存储回调不稳定，前端可在上传成功后主动通知后端。
+小程序 PostObject 成功后调用。后端 Head/Get 对象 → sharp 去 EXIF + 缩略图 → 回写 OSS → 创建 `media_assets` → 返回与旧 `POST /media/upload` 一致的 `url` / `thumbUrl` / `mediaId`。
+库内 URL 仍为规范路径：`{PUBLIC_BASE_URL}/api/v1/media/files/{objectKey}`（读侧再签发 OSS 签名 URL）。
 
 ---
 
@@ -277,9 +280,7 @@ POST /api/media/upload-complete
 
 ```
 {
-  "mediaId": "media_10001",
-  "objectKey": "media/order/order_123456/before/media_10001.jpg",
-  "etag": "xxxxx"
+  "objectKey": "uploads/2026/07/a1b2c3d4e5f6789012345678abcdef01.jpg"
 }
 
 ```
@@ -293,10 +294,14 @@ POST /api/media/upload-complete
   "code": 0,
   "message": "success",
   "data": {
-    "mediaId": "media_10001",
-    "status": "UPLOADED"
-  },
-  "requestId": "req_xxx"
+    "mediaId": "media_xxx",
+    "url": "https://geo.simplewin.cn/api/v1/media/files/uploads/2026/07/….jpg",
+    "mediaUrl": "https://geo.simplewin.cn/api/v1/media/files/uploads/2026/07/….jpg",
+    "thumbUrl": "https://geo.simplewin.cn/api/v1/media/files/uploads/2026/07/…_thumb.jpg",
+    "width": 1920,
+    "height": 1080,
+    "objectKey": "uploads/2026/07/….jpg"
+  }
 }
 
 ```
@@ -305,31 +310,31 @@ POST /api/media/upload-complete
 
 ### **幂等要求**
 
-同一个 `mediaId` 多次通知上传完成，不应重复创建媒体记录，但可以补充处理任务。
+同一 `objectKey` 多次 complete：复用已有 `media_assets`，可再次跑缩略图处理（不重复插库）。
 
 ---
 
-## **9.3 对象存储上传回调**
+## **9.3 对象存储上传回调（本期不做）**
 
-### **接口**
-
-```
-POST /api/callbacks/storage/upload
+本期以 **upload-complete** 为准，不依赖 OSS 服务端回调。预留接口：
 
 ```
+POST /api/v1/callbacks/storage/upload
 
-### **说明**
+```
 
-对象存储在文件上传成功后回调后端。
+### **说明（预留）**
+
+对象存储回调后端（未实现）。
 
 ---
 
-### **请求参数**
+### **请求参数（预留）**
 
 ```
 {
-  "bucket": "auto-repair-media",
-  "objectKey": "media/order/order_123456/before/media_10001.jpg",
+  "bucket": "zhejianoss",
+  "objectKey": "uploads/2026/07/….jpg",
   "fileSize": 2048000,
   "etag": "abc123",
   "contentType": "image/jpeg",
@@ -340,7 +345,7 @@ POST /api/callbacks/storage/upload
 
 ---
 
-### **响应示例**
+### **响应示例（预留）**
 
 ```
 {

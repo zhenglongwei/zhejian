@@ -251,6 +251,23 @@ const config = {
     },
     signingSecret: envStr('MEDIA_SIGNING_SECRET') || envStr('JWT_SECRET') || '',
     signedUrlTtlSec: Number(process.env.MEDIA_SIGNED_URL_TTL_SEC || 7200),
+    /** 阿里云 OSS（B-MEDIA-01）；关闭时仍用本地 MEDIA_STORAGE_DIR */
+    oss: {
+      enabled: envBool('OSS_ENABLED'),
+      bucket: envStr('OSS_BUCKET', 'zhejianoss'),
+      region: envStr('OSS_REGION', 'cn-hangzhou'),
+      endpoint: envStr('OSS_ENDPOINT', 'oss-cn-hangzhou.aliyuncs.com'),
+      internalEndpoint: envStr(
+        'OSS_INTERNAL_ENDPOINT',
+        'oss-cn-hangzhou-internal.aliyuncs.com',
+      ),
+      uploadTokenTtlSec: Number(process.env.OSS_UPLOAD_TOKEN_TTL_SEC || 900),
+      signedUrlTtlSec: Number(process.env.OSS_SIGNED_URL_TTL_SEC || 7200),
+      desensitizedSignedUrlTtlSec: Number(
+        process.env.OSS_DESENSITIZED_SIGNED_URL_TTL_SEC || 86400,
+      ),
+      maxUploadBytes: 10 * 1024 * 1024,
+    },
   },
   /** Phase 2 · CORS 白名单（逗号分隔；生产未设则使用默认域） */
   cors: {

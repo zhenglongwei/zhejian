@@ -3,8 +3,9 @@ const { config } = require('../config')
 const {
   buildPublicMediaUrl,
   parseObjectKeyFromPublicUrl,
-  resolveMediaFilePathFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
 } = require('../lib/media-storage')
+const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-blob')
 const { detectSensitiveRegions } = require('./desensitize-engine/detectors/aliyun')
 const {
   PUBLIC_GATE_STATUS,
@@ -35,11 +36,22 @@ async function checkPublicGateForImage(rawUrl, options = {}) {
     return { passed: true, riskTags: [], reason: '' }
   }
 
-  const localPath = resolveMediaFilePathFromPublicUrl(rawUrl)
-  if (!localPath) {
+  const objectKey =
+    objectKeyFromPublicUrl(rawUrl) ||
+    parseObjectKeyFromPublicUrl(rawUrl) ||
+    parseDesensitizedObjectKeyFromPublicUrl(rawUrl)
+  if (!objectKey) {
     return { passed: false, riskTags: ['unavailable'], reason: 'file_unavailable' }
   }
 
+  let materialized
+  try {
+    materialized = await materializeMediaFile(objectKey)
+  } catch (_) {
+    return { passed: false, riskTags: ['unavailable'], reason: 'file_unavailable' }
+  }
+
+  const localPath = materialized.filePath
   let imageWidth = 0
   let imageHeight = 0
   try {
@@ -47,11 +59,11 @@ async function checkPublicGateForImage(rawUrl, options = {}) {
     imageWidth = meta.width || 0
     imageHeight = meta.height || 0
   } catch (_) {
+    if (materialized.cleanup) await materialized.cleanup()
     return { passed: false, riskTags: ['unavailable'], reason: 'file_unavailable' }
   }
 
-  const objectKey = parseObjectKeyFromPublicUrl(rawUrl)
-  const publicUrl = objectKey ? buildPublicMediaUrl(objectKey) : ''
+  const publicUrl = buildPublicMediaUrl(objectKey)
   const blockTags = options.ignoreDocumentTag ? WARRANTY_GATE_BLOCK_TAGS : BLOCK_TAGS
 
   try {
@@ -73,6 +85,10 @@ async function checkPublicGateForImage(rawUrl, options = {}) {
   } catch (error) {
     console.warn('[public-gate] detect failed', error.message)
     return { passed: false, riskTags: ['detect_error'], reason: 'document' }
+  } finally {
+    if (materialized && materialized.cleanup) {
+      await materialized.cleanup()
+    }
   }
 }
 

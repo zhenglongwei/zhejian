@@ -11,10 +11,11 @@ const {
 } = require('../lib/aliyun-clients')
 const {
   parseObjectKeyFromPublicUrl,
-  resolveObjectKeyFilePath,
   rewriteMediaUrlForCurrentBase,
   assertPersistentImageUrl,
 } = require('../lib/media-storage')
+const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-blob')
+const { isOssEnabled, signObjectUrl, ossConfig } = require('../lib/oss-client')
 const { maskPlate } = require('../utils/plate-mask')
 const { detectPlateViaViapi } = require('./desensitize-engine/detectors/viapi-plate')
 const {
@@ -34,12 +35,32 @@ function runtimeOptions() {
   })
 }
 
-function resolveImageSources(imageUrl) {
+async function resolveImageSources(imageUrl) {
   const persistent = assertPersistentImageUrl(imageUrl)
   const publicUrl = rewriteMediaUrlForCurrentBase(persistent)
-  const objectKey = parseObjectKeyFromPublicUrl(publicUrl)
-  const imagePath = objectKey ? resolveObjectKeyFilePath(objectKey) : null
-  return { publicUrl, imagePath }
+  const objectKey = objectKeyFromPublicUrl(publicUrl) || parseObjectKeyFromPublicUrl(publicUrl)
+  let imagePath = null
+  let cleanup = async () => {}
+  if (objectKey) {
+    try {
+      const materialized = await materializeMediaFile(objectKey)
+      imagePath = materialized.filePath
+      cleanup = materialized.cleanup || cleanup
+    } catch (e) {
+      imagePath = null
+    }
+  }
+  let readableUrl = publicUrl
+  if (objectKey && isOssEnabled()) {
+    try {
+      readableUrl = await signObjectUrl(objectKey, {
+        expires: Number((ossConfig() && ossConfig().signedUrlTtlSec) || 7200),
+      })
+    } catch (e) {
+      /* keep publicUrl */
+    }
+  }
+  return { publicUrl: readableUrl, imagePath, cleanup }
 }
 
 function normalizePlate(value) {
@@ -222,37 +243,41 @@ async function recognizeVehicleIntake(imageUrl) {
     throw err
   }
 
-  const { publicUrl, imagePath } = resolveImageSources(url)
+  const { publicUrl, imagePath, cleanup } = await resolveImageSources(url)
   if (!imagePath && !publicUrl) {
     const err = new Error('图片地址无效，请重新上传')
     err.status = 400
     throw err
   }
 
-  const [plateResult, vinResult] = await Promise.all([
-    recognizePlate(imagePath, publicUrl),
-    recognizeVin(imagePath, publicUrl),
-  ])
+  try {
+    const [plateResult, vinResult] = await Promise.all([
+      recognizePlate(imagePath, publicUrl),
+      recognizeVin(imagePath, publicUrl),
+    ])
 
-  const plate = plateResult.plate || ''
-  const vin = vinResult.vin || ''
-  const recognized = []
-  if (plate) recognized.push('plate')
-  if (vin) recognized.push('vin')
+    const plate = plateResult.plate || ''
+    const vin = vinResult.vin || ''
+    const recognized = []
+    if (plate) recognized.push('plate')
+    if (vin) recognized.push('vin')
 
-  if (!recognized.length) {
-    const err = new Error('未识别到车牌或 VIN，请手动填写')
-    err.status = 422
-    throw err
-  }
+    if (!recognized.length) {
+      const err = new Error('未识别到车牌或 VIN，请手动填写')
+      err.status = 422
+      throw err
+    }
 
-  const providers = [plateResult.provider, vinResult.provider].filter(Boolean)
-  return {
-    plate,
-    plateDisplay: plate ? maskPlate(plate) : '',
-    vin,
-    recognized,
-    provider: [...new Set(providers)].join('+') || 'unknown',
+    const providers = [plateResult.provider, vinResult.provider].filter(Boolean)
+    return {
+      plate,
+      plateDisplay: plate ? maskPlate(plate) : '',
+      vin,
+      recognized,
+      provider: [...new Set(providers)].join('+') || 'unknown',
+    }
+  } finally {
+    if (cleanup) await cleanup()
   }
 }
 

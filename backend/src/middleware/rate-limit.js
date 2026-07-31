@@ -76,6 +76,8 @@ function applyRateLimits(app) {
   app.use('/api/v1/user/auth/wechat-login', loginLimiter)
   app.use('/api/v1/merchant/auth/dev-login', loginLimiter)
   app.use('/api/v1/media/upload', uploadLimiter)
+  app.use('/api/v1/media/upload-token', uploadLimiter)
+  app.use('/api/v1/media/upload-complete', uploadLimiter)
   app.use('/api/v1/desensitize', desensitizeLimiter)
   app.use('/api/', globalLimiter)
 }

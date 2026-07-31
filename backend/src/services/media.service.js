@@ -5,15 +5,19 @@ const { newId } = require('../lib/ids')
 const {
   buildPublicMediaUrl,
   parseObjectKeyFromPublicUrl,
-  resolveObjectKeyFilePath,
   buildDesensitizedObjectKey,
-  resolveDesensitizedFilePath,
-  resolveMediaFilePathFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
 } = require('../lib/media-storage')
 const { isStubCopyArtifact } = require('../lib/media-file-compare')
 const { processImage, ENGINE_VERSION } = require('./desensitize-engine')
 const { writeMaskedImage } = require('./desensitize-engine/masker')
 const { loadSharp } = require('../lib/image-process')
+const {
+  materializeMediaFile,
+  writeMediaBuffer,
+  objectKeyFromPublicUrl,
+} = require('../lib/media-blob')
+const { contentTypeForKey } = require('../lib/oss-client')
 const { ROLES } = require('../lib/jwt')
 const {
   persistPrivacyDetectionResults,
@@ -261,8 +265,10 @@ async function runMediaDesensitize(mediaId, context = {}) {
     })
   }
 
-  const sourcePath = resolveObjectKeyFilePath(media.objectKey)
-  if (!sourcePath || !fs.existsSync(sourcePath)) {
+  let materialized
+  try {
+    materialized = await materializeMediaFile(media.objectKey)
+  } catch (e) {
     const repo = mediaAssetRepo()
     if (repo) {
       await repo.update({
@@ -270,20 +276,28 @@ async function runMediaDesensitize(mediaId, context = {}) {
         data: { desensitizeStatus: DESENSITIZE_STATUS.FAILED },
       })
     }
-    const err = new Error('原图文件不存在')
-    err.status = 404
-    throw err
+    throw e
   }
 
+  const sourcePath = materialized.filePath
   const ext = path.extname(sourcePath).toLowerCase() || '.jpg'
   const { albumId = 'album', nodeId = 'node', idx = 0, caseId = '' } = context
   const desensitizedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
-  const destPath = resolveDesensitizedFilePath(desensitizedKey)
+  const destTmp = path.join(
+    path.dirname(sourcePath),
+    `zhejian-des-${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`,
+  )
 
   try {
-    const engineResult = await processImage(sourcePath, destPath, {
+    const engineResult = await processImage(sourcePath, destTmp, {
       publicUrl: media.url || buildPublicMediaUrl(media.objectKey),
     })
+    if (fs.existsSync(destTmp)) {
+      const outBuf = await fs.promises.readFile(destTmp)
+      await writeMediaBuffer(desensitizedKey, outBuf, {
+        contentType: contentTypeForKey(desensitizedKey),
+      })
+    }
     const desensitizeStatus = mapEngineResultToStatus(engineResult)
     const desensitizedUrl =
       desensitizeStatus === DESENSITIZE_STATUS.SUCCESS
@@ -342,6 +356,15 @@ async function runMediaDesensitize(mediaId, context = {}) {
       }
     }
     throw e
+  } finally {
+    try {
+      if (fs.existsSync(destTmp)) fs.unlinkSync(destTmp)
+    } catch (e2) {
+      /* ignore */
+    }
+    if (materialized && materialized.cleanup) {
+      await materialized.cleanup()
+    }
   }
 }
 
@@ -433,78 +456,103 @@ async function applyManualMaskToAsset({
   const normalized = normalizeManualRegions(regions)
   const maskMode = mode === 'blur' ? 'blur' : 'mosaic'
   const baseUrl = String(maskedUrl || '').trim() || String(rawUrl || '').trim()
-  let sourcePath = resolveMediaFilePathFromPublicUrl(baseUrl)
-  if (!sourcePath || !fs.existsSync(sourcePath)) {
-    sourcePath = resolveMediaFilePathFromPublicUrl(rawUrl)
-  }
-  if (!sourcePath || !fs.existsSync(sourcePath)) {
+  const baseKey =
+    objectKeyFromPublicUrl(baseUrl) ||
+    objectKeyFromPublicUrl(rawUrl) ||
+    parseObjectKeyFromPublicUrl(rawUrl) ||
+    parseDesensitizedObjectKeyFromPublicUrl(baseUrl)
+  if (!baseKey) {
     const err = new Error('基底图片文件不存在')
     err.status = 404
     throw err
   }
 
-  const sharp = loadSharp()
-  if (!sharp) {
-    const err = new Error('图片处理不可用')
-    err.status = 422
+  let materialized
+  try {
+    materialized = await materializeMediaFile(baseKey)
+  } catch (e) {
+    const err = new Error('基底图片文件不存在')
+    err.status = 404
     throw err
   }
-  const meta = await sharp(sourcePath).metadata()
-  const imgW = meta.width || 0
-  const imgH = meta.height || 0
-  if (!imgW || !imgH) {
-    const err = new Error('无法读取图片尺寸')
-    err.status = 422
-    throw err
-  }
-
-  const boxes = normalized.map((r) => ({
-    left: Math.floor(r.x * imgW),
-    top: Math.floor(r.y * imgH),
-    width: Math.max(1, Math.floor(r.w * imgW)),
-    height: Math.max(1, Math.floor(r.h * imgH)),
-    type: r.type === 'plate' ? 'plate' : maskMode,
-  }))
-
-  const ext = path.extname(sourcePath).toLowerCase() || '.jpg'
-  const desensitizedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
-  const destPath = resolveDesensitizedFilePath(desensitizedKey)
-  if (!destPath) {
-    const err = new Error('无法生成脱敏路径')
-    err.status = 422
-    throw err
-  }
+  const sourcePath = materialized.filePath
 
   try {
-    await writeMaskedImage(sourcePath, destPath, boxes, maskMode)
-  } catch (e) {
-    const err = new Error(e.message || '手工打码合成失败')
-    err.status = 422
-    throw err
-  }
+    const sharp = loadSharp()
+    if (!sharp) {
+      const err = new Error('图片处理不可用')
+      err.status = 422
+      throw err
+    }
+    const meta = await sharp(sourcePath).metadata()
+    const imgW = meta.width || 0
+    const imgH = meta.height || 0
+    if (!imgW || !imgH) {
+      const err = new Error('无法读取图片尺寸')
+      err.status = 422
+      throw err
+    }
 
-  const publicUrl = buildPublicMediaUrl(desensitizedKey)
-  let media = mediaId ? await getMediaById(mediaId) : null
-  if (!media) {
-    media = await ensureMediaRecordFromUrl(rawUrl)
-  }
-  const repo = mediaAssetRepo()
-  if (media && repo) {
-    await repo.update({
-      where: { id: media.id },
-      data: {
-        desensitizedKey,
-        desensitizedUrl: publicUrl,
-        desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
-        engineVersion: ENGINE_VERSION,
-        privacyDetectedAt: new Date(),
-      },
-    })
-  }
+    const boxes = normalized.map((r) => ({
+      left: Math.floor(r.x * imgW),
+      top: Math.floor(r.y * imgH),
+      width: Math.max(1, Math.floor(r.w * imgW)),
+      height: Math.max(1, Math.floor(r.h * imgH)),
+      type: r.type === 'plate' ? 'plate' : maskMode,
+    }))
 
-  return {
-    mediaId: media ? media.id : '',
-    maskedUrl: publicUrl,
+    const ext = path.extname(sourcePath).toLowerCase() || '.jpg'
+    const desensitizedKey = buildDesensitizedObjectKey(albumId, nodeId, idx, ext)
+    const destTmp = path.join(
+      path.dirname(sourcePath),
+      `zhejian-manual-${Date.now()}-${Math.random().toString(16).slice(2)}${ext}`,
+    )
+
+    try {
+      await writeMaskedImage(sourcePath, destTmp, boxes, maskMode)
+      const outBuf = await fs.promises.readFile(destTmp)
+      await writeMediaBuffer(desensitizedKey, outBuf, {
+        contentType: contentTypeForKey(desensitizedKey),
+      })
+    } catch (e) {
+      const err = new Error(e.message || '手工打码合成失败')
+      err.status = 422
+      throw err
+    } finally {
+      try {
+        if (fs.existsSync(destTmp)) fs.unlinkSync(destTmp)
+      } catch (e2) {
+        /* ignore */
+      }
+    }
+
+    const publicUrl = buildPublicMediaUrl(desensitizedKey)
+    let media = mediaId ? await getMediaById(mediaId) : null
+    if (!media) {
+      media = await ensureMediaRecordFromUrl(rawUrl)
+    }
+    const repo = mediaAssetRepo()
+    if (media && repo) {
+      await repo.update({
+        where: { id: media.id },
+        data: {
+          desensitizedKey,
+          desensitizedUrl: publicUrl,
+          desensitizeStatus: DESENSITIZE_STATUS.SUCCESS,
+          engineVersion: ENGINE_VERSION,
+          privacyDetectedAt: new Date(),
+        },
+      })
+    }
+
+    return {
+      mediaId: media ? media.id : '',
+      maskedUrl: publicUrl,
+    }
+  } finally {
+    if (materialized && materialized.cleanup) {
+      await materialized.cleanup()
+    }
   }
 }
 

@@ -109,6 +109,7 @@ function openImageStream(filePath) {
 }
 
 module.exports = {
+  getCredential,
   getOcrClient,
   getViapiOcrClient,
   getFaceClient,

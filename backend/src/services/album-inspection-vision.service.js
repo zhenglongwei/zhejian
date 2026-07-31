@@ -103,7 +103,7 @@ async function captionInspectionImage(item) {
 
   let visionUrl = ''
   try {
-    const resolved = resolvePlanQuoteImageSources(item.url)
+    const resolved = await resolvePlanQuoteImageSources(item.url)
     visionUrl = resolved.visionUrl
   } catch (e) {
     return { ...item, caption: '', visionError: (e && e.message) || 'image_resolve_failed' }

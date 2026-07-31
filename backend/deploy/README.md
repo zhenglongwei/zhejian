@@ -13,6 +13,23 @@
 **预发搭建**：`docs/12_测试验收部署与安全合规/B-INF_预发环境搭建.md`  
 **用户向**：`docs/部署上手指南.md`
 
+## 媒体 OSS（B-MEDIA-01）
+
+生产 `.env`：
+
+```bash
+OSS_ENABLED=true
+OSS_BUCKET=zhejianoss
+OSS_REGION=cn-hangzhou
+OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
+OSS_INTERNAL_ENDPOINT=oss-cn-hangzhou-internal.aliyuncs.com
+# RAM/ECS 角色须含该 Bucket 读写；勿把主账号 Key 写入仓库
+```
+
+存量迁移：`npm run media:migrate-oss -- --dry-run` → `npm run media:migrate-oss`  
+微信小程序合法域名增加：`zhejianoss.oss-cn-hangzhou.aliyuncs.com`（uploadFile / downloadFile）  
+Bucket CORS：GET/POST/HEAD，暴露 ETag。详见 `docs/部署上手指南.md` §7。
+
 ## 快速命令
 
 ```bash

@@ -174,7 +174,7 @@ async function recognizePlanQuoteRowsViaLlm(imageUrl) {
     throw err
   }
 
-  const imageSource = resolvePlanQuoteImageSources(imageUrl)
+  const imageSource = await resolvePlanQuoteImageSources(imageUrl)
   const failures = []
 
   for (const engine of engines) {

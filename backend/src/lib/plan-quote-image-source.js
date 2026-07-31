@@ -1,15 +1,17 @@
-const fs = require('fs')
 const path = require('path')
 const {
   rewriteMediaUrlForCurrentBase,
   assertPersistentImageUrl,
-  resolveMediaFilePathFromPublicUrl,
+  parseObjectKeyFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
 } = require('./media-storage')
+const { readMediaBuffer, objectKeyFromPublicUrl } = require('./media-blob')
+const { isOssEnabled, signObjectUrl, ossConfig } = require('./oss-client')
 
 const MAX_BASE64_BYTES = 10 * 1024 * 1024
 
-function guessImageMime(filePath) {
-  const ext = path.extname(filePath).toLowerCase()
+function guessImageMime(objectKeyOrPath) {
+  const ext = path.extname(String(objectKeyOrPath || '')).toLowerCase()
   if (ext === '.png') return 'image/png'
   if (ext === '.webp') return 'image/webp'
   return 'image/jpeg'
@@ -29,24 +31,44 @@ function isLikelyUnreachablePublicUrl(url) {
 }
 
 /**
- * 报价表/OCR/LLM 共用：优先本机 media 落盘（与 OCR body 同源），否则公网 URL。
- * LLM 使用 base64 可避免「OCR 读本地、云端拉不到 127.0.0.1」的矛盾。
+ * 报价表/OCR/LLM 共用：优先媒体落盘或 OSS Buffer→base64，否则公网 URL。
  */
-function resolvePlanQuoteImageSources(imageUrl) {
+async function resolvePlanQuoteImageSources(imageUrl) {
   const persistent = assertPersistentImageUrl(imageUrl)
   const publicUrl = rewriteMediaUrlForCurrentBase(persistent)
-  const imagePath = resolveMediaFilePathFromPublicUrl(publicUrl)
+  const objectKey =
+    objectKeyFromPublicUrl(publicUrl) ||
+    parseObjectKeyFromPublicUrl(publicUrl) ||
+    parseDesensitizedObjectKeyFromPublicUrl(publicUrl)
 
-  if (imagePath && fs.existsSync(imagePath)) {
-    const stat = fs.statSync(imagePath)
-    if (stat.size <= MAX_BASE64_BYTES) {
-      const mime = guessImageMime(imagePath)
-      const base64 = fs.readFileSync(imagePath).toString('base64')
-      return {
-        publicUrl,
-        imagePath,
-        visionUrl: `data:${mime};base64,${base64}`,
-        visionMode: 'base64',
+  if (objectKey) {
+    try {
+      const buf = await readMediaBuffer(objectKey)
+      if (buf && buf.length && buf.length <= MAX_BASE64_BYTES) {
+        const mime = guessImageMime(objectKey)
+        return {
+          publicUrl,
+          imagePath: '',
+          visionUrl: `data:${mime};base64,${buf.toString('base64')}`,
+          visionMode: 'base64',
+        }
+      }
+    } catch (e) {
+      /* fall through */
+    }
+    if (isOssEnabled()) {
+      try {
+        const signed = await signObjectUrl(objectKey, {
+          expires: Number((ossConfig() && ossConfig().signedUrlTtlSec) || 7200),
+        })
+        return {
+          publicUrl: signed,
+          imagePath: '',
+          visionUrl: signed,
+          visionMode: 'url',
+        }
+      } catch (e) {
+        /* fall through */
       }
     }
   }
@@ -65,7 +87,7 @@ function resolvePlanQuoteImageSources(imageUrl) {
 
   return {
     publicUrl,
-    imagePath: imagePath || '',
+    imagePath: '',
     visionUrl: publicUrl,
     visionMode: 'url',
   }

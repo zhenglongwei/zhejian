@@ -7,6 +7,8 @@ const { buildZipStore } = require('../lib/zip-store')
 const {
   resolveMediaFilePathFromPublicUrl,
   rewriteMediaUrlForCurrentBase,
+  parseObjectKeyFromPublicUrl,
+  parseDesensitizedObjectKeyFromPublicUrl,
 } = require('../lib/media-storage')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveShared } = require('../utils/resolve-shared')
@@ -104,6 +106,17 @@ function fetchUrlBuffer(url) {
 
 async function readImageBuffer(rawUrl) {
   const rewritten = rewriteMediaUrlForCurrentBase(rawUrl)
+  const key =
+    parseDesensitizedObjectKeyFromPublicUrl(rewritten || rawUrl) ||
+    parseObjectKeyFromPublicUrl(rewritten || rawUrl)
+  if (key) {
+    try {
+      const { readMediaBuffer } = require('../lib/media-blob')
+      return await readMediaBuffer(key)
+    } catch (e) {
+      /* fall through to HTTP */
+    }
+  }
   const local = resolveMediaFilePathFromPublicUrl(rewritten || rawUrl)
   if (local && fs.existsSync(local)) {
     return fs.promises.readFile(local)
