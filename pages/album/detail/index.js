@@ -243,16 +243,23 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPageGateActions: gateActions,
     }
   }
+  // 尾页保持简洁（本册已阅 + 状态提示 + 评价），不叠「体验官」邀请大卡；
+  // 发布入口在分享面板 / 列表，见 canAuthorizePublicCase。
   if (showInvite) {
     return {
-      ...inviteFields,
-      endPageShowPreview: true,
+      endPageInvitePitch: '',
+      endPageInviteEyebrow: '',
+      endPageControlLine: '',
+      endPageShowPreview: false,
       endPagePreviewLabel: PREVIEW_LABEL,
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
       endPageShowWithdraw: false,
       endPageWithdrawLabel: '一键下架',
-      endPageStatusHint: '',
+      endPageStatusHint:
+        gateBanner ||
+        (detail && detail.userConfirmHint) ||
+        '',
       endPageGateActions: gateActions,
     }
   }

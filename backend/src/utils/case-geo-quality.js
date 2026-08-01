@@ -103,9 +103,12 @@ function assessGeoEvidence(input = {}) {
   }
 
   const requiredStages = 3
-  const requiredFilled = [snap.stage_1, snap.stage_2, hasPlanEvidence ? { hasNote: true } : null].filter(
-    Boolean
-  ).length
+  // 须按「是否有证据」计数；空对象 {hasNote:false,hasImages:false} 不能算已填
+  const requiredFilled = [
+    hasStageEvidence(snap.stage_1),
+    hasStageEvidence(snap.stage_2),
+    hasPlanEvidence,
+  ].filter(Boolean).length
   const score = Math.min(100, Math.round((requiredFilled / requiredStages) * 70 + (imageCount > 0 ? 30 : 0)))
 
   const summaryParts = []

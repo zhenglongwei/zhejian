@@ -13,12 +13,13 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
   padding: var(--space-xl) var(--space-lg);
+  text-align: center;
 }
 
 .album-end-page__finisher {
@@ -119,6 +120,7 @@
   width: 100%;
   max-width: 560rpx;
   margin: 0 auto var(--space-md);
+  padding: 0 var(--space-sm);
   text-align: center;
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
@@ -137,6 +139,13 @@
   align-self: center;
 }
 
+/* 自定义组件宿主默认按内容收缩，不显式拉满时多按钮会靠左 */
+.album-end-page__actions ui-button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .album-end-page__actions .btn--block {
   display: flex;
   width: 100%;
@@ -147,6 +156,12 @@
   display: flex;
   justify-content: center;
   width: 100%;
+}
+
+.album-end-page__preview-wrap ui-button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .album-end-page__status--tight {

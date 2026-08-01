@@ -39,6 +39,7 @@
       <view wx:if="{{showPreview}}" class="album-end-page__preview-wrap">
         <ui-button
           type="{{pendingOwnerReview ? 'secondary' : 'primary'}}"
+          block
           disabled="{{previewDisabled}}"
           bind:btntap="onPreviewTap"
         >{{previewLabel}}</ui-button>

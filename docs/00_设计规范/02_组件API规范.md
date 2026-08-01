@@ -467,11 +467,12 @@ Token：`--color-album-frame` / `--color-album-frame-line` / `--color-album-fram
 
 #### AlbumEndPage（`components/album-end-page` · 卷七 UI-ALB）
 
-虚拟 **尾页**：暖底 `--color-album-frame-inner` + 发布/分享/服务评价等按钮（按状态显隐）。
+虚拟 **尾页**：暖底 `--color-album-frame-inner` + 状态提示 + 服务评价等按钮（按状态显隐）。  
+待发布态尾页保持简洁（如「门店已提交，请您确认」+「说说这次维修体验」），**不**叠体验官邀请大卡与「预览脱敏案例」；发布入口在分享面板 / 列表。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| showPreview | Boolean | false | 预览脱敏案例 / 发布入口 |
+| showPreview | Boolean | false | 预览脱敏案例 / 发布入口（待发布默认关闭；需修改等态可开） |
 | showFeedback | Boolean | true | 是否展示服务评价入口 |
 | pendingOwnerReview | Boolean | false | 案例审通过且未评：评价为主按钮「说说这次维修体验」；已评为次按钮「查看评价」 |
 | showWithdraw | Boolean | false | 一键下架 |

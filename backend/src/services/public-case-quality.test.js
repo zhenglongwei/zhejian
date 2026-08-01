@@ -30,18 +30,30 @@ test('assessPublicCaseQuality passes when quality score >= threshold and no priv
   assert.ok(!result.privacyBlocks.length)
 })
 
-test('geo incomplete lowers quality score but is not a privacy block', () => {
+test('geo incomplete fails publish while public media alone is not enough', () => {
+  const result = assessPublicCaseQuality({
+    serviceName: '保养',
+    imageCount: 1,
+    nodes: [{ id: 'stage_2', title: '检测', note: '检查完成', images: ['b.jpg'] }],
+    imageMeta: [{ nodeId: 'stage_2', visibility: 'public', publicGateStatus: 'passed' }],
+  })
+  assert.equal(result.publicCasePrivacyPass, true)
+  assert.equal(result.geoQuality.level, 'block')
+  assert.equal(result.publicCaseScorePass, false)
+  assert.ok(result.qualitySuggestions.some((item) => item.category === 'quality'))
+  assert.equal(result.privacyBlocks.length, 0)
+})
+
+test('empty album with no public media is privacy-blocked', () => {
   const result = assessPublicCaseQuality({
     serviceName: '保养',
     imageCount: 0,
     nodes: [],
     imageMeta: [],
   })
-  assert.equal(result.publicCasePrivacyPass, true)
+  assert.equal(result.publicCasePrivacyPass, false)
   assert.equal(result.publicCaseScorePass, false)
-  assert.ok(result.publicCaseScore < PUBLIC_CASE_SCORE_PASS_THRESHOLD)
-  assert.ok(result.qualitySuggestions.some((item) => item.category === 'quality'))
-  assert.equal(result.privacyBlocks.length, 0)
+  assert.ok(result.privacyBlocks.some((item) => item.issue === 'no_public_media'))
 })
 
 test('pii in note is privacy block regardless of quality score', () => {
@@ -90,4 +102,47 @@ test('assertPublicCaseQualityReady throws with PUBLIC_CASE_QUALITY_BLOCKED', () 
       }),
     (err) => err.code === 'PUBLIC_CASE_QUALITY_BLOCKED' && err.status === 409,
   )
+})
+
+test('only always-private quote image cannot authorize publish', () => {
+  const result = assessPublicCaseQuality({
+    serviceName: '电瓶更换',
+    imageCount: 1,
+    nodes: [
+      { id: 'stage_1', title: '接车', note: '', images: [] },
+      { id: 'stage_2', title: '检测', note: '', images: [] },
+      { id: 'stage_3', title: '方案与报价', note: '', images: ['quote.jpg'] },
+      { id: 'stage_4', title: '施工', note: '', images: [] },
+      { id: 'stage_5', title: '配件', note: '', images: [] },
+      { id: 'stage_6', title: '交付', note: '', images: [] },
+    ],
+    imageMeta: [
+      {
+        nodeId: 'stage_3',
+        visibility: 'private',
+        publicGateStatus: 'skipped',
+      },
+    ],
+  })
+  assert.equal(result.publicCaseScorePass, false)
+  assert.equal(result.publicCasePrivacyPass, false)
+  assert.ok(result.privacyBlocks.some((item) => item.issue === 'no_public_media'))
+})
+
+test('geo incomplete blocks publish even when numeric score would look high', () => {
+  const result = assessPublicCaseQuality({
+    serviceName: '保养',
+    imageCount: 2,
+    planAmount: 300,
+    nodes: [
+      { id: 'stage_1', title: '接车', note: '', images: [] },
+      { id: 'stage_2', title: '检测', note: '检查完成', images: ['b.jpg'] },
+      { id: 'stage_3', title: '方案', note: '更换机油', images: [] },
+    ],
+    imageMeta: [
+      { nodeId: 'stage_2', visibility: 'public', publicGateStatus: 'passed' },
+    ],
+  })
+  assert.equal(result.geoQuality.level, 'block')
+  assert.equal(result.publicCaseScorePass, false)
 })

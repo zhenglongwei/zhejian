@@ -20,6 +20,7 @@ function run() {
   const full = extractGeoFromAlbumNodes(nodesFixture(), {
     serviceName: '刹车保养',
     planAmount: 680,
+    includePlanAmount: true,
     storeNote: '门店补充',
   })
   assert.strictEqual(full.faultDesc, '刹车异响')
@@ -62,6 +63,8 @@ function run() {
   })
   assert.strictEqual(blockMissingInspect.level, GEO_QUALITY_LEVEL.BLOCK)
   assert.ok(blockMissingInspect.missingFields.some((f) => f.field === 'stage_2'))
+  // 空节点不得计入已填，否则会出现 level=block 但 score=100
+  assert.ok(blockMissingInspect.score < 100)
 
   const blockNoPlan = assessGeoEvidence({
     nodes: nodesFixture({

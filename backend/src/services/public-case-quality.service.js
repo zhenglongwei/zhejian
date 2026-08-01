@@ -67,24 +67,35 @@ function assessPrivacyComplianceBlocks(albumView = {}, copyQuality = {}) {
       PRIVACY_GATE_REASONS.has(String(row.publicGateReason || '')),
   )
 
-  if (publicMediaCount < 1 && privacyRejectedImages.length > 0) {
-    const reasons = [
-      ...new Set(
-        privacyRejectedImages
-          .map((row) => row.publicGateReason)
-          .filter((reason) => PRIVACY_GATE_REASONS.has(String(reason || ''))),
-      ),
-    ]
-    const hint =
-      reasons.length === 1
-        ? GATE_HINTS[reasons[0]] || GATE_HINTS.document
-        : '过程图含车牌/人脸/手机号等敏感信息，暂无可公示素材'
-    blocks.push({
-      kind: 'privacy',
-      issue: 'no_public_media_privacy',
-      field: 'publicMedia',
-      message: `${hint}。请补充可公示过程图后再引导车主授权。`,
-    })
+  // 无可公示配图（含仅有接车/报价单等 always_private 图）：硬拦，不引导车主发布
+  if (publicMediaCount < 1) {
+    if (privacyRejectedImages.length > 0) {
+      const reasons = [
+        ...new Set(
+          privacyRejectedImages
+            .map((row) => row.publicGateReason)
+            .filter((reason) => PRIVACY_GATE_REASONS.has(String(reason || ''))),
+        ),
+      ]
+      const hint =
+        reasons.length === 1
+          ? GATE_HINTS[reasons[0]] || GATE_HINTS.document
+          : '过程图含车牌/人脸/手机号等敏感信息，暂无可公示素材'
+      blocks.push({
+        kind: 'privacy',
+        issue: 'no_public_media_privacy',
+        field: 'publicMedia',
+        message: `${hint}。请补充可公示过程图后再引导车主授权。`,
+      })
+    } else {
+      blocks.push({
+        kind: 'privacy',
+        issue: 'no_public_media',
+        field: 'publicMedia',
+        message:
+          '暂无可公示过程图（接车/报价单仅留档不上网）。请在检测、施工、配件或交付节点补充可公示照片后再引导车主授权。',
+      })
+    }
   }
 
   return blocks
@@ -180,8 +191,11 @@ function assessPublicCaseQuality(albumView = {}) {
   )
   const publicCaseScore = computePublicCaseQualityScore(geoQuality, copyQuality)
   const publicCasePrivacyPass = privacyBlocks.length === 0
+  const geoEvidenceReady = geoQuality.level !== 'block'
   const publicCaseScorePass =
-    publicCasePrivacyPass && publicCaseScore >= PUBLIC_CASE_SCORE_PASS_THRESHOLD
+    publicCasePrivacyPass &&
+    geoEvidenceReady &&
+    publicCaseScore >= PUBLIC_CASE_SCORE_PASS_THRESHOLD
 
   return {
     geoQuality,
@@ -211,7 +225,12 @@ function assertPublicCaseQualityReady(albumView) {
   quality.privacyBlocks.slice(0, 3).forEach((item) => {
     reasons.push(item.message)
   })
-  if (quality.publicCasePrivacyPass && quality.publicCaseScore < PUBLIC_CASE_SCORE_PASS_THRESHOLD) {
+  if (quality.geoQuality && quality.geoQuality.level === 'block') {
+    reasons.push(quality.geoQuality.summaryText || '案例证据链不完整')
+  } else if (
+    quality.publicCasePrivacyPass &&
+    quality.publicCaseScore < PUBLIC_CASE_SCORE_PASS_THRESHOLD
+  ) {
     reasons.push(
       `质量分 ${quality.publicCaseScore}，未达 ${PUBLIC_CASE_SCORE_PASS_THRESHOLD} 分标准`,
     )

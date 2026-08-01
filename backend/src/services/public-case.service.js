@@ -177,6 +177,38 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
 
 const { canAccessMerchantAlbum } = require('../lib/merchant-album-access')
 
+/**
+ * H5 / 案例发布规则（与质量分独立）：公开包须有可公示脱敏图，且标题摘要齐全。
+ * 防止「质量分误判放行 → 网站空白案例」再次发生。
+ */
+function assertPublicViewPublishable(publicView, merchantCaseDraft = null) {
+  const media = (publicView && Array.isArray(publicView.media) && publicView.media) || []
+  if (media.length < 1) {
+    const err = new Error(
+      '当前无可公示脱敏配图（接车/报价单仅留档）。请补充检测、施工、配件或交付过程图后再发布',
+    )
+    err.status = 409
+    err.code = 'PUBLIC_VIEW_MEDIA_REQUIRED'
+    throw err
+  }
+  const title = String(
+    (merchantCaseDraft && merchantCaseDraft.title) || (publicView && publicView.serviceName) || '',
+  ).trim()
+  const summary = String((merchantCaseDraft && merchantCaseDraft.caseSummary) || '').trim()
+  if (!title) {
+    const err = new Error('案例缺少标题，暂不可发布到公开网站')
+    err.status = 409
+    err.code = 'PUBLIC_CASE_TITLE_REQUIRED'
+    throw err
+  }
+  if (!summary) {
+    const err = new Error('案例缺少摘要，暂不可发布到公开网站')
+    err.status = 409
+    err.code = 'PUBLIC_CASE_SUMMARY_REQUIRED'
+    throw err
+  }
+}
+
 function assertPublicCasePublishable(publicCase) {
   if (!publicCase) {
     const err = new Error('须先由门店确认完工并通过平台案例审核')
@@ -402,6 +434,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   }
 
   const albumView = buildAlbumView(album)
+  // 第一层：公示质量分（证据链 + 文案 + 无可公示图硬拦）
   assertPublicCaseQualityReady(albumView)
 
   const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
@@ -413,6 +446,12 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   const publicView = config.publicViewV2
     ? buildPublicView(albumView, task, { authorizationTier: tier })
     : null
+  // 第二层：案例发布规则（公开包须有脱敏图等，与质量分独立）
+  if (config.publicViewV2) {
+    assertPublicViewPublishable(publicView, merchantCaseDraft)
+  } else if (!(nodesWithMask || []).some((n) => (n.images || []).length > 0)) {
+    assertPublicViewPublishable({ media: [] }, merchantCaseDraft)
+  }
   const draft = mergeOptimizeDraftIntoCaseDraft(
     buildCaseDraft(albumView, task, tier, {
       serviceItemId: album.serviceItemId || '',
@@ -752,4 +791,5 @@ module.exports = {
   pickCover,
   resolvePublishTask,
   assertPublicCasePublishable,
+  assertPublicViewPublishable,
 }
