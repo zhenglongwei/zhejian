@@ -27,6 +27,24 @@ const EXPERIENCE_OFFICER_TITLES = [
 const CONTROL_LINE =
   '仅用于技术科普，不泄露隐私。可随时在「我的服务相册」下架。'
 
+/** 已发布可分享态短提示 */
+const PUBLISHED_TIP =
+  '案例已在公开网站。发给微信不会额外泄露隐私；可随时下架。'
+
+/** 审核中短提示 */
+const PENDING_TIP = '脱敏案例审核中，通过后即可分享给同城车友。'
+
+const PUBLISHED_SHARE_LINES = [
+  '感谢以体验官身份公开这份脱敏案例。发给微信好友或朋友圈，帮同城车友少踩坑。',
+  '案例已整理好。转给需要的人，说不定能帮到下一位同款车主。',
+  '修好了更值得被看见。分享给好友或朋友圈，帮帮后来的车友。',
+]
+
+const PENDING_SHARE_LINES = [
+  '案例正在加急审核，通过后即可分享给同城车友。',
+  '审核很快完成。通过后欢迎把脱敏案例发给需要的人。',
+]
+
 const CONSENT_CHECKBOX =
   '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。'
 
@@ -57,6 +75,16 @@ function pickEncourageLine(seed = '') {
   return ENCOURAGE_LINES[index]
 }
 
+function pickPublishedShareLine(seed = '') {
+  const index = hashSeed(`${seed || 'zhejian'}:published`) % PUBLISHED_SHARE_LINES.length
+  return PUBLISHED_SHARE_LINES[index]
+}
+
+function pickPendingShareLine(seed = '') {
+  const index = hashSeed(`${seed || 'zhejian'}:pending`) % PENDING_SHARE_LINES.length
+  return PENDING_SHARE_LINES[index]
+}
+
 function pickExperienceOfficerTitle(seed = '') {
   const index = hashSeed(seed) % EXPERIENCE_OFFICER_TITLES.length
   return EXPERIENCE_OFFICER_TITLES[index]
@@ -76,11 +104,26 @@ function buildGuidePitch(options = {}) {
   return pickEncourageLine(seed)
 }
 
+function buildPublishedSharePitch(options = {}) {
+  const seed = options.seed || options.albumId || 'zhejian'
+  const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
+  const project = String(options.serviceName || options.project || '').trim()
+  if (vehicle || project) {
+    const label = [vehicle, project].filter(Boolean).join(' · ')
+    return `《${label}避坑指南》已在公开站。发给微信好友或朋友圈，帮同城车友少踩坑。`
+  }
+  return pickPublishedShareLine(seed)
+}
+
 /**
  * @returns {{
  *   officerTitle: string,
  *   pitch: string,
  *   controlLine: string,
+ *   publishedPitch: string,
+ *   publishedTip: string,
+ *   pendingPitch: string,
+ *   pendingTip: string,
  *   sheetTitle: string,
  *   confirmText: string,
  *   rejectText: string,
@@ -99,6 +142,10 @@ function buildPublishInviteCopy(options = {}) {
     officerTitle,
     guideTitle: '',
     pitch,
+    publishedPitch: buildPublishedSharePitch({ ...options, seed }),
+    publishedTip: PUBLISHED_TIP,
+    pendingPitch: pickPendingShareLine(seed),
+    pendingTip: PENDING_TIP,
     benefitLine: '',
     controlLine: CONTROL_LINE,
     disclaimer: '',
@@ -131,6 +178,10 @@ module.exports = {
   ENCOURAGE_LINES,
   EXPERIENCE_OFFICER_TITLES,
   CONTROL_LINE,
+  PUBLISHED_TIP,
+  PENDING_TIP,
+  PUBLISHED_SHARE_LINES,
+  PENDING_SHARE_LINES,
   CONSENT_CHECKBOX,
   AUTH_ACTION_LABEL,
   AUTH_SHEET_TITLE,
@@ -145,8 +196,11 @@ module.exports = {
   REVIEW_NUDGE_TEXT,
   hashSeed,
   pickEncourageLine,
+  pickPublishedShareLine,
+  pickPendingShareLine,
   pickExperienceOfficerTitle,
   buildGuidePitch,
+  buildPublishedSharePitch,
   buildPublishInviteCopy,
   canShowPublishInvite,
   isPublicShareReady,

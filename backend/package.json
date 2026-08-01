@@ -45,6 +45,8 @@
     "test:geo-topic-seed": "node src/constants/geo-topic-seed.test.js",
     "cases:check": "node scripts/public-case-prod-check.js",
     "cases:backfill-published-h5": "node scripts/backfill-published-h5.js",
+    "cases:repair-invalid-slugs": "node scripts/repair-invalid-case-slugs.js",
+    "test:case-slug": "node src/utils/case-slug.test.js",
     "cases:generate-articles": "node scripts/generate-case-articles-backfill.js",
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
     "geo:migrate-mock": "node scripts/geo-pages-migrate-from-mock.js",

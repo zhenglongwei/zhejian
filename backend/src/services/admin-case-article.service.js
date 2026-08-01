@@ -19,7 +19,11 @@ const { mergeContentJsonGeo, resolveGeoReadableFields } = require('../schemas/ca
 const { buildCaseArticlePayload, applyConfirmedMerchantCaseDraft } = require('./case-article-generator.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildCaseDraft, resolvePublishTask, buildNodesFromTask } = require('./public-case.service')
-const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
+const {
+  ensureUniqueCaseSlug,
+  isH5RoutableCaseSlug,
+  resolveCaseCanonicalPath,
+} = require('../utils/case-slug')
 
 const GEO_EDITABLE_TOP_FIELDS = [
   'aiSummary',
@@ -374,7 +378,9 @@ async function buildLegacyRegeneratePayload(row) {
     mergedContentJson = { ...mergedContentJson }
   }
 
-  const slug = row.slug || (await ensureUniqueCaseSlug(prisma, fresh.slug, row.id))
+  const slug = isH5RoutableCaseSlug(row.slug)
+    ? row.slug
+    : await ensureUniqueCaseSlug(prisma, fresh.slug, row.id)
 
   return {
     title: fresh.title,

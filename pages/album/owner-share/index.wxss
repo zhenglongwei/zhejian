@@ -7,7 +7,7 @@
   padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
-.album-owner-share__body--invite {
+.album-owner-share__body--ritual {
   min-height: 70vh;
   justify-content: center;
 }
@@ -34,15 +34,6 @@
   );
   border: 1rpx solid var(--color-album-frame-line);
   box-shadow: var(--shadow-card-soft);
-}
-
-.album-owner-share__hero--ready {
-  background: linear-gradient(
-    180deg,
-    var(--color-album-frame-inner) 0%,
-    var(--color-success-light) 200rpx,
-    var(--color-album-frame-inner) 100%
-  );
 }
 
 .album-owner-share__avatar-wrap {
@@ -88,73 +79,16 @@
   line-height: 1.55;
 }
 
-.album-owner-share__seal {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-xs);
-}
-
-.album-owner-share__seal-ring {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-primary-light);
-  border: 2rpx solid var(--color-primary);
-  box-shadow: var(--shadow-card-soft);
-}
-
-.album-owner-share__seal-ring--ready {
-  background: var(--color-success-light);
-  border-color: var(--color-success);
-}
-
-.album-owner-share__seal-mark {
-  font-size: var(--font-h2);
-  line-height: 1;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-primary);
-  letter-spacing: 2rpx;
-}
-
-.album-owner-share__seal-mark--ready {
-  color: var(--color-success);
-  letter-spacing: 0;
-}
-
-.album-owner-share__hero-title {
-  display: block;
-  color: var(--color-text-primary);
-}
-
-.album-owner-share__hero-sub {
-  display: block;
-  color: var(--color-text-secondary);
-  line-height: 1.55;
-  max-width: 560rpx;
-}
-
-.album-owner-share__section-title {
-  display: block;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.album-owner-share__published-hint {
-  display: block;
-  margin-top: var(--space-xs);
-  margin-bottom: var(--space-md);
-  line-height: 1.5;
-}
-
 .album-owner-share__channels {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--space-sm);
+}
+
+.album-owner-share__channels--in-hero {
+  width: 100%;
+  margin-top: var(--space-sm);
+  text-align: left;
 }
 
 .album-owner-share__channel {
@@ -171,7 +105,6 @@
   box-shadow: var(--shadow-album-list-thumb);
 }
 
-/* 原生 button 默认不撑满，需强制与上方 view 同宽同布局 */
 .album-owner-share__channel-btn {
   margin: 0;
   padding: var(--space-md);

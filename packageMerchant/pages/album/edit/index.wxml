@@ -237,20 +237,15 @@
               <view wx:if="{{!readOnly}}" class="merchant-album-edit__parts-head-actions">
                 <view
                   class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
-                  bindtap="onRunPlanQuoteOcr"
+                  catchtap="onRunPlanQuoteOcr"
                 >
-                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR 辅助录入（报价/定损/结算）'}}</text>
+                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR辅助识别报价单'}}</text>
                 </view>
-                <text
-                  class="text-caption text-link merchant-album-edit__parts-add-link"
-                  bindtap="onAddPartRow"
-                >添加配件</text>
               </view>
             </view>
             <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].photoTips}}</text>
             <view class="merchant-album-edit__extra-sop">
               <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage4Hint}}</text>
-              <text class="text-caption text-link merchant-album-edit__extra-sop-link" bindtap="onExtraPartSopHelp">{{extraPartSopLink}}</text>
             </view>
             <view wx:if="{{planParseHint}}" class="merchant-album-edit__parse-hint">
               <text class="text-caption">{{planParseHint}}</text>
@@ -534,7 +529,6 @@
           />
           <view wx:if="{{isPlanStage}}" class="merchant-album-edit__extra-sop">
             <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage3Hint}}</text>
-            <text class="text-caption text-link merchant-album-edit__extra-sop-link" bindtap="onExtraPartSopHelp">{{extraPartSopLink}}</text>
           </view>
         </block>
 

@@ -20,7 +20,7 @@ const MERCHANT_OLD_PART_INTRO = '更换类项目可上传旧件或拆下照片�
 
 /** B-PART · 施工增项 SOP（Phase 1 · 见 docs/04/11_施工增项留痕SOP.md） */
 const MERCHANT_EXTRA_PART_SOP_STAGE3_HINT = '有增项？先取得客户确认，在本页补传增项/报价单，再到配件凭证登记。'
-const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT = '有新增更换件？先回方案补传增项单并更新目录，再回本页上传凭证。'
+const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT = '若配件和原方案不符，请先和客户沟通确认，然后上传最新的报价单。'
 const MERCHANT_EXTRA_PART_SOP_LINK = '增项怎么做'
 const MERCHANT_EXTRA_PART_SOP_MODAL_TITLE = '施工增项怎么做'
 const MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT =

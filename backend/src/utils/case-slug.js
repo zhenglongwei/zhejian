@@ -124,9 +124,20 @@ function buildCaseSlug(input) {
   return slug || idPart
 }
 
+/**
+ * 与 Nginx `location ~ ^/case/(?!index\.html$)[a-zA-Z0-9_-]+\.html$` 对齐。
+ * 中文标题、全角分隔符等不可作为 H5 slug（会 404）。
+ */
+function isH5RoutableCaseSlug(slug) {
+  const value = String(slug || '').trim()
+  if (!value || value === 'index' || value === 'view') return false
+  return /^[a-zA-Z0-9_-]+$/.test(value)
+}
+
 function buildCasePagePath(slug) {
   const value = String(slug || '').trim()
   if (!value) return ''
+  if (!isH5RoutableCaseSlug(value)) return ''
   return `/case/${encodeURIComponent(value)}.html`
 }
 
@@ -135,7 +146,7 @@ function buildLegacyCaseViewPath(caseId) {
 }
 
 function resolveCaseCanonicalPath({ slug, caseId }) {
-  if (slug) return buildCasePagePath(slug)
+  if (isH5RoutableCaseSlug(slug)) return buildCasePagePath(slug)
   if (caseId) return buildLegacyCaseViewPath(caseId)
   return ''
 }
@@ -161,10 +172,31 @@ async function ensureUniqueCaseSlug(prisma, slug, caseId) {
   return slug
 }
 
+/**
+ * 已有可路由 slug 则复用；否则按城市/车型/项目重新生成英文 slug。
+ * @param {import('@prisma/client').PrismaClient} prisma
+ * @param {{ existingSlug?: string, city?: string, vehicle?: object, serviceName?: string, caseId: string }} input
+ */
+async function resolveRoutableCaseSlug(prisma, input) {
+  const caseId = String(input.caseId || '').trim()
+  const existing = String(input.existingSlug || '').trim()
+  if (isH5RoutableCaseSlug(existing)) return existing
+  const built = buildCaseSlug({
+    city: input.city,
+    vehicle: input.vehicle,
+    serviceName: input.serviceName,
+    caseId,
+  })
+  const seed = isH5RoutableCaseSlug(built) ? built : normalizeAsciiSegment(caseId, 80) || `case-${simpleHash(caseId)}`
+  return ensureUniqueCaseSlug(prisma, seed, caseId)
+}
+
 module.exports = {
   buildCaseSlug,
   buildCasePagePath,
   buildLegacyCaseViewPath,
   resolveCaseCanonicalPath,
   ensureUniqueCaseSlug,
+  isH5RoutableCaseSlug,
+  resolveRoutableCaseSlug,
 }

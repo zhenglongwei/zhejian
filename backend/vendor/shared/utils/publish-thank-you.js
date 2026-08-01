@@ -4,14 +4,14 @@
  * 对外避免「授权公示」等压迫短句；主文案走荣誉 + 控制权。
  */
 
-/** 亲切单句鼓励；按相册稳定随机取一句 */
+/** 亲切单句鼓励；按相册稳定随机取一句（少字，不重复称号） */
 const ENCOURAGE_LINES = [
-  '恭喜您的爱车满血复活！我们为您整理了一份脱敏避坑指南。是否愿意作为「透明维修体验官」，分享给同城车友，帮助更多人避开修车陷阱？',
-  '这份脱敏后的维修记录，说不定能帮到下一位同款车主。愿意当一回「避坑体验官」，把它分享出去吗？',
-  '修车过程留得清楚，本身就是最好的口碑。欢迎成为透明维修体验官，让同城车友少走弯路。',
-  '谢谢您一路跟进服务相册。若方便，诚邀您以透明维修体验官的身份，把这份脱敏案例分享给需要的人。',
-  '您的案例很有参考价值。成为避坑体验官，分享给同城车友，帮助更多人避开修车陷阱。',
-  '修好了就更值得被看见。邀请您做透明维修体验官，把脱敏后的过程分享出去，帮帮后来的车友。',
+  '这份脱敏避坑指南已整理好，诚邀您分享给同城车友，帮更多人少踩坑。',
+  '这份脱敏后的维修记录，说不定能帮到下一位同款车主，愿意分享出去吗？',
+  '修车过程留得清楚，本身就是最好的口碑。欢迎把脱敏案例分享给同城车友。',
+  '谢谢您一路跟进服务相册。若方便，把这份脱敏案例分享给需要的人吧。',
+  '您的案例很有参考价值。分享给同城车友，帮助更多人避开修车陷阱。',
+  '修好了就更值得被看见。把脱敏后的过程分享出去，帮帮后来的车友。',
 ]
 
 const EXPERIENCE_OFFICER_TITLES = [
@@ -23,8 +23,27 @@ const EXPERIENCE_OFFICER_TITLES = [
   '透明修车观察员',
 ]
 
+/** 邀请页 / 授权区短提示（完整承诺见法律专页） */
 const CONTROL_LINE =
-  '我们承诺：案例仅用于技术科普，绝不泄露您的任何隐私。您可随时在「我的服务相册」点击下架，公开站将尽快删除相关内容（第三方缓存清除可能有延迟）。'
+  '仅用于技术科普，不泄露隐私。可随时在「我的服务相册」下架。'
+
+/** 已发布可分享态短提示 */
+const PUBLISHED_TIP =
+  '案例已在公开网站。发给微信不会额外泄露隐私；可随时下架。'
+
+/** 审核中短提示 */
+const PENDING_TIP = '脱敏案例审核中，通过后即可分享给同城车友。'
+
+const PUBLISHED_SHARE_LINES = [
+  '感谢以体验官身份公开这份脱敏案例。发给微信好友或朋友圈，帮同城车友少踩坑。',
+  '案例已整理好。转给需要的人，说不定能帮到下一位同款车主。',
+  '修好了更值得被看见。分享给好友或朋友圈，帮帮后来的车友。',
+]
+
+const PENDING_SHARE_LINES = [
+  '案例正在加急审核，通过后即可分享给同城车友。',
+  '审核很快完成。通过后欢迎把脱敏案例发给需要的人。',
+]
 
 const CONSENT_CHECKBOX =
   '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。'
@@ -56,24 +75,44 @@ function pickEncourageLine(seed = '') {
   return ENCOURAGE_LINES[index]
 }
 
+function pickPublishedShareLine(seed = '') {
+  const index = hashSeed(`${seed || 'zhejian'}:published`) % PUBLISHED_SHARE_LINES.length
+  return PUBLISHED_SHARE_LINES[index]
+}
+
+function pickPendingShareLine(seed = '') {
+  const index = hashSeed(`${seed || 'zhejian'}:pending`) % PENDING_SHARE_LINES.length
+  return PENDING_SHARE_LINES[index]
+}
+
 function pickExperienceOfficerTitle(seed = '') {
   const index = hashSeed(seed) % EXPERIENCE_OFFICER_TITLES.length
   return EXPERIENCE_OFFICER_TITLES[index]
 }
 
 /**
- * 有车型/项目时生成带情绪价值的邀请句（仍无金额）
+ * 有车型/项目时生成带情绪价值的邀请句（仍无金额；不重复称号）
  */
 function buildGuidePitch(options = {}) {
   const seed = options.seed || options.albumId || 'zhejian'
-  const officerTitle = pickExperienceOfficerTitle(seed)
   const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
   const project = String(options.serviceName || options.project || '').trim()
   if (vehicle || project) {
     const label = [vehicle, project].filter(Boolean).join(' · ')
-    return `恭喜您的爱车满血复活！我们为您整理了一份《${label}避坑指南》。是否愿意作为「${officerTitle}」，将这份脱敏报告分享给同城车友，帮助更多人避开修车陷阱？`
+    return `我们为您整理了《${label}避坑指南》，诚邀您分享给同城车友，帮更多人少踩坑。`
   }
   return pickEncourageLine(seed)
+}
+
+function buildPublishedSharePitch(options = {}) {
+  const seed = options.seed || options.albumId || 'zhejian'
+  const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
+  const project = String(options.serviceName || options.project || '').trim()
+  if (vehicle || project) {
+    const label = [vehicle, project].filter(Boolean).join(' · ')
+    return `《${label}避坑指南》已在公开站。发给微信好友或朋友圈，帮同城车友少踩坑。`
+  }
+  return pickPublishedShareLine(seed)
 }
 
 /**
@@ -81,6 +120,10 @@ function buildGuidePitch(options = {}) {
  *   officerTitle: string,
  *   pitch: string,
  *   controlLine: string,
+ *   publishedPitch: string,
+ *   publishedTip: string,
+ *   pendingPitch: string,
+ *   pendingTip: string,
  *   sheetTitle: string,
  *   confirmText: string,
  *   rejectText: string,
@@ -99,6 +142,10 @@ function buildPublishInviteCopy(options = {}) {
     officerTitle,
     guideTitle: '',
     pitch,
+    publishedPitch: buildPublishedSharePitch({ ...options, seed }),
+    publishedTip: PUBLISHED_TIP,
+    pendingPitch: pickPendingShareLine(seed),
+    pendingTip: PENDING_TIP,
     benefitLine: '',
     controlLine: CONTROL_LINE,
     disclaimer: '',
@@ -131,6 +178,10 @@ module.exports = {
   ENCOURAGE_LINES,
   EXPERIENCE_OFFICER_TITLES,
   CONTROL_LINE,
+  PUBLISHED_TIP,
+  PENDING_TIP,
+  PUBLISHED_SHARE_LINES,
+  PENDING_SHARE_LINES,
   CONSENT_CHECKBOX,
   AUTH_ACTION_LABEL,
   AUTH_SHEET_TITLE,
@@ -143,9 +194,13 @@ module.exports = {
   FEEDBACK_LABEL_DONE,
   REVIEW_DOCK_LABEL,
   REVIEW_NUDGE_TEXT,
+  hashSeed,
   pickEncourageLine,
+  pickPublishedShareLine,
+  pickPendingShareLine,
   pickExperienceOfficerTitle,
   buildGuidePitch,
+  buildPublishedSharePitch,
   buildPublishInviteCopy,
   canShowPublishInvite,
   isPublicShareReady,

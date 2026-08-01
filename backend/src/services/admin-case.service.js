@@ -17,7 +17,11 @@ const { buildCaseDraft, resolvePublishTask } = require('./public-case.service')
 const { buildAlbumView } = require('./service-album.service')
 const { buildCaseArticlePayload } = require('./case-article-generator.service')
 const { stampPublishedH5OnPayload } = require('./case-article-publish.service')
-const { ensureUniqueCaseSlug, resolveCaseCanonicalPath } = require('../utils/case-slug')
+const {
+  isH5RoutableCaseSlug,
+  resolveRoutableCaseSlug,
+  resolveCaseCanonicalPath,
+} = require('../utils/case-slug')
 const {
   mapCaseArticleForApi,
   mapCaseSeoForApi,
@@ -627,20 +631,21 @@ async function finalizePublishedCaseSideEffects(
 
   if (snapshot) {
     const { resolveCaseSeoNoindexForStore } = require('./merchant-subscription.service')
-    let slug = row.slug || ''
-    if (!slug) {
-      slug = await ensureUniqueCaseSlug(
-        prisma,
-        row.title || snapshot.title || caseId,
-        caseId
-      )
-    }
+    const slugWasRoutable = isH5RoutableCaseSlug(row.slug)
+    const slug = await resolveRoutableCaseSlug(prisma, {
+      existingSlug: row.slug,
+      city: row.city || snapshot.city,
+      vehicle: snapshot.vehicle || {},
+      serviceName: row.serviceName || snapshot.serviceName,
+      caseId,
+    })
     const canonicalPath =
-      row.canonicalPath ||
-      resolveCaseCanonicalPath({
-        slug,
-        caseId,
-      })
+      slugWasRoutable && row.canonicalPath
+        ? row.canonicalPath
+        : resolveCaseCanonicalPath({
+            slug,
+            caseId,
+          })
     const seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
       city: row.city || snapshot.city,
       serviceName: row.serviceName || snapshot.serviceName,

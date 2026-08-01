@@ -4,7 +4,11 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
-const { buildCasePagePath, buildLegacyCaseViewPath } = require('../utils/case-slug')
+const {
+  buildCasePagePath,
+  buildLegacyCaseViewPath,
+  isH5RoutableCaseSlug,
+} = require('../utils/case-slug')
 
 async function resolveCaseRedirectTarget(caseId) {
   const id = String(caseId || '').trim()
@@ -29,7 +33,8 @@ async function resolveCaseRedirectTarget(caseId) {
     throw err
   }
 
-  if (row.slug) {
+  // 仅跳转 Nginx 可路由的英文 slug；中文标题误写入的 slug 会 404，改走旧链
+  if (isH5RoutableCaseSlug(row.slug)) {
     return {
       status: 301,
       location: buildCasePagePath(row.slug),
@@ -37,7 +42,7 @@ async function resolveCaseRedirectTarget(caseId) {
     }
   }
 
-  // 无 slug 时回退旧链并带 legacy=1，避免 Nginx rewrite → API → 302 死循环
+  // 无 slug / 非法 slug 时回退旧链并带 legacy=1，避免 Nginx rewrite → API → 302 死循环
   const legacyPath = `${buildLegacyCaseViewPath(row.id)}&legacy=1`
   return {
     status: 302,

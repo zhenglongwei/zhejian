@@ -58,7 +58,7 @@
               wx:if="{{showShareButton}}"
               type="secondary"
               block
-              bind:btntap="onOpenShareSheet"
+              bind:btntap="onOpenOwnerSharePage"
             >分享</ui-button>
             <ui-button
               wx:if="{{showStoreBrowse}}"

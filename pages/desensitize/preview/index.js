@@ -326,7 +326,9 @@ Page({
       return
     }
     if (source === 'service' && albumId) {
-      wx.redirectTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
+      wx.redirectTo({
+        url: `/pages/album/owner-share/index?albumId=${encodeURIComponent(albumId)}`,
+      })
       return
     }
     if (orderId) {

@@ -21,12 +21,9 @@ Page({
     mode: 'invite',
     detail: null,
     officerTitle: '透明维修体验官',
-    invitePitch: '',
-    controlLine: CONTROL_LINE,
+    heroPitch: '',
+    heroTip: CONTROL_LINE,
     previewLabel: PREVIEW_LABEL,
-    publishedHeroTitle: '可以分享啦',
-    publishedHeroSub: '脱敏案例已通过审核，欢迎发给需要的人',
-    publishedHint: '可发给微信好友或朋友圈。帮助同城车主少踩坑。',
     previewLoading: false,
     shareToken: '',
     shareReady: false,
@@ -64,19 +61,26 @@ Page({
       else if ((detail.publicCaseStatus || '') === 'pending_review') mode = 'pending'
       else if (canShowPublishInvite(detail) || detail.publicCaseStatus === 'need_modify') {
         mode = 'invite'
-      } else {
-        mode = 'invite'
+      }
+
+      let heroPitch = invite.pitch
+      let heroTip = invite.controlLine || CONTROL_LINE
+      if (mode === 'published') {
+        heroPitch = invite.publishedPitch || invite.pitch
+        heroTip = invite.publishedTip || CONTROL_LINE
+      } else if (mode === 'pending') {
+        heroPitch = invite.pendingPitch || invite.pitch
+        heroTip = invite.pendingTip || CONTROL_LINE
       }
 
       const shareState = initAlbumShareState(detail)
-      const officerTitle = invite.officerTitle || '透明维修体验官'
       this.setData({
         status: 'normal',
         detail,
         mode,
-        officerTitle,
-        invitePitch: invite.pitch,
-        controlLine: invite.controlLine || CONTROL_LINE,
+        officerTitle: invite.officerTitle || '透明维修体验官',
+        heroPitch,
+        heroTip,
         previewLabel: invite.previewLabel || PREVIEW_LABEL,
         shareToken: shareState.shareToken || '',
         shareReady: Boolean(shareState.shareReady),

@@ -338,9 +338,9 @@
 .merchant-album-edit__shoot-common-tag {
   padding: 4rpx var(--space-sm);
   border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-card);
-  border: 1rpx solid var(--color-border);
+  color: var(--color-info);
+  background: var(--color-info-light);
+  border: 1rpx solid var(--color-info-light);
 }
 
 .merchant-album-edit__plan,
@@ -511,11 +511,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-sm);
-}
-
-.merchant-album-edit__parts-add-link {
-  padding: 4rpx 0;
-  line-height: var(--font-caption-lh);
 }
 
 .merchant-album-edit__parts-node-title {
