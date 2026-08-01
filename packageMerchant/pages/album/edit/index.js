@@ -1594,10 +1594,11 @@ Page({
         (AUTHORIZATION_CONSENT.merchant_document_ocr &&
           AUTHORIZATION_CONSENT.merchant_document_ocr.text) ||
         '将把单据图提交阿里云 OCR 识别，仅用于辅助填表；原图不进入公开页。'
+      // confirmText / cancelText 最多 4 个字，超长会导致弹窗静默失败、点击无反应
       wx.showModal({
         title: '单据 OCR 说明',
         content: text,
-        confirmText: '同意并识别',
+        confirmText: '同意识别',
         cancelText: '取消',
         success: (res) => {
           if (res.confirm) {
@@ -1611,7 +1612,10 @@ Page({
             resolve(false)
           }
         },
-        fail: () => resolve(false),
+        fail: () => {
+          wx.showToast({ title: '无法打开确认框，请重试', icon: 'none' })
+          resolve(false)
+        },
       })
     })
   },
