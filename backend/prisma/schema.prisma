@@ -45,6 +45,8 @@ model Merchant {
   legalName         String          @default("") @map("legal_name")
   creditCode        String          @default("") @map("credit_code")
   licensePhotoUrl   String          @default("") @map("license_photo_url") @db.VarChar(512)
+  /// 营业执照成立日期（用于经营年限展示；可空）
+  licenseEstablishedOn DateTime?    @map("license_established_on") @db.Date
   contactEmail      String          @default("") @map("contact_email")
   qualificationJson Json            @default("{}") @map("qualification_json")
   rejectReason      String          @default("") @map("reject_reason")

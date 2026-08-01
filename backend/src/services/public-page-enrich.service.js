@@ -36,6 +36,7 @@ const {
   buildFreshnessSummary,
 } = require('../utils/store-business-status')
 const { formatShanghaiDate } = require('../lib/shanghai-date')
+const { buildOperatingYearsMeta } = require('../utils/license-established')
 const { config } = require('../config')
 
 const STAFF_ROLE_LABELS = {
@@ -67,6 +68,10 @@ function buildCertifications(merchant, extras = {}) {
   }
   if (merchant?.licensePhotoUrl) {
     pushRow('营业执照', merchant.legalName ? `${merchant.legalName} · 已认证` : '已认证')
+  }
+  const operatingYears = buildOperatingYearsMeta(merchant?.licenseEstablishedOn)
+  if (operatingYears) {
+    pushRow('经营年限', operatingYears.label)
   }
   const qualification = formatQualificationForClient(merchant?.qualificationJson)
   if (qualification?.photoUrl || qualification?.baseType || qualification?.type) {
@@ -437,6 +442,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       : baseSummary
 
   const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
+  const operatingYearsMeta = buildOperatingYearsMeta(merchantRow?.licenseEstablishedOn)
 
   const payload = {
     ...mapped,
@@ -466,6 +472,8 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     faqSource,
     vehicleSpecialties,
     aiSummary,
+    foundingDate: operatingYearsMeta ? operatingYearsMeta.foundingDate : '',
+    operatingYearsLabel: operatingYearsMeta ? operatingYearsMeta.label : '',
     auditMeta: {
       auditor: '辙见平台运营',
       basis: '营业执照、维修资质证照、门店实景照片',

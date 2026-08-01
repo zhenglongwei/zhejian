@@ -254,6 +254,36 @@
   font: inherit;
 }
 
+/* 全站 ICP 备案（正文末；不进固定转化底栏） */
+.h5-site-beian {
+  margin-top: var(--space-xl);
+  padding: var(--space-md) 0;
+  text-align: center;
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
+
+.h5-site-beian__sponsor {
+  margin-bottom: var(--space-xs);
+}
+
+.h5-site-beian__link {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+}
+
+.h5-site-beian__link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.h5-site-beian--in-nav {
+  margin-top: var(--space-md);
+  padding: 0;
+  text-align: left;
+}
+
 .h5-empty-block {
   padding: var(--space-lg);
   text-align: center;

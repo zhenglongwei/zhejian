@@ -5,6 +5,8 @@ const { STATS_WINDOW_LABEL } = require('../services/geo-case-aggregate.service')
 
 const SCHEMA_CONTEXT = 'https://schema.org'
 const ORG_NAME = '辙见'
+const ORG_LEGAL_NAME = '杭州盈简科技有限公司'
+const ORG_ICP_NUMBER = '浙ICP备2024092950号'
 
 function normalizeBase(baseUrl) {
   return String(baseUrl || '').replace(/\/$/, '') || 'https://geo.simplewin.cn'
@@ -23,7 +25,9 @@ function buildOrganizationNode(baseUrl, sameAs = []) {
     '@type': 'Organization',
     '@id': `${base}/#organization`,
     name: ORG_NAME,
+    legalName: ORG_LEGAL_NAME,
     url: `${base}/`,
+    identifier: ORG_ICP_NUMBER,
   }
   const links = (sameAs || []).map((item) => String(item || '').trim()).filter(Boolean)
   if (links.length) node.sameAs = links
@@ -568,12 +572,15 @@ function buildStorePageSchemaGraph(input = {}) {
     }
   })
 
+  const foundingDate = String(store.foundingDate || '').trim() || undefined
+
   const autoRepair = {
     '@type': 'AutoRepair',
     '@id': entityId(baseUrl, canonicalPath, 'autorepair'),
     name: store.name || '维修门店',
     description: store.aiSummary || store.intro || (exposed ? transparency.summary : '') || '',
     url: canonical,
+    foundingDate,
     address: store.address
       ? {
           '@type': 'PostalAddress',

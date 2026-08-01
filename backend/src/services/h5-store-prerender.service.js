@@ -10,6 +10,7 @@ const {
   isCrawlerUserAgent,
   isCrawlerRequest,
 } = require('./h5-case-prerender.service')
+const { renderSiteBeianHtml } = require('../lib/site-beian')
 
 function escapeHtml(text) {
   return String(text || '')
@@ -111,6 +112,7 @@ function buildStoreBotBodyHtml(store) {
           .filter(Boolean)
           .join('')}</section>`
       : '',
+    renderSiteBeianHtml(),
   ]
   return sections.filter(Boolean).join('\n')
 }

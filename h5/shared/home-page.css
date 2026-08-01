@@ -364,3 +364,27 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
 }
+
+.h5-site-nav-legal {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+}
+
+.h5-site-beian--in-nav {
+  margin-top: var(--space-md);
+  padding: 0;
+  text-align: left;
+}
+
+.h5-site-beian--in-nav .h5-site-beian__link {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+  font-size: var(--font-caption);
+}
+
+.h5-site-beian--in-nav .h5-site-beian__link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

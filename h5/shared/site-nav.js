@@ -71,6 +71,9 @@
       '<a class="h5-site-nav-link" href="/privacy/">隐私政策</a>' +
       '<a class="h5-site-nav-link" href="/terms/">用户协议</a>' +
       '</div>' +
+      (global.zhejianSiteBeian
+        ? global.zhejianSiteBeian.render({ className: 'h5-site-beian--in-nav' })
+        : '') +
       (options.extraHtml || '') +
       '</nav>'
     )

@@ -60,6 +60,15 @@
       <input class="merchant-form__input" placeholder="18 位信用代码" value="{{form.creditCode}}" data-field="creditCode" bindinput="onInput" maxlength="18" />
     </view>
     <view class="merchant-form__section">
+      <text class="merchant-form__label">执照成立日期</text>
+      <text class="text-caption merchant-onboard__optional-hint">选填；上传执照后可自动识别。用于公开展示经营年限（如「成立于 2016 年 · 经营约 10 年」）。</text>
+      <picker mode="date" value="{{form.licenseEstablishedOn || today}}" start="1950-01-01" end="{{today}}" bindchange="onLicenseEstablishedChange">
+        <view class="merchant-form__picker {{form.licenseEstablishedOn ? '' : 'merchant-form__picker--placeholder'}}">
+          {{form.licenseEstablishedOn || '选择成立日期（选填）'}}
+        </view>
+      </picker>
+    </view>
+    <view class="merchant-form__section">
       <text class="merchant-form__label">联系邮箱</text>
       <input class="merchant-form__input" placeholder="选填" value="{{form.contactEmail}}" data-field="contactEmail" bindinput="onInput" />
     </view>

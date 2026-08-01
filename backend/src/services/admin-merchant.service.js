@@ -218,6 +218,12 @@ async function getAdminMerchantDetail(merchantId) {
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
+    licenseEstablishedOn:
+      merchant.licenseEstablishedOn instanceof Date
+        ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)
+        : merchant.licenseEstablishedOn
+          ? String(merchant.licenseEstablishedOn).slice(0, 10)
+          : '',
     contactEmail: merchant.contactEmail || '',
     qualification: {
       ...qualification,

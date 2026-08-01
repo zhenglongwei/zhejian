@@ -3,12 +3,23 @@
  * 只承载平台身份与边界；操作详解见「使用说明与帮助」
  */
 
+const { PLATFORM_ICP } = require('./platform-icp')
+
 const ABOUT_ZHEJIAN_IDENTITY = {
   heading: '辙见是什么',
   body:
     '辙见是服务相册工具平台：帮你查看门店留下的维修过程记录，并在你同意后发布到公开网站。' +
     '辙见不是在线交易平台，也不替代高德、美团等成交入口。' +
     '实际维修、报价、收款与售后由门店线下提供和承担；公开案例与门店介绍可在 H5 内容站浏览。',
+}
+
+/** 运营主体与 ICP（小程序关于页展示；H5 另见 site-beian） */
+const ABOUT_ZHEJIAN_ICP = {
+  heading: '运营主体与备案',
+  sponsorLine: `主办单位：${PLATFORM_ICP.sponsorName}`,
+  icpNumber: PLATFORM_ICP.icpNumber,
+  queryUrl: PLATFORM_ICP.queryUrl,
+  domainLine: `内容站域名：${PLATFORM_ICP.domain}`,
 }
 
 /** 一句获相册提示（详细步骤见帮助中心） */
@@ -39,4 +50,5 @@ module.exports = {
   ABOUT_ZHEJIAN_IDENTITY,
   ABOUT_ZHEJIAN_ALBUM_TIP,
   ABOUT_ZHEJIAN_NOTES,
+  ABOUT_ZHEJIAN_ICP,
 }

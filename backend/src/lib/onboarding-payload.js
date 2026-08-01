@@ -1,5 +1,6 @@
 const { assertPersistentImageUrl } = require('./media-storage')
 const { normalizeBrandAuthItems, earliestBrandAuthValidUntil } = require('../utils/store-capability')
+const { normalizeLicenseEstablishedOn } = require('../utils/license-established')
 
 /** 基础维修等级（互斥单选） */
 const BASE_QUALIFICATION_TYPES = new Set(['class_1', 'class_2', 'class_3', 'record'])
@@ -166,6 +167,9 @@ function parseOnboardingForm(form = {}) {
   const legalName = String(form.legalName || '').trim()
   const creditCode = String(form.creditCode || '').trim()
   const licensePhotoUrl = String(form.licensePhotoUrl || '').trim()
+  const licenseEstablishedOn = normalizeLicenseEstablishedOn(
+    form.licenseEstablishedOn || form.establishedOn || form.foundingDate
+  )
   const contactEmail = String(form.contactEmail || '').trim()
   const businessHours = String(form.businessHours || '').trim()
   const intro = String(form.intro || '').trim()
@@ -217,6 +221,7 @@ function parseOnboardingForm(form = {}) {
     legalName,
     creditCode,
     licensePhotoUrl,
+    licenseEstablishedOn,
     contactEmail,
     businessHours,
     intro,

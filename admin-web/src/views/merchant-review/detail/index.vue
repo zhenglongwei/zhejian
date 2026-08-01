@@ -45,6 +45,7 @@
           <el-descriptions :column="1" border size="small">
             <el-descriptions-item label="主体名称">{{ detail.legalName || '—' }}</el-descriptions-item>
             <el-descriptions-item label="信用代码">{{ detail.creditCode || '—' }}</el-descriptions-item>
+            <el-descriptions-item label="执照成立日期">{{ detail.licenseEstablishedOn || '—' }}</el-descriptions-item>
             <el-descriptions-item label="联系邮箱">{{ detail.contactEmail || '—' }}</el-descriptions-item>
             <el-descriptions-item label="门店简介">{{ detail.intro || '—' }}</el-descriptions-item>
           </el-descriptions>

@@ -1535,6 +1535,9 @@
       articleMode ? '本店更多案例' : '相关案例'
     )
 
+    if (window.zhejianSiteBeian) {
+      html += window.zhejianSiteBeian.render()
+    }
     html += '<div class="h5-body-spacer"></div></div>'
     html += articleMode ? renderConversionFooter(safeData) : renderLegacyFooter(safeData)
 

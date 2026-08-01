@@ -53,7 +53,9 @@
       '</header>' +
       '<div class="h5-card h5-case-list-empty"><p>' +
       safeMessage +
-      '</p></div></div>'
+      '</p></div>' +
+      (window.zhejianSiteBeian ? window.zhejianSiteBeian.render() : '') +
+      '</div>'
   }
 
   function renderError(message) {
@@ -97,7 +99,9 @@
       '</header>' +
       '<div class="h5-media-list">' +
       items +
-      '</div></div>'
+      '</div>' +
+      (window.zhejianSiteBeian ? window.zhejianSiteBeian.render() : '') +
+      '</div>'
 
     if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
       window.zhejianH5Ui.bindDisclaimerToggles()

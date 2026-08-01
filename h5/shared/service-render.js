@@ -672,6 +672,9 @@
 
     html += renderCases(cases, service.id, service.storeId)
     html += renderStoreCard(store)
+    if (window.zhejianSiteBeian) {
+      html += window.zhejianSiteBeian.render()
+    }
     html += '<div class="h5-body-spacer"></div></div>'
 
     html +=

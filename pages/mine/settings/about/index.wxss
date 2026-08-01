@@ -32,6 +32,13 @@
   margin-bottom: var(--space-xs);
 }
 
+.about-page__icp-link {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-tertiary);
+  text-decoration: underline;
+}
+
 .about-page__actions {
   display: flex;
   flex-wrap: wrap;

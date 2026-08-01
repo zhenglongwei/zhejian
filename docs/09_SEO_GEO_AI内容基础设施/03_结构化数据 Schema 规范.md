@@ -149,6 +149,7 @@
 | 字段              | 说明        |
 | --------------- | --------- |
 | aggregateRating | 可选；MVP 不使用交易 Review Schema |
+| foundingDate    | 可选；商家执照成立日期（ISO `YYYY-MM-DD`），有则输出；经营年限白话放资质墙/认证行，勿写营销口号 |
 | geo             | 经纬度       |
 | priceRange      | 价格区间，谨慎使用 |
 | areaServed      | 服务城市      |

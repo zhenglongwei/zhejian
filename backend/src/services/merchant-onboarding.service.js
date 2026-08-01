@@ -115,6 +115,12 @@ function formatOnboardingProfile(merchant, store) {
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
+    licenseEstablishedOn:
+      merchant.licenseEstablishedOn instanceof Date
+        ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)
+        : merchant.licenseEstablishedOn
+          ? String(merchant.licenseEstablishedOn).slice(0, 10)
+          : '',
     contactEmail: merchant.contactEmail || '',
     qualification,
     photos,
@@ -393,6 +399,7 @@ async function beginNewStoreRegistration(userId) {
       legalName: latestApproved?.legalName || '',
       creditCode: latestApproved?.creditCode || '',
       licensePhotoUrl: latestApproved?.licensePhotoUrl || '',
+      licenseEstablishedOn: latestApproved?.licenseEstablishedOn || null,
       contactEmail: latestApproved?.contactEmail || '',
       qualificationJson: latestApproved?.qualificationJson || {},
       stores: {
@@ -434,6 +441,9 @@ function buildMerchantStoreData(payload) {
       legalName: payload.legalName,
       creditCode: payload.creditCode,
       licensePhotoUrl: payload.licensePhotoUrl,
+      licenseEstablishedOn: payload.licenseEstablishedOn
+        ? new Date(`${payload.licenseEstablishedOn}T00:00:00.000Z`)
+        : null,
       contactEmail: payload.contactEmail,
       qualificationJson: payload.qualification,
     },

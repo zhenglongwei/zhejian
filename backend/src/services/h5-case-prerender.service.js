@@ -7,6 +7,7 @@ const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
+const { renderSiteBeianHtml } = require('../lib/site-beian')
 
 const BOT_UA_RE =
   /(gptbot|chatgpt-user|claudebot|claude-web|googlebot|bingbot|bytespider|perplexitybot|amazonbot)/i
@@ -102,6 +103,7 @@ function buildBotBodyHtml(data) {
           )
           .join('')}</section>`
       : '',
+    renderSiteBeianHtml(),
   ]
   return sections.filter(Boolean).join('\n')
 }

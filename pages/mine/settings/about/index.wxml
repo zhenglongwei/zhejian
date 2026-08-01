@@ -25,6 +25,15 @@
 
       <view class="surface-album-inset-divider" />
 
+      <view class="about-page__block">
+        <text class="about-page__heading text-h3">{{icp.heading}}</text>
+        <text class="about-page__body text-body">{{icp.sponsorLine}}</text>
+        <text class="about-page__body text-caption">{{icp.domainLine}}</text>
+        <text class="about-page__icp-link text-caption" bindtap="onOpenIcp">{{icp.icpNumber}}</text>
+      </view>
+
+      <view class="surface-album-inset-divider" />
+
       <view class="about-page__actions">
         <ui-button type="ghost" size="sm" bind:btntap="onOpenHelp">使用说明与帮助</ui-button>
         <ui-button

@@ -61,6 +61,7 @@
         : '<div class="h5-banner">' + escapeHtml(COPY.geoDisclaimer) + '</div>') +
       '</header>' +
       bodyHtml +
+      (window.zhejianSiteBeian ? window.zhejianSiteBeian.render() : '') +
       '</div>'
     if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
       window.zhejianH5Ui.bindDisclaimerToggles(app)

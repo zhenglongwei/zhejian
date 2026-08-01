@@ -411,6 +411,7 @@
         name: store.name,
         description: store.aiSummary || store.intro || transparency.summary || undefined,
         url: canonical,
+        foundingDate: store.foundingDate || undefined,
         image: store.coverImage || undefined,
         address: store.address || undefined,
         telephone: store.phone || undefined,
@@ -1142,6 +1143,10 @@
     html += renderTransparencyPanel(store, (services || []).length)
     html += renderStoreFaq(store.faq)
     html += renderEnvironment(store.environmentImages)
+
+    if (window.zhejianSiteBeian) {
+      html += window.zhejianSiteBeian.render()
+    }
 
     html += '<div class="h5-body-spacer"></div></div>'
 

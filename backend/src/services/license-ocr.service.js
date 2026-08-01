@@ -15,6 +15,7 @@ const {
 } = require('../lib/media-storage')
 const { materializeMediaFile, objectKeyFromPublicUrl } = require('../lib/media-blob')
 const { safeParseData } = require('./desensitize-engine/parse-ocr')
+const { normalizeLicenseEstablishedOn } = require('../utils/license-established')
 
 const { RecognizeBusinessLicenseRequest } = Ocr
 
@@ -131,6 +132,24 @@ function mapLicenseOcrResult(raw) {
       'companyAddress',
       'CompanyAddress',
     ]),
+    licenseEstablishedOn: normalizeLicenseEstablishedOn(
+      pickField(data, [
+        'RegistrationDate',
+        'registrationDate',
+        'EstablishDate',
+        'establishDate',
+        'ValidFromDate',
+        'validFromDate',
+        'issueDate',
+        'IssueDate',
+        'foundingDate',
+        'FoundingDate',
+        'ValidPeriod',
+        'validPeriod',
+        'validDate',
+        'ValidDate',
+      ])
+    ),
   }
 }
 

@@ -39,6 +39,7 @@ const EMPTY_FORM = {
   legalName: '',
   creditCode: '',
   licensePhotoUrl: '',
+  licenseEstablishedOn: '',
   contactEmail: '',
   qualificationType: 'class_3',
   qualificationPhotoUrl: '',
@@ -138,6 +139,7 @@ Page({
         legalName: profile.legalName || '',
         creditCode: profile.creditCode || '',
         licensePhotoUrl: profile.licensePhotoUrl || '',
+        licenseEstablishedOn: normalizeDateValue(profile.licenseEstablishedOn),
         contactEmail: profile.contactEmail || '',
         qualificationType: baseType,
         qualificationPhotoUrl: q.type === 'new_energy' ? '' : q.photoUrl || '',
@@ -224,6 +226,10 @@ Page({
     this.setData({ 'form.qualificationValidUntil': e.detail.value || '' })
   },
 
+  onLicenseEstablishedChange(e) {
+    this.setData({ 'form.licenseEstablishedOn': e.detail.value || '' })
+  },
+
   onNewEnergyToggle(e) {
     const enabled = Boolean(e.detail.value)
     this.setData({
@@ -296,6 +302,7 @@ Page({
     const labels = {
       legalName: '主体名称',
       creditCode: '信用代码',
+      licenseEstablishedOn: '成立日期',
       contactName: '负责人',
       storeName: '门店名称',
     }
@@ -315,6 +322,7 @@ Page({
 
     assignField('legalName', result.legalName)
     assignField('creditCode', result.creditCode)
+    assignField('licenseEstablishedOn', result.licenseEstablishedOn)
     assignField('contactName', result.legalPerson)
     if (!form.storeName && result.legalName) {
       patch['form.storeName'] = result.legalName
