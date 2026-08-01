@@ -61,17 +61,22 @@ const SERVICE_ALBUM_STATUS_VARIANT = {
   [SERVICE_ALBUM_STATUS.PUBLISHED]: 'success',
 }
 
-/** 用户端列表 Tab（公示态三分 · 2026-06-24） */
+/**
+ * 用户端列表 Tab（相册旅程三分 · 2026-08-01）
+ * 以案例审通过为界：通过前 → active；通过后（含撤回 offline）→ done
+ */
 const SERVICE_ALBUM_LIST_TABS = [
   { key: 'all', label: '全部' },
-  { key: 'publishable', label: '可公示' },
-  { key: 'published', label: '已公示' },
+  { key: 'active', label: '进行中' },
+  { key: 'done', label: '已完工' },
 ]
 
-/** @deprecated 兼容旧 tab 参数 */
+/** 兼容旧 tab 参数（公示分档 / 更早私密·公开命名） */
 const SERVICE_ALBUM_LIST_TAB_ALIASES = {
-  private: 'publishable',
-  public: 'published',
+  publishable: 'active',
+  published: 'done',
+  private: 'active',
+  public: 'done',
 }
 
 function normalizeServiceAlbumListTab(tab) {

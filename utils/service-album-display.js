@@ -335,8 +335,8 @@ function enrichServiceAlbumListItem(item, options = {}) {
     hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
   }
 
-  // 已公示 Tab：不展示维修进度 Tag（Tab 本身表达公示语义）
-  if (listTab === 'published') {
+  // 已完工 Tab：旅程已收口到过审，不展示维修进度 Tag
+  if (listTab === 'done') {
     return appendAlbumListPresentation(item, {
       ...base,
       ...unreadBase,
@@ -460,9 +460,11 @@ function enrichAuthorizationItem(item) {
 function enrichAuthorizationAlbumItem(item) {
   const publicCaseStatus = item.publicCaseStatus || 'private'
   const listTab =
-    publicCaseStatus === 'pending_review' || publicCaseStatus === 'public_approved'
-      ? 'published'
-      : 'publishable'
+    publicCaseStatus === 'review_passed' ||
+    publicCaseStatus === 'public_approved' ||
+    publicCaseStatus === 'offline'
+      ? 'done'
+      : 'active'
   const base = enrichServiceAlbumListItem(item, { audience: 'user', listTab })
   const cardAction = resolveAuthorizationCardAction({ ...item, publicCaseStatus })
 

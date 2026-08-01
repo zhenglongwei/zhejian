@@ -32,7 +32,11 @@
           <text class="album-owner-share__tip-text">{{heroTip}}</text>
         </view>
 
-        <view wx:if="{{mode === 'published'}}" class="album-owner-share__channels album-owner-share__channels--in-hero">
+        <!-- published / private：仅私人发给微信；不展示「预览脱敏案例」发布入口 -->
+        <view
+          wx:if="{{mode === 'published' || mode === 'private'}}"
+          class="album-owner-share__channels album-owner-share__channels--in-hero"
+        >
           <view class="album-owner-share__channel" bindtap="onTimelineTap">
             <view class="album-owner-share__channel-icon">
               <image class="album-owner-share__channel-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />

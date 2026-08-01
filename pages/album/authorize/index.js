@@ -2,7 +2,7 @@ const { normalizeServiceAlbumListTab } = require('../../constants/service-album-
 
 Page({
   onLoad(options = {}) {
-    const tab = normalizeServiceAlbumListTab(options.tab || 'publishable')
+    const tab = normalizeServiceAlbumListTab(options.tab || 'done')
     wx.redirectTo({
       url: `/pages/album/list/index?tab=${tab}`,
     })

@@ -639,7 +639,7 @@ async function notifyAuthorizationSubmitted(albumId, agreed) {
         content: '你已拒绝将本次服务相册公开为案例。',
         refType: 'album',
         refId: album.id,
-        jumpPath: `/pages/album/list/index?tab=publishable`,
+        jumpPath: `/pages/album/list/index?tab=active`,
       })
     }
     return null
@@ -676,7 +676,7 @@ async function notifyAuthorizationWithdrawn(albumId) {
       content: '你已撤回公开授权，案例将不再公开展示。',
       refType: 'album',
       refId: album.id,
-      jumpPath: '/pages/album/list/index?tab=publishable',
+      jumpPath: '/pages/album/list/index?tab=done',
     })
   }
   return notifyMerchantOwner({

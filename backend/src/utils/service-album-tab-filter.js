@@ -1,12 +1,13 @@
 const { normalizeServiceAlbumListTab } = require('../../../constants/service-album-status')
 
-const PUBLISHED_STATUSES = new Set(['pending_review', 'public_approved'])
+/** 案例审已通过及之后（与 case-review-gate CASE_REVIEW_PASSED_STATUSES 对齐） */
+const REVIEW_PASSED_STATUSES = new Set(['review_passed', 'public_approved', 'offline'])
 
 /**
  * 用户端相册列表 Tab 筛选
  * - all：全部
- * - publishable：可公示（未提交/私密/审核未通过，不含审核中与已通过）
- * - published：已公示（审核中 + 审核通过）
+ * - active：进行中（尚未案例审通过）
+ * - done：已完工（已案例审通过及之后，含撤回后 offline）
  */
 function filterUserAlbumsByTab(albums, tab, resolvePublicCaseStatus) {
   const key = normalizeServiceAlbumListTab(tab)
@@ -20,11 +21,16 @@ function filterUserAlbumsByTab(albums, tab, resolvePublicCaseStatus) {
     return albums
   }
 
-  if (key === 'published') {
-    return albums.filter((album) => PUBLISHED_STATUSES.has(resolve(album)))
+  if (key === 'done') {
+    return albums.filter((album) => REVIEW_PASSED_STATUSES.has(resolve(album)))
   }
 
-  return albums.filter((album) => !PUBLISHED_STATUSES.has(resolve(album)))
+  return albums.filter((album) => !REVIEW_PASSED_STATUSES.has(resolve(album)))
 }
 
-module.exports = { filterUserAlbumsByTab, PUBLISHED_STATUSES }
+module.exports = {
+  filterUserAlbumsByTab,
+  REVIEW_PASSED_STATUSES,
+  /** @deprecated 使用 REVIEW_PASSED_STATUSES */
+  PUBLISHED_STATUSES: REVIEW_PASSED_STATUSES,
+}

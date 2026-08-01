@@ -34,6 +34,10 @@ const PUBLISHED_TIP =
 /** 审核中短提示 */
 const PENDING_TIP = '脱敏案例审核中，通过后即可分享给同城车友。'
 
+/** 未达公开站条件：仅私人发给微信 */
+const PRIVATE_SHARE_TIP =
+  '可发给微信好友或朋友圈；不会出现在公开案例站。分享内容为脱敏后信息。'
+
 const PUBLISHED_SHARE_LINES = [
   '感谢以体验官身份公开这份脱敏案例。发给微信好友或朋友圈，帮同城车友少踩坑。',
   '案例已整理好。转给需要的人，说不定能帮到下一位同款车主。',
@@ -115,6 +119,17 @@ function buildPublishedSharePitch(options = {}) {
   return pickPublishedShareLine(seed)
 }
 
+/** 未达公开站门槛时的私人分享话术（不引导预览发布） */
+function buildPrivateSharePitch(options = {}) {
+  const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
+  const project = String(options.serviceName || options.project || '').trim()
+  if (vehicle || project) {
+    const label = [vehicle, project].filter(Boolean).join(' · ')
+    return `《${label}》维修记录已整理好。可发给微信好友或朋友圈作参考；当前未达到公开案例站展示条件。`
+  }
+  return '维修记录已整理好。可发给微信好友或朋友圈作参考；当前未达到公开案例站展示条件。'
+}
+
 /**
  * @returns {{
  *   officerTitle: string,
@@ -144,6 +159,8 @@ function buildPublishInviteCopy(options = {}) {
     pitch,
     publishedPitch: buildPublishedSharePitch({ ...options, seed }),
     publishedTip: PUBLISHED_TIP,
+    privatePitch: buildPrivateSharePitch({ ...options, seed }),
+    privateTip: PRIVATE_SHARE_TIP,
     pendingPitch: pickPendingShareLine(seed),
     pendingTip: PENDING_TIP,
     benefitLine: '',
@@ -181,12 +198,26 @@ function isPublicShareReady(detail = {}) {
   return (detail.publicCaseStatus || '') === 'public_approved'
 }
 
+/**
+ * owner-share 页模式：
+ * - invite：可预览并发布到公开站
+ * - private：仅私人发给微信（不展示预览发布）
+ * - pending / published
+ */
+function resolveOwnerShareMode(detail = {}) {
+  if (isPublicShareReady(detail)) return 'published'
+  if ((detail.publicCaseStatus || '') === 'pending_review') return 'pending'
+  if (canShowPublishInvite(detail)) return 'invite'
+  return 'private'
+}
+
 module.exports = {
   ENCOURAGE_LINES,
   EXPERIENCE_OFFICER_TITLES,
   CONTROL_LINE,
   PUBLISHED_TIP,
   PENDING_TIP,
+  PRIVATE_SHARE_TIP,
   PUBLISHED_SHARE_LINES,
   PENDING_SHARE_LINES,
   CONSENT_CHECKBOX,
@@ -208,7 +239,9 @@ module.exports = {
   pickExperienceOfficerTitle,
   buildGuidePitch,
   buildPublishedSharePitch,
+  buildPrivateSharePitch,
   buildPublishInviteCopy,
   canShowPublishInvite,
   isPublicShareReady,
+  resolveOwnerShareMode,
 }

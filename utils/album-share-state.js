@@ -44,7 +44,9 @@ function initAlbumShareState(detail = {}, options = {}) {
     showPublishSection,
     publishSheetHint:
       publishSheetState === 'idle' ? '预览即将上网的内容，确认后进入审核。' : '',
-    shareHonorHint: '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友（须审核）。',
+    shareHonorHint: showPublishSection
+      ? '帮助同城车主少踩坑：可发给微信，或预览后发布到公开网站。'
+      : '可发给微信好友或朋友圈；当前未达到公开案例站展示条件，不会出现「发布到网站」。',
   }
 }
 

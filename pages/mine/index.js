@@ -342,12 +342,12 @@ Page({
     this.openAlbumListTab('all')
   },
 
-  onAlbumPublishableTap() {
-    this.openAlbumListTab('publishable')
+  onAlbumActiveTap() {
+    this.openAlbumListTab('active')
   },
 
-  onAlbumPublishedTap() {
-    this.openAlbumListTab('published')
+  onAlbumDoneTap() {
+    this.openAlbumListTab('done')
   },
 
   openAlbumListTab(tab) {
@@ -356,7 +356,7 @@ Page({
   },
 
   onAuthorizeTap() {
-    this.openAlbumListTab('publishable')
+    this.openAlbumListTab('done')
   },
 
   onAlbumCardTap(e) {
@@ -406,12 +406,12 @@ Page({
       this.openAlbumListTab('all')
       return
     }
-    if (action === 'authorize' || action === 'albumPublishable') {
-      this.openAlbumListTab('publishable')
+    if (action === 'authorize' || action === 'albumDone' || action === 'albumPublishable') {
+      this.openAlbumListTab('done')
       return
     }
-    if (action === 'albumPublished') {
-      this.openAlbumListTab('published')
+    if (action === 'albumActive' || action === 'albumPublished') {
+      this.openAlbumListTab('active')
     }
   },
 

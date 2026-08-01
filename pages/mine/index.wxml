@@ -37,13 +37,13 @@
               <text class="mine__section-link-text text-caption text-link">全部</text>
             </view>
             <text class="mine__section-divider text-caption text-secondary">·</text>
-            <view class="mine__section-link" bindtap="onAlbumPublishableTap">
-              <text class="mine__section-link-text text-caption text-link">可公示</text>
-              <text wx:if="{{pendingAuthBadge}}" class="mine__link-badge text-caption">{{pendingAuthBadge}}</text>
+            <view class="mine__section-link" bindtap="onAlbumActiveTap">
+              <text class="mine__section-link-text text-caption text-link">进行中</text>
             </view>
             <text class="mine__section-divider text-caption text-secondary">·</text>
-            <view class="mine__section-link" bindtap="onAlbumPublishedTap">
-              <text class="mine__section-link-text text-caption text-link">已公示</text>
+            <view class="mine__section-link" bindtap="onAlbumDoneTap">
+              <text class="mine__section-link-text text-caption text-link">已完工</text>
+              <text wx:if="{{pendingAuthBadge}}" class="mine__link-badge text-caption">{{pendingAuthBadge}}</text>
             </view>
           </view>
         </view>

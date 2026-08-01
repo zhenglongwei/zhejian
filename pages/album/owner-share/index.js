@@ -4,10 +4,11 @@ const {
 } = require('../../../services/service-album')
 const {
   buildPublishInviteCopy,
-  canShowPublishInvite,
   isPublicShareReady,
+  resolveOwnerShareMode,
   CONTROL_LINE,
   PREVIEW_LABEL,
+  PRIVATE_SHARE_TIP,
 } = require('../../../utils/publish-thank-you')
 const { initAlbumShareState } = require('../../../utils/album-share-state')
 const { buildOwnerSharePayload } = require('../../../utils/album-owner-share')
@@ -18,7 +19,7 @@ Page({
     status: 'loading',
     errorMessage: '',
     albumId: '',
-    mode: 'invite',
+    mode: 'private',
     detail: null,
     officerTitle: '透明维修体验官',
     heroPitch: '',
@@ -56,12 +57,7 @@ Page({
         vehicleLabel: detail.vehicleDisplay,
         serviceName: detail.serviceName,
       })
-      let mode = 'invite'
-      if (isPublicShareReady(detail)) mode = 'published'
-      else if ((detail.publicCaseStatus || '') === 'pending_review') mode = 'pending'
-      else if (canShowPublishInvite(detail) || detail.publicCaseStatus === 'need_modify') {
-        mode = 'invite'
-      }
+      const mode = resolveOwnerShareMode(detail)
 
       let heroPitch = invite.pitch
       let heroTip = invite.controlLine || CONTROL_LINE
@@ -71,6 +67,9 @@ Page({
       } else if (mode === 'pending') {
         heroPitch = invite.pendingPitch || invite.pitch
         heroTip = invite.pendingTip || CONTROL_LINE
+      } else if (mode === 'private') {
+        heroPitch = invite.privatePitch || invite.pitch
+        heroTip = invite.privateTip || PRIVATE_SHARE_TIP
       }
 
       const shareState = initAlbumShareState(detail)
@@ -94,6 +93,8 @@ Page({
   },
 
   async onPreviewTap() {
+    // 仅 invite 态可走公示预览；private 态不进入此入口
+    if (this.data.mode !== 'invite') return
     await this.runAuthorizePreview()
   },
 

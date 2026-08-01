@@ -60,12 +60,12 @@
     </view>
   </block>
 
-  <block wx:elif="{{status === 'empty' && activeTab === 'publishable'}}">
+  <block wx:elif="{{status === 'empty' && activeTab === 'active'}}">
     <view class="album-list__state">
       <ui-empty
         theme="album"
-        title="暂无可公示相册"
-        description="达到公开条件且尚未上网的相册，可在此分享脱敏报告"
+        title="暂无进行中的相册"
+        description="维修中、审核中或待门店处理的相册会出现在这里"
       />
     </view>
   </block>
@@ -74,8 +74,8 @@
     <view class="album-list__state">
       <ui-empty
         theme="album"
-        title="暂无已公示相册"
-        description="提交分享后，审核中与已通过的案例会出现在这里"
+        title="暂无已完工相册"
+        description="平台案例审通过后的相册会出现在这里，可经分享发布到网站"
       />
     </view>
   </block>

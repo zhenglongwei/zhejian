@@ -22,7 +22,7 @@ const MINE_CORE_MENUS = [
   {
     key: 'album',
     label: '我的服务相册',
-    desc: '全部、可公示与已公示相册',
+    desc: '全部、进行中与已完工相册',
     needPhone: true,
     url: '/pages/album/list/index',
     dotKey: 'albumUnread',

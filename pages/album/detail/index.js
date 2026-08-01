@@ -892,9 +892,9 @@ Page({
   onSharePublish() {
     const state = this.data.publishSheetState
     if (state === 'approved' || state === 'pending') return
-    if (this.data.publishSheetDisabled) {
+    if (this.data.publishSheetDisabled || this.data.showPublishSection === false) {
       wx.showToast({
-        title: this.data.endPagePreviewHint || '暂不可分享',
+        title: '当前未达到公开网站展示条件，请使用发给微信',
         icon: 'none',
       })
       return
