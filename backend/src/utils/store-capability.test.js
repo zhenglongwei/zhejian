@@ -77,6 +77,34 @@ function run() {
   assert.strictEqual(techOnly.capability.equipmentTags.length, 2)
   assert.strictEqual(techOnly.capability.pending, null)
 
+  // 已有品牌授权待审时，只改技师：不重新提交审核，保留原 pending
+  const pendingAuth = {
+    id: 'ba1',
+    brandName: '宝马',
+    imageUrl: '/media/auth.jpg',
+    validUntil: '2027-12-31',
+  }
+  const whilePending = mergeCapabilityFromMerchantEdit(
+    {
+      technicians: [{ id: 't1', name: '张师傅', role: '钣金', years: '8年', credentials: [] }],
+      equipmentTags: [],
+      reviewStatus: 'pending',
+      pending: {
+        submittedAt: '2026-07-01T00:00:00.000Z',
+        brandAuthItems: [pendingAuth],
+      },
+    },
+    {
+      technicians: [{ id: 't1', name: '王工', role: '机电', years: '3年', credentials: [] }],
+      brandAuthItems: [{ ...pendingAuth, imageUrl: '/media/auth.jpg?sign=abc' }],
+    },
+    { brandAuthItems: [] }
+  )
+  assert.strictEqual(whilePending.needsReview, false)
+  assert.strictEqual(whilePending.capability.reviewStatus, 'pending')
+  assert.strictEqual(whilePending.capability.pending.submittedAt, '2026-07-01T00:00:00.000Z')
+  assert.strictEqual(whilePending.capability.technicians[0].name, '王工')
+
   // 过审后亮品牌授权；技师/设备保持即时版不被 pending 覆盖
   const approved = approveCapabilityPending(merged.capability, { verifiedAt: '2026-07-17' })
   assert.strictEqual(approved.capability.reviewStatus, 'none')

@@ -4,6 +4,7 @@
  */
 
 const { assertPersistentImageUrl, resolveClientReadableMediaUrl } = require('../lib/media-storage')
+const { stripUrlQuery } = require('../lib/media-signed-url')
 const { formatShanghaiDate } = require('../lib/shanghai-date')
 
 const EQUIPMENT_TAG_PRESETS = [
@@ -137,10 +138,29 @@ function brandAuthItemsSignature(list) {
     normalizeBrandAuthItems(list).map((item) => ({
       id: item.id,
       brandName: item.brandName,
-      imageUrl: item.imageUrl,
+      // 对比时去掉签名 query，避免编辑页回显已签名 URL 被误判为变更
+      imageUrl: stripUrlQuery(item.imageUrl || ''),
       validUntil: item.validUntil,
     }))
   )
+}
+
+function readPendingBrandAuthItems(pending, fallbackValidUntil = '') {
+  if (!pending || typeof pending !== 'object') return []
+  if (Array.isArray(pending.brandAuthItems) && pending.brandAuthItems.length) {
+    return normalizeBrandAuthItems(pending.brandAuthItems)
+  }
+  if (pending.brandAuthUrl) {
+    return normalizeBrandAuthItems([
+      {
+        id: 'brand_auth_1',
+        brandName: '品牌授权',
+        imageUrl: pending.brandAuthUrl,
+        validUntil: pending.brandAuthValidUntil || fallbackValidUntil,
+      },
+    ])
+  }
+  return []
 }
 
 function earliestBrandAuthValidUntil(items) {
@@ -316,9 +336,14 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     )
   }
 
-  const authChanged =
-    brandAuthItemsSignature(submittedBrandAuthItems) !==
-    brandAuthItemsSignature(publishedBrandAuthItems)
+  const publishedSig = brandAuthItemsSignature(publishedBrandAuthItems)
+  const submittedSig = brandAuthItemsSignature(submittedBrandAuthItems)
+  const pendingBrandAuthItems = readPendingBrandAuthItems(prev.pending, prev.brandAuthValidUntil)
+  const pendingSig = brandAuthItemsSignature(pendingBrandAuthItems)
+  const differsFromPublished = submittedSig !== publishedSig
+  const matchesExistingPending = Boolean(prev.pending) && submittedSig === pendingSig
+  // 仅当授权内容相对「已通过版」有变化，且与当前待审快照也不同时，才视为新提交审核
+  const needsReview = differsFromPublished && !matchesExistingPending
 
   const next = {
     ...prev,
@@ -329,7 +354,7 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     bookingPaused: form.bookingPaused === true ? true : prev.bookingPaused,
   }
 
-  if (authChanged) {
+  if (needsReview) {
     next.pending = {
       submittedAt: new Date().toISOString(),
       brandAuthItems: submittedBrandAuthItems,
@@ -342,9 +367,14 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
       prevBrandAuthUrl: publishedBrandAuthItems[0]?.imageUrl || '',
     }
     next.reviewStatus = 'pending'
+  } else if (!differsFromPublished && prev.pending && !matchesExistingPending) {
+    // 表单已回到已通过版，且与旧待审不同：视为撤销待审授权变更
+    next.pending = null
+    next.reviewStatus = 'none'
   }
+  // matchesExistingPending：保留原 pending / reviewStatus，不刷新提交时间
 
-  return { capability: next, needsReview: authChanged }
+  return { capability: next, needsReview, brandAuthDiffersFromPublished: differsFromPublished }
 }
 
 function approveCapabilityPending(prevRaw, options = {}) {

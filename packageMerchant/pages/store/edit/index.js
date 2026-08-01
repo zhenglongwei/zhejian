@@ -542,12 +542,13 @@ Page({
         buildDisplayPayload(this.data.form, this.data.storeId)
       )
       const reviewStatus = (profile && profile.capabilityReviewStatus) || 'none'
+      const brandAuthReviewSubmitted = Boolean(profile && profile.brandAuthReviewSubmitted)
       this.setData({
         capabilityReviewStatus: reviewStatus,
         capabilityRejectReason: (profile && profile.capabilityRejectReason) || '',
       })
       wx.showToast({
-        title: reviewStatus === 'pending' ? '已保存，品牌授权待审核' : '已保存',
+        title: brandAuthReviewSubmitted ? '已保存，品牌授权待审核' : '已保存',
         icon: 'none',
       })
     } catch (e) {

@@ -10,7 +10,6 @@ const {
   buildMerchantCapabilityEditorView,
   readCapabilityJson,
   readBrandAuthItemsFromPhotos,
-  brandAuthItemsSignature,
 } = require('../utils/store-capability')
 const {
   resolveStoreCapabilityJson,
@@ -166,20 +165,7 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     },
     payload.brandAuthValidUntil || rawForm.brandAuthValidUntil
   )
-  const brandAuthChanged =
-    brandAuthItemsSignature(submittedBrandAuthItems) !==
-    brandAuthItemsSignature(publishedBrandAuthItems)
-
-  // 须审：品牌授权变更时，photos 暂不覆盖已通过授权（待审通过后再写）
-  const photosToSave = {
-    ...payload.photos,
-    brandAuthItems: brandAuthChanged ? publishedBrandAuthItems : submittedBrandAuthItems,
-    brandAuthUrl: brandAuthChanged
-      ? publishedBrandAuthItems[0]?.imageUrl || prevPhotos.brandAuthUrl || ''
-      : submittedBrandAuthItems[0]?.imageUrl || '',
-  }
-
-  const { capability, needsReview } = mergeCapabilityFromMerchantEdit(
+  const { capability, needsReview, brandAuthDiffersFromPublished } = mergeCapabilityFromMerchantEdit(
     existingCapability,
     {
       specialtyBrands: rawForm.specialtyBrands,
@@ -192,6 +178,17 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     },
     prevPhotos
   )
+
+  // 须审：授权相对已通过版有差异时，photos 暂不覆盖（待审通过后再写）
+  const photosToSave = {
+    ...payload.photos,
+    brandAuthItems: brandAuthDiffersFromPublished
+      ? publishedBrandAuthItems
+      : submittedBrandAuthItems,
+    brandAuthUrl: brandAuthDiffersFromPublished
+      ? publishedBrandAuthItems[0]?.imageUrl || prevPhotos.brandAuthUrl || ''
+      : submittedBrandAuthItems[0]?.imageUrl || '',
+  }
 
   const baseData = {
     phone: payload.storePhone,
@@ -235,7 +232,11 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
   })
 
   const profile = formatOnboardingProfile(merchant, updatedStore)
-  return attachCapabilityToProfile(profile, updatedStore, capability)
+  return {
+    ...attachCapabilityToProfile(profile, updatedStore, capability),
+    // 本次保存是否新提交了品牌授权审核（与整体是否仍处于 pending 区分）
+    brandAuthReviewSubmitted: Boolean(needsReview),
+  }
 }
 
 module.exports = {
