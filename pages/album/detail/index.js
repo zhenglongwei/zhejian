@@ -244,15 +244,12 @@ function buildEndPageActionState(detail, showAuthSection) {
     }
   }
   if (showInvite) {
-    const disabled = Boolean(detail && detail.canAuthorizePublicCase === false)
     return {
       ...inviteFields,
       endPageShowPreview: true,
       endPagePreviewLabel: PREVIEW_LABEL,
-      endPagePreviewDisabled: disabled,
-      endPagePreviewHint: disabled
-        ? (detail && detail.userConfirmHint) || ''
-        : '',
+      endPagePreviewDisabled: false,
+      endPagePreviewHint: '',
       endPageShowWithdraw: false,
       endPageWithdrawLabel: '一键下架',
       endPageStatusHint: '',
@@ -332,6 +329,7 @@ Page({
     socialDraftWaitHint: '',
     publishSheetState: 'idle',
     publishSheetDisabled: false,
+    showPublishSection: true,
     publishSheetHint: '',
     compliancePendingHint: '',
     showCompliancePending: false,
@@ -556,6 +554,11 @@ Page({
       const publishSheetDisabled =
         Boolean(enriched.canAuthorizePublicCase === false) &&
         (publishSheetState === 'idle' || publishSheetState === 'need_modify')
+      const showPublishSection =
+        publishSheetState === 'approved' ||
+        publishSheetState === 'pending' ||
+        (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
+        (publishSheetState === 'idle' && !publishSheetDisabled)
       const compliancePendingHint = String(enriched.compliancePendingHint || '').trim()
       const showCompliancePending =
         Boolean(compliancePendingHint) &&
@@ -633,6 +636,7 @@ Page({
         publishSheetState,
         publishSheetHint,
         publishSheetDisabled,
+        showPublishSection,
         compliancePendingHint,
         showCompliancePending,
         shareHonorHint: HONOR_HINT,
@@ -696,11 +700,18 @@ Page({
     // 案例审通过前：整本相册不可见；通过后才开放案例/发布入口
     if (detail.ownerAlbumLocked || detail.caseVisibleToOwner === false) return false
     if (detail.complianceStatus && detail.complianceStatus !== 'passed') return false
-    if (detail.publicCaseScorePass === false || detail.publicCaseQualityReady === false) return false
+    if (
+      detail.canAuthorizePublicCase === false ||
+      detail.publicCaseScorePass === false ||
+      detail.publicCaseQualityReady === false
+    ) {
+      return false
+    }
     if (!isRepairCompleted(detail.status)) return false
     const status = detail.publicCaseStatus
     return (
       status === 'private' ||
+      status === 'review_passed' ||
       status === 'authorization_pending' ||
       status === 'user_rejected'
     )
@@ -776,11 +787,22 @@ Page({
     if (!this.data.showShareButton) return
     const detail = this.data.detail || {}
     const platform = this.data.socialPlatform || 'xiaohongshu'
+    const publishSheetState = resolvePublishSheetState(detail)
+    const publishSheetDisabled =
+      Boolean(detail.canAuthorizePublicCase === false) &&
+      (publishSheetState === 'idle' || publishSheetState === 'need_modify')
+    const showPublishSection =
+      publishSheetState === 'approved' ||
+      publishSheetState === 'pending' ||
+      (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
+      (publishSheetState === 'idle' && !publishSheetDisabled)
     this.setData({
       shareSheetVisible: true,
       socialDraftText: '',
       socialDraftWaitHint: '',
-      publishSheetState: resolvePublishSheetState(detail),
+      publishSheetState,
+      publishSheetDisabled,
+      showPublishSection,
     })
     this.loadSocialDraft(platform)
     if (this.data.showShareEntry && !this.data.shareReady && !this.data.sharePreparing) {

@@ -122,6 +122,7 @@ Page({
     socialDraftWaitHint: '',
     publishSheetState: 'idle',
     publishSheetDisabled: false,
+    showPublishSection: true,
     publishSheetHint: '',
     showPublicCaseShare: false,
     albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,

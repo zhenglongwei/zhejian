@@ -65,7 +65,7 @@
       <ui-empty
         theme="album"
         title="暂无可公示相册"
-        description="相册完工且仍为私密记录时，可在此分享脱敏报告"
+        description="达到公开条件且尚未上网的相册，可在此分享脱敏报告"
       />
     </view>
   </block>
@@ -169,6 +169,7 @@
   honorHint="{{shareHonorHint}}"
   publishState="{{publishSheetState}}"
   publishDisabled="{{publishSheetDisabled}}"
+  showPublishSection="{{showPublishSection}}"
   publishHint="{{publishSheetHint}}"
   showPublicWebLink="{{showPublicCaseShare}}"
   bind:close="onCloseShareSheet"

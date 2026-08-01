@@ -235,6 +235,7 @@
   socialDraftWaitHint="{{socialDraftWaitHint}}"
     publishState="{{publishSheetState}}"
     publishDisabled="{{publishSheetDisabled}}"
+    showPublishSection="{{showPublishSection}}"
     publishHint="{{publishSheetHint}}"
     showPublicWebLink="{{showPublicCaseShare}}"
     bind:close="onCloseShareSheet"

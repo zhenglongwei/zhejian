@@ -108,8 +108,12 @@ function resolveAlbumAuthAction(item = {}) {
   if (status === 'public_approved') {
     return { show: false, label: '', disabled: false, hint: '' }
   }
-  // 已授权待上网 / 不可再授权：不展示「发布」（撤回见 withdraw）
-  if (item.canAuthorizePublicCase === false && item.awaitingUserConfirm === false) {
+  // 质量未达标 / 不可授权：不展示「发布到网站」，避免误导
+  if (
+    item.canAuthorizePublicCase === false ||
+    item.publicCaseScorePass === false ||
+    item.publicCaseQualityReady === false
+  ) {
     return { show: false, label: '', disabled: false, hint: '' }
   }
   if (
@@ -118,13 +122,11 @@ function resolveAlbumAuthAction(item = {}) {
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {
-    const hint =
-      item.awaitingUserConfirm && item.userConfirmHint ? item.userConfirmHint : ''
     return {
       show: true,
       label: AUTH_ACTION_LABEL,
-      disabled: Boolean(hint && item.canAuthorizePublicCase === false),
-      hint,
+      disabled: false,
+      hint: item.awaitingUserConfirm && item.userConfirmHint ? item.userConfirmHint : '',
     }
   }
   return { show: false, label: '', disabled: false, hint: '' }
@@ -407,13 +409,19 @@ function resolveAuthorizationCardAction(item = {}) {
     }
   }
 
-  if (item.publicCaseScorePass === false || item.publicCaseQualityReady === false) {
+  if (
+    item.canAuthorizePublicCase === false ||
+    item.publicCaseScorePass === false ||
+    item.publicCaseQualityReady === false
+  ) {
     return { action: '', label: '', buttonType: 'ghost', disabled: true }
   }
 
   if (
     item.needsAuthorization ||
+    item.canAuthorizePublicCase === true ||
     status === 'private' ||
+    status === 'review_passed' ||
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {

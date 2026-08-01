@@ -21,6 +21,6 @@ export const ALBUM_COMPLIANCE_REJECT_REASONS = [
 
 export const ALBUM_COMPLIANCE_NOTICES = [
   '闸门 A：审商家留档合法合规（禁词/导流等），不审 pre-mask 实现与用户评价。',
-  '通过后用户端冻结展示「门店已提交，内容待您确认」，商家不可再改留档。',
+  '通过后用户端冻结展示「门店已提交，请您确认」，商家不可再改留档。',
   '驳回后由商家修改相册并重新提交完工/送审。',
 ]

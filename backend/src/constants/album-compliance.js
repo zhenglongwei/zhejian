@@ -50,7 +50,7 @@ const EXTERNAL_CONTACT_PATTERNS = [
   { type: ALBUM_COMPLIANCE_VIOLATION.EXTERNAL_CONTACT, re: /(qq\s*[:：]?\s*\d{5,})/i },
 ]
 
-const USER_CONFIRM_HINT = '门店已提交，内容待您确认'
+const USER_CONFIRM_HINT = '门店已提交，请您确认'
 
 module.exports = {
   ALBUM_COMPLIANCE_STATUS,

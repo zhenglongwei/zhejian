@@ -336,21 +336,24 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
   } else if (rejected) {
     compliancePendingHint = '门店案例未通过审核，暂不可查看'
   }
+  const canAuthorizePublicCase =
+    passed &&
+    (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
+    !authorized &&
+    qualityReady
+  // 质量未达标：不引导「待确认 / 发布到网站」，避免车主看到入口却无法发布
+  const awaitingUserConfirm = canAuthorizePublicCase
   return {
     // 兼容旧字段名：语义已切为「案例审」而非相册合规
     complianceStatus: mapCaseReviewToComplianceCompat(album),
     publicCaseStatus: status || album.publicCaseStatus || '',
     contentFrozen: passed,
-    awaitingUserConfirm: passed && !authorized,
-    userConfirmHint: passed ? USER_CONFIRM_HINT : '',
+    awaitingUserConfirm,
+    userConfirmHint: awaitingUserConfirm ? USER_CONFIRM_HINT : '',
     compliancePendingHint,
     caseVisibleToOwner: passed,
     ownerAlbumLocked: isOwnerAlbumBlocked(album),
-    canAuthorizePublicCase:
-      passed &&
-      (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
-      !authorized &&
-      qualityReady,
+    canAuthorizePublicCase,
     complianceRejectReason: rejectReason,
   }
 }

@@ -18,6 +18,12 @@ function initAlbumShareState(detail = {}, options = {}) {
   const publishSheetState = resolvePublishSheetState(detail)
   const socialPlatform = options.socialPlatform || 'xiaohongshu'
   const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
+  const publishSheetDisabled = Boolean(detail.canAuthorizePublicCase === false)
+  const showPublishSection =
+    publishSheetState === 'approved' ||
+    publishSheetState === 'pending' ||
+    (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
+    (publishSheetState === 'idle' && !publishSheetDisabled)
   return {
     showShareEntry,
     showPublicCaseShare,
@@ -34,7 +40,8 @@ function initAlbumShareState(detail = {}, options = {}) {
     socialDraftText: '',
     socialDraftWaitHint: '',
     publishSheetState,
-    publishSheetDisabled: Boolean(detail.canAuthorizePublicCase === false),
+    publishSheetDisabled,
+    showPublishSection,
     publishSheetHint:
       publishSheetState === 'idle' ? '预览即将上网的内容，确认后进入审核。' : '',
     shareHonorHint: '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友（须审核）。',

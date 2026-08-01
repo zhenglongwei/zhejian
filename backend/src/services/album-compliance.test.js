@@ -119,6 +119,22 @@ test('buildUserAlbumComplianceFields exposes frozen confirm hint', () => {
   assert.equal(fields.complianceStatus, 'passed')
 })
 
+test('buildUserAlbumComplianceFields hides publish invite when quality not ready', () => {
+  const fields = buildUserAlbumComplianceFields(
+    {
+      status: 'completed',
+      publicCase: { status: 'review_passed' },
+      authorization: null,
+    },
+    { publicCaseScorePass: false },
+  )
+  assert.equal(fields.contentFrozen, true)
+  assert.equal(fields.caseVisibleToOwner, true)
+  assert.equal(fields.canAuthorizePublicCase, false)
+  assert.equal(fields.awaitingUserConfirm, false)
+  assert.equal(fields.userConfirmHint, '')
+})
+
 test('buildUserAlbumComplianceFields hides case before review passed', () => {
   const pending = buildUserAlbumComplianceFields(
     {

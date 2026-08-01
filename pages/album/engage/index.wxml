@@ -20,7 +20,7 @@
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
         <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
-        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，你可继续分享脱敏报告或发给微信</text>
+        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，可继续分享脱敏报告或发给微信</text>
       </view>
 
       <block wx:if="{{hasReview}}">
@@ -45,21 +45,15 @@
               block
               bind:btntap="onOpenReviewImagePreview"
             >核对评价配图</ui-button>
-            <block wx:if="{{showAuthAction}}">
+            <block wx:if="{{showAuthAction || showShareButton}}">
               <ui-button
                 type="secondary"
                 block
-                disabled="{{authDisabled}}"
-                bind:btntap="onOpenAuthorize"
-              >{{authLabel}}</ui-button>
-              <text wx:if="{{authDisabled && authHint}}" class="album-engage__action-hint text-caption text-secondary">{{authHint}}</text>
+                disabled="{{showAuthAction && authDisabled}}"
+                bind:btntap="onOpenOwnerSharePage"
+              >{{showAuthAction ? authLabel : '分享脱敏报告'}}</ui-button>
+              <text wx:if="{{showAuthAction && authDisabled && authHint}}" class="album-engage__action-hint text-caption text-secondary">{{authHint}}</text>
             </block>
-            <ui-button
-              wx:if="{{showShareButton}}"
-              type="secondary"
-              block
-              bind:btntap="onOpenOwnerSharePage"
-            >分享</ui-button>
             <ui-button
               wx:if="{{showStoreBrowse}}"
               type="secondary"

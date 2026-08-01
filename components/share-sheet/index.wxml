@@ -90,7 +90,7 @@
         </view>
       </view>
 
-      <view class="share-sheet__section">
+      <view wx:if="{{showPublishSection}}" class="share-sheet__section">
         <text class="share-sheet__section-title text-body">② 发布到公开网站</text>
         <text class="share-sheet__section-hint text-caption">须预览确认；通过后展示在案例站</text>
         <text wx:if="{{publishHint}}" class="share-sheet__publish-hint text-caption">{{publishHint}}</text>
@@ -130,7 +130,8 @@
       </view>
 
       <view class="share-sheet__footer">
-        <text class="share-sheet__privacy-text text-caption">发给微信不会自动上网；仅发布到公开网站并通过后才会出现在案例站。</text>
+        <text wx:if="{{showPublishSection}}" class="share-sheet__privacy-text text-caption">发给微信不会自动上网；仅发布到公开网站并通过后才会出现在案例站。</text>
+        <text wx:else class="share-sheet__privacy-text text-caption">发给微信不会自动上网；当前案例暂未达到公开网站展示条件。</text>
       </view>
     </block>
   </view>

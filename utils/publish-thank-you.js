@@ -159,11 +159,18 @@ function buildPublishInviteCopy(options = {}) {
   }
 }
 
-/** 是否仍可用「邀请公示」话术（未上公开站） */
+/** 是否仍可用「邀请公示」话术（未上公开站，且已达公开质量门槛） */
 function canShowPublishInvite(detail = {}) {
   const status = detail.publicCaseStatus || 'private'
   if (status === 'public_approved' || status === 'pending_review') return false
   if (detail.status && detail.status !== 'completed' && detail.status !== 'published') {
+    return false
+  }
+  if (
+    detail.canAuthorizePublicCase === false ||
+    detail.publicCaseScorePass === false ||
+    detail.publicCaseQualityReady === false
+  ) {
     return false
   }
   return true

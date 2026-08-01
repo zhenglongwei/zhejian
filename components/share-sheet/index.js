@@ -60,6 +60,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 质量未达标时隐藏整块「发布到公开网站」，避免误导 */
+    showPublishSection: {
+      type: Boolean,
+      value: true,
+    },
     publishHint: {
       type: String,
       value: '',
