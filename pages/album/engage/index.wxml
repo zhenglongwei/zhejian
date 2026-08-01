@@ -80,6 +80,7 @@
             <text class="text-h3">暂不可评价</text>
             <ui-tag variant="info" text="审核通过后可评" />
           </view>
+          <text wx:if="{{ineligibleReason}}" class="text-caption text-secondary album-engage__ineligible">{{ineligibleReason}}</text>
         </ui-card>
       </block>
 

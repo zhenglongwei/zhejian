@@ -1,6 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
+const { isServiceAlbumRepairDone } = require('../constants/v2')
 const {
   REPAIR_REVIEW_KEYS,
   ALBUM_REVIEW_KEYS,
@@ -30,8 +31,6 @@ function resolveNeedsReviewImagePreview(row, publicCaseStatus) {
   if (!parseRawReviewImages(row.imagesJson).length) return false
   return AUTHORIZED_PUBLIC_STATUSES.has(publicCaseStatus || '')
 }
-
-const COMPLETED_ALBUM_STATUSES = new Set(['completed'])
 
 function avgKeys(scores, keys) {
   const values = keys.map((key) => Number(scores[key]) || 0).filter((v) => v > 0)
@@ -151,7 +150,8 @@ async function loadAlbumMeta(albumId, userId) {
     where: { id: albumId },
     select: { merchantId: true, storeId: true, status: true, partsJson: true },
   })
-  const completed = COMPLETED_ALBUM_STATUSES.has(row?.status || album.status)
+  // 含 published / pending_authorization 等已完工态（公示后常见 published）
+  const completed = isServiceAlbumRepairDone(row?.status || album.status)
   // 与车主可见整本相册一致：须平台案例审通过（review_passed / public_approved / offline）
   const reviewPassed = Boolean(album.caseVisibleToOwner)
   const eligible = completed && reviewPassed

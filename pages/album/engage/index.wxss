@@ -119,3 +119,9 @@
   flex-wrap: wrap;
   gap: var(--space-sm);
 }
+
+.album-engage__ineligible {
+  display: block;
+  margin-top: var(--space-sm);
+  line-height: 1.55;
+}
