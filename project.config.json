@@ -30,6 +30,26 @@
       {
         "type": "folder",
         "value": ".git"
+      },
+      {
+        "type": "folder",
+        "value": ".vscode"
+      },
+      {
+        "type": "folder",
+        "value": "assets/home/entries-src"
+      },
+      {
+        "type": "suffix",
+        "value": ".md"
+      },
+      {
+        "type": "glob",
+        "value": ".tmp-*"
+      },
+      {
+        "type": "glob",
+        "value": "**/.tmp-*"
       }
     ],
     "include": []

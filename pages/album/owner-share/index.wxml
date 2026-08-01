@@ -22,7 +22,7 @@
         <view class="album-owner-share__avatar-wrap" aria-hidden="true">
           <image
             class="album-owner-share__avatar"
-            src="/assets/share/officer-avatar.png"
+            src="/assets/share/officer-avatar.jpg"
             mode="aspectFit"
           />
         </view>
