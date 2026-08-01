@@ -174,7 +174,7 @@
         </el-table-column>
       </el-table>
       <el-empty v-else description="未填写技师公示卡" :image-size="48" />
-      <p class="capability-tip">入驻通过后，技师/设备/授权变更走「门店能力变更」队列审后亮。</p>
+      <p class="capability-tip">入驻通过后，仅品牌授权变更走「门店能力变更」队列审后亮；技师/设备即时生效。</p>
     </el-card>
 
     <el-card v-if="detail.rejectReason" shadow="never" class="section">

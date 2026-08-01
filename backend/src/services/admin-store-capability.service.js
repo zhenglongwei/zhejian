@@ -134,8 +134,8 @@ async function listStoreCapabilityReviews(query = {}) {
         contactName: store.merchant?.contactName || '',
         reviewStatus: cap.reviewStatus,
         submittedAt: cap.pending?.submittedAt || toIso(store.updatedAt),
-        technicianCount: (cap.pending?.technicians || cap.technicians || []).length,
-        equipmentCount: (cap.pending?.equipmentTags || cap.equipmentTags || []).length,
+        technicianCount: (cap.technicians || []).length,
+        equipmentCount: (cap.equipmentTags || []).length,
       }
     }),
     page,

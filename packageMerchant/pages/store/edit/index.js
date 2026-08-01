@@ -547,7 +547,7 @@ Page({
         capabilityRejectReason: (profile && profile.capabilityRejectReason) || '',
       })
       wx.showToast({
-        title: reviewStatus === 'pending' ? '已保存，能力变更待审核' : '已保存',
+        title: reviewStatus === 'pending' ? '已保存，品牌授权待审核' : '已保存',
         icon: 'none',
       })
     } catch (e) {

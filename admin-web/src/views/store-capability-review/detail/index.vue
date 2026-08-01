@@ -9,65 +9,8 @@
         <el-descriptions-item label="审核状态">{{ detail.reviewStatus }}</el-descriptions-item>
       </el-descriptions>
 
-      <el-card class="block" header="待审内容">
+      <el-card class="block" header="待审内容（品牌授权）">
         <template v-if="detail.pending">
-          <h4>技师</h4>
-          <el-table :data="detail.pending.technicians || []" border size="small">
-            <el-table-column prop="name" label="称呼" />
-            <el-table-column prop="role" label="角色" />
-            <el-table-column prop="years" label="年限" />
-            <el-table-column label="资质标签">
-              <template #default="{ row }">
-                {{ (row.credentials || []).join('、') }}
-              </template>
-            </el-table-column>
-            <el-table-column label="头像" width="88">
-              <template #default="{ row }">
-                <el-image
-                  v-if="row.avatarUrl"
-                  :src="row.avatarUrl"
-                  style="width: 56px; height: 56px"
-                  fit="cover"
-                  :preview-src-list="[row.avatarUrl]"
-                />
-                <span v-else>—</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="资质证明" min-width="160">
-              <template #default="{ row }">
-                <div v-if="(row.credentialPhotoUrls || []).length" class="tech-photos">
-                  <el-image
-                    v-for="(url, idx) in row.credentialPhotoUrls"
-                    :key="idx"
-                    :src="url"
-                    style="width: 48px; height: 48px; margin-right: 6px"
-                    fit="cover"
-                    :preview-src-list="row.credentialPhotoUrls"
-                  />
-                </div>
-                <span v-else>—</span>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <h4 class="mt">设备/场</h4>
-          <el-table :data="detail.pending.equipmentTags || []" border size="small">
-            <el-table-column prop="label" label="标签" />
-            <el-table-column label="实景">
-              <template #default="{ row }">
-                <el-image
-                  v-if="row.imageUrl"
-                  :src="row.imageUrl"
-                  style="width: 64px; height: 64px"
-                  fit="cover"
-                  :preview-src-list="[row.imageUrl]"
-                />
-                <span v-else>—</span>
-              </template>
-            </el-table-column>
-          </el-table>
-
-          <h4 class="mt">品牌授权</h4>
           <el-table
             :data="detail.pending.brandAuthItems || []"
             border
@@ -98,12 +41,18 @@
               :preview-src-list="[detail.pending.brandAuthUrl]"
             />
           </template>
+          <p
+            v-if="(detail.pending.technicians || []).length || (detail.pending.equipmentTags || []).length"
+            class="mt legacy-hint"
+          >
+            历史草稿含技师/设备快照，现已改为即时生效，通过时仅落库品牌授权。
+          </p>
         </template>
         <el-empty v-else description="无待审快照" />
       </el-card>
 
       <el-card class="block" header="当前已公开">
-        <p>技师 {{ (detail.published?.technicians || []).length }} · 设备 {{ (detail.published?.equipmentTags || []).length }}</p>
+        <p>技师 {{ (detail.published?.technicians || []).length }} · 设备 {{ (detail.published?.equipmentTags || []).length }}（即时生效，无需本队列审核）</p>
         <el-table
           class="mt"
           :data="detail.published?.brandAuthItems || []"
@@ -170,7 +119,7 @@ async function onApprove() {
   acting.value = true
   try {
     detail.value = await approveStoreCapability(route.params.storeId)
-    ElMessage.success('已通过，能力资料已对外展示')
+    ElMessage.success('已通过，品牌授权已对外展示')
   } finally {
     acting.value = false
   }
@@ -210,5 +159,9 @@ onMounted(loadDetail)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+}
+.legacy-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 </style>

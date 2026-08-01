@@ -75,27 +75,36 @@ function main() {
   assert.ok(!('inProgressAlbums' in openStore))
   console.log('[QA-02] store public map has no in-progress album fields ok')
 
-  // QA-03 未审不展示 / 过审展示 / 授权过期
+  // QA-03 技师/设备即时亮；品牌授权待审不亮 / 过审亮 / 过期不亮
   const { capability, needsReview } = mergeCapabilityFromMerchantEdit(
     {},
     {
       technicians: [{ name: '李工', role: '机电', years: '5', credentials: [] }],
       equipmentTags: [{ label: '四轮定位' }],
-      brandAuthValidUntil: '2027-01-01',
-      brandAuthChanged: true,
-      prevBrandAuthUrl: '',
+      brandAuthItems: [
+        {
+          id: 'ba1',
+          brandName: '品牌授权',
+          imageUrl: '/media/a.jpg',
+          validUntil: '2027-01-01',
+        },
+      ],
     },
-    { brandAuthUrl: '/media/a.jpg' }
+    { brandAuthItems: [] }
   )
   assert.strictEqual(needsReview, true)
   let pub = buildPublicCapabilityView(capability, { brandAuthUrl: '' })
-  assert.strictEqual(pub.techniciansPublic.length, 0)
-  assert.strictEqual(pub.equipmentTags.length, 0)
-
-  const { capability: approved } = approveCapabilityPending(capability)
-  pub = buildPublicCapabilityView(approved, { brandAuthUrl: '/media/a.jpg' })
   assert.strictEqual(pub.techniciansPublic.length, 1)
   assert.strictEqual(pub.equipmentTags.length, 1)
+  assert.strictEqual(pub.brandAuth, null)
+
+  const { capability: approved, brandAuthItems } = approveCapabilityPending(capability)
+  pub = buildPublicCapabilityView(approved, {
+    brandAuthItems: brandAuthItems || [{ imageUrl: '/media/a.jpg', validUntil: '2027-01-01' }],
+  })
+  assert.strictEqual(pub.techniciansPublic.length, 1)
+  assert.strictEqual(pub.equipmentTags.length, 1)
+  assert.ok(pub.brandAuth)
 
   pub = buildPublicCapabilityView(
     { ...approved, brandAuthValidUntil: '2019-01-01' },
@@ -103,7 +112,7 @@ function main() {
     { today: '2026-07-17' }
   )
   assert.strictEqual(pub.brandAuth, null)
-  console.log('[QA-03] capability review gate + auth expiry ok')
+  console.log('[QA-03] tech/eq immediate + brandAuth review gate + auth expiry ok')
 
   // QA-04 人机同源关键字段存在于 mapStoreRow
   const mapped = mapStoreRow(

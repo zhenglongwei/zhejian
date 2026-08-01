@@ -6,7 +6,6 @@ const {
   mergeCapabilityFromMerchantEdit,
   approveCapabilityPending,
   buildPublicCapabilityView,
-  readCapabilityJson,
   resolveValidUntilState,
   computeStoreListScorePenalty,
   collectApprovedEquipmentImageUrls,
@@ -14,7 +13,7 @@ const {
 } = require('./store-capability')
 
 function run() {
-  // 即时字段直接写入；技师变更进 pending
+  // 技师/设备即时写入；仅品牌授权变更进 pending
   const merged = mergeCapabilityFromMerchantEdit(
     {
       specialtyBrands: ['宝马'],
@@ -43,22 +42,42 @@ function run() {
   assert.deepStrictEqual(merged.capability.notAccepting, ['货车'])
   assert.strictEqual(merged.needsReview, true)
   assert.strictEqual(merged.capability.reviewStatus, 'pending')
-  assert.strictEqual(merged.capability.technicians.length, 0)
+  assert.strictEqual(merged.capability.technicians[0].name, '张师傅')
+  assert.strictEqual(merged.capability.equipmentTags[0].label, '烤漆房')
   assert.ok(merged.capability.pending)
-  assert.strictEqual(merged.capability.pending.technicians[0].name, '张师傅')
   assert.strictEqual(merged.capability.pending.brandAuthItems[0].brandName, '宝马')
+  assert.ok(!merged.capability.pending.technicians)
 
-  // 未过审：公开面无技师/设备/新授权
+  // 公开面：技师/设备即时可见；新授权待审不展示
   const pendingPublic = buildPublicCapabilityView(merged.capability, {
     brandAuthItems: [],
   })
-  assert.strictEqual(pendingPublic.techniciansPublic.length, 0)
-  assert.strictEqual(pendingPublic.equipmentTags.length, 0)
+  assert.strictEqual(pendingPublic.techniciansPublic.length, 1)
+  assert.strictEqual(pendingPublic.equipmentTags.length, 1)
   assert.strictEqual(pendingPublic.brandAuth, null)
   assert.deepStrictEqual(pendingPublic.specialtyBrands, ['奥迪'])
   assert.deepStrictEqual(pendingPublic.notAccepting, ['货车'])
 
-  // 过审后亮
+  // 仅改技师/设备：不进审
+  const techOnly = mergeCapabilityFromMerchantEdit(
+    {
+      technicians: [{ id: 't1', name: '张师傅', role: '钣金', years: '8年', credentials: [] }],
+      equipmentTags: [{ id: 'eq1', label: '烤漆房' }],
+      reviewStatus: 'none',
+    },
+    {
+      technicians: [{ id: 't1', name: '李工', role: '机电', years: '5年', credentials: [] }],
+      equipmentTags: [{ id: 'eq1', label: '烤漆房' }, { id: 'eq2', label: '举升机' }],
+    },
+    { brandAuthItems: [] }
+  )
+  assert.strictEqual(techOnly.needsReview, false)
+  assert.strictEqual(techOnly.capability.reviewStatus, 'none')
+  assert.strictEqual(techOnly.capability.technicians[0].name, '李工')
+  assert.strictEqual(techOnly.capability.equipmentTags.length, 2)
+  assert.strictEqual(techOnly.capability.pending, null)
+
+  // 过审后亮品牌授权；技师/设备保持即时版不被 pending 覆盖
   const approved = approveCapabilityPending(merged.capability, { verifiedAt: '2026-07-17' })
   assert.strictEqual(approved.capability.reviewStatus, 'none')
   assert.strictEqual(approved.capability.technicians[0].name, '张师傅')

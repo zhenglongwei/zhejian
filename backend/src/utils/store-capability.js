@@ -264,10 +264,6 @@ function brandAuthIsPublic(capability, brandAuthUrl, today = formatShanghaiDate(
 
 function capabilityNeedsReview(nextPending, prev) {
   if (!nextPending) return false
-  const techChanged =
-    JSON.stringify(nextPending.technicians || []) !== JSON.stringify(prev.technicians || [])
-  const eqChanged =
-    JSON.stringify(nextPending.equipmentTags || []) !== JSON.stringify(prev.equipmentTags || [])
   const authChanged =
     brandAuthItemsSignature(nextPending.brandAuthItems) !==
       brandAuthItemsSignature(
@@ -283,11 +279,11 @@ function capabilityNeedsReview(nextPending, prev) {
               ]
             : [])
       )
-  return techChanged || eqChanged || authChanged
+  return authChanged
 }
 
 /**
- * 合并商家提交：即时字段直接写；须审字段进入 pending
+ * 合并商家提交：技师/设备等即时字段直接写；仅品牌授权变更进入 pending
  */
 function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
   const prev = readCapabilityJson(prevRaw)
@@ -320,43 +316,35 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     )
   }
 
-  const reviewPayload = {
-    submittedAt: new Date().toISOString(),
-    technicians: submittedTechnicians,
-    equipmentTags: submittedEquipment,
-    brandAuthItems: submittedBrandAuthItems,
-    // 兼容旧运营台字段
-    brandAuthUrl: submittedBrandAuthItems[0]?.imageUrl || '',
-    brandAuthValidUntil:
-      earliestBrandAuthValidUntil(submittedBrandAuthItems) ||
-      String(form.brandAuthValidUntil || prev.brandAuthValidUntil || '').trim(),
-    prevBrandAuthItems: publishedBrandAuthItems,
-    prevBrandAuthUrl: publishedBrandAuthItems[0]?.imageUrl || '',
-  }
-
-  const techChanged =
-    JSON.stringify(submittedTechnicians) !== JSON.stringify(prev.technicians || [])
-  const eqChanged =
-    JSON.stringify(submittedEquipment) !== JSON.stringify(prev.equipmentTags || [])
   const authChanged =
     brandAuthItemsSignature(submittedBrandAuthItems) !==
     brandAuthItemsSignature(publishedBrandAuthItems)
-
-  const needsReview = techChanged || eqChanged || authChanged
 
   const next = {
     ...prev,
     specialtyBrands,
     notAccepting,
+    technicians: submittedTechnicians,
+    equipmentTags: submittedEquipment,
     bookingPaused: form.bookingPaused === true ? true : prev.bookingPaused,
   }
 
-  if (needsReview) {
-    next.pending = reviewPayload
+  if (authChanged) {
+    next.pending = {
+      submittedAt: new Date().toISOString(),
+      brandAuthItems: submittedBrandAuthItems,
+      // 兼容旧运营台字段
+      brandAuthUrl: submittedBrandAuthItems[0]?.imageUrl || '',
+      brandAuthValidUntil:
+        earliestBrandAuthValidUntil(submittedBrandAuthItems) ||
+        String(form.brandAuthValidUntil || prev.brandAuthValidUntil || '').trim(),
+      prevBrandAuthItems: publishedBrandAuthItems,
+      prevBrandAuthUrl: publishedBrandAuthItems[0]?.imageUrl || '',
+    }
     next.reviewStatus = 'pending'
   }
 
-  return { capability: next, needsReview }
+  return { capability: next, needsReview: authChanged }
 }
 
 function approveCapabilityPending(prevRaw, options = {}) {
@@ -381,8 +369,7 @@ function approveCapabilityPending(prevRaw, options = {}) {
   )
   const next = {
     ...prev,
-    technicians: normalizeTechnicians(pending.technicians),
-    equipmentTags: normalizeEquipmentTags(pending.equipmentTags),
+    // 技师/设备已即时生效，通过时不再用 pending 覆盖
     brandAuthValidUntil:
       earliestBrandAuthValidUntil(brandAuthItems) ||
       String(pending.brandAuthValidUntil || '').trim(),
@@ -467,8 +454,8 @@ function buildMerchantCapabilityEditorView(capabilityRaw, photos = {}) {
   return {
     specialtyBrands: capability.specialtyBrands,
     notAccepting: capability.notAccepting,
-    technicians: pending?.technicians || capability.technicians,
-    equipmentTags: pending?.equipmentTags || capability.equipmentTags,
+    technicians: capability.technicians,
+    equipmentTags: capability.equipmentTags,
     brandAuthItems: editorItems,
     brandAuthValidUntil:
       earliestBrandAuthValidUntil(editorItems) ||

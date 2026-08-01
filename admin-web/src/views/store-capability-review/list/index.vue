@@ -3,7 +3,7 @@
     <h2 class="page-title">商家审核</h2>
     <MerchantHubNav active="capability" />
     <p class="page-desc">
-      已入驻商家修改技师公示、设备/场（含实景）、品牌授权及有效期后进入本队列；通过前公示页仍显示旧版。营业时间、擅长品牌、暂不承接即时生效，不进本队列。
+      已入驻商家修改品牌授权及有效期后进入本队列；通过前公示页仍显示旧版授权。技师公示、设备/场、营业时间、擅长品牌、暂不承接等即时生效，不进本队列。
     </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane label="待审核" name="pending" />

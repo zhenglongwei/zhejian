@@ -223,12 +223,8 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
 
   if (needsReview) {
     console.info(
-      '[store-capability] pending review',
+      '[store-capability] brandAuth pending review',
       storeId,
-      'tech',
-      (capability.pending?.technicians || []).length,
-      'eq',
-      (capability.pending?.equipmentTags || []).length,
       'brandAuth',
       (capability.pending?.brandAuthItems || []).length
     )
