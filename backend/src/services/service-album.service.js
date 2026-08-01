@@ -140,7 +140,8 @@ function countImages(nodes) {
 
 function resolvePublicCaseStatus(album) {
   if (album.publicCaseStatus === 'user_rejected') return 'user_rejected'
-  if (album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE) return 'private'
+  // 撤回后 PublicCase=offline：须暴露 offline，列表「已完工」以案例审通过为界（再发免审）
+  if (album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE) return 'offline'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.NEED_MODIFY) return 'need_modify'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.REJECTED) return 'rejected'
   if (album.publicCase?.status === PUBLIC_CASE_STATUS.REVIEW_PASSED) return 'review_passed'
@@ -2008,7 +2009,7 @@ async function withdrawAuthorization(albumId, userId) {
     await tx.album.update({
       where: { id: albumId },
       data: {
-        publicCaseStatus: 'private',
+        publicCaseStatus: 'offline',
         authorizationTier: 'private',
         status: SERVICE_ALBUM_STATUS.COMPLETED,
         // 2026-07-26：撤回不解锁——保留一审通过态，商家仍不可改
@@ -2022,7 +2023,7 @@ async function withdrawAuthorization(albumId, userId) {
   })
   return {
     ok: true,
-    publicCaseStatus: 'private',
+    publicCaseStatus: 'offline',
     caseStatus: publicCase ? PUBLIC_CASE_STATUS.OFFLINE : null,
   }
 }

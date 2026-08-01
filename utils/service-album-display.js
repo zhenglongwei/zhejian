@@ -119,6 +119,7 @@ function resolveAlbumAuthAction(item = {}) {
   if (
     status === 'private' ||
     status === 'review_passed' ||
+    status === 'offline' ||
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {
@@ -422,6 +423,7 @@ function resolveAuthorizationCardAction(item = {}) {
     item.canAuthorizePublicCase === true ||
     status === 'private' ||
     status === 'review_passed' ||
+    status === 'offline' ||
     status === 'authorization_pending' ||
     status === 'user_rejected'
   ) {
