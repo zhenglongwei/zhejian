@@ -215,15 +215,8 @@ Page({
   },
 
   onShareReportTap() {
-    if (this.data.caseDraftMissing) {
-      wx.showToast({ title: '案例稿暂时无法加载', icon: 'none' })
-      return
-    }
-    if (!this.data.liabilityAccepted) {
-      wx.showToast({ title: '请先勾选确认项', icon: 'none' })
-      return
-    }
-    this.setData({ shareSheetVisible: true })
+    // 发布意图：勾选后主按钮直接确认上网，不再弹出渠道选择
+    return this.onConfirm()
   },
 
   onCloseShareSheet() {
@@ -231,7 +224,6 @@ Page({
   },
 
   onShareTimelineGuide() {
-    this.setData({ shareSheetVisible: false })
     wx.showModal({
       title: '分享到朋友圈',
       content: '请点击右上角 ···，选择「分享到朋友圈」。',
@@ -240,7 +232,6 @@ Page({
   },
 
   async onPublishOfficial() {
-    this.setData({ shareSheetVisible: false })
     await this.onConfirm()
   },
 
@@ -495,7 +486,9 @@ Page({
         const publicStatus = String(detail.publicCaseStatus || '')
         if (publicStatus === 'public_approved') {
           wx.showToast({ title: '已在公开网站展示', icon: 'success' })
-          this.setData({ shareSheetVisible: false })
+          setTimeout(() => {
+            this.onBackAlbum()
+          }, 1200)
           return
         }
         const alreadyAuthorized =

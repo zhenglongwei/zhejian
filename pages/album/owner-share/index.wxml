@@ -32,9 +32,8 @@
           <text class="album-owner-share__tip-text">{{heroTip}}</text>
         </view>
 
-        <!-- published / private：仅私人发给微信；不展示「预览脱敏案例」发布入口 -->
         <view
-          wx:if="{{mode === 'published' || mode === 'private'}}"
+          wx:if="{{mode !== 'pending'}}"
           class="album-owner-share__channels album-owner-share__channels--in-hero"
         >
           <view class="album-owner-share__channel" bindtap="onTimelineTap">
@@ -59,10 +58,7 @@
       </view>
     </view>
 
-    <ui-fixed-bottom-bar wx:if="{{mode === 'invite'}}">
-      <ui-button type="primary" block bind:btntap="onPreviewTap" loading="{{previewLoading}}">{{previewLabel}}</ui-button>
-    </ui-fixed-bottom-bar>
-    <ui-fixed-bottom-bar wx:elif="{{mode === 'pending'}}">
+    <ui-fixed-bottom-bar wx:if="{{mode === 'pending'}}">
       <ui-button type="secondary" block bind:btntap="onBack">知道了</ui-button>
     </ui-fixed-bottom-bar>
   </block>

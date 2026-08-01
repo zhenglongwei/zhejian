@@ -1,13 +1,9 @@
-const {
-  fetchServiceAlbum,
-  prepareServiceAuthorizePreview,
-} = require('../../../services/service-album')
+const { fetchServiceAlbum } = require('../../../services/service-album')
 const {
   buildPublishInviteCopy,
   isPublicShareReady,
   resolveOwnerShareMode,
   CONTROL_LINE,
-  PREVIEW_LABEL,
   PRIVATE_SHARE_TIP,
 } = require('../../../utils/publish-thank-you')
 const { initAlbumShareState } = require('../../../utils/album-share-state')
@@ -24,8 +20,6 @@ Page({
     officerTitle: '透明维修体验官',
     heroPitch: '',
     heroTip: CONTROL_LINE,
-    previewLabel: PREVIEW_LABEL,
-    previewLoading: false,
     shareToken: '',
     shareReady: false,
   },
@@ -59,17 +53,14 @@ Page({
       })
       const mode = resolveOwnerShareMode(detail)
 
-      let heroPitch = invite.pitch
-      let heroTip = invite.controlLine || CONTROL_LINE
+      let heroPitch = invite.privatePitch || invite.pitch
+      let heroTip = invite.privateTip || PRIVATE_SHARE_TIP
       if (mode === 'published') {
         heroPitch = invite.publishedPitch || invite.pitch
         heroTip = invite.publishedTip || CONTROL_LINE
       } else if (mode === 'pending') {
         heroPitch = invite.pendingPitch || invite.pitch
         heroTip = invite.pendingTip || CONTROL_LINE
-      } else if (mode === 'private') {
-        heroPitch = invite.privatePitch || invite.pitch
-        heroTip = invite.privateTip || PRIVATE_SHARE_TIP
       }
 
       const shareState = initAlbumShareState(detail)
@@ -80,7 +71,6 @@ Page({
         officerTitle: invite.officerTitle || '透明维修体验官',
         heroPitch,
         heroTip,
-        previewLabel: invite.previewLabel || PREVIEW_LABEL,
         shareToken: shareState.shareToken || '',
         shareReady: Boolean(shareState.shareReady),
       })
@@ -89,32 +79,6 @@ Page({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
-    }
-  },
-
-  async onPreviewTap() {
-    // 仅 invite 态可走公示预览；private 态不进入此入口
-    if (this.data.mode !== 'invite') return
-    await this.runAuthorizePreview()
-  },
-
-  async runAuthorizePreview() {
-    const albumId = this.data.albumId
-    if (!albumId || this.data.previewLoading) return
-    this.setData({ previewLoading: true })
-    try {
-      wx.showLoading({ title: '加载预览', mask: true })
-      const preview = await prepareServiceAuthorizePreview(albumId)
-      wx.hideLoading()
-      wx.navigateTo({
-        url: `/pages/desensitize/preview/index?taskId=${preview.taskId}&albumId=${preview.albumId}&fromPreMask=${preview.fromPreMask ? 1 : 0}&source=service`,
-      })
-    } catch (e) {
-      wx.hideLoading()
-      const { showAuthorizePreviewError } = require('../../../utils/authorize-preview-error')
-      showAuthorizePreviewError(e)
-    } finally {
-      this.setData({ previewLoading: false })
     }
   },
 

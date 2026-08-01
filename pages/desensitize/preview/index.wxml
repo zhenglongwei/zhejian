@@ -78,51 +78,10 @@
             block
             loading="{{confirmLoading}}"
             disabled="{{confirmLoading || caseDraftMissing}}"
-            bind:btntap="onShareReportTap"
+            bind:btntap="onConfirm"
           >{{confirmLabelShort}}</ui-button>
         </view>
       </view>
-
-      <ui-bottom-sheet
-        visible="{{shareSheetVisible}}"
-        title="分享报告"
-        hint="发给微信不会自动上网；仅「官方网站」会发布到公开站。"
-        showActions="{{false}}"
-        bind:close="onCloseShareSheet"
-      >
-        <view class="desensitize-preview__share-panel">
-          <view class="desensitize-preview__share-channels">
-            <view class="desensitize-preview__share-channel" bindtap="onPublishOfficial">
-              <view class="desensitize-preview__share-icon desensitize-preview__share-icon--site">
-                <text class="desensitize-preview__share-icon-text">站</text>
-              </view>
-              <text class="desensitize-preview__share-label text-caption">官方网站</text>
-              <text class="desensitize-preview__share-desc text-caption">发布到公开站</text>
-            </view>
-
-            <view class="desensitize-preview__share-channel" bindtap="onShareTimelineGuide">
-              <view class="desensitize-preview__share-icon">
-                <image class="desensitize-preview__share-img" src="/assets/share/icon-moments.svg" mode="aspectFit" />
-              </view>
-              <text class="desensitize-preview__share-label text-caption">朋友圈</text>
-              <text class="desensitize-preview__share-desc text-caption">右上角发出</text>
-            </view>
-
-            <button
-              class="desensitize-preview__share-channel desensitize-preview__share-channel-btn"
-              open-type="share"
-              hover-class="desensitize-preview__share-channel--active"
-            >
-              <view class="desensitize-preview__share-icon">
-                <image class="desensitize-preview__share-img" src="/assets/share/icon-friend.svg" mode="aspectFit" />
-              </view>
-              <text class="desensitize-preview__share-label text-caption">转发给朋友</text>
-              <text class="desensitize-preview__share-desc text-caption">好友或群</text>
-            </button>
-          </view>
-          <text class="desensitize-preview__share-foot text-caption text-secondary" bindtap="onCloseShareSheet">取消</text>
-        </view>
-      </ui-bottom-sheet>
     </block>
 
     <!-- 订单授权 / 评价配图等：保留脱敏对比工作台 -->

@@ -34,9 +34,9 @@ const PUBLISHED_TIP =
 /** 审核中短提示 */
 const PENDING_TIP = '脱敏案例审核中，通过后即可分享给同城车友。'
 
-/** 未达公开站条件：仅私人发给微信 */
+/** 未上网时点「分享」：只鼓励发微信，不引导去发布网站 */
 const PRIVATE_SHARE_TIP =
-  '可发给微信好友或朋友圈；不会出现在公开案例站。分享内容为脱敏后信息。'
+  '发给微信不会自动上网。公开站内容可随时在「我的服务相册」下架。'
 
 const PUBLISHED_SHARE_LINES = [
   '感谢以体验官身份公开这份脱敏案例。发给微信好友或朋友圈，帮同城车友少踩坑。',
@@ -119,15 +119,16 @@ function buildPublishedSharePitch(options = {}) {
   return pickPublishedShareLine(seed)
 }
 
-/** 未达公开站门槛时的私人分享话术（不引导预览发布） */
+/** 未上网时的私人分享话术（不引导去发布网站） */
 function buildPrivateSharePitch(options = {}) {
+  const seed = options.seed || options.albumId || 'zhejian'
   const vehicle = String(options.vehicleLabel || options.vehicle || '').trim()
   const project = String(options.serviceName || options.project || '').trim()
   if (vehicle || project) {
     const label = [vehicle, project].filter(Boolean).join(' · ')
-    return `《${label}》维修记录已整理好。可发给微信好友或朋友圈作参考；当前未达到公开案例站展示条件。`
+    return `《${label}》维修记录已整理好。发给微信好友或朋友圈，帮同城车友少踩坑。`
   }
-  return '维修记录已整理好。可发给微信好友或朋友圈作参考；当前未达到公开案例站展示条件。'
+  return pickEncourageLine(seed)
 }
 
 /**
@@ -199,15 +200,14 @@ function isPublicShareReady(detail = {}) {
 }
 
 /**
- * owner-share 页模式：
- * - invite：可预览并发布到公开站
- * - private：仅私人发给微信（不展示预览发布）
- * - pending / published
+ * owner-share 页模式（体验官鼓励页，只发微信）：
+ * - published：已上网
+ * - pending：公开站审核中
+ * - private：未上网（含原可发布态；不在此页引导发布）
  */
 function resolveOwnerShareMode(detail = {}) {
   if (isPublicShareReady(detail)) return 'published'
   if ((detail.publicCaseStatus || '') === 'pending_review') return 'pending'
-  if (canShowPublishInvite(detail)) return 'invite'
   return 'private'
 }
 

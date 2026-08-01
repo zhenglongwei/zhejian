@@ -49,7 +49,7 @@ const LIABILITY_COPY = {
   },
   [BIZ_TYPE.SERVICE_AUTHORIZE]: {
     body: AUTHORIZATION_CONSENT.desensitize_confirm.text,
-    confirmLabel: '分享报告',
+    confirmLabel: '发布到公开网站',
   },
   [BIZ_TYPE.SERVICE_REVIEW_PREVIEW]: {
     body: '本人已逐张核对评价配图脱敏效果，同意在已发布公开案例中展示。',

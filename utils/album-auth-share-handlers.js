@@ -434,49 +434,22 @@ function createAlbumAuthShareHandlers(options = {}) {
       this.actionAlbumId = id
       if (disabled) {
         wx.showModal({
-          title: '公示状态',
+          title: '发布状态',
           content: hint || '当前暂不可操作',
           showCancel: false,
         })
         return
       }
-      try {
-        wx.showLoading({ title: '加载中', mask: true })
-        await this.loadActionDetail(id)
-        wx.hideLoading()
-        this.setData({
-          authSheetVisible: true,
-          authChecked: false,
-          authTier: 'named',
-        })
-      } catch (err) {
-        wx.hideLoading()
-        wx.showToast({ title: (err && err.message) || '加载失败', icon: 'none' })
-      }
+      // 列表「发布」直达脱敏预览，不再弹出授权确认 sheet
+      await this.openAuthorizePreview()
     },
 
     async onCardShare(e) {
       const { id } = e.detail || {}
       if (!id) return
-      this.actionAlbumId = id
-      try {
-        wx.showLoading({ title: '加载中', mask: true })
-        const detail = await this.loadActionDetail(id)
-        wx.hideLoading()
-        const shareState = initAlbumShareState(detail)
-        this.setData({
-          ...shareState,
-          shareSheetVisible: true,
-        })
-        if (shareState.showShareEntry) {
-          await this.refreshShareToken({ silent: true })
-        } else {
-          this.updateShareMenu(shareState.defaultShareIntent === 'publicCase')
-        }
-      } catch (err) {
-        wx.hideLoading()
-        wx.showToast({ title: (err && err.message) || '加载失败', icon: 'none' })
-      }
+      wx.navigateTo({
+        url: `/pages/album/owner-share/index?albumId=${encodeURIComponent(id)}`,
+      })
     },
 
     onCardWithdraw(e) {

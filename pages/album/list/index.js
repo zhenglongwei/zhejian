@@ -447,6 +447,7 @@ Page({
   async onCardAuthorize(e) {
     const { id, disabled, hint } = e.detail || {}
     if (!id) return
+    this.actionAlbumId = id
     if (disabled) {
       wx.showModal({
         title: '发布状态',
@@ -455,19 +456,8 @@ Page({
       })
       return
     }
-    try {
-      wx.showLoading({ title: '加载中', mask: true })
-      await this.loadActionDetail(id)
-      wx.hideLoading()
-      this.setData({
-        authSheetVisible: true,
-        authChecked: false,
-        authTier: 'named',
-      })
-    } catch (err) {
-      wx.hideLoading()
-      wx.showToast({ title: (err && err.message) || '加载失败', icon: 'none' })
-    }
+    // 列表「发布」直达脱敏预览，不再弹出授权确认 sheet
+    await this.openAuthorizePreview()
   },
 
   onCloseAuthSheet() {
