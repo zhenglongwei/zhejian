@@ -5,10 +5,7 @@ const { persistLocalImages } = require('../../../utils/media-upload')
 const { checkAuth } = require('../../../utils/auth')
 const {
   ALBUM_REVIEW_GROUPS,
-  DOMAIN_REVIEW_DIMENSIONS,
   emptyAlbumReviewScores,
-  domainScoresFromDetail,
-  applyDomainScore,
 } = require('../../../constants/album-review-dimensions')
 const { clearAlbumReviewNudge } = require('../../../utils/album-review-nudge')
 const {
@@ -56,12 +53,9 @@ Page({
     hasParts: false,
     partVerifySummary: '',
     reviewGroups: ALBUM_REVIEW_GROUPS,
-    domainDimensions: DOMAIN_REVIEW_DIMENSIONS,
     scores: emptyAlbumReviewScores(),
-    domainScores: domainScoresFromDetail(emptyAlbumReviewScores()),
     repairScore: 0,
     albumScore: 0,
-    moreExpanded: false,
     content: '',
     contentLength: 0,
     selectedTags: [],
@@ -224,37 +218,14 @@ Page({
     })
   },
 
-  onDomainScoresChange(e) {
-    const values = (e.detail && e.detail.values) || {}
-    let scores = { ...this.data.scores }
-    ;['repairDomain', 'albumDomain'].forEach((key) => {
-      const star = Number(values[key]) || 0
-      if (star >= 1) {
-        scores = applyDomainScore(scores, key, star)
-      }
-    })
-    this.setData({
-      scores,
-      domainScores: domainScoresFromDetail(scores),
-      repairScore: calcRepairScore(scores),
-      albumScore: calcAlbumScore(scores),
-    })
-    this.syncTagPool(scores)
-  },
-
   onScoresChange(e) {
     const scores = { ...this.data.scores, ...((e.detail && e.detail.values) || {}) }
     this.setData({
       scores,
-      domainScores: domainScoresFromDetail(scores),
       repairScore: calcRepairScore(scores),
       albumScore: calcAlbumScore(scores),
     })
     this.syncTagPool(scores)
-  },
-
-  onToggleMore() {
-    this.setData({ moreExpanded: !this.data.moreExpanded })
   },
 
   syncTagPool(scores) {
