@@ -11,6 +11,11 @@ describe('normalizeLicenseEstablishedOn', () => {
     assert.equal(normalizeLicenseEstablishedOn('2016年3月1日'), '2016-03-01')
     assert.equal(normalizeLicenseEstablishedOn('2016年03月01日至长期'), '2016-03-01')
   })
+
+  it('parses Aliyun compact YYYYMMDD (string or number)', () => {
+    assert.equal(normalizeLicenseEstablishedOn('20170104'), '2017-01-04')
+    assert.equal(normalizeLicenseEstablishedOn(20170104), '2017-01-04')
+  })
 })
 
 describe('buildOperatingYearsMeta', () => {

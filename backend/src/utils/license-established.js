@@ -15,6 +15,14 @@ function normalizeLicenseEstablishedOn(value) {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return `${value.getUTCFullYear()}-${pad2(value.getUTCMonth() + 1)}-${pad2(value.getUTCDate())}`
   }
+  // 阿里云 OCR 常见：RegistrationDate/validFromDate/EstablishDate 为数字 20170104
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const digits = String(Math.trunc(value))
+    if (/^\d{8}$/.test(digits)) {
+      return normalizeLicenseEstablishedOn(digits)
+    }
+  }
+
   const raw = String(value).trim()
   if (!raw) return ''
 
@@ -23,6 +31,17 @@ function normalizeLicenseEstablishedOn(value) {
     const y = Number(iso[1])
     const m = Number(iso[2])
     const d = Number(iso[3])
+    if (y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${y}-${pad2(m)}-${pad2(d)}`
+    }
+  }
+
+  // 阿里云格式化日期：20170104 / "20170104"
+  const compact = raw.match(/^(\d{4})(\d{2})(\d{2})$/)
+  if (compact) {
+    const y = Number(compact[1])
+    const m = Number(compact[2])
+    const d = Number(compact[3])
     if (y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
       return `${y}-${pad2(m)}-${pad2(d)}`
     }

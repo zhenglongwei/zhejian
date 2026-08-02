@@ -134,18 +134,22 @@ function mapLicenseOcrResult(raw) {
     ]),
     licenseEstablishedOn: normalizeLicenseEstablishedOn(
       pickField(data, [
+        // 阿里云 ocr-api：注册日期（可能为「2017年01月04日」或 20170104）
         'RegistrationDate',
         'registrationDate',
+        // 阿里云 VIAPI：EstablishDate 常为 20150504
         'EstablishDate',
         'establishDate',
-        'ValidFromDate',
+        // 营业期限起始（格式化，常为 20170104 数字）
         'validFromDate',
+        'ValidFromDate',
         'issueDate',
         'IssueDate',
         'foundingDate',
         'FoundingDate',
-        'ValidPeriod',
+        // 营业期限文案：「2017年01月04日至长期」——仅作兜底
         'validPeriod',
+        'ValidPeriod',
         'validDate',
         'ValidDate',
       ])
