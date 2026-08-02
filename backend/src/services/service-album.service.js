@@ -1030,7 +1030,7 @@ async function getUserServiceAlbum(albumId, userId) {
       const { readPackageFromAlbum } = require('./album-content-package.service')
       const {
         draftToAiSummary,
-        normalizeMerchantCaseDraft,
+        hydrateDraftMediaForOwnerView,
       } = require('./merchant-case-draft.service')
       const { pickConfirmedDraftRaw } = require('../utils/confirmed-case-draft-view')
       const pkg = readPackageFromAlbum(album)
@@ -1053,9 +1053,19 @@ async function getUserServiceAlbum(albumId, userId) {
           confirmedAt: fromPkg.confirmedAt || fallbackAt,
         }
       }
-      view.merchantCaseDraft = confirmedRaw
-        ? normalizeMerchantCaseDraft(confirmedRaw)
-        : null
+      let ownerDraft = null
+      if (confirmedRaw) {
+        let preMaskTask = null
+        try {
+          const { findPreMaskTask } = require('./desensitize.service')
+          preMaskTask = await findPreMaskTask(album.id)
+        } catch (_) {
+          preMaskTask = null
+        }
+        // 读侧回填脱敏图：避免确认稿 media 缺 maskedUrl / 空 media 时车主预览无图
+        ownerDraft = hydrateDraftMediaForOwnerView(confirmedRaw, view, preMaskTask)
+      }
+      view.merchantCaseDraft = ownerDraft
       view.contentPackageStatus = (pkg && pkg.status) || ''
       if (view.merchantCaseDraft) {
         view.merchantCaseDraftSummary = draftToAiSummary(view.merchantCaseDraft)

@@ -4,6 +4,7 @@ const {
   normalizeMerchantCaseDraft,
   stripAmountText,
   draftToAiSummary,
+  hydrateDraftMediaForOwnerView,
 } = require('./merchant-case-draft.service')
 
 function run() {
@@ -118,6 +119,39 @@ function run() {
     media: [{ nodeId: 'stage_2', idx: 0, maskedUrl: 'https://x/m.jpg', sectionKey: 'diagnosis' }],
   })
   assert.ok(!/99|元/.test(normalized.sections[0].body))
+
+  const staleMedia = hydrateDraftMediaForOwnerView(
+    {
+      title: '钣喷',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      sections: [{ key: 'process', body: '' }],
+      media: [
+        {
+          nodeId: 'stage_2',
+          idx: 0,
+          previewUrl: 'https://example.com/a.jpg',
+          maskedUrl: '',
+          sectionKey: 'diagnosis',
+        },
+      ],
+    },
+    albumView,
+    preMaskTask,
+  )
+  assert.ok(staleMedia.media[0].maskedUrl.includes('desensitized'))
+
+  const emptyMedia = hydrateDraftMediaForOwnerView(
+    {
+      title: '钣喷',
+      confirmedAt: '2026-01-01T00:00:00.000Z',
+      sections: [{ key: 'process', body: '局部补漆' }],
+      media: [],
+    },
+    albumView,
+    preMaskTask,
+  )
+  assert.ok(emptyMedia.media.length >= 1)
+  assert.ok(emptyMedia.media[0].maskedUrl.includes('desensitized'))
 
   console.log('merchant-case-draft.test.js OK')
 }

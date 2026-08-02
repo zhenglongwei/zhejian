@@ -129,10 +129,9 @@ Page({
         this._authorizeAlbum = album
         this.setData({ detail: album })
       }
-      const [task, aiSummary] = await Promise.all([
-        fetchTask(this.data.taskId),
-        this.loadAuthorizeAiSummary(),
-      ])
+      // 先拉任务再组案例稿：配图需用脱敏任务资产回填 maskedUrl
+      const task = await fetchTask(this.data.taskId)
+      const aiSummary = await this.loadAuthorizeAiSummary(task)
       this.applyTask(task, aiSummary)
     } catch (e) {
       this.setData({
@@ -142,7 +141,34 @@ Page({
     }
   },
 
-  async loadAuthorizeAiSummary() {
+  resolveDraftMediaDisplayUrl(item, task) {
+    const { resolveMediaUrl } = require('../../../utils/desensitize-url')
+    const pick = (url) => {
+      const raw = String(url || '').trim()
+      if (!raw) return ''
+      return resolveMediaUrl(raw) || raw
+    }
+    const masked = pick(item && item.maskedUrl)
+    if (masked) return masked
+    const assets = (task && task.rawAssets) || []
+    const nodeId = String((item && item.nodeId) || '')
+    const idx = Number((item && item.idx) || 0)
+    let hit = assets.find(
+      (a) => String(a.nodeId || '') === nodeId && Number(a.idx != null ? a.idx : 0) === idx,
+    )
+    if (!hit) {
+      const tip = String((item && (item.previewUrl || item.rawUrl)) || '')
+      if (tip) {
+        hit = assets.find((a) => String(a.rawUrl || '') === tip)
+      }
+    }
+    const fromTask = pick(hit && (hit.maskedUrl || hit.preMaskedUrl))
+    if (fromTask) return fromTask
+    // 末级回退：商家确认稿里的预览位，避免有施工图却整页空白
+    return pick(item && item.previewUrl)
+  },
+
+  async loadAuthorizeAiSummary(task = null) {
     const { source, albumId } = this.data
     if (source === 'review' || source !== 'service' || !albumId) return ''
     try {
@@ -162,14 +188,21 @@ Page({
         })
         return ''
       }
-      const sections = (draft.sections || []).filter((s) => String(s.body || '').trim())
       const media = (draft.media || [])
         .map((m) => ({
           ...m,
-          // 车主发布预览只展示脱敏图（与公开站一致）
-          displayUrl: m.maskedUrl || '',
+          displayUrl: this.resolveDraftMediaDisplayUrl(m, task),
         }))
         .filter((m) => m.displayUrl)
+      // 有配图的章节即使正文为空也要保留，否则施工过程图会被滤掉
+      const sections = (draft.sections || [])
+        .map((s) => ({
+          ...s,
+          body: String((s && s.body) || '').trim(),
+        }))
+        .filter(
+          (s) => s.body || media.some((m) => String(m.sectionKey || '') === String(s.key || '')),
+        )
       const { draftToAiSummary } = require('../../../utils/merchant-case-draft-display')
       const caseDraftSummary = draft.caseSummary || draftToAiSummary(draft) || ''
       this.setData({

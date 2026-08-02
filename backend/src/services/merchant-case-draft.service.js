@@ -371,12 +371,46 @@ function draftToAiSummary(draft) {
   return draftToPlainText(draft).slice(0, 250)
 }
 
+/**
+ * 车主/审核读侧：用预脱敏任务回填案例稿配图的 maskedUrl；
+ * 若确认稿 media 为空但相册仍有可公示过程图，则按选帧规则补回。
+ */
+function hydrateDraftMediaForOwnerView(draft, albumView = {}, preMaskTask = null) {
+  const normalized = normalizeMerchantCaseDraft(draft)
+  if (!normalized) return null
+  const prevMedia = Array.isArray(normalized.media) ? normalized.media : []
+  const hasAnyUrl = prevMedia.some((m) => m && (m.maskedUrl || m.previewUrl))
+  if (!hasAnyUrl) {
+    const fresh = pickDraftMedia(albumView, preMaskTask)
+    if (!fresh.length) return normalized
+    return { ...normalized, media: fresh }
+  }
+  const media = prevMedia.map((item) => {
+    if (!item) return null
+    if (item.maskedUrl) return item
+    const maskedUrl = resolveMaskedFromTask(
+      preMaskTask,
+      item.nodeId,
+      item.idx,
+      item.previewUrl || item.rawUrl || '',
+    )
+    if (!maskedUrl) return item
+    return {
+      ...item,
+      maskedUrl,
+      previewUrl: item.previewUrl || maskedUrl,
+    }
+  }).filter(Boolean)
+  return { ...normalized, media }
+}
+
 module.exports = {
   stripAmountText,
   buildRuleMerchantCaseDraft,
   normalizeMerchantCaseDraft,
   mergeLlmSectionsIntoDraft,
   pickDraftMedia,
+  hydrateDraftMediaForOwnerView,
   draftToPlainText,
   draftToAiSummary,
   buildTitle,

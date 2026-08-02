@@ -30,7 +30,7 @@
       <view wx:if="{{caseDraftMissing}}" class="desensitize-preview__draft-missing text-caption">
         案例稿暂时无法加载，请稍后重试。若持续出现，请联系门店或客服。
       </view>
-      <view wx:elif="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary}}" class="desensitize-preview__case-draft">
+      <view wx:elif="{{caseDraftTitle || caseDraftSections.length || caseDraftSummary || caseDraftMedia.length}}" class="desensitize-preview__case-draft">
         <text wx:if="{{caseDraftTitle}}" class="text-body desensitize-preview__case-heading">{{caseDraftTitle}}</text>
         <view wx:if="{{caseDraftSummary}}" class="desensitize-preview__case-summary">
           <text class="text-body desensitize-preview__case-sec-title">案例摘要</text>
@@ -39,7 +39,7 @@
         <block wx:for="{{caseDraftSections}}" wx:key="key">
           <view class="desensitize-preview__case-section">
             <text class="text-body desensitize-preview__case-sec-title">{{item.title}}</text>
-            <text class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
+            <text wx:if="{{item.body}}" class="text-caption desensitize-preview__case-sec-body">{{item.body}}</text>
             <view class="desensitize-preview__case-media">
               <block wx:for="{{caseDraftMedia}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
                 <image
@@ -54,6 +54,24 @@
             </view>
           </view>
         </block>
+        <!-- 章节对不上时仍展示配图，避免有过程图却整页无图 -->
+        <view wx:if="{{caseDraftMedia.length && !caseDraftSections.length}}" class="desensitize-preview__case-section">
+          <text class="text-body desensitize-preview__case-sec-title">过程配图</text>
+          <view class="desensitize-preview__case-media">
+            <image
+              wx:for="{{caseDraftMedia}}"
+              wx:for-item="m"
+              wx:for-index="mi"
+              wx:key="mi"
+              wx:if="{{m.displayUrl}}"
+              class="desensitize-preview__case-thumb"
+              src="{{m.displayUrl}}"
+              mode="aspectFill"
+              data-url="{{m.displayUrl}}"
+              bindtap="onDraftImageTap"
+            />
+          </view>
+        </view>
       </view>
       <view wx:elif="{{aiSummary}}" class="desensitize-preview__summary">
         <ui-ai-summary-block content="{{aiSummary}}" />
