@@ -2,11 +2,8 @@
   "navigationBarTitleText": "套餐与工具权益",
   "usingComponents": {
     "ui-tool-page-shell": "/components/tool-page-shell/index",
-    "ui-button": "/components/button/index",
     "ui-empty": "/components/empty/index",
     "ui-skeleton": "/components/skeleton/index",
-    "ui-tag": "/components/tag/index",
-    "ui-message-subscribe-banner": "/components/message-subscribe-banner/index",
-    "ui-checkbox-row": "/components/checkbox-row/index"
+    "ui-tag": "/components/tag/index"
   }
 }

@@ -22,10 +22,9 @@
       <view class="merchant-sub__folio surface-album-folio">
         <view class="merchant-sub__folio-main">
           <view class="merchant-sub__folio-row">
-            <text class="text-h2 merchant-sub__folio-title">{{statusView.folioTitle}}</text>
-            <ui-tag wx:if="{{statusView.folioTag}}" variant="{{statusView.folioTagVariant}}" text="{{statusView.folioTag}}" />
+            <text class="text-h2 merchant-sub__folio-title">{{folioTitle}}</text>
+            <ui-tag variant="success" text="{{folioTag}}" />
           </view>
-          <text wx:if="{{statusView.folioSub}}" class="text-caption text-secondary">{{statusView.folioSub}}</text>
         </view>
       </view>
 
@@ -33,58 +32,9 @@
         <view class="merchant-sub__status">
           <view class="merchant-sub__status-row">
             <text class="text-caption text-secondary merchant-sub__status-label">当前状态</text>
-            <text class="text-body merchant-sub__status-value">{{statusView.currentStatus}}</text>
-          </view>
-          <view wx:if="{{statusView.expiresAtDisplay}}" class="merchant-sub__status-row">
-            <text class="text-caption text-secondary merchant-sub__status-label">用到</text>
-            <text class="text-body merchant-sub__status-value">{{statusView.expiresAtDisplay}}</text>
-          </view>
-          <view wx:if="{{statusView.nextLabel}}" class="merchant-sub__status-row">
-            <text class="text-caption text-secondary merchant-sub__status-label">到期后</text>
-            <text class="text-body merchant-sub__status-value">{{statusView.nextLabel}}</text>
+            <text class="text-body merchant-sub__status-value">{{currentStatus}}</text>
           </view>
         </view>
-
-        <block wx:if="{{renewalNotice.show}}">
-          <view class="surface-album-inset-divider" />
-          <view wx:if="{{renewalNotice.canPay && showPayConsent}}" class="merchant-sub__consent">
-            <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
-              <text class="text-caption">{{payConsentBefore}}<text class="text-link" catchtap="onOpenSubscriptionAgreement">{{payConsentLink}}</text>{{payConsentAfter}}</text>
-            </ui-checkbox-row>
-          </view>
-          <view class="merchant-sub__renewal merchant-sub__renewal--{{renewalNotice.level}}">
-            <text class="text-body merchant-sub__renewal-text">{{renewalNotice.message}}</text>
-            <view wx:if="{{renewalNotice.canPay}}" class="merchant-sub__action">
-              <ui-button
-                type="primary"
-                size="sm"
-                loading="{{paying}}"
-                disabled="{{paying}}"
-                bind:btntap="onRenew"
-              >{{renewCta}}</ui-button>
-            </view>
-            <ui-message-subscribe-banner
-              title="到期前微信提醒你"
-              description="不会自动扣款；开启后可在到期前收到续费提醒"
-              buttonText="开启提醒"
-              bind:subscribe="onSubscribeRenewNotice"
-            />
-          </view>
-        </block>
-
-        <block wx:if="{{planStatus.hasPendingChange}}">
-          <view class="surface-album-inset-divider" />
-          <text class="text-caption text-secondary merchant-sub__hint">已预约变更。若要取消，请点下方按钮。</text>
-          <view class="merchant-sub__action">
-            <ui-button
-              type="secondary"
-              size="sm"
-              loading="{{paying}}"
-              disabled="{{paying}}"
-              bind:btntap="onCancelPending"
-            >取消预约变更</ui-button>
-          </view>
-        </block>
 
         <view class="surface-album-inset-divider" />
 
@@ -113,23 +63,7 @@
         <view class="surface-album-inset-divider" />
 
         <text class="text-caption text-secondary merchant-sub__hint">{{planFooter}}</text>
-
-        <block wx:if="{{primaryAction}}">
-          <view wx:if="{{showPayConsent}}" class="merchant-sub__consent merchant-sub__consent--spaced">
-            <ui-checkbox-row checked="{{payConsent}}" bind:toggle="onTogglePayConsent">
-              <text class="text-caption">{{payConsentBefore}}<text class="text-link" catchtap="onOpenSubscriptionAgreement">{{payConsentLink}}</text>{{payConsentAfter}}</text>
-            </ui-checkbox-row>
-          </view>
-          <view class="merchant-sub__action merchant-sub__action--block">
-            <ui-button
-              type="primary"
-              block
-              loading="{{paying}}"
-              disabled="{{paying}}"
-              bind:btntap="onConfirmPrimary"
-            >{{primaryAction.label}}</ui-button>
-          </view>
-        </block>
+        <text class="text-caption text-link merchant-sub__link" bindtap="onOpenSubscriptionAgreement">{{agreementLink}}</text>
       </view>
     </view>
   </block>

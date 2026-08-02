@@ -1,9 +1,4 @@
 {
-  "navigationBarTitleText": "标准版说明",
-  "usingComponents": {
-    "ui-tool-page-shell": "/components/tool-page-shell/index",
-    "ui-button": "/components/button/index",
-    "ui-tag": "/components/tag/index",
-    "ui-checkbox-row": "/components/checkbox-row/index"
-  }
+  "navigationBarTitleText": "工具权益",
+  "usingComponents": {}
 }

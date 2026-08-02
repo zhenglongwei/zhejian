@@ -15,7 +15,7 @@ function hasAcknowledgedMerchantPlan(merchantId) {
 function saveMerchantPlanAck(merchantId, planId) {
   const key = planSelectStorageKey(merchantId)
   const payload = {
-    planId: planId || 'tool_480',
+    planId: planId || 'free',
     at: Date.now(),
   }
   try {
@@ -33,13 +33,10 @@ function buildPlanSelectUrl(merchantId, from) {
   return `/packageMerchant/pages/plan-select/index${q.length ? `?${q.join('&')}` : ''}`
 }
 
-/** 审核通过后进入套餐说明；已确认过则进门店选择 */
-function redirectAfterMerchantApproved(merchantId, from = 'audit') {
-  if (hasAcknowledgedMerchantPlan(merchantId)) {
-    wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
-    return
-  }
-  wx.redirectTo({ url: buildPlanSelectUrl(merchantId, from) })
+/** 审核通过后直接进门店选择（当前免费，不再经过试用/付费说明） */
+function redirectAfterMerchantApproved(merchantId) {
+  saveMerchantPlanAck(merchantId, 'free')
+  wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
 }
 
 module.exports = {

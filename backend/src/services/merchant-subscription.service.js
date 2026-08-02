@@ -59,8 +59,8 @@ function isSubscriptionActive(row) {
 }
 
 function hasPublicIndexEntitlement(row) {
-  if (!isSubscriptionActive(row)) return false
-  return PUBLIC_INDEX_PLANS.has(row.plan)
+  // 当前全档免费：只要订阅有效即可基础收录
+  return isSubscriptionActive(row)
 }
 
 function formatSubscriptionRow(row) {
@@ -69,7 +69,7 @@ function formatSubscriptionRow(row) {
       plan: MERCHANT_PLAN.FREE,
       planLabel: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE],
       status: MERCHANT_SUBSCRIPTION_STATUS.ACTIVE,
-      publicIndex: false,
+      publicIndex: true,
       expiresAt: null,
       founderFlag: false,
       founderRenewDiscount: null,
@@ -174,16 +174,9 @@ function resolveMerchantContentOptimizeCapability(subscription) {
     canApply: true,
   }
 
-  if (active && PUBLIC_INDEX_PLANS.has(plan)) {
-    return {
-      ...base,
-      hint: '标准版：提供规则建议优化文案（授权前，商家确认后写入相册）',
-    }
-  }
-
   return {
     ...base,
-    hint: '免费版：提供规则建议；开通标准版后可公域收录',
+    hint: '提供规则建议优化文案（授权前，商家确认后写入相册）',
   }
 }
 
@@ -777,25 +770,22 @@ async function fetchMerchantSubscriptionPanel(auth) {
   const subscription = formatSubscriptionRow(row)
   const plan = subscription.plan || MERCHANT_PLAN.FREE
   subscription.planTag = {
-    tier: MERCHANT_PLAN_TAG_TIERS[plan] || 'basic',
-    text: MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
-    canUpgrade: !PUBLIC_INDEX_PLANS.has(plan) || !hasPublicIndexEntitlement(row),
+    tier: 'basic',
+    text: MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
+    canUpgrade: false,
   }
-  const standardTrialEligible = await isEligibleForStandardTrial(row)
-  subscription.standardTrialEligible = standardTrialEligible
+  subscription.standardTrialEligible = false
   const creditCents = await computeRemainingCreditCents(row)
   subscription.remainingCreditCents = creditCents
   subscription.remainingCreditYuan = (creditCents / 100).toFixed(2)
-  const plans = listPlanCatalog(row, { trialEligible: standardTrialEligible })
+  const plans = listPlanCatalog(row, { trialEligible: false })
   const plansWithQuotes = await enrichPlanCatalogWithQuotes(row, plans)
-  const renewalNotice = buildRenewalNotice(row)
   return {
     subscription,
     plans: plansWithQuotes,
     planStatus: {
       currentPlan: plan,
-      currentTierLabel:
-        MERCHANT_PLAN_TAG_LABELS[plan] || MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
+      currentTierLabel: MERCHANT_PLAN_TAG_LABELS[MERCHANT_PLAN.FREE],
       currentPlanLabel: subscription.planLabel,
       expiresAtDisplay: subscription.expiresAt
         ? String(subscription.expiresAt).slice(0, 10)
@@ -804,14 +794,11 @@ async function fetchMerchantSubscriptionPanel(auth) {
       hasPendingChange: Boolean(subscription.pendingPlan),
       pendingPlanLabel: subscription.pendingPlanLabel || '',
       canCancelPending: Boolean(subscription.pendingPlan),
-      canScheduleChange:
-        hasPublicIndexEntitlement(row) &&
-        isSubscriptionActive(row) &&
-        !subscription.pendingPlan,
+      canScheduleChange: false,
       manualRenewOnly: true,
     },
-    renewalNotice,
-    paymentTestMode: config.wechatPay.subscriptionTestAmountCents != null,
+    renewalNotice: { show: false },
+    paymentTestMode: false,
   }
 }
 

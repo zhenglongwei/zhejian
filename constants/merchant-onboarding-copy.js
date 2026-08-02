@@ -9,16 +9,16 @@ const MERCHANT_ONBOARDING_HERO = {
 const MERCHANT_ONBOARDING_VALUE_ITEMS = []
 
 const MERCHANT_ONBOARDING_POSITIONING =
-  '辙见是透明成交与合规留证的专用工具，与现有开单系统并存。车主发布的公开案例基础收录不另收费；工具标准版年费以套餐页为准（当前 480 元/年，含试用说明）。不做竞价排名、不抽佣，付费不承诺订单量。'
+  '辙见是透明成交与合规留证的专用工具，与现有开单系统并存。当前免费使用；车主发布的公开案例基础收录不另收费。不做竞价排名、不抽佣。'
 
 const MERCHANT_WORKBENCH_GATE_NONE = {
   title: '商家工作台',
-  description: '入驻审核通过后，先选择套餐说明，再使用服务相册与线索工作台',
+  description: '入驻审核通过后即可使用服务相册与线索工作台',
 }
 
 const MERCHANT_WORKBENCH_GATE_PENDING = {
   title: '入驻审核中',
-  description: '审核通过后即可选择套餐并使用工作台创建服务相册',
+  description: '审核通过后即可使用工作台创建服务相册',
 }
 
 const MERCHANT_SHARE_STORE_DESC = '分享 H5 门店页'

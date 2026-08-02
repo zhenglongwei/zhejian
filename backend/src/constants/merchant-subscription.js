@@ -1,19 +1,18 @@
-/** 商家 SaaS 套餐 · 对齐 docs/01_…/09_招商方案和收费策略.md */
+/** 商家 SaaS 套餐 · 当前全功能免费；旧 plan 码仅兼容 */
 
 const MERCHANT_PLAN = {
   FREE: 'free',
   INDEX_99: 'index_99',
-  /** @deprecated 已停售；存量商家仍享公域收录权益 */
+  /** @deprecated 已停售；存量商家迁移为 free */
   OPTIMIZE_299: 'optimize_299',
 }
 
 const MERCHANT_PLAN_LABELS = {
-  [MERCHANT_PLAN.FREE]: '试用期',
-  [MERCHANT_PLAN.INDEX_99]: '标准版（过渡）',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版（过渡）',
+  [MERCHANT_PLAN.FREE]: '免费使用',
+  [MERCHANT_PLAN.INDEX_99]: '免费使用',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '免费使用',
 }
 
-/** 工作台扉页方案档位 Tag（不绑定具体权益） */
 const MERCHANT_PLAN_TIER = {
   BASIC: 'basic',
   STANDARD: 'standard',
@@ -21,23 +20,22 @@ const MERCHANT_PLAN_TIER = {
 
 const MERCHANT_PLAN_TIER_BY_PLAN = {
   [MERCHANT_PLAN.FREE]: MERCHANT_PLAN_TIER.BASIC,
-  [MERCHANT_PLAN.INDEX_99]: MERCHANT_PLAN_TIER.STANDARD,
-  [MERCHANT_PLAN.OPTIMIZE_299]: MERCHANT_PLAN_TIER.STANDARD,
+  [MERCHANT_PLAN.INDEX_99]: MERCHANT_PLAN_TIER.BASIC,
+  [MERCHANT_PLAN.OPTIMIZE_299]: MERCHANT_PLAN_TIER.BASIC,
 }
 
 const MERCHANT_PLAN_TAG_LABELS = {
-  [MERCHANT_PLAN.FREE]: '试用期',
-  [MERCHANT_PLAN.INDEX_99]: '标准版',
-  [MERCHANT_PLAN.OPTIMIZE_299]: '标准版',
+  [MERCHANT_PLAN.FREE]: '免费使用',
+  [MERCHANT_PLAN.INDEX_99]: '免费使用',
+  [MERCHANT_PLAN.OPTIMIZE_299]: '免费使用',
 }
 
 const MERCHANT_PLAN_TAG_TIERS = MERCHANT_PLAN_TIER_BY_PLAN
 
-/** 年费标价（分） */
 const MERCHANT_PLAN_PRICE_CENTS = {
   [MERCHANT_PLAN.FREE]: 0,
-  [MERCHANT_PLAN.INDEX_99]: 9900,
-  [MERCHANT_PLAN.OPTIMIZE_299]: 9900,
+  [MERCHANT_PLAN.INDEX_99]: 0,
+  [MERCHANT_PLAN.OPTIMIZE_299]: 0,
 }
 
 const MERCHANT_SUBSCRIPTION_STATUS = {
@@ -54,15 +52,17 @@ const MERCHANT_PAYMENT_STATUS = {
   CLOSED: 'closed',
 }
 
-/** 具备公域收录权益的套餐（active 且未过期） */
-const PUBLIC_INDEX_PLANS = new Set([MERCHANT_PLAN.INDEX_99, MERCHANT_PLAN.OPTIMIZE_299])
+/** 当前：任意有效订阅均可公域基础收录（含 free） */
+const PUBLIC_INDEX_PLANS = new Set([
+  MERCHANT_PLAN.FREE,
+  MERCHANT_PLAN.INDEX_99,
+  MERCHANT_PLAN.OPTIMIZE_299,
+])
 
-/** 可售套餐（工作台展示） */
-const SELLABLE_PLANS = new Set([MERCHANT_PLAN.FREE, MERCHANT_PLAN.INDEX_99])
+/** 可售套餐（工作台说明用；当前仅展示免费） */
+const SELLABLE_PLANS = new Set([MERCHANT_PLAN.FREE])
 
 const SUBSCRIPTION_TERM_DAYS = 365
-
-/** 标准版首购免费试用天数 */
 const STANDARD_TRIAL_DAYS = 90
 
 const PLAN_CATALOG = [
@@ -70,24 +70,11 @@ const PLAN_CATALOG = [
     plan: MERCHANT_PLAN.FREE,
     name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.FREE],
     priceCents: 0,
-    priceLabel: '试用期内免费',
+    priceLabel: '当前免费',
     highlights: [
-      '试用期内可用服务相册、车主查看与私域分享',
+      '服务相册、车主查看与私域分享',
       '车主发布案例基础收录不另收费',
-      '试用结束后按标准版年费续费',
-    ],
-    publicIndex: false,
-  },
-  {
-    plan: MERCHANT_PLAN.INDEX_99,
-    name: MERCHANT_PLAN_LABELS[MERCHANT_PLAN.INDEX_99],
-    priceCents: MERCHANT_PLAN_PRICE_CENTS[MERCHANT_PLAN.INDEX_99],
-    priceLabel: '目标 480 元 / 年（支付目录改造中）',
-    trialLabel: '新开通含 90 天免费试用',
-    highlights: [
-      '标准版工具权益（历史套餐码兼容）',
-      '公开与基础收录不另收费',
-      '正式价与目录见过线后 BIZ-SUB（tool_480）',
+      '咨询线索工作台可用',
     ],
     publicIndex: true,
   },
