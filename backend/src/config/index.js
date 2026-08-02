@@ -304,6 +304,16 @@ const config = {
     desensitizePerMin: Number(process.env.RATE_LIMIT_DESENSITIZE_PER_MIN || 20),
     payNotifyPerMin: Number(process.env.RATE_LIMIT_PAY_NOTIFY_PER_MIN || 120),
   },
+  /**
+   * 公开案例列表/详情：DB 为空时是否回落 content-seed 演示案例。
+   * 生产默认关（H5-A-02）；本地开发默认开；可用 CONTENT_PUBLIC_CASE_FALLBACK 强制开关。
+   */
+  contentPublicCaseFallback: (() => {
+    if (process.env.CONTENT_PUBLIC_CASE_FALLBACK != null && process.env.CONTENT_PUBLIC_CASE_FALLBACK !== '') {
+      return envBool('CONTENT_PUBLIC_CASE_FALLBACK', false)
+    }
+    return (process.env.NODE_ENV || 'development') !== 'production'
+  })(),
 }
 
 module.exports = { config }

@@ -310,6 +310,11 @@ function attachCaseArticleAndSeo(row, item) {
   }
 }
 
+function publicCaseFallbackList() {
+  if (!config.contentPublicCaseFallback) return []
+  return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
+}
+
 async function fetchPublicCaseRows() {
   const rows = await prisma.publicCase.findMany({
     where: {
@@ -318,7 +323,7 @@ async function fetchPublicCaseRows() {
     },
     orderBy: { publishedAt: 'desc' },
   })
-  if (!rows.length) return FALLBACK_PUBLIC_CASES.map(mapFallbackCase)
+  if (!rows.length) return publicCaseFallbackList()
 
   const storeIds = [...new Set(rows.map((row) => row.storeId).filter(Boolean))]
   const activeStoreIds = await resolveActivePublicStoreIds(storeIds)
@@ -423,9 +428,9 @@ async function getCaseDetail(idOrSlug, opts = {}) {
       : null
     item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album))
   } else {
-    const fallback = FALLBACK_PUBLIC_CASES.find(
-      (c) => c.id === idOrSlug || c.slug === idOrSlug
-    )
+    const fallback = config.contentPublicCaseFallback
+      ? FALLBACK_PUBLIC_CASES.find((c) => c.id === idOrSlug || c.slug === idOrSlug)
+      : null
     if (!fallback) {
       const err = new Error('案例不存在')
       err.status = 404
@@ -613,6 +618,7 @@ async function countCasesByStore(storeId) {
     },
   })
   if (count > 0) return count
+  if (!config.contentPublicCaseFallback) return 0
   return FALLBACK_PUBLIC_CASES.filter((c) => c.storeId === storeId).length
 }
 

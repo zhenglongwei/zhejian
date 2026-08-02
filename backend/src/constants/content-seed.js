@@ -133,7 +133,10 @@ const SERVICE_ITEM_NAME_MAP = {
   item_accident: '事故车维修',
 }
 
-/** DB 无公开案例时的兜底（与 home.service 一致） */
+/**
+ * DB 无公开案例时的本地开发兜底。
+ * 生产默认关闭（config.contentPublicCaseFallback / CONTENT_PUBLIC_CASE_FALLBACK）。
+ */
 const FALLBACK_PUBLIC_CASES = [
   {
     id: 'case_svc_demo_completed',
