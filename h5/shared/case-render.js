@@ -637,6 +637,22 @@
     )
   }
 
+  /** ISO → YYYY-MM-DD HH:mm（本地时区兜底；优先用接口下发的 *AtText） */
+  function formatReviewTimeText(value) {
+    if (!value) return ''
+    var d = value instanceof Date ? value : new Date(value)
+    if (Number.isNaN(d.getTime())) {
+      var raw = String(value)
+      return raw.length >= 16 ? raw.slice(0, 16).replace('T', ' ') : raw.slice(0, 10)
+    }
+    var y = d.getFullYear()
+    var m = String(d.getMonth() + 1).padStart(2, '0')
+    var day = String(d.getDate()).padStart(2, '0')
+    var hour = String(d.getHours()).padStart(2, '0')
+    var minute = String(d.getMinutes()).padStart(2, '0')
+    return y + '-' + m + '-' + day + ' ' + hour + ':' + minute
+  }
+
   function renderOwnerReviews(data) {
     var reviews = data && data.ownerReviews
     if (!Array.isArray(reviews) || !reviews.length) {
@@ -658,8 +674,12 @@
             )
           })
           .join('')
+        var replyTime =
+          review.merchantReplyAtText || formatReviewTimeText(review.merchantReplyAt)
         var replyHtml = review.merchantReply
-          ? '<div class="h5-review-reply"><p class="h5-review-reply-label">门店回复</p><p class="h5-summary">' +
+          ? '<div class="h5-review-reply"><p class="h5-review-reply-label">门店回复' +
+            (replyTime ? ' · ' + escapeHtml(replyTime) : '') +
+            '</p><p class="h5-summary">' +
             escapeHtml(review.merchantReply) +
             '</p></div>'
           : ''
@@ -669,8 +689,12 @@
           review.followUpContent ||
           (review.followUpImages && review.followUpImages.length)
         ) {
+          var followTime =
+            review.followUpAtText || formatReviewTimeText(review.followUpAt)
           followHtml =
-            '<div class="h5-review-followup"><p class="h5-review-reply-label">车主追评</p>' +
+            '<div class="h5-review-followup"><p class="h5-review-reply-label">车主追评' +
+            (followTime ? ' · ' + escapeHtml(followTime) : '') +
+            '</p>' +
             (review.followUpContent
               ? '<p class="h5-summary">' + escapeHtml(review.followUpContent) + '</p>'
               : '') +
@@ -688,11 +712,13 @@
               escapeHtml(scoreBits.join(' · ')) +
               '</span>'
             : '') +
-          (review.createdAtText
-            ? '<span class="h5-review-date">' +
-              escapeHtml(review.createdAtText) +
-              '</span>'
-            : '') +
+          (function () {
+            var created =
+              review.createdAtText || formatReviewTimeText(review.createdAt)
+            return created
+              ? '<span class="h5-review-date">' + escapeHtml(created) + '</span>'
+              : ''
+          })() +
           '</div>' +
           (review.content
             ? '<p class="h5-summary">' + escapeHtml(review.content) + '</p>'

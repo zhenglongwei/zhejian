@@ -134,6 +134,25 @@ function mapReviewRow(row, extras = {}) {
   }
 }
 
+/** 公网/H5 展示用：上海时区 YYYY-MM-DD HH:mm */
+function formatReviewDisplayTime(value) {
+  if (!value) return ''
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d)
+  const get = (type) => (parts.find((p) => p.type === type) || {}).value || ''
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')} ${hour}:${get('minute')}`
+}
+
 function mapPublicReviewRow(row) {
   const base = mapReviewRow(row)
   if (!base) return null
@@ -149,15 +168,17 @@ function mapPublicReviewRow(row) {
     content: base.content,
     tags: base.tags,
     serviceName: '',
-    createdAtText: (base.createdAt || '').slice(0, 10),
+    createdAtText: formatReviewDisplayTime(base.createdAt),
     images: pub.images,
     imagesApproved: pub.imagesApproved,
     merchantReply: base.merchantReply || '',
     merchantReplyAt: base.merchantReplyAt || '',
+    merchantReplyAtText: formatReviewDisplayTime(base.merchantReplyAt),
     followUpContent: base.followUpContent || '',
     followUpImages: followPub.images,
     followUpImagesApproved: followPub.imagesApproved,
     followUpAt: base.followUpAt || '',
+    followUpAtText: formatReviewDisplayTime(base.followUpAt),
     hasFollowUp: base.hasFollowUp,
   }
 }

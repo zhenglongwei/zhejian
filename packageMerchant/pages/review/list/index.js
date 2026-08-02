@@ -6,11 +6,14 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
 
 function normalizeReviewList(raw) {
-  if (Array.isArray(raw)) return raw
-  if (raw && Array.isArray(raw.list)) return raw.list
-  return []
+  const list = Array.isArray(raw) ? raw : raw && Array.isArray(raw.list) ? raw.list : []
+  return list.map((item) => ({
+    ...item,
+    createdAtText: formatUpdatedAtDisplay(item.createdAt) || item.createdAt || '',
+  }))
 }
 
 Page({

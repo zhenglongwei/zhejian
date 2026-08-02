@@ -37,6 +37,7 @@ const {
   buildGateActionButtons,
   runGateUserAction,
 } = require('../../../utils/album-gate-actions')
+const { formatUpdatedAtDisplay } = require('../../../utils/album-summary')
 
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
@@ -55,6 +56,7 @@ Page({
     hasReview: false,
     existingRepairScore: 0,
     existingAlbumScore: 0,
+    existingCreatedAt: '',
     existingContent: '',
     existingTags: [],
     merchantReply: '',
@@ -143,14 +145,15 @@ Page({
         hasReview,
         existingRepairScore: review ? Number(review.repairScore) || 0 : 0,
         existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
+        existingCreatedAt: review ? formatUpdatedAtDisplay(review.createdAt) : '',
         existingContent: review ? review.content || '' : '',
         existingTags: review && Array.isArray(review.tags) ? review.tags : [],
         merchantReply: review ? review.merchantReply || '' : '',
-        merchantReplyAt: review ? review.merchantReplyAt || '' : '',
+        merchantReplyAt: review ? formatUpdatedAtDisplay(review.merchantReplyAt) : '',
         hasFollowUp: Boolean(review && review.hasFollowUp),
         canFollowUp: Boolean(review && review.canFollowUp),
         followUpContent: review ? review.followUpContent || '' : '',
-        followUpAt: review ? review.followUpAt || '' : '',
+        followUpAt: review ? formatUpdatedAtDisplay(review.followUpAt) : '',
         followUpDraft: '',
         followUpDraftLength: 0,
         followUpForm: { images: [] },

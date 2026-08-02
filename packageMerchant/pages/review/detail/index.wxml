@@ -24,7 +24,7 @@
           <text class="text-body">维修 {{review.repairScore}} · 记录 {{review.albumScore}}</text>
         </view>
         <text class="text-caption text-secondary">
-          {{review.ownerHint}} · {{review.createdAt}}
+          {{review.ownerHint}} · 评价于 {{review.createdAtText || review.createdAt}}
         </text>
         <view class="merchant-review-detail__tags">
           <ui-tag wx:if="{{review.hasFollowUp}}" variant="info" text="已追评" />
@@ -57,16 +57,18 @@
             text="{{item}}"
           />
         </view>
+        <text wx:if="{{review.createdAtText}}" class="text-caption text-secondary">{{review.createdAtText}}</text>
       </ui-card>
 
       <ui-card wx:if="{{review.hasFollowUp}}" shadow="{{true}}" padding="{{true}}">
         <text class="merchant-review-detail__section text-h3">车主追评</text>
         <text wx:if="{{review.followUpContent}}" class="text-body">{{review.followUpContent}}</text>
-        <text wx:if="{{review.followUpAt}}" class="text-caption text-secondary">{{review.followUpAt}}</text>
+        <text wx:if="{{review.followUpAtText || review.followUpAt}}" class="text-caption text-secondary">追评于 {{review.followUpAtText || review.followUpAt}}</text>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
         <text class="merchant-review-detail__section text-h3">门店回复</text>
+        <text wx:if="{{review.merchantReplyAtText}}" class="text-caption text-secondary">上次回复于 {{review.merchantReplyAtText}}</text>
         <textarea
           class="merchant-review-detail__textarea text-body"
           placeholder="可说明处理情况或补充说明，将展示给车主与公开案例读者"

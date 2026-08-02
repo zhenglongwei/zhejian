@@ -24,9 +24,10 @@
       </view>
 
       <block wx:if="{{hasReview}}">
-        <view wx:if="{{existingRepairScore > 0 || existingAlbumScore > 0}}" class="album-engage__score-row">
+        <view wx:if="{{existingRepairScore > 0 || existingAlbumScore > 0 || existingCreatedAt}}" class="album-engage__score-row">
           <text wx:if="{{existingRepairScore > 0}}" class="text-caption text-secondary">维修 {{existingRepairScore}}</text>
           <text wx:if="{{existingAlbumScore > 0}}" class="text-caption text-secondary">记录 {{existingAlbumScore}}</text>
+          <text wx:if="{{existingCreatedAt}}" class="text-caption text-secondary">评价于 {{existingCreatedAt}}</text>
         </view>
 
         <ui-card wx:if="{{existingContent || existingTags.length}}" shadow="{{true}}" padding="{{true}}">
@@ -40,13 +41,13 @@
         <ui-card wx:if="{{merchantReply}}" shadow="{{true}}" padding="{{true}}">
           <text class="album-engage__section-title text-h3">门店回复</text>
           <text class="text-body">{{merchantReply}}</text>
-          <text wx:if="{{merchantReplyAt}}" class="album-engage__action-hint text-caption text-secondary">{{merchantReplyAt}}</text>
+          <text wx:if="{{merchantReplyAt}}" class="album-engage__action-hint text-caption text-secondary">回复于 {{merchantReplyAt}}</text>
         </ui-card>
 
         <ui-card wx:if="{{hasFollowUp}}" shadow="{{true}}" padding="{{true}}">
           <text class="album-engage__section-title text-h3">我的追评</text>
           <text wx:if="{{followUpContent}}" class="text-body">{{followUpContent}}</text>
-          <text wx:if="{{followUpAt}}" class="album-engage__action-hint text-caption text-secondary">{{followUpAt}}</text>
+          <text wx:if="{{followUpAt}}" class="album-engage__action-hint text-caption text-secondary">追评于 {{followUpAt}}</text>
         </ui-card>
 
         <block wx:if="{{canFollowUp}}">

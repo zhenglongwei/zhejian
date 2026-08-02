@@ -8,6 +8,7 @@ const {
 } = require('../../../../services/merchant')
 const { REVIEW_DIMENSIONS } = require('../../../../constants/review-dimensions')
 const { ALL_REVIEW_DIMENSIONS } = require('../../../../constants/album-review-dimensions')
+const { formatUpdatedAtDisplay } = require('../../../../utils/album-summary')
 
 function buildScoreRows(scores = {}) {
   const dims = scores.repairAttitude != null ? ALL_REVIEW_DIMENSIONS : REVIEW_DIMENSIONS
@@ -66,7 +67,12 @@ Page({
       }
       this.setData({
         status: 'normal',
-        review,
+        review: {
+          ...review,
+          createdAtText: formatUpdatedAtDisplay(review.createdAt),
+          merchantReplyAtText: formatUpdatedAtDisplay(review.merchantReplyAt),
+          followUpAtText: formatUpdatedAtDisplay(review.followUpAt),
+        },
         scoreRows: buildScoreRows(review.scores),
         replyDraft: review.merchantReply || '',
         replyLength: (review.merchantReply || '').length,
