@@ -60,11 +60,7 @@
           {{consentText}}
         </ui-checkbox-row>
       </view>
-      <view class="album-review-submit__consent">
-        <ui-checkbox-row checked="{{form.authorizePublic}}" bind:toggle="toggleAuthorizePublic">
-          {{publicConsentText}}
-        </ui-checkbox-row>
-      </view>
+      <text class="text-caption text-secondary">评价将在案例上网后随案例自动展示，无需单独勾选公开。</text>
     </ui-card>
   </view>
 

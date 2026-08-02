@@ -473,6 +473,11 @@ model ServiceAlbumReview {
   merchantReply     String    @default("") @map("merchant_reply") @db.Text
   merchantReplyAt   DateTime? @map("merchant_reply_at")
   merchantReplierId String    @default("") @map("merchant_replier_id")
+  followUpContent         String    @default("") @map("follow_up_content") @db.VarChar(300)
+  followUpImagesJson      Json      @default("[]") @map("follow_up_images_json")
+  followUpImagesMaskedJson Json     @default("[]") @map("follow_up_images_masked_json")
+  followUpImagesMaskStatus String   @default("none") @map("follow_up_images_mask_status")
+  followUpAt              DateTime? @map("follow_up_at")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   user              User      @relation(fields: [userId], references: [id])

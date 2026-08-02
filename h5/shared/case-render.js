@@ -619,6 +619,101 @@
     )
   }
 
+  function renderReviewImages(urls) {
+    var list = uniqueUrls(urls || [])
+    if (!list.length) return ''
+    return (
+      '<div class="h5-review-images">' +
+      list
+        .map(function (url) {
+          return (
+            '<img class="h5-review-img" src="' +
+            escapeHtml(url) +
+            '" alt="车主评价配图" loading="lazy" />'
+          )
+        })
+        .join('') +
+      '</div>'
+    )
+  }
+
+  function renderOwnerReviews(data) {
+    var reviews = data && data.ownerReviews
+    if (!Array.isArray(reviews) || !reviews.length) {
+      return (
+        '<div class="h5-card" id="case-owner-reviews">' +
+        '<h2 class="h5-section-title">车主评价</h2>' +
+        '<p class="h5-compliance">暂无车主公开评价。</p></div>'
+      )
+    }
+    var body = reviews
+      .map(function (review) {
+        var scoreBits = []
+        if (review.repairScore) scoreBits.push('维修 ' + review.repairScore)
+        if (review.albumScore) scoreBits.push('记录 ' + review.albumScore)
+        var tags = (review.tags || [])
+          .map(function (tag) {
+            return (
+              '<span class="h5-tag h5-tag--desensitized">' + escapeHtml(tag) + '</span>'
+            )
+          })
+          .join('')
+        var replyHtml = review.merchantReply
+          ? '<div class="h5-review-reply"><p class="h5-review-reply-label">门店回复</p><p class="h5-summary">' +
+            escapeHtml(review.merchantReply) +
+            '</p></div>'
+          : ''
+        var followHtml = ''
+        if (
+          review.hasFollowUp ||
+          review.followUpContent ||
+          (review.followUpImages && review.followUpImages.length)
+        ) {
+          followHtml =
+            '<div class="h5-review-followup"><p class="h5-review-reply-label">车主追评</p>' +
+            (review.followUpContent
+              ? '<p class="h5-summary">' + escapeHtml(review.followUpContent) + '</p>'
+              : '') +
+            renderReviewImages(review.followUpImages) +
+            '</div>'
+        }
+        return (
+          '<article class="h5-review-item">' +
+          '<div class="h5-review-meta">' +
+          '<span>' +
+          escapeHtml(review.displayName || '车主') +
+          '</span>' +
+          (scoreBits.length
+            ? '<span class="h5-review-scores">' +
+              escapeHtml(scoreBits.join(' · ')) +
+              '</span>'
+            : '') +
+          (review.createdAtText
+            ? '<span class="h5-review-date">' +
+              escapeHtml(review.createdAtText) +
+              '</span>'
+            : '') +
+          '</div>' +
+          (review.content
+            ? '<p class="h5-summary">' + escapeHtml(review.content) + '</p>'
+            : '') +
+          (tags ? '<div class="h5-tags">' + tags + '</div>' : '') +
+          renderReviewImages(review.images) +
+          replyHtml +
+          followHtml +
+          '</article>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card" id="case-owner-reviews">' +
+      '<h2 class="h5-section-title">车主评价</h2>' +
+      '<p class="h5-section-note">评价随本案例公开，配图已脱敏。</p>' +
+      body +
+      '</div>'
+    )
+  }
+
   function renderStoreSection(data) {
     if (!shouldShowStorePublicly(data)) {
       var cityHint = data.city ? '（' + data.city + '）' : ''
@@ -1526,6 +1621,7 @@
       }
     }
 
+    html += renderOwnerReviews(safeData)
     html += renderStoreSection(safeData)
     html += renderRelatedServiceCard(safeData)
     html += renderInternalLinks(safeData)

@@ -18,6 +18,7 @@ const { submitServiceAlbumFeedback } = require('../services/album-feedback.servi
 const {
   getAlbumReviewContext,
   submitServiceAlbumReview,
+  submitServiceAlbumReviewFollowUp,
 } = require('../services/album-review.service')
 const {
   loadAlbumPartsContext,
@@ -261,6 +262,23 @@ router.post('/service-albums/:albumId/review', requireAuth(['user']), async (req
     next(e)
   }
 })
+
+router.post(
+  '/service-albums/:albumId/review/follow-up',
+  requireAuth(['user']),
+  async (req, res, next) => {
+    try {
+      const data = await submitServiceAlbumReviewFollowUp(
+        req.params.albumId,
+        req.auth.userId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.post('/service-albums/:albumId/review/image-preview', requireAuth(['user']), async (req, res, next) => {
   try {

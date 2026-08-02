@@ -1,4 +1,9 @@
-const { fetchAlbumReviewContext, submitAlbumReview, prepareReviewImagePreview } = require('../../../services/album-review')
+const {
+  fetchAlbumReviewContext,
+  submitAlbumReview,
+  submitAlbumReviewFollowUp,
+  prepareReviewImagePreview,
+} = require('../../../services/album-review')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { fetchServiceAlbum } = require('../../../services/service-album')
 const { persistLocalImages } = require('../../../utils/media-upload')
@@ -50,6 +55,20 @@ Page({
     hasReview: false,
     existingRepairScore: 0,
     existingAlbumScore: 0,
+    existingContent: '',
+    existingTags: [],
+    merchantReply: '',
+    merchantReplyAt: '',
+    hasFollowUp: false,
+    canFollowUp: false,
+    followUpContent: '',
+    followUpAt: '',
+    followUpDraft: '',
+    followUpDraftLength: 0,
+    followUpForm: {
+      images: [],
+    },
+    followUpSubmitting: false,
     hasParts: false,
     partVerifySummary: '',
     reviewGroups: ALBUM_REVIEW_GROUPS,
@@ -124,6 +143,17 @@ Page({
         hasReview,
         existingRepairScore: review ? Number(review.repairScore) || 0 : 0,
         existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
+        existingContent: review ? review.content || '' : '',
+        existingTags: review && Array.isArray(review.tags) ? review.tags : [],
+        merchantReply: review ? review.merchantReply || '' : '',
+        merchantReplyAt: review ? review.merchantReplyAt || '' : '',
+        hasFollowUp: Boolean(review && review.hasFollowUp),
+        canFollowUp: Boolean(review && review.canFollowUp),
+        followUpContent: review ? review.followUpContent || '' : '',
+        followUpAt: review ? review.followUpAt || '' : '',
+        followUpDraft: '',
+        followUpDraftLength: 0,
+        followUpForm: { images: [] },
         hasParts: Boolean(partCtx && partCtx.hasParts),
         partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
         needsReviewImagePreview: Boolean(reviewCtx.needsReviewImagePreview),
@@ -294,6 +324,51 @@ Page({
 
   onImagesChange(e) {
     this.setData({ 'form.images': e.detail.images || [] })
+  },
+
+  onFollowUpInput(e) {
+    const value = e.detail.value || ''
+    this.setData({ followUpDraft: value, followUpDraftLength: value.length })
+  },
+
+  onFollowUpImagesChange(e) {
+    this.setData({ 'followUpForm.images': e.detail.images || [] })
+  },
+
+  async onSubmitFollowUp() {
+    if (this.data.followUpSubmitting || !this.data.hasReview || !this.data.canFollowUp) return
+    if (!this.ensureAuth()) return
+    const content = String(this.data.followUpDraft || '').trim()
+    const images = this.data.followUpForm.images || []
+    if (!content && !images.length) {
+      wx.showToast({ title: '请填写追评或添加配图', icon: 'none' })
+      return
+    }
+    if (content.length > 300) {
+      wx.showToast({ title: '追评不超过 300 字', icon: 'none' })
+      return
+    }
+    this.setData({ followUpSubmitting: true })
+    try {
+      let payload = { content, images }
+      if (images.length) {
+        const persisted = await persistLocalImages(images)
+        if (persisted.droppedStaleCount > 0) {
+          wx.showToast({ title: '部分图片已失效，请重新选择', icon: 'none' })
+        }
+        payload = { ...payload, images: persisted.images }
+      }
+      await submitAlbumReviewFollowUp(this.data.albumId, payload)
+      wx.showToast({ title: '追评已提交', icon: 'success' })
+      await this.loadContext(this.data.albumTitle)
+    } catch (e) {
+      wx.showToast({
+        title: (e && e.message) || '提交失败，请稍后重试',
+        icon: 'none',
+      })
+    } finally {
+      this.setData({ followUpSubmitting: false })
+    }
   },
 
   async onSubmit() {

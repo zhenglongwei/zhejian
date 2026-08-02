@@ -52,17 +52,24 @@ function shouldRemaskReviewImages(row, { force = false } = {}) {
 /**
  * 对评价配图跑脱敏引擎，masked 数组与 raw 等长（失败位为空字符串）
  */
-async function maskReviewImagesForRow({ reviewId, albumId, rawUrls, force = false }) {
+async function maskReviewImagesForRow({
+  reviewId,
+  albumId,
+  rawUrls,
+  force = false,
+  target = 'main',
+}) {
   const urls = (rawUrls || []).filter(Boolean)
   if (!urls.length) {
     return { maskedSlots: [], status: REVIEW_IMAGE_MASK_STATUS.NONE }
   }
 
+  const nodeId = target === 'followUp' ? 'review_followup' : 'review'
   const maskedSlots = []
   for (let idx = 0; idx < urls.length; idx += 1) {
     const masked = await resolveDesensitizedUrlForAsset(urls[idx], {
       albumId,
-      nodeId: 'review',
+      nodeId,
       idx,
       force,
     })
@@ -73,12 +80,19 @@ async function maskReviewImagesForRow({ reviewId, albumId, rawUrls, force = fals
   const status = resolveMaskStatus(urls.length, successCount)
 
   if (reviewId) {
+    const data =
+      target === 'followUp'
+        ? {
+            followUpImagesMaskedJson: maskedSlots,
+            followUpImagesMaskStatus: status,
+          }
+        : {
+            imagesMaskedJson: maskedSlots,
+            imagesMaskStatus: status,
+          }
     await prisma.serviceAlbumReview.update({
       where: { id: reviewId },
-      data: {
-        imagesMaskedJson: maskedSlots,
-        imagesMaskStatus: status,
-      },
+      data,
     })
   }
 
@@ -125,6 +139,24 @@ function getPublicReviewImages(row) {
   }
 }
 
+/** 追评配图：脱敏就绪即可公开展示（无单独预览确认） */
+function getPublicFollowUpImages(row) {
+  const maskedUrls = parseMaskedReviewImages(row?.followUpImagesMaskedJson)
+  const rawUrls = parseRawReviewImages(row?.followUpImagesJson)
+  const status = String(row?.followUpImagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE)
+  const imagesApproved =
+    maskedUrls.length > 0 &&
+    [REVIEW_IMAGE_MASK_STATUS.READY, REVIEW_IMAGE_MASK_STATUS.PARTIAL].includes(status)
+  return {
+    images: imagesApproved ? maskedUrls : [],
+    imagesApproved,
+    imagesMaskStatus: status,
+    hasPendingImages:
+      rawUrls.length > 0 &&
+      (status === REVIEW_IMAGE_MASK_STATUS.PENDING || maskedUrls.length < rawUrls.length),
+  }
+}
+
 module.exports = {
   REVIEW_IMAGE_MASK_STATUS,
   parseRawReviewImages,
@@ -132,5 +164,6 @@ module.exports = {
   maskReviewImagesForRow,
   ensureReviewImagesMasked,
   getPublicReviewImages,
+  getPublicFollowUpImages,
   shouldRemaskReviewImages,
 }

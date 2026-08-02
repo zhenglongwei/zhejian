@@ -12,6 +12,7 @@ const NAV_ICON_MAP = {
   merchant: { icon: `${NAV_ICON_BASE}/merchant.png`, iconBg: 'warning-light' },
   createAlbum: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'primary-light' },
   leads: { icon: `${NAV_ICON_BASE}/message.png`, iconBg: 'warning-light' },
+  reviews: { icon: `${NAV_ICON_BASE}/authorize.png`, iconBg: 'success-light' },
   services: { icon: `${NAV_ICON_BASE}/settings.png`, iconBg: 'info-light' },
   dashboard: { icon: `${NAV_ICON_BASE}/album.png`, iconBg: 'well' },
   previewStore: { icon: '/assets/tab/store.png', iconBg: 'info-light' },

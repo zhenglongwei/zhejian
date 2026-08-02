@@ -19,6 +19,12 @@ const MINE_TODO_SECTION_TITLE = '待处理'
 
 const MINE_SHARE_INCENTIVE_TITLE = '公示激励'
 
+/**
+ * 工具台首屏「公示激励」弱条开关（真源：12_我的 §3.1.3）
+ * false：不下发（含筹备中态）；业务就绪后改为 true 即可恢复
+ */
+const MINE_SHARE_INCENTIVE_ENABLED = false
+
 const MINE_SHARE_INCENTIVE_COMPLIANCE =
   '按平台规则与实际浏览、到店效果结算；分享卡片不含收益诱导文案。'
 
@@ -105,6 +111,7 @@ module.exports = {
   MINE_ALBUM_SECTION_TITLE,
   MINE_TODO_SECTION_TITLE,
   MINE_SHARE_INCENTIVE_TITLE,
+  MINE_SHARE_INCENTIVE_ENABLED,
   MINE_SHARE_INCENTIVE_COMPLIANCE,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,

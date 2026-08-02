@@ -323,6 +323,10 @@ Page({
 
   onTodoItemTap(e) {
     const { action } = e.currentTarget.dataset
+    if (action === 'reviews') {
+      this.onReviewList()
+      return
+    }
     if (action === 'leads') {
       this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } })
     }
@@ -333,6 +337,7 @@ Page({
     const handlers = {
       createAlbum: () => this.onCreateAlbum(),
       leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
+      reviews: () => this.onReviewList(),
       services: () => this.onServiceList(),
     }
     const fn = handlers[key]

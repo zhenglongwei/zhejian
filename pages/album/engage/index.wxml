@@ -29,6 +29,51 @@
           <text wx:if="{{existingAlbumScore > 0}}" class="text-caption text-secondary">记录 {{existingAlbumScore}}</text>
         </view>
 
+        <ui-card wx:if="{{existingContent || existingTags.length}}" shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">我的评价</text>
+          <text wx:if="{{existingContent}}" class="text-body">{{existingContent}}</text>
+          <view wx:if="{{existingTags.length}}" class="album-engage__tags">
+            <ui-tag wx:for="{{existingTags}}" wx:key="*this" variant="default" text="{{item}}" />
+          </view>
+        </ui-card>
+
+        <ui-card wx:if="{{merchantReply}}" shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">门店回复</text>
+          <text class="text-body">{{merchantReply}}</text>
+          <text wx:if="{{merchantReplyAt}}" class="album-engage__action-hint text-caption text-secondary">{{merchantReplyAt}}</text>
+        </ui-card>
+
+        <ui-card wx:if="{{hasFollowUp}}" shadow="{{true}}" padding="{{true}}">
+          <text class="album-engage__section-title text-h3">我的追评</text>
+          <text wx:if="{{followUpContent}}" class="text-body">{{followUpContent}}</text>
+          <text wx:if="{{followUpAt}}" class="album-engage__action-hint text-caption text-secondary">{{followUpAt}}</text>
+        </ui-card>
+
+        <block wx:if="{{canFollowUp}}">
+          <ui-card shadow="{{true}}" padding="{{true}}">
+            <text class="album-engage__section-title text-h3">追评（可选，仅一次）</text>
+            <textarea
+              class="album-engage__textarea text-body"
+              placeholder="补充到店后的感受，最多 300 字"
+              value="{{followUpDraft}}"
+              maxlength="300"
+              bindinput="onFollowUpInput"
+            />
+            <text class="album-engage__counter text-caption">{{followUpDraftLength}}/300</text>
+            <ui-image-uploader images="{{followUpForm.images}}" maxCount="{{3}}" bind:change="onFollowUpImagesChange" />
+            <view class="album-engage__notice">
+              <ui-compliance-notice type="reviewImageTip" />
+            </view>
+            <ui-button
+              type="secondary"
+              block
+              loading="{{followUpSubmitting}}"
+              disabled="{{followUpSubmitting}}"
+              bind:btntap="onSubmitFollowUp"
+            >提交追评</ui-button>
+          </ui-card>
+        </block>
+
         <ui-card wx:if="{{hasReview && (showAuthAction || showShareButton || showStoreBrowse || hasParts || needsReviewImagePreview || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
           <view class="album-engage__actions">
             <ui-button

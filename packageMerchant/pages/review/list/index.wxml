@@ -47,7 +47,7 @@
           {{item.contentPreview}}
         </text>
         <view class="merchant-review-list__tags">
-          <ui-tag wx:if="{{item.authorizePublic}}" variant="info" text="已授权公开" />
+          <ui-tag wx:if="{{item.hasFollowUp}}" variant="info" text="已追评" />
           <ui-tag wx:if="{{item.hasReply}}" variant="success" text="已回复" />
           <ui-tag wx:else variant="warning" text="待回复" />
         </view>

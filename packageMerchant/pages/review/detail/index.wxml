@@ -27,7 +27,7 @@
           {{review.ownerHint}} · {{review.createdAt}}
         </text>
         <view class="merchant-review-detail__tags">
-          <ui-tag wx:if="{{review.authorizePublic}}" variant="info" text="已授权公开摘要" />
+          <ui-tag wx:if="{{review.hasFollowUp}}" variant="info" text="已追评" />
         </view>
       </ui-card>
 
@@ -57,6 +57,12 @@
             text="{{item}}"
           />
         </view>
+      </ui-card>
+
+      <ui-card wx:if="{{review.hasFollowUp}}" shadow="{{true}}" padding="{{true}}">
+        <text class="merchant-review-detail__section text-h3">车主追评</text>
+        <text wx:if="{{review.followUpContent}}" class="text-body">{{review.followUpContent}}</text>
+        <text wx:if="{{review.followUpAt}}" class="text-caption text-secondary">{{review.followUpAt}}</text>
       </ui-card>
 
       <ui-card shadow="{{true}}" padding="{{true}}">

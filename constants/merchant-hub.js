@@ -17,12 +17,12 @@ const MERCHANT_CASE_SECTION_TITLE = '案例动态'
 const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'createAlbum', label: '新建相册' },
   { key: 'leads', label: '咨询线索', badgeKey: 'pendingLeads' },
+  { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
   { key: 'services', label: '服务方案' },
 ]
 
-/** 主账号 · 页内文字链（不占 Dock 格）；套餐入口见扉页 Tag */
+/** 主账号 · 页内文字链（不占 Dock 格）；评价已上 Dock */
 const MERCHANT_HUB_MORE_ITEMS = [
-  { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
   { key: 'storeHome', label: '门店主页' },
   { key: 'staff', label: '账号管理' },
   { key: 'switchStore', label: '切换门店' },
@@ -36,17 +36,26 @@ function formatSectionBadge(n) {
 
 function buildMerchantTodoSummary(todos = {}) {
   const pendingLeads = Number(todos.pendingLeads) || 0
-  if (pendingLeads <= 0) return null
-
+  const pendingReviews = Number(todos.pendingReviews) || 0
+  const items = []
+  if (pendingLeads > 0) {
+    items.push({
+      key: 'leads',
+      label: `${pendingLeads} 条咨询待处理`,
+      action: 'leads',
+    })
+  }
+  if (pendingReviews > 0) {
+    items.push({
+      key: 'reviews',
+      label: `${pendingReviews} 条评价待回复`,
+      action: 'reviews',
+    })
+  }
+  if (!items.length) return null
   return {
-    headline: `${pendingLeads} 条咨询待处理`,
-    items: [
-      {
-        key: 'leads',
-        label: '查看咨询线索',
-        action: 'leads',
-      },
-    ],
+    headline: `${items.length} 项待你处理`,
+    items,
   }
 }
 
@@ -82,9 +91,7 @@ function buildMerchantHubDock(todos = {}) {
 }
 
 function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
-  const items = canManageStaff
-    ? MERCHANT_HUB_MORE_ITEMS
-    : MERCHANT_HUB_MORE_ITEMS.filter((item) => item.key === 'reviews')
+  const items = canManageStaff ? MERCHANT_HUB_MORE_ITEMS : []
   return items.map((item) =>
     attachNavIcon({
       ...item,

@@ -62,8 +62,24 @@ async function prepareReviewImagePreview(albumId) {
   }
 }
 
+async function submitAlbumReviewFollowUp(albumId, payload = {}) {
+  if (useApi()) {
+    return post(`/user/service-albums/${albumId}/review/follow-up`, payload)
+  }
+  await delay()
+  return {
+    id: `arv_mock_${albumId}`,
+    albumId,
+    followUpContent: payload.content || '',
+    followUpAt: new Date().toISOString(),
+    hasFollowUp: true,
+    canFollowUp: false,
+  }
+}
+
 module.exports = {
   fetchAlbumReviewContext,
   submitAlbumReview,
+  submitAlbumReviewFollowUp,
   prepareReviewImagePreview,
 }

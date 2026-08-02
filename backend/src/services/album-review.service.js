@@ -21,8 +21,11 @@ const {
   maskReviewImagesForRow,
   ensureReviewImagesMasked,
   getPublicReviewImages,
+  getPublicFollowUpImages,
 } = require('./album-review-image.service')
 const { createReviewImagePreviewTask } = require('./desensitize.service')
+const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { resolvePublicCaseRowStatus } = require('./case-review-gate.service')
 
 const AUTHORIZED_PUBLIC_STATUSES = new Set(['pending_review', 'public_approved'])
 
@@ -92,11 +95,13 @@ function mapReviewRow(row, extras = {}) {
   if (!row) return null
   const tags = Array.isArray(row.tagsJson) ? row.tagsJson : []
   const images = parseRawReviewImages(row.imagesJson)
+  const followUpImages = parseRawReviewImages(row.followUpImagesJson)
   const scores =
     row.scoresJson && typeof row.scoresJson === 'object' ? row.scoresJson : {}
   const repairScore = row.repairScore || calcRepairScore(scores)
   const albumScore = row.albumScore || calcAlbumScore(scores)
   const publicImages = getPublicReviewImages(row)
+  const hasFollowUp = Boolean(row.followUpAt)
   return {
     id: row.id,
     albumId: row.albumId,
@@ -117,6 +122,13 @@ function mapReviewRow(row, extras = {}) {
     status: row.status,
     merchantReply: row.merchantReply || '',
     merchantReplyAt: row.merchantReplyAt ? toIso(row.merchantReplyAt) : '',
+    followUpContent: row.followUpContent || '',
+    followUpImages,
+    followUpImagesMaskStatus:
+      row.followUpImagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
+    followUpAt: row.followUpAt ? toIso(row.followUpAt) : '',
+    hasFollowUp,
+    canFollowUp: !hasFollowUp,
     createdAt: toIso(row.createdAt),
     ...extras,
   }
@@ -126,6 +138,7 @@ function mapPublicReviewRow(row) {
   const base = mapReviewRow(row)
   if (!base) return null
   const pub = getPublicReviewImages(row)
+  const followPub = getPublicFollowUpImages(row)
   return {
     reviewId: base.id,
     orderId: '',
@@ -141,6 +154,11 @@ function mapPublicReviewRow(row) {
     imagesApproved: pub.imagesApproved,
     merchantReply: base.merchantReply || '',
     merchantReplyAt: base.merchantReplyAt || '',
+    followUpContent: base.followUpContent || '',
+    followUpImages: followPub.images,
+    followUpImagesApproved: followPub.imagesApproved,
+    followUpAt: base.followUpAt || '',
+    hasFollowUp: base.hasFollowUp,
   }
 }
 
@@ -198,6 +216,7 @@ async function getAlbumReviewContext(albumId, userId) {
     publicImagesReady: reviewMapped ? reviewMapped.publicImagesReady : false,
     needsReviewImagePreview: resolveNeedsReviewImagePreview(existing, publicCaseStatus),
     review: reviewMapped,
+    canFollowUp: Boolean(reviewMapped && reviewMapped.canFollowUp),
     consentText: ALBUM_REVIEW_CONSENT_TEXT,
     publicConsentText: ALBUM_REVIEW_PUBLIC_CONSENT_TEXT,
   }
@@ -302,6 +321,20 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
 }
 
 async function listPublicReviewsForAlbum(albumId) {
+  if (!albumId) return []
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: {
+      id: true,
+      publicCaseStatus: true,
+      publicCase: { select: { status: true } },
+    },
+  })
+  // 随案例公开：仅 public_approved 时公网可见评价线程
+  if (resolvePublicCaseRowStatus(album) !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    return []
+  }
+
   const rows = await prisma.serviceAlbumReview.findMany({
     where: {
       albumId,
@@ -312,6 +345,75 @@ async function listPublicReviewsForAlbum(albumId) {
   })
   const prepared = await Promise.all(rows.map((row) => ensureReviewImagesMasked(row)))
   return prepared.map(mapPublicReviewRow).filter(Boolean)
+}
+
+async function submitServiceAlbumReviewFollowUp(albumId, userId, payload = {}) {
+  await loadAlbumMeta(albumId, userId)
+  let existing = await prisma.serviceAlbumReview.findUnique({
+    where: { albumId_userId: { albumId, userId } },
+  })
+  if (!existing) {
+    const err = new Error('请先提交评价')
+    err.status = 404
+    throw err
+  }
+  if (existing.followUpAt) {
+    const err = new Error('你已追评过，不可再次修改')
+    err.status = 409
+    throw err
+  }
+  if (existing.status === ALBUM_REVIEW_STATUS.HIDDEN) {
+    const err = new Error('该评价已隐藏')
+    err.status = 409
+    throw err
+  }
+
+  const content = String(payload.content || payload.followUpContent || '').trim()
+  if (content.length > MAX_REVIEW_CONTENT) {
+    const err = new Error(`追评内容不超过 ${MAX_REVIEW_CONTENT} 字`)
+    err.status = 400
+    throw err
+  }
+  const sanitizedImages = sanitizeReviewImages(payload.images || payload.followUpImages)
+  if (!content && !sanitizedImages.length) {
+    const err = new Error('请填写追评内容或上传配图')
+    err.status = 400
+    throw err
+  }
+
+  const initialMaskStatus = sanitizedImages.length
+    ? REVIEW_IMAGE_MASK_STATUS.PENDING
+    : REVIEW_IMAGE_MASK_STATUS.NONE
+
+  let row = await prisma.serviceAlbumReview.update({
+    where: { id: existing.id },
+    data: {
+      followUpContent: content,
+      followUpImagesJson: sanitizedImages,
+      followUpImagesMaskedJson: [],
+      followUpImagesMaskStatus: initialMaskStatus,
+      followUpAt: new Date(),
+    },
+  })
+
+  if (sanitizedImages.length) {
+    try {
+      await maskReviewImagesForRow({
+        reviewId: row.id,
+        albumId,
+        rawUrls: sanitizedImages,
+        target: 'followUp',
+      })
+      row = await prisma.serviceAlbumReview.findUnique({ where: { id: row.id } })
+    } catch (e) {
+      console.warn('[review] mask follow-up images failed', {
+        reviewId: row.id,
+        message: e && e.message,
+      })
+    }
+  }
+
+  return mapReviewRow(row)
 }
 
 function resolveMerchantReviewTab(tab) {
@@ -325,7 +427,7 @@ async function listMerchantAlbumReviews(storeId, tab = 'pending') {
   const resolved = resolveMerchantReviewTab(tab)
   const where = { storeId }
   if (resolved === 'pending') {
-    where.status = ALBUM_REVIEW_STATUS.SUBMITTED
+    where.status = { not: ALBUM_REVIEW_STATUS.HIDDEN }
     where.merchantReply = ''
   } else if (resolved === 'replied') {
     where.merchantReply = { not: '' }
@@ -363,6 +465,7 @@ async function listMerchantAlbumReviews(storeId, tab = 'pending') {
       contentPreview: (row.content || '').slice(0, 60),
       authorizePublic: Boolean(row.authorizePublic),
       hasReply: Boolean(row.merchantReply),
+      hasFollowUp: Boolean(mapped.hasFollowUp),
       ownerHint: phoneTail ? `车主*${phoneTail}` : '车主',
       createdAt: toIso(row.createdAt),
     }
@@ -373,7 +476,7 @@ async function fetchMerchantReviewStats(storeId) {
   const pendingReply = await prisma.serviceAlbumReview.count({
     where: {
       storeId,
-      status: ALBUM_REVIEW_STATUS.SUBMITTED,
+      status: { not: ALBUM_REVIEW_STATUS.HIDDEN },
       merchantReply: '',
     },
   })
@@ -450,6 +553,7 @@ async function replyMerchantAlbumReview(reviewId, storeId, merchantUserId, paylo
 module.exports = {
   getAlbumReviewContext,
   submitServiceAlbumReview,
+  submitServiceAlbumReviewFollowUp,
   listPublicReviewsForAlbum,
   listMerchantAlbumReviews,
   fetchMerchantReviewStats,

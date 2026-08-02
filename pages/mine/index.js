@@ -12,6 +12,7 @@ const {
   MINE_ALBUM_EMPTY_TITLE,
   MINE_ALBUM_EMPTY_ACTION,
   MINE_SHARE_INCENTIVE_TITLE,
+  MINE_SHARE_INCENTIVE_ENABLED,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,
@@ -161,7 +162,8 @@ Page({
       todoSummary,
       vehicleSummary,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
-      showShareIncentive: loggedIn && hasAlbumBindings,
+      showShareIncentive:
+        MINE_SHARE_INCENTIVE_ENABLED && loggedIn && hasAlbumBindings,
       showGuestH5Link,
     })
   },
