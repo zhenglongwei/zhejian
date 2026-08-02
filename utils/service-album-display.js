@@ -134,16 +134,23 @@ function resolveAlbumAuthAction(item = {}) {
 }
 
 function resolveAlbumWithdrawAction(item = {}) {
-  const status = item.publicCaseStatus || 'private'
-  if (status === 'pending_review' || status === 'public_approved') {
+  // 以后端 canWithdraw 为准：须已授权且已上网；案例审通过未发布不可撤回
+  if (item.canWithdraw === true) {
     return {
       show: true,
       label: '撤回发布',
       disabled: Boolean(item.withdrawing),
     }
   }
-  // 案例审已通过且车主已授权、尚未标为 pending_review 时也可撤回
-  if (status === 'review_passed' && item.awaitingUserConfirm === false && item.canAuthorizePublicCase === false) {
+  if (item.canWithdraw === false) {
+    return { show: false, label: '', disabled: false }
+  }
+  const status = item.publicCaseStatus || 'private'
+  const authorized =
+    item.isAuthorized === true ||
+    item.authorizationStatus === 'authorized' ||
+    (item.authorization && item.authorization.status === 'authorized')
+  if (authorized && (status === 'public_approved' || status === 'need_modify')) {
     return {
       show: true,
       label: '撤回发布',
@@ -398,15 +405,14 @@ function buildAuthorizationTags(publicCaseStatus, options = {}) {
 
 function resolveAuthorizationCardAction(item = {}) {
   const status = item.publicCaseStatus || 'private'
-  const canWithdraw =
-    Boolean(item.canWithdraw) || status === 'pending_review' || status === 'public_approved'
+  const withdraw = resolveAlbumWithdrawAction(item)
 
-  if (canWithdraw) {
+  if (withdraw.show) {
     return {
       action: 'withdraw',
       label: '撤回授权',
       buttonType: 'ghost',
-      disabled: Boolean(item.withdrawing),
+      disabled: withdraw.disabled,
     }
   }
 

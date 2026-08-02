@@ -905,7 +905,9 @@ async function mockFetchUserAuthorizations() {
               : view.publicCaseStatus === 'user_rejected'
                 ? 'rejected'
                 : 'none',
-        canWithdraw: ['pending_review', 'public_approved'].includes(view.publicCaseStatus),
+        canWithdraw:
+          authStatus === 'authorized' &&
+          ['public_approved', 'need_modify'].includes(view.publicCaseStatus),
         needsAuthorization,
         updatedAt: view.updatedAt,
         updatedAtText: view.updatedAtText,

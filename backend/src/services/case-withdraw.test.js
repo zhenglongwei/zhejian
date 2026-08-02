@@ -14,14 +14,7 @@ test('canUserAccessAlbum matches userId or phone', () => {
   assert.equal(canUserAccessAlbum(album, 'user_b', '13800000002'), false)
 })
 
-test('isAlbumWithdrawable requires authorized and non-offline publicCase', () => {
-  assert.equal(
-    isAlbumWithdrawable({
-      authorization: { status: 'authorized' },
-      publicCase: { status: PUBLIC_CASE_STATUS.PENDING_REVIEW },
-    }),
-    true
-  )
+test('isAlbumWithdrawable requires authorized and already published', () => {
   assert.equal(
     isAlbumWithdrawable({
       authorization: { status: 'authorized' },
@@ -32,9 +25,31 @@ test('isAlbumWithdrawable requires authorized and non-offline publicCase', () =>
   assert.equal(
     isAlbumWithdrawable({
       authorization: { status: 'authorized' },
-      publicCase: null,
+      publicCase: { status: PUBLIC_CASE_STATUS.NEED_MODIFY },
     }),
     true
+  )
+  // 案例审通过、车主尚未发布：不可撤回
+  assert.equal(
+    isAlbumWithdrawable({
+      authorization: null,
+      publicCase: { status: PUBLIC_CASE_STATUS.REVIEW_PASSED },
+    }),
+    false
+  )
+  assert.equal(
+    isAlbumWithdrawable({
+      authorization: { status: 'authorized' },
+      publicCase: { status: PUBLIC_CASE_STATUS.REVIEW_PASSED },
+    }),
+    false
+  )
+  assert.equal(
+    isAlbumWithdrawable({
+      authorization: { status: 'authorized' },
+      publicCase: { status: PUBLIC_CASE_STATUS.PENDING_REVIEW },
+    }),
+    false
   )
   assert.equal(
     isAlbumWithdrawable({

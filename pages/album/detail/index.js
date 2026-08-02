@@ -211,7 +211,14 @@ function buildEndPageActionState(detail, showAuthSection) {
         endPageControlLine: '',
       }
 
-  if (status === 'pending_review' || status === 'public_approved') {
+  const canWithdraw =
+    detail &&
+    (detail.canWithdraw === true ||
+      ((detail.isAuthorized === true || detail.authorizationStatus === 'authorized') &&
+        (status === 'public_approved' || status === 'need_modify')))
+
+  if (status === 'pending_review') {
+    // 平台案例审中：车主本不可见；若误入则只提示，不展示撤回
     return {
       endPageInvitePitch: '',
       endPageInviteEyebrow: '',
@@ -220,13 +227,24 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewLabel: PREVIEW_LABEL,
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
-      endPageShowWithdraw: true,
+      endPageShowWithdraw: false,
       endPageWithdrawLabel: '一键下架',
-      endPageStatusHint:
-        gateBanner ||
-        (status === 'pending_review'
-          ? PUBLIC_CASE_HINT.pending_review
-          : PUBLIC_CASE_HINT.public_approved),
+      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.pending_review,
+      endPageGateActions: gateActions,
+    }
+  }
+  if (status === 'public_approved') {
+    return {
+      endPageInvitePitch: '',
+      endPageInviteEyebrow: '',
+      endPageControlLine: '',
+      endPageShowPreview: false,
+      endPagePreviewLabel: PREVIEW_LABEL,
+      endPagePreviewDisabled: false,
+      endPagePreviewHint: '',
+      endPageShowWithdraw: Boolean(canWithdraw),
+      endPageWithdrawLabel: '一键下架',
+      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.public_approved,
       endPageGateActions: gateActions,
     }
   }
@@ -237,7 +255,7 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewLabel: PREVIEW_LABEL,
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
-      endPageShowWithdraw: true,
+      endPageShowWithdraw: Boolean(canWithdraw),
       endPageWithdrawLabel: '一键下架',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
       endPageGateActions: gateActions,
@@ -607,16 +625,9 @@ Page({
           // ignore
         }
       }
-      const showEvaluateEntry = pendingOwnerReview
-      let showReviewNudge = false
-      if (pendingOwnerReview) {
-        if (!this._reviewVisitCounted) {
-          this._reviewVisitCounted = true
-          showReviewNudge = recordAlbumReviewVisit(this.albumId)
-        } else {
-          showReviewNudge = shouldShowAlbumReviewNudge(this.albumId)
-        }
-      }
+      // 过程页底栏不再放「评价」与阶段翻页条；评价仅尾页 album-end-page 入口
+      const showEvaluateEntry = false
+      const showReviewNudge = false
 
       this.setData({
         detail: enriched,

@@ -147,11 +147,15 @@ function canUserAccessAlbum(album, userId, phone = '') {
   return album.userId === userId || (phone && album.userPhone === phone)
 }
 
+/** 仅车主已授权且案例已上网（或需修改重发）时可撤回；案例审通过未发布不可撤回 */
 function isAlbumWithdrawable(album) {
   if (album?.authorization?.status !== 'authorized') return false
-  const publicCase = album.publicCase
-  if (!publicCase) return true
-  return publicCase.status !== PUBLIC_CASE_STATUS.OFFLINE
+  const status =
+    (album.publicCase && album.publicCase.status) || album.publicCaseStatus || ''
+  return (
+    status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED ||
+    status === PUBLIC_CASE_STATUS.NEED_MODIFY
+  )
 }
 
 function mapImageMeta(album) {
@@ -567,6 +571,7 @@ function buildMerchantView(album) {
     })(),
     authorizationStatus: album.authorization?.status || '',
     isAuthorized: album.authorization?.status === 'authorized',
+    canWithdraw: isAlbumWithdrawable(album),
     contentLocked: isAlbumContentLocked(album),
     editable: !isAlbumContentLocked(album),
     contentOptimize: (() => {
@@ -784,6 +789,9 @@ function mapUserServiceAlbumListItem(album) {
     userConfirmHint: view.userConfirmHint,
     gateBRejectHint: view.gateBRejectHint,
     canResubmitPublicCase: view.canResubmitPublicCase,
+    isAuthorized: Boolean(view.isAuthorized),
+    authorizationStatus: view.authorizationStatus || '',
+    canWithdraw: Boolean(view.canWithdraw),
     reviewEligible: false,
     hasReview: false,
     pendingOwnerReview: false,
@@ -1923,9 +1931,7 @@ async function fetchUserAuthorizations(userId) {
               : item.publicCaseStatus === 'user_rejected'
                 ? 'rejected'
                 : 'none',
-        canWithdraw:
-          auth?.status === 'authorized' &&
-          ['pending_review', 'public_approved'].includes(item.publicCaseStatus),
+        canWithdraw: Boolean(item.canWithdraw),
         needsAuthorization,
       }
     })
