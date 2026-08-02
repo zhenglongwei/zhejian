@@ -61,7 +61,7 @@
             </view>
             <view class="merchant-dash__action-row merchant-dash__action-row--tap" bindtap="onGoAlbumAuth">
               <view class="merchant-dash__action-copy">
-                <text class="text-body">{{display.pendingAuth}} 本待公开授权</text>
+                <text class="text-body">{{display.pendingAuth}} 本待车主发布</text>
               </view>
               <text class="text-caption text-link">去授权</text>
             </view>

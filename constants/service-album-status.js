@@ -89,28 +89,31 @@ function normalizeServiceAlbumListTab(tab) {
   return SERVICE_ALBUM_LIST_TAB_ALIASES[key] || 'all'
 }
 
-/** 商家端列表 Tab */
-const MERCHANT_SERVICE_ALBUM_LIST_TABS = [
-  { key: 'all', label: '全部' },
-  { key: 'active', label: '进行中' },
-  { key: 'done', label: '已完工' },
-  { key: 'pending_auth', label: '待公开授权' },
-]
+/**
+ * 商家端列表 Tab：与车主端一致（案例审通过为界 · 2026-08-02）
+ * 废止「待公开授权」第四档
+ */
+const MERCHANT_SERVICE_ALBUM_LIST_TABS = SERVICE_ALBUM_LIST_TABS
 
+/** 兼容旧商家 tab 参数 */
+const MERCHANT_SERVICE_ALBUM_LIST_TAB_ALIASES = {
+  ...SERVICE_ALBUM_LIST_TAB_ALIASES,
+  pending_auth: 'done',
+}
+
+function normalizeMerchantServiceAlbumListTab(tab) {
+  const key = String(tab || 'all').trim()
+  if (MERCHANT_SERVICE_ALBUM_LIST_TABS.some((item) => item.key === key)) return key
+  return MERCHANT_SERVICE_ALBUM_LIST_TAB_ALIASES[key] || 'all'
+}
+
+/**
+ * @deprecated 商家列表已改为按案例审通过筛选（filterUserAlbumsByTab），勿再按 album.status 分档
+ */
 const MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP = {
   all: null,
-  active: [
-    SERVICE_ALBUM_STATUS.DRAFT,
-    SERVICE_ALBUM_STATUS.IN_PROGRESS,
-    SERVICE_ALBUM_STATUS.PENDING_DELIVERY,
-    SERVICE_ALBUM_STATUS.PENDING_PART_CONFIRM,
-  ],
-  done: [SERVICE_ALBUM_STATUS.COMPLETED],
-  pending_auth: [
-    SERVICE_ALBUM_STATUS.PENDING_AUTHORIZATION,
-    SERVICE_ALBUM_STATUS.PENDING_REVIEW,
-    SERVICE_ALBUM_STATUS.PUBLISHED,
-  ],
+  active: null,
+  done: null,
 }
 
 module.exports = {
@@ -124,5 +127,7 @@ module.exports = {
   SERVICE_ALBUM_LIST_TAB_ALIASES,
   normalizeServiceAlbumListTab,
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
+  MERCHANT_SERVICE_ALBUM_LIST_TAB_ALIASES,
+  normalizeMerchantServiceAlbumListTab,
   MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP,
 }

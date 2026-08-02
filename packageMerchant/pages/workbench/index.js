@@ -434,7 +434,7 @@ Page({
       return
     }
     if (item.caseId) {
-      this._navigateTo('/packageMerchant/pages/album/list/index?tab=pending_auth')
+      this._navigateTo('/packageMerchant/pages/album/list/index?tab=done')
     }
   },
 })

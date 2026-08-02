@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | `GET /merchant/stats` | 区间汇总、日序列、透明度 | 进入看板 / 切换周期 / 下拉刷新 |
 | `GET /merchant/leads/stats` | **实时**待处理线索数 | 看板顶部待办 + 工作台简版 |
-| `GET /merchant/service-albums/stats` | 待公开授权等相册待办 | 看板相册区块（可选，与区间相册数并列） |
+| `GET /merchant/service-albums/stats` | 待车主发布等相册待办（链到列表已完工） | 看板相册区块（可选，与区间相册数并列） |
 
 ### `fetchMerchantStats` 参数
 

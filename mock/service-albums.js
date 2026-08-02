@@ -5,7 +5,6 @@ const { ALLOW_TEST_OWNER_PHONE } = require('../services/config')
 const {
   SERVICE_ALBUM_STATUS,
   SERVICE_ALBUM_REPAIR_DONE_STATUSES,
-  MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP,
 } = require('../constants/service-album-status')
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildEmptyStageNodes } = require('../constants/service-album-stages')
@@ -538,12 +537,6 @@ function buildAlbumViewModel(raw) {
   return view
 }
 
-function filterAlbumsByTab(albums, tab, statusMap) {
-  const statusList = statusMap[tab]
-  if (!statusList) return albums.slice()
-  return albums.filter((a) => statusList.includes(applyConfirmOverrides(a).status))
-}
-
 function filterAlbumsForUser(albums, tab) {
   const phone = getUserPhone()
   let list = albums.filter((a) => a.userPhone === phone)
@@ -554,8 +547,13 @@ function filterAlbumsForUser(albums, tab) {
 }
 
 function filterAlbumsForMerchant(albums, tab) {
+  const { normalizeMerchantServiceAlbumListTab } = require('../constants/service-album-status')
   let list = albums.slice()
-  list = filterAlbumsByTab(list, tab || 'all', MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP)
+  list = filterUserAlbumsByTab(
+    list,
+    normalizeMerchantServiceAlbumListTab(tab || 'all'),
+    (album) => resolvePublicCaseStatus(album.albumId)
+  )
   return list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
 }
 
@@ -1115,10 +1113,13 @@ async function mockFetchMerchantAlbumStats() {
   await delay(120)
   const map = loadAlbumMap()
   const albums = Object.values(map)
-  const active = filterAlbumsByTab(albums, 'active', MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP).length
-  const pendingAuth = filterAlbumsByTab(albums, 'pending_auth', MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP)
-    .filter((a) => a.status === SERVICE_ALBUM_STATUS.COMPLETED)
-    .length
+  const active = filterUserAlbumsByTab(albums, 'active', (album) =>
+    resolvePublicCaseStatus(album.albumId)
+  ).length
+  const pendingAuth = albums.filter((a) => {
+    const status = resolvePublicCaseStatus(a.albumId)
+    return status === 'review_passed' || status === 'offline'
+  }).length
   const pendingUpload = albums.filter(
     (a) =>
       [SERVICE_ALBUM_STATUS.IN_PROGRESS, SERVICE_ALBUM_STATUS.DRAFT].includes(a.status) &&

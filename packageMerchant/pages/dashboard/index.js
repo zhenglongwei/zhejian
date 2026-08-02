@@ -99,8 +99,8 @@ function buildAlbumRows(display = {}) {
     {
       key: 'auth',
       value: display.pendingAuth || '0',
-      label: '本待公开授权',
-      action: '去授权',
+      label: '本待车主发布',
+      action: '去查看',
       active: pendingAuth > 0,
       handler: 'auth',
     },
@@ -316,7 +316,7 @@ Page({
 
   onGoAlbumAuth() {
     wx.navigateTo({
-      url: '/packageMerchant/pages/album/list/index?tab=pending_auth',
+      url: '/packageMerchant/pages/album/list/index?tab=done',
     })
   },
 

@@ -1,6 +1,7 @@
 const { fetchMerchantServiceAlbumList } = require('../../../../services/merchant-service-album')
 const {
   MERCHANT_SERVICE_ALBUM_LIST_TABS,
+  normalizeMerchantServiceAlbumListTab,
 } = require('../../../../constants/service-album-status')
 const {
   buildOwnerShareMessage,
@@ -31,9 +32,7 @@ Page({
   },
 
   onLoad(options) {
-    if (options.tab) {
-      this.setData({ tab: options.tab })
-    }
+    this.setData({ tab: normalizeMerchantServiceAlbumListTab(options.tab) })
   },
 
   onShow() {
@@ -98,7 +97,7 @@ Page({
   },
 
   onTabChange(e) {
-    const { key } = e.detail
+    const key = normalizeMerchantServiceAlbumListTab(e.detail && e.detail.key)
     if (key === this.data.tab) return
     this.setData({ tab: key }, () => this.loadList({ forceLoading: true }))
   },

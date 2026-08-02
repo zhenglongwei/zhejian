@@ -122,18 +122,6 @@ function sanitizeUserVehicle(vehicleJson = {}) {
   return out
 }
 
-const MERCHANT_TAB_STATUS = {
-  all: null,
-  active: [
-    SERVICE_ALBUM_STATUS.DRAFT,
-    'in_progress',
-    'pending_delivery',
-    'pending_part_confirm',
-  ],
-  done: [SERVICE_ALBUM_STATUS.COMPLETED],
-  pending_auth: ['pending_authorization', 'pending_review', 'published'],
-}
-
 function countImages(nodes) {
   return (nodes || []).reduce((sum, n) => sum + (n.images || []).length, 0)
 }
@@ -586,12 +574,6 @@ function buildMerchantView(album) {
       return summarizeOptimizeDraftForApi(album)
     })(),
   }
-}
-
-function filterByTab(albums, tab, map) {
-  const statuses = map[tab || 'all']
-  if (!statuses) return albums
-  return albums.filter((a) => statuses.includes(a.status))
 }
 
 async function loadAlbum(albumId) {
@@ -1078,16 +1060,23 @@ async function getUserServiceAlbum(albumId, userId) {
 }
 
 async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '') {
+  const { normalizeMerchantServiceAlbumListTab } = require('../../../constants/service-album-status')
   const where = merchantId ? { merchantId } : { storeId }
   let albums = await prisma.album.findMany({
     where,
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+      publicCase: true,
     },
     orderBy: { updatedAt: 'desc' },
   })
-  albums = filterByTab(albums, options.tab, MERCHANT_TAB_STATUS)
+  // 与车主端一致：以案例审通过为界（全部 / 进行中 / 已完工）
+  albums = filterUserAlbumsByTab(
+    albums,
+    normalizeMerchantServiceAlbumListTab(options.tab),
+    resolvePublicCaseStatus
+  )
   return albums.map((album) => {
     const view = buildMerchantView(album)
     return {
@@ -1796,9 +1785,12 @@ async function fetchMerchantAlbumStats(storeId, merchantId = '') {
       publicCase: true,
     },
   })
-  const active = filterByTab(albums, 'active', MERCHANT_TAB_STATUS).length
-  const pendingAuth = filterByTab(albums, 'pending_auth', MERCHANT_TAB_STATUS)
-    .filter((a) => a.status === SERVICE_ALBUM_STATUS.COMPLETED).length
+  const active = filterUserAlbumsByTab(albums, 'active', resolvePublicCaseStatus).length
+  // 待车主发布：已过审尚未上网（含撤回后可再发）
+  const pendingAuth = albums.filter((a) => {
+    const status = resolvePublicCaseStatus(a)
+    return status === 'review_passed' || status === 'offline'
+  }).length
   const pendingUpload = albums.filter(
     (a) =>
       [SERVICE_ALBUM_STATUS.DRAFT, 'in_progress'].includes(a.status) &&
