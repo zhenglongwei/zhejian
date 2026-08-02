@@ -166,9 +166,13 @@ function buildPublicCaseScoreSummary(publicCaseScore, publicCaseScorePass, priva
   if (privacyBlocks.length) {
     parts.push('存在隐私/合规硬项，须先处理')
   } else if (publicCaseScorePass) {
-    parts.push('已达公示引导标准')
+    if (publicCaseScore >= PUBLIC_CASE_SCORE_PASS_THRESHOLD) {
+      parts.push('已达公示引导标准')
+    } else {
+      parts.push('已有可公示过程图，可引导车主发布；建议补全节点说明以提升质量分')
+    }
   } else {
-    parts.push('质量分未达标，建议完善后再引导车主授权公示')
+    parts.push('暂无可公示过程图，不宜引导车主授权公示')
   }
   return parts.join('；')
 }
@@ -191,11 +195,12 @@ function assessPublicCaseQuality(albumView = {}) {
   )
   const publicCaseScore = computePublicCaseQualityScore(geoQuality, copyQuality)
   const publicCasePrivacyPass = privacyBlocks.length === 0
-  const geoEvidenceReady = geoQuality.level !== 'block'
-  const publicCaseScorePass =
-    publicCasePrivacyPass &&
-    geoEvidenceReady &&
-    publicCaseScore >= PUBLIC_CASE_SCORE_PASS_THRESHOLD
+  /**
+   * 车主发布入口硬门槛：无隐私/合规硬项（含「无可公示过程图」）。
+   * 证据链分不足只作商家改善建议，不再挡住「发布」按钮——
+   * 避免施工过程图齐全但接车/检测未填字时入口消失。
+   */
+  const publicCaseScorePass = publicCasePrivacyPass
 
   return {
     geoQuality,
@@ -225,16 +230,6 @@ function assertPublicCaseQualityReady(albumView) {
   quality.privacyBlocks.slice(0, 3).forEach((item) => {
     reasons.push(item.message)
   })
-  if (quality.geoQuality && quality.geoQuality.level === 'block') {
-    reasons.push(quality.geoQuality.summaryText || '案例证据链不完整')
-  } else if (
-    quality.publicCasePrivacyPass &&
-    quality.publicCaseScore < PUBLIC_CASE_SCORE_PASS_THRESHOLD
-  ) {
-    reasons.push(
-      `质量分 ${quality.publicCaseScore}，未达 ${PUBLIC_CASE_SCORE_PASS_THRESHOLD} 分标准`,
-    )
-  }
   const err = new Error('相册内容尚未满足公示质量要求，暂不可授权公示')
   err.status = 409
   err.code = 'PUBLIC_CASE_QUALITY_BLOCKED'

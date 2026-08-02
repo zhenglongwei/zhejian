@@ -30,7 +30,7 @@ test('assessPublicCaseQuality passes when quality score >= threshold and no priv
   assert.ok(!result.privacyBlocks.length)
 })
 
-test('geo incomplete fails publish while public media alone is not enough', () => {
+test('geo incomplete still allows authorize when public media exists', () => {
   const result = assessPublicCaseQuality({
     serviceName: '保养',
     imageCount: 1,
@@ -39,7 +39,7 @@ test('geo incomplete fails publish while public media alone is not enough', () =
   })
   assert.equal(result.publicCasePrivacyPass, true)
   assert.equal(result.geoQuality.level, 'block')
-  assert.equal(result.publicCaseScorePass, false)
+  assert.equal(result.publicCaseScorePass, true)
   assert.ok(result.qualitySuggestions.some((item) => item.category === 'quality'))
   assert.equal(result.privacyBlocks.length, 0)
 })
@@ -129,20 +129,26 @@ test('only always-private quote image cannot authorize publish', () => {
   assert.ok(result.privacyBlocks.some((item) => item.issue === 'no_public_media'))
 })
 
-test('geo incomplete blocks publish even when numeric score would look high', () => {
+test('construction public media allows authorize even if intake stages empty', () => {
   const result = assessPublicCaseQuality({
-    serviceName: '保养',
-    imageCount: 2,
-    planAmount: 300,
+    serviceName: '钣喷修复',
+    imageCount: 5,
     nodes: [
       { id: 'stage_1', title: '接车', note: '', images: [] },
-      { id: 'stage_2', title: '检测', note: '检查完成', images: ['b.jpg'] },
-      { id: 'stage_3', title: '方案', note: '更换机油', images: [] },
+      { id: 'stage_2', title: '检测', note: '', images: [] },
+      { id: 'stage_3', title: '方案', note: '', images: [] },
+      { id: 'stage_4', title: '施工', note: '局部补漆', images: ['a.jpg', 'b.jpg'] },
+      { id: 'stage_5', title: '配件', note: '', images: ['c.jpg'] },
+      { id: 'stage_6', title: '交付', note: '交车', images: ['d.jpg', 'e.jpg'] },
     ],
     imageMeta: [
-      { nodeId: 'stage_2', visibility: 'public', publicGateStatus: 'passed' },
+      { nodeId: 'stage_4', visibility: 'public', publicGateStatus: 'passed' },
+      { nodeId: 'stage_4', visibility: 'public', publicGateStatus: 'passed' },
+      { nodeId: 'stage_5', visibility: 'public', publicGateStatus: 'passed' },
+      { nodeId: 'stage_6', visibility: 'public', publicGateStatus: 'passed' },
+      { nodeId: 'stage_6', visibility: 'public', publicGateStatus: 'passed' },
     ],
   })
-  assert.equal(result.geoQuality.level, 'block')
-  assert.equal(result.publicCaseScorePass, false)
+  assert.equal(result.publicCasePrivacyPass, true)
+  assert.equal(result.publicCaseScorePass, true)
 })

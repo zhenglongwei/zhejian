@@ -409,17 +409,17 @@ Feature flag `PUBLIC_VIEW_V2`：关闭时 H5 只读旧 snapshot 结构（只读�
 | 字段 | 含义 |
 | --- | --- |
 | **publicCaseScore** | 质量分：geo 证据链分 + 文案质量分（**不含**隐私 block 扣分）均分，0–100 |
-| **publicCaseScorePass** | **无隐私/合规硬项** 且 质量分 ≥ **70** |
+| **publicCaseScorePass** | **无隐私/合规硬项**（含至少 1 张可公示过程图）；证据链分不足**不**挡车主发布入口 |
 | **publicCasePrivacyPass** | 无隐私/合规一票否决项 |
 | **privacyBlocks** | 隐私/合规硬项（文案 PII、绝对化承诺、**无可公示过程图**含仅有接车/报价单 always_private 图、图 gate 隐私导致无公示素材） |
 | **qualitySuggestions** / **publicCaseSuggestions** | 质量改善建议（证据链、文案 weak 项） |
 
-- **隐私/合规硬项** 一票否决，**不计入质量分**
-- **weak** 质量建议只影响质量分与文案，不单独作为硬项（除已计入 privacyBlocks 者）
+- **隐私/合规硬项** 一票否决，**不计入质量分**；**仅此项**决定车主端是否展示「发布」/能否授权预览
+- **weak** 质量建议与质量分：商家完工弹窗参考，**不**单独挡住车主发布入口
 - 商家 **完工** 弹「公示就绪评估」（得分 + 建议），**不拦完工**
-- 用户端：`publicCaseScorePass === false` 时 **不展示**「授权公示」；查看/分享不受影响
-- 后端 authorization / public-case / authorize-preview **409** 与 UI 一致（第一层：质量分）
-- **第二层 · 案例发布规则**（与质量分独立）：车主正式发布时校验公开包 `publicView.media` ≥ 1、标题/摘要齐全；仅报价单等留档图不得上 H5（`PUBLIC_VIEW_MEDIA_REQUIRED`）
+- 用户端：`publicCaseScorePass === false`（无可公示图等硬项）时 **不展示**「发布到网站」；私人发给微信仍可用
+- 后端 authorization / authorize-preview **409** 与硬项一致
+- **第二层 · 案例发布规则**（与软性质量分独立）：车主正式发布时校验公开包 `publicView.media` ≥ 1、标题/摘要齐全；仅报价单等留档图不得上 H5（`PUBLIC_VIEW_MEDIA_REQUIRED`）
 
 ### 11.2 API 字段
 
