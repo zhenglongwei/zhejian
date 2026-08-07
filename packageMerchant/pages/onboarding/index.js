@@ -516,6 +516,10 @@ Page({
       wx.showToast({ title: '请填写门店与联系人信息', icon: 'none' })
       return false
     }
+    if (!/^\d{11}$/.test(String(f.phone || '').replace(/\D/g, ''))) {
+      wx.showToast({ title: '请填写正确的负责人手机号', icon: 'none' })
+      return false
+    }
     if (!f.latitude || !f.longitude) {
       wx.showToast({ title: '请在地图上选择门店位置', icon: 'none' })
       return false

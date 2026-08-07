@@ -294,6 +294,12 @@ function validateBasicOnboardingPayload(payload) {
     err.status = 400
     throw err
   }
+  const phoneDigits = String(payload.phone || '').replace(/\D/g, '')
+  if (phoneDigits.length !== 11) {
+    const err = new Error('请填写正确的负责人手机号')
+    err.status = 400
+    throw err
+  }
   if (!payload.licensePhotoUrl) {
     const err = new Error('请上传营业执照照片')
     err.status = 400

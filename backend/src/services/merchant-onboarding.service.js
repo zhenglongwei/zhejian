@@ -468,11 +468,6 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
     err.status = 404
     throw err
   }
-  if (submit && !user.phone) {
-    const err = new Error('请先绑定手机号后再提交入驻')
-    err.status = 403
-    throw err
-  }
 
   let payload = parseOnboardingForm(form)
   if (submit) {
