@@ -20,6 +20,7 @@ const {
   listServiceAlbumTemplateOptions,
 } = require('../services/service-album.service')
 const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.service')
+const { decodeVin } = require('../services/vin-decode.service')
 const { scheduleAlbumPreMask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
@@ -88,6 +89,25 @@ router.post('/service-albums', requireAuth(['merchant']), async (req, res, next)
 router.post('/service-albums/vehicle-ocr', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const data = await recognizeVehicleIntake(req.body?.imageUrl)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** ALB-UX-02 · VIN 解码（阿里云市场 sxvin） */
+router.get('/service-albums/vin-decode', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const data = await decodeVin(req.query?.vin || req.query?.VIN)
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/vin-decode', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const data = await decodeVin(req.body?.vin || req.query?.vin)
     return ok(res, data)
   } catch (e) {
     next(e)

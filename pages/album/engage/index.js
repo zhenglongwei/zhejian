@@ -157,7 +157,7 @@ Page({
         followUpDraft: '',
         followUpDraftLength: 0,
         followUpForm: { images: [] },
-        hasParts: Boolean(partCtx && partCtx.hasParts),
+        hasParts: false,
         partVerifySummary: (partCtx && partCtx.summary && partCtx.summary.label) || '',
         needsReviewImagePreview: Boolean(reviewCtx.needsReviewImagePreview),
         gateBanner,

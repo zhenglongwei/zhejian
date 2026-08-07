@@ -110,6 +110,21 @@ function normalizeVehicleJson(vehicle = {}) {
   if (vin) out.vin = vin
   const modelYear = String(vehicle.modelYear || vehicle.model_year || '').trim()
   if (modelYear) out.modelYear = modelYear
+  const mileageRaw = vehicle.mileage ?? vehicle.odometer
+  if (mileageRaw !== undefined && mileageRaw !== null && String(mileageRaw).trim() !== '') {
+    const mileage = Number(String(mileageRaw).replace(/[^\d.]/g, ''))
+    if (Number.isFinite(mileage) && mileage >= 0) out.mileage = Math.round(mileage)
+  }
+  const chassisCode = String(vehicle.chassisCode || vehicle.chassis || '').trim()
+  if (chassisCode) out.chassisCode = chassisCode
+  const engineModel = String(vehicle.engineModel || vehicle.engine || '').trim()
+  if (engineModel) out.engineModel = engineModel
+  const displacement = String(vehicle.displacement || '').trim()
+  if (displacement) out.displacement = displacement
+  const gearbox = String(vehicle.gearbox || vehicle.transmission || '').trim()
+  if (gearbox) out.gearbox = gearbox
+  const vinDecodedAt = String(vehicle.vinDecodedAt || '').trim()
+  if (vinDecodedAt) out.vinDecodedAt = vinDecodedAt
   return out
 }
 
@@ -164,6 +179,7 @@ function mapImageMeta(album) {
     nodeId: img.nodeId,
     idx: img.idx,
     rawUrl: rewriteMediaUrlForCurrentBase(img.rawUrl),
+    caption: String(img.caption || ''),
     visibility: img.visibility || VISIBILITY.PRIVATE,
     publicGateStatus: img.publicGateStatus || PUBLIC_GATE_STATUS.PENDING,
     publicGateReason: img.publicGateReason || '',
@@ -201,13 +217,25 @@ function mapNodesForView(album) {
     const meta = templateMeta[node.id] || {}
     const requiredLevel = meta.requiredLevel || ''
     const stageMeta = applyTemplateStageMeta(album.templateId, node.id, {})
+    const images = (node.images || []).map((entry) => {
+      if (entry && typeof entry === 'object') {
+        return {
+          url: resolveClientReadableMediaUrl(entry.url || entry.rawUrl || ''),
+          caption: String(entry.caption || ''),
+        }
+      }
+      return {
+        url: resolveClientReadableMediaUrl(entry),
+        caption: '',
+      }
+    }).filter((row) => row.url)
     return {
       id: node.id,
       title: node.title,
       status: node.status,
       note: node.note || '',
       comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
-      images: (node.images || []).map((url) => resolveClientReadableMediaUrl(url)),
+      images,
       updatedAt: node.updatedAt ? toIso(node.updatedAt) : '',
       description: stageMeta.description || '',
       photoTips: stageMeta.photoTips || '',
@@ -686,10 +714,12 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
       },
     })
     for (let idx = 0; idx < (node.images || []).length; idx += 1) {
-      const url = node.images[idx]
-      if (!url) continue
+      const entry = node.images[idx]
+      if (!entry) continue
+      const caption =
+        typeof entry === 'object' ? String(entry.caption || '').trim().slice(0, 500) : ''
       let rawUrl = assertPersistentImageUrl(
-        typeof url === 'string' ? url : url.rawUrl || url.url || ''
+        typeof entry === 'string' ? entry : entry.rawUrl || entry.url || ''
       )
       if (!rawUrl) continue
       if (albumContext) {
@@ -719,6 +749,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         nodeId,
         idx,
         rawUrl,
+        caption,
         visibility: gateFields.visibility,
         publicGateStatus: gateFields.publicGateStatus,
         publicGateReason: gateFields.publicGateReason,
@@ -777,7 +808,7 @@ function mapUserServiceAlbumListItem(album) {
     summaryRows: view.summaryRows,
     partsSummary: view.partsSummary,
     partCount: parts.length,
-    showPartVerifyLink: parts.length > 0,
+    showPartVerifyLink: false,
     canAuthorizePublicCase: view.canAuthorizePublicCase,
     publicCaseScorePass: view.publicCaseScorePass,
     /** @deprecated */ publicCaseQualityReady: view.publicCaseScorePass,
@@ -1095,6 +1126,14 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
     normalizeMerchantServiceAlbumListTab(options.tab),
     resolvePublicCaseStatus
   )
+
+  const q = String(options.q || options.keyword || options.search || '')
+    .trim()
+    .toLowerCase()
+  if (q) {
+    albums = albums.filter((album) => merchantAlbumMatchesQuery(album, q))
+  }
+
   return albums.map((album) => {
     const view = buildMerchantView(album)
     return {
@@ -1111,6 +1150,29 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       coverUrl: buildListCoverUrl(album),
     }
   })
+}
+
+/** ALB-UX-09 · 商家相册列表搜索（车型/电话/VIN/车牌/服务名/相册号） */
+function merchantAlbumMatchesQuery(album, q) {
+  if (!q) return true
+  const vehicle = album.vehicleJson || {}
+  const haystack = [
+    album.id,
+    album.serviceName,
+    album.storeName,
+    album.userPhone,
+    vehicle.brand,
+    vehicle.series,
+    vehicle.plate,
+    vehicle.plateDisplay,
+    vehicle.vin,
+    vehicle.modelYear,
+    vehicle.chassisCode,
+    formatVehicle(vehicle),
+  ]
+    .map((v) => String(v || '').toLowerCase())
+    .join(' ')
+  return haystack.includes(q)
 }
 
 async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {

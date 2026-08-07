@@ -1,9 +1,9 @@
 <view
-  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !images.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}}"
+  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !displayList.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}} {{enableCaption ? 'image-uploader--caption' : ''}}"
 >
   <block wx:if="{{isCtaLayout}}">
     <button
-      wx:if="{{images.length < maxCount && !disabled}}"
+      wx:if="{{displayList.length < maxCount && !disabled}}"
       class="image-uploader__cta"
       hover-class="image-uploader__cta--hover"
       hover-stay-time="80"
@@ -21,22 +21,37 @@
   </block>
   <block wx:else>
     <view
-      wx:for="{{images}}"
-      wx:key="*this"
-      class="image-uploader__item image-placeholder"
-      data-index="{{index}}"
-      bindtap="onPreview"
+      wx:for="{{displayList}}"
+      wx:key="url"
+      class="image-uploader__cell"
     >
-      <image class="image-uploader__img" src="{{item}}" mode="aspectFill" />
       <view
-        wx:if="{{!disabled}}"
-        class="image-uploader__remove"
+        class="image-uploader__item image-placeholder"
         data-index="{{index}}"
-        catchtap="onRemove"
-      >×</view>
+        bindtap="onPreview"
+      >
+        <image class="image-uploader__img" src="{{item.url}}" mode="aspectFill" />
+        <view
+          wx:if="{{!disabled}}"
+          class="image-uploader__remove"
+          data-index="{{index}}"
+          catchtap="onRemove"
+        >×</view>
+      </view>
+      <input
+        wx:if="{{enableCaption}}"
+        class="image-uploader__caption input"
+        value="{{item.caption}}"
+        placeholder="{{captionPlaceholder}}"
+        disabled="{{disabled}}"
+        maxlength="200"
+        data-index="{{index}}"
+        catchtap=""
+        bindinput="onCaptionInput"
+      />
     </view>
     <view
-      wx:if="{{images.length < maxCount && !disabled}}"
+      wx:if="{{displayList.length < maxCount && !disabled}}"
       class="image-uploader__add image-placeholder"
       catchtap="onAdd"
     >

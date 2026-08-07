@@ -19,7 +19,34 @@ const {
 } = require('../constants/album-evidence-guide')
 
 function normalizeImageList(images) {
-  return (images || []).map((url) => String(url || '').trim()).filter(Boolean)
+  return (images || [])
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim()
+      if (entry && typeof entry === 'object') {
+        return String(entry.url || entry.rawUrl || entry.src || '').trim()
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
+/** 过程图条目：保留 caption */
+function normalizeImageEntries(images) {
+  return (images || [])
+    .map((entry) => {
+      if (typeof entry === 'string') {
+        const url = entry.trim()
+        return url ? { url, caption: '' } : null
+      }
+      if (!entry || typeof entry !== 'object') return null
+      const url = String(entry.url || entry.rawUrl || entry.src || '').trim()
+      if (!url) return null
+      return {
+        url,
+        caption: String(entry.caption || '').trim().slice(0, 500),
+      }
+    })
+    .filter(Boolean)
 }
 
 function normalizeWarrantyText(value, maxLen) {
@@ -176,12 +203,16 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
  * 仅单槽阶段可做「节点旧图 → 单据槽」兼容；阶段六有结算单+质保，禁止整包塞给结算单。
  */
 function defaultLegacySlotForStage(stageId, templateId) {
-  if (stageId === 'stage_3') {
+  if (stageId === 'stage_1' || stageId === 'stage_2') {
     return templateMatches(DOCUMENT_TYPES.loss_assessment, templateId)
-      ? 'repair_quote'
-      : 'repair_quote'
+      ? 'loss_assessment'
+      : ''
   }
-  if (stageId === 'stage_5') return 'work_order'
+  if (stageId === 'stage_3') {
+    // 历史相册：方案节点旧图不再映射到已废止的报价单槽
+    return ''
+  }
+  if (stageId === 'stage_5') return ''
   if (stageId === 'stage_6') return ''
   return ''
 }
@@ -204,19 +235,19 @@ function resolveProcessImagesForStage(node, evidenceItems) {
   ;(evidenceItems || []).filter(isOldPartEvidenceItem).forEach((item) => {
     normalizeImageList(item.images).forEach((url) => docSet.add(url))
   })
-  return normalizeImageList(node && node.images).filter((url) => !docSet.has(url))
+  return normalizeImageEntries(node && node.images).filter((entry) => !docSet.has(entry.url))
 }
 
 function applyProcessOnlyNodes(nodes, evidenceItems) {
   return (nodes || []).map((node) => {
     const stageId = node.id || node.nodeId
-    if (!stageId || stageId === 'stage_3') {
+    if (!stageId || stageId === 'stage_3' || stageId === 'stage_5' || stageId === 'stage_6') {
       return { ...node, images: resolveProcessImagesForStage(node, evidenceItems) }
     }
-    if (stageId === 'stage_5' || stageId === 'stage_6') {
-      return { ...node, images: resolveProcessImagesForStage(node, evidenceItems) }
+    return {
+      ...node,
+      images: normalizeImageEntries(node.images),
     }
-    return node
   })
 }
 
@@ -334,7 +365,7 @@ function collectDocumentImagesByStage(evidenceItems) {
 }
 
 /**
- * 将 evidence 分槽图合并进 nodes，保留节点内非单据类过程图。
+ * 将 evidence 分槽图合并进 nodes，保留节点内非单据类过程图（含 caption）。
  */
 function mergeEvidenceIntoNodes(nodes, evidenceItems) {
   const docImagesByStage = collectDocumentImagesByStage(evidenceItems)
@@ -345,15 +376,16 @@ function mergeEvidenceIntoNodes(nodes, evidenceItems) {
   return (nodes || []).map((node) => {
     const stageId = node.id || node.nodeId
     const docImages = docImagesByStage[stageId] || []
+    const processEntries = normalizeImageEntries(node.images)
     if (!documentStageIds.has(stageId) || !docImages.length) {
-      return { ...node, images: normalizeImageList(node.images) }
+      return { ...node, images: processEntries }
     }
-    const existing = normalizeImageList(node.images)
     const docSet = new Set(docImages)
-    const processOnly = existing.filter((url) => !docSet.has(url))
+    const processOnly = processEntries.filter((entry) => !docSet.has(entry.url))
+    const docEntries = docImages.map((url) => ({ url, caption: '' }))
     return {
       ...node,
-      images: [...docImages, ...processOnly],
+      images: [...docEntries, ...processOnly],
     }
   })
 }
@@ -429,6 +461,7 @@ module.exports = {
   mergeEvidenceIntoNodes,
   countDocumentEvidence,
   normalizeImageList,
+  normalizeImageEntries,
   isOldPartEvidenceItem,
   extractOldPartTraces,
   buildOldPartEvidenceItems,

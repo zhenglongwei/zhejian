@@ -154,6 +154,23 @@ async function recognizeVehicleIntakeOcr(imageUrl) {
   return post('/merchant/service-albums/vehicle-ocr', { imageUrl })
 }
 
+/** ALB-UX-02 · VIN 解码 */
+async function decodeMerchantVin(vin) {
+  if (ENV.mode === 'mock') {
+    return {
+      vin: String(vin || '').toUpperCase(),
+      vehicle: {
+        vin: String(vin || '').toUpperCase(),
+        brand: '示例品牌',
+        series: '示例车系',
+        modelYear: '2020',
+        vinDecodedAt: new Date().toISOString(),
+      },
+    }
+  }
+  return post('/merchant/service-albums/vin-decode', { vin })
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -175,4 +192,5 @@ module.exports = {
   fetchMerchantAlbumClaimQrcode,
   switchMerchantServiceAlbumTemplate,
   recognizeVehicleIntakeOcr,
+  decodeMerchantVin,
 }

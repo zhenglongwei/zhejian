@@ -117,3 +117,21 @@
   text-align: center;
   line-height: 1.5;
 }
+
+.image-uploader__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.image-uploader__caption {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2xs) var(--space-xs);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
+}

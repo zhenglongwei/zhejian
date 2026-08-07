@@ -36,13 +36,22 @@ function isServiceAlbumRepairDone(status) {
   return SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(status)
 }
 
+/** ALB-UX · 新建相册四阶段（接车→检测→施工→完工）；存量可仍含 stage_3/4 */
 const DEFAULT_STAGE_NODES = [
   { nodeId: 'stage_1', title: '接车记录', sortOrder: 0 },
   { nodeId: 'stage_2', title: '检测记录', sortOrder: 1 },
-  { nodeId: 'stage_3', title: '方案与报价', sortOrder: 2 },
-  { nodeId: 'stage_4', title: '配件/材料凭证', sortOrder: 3 },
-  { nodeId: 'stage_5', title: '施工过程', sortOrder: 4 },
-  { nodeId: 'stage_6', title: '完工交付', sortOrder: 5 },
+  { nodeId: 'stage_5', title: '施工过程', sortOrder: 2 },
+  { nodeId: 'stage_6', title: '完工交付', sortOrder: 3 },
+]
+
+/** 兼容读：旧六阶段 ID 顺序 */
+const LEGACY_STAGE_IDS = [
+  'stage_1',
+  'stage_2',
+  'stage_3',
+  'stage_4',
+  'stage_5',
+  'stage_6',
 ]
 
 const PUBLIC_CASE_STATUS = {
@@ -73,6 +82,7 @@ module.exports = {
   SERVICE_ALBUM_REPAIR_DONE_STATUSES,
   isServiceAlbumRepairDone,
   DEFAULT_STAGE_NODES,
+  LEGACY_STAGE_IDS,
   PUBLIC_CASE_STATUS,
   RISK_LEVEL_ORDER,
 }

@@ -1,4 +1,4 @@
-const { SERVICE_ALBUM_STAGES, getStageMeta } = require('../../../../constants/service-album-stages')
+const { SERVICE_ALBUM_STAGES, getStageMeta, resolveStagesForAlbumNodes } = require('../../../../constants/service-album-stages')
 const { applyTemplateStageMeta } = require('../../../../constants/service-album-template-stage-meta')
 const {
   SERVICE_ALBUM_STATUS,
@@ -68,6 +68,7 @@ const {
   extractWarrantyFields,
   findWarrantyEvidenceItem,
   patchWarrantyFieldsInEvidence,
+  normalizeImageEntries,
 } = require('../../../../utils/album-evidence-items')
 const {
   MERCHANT_OLD_PART_INTRO,
@@ -135,7 +136,8 @@ const PART_TYPE_LIST = Object.values(PART_TYPE)
 const BODY_PAINT_TEMPLATE_ID = 'body_paint'
 const ACCIDENT_TEMPLATE_ID = 'accident'
 const COMPARE_STAGE_TEMPLATE_IDS = new Set([BODY_PAINT_TEMPLATE_ID, ACCIDENT_TEMPLATE_ID])
-const STAGE_COMPARE_ID = 'stage_6'
+/** ALB-UX · 对比挂施工过程；存量完工对比仍可由 LEGACY 读 */
+const STAGE_COMPARE_ID = 'stage_5'
 const STAGE_ASSESSMENT_ID = 'stage_2'
 const STAGE_PLAN_ID = 'stage_3'
 const STAGE_PARTS_ID = 'stage_4'
@@ -225,6 +227,9 @@ Page({
     vehicleSeries: '',
     vehiclePlate: '',
     vehicleVin: '',
+    vehicleMileage: '',
+    vehicleModelYear: '',
+    vinDecoding: false,
     isCompleted: false,
     readOnly: false,
     formDisabled: false,
@@ -505,7 +510,7 @@ Page({
     if (tplId === BODY_PAINT_TEMPLATE_ID) {
       Object.assign(map, migrateLegacyBodyPaintNodes(map))
     }
-    return SERVICE_ALBUM_STAGES.map((stage) => {
+    return resolveStagesForAlbumNodes(rawNodes).map((stage) => {
       const node = map[stage.id] || {}
       const meta = getStageMeta(stage.id) || stage
       const mergedMeta = applyTemplateStageMeta(tplId, stage.id, {
@@ -526,9 +531,12 @@ Page({
         requiredLevelLabel: mergedMeta.requiredLevelLabel || '',
         requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
         comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
-        notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '补充本节点说明',
+        notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '本阶段摘要（可选）',
         publicUploadHint: mergedMeta.publicUploadHint || '',
-        images: (node.images || []).map(normalizeStoredImageUrl).filter(Boolean),
+        images: normalizeImageEntries(node.images).map((entry) => ({
+          url: normalizeStoredImageUrl(entry.url),
+          caption: entry.caption || '',
+        })),
         note: node.note || '',
       }
     })
@@ -777,6 +785,11 @@ Page({
       vehicleSeries: (detail.vehicle && detail.vehicle.series) || '',
       vehiclePlate: (detail.vehicle && (detail.vehicle.plate || detail.vehicle.plateDisplay)) || '',
       vehicleVin: (detail.vehicle && detail.vehicle.vin) || '',
+      vehicleMileage:
+        detail.vehicle && detail.vehicle.mileage != null && detail.vehicle.mileage !== ''
+          ? String(detail.vehicle.mileage)
+          : '',
+      vehicleModelYear: (detail.vehicle && detail.vehicle.modelYear) || '',
       isCompleted,
       readOnly,
       formDisabled: readOnly,
@@ -1113,13 +1126,65 @@ Page({
       .trim()
       .replace(/[\s·.]/g, '')
       .toUpperCase()
-    const vin = String(existing.vin || this.data.vehicleVin || '')
+    const vin = String(this.data.vehicleVin || existing.vin || '')
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '')
     if (plate) payload.plate = plate
     if (vin) payload.vin = vin
+    const modelYear = String(this.data.vehicleModelYear || existing.modelYear || '').trim()
+    if (modelYear) payload.modelYear = modelYear
+    const mileageRaw = String(this.data.vehicleMileage || '').trim()
+    if (mileageRaw !== '') {
+      const mileage = Number(mileageRaw.replace(/[^\d.]/g, ''))
+      if (Number.isFinite(mileage) && mileage >= 0) payload.mileage = Math.round(mileage)
+    } else if (existing.mileage != null && existing.mileage !== '') {
+      payload.mileage = existing.mileage
+    }
+    ;['chassisCode', 'engineModel', 'displacement', 'gearbox', 'vinDecodedAt'].forEach((key) => {
+      if (existing[key]) payload[key] = existing[key]
+    })
     return payload
+  },
+
+  async onDecodeVin() {
+    if (this.data.readOnly || this.data.vinDecoding) return
+    const vin = String(this.data.vehicleVin || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+    if (vin.length !== 17) {
+      wx.showToast({ title: '请先填写 17 位车架号', icon: 'none' })
+      return
+    }
+    this.setData({ vinDecoding: true })
+    try {
+      const { decodeMerchantVin } = require('../../../../services/merchant-service-album')
+      const data = await decodeMerchantVin(vin)
+      const vehicle = (data && data.vehicle) || {}
+      const patch = { vinDecoding: false }
+      if (vehicle.brand) patch.vehicleBrand = vehicle.brand
+      if (vehicle.series) patch.vehicleSeries = vehicle.series
+      if (vehicle.modelYear) patch.vehicleModelYear = vehicle.modelYear
+      if (vehicle.vin) patch.vehicleVin = vehicle.vin
+      const detail = { ...(this.data.detail || {}) }
+      detail.vehicle = {
+        ...(detail.vehicle || {}),
+        ...vehicle,
+        brand: vehicle.brand || this.data.vehicleBrand,
+        series: vehicle.series || this.data.vehicleSeries,
+        vin: vehicle.vin || vin,
+      }
+      patch.detail = detail
+      this.setData(patch)
+      wx.showToast({ title: '已解析车型', icon: 'success' })
+    } catch (err) {
+      this.setData({ vinDecoding: false })
+      wx.showToast({
+        title: (err && err.message) || '解析失败，请手工填写',
+        icon: 'none',
+      })
+    }
   },
 
   isTempImagePath(url) {

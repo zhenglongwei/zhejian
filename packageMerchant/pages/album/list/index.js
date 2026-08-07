@@ -4,7 +4,6 @@ const {
   normalizeMerchantServiceAlbumListTab,
 } = require('../../../../constants/service-album-status')
 const {
-  buildOwnerShareMessage,
   buildOwnerShareMessageFromDataset,
 } = require('../../../../utils/service-album-share')
 const { enrichMerchantAlbumListItem } = require('../../../../utils/service-album-display')
@@ -28,11 +27,15 @@ Page({
     list: [],
     statusTabs: MERCHANT_SERVICE_ALBUM_LIST_TABS,
     tab: 'all',
+    keyword: '',
     errorMessage: '',
   },
 
   onLoad(options) {
-    this.setData({ tab: normalizeMerchantServiceAlbumListTab(options.tab) })
+    this.setData({
+      tab: normalizeMerchantServiceAlbumListTab(options.tab),
+      keyword: String(options.q || options.keyword || '').trim(),
+    })
   },
 
   onShow() {
@@ -80,7 +83,11 @@ Page({
     }
 
     try {
-      const raw = await fetchMerchantServiceAlbumList({ tab: this.data.tab })
+      const keyword = String(this.data.keyword || '').trim()
+      const raw = await fetchMerchantServiceAlbumList({
+        tab: this.data.tab,
+        q: keyword || undefined,
+      })
       const list = (raw || []).map(enrichMerchantAlbumListItem)
       this.setData({
         list,
@@ -94,6 +101,22 @@ Page({
     } finally {
       this._listLoading = false
     }
+  },
+
+  onKeywordInput(e) {
+    this.setData({ keyword: (e.detail && e.detail.value) || '' })
+  },
+
+  onKeywordSearch(e) {
+    const value =
+      e && e.detail && e.detail.value != null ? e.detail.value : this.data.keyword
+    this.setData({ keyword: String(value || '').trim() }, () =>
+      this.loadList({ forceLoading: true }),
+    )
+  },
+
+  onKeywordClear() {
+    this.setData({ keyword: '' }, () => this.loadList({ forceLoading: true }))
   },
 
   onTabChange(e) {

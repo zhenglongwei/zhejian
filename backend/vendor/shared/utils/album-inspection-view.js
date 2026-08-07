@@ -80,12 +80,10 @@ function buildAlbumInspectionView(detail = {}, options = {}) {
   const hasPartsInDetail = (detail.parts || []).length > 0
   const views = buildInspectionViews(detail, documentItems, processItems, outcome, {
     audience,
-    showPartVerify: !completenessOnly && hasPartsInDetail,
+    showPartVerify: false,
   })
-  const showPartVerifyEntry =
-    !completenessOnly &&
-    (hasPartsInDetail ||
-      views.completeness.panels.some((p) => p.id === 'parts' && (p.rows || []).length))
+  /** ALB-UX-07 · 配件验真主路径下线 */
+  const showPartVerifyEntry = false
 
   return {
     audience,
@@ -94,6 +92,7 @@ function buildAlbumInspectionView(detail = {}, options = {}) {
     method: completenessOnly ? { sections: [] } : views.method,
     outcome: completenessOnly ? {} : outcome,
     showPartVerifyEntry,
+    hasPartsInDetail,
   }
 }
 

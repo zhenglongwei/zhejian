@@ -1,6 +1,6 @@
 /**
  * 服务相册 · 证据清单与车主检查指南（商家提示 + 车主检查同源）
- * 定损单 stage_3；施工工单 stage_5；结算单 / 质保承诺 stage_6
+ * ALB-UX：定损单挂接车；结算单 / 质保承诺 stage_6；已取消报价单/工单槽
  */
 
 const EVIDENCE_CATEGORY = {
@@ -20,7 +20,7 @@ const MERCHANT_OLD_PART_INTRO = '更换类项目可上传旧件或拆下照片�
 
 /** B-PART · 施工增项 SOP（Phase 1 · 见 docs/04/11_施工增项留痕SOP.md） */
 const MERCHANT_EXTRA_PART_SOP_STAGE3_HINT = '有增项？先取得客户确认，在本页补传增项/报价单，再到配件凭证登记。'
-const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT = '如配件和报价方案有变更，请在和客户沟通后，回到施工方案节点上传新的报价方案。'
+const MERCHANT_EXTRA_PART_SOP_STAGE4_HINT = '若配件和原方案不符，请先和客户沟通确认，然后上传最新的报价单。'
 const MERCHANT_EXTRA_PART_SOP_LINK = '增项怎么做'
 const MERCHANT_EXTRA_PART_SOP_MODAL_TITLE = '施工增项怎么做'
 const MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT =
@@ -106,39 +106,15 @@ const DOCUMENT_TYPES = {
     id: 'loss_assessment',
     category: EVIDENCE_CATEGORY.DOCUMENT,
     label: '定损单',
-    stageId: 'stage_3',
+    stageId: 'stage_1',
     templates: ['accident'],
     strength: EVIDENCE_STRENGTH.STRONGLY_RECOMMENDED,
     merchantHint:
-      '保险公司核损完成、正式施工前的定损单据。应包含理赔项目范围、配件标准、工时单价与理赔总额。',
+      '保险公司核损单据（事故车）。可在接车时上传；应包含理赔项目范围、配件标准、工时与理赔总额。',
     ownerCheckHint:
       '核对定损项目是否覆盖本次事故损伤部位；总额通常为保险理赔支付上限。',
     anomalyHint: '定损项目与接车/检测可见损伤明显不符，或缺少关键部位项目。',
     actionHint: '向门店或保险公司核对定损范围；保留纸质/电子定损单。',
-  },
-  repair_quote: {
-    id: 'repair_quote',
-    category: EVIDENCE_CATEGORY.DOCUMENT,
-    label: '维修报价单',
-    stageId: 'stage_3',
-    templates: ['*'],
-    strength: EVIDENCE_STRENGTH.STRONGLY_RECOMMENDED,
-    merchantHint: '施工方案与费用报价；可与方案金额、配件目录一并上传。',
-    ownerCheckHint: '核对项目、配件类型与金额是否与沟通一致；事故车可与定损单对照差异原因。',
-    anomalyHint: '报价主要项目与定损差异大，或金额明显超出定损总额且无说明。',
-    actionHint: '要求门店说明自费/增项部分；保留报价单照片。',
-  },
-  work_order: {
-    id: 'work_order',
-    category: EVIDENCE_CATEGORY.DOCUMENT,
-    label: '施工工单',
-    stageId: 'stage_5',
-    templates: ['*'],
-    strength: EVIDENCE_STRENGTH.RECOMMENDED,
-    merchantHint: '派工/施工工单：工项、工时或配件摘要。',
-    ownerCheckHint: '核对工项是否与报价/定损对应；是否出现未告知的增项。',
-    anomalyHint: '工单项目较报价明显增加，或工项描述与后续结算不一致。',
-    actionHint: '施工中或交车前向门店确认增项原因。',
   },
   settlement: {
     id: 'settlement',
@@ -148,8 +124,8 @@ const DOCUMENT_TYPES = {
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.RECOMMENDED,
     merchantHint: '交车结算单据：实付金额与项目汇总。',
-    ownerCheckHint: '核对结算与报价/工单是否一致；有无未告知增项或重复收费。',
-    anomalyHint: '结算金额高于报价且无书面或沟通说明；项目数量对不上。',
+    ownerCheckHint: '核对结算项目与沟通是否一致；有无未告知增项。',
+    anomalyHint: '结算金额与沟通明显不符且无说明。',
     actionHint: '先与门店沟通；必要时保留结算单并通过正规投诉渠道反映。',
   },
   /** B-EVID-07 · 阶段六质保承诺（承诺书图优先；可文字兜底；强烈建议） */

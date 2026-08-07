@@ -5,8 +5,9 @@
 
 const STAGE_ASSESSMENT_ID = 'stage_2'
 const STAGE_INTAKE_ID = 'stage_1'
-const STAGE_COMPARE_ID = 'stage_6'
-const LEGACY_COMPARE_STAGE_ID = 'stage_5'
+/** ALB-UX · 旧新件对比迁入施工过程 */
+const STAGE_COMPARE_ID = 'stage_5'
+const LEGACY_COMPARE_STAGE_ID = 'stage_6'
 const MAX_COMPARE_PAIR_ROWS = 6
 
 function findNode(nodes, nodeId) {
@@ -14,7 +15,12 @@ function findNode(nodes, nodeId) {
 }
 
 function normalizeList(images = []) {
-  return (images || []).map((url) => String(url || '').trim()).filter(Boolean)
+  return (images || [])
+    .map((entry) => {
+      if (typeof entry === 'string') return entry.trim()
+      return String((entry && (entry.url || entry.rawUrl || entry.src)) || '').trim()
+    })
+    .filter(Boolean)
 }
 
 function normalizeComparePairRows(rows = []) {

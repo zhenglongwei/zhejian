@@ -150,6 +150,30 @@
   min-width: 0;
 }
 
+.merchant-album-edit__meta-fields--vin {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.merchant-album-edit__meta-input--vin {
+  flex: 1 1 280rpx;
+}
+
+.merchant-album-edit__vin-decode {
+  flex-shrink: 0;
+  padding: var(--space-xs) 0;
+}
+
+.merchant-album-edit__vin-decode.is-loading {
+  opacity: 0.6;
+}
+
+.merchant-album-edit__vin-tip {
+  display: block;
+  margin: calc(-1 * var(--space-xs)) 0 var(--space-sm);
+  padding-left: 72rpx;
+}
+
 .merchant-album-edit__meta-body {
   display: flex;
   flex: 1;

@@ -81,6 +81,50 @@
           </view>
 
           <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">车架号</text>
+            <view class="merchant-album-edit__meta-fields merchant-album-edit__meta-fields--vin">
+              <input
+                class="merchant-album-edit__meta-input merchant-album-edit__meta-input--vin"
+                placeholder="17 位 VIN（建议填写）"
+                value="{{vehicleVin}}"
+                maxlength="17"
+                disabled="{{readOnly || saving || completing || switching || vinDecoding}}"
+                data-field="vehicleVin"
+                bindinput="onVehicleInput"
+              />
+              <text
+                wx:if="{{!readOnly}}"
+                class="text-link text-caption merchant-album-edit__vin-decode {{vinDecoding ? 'is-loading' : ''}}"
+                bindtap="onDecodeVin"
+              >{{vinDecoding ? '解析中…' : '解析车型'}}</text>
+            </view>
+          </view>
+
+          <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">里程</text>
+            <view class="merchant-album-edit__meta-fields">
+              <input
+                class="merchant-album-edit__meta-input"
+                type="digit"
+                placeholder="仪表里程（公里）"
+                value="{{vehicleMileage}}"
+                disabled="{{readOnly || saving || completing || switching}}"
+                data-field="vehicleMileage"
+                bindinput="onVehicleInput"
+              />
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="年款（选填）"
+                value="{{vehicleModelYear}}"
+                disabled="{{readOnly || saving || completing || switching}}"
+                data-field="vehicleModelYear"
+                bindinput="onVehicleInput"
+              />
+            </view>
+          </view>
+          <text class="text-caption text-secondary merchant-album-edit__vin-tip">接车请拍摄车架号与仪表里程；解析失败可手工改品牌/车系。</text>
+
+          <view class="merchant-album-edit__meta-row">
             <text class="merchant-album-edit__meta-label text-caption">车主</text>
             <view class="merchant-album-edit__meta-body">
               <text

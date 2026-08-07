@@ -23,9 +23,8 @@ const {
 
 const DOCUMENT_TIMELINE_ORDER = [
   'loss_assessment',
-  'repair_quote',
-  'work_order',
   'settlement',
+  'warranty',
 ]
 
 const MATRIX_STATUS = {
@@ -39,7 +38,10 @@ function resolveDocumentAnchor(presence = {}) {
   if (presence.loss_assessment && presence.loss_assessment.uploaded) {
     return 'loss_assessment'
   }
-  return 'repair_quote'
+  if (presence.settlement && presence.settlement.uploaded) {
+    return 'settlement'
+  }
+  return 'settlement'
 }
 
 function buildDocumentPresence(documentItems = []) {

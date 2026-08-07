@@ -158,6 +158,13 @@ const config = {
     /** VIAPI 车牌 OCR（ocr20191230），默认 ocr.{region}.aliyuncs.com */
     viapiOcrEndpoint: process.env.ALIYUN_VIAPI_OCR_ENDPOINT || '',
   },
+  /** ALB-UX-02 · 云市场 VIN 解析（Authorization: APPCODE …） */
+  aliyunVin: {
+    appCode: envStr('ALIYUN_VIN_APPCODE'),
+    host: envStr('ALIYUN_VIN_HOST', 'https://sxvin.market.alicloudapi.com'),
+    path: envStr('ALIYUN_VIN_PATH', '/vin/query'),
+    timeoutMs: Number(process.env.ALIYUN_VIN_TIMEOUT_MS || 12000),
+  },
   desensitize: {
     engine: process.env.DESENSITIZE_ENGINE || 'aliyun',
     apiTimeoutMs: Number(process.env.DESENSITIZE_API_TIMEOUT_MS || 15000),

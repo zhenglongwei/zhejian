@@ -44,11 +44,21 @@ Component({
       type: Number,
       value: 3,
     },
+    /** ALB-UX · 每图备注（过程图） */
+    enableCaption: {
+      type: Boolean,
+      value: false,
+    },
+    captionPlaceholder: {
+      type: String,
+      value: '本图说明（选填）',
+    },
   },
   data: {
     uploading: false,
     isCtaLayout: false,
     isSingleColumn: false,
+    displayList: [],
   },
   observers: {
     layout(val) {
@@ -57,6 +67,9 @@ Component({
     columns(val) {
       this.setData({ isSingleColumn: Number(val) === 1 })
     },
+    images() {
+      this.syncDisplayList()
+    },
   },
   lifetimes: {
     attached() {
@@ -64,15 +77,44 @@ Component({
         isCtaLayout: String(this.properties.layout || '') === 'cta',
         isSingleColumn: Number(this.properties.columns) === 1,
       })
+      this.syncDisplayList()
     },
   },
   methods: {
+    normalizeEntry(entry) {
+      if (typeof entry === 'string') {
+        const url = entry.trim()
+        return url ? { url, caption: '' } : null
+      }
+      if (!entry || typeof entry !== 'object') return null
+      const url = String(entry.url || entry.rawUrl || entry.src || '').trim()
+      if (!url) return null
+      return {
+        url,
+        caption: String(entry.caption || '').trim().slice(0, 500),
+      }
+    },
+    toEmitList(displayList) {
+      if (this.properties.enableCaption) {
+        return (displayList || []).map((item) => ({
+          url: item.url,
+          caption: item.caption || '',
+        }))
+      }
+      return (displayList || []).map((item) => item.url)
+    },
+    syncDisplayList() {
+      const displayList = (this.properties.images || [])
+        .map((entry) => this.normalizeEntry(entry))
+        .filter(Boolean)
+      this.setData({ displayList })
+    },
     emitChange(list) {
-      this.triggerEvent('change', { images: list })
+      this.triggerEvent('change', { images: this.toEmitList(list) })
     },
     onAdd() {
       if (this.properties.disabled || this.data.uploading) return
-      const current = this.properties.images || []
+      const current = this.data.displayList || []
       const remain = this.properties.maxCount - current.length
       if (remain <= 0) {
         wx.showToast({ title: `最多上传 ${this.properties.maxCount} 张`, icon: 'none' })
@@ -80,7 +122,7 @@ Component({
       }
       const count = Math.min(remain, 9)
       const onSuccess = (paths) => {
-        const list = (paths || []).filter(Boolean)
+        const list = (paths || []).filter(Boolean).map((url) => ({ url, caption: '' }))
         if (!list.length) return
         this.emitChange(current.concat(list))
       }
@@ -122,14 +164,28 @@ Component({
     },
     onRemove(e) {
       const { index } = e.currentTarget.dataset
-      const list = (this.properties.images || []).slice()
+      const list = (this.data.displayList || []).slice()
       list.splice(index, 1)
       this.emitChange(list)
     },
     onPreview(e) {
       const { index } = e.currentTarget.dataset
-      const urls = this.properties.images || []
+      const urls = (this.data.displayList || []).map((item) => item.url)
+      if (!urls.length) return
       wx.previewImage({ current: urls[index], urls })
+    },
+    onCaptionInput(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const { index } = e.currentTarget.dataset
+      const list = (this.data.displayList || []).map((item, i) => {
+        if (i !== Number(index)) return item
+        return {
+          ...item,
+          caption: String((e.detail && e.detail.value) || '').slice(0, 500),
+        }
+      })
+      this.setData({ displayList: list })
+      this.emitChange(list)
     },
   },
 })

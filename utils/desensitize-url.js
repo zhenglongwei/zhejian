@@ -108,7 +108,11 @@ function resolveMediaFilesUrlForLocalApi(value) {
 
 function resolveImageSrc(url) {
   if (!url) return ''
-  let value = normalizePublicMediaUrl(String(url).trim())
+  const raw =
+    typeof url === 'string'
+      ? url
+      : String((url && (url.url || url.rawUrl || url.src)) || '')
+  let value = normalizePublicMediaUrl(String(raw).trim())
   value = resolveMediaFilesUrlForLocalApi(value)
   if (value.startsWith('mock://')) return ''
   if (isPendingMediaUrl(value)) return ''

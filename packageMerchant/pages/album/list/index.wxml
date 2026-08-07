@@ -1,4 +1,15 @@
 <view class="page merchant-album-page merchant-album-list">
+  <view class="merchant-album-list__search page-content">
+    <ui-search-bar
+      value="{{keyword}}"
+      placeholder="车型 / 电话 / 车架号 / 车牌 / 项目"
+      showSearch="{{true}}"
+      bind:input="onKeywordInput"
+      bind:confirm="onKeywordSearch"
+      bind:search="onKeywordSearch"
+      bind:clear="onKeywordClear"
+    />
+  </view>
   <ui-list-page-shell
     tabs="{{statusTabs}}"
     activeKey="{{tab}}"
@@ -6,7 +17,7 @@
     errorMessage="{{errorMessage}}"
     bodyClearance="{{true}}"
     emptyTitle="暂无服务相册"
-    emptyDescription="为线下服务创建服务相册，记录六阶段过程与配件信息"
+    emptyDescription="为线下服务创建服务相册，记录四阶段过程与说明"
     emptyActionText="新建服务相册"
     emptyTheme="album"
     skeletonTheme="album"

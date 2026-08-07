@@ -306,7 +306,7 @@ function appendAlbumListPresentation(item, base = {}) {
     statusHint,
     showShareButton: resolveUserAlbumShareVisible(merged),
     hasUnreadUpdate,
-    showPartVerifyLink: Number(merged.partCount) > 0 || Boolean(merged.showPartVerifyLink),
+    showPartVerifyLink: false,
     partVerifySummaryLabel:
       (merged.partVerifySummary && merged.partVerifySummary.label) || '',
     pendingOwnerReview: Boolean(merged.pendingOwnerReview),

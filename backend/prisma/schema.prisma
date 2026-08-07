@@ -207,6 +207,8 @@ model AlbumImage {
   nodeId              String    @map("node_id")
   idx                 Int       @default(0)
   rawUrl              String    @map("raw_url") @db.VarChar(512)
+  /** ALB-UX · 单图备注（过程说明） */
+  caption             String    @default("") @db.VarChar(500)
   visibility          String    @default("private")
   publicGateStatus    String    @default("pending") @map("public_gate_status")
   publicGateReason    String    @default("") @map("public_gate_reason") @db.VarChar(64)

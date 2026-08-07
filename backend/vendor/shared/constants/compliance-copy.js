@@ -197,9 +197,9 @@ const COMPLIANCE_COPY = {
   displayDisclaimer:
     '本页内容由商家自行发布或经车主确认展示，仅供参考。实际方案与费用请与门店线下确认。',
   aiInspection:
-    'AI 分析基于本相册摘要与部分照片说明，供对照单据与留痕，不构成鉴定结论，可能有遗漏或误判。\n\n' +
-    '平台不鉴定配件真伪；相册无法覆盖未入镜施工、事后换件等情况。\n\n' +
-    '重大疑虑请到场验车验件，或委托有资质第三方；事故维修可向保险公司申请复检。',
+    'AI 说明基于本相册摘要与照片备注，帮助你理解门店记录的服务过程，不构成鉴定或质检结论，可能有遗漏。\n\n' +
+    '平台不鉴定配件真伪；相册无法覆盖未入镜施工等情况。\n\n' +
+    '若有疑问，可先向门店核对；需要时再到场验车，或委托有资质第三方。事故维修可向保险公司了解复检途径。',
   reportConsent: AUTHORIZATION_CONSENT.report.text,
   albumClaim: AUTHORIZATION_CONSENT.album_claim.text,
   albumProcessing: AUTHORIZATION_CONSENT.album_processing.text,

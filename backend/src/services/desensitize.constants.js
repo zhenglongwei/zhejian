@@ -147,8 +147,10 @@ function albumToNodeView(album) {
   const imagesByNode = {}
   ;(album.images || []).forEach((img) => {
     if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
-    // 脱敏处理用可读 URL；指纹在 nodesFingerprint 内再 strip query
-    imagesByNode[img.nodeId].push(rewriteMediaUrlForCurrentBase(img.rawUrl))
+    imagesByNode[img.nodeId].push({
+      url: rewriteMediaUrlForCurrentBase(img.rawUrl),
+      caption: String(img.caption || ''),
+    })
   })
   return (album.nodes || []).map((node) => ({
     nodeId: node.nodeId,

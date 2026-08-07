@@ -604,16 +604,10 @@ Page({
       const linkedStoreSubtitle = detail.serviceName || enriched.serviceName || ''
       const showStoreBrowse = Boolean(linkedStoreId)
 
-      let showPartsEntry = (enriched.parts || []).length > 0
+      let showPartsEntry = false
       let pendingOwnerReview = false
       let hasOwnerReview = false
       if (checkAuth().ok) {
-        try {
-          const partCtx = await fetchAlbumPartVerifyContext(this.albumId)
-          showPartsEntry = Boolean(partCtx.hasParts)
-        } catch (err) {
-          // ignore
-        }
         try {
           const reviewCtx = await fetchAlbumReviewContext(this.albumId)
           hasOwnerReview = Boolean(reviewCtx.review && reviewCtx.review.id)

@@ -240,7 +240,10 @@ async function persistLocalImages(urls) {
   let droppedStaleCount = 0
 
   for (const raw of urls || []) {
-    const url = typeof raw === 'string' ? raw.trim() : ''
+    const url =
+      typeof raw === 'string'
+        ? raw.trim()
+        : String((raw && (raw.url || raw.rawUrl || raw.src)) || '').trim()
     if (!url) continue
 
     if (!isLocalTempImagePath(url)) {
@@ -255,6 +258,42 @@ async function persistLocalImages(urls) {
     }
 
     result.push(await uploadImage(url))
+  }
+
+  return { images: result, droppedStaleCount }
+}
+
+/**
+ * ALB-UX · 过程图保留 caption
+ * @returns {{ images: { url: string, caption: string }[], droppedStaleCount: number }}
+ */
+async function persistLocalImageEntries(entries) {
+  const result = []
+  let droppedStaleCount = 0
+
+  for (const raw of entries || []) {
+    const caption =
+      typeof raw === 'object' && raw
+        ? String(raw.caption || '').trim().slice(0, 500)
+        : ''
+    const url =
+      typeof raw === 'string'
+        ? raw.trim()
+        : String((raw && (raw.url || raw.rawUrl || raw.src)) || '').trim()
+    if (!url) continue
+
+    if (!isLocalTempImagePath(url)) {
+      result.push({ url: normalizeStoredImageUrl(url), caption })
+      continue
+    }
+
+    const reachable = await canAccessLocalFile(url)
+    if (!reachable) {
+      droppedStaleCount += 1
+      continue
+    }
+
+    result.push({ url: await uploadImage(url), caption })
   }
 
   return { images: result, droppedStaleCount }
@@ -305,9 +344,12 @@ async function persistAlbumNodeImages(nodes) {
       const persisted = await persistComparePairRows(comparePairRows)
       droppedStaleCount += persisted.droppedStaleCount
       comparePairRows = persisted.rows
-      images = comparePairRows.map((row) => row.after).filter(Boolean)
+      images = comparePairRows
+        .map((row) => row.after)
+        .filter(Boolean)
+        .map((url) => ({ url, caption: '' }))
     } else {
-      const persistedImages = await persistLocalImages(images)
+      const persistedImages = await persistLocalImageEntries(images)
       droppedStaleCount += persistedImages.droppedStaleCount
       images = persistedImages.images
     }
@@ -324,6 +366,7 @@ module.exports = {
   normalizeStoredImageUrl,
   uploadImage,
   persistLocalImages,
+  persistLocalImageEntries,
   persistComparePairRows,
   persistAlbumNodeImages,
 }
