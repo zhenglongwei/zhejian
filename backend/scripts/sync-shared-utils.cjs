@@ -14,6 +14,8 @@ const FILES = [
   'constants/legal-meta.js',
   'constants/compliance-copy.js',
   'constants/album-evidence-guide.js',
+  /** ALB-UX：service-album-stages 依赖四阶段模板常量 */
+  'constants/service-album-node-templates.js',
   'constants/service-album-stages.js',
   'utils/album-inspection-advice.js',
   'utils/album-inspection-context.js',
