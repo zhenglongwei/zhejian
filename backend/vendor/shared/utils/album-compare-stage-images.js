@@ -1,6 +1,7 @@
 /**
- * 完工节点 · 逐行前后对比
- * comparePairRows: [{ before, after }] — before 可空；after 写入 node.images 供车主浏览
+ * 完工/施工节点 · 逐行前后对比
+ * comparePairRows: [{ before, after, beforeCaption, afterCaption }]
+ * before 可空；after 写入 node.images 供车主浏览
  */
 
 const STAGE_ASSESSMENT_ID = 'stage_2'
@@ -30,6 +31,8 @@ function normalizeComparePairRows(rows = []) {
     .map((row) => ({
       before: String((row && row.before) || '').trim(),
       after: String((row && row.after) || '').trim(),
+      beforeCaption: String((row && row.beforeCaption) || '').trim().slice(0, 200),
+      afterCaption: String((row && row.afterCaption) || '').trim().slice(0, 200),
     }))
     .filter((row) => row.before || row.after)
 }
@@ -37,11 +40,13 @@ function normalizeComparePairRows(rows = []) {
 /** 编辑态保留空行（否则「添加一组」会被 normalize 滤掉） */
 function padComparePairRowsForEdit(rows = []) {
   if (!Array.isArray(rows) || !rows.length) {
-    return [{ before: '', after: '' }]
+    return [{ before: '', after: '', beforeCaption: '', afterCaption: '' }]
   }
   return rows.slice(0, MAX_COMPARE_PAIR_ROWS).map((row) => ({
     before: String((row && row.before) || '').trim(),
     after: String((row && row.after) || '').trim(),
+    beforeCaption: String((row && row.beforeCaption) || '').trim().slice(0, 200),
+    afterCaption: String((row && row.afterCaption) || '').trim().slice(0, 200),
   }))
 }
 
@@ -63,7 +68,7 @@ function rowsFromBeforeAfterLists(beforeImages = [], afterImages = []) {
     const before = String(beforeImages[i] || '').trim()
     const after = String(afterImages[i] || '').trim()
     if (!before && !after) continue
-    rows.push({ before, after })
+    rows.push({ before, after, beforeCaption: '', afterCaption: '' })
   }
   return normalizeComparePairRows(rows)
 }
@@ -115,7 +120,12 @@ function migrateLegacyCompareRows(nodes = []) {
     )
   }
 
-  return storedImages.map((after) => ({ before: '', after }))
+  return storedImages.map((after) => ({
+    before: '',
+    after,
+    beforeCaption: '',
+    afterCaption: '',
+  }))
 }
 
 function resolveComparePairRowsFromNodes(nodes = []) {
@@ -164,10 +174,17 @@ function syncBeforeFromAssessmentRows(rows = [], assessmentImages = []) {
   const maxLen = Math.max(current.length, assessment.length, 1)
   const next = []
   for (let i = 0; i < Math.min(maxLen, MAX_COMPARE_PAIR_ROWS); i += 1) {
-    const existing = current[i] || { before: '', after: '' }
+    const existing = current[i] || {
+      before: '',
+      after: '',
+      beforeCaption: '',
+      afterCaption: '',
+    }
     next.push({
       before: assessment[i] || existing.before || '',
       after: existing.after || '',
+      beforeCaption: existing.beforeCaption || '',
+      afterCaption: existing.afterCaption || '',
     })
   }
   return normalizeComparePairRows(next)

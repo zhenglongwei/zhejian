@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "识别车辆信息",
+  "usingComponents": {
+    "ui-button": "/components/button/index"
+  }
+}

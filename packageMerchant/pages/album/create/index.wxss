@@ -69,3 +69,38 @@
 .album-create__chip:active {
   opacity: 0.72;
 }
+
+.album-create__scan-row {
+  align-items: stretch;
+}
+
+.album-create__scan-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.album-create__scan-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-md);
+  min-width: 128rpx;
+  border-radius: var(--radius-md);
+  border: 1rpx solid var(--color-album-active);
+  background: var(--color-album-active-light);
+  color: var(--color-album-active);
+  font-size: var(--font-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.album-create__scan-btn:active {
+  opacity: 0.8;
+}
+
+.album-create__vehicle-preview {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}

@@ -9,6 +9,8 @@
   </view>
 
   <text wx:if="{{description}}" class="album-compare-pair-editor__desc text-caption">{{description}}</text>
+  <text wx:if="{{photoTips}}" class="album-compare-pair-editor__desc text-caption">{{photoTips}}</text>
+  <text wx:if="{{compareHint}}" class="album-compare-pair-editor__desc text-caption">{{compareHint}}</text>
 
   <view class="album-compare-pair-editor__cols">
     <text class="album-compare-pair-editor__col-label text-caption">{{afterColumnLabel}}</text>
@@ -34,10 +36,13 @@
     <view class="album-compare-pair-editor__pair {{item.linked ? 'is-linked' : ''}}">
       <view class="album-compare-pair-editor__cell">
         <ui-image-uploader
-          images="{{item.after ? [item.after] : []}}"
+          images="{{item.afterImages}}"
           maxCount="{{1}}"
           columns="{{1}}"
           variant="album"
+          enableCaption="{{true}}"
+          captionProminent="{{true}}"
+          captionPlaceholder="完工后说明（选填）"
           disabled="{{disabled}}"
           data-index="{{item.index}}"
           data-field="after"
@@ -58,10 +63,13 @@
 
       <view class="album-compare-pair-editor__cell">
         <ui-image-uploader
-          images="{{item.before ? [item.before] : []}}"
+          images="{{item.beforeImages}}"
           maxCount="{{1}}"
           columns="{{1}}"
           variant="album"
+          enableCaption="{{true}}"
+          captionProminent="{{true}}"
+          captionPlaceholder="维修前说明（选填）"
           disabled="{{disabled}}"
           data-index="{{item.index}}"
           data-field="before"
@@ -83,12 +91,5 @@
     </view>
   </view>
 
-  <textarea
-    class="album-compare-pair-editor__note input"
-    placeholder="{{notePlaceholder}}"
-    value="{{note}}"
-    disabled="{{disabled}}"
-    bindinput="onNoteInput"
-  />
   <text wx:if="{{uploadHint}}" class="album-compare-pair-editor__upload-hint text-caption">{{uploadHint}}</text>
 </view>

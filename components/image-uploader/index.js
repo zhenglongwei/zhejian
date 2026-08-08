@@ -53,6 +53,11 @@ Component({
       type: String,
       value: '本图说明（选填）',
     },
+    /** 商家编辑：放大说明框，突出关键录入 */
+    captionProminent: {
+      type: Boolean,
+      value: false,
+    },
   },
   data: {
     uploading: false,

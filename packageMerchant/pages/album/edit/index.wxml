@@ -81,11 +81,40 @@
           </view>
 
           <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">年款</text>
+            <view class="merchant-album-edit__meta-fields">
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="年款（选填）"
+                value="{{vehicleModelYear}}"
+                disabled="{{readOnly || saving || completing || switching}}"
+                data-field="vehicleModelYear"
+                bindinput="onVehicleInput"
+              />
+            </view>
+          </view>
+
+          <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">车牌</text>
+            <view class="merchant-album-edit__meta-fields">
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="车牌号"
+                value="{{vehiclePlate}}"
+                maxlength="12"
+                disabled="{{readOnly || saving || completing || switching}}"
+                data-field="vehiclePlate"
+                bindinput="onVehicleInput"
+              />
+            </view>
+          </view>
+
+          <view class="merchant-album-edit__meta-row">
             <text class="merchant-album-edit__meta-label text-caption">车架号</text>
             <view class="merchant-album-edit__meta-fields merchant-album-edit__meta-fields--vin">
               <input
                 class="merchant-album-edit__meta-input merchant-album-edit__meta-input--vin"
-                placeholder="17 位 VIN（建议填写）"
+                placeholder="17 位 VIN"
                 value="{{vehicleVin}}"
                 maxlength="17"
                 disabled="{{readOnly || saving || completing || switching || vinDecoding}}"
@@ -101,28 +130,33 @@
           </view>
 
           <view class="merchant-album-edit__meta-row">
-            <text class="merchant-album-edit__meta-label text-caption">里程</text>
+            <text class="merchant-album-edit__meta-label text-caption">发动机</text>
             <view class="merchant-album-edit__meta-fields">
               <input
                 class="merchant-album-edit__meta-input"
-                type="digit"
-                placeholder="仪表里程（公里）"
-                value="{{vehicleMileage}}"
+                placeholder="发动机型号（选填）"
+                value="{{vehicleEngineModel}}"
                 disabled="{{readOnly || saving || completing || switching}}"
-                data-field="vehicleMileage"
-                bindinput="onVehicleInput"
-              />
-              <input
-                class="merchant-album-edit__meta-input"
-                placeholder="年款（选填）"
-                value="{{vehicleModelYear}}"
-                disabled="{{readOnly || saving || completing || switching}}"
-                data-field="vehicleModelYear"
+                data-field="vehicleEngineModel"
                 bindinput="onVehicleInput"
               />
             </view>
           </view>
-          <text class="text-caption text-secondary merchant-album-edit__vin-tip">接车请拍摄车架号与仪表里程；解析失败可手工改品牌/车系。</text>
+
+          <view class="merchant-album-edit__meta-row">
+            <text class="merchant-album-edit__meta-label text-caption">底盘</text>
+            <view class="merchant-album-edit__meta-fields">
+              <input
+                class="merchant-album-edit__meta-input"
+                placeholder="底盘型号（选填）"
+                value="{{vehicleChassisCode}}"
+                disabled="{{readOnly || saving || completing || switching}}"
+                data-field="vehicleChassisCode"
+                bindinput="onVehicleInput"
+              />
+            </view>
+          </view>
+          <text class="text-caption text-secondary merchant-album-edit__vin-tip">里程请在接车节点拍摄仪表并写在本图说明；解析失败可手工改品牌/车系。</text>
 
           <view class="merchant-album-edit__meta-row">
             <text class="merchant-album-edit__meta-label text-caption">车主</text>
@@ -138,17 +172,17 @@
                   bindtap="onInviteOwnerScan"
                 >请车主扫码关联</text>
                 <text wx:else class="text-caption text-secondary">未关联车主</text>
-                <block wx:if="{{allowTestOwnerPhone && !readOnly}}">
+                <block wx:if="{{!readOnly}}">
                   <input
                     class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
                     type="number"
                     maxlength="11"
-                    placeholder="测试手填手机号"
+                    placeholder="或直接填写车主手机号"
                     value="{{ownerPhoneInput}}"
                     disabled="{{readOnly || saving || completing || switching}}"
                     bindinput="onOwnerPhoneInput"
                   />
-                  <text class="text-caption merchant-album-edit__owner-test-tip">填写后点击底部「保存」即可关联</text>
+                  <text class="text-caption merchant-album-edit__owner-test-tip">填写后点「保存」即视为已关联，可直接拍过程图</text>
                 </block>
               </block>
               <text wx:else class="text-caption text-secondary">未关联</text>
@@ -264,13 +298,10 @@
             compareHint="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
-            note="{{nodes[stageIndex].note}}"
-            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             pairRows="{{comparePairRows}}"
             disabled="{{readOnly || saving || completing || switching}}"
             bind:rowschange="onCompareRowsChange"
-            bind:notechange="onCompareNoteChange"
             bind:syncfromassessment="onSyncCompareFromAssessment"
           />
         </block>
@@ -546,13 +577,11 @@
             compareGuidance="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
-            note="{{nodes[stageIndex].note}}"
-            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
+            captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
-            bind:notechange="onNodeNoteChange"
           />
           <ui-album-node
             wx:elif="{{!showStageEvidenceSlots}}"
@@ -563,13 +592,11 @@
             compareGuidance="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
-            note="{{nodes[stageIndex].note}}"
-            notePlaceholder="{{nodes[stageIndex].notePlaceholder}}"
+            captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
-            bind:notechange="onNodeNoteChange"
           />
           <view wx:if="{{isPlanStage}}" class="merchant-album-edit__extra-sop">
             <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage3Hint}}</text>

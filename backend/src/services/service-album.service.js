@@ -1141,6 +1141,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       serviceName: view.serviceName,
       storeName: view.storeName,
       vehicleDisplay: view.vehicleDisplay,
+      vehicle: view.vehicle || {},
       status: view.status,
       imageCount: view.imageCount,
       userPhone: view.userPhone,
@@ -1598,10 +1599,10 @@ function albumHasOwner(album) {
   )
 }
 
-function assertAlbumHasOwnerPhone(album) {
-  if (config.merchantOwnerPhoneTest) return
+function assertAlbumHasOwnerPhone(album, payload = {}) {
   if (albumHasOwner(album)) return
-  const err = new Error('请先请车主扫码关联手机号后再继续')
+  if (String(payload.userPhone || '').trim()) return
+  const err = new Error('请先填写或请车主扫码关联手机号后再继续')
   err.status = 409
   err.code = 100009
   throw err
@@ -1616,15 +1617,9 @@ function payloadTouchesMedia(payload = {}) {
   return false
 }
 
-function assertMerchantCannotSetOwnerPhone(payload = {}) {
-  if (config.merchantOwnerPhoneTest) return
-  if (payload.userPhone == null || payload.userPhone === '') return
-  const phone = String(payload.userPhone || '').trim()
-  if (phone) {
-    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
-    err.status = 400
-    throw err
-  }
+/** ALB-UX-11：允许商家手填车主手机号（手填即关联）；保留函数供调用点兼容 */
+function assertMerchantCannotSetOwnerPhone() {
+  return
 }
 
 async function resolveServiceItemIdForAlbum(payload = {}) {
@@ -1655,7 +1650,7 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
   const albumId = newId('alb_svc')
   const userPhone = String(payload.userPhone || '').trim()
   let userId = ''
-  if (config.merchantOwnerPhoneTest && userPhone) {
+  if (userPhone) {
     const user = await prisma.user.findFirst({ where: { phone: userPhone } })
     userId = user ? user.id : ''
   }
@@ -1718,7 +1713,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   assertAlbumContentEditable(existing)
   assertMerchantCannotSetOwnerPhone(payload)
   if (payloadTouchesMedia(payload)) {
-    assertAlbumHasOwnerPhone(existing)
+    assertAlbumHasOwnerPhone(existing, payload)
   }
 
   let imageCount = existing.imageCount
@@ -1767,9 +1762,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
     payload.planParts != null
       ? sanitizePlanPartsDraft(payload.planParts)
       : undefined
-  const ownerUpdate = config.merchantOwnerPhoneTest
-    ? await resolveOwnerPhoneUpdate(existing, payload)
-    : {}
+  const ownerUpdate = await resolveOwnerPhoneUpdate(existing, payload)
   const partVerifyGuide = sanitizePartVerifyGuidePayload(payload, existing)
   const album = await prisma.album.update({
     where: { id: albumId },

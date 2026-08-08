@@ -89,7 +89,6 @@ const {
   MERCHANT_WARRANTY_NOTE_LABEL,
   MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
 } = require('../../../../constants/album-evidence-guide')
-const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 const {
   resolveComparePairRowsFromNodes,
   applyComparePairRowsToNodes,
@@ -227,8 +226,9 @@ Page({
     vehicleSeries: '',
     vehiclePlate: '',
     vehicleVin: '',
-    vehicleMileage: '',
     vehicleModelYear: '',
+    vehicleEngineModel: '',
+    vehicleChassisCode: '',
     vinDecoding: false,
     isCompleted: false,
     readOnly: false,
@@ -245,7 +245,7 @@ Page({
     bottomPrimaryText: '',
     showBottomBar: true,
     ownerPhoneInput: '',
-    allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
+    allowTestOwnerPhone: true,
     uploadPrivacyHint: '',
     planStageUploadHint: '上传报价单，并填写方案说明',
     commonShootAvoidTags: ['少拍清晰车牌', '避免人脸入镜', '避免车钥匙入镜', '避免私人物品特写'],
@@ -531,7 +531,11 @@ Page({
         requiredLevelLabel: mergedMeta.requiredLevelLabel || '',
         requiredLevelVariant: mergedMeta.requiredLevelVariant || 'default',
         comparePairRows: Array.isArray(node.comparePairRows) ? node.comparePairRows : [],
-        notePlaceholder: meta.notePlaceholder || stage.notePlaceholder || '本阶段摘要（可选）',
+        notePlaceholder: '',
+        captionPlaceholder:
+          meta.captionPlaceholder ||
+          stage.captionPlaceholder ||
+          '本图说明（选填）',
         publicUploadHint: mergedMeta.publicUploadHint || '',
         images: normalizeImageEntries(node.images).map((entry) => ({
           url: normalizeStoredImageUrl(entry.url),
@@ -604,20 +608,19 @@ Page({
     })
   },
 
-  redirectToInviteIfNoOwner(detail) {
-    if (resolveAlbumHasOwner(detail || {})) return
-    wx.redirectTo({
-      url: `${MERCHANT_ALBUM_INVITE_PAGE}?albumId=${encodeURIComponent(this.albumId)}`,
-    })
+  redirectToInviteIfNoOwner() {
+    /* ALB-UX-11：允许在编辑页手填手机号，不再强制跳转扫码页 */
   },
 
   requireOwnerLinked(actionLabel) {
-    if (this.data.hasOwner || this.data.allowTestOwnerPhone) return true
+    if (this.data.hasOwner) return true
+    const phone = normalizeOwnerPhone(this.data.ownerPhoneInput)
+    if (phone.length === 11) return true
     wx.showModal({
-      title: '请先请车主扫码',
-      content: `${actionLabel || '上传过程图'}前，须车主扫码并确认隐私说明。`,
+      title: '请先关联车主',
+      content: `${actionLabel || '上传过程图'}前，请填写车主手机号，或请车主扫码/打开分享链接关联。`,
       confirmText: '去扫码页',
-      cancelText: '取消',
+      cancelText: '知道了',
       success: (res) => {
         if (res.confirm) this.onInviteOwnerScan()
       },
@@ -658,34 +661,27 @@ Page({
           .join('；')
         const stageHint = prefer || String(n.description || '').trim()
         const noteHint = stageCoach.note_hints && stageCoach.note_hints[0]
-        let notePlaceholder = n.notePlaceholder
+        let captionPlaceholder = n.captionPlaceholder || '本图说明（选填）'
         if (noteHint) {
-          const exampleRaw = String(noteHint.example || '').trim()
-          const example = /^示例[:：]/.test(exampleRaw)
-            ? exampleRaw
-            : exampleRaw
-              ? `示例：${exampleRaw}`
-              : ''
-          const bullets = (noteHint.bullets || []).filter(Boolean).slice(0, 3)
-          notePlaceholder = example
-            ? bullets.length
-              ? `${example}（${bullets.join(' / ')}）`
-              : example
-            : n.notePlaceholder
+          const exampleRaw = String(noteHint.example || '').trim().replace(/^示例[:：]\s*/, '')
+          if (exampleRaw) {
+            captionPlaceholder = `本图说明（如：${exampleRaw.slice(0, 36)}）`
+          }
         }
         return {
           ...n,
           publicUploadHint: stageHint,
-          photoTips: '',
+          photoTips: n.photoTips || '',
           compareGuidance: '',
-          notePlaceholder,
+          notePlaceholder: '',
+          captionPlaceholder,
         }
       })
     } else {
       mergedNodes = mergedNodes.map((n) => ({
         ...n,
         publicUploadHint: String(n.description || '').trim(),
-        photoTips: '',
+        photoTips: n.photoTips || '',
         compareGuidance: '',
       }))
     }
@@ -785,11 +781,9 @@ Page({
       vehicleSeries: (detail.vehicle && detail.vehicle.series) || '',
       vehiclePlate: (detail.vehicle && (detail.vehicle.plate || detail.vehicle.plateDisplay)) || '',
       vehicleVin: (detail.vehicle && detail.vehicle.vin) || '',
-      vehicleMileage:
-        detail.vehicle && detail.vehicle.mileage != null && detail.vehicle.mileage !== ''
-          ? String(detail.vehicle.mileage)
-          : '',
       vehicleModelYear: (detail.vehicle && detail.vehicle.modelYear) || '',
+      vehicleEngineModel: (detail.vehicle && detail.vehicle.engineModel) || '',
+      vehicleChassisCode: (detail.vehicle && detail.vehicle.chassisCode) || '',
       isCompleted,
       readOnly,
       formDisabled: readOnly,
@@ -1122,7 +1116,7 @@ Page({
       brand: (this.data.vehicleBrand || '').trim(),
       series: (this.data.vehicleSeries || '').trim(),
     }
-    const plate = String(existing.plate || existing.plateDisplay || this.data.vehiclePlate || '')
+    const plate = String(this.data.vehiclePlate || existing.plate || '')
       .trim()
       .replace(/[\s·.]/g, '')
       .toUpperCase()
@@ -1134,14 +1128,14 @@ Page({
     if (vin) payload.vin = vin
     const modelYear = String(this.data.vehicleModelYear || existing.modelYear || '').trim()
     if (modelYear) payload.modelYear = modelYear
-    const mileageRaw = String(this.data.vehicleMileage || '').trim()
-    if (mileageRaw !== '') {
-      const mileage = Number(mileageRaw.replace(/[^\d.]/g, ''))
-      if (Number.isFinite(mileage) && mileage >= 0) payload.mileage = Math.round(mileage)
-    } else if (existing.mileage != null && existing.mileage !== '') {
+    const engineModel = String(this.data.vehicleEngineModel || existing.engineModel || '').trim()
+    if (engineModel) payload.engineModel = engineModel
+    const chassisCode = String(this.data.vehicleChassisCode || existing.chassisCode || '').trim()
+    if (chassisCode) payload.chassisCode = chassisCode
+    if (existing.mileage != null && existing.mileage !== '') {
       payload.mileage = existing.mileage
     }
-    ;['chassisCode', 'engineModel', 'displacement', 'gearbox', 'vinDecodedAt'].forEach((key) => {
+    ;['displacement', 'gearbox', 'vinDecodedAt'].forEach((key) => {
       if (existing[key]) payload[key] = existing[key]
     })
     return payload
@@ -1166,6 +1160,8 @@ Page({
       if (vehicle.brand) patch.vehicleBrand = vehicle.brand
       if (vehicle.series) patch.vehicleSeries = vehicle.series
       if (vehicle.modelYear) patch.vehicleModelYear = vehicle.modelYear
+      if (vehicle.engineModel) patch.vehicleEngineModel = vehicle.engineModel
+      if (vehicle.chassisCode) patch.vehicleChassisCode = vehicle.chassisCode
       if (vehicle.vin) patch.vehicleVin = vehicle.vin
       const detail = { ...(this.data.detail || {}) }
       detail.vehicle = {
@@ -2005,7 +2001,7 @@ Page({
       planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })
-    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
+    if (!this.data.hasOwner) {
       const ownerCheck = this.validateOwnerPhoneInput()
       if (ownerCheck.phone) {
         normalized.userPhone = ownerCheck.phone
@@ -2145,14 +2141,9 @@ Page({
     if (!this.validateVehicle()) return
     if (!this.requireOwnerLinked('标记完工')) return
     if (!this.data.hasOwner) {
-      if (this.data.allowTestOwnerPhone) {
-        const ownerCheck = this.validateOwnerPhoneInput()
-        if (!ownerCheck.ok || !ownerCheck.phone) {
-          wx.showToast({ title: ownerCheck.message || '请先填写车主手机号', icon: 'none' })
-          return
-        }
-      } else {
-        wx.showToast({ title: '请先请车主扫码关联手机号', icon: 'none' })
+      const ownerCheck = this.validateOwnerPhoneInput()
+      if (!ownerCheck.ok || !ownerCheck.phone) {
+        wx.showToast({ title: ownerCheck.message || '请先填写或扫码关联车主手机号', icon: 'none' })
         return
       }
     }

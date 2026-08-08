@@ -63,7 +63,19 @@ function buildAlbumListStageProgress(item = {}) {
 
 function buildAlbumMetaLine(item = {}) {
   const parts = []
-  if (item.vehicleDisplay) parts.push(item.vehicleDisplay)
+  const serviceRaw = item.serviceNameRaw || ''
+  const listTitle = item.listTitle || ''
+  if (serviceRaw && listTitle && serviceRaw !== listTitle) {
+    parts.push(serviceRaw)
+  }
+  if (item.vehicleDisplay) {
+    const plate = String((item.vehicle && item.vehicle.plate) || '').trim()
+    if (!plate || item.vehicleDisplay.indexOf(plate) === -1) {
+      parts.push(item.vehicleDisplay)
+    } else if (!serviceRaw) {
+      parts.push(item.vehicleDisplay)
+    }
+  }
   const count = Number(item.imageCount) || 0
   if (count > 0) parts.push(`${count} 张`)
   return parts.join(' · ')
@@ -373,11 +385,30 @@ function enrichServiceAlbumListItem(item, options = {}) {
   })
 }
 
+function resolveMerchantAlbumListTitle(item = {}) {
+  const vehicle = item.vehicle || {}
+  const plate = String(vehicle.plate || '').trim()
+  if (plate) return plate
+  const plateDisplay = String(vehicle.plateDisplay || '').trim()
+  if (plateDisplay) return plateDisplay
+  const vehicleDisplay = String(item.vehicleDisplay || '').trim()
+  if (vehicleDisplay && vehicleDisplay !== '—') return vehicleDisplay
+  return item.serviceName || '服务相册'
+}
+
 function enrichMerchantAlbumListItem(item) {
   const base = enrichServiceAlbumListItem(item, { audience: 'merchant' })
   const { resolveAlbumHasOwner } = require('./merchant-album-nav')
-  return {
+  const listTitle = resolveMerchantAlbumListTitle(base)
+  const withTitle = {
     ...base,
+    listTitle,
+    serviceNameRaw: item.serviceName || base.serviceName || '',
+    serviceName: listTitle,
+  }
+  return {
+    ...withTitle,
+    metaLine: buildAlbumMetaLine(withTitle),
     hasOwner: resolveAlbumHasOwner(base),
     canShareToOwner: canShareToOwner(item),
   }

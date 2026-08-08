@@ -27,13 +27,6 @@
       >
         <text class="album-node__compare-guide-text text-caption">{{compareGuidance}}</text>
       </view>
-      <textarea
-        wx:if="{{!compact}}"
-        class="album-node__note-input input"
-        placeholder="{{notePlaceholder}}"
-        value="{{note}}"
-        bindinput="onNoteInput"
-      />
       <text
         wx:if="{{uploadHint}}"
         class="album-node__upload-hint text-caption"
@@ -43,7 +36,8 @@
         maxCount="{{maxCount}}"
         variant="album"
         enableCaption="{{enableCaption}}"
-        captionPlaceholder="本图说明（选填）"
+        captionPlaceholder="{{captionPlaceholder}}"
+        captionProminent="{{true}}"
         bind:change="onImagesChange"
       />
     </block>

@@ -135,3 +135,19 @@
   background: var(--color-bg-muted);
   border-radius: var(--radius-sm);
 }
+
+.image-uploader--caption-prominent .image-uploader__caption {
+  min-height: 72rpx;
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-2xs);
+  font-size: var(--font-body);
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  background: var(--color-bg-card);
+  border: 2rpx solid var(--color-album-active);
+  border-radius: var(--radius-md);
+}
+
+.image-uploader--caption-prominent.image-uploader--cols-1 .image-uploader__caption {
+  min-height: 88rpx;
+}

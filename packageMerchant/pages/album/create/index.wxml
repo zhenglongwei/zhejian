@@ -40,41 +40,48 @@
     </view>
 
     <view class="merchant-form__section">
-      <text class="merchant-form__label">车型（必填，公开时将脱敏）</text>
-      <view class="merchant-form__row">
+      <text class="merchant-form__label">车牌号（必填，用作商家侧相册标题）</text>
+      <view class="merchant-form__row album-create__scan-row">
         <input
-          class="merchant-form__input merchant-form__input--half"
-          placeholder="品牌 *"
-          value="{{form.vehicleBrand}}"
-          data-field="vehicleBrand"
+          class="merchant-form__input album-create__scan-input"
+          placeholder="如：浙A12345"
+          value="{{form.plate}}"
+          maxlength="12"
+          data-field="plate"
           bindinput="onInput"
         />
-        <input
-          class="merchant-form__input merchant-form__input--half"
-          placeholder="车系 *"
-          value="{{form.vehicleSeries}}"
-          data-field="vehicleSeries"
-          bindinput="onInput"
-        />
+        <view class="album-create__scan-btn" bindtap="onScanPlate">扫描</view>
       </view>
     </view>
 
-    <view wx:if="{{allowTestOwnerPhone}}" class="merchant-form__section">
-      <text class="merchant-form__label">车主手机号（测试选填）</text>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">车架号 VIN（建议填写，可解析车型）</text>
+      <view class="merchant-form__row album-create__scan-row">
+        <input
+          class="merchant-form__input album-create__scan-input"
+          placeholder="17 位车架号"
+          value="{{form.vin}}"
+          maxlength="17"
+          data-field="vin"
+          bindinput="onInput"
+        />
+        <view class="album-create__scan-btn" bindtap="onScanVin">扫描</view>
+      </view>
+      <text wx:if="{{vehiclePreview}}" class="text-caption album-create__vehicle-preview">{{vehiclePreview}}</text>
+    </view>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">车主手机号</text>
+      <text class="text-caption album-create__scan-hint">默认请车主扫码或分享链接关联；也可直接填写，填写后视为已关联，可立即拍摄过程图。</text>
       <input
         class="merchant-form__input"
         type="number"
         maxlength="11"
-        placeholder="填写后车主登录即可匹配相册"
+        placeholder="选填；不填则创建后进入扫码页"
         value="{{form.userPhone}}"
         data-field="userPhone"
         bindinput="onInput"
       />
-      <text class="text-caption album-create__test-tip">仅测试环境显示；正式环境须车主扫码关联，商家不可代填。</text>
-    </view>
-
-    <view wx:else class="merchant-form__section">
-      <text class="text-caption album-create__scan-hint">创建后将立即展示车主扫码页，须车主扫码并确认隐私说明后方可上传过程图。手机号由车主本人授权，商家不可代填。</text>
     </view>
   </block>
 
@@ -86,6 +93,6 @@
       loading="{{submitting}}"
       disabled="{{status === 'loading'}}"
       bind:btntap="onSubmit"
-    >{{allowTestOwnerPhone ? '创建相册' : '创建并请车主扫码'}}</ui-button>
+    >{{submitLabel}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

@@ -1,5 +1,5 @@
 <view
-  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !displayList.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}} {{enableCaption ? 'image-uploader--caption' : ''}}"
+  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !displayList.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}} {{enableCaption ? 'image-uploader--caption' : ''}} {{captionProminent ? 'image-uploader--caption-prominent' : ''}}"
 >
   <block wx:if="{{isCtaLayout}}">
     <button

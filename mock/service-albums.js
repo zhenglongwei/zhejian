@@ -964,6 +964,7 @@ async function mockFetchMerchantServiceAlbumList(options = {}) {
       albumId: view.albumId,
       serviceName: view.serviceName,
       vehicleDisplay: view.vehicleDisplay,
+      vehicle: view.vehicle || {},
       status: view.status,
       imageCount: view.imageCount,
       userPhoneDisplay: view.userPhoneDisplay,
@@ -988,11 +989,6 @@ async function mockFetchMerchantServiceAlbum(albumId) {
 
 async function mockCreateMerchantServiceAlbum(payload) {
   await delay(350)
-  if (!ALLOW_TEST_OWNER_PHONE && payload.userPhone && String(payload.userPhone).trim()) {
-    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
-    err.code = 400
-    throw err
-  }
   const albumId = `alb_svc_${Date.now()}`
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
@@ -1033,15 +1029,8 @@ async function mockSaveMerchantServiceAlbum(albumId, payload) {
   }
   const now = new Date().toISOString()
   const normalized = normalizePlanAmountPayload(payload)
-  if (!ALLOW_TEST_OWNER_PHONE && payload.userPhone != null && String(payload.userPhone || '').trim()) {
-    const err = new Error('车主手机号须由车主扫码关联，商家不可代填')
-    err.code = 400
-    throw err
-  }
   const userPhone =
-    ALLOW_TEST_OWNER_PHONE && payload.userPhone != null
-      ? String(payload.userPhone || '').trim()
-      : raw.userPhone
+    payload.userPhone != null ? String(payload.userPhone || '').trim() : raw.userPhone
   const evidenceItems =
     payload.evidenceItems != null
       ? sanitizeEvidenceItemsPayload(payload.evidenceItems, {
@@ -1094,8 +1083,8 @@ async function mockCompleteMerchantServiceAlbum(albumId) {
     throw err
   }
   const hasOwner = Boolean(String(raw.userPhone || '').trim())
-  if (!hasOwner && !ALLOW_TEST_OWNER_PHONE) {
-    const err = new Error('请先请车主扫码关联手机号后再继续')
+  if (!hasOwner) {
+    const err = new Error('请先填写或请车主扫码关联手机号后再继续')
     err.code = 409
     throw err
   }

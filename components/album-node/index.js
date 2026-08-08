@@ -23,7 +23,8 @@ Component({
     compareGuidance: { type: String, value: '' },
     requiredLevelLabel: { type: String, value: '' },
     requiredLevelVariant: { type: String, value: 'default' },
-    notePlaceholder: { type: String, value: '本阶段摘要（可选；细节优先写在各图备注）' },
+    notePlaceholder: { type: String, value: '' },
+    captionPlaceholder: { type: String, value: '本图说明（选填）' },
     maxCount: { type: Number, value: 9 },
     /** 上传区旁的操作提示（如隐私说明），仅 edit 模式展示 */
     uploadHint: { type: String, value: '' },

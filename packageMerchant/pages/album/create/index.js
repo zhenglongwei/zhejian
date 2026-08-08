@@ -1,17 +1,33 @@
 const { SERVICE_STATUS } = require('../../../../constants/service')
 const { MERCHANT_SERVICE_TAG_OPTIONS } = require('../../../../constants/merchant-service-tags')
 const { fetchMerchantServiceList } = require('../../../../services/service')
-const { createMerchantServiceAlbum } = require('../../../../services/merchant-service-album')
+const {
+  createMerchantServiceAlbum,
+  decodeMerchantVin,
+} = require('../../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
-const { ALLOW_TEST_OWNER_PHONE } = require('../../../../services/config')
 
 const DEFAULT_COMPLEXITY = 'L2'
 
 function normalizeOwnerPhone(value) {
   return String(value || '').replace(/\D/g, '')
+}
+
+function normalizePlateInput(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[\s·.]/g, '')
+    .toUpperCase()
+}
+
+function normalizeVinInput(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
 }
 
 function buildServiceQuickOptions(profile, publishedList) {
@@ -66,22 +82,36 @@ function resolveServiceMeta(options, serviceName) {
   }
 }
 
+function buildVehiclePreview(vehicle) {
+  if (!vehicle || typeof vehicle !== 'object') return ''
+  const parts = [
+    vehicle.brand,
+    vehicle.series,
+    vehicle.modelYear,
+    vehicle.engineModel,
+    vehicle.chassisCode,
+  ].filter(Boolean)
+  return parts.length ? `已解析：${parts.join(' · ')}` : ''
+}
+
 Page({
   data: {
     status: 'loading',
-    allowTestOwnerPhone: ALLOW_TEST_OWNER_PHONE,
     serviceQuickOptions: [],
     serviceSuggestTags: [],
     serviceSuggestVisible: false,
     form: {
       serviceName: '',
       serviceId: '',
-      vehicleBrand: '',
-      vehicleSeries: '',
+      plate: '',
+      vin: '',
       userPhone: '',
       complexityLevel: DEFAULT_COMPLEXITY,
     },
+    decodedVehicle: null,
+    vehiclePreview: '',
     submitting: false,
+    submitLabel: '创建并请车主扫码',
     storeName: '',
     storeId: '',
   },
@@ -123,6 +153,14 @@ Page({
     this.setData({
       serviceQuickOptions,
       status: 'normal',
+    })
+    this.refreshSubmitLabel()
+  },
+
+  refreshSubmitLabel() {
+    const phone = normalizeOwnerPhone(this.data.form.userPhone)
+    this.setData({
+      submitLabel: phone.length === 11 ? '创建相册' : '创建并请车主扫码',
     })
   },
 
@@ -170,7 +208,59 @@ Page({
 
   onInput(e) {
     const { field } = e.currentTarget.dataset
-    this.setData({ [`form.${field}`]: e.detail.value })
+    const value = e.detail.value
+    this.setData({ [`form.${field}`]: value }, () => {
+      if (field === 'userPhone') this.refreshSubmitLabel()
+      if (field === 'vin') {
+        const vin = normalizeVinInput(value)
+        if (vin.length === 17) {
+          this.tryDecodeVin(vin)
+        } else {
+          this.setData({ decodedVehicle: null, vehiclePreview: '' })
+        }
+      }
+    })
+  },
+
+  openVehicleScan(mode) {
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/vehicle-scan/index?mode=${mode}`,
+      events: {
+        vehicleScanResult: (data) => {
+          const patch = {}
+          if (data && data.plate) patch['form.plate'] = data.plate
+          if (data && data.vin) patch['form.vin'] = data.vin
+          if (!Object.keys(patch).length) return
+          this.setData(patch, () => {
+            if (data && data.vin) this.tryDecodeVin(normalizeVinInput(data.vin))
+          })
+        },
+      },
+    })
+  },
+
+  onScanPlate() {
+    this.openVehicleScan('plate')
+  },
+
+  onScanVin() {
+    this.openVehicleScan('vin')
+  },
+
+  async tryDecodeVin(vin) {
+    try {
+      const data = await decodeMerchantVin(vin)
+      const vehicle = (data && data.vehicle) || {}
+      this.setData({
+        decodedVehicle: vehicle,
+        vehiclePreview: buildVehiclePreview(vehicle),
+      })
+    } catch (e) {
+      this.setData({
+        decodedVehicle: { vin },
+        vehiclePreview: 'VIN 已填写；解析失败可稍后在编辑页手工补全车型',
+      })
+    }
   },
 
   async onSubmit() {
@@ -180,27 +270,42 @@ Page({
       wx.showToast({ title: '请填写服务项目', icon: 'none' })
       return
     }
-    const vehicleBrand = (this.data.form.vehicleBrand || '').trim()
-    const vehicleSeries = (this.data.form.vehicleSeries || '').trim()
-    if (!vehicleBrand) {
-      wx.showToast({ title: '请填写车辆品牌', icon: 'none' })
-      return
-    }
-    if (!vehicleSeries) {
-      wx.showToast({ title: '请填写车系', icon: 'none' })
+    const plate = normalizePlateInput(this.data.form.plate)
+    if (!plate) {
+      wx.showToast({ title: '请填写或扫描车牌号', icon: 'none' })
       return
     }
 
-    let userPhone = ''
-    if (this.data.allowTestOwnerPhone) {
-      userPhone = normalizeOwnerPhone(this.data.form.userPhone)
-      if (userPhone && userPhone.length !== 11) {
-        wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
-        return
-      }
+    const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
+    if (userPhone && userPhone.length !== 11) {
+      wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
+      return
+    }
+
+    const vin = normalizeVinInput(this.data.form.vin)
+    if (vin && vin.length !== 17) {
+      wx.showToast({ title: '车架号须为 17 位', icon: 'none' })
+      return
     }
 
     const meta = resolveServiceMeta(this.data.serviceQuickOptions, serviceName)
+    let vehicle = {
+      plate,
+      ...(this.data.decodedVehicle || {}),
+    }
+    if (vin) vehicle.vin = vin
+    if (!vehicle.brand && !vehicle.series && vin) {
+      wx.showLoading({ title: '解析车型…', mask: true })
+      try {
+        const data = await decodeMerchantVin(vin)
+        vehicle = { ...vehicle, ...((data && data.vehicle) || {}) }
+        if (vin) vehicle.vin = vin
+      } catch (e) {
+        /* allow create without brand */
+      } finally {
+        wx.hideLoading()
+      }
+    }
 
     this.setData({ submitting: true })
     try {
@@ -211,10 +316,7 @@ Page({
         serviceItemId: meta.serviceItemId,
         serviceName,
         complexityLevel: meta.complexityLevel,
-        vehicle: {
-          brand: vehicleBrand,
-          series: vehicleSeries,
-        },
+        vehicle,
       }
       if (userPhone) {
         payload.userPhone = userPhone

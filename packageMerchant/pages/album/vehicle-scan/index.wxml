@@ -1,0 +1,20 @@
+<view class="page vehicle-scan page-content">
+  <view class="vehicle-scan__hero">
+    <text class="vehicle-scan__title text-h3">{{pageTitle}}</text>
+    <text class="vehicle-scan__desc text-caption">{{pageDesc}}</text>
+  </view>
+
+  <view class="vehicle-scan__preview image-placeholder" wx:if="{{previewUrl}}">
+    <image class="vehicle-scan__preview-img" src="{{previewUrl}}" mode="aspectFit" />
+  </view>
+  <view class="vehicle-scan__preview vehicle-scan__preview--empty" wx:else>
+    <text class="text-caption text-secondary">拍照或从相册选择车辆相关照片后识别</text>
+  </view>
+
+  <text wx:if="{{resultHint}}" class="vehicle-scan__hint text-caption">{{resultHint}}</text>
+
+  <view class="vehicle-scan__actions">
+    <ui-button type="primary" block="{{true}}" loading="{{busy}}" disabled="{{busy}}" bind:btntap="onTakePhoto">拍照识别</ui-button>
+    <ui-button type="secondary" block="{{true}}" loading="{{busy}}" disabled="{{busy}}" bind:btntap="onPickAlbum">从相册选择</ui-button>
+  </view>
+</view>

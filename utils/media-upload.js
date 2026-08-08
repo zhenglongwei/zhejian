@@ -309,6 +309,8 @@ async function persistComparePairRows(rows = []) {
   for (const row of rows || []) {
     let before = String((row && row.before) || '').trim()
     let after = String((row && row.after) || '').trim()
+    const beforeCaption = String((row && row.beforeCaption) || '').trim().slice(0, 200)
+    const afterCaption = String((row && row.afterCaption) || '').trim().slice(0, 200)
 
     if (before) {
       const persisted = await persistLocalImages([before])
@@ -322,7 +324,7 @@ async function persistComparePairRows(rows = []) {
     }
 
     if (before || after) {
-      next.push({ before, after })
+      next.push({ before, after, beforeCaption, afterCaption })
     }
   }
 
@@ -345,9 +347,11 @@ async function persistAlbumNodeImages(nodes) {
       droppedStaleCount += persisted.droppedStaleCount
       comparePairRows = persisted.rows
       images = comparePairRows
-        .map((row) => row.after)
-        .filter(Boolean)
-        .map((url) => ({ url, caption: '' }))
+        .filter((row) => row && row.after)
+        .map((row) => ({
+          url: row.after,
+          caption: String(row.afterCaption || '').trim(),
+        }))
     } else {
       const persistedImages = await persistLocalImageEntries(images)
       droppedStaleCount += persistedImages.droppedStaleCount

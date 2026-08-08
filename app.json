@@ -72,6 +72,7 @@
         "pages/onboarding/index",
         "pages/plan-select/index",
         "pages/album/create/index",
+        "pages/album/vehicle-scan/index",
         "pages/album/invite/index",
         "pages/album/edit/index",
         "pages/album/optimize/index",

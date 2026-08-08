@@ -3,6 +3,12 @@ const {
   MAX_COMPARE_PAIR_ROWS,
 } = require('../../utils/album-compare-stage-images')
 
+function toUploaderImages(url, caption) {
+  const src = String(url || '').trim()
+  if (!src) return []
+  return [{ url: src, caption: String(caption || '').trim() }]
+}
+
 Component({
   options: {
     addGlobalClass: true,
@@ -22,7 +28,7 @@ Component({
     requiredLevelVariant: { type: String, value: 'default' },
     uploadHint: { type: String, value: '' },
     note: { type: String, value: '' },
-    notePlaceholder: { type: String, value: '补充说明' },
+    notePlaceholder: { type: String, value: '' },
     pairRows: {
       type: Array,
       value: [],
@@ -64,6 +70,8 @@ Component({
           index,
           label: `第 ${index + 1} 组`,
           linked: Boolean(row.before && row.after),
+          beforeImages: toUploaderImages(row.before, row.beforeCaption),
+          afterImages: toUploaderImages(row.after, row.afterCaption),
         })),
       })
     },
@@ -74,19 +82,24 @@ Component({
       })
     },
 
-    emitNote(value) {
-      this.triggerEvent('notechange', { value })
-    },
-
     onRowImageChange(e) {
       const index = Number(e.currentTarget.dataset.index)
       const field = e.currentTarget.dataset.field
       if (!Number.isFinite(index) || (field !== 'before' && field !== 'after')) return
       const images = (e.detail && e.detail.images) || []
-      const url = images[0] || ''
+      const first = images[0]
+      const url =
+        typeof first === 'string'
+          ? first
+          : String((first && (first.url || first.rawUrl || first.src)) || '').trim()
+      const caption =
+        typeof first === 'object' && first
+          ? String(first.caption || '').trim()
+          : ''
+      const captionKey = field === 'before' ? 'beforeCaption' : 'afterCaption'
       const rows = padComparePairRowsForEdit(this.properties.pairRows).map((row, i) => {
         if (i !== index) return { ...row }
-        return { ...row, [field]: url }
+        return { ...row, [field]: url, [captionKey]: caption }
       })
       this.emitRows(rows)
     },
@@ -98,7 +111,7 @@ Component({
         wx.showToast({ title: `最多 ${maxCount} 组`, icon: 'none' })
         return
       }
-      rows.push({ before: '', after: '' })
+      rows.push({ before: '', after: '', beforeCaption: '', afterCaption: '' })
       this.emitRows(rows)
     },
 
@@ -107,10 +120,6 @@ Component({
       if (!Number.isFinite(index)) return
       const rows = padComparePairRowsForEdit(this.properties.pairRows).filter((_, i) => i !== index)
       this.emitRows(rows)
-    },
-
-    onNoteInput(e) {
-      this.emitNote((e.detail && e.detail.value) || '')
     },
 
     onSyncFromAssessment() {
