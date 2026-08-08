@@ -104,6 +104,9 @@
   "permission": {
     "scope.userLocation": {
       "desc": "用于商家在地图上选择门店地址"
+    },
+    "scope.camera": {
+      "desc": "用于扫描识别车牌号与车架号"
     }
   },
   "requiredPrivateInfos": [

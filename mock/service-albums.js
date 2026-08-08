@@ -1507,18 +1507,40 @@ async function mockSwitchMerchantServiceAlbumTemplate(albumId, templateId) {
   return buildMerchantAlbumView(next)
 }
 
-async function mockRecognizeVehicleIntakeOcr(imageUrl) {
+async function mockRecognizeVehicleIntakeOcr(imageUrl, options = {}) {
   const url = String(imageUrl || '').trim()
   if (!url) {
     const err = new Error('请先上传接车照片')
     err.status = 400
     throw err
   }
+  const mode = String(options.mode || 'auto').toLowerCase()
+  if (mode === 'plate') {
+    return {
+      plate: '浙A12345',
+      plateDisplay: '浙A****5',
+      vin: '',
+      recognized: ['plate'],
+      mode: 'plate',
+      provider: 'mock',
+    }
+  }
+  if (mode === 'vin') {
+    return {
+      plate: '',
+      plateDisplay: '',
+      vin: 'LGWEF4A58NF123456',
+      recognized: ['vin'],
+      mode: 'vin',
+      provider: 'mock',
+    }
+  }
   return {
     plate: '浙A12345',
     plateDisplay: '浙A****5',
     vin: 'LGWEF4A58NF123456',
     recognized: ['plate', 'vin'],
+    mode: 'auto',
     provider: 'mock',
   }
 }

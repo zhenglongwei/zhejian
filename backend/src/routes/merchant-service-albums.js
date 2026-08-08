@@ -88,7 +88,9 @@ router.post('/service-albums', requireAuth(['merchant']), async (req, res, next)
 
 router.post('/service-albums/vehicle-ocr', requireAuth(['merchant']), async (req, res, next) => {
   try {
-    const data = await recognizeVehicleIntake(req.body?.imageUrl)
+    const data = await recognizeVehicleIntake(req.body?.imageUrl, {
+      mode: req.body?.mode || req.body?.prefer || req.query?.mode,
+    })
     return ok(res, data)
   } catch (e) {
     next(e)

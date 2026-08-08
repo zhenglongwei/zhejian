@@ -1,6 +1,6 @@
 {
+  "navigationStyle": "custom",
   "navigationBarTitleText": "识别车辆信息",
-  "usingComponents": {
-    "ui-button": "/components/button/index"
-  }
+  "disableScroll": true,
+  "usingComponents": {}
 }

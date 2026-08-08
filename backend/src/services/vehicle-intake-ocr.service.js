@@ -1,13 +1,17 @@
 /**
  * 接车照片车牌 / VIN 识别 — A-MCH-11
- * 复用脱敏引擎同款 VIAPI 车牌 + OCR-API VIN/通用兜底
+ * 车牌：VIAPI LicensePlate（ocr.cn-shanghai，ECS 可达）
+ * VIN：优先 VIAPI RecognizeVINCode（同 endpoint）；ocr-api 仅作兜底（部分 ECS NXDOMAIN）
  */
 const { RuntimeOptions } = require('@darabonba/typescript')
 const Ocr = require('@alicloud/ocr-api20210707')
+const ViapiOcr = require('@alicloud/ocr20191230')
 const { config } = require('../config')
 const {
   getOcrClient,
+  getViapiOcrClient,
   openImageReadable,
+  viapiOcrEndpoint,
 } = require('../lib/aliyun-clients')
 const {
   parseObjectKeyFromPublicUrl,
@@ -24,15 +28,22 @@ const {
 } = require('./desensitize-engine/parse-ocr')
 
 const { RecognizeCarNumberRequest, RecognizeCarVinCodeRequest, RecognizeGeneralRequest } = Ocr
+const { RecognizeVINCodeAdvanceRequest, RecognizeCharacterAdvanceRequest } = ViapiOcr
 
 const PLATE_TEXT_RE = /[\u4e00-\u9fa5][A-Z][·\s]?[A-Z0-9]{4,6}/i
-const VIN_RE = /\b[A-HJ-NPR-Z0-9]{17}\b/i
+const VIN_RE = /[A-HJ-NPR-Z0-9]{17}/i
 
 function runtimeOptions() {
   return new RuntimeOptions({
     connectTimeout: config.desensitize.apiTimeoutMs,
     readTimeout: config.desensitize.apiTimeoutMs,
   })
+}
+
+function normalizeMode(mode) {
+  const value = String(mode || 'auto').trim().toLowerCase()
+  if (value === 'plate' || value === 'vin') return value
+  return 'auto'
 }
 
 async function resolveImageSources(imageUrl) {
@@ -71,11 +82,13 @@ function normalizePlate(value) {
 }
 
 function normalizeVin(value) {
-  const vin = String(value || '')
+  const raw = String(value || '')
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '')
-  return VIN_RE.test(vin) ? vin.match(VIN_RE)[0] : ''
+    .replace(/[\s\-]/g, '')
+  if (!raw) return ''
+  const match = raw.match(VIN_RE)
+  return match ? match[0] : ''
 }
 
 function pickPlateFromText(text) {
@@ -114,11 +127,34 @@ function extractPlateFromOcrData(data) {
 }
 
 function extractVinFromOcrData(data) {
-  for (const text of collectOcrTexts(data)) {
+  const texts = collectOcrTexts(data)
+  for (const text of texts) {
     const vin = normalizeVin(text)
     if (vin) return vin
   }
-  return ''
+  return normalizeVin(texts.join(' '))
+}
+
+function extractVinFromViapiVinData(data) {
+  if (!data || typeof data !== 'object') return ''
+  return normalizeVin(data.vinCode || data.VinCode || data.vin || data.VIN || '')
+}
+
+function extractVinFromViapiCharacterData(data) {
+  if (!data || typeof data !== 'object') return ''
+  const results = data.results || data.Results || []
+  const texts = []
+  ;(results || []).forEach((item) => {
+    texts.push(String(item.text || item.Text || ''))
+  })
+  if (data.content || data.Content) {
+    texts.push(String(data.content || data.Content))
+  }
+  for (const text of texts) {
+    const vin = normalizeVin(text)
+    if (vin) return vin
+  }
+  return normalizeVin(texts.join(' '))
 }
 
 async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
@@ -136,10 +172,10 @@ async function ocrRecognize(RequestClass, method, imagePath, publicUrl) {
   if (publicUrl) attempts.push('url')
 
   let lastError = null
-  for (const mode of attempts) {
+  for (const attempt of attempts) {
     try {
       let request
-      if (mode === 'body') {
+      if (attempt === 'body') {
         request = new RequestClass()
         request.body = openImageReadable(imagePath)
       } else {
@@ -205,7 +241,59 @@ async function recognizePlate(imagePath, publicUrl) {
   return { plate: '', provider: '' }
 }
 
+async function recognizeVinViaViapi(imagePath) {
+  if (!imagePath) return { vin: '', provider: '' }
+  const client = getViapiOcrClient()
+  const runtime = runtimeOptions()
+  if (typeof client.recognizeVINCodeAdvance !== 'function' || !RecognizeVINCodeAdvanceRequest) {
+    const err = new Error('VIAPI VIN 识别不可用')
+    err.code = 'VIAPI_VIN_UNAVAILABLE'
+    throw err
+  }
+  const request = new RecognizeVINCodeAdvanceRequest()
+  request.imageURLObject = openImageReadable(imagePath)
+  const resp = await client.recognizeVINCodeAdvance(request, runtime)
+  const data = resp?.body?.data || resp?.body?.Data || {}
+  const vin = extractVinFromViapiVinData(data)
+  console.info('[vehicle-intake-ocr] viapi vin ok', {
+    endpoint: viapiOcrEndpoint(),
+    hasVin: Boolean(vin),
+  })
+  return { vin, provider: vin ? 'viapi-vin' : '' }
+}
+
+async function recognizeVinViaViapiCharacter(imagePath) {
+  if (!imagePath) return { vin: '', provider: '' }
+  const client = getViapiOcrClient()
+  const runtime = runtimeOptions()
+  if (typeof client.recognizeCharacterAdvance !== 'function' || !RecognizeCharacterAdvanceRequest) {
+    return { vin: '', provider: '' }
+  }
+  const request = new RecognizeCharacterAdvanceRequest()
+  request.imageURLObject = openImageReadable(imagePath)
+  request.minHeight = 10
+  request.outputProbability = false
+  const resp = await client.recognizeCharacterAdvance(request, runtime)
+  const data = resp?.body?.data || resp?.body?.Data || {}
+  const vin = extractVinFromViapiCharacterData(data)
+  if (vin) {
+    console.info('[vehicle-intake-ocr] viapi character vin ok', {
+      endpoint: viapiOcrEndpoint(),
+    })
+  }
+  return { vin, provider: vin ? 'viapi-character' : '' }
+}
+
 async function recognizeVin(imagePath, publicUrl) {
+  if (imagePath) {
+    try {
+      const viaViapi = await recognizeVinViaViapi(imagePath)
+      if (viaViapi.vin) return viaViapi
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] viapi vin failed', e && e.message)
+    }
+  }
+
   try {
     const data = await ocrRecognize(
       RecognizeCarVinCodeRequest,
@@ -213,10 +301,19 @@ async function recognizeVin(imagePath, publicUrl) {
       imagePath,
       publicUrl
     )
-    const vin = extractVinFromOcrData(data)
+    const vin = extractVinFromOcrData(data) || normalizeVin(typeof data === 'string' ? data : '')
     if (vin) return { vin, provider: 'ocr-api-vin' }
   } catch (e) {
     console.warn('[vehicle-intake-ocr] vin ocr failed', e && e.message)
+  }
+
+  if (imagePath) {
+    try {
+      const viaChar = await recognizeVinViaViapiCharacter(imagePath)
+      if (viaChar.vin) return viaChar
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] viapi character vin failed', e && e.message)
+    }
   }
 
   try {
@@ -235,7 +332,7 @@ async function recognizeVin(imagePath, publicUrl) {
   return { vin: '', provider: '' }
 }
 
-async function recognizeVehicleIntake(imageUrl) {
+async function recognizeVehicleIntake(imageUrl, options = {}) {
   const url = String(imageUrl || '').trim()
   if (!url) {
     const err = new Error('请先上传接车照片')
@@ -243,6 +340,7 @@ async function recognizeVehicleIntake(imageUrl) {
     throw err
   }
 
+  const mode = normalizeMode(options.mode || options.prefer)
   const { publicUrl, imagePath, cleanup } = await resolveImageSources(url)
   if (!imagePath && !publicUrl) {
     const err = new Error('图片地址无效，请重新上传')
@@ -251,10 +349,19 @@ async function recognizeVehicleIntake(imageUrl) {
   }
 
   try {
-    const [plateResult, vinResult] = await Promise.all([
-      recognizePlate(imagePath, publicUrl),
-      recognizeVin(imagePath, publicUrl),
-    ])
+    let plateResult = { plate: '', provider: '' }
+    let vinResult = { vin: '', provider: '' }
+
+    if (mode === 'plate') {
+      plateResult = await recognizePlate(imagePath, publicUrl)
+    } else if (mode === 'vin') {
+      vinResult = await recognizeVin(imagePath, publicUrl)
+    } else {
+      ;[plateResult, vinResult] = await Promise.all([
+        recognizePlate(imagePath, publicUrl),
+        recognizeVin(imagePath, publicUrl),
+      ])
+    }
 
     const plate = plateResult.plate || ''
     const vin = vinResult.vin || ''
@@ -263,7 +370,24 @@ async function recognizeVehicleIntake(imageUrl) {
     if (vin) recognized.push('vin')
 
     if (!recognized.length) {
-      const err = new Error('未识别到车牌或 VIN，请手动填写')
+      const err = new Error(
+        mode === 'vin'
+          ? '未识别到车架号，请换一张更清晰的铭牌照片或手动填写'
+          : mode === 'plate'
+            ? '未识别到车牌，请换一张更清晰的车牌照片或手动填写'
+            : '未识别到车牌或 VIN，请手动填写'
+      )
+      err.status = 422
+      throw err
+    }
+
+    if (mode === 'vin' && !vin) {
+      const err = new Error('未识别到车架号，请换一张更清晰的铭牌照片或手动填写')
+      err.status = 422
+      throw err
+    }
+    if (mode === 'plate' && !plate) {
+      const err = new Error('未识别到车牌，请换一张更清晰的车牌照片或手动填写')
       err.status = 422
       throw err
     }
@@ -274,6 +398,7 @@ async function recognizeVehicleIntake(imageUrl) {
       plateDisplay: plate ? maskPlate(plate) : '',
       vin,
       recognized,
+      mode,
       provider: [...new Set(providers)].join('+') || 'unknown',
     }
   } finally {

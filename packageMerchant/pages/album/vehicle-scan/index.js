@@ -4,11 +4,11 @@ const { recognizeVehicleIntakeOcr } = require('../../../../services/merchant-ser
 const MODE_META = {
   plate: {
     title: '识别车牌号',
-    desc: '请拍摄车辆前部车牌区域，或从相册选择清晰照片。识别结果将回填到新建页，可再手工修改。',
+    desc: '将车牌对准取景框，点击下方「识别」；也可从相册选择照片。',
   },
   vin: {
     title: '识别车架号',
-    desc: '请拍摄车架号铭牌或前挡风玻璃 VIN 区域，或从相册选择清晰照片。识别后可用于解析车型。',
+    desc: '将车辆铭牌上的「车辆识别代号」对准取景框，点击「识别」。',
   },
 }
 
@@ -17,7 +17,9 @@ Page({
     mode: 'plate',
     pageTitle: MODE_META.plate.title,
     pageDesc: MODE_META.plate.desc,
-    previewUrl: '',
+    statusBarHeight: 20,
+    cameraReady: false,
+    flash: 'off',
     resultHint: '',
     busy: false,
   },
@@ -26,19 +28,116 @@ Page({
     const mode = options.mode === 'vin' ? 'vin' : 'plate'
     const meta = MODE_META[mode]
     this.mode = mode
+    const sys = wx.getSystemInfoSync ? wx.getSystemInfoSync() : {}
     this.setData({
       mode,
       pageTitle: meta.title,
       pageDesc: meta.desc,
+      statusBarHeight: Number(sys.statusBarHeight) || 20,
     })
-    wx.setNavigationBarTitle({ title: meta.title })
+    this.ensureCameraAuth()
   },
 
-  onTakePhoto() {
-    this.pickAndRecognize(['camera'])
+  onUnload() {
+    this._cameraCtx = null
+  },
+
+  noop() {},
+
+  onClose() {
+    if (this.data.busy) return
+    wx.navigateBack({ fail: () => {} })
+  },
+
+  async ensureCameraAuth() {
+    try {
+      const setting = await new Promise((resolve, reject) => {
+        wx.getSetting({
+          success: resolve,
+          fail: reject,
+        })
+      })
+      const authed = setting && setting.authSetting && setting.authSetting['scope.camera']
+      if (authed === false) {
+        this.setData({
+          cameraReady: false,
+          resultHint: '未获得摄像头权限，可点右下角「相册」识别，或在设置中开启摄像头',
+        })
+        return
+      }
+      if (authed) {
+        this.setData({ cameraReady: true })
+        return
+      }
+      await new Promise((resolve, reject) => {
+        wx.authorize({
+          scope: 'scope.camera',
+          success: resolve,
+          fail: reject,
+        })
+      })
+      this.setData({ cameraReady: true })
+    } catch (e) {
+      this.setData({
+        cameraReady: false,
+        resultHint: '无法打开摄像头，可点右下角「相册」选择照片识别',
+      })
+    }
+  },
+
+  onCameraInit() {
+    this._cameraCtx = wx.createCameraContext('vehicleScanCamera', this)
+    this.setData({ cameraReady: true })
+  },
+
+  onCameraError(e) {
+    const msg = String((e && e.detail && e.detail.errMsg) || '')
+    console.warn('[vehicle-scan] camera error', msg)
+    this.setData({
+      cameraReady: false,
+      resultHint: '摄像头不可用，请使用右下角「相册」选择照片',
+    })
+  },
+
+  onToggleFlash() {
+    if (!this.data.cameraReady || this.data.busy) return
+    this.setData({
+      flash: this.data.flash === 'torch' ? 'off' : 'torch',
+    })
+  },
+
+  onCapture() {
+    if (this.data.busy) return
+    if (!this.data.cameraReady) {
+      wx.showToast({ title: '摄像头未就绪，请用相册', icon: 'none' })
+      return
+    }
+    const ctx = this._cameraCtx || wx.createCameraContext('vehicleScanCamera', this)
+    this._cameraCtx = ctx
+    this.setData({ busy: true, resultHint: '' })
+    ctx.takePhoto({
+      quality: 'high',
+      success: (res) => {
+        const path = res && res.tempImagePath
+        if (!path) {
+          this.setData({ busy: false, resultHint: '取景失败，请重试或改用相册' })
+          return
+        }
+        this.runRecognize(path)
+      },
+      fail: (err) => {
+        console.warn('[vehicle-scan] takePhoto failed', err && err.errMsg)
+        this.setData({
+          busy: false,
+          resultHint: '取景失败，请重试或改用右下角相册',
+        })
+        wx.showToast({ title: '取景失败', icon: 'none' })
+      },
+    })
   },
 
   onPickAlbum() {
+    if (this.data.busy) return
     this.pickAndRecognize(['album'])
   },
 
@@ -47,7 +146,7 @@ Page({
     const onFail = (err) => {
       const msg = String((err && err.errMsg) || '')
       if (/cancel/i.test(msg)) return
-      wx.showToast({ title: '无法打开相机/相册', icon: 'none' })
+      wx.showToast({ title: '无法打开相册', icon: 'none' })
     }
     const handlePaths = (paths) => {
       const temp = (paths || [])[0]
@@ -85,18 +184,20 @@ Page({
   },
 
   async runRecognize(tempPath) {
-    this.setData({ busy: true, previewUrl: tempPath, resultHint: '上传并识别中…' })
+    this.setData({ busy: true, resultHint: '' })
     try {
       const url = await uploadImage(tempPath)
       const persistent = normalizeStoredImageUrl(url)
-      this.setData({ previewUrl: persistent || tempPath })
-      const result = await recognizeVehicleIntakeOcr(persistent || url)
+      const result = await recognizeVehicleIntakeOcr(persistent || url, { mode: this.mode })
       const plate = String((result && result.plate) || '').trim()
       const vin = String((result && result.vin) || '').trim()
 
       if (this.mode === 'plate') {
         if (!plate) {
-          this.setData({ resultHint: '未识别到车牌，请换一张更清晰的照片或返回手填' })
+          this.setData({
+            busy: false,
+            resultHint: '未识别到车牌，请对准车牌后再点「识别」，或换一张清晰照片',
+          })
           wx.showToast({ title: '未识别到车牌', icon: 'none' })
           return
         }
@@ -105,18 +206,20 @@ Page({
       }
 
       if (!vin) {
-        this.setData({ resultHint: '未识别到车架号，请换一张更清晰的照片或返回手填' })
+        this.setData({
+          busy: false,
+          resultHint: '未识别到车架号，请对准铭牌「车辆识别代号」后再识别',
+        })
         wx.showToast({ title: '未识别到车架号', icon: 'none' })
         return
       }
       this.emitAndBack({ plate, vin })
     } catch (e) {
       this.setData({
+        busy: false,
         resultHint: (e && e.message) || '识别失败，请重试或返回手填',
       })
       wx.showToast({ title: (e && e.message) || '识别失败', icon: 'none' })
-    } finally {
-      this.setData({ busy: false })
     }
   },
 
@@ -131,7 +234,7 @@ Page({
     }
     wx.showToast({ title: '已识别', icon: 'success' })
     setTimeout(() => {
-      wx.navigateBack()
+      wx.navigateBack({ fail: () => {} })
     }, 320)
   },
 })

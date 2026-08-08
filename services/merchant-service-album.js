@@ -146,12 +146,16 @@ async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   return post(`/merchant/service-albums/${albumId}/switch-template`, withStore({ templateId }))
 }
 
-async function recognizeVehicleIntakeOcr(imageUrl) {
+async function recognizeVehicleIntakeOcr(imageUrl, options = {}) {
+  const mode = options.mode || options.prefer || ''
   if (ENV.mode === 'mock') {
     const { mockRecognizeVehicleIntakeOcr } = require('../mock/service-albums')
-    return mockRecognizeVehicleIntakeOcr(imageUrl)
+    return mockRecognizeVehicleIntakeOcr(imageUrl, { mode })
   }
-  return post('/merchant/service-albums/vehicle-ocr', { imageUrl })
+  return post('/merchant/service-albums/vehicle-ocr', {
+    imageUrl,
+    ...(mode ? { mode } : {}),
+  })
 }
 
 /** ALB-UX-02 · VIN 解码 */

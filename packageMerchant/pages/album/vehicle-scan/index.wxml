@@ -1,20 +1,56 @@
-<view class="page vehicle-scan page-content">
-  <view class="vehicle-scan__hero">
-    <text class="vehicle-scan__title text-h3">{{pageTitle}}</text>
-    <text class="vehicle-scan__desc text-caption">{{pageDesc}}</text>
+<view class="vehicle-scan">
+  <camera
+    wx:if="{{cameraReady}}"
+    id="vehicleScanCamera"
+    class="vehicle-scan__camera"
+    device-position="back"
+    flash="{{flash}}"
+    resolution="high"
+    frame-size="medium"
+    binderror="onCameraError"
+    bindinitdone="onCameraInit"
+  />
+  <view wx:else class="vehicle-scan__camera vehicle-scan__camera--fallback" />
+
+  <view class="vehicle-scan__mask">
+    <view class="vehicle-scan__status" style="padding-top: {{statusBarHeight}}px;">
+      <view class="vehicle-scan__close" bindtap="onClose" aria-role="button" aria-label="关闭">×</view>
+      <text class="vehicle-scan__nav-title">{{pageTitle}}</text>
+      <view class="vehicle-scan__close vehicle-scan__close--spacer" />
+    </view>
+
+    <view class="vehicle-scan__guide">
+      <view class="vehicle-scan__frame {{mode === 'vin' ? 'vehicle-scan__frame--vin' : 'vehicle-scan__frame--plate'}}">
+        <view class="vehicle-scan__corner vehicle-scan__corner--tl" />
+        <view class="vehicle-scan__corner vehicle-scan__corner--tr" />
+        <view class="vehicle-scan__corner vehicle-scan__corner--bl" />
+        <view class="vehicle-scan__corner vehicle-scan__corner--br" />
+        <view wx:if="{{!busy && cameraReady}}" class="vehicle-scan__laser" />
+        <view class="vehicle-scan__torch" bindtap="onToggleFlash">
+          <view class="vehicle-scan__torch-dot {{flash === 'torch' ? 'is-on' : ''}}" />
+          <text class="vehicle-scan__torch-text">{{flash === 'torch' ? '轻触关闭' : '轻触照亮'}}</text>
+        </view>
+      </view>
+      <text class="vehicle-scan__tip">{{pageDesc}}</text>
+      <text wx:if="{{resultHint}}" class="vehicle-scan__hint">{{resultHint}}</text>
+    </view>
+
+    <view class="vehicle-scan__footer safe-bottom">
+      <view
+        class="vehicle-scan__shutter {{busy || !cameraReady ? 'is-busy' : ''}}"
+        bindtap="onCapture"
+      >
+        <view class="vehicle-scan__shutter-ring">
+          <text class="vehicle-scan__shutter-text">{{busy ? '识别中' : '识别'}}</text>
+        </view>
+      </view>
+      <view class="vehicle-scan__album" bindtap="onPickAlbum" aria-role="button" aria-label="从相册选择">
+        <text class="vehicle-scan__album-text">相册</text>
+      </view>
+    </view>
   </view>
 
-  <view class="vehicle-scan__preview image-placeholder" wx:if="{{previewUrl}}">
-    <image class="vehicle-scan__preview-img" src="{{previewUrl}}" mode="aspectFit" />
-  </view>
-  <view class="vehicle-scan__preview vehicle-scan__preview--empty" wx:else>
-    <text class="text-caption text-secondary">拍照或从相册选择车辆相关照片后识别</text>
-  </view>
-
-  <text wx:if="{{resultHint}}" class="vehicle-scan__hint text-caption">{{resultHint}}</text>
-
-  <view class="vehicle-scan__actions">
-    <ui-button type="primary" block="{{true}}" loading="{{busy}}" disabled="{{busy}}" bind:btntap="onTakePhoto">拍照识别</ui-button>
-    <ui-button type="secondary" block="{{true}}" loading="{{busy}}" disabled="{{busy}}" bind:btntap="onPickAlbum">从相册选择</ui-button>
+  <view wx:if="{{busy}}" class="vehicle-scan__loading" catchtouchmove="noop">
+    <text class="vehicle-scan__loading-text">正在识别…</text>
   </view>
 </view>
