@@ -936,6 +936,20 @@ model MerchantSubscription {
   @@map("merchant_subscriptions")
 }
 
+/// VIN 解析结果缓存（全平台共用；车架号→车型，不缓存车牌）
+model VinDecodeCache {
+  vin         String   @id @db.VarChar(17)
+  vehicleJson Json     @map("vehicle_json")
+  source      String   @default("aliyun") @db.VarChar(32)
+  hitCount    Int      @default(0) @map("hit_count")
+  lastHitAt   DateTime? @map("last_hit_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([lastHitAt])
+  @@map("vin_decode_caches")
+}
+
 /// 商家套餐支付单（微信 JSAPI）
 model MerchantPaymentOrder {
   id                String    @id

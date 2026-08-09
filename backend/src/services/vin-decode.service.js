@@ -1,8 +1,9 @@
 /**
- * ALB-UX-02 · 阿里云市场 VIN 解析（sxvin.market.alicloudapi.com）
+ * ALB-UX-02 / ALB-UX-14 · VIN 解析：先查本地缓存，未命中再调阿里云并落库
  * @see https://market.aliyun.com/detail/cmapi00065243
  */
 const { config } = require('../config')
+const { prisma } = require('../lib/prisma')
 
 const VIN_RE = /^[A-HJ-NPR-Z0-9]{17}$/i
 
@@ -18,6 +19,60 @@ function normalizeVin(value) {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '')
+}
+
+function cacheVehicleUsable(vehicleJson) {
+  if (!vehicleJson || typeof vehicleJson !== 'object' || Array.isArray(vehicleJson)) return false
+  const brand = String(vehicleJson.brand || '').trim()
+  const series = String(vehicleJson.series || '').trim()
+  return Boolean(brand || series)
+}
+
+async function findCachedDecode(vin) {
+  if (!prisma.vinDecodeCache) return null
+  try {
+    return await prisma.vinDecodeCache.findUnique({ where: { vin } })
+  } catch (err) {
+    console.warn('[vin-decode] cache lookup failed', err && err.message)
+    return null
+  }
+}
+
+async function touchCacheHit(vin) {
+  if (!prisma.vinDecodeCache) return
+  try {
+    await prisma.vinDecodeCache.update({
+      where: { vin },
+      data: {
+        hitCount: { increment: 1 },
+        lastHitAt: new Date(),
+      },
+    })
+  } catch (err) {
+    console.warn('[vin-decode] cache hit update failed', err && err.message)
+  }
+}
+
+async function upsertDecodeCache(vin, vehicle, source = 'aliyun') {
+  if (!prisma.vinDecodeCache) return
+  try {
+    await prisma.vinDecodeCache.upsert({
+      where: { vin },
+      create: {
+        vin,
+        vehicleJson: vehicle,
+        source,
+        hitCount: 0,
+        lastHitAt: null,
+      },
+      update: {
+        vehicleJson: vehicle,
+        source,
+      },
+    })
+  } catch (err) {
+    console.warn('[vin-decode] cache upsert failed', err && err.message)
+  }
 }
 
 function pickFirst(obj, keys) {
@@ -272,6 +327,18 @@ async function decodeVin(vinInput) {
     throw httpError('请输入 17 位有效车架号（VIN）', 400, 'INVALID_VIN')
   }
 
+  const cached = await findCachedDecode(vin)
+  if (cached && cacheVehicleUsable(cached.vehicleJson)) {
+    const vehicle = { ...cached.vehicleJson }
+    if (!vehicle.vin) vehicle.vin = vin
+    await touchCacheHit(vin)
+    return {
+      vin,
+      vehicle,
+      source: 'cache',
+    }
+  }
+
   const appCode = config.aliyunVin && config.aliyunVin.appCode
   if (!appCode) {
     throw httpError(
@@ -350,9 +417,12 @@ async function decodeVin(vinInput) {
   }
   if (!mapped.vehicle.vin) mapped.vehicle.vin = vin
 
+  await upsertDecodeCache(vin, mapped.vehicle, 'aliyun')
+
   return {
     vin,
     vehicle: mapped.vehicle,
+    source: 'aliyun',
   }
 }
 
