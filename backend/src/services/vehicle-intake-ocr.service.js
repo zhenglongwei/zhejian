@@ -262,12 +262,63 @@ async function recognizeVinViaViapi(imagePath) {
   return { vin, provider: vin ? 'viapi-vin' : '' }
 }
 
+function collectViapiCharacterTexts(data) {
+  if (!data || typeof data !== 'object') return []
+  const results = data.results || data.Results || []
+  const texts = []
+  ;(results || []).forEach((item) => {
+    texts.push(String(item.text || item.Text || ''))
+  })
+  if (data.content || data.Content) {
+    texts.push(String(data.content || data.Content))
+  }
+  return texts.filter(Boolean)
+}
+
+/** 从车辆铭牌 OCR 文本提取品牌/年款/发动机等（VIN 云解析失败时的兜底） */
+function parseNameplateVehicleHints(texts = []) {
+  const joined = (texts || []).join('\n')
+  if (!joined.trim()) return {}
+  const pickLabel = (labels) => {
+    for (const label of labels) {
+      const re = new RegExp(
+        `${label}\\s*[:：]?\\s*([\\u4e00-\\u9fa5A-Za-z0-9\\-/.]+)`,
+        'i'
+      )
+      const match = joined.match(re)
+      if (match && match[1]) return String(match[1]).trim()
+    }
+    return ''
+  }
+  const brand = pickLabel(['品牌', '商标'])
+  const chassisCode = pickLabel(['整车型号', '车辆型号', '型号'])
+  const engineModel = pickLabel(['发动机型号'])
+  const displacementRaw = pickLabel(['发动机排量', '排量'])
+  const dateRaw = pickLabel(['制造年月', '出厂日期', '生产日期'])
+  const manufacturer = pickLabel(['制造厂', '生产企业', '公司'])
+  let modelYear = ''
+  if (dateRaw) {
+    const year = dateRaw.match(/(19|20)\d{2}/)
+    if (year) modelYear = year[0]
+  }
+  const vehicle = {}
+  if (brand) vehicle.brand = brand
+  // 铭牌常无独立「车系」；用品牌占位，避免后续强制手填双空
+  if (brand) vehicle.series = brand
+  if (modelYear) vehicle.modelYear = modelYear
+  if (chassisCode) vehicle.chassisCode = chassisCode
+  if (engineModel) vehicle.engineModel = engineModel
+  if (displacementRaw) vehicle.displacement = displacementRaw
+  if (manufacturer && !vehicle.brand) vehicle.brand = manufacturer
+  return vehicle
+}
+
 async function recognizeVinViaViapiCharacter(imagePath) {
-  if (!imagePath) return { vin: '', provider: '' }
+  if (!imagePath) return { vin: '', provider: '', vehicleHints: {}, texts: [] }
   const client = getViapiOcrClient()
   const runtime = runtimeOptions()
   if (typeof client.recognizeCharacterAdvance !== 'function' || !RecognizeCharacterAdvanceRequest) {
-    return { vin: '', provider: '' }
+    return { vin: '', provider: '', vehicleHints: {}, texts: [] }
   }
   const request = new RecognizeCharacterAdvanceRequest()
   request.imageURLObject = openImageReadable(imagePath)
@@ -275,61 +326,94 @@ async function recognizeVinViaViapiCharacter(imagePath) {
   request.outputProbability = false
   const resp = await client.recognizeCharacterAdvance(request, runtime)
   const data = resp?.body?.data || resp?.body?.Data || {}
-  const vin = extractVinFromViapiCharacterData(data)
-  if (vin) {
-    console.info('[vehicle-intake-ocr] viapi character vin ok', {
+  const texts = collectViapiCharacterTexts(data)
+  const vin = extractVinFromViapiCharacterData(data) || normalizeVin(texts.join(' '))
+  const vehicleHints = parseNameplateVehicleHints(texts)
+  if (vin || Object.keys(vehicleHints).length) {
+    console.info('[vehicle-intake-ocr] viapi character nameplate ok', {
       endpoint: viapiOcrEndpoint(),
+      hasVin: Boolean(vin),
+      hintKeys: Object.keys(vehicleHints),
     })
   }
-  return { vin, provider: vin ? 'viapi-character' : '' }
+  return {
+    vin,
+    provider: vin ? 'viapi-character' : '',
+    vehicleHints,
+    texts,
+  }
 }
 
-async function recognizeVin(imagePath, publicUrl) {
+async function recognizeVin(imagePath, publicUrl, options = {}) {
+  const wantHints = options.withNameplateHints !== false
+  let vehicleHints = {}
+  let vin = ''
+  let provider = ''
+
   if (imagePath) {
     try {
       const viaViapi = await recognizeVinViaViapi(imagePath)
-      if (viaViapi.vin) return viaViapi
+      if (viaViapi.vin) {
+        vin = viaViapi.vin
+        provider = viaViapi.provider
+      }
     } catch (e) {
       console.warn('[vehicle-intake-ocr] viapi vin failed', e && e.message)
     }
   }
 
-  try {
-    const data = await ocrRecognize(
-      RecognizeCarVinCodeRequest,
-      'recognizeCarVinCode',
-      imagePath,
-      publicUrl
-    )
-    const vin = extractVinFromOcrData(data) || normalizeVin(typeof data === 'string' ? data : '')
-    if (vin) return { vin, provider: 'ocr-api-vin' }
-  } catch (e) {
-    console.warn('[vehicle-intake-ocr] vin ocr failed', e && e.message)
+  if (!vin) {
+    try {
+      const data = await ocrRecognize(
+        RecognizeCarVinCodeRequest,
+        'recognizeCarVinCode',
+        imagePath,
+        publicUrl
+      )
+      const fromOcr = extractVinFromOcrData(data) || normalizeVin(typeof data === 'string' ? data : '')
+      if (fromOcr) {
+        vin = fromOcr
+        provider = 'ocr-api-vin'
+      }
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] vin ocr failed', e && e.message)
+    }
   }
 
-  if (imagePath) {
+  if (imagePath && (wantHints || !vin)) {
     try {
       const viaChar = await recognizeVinViaViapiCharacter(imagePath)
-      if (viaChar.vin) return viaChar
+      if (!vin && viaChar.vin) {
+        vin = viaChar.vin
+        provider = viaChar.provider
+      }
+      if (viaChar.vehicleHints && Object.keys(viaChar.vehicleHints).length) {
+        vehicleHints = viaChar.vehicleHints
+      }
     } catch (e) {
       console.warn('[vehicle-intake-ocr] viapi character vin failed', e && e.message)
     }
   }
 
-  try {
-    const data = await ocrRecognize(
-      RecognizeGeneralRequest,
-      'recognizeGeneral',
-      imagePath,
-      publicUrl
-    )
-    const vin = extractVinFromOcrData(data)
-    if (vin) return { vin, provider: 'ocr-api-general' }
-  } catch (e) {
-    console.warn('[vehicle-intake-ocr] general vin ocr failed', e && e.message)
+  if (!vin) {
+    try {
+      const data = await ocrRecognize(
+        RecognizeGeneralRequest,
+        'recognizeGeneral',
+        imagePath,
+        publicUrl
+      )
+      const fromGeneral = extractVinFromOcrData(data)
+      if (fromGeneral) {
+        vin = fromGeneral
+        provider = 'ocr-api-general'
+      }
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] general vin ocr failed', e && e.message)
+    }
   }
 
-  return { vin: '', provider: '' }
+  return { vin, provider, vehicleHints }
 }
 
 async function recognizeVehicleIntake(imageUrl, options = {}) {
@@ -355,16 +439,17 @@ async function recognizeVehicleIntake(imageUrl, options = {}) {
     if (mode === 'plate') {
       plateResult = await recognizePlate(imagePath, publicUrl)
     } else if (mode === 'vin') {
-      vinResult = await recognizeVin(imagePath, publicUrl)
+      vinResult = await recognizeVin(imagePath, publicUrl, { withNameplateHints: true })
     } else {
       ;[plateResult, vinResult] = await Promise.all([
         recognizePlate(imagePath, publicUrl),
-        recognizeVin(imagePath, publicUrl),
+        recognizeVin(imagePath, publicUrl, { withNameplateHints: true }),
       ])
     }
 
     const plate = plateResult.plate || ''
     const vin = vinResult.vin || ''
+    const vehicleHints = (vinResult && vinResult.vehicleHints) || {}
     const recognized = []
     if (plate) recognized.push('plate')
     if (vin) recognized.push('vin')
@@ -397,6 +482,7 @@ async function recognizeVehicleIntake(imageUrl, options = {}) {
       plate,
       plateDisplay: plate ? maskPlate(plate) : '',
       vin,
+      vehicleHints,
       recognized,
       mode,
       provider: [...new Set(providers)].join('+') || 'unknown',

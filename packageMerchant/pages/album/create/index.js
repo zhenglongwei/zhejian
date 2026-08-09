@@ -230,9 +230,14 @@ Page({
           const patch = {}
           if (data && data.plate) patch['form.plate'] = data.plate
           if (data && data.vin) patch['form.vin'] = data.vin
-          if (!Object.keys(patch).length) return
+          const hints = (data && data.vehicleHints) || {}
+          if (!Object.keys(patch).length && !Object.keys(hints).length) return
           this.setData(patch, () => {
-            if (data && data.vin) this.tryDecodeVin(normalizeVinInput(data.vin))
+            if (data && data.vin) {
+              this.tryDecodeVin(normalizeVinInput(data.vin), hints)
+            } else if (Object.keys(hints).length) {
+              this.applyVehicleHints(hints)
+            }
           })
         },
       },
@@ -247,17 +252,34 @@ Page({
     this.openVehicleScan('vin')
   },
 
-  async tryDecodeVin(vin) {
+  applyVehicleHints(hints = {}, vin = '') {
+    const vehicle = {
+      ...(this.data.decodedVehicle || {}),
+      ...hints,
+    }
+    if (vin) vehicle.vin = vin
+    this.setData({
+      decodedVehicle: vehicle,
+      vehiclePreview: buildVehiclePreview(vehicle) || (vin ? `已识别车架号 ${vin}` : ''),
+    })
+  },
+
+  async tryDecodeVin(vin, fallbackHints = {}) {
     try {
       const data = await decodeMerchantVin(vin)
-      const vehicle = (data && data.vehicle) || {}
+      const vehicle = { ...(fallbackHints || {}), ...((data && data.vehicle) || {}) }
+      if (vin) vehicle.vin = vin
       this.setData({
         decodedVehicle: vehicle,
         vehiclePreview: buildVehiclePreview(vehicle),
       })
     } catch (e) {
+      if (fallbackHints && (fallbackHints.brand || fallbackHints.series || fallbackHints.engineModel)) {
+        this.applyVehicleHints(fallbackHints, vin)
+        return
+      }
       this.setData({
-        decodedVehicle: { vin },
+        decodedVehicle: { vin, ...(fallbackHints || {}) },
         vehiclePreview: 'VIN 已填写；解析失败可稍后在编辑页手工补全车型',
       })
     }
@@ -294,14 +316,14 @@ Page({
       ...(this.data.decodedVehicle || {}),
     }
     if (vin) vehicle.vin = vin
-    if (!vehicle.brand && !vehicle.series && vin) {
+    if ((!vehicle.brand || !vehicle.series) && vin) {
       wx.showLoading({ title: '解析车型…', mask: true })
       try {
         const data = await decodeMerchantVin(vin)
         vehicle = { ...vehicle, ...((data && data.vehicle) || {}) }
         if (vin) vehicle.vin = vin
       } catch (e) {
-        /* allow create without brand */
+        /* 保留扫描铭牌兜底字段，允许无品牌创建后在编辑页补全 */
       } finally {
         wx.hideLoading()
       }

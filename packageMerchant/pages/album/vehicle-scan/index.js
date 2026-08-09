@@ -201,7 +201,7 @@ Page({
           wx.showToast({ title: '未识别到车牌', icon: 'none' })
           return
         }
-        this.emitAndBack({ plate, vin })
+          this.emitAndBack({ plate, vin, vehicleHints: (result && result.vehicleHints) || {} })
         return
       }
 
@@ -213,7 +213,11 @@ Page({
         wx.showToast({ title: '未识别到车架号', icon: 'none' })
         return
       }
-      this.emitAndBack({ plate, vin })
+      this.emitAndBack({
+        plate,
+        vin,
+        vehicleHints: (result && result.vehicleHints) || {},
+      })
     } catch (e) {
       this.setData({
         busy: false,
@@ -230,6 +234,7 @@ Page({
         mode: this.mode,
         plate: payload.plate || '',
         vin: payload.vin || '',
+        vehicleHints: payload.vehicleHints || {},
       })
     }
     wx.showToast({ title: '已识别', icon: 'success' })
