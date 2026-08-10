@@ -27,6 +27,12 @@ const OUTCOME_LABELS = {
   repaired_other: '需处理 / 已处理',
 }
 
+function normalizeOutcome(raw) {
+  if (raw == null || raw === '') return null
+  const value = String(raw).trim()
+  return OUTCOMES.has(value) ? value : null
+}
+
 /** 自动进入施工待处理的结果（仅检查/自定义等非正常均进） */
 const AUTO_WORK_OUTCOMES = new Set([
   'recommend_replace',
