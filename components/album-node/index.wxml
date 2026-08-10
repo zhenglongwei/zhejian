@@ -37,7 +37,8 @@
         variant="album"
         enableCaption="{{enableCaption}}"
         captionPlaceholder="{{captionPlaceholder}}"
-        captionProminent="{{true}}"
+        captionProminent="{{!compact}}"
+        stackLayout="{{compact}}"
         stampChecklistItemKey="{{stampChecklistItemKey}}"
         bind:change="onImagesChange"
       />

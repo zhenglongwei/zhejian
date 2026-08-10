@@ -1,104 +1,179 @@
-.album-checklist-editor {
-  padding: var(--space-md);
-  background: var(--color-bg-card);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-md);
+.chk-editor {
+  margin-top: var(--space-sm);
 }
 
-.album-checklist-editor__head {
+.chk-head {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   margin-bottom: var(--space-sm);
 }
 
-.album-checklist-editor__hint {
-  display: block;
-  margin-bottom: var(--space-md);
-  line-height: 1.5;
+.chk-title {
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: var(--font-body-lh);
 }
 
-.album-checklist-editor__empty {
-  padding: var(--space-md) 0;
+.chk-hint,
+.chk-progress {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  line-height: var(--font-caption-lh);
 }
 
-.album-checklist-editor__item {
-  padding: var(--space-md);
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-sm);
-}
-
-.album-checklist-editor__item.is-filled {
-  border-left: 6rpx solid var(--color-primary);
-}
-
-.album-checklist-editor__item.is-followup {
-  border-left: 6rpx solid var(--color-warning);
-}
-
-.album-checklist-editor__item-top {
+.chk-list {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.chk-item {
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.chk-item.is-open {
+  border-color: var(--color-border-strong);
+}
+
+/* 简洁态：标题 / 状态 / 展开 同一行，压缩高度 */
+.chk-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.album-checklist-editor__strong {
-  color: var(--color-warning);
-  margin-right: var(--space-sm);
-}
-
-.album-checklist-editor__outcome {
-  display: block;
-  color: var(--color-primary);
-  margin-bottom: var(--space-xs);
-}
-
-.album-checklist-editor__note {
-  width: 100%;
-  min-height: 120rpx;
-  margin-top: var(--space-sm);
-  padding: var(--space-sm);
+  min-height: 72rpx;
+  padding: 12rpx var(--space-sm);
   box-sizing: border-box;
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-caption);
 }
 
-.album-checklist-editor__outcomes {
+.chk-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chk-row-aside {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8rpx;
+}
+
+.status-pill {
+  font-size: 20rpx;
+  line-height: 1;
+  padding: 6rpx 10rpx;
+  border-radius: var(--radius-sm);
+  border: 1rpx solid transparent;
+}
+
+.status-pill--muted {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-muted);
+  border-color: var(--color-border);
+}
+
+.status-pill--hint {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.status-pill--ok {
+  color: var(--color-success);
+  background: var(--color-success-light);
+}
+
+.status-pill--warn {
+  color: var(--color-warning);
+  background: var(--color-warning-light);
+}
+
+.result-pill {
+  font-size: 20rpx;
+  line-height: 1;
+  padding: 6rpx 8rpx;
+}
+
+.result-pill--ok {
+  color: var(--color-success);
+}
+
+.result-pill--warn {
+  color: var(--color-warning);
+}
+
+.chk-toggle {
+  font-size: var(--font-caption);
+  color: var(--color-primary);
+  padding-left: 2rpx;
+}
+
+.chk-body {
+  padding: 0 var(--space-sm) var(--space-sm);
+  border-top: 1rpx solid var(--color-border);
+}
+
+.readonly-imgs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+}
+
+.readonly-img-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.readonly-thumb {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  flex-shrink: 0;
+}
+
+.readonly-cap {
+  flex: 1;
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  line-height: var(--font-caption-lh);
+}
+
+.empty-tip {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  padding: var(--space-sm) 0;
+}
+
+.follow-actions {
+  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
   gap: var(--space-sm);
   margin-top: var(--space-sm);
 }
 
-.album-checklist-editor__chip {
-  padding: 8rpx 20rpx;
-  border-radius: var(--radius-full);
-  border: 1rpx solid var(--color-border);
-  font-size: var(--font-caption);
-  color: var(--color-text-secondary);
+.btn-mini {
+  margin: 0 !important;
 }
 
-.album-checklist-editor__chip.is-on {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.album-checklist-editor__chip--danger {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
-.album-checklist-editor__upload {
-  margin-top: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.album-checklist-editor__readonly-imgs {
-  margin-top: var(--space-xs);
+.btn-ghost {
+  background: var(--color-bg-muted) !important;
+  color: var(--color-text-secondary) !important;
 }

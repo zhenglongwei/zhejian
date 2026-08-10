@@ -1638,15 +1638,6 @@ function assertAlbumHasOwnerPhone(album, payload = {}) {
   throw err
 }
 
-function payloadTouchesMedia(payload = {}) {
-  if (payload.nodes != null) return true
-  if (payload.evidenceItems != null) {
-    const items = Array.isArray(payload.evidenceItems) ? payload.evidenceItems : []
-    return items.some((item) => (Array.isArray(item.images) ? item.images : []).length > 0)
-  }
-  return false
-}
-
 /** ALB-UX-11：允许商家手填车主手机号（手填即关联）；保留函数供调用点兼容 */
 function assertMerchantCannotSetOwnerPhone() {
   return
@@ -1746,9 +1737,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   assertMerchantAlbum(existing, storeId, merchantId)
   assertAlbumContentEditable(existing)
   assertMerchantCannotSetOwnerPhone(payload)
-  if (payloadTouchesMedia(payload)) {
-    assertAlbumHasOwnerPhone(existing, payload)
-  }
+  // 关联手机号仅完工必填；保存车辆信息/节点草稿不强制关联（ALB-UX-15）
 
   let imageCount = existing.imageCount
   let evidenceItemsJson = Array.isArray(existing.evidenceItemsJson)

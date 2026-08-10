@@ -27,39 +27,46 @@ const OUTCOME_LABELS = {
   repaired_other: '需处理 / 已处理',
 }
 
-/** 自动进入施工待处理的结果 */
+/** 自动进入施工待处理的结果（仅检查/自定义等非正常均进） */
 const AUTO_WORK_OUTCOMES = new Set([
   'recommend_replace',
   'replaced',
   'not_replaced',
   'repaired_other',
+  'observed',
 ])
-
-/** 图注含这些词 → 整项需后续处理（进待处理） */
-const WORK_CAPTION_RE = /建议更换|需处理|已更换|未更换/
 
 const REMOVED_AS = new Set(['mismatch', 'owner_declined'])
 
-function normalizeOutcome(value) {
-  const v = String(value || '').trim()
-  return OUTCOMES.has(v) ? v : null
-}
-
-/** 从多张图注推断项结果：异常优先于正常 */
-function inferOutcomeFromCaptions(captions = []) {
-  const text = (captions || []).map((c) => String(c || '')).join('\n')
-  if (!text.trim()) return null
-  if (/建议更换/.test(text)) return 'recommend_replace'
-  if (/需处理/.test(text)) return 'repaired_other'
-  if (/已更换/.test(text)) return 'replaced'
-  if (/未更换/.test(text)) return 'not_replaced'
-  if (/仅检查|已检查/.test(text)) return 'observed'
-  if (/正常/.test(text)) return 'normal'
-  return null
+/** 图注：除「正常」外（含自定义文字）→ 整项需后续处理 */
+function captionIsNormalOnly(caption = '') {
+  const t = String(caption || '').trim()
+  if (!t) return true
+  if (!/^正常(；|;|：|:)?/.test(t)) return false
+  const rest = t.replace(/^正常(；|;|：|:)?\s*/, '')
+  return !/建议更换|需处理|仅检查|已更换|未更换|已处理/.test(rest)
 }
 
 function captionsNeedWork(captions = []) {
-  return (captions || []).some((c) => WORK_CAPTION_RE.test(String(c || '')))
+  return (captions || []).some((c) => {
+    const t = String(c || '').trim()
+    if (!t) return false
+    return !captionIsNormalOnly(t)
+  })
+}
+
+/** 从多张图注推断项结果：异常优先于正常；仅检查也算需处理 */
+function inferOutcomeFromCaptions(captions = []) {
+  const list = (captions || []).map((c) => String(c || '').trim()).filter(Boolean)
+  if (!list.length) return null
+  if (list.some((t) => /建议更换/.test(t))) return 'recommend_replace'
+  if (list.some((t) => /需处理|已处理/.test(t))) return 'repaired_other'
+  if (list.some((t) => /已更换/.test(t))) return 'replaced'
+  if (list.some((t) => /未更换/.test(t))) return 'not_replaced'
+  if (list.some((t) => /仅检查/.test(t))) return 'observed'
+  if (list.some((t) => !captionIsNormalOnly(t))) return 'repaired_other'
+  if (list.every((t) => captionIsNormalOnly(t))) return 'normal'
+  return null
 }
 
 function normalizeWork(raw) {

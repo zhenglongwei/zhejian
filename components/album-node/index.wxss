@@ -17,7 +17,7 @@
 }
 
 .album-node--compact {
-  padding: var(--space-md) 0 0;
+  padding: var(--space-sm) 0 0;
   border-bottom: none;
 }
 
@@ -35,6 +35,16 @@
 
 .album-node--compact .album-node__head--edit {
   margin-bottom: var(--space-xs);
+}
+
+.album-node--compact .album-node__content--edit {
+  gap: var(--space-xs);
+}
+
+.album-node--compact .album-node__title {
+  font-size: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-body-lh);
 }
 
 .album-node__dot {

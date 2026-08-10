@@ -22,54 +22,60 @@
   <block wx:else>
     <view
       wx:for="{{displayList}}"
+      wx:for-item="imgItem"
+      wx:for-index="imgIndex"
       wx:key="url"
       class="image-uploader__cell"
     >
       <view
         class="image-uploader__item image-placeholder"
-        data-index="{{index}}"
+        data-index="{{imgIndex}}"
         bindtap="onPreview"
       >
-        <image class="image-uploader__img" src="{{item.url}}" mode="aspectFill" />
+        <image class="image-uploader__img" src="{{imgItem.url}}" mode="aspectFill" />
         <view
           wx:if="{{!disabled}}"
           class="image-uploader__remove"
-          data-index="{{index}}"
+          data-index="{{imgIndex}}"
           catchtap="onRemove"
         >×</view>
       </view>
 
-      <view wx:if="{{enableCaption && hasQuickTags && !disabled}}" class="image-uploader__tags">
-        <text
-          wx:for="{{captionQuickTags}}"
-          wx:for-item="tag"
-          wx:key="*this"
-          class="image-uploader__tag"
-          data-index="{{index}}"
-          data-label="{{tag}}"
-          catchtap="onQuickTagTap"
-        >{{tag}}</text>
-        <text
-          wx:if="{{item.showCaption || item.caption}}"
-          class="image-uploader__tag image-uploader__tag--clear"
-          data-index="{{index}}"
-          catchtap="onClearCaption"
-        >清除</text>
-      </view>
+      <view class="image-uploader__meta" wx:if="{{enableCaption}}">
+        <view wx:if="{{hasQuickTags && !disabled}}" class="image-uploader__tags">
+          <text
+            wx:for="{{captionQuickTags}}"
+            wx:for-item="tag"
+            wx:for-index="tagIndex"
+            wx:key="tagIndex"
+            class="image-uploader__tag {{imgItem.activeTag === tag ? 'is-active' : ''}}"
+            data-index="{{imgIndex}}"
+            data-label="{{tag}}"
+            catchtap="onQuickTagTap"
+          >{{tag}}</text>
+          <text
+            wx:if="{{imgItem.showCaption || imgItem.caption}}"
+            class="image-uploader__tag image-uploader__tag--clear"
+            data-index="{{imgIndex}}"
+            catchtap="onClearCaption"
+          >清除</text>
+        </view>
 
-      <textarea
-        wx:if="{{enableCaption && (item.showCaption || item.caption || !hasQuickTags)}}"
-        class="image-uploader__caption input"
-        value="{{item.caption}}"
-        placeholder="{{captionPlaceholder}}"
-        disabled="{{disabled}}"
-        maxlength="500"
-        auto-height="{{true}}"
-        show-confirm-bar="{{false}}"
-        data-index="{{index}}"
-        catchtap=""
-        bindinput="onCaptionInput"
-      />
+        <textarea
+          wx:if="{{imgItem.showCaption || imgItem.caption || !hasQuickTags}}"
+          class="image-uploader__caption input"
+          value="{{imgItem.caption}}"
+          placeholder="{{captionPlaceholder}}"
+          disabled="{{disabled}}"
+          maxlength="500"
+          auto-height="{{true}}"
+          show-confirm-bar="{{false}}"
+          focus="{{imgItem.focusCaption}}"
+          data-index="{{imgIndex}}"
+          catchtap=""
+          bindinput="onCaptionInput"
+        />
+      </view>
     </view>
     <view
       wx:if="{{displayList.length < maxCount && !disabled}}"
@@ -81,6 +87,7 @@
         src="{{addIconSrc}}"
         mode="aspectFit"
       />
+      <text wx:if="{{isStackLayout}}" class="image-uploader__add-text">添加图片</text>
     </view>
   </block>
 </view>

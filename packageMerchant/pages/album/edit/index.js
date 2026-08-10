@@ -880,11 +880,12 @@ Page({
     let checklistStageHint = ''
     if (stageId === 'stage_1') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
-      checklistStageHint = '本阶段检查项：上传照片后，在图下点快捷标签写说明；可继续补充文字。任一图标「建议更换 / 需处理」等，整项会进入施工待处理。'
+      checklistStageHint =
+        '点项目展开拍照。图下标签为提醒色，须点选；选后说明框带「标签；」可继续补充。除「正常」外都会进施工待处理。'
     } else if (stageId === 'stage_2') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
       checklistStageHint =
-        '检测项请按图标注结果。正常不会进施工列表；建议更换、需处理等会自动进入待处理。'
+        '点项目展开。除图注「正常」外（含仅检查、自定义），整项会进入施工待处理。'
     }
     const workQueueItems = this.attachStageImagesToItems(
       checklist.workQueueItems || allItems.filter((it) => it.inWorkQueue),
@@ -956,19 +957,32 @@ Page({
       ...((item.stageImages || []).map((img) => String((img && img.caption) || ''))),
       ...((item.images || []).map((img) => String((img && img.caption) || ''))),
     ]
-    const captionText = captions.join('\n')
-    const fromCaptions = /建议更换|需处理|已更换|未更换/.test(captionText)
+    const isNormalOnly = (t) => {
+      const s = String(t || '').trim()
+      if (!s) return true
+      if (!/^正常(；|;|：|:)?/.test(s)) return false
+      const rest = s.replace(/^正常(；|;|：|:)?\s*/, '')
+      return !/建议更换|需处理|仅检查|已更换|未更换|已处理/.test(rest)
+    }
+    const fromCaptions = captions.some((c) => {
+      const t = String(c || '').trim()
+      return Boolean(t) && !isNormalOnly(t)
+    })
     let inferred = item.outcome || null
-    if (/建议更换/.test(captionText)) inferred = 'recommend_replace'
-    else if (/需处理/.test(captionText)) inferred = 'repaired_other'
-    else if (/已更换/.test(captionText)) inferred = 'replaced'
-    else if (/未更换/.test(captionText)) inferred = 'not_replaced'
-    else if (/仅检查|已检查/.test(captionText)) inferred = 'observed'
-    else if (/正常/.test(captionText)) inferred = 'normal'
+    if (captions.some((t) => /建议更换/.test(t))) inferred = 'recommend_replace'
+    else if (captions.some((t) => /需处理|已处理/.test(t))) inferred = 'repaired_other'
+    else if (captions.some((t) => /已更换/.test(t))) inferred = 'replaced'
+    else if (captions.some((t) => /未更换/.test(t))) inferred = 'not_replaced'
+    else if (captions.some((t) => /仅检查/.test(t))) inferred = 'observed'
+    else if (fromCaptions) inferred = 'repaired_other'
+    else if (captions.filter(Boolean).length && captions.filter(Boolean).every(isNormalOnly)) {
+      inferred = 'normal'
+    }
     const outcome = item.outcome || inferred
-    const auto = ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other'].includes(
-      outcome,
-    ) || fromCaptions
+    const auto =
+      ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other', 'observed'].includes(
+        outcome,
+      ) || fromCaptions
     const manual = work.source === 'manual_add'
     return {
       ...item,
@@ -2522,8 +2536,8 @@ Page({
     }
     if (this.data.saving) return
     if (!this.validateVehicle()) return
-    if (!this.requireOwnerLinked('保存相册')) return
-    if (this.data.allowTestOwnerPhone && !this.data.hasOwner) {
+    // 未关联车主也可保存草稿；关联仅在完工时必填（ALB-UX-15）
+    if (!this.data.hasOwner) {
       const ownerCheck = this.validateOwnerPhoneInput()
       if (!ownerCheck.ok) {
         wx.showToast({ title: ownerCheck.message, icon: 'none' })

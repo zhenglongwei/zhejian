@@ -292,10 +292,7 @@
             completeness="{{checklistCompleteness}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"
-            bind:notechange="onChecklistNoteChange"
-            bind:outcomechange="onChecklistOutcomeChange"
             bind:itemimageschange="onChecklistItemImagesChange"
-            bind:addwork="onChecklistAddWork"
           />
         </block>
 
@@ -303,12 +300,10 @@
           <album-checklist-editor
             mode="work"
             title="待处理项目"
-            hint="根据检查图注自动生成（正常不会出现）。可继续拍照留证；移出前须选择原因。"
+            hint="除图注「正常」外会自动进入。可继续拍照留证；移出前须选择原因。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"
-            bind:notechange="onChecklistNoteChange"
-            bind:outcomechange="onChecklistOutcomeChange"
             bind:itemimageschange="onChecklistItemImagesChange"
             bind:removework="onChecklistRemoveWork"
           />

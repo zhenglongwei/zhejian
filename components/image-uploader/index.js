@@ -120,20 +120,56 @@ Component({
       return (this.properties.captionQuickTags || [])
         .map((t) => (typeof t === 'string' ? t : String((t && t.label) || '').trim()))
         .filter(Boolean)
+        .filter((t) => t !== '自定义')
     },
     applyTagToCaption(caption, label) {
       const labels = this.tagLabels()
       const c = String(caption || '').trim()
       for (let i = 0; i < labels.length; i += 1) {
         const t = labels[i]
-        if (c === t) return label
+        if (c === t || c === `${t}；` || c === `${t};`) return `${label}；`
+        if (c.startsWith(`${t}；`) || c.startsWith(`${t};`) || c.startsWith(`${t}：`) || c.startsWith(`${t}:`)) {
+          const sepLen = c.startsWith(`${t}；`) || c.startsWith(`${t}：`) ? t.length + 1 : t.length + 1
+          const suffix = c.slice(sepLen)
+          return `${label}；${suffix}`
+        }
         if (c.startsWith(t)) {
-          const suffix = c.slice(t.length)
-          return label + suffix
+          const suffix = c.slice(t.length).replace(/^[；;：:\s]+/, '')
+          return suffix ? `${label}；${suffix}` : `${label}；`
         }
       }
-      if (!c) return label
-      return `${label}：${c}`
+      if (!c) return `${label}；`
+      return `${label}；${c}`
+    },
+    resolveActiveTag(caption) {
+      const c = String(caption || '').trim()
+      if (!c) return ''
+      const labels = this.tagLabels()
+      for (let i = 0; i < labels.length; i += 1) {
+        const t = labels[i]
+        if (
+          c === t ||
+          c === `${t}；` ||
+          c === `${t};` ||
+          c.startsWith(`${t}；`) ||
+          c.startsWith(`${t};`) ||
+          c.startsWith(`${t}：`) ||
+          c.startsWith(`${t}:`)
+        ) {
+          return t
+        }
+      }
+      return '自定义'
+    },
+    decorateDisplayItem(item, old) {
+      const caption = String((item && item.caption) || '').trim()
+      const showCaption =
+        Boolean(caption) || Boolean(old && old.showCaption) || Boolean(item && item.showCaption)
+      return {
+        ...item,
+        showCaption,
+        activeTag: this.resolveActiveTag(caption),
+      }
     },
     normalizeEntry(entry) {
       if (typeof entry === 'string') {
@@ -170,13 +206,7 @@ Component({
       const displayList = (this.properties.images || [])
         .map((entry) => this.normalizeEntry(entry))
         .filter(Boolean)
-        .map((item) => {
-          const old = prevByUrl.get(item.url)
-          return {
-            ...item,
-            showCaption: Boolean(item.caption) || Boolean(old && old.showCaption) || Boolean(item.showCaption),
-          }
-        })
+        .map((item) => this.decorateDisplayItem(item, prevByUrl.get(item.url)))
       this.setData({ displayList })
     },
     emitChange(list) {
@@ -238,61 +268,90 @@ Component({
         fail: onFail,
       })
     },
-    onRemove(e) {
-      const { index } = e.currentTarget.dataset
-      const list = (this.data.displayList || []).slice()
-      list.splice(index, 1)
-      this.emitChange(list)
-    },
-    onPreview(e) {
-      const { index } = e.currentTarget.dataset
-      const urls = (this.data.displayList || []).map((item) => item.url)
-      if (!urls.length) return
-      wx.previewImage({ current: urls[index], urls })
-    },
-    onCaptionInput(e) {
-      if (this.properties.disabled || !this.properties.enableCaption) return
-      const { index } = e.currentTarget.dataset
-      const list = (this.data.displayList || []).map((item, i) => {
-        if (i !== Number(index)) return item
-        return {
-          ...item,
-          caption: String((e.detail && e.detail.value) || '').slice(0, 500),
-          showCaption: true,
-        }
-      })
-      this.setData({ displayList: list })
-      this.emitChange(list)
-    },
     onQuickTagTap(e) {
       if (this.properties.disabled || !this.properties.enableCaption) return
       const { index, label } = e.currentTarget.dataset
+      const imgIndex = Number(index)
+      if (!Number.isFinite(imgIndex)) return
       const tag = String(label || '').trim()
       if (!tag) return
+      const isCustom = tag === '自定义'
       const list = (this.data.displayList || []).map((item, i) => {
-        if (i !== Number(index)) return item
-        return {
+        if (i !== imgIndex) return { ...item, focusCaption: false }
+        if (isCustom) {
+          const next = {
+            ...item,
+            caption: item.activeTag === '自定义' ? item.caption : '',
+            showCaption: true,
+            focusCaption: true,
+          }
+          return this.decorateDisplayItem(next, item)
+        }
+        // 再次点击同一标签：不重复写入，避免误以为未选中
+        if (item.activeTag === tag) {
+          return { ...item, showCaption: true, focusCaption: false }
+        }
+        const next = {
           ...item,
           caption: this.applyTagToCaption(item.caption, tag).slice(0, 500),
           showCaption: true,
+          focusCaption: true,
         }
+        return this.decorateDisplayItem(next, item)
       })
       this.setData({ displayList: list })
       this.emitChange(list)
     },
     onClearCaption(e) {
       if (this.properties.disabled || !this.properties.enableCaption) return
-      const { index } = e.currentTarget.dataset
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(imgIndex)) return
       const list = (this.data.displayList || []).map((item, i) => {
-        if (i !== Number(index)) return item
-        return {
-          ...item,
-          caption: '',
-          showCaption: false,
-        }
+        if (i !== imgIndex) return item
+        return this.decorateDisplayItem(
+          {
+            ...item,
+            caption: '',
+            showCaption: false,
+            focusCaption: false,
+          },
+          item
+        )
       })
       this.setData({ displayList: list })
       this.emitChange(list)
+    },
+    onCaptionInput(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(imgIndex)) return
+      const list = (this.data.displayList || []).map((item, i) => {
+        if (i !== imgIndex) return item
+        return this.decorateDisplayItem(
+          {
+            ...item,
+            caption: String((e.detail && e.detail.value) || '').slice(0, 500),
+            showCaption: true,
+            focusCaption: false,
+          },
+          item
+        )
+      })
+      this.setData({ displayList: list })
+      this.emitChange(list)
+    },
+    onRemove(e) {
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(imgIndex)) return
+      const list = (this.data.displayList || []).slice()
+      list.splice(imgIndex, 1)
+      this.emitChange(list)
+    },
+    onPreview(e) {
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      const urls = (this.data.displayList || []).map((item) => item.url)
+      if (!urls.length || !Number.isFinite(imgIndex)) return
+      wx.previewImage({ current: urls[imgIndex], urls })
     },
   },
 })
