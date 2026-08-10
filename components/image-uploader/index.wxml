@@ -1,5 +1,5 @@
 <view
-  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !displayList.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}} {{enableCaption ? 'image-uploader--caption' : ''}} {{captionProminent ? 'image-uploader--caption-prominent' : ''}}"
+  class="image-uploader {{variant === 'album' ? 'image-uploader--album' : ''}} {{isCtaLayout ? 'image-uploader--cta' : ''}} {{fullWidthAdd && !displayList.length ? 'image-uploader--full-add' : ''}} {{isSingleColumn ? 'image-uploader--cols-1' : ''}} {{enableCaption ? 'image-uploader--caption' : ''}} {{captionProminent ? 'image-uploader--caption-prominent' : ''}} {{isStackLayout ? 'image-uploader--stack' : ''}} {{hasQuickTags ? 'image-uploader--quick-tags' : ''}}"
 >
   <block wx:if="{{isCtaLayout}}">
     <button
@@ -38,13 +38,34 @@
           catchtap="onRemove"
         >×</view>
       </view>
-      <input
-        wx:if="{{enableCaption}}"
+
+      <view wx:if="{{enableCaption && hasQuickTags && !disabled}}" class="image-uploader__tags">
+        <text
+          wx:for="{{captionQuickTags}}"
+          wx:for-item="tag"
+          wx:key="*this"
+          class="image-uploader__tag"
+          data-index="{{index}}"
+          data-label="{{tag}}"
+          catchtap="onQuickTagTap"
+        >{{tag}}</text>
+        <text
+          wx:if="{{item.showCaption || item.caption}}"
+          class="image-uploader__tag image-uploader__tag--clear"
+          data-index="{{index}}"
+          catchtap="onClearCaption"
+        >清除</text>
+      </view>
+
+      <textarea
+        wx:if="{{enableCaption && (item.showCaption || item.caption || !hasQuickTags)}}"
         class="image-uploader__caption input"
         value="{{item.caption}}"
         placeholder="{{captionPlaceholder}}"
         disabled="{{disabled}}"
-        maxlength="200"
+        maxlength="500"
+        auto-height="{{true}}"
+        show-confirm-bar="{{false}}"
         data-index="{{index}}"
         catchtap=""
         bindinput="onCaptionInput"

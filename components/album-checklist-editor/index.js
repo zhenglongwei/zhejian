@@ -10,21 +10,11 @@ Component({
     /** 当前阶段：新图写入该阶段 */
     stageId: { type: String, value: '' },
   },
+  data: {
+    stageQuickTags: ['正常', '建议更换', '需处理', '仅检查'],
+    workQuickTags: ['已更换', '已处理', '未更换'],
+  },
   methods: {
-    onNoteInput(e) {
-      const { key } = e.currentTarget.dataset
-      this.triggerEvent('notechange', {
-        itemKey: String(key || ''),
-        note: String((e.detail && e.detail.value) || ''),
-      })
-    },
-    onOutcomeTap(e) {
-      const { key, outcome } = e.currentTarget.dataset
-      this.triggerEvent('outcomechange', {
-        itemKey: String(key || ''),
-        outcome: outcome === 'clear' ? null : String(outcome || ''),
-      })
-    },
     onImagesChange(e) {
       const { key } = e.currentTarget.dataset
       this.triggerEvent('itemimageschange', {

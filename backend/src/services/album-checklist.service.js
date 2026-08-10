@@ -35,11 +35,31 @@ const AUTO_WORK_OUTCOMES = new Set([
   'repaired_other',
 ])
 
+/** 图注含这些词 → 整项需后续处理（进待处理） */
+const WORK_CAPTION_RE = /建议更换|需处理|已更换|未更换/
+
 const REMOVED_AS = new Set(['mismatch', 'owner_declined'])
 
 function normalizeOutcome(value) {
   const v = String(value || '').trim()
   return OUTCOMES.has(v) ? v : null
+}
+
+/** 从多张图注推断项结果：异常优先于正常 */
+function inferOutcomeFromCaptions(captions = []) {
+  const text = (captions || []).map((c) => String(c || '')).join('\n')
+  if (!text.trim()) return null
+  if (/建议更换/.test(text)) return 'recommend_replace'
+  if (/需处理/.test(text)) return 'repaired_other'
+  if (/已更换/.test(text)) return 'replaced'
+  if (/未更换/.test(text)) return 'not_replaced'
+  if (/仅检查|已检查/.test(text)) return 'observed'
+  if (/正常/.test(text)) return 'normal'
+  return null
+}
+
+function captionsNeedWork(captions = []) {
+  return (captions || []).some((c) => WORK_CAPTION_RE.test(String(c || '')))
 }
 
 function normalizeWork(raw) {
@@ -165,7 +185,7 @@ function mergeChecklistPatch(checklistState, patchItems = []) {
   }
 }
 
-function resolveWorkFlags(it) {
+function resolveWorkFlags(it, images = []) {
   const work = normalizeWork(it.work)
   if (work.removedAs === 'owner_declined') {
     return { inWorkQueue: false, inFollowUp: true, work }
@@ -173,10 +193,14 @@ function resolveWorkFlags(it) {
   if (work.removedAs === 'mismatch') {
     return { inWorkQueue: false, inFollowUp: false, work }
   }
-  const auto = AUTO_WORK_OUTCOMES.has(it.outcome)
+  const captions = (images || []).map((img) => img.caption || '')
+  const fromCaptions = captionsNeedWork(captions)
+  const inferred = inferOutcomeFromCaptions(captions)
+  const outcome = it.outcome || inferred
+  const auto = AUTO_WORK_OUTCOMES.has(outcome) || fromCaptions
   const manual = work.source === 'manual_add'
   const inWorkQueue = Boolean(auto || manual)
-  return { inWorkQueue, inFollowUp: false, work }
+  return { inWorkQueue, inFollowUp: false, work, inferredOutcome: inferred }
 }
 
 function mapImageViews(imageIds, imageById) {
@@ -207,9 +231,10 @@ function buildMerchantChecklistView(album, images = []) {
 
   const guidanceItems = state.items.map((it) => {
     const def = defByKey.get(it.itemKey) || {}
-    const flags = resolveWorkFlags(it)
     const imgs = mapImageViews(it.imageIds, imageById)
-    let outcomeLabel = it.outcome ? OUTCOME_LABELS[it.outcome] || it.outcome : ''
+    const flags = resolveWorkFlags(it, imgs)
+    const outcome = it.outcome || flags.inferredOutcome || null
+    let outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
     if (flags.work.removedAs === 'owner_declined') {
       outcomeLabel = flags.work.deferNote
         ? `车主要求暂不处理：${flags.work.deferNote}`
@@ -224,7 +249,7 @@ function buildMerchantChecklistView(album, images = []) {
       strength: def.strength || 'tip',
       linkHint: def.linkHint || '',
       status: it.status,
-      outcome: it.outcome,
+      outcome,
       outcomeLabel,
       note: it.note || '',
       images: imgs,
@@ -300,6 +325,8 @@ module.exports = {
   syncChecklistImageLinks,
   mergeChecklistPatch,
   resolveWorkFlags,
+  inferOutcomeFromCaptions,
+  captionsNeedWork,
   buildMerchantChecklistView,
   buildOwnerWorkChecklistView,
   ensureChecklistOnCreate,

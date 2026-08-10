@@ -880,11 +880,11 @@ Page({
     let checklistStageHint = ''
     if (stageId === 'stage_1') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
-      checklistStageHint = '本阶段检查项：直接在下方各项上传照片并填写说明，再标记结果（含正常）。'
+      checklistStageHint = '本阶段检查项：上传照片后，在图下点快捷标签写说明；可继续补充文字。任一图标「建议更换 / 需处理」等，整项会进入施工待处理。'
     } else if (stageId === 'stage_2') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
       checklistStageHint =
-        '检测项请如实标记结果。标为「建议更换 / 需处理」的会进入施工「待处理」列表；「正常」不会进入。'
+        '检测项请按图标注结果。正常不会进施工列表；建议更换、需处理等会自动进入待处理。'
     }
     const workQueueItems = this.attachStageImagesToItems(
       checklist.workQueueItems || allItems.filter((it) => it.inWorkQueue),
@@ -952,12 +952,27 @@ Page({
     if (work.removedAs === 'mismatch') {
       return { ...item, work, inWorkQueue: false, inFollowUp: false }
     }
+    const captions = [
+      ...((item.stageImages || []).map((img) => String((img && img.caption) || ''))),
+      ...((item.images || []).map((img) => String((img && img.caption) || ''))),
+    ]
+    const captionText = captions.join('\n')
+    const fromCaptions = /建议更换|需处理|已更换|未更换/.test(captionText)
+    let inferred = item.outcome || null
+    if (/建议更换/.test(captionText)) inferred = 'recommend_replace'
+    else if (/需处理/.test(captionText)) inferred = 'repaired_other'
+    else if (/已更换/.test(captionText)) inferred = 'replaced'
+    else if (/未更换/.test(captionText)) inferred = 'not_replaced'
+    else if (/仅检查|已检查/.test(captionText)) inferred = 'observed'
+    else if (/正常/.test(captionText)) inferred = 'normal'
+    const outcome = item.outcome || inferred
     const auto = ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other'].includes(
-      item.outcome,
-    )
+      outcome,
+    ) || fromCaptions
     const manual = work.source === 'manual_add'
     return {
       ...item,
+      outcome,
       work,
       inWorkQueue: Boolean(auto || manual),
       inFollowUp: false,
@@ -1288,7 +1303,17 @@ Page({
     }).filter((img) => img.url)
     nodes[index].images = keep.concat(incoming)
     this.setData({ nodes }, () => {
-      this.refreshChecklistStageViews()
+      this.syncChecklistLocalItems((it) => {
+        if (it.itemKey !== itemKey) return it
+        const next = this.computeWorkFlags({
+          ...it,
+          stageImages: incoming,
+          images: incoming,
+          outcome: null,
+        })
+        next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+        return next
+      })
       this.refreshMerchantInspection()
     })
   },

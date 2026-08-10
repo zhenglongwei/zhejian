@@ -121,33 +121,83 @@
 .image-uploader__cell {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs);
+  gap: var(--space-xs);
   min-width: 0;
 }
 
 .image-uploader__caption {
   width: 100%;
   box-sizing: border-box;
-  padding: var(--space-2xs) var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
   font-size: var(--font-caption);
   line-height: var(--font-caption-lh);
   color: var(--color-text-secondary);
   background: var(--color-bg-muted);
   border-radius: var(--radius-sm);
+  min-height: 64rpx;
 }
 
 .image-uploader--caption-prominent .image-uploader__caption {
-  min-height: 72rpx;
-  padding: var(--space-sm) var(--space-md);
-  margin-top: var(--space-2xs);
+  min-height: 120rpx;
+  padding: var(--space-md);
+  margin-top: var(--space-xs);
   font-size: var(--font-body);
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--color-text-primary);
   background: var(--color-bg-card);
   border: 2rpx solid var(--color-album-active);
   border-radius: var(--radius-md);
 }
 
-.image-uploader--caption-prominent.image-uploader--cols-1 .image-uploader__caption {
-  min-height: 88rpx;
+.image-uploader--caption-prominent.image-uploader--cols-1 .image-uploader__caption,
+.image-uploader--stack .image-uploader__caption {
+  min-height: 140rpx;
+}
+
+.image-uploader--stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.image-uploader--stack .image-uploader__cell {
+  width: 100%;
+  padding-bottom: var(--space-md);
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.image-uploader--stack .image-uploader__cell:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.image-uploader--stack .image-uploader__item {
+  width: 220rpx;
+  height: 220rpx;
+  aspect-ratio: auto;
+}
+
+.image-uploader--stack .image-uploader__add {
+  width: 220rpx;
+  height: 220rpx;
+  aspect-ratio: auto;
+}
+
+.image-uploader__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.image-uploader__tag {
+  padding: 8rpx 20rpx;
+  border-radius: var(--radius-full);
+  border: 1rpx solid var(--color-border);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+}
+
+.image-uploader__tag--clear {
+  color: var(--color-text-tertiary);
 }

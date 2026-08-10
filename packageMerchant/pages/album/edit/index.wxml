@@ -303,7 +303,7 @@
           <album-checklist-editor
             mode="work"
             title="待处理项目"
-            hint="根据检测结果自动生成（正常项不会出现）。可继续拍照留证；移出前须选择原因。"
+            hint="根据检查图注自动生成（正常不会出现）。可继续拍照留证；移出前须选择原因。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"

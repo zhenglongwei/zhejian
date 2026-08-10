@@ -63,11 +63,26 @@ Component({
       type: String,
       value: '',
     },
+    /**
+     * 图下快捷说明标签（如：正常 / 建议更换）
+     * 点击后写入 caption 并展开输入框，可继续补充
+     */
+    captionQuickTags: {
+      type: Array,
+      value: [],
+    },
+    /** 一图一行（检查项编辑） */
+    stackLayout: {
+      type: Boolean,
+      value: false,
+    },
   },
   data: {
     uploading: false,
     isCtaLayout: false,
     isSingleColumn: false,
+    isStackLayout: false,
+    hasQuickTags: false,
     displayList: [],
   },
   observers: {
@@ -76,6 +91,12 @@ Component({
     },
     columns(val) {
       this.setData({ isSingleColumn: Number(val) === 1 })
+    },
+    stackLayout(val) {
+      this.setData({ isStackLayout: Boolean(val) })
+    },
+    captionQuickTags(val) {
+      this.setData({ hasQuickTags: Array.isArray(val) && val.length > 0 })
     },
     images() {
       this.syncDisplayList()
@@ -86,23 +107,48 @@ Component({
       this.setData({
         isCtaLayout: String(this.properties.layout || '') === 'cta',
         isSingleColumn: Number(this.properties.columns) === 1,
+        isStackLayout: Boolean(this.properties.stackLayout),
+        hasQuickTags:
+          Array.isArray(this.properties.captionQuickTags) &&
+          this.properties.captionQuickTags.length > 0,
       })
       this.syncDisplayList()
     },
   },
   methods: {
+    tagLabels() {
+      return (this.properties.captionQuickTags || [])
+        .map((t) => (typeof t === 'string' ? t : String((t && t.label) || '').trim()))
+        .filter(Boolean)
+    },
+    applyTagToCaption(caption, label) {
+      const labels = this.tagLabels()
+      const c = String(caption || '').trim()
+      for (let i = 0; i < labels.length; i += 1) {
+        const t = labels[i]
+        if (c === t) return label
+        if (c.startsWith(t)) {
+          const suffix = c.slice(t.length)
+          return label + suffix
+        }
+      }
+      if (!c) return label
+      return `${label}：${c}`
+    },
     normalizeEntry(entry) {
       if (typeof entry === 'string') {
         const url = entry.trim()
-        return url ? { url, caption: '' } : null
+        return url ? { url, caption: '', showCaption: false } : null
       }
       if (!entry || typeof entry !== 'object') return null
       const url = String(entry.url || entry.rawUrl || entry.src || '').trim()
       if (!url) return null
+      const caption = String(entry.caption || '').trim().slice(0, 500)
       return {
         url,
-        caption: String(entry.caption || '').trim().slice(0, 500),
+        caption,
         checklistItemKey: String(entry.checklistItemKey || '').trim(),
+        showCaption: Boolean(caption) || Boolean(entry.showCaption),
       }
     },
     toEmitList(displayList) {
@@ -119,9 +165,18 @@ Component({
       }))
     },
     syncDisplayList() {
+      const prev = this.data.displayList || []
+      const prevByUrl = new Map(prev.map((item) => [item.url, item]))
       const displayList = (this.properties.images || [])
         .map((entry) => this.normalizeEntry(entry))
         .filter(Boolean)
+        .map((item) => {
+          const old = prevByUrl.get(item.url)
+          return {
+            ...item,
+            showCaption: Boolean(item.caption) || Boolean(old && old.showCaption) || Boolean(item.showCaption),
+          }
+        })
       this.setData({ displayList })
     },
     emitChange(list) {
@@ -142,6 +197,7 @@ Component({
           url,
           caption: '',
           checklistItemKey: stampKey,
+          showCaption: false,
         }))
         if (!list.length) return
         this.emitChange(current.concat(list))
@@ -202,6 +258,37 @@ Component({
         return {
           ...item,
           caption: String((e.detail && e.detail.value) || '').slice(0, 500),
+          showCaption: true,
+        }
+      })
+      this.setData({ displayList: list })
+      this.emitChange(list)
+    },
+    onQuickTagTap(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const { index, label } = e.currentTarget.dataset
+      const tag = String(label || '').trim()
+      if (!tag) return
+      const list = (this.data.displayList || []).map((item, i) => {
+        if (i !== Number(index)) return item
+        return {
+          ...item,
+          caption: this.applyTagToCaption(item.caption, tag).slice(0, 500),
+          showCaption: true,
+        }
+      })
+      this.setData({ displayList: list })
+      this.emitChange(list)
+    },
+    onClearCaption(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const { index } = e.currentTarget.dataset
+      const list = (this.data.displayList || []).map((item, i) => {
+        if (i !== Number(index)) return item
+        return {
+          ...item,
+          caption: '',
+          showCaption: false,
         }
       })
       this.setData({ displayList: list })
