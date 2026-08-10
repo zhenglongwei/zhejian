@@ -45,6 +45,14 @@ const {
   assertMerchantAlbum,
 } = require('../lib/merchant-album-access')
 const { loadActiveStoreForMerchant } = require('./merchant-context.service')
+const {
+  ensureChecklistOnCreate,
+  hydrateChecklistState,
+  syncChecklistImageLinks,
+  mergeChecklistPatch,
+  buildMerchantChecklistView,
+  buildOwnerWorkChecklistView,
+} = require('./album-checklist.service')
 
 const { filterUserAlbumsByTab } = require('../utils/service-album-tab-filter')
 const { buildAlbumSummaryFields } = require('../utils/album-summary')
@@ -180,6 +188,7 @@ function mapImageMeta(album) {
     idx: img.idx,
     rawUrl: rewriteMediaUrlForCurrentBase(img.rawUrl),
     caption: String(img.caption || ''),
+    checklistItemKey: String(img.checklistItemKey || ''),
     visibility: img.visibility || VISIBILITY.PRIVATE,
     publicGateStatus: img.publicGateStatus || PUBLIC_GATE_STATUS.PENDING,
     publicGateReason: img.publicGateReason || '',
@@ -220,13 +229,17 @@ function mapNodesForView(album) {
     const images = (node.images || []).map((entry) => {
       if (entry && typeof entry === 'object') {
         return {
+          id: entry.id || '',
           url: resolveClientReadableMediaUrl(entry.url || entry.rawUrl || ''),
           caption: String(entry.caption || ''),
+          checklistItemKey: String(entry.checklistItemKey || ''),
         }
       }
       return {
+        id: '',
         url: resolveClientReadableMediaUrl(entry),
         caption: '',
+        checklistItemKey: '',
       }
     }).filter((row) => row.url)
     return {
@@ -452,6 +465,7 @@ function buildAlbumView(album) {
   const { buildPlanPartsContext } = require('./album-plan-parts.service')
   const planCtx = buildPlanPartsContext(album)
   const quality = assessPublicCaseQuality(view)
+  const workChecklist = buildOwnerWorkChecklistView(album, imageMeta)
 
   return {
     ...view,
@@ -459,6 +473,7 @@ function buildAlbumView(album) {
     planParts: planCtx.planParts,
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
+    workChecklist,
     ...quality,
     ...buildUserAlbumComplianceFields(album, quality),
     ...buildUserAlbumGateBFields(album),
@@ -606,6 +621,17 @@ function buildMerchantView(album) {
       const { summarizeOptimizeDraftForApi } = require('./album-content-optimize.service')
       return summarizeOptimizeDraftForApi(album)
     })(),
+    checklist: (() => {
+      const meta = mapImageMeta(album)
+      const view = buildMerchantChecklistView(album, meta)
+      return {
+        catalogVersion: view.catalogVersion,
+        categoryId: view.categoryId,
+        categoryLabel: view.categoryLabel,
+        completeness: view.completeness,
+        items: view.items,
+      }
+    })(),
   }
 }
 
@@ -718,6 +744,10 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
       if (!entry) continue
       const caption =
         typeof entry === 'object' ? String(entry.caption || '').trim().slice(0, 500) : ''
+      const checklistItemKey =
+        typeof entry === 'object'
+          ? String(entry.checklistItemKey || entry.itemKey || '').trim().slice(0, 64)
+          : ''
       let rawUrl = assertPersistentImageUrl(
         typeof entry === 'string' ? entry : entry.rawUrl || entry.url || ''
       )
@@ -750,6 +780,7 @@ async function syncAlbumNodes(albumId, nodesPayload = [], options = {}) {
         idx,
         rawUrl,
         caption,
+        checklistItemKey,
         visibility: gateFields.visibility,
         publicGateStatus: gateFields.publicGateStatus,
         publicGateReason: gateFields.publicGateReason,
@@ -1192,12 +1223,8 @@ async function getMerchantServiceAlbum(albumId, storeId, merchantId = '') {
   }
   view.contentPackageStatus = (pkg && pkg.status) || ''
   view.merchantCaseDraft = (pkg && pkg.merchantCaseDraft) || null
-  try {
-    const { resolveAlbumCoach } = require('./album-coach.service')
-    view.albumCoach = resolveAlbumCoach(view)
-  } catch (e) {
-    view.albumCoach = null
-  }
+  // 卷十五：删除相册教练主路径；清单见 view.checklist
+  view.albumCoach = null
   return view
 }
 
@@ -1673,6 +1700,10 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       templateId: template.templateId || '',
       templateName: template.templateName || '',
       imageCount: 0,
+      checklistJson: ensureChecklistOnCreate({
+        templateId: template.templateId || '',
+        serviceName,
+      }),
       nodes: {
         create: buildAlbumNodesFromTemplate(template),
       },
@@ -1764,6 +1795,38 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       : undefined
   const ownerUpdate = await resolveOwnerPhoneUpdate(existing, payload)
   const partVerifyGuide = sanitizePartVerifyGuidePayload(payload, existing)
+
+  let checklistJson = existing.checklistJson
+  {
+    let state = hydrateChecklistState({
+      ...existing,
+      templateId: payload.templateId ?? existing.templateId,
+      serviceName: payload.serviceName ?? existing.serviceName,
+      checklistJson: existing.checklistJson,
+    })
+    if (payload.checklist && Array.isArray(payload.checklist.items)) {
+      state = mergeChecklistPatch(state, payload.checklist.items)
+    }
+    // 若本次同步了节点图，用落库后的 images 回填；否则用现有图
+    const imagesForLink =
+      payload.nodes != null
+        ? (
+            await prisma.albumImage.findMany({
+              where: { albumId },
+              orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }],
+            })
+          ).map((img) => ({
+            id: img.id,
+            checklistItemKey: img.checklistItemKey,
+            rawUrl: img.rawUrl,
+            caption: img.caption,
+            nodeId: img.nodeId,
+          }))
+        : existing.images || []
+    state = syncChecklistImageLinks(state, imagesForLink)
+    checklistJson = state
+  }
+
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
@@ -1775,6 +1838,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       partsJson: payload.parts ?? existing.partsJson,
       planPartsJson: planPartsUpdate ?? existing.planPartsJson,
       evidenceItemsJson,
+      checklistJson,
       ...partVerifyGuide,
       priceMode: planAmount != null ? 'fixed' : existing.priceMode,
       minAmount: planAmount != null ? planAmount : existing.minAmount,

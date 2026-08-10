@@ -1,0 +1,73 @@
+<view class="album-checklist-editor">
+  <view class="album-checklist-editor__head">
+    <text class="text-body">{{categoryLabel || '检测清单'}}</text>
+    <text wx:if="{{completeness}}" class="text-caption text-secondary">
+      已留证 {{completeness.activeCount || 0}}/{{completeness.totalCount || 0}}
+      <text wx:if="{{completeness.strongPendingCount}}"> · 强烈建议待拍 {{completeness.strongPendingCount}}</text>
+    </text>
+  </view>
+  <text class="text-caption text-secondary album-checklist-editor__hint">
+    点选一项后再在下方阶段拍照，照片会挂到该项；施工/完工也可挂回同一项。未拍项不会出现在车主清单。
+  </text>
+
+  <view
+    wx:for="{{items}}"
+    wx:key="itemKey"
+    class="album-checklist-editor__item {{activeItemKey === item.itemKey ? 'is-active' : ''}} {{item.status === 'active' ? 'is-filled' : ''}}"
+    data-key="{{item.itemKey}}"
+    bindtap="onSelectItem"
+  >
+    <view class="album-checklist-editor__item-top">
+      <text class="text-body">{{item.label}}</text>
+      <text class="text-caption text-secondary">{{item.group}}</text>
+    </view>
+    <text wx:if="{{item.strength === 'strong'}}" class="text-caption album-checklist-editor__strong">强烈建议</text>
+    <text wx:if="{{item.outcomeLabel}}" class="text-caption album-checklist-editor__outcome">{{item.outcomeLabel}}</text>
+    <text wx:if="{{item.images.length}}" class="text-caption">已挂 {{item.images.length}} 张图</text>
+
+    <block wx:if="{{activeItemKey === item.itemKey && !readOnly}}">
+      <view catchtap="noop">
+        <textarea
+          class="album-checklist-editor__note"
+          maxlength="500"
+          placeholder="{{item.noteExample || '该项说明（选填）'}}"
+          value="{{item.note}}"
+          data-key="{{item.itemKey}}"
+          bindinput="onNoteInput"
+        />
+        <view class="album-checklist-editor__outcomes">
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'recommend_replace' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="recommend_replace"
+            catchtap="onOutcomeTap"
+          >建议更换</text>
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'replaced' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="replaced"
+            catchtap="onOutcomeTap"
+          >已更换</text>
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'not_replaced' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="not_replaced"
+            catchtap="onOutcomeTap"
+          >未更换</text>
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'observed' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="observed"
+            catchtap="onOutcomeTap"
+          >仅检查</text>
+          <text
+            class="album-checklist-editor__chip"
+            data-key="{{item.itemKey}}"
+            data-outcome="clear"
+            catchtap="onOutcomeTap"
+          >清除标记</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

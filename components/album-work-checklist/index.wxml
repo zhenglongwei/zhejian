@@ -1,0 +1,40 @@
+<view class="album-work-checklist">
+  <view class="album-work-checklist__head">
+    <text class="text-h3">本次检查与处理</text>
+    <text wx:if="{{categoryLabel}}" class="text-caption text-secondary">{{categoryLabel}}</text>
+  </view>
+  <text class="text-caption text-secondary album-work-checklist__hint">
+    仅展示门店实际留证的项目；未拍摄项不会出现。点图可进入翻页详看。
+  </text>
+
+  <view
+    wx:for="{{items}}"
+    wx:key="itemKey"
+    class="album-work-checklist__item"
+  >
+    <view class="album-work-checklist__item-top">
+      <text class="text-body">{{item.label}}</text>
+      <text wx:if="{{item.group}}" class="text-caption text-secondary">{{item.group}}</text>
+    </view>
+    <text
+      wx:if="{{item.outcomeLabel}}"
+      class="text-caption album-work-checklist__outcome {{item.outcome === 'not_replaced' ? 'is-warn' : ''}}"
+    >{{item.outcomeLabel}}</text>
+    <text wx:if="{{item.note}}" class="text-caption album-work-checklist__note" selectable>{{item.note}}</text>
+    <view wx:if="{{item.images.length}}" class="album-work-checklist__grid">
+      <view
+        wx:for="{{item.images}}"
+        wx:for-item="img"
+        wx:for-index="imgIndex"
+        wx:key="url"
+        class="album-work-checklist__thumb image-placeholder"
+        data-url="{{img.url}}"
+        data-item-key="{{item.itemKey}}"
+        bindtap="onOpenFlip"
+      >
+        <image class="album-work-checklist__img" src="{{img.url}}" mode="aspectFill" />
+        <text wx:if="{{img.caption}}" class="text-caption album-work-checklist__cap">{{img.caption}}</text>
+      </view>
+    </view>
+  </view>
+</view>

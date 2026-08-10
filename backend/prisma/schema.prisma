@@ -166,6 +166,8 @@ model Album {
   complianceCheckedAt DateTime?           @map("compliance_checked_at")
   contentOptimizeDraftJson Json?          @map("content_optimize_draft_json")
   contentPackageJson  Json?               @map("content_package_json")
+  /// 卷十五 · 软清单运行时（项状态 / outcome / imageIds）
+  checklistJson       Json?               @map("checklist_json")
   /// 本本相册对「门店答谢」的覆盖：inherit | custom | off
   publishThankYouJson Json?               @map("publish_thank_you_json")
   createdAt           DateTime            @default(now()) @map("created_at")
@@ -209,6 +211,8 @@ model AlbumImage {
   rawUrl              String    @map("raw_url") @db.VarChar(512)
   /** ALB-UX · 单图备注（过程说明） */
   caption             String    @default("") @db.VarChar(500)
+  /** 卷十五 · 关联软清单项 itemKey */
+  checklistItemKey    String    @default("") @map("checklist_item_key") @db.VarChar(64)
   visibility          String    @default("private")
   publicGateStatus    String    @default("pending") @map("public_gate_status")
   publicGateReason    String    @default("") @map("public_gate_reason") @db.VarChar(64)

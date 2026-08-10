@@ -262,6 +262,19 @@
         </ui-card>
       </view>
 
+      <view wx:if="{{checklistItems.length}}" class="merchant-album-edit__checklist">
+        <album-checklist-editor
+          items="{{checklistItems}}"
+          completeness="{{checklistCompleteness}}"
+          categoryLabel="{{checklistCategoryLabel}}"
+          activeItemKey="{{activeChecklistItemKey}}"
+          readOnly="{{readOnly}}"
+          bind:select="onChecklistSelect"
+          bind:notechange="onChecklistNoteChange"
+          bind:outcomechange="onChecklistOutcomeChange"
+        />
+      </view>
+
       <view class="merchant-album-edit__tabs">
         <ui-tabs
           tabs="{{stageTabs}}"
@@ -294,7 +307,7 @@
           <album-compare-pair-editor
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
-            photoTips="{{nodes[stageIndex].photoTips}}"
+            photoTips=""
             compareHint="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
@@ -318,7 +331,7 @@
                 </view>
               </view>
             </view>
-            <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].photoTips}}</text>
+            <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].description || '按配件填写凭证与说明'}}</text>
             <view class="merchant-album-edit__extra-sop">
               <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage4Hint}}</text>
             </view>
@@ -573,12 +586,13 @@
             mode="{{readOnly ? 'view' : 'edit'}}"
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
-            photoTips="{{nodes[stageIndex].photoTips}}"
+            photoTips=""
             compareGuidance="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
+            stampChecklistItemKey="{{activeChecklistItemKey}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
@@ -588,12 +602,13 @@
             mode="{{readOnly ? 'view' : 'edit'}}"
             title="{{nodes[stageIndex].title}}"
             description="{{nodes[stageIndex].description}}"
-            photoTips="{{nodes[stageIndex].photoTips}}"
+            photoTips=""
             compareGuidance="{{nodes[stageIndex].compareGuidance}}"
             requiredLevelLabel="{{nodes[stageIndex].requiredLevelLabel}}"
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
+            stampChecklistItemKey="{{activeChecklistItemKey}}"
             uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"

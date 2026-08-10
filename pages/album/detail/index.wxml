@@ -1,4 +1,4 @@
-<view class="album-detail page {{detail ? 'album-detail--immersive' : 'bg-album'}}">
+<view class="album-detail page {{detail ? (viewMode === 'checklist' ? 'bg-album album-detail--checklist' : 'album-detail--immersive') : 'bg-album'}}">
   <block wx:if="{{status === 'loading'}}">
     <view class="album-detail__shell">
       <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
@@ -49,7 +49,27 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="album-detail__shell">
+    <view class="album-detail__shell {{viewMode === 'checklist' ? 'album-detail__shell--checklist' : ''}}">
+      <block wx:if="{{viewMode === 'checklist'}}">
+        <tool-immersive-nav title="服务相册" />
+        <scroll-view
+          scroll-y
+          class="album-detail__checklist-scroll"
+          show-scrollbar="{{false}}"
+        >
+          <album-work-checklist
+            categoryLabel="{{workChecklistCategoryLabel}}"
+            items="{{workChecklistItems}}"
+            bind:openflip="onWorkChecklistOpenFlip"
+          />
+          <view class="album-detail__checklist-spacer" style="height: {{toolbarBottomPadPx + 72}}px;" />
+        </scroll-view>
+        <view class="album-detail__checklist-bar safe-bottom">
+          <ui-button type="secondary" block bind:btntap="onEnterFlipFromChecklist">翻页详看</ui-button>
+        </view>
+      </block>
+
+      <block wx:else>
       <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
         <album-frame-viewer
           id="albumViewer"
@@ -104,6 +124,16 @@
             </view>
             <view class="album-detail__dock-actions">
               <view
+                wx:if="{{hasWorkChecklist}}"
+                class="album-detail__dock-action"
+                hover-class="album-detail__dock-action--hover"
+                catchtap="onBackToWorkChecklist"
+                aria-role="button"
+                aria-label="返回清单"
+              >
+                <text class="album-detail__dock-action-text text-caption">清单</text>
+              </view>
+              <view
                 wx:if="{{showInspectEntry}}"
                 class="album-detail__dock-action"
                 hover-class="album-detail__dock-action--hover"
@@ -144,6 +174,7 @@
           <view class="album-detail__read-progress-fill" style="width: {{progressPercent}}%;" />
         </view>
       </view>
+      </block>
     </view>
   </block>
 

@@ -36,21 +36,10 @@
     </view>
 
     <view class="vehicle-scan__footer safe-bottom">
-      <view
-        class="vehicle-scan__shutter {{busy || !cameraReady ? 'is-busy' : ''}}"
-        bindtap="onCapture"
-      >
-        <view class="vehicle-scan__shutter-ring">
-          <text class="vehicle-scan__shutter-text">{{busy ? '识别中' : '识别'}}</text>
-        </view>
-      </view>
+      <text class="vehicle-scan__status-pill">{{busy ? '正在识别…' : '自动扫描中'}}</text>
       <view class="vehicle-scan__album" bindtap="onPickAlbum" aria-role="button" aria-label="从相册选择">
         <text class="vehicle-scan__album-text">相册</text>
       </view>
     </view>
-  </view>
-
-  <view wx:if="{{busy}}" class="vehicle-scan__loading" catchtouchmove="noop">
-    <text class="vehicle-scan__loading-text">正在识别…</text>
   </view>
 </view>

@@ -191,39 +191,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220rpx;
+  min-height: 160rpx;
   padding: var(--space-md) var(--space-xl) var(--space-lg);
 }
 
-.vehicle-scan__shutter {
-  width: 144rpx;
-  height: 144rpx;
-  border-radius: 50%;
-  border: 8rpx solid rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-.vehicle-scan__shutter.is-busy {
-  opacity: 0.55;
-}
-
-.vehicle-scan__shutter-ring {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 50%;
-  background: var(--color-text-inverse);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.vehicle-scan__shutter-text {
+.vehicle-scan__status-pill {
+  padding: var(--space-xs) var(--space-lg);
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--color-text-inverse);
   font-size: var(--font-caption);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
 }
 
 .vehicle-scan__album {
@@ -242,22 +219,4 @@
 .vehicle-scan__album-text {
   font-size: var(--font-caption);
   color: var(--color-text-inverse);
-}
-
-.vehicle-scan__loading {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.vehicle-scan__loading-text {
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.62);
-  color: var(--color-text-inverse);
-  font-size: var(--font-caption);
 }

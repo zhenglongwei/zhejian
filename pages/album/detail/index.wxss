@@ -238,3 +238,36 @@
 .album-detail__auth-submit {
   margin-top: var(--space-md);
 }
+
+.album-detail--checklist {
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-album);
+}
+
+.album-detail__shell--checklist {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg-album);
+}
+
+.album-detail__checklist-scroll {
+  flex: 1;
+  height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.album-detail__checklist-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-fixed);
+  padding: var(--space-md) var(--page-padding-x);
+  background: var(--color-bg-card);
+  border-top: 1rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+

@@ -58,6 +58,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 卷十五：新选图默认挂到的检查项 key */
+    stampChecklistItemKey: {
+      type: String,
+      value: '',
+    },
   },
   data: {
     uploading: false,
@@ -97,6 +102,7 @@ Component({
       return {
         url,
         caption: String(entry.caption || '').trim().slice(0, 500),
+        checklistItemKey: String(entry.checklistItemKey || '').trim(),
       }
     },
     toEmitList(displayList) {
@@ -104,9 +110,13 @@ Component({
         return (displayList || []).map((item) => ({
           url: item.url,
           caption: item.caption || '',
+          checklistItemKey: String(item.checklistItemKey || '').trim(),
         }))
       }
-      return (displayList || []).map((item) => item.url)
+      return (displayList || []).map((item) => ({
+        url: item.url,
+        checklistItemKey: String(item.checklistItemKey || '').trim(),
+      }))
     },
     syncDisplayList() {
       const displayList = (this.properties.images || [])
@@ -127,7 +137,12 @@ Component({
       }
       const count = Math.min(remain, 9)
       const onSuccess = (paths) => {
-        const list = (paths || []).filter(Boolean).map((url) => ({ url, caption: '' }))
+        const stampKey = String(this.properties.stampChecklistItemKey || '').trim()
+        const list = (paths || []).filter(Boolean).map((url) => ({
+          url,
+          caption: '',
+          checklistItemKey: stampKey,
+        }))
         if (!list.length) return
         this.emitChange(current.concat(list))
       }

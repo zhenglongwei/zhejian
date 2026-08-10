@@ -32,6 +32,8 @@ Component({
     showFeedback: { type: Boolean, value: false },
     /** ALB-UX · 编辑态每图备注 */
     enableCaption: { type: Boolean, value: true },
+    /** 卷十五：新图默认挂检查项 */
+    stampChecklistItemKey: { type: String, value: '' },
   },
   data: {
     displayImages: [],
@@ -61,6 +63,7 @@ Component({
           return {
             url,
             caption: String((entry && entry.caption) || '').trim(),
+            checklistItemKey: String((entry && entry.checklistItemKey) || '').trim(),
           }
         })
         .filter(Boolean)

@@ -377,6 +377,10 @@ Page({
     hasOwnerReview: false,
     showReviewNudge: false,
     reviewDockLabel: REVIEW_DOCK_LABEL,
+    viewMode: 'flip',
+    hasWorkChecklist: false,
+    workChecklistCategoryLabel: '',
+    workChecklistItems: [],
     reviewNudgeText: REVIEW_NUDGE_TEXT,
   },
 
@@ -623,6 +627,17 @@ Page({
       const showEvaluateEntry = false
       const showReviewNudge = false
 
+      const workRaw = (detail && detail.workChecklist) || (enriched && enriched.workChecklist) || null
+      const workItems = ((workRaw && workRaw.items) || []).map((it) => ({
+        ...it,
+        images: (it.images || []).map((img) => ({
+          ...img,
+          url: String((img && (img.url || img.rawUrl || img.src)) || '').trim(),
+        })).filter((img) => img.url),
+      }))
+      const hasWorkChecklist = workItems.length > 0
+      const viewMode = hasWorkChecklist ? 'checklist' : 'flip'
+
       this.setData({
         detail: enriched,
         flipPages: flip.pages,
@@ -658,8 +673,12 @@ Page({
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
-        chromeVisible: pageStatus === 'normal',
+        chromeVisible: pageStatus === 'normal' && viewMode === 'flip',
         showInspectEntry: pageStatus === 'normal',
+        viewMode,
+        hasWorkChecklist,
+        workChecklistCategoryLabel: (workRaw && workRaw.categoryLabel) || '',
+        workChecklistItems: workItems,
         ...endPageAuth,
         ...inviteUiFieldsFromDetail(enriched),
       }, () => {
@@ -906,6 +925,49 @@ Page({
     }
     this.setData({ shareSheetVisible: false })
     this.openAuthorizePreview()
+  },
+
+  enterFlipMode(pageIndex = 0) {
+    const total = this.data.flipPages.length + (this.data.flipPages.length > 0 ? 1 : 0)
+    const idx = Math.max(0, Math.min(Number(pageIndex) || 0, Math.max(total - 1, 0)))
+    this.setData(
+      {
+        viewMode: 'flip',
+        chromeVisible: true,
+        pageIndex: idx,
+      },
+      () => {
+        this.syncPageDisplay(idx, total)
+        this.scheduleViewerLayout()
+      },
+    )
+  },
+
+  onEnterFlipFromChecklist() {
+    this.enterFlipMode(0)
+  },
+
+  onBackToWorkChecklist() {
+    if (!this.data.hasWorkChecklist) return
+    this.setData({
+      viewMode: 'checklist',
+      chromeVisible: false,
+      isEndPage: false,
+    })
+  },
+
+  onWorkChecklistOpenFlip(e) {
+    const url = String((e.detail && e.detail.url) || '').trim()
+    const pages = this.data.flipPages || []
+    let index = 0
+    if (url) {
+      const found = pages.findIndex((p) => {
+        const src = String((p && (p.imageUrl || p.src || p.url)) || '').trim()
+        return src && (src === url || src.indexOf(url) >= 0 || url.indexOf(src) >= 0)
+      })
+      if (found >= 0) index = found
+    }
+    this.enterFlipMode(index)
   },
 
   onPageChange(e) {

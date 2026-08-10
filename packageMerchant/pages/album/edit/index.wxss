@@ -337,6 +337,10 @@
   margin: var(--space-md) 0 var(--space-sm);
 }
 
+.merchant-album-edit__checklist {
+  margin-bottom: var(--space-sm);
+}
+
 .merchant-album-edit__shoot-common {
   display: flex;
   flex-direction: column;

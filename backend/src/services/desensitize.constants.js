@@ -148,8 +148,10 @@ function albumToNodeView(album) {
   ;(album.images || []).forEach((img) => {
     if (!imagesByNode[img.nodeId]) imagesByNode[img.nodeId] = []
     imagesByNode[img.nodeId].push({
+      id: img.id,
       url: rewriteMediaUrlForCurrentBase(img.rawUrl),
       caption: String(img.caption || ''),
+      checklistItemKey: String(img.checklistItemKey || ''),
     })
   })
   return (album.nodes || []).map((node) => ({

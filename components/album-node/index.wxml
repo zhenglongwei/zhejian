@@ -38,6 +38,7 @@
         enableCaption="{{enableCaption}}"
         captionPlaceholder="{{captionPlaceholder}}"
         captionProminent="{{true}}"
+        stampChecklistItemKey="{{stampChecklistItemKey}}"
         bind:change="onImagesChange"
       />
     </block>

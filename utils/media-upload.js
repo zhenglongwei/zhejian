@@ -264,8 +264,8 @@ async function persistLocalImages(urls) {
 }
 
 /**
- * ALB-UX · 过程图保留 caption
- * @returns {{ images: { url: string, caption: string }[], droppedStaleCount: number }}
+ * ALB-UX · 过程图保留 caption；卷十五 · 保留 checklistItemKey
+ * @returns {{ images: { url: string, caption: string, checklistItemKey?: string }[], droppedStaleCount: number }}
  */
 async function persistLocalImageEntries(entries) {
   const result = []
@@ -276,6 +276,10 @@ async function persistLocalImageEntries(entries) {
       typeof raw === 'object' && raw
         ? String(raw.caption || '').trim().slice(0, 500)
         : ''
+    const checklistItemKey =
+      typeof raw === 'object' && raw
+        ? String(raw.checklistItemKey || '').trim().slice(0, 64)
+        : ''
     const url =
       typeof raw === 'string'
         ? raw.trim()
@@ -283,7 +287,11 @@ async function persistLocalImageEntries(entries) {
     if (!url) continue
 
     if (!isLocalTempImagePath(url)) {
-      result.push({ url: normalizeStoredImageUrl(url), caption })
+      result.push({
+        url: normalizeStoredImageUrl(url),
+        caption,
+        checklistItemKey,
+      })
       continue
     }
 
@@ -293,7 +301,11 @@ async function persistLocalImageEntries(entries) {
       continue
     }
 
-    result.push({ url: await uploadImage(url), caption })
+    result.push({
+      url: await uploadImage(url),
+      caption,
+      checklistItemKey,
+    })
   }
 
   return { images: result, droppedStaleCount }
