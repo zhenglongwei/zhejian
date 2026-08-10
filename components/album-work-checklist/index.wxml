@@ -4,13 +4,13 @@
     <text wx:if="{{categoryLabel}}" class="text-caption text-secondary">{{categoryLabel}}</text>
   </view>
   <text class="text-caption text-secondary album-work-checklist__hint">
-    仅展示门店实际留证的项目；未拍摄项不会出现。点图可进入翻页详看。
+    展示门店已留证的检查项与结果。同一项下可同时看到检查图与施工图；正常项仅展示检查记录。点图可翻页详看。
   </text>
 
   <view
     wx:for="{{items}}"
     wx:key="itemKey"
-    class="album-work-checklist__item"
+    class="album-work-checklist__item {{item.deferredByOwner ? 'is-deferred' : ''}}"
   >
     <view class="album-work-checklist__item-top">
       <text class="text-body">{{item.label}}</text>
@@ -18,8 +18,11 @@
     </view>
     <text
       wx:if="{{item.outcomeLabel}}"
-      class="text-caption album-work-checklist__outcome {{item.outcome === 'not_replaced' ? 'is-warn' : ''}}"
+      class="text-caption album-work-checklist__outcome {{item.outcome === 'not_replaced' || item.deferredByOwner ? 'is-warn' : ''}} {{item.outcome === 'normal' ? 'is-ok' : ''}}"
     >{{item.outcomeLabel}}</text>
+    <text wx:if="{{item.deferNote && item.deferredByOwner}}" class="text-caption album-work-checklist__defer">
+      {{item.deferNote}}
+    </text>
     <text wx:if="{{item.note}}" class="text-caption album-work-checklist__note" selectable>{{item.note}}</text>
     <view wx:if="{{item.images.length}}" class="album-work-checklist__grid">
       <view
@@ -33,6 +36,7 @@
         bindtap="onOpenFlip"
       >
         <image class="album-work-checklist__img" src="{{img.url}}" mode="aspectFill" />
+        <text wx:if="{{img.nodeTitle}}" class="text-caption album-work-checklist__stage">{{img.nodeTitle}}</text>
         <text wx:if="{{img.caption}}" class="text-caption album-work-checklist__cap">{{img.caption}}</text>
       </view>
     </view>

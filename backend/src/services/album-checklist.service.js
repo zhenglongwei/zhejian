@@ -1,5 +1,6 @@
 /**
- * 相册软清单运行时：水合、挂图同步、车主真实作业清单、outcome
+ * 相册软清单运行时：水合、挂图同步、待处理/跟进、车主阅读清单
+ * 口径：docs/04_维修过程相册/18_服务类目检测清单上线方案.md
  */
 const {
   CATALOG_VERSION,
@@ -9,6 +10,7 @@ const {
 } = require('../constants/service-checklist-catalog')
 
 const OUTCOMES = new Set([
+  'normal',
   'observed',
   'recommend_replace',
   'replaced',
@@ -17,16 +19,35 @@ const OUTCOMES = new Set([
 ])
 
 const OUTCOME_LABELS = {
+  normal: '正常',
   observed: '已检查',
   recommend_replace: '建议更换',
   replaced: '已更换',
   not_replaced: '建议更换 · 本次未更换',
-  repaired_other: '已处理',
+  repaired_other: '需处理 / 已处理',
 }
+
+/** 自动进入施工待处理的结果 */
+const AUTO_WORK_OUTCOMES = new Set([
+  'recommend_replace',
+  'replaced',
+  'not_replaced',
+  'repaired_other',
+])
+
+const REMOVED_AS = new Set(['mismatch', 'owner_declined'])
 
 function normalizeOutcome(value) {
   const v = String(value || '').trim()
   return OUTCOMES.has(v) ? v : null
+}
+
+function normalizeWork(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const source = src.source === 'manual_add' || src.source === 'auto' ? src.source : null
+  const removedAs = REMOVED_AS.has(String(src.removedAs || '')) ? String(src.removedAs) : null
+  const deferNote = String(src.deferNote || '').trim().slice(0, 200)
+  return { source, removedAs, deferNote }
 }
 
 function parseChecklistJson(raw) {
@@ -63,6 +84,7 @@ function hydrateChecklistState(album = {}) {
       outcome: normalizeOutcome(prev.outcome),
       note,
       imageIds,
+      work: normalizeWork(prev.work),
     }
   })
   return {
@@ -72,13 +94,13 @@ function hydrateChecklistState(album = {}) {
   }
 }
 
-/** 根据图片 checklistItemKey 回填 imageIds，并刷新 active */
 function syncChecklistImageLinks(checklistState, images = []) {
   const state = {
     catalogVersion: checklistState.catalogVersion || CATALOG_VERSION,
     categoryId: checklistState.categoryId,
     items: (checklistState.items || []).map((it) => ({
       ...it,
+      work: normalizeWork(it.work),
       imageIds: [],
     })),
   }
@@ -99,7 +121,9 @@ function syncChecklistImageLinks(checklistState, images = []) {
 }
 
 function mergeChecklistPatch(checklistState, patchItems = []) {
-  const byKey = new Map((checklistState.items || []).map((it) => [it.itemKey, { ...it }]))
+  const byKey = new Map(
+    (checklistState.items || []).map((it) => [it.itemKey, { ...it, work: normalizeWork(it.work) }]),
+  )
   ;(patchItems || []).forEach((p) => {
     const key = String(p.itemKey || '').trim()
     if (!key || !byKey.has(key)) return
@@ -113,6 +137,23 @@ function mergeChecklistPatch(checklistState, patchItems = []) {
     if (Array.isArray(p.imageIds)) {
       row.imageIds = p.imageIds.map(String).filter(Boolean)
     }
+    if (p.work != null && typeof p.work === 'object') {
+      const next = normalizeWork({ ...row.work, ...p.work })
+      if (Object.prototype.hasOwnProperty.call(p.work, 'source')) {
+        next.source =
+          p.work.source === 'manual_add' || p.work.source === 'auto' || p.work.source === null
+            ? p.work.source
+            : row.work.source
+      }
+      if (Object.prototype.hasOwnProperty.call(p.work, 'removedAs')) {
+        const r = p.work.removedAs
+        next.removedAs = r === null || r === '' ? null : REMOVED_AS.has(String(r)) ? String(r) : row.work.removedAs
+      }
+      if (Object.prototype.hasOwnProperty.call(p.work, 'deferNote')) {
+        next.deferNote = String(p.work.deferNote || '').trim().slice(0, 200)
+      }
+      row.work = next
+    }
     if (row.status !== 'skipped' && (row.imageIds.length || row.note)) {
       row.status = 'active'
     }
@@ -124,6 +165,39 @@ function mergeChecklistPatch(checklistState, patchItems = []) {
   }
 }
 
+function resolveWorkFlags(it) {
+  const work = normalizeWork(it.work)
+  if (work.removedAs === 'owner_declined') {
+    return { inWorkQueue: false, inFollowUp: true, work }
+  }
+  if (work.removedAs === 'mismatch') {
+    return { inWorkQueue: false, inFollowUp: false, work }
+  }
+  const auto = AUTO_WORK_OUTCOMES.has(it.outcome)
+  const manual = work.source === 'manual_add'
+  const inWorkQueue = Boolean(auto || manual)
+  return { inWorkQueue, inFollowUp: false, work }
+}
+
+function mapImageViews(imageIds, imageById) {
+  const stageTitle = {
+    stage_1: '接车',
+    stage_2: '检测',
+    stage_5: '施工',
+    stage_6: '完工',
+  }
+  return (imageIds || [])
+    .map((id) => imageById.get(String(id)))
+    .filter(Boolean)
+    .map((img) => ({
+      id: img.id,
+      url: img.rawUrl || img.url || '',
+      caption: String(img.caption || ''),
+      nodeId: img.nodeId || '',
+      nodeTitle: stageTitle[img.nodeId] || '',
+    }))
+}
+
 function buildMerchantChecklistView(album, images = []) {
   let state = hydrateChecklistState(album)
   state = syncChecklistImageLinks(state, images)
@@ -133,15 +207,14 @@ function buildMerchantChecklistView(album, images = []) {
 
   const guidanceItems = state.items.map((it) => {
     const def = defByKey.get(it.itemKey) || {}
-    const imgs = (it.imageIds || [])
-      .map((id) => imageById.get(String(id)))
-      .filter(Boolean)
-      .map((img) => ({
-        id: img.id,
-        url: img.rawUrl || img.url || '',
-        caption: String(img.caption || ''),
-        nodeId: img.nodeId || '',
-      }))
+    const flags = resolveWorkFlags(it)
+    const imgs = mapImageViews(it.imageIds, imageById)
+    let outcomeLabel = it.outcome ? OUTCOME_LABELS[it.outcome] || it.outcome : ''
+    if (flags.work.removedAs === 'owner_declined') {
+      outcomeLabel = flags.work.deferNote
+        ? `车主要求暂不处理：${flags.work.deferNote}`
+        : '车主要求暂不处理'
+    }
     return {
       itemKey: it.itemKey,
       label: def.label || it.itemKey,
@@ -152,9 +225,12 @@ function buildMerchantChecklistView(album, images = []) {
       linkHint: def.linkHint || '',
       status: it.status,
       outcome: it.outcome,
-      outcomeLabel: it.outcome ? OUTCOME_LABELS[it.outcome] || it.outcome : '',
+      outcomeLabel,
       note: it.note || '',
       images: imgs,
+      work: flags.work,
+      inWorkQueue: flags.inWorkQueue,
+      inFollowUp: flags.inFollowUp,
     }
   })
 
@@ -162,6 +238,13 @@ function buildMerchantChecklistView(album, images = []) {
   const strongPending = guidanceItems.filter(
     (it) => it.strength === 'strong' && it.status === 'pending',
   ).length
+
+  const workQueueItems = guidanceItems.filter((it) => it.inWorkQueue)
+  const followUpItems = guidanceItems.filter((it) => it.inFollowUp)
+  const stageItems = {
+    stage_1: guidanceItems.filter((it) => it.suggestStageId === 'stage_1'),
+    stage_2: guidanceItems.filter((it) => it.suggestStageId === 'stage_2'),
+  }
 
   return {
     catalogVersion: state.catalogVersion,
@@ -171,14 +254,18 @@ function buildMerchantChecklistView(album, images = []) {
       activeCount,
       totalCount: guidanceItems.length,
       strongPendingCount: strongPending,
+      workQueueCount: workQueueItems.length,
+      followUpCount: followUpItems.length,
     },
     items: guidanceItems,
-    /** 持久化用（无定义字段） */
+    stageItems,
+    workQueueItems,
+    followUpItems,
     state,
   }
 }
 
-/** 车主真实作业清单：仅有图或非空说明的项 */
+/** 车主：有图或说明的完整检查项；同项下含各阶段图 */
 function buildOwnerWorkChecklistView(album, images = []) {
   const merchant = buildMerchantChecklistView(album, images)
   const workItems = merchant.items
@@ -191,6 +278,8 @@ function buildOwnerWorkChecklistView(album, images = []) {
       outcomeLabel: it.outcomeLabel,
       note: it.note,
       images: it.images,
+      deferNote: it.work && it.work.removedAs === 'owner_declined' ? it.work.deferNote || '' : '',
+      deferredByOwner: Boolean(it.inFollowUp),
     }))
   return {
     categoryId: merchant.categoryId,
@@ -206,9 +295,11 @@ function ensureChecklistOnCreate(albumLike = {}) {
 
 module.exports = {
   OUTCOME_LABELS,
+  AUTO_WORK_OUTCOMES,
   hydrateChecklistState,
   syncChecklistImageLinks,
   mergeChecklistPatch,
+  resolveWorkFlags,
   buildMerchantChecklistView,
   buildOwnerWorkChecklistView,
   ensureChecklistOnCreate,

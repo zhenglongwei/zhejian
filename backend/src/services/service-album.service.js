@@ -630,6 +630,9 @@ function buildMerchantView(album) {
         categoryLabel: view.categoryLabel,
         completeness: view.completeness,
         items: view.items,
+        stageItems: view.stageItems,
+        workQueueItems: view.workQueueItems,
+        followUpItems: view.followUpItems,
       }
     })(),
   }

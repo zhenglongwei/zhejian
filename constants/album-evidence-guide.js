@@ -123,7 +123,7 @@ const DOCUMENT_TYPES = {
     stageId: 'stage_6',
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.RECOMMENDED,
-    merchantHint: '交车结算单据：实付金额与项目汇总。',
+    merchantHint: '交车结算单据（建议上传，非必须）：实付金额与项目汇总。',
     ownerCheckHint: '核对结算项目与沟通是否一致；有无未告知增项。',
     anomalyHint: '结算金额与沟通明显不符且无说明。',
     actionHint: '先与门店沟通；必要时保留结算单并通过正规投诉渠道反映。',

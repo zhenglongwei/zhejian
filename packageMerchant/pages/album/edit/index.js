@@ -250,10 +250,15 @@ Page({
     planStageUploadHint: '上传报价单，并填写方案说明',
     commonShootAvoidTags: ['少拍清晰车牌', '避免人脸入镜', '避免车钥匙入镜', '避免私人物品特写'],
     checklist: null,
-    checklistItems: [],
     checklistCompleteness: null,
     checklistCategoryLabel: '',
-    activeChecklistItemKey: '',
+    stageChecklistItems: [],
+    workQueueItems: [],
+    followUpItems: [],
+    showStageChecklist: false,
+    showWorkQueue: false,
+    showFollowUpList: false,
+    checklistStageHint: '',
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -425,8 +430,10 @@ Page({
   },
 
   collectSuggestReplaceWithoutFollowUp() {
-    return (this.data.checklistItems || []).filter((it) => {
+    const items = (this.data.checklist && this.data.checklist.items) || []
+    return items.filter((it) => {
       if (!it || it.outcome === 'replaced' || it.outcome === 'not_replaced') return false
+      if (it.inFollowUp) return false
       if (it.outcome === 'recommend_replace') return true
       const note = String(it.note || '')
       return /建议更换|建议换/.test(note) && it.outcome !== 'replaced'
@@ -446,13 +453,15 @@ Page({
       .join('、')
     wx.showModal({
       title: '有建议更换但未标结果',
-      content: `${names}${pending.length > 3 ? '等' : ''}：若本次未更换，可标「未更换」再完工；也可先完工（不阻断）。`,
-      confirmText: '去标记',
+      content: `${names}${pending.length > 3 ? '等' : ''}：若本次未更换，可标「未更换」或移出待处理；也可先完工（不阻断）。`,
+      confirmText: '去施工列表',
       cancelText: '先完工',
       success: (res) => {
         if (res.confirm) {
-          this.setData({
-            activeChecklistItemKey: pending[0].itemKey,
+          const index = (this.data.stages || []).findIndex((s) => s.id === STAGE_PROCESS_ID)
+          this.setData({ stageIndex: index >= 0 ? index : this.data.stageIndex }, () => {
+            this.refreshCompareStageFlags()
+            this.refreshChecklistStageViews()
           })
           return
         }
@@ -771,11 +780,6 @@ Page({
     }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     const checklist = detail.checklist || null
-    const checklistItems = (checklist && checklist.items) || []
-    const activeChecklistItemKey = this.data.activeChecklistItemKey
-      && checklistItems.some((it) => it.itemKey === this.data.activeChecklistItemKey)
-      ? this.data.activeChecklistItemKey
-      : ''
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
     this.setData({
       status: 'normal',
@@ -787,10 +791,8 @@ Page({
       comparePairRows,
       commonShootAvoidTags,
       checklist,
-      checklistItems,
       checklistCompleteness: (checklist && checklist.completeness) || null,
       checklistCategoryLabel: (checklist && checklist.categoryLabel) || '',
-      activeChecklistItemKey,
       parts: (detail.parts || []).map((p) => ({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
@@ -841,12 +843,142 @@ Page({
       warrantyNote: warrantyFields.note,
     }, () => {
       this.refreshCompareStageFlags(this.data.stageIndex)
+      this.refreshChecklistStageViews()
       this.refreshPartWizard()
       this.refreshMerchantInspection()
       this.redirectToInviteIfNoOwner(detail)
       this.maybeFocusOwnerPhone()
     })
     this.syncShareMenu(canShare)
+  },
+
+  attachStageImagesToItems(items, stageId) {
+    const node = (this.data.nodes || []).find((n) => n.id === stageId) || {}
+    const byKey = {}
+    ;(node.images || []).forEach((img) => {
+      const key = String((img && img.checklistItemKey) || '').trim()
+      if (!key) return
+      if (!byKey[key]) byKey[key] = []
+      byKey[key].push(img)
+    })
+    return (items || []).map((it) => ({
+      ...it,
+      stageImages: byKey[it.itemKey] || [],
+    }))
+  },
+
+  refreshChecklistStageViews(stageIndex = this.data.stageIndex) {
+    const checklist = this.data.checklist || {}
+    const stageId =
+      (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
+    const stageMap = checklist.stageItems || {}
+    const allItems = checklist.items || []
+    const showStageChecklist = stageId === 'stage_1' || stageId === 'stage_2'
+    const showWorkQueue = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
+    const showFollowUpList = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
+    let stageChecklistItems = []
+    let checklistStageHint = ''
+    if (stageId === 'stage_1') {
+      stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
+      checklistStageHint = '本阶段检查项：直接在下方各项上传照片并填写说明，再标记结果（含正常）。'
+    } else if (stageId === 'stage_2') {
+      stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
+      checklistStageHint =
+        '检测项请如实标记结果。标为「建议更换 / 需处理」的会进入施工「待处理」列表；「正常」不会进入。'
+    }
+    const workQueueItems = this.attachStageImagesToItems(
+      checklist.workQueueItems || allItems.filter((it) => it.inWorkQueue),
+      stageId === 'stage_6' ? 'stage_6' : STAGE_PROCESS_ID,
+    )
+    const followUpItems = checklist.followUpItems || allItems.filter((it) => it.inFollowUp)
+    const nodes = (this.data.nodes || []).map((n) => {
+      if (n.id !== stageId) return n
+      const images = n.images || []
+      const otherImages = images.filter((img) => !String((img && img.checklistItemKey) || '').trim())
+      return { ...n, otherImages }
+    })
+    this.setData({
+      nodes,
+      showStageChecklist,
+      showWorkQueue,
+      showFollowUpList,
+      stageChecklistItems,
+      workQueueItems,
+      followUpItems,
+      checklistStageHint,
+      checklistCompleteness: checklist.completeness || null,
+      checklistCategoryLabel: checklist.categoryLabel || '',
+    })
+  },
+
+  syncChecklistLocalItems(mapper) {
+    const checklist = this.data.checklist || { items: [] }
+    const items = (checklist.items || []).map(mapper)
+    const workQueueItems = items.filter((it) => it.inWorkQueue)
+    const followUpItems = items.filter((it) => it.inFollowUp)
+    const stageItems = {
+      stage_1: items.filter((it) => it.suggestStageId === 'stage_1'),
+      stage_2: items.filter((it) => it.suggestStageId === 'stage_2'),
+    }
+    const completeness = {
+      ...(checklist.completeness || {}),
+      workQueueCount: workQueueItems.length,
+      followUpCount: followUpItems.length,
+    }
+    this.setData(
+      {
+        checklist: {
+          ...checklist,
+          items,
+          stageItems,
+          workQueueItems,
+          followUpItems,
+          completeness,
+        },
+      },
+      () => this.refreshChecklistStageViews(),
+    )
+  },
+
+  computeWorkFlags(item) {
+    const work = {
+      source: (item.work && item.work.source) || null,
+      removedAs: (item.work && item.work.removedAs) || null,
+      deferNote: (item.work && item.work.deferNote) || '',
+    }
+    if (work.removedAs === 'owner_declined') {
+      return { ...item, work, inWorkQueue: false, inFollowUp: true }
+    }
+    if (work.removedAs === 'mismatch') {
+      return { ...item, work, inWorkQueue: false, inFollowUp: false }
+    }
+    const auto = ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other'].includes(
+      item.outcome,
+    )
+    const manual = work.source === 'manual_add'
+    return {
+      ...item,
+      work,
+      inWorkQueue: Boolean(auto || manual),
+      inFollowUp: false,
+    }
+  },
+
+  outcomeLabelOf(outcome, work) {
+    const labels = {
+      normal: '正常',
+      observed: '已检查',
+      recommend_replace: '建议更换',
+      replaced: '已更换',
+      not_replaced: '建议更换 · 本次未更换',
+      repaired_other: '需处理 / 已处理',
+    }
+    if (work && work.removedAs === 'owner_declined') {
+      return work.deferNote
+        ? `车主要求暂不处理：${work.deferNote}`
+        : '车主要求暂不处理'
+    }
+    return outcome ? labels[outcome] || outcome : ''
   },
 
   syncShareMenu(enabled) {
@@ -885,6 +1017,7 @@ Page({
     if (index >= 0) {
       this.setData({ stageIndex: index }, () => {
         const isCompare = this.refreshCompareStageFlags(index)
+        this.refreshChecklistStageViews(index)
         if (isCompare) {
           const rows = this.initComparePairRowsFromNodes(this.data.nodes, this.data.templateId)
           this.setData({ comparePairRows: rows })
@@ -1105,52 +1238,179 @@ Page({
     })
   },
 
-  onChecklistSelect(e) {
-    if (this.data.readOnly) return
-    const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
-    this.setData({
-      activeChecklistItemKey:
-        itemKey && itemKey === this.data.activeChecklistItemKey ? '' : itemKey,
-    })
-  },
-
-  patchChecklistItem(itemKey, patch) {
-    const key = String(itemKey || '').trim()
-    if (!key) return
-    const checklistItems = (this.data.checklistItems || []).map((it) => {
-      if (it.itemKey !== key) return it
-      const next = { ...it, ...patch }
-      if (patch.outcome !== undefined) {
-        next.outcome = patch.outcome
-        next.outcomeLabel = patch.outcomeLabel != null ? patch.outcomeLabel : next.outcomeLabel
-      }
-      return next
-    })
-    this.setData({ checklistItems })
-  },
-
   onChecklistNoteChange(e) {
     if (this.data.readOnly) return
     const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
     const note = String((e.detail && e.detail.note) || '').trim().slice(0, 500)
-    this.patchChecklistItem(itemKey, { note })
+    this.syncChecklistLocalItems((it) => {
+      if (it.itemKey !== itemKey) return it
+      return this.computeWorkFlags({ ...it, note })
+    })
   },
 
   onChecklistOutcomeChange(e) {
     if (this.data.readOnly) return
     const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
     const outcome = e.detail && e.detail.outcome != null ? e.detail.outcome : null
-    const labels = {
-      observed: '已检查',
-      recommend_replace: '建议更换',
-      replaced: '已更换',
-      not_replaced: '建议更换 · 本次未更换',
-      repaired_other: '已处理',
-    }
-    this.patchChecklistItem(itemKey, {
-      outcome,
-      outcomeLabel: outcome ? labels[outcome] || outcome : '',
+    this.syncChecklistLocalItems((it) => {
+      if (it.itemKey !== itemKey) return it
+      const next = this.computeWorkFlags({ ...it, outcome })
+      next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+      return next
     })
+  },
+
+  onChecklistItemImagesChange(e) {
+    if (this.data.readOnly) return
+    const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
+    if (!itemKey) return
+    const stageId =
+      String((e.detail && e.detail.stageId) || '').trim() ||
+      (this.data.stages[this.data.stageIndex] && this.data.stages[this.data.stageIndex].id) ||
+      ''
+    const nodes = this.data.nodes.slice()
+    const index = nodes.findIndex((n) => n.id === stageId)
+    if (index < 0) return
+    const prevImages = nodes[index].images || []
+    const keep = prevImages.filter(
+      (img) => String((img && img.checklistItemKey) || '').trim() !== itemKey,
+    )
+    const incoming = ((e.detail && e.detail.images) || []).map((entry) => {
+      if (typeof entry === 'string') {
+        return { url: entry, caption: '', checklistItemKey: itemKey }
+      }
+      return {
+        ...entry,
+        url: String((entry && (entry.url || entry.rawUrl || entry.src)) || '').trim(),
+        caption: String((entry && entry.caption) || '').trim(),
+        checklistItemKey: itemKey,
+      }
+    }).filter((img) => img.url)
+    nodes[index].images = keep.concat(incoming)
+    this.setData({ nodes }, () => {
+      this.refreshChecklistStageViews()
+      this.refreshMerchantInspection()
+    })
+  },
+
+  onChecklistAddWork(e) {
+    if (this.data.readOnly) return
+    const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
+    this.syncChecklistLocalItems((it) => {
+      if (it.itemKey !== itemKey) return it
+      const next = this.computeWorkFlags({
+        ...it,
+        work: { ...(it.work || {}), source: 'manual_add', removedAs: null, deferNote: '' },
+      })
+      next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+      return next
+    })
+    wx.showToast({ title: '已加入待处理', icon: 'success' })
+  },
+
+  onChecklistRemoveWork(e) {
+    if (this.data.readOnly) return
+    const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
+    if (!itemKey) return
+    wx.showActionSheet({
+      itemList: ['列表不准（直接移出，不影响车主检测记录）', '车主不同意处理（保留跟进）'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.syncChecklistLocalItems((it) => {
+            if (it.itemKey !== itemKey) return it
+            const next = this.computeWorkFlags({
+              ...it,
+              work: {
+                ...(it.work || {}),
+                source: null,
+                removedAs: 'mismatch',
+                deferNote: '',
+              },
+            })
+            next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+            return next
+          })
+          return
+        }
+        if (res.tapIndex === 1) {
+          const applyDecline = (deferNote) => {
+            this.syncChecklistLocalItems((it) => {
+              if (it.itemKey !== itemKey) return it
+              const next = this.computeWorkFlags({
+                ...it,
+                outcome: it.outcome === 'replaced' ? 'not_replaced' : it.outcome || 'not_replaced',
+                work: {
+                  ...(it.work || {}),
+                  removedAs: 'owner_declined',
+                  deferNote: deferNote || '车主要求暂不处理',
+                },
+              })
+              next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+              return next
+            })
+          }
+          if (wx.showModal) {
+            wx.showModal({
+              title: '车主暂缓原因',
+              editable: true,
+              placeholderText: '如：车主要求暂不处理',
+              success: (modalRes) => {
+                if (!modalRes.confirm) return
+                applyDecline(String(modalRes.content || '').trim())
+              },
+            })
+          } else {
+            applyDecline('车主要求暂不处理')
+          }
+        }
+      },
+    })
+  },
+
+  onChecklistRestoreWork(e) {
+    if (this.data.readOnly) return
+    const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
+    this.syncChecklistLocalItems((it) => {
+      if (it.itemKey !== itemKey) return it
+      const next = this.computeWorkFlags({
+        ...it,
+        work: {
+          ...(it.work || {}),
+          source: 'manual_add',
+          removedAs: null,
+          deferNote: '',
+        },
+      })
+      next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+      return next
+    })
+  },
+
+  onOtherNodeImages(e) {
+    if (this.data.readOnly) return
+    let index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) index = this.data.stageIndex
+    const nodes = this.data.nodes.slice()
+    const node = nodes[index]
+    if (!node) return
+    const keyed = (node.images || []).filter((img) =>
+      String((img && img.checklistItemKey) || '').trim(),
+    )
+    const others = ((e.detail && e.detail.images) || []).map((entry) => {
+      if (typeof entry === 'string') return { url: entry, caption: '', checklistItemKey: '' }
+      return {
+        ...entry,
+        url: String((entry && (entry.url || entry.rawUrl || entry.src)) || '').trim(),
+        caption: String((entry && entry.caption) || '').trim(),
+        checklistItemKey: '',
+      }
+    }).filter((img) => img.url)
+    nodes[index] = {
+      ...node,
+      images: keyed.concat(others),
+      otherImages: others,
+    }
+    this.setData({ nodes }, () => this.refreshMerchantInspection())
   },
 
   onNodeImages(e) {
@@ -1181,6 +1441,7 @@ Page({
     }
 
     this.setData(updates, () => {
+      this.refreshChecklistStageViews()
       this.refreshMerchantInspection()
     })
   },
@@ -2136,11 +2397,16 @@ Page({
         partVerifyGuideInformed: this.data.partVerifyGuideMode === 'informed',
         evidenceItems: sanitizeEvidenceItemsPayload(evidenceItems, { validPlanPartIds }),
         checklist: {
-          items: (this.data.checklistItems || []).map((it) => ({
+          items: ((this.data.checklist && this.data.checklist.items) || []).map((it) => ({
             itemKey: it.itemKey,
             note: String(it.note || '').trim(),
             outcome: it.outcome || null,
             status: it.status || undefined,
+            work: {
+              source: (it.work && it.work.source) || null,
+              removedAs: (it.work && it.work.removedAs) || null,
+              deferNote: (it.work && it.work.deferNote) || '',
+            },
           })),
         },
       },

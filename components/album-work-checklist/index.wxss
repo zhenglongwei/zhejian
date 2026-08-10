@@ -40,8 +40,22 @@
   margin-bottom: var(--space-xs);
 }
 
-.album-work-checklist__outcome.is-warn {
+.album-work-checklist__item.is-deferred {
+  border-left: 6rpx solid var(--color-warning);
+}
+
+.album-work-checklist__outcome.is-ok {
+  color: var(--color-success);
+}
+
+.album-work-checklist__defer {
+  display: block;
   color: var(--color-warning);
+  margin-bottom: var(--space-xs);
+}
+
+.album-work-checklist__stage {
+  color: var(--color-text-tertiary);
 }
 
 .album-work-checklist__note {

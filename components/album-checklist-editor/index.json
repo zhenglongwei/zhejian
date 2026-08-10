@@ -1,4 +1,6 @@
 {
   "component": true,
-  "usingComponents": {}
+  "usingComponents": {
+    "ui-image-uploader": "/components/image-uploader/index"
+  }
 }

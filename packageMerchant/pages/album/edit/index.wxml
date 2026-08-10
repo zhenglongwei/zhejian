@@ -262,19 +262,6 @@
         </ui-card>
       </view>
 
-      <view wx:if="{{checklistItems.length}}" class="merchant-album-edit__checklist">
-        <album-checklist-editor
-          items="{{checklistItems}}"
-          completeness="{{checklistCompleteness}}"
-          categoryLabel="{{checklistCategoryLabel}}"
-          activeItemKey="{{activeChecklistItemKey}}"
-          readOnly="{{readOnly}}"
-          bind:select="onChecklistSelect"
-          bind:notechange="onChecklistNoteChange"
-          bind:outcomechange="onChecklistOutcomeChange"
-        />
-      </view>
-
       <view class="merchant-album-edit__tabs">
         <ui-tabs
           tabs="{{stageTabs}}"
@@ -296,6 +283,48 @@
       </view>
 
       <ui-card shadow="{{true}}" padding="{{true}}">
+        <block wx:if="{{showStageChecklist}}">
+          <album-checklist-editor
+            mode="stage"
+            title="{{checklistCategoryLabel || '检查项目'}}"
+            hint="{{checklistStageHint}}"
+            items="{{stageChecklistItems}}"
+            completeness="{{checklistCompleteness}}"
+            stageId="{{stages[stageIndex].id}}"
+            readOnly="{{readOnly}}"
+            bind:notechange="onChecklistNoteChange"
+            bind:outcomechange="onChecklistOutcomeChange"
+            bind:itemimageschange="onChecklistItemImagesChange"
+            bind:addwork="onChecklistAddWork"
+          />
+        </block>
+
+        <block wx:if="{{showWorkQueue}}">
+          <album-checklist-editor
+            mode="work"
+            title="待处理项目"
+            hint="根据检测结果自动生成（正常项不会出现）。可继续拍照留证；移出前须选择原因。"
+            items="{{workQueueItems}}"
+            stageId="{{stages[stageIndex].id}}"
+            readOnly="{{readOnly}}"
+            bind:notechange="onChecklistNoteChange"
+            bind:outcomechange="onChecklistOutcomeChange"
+            bind:itemimageschange="onChecklistItemImagesChange"
+            bind:removework="onChecklistRemoveWork"
+          />
+        </block>
+
+        <block wx:if="{{showFollowUpList && followUpItems.length}}">
+          <album-checklist-editor
+            mode="followup"
+            title="跟进服务"
+            hint="车主暂缓处理的项目，便于回访；不会从记录中丢弃。"
+            items="{{followUpItems}}"
+            readOnly="{{readOnly}}"
+            bind:restorework="onChecklistRestoreWork"
+          />
+        </block>
+
         <block wx:if="{{isComparePairStage}}">
           <album-evidence-slots
             wx:if="{{showStageEvidenceSlots}}"
@@ -318,252 +347,36 @@
             bind:syncfromassessment="onSyncCompareFromAssessment"
           />
         </block>
-        <block wx:elif="{{isPartsStage}}">
+
+        <block wx:elif="{{isPartsStage || isPlanStage}}">
           <view class="merchant-album-edit__parts-node">
-            <view class="merchant-album-edit__parts-node-head">
-              <text class="text-h3 merchant-album-edit__parts-node-title">{{nodes[stageIndex].title}}</text>
-              <view wx:if="{{!readOnly}}" class="merchant-album-edit__parts-head-actions">
-                <view
-                  class="merchant-album-edit__parts-ocr {{planOcrLoading ? 'is-loading' : ''}}"
-                  catchtap="onRunPlanQuoteOcr"
-                >
-                  <text class="merchant-album-edit__parts-ocr-text">{{planOcrLoading ? '识别中…' : 'OCR辅助识别报价单'}}</text>
-                </view>
-              </view>
-            </view>
-            <text class="text-caption merchant-album-edit__parts-hint">{{nodes[stageIndex].description || '按配件填写凭证与说明'}}</text>
-            <view class="merchant-album-edit__extra-sop">
-              <text class="text-caption merchant-album-edit__extra-sop-text">{{extraPartSopStage4Hint}}</text>
-            </view>
-            <view wx:if="{{planParseHint}}" class="merchant-album-edit__parse-hint">
-              <text class="text-caption">{{planParseHint}}</text>
-            </view>
-
-            <view
-              wx:for="{{partWizardRows}}"
-              wx:key="planPartId"
-              class="merchant-album-edit__wizard-row {{item.done ? 'is-done' : ''}} {{activeWizardIndex === index ? 'is-open' : ''}}"
-            >
-              <view class="merchant-album-edit__wizard-head-row" data-index="{{index}}" bindtap="onToggleWizardRow">
-                <text class="merchant-album-edit__wizard-title text-body">{{item.done ? '✓' : '○'}} {{item.partName || item.planName}}</text>
-                <text class="text-caption merchant-album-edit__wizard-remove" data-index="{{index}}" catchtap="onRemovePartRow">删除</text>
-              </view>
-              <block wx:if="{{activeWizardIndex === index}}">
-                <view class="merchant-album-edit__wizard-fields">
-                  <view class="merchant-album-edit__wizard-photo">
-                    <view class="merchant-album-edit__wizard-photo-grid">
-                      <view
-                        wx:for="{{item.photos}}"
-                        wx:for-item="photo"
-                        wx:for-index="photoIndex"
-                        wx:key="*this"
-                        class="merchant-album-edit__wizard-photo-item image-placeholder"
-                        data-index="{{index}}"
-                        data-photo-index="{{photoIndex}}"
-                        bindtap="onWizardPreviewPhoto"
-                      >
-                        <image class="merchant-album-edit__wizard-photo-img" src="{{photo}}" mode="aspectFill" />
-                        <view
-                          class="merchant-album-edit__wizard-photo-remove"
-                          data-index="{{index}}"
-                          data-photo-index="{{photoIndex}}"
-                          catchtap="onWizardRemovePhoto"
-                        >×</view>
-                      </view>
-                      <view
-                        wx:if="{{item.photos.length < 3}}"
-                        class="merchant-album-edit__wizard-photo-add {{item.photos.length ? '' : 'is-empty'}}"
-                        hover-class="merchant-album-edit__wizard-photo-add--hover"
-                        hover-stay-time="80"
-                        data-index="{{index}}"
-                        catchtap="onWizardAddPhotos"
-                      >
-                        <image class="merchant-album-edit__wizard-photo-add-icon" src="/assets/icon/add.png" mode="aspectFit" />
-                        <view class="text-caption merchant-album-edit__wizard-photo-add-text">
-                          {{wizardPickingIndex === index ? '正在打开相册…' : '上传凭证图'}}
-                        </view>
-                      </view>
-                    </view>
-                    <text class="text-caption text-secondary merchant-album-edit__wizard-photo-hint">{{partPhotoUploadHint}}</text>
-                    <view class="merchant-album-edit__wizard-photo-actions">
-                      <text
-                        class="text-caption text-link merchant-album-edit__wizard-ocr-text {{partLabelOcrLoading ? 'is-loading' : ''}}"
-                        data-index="{{index}}"
-                        catchtap="onRunPartLabelOcr"
-                      >{{partLabelOcrLoading ? '识别中…' : '识别编码'}}</text>
-                    </view>
-                  </view>
-
-                  <block wx:if="{{wizardFocusField === 'partName'}}">
-                    <input
-                      class="merchant-form__input"
-                      placeholder="配件名称 *"
-                      value="{{item.partName}}"
-                      focus="{{true}}"
-                      data-index="{{index}}"
-                      data-field="partName"
-                      bindinput="onWizardInput"
-                      bindblur="onWizardFieldBlur"
-                    />
-                  </block>
-                  <view
-                    wx:else
-                    class="merchant-form__input merchant-album-edit__wizard-field-proxy {{item.partName ? '' : 'is-placeholder'}}"
-                    data-index="{{index}}"
-                    data-field="partName"
-                    catchtap="onWizardFieldFocus"
-                  >{{item.partName || '配件名称 *'}}</view>
-
-                  <block wx:if="{{item.typeLocked}}">
-                    <view class="merchant-form__picker is-locked" catchtap="onLockedPartTypeTap">{{item.partType}}</view>
-                    <text class="text-caption merchant-album-edit__type-tip">{{merchantPartTypeLockedTip}}</text>
-                  </block>
-                  <block wx:else>
-                    <picker mode="selector" range="{{partTypeList}}" value="{{item.partTypeIndex}}" data-index="{{index}}" bindchange="onWizardTypeChange">
-                      <view class="merchant-form__picker {{item.partType ? '' : 'is-placeholder'}}">{{item.partType || '请选择类型'}}</view>
-                    </picker>
-                    <text class="text-caption merchant-album-edit__type-tip">{{merchantPartTypeManualTip}}</text>
-                  </block>
-
-                  <block wx:if="{{wizardFocusField === 'partBrand'}}">
-                    <input
-                      class="merchant-form__input"
-                      placeholder="品牌"
-                      value="{{item.partBrand}}"
-                      focus="{{true}}"
-                      data-index="{{index}}"
-                      data-field="partBrand"
-                      bindinput="onWizardInput"
-                      bindblur="onWizardFieldBlur"
-                    />
-                  </block>
-                  <view
-                    wx:else
-                    class="merchant-form__input merchant-album-edit__wizard-field-proxy {{item.partBrand ? '' : 'is-placeholder'}}"
-                    data-index="{{index}}"
-                    data-field="partBrand"
-                    catchtap="onWizardFieldFocus"
-                  >{{item.partBrand || '品牌'}}</view>
-
-                  <block wx:if="{{wizardFocusField === 'partCode'}}">
-                    <input
-                      class="merchant-form__input"
-                      placeholder="编码"
-                      value="{{item.partCode}}"
-                      focus="{{true}}"
-                      data-index="{{index}}"
-                      data-field="partCode"
-                      bindinput="onWizardInput"
-                      bindblur="onWizardFieldBlur"
-                    />
-                  </block>
-                  <view
-                    wx:else
-                    class="merchant-form__input merchant-album-edit__wizard-field-proxy {{item.partCode ? '' : 'is-placeholder'}}"
-                    data-index="{{index}}"
-                    data-field="partCode"
-                    catchtap="onWizardFieldFocus"
-                  >{{item.partCode || '编码'}}</view>
-
-                  <ui-button type="primary" size="sm" data-index="{{index}}" bind:btntap="onSaveWizardRow">保存本项</ui-button>
-                </view>
-              </block>
-            </view>
-
-            <view wx:if="{{!partWizardRows.length && !readOnly}}" class="merchant-album-edit__parts-empty">
-              <text class="text-caption text-secondary">暂无配件项，可点下方添加，或用上方 OCR 从报价单识别</text>
-            </view>
-            <view wx:elif="{{!partWizardRows.length && readOnly}}" class="merchant-album-edit__parts-empty">
-              <text class="text-caption text-secondary">暂无配件项</text>
-            </view>
-
-            <view
-              wx:if="{{!readOnly}}"
-              class="merchant-album-edit__parts-upload-cta"
-              hover-class="merchant-album-edit__parts-upload-cta--hover"
-              hover-stay-time="80"
-              catchtap="onAddPartByPhotos"
-              catchtouchmove="noop"
-            >
-              <image
-                class="merchant-album-edit__parts-upload-icon"
-                src="/assets/icon/add.png"
-                mode="aspectFit"
-              />
-              <view class="merchant-album-edit__parts-upload-title">
-                {{partWizardRows.length ? '继续添加配件' : '添加配件凭证'}}
-              </view>
-              <view class="text-caption text-secondary merchant-album-edit__parts-upload-desc">
-                添加后在展开项中上传包装 / 编码 / 实物图
-              </view>
-            </view>
-
-
-            <view class="merchant-album-edit__owner-verify-guide">
-              <text class="text-body merchant-album-edit__owner-verify-title">{{partVerifyGuideTitle}}</text>
-              <text class="text-caption merchant-album-edit__owner-verify-hint">{{partVerifyGuideHint}}</text>
-              <view class="merchant-album-edit__verify-radio-group" role="radiogroup">
-                <view
-                  class="merchant-album-edit__verify-option {{partVerifyGuideMode === 'text' ? 'is-checked' : ''}}"
-                >
-                  <view
-                    class="merchant-album-edit__verify-radio-item"
-                    data-mode="text"
-                    bindtap="onPartVerifyGuideModeTap"
-                    aria-role="radio"
-                    aria-checked="{{partVerifyGuideMode === 'text'}}"
-                  >
-                    <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
-                      <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-radio-dot-inner" />
-                    </view>
-                    <view class="merchant-album-edit__verify-radio-copy">
-                      <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeTextTitle}}</text>
-                      <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeTextDesc}}</text>
-                    </view>
-                  </view>
-                  <view wx:if="{{partVerifyGuideMode === 'text'}}" class="merchant-album-edit__verify-option-body">
-                    <textarea
-                      wx:if="{{partVerifyTextareaReady}}"
-                      class="merchant-album-edit__owner-verify-input text-body"
-                      placeholder="{{partVerifyGuidePlaceholder}}"
-                      value="{{partVerifyGuideText}}"
-                      maxlength="1000"
-                      bindinput="onPartVerifyGuideInput"
-                      hold-keyboard="{{false}}"
-                      show-confirm-bar="{{false}}"
-                      adjust-position="{{true}}"
-                      auto-height="{{false}}"
-                    />
-                    <view
-                      wx:else
-                      class="merchant-album-edit__owner-verify-input merchant-album-edit__owner-verify-input--proxy text-body text-secondary"
-                      bindtap="onActivatePartVerifyTextarea"
-                    >{{partVerifyGuideText || partVerifyGuidePlaceholder}}</view>
-                  </view>
-                </view>
-                <view
-                  class="merchant-album-edit__verify-option {{partVerifyGuideMode === 'informed' ? 'is-checked' : ''}}"
-                >
-                  <view
-                    class="merchant-album-edit__verify-radio-item"
-                    data-mode="informed"
-                    bindtap="onPartVerifyGuideModeTap"
-                    aria-role="radio"
-                    aria-checked="{{partVerifyGuideMode === 'informed'}}"
-                  >
-                    <view class="merchant-album-edit__verify-radio-dot" aria-hidden="true">
-                      <view wx:if="{{partVerifyGuideMode === 'informed'}}" class="merchant-album-edit__verify-radio-dot-inner" />
-                    </view>
-                    <view class="merchant-album-edit__verify-radio-copy">
-                      <text class="text-body merchant-album-edit__verify-radio-label">{{partVerifyGuideModeInformedTitle}}</text>
-                      <text class="text-caption merchant-album-edit__verify-radio-desc">{{partVerifyGuideModeInformedDesc}}</text>
-                    </view>
-                  </view>
-                </view>
-              </view>
-            </view>
+            <text class="text-h3">历史节点</text>
+            <text class="text-caption text-secondary">报价单 OCR 与配件类型录入已下线。请到「检测记录」标记结果，在「施工过程」的待处理项目中挂图说明。</text>
           </view>
         </block>
+        <block wx:elif="{{showStageChecklist || showWorkQueue}}">
+          <album-evidence-slots
+            wx:if="{{showStageEvidenceSlots}}"
+            items="{{stageEvidenceSlots}}"
+            disabled="{{readOnly || saving || completing || switching}}"
+            uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
+            bind:change="onEvidenceSlotsChange"
+          />
+          <text class="text-caption text-secondary merchant-album-edit__other-photos-hint">下方「其他过程图」仅用于未挂到检查项的零散照片（可选）。</text>
+          <ui-album-node
+            wx:if="{{showStageProcessUploader}}"
+            mode="{{readOnly ? 'view' : 'edit'}}"
+            title="其他过程图"
+            description=""
+            photoTips=""
+            compact="{{true}}"
+            images="{{nodes[stageIndex].otherImages || []}}"
+            data-index="{{stageIndex}}"
+            data-other="1"
+            bind:imageschange="onOtherNodeImages"
+          />
+        </block>
+
         <block wx:else>
           <album-evidence-slots
             wx:if="{{showStageEvidenceSlots}}"
@@ -592,7 +405,7 @@
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
-            stampChecklistItemKey="{{activeChecklistItemKey}}"
+            stampChecklistItemKey=""
             uploadHint="{{nodes[stageIndex].publicUploadHint || uploadPrivacyHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"
@@ -608,7 +421,7 @@
             requiredLevelVariant="{{nodes[stageIndex].requiredLevelVariant}}"
             captionPlaceholder="{{nodes[stageIndex].captionPlaceholder}}"
             images="{{nodes[stageIndex].images}}"
-            stampChecklistItemKey="{{activeChecklistItemKey}}"
+            stampChecklistItemKey=""
             uploadHint="{{nodes[stageIndex].publicUploadHint || planStageUploadHint}}"
             data-index="{{stageIndex}}"
             bind:imageschange="onNodeImages"

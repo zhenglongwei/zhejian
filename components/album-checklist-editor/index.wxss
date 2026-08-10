@@ -18,6 +18,10 @@
   line-height: 1.5;
 }
 
+.album-checklist-editor__empty {
+  padding: var(--space-md) 0;
+}
+
 .album-checklist-editor__item {
   padding: var(--space-md);
   border: 1rpx solid var(--color-border);
@@ -25,13 +29,12 @@
   margin-bottom: var(--space-sm);
 }
 
-.album-checklist-editor__item.is-active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
 .album-checklist-editor__item.is-filled {
   border-left: 6rpx solid var(--color-primary);
+}
+
+.album-checklist-editor__item.is-followup {
+  border-left: 6rpx solid var(--color-warning);
 }
 
 .album-checklist-editor__item-top {
@@ -47,12 +50,14 @@
 }
 
 .album-checklist-editor__outcome {
+  display: block;
   color: var(--color-primary);
+  margin-bottom: var(--space-xs);
 }
 
 .album-checklist-editor__note {
   width: 100%;
-  min-height: 144rpx;
+  min-height: 120rpx;
   margin-top: var(--space-sm);
   padding: var(--space-sm);
   box-sizing: border-box;
@@ -80,4 +85,20 @@
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-primary-light);
+}
+
+.album-checklist-editor__chip--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.album-checklist-editor__upload {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.album-checklist-editor__readonly-imgs {
+  margin-top: var(--space-xs);
 }

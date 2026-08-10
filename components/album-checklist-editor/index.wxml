@@ -1,41 +1,56 @@
 <view class="album-checklist-editor">
   <view class="album-checklist-editor__head">
-    <text class="text-body">{{categoryLabel || '检测清单'}}</text>
-    <text wx:if="{{completeness}}" class="text-caption text-secondary">
+    <text class="text-body">{{title || (mode === 'work' ? '待处理项目' : mode === 'followup' ? '跟进服务' : '检查项目')}}</text>
+    <text wx:if="{{completeness && mode === 'stage'}}" class="text-caption text-secondary">
       已留证 {{completeness.activeCount || 0}}/{{completeness.totalCount || 0}}
-      <text wx:if="{{completeness.strongPendingCount}}"> · 强烈建议待拍 {{completeness.strongPendingCount}}</text>
+    </text>
+    <text wx:elif="{{mode === 'work'}}" class="text-caption text-secondary">
+      {{items.length}} 项 · 由检查结果自动生成，可不写价格
+    </text>
+    <text wx:elif="{{mode === 'followup'}}" class="text-caption text-secondary">
+      车主暂缓处理 · {{items.length}} 项
     </text>
   </view>
-  <text class="text-caption text-secondary album-checklist-editor__hint">
-    点选一项后再在下方阶段拍照，照片会挂到该项；施工/完工也可挂回同一项。未拍项不会出现在车主清单。
-  </text>
+  <text wx:if="{{hint}}" class="text-caption text-secondary album-checklist-editor__hint">{{hint}}</text>
+
+  <view wx:if="{{!items.length}}" class="album-checklist-editor__empty">
+    <text class="text-caption text-secondary">
+      {{mode === 'work' ? '暂无待处理项。检查结果标为「正常」的不会出现在此；也可从检查项手动加入。' : mode === 'followup' ? '暂无跟进项。' : '本阶段暂无检查项。'}}
+    </text>
+  </view>
 
   <view
     wx:for="{{items}}"
     wx:key="itemKey"
-    class="album-checklist-editor__item {{activeItemKey === item.itemKey ? 'is-active' : ''}} {{item.status === 'active' ? 'is-filled' : ''}}"
-    data-key="{{item.itemKey}}"
-    bindtap="onSelectItem"
+    class="album-checklist-editor__item {{item.status === 'active' ? 'is-filled' : ''}} {{item.inFollowUp ? 'is-followup' : ''}}"
   >
     <view class="album-checklist-editor__item-top">
       <text class="text-body">{{item.label}}</text>
       <text class="text-caption text-secondary">{{item.group}}</text>
     </view>
-    <text wx:if="{{item.strength === 'strong'}}" class="text-caption album-checklist-editor__strong">强烈建议</text>
+    <text wx:if="{{item.strength === 'strong' && mode === 'stage'}}" class="text-caption album-checklist-editor__strong">强烈建议</text>
     <text wx:if="{{item.outcomeLabel}}" class="text-caption album-checklist-editor__outcome">{{item.outcomeLabel}}</text>
-    <text wx:if="{{item.images.length}}" class="text-caption">已挂 {{item.images.length}} 张图</text>
+    <text wx:if="{{item.note}}" class="text-caption text-secondary">项说明：{{item.note}}</text>
 
-    <block wx:if="{{activeItemKey === item.itemKey && !readOnly}}">
+    <block wx:if="{{!readOnly}}">
       <view catchtap="noop">
         <textarea
+          wx:if="{{mode === 'stage' || mode === 'work'}}"
           class="album-checklist-editor__note"
           maxlength="500"
-          placeholder="{{item.noteExample || '该项说明（选填）'}}"
+          placeholder="{{item.noteExample || '该项整体说明（选填）'}}"
           value="{{item.note}}"
           data-key="{{item.itemKey}}"
           bindinput="onNoteInput"
         />
-        <view class="album-checklist-editor__outcomes">
+
+        <view wx:if="{{mode === 'stage'}}" class="album-checklist-editor__outcomes">
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'normal' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="normal"
+            catchtap="onOutcomeTap"
+          >正常</text>
           <text
             class="album-checklist-editor__chip {{item.outcome === 'recommend_replace' ? 'is-on' : ''}}"
             data-key="{{item.itemKey}}"
@@ -43,17 +58,11 @@
             catchtap="onOutcomeTap"
           >建议更换</text>
           <text
-            class="album-checklist-editor__chip {{item.outcome === 'replaced' ? 'is-on' : ''}}"
+            class="album-checklist-editor__chip {{item.outcome === 'repaired_other' ? 'is-on' : ''}}"
             data-key="{{item.itemKey}}"
-            data-outcome="replaced"
+            data-outcome="repaired_other"
             catchtap="onOutcomeTap"
-          >已更换</text>
-          <text
-            class="album-checklist-editor__chip {{item.outcome === 'not_replaced' ? 'is-on' : ''}}"
-            data-key="{{item.itemKey}}"
-            data-outcome="not_replaced"
-            catchtap="onOutcomeTap"
-          >未更换</text>
+          >需处理</text>
           <text
             class="album-checklist-editor__chip {{item.outcome === 'observed' ? 'is-on' : ''}}"
             data-key="{{item.itemKey}}"
@@ -65,8 +74,74 @@
             data-key="{{item.itemKey}}"
             data-outcome="clear"
             catchtap="onOutcomeTap"
-          >清除标记</text>
+          >清除</text>
         </view>
+
+        <view wx:if="{{mode === 'work'}}" class="album-checklist-editor__outcomes">
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'replaced' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="replaced"
+            catchtap="onOutcomeTap"
+          >已更换</text>
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'repaired_other' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="repaired_other"
+            catchtap="onOutcomeTap"
+          >已处理</text>
+          <text
+            class="album-checklist-editor__chip {{item.outcome === 'not_replaced' ? 'is-on' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-outcome="not_replaced"
+            catchtap="onOutcomeTap"
+          >未更换</text>
+          <text
+            class="album-checklist-editor__chip album-checklist-editor__chip--danger"
+            data-key="{{item.itemKey}}"
+            catchtap="onRemoveWork"
+          >移出待处理</text>
+        </view>
+
+        <view wx:if="{{mode === 'followup'}}" class="album-checklist-editor__outcomes">
+          <text
+            class="album-checklist-editor__chip is-on"
+            data-key="{{item.itemKey}}"
+            catchtap="onRestoreFollowUp"
+          >重新纳入待处理</text>
+        </view>
+
+        <view wx:if="{{mode === 'stage' || mode === 'work'}}" class="album-checklist-editor__upload">
+          <text class="text-caption text-secondary">照片（可多张，每张可写说明）</text>
+          <ui-image-uploader
+            images="{{item.stageImages || item.images}}"
+            maxCount="{{12}}"
+            variant="album"
+            enableCaption="{{true}}"
+            captionPlaceholder="本图说明（选填）"
+            captionProminent="{{true}}"
+            stampChecklistItemKey="{{item.itemKey}}"
+            data-key="{{item.itemKey}}"
+            bind:change="onImagesChange"
+          />
+        </view>
+
+        <view
+          wx:if="{{mode === 'stage' && !item.inWorkQueue && !item.inFollowUp}}"
+          class="album-checklist-editor__outcomes"
+        >
+          <text
+            class="album-checklist-editor__chip"
+            data-key="{{item.itemKey}}"
+            catchtap="onAddWork"
+          >加入待处理</text>
+        </view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view wx:if="{{item.images.length}}" class="album-checklist-editor__readonly-imgs">
+        <text class="text-caption">已挂 {{item.images.length}} 张图</text>
       </view>
     </block>
   </view>
