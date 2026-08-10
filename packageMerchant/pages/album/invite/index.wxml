@@ -29,7 +29,7 @@
 
     <ui-card wx:if="{{!detail.hasOwner}}" shadow="{{true}}" padding="{{true}}" class="album-invite__qr-card">
       <text class="text-h3 album-invite__section">请车主扫码或打开分享链接</text>
-      <text class="text-caption album-invite__hint">请向车主说明服务相册用途。车主可现场扫码，或由你通过微信分享链接；打开后须先阅读隐私说明并确认，关联成功后方可上传过程图。</text>
+      <text class="text-caption album-invite__hint">请向车主说明服务相册用途。车主可现场扫码，或由你通过微信分享链接；打开后须先阅读隐私说明并确认。也可随时改用手填手机号。</text>
       <view class="album-invite__qr-wrap">
         <image
           wx:if="{{qrcodeDataUrl}}"
@@ -42,6 +42,10 @@
           <text class="text-caption">{{qrcodeMessage}}</text>
         </view>
       </view>
+      <view
+        class="album-invite__switch text-caption"
+        bindtap="onSwitchToManualPhone"
+      >改用手填手机号</view>
     </ui-card>
 
     <ui-card shadow="{{true}}" padding="{{true}}">
@@ -61,8 +65,7 @@
     <ui-button
       type="primary"
       slot="right"
-      disabled="{{!detail.hasOwner}}"
       bind:btntap="onContinue"
-    >{{detail.hasOwner ? '继续编辑相册' : '等待车主确认关联'}}</ui-button>
+    >{{detail.hasOwner ? '继续编辑相册' : '先去编辑相册'}}</ui-button>
   </ui-fixed-bottom-bar>
 </view>

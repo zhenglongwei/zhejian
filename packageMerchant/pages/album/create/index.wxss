@@ -15,6 +15,36 @@
   line-height: 1.5;
 }
 
+.album-create__owner-alt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4rpx;
+  margin-top: var(--space-sm);
+  line-height: 1.6;
+  color: var(--color-text-tertiary);
+}
+
+.album-create__owner-alt-text {
+  color: var(--color-text-tertiary);
+}
+
+.album-create__owner-alt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-xs);
+  min-height: 44rpx;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-album-active-light);
+}
+
+.album-create__owner-alt-btn:active {
+  opacity: 0.72;
+}
+
 .album-create__test-tip {
   display: block;
   margin-top: var(--space-xs);

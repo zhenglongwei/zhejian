@@ -158,7 +158,7 @@
           </view>
           <text class="text-caption text-secondary merchant-album-edit__vin-tip">里程请在接车节点拍摄仪表并写在本图说明；解析失败可手工改品牌/车系。</text>
 
-          <view class="merchant-album-edit__meta-row">
+          <view id="merchant-album-owner-phone" class="merchant-album-edit__meta-row">
             <text class="merchant-album-edit__meta-label text-caption">车主</text>
             <view class="merchant-album-edit__meta-body">
               <text
@@ -177,7 +177,7 @@
                     class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
                     type="number"
                     maxlength="11"
-                    placeholder="或直接填写车主手机号"
+                    placeholder="直接填写车主手机号"
                     value="{{ownerPhoneInput}}"
                     disabled="{{readOnly || saving || completing || switching}}"
                     bindinput="onOwnerPhoneInput"

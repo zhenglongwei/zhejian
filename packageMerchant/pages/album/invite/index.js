@@ -21,6 +21,7 @@ Page({
 
   onLoad(options) {
     this.albumId = options.albumId || ''
+    this.entryAction = options.action || ''
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
       return
@@ -88,11 +89,25 @@ Page({
           ? ''
           : qrcode.message || '暂无法生成小程序码，请分享链接发给车主',
       })
+      this.maybeHintEntryAction(detail)
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
+    }
+  },
+
+  maybeHintEntryAction(detail) {
+    if (!this.entryAction || (detail && detail.hasOwner)) return
+    const action = this.entryAction
+    this.entryAction = ''
+    if (action === 'share') {
+      wx.showToast({ title: '请点击下方「分享给车主」', icon: 'none', duration: 2500 })
+      return
+    }
+    if (action === 'scan') {
+      wx.showToast({ title: '请出示下方二维码给车主', icon: 'none', duration: 2500 })
     }
   },
 
@@ -132,13 +147,21 @@ Page({
     })
   },
 
-  onContinue() {
-    if (!this.data.detail || !this.data.detail.hasOwner) {
-      wx.showToast({ title: '请等待车主确认关联', icon: 'none' })
-      return
-    }
+  goEditAlbum() {
+    if (!this.albumId) return
     wx.redirectTo({
       url: `/packageMerchant/pages/album/edit/index?albumId=${this.albumId}`,
     })
+  },
+
+  onSwitchToManualPhone() {
+    if (!this.albumId) return
+    wx.redirectTo({
+      url: `/packageMerchant/pages/album/edit/index?albumId=${this.albumId}&focusOwnerPhone=1`,
+    })
+  },
+
+  onContinue() {
+    this.goEditAlbum()
   },
 })

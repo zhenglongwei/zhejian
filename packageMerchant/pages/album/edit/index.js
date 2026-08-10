@@ -333,11 +333,24 @@ Page({
 
   onLoad(options) {
     this.albumId = options.albumId || ''
+    this.focusOwnerPhone = options.focusOwnerPhone === '1' || options.focusOwnerPhone === 'true'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
       return
     }
     this.initPage()
+  },
+
+  maybeFocusOwnerPhone() {
+    if (!this.focusOwnerPhone || this.data.hasOwner) return
+    this.focusOwnerPhone = false
+    setTimeout(() => {
+      wx.pageScrollTo({
+        selector: '#merchant-album-owner-phone',
+        duration: 280,
+      })
+      wx.showToast({ title: '请填写车主手机号后保存', icon: 'none', duration: 2200 })
+    }, 320)
   },
 
   noop() {},
@@ -619,7 +632,7 @@ Page({
     wx.showModal({
       title: '请先关联车主',
       content: `${actionLabel || '上传过程图'}前，请填写车主手机号，或请车主扫码/打开分享链接关联。`,
-      confirmText: '去扫码页',
+      confirmText: '去关联页',
       cancelText: '知道了',
       success: (res) => {
         if (res.confirm) this.onInviteOwnerScan()
@@ -820,6 +833,7 @@ Page({
       this.refreshPartWizard()
       this.refreshMerchantInspection()
       this.redirectToInviteIfNoOwner(detail)
+      this.maybeFocusOwnerPhone()
     })
     this.syncShareMenu(canShare)
   },

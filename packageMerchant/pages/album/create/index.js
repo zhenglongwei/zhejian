@@ -111,7 +111,6 @@ Page({
     decodedVehicle: null,
     vehiclePreview: '',
     submitting: false,
-    submitLabel: '创建并请车主扫码',
     storeName: '',
     storeId: '',
   },
@@ -153,14 +152,6 @@ Page({
     this.setData({
       serviceQuickOptions,
       status: 'normal',
-    })
-    this.refreshSubmitLabel()
-  },
-
-  refreshSubmitLabel() {
-    const phone = normalizeOwnerPhone(this.data.form.userPhone)
-    this.setData({
-      submitLabel: phone.length === 11 ? '创建相册' : '创建并请车主扫码',
     })
   },
 
@@ -210,7 +201,6 @@ Page({
     const { field } = e.currentTarget.dataset
     const value = e.detail.value
     this.setData({ [`form.${field}`]: value }, () => {
-      if (field === 'userPhone') this.refreshSubmitLabel()
       if (field === 'vin') {
         const vin = normalizeVinInput(value)
         if (vin.length === 17) {
@@ -285,31 +275,26 @@ Page({
     }
   },
 
-  async onSubmit() {
-    if (this.data.submitting) return
+  validateFormBasics() {
     const serviceName = (this.data.form.serviceName || '').trim()
     if (!serviceName) {
       wx.showToast({ title: '请填写服务项目', icon: 'none' })
-      return
+      return null
     }
     const plate = normalizePlateInput(this.data.form.plate)
     if (!plate) {
       wx.showToast({ title: '请填写或扫描车牌号', icon: 'none' })
-      return
+      return null
     }
-
-    const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
-    if (userPhone && userPhone.length !== 11) {
-      wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
-      return
-    }
-
     const vin = normalizeVinInput(this.data.form.vin)
     if (vin && vin.length !== 17) {
       wx.showToast({ title: '车架号须为 17 位', icon: 'none' })
-      return
+      return null
     }
+    return { serviceName, plate, vin }
+  },
 
+  async buildCreatePayload({ serviceName, plate, vin, includePhone }) {
     const meta = resolveServiceMeta(this.data.serviceQuickOptions, serviceName)
     let vehicle = {
       plate,
@@ -329,40 +314,89 @@ Page({
       }
     }
 
+    const payload = {
+      storeId: this.data.storeId,
+      storeName: this.data.storeName,
+      serviceId: meta.serviceId,
+      serviceItemId: meta.serviceItemId,
+      serviceName,
+      complexityLevel: meta.complexityLevel,
+      vehicle,
+    }
+    if (includePhone) {
+      const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
+      if (userPhone) payload.userPhone = userPhone
+    }
+    return payload
+  },
+
+  async createAlbumAndGo({ includePhone, next }) {
+    if (this.data.submitting) return
+    const basics = this.validateFormBasics()
+    if (!basics) return
+
+    if (includePhone) {
+      const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
+      if (userPhone && userPhone.length !== 11) {
+        wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
+        return
+      }
+    }
+
     this.setData({ submitting: true })
     try {
-      const payload = {
-        storeId: this.data.storeId,
-        storeName: this.data.storeName,
-        serviceId: meta.serviceId,
-        serviceItemId: meta.serviceItemId,
-        serviceName,
-        complexityLevel: meta.complexityLevel,
-        vehicle,
-      }
-      if (userPhone) {
-        payload.userPhone = userPhone
-      }
+      const payload = await this.buildCreatePayload({
+        ...basics,
+        includePhone: Boolean(includePhone),
+      })
       const album = await createMerchantServiceAlbum(payload)
-      if (userPhone) {
-        wx.showToast({ title: '已关联车主手机号', icon: 'success' })
-        setTimeout(() => {
-          wx.redirectTo({
-            url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
-          })
-        }, 400)
-      } else {
-        wx.showToast({ title: '请车主扫码关联', icon: 'success' })
-        setTimeout(() => {
-          wx.redirectTo({
-            url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}`,
-          })
-        }, 400)
+      if (!album || !album.albumId) {
+        throw new Error('创建失败')
       }
+      next(album)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '创建失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }
+  },
+
+  async onSubmit() {
+    await this.createAlbumAndGo({
+      includePhone: true,
+      next: (album) => {
+        const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
+        if (userPhone.length === 11) {
+          wx.showToast({ title: '已关联车主手机号', icon: 'success' })
+        }
+        setTimeout(() => {
+          wx.redirectTo({
+            url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+          })
+        }, 400)
+      },
+    })
+  },
+
+  async onInviteViaShare() {
+    await this.createAlbumAndGo({
+      includePhone: false,
+      next: (album) => {
+        wx.redirectTo({
+          url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}&action=share`,
+        })
+      },
+    })
+  },
+
+  async onInviteViaScan() {
+    await this.createAlbumAndGo({
+      includePhone: false,
+      next: (album) => {
+        wx.redirectTo({
+          url: `/packageMerchant/pages/album/invite/index?albumId=${album.albumId}&action=scan`,
+        })
+      },
+    })
   },
 })

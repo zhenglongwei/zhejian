@@ -72,16 +72,28 @@
 
     <view class="merchant-form__section">
       <text class="merchant-form__label">车主手机号</text>
-      <text class="text-caption album-create__scan-hint">默认请车主扫码或分享链接关联；也可直接填写，填写后视为已关联，可立即拍摄过程图。</text>
       <input
         class="merchant-form__input"
         type="number"
         maxlength="11"
-        placeholder="选填；不填则创建后进入扫码页"
+        placeholder="选填；填写后视为已关联，可立即拍摄过程图"
         value="{{form.userPhone}}"
         data-field="userPhone"
         bindinput="onInput"
       />
+      <view class="album-create__owner-alt text-caption">
+        <text class="album-create__owner-alt-text">您也可以</text>
+        <text
+          class="album-create__owner-alt-btn"
+          bindtap="onInviteViaShare"
+        >分享给车主</text>
+        <text class="album-create__owner-alt-text">或</text>
+        <text
+          class="album-create__owner-alt-btn"
+          bindtap="onInviteViaScan"
+        >邀请车主扫码</text>
+        <text class="album-create__owner-alt-text">关联手机号</text>
+      </view>
     </view>
   </block>
 
@@ -93,6 +105,6 @@
       loading="{{submitting}}"
       disabled="{{status === 'loading'}}"
       bind:btntap="onSubmit"
-    >{{submitLabel}}</ui-button>
+    >创建相册</ui-button>
   </ui-fixed-bottom-bar>
 </view>

@@ -69,3 +69,19 @@
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
+
+.album-invite__switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-sm);
+  min-height: 72rpx;
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-album-active-light);
+}
+
+.album-invite__switch:active {
+  opacity: 0.72;
+}
