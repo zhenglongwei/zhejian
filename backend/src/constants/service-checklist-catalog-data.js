@@ -73,9 +73,9 @@ const CATEGORIES = {
         "suggestStageId": "stage_2",
         "workOnly": false,
         "group": "油液",
-        "noteExample": "储液罐在 MIN–MAX 之间；液色是否发黑已注明。",
+        "noteExample": "储液罐在 MIN–MAX 之间；液色是否发黑已注明。需处理/需更换则解锁「刹车油更换/深度检」。",
         "strength": "tip",
-        "linkHint": "检测储液罐；若大保更换刹车油见增量项"
+        "linkHint": "检测储液罐"
       },
       {
         "itemKey": "coolant_level",
@@ -83,9 +83,9 @@ const CATEGORIES = {
         "suggestStageId": "stage_2",
         "workOnly": false,
         "group": "油液",
-        "noteExample": "副水壶液位正常；无明显渗漏。",
+        "noteExample": "副水壶液位正常；无明显渗漏。需处理/需更换则解锁「防冻液更换/深度检」。",
         "strength": "tip",
-        "linkHint": "检测副水壶；更换见大保增量"
+        "linkHint": "检测副水壶"
       },
       {
         "itemKey": "tire_visual",
@@ -216,23 +216,23 @@ const CATEGORIES = {
       },
       {
         "itemKey": "brake_fluid_service",
-        "label": "刹车油（更换/深度检）",
-        "suggestStageId": "stage_2",
-        "workOnly": false,
+        "label": "刹车油更换/深度检",
+        "suggestStageId": "stage_5",
+        "workOnly": true,
         "group": "油液",
-        "noteExample": "含水量/液色超标已更换，或检测合格暂不换并说明依据。",
+        "noteExample": "含水量/液色超标已更换，或仪器检测后处理说明。",
         "strength": "tip",
-        "linkHint": "与 `brake_fluid_level` 区分：本项侧重更换或仪器检测"
+        "linkHint": "**衍生项**：仅当 `brake_fluid_level` 进待处理后出现"
       },
       {
         "itemKey": "coolant_service",
-        "label": "防冻液（更换/深度检）",
-        "suggestStageId": "stage_2",
-        "workOnly": false,
+        "label": "防冻液更换/深度检",
+        "suggestStageId": "stage_5",
+        "workOnly": true,
         "group": "油液",
-        "noteExample": "按周期更换或检测冰点/液质后建议保留并说明。",
+        "noteExample": "按周期更换或冰点/液质处理后说明。",
         "strength": "tip",
-        "linkHint": "与 `coolant_level` 区分；施工排空加注挂本项"
+        "linkHint": "**衍生项**：仅当 `coolant_level` 进待处理后出现"
       },
       {
         "itemKey": "transmission_fluid",

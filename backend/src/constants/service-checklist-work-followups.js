@@ -5,9 +5,13 @@
 const WORK_FOLLOW_UPS_BY_CATEGORY = {
   maintenance: {
     old_oil: ['engine_oil', 'oil_filter', 'oil_level_confirm'],
+    brake_fluid_level: ['brake_fluid_service'],
+    coolant_level: ['coolant_service'],
   },
   major_maintenance: {
     old_oil: ['engine_oil', 'oil_filter', 'oil_level_confirm'],
+    brake_fluid_level: ['brake_fluid_service'],
+    coolant_level: ['coolant_service'],
   },
   brake: {
     pad_thickness: ['epb_mode', 'new_parts', 'old_new_compare', 'torque_mark', 'brake_bleed_note'],
