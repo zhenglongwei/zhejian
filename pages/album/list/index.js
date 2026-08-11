@@ -260,16 +260,6 @@ Page({
     if (this.data.downloadMode) return
     const { id } = e.detail
     if (!id) return
-    const item = (this.data.list || []).find(
-      (row) => row.albumId === id || row.id === id,
-    )
-    if (item && (item.ownerAlbumLocked || item.caseVisibleToOwner === false)) {
-      wx.showToast({
-        title: item.compliancePendingHint || '案例审核中，暂不可查看',
-        icon: 'none',
-      })
-      return
-    }
     markListNeedRefresh(this)
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
   },

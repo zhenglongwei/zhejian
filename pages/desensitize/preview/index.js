@@ -118,7 +118,7 @@ Page({
     try {
       if (this.data.source === 'service' && this.data.albumId) {
         const album = await fetchServiceAlbum(this.data.albumId)
-        if (album.caseVisibleToOwner === false || album.complianceStatus !== 'passed') {
+        if (album.complianceStatus !== 'passed') {
           this.setData({
             status: 'error',
             errorMessage: album.compliancePendingHint || '门店案例审核中，通过后方可预览与发布',
@@ -175,8 +175,7 @@ Page({
       const album = this._authorizeAlbum || (await fetchServiceAlbum(albumId))
       const draft = album.merchantCaseDraft || null
       // 案例审已通过 ⇒ 产品上必已确认案例稿；仅当稿体完全缺失时视为异常
-      const reviewPassed =
-        album.caseVisibleToOwner === true || album.complianceStatus === 'passed'
+      const reviewPassed = album.complianceStatus === 'passed'
       const hasDraft = Boolean(draft && (draft.confirmedAt || reviewPassed))
       if (!hasDraft) {
         this.setData({

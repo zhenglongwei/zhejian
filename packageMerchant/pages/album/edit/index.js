@@ -161,7 +161,7 @@ function normalizeOwnerPhone(value) {
 }
 
 const TEMPLATE_SWITCH_HELP =
-  '如自动匹配不准确，可手动切换模板。切换不会删除已上传图片。'
+  '如自动匹配不准确，可手动切换模板。切换后相册封面与检查类目会改为新类目名称；已上传图片不会删除。'
 
 function migrateLegacyBodyPaintNodes(map = {}) {
   if (!map || typeof map !== 'object') return map
@@ -1155,7 +1155,7 @@ Page({
 
     wx.showModal({
       title: '切换相册模板',
-      content: `将切换为「${picked.name}」模板。已上传图片会保留在同阶段节点上，完整度将重新计算。`,
+      content: `将切换为「${picked.name}」。相册封面与检查类目会一并改为该类目名称；已上传图片会保留在同阶段节点上，完整度将重新计算。`,
       confirmText: '确认切换',
       cancelText: '取消',
       success: (res) => {

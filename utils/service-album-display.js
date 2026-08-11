@@ -186,19 +186,17 @@ function resolveListAlbumActions(item = {}) {
   }
 }
 
-/** 用户相册列表卡 · 案例审 inline 提示 */
+/** 用户相册列表卡 · 案例审 inline 提示（不表示相册不可进） */
 function resolveAlbumListStatusHint(item = {}, authAction = {}) {
-  if (item.ownerAlbumLocked || item.caseVisibleToOwner === false) {
-    if (item.compliancePendingHint) return item.compliancePendingHint
-    if (item.publicCaseStatus === 'pending_desensitize') {
-      return '门店案例配图处理中，通过后方可查看'
-    }
-    if (item.publicCaseStatus === 'pending_review') {
-      return '门店案例审核中，通过后方可查看'
-    }
-    if (item.publicCaseStatus === 'rejected' || item.complianceRejectReason) {
-      return '门店案例未通过审核，暂不可查看'
-    }
+  if (item.compliancePendingHint) return item.compliancePendingHint
+  if (item.publicCaseStatus === 'pending_desensitize') {
+    return '门店案例配图处理中'
+  }
+  if (item.publicCaseStatus === 'pending_review') {
+    return '门店案例审核中'
+  }
+  if (item.publicCaseStatus === 'rejected' || item.complianceRejectReason) {
+    return '门店案例未通过审核，请等待门店修改'
   }
   if (authAction.hint) return authAction.hint
   if (item.complianceRejectReason) {

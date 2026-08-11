@@ -135,7 +135,7 @@ test('buildUserAlbumComplianceFields hides publish invite when quality not ready
   assert.equal(fields.userConfirmHint, '')
 })
 
-test('buildUserAlbumComplianceFields hides case before review passed', () => {
+test('buildUserAlbumComplianceFields keeps album visible before review passed', () => {
   const pending = buildUserAlbumComplianceFields(
     {
       status: 'completed',
@@ -144,7 +144,8 @@ test('buildUserAlbumComplianceFields hides case before review passed', () => {
     },
     { publicCaseScorePass: true },
   )
-  assert.equal(pending.caseVisibleToOwner, false)
+  assert.equal(pending.caseVisibleToOwner, true)
+  assert.equal(pending.ownerAlbumLocked, false)
   assert.equal(pending.canAuthorizePublicCase, false)
   assert.ok(pending.compliancePendingHint)
   assert.equal(pending.complianceStatus, 'pending')

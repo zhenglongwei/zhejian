@@ -191,14 +191,11 @@ async function loadAlbumMeta(albumId, userId) {
   })
   // 含 published / pending_authorization 等已完工态（公示后常见 published）
   const completed = isServiceAlbumRepairDone(row?.status || album.status)
-  // 与车主可见整本相册一致：须平台案例审通过（review_passed / public_approved / offline）
-  const reviewPassed = Boolean(album.caseVisibleToOwner)
-  const eligible = completed && reviewPassed
+  // 服务评价挂相册：完工即可评，不依赖案例审
+  const eligible = completed
   let ineligibleReason = ''
   if (!completed) {
     ineligibleReason = '维修完工后可评价本次服务'
-  } else if (!reviewPassed) {
-    ineligibleReason = '平台案例审核通过后可评价本次服务'
   }
   const parts = Array.isArray(row?.partsJson) ? row.partsJson : []
   return {

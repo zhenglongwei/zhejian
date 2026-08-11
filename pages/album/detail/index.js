@@ -218,7 +218,7 @@ function buildEndPageActionState(detail, showAuthSection) {
         (status === 'public_approved' || status === 'need_modify')))
 
   if (status === 'pending_review') {
-    // 平台案例审中：车主本不可见；若误入则只提示，不展示撤回
+    // 平台案例审中：相册可看；不展示发布/撤回
     return {
       endPageInvitePitch: '',
       endPageInviteEyebrow: '',
@@ -728,8 +728,7 @@ Page({
 
   shouldShowAuth(detail) {
     if (!detail) return false
-    // 案例审通过前：整本相册不可见；通过后才开放案例/发布入口
-    if (detail.ownerAlbumLocked || detail.caseVisibleToOwner === false) return false
+    // 发布入口仍须案例审通过；相册详情本身已全程可进
     if (detail.complianceStatus && detail.complianceStatus !== 'passed') return false
     if (
       detail.canAuthorizePublicCase === false ||

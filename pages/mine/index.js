@@ -21,9 +21,7 @@ const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
-const MINE_HERO_HINT_REVIEWING = '相册正在加急审核'
 const MINE_HERO_HINT_COMPLETED = '相册已完工'
-const MINE_HERO_TOAST_REVIEWING = '正在审核，暂不可查看'
 
 function quietHubAlbumTags(item = {}) {
   return {
@@ -33,20 +31,14 @@ function quietHubAlbumTags(item = {}) {
   }
 }
 
-function isMineHeroAlbumBlocked(item = {}) {
-  return Boolean(item.ownerAlbumLocked || item.caseVisibleToOwner === false)
-}
-
-/** Hero 快捷栏分享：案例审通过且车主可查看，并满足既有分享条件 */
+/** Hero 快捷栏分享：满足既有分享条件即可（不再因案例审挡栏） */
 function resolveMineHeroOwnerShare(item = {}) {
-  if (isMineHeroAlbumBlocked(item)) return false
   return Boolean(item.showShareButton)
 }
 
-/** Hero 橙色提示：只告知能不能看（完工前依赖「有更新」Tag，不重复文案） */
+/** Hero 橙色提示：完工后告知已完工；不因案例审写「不可查看」 */
 function resolveMineHeroStatusHint(item = {}) {
   if (!isRepairCompleted(item.status)) return ''
-  if (isMineHeroAlbumBlocked(item)) return MINE_HERO_HINT_REVIEWING
   return MINE_HERO_HINT_COMPLETED
 }
 
@@ -364,11 +356,6 @@ Page({
   onAlbumCardTap(e) {
     const id = (e.detail && e.detail.id) || ''
     if (!id || !this.guardProtectedEntry(true)) return
-    const card = (this.data.albumHeroCards || []).find((item) => item.albumId === id)
-    if (card && isMineHeroAlbumBlocked(card)) {
-      wx.showToast({ title: MINE_HERO_TOAST_REVIEWING, icon: 'none' })
-      return
-    }
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${id}` })
   },
 

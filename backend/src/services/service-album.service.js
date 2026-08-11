@@ -362,13 +362,14 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
       : rejected
         ? album.complianceRejectReason || ''
         : ''
+  // 弱提示：仅说明案例文稿进度，不表示相册不可进
   let compliancePendingHint = ''
   if (status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
-    compliancePendingHint = '门店案例配图处理中，通过后方可查看'
+    compliancePendingHint = '门店案例配图处理中'
   } else if (pendingReview) {
-    compliancePendingHint = '门店案例审核中，通过后方可查看'
+    compliancePendingHint = '门店案例审核中'
   } else if (rejected) {
-    compliancePendingHint = '门店案例未通过审核，暂不可查看'
+    compliancePendingHint = '门店案例未通过审核，请等待门店修改'
   }
   const canAuthorizePublicCase =
     passed &&
@@ -385,7 +386,8 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
     awaitingUserConfirm,
     userConfirmHint: awaitingUserConfirm ? USER_CONFIRM_HINT : '',
     compliancePendingHint,
-    caseVisibleToOwner: passed,
+    // 相册对关联车主全程可看；案例稿/发布仍看 canAuthorizePublicCase / isCaseReviewPassed
+    caseVisibleToOwner: true,
     ownerAlbumLocked: isOwnerAlbumBlocked(album),
     canAuthorizePublicCase,
     complianceRejectReason: rejectReason,
@@ -873,9 +875,8 @@ async function attachOwnerReviewState(userId, list = []) {
   })
   const reviewed = new Set(rows.map((row) => row.albumId))
   return list.map((item) => {
-    // 已完工（含 published 等）+ 案例审通过后方可评价
-    const reviewEligible =
-      isServiceAlbumRepairDone(item.status) && Boolean(item.caseVisibleToOwner)
+    // 已完工（含 published 等）即可评价；不依赖案例审
+    const reviewEligible = isServiceAlbumRepairDone(item.status)
     const hasReview = reviewed.has(item.albumId)
     return {
       ...item,
@@ -1083,7 +1084,7 @@ async function getUserServiceAlbum(albumId, userId) {
   let view = attachPublishInviteFields(buildAlbumView(album), album)
   try {
     const passed = isCaseReviewPassed(album)
-    // 案例审通过后才开放案例稿（审前整本相册已被 assertOwnerAlbumAccessible 拦住）
+    // 相册全程可看；案例稿仍等案例审通过后再下发（案例模块规则未定前维持）
     if (!passed) {
       view.merchantCaseDraft = null
       view.merchantCaseDraftSummary = null
@@ -2345,11 +2346,24 @@ async function switchMerchantServiceAlbumTemplate(
     })
   }
 
+  // 整本相册跟新类目：封面 serviceName 用模板标准名，清单按新 templateId 重建（同 key 保留）
+  const nextServiceName = tpl.templateName || tpl.templateId
+  let checklistJson = hydrateChecklistState({
+    ...existing,
+    templateId: tpl.templateId,
+    serviceName: nextServiceName,
+    checklistJson: existing.checklistJson,
+  })
+  checklistJson = syncChecklistImageLinks(checklistJson, existing.images || [])
+
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
       templateId: tpl.templateId,
       templateName: tpl.templateName,
+      serviceName: nextServiceName,
+      serviceId: '',
+      checklistJson,
       imageCount,
     },
     include: {

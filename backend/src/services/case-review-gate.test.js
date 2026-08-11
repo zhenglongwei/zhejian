@@ -29,27 +29,27 @@ test('case review status helpers include pending_desensitize', () => {
   assert.equal(mapCaseReviewToComplianceCompat({ publicCase: { status: 'review_passed' } }), 'passed')
 })
 
-test('owner album blocked until review_passed', () => {
+test('owner album never blocked by case review (2026-08-11)', () => {
   assert.equal(
     isOwnerAlbumBlocked({
       status: 'completed',
       publicCase: { status: 'pending_desensitize' },
     }),
-    true
+    false
   )
   assert.equal(
     isOwnerAlbumBlocked({
       status: 'completed',
       publicCase: { status: 'pending_review' },
     }),
-    true
+    false
   )
   assert.equal(
     isOwnerAlbumBlocked({
       status: 'completed',
       publicCase: { status: 'rejected' },
     }),
-    true
+    false
   )
   assert.equal(
     isOwnerAlbumBlocked({
@@ -65,13 +65,11 @@ test('owner album blocked until review_passed', () => {
     }),
     false
   )
-  assert.throws(
-    () =>
-      assertOwnerAlbumAccessible({
-        status: 'completed',
-        publicCase: { status: 'pending_review' },
-      }),
-    (err) => err.code === 'OWNER_ALBUM_PENDING_REVIEW'
+  assert.doesNotThrow(() =>
+    assertOwnerAlbumAccessible({
+      status: 'completed',
+      publicCase: { status: 'pending_review' },
+    })
   )
   assert.doesNotThrow(() =>
     assertOwnerAlbumAccessible({
