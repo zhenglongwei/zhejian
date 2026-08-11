@@ -210,7 +210,10 @@ Component({
       this.setData({ displayList })
     },
     emitChange(list) {
-      this.triggerEvent('change', { images: this.toEmitList(list) })
+      this.triggerEvent('change', {
+        images: this.toEmitList(list),
+        stampChecklistItemKey: String(this.properties.stampChecklistItemKey || '').trim(),
+      })
     },
     onAdd() {
       if (this.properties.disabled || this.data.uploading) return

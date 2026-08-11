@@ -605,6 +605,7 @@ Page({
         images: normalizeImageEntries(node.images).map((entry) => ({
           url: normalizeStoredImageUrl(entry.url),
           caption: entry.caption || '',
+          checklistItemKey: String(entry.checklistItemKey || '').trim(),
         })),
         note: node.note || '',
       }

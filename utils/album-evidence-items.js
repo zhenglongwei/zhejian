@@ -30,13 +30,13 @@ function normalizeImageList(images) {
     .filter(Boolean)
 }
 
-/** 过程图条目：保留 caption */
+/** 过程图条目：保留 caption + checklistItemKey（挂检查项） */
 function normalizeImageEntries(images) {
   return (images || [])
     .map((entry) => {
       if (typeof entry === 'string') {
         const url = entry.trim()
-        return url ? { url, caption: '' } : null
+        return url ? { url, caption: '', checklistItemKey: '' } : null
       }
       if (!entry || typeof entry !== 'object') return null
       const url = String(entry.url || entry.rawUrl || entry.src || '').trim()
@@ -44,6 +44,9 @@ function normalizeImageEntries(images) {
       return {
         url,
         caption: String(entry.caption || '').trim().slice(0, 500),
+        checklistItemKey: String(entry.checklistItemKey || entry.itemKey || '')
+          .trim()
+          .slice(0, 64),
       }
     })
     .filter(Boolean)
@@ -382,7 +385,11 @@ function mergeEvidenceIntoNodes(nodes, evidenceItems) {
     }
     const docSet = new Set(docImages)
     const processOnly = processEntries.filter((entry) => !docSet.has(entry.url))
-    const docEntries = docImages.map((url) => ({ url, caption: '' }))
+    const docEntries = docImages.map((url) => ({
+      url,
+      caption: '',
+      checklistItemKey: '',
+    }))
     return {
       ...node,
       images: [...docEntries, ...processOnly],

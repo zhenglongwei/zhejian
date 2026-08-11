@@ -51,7 +51,7 @@
           caption-quick-tags="{{mode === 'work' ? workQuickTags : stageQuickTags}}"
           stamp-checklist-item-key="{{item.itemKey}}"
           stack-layout="{{true}}"
-          data-key="{{item.itemKey}}"
+          data-item-key="{{item.itemKey}}"
           bind:change="onImagesChange"
         />
         <view class="readonly-imgs" wx:else>

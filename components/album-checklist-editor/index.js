@@ -111,10 +111,20 @@ Component({
       this.setData({ expandedMap }, () => this.rebuildDisplayItems())
     },
     onImagesChange(e) {
-      const { key } = e.currentTarget.dataset
+      const datasetKey = String(
+        (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.itemKey) ||
+          (e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.key) ||
+          '',
+      ).trim()
+      const stamped = String((e.detail && e.detail.stampChecklistItemKey) || '').trim()
+      const images = (e.detail && e.detail.images) || []
+      const fromImage = String(
+        (images.find((img) => img && img.checklistItemKey) || {}).checklistItemKey || '',
+      ).trim()
+      const itemKey = datasetKey || stamped || fromImage
       this.triggerEvent('itemimageschange', {
-        itemKey: String(key || ''),
-        images: (e.detail && e.detail.images) || [],
+        itemKey,
+        images,
         stageId: this.properties.stageId,
       })
     },
