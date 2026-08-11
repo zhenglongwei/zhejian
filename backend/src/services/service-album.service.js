@@ -1717,12 +1717,8 @@ async function resolveOwnerPhoneUpdate(existing, payload) {
   if (userPhone === previous) {
     return { userPhone: previous }
   }
+  // 可编辑期内允许改号或清空（清空后可再手填/扫码关联）；完工锁定后本函数不会被调用
   if (!userPhone) {
-    if (previous) {
-      const err = new Error('已关联车主手机号不可清空')
-      err.status = 400
-      throw err
-    }
     return { userPhone: '', userId: '' }
   }
   const user = await prisma.user.findFirst({ where: { phone: userPhone } })

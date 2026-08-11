@@ -161,31 +161,29 @@
           <view id="merchant-album-owner-phone" class="merchant-album-edit__meta-row">
             <text class="merchant-album-edit__meta-label text-caption">车主</text>
             <view class="merchant-album-edit__meta-body">
-              <text
-                wx:if="{{hasOwner && detail.userPhoneDisplay}}"
-                class="text-body merchant-album-edit__owner-value"
-              >{{detail.userPhoneDisplay}}</text>
-              <block wx:elif="{{!hasOwner}}">
+              <block wx:if="{{readOnly}}">
                 <text
-                  wx:if="{{!readOnly}}"
+                  wx:if="{{hasOwner && detail.userPhoneDisplay}}"
+                  class="text-body merchant-album-edit__owner-value"
+                >{{detail.userPhoneDisplay}}</text>
+                <text wx:else class="text-caption text-secondary">未关联车主</text>
+              </block>
+              <block wx:else>
+                <text
                   class="text-link text-body merchant-album-edit__owner-link"
                   bindtap="onInviteOwnerScan"
                 >请车主扫码关联</text>
-                <text wx:else class="text-caption text-secondary">未关联车主</text>
-                <block wx:if="{{!readOnly}}">
-                  <input
-                    class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
-                    type="number"
-                    maxlength="11"
-                    placeholder="直接填写车主手机号"
-                    value="{{ownerPhoneInput}}"
-                    disabled="{{readOnly || saving || completing || switching}}"
-                    bindinput="onOwnerPhoneInput"
-                  />
-                  <text class="text-caption merchant-album-edit__owner-test-tip">填写后点「保存」即视为已关联，可直接拍过程图</text>
-                </block>
+                <input
+                  class="merchant-album-edit__meta-input merchant-album-edit__owner-input"
+                  type="number"
+                  maxlength="11"
+                  placeholder="填写车主手机号"
+                  value="{{ownerPhoneInput}}"
+                  disabled="{{saving || completing || switching}}"
+                  bindinput="onOwnerPhoneInput"
+                />
+                <text class="text-caption merchant-album-edit__owner-test-tip">保存后可随时修改；完工前须保留有效手机号</text>
               </block>
-              <text wx:else class="text-caption text-secondary">未关联</text>
             </view>
           </view>
         </view>

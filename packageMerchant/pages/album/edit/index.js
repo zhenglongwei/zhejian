@@ -836,7 +836,7 @@ Page({
       partVerifyTextareaReady: Boolean(
         !detail.partVerifyGuideInformed && String(detail.partVerifyGuideText || '').trim(),
       ),
-      ownerPhoneInput: hasOwnerPhone ? '' : this.data.ownerPhoneInput,
+      ownerPhoneInput: String(detail.userPhone || '').replace(/\D/g, '') || this.data.ownerPhoneInput,
       evidenceItems,
       oldPartTraces: extractOldPartTraces(evidenceItems),
       warrantyDuration: warrantyFields.duration,
@@ -2467,11 +2467,10 @@ Page({
       planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })
-    if (!this.data.hasOwner) {
-      const ownerCheck = this.validateOwnerPhoneInput()
-      if (ownerCheck.phone) {
-        normalized.userPhone = ownerCheck.phone
-      }
+    const ownerCheck = this.validateOwnerPhoneInput()
+    // 可编辑期内始终回传手机号，支持改号/清空后再关联
+    if (ownerCheck.ok) {
+      normalized.userPhone = ownerCheck.phone || ''
     }
     return {
       payload: {
@@ -2584,13 +2583,11 @@ Page({
     }
     if (this.data.saving) return
     if (!this.validateVehicle()) return
-    // 未关联车主也可保存草稿；关联仅在完工时必填（ALB-UX-15）
-    if (!this.data.hasOwner) {
-      const ownerCheck = this.validateOwnerPhoneInput()
-      if (!ownerCheck.ok) {
-        wx.showToast({ title: ownerCheck.message, icon: 'none' })
-        return
-      }
+    // 未关联也可保存；已填则须合法，且支持随时改号（ALB-UX-15）
+    const ownerCheck = this.validateOwnerPhoneInput()
+    if (!ownerCheck.ok) {
+      wx.showToast({ title: ownerCheck.message, icon: 'none' })
+      return
     }
     this.setData({ saving: true })
     try {
@@ -2618,13 +2615,14 @@ Page({
     }
     if (this.data.completing || this.data.saving) return
     if (!this.validateVehicle()) return
-    if (!this.requireOwnerLinked('标记完工')) return
-    if (!this.data.hasOwner) {
-      const ownerCheck = this.validateOwnerPhoneInput()
-      if (!ownerCheck.ok || !ownerCheck.phone) {
-        wx.showToast({ title: ownerCheck.message || '请先填写或扫码关联车主手机号', icon: 'none' })
-        return
-      }
+    const ownerCheckForComplete = this.validateOwnerPhoneInput()
+    if (!ownerCheckForComplete.ok) {
+      wx.showToast({ title: ownerCheckForComplete.message, icon: 'none' })
+      return
+    }
+    if (!ownerCheckForComplete.phone) {
+      this.requireOwnerLinked('标记完工')
+      return
     }
     const hasImage =
       this.data.nodes.some((n) => (n.images || []).length > 0) ||
