@@ -121,6 +121,12 @@
   padding-left: 2rpx;
 }
 
+.chk-remove-link {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+  padding-left: 4rpx;
+}
+
 .chk-body {
   padding: 0 var(--space-sm) var(--space-sm);
   border-top: 1rpx solid var(--color-border);

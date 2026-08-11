@@ -427,48 +427,132 @@ Page({
 
   onInspCompleteModalProceedAnyway() {
     this.setData({ inspCompleteModalVisible: false })
-    this.maybePromptNotReplacedThenComplete()
+    this.maybePromptUnresolvedWorkThenComplete()
   },
 
-  collectSuggestReplaceWithoutFollowUp() {
-    const items = (this.data.checklist && this.data.checklist.items) || []
-    return items.filter((it) => {
-      if (!it || it.outcome === 'replaced' || it.outcome === 'not_replaced') return false
-      if (it.inFollowUp) return false
-      if (it.outcome === 'recommend_replace') return true
-      const note = String(it.note || '')
-      return /建议更换|建议换/.test(note) && it.outcome !== 'replaced'
+  /** 待处理中仍无施工留证的项（完工时需逐项选原因） */
+  collectUnresolvedWorkQueueItems() {
+    const processNode =
+      (this.data.nodes || []).find((n) => n.id === STAGE_PROCESS_ID) || {}
+    const constructionByKey = {}
+    ;(processNode.images || []).forEach((img) => {
+      const key = String((img && img.checklistItemKey) || '').trim()
+      if (!key) return
+      if (!constructionByKey[key]) constructionByKey[key] = []
+      constructionByKey[key].push(img)
+    })
+    const queue =
+      (this.data.workQueueItems && this.data.workQueueItems.length
+        ? this.data.workQueueItems
+        : null) ||
+      (this.data.checklist && this.data.checklist.workQueueItems) ||
+      []
+    return (queue || []).filter((it) => {
+      if (!it || !it.itemKey) return false
+      const constructionImgs = constructionByKey[it.itemKey] || []
+      // 已有施工图视为处理中，不再弹原因
+      if (constructionImgs.length > 0) return false
+      if (it.outcome === 'replaced' || it.outcome === 'not_replaced') return false
+      return true
     })
   },
 
-  maybePromptNotReplacedThenComplete() {
-    const pending = this.collectSuggestReplaceWithoutFollowUp()
+  applyWorkRemoveReason(itemKey, reason, deferNote) {
+    this.syncChecklistLocalItems((it) => {
+      if (it.itemKey !== itemKey) return it
+      if (reason === 'mismatch') {
+        const next = this.computeWorkFlags({
+          ...it,
+          work: {
+            ...(it.work || {}),
+            source: null,
+            removedAs: 'mismatch',
+            deferNote: '',
+          },
+        })
+        next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+        return next
+      }
+      const next = this.computeWorkFlags({
+        ...it,
+        outcome: it.outcome === 'replaced' ? 'not_replaced' : it.outcome || 'not_replaced',
+        work: {
+          ...(it.work || {}),
+          removedAs: 'owner_declined',
+          deferNote: deferNote || '车主要求暂不处理',
+        },
+      })
+      next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+      return next
+    })
+  },
+
+  /**
+   * 弹出移出原因（仅主动移出 / 完工核对未施工项时调用）
+   * @returns {Promise<'mismatch'|'owner_declined'|'cancel'>}
+   */
+  promptWorkRemoveReason(item) {
+    const label = (item && item.label) || '该项目'
+    return new Promise((resolve) => {
+      wx.showActionSheet({
+        itemList: ['误判移除（列表不准）', '车主暂不处理（保留跟进）'],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            this.applyWorkRemoveReason(item.itemKey, 'mismatch')
+            resolve('mismatch')
+            return
+          }
+          if (res.tapIndex === 1) {
+            const applyDecline = (deferNote) => {
+              this.applyWorkRemoveReason(item.itemKey, 'owner_declined', deferNote)
+              resolve('owner_declined')
+            }
+            wx.showModal({
+              title: `${label}：车主暂缓原因`,
+              editable: true,
+              placeholderText: '如：车主要求暂不处理',
+              success: (modalRes) => {
+                if (!modalRes.confirm) {
+                  resolve('cancel')
+                  return
+                }
+                applyDecline(String(modalRes.content || '').trim())
+              },
+              fail: () => applyDecline('车主要求暂不处理'),
+            })
+            return
+          }
+          resolve('cancel')
+        },
+        fail: () => resolve('cancel'),
+      })
+    })
+  },
+
+  async maybePromptUnresolvedWorkThenComplete() {
+    const pending = this.collectUnresolvedWorkQueueItems()
     if (!pending.length) {
       this.showCompleteConfirmModal()
       return
     }
-    const names = pending
-      .slice(0, 3)
-      .map((it) => it.label)
-      .filter(Boolean)
-      .join('、')
-    wx.showModal({
-      title: '有建议更换但未标结果',
-      content: `${names}${pending.length > 3 ? '等' : ''}：若本次未更换，可标「未更换」或移出待处理；也可先完工（不阻断）。`,
-      confirmText: '去施工列表',
-      cancelText: '先完工',
-      success: (res) => {
-        if (res.confirm) {
-          const index = (this.data.stages || []).findIndex((s) => s.id === STAGE_PROCESS_ID)
-          this.setData({ stageIndex: index >= 0 ? index : this.data.stageIndex }, () => {
-            this.refreshCompareStageFlags()
-            this.refreshChecklistStageViews()
-          })
-          return
-        }
-        this.showCompleteConfirmModal()
-      },
-    })
+    // 逐项确认原因；取消则中断完工
+    for (let i = 0; i < pending.length; i += 1) {
+      const it = pending[i]
+      const choice = await new Promise((resolve) => {
+        wx.showModal({
+          title: '待处理尚未施工',
+          content: `「${it.label || '项目'}」仍在待处理且未上传施工图。请选择原因后继续，或取消完工。`,
+          confirmText: '选择原因',
+          cancelText: '取消',
+          success: (res) => resolve(res.confirm ? 'ask' : 'cancel'),
+          fail: () => resolve('cancel'),
+        })
+      })
+      if (choice !== 'ask') return
+      const reason = await this.promptWorkRemoveReason(it)
+      if (reason === 'cancel') return
+    }
+    this.showCompleteConfirmModal()
   },
 
   showCompleteConfirmModal() {
@@ -781,7 +865,7 @@ Page({
         : '审核未通过'
     }
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
-    const checklist = detail.checklist || null
+    const checklist = this.normalizeChecklistView(detail.checklist || null)
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
     this.setData({
       status: 'normal',
@@ -897,8 +981,11 @@ Page({
       checklistStageTitle = '完工交付项'
       checklistStageHint = '完工交付项：复查、试车与交车说明。仍可对待处理项补图。'
     }
+    const rawQueue = (checklist.workQueueItems || []).length
+      ? checklist.workQueueItems
+      : allItems.filter((it) => this.isConstructionQueueItem(it))
     const workQueueItems = this.attachStageImagesToItems(
-      checklist.workQueueItems || allItems.filter((it) => it.inWorkQueue),
+      (rawQueue || []).filter((it) => this.isConstructionQueueItem(it)),
       stageId === 'stage_6' ? 'stage_6' : STAGE_PROCESS_ID,
     )
     const followUpItems = checklist.followUpItems || allItems.filter((it) => it.inFollowUp)
@@ -923,6 +1010,63 @@ Page({
     })
   },
 
+  /** 服务端/本地清单统一按「施工=检测延伸」重算队列 */
+  normalizeChecklistView(checklist) {
+    if (!checklist || !Array.isArray(checklist.items)) return checklist
+    // 先按留证+结果重算进队，再解锁衍生项（避免无图残留 outcome 冒进）
+    const recomputed = (checklist.items || []).map((it) => {
+      const next = this.computeWorkFlags(it)
+      next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
+      return next
+    })
+    const items = this.applyWorkFollowUpUnlock(recomputed)
+    const workQueueItems = items.filter((it) => this.isConstructionQueueItem(it))
+    const followUpItems = items.filter((it) => it.inFollowUp)
+    const listable = (it, stageId) => !it.workOnly && it.suggestStageId === stageId
+    const stageItems = {
+      stage_1: items.filter((it) => listable(it, 'stage_1')),
+      stage_2: items.filter((it) => listable(it, 'stage_2')),
+      stage_5: [],
+      stage_6: items.filter((it) => listable(it, 'stage_6')),
+    }
+    return {
+      ...checklist,
+      items,
+      stageItems,
+      workQueueItems,
+      followUpItems,
+      completeness: {
+        ...(checklist.completeness || {}),
+        workQueueCount: workQueueItems.length,
+        followUpCount: followUpItems.length,
+      },
+    }
+  },
+
+  itemHasChecklistEvidence(it) {
+    return Boolean(
+      (it.images && it.images.length) ||
+        (it.stageImages && it.stageImages.length) ||
+        String((it && it.note) || '').trim(),
+    )
+  },
+
+  parentCanUnlockFollowUps(it) {
+    if (!it || it.workOnly) return false
+    if (!(it.workFollowUpKeys || []).length) return false
+    if (it.work && it.work.removedAs) return false
+    if (!this.itemHasChecklistEvidence(it)) return false
+    if (it.outcome === 'normal') return false
+    return Boolean(it.inWorkQueue)
+  },
+
+  isConstructionQueueItem(it) {
+    if (!it || !it.inWorkQueue) return false
+    // 有衍生项的检测父项（旧机油等）不进施工列表
+    if (!it.workOnly && (it.workFollowUpKeys || []).length > 0) return false
+    return true
+  },
+
   applyWorkFollowUpUnlock(items) {
     const list = (items || []).map((it) => ({
       ...it,
@@ -931,7 +1075,7 @@ Page({
     }))
     const unlocked = new Set()
     list.forEach((it) => {
-      if (!it.inWorkQueue || it.workOnly) return
+      if (!this.parentCanUnlockFollowUps(it)) return
       ;(it.workFollowUpKeys || []).forEach((k) => unlocked.add(String(k)))
     })
     return list.map((it) => {
@@ -943,17 +1087,15 @@ Page({
       if (work.removedAs === 'mismatch') {
         return { ...it, inWorkQueue: false, inFollowUp: false, unlockedByParent: false }
       }
-      const hasEvidence =
-        (it.stageImages && it.stageImages.length) ||
-        (it.images && it.images.length) ||
-        String(it.note || '').trim()
-      const keepOwn = it.inWorkQueue && (hasEvidence || work.source === 'manual_add')
       const unlockedByParent = unlocked.has(it.itemKey)
+      const manual = work.source === 'manual_add'
       return {
         ...it,
-        inWorkQueue: Boolean(unlockedByParent || keepOwn),
+        // 衍生项：只靠父项解锁或手增；上传施工图不得因无标签而消失
+        inWorkQueue: Boolean(unlockedByParent || manual),
         inFollowUp: false,
         unlockedByParent,
+        work: unlockedByParent && !work.source ? { ...work, source: 'auto' } : work,
       }
     })
   },
@@ -961,7 +1103,7 @@ Page({
   syncChecklistLocalItems(mapper) {
     const checklist = this.data.checklist || { items: [] }
     const items = this.applyWorkFollowUpUnlock((checklist.items || []).map(mapper))
-    const workQueueItems = items.filter((it) => it.inWorkQueue)
+    const workQueueItems = items.filter((it) => this.isConstructionQueueItem(it))
     const followUpItems = items.filter((it) => it.inFollowUp)
     const listable = (it, stageId) => !it.workOnly && it.suggestStageId === stageId
     const stageItems = {
@@ -1013,25 +1155,33 @@ Page({
       const rest = s.replace(/^正常(；|;|：|:)?\s*/, '')
       return !/建议更换|需处理|仅检查|已更换|未更换|已处理/.test(rest)
     }
-    const fromCaptions = captions.some((c) => {
-      const t = String(c || '').trim()
-      return Boolean(t) && !isNormalOnly(t)
-    })
+    const needsConstruction = (t) => {
+      const s = String(t || '').trim()
+      if (!s || isNormalOnly(s)) return false
+      if (/^仅检查(；|;|：|:)?/.test(s)) {
+        const rest = s.replace(/^仅检查(；|;|：|:)?\s*/, '')
+        return /建议更换|需处理|已更换|未更换|已处理/.test(rest)
+      }
+      return true
+    }
+    const fromCaptions = captions.some((c) => needsConstruction(c))
     let inferred = item.outcome || null
     if (captions.some((t) => /建议更换/.test(t))) inferred = 'recommend_replace'
     else if (captions.some((t) => /需处理|已处理/.test(t))) inferred = 'repaired_other'
     else if (captions.some((t) => /已更换/.test(t))) inferred = 'replaced'
     else if (captions.some((t) => /未更换/.test(t))) inferred = 'not_replaced'
-    else if (captions.some((t) => /仅检查/.test(t))) inferred = 'observed'
+    else if (captions.some((t) => /^仅检查/.test(String(t || '').trim()))) inferred = 'observed'
     else if (fromCaptions) inferred = 'repaired_other'
     else if (captions.filter(Boolean).length && captions.filter(Boolean).every(isNormalOnly)) {
       inferred = 'normal'
     }
     const outcome = item.outcome || inferred
+    const evidenced = this.itemHasChecklistEvidence(item)
+    // 无检测留证不得进施工（手增除外）；「仅检查」不进
     const auto =
-      ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other', 'observed'].includes(
-        outcome,
-      ) || fromCaptions
+      evidenced &&
+      (['recommend_replace', 'replaced', 'not_replaced', 'repaired_other'].includes(outcome) ||
+        fromCaptions)
     const manual = work.source === 'manual_add'
     return {
       ...item,
@@ -1368,12 +1518,23 @@ Page({
     this.setData({ nodes }, () => {
       this.syncChecklistLocalItems((it) => {
         if (it.itemKey !== itemKey) return it
+        const prevInQueue = Boolean(it.inWorkQueue || it.unlockedByParent)
         const next = this.computeWorkFlags({
           ...it,
           stageImages: incoming,
           images: incoming,
-          outcome: null,
+          // 保留原结果，避免上传瞬间因尚未点标签而掉出施工列表
+          outcome: it.outcome,
         })
+        // 施工衍生项：上传过程图后仍须留在待处理，直到商家选原因移出
+        if (it.workOnly && prevInQueue && !next.work.removedAs) {
+          next.inWorkQueue = true
+          next.unlockedByParent = true
+          next.work = {
+            ...next.work,
+            source: next.work.source || 'auto',
+          }
+        }
         next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
         return next
       })
@@ -1400,59 +1561,9 @@ Page({
     if (this.data.readOnly) return
     const itemKey = String((e.detail && e.detail.itemKey) || '').trim()
     if (!itemKey) return
-    wx.showActionSheet({
-      itemList: ['列表不准（直接移出，不影响车主检测记录）', '车主不同意处理（保留跟进）'],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          this.syncChecklistLocalItems((it) => {
-            if (it.itemKey !== itemKey) return it
-            const next = this.computeWorkFlags({
-              ...it,
-              work: {
-                ...(it.work || {}),
-                source: null,
-                removedAs: 'mismatch',
-                deferNote: '',
-              },
-            })
-            next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
-            return next
-          })
-          return
-        }
-        if (res.tapIndex === 1) {
-          const applyDecline = (deferNote) => {
-            this.syncChecklistLocalItems((it) => {
-              if (it.itemKey !== itemKey) return it
-              const next = this.computeWorkFlags({
-                ...it,
-                outcome: it.outcome === 'replaced' ? 'not_replaced' : it.outcome || 'not_replaced',
-                work: {
-                  ...(it.work || {}),
-                  removedAs: 'owner_declined',
-                  deferNote: deferNote || '车主要求暂不处理',
-                },
-              })
-              next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
-              return next
-            })
-          }
-          if (wx.showModal) {
-            wx.showModal({
-              title: '车主暂缓原因',
-              editable: true,
-              placeholderText: '如：车主要求暂不处理',
-              success: (modalRes) => {
-                if (!modalRes.confirm) return
-                applyDecline(String(modalRes.content || '').trim())
-              },
-            })
-          } else {
-            applyDecline('车主要求暂不处理')
-          }
-        }
-      },
-    })
+    const items = (this.data.checklist && this.data.checklist.items) || []
+    const item = items.find((it) => it.itemKey === itemKey) || { itemKey, label: '该项目' }
+    this.promptWorkRemoveReason(item)
   },
 
   onChecklistRestoreWork(e) {
@@ -2646,7 +2757,7 @@ Page({
       return
     }
 
-    this.maybePromptNotReplacedThenComplete()
+    this.maybePromptUnresolvedWorkThenComplete()
   },
 
   onShareAppMessage() {

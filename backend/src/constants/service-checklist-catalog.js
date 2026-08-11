@@ -59,12 +59,26 @@ function resolveCategoryItems(categoryId) {
   }
 }
 
+/** 与相册节点模板关键词对齐（见 service-album-node-template KEYWORD_TEMPLATE_RULES） */
+const SERVICE_NAME_CATEGORY_RULES = [
+  { categoryId: 'major_maintenance', keywords: ['大保养', '火花塞', '变速箱油', '刹车油'] },
+  { categoryId: 'maintenance', keywords: ['机油', '机滤', '小保养', '保养'] },
+  { categoryId: 'brake', keywords: ['刹车片', '刹车盘', '刹车异响', '刹车'] },
+  { categoryId: 'battery', keywords: ['电瓶', '蓄电池', '无法启动'] },
+  { categoryId: 'tire', keywords: ['轮胎', '换胎', '补胎', '动平衡'] },
+  { categoryId: 'ac', keywords: ['空调', '冷媒', '滤芯', '异味'] },
+  { categoryId: 'body_paint', keywords: ['钣金', '喷漆', '划痕', '凹陷', '补漆', '钣喷'] },
+  { categoryId: 'accident', keywords: ['事故', '碰撞', '定损'] },
+]
+
 function resolveCategoryIdFromAlbum({ templateId, serviceName } = {}) {
   const tpl = String(templateId || '').trim()
   if (tpl && CATEGORIES[tpl]) return tpl
-  const name = String(serviceName || '')
+  const name = String(serviceName || '').replace(/\s/g, '')
   if (CHASSIS_KEYWORDS.some((k) => name.includes(k))) return 'chassis_noise'
-  if (CATEGORIES[tpl]) return tpl
+  for (const rule of SERVICE_NAME_CATEGORY_RULES) {
+    if (rule.keywords.some((kw) => name.includes(kw))) return rule.categoryId
+  }
   return 'default'
 }
 

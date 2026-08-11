@@ -7,6 +7,7 @@ const {
   resolveCategoryIdFromAlbum,
   resolveCategoryItems,
   buildEmptyChecklistState,
+  getRawCategory,
 } = require('../constants/service-checklist-catalog')
 
 const OUTCOMES = new Set([
@@ -33,18 +34,20 @@ function normalizeOutcome(raw) {
   return OUTCOMES.has(value) ? value : null
 }
 
-/** 自动进入施工待处理的结果（仅检查/自定义等非正常均进） */
+/**
+ * 自动进入施工待处理的结果
+ * 「仅检查」observed 默认不进（见 18 §3.2）；须建议更换/需处理等
+ */
 const AUTO_WORK_OUTCOMES = new Set([
   'recommend_replace',
   'replaced',
   'not_replaced',
   'repaired_other',
-  'observed',
 ])
 
 const REMOVED_AS = new Set(['mismatch', 'owner_declined'])
 
-/** 图注：除「正常」外（含自定义文字）→ 整项需后续处理 */
+/** 图注：纯「正常」或空 */
 function captionIsNormalOnly(caption = '') {
   const t = String(caption || '').trim()
   if (!t) return true
@@ -53,12 +56,46 @@ function captionIsNormalOnly(caption = '') {
   return !/建议更换|需处理|仅检查|已更换|未更换|已处理/.test(rest)
 }
 
+/** 图注是否触发施工延伸（正常/仅检查单独出现 → 否） */
+function captionNeedsConstruction(caption = '') {
+  const t = String(caption || '').trim()
+  if (!t) return false
+  if (captionIsNormalOnly(t)) return false
+  if (/^仅检查(；|;|：|:)?/.test(t)) {
+    const rest = t.replace(/^仅检查(；|;|：|:)?\s*/, '')
+    return /建议更换|需处理|已更换|未更换|已处理/.test(rest)
+  }
+  return true
+}
+
 function captionsNeedWork(captions = []) {
-  return (captions || []).some((c) => {
-    const t = String(c || '').trim()
-    if (!t) return false
-    return !captionIsNormalOnly(t)
-  })
+  return (captions || []).some((c) => captionNeedsConstruction(c))
+}
+
+function itemHasEvidence(it) {
+  const imgs = it.images || []
+  return imgs.length > 0 || Boolean(String(it.note || '').trim())
+}
+
+/** 检测父项是否足以解锁施工衍生项：有留证 + 需处理/需更换 */
+function parentCanUnlockFollowUps(it) {
+  if (!it || it.workOnly) return false
+  if (!(it.workFollowUpKeys || []).length) return false
+  if (it.work && it.work.removedAs) return false
+  if (!itemHasEvidence(it)) return false
+  if (it.outcome === 'normal') return false
+  return Boolean(it.inWorkQueue)
+}
+
+/**
+ * 施工待处理列表：只展示「施工延伸」
+ * - 有衍生项的检测父项（如旧机油）不出现在施工
+ * - 衍生项 / 无衍生的异常检测项（如火花塞）可出现
+ */
+function isConstructionQueueItem(it) {
+  if (!it || !it.inWorkQueue) return false
+  if (!it.workOnly && (it.workFollowUpKeys || []).length > 0) return false
+  return true
 }
 
 /** 从多张图注推断项结果：异常优先于正常；仅检查也算需处理 */
@@ -91,10 +128,13 @@ function parseChecklistJson(raw) {
 
 function hydrateChecklistState(album = {}) {
   const existing = parseChecklistJson(album.checklistJson)
-  const categoryId = resolveCategoryIdFromAlbum({
+  const fromAlbum = resolveCategoryIdFromAlbum({
     templateId: album.templateId,
     serviceName: album.serviceName,
   })
+  // 已落库的 categoryId 优先（避免仅靠服务名误落到 default）
+  const existingCat = existing && existing.categoryId ? String(existing.categoryId).trim() : ''
+  const categoryId = existingCat && getRawCategory(existingCat) ? existingCat : fromAlbum
   const resolved = resolveCategoryItems(categoryId)
   const prevByKey = new Map()
   if (existing && Array.isArray(existing.items)) {
@@ -210,7 +250,9 @@ function resolveWorkFlags(it, images = []) {
   const fromCaptions = captionsNeedWork(captions)
   const inferred = inferOutcomeFromCaptions(captions)
   const outcome = it.outcome || inferred
-  const auto = AUTO_WORK_OUTCOMES.has(outcome) || fromCaptions
+  const evidenced = itemHasEvidence({ ...it, images })
+  // 无留证不得因残留 outcome 进施工；手增除外
+  const auto = evidenced && (AUTO_WORK_OUTCOMES.has(outcome) || fromCaptions)
   const manual = work.source === 'manual_add'
   const inWorkQueue = Boolean(auto || manual)
   return { inWorkQueue, inFollowUp: false, work, inferredOutcome: inferred }
@@ -275,19 +317,22 @@ function buildMerchantChecklistView(album, images = []) {
     }
   })
 
-  // 父检查项进待处理 → 解锁施工衍生项
+  // 父项「有留证且需处理/更换」→ 解锁施工衍生项（无检测则无施工）
   const unlockedKeys = new Set()
   baseItems.forEach((it) => {
-    if (!it.inWorkQueue || it.workOnly) return
+    if (!parentCanUnlockFollowUps(it)) return
     ;(it.workFollowUpKeys || []).forEach((k) => unlockedKeys.add(String(k)))
   })
 
   const guidanceItems = baseItems.map((it) => {
     if (!it.workOnly) return it
-    // 衍生项：须父项解锁；自身已有异常图注/手增也可保留在队
     const unlocked = unlockedKeys.has(it.itemKey)
-    const keepOwn = it.inWorkQueue && (it.images.length > 0 || it.work.source === 'manual_add')
-    const inWorkQueue = Boolean(unlocked || keepOwn) && it.work.removedAs !== 'mismatch'
+    const manual = it.work && it.work.source === 'manual_add'
+    // 衍生项：只靠父项解锁或手增；禁止「无父项仅因自己有图」冒进施工列表
+    const inWorkQueue =
+      it.work.removedAs !== 'mismatch' &&
+      it.work.removedAs !== 'owner_declined' &&
+      Boolean(unlocked || manual)
     if (it.work.removedAs === 'owner_declined') {
       return { ...it, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked }
     }
@@ -296,6 +341,7 @@ function buildMerchantChecklistView(album, images = []) {
       inWorkQueue,
       inFollowUp: false,
       unlockedByParent: unlocked,
+      work: unlocked && !it.work.source ? { ...it.work, source: 'auto' } : it.work,
     }
   })
 
@@ -304,7 +350,7 @@ function buildMerchantChecklistView(album, images = []) {
     (it) => it.strength === 'strong' && it.status === 'pending' && !it.workOnly,
   ).length
 
-  const workQueueItems = guidanceItems.filter((it) => it.inWorkQueue)
+  const workQueueItems = guidanceItems.filter((it) => isConstructionQueueItem(it))
   const followUpItems = guidanceItems.filter((it) => it.inFollowUp)
   // 节点清单：不含施工衍生项（workOnly / stage_5）
   const stageListable = (it, stageId) =>
@@ -372,6 +418,9 @@ module.exports = {
   resolveWorkFlags,
   inferOutcomeFromCaptions,
   captionsNeedWork,
+  captionNeedsConstruction,
+  parentCanUnlockFollowUps,
+  isConstructionQueueItem,
   buildMerchantChecklistView,
   buildOwnerWorkChecklistView,
   ensureChecklistOnCreate,

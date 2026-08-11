@@ -298,7 +298,7 @@
           <album-checklist-editor
             mode="work"
             title="待处理项目"
-            hint="来自检测需处理/需更换的项目，及因此解锁的施工留证项（如新机油规格）。移出前须选择原因。"
+            hint="施工是检测的延伸：仅当检测标了需处理/需更换时出现。正常施工留证即可；若要移出或完工时仍未施工，再选原因。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"

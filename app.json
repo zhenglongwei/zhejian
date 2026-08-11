@@ -113,7 +113,8 @@
     "chooseLocation"
   ],
   "usingComponents": {
-    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index",
+    "ui-empty": "/components/empty/index"
   },
   "style": "v2",
   "__usePrivacyCheck__": true,

@@ -38,8 +38,14 @@ Component({
       }
       return true
     },
-    resolveItemSummary(item) {
-      const images = item.stageImages || item.images || []
+    pickImages(item) {
+      const stage = item.stageImages
+      if (Array.isArray(stage) && stage.length) return stage
+      return item.images || []
+    },
+    /** 检测节点：是否已检查 / 结果 */
+    resolveStageSummary(item) {
+      const images = this.pickImages(item)
       const hasPhotos = images.length > 0
       const captions = images.map((img) => String((img && img.caption) || '').trim()).filter(Boolean)
       const hasCaption = captions.length > 0
@@ -79,16 +85,102 @@ Component({
         resultLabel: '正常',
       }
     },
+    /** 施工待处理：与是否已施工/方案相关，不用「未检查」 */
+    resolveWorkSummary(item) {
+      const images = Array.isArray(item.stageImages) ? item.stageImages : []
+      const captions = images.map((img) => String((img && img.caption) || '').trim()).filter(Boolean)
+      const joined = captions.join(' ')
+      const outcome = String(item.outcome || '')
+      const detectHint =
+        outcome === 'recommend_replace' || /建议更换/.test(joined)
+          ? '建议更换'
+          : outcome === 'repaired_other' || /需处理/.test(joined)
+            ? '需处理'
+            : item.outcomeLabel || ''
+
+      if (/已更换/.test(joined) || outcome === 'replaced') {
+        return {
+          checkStatus: 'done',
+          statusTone: 'ok',
+          checkStatusLabel: '已施工',
+          resultKind: 'ok',
+          resultLabel: '已更换',
+        }
+      }
+      if (/已处理/.test(joined)) {
+        return {
+          checkStatus: 'done',
+          statusTone: 'ok',
+          checkStatusLabel: '已施工',
+          resultKind: 'ok',
+          resultLabel: '已处理',
+        }
+      }
+      if (/未更换/.test(joined) || outcome === 'not_replaced') {
+        return {
+          checkStatus: 'deferred',
+          statusTone: 'warn',
+          checkStatusLabel: '未更换',
+          resultKind: 'warn',
+          resultLabel: detectHint || '本次未换',
+        }
+      }
+      if (!images.length) {
+        return {
+          checkStatus: 'todo',
+          statusTone: 'warn',
+          checkStatusLabel: '待施工',
+          resultKind: detectHint ? 'warn' : '',
+          resultLabel: detectHint,
+        }
+      }
+      if (!captions.length) {
+        return {
+          checkStatus: 'pending_tag',
+          statusTone: 'hint',
+          checkStatusLabel: '待标注',
+          resultKind: 'warn',
+          resultLabel: '请点施工结果标签',
+        }
+      }
+      return {
+        checkStatus: 'in_progress',
+        statusTone: 'hint',
+        checkStatusLabel: '施工中',
+        resultKind: detectHint ? 'warn' : '',
+        resultLabel: detectHint,
+      }
+    },
+    resolveFollowUpSummary(item) {
+      return {
+        checkStatus: 'followup',
+        statusTone: 'hint',
+        checkStatusLabel: '跟进中',
+        resultKind: 'warn',
+        resultLabel: (item.work && item.work.deferNote) || '车主暂不处理',
+      }
+    },
+    resolveItemSummary(item, mode) {
+      if (mode === 'work') return this.resolveWorkSummary(item)
+      if (mode === 'followup') return this.resolveFollowUpSummary(item)
+      return this.resolveStageSummary(item)
+    },
     rebuildDisplayItems() {
       const expandedMap = this.data.expandedMap || {}
       const mode = this.properties.mode
       const displayItems = (this.properties.items || []).map((it) => {
-        const summary = this.resolveItemSummary(it)
+        const summary = this.resolveItemSummary(it, mode)
         const expanded = mode !== 'stage' ? true : Boolean(expandedMap[it.itemKey])
         const group = String(it.groupName || '').trim()
         const label = String(it.label || '').trim()
         const titleText = group && label && label.indexOf(group) < 0 ? `${label} / ${group}` : label || group
-        const displayImages = it.stageImages || it.images || []
+        // 施工/跟进：只展示本阶段挂图（可为空）；检测：空数组不遮挡历史图
+        const displayImages =
+          mode === 'work' || mode === 'followup'
+            ? Array.isArray(it.stageImages)
+              ? it.stageImages
+              : it.images || []
+            : this.pickImages(it)
         return {
           ...it,
           ...summary,

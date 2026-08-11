@@ -38,6 +38,12 @@
             class="result-pill result-pill--{{item.resultKind}}"
             wx:if="{{item.resultLabel}}"
           >{{item.resultLabel}}</text>
+          <text
+            class="chk-remove-link"
+            wx:if="{{mode === 'work' && !readOnly}}"
+            data-key="{{item.itemKey}}"
+            catchtap="onRemoveWork"
+          >移出</text>
         </view>
       </view>
 
@@ -69,16 +75,8 @@
             class="btn-mini"
             size="mini"
             data-key="{{item.itemKey}}"
-            data-reason="mismatch"
-            bindtap="onRemoveWork"
-          >误判移除</button>
-          <button
-            class="btn-mini btn-ghost"
-            size="mini"
-            data-key="{{item.itemKey}}"
-            data-reason="owner_declined"
-            bindtap="onRemoveWork"
-          >车主暂不处理</button>
+            bindtap="onRestoreFollowUp"
+          >重新纳入待处理</button>
         </view>
       </view>
     </view>
