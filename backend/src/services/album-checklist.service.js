@@ -242,7 +242,7 @@ function buildMerchantChecklistView(album, images = []) {
   const defByKey = new Map(defs.items.map((d) => [d.itemKey, d]))
   const imageById = new Map((images || []).map((img) => [String(img.id), img]))
 
-  const guidanceItems = state.items.map((it) => {
+  const baseItems = state.items.map((it) => {
     const def = defByKey.get(it.itemKey) || {}
     const imgs = mapImageViews(it.imageIds, imageById)
     const flags = resolveWorkFlags(it, imgs)
@@ -258,6 +258,8 @@ function buildMerchantChecklistView(album, images = []) {
       label: def.label || it.itemKey,
       group: def.group || '',
       suggestStageId: def.suggestStageId || 'stage_2',
+      workOnly: Boolean(def.workOnly || def.suggestStageId === 'stage_5'),
+      workFollowUpKeys: Array.isArray(def.workFollowUpKeys) ? def.workFollowUpKeys : [],
       noteExample: def.noteExample || '',
       strength: def.strength || 'tip',
       linkHint: def.linkHint || '',
@@ -269,19 +271,49 @@ function buildMerchantChecklistView(album, images = []) {
       work: flags.work,
       inWorkQueue: flags.inWorkQueue,
       inFollowUp: flags.inFollowUp,
+      unlockedByParent: false,
+    }
+  })
+
+  // 父检查项进待处理 → 解锁施工衍生项
+  const unlockedKeys = new Set()
+  baseItems.forEach((it) => {
+    if (!it.inWorkQueue || it.workOnly) return
+    ;(it.workFollowUpKeys || []).forEach((k) => unlockedKeys.add(String(k)))
+  })
+
+  const guidanceItems = baseItems.map((it) => {
+    if (!it.workOnly) return it
+    // 衍生项：须父项解锁；自身已有异常图注/手增也可保留在队
+    const unlocked = unlockedKeys.has(it.itemKey)
+    const keepOwn = it.inWorkQueue && (it.images.length > 0 || it.work.source === 'manual_add')
+    const inWorkQueue = Boolean(unlocked || keepOwn) && it.work.removedAs !== 'mismatch'
+    if (it.work.removedAs === 'owner_declined') {
+      return { ...it, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked }
+    }
+    return {
+      ...it,
+      inWorkQueue,
+      inFollowUp: false,
+      unlockedByParent: unlocked,
     }
   })
 
   const activeCount = guidanceItems.filter((it) => it.status === 'active').length
   const strongPending = guidanceItems.filter(
-    (it) => it.strength === 'strong' && it.status === 'pending',
+    (it) => it.strength === 'strong' && it.status === 'pending' && !it.workOnly,
   ).length
 
   const workQueueItems = guidanceItems.filter((it) => it.inWorkQueue)
   const followUpItems = guidanceItems.filter((it) => it.inFollowUp)
+  // 节点清单：不含施工衍生项（workOnly / stage_5）
+  const stageListable = (it, stageId) =>
+    !it.workOnly && it.suggestStageId === stageId
   const stageItems = {
-    stage_1: guidanceItems.filter((it) => it.suggestStageId === 'stage_1'),
-    stage_2: guidanceItems.filter((it) => it.suggestStageId === 'stage_2'),
+    stage_1: guidanceItems.filter((it) => stageListable(it, 'stage_1')),
+    stage_2: guidanceItems.filter((it) => stageListable(it, 'stage_2')),
+    stage_5: [],
+    stage_6: guidanceItems.filter((it) => stageListable(it, 'stage_6')),
   }
 
   return {

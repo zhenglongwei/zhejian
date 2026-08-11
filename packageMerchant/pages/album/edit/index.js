@@ -259,6 +259,7 @@ Page({
     showWorkQueue: false,
     showFollowUpList: false,
     checklistStageHint: '',
+    checklistStageTitle: '',
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -873,19 +874,27 @@ Page({
       (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
     const stageMap = checklist.stageItems || {}
     const allItems = checklist.items || []
-    const showStageChecklist = stageId === 'stage_1' || stageId === 'stage_2'
+    // 施工不展示「未检查固定清单」：仅待处理（含检测解锁的衍生项）
+    const showStageChecklist =
+      stageId === 'stage_1' || stageId === 'stage_2' || stageId === 'stage_6'
     const showWorkQueue = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
     const showFollowUpList = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
     let stageChecklistItems = []
     let checklistStageHint = ''
+    let checklistStageTitle = this.data.checklistCategoryLabel || '检查项目'
     if (stageId === 'stage_1') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
-      checklistStageHint =
-        '点项目展开拍照。图下标签为提醒色，须点选；选后说明框带「标签；」可继续补充。除「正常」外都会进施工待处理。'
+      checklistStageTitle = '接车检查项'
+      checklistStageHint = '接车建档项：点开拍照或写说明。异常结果才会进施工待处理。'
     } else if (stageId === 'stage_2') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
+      checklistStageTitle = '检测检查项'
       checklistStageHint =
-        '点项目展开。除图注「正常」外（含仅检查、自定义），整项会进入施工待处理。'
+        '检测判断项：点开拍照。除「正常」外进待处理；如旧机油需更换，会自动带出新机油规格/液位等施工项。'
+    } else if (stageId === 'stage_6') {
+      stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_6 || [], stageId)
+      checklistStageTitle = '完工交付项'
+      checklistStageHint = '完工交付项：复查、试车与交车说明。仍可对待处理项补图。'
     }
     const workQueueItems = this.attachStageImagesToItems(
       checklist.workQueueItems || allItems.filter((it) => it.inWorkQueue),
@@ -906,20 +915,59 @@ Page({
       stageChecklistItems,
       workQueueItems,
       followUpItems,
+      checklistStageTitle,
       checklistStageHint,
       checklistCompleteness: checklist.completeness || null,
       checklistCategoryLabel: checklist.categoryLabel || '',
     })
   },
 
+  applyWorkFollowUpUnlock(items) {
+    const list = (items || []).map((it) => ({
+      ...it,
+      workOnly: Boolean(it.workOnly || it.suggestStageId === 'stage_5'),
+      workFollowUpKeys: Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys : [],
+    }))
+    const unlocked = new Set()
+    list.forEach((it) => {
+      if (!it.inWorkQueue || it.workOnly) return
+      ;(it.workFollowUpKeys || []).forEach((k) => unlocked.add(String(k)))
+    })
+    return list.map((it) => {
+      if (!it.workOnly) return it
+      const work = it.work || {}
+      if (work.removedAs === 'owner_declined') {
+        return { ...it, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked.has(it.itemKey) }
+      }
+      if (work.removedAs === 'mismatch') {
+        return { ...it, inWorkQueue: false, inFollowUp: false, unlockedByParent: false }
+      }
+      const hasEvidence =
+        (it.stageImages && it.stageImages.length) ||
+        (it.images && it.images.length) ||
+        String(it.note || '').trim()
+      const keepOwn = it.inWorkQueue && (hasEvidence || work.source === 'manual_add')
+      const unlockedByParent = unlocked.has(it.itemKey)
+      return {
+        ...it,
+        inWorkQueue: Boolean(unlockedByParent || keepOwn),
+        inFollowUp: false,
+        unlockedByParent,
+      }
+    })
+  },
+
   syncChecklistLocalItems(mapper) {
     const checklist = this.data.checklist || { items: [] }
-    const items = (checklist.items || []).map(mapper)
+    const items = this.applyWorkFollowUpUnlock((checklist.items || []).map(mapper))
     const workQueueItems = items.filter((it) => it.inWorkQueue)
     const followUpItems = items.filter((it) => it.inFollowUp)
+    const listable = (it, stageId) => !it.workOnly && it.suggestStageId === stageId
     const stageItems = {
-      stage_1: items.filter((it) => it.suggestStageId === 'stage_1'),
-      stage_2: items.filter((it) => it.suggestStageId === 'stage_2'),
+      stage_1: items.filter((it) => listable(it, 'stage_1')),
+      stage_2: items.filter((it) => listable(it, 'stage_2')),
+      stage_5: [],
+      stage_6: items.filter((it) => listable(it, 'stage_6')),
     }
     const completeness = {
       ...(checklist.completeness || {}),

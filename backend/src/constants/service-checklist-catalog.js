@@ -3,6 +3,7 @@
  * 内容真源：docs/04_维修过程相册/17_服务类目检测清单.md
  */
 const { CATALOG_VERSION, CATEGORIES } = require('./service-checklist-catalog-data')
+const { getWorkFollowUps } = require('./service-checklist-work-followups')
 
 const CHASSIS_KEYWORDS = ['异响', '胶套', '摆臂', '球头', '底盘异响', '减震', '连杆']
 
@@ -15,6 +16,18 @@ function getRawCategory(categoryId) {
   return CATEGORIES[key] || null
 }
 
+function decorateItem(def, categoryId) {
+  const suggestStageId = def.suggestStageId || 'stage_2'
+  const workOnly = suggestStageId === 'stage_5' || Boolean(def.workOnly)
+  const workFollowUpKeys = getWorkFollowUps(categoryId, def.itemKey)
+  return {
+    ...def,
+    suggestStageId,
+    workOnly,
+    workFollowUpKeys,
+  }
+}
+
 /** 合并继承：大保 = 小保全量 + 增量（同 itemKey 以子类覆盖） */
 function resolveCategoryItems(categoryId) {
   const raw = getRawCategory(categoryId) || getRawCategory('default')
@@ -24,17 +37,25 @@ function resolveCategoryItems(categoryId) {
     return {
       categoryId: raw.categoryId,
       label: raw.label,
-      items: (raw.items || []).map((it) => ({ ...it })),
+      items: (raw.items || []).map((it) => decorateItem(it, raw.categoryId)),
     }
   }
   const parent = resolveCategoryItems(parentId)
   const byKey = new Map()
   parent.items.forEach((it) => byKey.set(it.itemKey, { ...it }))
-  ;(raw.items || []).forEach((it) => byKey.set(it.itemKey, { ...it }))
+  ;(raw.items || []).forEach((it) => byKey.set(it.itemKey, decorateItem(it, raw.categoryId)))
+  // 继承项也要挂上本类目（或父类目）的 follow-ups：大保沿用小保 old_oil 映射
+  const items = Array.from(byKey.values()).map((it) => {
+    const fromChild = getWorkFollowUps(raw.categoryId, it.itemKey)
+    const fromParent = getWorkFollowUps(parentId, it.itemKey)
+    const workFollowUpKeys = fromChild.length ? fromChild : fromParent
+    const workOnly = it.suggestStageId === 'stage_5' || Boolean(it.workOnly)
+    return { ...it, workOnly, workFollowUpKeys }
+  })
   return {
     categoryId: raw.categoryId,
     label: raw.label,
-    items: Array.from(byKey.values()),
+    items,
   }
 }
 
@@ -70,4 +91,5 @@ module.exports = {
   resolveCategoryItems,
   resolveCategoryIdFromAlbum,
   buildEmptyChecklistState,
+  getWorkFollowUps,
 }

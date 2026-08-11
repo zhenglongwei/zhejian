@@ -286,7 +286,7 @@
         <block wx:if="{{showStageChecklist}}">
           <album-checklist-editor
             mode="stage"
-            title="{{checklistCategoryLabel || '检查项目'}}"
+            title="{{checklistStageTitle || checklistCategoryLabel || '检查项目'}}"
             hint="{{checklistStageHint}}"
             items="{{stageChecklistItems}}"
             completeness="{{checklistCompleteness}}"
@@ -300,7 +300,7 @@
           <album-checklist-editor
             mode="work"
             title="待处理项目"
-            hint="除图注「正常」外会自动进入。可继续拍照留证；移出前须选择原因。"
+            hint="来自检测需处理/需更换的项目，及因此解锁的施工留证项（如新机油规格）。移出前须选择原因。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"

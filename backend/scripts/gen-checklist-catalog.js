@@ -25,10 +25,13 @@ function parseItems(sectionText) {
     if (cells.length < 6) continue
     const key = cells[0].replace(/^`|`$/g, '')
     if (!key || key === 'itemKey') continue
+    const suggestStageId = stageMap[cells[2]] || 'stage_2'
     items.push({
       itemKey: key,
       label: cells[1],
-      suggestStageId: stageMap[cells[2]] || 'stage_2',
+      suggestStageId,
+      /** 施工阶段项 = 待处理衍生项，不常驻节点清单 */
+      workOnly: suggestStageId === 'stage_5',
       group: cells[3] || '',
       noteExample: cells[4] || '',
       strength: strengthMap[cells[5]] || 'tip',
@@ -119,7 +122,7 @@ for (const [k, v] of Object.entries(map)) {
 
 const out =
   '/** Auto-generated from 17_服务类目检测清单.md — re-run: node backend/scripts/gen-checklist-catalog.js */\n' +
-  "const CATALOG_VERSION = '2026-08-10'\n\n" +
+  "const CATALOG_VERSION = '2026-08-11-followup'\n\n" +
   `const CATEGORIES = ${JSON.stringify(map, null, 2)}\n\n` +
   'module.exports = { CATALOG_VERSION, CATEGORIES }\n'
 
