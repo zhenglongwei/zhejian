@@ -9,13 +9,16 @@ function resolveAlbumHasOwner(album = {}) {
   )
 }
 
-function buildMerchantAlbumEntryPath(albumId, album = {}) {
+function buildMerchantAlbumEntryPath(albumId, album = {}, options = {}) {
   const id = String(albumId || album.albumId || '').trim()
   if (!id) return MERCHANT_ALBUM_EDIT_PAGE
   const page = resolveAlbumHasOwner({ ...album, albumId: id })
     ? MERCHANT_ALBUM_EDIT_PAGE
     : MERCHANT_ALBUM_INVITE_PAGE
-  return `${page}?albumId=${encodeURIComponent(id)}`
+  const params = [`albumId=${encodeURIComponent(id)}`]
+  if (options.stage) params.push(`stage=${encodeURIComponent(String(options.stage))}`)
+  if (options.expandFollowUp) params.push('expandFollowUp=1')
+  return `${page}?${params.join('&')}`
 }
 
 module.exports = {

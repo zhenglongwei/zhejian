@@ -143,6 +143,7 @@ Page({
       pendingLeads: 0,
       pendingUpload: 0,
       pendingAuth: 0,
+      pendingFollowUp: 0,
       geoEvidenceBlocked: 0,
       activeAlbums: 0,
     }
@@ -191,9 +192,11 @@ Page({
         pendingReviews: reviewStats.pendingReply || 0,
         pendingUpload: stats.pendingUpload || 0,
         pendingAuth: stats.pendingAuth || 0,
+        pendingFollowUp: stats.pendingFollowUp || 0,
         geoEvidenceBlocked: stats.geoEvidenceBlocked || 0,
         activeAlbums: stats.active || 0,
       }
+      this._followUpAlbums = (albumList || []).filter((row) => Number(row.followUpCount) > 0)
 
       if (publishPanel && publishPanel.recent) {
         casePublishRecent = decorateCasePublishRecent(
@@ -329,7 +332,59 @@ Page({
     }
     if (action === 'leads') {
       this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } })
+      return
     }
+    if (action === 'followup') {
+      this.onOpenFollowUpTodo()
+    }
+  },
+
+  onOpenFollowUpTodo() {
+    const list = this._followUpAlbums || []
+    if (!list.length) {
+      this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } })
+      wx.showToast({ title: '请在完工节点查看跟进', icon: 'none' })
+      return
+    }
+    if (list.length === 1) {
+      const item = list[0]
+      this._navigateTo(
+        buildMerchantAlbumEntryPath(item.albumId, item, {
+          stage: 'stage_6',
+          expandFollowUp: true,
+        }),
+      )
+      return
+    }
+    // 多本：进列表，优先点开最近有跟进的一本
+    const first = list[0]
+    wx.showActionSheet({
+      itemList: list.slice(0, 6).map((row) => {
+        const plate =
+          (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
+          row.vehicleDisplay ||
+          '相册'
+        return `${plate} · ${row.followUpCount || 0} 项跟进`
+      }),
+      success: (res) => {
+        const picked = list[res.tapIndex]
+        if (!picked) return
+        this._navigateTo(
+          buildMerchantAlbumEntryPath(picked.albumId, picked, {
+            stage: 'stage_6',
+            expandFollowUp: true,
+          }),
+        )
+      },
+      fail: () => {
+        this._navigateTo(
+          buildMerchantAlbumEntryPath(first.albumId, first, {
+            stage: 'stage_6',
+            expandFollowUp: true,
+          }),
+        )
+      },
+    })
   },
 
   onDockTap(e) {

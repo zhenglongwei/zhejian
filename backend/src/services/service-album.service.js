@@ -1172,6 +1172,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
 
   return albums.map((album) => {
     const view = buildMerchantView(album)
+    const followUpCount = countFollowUpItemsInChecklist(album.checklistJson)
     return {
       albumId: view.albumId,
       serviceName: view.serviceName,
@@ -1185,6 +1186,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       hasOwner: view.hasOwner,
       updatedAt: view.updatedAt,
       coverUrl: buildListCoverUrl(album),
+      followUpCount,
     }
   })
 }
@@ -1903,6 +1905,14 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
   return view
 }
 
+function countFollowUpItemsInChecklist(checklistJson) {
+  const items = (checklistJson && Array.isArray(checklistJson.items) && checklistJson.items) || []
+  return items.filter((it) => {
+    const raw = String((it && it.work && it.work.removedAs) || '').trim()
+    return raw === 'follow_up' || raw === 'owner_declined'
+  }).length
+}
+
 async function fetchMerchantAlbumStats(storeId, merchantId = '') {
   const where = merchantId ? { merchantId } : { storeId }
   const albums = await prisma.album.findMany({
@@ -1924,7 +1934,14 @@ async function fetchMerchantAlbumStats(storeId, merchantId = '') {
       a.imageCount < 2
   ).length
   let geoEvidenceBlocked = 0
+  let pendingFollowUp = 0
+  let pendingFollowUpAlbums = 0
   for (const album of albums) {
+    const followN = countFollowUpItemsInChecklist(album.checklistJson)
+    if (followN > 0) {
+      pendingFollowUp += followN
+      pendingFollowUpAlbums += 1
+    }
     const hasOwner =
       Boolean(String(album.userId || '').trim()) ||
       Boolean(String(album.userPhone || '').trim())
@@ -1940,7 +1957,15 @@ async function fetchMerchantAlbumStats(storeId, merchantId = '') {
       geoEvidenceBlocked += 1
     }
   }
-  return { active, pendingAuth, pendingUpload, geoEvidenceBlocked, total: albums.length }
+  return {
+    active,
+    pendingAuth,
+    pendingUpload,
+    geoEvidenceBlocked,
+    pendingFollowUp,
+    pendingFollowUpAlbums,
+    total: albums.length,
+  }
 }
 
 async function submitServiceAlbumAuthorization(albumId, userId, payload = {}) {

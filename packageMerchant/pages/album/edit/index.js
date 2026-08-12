@@ -72,9 +72,6 @@ const {
 } = require('../../../../utils/album-evidence-items')
 const {
   MERCHANT_OLD_PART_INTRO,
-  MERCHANT_INSPECTION_HINT,
-  MERCHANT_COMPLETE_INSP_TITLE,
-  MERCHANT_COMPLETE_INSP_INTRO,
   MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
   MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
   MERCHANT_EXTRA_PART_SOP_LINK,
@@ -112,10 +109,6 @@ const { AUTHORIZATION_CONSENT } = require('../../../../constants/compliance-copy
 const MERCHANT_OCR_CONSENT_KEY = 'merchant_document_ocr_consent_v1'
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
 const { promptMerchantAuditSubscribe } = require('../../../../utils/subscribe-message-prompt')
-const {
-  buildMerchantEditInspectionView,
-  collectMissingFromPanels,
-} = require('../../../../utils/album-merchant-inspection')
 const {
   MERCHANT_PART_TYPE_LOCKED_TIP,
   MERCHANT_PART_TYPE_MANUAL_TIP,
@@ -229,6 +222,8 @@ Page({
     vehicleModelYear: '',
     vehicleEngineModel: '',
     vehicleChassisCode: '',
+    vehicleMetaExpanded: false,
+    vehicleCompactModel: '',
     vinDecoding: false,
     isCompleted: false,
     readOnly: false,
@@ -255,6 +250,7 @@ Page({
     stageChecklistItems: [],
     workQueueItems: [],
     followUpItems: [],
+    followUpExpanded: false,
     showStageChecklist: false,
     showWorkQueue: false,
     showFollowUpList: false,
@@ -330,21 +326,14 @@ Page({
     extraPartSopStage3Hint: MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
     extraPartSopStage4Hint: MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
     extraPartSopLink: MERCHANT_EXTRA_PART_SOP_LINK,
-    merchantInspHint: MERCHANT_INSPECTION_HINT,
-    merchantInspSummary: { done: 0, total: 0, missing: 0 },
-    merchantInspPanels: [],
-    merchantInspColumnLabel: '建议',
-    merchantInspExpanded: false,
-    merchantInspMissingItems: [],
-    inspScrollIntoView: '',
-    inspCompleteModalVisible: false,
-    inspCompleteModalTitle: MERCHANT_COMPLETE_INSP_TITLE,
-    inspCompleteModalIntro: MERCHANT_COMPLETE_INSP_INTRO,
   },
 
   onLoad(options) {
     this.albumId = options.albumId || ''
     this.focusOwnerPhone = options.focusOwnerPhone === '1' || options.focusOwnerPhone === 'true'
+    this.pendingStageId = String(options.stage || '').trim()
+    this.pendingExpandFollowUp =
+      options.expandFollowUp === '1' || options.expandFollowUp === 'true'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
       return
@@ -355,80 +344,33 @@ Page({
   maybeFocusOwnerPhone() {
     if (!this.focusOwnerPhone || this.data.hasOwner) return
     this.focusOwnerPhone = false
-    setTimeout(() => {
-      wx.pageScrollTo({
-        selector: '#merchant-album-owner-phone',
-        duration: 280,
-      })
-      wx.showToast({ title: '请填写车主手机号后保存', icon: 'none', duration: 2200 })
-    }, 320)
+    this.setData({ vehicleMetaExpanded: true }, () => {
+      setTimeout(() => {
+        wx.pageScrollTo({
+          selector: '#merchant-album-owner-phone',
+          duration: 280,
+        })
+        wx.showToast({ title: '请填写车主手机号后保存', icon: 'none', duration: 2200 })
+      }, 320)
+    })
+  },
+
+  onToggleVehicleMeta() {
+    this.setData({ vehicleMetaExpanded: !this.data.vehicleMetaExpanded })
+  },
+
+  onToggleFollowUpExpanded() {
+    this.setData({ followUpExpanded: !this.data.followUpExpanded })
+  },
+
+  syncVehicleCompactModel(patch = {}) {
+    const brand = patch.vehicleBrand != null ? patch.vehicleBrand : this.data.vehicleBrand
+    const series = patch.vehicleSeries != null ? patch.vehicleSeries : this.data.vehicleSeries
+    const model = [String(brand || '').trim(), String(series || '').trim()].filter(Boolean).join(' ')
+    return model
   },
 
   noop() {},
-
-  computeMerchantInspectionState() {
-    return buildMerchantEditInspectionView({
-      detail: this.data.detail,
-      templateId: this.data.templateId,
-      templateName: this.data.templateName,
-      nodes: this.data.nodes,
-      evidenceItems: this.data.evidenceItems,
-      parts: this.data.parts,
-      planParts: this.data.planParts,
-      comparePairRows: this.data.comparePairRows,
-    })
-  },
-
-  refreshMerchantInspection() {
-    if (this.data.status !== 'normal' || !this.data.detail) return
-    try {
-      const view = this.computeMerchantInspectionState()
-      const missing = collectMissingFromPanels(view.completeness.panels)
-      this.setData({
-        merchantInspSummary: view.completeness.summary,
-        merchantInspPanels: view.completeness.panels,
-        merchantInspColumnLabel: view.importanceColumnLabel,
-        merchantInspMissingItems: missing,
-      })
-    } catch (e) {
-      console.warn('[merchant-insp] refresh failed', e)
-      this.setData({
-        merchantInspSummary: { done: 0, total: 0, missing: 0 },
-        merchantInspPanels: [],
-        merchantInspMissingItems: [],
-      })
-    }
-  },
-
-  onToggleMerchantInsp() {
-    this.setData({ merchantInspExpanded: !this.data.merchantInspExpanded })
-  },
-
-  openMerchantInspSection() {
-    this.setData({
-      merchantInspExpanded: true,
-      inspScrollIntoView: 'merchant-insp-section',
-    })
-    setTimeout(() => {
-      if (this.data.inspScrollIntoView) {
-        this.setData({ inspScrollIntoView: '' })
-      }
-    }, 400)
-  },
-
-  onCloseInspCompleteModal() {
-    this.setData({ inspCompleteModalVisible: false })
-  },
-
-  onInspCompleteModalViewChecklist() {
-    this.setData({ inspCompleteModalVisible: false })
-    this.openMerchantInspSection()
-  },
-
-  onInspCompleteModalProceedAnyway() {
-    this.setData({ inspCompleteModalVisible: false })
-    this.maybePromptUnresolvedWorkThenComplete()
-  },
 
   /** 施工清单中仍无施工留证的项（完工时需逐项删除确认） */
   collectUnresolvedWorkQueueItems() {
@@ -779,7 +721,6 @@ Page({
     const rows = padComparePairRowsForEdit(pairRows)
     const nodes = applyComparePairRowsToNodes(this.data.nodes, rows)
     this.setData({ comparePairRows: rows, nodes }, () => {
-      this.refreshMerchantInspection()
     })
   },
 
@@ -921,6 +862,13 @@ Page({
       vehicleModelYear: (detail.vehicle && detail.vehicle.modelYear) || '',
       vehicleEngineModel: (detail.vehicle && detail.vehicle.engineModel) || '',
       vehicleChassisCode: (detail.vehicle && detail.vehicle.chassisCode) || '',
+      vehicleCompactModel: [
+        (detail.vehicle && detail.vehicle.brand) || '',
+        (detail.vehicle && detail.vehicle.series) || '',
+      ]
+        .map((s) => String(s || '').trim())
+        .filter(Boolean)
+        .join(' '),
       isCompleted,
       readOnly,
       formDisabled: readOnly,
@@ -953,14 +901,41 @@ Page({
       warrantyScope: warrantyFields.scope,
       warrantyNote: warrantyFields.note,
     }, () => {
-      this.refreshCompareStageFlags(this.data.stageIndex)
-      this.refreshChecklistStageViews()
+      const focused = this.applyPendingStageFocus()
+      if (!focused) {
+        this.refreshCompareStageFlags(this.data.stageIndex)
+        this.refreshChecklistStageViews()
+      }
       this.refreshPartWizard()
-      this.refreshMerchantInspection()
       this.redirectToInviteIfNoOwner(detail)
       this.maybeFocusOwnerPhone()
     })
     this.syncShareMenu(canShare)
+  },
+
+  applyPendingStageFocus() {
+    const stageId = this.pendingStageId
+    const expandFollowUp = Boolean(this.pendingExpandFollowUp)
+    this.pendingStageId = ''
+    this.pendingExpandFollowUp = false
+    if (!stageId && !expandFollowUp) return false
+    const stages = this.data.stages || []
+    let stageIndex = this.data.stageIndex
+    if (stageId) {
+      const found = stages.findIndex((s) => s.id === stageId)
+      if (found >= 0) stageIndex = found
+    }
+    this.setData(
+      {
+        stageIndex,
+        followUpExpanded: expandFollowUp || this.data.followUpExpanded,
+      },
+      () => {
+        this.refreshCompareStageFlags(stageIndex)
+        this.refreshChecklistStageViews(stageIndex)
+      },
+    )
+    return true
   },
 
   attachStageImagesToItems(items, stageId) {
@@ -1399,7 +1374,6 @@ Page({
     const evidenceItems = [...otherItems, ...stageItems]
     this.setData({ evidenceItems }, () => {
       this.refreshStageEvidenceUI(this.data.stageIndex)
-      this.refreshMerchantInspection()
     })
   },
 
@@ -1410,15 +1384,12 @@ Page({
       note: fields.note != null ? fields.note : this.data.warrantyNote,
     })
     const evidenceItems = patchWarrantyFieldsInEvidence(this.data.evidenceItems, nextFields)
-    this.setData(
-      {
-        evidenceItems,
-        warrantyDuration: nextFields.duration,
-        warrantyScope: nextFields.scope,
-        warrantyNote: nextFields.note,
-      },
-      () => this.refreshMerchantInspection(),
-    )
+    this.setData({
+      evidenceItems,
+      warrantyDuration: nextFields.duration,
+      warrantyScope: nextFields.scope,
+      warrantyNote: nextFields.note,
+    })
   },
 
   onWarrantyFieldInput(e) {
@@ -1440,7 +1411,6 @@ Page({
     const validPlanPartIds = buildValidPlanPartIdSet(this.data.planParts, this.data.parts)
     const evidenceItems = mergeEvidenceItemsForSave(documentItems, traces, validPlanPartIds)
     this.setData({ oldPartTraces: traces, evidenceItems }, () => {
-      this.refreshMerchantInspection()
     })
   },
 
@@ -1568,7 +1538,6 @@ Page({
         next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
         return next
       })
-      this.refreshMerchantInspection()
     })
   },
 
@@ -1639,7 +1608,7 @@ Page({
       images: keyed.concat(others),
       otherImages: others,
     }
-    this.setData({ nodes }, () => this.refreshMerchantInspection())
+    this.setData({ nodes })
   },
 
   onNodeImages(e) {
@@ -1671,7 +1640,6 @@ Page({
 
     this.setData(updates, () => {
       this.refreshChecklistStageViews()
-      this.refreshMerchantInspection()
     })
   },
 
@@ -1701,17 +1669,26 @@ Page({
   onVehicleInput(e) {
     if (this.data.readOnly) return
     const { field } = e.currentTarget.dataset
-    this.setData({ [field]: e.detail.value })
+    const value = e.detail.value
+    const patch = { [field]: value }
+    if (field === 'vehicleBrand' || field === 'vehicleSeries') {
+      patch.vehicleCompactModel = this.syncVehicleCompactModel({
+        ...patch,
+      })
+    }
+    this.setData(patch)
   },
 
   validateVehicle() {
     const brand = (this.data.vehicleBrand || '').trim()
     const series = (this.data.vehicleSeries || '').trim()
     if (!brand) {
+      this.setData({ vehicleMetaExpanded: true })
       wx.showToast({ title: '请填写车辆品牌', icon: 'none' })
       return false
     }
     if (!series) {
+      this.setData({ vehicleMetaExpanded: true })
       wx.showToast({ title: '请填写车系', icon: 'none' })
       return false
     }
@@ -1771,6 +1748,10 @@ Page({
       if (vehicle.engineModel) patch.vehicleEngineModel = vehicle.engineModel
       if (vehicle.chassisCode) patch.vehicleChassisCode = vehicle.chassisCode
       if (vehicle.vin) patch.vehicleVin = vehicle.vin
+      patch.vehicleCompactModel = this.syncVehicleCompactModel({
+        vehicleBrand: patch.vehicleBrand != null ? patch.vehicleBrand : this.data.vehicleBrand,
+        vehicleSeries: patch.vehicleSeries != null ? patch.vehicleSeries : this.data.vehicleSeries,
+      })
       const detail = { ...(this.data.detail || {}) }
       detail.vehicle = {
         ...(detail.vehicle || {}),
@@ -1869,7 +1850,6 @@ Page({
       partWizardProgress: wizard.progressLabel,
       oldPartPartOptions: buildOldPartPartOptions(this.data.planParts, this.data.parts),
     }, () => {
-      this.refreshMerchantInspection()
     })
   },
 
@@ -2773,19 +2753,6 @@ Page({
       return
     }
 
-    const view = this.computeMerchantInspectionState()
-    const missing = collectMissingFromPanels(view.completeness.panels)
-    this.setData({
-      merchantInspSummary: view.completeness.summary,
-      merchantInspPanels: view.completeness.panels,
-      merchantInspColumnLabel: view.importanceColumnLabel,
-      merchantInspMissingItems: missing,
-    })
-    if (missing.length) {
-      this.setData({ inspCompleteModalVisible: true })
-      return
-    }
-
     this.maybePromptUnresolvedWorkThenComplete()
   },
 
@@ -2831,12 +2798,5 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/invite/index?albumId=${this.albumId}`,
     })
-  },
-
-  onInspPreviewImage(e) {
-    const { url, urls } = e.detail || {}
-    const list = (urls || []).filter(Boolean)
-    if (!url || !list.length) return
-    wx.previewImage({ current: url, urls: list })
   },
 })

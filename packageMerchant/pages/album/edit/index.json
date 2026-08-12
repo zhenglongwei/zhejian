@@ -13,7 +13,6 @@
     "album-compare-pair-editor": "/components/album-compare-pair-editor/index",
     "album-evidence-slots": "/components/album-evidence-slots/index",
     "album-old-part-traces": "/components/album-old-part-traces/index",
-    "album-inspection-matrix": "/components/album-inspection-matrix/index",
     "album-checklist-editor": "/components/album-checklist-editor/index",
     "ui-compliance-notice": "/components/compliance-notice/index"
   }

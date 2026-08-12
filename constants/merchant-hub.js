@@ -37,6 +37,7 @@ function formatSectionBadge(n) {
 function buildMerchantTodoSummary(todos = {}) {
   const pendingLeads = Number(todos.pendingLeads) || 0
   const pendingReviews = Number(todos.pendingReviews) || 0
+  const pendingFollowUp = Number(todos.pendingFollowUp) || 0
   const items = []
   if (pendingLeads > 0) {
     items.push({
@@ -50,6 +51,13 @@ function buildMerchantTodoSummary(todos = {}) {
       key: 'reviews',
       label: `${pendingReviews} 条评价待回复`,
       action: 'reviews',
+    })
+  }
+  if (pendingFollowUp > 0) {
+    items.push({
+      key: 'followup',
+      label: `${pendingFollowUp} 项服务待回访跟进`,
+      action: 'followup',
     })
   }
   if (!items.length) return null
