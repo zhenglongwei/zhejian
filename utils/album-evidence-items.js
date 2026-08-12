@@ -112,7 +112,12 @@ function hasWarrantyCommitment(item = {}) {
 function isRetiredDocumentItem(item) {
   if (!item) return false
   const id = String(item.id || item.type || '').trim()
-  return RETIRED_DOCUMENT_IDS.includes(id) || id === SETTLEMENT_DOCUMENT_ID
+  if (!id) return false
+  // 结算单已下线；勿依赖可能未完成导出的常量数组（循环依赖时会 undefined.includes）
+  if (id === 'settlement') return true
+  if (SETTLEMENT_DOCUMENT_ID && id === SETTLEMENT_DOCUMENT_ID) return true
+  if (Array.isArray(RETIRED_DOCUMENT_IDS) && RETIRED_DOCUMENT_IDS.includes(id)) return true
+  return false
 }
 
 function stripRetiredDocumentItems(items = []) {

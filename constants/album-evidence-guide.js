@@ -133,7 +133,7 @@ const DOCUMENT_TYPES = {
 
 /** 已下线单据：仅后台存档，不进相册正文 / 证据槽目录 */
 const SETTLEMENT_DOCUMENT_ID = 'settlement'
-const RETIRED_DOCUMENT_IDS = Object.freeze([SETTLEMENT_DOCUMENT_ID])
+const RETIRED_DOCUMENT_IDS = ['settlement']
 
 /** 质保承诺字段（挂在 evidenceItems.warranty 上，无独立表） */
 const WARRANTY_DOCUMENT_ID = 'warranty'
