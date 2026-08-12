@@ -17,10 +17,10 @@
       <text wx:if="{{item.group}}" class="text-caption text-secondary">{{item.group}}</text>
     </view>
     <text
-      wx:if="{{item.outcomeLabel}}"
+      wx:if="{{item.followUpLabel || item.outcomeLabel}}"
       class="text-caption album-work-checklist__outcome {{item.outcome === 'not_replaced' || item.deferredByOwner ? 'is-warn' : ''}} {{item.outcome === 'normal' ? 'is-ok' : ''}}"
-    >{{item.outcomeLabel}}</text>
-    <text wx:if="{{item.deferNote && item.deferredByOwner}}" class="text-caption album-work-checklist__defer">
+    >{{item.followUpLabel || item.outcomeLabel}}</text>
+    <text wx:if="{{item.deferNote && item.deferredByOwner && !item.followUpLabel}}" class="text-caption album-work-checklist__defer">
       {{item.deferNote}}
     </text>
     <text wx:if="{{item.note}}" class="text-caption album-work-checklist__note" selectable>{{item.note}}</text>

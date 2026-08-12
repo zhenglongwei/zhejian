@@ -1,5 +1,5 @@
 /**
- * 相册软清单运行时：水合、挂图同步、待处理/跟进、车主阅读清单
+ * 相册软清单运行时：水合、挂图同步、施工清单/跟进、车主阅读清单
  * 口径：docs/04_维修过程相册/18_服务类目检测清单上线方案.md
  */
 const {
@@ -35,7 +35,7 @@ function normalizeOutcome(raw) {
 }
 
 /**
- * 自动进入施工待处理的结果
+ * 自动进入施工清单的结果
  * 「仅检查」observed 默认不进（见 18 §3.2）；须建议更换/需处理等
  */
 const AUTO_WORK_OUTCOMES = new Set([
@@ -45,7 +45,32 @@ const AUTO_WORK_OUTCOMES = new Set([
   'repaired_other',
 ])
 
-const REMOVED_AS = new Set(['mismatch', 'owner_declined'])
+/** 写入码；读侧兼容旧 mismatch / owner_declined */
+const REMOVED_AS_CANONICAL = new Set(['skipped', 'follow_up'])
+const REMOVED_AS_LEGACY = {
+  mismatch: 'skipped',
+  owner_declined: 'follow_up',
+}
+
+function canonicalizeRemovedAs(raw) {
+  if (raw == null || raw === '') return null
+  const value = String(raw).trim()
+  if (REMOVED_AS_CANONICAL.has(value)) return value
+  if (REMOVED_AS_LEGACY[value]) return REMOVED_AS_LEGACY[value]
+  return null
+}
+
+function isFollowUpRemoved(removedAs) {
+  return canonicalizeRemovedAs(removedAs) === 'follow_up'
+}
+
+function isSkippedRemoved(removedAs) {
+  return canonicalizeRemovedAs(removedAs) === 'skipped'
+}
+
+function isRemovedFromWork(removedAs) {
+  return Boolean(canonicalizeRemovedAs(removedAs))
+}
 
 /** 图注：纯「正常」或空 */
 function captionIsNormalOnly(caption = '') {
@@ -115,7 +140,7 @@ function inferOutcomeFromCaptions(captions = []) {
 function normalizeWork(raw) {
   const src = raw && typeof raw === 'object' ? raw : {}
   const source = src.source === 'manual_add' || src.source === 'auto' ? src.source : null
-  const removedAs = REMOVED_AS.has(String(src.removedAs || '')) ? String(src.removedAs) : null
+  const removedAs = canonicalizeRemovedAs(src.removedAs)
   const deferNote = String(src.deferNote || '').trim().slice(0, 200)
   return { source, removedAs, deferNote }
 }
@@ -220,7 +245,8 @@ function mergeChecklistPatch(checklistState, patchItems = []) {
       }
       if (Object.prototype.hasOwnProperty.call(p.work, 'removedAs')) {
         const r = p.work.removedAs
-        next.removedAs = r === null || r === '' ? null : REMOVED_AS.has(String(r)) ? String(r) : row.work.removedAs
+        next.removedAs =
+          r === null || r === '' ? null : canonicalizeRemovedAs(r) || row.work.removedAs
       }
       if (Object.prototype.hasOwnProperty.call(p.work, 'deferNote')) {
         next.deferNote = String(p.work.deferNote || '').trim().slice(0, 200)
@@ -240,10 +266,10 @@ function mergeChecklistPatch(checklistState, patchItems = []) {
 
 function resolveWorkFlags(it, images = []) {
   const work = normalizeWork(it.work)
-  if (work.removedAs === 'owner_declined') {
+  if (isFollowUpRemoved(work.removedAs)) {
     return { inWorkQueue: false, inFollowUp: true, work }
   }
-  if (work.removedAs === 'mismatch') {
+  if (isSkippedRemoved(work.removedAs)) {
     return { inWorkQueue: false, inFollowUp: false, work }
   }
   const captions = (images || []).map((img) => img.caption || '')
@@ -290,10 +316,10 @@ function buildMerchantChecklistView(album, images = []) {
     const flags = resolveWorkFlags(it, imgs)
     const outcome = it.outcome || flags.inferredOutcome || null
     let outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
-    if (flags.work.removedAs === 'owner_declined') {
+    if (isFollowUpRemoved(flags.work.removedAs)) {
       outcomeLabel = flags.work.deferNote
-        ? `车主要求暂不处理：${flags.work.deferNote}`
-        : '车主要求暂不处理'
+        ? `择日再约：${flags.work.deferNote}`
+        : '择日再约'
     }
     return {
       itemKey: it.itemKey,
@@ -328,14 +354,14 @@ function buildMerchantChecklistView(album, images = []) {
     if (!it.workOnly) return it
     const unlocked = unlockedKeys.has(it.itemKey)
     const manual = it.work && it.work.source === 'manual_add'
-    // 衍生项：只靠父项解锁或手增；禁止「无父项仅因自己有图」冒进施工列表
-    const inWorkQueue =
-      it.work.removedAs !== 'mismatch' &&
-      it.work.removedAs !== 'owner_declined' &&
-      Boolean(unlocked || manual)
-    if (it.work.removedAs === 'owner_declined') {
+    if (isFollowUpRemoved(it.work.removedAs)) {
       return { ...it, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked }
     }
+    if (isSkippedRemoved(it.work.removedAs)) {
+      return { ...it, inWorkQueue: false, inFollowUp: false, unlockedByParent: false }
+    }
+    // 衍生项：只靠父项解锁或手增；禁止「无父项仅因自己有图」冒进施工列表
+    const inWorkQueue = Boolean(unlocked || manual)
     return {
       ...it,
       inWorkQueue,
@@ -386,22 +412,63 @@ function buildOwnerWorkChecklistView(album, images = []) {
   const merchant = buildMerchantChecklistView(album, images)
   const workItems = merchant.items
     .filter((it) => (it.images && it.images.length) || String(it.note || '').trim())
-    .map((it) => ({
-      itemKey: it.itemKey,
-      label: it.label,
-      group: it.group,
-      outcome: it.outcome,
-      outcomeLabel: it.outcomeLabel,
-      note: it.note,
-      images: it.images,
-      deferNote: it.work && it.work.removedAs === 'owner_declined' ? it.work.deferNote || '' : '',
-      deferredByOwner: Boolean(it.inFollowUp),
-    }))
+    .map((it) => {
+      const followUp = isFollowUpRemoved(it.work && it.work.removedAs)
+      // skipped：只保留检测事实，不强调「本次不做」
+      let outcomeLabel = it.outcomeLabel || ''
+      if (isSkippedRemoved(it.work && it.work.removedAs)) {
+        const outcome = it.outcome
+        outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
+      }
+      return {
+        itemKey: it.itemKey,
+        label: it.label,
+        group: it.group,
+        outcome: it.outcome,
+        outcomeLabel,
+        note: it.note,
+        images: it.images,
+        deferNote: followUp ? (it.work && it.work.deferNote) || '' : '',
+        deferredByOwner: followUp,
+        followUpLabel: followUp
+          ? (it.work && it.work.deferNote
+              ? `择日再约：${it.work.deferNote}`
+              : '择日再约')
+          : '',
+      }
+    })
   return {
     categoryId: merchant.categoryId,
     categoryLabel: merchant.categoryLabel,
     items: workItems,
   }
+}
+
+/**
+ * 案例正文用检查项过滤（18 §7.3）
+ * - 已施工/有施工留证：纳入
+ * - skipped：不纳入
+ * - follow_up：不逐条纳入；由 buildCaseFollowUpSummary 给一句总述
+ */
+function filterChecklistItemsForCase(items = []) {
+  return (items || []).filter((it) => {
+    if (!it) return false
+    if (isFollowUpRemoved(it.work && it.work.removedAs)) return false
+    if (isSkippedRemoved(it.work && it.work.removedAs)) return false
+    const imgs = it.images || []
+    const hasConstructionPhoto = imgs.some(
+      (img) => String((img && img.nodeId) || '') === 'stage_5' || String((img && img.nodeTitle) || '') === '施工',
+    )
+    const captions = imgs.map((img) => String((img && img.caption) || '')).join(' ')
+    const doneByCaption = /已更换|已处理/.test(captions)
+    const doneByOutcome = it.outcome === 'replaced' || it.outcome === 'repaired_other'
+    return Boolean(hasConstructionPhoto || doneByCaption || doneByOutcome)
+  })
+}
+
+function buildCaseFollowUpSummary(items = []) {
+  const hasFollowUp = (items || []).some((it) => isFollowUpRemoved(it.work && it.work.removedAs))
+  return hasFollowUp ? '另有建议项已与车主约定择日处理。' : ''
 }
 
 function ensureChecklistOnCreate(albumLike = {}) {
@@ -412,6 +479,10 @@ function ensureChecklistOnCreate(albumLike = {}) {
 module.exports = {
   OUTCOME_LABELS,
   AUTO_WORK_OUTCOMES,
+  canonicalizeRemovedAs,
+  isFollowUpRemoved,
+  isSkippedRemoved,
+  isRemovedFromWork,
   hydrateChecklistState,
   syncChecklistImageLinks,
   mergeChecklistPatch,
@@ -423,6 +494,8 @@ module.exports = {
   isConstructionQueueItem,
   buildMerchantChecklistView,
   buildOwnerWorkChecklistView,
+  filterChecklistItemsForCase,
+  buildCaseFollowUpSummary,
   ensureChecklistOnCreate,
   resolveCategoryIdFromAlbum,
 }

@@ -46,6 +46,48 @@ function noteForStages(nodes, stageIds = []) {
   return parts.join('。').slice(0, 500)
 }
 
+/** 案例正文：只写做成的检查项；跟进最多一句总述（18 §7.3） */
+function buildChecklistCaseHints(albumView = {}) {
+  try {
+    const {
+      buildMerchantChecklistView,
+      filterChecklistItemsForCase,
+      buildCaseFollowUpSummary,
+    } = require('./album-checklist.service')
+    const images = Array.isArray(albumView.imageMeta)
+      ? albumView.imageMeta.map((row) => ({
+          id: row.id,
+          rawUrl: row.rawUrl || row.url || '',
+          url: row.url || row.rawUrl || '',
+          caption: row.caption || '',
+          nodeId: row.nodeId || '',
+          checklistItemKey: row.checklistItemKey || '',
+        }))
+      : []
+    const view = buildMerchantChecklistView(
+      {
+        templateId: albumView.templateId,
+        serviceName: albumView.serviceName,
+        checklistJson: albumView.checklistJson || null,
+      },
+      images,
+    )
+    const doneItems = filterChecklistItemsForCase(view.items || [])
+    const doneLine = doneItems
+      .slice(0, 8)
+      .map((it) => scrubPiiText(it.label || ''))
+      .filter(Boolean)
+      .join('、')
+    const followUpSummary = buildCaseFollowUpSummary(view.items || [])
+    return {
+      doneLine: doneLine ? `本单已处理：${doneLine}` : '',
+      followUpSummary: scrubPiiText(followUpSummary),
+    }
+  } catch (_) {
+    return { doneLine: '', followUpSummary: '' }
+  }
+}
+
 function projectLabel(serviceName = '') {
   const service = scrubPiiText(serviceName || '维修服务')
   if (/过程记录|维修案例|案例$/.test(service)) return service
@@ -77,9 +119,13 @@ function buildRuleSections(albumView = {}) {
   const warrantyText = formatWarrantyCommitmentText(
     findWarrantyEvidenceItem(albumView.evidenceItems || []) || {},
   )
+  const checklistHints = buildChecklistCaseHints(albumView)
 
   return MERCHANT_CASE_SECTION_KEYS.map((def) => {
     let body = noteForStages(nodes, def.stageIds)
+    if (def.key === 'process' && checklistHints.doneLine) {
+      body = body ? `${body}。${checklistHints.doneLine}` : checklistHints.doneLine
+    }
     if (def.key === 'plan' && partsNames.length) {
       const partLine = `主要项目：${partsNames.join('、')}`
       body = body ? `${body}。${partLine}` : partLine
@@ -88,6 +134,11 @@ function buildRuleSections(albumView = {}) {
       if (warrantyText) {
         const warrantyLine = scrubPiiText(warrantyText)
         body = body ? `${body}。${warrantyLine}` : warrantyLine
+      }
+      if (checklistHints.followUpSummary) {
+        body = body
+          ? `${body}。${checklistHints.followUpSummary}`
+          : checklistHints.followUpSummary
       }
       if (!body) {
         body = '旧件与交车确认以门店留档为准；质保以门店承诺为准。'

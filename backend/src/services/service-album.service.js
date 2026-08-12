@@ -584,6 +584,7 @@ function buildMerchantView(album) {
     imageCount,
     imageMeta: mapImageMeta(album),
     publicMediaCount: countPublicMedia(mapImageMeta(album)),
+    checklistJson: album.checklistJson || null,
     publicCaseStatus,
     publicCaseId: album.publicCase?.id || '',
     canSubmitColdStartPublicCase,

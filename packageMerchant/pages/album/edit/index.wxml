@@ -297,8 +297,8 @@
         <block wx:if="{{showWorkQueue}}">
           <album-checklist-editor
             mode="work"
-            title="待处理项目"
-            hint="施工是检测的延伸：仅当检测标了需处理/需更换时出现。正常施工留证即可；若要移出或完工时仍未施工，再选原因。"
+            title="施工清单"
+            hint="由检测延伸的需处理项。正常留证即可；若本次不做，点「删除」后再选是否跟进。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"
@@ -310,8 +310,8 @@
         <block wx:if="{{showFollowUpList && followUpItems.length}}">
           <album-checklist-editor
             mode="followup"
-            title="跟进服务"
-            hint="车主暂缓处理的项目，便于回访；不会从记录中丢弃。"
+            title="跟进清单"
+            hint="本次不做且需回访的项目；可重新纳入施工清单。"
             items="{{followUpItems}}"
             readOnly="{{readOnly}}"
             bind:restorework="onChecklistRestoreWork"

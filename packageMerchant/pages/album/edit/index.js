@@ -430,7 +430,7 @@ Page({
     this.maybePromptUnresolvedWorkThenComplete()
   },
 
-  /** 待处理中仍无施工留证的项（完工时需逐项选原因） */
+  /** 施工清单中仍无施工留证的项（完工时需逐项删除确认） */
   collectUnresolvedWorkQueueItems() {
     const processNode =
       (this.data.nodes || []).find((n) => n.id === STAGE_PROCESS_ID) || {}
@@ -450,23 +450,31 @@ Page({
     return (queue || []).filter((it) => {
       if (!it || !it.itemKey) return false
       const constructionImgs = constructionByKey[it.itemKey] || []
-      // 已有施工图视为处理中，不再弹原因
       if (constructionImgs.length > 0) return false
-      if (it.outcome === 'replaced' || it.outcome === 'not_replaced') return false
+      if (it.outcome === 'replaced') return false
       return true
     })
   },
 
-  applyWorkRemoveReason(itemKey, reason, deferNote) {
+  canonicalizeRemovedAs(raw) {
+    const v = String(raw || '').trim()
+    if (v === 'skipped' || v === 'follow_up') return v
+    if (v === 'mismatch') return 'skipped'
+    if (v === 'owner_declined') return 'follow_up'
+    return null
+  },
+
+  applyWorkRemoveReason(itemKey, removedAs, deferNote) {
+    const canonical = this.canonicalizeRemovedAs(removedAs)
     this.syncChecklistLocalItems((it) => {
       if (it.itemKey !== itemKey) return it
-      if (reason === 'mismatch') {
+      if (canonical === 'skipped') {
         const next = this.computeWorkFlags({
           ...it,
           work: {
             ...(it.work || {}),
             source: null,
-            removedAs: 'mismatch',
+            removedAs: 'skipped',
             deferNote: '',
           },
         })
@@ -478,8 +486,8 @@ Page({
         outcome: it.outcome === 'replaced' ? 'not_replaced' : it.outcome || 'not_replaced',
         work: {
           ...(it.work || {}),
-          removedAs: 'owner_declined',
-          deferNote: deferNote || '车主要求暂不处理',
+          removedAs: 'follow_up',
+          deferNote: deferNote || '',
         },
       })
       next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
@@ -488,41 +496,59 @@ Page({
   },
 
   /**
-   * 弹出移出原因（仅主动移出 / 完工核对未施工项时调用）
-   * @returns {Promise<'mismatch'|'owner_declined'|'cancel'>}
+   * 删除两步：本次不做 → 是否记入跟进
+   * @returns {Promise<'skipped'|'follow_up'|'cancel'>}
    */
   promptWorkRemoveReason(item) {
     const label = (item && item.label) || '该项目'
     return new Promise((resolve) => {
-      wx.showActionSheet({
-        itemList: ['误判移除（列表不准）', '车主暂不处理（保留跟进）'],
+      wx.showModal({
+        title: '本次不做',
+        content: `确认将「${label}」从施工清单删除（本次不做）？`,
+        confirmText: '确认删除',
+        cancelText: '取消',
         success: (res) => {
-          if (res.tapIndex === 0) {
-            this.applyWorkRemoveReason(item.itemKey, 'mismatch')
-            resolve('mismatch')
+          if (!res.confirm) {
+            resolve('cancel')
             return
           }
-          if (res.tapIndex === 1) {
-            const applyDecline = (deferNote) => {
-              this.applyWorkRemoveReason(item.itemKey, 'owner_declined', deferNote)
-              resolve('owner_declined')
-            }
-            wx.showModal({
-              title: `${label}：车主暂缓原因`,
-              editable: true,
-              placeholderText: '如：车主要求暂不处理',
-              success: (modalRes) => {
-                if (!modalRes.confirm) {
-                  resolve('cancel')
-                  return
-                }
-                applyDecline(String(modalRes.content || '').trim())
-              },
-              fail: () => applyDecline('车主要求暂不处理'),
-            })
-            return
-          }
-          resolve('cancel')
+          wx.showModal({
+            title: '是否记入跟进',
+            content: '需要记入跟进、方便回访再约吗？选「需要」将出现在完工节点的跟进清单。',
+            confirmText: '需要跟进',
+            cancelText: '不需要',
+            success: (followRes) => {
+              if (followRes.confirm) {
+                wx.showModal({
+                  title: `${label}：回访说明`,
+                  editable: true,
+                  placeholderText: '选填，如：车主改约下月',
+                  success: (noteRes) => {
+                    if (!noteRes.confirm) {
+                      // 关掉说明仍记入跟进
+                      this.applyWorkRemoveReason(item.itemKey, 'follow_up', '')
+                      resolve('follow_up')
+                      return
+                    }
+                    this.applyWorkRemoveReason(
+                      item.itemKey,
+                      'follow_up',
+                      String(noteRes.content || '').trim(),
+                    )
+                    resolve('follow_up')
+                  },
+                  fail: () => {
+                    this.applyWorkRemoveReason(item.itemKey, 'follow_up', '')
+                    resolve('follow_up')
+                  },
+                })
+                return
+              }
+              this.applyWorkRemoveReason(item.itemKey, 'skipped')
+              resolve('skipped')
+            },
+            fail: () => resolve('cancel'),
+          })
         },
         fail: () => resolve('cancel'),
       })
@@ -535,14 +561,13 @@ Page({
       this.showCompleteConfirmModal()
       return
     }
-    // 逐项确认原因；取消则中断完工
     for (let i = 0; i < pending.length; i += 1) {
       const it = pending[i]
       const choice = await new Promise((resolve) => {
         wx.showModal({
-          title: '待处理尚未施工',
-          content: `「${it.label || '项目'}」仍在待处理且未上传施工图。请选择原因后继续，或取消完工。`,
-          confirmText: '选择原因',
+          title: '施工清单尚未完成',
+          content: `「${it.label || '项目'}」仍在施工清单且未上传施工图。请删除并说明是否跟进，或取消完工。`,
+          confirmText: '去删除',
           cancelText: '取消',
           success: (res) => resolve(res.confirm ? 'ask' : 'cancel'),
           fail: () => resolve('cancel'),
@@ -959,27 +984,28 @@ Page({
       (this.data.stages[stageIndex] && this.data.stages[stageIndex].id) || ''
     const stageMap = checklist.stageItems || {}
     const allItems = checklist.items || []
-    // 施工不展示「未检查固定清单」：仅待处理（含检测解锁的衍生项）
+    // 施工不展示固定未检查清单：仅施工清单（检测解锁的衍生项）
     const showStageChecklist =
       stageId === 'stage_1' || stageId === 'stage_2' || stageId === 'stage_6'
-    const showWorkQueue = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
-    const showFollowUpList = stageId === STAGE_PROCESS_ID || stageId === 'stage_6'
+    // 施工仅施工清单；跟进仅完工
+    const showWorkQueue = stageId === STAGE_PROCESS_ID
+    const showFollowUpList = stageId === 'stage_6'
     let stageChecklistItems = []
     let checklistStageHint = ''
     let checklistStageTitle = this.data.checklistCategoryLabel || '检查项目'
     if (stageId === 'stage_1') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
       checklistStageTitle = '接车检查项'
-      checklistStageHint = '接车建档项：点开拍照或写说明。异常结果才会进施工待处理。'
+      checklistStageHint = '接车建档项：点开拍照或写说明。异常结果才会进施工清单。'
     } else if (stageId === 'stage_2') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
       checklistStageTitle = '检测检查项'
       checklistStageHint =
-        '检测判断项：点开拍照。除「正常」外进待处理；如旧机油需更换，会自动带出新机油规格/液位等施工项。'
+        '检测判断项：点开拍照。除「正常」外进施工清单；如旧机油需更换，会自动带出新机油规格/液位等施工项。'
     } else if (stageId === 'stage_6') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_6 || [], stageId)
       checklistStageTitle = '完工交付项'
-      checklistStageHint = '完工交付项：复查、试车与交车说明。仍可对待处理项补图。'
+      checklistStageHint = '完工交付项：复查、试车与交车说明。'
     }
     const rawQueue = (checklist.workQueueItems || []).length
       ? checklist.workQueueItems
@@ -1080,22 +1106,25 @@ Page({
     })
     return list.map((it) => {
       if (!it.workOnly) return it
-      const work = it.work || {}
-      if (work.removedAs === 'owner_declined') {
-        return { ...it, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked.has(it.itemKey) }
+      const work = {
+        ...(it.work || {}),
+        removedAs: this.canonicalizeRemovedAs(it.work && it.work.removedAs),
       }
-      if (work.removedAs === 'mismatch') {
-        return { ...it, inWorkQueue: false, inFollowUp: false, unlockedByParent: false }
+      if (work.removedAs === 'follow_up') {
+        return { ...it, work, inWorkQueue: false, inFollowUp: true, unlockedByParent: unlocked.has(it.itemKey) }
+      }
+      if (work.removedAs === 'skipped') {
+        return { ...it, work, inWorkQueue: false, inFollowUp: false, unlockedByParent: false }
       }
       const unlockedByParent = unlocked.has(it.itemKey)
       const manual = work.source === 'manual_add'
+      const nextWork = unlockedByParent && !work.source ? { ...work, source: 'auto' } : work
       return {
         ...it,
-        // 衍生项：只靠父项解锁或手增；上传施工图不得因无标签而消失
+        work: nextWork,
         inWorkQueue: Boolean(unlockedByParent || manual),
         inFollowUp: false,
         unlockedByParent,
-        work: unlockedByParent && !work.source ? { ...work, source: 'auto' } : work,
       }
     })
   },
@@ -1133,15 +1162,17 @@ Page({
   },
 
   computeWorkFlags(item) {
+    const rawRemoved = (item.work && item.work.removedAs) || null
+    const removedAs = this.canonicalizeRemovedAs(rawRemoved)
     const work = {
       source: (item.work && item.work.source) || null,
-      removedAs: (item.work && item.work.removedAs) || null,
+      removedAs,
       deferNote: (item.work && item.work.deferNote) || '',
     }
-    if (work.removedAs === 'owner_declined') {
+    if (removedAs === 'follow_up') {
       return { ...item, work, inWorkQueue: false, inFollowUp: true }
     }
-    if (work.removedAs === 'mismatch') {
+    if (removedAs === 'skipped') {
       return { ...item, work, inWorkQueue: false, inFollowUp: false }
     }
     const captions = [
@@ -1201,10 +1232,9 @@ Page({
       not_replaced: '建议更换 · 本次未更换',
       repaired_other: '需处理 / 已处理',
     }
-    if (work && work.removedAs === 'owner_declined') {
-      return work.deferNote
-        ? `车主要求暂不处理：${work.deferNote}`
-        : '车主要求暂不处理'
+    const removedAs = this.canonicalizeRemovedAs(work && work.removedAs)
+    if (removedAs === 'follow_up') {
+      return work.deferNote ? `择日再约：${work.deferNote}` : '择日再约'
     }
     return outcome ? labels[outcome] || outcome : ''
   },
@@ -1526,7 +1556,7 @@ Page({
           // 保留原结果，避免上传瞬间因尚未点标签而掉出施工列表
           outcome: it.outcome,
         })
-        // 施工衍生项：上传过程图后仍须留在待处理，直到商家选原因移出
+        // 施工衍生项：上传过程图后仍须留在施工清单，直到商家删除
         if (it.workOnly && prevInQueue && !next.work.removedAs) {
           next.inWorkQueue = true
           next.unlockedByParent = true
@@ -1554,7 +1584,7 @@ Page({
       next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
       return next
     })
-    wx.showToast({ title: '已加入待处理', icon: 'success' })
+    wx.showToast({ title: '已加入施工清单', icon: 'success' })
   },
 
   onChecklistRemoveWork(e) {
@@ -2709,9 +2739,8 @@ Page({
       wx.hideLoading()
       wx.showToast({ title: '已保存', icon: 'success' })
       this.applyAlbum(detail)
+      // 保存只轻提示成功；公示/文案评估说明不在每次保存时打断（完工等路径仍可提示）
       this.notifyStaleImagesDropped(droppedStaleCount)
-      this.notifyImageGateResults(detail && detail.imageGateResults)
-      this.notifyCopyQuality(detail && detail.copyQuality)
     } catch (e) {
       wx.hideLoading()
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })

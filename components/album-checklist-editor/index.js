@@ -157,7 +157,7 @@ Component({
         statusTone: 'hint',
         checkStatusLabel: '跟进中',
         resultKind: 'warn',
-        resultLabel: (item.work && item.work.deferNote) || '车主暂不处理',
+        resultLabel: (item.work && item.work.deferNote) || '择日再约',
       }
     },
     resolveItemSummary(item, mode) {
