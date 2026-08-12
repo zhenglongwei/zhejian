@@ -1,6 +1,5 @@
-/**
- * 服务相册 · 证据清单与车主检查指南（商家提示 + 车主检查同源）
- * ALB-UX：定损单挂接车；结算单 / 质保承诺 stage_6；已取消报价单/工单槽
+/** 服务相册 · 证据清单与车主检查指南（商家提示 + 车主检查同源）
+ * ALB-UX：定损单挂接车；质保承诺 stage_6；已取消报价单/工单/结算单槽
  */
 
 const EVIDENCE_CATEGORY = {
@@ -79,7 +78,7 @@ const INSPECTION_SECTIONS = [
     id: 'documents',
     order: 1,
     title: '单据检查',
-    intro: '按施工时间线核对：定损与报价（施工前）→ 工单（施工中）→ 结算（交车时）。以下仅为辅助查看，平台不认定单据真伪。',
+    intro: '按施工时间线核对：定损（施工前）→ 过程留证 → 交车质保。以下仅为辅助查看，平台不认定单据真伪。结算单不再在相册展示。',
   },
   {
     id: 'parts',
@@ -116,19 +115,7 @@ const DOCUMENT_TYPES = {
     anomalyHint: '定损项目与接车/检测可见损伤明显不符，或缺少关键部位项目。',
     actionHint: '向门店或保险公司核对定损范围；保留纸质/电子定损单。',
   },
-  settlement: {
-    id: 'settlement',
-    category: EVIDENCE_CATEGORY.DOCUMENT,
-    label: '维修结算单',
-    stageId: 'stage_6',
-    templates: ['*'],
-    strength: EVIDENCE_STRENGTH.RECOMMENDED,
-    merchantHint: '交车结算单据：实付金额与项目汇总。',
-    ownerCheckHint: '核对结算项目与沟通是否一致；有无未告知增项。',
-    anomalyHint: '结算金额与沟通明显不符且无说明。',
-    actionHint: '先与门店沟通；必要时保留结算单并通过正规投诉渠道反映。',
-  },
-  /** B-EVID-07 · 阶段六质保承诺（承诺书图优先；可文字兜底；强烈建议） */
+  /** B-EVID-07 · 阶段六质保承诺（承诺书图 + 每图说明 + 一段总说明；强烈建议） */
   warranty: {
     id: 'warranty',
     category: EVIDENCE_CATEGORY.DOCUMENT,
@@ -137,29 +124,29 @@ const DOCUMENT_TYPES = {
     templates: ['*'],
     strength: EVIDENCE_STRENGTH.STRONGLY_RECOMMENDED,
     merchantHint:
-      '优先拍摄门店质保承诺书（裁切条款页，避开姓名电话）；无纸质承诺书时请填写下方时长、范围或说明。',
-    ownerCheckHint: '核对质保时长与范围是否与交车沟通一致；有承诺书图可留存备查。',
+      '优先拍摄门店质保承诺书（裁切条款页，避开姓名电话）；每张图可写说明。无纸质承诺书时，请在下方填写质保期限、范围等总说明。',
+    ownerCheckHint: '核对质保说明是否与交车沟通一致；有承诺书图可留存备查。',
     anomalyHint: '缺质保说明，交车后责任边界不清。',
-    actionHint: '向门店确认质保时长、范围与注意事项，并要求书面或相册留档。',
+    actionHint: '向门店确认质保期限、范围与注意事项，并要求书面或相册留档。',
   },
 }
 
-/** 质保承诺结构化字段（挂在 evidenceItems.warranty 上，无独立表） */
+/** 已下线单据：仅后台存档，不进相册正文 / 证据槽目录 */
+const SETTLEMENT_DOCUMENT_ID = 'settlement'
+const RETIRED_DOCUMENT_IDS = Object.freeze([SETTLEMENT_DOCUMENT_ID])
+
+/** 质保承诺字段（挂在 evidenceItems.warranty 上，无独立表） */
 const WARRANTY_DOCUMENT_ID = 'warranty'
 const WARRANTY_FIELD_MAX_LEN = {
   duration: 80,
   scope: 200,
-  note: 300,
+  note: 500,
 }
 const MERCHANT_WARRANTY_INTRO =
-  '优先上传质保承诺书照片；没有纸质承诺书时，请填写质保时长、范围或说明。公示前会脱敏。'
-const MERCHANT_WARRANTY_DURATION_LABEL = '质保时长'
-const MERCHANT_WARRANTY_DURATION_PLACEHOLDER = '如：漆面 2 年 / 配件 1 年（以门店承诺为准）'
-const MERCHANT_WARRANTY_SCOPE_LABEL = '质保范围'
-const MERCHANT_WARRANTY_SCOPE_PLACEHOLDER = '如：面漆起泡开裂；不含事故二次损伤与不当养护'
+  '优先上传质保承诺书照片（每张图可写说明）；没有纸质承诺书时，请填写下方质保说明。公示前会脱敏。'
 const MERCHANT_WARRANTY_NOTE_LABEL = '质保说明'
 const MERCHANT_WARRANTY_NOTE_PLACEHOLDER =
-  '无承诺书时可在此备注质保边界与注意事项；有承诺书也可补充口头告知要点'
+  '可写质保期限、范围、不含项与注意事项；有承诺书也可补充口头告知要点'
 
 const PROCESS_CHECKLIST_BY_TEMPLATE = {
   accident: [
@@ -257,11 +244,9 @@ module.exports = {
   MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT,
   WARRANTY_DOCUMENT_ID,
   WARRANTY_FIELD_MAX_LEN,
+  SETTLEMENT_DOCUMENT_ID,
+  RETIRED_DOCUMENT_IDS,
   MERCHANT_WARRANTY_INTRO,
-  MERCHANT_WARRANTY_DURATION_LABEL,
-  MERCHANT_WARRANTY_DURATION_PLACEHOLDER,
-  MERCHANT_WARRANTY_SCOPE_LABEL,
-  MERCHANT_WARRANTY_SCOPE_PLACEHOLDER,
   MERCHANT_WARRANTY_NOTE_LABEL,
   MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
   EVIDENCE_STRENGTH,

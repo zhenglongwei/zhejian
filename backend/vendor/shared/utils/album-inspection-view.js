@@ -7,7 +7,7 @@ const {
   resolveProcessChecklist,
   WARRANTY_DOCUMENT_ID,
 } = require('../constants/album-evidence-guide')
-const { hasWarrantyCommitment } = require('./album-evidence-items')
+const { hasWarrantyCommitment, normalizeImageList } = require('./album-evidence-items')
 
 function findNode(nodes, stageId) {
   return (nodes || []).find((n) => n && (n.id === stageId || n.nodeId === stageId))
@@ -15,7 +15,7 @@ function findNode(nodes, stageId) {
 
 function nodeImages(node) {
   if (!node) return []
-  return (node.images || []).map((url) => String(url || '').trim()).filter(Boolean)
+  return normalizeImageList(node.images)
 }
 
 function buildDocumentItems(detail = {}, audience = 'owner') {
@@ -26,7 +26,7 @@ function buildDocumentItems(detail = {}, audience = 'owner') {
   return types.map((def) => {
     const structuredItem = structured.find((item) => item && item.id === def.id)
     const images = structuredItem
-      ? (structuredItem.images || []).map((url) => String(url || '').trim()).filter(Boolean)
+      ? normalizeImageList(structuredItem.images)
       : nodeImages(findNode(nodes, def.stageId))
     const strength = bumpStrengthForAccident(def.strength, templateId)
     const uploaded =

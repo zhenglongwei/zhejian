@@ -23,6 +23,9 @@
       images="{{slot.images}}"
       maxCount="{{3}}"
       disabled="{{disabled}}"
+      enable-caption="{{slot.enableCaption || slot.id === 'warranty'}}"
+      stack-layout="{{slot.enableCaption || slot.id === 'warranty'}}"
+      caption-placeholder="本图说明（选填）"
       data-id="{{slot.id}}"
       bind:change="onImagesChange"
     />

@@ -411,63 +411,16 @@
 
         <block wx:if="{{stages[stageIndex].id === 'stage_6'}}">
           <view class="merchant-album-edit__warranty">
-            <view class="merchant-album-edit__warranty-head">
-              <text class="merchant-album-edit__plan-label text-h3">质保承诺</text>
-              <ui-tag variant="warning" text="必拍" />
-            </view>
             <text class="text-caption merchant-album-edit__plan-hint">{{warrantyIntro}}</text>
-            <text class="merchant-album-edit__warranty-field-label text-caption">{{warrantyDurationLabel}}</text>
-            <input
-              class="merchant-form__input"
-              type="text"
-              maxlength="80"
-              placeholder="{{warrantyDurationPlaceholder}}"
-              value="{{warrantyDuration}}"
-              disabled="{{readOnly || saving || completing || switching}}"
-              data-field="duration"
-              bindinput="onWarrantyFieldInput"
-            />
-            <text class="merchant-album-edit__warranty-field-label text-caption">{{warrantyScopeLabel}}</text>
-            <textarea
-              class="merchant-form__textarea merchant-album-edit__warranty-textarea"
-              maxlength="200"
-              placeholder="{{warrantyScopePlaceholder}}"
-              value="{{warrantyScope}}"
-              disabled="{{readOnly || saving || completing || switching}}"
-              data-field="scope"
-              bindinput="onWarrantyFieldInput"
-              auto-height
-            />
             <text class="merchant-album-edit__warranty-field-label text-caption">{{warrantyNoteLabel}}</text>
             <textarea
               class="merchant-form__textarea merchant-album-edit__warranty-textarea"
-              maxlength="300"
+              maxlength="500"
               placeholder="{{warrantyNotePlaceholder}}"
               value="{{warrantyNote}}"
               disabled="{{readOnly || saving || completing || switching}}"
-              data-field="note"
               bindinput="onWarrantyFieldInput"
               auto-height
-            />
-          </view>
-          <view class="merchant-album-edit__plan">
-            <text class="merchant-album-edit__plan-label text-h3">最终费用</text>
-            <text class="text-caption merchant-album-edit__plan-hint">{{planAmountHint}}</text>
-            <input
-              class="merchant-form__input"
-              type="number"
-              placeholder="请输入本次实际费用"
-              value="{{planAmount}}"
-              disabled="{{readOnly || saving || completing || switching}}"
-              data-field="planAmount"
-              bindinput="onPlanInput"
-            />
-            <ui-price-display
-              wx:if="{{pricePreview.amount}}"
-              mode="fixed"
-              amount="{{pricePreview.amount}}"
-              showSuffix="{{false}}"
-              showDisclaimer="{{false}}"
             />
           </view>
         </block>

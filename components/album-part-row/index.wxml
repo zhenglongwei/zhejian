@@ -56,13 +56,5 @@
       text="{{partType}}"
     />
     <text class="album-part-row__name text-body">{{name}}</text>
-    <view wx:if="{{priceAmount}}" class="album-part-row__price">
-      <ui-price-display
-        mode="fixed"
-        amount="{{priceAmount}}"
-        showSuffix="{{false}}"
-        showDisclaimer="{{false}}"
-      />
-    </view>
   </block>
 </view>

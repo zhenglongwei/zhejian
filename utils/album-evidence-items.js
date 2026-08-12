@@ -12,6 +12,8 @@ const {
   OLD_PART_TRACE_MAX_COUNT,
   WARRANTY_DOCUMENT_ID,
   WARRANTY_FIELD_MAX_LEN,
+  SETTLEMENT_DOCUMENT_ID,
+  RETIRED_DOCUMENT_IDS,
   resolveDocumentTypesForTemplate,
   resolveMerchantEvidenceLabel,
   bumpStrengthForAccident,
@@ -67,22 +69,64 @@ function extractWarrantyFields(item = {}) {
   }
 }
 
-function hasWarrantyTextFields(item = {}) {
+/** 读侧一段总说明：新数据用 note；旧三栏自动拼接 */
+function formatWarrantyCommitmentText(item = {}) {
   const fields = extractWarrantyFields(item)
-  return Boolean(fields.duration || fields.scope || fields.note)
+  const parts = []
+  if (fields.duration) parts.push(fields.duration)
+  if (fields.scope) parts.push(fields.scope)
+  if (fields.note) parts.push(fields.note)
+  return parts.join('；').slice(0, WARRANTY_FIELD_MAX_LEN.note)
+}
+
+/** 商家编辑：合并旧三栏进 note，保存时只写 note */
+function collapseWarrantyFieldsForEdit(item = {}) {
+  const unified = formatWarrantyCommitmentText(item)
+  return {
+    duration: '',
+    scope: '',
+    note: unified,
+  }
+}
+
+function buildWarrantyFieldsForSave(fields = {}) {
+  const note = normalizeWarrantyText(
+    fields.note != null ? fields.note : formatWarrantyCommitmentText(fields),
+    WARRANTY_FIELD_MAX_LEN.note,
+  )
+  return {
+    duration: '',
+    scope: '',
+    note,
+  }
+}
+
+function hasWarrantyTextFields(item = {}) {
+  return Boolean(formatWarrantyCommitmentText(item))
 }
 
 function hasWarrantyCommitment(item = {}) {
   return normalizeImageList(item.images).length > 0 || hasWarrantyTextFields(item)
 }
 
-function formatWarrantyCommitmentText(item = {}) {
-  const fields = extractWarrantyFields(item)
-  const parts = []
-  if (fields.duration) parts.push(`质保时长：${fields.duration}`)
-  if (fields.scope) parts.push(`质保范围：${fields.scope}`)
-  if (fields.note) parts.push(fields.note)
-  return parts.join('；').slice(0, 500)
+function isRetiredDocumentItem(item) {
+  if (!item) return false
+  const id = String(item.id || item.type || '').trim()
+  return RETIRED_DOCUMENT_IDS.includes(id) || id === SETTLEMENT_DOCUMENT_ID
+}
+
+function stripRetiredDocumentItems(items = []) {
+  return (items || []).filter((item) => !isRetiredDocumentItem(item))
+}
+
+/** 保存时保留库内已下线结算单存档，不进正文目录 */
+function preserveRetiredDocumentArchive(existingItems = [], nextItems = []) {
+  const next = stripRetiredDocumentItems(nextItems)
+  const archived = (existingItems || []).filter(
+    (item) => isRetiredDocumentItem(item) && normalizeImageList(item.images).length > 0,
+  )
+  if (!archived.length) return next
+  return [...next, ...archived]
 }
 
 function findWarrantyEvidenceItem(evidenceItems = []) {
@@ -165,7 +209,10 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
   const legacyAssigned = {}
   const documentItems = catalog.map((def) => {
     const saved = savedById[def.id] || {}
-    let images = normalizeImageList(saved.images)
+    let images =
+      def.id === WARRANTY_DOCUMENT_ID
+        ? normalizeImageEntries(saved.images)
+        : normalizeImageList(saved.images)
     if (!images.length) {
       const legacySlot = defaultLegacySlotForStage(def.stageId, templateId)
       if (legacySlot && def.id === legacySlot) {
@@ -177,18 +224,22 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
         }
         const legacyPool = legacyAssigned[legacyKey] || []
         if (legacyPool.length) {
-          images = legacyPool.slice()
+          images =
+            def.id === WARRANTY_DOCUMENT_ID
+              ? legacyPool.map((url) => ({ url, caption: '', checklistItemKey: '' }))
+              : legacyPool.slice()
         }
       }
     }
     const base = {
       ...def,
       images,
+      enableCaption: def.id === WARRANTY_DOCUMENT_ID,
     }
     if (def.id === WARRANTY_DOCUMENT_ID) {
       return {
         ...base,
-        ...extractWarrantyFields(saved),
+        ...collapseWarrantyFieldsForEdit(saved),
       }
     }
     return base
@@ -203,7 +254,7 @@ function hydrateEvidenceItems({ templateId = '', savedItems = [], nodes = [] } =
 }
 
 /**
- * 仅单槽阶段可做「节点旧图 → 单据槽」兼容；阶段六有结算单+质保，禁止整包塞给结算单。
+ * 仅单槽阶段可做「节点旧图 → 单据槽」兼容；阶段六仅质保，禁止整包塞槽。
  */
 function defaultLegacySlotForStage(stageId, templateId) {
   if (stageId === 'stage_1' || stageId === 'stage_2') {
@@ -225,7 +276,8 @@ function filterEvidenceByStage(evidenceItems, stageId) {
     (item) =>
       item &&
       item.stageId === stageId &&
-      item.category === EVIDENCE_CATEGORY.DOCUMENT,
+      item.category === EVIDENCE_CATEGORY.DOCUMENT &&
+      !isRetiredDocumentItem(item),
   )
 }
 
@@ -235,8 +287,10 @@ function resolveProcessImagesForStage(node, evidenceItems) {
   filterEvidenceByStage(evidenceItems, stageId).forEach((item) => {
     normalizeImageList(item.images).forEach((url) => docSet.add(url))
   })
-  ;(evidenceItems || []).filter(isOldPartEvidenceItem).forEach((item) => {
-    normalizeImageList(item.images).forEach((url) => docSet.add(url))
+  ;(evidenceItems || []).forEach((item) => {
+    if (isOldPartEvidenceItem(item) || isRetiredDocumentItem(item)) {
+      normalizeImageList(item.images).forEach((url) => docSet.add(url))
+    }
   })
   return normalizeImageEntries(node && node.images).filter((entry) => !docSet.has(entry.url))
 }
@@ -296,7 +350,7 @@ function sanitizeEvidenceItemsPayload(items, options = {}) {
   const validPlanPartIds = options.validPlanPartIds
   const documentItems = scrubCrossSlotDocumentImages(
     (items || [])
-      .filter((item) => item && item.id && DOCUMENT_TYPES[item.id])
+      .filter((item) => item && item.id && DOCUMENT_TYPES[item.id] && !isRetiredDocumentItem(item))
       .map((item) => {
         const def = DOCUMENT_TYPES[item.id]
         const row = {
@@ -306,10 +360,13 @@ function sanitizeEvidenceItemsPayload(items, options = {}) {
           stageId: def.stageId,
           label: def.label,
           strength: item.strength || def.strength,
-          images: normalizeImageList(item.images),
+          images:
+            def.id === WARRANTY_DOCUMENT_ID
+              ? normalizeImageEntries(item.images)
+              : normalizeImageList(item.images),
         }
         if (def.id === WARRANTY_DOCUMENT_ID) {
-          Object.assign(row, extractWarrantyFields(item))
+          Object.assign(row, buildWarrantyFieldsForSave(item))
         }
         return row
       }),
@@ -353,15 +410,26 @@ function buildOldPartEvidenceItems(traces = [], validPlanPartIds) {
   )
 }
 
-function collectDocumentImagesByStage(evidenceItems) {
+function collectDocumentImageEntriesByStage(evidenceItems) {
   const map = {}
   ;(evidenceItems || []).forEach((item) => {
     if (!item || item.category !== EVIDENCE_CATEGORY.DOCUMENT) return
+    if (isRetiredDocumentItem(item)) return
     const stageId = item.stageId
     if (!stageId) return
     if (!map[stageId]) map[stageId] = []
-    normalizeImageList(item.images).forEach((url) => {
-      if (!map[stageId].includes(url)) map[stageId].push(url)
+    const entries =
+      item.id === WARRANTY_DOCUMENT_ID || item.type === WARRANTY_DOCUMENT_ID
+        ? normalizeImageEntries(item.images)
+        : normalizeImageList(item.images).map((url) => ({
+            url,
+            caption: '',
+            checklistItemKey: '',
+          }))
+    entries.forEach((entry) => {
+      if (!map[stageId].some((row) => row.url === entry.url)) {
+        map[stageId].push(entry)
+      }
     })
   })
   return map
@@ -371,25 +439,20 @@ function collectDocumentImagesByStage(evidenceItems) {
  * 将 evidence 分槽图合并进 nodes，保留节点内非单据类过程图（含 caption）。
  */
 function mergeEvidenceIntoNodes(nodes, evidenceItems) {
-  const docImagesByStage = collectDocumentImagesByStage(evidenceItems)
+  const docEntriesByStage = collectDocumentImageEntriesByStage(evidenceItems)
   const documentStageIds = new Set(
     Object.values(DOCUMENT_TYPES).map((d) => d.stageId),
   )
 
   return (nodes || []).map((node) => {
     const stageId = node.id || node.nodeId
-    const docImages = docImagesByStage[stageId] || []
+    const docEntries = docEntriesByStage[stageId] || []
     const processEntries = normalizeImageEntries(node.images)
-    if (!documentStageIds.has(stageId) || !docImages.length) {
+    if (!documentStageIds.has(stageId) || !docEntries.length) {
       return { ...node, images: processEntries }
     }
-    const docSet = new Set(docImages)
+    const docSet = new Set(docEntries.map((entry) => entry.url))
     const processOnly = processEntries.filter((entry) => !docSet.has(entry.url))
-    const docEntries = docImages.map((url) => ({
-      url,
-      caption: '',
-      checklistItemKey: '',
-    }))
     return {
       ...node,
       images: [...docEntries, ...processOnly],
@@ -399,7 +462,10 @@ function mergeEvidenceIntoNodes(nodes, evidenceItems) {
 
 function countDocumentEvidence(evidenceItems) {
   const items = (evidenceItems || []).filter(
-    (item) => item && item.category === EVIDENCE_CATEGORY.DOCUMENT,
+    (item) =>
+      item &&
+      item.category === EVIDENCE_CATEGORY.DOCUMENT &&
+      !isRetiredDocumentItem(item),
   )
   const uploaded = items.filter((item) => normalizeImageList(item.images).length > 0).length
   return { uploaded, total: items.length }
@@ -419,7 +485,7 @@ function buildValidPlanPartIdSet(planParts = [], parts = []) {
 }
 
 function mergeEvidenceItemsForSave(documentItems, oldPartTraces, validPlanPartIds) {
-  const docs = (documentItems || []).filter(
+  const docs = stripRetiredDocumentItems(documentItems || []).filter(
     (item) => item && item.category === EVIDENCE_CATEGORY.DOCUMENT,
   )
   const oldParts = buildOldPartEvidenceItems(oldPartTraces, validPlanPartIds)
@@ -427,7 +493,7 @@ function mergeEvidenceItemsForSave(documentItems, oldPartTraces, validPlanPartId
 }
 
 function patchWarrantyFieldsInEvidence(evidenceItems = [], fields = {}) {
-  const nextFields = extractWarrantyFields(fields)
+  const nextFields = buildWarrantyFieldsForSave(fields)
   let found = false
   const next = (evidenceItems || []).map((item) => {
     if (!item || item.id !== WARRANTY_DOCUMENT_ID) return item
@@ -452,6 +518,7 @@ function patchWarrantyFieldsInEvidence(evidenceItems = [], fields = {}) {
       merchantLabel: resolveMerchantEvidenceLabel(def.strength),
       merchantHint: def.merchantHint || '',
       images: [],
+      enableCaption: true,
       ...nextFields,
     },
   ]
@@ -476,10 +543,16 @@ module.exports = {
   mergeEvidenceItemsForSave,
   createOldPartTraceKey,
   extractWarrantyFields,
+  collapseWarrantyFieldsForEdit,
+  buildWarrantyFieldsForSave,
   hasWarrantyTextFields,
   hasWarrantyCommitment,
   formatWarrantyCommitmentText,
   findWarrantyEvidenceItem,
   patchWarrantyFieldsInEvidence,
+  isRetiredDocumentItem,
+  stripRetiredDocumentItems,
+  preserveRetiredDocumentArchive,
   WARRANTY_DOCUMENT_ID,
+  SETTLEMENT_DOCUMENT_ID,
 }

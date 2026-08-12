@@ -6,7 +6,6 @@ const {
 const { PART_TYPE, PART_TYPE_VARIANT } = require('../../../../constants/part-type')
 const { PRICE_MODE } = require('../../../../constants/price-mode')
 const {
-  resolvePlanAmount,
   normalizePlanAmountPayload,
 } = require('../../../../utils/album-price')
 const {
@@ -50,7 +49,7 @@ function buildCaseDraftPreview(draft) {
     hasDraft: Boolean(title || clipped || draft.confirmedAt),
   }
 }
-const { persistAlbumNodeImages, persistLocalImages, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
+const { persistAlbumNodeImages, persistLocalImages, persistLocalImageEntries, normalizeStoredImageUrl, uploadImage } = require('../../../../utils/media-upload')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
@@ -66,6 +65,7 @@ const {
   buildValidPlanPartIdSet,
   mergeEvidenceItemsForSave,
   extractWarrantyFields,
+  collapseWarrantyFieldsForEdit,
   findWarrantyEvidenceItem,
   patchWarrantyFieldsInEvidence,
   normalizeImageEntries,
@@ -79,10 +79,6 @@ const {
   MERCHANT_EXTRA_PART_SOP_MODAL_CONTENT,
   WARRANTY_DOCUMENT_ID,
   MERCHANT_WARRANTY_INTRO,
-  MERCHANT_WARRANTY_DURATION_LABEL,
-  MERCHANT_WARRANTY_DURATION_PLACEHOLDER,
-  MERCHANT_WARRANTY_SCOPE_LABEL,
-  MERCHANT_WARRANTY_SCOPE_PLACEHOLDER,
   MERCHANT_WARRANTY_NOTE_LABEL,
   MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
 } = require('../../../../constants/album-evidence-guide')
@@ -314,14 +310,8 @@ Page({
     showOldPartTraces: false,
     oldPartIntroHint: MERCHANT_OLD_PART_INTRO,
     warrantyIntro: MERCHANT_WARRANTY_INTRO,
-    warrantyDurationLabel: MERCHANT_WARRANTY_DURATION_LABEL,
-    warrantyDurationPlaceholder: MERCHANT_WARRANTY_DURATION_PLACEHOLDER,
-    warrantyScopeLabel: MERCHANT_WARRANTY_SCOPE_LABEL,
-    warrantyScopePlaceholder: MERCHANT_WARRANTY_SCOPE_PLACEHOLDER,
     warrantyNoteLabel: MERCHANT_WARRANTY_NOTE_LABEL,
     warrantyNotePlaceholder: MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
-    warrantyDuration: '',
-    warrantyScope: '',
     warrantyNote: '',
     extraPartSopStage3Hint: MERCHANT_EXTRA_PART_SOP_STAGE3_HINT,
     extraPartSopStage4Hint: MERCHANT_EXTRA_PART_SOP_STAGE4_HINT,
@@ -764,10 +754,11 @@ Page({
       savedItems: detail.evidenceItems || [],
       nodes: mergedNodes,
     })
-    const warrantyFields = extractWarrantyFields(findWarrantyEvidenceItem(evidenceItems) || {})
+    const warrantyFields = collapseWarrantyFieldsForEdit(
+      findWarrantyEvidenceItem(evidenceItems) || {},
+    )
     const nodes = applyProcessOnlyNodes(mergedNodes, evidenceItems)
     const stageTabs = this.buildStageTabs(nodes)
-    const planAmount = resolvePlanAmount(detail)
     const canShare = canShareToOwner(detail)
     const isCompleted =
       detail.status === SERVICE_ALBUM_STATUS.COMPLETED ||
@@ -849,10 +840,10 @@ Page({
         ...p,
         typeVariant: PART_TYPE_VARIANT[p.partType] || 'default',
       })),
-      planAmount: planAmount != null ? String(planAmount) : '',
+      planAmount: '',
       pricePreview: {
         mode: PRICE_MODE.FIXED,
-        amount: planAmount,
+        amount: null,
       },
       canShareToOwner: canShare,
       vehicleBrand: (detail.vehicle && detail.vehicle.brand) || '',
@@ -897,8 +888,6 @@ Page({
       ownerPhoneInput: String(detail.userPhone || '').replace(/\D/g, '') || this.data.ownerPhoneInput,
       evidenceItems,
       oldPartTraces: extractOldPartTraces(evidenceItems),
-      warrantyDuration: warrantyFields.duration,
-      warrantyScope: warrantyFields.scope,
       warrantyNote: warrantyFields.note,
     }, () => {
       const focused = this.applyPendingStageFocus()
@@ -1362,9 +1351,10 @@ Page({
       if (item && item.id === WARRANTY_DOCUMENT_ID) {
         return {
           ...next,
+          enableCaption: true,
           ...extractWarrantyFields({
-            duration: this.data.warrantyDuration || prevWarranty.duration,
-            scope: this.data.warrantyScope || prevWarranty.scope,
+            duration: '',
+            scope: '',
             note: this.data.warrantyNote || prevWarranty.note,
           }),
         }
@@ -1378,29 +1368,21 @@ Page({
   },
 
   syncWarrantyFieldsIntoEvidence(fields = {}) {
-    const nextFields = extractWarrantyFields({
-      duration: fields.duration != null ? fields.duration : this.data.warrantyDuration,
-      scope: fields.scope != null ? fields.scope : this.data.warrantyScope,
+    const nextFields = {
+      duration: '',
+      scope: '',
       note: fields.note != null ? fields.note : this.data.warrantyNote,
-    })
+    }
     const evidenceItems = patchWarrantyFieldsInEvidence(this.data.evidenceItems, nextFields)
     this.setData({
       evidenceItems,
-      warrantyDuration: nextFields.duration,
-      warrantyScope: nextFields.scope,
       warrantyNote: nextFields.note,
     })
   },
 
   onWarrantyFieldInput(e) {
-    const field = e.currentTarget.dataset.field
-    if (!field) return
     const value = e.detail.value
-    const patch = {}
-    if (field === 'duration') patch.duration = value
-    if (field === 'scope') patch.scope = value
-    if (field === 'note') patch.note = value
-    this.syncWarrantyFieldsIntoEvidence(patch)
+    this.syncWarrantyFieldsIntoEvidence({ note: value })
   },
 
   onOldPartTracesChange(e) {
@@ -1418,7 +1400,10 @@ Page({
     let droppedStaleCount = 0
     const next = []
     for (const item of items || []) {
-      const persisted = await persistLocalImages(item.images || [])
+      const useEntries = item && item.id === WARRANTY_DOCUMENT_ID
+      const persisted = useEntries
+        ? await persistLocalImageEntries(item.images || [])
+        : await persistLocalImages(item.images || [])
       droppedStaleCount += persisted.droppedStaleCount || 0
       next.push({ ...item, images: persisted.images })
     }
@@ -2559,8 +2544,8 @@ Page({
     const documentEvidence = patchWarrantyFieldsInEvidence(
       (this.data.evidenceItems || []).filter((item) => !isOldPartEvidenceItem(item)),
       {
-        duration: this.data.warrantyDuration,
-        scope: this.data.warrantyScope,
+        duration: '',
+        scope: '',
         note: this.data.warrantyNote,
       },
     )
@@ -2586,7 +2571,6 @@ Page({
     const normalized = normalizePlanAmountPayload({
       nodes,
       parts: overrides.parts != null ? overrides.parts : this.data.parts,
-      planAmount: this.data.planAmount,
       vehicle: this.buildVehiclePayload(),
     })
     const ownerCheck = this.validateOwnerPhoneInput()

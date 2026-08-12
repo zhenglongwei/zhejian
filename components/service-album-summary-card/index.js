@@ -62,11 +62,8 @@ Component({
 
   methods: {
     updatePriceVisibility() {
-      const { planAmount, amount } = this.properties
-      const value = planAmount != null ? planAmount : amount
-      this.setData({
-        showPrice: value != null && Number(value) > 0,
-      })
+      // 相册藏价：摘要卡不再展示方案报价
+      this.setData({ showPrice: false })
     },
 
     onShareTap() {

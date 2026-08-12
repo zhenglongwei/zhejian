@@ -24,26 +24,26 @@ const AUTHORIZATION_CONSENT = {
     authType: 'album_claim',
     version: LEGAL_VERSION,
     text:
-      '我同意使用当前绑定手机号关联此服务相册；相册内容默认仅本人可见',
+      '我同意使用当前绑定手机号关联此服务相册；相册内容默认仅本人可见，公开须另行确认。',
   },
   album_processing: {
     authType: 'album_processing',
     version: LEGAL_VERSION,
     text:
-      '我知晓门店将为本车创建服务相册，同意辙见处理维修过程图片（含自动脱敏、OCR 识别、AI 辅助阅读等），仅用于本人查看与争议留档',
+      '我知晓门店将为本车创建服务相册，同意辙见处理维修过程图片（含自动脱敏、OCR 识别、AI 辅助阅读等），仅用于本人查看与争议留档。',
   },
   /** @deprecated PV-REFORM 废止原图私人分享；保留仅供历史留痕查询 */
   share_raw: {
     authType: 'share_raw',
     version: LEGAL_VERSION,
     text:
-      '我知晓原图分享可能泄露车牌、人脸等隐私信息，自行承担传播风险',
+      '我知晓原图分享可能泄露车牌、人脸等隐私信息，自行承担传播风险。',
   },
   merchant_album_owner: {
     authType: 'merchant_album_owner',
     version: LEGAL_VERSION,
     text:
-      '我确认已向车主说明服务相册用途，车主将扫码确认关联后方可上传维修过程图片',
+      '我确认已向车主说明服务相册用途，车主将扫码确认关联后方可上传维修过程图片。',
   },
   case_public: {
     authType: 'case_public',

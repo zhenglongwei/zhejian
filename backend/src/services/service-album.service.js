@@ -79,6 +79,8 @@ const {
   buildValidPlanPartIdSet,
   findWarrantyEvidenceItem,
   normalizeImageList,
+  stripRetiredDocumentItems,
+  preserveRetiredDocumentArchive,
 } = require('../utils/album-evidence-items')
 const { resolveShared } = require('../utils/resolve-shared')
 
@@ -266,10 +268,27 @@ function mapNodesForView(album) {
 }
 
 function mapEvidenceItemsForClient(items) {
-  return (items || []).map((item) => ({
-    ...item,
-    images: resolveClientReadableMediaUrls(item.images || []),
-  }))
+  return (items || []).map((item) => {
+    const rawImages = item.images || []
+    const images = rawImages
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return resolveClientReadableMediaUrl(entry)
+        }
+        if (!entry || typeof entry !== 'object') return null
+        const url = resolveClientReadableMediaUrl(entry.url || entry.rawUrl || entry.src || '')
+        if (!url) return null
+        return {
+          ...entry,
+          url,
+        }
+      })
+      .filter(Boolean)
+    return {
+      ...item,
+      images,
+    }
+  })
 }
 
 function mapPartsForClient(parts) {
@@ -424,7 +443,6 @@ function buildAlbumView(album) {
   const vehicleDisplay = formatVehicle(vehicle)
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const privatePrice = buildPrivateAlbumPrice(album)
-  const planAmount = privatePrice.planAmount
 
   const imageMeta = mapImageMeta(album)
   const view = {
@@ -447,11 +465,11 @@ function buildAlbumView(album) {
     publicCaseId: album.publicCase?.id || '',
     publicCaseTitle: album.publicCase?.title || '',
     publicCaseCover: resolvePublicCaseMediaUrl(album.publicCase?.coverImage || ''),
-    priceMode: privatePrice.priceMode,
-    amount: privatePrice.amount,
-    planAmount,
-    minAmount: privatePrice.minAmount,
-    maxAmount: privatePrice.maxAmount,
+    priceMode: '',
+    amount: null,
+    planAmount: null,
+    minAmount: null,
+    maxAmount: null,
     createdAt: toIso(album.createdAt),
     updatedAt: toIso(album.updatedAt),
     completedAt: album.completedAt ? toIso(album.completedAt) : '',
@@ -546,8 +564,6 @@ function buildMerchantView(album) {
   const nodes = mapNodesForView(album)
   const evidenceItems = resolveEvidenceItemsForAlbum(album, nodes)
   const imageCount = album.imageCount || countImages(nodes)
-  const privatePrice = buildPrivateAlbumPrice(album)
-  const planAmount = privatePrice.planAmount
   const publicCaseStatus = resolvePublicCaseStatus(album)
   const hasOwner = albumHasOwner(album)
   const { buildPlanPartsContext } = require('./album-plan-parts.service')
@@ -576,11 +592,11 @@ function buildMerchantView(album) {
     nodes,
     evidenceItems,
     parts: mapPartsForClient(album.partsJson || []),
-    planAmount,
-    planMinAmount: planAmount,
-    planMaxAmount: planAmount,
-    priceMode: privatePrice.priceMode,
-    amount: privatePrice.amount,
+    planAmount: null,
+    planMinAmount: null,
+    planMaxAmount: null,
+    priceMode: '',
+    amount: null,
     imageCount,
     imageMeta: mapImageMeta(album),
     publicMediaCount: countPublicMedia(mapImageMeta(album)),
@@ -598,8 +614,8 @@ function buildMerchantView(album) {
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
     planQuoteThumbs: planCtx.planQuoteThumbs,
-    amountMismatch: planCtx.amountMismatch,
-    amountMismatchHint: planCtx.amountMismatchHint,
+    amountMismatch: false,
+    amountMismatchHint: '',
     partVerifyGuideText: album.partVerifyGuideText || '',
     partVerifyGuideInformed: Boolean(album.partVerifyGuideInformed),
     complianceStatus: (() => {
@@ -1750,9 +1766,14 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
         payload.parts != null ? payload.parts : existing.partsJson,
       ),
     })
+    evidenceItemsJson = preserveRetiredDocumentArchive(
+      existing.evidenceItemsJson,
+      evidenceItemsJson,
+    )
   }
   if (payload.nodes) {
-    const mergedNodes = mergeEvidenceIntoNodes(payload.nodes, evidenceItemsJson)
+    const mergeItems = stripRetiredDocumentItems(evidenceItemsJson)
+    const mergedNodes = mergeEvidenceIntoNodes(payload.nodes, mergeItems)
     const previousImageUrls = new Set(
       (existing.images || []).map((img) => rewriteMediaUrlForCurrentBase(img.rawUrl))
     )
@@ -1760,7 +1781,7 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
       album: existing,
       previousImageUrls,
       existingImages: existing.images || [],
-      evidenceItems: evidenceItemsJson,
+      evidenceItems: mergeItems,
     })
     imageCount = syncResult.imageCount
     payload._imageGateResults = syncResult.imageGateResults
@@ -1777,10 +1798,19 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
   }
 
   const normalized = normalizePlanAmountPayload(payload)
-  const planAmount = resolvePlanAmount({
-    ...existing,
-    ...normalized,
-  })
+  // 相册藏价：未显式提交金额时保留库内旧值，不再由编辑页清空/改写
+  const planAmount =
+    payload.planAmount === undefined &&
+    payload.amount === undefined &&
+    payload.planMinAmount === undefined &&
+    payload.planMaxAmount === undefined &&
+    payload.minAmount === undefined &&
+    payload.maxAmount === undefined
+      ? resolvePlanAmount(existing)
+      : resolvePlanAmount({
+          ...existing,
+          ...normalized,
+        })
   const planPartsUpdate =
     payload.planParts != null
       ? sanitizePlanPartsDraft(payload.planParts)

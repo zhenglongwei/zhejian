@@ -15,7 +15,7 @@ const {
   resolveDocumentAnchor,
 } = require('./album-inspection-matrix')
 
-const DOC_ORDER = ['loss_assessment', 'repair_quote', 'work_order', 'settlement']
+const DOC_ORDER = ['loss_assessment', 'warranty']
 
 function docLabel(id) {
   return (DOCUMENT_TYPES[id] && DOCUMENT_TYPES[id].label) || id

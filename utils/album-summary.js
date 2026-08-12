@@ -4,8 +4,8 @@
  */
 
 const {
-  extractWarrantyFields,
   findWarrantyEvidenceItem,
+  formatWarrantyCommitmentText,
 } = require('./album-evidence-items')
 
 const STAGE_IDS = {
@@ -137,24 +137,8 @@ function buildPartsSummary(partsJson) {
   return `${head} 等 ${list.length} 项`
 }
 
-function buildSummaryPriceText(privatePrice = {}) {
-  const planAmount = privatePrice.planAmount
-  if (planAmount != null && Number(planAmount) > 0) {
-    return `¥${planAmount}`
-  }
-  const minAmount = privatePrice.minAmount
-  const maxAmount = privatePrice.maxAmount
-  if (
-    minAmount != null &&
-    maxAmount != null &&
-    Number(minAmount) > 0 &&
-    Number(maxAmount) >= Number(minAmount)
-  ) {
-    if (Number(minAmount) === Number(maxAmount)) {
-      return `¥${minAmount}`
-    }
-    return `¥${minAmount}-${maxAmount}`
-  }
+function buildSummaryPriceText() {
+  // 相册藏价：摘要行不再拼接金额
   return ''
 }
 
@@ -239,22 +223,13 @@ function buildSummaryRows(input = {}) {
   if (partsSummary) {
     rows.push({ label: '配件摘要', value: partsSummary })
   }
-  if (planAmount != null && Number(planAmount) > 0) {
-    const label =
-      typeof formatPlanAmountLabel === 'function'
-        ? formatPlanAmountLabel(planAmount)
-        : `¥${planAmount}`
-    rows.push({ label: '方案报价', value: label })
-  }
-  if (warrantyDuration) {
-    rows.push({ label: '质保时长', value: warrantyDuration })
-  }
-  if (warrantyScope) {
-    rows.push({ label: '质保范围', value: warrantyScope })
-  }
-  if (warrantyNote) {
-    rows.push({ label: '质保说明', value: warrantyNote })
-  } else if (warrantyHasImages && !warrantyDuration && !warrantyScope) {
+  const warrantyText = [warrantyDuration, warrantyScope, warrantyNote]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .join('；')
+  if (warrantyText) {
+    rows.push({ label: '质保说明', value: warrantyText })
+  } else if (warrantyHasImages) {
     rows.push({ label: '质保承诺', value: '已上传承诺书' })
   }
   rows.push({
@@ -276,11 +251,14 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
   const partsJson = album.partsJson || viewCtx.parts || []
   const evidenceItems = viewCtx.evidenceItems || album.evidenceItemsJson || []
   const warrantyItem = findWarrantyEvidenceItem(evidenceItems)
-  const warrantyFields = extractWarrantyFields(warrantyItem || {})
+  const warrantyText = formatWarrantyCommitmentText(warrantyItem || {})
   const warrantyHasImages = Boolean(
     warrantyItem &&
       Array.isArray(warrantyItem.images) &&
-      warrantyItem.images.some((url) => String(url || '').trim()),
+      warrantyItem.images.some((url) => {
+        if (typeof url === 'string') return String(url || '').trim()
+        return String((url && (url.url || url.rawUrl || url.src)) || '').trim()
+      }),
   )
 
   const issueDesc = resolveIssueDesc(vehicle, nodes)
@@ -302,12 +280,12 @@ function buildAlbumSummaryFields(album, viewCtx = {}, privatePrice = {}) {
     nodes,
     storeNote: album.storeNote || viewCtx.storeNote,
     imageCount: viewCtx.imageCount,
-    planAmount: privatePrice.planAmount,
+    planAmount: null,
     partsJson,
     formatPlanAmountLabel: viewCtx.formatPlanAmountLabel,
-    warrantyDuration: warrantyFields.duration,
-    warrantyScope: warrantyFields.scope,
-    warrantyNote: warrantyFields.note,
+    warrantyDuration: '',
+    warrantyScope: '',
+    warrantyNote: warrantyText,
     warrantyHasImages,
   })
 
