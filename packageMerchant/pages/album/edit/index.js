@@ -104,7 +104,6 @@ const { AUTHORIZATION_CONSENT } = require('../../../../constants/compliance-copy
 
 const MERCHANT_OCR_CONSENT_KEY = 'merchant_document_ocr_consent_v1'
 const { mapPartCodeCandidatesForPicker } = require('../../../../utils/part-code-candidate-display')
-const { promptMerchantAuditSubscribe } = require('../../../../utils/subscribe-message-prompt')
 const {
   MERCHANT_PART_TYPE_LOCKED_TIP,
   MERCHANT_PART_TYPE_MANUAL_TIP,
@@ -232,8 +231,10 @@ Page({
     caseDraftPreviewTitle: '',
     caseDraftPreviewSummary: '',
     caseDraftHasPreview: false,
+    showSaveButton: true,
     showBottomPrimary: false,
     bottomPrimaryText: '',
+    bottomPrimaryAction: '',
     showBottomBar: true,
     ownerPhoneInput: '',
     allowTestOwnerPhone: true,
@@ -516,37 +517,17 @@ Page({
     const isResubmit = this.data.detail && this.data.detail.complianceStatus === 'rejected'
     wx.showModal({
       title: isResubmit ? '重新提交' : '确认完工',
-      content: '将打开案例预览，确认后提交审核',
-      confirmText: '去预览',
+      content: '确认后相册将标记为已完工并只读。案例需另行生成（即将开放）。',
+      confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return
-        setTimeout(() => this.goCaseDraftForComplete(), 200)
+        setTimeout(() => this.submitComplete(), 200)
       },
     })
   },
 
-  async goCaseDraftForComplete() {
-    if (!this.albumId) return
-    try {
-      wx.showLoading({ title: '准备预览', mask: true })
-      const { payload, droppedStaleCount } = await this.buildSavePayload()
-      await saveMerchantServiceAlbum(this.albumId, payload)
-      wx.hideLoading()
-      if (droppedStaleCount > 0) {
-        this.notifyStaleImagesDropped(droppedStaleCount)
-      }
-    } catch (e) {
-      wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
-      return
-    }
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=complete`,
-    })
-  },
-
   async submitComplete() {
-    // 保留兼容：直接完工须已确认案例稿；主路径改走案例预览
+    // 相册归相册：直接完工，不走案例预览/送审
     if (this.data.completing) return
     this.setData({ completing: true })
     try {
@@ -563,22 +544,9 @@ Page({
       this.notifyPublicCaseQuality(completed)
       const detail = await fetchMerchantServiceAlbum(this.albumId)
       this.applyAlbum(detail)
-      promptMerchantAuditSubscribe(this.albumId)
     } catch (e) {
       wx.hideLoading()
-      const msg = (e && e.message) || '操作失败'
-      if (String(e && e.code) === 'CASE_DRAFT_REQUIRED' || /案例稿/.test(msg)) {
-        wx.showModal({
-          title: '请先确认案例稿',
-          content: msg,
-          confirmText: '去预览',
-          success: (res) => {
-            if (res.confirm) this.goCaseDraftForComplete()
-          },
-        })
-      } else {
-        wx.showToast({ title: msg, icon: 'none' })
-      }
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
       this.setData({ completing: false })
     }
@@ -778,6 +746,8 @@ Page({
       detail.status !== 'pending_review'
     let showBottomPrimary = false
     let bottomPrimaryText = ''
+    let bottomPrimaryAction = ''
+    let showSaveButton = !readOnly
     if (
       !readOnly &&
       detail.status !== SERVICE_ALBUM_STATUS.COMPLETED &&
@@ -785,36 +755,32 @@ Page({
     ) {
       showBottomPrimary = true
       bottomPrimaryText = '确认完工'
+      bottomPrimaryAction = 'complete'
     }
-    // 驳回后仍为 completed：主按钮改为「重新提交」
+    // 历史：案例驳回仍可重新提交（旧单兼容）
     if (!readOnly && isCompleted && detail.complianceStatus === 'rejected') {
       showBottomPrimary = true
       bottomPrimaryText = '重新提交'
+      bottomPrimaryAction = 'complete'
+    }
+    // 已完工只读：底栏「生成案例」占位（案例链路另案）
+    if (readOnly && isCompleted && detail.complianceStatus !== 'rejected') {
+      showBottomPrimary = true
+      bottomPrimaryText = '生成案例'
+      bottomPrimaryAction = 'generateCase'
+      showSaveButton = false
     }
     const caseDraftConfirmed = Boolean(
       detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
     )
     const caseDraftPreview = buildCaseDraftPreview(detail.merchantCaseDraft)
-    const showCaseDraftEntry = isCompleted && !detail.isAuthorized
+    const showCaseDraftEntry = false
     let lockHint = ''
     if (readOnly) {
-      if (
-        publicCaseStatus === 'pending_desensitize' ||
-        detail.publicCaseStatus === 'pending_desensitize'
-      ) {
-        lockHint = '已确认完工，配图脱敏处理中。相册与案例稿只读；脱敏结束后进入案例审核。'
-      } else if (detail.complianceStatus === 'pending' || publicCaseStatus === 'pending_review') {
-        lockHint = '已确认完工，案例审核中。相册与案例稿只读；驳回后方可再改。'
-      } else if (detail.isAuthorized) {
+      if (detail.isAuthorized) {
         lockHint = '车主已发布或已提交发布，相册只读。'
-      } else if (
-        detail.complianceStatus === 'passed' ||
-        publicCaseStatus === 'review_passed' ||
-        publicCaseStatus === 'public_approved'
-      ) {
-        lockHint = '案例已通过审核，相册只读。车主可查看并发布；撤回不会解锁。'
       } else {
-        lockHint = '已确认完工，相册只读。仅平台案例审核驳回后可再编辑。'
+        lockHint = '已完工，相册只读。'
       }
     } else if (detail.complianceStatus === 'rejected') {
       lockHint = detail.complianceRejectReason
@@ -871,9 +837,11 @@ Page({
       caseDraftPreviewTitle: caseDraftPreview.title,
       caseDraftPreviewSummary: caseDraftPreview.summary,
       caseDraftHasPreview: caseDraftPreview.hasDraft,
+      showSaveButton,
       showBottomPrimary,
       bottomPrimaryText,
-      showBottomBar: !readOnly,
+      bottomPrimaryAction,
+      showBottomBar: showSaveButton || showBottomPrimary,
       templateId: detail.templateId || '',
       templateName: detail.templateName || '',
       templatePickerIndex: this.syncTemplatePickerIndex(detail.templateId),
@@ -1125,6 +1093,11 @@ Page({
     )
   },
 
+  isIntakeArchiveChecklistItem(item) {
+    const group = String((item && (item.group || item.groupName)) || '').trim()
+    return group === '接车建档'
+  },
+
   computeWorkFlags(item) {
     const rawRemoved = (item.work && item.work.removedAs) || null
     const removedAs = this.canonicalizeRemovedAs(rawRemoved)
@@ -1139,10 +1112,13 @@ Page({
     if (removedAs === 'skipped') {
       return { ...item, work, inWorkQueue: false, inFollowUp: false }
     }
+    const archiveItem = this.isIntakeArchiveChecklistItem(item)
     const captions = [
       ...((item.stageImages || []).map((img) => String((img && img.caption) || ''))),
       ...((item.images || []).map((img) => String((img && img.caption) || ''))),
     ]
+    const captionTexts = captions.map((c) => String(c || '').trim()).filter(Boolean)
+    const hasCaptionText = captionTexts.length > 0
     const isNormalOnly = (t) => {
       const s = String(t || '').trim()
       if (!s) return true
@@ -1159,24 +1135,33 @@ Page({
       }
       return true
     }
-    const fromCaptions = captions.some((c) => needsConstruction(c))
-    let inferred = item.outcome || null
-    if (captions.some((t) => /建议更换/.test(t))) inferred = 'recommend_replace'
-    else if (captions.some((t) => /需处理|已处理/.test(t))) inferred = 'repaired_other'
-    else if (captions.some((t) => /已更换/.test(t))) inferred = 'replaced'
-    else if (captions.some((t) => /未更换/.test(t))) inferred = 'not_replaced'
-    else if (captions.some((t) => /^仅检查/.test(String(t || '').trim()))) inferred = 'observed'
-    else if (fromCaptions) inferred = 'repaired_other'
-    else if (captions.filter(Boolean).length && captions.filter(Boolean).every(isNormalOnly)) {
-      inferred = 'normal'
-    }
-    const outcome = item.outcome || inferred
+    const explicitAbnormal = captionTexts.some((t) =>
+      /建议更换|需处理|已处理|已更换|未更换/.test(t),
+    )
+    const fromCaptions = archiveItem ? explicitAbnormal : captions.some((c) => needsConstruction(c))
+    let inferred = null
+    if (captionTexts.some((t) => /建议更换/.test(t))) inferred = 'recommend_replace'
+    else if (captionTexts.some((t) => /需处理|已处理/.test(t))) inferred = 'repaired_other'
+    else if (captionTexts.some((t) => /已更换/.test(t))) inferred = 'replaced'
+    else if (captionTexts.some((t) => /未更换/.test(t))) inferred = 'not_replaced'
+    else if (captionTexts.some((t) => /^仅检查/.test(t))) inferred = 'observed'
+    else if (captionTexts.length && captionTexts.every(isNormalOnly)) inferred = 'normal'
+    else if (!archiveItem && fromCaptions) inferred = 'repaired_other'
+    // 施工随检测：图注能推断时覆盖落库旧 outcome
+    const outcome = inferred != null ? inferred : item.outcome || null
     const evidenced = this.itemHasChecklistEvidence(item)
-    // 无检测留证不得进施工（手增除外）；「仅检查」不进
-    const auto =
-      evidenced &&
-      (['recommend_replace', 'replaced', 'not_replaced', 'repaired_other'].includes(outcome) ||
-        fromCaptions)
+    const autoOutcomes = ['recommend_replace', 'replaced', 'not_replaced', 'repaired_other']
+    let auto = false
+    if (evidenced) {
+      if (archiveItem) {
+        auto =
+          (inferred != null && autoOutcomes.includes(inferred)) ||
+          (!hasCaptionText && autoOutcomes.includes(outcome)) ||
+          fromCaptions
+      } else {
+        auto = autoOutcomes.includes(outcome) || fromCaptions
+      }
+    }
     const manual = work.source === 'manual_add'
     return {
       ...item,
@@ -2713,9 +2698,41 @@ Page({
     }
   },
 
+  onBottomPrimaryTap() {
+    if (this.data.bottomPrimaryAction === 'generateCase') {
+      this.onGenerateCaseSoon()
+      return
+    }
+    this.onComplete()
+  },
+
+  onGenerateCaseSoon() {
+    wx.showToast({ title: '即将开放', icon: 'none' })
+  },
+
+  albumHasNonEmptyContentLocal() {
+    const hasNodeImage = (this.data.nodes || []).some((n) => (n.images || []).length > 0)
+    const hasNodeNote = (this.data.nodes || []).some((n) => String((n && n.note) || '').trim())
+    const hasEvidence = (this.data.evidenceItems || []).some(
+      (item) =>
+        (item.images || []).length > 0 ||
+        String((item && item.note) || '').trim() ||
+        String((item && item.caption) || '').trim(),
+    )
+    const checklistItems =
+      (this.data.checklist && this.data.checklist.items) || this.data.stageChecklistItems || []
+    const hasChecklist = (checklistItems || []).some(
+      (it) =>
+        String((it && it.note) || '').trim() ||
+        (it.images || []).length > 0 ||
+        (it.stageImages || []).length > 0,
+    )
+    return hasNodeImage || hasNodeNote || hasEvidence || hasChecklist
+  },
+
   onComplete() {
     if (this.data.readOnly) {
-      wx.showToast({ title: this.data.lockHint || '相册已锁定，仅可查看', icon: 'none' })
+      wx.showToast({ title: this.data.lockHint || '已完工，相册只读', icon: 'none' })
       return
     }
     if (this.data.completing || this.data.saving) return
@@ -2729,11 +2746,8 @@ Page({
       this.requireOwnerLinked('标记完工')
       return
     }
-    const hasImage =
-      this.data.nodes.some((n) => (n.images || []).length > 0) ||
-      (this.data.evidenceItems || []).some((item) => (item.images || []).length > 0)
-    if (!hasImage) {
-      wx.showToast({ title: '请至少上传一张过程图', icon: 'none' })
+    if (!this.albumHasNonEmptyContentLocal()) {
+      wx.showToast({ title: '相册内容不能为空，请至少留下一张图或一段说明', icon: 'none' })
       return
     }
 

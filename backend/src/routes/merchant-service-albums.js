@@ -21,7 +21,7 @@ const {
 } = require('../services/service-album.service')
 const { recognizeVehicleIntake } = require('../services/vehicle-intake-ocr.service')
 const { decodeVin } = require('../services/vin-decode.service')
-const { scheduleAlbumPreMask, createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
+const { createMerchantColdStartAuthorizeTaskFromPreMask } = require('../services/desensitize.service')
 const { publishMerchantColdStartPublicCase } = require('../services/public-case.service')
 const { buildAlbumGeoPreview } = require('../services/album-geo-preview.service')
 const {
@@ -295,21 +295,20 @@ router.post(
   async (req, res, next) => {
     try {
       const storeId = resolveStoreId(req)
+      // 旧「确认案例稿并完工」入口：现仅收口相册；案例送审/脱敏另案
       const view = await confirmAndCompleteMerchantCaseDraft(
         req.params.albumId,
         storeId,
         req.auth.merchantId,
         req.body || {},
       )
-      scheduleAlbumPreMask(req.params.albumId, {
-        auth: req.auth || {},
-      })
       return ok(res, {
         ...view,
         albumStatus: 'completed',
-        preMaskStatus: 'running',
-        caseReviewStatus: view.caseReviewStatus || 'pending_review',
-        complianceStatus: view.complianceStatus || 'pending',
+        publicCaseStatus: view.publicCaseStatus || 'private',
+        preMaskStatus: 'idle',
+        caseReviewStatus: 'none',
+        complianceStatus: view.complianceStatus || '',
       })
     } catch (e) {
       next(e)
@@ -354,13 +353,14 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       storeId,
       req.auth.merchantId,
     )
-    scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
+    // 相册归相册：完工不触发脱敏/案例送审（案例生成另案）
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
-      preMaskStatus: 'running',
-      caseReviewStatus: view.caseReviewStatus || 'pending_review',
-      complianceStatus: view.complianceStatus || 'pending',
+      publicCaseStatus: view.publicCaseStatus || 'private',
+      preMaskStatus: 'idle',
+      caseReviewStatus: 'none',
+      complianceStatus: view.complianceStatus || '',
       compliancePassed: false,
       complianceRejectReason: '',
       copyQuality: view.copyQuality || null,
@@ -497,18 +497,18 @@ router.post('/service-albums/:albumId/public-case', requireAuth(['merchant']), a
 router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
-    await completeMerchantServiceAlbum(
+    const view = await completeMerchantServiceAlbum(
       req.params.albumId,
       storeId,
       req.auth.merchantId,
     )
-    scheduleAlbumPreMask(req.params.albumId, { auth: req.auth || {} })
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',
-      preMaskStatus: 'running',
-      caseReviewStatus: 'pending_review',
-      complianceStatus: 'pending',
+      publicCaseStatus: view.publicCaseStatus || 'private',
+      preMaskStatus: 'idle',
+      caseReviewStatus: 'none',
+      complianceStatus: view.complianceStatus || '',
       compliancePassed: false,
       complianceRejectReason: '',
     })

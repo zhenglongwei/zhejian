@@ -123,17 +123,35 @@ function isConstructionQueueItem(it) {
   return true
 }
 
-/** 从多张图注推断项结果：异常优先于正常；仅检查也算需处理 */
-function inferOutcomeFromCaptions(captions = []) {
+/** catalog group=接车建档（里程表、到店诉求等） */
+function isIntakeArchiveItem(it = {}) {
+  const group = String(it.group || it.groupName || '').trim()
+  return group === '接车建档'
+}
+
+/** 图注是否含明确异常标签（建档项进队仅认这些，不认自由说明） */
+function captionsHaveExplicitAbnormal(captions = []) {
+  return (captions || []).some((c) =>
+    /建议更换|需处理|已处理|已更换|未更换/.test(String(c || '')),
+  )
+}
+
+/**
+ * 从多张图注推断项结果：异常优先于正常。
+ * 建档项：自由说明不得推断为需处理（见 18 §3.2）。
+ */
+function inferOutcomeFromCaptions(captions = [], options = {}) {
+  const archiveItem = Boolean(options.archiveItem)
   const list = (captions || []).map((c) => String(c || '').trim()).filter(Boolean)
   if (!list.length) return null
   if (list.some((t) => /建议更换/.test(t))) return 'recommend_replace'
   if (list.some((t) => /需处理|已处理/.test(t))) return 'repaired_other'
   if (list.some((t) => /已更换/.test(t))) return 'replaced'
   if (list.some((t) => /未更换/.test(t))) return 'not_replaced'
-  if (list.some((t) => /仅检查/.test(t))) return 'observed'
-  if (list.some((t) => !captionIsNormalOnly(t))) return 'repaired_other'
+  if (list.some((t) => /^仅检查/.test(t))) return 'observed'
   if (list.every((t) => captionIsNormalOnly(t))) return 'normal'
+  if (archiveItem) return null
+  if (list.some((t) => !captionIsNormalOnly(t))) return 'repaired_other'
   return null
 }
 
@@ -272,16 +290,32 @@ function resolveWorkFlags(it, images = []) {
   if (isSkippedRemoved(work.removedAs)) {
     return { inWorkQueue: false, inFollowUp: false, work }
   }
+  const archiveItem = isIntakeArchiveItem(it)
   const captions = (images || []).map((img) => img.caption || '')
-  const fromCaptions = captionsNeedWork(captions)
-  const inferred = inferOutcomeFromCaptions(captions)
-  const outcome = it.outcome || inferred
+  const hasCaptionText = captions.some((c) => String(c || '').trim())
+  const fromCaptions = archiveItem
+    ? captionsHaveExplicitAbnormal(captions)
+    : captionsNeedWork(captions)
+  const inferred = inferOutcomeFromCaptions(captions, { archiveItem })
+  // 施工随检测：图注能推断时覆盖落库旧 outcome
+  const outcome = inferred != null ? inferred : normalizeOutcome(it.outcome)
   const evidenced = itemHasEvidence({ ...it, images })
   // 无留证不得因残留 outcome 进施工；手增除外
-  const auto = evidenced && (AUTO_WORK_OUTCOMES.has(outcome) || fromCaptions)
+  let auto = false
+  if (evidenced) {
+    if (archiveItem) {
+      // 建档：有图注时只认图注推断的明确异常；无图注时可认落库异常 outcome
+      auto =
+        (inferred != null && AUTO_WORK_OUTCOMES.has(inferred)) ||
+        (!hasCaptionText && AUTO_WORK_OUTCOMES.has(outcome)) ||
+        fromCaptions
+    } else {
+      auto = AUTO_WORK_OUTCOMES.has(outcome) || fromCaptions
+    }
+  }
   const manual = work.source === 'manual_add'
   const inWorkQueue = Boolean(auto || manual)
-  return { inWorkQueue, inFollowUp: false, work, inferredOutcome: inferred }
+  return { inWorkQueue, inFollowUp: false, work, inferredOutcome: inferred, outcome }
 }
 
 function mapImageViews(imageIds, imageById) {
@@ -314,7 +348,12 @@ function buildMerchantChecklistView(album, images = []) {
     const def = defByKey.get(it.itemKey) || {}
     const imgs = mapImageViews(it.imageIds, imageById)
     const flags = resolveWorkFlags(it, imgs)
-    const outcome = it.outcome || flags.inferredOutcome || null
+    const outcome =
+      flags.outcome != null
+        ? flags.outcome
+        : flags.inferredOutcome != null
+          ? flags.inferredOutcome
+          : it.outcome || null
     let outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
     if (isFollowUpRemoved(flags.work.removedAs)) {
       outcomeLabel = flags.work.deferNote
@@ -483,6 +522,7 @@ module.exports = {
   isFollowUpRemoved,
   isSkippedRemoved,
   isRemovedFromWork,
+  isIntakeArchiveItem,
   hydrateChecklistState,
   syncChecklistImageLinks,
   mergeChecklistPatch,

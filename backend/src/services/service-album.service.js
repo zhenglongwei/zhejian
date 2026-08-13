@@ -671,8 +671,7 @@ async function loadAlbum(albumId) {
 
 const ALBUM_CONTENT_LOCKED_CODE = 'ALBUM_CONTENT_LOCKED'
 /** @deprecated 请用 resolveAlbumContentLockedMessage(album)；保留给旧测试兼容 */
-const ALBUM_CONTENT_LOCKED_MESSAGE =
-  '相册已确认完工并锁定，正文与案例稿不可再改。仅平台案例审核驳回后方可再编辑；车主撤回发布不会解锁。'
+const ALBUM_CONTENT_LOCKED_MESSAGE = '已完工，相册只读。'
 
 function isAlbumCompletedStatus(status = '') {
   const s = String(status || '')
@@ -685,10 +684,9 @@ function isAlbumCompletedStatus(status = '') {
 }
 
 /**
- * 商家留档/案例稿锁定（案例审核收口）：
- * - 确认完工进待审 / 审过 / 已发布 / 撤回后 → 锁定
- * - 仅案例审驳回 → 解锁（可改相册节点 + 案例稿，再确认完工送审）
- * - 车主已授权发布 → 锁定
+ * 商家相册锁定（相册归相册 · 2026-08-13）：
+ * - 确认完工 → 锁定（本阶段无二次编辑）
+ * - 历史：案例审驳回仍可解锁（兼容旧单）；车主已授权发布 → 锁定
  */
 function isAlbumContentLocked(album) {
   if (!album) return false
@@ -706,7 +704,7 @@ function resolveAlbumContentLockedMessage(album = {}) {
   }
   const { isCaseReviewPending } = require('./case-review-gate.service')
   if (isCaseReviewPending(album)) {
-    return '案例审核中，相册与案例稿只读；驳回后方可再改。'
+    return '已完工，相册只读。'
   }
   return ALBUM_CONTENT_LOCKED_MESSAGE
 }
@@ -1658,6 +1656,43 @@ function assertAlbumHasOwnerPhone(album, payload = {}) {
   throw err
 }
 
+/** 完工门禁：内容非空（图 / 节点说明 / 证据 / 清单留证即可） */
+function albumHasNonEmptyContent(album) {
+  if (!album) return false
+  if ((album.imageCount || 0) > 0) return true
+  if ((album.images || []).length > 0) return true
+  if ((album.nodes || []).some((n) => String((n && n.note) || '').trim())) return true
+  if (String(album.storeNote || '').trim()) return true
+  const evidence = album.evidenceItemsJson
+  if (Array.isArray(evidence)) {
+    const hit = evidence.some((it) => {
+      if (!it) return false
+      if ((it.images || []).length > 0) return true
+      return Boolean(
+        String(it.note || '').trim() ||
+          String(it.caption || '').trim() ||
+          String(it.text || '').trim(),
+      )
+    })
+    if (hit) return true
+  }
+  const checklistItems =
+    (album.checklistJson && Array.isArray(album.checklistJson.items) && album.checklistJson.items) ||
+    []
+  return checklistItems.some(
+    (it) =>
+      Boolean(String((it && it.note) || '').trim()) ||
+      (Array.isArray(it && it.imageIds) && it.imageIds.length > 0),
+  )
+}
+
+function assertAlbumHasNonEmptyContent(album) {
+  if (albumHasNonEmptyContent(album)) return
+  const err = new Error('相册内容不能为空，请至少留下一张图或一段说明')
+  err.status = 409
+  throw err
+}
+
 /** ALB-UX-11：允许商家手填车主手机号（手填即关联）；保留函数供调用点兼容 */
 function assertMerchantCannotSetOwnerPhone() {
   return
@@ -1897,19 +1932,17 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
   assertMerchantAlbum(existing, storeId, merchantId)
   assertAlbumContentEditable(existing)
   assertAlbumHasOwnerPhone(existing)
-  assertMerchantCaseDraftConfirmed(existing)
-  const imageCount = existing.imageCount || (existing.images || []).length
-  if (imageCount < 1) {
-    const err = new Error('请至少上传一张过程图')
-    err.status = 409
-    throw err
-  }
+  assertAlbumHasNonEmptyContent(existing)
+  // 相册归相册：完工不再要求案例稿，也不送脱敏/人审；案例生成另案
+  const prevCaseStatus = String(existing.publicCaseStatus || '').trim()
+  const nextCaseStatus =
+    !prevCaseStatus || prevCaseStatus === 'pending_desensitize' ? 'private' : prevCaseStatus
   const album = await prisma.album.update({
     where: { id: albumId },
     data: {
       status: SERVICE_ALBUM_STATUS.COMPLETED,
       completedAt: new Date(),
-      publicCaseStatus: 'pending_desensitize',
+      publicCaseStatus: nextCaseStatus,
     },
     include: {
       nodes: { orderBy: { sortOrder: 'asc' } },
@@ -1917,21 +1950,12 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
       publicCase: true,
     },
   })
-  const { enqueueAlbumCaseForReview } = require('./public-case.service')
-  const queued = await enqueueAlbumCaseForReview(albumId, options.merchantCaseDraft || null)
   const { notifyAlbumCompleted } = require('./notification.service')
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
   })
-  // 社交长文等仍可异步生成；已确认的商家案例正文不得被内容包规则稿覆盖
-  const { triggerContentPackageOnComplete } = require('./album-content-package.service')
-  triggerContentPackageOnComplete(albumId).catch((e) => {
-    console.warn('[album-content-package] trigger failed', albumId, e && e.message)
-  })
   const view = buildMerchantView(await loadAlbum(albumId))
   Object.assign(view, assessPublicCaseQuality(view))
-  view.caseReviewStatus = queued.status
-  view.caseId = queued.caseId
   return view
 }
 

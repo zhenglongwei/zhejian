@@ -353,7 +353,7 @@ function enrichServiceAlbumListItem(item, options = {}) {
     hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
   }
 
-  // 已完工 Tab：旅程已收口到过审，不展示维修进度 Tag
+  // 已完工 Tab：相册已收口，不强调维修进度 Tag
   if (listTab === 'done') {
     return appendAlbumListPresentation(item, {
       ...base,

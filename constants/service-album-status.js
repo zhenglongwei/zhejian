@@ -66,8 +66,8 @@ const SERVICE_ALBUM_STATUS_VARIANT = {
 }
 
 /**
- * 用户端列表 Tab（相册旅程三分 · 2026-08-01）
- * 以案例审通过为界：通过前 → active；通过后（含撤回 offline）→ done
+ * 用户端列表 Tab（相册旅程三分 · 2026-08-13）
+ * 以相册是否完工为界：未完工 → active；已完工 → done（与案例无关）
  */
 const SERVICE_ALBUM_LIST_TABS = [
   { key: 'all', label: '全部' },
@@ -90,7 +90,7 @@ function normalizeServiceAlbumListTab(tab) {
 }
 
 /**
- * 商家端列表 Tab：与车主端一致（案例审通过为界 · 2026-08-02）
+ * 商家端列表 Tab：与车主端一致（相册是否完工 · 2026-08-13）
  * 废止「待公开授权」第四档
  */
 const MERCHANT_SERVICE_ALBUM_LIST_TABS = SERVICE_ALBUM_LIST_TABS
@@ -108,7 +108,7 @@ function normalizeMerchantServiceAlbumListTab(tab) {
 }
 
 /**
- * @deprecated 商家列表已改为按案例审通过筛选（filterUserAlbumsByTab），勿再按 album.status 分档
+ * @deprecated 列表已由 filterUserAlbumsByTab 按相册完工态筛选
  */
 const MERCHANT_SERVICE_ALBUM_TAB_STATUS_MAP = {
   all: null,

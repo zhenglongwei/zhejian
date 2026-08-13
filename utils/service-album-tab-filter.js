@@ -1,35 +1,40 @@
-const { normalizeServiceAlbumListTab } = require('../constants/service-album-status')
+const {
+  normalizeServiceAlbumListTab,
+  SERVICE_ALBUM_REPAIR_DONE_STATUSES,
+} = require('../constants/service-album-status')
 
-/** 案例审已通过及之后（与 backend case-review-gate CASE_REVIEW_PASSED_STATUSES 对齐） */
+/** @deprecated 案例审分档已废止；保留导出以免旧引用报错 */
 const REVIEW_PASSED_STATUSES = new Set(['review_passed', 'public_approved', 'offline'])
 
-/**
- * 用户端相册列表 Tab 筛选
- * - all：全部
- * - active：进行中（尚未案例审通过）
- * - done：已完工（已案例审通过及之后，含撤回后 offline）
- */
-function filterUserAlbumsByTab(albums, tab, resolvePublicCaseStatus) {
-  const key = normalizeServiceAlbumListTab(tab)
+function isAlbumRepairDoneForTab(album) {
+  const status = String((album && album.status) || '')
+  return SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(status) || status === 'published'
+}
 
-  const resolve =
-    typeof resolvePublicCaseStatus === 'function'
-      ? resolvePublicCaseStatus
-      : (album) => album.publicCaseStatus || 'private'
+/**
+ * 相册列表 Tab 筛选（相册归相册 · 2026-08-13）
+ * - all：全部
+ * - active：进行中（相册尚未标记完工）
+ * - done：已完工（相册已 completed 等维修结束态）
+ * 第三参 resolvePublicCaseStatus 保留兼容，不再作为 Tab 轴。
+ */
+function filterUserAlbumsByTab(albums, tab) {
+  const key = normalizeServiceAlbumListTab(tab)
 
   if (key === 'all') {
     return albums
   }
 
   if (key === 'done') {
-    return albums.filter((album) => REVIEW_PASSED_STATUSES.has(resolve(album)))
+    return (albums || []).filter((album) => isAlbumRepairDoneForTab(album))
   }
 
-  return albums.filter((album) => !REVIEW_PASSED_STATUSES.has(resolve(album)))
+  return (albums || []).filter((album) => !isAlbumRepairDoneForTab(album))
 }
 
 module.exports = {
   filterUserAlbumsByTab,
+  isAlbumRepairDoneForTab,
   REVIEW_PASSED_STATUSES,
   /** @deprecated 使用 REVIEW_PASSED_STATUSES */
   PUBLISHED_STATUSES: REVIEW_PASSED_STATUSES,

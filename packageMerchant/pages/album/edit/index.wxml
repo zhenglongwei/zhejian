@@ -431,6 +431,7 @@
       <view wx:if="{{showBottomBar}}" class="merchant-album-edit__bottom safe-bottom">
         <view class="merchant-album-edit__bottom-inner">
           <button
+            wx:if="{{showSaveButton}}"
             class="btn btn--secondary btn--block merchant-album-edit__bottom-btn"
             loading="{{saving}}"
             catchtap="onSave"
@@ -438,7 +439,8 @@
           <button
             wx:if="{{showBottomPrimary}}"
             class="btn btn--primary btn--block merchant-album-edit__bottom-btn"
-            catchtap="onComplete"
+            loading="{{completing}}"
+            catchtap="onBottomPrimaryTap"
           >{{bottomPrimaryText}}</button>
         </view>
       </view>
