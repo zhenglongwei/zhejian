@@ -99,11 +99,15 @@ Component({
       this.setData({ hasQuickTags: Array.isArray(val) && val.length > 0 })
     },
     images() {
+      // 输入中勿用父级 images 回写整表，否则 textarea 失焦
+      if (this._captionEditingIndex >= 0) return
       this.syncDisplayList()
     },
   },
   lifetimes: {
     attached() {
+      this._captionEditingIndex = -1
+      this._draftCaptions = Object.create(null)
       this.setData({
         isCtaLayout: String(this.properties.layout || '') === 'cta',
         isSingleColumn: Number(this.properties.columns) === 1,
@@ -116,6 +120,24 @@ Component({
     },
   },
   methods: {
+    clearCaptionDraft(imgIndex) {
+      if (!this._draftCaptions) return
+      delete this._draftCaptions[imgIndex]
+    },
+    captionOf(item, imgIndex) {
+      if (
+        this._draftCaptions &&
+        Object.prototype.hasOwnProperty.call(this._draftCaptions, imgIndex)
+      ) {
+        return this._draftCaptions[imgIndex]
+      }
+      return String((item && item.caption) || '')
+    },
+    clearCaptionFocusFlags(list) {
+      return (list || []).map((item) =>
+        item && item.focusCaption ? { ...item, focusCaption: false } : item,
+      )
+    },
     tagLabels() {
       return (this.properties.captionQuickTags || [])
         .map((t) => (typeof t === 'string' ? t : String((t && t.label) || '').trim()))
@@ -209,9 +231,17 @@ Component({
         .map((item) => this.decorateDisplayItem(item, prevByUrl.get(item.url)))
       this.setData({ displayList })
     },
+    mergeDraftCaptions(list) {
+      if (!this._draftCaptions) return list || []
+      return (list || []).map((item, i) => {
+        if (!Object.prototype.hasOwnProperty.call(this._draftCaptions, i)) return item
+        return { ...item, caption: this._draftCaptions[i], showCaption: true }
+      })
+    },
     emitChange(list) {
+      const merged = this.mergeDraftCaptions(list)
       this.triggerEvent('change', {
-        images: this.toEmitList(list),
+        images: this.toEmitList(merged),
         stampChecklistItemKey: String(this.properties.stampChecklistItemKey || '').trim(),
       })
     },
@@ -279,12 +309,15 @@ Component({
       const tag = String(label || '').trim()
       if (!tag) return
       const isCustom = tag === '自定义'
+      this.clearCaptionDraft(imgIndex)
+      this._captionEditingIndex = -1
       const list = (this.data.displayList || []).map((item, i) => {
         if (i !== imgIndex) return { ...item, focusCaption: false }
+        const baseCaption = this.captionOf(item, i)
         if (isCustom) {
           const next = {
             ...item,
-            caption: item.activeTag === '自定义' ? item.caption : '',
+            caption: item.activeTag === '自定义' ? baseCaption : '',
             showCaption: true,
             focusCaption: true,
           }
@@ -292,11 +325,11 @@ Component({
         }
         // 再次点击同一标签：不重复写入，避免误以为未选中
         if (item.activeTag === tag) {
-          return { ...item, showCaption: true, focusCaption: false }
+          return { ...item, showCaption: true, focusCaption: true }
         }
         const next = {
           ...item,
-          caption: this.applyTagToCaption(item.caption, tag).slice(0, 500),
+          caption: this.applyTagToCaption(baseCaption, tag).slice(0, 500),
           showCaption: true,
           focusCaption: true,
         }
@@ -304,11 +337,19 @@ Component({
       })
       this.setData({ displayList: list })
       this.emitChange(list)
+      // focus 仅作一次性拉起键盘，随后清掉，避免后续受控 focus=false 抢焦点
+      setTimeout(() => {
+        const cur = this.data.displayList || []
+        if (!cur[imgIndex] || !cur[imgIndex].focusCaption) return
+        this.setData({ displayList: this.clearCaptionFocusFlags(cur) })
+      }, 200)
     },
     onClearCaption(e) {
       if (this.properties.disabled || !this.properties.enableCaption) return
       const imgIndex = Number(e.currentTarget.dataset.index)
       if (!Number.isFinite(imgIndex)) return
+      this.clearCaptionDraft(imgIndex)
+      this._captionEditingIndex = -1
       const list = (this.data.displayList || []).map((item, i) => {
         if (i !== imgIndex) return item
         return this.decorateDisplayItem(
@@ -324,20 +365,38 @@ Component({
       this.setData({ displayList: list })
       this.emitChange(list)
     },
+    onCaptionFocus(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(imgIndex)) return
+      this._captionEditingIndex = imgIndex
+    },
     onCaptionInput(e) {
       if (this.properties.disabled || !this.properties.enableCaption) return
       const imgIndex = Number(e.currentTarget.dataset.index)
       if (!Number.isFinite(imgIndex)) return
+      // 仅记草稿，不 setData / 不上抛，避免受控回写导致失焦
+      if (!this._draftCaptions) this._draftCaptions = Object.create(null)
+      this._draftCaptions[imgIndex] = String((e.detail && e.detail.value) || '').slice(0, 500)
+      this._captionEditingIndex = imgIndex
+    },
+    onCaptionBlur(e) {
+      if (this.properties.disabled || !this.properties.enableCaption) return
+      const imgIndex = Number(e.currentTarget.dataset.index)
+      if (!Number.isFinite(imgIndex)) return
+      const value = String((e.detail && e.detail.value) || '').slice(0, 500)
+      this.clearCaptionDraft(imgIndex)
+      this._captionEditingIndex = -1
       const list = (this.data.displayList || []).map((item, i) => {
-        if (i !== imgIndex) return item
+        if (i !== imgIndex) return { ...item, focusCaption: false }
         return this.decorateDisplayItem(
           {
             ...item,
-            caption: String((e.detail && e.detail.value) || '').slice(0, 500),
+            caption: value,
             showCaption: true,
             focusCaption: false,
           },
-          item
+          item,
         )
       })
       this.setData({ displayList: list })

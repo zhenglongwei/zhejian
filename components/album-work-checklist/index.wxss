@@ -4,6 +4,7 @@
   box-sizing: border-box;
   min-height: 100%;
   background: var(--color-bg-album);
+  position: relative;
 }
 
 .album-work-checklist__head {
@@ -19,7 +20,7 @@
   line-height: 1.5;
 }
 
-.album-work-checklist__item {
+.album-work-checklist__card {
   padding: var(--space-md);
   margin-bottom: var(--space-md);
   background: var(--color-bg-card);
@@ -27,10 +28,26 @@
   border: 1rpx solid var(--color-border);
 }
 
-.album-work-checklist__item-top {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-sm);
+.album-work-checklist__card.is-deferred {
+  border-left: 6rpx solid var(--color-warning);
+}
+
+.album-work-checklist__card-title {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-primary);
+}
+
+.album-work-checklist__section + .album-work-checklist__section {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1rpx solid var(--color-border);
+}
+
+.album-work-checklist__section-label {
+  display: block;
+  color: var(--color-text-secondary);
   margin-bottom: var(--space-xs);
 }
 
@@ -40,12 +57,12 @@
   margin-bottom: var(--space-xs);
 }
 
-.album-work-checklist__item.is-deferred {
-  border-left: 6rpx solid var(--color-warning);
-}
-
 .album-work-checklist__outcome.is-ok {
   color: var(--color-success);
+}
+
+.album-work-checklist__outcome.is-warn {
+  color: var(--color-warning);
 }
 
 .album-work-checklist__defer {
@@ -54,15 +71,35 @@
   margin-bottom: var(--space-xs);
 }
 
-.album-work-checklist__stage {
-  color: var(--color-text-tertiary);
-}
-
 .album-work-checklist__note {
   display: block;
   margin-bottom: var(--space-sm);
   line-height: 1.5;
   color: var(--color-text-secondary);
+}
+
+.album-work-checklist__stage {
+  margin-top: var(--space-sm);
+}
+
+.album-work-checklist__stage-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.album-work-checklist__stage-bar {
+  width: 6rpx;
+  height: 28rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.album-work-checklist__stage-title {
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .album-work-checklist__grid {
@@ -88,4 +125,28 @@
 .album-work-checklist__cap {
   line-height: 1.3;
   color: var(--color-text-secondary);
+}
+
+.album-work-checklist__warranty {
+  margin-top: var(--space-sm);
+}
+
+.album-work-checklist__lightbox {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-toast);
+  background-color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  box-sizing: border-box;
+}
+
+.album-work-checklist__lightbox-img {
+  width: 100%;
+  height: 100%;
 }

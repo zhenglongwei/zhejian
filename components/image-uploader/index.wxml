@@ -73,7 +73,9 @@
           focus="{{imgItem.focusCaption}}"
           data-index="{{imgIndex}}"
           catchtap=""
+          bindfocus="onCaptionFocus"
           bindinput="onCaptionInput"
+          bindblur="onCaptionBlur"
         />
       </view>
     </view>

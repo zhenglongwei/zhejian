@@ -446,39 +446,186 @@ function buildMerchantChecklistView(album, images = []) {
   }
 }
 
-/** 车主：有图或说明的完整检查项；同项下含各阶段图 */
+const OWNER_STAGE_ORDER = ['stage_1', 'stage_2', 'stage_5', 'stage_6']
+const OWNER_STAGE_TITLE = {
+  stage_1: '接车',
+  stage_2: '检测',
+  stage_5: '施工',
+  stage_6: '完工',
+}
+
+function groupOwnerImagesByStage(images = []) {
+  const buckets = new Map()
+  ;(images || []).forEach((img) => {
+    if (!img || !img.url) return
+    const stageId = String(img.nodeId || '').trim() || 'other'
+    if (!buckets.has(stageId)) {
+      buckets.set(stageId, {
+        stageId,
+        stageTitle: String(img.nodeTitle || '').trim() || OWNER_STAGE_TITLE[stageId] || '过程',
+        images: [],
+      })
+    }
+    buckets.get(stageId).images.push({
+      url: img.url,
+      caption: String(img.caption || '').trim(),
+    })
+  })
+  const ordered = []
+  OWNER_STAGE_ORDER.forEach((id) => {
+    if (buckets.has(id)) ordered.push(buckets.get(id))
+  })
+  buckets.forEach((group, id) => {
+    if (!OWNER_STAGE_ORDER.includes(id)) ordered.push(group)
+  })
+  return ordered
+}
+
+function mapOwnerWorkItem(it) {
+  const followUp = isFollowUpRemoved(it.work && it.work.removedAs)
+  let outcomeLabel = it.outcomeLabel || ''
+  if (isSkippedRemoved(it.work && it.work.removedAs)) {
+    const outcome = it.outcome
+    outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
+  }
+  return {
+    itemKey: it.itemKey,
+    label: it.label,
+    group: it.group,
+    outcome: it.outcome,
+    outcomeLabel,
+    note: it.note,
+    images: it.images,
+    workFollowUpKeys: Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys : [],
+    workOnly: Boolean(it.workOnly),
+    deferNote: followUp ? (it.work && it.work.deferNote) || '' : '',
+    deferredByOwner: followUp,
+    followUpLabel: followUp
+      ? it.work && it.work.deferNote
+        ? `择日再约：${it.work.deferNote}`
+        : '择日再约'
+      : '',
+  }
+}
+
+function buildOwnerReadSection(it) {
+  const mapped = mapOwnerWorkItem(it)
+  return {
+    itemKey: mapped.itemKey,
+    label: mapped.label,
+    outcome: mapped.outcome,
+    outcomeLabel: mapped.outcomeLabel,
+    note: mapped.note,
+    deferNote: mapped.deferNote,
+    deferredByOwner: mapped.deferredByOwner,
+    followUpLabel: mapped.followUpLabel,
+    stageGroups: groupOwnerImagesByStage(mapped.images),
+  }
+}
+
+/**
+ * 服务项目连通：检查父项↔施工衍生项；共用同一批施工项的多个检查项并入同一族
+ * @returns {{ rootKey: string, members: object[] }[]}
+ */
+function buildOwnerProjectClusters(merchantItems = []) {
+  const items = merchantItems || []
+  const parent = new Map()
+  const ensure = (k) => {
+    if (!parent.has(k)) parent.set(k, k)
+  }
+  const find = (k) => {
+    ensure(k)
+    if (parent.get(k) !== k) parent.set(k, find(parent.get(k)))
+    return parent.get(k)
+  }
+  const union = (a, b) => {
+    const ra = find(a)
+    const rb = find(b)
+    if (ra !== rb) parent.set(rb, ra)
+  }
+
+  const childToParents = new Map()
+  items.forEach((it) => {
+    const key = String((it && it.itemKey) || '').trim()
+    if (!key) return
+    ensure(key)
+    const kids = Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys.map(String) : []
+    kids.forEach((k) => {
+      const child = String(k || '').trim()
+      if (!child) return
+      ensure(child)
+      union(key, child)
+      if (!childToParents.has(child)) childToParents.set(child, [])
+      childToParents.get(child).push(key)
+    })
+  })
+  childToParents.forEach((parents) => {
+    for (let i = 0; i < parents.length; i += 1) {
+      for (let j = i + 1; j < parents.length; j += 1) {
+        union(parents[i], parents[j])
+      }
+    }
+  })
+
+  const rootOrder = []
+  const rootSeen = new Set()
+  const membersByRoot = new Map()
+  items.forEach((it) => {
+    const key = String((it && it.itemKey) || '').trim()
+    if (!key) return
+    const root = find(key)
+    if (!rootSeen.has(root)) {
+      rootSeen.add(root)
+      rootOrder.push(root)
+    }
+    if (!membersByRoot.has(root)) membersByRoot.set(root, [])
+    membersByRoot.get(root).push(it)
+  })
+
+  return rootOrder.map((rootKey) => ({
+    rootKey,
+    members: membersByRoot.get(rootKey) || [],
+  }))
+}
+
+function resolveOwnerProjectCardTitle(members = []) {
+  const groups = (members || [])
+    .map((m) => String((m && m.group) || '').trim())
+    .filter(Boolean)
+  const unique = Array.from(new Set(groups))
+  if (unique.length === 1) return unique[0]
+  const seed = (members || []).find((m) => !m.workOnly) || (members || [])[0] || {}
+  return String(seed.group || seed.label || seed.itemKey || '').trim() || '本次处理'
+}
+
+/** 车主：有图或说明的完整检查项；按服务项目（检查+施工连通族）一项一卡 */
 function buildOwnerWorkChecklistView(album, images = []) {
   const merchant = buildMerchantChecklistView(album, images)
   const workItems = merchant.items
     .filter((it) => (it.images && it.images.length) || String(it.note || '').trim())
-    .map((it) => {
-      const followUp = isFollowUpRemoved(it.work && it.work.removedAs)
-      // skipped：只保留检测事实，不强调「本次不做」
-      let outcomeLabel = it.outcomeLabel || ''
-      if (isSkippedRemoved(it.work && it.work.removedAs)) {
-        const outcome = it.outcome
-        outcomeLabel = outcome ? OUTCOME_LABELS[outcome] || outcome : ''
-      }
-      return {
-        itemKey: it.itemKey,
-        label: it.label,
-        group: it.group,
-        outcome: it.outcome,
-        outcomeLabel,
-        note: it.note,
-        images: it.images,
-        deferNote: followUp ? (it.work && it.work.deferNote) || '' : '',
-        deferredByOwner: followUp,
-        followUpLabel: followUp
-          ? (it.work && it.work.deferNote
-              ? `择日再约：${it.work.deferNote}`
-              : '择日再约')
-          : '',
-      }
+    .map(mapOwnerWorkItem)
+  const evidencedByKey = new Map(workItems.map((it) => [it.itemKey, it]))
+  const merchantByKey = new Map((merchant.items || []).map((it) => [it.itemKey, it]))
+  const cards = []
+
+  buildOwnerProjectClusters(merchant.items || []).forEach(({ rootKey, members }) => {
+    const evidencedMembers = members.filter((m) => evidencedByKey.has(m.itemKey))
+    if (!evidencedMembers.length) return
+    const sections = evidencedMembers.map((m) =>
+      buildOwnerReadSection(merchantByKey.get(m.itemKey) || m),
+    )
+    cards.push({
+      cardKey: rootKey,
+      title: resolveOwnerProjectCardTitle(evidencedMembers),
+      sections,
+      deferredByOwner: sections.some((s) => s.deferredByOwner),
     })
+  })
+
   return {
     categoryId: merchant.categoryId,
     categoryLabel: merchant.categoryLabel,
+    cards,
     items: workItems,
   }
 }
@@ -534,6 +681,8 @@ module.exports = {
   isConstructionQueueItem,
   buildMerchantChecklistView,
   buildOwnerWorkChecklistView,
+  buildOwnerProjectClusters,
+  groupOwnerImagesByStage,
   filterChecklistItemsForCase,
   buildCaseFollowUpSummary,
   ensureChecklistOnCreate,

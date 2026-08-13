@@ -517,7 +517,7 @@ Page({
     const isResubmit = this.data.detail && this.data.detail.complianceStatus === 'rejected'
     wx.showModal({
       title: isResubmit ? '重新提交' : '确认完工',
-      content: '确认后相册将标记为已完工并只读。案例需另行生成（即将开放）。',
+      content: '提交后相册将无法修改。',
       confirmText: '确认完工',
       success: (res) => {
         if (!res.confirm) return

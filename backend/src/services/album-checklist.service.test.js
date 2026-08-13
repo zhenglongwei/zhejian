@@ -3,6 +3,8 @@ const {
   resolveWorkFlags,
   inferOutcomeFromCaptions,
   isIntakeArchiveItem,
+  groupOwnerImagesByStage,
+  buildOwnerProjectClusters,
 } = require('./album-checklist.service')
 
 assert.strictEqual(isIntakeArchiveItem({ group: '接车建档' }), true)
@@ -94,5 +96,46 @@ assert.strictEqual(
   inferOutcomeFromCaptions(['到店里程 1km'], { archiveItem: false }),
   'repaired_other',
 )
+
+{
+  const groups = groupOwnerImagesByStage([
+    { url: 'a', caption: '正常;', nodeId: 'stage_1', nodeTitle: '接车' },
+    { url: 'b', caption: '已处理;', nodeId: 'stage_5', nodeTitle: '施工' },
+    { url: 'c', caption: '正常;', nodeId: 'stage_1', nodeTitle: '接车' },
+  ])
+  assert.strictEqual(groups.length, 2)
+  assert.strictEqual(groups[0].stageTitle, '接车')
+  assert.strictEqual(groups[0].images.length, 2)
+  assert.strictEqual(groups[1].stageTitle, '施工')
+  assert.ok(!groups[0].images[0].nodeTitle)
+}
+
+// 刹车：多检查项共用施工项 → 同一服务项目族
+{
+  const clusters = buildOwnerProjectClusters([
+    {
+      itemKey: 'pad_thickness',
+      label: '刹车片厚度',
+      group: '制动检测',
+      workFollowUpKeys: ['new_parts', 'old_new_compare'],
+    },
+    {
+      itemKey: 'rotor_thickness',
+      label: '刹车盘厚度',
+      group: '制动检测',
+      workFollowUpKeys: ['new_parts', 'old_new_compare'],
+    },
+    { itemKey: 'new_parts', label: '新配件展示', group: '制动施工', workOnly: true, workFollowUpKeys: [] },
+    { itemKey: 'lights', label: '灯光', group: '电气', workFollowUpKeys: [] },
+  ])
+  const brake = clusters.find((c) =>
+    c.members.some((m) => m.itemKey === 'pad_thickness'),
+  )
+  assert.ok(brake)
+  const keys = brake.members.map((m) => m.itemKey).sort()
+  assert.deepStrictEqual(keys, ['new_parts', 'pad_thickness', 'rotor_thickness'].sort())
+  const lights = clusters.find((c) => c.members.some((m) => m.itemKey === 'lights'))
+  assert.strictEqual(lights.members.length, 1)
+}
 
 console.log('album-checklist.service.test.js OK')

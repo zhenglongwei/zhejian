@@ -41,6 +41,12 @@ const { markAlbumSeen } = require('../../../utils/album-unread-hint')
 const { fetchAlbumPartVerifyContext } = require('../../../services/album-part-verify')
 const { fetchAlbumReviewContext } = require('../../../services/album-review')
 const { buildAlbumFlipPages } = require('../../../utils/album-flip-pages')
+const {
+  findWarrantyEvidenceItem,
+  formatWarrantyCommitmentText,
+  normalizeImageEntries,
+  hasWarrantyCommitment,
+} = require('../../../utils/album-evidence-items')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
 const {
   buildSocialDraft,
@@ -381,6 +387,9 @@ Page({
     hasWorkChecklist: false,
     workChecklistCategoryLabel: '',
     workChecklistItems: [],
+    workChecklistCards: [],
+    warrantyText: '',
+    warrantyImages: [],
     reviewNudgeText: REVIEW_NUDGE_TEXT,
   },
 
@@ -630,12 +639,35 @@ Page({
       const workRaw = (detail && detail.workChecklist) || (enriched && enriched.workChecklist) || null
       const workItems = ((workRaw && workRaw.items) || []).map((it) => ({
         ...it,
-        images: (it.images || []).map((img) => ({
-          ...img,
-          url: String((img && (img.url || img.rawUrl || img.src)) || '').trim(),
-        })).filter((img) => img.url),
+        images: (it.images || [])
+          .map((img) => ({
+            ...img,
+            url: String((img && (img.url || img.rawUrl || img.src)) || '').trim(),
+          }))
+          .filter((img) => img.url),
       }))
-      const hasWorkChecklist = workItems.length > 0
+      const workCards = ((workRaw && workRaw.cards) || []).map((card) => ({
+        ...card,
+        sections: ((card && card.sections) || []).map((section) => ({
+          ...section,
+          stageGroups: ((section && section.stageGroups) || []).map((stage) => ({
+            ...stage,
+            images: ((stage && stage.images) || [])
+              .map((img) => ({
+                ...img,
+                url: String((img && (img.url || img.rawUrl || img.src)) || '').trim(),
+              }))
+              .filter((img) => img.url),
+          })),
+        })),
+      }))
+      const warrantyItem = findWarrantyEvidenceItem(
+        (enriched && enriched.evidenceItems) || (detail && detail.evidenceItems) || [],
+      )
+      const warrantyText = formatWarrantyCommitmentText(warrantyItem || {})
+      const warrantyImages = normalizeImageEntries((warrantyItem && warrantyItem.images) || [])
+      const hasWarranty = hasWarrantyCommitment(warrantyItem || {})
+      const hasWorkChecklist = workCards.length > 0 || workItems.length > 0 || hasWarranty
       const viewMode = hasWorkChecklist ? 'checklist' : 'flip'
 
       this.setData({
@@ -679,6 +711,9 @@ Page({
         hasWorkChecklist,
         workChecklistCategoryLabel: (workRaw && workRaw.categoryLabel) || '',
         workChecklistItems: workItems,
+        workChecklistCards: workCards,
+        warrantyText,
+        warrantyImages,
         ...endPageAuth,
         ...inviteUiFieldsFromDetail(enriched),
       }, () => {

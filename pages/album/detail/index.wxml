@@ -59,8 +59,10 @@
         >
           <album-work-checklist
             categoryLabel="{{workChecklistCategoryLabel}}"
+            cards="{{workChecklistCards}}"
             items="{{workChecklistItems}}"
-            bind:openflip="onWorkChecklistOpenFlip"
+            warrantyText="{{warrantyText}}"
+            warrantyImages="{{warrantyImages}}"
           />
           <view class="album-detail__checklist-spacer" style="height: {{toolbarBottomPadPx + 72}}px;" />
         </scroll-view>
