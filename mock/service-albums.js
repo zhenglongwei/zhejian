@@ -1496,6 +1496,8 @@ async function mockSwitchMerchantServiceAlbumTemplate(albumId, templateId) {
     ...raw,
     templateId,
     templateName: option.name,
+    // 与线上一致：切换模板后封面服务名跟新类目标准名
+    serviceName: option.name,
     updatedAt: now,
     nodes: (raw.nodes || buildEmptyStageNodes()).map((node, index) => ({
       ...node,

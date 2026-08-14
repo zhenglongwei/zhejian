@@ -173,6 +173,58 @@ function resolveActiveStageNote(detail, activeNodeId, flipPages, pageIndex) {
   return ''
 }
 
+/** 无软清单时：按节点过程图做简易阅读卡（非全屏翻页） */
+function buildLegacyProcessCards(nodes = []) {
+  return (nodes || [])
+    .map((node) => {
+      const stageId = String((node && (node.id || node.nodeId)) || '').trim()
+      const title = String((node && node.title) || '').trim() || stageId || '过程'
+      const images = ((node && node.images) || [])
+        .map((img) => {
+          if (typeof img === 'string') {
+            const url = img.trim()
+            return url ? { url, caption: '' } : null
+          }
+          const url = String((img && (img.url || img.rawUrl || img.src)) || '').trim()
+          if (!url) return null
+          return {
+            url,
+            caption: String((img && img.caption) || '').trim(),
+          }
+        })
+        .filter(Boolean)
+      const note = String((node && node.note) || '').trim()
+      if (!images.length && !note) return null
+      return {
+        cardKey: stageId || title,
+        title,
+        deferredByOwner: false,
+        sections: [
+          {
+            itemKey: stageId || title,
+            label: title,
+            outcome: '',
+            outcomeLabel: '',
+            note,
+            deferNote: '',
+            deferredByOwner: false,
+            followUpLabel: '',
+            stageGroups: images.length
+              ? [
+                  {
+                    stageId: stageId || 'process',
+                    stageTitle: title,
+                    images,
+                  },
+                ]
+              : [],
+          },
+        ],
+      }
+    })
+    .filter(Boolean)
+}
+
 function buildNodeNoteMap(nodes) {
   const map = {}
   ;(nodes || []).forEach((node) => {
@@ -383,7 +435,7 @@ Page({
     hasOwnerReview: false,
     showReviewNudge: false,
     reviewDockLabel: REVIEW_DOCK_LABEL,
-    viewMode: 'flip',
+    viewMode: 'checklist',
     hasWorkChecklist: false,
     workChecklistCategoryLabel: '',
     workChecklistItems: [],
@@ -667,8 +719,12 @@ Page({
       const warrantyText = formatWarrantyCommitmentText(warrantyItem || {})
       const warrantyImages = normalizeImageEntries((warrantyItem && warrantyItem.images) || [])
       const hasWarranty = hasWarrantyCommitment(warrantyItem || {})
-      const hasWorkChecklist = workCards.length > 0 || workItems.length > 0 || hasWarranty
-      const viewMode = hasWorkChecklist ? 'checklist' : 'flip'
+      const legacyCards =
+        workCards.length > 0 ? [] : buildLegacyProcessCards((enriched && enriched.nodes) || [])
+      const displayCards = workCards.length > 0 ? workCards : legacyCards
+      const hasWorkChecklist =
+        displayCards.length > 0 || workItems.length > 0 || hasWarranty
+      const viewMode = 'checklist'
 
       this.setData({
         detail: enriched,
@@ -705,23 +761,19 @@ Page({
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
-        chromeVisible: pageStatus === 'normal' && viewMode === 'flip',
+        chromeVisible: false,
         showInspectEntry: pageStatus === 'normal',
         viewMode,
         hasWorkChecklist,
         workChecklistCategoryLabel: (workRaw && workRaw.categoryLabel) || '',
         workChecklistItems: workItems,
-        workChecklistCards: workCards,
+        workChecklistCards: displayCards,
         warrantyText,
         warrantyImages,
         ...endPageAuth,
         ...inviteUiFieldsFromDetail(enriched),
       }, () => {
-        const total = flip.pages.length + (flip.pages.length > 0 ? 1 : 0)
-        const activeId = (flip.chapters[0] && flip.chapters[0].nodeId) || ''
-        this.syncPageDisplay(0, total)
-        this.syncStageProgress(flip.chapters, activeId, 0, enriched)
-        this.scheduleViewerLayout()
+        this.setData({ toolbarBottomPadPx: resolveToolbarBottomPadPx() })
       })
 
       if (linkedStoreId) {
@@ -961,48 +1013,15 @@ Page({
     this.openAuthorizePreview()
   },
 
-  enterFlipMode(pageIndex = 0) {
-    const total = this.data.flipPages.length + (this.data.flipPages.length > 0 ? 1 : 0)
-    const idx = Math.max(0, Math.min(Number(pageIndex) || 0, Math.max(total - 1, 0)))
-    this.setData(
-      {
-        viewMode: 'flip',
-        chromeVisible: true,
-        pageIndex: idx,
-      },
-      () => {
-        this.syncPageDisplay(idx, total)
-        this.scheduleViewerLayout()
-      },
-    )
+  enterFlipMode() {
+    // 全屏翻页已下线；保留空实现以免旧调用报错
   },
 
-  onEnterFlipFromChecklist() {
-    this.enterFlipMode(0)
-  },
+  onEnterFlipFromChecklist() {},
 
-  onBackToWorkChecklist() {
-    if (!this.data.hasWorkChecklist) return
-    this.setData({
-      viewMode: 'checklist',
-      chromeVisible: false,
-      isEndPage: false,
-    })
-  },
+  onBackToWorkChecklist() {},
 
-  onWorkChecklistOpenFlip(e) {
-    const url = String((e.detail && e.detail.url) || '').trim()
-    const pages = this.data.flipPages || []
-    let index = 0
-    if (url) {
-      const found = pages.findIndex((p) => {
-        const src = String((p && (p.imageUrl || p.src || p.url)) || '').trim()
-        return src && (src === url || src.indexOf(url) >= 0 || url.indexOf(src) >= 0)
-      })
-      if (found >= 0) index = found
-    }
-    this.enterFlipMode(index)
-  },
+  onWorkChecklistOpenFlip() {},
 
   onPageChange(e) {
     const { index, page, total } = e.detail || {}

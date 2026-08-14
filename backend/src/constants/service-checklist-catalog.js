@@ -5,7 +5,17 @@
 const { CATALOG_VERSION, CATEGORIES } = require('./service-checklist-catalog-data')
 const { getWorkFollowUps } = require('./service-checklist-work-followups')
 
-const CHASSIS_KEYWORDS = ['异响', '胶套', '摆臂', '球头', '底盘异响', '减震', '连杆']
+const CHASSIS_KEYWORDS = [
+  '异响',
+  '胶套',
+  '摆臂',
+  '球头',
+  '底盘异响',
+  '减震',
+  '连杆',
+  '底盘维修',
+  '底盘',
+]
 
 function listCategoryIds() {
   return Object.keys(CATEGORIES)

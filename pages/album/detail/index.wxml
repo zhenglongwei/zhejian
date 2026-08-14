@@ -1,24 +1,8 @@
-<view class="album-detail page {{detail ? (viewMode === 'checklist' ? 'bg-album album-detail--checklist' : 'album-detail--immersive') : 'bg-album'}}">
+<view class="album-detail page {{detail ? 'bg-album album-detail--checklist' : 'bg-album'}}">
   <block wx:if="{{status === 'loading'}}">
-    <view class="album-detail__shell">
-      <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
-        <album-frame-viewer
-          class="album-detail__viewer"
-          immersive="{{true}}"
-          host-height="{{viewerHeightPx}}"
-          loading="{{true}}"
-          pages="{{[]}}"
-        />
-      </view>
-      <view class="album-detail__top-chrome">
-        <tool-immersive-nav
-          overlay="{{true}}"
-          transparent="{{true}}"
-          tone="light"
-          title=""
-          statusBarPlaceholder="{{false}}"
-        />
-      </view>
+    <tool-immersive-nav title="服务相册" />
+    <view class="album-detail__empty-wrap">
+      <ui-empty theme="album" title="加载中" description="正在打开服务相册…" />
     </view>
   </block>
 
@@ -49,43 +33,42 @@
   </block>
 
   <block wx:elif="{{detail}}">
-    <view class="album-detail__shell {{viewMode === 'checklist' ? 'album-detail__shell--checklist' : ''}}">
-      <block wx:if="{{viewMode === 'checklist'}}">
-        <tool-immersive-nav title="服务相册" />
-        <scroll-view
-          scroll-y
-          class="album-detail__checklist-scroll"
-          show-scrollbar="{{false}}"
-        >
-          <album-work-checklist
-            categoryLabel="{{workChecklistCategoryLabel}}"
-            cards="{{workChecklistCards}}"
-            items="{{workChecklistItems}}"
-            warrantyText="{{warrantyText}}"
-            warrantyImages="{{warrantyImages}}"
-          />
-          <view class="album-detail__checklist-spacer" style="height: {{toolbarBottomPadPx + 72}}px;" />
-        </scroll-view>
-        <view class="album-detail__checklist-bar safe-bottom">
-          <ui-button type="secondary" block bind:btntap="onEnterFlipFromChecklist">翻页详看</ui-button>
-        </view>
-      </block>
-
-      <block wx:else>
-      <view class="album-detail__viewport" style="height: {{viewerHeightPx}}px;">
-        <album-frame-viewer
-          id="albumViewer"
-          class="album-detail__viewer"
-          immersive="{{true}}"
-          host-height="{{viewerHeightPx}}"
-          show-immersive-caption="{{false}}"
-          pages="{{flipPages}}"
-          current="{{pageIndex}}"
-          bind:pagechange="onPageChange"
-          bind:togglechrome="onToggleChrome"
-        >
+    <view class="album-detail__shell album-detail__shell--checklist">
+      <tool-immersive-nav title="服务相册" />
+      <scroll-view
+        scroll-y
+        class="album-detail__checklist-scroll"
+        show-scrollbar="{{false}}"
+      >
+        <album-work-checklist
+          categoryLabel="{{workChecklistCategoryLabel}}"
+          cards="{{workChecklistCards}}"
+          items="{{workChecklistItems}}"
+          warrantyText="{{warrantyText}}"
+          warrantyImages="{{warrantyImages}}"
+        />
+        <view class="album-detail__read-footer">
+          <view
+            wx:if="{{showShareButton || showInspectEntry || showPartsEntry}}"
+            class="album-detail__read-links"
+          >
+            <text
+              wx:if="{{showShareButton}}"
+              class="text-caption text-link album-detail__read-link"
+              bindtap="onOpenShareSheet"
+            >分享</text>
+            <text
+              wx:if="{{showInspectEntry}}"
+              class="text-caption text-link album-detail__read-link"
+              bindtap="onOpenInspect"
+            >检查与档案</text>
+            <text
+              wx:if="{{showPartsEntry}}"
+              class="text-caption text-link album-detail__read-link"
+              bindtap="onOpenPartVerify"
+            >配件验真</text>
+          </view>
           <album-end-page
-            slot="endPage"
             album-id="{{albumId}}"
             album-title="{{detail.serviceName || ''}}"
             invite-pitch="{{endPageInvitePitch}}"
@@ -101,82 +84,17 @@
             gate-actions="{{endPageGateActions}}"
             show-feedback="{{pendingOwnerReview || hasOwnerReview}}"
             pending-owner-review="{{pendingOwnerReview}}"
-            show-contact="{{false}}"
+            show-contact="{{true}}"
             show-store-browse="{{false}}"
             bind:preview="onEndPagePreview"
             bind:withdraw="onEndPageWithdraw"
             bind:feedback="onEndPageFeedback"
             bind:gateaction="onEndPageGateAction"
+            bind:contact="onContactStore"
           />
-        </album-frame-viewer>
-      </view>
-
-      <view
-        wx:if="{{stageProgress.length && !isEndPage}}"
-        class="album-detail__dock"
-        style="padding-bottom: {{toolbarBottomPadPx}}px;"
-      >
-        <view class="album-detail__dock-panel">
-          <view class="album-detail__dock-head">
-            <view class="album-detail__dock-copy">
-              <text wx:if="{{activeStageTitle}}" class="album-detail__dock-title">{{activeStageTitle}}</text>
-              <view wx:if="{{activeStageNote}}" class="album-detail__dock-note-box">
-                <text class="album-detail__dock-note" selectable>{{activeStageNote}}</text>
-              </view>
-            </view>
-            <view class="album-detail__dock-actions">
-              <view
-                wx:if="{{hasWorkChecklist}}"
-                class="album-detail__dock-action"
-                hover-class="album-detail__dock-action--hover"
-                catchtap="onBackToWorkChecklist"
-                aria-role="button"
-                aria-label="返回清单"
-              >
-                <text class="album-detail__dock-action-text text-caption">清单</text>
-              </view>
-              <view
-                wx:if="{{showInspectEntry}}"
-                class="album-detail__dock-action"
-                hover-class="album-detail__dock-action--hover"
-                catchtap="onOpenInspect"
-                aria-role="button"
-                aria-label="检查与档案"
-              >
-                <text class="album-detail__dock-action-text text-caption">检查</text>
-              </view>
-              <view
-                wx:if="{{showPartsEntry}}"
-                class="album-detail__dock-action"
-                hover-class="album-detail__dock-action--hover"
-                catchtap="onOpenPartVerify"
-                aria-role="button"
-                aria-label="配件验真"
-              >
-                <text class="album-detail__dock-action-text text-caption">配件验真</text>
-              </view>
-            </view>
-          </view>
         </view>
-      </view>
-
-      <view wx:if="{{chromeVisible && !isEndPage}}" class="album-detail__top-chrome">
-        <tool-immersive-nav
-          overlay="{{true}}"
-          transparent="{{true}}"
-          tone="{{navTone}}"
-          title=""
-          statusBarPlaceholder="{{false}}"
-        />
-        <view
-          wx:if="{{progressPercent > 0}}"
-          class="album-detail__read-progress"
-          style="top: {{navSafeTopPx}}px;"
-        >
-          <view class="album-detail__read-progress-fill" style="width: {{progressPercent}}%;" />
-        </view>
-      </view>
-      </block>
+        <view class="album-detail__checklist-spacer" style="height: {{toolbarBottomPadPx + 24}}px;" />
+      </scroll-view>
     </view>
   </block>
 
