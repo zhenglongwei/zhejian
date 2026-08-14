@@ -428,8 +428,6 @@ Page({
     nodeNoteMap: {},
     navSafeTopPx: 0,
     toolbarBottomPadPx: 0,
-    showInspectEntry: false,
-    showPartsEntry: false,
     showEvaluateEntry: false,
     pendingOwnerReview: false,
     hasOwnerReview: false,
@@ -669,7 +667,6 @@ Page({
       const linkedStoreSubtitle = detail.serviceName || enriched.serviceName || ''
       const showStoreBrowse = Boolean(linkedStoreId)
 
-      let showPartsEntry = false
       let pendingOwnerReview = false
       let hasOwnerReview = false
       if (checkAuth().ok) {
@@ -684,7 +681,7 @@ Page({
           // ignore
         }
       }
-      // 过程页底栏不再放「评价」与阶段翻页条；评价仅尾页 album-end-page 入口
+      // 评价仅页底 album-end-page 入口
       const showEvaluateEntry = false
       const showReviewNudge = false
 
@@ -732,7 +729,6 @@ Page({
         flipChapters: flip.chapters,
         nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
         storePhone,
-        showPartsEntry,
         showEvaluateEntry,
         pendingOwnerReview,
         hasOwnerReview,
@@ -762,7 +758,6 @@ Page({
         shareToken: '',
         shareSheetVisible: false,
         chromeVisible: false,
-        showInspectEntry: pageStatus === 'normal',
         viewMode,
         hasWorkChecklist,
         workChecklistCategoryLabel: (workRaw && workRaw.categoryLabel) || '',

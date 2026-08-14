@@ -48,26 +48,6 @@
           warrantyImages="{{warrantyImages}}"
         />
         <view class="album-detail__read-footer">
-          <view
-            wx:if="{{showShareButton || showInspectEntry || showPartsEntry}}"
-            class="album-detail__read-links"
-          >
-            <text
-              wx:if="{{showShareButton}}"
-              class="text-caption text-link album-detail__read-link"
-              bindtap="onOpenShareSheet"
-            >分享</text>
-            <text
-              wx:if="{{showInspectEntry}}"
-              class="text-caption text-link album-detail__read-link"
-              bindtap="onOpenInspect"
-            >检查与档案</text>
-            <text
-              wx:if="{{showPartsEntry}}"
-              class="text-caption text-link album-detail__read-link"
-              bindtap="onOpenPartVerify"
-            >配件验真</text>
-          </view>
           <album-end-page
             album-id="{{albumId}}"
             album-title="{{detail.serviceName || ''}}"

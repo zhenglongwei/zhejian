@@ -21,13 +21,6 @@
 
     <view class="album-end-page__actions">
       <ui-button
-        wx:if="{{showFeedback && pendingOwnerReview}}"
-        type="primary"
-        block
-        bind:btntap="onFeedbackTap"
-      >{{resolvedFeedbackLabel}}</ui-button>
-
-      <ui-button
         wx:for="{{gateActions}}"
         wx:key="key"
         type="secondary"
@@ -63,19 +56,23 @@
         bind:btntap="onStoreBrowseTap"
       >{{storeBrowseLabel}}</ui-button>
 
-      <ui-button
-        wx:if="{{showContact}}"
-        type="secondary"
-        block
-        bind:btntap="onContactTap"
-      >{{contactLabel}}</ui-button>
-
-      <ui-button
-        wx:if="{{showFeedback && !pendingOwnerReview}}"
-        type="secondary"
-        block
-        bind:btntap="onFeedbackTap"
-      >{{resolvedFeedbackLabel}}</ui-button>
+      <view
+        wx:if="{{showFeedback || showContact}}"
+        class="album-end-page__actions-row"
+      >
+        <ui-button
+          wx:if="{{showFeedback}}"
+          type="{{pendingOwnerReview ? 'primary' : 'secondary'}}"
+          ext-class="album-end-page__pair-btn"
+          bind:btntap="onFeedbackTap"
+        >{{resolvedFeedbackLabel}}</ui-button>
+        <ui-button
+          wx:if="{{showContact}}"
+          type="secondary"
+          ext-class="album-end-page__pair-btn"
+          bind:btntap="onContactTap"
+        >{{contactLabel}}</ui-button>
+      </view>
     </view>
   </view>
 </view>

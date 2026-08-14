@@ -60,10 +60,10 @@ const SHARE_COLUMN_PUBLISH_LABEL = '分享脱敏案例给同城车友'
 const PREVIEW_LABEL = '预览脱敏案例'
 /** @deprecated 兼容旧引用；未评态请用 FEEDBACK_LABEL_PENDING */
 const FEEDBACK_LABEL = '评价与反馈'
-const FEEDBACK_LABEL_PENDING = '说说这次维修体验'
+const FEEDBACK_LABEL_PENDING = '评价'
 const FEEDBACK_LABEL_DONE = '查看评价'
 const REVIEW_DOCK_LABEL = '评价'
-const REVIEW_NUDGE_TEXT = '还差一步：说说这次维修体验'
+const REVIEW_NUDGE_TEXT = '还差一步：去评价'
 
 function hashSeed(input) {
   const text = String(input || '')

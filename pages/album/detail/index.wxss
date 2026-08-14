@@ -272,18 +272,7 @@
 }
 
 .album-detail__read-footer {
-  padding: 0 var(--space-lg) var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-xl);
   box-sizing: border-box;
-}
-
-.album-detail__read-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-bottom: var(--space-md);
-}
-
-.album-detail__read-link {
-  color: var(--color-primary);
 }
 

@@ -14,11 +14,11 @@
   flex: 1;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
-  padding: var(--space-xl) var(--space-lg);
+  padding: var(--space-xl) var(--space-lg) var(--space-md);
   text-align: center;
 }
 
@@ -29,38 +29,41 @@
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  max-width: 560rpx;
-  margin: 0 auto var(--space-md);
+  max-width: 480rpx;
+  margin: 0 auto var(--space-lg);
 }
 
 .album-end-page__finisher-line {
   flex: 1;
-  max-width: 96rpx;
+  max-width: 72rpx;
   height: 1rpx;
   background: var(--color-album-end-finish);
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .album-end-page__finisher-label {
   flex-shrink: 0;
   color: var(--color-album-end-finish);
-  letter-spacing: 0.16em;
+  letter-spacing: 0.2em;
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
 }
 
 .album-end-page__album-title {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  max-width: 560rpx;
-  margin: 0 auto var(--space-lg);
+  max-width: 480rpx;
+  margin: 0 auto var(--space-xl);
   overflow: hidden;
   text-align: center;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: var(--font-h3);
-  line-height: var(--font-h3-lh);
+  font-size: var(--font-h2);
+  line-height: var(--font-h2-lh);
   font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: 0.02em;
 }
 
 .album-end-page__invite {
@@ -69,7 +72,7 @@
   gap: var(--space-md);
   box-sizing: border-box;
   width: 100%;
-  max-width: 560rpx;
+  max-width: 480rpx;
   margin: 0 auto var(--space-lg);
   padding: var(--space-lg);
   text-align: left;
@@ -118,7 +121,7 @@
   display: block;
   box-sizing: border-box;
   width: 100%;
-  max-width: 560rpx;
+  max-width: 480rpx;
   margin: 0 auto var(--space-md);
   padding: 0 var(--space-sm);
   text-align: center;
@@ -130,8 +133,8 @@
 .album-end-page__actions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  align-items: stretch;
+  gap: var(--space-md);
+  align-items: center;
   box-sizing: border-box;
   width: 100%;
   max-width: 560rpx;
@@ -139,14 +142,36 @@
   align-self: center;
 }
 
-/* 自定义组件宿主默认按内容收缩，不显式拉满时多按钮会靠左 */
-.album-end-page__actions ui-button {
+.album-end-page__actions-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--space-md);
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 固定等宽，避免 block 按钮把 flex 撑破导致整组偏右 */
+.album-end-page__pair-btn {
+  width: 220rpx !important;
+  min-width: 220rpx;
+  max-width: 220rpx;
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
+  justify-content: center;
+  text-align: center;
+}
+
+.album-end-page__actions > ui-button {
   display: block;
   width: 100%;
   box-sizing: border-box;
 }
 
-.album-end-page__actions .btn--block {
+.album-end-page__actions > .btn--block {
   display: flex;
   width: 100%;
   justify-content: center;
@@ -167,4 +192,3 @@
 .album-end-page__status--tight {
   margin-bottom: 0;
 }
-

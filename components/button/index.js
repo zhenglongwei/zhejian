@@ -1,4 +1,5 @@
 Component({
+  externalClasses: ['ext-class'],
   properties: {
     type: {
       type: String,

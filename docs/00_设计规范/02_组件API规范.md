@@ -37,6 +37,9 @@
 | size | String | default | default / sm |
 | disabled | Boolean | false | |
 | loading | Boolean | false | |
+| block | Boolean | false | 通栏宽度 |
+| ext-class | String | — | externalClasses，由引用方定义附加样式（如并排等宽） |
+| openType | String | '' | 微信 button open-type |
 
 | 事件 | 说明 |
 |---|---|
@@ -467,14 +470,14 @@ Token：`--color-album-frame` / `--color-album-frame-line` / `--color-album-fram
 
 #### AlbumEndPage（`components/album-end-page` · 卷七 UI-ALB）
 
-虚拟 **尾页**：暖底 `--color-album-frame-inner` + 状态提示 + 服务评价等按钮（按状态显隐）。  
-待发布态尾页保持简洁（如「门店已提交，请您确认」+「说说这次维修体验」），**不**叠体验官邀请大卡与「预览脱敏案例」；发布入口在分享面板 / 列表。
+虚拟 **尾页 / 页底收束区**：暖底 `--color-album-frame-inner` +「本册已阅」+ 服务名 + 服务评价等按钮（按状态显隐）。  
+待发布态保持简洁（如状态提示 + 主按钮「评价」），**不**叠体验官邀请大卡与「预览脱敏案例」；发布入口在列表卡 / 分享面板（详情页底不放分享链）。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | showPreview | Boolean | false | 预览脱敏案例 / 发布入口（待发布默认关闭；需修改等态可开） |
 | showFeedback | Boolean | true | 是否展示服务评价入口 |
-| pendingOwnerReview | Boolean | false | 案例审通过且未评：评价为主按钮「说说这次维修体验」；已评为次按钮「查看评价」 |
+| pendingOwnerReview | Boolean | false | 完工未评：评价为主按钮「评价」；已评为次按钮「查看评价」 |
 | showWithdraw | Boolean | false | 一键下架 |
 | showContact / showStoreBrowse | Boolean | false | 联系门店 / 门店主页 |
 | gateActions | Array | `[]` | 闸门操作按钮 |
