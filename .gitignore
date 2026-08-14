@@ -30,3 +30,8 @@ backend/prisma/*.db
 
 # Cursor
 .cursor/
+
+# 市场宣传 / 对外文案物料（本地保留，不同步 GitHub）
+docs/13_市场物料/
+docs/09_SEO_GEO_AI内容基础设施/articles/
+docs/09_SEO_GEO_AI内容基础设施/assets/
