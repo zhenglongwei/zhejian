@@ -4,43 +4,33 @@
     <text wx:if="{{categoryLabel}}" class="text-caption text-secondary">{{categoryLabel}}</text>
   </view>
   <text class="text-caption text-secondary album-work-checklist__hint">
-    展示门店已留证的检查项与结果。相关步骤会合在一张卡里；图按接车 / 检测 / 施工分段，便于对比。点图可全屏查看。
+    按检查项阅读：类目为分段标题；相关检测与施工合在一张卡。结果只在项上出现一次。点图可全屏查看。
   </text>
 
-  <view
-    wx:for="{{displayCards}}"
-    wx:key="cardKey"
-    class="album-work-checklist__card {{item.deferredByOwner ? 'is-deferred' : ''}}"
-  >
-    <text class="text-body album-work-checklist__card-title">{{item.title}}</text>
+  <block wx:for="{{displayCards}}" wx:key="cardKey">
+    <view wx:if="{{item.showGroupHeader}}" class="album-work-checklist__group">
+      <text class="text-caption album-work-checklist__group-label">{{item.groupLabel}}</text>
+    </view>
 
-    <view
-      wx:for="{{item.sections}}"
-      wx:for-item="section"
-      wx:key="itemKey"
-      class="album-work-checklist__section"
-    >
+    <view class="album-work-checklist__card {{item.deferredByOwner ? 'is-deferred' : ''}}">
+      <text class="text-body album-work-checklist__card-title">{{item.title}}</text>
       <text
-        wx:if="{{item.sections.length > 1 || section.label !== item.title}}"
-        class="text-caption album-work-checklist__section-label"
-      >{{section.label}}</text>
+        wx:if="{{item.followUpLabel || item.outcomeLabel}}"
+        class="text-caption album-work-checklist__outcome {{item.outcome === 'not_replaced' || item.deferredByOwner ? 'is-warn' : ''}} {{item.outcome === 'normal' ? 'is-ok' : ''}}"
+      >{{item.followUpLabel || item.outcomeLabel}}</text>
       <text
-        wx:if="{{section.followUpLabel || section.outcomeLabel}}"
-        class="text-caption album-work-checklist__outcome {{section.outcome === 'not_replaced' || section.deferredByOwner ? 'is-warn' : ''}} {{section.outcome === 'normal' ? 'is-ok' : ''}}"
-      >{{section.followUpLabel || section.outcomeLabel}}</text>
-      <text
-        wx:if="{{section.deferNote && section.deferredByOwner && !section.followUpLabel}}"
+        wx:if="{{item.deferNote && item.deferredByOwner && !item.followUpLabel}}"
         class="text-caption album-work-checklist__defer"
-      >{{section.deferNote}}</text>
-      <text wx:if="{{section.note}}" class="text-caption album-work-checklist__note" selectable>{{section.note}}</text>
+      >{{item.deferNote}}</text>
+      <text wx:if="{{item.note}}" class="text-caption album-work-checklist__note" selectable>{{item.note}}</text>
 
       <view
-        wx:for="{{section.stageGroups}}"
+        wx:for="{{item.stageGroups}}"
         wx:for-item="stage"
         wx:key="stageId"
         class="album-work-checklist__stage"
       >
-        <view class="album-work-checklist__stage-head">
+        <view wx:if="{{item.showStageTitles}}" class="album-work-checklist__stage-head">
           <view class="album-work-checklist__stage-bar" />
           <text class="text-caption album-work-checklist__stage-title">{{stage.stageTitle}}</text>
         </view>
@@ -60,7 +50,7 @@
         </view>
       </view>
     </view>
-  </view>
+  </block>
 
   <view wx:if="{{showWarranty}}" class="album-work-checklist__card album-work-checklist__warranty">
     <text class="text-body album-work-checklist__card-title">质保承诺</text>

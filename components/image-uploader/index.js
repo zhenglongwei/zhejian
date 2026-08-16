@@ -65,11 +65,21 @@ Component({
     },
     /**
      * 图下快捷说明标签（如：正常 / 建议更换）
-     * 点击后写入 caption 并展开输入框，可继续补充
+     * tagsWriteOutcomeOnly=true 时只作结果选择，不写入 caption
      */
     captionQuickTags: {
       type: Array,
       value: [],
+    },
+    /** 当前检查项结果标签文案（用于高亮；由清单编辑器传入） */
+    outcomeTag: {
+      type: String,
+      value: '',
+    },
+    /** true：快捷标签只改结果，不写入图注（清单编辑默认） */
+    tagsWriteOutcomeOnly: {
+      type: Boolean,
+      value: false,
     },
     /** 一图一行（检查项编辑） */
     stackLayout: {
@@ -100,6 +110,10 @@ Component({
     },
     images() {
       // 输入中勿用父级 images 回写整表，否则 textarea 失焦
+      if (this._captionEditingIndex >= 0) return
+      this.syncDisplayList()
+    },
+    outcomeTag() {
       if (this._captionEditingIndex >= 0) return
       this.syncDisplayList()
     },
@@ -163,9 +177,28 @@ Component({
       if (!c) return `${label}；`
       return `${label}；${c}`
     },
-    resolveActiveTag(caption) {
-      const c = String(caption || '').trim()
+    stripOutcomeTagFromCaption(caption) {
+      const labels = this.tagLabels()
+      let c = String(caption || '').trim()
       if (!c) return ''
+      for (let i = 0; i < labels.length; i += 1) {
+        const t = labels[i]
+        if (c === t || c === `${t}；` || c === `${t};`) return ''
+        if (c.startsWith(`${t}；`) || c.startsWith(`${t};`) || c.startsWith(`${t}：`) || c.startsWith(`${t}:`)) {
+          return c.slice(t.length + 1).replace(/^[；;：:\s]+/, '').trim()
+        }
+        if (c.startsWith(t)) {
+          return c.slice(t.length).replace(/^[；;：:\s]+/, '').trim()
+        }
+      }
+      return c
+    },
+    resolveActiveTag(caption) {
+      const outcomeOnly = Boolean(this.properties.tagsWriteOutcomeOnly)
+      const external = String(this.properties.outcomeTag || '').trim()
+      if (outcomeOnly && external) return external
+      const c = String(caption || '').trim()
+      if (!c) return outcomeOnly ? '' : ''
       const labels = this.tagLabels()
       for (let i = 0; i < labels.length; i += 1) {
         const t = labels[i]
@@ -181,7 +214,8 @@ Component({
           return t
         }
       }
-      return '自定义'
+      if (outcomeOnly && !external) return c ? '自定义' : ''
+      return c ? '自定义' : ''
     },
     decorateDisplayItem(item, old) {
       const caption = String((item && item.caption) || '').trim()
@@ -309,8 +343,50 @@ Component({
       const tag = String(label || '').trim()
       if (!tag) return
       const isCustom = tag === '自定义'
+      const outcomeOnly = Boolean(this.properties.tagsWriteOutcomeOnly)
       this.clearCaptionDraft(imgIndex)
       this._captionEditingIndex = -1
+
+      if (outcomeOnly) {
+        // 结果标签不写图注；若图注整句是旧标签则剥掉
+        let captionChanged = false
+        const list = (this.data.displayList || []).map((item, i) => {
+          if (i !== imgIndex) return { ...item, focusCaption: false }
+          const baseCaption = this.captionOf(item, i)
+          if (isCustom) {
+            const next = {
+              ...item,
+              caption: item.activeTag === '自定义' ? baseCaption : this.stripOutcomeTagFromCaption(baseCaption),
+              showCaption: true,
+              focusCaption: true,
+              activeTag: '自定义',
+            }
+            if (next.caption !== baseCaption) captionChanged = true
+            return next
+          }
+          const stripped = this.stripOutcomeTagFromCaption(baseCaption)
+          if (stripped !== baseCaption) captionChanged = true
+          const next = {
+            ...item,
+            caption: stripped,
+            // 再点同一标签：展开说明框补人话，不改结果
+            showCaption: item.activeTag === tag ? true : Boolean(stripped),
+            focusCaption: item.activeTag === tag,
+            activeTag: tag,
+          }
+          return next
+        })
+        this.setData({ displayList: list })
+        this.triggerEvent('quicktag', { index: imgIndex, label: isCustom ? '' : tag })
+        if (captionChanged) this.emitChange(list)
+        setTimeout(() => {
+          const cur = this.data.displayList || []
+          if (!cur[imgIndex] || !cur[imgIndex].focusCaption) return
+          this.setData({ displayList: this.clearCaptionFocusFlags(cur) })
+        }, 200)
+        return
+      }
+
       const list = (this.data.displayList || []).map((item, i) => {
         if (i !== imgIndex) return { ...item, focusCaption: false }
         const baseCaption = this.captionOf(item, i)

@@ -978,7 +978,10 @@ Page({
       return next
     })
     const items = this.applyWorkFollowUpUnlock(recomputed)
-    const workQueueItems = items.filter((it) => this.isConstructionQueueItem(it))
+    const workQueueItems = this.sortWorkQueueByFamily(
+      items.filter((it) => this.isConstructionQueueItem(it)),
+      items,
+    )
     const followUpItems = items.filter((it) => it.inFollowUp)
     const listable = (it, stageId) => !it.workOnly && it.suggestStageId === stageId
     const stageItems = {
@@ -1025,6 +1028,30 @@ Page({
     return true
   },
 
+  /** 同一父项解锁的衍生项成组连续排列 */
+  sortWorkQueueByFamily(queueItems = [], catalogOrderedItems = []) {
+    const byKey = new Map((queueItems || []).map((it) => [it.itemKey, it]))
+    const emitted = new Set()
+    const out = []
+    const emit = (key) => {
+      const k = String(key || '').trim()
+      if (!k || emitted.has(k) || !byKey.has(k)) return
+      out.push(byKey.get(k))
+      emitted.add(k)
+    }
+    ;(catalogOrderedItems || []).forEach((it) => {
+      const kids = Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys : []
+      if (kids.length) {
+        kids.forEach((k) => emit(k))
+        emit(it.itemKey)
+        return
+      }
+      emit(it.itemKey)
+    })
+    ;(queueItems || []).forEach((it) => emit(it.itemKey))
+    return out
+  },
+
   applyWorkFollowUpUnlock(items) {
     const list = (items || []).map((it) => ({
       ...it,
@@ -1064,7 +1091,10 @@ Page({
   syncChecklistLocalItems(mapper) {
     const checklist = this.data.checklist || { items: [] }
     const items = this.applyWorkFollowUpUnlock((checklist.items || []).map(mapper))
-    const workQueueItems = items.filter((it) => this.isConstructionQueueItem(it))
+    const workQueueItems = this.sortWorkQueueByFamily(
+      items.filter((it) => this.isConstructionQueueItem(it)),
+      items,
+    )
     const followUpItems = items.filter((it) => it.inFollowUp)
     const listable = (it, stageId) => !it.workOnly && it.suggestStageId === stageId
     const stageItems = {

@@ -55,10 +55,13 @@
           enable-caption="{{true}}"
           caption-placeholder="补充说明（选填）"
           caption-quick-tags="{{mode === 'work' ? workQuickTags : stageQuickTags}}"
+          tags-write-outcome-only="{{true}}"
+          outcome-tag="{{item.outcomeTag}}"
           stamp-checklist-item-key="{{item.itemKey}}"
           stack-layout="{{true}}"
           data-item-key="{{item.itemKey}}"
           bind:change="onImagesChange"
+          bind:quicktag="onQuickTag"
         />
         <view class="readonly-imgs" wx:else>
           <block wx:for="{{item.displayImages}}" wx:for-item="img" wx:key="url">

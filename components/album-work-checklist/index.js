@@ -29,10 +29,17 @@ Component({
     noop() {},
     rebuild() {
       const incoming = Array.isArray(this.properties.cards) ? this.properties.cards : []
-      let displayCards = incoming
+      let displayCards = incoming.map((card) => this.normalizeCard(card)).filter(Boolean)
       if (!displayCards.length && Array.isArray(this.properties.items) && this.properties.items.length) {
-        displayCards = this.properties.items.map((it) => this.legacyItemToCard(it))
+        displayCards = this.properties.items.map((it) => this.legacyItemToCard(it)).filter(Boolean)
       }
+      let prevGroup = ''
+      displayCards = displayCards.map((card) => {
+        const groupLabel = String(card.groupLabel || '').trim()
+        const showGroupHeader = Boolean(groupLabel && groupLabel !== prevGroup)
+        if (groupLabel) prevGroup = groupLabel
+        return { ...card, showGroupHeader }
+      })
       const displayWarrantyText = String(this.properties.warrantyText || '').trim()
       const displayWarrantyImages = (this.properties.warrantyImages || [])
         .map((img) => {
@@ -51,6 +58,68 @@ Component({
         displayWarrantyText,
         displayWarrantyImages,
       })
+    },
+    normalizeCard(card) {
+      if (!card) return null
+      // 新扁平结构
+      if (Array.isArray(card.stageGroups)) {
+        return {
+          cardKey: card.cardKey,
+          groupLabel: String(card.groupLabel || '').trim(),
+          title: String(card.title || '').trim() || '本次处理',
+          outcome: card.outcome || '',
+          outcomeLabel: card.outcomeLabel || '',
+          followUpLabel: card.followUpLabel || '',
+          deferNote: card.deferNote || '',
+          deferredByOwner: Boolean(card.deferredByOwner),
+          note: String(card.note || '').trim(),
+          stageGroups: card.stageGroups,
+          showStageTitles:
+            card.showStageTitles != null
+              ? Boolean(card.showStageTitles)
+              : (card.stageGroups || []).length > 1,
+        }
+      }
+      // 旧 sections 结构 → 展平为首节结果 + 合并图
+      const sections = Array.isArray(card.sections) ? card.sections : []
+      if (!sections.length) return null
+      const stageMap = new Map()
+      sections.forEach((section) => {
+        ;(section.stageGroups || []).forEach((stage) => {
+          const id = String((stage && stage.stageId) || '').trim() || 'other'
+          if (!stageMap.has(id)) {
+            stageMap.set(id, {
+              stageId: id,
+              stageTitle: String((stage && stage.stageTitle) || '').trim() || '过程',
+              images: [],
+            })
+          }
+          ;(stage.images || []).forEach((img) => {
+            if (img && img.url) stageMap.get(id).images.push(img)
+          })
+        })
+      })
+      const stageGroups = Array.from(stageMap.values())
+      const primary =
+        sections.find((s) => s.deferredByOwner) ||
+        sections.find((s) => s.outcomeLabel || s.followUpLabel) ||
+        sections[0]
+      const notes = sections
+        .map((s) => String((s && s.note) || '').trim())
+        .filter(Boolean)
+      return {
+        cardKey: card.cardKey,
+        groupLabel: String(card.groupLabel || (primary && primary.group) || '').trim(),
+        title: String(card.title || (primary && primary.label) || '').trim() || '本次处理',
+        outcome: (primary && primary.outcome) || '',
+        outcomeLabel: (primary && primary.outcomeLabel) || '',
+        followUpLabel: (primary && primary.followUpLabel) || '',
+        deferNote: (primary && primary.deferNote) || '',
+        deferredByOwner: sections.some((s) => s.deferredByOwner),
+        note: notes.join('\n'),
+        stageGroups,
+        showStageTitles: stageGroups.length > 1,
+      }
     },
     legacyItemToCard(it) {
       const images = it.images || []
@@ -75,21 +144,16 @@ Component({
       }))
       return {
         cardKey: it.itemKey,
+        groupLabel: String(it.group || '').trim(),
         title: it.label || it.itemKey,
+        outcome: it.outcome || '',
+        outcomeLabel: it.outcomeLabel || '',
+        followUpLabel: it.followUpLabel || '',
+        deferNote: it.deferNote || '',
         deferredByOwner: Boolean(it.deferredByOwner),
-        sections: [
-          {
-            itemKey: it.itemKey,
-            label: it.label,
-            outcome: it.outcome,
-            outcomeLabel: it.outcomeLabel,
-            note: it.note,
-            deferNote: it.deferNote,
-            deferredByOwner: it.deferredByOwner,
-            followUpLabel: it.followUpLabel,
-            stageGroups,
-          },
-        ],
+        note: String(it.note || '').trim(),
+        stageGroups,
+        showStageTitles: stageGroups.length > 1,
       }
     },
     onOpenLightbox(e) {

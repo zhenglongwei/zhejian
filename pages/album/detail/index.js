@@ -695,11 +695,9 @@ Page({
           }))
           .filter((img) => img.url),
       }))
-      const workCards = ((workRaw && workRaw.cards) || []).map((card) => ({
-        ...card,
-        sections: ((card && card.sections) || []).map((section) => ({
-          ...section,
-          stageGroups: ((section && section.stageGroups) || []).map((stage) => ({
+      const workCards = ((workRaw && workRaw.cards) || []).map((card) => {
+        const mapStageGroups = (groups) =>
+          ((groups || []) || []).map((stage) => ({
             ...stage,
             images: ((stage && stage.images) || [])
               .map((img) => ({
@@ -707,9 +705,25 @@ Page({
                 url: String((img && (img.url || img.rawUrl || img.src)) || '').trim(),
               }))
               .filter((img) => img.url),
+          }))
+        if (Array.isArray(card.stageGroups) && card.stageGroups.length) {
+          return {
+            ...card,
+            stageGroups: mapStageGroups(card.stageGroups),
+            sections: ((card && card.sections) || []).map((section) => ({
+              ...section,
+              stageGroups: mapStageGroups(section.stageGroups),
+            })),
+          }
+        }
+        return {
+          ...card,
+          sections: ((card && card.sections) || []).map((section) => ({
+            ...section,
+            stageGroups: mapStageGroups(section.stageGroups),
           })),
-        })),
-      }))
+        }
+      })
       const warrantyItem = findWarrantyEvidenceItem(
         (enriched && enriched.evidenceItems) || (detail && detail.evidenceItems) || [],
       )

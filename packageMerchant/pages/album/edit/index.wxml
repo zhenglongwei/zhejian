@@ -262,6 +262,7 @@
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"
             bind:itemimageschange="onChecklistItemImagesChange"
+            bind:itemoutcome="onChecklistOutcomeChange"
           />
         </block>
 
@@ -274,6 +275,7 @@
             stageId="{{stages[stageIndex].id}}"
             readOnly="{{readOnly}}"
             bind:itemimageschange="onChecklistItemImagesChange"
+            bind:itemoutcome="onChecklistOutcomeChange"
             bind:removework="onChecklistRemoveWork"
           />
         </block>

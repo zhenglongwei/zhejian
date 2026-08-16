@@ -415,7 +415,10 @@ function buildMerchantChecklistView(album, images = []) {
     (it) => it.strength === 'strong' && it.status === 'pending' && !it.workOnly,
   ).length
 
-  const workQueueItems = guidanceItems.filter((it) => isConstructionQueueItem(it))
+  const workQueueItems = sortWorkQueueByFamily(
+    guidanceItems.filter((it) => isConstructionQueueItem(it)),
+    guidanceItems,
+  )
   const followUpItems = guidanceItems.filter((it) => it.inFollowUp)
   // 节点清单：不含施工衍生项（workOnly / stage_5）
   const stageListable = (it, stageId) =>
@@ -454,6 +457,38 @@ const OWNER_STAGE_TITLE = {
   stage_6: '完工',
 }
 
+/** 展示侧视为「无说明」的纯结果标签（兼容旧图注「正常;」） */
+const REDUNDANT_OUTCOME_CAPTIONS = new Set([
+  '正常',
+  '已检查',
+  '仅检查',
+  '建议更换',
+  '已更换',
+  '未更换',
+  '需处理',
+  '已处理',
+  '需处理 / 已处理',
+  '建议更换 · 本次未更换',
+  '择日再约',
+])
+
+function scrubOwnerCaption(caption = '') {
+  const raw = String(caption || '').trim()
+  if (!raw) return ''
+  const normalized = raw.replace(/[；;。.\s]+$/g, '').trim()
+  if (!normalized) return ''
+  if (REDUNDANT_OUTCOME_CAPTIONS.has(normalized)) return ''
+  // 「正常；」或「建议更换：xxx」整句等于标签时已覆盖；标签后仅空白也清空
+  const m = normalized.match(/^(正常|已检查|仅检查|建议更换|已更换|未更换|需处理|已处理)([；;：:].*)?$/)
+  if (m) {
+    const rest = String(m[2] || '')
+      .replace(/^[；;：:\s]+/, '')
+      .trim()
+    if (!rest) return ''
+  }
+  return raw
+}
+
 function groupOwnerImagesByStage(images = []) {
   const buckets = new Map()
   ;(images || []).forEach((img) => {
@@ -468,7 +503,7 @@ function groupOwnerImagesByStage(images = []) {
     }
     buckets.get(stageId).images.push({
       url: img.url,
-      caption: String(img.caption || '').trim(),
+      caption: scrubOwnerCaption(img.caption),
     })
   })
   const ordered = []
@@ -494,7 +529,7 @@ function mapOwnerWorkItem(it) {
     group: it.group,
     outcome: it.outcome,
     outcomeLabel,
-    note: it.note,
+    note: scrubOwnerCaption(it.note),
     images: it.images,
     workFollowUpKeys: Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys : [],
     workOnly: Boolean(it.workOnly),
@@ -508,19 +543,11 @@ function mapOwnerWorkItem(it) {
   }
 }
 
-function buildOwnerReadSection(it) {
-  const mapped = mapOwnerWorkItem(it)
-  return {
-    itemKey: mapped.itemKey,
-    label: mapped.label,
-    outcome: mapped.outcome,
-    outcomeLabel: mapped.outcomeLabel,
-    note: mapped.note,
-    deferNote: mapped.deferNote,
-    deferredByOwner: mapped.deferredByOwner,
-    followUpLabel: mapped.followUpLabel,
-    stageGroups: groupOwnerImagesByStage(mapped.images),
-  }
+function ownerItemHasRealEvidence(mapped) {
+  if (!mapped) return false
+  const hasImg = (mapped.images || []).some((img) => img && img.url)
+  const note = scrubOwnerCaption(mapped.note)
+  return Boolean(hasImg || note)
 }
 
 /**
@@ -588,37 +615,163 @@ function buildOwnerProjectClusters(merchantItems = []) {
   }))
 }
 
+/** 卡标题：检查父项名；多项顿号并列；仅施工衍生时用项名 */
 function resolveOwnerProjectCardTitle(members = []) {
-  const groups = (members || [])
-    .map((m) => String((m && m.group) || '').trim())
-    .filter(Boolean)
-  const unique = Array.from(new Set(groups))
-  if (unique.length === 1) return unique[0]
-  const seed = (members || []).find((m) => !m.workOnly) || (members || [])[0] || {}
-  return String(seed.group || seed.label || seed.itemKey || '').trim() || '本次处理'
+  const list = members || []
+  const parents = list.filter((m) => !m.workOnly)
+  if (parents.length === 1) return String(parents[0].label || parents[0].itemKey || '').trim()
+  if (parents.length > 1) {
+    return parents
+      .map((m) => String(m.label || m.itemKey || '').trim())
+      .filter(Boolean)
+      .join('、')
+  }
+  const seed = list[0] || {}
+  return String(seed.label || seed.group || seed.itemKey || '').trim() || '本次处理'
 }
 
-/** 车主：有图或说明的完整检查项；按服务项目（检查+施工连通族）一项一卡 */
+function resolveOwnerCardGroupLabel(members = []) {
+  const seed = (members || []).find((m) => !m.workOnly) || (members || [])[0] || {}
+  return String(seed.group || '').trim()
+}
+
+const OWNER_OUTCOME_PRIORITY = [
+  'replaced',
+  'repaired_other',
+  'recommend_replace',
+  'not_replaced',
+  'observed',
+  'normal',
+]
+
+function pickOwnerCardOutcome(members = []) {
+  const list = members || []
+  const deferred = list.find((m) => m.deferredByOwner)
+  if (deferred) {
+    return {
+      outcome: deferred.outcome || null,
+      outcomeLabel: deferred.followUpLabel || '择日再约',
+      followUpLabel: deferred.followUpLabel || '择日再约',
+      deferNote: deferred.deferNote || '',
+      deferredByOwner: true,
+    }
+  }
+  let best = null
+  for (let i = 0; i < OWNER_OUTCOME_PRIORITY.length; i += 1) {
+    const code = OWNER_OUTCOME_PRIORITY[i]
+    const hit = list.find((m) => m.outcome === code)
+    if (hit) {
+      best = hit
+      break
+    }
+  }
+  if (!best) best = list.find((m) => m.outcomeLabel) || list[0] || {}
+  return {
+    outcome: best.outcome || null,
+    outcomeLabel: best.outcomeLabel || '',
+    followUpLabel: '',
+    deferNote: '',
+    deferredByOwner: false,
+  }
+}
+
+function mergeOwnerCardNotes(members = []) {
+  const notes = []
+  const seen = new Set()
+  ;(members || []).forEach((m) => {
+    const note = scrubOwnerCaption(m.note)
+    if (!note || seen.has(note)) return
+    seen.add(note)
+    notes.push(note)
+  })
+  return notes.join('\n')
+}
+
+function mergeOwnerCardStageGroups(members = []) {
+  const all = []
+  ;(members || []).forEach((m) => {
+    ;(m.images || []).forEach((img) => {
+      if (img && img.url) all.push(img)
+    })
+  })
+  return groupOwnerImagesByStage(all)
+}
+
+/**
+ * 施工清单：同一父项解锁的衍生项成组连续（按 workFollowUpKeys 顺序）
+ */
+function sortWorkQueueByFamily(queueItems = [], catalogOrderedItems = []) {
+  const byKey = new Map((queueItems || []).map((it) => [it.itemKey, it]))
+  const emitted = new Set()
+  const out = []
+  const emit = (key) => {
+    const k = String(key || '').trim()
+    if (!k || emitted.has(k) || !byKey.has(k)) return
+    out.push(byKey.get(k))
+    emitted.add(k)
+  }
+  ;(catalogOrderedItems || []).forEach((it) => {
+    const kids = Array.isArray(it.workFollowUpKeys) ? it.workFollowUpKeys : []
+    if (kids.length) {
+      kids.forEach((k) => emit(k))
+      emit(it.itemKey)
+      return
+    }
+    emit(it.itemKey)
+  })
+  ;(queueItems || []).forEach((it) => emit(it.itemKey))
+  return out
+}
+
+/** 车主：有图或真人话说明的检查项；父项+衍生合成主题卡；类目作分段 */
 function buildOwnerWorkChecklistView(album, images = []) {
   const merchant = buildMerchantChecklistView(album, images)
   const workItems = merchant.items
-    .filter((it) => (it.images && it.images.length) || String(it.note || '').trim())
     .map(mapOwnerWorkItem)
+    .filter(ownerItemHasRealEvidence)
   const evidencedByKey = new Map(workItems.map((it) => [it.itemKey, it]))
-  const merchantByKey = new Map((merchant.items || []).map((it) => [it.itemKey, it]))
   const cards = []
 
   buildOwnerProjectClusters(merchant.items || []).forEach(({ rootKey, members }) => {
-    const evidencedMembers = members.filter((m) => evidencedByKey.has(m.itemKey))
+    const evidencedMembers = members
+      .map((m) => evidencedByKey.get(m.itemKey))
+      .filter(Boolean)
     if (!evidencedMembers.length) return
-    const sections = evidencedMembers.map((m) =>
-      buildOwnerReadSection(merchantByKey.get(m.itemKey) || m),
-    )
+
+    const stageGroups = mergeOwnerCardStageGroups(evidencedMembers)
+    const note = mergeOwnerCardNotes(evidencedMembers)
+    const outcomeInfo = pickOwnerCardOutcome(evidencedMembers)
+    const hasImg = stageGroups.some((g) => (g.images || []).length)
+    if (!hasImg && !note && !outcomeInfo.outcomeLabel && !outcomeInfo.followUpLabel) return
+
+    const groupLabel = resolveOwnerCardGroupLabel(evidencedMembers)
+    const title = resolveOwnerProjectCardTitle(evidencedMembers)
     cards.push({
       cardKey: rootKey,
-      title: resolveOwnerProjectCardTitle(evidencedMembers),
-      sections,
-      deferredByOwner: sections.some((s) => s.deferredByOwner),
+      groupLabel,
+      title,
+      outcome: outcomeInfo.outcome,
+      outcomeLabel: outcomeInfo.outcomeLabel,
+      followUpLabel: outcomeInfo.followUpLabel,
+      deferNote: outcomeInfo.deferNote,
+      deferredByOwner: outcomeInfo.deferredByOwner,
+      note,
+      stageGroups,
+      showStageTitles: stageGroups.length > 1,
+      // 兼容旧组件：单 section 扁平化
+      sections: [
+        {
+          itemKey: rootKey,
+          label: title,
+          outcome: outcomeInfo.outcome,
+          outcomeLabel: outcomeInfo.outcomeLabel,
+          note,
+          deferNote: outcomeInfo.deferNote,
+          deferredByOwner: outcomeInfo.deferredByOwner,
+          followUpLabel: outcomeInfo.followUpLabel,
+          stageGroups,
+        },
+      ],
     })
   })
 
@@ -683,6 +836,8 @@ module.exports = {
   buildOwnerWorkChecklistView,
   buildOwnerProjectClusters,
   groupOwnerImagesByStage,
+  scrubOwnerCaption,
+  sortWorkQueueByFamily,
   filterChecklistItemsForCase,
   buildCaseFollowUpSummary,
   ensureChecklistOnCreate,

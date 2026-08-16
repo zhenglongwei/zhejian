@@ -5,6 +5,8 @@ const {
   isIntakeArchiveItem,
   groupOwnerImagesByStage,
   buildOwnerProjectClusters,
+  scrubOwnerCaption,
+  sortWorkQueueByFamily,
 } = require('./album-checklist.service')
 
 assert.strictEqual(isIntakeArchiveItem({ group: '接车建档' }), true)
@@ -108,6 +110,9 @@ assert.strictEqual(
   assert.strictEqual(groups[0].images.length, 2)
   assert.strictEqual(groups[1].stageTitle, '施工')
   assert.ok(!groups[0].images[0].nodeTitle)
+  // 纯结果图注展示侧清空
+  assert.strictEqual(groups[0].images[0].caption, '')
+  assert.strictEqual(groups[1].images[0].caption, '')
 }
 
 // 刹车：多检查项共用施工项 → 同一服务项目族
@@ -136,6 +141,32 @@ assert.strictEqual(
   assert.deepStrictEqual(keys, ['new_parts', 'pad_thickness', 'rotor_thickness'].sort())
   const lights = clusters.find((c) => c.members.some((m) => m.itemKey === 'lights'))
   assert.strictEqual(lights.members.length, 1)
+}
+
+assert.strictEqual(scrubOwnerCaption('正常;'), '')
+assert.strictEqual(scrubOwnerCaption('建议更换；'), '')
+assert.strictEqual(scrubOwnerCaption('机油发黑偏稀'), '机油发黑偏稀')
+
+{
+  const sorted = sortWorkQueueByFamily(
+    [
+      { itemKey: 'oil_filter', label: '机滤' },
+      { itemKey: 'engine_oil', label: '新机油' },
+      { itemKey: 'oil_level', label: '液位' },
+      { itemKey: 'other', label: '其他' },
+    ],
+    [
+      {
+        itemKey: 'old_oil',
+        workFollowUpKeys: ['engine_oil', 'oil_filter', 'oil_level'],
+      },
+      { itemKey: 'other', workFollowUpKeys: [] },
+    ],
+  )
+  assert.deepStrictEqual(
+    sorted.map((i) => i.itemKey),
+    ['engine_oil', 'oil_filter', 'oil_level', 'other'],
+  )
 }
 
 console.log('album-checklist.service.test.js OK')
