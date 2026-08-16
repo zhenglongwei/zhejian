@@ -5,7 +5,7 @@
 
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
-const { buildMerchantPlanTag, resolveMerchantPlanTier } = require('./merchant-plan-tier')
+const { buildMerchantPlanTag } = require('./merchant-plan-tier')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
@@ -21,11 +21,10 @@ const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'services', label: '服务方案' },
 ]
 
-/** 主账号 · 页内文字链（不占 Dock 格）；评价已上 Dock */
+/** 主账号 · 页内文字链（不占 Dock 格）；切店在扉页，不重复 */
 const MERCHANT_HUB_MORE_ITEMS = [
   { key: 'storeHome', label: '门店主页' },
   { key: 'staff', label: '账号管理' },
-  { key: 'switchStore', label: '切换门店' },
 ]
 
 function formatSectionBadge(n) {
@@ -34,8 +33,16 @@ function formatSectionBadge(n) {
   return count > 99 ? '99+' : String(count)
 }
 
+function overviewMetricIsPositive(raw) {
+  if (raw === undefined || raw === null || raw === '') return false
+  const n = Number(String(raw).replace(/[^\d.-]/g, ''))
+  if (Number.isFinite(n)) return n > 0
+  return String(raw).trim() !== '0'
+}
+
 function buildMerchantTodoSummary(todos = {}) {
   const pendingLeads = Number(todos.pendingLeads) || 0
+  const pendingUpload = Number(todos.pendingUpload) || 0
   const pendingReviews = Number(todos.pendingReviews) || 0
   const pendingFollowUp = Number(todos.pendingFollowUp) || 0
   const items = []
@@ -44,6 +51,13 @@ function buildMerchantTodoSummary(todos = {}) {
       key: 'leads',
       label: `${pendingLeads} 条咨询待处理`,
       action: 'leads',
+    })
+  }
+  if (pendingUpload > 0) {
+    items.push({
+      key: 'upload',
+      label: `${pendingUpload} 本相册待补留证`,
+      action: 'upload',
     })
   }
   if (pendingReviews > 0) {
@@ -67,16 +81,17 @@ function buildMerchantTodoSummary(todos = {}) {
   }
 }
 
+/** Hero：进行中优先最多 2；无进行中仅最近 1 本 */
 function pickMerchantHubAlbums(list = []) {
   const sorted = (list || [])
     .slice()
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
   if (!sorted.length) return []
-  const heroes = [sorted[0]]
-  if (sorted[1] && !SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(sorted[1].status)) {
-    heroes.push(sorted[1])
-  }
-  return heroes.slice(0, 2)
+  const inProgress = sorted.filter(
+    (row) => !SERVICE_ALBUM_REPAIR_DONE_STATUSES.includes(row.status),
+  )
+  if (inProgress.length) return inProgress.slice(0, 2)
+  return [sorted[0]]
 }
 
 function buildAlbumSectionBadge() {
@@ -119,18 +134,58 @@ function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
   }
 }
 
+/** 仅拼非 0 段；全空返回 '' */
 function buildMerchantOverviewLine(overview = {}) {
-  const leads = overview.leadSubmit
-  const transparency = overview.transparency
-  if (!leads && !transparency) return ''
   const parts = []
-  if (leads !== undefined && leads !== null && leads !== '') {
-    parts.push(`近7天咨询 ${leads}`)
+  if (overviewMetricIsPositive(overview.leadSubmit)) {
+    parts.push(`近7天咨询 ${overview.leadSubmit}`)
   }
-  if (transparency !== undefined && transparency !== null && transparency !== '') {
-    parts.push(`透明度 ${transparency}`)
+  if (overviewMetricIsPositive(overview.transparency)) {
+    parts.push(`透明度 ${overview.transparency}`)
   }
   return parts.join(' · ')
+}
+
+/**
+ * GEO：机会类目须与本店服务名相关才展示
+ * @param {{ hint?: string, services?: Array<{ serviceName?: string }> }|null} geoOpp
+ * @param {string[]} storeServiceNames
+ */
+function filterMerchantGeoOpportunity(geoOpp, storeServiceNames = []) {
+  if (!geoOpp || typeof geoOpp !== 'object') return null
+  const names = (storeServiceNames || [])
+    .map((n) => String(n || '').trim())
+    .filter(Boolean)
+  if (!names.length) return null
+
+  const services = Array.isArray(geoOpp.services) ? geoOpp.services : []
+  const matched = services.find((row) => {
+    const target = String((row && row.serviceName) || '').trim()
+    if (!target) return false
+    return names.some((n) => n === target || n.includes(target) || target.includes(n))
+  })
+  if (!matched) return null
+
+  const cityCount = Number(matched.cityPublicCaseCount) || 0
+  const hint = `您所在城市「${matched.serviceName}」相关公开脱敏案例约 ${cityCount} 条；完善服务相册并授权公开，有助于在「${matched.serviceName} 怎么处理」类问题中成为可引用参考。`
+  return {
+    ...geoOpp,
+    hint,
+    matchedServiceName: matched.serviceName,
+  }
+}
+
+/** 草稿/进行中且图很少 → 待补留证列表 */
+function pickPendingUploadAlbums(list = []) {
+  return (list || [])
+    .filter((row) => {
+      const status = String((row && row.status) || '')
+      if (!(status === 'draft' || status === 'in_progress')) return false
+      const count = Number(row.imageCount)
+      const n = Number.isFinite(count) ? count : ((row.images && row.images.length) || 0)
+      return n < 2
+    })
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
 }
 
 module.exports = {
@@ -140,10 +195,13 @@ module.exports = {
   MERCHANT_HUB_MORE_ITEMS,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
+  pickPendingUploadAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
   buildMerchantSubscriptionEntry,
   buildMerchantPlanTag,
+  filterMerchantGeoOpportunity,
+  overviewMetricIsPositive,
 }

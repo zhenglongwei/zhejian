@@ -15,7 +15,7 @@ const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
 const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
 const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-subscription')
-const { openH5ContentSite, openMerchantPublishedCase } = require('../../../constants/h5-links')
+const { openMerchantPublishedCase } = require('../../../constants/h5-links')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner } = require('../../../utils/auth')
@@ -29,12 +29,13 @@ const {
   MERCHANT_CASE_SECTION_TITLE,
   buildMerchantTodoSummary,
   pickMerchantHubAlbums,
+  pickPendingUploadAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
   buildMerchantOverviewLine,
-  buildMerchantSubscriptionEntry,
   buildMerchantPlanTag,
+  filterMerchantGeoOpportunity,
 } = require('../../../constants/merchant-hub')
 const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
 
@@ -93,7 +94,6 @@ Page({
     canSwitchStore: false,
     switchingStore: false,
     geoOpportunity: null,
-    subscriptionEntry: null,
     planTag: null,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
@@ -154,7 +154,6 @@ Page({
     let canSwitchStore = false
     let geoOpportunity = null
     let albumHeroCards = []
-    let subscriptionEntry = null
     let planTag = null
 
     try {
@@ -197,10 +196,11 @@ Page({
         activeAlbums: stats.active || 0,
       }
       this._followUpAlbums = (albumList || []).filter((row) => Number(row.followUpCount) > 0)
+      this._pendingUploadAlbums = pickPendingUploadAlbums(albumList || [])
 
       if (publishPanel && publishPanel.recent) {
         casePublishRecent = decorateCasePublishRecent(
-          (publishPanel.recent || []).slice(0, 3)
+          (publishPanel.recent || []).slice(0, 2)
         )
       }
 
@@ -213,12 +213,11 @@ Page({
         })
       }
 
-      geoOpportunity = geoOpp || null
-      subscriptionEntry = subPanel
-        ? buildMerchantSubscriptionEntry(subPanel.subscription, canManageStaff)
-        : canManageStaff
-          ? buildMerchantSubscriptionEntry({ publicIndex: false }, true)
-          : null
+      const storeServiceNames = (albumList || [])
+        .map((row) => String((row && row.serviceName) || '').trim())
+        .filter(Boolean)
+      geoOpportunity = filterMerchantGeoOpportunity(geoOpp, storeServiceNames)
+
       planTag = subPanel
         ? buildMerchantPlanTag(subPanel.subscription, canManageStaff)
         : canManageStaff
@@ -252,7 +251,6 @@ Page({
       storePickerIndex,
       canSwitchStore,
       geoOpportunity,
-      subscriptionEntry,
       planTag,
     })
   },
@@ -334,9 +332,45 @@ Page({
       this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } })
       return
     }
+    if (action === 'upload') {
+      this.onOpenPendingUploadTodo()
+      return
+    }
     if (action === 'followup') {
       this.onOpenFollowUpTodo()
     }
+  },
+
+  onOpenPendingUploadTodo() {
+    const list = this._pendingUploadAlbums || []
+    if (!list.length) {
+      this.onAlbumList({ currentTarget: { dataset: { tab: 'active' } } })
+      return
+    }
+    if (list.length === 1) {
+      const item = list[0]
+      this._navigateTo(buildMerchantAlbumEntryPath(item.albumId, item))
+      return
+    }
+    const first = list[0]
+    wx.showActionSheet({
+      itemList: list.slice(0, 6).map((row) => {
+        const plate =
+          (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
+          row.vehicleDisplay ||
+          '相册'
+        const service = String(row.serviceName || '').trim()
+        return service ? `${plate} · ${service}` : plate
+      }),
+      success: (res) => {
+        const picked = list[res.tapIndex]
+        if (!picked) return
+        this._navigateTo(buildMerchantAlbumEntryPath(picked.albumId, picked))
+      },
+      fail: () => {
+        this._navigateTo(buildMerchantAlbumEntryPath(first.albumId, first))
+      },
+    })
   },
 
   onOpenFollowUpTodo() {
