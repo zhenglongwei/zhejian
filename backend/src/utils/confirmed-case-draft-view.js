@@ -3,7 +3,10 @@
  * 只暴露脱敏配图，不带回原图预览位。
  */
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
-const { normalizeMerchantCaseDraft } = require('../services/merchant-case-draft.service')
+const {
+  normalizeMerchantCaseDraft,
+  isSectionBodyBlank,
+} = require('../services/merchant-case-draft.service')
 const { extractSnapshotFromContentJson } = require('../schemas/case-snapshot.schema')
 
 function pickConfirmedDraftRaw(contentJson = {}, row = {}) {
@@ -46,17 +49,22 @@ function buildConfirmedCaseDraftView(contentJson = {}, row = {}) {
       idx: Number(item.idx || 0),
       maskedUrl,
       caption: item.caption || '',
+      hint: item.hint || '',
       sectionKey,
     })
   })
 
   const sections = (draft.sections || [])
-    .map((sec) => ({
-      key: sec.key,
-      title: sec.title,
-      body: String(sec.body || '').trim(),
-      media: mediaBySection[sec.key] || [],
-    }))
+    .map((sec) => {
+      const rawBody = String(sec.body || '').trim()
+      const body = isSectionBodyBlank(rawBody, sec.key) ? '' : rawBody
+      return {
+        key: sec.key,
+        title: sec.title,
+        body,
+        media: mediaBySection[sec.key] || [],
+      }
+    })
     .filter((sec) => sec.body || (sec.media && sec.media.length))
 
   if (!sections.length && !draft.title) return null

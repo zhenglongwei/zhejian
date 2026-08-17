@@ -1315,6 +1315,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     buildTitle,
     normalizeMerchantCaseDraft,
     syncWarrantyIntoDraft,
+    refreshUnconfirmedRuleDraft,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
@@ -1357,6 +1358,14 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
         next = { ...next, title: nextTitle }
       }
       next = syncWarrantyIntoDraft(next, view)
+      let preMaskTask = null
+      try {
+        const { findPreMaskTask } = require('./desensitize.service')
+        preMaskTask = await findPreMaskTask(albumId)
+      } catch (_) {
+        preMaskTask = null
+      }
+      next = refreshUnconfirmedRuleDraft(next, view, preMaskTask)
       next = normalizeMerchantCaseDraft(next)
       const nextHandover = ((next.sections || []).find((s) => s && s.key === 'handover') || {}).body || ''
       if (

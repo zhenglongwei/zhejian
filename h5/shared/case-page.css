@@ -188,8 +188,11 @@
   color: var(--color-text-tertiary);
 }
 
-.h5-confirmed-draft-title {
+.h5-article-lead {
   margin: 0 0 var(--space-lg);
+  font-size: var(--font-body);
+  line-height: var(--line-height-article);
+  color: var(--color-text-secondary);
 }
 
 .h5-confirmed-media {
@@ -219,6 +222,14 @@
   font-size: var(--font-caption);
   color: var(--color-text-tertiary);
   line-height: var(--line-height-article);
+}
+
+.h5-figure-hint {
+  margin-top: var(--space-xs);
+}
+
+.h5-figure-link {
+  display: block;
 }
 
 .h5-consult-sheet[hidden] {

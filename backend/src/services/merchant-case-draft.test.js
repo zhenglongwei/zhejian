@@ -63,15 +63,17 @@ function run() {
   }
 
   const draft = buildRuleMerchantCaseDraft(albumView, preMaskTask)
-  assert.ok(draft.title.includes('武侯精修店'))
+  assert.ok(draft.title.includes('宝马 3系'))
+  assert.ok(draft.title.includes('底盘异响治理'))
+  assert.ok(draft.title.includes('下摆臂胶套'))
+  assert.ok(draft.title.includes('成都') || draft.title.includes('武侯'))
+  assert.ok(!draft.title.includes('武侯精修店'))
+  assert.ok(!draft.title.includes('某路'))
+  assert.ok(!draft.title.includes('过程记录'))
   assert.ok(Array.isArray(draft.faq))
   assert.ok(draft.faq.some((item) => item.q.includes('总成')))
   assert.ok(draft.faq.some((item) => item.q.includes('旧件')))
   assert.ok(draft.faq.every((item) => !/1280|元/.test(item.a)))
-  assert.ok(draft.title.includes('武侯区某路 88 号'))
-  assert.ok(draft.title.includes('宝马 3系'))
-  assert.ok(draft.title.includes('底盘异响治理'))
-  assert.ok(!draft.title.includes('成都'))
   assert.ok(draft.sections.length === 5)
   const plan = draft.sections.find((s) => s.key === 'plan')
   assert.ok(plan.body.includes('下摆臂胶套'))
@@ -83,6 +85,7 @@ function run() {
   const summary = draftToAiSummary(draft)
   assert.ok(summary.includes('胶套开裂'))
   assert.ok(summary.includes('旧件已交还'))
+  assert.ok(!summary.includes('扭矩打卡'))
   assert.ok(!/1280/.test(summary))
 
   const handover = draft.sections.find((s) => s.key === 'handover')
@@ -157,6 +160,36 @@ function run() {
   )
   assert.ok(emptyMedia.media.length >= 1)
   assert.ok(emptyMedia.media[0].maskedUrl.includes('desensitized'))
+
+  const crowded = {
+    ...albumView,
+    imageMeta: [
+      ...Array.from({ length: 8 }).map((_, idx) => ({
+        nodeId: 'stage_2',
+        idx,
+        rawUrl: `https://example.com/d${idx}.jpg`,
+        visibility: 'public',
+        publicGateStatus: 'passed',
+      })),
+      {
+        nodeId: 'stage_6',
+        idx: 0,
+        rawUrl: 'https://example.com/handover.jpg',
+        visibility: 'public',
+        publicGateStatus: 'pending',
+        caption: '液压位',
+      },
+    ],
+  }
+  const crowdedDraft = buildRuleMerchantCaseDraft(crowded, null)
+  assert.ok(
+    crowdedDraft.media.some((item) => item.nodeId === 'stage_6'),
+    'handover photo must not be dropped by the 8-image cap',
+  )
+  const handoverMedia = crowdedDraft.media.find((item) => item.nodeId === 'stage_6')
+  assert.ok(handoverMedia.caption === '液压位')
+  assert.ok(handoverMedia.hint.includes('液压位'))
+  assert.ok(!/偏低|加满|正常/.test(handoverMedia.hint))
 
   console.log('merchant-case-draft.test.js OK')
 }

@@ -45,13 +45,29 @@ function normalizeFaqItems(list) {
   return out
 }
 
-function extractJobFaqs({ sections = [] } = {}) {
+function inferJobKind({ serviceName = '', templateId = '', categoryId = '' } = {}) {
+  try {
+    const { resolveCategoryIdFromAlbum } = require('../constants/service-checklist-catalog')
+    const cat = categoryId || resolveCategoryIdFromAlbum({ templateId, serviceName })
+    if (cat === 'major_maintenance' || cat === 'maintenance') return 'maintenance'
+    if (cat === 'body_paint') return 'body_paint'
+    return 'repair'
+  } catch (_) {
+    const name = String(serviceName || '')
+    if (/大保养|小保养|保养|机油/.test(name)) return 'maintenance'
+    if (/钣金|喷漆|钣喷/.test(name)) return 'body_paint'
+    return 'repair'
+  }
+}
+
+function extractJobFaqs({ sections = [], serviceName = '', templateId = '' } = {}) {
   const symptom = sectionBody(sections, 'symptom')
   const diagnosis = sectionBody(sections, 'diagnosis')
   const plan = sectionBody(sections, 'plan')
   const process = sectionBody(sections, 'process')
   const handover = sectionBody(sections, 'handover')
   const haystack = [symptom, diagnosis, plan, process, handover].filter(Boolean).join('。')
+  const jobKind = inferJobKind({ serviceName, templateId })
 
   const raw = []
   const push = (q, a) => {
@@ -59,13 +75,34 @@ function extractJobFaqs({ sections = [] } = {}) {
     raw.push({ q, a })
   }
 
-  if (plan && !GENERIC_ANSWER.test(plan)) {
+  const doneMatch = process.match(/本单已处理[:：][^。；;\n]+/)
+  if (doneMatch) {
+    push('这次做了哪些项目？', stripAmountText(doneMatch[0]).slice(0, 180))
+  } else if (jobKind !== 'maintenance' && plan && !GENERIC_ANSWER.test(plan)) {
     push('这次做了什么？', plan.slice(0, 180))
-  } else if (diagnosis) {
+  } else if (jobKind !== 'maintenance' && diagnosis) {
     push(
       '这次查出了什么、怎么处理？',
       [diagnosis, plan].filter(Boolean).join('。').slice(0, 180),
     )
+  } else if (jobKind === 'maintenance' && plan && !GENERIC_ANSWER.test(plan)) {
+    push('这次做了哪些项目？', plan.slice(0, 180))
+  }
+
+  const followLine = firstSentenceMatching(
+    [process, handover].filter(Boolean).join('。'),
+    /择期|择日|改期|其余建议|未做|未处理/,
+  )
+  if (followLine && !GENERIC_ANSWER.test(followLine)) {
+    push('哪些项目这次没做、以后再做？', followLine)
+  }
+
+  const warrantyLine = firstSentenceMatching(
+    handover,
+    /质保|配件.{0,12}\d+\s*年|漆面.{0,12}\d+\s*年/,
+  )
+  if (warrantyLine && !GENERIC_ANSWER.test(warrantyLine)) {
+    push('这次质保怎么说？', warrantyLine)
   }
 
   if (/不换总成|未换总成|无需换总成|不用换总成|不更换总成/.test(haystack)) {
@@ -98,6 +135,7 @@ function extractJobFaqs({ sections = [] } = {}) {
 
 module.exports = {
   FAQ_MAX,
+  inferJobKind,
   extractJobFaqs,
   normalizeFaqItems,
 }

@@ -900,17 +900,10 @@
   function renderConfirmedCaseDraft(data) {
     var draft = data.confirmedCaseDraft
     if (!draft || !draft.sections || !draft.sections.length) return ''
-    var titleHtml = draft.title
-      ? '<h2 class="h5-section-title h5-confirmed-draft-title">' +
-        escapeHtml(draft.title) +
-        '</h2>'
-      : ''
     var summaryHtml = draft.caseSummary
-      ? '<section class="h5-article-section h5-card h5-confirmed-summary">' +
-        '<h2 class="h5-section-title">要旨</h2>' +
-        '<div class="h5-article-text">' +
+      ? '<p class="h5-article-lead">' +
         escapeHtml(draft.caseSummary).replace(/\n/g, '<br>') +
-        '</div></section>'
+        '</p>'
       : ''
     var faqHtml = ''
     if (draft.faq && draft.faq.length) {
@@ -943,14 +936,23 @@
             if (!m || !m.maskedUrl) return ''
             return (
               '<figure class="h5-figure">' +
-              '<img class="h5-node-img" src="' +
+              '<a class="h5-figure-link" href="' +
+              escapeHtml(m.maskedUrl) +
+              '" target="_blank" rel="noopener">' +
+              '<img class="h5-node-img h5-node-img--contain" src="' +
               escapeHtml(m.maskedUrl) +
               '" alt="' +
-              escapeHtml(m.caption || section.title || data.title || '案例配图') +
+              escapeHtml(m.caption || m.hint || section.title || data.title || '案例配图') +
               '" loading="lazy" />' +
-              (m.caption
+              '</a>' +
+              (m.caption || m.hint
                 ? '<figcaption class="h5-figure-caption">' +
-                  escapeHtml(m.caption) +
+                  (m.caption
+                    ? '<div>' + escapeHtml(m.caption) + '</div>'
+                    : '') +
+                  (m.hint
+                    ? '<div class="h5-figure-hint">' + escapeHtml(m.hint) + '</div>'
+                    : '') +
                   '</figcaption>'
                 : '') +
               '</figure>'
@@ -975,7 +977,6 @@
     return (
       '<div class="h5-confirmed-draft">' +
       '<p class="h5-confirmed-draft-hint">门店确认案例稿 · 配图已脱敏</p>' +
-      titleHtml +
       summaryHtml +
       faqHtml +
       sectionsHtml +

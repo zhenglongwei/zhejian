@@ -21,6 +21,23 @@ const empty = extractJobFaqs({
 })
 assert.strictEqual(empty.length, 0)
 
+const maintenance = extractJobFaqs({
+  sections: [
+    { key: 'process', body: '本单已处理：雨刮、机油规格、机油滤芯、机油液位检查' },
+    { key: 'handover', body: '配件 1 年；非事故二次损伤。其余建议项已与车主约定择期处理。' },
+  ],
+  serviceName: '大保养',
+})
+assert.ok(maintenance.some((item) => item.q.includes('哪些项目')))
+assert.ok(maintenance.some((item) => item.q.includes('质保')))
+assert.ok(maintenance.some((item) => item.q.includes('没做')))
+assert.ok(maintenance.every((item) => !GENERIC_PLACEHOLDER(item.a)))
+assert.ok(!maintenance.some((item) => item.q.includes('查出了什么')))
+
+function GENERIC_PLACEHOLDER(text) {
+  return /以门店留档为准|以门店承诺为准/.test(String(text || ''))
+}
+
 const kept = normalizeFaqItems([
   { q: '这次做了什么？', a: '压套' },
   { q: '这次做了什么？', a: '重复' },

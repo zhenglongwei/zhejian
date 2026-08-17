@@ -31,6 +31,7 @@ Page({
     summaryHeight: 40,
     faq: [],
     sections: [],
+    hasDetailSections: false,
     media: [],
     confirmed: false,
     primaryActionText: '确认完工',
@@ -115,19 +116,27 @@ Page({
     }))
   },
 
-  mapSections(list) {
-    return (list || []).map((sec) => ({
-      ...sec,
-      bodyHeight: this.measureTextHeight(sec && sec.body, 1),
-    }))
+  mapSections(list, media) {
+    const mediaList = media || []
+    return (list || []).map((sec) => {
+      const body = String((sec && sec.body) || '').trim()
+      const bodyBlank =
+        !body || body === '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
+      const hasMedia = mediaList.some((item) => item && item.sectionKey === sec.key)
+      return {
+        ...sec,
+        bodyHeight: this.measureTextHeight(sec && sec.body, 1),
+        hasContent: !bodyBlank || hasMedia,
+      }
+    })
   },
 
   applyDraftView(draft = {}, extra = {}) {
     const title = draft.title || ''
     const caseSummary = draft.caseSummary || ''
-    const sections = this.mapSections(draft.sections || [])
-    const faq = this.mapFaq(draft.faq || [])
     const media = this.mapMedia(draft.media || [])
+    const sections = this.mapSections(draft.sections || [], media)
+    const faq = this.mapFaq(draft.faq || [])
     const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
     const resubmit = extra.resubmit != null ? Boolean(extra.resubmit) : this.data.resubmit
     const fromComplete = this.data.fromComplete
@@ -161,6 +170,7 @@ Page({
         maskedUrl: item.maskedUrl || '',
         previewUrl: item.previewUrl || '',
         caption: item.caption || '',
+        hint: item.hint || '',
         sectionKey: item.sectionKey || '',
       })),
       source: draft.source || (this._workingDraft && this._workingDraft.source) || 'merchant_edit',
@@ -173,6 +183,7 @@ Page({
       titleHeight: this.measureTextHeight(title, 1),
       summaryHeight: this.measureTextHeight(caseSummary, 2),
       sections,
+      hasDetailSections: sections.some((sec) => sec && sec.hasContent),
       media,
       resubmit,
       primaryActionText,
@@ -285,6 +296,19 @@ Page({
     this.setData({ faq })
   },
 
+  onPreviewMedia(e) {
+    const { nodeId, idx } = e.currentTarget.dataset
+    const urls = (this.data.media || [])
+      .map((item) => item && item.displayUrl)
+      .filter(Boolean)
+    if (!urls.length) return
+    const currentItem = (this.data.media || []).find(
+      (item) => String(item.nodeId) === String(nodeId) && Number(item.idx) === Number(idx),
+    )
+    const current = (currentItem && currentItem.displayUrl) || urls[0]
+    wx.previewImage({ current, urls })
+  },
+
   onRemoveMedia(e) {
     const { nodeId, idx } = e.currentTarget.dataset
     const media = (this.data.media || []).filter(
@@ -297,6 +321,7 @@ Page({
         maskedUrl: item.maskedUrl || '',
         previewUrl: item.previewUrl || '',
         caption: item.caption || '',
+        hint: item.hint || '',
         sectionKey: item.sectionKey || '',
       }))
     }
@@ -323,6 +348,7 @@ Page({
           maskedUrl: item.maskedUrl || '',
           previewUrl: item.previewUrl || '',
           caption: item.caption || '',
+          hint: item.hint || '',
           sectionKey: item.sectionKey || '',
         })),
         source: this._workingDraft.source || 'merchant_edit',
@@ -346,6 +372,7 @@ Page({
         maskedUrl: item.maskedUrl || '',
         previewUrl: item.previewUrl || '',
         caption: item.caption || '',
+        hint: item.hint || '',
         sectionKey: item.sectionKey || '',
       })),
       source: 'merchant_edit',
