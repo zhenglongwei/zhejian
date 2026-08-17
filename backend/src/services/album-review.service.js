@@ -218,7 +218,7 @@ async function getAlbumReviewContext(albumId, userId) {
     existing = await ensureReviewImagesMasked(existing)
   }
   const canAuthorizePublic =
-    eligible && ['private', 'user_rejected'].includes(publicCaseStatus || 'private')
+    eligible && publicCaseStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED
   const reviewAuthorizePublic = existing ? Boolean(existing.authorizePublic) : false
   const reviewMapped = existing ? mapReviewRow(existing) : null
   return {
@@ -356,6 +356,7 @@ async function listPublicReviewsForAlbum(albumId) {
   const rows = await prisma.serviceAlbumReview.findMany({
     where: {
       albumId,
+      authorizePublic: true,
       status: { in: [ALBUM_REVIEW_STATUS.SUBMITTED, ALBUM_REVIEW_STATUS.REPLIED] },
     },
     orderBy: { createdAt: 'desc' },
@@ -568,10 +569,39 @@ async function replyMerchantAlbumReview(reviewId, storeId, merchantUserId, paylo
   return getMerchantAlbumReviewById(updated.id, storeId)
 }
 
+async function setReviewAuthorizePublic(albumId, userId, authorizePublic) {
+  await loadAlbumMeta(albumId, userId)
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    select: { publicCaseStatus: true, publicCase: { select: { status: true } } },
+  })
+  const status = resolvePublicCaseRowStatus(album)
+  if (authorizePublic && status !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    const err = new Error('案例公开后才能把评价公开展示')
+    err.status = 409
+    err.code = 'CASE_NOT_PUBLIC'
+    throw err
+  }
+  const existing = await prisma.serviceAlbumReview.findUnique({
+    where: { albumId_userId: { albumId, userId } },
+  })
+  if (!existing) {
+    const err = new Error('请先提交评价')
+    err.status = 404
+    throw err
+  }
+  const row = await prisma.serviceAlbumReview.update({
+    where: { id: existing.id },
+    data: { authorizePublic: Boolean(authorizePublic) },
+  })
+  return mapReviewRow(row)
+}
+
 module.exports = {
   getAlbumReviewContext,
   submitServiceAlbumReview,
   submitServiceAlbumReviewFollowUp,
+  setReviewAuthorizePublic,
   listPublicReviewsForAlbum,
   listMerchantAlbumReviews,
   fetchMerchantReviewStats,

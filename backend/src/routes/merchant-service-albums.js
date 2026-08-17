@@ -316,6 +316,65 @@ router.post(
   },
 )
 
+router.post(
+  '/service-albums/:albumId/generate-case',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { generateMerchantPublicCase } = require('../services/public-case.service')
+      const body = req.body || {}
+      const data = await generateMerchantPublicCase(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        draft: body.draft || body,
+        attest: body.attest || {},
+        notifyPhone: body.notifyPhone || body.userPhone || '',
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.patch(
+  '/service-albums/:albumId/notify-phone',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { updateAlbumNotifyPhone } = require('../services/case-publish-window.service')
+      const data = await updateAlbumNotifyPhone(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        phone: (req.body && (req.body.phone || req.body.userPhone)) || '',
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/resend-notify',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { resendNotifyWindow } = require('../services/case-publish-window.service')
+      const data = await resendNotifyWindow(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post('/service-albums/:albumId/copy-quality', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)

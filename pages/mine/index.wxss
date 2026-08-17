@@ -124,14 +124,6 @@
   opacity: 0.72;
 }
 
-.mine__todo-dot {
-  flex-shrink: 0;
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: var(--radius-full);
-  background-color: var(--color-album-frame-corner);
-}
-
 .mine__todo-arrow {
   margin-left: auto;
   color: var(--color-text-tertiary);

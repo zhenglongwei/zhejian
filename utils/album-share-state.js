@@ -5,9 +5,21 @@ const { SHARE_MODE } = require('../constants/album-share')
 function resolvePublishSheetState(detail = {}) {
   const status = detail.publicCaseStatus || 'private'
   if (status === 'public_approved') return 'approved'
-  if (status === 'pending_review') return 'pending'
+  if (status === 'notify_window') return 'window'
+  if (status === 'owner_blocked' || status === 'user_rejected') return 'blocked'
+  if (status === 'pending_review' || status === 'pending_desensitize') return 'pending'
   if (status === 'need_modify') return 'need_modify'
+  if (status === 'review_passed') return 'window'
   return 'idle'
+}
+
+function publishHintForState(state) {
+  if (state === 'window') return '打码说明即将出现在店页。'
+  if (state === 'approved') return '打码说明已在店页。不合适随时能撤下来。'
+  if (state === 'blocked') return '已按你的意思，这条不会放到店页。'
+  if (state === 'pending') return '门店已送审，通过后会出现在店页。'
+  if (state === 'need_modify') return '审核未通过，请等待门店修改后重新生成。'
+  return '门店可能把打码说明放到店页。发给微信不会自动进店页。'
 }
 
 function initAlbumShareState(detail = {}, options = {}) {
@@ -18,16 +30,10 @@ function initAlbumShareState(detail = {}, options = {}) {
   const publishSheetState = resolvePublishSheetState(detail)
   const socialPlatform = options.socialPlatform || 'xiaohongshu'
   const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
-  const publishSheetDisabled = Boolean(detail.canAuthorizePublicCase === false)
-  const showPublishSection =
-    publishSheetState === 'approved' ||
-    publishSheetState === 'pending' ||
-    (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
-    (publishSheetState === 'idle' && !publishSheetDisabled)
   return {
     showShareEntry,
     showPublicCaseShare,
-    showShareButton: showShareEntry || showPublicCaseShare || publishSheetState !== 'idle',
+    showShareButton: true,
     defaultShareIntent,
     shareSheetIntent: defaultShareIntent,
     shareActionsDisabled: showShareEntry,
@@ -40,17 +46,15 @@ function initAlbumShareState(detail = {}, options = {}) {
     socialDraftText: '',
     socialDraftWaitHint: '',
     publishSheetState,
-    publishSheetDisabled,
-    showPublishSection,
-    publishSheetHint:
-      publishSheetState === 'idle' ? '预览即将上网的内容，确认后进入审核。' : '',
-    shareHonorHint: showPublishSection
-      ? '帮助同城车主少踩坑：可发给微信，或预览后发布到公开网站。'
-      : '可发给微信好友或朋友圈；当前未达到公开案例站展示条件，不会出现「发布到网站」。',
+    publishSheetDisabled: !detail.canAuthorizePublicCase,
+    showPublishSection: true,
+    publishSheetHint: publishHintForState(publishSheetState),
+    shareHonorHint: '可发给微信好友或朋友圈；发给微信不会自动进店页。',
   }
 }
 
 module.exports = {
   initAlbumShareState,
   resolvePublishSheetState,
+  publishHintForState,
 }

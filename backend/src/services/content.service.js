@@ -316,10 +316,17 @@ function publicCaseFallbackList() {
 }
 
 async function fetchPublicCaseRows() {
+  try {
+    const { expireDueNotifyWindows } = require('./case-publish-window.service')
+    await expireDueNotifyWindows({ limit: 20 })
+  } catch (e) {
+    console.warn('[content] expire notify window', e && e.message)
+  }
   const rows = await prisma.publicCase.findMany({
     where: {
       status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
       articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+      storefrontHidden: false,
     },
     orderBy: { publishedAt: 'desc' },
   })
@@ -597,6 +604,8 @@ function mapStoreRow(store, caseCount = 0) {
     brandAuthItems: publicCapability.brandAuthItems || [],
     score: Math.max(0, baseScore - scorePenalty),
     caseCount,
+    completedLast90Days: 0,
+    publishedLast90Days: 0,
     supportsAlbum: extras.supportsAlbum !== false,
     coverImage,
     environmentImages,
@@ -615,11 +624,34 @@ async function countCasesByStore(storeId) {
       storeId,
       status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
       articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
+      storefrontHidden: false,
     },
   })
   if (count > 0) return count
   if (!config.contentPublicCaseFallback) return 0
   return FALLBACK_PUBLIC_CASES.filter((c) => c.storeId === storeId).length
+}
+
+async function countStorefrontWindowStats(storeId) {
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  const [completedLast90Days, publishedLast90Days] = await Promise.all([
+    prisma.album.count({
+      where: {
+        storeId,
+        completedAt: { gte: since },
+        status: { in: ['completed', 'published'] },
+      },
+    }),
+    prisma.publicCase.count({
+      where: {
+        storeId,
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        storefrontHidden: false,
+        publishedAt: { gte: since },
+      },
+    }),
+  ])
+  return { completedLast90Days, publishedLast90Days }
 }
 
 async function listActiveStores() {
@@ -673,6 +705,9 @@ async function getMerchantDetail(id) {
   }
 
   const mapped = mapStoreRow(store, await countCasesByStore(store.id))
+  const windowStats = await countStorefrontWindowStats(store.id)
+  mapped.completedLast90Days = windowStats.completedLast90Days
+  mapped.publishedLast90Days = windowStats.publishedLast90Days
   if (mapped.status === 'offline') {
     const err = new Error('该门店暂不可查看')
     err.status = 410

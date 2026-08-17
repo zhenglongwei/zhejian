@@ -70,7 +70,7 @@ Component({
     },
     withdrawLabel: {
       type: String,
-      value: '一键下架',
+      value: '从店页撤下',
     },
     statusHint: {
       type: String,

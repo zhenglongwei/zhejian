@@ -321,6 +321,21 @@ const config = {
     }
     return (process.env.NODE_ENV || 'development') !== 'production'
   })(),
+  /** PUB-RIGHT · 审核通过后通知车主；生产默认必须发出短信才可进入窗口 */
+  sms: {
+    signName: envStr('ALIYUN_SMS_SIGN_NAME', '辙见'),
+    templateNotify: envStr('ALIYUN_SMS_TPL_CASE_NOTIFY'),
+    accessKeyId: envStr('ALIBABA_CLOUD_ACCESS_KEY_ID') || envStr('ALIYUN_ACCESS_KEY_ID'),
+    accessKeySecret: envStr('ALIBABA_CLOUD_ACCESS_KEY_SECRET') || envStr('ALIYUN_ACCESS_KEY_SECRET'),
+    regionId: envStr('ALIYUN_SMS_REGION', 'cn-hangzhou'),
+    required: (() => {
+      if (process.env.SMS_REQUIRED != null && process.env.SMS_REQUIRED !== '') {
+        return envBool('SMS_REQUIRED', false)
+      }
+      return (process.env.NODE_ENV || 'development') === 'production'
+    })(),
+    windowHours: Number(process.env.CASE_NOTIFY_WINDOW_HOURS || 48),
+  },
 }
 
 module.exports = { config }

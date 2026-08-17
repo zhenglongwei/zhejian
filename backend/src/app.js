@@ -40,6 +40,7 @@ const mediaRoutes = require('./routes/media')
 const systemRoutes = require('./routes/system')
 const trackRoutes = require('./routes/track')
 const publicH5Routes = require('./routes/public-h5')
+const publicCaseRightsRoutes = require('./routes/public-case-rights')
 const { resolveCaseRedirectTarget } = require('./services/h5-case-redirect.service')
 const adminRoutes = require('./routes/admin')
 
@@ -187,6 +188,7 @@ function createApp() {
   /** 与 /track 相同；H5 默认走此路径，避免广告插件拦截 URL 中的 “track” */
   app.use('/api/v1/analytics', trackRoutes)
   app.use('/api/v1/public', publicH5Routes)
+  app.use('/api/v1/public', publicCaseRightsRoutes)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)

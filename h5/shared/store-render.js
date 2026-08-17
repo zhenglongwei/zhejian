@@ -897,15 +897,30 @@
     return section + '<div class="h5-media-list">' + cards + '</div></div>'
   }
 
+  function buildStorefrontWindowHint(store) {
+    var completed = Number(store && store.completedLast90Days) || 0
+    var published = Number(store && store.publishedLast90Days) || 0
+    if (!completed && !published) return ''
+    return (
+      '近 90 天完工 ' +
+      completed +
+      ' 本，公开 ' +
+      published +
+      ' 条。公开记录由门店选出，不代表全部完工。'
+    )
+  }
+
   function renderCases(cases, store) {
     var storeId = store && store.id ? store.id : ''
     var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
     var caseNote = COPY.casePrice
+    var windowHint = buildStorefrontWindowHint(store)
     var section =
       '<div class="h5-folio-panel" id="store-cases"><h2 class="h5-folio-section-title">真实维修案例</h2>' +
       '<p class="h5-compliance">' +
       escapeHtml(caseNote) +
-      '</p>'
+      '</p>' +
+      (windowHint ? '<p class="h5-section-note">' + escapeHtml(windowHint) + '</p>' : '')
     if (!cases || !cases.length) {
       return section + '<div class="h5-empty-block">公开案例完善中</div></div>'
     }
@@ -1112,6 +1127,7 @@
       '<p class="h5-store-status">' +
       escapeHtml(statusText) +
       (store.caseCount ? ' · 公开案例 ' + store.caseCount : '') +
+      (buildStorefrontWindowHint(store) ? ' · ' + escapeHtml(buildStorefrontWindowHint(store)) : '') +
       '</p>' +
       renderStoreContact(store) +
       renderDisclaimerBlock() +

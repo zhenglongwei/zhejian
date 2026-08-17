@@ -91,47 +91,50 @@
       </view>
 
       <view wx:if="{{showPublishSection}}" class="share-sheet__section">
-        <text class="share-sheet__section-title text-body">② 发布到公开网站</text>
-        <text class="share-sheet__section-hint text-caption">须预览确认；通过后展示在案例站</text>
-        <text wx:if="{{publishHint}}" class="share-sheet__publish-hint text-caption">{{publishHint}}</text>
+        <text class="share-sheet__section-title text-body">② 店页说明</text>
+        <text class="share-sheet__section-hint text-caption">{{publishHint || '门店可能把打码说明放到店页。发给微信不会自动进店页。'}}</text>
 
         <block wx:if="{{publishState === 'approved'}}">
-          <text class="share-sheet__status text-body">已在公开网站</text>
+          <text class="share-sheet__status text-body">打码说明已在店页</text>
           <ui-button
             wx:if="{{showPublicWebLink}}"
             type="primary"
             size="sm"
             block
             bind:btntap="onCopyPublicTap"
-          >复制公开网页链接</ui-button>
+          >复制店页链接</ui-button>
+          <ui-button
+            type="ghost"
+            size="sm"
+            block
+            bind:btntap="onTakedownTap"
+          >从店页撤下</ui-button>
+        </block>
+        <block wx:elif="{{publishState === 'window'}}">
+          <text class="share-sheet__status text-body">即将出现在店页</text>
+          <ui-button
+            type="primary"
+            size="sm"
+            block
+            bind:btntap="onBlockTap"
+          >先不要公开</ui-button>
         </block>
         <block wx:elif="{{publishState === 'pending'}}">
-          <text class="share-sheet__status text-body">审核中</text>
+          <text class="share-sheet__status text-body">审核中，通过后会先告诉你</text>
+        </block>
+        <block wx:elif="{{publishState === 'blocked'}}">
+          <text class="share-sheet__status text-body">已按你的意思，这条不会放到店页</text>
         </block>
         <block wx:elif="{{publishState === 'need_modify'}}">
-          <text class="share-sheet__status text-body">需按审核意见修改后重新发布</text>
-          <ui-button
-            type="primary"
-            size="sm"
-            block
-            disabled="{{publishDisabled}}"
-            bind:btntap="onPublishTap"
-          >重新预览并发布</ui-button>
+          <text class="share-sheet__status text-body">审核未通过，请等待门店修改</text>
         </block>
         <block wx:else>
-          <ui-button
-            type="primary"
-            size="sm"
-            block
-            disabled="{{publishDisabled}}"
-            bind:btntap="onPublishTap"
-          >预览并发布</ui-button>
+          <text class="share-sheet__status text-caption">发给微信只给你选的人看，不会自动进店页。</text>
         </block>
       </view>
 
       <view class="share-sheet__footer">
-        <text wx:if="{{showPublishSection}}" class="share-sheet__privacy-text text-caption">发给微信不会自动上网；仅发布到公开网站并通过后才会出现在案例站。</text>
-        <text wx:else class="share-sheet__privacy-text text-caption">发给微信不会自动上网；当前案例暂未达到公开网站展示条件。</text>
+        <text class="share-sheet__privacy-text text-caption">发给微信不会自动进店页。店页只用打码图。</text>
       </view>
     </block>
   </view>

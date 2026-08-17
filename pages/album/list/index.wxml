@@ -178,6 +178,8 @@
   bind:copypublicweblink="onCopyPublicWebLink"
   bind:sharetimeline="onShareTimelineGuide"
   bind:publish="onSharePublish"
+  bind:blockpublic="onBlockPublic"
+  bind:takedownpublic="onTakedownPublic"
 />
 
 <ui-login-sheet

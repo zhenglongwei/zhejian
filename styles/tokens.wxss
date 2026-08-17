@@ -859,9 +859,54 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-album-frame-inner);
+  background-color: var(--color-album-active-light);
   border: 1rpx solid var(--color-album-frame-line);
   box-shadow: var(--shadow-album-list-thumb);
+  box-sizing: border-box;
+}
+
+/** 工具台区头 · 主色竖条（档案目录同款） */
+.surface-album-section-accent {
+  flex-shrink: 0;
+  width: 6rpx;
+  height: 32rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-album-active);
+}
+
+.surface-album-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex: 1;
+}
+
+/** 待办浅底块（我的 / 商家工作台对齐） */
+.surface-album-todo {
+  padding: var(--space-md);
+  margin: var(--space-xs) 0 0;
+  background-color: var(--color-album-active-light);
+  border: 1rpx solid var(--color-album-frame-line);
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+}
+
+.surface-album-todo-dot {
+  flex-shrink: 0;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: var(--radius-full);
+  background-color: var(--color-album-active);
+}
+
+/** GEO / 弱提示条 */
+.surface-album-hint-strip {
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-xs) 0 0;
+  background-color: var(--color-album-active-light);
+  border-radius: var(--radius-md);
+  border-left: 6rpx solid var(--color-album-active);
   box-sizing: border-box;
 }
 

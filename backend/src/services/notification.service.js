@@ -8,6 +8,7 @@ const {
   ensureSubscribeTemplateMap,
   buildSubscribePayload,
 } = require('../constants/notification-templates')
+const { COMPLIANCE_COPY } = require('../../vendor/shared/constants/compliance-copy')
 
 const RECEIVER = {
   USER: 'user',
@@ -690,50 +691,92 @@ async function notifyAuthorizationWithdrawn(albumId) {
   })
 }
 
-async function notifyCaseAuditResult({ album, approved, comment = '', reviewPassedOnly = false }) {
+async function notifyCaseAuditResult({
+  album,
+  approved,
+  comment = '',
+  reviewPassedOnly = false,
+  notifyWindow = false,
+  smsFailed = false,
+  notifyOwner = false,
+} = {}) {
   const userId = await resolveAlbumUserId(album)
-  const title = approved ? '案例审核已通过' : '案例审核未通过'
-  const content = approved
-    ? reviewPassedOnly
-      ? '门店案例已通过平台审核，你可查看案例稿并自行发布到公开网站。'
-      : '你的案例已通过审核并公开展示，点击查看公开案例。'
+  const merchantTitle = approved ? '案例审核已通过' : '案例审核未通过'
+  const ownerTitle = approved
+    ? smsFailed
+      ? '打码说明暂不会放到店页'
+      : notifyWindow
+        ? '店里想把打码说明放到店页'
+        : reviewPassedOnly
+          ? '打码说明过审了，公开前会先告诉你'
+          : '打码说明已出现在店页'
+    : merchantTitle
+  const ownerContent = approved
+    ? smsFailed
+      ? '店里整理的打码施工说明过审了，但短信没发出去，暂时不会放到店页。'
+      : notifyWindow
+        ? COMPLIANCE_COPY.notifyWindowOwner
+        : reviewPassedOnly
+          ? '店里整理的打码施工说明过审了，放到店页前会先告诉你。'
+          : '打码施工说明已出现在店页，没有车牌和人脸。不合适随时能撤下来。'
     : truncate(comment || '案例未通过审核。门店将修改后重新送审。', 120)
-  const auditPayload = {
+  const ownerAuditPayload = {
     caseNo: album.publicCase?.id || album.id,
     auditStatus: approved ? '审核通过' : '审核未通过',
     remark: approved
-      ? reviewPassedOnly
-        ? '可查看案例并发布'
-        : '点击查看公开案例'
+      ? smsFailed
+        ? '通知未发出'
+        : notifyWindow
+          ? '不合适可不公开'
+          : reviewPassedOnly
+            ? '公开前会先告诉你'
+            : '不合适随时能撤'
       : truncate(comment || '门店将修改后送审', 20),
   }
-  if (userId && approved) {
+  const merchantAuditPayload = {
+    caseNo: album.publicCase?.id || album.id,
+    auditStatus: approved ? '审核通过' : '审核未通过',
+    remark: approved
+      ? smsFailed
+        ? '通知未发出'
+        : notifyWindow
+          ? '正在通知车主'
+          : reviewPassedOnly
+            ? '将通知后公开'
+            : '点击查看公开案例'
+      : truncate(comment || '门店将修改后送审', 20),
+  }
+  if (userId && approved && notifyOwner) {
     await notifyUser({
       receiverId: userId,
       messageType: 'case_audit',
-      title,
-      content,
+      title: ownerTitle,
+      content: ownerContent,
       refType: 'album',
       refId: album.id,
       jumpPath: `/pages/album/detail/index?albumId=${album.id}`,
       wechatTemplateKey: 'audit',
       wechatPage: `pages/album/detail/index?albumId=${album.id}`,
-      wechatPayload: auditPayload,
+      wechatPayload: ownerAuditPayload,
     })
   }
   return notifyMerchantOwner({
     merchantId: album.merchantId,
     messageType: 'case_audit',
-    title,
+    title: merchantTitle,
     content: approved
-      ? '案例已通过审核，车主可查看并发布。'
-      : truncate(comment || '请按审核意见修改相册与案例稿后，再次确认完工送审。', 120),
+      ? smsFailed
+        ? '已通过审核，但尚未出现在店页，请稍后在工作台查看。'
+        : notifyWindow
+          ? '已通过审核。'
+          : '已通过审核，打码说明已出现在店页。'
+      : truncate(comment || '请按审核意见修改相册与案例稿后，再次生成案例送审。', 120),
     refType: 'album',
     refId: album.id,
     jumpPath: `/packageMerchant/pages/album/edit/index?id=${album.id}`,
     wechatTemplateKey: 'audit',
     wechatPage: `packageMerchant/pages/album/edit/index?id=${album.id}`,
-    wechatPayload: auditPayload,
+    wechatPayload: merchantAuditPayload,
   })
 }
 

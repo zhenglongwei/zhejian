@@ -5,6 +5,8 @@ const {
   submitServiceAlbumAuthorization,
   recordAlbumShare,
   withdrawAuthorization,
+  blockPublicCase,
+  takedownPublicCase,
   fetchAlbumSocialCopy,
 } = require('../../../services/service-album')
 const { SERVICE_ALBUM_LIST_TABS, normalizeServiceAlbumListTab } = require('../../../constants/service-album-status')
@@ -529,21 +531,48 @@ Page({
   },
 
   onSharePublish() {
-    const state = this.data.publishSheetState
-    if (state === 'approved' || state === 'pending') return
-    if (this.data.publishSheetDisabled) {
-      wx.showToast({ title: '暂不可发布', icon: 'none' })
-      return
-    }
+    return
+  },
+
+  onBlockPublic() {
+    const albumId = (this.data.actionDetail && this.data.actionDetail.albumId) || ''
     this.setData({ shareSheetVisible: false })
-    if (state === 'need_modify') {
-      this.openAuthorizePreview()
-      return
-    }
-    this.setData({
-      authSheetVisible: true,
-      authChecked: false,
-      authTier: 'named',
+    if (!albumId) return
+    wx.showModal({
+      title: '先不要公开',
+      content: '相册还在，只有你和门店能看。不会放到店页。',
+      confirmText: '先不公开',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await blockPublicCase(albumId)
+          wx.showToast({ title: '好的，不会公开', icon: 'success' })
+          this.loadList && this.loadList()
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+        }
+      },
+    })
+  },
+
+  onTakedownPublic() {
+    const albumId = (this.data.actionDetail && this.data.actionDetail.albumId) || ''
+    this.setData({ shareSheetVisible: false })
+    if (!albumId) return
+    wx.showModal({
+      title: '从店页撤下',
+      content: '撤下后店页不再展示。相册还在。',
+      confirmText: '撤下来',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await takedownPublicCase(albumId)
+          wx.showToast({ title: '已从店页撤下', icon: 'success' })
+          this.loadList && this.loadList()
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+        }
+      },
     })
   },
 

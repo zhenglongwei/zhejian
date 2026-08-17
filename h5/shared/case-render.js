@@ -11,8 +11,9 @@
 
   var TAG_MAP = {
     authorized: { text: '已发布', cls: 'h5-tag--order' },
-    named: { text: '实名授权', cls: 'h5-tag--order' },
-    anonymous: { text: '匿名授权', cls: 'h5-tag--desensitized' },
+    named: { text: '已发布', cls: 'h5-tag--order' },
+    merchant_published: { text: '门店发布', cls: 'h5-tag--order' },
+    anonymous: { text: '已发布', cls: 'h5-tag--desensitized' },
     desensitized: { text: '已脱敏', cls: 'h5-tag--desensitized' },
     audited: { text: '已审核', cls: 'h5-tag--audited' },
   }
@@ -444,9 +445,32 @@
     return props
   }
 
-  // 可见区不展示授权/脱敏标签；信任信号写入 JSON-LD（见 schema-graph / trustMeta §18）
-  function renderTags() {
-    return ''
+  // 主标签：门店发布 · 已脱敏 · 已审核（存量车主点发布显示「已发布」）
+  function renderTags(data) {
+    var tm = data && data.trustMeta
+    var labels = []
+    if (tm && tm.authorizationTierLabel) {
+      labels.push(tm.authorizationTierLabel)
+    } else if (data && data.authorizationTier === 'merchant_published') {
+      labels.push('门店发布')
+    } else if (data && data.authorizationTier) {
+      labels.push('已发布')
+    } else {
+      labels.push('门店发布')
+    }
+    labels.push('已脱敏')
+    labels.push('已审核')
+    var html = labels
+      .map(function (text) {
+        var cls = 'h5-tag--audited'
+        if (text === '已脱敏') cls = 'h5-tag--desensitized'
+        if (text === '门店发布' || text === '已发布') cls = 'h5-tag--order'
+        return '<span class="h5-tag ' + cls + '">' + escapeHtml(text) + '</span>'
+      })
+      .join('')
+    var disclaimer =
+      '<p class="h5-section-note">平台审核针对隐私打码与宣传合规，不代表对维修质量或配件真伪作出保证。</p>'
+    return '<div class="h5-tags">' + html + '</div>' + disclaimer
   }
 
   function renderTrustAttestation() {

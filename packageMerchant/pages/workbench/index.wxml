@@ -77,7 +77,10 @@
 
       <view class="merchant-hub__main surface-album-panel">
         <view class="merchant-hub__section-head">
-          <text class="merchant-hub__section-title text-h3">{{albumSectionTitle}}</text>
+          <view class="surface-album-section-title-row">
+            <view class="surface-album-section-accent" aria-hidden="true" />
+            <text class="merchant-hub__section-title text-h3">{{albumSectionTitle}}</text>
+          </view>
           <view class="merchant-hub__section-links">
             <view class="merchant-hub__section-link" bindtap="onAlbumList">
               <text class="merchant-hub__section-link-text text-caption text-link">全部</text>
@@ -114,7 +117,7 @@
 
         <block wx:if="{{todoSummary}}">
           <view class="surface-album-inset-divider" />
-          <view class="merchant-hub__todo">
+          <view class="merchant-hub__todo surface-album-todo">
             <text class="merchant-hub__todo-headline text-body">{{todoSummary.headline}}</text>
             <view class="merchant-hub__todo-list">
               <view
@@ -124,7 +127,7 @@
                 data-action="{{item.action}}"
                 bindtap="onTodoItemTap"
               >
-                <text class="merchant-hub__todo-dot" />
+                <text class="surface-album-todo-dot" />
                 <text class="text-caption">{{item.label}}</text>
                 <text class="merchant-hub__todo-arrow text-caption">›</text>
               </view>
@@ -136,7 +139,10 @@
           <view class="surface-album-inset-divider" />
           <view class="merchant-hub__case-block">
             <view class="merchant-hub__section-head">
-              <text class="merchant-hub__section-title text-h3">{{caseSectionTitle}}</text>
+              <view class="surface-album-section-title-row">
+                <view class="surface-album-section-accent" aria-hidden="true" />
+                <text class="merchant-hub__section-title text-h3">{{caseSectionTitle}}</text>
+              </view>
               <view class="merchant-hub__section-link" bindtap="onAlbumList">
                 <text class="merchant-hub__section-link-text text-caption text-link">全部相册</text>
               </view>
@@ -166,7 +172,7 @@
 
         <block wx:if="{{geoOpportunity}}">
           <view class="surface-album-inset-divider" />
-          <view class="merchant-hub__geo" bindtap="onAlbumList">
+          <view class="merchant-hub__geo surface-album-hint-strip" bindtap="onAlbumList">
             <text class="text-caption text-secondary">{{geoOpportunity.hint}}</text>
           </view>
         </block>

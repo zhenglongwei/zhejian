@@ -9,10 +9,7 @@ const {
   isAlbumContentLocked,
   buildUserAlbumComplianceFields,
 } = require('./service-album.service')
-const {
-  ALBUM_COMPLIANCE_STATUS,
-  USER_CONFIRM_HINT,
-} = require('../constants/album-compliance')
+const { ALBUM_COMPLIANCE_STATUS } = require('../constants/album-compliance')
 
 test('evaluateAlbumComplianceRules flags banned phrase', () => {
   const result = evaluateAlbumComplianceRules({
@@ -112,11 +109,25 @@ test('buildUserAlbumComplianceFields exposes frozen confirm hint', () => {
     { publicCaseScorePass: true },
   )
   assert.equal(fields.contentFrozen, true)
-  assert.equal(fields.awaitingUserConfirm, true)
-  assert.equal(fields.userConfirmHint, USER_CONFIRM_HINT)
-  assert.equal(fields.canAuthorizePublicCase, true)
+  assert.equal(fields.awaitingUserConfirm, false)
+  assert.equal(fields.canAuthorizePublicCase, false)
+  assert.equal(fields.canBlockPublicCase, false)
   assert.equal(fields.caseVisibleToOwner, true)
   assert.equal(fields.complianceStatus, 'passed')
+})
+
+test('buildUserAlbumComplianceFields notify window can block', () => {
+  const fields = buildUserAlbumComplianceFields(
+    {
+      status: 'completed',
+      publicCase: { status: 'notify_window' },
+      authorization: null,
+    },
+    { publicCaseScorePass: true },
+  )
+  assert.equal(fields.canBlockPublicCase, true)
+  assert.equal(fields.canTakedownPublicCase, false)
+  assert.equal(fields.canAuthorizePublicCase, false)
 })
 
 test('buildUserAlbumComplianceFields hides publish invite when quality not ready', () => {

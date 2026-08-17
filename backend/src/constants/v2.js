@@ -58,10 +58,14 @@ const PUBLIC_CASE_STATUS = {
   /** 完工后脱敏处理中，尚未进入运营人审 */
   PENDING_DESENSITIZE: 'pending_desensitize',
   PENDING_REVIEW: 'pending_review',
-  /** 运营案例审通过，待车主发布（不上线） */
+  /** 运营案例审通过；短信未发出时停在此态，不得公开 */
   REVIEW_PASSED: 'review_passed',
+  /** 已通知车主，异议窗口内 */
+  NOTIFY_WINDOW: 'notify_window',
   PUBLIC_APPROVED: 'public_approved',
   USER_REJECTED: 'user_rejected',
+  /** 车主在窗口内阻止，本相册不得再送审 */
+  OWNER_BLOCKED: 'owner_blocked',
   REJECTED: 'rejected',
   NEED_MODIFY: 'need_modify',
   OFFLINE: 'offline',

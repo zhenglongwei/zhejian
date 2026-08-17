@@ -52,18 +52,25 @@ test('buildCaseTrustMeta from snapshot row', () => {
   assert.ok(meta)
   assert.equal(meta.snapshotVersion, 2)
   assert.equal(meta.authorizationTier, 'user_authorized')
+  assert.equal(meta.authorizationTierLabel, '已发布')
   assert.equal(meta.evidenceLevel, 'partial_images')
   assert.equal(meta.publicImageCount, 2)
-  assert.match(meta.trustStatement, /用户授权案例/)
+  assert.match(meta.trustStatement, /已发布/)
   assert.ok(normalizeCaseTrustMeta(meta))
 })
 
 test('formatTrustStatement includes version', () => {
   const text = formatTrustStatement({
-    authorizationTierLabel: '用户授权案例',
+    authorizationTierLabel: '已发布',
     snapshotVersion: 3,
     reviewedAt: '2026-03-16T08:00:00.000Z',
     evidenceLevelLabel: '含少量脱敏过程图',
   })
   assert.match(text, /v3/)
+})
+
+test('mapAuthorizationTierForTrust maps merchant_published', () => {
+  const mapped = mapAuthorizationTierForTrust('merchant_published')
+  assert.equal(mapped.authorizationTier, 'merchant_published')
+  assert.equal(mapped.authorizationTierLabel, '门店发布')
 })

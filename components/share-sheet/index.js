@@ -134,5 +134,13 @@ Component({
     onCopyPublicTap() {
       this.triggerEvent('copypublicweblink')
     },
+
+    onBlockTap() {
+      this.triggerEvent('blockpublic')
+    },
+
+    onTakedownTap() {
+      this.triggerEvent('takedownpublic')
+    },
   },
 })

@@ -30,4 +30,22 @@ router.get('/public-cases/:caseId/article-export', requireAuth(['merchant']), as
   }
 })
 
+router.post(
+  '/public-cases/:caseId/hide-storefront',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { hideCaseFromStorefront } = require('../services/case-publish-window.service')
+      const data = await hideCaseFromStorefront(req.params.caseId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 module.exports = router

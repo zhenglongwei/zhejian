@@ -387,15 +387,22 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
     compliancePendingHint = '门店案例配图处理中'
   } else if (pendingReview) {
     compliancePendingHint = '门店案例审核中'
+  } else if (status === PUBLIC_CASE_STATUS.NOTIFY_WINDOW) {
+    compliancePendingHint = '打码说明即将出现在店页'
+  } else if (status === PUBLIC_CASE_STATUS.OWNER_BLOCKED) {
+    compliancePendingHint = '已按你的意思，这条不会放到店页'
   } else if (rejected) {
     compliancePendingHint = '门店案例未通过审核，请等待门店修改'
   }
   const canAuthorizePublicCase =
     passed &&
     (album.status === SERVICE_ALBUM_STATUS.COMPLETED || album.status === 'published') &&
-    !authorized &&
+    album.authorization?.status === 'authorized' &&
+    status === PUBLIC_CASE_STATUS.REVIEW_PASSED &&
+    !(album.publicCase && album.publicCase.notifyWindowEndsAt) &&
     qualityReady
-  // 质量未达标：不引导「待确认 / 发布到网站」，避免车主看到入口却无法发布
+  const canBlockPublicCase = status === PUBLIC_CASE_STATUS.NOTIFY_WINDOW
+  const canTakedownPublicCase = status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED
   const awaitingUserConfirm = canAuthorizePublicCase
   return {
     // 兼容旧字段名：语义已切为「案例审」而非相册合规
@@ -409,6 +416,12 @@ function buildUserAlbumComplianceFields(album, quality = {}) {
     caseVisibleToOwner: true,
     ownerAlbumLocked: isOwnerAlbumBlocked(album),
     canAuthorizePublicCase,
+    canBlockPublicCase,
+    canTakedownPublicCase,
+    notifyWindowEndsAt:
+      album.publicCase && album.publicCase.notifyWindowEndsAt
+        ? toIso(album.publicCase.notifyWindowEndsAt)
+        : '',
     complianceRejectReason: rejectReason,
   }
 }
@@ -1092,6 +1105,12 @@ async function getUserServiceAlbum(albumId, userId) {
     err.status = 403
     throw err
   }
+  try {
+    const { expireNotifyWindowIfDue } = require('./case-publish-window.service')
+    await expireNotifyWindowIfDue(albumId)
+  } catch (e) {
+    console.warn('[album] expire notify window', e && e.message)
+  }
   const { assertOwnerAlbumAccessible, isCaseReviewPassed, isCaseReviewRejected } = require(
     './case-review-gate.service',
   )
@@ -1300,7 +1319,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
   const view = await withStoreTitleFields(album, buildMerchantView(album))
-  const editable = !isAlbumContentLocked(album)
+  const editable = require('./case-publish-window.service').isCaseDraftEditable(album)
   const { isCaseReviewRejected } = require('./case-review-gate.service')
   const resubmit = isCaseReviewRejected(album)
 
@@ -1385,7 +1404,13 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
 async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload = {}) {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
-  assertAlbumContentEditable(album)
+  const { isCaseDraftEditable } = require('./case-publish-window.service')
+  if (!isCaseDraftEditable(album)) {
+    const err = new Error(resolveAlbumContentLockedMessage(album))
+    err.status = 409
+    err.code = ALBUM_CONTENT_LOCKED_CODE
+    throw err
+  }
   const {
     readPackageFromAlbum,
   } = require('./album-content-package.service')
@@ -1493,7 +1518,13 @@ async function exportMerchantCaseDraftCopy(albumId, storeId, merchantId = '') {
 async function polishMerchantCaseDraft(albumId, storeId, merchantId = '', payload = {}) {
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
-  assertAlbumContentEditable(album)
+  const { isCaseDraftEditable } = require('./case-publish-window.service')
+  if (!isCaseDraftEditable(album)) {
+    const err = new Error(resolveAlbumContentLockedMessage(album))
+    err.status = 409
+    err.code = ALBUM_CONTENT_LOCKED_CODE
+    throw err
+  }
   const view = await withStoreTitleFields(album, buildMerchantView(album))
   const { readPackageFromAlbum } = require('./album-content-package.service')
   const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')

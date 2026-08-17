@@ -141,6 +141,8 @@
     bind:socialplatformchange="onSocialPlatformChange"
     bind:copysocial="onCopySocialDraft"
     bind:publish="onSharePublish"
+    bind:blockpublic="onBlockPublic"
+    bind:takedownpublic="onTakedownPublic"
   />
 
   <ui-login-sheet

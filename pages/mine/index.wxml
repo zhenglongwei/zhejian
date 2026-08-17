@@ -31,7 +31,10 @@
 
       <view class="mine__main surface-album-panel">
         <view class="mine__section-head">
-          <text class="mine__section-title text-h3">{{albumSectionTitle}}</text>
+          <view class="surface-album-section-title-row">
+            <view class="surface-album-section-accent" aria-hidden="true" />
+            <text class="mine__section-title text-h3">{{albumSectionTitle}}</text>
+          </view>
           <view wx:if="{{isLoggedIn}}" class="mine__section-links">
             <view class="mine__section-link" bindtap="onAlbumListTap">
               <text class="mine__section-link-text text-caption text-link">全部</text>
@@ -95,7 +98,7 @@
 
         <block wx:if="{{todoSummary}}">
           <view class="surface-album-inset-divider" />
-          <view class="mine__todo">
+          <view class="mine__todo surface-album-todo">
             <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
             <view class="mine__todo-list">
               <view
@@ -105,7 +108,7 @@
                 data-action="{{item.action}}"
                 bindtap="onTodoItemTap"
               >
-                <text class="mine__todo-dot" />
+                <text class="surface-album-todo-dot" />
                 <text class="text-caption">{{item.label}}</text>
                 <text class="mine__todo-arrow text-caption">›</text>
               </view>

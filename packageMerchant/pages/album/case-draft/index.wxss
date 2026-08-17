@@ -109,3 +109,25 @@
   align-items: center;
   gap: var(--space-xs);
 }
+
+.case-draft__attest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.case-draft__check {
+  flex-shrink: 0;
+  color: var(--color-brand);
+  font-size: var(--font-size-body);
+}
+
+.case-draft__phone {
+  width: 100%;
+  margin-top: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  font-size: var(--font-size-body);
+}

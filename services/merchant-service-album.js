@@ -2,7 +2,7 @@
  * V2.0 商家服务相册 — API: /api/merchant/service-albums/*
  */
 const { ENV } = require('./config')
-const { get, post, put } = require('./request')
+const { get, post, put, patch } = require('./request')
 const { getProfile } = require('./merchant')
 const { getSession } = require('../utils/auth')
 const {
@@ -138,6 +138,18 @@ async function exportMerchantCaseDraftCopy(albumId) {
   return get(`/merchant/service-albums/${albumId}/case-draft/export-copy`, withStore())
 }
 
+async function generateMerchantPublicCase(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/generate-case`, withStore(payload))
+}
+
+async function updateMerchantAlbumNotifyPhone(albumId, phone) {
+  return patch(`/merchant/service-albums/${albumId}/notify-phone`, withStore({ phone }))
+}
+
+async function resendMerchantCaseNotify(albumId) {
+  return post(`/merchant/service-albums/${albumId}/resend-notify`, withStore())
+}
+
 async function switchMerchantServiceAlbumTemplate(albumId, templateId) {
   if (ENV.mode === 'mock') {
     const { mockSwitchMerchantServiceAlbumTemplate } = require('../mock/service-albums')
@@ -191,6 +203,9 @@ module.exports = {
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
+  generateMerchantPublicCase,
+  updateMerchantAlbumNotifyPhone,
+  resendMerchantCaseNotify,
   createMerchantColdStartPreview,
   submitMerchantPublicCase,
   fetchMerchantAlbumClaimQrcode,

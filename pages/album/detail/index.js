@@ -4,6 +4,8 @@ const {
   submitServiceAlbumAuthorization,
   recordAlbumShare,
   withdrawAuthorization,
+  blockPublicCase,
+  takedownPublicCase,
   fetchAlbumSocialCopy,
 } = require('../../../services/service-album')
 const {
@@ -31,6 +33,10 @@ const { ORIGINAL_SHARE_RISK } = require('../../../constants/album-share')
 const { inviteUiFieldsFromDetail } = require('../../../utils/album-auth-share-handlers')
 const { AUTH_ACTION_LABEL, AUTH_CONFIRM_TEXT, AUTH_REJECT_TEXT, AUTH_SHEET_TITLE, CONTROL_LINE, CONSENT_CHECKBOX } = require('../../../utils/publish-thank-you')
 const { AUTHORIZATION_CONSENT } = require('../../../constants/compliance-copy')
+const {
+  resolvePublishSheetState,
+  publishHintForState,
+} = require('../../../utils/album-share-state')
 const {
   resolvePageShareContext,
   markShareStoreContext,
@@ -94,22 +100,13 @@ function measureImmersiveLayout() {
 }
 
 const PUBLIC_CASE_HINT = {
-  user_rejected: '当前为私密相册，你可随时分享脱敏报告。',
-  pending_review: '正在发布到公开网站…',
-  public_approved: '已发布到公开网站，同城车友可参考（已脱敏、已审核）。',
+  user_rejected: '已按你的意思，这条不会放到店页。',
+  pending_review: '门店案例审核中，通过后会出现在店页。',
+  public_approved: '打码说明已在店页。没有车牌和人脸。不合适随时能撤。',
   need_modify: '请按提示处理后重新发布。',
 }
 
-const HONOR_HINT =
-  '帮助同城车主少踩坑：可将脱敏后的维修记录分享给同城车友。'
-
-function resolvePublishSheetState(detail) {
-  const status = (detail && detail.publicCaseStatus) || 'private'
-  if (status === 'public_approved') return 'approved'
-  if (status === 'pending_review') return 'pending'
-  if (status === 'need_modify') return 'need_modify'
-  return 'idle'
-}
+const HONOR_HINT = '可发给微信好友或朋友圈；发给微信不会自动进店页。'
 
 function buildStageProgress(chapters, activeNodeId) {
   const chapterByNode = {}
@@ -286,7 +283,7 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
       endPageShowWithdraw: false,
-      endPageWithdrawLabel: '一键下架',
+      endPageWithdrawLabel: '从店页撤下',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.pending_review,
       endPageGateActions: gateActions,
     }
@@ -301,7 +298,7 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
       endPageShowWithdraw: Boolean(canWithdraw),
-      endPageWithdrawLabel: '一键下架',
+      endPageWithdrawLabel: '从店页撤下',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.public_approved,
       endPageGateActions: gateActions,
     }
@@ -314,7 +311,7 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
       endPageShowWithdraw: Boolean(canWithdraw),
-      endPageWithdrawLabel: '一键下架',
+      endPageWithdrawLabel: '从店页撤下',
       endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
       endPageGateActions: gateActions,
     }
@@ -331,7 +328,7 @@ function buildEndPageActionState(detail, showAuthSection) {
       endPagePreviewDisabled: false,
       endPagePreviewHint: '',
       endPageShowWithdraw: false,
-      endPageWithdrawLabel: '一键下架',
+      endPageWithdrawLabel: '从店页撤下',
       endPageStatusHint:
         gateBanner ||
         (detail && detail.userConfirmHint) ||
@@ -348,7 +345,7 @@ function buildEndPageActionState(detail, showAuthSection) {
     endPagePreviewDisabled: false,
     endPagePreviewHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '一键下架',
+    endPageWithdrawLabel: '从店页撤下',
     endPageStatusHint:
       gateBanner ||
       (status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : ''),
@@ -400,7 +397,7 @@ Page({
     endPagePreviewDisabled: false,
     endPagePreviewHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '一键下架',
+    endPageWithdrawLabel: '从店页撤下',
     endPageStatusHint: '',
     endPageGateActions: [],
     withdrawSheetLoading: false,
@@ -453,6 +450,7 @@ Page({
     }
     this.albumId = options.albumId || options.id || ''
     this.fromMerchantShare = options.from === 'merchant_share'
+    this.rightsToken = options.rightsToken || ''
     this.setData({ albumId: this.albumId })
     resolvePageShareContext(options, {
       albumId: this.albumId,
@@ -635,18 +633,9 @@ Page({
       const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
       const socialPlatform = this.data.socialPlatform || 'xiaohongshu'
       const socialDraftText = buildSocialDraft(enriched, socialPlatform)
-      const publishSheetHint =
-        publishSheetState === 'idle'
-          ? '预览即将上网的内容，确认后立即发布（已过平台案例审核）。'
-          : ''
-      const publishSheetDisabled =
-        Boolean(enriched.canAuthorizePublicCase === false) &&
-        (publishSheetState === 'idle' || publishSheetState === 'need_modify')
-      const showPublishSection =
-        publishSheetState === 'approved' ||
-        publishSheetState === 'pending' ||
-        (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
-        (publishSheetState === 'idle' && !publishSheetDisabled)
+      const publishSheetHint = publishHintForState(publishSheetState)
+      const publishSheetDisabled = true
+      const showPublishSection = true
       const compliancePendingHint = String(enriched.compliancePendingHint || '').trim()
       const showCompliancePending =
         Boolean(compliancePendingHint) &&
@@ -914,21 +903,13 @@ Page({
     const detail = this.data.detail || {}
     const platform = this.data.socialPlatform || 'xiaohongshu'
     const publishSheetState = resolvePublishSheetState(detail)
-    const publishSheetDisabled =
-      Boolean(detail.canAuthorizePublicCase === false) &&
-      (publishSheetState === 'idle' || publishSheetState === 'need_modify')
-    const showPublishSection =
-      publishSheetState === 'approved' ||
-      publishSheetState === 'pending' ||
-      (publishSheetState === 'need_modify' && !publishSheetDisabled) ||
-      (publishSheetState === 'idle' && !publishSheetDisabled)
     this.setData({
       shareSheetVisible: true,
       socialDraftText: '',
       socialDraftWaitHint: '',
       publishSheetState,
-      publishSheetDisabled,
-      showPublishSection,
+      publishSheetDisabled: true,
+      showPublishSection: true,
     })
     this.loadSocialDraft(platform)
     if (this.data.showShareEntry && !this.data.shareReady && !this.data.sharePreparing) {
@@ -1009,17 +990,45 @@ Page({
   },
 
   onSharePublish() {
-    const state = this.data.publishSheetState
-    if (state === 'approved' || state === 'pending') return
-    if (this.data.publishSheetDisabled || this.data.showPublishSection === false) {
-      wx.showToast({
-        title: '当前未达到公开网站展示条件，请使用发给微信',
-        icon: 'none',
-      })
-      return
-    }
+    return
+  },
+
+  onBlockPublic() {
     this.setData({ shareSheetVisible: false })
-    this.openAuthorizePreview()
+    wx.showModal({
+      title: '先不要公开',
+      content: '相册还在，只有你和门店能看。不会放到店页。',
+      confirmText: '先不公开',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await blockPublicCase(this.albumId, this.rightsToken || '')
+          wx.showToast({ title: '好的，不会公开', icon: 'success' })
+          this.loadAlbum()
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+        }
+      },
+    })
+  },
+
+  onTakedownPublic() {
+    this.setData({ shareSheetVisible: false })
+    wx.showModal({
+      title: '从店页撤下',
+      content: '撤下后店页不再展示。相册还在，门店不能改图再发一版。',
+      confirmText: '撤下来',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          await takedownPublicCase(this.albumId, this.rightsToken || '')
+          wx.showToast({ title: '已从店页撤下', icon: 'success' })
+          this.loadAlbum()
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+        }
+      },
+    })
   },
 
   enterFlipMode() {

@@ -1,12 +1,10 @@
 /**
- * 案例审核闸门（完工后唯一阻塞审 · 审案例文稿）
- * - 商家确认完工 → pending_desensitize（等脱敏）
- * - 脱敏结束（成功/部分失败/失败）→ pending_review
- * - 运营通过 → review_passed（案例稿/发布可开，不上线）
- * - 运营驳回 → rejected（解锁商家）
- * - 车主发布 → public_approved
- *
- * 2026-08-11：相册与案例文稿分模块；案例审不挡关联车主查看服务相册。
+ * 案例审核闸门
+ * - 商家生成案例 → pending_desensitize
+ * - 脱敏结束 → pending_review
+ * - 运营通过 → 写快照上线 public_approved
+ * - 车主公开后撤下 → offline
+ * - 运营驳回 → rejected
  */
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 
@@ -17,6 +15,7 @@ const CASE_REVIEW_UNLOCK_STATUSES = new Set([
 
 const CASE_REVIEW_PASSED_STATUSES = new Set([
   PUBLIC_CASE_STATUS.REVIEW_PASSED,
+  PUBLIC_CASE_STATUS.NOTIFY_WINDOW,
   PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
   PUBLIC_CASE_STATUS.OFFLINE,
 ])
@@ -25,8 +24,11 @@ const CASE_REVIEW_LOCK_STATUSES = new Set([
   PUBLIC_CASE_STATUS.PENDING_DESENSITIZE,
   PUBLIC_CASE_STATUS.PENDING_REVIEW,
   PUBLIC_CASE_STATUS.REVIEW_PASSED,
+  PUBLIC_CASE_STATUS.NOTIFY_WINDOW,
   PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
   PUBLIC_CASE_STATUS.OFFLINE,
+  PUBLIC_CASE_STATUS.OWNER_BLOCKED,
+  PUBLIC_CASE_STATUS.USER_REJECTED,
 ])
 
 function resolvePublicCaseRowStatus(album) {
@@ -45,7 +47,8 @@ function isCaseReviewPending(album) {
   const status = resolvePublicCaseRowStatus(album)
   return (
     status === PUBLIC_CASE_STATUS.PENDING_REVIEW ||
-    status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE
+    status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE ||
+    status === PUBLIC_CASE_STATUS.NOTIFY_WINDOW
   )
 }
 

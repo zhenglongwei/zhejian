@@ -13,11 +13,14 @@
     <ui-card shadow="{{true}}" padding="{{true}}">
       <text class="text-h3">{{showCompletePrimary ? (resubmit ? '案例预览（重新提交）' : '案例预览（确认完工）') : '公开案例稿'}}</text>
       <view class="case-draft__intro">
-        <text wx:if="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          本预览由相册节点文字与配图拼接而成，AI 润色可选。点润色只改文字、配图不变；润色后可「恢复润色前」。经平台审核通过后由车主发布到公开网站；也可复制文字发自媒体。
+        <text wx:if="{{editable && generateMode}}" class="text-caption text-secondary case-draft__hint">
+          从已完工相册摘公开稿。可改说明、可去掉不想公开的图，不能再加新图。送审通过后会出现在店页。
+        </text>
+        <text wx:elif="{{editable}}" class="text-caption text-secondary case-draft__hint">
+          本预览由相册节点文字与配图拼接而成，AI 润色可选。点润色只改文字、配图不变；润色后可「恢复润色前」。完工后在相册点「生成案例」才能送审上网。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
-          本预览为已确认的案例真源（只读）。经审核通过后由车主发布到公开网站；也可复制文字发自媒体。
+          本预览为已确认或已送审的案例稿（只读）。通过后会出现在店页。
         </text>
         <view wx:if="{{editable}}" class="case-draft__polish-actions">
           <ui-button
@@ -104,6 +107,7 @@
       <text class="text-caption text-secondary">暂无公开配图。请在相册中将过程图设为可公示，或完工脱敏后再嵌入。</text>
     </ui-card>
 
+    
     <view class="case-draft__spacer" />
   </block>
 
@@ -119,7 +123,14 @@
       >保存草稿</ui-button>
     </view>
     <ui-button
-      wx:if="{{showCompletePrimary}}"
+      wx:if="{{showGeneratePrimary}}"
+      slot="right"
+      type="primary"
+      loading="{{generating}}"
+      bind:btntap="onGenerateCase"
+    >{{primaryActionText}}</ui-button>
+    <ui-button
+      wx:elif="{{showCompletePrimary}}"
       slot="right"
       type="primary"
       loading="{{completing}}"

@@ -763,12 +763,30 @@ Page({
       bottomPrimaryText = '重新提交'
       bottomPrimaryAction = 'complete'
     }
-    // 已完工只读：底栏「生成案例」占位（案例链路另案）
+    // 已完工只读：底栏「生成案例」或进度
     if (readOnly && isCompleted && detail.complianceStatus !== 'rejected') {
       showBottomPrimary = true
-      bottomPrimaryText = '生成案例'
-      bottomPrimaryAction = 'generateCase'
       showSaveButton = false
+      const pcs = publicCaseStatus || ''
+      if (pcs === 'owner_blocked' || pcs === 'user_rejected') {
+        bottomPrimaryText = '车主已阻止公开'
+        bottomPrimaryAction = 'blocked'
+      } else if (pcs === 'public_approved') {
+        bottomPrimaryText = '查看案例稿'
+        bottomPrimaryAction = 'viewDraft'
+      } else if (pcs === 'notify_window') {
+        bottomPrimaryText = '查看案例稿'
+        bottomPrimaryAction = 'viewDraft'
+      } else if (pcs === 'pending_review' || pcs === 'pending_desensitize') {
+        bottomPrimaryText = '审核中'
+        bottomPrimaryAction = 'viewDraft'
+      } else if (pcs === 'review_passed') {
+        bottomPrimaryText = '查看案例稿'
+        bottomPrimaryAction = 'viewDraft'
+      } else {
+        bottomPrimaryText = '生成案例'
+        bottomPrimaryAction = 'generateCase'
+      }
     }
     const caseDraftConfirmed = Boolean(
       detail.merchantCaseDraft && detail.merchantCaseDraft.confirmedAt,
@@ -2729,15 +2747,49 @@ Page({
   },
 
   onBottomPrimaryTap() {
-    if (this.data.bottomPrimaryAction === 'generateCase') {
-      this.onGenerateCaseSoon()
+    const action = this.data.bottomPrimaryAction
+    if (action === 'generateCase' || action === 'viewDraft') {
+      this.onOpenCaseDraft()
+      return
+    }
+    if (action === 'resendNotify') {
+      this.onResendNotify()
+      return
+    }
+    if (action === 'blocked') {
+      wx.showToast({ title: '车主已阻止，本相册不能再公开', icon: 'none' })
       return
     }
     this.onComplete()
   },
 
-  onGenerateCaseSoon() {
-    wx.showToast({ title: '即将开放', icon: 'none' })
+  onOpenCaseDraft() {
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=generate`,
+    })
+  },
+
+  async onResendNotify() {
+    const { resendMerchantCaseNotify, updateMerchantAlbumNotifyPhone } = require('../../../../services/merchant-service-album')
+    wx.showModal({
+      title: '补发车主通知',
+      editable: true,
+      placeholderText: '通知手机号',
+      content: (this.data.detail && this.data.detail.userPhone) || '',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          const phone = String(res.content || '').trim()
+          if (phone) {
+            await updateMerchantAlbumNotifyPhone(this.albumId, phone)
+          }
+          await resendMerchantCaseNotify(this.albumId)
+          wx.showToast({ title: '已重发通知', icon: 'success' })
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+        }
+      },
+    })
   },
 
   albumHasNonEmptyContentLocal() {

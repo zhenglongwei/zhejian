@@ -10,7 +10,7 @@
       <ui-empty
         theme="album"
         title="{{needPhone ? '绑定手机号后查看' : '登录后查看授权'}}"
-        description="管理脱敏案例分享、审核与下架"
+        description="管理脱敏案例分享、审核，以及从店页撤下"
         actionText="{{needPhone ? '绑定手机号' : '微信一键登录'}}"
         bind:action="onLoginTap"
       />
@@ -34,7 +34,7 @@
       <ui-empty
         theme="album"
         title="暂无授权记录"
-        description="相册完工后可在此分享脱敏报告、查看审核结果或一键下架"
+        description="相册完工后可在此分享脱敏报告、查看审核结果，或从店页撤下"
       />
     </view>
   </block>
@@ -104,9 +104,9 @@
 
 <ui-bottom-sheet
   visible="{{withdrawSheetVisible}}"
-  title="撤回授权"
-  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
-  confirmText="确认撤回"
+  title="从店页撤下"
+  hint="撤下后店页不再展示。相册还在，只有你和门店能看。"
+  confirmText="确认撤下"
   cancelText="取消"
   loading="{{withdrawSheetLoading}}"
   bind:close="onWithdrawSheetClose"

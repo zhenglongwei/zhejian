@@ -81,6 +81,14 @@ async function withdrawAuthorization(albumId) {
   return post(`/user/service-albums/${albumId}/withdraw-authorization`)
 }
 
+async function blockPublicCase(albumId, rightsToken = '') {
+  return post(`/user/service-albums/${albumId}/public-case/block`, { rightsToken })
+}
+
+async function takedownPublicCase(albumId, rightsToken = '') {
+  return post(`/user/service-albums/${albumId}/public-case/takedown`, { rightsToken })
+}
+
 async function recordAlbumShare(albumId, payload = {}) {
   if (ENV.mode === 'mock') {
     const { mockRecordAlbumShare } = require('../mock/service-albums')
@@ -141,6 +149,8 @@ module.exports = {
   prepareServiceAuthorizePreview,
   fetchUserAuthorizations,
   withdrawAuthorization,
+  blockPublicCase,
+  takedownPublicCase,
   recordAlbumShare,
   fetchSharedAlbum,
   fetchAlbumClaimPreview,

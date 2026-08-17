@@ -19,6 +19,7 @@ const {
   getAlbumReviewContext,
   submitServiceAlbumReview,
   submitServiceAlbumReviewFollowUp,
+  setReviewAuthorizePublic,
 } = require('../services/album-review.service')
 const {
   loadAlbumPartsContext,
@@ -155,6 +156,32 @@ router.post('/service-albums/:albumId/public-case', requireAuth(['user']), async
   }
 })
 
+router.post('/service-albums/:albumId/public-case/block', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const { blockPublicCaseByOwner } = require('../services/case-publish-window.service')
+    const data = await blockPublicCaseByOwner(req.params.albumId, {
+      userId: req.auth.userId,
+      rightsToken: req.body && req.body.rightsToken,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/service-albums/:albumId/public-case/takedown', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const { takedownPublicCaseByOwner } = require('../services/case-publish-window.service')
+    const data = await takedownPublicCaseByOwner(req.params.albumId, {
+      userId: req.auth.userId,
+      rightsToken: req.body && req.body.rightsToken,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.post('/albums/:albumId/authorize-preview', requireAuth(['user']), async (req, res, next) => {
   try {
     const { preview } = await createAlbumAuthorizeTaskFromPreMask(req.params.albumId)
@@ -262,6 +289,23 @@ router.post('/service-albums/:albumId/review', requireAuth(['user']), async (req
     next(e)
   }
 })
+
+router.post(
+  '/service-albums/:albumId/review/public',
+  requireAuth(['user']),
+  async (req, res, next) => {
+    try {
+      const data = await setReviewAuthorizePublic(
+        req.params.albumId,
+        req.auth.userId,
+        Boolean(req.body && req.body.authorizePublic),
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 router.post(
   '/service-albums/:albumId/review/follow-up',

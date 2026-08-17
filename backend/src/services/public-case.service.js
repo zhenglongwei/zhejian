@@ -266,10 +266,21 @@ async function enqueueAlbumCaseForReview(albumId, draftOverride = null) {
   const fromPkg = pkg && pkg.merchantCaseDraft
   const merchantCaseDraft = normalizeMerchantCaseDraft(draftOverride || fromPkg)
   if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
-    const err = new Error('请先在案例预览页确认案例稿后再完工')
+    const err = new Error('请先确认案例稿后再送审')
     err.status = 409
     err.code = 'CASE_DRAFT_REQUIRED'
     throw err
+  }
+  const { canMerchantGenerateCase } = require('./case-publish-window.service')
+  const gate = canMerchantGenerateCase(album)
+  if (!gate.ok && gate.code !== 'NOTIFY_PHONE_REQUIRED') {
+    // 送审时手机号仍要拦；此处允许调用方先改号
+    if (gate.code === 'OWNER_BLOCKED' || gate.code === 'TAKEN_DOWN' || gate.code === 'ALREADY_PUBLIC' || gate.code === 'NOTIFY_WINDOW' || gate.code === 'IN_REVIEW') {
+      const err = new Error(gate.message)
+      err.status = 409
+      err.code = gate.code
+      throw err
+    }
   }
 
   const caseId = (album.publicCase && album.publicCase.id) || newId('case')
@@ -366,7 +377,8 @@ async function resolvePublishTask(albumId, payload = {}) {
   return null
 }
 
-async function publishServicePublicCase(albumId, userId, payload = {}) {
+async function commitPublicCaseGoLive(albumId, options = {}) {
+  const payload = options.payload || {}
   const album = await prisma.album.findUnique({
     where: { id: albumId },
     include: {
@@ -382,32 +394,38 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     throw err
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } })
-  const phone = user?.phone || ''
-  const allowed =
-    album.userId === userId || (phone && album.userPhone === phone)
-  if (!allowed) {
-    const err = new Error('无权发布该案例')
-    err.status = 403
-    throw err
-  }
-
-  if (album.authorization?.status !== 'authorized') {
-    const err = new Error('请先完成公开授权')
-    err.status = 409
-    throw err
-  }
-
   if (album.status !== 'completed' && album.status !== 'published') {
     const err = new Error('相册尚未完工，暂无法提交公示')
     err.status = 409
     throw err
   }
 
-  assertPublicCasePublishable(album.publicCase)
-
-  const { assertCaseReviewPassed } = require('./case-review-gate.service')
-  assertCaseReviewPassed(album)
+  const pcRow = album.publicCase
+  if (pcRow && pcRow.ownerBlockedAt) {
+    const err = new Error('车主已阻止公开')
+    err.status = 409
+    err.code = 'OWNER_BLOCKED'
+    throw err
+  }
+  const liveStatus = pcRow && pcRow.status
+  if (liveStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    const err = new Error('案例已公开展示')
+    err.status = 409
+    throw err
+  }
+  const readyToGoLive =
+    liveStatus === PUBLIC_CASE_STATUS.NOTIFY_WINDOW ||
+    liveStatus === PUBLIC_CASE_STATUS.REVIEW_PASSED
+  if (!readyToGoLive) {
+    const err = new Error('当前状态不可公开')
+    err.status = 409
+    throw err
+  }
+  if (liveStatus === PUBLIC_CASE_STATUS.REVIEW_PASSED) {
+    assertPublicCasePublishable(pcRow)
+    const { assertCaseReviewPassed } = require('./case-review-gate.service')
+    assertCaseReviewPassed(album)
+  }
 
   const { readPackageFromAlbum } = require('./album-content-package.service')
   const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
@@ -437,7 +455,11 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   // 第一层：公示质量分（证据链 + 文案 + 无可公示图硬拦）
   assertPublicCaseQualityReady(albumView)
 
-  const authorizationTier = album.authorization.tier || album.authorizationTier || 'named'
+  const authorizationTier =
+    options.authorizationTier ||
+    (album.authorization && album.authorization.tier) ||
+    album.authorizationTier ||
+    'merchant_published'
   const tier = authorizationTier === 'anonymous' ? 'named' : authorizationTier
   const wasOffline = album.publicCase?.status === PUBLIC_CASE_STATUS.OFFLINE
   const task = await resolvePublishTask(albumId, payload)
@@ -475,7 +497,7 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     },
     albumView: { ...albumView, nodes: nodesWithMask },
     coldStart: false,
-    hasUserAuthorization: true,
+    hasUserAuthorization: Boolean(options.hasUserAuthorization),
     serviceItemId: album.serviceItemId || '',
     templateId: album.templateId || '',
     previousArticleVersion: previousSnapshotVersion,
@@ -496,6 +518,21 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
   })
   if (contentJson && typeof contentJson === 'object') {
     contentJson.merchantCaseDraft = merchantCaseDraft
+  }
+  const { shouldIndexPublicCase } = require('./case-index-gate.service')
+  const indexable = shouldIndexPublicCase(
+    {
+      ...pc,
+      publishedAt: new Date(),
+      summary: snapshot.summary,
+      serviceName: snapshot.serviceName || album.serviceName,
+      title: snapshot.title,
+      storefrontHidden: Boolean(pc && pc.storefrontHidden),
+    },
+    snapshot,
+  )
+  if (!indexable) {
+    articlePayload.seoNoindex = true
   }
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
@@ -604,9 +641,9 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
 
   const { finalizePublishedCaseSideEffects } = require('./admin-case.service')
   await finalizePublishedCaseSideEffects(caseId, {
-    reviewerId: 'system',
-    comment: 'user_publish_after_case_review',
-    reviewAction: 'user_publish',
+    reviewerId: options.reviewerId || 'system',
+    comment: options.comment || 'notify_window_elapsed',
+    reviewAction: options.reviewAction || 'notify_window_elapsed',
   })
 
   return {
@@ -625,8 +662,47 @@ async function publishServicePublicCase(albumId, userId, payload = {}) {
     gateBRisk: 'skipped',
     spotCheckStatus: SPOT_CHECK_STATUS.NONE,
     autoApproved: true,
-    message: '已发布到公开网站，同城车友可参考（已脱敏）',
+    message: options.message || '已出现在门店公开页（已脱敏）',
   }
+}
+
+async function publishServicePublicCase(albumId, userId, payload = {}) {
+  const album = await prisma.album.findUnique({
+    where: { id: albumId },
+    include: { authorization: true, publicCase: true },
+  })
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = user?.phone || ''
+  const allowed = album.userId === userId || (phone && album.userPhone === phone)
+  if (!allowed) {
+    const err = new Error('无权操作该相册')
+    err.status = 403
+    throw err
+  }
+  const isLegacy =
+    album.authorization?.status === 'authorized' &&
+    album.publicCase?.status === PUBLIC_CASE_STATUS.REVIEW_PASSED &&
+    !album.publicCase?.notifyWindowEndsAt
+  if (!isLegacy) {
+    const err = new Error('公开记录由门店放到店页。不合适可从店页撤下。')
+    err.status = 409
+    err.code = 'MERCHANT_PUBLISHES'
+    throw err
+  }
+  return commitPublicCaseGoLive(albumId, {
+    allowLegacyOwnerPublish: true,
+    authorizationTier: album.authorization.tier || album.authorizationTier || 'named',
+    hasUserAuthorization: true,
+    reviewAction: 'user_publish',
+    comment: 'user_publish_after_case_review',
+    payload,
+    message: '已发布到公开网站，同城车友可参考（已脱敏）',
+  })
 }
 
 async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId, taskId } = {}) {
@@ -780,8 +856,61 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
   }
 }
 
+async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft, notifyPhone } = {}) {
+  const { assertMerchantAlbum, saveMerchantCaseDraft, loadAlbum } = require('./service-album.service')
+  const {
+    canMerchantGenerateCase,
+    updateAlbumNotifyPhone,
+  } = require('./case-publish-window.service')
+
+  let album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+
+  if (notifyPhone) {
+    await updateAlbumNotifyPhone(albumId, { storeId, merchantId, phone: notifyPhone })
+    album = await loadAlbum(albumId)
+  }
+
+  const gate = canMerchantGenerateCase(album)
+  if (!gate.ok) {
+    const err = new Error(gate.message)
+    err.status = 409
+    err.code = gate.code
+    throw err
+  }
+
+  const saved = await saveMerchantCaseDraft(albumId, storeId, merchantId, {
+    confirm: true,
+    draft: draft || {},
+  })
+  const enqueued = await enqueueAlbumCaseForReview(albumId, saved.draft)
+  const attestedAt = new Date()
+  const row = await prisma.publicCase.findUnique({ where: { albumId } })
+  if (row) {
+    await prisma.publicCase.update({
+      where: { albumId },
+      data: { merchantAttestedAt: attestedAt },
+    })
+  }
+
+  const { scheduleAlbumPreMask } = require('./desensitize.service')
+  scheduleAlbumPreMask(albumId, { trigger: 'generate_case' })
+
+  return {
+    ...enqueued,
+    message: '已送审。通过后将出现在店页。',
+  }
+}
+
 module.exports = {
   publishServicePublicCase,
+  commitPublicCaseGoLive,
+  generateMerchantPublicCase,
   publishMerchantColdStartPublicCase,
   enqueueAlbumCaseForReview,
   promoteAlbumCaseToPendingReview,

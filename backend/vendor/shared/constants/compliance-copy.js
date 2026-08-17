@@ -49,18 +49,29 @@ const AUTHORIZATION_CONSENT = {
     authType: 'case_public',
     version: LEGAL_VERSION,
     text:
-      '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。',
+      '本人已阅读并知晓《公开案例与隐私说明》：门店可能把打码施工说明放到店页；不合适可从店页撤下。',
   },
   desensitize_confirm: {
     authType: 'desensitize_confirm',
     version: LEGAL_VERSION,
     text:
-      '本人已阅读并知晓《公开案例与隐私说明》，同意将该案例分享给同城车友参考。',
+      '本人已阅读并知晓《公开案例与隐私说明》：店页只用打码图；发给微信不会自动进店页。',
   },
   case_revoke: {
     authType: 'case_revoke',
     version: LEGAL_VERSION,
-    text: '我确认下架该案例，知晓公开站相关内容将尽快删除',
+    text: '我确认把这条打码说明从店页撤下，公开页将尽快不再展示',
+  },
+  case_block: {
+    authType: 'case_block',
+    version: LEGAL_VERSION,
+    text: '我确认先不要公开这条打码说明，相册仍只给我和门店看',
+  },
+  merchant_generate_case: {
+    authType: 'merchant_generate_case',
+    version: LEGAL_VERSION,
+    text:
+      '公开内容仅为打码后的施工过程记录，不含车牌、人脸、VIN、手机号；已或将通过平台通知车主，车主可选择不公开或事后撤下；不得以不让公开就不给车或取消质保胁迫；不得把能识别车主身份的信息写进说明。',
   },
   merchant_onboard: {
     authType: 'merchant_onboard',
@@ -207,8 +218,17 @@ const COMPLIANCE_COPY = {
     '门店为你创建了服务相册，用于记录本次维修过程。关联前请阅读以下说明：\n\n' +
     '1. 相册默认仅你与门店可见，不会自动公开\n' +
     '2. 平台将处理维修过程图片（含脱敏、OCR、AI 辅助阅读），用于留档与争议证据；门店可能对报价单/定损单/结算单使用 OCR 辅助录入，公开页不含单据原图\n' +
-    '3. 分享至公开站 / 搜索引擎须你另行确认并脱敏审核\n' +
-    '4. 你可随时在「我的服务相册」一键下架',
+    '3. 门店可能把打码施工说明放到店页。不合适可从店页撤下\n' +
+    '4. 可在「我的服务相册」里处理',
+  merchantGenerateAttest: [],
+  notifyWindowOwner:
+    '店里想把这次维修的打码施工说明放到店页，没有车牌和人脸。打开相册就能看。不合适的话选「先不要公开」；这两天没回音会放上去，之后也随时能撤。',
+  notifyWindowSms:
+    '{store}想把这次「{service}」的打码施工说明放到店页，没有车牌和人脸。打开链接能看；不合适选「先不要公开」。{hours}小时内没回复会放上去，之后也能撤。',
+  auditQualityDisclaimer:
+    '平台审核针对隐私打码与宣传合规，不代表对维修质量或配件真伪作出保证。',
+  storefrontWindowHint:
+    '近 90 天完工 {completed} 本，公开 {published} 条。公开记录由门店选出，不代表全部完工。',
   merchantDocumentOcr:
     AUTHORIZATION_CONSENT.merchant_document_ocr.text,
   /** @deprecated 使用 displayDisclaimer */

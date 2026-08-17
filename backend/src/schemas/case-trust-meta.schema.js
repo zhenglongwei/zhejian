@@ -3,7 +3,7 @@
  */
 const { toIso } = require('../lib/ids')
 
-const AUTHORIZATION_TIERS = ['user_authorized', 'merchant_history']
+const AUTHORIZATION_TIERS = ['user_authorized', 'merchant_history', 'merchant_published']
 const EVIDENCE_LEVELS = ['text_primary', 'partial_images', 'rich_images']
 const GATE_STATUSES = ['passed', 'unknown', 'pending']
 
@@ -75,16 +75,39 @@ function normalizeCaseTrustMeta(raw) {
 
 function mapAuthorizationTierForTrust(tier) {
   const value = normalizeString(tier)
-  if (value === 'private') {
+  if (value === 'private' || value === 'merchant_history') {
     return {
       authorizationTier: 'merchant_history',
       authorizationTierLabel: '商家历史案例',
     }
   }
+  if (value === 'merchant_published') {
+    return {
+      authorizationTier: 'merchant_published',
+      authorizationTierLabel: '门店发布',
+    }
+  }
   return {
     authorizationTier: 'user_authorized',
-    authorizationTierLabel: '用户授权案例',
+    authorizationTierLabel: '已发布',
   }
+}
+
+function formatTrustStatement(meta) {
+  const reviewedDate = meta.reviewedAt ? meta.reviewedAt.slice(0, 10) : ''
+  const datePart = reviewedDate ? `，${reviewedDate}` : ''
+  const disclaimer =
+    '平台审核针对隐私打码与宣传合规，不代表对维修质量或配件真伪作出保证。'
+  if (meta.authorizationTier === 'merchant_published') {
+    return (
+      `本案例为门店发布的脱敏施工记录；${disclaimer}` +
+      `（快照版本 v${meta.snapshotVersion}${datePart}）。${meta.evidenceLevelLabel}。价格与方案以快照记录为准，仅供参考。`
+    )
+  }
+  return (
+    `本案例为${meta.authorizationTierLabel}；经隐私脱敏与平台审核后公开（快照版本 v${meta.snapshotVersion}${datePart}）。` +
+    `${meta.evidenceLevelLabel}。${disclaimer}价格与方案以快照记录为准，仅供参考。`
+  )
 }
 
 function resolveEvidenceLevel(publicImageCount) {
@@ -96,15 +119,6 @@ function resolveEvidenceLevel(publicImageCount) {
     return { evidenceLevel: 'partial_images', evidenceLevelLabel: '含少量脱敏过程图' }
   }
   return { evidenceLevel: 'rich_images', evidenceLevelLabel: '含多阶段脱敏过程图' }
-}
-
-function formatTrustStatement(meta) {
-  const reviewedDate = meta.reviewedAt ? meta.reviewedAt.slice(0, 10) : ''
-  const datePart = reviewedDate ? `，${reviewedDate}` : ''
-  return (
-    `本案例为${meta.authorizationTierLabel}；经隐私脱敏与平台审核后公开（快照版本 v${meta.snapshotVersion}${datePart}）。` +
-    `${meta.evidenceLevelLabel}。价格与方案以快照记录为准，仅供参考。`
-  )
 }
 
 module.exports = {

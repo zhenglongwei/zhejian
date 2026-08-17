@@ -103,7 +103,9 @@
     "test:geo-vehicle-topic": "node src/services/geo-vehicle-topic.test.js",
     "brand-search:aggregate": "node scripts/brand-search-daily-aggregate.js",
     "brand-search:smoke": "node scripts/brand-search-daily-smoke.js",
-    "check:js-syntax": "node scripts/check-js-syntax.js",
+    "case:notify-window": "node scripts/case-notify-window-expire.js",
+    "test:case-index-gate": "node src/services/case-index-gate.service.test.js",
+    "test:case-publish-window": "node src/services/case-publish-window.service.test.js",
     "check:release-syntax": "npm run check:js-syntax && node scripts/check-release-syntax.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
     "postinstall": "prisma generate"

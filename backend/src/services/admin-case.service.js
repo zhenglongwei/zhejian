@@ -49,7 +49,9 @@ const {
 const { SPOT_CHECK_STATUS } = require('./gate-b-risk.service')
 
 function resolveCaseSource(album) {
-  if (!album) return 'user_authorized'
+  if (!album) return 'merchant_published'
+  const tier = album.publicCase?.authorizationTier || album.authorizationTier || ''
+  if (tier === 'merchant_published') return 'merchant_published'
   if (album.authorization?.status === 'authorized') return 'user_authorized'
   const hasOwner =
     Boolean(String(album.userId || '').trim()) || Boolean(String(album.userPhone || '').trim())
@@ -60,7 +62,8 @@ function resolveCaseSource(album) {
 function sourceLabel(source) {
   const map = {
     cold_start: '冷启动',
-    user_authorized: '用户授权案例',
+    user_authorized: '已发布',
+    merchant_published: '门店发布',
     merchant_history: '商家历史案例',
   }
   return map[source] || source
@@ -547,7 +550,7 @@ async function assertCaseDesensitizeReady(caseId, options = {}) {
 }
 
 /**
- * 运营通过案例审：仅标记 review_passed，不上线 H5（待车主发布）
+ * 运营通过案例审：写快照并上线店页（平台不代通知车主）
  */
 async function approveAdminCase(caseId, { reviewerId, comment = '', reviewAction = 'approve' } = {}) {
   const row = await prisma.publicCase.findUnique({ where: { id: caseId } })
@@ -583,7 +586,7 @@ async function approveAdminCase(caseId, { reviewerId, comment = '', reviewAction
   await prisma.album.update({
     where: { id: row.albumId },
     data: {
-      publicCaseStatus: 'review_passed',
+      publicCaseStatus: PUBLIC_CASE_STATUS.REVIEW_PASSED,
     },
   })
 
@@ -596,14 +599,28 @@ async function approveAdminCase(caseId, { reviewerId, comment = '', reviewAction
     afterStatus,
   })
 
+  try {
+    const { commitPublicCaseGoLive } = require('./public-case.service')
+    await commitPublicCaseGoLive(row.albumId, {
+      authorizationTier: 'merchant_published',
+      hasUserAuthorization: false,
+      reviewAction: reviewAction || 'approve',
+      comment: comment || 'admin_approve_go_live',
+    })
+  } catch (e) {
+    console.warn('[admin-case] go live', e && e.message)
+  }
+
   const { notifyCaseAuditResult } = require('./notification.service')
   notifyCaseAuditResult({
     album: { ...album, publicCase: { ...(album?.publicCase || {}), id: caseId } },
     approved: true,
-    comment: comment || '案例已通过审核，车主可查看案例稿并自行发布到公开网站。',
-    reviewPassedOnly: true,
-  }).catch((e) => {
-    console.warn('[notification] case approve', e && e.message)
+    comment: comment || '',
+    reviewPassedOnly: false,
+    notifyWindow: false,
+    notifyOwner: false,
+  }).catch((err) => {
+    console.warn('[notification] case approve', err && err.message)
   })
 
   return getAdminCaseDetail(caseId)
@@ -646,7 +663,8 @@ async function finalizePublishedCaseSideEffects(
             slug,
             caseId,
           })
-    const seoNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
+    const { shouldIndexPublicCase } = require('./case-index-gate.service')
+    const storeNoindex = await resolveCaseSeoNoindexForStore(row.storeId, {
       city: row.city || snapshot.city,
       serviceName: row.serviceName || snapshot.serviceName,
       imageCount: (snapshot.nodes || []).reduce(
@@ -654,6 +672,11 @@ async function finalizePublishedCaseSideEffects(
         0
       ),
     })
+    const layer2Indexable = shouldIndexPublicCase(
+      { ...row, publishedAt: now, storefrontHidden: Boolean(row.storefrontHidden) },
+      snapshot,
+    )
+    const seoNoindex = Boolean(storeNoindex) || Boolean(row.seoNoindex) || !layer2Indexable
     const publishPayload = { contentJson }
     stampPublishedH5OnPayload(publishPayload)
     const { CASE_ARTICLE_STATUS: ARTICLE_STATUS } = require('../constants/case-article-status')

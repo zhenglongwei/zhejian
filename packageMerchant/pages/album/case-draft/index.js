@@ -4,6 +4,7 @@ const {
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
+  generateMerchantPublicCase,
 } = require('../../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
@@ -16,11 +17,13 @@ Page({
     errorMessage: '',
     albumId: '',
     fromComplete: false,
+    generateMode: false,
     resubmit: false,
     editable: false,
     saving: false,
     polishing: false,
     completing: false,
+    generating: false,
     canRevertPolish: false,
     title: '',
     caseSummary: '',
@@ -31,6 +34,7 @@ Page({
     confirmed: false,
     primaryActionText: '确认完工',
     showCompletePrimary: false,
+    showGeneratePrimary: false,
   },
 
   /** 仅保留最近一次「AI 润色」前的文案，不落库 */
@@ -42,11 +46,12 @@ Page({
   onLoad(options) {
     this.albumId = options.albumId || ''
     const fromComplete = options.from === 'complete' || options.gate === '1'
+    const generateMode = options.from === 'generate'
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
       return
     }
-    this.setData({ fromComplete })
+    this.setData({ fromComplete, generateMode })
     this.initPage()
   },
 
@@ -115,9 +120,17 @@ Page({
     const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
     const resubmit = extra.resubmit != null ? Boolean(extra.resubmit) : this.data.resubmit
     const fromComplete = this.data.fromComplete
-    const showCompletePrimary = Boolean(editable && (fromComplete || resubmit))
-    const primaryActionText = resubmit ? '重新提交' : '确认完工'
-    if (showCompletePrimary) {
+    const generateMode = this.data.generateMode
+    const showGeneratePrimary = Boolean(editable && generateMode && !resubmit)
+    const showCompletePrimary = Boolean(editable && (fromComplete || resubmit) && !generateMode)
+    const primaryActionText = generateMode
+      ? '勾选保证并送审'
+      : resubmit
+        ? '重新提交'
+        : '确认完工'
+    if (showGeneratePrimary) {
+      wx.setNavigationBarTitle({ title: '生成公开案例' })
+    } else if (showCompletePrimary) {
       wx.setNavigationBarTitle({
         title: resubmit ? '案例预览 · 重新提交' : '案例预览 · 确认完工',
       })
@@ -151,6 +164,7 @@ Page({
       resubmit,
       primaryActionText,
       showCompletePrimary,
+      showGeneratePrimary,
     })
   },
 
@@ -357,6 +371,30 @@ Page({
     }
   },
 
+
+  async onGenerateCase() {
+    if (!this.data.editable || this.data.generating) return
+    this.setData({ generating: true })
+    try {
+      wx.showLoading({ title: '送审中', mask: true })
+      await generateMerchantPublicCase(this.albumId, {
+        draft: this.buildDraftPayload(),
+      })
+      wx.hideLoading()
+      wx.showModal({
+        title: '已送审',
+        content: '通过后将出现在店页。',
+        showCancel: false,
+        success: () => wx.navigateBack({ delta: 1 }),
+      })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '送审失败', icon: 'none' })
+    } finally {
+      this.setData({ generating: false })
+    }
+  },
+
   onSaveDraft() {
     this.onSave(false)
   },
@@ -388,8 +426,8 @@ Page({
       wx.showModal({
         title: isResubmit ? '已重新提交' : '已确认完工',
         content: isResubmit
-          ? '已再次进入平台案例审核。审核通过后车主可查看并发布。'
-          : '案例稿已锁定，并进入平台案例审核。审核通过后车主可查看并发布；驳回后可再改并重新提交。',
+          ? '已再次进入平台案例审核。通过后将出现在店页。'
+          : '相册已完工。之后可从相册点「生成案例」送审；通过后会出现在店页。',
         confirmText: '复制文案',
         cancelText: '返回相册',
         success: (res) => {

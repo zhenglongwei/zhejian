@@ -355,7 +355,12 @@ page {
 | `.surface-album-panel` | 工具页主内容区（我的/工作台单卡） |
 | `.surface-album-catalog` | 相册列表档案目录 folio 壳（淡蓝渐变 + 目录阴影） |
 | `.surface-album-folio` | 扉页淡蓝空气感渐变（白 → `--color-album-active-light` → 白） |
-| `.surface-album-well` | Dock / 快捷入口冷灰蓝 icon 底 |
+| `.surface-album-well` | Dock / 快捷入口浅蓝纸感 icon 底（`--color-album-active-light`）；禁分色圆底 |
+| `.surface-album-section-accent` | 工具台区头主色竖条（与档案目录同款） |
+| `.surface-album-section-title-row` | 区头标题行（竖条 + 标题） |
+| `.surface-album-todo` | 待办浅蓝底块 |
+| `.surface-album-todo-dot` | 待办列表主色圆点 |
+| `.surface-album-hint-strip` | GEO 等弱提示条（浅底 + 左主色细条） |
 | `.surface-album-inset-divider` | panel 内分区线 |
 | `.nav-icon-tone-album` | Dock 彩色 PNG 冷灰统一（过渡；终态为单色线稿资源） |
 | `.surface-record-card` | 授权/消息/线索列表卡纸感壳 |
@@ -908,7 +913,8 @@ page {
 
 | 场景        | Class                   |
 | --------- | ----------------------- |
-| 用户授权案例    | `tag tag--order`（类名遗留，语义为用户授权） |
+| 门店发布      | `tag tag--order`（类名遗留；新单语义为门店发布） |
+| 已发布（存量） | `tag tag--order` |
 | 商家历史案例    | `tag tag--history`      |
 | 已脱敏       | `tag tag--desensitized` |
 | 已审核       | `tag tag--audited`      |
