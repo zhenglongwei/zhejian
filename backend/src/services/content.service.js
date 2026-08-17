@@ -259,6 +259,9 @@ function mapPublicCaseRow(row, album) {
   if (layered.confirmedCaseDraft && layered.confirmedCaseDraft.title) {
     layered.title = layered.confirmedCaseDraft.title
   }
+  if (layered.confirmedCaseDraft && Array.isArray(layered.confirmedCaseDraft.faq)) {
+    layered.faq = layered.confirmedCaseDraft.faq
+  }
   return applyPublicDisplayRules(layered)
 }
 

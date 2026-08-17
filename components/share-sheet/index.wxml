@@ -56,7 +56,7 @@
 
       <view class="share-sheet__section">
         <text class="share-sheet__section-title text-body">① 发给微信</text>
-        <text class="share-sheet__section-hint text-caption">完工即可；不会自动出现在公开网站</text>
+        <text class="share-sheet__section-hint text-caption">分享这本相册。完工即可，不要求店已上网。</text>
         <view class="share-sheet__channels">
           <view
             class="share-sheet__channel {{actionsDisabled ? 'share-sheet__channel--disabled' : ''}}"
@@ -110,26 +110,8 @@
             bind:btntap="onTakedownTap"
           >从店页撤下</ui-button>
         </block>
-        <block wx:elif="{{publishState === 'window'}}">
-          <text class="share-sheet__status text-body">即将出现在店页</text>
-          <ui-button
-            type="primary"
-            size="sm"
-            block
-            bind:btntap="onBlockTap"
-          >先不要公开</ui-button>
-        </block>
-        <block wx:elif="{{publishState === 'pending'}}">
-          <text class="share-sheet__status text-body">审核中，通过后会先告诉你</text>
-        </block>
         <block wx:elif="{{publishState === 'blocked'}}">
           <text class="share-sheet__status text-body">已按你的意思，这条不会放到店页</text>
-        </block>
-        <block wx:elif="{{publishState === 'need_modify'}}">
-          <text class="share-sheet__status text-body">审核未通过，请等待门店修改</text>
-        </block>
-        <block wx:else>
-          <text class="share-sheet__status text-caption">发给微信只给你选的人看，不会自动进店页。</text>
         </block>
       </view>
 

@@ -41,8 +41,30 @@
   color: var(--color-text-secondary);
 }
 
-.case-draft__section {
-  margin-top: var(--space-md);
+.case-draft__block-label {
+  display: block;
+  margin: var(--space-lg) 0 var(--space-xs);
+}
+
+.case-draft__faq-empty {
+  margin-top: var(--space-sm);
+}
+
+.case-draft__faq-item {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1rpx solid var(--color-border);
+}
+
+.case-draft__faq-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.case-draft__faq-remove {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
 }
 
 .case-draft__section-title {

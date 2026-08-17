@@ -724,31 +724,29 @@ Tabs + loading / unauthenticated / error / empty / 列表 **五态壳**；用于
 | ownerSharePreparing | Boolean | false | token 准备中 |
 | actionsDisabled | Boolean | false | 禁用微信渠道入口 |
 | honorHint | String | '' | owner 态荣誉鼓励短句（无现金） |
-| socialPlatform | String | xiaohongshu | 小红书 / 知乎 / 头条 |
-| socialDraftText | String | '' | 社交媒体长文预览 |
-| publishState | String | idle | `idle` / `pending` / `approved` / `need_modify` |
-| publishDisabled | Boolean | false | 禁用发布按钮 |
-| publishHint | String | '' | 发布列说明 |
-| showPublicWebLink | Boolean | false | 过审后展示「复制公开网页链接」 |
+| publishState | String | idle | `idle` / `pending` / `approved` / `need_modify` / `blocked` |
+| publishDisabled | Boolean | false | 遗留；车主侧不再发布 |
+| publishHint | String | '' | 店页说明列文案 |
+| showPublicWebLink | Boolean | false | 已上店页后展示「复制店页链接」 |
+| showPublishSection | Boolean | false | 仅已上店页或已撤下时展示店页说明 |
 
 | 事件 | 说明 |
 |---|---|
 | close | 关闭面板 |
-| copyownerlink | 复制私人分享公网链接 |
-| copypublicweblink | 复制公开案例网页链接（仅过审） |
+| copyownerlink | 复制相册分享公网链接 |
+| copypublicweblink | 复制店页链接（仅已上线；只复制链接） |
 | sharetimeline | 朋友圈引导 |
-| socialplatformchange | `{ platform }` 切换社交媒体 Tab |
-| copysocial | `{ platform }` 一键复制长文 |
-| publish | 预览并发布到公开网站 |
+| takedownpublic | 从店页撤下 |
 
 **内置结构**：
 
 - **simple**：朋友圈 / 转发给朋友 / 复制链接
-- **owner**：① 发给微信 · ② 发布到公开网站（**用户端不做「复制去社交媒体 / 复制文案」**）
+- **owner**：① 发给微信（相册）· ② 店页说明（已上线才出现）
 
 **约束**：
 
 - 禁止奖励诱导 / 分享领钱文案；可用荣誉鼓励
+- **车主侧不做**「复制去社交媒体 / 复制商家案例稿」
 - z-index 继承 bottom-sheet（`--z-popup`）
 - 不得与 `LoginSheet` 同时打开
 

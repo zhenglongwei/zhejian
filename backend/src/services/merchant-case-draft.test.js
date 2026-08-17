@@ -64,6 +64,10 @@ function run() {
 
   const draft = buildRuleMerchantCaseDraft(albumView, preMaskTask)
   assert.ok(draft.title.includes('武侯精修店'))
+  assert.ok(Array.isArray(draft.faq))
+  assert.ok(draft.faq.some((item) => item.q.includes('总成')))
+  assert.ok(draft.faq.some((item) => item.q.includes('旧件')))
+  assert.ok(draft.faq.every((item) => !/1280|元/.test(item.a)))
   assert.ok(draft.title.includes('武侯区某路 88 号'))
   assert.ok(draft.title.includes('宝马 3系'))
   assert.ok(draft.title.includes('底盘异响治理'))
@@ -111,10 +115,11 @@ function run() {
     evidenceItems: [{ id: 'warranty', duration: '漆面 2 年', scope: '', note: '' }],
   })
   assert.ok(synced.sections.find((s) => s.key === 'handover').body.includes('漆面 2 年'))
-  assert.ok(synced.caseSummary.includes('质保时长'))
+  assert.ok(synced.caseSummary.includes('漆面 2 年'))
 
   const normalized = normalizeMerchantCaseDraft({
     title: '测试',
+    faq: [],
     sections: [{ key: 'symptom', body: '约 99 元' }],
     media: [{ nodeId: 'stage_2', idx: 0, maskedUrl: 'https://x/m.jpg', sectionKey: 'diagnosis' }],
   })

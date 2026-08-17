@@ -203,43 +203,10 @@ function buildCaseFaq(serviceName) {
 }
 
 /**
- * A-PUB-07 · 按 PRD 07 §10 优先级生成案例 FAQ（3–6 条）
- * @param {{ serviceName?: string, serviceItemId?: string, templateId?: string, coldStart?: boolean }} input
+ * 已废止模板凑条。本单问答由 merchant-case-job-faq 从相册抽出。
  */
-function generateCaseFaq(input = {}) {
-  const serviceName = String(input.serviceName || '').trim()
-  const template = resolveAlbumNodeTemplate({
-    serviceItemId: input.serviceItemId,
-    serviceName,
-  })
-  const templateId = String(input.templateId || template.templateId || '').trim()
-
-  let base = []
-  if (serviceName && FAQ_BY_SERVICE[serviceName]) {
-    base = FAQ_BY_SERVICE[serviceName]
-  } else if (templateId && FAQ_BY_TEMPLATE[templateId]) {
-    base = FAQ_BY_TEMPLATE[templateId]
-  } else {
-    base = DEFAULT_FAQ
-  }
-
-  let merged = dedupeFaq(base)
-
-  if (input.coldStart) {
-    merged = dedupeFaq([
-      {
-        q: '该案例是否代表所有同类型车辆？',
-        a: '不代表。本案例仅记录该次维修过程摘要，不同车辆状况和方案可能存在差异。',
-      },
-      ...merged,
-    ])
-  }
-
-  if (merged.length < FAQ_MIN) {
-    merged = dedupeFaq([...merged, ...DEFAULT_FAQ])
-  }
-
-  return withFaqIds(merged.slice(0, FAQ_MAX))
+function generateCaseFaq() {
+  return []
 }
 
 module.exports = {

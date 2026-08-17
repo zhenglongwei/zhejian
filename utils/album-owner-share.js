@@ -23,37 +23,10 @@ function buildShareTitle(detail = {}) {
   return `【${serviceName}】${countHint}，修车前值得一看 · 辙见`
 }
 
-function buildOwnerShareSocialCopy(detail = {}, url = '', options = {}) {
-  const serviceName = detail.serviceName || '服务维修'
-  const storeName = (detail.store && detail.store.name) || detail.storeName || ''
-  const vehicle = detail.vehicleDisplay || ''
-  const imageCount = Number(detail.imageCount) || 0
-  const countHint = imageCount > 0 ? `${imageCount}张过程图` : '完整过程记录'
-  const mode = options.mode || SHARE_MODE.DESENSITIZED
-  const lines = []
-
-  if (storeName) {
-    lines.push(`刚在【${storeName}】做完${serviceName}，整理了${countHint}。`)
-  } else {
-    lines.push(`刚做完${serviceName}，整理了${countHint}。`)
-  }
-
-  if (vehicle) {
-    lines.push(`开${vehicle}、正准备做类似项目的朋友，可以点开看看流程和内容，做个参考。`)
-  } else {
-    lines.push('正准备做类似项目的朋友，可以点开看看流程和内容，做个参考。')
-  }
-
-  lines.push('')
-  lines.push('👉 查看我的服务相册：')
-  lines.push(url)
-  lines.push('')
-  lines.push(
-    mode === SHARE_MODE.ORIGINAL
-      ? '注：本次分享含原图，仅供你指定的对象查看，请勿二次传播隐私信息。'
-      : '注：分享内容为脱敏后信息，仅供维修过程参考。'
-  )
-  return lines.join('\n')
+function buildOwnerShareSocialCopy(detail = {}, url = '') {
+  const title = buildShareTitle(detail)
+  if (!url) return title
+  return `${title}\n${url}`
 }
 
 function mapNodesForSharePreview(detail, mode) {
@@ -156,15 +129,14 @@ function copyOwnerShareH5Link(token, detail = {}, options = {}) {
     wx.showToast({ title: '分享链接尚未就绪', icon: 'none' })
     return Promise.reject(new Error('missing token'))
   }
-  const text = buildOwnerShareSocialCopy(detail, url, options)
+  const text = buildOwnerShareSocialCopy(detail, url)
   return new Promise((resolve, reject) => {
     wx.setClipboardData({
       data: text,
       success: () => {
         wx.showModal({
-          title: '分享文案已复制',
-          content:
-            '文案与链接已一并复制，可直接粘贴到抖音、小红书、知乎等社交媒体。',
+          title: '相册链接已复制',
+          content: '发给朋友可打开脱敏后的维修相册。不会自动进店页。',
           showCancel: false,
           confirmText: '知道了',
         })

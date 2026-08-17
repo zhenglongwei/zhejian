@@ -1,5 +1,3 @@
-const { SOCIAL_PLATFORMS } = require('../../utils/album-social-copy')
-
 Component({
   properties: {
     visible: {
@@ -60,10 +58,10 @@ Component({
       type: Boolean,
       value: false,
     },
-    /** 质量未达标时隐藏整块「发布到公开网站」，避免误导 */
+    /** 仅已上店页或已撤下时展示「店页说明」 */
     showPublishSection: {
       type: Boolean,
-      value: true,
+      value: false,
     },
     publishHint: {
       type: String,
@@ -75,9 +73,7 @@ Component({
     },
   },
 
-  data: {
-    socialPlatforms: SOCIAL_PLATFORMS,
-  },
+  data: {},
 
   methods: {
     onCloseFromSheet() {
@@ -116,27 +112,8 @@ Component({
       this.triggerEvent('copyownerlink')
     },
 
-    onSocialPlatformTap(e) {
-      const id = e.currentTarget.dataset.id
-      if (!id || id === this.properties.socialPlatform) return
-      this.triggerEvent('socialplatformchange', { platform: id })
-    },
-
-    onCopySocialTap() {
-      this.triggerEvent('copysocial', { platform: this.properties.socialPlatform })
-    },
-
-    onPublishTap() {
-      if (this.properties.publishDisabled) return
-      this.triggerEvent('publish')
-    },
-
     onCopyPublicTap() {
       this.triggerEvent('copypublicweblink')
-    },
-
-    onBlockTap() {
-      this.triggerEvent('blockpublic')
     },
 
     onTakedownTap() {

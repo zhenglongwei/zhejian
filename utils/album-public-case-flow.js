@@ -46,7 +46,7 @@ function buildSyncStatusTags({
   imagesMaskStatus,
   hasReview,
 }) {
-  if (!hasReview || !reviewAuthorizePublic) return []
+  if (!hasReview) return []
   const tags = []
   if (publicCaseStatus === 'public_approved') {
     tags.push({ text: '已同步', variant: 'success' })

@@ -683,7 +683,7 @@
       return (
         '<div class="h5-card" id="case-owner-reviews">' +
         '<h2 class="h5-section-title">车主评价</h2>' +
-        '<p class="h5-compliance">暂无车主公开评价。</p></div>'
+        '<p class="h5-compliance">这条案例暂时还没有车主评价。</p></div>'
       )
     }
     var body = reviews
@@ -727,6 +727,8 @@
         }
         return (
           '<article class="h5-review-item">' +
+          '<div class="h5-review-head">' +
+          '<span class="h5-review-avatar" aria-hidden="true"></span>' +
           '<div class="h5-review-meta">' +
           '<span>' +
           escapeHtml(review.displayName || '车主') +
@@ -743,7 +745,7 @@
               ? '<span class="h5-review-date">' + escapeHtml(created) + '</span>'
               : ''
           })() +
-          '</div>' +
+          '</div></div>' +
           (review.content
             ? '<p class="h5-summary">' + escapeHtml(review.content) + '</p>'
             : '') +
@@ -758,7 +760,7 @@
     return (
       '<div class="h5-card" id="case-owner-reviews">' +
       '<h2 class="h5-section-title">车主评价</h2>' +
-      '<p class="h5-section-note">评价随本案例公开，配图已脱敏。</p>' +
+      '<p class="h5-section-note">不显示微信名，仅用编号。配图已脱敏。</p>' +
       body +
       '</div>'
     )
@@ -905,11 +907,35 @@
       : ''
     var summaryHtml = draft.caseSummary
       ? '<section class="h5-article-section h5-card h5-confirmed-summary">' +
-        '<h2 class="h5-section-title">案例摘要</h2>' +
+        '<h2 class="h5-section-title">要旨</h2>' +
         '<div class="h5-article-text">' +
         escapeHtml(draft.caseSummary).replace(/\n/g, '<br>') +
         '</div></section>'
       : ''
+    var faqHtml = ''
+    if (draft.faq && draft.faq.length) {
+      var faqItems = draft.faq
+        .filter(function (item) {
+          return item && item.q && item.a
+        })
+        .map(function (item) {
+          return (
+            '<div class="h5-faq-item"><div class="h5-faq-q">' +
+            escapeHtml(item.q) +
+            '</div><div class="h5-faq-a">' +
+            escapeHtml(item.a) +
+            '</div></div>'
+          )
+        })
+        .join('')
+      if (faqItems) {
+        faqHtml =
+          '<section class="h5-article-section h5-card" id="case-job-faq">' +
+          '<h2 class="h5-section-title">本单问答</h2>' +
+          faqItems +
+          '</section>'
+      }
+    }
     var sectionsHtml = draft.sections
       .map(function (section) {
         var mediaHtml = (section.media || [])
@@ -951,6 +977,7 @@
       '<p class="h5-confirmed-draft-hint">门店确认案例稿 · 配图已脱敏</p>' +
       titleHtml +
       summaryHtml +
+      faqHtml +
       sectionsHtml +
       '</div>'
     )

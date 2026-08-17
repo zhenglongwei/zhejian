@@ -8,7 +8,6 @@ const {
 const { promptAuthorizeAuditSubscribe } = require('./subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
-  buildPublicCaseSharePayload,
   copyPublicCaseWebLink,
 } = require('./case-share')
 const {
@@ -363,7 +362,7 @@ function createAlbumAuthShareHandlers(options = {}) {
             channel: SHARE_CHANNEL.PUBLIC_H5_LINK,
           })
         }
-        await copyPublicCaseWebLink(shareCase.id, shareCase)
+        await copyPublicCaseWebLink(shareCase.id, shareCase, { linkOnly: true })
       } catch (e) {
         wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
       }
@@ -399,12 +398,6 @@ function createAlbumAuthShareHandlers(options = {}) {
     },
 
     buildShareAppMessagePayload() {
-      const intent = this.data.shareSheetIntent || this.data.defaultShareIntent || 'owner'
-      if (intent === 'publicCase') {
-        const shareCase = buildShareableCaseFromAlbum(this.data.actionDetail)
-        const payload = buildPublicCaseSharePayload(shareCase)
-        if (payload) return payload
-      }
       const { actionDetail, shareToken, shareMode } = this.data
       const payload = buildOwnerSharePayload(actionDetail, {
         shareToken,

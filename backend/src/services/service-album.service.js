@@ -1463,6 +1463,7 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     title: incoming.title != null ? incoming.title : base.title,
     caseSummary:
       incoming.caseSummary != null ? incoming.caseSummary : base.caseSummary,
+    faq: incoming.faq !== undefined ? incoming.faq : base.faq,
     sections: incoming.sections || base.sections,
     media,
     source: incoming.source || base.source || 'merchant_edit',
@@ -1623,6 +1624,7 @@ async function refreshCaseDraftMediaAfterMask(albumId) {
       // 正文以送审快照为准；仅刷新配图与确认时间戳
       title: prevSubmitted.title || draft.title,
       caseSummary: prevSubmitted.caseSummary || draft.caseSummary,
+      faq: Array.isArray(prevSubmitted.faq) ? prevSubmitted.faq : draft.faq,
       sections: prevSubmitted.sections || draft.sections,
       media: draft.media,
       confirmedAt: prevSubmitted.confirmedAt || draft.confirmedAt,

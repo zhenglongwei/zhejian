@@ -2,7 +2,7 @@
  * 协议体系元数据 — 法务定稿前占位，上线前须替换为真实主体信息
  * @see docs/12_测试验收部署与安全合规/11_协议文案汇编.md
  */
-const LEGAL_VERSION = '2.0.6'
+const LEGAL_VERSION = '2.0.7'
 
 const LEGAL_EFFECTIVE_DATE = '2026-08-02'
 

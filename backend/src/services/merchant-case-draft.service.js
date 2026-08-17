@@ -17,6 +17,7 @@ const {
 const { resolvePublicCaseMediaUrl, resolveDisplayMediaUrl } = require('../lib/media-url')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+const { extractJobFaqs, normalizeFaqItems } = require('../utils/merchant-case-job-faq')
 
 function normalizeUrl(url = '') {
   return stripUrlQuery(rewriteMediaUrlForCurrentBase(String(url || '').trim()))
@@ -355,10 +356,17 @@ function normalizeMerchantCaseDraft(raw) {
     caseSummary = buildRuleCaseSummary({ title, sections })
   }
 
+  const faq = Array.isArray(raw.faq)
+    ? normalizeFaqItems(raw.faq)
+    : raw.confirmedAt
+      ? []
+      : extractJobFaqs({ sections })
+
   return {
     version: 1,
     title,
     caseSummary,
+    faq,
     sections,
     media,
     source: String(raw.source || 'rule').slice(0, 32),
@@ -408,6 +416,10 @@ function draftToPlainText(draft) {
   if (!normalized) return ''
   const parts = [normalized.title]
   if (normalized.caseSummary) parts.push(normalized.caseSummary)
+  ;(normalized.faq || []).forEach((item) => {
+    if (!item || !item.q || !item.a) return
+    parts.push(`问：${item.q}\n答：${item.a}`)
+  })
   normalized.sections.forEach((sec) => {
     if (!sec.body) return
     parts.push(`【${sec.title}】${sec.body}`)

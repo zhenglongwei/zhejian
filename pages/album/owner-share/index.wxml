@@ -26,7 +26,7 @@
             mode="aspectFit"
           />
         </view>
-        <text class="album-owner-share__officer text-body">{{officerTitle}}</text>
+        <text wx:if="{{officerTitle}}" class="album-owner-share__officer text-body">{{officerTitle}}</text>
         <text class="album-owner-share__pitch text-body">{{heroPitch}}</text>
         <view class="notice notice--info album-owner-share__tip">
           <text class="album-owner-share__tip-text">{{heroTip}}</text>
@@ -54,6 +54,15 @@
               <text class="text-caption text-secondary">发给微信好友或群</text>
             </view>
           </button>
+          <view class="album-owner-share__channel" bindtap="onCopyLinkTap">
+            <view class="album-owner-share__channel-icon">
+              <image class="album-owner-share__channel-img" src="/assets/share/icon-social.svg" mode="aspectFit" />
+            </view>
+            <view class="album-owner-share__channel-copy">
+              <text class="text-body">复制分享链接</text>
+              <text class="text-caption text-secondary">打开的是这本脱敏相册</text>
+            </view>
+          </view>
         </view>
       </view>
     </view>

@@ -20,7 +20,7 @@
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
         <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
-        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存，可继续分享脱敏报告或发给微信</text>
+        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存。案例上店页后会以编号展示，不显示你的微信名</text>
       </view>
 
       <block wx:if="{{hasReview}}">

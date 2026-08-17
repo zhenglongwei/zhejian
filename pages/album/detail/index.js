@@ -6,7 +6,6 @@ const {
   withdrawAuthorization,
   blockPublicCase,
   takedownPublicCase,
-  fetchAlbumSocialCopy,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -19,7 +18,6 @@ const { isLoggedIn, checkAuth } = require('../../../utils/auth')
 const { promptAuthorizeAuditSubscribe, promptAlbumProgressSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
-  buildPublicCaseSharePayload,
   copyPublicCaseWebLink,
 } = require('../../../utils/case-share')
 const {
@@ -54,10 +52,6 @@ const {
   hasWarrantyCommitment,
 } = require('../../../utils/album-evidence-items')
 const { SERVICE_ALBUM_STAGES } = require('../../../constants/service-album-stages')
-const {
-  buildSocialDraft,
-  copyTextToClipboard,
-} = require('../../../utils/album-social-copy')
 const {
   shouldShowAlbumReviewNudge,
   recordAlbumReviewVisit,
@@ -403,13 +397,9 @@ Page({
     withdrawSheetLoading: false,
     shareSheetIntent: 'owner',
     shareHonorHint: HONOR_HINT,
-    socialPlatform: 'xiaohongshu',
-    socialDraftText: '',
-    socialDraftLoading: false,
-    socialDraftWaitHint: '',
     publishSheetState: 'idle',
     publishSheetDisabled: false,
-    showPublishSection: true,
+    showPublishSection: false,
     publishSheetHint: '',
     compliancePendingHint: '',
     showCompliancePending: false,
@@ -631,11 +621,10 @@ Page({
         templateId: enriched.templateId || '',
       })
       const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
-      const socialPlatform = this.data.socialPlatform || 'xiaohongshu'
-      const socialDraftText = buildSocialDraft(enriched, socialPlatform)
       const publishSheetHint = publishHintForState(publishSheetState)
       const publishSheetDisabled = true
-      const showPublishSection = true
+      const showPublishSection =
+        publishSheetState === 'approved' || publishSheetState === 'blocked'
       const compliancePendingHint = String(enriched.compliancePendingHint || '').trim()
       const showCompliancePending =
         Boolean(compliancePendingHint) &&
@@ -745,8 +734,6 @@ Page({
         defaultShareIntent,
         shareSheetIntent,
         shareActionsDisabled,
-        socialPlatform,
-        socialDraftText,
         publishSheetState,
         publishSheetHint,
         publishSheetDisabled,
@@ -901,17 +888,15 @@ Page({
   async onOpenShareSheet() {
     if (!this.data.showShareButton) return
     const detail = this.data.detail || {}
-    const platform = this.data.socialPlatform || 'xiaohongshu'
     const publishSheetState = resolvePublishSheetState(detail)
     this.setData({
       shareSheetVisible: true,
-      socialDraftText: '',
-      socialDraftWaitHint: '',
       publishSheetState,
       publishSheetDisabled: true,
-      showPublishSection: true,
+      showPublishSection:
+        publishSheetState === 'approved' || publishSheetState === 'blocked',
+      publishSheetHint: publishHintForState(publishSheetState),
     })
-    this.loadSocialDraft(platform)
     if (this.data.showShareEntry && !this.data.shareReady && !this.data.sharePreparing) {
       await this.refreshShareToken({ silent: true })
     }
@@ -919,74 +904,6 @@ Page({
 
   onCloseShareSheet() {
     this.setData({ shareSheetVisible: false })
-  },
-
-  async loadSocialDraft(platform) {
-    const albumId = this.albumId || (this.data.detail && this.data.detail.albumId)
-    if (!albumId) return
-    this.setData({ socialDraftLoading: true, socialDraftWaitHint: '' })
-    try {
-      const data = await fetchAlbumSocialCopy(albumId, platform)
-      if (this.data.socialPlatform !== platform) {
-        this.setData({ socialDraftLoading: false })
-        return
-      }
-      if (data && data.status === 'generating') {
-        this.setData({
-          socialDraftLoading: false,
-          socialDraftText: '',
-          socialDraftWaitHint: (data && data.message) || '文案准备中，请稍后再试',
-        })
-        return
-      }
-      const text = (data && (data.text || data.body)) || ''
-      this.setData({
-        socialDraftText: text,
-        socialDraftLoading: false,
-        socialDraftWaitHint: '',
-      })
-    } catch (err) {
-      this.setData({
-        socialDraftLoading: false,
-        socialDraftWaitHint: '',
-        socialDraftText: buildSocialDraft(this.data.detail || {}, platform),
-      })
-    }
-  },
-
-  onSocialPlatformChange(e) {
-    const platform = (e.detail && e.detail.platform) || 'xiaohongshu'
-    this.setData({
-      socialPlatform: platform,
-      socialDraftText: '',
-      socialDraftWaitHint: '',
-    })
-    this.loadSocialDraft(platform)
-  },
-
-  async onCopySocialDraft(e) {
-    const platform =
-      (e.detail && e.detail.platform) || this.data.socialPlatform || 'xiaohongshu'
-    if (this.data.socialDraftWaitHint) {
-      wx.showToast({ title: this.data.socialDraftWaitHint, icon: 'none' })
-      return
-    }
-    const text = this.data.socialDraftText
-    if (!text) {
-      wx.showToast({ title: '文案尚未就绪', icon: 'none' })
-      return
-    }
-    try {
-      await copyTextToClipboard(text)
-      if (canOwnerShareAlbum(this.data.detail)) {
-        await recordAlbumShare(this.data.detail.albumId, {
-          mode: SHARE_MODE.DESENSITIZED,
-          channel: `social_copy_${platform}`,
-        })
-      }
-    } catch (err) {
-      // toast already in copyTextToClipboard
-    }
   },
 
   onSharePublish() {
@@ -1273,7 +1190,7 @@ Page({
           channel: SHARE_CHANNEL.PUBLIC_H5_LINK,
         })
       }
-      await copyPublicCaseWebLink(shareCase.id, shareCase)
+      await copyPublicCaseWebLink(shareCase.id, shareCase, { linkOnly: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
     }
@@ -1446,19 +1363,7 @@ Page({
     }
   },
 
-  resolveShareIntent(options = {}) {
-    const fromButton = options.target && options.target.dataset
-    const intent = (fromButton && fromButton.shareIntent) || this.data.defaultShareIntent
-    return intent === 'publicCase' ? 'publicCase' : 'owner'
-  },
-
-  onShareAppMessage(options) {
-    const intent = this.resolveShareIntent(options)
-    if (intent === 'publicCase') {
-      const shareCase = buildShareableCaseFromAlbum(this.data.detail)
-      const payload = buildPublicCaseSharePayload(shareCase)
-      if (payload) return payload
-    }
+  onShareAppMessage() {
     const { detail, shareToken, shareMode } = this.data
     const payload = buildOwnerSharePayload(detail, {
       shareToken,
@@ -1475,17 +1380,7 @@ Page({
     }
   },
 
-  onShareTimeline(options) {
-    const intent = this.resolveShareIntent(options)
-    if (intent === 'publicCase') {
-      const shareCase = buildShareableCaseFromAlbum(this.data.detail)
-      if (shareCase && shareCase.id) {
-        return {
-          title: buildPublicCaseSharePayload(shareCase)?.title || '辙见 · 公开案例',
-          query: `redirectCaseId=${encodeURIComponent(shareCase.id)}`,
-        }
-      }
-    }
+  onShareTimeline() {
     const { detail, shareToken, shareMode } = this.data
     const payload = buildOwnerSharePayload(detail, { shareToken, mode: shareMode })
     const query = shareToken
@@ -1500,13 +1395,7 @@ Page({
   },
 
   onCopyUrl() {
-    const { detail, shareToken, defaultShareIntent } = this.data
-    if (defaultShareIntent === 'publicCase') {
-      const shareCase = buildShareableCaseFromAlbum(detail)
-      if (shareCase && shareCase.id) {
-        return { query: `redirectCaseId=${encodeURIComponent(shareCase.id)}` }
-      }
-    }
+    const { shareToken } = this.data
     if (shareToken) {
       return { query: `token=${encodeURIComponent(shareToken)}` }
     }

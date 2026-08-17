@@ -29,6 +29,7 @@ Page({
     caseSummary: '',
     titleHeight: 40,
     summaryHeight: 40,
+    faq: [],
     sections: [],
     media: [],
     confirmed: false,
@@ -105,6 +106,15 @@ Page({
     }))
   },
 
+  mapFaq(list) {
+    return (list || []).map((item) => ({
+      q: (item && item.q) || '',
+      a: (item && item.a) || '',
+      qHeight: this.measureTextHeight((item && item.q) || '', 1),
+      aHeight: this.measureTextHeight((item && item.a) || '', 2),
+    }))
+  },
+
   mapSections(list) {
     return (list || []).map((sec) => ({
       ...sec,
@@ -116,6 +126,7 @@ Page({
     const title = draft.title || ''
     const caseSummary = draft.caseSummary || ''
     const sections = this.mapSections(draft.sections || [])
+    const faq = this.mapFaq(draft.faq || [])
     const media = this.mapMedia(draft.media || [])
     const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
     const resubmit = extra.resubmit != null ? Boolean(extra.resubmit) : this.data.resubmit
@@ -124,7 +135,7 @@ Page({
     const showGeneratePrimary = Boolean(editable && generateMode && !resubmit)
     const showCompletePrimary = Boolean(editable && (fromComplete || resubmit) && !generateMode)
     const primaryActionText = generateMode
-      ? '勾选保证并送审'
+      ? '送审'
       : resubmit
         ? '重新提交'
         : '确认完工'
@@ -138,6 +149,7 @@ Page({
     this._workingDraft = {
       title,
       caseSummary,
+      faq: faq.map((item) => ({ q: item.q, a: item.a })),
       sections: sections.map((sec) => ({
         key: sec.key,
         title: sec.title,
@@ -157,6 +169,7 @@ Page({
       ...extra,
       title,
       caseSummary,
+      faq,
       titleHeight: this.measureTextHeight(title, 1),
       summaryHeight: this.measureTextHeight(caseSummary, 2),
       sections,
@@ -194,6 +207,10 @@ Page({
     this._prePolishSnapshot = {
       title: this.data.title || '',
       caseSummary: this.data.caseSummary || '',
+      faq: (this.data.faq || []).map((item) => ({
+        q: item.q || '',
+        a: item.a || '',
+      })),
       sections: (this.data.sections || []).map((sec) => ({
         key: sec.key,
         title: sec.title,
@@ -242,6 +259,32 @@ Page({
     this.setData({ sections })
   },
 
+  onFaqInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    const value = e.detail.value || ''
+    const faq = (this.data.faq || []).map((item, i) => {
+      if (i !== index) return item
+      const next = { ...item, [field]: value }
+      if (field === 'q') next.qHeight = this.measureTextHeight(value, 1)
+      if (field === 'a') next.aHeight = this.measureTextHeight(value, 2)
+      return next
+    })
+    if (this._workingDraft) {
+      this._workingDraft.faq = faq.map((item) => ({ q: item.q, a: item.a }))
+    }
+    this.setData({ faq })
+  },
+
+  onRemoveFaq(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const faq = (this.data.faq || []).filter((_, i) => i !== index)
+    if (this._workingDraft) {
+      this._workingDraft.faq = faq.map((item) => ({ q: item.q, a: item.a }))
+    }
+    this.setData({ faq })
+  },
+
   onRemoveMedia(e) {
     const { nodeId, idx } = e.currentTarget.dataset
     const media = (this.data.media || []).filter(
@@ -265,6 +308,10 @@ Page({
       return {
         title: this._workingDraft.title || '',
         caseSummary: this._workingDraft.caseSummary || '',
+        faq: (this._workingDraft.faq || []).map((item) => ({
+          q: item.q || '',
+          a: item.a || '',
+        })),
         sections: (this._workingDraft.sections || []).map((sec) => ({
           key: sec.key,
           title: sec.title,
@@ -284,6 +331,10 @@ Page({
     return {
       title: this.data.title,
       caseSummary: this.data.caseSummary,
+      faq: (this.data.faq || []).map((item) => ({
+        q: item.q || '',
+        a: item.a || '',
+      })),
       sections: (this.data.sections || []).map((sec) => ({
         key: sec.key,
         title: sec.title,
@@ -338,6 +389,7 @@ Page({
       {
         title: snap.title,
         caseSummary: snap.caseSummary,
+        faq: snap.faq || [],
         sections: snap.sections,
         media: this.data.media,
       },

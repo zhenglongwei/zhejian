@@ -22,32 +22,28 @@ function publishHintForState(state) {
   return '门店可能把打码说明放到店页。发给微信不会自动进店页。'
 }
 
-function initAlbumShareState(detail = {}, options = {}) {
+function initAlbumShareState(detail = {}) {
   const showShareEntry = canOwnerShareAlbum(detail)
   const shareCase = buildShareableCaseFromAlbum(detail)
   const showPublicCaseShare =
     detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
   const publishSheetState = resolvePublishSheetState(detail)
-  const socialPlatform = options.socialPlatform || 'xiaohongshu'
-  const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
+  const defaultShareIntent = 'owner'
   return {
     showShareEntry,
     showPublicCaseShare,
     showShareButton: true,
     defaultShareIntent,
-    shareSheetIntent: defaultShareIntent,
+    shareSheetIntent: 'owner',
     shareActionsDisabled: showShareEntry,
     shareReady: false,
     shareToken: '',
     shareUseOriginal: false,
     sharePreparing: false,
     shareMode: SHARE_MODE.DESENSITIZED,
-    socialPlatform,
-    socialDraftText: '',
-    socialDraftWaitHint: '',
     publishSheetState,
     publishSheetDisabled: !detail.canAuthorizePublicCase,
-    showPublishSection: true,
+    showPublishSection: publishSheetState === 'approved' || publishSheetState === 'blocked',
     publishSheetHint: publishHintForState(publishSheetState),
     shareHonorHint: '可发给微信好友或朋友圈；发给微信不会自动进店页。',
   }

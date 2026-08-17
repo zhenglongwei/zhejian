@@ -1,3 +1,4 @@
+const { publicReviewerLabel } = require('../utils/public-reviewer-label')
 const { prisma } = require('../lib/prisma')
 const { newId, toIso } = require('../lib/ids')
 const { assertPersistentImageUrl } = require('../lib/media-storage')
@@ -161,7 +162,7 @@ function mapPublicReviewRow(row) {
   return {
     reviewId: base.id,
     orderId: '',
-    displayName: '车主',
+    displayName: publicReviewerLabel(row.userId),
     overallScore: base.overallScore,
     repairScore: base.repairScore,
     albumScore: base.albumScore,
@@ -296,7 +297,7 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       imagesJson: sanitizedImages,
       imagesMaskedJson: [],
       imagesMaskStatus: initialMaskStatus,
-      authorizePublic: false,
+      authorizePublic: true,
       consent: true,
       status: ALBUM_REVIEW_STATUS.SUBMITTED,
     },
@@ -356,7 +357,6 @@ async function listPublicReviewsForAlbum(albumId) {
   const rows = await prisma.serviceAlbumReview.findMany({
     where: {
       albumId,
-      authorizePublic: true,
       status: { in: [ALBUM_REVIEW_STATUS.SUBMITTED, ALBUM_REVIEW_STATUS.REPLIED] },
     },
     orderBy: { createdAt: 'desc' },

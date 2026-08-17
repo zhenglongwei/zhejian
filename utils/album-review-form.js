@@ -44,7 +44,7 @@ function buildAlbumReviewPayload(form) {
     content: String(form.content || '').trim(),
     tags: form.selectedTags || [],
     images: form.images || [],
-    authorizePublic: false,
+    authorizePublic: true,
     consent: Boolean(form.consent),
   }
 }

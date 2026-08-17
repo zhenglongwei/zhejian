@@ -14,7 +14,7 @@
       <text class="text-h3">{{showCompletePrimary ? (resubmit ? '案例预览（重新提交）' : '案例预览（确认完工）') : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable && generateMode}}" class="text-caption text-secondary case-draft__hint">
-          从已完工相册摘公开稿。可改说明、可去掉不想公开的图，不能再加新图。送审通过后会出现在店页。
+          下面按即将上网的文章排：先要旨和本单问答，再详情。问答只保留这单能对上的；没有就空着。可改说明、去掉图、删问答，不能加新图。
         </text>
         <text wx:elif="{{editable}}" class="text-caption text-secondary case-draft__hint">
           本预览由相册节点文字与配图拼接而成，AI 润色可选。点润色只改文字、配图不变；润色后可「恢复润色前」。完工后在相册点「生成案例」才能送审上网。
@@ -49,7 +49,7 @@
         bindinput="onTitleInput"
         placeholder="门店名｜地址｜车型｜项目"
       />
-      <text class="text-caption case-draft__label">案例摘要</text>
+      <text class="text-caption case-draft__label">要旨</text>
       <textarea
         class="case-draft__textarea case-draft__summary"
         style="height: {{summaryHeight}}px;"
@@ -60,8 +60,52 @@
         bindinput="onSummaryInput"
         placeholder="{{editable ? '由章节自动拼接；AI 润色可选。勿写金额。' : '已确认，只读'}}"
       />
-      <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。搜索描述由本摘要自动截取，无需另填。</text>
+      <text class="text-caption text-secondary case-draft__mask-tip">当前配图为原图预览，正式发布时需脱敏。搜索描述由本要旨自动截取。</text>
     </ui-card>
+
+    <ui-card shadow="{{true}}" padding="{{true}}" class="case-draft__section">
+      <text class="text-body case-draft__section-title">本单问答</text>
+      <text class="text-caption text-secondary case-draft__hint">从这本相册抽出的用户问题，没有依据的已留空。可改表述或删除，不能新增。</text>
+      <view wx:if="{{!faq.length}}" class="case-draft__faq-empty">
+        <text class="text-caption text-secondary">这单相册里还没有能单独成问的结论，可以不写问答。</text>
+      </view>
+      <view wx:for="{{faq}}" wx:key="index" class="case-draft__faq-item">
+        <view class="case-draft__faq-head">
+          <text class="text-caption case-draft__label">问</text>
+          <text
+            wx:if="{{editable}}"
+            class="case-draft__faq-remove"
+            data-index="{{index}}"
+            catchtap="onRemoveFaq"
+          >删除</text>
+        </view>
+        <textarea
+          class="case-draft__textarea"
+          style="height: {{item.qHeight}}px;"
+          value="{{item.q}}"
+          disabled="{{!editable}}"
+          maxlength="80"
+          disable-default-padding
+          data-index="{{index}}"
+          data-field="q"
+          bindinput="onFaqInput"
+        />
+        <text class="text-caption case-draft__label">答</text>
+        <textarea
+          class="case-draft__textarea"
+          style="height: {{item.aHeight}}px;"
+          value="{{item.a}}"
+          disabled="{{!editable}}"
+          maxlength="200"
+          disable-default-padding
+          data-index="{{index}}"
+          data-field="a"
+          bindinput="onFaqInput"
+        />
+      </view>
+    </ui-card>
+
+    <text class="text-caption text-secondary case-draft__block-label">详情</text>
 
     <ui-card
       wx:for="{{sections}}"

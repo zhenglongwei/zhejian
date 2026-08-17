@@ -105,7 +105,8 @@ const AUTHORIZATION_CONSENT = {
   review_public: {
     authType: 'review_public',
     version: LEGAL_VERSION,
-    text: '同意将反馈文字、评分与脱敏后配图展示在已分享的脱敏案例中',
+    text:
+      '我知晓：案例上店页后，本条评价会以编号展示（不显示微信名），含文字、评分与脱敏配图',
   },
   part_verify: {
     authType: 'part_verify',

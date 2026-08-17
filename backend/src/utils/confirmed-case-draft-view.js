@@ -64,6 +64,7 @@ function buildConfirmedCaseDraftView(contentJson = {}, row = {}) {
   return {
     title: draft.title || '',
     caseSummary: draft.caseSummary || '',
+    faq: Array.isArray(draft.faq) ? draft.faq : [],
     confirmedAt: draft.confirmedAt,
     source: draft.source || 'rule',
     sections,

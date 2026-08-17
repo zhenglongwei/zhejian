@@ -1,14 +1,12 @@
-const { fetchServiceAlbum } = require('../../../services/service-album')
-const {
-  buildPublishInviteCopy,
-  isPublicShareReady,
-  resolveOwnerShareMode,
-  CONTROL_LINE,
-  PRIVATE_SHARE_TIP,
-} = require('../../../utils/publish-thank-you')
+const { fetchServiceAlbum, recordAlbumShare } = require('../../../services/service-album')
+const { PRIVATE_SHARE_TIP } = require('../../../utils/publish-thank-you')
 const { initAlbumShareState } = require('../../../utils/album-share-state')
-const { buildOwnerSharePayload } = require('../../../utils/album-owner-share')
-const { buildPublicCaseSharePayload } = require('../../../utils/case-share')
+const {
+  buildOwnerSharePayload,
+  copyOwnerShareH5Link,
+  SHARE_CHANNEL,
+  SHARE_MODE,
+} = require('../../../utils/album-owner-share')
 
 Page({
   data: {
@@ -17,9 +15,9 @@ Page({
     albumId: '',
     mode: 'private',
     detail: null,
-    officerTitle: '透明维修体验官',
-    heroPitch: '',
-    heroTip: CONTROL_LINE,
+    officerTitle: '',
+    heroPitch: '把这份维修相册发给朋友。店有没有放到店页，都不影响你分享。',
+    heroTip: PRIVATE_SHARE_TIP,
     shareToken: '',
     shareReady: false,
   },
@@ -46,39 +44,43 @@ Page({
     }
     try {
       const detail = await fetchServiceAlbum(this.data.albumId)
-      const invite = buildPublishInviteCopy({
-        albumId: detail.albumId,
-        vehicleLabel: detail.vehicleDisplay,
-        serviceName: detail.serviceName,
-      })
-      const mode = resolveOwnerShareMode(detail)
-
-      let heroPitch = invite.privatePitch || invite.pitch
-      let heroTip = invite.privateTip || PRIVATE_SHARE_TIP
-      if (mode === 'published') {
-        heroPitch = invite.publishedPitch || invite.pitch
-        heroTip = invite.publishedTip || CONTROL_LINE
-      } else if (mode === 'pending') {
-        heroPitch = invite.pendingPitch || invite.pitch
-        heroTip = invite.pendingTip || CONTROL_LINE
-      }
-
       const shareState = initAlbumShareState(detail)
+      const keepToken = this.data.shareToken || ''
       this.setData({
         status: 'normal',
         detail,
-        mode,
-        officerTitle: invite.officerTitle || '透明维修体验官',
-        heroPitch,
-        heroTip,
-        shareToken: shareState.shareToken || '',
-        shareReady: Boolean(shareState.shareReady),
+        mode: 'private',
+        officerTitle: '',
+        heroPitch: '把这份维修相册发给朋友。店有没有放到店页，都不影响你分享。',
+        heroTip: PRIVATE_SHARE_TIP,
+        shareToken: keepToken,
+        shareReady: Boolean(keepToken),
       })
+      if (shareState.showShareEntry && !keepToken) {
+        await this.refreshShareToken()
+      }
     } catch (e) {
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
       })
+    }
+  },
+
+  async refreshShareToken() {
+    const detail = this.data.detail
+    if (!detail || !detail.albumId) return
+    try {
+      const result = await recordAlbumShare(detail.albumId, {
+        mode: SHARE_MODE.DESENSITIZED,
+        channel: SHARE_CHANNEL.WECHAT,
+      })
+      this.setData({
+        shareToken: result.shareToken || '',
+        shareReady: Boolean(result.shareToken),
+      })
+    } catch (e) {
+      this.setData({ shareReady: false })
     }
   },
 
@@ -94,6 +96,23 @@ Page({
     this.onShareTimelineGuide()
   },
 
+  async onCopyLinkTap() {
+    let token = this.data.shareToken
+    if (!token) {
+      await this.refreshShareToken()
+      token = this.data.shareToken
+    }
+    if (!token) {
+      wx.showToast({ title: '分享尚未就绪，请稍后再试', icon: 'none' })
+      return
+    }
+    try {
+      await copyOwnerShareH5Link(token, this.data.detail, { mode: SHARE_MODE.DESENSITIZED })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '复制失败', icon: 'none' })
+    }
+  },
+
   onBack() {
     wx.navigateBack({
       fail: () => wx.switchTab({ url: '/pages/mine/index' }),
@@ -102,12 +121,11 @@ Page({
 
   onShareAppMessage() {
     const detail = this.data.detail || {}
-    if (isPublicShareReady(detail)) {
-      return buildPublicCaseSharePayload(detail) || buildOwnerSharePayload(detail)
-    }
-    return buildOwnerSharePayload(detail) || {
-      title: detail.serviceName ? `${detail.serviceName} · 服务相册` : '服务相册',
-      path: `/pages/album/detail/index?albumId=${this.data.albumId}`,
-    }
+    return (
+      buildOwnerSharePayload(detail, { shareToken: this.data.shareToken }) || {
+        title: detail.serviceName ? `${detail.serviceName} · 服务相册` : '服务相册',
+        path: `/pages/album/detail/index?albumId=${this.data.albumId}`,
+      }
+    )
   },
 })

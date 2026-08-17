@@ -24,8 +24,8 @@ function buildPublicCaseSocialCopy(detail = {}, url = '') {
   const lines = [
     `辙见公开案例 · 【${title}】`,
     storeName
-      ? `来自【${storeName}】，车主发布到公开网站的脱敏维修过程。`
-      : '车主发布到公开网站的脱敏维修过程，含关键节点与参考信息。',
+      ? `来自【${storeName}】，门店放到店页的打码施工说明。`
+      : '门店放到店页的打码施工说明，含关键节点与参考信息。',
     '修同款或类似问题前，可以先翻翻流程和内容，做个参考。',
     '',
     '👉 查看案例详情：',
@@ -94,21 +94,23 @@ function copyPublicCaseMiniLink(caseId, detail = {}) {
   })
 }
 
-function copyPublicCaseWebLink(caseId, detail = {}) {
+function copyPublicCaseWebLink(caseId, detail = {}, options = {}) {
   const url = buildCaseH5Url(caseId)
   if (!url) {
     wx.showToast({ title: '案例信息缺失', icon: 'none' })
     return Promise.reject(new Error('missing caseId'))
   }
-  const text = buildPublicCaseSocialCopy(detail, url)
+  const linkOnly = Boolean(options.linkOnly)
+  const text = linkOnly ? url : buildPublicCaseSocialCopy(detail, url)
   return new Promise((resolve, reject) => {
     wx.setClipboardData({
       data: text,
       success: () => {
         wx.showModal({
-          title: '分享文案已复制',
-          content:
-            '文案与链接已一并复制，可直接粘贴到抖音、小红书、知乎等社交媒体。',
+          title: linkOnly ? '店页链接已复制' : '分享文案已复制',
+          content: linkOnly
+            ? '打开后看到的是门店放到店页的打码说明。'
+            : '文案与链接已一并复制，可直接粘贴到抖音、小红书、知乎等社交媒体。',
           showCancel: false,
           confirmText: '知道了',
         })
