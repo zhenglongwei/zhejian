@@ -34,8 +34,11 @@ function normalizeFaqItems(list) {
   const seen = new Set()
   for (const item of list) {
     const q = stripAmountText((item && (item.q || item.question)) || '').slice(0, 80)
-    const a = stripAmountText((item && (item.a || item.answer)) || '').slice(0, 200)
+    const a = stripDonePrefix((item && (item.a || item.answer)) || '')
+      .replace(/本单已处理[:：]\s*/gu, '')
+      .slice(0, 200)
     if (!q || !a || GENERIC_ANSWER.test(a)) continue
+    if (/建议项/.test(a) && !/、/.test(a) && a.length < 40) continue
     const key = q.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
@@ -45,6 +48,20 @@ function normalizeFaqItems(list) {
   return out
 }
 
+function stripDonePrefix(text = '') {
+  return stripAmountText(
+    String(text || '')
+      .replace(/^本单已处理[:：]\s*/u, '')
+      .replace(/^本次施工[:：]\s*/u, ''),
+  )
+}
+
+function followUpWorthAsking(line = '') {
+  const text = stripAmountText(line)
+  if (!text || GENERIC_ANSWER.test(text)) return false
+  if (/建议项/.test(text) && !/、/.test(text) && text.length < 40) return false
+  return true
+}
 function inferJobKind({ serviceName = '', templateId = '', categoryId = '' } = {}) {
   try {
     const { resolveCategoryIdFromAlbum } = require('../constants/service-checklist-catalog')
@@ -60,14 +77,30 @@ function inferJobKind({ serviceName = '', templateId = '', categoryId = '' } = {
   }
 }
 
-function extractJobFaqs({ sections = [], serviceName = '', templateId = '' } = {}) {
+function extractJobFaqs({
+  sections = [],
+  serviceName = '',
+  templateId = '',
+  inspectLine = '',
+  doneLine = '',
+  followUpSummary = '',
+  differenceLine = '',
+} = {}) {
   const symptom = sectionBody(sections, 'symptom')
   const diagnosis = sectionBody(sections, 'diagnosis')
   const plan = sectionBody(sections, 'plan')
   const process = sectionBody(sections, 'process')
   const handover = sectionBody(sections, 'handover')
   const haystack = [symptom, diagnosis, plan, process, handover].filter(Boolean).join('。')
+  const doneFromProcess =
+    process.match(/本次施工[:：][^。；;\n]+/) || process.match(/本单已处理[:：][^。；;\n]+/)
+  const doneItems =
+    stripDonePrefix(doneLine) ||
+    (doneFromProcess ? stripDonePrefix(doneFromProcess[0]).replace(/^本次施工[:：]\s*/u, '') : '')
+  const inspectItems = stripAmountText(inspectLine)
+  const difference = stripAmountText(differenceLine)
   const jobKind = inferJobKind({ serviceName, templateId })
+  const looksMaint = jobKind === 'maintenance' || /机油|机滤|滤芯|雨刮|保养/.test(doneItems)
 
   const raw = []
   const push = (q, a) => {
@@ -75,26 +108,33 @@ function extractJobFaqs({ sections = [], serviceName = '', templateId = '' } = {
     raw.push({ q, a })
   }
 
-  const doneMatch = process.match(/本单已处理[:：][^。；;\n]+/)
-  if (doneMatch) {
-    push('这次做了哪些项目？', stripAmountText(doneMatch[0]).slice(0, 180))
-  } else if (jobKind !== 'maintenance' && plan && !GENERIC_ANSWER.test(plan)) {
+  if (inspectItems) {
+    push('这次查了哪些项目？', inspectItems.slice(0, 180))
+  }
+
+  if (doneItems) {
+    push('这次做了哪些项目？', doneItems.slice(0, 180))
+  } else if (!looksMaint && plan && !GENERIC_ANSWER.test(plan)) {
     push('这次做了什么？', plan.slice(0, 180))
-  } else if (jobKind !== 'maintenance' && diagnosis) {
+  } else if (!looksMaint && diagnosis) {
     push(
       '这次查出了什么、怎么处理？',
       [diagnosis, plan].filter(Boolean).join('。').slice(0, 180),
     )
-  } else if (jobKind === 'maintenance' && plan && !GENERIC_ANSWER.test(plan)) {
-    push('这次做了哪些项目？', plan.slice(0, 180))
   }
 
-  const followLine = firstSentenceMatching(
-    [process, handover].filter(Boolean).join('。'),
-    /择期|择日|改期|其余建议|未做|未处理/,
-  )
-  if (followLine && !GENERIC_ANSWER.test(followLine)) {
-    push('哪些项目这次没做、以后再做？', followLine)
+  if (difference && /未施工|未更换|择日|正常/.test(difference)) {
+    push('为什么有的项目这次没施工？', difference.slice(0, 180))
+  } else {
+    const followLine =
+      stripAmountText(followUpSummary) ||
+      firstSentenceMatching(
+        [process, handover].filter(Boolean).join('。'),
+        /择期|择日|改期|其余建议|未做|未处理/,
+      )
+    if (followUpWorthAsking(followLine)) {
+      push('哪些项目这次没做、以后再做？', followLine)
+    }
   }
 
   const warrantyLine = firstSentenceMatching(

@@ -4,9 +4,9 @@
 
 const SECTION_TITLE_BY_KEY = {
   symptom: '症状与诉求',
-  diagnosis: '诊断与数据',
+  diagnosis: '检查留证',
   plan: '方案与避坑',
-  process: '施工与 5S 标准',
+  process: '施工留证',
   handover: '交车与质保',
 }
 

@@ -1316,13 +1316,20 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     normalizeMerchantCaseDraft,
     syncWarrantyIntoDraft,
     refreshUnconfirmedRuleDraft,
+    applyMaskedMediaOnly,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
+  const requireMasked =
+    Boolean(options.requireMasked) || isServiceAlbumRepairDone(album.status)
   const view = await withStoreTitleFields(album, buildMerchantView(album))
   const editable = require('./case-publish-window.service').isCaseDraftEditable(album)
   const { isCaseReviewRejected } = require('./case-review-gate.service')
   const resubmit = isCaseReviewRejected(album)
+  const finish = (payload) => ({
+    ...payload,
+    draft: applyMaskedMediaOnly(payload.draft, requireMasked),
+  })
 
   // 已送审/锁定：优先读 public_cases 里送审快照，与运营台同源
   if (!editable && !forceRule && !resubmit) {
@@ -1334,13 +1341,13 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
         ? normalizeMerchantCaseDraft(content.merchantCaseDraft)
         : null
     if (submitted && submitted.confirmedAt) {
-      return {
+      return finish({
         draft: submitted,
         contentPackageStatus: (pkg && pkg.status) || '',
         editable: false,
         confirmed: true,
         resubmit: false,
-      }
+      })
     }
   }
 
@@ -1365,7 +1372,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
       } catch (_) {
         preMaskTask = null
       }
-      next = refreshUnconfirmedRuleDraft(next, view, preMaskTask)
+      next = refreshUnconfirmedRuleDraft(next, view, preMaskTask, { requireMasked })
       next = normalizeMerchantCaseDraft(next)
       const nextHandover = ((next.sections || []).find((s) => s && s.key === 'handover') || {}).body || ''
       if (
@@ -1383,13 +1390,13 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
         draft = next
       }
     }
-    return {
+    return finish({
       draft,
       contentPackageStatus: pkg.status || '',
       editable,
       confirmed,
       resubmit,
-    }
+    })
   }
 
   let preMaskTask = null
@@ -1399,14 +1406,40 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   } catch (_) {
     preMaskTask = null
   }
-  const draft = buildRuleMerchantCaseDraft(view, preMaskTask)
-  return {
+  const draft = buildRuleMerchantCaseDraft(view, preMaskTask, { requireMasked })
+  return finish({
     draft: normalizeMerchantCaseDraft(draft),
     contentPackageStatus: (pkg && pkg.status) || '',
     editable,
     confirmed: false,
     resubmit,
+  })
+}
+
+/** CASE-SRC-A08 · 生成预览打码就绪：pending / ready / failed，不暴露任务细节 */
+async function getMerchantCaseDraftMaskStatus(albumId, storeId, merchantId = '', options = {}) {
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  const imageCount = Number(album.imageCount || 0) || (album.images || []).length
+  if (!imageCount) return { state: 'ready' }
+
+  const { getAlbumPreMaskReadiness, scheduleAlbumPreMask } = require('./desensitize.service')
+  const retry = Boolean(options.retry)
+  const readiness = await getAlbumPreMaskReadiness(albumId)
+
+  if (readiness.state === 'failed' && retry) {
+    scheduleAlbumPreMask(albumId, { trigger: 'case_draft_preview', force: true })
+    return { state: 'pending' }
   }
+  if (readiness.state === 'pending') {
+    scheduleAlbumPreMask(albumId, {
+      trigger: 'case_draft_preview',
+      force: Boolean(readiness.needsForceRefresh),
+    })
+  }
+  if (readiness.state === 'ready') return { state: 'ready' }
+  if (readiness.state === 'failed') return { state: 'failed' }
+  return { state: 'pending' }
 }
 
 /** PKG-COACH：商家确认/修订案例草稿（正文可改，配图列表可删减不可旁路加图） */
@@ -1449,7 +1482,8 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     preMaskTask = null
   }
 
-  const allowedMedia = pickDraftMedia(view, preMaskTask)
+  const requireMasked = isServiceAlbumRepairDone(album.status)
+  const allowedMedia = pickDraftMedia(view, preMaskTask, { requireMasked })
   const allowedKeys = new Set(
     allowedMedia.map((m) => `${m.nodeId}:${m.idx}`),
   )
@@ -1475,7 +1509,7 @@ async function saveMerchantCaseDraft(albumId, storeId, merchantId = '', payload 
     faq: incoming.faq !== undefined ? incoming.faq : base.faq,
     sections: incoming.sections || base.sections,
     media,
-    source: incoming.source || base.source || 'merchant_edit',
+    source: 'merchant_edit',
     generatedAt: base.generatedAt || new Date().toISOString(),
     confirmedAt: payload.confirm
       ? new Date().toISOString()
@@ -1602,7 +1636,7 @@ async function refreshCaseDraftMediaAfterMask(albumId) {
   } catch (_) {
     preMaskTask = null
   }
-  const freshMedia = pickDraftMedia(view, preMaskTask)
+  const freshMedia = pickDraftMedia(view, preMaskTask, { requireMasked: true })
   const prev = pkg.merchantCaseDraft
   const keepKeys = new Set(
     (Array.isArray(prev.media) ? prev.media : []).map((m) => `${m.nodeId}:${m.idx}`),
@@ -1975,7 +2009,7 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
   assertAlbumContentEditable(existing)
   assertAlbumHasOwnerPhone(existing)
   assertAlbumHasNonEmptyContent(existing)
-  // 相册归相册：完工不再要求案例稿，也不送脱敏/人审；案例生成另案
+  // 相册归相册：完工不再要求案例稿，也不送人审；打码可先跑，生成预览另等就绪
   const prevCaseStatus = String(existing.publicCaseStatus || '').trim()
   const nextCaseStatus =
     !prevCaseStatus || prevCaseStatus === 'pending_desensitize' ? 'private' : prevCaseStatus
@@ -1996,6 +2030,8 @@ async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', o
   notifyAlbumCompleted(album).catch((e) => {
     console.warn('[notification] album completed', e && e.message)
   })
+  const { scheduleAlbumPreMask } = require('./desensitize.service')
+  scheduleAlbumPreMask(albumId, { trigger: 'complete' })
   const view = buildMerchantView(await loadAlbum(albumId))
   Object.assign(view, assessPublicCaseQuality(view))
   return view
@@ -2523,6 +2559,7 @@ module.exports = {
   listServiceAlbumTemplateOptions,
   fetchMerchantCopyQuality,
   getMerchantCaseDraft,
+  getMerchantCaseDraftMaskStatus,
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,

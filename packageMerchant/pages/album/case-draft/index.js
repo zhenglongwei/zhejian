@@ -1,5 +1,6 @@
 const {
   fetchMerchantCaseDraft,
+  fetchMerchantCaseDraftMaskStatus,
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
@@ -14,6 +15,7 @@ const {
 Page({
   data: {
     status: 'loading',
+    loadingHint: '正在写顺文案，请稍候',
     errorMessage: '',
     albumId: '',
     fromComplete: false,
@@ -21,10 +23,8 @@ Page({
     resubmit: false,
     editable: false,
     saving: false,
-    polishing: false,
     completing: false,
     generating: false,
-    canRevertPolish: false,
     title: '',
     caseSummary: '',
     titleHeight: 40,
@@ -39,9 +39,6 @@ Page({
     showGeneratePrimary: false,
   },
 
-  /** 仅保留最近一次「AI 润色」前的文案，不落库 */
-  _prePolishSnapshot: null,
-
   /** 页面工作稿：同步更新，避免 setData 未完成就提交旧文 */
   _workingDraft: null,
 
@@ -55,6 +52,10 @@ Page({
     }
     this.setData({ fromComplete, generateMode })
     this.initPage()
+  },
+
+  onUnload() {
+    this._maskPollGeneration = (this._maskPollGeneration || 0) + 1
   },
 
   async initPage() {
@@ -96,15 +97,19 @@ Page({
   },
 
   mediaDisplayUrl(item) {
-    // 商家预览优先原图；脱敏图留给车主/正式公示
+    if (this.data.generateMode) {
+      return (item && item.maskedUrl) || ''
+    }
     return (item && (item.previewUrl || item.maskedUrl)) || ''
   },
 
   mapMedia(list) {
-    return (list || []).map((item) => ({
-      ...item,
-      displayUrl: this.mediaDisplayUrl(item),
-    }))
+    return (list || [])
+      .map((item) => ({
+        ...item,
+        displayUrl: this.mediaDisplayUrl(item),
+      }))
+      .filter((item) => item.displayUrl)
   },
 
   mapFaq(list) {
@@ -192,21 +197,95 @@ Page({
     })
   },
 
-  async loadDraft() {
-    this.setData({ status: 'loading', errorMessage: '' })
+  needsAutoPolish(draft = {}, extra = {}) {
+    const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
+    const confirmed = Boolean(extra.confirmed || (draft && draft.confirmedAt))
+    const source = String((draft && draft.source) || 'rule')
+    return Boolean(editable && !confirmed && source !== 'llm' && source !== 'merchant_edit')
+  },
+
+  async polishDraftQuietly(draft = {}) {
     try {
+      const data = await polishMerchantCaseDraft(this.albumId, {
+        draft: {
+          title: draft.title || '',
+          caseSummary: draft.caseSummary || '',
+          faq: draft.faq || [],
+          sections: draft.sections || [],
+          media: draft.media || [],
+          source: draft.source || 'rule',
+        },
+      })
+      const next = data.draft || {}
+      if (draft.media && draft.media.length && !(next.media && next.media.length)) {
+        return { ...next, media: draft.media }
+      }
+      return next
+    } catch (_) {
+      return draft
+    }
+  },
+
+  sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  },
+
+  async waitForDraftMask(retry = false) {
+    const MASK_POLL_MS = 2000
+    const MASK_POLL_MAX_MS = 5 * 60 * 1000
+    this._maskPollGeneration = (this._maskPollGeneration || 0) + 1
+    const generation = this._maskPollGeneration
+    const started = Date.now()
+    let askedRetry = Boolean(retry)
+    while (Date.now() - started < MASK_POLL_MAX_MS) {
+      if (this._maskPollGeneration !== generation) {
+        const err = new Error('已取消')
+        err.cancelled = true
+        throw err
+      }
+      const data = await fetchMerchantCaseDraftMaskStatus(this.albumId, {
+        retry: askedRetry,
+      })
+      askedRetry = false
+      const state = data && data.state
+      if (state === 'ready') return
+      if (state === 'failed') {
+        throw new Error('配图打码失败，请稍后重试')
+      }
+      await this.sleep(MASK_POLL_MS)
+    }
+    throw new Error('配图处理超时，请稍后重试')
+  },
+
+  async loadDraft(options = {}) {
+    const retryMask = Boolean(options.retryMask)
+    this.setData({
+      status: 'loading',
+      errorMessage: '',
+      loadingHint: this.data.generateMode ? '正在处理配图' : '正在写顺文案，请稍候',
+    })
+    try {
+      if (this.data.generateMode) {
+        await this.waitForDraftMask(retryMask)
+        this.setData({ loadingHint: '正在写顺文案，请稍候' })
+      }
       const data = await fetchMerchantCaseDraft(this.albumId)
-      const draft = data.draft || {}
-      this._prePolishSnapshot = null
-      this.applyDraftView(draft, {
-        status: 'normal',
+      let draft = data.draft || {}
+      const extra = {
         albumId: this.albumId,
         editable: Boolean(data.editable),
         resubmit: Boolean(data.resubmit),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
-        canRevertPolish: false,
+      }
+      if (this.needsAutoPolish(draft, extra)) {
+        draft = await this.polishDraftQuietly(draft)
+      }
+      this.applyDraftView(draft, {
+        status: 'normal',
+        ...extra,
       })
     } catch (e) {
+      if (e && e.cancelled) return
       this.setData({
         status: 'error',
         errorMessage: (e && e.message) || '加载失败',
@@ -214,24 +293,8 @@ Page({
     }
   },
 
-  capturePrePolishSnapshot() {
-    this._prePolishSnapshot = {
-      title: this.data.title || '',
-      caseSummary: this.data.caseSummary || '',
-      faq: (this.data.faq || []).map((item) => ({
-        q: item.q || '',
-        a: item.a || '',
-      })),
-      sections: (this.data.sections || []).map((sec) => ({
-        key: sec.key,
-        title: sec.title,
-        body: sec.body || '',
-      })),
-    }
-  },
-
   onRetry() {
-    this.loadDraft()
+    this.loadDraft({ retryMask: this.data.generateMode })
   },
 
   onTitleInput(e) {
@@ -379,52 +442,6 @@ Page({
     }
   },
 
-  async onAiPolish() {
-    if (!this.data.editable || this.data.polishing || this.data.saving) return
-    this.capturePrePolishSnapshot()
-    this.setData({ polishing: true })
-    try {
-      wx.showLoading({ title: 'AI 润色中', mask: true })
-      const data = await polishMerchantCaseDraft(this.albumId, {
-        draft: this.buildDraftPayload(),
-      })
-      wx.hideLoading()
-      const draft = data.draft || {}
-      this.applyDraftView(
-        {
-          ...draft,
-          media: draft.media && draft.media.length ? draft.media : this.data.media,
-        },
-        { confirmed: false, canRevertPolish: true },
-      )
-      wx.showToast({ title: '已润色，可恢复或继续改', icon: 'success' })
-    } catch (e) {
-      wx.hideLoading()
-      this._prePolishSnapshot = null
-      this.setData({ canRevertPolish: false })
-      wx.showToast({ title: (e && e.message) || '润色失败', icon: 'none' })
-    } finally {
-      this.setData({ polishing: false })
-    }
-  },
-
-  onRevertPolish() {
-    if (!this.data.editable || !this.data.canRevertPolish || !this._prePolishSnapshot) return
-    const snap = this._prePolishSnapshot
-    this._prePolishSnapshot = null
-    this.applyDraftView(
-      {
-        title: snap.title,
-        caseSummary: snap.caseSummary,
-        faq: snap.faq || [],
-        sections: snap.sections,
-        media: this.data.media,
-      },
-      { canRevertPolish: false },
-    )
-    wx.showToast({ title: '已恢复润色前', icon: 'success' })
-  },
-
   async onSave(confirm) {
     if (!this.data.editable || this.data.saving) return
     this.setData({ saving: true })
@@ -492,14 +509,12 @@ Page({
         draft: this.buildDraftPayload(),
       })
       wx.hideLoading()
-      this._prePolishSnapshot = null
       this.setData({
         confirmed: true,
         editable: false,
         fromComplete: false,
         resubmit: false,
         showCompletePrimary: false,
-        canRevertPolish: false,
       })
       await this.loadDraft()
       wx.showModal({

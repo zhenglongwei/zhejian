@@ -119,12 +119,21 @@ async function fetchMerchantCaseDraft(albumId) {
   return get(`/merchant/service-albums/${albumId}/case-draft`, withStore())
 }
 
+async function fetchMerchantCaseDraftMaskStatus(albumId, options = {}) {
+  return get(
+    `/merchant/service-albums/${albumId}/case-draft/pre-mask`,
+    withStore({ retry: options.retry ? 1 : undefined }),
+  )
+}
+
 async function saveMerchantCaseDraft(albumId, payload = {}) {
   return put(`/merchant/service-albums/${albumId}/case-draft`, withStore(payload))
 }
 
 async function polishMerchantCaseDraft(albumId, payload = {}) {
-  return post(`/merchant/service-albums/${albumId}/case-draft/ai-polish`, withStore(payload))
+  return post(`/merchant/service-albums/${albumId}/case-draft/ai-polish`, withStore(payload), {
+    timeout: 60000,
+  })
 }
 
 async function confirmAndCompleteMerchantCaseDraft(albumId, payload = {}) {
@@ -199,6 +208,7 @@ module.exports = {
   generateMerchantAlbumContentOptimize,
   applyMerchantAlbumContentOptimize,
   fetchMerchantCaseDraft,
+  fetchMerchantCaseDraftMaskStatus,
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,

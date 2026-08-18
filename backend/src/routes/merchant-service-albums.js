@@ -10,6 +10,7 @@ const {
   completeMerchantServiceAlbum,
   fetchMerchantCopyQuality,
   getMerchantCaseDraft,
+  getMerchantCaseDraftMaskStatus,
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
   confirmAndCompleteMerchantCaseDraft,
@@ -231,6 +232,22 @@ router.post('/service-albums/:albumId/parts/label-ocr', requireAuth(['merchant']
   }
 })
 
+router.get('/service-albums/:albumId/case-draft/pre-mask', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const retry = ['1', 'true', 'yes'].includes(String((req.query && req.query.retry) || '').toLowerCase())
+    const data = await getMerchantCaseDraftMaskStatus(
+      req.params.albumId,
+      storeId,
+      req.auth.merchantId,
+      { retry },
+    )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/service-albums/:albumId/case-draft', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const storeId = resolveStoreId(req)
@@ -412,7 +429,7 @@ router.post('/service-albums/:albumId/complete', requireAuth(['merchant']), asyn
       storeId,
       req.auth.merchantId,
     )
-    // 相册归相册：完工不触发脱敏/案例送审（案例生成另案）
+    // 完工可先打码，不阻塞本接口；生成预览须等打码就绪
     return ok(res, {
       albumId: req.params.albumId,
       albumStatus: 'completed',

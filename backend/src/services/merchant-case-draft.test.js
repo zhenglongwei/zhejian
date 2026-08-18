@@ -2,9 +2,11 @@ const assert = require('assert')
 const {
   buildRuleMerchantCaseDraft,
   normalizeMerchantCaseDraft,
+  mergeLlmSectionsIntoDraft,
   stripAmountText,
   draftToAiSummary,
   hydrateDraftMediaForOwnerView,
+  pickDraftMedia,
 } = require('./merchant-case-draft.service')
 
 function run() {
@@ -188,8 +190,187 @@ function run() {
   )
   const handoverMedia = crowdedDraft.media.find((item) => item.nodeId === 'stage_6')
   assert.ok(handoverMedia.caption === '液压位')
-  assert.ok(handoverMedia.hint.includes('液压位'))
-  assert.ok(!/偏低|加满|正常/.test(handoverMedia.hint))
+  assert.ok(!/本图为「/.test(handoverMedia.hint + handoverMedia.caption))
+  assert.ok(!/偏低|加满/.test(handoverMedia.hint))
+
+  const hangzhou = buildRuleMerchantCaseDraft({
+    ...albumView,
+    serviceName: '底盘维修',
+    storeName: '杭州盈简科技有限公司',
+    storeAddress: '浙江省杭州市西湖区龙井路1号',
+    store: {},
+    vehicleDisplay: '起亚 赛拉图 1.6L 三厢 手动;自动 前轮驱动',
+    planParts: [],
+  })
+  assert.ok(hangzhou.title.includes('杭州西湖'))
+  assert.ok(!hangzhou.title.includes('省杭州'))
+  assert.ok(!hangzhou.title.includes('盈简'))
+  assert.ok(!hangzhou.title.includes('龙井'))
+  assert.ok(hangzhou.title.includes('起亚'))
+  assert.ok(!/1\.6L/.test(hangzhou.title))
+  assert.ok(!/本单已处理/.test(hangzhou.caseSummary))
+
+  const outcomeMedia = buildRuleMerchantCaseDraft({
+    ...albumView,
+    imageMeta: [
+      {
+        nodeId: 'stage_5',
+        idx: 0,
+        rawUrl: 'https://example.com/wiper.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        caption: '已更换;',
+      },
+    ],
+  }, null)
+  const wiper = outcomeMedia.media.find((item) => item.nodeId === 'stage_5')
+  assert.ok(wiper)
+  assert.ok(wiper.caption !== '已更换;')
+  assert.ok(!/本图为「已更换/.test(`${wiper.caption}${wiper.hint}`))
+  assert.ok(!/以图中为准/.test(`${wiper.caption}${wiper.hint}`))
+
+  const checklistDraft = buildRuleMerchantCaseDraft({
+    serviceName: '小保养',
+    vehicleDisplay: '起亚 赛拉图',
+    store: { city: '杭州' },
+    storeAddress: '浙江省杭州市西湖区龙井路1号',
+    nodes: [{ id: 'stage_2', note: '' }, { id: 'stage_5', note: '' }, { id: 'stage_6', note: '' }],
+    checklistJson: {
+      categoryId: 'maintenance',
+      items: [
+        { itemKey: 'odo', outcome: 'observed' },
+        { itemKey: 'brake_fluid_level', outcome: 'normal' },
+        { itemKey: 'wiper', outcome: 'replaced' },
+        { itemKey: 'lights', outcome: 'recommend_replace', work: { removedAs: 'follow_up' } },
+        { itemKey: 'dtc', work: { removedAs: 'skipped' } },
+      ],
+    },
+    imageMeta: [
+      {
+        id: 'img-odo',
+        nodeId: 'stage_1',
+        idx: 0,
+        rawUrl: 'https://example.com/odo.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        checklistItemKey: 'odo',
+      },
+      {
+        id: 'img-brake',
+        nodeId: 'stage_2',
+        idx: 0,
+        rawUrl: 'https://example.com/brake.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        checklistItemKey: 'brake_fluid_level',
+        caption: '正常;',
+      },
+      {
+        id: 'img-wiper',
+        nodeId: 'stage_5',
+        idx: 0,
+        rawUrl: 'https://example.com/wiper.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        checklistItemKey: 'wiper',
+        caption: '已更换;',
+      },
+      {
+        id: 'img-lights',
+        nodeId: 'stage_2',
+        idx: 1,
+        rawUrl: 'https://example.com/lights.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        checklistItemKey: 'lights',
+        caption: '建议更换;',
+      },
+    ],
+  }, null)
+  const diagnosis = checklistDraft.sections.find((s) => s.key === 'diagnosis')
+  const process = checklistDraft.sections.find((s) => s.key === 'process')
+  const handoverSec = checklistDraft.sections.find((s) => s.key === 'handover')
+  assert.ok(diagnosis.body.includes('本次检查'))
+  assert.ok(diagnosis.body.includes('刹车油液位'))
+  assert.ok(diagnosis.body.includes('雨刮器'))
+  assert.ok(!diagnosis.body.includes('里程表'))
+  assert.ok(!diagnosis.body.includes('故障码'))
+  assert.ok(process.body.includes('本次施工'))
+  assert.ok(process.body.includes('雨刮器'))
+  assert.ok(handoverSec.body.includes('灯光'))
+  assert.ok(handoverSec.body.includes('择日'))
+  assert.ok(!handoverSec.body.includes('另有建议项'))
+  assert.ok(checklistDraft.caseSummary.includes('检查了'))
+  assert.ok(checklistDraft.caseSummary.includes('雨刮器'))
+  assert.ok(checklistDraft.caseSummary.includes('检查正常') || checklistDraft.caseSummary.includes('未施工'))
+  assert.ok(!/本单已处理/.test(checklistDraft.caseSummary))
+  assert.ok(checklistDraft.faq.some((item) => item.q.includes('查了')))
+  assert.ok(checklistDraft.faq.some((item) => item.q.includes('做了')))
+  assert.ok(checklistDraft.faq.some((item) => item.q.includes('没施工')))
+  assert.ok(checklistDraft.faq.every((item) => !/偏低|性价比|暂缓/.test(item.a)))
+  assert.ok(checklistDraft.title.includes('雨刮器'))
+  assert.strictEqual(diagnosis.title, '检查留证')
+  assert.strictEqual(process.title, '施工留证')
+  assert.ok(checklistDraft.faq.every((item) => !/本单已处理/.test(`${item.q}${item.a}`)))
+  assert.ok(!checklistDraft.faq.some((item) => /另有建议项/.test(item.a)))
+  checklistDraft.media.forEach((item) => {
+    assert.ok(!/本图为|以图中为准/.test(`${item.caption || ''}${item.hint || ''}`))
+  })
+  const brakePic = checklistDraft.media.find((item) => item.nodeId === 'stage_2' && Number(item.idx) === 0)
+  if (brakePic) {
+    assert.ok(brakePic.caption === '刹车油液位 正常' || brakePic.caption === '正常')
+    assert.ok(!brakePic.hint)
+  }
+
+  const lockedTitles = normalizeMerchantCaseDraft({
+    title: '测',
+    sections: [{ key: 'diagnosis', title: '诊断与数据', body: '胶套开裂' }],
+    media: [],
+  })
+  assert.strictEqual(lockedTitles.sections.find((s) => s.key === 'diagnosis').title, '检查留证')
+
+  const polishedPlan = mergeLlmSectionsIntoDraft(
+    {
+      title: '测',
+      sections: [{ key: 'plan', title: '方案与避坑', body: '更换机油机滤' }],
+      media: [],
+    },
+    {
+      sections: [{ key: 'plan', title: '方案与避坑', body: '按手册要求更换机油机滤' }],
+    },
+    { nodes: [{ id: 'stage_3', note: '更换机油机滤' }] },
+  )
+  const planBody = polishedPlan.sections.find((s) => s.key === 'plan').body
+  assert.ok(!/按手册要求/.test(planBody))
+  assert.ok(planBody.includes('机油'))
+
+  const needHandle = buildRuleMerchantCaseDraft({
+    ...albumView,
+    imageMeta: [
+      {
+        nodeId: 'stage_2',
+        idx: 0,
+        rawUrl: 'https://example.com/need.jpg',
+        visibility: 'public',
+        publicGateStatus: 'passed',
+        caption: '需处理;',
+      },
+    ],
+  }, null)
+  const needPic = needHandle.media.find((item) => item.nodeId === 'stage_2')
+  assert.ok(needPic)
+  assert.ok(!needPic.caption)
+  assert.ok(!needPic.hint)
+  assert.ok(!/以图中为准|本图为/.test(`${needPic.caption || ''}${needPic.hint || ''}`))
+
+  const unmaskedOnly = pickDraftMedia(albumView, null, { requireMasked: true })
+  assert.strictEqual(unmaskedOnly.length, 0)
+  const previewFallback = pickDraftMedia(albumView, null)
+  assert.ok(previewFallback.length >= 1)
+  assert.ok(previewFallback[0].previewUrl)
+  const maskedOnly = pickDraftMedia(albumView, preMaskTask, { requireMasked: true })
+  assert.ok(maskedOnly.length >= 1)
+  assert.ok(maskedOnly.every((item) => item.maskedUrl && item.maskedUrl.includes('desensitized')))
 
   console.log('merchant-case-draft.test.js OK')
 }

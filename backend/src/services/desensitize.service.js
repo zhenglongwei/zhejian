@@ -363,12 +363,17 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
   })
 }
 
+const preMaskScheduleInFlight = new Set()
+
 /**
  * 完工后异步预脱敏：不阻塞商家接口；完成后刷新案例稿配图并通知车主。
+ * 同一相册进行中不重复开跑，避免生成预览轮询叠打。
  */
 function scheduleAlbumPreMask(albumId, options = {}) {
   const id = String(albumId || '').trim()
   if (!id) return
+  if (preMaskScheduleInFlight.has(id)) return
+  preMaskScheduleInFlight.add(id)
   setImmediate(() => {
     ;(async () => {
       try {
@@ -399,6 +404,8 @@ function scheduleAlbumPreMask(albumId, options = {}) {
         } catch (_) {
           /* ignore */
         }
+      } finally {
+        preMaskScheduleInFlight.delete(id)
       }
     })()
   })

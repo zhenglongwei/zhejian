@@ -5,9 +5,9 @@
 
 const MERCHANT_CASE_SECTION_KEYS = [
   { key: 'symptom', title: '症状与诉求', stageIds: ['stage_1'] },
-  { key: 'diagnosis', title: '诊断与数据', stageIds: ['stage_2'] },
+  { key: 'diagnosis', title: '检查留证', stageIds: ['stage_2'] },
   { key: 'plan', title: '方案与避坑', stageIds: ['stage_3'] },
-  { key: 'process', title: '施工与 5S 标准', stageIds: ['stage_5', 'stage_4'] },
+  { key: 'process', title: '施工留证', stageIds: ['stage_5', 'stage_4'] },
   { key: 'handover', title: '交车与质保', stageIds: ['stage_6'] },
 ]
 

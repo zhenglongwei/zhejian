@@ -201,7 +201,8 @@ const config = {
       process.env.GEO_LLM_API_URL ||
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
     apiKey: process.env.GEO_LLM_API_KEY || process.env.DASHSCOPE_API_KEY || '',
-    model: process.env.GEO_LLM_MODEL || 'qwen3.6-plus',
+    // 案例写顺走 Flash：比 qwen3.6-plus 便宜一个数量级；看图任务仍用 geoVision
+    model: process.env.GEO_LLM_MODEL || 'qwen3.7-flash',
     timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || 90000),
     enableThinking: process.env.GEO_LLM_ENABLE_THINKING === 'true',
   },

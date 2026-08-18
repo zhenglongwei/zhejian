@@ -783,31 +783,118 @@ function buildOwnerWorkChecklistView(album, images = []) {
   }
 }
 
+function itemHasPublicCaseEvidence(it = {}) {
+  if (!it) return false
+  if (isSkippedRemoved(it.work && it.work.removedAs)) return false
+  if (isIntakeArchiveItem(it)) return false
+  const imgs = Array.isArray(it.images) ? it.images : []
+  const hasImg = imgs.some((img) => img && (img.url || img.rawUrl || img.id))
+  const hasOutcome = Boolean(it.outcome)
+  const hasNote = Boolean(String(it.note || '').trim())
+  const follow = isFollowUpRemoved(it.work && it.work.removedAs)
+  return hasImg || hasOutcome || hasNote || follow
+}
+
+function isCaseDoneItem(it = {}) {
+  const imgs = Array.isArray(it.images) ? it.images : []
+  const hasConstructionPhoto = imgs.some(
+    (img) =>
+      String((img && img.nodeId) || '') === 'stage_5' ||
+      String((img && img.nodeTitle) || '') === '施工',
+  )
+  const captions = imgs.map((img) => String((img && img.caption) || '')).join(' ')
+  const doneByCaption = /已更换|已处理/.test(captions)
+  const doneByOutcome = it.outcome === 'replaced' || it.outcome === 'repaired_other'
+  return Boolean(hasConstructionPhoto || doneByCaption || doneByOutcome)
+}
+
+function formatCaseItemLabel(it = {}) {
+  const label = String(it.label || it.itemKey || '').trim()
+  const outcome = String(it.outcomeLabel || '').trim()
+  if (label && outcome && !label.includes(outcome)) return `${label}（${outcome}）`
+  return label
+}
+
 /**
- * 案例正文用检查项过滤（18 §7.3）
- * - 已施工/有施工留证：纳入
- * - skipped：不纳入
- * - follow_up：不逐条纳入；由 buildCaseFollowUpSummary 给一句总述
+ * 公开案例用检查项分层：有证全貌 / 本次施工 / 有依据的差异原因。
+ * @see docs/04_维修过程相册/18_服务类目检测清单上线方案.md §7.3
+ */
+function buildCaseChecklistLayers(items = []) {
+  const done = []
+  const deferred = []
+  const normal = []
+  const other = []
+  ;(items || []).filter(itemHasPublicCaseEvidence).forEach((it) => {
+    if (isFollowUpRemoved(it.work && it.work.removedAs)) {
+      deferred.push(it)
+      return
+    }
+    if (isCaseDoneItem(it)) {
+      done.push(it)
+      return
+    }
+    if (it.outcome === 'normal' || it.outcome === 'observed') {
+      normal.push(it)
+      return
+    }
+    other.push(it)
+  })
+  const inspectItems = [...normal, ...other, ...done, ...deferred]
+  const inspectLine = inspectItems
+    .slice(0, 12)
+    .map(formatCaseItemLabel)
+    .filter(Boolean)
+    .join('、')
+  const doneLine = done
+    .slice(0, 8)
+    .map((it) => String(it.label || it.itemKey || '').trim())
+    .filter(Boolean)
+    .join('、')
+  const deferNames = deferred
+    .slice(0, 6)
+    .map((it) => String(it.label || it.itemKey || '').trim())
+    .filter(Boolean)
+  const deferLine = deferNames.length
+    ? `${deferNames.join('、')}与车主约定择日再做`
+    : ''
+  const normalNames = normal
+    .slice(0, 8)
+    .map((it) => String(it.label || it.itemKey || '').trim())
+    .filter(Boolean)
+  const notReplaced = other
+    .filter((it) => it.outcome === 'not_replaced' || it.outcome === 'recommend_replace')
+    .slice(0, 6)
+    .map((it) => String(it.label || it.itemKey || '').trim())
+    .filter(Boolean)
+  const differenceBits = []
+  if (normalNames.length) {
+    differenceBits.push(`以下检查正常、本次未施工：${normalNames.join('、')}`)
+  }
+  if (notReplaced.length) {
+    differenceBits.push(`建议更换但本次未更换：${notReplaced.join('、')}`)
+  }
+  if (deferLine) differenceBits.push(deferLine)
+  return {
+    inspectCount: inspectItems.length,
+    inspectLine,
+    doneLine,
+    deferLine,
+    differenceLine: differenceBits.join('。'),
+    done,
+    deferred,
+    normal,
+  }
+}
+
+/**
+ * 案例正文用检查项过滤（施工做成项）
  */
 function filterChecklistItemsForCase(items = []) {
-  return (items || []).filter((it) => {
-    if (!it) return false
-    if (isFollowUpRemoved(it.work && it.work.removedAs)) return false
-    if (isSkippedRemoved(it.work && it.work.removedAs)) return false
-    const imgs = it.images || []
-    const hasConstructionPhoto = imgs.some(
-      (img) => String((img && img.nodeId) || '') === 'stage_5' || String((img && img.nodeTitle) || '') === '施工',
-    )
-    const captions = imgs.map((img) => String((img && img.caption) || '')).join(' ')
-    const doneByCaption = /已更换|已处理/.test(captions)
-    const doneByOutcome = it.outcome === 'replaced' || it.outcome === 'repaired_other'
-    return Boolean(hasConstructionPhoto || doneByCaption || doneByOutcome)
-  })
+  return buildCaseChecklistLayers(items).done
 }
 
 function buildCaseFollowUpSummary(items = []) {
-  const hasFollowUp = (items || []).some((it) => isFollowUpRemoved(it.work && it.work.removedAs))
-  return hasFollowUp ? '另有建议项已与车主约定择日处理。' : ''
+  return buildCaseChecklistLayers(items).deferLine
 }
 
 function ensureChecklistOnCreate(albumLike = {}) {
@@ -839,6 +926,7 @@ module.exports = {
   scrubOwnerCaption,
   sortWorkQueueByFamily,
   filterChecklistItemsForCase,
+  buildCaseChecklistLayers,
   buildCaseFollowUpSummary,
   ensureChecklistOnCreate,
   resolveCategoryIdFromAlbum,

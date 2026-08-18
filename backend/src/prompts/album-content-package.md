@@ -65,10 +65,10 @@
     "title": "地域｜车型｜项目（可空则省略本对象）",
     "sections": [
       { "key": "symptom", "title": "症状与诉求", "body": "" },
-      { "key": "diagnosis", "title": "诊断与数据", "body": "" },
+      { "key": "diagnosis", "title": "检查留证", "body": "" },
       { "key": "plan", "title": "方案与避坑", "body": "" },
-      { "key": "process", "title": "施工与 5S 标准", "body": "" },
-      { "key": "handover", "title": "旧件与责任边界", "body": "" }
+      { "key": "process", "title": "施工留证", "body": "" },
+      { "key": "handover", "title": "交车与质保", "body": "" }
     ]
   }
 }

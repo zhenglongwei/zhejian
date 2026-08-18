@@ -1,13 +1,16 @@
 const assert = require('assert')
-const {
-  resolveWorkFlags,
-  inferOutcomeFromCaptions,
-  isIntakeArchiveItem,
-  groupOwnerImagesByStage,
-  buildOwnerProjectClusters,
-  scrubOwnerCaption,
-  sortWorkQueueByFamily,
-} = require('./album-checklist.service')
+  const {
+    resolveWorkFlags,
+    inferOutcomeFromCaptions,
+    isIntakeArchiveItem,
+    groupOwnerImagesByStage,
+    buildOwnerProjectClusters,
+    scrubOwnerCaption,
+    sortWorkQueueByFamily,
+    buildCaseChecklistLayers,
+    filterChecklistItemsForCase,
+    buildCaseFollowUpSummary,
+  } = require('./album-checklist.service')
 
 assert.strictEqual(isIntakeArchiveItem({ group: '接车建档' }), true)
 assert.strictEqual(isIntakeArchiveItem({ groupName: '接车建档' }), true)
@@ -167,6 +170,73 @@ assert.strictEqual(scrubOwnerCaption('机油发黑偏稀'), '机油发黑偏稀'
     sorted.map((i) => i.itemKey),
     ['engine_oil', 'oil_filter', 'oil_level', 'other'],
   )
+}
+
+{
+  const caseItems = [
+    {
+      itemKey: 'odo',
+      label: '里程表',
+      group: '接车建档',
+      outcome: 'observed',
+      outcomeLabel: '已检查',
+      images: [{ url: 'odo.jpg' }],
+    },
+    {
+      itemKey: 'dtc',
+      label: '故障码',
+      outcome: 'recommend_replace',
+      work: { removedAs: 'skipped' },
+      images: [{ url: 'dtc.jpg' }],
+    },
+    {
+      itemKey: 'brake_fluid_level',
+      label: '刹车油液位',
+      outcome: 'normal',
+      outcomeLabel: '正常',
+      images: [{ url: 'brake.jpg', caption: '正常;' }],
+    },
+    {
+      itemKey: 'wiper',
+      label: '雨刮器',
+      outcome: 'replaced',
+      outcomeLabel: '已更换',
+      images: [{ url: 'wiper.jpg', nodeId: 'stage_5', caption: '已更换;' }],
+    },
+    {
+      itemKey: 'lights',
+      label: '灯光',
+      outcome: 'recommend_replace',
+      outcomeLabel: '择日再约',
+      work: { removedAs: 'follow_up' },
+      images: [{ url: 'lights.jpg', caption: '建议更换;' }],
+    },
+    {
+      itemKey: 'empty',
+      label: '空项',
+      outcome: null,
+      images: [],
+    },
+  ]
+  const layers = buildCaseChecklistLayers(caseItems)
+  assert.strictEqual(layers.inspectCount, 3)
+  assert.ok(layers.inspectLine.includes('刹车油液位（正常）'))
+  assert.ok(layers.inspectLine.includes('雨刮器（已更换）'))
+  assert.ok(layers.inspectLine.includes('灯光'))
+  assert.ok(!layers.inspectLine.includes('里程表'))
+  assert.ok(!layers.inspectLine.includes('故障码'))
+  assert.ok(!layers.inspectLine.includes('空项'))
+  assert.strictEqual(layers.doneLine, '雨刮器')
+  assert.ok(layers.deferLine.includes('灯光'))
+  assert.ok(layers.deferLine.includes('择日'))
+  assert.ok(layers.differenceLine.includes('检查正常'))
+  assert.ok(layers.differenceLine.includes('刹车油液位'))
+  assert.ok(layers.differenceLine.includes('灯光'))
+  assert.deepStrictEqual(
+    filterChecklistItemsForCase(caseItems).map((it) => it.itemKey),
+    ['wiper'],
+  )
+  assert.ok(buildCaseFollowUpSummary(caseItems).includes('灯光'))
 }
 
 console.log('album-checklist.service.test.js OK')

@@ -34,7 +34,7 @@ function getGeoLlmConfig() {
     dryRun,
     apiUrl: String(process.env.GEO_LLM_API_URL || llm.apiUrl || '').trim(),
     apiKey: String(process.env.GEO_LLM_API_KEY || llm.apiKey || process.env.DASHSCOPE_API_KEY || '').trim(),
-    model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.6-plus').trim(),
+    model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.7-flash').trim(),
     timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || llm.timeoutMs || 90000),
     enableThinking:
       process.env.GEO_LLM_ENABLE_THINKING === 'true' || llm.enableThinking === true,

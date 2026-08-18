@@ -8,13 +8,14 @@ const fs = require('fs')
 const path = require('path')
 const { config } = require('../config')
 const { chatCompletion } = require('../lib/dashscope-chat')
-  const {
+const {
   normalizeMerchantCaseDraft,
   mergeLlmSectionsIntoDraft,
   buildRuleCaseSummary,
   buildTitle,
   syncWarrantyIntoDraft,
   stripAmountText,
+  refreshUnconfirmedRuleDraft,
 } = require('./merchant-case-draft.service')
 
 const DRAFT_PROMPT_PATH = path.join(__dirname, '../prompts/merchant-case-draft-polish.md')
@@ -31,7 +32,7 @@ function getPolishLlmConfig() {
     apiKey: String(
       process.env.GEO_LLM_API_KEY || llm.apiKey || process.env.DASHSCOPE_API_KEY || '',
     ).trim(),
-    model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.6-plus').trim(),
+    model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.7-flash').trim(),
     timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || llm.timeoutMs || 90000),
   }
 }
@@ -203,10 +204,14 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
   }
 
   // 正文润色不改摘要；先合并章节
-  const afterSections = mergeLlmSectionsIntoDraft(normalized, {
-    title: parsed.title,
-    sections: parsed.sections,
-  })
+  const afterSections = mergeLlmSectionsIntoDraft(
+    normalized,
+    {
+      title: parsed.title,
+      sections: parsed.sections,
+    },
+    albumView,
+  )
 
   // 按润色后章节重新规则拼摘要，再走摘要专用提示词
   const ruleSummary = buildRuleCaseSummary(afterSections, albumView)
@@ -222,7 +227,6 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
     caseSummary = ruleSummary || afterSections.caseSummary || ''
   }
 
-  // 顶栏标题保持「门店名｜地址｜车型｜项目」规则结构，便于检索；LLM 只润色章节
   const structuredTitle = buildTitle(albumView) || afterSections.title
   const withTitle = normalizeMerchantCaseDraft({
     ...afterSections,
@@ -230,8 +234,8 @@ async function polishMerchantCaseDraftWithLlm(baseDraft, albumView = {}) {
     caseSummary,
     source: 'llm',
   })
-  // 润色后若模型丢掉质保句，从相册质保字段补回
-  return syncWarrantyIntoDraft(withTitle, albumView)
+  const refreshed = refreshUnconfirmedRuleDraft(withTitle, albumView)
+  return syncWarrantyIntoDraft(refreshed || withTitle, albumView)
 }
 
 module.exports = {

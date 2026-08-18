@@ -34,6 +34,27 @@ function stripAmountText(text = '') {
   return scrubPiiText(value).replace(/\s{2,}/g, ' ').trim()
 }
 
+const INVENTED_FILLER_PHRASES = ['按手册要求', '按厂家手册', '按规定流程', '按标准流程']
+
+function albumNotesHaystack(albumView = {}) {
+  const notes = (albumView.nodes || []).map((node) => String((node && node.note) || '')).join('\n')
+  return `${notes}\n${JSON.stringify(albumView.checklistJson || '')}`
+}
+
+function stripInventedFiller(text = '', allowedHaystack = '') {
+  const allowed = String(allowedHaystack || '')
+  let out = String(text || '')
+  INVENTED_FILLER_PHRASES.forEach((phrase) => {
+    if (!allowed.includes(phrase)) out = out.split(phrase).join('')
+  })
+  return out
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[，,]{2,}/g, '，')
+    .replace(/^[,，。、]+/u, '')
+    .replace(/[，,。、]+$/u, (tail) => (/。/.test(tail) ? '。' : ''))
+    .trim()
+}
+
 function findNode(nodes, stageId) {
   return (nodes || []).find((n) => String(n.id || n.nodeId) === stageId) || null
 }
@@ -48,17 +69,24 @@ function noteForStages(nodes, stageIds = []) {
   return parts.join('。').slice(0, 500)
 }
 
-/** 案例正文：只写做成的检查项；跟进最多一句总述（18 §7.3） */
+/** 案例正文：有证检查全貌 + 做成项 + 有依据的差异原因（18 §7.3） */
 function buildChecklistCaseHints(albumView = {}) {
+  const empty = {
+    inspectCount: 0,
+    inspectLine: '',
+    doneLine: '',
+    deferLine: '',
+    differenceLine: '',
+    followUpSummary: '',
+  }
   try {
     const {
       buildMerchantChecklistView,
-      filterChecklistItemsForCase,
-      buildCaseFollowUpSummary,
+      buildCaseChecklistLayers,
     } = require('./album-checklist.service')
     const images = Array.isArray(albumView.imageMeta)
-      ? albumView.imageMeta.map((row) => ({
-          id: row.id,
+      ? albumView.imageMeta.map((row, idx) => ({
+          id: row.id || `${row.nodeId || 'img'}_${row.idx != null ? row.idx : idx}`,
           rawUrl: row.rawUrl || row.url || '',
           url: row.url || row.rawUrl || '',
           caption: row.caption || '',
@@ -74,26 +102,31 @@ function buildChecklistCaseHints(albumView = {}) {
       },
       images,
     )
-    const doneItems = filterChecklistItemsForCase(view.items || [])
-    const doneLine = doneItems
-      .slice(0, 8)
-      .map((it) => scrubPiiText(it.label || ''))
-      .filter(Boolean)
-      .join('、')
-    const followUpSummary = buildCaseFollowUpSummary(view.items || [])
+    const layers = buildCaseChecklistLayers(view.items || [])
     return {
-      doneLine: doneLine ? `本单已处理：${doneLine}` : '',
-      followUpSummary: scrubPiiText(followUpSummary),
+      inspectCount: layers.inspectCount,
+      inspectLine: scrubPiiText(layers.inspectLine),
+      doneLine: scrubPiiText(layers.doneLine),
+      deferLine: scrubPiiText(layers.deferLine),
+      differenceLine: scrubPiiText(layers.differenceLine),
+      followUpSummary: scrubPiiText(layers.deferLine),
     }
   } catch (_) {
-    return { doneLine: '', followUpSummary: '' }
+    return empty
   }
 }
 
 function projectHeadline(albumView = {}) {
+  const done = doneItemsForTitle(albumView)
   const service = stripAmountText(albumView.serviceName || '')
     .replace(/过程记录|维修案例|案例$/g, '')
     .trim()
+  const blob = `${service} ${done}`
+  if (/机油|机滤|滤芯|雨刮|大保养|小保养|保养/.test(blob) && !/异响|胶套|摆臂|底盘异响/.test(done)) {
+    if (/大保养/.test(service)) return '大保养'
+    if (/小保养/.test(service)) return '小保养'
+    return '保养'
+  }
   if (service) return service.slice(0, 24)
   try {
     const { inferJobKind } = require('../utils/merchant-case-job-faq')
@@ -118,24 +151,31 @@ function shortPlaceLabel(albumView = {}) {
     albumView.storeAddress || albumView.store?.address || albumView.address || '',
   )
   let city = cityField.replace(/市$/u, '')
+  if (city === '省杭州' || /^省/.test(city)) city = city.replace(/^省/u, '')
   let district = districtField.replace(/[区县]$/u, '')
   if (!city && address) {
-    const cityMatch = address.match(/([\u4e00-\u9fa5]{2,3})市/u)
-    if (cityMatch) city = cityMatch[1]
+    const withProvince = address.match(/([\u4e00-\u9fa5]{2,3})省([\u4e00-\u9fa5]{2,3})市/u)
+    const cityOnly = address.match(/([\u4e00-\u9fa5]{2,3})市/u)
+    if (withProvince) city = withProvince[2]
+    else if (cityOnly) city = cityOnly[1]
   }
   if (!district && address) {
-    const distMatch =
-      address.match(/([\u4e00-\u9fa5]{1,3})区/u) ||
-      address.match(/([\u4e00-\u9fa5]{1,3})县/u)
-    if (distMatch) district = distMatch[1]
+    const afterCity = address.match(/市([\u4e00-\u9fa5]{1,3})区/u)
+    const county = address.match(/市([\u4e00-\u9fa5]{1,3})县/u)
+    const bare = address.match(/([\u4e00-\u9fa5]{2,3})[区县]/u)
+    if (afterCity) district = afterCity[1]
+    else if (county) district = county[1]
+    else if (bare && bare[1] !== city && !/^市/.test(bare[1])) district = bare[1]
   }
+  if (city) city = city.replace(/市$/u, '')
+  if (district) district = district.replace(/[区县市]$/u, '')
   if (city && district && district !== city) return `${city}${district}`
   return city || district || ''
 }
 
 function doneItemsForTitle(albumView = {}) {
   const hints = buildChecklistCaseHints(albumView)
-  const fromDone = String(hints.doneLine || '').replace(/^本单已处理[:：]/u, '')
+  const fromDone = String(hints.doneLine || '').replace(/^本单已处理[:：]\s*/u, '')
   if (fromDone) {
     return fromDone
       .split(/、|,/)
@@ -177,8 +217,13 @@ function buildRuleSections(albumView = {}) {
 
   return MERCHANT_CASE_SECTION_KEYS.map((def) => {
     let body = noteForStages(nodes, def.stageIds)
+    if (def.key === 'diagnosis' && checklistHints.inspectLine) {
+      const inspectBody = `本次检查：${checklistHints.inspectLine}`
+      body = body ? `${inspectBody}。${body}` : inspectBody
+    }
     if (def.key === 'process' && checklistHints.doneLine) {
-      body = body ? `${body}。${checklistHints.doneLine}` : checklistHints.doneLine
+      const doneBody = `本次施工：${checklistHints.doneLine}`
+      body = body ? `${doneBody}。${body}` : doneBody
     }
     if (def.key === 'plan' && partsNames.length) {
       const partLine = `主要项目：${partsNames.join('、')}`
@@ -189,10 +234,8 @@ function buildRuleSections(albumView = {}) {
         const warrantyLine = scrubPiiText(warrantyText)
         body = body ? `${body}。${warrantyLine}` : warrantyLine
       }
-      if (checklistHints.followUpSummary) {
-        body = body
-          ? `${body}。${checklistHints.followUpSummary}`
-          : checklistHints.followUpSummary
+      if (checklistHints.deferLine) {
+        body = body ? `${body}。${checklistHints.deferLine}` : checklistHints.deferLine
       }
       if (!body) {
         body = '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
@@ -296,19 +339,16 @@ function listPublicImageMeta(albumView = {}) {
 
 const MEDIA_SECTION_PICK_ORDER = ['diagnosis', 'plan', 'process', 'handover']
 
-const STAGE_FIGURE_LABEL = {
-  stage_2: '诊断检查',
-  stage_4: '配件核对',
-  stage_5: '施工过程',
-  stage_6: '交车与质保',
-}
+const NORMAL_RESULTS = new Set(['正常', '已检查', '仅检查'])
+const DONE_RESULTS = new Set(['已更换', '已处理'])
+const ABNORMAL_RESULTS = new Set(['需处理', '建议更换', '未更换'])
 
 function buildChecklistLabelMap(albumView = {}) {
   try {
     const { buildMerchantChecklistView } = require('./album-checklist.service')
     const images = Array.isArray(albumView.imageMeta)
-      ? albumView.imageMeta.map((row) => ({
-          id: row.id,
+      ? albumView.imageMeta.map((row, idx) => ({
+          id: row.id || `${row.nodeId || 'img'}_${row.idx != null ? row.idx : idx}`,
           rawUrl: row.rawUrl || row.url || '',
           url: row.url || row.rawUrl || '',
           caption: row.caption || '',
@@ -337,21 +377,38 @@ function buildChecklistLabelMap(albumView = {}) {
 }
 
 function buildDraftMediaTexts(row = {}, labelMap = {}) {
-  const merchantCaption = stripAmountText(row.caption || '').slice(0, 48)
+  const rawCaption = stripAmountText(row.caption || '').slice(0, 48)
+  let rest = rawCaption
+  try {
+    const { scrubOwnerCaption } = require('./album-checklist.service')
+    rest = stripAmountText(scrubOwnerCaption(rawCaption))
+  } catch (_) {
+    rest = rawCaption.replace(/^(正常|已检查|仅检查|建议更换|已更换|未更换|需处理|已处理)[；;：:\s]*$/u, '')
+  }
+  const outcomeMatch = String(rawCaption || '').match(
+    /^(正常|已检查|仅检查|建议更换|已更换|未更换|需处理|已处理)/u,
+  )
+  const outcome = outcomeMatch ? outcomeMatch[1] : ''
   const itemLabel = stripAmountText(labelMap[row.checklistItemKey] || '')
-  const stageName = STAGE_FIGURE_LABEL[row.nodeId] || '过程'
-  let hint = ''
-  if (merchantCaption && merchantCaption.length <= 12) {
-    hint = `本图为「${merchantCaption}」检查留证，具体状态以图中为准。`
-  } else if (!merchantCaption && itemLabel) {
-    hint = `本图为「${itemLabel}」留证，具体状态以图中为准。`
-  } else {
-    hint = `本图为${stageName}留证。`
+  if (NORMAL_RESULTS.has(outcome) && !rest) {
+    return {
+      caption: itemLabel ? `${itemLabel} 正常` : '正常',
+      hint: '',
+    }
   }
-  return {
-    caption: merchantCaption,
-    hint: stripAmountText(hint).slice(0, 80),
+  if (DONE_RESULTS.has(outcome) && !rest) {
+    if (!itemLabel) return { caption: '', hint: '' }
+    return { caption: `${itemLabel} ${outcome}`, hint: '' }
   }
+  if (rest) {
+    const caption = itemLabel && !rest.includes(itemLabel) ? `${itemLabel} ${rest}` : rest
+    return { caption: caption.slice(0, 48), hint: '' }
+  }
+  if (ABNORMAL_RESULTS.has(outcome)) {
+    return { caption: '', hint: '' }
+  }
+  if (itemLabel) return { caption: itemLabel, hint: '' }
+  return { caption: '', hint: '' }
 }
 
 function pickMappedMediaBySection(mapped, softCap) {
@@ -407,12 +464,24 @@ function resolveMaskedFromTask(task, nodeId, idx, rawUrl) {
   return resolvePublicCaseMediaUrl(matched?.maskedUrl || matched?.preMaskedUrl || '')
 }
 
+function keepMaskedDraftMedia(media = []) {
+  return (Array.isArray(media) ? media : []).filter((item) =>
+    Boolean(item && String(item.maskedUrl || '').trim()),
+  )
+}
+
+function applyMaskedMediaOnly(draft, requireMasked) {
+  if (!requireMasked || !draft) return draft
+  return { ...draft, media: keepMaskedDraftMedia(draft.media) }
+}
+
 /**
  * 域内选关键帧并挂到小节（图不进 LLM）
- * 确认脱敏前可用 previewUrl（原图预览位）；脱敏后写 maskedUrl
+ * 完工前可用 previewUrl（原图预览位）；生成案例预览只保留打码成功的 maskedUrl
  */
 function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
   const softCap = options.softCap != null ? options.softCap : PUBLIC_MEDIA_KEYFRAME_DEFAULT
+  const requireMasked = Boolean(options.requireMasked)
   const labelMap = buildChecklistLabelMap(albumView)
   const mapped = listPublicImageMeta(albumView)
     .map((row) => {
@@ -425,13 +494,14 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
         row.idx,
         row.rawUrl,
       )
+      if (requireMasked && !maskedUrl) return null
       if (!maskedUrl && !previewUrl) return null
       const texts = buildDraftMediaTexts(row, labelMap)
       return {
         nodeId: row.nodeId,
         idx: Number(row.idx || 0),
         maskedUrl: maskedUrl || '',
-        previewUrl: previewUrl || maskedUrl || '',
+        previewUrl: requireMasked ? maskedUrl : previewUrl || maskedUrl || '',
         caption: texts.caption,
         hint: texts.hint,
         sectionKey: MEDIA_SECTION_BY_NODE[row.nodeId] || 'process',
@@ -453,19 +523,24 @@ function firstUsefulSentence(text = '') {
   return ''
 }
 
+function compactVehicleName(raw = '') {
+  return stripAmountText(raw)
+    .replace(/\s*\/\s*[^/]*$/u, '')
+    .replace(/\s+\d+(\.\d+)?\s*[LlＬ].*$/u, '')
+    .replace(/\s*(三厢|两厢|SUV|MPV|手动|自动|前轮|后轮|四驱).*$/u, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 16)
+}
+
 function shortVehicleLabel(albumView = {}) {
   const vehicle = albumView.vehicle || {}
   const fromFields = [vehicle.brand, vehicle.series]
     .map((item) => stripAmountText(item || ''))
     .filter(Boolean)
     .join(' ')
-  if (fromFields) return fromFields.slice(0, 24)
-  return stripAmountText(albumView.vehicleDisplay || '')
-    .replace(/\s*\/\s*[^/]*$/u, '')
-    .replace(/\s+\d+(\.\d+)?L\b.*$/u, '')
-    .replace(/\s*\(\d{4}.*$/u, '')
-    .trim()
-    .slice(0, 24)
+  const compact = compactVehicleName(fromFields || albumView.vehicleDisplay || '')
+  return compact
 }
 
 function buildRuleCaseSummary(draftLike = {}, albumView = {}) {
@@ -474,22 +549,33 @@ function buildRuleCaseSummary(draftLike = {}, albumView = {}) {
   sections.forEach((sec) => {
     if (sec && sec.key) byKey[sec.key] = stripAmountText(sec.body || '')
   })
+  const hints = buildChecklistCaseHints(albumView)
+  const doneItems = String(hints.doneLine || '').replace(/^本单已处理[:：]\s*/u, '')
+  const inspectCount = Number(hints.inspectCount || 0)
+  const difference = stripAmountText(hints.differenceLine || '')
   const vehicle = shortVehicleLabel(albumView)
-  const symptom = firstUsefulSentence(byKey.symptom)
-  const diagnosis = firstUsefulSentence(byKey.diagnosis)
-  const plan = firstUsefulSentence(byKey.plan)
-  const process = String(byKey.process || '')
-  const doneMatch = process.match(/本单已处理[:：][^。；;\n]+/)
-  const doneLine = doneMatch ? stripAmountText(doneMatch[0]).slice(0, 80) : ''
-  const handover = firstUsefulSentence(byKey.handover)
   const bits = []
-  if (vehicle && symptom) bits.push(`${vehicle}${symptom}`)
-  else if (vehicle) bits.push(vehicle)
-  else if (symptom) bits.push(symptom)
-  if (diagnosis && diagnosis !== symptom) bits.push(diagnosis)
-  if (doneLine) bits.push(doneLine)
-  else if (plan) bits.push(plan)
-  if (handover) bits.push(handover)
+  if (inspectCount || doneItems) {
+    if (inspectCount && doneItems) {
+      bits.push(`本次检查了${inspectCount}项，施工了${doneItems}`)
+    } else if (inspectCount) {
+      bits.push(`本次检查了${inspectCount}项`)
+    } else {
+      bits.push(vehicle ? `${vehicle}本次施工了${doneItems}` : `本次施工了${doneItems}`)
+    }
+    if (difference) bits.push(difference)
+  } else {
+    const symptom = firstUsefulSentence(byKey.symptom)
+    const diagnosis = firstUsefulSentence(byKey.diagnosis)
+    const plan = firstUsefulSentence(byKey.plan)
+    const handover = firstUsefulSentence(byKey.handover)
+    if (symptom) bits.push(vehicle ? `${vehicle}${symptom}` : symptom)
+    else if (diagnosis) bits.push(vehicle ? `${vehicle}${diagnosis}` : diagnosis)
+    else if (plan) bits.push(plan)
+    if (diagnosis && symptom && diagnosis !== symptom) bits.push(diagnosis)
+    if (plan && (symptom || diagnosis) && plan !== diagnosis) bits.push(plan)
+    if (handover) bits.push(handover)
+  }
   let summary = bits.join('。').replace(/。+/g, '。').trim()
   if (!summary) {
     const title = stripAmountText(draftLike.title || buildTitle(albumView) || '')
@@ -523,7 +609,7 @@ function normalizeMerchantCaseDraft(raw) {
     const hit = byKey[def.key]
     return {
       key: def.key,
-      title: (hit && hit.title) || def.title,
+      title: def.title,
       body: (hit && hit.body) || '',
     }
   })
@@ -581,6 +667,7 @@ function normalizeMerchantCaseDraft(raw) {
 function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options = {}) {
   const sections = buildRuleSections(albumView)
   const title = buildTitle(albumView)
+  const hints = buildChecklistCaseHints(albumView)
   const draft = {
     version: 1,
     title,
@@ -590,6 +677,11 @@ function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options 
       sections,
       serviceName: albumView.serviceName,
       templateId: albumView.templateId,
+      inspectLine: hints.inspectLine,
+      inspectCount: hints.inspectCount,
+      doneLine: hints.doneLine,
+      followUpSummary: hints.followUpSummary,
+      differenceLine: hints.differenceLine,
     }),
     media: pickDraftMedia(albumView, preMaskTask, options),
     source: 'rule',
@@ -599,14 +691,33 @@ function buildRuleMerchantCaseDraft(albumView = {}, preMaskTask = null, options 
   return normalizeMerchantCaseDraft(draft)
 }
 
-function mergeLlmSectionsIntoDraft(baseDraft, llmDraft) {
+function mergeLlmSectionsIntoDraft(baseDraft, llmDraft, albumView = {}) {
   if (!llmDraft || typeof llmDraft !== 'object') return baseDraft
-  const nextSections = llmDraft.sections || baseDraft.sections
+  const allowed = albumNotesHaystack(albumView)
+  const llmByKey = {}
+  ;(llmDraft.sections || []).forEach((sec) => {
+    if (sec && sec.key) llmByKey[sec.key] = sec
+  })
+  const baseByKey = {}
+  ;(baseDraft.sections || []).forEach((sec) => {
+    if (sec && sec.key) baseByKey[sec.key] = sec
+  })
+  const nextSections = MERCHANT_CASE_SECTION_KEYS.map((def) => {
+    const llm = llmByKey[def.key]
+    const base = baseByKey[def.key]
+    const rawBody = (llm && llm.body) || (base && base.body) || ''
+    return {
+      key: def.key,
+      title: def.title,
+      body: stripInventedFiller(stripAmountText(rawBody), `${allowed}\n${(base && base.body) || ''}`),
+    }
+  })
   const nextTitle = llmDraft.title || baseDraft.title
-  // 正文润色不写入 caseSummary；摘要由规则拼接 + 摘要专用润色处理
-  const caseSummary =
+  const caseSummary = stripInventedFiller(
     stripAmountText(baseDraft.caseSummary || '').slice(0, 250) ||
-    buildRuleCaseSummary({ title: nextTitle, sections: nextSections })
+      buildRuleCaseSummary({ title: nextTitle, sections: nextSections }, albumView),
+    allowed,
+  )
   return normalizeMerchantCaseDraft({
     ...baseDraft,
     title: nextTitle,
@@ -653,12 +764,7 @@ function mergeUnconfirmedDraftMedia(prevMedia, freshMedia, softCap = PUBLIC_MEDI
     const id = `${item.nodeId}:${item.idx}`
     if (!keep.has(id) || used.has(id)) return
     used.add(id)
-    const old = prev.find((row) => `${row.nodeId}:${row.idx}` === id)
-    kept.push({
-      ...item,
-      caption: (old && old.caption) || item.caption,
-      hint: item.hint || (old && old.hint) || '',
-    })
+    kept.push(item)
   })
   const presentSections = new Set(kept.map((item) => item.sectionKey))
   fresh.forEach((item) => {
@@ -671,22 +777,51 @@ function mergeUnconfirmedDraftMedia(prevMedia, freshMedia, softCap = PUBLIC_MEDI
 }
 
 /**
- * 未确认的规则稿：按新选图/要旨/问答规则刷新；商家已手改或润色过的不覆盖。
+ * 未确认稿：规则稿整篇刷新；自动润色稿只刷新问答/图说/栏目名，不覆盖已写顺的正文。
  */
-function refreshUnconfirmedRuleDraft(draft, albumView = {}, preMaskTask = null) {
+function refreshUnconfirmedRuleDraft(draft, albumView = {}, preMaskTask = null, options = {}) {
   const normalized = normalizeMerchantCaseDraft(draft)
   if (!normalized || normalized.confirmedAt) return normalized
   const source = String(normalized.source || 'rule')
-  if (source === 'merchant_edit' || source === 'llm') return normalized
-  const freshMedia = pickDraftMedia(albumView, preMaskTask)
+  if (source === 'merchant_edit') return normalized
+  const hints = buildChecklistCaseHints(albumView)
+  const freshMedia = pickDraftMedia(albumView, preMaskTask, options)
+  const faqPayload = {
+    serviceName: albumView.serviceName,
+    templateId: albumView.templateId,
+    inspectLine: hints.inspectLine,
+    inspectCount: hints.inspectCount,
+    doneLine: hints.doneLine,
+    followUpSummary: hints.followUpSummary,
+    differenceLine: hints.differenceLine,
+  }
+  if (source === 'llm') {
+    const allowed = albumNotesHaystack(albumView)
+    const sections = MERCHANT_CASE_SECTION_KEYS.map((def) => {
+      const hit = (normalized.sections || []).find((sec) => sec && sec.key === def.key)
+      return {
+        key: def.key,
+        title: def.title,
+        body: stripInventedFiller((hit && hit.body) || '', allowed),
+      }
+    })
+    return normalizeMerchantCaseDraft({
+      ...normalized,
+      sections,
+      caseSummary: stripInventedFiller(normalized.caseSummary || '', allowed),
+      faq: extractJobFaqs({ sections, ...faqPayload }),
+      media: mergeUnconfirmedDraftMedia(normalized.media, freshMedia),
+    })
+  }
+  const sections = buildRuleSections(albumView)
   return normalizeMerchantCaseDraft({
     ...normalized,
     title: buildTitle(albumView) || normalized.title,
-    caseSummary: buildRuleCaseSummary(normalized, albumView),
+    sections,
+    caseSummary: buildRuleCaseSummary({ title: buildTitle(albumView) || normalized.title, sections }, albumView),
     faq: extractJobFaqs({
-      sections: normalized.sections,
-      serviceName: albumView.serviceName,
-      templateId: albumView.templateId,
+      sections,
+      ...faqPayload,
     }),
     media: mergeUnconfirmedDraftMedia(normalized.media, freshMedia),
   })
@@ -731,6 +866,8 @@ module.exports = {
   normalizeMerchantCaseDraft,
   mergeLlmSectionsIntoDraft,
   pickDraftMedia,
+  keepMaskedDraftMedia,
+  applyMaskedMediaOnly,
   hydrateDraftMediaForOwnerView,
   refreshUnconfirmedRuleDraft,
   draftToPlainText,
