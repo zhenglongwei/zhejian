@@ -7,6 +7,8 @@ const {
   draftToAiSummary,
   hydrateDraftMediaForOwnerView,
   pickDraftMedia,
+  applyMaskedMediaOnly,
+  attachDraftPreviewMedia,
 } = require('./merchant-case-draft.service')
 
 function run() {
@@ -371,6 +373,25 @@ function run() {
   const maskedOnly = pickDraftMedia(albumView, preMaskTask, { requireMasked: true })
   assert.ok(maskedOnly.length >= 1)
   assert.ok(maskedOnly.every((item) => item.maskedUrl && item.maskedUrl.includes('desensitized')))
+
+  const savedOriginals = {
+    title: '钣喷',
+    sections: [{ key: 'diagnosis', body: '胶套开裂' }],
+    media: [
+      {
+        nodeId: 'stage_2',
+        idx: 0,
+        previewUrl: 'https://example.com/a.jpg',
+        maskedUrl: '',
+        sectionKey: 'diagnosis',
+      },
+    ],
+  }
+  const previewReady = attachDraftPreviewMedia(savedOriginals, albumView, preMaskTask, true)
+  assert.ok(previewReady.media.length >= 1)
+  assert.ok(previewReady.media.every((item) => item.maskedUrl && item.maskedUrl.includes('desensitized')))
+  const stripped = applyMaskedMediaOnly(savedOriginals, true)
+  assert.strictEqual(stripped.media.length, 0)
 
   console.log('merchant-case-draft.test.js OK')
 }

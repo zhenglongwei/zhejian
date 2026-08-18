@@ -11,6 +11,7 @@ const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
+const { resolveImageSrc } = require('../../../../utils/desensitize-url')
 
 Page({
   data: {
@@ -45,7 +46,8 @@ Page({
   onLoad(options) {
     this.albumId = options.albumId || ''
     const fromComplete = options.from === 'complete' || options.gate === '1'
-    const generateMode = options.from === 'generate'
+    this.generateMode = options.from === 'generate'
+    const generateMode = this.generateMode
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
       return
@@ -97,10 +99,10 @@ Page({
   },
 
   mediaDisplayUrl(item) {
-    if (this.data.generateMode) {
-      return (item && item.maskedUrl) || ''
-    }
-    return (item && (item.previewUrl || item.maskedUrl)) || ''
+    const url = this.generateMode
+      ? (item && item.maskedUrl) || ''
+      : (item && (item.previewUrl || item.maskedUrl)) || ''
+    return resolveImageSrc(url)
   },
 
   mapMedia(list) {
@@ -262,10 +264,10 @@ Page({
     this.setData({
       status: 'loading',
       errorMessage: '',
-      loadingHint: this.data.generateMode ? '正在处理配图' : '正在写顺文案，请稍候',
+      loadingHint: this.generateMode ? '正在处理配图' : '正在写顺文案，请稍候',
     })
     try {
-      if (this.data.generateMode) {
+      if (this.generateMode) {
         await this.waitForDraftMask(retryMask)
         this.setData({ loadingHint: '正在写顺文案，请稍候' })
       }
@@ -294,7 +296,7 @@ Page({
   },
 
   onRetry() {
-    this.loadDraft({ retryMask: this.data.generateMode })
+    this.loadDraft({ retryMask: this.generateMode })
   },
 
   onTitleInput(e) {

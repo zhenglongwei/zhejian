@@ -486,8 +486,8 @@ function pickDraftMedia(albumView = {}, preMaskTask = null, options = {}) {
   const mapped = listPublicImageMeta(albumView)
     .map((row) => {
       const previewUrl =
-        resolveDisplayMediaUrl(row.rawUrl || '') ||
-        rewriteMediaUrlForCurrentBase(String(row.rawUrl || '').trim())
+        rewriteMediaUrlForCurrentBase(String(row.rawUrl || '').trim()) ||
+        resolveDisplayMediaUrl(row.rawUrl || '')
       const maskedUrl = resolveMaskedFromTask(
         preMaskTask,
         row.nodeId,
@@ -621,8 +621,8 @@ function normalizeMerchantCaseDraft(raw) {
           // 确认脱敏前允许原图预览位；公开/导出仍优先 maskedUrl
           const previewRaw = String(item.previewUrl || item.rawUrl || '').trim()
           const previewUrl =
-            resolveDisplayMediaUrl(previewRaw) ||
             rewriteMediaUrlForCurrentBase(previewRaw) ||
+            resolveDisplayMediaUrl(previewRaw) ||
             maskedUrl
           if (!maskedUrl && !previewUrl) return null
           return {
@@ -827,17 +827,25 @@ function refreshUnconfirmedRuleDraft(draft, albumView = {}, preMaskTask = null, 
   })
 }
 
+function attachDraftPreviewMedia(draft, albumView = {}, preMaskTask = null, requireMasked = false) {
+  let next = hydrateDraftMediaForOwnerView(draft, albumView, preMaskTask, { requireMasked })
+  if (!requireMasked) return next
+  next = applyMaskedMediaOnly(next, true)
+  if (next && next.media && next.media.length) return next
+  return { ...next, media: pickDraftMedia(albumView, preMaskTask, { requireMasked: true }) }
+}
+
 /**
  * 车主/审核读侧：用预脱敏任务回填案例稿配图的 maskedUrl；
  * 若确认稿 media 为空但相册仍有可公示过程图，则按选帧规则补回。
  */
-function hydrateDraftMediaForOwnerView(draft, albumView = {}, preMaskTask = null) {
+function hydrateDraftMediaForOwnerView(draft, albumView = {}, preMaskTask = null, options = {}) {
   const normalized = normalizeMerchantCaseDraft(draft)
   if (!normalized) return null
   const prevMedia = Array.isArray(normalized.media) ? normalized.media : []
   const hasAnyUrl = prevMedia.some((m) => m && (m.maskedUrl || m.previewUrl))
   if (!hasAnyUrl) {
-    const fresh = pickDraftMedia(albumView, preMaskTask)
+    const fresh = pickDraftMedia(albumView, preMaskTask, options)
     if (!fresh.length) return normalized
     return { ...normalized, media: fresh }
   }
@@ -868,6 +876,7 @@ module.exports = {
   pickDraftMedia,
   keepMaskedDraftMedia,
   applyMaskedMediaOnly,
+  attachDraftPreviewMedia,
   hydrateDraftMediaForOwnerView,
   refreshUnconfirmedRuleDraft,
   draftToPlainText,

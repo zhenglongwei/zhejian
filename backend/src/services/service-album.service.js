@@ -1316,7 +1316,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     normalizeMerchantCaseDraft,
     syncWarrantyIntoDraft,
     refreshUnconfirmedRuleDraft,
-    applyMaskedMediaOnly,
+    attachDraftPreviewMedia,
   } = require('./merchant-case-draft.service')
   const pkg = readPackageFromAlbum(album)
   const forceRule = Boolean(options.forceRule)
@@ -1326,10 +1326,19 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
   const editable = require('./case-publish-window.service').isCaseDraftEditable(album)
   const { isCaseReviewRejected } = require('./case-review-gate.service')
   const resubmit = isCaseReviewRejected(album)
-  const finish = (payload) => ({
-    ...payload,
-    draft: applyMaskedMediaOnly(payload.draft, requireMasked),
-  })
+  const finish = async (payload) => {
+    let preMaskTask = null
+    try {
+      const { findPreMaskTask } = require('./desensitize.service')
+      preMaskTask = await findPreMaskTask(albumId)
+    } catch (_) {
+      preMaskTask = null
+    }
+    return {
+      ...payload,
+      draft: attachDraftPreviewMedia(payload.draft, view, preMaskTask, requireMasked),
+    }
+  }
 
   // 已送审/锁定：优先读 public_cases 里送审快照，与运营台同源
   if (!editable && !forceRule && !resubmit) {
@@ -1341,7 +1350,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
         ? normalizeMerchantCaseDraft(content.merchantCaseDraft)
         : null
     if (submitted && submitted.confirmedAt) {
-      return finish({
+      return await finish({
         draft: submitted,
         contentPackageStatus: (pkg && pkg.status) || '',
         editable: false,
@@ -1390,7 +1399,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
         draft = next
       }
     }
-    return finish({
+    return await finish({
       draft,
       contentPackageStatus: pkg.status || '',
       editable,
@@ -1407,7 +1416,7 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     preMaskTask = null
   }
   const draft = buildRuleMerchantCaseDraft(view, preMaskTask, { requireMasked })
-  return finish({
+  return await finish({
     draft: normalizeMerchantCaseDraft(draft),
     contentPackageStatus: (pkg && pkg.status) || '',
     editable,
