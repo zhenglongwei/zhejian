@@ -14,6 +14,7 @@
     "album-evidence-slots": "/components/album-evidence-slots/index",
     "album-old-part-traces": "/components/album-old-part-traces/index",
     "album-checklist-editor": "/components/album-checklist-editor/index",
-    "ui-compliance-notice": "/components/compliance-notice/index"
+    "ui-compliance-notice": "/components/compliance-notice/index",
+    "ui-bottom-sheet": "/components/bottom-sheet/index"
   }
 }

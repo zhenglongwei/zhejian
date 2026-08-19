@@ -66,6 +66,9 @@ function normalizeAlbumContentPackage(raw) {
     qualitySuggestions: normalizeQualitySuggestions(raw.qualitySuggestions),
     drafts: normalizeDrafts(raw.drafts),
     merchantCaseDraft: normalizeMerchantCaseDraft(raw.merchantCaseDraft),
+    /** PUB-GEO · 机审结果（波次3） */
+    caseGeoAudit: isPlainObject(raw.caseGeoAudit) ? raw.caseGeoAudit : null,
+    caseGeoMeta: isPlainObject(raw.caseGeoMeta) ? raw.caseGeoMeta : null,
     triggeredAt: normalizeString(raw.triggeredAt),
     generatedAt: normalizeString(raw.generatedAt),
     error: normalizeString(raw.error).slice(0, 500),

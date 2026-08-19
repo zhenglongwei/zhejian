@@ -276,3 +276,16 @@
   box-sizing: border-box;
 }
 
+.album-detail__vision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+}
+
+.album-detail__vision-summary {
+  display: block;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+

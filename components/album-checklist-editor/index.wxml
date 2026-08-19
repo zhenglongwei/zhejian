@@ -73,6 +73,18 @@
           <view class="empty-tip" wx:if="{{!item.hasImages}}">暂无图片</view>
         </view>
 
+        <view
+          class="chk-ai-row"
+          wx:if="{{!readOnly && item.hasImages}}"
+        >
+          <text
+            class="chk-ai-link"
+            data-key="{{item.itemKey}}"
+            catchtap="onAiCompare"
+          >AI 对照</text>
+          <text class="chk-ai-hint">对照常见做法是否合理</text>
+        </view>
+
         <view class="follow-actions" wx:if="{{mode === 'followup' && !readOnly}}">
           <button
             class="btn-mini"

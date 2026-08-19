@@ -11,7 +11,6 @@ const {
 } = require('../constants/merchant-case-draft')
 const {
   PUBLIC_MEDIA_KEYFRAME_DEFAULT,
-  VISIBILITY,
   PUBLIC_GATE_STATUS,
   isAlwaysPrivateStage,
 } = require('../constants/album-public-visibility-policy')
@@ -326,8 +325,13 @@ function listPublicImageMeta(albumView = {}) {
   return meta
     .filter((row) => {
       if (isAlwaysPrivateStage(row.nodeId)) return false
-      if (row.visibility !== VISIBILITY.PUBLIC) return false
-      if (row.publicGateStatus === PUBLIC_GATE_STATUS.REJECTED) return false
+      const reason = String(row.publicGateReason || '').trim()
+      if (
+        row.publicGateStatus === PUBLIC_GATE_STATUS.REJECTED &&
+        (reason === 'document' || reason === 'file_unavailable' || reason === 'stage_private_only')
+      ) {
+        return false
+      }
       return true
     })
     .sort((a, b) => {

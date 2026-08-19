@@ -29,6 +29,7 @@ const {
   generateAlbumInspectionAdvice,
   listAlbumInspectionReports,
 } = require('../services/album-inspection-advice.service')
+const { interpretAlbumThemeCard } = require('../services/album-vision-ondemand.service')
 const {
   generateAlbumSocialCopy,
   listSocialPlatforms,
@@ -390,6 +391,24 @@ router.post('/service-albums/:albumId/inspection-advice', requireAuth(['user']),
       req.auth.userId,
       req.body || {},
     )
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+/** PUB-GEO · 主题卡按需「AI 解读」（M2：不在上传时触发） */
+router.post('/service-albums/:albumId/vision/interpret', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const body = req.body || {}
+    const data = await interpretAlbumThemeCard({
+      albumId: req.params.albumId,
+      audience: 'owner',
+      cardKey: body.cardKey || body.card_key || '',
+      itemKeys: body.itemKeys || body.item_keys || [],
+      forceRefresh: Boolean(body.forceRefresh || body.force_refresh),
+      userId: req.auth.userId,
+    })
     return ok(res, data)
   } catch (e) {
     next(e)

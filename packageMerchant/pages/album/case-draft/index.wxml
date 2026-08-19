@@ -15,14 +15,37 @@
       <text class="text-h3">{{showCompletePrimary ? (resubmit ? '案例预览（重新提交）' : '案例预览（确认完工）') : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable && generateMode}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的文章排：先摘要和本单问答，再详情。文案已按相册写顺；配图为打码后的上网稿。可改说明、点缩略图看全图、去掉图、删问答，不能加新图。
+          下面按即将上网的文章排：先摘要和本单问答，再详情。点「生成并机审」后才会打分；机审过线后可改措辞再「确认发布到店页」。不能在本页加新图。
         </text>
         <text wx:elif="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的文章排。文案已按相册写顺，可改说明、点缩略图看全图、去掉图、删问答，不能加新图。完工后在相册点「生成案例」才能送审上网。
+          下面按即将上网的文章排。文案已按相册写顺，可改说明、点缩略图看全图、去掉图、删问答，不能加新图。完工后在相册点「生成案例」才能机审上网。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
-          本预览为已确认或已送审的案例稿（只读）。通过后会出现在店页。
+          本预览为已确认或已发布的案例稿（只读）。
         </text>
+      </view>
+      <view wx:if="{{auditSummary}}" class="case-draft__audit">
+        <text class="text-body case-draft__audit-summary">{{auditSummary}}</text>
+        <text wx:if="{{auditPainBonus}}" class="text-caption text-secondary">痛点加分 {{auditPainBonus}}（仅展示，不计入过线）</text>
+        <block wx:if="{{auditHardBlocks.length}}">
+          <text class="text-caption case-draft__audit-label">系统硬拦</text>
+          <text
+            wx:for="{{auditHardBlocks}}"
+            wx:key="issue"
+            class="text-caption case-draft__audit-item"
+          >· {{item.message}}</text>
+        </block>
+        <block wx:if="{{auditClaims.length}}">
+          <text class="text-caption case-draft__audit-label">不足声称（点条目回相册补证）</text>
+          <text
+            wx:for="{{auditClaims}}"
+            wx:key="label"
+            class="text-caption case-draft__audit-item {{item.itemKey ? 'is-link' : ''}}"
+            data-key="{{item.itemKey}}"
+            data-label="{{item.label}}"
+            bindtap="onTapAuditClaim"
+          >· {{item.label}}{{item.reason ? '：' + item.reason : ''}}</text>
+        </block>
       </view>
       <text class="text-caption case-draft__label">标题</text>
       <textarea
@@ -110,12 +133,9 @@
         bindinput="onSectionInput"
         placeholder="根据节点备注生成，可修订；勿写金额"
       />
-      <view class="case-draft__section-media">
-        <block wx:for="{{media}}" wx:for-item="m" wx:for-index="mi" wx:key="mi">
-          <view
-            class="case-draft__media-item"
-            wx:if="{{m.sectionKey === item.key}}"
-          >
+      <view class="case-draft__section-media" wx:if="{{item.media.length}}">
+        <block wx:for="{{item.media}}" wx:for-item="m" wx:key="id">
+          <view class="case-draft__media-item">
             <view class="case-draft__thumb-wrap" data-node-id="{{m.nodeId}}" data-idx="{{m.idx}}" bindtap="onPreviewMedia">
               <image class="case-draft__thumb" src="{{m.displayUrl}}" mode="aspectFill" />
               <view
@@ -146,6 +166,13 @@
     <view slot="left" class="case-draft__bar-left">
       <ui-button type="ghost" size="sm" bind:btntap="onCopyExport">复制文案</ui-button>
       <ui-button
+        wx:if="{{editable && showPublishPrimary}}"
+        type="secondary"
+        size="sm"
+        loading="{{generating}}"
+        bind:btntap="onGenerateCase"
+      >重新机审</ui-button>
+      <ui-button
         wx:if="{{editable}}"
         type="secondary"
         size="sm"
@@ -154,7 +181,14 @@
       >保存草稿</ui-button>
     </view>
     <ui-button
-      wx:if="{{showGeneratePrimary}}"
+      wx:if="{{showPublishPrimary}}"
+      slot="right"
+      type="primary"
+      loading="{{publishing}}"
+      bind:btntap="onPublishCase"
+    >{{primaryActionText}}</ui-button>
+    <ui-button
+      wx:elif="{{showGeneratePrimary}}"
       slot="right"
       type="primary"
       loading="{{generating}}"

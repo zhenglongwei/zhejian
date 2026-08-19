@@ -1,7 +1,7 @@
 export const CASE_TABS = [
-  { key: 'pending', label: '待审核' },
+  { key: 'approved', label: '已公开' },
+  { key: 'pending', label: '历史待审' },
   { key: 'desensitizing', label: '脱敏处理中' },
-  { key: 'approved', label: '已通过' },
   { key: 'rejected', label: '已驳回' },
 ]
 
@@ -49,15 +49,15 @@ export const GATE_B_REJECT_LABEL = {
   user_content: '用户侧内容',
 }
 
+/** D14：上网主路径为人机审+商家确认；本台保留抽检/投诉/历史待审 */
 export const COMPLIANCE_NOTICES = [
-  '审核对象为商家确认的公示案例稿与脱敏配图，不是整本私密相册。',
-  '脱敏结束后才进入待审；失败/需人工也会进待审并标出问题，可重试脱敏或驳回商家。',
-  '通过后不上线；车主可查看案例稿并自行发布到公开网站。',
-  '驳回后解锁商家，可改相册节点与案例稿，再次确认完工后重新进审。本期不做运营手工打码。',
+  '新案例上网不再经本台「待审」主路径：商家生成 → 机审过线 → 确认发布即上店页。',
+  '本列表「历史待审」仅存量/冷启动遗留；日常请用已公开抽检与举报下架处理事后风险。',
+  '抽检下架与投诉处理仍可用；不挡新单上线。',
 ]
 
 export const USER_AUTHORIZED_REVIEW_NOTICE =
-  '平台审核商家确认的公示案例内容（合法合规与隐私风险）。通过后由车主决定是否发布到公开网站。'
+  '平台事后抽检公开案例的合规与隐私风险；上网门禁以机审真实性与脱敏硬门槛为准。'
 
 export const DESENSITIZE_STATUS_TAG = {
   ready: { label: '已脱敏', type: 'success' },

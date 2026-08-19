@@ -6,12 +6,13 @@ const {
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
   generateMerchantPublicCase,
+  confirmMerchantPublicCasePublish,
 } = require('../../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
   MERCHANT_STATUS,
 } = require('../../../../services/merchant')
-const { resolveImageSrc } = require('../../../../utils/desensitize-url')
+const { resolveImageSrc, isDesensitizedUrl } = require('../../../../utils/desensitize-url')
 
 Page({
   data: {
@@ -26,6 +27,7 @@ Page({
     saving: false,
     completing: false,
     generating: false,
+    publishing: false,
     title: '',
     caseSummary: '',
     titleHeight: 40,
@@ -38,6 +40,14 @@ Page({
     primaryActionText: '确认完工',
     showCompletePrimary: false,
     showGeneratePrimary: false,
+    showPublishPrimary: false,
+    auditScore: null,
+    auditPassed: false,
+    auditPainBonus: 0,
+    auditClaims: [],
+    auditHardBlocks: [],
+    auditSummary: '',
+    canPublish: false,
   },
 
   /** 页面工作稿：同步更新，避免 setData 未完成就提交旧文 */
@@ -99,19 +109,40 @@ Page({
   },
 
   mediaDisplayUrl(item) {
-    const url = this.generateMode
-      ? (item && item.maskedUrl) || ''
-      : (item && (item.previewUrl || item.maskedUrl)) || ''
-    return resolveImageSrc(url)
+    const masked = resolveImageSrc((item && item.maskedUrl) || '')
+    const preview = resolveImageSrc((item && item.previewUrl) || '')
+    if (this.generateMode) {
+      if (masked) return masked
+      if (preview && isDesensitizedUrl(preview)) return preview
+      return ''
+    }
+    return preview || masked
   },
 
   mapMedia(list) {
     return (list || [])
       .map((item) => ({
         ...item,
+        id: `${item.nodeId}_${item.idx}`,
         displayUrl: this.mediaDisplayUrl(item),
       }))
       .filter((item) => item.displayUrl)
+  },
+
+  mapSections(list, media) {
+    const mediaList = media || []
+    return (list || []).map((sec) => {
+      const body = String((sec && sec.body) || '').trim()
+      const bodyBlank =
+        !body || body === '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
+      const sectionMedia = mediaList.filter((item) => item && item.sectionKey === sec.key)
+      return {
+        ...sec,
+        media: sectionMedia,
+        bodyHeight: this.measureTextHeight(sec && sec.body, 1),
+        hasContent: !bodyBlank || sectionMedia.length > 0,
+      }
+    })
   },
 
   mapFaq(list) {
@@ -123,21 +154,6 @@ Page({
     }))
   },
 
-  mapSections(list, media) {
-    const mediaList = media || []
-    return (list || []).map((sec) => {
-      const body = String((sec && sec.body) || '').trim()
-      const bodyBlank =
-        !body || body === '旧件与交车确认以门店留档为准；质保以门店承诺为准。'
-      const hasMedia = mediaList.some((item) => item && item.sectionKey === sec.key)
-      return {
-        ...sec,
-        bodyHeight: this.measureTextHeight(sec && sec.body, 1),
-        hasContent: !bodyBlank || hasMedia,
-      }
-    })
-  },
-
   applyDraftView(draft = {}, extra = {}) {
     const title = draft.title || ''
     const caseSummary = draft.caseSummary || ''
@@ -147,20 +163,37 @@ Page({
     const editable = extra.editable != null ? Boolean(extra.editable) : this.data.editable
     const resubmit = extra.resubmit != null ? Boolean(extra.resubmit) : this.data.resubmit
     const fromComplete = this.data.fromComplete
-    const generateMode = this.data.generateMode
-    const showGeneratePrimary = Boolean(editable && generateMode && !resubmit)
+    const generateMode = this.generateMode || this.data.generateMode
+    const canPublish = Boolean(extra.canPublish)
+    const audit = extra.audit || null
+    const showPublishPrimary = Boolean(editable && canPublish && generateMode)
+    const showGeneratePrimary = Boolean(editable && generateMode && !resubmit && !showPublishPrimary)
     const showCompletePrimary = Boolean(editable && (fromComplete || resubmit) && !generateMode)
-    const primaryActionText = generateMode
-      ? '送审'
-      : resubmit
-        ? '重新提交'
-        : '确认完工'
-    if (showGeneratePrimary) {
+    const primaryActionText = showPublishPrimary
+      ? '确认发布到店页'
+      : generateMode
+        ? '生成并机审'
+        : resubmit
+          ? '重新提交'
+          : '确认完工'
+    if (showGeneratePrimary || showPublishPrimary) {
       wx.setNavigationBarTitle({ title: '生成公开案例' })
     } else if (showCompletePrimary) {
       wx.setNavigationBarTitle({
         title: resubmit ? '案例预览 · 重新提交' : '案例预览 · 确认完工',
       })
+    }
+    const auditClaims = Array.isArray(audit && audit.unsupportedClaims)
+      ? audit.unsupportedClaims
+      : []
+    const auditHardBlocks = Array.isArray(audit && audit.hardBlocks) ? audit.hardBlocks : []
+    let auditSummary = ''
+    if (audit) {
+      const score = audit.authenticityScore != null ? audit.authenticityScore : '—'
+      const thr = audit.threshold != null ? audit.threshold : 60
+      auditSummary = audit.passed
+        ? `机审已过线：真实性 ${score}/${thr}`
+        : `机审未过线：真实性 ${score}/${thr}，请按下方清单补证后再生成`
     }
     this._workingDraft = {
       title,
@@ -196,6 +229,14 @@ Page({
       primaryActionText,
       showCompletePrimary,
       showGeneratePrimary,
+      showPublishPrimary,
+      canPublish,
+      auditScore: audit && audit.authenticityScore != null ? audit.authenticityScore : null,
+      auditPassed: Boolean(audit && audit.passed),
+      auditPainBonus: (audit && audit.painPointBonus) || 0,
+      auditClaims,
+      auditHardBlocks,
+      auditSummary,
     })
   },
 
@@ -219,10 +260,10 @@ Page({
         },
       })
       const next = data.draft || {}
-      if (draft.media && draft.media.length && !(next.media && next.media.length)) {
-        return { ...next, media: draft.media }
+      return {
+        ...next,
+        media: Array.isArray(draft.media) && draft.media.length ? draft.media : next.media || [],
       }
-      return next
     } catch (_) {
       return draft
     }
@@ -278,6 +319,9 @@ Page({
         editable: Boolean(data.editable),
         resubmit: Boolean(data.resubmit),
         confirmed: Boolean(data.confirmed || (draft && draft.confirmedAt)),
+        audit: data.audit || null,
+        meta: data.meta || null,
+        canPublish: Boolean(data.canPublish),
       }
       if (this.needsAutoPolish(draft, extra)) {
         draft = await this.polishDraftQuietly(draft)
@@ -474,23 +518,79 @@ Page({
     if (!this.data.editable || this.data.generating) return
     this.setData({ generating: true })
     try {
-      wx.showLoading({ title: '送审中', mask: true })
-      await generateMerchantPublicCase(this.albumId, {
+      wx.showLoading({ title: '生成并机审中', mask: true })
+      const result = await generateMerchantPublicCase(this.albumId, {
+        draft: this.buildDraftPayload(),
+      })
+      wx.hideLoading()
+      if (result && result.status === 'pre_mask_pending') {
+        wx.showModal({
+          title: '配图准备中',
+          content: (result && result.message) || '脱敏图尚未就绪，请稍后再试',
+          showCancel: false,
+        })
+        return
+      }
+      await this.loadDraft()
+      if (result && result.canPublish) {
+        wx.showToast({ title: '机审已过线', icon: 'success' })
+        return
+      }
+      const score =
+        result && result.audit && result.audit.authenticityScore != null
+          ? result.audit.authenticityScore
+          : '—'
+      wx.showModal({
+        title: '机审未过线',
+        content: `真实性 ${score}/60。请按清单回相册补证据后再生成。`,
+        showCancel: false,
+      })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
+    } finally {
+      this.setData({ generating: false })
+    }
+  },
+
+  async onPublishCase() {
+    if (!this.data.editable || this.data.publishing || !this.data.canPublish) return
+    this.setData({ publishing: true })
+    try {
+      wx.showLoading({ title: '发布中', mask: true })
+      await confirmMerchantPublicCasePublish(this.albumId, {
         draft: this.buildDraftPayload(),
       })
       wx.hideLoading()
       wx.showModal({
-        title: '已送审',
-        content: '通过后将出现在店页。',
+        title: '已发布',
+        content: '案例已出现在店页。',
         showCancel: false,
         success: () => wx.navigateBack({ delta: 1 }),
       })
     } catch (e) {
       wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '送审失败', icon: 'none' })
+      if (e && e.code === 'AUDIT_FAILED') {
+        await this.loadDraft()
+      }
+      wx.showToast({ title: (e && e.message) || '发布失败', icon: 'none' })
     } finally {
-      this.setData({ generating: false })
+      this.setData({ publishing: false })
     }
+  },
+
+  onTapAuditClaim(e) {
+    const key = String((e.currentTarget.dataset && e.currentTarget.dataset.key) || '').trim()
+    if (!key) {
+      wx.showToast({ title: '请回相册对应检查项补证', icon: 'none' })
+      return
+    }
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/edit/index?albumId=${encodeURIComponent(
+        this.albumId,
+      )}&itemKey=${encodeURIComponent(key)}`,
+    })
   },
 
   onSaveDraft() {

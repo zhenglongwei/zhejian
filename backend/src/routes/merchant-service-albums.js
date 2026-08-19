@@ -30,6 +30,7 @@ const {
   generateAlbumContentOptimizeDraft,
   applyAlbumContentOptimizeDraft,
 } = require('../services/album-content-optimize.service')
+const { interpretAlbumThemeCard } = require('../services/album-vision-ondemand.service')
 const {
   getMerchantPlanPartsContext,
   saveMerchantPlanPartsDraft,
@@ -355,6 +356,27 @@ router.post(
   },
 )
 
+/** PUB-GEO · D14 机审过线后确认发布（不入人审） */
+router.post(
+  '/service-albums/:albumId/confirm-publish-case',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { confirmMerchantPublicCasePublish } = require('../services/public-case.service')
+      const body = req.body || {}
+      const data = await confirmMerchantPublicCasePublish(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        draft: body.draft || null,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.patch(
   '/service-albums/:albumId/notify-phone',
   requireAuth(['merchant']),
@@ -592,5 +614,29 @@ router.post('/albums/:albumId/complete', requireAuth(['merchant']), async (req, 
     next(e)
   }
 })
+
+/** PUB-GEO · 主题卡按需「AI 对照」（M2：不在上传时触发） */
+router.post(
+  '/service-albums/:albumId/vision/interpret',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const data = await interpretAlbumThemeCard({
+        albumId: req.params.albumId,
+        audience: 'merchant',
+        cardKey: body.cardKey || body.card_key || '',
+        itemKeys: body.itemKeys || body.item_keys || [],
+        forceRefresh: Boolean(body.forceRefresh || body.force_refresh),
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
 
 module.exports = router

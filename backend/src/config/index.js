@@ -217,6 +217,28 @@ const config = {
     timeoutMs: Number(process.env.GEO_VISION_TIMEOUT_MS || 90000),
     enableThinking: process.env.GEO_VISION_ENABLE_THINKING === 'true',
   },
+  /** PUB-GEO · 相册主题卡按需识图（默认跟随 GEO_VISION_*；上传路径禁止调用） */
+  albumVision: {
+    enabled:
+      process.env.ALBUM_VISION_ENABLED === 'true' ||
+      (process.env.ALBUM_VISION_ENABLED !== 'false' &&
+        process.env.GEO_VISION_ENABLED === 'true'),
+    dryRun:
+      process.env.ALBUM_VISION_DRY_RUN === 'true' ||
+      process.env.GEO_VISION_DRY_RUN === 'true',
+    apiUrl:
+      process.env.ALBUM_VISION_API_URL ||
+      process.env.GEO_VISION_API_URL ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey:
+      process.env.ALBUM_VISION_API_KEY ||
+      process.env.GEO_VISION_API_KEY ||
+      process.env.DASHSCOPE_API_KEY ||
+      '',
+    model: process.env.ALBUM_VISION_MODEL || process.env.GEO_VISION_MODEL || 'qwen-vl-plus',
+    timeoutMs: Number(process.env.ALBUM_VISION_TIMEOUT_MS || process.env.GEO_VISION_TIMEOUT_MS || 90000),
+    maxImages: Number(process.env.ALBUM_VISION_MAX_IMAGES || 8),
+  },
   /** B-PLAN · 报价表多模态 LLM（按序 failover） */
   planQuoteLlm: {
     apiUrl:

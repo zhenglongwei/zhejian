@@ -139,6 +139,20 @@
   color: var(--color-text-secondary);
 }
 
+.album-work-checklist__ai-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+}
+
+.album-work-checklist__ai-link {
+  font-size: var(--font-caption);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
 .album-work-checklist__warranty {
   margin-top: var(--space-sm);
 }

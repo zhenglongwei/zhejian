@@ -14,6 +14,7 @@ const {
   completeMerchantServiceAlbum,
   switchMerchantServiceAlbumTemplate,
   exportMerchantCaseDraftCopy,
+  interpretMerchantAlbumVision,
 } = require('../../../../services/merchant-service-album')
 const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
 const { resolveTemplateStageTitle } = require('../../../../constants/service-album-node-templates')
@@ -81,6 +82,7 @@ const {
   MERCHANT_WARRANTY_INTRO,
   MERCHANT_WARRANTY_NOTE_LABEL,
   MERCHANT_WARRANTY_NOTE_PLACEHOLDER,
+  AI_INSPECTION_DISCLAIMER,
 } = require('../../../../constants/album-evidence-guide')
 const {
   resolveComparePairRowsFromNodes,
@@ -253,6 +255,17 @@ Page({
     showFollowUpList: false,
     checklistStageHint: '',
     checklistStageTitle: '',
+    focusChecklistItemKey: '',
+    visionSheetVisible: false,
+    visionSheetLoading: false,
+    visionSheetTitle: 'AI 对照',
+    visionSheetDisclaimer: AI_INSPECTION_DISCLAIMER,
+    visionSheetCardTitle: '',
+    visionSheetSummary: '',
+    visionSheetPlan: '',
+    visionSheetGaps: [],
+    visionSheetError: '',
+    visionSheetItemKey: '',
     templateOptions: [],
     templatePickerIndex: 0,
     templateId: '',
@@ -323,6 +336,7 @@ Page({
     this.albumId = options.albumId || ''
     this.focusOwnerPhone = options.focusOwnerPhone === '1' || options.focusOwnerPhone === 'true'
     this.pendingStageId = String(options.stage || '').trim()
+    this.pendingItemKey = String(options.itemKey || options.focusItemKey || '').trim()
     this.pendingExpandFollowUp =
       options.expandFollowUp === '1' || options.expandFollowUp === 'true'
     if (!this.albumId) {
@@ -763,7 +777,7 @@ Page({
       bottomPrimaryText = '重新提交'
       bottomPrimaryAction = 'complete'
     }
-    // 已完工只读：底栏「生成案例」或进度
+    // 已完工只读：底栏「生成案例」或进度（D14：机审过线待确认 / 未过线补证）
     if (readOnly && isCompleted && detail.complianceStatus !== 'rejected') {
       showBottomPrimary = true
       showSaveButton = false
@@ -774,13 +788,17 @@ Page({
       } else if (pcs === 'public_approved') {
         bottomPrimaryText = '查看案例稿'
         bottomPrimaryAction = 'viewDraft'
-      } else if (pcs === 'notify_window') {
+      } else if (pcs === 'notify_window' || pcs === 'review_passed') {
         bottomPrimaryText = '查看案例稿'
         bottomPrimaryAction = 'viewDraft'
+      } else if (pcs === 'audit_passed') {
+        bottomPrimaryText = '继续发布'
+        bottomPrimaryAction = 'generateCase'
+      } else if (pcs === 'need_modify') {
+        bottomPrimaryText = '补证后生成案例'
+        bottomPrimaryAction = 'generateCase'
       } else if (pcs === 'pending_review' || pcs === 'pending_desensitize') {
-        bottomPrimaryText = '审核中'
-        bottomPrimaryAction = 'viewDraft'
-      } else if (pcs === 'review_passed') {
+        // 遗留人审排队单：只读查看；新主路径不再入队
         bottomPrimaryText = '查看案例稿'
         bottomPrimaryAction = 'viewDraft'
       } else {
@@ -889,11 +907,27 @@ Page({
   },
 
   applyPendingStageFocus() {
-    const stageId = this.pendingStageId
+    let stageId = this.pendingStageId
     const expandFollowUp = Boolean(this.pendingExpandFollowUp)
+    const itemKey = String(this.pendingItemKey || '').trim()
     this.pendingStageId = ''
     this.pendingExpandFollowUp = false
-    if (!stageId && !expandFollowUp) return false
+    this.pendingItemKey = ''
+    if (!stageId && itemKey) {
+      const items = (this.data.checklist && this.data.checklist.items) || []
+      const hit = items.find((it) => String(it.itemKey) === itemKey)
+      if (hit) {
+        if (hit.inFollowUp) {
+          stageId = 'stage_6'
+          this.setData({ followUpExpanded: true })
+        } else if (hit.workOnly || hit.inWorkQueue) {
+          stageId = STAGE_PROCESS_ID
+        } else {
+          stageId = String(hit.suggestStageId || 'stage_2').trim() || 'stage_2'
+        }
+      }
+    }
+    if (!stageId && !expandFollowUp && !itemKey) return false
     const stages = this.data.stages || []
     let stageIndex = this.data.stageIndex
     if (stageId) {
@@ -904,10 +938,19 @@ Page({
       {
         stageIndex,
         followUpExpanded: expandFollowUp || this.data.followUpExpanded,
+        focusChecklistItemKey: itemKey || '',
       },
       () => {
         this.refreshCompareStageFlags(stageIndex)
         this.refreshChecklistStageViews(stageIndex)
+        if (itemKey) {
+          setTimeout(() => {
+            wx.pageScrollTo({
+              selector: '.chk-item.is-open',
+              duration: 280,
+            })
+          }, 360)
+        }
       },
     )
     return true
@@ -946,16 +989,17 @@ Page({
     if (stageId === 'stage_1') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_1 || [], stageId)
       checklistStageTitle = '接车检查项'
-      checklistStageHint = '接车建档项：点开拍照或写说明。异常结果才会进施工清单。'
+      checklistStageHint =
+        '接车建档：拍照留证并点选结论（图注选填）。异常结果才会进施工清单。'
     } else if (stageId === 'stage_2') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_2 || [], stageId)
       checklistStageTitle = '检测检查项'
       checklistStageHint =
-        '检测判断项：点开拍照。除「正常」外进施工清单；如旧机油需更换，会自动带出新机油规格/液位等施工项。'
+        '检测判断：拍照并点选结论（图注选填）。除「正常」外进施工清单；如旧机油需更换，会自动带出新机油规格/液位等施工项。'
     } else if (stageId === 'stage_6') {
       stageChecklistItems = this.attachStageImagesToItems(stageMap.stage_6 || [], stageId)
       checklistStageTitle = '完工交付项'
-      checklistStageHint = '完工交付项：复查、试车与交车说明。'
+      checklistStageHint = '完工交付：复查、试车与交车说明；有图须点选结论。'
     }
     const rawQueue = (checklist.workQueueItems || []).length
       ? checklist.workQueueItems
@@ -1600,6 +1644,91 @@ Page({
       next.outcomeLabel = this.outcomeLabelOf(next.outcome, next.work)
       return next
     })
+  },
+
+  onCloseVisionSheet() {
+    this.setData({
+      visionSheetVisible: false,
+      visionSheetLoading: false,
+      visionSheetItemKey: '',
+    })
+  },
+
+  async onChecklistAiCompare(e) {
+    if (this.data.readOnly) return
+    const itemKey = String((e.detail && (e.detail.itemKey || e.detail.cardKey)) || '').trim()
+    if (!itemKey || !this.albumId) return
+    this.setData({
+      visionSheetVisible: true,
+      visionSheetLoading: true,
+      visionSheetTitle: 'AI 对照',
+      visionSheetCardTitle: '',
+      visionSheetSummary: '',
+      visionSheetPlan: '',
+      visionSheetGaps: [],
+      visionSheetError: '',
+      visionSheetItemKey: itemKey,
+    })
+    try {
+      const data = await interpretMerchantAlbumVision(this.albumId, {
+        cardKey: itemKey,
+        itemKeys: [itemKey],
+      })
+      if (data && data.status === 'pre_mask_pending') {
+        this.setData({
+          visionSheetLoading: false,
+          visionSheetError: (data && data.message) || '脱敏图尚未就绪，请稍后再试',
+        })
+        return
+      }
+      const result = (data && data.result) || data || {}
+      this.setData({
+        visionSheetLoading: false,
+        visionSheetCardTitle: String((data && data.cardTitle) || '').trim(),
+        visionSheetSummary:
+          String(result.summaryForDisplay || '').trim() || '暂无对照结果',
+        visionSheetPlan: String(result.merchantPlanAssessment || '').trim(),
+        visionSheetGaps: Array.isArray(result.evidenceGaps) ? result.evidenceGaps : [],
+        visionSheetError: '',
+      })
+    } catch (err) {
+      this.setData({
+        visionSheetLoading: false,
+        visionSheetError: (err && err.message) || '对照失败，请稍后重试',
+      })
+    }
+  },
+
+  /** N1：有照片的检查/施工项必须点选结论（图注选填、不能代替结论） */
+  validateChecklistOutcomesRequired() {
+    const items = ((this.data.checklist && this.data.checklist.items) || []).map((it) =>
+      this.computeWorkFlags(it),
+    )
+    const photosByKey = {}
+    ;(this.data.nodes || []).forEach((node) => {
+      ;(node.images || []).forEach((img) => {
+        const key = String((img && img.checklistItemKey) || '').trim()
+        if (!key) return
+        if (!photosByKey[key]) photosByKey[key] = 0
+        photosByKey[key] += 1
+      })
+    })
+    const missing = []
+    items.forEach((it) => {
+      if (!it || !it.itemKey) return
+      if (it.work && it.work.removedAs) return
+      const photoCount = photosByKey[it.itemKey] || 0
+      if (!photoCount) return
+      if (String(it.outcome || '').trim()) return
+      missing.push(String(it.label || it.itemKey).trim() || it.itemKey)
+    })
+    if (!missing.length) return { ok: true }
+    const preview = missing.slice(0, 3).join('、')
+    const more = missing.length > 3 ? `等 ${missing.length} 项` : ''
+    return {
+      ok: false,
+      message: `有照片须点选结论：${preview}${more}（补充说明选填）`,
+    }
   },
 
   onOtherNodeImages(e) {
@@ -2681,9 +2810,7 @@ Page({
 
   notifyPublicCaseQuality(quality) {
     const report = quality || null
-    if (!report || report.publicCaseScore == null) return
-    const pass = Boolean(report.publicCaseScorePass)
-    const threshold = report.publicCaseScoreThreshold || 70
+    if (!report) return
     const privacyBlocks = Array.isArray(report.privacyBlocks) ? report.privacyBlocks : []
     const qualityTips = (Array.isArray(report.qualitySuggestions)
       ? report.qualitySuggestions
@@ -2696,19 +2823,19 @@ Page({
       .slice(0, 2)
       .map((s) => s.message)
       .filter(Boolean)
+    // CASE-10：上网门禁用机审真实性；此处仅提示隐私硬拦与内部改善建议
     const contentParts = [
-      `质量分 ${report.publicCaseScore}（标准 ≥${threshold}）`,
       privacyBlocks.length
-        ? '隐私/合规：须先处理下列问题，与质量分无关。'
-        : pass
-          ? '已达标，可引导车主授权公示。'
-          : '质量分未达标，暂不宜引导车主授权公示。',
-      report.publicCaseScoreSummary || '',
+        ? '存在隐私/合规硬项，须先处理后再生成案例。'
+        : '隐私硬门槛已过。上网以「生成案例 → 机审真实性 ≥60 → 确认发布」为准；下列质量分为内部参考，不挡发布。',
+      report.publicCaseScore != null
+        ? `内部参考分 ${report.publicCaseScore}（不作为上网门禁）`
+        : '',
       privacyLines.length ? `必改项：\n${privacyLines.join('\n')}` : '',
       qualityTips.length ? `改善建议：\n${qualityTips.join('\n')}` : '',
     ].filter(Boolean)
     wx.showModal({
-      title: pass ? '公示就绪评估' : privacyBlocks.length ? '公示就绪 · 隐私/合规未过' : '公示就绪评估 · 质量分未达标',
+      title: privacyBlocks.length ? '公示就绪 · 隐私/合规未过' : '公示就绪说明',
       content: contentParts.join('\n'),
       showCancel: false,
       confirmText: '知道了',
@@ -2726,6 +2853,11 @@ Page({
     const ownerCheck = this.validateOwnerPhoneInput()
     if (!ownerCheck.ok) {
       wx.showToast({ title: ownerCheck.message, icon: 'none' })
+      return
+    }
+    const outcomeCheck = this.validateChecklistOutcomesRequired()
+    if (!outcomeCheck.ok) {
+      wx.showToast({ title: outcomeCheck.message, icon: 'none' })
       return
     }
     this.setData({ saving: true })
@@ -2764,8 +2896,12 @@ Page({
   },
 
   onOpenCaseDraft() {
+    if (!this.albumId) return
+    const action = this.data.bottomPrimaryAction
+    const from =
+      action === 'viewDraft' ? 'view' : action === 'generateCase' ? 'generate' : 'generate'
     wx.navigateTo({
-      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=generate`,
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=${from}`,
     })
   },
 
@@ -2824,6 +2960,11 @@ Page({
       wx.showToast({ title: ownerCheckForComplete.message, icon: 'none' })
       return
     }
+    const outcomeCheck = this.validateChecklistOutcomesRequired()
+    if (!outcomeCheck.ok) {
+      wx.showToast({ title: outcomeCheck.message, icon: 'none' })
+      return
+    }
     if (!ownerCheckForComplete.phone) {
       this.requireOwnerLinked('标记完工')
       return
@@ -2843,15 +2984,6 @@ Page({
       title: '辙见 · 服务相册',
       path: TOOL_HOME_PATH,
     }
-  },
-
-  onOpenCaseDraft() {
-    if (!this.albumId) return
-    const isResubmit = this.data.detail && this.data.detail.complianceStatus === 'rejected'
-    const q = isResubmit ? `&from=complete` : ''
-    wx.navigateTo({
-      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}${q}`,
-    })
   },
 
   async onCopyCaseDraftExport() {

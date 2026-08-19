@@ -226,6 +226,27 @@ model AlbumImage {
   @@map("album_images")
 }
 
+/// PUB-GEO · 按图识图缓存（M2：上传不写；解读/生成案例才写）
+model AlbumImageVisionCache {
+  id                 String    @id
+  albumImageId       String    @map("album_image_id")
+  albumId            String    @map("album_id")
+  /** 脱敏图 URL / key 指纹；图变更则 miss */
+  contentFingerprint String    @map("content_fingerprint") @db.VarChar(64)
+  promptVersion      String    @map("prompt_version") @db.VarChar(64)
+  model              String    @default("") @db.VarChar(64)
+  resultJson         Json      @map("result_json")
+  hitCount           Int       @default(0) @map("hit_count")
+  lastHitAt          DateTime? @map("last_hit_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([albumImageId, promptVersion])
+  @@index([albumId])
+  @@index([contentFingerprint])
+  @@map("album_image_vision_caches")
+}
+
 model ConsultLead {
   id              String          @id
   userId          String          @map("user_id")

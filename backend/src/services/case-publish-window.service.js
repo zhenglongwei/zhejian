@@ -46,6 +46,7 @@ function canMerchantGenerateCase(album) {
   if (status === PUBLIC_CASE_STATUS.NOTIFY_WINDOW) {
     return { ok: false, code: 'NOTIFY_WINDOW', message: '案例即将公开，请稍候' }
   }
+  // D14：机审过线待确认可重新生成；仅旧人审/脱敏排队中才锁
   if (
     status === PUBLIC_CASE_STATUS.PENDING_REVIEW ||
     status === PUBLIC_CASE_STATUS.PENDING_DESENSITIZE
@@ -76,6 +77,7 @@ function isCaseDraftEditable(album) {
   ) {
     return false
   }
+  // audit_passed / need_modify / rejected：可改措辞或回相册补证后再生成
   return true
 }
 

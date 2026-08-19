@@ -260,9 +260,11 @@
             items="{{stageChecklistItems}}"
             completeness="{{checklistCompleteness}}"
             stageId="{{stages[stageIndex].id}}"
+            focusItemKey="{{focusChecklistItemKey}}"
             readOnly="{{readOnly}}"
             bind:itemimageschange="onChecklistItemImagesChange"
             bind:itemoutcome="onChecklistOutcomeChange"
+            bind:aicompare="onChecklistAiCompare"
           />
         </block>
 
@@ -270,13 +272,15 @@
           <album-checklist-editor
             mode="work"
             title="施工清单"
-            hint="由检测延伸的需处理项。正常留证即可；若本次不做，点「删除」后再选是否跟进。"
+            hint="由检测延伸的需处理项：拍照留证并点选结论；补充说明选填。若本次不做，点「删除」后再选是否跟进。"
             items="{{workQueueItems}}"
             stageId="{{stages[stageIndex].id}}"
+            focusItemKey="{{focusChecklistItemKey}}"
             readOnly="{{readOnly}}"
             bind:itemimageschange="onChecklistItemImagesChange"
             bind:itemoutcome="onChecklistOutcomeChange"
             bind:removework="onChecklistRemoveWork"
+            bind:aicompare="onChecklistAiCompare"
           />
         </block>
 
@@ -448,6 +452,43 @@
       </view>
     </view>
   </block>
+
+  <ui-bottom-sheet
+    visible="{{visionSheetVisible}}"
+    title="{{visionSheetTitle}}"
+    hint="{{visionSheetDisclaimer}}"
+    showActions="{{true}}"
+    scrollable="{{true}}"
+    confirmText="知道了"
+    cancelText="关闭"
+    loading="{{visionSheetLoading}}"
+    bind:close="onCloseVisionSheet"
+    bind:cancel="onCloseVisionSheet"
+    bind:confirm="onCloseVisionSheet"
+  >
+    <view class="merchant-album-edit__vision" wx:if="{{visionSheetLoading}}">
+      <text class="text-caption text-secondary">正在对照本项照片…</text>
+    </view>
+    <view class="merchant-album-edit__vision" wx:elif="{{visionSheetError}}">
+      <text class="text-body">{{visionSheetError}}</text>
+    </view>
+    <view class="merchant-album-edit__vision" wx:else>
+      <text wx:if="{{visionSheetCardTitle}}" class="text-caption text-secondary merchant-album-edit__vision-card">{{visionSheetCardTitle}}</text>
+      <text class="text-body merchant-album-edit__vision-summary" selectable>{{visionSheetSummary}}</text>
+      <block wx:if="{{visionSheetPlan}}">
+        <text class="text-caption merchant-album-edit__vision-label">对门店方案</text>
+        <text class="text-body" selectable>{{visionSheetPlan}}</text>
+      </block>
+      <block wx:if="{{visionSheetGaps.length}}">
+        <text class="text-caption merchant-album-edit__vision-label">建议补证</text>
+        <text
+          wx:for="{{visionSheetGaps}}"
+          wx:key="*this"
+          class="text-caption text-secondary merchant-album-edit__vision-gap"
+        >· {{item}}</text>
+      </block>
+    </view>
+  </ui-bottom-sheet>
 
   <view
     wx:if="{{partCodePickerVisible}}"

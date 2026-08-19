@@ -218,6 +218,7 @@ function assertPublicCasePublishable(publicCase) {
   }
   const status = publicCase.status
   if (status === PUBLIC_CASE_STATUS.REVIEW_PASSED) return
+  if (status === PUBLIC_CASE_STATUS.AUDIT_PASSED) return
   if (status === PUBLIC_CASE_STATUS.OFFLINE) return
   if (status === PUBLIC_CASE_STATUS.NEED_MODIFY || status === PUBLIC_CASE_STATUS.REJECTED) {
     const err = new Error('案例未通过审核，请等待门店修改后重新送审')
@@ -336,30 +337,21 @@ async function enqueueAlbumCaseForReview(albumId, draftOverride = null) {
 }
 
 /**
- * 脱敏结束（就绪/部分失败/失败）后升入运营待审；已过审/已发布不回退
+ * 脱敏结束后升入运营待审。
+ * D14 / PUB-GEO-CASE-09：上网主路径为机审+商家确认，不再自动入人审队列。
+ * 遗留 pending_desensitize 单保持原态，由事后抽检/投诉处理。
  */
 async function promoteAlbumCaseToPendingReview(albumId) {
   const id = String(albumId || '').trim()
   if (!id) return null
   const row = await prisma.publicCase.findUnique({ where: { albumId: id } })
   if (!row) return null
-  if (row.status !== PUBLIC_CASE_STATUS.PENDING_DESENSITIZE) {
-    return { caseId: row.id, status: row.status, promoted: false }
-  }
-
-  await prisma.publicCase.update({
-    where: { id: row.id },
-    data: { status: PUBLIC_CASE_STATUS.PENDING_REVIEW },
-  })
-  await prisma.album.update({
-    where: { id },
-    data: { publicCaseStatus: PUBLIC_CASE_STATUS.PENDING_REVIEW },
-  })
-
   return {
     caseId: row.id,
-    status: PUBLIC_CASE_STATUS.PENDING_REVIEW,
-    promoted: true,
+    status: row.status,
+    promoted: false,
+    skipped: true,
+    reason: 'human_review_enqueue_disabled',
   }
 }
 
@@ -415,7 +407,8 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   }
   const readyToGoLive =
     liveStatus === PUBLIC_CASE_STATUS.NOTIFY_WINDOW ||
-    liveStatus === PUBLIC_CASE_STATUS.REVIEW_PASSED
+    liveStatus === PUBLIC_CASE_STATUS.REVIEW_PASSED ||
+    liveStatus === PUBLIC_CASE_STATUS.AUDIT_PASSED
   if (!readyToGoLive) {
     const err = new Error('当前状态不可公开')
     err.status = 409
@@ -425,6 +418,9 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     assertPublicCasePublishable(pcRow)
     const { assertCaseReviewPassed } = require('./case-review-gate.service')
     assertCaseReviewPassed(album)
+  }
+  if (liveStatus === PUBLIC_CASE_STATUS.AUDIT_PASSED) {
+    assertPublicCasePublishable(pcRow)
   }
 
   const { readPackageFromAlbum } = require('./album-content-package.service')
@@ -452,7 +448,7 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   }
 
   const albumView = buildAlbumView(album)
-  // 第一层：公示质量分（证据链 + 文案 + 无可公示图硬拦）
+  // 第一层：仅隐私/合规硬门槛；旧质量分不挡上网（CASE-10）
   assertPublicCaseQualityReady(albumView)
 
   const authorizationTier =
@@ -857,11 +853,26 @@ async function publishMerchantColdStartPublicCase(albumId, { storeId, merchantId
 }
 
 async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft, notifyPhone } = {}) {
-  const { assertMerchantAlbum, saveMerchantCaseDraft, loadAlbum } = require('./service-album.service')
+  const {
+    assertMerchantAlbum,
+    saveMerchantCaseDraft,
+    loadAlbum,
+    buildMerchantView,
+  } = require('./service-album.service')
   const {
     canMerchantGenerateCase,
     updateAlbumNotifyPhone,
   } = require('./case-publish-window.service')
+  const { ensureAlbumImageVisionCache } = require('./album-vision-ondemand.service')
+  const { auditMerchantCaseDraft } = require('./case-llm-audit.service')
+  const {
+    computeCaseSkeletonHash,
+    draftCopyFingerprint,
+  } = require('../utils/case-skeleton-hash')
+  const { buildMerchantChecklistView } = require('./album-checklist.service')
+  const { CASE_GEO_PIPELINE_STATUS } = require('../constants/case-geo-audit')
+  const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const { readPackageFromAlbum } = require('./album-content-package.service')
 
   let album = await loadAlbum(albumId)
   if (!album) {
@@ -884,26 +895,365 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
     throw err
   }
 
+  const imageIds = (album.images || []).map((img) => img.id).filter(Boolean)
+  const vision = await ensureAlbumImageVisionCache(albumId, imageIds)
+  if (vision && vision.status === 'pre_mask_pending') {
+    return {
+      status: 'pre_mask_pending',
+      message: '脱敏图尚未就绪，已开始准备。请稍后再点「生成案例」。',
+      pipelineStatus: CASE_GEO_PIPELINE_STATUS.GENERATING,
+    }
+  }
+
   const saved = await saveMerchantCaseDraft(albumId, storeId, merchantId, {
     confirm: true,
     draft: draft || {},
   })
-  const enqueued = await enqueueAlbumCaseForReview(albumId, saved.draft)
-  const attestedAt = new Date()
-  const row = await prisma.publicCase.findUnique({ where: { albumId } })
-  if (row) {
+  const merchantCaseDraft = normalizeMerchantCaseDraft(saved.draft)
+  album = await loadAlbum(albumId)
+  const view = buildMerchantView(album)
+  const checklist = buildMerchantChecklistView(album, album.images || [])
+  const skeletonHash = computeCaseSkeletonHash({
+    album,
+    checklistItems: checklist.items || [],
+    images: album.images || [],
+  })
+  const copyFingerprint = draftCopyFingerprint(merchantCaseDraft)
+
+  const audit = await auditMerchantCaseDraft({
+    album,
+    albumView: view,
+    draft: merchantCaseDraft,
+  })
+
+  const pipelineStatus = audit.passed
+    ? CASE_GEO_PIPELINE_STATUS.AUDIT_PASSED
+    : CASE_GEO_PIPELINE_STATUS.AUDIT_FAILED
+  const caseGeoMeta = {
+    pipelineStatus,
+    skeletonHash,
+    copyFingerprint,
+    generatedAt: new Date().toISOString(),
+    visionStats: {
+      imageCount: imageIds.length,
+      described: Array.isArray(vision.results)
+        ? vision.results.filter((r) => r && r.description).length
+        : 0,
+    },
+  }
+  const caseGeoAudit = { ...audit }
+
+  const pkg = readPackageFromAlbum(album) || {}
+  const nextPkg = {
+    ...pkg,
+    merchantCaseDraft,
+    caseGeoAudit,
+    caseGeoMeta,
+    generatedAt: pkg.generatedAt || new Date().toISOString(),
+  }
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { contentPackageJson: nextPkg },
+  })
+
+  const title = String(merchantCaseDraft.title || album.serviceName || '服务案例').trim()
+  const summary = String(merchantCaseDraft.caseSummary || '').trim()
+  const contentJson = {
+    merchantCaseDraft,
+    caseGeoAudit,
+    caseGeoMeta,
+  }
+
+  try {
+    const { emitCaseGeoObs } = require('../utils/case-geo-obs')
+    emitCaseGeoObs('case.generate', {
+      albumId,
+      pipelineStatus,
+      authenticityScore: audit.authenticityScore,
+      passed: Boolean(audit.passed),
+    })
+  } catch (_) {
+    /* ignore */
+  }
+
+  if (audit.passed) {
+    const caseId = (album.publicCase && album.publicCase.id) || newId('case')
+    const status = PUBLIC_CASE_STATUS.AUDIT_PASSED
+    await prisma.publicCase.upsert({
+      where: { albumId },
+      create: {
+        id: caseId,
+        albumId,
+        status,
+        authorizationTier: 'merchant_published',
+        title,
+        summary,
+        coverImage: '',
+        contentJson,
+        storeId: album.storeId || '',
+        storeName: album.storeName || '',
+        serviceName: album.serviceName || '',
+        city: album.city || '',
+        publishedAt: null,
+        merchantAttestedAt: new Date(),
+        gateBRejectType: '',
+        gateBRejectReason: '',
+        gateBRisk: '',
+        spotCheckStatus: '',
+      },
+      update: {
+        status,
+        title,
+        summary,
+        contentJson,
+        storeId: album.storeId || '',
+        storeName: album.storeName || '',
+        serviceName: album.serviceName || '',
+        city: album.city || '',
+        publishedAt: null,
+        merchantAttestedAt: new Date(),
+        gateBRejectType: '',
+        gateBRejectReason: '',
+        gateBRisk: '',
+        spotCheckStatus: '',
+      },
+    })
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { publicCaseStatus: status },
+    })
+
+    return {
+      status,
+      pipelineStatus,
+      caseId,
+      draft: merchantCaseDraft,
+      audit: caseGeoAudit,
+      meta: caseGeoMeta,
+      message: '机审已过线。请确认文案后发布到店页。',
+      canPublish: true,
+    }
+  }
+
+  if (album.publicCase && album.publicCase.status === PUBLIC_CASE_STATUS.AUDIT_PASSED) {
     await prisma.publicCase.update({
       where: { albumId },
-      data: { merchantAttestedAt: attestedAt },
+      data: {
+        status: PUBLIC_CASE_STATUS.NEED_MODIFY,
+        contentJson,
+      },
+    })
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { publicCaseStatus: PUBLIC_CASE_STATUS.NEED_MODIFY },
+    })
+  } else if (!album.publicCaseStatus || album.publicCaseStatus === 'private') {
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { publicCaseStatus: 'private' },
     })
   }
 
-  const { scheduleAlbumPreMask } = require('./desensitize.service')
-  scheduleAlbumPreMask(albumId, { trigger: 'generate_case' })
+  return {
+    status: 'audit_failed',
+    pipelineStatus,
+    draft: merchantCaseDraft,
+    audit: caseGeoAudit,
+    meta: caseGeoMeta,
+    message: '机审未过线，请按不足声称回相册补证据后再生成。',
+    canPublish: false,
+  }
+}
+
+/**
+ * D14 · 机审过线后商家确认发布 → 直接写快照上店页（不入人审）
+ */
+async function confirmMerchantPublicCasePublish(
+  albumId,
+  { storeId, merchantId, draft } = {},
+) {
+  const {
+    assertMerchantAlbum,
+    saveMerchantCaseDraft,
+    loadAlbum,
+    buildMerchantView,
+  } = require('./service-album.service')
+  const { readPackageFromAlbum } = require('./album-content-package.service')
+  const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const { auditMerchantCaseDraft } = require('./case-llm-audit.service')
+  const {
+    computeCaseSkeletonHash,
+    draftCopyFingerprint,
+  } = require('../utils/case-skeleton-hash')
+  const { buildMerchantChecklistView } = require('./album-checklist.service')
+  const {
+    CASE_GEO_PIPELINE_STATUS,
+    CASE_GEO_AUTHENTICITY_PASS,
+  } = require('../constants/case-geo-audit')
+
+  let album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+
+  const pc = album.publicCase
+  if (!pc || pc.status !== PUBLIC_CASE_STATUS.AUDIT_PASSED) {
+    const err = new Error('请先生成案例并等待机审过线后再发布')
+    err.status = 409
+    err.code = 'AUDIT_REQUIRED'
+    throw err
+  }
+
+  let merchantCaseDraft = null
+  if (draft && typeof draft === 'object') {
+    const saved = await saveMerchantCaseDraft(albumId, storeId, merchantId, {
+      confirm: true,
+      draft,
+    })
+    merchantCaseDraft = normalizeMerchantCaseDraft(saved.draft)
+    album = await loadAlbum(albumId)
+  } else {
+    const pkg = readPackageFromAlbum(album)
+    merchantCaseDraft = normalizeMerchantCaseDraft(
+      (pc.contentJson && pc.contentJson.merchantCaseDraft) ||
+        (pkg && pkg.merchantCaseDraft),
+    )
+  }
+
+  if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
+    const err = new Error('请先确认案例稿')
+    err.status = 409
+    err.code = 'CASE_DRAFT_REQUIRED'
+    throw err
+  }
+
+  const pkg = readPackageFromAlbum(album) || {}
+  const prevMeta = pkg.caseGeoMeta || (pc.contentJson && pc.contentJson.caseGeoMeta) || {}
+  const checklist = buildMerchantChecklistView(album, album.images || [])
+  const skeletonHash = computeCaseSkeletonHash({
+    album,
+    checklistItems: checklist.items || [],
+    images: album.images || [],
+  })
+  if (prevMeta.skeletonHash && prevMeta.skeletonHash !== skeletonHash) {
+    const err = new Error('相册素材已变，请重新生成案例后再发布')
+    err.status = 409
+    err.code = 'SKELETON_CHANGED'
+    throw err
+  }
+
+  const copyFingerprint = draftCopyFingerprint(merchantCaseDraft)
+  let audit = pkg.caseGeoAudit || (pc.contentJson && pc.contentJson.caseGeoAudit) || null
+  const needReaudit =
+    !audit ||
+    !audit.passed ||
+    (prevMeta.copyFingerprint && prevMeta.copyFingerprint !== copyFingerprint)
+
+  if (needReaudit) {
+    const view = buildMerchantView(album)
+    audit = await auditMerchantCaseDraft({
+      album,
+      albumView: view,
+      draft: merchantCaseDraft,
+    })
+    const caseGeoMeta = {
+      ...prevMeta,
+      pipelineStatus: audit.passed
+        ? CASE_GEO_PIPELINE_STATUS.AUDIT_PASSED
+        : CASE_GEO_PIPELINE_STATUS.AUDIT_FAILED,
+      skeletonHash,
+      copyFingerprint,
+      reauditedAt: new Date().toISOString(),
+    }
+    const nextPkg = {
+      ...pkg,
+      merchantCaseDraft,
+      caseGeoAudit: audit,
+      caseGeoMeta,
+    }
+    await prisma.album.update({
+      where: { id: albumId },
+      data: { contentPackageJson: nextPkg },
+    })
+    await prisma.publicCase.update({
+      where: { albumId },
+      data: {
+        status: audit.passed
+          ? PUBLIC_CASE_STATUS.AUDIT_PASSED
+          : PUBLIC_CASE_STATUS.NEED_MODIFY,
+        title: merchantCaseDraft.title || pc.title,
+        summary: merchantCaseDraft.caseSummary || pc.summary,
+        contentJson: {
+          merchantCaseDraft,
+          caseGeoAudit: audit,
+          caseGeoMeta,
+        },
+      },
+    })
+    if (!audit.passed) {
+      await prisma.album.update({
+        where: { id: albumId },
+        data: { publicCaseStatus: PUBLIC_CASE_STATUS.NEED_MODIFY },
+      })
+      const err = new Error(
+        `改稿后机审未过线（真实性 ${audit.authenticityScore}/${CASE_GEO_AUTHENTICITY_PASS}），请调整后重试`,
+      )
+      err.status = 409
+      err.code = 'AUDIT_FAILED'
+      err.audit = audit
+      throw err
+    }
+  }
+
+  if (!audit.passed || Number(audit.authenticityScore) < CASE_GEO_AUTHENTICITY_PASS) {
+    const err = new Error('机审未过线，暂不可发布')
+    err.status = 409
+    err.code = 'AUDIT_FAILED'
+    throw err
+  }
+  if (Array.isArray(audit.hardBlocks) && audit.hardBlocks.length) {
+    const err = new Error((audit.hardBlocks[0] && audit.hardBlocks[0].message) || '存在系统硬拦项')
+    err.status = 409
+    err.code = 'HARD_BLOCK'
+    throw err
+  }
+
+  const published = await commitPublicCaseGoLive(albumId, {
+    authorizationTier: 'merchant_published',
+  })
+
+  const afterPkg = readPackageFromAlbum(await loadAlbum(albumId)) || pkg
+  await prisma.album.update({
+    where: { id: albumId },
+    data: {
+      contentPackageJson: {
+        ...afterPkg,
+        caseGeoMeta: {
+          ...(afterPkg.caseGeoMeta || prevMeta),
+          pipelineStatus: CASE_GEO_PIPELINE_STATUS.PUBLISHED,
+          publishedAt: new Date().toISOString(),
+        },
+      },
+    },
+  })
+
+  try {
+    const { emitCaseGeoObs } = require('../utils/case-geo-obs')
+    emitCaseGeoObs('case.publish', {
+      albumId,
+      authenticityScore: audit.authenticityScore,
+    })
+  } catch (_) {
+    /* ignore */
+  }
 
   return {
-    ...enqueued,
-    message: '已送审。通过后将出现在店页。',
+    ...published,
+    audit,
+    message: '已发布到店页',
   }
 }
 
@@ -911,6 +1261,7 @@ module.exports = {
   publishServicePublicCase,
   commitPublicCaseGoLive,
   generateMerchantPublicCase,
+  confirmMerchantPublicCasePublish,
   publishMerchantColdStartPublicCase,
   enqueueAlbumCaseForReview,
   promoteAlbumCaseToPendingReview,

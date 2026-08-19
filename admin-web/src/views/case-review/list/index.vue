@@ -2,7 +2,7 @@
   <div v-loading="loading">
     <h2 class="page-title">案例审核</h2>
     <p class="page-desc">
-      商家确认完工并完成配图脱敏后进入待审。审公示案例稿与脱敏配图；通过后车主可查看并发布；驳回后商家可改再送审。脱敏异常可重试，本期不支持运营手工打码。
+      新案例上网主路径为商家机审确认即公开（D14）。本台保留已公开抽检、投诉下架与历史待审/冷启动遗留单；不再作为日常上网闸门。
     </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
@@ -76,7 +76,7 @@ import { CASE_TABS, CASE_SOURCE_OPTIONS } from '@/constants/case-review'
 import CaseSourceTag from '@/components/case-review/CaseSourceTag.vue'
 
 const router = useRouter()
-const activeTab = ref('pending')
+const activeTab = ref('approved')
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
@@ -90,11 +90,12 @@ const filters = reactive({
 function statusLabel(status) {
   const map = {
     pending_desensitize: '脱敏处理中',
-    pending_review: '待审核',
+    pending_review: '历史待审',
+    audit_passed: '机审过线·待确认',
     review_passed: '已通过·待发布',
-    public_approved: '已发布',
+    public_approved: '已公开',
     rejected: '已驳回',
-    need_modify: '已驳回',
+    need_modify: '需修改',
     offline: '已下线',
   }
   return map[status] || status || '—'

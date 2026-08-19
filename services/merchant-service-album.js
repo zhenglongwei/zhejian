@@ -136,6 +136,13 @@ async function polishMerchantCaseDraft(albumId, payload = {}) {
   })
 }
 
+/** PUB-GEO · 主题卡按需 AI 对照 */
+async function interpretMerchantAlbumVision(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/vision/interpret`, withStore(payload), {
+    timeout: 120000,
+  })
+}
+
 async function confirmAndCompleteMerchantCaseDraft(albumId, payload = {}) {
   return post(
     `/merchant/service-albums/${albumId}/case-draft/confirm-and-complete`,
@@ -148,7 +155,16 @@ async function exportMerchantCaseDraftCopy(albumId) {
 }
 
 async function generateMerchantPublicCase(albumId, payload = {}) {
-  return post(`/merchant/service-albums/${albumId}/generate-case`, withStore(payload))
+  return post(`/merchant/service-albums/${albumId}/generate-case`, withStore(payload), {
+    timeout: 180000,
+  })
+}
+
+/** PUB-GEO · 机审过线后确认发布到店页 */
+async function confirmMerchantPublicCasePublish(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/confirm-publish-case`, withStore(payload), {
+    timeout: 120000,
+  })
 }
 
 async function updateMerchantAlbumNotifyPhone(albumId, phone) {
@@ -211,9 +227,11 @@ module.exports = {
   fetchMerchantCaseDraftMaskStatus,
   saveMerchantCaseDraft,
   polishMerchantCaseDraft,
+  interpretMerchantAlbumVision,
   confirmAndCompleteMerchantCaseDraft,
   exportMerchantCaseDraftCopy,
   generateMerchantPublicCase,
+  confirmMerchantPublicCasePublish,
   updateMerchantAlbumNotifyPhone,
   resendMerchantCaseNotify,
   createMerchantColdStartPreview,

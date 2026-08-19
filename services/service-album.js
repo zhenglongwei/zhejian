@@ -141,6 +141,13 @@ async function fetchAlbumSocialCopy(albumId, platform = 'xiaohongshu') {
   })
 }
 
+/** PUB-GEO · 主题卡按需 AI 解读 */
+async function interpretOwnerAlbumVision(albumId, payload = {}) {
+  return post(`/user/service-albums/${encodeURIComponent(albumId)}/vision/interpret`, payload, {
+    timeout: 120000,
+  })
+}
+
 module.exports = {
   fetchUserServiceAlbums,
   fetchServiceAlbum,
@@ -156,4 +163,5 @@ module.exports = {
   fetchAlbumClaimPreview,
   claimServiceAlbum,
   fetchAlbumSocialCopy,
+  interpretOwnerAlbumVision,
 }

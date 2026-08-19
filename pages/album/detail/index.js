@@ -6,6 +6,7 @@ const {
   withdrawAuthorization,
   blockPublicCase,
   takedownPublicCase,
+  interpretOwnerAlbumVision,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -62,6 +63,7 @@ const {
   REVIEW_DOCK_LABEL,
   REVIEW_NUDGE_TEXT,
 } = require('../../../utils/publish-thank-you')
+const { AI_INSPECTION_DISCLAIMER } = require('../../../constants/album-evidence-guide')
 
 function getWindowMetrics() {
   try {
@@ -428,6 +430,13 @@ Page({
     warrantyText: '',
     warrantyImages: [],
     reviewNudgeText: REVIEW_NUDGE_TEXT,
+    visionSheetVisible: false,
+    visionSheetLoading: false,
+    visionSheetTitle: 'AI 解读',
+    visionSheetDisclaimer: AI_INSPECTION_DISCLAIMER,
+    visionSheetCardTitle: '',
+    visionSheetSummary: '',
+    visionSheetError: '',
   },
 
   onLoad(options) {
@@ -1075,6 +1084,51 @@ Page({
   onWithdrawSheetClose() {
     if (this.data.withdrawSheetLoading) return
     this.setData({ withdrawSheetVisible: false })
+  },
+
+  onCloseVisionSheet() {
+    this.setData({
+      visionSheetVisible: false,
+      visionSheetLoading: false,
+    })
+  },
+
+  async onWorkChecklistAiInterpret(e) {
+    const cardKey = String((e.detail && (e.detail.cardKey || e.detail.itemKey)) || '').trim()
+    if (!cardKey || !this.albumId) return
+    this.setData({
+      visionSheetVisible: true,
+      visionSheetLoading: true,
+      visionSheetTitle: 'AI 解读',
+      visionSheetCardTitle: '',
+      visionSheetSummary: '',
+      visionSheetError: '',
+    })
+    try {
+      const data = await interpretOwnerAlbumVision(this.albumId, {
+        cardKey,
+      })
+      if (data && data.status === 'pre_mask_pending') {
+        this.setData({
+          visionSheetLoading: false,
+          visionSheetError: (data && data.message) || '脱敏图尚未就绪，请稍后再试',
+        })
+        return
+      }
+      const result = (data && data.result) || {}
+      this.setData({
+        visionSheetLoading: false,
+        visionSheetCardTitle: String((data && data.cardTitle) || '').trim(),
+        visionSheetSummary:
+          String(result.summaryForDisplay || '').trim() || '暂无解读结果',
+        visionSheetError: '',
+      })
+    } catch (err) {
+      this.setData({
+        visionSheetLoading: false,
+        visionSheetError: (err && err.message) || '解读失败，请稍后重试',
+      })
+    }
   },
 
   onWithdrawSheetConfirm() {

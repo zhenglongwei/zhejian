@@ -49,6 +49,15 @@
           </view>
         </view>
       </view>
+
+      <view class="album-work-checklist__ai-row" wx:if="{{item.hasImages}}">
+        <text
+          class="album-work-checklist__ai-link"
+          data-key="{{item.cardKey}}"
+          catchtap="onAiInterpret"
+        >AI 解读</text>
+        <text class="text-caption text-secondary">辅助理解本项过程</text>
+      </view>
     </view>
   </block>
 

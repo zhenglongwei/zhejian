@@ -46,6 +46,7 @@
           items="{{workChecklistItems}}"
           warrantyText="{{warrantyText}}"
           warrantyImages="{{warrantyImages}}"
+          bind:aiinterpret="onWorkChecklistAiInterpret"
         />
         <view class="album-detail__read-footer">
           <album-end-page
@@ -147,6 +148,31 @@
     bind:cancel="closeLoginSheet"
     bind:success="onLoginSheetSuccess"
   />
+
+  <ui-bottom-sheet
+    visible="{{visionSheetVisible}}"
+    title="{{visionSheetTitle}}"
+    hint="{{visionSheetDisclaimer}}"
+    showActions="{{true}}"
+    scrollable="{{true}}"
+    confirmText="知道了"
+    cancelText="关闭"
+    loading="{{visionSheetLoading}}"
+    bind:close="onCloseVisionSheet"
+    bind:cancel="onCloseVisionSheet"
+    bind:confirm="onCloseVisionSheet"
+  >
+    <view class="album-detail__vision" wx:if="{{visionSheetLoading}}">
+      <text class="text-caption text-secondary">正在解读本项照片…</text>
+    </view>
+    <view class="album-detail__vision" wx:elif="{{visionSheetError}}">
+      <text class="text-body">{{visionSheetError}}</text>
+    </view>
+    <view class="album-detail__vision" wx:else>
+      <text wx:if="{{visionSheetCardTitle}}" class="text-caption text-secondary">{{visionSheetCardTitle}}</text>
+      <text class="text-body album-detail__vision-summary" selectable>{{visionSheetSummary}}</text>
+    </view>
+  </ui-bottom-sheet>
 
   <ui-bottom-sheet
     visible="{{withdrawSheetVisible}}"

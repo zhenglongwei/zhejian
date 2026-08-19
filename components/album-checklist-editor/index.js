@@ -8,6 +8,8 @@ Component({
     completeness: { type: Object, value: null },
     readOnly: { type: Boolean, value: false },
     stageId: { type: String, value: '' },
+    /** 深链展开指定检查项（机审缺口跳回） */
+    focusItemKey: { type: String, value: '' },
   },
   data: {
     stageQuickTags: ['正常', '建议更换', '需处理', '仅检查', '自定义'],
@@ -21,6 +23,12 @@ Component({
     },
     mode() {
       this.rebuildDisplayItems()
+    },
+    focusItemKey(key) {
+      const itemKey = String(key || '').trim()
+      if (!itemKey) return
+      const expandedMap = { ...(this.data.expandedMap || {}), [itemKey]: true }
+      this.setData({ expandedMap }, () => this.rebuildDisplayItems())
     },
   },
   lifetimes: {
@@ -144,9 +152,9 @@ Component({
         return {
           checkStatus: 'pending_tag',
           statusTone: 'hint',
-          checkStatusLabel: '待标注',
+          checkStatusLabel: '待结论',
           resultKind: 'warn',
-          resultLabel: '请点图下标签',
+          resultLabel: '请点选结论',
           outcomeTag: '',
         }
       }
@@ -236,9 +244,9 @@ Component({
         return {
           checkStatus: 'pending_tag',
           statusTone: 'hint',
-          checkStatusLabel: '待标注',
+          checkStatusLabel: '待结论',
           resultKind: 'warn',
-          resultLabel: '请点施工结果标签',
+          resultLabel: '请点选结论',
           outcomeTag: this.outcomeToTag(outcome, 'work'),
         }
       }
@@ -343,6 +351,12 @@ Component({
     onRestoreFollowUp(e) {
       const { key } = e.currentTarget.dataset
       this.triggerEvent('restorework', { itemKey: String(key || '') })
+    },
+    onAiCompare(e) {
+      const { key } = e.currentTarget.dataset
+      const itemKey = String(key || '')
+      if (!itemKey) return
+      this.triggerEvent('aicompare', { itemKey, cardKey: itemKey })
     },
     noop() {},
   },

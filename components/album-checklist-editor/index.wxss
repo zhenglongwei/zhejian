@@ -132,6 +132,25 @@
   border-top: 1rpx solid var(--color-border);
 }
 
+.chk-ai-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-top: var(--space-sm);
+}
+
+.chk-ai-link {
+  font-size: var(--font-caption);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.chk-ai-hint {
+  font-size: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
 .readonly-imgs {
   display: flex;
   flex-direction: column;

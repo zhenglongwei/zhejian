@@ -224,13 +224,17 @@ function assessPublicCaseQuality(albumView = {}) {
 
 function assertPublicCaseQualityReady(albumView) {
   const quality = assessPublicCaseQuality(albumView)
+  // CASE-10：此处只拦隐私/合规硬项（含无可公示图）；旧质量分不挡上网
   if (quality.publicCaseScorePass) return quality
 
   const reasons = []
   quality.privacyBlocks.slice(0, 3).forEach((item) => {
     reasons.push(item.message)
   })
-  const err = new Error('相册内容尚未满足公示质量要求，暂不可授权公示')
+  const err = new Error(
+    reasons.filter(Boolean).join('；') ||
+      '存在隐私/合规硬项或无可公示过程图，暂不可公开',
+  )
   err.status = 409
   err.code = 'PUBLIC_CASE_QUALITY_BLOCKED'
   err.geoQuality = quality.geoQuality

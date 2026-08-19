@@ -390,8 +390,45 @@ function run() {
   const previewReady = attachDraftPreviewMedia(savedOriginals, albumView, preMaskTask, true)
   assert.ok(previewReady.media.length >= 1)
   assert.ok(previewReady.media.every((item) => item.maskedUrl && item.maskedUrl.includes('desensitized')))
-  const stripped = applyMaskedMediaOnly(savedOriginals, true)
-  assert.strictEqual(stripped.media.length, 0)
+  const plateRejected = pickDraftMedia({
+    ...albumView,
+    imageMeta: [
+      {
+        nodeId: 'stage_5',
+        idx: 0,
+        rawUrl: 'https://example.com/plate.jpg',
+        visibility: 'private',
+        publicGateStatus: 'rejected',
+        publicGateReason: 'plate',
+      },
+    ],
+  }, {
+    assets: [
+      {
+        nodeId: 'stage_5',
+        idx: 0,
+        rawUrl: 'https://example.com/plate.jpg',
+        maskedUrl: 'https://cdn.example.com/api/v1/media/files/uploads/desensitized/alb_x/stage_5_0.jpg',
+      },
+    ],
+  }, { requireMasked: true })
+  assert.ok(plateRejected.length >= 1)
+  assert.ok(plateRejected[0].maskedUrl.includes('desensitized'))
+
+  const documentRejected = pickDraftMedia({
+    ...albumView,
+    imageMeta: [
+      {
+        nodeId: 'stage_5',
+        idx: 0,
+        rawUrl: 'https://example.com/doc.jpg',
+        visibility: 'private',
+        publicGateStatus: 'rejected',
+        publicGateReason: 'document',
+      },
+    ],
+  }, null)
+  assert.strictEqual(documentRejected.length, 0)
 
   console.log('merchant-case-draft.test.js OK')
 }

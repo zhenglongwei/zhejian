@@ -61,6 +61,8 @@ function assertImageMeta({ fileName, fileType, fileSize }) {
 }
 
 async function finalizeUploadedObject(objectKey, uploaderId = '') {
+  // VIS-04 / M2：通用上传 finalize 仅落盘与建 MediaAsset，禁止在此调用多模态识图（album-vision / GEO VL）。
+  // 脱敏 OCR（public-gate / pre-mask）属隐私门禁，不在本函数内触发 VL。
   const key = String(objectKey || '').replace(/\\/g, '/')
   if (!/^uploads\/\d{4}\/\d{2}\/[a-f0-9]{32}\.(jpe?g|png|webp)$/i.test(key)) {
     const err = new Error('无效的 objectKey')

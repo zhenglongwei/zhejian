@@ -63,6 +63,10 @@ Component({
       if (!card) return null
       // 新扁平结构
       if (Array.isArray(card.stageGroups)) {
+        const stageGroups = card.stageGroups
+        const hasImages = stageGroups.some(
+          (g) => Array.isArray(g.images) && g.images.some((img) => img && img.url),
+        )
         return {
           cardKey: card.cardKey,
           groupLabel: String(card.groupLabel || '').trim(),
@@ -73,7 +77,8 @@ Component({
           deferNote: card.deferNote || '',
           deferredByOwner: Boolean(card.deferredByOwner),
           note: String(card.note || '').trim(),
-          stageGroups: card.stageGroups,
+          stageGroups,
+          hasImages,
           showStageTitles:
             card.showStageTitles != null
               ? Boolean(card.showStageTitles)
@@ -100,6 +105,7 @@ Component({
         })
       })
       const stageGroups = Array.from(stageMap.values())
+      const hasImages = stageGroups.some((g) => (g.images || []).length > 0)
       const primary =
         sections.find((s) => s.deferredByOwner) ||
         sections.find((s) => s.outcomeLabel || s.followUpLabel) ||
@@ -118,6 +124,7 @@ Component({
         deferredByOwner: sections.some((s) => s.deferredByOwner),
         note: notes.join('\n'),
         stageGroups,
+        hasImages,
         showStageTitles: stageGroups.length > 1,
       }
     },
@@ -153,8 +160,14 @@ Component({
         deferredByOwner: Boolean(it.deferredByOwner),
         note: String(it.note || '').trim(),
         stageGroups,
+        hasImages: stageGroups.some((g) => (g.images || []).length > 0),
         showStageTitles: stageGroups.length > 1,
       }
+    },
+    onAiInterpret(e) {
+      const key = String((e.currentTarget.dataset && e.currentTarget.dataset.key) || '').trim()
+      if (!key) return
+      this.triggerEvent('aiinterpret', { cardKey: key, itemKey: key })
     },
     onOpenLightbox(e) {
       const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()

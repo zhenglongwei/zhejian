@@ -58,6 +58,8 @@ const PUBLIC_CASE_STATUS = {
   /** 完工后脱敏处理中，尚未进入运营人审 */
   PENDING_DESENSITIZE: 'pending_desensitize',
   PENDING_REVIEW: 'pending_review',
+  /** PUB-GEO · 机审过线，待商家确认发布（D14，无人审） */
+  AUDIT_PASSED: 'audit_passed',
   /** 运营案例审通过；短信未发出时停在此态，不得公开 */
   REVIEW_PASSED: 'review_passed',
   /** 已通知车主，异议窗口内 */

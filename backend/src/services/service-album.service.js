@@ -1334,9 +1334,25 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
     } catch (_) {
       preMaskTask = null
     }
+    const pkgNow = readPackageFromAlbum(album)
+    const pc = album.publicCase
+    const pcJson =
+      pc && pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : null
+    const audit =
+      (pkgNow && pkgNow.caseGeoAudit) ||
+      (pcJson && pcJson.caseGeoAudit) ||
+      null
+    const meta =
+      (pkgNow && pkgNow.caseGeoMeta) || (pcJson && pcJson.caseGeoMeta) || null
+    const publicCaseStatus =
+      (pc && pc.status) || album.publicCaseStatus || 'private'
     return {
       ...payload,
       draft: attachDraftPreviewMedia(payload.draft, view, preMaskTask, requireMasked),
+      audit,
+      meta,
+      publicCaseStatus,
+      canPublish: publicCaseStatus === 'audit_passed' && Boolean(audit && audit.passed),
     }
   }
 
