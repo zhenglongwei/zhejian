@@ -141,17 +141,21 @@ function analyzeWebSearchEvidence(body, answerText = '') {
     body &&
     typeof body === 'object' &&
     (body.search_info != null || body.SearchInfo != null || outputSearchInfo != null)
+  const toolSearchCalls = Number(
+    body && typeof body === 'object' ? body.usage?.tool_usage?.web_search_call || 0 : 0,
+  )
+  const hasToolUsageSearch = toolSearchCalls > 0
   const urlsInAnswer = (String(answerText || '').match(/https?:\/\/[^\s)\]"'<>]+/gi) || []).length
-  const confirmed = hasWebSearchCall || searchSources.length > 0 || hasSearchInfoField
+  const confirmed = hasWebSearchCall || hasToolUsageSearch || searchSources.length > 0 || hasSearchInfoField
 
   let confidence = 'unconfirmed'
-  if (hasWebSearchCall && searchSources.length > 0) confidence = 'high'
-  else if (hasWebSearchCall || searchSources.length > 0) confidence = 'medium'
+  if ((hasWebSearchCall || hasToolUsageSearch) && searchSources.length > 0) confidence = 'high'
+  else if (hasWebSearchCall || hasToolUsageSearch || searchSources.length > 0) confidence = 'medium'
 
   let hint = '未在响应中检测到 web_search 调用或检索 URL；答案可能来自模型记忆，或平台未返回溯源字段。'
   if (confidence === 'high') {
     hint = '响应含 web_search 调用记录且解析到检索来源 URL。'
-  } else if (hasWebSearchCall) {
+  } else if (hasWebSearchCall || hasToolUsageSearch) {
     hint = '响应含 web_search 调用记录，但未解析到来源 URL（可能字段结构不同）。'
   } else if (searchSources.length > 0) {
     hint = '响应含检索来源 URL，但未显式标记 web_search 调用类型。'
@@ -163,7 +167,7 @@ function analyzeWebSearchEvidence(body, answerText = '') {
     confirmed,
     confidence,
     outputTypes,
-    hasWebSearchCall,
+    hasWebSearchCall: hasWebSearchCall || hasToolUsageSearch,
     hasSearchInfoField,
     searchSourceCount: searchSources.length,
     urlsInAnswer,
@@ -461,7 +465,48 @@ async function chatWenxinWebSearch(options) {
 }
 
 /**
- * 混元 / TokenHub · Chat Completions + enable_enhancement（官方联网开关）
+ * TokenHub 混元 · Chat Completions + web_search_options（官方联网工具）
+ * @see https://cloud.tencent.com/document/product/1823/132358
+ */
+async function chatTokenHubWebSearch(options) {
+  const searchSource = String(
+    options.searchSource || process.env.GEO_PROBE_HUNYUAN_SEARCH_SOURCE || 'standard',
+  ).trim()
+  const webSearchOptions = {
+    enable: true,
+    search_source: searchSource || 'standard',
+  }
+  if (options.userLocation && typeof options.userLocation === 'object') {
+    webSearchOptions.user_location = {
+      type: 'approximate',
+      country: 'CN',
+      timezone: 'Asia/Shanghai',
+      ...options.userLocation,
+    }
+  }
+  const body = await postJson({
+    apiUrl: options.apiUrl,
+    apiKey: options.apiKey,
+    payload: {
+      model: options.model,
+      messages: options.messages,
+      web_search_options: webSearchOptions,
+      reasoning_effort: 'low',
+    },
+    timeoutMs: options.timeoutMs,
+  })
+  const parsed = parseChatCompletionBody(body)
+  const text = parsed.text
+  return {
+    text,
+    searchSources: collectSearchSources(body),
+    webSearchEvidence: analyzeWebSearchEvidence(body, text),
+    raw: body,
+  }
+}
+
+/**
+ * 混元旧协议 · Chat Completions + enable_enhancement（TokenHub 已改用 web_search_options）
  * @see https://cloud.tencent.com/document/product/1729/111007
  * @param {{ apiUrl: string, apiKey: string, model: string, messages: object[], timeoutMs?: number }} options
  */
@@ -508,6 +553,8 @@ async function chatWithWebSearch(options) {
     messages: [{ role: 'user', content: options.prompt }],
     timeoutMs: options.timeoutMs,
     enableThinking: options.enableThinking,
+    userLocation: options.userLocation,
+    searchSource: options.searchSource,
   }
 
   switch (options.webSearchMode) {
@@ -519,6 +566,8 @@ async function chatWithWebSearch(options) {
       return chatKimiBuiltinWebSearch(base)
     case 'web_search_object':
       return chatWenxinWebSearch(base)
+    case 'web_search_options':
+      return chatTokenHubWebSearch(base)
     case 'enable_enhancement':
       return chatEnableEnhancement(base)
     default:

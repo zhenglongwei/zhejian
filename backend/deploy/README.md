@@ -91,16 +91,17 @@ curl -s https://staging.geo.simplewin.cn/api/v1/health
 
 **勿**用生产 `simplewin.conf` 覆盖预发配置；预发独立 conf 文件。
 
-## Nginx 更新（AI 检查超时）
+## Nginx 更新（官网切 brand-web + API 超时）
 
 生产真源：**`backend/deploy/simplewin.conf`**（与 `/etc/nginx/conf.d/simplewin.conf` 同步）。
 
-本次变更：`geo.simplewin.cn` 的 `location /api/` 增加 `proxy_send_timeout` / `proxy_read_timeout` **240s**（原 60s 会导致 AI 检查中途断开）。
+`simplewin.cn` 静态根为 `/var/www/zhejian/brand-web`。**不要**把 geo 案例站 root 改成 brand-web。
 
 ```bash
-# 服务器上（git pull 后）
-sudo cp /var/www/zhejian/backend/deploy/simplewin.conf /etc/nginx/conf.d/simplewin.conf
-sudo nginx -t && sudo systemctl reload nginx
+cd /var/www/zhejian
+git pull
+sudo bash scripts/deploy-brand-web.sh
+cd backend && pm2 restart zhejian-api
 ```
 
 若只改 `/api/` 片段、不覆盖整文件，见 `backend/deploy/nginx-api-location.snippet.conf`。

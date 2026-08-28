@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GEO 体检 · 盈简科技</title>
+  <meta name="description" content="免费查看企业在搜索、地图中的公开信息，以及大模型联网回答里有没有被提到。可上传截图作补充。" />
+  <link rel="canonical" href="https://simplewin.cn/check.html" />
+  <link rel="stylesheet" href="/css/site.css" />
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="/">盈简科技</a>
+      <nav>
+        <a href="/">公司</a>
+        <a href="/zhejian.html">辙见</a>
+        <a href="/check.html" aria-current="page">GEO 体检</a>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <h1>GEO 体检</h1>
+    <p class="lead">两层分开看：网上资料在不在、对不对（含百度，以及腾讯混元联网能不能摸到微信链接）；大模型 App 里有没有引用请靠截图。混元不是元宝，也不是搜一搜。</p>
+
+    <form class="card" id="form">
+      <label for="companyName">企业名称</label>
+      <input id="companyName" name="companyName" type="text" required maxlength="80" placeholder="例如：杭州盈简科技" />
+      <label for="city">城市（建议填）</label>
+      <input id="city" name="city" type="text" maxlength="40" placeholder="例如：杭州" />
+      <label for="shots">截图（可选，最多 4 张）</label>
+      <input id="shots" type="file" accept="image/*" multiple />
+      <p class="muted" id="shotHint"></p>
+      <p>
+        <button class="btn" type="submit" id="submitBtn">开始检查</button>
+      </p>
+      <p class="muted">每日次数有限。缺密钥的检查项会标明「未查」，不会假装搜过。</p>
+    </form>
+
+    <div id="status" hidden></div>
+    <div id="result" hidden></div>
+  </main>
+  <footer class="site">
+    <div class="wrap">公开检索与抽样，不能保证某家 App 里一定出现。</div>
+  </footer>
+  <script src="/js/check.js"></script>
+</body>
+</html>

@@ -320,7 +320,11 @@ const config = {
         return raw.split(',').map((item) => item.trim()).filter(Boolean)
       }
       if ((process.env.NODE_ENV || 'development') === 'production') {
-        return ['https://geo.simplewin.cn', 'https://simplewin.cn']
+        return [
+          'https://geo.simplewin.cn',
+          'https://simplewin.cn',
+          'https://www.simplewin.cn',
+        ]
       }
       return []
     })(),
@@ -358,6 +362,33 @@ const config = {
       return (process.env.NODE_ENV || 'development') === 'production'
     })(),
     windowHours: Number(process.env.CASE_NOTIFY_WINDOW_HOURS || 48),
+  },
+  /** 卷十六 · 公开 GEO 体检 */
+  geoCheck: {
+    dailyLimitPerIp: Number(process.env.GEO_CHECK_DAILY_LIMIT || 8),
+    baiduSearchUrl: envStr(
+      'GEO_CHECK_BAIDU_SEARCH_URL',
+      'https://qianfan.baidubce.com/v2/ai_search/web_search',
+    ),
+    baiduApiKey:
+      envStr('GEO_CHECK_BAIDU_API_KEY') ||
+      envStr('QIANFAN_API_KEY') ||
+      envStr('GEO_PROBE_WENXIN_API_KEY'),
+    amapKey: envStr('GEO_CHECK_AMAP_KEY') || envStr('AMAP_WEB_KEY') || envStr('AMAP_KEY'),
+    visionApiKey:
+      envStr('GEO_CHECK_VISION_API_KEY') ||
+      envStr('GEO_VISION_API_KEY') ||
+      envStr('DASHSCOPE_API_KEY') ||
+      envStr('GEO_LLM_API_KEY') ||
+      envStr('GEO_PROBE_API_KEY') ||
+      envStr('INSP_LLM_API_KEY'),
+    visionApiUrl: envStr(
+      'GEO_CHECK_VISION_API_URL',
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    ),
+    visionModel: envStr('GEO_CHECK_VISION_MODEL', 'qwen-vl-plus'),
+    maxScreenshots: Number(process.env.GEO_CHECK_MAX_SCREENSHOTS || 4),
+    timeoutMs: Number(process.env.GEO_CHECK_TIMEOUT_MS || 45000),
   },
 }
 

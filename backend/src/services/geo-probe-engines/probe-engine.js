@@ -70,6 +70,8 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
       prompt,
       timeoutMs: globalOptions.timeoutMs || 120000,
       enableThinking: engineConfig.enableThinking,
+      userLocation: globalOptions.userLocation,
+      searchSource: globalOptions.searchSource,
     })
 
     const searchSnippet = (result.searchSources || [])

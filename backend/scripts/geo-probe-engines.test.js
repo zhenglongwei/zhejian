@@ -23,9 +23,10 @@ test('parseEngineIdList dedupes and lowercases', () => {
 })
 
 test('registry includes web-search engines including ark deepseek', () => {
-  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'doubao', 'deepseek', 'kimi', 'wenxin'])
+  assert.deepEqual(ALL_ENGINE_IDS, ['qwen', 'hunyuan', 'doubao', 'deepseek', 'kimi', 'wenxin'])
   assert.equal(getEngineDefinition('yuanbao'), null)
   assert.equal(isRemovedEngine('yuanbao'), true)
+  assert.equal(getEngineDefinition('hunyuan')?.webSearchMode, 'web_search_options')
   assert.equal(getEngineDefinition('qwen')?.webSearchMode, 'enable_search')
   assert.equal(getEngineDefinition('doubao')?.webSearchMode, 'responses_web_search')
   assert.equal(getEngineDefinition('deepseek')?.webSearchMode, 'responses_web_search')
@@ -67,6 +68,35 @@ test('analyzeWebSearchEvidence detects web_search_call', () => {
     'ok'
   )
   assert.equal(evidence.confirmed, true)
+  assert.equal(evidence.hasWebSearchCall, true)
+})
+
+test('collectSearchSources reads TokenHub message.search_results', () => {
+  const sources = collectSearchSources({
+    choices: [
+      {
+        message: {
+          content: '示例[1]',
+          search_results: [
+            {
+              index: 1,
+              url: 'https://mp.weixin.qq.com/s/abc',
+              name: '公众号文章',
+              snippet: '摘要',
+              site: '微信',
+            },
+          ],
+        },
+      },
+    ],
+    usage: { tool_usage: { web_search_call: 1 } },
+  })
+  assert.equal(sources.length, 1)
+  assert.equal(sources[0].url, 'https://mp.weixin.qq.com/s/abc')
+  const evidence = analyzeWebSearchEvidence(
+    { usage: { tool_usage: { web_search_call: 1 } }, choices: [{ message: { search_results: sources } }] },
+    'ok',
+  )
   assert.equal(evidence.hasWebSearchCall, true)
 })
 
