@@ -67,4 +67,42 @@ assert(Array.isArray(engines))
 assert(POLL_ENGINES.length === 6, '轮询引擎应为 6 家')
 assert.strictEqual(POLL_ENGINES[0].id, 'wenxin', '百度千帆排第一')
 
-console.log('smoke-llm-poll: 6/6 通过')
+// 7. 换题重生成：exclude 里的题不能再出现（老板 4 点优化之「换一批/换一题」）
+const { generateBusinessQuestions, fallbackQuestions } = require('../src/services/geo-check-prompts.service')
+;(async () => {
+  const base = fallbackQuestions('杭州', '汽修')
+  const excluded = base.slice(0, 2)
+  const regen = await generateBusinessQuestions({ companyName: '某修理厂', city: '杭州', industry: '汽修', exclude: excluded })
+  assert(regen.questions.length >= 4, '重生成后题量要够')
+  for (const q of regen.questions) {
+    assert(!excluded.includes(q), `被排除的题不能再出现：${q}`)
+  }
+
+  // 8. 报告精简入库：answerText 必须裁掉，snippet 保留，来源封顶 6 条
+  const { trimReportForStorage } = require('../src/services/geo-check-persist.service')
+  const fat = {
+    companyName: '盈简科技',
+    conclusion: { verdict: '测试结论' },
+    existence: { score: 50, rows: [{ engine: 'wenxin', sources: Array.from({ length: 10 }, (_, i) => ({ url: `https://a.cn/${i}`, title: 't' })) }] },
+    engineResults: [
+      {
+        id: 'wenxin',
+        label: '文心一言（千帆）',
+        answers: [
+          { question: 'q1', status: 'ok', mentioned: false, answerText: '长'.repeat(6000), answerSnippet: '短摘要', citedUrls: Array.from({ length: 9 }, (_, i) => ({ url: `https://b.cn/${i}`, title: 't' })) },
+        ],
+      },
+    ],
+  }
+  const trimmed = trimReportForStorage(fat)
+  assert.strictEqual(trimmed.conclusion.verdict, '测试结论', '结论必须保留')
+  assert.strictEqual(trimmed.engineResults[0].answers[0].answerText, undefined, 'answerText 必须裁掉')
+  assert.strictEqual(trimmed.engineResults[0].answers[0].answerSnippet, '短摘要', 'snippet 要保留')
+  assert(trimmed.engineResults[0].answers[0].citedUrls.length <= 6, '引用链接要封顶')
+  assert(trimmed.existence.rows[0].sources.length <= 6, '存在性来源要封顶')
+
+  console.log('smoke-llm-poll: 8/8 通过')
+})().catch((error) => {
+  console.error('smoke-llm-poll 失败:', error.message)
+  process.exit(1)
+})

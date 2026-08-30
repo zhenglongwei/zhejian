@@ -4,7 +4,8 @@ const { config } = require('../config')
 const { runLlmPollCheck } = require('../services/geo-check-llm-poll.service')
 const { clientIp, consumeDailyLimit } = require('../services/geo-check-rate-limit')
 const { llmPollStatus } = require('../services/geo-check-env')
-const { persistLlmPollCheck } = require('../services/geo-check-persist.service')
+const { persistLlmPollCheck, getStoredPollReport, listPollHistory } = require('../services/geo-check-persist.service')
+const { generateBusinessQuestions } = require('../services/geo-check-prompts.service')
 const { analyzeRun } = require('../services/geo-check-analyze.service')
 const { browserProbeStatus, runBrowserProbe } = require('../services/geo-browser-probe')
 const { resolveQuestions } = require('../services/geo-browser-probe/questions')
@@ -52,11 +53,60 @@ router.get('/geo-check/status', (req, res) => {
 })
 
 /**
+ * 预生成行业问题：填完企业名/城市/行业后先出 5~10 道题，
+ * 用户在页面上可以换一批、换其中一题、自己改，确认后才提交轮询。
+ * （2026-08-30 老板 4 点优化第 1 条：问题先给人看，人确认了再花钱去跑。）
+ *
+ * exclude 用在换题：换一批=把当前整批传进来；换一题=把要保留的题传进来。
+ */
+router.post('/geo-check/questions', async (req, res) => {
+  const { companyName, city, industry } = readCompanyCityIndustry(req.body)
+  const invalid = validateIdentity(res, companyName, city, industry)
+  if (invalid) return invalid
+  if (!industry) {
+    return fail(res, 40003, '请填写行业，行业问题要靠它生成', 400)
+  }
+
+  try {
+    const result = await generateBusinessQuestions({
+      companyName,
+      city,
+      industry,
+      exclude: Array.isArray(req.body?.exclude) ? req.body.exclude.slice(0, 12) : [],
+    })
+    return ok(res, {
+      questions: result.questions || [],
+      source: result.source || 'fallback',
+      note: result.note || '',
+    })
+  } catch (error) {
+    console.error('[geo-check-questions]', error)
+    return fail(res, 50002, '生成问题失败，请重试', 500)
+  }
+})
+
+/** 清洗用户在页面上确认/编辑过的题单 */
+function readConfirmedQuestions(body) {
+  if (!Array.isArray(body?.questions)) return null
+  const seen = new Set()
+  const out = []
+  for (const raw of body.questions) {
+    const q = String(raw || '').trim()
+    if (q.length < 4 || q.length > 120 || seen.has(q)) continue
+    seen.add(q)
+    out.push(q)
+    if (out.length >= 10) break
+  }
+  return out.length ? out : null
+}
+
+/**
  * 提交一次体检：大模型 API 轮询通道。
  *
- * 6 家引擎 ×（1 道企业名核对 + 4 道行业题），单轮最多 30 次接口调用，
- * 挂在 HTTP 请求上同步等会超时，所以跟浏览器巡检一样走异步任务：
- * 提交即返回 runId，前端轮询 /geo-check/run/:runId。
+ * 6 家引擎 ×（1 道企业名核对 + N 道行业题）。行业题优先用用户在页面上
+ * 确认过的题单（body.questions），没传才按 LLM_POLL_QUESTION_COUNT 自动生成。
+ * 单轮最多几十次接口调用，挂在 HTTP 请求上同步等会超时，
+ * 所以跟浏览器巡检一样走异步任务：提交即返回 runId，前端轮询 /geo-check/run/:runId。
  */
 router.post('/geo-check', async (req, res) => {
   const { companyName, city, industry } = readCompanyCityIndustry(req.body)
@@ -68,14 +118,21 @@ router.post('/geo-check', async (req, res) => {
     return fail(res, 50302, '体检通道暂未开放，请稍后再试', 503)
   }
 
+  const confirmedQuestions = readConfirmedQuestions(req.body)
+  const questionCount = confirmedQuestions ? confirmedQuestions.length : LLM_POLL_QUESTION_COUNT
+
   const quota = consumeDailyLimit(clientIp(req), config.geoCheck.dailyLimitPerIp)
   if (!quota.allowed) {
     return fail(res, 42901, '今日查询次数已用完，明天再试或换一个网络', 429, quota)
   }
 
   const runId = `poll_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-  const total = env.engines.length * (1 + LLM_POLL_QUESTION_COUNT)
-  createJob(runId, { total })
+  const total = env.engines.length * (1 + questionCount)
+  createJob(runId, {
+    total,
+    // 分引擎进度初始化：每家从 0/N 开始，避免页面上只显示跑得最快的那家
+    engines: Object.fromEntries(env.engines.map((item) => [item.id, { label: item.label, done: 0, total: 1 + questionCount }])),
+  })
 
   setImmediate(async () => {
     try {
@@ -83,9 +140,10 @@ router.post('/geo-check', async (req, res) => {
         { companyName, city, industry },
         {
           questionCount: LLM_POLL_QUESTION_COUNT,
+          questions: confirmedQuestions || undefined,
           onProgress: (evt) => {
             updateJob(runId, {
-              progress: { done: evt.done, total: evt.total, current: evt.current || '' },
+              progress: { done: evt.done, total: evt.total, current: evt.current || '', engines: evt.engines || {} },
             })
           },
         },
@@ -125,8 +183,42 @@ router.post('/geo-check', async (req, res) => {
     status: 'running',
     quota,
     engines: env.engines,
+    questionCount,
     note: '体检在后台进行，通常需要一两分钟。用 runId 轮询进度。',
   })
+})
+
+/**
+ * 回看一次已完成的轮询体检（报告在落库时已精简入库）。
+ * 页面上 ?run=xxx 直接打开历史报告，不用重跑。
+ */
+router.get('/geo-check/report/:runId', async (req, res) => {
+  const runId = String(req.params.runId || '').trim()
+  if (!runId) return fail(res, 40006, '缺少 runId', 400)
+  try {
+    const stored = await getStoredPollReport(runId)
+    if (!stored) return fail(res, 40402, '没有找到这次体检的报告（老数据可能没有留存报告体）', 404)
+    return ok(res, stored)
+  } catch (error) {
+    console.error('[geo-check-report]', error)
+    return fail(res, 50003, '读取报告失败', 500)
+  }
+})
+
+/**
+ * 某家企业的历史体检记录（新→旧，最多 20 条），给「和上次比」用。
+ */
+router.get('/geo-check/history', async (req, res) => {
+  const companyName = String(req.query.companyName || '').trim()
+  const city = String(req.query.city || '').trim()
+  if (companyName.length < 2) return fail(res, 40001, '请填写企业名称', 400)
+  try {
+    const items = await listPollHistory({ name: companyName, city }, 10)
+    return ok(res, { items })
+  } catch (error) {
+    console.error('[geo-check-history]', error)
+    return fail(res, 50004, '读取历史记录失败', 500)
+  }
 })
 
 /**

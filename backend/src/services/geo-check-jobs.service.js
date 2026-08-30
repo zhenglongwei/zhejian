@@ -19,7 +19,8 @@ function createJob(runId, payload) {
     runId,
     targetId: payload.targetId || '',
     status: 'running',
-    progress: { done: 0, total: payload.total || 0, current: '' },
+    // engines：分引擎进度（大模型轮询通道用，浏览器通道没有这个概念，留空即可）
+    progress: { done: 0, total: payload.total || 0, current: '', engines: payload.engines || {} },
     startedAt: new Date().toISOString(),
     finishedAt: '',
     error: '',

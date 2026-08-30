@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GEO 体检 · 盈简科技</title>
-  <meta name="description" content="自动巡检百度、必应等搜索引擎和各大模型网页版：真机搜店名出网页实测地基分，不带店名提问出 AI 可见性分。分数口径公开可复算，可在榜单上和其他门店对比。" />
+  <meta name="description" content="填企业名，先按行业生成体检问题，确认后程序逐家询问各大 AI 的联网接口：企业名核对出生态存在分，不带店名的行业提问出 AI 可见性分。报告留存可回看，可与历次体检对比。" />
   <link rel="canonical" href="https://simplewin.cn/check.html" />
   <link rel="stylesheet" href="/css/site.css" />
 </head>
@@ -24,30 +24,32 @@
   <div class="hero">
     <div class="wrap">
       <h1>GEO 体检</h1>
-      <p class="lead">填一次企业名，程序会拿着它去问一圈各大 AI 的联网接口。
+      <p class="lead">填一次企业名，先按行业生成一组体检问题——<strong>你可以换一批、换一题、自己改</strong>，确认后程序才拿着它们去问一圈各大 AI 的联网接口。
         <strong>第一问</strong>是「网上是否存在这家企业」——看百度、阿里、字节、腾讯各家生态里查不查得到你，出<strong>生态存在分</strong>；
-        <strong>接着几问</strong>是不带店名的行业问题——看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
-        两本账分开算，谁也不冒充谁。名字相近的其他公司一律不算数，分数口径公开可复算，<a href="/rank.html">榜单</a>上可对比其他门店。</p>
+        <strong>接着几问</strong>是你确认过的行业问题——看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
+        两本账分开算，谁也不冒充谁。报告留存在服务器上，可随时回看、和历次体检对比，<a href="/rank.html">榜单</a>上也能对比其他门店。</p>
     </div>
   </div>
 
   <main class="wrap">
     <form class="card" id="form">
-      <p class="step-kicker">提交一次，两条通道一起测</p>
+      <p class="step-kicker">第一步 · 填企业信息，生成体检问题</p>
       <label for="companyName">企业名称</label>
       <input id="companyName" name="companyName" type="text" required maxlength="80" placeholder="例如：杭州盈简科技" />
       <label for="city">城市（建议填）</label>
       <input id="city" name="city" type="text" maxlength="40" placeholder="例如：杭州" />
       <label for="industry">行业</label>
       <input id="industry" name="industry" type="text" required maxlength="40" placeholder="例如：GEO优化、汽修、餐饮" />
-      <p class="muted">行业只用来生成业务问题（不带店名那一类），不会拿去搜索。
-      提交后程序逐家询问各大 AI 的联网接口，通常一两分钟出结果，每天免费次数有限。</p>
+      <p class="muted">行业只用来生成体检问题（不带店名那一类），不会拿去搜索。
+      问题生成后先给你过目——可以改、可以换，确认后才逐家询问各大 AI 的联网接口，通常一两分钟出结果，每天免费次数有限。</p>
       <p style="margin-bottom:0">
-        <button class="btn" type="submit" id="submitBtn">开始检查</button>
+        <button class="btn" type="submit" id="submitBtn">生成体检问题</button>
       </p>
     </form>
 
     <div id="status" hidden></div>
+    <div id="progress" hidden></div>
+    <div id="questions" hidden></div>
     <div id="result" hidden></div>
 
     <p class="muted" style="text-align:center;margin-top:32px">报告汇总的是各家 AI 联网接口的回答，是一次近似评估；抓失败的问题不计入结论，没测到的项目一律如实标注。</p>

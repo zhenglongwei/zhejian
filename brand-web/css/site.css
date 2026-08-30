@@ -196,6 +196,24 @@ footer.site a:hover { color: var(--brand); }
   font-size: 15px;
 }
 .btn-copy, .btn-competitor { flex-shrink: 0; padding: 6px 14px; font-size: 13px; }
+/* 体检页 · 题单编辑器（2026-08-30 老板 4 点优化：问题先确认再轮询） */
+.question-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--soft);
+}
+.question-item input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.question-item .btn-ghost { flex-shrink: 0; padding: 6px 12px; font-size: 13px; }
+@media (max-width: 640px) {
+  .question-item { flex-wrap: wrap; }
+  .question-item input[type='text'] { flex-basis: 100%; }
+}
 .check-list { padding-left: 1.2em; }
 .shot-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 

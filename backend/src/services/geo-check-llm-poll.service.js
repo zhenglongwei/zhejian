@@ -117,7 +117,7 @@ async function pollOneEngine(engine, input, variants, industryQuestions, onProgr
     enabled: true,
     timeoutMs,
   })
-  if (onProgress) onProgress({ engine: engine.id, kind: 'existence', status: existenceProbe.status })
+  if (onProgress) onProgress({ engine: engine.id, engineDone: 1, kind: 'existence', status: existenceProbe.status })
   if (existenceProbe.status === 'ok') {
     result.existence = { status: 'ok', ...judgeExistence(existenceProbe, input.companyName, input.city) }
   } else {
@@ -137,7 +137,7 @@ async function pollOneEngine(engine, input, variants, industryQuestions, onProgr
       enabled: true,
       timeoutMs,
     })
-    if (onProgress) onProgress({ engine: engine.id, kind: 'industry', status: probe.status, question })
+    if (onProgress) onProgress({ engine: engine.id, engineDone: 1 + (result.answers.length + 1), kind: 'industry', status: probe.status, question })
     if (probe.status !== 'ok') {
       result.answers.push({
         question,
@@ -178,7 +178,12 @@ function clamp100(value) {
  * @param {object} input { companyName, city, industry }
  * @param {object} [options]
  * @param {number} [options.questionCount] 每个引擎问几道行业题，默认 4
- * @param {function} [options.onProgress] 每完成一问回调一次，用于任务进度
+ * @param {string[]} [options.questions] 用户在页面上确认过的行业题单。
+ *        传了就用这份（不再自动生成），没传才按 questionCount 自动生成。
+ * @param {function} [options.onProgress] 每完成一问回调一次。
+ *        回调里带分引擎进度 engines：{ 引擎id: { label, done, total } }——
+ *        6 家引擎是并行跑的，只报一个 current 会一直显示跑得最快的那家（豆包），
+ *        分引擎报进度，前端才能如实画出每家跑到第几题。
  */
 async function runLlmPollCheck(input, options = {}) {
   const companyName = String(input.companyName || '').trim()
@@ -192,19 +197,44 @@ async function runLlmPollCheck(input, options = {}) {
     throw error
   }
 
-  const questionCount = Math.max(1, Math.min(Number(options.questionCount) || DEFAULT_QUESTION_COUNT, 6))
-  const prompts = await generateBusinessQuestions({ companyName, city, industry })
-  const industryQuestions = (prompts.questions || []).slice(0, questionCount)
+  let industryQuestions
+  if (Array.isArray(options.questions) && options.questions.length) {
+    // 用户确认过的题单：只做最基本的清洗，信任用户在页面上的编辑结果
+    industryQuestions = options.questions
+      .map((item) => String(item || '').trim())
+      .filter((item) => item.length >= 4 && item.length <= 120)
+      .slice(0, 10)
+  } else {
+    const questionCount = Math.max(1, Math.min(Number(options.questionCount) || DEFAULT_QUESTION_COUNT, 6))
+    const prompts = await generateBusinessQuestions({ companyName, city, industry })
+    industryQuestions = (prompts.questions || []).slice(0, questionCount)
+  }
 
   const variants = nameVariants(companyName, city)
   const done = { count: 0 }
   const total = engines.length * (1 + industryQuestions.length)
 
+  // 分引擎进度：每家各跑各的，进度也各报各的
+  const engineProgress = {}
+  for (const engine of engines) {
+    engineProgress[engine.id] = { label: engine.label, done: 0, total: 1 + industryQuestions.length }
+  }
+
   const engineResults = await Promise.all(
     engines.map((engine) =>
-      pollOneEngine(engine, { companyName, city }, variants, industryQuestions, () => {
+      pollOneEngine(engine, { companyName, city }, variants, industryQuestions, (evt) => {
         done.count += 1
-        if (options.onProgress) options.onProgress({ done: done.count, total, current: engine.label })
+        if (engineProgress[engine.id] && evt.engineDone != null) {
+          engineProgress[engine.id].done = Math.min(evt.engineDone, engineProgress[engine.id].total)
+        }
+        if (options.onProgress) {
+          options.onProgress({
+            done: done.count,
+            total,
+            current: engine.label,
+            engines: JSON.parse(JSON.stringify(engineProgress)),
+          })
+        }
       }),
     ),
   )
@@ -253,6 +283,35 @@ async function runLlmPollCheck(input, options = {}) {
     gaps.push(`检索结果里混着名字相近的其他公司（已剔除 ${droppedTotal} 条对不上全名的来源）——企业名在网上缺少独一份的锚点`)
   }
 
+  // —— 整体结论：一句话先讲清楚，细节再往下展开（老板定的报告组织形式） ——
+  const visibilityScore = visibility ? visibility.score : null
+  const verdictParts = []
+  if (existenceScore == null) {
+    verdictParts.push('企业名核对这一路全部失败，生态存在未测出')
+  } else if (existenceScore >= 80) {
+    verdictParts.push(`${validExistence.length} 家大模型里 ${foundRows.length} 家查得到这家企业，生态基础不错`)
+  } else if (existenceScore >= 50) {
+    verdictParts.push(`${validExistence.length} 家大模型里只有 ${foundRows.length} 家查得到这家企业，生态存在明显偏科`)
+  } else {
+    verdictParts.push(`${validExistence.length} 家大模型里只有 ${foundRows.length} 家查得到这家企业，网上几乎查无此人`)
+  }
+  if (visibilityScore != null) {
+    if (mentionedCount === 0) {
+      verdictParts.push('客户不问店名时，没有一家 AI 会主动提到它——可见性是当前最大的缺口')
+    } else if (mentionedCount < validReceipts.length / 2) {
+      verdictParts.push(`客户不问店名时，${validReceipts.length} 次提问只有 ${mentionedCount} 次被 AI 提到，可见性偏弱`)
+    } else {
+      verdictParts.push(`客户不问店名时，${validReceipts.length} 次提问有 ${mentionedCount} 次被 AI 主动提到，已有一定可见性`)
+    }
+  }
+  const conclusion = {
+    existenceScore,
+    visibilityScore,
+    queriedEngines: engines.length,
+    validReceipts: validReceipts.length,
+    verdict: verdictParts.join('；') + '。',
+  }
+
   return {
     companyName,
     city,
@@ -277,6 +336,7 @@ async function runLlmPollCheck(input, options = {}) {
       : { score: null, dimensions: null, validReceipts: 0, mentionedReceipts: 0, mentionRate: 0, note: '行业提问这一路全部失败，可见性未测。' },
     industryQuestions,
     engineResults,
+    conclusion,
     gaps,
     disclaimer:
       '本报告是各家大模型联网接口的回答汇总，是一次近似评估：它不等于打开各家 App 看到的画面，也不代表全网公证。' +

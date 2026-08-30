@@ -148,6 +148,36 @@ async function ensureTarget(target) {
 }
 
 /**
+ * 把轮询体检报告裁成可入库的体积。
+ *
+ * 完整报告里每条行业题回执都带 answerText（单条最长 6000 字，30 条就是 180K），
+ * 原样塞进 configJson 会把行撑爆。答案全文在 geoCheckAnswer 表里本来就有一份，
+ * configJson 里留摘要（snippet + 结论 + 分数）就够页面回看用了。
+ */
+function trimReportForStorage(report) {
+  if (!report || typeof report !== 'object') return null
+  return {
+    ...report,
+    engineResults: (report.engineResults || []).map((engine) => ({
+      ...engine,
+      answers: (engine.answers || []).map((answer) => {
+        const { answerText, ...rest } = answer
+        return { ...rest, citedUrls: (answer.citedUrls || []).slice(0, 6) }
+      }),
+    })),
+    existence: report.existence
+      ? {
+          ...report.existence,
+          rows: (report.existence.rows || []).map((row) => ({
+            ...row,
+            sources: (row.sources || []).slice(0, 6),
+          })),
+        }
+      : report.existence,
+  }
+}
+
+/**
  * 大模型轮询体检的落库（2026-08-30 新体检架构）。
  *
  * 两类回执，平台类型必须在 configJson.platformTypes 里显式声明，
@@ -207,6 +237,8 @@ async function persistLlmPollCheck(target, report) {
         platforms: [...new Set(rows.map((item) => item.platform))],
         platformTypes,
         note: '大模型 API 轮询通道（企业名核对 + 行业提问），非网页版实测',
+        // 精简版报告入库：下次打开 ?run=xxx 直接回看，不用重跑（老板 4 点优化之「结果保存」）
+        report: trimReportForStorage(report),
       },
       questionCount: rows.length,
       answerCount: rows.filter((item) => item.status === 'ok').length,
@@ -288,4 +320,82 @@ async function persistApiCheck(target, result) {
   return { runId, targetId, channel: 'API', rows: rows.length, score }
 }
 
-module.exports = { persistApiCheck, persistLlmPollCheck, flattenApiResult, ensureTarget, API_PLATFORM_LABELS }
+/**
+ * 回看一次轮询体检：报告体 + 榜单分 + 目标信息。
+ * 报告是落库时精简过的那份（答案全文在 geoCheckAnswer 表里，回看页用摘要足够）。
+ */
+async function getStoredPollReport(runId) {
+  const run = await prisma.geoCheckRun.findUnique({
+    where: { id: String(runId || '') },
+    include: { target: { select: { name: true, city: true, industry: true } } },
+  })
+  if (!run) return null
+  const report = run.configJson?.report || null
+  if (!report) return null // 老的巡检没有报告体，回看不起来就如实说没有
+  const score = await prisma.geoCheckScore.findUnique({ where: { runId: run.id } })
+  return {
+    runId: run.id,
+    createdAt: run.createdAt,
+    finishedAt: run.finishedAt,
+    channel: run.channel,
+    target: run.target,
+    report,
+    ranking: score
+      ? {
+          runId: run.id,
+          score: score.score,
+          confidence: score.confidence,
+          dimensions: score.dimensionsJson,
+        }
+      : null,
+  }
+}
+
+/**
+ * 某家企业（名称+城市）的历史体检记录，新→旧。
+ * 给页面做「和上次比」用：只回分数和时间，不回整份报告。
+ */
+async function listPollHistory(target, limit = 10) {
+  const name = String(target?.name || '').trim()
+  const city = String(target?.city || '').trim()
+  if (!name) return []
+  const found = await prisma.geoCheckTarget.findFirst({ where: { name, city }, select: { id: true } })
+  if (!found) return []
+  // 多取一些再在内存里筛——MySQL 的 JSON path 过滤在 Prisma 里支持不全，
+  // 老巡检（没有报告体的那批）在这里被滤掉
+  const runs = (
+    await prisma.geoCheckRun.findMany({
+      where: { targetId: found.id, channel: 'API', status: 'done' },
+      orderBy: { createdAt: 'desc' },
+      take: 40,
+    })
+  )
+    .filter((run) => run.configJson && run.configJson.report)
+    .slice(0, Math.max(1, Math.min(limit, 20)))
+  if (!runs.length) return []
+  const scores = await prisma.geoCheckScore.findMany({ where: { runId: { in: runs.map((run) => run.id) } } })
+  const scoreByRun = new Map(scores.map((item) => [item.runId, item]))
+  return runs.map((run) => {
+    const report = run.configJson?.report || {}
+    const score = scoreByRun.get(run.id)
+    return {
+      runId: run.id,
+      createdAt: run.createdAt,
+      existenceScore: report.existence?.score ?? null,
+      visibilityScore: report.visibility?.score ?? null,
+      rankingScore: score ? score.score : null,
+      questionCount: run.questionCount,
+    }
+  })
+}
+
+module.exports = {
+  persistApiCheck,
+  persistLlmPollCheck,
+  flattenApiResult,
+  ensureTarget,
+  API_PLATFORM_LABELS,
+  trimReportForStorage,
+  getStoredPollReport,
+  listPollHistory,
+}

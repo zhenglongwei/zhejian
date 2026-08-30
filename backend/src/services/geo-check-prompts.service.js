@@ -42,8 +42,10 @@ function stripCompanyName(text, companyName) {
   return out.replace(/^[,，、。.\s]+|[,，、。.\s]+$/g, '')
 }
 
-function sanitizeQuestions(list, companyName, city, industry) {
-  const seen = new Set()
+function sanitizeQuestions(list, companyName, city, industry, exclude) {
+  const seen = new Set(
+    (exclude || []).map((item) => stripCompanyName(String(item || ''), companyName)).filter(Boolean),
+  )
   const out = []
   for (const raw of list || []) {
     const cleaned = stripCompanyName(String(raw || ''), companyName)
@@ -64,10 +66,19 @@ function sanitizeQuestions(list, companyName, city, industry) {
   return out.slice(0, 8)
 }
 
+/**
+ * 生成行业业务题（不带店名）。
+ *
+ * options.exclude：要避开的题。用在两个地方——
+ *   换一批：把当前整批题都传进来，重新生成的一批不能和旧的重合
+ *   换一题：把其余要保留的题传进来，新补的那一题不能和它们撞车
+ * exclude 会同时喂给大模型（让它主动避开）和清洗函数（兜底去重）。
+ */
 async function generateBusinessQuestions(options) {
   const city = String(options.city || '').trim()
   const industry = String(options.industry || '').trim()
   const companyName = String(options.companyName || '').trim()
+  const exclude = Array.isArray(options.exclude) ? options.exclude.map((item) => String(item || '').trim()).filter(Boolean) : []
   if (!industry) {
     return { status: 'skipped', reason: 'missing_industry', questions: [], note: '没有填写行业，无法生成业务题。' }
   }
@@ -75,14 +86,17 @@ async function generateBusinessQuestions(options) {
   const fallback = {
     status: 'ok',
     source: 'fallback',
-    questions: sanitizeQuestions(fallbackQuestions(city, industry), companyName, city, industry),
-    note: '按行业给出常见问法，题里不带这家企业的名字。第二步会由程序自动开浏览器，把这些题逐个提交给各平台并抓答案。',
+    questions: sanitizeQuestions(fallbackQuestions(city, industry), companyName, city, industry, exclude),
+    note: '按行业给出常见问法，题里不带这家企业的名字。确认问题后，程序会拿它们逐家询问各大 AI 的联网接口。',
   }
 
   const apiKey = config.geoCheck.visionApiKey
   if (!apiKey) return fallback
 
   try {
+    const avoidLines = exclude.length
+      ? ['以下问题已经出过了，新生成的题必须避开它们（意思相近也不行）：', ...exclude.slice(0, 12).map((item) => `- ${item}`)]
+      : []
     const result = await chatCompletion({
       apiUrl: config.geoCheck.visionApiUrl,
       apiKey,
@@ -99,18 +113,19 @@ async function generateBusinessQuestions(options) {
             '必须是真实用户口吻的业务问题，不要出现任何公司名、店名、品牌名。',
             '不要估价、全网最低、保证修好、好评返现。',
             '不要写成「请介绍某某公司」。',
+            ...avoidLines,
             '返回 JSON：{"questions":["..."]}',
           ].join('\n'),
         },
       ],
     })
     const parsed = extractJsonObject(result.text) || {}
-    const questions = sanitizeQuestions(parsed.questions, companyName, city, industry)
+    const questions = sanitizeQuestions(parsed.questions, companyName, city, industry, exclude)
     return {
       status: 'ok',
       source: 'llm',
       questions,
-      note: '按这座城市和这个行业生成，题里不带企业名。第二步会由程序自动开浏览器，把这些题逐个提交给各平台并抓答案。',
+      note: '按这座城市和这个行业生成，题里不带企业名。确认问题后，程序会拿它们逐家询问各大 AI 的联网接口。',
     }
   } catch {
     return fallback
