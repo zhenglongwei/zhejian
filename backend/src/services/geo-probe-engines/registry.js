@@ -116,7 +116,16 @@ const GEO_PROBE_ENGINE_REGISTRY = [
     defaultApiUrl: 'https://qianfan.baidubce.com/v2/chat/completions',
     defaultModel: 'ernie-4.5-turbo-32k',
     webSearchMode: 'web_search_object',
-    apiKeyEnvKeys: ['GEO_PROBE_WENXIN_API_KEY', 'QIANFAN_API_KEY', 'QIANFAN_ACCESS_KEY'],
+    // 千帆的 key 在控制台有好几种叫法，老板实际配置时用哪个名字都有可能，
+    // 别名收全一点，免得配了 key 却被判成「未配置」（2026-08-30 线上事故）
+    apiKeyEnvKeys: [
+      'GEO_PROBE_WENXIN_API_KEY',
+      'QIANFAN_API_KEY',
+      'QIANFAN_ACCESS_KEY',
+      'QIANFAN_KEY',
+      'BAIDU_QIANFAN_API_KEY',
+      'QIANFAN_APPBUILDER_KEY',
+    ],
     apiUrlEnvKey: 'GEO_PROBE_WENXIN_API_URL',
     modelEnvKey: 'GEO_PROBE_WENXIN_MODEL',
     batchLimitEnvKey: 'GEO_PROBE_WENXIN_BATCH_LIMIT',

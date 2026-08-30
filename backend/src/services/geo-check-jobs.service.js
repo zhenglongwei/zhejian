@@ -69,6 +69,10 @@ function normalizeJob(job, source) {
     score: job.score || result.score || null,
     items,
     terminatedPlatforms: result.terminatedPlatforms || [],
+    // 大模型轮询体检的报告体（2026-08-30 新架构）。浏览器巡检走 items+score，
+    // 轮询体检走 report+ranking，两条路的字段分开，谁也不挤谁。
+    report: result.report || null,
+    ranking: result.ranking || null,
   }
 }
 

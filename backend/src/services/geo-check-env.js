@@ -53,4 +53,19 @@ function geoCheckReadySummary() {
   }
 }
 
-module.exports = { getGeoCheckChannels, geoCheckReadySummary }
+/**
+ * 大模型轮询通道的环境状态（2026-08-30 新体检架构）。
+ * 只报「配没配」，不报 key 本身；没配的引擎前端整条不显示。
+ */
+function llmPollStatus() {
+  const { listConfiguredEngines, POLL_ENGINES } = require('./geo-check-llm-poll.service')
+  const configured = listConfiguredEngines()
+  return {
+    ready: configured.length > 0,
+    engines: configured.map((item) => ({ id: item.id, label: item.label, ecoLabel: item.ecoLabel })),
+    planned: POLL_ENGINES.length,
+    dailyLimit: config.geoCheck.dailyLimitPerIp,
+  }
+}
+
+module.exports = { getGeoCheckChannels, geoCheckReadySummary, llmPollStatus }

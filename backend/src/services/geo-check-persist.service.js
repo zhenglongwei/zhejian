@@ -148,6 +148,97 @@ async function ensureTarget(target) {
 }
 
 /**
+ * 大模型轮询体检的落库（2026-08-30 新体检架构）。
+ *
+ * 两类回执，平台类型必须在 configJson.platformTypes 里显式声明，
+ * 不能靠 platformTypeOf 的 id 推测——「wenxin_name」这种 id 会被默认判成 chat，
+ * 企业名核对题就会混进可见性的分母，把「被提到」刷成虚高。
+ *
+ *   企业名核对  platform = <engine>_name，声明为 search —— 算「存不存在」那一块
+ *   行业业务题  platform = <engine>，     声明为 chat   —— 算「会不会被提到」那一块
+ *
+ * @param {object} target { id?, name, city, industry, source }
+ * @param {object} report runLlmPollCheck 的返回
+ */
+async function persistLlmPollCheck(target, report) {
+  const targetId = target?.id || (await ensureTarget(target))
+  const rows = []
+  const platformTypes = {}
+
+  for (const item of report.existence?.rows || []) {
+    const platform = `${item.engine}_name`
+    platformTypes[platform] = 'search'
+    rows.push({
+      platform,
+      platformLabel: `${item.label} · 企业名核对（接口联网）`,
+      question: `企业名称检索：${target.name}${target.city ? `（${target.city}）` : ''}`,
+      status: item.status === 'ok' ? 'ok' : 'error',
+      errorMessage: item.status === 'ok' ? '' : item.note || '',
+      answerText: String(item.note || ''),
+      citedUrls: toCitedUrls(item.sources),
+      ecosystems: [item.ecosystem],
+    })
+  }
+
+  for (const engine of report.engineResults || []) {
+    platformTypes[engine.id] = 'chat'
+    for (const answer of engine.answers || []) {
+      rows.push({
+        platform: engine.id,
+        platformLabel: `${engine.label} · 行业提问（接口联网）`,
+        question: answer.question,
+        status: answer.status === 'ok' ? 'ok' : 'error',
+        errorMessage: answer.errorMessage || '',
+        answerText: answer.answerText || '',
+        citedUrls: toCitedUrls(answer.citedUrls),
+        ecosystems: [engine.ecosystem],
+      })
+    }
+  }
+
+  const runId = newId('gcr')
+  await prisma.geoCheckRun.create({
+    data: {
+      id: runId,
+      targetId,
+      channel: 'API',
+      status: 'done',
+      configJson: {
+        platforms: [...new Set(rows.map((item) => item.platform))],
+        platformTypes,
+        note: '大模型 API 轮询通道（企业名核对 + 行业提问），非网页版实测',
+      },
+      questionCount: rows.length,
+      answerCount: rows.filter((item) => item.status === 'ok').length,
+      errorCount: rows.filter((item) => item.status !== 'ok').length,
+      finishedAt: new Date(),
+    },
+  })
+
+  for (const row of rows) {
+    await prisma.geoCheckAnswer.create({
+      data: {
+        id: newId('gca'),
+        runId,
+        targetId,
+        channel: 'API',
+        platform: row.platform,
+        platformLabel: row.platformLabel,
+        question: row.question,
+        status: row.status,
+        errorMessage: row.errorMessage,
+        answerText: row.answerText,
+        citedUrlsJson: row.citedUrls,
+        ecosystemsJson: row.ecosystems,
+      },
+    })
+  }
+
+  const score = await analyzeRun(runId)
+  return { runId, targetId, channel: 'API', rows: rows.length, score }
+}
+
+/**
  * 把官网体检第一步的结果存成一次 API 通道巡检，并立即算分。
  * @param {object} target { id?, name, city, industry, source }
  * @param {object} result  runGeoCheck 的返回
@@ -197,4 +288,4 @@ async function persistApiCheck(target, result) {
   return { runId, targetId, channel: 'API', rows: rows.length, score }
 }
 
-module.exports = { persistApiCheck, flattenApiResult, ensureTarget, API_PLATFORM_LABELS }
+module.exports = { persistApiCheck, persistLlmPollCheck, flattenApiResult, ensureTarget, API_PLATFORM_LABELS }
