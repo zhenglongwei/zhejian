@@ -11,7 +11,7 @@
 <body>
   <header class="site">
     <div class="wrap">
-      <a class="brand" href="/">盈简科技</a>
+      <a class="logo" href="/">盈简科技<span>·GEO</span></a>
       <nav>
         <a href="/">公司</a>
         <a href="/zhejian.html">辙见</a>
@@ -20,14 +20,18 @@
       </nav>
     </div>
   </header>
-  <main class="wrap">
-    <h1>GEO 体检</h1>
-    <p class="lead">填一次企业名，剩下的由程序自己开浏览器去做。
-      <strong>搜索引擎这一路</strong>真机搜你的店名，看第一页到底出现什么，出<strong>网页实测地基分</strong>；
-      <strong>大模型网页版这一路</strong>用不带店名的业务问题去问，看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
-      两条通道分开算，谁也不冒充谁。全程自动采集，不截图、不手动贴题。
-      分数口径公开可复算，<a href="/rank.html">榜单</a>上可对比其他门店。</p>
 
+  <div class="hero">
+    <div class="wrap">
+      <h1>GEO 体检</h1>
+      <p class="lead">填一次企业名，剩下的由程序自己开浏览器去做。
+        <strong>搜索引擎这一路</strong>真机搜你的店名，看第一页到底出现什么，出<strong>网页实测地基分</strong>；
+        <strong>大模型网页版这一路</strong>用不带店名的业务问题去问，看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
+        两条通道分开算，谁也不冒充谁。分数口径公开可复算，<a href="/rank.html">榜单</a>上可对比其他门店。</p>
+    </div>
+  </div>
+
+  <main class="wrap">
     <form class="card" id="form">
       <p class="step-kicker">提交一次，两条通道一起测</p>
       <label for="companyName">企业名称</label>
@@ -38,17 +42,25 @@
       <input id="industry" name="industry" type="text" required maxlength="40" placeholder="例如：GEO优化、汽修、餐饮" />
       <p class="muted">行业只用来生成业务问题（不带店名那一类），不会拿去搜索。
       提交后程序自动开浏览器巡检，通常两三分钟出结果，每天免费次数有限。</p>
-      <p>
+      <p style="margin-bottom:0">
         <button class="btn" type="submit" id="submitBtn">开始检查</button>
       </p>
     </form>
 
     <div id="status" hidden></div>
     <div id="result" hidden></div>
+
+    <p class="muted" style="text-align:center;margin-top:32px">自动巡检公开页面，不能保证某家 App 里一定出现；没测到的项目一律写「未测」，不做估算。</p>
   </main>
+
   <footer class="site">
-    <div class="wrap">自动巡检公开页面，不能保证某家 App 里一定出现；没测到的项目一律写「未测」，不做估算。</div>
+    <div class="wrap">
+      <p><b>杭州盈简科技有限公司</b> · 专注汽修门店的 AI 搜索优化（GEO）服务商</p>
+      <p>官网 <a href="https://simplewin.cn/">simplewin.cn</a> · 案例站 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a> · 商务 <a href="mailto:business@simplewin.cn">business@simplewin.cn</a></p>
+      <p>© 2026 杭州盈简科技有限公司 | <a href="https://beian.miit.gov.cn/" rel="nofollow">浙ICP备2024092950号</a></p>
+    </div>
   </footer>
+
   <script src="/js/check.js"></script>
 </body>
 </html>

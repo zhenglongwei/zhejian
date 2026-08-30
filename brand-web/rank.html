@@ -21,8 +21,8 @@
 </head>
 <body>
   <header class="site">
-    <div class="wrap rank-wrap">
-      <a class="brand" href="/">盈简科技</a>
+    <div class="wrap">
+      <a class="logo" href="/">盈简科技<span>·GEO</span></a>
       <nav>
         <a href="/">公司</a>
         <a href="/zhejian.html">辙见</a>
@@ -32,13 +32,15 @@
     </div>
   </header>
 
-  <main class="wrap rank-wrap">
-    <h1>门店 AI 可见性榜单</h1>
-    <p class="lead">
-      测的是同一件事的两面：<strong>车主不问店名时，AI 会不会主动想到这家店</strong>。
-      所有分数由程序自动巡检得出，评分口径公开，可拿原始回执复算。
-    </p>
+  <div class="hero">
+    <div class="wrap">
+      <h1>门店 AI 可见性榜单</h1>
+      <p class="lead">测的是同一件事的两面：<strong>车主不问店名时，AI 会不会主动想到这家店</strong>。
+      所有分数由程序自动巡检得出，评分口径公开，可拿原始回执复算。</p>
+    </div>
+  </div>
 
+  <main class="wrap">
     <div id="contrast" hidden></div>
     <div id="stats" class="stat-grid" hidden></div>
 
@@ -57,7 +59,7 @@
         <option value="BROWSER">网页版实测</option>
         <option value="API">接口联网</option>
       </select>
-      <button class="btn btn-ghost" id="f-apply" type="button" style="padding:8px 14px;font-size:14px">应用</button>
+      <button class="btn btn-ghost" id="f-apply" type="button" style="padding:8px 16px;font-size:14px">应用</button>
       <span class="muted" id="f-updated"></span>
     </div>
 
@@ -66,6 +68,7 @@
     </div>
 
     <div class="card" id="method">
+      <p class="step-kicker">口径公开</p>
       <h2 style="margin-top:0">分数怎么算的</h2>
       <dl class="legend-box">
         <dt>三个分数，各测各的，不互相冒充</dt>
@@ -107,7 +110,11 @@
   </main>
 
   <footer class="site">
-    <div class="wrap rank-wrap">评分口径公开，数据可复算。榜单不售卖排名。</div>
+    <div class="wrap">
+      <p><b>杭州盈简科技有限公司</b> · 专注汽修门店的 AI 搜索优化（GEO）服务商</p>
+      <p>官网 <a href="https://simplewin.cn/">simplewin.cn</a> · 案例站 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a> · 商务 <a href="mailto:business@simplewin.cn">business@simplewin.cn</a></p>
+      <p>© 2026 杭州盈简科技有限公司 | <a href="https://beian.miit.gov.cn/" rel="nofollow">浙ICP备2024092950号</a></p>
+    </div>
   </footer>
 
   <script src="/js/rank.js"></script>
