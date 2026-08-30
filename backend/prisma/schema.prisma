@@ -943,6 +943,113 @@ model GeoPromptProbeResult {
   @@map("geo_prompt_probe_result")
 }
 
+/// GEO-OBS-C01 · 体检对象（门店 / 企业）
+/// 一个 target 对应榜单上的一行。SELF=官网主动提交；BATCH=我们公开抽样扫描。
+model GeoCheckTarget {
+  id          String   @id
+  name        String   @db.VarChar(120)
+  city        String   @default("") @db.VarChar(40)
+  industry    String   @default("") @db.VarChar(40)
+  source      String   @default("SELF") @db.VarChar(16)
+  /// 榜单是否露出。BATCH 来源未取得授权前 visible=true 但 authorized=false：只露名字与分数，不露联系方式
+  visible     Boolean  @default(true)
+  authorized  Boolean  @default(false)
+  contactJson Json     @default("{}") @map("contact_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, city])
+  @@index([source, visible])
+  @@index([industry, city])
+  @@map("geo_check_target")
+}
+
+/// GEO-OBS-C02 · 一次巡检批次
+/// channel: API=接口联网（不含浏览器）/ BROWSER=浏览器网页版实测 / MIXED=两者都有
+model GeoCheckRun {
+  id            String    @id
+  targetId      String    @map("target_id") @db.VarChar(64)
+  channel       String    @default("API") @db.VarChar(16)
+  /// pending / running / done / partial / failed / aborted
+  status        String    @default("pending") @db.VarChar(24)
+  /// 本次的平台顺序与问题列表快照，保证事后可复算
+  configJson    Json      @default("{}") @map("config_json")
+  questionCount Int       @default(0) @map("question_count")
+  answerCount   Int       @default(0) @map("answer_count")
+  errorCount    Int       @default(0) @map("error_count")
+  startedAt     DateTime  @default(now()) @map("started_at")
+  finishedAt    DateTime? @map("finished_at")
+
+  @@index([targetId, startedAt])
+  @@index([channel, status])
+  @@map("geo_check_run")
+}
+
+/// GEO-OBS-C03 · 单次提问的原始回执
+/// 关键约定：抓不到就是抓不到。mentioned 为 null 表示「未知」，
+/// 严禁把 selector_broken / timeout / captcha 当成「未被提及」计入评分。
+model GeoCheckAnswer {
+  id             String   @id
+  runId          String   @map("run_id") @db.VarChar(64)
+  targetId       String   @map("target_id") @db.VarChar(64)
+  channel        String   @default("API") @db.VarChar(16)
+  platform       String   @db.VarChar(32)
+  platformLabel  String   @default("") @map("platform_label") @db.VarChar(64)
+  question       String   @db.Text
+  /// ok / error / login_required / captcha / selector_broken / timeout / skipped / dry_run
+  status         String   @default("ok") @db.VarChar(24)
+  errorMessage   String   @default("") @map("error_message") @db.VarChar(512)
+  answerText     String   @default("") @map("answer_text") @db.Text
+  /// true=提到 / false=没提到 / null=不知道（禁止当 false 用）
+  mentioned      Boolean?
+  /// 首次被提到的字符位次，-1 表示未出现
+  mentionOffset  Int      @default(-1) @map("mention_offset")
+  /// positive / neutral / negative / unknown
+  sentiment      String   @default("unknown") @db.VarChar(16)
+  citedUrlsJson  Json     @default("[]") @map("cited_urls_json")
+  /// alibaba / tencent / bytedance / baidu / other
+  ecosystemsJson Json     @default("[]") @map("ecosystems_json")
+  /// 浏览器通道留证截图（相对路径）
+  screenshotPath String   @default("") @map("screenshot_path") @db.VarChar(255)
+  probedAt       DateTime @default(now()) @map("probed_at")
+
+  @@index([runId])
+  @@index([targetId, platform, probedAt])
+  @@index([channel, status])
+  @@map("geo_check_answer")
+}
+
+/// GEO-OBS-C04 · 评分快照（每次巡检算一次，可复算、可审计）
+model GeoCheckScore {
+  id               String   @id
+  runId            String   @unique @map("run_id") @db.VarChar(64)
+  targetId         String   @map("target_id") @db.VarChar(64)
+  channel          String   @default("API") @db.VarChar(16)
+  /// 总分 0-100
+  score            Int      @default(0)
+  /// 五维明细 { mention, position, accuracy, foundation, asset }，每项含 raw/max/note
+  dimensionsJson   Json     @default("{}") @map("dimensions_json")
+  /// AI 收录覆盖率 0-100：大模型平台的有效回执里，被主动提及过的比例
+  coverageRate     Int      @default(0) @map("coverage_rate")
+  /// 可见性分 0-100：大模型平台（问不带店名的业务题）测出「AI 会不会主动想到你」。null=本轮未测
+  visibilityScore  Int?     @map("visibility_score")
+  /// 地基承接分 0-100：搜索引擎（问带店名的查询）测出「被搜到时呈现什么样」。null=本轮未测
+  foundationScore  Int?     @map("foundation_score")
+  /// both / visibility / foundation / none：本轮实际测到了哪一块
+  measuredScope    String   @default("none") @map("measured_scope") @db.VarChar(16)
+  /// 命中的生态列表
+  ecosystemsJson   Json     @default("[]") @map("ecosystems_json")
+  /// 有效回执平台数 / 计划平台数；置信度不足时榜单须标注「样本不足」
+  validPlatforms   Int      @default(0) @map("valid_platforms")
+  plannedPlatforms Int      @default(0) @map("planned_platforms")
+  confidence       Int      @default(0)
+  computedAt       DateTime @default(now()) @map("computed_at")
+
+  @@index([targetId, computedAt])
+  @@index([channel, score])
+  @@map("geo_check_score")
+}
+
 /// 商家 SaaS 套餐（免费 / 标准版）
 model MerchantSubscription {
   id                    String    @id

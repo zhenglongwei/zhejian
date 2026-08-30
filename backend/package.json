@@ -70,6 +70,10 @@
     "geo:probe-smoke": "node scripts/geo-probe-smoke.js",
     "geo:probe-smoke-web": "node scripts/geo-probe-smoke-web-engines.js",
     "geo:probe:cleanup-legacy": "node scripts/geo-probe-cleanup-legacy-engines.js",
+    "geo:probe:login": "node scripts/geo-probe-login.js",
+    "geo:probe:status": "node scripts/geo-probe-status.js",
+    "geo:probe:browser": "node scripts/geo-probe-browser-run.js",
+    "geo:probe:rescore": "node scripts/geo-probe-rescore.js",
     "case:geo-llm-smoke": "node scripts/case-geo-llm-smoke.js",
     "geo:citation-gap-smoke": "node scripts/geo-citation-gap-smoke.js",
     "geo:topic-scale-smoke": "node scripts/geo-topic-scale-smoke.js",
@@ -111,7 +115,8 @@
     "test:case-publish-window": "node src/services/case-publish-window.service.test.js",
     "check:release-syntax": "npm run check:js-syntax && node scripts/check-release-syntax.js",
     "h5:sitemap": "node scripts/generate-h5-sitemap.js",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "geo-check:page-smoke": "node scripts/diagnose-check-flow.js"
   },
   "engines": {
     "node": ">=20"
@@ -132,6 +137,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^2.1.1",
+    "playwright-core": "^1.62.1",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

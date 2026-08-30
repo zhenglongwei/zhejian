@@ -12,10 +12,15 @@ function dayKey() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function consumeDailyLimit(ip, limit) {
+/**
+ * @param {string} ip
+ * @param {number} limit
+ * @param {string} [scope] 同一 IP 在不同通道上分开计数，例如 'web' / 'browser'
+ */
+function consumeDailyLimit(ip, limit, scope = 'web') {
   const cap = Math.max(Number(limit) || 8, 1)
   const day = dayKey()
-  const key = `${day}:${ip}`
+  const key = `${day}:${scope}:${ip}`
   const used = Number(buckets.get(key) || 0)
   if (used >= cap) {
     return { allowed: false, used, limit: cap, remaining: 0 }

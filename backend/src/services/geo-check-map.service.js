@@ -17,6 +17,7 @@ function inferMapFromWebHits(hits, keywords, city) {
       url: hit.url,
       nameMatches: textMentionsName(`${hit.title || ''} ${hit.snippet || ''}`, keywords, city),
     }))
+  const matched = items.filter((item) => item.nameMatches)
   if (!items.length) {
     return {
       status: 'unconfigured',
@@ -30,10 +31,13 @@ function inferMapFromWebHits(hits, keywords, city) {
   return {
     status: 'ok',
     provider: 'web_fallback',
-    note: '未配置高德密钥，从网页结果里的地图/到店链接推断',
-    found: true,
-    matchedName: items.some((item) => item.nameMatches),
-    items,
+    note: matched.length
+      ? '未配置高德密钥，从网页结果里的地图/到店链接推断'
+      : '网页里有地图链接，但名称对不上所查企业',
+    found: matched.length > 0,
+    matchedName: matched.length > 0,
+    droppedUnrelated: items.length - matched.length,
+    items: matched,
   }
 }
 
@@ -69,11 +73,14 @@ async function searchAmapPlace(keywords, city, timeoutMs, webHits) {
       type: String(poi.type || ''),
       nameMatches: textMentionsName(`${poi.name || ''} ${poi.address || ''}`, keywords, city),
     }))
+    const matched = items.filter((item) => item.nameMatches)
     return {
       status: 'ok',
-      found: items.length > 0,
-      matchedName: items.some((item) => item.nameMatches),
-      items,
+      found: matched.length > 0,
+      matchedName: matched.length > 0,
+      droppedUnrelated: items.length - matched.length,
+      note: items.length && !matched.length ? '地图有点，但名称对不上所查企业' : '',
+      items: matched,
     }
   } catch (error) {
     const reason = error.name === 'AbortError' ? 'timeout' : error.message

@@ -35,15 +35,21 @@ function getGeoCheckChannels() {
 
 function geoCheckReadySummary() {
   const ch = getGeoCheckChannels()
-  const web = ch.webBaidu.configured || ch.webQwenFallback.configured
+  const web = ch.webBaidu.configured
   const map = ch.mapAmap.configured || web
-  const layer2 = ch.doubao.configured || ch.vision.configured
+  const layer2 = ch.vision.configured
   return {
     channels: ch,
     layer1Web: web,
     layer1Map: map,
-    layer2: layer2,
-    canRunPartial: web || ch.mapAmap.configured || layer2 || ch.hunyuan.configured,
+    layer2,
+    canRunPartial:
+      web ||
+      ch.mapAmap.configured ||
+      ch.webQwenFallback.configured ||
+      ch.hunyuan.configured ||
+      ch.doubao.configured ||
+      layer2,
   }
 }
 

@@ -1,5 +1,5 @@
 const { config } = require('../config')
-const { classifySearchHit, groupHitsBySource, likelyOfficialHits } = require('../utils/geo-check-classify')
+const { classifySearchHit, groupHitsBySource, likelyOfficialHits, filterHitsByCompanyName } = require('../utils/geo-check-classify')
 
 /** 官方：content 限 72 个字符，一个汉字占两个字符，超长只取前 72。 */
 function baiduQueryUnits(text) {
@@ -68,51 +68,31 @@ function finalizeHits(rawHits, query, companyName, provider, labelNote) {
     seen.add(hit.url)
     unique.push(hit)
   }
-  const sliced = unique.slice(0, 15)
+  const { matched, dropped } = filterHitsByCompanyName(unique, companyName)
+  const sliced = matched.slice(0, 15)
+  const notes = []
+  if (labelNote) notes.push(labelNote)
+  if (dropped.length) {
+    notes.push(`已按企业名精确对照，去掉 ${dropped.length} 条名称对不上的结果`)
+  }
   return {
     status: 'ok',
     provider,
-    note: labelNote || '',
+    note: notes.join('。'),
     query,
+    exactMatch: true,
+    droppedUnrelated: dropped.length,
     hits: sliced,
     groups: groupHitsBySource(sliced),
-    likelyOfficial: likelyOfficialHits(unique, companyName || query),
+    likelyOfficial: likelyOfficialHits(matched, companyName || query),
   }
-}
-
-async function searchViaQwen(query, timeoutMs, companyName) {
-  const { probeWithEngine, resolveEngineRuntimeConfig } = require('./geo-probe-engines')
-  const qwen = resolveEngineRuntimeConfig('qwen')
-  if (!qwen?.apiKey) {
-    return { status: 'unconfigured', reason: 'missing_web_search_key', query, hits: [], groups: [] }
-  }
-  const result = await probeWithEngine('qwen', `${query} 官网 地址`, {
-    dryRun: false,
-    enabled: true,
-    timeoutMs: timeoutMs || 45000,
-  })
-  if (result.status !== 'ok') {
-    return {
-      status: result.status === 'skipped' ? 'unconfigured' : 'error',
-      reason: result.reason || result.errorMessage || 'qwen_search_failed',
-      query,
-      hits: [],
-      groups: [],
-    }
-  }
-  const raw = (result.searchSources || []).map((item) => ({
-    url: item.url,
-    title: item.title || item.url,
-    snippet: item.snippet || '',
-  }))
-  return finalizeHits(raw, query, companyName, 'qwen', '无百度网页搜索密钥，改用通义联网结果（不是百度）')
 }
 
 async function searchPublicWeb(query, timeoutMs, companyName) {
   const apiKey = config.geoCheck.baiduApiKey
   const apiUrl = config.geoCheck.baiduSearchUrl
   if (!apiKey) {
-    return searchViaQwen(query, timeoutMs, companyName)
+    return { status: 'unconfigured', reason: 'missing_baidu_key', query, hits: [], groups: [], likelyOfficial: [] }
   }
 
   const content = baiduQueryUnits(query)
@@ -135,25 +115,19 @@ async function searchPublicWeb(query, timeoutMs, companyName) {
     const apiError = body.code || body.error_code || (!res.ok ? res.status : 0)
     if (apiError) {
       const reason = body.message || body.error_msg || body.error?.message || `HTTP ${res.status}`
-      const fallback = await searchViaQwen(query, timeoutMs, companyName)
-      if (fallback.status === 'ok' && fallback.hits.length) {
-        return { ...fallback, note: `百度检索失败（${reason}），改用通义联网` }
-      }
       return {
         status: 'error',
         reason,
         query: content,
         hits: [],
         groups: [],
+        likelyOfficial: [],
       }
     }
     return finalizeHits(collectRawHits(body), content, companyName, 'baidu', '百度网页搜索')
   } catch (error) {
     const reason = error.name === 'AbortError' ? 'timeout' : error.message
-    if (reason === 'timeout') {
-      return { status: 'error', reason, query: content, hits: [], groups: [] }
-    }
-    return searchViaQwen(query, timeoutMs, companyName)
+    return { status: 'error', reason, query: content, hits: [], groups: [], likelyOfficial: [] }
   } finally {
     clearTimeout(timer)
   }

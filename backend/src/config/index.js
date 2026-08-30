@@ -375,6 +375,9 @@ const config = {
       envStr('QIANFAN_API_KEY') ||
       envStr('GEO_PROBE_WENXIN_API_KEY'),
     amapKey: envStr('GEO_CHECK_AMAP_KEY') || envStr('AMAP_WEB_KEY') || envStr('AMAP_KEY'),
+    // 名字里带 vision 是历史遗留：这套 key 原本给截图识别用。截图通道撤掉之后，
+    // 它现在只服务 geo-check-prompts 生成业务题，是纯文本调用，不是视觉模型。
+    // 改名要动 .env 和 geo-check-env 的对外字段，收益不大，先留着名字、写清用途。
     visionApiKey:
       envStr('GEO_CHECK_VISION_API_KEY') ||
       envStr('GEO_VISION_API_KEY') ||
@@ -387,7 +390,6 @@ const config = {
       'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
     ),
     visionModel: envStr('GEO_CHECK_VISION_MODEL', 'qwen-vl-plus'),
-    maxScreenshots: Number(process.env.GEO_CHECK_MAX_SCREENSHOTS || 4),
     timeoutMs: Number(process.env.GEO_CHECK_TIMEOUT_MS || 45000),
   },
 }

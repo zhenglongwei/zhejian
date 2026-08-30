@@ -8,7 +8,7 @@ const {
   groupHitsBySource,
 } = require('./geo-check-classify')
 const { collectRawHits } = require('../services/geo-check-baidu-search.service')
-const { extractJsonObject } = require('../services/geo-check-screenshot.service')
+const { extractJsonObject } = require('./extract-json')
 const { consumeDailyLimit } = require('../services/geo-check-rate-limit')
 const { inferMapFromWebHits } = require('../services/geo-check-map.service')
 
@@ -25,6 +25,69 @@ test('classifyHost tags weixin before generic qq.com', () => {
 test('textMentionsName matches short company name', () => {
   assert.equal(textMentionsName('杭州盈简科技有限公司主营数字资产', '盈简科技', '杭州'), true)
   assert.equal(textMentionsName('附近推荐另一家店', '盈简科技', '杭州'), false)
+  assert.equal(textMentionsName('杭州叙简科技股份有限公司', '盈简科技', '杭州'), false)
+  assert.equal(textMentionsName('筑巢杭城盈嘉计算健康科技', '盈简科技', ''), false)
+})
+
+test('filterHitsByCompanyName drops lookalike companies', () => {
+  const { filterHitsByCompanyName } = require('./geo-check-classify')
+  const hits = [
+    classifySearchHit({ url: 'https://simplewin.cn/', title: '杭州盈简科技有限公司' }),
+    classifySearchHit({ url: 'https://example.com/xujian', title: '杭州叙简科技股份有限公司' }),
+    classifySearchHit({ url: 'https://example.com/yingjia', title: '盈嘉计算健康科技' }),
+    classifySearchHit({ url: 'https://example.com/yamei', title: '亚美公司官方网站' }),
+  ]
+  const { matched, dropped } = filterHitsByCompanyName(hits, '盈简科技')
+  assert.equal(matched.length, 1)
+  assert.equal(matched[0].host, 'simplewin.cn')
+  assert.equal(dropped.length, 3)
+})
+
+test('pickOfficialSite prefers 官网 title and skips directories', () => {
+  const { pickOfficialSite, classifySearchHit } = require('./geo-check-classify')
+  const hits = [
+    classifySearchHit({ url: 'https://aiqicha.baidu.com/s?q=1', title: '盈简科技官网' }),
+    classifySearchHit({ url: 'https://simplewin.cn/', title: '杭州盈简科技有限公司官网' }),
+    classifySearchHit({ url: 'https://old.example.com/about', title: '盈简科技介绍' }),
+  ]
+  const pick = pickOfficialSite(hits, '盈简科技')
+  assert.equal(pick.chosen.host, 'simplewin.cn')
+  assert.ok(pick.otherCandidates.length >= 1)
+})
+
+test('hitInEcosystem tags douyin and weixin', () => {
+  const { hitInEcosystem, classifySearchHit, classifyHost } = require('./geo-check-classify')
+  assert.equal(classifyHost('www.douyin.com').id, 'bytedance')
+  assert.equal(classifyHost('mp.weixin.qq.com').id, 'weixin')
+  const dy = classifySearchHit({ url: 'https://www.douyin.com/user/1', title: '盈简科技' })
+  assert.equal(hitInEcosystem(dy, 'bytedance'), true)
+  assert.equal(hitInEcosystem(dy, 'tencent'), false)
+})
+
+test('stripCompanyName removes brand from generated questions', () => {
+  const { stripCompanyName, sanitizeQuestions } = require('../services/geo-check-prompts.service')
+  assert.equal(stripCompanyName('杭州盈简科技做GEO靠谱吗', '盈简科技').includes('盈简科技'), false)
+  const questions = sanitizeQuestions(
+    ['杭州盈简科技汽车保养注意什么？', '杭州汽车保养一般要注意哪些项目？'],
+    '盈简科技',
+    '杭州',
+    '汽修',
+  )
+  assert.ok(questions.every((item) => !item.includes('盈简科技')))
+  assert.ok(questions.length >= 4)
+})
+
+test('assertPublicHttpUrl blocks localhost', () => {
+  const { assertPublicHttpUrl, isPrivateIp, robotsBlocksAll, extractJsonLdTypes } = require('../services/geo-check-official.service')
+  assert.equal(isPrivateIp('127.0.0.1'), true)
+  assert.equal(isPrivateIp('8.8.8.8'), false)
+  assert.throws(() => assertPublicHttpUrl('http://127.0.0.1/'))
+  assert.throws(() => assertPublicHttpUrl('file:///etc/passwd'))
+  assert.equal(robotsBlocksAll('User-agent: *\nDisallow: /\n'), true)
+  const types = extractJsonLdTypes(
+    '<script type="application/ld+json">{"@type":"Organization","name":"盈简"}</script>',
+  )
+  assert.ok(types.includes('Organization'))
 })
 
 test('likelyOfficialHits skips zhihu', () => {

@@ -42,6 +42,7 @@ const trackRoutes = require('./routes/track')
 const publicH5Routes = require('./routes/public-h5')
 const publicCaseRightsRoutes = require('./routes/public-case-rights')
 const publicGeoCheckRoutes = require('./routes/public-geo-check')
+const publicGeoRankingRoutes = require('./routes/public-geo-ranking')
 const { resolveCaseRedirectTarget } = require('./services/h5-case-redirect.service')
 const adminRoutes = require('./routes/admin')
 
@@ -192,6 +193,7 @@ function createApp() {
   app.use('/api/v1/public', publicH5Routes)
   app.use('/api/v1/public', publicCaseRightsRoutes)
   app.use('/api/v1/public', publicGeoCheckRoutes)
+  app.use('/api/v1/public', publicGeoRankingRoutes)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)

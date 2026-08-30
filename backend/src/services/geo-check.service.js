@@ -1,33 +1,25 @@
 const { config } = require('../config')
 const { searchBaiduWeb } = require('./geo-check-baidu-search.service')
 const { searchAmapPlace, inferMapFromWebHits } = require('./geo-check-map.service')
-const { analyzeScreenshots } = require('./geo-check-screenshot.service')
+const { inspectOfficialFromHits } = require('./geo-check-official.service')
+const { generateBusinessQuestions } = require('./geo-check-prompts.service')
 const { probeWithEngine, resolveEngineRuntimeConfig } = require('./geo-probe-engines')
-const { textMentionsName, weixinHitsFromSources, classifySearchHit } = require('../utils/geo-check-classify')
+const {
+  classifySearchHit,
+  hitMentionsCompany,
+  hitInEcosystem,
+} = require('../utils/geo-check-classify')
 
 function buildQuery(companyName, city) {
   const name = String(companyName || '').trim()
+  const quoted = `"${name}"`
   const place = String(city || '').trim()
-  return place ? `${place} ${name}` : name
+  return place ? `${place} ${quoted}` : quoted
 }
 
-function summarizePresence(web, map, hunyuan) {
-  const gaps = []
-  if (web.status === 'ok' && !web.hits.length) gaps.push('公开网页几乎搜不到同名结果')
-  if (web.status === 'ok' && web.likelyOfficial && web.likelyOfficial.length === 0) {
-    gaps.push('网页结果里看不到像官网的条目')
-  }
-  if (map.status === 'ok' && !map.found) gaps.push('地图上没搜到对应地点')
-  if (map.status === 'ok' && map.found && !map.matchedName) gaps.push('地图有点，但名称对不太上')
-  if (web.status === 'unconfigured') gaps.push('网页检索未配置密钥（百度或通义），这一项没查')
-  if (map.status === 'unconfigured') gaps.push('地图未查到（无高德密钥，网页里也没有地图链接）')
-  if (hunyuan && hunyuan.status === 'ok' && !hunyuan.weixinFound) {
-    gaps.push('腾讯混元这次联网结果里没有公众号链接，不能当成已查遍微信')
-  }
-  if (hunyuan && (hunyuan.status === 'unconfigured' || hunyuan.status === 'skipped')) {
-    gaps.push('腾讯混元联网未配置，微信园这一项没自动查')
-  }
-  return gaps
+function nameSearchPrompt(companyName) {
+  const name = String(companyName || '').trim()
+  return `请联网搜索企业「${name}」。只根据检索到的网页列出标题和能打开的链接。标题或摘要必须完整出现「${name}」，不要返回只是个别字相同的其他公司。不要评价靠不靠谱，不要编造链接。`
 }
 
 const CITY_LOCATION = {
@@ -42,113 +34,139 @@ function hunyuanUserLocation(city) {
   return CITY_LOCATION[String(city || '').trim()] || undefined
 }
 
-function viewHunyuan(probe, companyName, city) {
+function sourcesFromProbe(probe, companyName) {
+  return (probe.searchSources || [])
+    .map((item) =>
+      classifySearchHit({
+        url: item.url,
+        title: item.title || item.name,
+        snippet: item.snippet,
+      }),
+    )
+    .filter((hit) => hit.url && hitMentionsCompany(hit, companyName))
+}
+
+function viewEcosystemSearch(options) {
+  const { engine, label, ecosystemId, ecosystemLabel, probe, companyName } = options
   if (!probe || probe.status === 'skipped') {
     return {
       status: probe?.reason === 'missing_api_key' ? 'unconfigured' : probe?.status || 'unconfigured',
-      engine: 'hunyuan',
-      label: '腾讯混元联网检索（不是元宝 App，也不是微信搜一搜）',
-      weixinFound: false,
-      weixinHits: [],
+      engine,
+      label,
+      ecosystem: ecosystemId,
+      ecosystemFound: false,
+      ecosystemHits: [],
       sources: [],
       answer: '',
       reason: probe?.reason || 'missing_api_key',
+      note: '这一路没查。',
     }
   }
-  const sources = (probe.searchSources || []).map((item) =>
-    classifySearchHit({
-      url: item.url,
-      title: item.title || item.name,
-      snippet: item.snippet,
-    }),
-  )
-  const weixinHits = weixinHitsFromSources(probe.searchSources)
-  const answerText = String(probe.answer || '')
-  const weixinInAnswer = /weixin\.qq\.com|mp\.weixin/i.test(answerText)
-  const weixinFound = weixinHits.length > 0 || weixinInAnswer
-  let note = '这次没有返回可核对的来源链接。'
-  if (weixinFound) {
-    note = '来源或回答里出现了微信/公众号链接。这仍不是打开搜一搜或元宝 App 看到的画面。'
-  } else if (probe.webSearchEvidence?.confirmed || sources.length) {
-    note = '混元已联网，但这次给出的链接里没有公众号。不能据此说能搜到公众号内容。'
+  if (probe.status !== 'ok') {
+    return {
+      status: probe.status || 'error',
+      engine,
+      label,
+      ecosystem: ecosystemId,
+      ecosystemFound: false,
+      ecosystemHits: [],
+      sources: [],
+      answer: '',
+      reason: probe.reason || probe.errorMessage || '',
+      note: '这一路出错，不能当成已搜过该生态。',
+    }
+  }
+  const sources = sourcesFromProbe(probe, companyName)
+  const ecosystemHits = sources.filter((hit) => hitInEcosystem(hit, ecosystemId)).slice(0, 8)
+  const ecosystemFound = ecosystemHits.length > 0
+  let note = `这次没摸到${ecosystemLabel}链接。不能据此说账号不存在，只能说明这条检索通道没拿到。这是接口联网，不是打开 App。`
+  if (ecosystemFound) {
+    note = `来源里出现了与该企业名称对得上的${ecosystemLabel}链接。这仍不是打开 App 看到的画面。`
+  } else if (sources.length) {
+    note = `已联网且有名称对得上的网页，但没有${ecosystemLabel}链接。不能写成该生态没有号。`
   }
   return {
-    status: probe.status || 'error',
-    engine: 'hunyuan',
-    label: '腾讯混元联网检索（不是元宝 App，也不是微信搜一搜）',
-    mentioned: probe.status === 'ok' && textMentionsName(`${answerText} ${sources.map((s) => s.url).join(' ')}`, companyName, city),
-    weixinFound,
-    weixinHits: weixinHits.slice(0, 8),
+    status: 'ok',
+    engine,
+    label,
+    ecosystem: ecosystemId,
+    ecosystemFound,
+    ecosystemHits,
     sources: sources.slice(0, 8),
-    answer: answerText.slice(0, 1200),
+    answer: String(probe.answer || '').slice(0, 800),
     searchConfirmed: Boolean(probe.webSearchEvidence?.confirmed),
-    reason: probe.reason || probe.errorMessage || '',
+    reason: '',
     note,
   }
 }
 
-function summarizeMentions(probe, screenshots) {
+function collectHitsForOfficial(web, qwen, hunyuan, doubao) {
+  const list = []
+  const seen = new Set()
+  for (const hit of [].concat(web.hits || [], qwen.sources || [], hunyuan.sources || [], doubao.sources || [])) {
+    if (!hit?.url || seen.has(hit.url)) continue
+    seen.add(hit.url)
+    list.push(hit)
+  }
+  return list
+}
+
+function summarizeSearch(web, map, qwen, hunyuan, doubao, official) {
   const gaps = []
-  if (probe.status === 'ok' && !probe.mentioned) {
-    gaps.push('字节系模型联网回答里没有点名这家')
-  }
-  if (probe.status === 'skipped' || probe.status === 'unconfigured') {
-    gaps.push('豆包联网探测未跑（缺密钥），不能当成已查过 App')
-  }
-  const shot = screenshots.items && screenshots.items[0]
-  if (shot && shot.mentionedTarget === false) {
-    gaps.push('截图里没有提到这家')
-  }
-  if (shot && Array.isArray(shot.competitors) && shot.competitors.length) {
-    gaps.push(`截图里出现了其他名字：${shot.competitors.slice(0, 3).join('、')}`)
-  }
-  if (screenshots.status === 'skipped') {
-    gaps.push('没有上传截图；微信公众号/视频号/搜一搜等封闭入口只能靠截图补')
+  if (web.status === 'ok' && !web.hits.length) gaps.push('百度几乎搜不到同名结果')
+  if (web.status === 'unconfigured') gaps.push('百度网页检索未配置，这一项没查')
+  if (web.status === 'error') gaps.push('百度网页检索出错，这一项没查成')
+  if (map.status === 'ok' && !map.found) gaps.push('地图上没搜到对应地点')
+  if (map.status === 'ok' && map.found && !map.matchedName) gaps.push('地图有点，但名称对不太上')
+  if (qwen.status === 'ok' && !qwen.ecosystemFound) gaps.push('通义这次没摸到阿里系站点链接')
+  if (hunyuan.status === 'ok' && !hunyuan.ecosystemFound) gaps.push('混元这次没摸到腾讯系站点链接')
+  if (doubao.status === 'ok' && !doubao.ecosystemFound) gaps.push('豆包这次没摸到字节系站点链接')
+  if (official.status === 'skipped' && official.reason === 'not_found') gaps.push('没有认定出官网，未做结构化抽查')
+  if (official.status === 'ok' && official.audit && official.audit.gaps && official.audit.gaps.length) {
+    gaps.push(`官网抽查缺口：${official.audit.gaps.slice(0, 3).join('、')}`)
   }
   return gaps
 }
 
-function overallTone(presenceGaps, mentionGaps, web, probe) {
-  const autoFailed = [web, probe].every((part) => part.status === 'unconfigured' || part.status === 'skipped')
-  if (autoFailed) return 'unknown'
-  if (presenceGaps.length >= 2 || mentionGaps.length >= 2) return 'weak'
-  if (presenceGaps.length || mentionGaps.length) return 'mixed'
+function overallTone(gaps, web) {
+  const nothing = web.status === 'unconfigured' || web.status === 'error'
+  if (nothing && gaps.length >= 4) return 'unknown'
+  if (gaps.length >= 3) return 'weak'
+  if (gaps.length) return 'mixed'
   return 'ok'
 }
 
 async function runGeoCheck(input) {
   const companyName = String(input.companyName || '').trim()
   const city = String(input.city || '').trim()
+  const industry = String(input.industry || '').trim()
   const query = buildQuery(companyName, city)
   const timeoutMs = config.geoCheck.timeoutMs
+  const qwenCfg = resolveEngineRuntimeConfig('qwen')
   const hunyuanCfg = resolveEngineRuntimeConfig('hunyuan')
   const doubaoCfg = resolveEngineRuntimeConfig('doubao')
-  const probePrompt = city
-    ? `${city}${companyName}是做什么的？靠谱吗？请说明依据和来源。`
-    : `${companyName}是做什么的？网上能查到哪些公开资料？请说明来源。`
-  const hunyuanPrompt = city
-    ? `${city}${companyName}的微信公众号、视频号有哪些公开资料？请列出能打开的原文链接。`
-    : `${companyName}的微信公众号、视频号有哪些公开资料？请列出能打开的原文链接。`
+  const prompt = nameSearchPrompt(companyName)
 
-  const [web, mapRaw, probeRaw, hunyuanRaw, screenshots] = await Promise.all([
+  const [web, mapRaw, qwenRaw, hunyuanRaw, doubaoRaw, prompts] = await Promise.all([
     searchBaiduWeb(query, timeoutMs, companyName),
     searchAmapPlace(companyName, city, Math.min(timeoutMs, 15000)),
-    probeWithEngine('doubao', probePrompt, {
+    probeWithEngine('qwen', prompt, {
       dryRun: false,
-      enabled: Boolean(doubaoCfg?.apiKey),
+      enabled: Boolean(qwenCfg?.apiKey),
       timeoutMs,
     }),
-    probeWithEngine('hunyuan', hunyuanPrompt, {
+    probeWithEngine('hunyuan', prompt, {
       dryRun: false,
       enabled: Boolean(hunyuanCfg?.apiKey),
       timeoutMs,
       userLocation: hunyuanUserLocation(city),
     }),
-    analyzeScreenshots({
-      companyName,
-      city,
-      images: input.screenshots,
+    probeWithEngine('doubao', prompt, {
+      dryRun: false,
+      enabled: Boolean(doubaoCfg?.apiKey),
+      timeoutMs,
     }),
+    generateBusinessQuestions({ companyName, city, industry }),
   ])
 
   let map = mapRaw
@@ -156,61 +174,64 @@ async function runGeoCheck(input) {
     map = inferMapFromWebHits(web.hits, companyName, city)
   }
 
-  let probe = probeRaw
-  if (!doubaoCfg?.apiKey) {
-    probe = { status: 'unconfigured', engine: 'doubao', reason: 'missing_api_key' }
-  }
-  const hunyuanProbe = hunyuanCfg?.apiKey
-    ? hunyuanRaw
-    : { status: 'unconfigured', engine: 'hunyuan', reason: 'missing_api_key' }
-  const hunyuanView = viewHunyuan(hunyuanProbe, companyName, city)
-
-  const probeText = `${probe.answer || ''} ${(probe.searchSources || []).map((item) => item.url || '').join(' ')}`
-  const probeMentioned = probe.status === 'ok' && textMentionsName(probeText, companyName, city)
-  const probeView = {
-    status: probe.status || 'error',
+  const qwen = viewEcosystemSearch({
+    engine: 'qwen',
+    label: '通义联网检索（不是通义 App）',
+    ecosystemId: 'alibaba',
+    ecosystemLabel: '阿里系',
+    probe: qwenCfg?.apiKey ? qwenRaw : { status: 'skipped', reason: 'missing_api_key' },
+    companyName,
+  })
+  const hunyuan = viewEcosystemSearch({
+    engine: 'hunyuan',
+    label: '腾讯混元联网检索（不是元宝 App，也不是微信搜一搜）',
+    ecosystemId: 'tencent',
+    ecosystemLabel: '腾讯系',
+    probe: hunyuanCfg?.apiKey ? hunyuanRaw : { status: 'skipped', reason: 'missing_api_key' },
+    companyName,
+  })
+  const doubao = viewEcosystemSearch({
     engine: 'doubao',
-    label: '字节系模型联网探测（不是豆包 App）',
-    mentioned: probeMentioned,
-    answer: String(probe.answer || '').slice(0, 1200),
-    sources: (probe.searchSources || []).slice(0, 8),
-    reason: probe.reason || probe.errorMessage || '',
-  }
+    label: '豆包联网检索（不是豆包 App）',
+    ecosystemId: 'bytedance',
+    ecosystemLabel: '字节系',
+    probe: doubaoCfg?.apiKey ? doubaoRaw : { status: 'skipped', reason: 'missing_api_key' },
+    companyName,
+  })
 
-  const presenceGaps = summarizePresence(web, map, hunyuanView)
-  const mentionGaps = summarizeMentions(probeView, screenshots)
-  const wechatNote = hunyuanView.weixinFound
-    ? '混元联网来源里出现了微信/公众号链接。这不是搜一搜或元宝 App 实测。'
-    : hunyuanView.status === 'ok'
-      ? '混元已联网，这次没有公众号链接。微信布局仍不能当成查完。'
-      : '公众号、视频号没有开放检索接口。混元未查到时只能看截图。腾讯云「元宝」不含公众号。'
+  const officialHits = collectHitsForOfficial(web, qwen, hunyuan, doubao)
+  const official = await inspectOfficialFromHits(officialHits, companyName)
+  const gaps = summarizeSearch(web, map, qwen, hunyuan, doubao, official)
 
   return {
     companyName,
     city,
+    industry,
     queriedAt: new Date().toISOString(),
-    overall: overallTone(presenceGaps, mentionGaps, web, probeView),
+    overall: overallTone(gaps, web),
+    step: 1,
     layer1: {
-      title: '信息在不在',
+      title: '接口通道 · 大模型联网后怎么说这家',
       web,
       map,
-      hunyuan: hunyuanView,
-      wechat: { status: hunyuanView.weixinFound ? 'ok' : 'manual', note: wechatNote },
-      douyinToutiao: {
-        status: 'manual',
-        note: '有没有抖音号/头条号请勾选或上传截图；自动探测不替代「有没有号」。',
-      },
-      gaps: presenceGaps,
+      qwen,
+      hunyuan,
+      doubao,
+      official,
+      gaps,
     },
-    layer2: {
-      title: '大模型有没有引用',
-      doubao: probeView,
-      screenshots,
-      gaps: mentionGaps,
+    step2: {
+      title: '浏览器自动巡检 · 真机跑一遍，看车主实际看得到什么',
+      prompts,
+      note: '程序自己开浏览器，分两路查：搜索引擎用带店名的查询，出网页实测地基分；大模型网页版用不带店名的业务问题，出 AI 可见性分。全程自动抓取，不需要截图。',
     },
     disclaimer:
-      '这是公开检索和抽样，不是全网公证，也不保证某家 App 里一定出现。接口结果不等于用户打开 App 看到的画面。',
+      '接口通道是公开检索抽样，看名字找不找得到、各生态检索摸不摸得到自家站点；浏览器通道是真机实测，看搜名字时第一页出现什么、以及车主不问店名时 AI 想不想得到你。三个分各算各的，在榜单上分开标注，谁也不顶替谁。',
   }
 }
 
-module.exports = { runGeoCheck, buildQuery }
+module.exports = {
+  runGeoCheck,
+  buildQuery,
+  nameSearchPrompt,
+}
