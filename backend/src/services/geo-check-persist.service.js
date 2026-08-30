@@ -1,0 +1,200 @@
+/**
+ * GEO-OBS-C11 · 接口联网通道的结果落库
+ *
+ * 官网体检第一步（runGeoCheck）原本只返回给前端，不留痕。
+ * 榜单要覆盖「主动体检」的门店，就必须把这一路也存下来。
+ *
+ * 这一路是接口联网，不是打开 App，更不是网页版实测。
+ * 落库时 platformLabel 里写死这句话，避免以后有人拿它当实测证据用。
+ */
+
+const { prisma } = require('../lib/prisma')
+const { newId } = require('../lib/ids')
+const { analyzeRun } = require('./geo-check-analyze.service')
+
+const API_PLATFORM_LABELS = {
+  baidu_search: '百度网页检索（接口）',
+  amap: '高德地图检索（接口）',
+  qwen: '通义联网检索（接口，不是通义 App）',
+  hunyuan: '混元联网检索（接口，不是元宝 App）',
+  doubao: '豆包联网检索（接口，不是豆包 App）',
+  official: '官网结构化抽查',
+}
+
+function toCitedUrls(hits) {
+  return (hits || [])
+    .map((item) => ({
+      url: String(item?.url || '').trim(),
+      title: String(item?.title || item?.name || '').trim(),
+    }))
+    .filter((item) => /^https?:\/\//i.test(item.url))
+    .slice(0, 10)
+}
+
+function hitsToText(hits) {
+  return (hits || [])
+    .map((item) => `${item?.title || ''} ${item?.snippet || ''}`.trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 6000)
+}
+
+/** 把 runGeoCheck 的返回拆成若干条「回执」 */
+function flattenApiResult(result) {
+  const layer1 = result?.layer1 || {}
+  const rows = []
+
+  const web = layer1.web || {}
+  if (web.status === 'ok') {
+    rows.push({
+      platform: 'baidu_search',
+      status: 'ok',
+      answerText: hitsToText(web.hits),
+      citedUrls: toCitedUrls(web.hits),
+      ecosystems: ['baidu'],
+    })
+  } else {
+    rows.push({
+      platform: 'baidu_search',
+      status: web.status === 'unconfigured' ? 'skipped' : web.status || 'error',
+      errorMessage: web.reason || '未配置或检索失败',
+      answerText: '',
+      citedUrls: [],
+      ecosystems: [],
+    })
+  }
+
+  const map = layer1.map || {}
+  if (map.status === 'ok') {
+    rows.push({
+      platform: 'amap',
+      status: 'ok',
+      answerText: [map.name, map.address, map.matchedName ? '名称对得上' : '名称对不上']
+        .filter(Boolean)
+        .join(' '),
+      citedUrls: map.url ? [{ url: map.url, title: map.name || '' }] : [],
+      ecosystems: ['alibaba'],
+    })
+  } else {
+    rows.push({
+      platform: 'amap',
+      status: map.status === 'unconfigured' ? 'skipped' : map.status || 'error',
+      errorMessage: map.reason || '未配置或未搜到',
+      answerText: '',
+      citedUrls: [],
+      ecosystems: [],
+    })
+  }
+
+  for (const key of ['qwen', 'hunyuan', 'doubao']) {
+    const view = layer1[key] || {}
+    if (view.status === 'ok') {
+      rows.push({
+        platform: key,
+        status: 'ok',
+        answerText: String(view.answer || '').slice(0, 6000),
+        citedUrls: toCitedUrls(view.sources),
+        ecosystems: key === 'qwen' ? ['alibaba'] : key === 'hunyuan' ? ['tencent'] : ['bytedance'],
+      })
+    } else {
+      rows.push({
+        platform: key,
+        status: view.status === 'unconfigured' ? 'skipped' : view.status || 'error',
+        errorMessage: view.reason || view.note || '未配置或检索失败',
+        answerText: '',
+        citedUrls: [],
+        ecosystems: [],
+      })
+    }
+  }
+
+  const official = layer1.official || {}
+  if (official.status === 'ok' && official.audit) {
+    const audit = official.audit
+    rows.push({
+      platform: 'official',
+      status: 'ok',
+      answerText: [audit.url, audit.title, audit.description, audit.h1]
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 6000),
+      citedUrls: audit.url ? [{ url: audit.url, title: audit.title || '' }] : [],
+      ecosystems: [],
+    })
+  }
+
+  return rows
+}
+
+async function ensureTarget(target) {
+  const name = String(target?.name || '').trim()
+  const city = String(target?.city || '').trim()
+  if (!name) throw new Error('target.name 不能为空')
+
+  const existing = await prisma.geoCheckTarget.findFirst({ where: { name, city }, select: { id: true } })
+  if (existing) return existing.id
+
+  const id = newId('gct')
+  await prisma.geoCheckTarget.create({
+    data: {
+      id,
+      name,
+      city,
+      industry: String(target?.industry || '').trim(),
+      source: String(target?.source || 'SELF').toUpperCase() === 'BATCH' ? 'BATCH' : 'SELF',
+    },
+  })
+  return id
+}
+
+/**
+ * 把官网体检第一步的结果存成一次 API 通道巡检，并立即算分。
+ * @param {object} target { id?, name, city, industry, source }
+ * @param {object} result  runGeoCheck 的返回
+ */
+async function persistApiCheck(target, result) {
+  const targetId = target?.id || (await ensureTarget(target))
+  const rows = flattenApiResult(result)
+  const runId = newId('gcr')
+
+  await prisma.geoCheckRun.create({
+    data: {
+      id: runId,
+      targetId,
+      channel: 'API',
+      status: 'done',
+      configJson: {
+        platforms: rows.map((item) => item.platform),
+        note: '接口联网通道，非网页版实测',
+      },
+      questionCount: rows.length,
+      answerCount: rows.filter((item) => item.status === 'ok').length,
+      errorCount: rows.filter((item) => item.status !== 'ok').length,
+      finishedAt: new Date(),
+    },
+  })
+
+  for (const row of rows) {
+    await prisma.geoCheckAnswer.create({
+      data: {
+        id: newId('gca'),
+        runId,
+        targetId,
+        channel: 'API',
+        platform: row.platform,
+        platformLabel: API_PLATFORM_LABELS[row.platform] || row.platform,
+        question: `企业名称检索：${target.name}${target.city ? `（${target.city}）` : ''}`,
+        status: row.status,
+        errorMessage: row.errorMessage || '',
+        answerText: row.answerText || '',
+        citedUrlsJson: row.citedUrls || [],
+        ecosystemsJson: row.ecosystems || [],
+      },
+    })
+  }
+
+  const score = await analyzeRun(runId)
+  return { runId, targetId, channel: 'API', rows: rows.length, score }
+}
+
+module.exports = { persistApiCheck, flattenApiResult, ensureTarget, API_PLATFORM_LABELS }

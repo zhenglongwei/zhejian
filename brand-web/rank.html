@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>门店 AI 可见性榜单 · 盈简科技</title>
+  <meta name="description" content="杭州汽修门店 AI 可见性榜单：接口联网分、网页实测地基分、AI 可见性分三面对照，看门店在 AI 问答里到底被不被提到。评分口径公开可复算。" />
+  <link rel="canonical" href="https://simplewin.cn/rank.html" />
+  <link rel="stylesheet" href="/css/site.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    "name": "门店 AI 可见性榜单",
+    "description": "汽修门店在 AI 问答中的可见性评分榜单，分接口联网分、网页实测地基分、AI 可见性分三个维度，评分口径公开可复算。",
+    "creator": { "@type": "Organization", "name": "盈简科技", "url": "https://simplewin.cn" },
+    "license": "https://simplewin.cn/rank.html#method",
+    "isAccessibleForFree": true
+  }
+  </script>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap rank-wrap">
+      <a class="brand" href="/">盈简科技</a>
+      <nav>
+        <a href="/">公司</a>
+        <a href="/zhejian.html">辙见</a>
+        <a href="/check.html">GEO 体检</a>
+        <a href="/rank.html" aria-current="page">榜单</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap rank-wrap">
+    <h1>门店 AI 可见性榜单</h1>
+    <p class="lead">
+      测的是同一件事的两面：<strong>车主不问店名时，AI 会不会主动想到这家店</strong>。
+      所有分数由程序自动巡检得出，评分口径公开，可拿原始回执复算。
+    </p>
+
+    <div id="contrast" hidden></div>
+    <div id="stats" class="stat-grid" hidden></div>
+
+    <div class="rank-filters">
+      <label for="f-city" style="margin:0">城市</label>
+      <input id="f-city" type="text" placeholder="全部" style="width:100px" />
+      <label for="f-source" style="margin:0">来源</label>
+      <select id="f-source">
+        <option value="">全部</option>
+        <option value="SELF">主动体检</option>
+        <option value="BATCH">公开抽样</option>
+      </select>
+      <label for="f-channel" style="margin:0">通道</label>
+      <select id="f-channel">
+        <option value="">全部</option>
+        <option value="BROWSER">网页版实测</option>
+        <option value="API">接口联网</option>
+      </select>
+      <button class="btn btn-ghost" id="f-apply" type="button" style="padding:8px 14px;font-size:14px">应用</button>
+      <span class="muted" id="f-updated"></span>
+    </div>
+
+    <div id="rank-box" class="card" style="padding:0;overflow-x:auto">
+      <div class="empty" style="padding:24px">正在加载榜单…</div>
+    </div>
+
+    <div class="card" id="method">
+      <h2 style="margin-top:0">分数怎么算的</h2>
+      <dl class="legend-box">
+        <dt>三个分数，各测各的，不互相冒充</dt>
+        <dd>
+          <strong>接口联网分</strong>：走大模型的联网搜索接口，拿企业名去查全网。
+          这是另一条路，既不等于网页实测地基分，也不等于 AI 可见性分。<br />
+          <strong>网页实测地基分</strong>：真的打开百度、360、必应，用带店名的查询（如「XX汽修 地址 电话」）搜一遍，
+          看搜出来的是不是这家店、排在第几条、来源都是些什么站。<br />
+          <strong>AI 可见性分</strong>：用不带店名的业务问题（如「杭州底盘异响常见原因有哪些」）去问各平台，
+          看答案里会不会主动提到这家店。这一项需要大模型网页版的登录态，没登录就显示「未测」，
+          <strong>绝不用地基分顶替</strong>。
+        </dd>
+        <dt>主排序分数怎么来的</dt>
+        <dd>跟着这一轮实际测到了什么走：可见性和地基都测到了，用综合分（可见性 60% + 地基 40%）；
+          只测到一块，就用那一块。每一行都标了用的是哪一个，点开明细可查。<br />
+          <strong>绝不因为「反正有个数」就把单块成绩标成综合分</strong>——没测的分数在自己的列里显示「未测」，不做任何估算。</dd>
+        <dt>权重</dt>
+        <dd>
+          可见性 = AI 提及率 50 + 推荐位次 30 + 信息准确度 20；<br />
+          地基（网页实测）= 命中率 30 + 首条位次 30 + 来源质量 25 + 来源广度 15。
+          来源质量按「车主会不会真去看」加权：地图和本地生活平台记满分，工商黄页只记 0.4。
+        </dd>
+        <dt>抓失败的不算数</dt>
+        <dd>超时、验证码、登录失效、页面改版导致的抓取失败，一律不计入分母。
+          没查成就是没查成，不算没提到。因此这类情况只会让置信度下降，不会让分数下降。</dd>
+        <dt>置信度</dt>
+        <dd>有效回执平台数 ÷ 计划平台数。低于 50% 的行会标注「样本不足」并排在后面。</dd>
+      </dl>
+      <p class="muted" style="margin-bottom:0">
+        巡检是抽样，不代表某家 App 里一定出现或一定不出现。接口联网通道不等于打开 App 的画面，
+        网页版实测也不等于手机 App 的画面，两条通道在榜单上分开标注。
+        榜单不售卖排名，位置只由分数决定。
+      </p>
+    </div>
+
+    <p style="text-align:center;margin:24px 0 0">
+      <a class="btn" href="/check.html">给自家门店做一次体检</a>
+    </p>
+  </main>
+
+  <footer class="site">
+    <div class="wrap rank-wrap">评分口径公开，数据可复算。榜单不售卖排名。</div>
+  </footer>
+
+  <script src="/js/rank.js"></script>
+</body>
+</html>

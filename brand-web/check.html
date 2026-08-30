@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GEO 体检 · 盈简科技</title>
-  <meta name="description" content="免费查看企业在搜索、地图中的公开信息，以及大模型联网回答里有没有被提到。可上传截图作补充。" />
+  <meta name="description" content="自动巡检百度、必应等搜索引擎和各大模型网页版：真机搜店名出网页实测地基分，不带店名提问出 AI 可见性分。分数口径公开可复算，可在榜单上和其他门店对比。" />
   <link rel="canonical" href="https://simplewin.cn/check.html" />
   <link rel="stylesheet" href="/css/site.css" />
 </head>
@@ -16,32 +16,38 @@
         <a href="/">公司</a>
         <a href="/zhejian.html">辙见</a>
         <a href="/check.html" aria-current="page">GEO 体检</a>
+        <a href="/rank.html">榜单</a>
       </nav>
     </div>
   </header>
   <main class="wrap">
     <h1>GEO 体检</h1>
-    <p class="lead">两层分开看：网上资料在不在、对不对（含百度，以及腾讯混元联网能不能摸到微信链接）；大模型 App 里有没有引用请靠截图。混元不是元宝，也不是搜一搜。</p>
+    <p class="lead">填一次企业名，剩下的由程序自己开浏览器去做。
+      <strong>搜索引擎这一路</strong>真机搜你的店名，看第一页到底出现什么，出<strong>网页实测地基分</strong>；
+      <strong>大模型网页版这一路</strong>用不带店名的业务问题去问，看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
+      两条通道分开算，谁也不冒充谁。全程自动采集，不截图、不手动贴题。
+      分数口径公开可复算，<a href="/rank.html">榜单</a>上可对比其他门店。</p>
 
     <form class="card" id="form">
+      <p class="step-kicker">提交一次，两条通道一起测</p>
       <label for="companyName">企业名称</label>
       <input id="companyName" name="companyName" type="text" required maxlength="80" placeholder="例如：杭州盈简科技" />
       <label for="city">城市（建议填）</label>
       <input id="city" name="city" type="text" maxlength="40" placeholder="例如：杭州" />
-      <label for="shots">截图（可选，最多 4 张）</label>
-      <input id="shots" type="file" accept="image/*" multiple />
-      <p class="muted" id="shotHint"></p>
+      <label for="industry">行业</label>
+      <input id="industry" name="industry" type="text" required maxlength="40" placeholder="例如：GEO优化、汽修、餐饮" />
+      <p class="muted">行业只用来生成业务问题（不带店名那一类），不会拿去搜索。
+      提交后程序自动开浏览器巡检，通常两三分钟出结果，每天免费次数有限。</p>
       <p>
         <button class="btn" type="submit" id="submitBtn">开始检查</button>
       </p>
-      <p class="muted">每日次数有限。缺密钥的检查项会标明「未查」，不会假装搜过。</p>
     </form>
 
     <div id="status" hidden></div>
     <div id="result" hidden></div>
   </main>
   <footer class="site">
-    <div class="wrap">公开检索与抽样，不能保证某家 App 里一定出现。</div>
+    <div class="wrap">自动巡检公开页面，不能保证某家 App 里一定出现；没测到的项目一律写「未测」，不做估算。</div>
   </footer>
   <script src="/js/check.js"></script>
 </body>

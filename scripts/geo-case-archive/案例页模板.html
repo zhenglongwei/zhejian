@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案例 HZ-2026-0001 · 老途观 DSG 变速箱大修｜杭州XX汽车服务</title>
+<!-- 结构化数据: 让 AI 能把这个案例当作可引用实体 (单位 = 店名+可验证事实) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": "大众途观 DSG 变速箱大修（2015款 1.8T）",
+  "provider": {
+    "@type": "AutoRepair",
+    "name": "杭州XX汽车服务有限公司",
+    "address": "杭州市拱墅区",
+    "telephone": "0571-XXXX-XXXX"
+  },
+  "serviceType": "变速箱大修",
+  "description": "2015款大众途观1.8T，行驶12.8万公里，DSG变速箱异响、低速顿挫。确诊为双离合离合器总成磨损，更换DSG离合器总成及变速箱油，工期5个工作日，费用约1.2–1.5万元，更换件质保1年/2万公里。车主微信确认维修记录。",
+  "areaServed": "杭州",
+  "datePosted": "2026-08-29"
+}
+</script>
+<style>
+  :root{
+    --bg:#FAFBFD; --card:#FFFFFF; --line:#E4E7EC; --txt:#1D2939; --sub:#667085;
+    --blue:#3538CD; --blue-bg:#EEF4FF; --green:#18794E; --green-bg:#ECFDF3;
+    --orange:#B54708; --orange-bg:#FFF8ED; --red:#B42318; --red-bg:#FEF3F2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.7;}
+  .wrap{max-width:760px; margin:0 auto; padding:36px 20px 60px;}
+
+  /* 顶栏: 门店+编号+信源 */
+  .topbar{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;}
+  .shop{font-size:15px; font-weight:700;}
+  .shop .city{color:var(--sub); font-weight:400; font-size:13px;}
+  .caseid{font-size:12px; color:var(--sub); font-family:Consolas,monospace;}
+  .tags{margin-bottom:18px;}
+  .tag{display:inline-block; font-size:11px; padding:3px 10px; border-radius:12px; margin-right:6px;}
+  .t-src{background:var(--orange-bg); color:var(--orange);}
+  .t-own{background:var(--green-bg); color:var(--green);}
+  .t-ver{background:var(--blue-bg); color:var(--blue);}
+
+  h1{font-size:22px; font-weight:700; line-height:1.45; margin-bottom:10px;}
+  .lead{font-size:14px; color:var(--sub); margin-bottom:26px;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin-bottom:18px;}
+  .card h2{font-size:13px; font-weight:700; color:var(--sub); margin-bottom:14px; display:flex; align-items:center; gap:8px;}
+  .card h2::before{content:""; width:4px; height:14px; border-radius:2px; background:var(--blue); display:inline-block;}
+
+  /* 事实卡 */
+  .facts{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .fact{background:#F9FAFB; border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .fact .k{font-size:11px; color:var(--sub);}
+  .fact .v{font-size:14px; font-weight:600; margin-top:2px;}
+  @media(max-width:560px){.facts{grid-template-columns:repeat(2,1fr);}}
+
+  /* 时间线 */
+  .timeline{position:relative; padding-left:22px;}
+  .timeline::before{content:""; position:absolute; left:6px; top:6px; bottom:6px; width:2px; background:var(--line);}
+  .tl-item{position:relative; margin-bottom:18px;}
+  .tl-item::before{content:""; position:absolute; left:-20px; top:6px; width:10px; height:10px; border-radius:50%; background:var(--blue); border:2px solid #fff; box-shadow:0 0 0 2px var(--blue);}
+  .tl-item .t{font-size:12px; color:var(--sub);}
+  .tl-item .d{font-size:14px;}
+  .tl-item .p{font-size:12px; color:var(--green);}
+
+  /* 照片墙 */
+  .photos{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .photo{aspect-ratio:4/3; border-radius:10px; border:1.5px dashed #98A2B3; background:#F9FAFB; display:flex; align-items:center; justify-content:center; text-align:center; font-size:12px; color:var(--sub); padding:8px;}
+  @media(max-width:560px){.photos{grid-template-columns:1fr;}}
+
+  /* 车主确认 */
+  .quote{background:var(--green-bg); border:1px solid #ABEFC6; border-radius:10px; padding:14px 18px; font-size:13px;}
+  .quote .who{font-size:11px; color:var(--green); font-weight:600; margin-top:6px;}
+
+  /* 门店卡 */
+  .shopcard{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;}
+  .shopcard .name{font-size:15px; font-weight:700;}
+  .shopcard .meta{font-size:12px; color:var(--sub);}
+  .btn{background:var(--blue); color:#fff; border:none; border-radius:8px; padding:8px 18px; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-block;}
+
+  /* 免责 */
+  .disclaimer{font-size:11px; color:#98A2B3; margin-top:16px; line-height:1.6;}
+  .tpl-note{background:var(--orange-bg); border:1px dashed var(--orange); color:var(--orange); font-size:12px; border-radius:8px; padding:8px 12px; margin-bottom:18px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 模板说明(发布时删除此块) -->
+  <div class="tpl-note">模板说明：深色占位符为「待填/待补」，发布前替换。删除本提示块。照片占位需替换为真实照片（症状/配件编码/完工）。</div>
+
+  <!-- 顶栏: 最小引用单元 = 店名 + 城市 + 可验证事实 -->
+  <div class="topbar">
+    <div class="shop">杭州XX汽车服务有限公司 <span class="city">· 拱墅区</span></div>
+    <div class="caseid">HZ-2026-0001</div>
+  </div>
+  <div class="tags">
+    <span class="tag t-src">商家提供</span>
+    <span class="tag t-ver">实地核验</span>
+    <span class="tag t-own">车主确认</span>
+  </div>
+
+  <!-- 标题 = 事实密度, 不是广告语 -->
+  <h1>大众途观 DSG 变速箱大修：从异响到顺滑，5 个工作日完工</h1>
+  <p class="lead">2015 款大众途观 1.8T，行驶 12.8 万公里。低速顿挫 + 起步异响，确诊为双离合离合器总成磨损，更换 DSG 离合器总成，含变速箱油与工时，费用约 1.2–1.5 万元。</p>
+
+  <!-- 事实卡: 一个案例 = 一组可核验的数字 -->
+  <div class="card">
+    <h2>维修事实</h2>
+    <div class="facts">
+      <div class="fact"><div class="k">车型</div><div class="v">途观 2015款 1.8T</div></div>
+      <div class="fact"><div class="k">症状</div><div class="v">顿挫 · 起步异响</div></div>
+      <div class="fact"><div class="k">方案</div><div class="v">更换 DSG 离合器总成</div></div>
+      <div class="fact"><div class="k">工期</div><div class="v">5 个工作日</div></div>
+      <div class="fact"><div class="k">价格区间</div><div class="v">1.2–1.5 万元</div></div>
+      <div class="fact"><div class="k">质保</div><div class="v">更换件 1 年/2 万公里</div></div>
+    </div>
+  </div>
+
+  <!-- 时间线: 把群聊对话重排成"问题→诊断→方案→结果" -->
+  <div class="card">
+    <h2>处理过程</h2>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="t">第 1 天 · 进店检查</div>
+        <div class="d">客户反馈低速 2-3 挡顿挫明显，起步有咔咔异响；试车确认，读取变速箱故障码，发现离合器位置传感器偶发异常。</div>
+      </div>
+      <div class="tl-item">
+        <div class="t">第 1 天 · 确诊报价</div>
+        <div class="d">拆检判断为双离合离合器总成磨损，向客户说明方案、工期与价格，客户微信确认同意施工。</div>
+        <div class="p">✓ 车主确认维修方案</div>
+      </div>
+      <div class="tl-item">
+        <div class="t">第 2–4 天 · 施工</div>
+        <div class="d">更换 DSG 离合器总成 + 变速箱油，扭矩按原厂标准执行；期间分阶段拍照记录，配件编码存档。</div>
+      </div>
+      <div class="tl-item">
+        <div class="t">第 5 天 · 完工交付</div>
+        <div class="d">路试 30 公里确认无异响、换挡平顺，交付客户并说明质保条款。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 照片墙: 照片是证据链的骨架 -->
+  <div class="card">
+    <h2>施工记录</h2>
+    <div class="photos">
+      <div class="photo">📷 症状照片<br><span style="font-size:11px">变速箱故障码/异响部位</span></div>
+      <div class="photo">📷 配件编码<br><span style="font-size:11px">离合器总成编号 0AM198140A</span></div>
+      <div class="photo">📷 完工照片<br><span style="font-size:11px">装车完成/交车状态</span></div>
+    </div>
+  </div>
+
+  <!-- 车主确认: 最高信源等级的锚点 -->
+  <div class="card">
+    <h2>车主确认</h2>
+    <div class="quote">
+      「这车开了七八年了，这次在店里修完明显不一样了，起步不抖了，换挡也顺。师傅全程拍照发我，价格也是提前说好的，靠谱。」
+      <div class="who">—— 车主 王先生 · 2026-08-28 微信确认</div>
+    </div>
+  </div>
+
+  <!-- 门店卡: 不截流, 页面就是联系方式 -->
+  <div class="card">
+    <div class="shopcard">
+      <div>
+        <div class="name">杭州XX汽车服务有限公司</div>
+        <div class="meta">杭州市拱墅区 · 主营变速箱/底盘专修 · 预约电话 0571-XXXX-XXXX</div>
+      </div>
+      <a class="btn" href="tel:0571XXXXXXXX">电话预约</a>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    本案例由门店委托发布，经盈简科技实地核验证据链（工单、配件编码、施工照片、车主确认），仅记录上述已发生的事实，不对门店整体服务质量作担保。车主请以到店沟通为准。案例编号 HZ-2026-0001，原始记录存档于盈简档案库，可回溯。
+  </div>
+</div>
+</body>
+</html>

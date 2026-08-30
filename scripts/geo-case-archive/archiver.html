@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>盈简 · 群聊归档解析器</title>
+<style>
+  :root{
+    --bg:#FAFBFD; --card:#FFFFFF; --line:#E4E7EC; --txt:#1D2939; --sub:#667085;
+    --blue:#3538CD; --blue-bg:#EEF4FF; --green:#18794E; --green-bg:#ECFDF3;
+    --orange:#B54708; --orange-bg:#FFF8ED; --red:#B42318; --red-bg:#FEF3F2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--txt); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.6;}
+  .wrap{max-width:1080px; margin:0 auto; padding:32px 20px 60px;}
+  header h1{font-size:22px; font-weight:700;}
+  header p{color:var(--sub); font-size:13px; margin-top:4px;}
+  .layout{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:24px;}
+  @media(max-width:860px){.layout{grid-template-columns:1fr;}}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px;}
+  .card h2{font-size:15px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;}
+  .card h2 .step{width:22px; height:22px; border-radius:50%; background:var(--blue-bg); color:var(--blue); font-size:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;}
+  textarea{width:100%; height:340px; border:1px solid var(--line); border-radius:8px; padding:12px; font-size:13px; resize:vertical; font-family:inherit; background:#fff; color:var(--txt);}
+  textarea:focus{outline:2px solid #C7D7FE; border-color:var(--blue);}
+  .btns{display:flex; gap:10px; margin-top:12px;}
+  button{border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;}
+  .btn-primary{background:var(--blue); color:#fff;}
+  .btn-primary:hover{background:#2932A6;}
+  .btn-ghost{background:#fff; color:var(--sub); border:1px solid var(--line);}
+  .btn-ghost:hover{color:var(--txt); border-color:#98A2B3;}
+  .btn-green{background:var(--green); color:#fff;}
+  .btn-green:hover{background:#116B43;}
+  .hint{font-size:12px; color:var(--sub); margin-top:10px;}
+  .stat{display:flex; gap:14px; margin:12px 0; font-size:12px; color:var(--sub); flex-wrap:wrap;}
+  .stat b{color:var(--txt);}
+  .msg{background:#F9FAFB; border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;}
+  .msg .meta{display:flex; gap:10px; font-size:11px; color:var(--sub);}
+  .msg .sender{color:var(--blue); font-weight:600;}
+  .msg .txt{white-space:pre-wrap; margin-top:2px;}
+  .msg .img{color:var(--green); font-size:11px; font-weight:600;}
+  .msg.editing input.sender-edit{font-size:12px; padding:2px 6px; border:1px solid var(--line); border-radius:4px; width:110px;}
+  .empty{color:#98A2B3; text-align:center; padding:40px 0; font-size:13px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
+  .form-grid label{font-size:12px; color:var(--sub); display:block; margin-bottom:2px;}
+  .form-grid input,.form-grid textarea{width:100%; border:1px solid var(--line); border-radius:6px; padding:6px 10px; font-size:13px; font-family:inherit;}
+  .form-grid .full{grid-column:1/-1;}
+  .tag{display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin:2px 4px 2px 0;}
+  .tag-src{background:var(--orange-bg); color:var(--orange);}
+  .tag-own{background:var(--green-bg); color:var(--green);}
+  .draft-out{background:#F9FAFB; border:1px dashed #98A2B3; border-radius:8px; padding:12px; font-size:12.5px; white-space:pre-wrap; margin-top:12px; max-height:240px; overflow:auto;}
+  .steps{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin-top:20px; font-size:13px; color:var(--sub);}
+  .steps b{color:var(--txt);}
+  .steps ol{padding-left:20px;}
+  .steps li{margin:4px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>盈简 · 群聊归档解析器 <span style="font-size:12px;color:#98A2B3;font-weight:400;">v0.1 MVP</span></h1>
+    <p>把微信群复制的聊天记录，变成结构化案例草稿。浏览器本地运行，数据不出本机。</p>
+  </header>
+
+  <div class="layout">
+    <!-- 左: 粘贴区 -->
+    <div class="card">
+      <h2><span class="step">1</span>粘贴群聊文本</h2>
+      <p class="hint" style="margin-top:0;">电脑微信选中消息 → 右键复制（或 Ctrl+C）→ 粘贴到下方。含 [图片] 占位也可以。</p>
+      <textarea id="input" placeholder="示例：
+张师傅
+客户的车是大众途观，变速箱异响
+[图片]
+张师傅
+抬起来看了，初步判断是DSG双离合问题
+李老板
+这个要修几天？大概多少钱？
+张师傅
+正常5个工作日，1.2-1.5万左右，要换离合器总成"></textarea>
+      <div class="btns">
+        <button class="btn-primary" onclick="parseAll()">解析</button>
+        <button class="btn-ghost" onclick="loadSample()">填入示例</button>
+        <button class="btn-ghost" onclick="clearAll()">清空</button>
+      </div>
+      <div class="stat" id="stat" style="display:none;"></div>
+      <div id="msgs"></div>
+    </div>
+
+    <!-- 右: 案例草稿 -->
+    <div class="card">
+      <h2><span class="step">2</span>生成案例草稿</h2>
+      <p class="hint" style="margin-top:0;">六字段 + 信源标注。解析错了可直接改上面的发言人/内容，改完点「重新生成」。</p>
+      <div class="form-grid">
+        <div><label>车型</label><input id="f_car" placeholder="如：大众途观 2015款"></div>
+        <div><label>症状</label><input id="f_symptom" placeholder="如：变速箱异响、顿挫"></div>
+        <div class="full"><label>方案</label><textarea id="f_plan" rows="2" placeholder="如：更换DSG双离合总成，含工时"></textarea></div>
+        <div><label>工期</label><input id="f_days" placeholder="如：5个工作日"></div>
+        <div><label>价格区间</label><input id="f_price" placeholder="如：1.2–1.5万"></div>
+        <div class="full"><label>照片</label><input id="f_photos" placeholder="如：症状2张 / 配件编码1张 / 完工1张"></div>
+      </div>
+      <div class="btns">
+        <button class="btn-green" onclick="genDraft()">重新生成草稿</button>
+        <button class="btn-ghost" onclick="copyDraft()">复制草稿</button>
+      </div>
+      <div id="draft"></div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <b>怎么用（三步）</b>
+    <ol>
+      <li>师傅在微信群里多选消息复制，或盈简在电脑微信里选中相关消息 → 复制，粘贴到左边。</li>
+      <li>点「解析」——工具自动分出时间/发言人/内容/图片数；识别不准的手动改一下。</li>
+      <li>右边补全六字段，点「复制草稿」，粘贴进归档表/发给门店确认。信源默认标注「商家提供」，车主在微信里回复确认后，升级为「车主确认」。</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function loadSample(){
+  $("input").value = "张师傅\n客户的车是大众途观，变速箱异响\n[图片]\n[图片]\n张师傅\n抬起来看了，初步判断是DSG双离合问题\n[图片]\n李老板\n这个要修几天？大概多少钱？\n张师傅\n正常5个工作日，1.2-1.5万左右，要换离合器总成\n李老板\n好的，麻烦尽快安排";
+  parseAll();
+}
+function clearAll(){
+  $("input").value=""; $("msgs").innerHTML=""; $("draft").innerHTML=""; $("stat").style.display="none";
+}
+
+function parseText(text){
+  const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const timeRe = /^(\d{4}[-/]\d{1,2}[-/]\d{1,2}[ T]\d{1,2}:\d{2}(:\d{2})?|\d{1,2}:\d{2}(:\d{2})?)$/;
+  const msgs = [];
+  let cur = null;
+  const push = () => { if(cur && (cur.text || cur.images)) msgs.push(cur); cur=null; };
+
+  for(const line of lines){
+    if(timeRe.test(line)){ push(); cur={time:line, sender:"", text:"", images:0}; continue; }
+    if(/^\[图片\]$|^\[照片\]$|^\[小视频\]$/.test(line)){
+      if(!cur) cur={time:"",sender:"",text:"",images:0};
+      cur.images++; continue;
+    }
+    if(/^\[表情\]$|^\[语音\]$/.test(line)){
+      if(!cur) cur={time:"",sender:"",text:"",images:0};
+      cur.text += (cur.text?"\n":"") + line; continue;
+    }
+    if(/^(以下为聊天记录|以上是今天的聊天记录|^系统消息|^红包已|^收到红包)/.test(line)) continue;
+    const m = line.match(/^([^:：\s]{1,14})[:：]\s*(.*)$/);
+    if(m){
+      if(cur && !cur.sender){ cur.sender=m[1]; cur.text += (cur.text?"\n":"") + m[2]; }
+      else { push(); cur={time:"",sender:m[1],text:m[2],images:0}; }
+      continue;
+    }
+    if(!cur) cur={time:"",sender:"",text:"",images:0};
+    if(!cur.sender && line.length<=14 && !/[。！？，,.?]/ .test(line) && !/^[0-9]/.test(line)){
+      cur.sender = line; continue;
+    }
+    cur.text += (cur.text?"\n":"") + line;
+  }
+  push();
+  return msgs;
+}
+
+let parsedMsgs = [];
+
+function parseAll(){
+  const text = $("input").value;
+  if(!text.trim()){ alert("先粘贴群聊文本"); return; }
+  parsedMsgs = parseText(text);
+  const nImg = parsedMsgs.reduce((a,m)=>a+m.images,0);
+  const nMsg = parsedMsgs.length;
+  $("stat").style.display="flex";
+  $("stat").innerHTML = `<span>消息 <b>${nMsg}</b> 条</span><span>图片 <b>${nImg}</b> 张</span><span>识别发言人 <b>${new Set(parsedMsgs.map(m=>m.sender).filter(Boolean)).size}</b> 人</span>`;
+  renderMsgs();
+  genDraft();
+}
+
+function renderMsgs(){
+  const box = $("msgs");
+  if(!parsedMsgs.length){ box.innerHTML='<div class="empty">解析结果会显示在这里</div>'; return; }
+  box.innerHTML = parsedMsgs.map((m,i)=>`
+    <div class="msg">
+      <div class="meta">
+        <span class="sender">${m.sender||"（未知发言人）"}</span>
+        <span>${m.time||"（无时间）"}</span>
+        ${m.images?`<span class="img">🖼 ×${m.images}</span>`:""}
+      </div>
+      <div class="txt">${esc(m.text)||"<span style='color:#98A2B3'>（仅图片）</span>"}</div>
+    </div>`).join("");
+}
+
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function genDraft(){
+  if(!parsedMsgs.length){ $("draft").innerHTML='<div class="empty">草稿会显示在这里</div>'; return; }
+  const nImg = parsedMsgs.reduce((a,m)=>a+m.images,0);
+  const speakers = [...new Set(parsedMsgs.map(m=>m.sender).filter(Boolean))].join("、") || "未知";
+  const fullText = parsedMsgs.map(m=>{
+    let s = "";
+    if(m.sender) s += m.sender + "：";
+    s += m.text || "（图片）";
+    if(m.images) s += ` [图片×${m.images}]`;
+    return s;
+  }).join("\n");
+  const fields = ["f_car","f_symptom","f_plan","f_days","f_price","f_photos"];
+  const vals = {};
+  fields.forEach(f=>{ vals[f] = $(f).value.trim(); });
+  const car = vals.f_car || "待补车型";
+  const sym = vals.f_symptom || "待补症状";
+  const plan = vals.f_plan || "待补方案";
+  const days = vals.f_days || "待补工期";
+  const price = vals.f_price || "待补价格区间";
+  const photos = vals.f_photos || `症状/配件/完工照片 ${nImg} 张`;
+  const draft = `【案例草稿】${car}
+━━━━━━━━━━
+■ 车型：${car}
+■ 症状：${sym}
+■ 方案：${plan}
+■ 工期：${days}
+■ 价格区间：${price}
+■ 照片：${photos}
+■ 群聊参与人：${speakers} ｜ 消息 ${parsedMsgs.length} 条
+
+■ 原始记录（可回溯）：
+${fullText}
+
+■ 信源标注：商家提供（待车主确认升级）
+■ 归档时间：${new Date().toLocaleString("zh-CN")}
+`;
+  $("draft").innerHTML = `<div class="draft-out">${esc(draft)}</div>`;
+  window._draft = draft;
+}
+
+function copyDraft(){
+  if(!window._draft){ genDraft(); }
+  navigator.clipboard.writeText(window._draft||"").then(()=>alert("草稿已复制 ✓")).catch(()=>alert("复制失败，请手动选择复制"));
+}
+</script>
+</body>
+</html>

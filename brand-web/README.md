@@ -8,7 +8,7 @@
 npx --yes serve brand-web -p 4173
 ```
 
-体检页默认请求 `http://127.0.0.1:3000/api/v1/public/geo-check`（与本机 `backend/.env` 的 PORT 一致）。若 API 在 3100：
+体检页默认请求 `http://127.0.0.1:3000/api/v1/public/geo-check`（接口通道）、`.../geo-check/browser`（浏览器通道，异步）和 `.../geo-check/run/:runId`（轮询）。若 API 在 3100：
 
 `http://127.0.0.1:4173/check.html?api=http://127.0.0.1:3100/api/v1/public/geo-check`
 

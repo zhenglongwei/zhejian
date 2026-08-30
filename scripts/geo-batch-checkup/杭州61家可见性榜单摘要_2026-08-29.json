@@ -1,0 +1,71 @@
+{
+  "generated": "2026-08-29",
+  "n": 61,
+  "avg": 20.2,
+  "max": 41,
+  "min": 0,
+  "generic_mentioned": 1,
+  "brand_indexed": 55,
+  "top10": [
+    {
+      "rank": 1,
+      "name": "杭州莱恩汽车服务有限公司",
+      "district": "拱墅区",
+      "total": 41
+    },
+    {
+      "rank": 2,
+      "name": "杭州滨欧汽车修理有限公司",
+      "district": "滨江区",
+      "total": 31
+    },
+    {
+      "rank": 3,
+      "name": "杭州奇众汽车服务有限公司",
+      "district": "拱墅区",
+      "total": 29
+    },
+    {
+      "rank": 4,
+      "name": "杭州杰杭汽车服务有限公司",
+      "district": "余杭区",
+      "total": 29
+    },
+    {
+      "rank": 5,
+      "name": "杭州凯源汽车修配有限公司",
+      "district": "拱墅区",
+      "total": 29
+    },
+    {
+      "rank": 6,
+      "name": "杭州文良速九汽车科技有限公司",
+      "district": "钱塘区",
+      "total": 29
+    },
+    {
+      "rank": 7,
+      "name": "杭州捷森汽车服务有限公司",
+      "district": "拱墅区",
+      "total": 29
+    },
+    {
+      "rank": 8,
+      "name": "杭州车修修汽车服务有限公司",
+      "district": "余杭区",
+      "total": 29
+    },
+    {
+      "rank": 9,
+      "name": "杭州叶子汽修服务有限公司",
+      "district": "余杭区",
+      "total": 29
+    },
+    {
+      "rank": 10,
+      "name": "杭州品捷汽车服务有限公司",
+      "district": "拱墅区",
+      "total": 29
+    }
+  ]
+}

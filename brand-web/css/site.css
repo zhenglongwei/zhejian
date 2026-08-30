@@ -107,6 +107,185 @@ footer.site {
 .hit { font-size: 14px; margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid var(--color-bg-muted); }
 .hit a { word-break: break-all; }
 .empty, .error-box { padding: 16px; background: var(--color-bg-muted); border-radius: var(--radius-md); }
+.step-kicker {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+.how-to { padding-left: 1.2em; color: var(--color-text-secondary); }
+.how-to-box {
+  background: var(--color-bg-muted);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin: 12px 0 16px;
+}
+.how-to-box p { margin: 0 0 8px; }
+.question-list { list-style: none; padding: 0; margin: 12px 0; }
+.question-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-bg-muted);
+  font-size: 15px;
+}
+.btn-copy, .btn-competitor { flex-shrink: 0; padding: 6px 12px; font-size: 14px; }
+.check-list { padding-left: 1.2em; }
+.shot-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+h3 { font-size: 16px; margin: 20px 0 8px; }
+
+/* ===== 榜单页 ===== */
+.rank-wrap { max-width: 960px; }
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.stat {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+}
+.stat-num { font-size: 26px; font-weight: 600; line-height: 1.2; }
+.stat-label { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+.contrast {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin: 16px 0;
+}
+.contrast-side { text-align: center; }
+.contrast-num { font-size: 40px; font-weight: 700; line-height: 1.1; }
+.contrast-label { font-size: 14px; color: var(--color-text-secondary); margin-top: 6px; }
+.contrast-arrow { font-size: 22px; color: var(--color-text-tertiary); }
+.contrast-note {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.rank-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0; }
+.rank-filters select, .rank-filters input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: #fff;
+}
+table.rank { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.rank th, table.rank td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-bg-muted);
+  vertical-align: middle;
+}
+table.rank th {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  background: var(--color-bg-muted);
+  position: sticky;
+  top: 0;
+}
+table.rank tbody tr:hover { background: var(--color-bg-muted); }
+.rank-no {
+  width: 52px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+.rank-no.top1 { color: var(--color-warning); }
+.rank-no.top2, .rank-no.top3 { color: var(--color-primary-dark); }
+.rank-score { width: 96px; }
+.score-bar {
+  position: relative;
+  height: 8px;
+  background: var(--color-bg-muted);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.score-bar > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+.score-bar.low > i { background: var(--color-danger); }
+.score-bar.mid > i { background: var(--color-warning); }
+.score-bar.high > i { background: var(--color-success); }
+.score-num { font-size: 18px; font-weight: 700; }
+.score-sub { font-size: 12px; color: var(--color-text-tertiary); }
+.eco-dots { display: flex; gap: 4px; }
+.eco-dot {
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--color-bg-muted);
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
+}
+.eco-dot.hit { background: var(--color-primary-light); color: var(--color-primary-dark); border-color: var(--color-primary); }
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  background: #fff;
+  white-space: nowrap;
+}
+.badge.self { border-color: var(--color-primary); color: var(--color-primary-dark); }
+.badge.batch { border-color: var(--color-border); }
+.badge.warn { border-color: var(--color-warning); color: var(--color-warning); }
+.badge.dim { background: var(--color-bg-muted); }
+.rank-detail td { background: var(--color-bg-muted); font-size: 13px; }
+.dim-group { margin-top: 12px; }
+.dim-group > b { font-size: 13px; color: var(--color-text-primary); }
+.dim-group .dim-grid { margin-top: 6px; }
+.dim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.dim-item { font-size: 13px; }
+.dim-item b { font-weight: 600; }
+/* 三栏对比比原来的两栏窄一些，数字才不会挤到换行 */
+.contrast { grid-template-columns: 1fr auto 1fr auto 1fr; }
+.contrast-num { font-size: 34px; }
+.rank-toggle {
+  background: none;
+  border: none;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+.legend-box { font-size: 13px; color: var(--color-text-secondary); }
+.legend-box dt { font-weight: 600; color: var(--color-text-primary); margin-top: 8px; }
+.legend-box dd { margin: 2px 0 0; }
+.mobile-hide { display: table-cell; }
+@media (max-width: 760px) {
+  .rank-wrap { padding: 0 12px; }
+  .mobile-hide { display: none; }
+  .contrast { grid-template-columns: 1fr; }
+  .contrast-arrow { display: none; }
+  table.rank th, table.rank td { padding: 8px 4px; font-size: 13px; }
+}
 @media (max-width: 640px) {
   nav a { margin-left: 10px; font-size: 13px; }
   h1 { font-size: 24px; }
