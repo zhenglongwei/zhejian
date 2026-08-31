@@ -43,6 +43,7 @@ const publicH5Routes = require('./routes/public-h5')
 const publicCaseRightsRoutes = require('./routes/public-case-rights')
 const publicGeoCheckRoutes = require('./routes/public-geo-check')
 const publicGeoRankingRoutes = require('./routes/public-geo-ranking')
+const internalWechatArchiveRoutes = require('./routes/internal-wechat-archive')
 const { resolveCaseRedirectTarget } = require('./services/h5-case-redirect.service')
 const adminRoutes = require('./routes/admin')
 
@@ -194,7 +195,18 @@ function createApp() {
   app.use('/api/v1/public', publicCaseRightsRoutes)
   app.use('/api/v1/public', publicGeoCheckRoutes)
   app.use('/api/v1/public', publicGeoRankingRoutes)
+  app.use('/api/v1/internal', internalWechatArchiveRoutes.router)
   app.use('/api/v1/admin', adminRoutes)
+
+  /**
+   * 微信群归档工具页。跟脚本目录里的 archiver.html 是同一个文件，同源托管，
+   * 这样本地打开和线上访问用的是同一份代码，也不会有跨域问题。
+   */
+  app.get('/tools/wechat-archive.html', (req, res) => {
+    return res.sendFile(
+      path.join(__dirname, '..', '..', 'scripts', 'geo-case-archive', 'archiver.html'),
+    )
+  })
 
   app.use(notFoundHandler)
   app.use(errorHandler)

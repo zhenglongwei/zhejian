@@ -363,6 +363,38 @@ const config = {
     })(),
     windowHours: Number(process.env.CASE_NOTIFY_WINDOW_HOURS || 48),
   },
+  /**
+   * 微信群归档 → 案例（内部工具，见 docs/04_维修过程相册/22）
+   * 只做两件事：把群聊理解成事实（extract）、把事实写成符合《07》的案例（compose）。
+   * 默认复用 geoLlm 的 key 与模型；没配 key 时接口返回 503，页面降级成手填。
+   */
+  wechatArchive: {
+    // 没配 token 时：开发环境放行，生产环境一律拒绝（不能让人白嫖老板的 token）
+    token: envStr('WECHAT_ARCHIVE_TOKEN'),
+    apiUrl:
+      envStr('WECHAT_ARCHIVE_API_URL') ||
+      envStr('GEO_LLM_API_URL') ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+    apiKey:
+      envStr('WECHAT_ARCHIVE_API_KEY') ||
+      envStr('GEO_LLM_API_KEY') ||
+      envStr('DASHSCOPE_API_KEY') ||
+      '',
+    model: envStr('WECHAT_ARCHIVE_MODEL') || envStr('GEO_LLM_MODEL') || 'qwen-plus',
+    /**
+     * 密钥是从哪个环境变量拿到的。页面报错时要能直接告诉老板「该配哪一项」，
+     * 而不是让他猜。只暴露变量名，不暴露值。
+     */
+    apiKeySource: [
+      'WECHAT_ARCHIVE_API_KEY',
+      'GEO_LLM_API_KEY',
+      'DASHSCOPE_API_KEY',
+    ].find((name) => Boolean(envStr(name))) || '',
+    timeoutMs: Number(envStr('WECHAT_ARCHIVE_TIMEOUT_MS') || 90000),
+    enableThinking: envBool('WECHAT_ARCHIVE_ENABLE_THINKING'),
+    /** 单次粘贴的群聊文本上限，超了直接拒——长群聊没有归档价值，还容易把 token 烧穿 */
+    maxChars: Number(envStr('WECHAT_ARCHIVE_MAX_CHARS') || 20000),
+  },
   /** 卷十六 · 公开 GEO 体检 */
   geoCheck: {
     dailyLimitPerIp: Number(process.env.GEO_CHECK_DAILY_LIMIT || 8),

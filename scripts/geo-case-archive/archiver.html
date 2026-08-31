@@ -3,237 +3,771 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>盈简 · 群聊归档解析器</title>
+<title>盈简 · 微信群归档转案例</title>
 <style>
   :root{
-    --bg:#FAFBFD; --card:#FFFFFF; --line:#E4E7EC; --txt:#1D2939; --sub:#667085;
+    --bg:#F7F8FA; --card:#FFFFFF; --line:#E4E7EC; --txt:#1D2939; --sub:#667085;
     --blue:#3538CD; --blue-bg:#EEF4FF; --green:#18794E; --green-bg:#ECFDF3;
-    --orange:#B54708; --orange-bg:#FFF8ED; --red:#B42318; --red-bg:#FEF3F2;
+    --orange:#B54708; --orange-bg:#FFFAEB; --red:#B42318; --red-bg:#FEF3F2;
+    --grey-bg:#F2F4F7;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--bg); color:var(--txt); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.6;}
-  .wrap{max-width:1080px; margin:0 auto; padding:32px 20px 60px;}
-  header h1{font-size:22px; font-weight:700;}
+  body{background:var(--bg); color:var(--txt); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; line-height:1.65;}
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 80px;}
+  header{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  header h1{font-size:21px; font-weight:700;}
   header p{color:var(--sub); font-size:13px; margin-top:4px;}
-  .layout{display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:24px;}
-  @media(max-width:860px){.layout{grid-template-columns:1fr;}}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px;}
-  .card h2{font-size:15px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;}
-  .card h2 .step{width:22px; height:22px; border-radius:50%; background:var(--blue-bg); color:var(--blue); font-size:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;}
-  textarea{width:100%; height:340px; border:1px solid var(--line); border-radius:8px; padding:12px; font-size:13px; resize:vertical; font-family:inherit; background:#fff; color:var(--txt);}
-  textarea:focus{outline:2px solid #C7D7FE; border-color:var(--blue);}
-  .btns{display:flex; gap:10px; margin-top:12px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-top:18px;}
+  .card h2{font-size:15px; font-weight:700; display:flex; align-items:center; gap:9px; margin-bottom:6px;}
+  .card h2 .step{width:22px; height:22px; border-radius:50%; background:var(--blue-bg); color:var(--blue); font-size:12px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; flex:none;}
+  .card h2 .tail{margin-left:auto; font-size:12px; font-weight:400; color:var(--sub);}
+  .sub{font-size:12.5px; color:var(--sub); margin-bottom:12px;}
+  textarea{width:100%; border:1px solid var(--line); border-radius:8px; padding:11px 13px; font-size:13px; font-family:inherit; background:#fff; color:var(--txt); resize:vertical;}
+  textarea:focus,input:focus{outline:2px solid #C7D7FE; border-color:var(--blue);}
+  input{width:100%; border:1px solid var(--line); border-radius:7px; padding:7px 10px; font-size:13px; font-family:inherit; color:var(--txt); background:#fff;}
+  label{font-size:12px; color:var(--sub); display:block; margin-bottom:3px;}
   button{border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;}
+  button:disabled{opacity:.45; cursor:not-allowed;}
   .btn-primary{background:var(--blue); color:#fff;}
-  .btn-primary:hover{background:#2932A6;}
-  .btn-ghost{background:#fff; color:var(--sub); border:1px solid var(--line);}
-  .btn-ghost:hover{color:var(--txt); border-color:#98A2B3;}
+  .btn-primary:hover:not(:disabled){background:#2932A6;}
   .btn-green{background:var(--green); color:#fff;}
-  .btn-green:hover{background:#116B43;}
-  .hint{font-size:12px; color:var(--sub); margin-top:10px;}
-  .stat{display:flex; gap:14px; margin:12px 0; font-size:12px; color:var(--sub); flex-wrap:wrap;}
-  .stat b{color:var(--txt);}
-  .msg{background:#F9FAFB; border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin-bottom:8px; font-size:13px;}
-  .msg .meta{display:flex; gap:10px; font-size:11px; color:var(--sub);}
-  .msg .sender{color:var(--blue); font-weight:600;}
-  .msg .txt{white-space:pre-wrap; margin-top:2px;}
-  .msg .img{color:var(--green); font-size:11px; font-weight:600;}
-  .msg.editing input.sender-edit{font-size:12px; padding:2px 6px; border:1px solid var(--line); border-radius:4px; width:110px;}
-  .empty{color:#98A2B3; text-align:center; padding:40px 0; font-size:13px;}
-  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;}
-  .form-grid label{font-size:12px; color:var(--sub); display:block; margin-bottom:2px;}
-  .form-grid input,.form-grid textarea{width:100%; border:1px solid var(--line); border-radius:6px; padding:6px 10px; font-size:13px; font-family:inherit;}
-  .form-grid .full{grid-column:1/-1;}
-  .tag{display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin:2px 4px 2px 0;}
-  .tag-src{background:var(--orange-bg); color:var(--orange);}
-  .tag-own{background:var(--green-bg); color:var(--green);}
-  .draft-out{background:#F9FAFB; border:1px dashed #98A2B3; border-radius:8px; padding:12px; font-size:12.5px; white-space:pre-wrap; margin-top:12px; max-height:240px; overflow:auto;}
-  .steps{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin-top:20px; font-size:13px; color:var(--sub);}
-  .steps b{color:var(--txt);}
-  .steps ol{padding-left:20px;}
-  .steps li{margin:4px 0;}
+  .btn-green:hover:not(:disabled){background:#116B43;}
+  .btn-ghost{background:#fff; color:var(--sub); border:1px solid var(--line);}
+  .btn-ghost:hover:not(:disabled){color:var(--txt); border-color:#98A2B3;}
+  .btn-sm{padding:5px 11px; font-size:12px; border-radius:6px;}
+  .btns{display:flex; gap:9px; margin-top:12px; flex-wrap:wrap; align-items:center;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+
+  .notice{border-radius:10px; padding:11px 14px; font-size:12.5px; margin-top:12px; line-height:1.7;}
+  .notice-warn{background:var(--orange-bg); color:var(--orange); border:1px solid #FEDF89;}
+  .notice-ok{background:var(--green-bg); color:var(--green); border:1px solid #ABEFC6;}
+  .notice-err{background:var(--red-bg); color:var(--red); border:1px solid #FECDCA;}
+  .notice-info{background:var(--blue-bg); color:var(--blue); border:1px solid #C7D7FE;}
+  .notice b{font-weight:700;}
+  .notice ul{margin:4px 0 0 18px;}
+
+  .chips{display:flex; gap:7px; flex-wrap:wrap; margin-top:12px;}
+  .chip{font-size:11.5px; padding:2px 9px; border-radius:20px; background:var(--grey-bg); color:var(--sub);}
+  .chip-hit{background:var(--green-bg); color:var(--green); font-weight:600;}
+
+  .msg{background:#FAFBFC; border:1px solid var(--line); border-radius:9px; padding:9px 12px; margin-bottom:8px;}
+  .msg-head{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .msg-head input.sender{width:130px; padding:3px 8px; font-size:12.5px; font-weight:600; color:var(--blue);}
+  .msg-head .time{font-size:11px; color:var(--sub);}
+  .msg-head .badge{font-size:11px; padding:1px 7px; border-radius:5px; font-weight:600;}
+  .badge-img{background:var(--green-bg); color:var(--green);}
+  .badge-voice{background:var(--orange-bg); color:var(--orange);}
+  .msg textarea.body{margin-top:6px; min-height:52px; font-size:13px; padding:7px 9px;}
+  .msg-del{margin-left:auto;}
+
+  .field-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
+  .field-grid .full{grid-column:1/-1;}
+  @media(max-width:760px){.field-grid{grid-template-columns:1fr;}}
+  .list-row{display:flex; gap:8px; align-items:flex-start; margin-bottom:7px;}
+  .list-row input,.list-row textarea{flex:1;}
+  .list-row .btn-ghost{flex:none;}
+
+  .doubt{background:var(--orange-bg); border:1px solid #FEDF89; border-radius:8px; padding:8px 12px; margin-bottom:7px; font-size:12.5px; color:var(--orange);}
+  .doubt b{color:#93370D;}
+  .timeline{border-left:2px solid var(--line); padding-left:14px; margin-left:4px;}
+  .timeline .tl{position:relative; padding:5px 0; font-size:13px;}
+  .timeline .tl::before{content:""; position:absolute; left:-20px; top:13px; width:8px; height:8px; border-radius:50%; background:var(--blue);}
+  .timeline .tl .who{font-size:11px; color:var(--sub); margin-right:6px;}
+  .timeline .tl input{display:inline-block; width:auto; min-width:220px;}
+
+  .sect{border:1px solid var(--line); border-radius:9px; padding:11px 13px; margin-bottom:9px; background:#fff;}
+  .sect .name{font-size:12.5px; font-weight:700; color:var(--blue); margin-bottom:5px;}
+  .sect textarea{min-height:66px; font-size:13px;}
+  .out{background:#FAFBFC; border:1px dashed #98A2B3; border-radius:9px; padding:13px; font-size:13px; white-space:pre-wrap; max-height:420px; overflow:auto; line-height:1.8;}
+  .empty{color:#98A2B3; text-align:center; padding:26px 0; font-size:13px;}
+  .risk{background:var(--red-bg); border:1px solid #FECDCA; color:var(--red); border-radius:8px; padding:8px 12px; font-size:12.5px; margin-bottom:7px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top;}
+  th{background:var(--grey-bg); font-weight:600; color:var(--sub);}
+  .draft-item{display:flex; gap:10px; align-items:center; border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin-bottom:7px; background:#fff;}
+  .draft-item .t{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px;}
+  .draft-item .d{font-size:11.5px; color:var(--sub);}
+  .settings{display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; background:var(--grey-bg); border-radius:10px; padding:11px 14px;}
+  .settings .f{flex:1; min-width:190px;}
+  details{margin-top:14px;}
+  summary{cursor:pointer; font-size:13px; color:var(--blue); font-weight:600;}
+  .foot{color:var(--sub); font-size:12px; margin-top:20px; line-height:1.9;}
+  .spin{display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:-2px; margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>盈简 · 群聊归档解析器 <span style="font-size:12px;color:#98A2B3;font-weight:400;">v0.1 MVP</span></h1>
-    <p>把微信群复制的聊天记录，变成结构化案例草稿。浏览器本地运行，数据不出本机。</p>
+    <div>
+      <h1>盈简 · 微信群归档转案例</h1>
+      <p>如实记录、转换微信群聊天记录，使之成为可存档的案例 · 输出对齐《07 案例生成规则》</p>
+    </div>
+    <button class="btn-ghost btn-sm" onclick="toggleSettings()">⚙ 接口设置</button>
   </header>
 
-  <div class="layout">
-    <!-- 左: 粘贴区 -->
-    <div class="card">
-      <h2><span class="step">1</span>粘贴群聊文本</h2>
-      <p class="hint" style="margin-top:0;">电脑微信选中消息 → 右键复制（或 Ctrl+C）→ 粘贴到下方。含 [图片] 占位也可以。</p>
-      <textarea id="input" placeholder="示例：
-张师傅
-客户的车是大众途观，变速箱异响
-[图片]
-张师傅
-抬起来看了，初步判断是DSG双离合问题
-李老板
-这个要修几天？大概多少钱？
-张师傅
-正常5个工作日，1.2-1.5万左右，要换离合器总成"></textarea>
-      <div class="btns">
-        <button class="btn-primary" onclick="parseAll()">解析</button>
-        <button class="btn-ghost" onclick="loadSample()">填入示例</button>
-        <button class="btn-ghost" onclick="clearAll()">清空</button>
-      </div>
-      <div class="stat" id="stat" style="display:none;"></div>
-      <div id="msgs"></div>
+  <div class="card" id="settingsCard" style="display:none;">
+    <h2><span class="step">⚙</span>接口设置</h2>
+    <p class="sub">页面由后端同源托管时留空即可（默认走相对路径）。直接双击本地文件打开时才需要填。</p>
+    <div class="settings">
+      <div class="f"><label>接口地址</label><input id="apiBase" placeholder="留空 = 同源 /api/v1/internal；本地打开填 http://localhost:3000/api/v1/internal"></div>
+      <div class="f"><label>归档密钥</label><input id="apiToken" type="password" placeholder="WECHAT_ARCHIVE_TOKEN"></div>
+      <button class="btn-ghost btn-sm" onclick="saveSettings()">保存</button>
     </div>
+    <div id="statusBox"></div>
+  </div>
 
-    <!-- 右: 案例草稿 -->
-    <div class="card">
-      <h2><span class="step">2</span>生成案例草稿</h2>
-      <p class="hint" style="margin-top:0;">六字段 + 信源标注。解析错了可直接改上面的发言人/内容，改完点「重新生成」。</p>
-      <div class="form-grid">
-        <div><label>车型</label><input id="f_car" placeholder="如：大众途观 2015款"></div>
-        <div><label>症状</label><input id="f_symptom" placeholder="如：变速箱异响、顿挫"></div>
-        <div class="full"><label>方案</label><textarea id="f_plan" rows="2" placeholder="如：更换DSG双离合总成，含工时"></textarea></div>
-        <div><label>工期</label><input id="f_days" placeholder="如：5个工作日"></div>
-        <div><label>价格区间</label><input id="f_price" placeholder="如：1.2–1.5万"></div>
-        <div class="full"><label>照片</label><input id="f_photos" placeholder="如：症状2张 / 配件编码1张 / 完工1张"></div>
-      </div>
-      <div class="btns">
-        <button class="btn-green" onclick="genDraft()">重新生成草稿</button>
-        <button class="btn-ghost" onclick="copyDraft()">复制草稿</button>
-      </div>
-      <div id="draft"></div>
+  <!-- 输入限制：必须在界面上明示，不能只写手册 -->
+  <div class="card">
+    <h2><span class="step">!</span>先看这个：粘贴能拿到什么，拿不到什么</h2>
+    <div class="notice notice-warn">
+      <b>电脑微信「多选 → 复制 → 粘贴」只能拿到纯文本。</b>
+      <ul>
+        <li><b>图片拿不到</b>：只会留下 <code>[图片]</code> 三个字，图片文件不进剪贴板 → <b>必须单独导出</b>（见下方第 5 步）。</li>
+        <li><b>语音拿不到</b>：只会留下 <code>[语音]</code> 三个字，<b>语音内容不会一起复制</b> → 请在手机微信长按语音 → 转文字 → 把文字复制进来。</li>
+        <li><b>视频/文件拿不到</b>：同上，只有占位符。</li>
+        <li>发言人昵称、手机号、车牌、VIN、地址<b>能拿到，所以必须脱敏</b>——本工具在送大模型之前会先在本机脱敏。</li>
+      </ul>
     </div>
   </div>
 
-  <div class="steps">
-    <b>怎么用（三步）</b>
-    <ol>
-      <li>师傅在微信群里多选消息复制，或盈简在电脑微信里选中相关消息 → 复制，粘贴到左边。</li>
-      <li>点「解析」——工具自动分出时间/发言人/内容/图片数；识别不准的手动改一下。</li>
-      <li>右边补全六字段，点「复制草稿」，粘贴进归档表/发给门店确认。信源默认标注「商家提供」，车主在微信里回复确认后，升级为「车主确认」。</li>
-    </ol>
+  <div class="grid2">
+    <div class="card">
+      <h2><span class="step">1</span>粘贴群聊 <span class="tail" id="rawCount"></span></h2>
+      <p class="sub">只复制这一单相关的那一段，别把整年的群聊都贴进来。</p>
+      <textarea id="input" rows="12" placeholder="张师傅
+李哥，你那个途观过减速带响的问题，今天举起来看了
+[图片]
+[图片]
+张师傅
+右边的小吊杆球头松了，胶套也裂了
+李老板
+严重吗？要不要紧"></textarea>
+      <div class="btns">
+        <button class="btn-primary" onclick="stepParse()">解析并脱敏</button>
+        <button class="btn-ghost" onclick="loadSample()">填入示例</button>
+        <button class="btn-ghost" onclick="clearAll()">清空</button>
+      </div>
+      <div id="parseMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span>核对解析结果 · 本机脱敏 <span class="tail" id="step2Tail"></span></h2>
+      <p class="sub">发言人、内容都可以直接改——群聊没有范本，机器认错是正常的。改对了再交给大模型。</p>
+      <div class="chips" id="maskChips"></div>
+      <div id="msgList"><div class="empty">解析结果会显示在这里</div></div>
+      <div class="btns">
+        <button class="btn-green" id="btnExtract" onclick="stepExtract()" disabled>AI 理解这一段</button>
+        <button class="btn-ghost" onclick="manualFacts()">不用 AI，手工填写</button>
+      </div>
+      <div id="extractMsg"></div>
+    </div>
+  </div>
+
+  <div class="card" id="factsCard" style="display:none;">
+    <h2><span class="step">3</span>事实层 · 人工确认 <span class="tail" id="factsTail"></span></h2>
+    <p class="sub">
+      模型只许用群聊里真实出现过的信息。标黄的<b>存疑项必须过一道人眼</b>——那是模型推断出来的，不是群里原话。
+      金额会提取出来供留档，但<b>不会写进公开案例</b>（公域藏价）。
+    </p>
+    <div id="doubtBox"></div>
+    <div class="field-grid">
+      <div><label>车型（品牌+车系，去掉年款排量）</label><input id="f_vehicle"></div>
+      <div><label>里程</label><input id="f_odo" placeholder="群里有说才填"></div>
+      <div><label>城市（进标题）</label><input id="f_city" value="杭州" oninput="state.city=this.value"></div>
+      <div><label>城区（进标题，可选）</label><input id="f_district" placeholder="例：西湖区" oninput="state.district=this.value"></div>
+      <div class="full"><label>故障现象（车主怎么描述的）</label><input id="f_symptom"></div>
+      <div class="full"><label>检查发现</label><div id="f_checkFindings"></div></div>
+      <div class="full"><label>明确不用换 / 还能用的件</label><div id="f_excluded"></div></div>
+      <div class="full"><label>维修方案</label><input id="f_plan"></div>
+      <div class="full"><label>为什么选这个方案</label><input id="f_planReason"></div>
+      <div class="full"><label>施工过程</label><div id="f_process"></div></div>
+      <div class="full"><label>用到的配件</label><div id="f_parts"></div></div>
+      <div class="full"><label>完工验证（路试 / 复检）</label><input id="f_finish"></div>
+      <div><label>工期</label><input id="f_duration"></div>
+      <div><label>交车说明</label><input id="f_handover"></div>
+      <div><label>金额（仅留档，不公开）</label><input id="f_amount"></div>
+      <div><label>信息完整度</label><input id="f_confidence" readonly style="background:var(--grey-bg);"></div>
+    </div>
+
+    <h2 style="margin-top:18px;"><span class="step">4</span>过程层 · 关键节点 <span class="tail">只给车主看的信任证据</span></h2>
+    <div class="timeline" id="timelineBox"></div>
+
+    <div class="btns">
+      <button class="btn-primary" id="btnCompose" onclick="stepCompose(this)">生成案例</button>
+      <span class="sub" id="missingLine"></span>
+    </div>
+    <div id="composeMsg"></div>
+  </div>
+
+  <div class="card" id="caseCard" style="display:none;">
+    <h2><span class="step">5</span>案例要素 <span class="tail">信源标识：门店发布 · 已脱敏 · 已审核</span></h2>
+    <div id="riskBox"></div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="full"><label>标题</label><input id="c_title"></div>
+      <div class="full"><label>摘要</label><textarea id="c_summary" rows="3"></textarea></div>
+    </div>
+    <div id="sectionsBox"></div>
+    <div style="margin-top:16px;"><label>图说（每张图最多一行；没有文字依据的留空，不要硬凑）</label><div id="captionsBox"></div></div>
+    <div style="margin-top:16px;"><label>本单问答（只写这一单有答案的，可以为空）</label><div id="faqBox"></div></div>
+    <div style="margin-top:16px;"><label>AI 可引用摘要（150–300 字）</label><textarea id="c_aiAbstract" rows="4"></textarea></div>
+  </div>
+
+  <div class="card" id="photoCard" style="display:none;">
+    <h2><span class="step">6</span>图片关联 <span class="tail">图片不进剪贴板，必须单独导出</span></h2>
+    <p class="sub">下面是模型从群聊里数出来的图片位置。照片请通过这三条路径拿到，按 <code>日期_车型_症状.jpg</code> 命名后填进「文件名」列：</p>
+    <div class="notice notice-info">
+      <b>① 截图投递</b>（师傅手机 10 秒，保底）　<b>② 逐条转发</b>（长按 → 多选 → 逐条转发，含原图）　<b>③ 电脑另存</b>（上门时质量最好）。
+      <b style="color:var(--red)">禁用「合并转发」</b>——会变成折叠卡片，内容取不出来。
+    </div>
+    <table id="photoTable" style="margin-top:12px;"></table>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">✓</span>存档</h2>
+    <div class="btns">
+      <button class="btn-green" onclick="saveDraft()">保存草稿</button>
+      <button class="btn-ghost" onclick="copyMarkdown()">复制全文（Markdown）</button>
+      <button class="btn-ghost" onclick="downloadMarkdown()">下载 .md</button>
+    </div>
+    <div id="draftMsg"></div>
+    <details open>
+      <summary>草稿箱（<span id="draftCount">0</span>）</summary>
+      <div id="draftList" style="margin-top:10px;"></div>
+    </details>
+  </div>
+
+  <div class="foot">
+    目标定义：docs/04_维修过程相册/22_微信群归档转案例目标定义.md　·　案例规范：07_案例生成规则.md　·　检查项：17_服务类目检测清单.md §5.10<br>
+    四条红线：先脱敏再送模型 · 不许编造（07 §1.3）· 公域藏价（07 §4.3）· 不做规则匹配（22 D3）
   </div>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
+const LS_SETTINGS = 'zj_archive_settings';
+const LS_DRAFTS = 'zj_archive_drafts';
+const SECTION_NAMES = ['案例概况','维修前情况','检查结果','维修方案','维修过程','完工效果','价格影响因素','门店说明','温馨提示'];
 
-function loadSample(){
-  $("input").value = "张师傅\n客户的车是大众途观，变速箱异响\n[图片]\n[图片]\n张师傅\n抬起来看了，初步判断是DSG双离合问题\n[图片]\n李老板\n这个要修几天？大概多少钱？\n张师傅\n正常5个工作日，1.2-1.5万左右，要换离合器总成\n李老板\n好的，麻烦尽快安排";
-  parseAll();
-}
-function clearAll(){
-  $("input").value=""; $("msgs").innerHTML=""; $("draft").innerHTML=""; $("stat").style.display="none";
-}
+const state = { messages:[], stats:null, facts:null, timeline:[], caseData:null, photoHints:[], editingId:null };
 
-function parseText(text){
-  const lines = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const timeRe = /^(\d{4}[-/]\d{1,2}[-/]\d{1,2}[ T]\d{1,2}:\d{2}(:\d{2})?|\d{1,2}:\d{2}(:\d{2})?)$/;
-  const msgs = [];
-  let cur = null;
-  const push = () => { if(cur && (cur.text || cur.images)) msgs.push(cur); cur=null; };
+/* ---------------------------------------------------------------------------
+ * 脱敏规则：与 backend/src/services/wechat-archive.service.js 的 MASK_RULES 保持一致。
+ * 真源在服务端，这里只是「送出去之前先在本机脱一遍」的那一遍。
+ * 顺序有意义：长的、特征强的先上。
+ * ------------------------------------------------------------------------- */
+const MASK_RULES = [
+  { name:'身份证', re:/\b\d{17}[\dXx]\b/g,            to:'[身份证]' },
+  { name:'手机号', re:/\b1[3-9]\d{9}\b/g,             to:'[手机号]' },
+  { name:'座机',   re:/\b0\d{2,3}-?\d{7,8}\b/g,       to:'[电话]' },
+  { name:'银行卡', re:/\b\d{16,19}\b/g,               to:'[银行卡]' },
+  { name:'车牌',   re:/[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-HJ-NP-Z](?=[A-HJ-NP-Z0-9]{4,6}\d)[A-HJ-NP-Z0-9]{4,6}[挂学警港澳领]?/g, to:'[车牌]' },
+  { name:'VIN',    re:/\b(?=[A-HJ-NPR-Z0-9]{17}\b)(?=[A-HJ-NPR-Z0-9]*[A-HJ-NPR-Z])(?=[A-HJ-NPR-Z0-9]*\d)[A-HJ-NPR-Z0-9]{17}\b/g, to:'[VIN]' },
+  { name:'地址',   re:/[\u4e00-\u9fa5]{2,10}(?:路|街|道|巷|弄)\d{1,4}号[\u4e00-\u9fa5\d]{0,8}|[\u4e00-\u9fa5]{2,12}(?:小区|花园|家园|公寓|大厦|苑)\d{0,4}(?:栋|幢|座)?\d{0,4}(?:单元|室|层)?/g, to:'[地址]' },
+  { name:'称呼',   re:/[\u4e00-\u9fa5]{1,2}(?:师傅|老板|总|哥|姐|先生|女士|小姐|阿姨|大叔|经理|店长)/g, to:'[称呼]' },
+];
 
-  for(const line of lines){
-    if(timeRe.test(line)){ push(); cur={time:line, sender:"", text:"", images:0}; continue; }
-    if(/^\[图片\]$|^\[照片\]$|^\[小视频\]$/.test(line)){
-      if(!cur) cur={time:"",sender:"",text:"",images:0};
-      cur.images++; continue;
-    }
-    if(/^\[表情\]$|^\[语音\]$/.test(line)){
-      if(!cur) cur={time:"",sender:"",text:"",images:0};
-      cur.text += (cur.text?"\n":"") + line; continue;
-    }
-    if(/^(以下为聊天记录|以上是今天的聊天记录|^系统消息|^红包已|^收到红包)/.test(line)) continue;
-    const m = line.match(/^([^:：\s]{1,14})[:：]\s*(.*)$/);
-    if(m){
-      if(cur && !cur.sender){ cur.sender=m[1]; cur.text += (cur.text?"\n":"") + m[2]; }
-      else { push(); cur={time:"",sender:m[1],text:m[2],images:0}; }
+/* ---- 与服务端同源的解析逻辑（改一处要改两处，已写在两边文件头注释里） ---- */
+const PLACEHOLDER_RE = /^\[(图片|照片|视频|小视频|语音|动画表情|表情|文件|链接|聊天记录|位置|名片)\]$/;
+const NOISE_LINE_RE = /^(以下(为|是)?(聊天记录|新消息|历史消息)|以上(为|是)?(聊天记录|是新消息|为历史消息)|-{2,}|—{2,}|聊天记录截图|\[聊天记录\])/;
+const TIME_ONLY_RE = /^(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}:\d{2}(?::\d{2})?|昨天\s?\d{1,2}:\d{2}|前天\s?\d{1,2}:\d{2}|星期[一二三四五六日天]\s?\d{1,2}:\d{2})$/;
+const SENDER_THEN_TIME_RE = /^(.{1,20}?)[\s\u00A0]+((?:\d{4}[-\/]\d{1,2}[-\/]\d{1,2}\s?)?\d{1,2}:\d{2}(?::\d{2})?)$/;
+const TIME_THEN_SENDER_RE = /^((?:\d{4}[-\/]\d{1,2}[-\/]\d{1,2}\s?)?\d{1,2}:\d{2}(?::\d{2})?|昨天\s?\d{1,2}:\d{2}|前天\s?\d{1,2}:\d{2})[\s\u00A0]+(.{1,20})$/;
+
+function parseChat(raw){
+  const lines = String(raw||'').split(/\r?\n/).map(l=>l.replace(/\u00A0/g,' ').trimEnd());
+  const messages = []; let cur = null; let pendingTime = '';
+  const flush = ()=>{ if(cur && (cur.text||cur.image||cur.voice||cur.video||cur.file)) messages.push(cur); cur=null; };
+  const ensure = ()=>{ if(!cur) cur={sender:'',time:pendingTime||'',text:'',image:0,voice:0,video:0,file:0}; return cur; };
+  const isSender = l => l.length>0 && l.length<=20 && !/[。！？；，,.?!;]/.test(l) && !/^[\d[\]]/.test(l);
+
+  for(const rawLine of lines){
+    const line = rawLine.trim();
+    if(!line || NOISE_LINE_RE.test(line)) continue;
+    const ph = line.match(PLACEHOLDER_RE);
+    if(ph){
+      const m = ensure();
+      if(ph[1]==='图片'||ph[1]==='照片') m.image++;
+      else if(ph[1]==='语音') m.voice++;
+      else if(ph[1]==='视频'||ph[1]==='小视频') m.video++;
+      else if(ph[1]==='文件') m.file++;
+      else m.text += (m.text?'\n':'')+line;
       continue;
     }
-    if(!cur) cur={time:"",sender:"",text:"",images:0};
-    if(!cur.sender && line.length<=14 && !/[。！？，,.?]/ .test(line) && !/^[0-9]/.test(line)){
-      cur.sender = line; continue;
+    if(TIME_ONLY_RE.test(line)){ pendingTime=line; flush(); continue; }
+    let m = line.match(SENDER_THEN_TIME_RE);
+    if(m && m[1].trim()){ flush(); pendingTime=m[2]; ensure().sender=m[1].trim(); continue; }
+    m = line.match(TIME_THEN_SENDER_RE);
+    if(m && m[2].trim()){ flush(); pendingTime=m[1]; ensure().sender=m[2].trim(); continue; }
+    m = line.match(/^(.{1,20}?)\s?[：:]\s?(.*)$/);
+    if(m && m[1].trim() && isSender(m[1].trim())){
+      flush(); ensure().sender=m[1].trim();
+      if(m[2].trim()) ensure().text=m[2].trim();
+      continue;
     }
-    cur.text += (cur.text?"\n":"") + line;
+    if(!cur || (cur.text && isSender(line))){ flush(); ensure().sender=line; continue; }
+    if(cur && !cur.sender && !cur.text && isSender(line)){ cur.sender=line; continue; }
+    const msg = ensure();
+    msg.text += (msg.text?'\n':'')+line;
   }
-  push();
-  return msgs;
+  flush();
+  const senders = [...new Set(messages.map(m=>m.sender).filter(Boolean))];
+  return {
+    messages,
+    senders,
+    stats:{
+      messageCount: messages.length,
+      senderCount: senders.length,
+      imageCount: messages.reduce((a,m)=>a+m.image,0),
+      voiceCount: messages.reduce((a,m)=>a+m.voice,0),
+      videoCount: messages.reduce((a,m)=>a+m.video,0),
+    },
+  };
 }
 
-let parsedMsgs = [];
+function maskText(raw, senders){
+  let text = String(raw||''); const hits = {}; const mapping = {};
+  const bump = n => { hits[n] = (hits[n]||0)+1; };
+  [...new Set((senders||[]).filter(Boolean))].sort((a,b)=>b.length-a.length).forEach((sender,i)=>{
+    const label = '发言人'+String.fromCharCode(65+i);
+    mapping[sender]=label;
+    const re = new RegExp(sender.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g');
+    text = text.replace(re, ()=>{ bump('发言人'); return label; });
+  });
+  for(const r of MASK_RULES){
+    text = text.replace(r.re, ()=>{ bump(r.name); return r.to; });
+  }
+  return { text, hits, senderMapping:mapping };
+}
 
-function parseAll(){
-  const text = $("input").value;
-  if(!text.trim()){ alert("先粘贴群聊文本"); return; }
-  parsedMsgs = parseText(text);
-  const nImg = parsedMsgs.reduce((a,m)=>a+m.images,0);
-  const nMsg = parsedMsgs.length;
-  $("stat").style.display="flex";
-  $("stat").innerHTML = `<span>消息 <b>${nMsg}</b> 条</span><span>图片 <b>${nImg}</b> 张</span><span>识别发言人 <b>${new Set(parsedMsgs.map(m=>m.sender).filter(Boolean)).size}</b> 人</span>`;
+function renderMessages(messages){
+  return (messages||[]).map(m=>{
+    let out='';
+    if(m.sender) out += m.sender + (m.time? ' '+m.time : '') + '\n';
+    else if(m.time) out += m.time+'\n';
+    if(m.text) out += m.text+'\n';
+    for(let i=0;i<(m.image||0);i++) out += '[图片]\n';
+    for(let i=0;i<(m.voice||0);i++) out += '[语音]\n';
+    for(let i=0;i<(m.video||0);i++) out += '[视频]\n';
+    for(let i=0;i<(m.file||0);i++) out += '[文件]\n';
+    return out.trimEnd();
+  }).filter(Boolean).join('\n');
+}
+
+/* ---------------------------- 设置与请求 ---------------------------- */
+function loadSettings(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_SETTINGS)||'{}');
+    $('apiBase').value = s.apiBase || '';
+    $('apiToken').value = s.token || '';
+  }catch(e){}
+  if(location.protocol === 'file:'){
+    $('settingsCard').style.display='';
+    $('statusBox').innerHTML = '<div class="notice notice-warn" style="margin-top:10px;">你是用本地文件方式打开的，浏览器不允许相对路径请求——请填上接口地址（例如 http://localhost:3000/api/v1/internal）。</div>';
+  }
+}
+function saveSettings(){
+  localStorage.setItem(LS_SETTINGS, JSON.stringify({ apiBase:$('apiBase').value.trim(), token:$('apiToken').value }));
+  checkStatus();
+}
+function toggleSettings(){
+  const el = $('settingsCard');
+  el.style.display = el.style.display==='none' ? '' : 'none';
+  if(el.style.display==='') checkStatus();
+}
+function apiBase(){ return ($('apiBase').value.trim() || '/api/v1/internal').replace(/\/$/,''); }
+function apiHeaders(){
+  const h = { 'Content-Type':'application/json' };
+  const t = $('apiToken').value;
+  if(t) h['x-archive-token'] = t;
+  return h;
+}
+async function api(path, body, method){
+  const res = await fetch(apiBase()+path, { method: method||'POST', headers:apiHeaders(), body: body?JSON.stringify(body):undefined });
+  const json = await res.json().catch(()=>({code:-1,message:'返回不是 JSON（接口地址对吗？）'}));
+  if(json.code !== 0) throw new Error(json.message || ('HTTP '+res.status));
+  return json.data;
+}
+async function checkStatus(){
+  try{
+    const s = await api('/wechat-archive/status', null, 'GET');
+    $('statusBox').innerHTML = s.ready
+      ? `<div class="notice notice-ok" style="margin-top:10px;">大模型已就绪（${esc(s.model)}，密钥来源 ${esc(s.apiKeySource||'未知')}）· 单次上限 ${s.maxChars} 字</div>`
+      : `<div class="notice notice-err" style="margin-top:10px;">没配大模型密钥，AI 理解与生成不可用。请在服务器 .env 里配 <b>WECHAT_ARCHIVE_API_KEY</b>（或 GEO_LLM_API_KEY / DASHSCOPE_API_KEY），重启后刷新本页。当前也可用「不用 AI，手工填写」。</div>`;
+  }catch(e){
+    $('statusBox').innerHTML = `<div class="notice notice-err" style="margin-top:10px;">连不上接口：${esc(e.message)}</div>`;
+  }
+}
+
+/* ---------------------------- 第 1–2 步 ---------------------------- */
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function loadSample(){
+  $('input').value = [
+    '张师傅','李哥，你那个浙A12345的途观过减速带响的问题，今天举起来看了','[图片]','[图片]',
+    '张师傅','右边的小吊杆球头松了，胶套也裂了',
+    '李老板','严重吗？要不要紧',
+    '张师傅','暂时不影响安全，但是过坑会响，时间长了会磨摆臂',
+    '李老板','那要换什么',
+    '张师傅','两个方案：单换小吊杆，一百多一根；换摆臂总成连胶套一起，六百多',
+    '张师傅','你这个摆臂还能用，建议先换小吊杆',
+    '李老板','行，那就换小吊杆，两边都换。我电话13812345678','[语音]',
+    '张师傅','好，两边都换，顺便把定位做了','[图片]',
+    '张师傅','旧的拆下来了，你看这胶套裂的','[图片]',
+    '张师傅','新的装好了，力矩打到标准','[图片]',
+    '张师傅','路试了一下，过减速带不响了',
+    '李老板','好的，一共多少',
+    '张师傅','小吊杆两根加四轮定位，一共八百六',
+  ].join('\n');
+  stepParse();
+}
+function clearAll(){
+  $('input').value='';
+  state.messages=[]; state.facts=null; state.caseData=null; state.editingId=null;
+  $('msgList').innerHTML='<div class="empty">解析结果会显示在这里</div>';
+  $('maskChips').innerHTML=''; $('parseMsg').innerHTML=''; $('extractMsg').innerHTML='';
+  $('btnExtract').disabled=true; $('factsCard').style.display='none';
+  $('caseCard').style.display='none'; $('photoCard').style.display='none';
+  $('step2Tail').textContent=''; $('rawCount').textContent='';
+}
+
+function stepParse(){
+  const raw = $('input').value;
+  if(!raw.trim()){ alert('先粘贴群聊文本'); return; }
+  $('rawCount').textContent = raw.length + ' 字';
+
+  // 先解析出发言人，再把昵称换成 发言人A/B/C —— 顺序不能反
+  const parsed = parseChat(raw);
+  const masked = maskText(raw, parsed.senders);
+  const after = parseChat(masked.text);
+  state.messages = after.messages;
+  state.stats = after.stats;
+
+  $('step2Tail').textContent = `${after.stats.messageCount} 条消息 · ${after.stats.senderCount} 人`;
+  const hits = Object.entries(masked.hits).map(([k,v])=>`<span class="chip chip-hit">${esc(k)} ×${v}</span>`).join('');
+  $('maskChips').innerHTML = `<span class="chip">已在本机脱敏</span>${hits || '<span class="chip">未发现隐私字段</span>'}`;
+
+  let warn = '';
+  if(after.stats.voiceCount) warn += `<div class="notice notice-warn"><b>有 ${after.stats.voiceCount} 条语音</b>：粘贴拿不到语音内容，只留下 [语音] 占位。请在手机微信长按语音 → 转文字 → 把文字补进对应消息里，否则这段信息就丢了。</div>`;
+  if(after.stats.imageCount) warn += `<div class="notice notice-info"><b>有 ${after.stats.imageCount} 张图片</b>：粘贴只留下 [图片] 占位，图片要单独导出（第 6 步）。</div>`;
+  $('parseMsg').innerHTML = warn;
+
   renderMsgs();
-  genDraft();
+  $('btnExtract').disabled = false;
 }
 
 function renderMsgs(){
-  const box = $("msgs");
-  if(!parsedMsgs.length){ box.innerHTML='<div class="empty">解析结果会显示在这里</div>'; return; }
-  box.innerHTML = parsedMsgs.map((m,i)=>`
+  const box = $('msgList');
+  if(!state.messages.length){ box.innerHTML='<div class="empty">解析结果会显示在这里</div>'; return; }
+  box.innerHTML = state.messages.map((m,i)=>`
     <div class="msg">
-      <div class="meta">
-        <span class="sender">${m.sender||"（未知发言人）"}</span>
-        <span>${m.time||"（无时间）"}</span>
-        ${m.images?`<span class="img">🖼 ×${m.images}</span>`:""}
+      <div class="msg-head">
+        <input class="sender" value="${esc(m.sender)}" oninput="state.messages[${i}].sender=this.value" placeholder="发言人">
+        <span class="time">${esc(m.time||'')}</span>
+        ${m.image?`<span class="badge badge-img">🖼 图片 ×${m.image}</span>`:''}
+        ${m.voice?`<span class="badge badge-voice">🎤 语音 ×${m.voice}</span>`:''}
+        ${m.video?`<span class="badge badge-img">🎬 视频 ×${m.video}</span>`:''}
+        <button class="btn-ghost btn-sm msg-del" onclick="delMsg(${i})">删除</button>
       </div>
-      <div class="txt">${esc(m.text)||"<span style='color:#98A2B3'>（仅图片）</span>"}</div>
-    </div>`).join("");
+      <textarea class="body" oninput="state.messages[${i}].text=this.value" placeholder="消息内容">${esc(m.text)}</textarea>
+    </div>`).join('');
+}
+function delMsg(i){ state.messages.splice(i,1); renderMsgs(); }
+
+/* ---------------------------- 第 3 步：AI 理解 ---------------------------- */
+async function stepExtract(){
+  const btn = $('btnExtract');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>理解中…';
+  $('extractMsg').innerHTML = '';
+  try{
+    const data = await api('/wechat-archive/extract', { messages: state.messages, category:'chassis_noise' });
+    state.facts = data.facts; state.timeline = data.timeline||[]; state.photoHints = data.facts.photoHints||[];
+    state.doubts = data.doubts||[]; state.missing = data.missing||[]; state.maskedText = data.maskedText;
+    state.stats = data.stats || state.stats;
+    renderFacts(data);
+    $('factsCard').style.display='';
+  }catch(e){
+    $('extractMsg').innerHTML = `<div class="notice notice-err">${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false; btn.innerHTML='AI 理解这一段';
+  }
 }
 
-function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-
-function genDraft(){
-  if(!parsedMsgs.length){ $("draft").innerHTML='<div class="empty">草稿会显示在这里</div>'; return; }
-  const nImg = parsedMsgs.reduce((a,m)=>a+m.images,0);
-  const speakers = [...new Set(parsedMsgs.map(m=>m.sender).filter(Boolean))].join("、") || "未知";
-  const fullText = parsedMsgs.map(m=>{
-    let s = "";
-    if(m.sender) s += m.sender + "：";
-    s += m.text || "（图片）";
-    if(m.images) s += ` [图片×${m.images}]`;
-    return s;
-  }).join("\n");
-  const fields = ["f_car","f_symptom","f_plan","f_days","f_price","f_photos"];
-  const vals = {};
-  fields.forEach(f=>{ vals[f] = $(f).value.trim(); });
-  const car = vals.f_car || "待补车型";
-  const sym = vals.f_symptom || "待补症状";
-  const plan = vals.f_plan || "待补方案";
-  const days = vals.f_days || "待补工期";
-  const price = vals.f_price || "待补价格区间";
-  const photos = vals.f_photos || `症状/配件/完工照片 ${nImg} 张`;
-  const draft = `【案例草稿】${car}
-━━━━━━━━━━
-■ 车型：${car}
-■ 症状：${sym}
-■ 方案：${plan}
-■ 工期：${days}
-■ 价格区间：${price}
-■ 照片：${photos}
-■ 群聊参与人：${speakers} ｜ 消息 ${parsedMsgs.length} 条
-
-■ 原始记录（可回溯）：
-${fullText}
-
-■ 信源标注：商家提供（待车主确认升级）
-■ 归档时间：${new Date().toLocaleString("zh-CN")}
-`;
-  $("draft").innerHTML = `<div class="draft-out">${esc(draft)}</div>`;
-  window._draft = draft;
+function manualFacts(){
+  state.facts = { vehicle:'',odo:'',symptom:'',checkFindings:[],excluded:[],plan:'',planReason:'',process:[],parts:[],finish:'',duration:'',handover:'',amount:'',photoHints:[] };
+  state.timeline=[]; state.doubts=[]; state.missing=[]; state.photoHints=[];
+  renderFacts({ facts:state.facts, timeline:[], doubts:[], missing:[], confidence:0, note:'手工填写' });
+  $('factsCard').style.display='';
 }
 
-function copyDraft(){
-  if(!window._draft){ genDraft(); }
-  navigator.clipboard.writeText(window._draft||"").then(()=>alert("草稿已复制 ✓")).catch(()=>alert("复制失败，请手动选择复制"));
+function renderFacts(data){
+  const f = data.facts || {};
+  $('f_vehicle').value = f.vehicle||'';
+  $('f_odo').value = f.odo||'';
+  $('f_symptom').value = f.symptom||'';
+  $('f_plan').value = f.plan||'';
+  $('f_planReason').value = f.planReason||'';
+  $('f_finish').value = f.finish||'';
+  $('f_duration').value = f.duration||'';
+  $('f_handover').value = f.handover||'';
+  $('f_amount').value = f.amount||'';
+  $('f_confidence').value = data.confidence ? `完整度 ${Math.round(data.confidence*100)}%　${data.note||''}` : (data.note||'手工填写');
+
+  renderList('f_checkFindings', f.checkFindings, '一条检查发现');
+  renderList('f_excluded', f.excluded, '例：摆臂本体可用，不需换总成');
+  renderList('f_process', f.process, '一个施工步骤');
+  renderList('f_parts', f.parts, '例：小吊杆 ×2');
+
+  $('doubtBox').innerHTML = (data.doubts||[]).length
+    ? (data.doubts||[]).map(d=>`<div class="doubt"><b>存疑 · ${esc(d.field)}</b>：${esc(d.value)}　—　${esc(d.why)}</div>`).join('')
+    : '';
+  $('missingLine').textContent = (data.missing||[]).length ? `群里没提到：${data.missing.join('、')}（按 07 §7.3 走降级，不要硬补）` : '';
+
+  $('timelineBox').innerHTML = (state.timeline||[]).length
+    ? state.timeline.map((t,i)=>`<div class="tl"><span class="who">${esc(t.who||'')}</span><input value="${esc(t.what)}" oninput="state.timeline[${i}].what=this.value" style="flex:1;"><button class="btn-ghost btn-sm" onclick="delTl(${i})">删</button></div>`).join('')
+    : '<div class="empty" style="padding:10px 0;">过程层为空——群聊里没看出明显节点</div>';
+
+  $('factsTail').textContent = (data.doubts||[]).length ? `${data.doubts.length} 项存疑待确认` : '';
 }
+function delTl(i){ state.timeline.splice(i,1); renderFacts({ facts:state.facts, timeline:state.timeline, doubts:state.doubts, missing:state.missing, confidence:0, note:'' }); }
+
+function renderList(id, arr, placeholder){
+  const list = Array.isArray(arr)?arr:[];
+  $(id).innerHTML = list.map((v,i)=>`<div class="list-row"><input value="${esc(v)}" oninput="updateList('${id}',${i},this.value)" placeholder="${esc(placeholder)}"><button class="btn-ghost btn-sm" onclick="delList('${id}',${i})">删</button></div>`).join('')
+    + `<button class="btn-ghost btn-sm" onclick="addList('${id}')">+ 加一条</button>`;
+}
+const LIST_KEY = { f_checkFindings:'checkFindings', f_excluded:'excluded', f_process:'process', f_parts:'parts' };
+function updateList(id,i,v){ if(state.facts) state.facts[LIST_KEY[id]][i]=v; }
+function delList(id,i){ state.facts[LIST_KEY[id]].splice(i,1); renderList(id, state.facts[LIST_KEY[id]], ''); }
+function addList(id){ state.facts[LIST_KEY[id]].push(''); renderList(id, state.facts[LIST_KEY[id]], ''); }
+
+function collectFacts(){
+  if(!state.facts) return null;
+  const f = state.facts;
+  return {
+    vehicle:$('f_vehicle').value.trim(), odo:$('f_odo').value.trim(),
+    symptom:$('f_symptom').value.trim(), plan:$('f_plan').value.trim(),
+    planReason:$('f_planReason').value.trim(), finish:$('f_finish').value.trim(),
+    duration:$('f_duration').value.trim(), handover:$('f_handover').value.trim(),
+    amount:$('f_amount').value.trim(),
+    checkFindings:f.checkFindings||[], excluded:f.excluded||[],
+    process:f.process||[], parts:f.parts||[], photoHints:f.photoHints||[],
+  };
+}
+
+/* ---------------------------- 第 5 步：生成案例 ---------------------------- */
+async function stepCompose(btn){
+  const facts = collectFacts();
+  if(!facts) return;
+  btn = btn || $('btnCompose');
+  btn.disabled = true; const old = btn.innerHTML; btn.innerHTML = '<span class="spin"></span>生成中…';
+  $('composeMsg').innerHTML='';
+  try{
+    const data = await api('/wechat-archive/compose', {
+      facts,
+      city: $('f_city').value.trim() || '杭州',
+      district: $('f_district').value.trim(),
+      category: 'chassis_noise',
+    });
+    state.caseData = data; state.facts = facts;
+    renderCase(data);
+    $('caseCard').style.display='';
+    renderPhotos(facts.photoHints||[], data.captions||[]);
+    $('photoCard').style.display='';
+  }catch(e){
+    $('composeMsg').innerHTML = `<div class="notice notice-err">${esc(e.message)}</div>`;
+  }finally{
+    btn.disabled=false; btn.innerHTML=old;
+  }
+}
+
+function renderCase(data){
+  $('c_title').value = data.title||'';
+  $('c_summary').value = data.summary||'';
+  $('c_aiAbstract').value = data.aiAbstract||'';
+  $('sectionsBox').innerHTML = (data.sections||[]).map((s,i)=>`
+    <div class="sect">
+      <div class="name">${esc(s.name)}${s.text?'':'　<span style="color:var(--orange);font-weight:400;">（群里没提到，待补或留空）</span>'}</div>
+      <textarea rows="3" oninput="state.caseData.sections[${i}].text=this.value" placeholder="${s.text?'':'这一段落空着不会生成，可手动补充'}">${esc(s.text)}</textarea>
+    </div>`).join('');
+  $('captionsBox').innerHTML = renderEditablePairs(data.captions||[], 'captions', '节点', '图说（例：右前小吊杆球头 松旷）');
+  $('faqBox').innerHTML = renderEditablePairs(data.faq||[], 'faq', '问', '答');
+  $('riskBox').innerHTML = (data.risk||[]).length
+    ? (data.risk||[]).map(r=>`<div class="risk">⚠ <b>${esc(r.field)}</b> 命中「${esc(r.type)}」：${esc(r.sample)}　—　按 07 §4.1/§4.3 必须人工改掉再上网。</div>`).join('')
+    + '<div class="notice notice-ok">其余段落未命中隐私/金额风控。</div>'
+    : '<div class="notice notice-ok">风控通过：未发现手机号、车牌、身份证、金额。</div>';
+}
+
+function renderEditablePairs(arr, key, labelA, labelB){
+  const list = arr||[];
+  return list.map((item,i)=>`<div class="list-row">
+      <input value="${esc(item.node!==undefined?item.node:item.q)}" oninput="updatePair('${key}',${i},'a',this.value)" placeholder="${esc(labelA)}" style="max-width:190px;flex:none;">
+      <input value="${esc(item.text!==undefined?item.text:item.a)}" oninput="updatePair('${key}',${i},'b',this.value)" placeholder="${esc(labelB)}">
+      <button class="btn-ghost btn-sm" onclick="delPair('${key}',${i})">删</button>
+    </div>`).join('') + `<button class="btn-ghost btn-sm" onclick="addPair('${key}')">+ 加一条</button>`;
+}
+function updatePair(key,i,part,v){
+  const item = state.caseData[key][i];
+  if(key==='faq'){ if(part==='a') item.q=v; else item.a=v; }
+  else { if(part==='a') item.node=v; else item.text=v; }
+}
+function delPair(key,i){ state.caseData[key].splice(i,1); (key==='faq'?$('faqBox'):$('captionsBox')).innerHTML = renderEditablePairs(state.caseData[key], key, key==='faq'?'问':'节点', key==='faq'?'答':'图说'); }
+function addPair(key){
+  state.caseData[key].push(key==='faq'?{q:'',a:''}:{node:'',text:''});
+  (key==='faq'?$('faqBox'):$('captionsBox')).innerHTML = renderEditablePairs(state.caseData[key], key, key==='faq'?'问':'节点', key==='faq'?'答':'图说');
+}
+
+/* ---------------------------- 第 6 步：图片 ---------------------------- */
+function renderPhotos(hints, captions){
+  const rows = (hints||[]).length ? hints : [{node:'未分类',count:state.stats?state.stats.imageCount:0,say:''}];
+  $('photoTable').innerHTML = `<tr><th style="width:130px;">建议挂在</th><th style="width:70px;">张数</th><th>群里配图时说了什么</th><th style="width:230px;">文件名（人工填）</th></tr>`
+    + rows.map((h,i)=>`<tr>
+        <td>${esc(h.node||'')}</td>
+        <td>${h.count||0}</td>
+        <td>${esc(h.say||'—')}</td>
+        <td><input data-photo="${i}" value="${esc(state.photoFiles&&state.photoFiles[i]||'')}" oninput="setPhotoFile(${i},this.value)" placeholder="20260820_途观_胶套开裂.jpg"></td>
+      </tr>`).join('');
+  if(!(hints||[]).length && !(state.stats&&state.stats.imageCount)){
+    $('photoTable').innerHTML += '<tr><td colspan="4" style="color:var(--sub);">这段群聊里没有图片。按 07 §7.3，缺图就不生成对应段落——案例仍可发布，只是证据链弱一些。</td></tr>';
+  }
+}
+function setPhotoFile(i,v){ if(!state.photoFiles) state.photoFiles={}; state.photoFiles[i]=v; }
+
+/* ---------------------------- 存档 ---------------------------- */
+function syncCaseFromUI(){
+  if(!state.caseData) return;
+  state.caseData.title = $('c_title').value;
+  state.caseData.summary = $('c_summary').value;
+  state.caseData.aiAbstract = $('c_aiAbstract').value;
+}
+function toMarkdown(){
+  syncCaseFromUI();
+  const c = state.caseData;
+  if(!c) return '';
+  const lines = [];
+  lines.push(`# ${c.title}`);
+  lines.push('');
+  lines.push(`> ${c.sourceLabel || '门店发布 · 已脱敏 · 已审核'}`);
+  lines.push('');
+  lines.push(`**摘要**：${c.summary}`);
+  lines.push('');
+  (c.sections||[]).forEach(s=>{ if(s.text){ lines.push(`## ${s.name}`); lines.push(''); lines.push(s.text); lines.push(''); } });
+  if((c.captions||[]).length){
+    lines.push('## 图片说明'); lines.push('');
+    c.captions.forEach(x=>lines.push(`- ${x.node ? x.node+'：' : ''}${x.text}`));
+    lines.push('');
+  }
+  if((c.faq||[]).length){
+    lines.push('## 本单问答'); lines.push('');
+    c.faq.forEach(x=>{ lines.push(`**Q：${x.q}**`); lines.push(''); lines.push(`A：${x.a}`); lines.push(''); });
+  }
+  if(c.aiAbstract){ lines.push('## AI 可引用摘要'); lines.push(''); lines.push(c.aiAbstract); lines.push(''); }
+  lines.push('---');
+  lines.push('');
+  lines.push('**留档信息（不公开）**');
+  lines.push('');
+  lines.push(`- 车型：${$('f_vehicle').value}${ $('f_odo').value ? '　里程：'+$('f_odo').value : ''}`);
+  if($('f_amount').value) lines.push(`- 本单金额（仅供留档，禁止公开）：${$('f_amount').value}`);
+  if((state.timeline||[]).length){
+    lines.push('- 过程节点：');
+    state.timeline.forEach(t=>lines.push(`  - ${t.who||''}｜${t.what}`));
+  }
+  if((state.doubts||[]).length){
+    lines.push('- 存疑项（发布前必须确认）：');
+    state.doubts.forEach(d=>lines.push(`  - ${d.field}：${d.value}（${d.why}）`));
+  }
+  lines.push('');
+  lines.push('**原始群聊（已脱敏，不发布，仅供自证）**');
+  lines.push('');
+  lines.push('```');
+  lines.push(state.maskedText || renderMessages(state.messages));
+  lines.push('```');
+  return lines.join('\n');
+}
+function copyMarkdown(){
+  const md = toMarkdown();
+  if(!md){ alert('先生成案例'); return; }
+  navigator.clipboard.writeText(md).then(()=>flash('draftMsg','已复制全文 ✓','ok')).catch(()=>alert('复制失败，请手动选择'));
+}
+function downloadMarkdown(){
+  const md = toMarkdown();
+  if(!md){ alert('先生成案例'); return; }
+  const name = `${($('c_title').value||'案例').replace(/[\\/:*?"<>|]/g,'')}.md`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md],{type:'text/markdown;charset=utf-8'}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+  flash('draftMsg', `已下载 ${name}`, 'ok');
+}
+function saveDraft(){
+  if(!state.caseData){ alert('先生成案例再保存'); return; }
+  syncCaseFromUI();
+  const drafts = loadDrafts();
+  const rec = {
+    id: state.editingId || ('d'+Date.now()),
+    title: state.caseData.title || '（未命名案例）',
+    vehicle: $('f_vehicle').value,
+    createdAt: state.editingId ? (drafts.find(d=>d.id===state.editingId)||{}).createdAt || new Date().toISOString() : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    caseData: state.caseData,
+    facts: collectFacts(),
+    timeline: state.timeline,
+    doubts: state.doubts,
+    missing: state.missing,
+    maskedText: state.maskedText,
+    messages: state.messages,
+    stats: state.stats,
+  };
+  const idx = drafts.findIndex(d=>d.id===rec.id);
+  if(idx>=0) drafts[idx]=rec; else drafts.unshift(rec);
+  localStorage.setItem(LS_DRAFTS, JSON.stringify(drafts.slice(0,50)));
+  state.editingId = rec.id;
+  renderDrafts();
+  flash('draftMsg','草稿已保存到本机浏览器（换电脑不同步，重要案例记得导出 .md）','ok');
+}
+function loadDrafts(){ try{ return JSON.parse(localStorage.getItem(LS_DRAFTS)||'[]'); }catch(e){ return []; } }
+function renderDrafts(){
+  const drafts = loadDrafts();
+  $('draftCount').textContent = drafts.length;
+  if(!drafts.length){ $('draftList').innerHTML='<div class="empty">还没有草稿</div>'; return; }
+  $('draftList').innerHTML = drafts.map(d=>`
+    <div class="draft-item">
+      <div class="t">${esc(d.title)}<div class="d">${esc(d.vehicle||'')} · ${new Date(d.updatedAt||d.createdAt).toLocaleString('zh-CN')}</div></div>
+      <button class="btn-ghost btn-sm" onclick="openDraft('${d.id}')">打开</button>
+      <button class="btn-ghost btn-sm" onclick="delDraft('${d.id}')">删除</button>
+    </div>`).join('');
+}
+function openDraft(id){
+  const d = loadDrafts().find(x=>x.id===id);
+  if(!d) return;
+  state.editingId=id; state.messages=d.messages||[]; state.stats=d.stats||null;
+  state.facts=d.facts; state.timeline=d.timeline||[]; state.doubts=d.doubts||[];
+  state.missing=d.missing||[]; state.maskedText=d.maskedText||'';
+  $('input').value = d.maskedText || renderMessages(d.messages||[]);
+  renderMsgs();
+  renderFacts({ facts:d.facts, timeline:d.timeline, doubts:d.doubts, missing:d.missing, confidence:0, note:'' });
+  $('factsCard').style.display='';
+  state.caseData=d.caseData;
+  renderCase(d.caseData);
+  $('caseCard').style.display='';
+  renderPhotos((d.facts&&d.facts.photoHints)||[], d.caseData.captions||[]);
+  $('photoCard').style.display='';
+  $('btnExtract').disabled=false;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function delDraft(id){
+  if(!confirm('删除这份草稿？')) return;
+  localStorage.setItem(LS_DRAFTS, JSON.stringify(loadDrafts().filter(d=>d.id!==id)));
+  if(state.editingId===id) state.editingId=null;
+  renderDrafts();
+}
+function flash(id,msg,kind){
+  $(id).innerHTML = `<div class="notice notice-${kind||'info'}">${esc(msg)}</div>`;
+}
+
+/* ---------------------------- 启动 ---------------------------- */
+loadSettings();
+renderDrafts();
 </script>
 </body>
 </html>
