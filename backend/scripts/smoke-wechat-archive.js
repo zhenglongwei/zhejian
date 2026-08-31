@@ -14,6 +14,9 @@ const {
   parseJsonLoose,
   SECTION_NAMES,
   MASK_RULES,
+  CATEGORY_ITEMS,
+  FIELD_LABELS,
+  humanizeFieldKey,
 } = require('../src/services/wechat-archive.service')
 
 let passed = 0
@@ -189,8 +192,11 @@ const FAKE_EXTRACT = {
     { at: '', who: '车主', what: '确认更换两侧小吊杆' },
     { at: '', who: '技师', what: '完工路试，异响消失' },
   ],
-  doubts: [{ field: 'excluded', value: '摆臂本体可用', why: '群里没说"检查了摆臂"，是从"建议先换小吊杆"推断的' }],
-  missing: ['里程', '环车预检', '轮毂轴承', '减震器', '交车说明'],
+  doubts: [{ field: 'exclude_list', value: '摆臂本体可用', why: '群里没说"检查了摆臂"，是从"建议先换小吊杆"推断的' }],
+  // 模型是照着提示词里的 key 回填的，实测返回的就是这一串英文——
+  // 老板在「生成案例」按钮旁边看到的就是它们，所以桩数据必须写英文，
+  // 写中文等于自己骗自己，永远测不出这个 bug。
+  missing: ['odo', 'duration', 'handover', 'alignment_advice', 'press_torque', 'road_test_before', 'pry_play_check', 'parts_used', 'walkaround', 'wheel_bearing', 'shock_strust'],
   confidence: 0.72,
   note: '检查发现与方案、完工都有，里程和预检缺失',
 }
@@ -220,6 +226,31 @@ async function runExtract() {
   assert(!data.maskedText.includes('浙A12345'), '车牌不能出本机')
   assert.strictEqual(data.maskHits['手机号'], 1)
   assert(data.confidence > 0.7)
+  // 界面上「群里没提到：xxx」这一行拿 missing 直接拼，里头有英文师傅看不懂
+  const leaked = data.missing.filter((m) => /[A-Za-z]/.test(m))
+  assert.deepStrictEqual(leaked, [], `missing 里还漏着英文：${leaked.join('、')}`)
+  assert(data.missing.includes('里程'), 'odo 要转成中文')
+  assert(data.missing.includes('工期'), 'duration 要转成中文')
+  assert(data.missing.includes('交车说明'), 'handover 要转成中文')
+  assert(data.missing.includes('减震器/顶胶'), 'shock_strust 这种拼写变体也要认得出来')
+  assert.strictEqual(data.doubts[0].field, '已排除项', '存疑项的字段名同样是英文 key，要一起转')
+}
+
+async function runFieldLabelGuards() {
+  // 漂移保护：检查项表里每加一项就得配中文短名，否则模型把新 key 回进 missing，
+  // 界面上又会冒出英文——这个 bug 出过一次，不能靠人记得。
+  Object.entries(CATEGORY_ITEMS).forEach(([category, items]) => {
+    items.forEach(([key, , short]) => {
+      assert(short && !/[A-Za-z]/.test(short), `${category}.${key} 缺中文短名：${short || '(空)'}`)
+    })
+  })
+  assert(Object.keys(FIELD_LABELS).length > 0, '字段名映射表不能是空的')
+  assert.strictEqual(humanizeFieldKey('some_new_field'), '', '认不出的英文 key 宁可丢掉，不许甩给门店')
+  assert.strictEqual(humanizeFieldKey('客户职业'), '客户职业', '模型偶尔直接说中文短语，别误伤')
+  assert.strictEqual(humanizeFieldKey('shock_strust'), '减震器/顶胶', '拼写变体要能认')
+  assert.strictEqual(humanizeFieldKey('odo'), '里程', 'facts 的 key 也要认')
+  assert.strictEqual(humanizeFieldKey(''), '', '空值不能变成 undefined 之类')
+  assert.strictEqual(humanizeFieldKey(null), '', 'null 不能炸')
 }
 
 async function runExtractGuards() {
@@ -569,6 +600,9 @@ async function runRealLlm() {
     passed += 1
     await runExtractGuards()
     console.log('  ✓ 提取阶段的输入护栏')
+    passed += 1
+    await runFieldLabelGuards()
+    console.log('  ✓ 字段名转中文（不许把英文 key 显示给门店）')
     passed += 1
     await runCompose()
     console.log('  ✓ 事实 → 案例九段（对齐 07）')

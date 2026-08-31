@@ -304,8 +304,13 @@
           return '<div class="doubt"><b>存疑 · ' + esc(d.field) + '</b>：' + esc(d.value) + '　—　' + esc(d.why) + '</div>';
         }).join('')
       : '';
-    $('missingLine').textContent = (state.missing || []).length
-      ? '群里没提到：' + state.missing.join('、') + '（不硬补，允许留白）'
+    // missing 里的名字后端已转成中文，这里只管长度：17 项里大半没提到是常态，
+    // 全列出来一行塞不下，师傅也不会看，超过 6 项就折叠成「等 N 项」。
+    var miss = (state.missing || []).filter(Boolean);
+    $('missingLine').textContent = miss.length
+      ? '群里没提到：' + miss.slice(0, 6).join('、')
+        + (miss.length > 6 ? ' 等 ' + miss.length + ' 项' : '')
+        + '（不硬补，允许留白）'
       : '';
     $('timelineBox').innerHTML = (state.timeline || []).length
       ? state.timeline.map(function (t, i) {

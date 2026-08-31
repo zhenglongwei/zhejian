@@ -102,30 +102,68 @@ const RISK_RULES = [
   { type: '身份证', re: /\b\d{16,19}\b/ },
 ]
 
-/** 17 的检查项，在 extract 阶段降级为「事实清单参考词表」，不是必须填满的目标结构（22 D1） */
+/**
+ * 17 的检查项，在 extract 阶段降级为「事实清单参考词表」，不是必须填满的目标结构（22 D1）。
+ *
+ * 每项三个值：[字段 key, 给模型看的说明, 给门店看的中文短名]。
+ * 第三个值不能省——模型会把 key 原样写进 missing / doubts.field，
+ * 少了它，界面上就会出现 odo、shock_strust 这种师傅看不懂的英文。
+ */
 const CATEGORY_ITEMS = {
   chassis_noise: [
-    ['complaint', '异响场景：什么情况下响（过减速带、转弯、刹车、走烂路）'],
-    ['bushing_closeup', '胶套/球头近景：有没有说胶套裂了、球头松了'],
-    ['sway_bar_links', '稳定杆连杆（小吊杆）/胶套'],
-    ['repair_path', '处理路径：换小吊杆还是换摆臂总成，理由是什么'],
-    ['old_parts', '旧件留影：旧件拆下来有没有拍、说了什么'],
-    ['road_test_after', '完工路试：修完试车了吗，还响不响'],
-    ['alignment_advice', '换件后定位：有没有建议做四轮定位'],
-    ['press_torque', '压装/力矩：有没有提到按标准力矩紧固'],
-    ['exclude_list', '已排除项：明确说了哪些件不用换、还能用'],
-    ['road_test_before', '试车复现：维修前有没有试车确认异响'],
-    ['pry_play_check', '撬动/旷量检查：有没有举起来撬、查旷量'],
-    ['parts_used', '配件信息：原厂/副厂/品牌'],
-    ['odo', '里程表读数'],
-    ['walkaround', '环车预检'],
-    ['wheel_bearing', '轮毂轴承检查结论'],
-    ['shock_strust', '减震器/顶胶检查结论'],
-    ['handover_note', '交车说明/注意事项'],
+    ['complaint', '异响场景：什么情况下响（过减速带、转弯、刹车、走烂路）', '异响场景'],
+    ['bushing_closeup', '胶套/球头近景：有没有说胶套裂了、球头松了', '胶套/球头近景'],
+    ['sway_bar_links', '稳定杆连杆（小吊杆）/胶套', '稳定杆连杆'],
+    ['repair_path', '处理路径：换小吊杆还是换摆臂总成，理由是什么', '处理路径'],
+    ['old_parts', '旧件留影：旧件拆下来有没有拍、说了什么', '旧件留影'],
+    ['road_test_after', '完工路试：修完试车了吗，还响不响', '完工路试'],
+    ['alignment_advice', '换件后定位：有没有建议做四轮定位', '四轮定位建议'],
+    ['press_torque', '压装/力矩：有没有提到按标准力矩紧固', '压装力矩'],
+    ['exclude_list', '已排除项：明确说了哪些件不用换、还能用', '已排除项'],
+    ['road_test_before', '试车复现：维修前有没有试车确认异响', '试车复现'],
+    ['pry_play_check', '撬动/旷量检查：有没有举起来撬、查旷量', '撬动/旷量检查'],
+    ['parts_used', '配件信息：原厂/副厂/品牌', '配件品牌'],
+    ['odo', '里程表读数', '里程'],
+    ['walkaround', '环车预检', '环车预检'],
+    ['wheel_bearing', '轮毂轴承检查结论', '轮毂轴承'],
+    ['shock_strut', '减震器/顶胶检查结论', '减震器/顶胶'],
+    ['handover_note', '交车说明/注意事项', '交车说明'],
   ],
 }
 
 const CATEGORY_LABELS = { chassis_noise: '底盘异响' }
+
+/** facts.* 的中文名。结构和 extractUserPrompt 里的 JSON 模板一一对应，改那边要同步这里。 */
+const FACT_LABELS = {
+  vehicle: '车型',
+  odo: '里程',
+  symptom: '故障现象',
+  checkFindings: '检查发现',
+  excluded: '已排除项',
+  plan: '维修方案',
+  planReason: '方案理由',
+  process: '施工步骤',
+  parts: '配件',
+  finish: '完工验证',
+  duration: '工期',
+  handover: '交车说明',
+  amount: '金额',
+  photoHints: '配图线索',
+}
+
+/** 拼写变体 / 历史 key → 现在的 key。模型偶尔会照着旧写法或自己拼错回一个 key。 */
+const FIELD_ALIASES = { shock_strust: 'shock_strut' }
+
+/** 所有可能出现在 missing / doubts.field 里的 key → 门店看得懂的中文名 */
+const FIELD_LABELS = (() => {
+  const labels = { ...FACT_LABELS }
+  Object.values(CATEGORY_ITEMS).forEach((items) => {
+    items.forEach(([key, , short]) => {
+      labels[key] = short
+    })
+  })
+  return labels
+})()
 
 function clipText(value, max) {
   return String(value == null ? '' : value).slice(0, max)
@@ -141,6 +179,22 @@ function toArray(value, maxItems = 12, maxLen = 200) {
   }
   const text = clipText(value, maxLen).trim()
   return text ? [text] : []
+}
+
+/**
+ * missing / doubts.field 是模型照着提示词回的原始字段名（odo、shock_strust…），
+ * 师傅看不懂，一律换成中文短名。
+ *
+ * 两种兜底：
+ * - 表里没有、又全是字母下划线的 → 认不出是什么，宁可丢掉也不把内部字段名甩给用户；
+ * - 本来就是中文的（模型偶尔直接写「客户职业」这类短语）→ 原样保留，别误伤。
+ */
+function humanizeFieldKey(value) {
+  const text = String(value == null ? '' : value).trim()
+  if (!text) return ''
+  const key = FIELD_ALIASES[text] || text
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key]
+  return /^[A-Za-z0-9_]+$/.test(text) ? '' : text
 }
 
 // ---------------------------------------------------------------------------
@@ -582,12 +636,14 @@ function normalizeFacts(raw) {
       : [],
     doubts: Array.isArray(src.doubts)
       ? src.doubts.slice(0, 12).map((d) => ({
-          field: clipText(d?.field, 30),
+          field: clipText(humanizeFieldKey(d?.field) || '其他', 30),
           value: clipText(d?.value, 200),
           why: clipText(d?.why, 200),
         }))
       : [],
-    missing: toArray(src.missing, 20, 60),
+    // 模型会同时把 facts 的 key 和检查项的 key 混着写进 missing，
+    // 转中文后可能撞名（facts.odo 和检查项 odo 都叫「里程」），去重再给前端。
+    missing: [...new Set(toArray(src.missing, 20, 60).map(humanizeFieldKey).filter(Boolean))],
     confidence: Math.max(0, Math.min(1, Number(src.confidence) || 0)),
     note: clipText(src.note, 200),
   }
@@ -768,4 +824,6 @@ module.exports = {
   CATEGORY_LABELS,
   SECTION_NAMES,
   MASK_RULES,
+  FIELD_LABELS,
+  humanizeFieldKey,
 }

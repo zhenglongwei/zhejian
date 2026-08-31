@@ -522,7 +522,11 @@ function renderFacts(data){
   $('doubtBox').innerHTML = (data.doubts||[]).length
     ? (data.doubts||[]).map(d=>`<div class="doubt"><b>存疑 · ${esc(d.field)}</b>：${esc(d.value)}　—　${esc(d.why)}</div>`).join('')
     : '';
-  $('missingLine').textContent = (data.missing||[]).length ? `群里没提到：${data.missing.join('、')}（按 07 §7.3 走降级，不要硬补）` : '';
+  // missing 的名字后端已转成中文（key 是英文，师傅看不懂），这里只管收敛长度
+  const miss=(data.missing||[]).filter(Boolean);
+  $('missingLine').textContent = miss.length
+    ? `群里没提到：${miss.slice(0,6).join('、')}${miss.length>6?' 等 '+miss.length+' 项':''}（按 07 §7.3 走降级，不要硬补）`
+    : '';
 
   $('timelineBox').innerHTML = (state.timeline||[]).length
     ? state.timeline.map((t,i)=>`<div class="tl"><span class="who">${esc(t.who||'')}</span><input value="${esc(t.what)}" oninput="state.timeline[${i}].what=this.value" style="flex:1;"><button class="btn-ghost btn-sm" onclick="delTl(${i})">删</button></div>`).join('')

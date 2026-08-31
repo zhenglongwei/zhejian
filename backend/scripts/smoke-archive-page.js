@@ -132,7 +132,7 @@ function fire(el, type) {
 
 // ---------------------------------------------------------------------------
 
-function buildPage(statusData) {
+function buildPage(statusData, extractData) {
   const html = fs.readFileSync(HTML_PATH, 'utf8')
   const elements = new Map()
   for (const m of html.matchAll(/\bid="([^"]+)"/g)) elements.set(m[1], makeEl('div', m[1]))
@@ -161,9 +161,12 @@ function buildPage(statusData) {
       body = { __unparsable: String(opts && opts.body) }
     }
     calls.push({ url, method: (opts && opts.method) || 'GET', body })
+    // /status 和 /extract 的返回结构不一样，桩要按路径分流，
+    // 不然测不到「提取完之后界面长什么样」。
+    const dataFor = /\/status$/.test(url) ? statusData : extractData || statusData
     return Promise.resolve({
       status: 200,
-      json: () => Promise.resolve({ code: 0, message: 'success', data: statusData }),
+      json: () => Promise.resolve({ code: 0, message: 'success', data: dataFor }),
     })
   }
 
@@ -220,6 +223,14 @@ async function main() {
     limit: 20,
     maxChars: 20000,
     retention: '不保存任何粘贴内容',
+  },
+  // 后端转完中文之后的样子。故意给 9 项——17 项里大半没提到是常态，
+  // 全列出来一行塞不下，页面得自己折叠。
+  {
+    facts: { vehicle: '大众途观', odo: '', symptom: '过减速带咯噔响', plan: '更换两侧小吊杆' },
+    timeline: [],
+    doubts: [{ field: '已排除项', value: '摆臂本体可用', why: '群里没说检查了摆臂' }],
+    missing: ['里程', '工期', '交车说明', '四轮定位建议', '压装力矩', '试车复现', '环车预检', '轮毂轴承', '减震器/顶胶'],
   })
   await new Promise((r) => setTimeout(r, 0))
   assert.deepStrictEqual(page.missedIds, [], `页面引用了不存在的 id：${page.missedIds.join(', ')}`)
@@ -289,6 +300,18 @@ async function main() {
   )
   assert(!JSON.stringify(extractCall.body).includes('浙A12345'), '送出去的内容里不能有车牌')
   ok('手改发言人后能回写，且送出去的仍是脱敏后的内容')
+
+  // 「生成案例」按钮旁边那一行是师傅直接看的，英文 key 一个都不许出现。
+  // 后端已经转成中文，这里守住两件事：没有英文、超长会折叠。
+  const missLine = String(page.get('missingLine').textContent || '')
+  assert(/群里没提到/.test(missLine), `缺了「群里没提到」提示：${missLine}`)
+  assert(!/[A-Za-z]/.test(missLine), `「群里没提到」这行出现了英文，师傅看不懂：${missLine}`)
+  assert(/等 9 项/.test(missLine), `9 项要折叠成「等 9 项」：${missLine}`)
+  assert.strictEqual((missLine.match(/、/g) || []).length, 5, `只列前 6 项（5 个顿号）：${missLine}`)
+  // 只看可见文字——标签名（div、b、class）本身就是英文字母，直接查 innerHTML 会误报
+  const doubtText = String(page.get('doubtBox').innerHTML || '').replace(/<[^>]*>/g, '')
+  assert(doubtText && !/[A-Za-z]/.test(doubtText), `存疑项里也不能有英文：${doubtText}`)
+  ok('「群里没提到」全中文且超长折叠，不把字段 key 甩给门店')
 
   // 4) 清空
   await fire(page.get('btnClear'), 'click')
