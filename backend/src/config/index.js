@@ -392,6 +392,13 @@ const config = {
     ].find((name) => Boolean(envStr(name))) || '',
     timeoutMs: Number(envStr('WECHAT_ARCHIVE_TIMEOUT_MS') || 90000),
     enableThinking: envBool('WECHAT_ARCHIVE_ENABLE_THINKING'),
+    /** 公开试用（挂官网当获客钩子）：每 IP 每天几次大模型调用；extract 与 compose 各算 1 次 */
+    publicPerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PER_IP') || 20),
+    /** 全局总闸：全站每天最多烧多少次。一人公司的保险丝，超了当天对外直接关门 */
+    publicDailyCap: Number(envStr('WECHAT_ARCHIVE_PUBLIC_DAILY_CAP') || 300),
+    /** 解析不调大模型，给个宽松但不无限的次数，防脚本 */
+    publicParsePerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PARSE_PER_IP') || 60),
+    enabled: process.env.WECHAT_ARCHIVE_PUBLIC_ENABLED !== 'false',
     /** 单次粘贴的群聊文本上限，超了直接拒——长群聊没有归档价值，还容易把 token 烧穿 */
     maxChars: Number(envStr('WECHAT_ARCHIVE_MAX_CHARS') || 20000),
   },

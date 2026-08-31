@@ -510,17 +510,28 @@ async function callLlm(messages, options = {}) {
     err.code = 'LLM_NOT_CONFIGURED'
     throw err
   }
-  const { text, usage } = await chatCompletion({
-    apiUrl: rt.apiUrl,
-    apiKey: rt.apiKey,
-    model: rt.model,
-    messages,
-    temperature: options.temperature ?? 0.2,
-    responseFormat: { type: 'json_object' },
-    enableThinking: rt.enableThinking,
-    timeoutMs: rt.timeoutMs,
-  })
-  return { text, usage }
+  try {
+    const { text, usage } = await chatCompletion({
+      apiUrl: rt.apiUrl,
+      apiKey: rt.apiKey,
+      model: rt.model,
+      messages,
+      temperature: options.temperature ?? 0.2,
+      responseFormat: { type: 'json_object' },
+      enableThinking: rt.enableThinking,
+      timeoutMs: rt.timeoutMs,
+    })
+    return { text, usage }
+  } catch (e) {
+    if (e && e.code === 'LLM_TIMEOUT') throw e
+    // 上游的原话（「Incorrect API key provided」、内网地址、账单提示）只进日志。
+    // 公开接口上原样抛出去，等于告诉外人我们用的哪家、密钥配没配对。
+    console.error('[wechat-archive] 大模型调用失败：', e && e.message ? e.message : e)
+    const err = new Error('模型服务暂时不可用')
+    err.code = 'LLM_FAILED'
+    err.cause = e
+    throw err
+  }
 }
 
 // ---------------------------------------------------------------------------

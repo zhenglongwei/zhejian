@@ -51,6 +51,8 @@
     "test:case-slug": "node src/utils/case-slug.test.js",
     "cases:generate-articles": "node scripts/generate-case-articles-backfill.js",
     "archive:smoke": "node scripts/smoke-wechat-archive.js",
+    "archive:page-smoke": "node scripts/smoke-archive-page.js",
+    "archive:local": "node scripts/serve-archive-local.js",
     "h5:chain-smoke": "node scripts/h5-chain-smoke.js",
     "geo:migrate-mock": "node scripts/geo-pages-migrate-from-mock.js",
     "geo:migrate-mock:publish": "node scripts/geo-pages-migrate-from-mock.js --publish",

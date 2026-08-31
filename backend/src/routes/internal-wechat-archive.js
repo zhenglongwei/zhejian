@@ -86,6 +86,8 @@ router.post('/wechat-archive/extract', async (req, res, next) => {
   } catch (e) {
     if (e.code === 'EMPTY_INPUT' || e.code === 'TOO_LONG') return fail(res, 40010, e.message, 400)
     if (e.code === 'LLM_NOT_CONFIGURED') return fail(res, 50310, e.message, 503)
+    // 内部版：真实原因照说，老板要靠它判断是密钥错了还是被限流
+    if (e.code === 'LLM_FAILED') return fail(res, 50311, (e.cause && e.cause.message) || e.message, 503)
     if (e.code === 'LLM_TIMEOUT') return fail(res, 50410, '大模型超时了，把群聊截短一点再试', 504)
     return next(e)
   }
@@ -107,6 +109,8 @@ router.post('/wechat-archive/compose', async (req, res, next) => {
   } catch (e) {
     if (e.code === 'EMPTY_FACTS') return fail(res, 40020, e.message, 400)
     if (e.code === 'LLM_NOT_CONFIGURED') return fail(res, 50310, e.message, 503)
+    // 内部版：真实原因照说，老板要靠它判断是密钥错了还是被限流
+    if (e.code === 'LLM_FAILED') return fail(res, 50311, (e.cause && e.cause.message) || e.message, 503)
     if (e.code === 'LLM_TIMEOUT') return fail(res, 50420, '大模型超时了，稍后再试', 504)
     return next(e)
   }

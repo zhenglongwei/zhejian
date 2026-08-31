@@ -13,6 +13,7 @@ const {
   riskScan,
   parseJsonLoose,
   SECTION_NAMES,
+  MASK_RULES,
 } = require('../src/services/wechat-archive.service')
 
 let passed = 0
@@ -327,7 +328,224 @@ function checkJsonParse() {
 }
 
 // ---------------------------------------------------------------------------
-// 5. 真调一次大模型（可选）
+// 5. 公开试用路由：不要密钥，但必须限流 + 能拉闸
+// ---------------------------------------------------------------------------
+
+const fs = require('fs')
+const path = require('path')
+const http = require('http')
+const express = require('express')
+const { config } = require('../src/config')
+const publicArchive = require('../src/routes/public-wechat-archive')
+
+function startTestServer() {
+  const app = express()
+  app.use(express.json())
+  app.use('/api/v1/public', publicArchive.router)
+  return new Promise((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => {
+      resolve({ server, base: `http://127.0.0.1:${server.address().port}/api/v1/public/wechat-archive` })
+    })
+  })
+}
+
+async function call(base, p, body, headers) {
+  const res = await fetch(base + p, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  return { status: res.status, json: await res.json() }
+}
+
+const CHAT_SHORT = '张师傅\n李哥，途观过减速带响，今天举起来看了\n[图片]\n李老板\n严重吗？'
+
+async function runPublicRoute() {
+  // 配额调小才能测到边界。跑完要还原，别影响同一进程里的其它用例。
+  const saved = {
+    enabled: config.wechatArchive.enabled,
+    perIp: config.wechatArchive.publicPerIpPerDay,
+    cap: config.wechatArchive.publicDailyCap,
+    parse: config.wechatArchive.publicParsePerIpPerDay,
+  }
+  config.wechatArchive.enabled = true
+  config.wechatArchive.publicPerIpPerDay = 2
+  config.wechatArchive.publicParsePerIpPerDay = 3
+  config.wechatArchive.publicDailyCap = 4
+
+  const { server, base } = await startTestServer()
+  const ip = (n) => ({ 'x-forwarded-for': `203.0.113.${n}` })
+  try {
+    // 1) 不拿密钥也能用
+    const st = await call(base, '/status')
+    assert.strictEqual(st.json.code, 0, '公开 status 不该要密钥')
+    assert.strictEqual(st.json.data.enabled, true)
+    assert.strictEqual(st.json.data.retention, '不保存任何粘贴内容', '不落库这句诺言要跟着接口走')
+    assert.strictEqual(st.json.data.remaining, 2)
+
+    // 2) parse 不调模型，不该吃掉主配额
+    for (let i = 0; i < 3; i += 1) {
+      const r = await call(base, '/parse', { text: CHAT_SHORT }, ip(11))
+      assert.strictEqual(r.json.code, 0, `第 ${i + 1} 次解析应成功`)
+    }
+    const afterParse = await call(base, '/status', undefined, ip(11))
+    assert.strictEqual(afterParse.json.data.remaining, 2, '解析三次后主配额必须还是满的')
+
+    // 3) parse 超额 → 429
+    const overParse = await call(base, '/parse', { text: CHAT_SHORT }, ip(11))
+    assert.strictEqual(overParse.status, 429, '解析超额要返回 429')
+    assert.strictEqual(overParse.json.code, 42901)
+
+    // 4) 主配额耗尽 → 429（本地没配 key，前两次会 503，但配额照扣）
+    for (let i = 0; i < 2; i += 1) {
+      const r = await call(base, '/extract', { text: CHAT_SHORT }, ip(12))
+      assert([0, 50310].includes(r.json.code), `第 ${i + 1} 次主流程应扣到配额（实际 ${r.json.code}）`)
+    }
+    const overLlm = await call(base, '/extract', { text: CHAT_SHORT }, ip(12))
+    assert.strictEqual(overLlm.status, 429, '主配额用完要返回 429')
+    assert.strictEqual(overLlm.json.code, 42901)
+
+    // 5) 全局总闸：前面 IP 11/12 已消耗 2 次主配额，总闸设的 4
+    //    再换两个 IP 各来一次就满了，第 5 个 IP 应该被挡在门外
+    await call(base, '/extract', { text: CHAT_SHORT }, ip(13))
+    await call(base, '/extract', { text: CHAT_SHORT }, ip(14))
+    const capped = await call(base, '/extract', { text: CHAT_SHORT }, ip(15))
+    assert.strictEqual(capped.json.code, 42901, '总闸满了要挡住')
+    assert(/名额已经用完/.test(capped.json.message), `总闸文案要区分于个人额度（实际：${capped.json.message}）`)
+
+    // 总闸满了不该顺带扣掉这个 IP 自己的额度——它明天还要用
+    const cappedStatus = await call(base, '/status', undefined, ip(15))
+    assert.strictEqual(cappedStatus.json.data.remaining, 0, '总闸满了页面要显示 0 次可用')
+    assert.strictEqual(cappedStatus.json.data.ready, false, '总闸满了 ready 要为 false')
+
+    // 6) 上游报错不许原样吐给外人。
+    //    光靠「本地没配密钥」测不到这条——那种情况走的是 LLM_NOT_CONFIGURED。
+    //    这里起一个假上游，专门返回 401 + 阿里云风格的错误体。
+    config.wechatArchive.enabled = true
+    // 前面的用例已经把总闸耗到 0 了，这里只想测错误映射，先把总闸放开
+    config.wechatArchive.publicDailyCap = 999
+    const savedKey = config.wechatArchive.apiKey
+    const savedUrl = config.wechatArchive.apiUrl
+    const upstream = http.createServer((req, res) => {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          error: { message: 'Incorrect API key provided. For details, see: https://help.aliyun.com/zh/model-studio/error-code#apikey-error' },
+        }),
+      )
+    })
+    await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve))
+    config.wechatArchive.apiKey = 'definitely-wrong-key'
+    config.wechatArchive.apiUrl = `http://127.0.0.1:${upstream.address().port}/chat/completions`
+    try {
+      const boom = await call(base, '/extract', { text: CHAT_SHORT }, ip(21))
+      assert.strictEqual(boom.status, 503, `上游故障要返回 503，实际 ${boom.status}`)
+      assert.strictEqual(boom.json.code, 50310)
+      assert(
+        !/Incorrect API key|dashscope|aliyun|Bearer|help\./i.test(boom.json.message),
+        `公开接口把上游原话漏出去了：「${boom.json.message}」`,
+      )
+      assert(boom.json.message.length < 30, '给外人看的错误文案要短')
+    } finally {
+      upstream.close()
+      config.wechatArchive.apiKey = savedKey
+      config.wechatArchive.apiUrl = savedUrl
+    }
+
+    // 7) 拉闸：enabled=false 后除 status 外全部 403
+    config.wechatArchive.enabled = false
+    const offStatus = await call(base, '/status')
+    assert.strictEqual(offStatus.json.data.enabled, false, 'status 在关闭时仍要能问')
+    const offParse = await call(base, '/parse', { text: CHAT_SHORT }, ip(16))
+    assert.strictEqual(offParse.status, 403, '拉闸后 parse 必须 403')
+    const offExtract = await call(base, '/extract', { text: CHAT_SHORT }, ip(16))
+    assert.strictEqual(offExtract.status, 403, '拉闸后 extract 必须 403，不然保险丝是假的')
+  } finally {
+    server.close()
+    Object.assign(config.wechatArchive, {
+      enabled: saved.enabled,
+      publicPerIpPerDay: saved.perIp,
+      publicDailyCap: saved.cap,
+      publicParsePerIpPerDay: saved.parse,
+    })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 6. 前后端脱敏规则漂移
+//     浏览器那份是「原文不出本机」的唯一保障。它一旦比服务端少一条规则，
+//     手机号/车牌就会以明文飞出用户的电脑——而页面还写着「先在你自己电脑上脱敏」。
+// ---------------------------------------------------------------------------
+
+function loadBrowserRules() {
+  const p = path.join(__dirname, '..', '..', 'brand-web', 'js', 'archive.js')
+  const src = fs.readFileSync(p, 'utf8')
+  const start = src.indexOf('var MASK_RULES = [')
+  const end = src.indexOf('function renderMessages')
+  assert(start > -1 && end > start, '浏览器端找不到 MASK_RULES…parseChat 区块，页面结构变了，这段检查要跟着改')
+  // eslint-disable-next-line no-new-func
+  return new Function(`${src.slice(start, end)}\nreturn { MASK_RULES, parseChat, maskText };`)()
+}
+
+function checkBrowserParity() {
+  check('脱敏规则逐条比对：条数 / 顺序 / 正则 / 替换值', () => {
+    const b = loadBrowserRules()
+    const a = MASK_RULES
+    assert.strictEqual(
+      b.MASK_RULES.length,
+      a.length,
+      `前端 ${b.MASK_RULES.length} 条 vs 服务端 ${a.length} 条，规则漂移了`,
+    )
+    a.forEach((r, i) => {
+      const br = b.MASK_RULES[i]
+      assert.strictEqual(br.name, r.name, `第 ${i + 1} 条规则名不一致`)
+      assert.strictEqual(br.re.source, r.re.source, `规则「${r.name}」的正则不一致`)
+      assert.strictEqual(br.re.flags, r.re.flags, `规则「${r.name}」的 flags 不一致`)
+      assert.strictEqual(br.to, r.to, `规则「${r.name}」的替换值不一致`)
+    })
+  })
+
+  check('同一个群聊，前后端解析结果必须一模一样', () => {
+    const b = loadBrowserRules()
+    const samples = [
+      CHAT,
+      CHAT_SHORT,
+      '张师傅：右边的小吊杆球头松了\n李老板：那要换什么',
+      '2026-08-20 10:23 张师傅\n举起来看了\n[语音]\n李老板 10:25\n好',
+    ]
+    samples.forEach((raw, i) => {
+      // idx 是服务端为落库加的序号，前端不需要，比对时归一掉
+      const strip = (r) => ({
+        senders: r.senders,
+        stats: r.stats,
+        messages: r.messages.map((m) => {
+          const o = {}
+          Object.keys(m).filter((k) => k !== 'idx').sort().forEach((k) => { o[k] = m[k] })
+          return o
+        }),
+      })
+      assert.deepStrictEqual(
+        strip(b.parseChat(raw)),
+        strip(parseChat(raw)),
+        `第 ${i + 1} 份样本的解析结果前后端不一致`,
+      )
+    })
+  })
+
+  check('脱敏结果前后端一致：原文里的手机号/车牌两边都得没', () => {
+    const b = loadBrowserRules()
+    const raw = '张师傅\n李哥 13812345678，你那辆浙A12345今天举起来看了\n李老板\n八百六十块能搞定吗'
+    const parsed = parseChat(raw)
+    const serverOut = maskChatText(raw, { senders: parsed.senders }).text
+    const browserOut = b.maskText(raw, parsed.senders).text
+    assert.strictEqual(browserOut, serverOut, '前后端脱敏输出不一致')
+    assert(!browserOut.includes('13812345678'), '前端脱敏漏了手机号')
+    assert(!browserOut.includes('浙A12345'), '前端脱敏漏了车牌')
+  })
+}
+
+// ---------------------------------------------------------------------------
+// 7. 真调一次大模型（可选）
 // ---------------------------------------------------------------------------
 
 async function runRealLlm() {
@@ -362,8 +580,20 @@ async function runRealLlm() {
     console.log('  ✓ 生成阶段的输入护栏')
     passed += 1
 
+    console.log('\n[5] 公开试用路由')
+    await runPublicRoute()
+    console.log('  ✓ 不要密钥即可用 + 解析不占主配额')
+    passed += 1
+    console.log('  ✓ 个人额度 / 全局总闸 / 总闸满了不误扣个人额度')
+    passed += 1
+    console.log('  ✓ 拉闸后接口真停（status 仍可问）')
+    passed += 1
+
+    console.log('\n[6] 前后端脱敏规则一致性')
+    checkBrowserParity()
+
     if (process.env.WECHAT_ARCHIVE_SMOKE_LLM === '1') {
-      console.log('\n[5] 真实大模型')
+      console.log('\n[7] 真实大模型')
       await runRealLlm()
     }
 

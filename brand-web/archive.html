@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>微信群案例转换 · 免费试用 · 盈简科技</title>
+  <meta name="description" content="把汽修微信群里师傅日常发的维修对话，变成一篇能直接发出去的案例。免费试用、不用注册、不保存你粘贴的任何内容。手机号、车牌、姓名在你自己电脑上就先脱敏。" />
+  <link rel="canonical" href="https://simplewin.cn/archive.html" />
+  <link rel="stylesheet" href="/css/site.css" />
+  <style>
+    /* 本页专用。通用件（卡片/按钮/表单）一律用 site.css，不重复造 */
+    .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+    @media (max-width: 720px) { .promise { grid-template-columns: 1fr; } }
+    .promise div { background: var(--soft); border-radius: var(--radius-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.6; }
+    .promise b { display: block; color: var(--ink); margin-bottom: 2px; font-size: 14px; }
+    .promise span { color: var(--sub); }
+    .notice { border-radius: var(--radius-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.75; margin: 14px 0; }
+    .notice-warn { background: #fff8eb; color: var(--warn); }
+    .notice-ok { background: #f0f9f4; color: var(--ok); }
+    .notice-err { background: #fdf1f0; color: var(--danger); }
+    .notice-info { background: var(--brand-bg); color: var(--brand); }
+    .notice ul { margin: 4px 0 0 18px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    .chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; background: var(--soft); color: var(--sub); }
+    .chip-hit { background: #f0f9f4; color: var(--ok); font-weight: 600; }
+    .msg { background: var(--soft); border-radius: var(--radius-md); padding: 10px 12px; margin-bottom: 8px; }
+    .msg-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .msg-head input { width: 130px; padding: 4px 8px; font-size: 13px; font-weight: 600; color: var(--brand); }
+    .msg-head .time { font-size: 11.5px; color: var(--sub); }
+    .badge { font-size: 11px; padding: 1px 7px; border-radius: 5px; font-weight: 600; }
+    .badge-img { background: #f0f9f4; color: var(--ok); }
+    .badge-voice { background: #fff8eb; color: var(--warn); }
+    .msg textarea { margin-top: 6px; min-height: 52px; font-size: 14px; padding: 7px 9px; }
+    .msg-del { margin-left: auto; font-size: 12px; padding: 4px 10px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .field-grid .full { grid-column: 1 / -1; }
+    @media (max-width: 720px) { .field-grid { grid-template-columns: 1fr; } }
+    .list-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+    .list-row input { flex: 1; font-size: 14px; padding: 7px 10px; }
+    .list-row .btn-ghost { flex: none; font-size: 12px; padding: 6px 11px; }
+    .doubt { background: #fff8eb; border-left: 3px solid var(--warn); border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; color: #8a4b06; }
+    .timeline { border-left: 2px solid var(--line); padding-left: 14px; margin-left: 4px; }
+    .timeline .tl { position: relative; padding: 4px 0; display: flex; gap: 8px; align-items: center; }
+    .timeline .tl::before { content: ""; position: absolute; left: -19px; top: 15px; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+    .timeline .who { font-size: 11.5px; color: var(--sub); flex: none; min-width: 40px; }
+    .timeline input { font-size: 13.5px; padding: 5px 9px; }
+    .sect { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 9px; }
+    .sect .name { font-size: 13px; font-weight: 600; color: var(--brand); margin-bottom: 6px; }
+    .sect textarea { min-height: 64px; font-size: 14px; }
+    .risk { background: #fdf1f0; border-left: 3px solid var(--danger); border-radius: 6px; padding: 8px 12px; font-size: 13px; color: var(--danger); margin-bottom: 6px; }
+    .hidden { display: none; }
+    .cta { background: linear-gradient(180deg, var(--brand-bg), #fff); border: 1px solid var(--line); }
+    .cta h3 { margin-top: 0; }
+    .cta ol { padding-left: 1.2em; color: var(--sub); font-size: 14px; }
+    .cta li { margin: 5px 0; }
+    .quota { font-size: 13px; color: var(--sub); margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <a class="logo" href="/">盈简科技<span>·GEO</span></a>
+      <nav>
+        <a href="/">公司</a>
+        <a href="/zhejian.html">辙见</a>
+        <a href="/check.html">GEO 体检</a>
+        <a href="/rank.html">榜单</a>
+        <a href="/archive.html" aria-current="page">案例转换</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap">
+      <h1>你的微信群里，本来就躺着几十篇案例</h1>
+      <p class="lead">师傅每天在群里发的那些话——「胶套裂了」「旧的拆下来了」「路试不响了」——本来就是一篇案例的骨架，只是散在几百条对话里没人整理。
+        这个工具把它们捡出来，变成一篇能直接发出去的案例。<strong>免费试用，不用注册，不保存你粘贴的任何内容。</strong></p>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <div class="card">
+      <div class="promise">
+        <div><b>① 先在你自己电脑上脱敏</b><span>手机号、车牌、姓名、VIN、地址在你浏览器里就换成了占位符，发出去的已经是脱敏文本。</span></div>
+        <div><b>② 我们只收到脱敏后的文字</b><span>原始群聊不出你的电脑。这一步在浏览器里完成，不依赖我们的服务器自觉。</span></div>
+        <div><b>③ 不保存，用完即弃</b><span>不落库、不建账号、不留痕。关掉页面就什么都没了——要留请自己复制走。</span></div>
+      </div>
+      <div class="notice notice-warn">
+        <b>先说清楚粘贴能拿到什么：只有纯文字。</b>
+        <ul>
+          <li><b>图片拿不到</b>：只会留下 <code>[图片]</code> 三个字，图片文件不进剪贴板。</li>
+          <li><b>语音拿不到</b>：只会留下 <code>[语音]</code> 三个字，语音内容不会一起复制。请在手机微信里长按语音 → 转文字 → 把文字补进对应消息。</li>
+          <li>发言人昵称、手机号、车牌这些<strong>能拿到，所以必须先脱敏</strong>——工具已经在做了。</li>
+        </ul>
+      </div>
+    </div>
+
+    <form class="card" id="cardStep1" onsubmit="return false;">
+      <p class="step-kicker">第一步 · 粘贴一段群聊</p>
+      <p class="muted">只复制这一单相关的那一段就行，别把整年的群聊都贴进来（上限 <span id="maxChars">20000</span> 字）。</p>
+      <textarea id="input" rows="11" placeholder="张师傅
+李哥，你那个途观过减速带响的问题，今天举起来看了
+[图片]
+[图片]
+张师傅
+右边的小吊杆球头松了，胶套也裂了
+李老板
+严重吗？要不要紧"></textarea>
+      <p style="margin-top:14px;">
+        <button class="btn" type="button" id="btnParse">解析并脱敏</button>
+        <button class="btn btn-ghost" type="button" id="btnSample">看个例子</button>
+        <button class="btn btn-ghost" type="button" id="btnClear">清空</button>
+        <span class="quota" id="quota"></span>
+      </p>
+      <div id="parseMsg"></div>
+    </form>
+
+    <div class="card hidden" id="cardStep2">
+      <p class="step-kicker">第二步 · 核对一下，机器认错的地方直接改</p>
+      <p class="muted">群聊没有固定格式，机器把发言人和内容认错是常事。这里可以直接改、可以删，改对了再交给下一步。</p>
+      <div class="chips" id="maskChips"></div>
+      <div id="msgList" style="margin-top:12px;"></div>
+      <p style="margin-top:12px;">
+        <button class="btn" type="button" id="btnExtract">AI 理解这一段</button>
+        <button class="btn btn-ghost" type="button" id="btnManual">不用 AI，自己填</button>
+      </p>
+      <div id="extractMsg"></div>
+    </div>
+
+    <div class="card hidden" id="cardStep3">
+      <p class="step-kicker">第三步 · 看看它读懂了什么</p>
+      <p class="muted">标黄的是模型<strong>推断</strong>出来的，不是群里原话——这几条你必须自己过一眼。金额会提取出来供你留档，但<strong>不会写进公开案例</strong>。</p>
+      <div id="doubtBox"></div>
+      <div class="field-grid" style="margin-top:14px;">
+        <div><label>车型（品牌+车系）</label><input type="text" id="f_vehicle" /></div>
+        <div><label>里程（群里没说就空着）</label><input type="text" id="f_odo" /></div>
+        <div class="full"><label>故障现象</label><input type="text" id="f_symptom" /></div>
+        <div class="full"><label>检查发现</label><div id="f_checkFindings"></div></div>
+        <div class="full"><label>明确不用换 / 还能用的件</label><div id="f_excluded"></div></div>
+        <div class="full"><label>维修方案</label><input type="text" id="f_plan" /></div>
+        <div class="full"><label>为什么选这个方案</label><input type="text" id="f_planReason" /></div>
+        <div class="full"><label>施工过程</label><div id="f_process"></div></div>
+        <div class="full"><label>用到的配件</label><div id="f_parts"></div></div>
+        <div class="full"><label>完工验证（路试 / 复检）</label><input type="text" id="f_finish" /></div>
+        <div><label>工期</label><input type="text" id="f_duration" /></div>
+        <div><label>交车说明</label><input type="text" id="f_handover" /></div>
+        <div><label>金额（仅你自己留档，绝不公开）</label><input type="text" id="f_amount" /></div>
+        <div><label>城市</label><input type="text" id="f_city" value="杭州" /></div>
+      </div>
+      <h3 style="margin-top:20px;">过程节点</h3>
+      <div class="timeline" id="timelineBox"></div>
+      <p style="margin-top:14px;">
+        <button class="btn" type="button" id="btnCompose">生成案例</button>
+        <span class="quota" id="missingLine"></span>
+      </p>
+      <div id="composeMsg"></div>
+    </div>
+
+    <div class="card hidden" id="cardStep4">
+      <p class="step-kicker">第四步 · 成稿</p>
+      <div id="riskBox"></div>
+      <div class="field-grid" style="margin-top:14px;">
+        <div class="full"><label>标题</label><input type="text" id="c_title" /></div>
+        <div class="full"><label>摘要</label><textarea id="c_summary" rows="3"></textarea></div>
+      </div>
+      <h3>正文</h3>
+      <div id="sectionsBox"></div>
+      <h3>配图说明</h3>
+      <p class="muted">每张图最多一行。没有文字依据的就空着——硬凑的图说比没有更糟。</p>
+      <div id="captionsBox"></div>
+      <h3>本单问答</h3>
+      <p class="muted">只写这一单有答案的问题，可以为空。禁止拿通用百科凑数。</p>
+      <div id="faqBox"></div>
+      <h3>AI 可引用摘要</h3>
+      <p class="muted">这段是给 AI 检索用的：客观陈述这台车怎么了、查到什么、怎么修的、结果如何。写得越平实，越容易被引用。</p>
+      <textarea id="c_aiAbstract" rows="4"></textarea>
+      <p style="margin-top:14px;">
+        <button class="btn" type="button" id="btnCopy">复制全文</button>
+        <button class="btn btn-ghost" type="button" id="btnDownload">下载 .md</button>
+      </p>
+      <div id="copyMsg"></div>
+    </div>
+
+    <div class="card cta hidden" id="cardCta">
+      <h3>这篇案例已经合格了。但它现在还只是一段文字。</h3>
+      <p class="muted">要让它真的在车主问 AI 时被引用，还差三件事：</p>
+      <ol>
+        <li><strong>落在能被抓到的地方</strong>——发在自己的站点上，结构清晰、能被搜索引擎和 AI 抓取。</li>
+        <li><strong>配上门店的实体信息</strong>——名字、地址、服务项在各家平台上对得上，AI 才敢把你写进答案。</li>
+        <li><strong>持续有新的真实案例</strong>——一篇不够，AI 信的是稳定的证据密度。</li>
+      </ol>
+      <p class="muted">这三件正是我们在做的事。想先看看自己在 AI 眼里的处境，可以顺手做个 <a href="/check.html">GEO 体检</a>，或者看看<a href="/rank.html">杭州门店 AI 可见性榜单</a>。</p>
+      <p style="margin-top:14px;">
+        <a class="btn" href="mailto:business@simplewin.cn?subject=咨询汽修门店案例与GEO服务">聊聊我的店 →</a>
+        <a class="btn btn-ghost" href="/check.html">先做个免费体检</a>
+      </p>
+    </div>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">
+      <p>盈简科技 · 杭州。本工具免费试用，按 IP 限次；生成结果仅供参考，发布前请自行核实真实性。</p>
+      <p style="margin-top:6px">官网 <a href="https://simplewin.cn/">simplewin.cn</a> · 案例站 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a> · 商务 <a href="mailto:business@simplewin.cn">business@simplewin.cn</a></p>
+      <p style="margin-top:6px">© 2026 杭州盈简科技有限公司 | <a href="https://beian.miit.gov.cn/" rel="nofollow">浙ICP备2024092950号</a></p>
+    </div>
+  </footer>
+
+  <script src="/js/archive.js"></script>
+</body>
+</html>
