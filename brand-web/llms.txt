@@ -2,7 +2,9 @@
 
 - 官网：https://simplewin.cn/
 - 做什么：帮企业把真实业务整理成网上能查到、问答里能被提到的公开资料。不做交易撮合，不担保成交。
-- 汽修产品「辙见」：https://simplewin.cn/zhejian.html ；公开案例：https://geo.simplewin.cn/
+- 汽修产品「辙见平台」：维修案例托管平台，门店拥有案例的完整主权（可自主决定公开或私有、下载、删除、上传），平台不取得内容所有权也不要求独家。https://simplewin.cn/zhejian.html
+- 案例生产工具（与托管平台相互独立，产出的案例可托管也可不托管）：「辙见小程序」（门店端，标准化案例生产）；「微信案例转换工具」https://simplewin.cn/archive.html
+- 公开案例（由门店授权公开的脱敏真案例）：https://geo.simplewin.cn/
 - GEO 体检（自动巡检：搜索引擎+地图+大模型联网抽样+浏览器网页版实测，出可量化评分）：https://simplewin.cn/check.html
 - 门店 AI 可见性榜单（地基分与可见性分对照，口径公开可复算）：https://simplewin.cn/rank.html
 - 联系：business@simplewin.cn
