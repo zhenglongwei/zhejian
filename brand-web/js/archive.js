@@ -1,35 +1,57 @@
 /**
- * 微信群案例转换 · 公开试用页
+ * 微信群案例转换 · 公开页（2026-09-02 改版：一步生成）
  *
- * 【重要】本文件里的 parseChat / maskText 是从
- *   backend/src/services/wechat-archive.service.js（parseChat / MASK_RULES）
- * 搬过来的浏览器版本。真源在服务端，改了服务端就要同步这里。
- * 之所以必须有两份：脱敏要在用户自己的机器上先做一遍，原文（含手机号、车牌）
- * 不许出本机——这是这个工具敢写「不保存任何内容」的前提，不能省。
- * backend/scripts/smoke-wechat-archive.js 里有一条断言会比对两边规则是否漂移。
+ * 流程：粘贴（框内直接改原文 / 补打码词）→ 生成案例 → 直接改案例。
+ * 不再展示中间的事实层表单——但脱敏这一步没有省：
+ *
+ * 【重要】本文件里的 parseChat / maskText / MASK_RULES 是从
+ *   backend/src/services/wechat-archive.service.js（parseChat / maskChatText / MASK_RULES）
+ *   搬过来的浏览器版本。真源在服务端，改了服务端就要同步这里。
+ *   之所以必须有两份：打码要在用户自己的机器上先做一遍，原文（含手机号、车牌）
+ *   不许出本机——这是这个工具敢写「不保存任何内容」的前提，不能省。
+ *   backend/scripts/smoke-wechat-archive.js 里有一条断言会比对两边规则是否漂移。
+ *
+ * ⚙ 接口设置里可以填归档密钥（x-archive-token 请求头）——填了就不限次（老板自己用的入口）。
+ * 草稿箱存 localStorage，只在本机浏览器里。
  */
 (function () {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
-  var SECTION_NAMES = ['案例概况', '维修前情况', '检查结果', '维修方案', '维修过程', '完工效果', '价格影响因素', '门店说明', '温馨提示'];
+  var SETTINGS_KEY = 'archiveSettingsV1';
+  var DRAFTS_KEY = 'archiveDraftsV1';
 
   var state = {
-    messages: [], stats: null, facts: null, timeline: [],
-    doubts: [], missing: [], caseData: null, maskedText: '',
-    quota: null, category: 'chassis_noise',
+    quota: null,
+    category: 'chassis_noise',
+    caseData: null,
+    facts: null,
+    doubts: [],
+    missing: [],
+    maskedText: '',
   };
+
+  /* ================= 接口与设置 ================= */
+
+  function loadSettings() {
+    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* 隐私模式就算了 */ }
+  }
+  var settings = loadSettings();
 
   /**
    * 线上：页面在 simplewin.cn，接口在 geo.simplewin.cn，所以写死跨域地址。
    * 本地：默认走同源——本地预览服务（backend/scripts/serve-archive-local.js）
    * 同时托管页面和接口，写死 3000 端口反而会打空。
-   * 想指向别处（比如单独跑着的 backend）：
-   *   页面加 ?api=http://127.0.0.1:3000/api/v1/public/wechat-archive
+   * 想指向别处：⚙ 接口设置，或页面加 ?api=... 。
    */
   function endpoint() {
     var params = new URLSearchParams(location.search);
     if (params.get('api')) return params.get('api');
+    if (settings.api) return settings.api;
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return '/api/v1/public/wechat-archive';
     }
@@ -37,9 +59,11 @@
   }
 
   async function api(path, body, method) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (settings.token) headers['x-archive-token'] = settings.token;
     var res = await fetch(endpoint() + path, {
       method: method || 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: body ? JSON.stringify(body) : undefined,
     });
     var json = await res.json().catch(function () {
@@ -63,7 +87,8 @@
     { name: '银行卡', re: /\b\d{16,19}\b/g, to: '[银行卡]' },
     { name: '车牌', re: /[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-HJ-NP-Z](?=[A-HJ-NP-Z0-9]{4,6}\d)[A-HJ-NP-Z0-9]{4,6}[挂学警港澳领]?/g, to: '[车牌]' },
     { name: 'VIN', re: /\b(?=[A-HJ-NPR-Z0-9]{17}\b)(?=[A-HJ-NPR-Z0-9]*[A-HJ-NPR-Z])(?=[A-HJ-NPR-Z0-9]*\d)[A-HJ-NPR-Z0-9]{17}\b/g, to: '[VIN]' },
-    { name: '地址', re: /[\u4e00-\u9fa5]{2,10}(?:路|街|道|巷|弄)\d{1,4}号[\u4e00-\u9fa5\d]{0,8}|[\u4e00-\u9fa5]{2,12}(?:小区|花园|家园|公寓|大厦|苑)\d{0,4}(?:栋|幢|座)?\d{0,4}(?:单元|室|层)?/g, to: '[地址]' },
+    { name: '发动机号', re: /\b(?=[A-HJ-NPR-Z0-9]{7,9}\b)(?=(?:[A-Z]*\d){2})(?=[A-Z0-9]*[A-Z])[A-HJ-NPR-Z0-9]{7,9}\b/g, to: '[发动机号]' },
+    { name: '地址', re: /[\u4e00-\u9fa5]{2,10}(?:路|街|道|巷|弄)\d{1,4}号[\u4e00-\u9fa5\d]{0,8}|[\u4e00-\u9fa5]{2,12}(?:小区|花园|家园|公寓|大厦|苑)\d{0,4}(?:栋|幢|座)?\d{0,4}(?:单元|室|层)?|\d{1,3}栋\d{0,2}单元\d{0,4}(?:室|号)?|[\u4e00-\u9fa5]{2,8}(?:村|组)\d{0,3}号/g, to: '[地址]' },
     { name: '称呼', re: /[\u4e00-\u9fa5]{1,2}(?:师傅|老板|总|哥|姐|先生|女士|小姐|阿姨|大叔|经理|店长)/g, to: '[称呼]' },
   ];
 
@@ -128,8 +153,9 @@
   /**
    * 昵称换成「发言人A/B/C」而不是直接抹掉：模型要靠同一个发言人前后说了什么
    * 来推断谁是技师、谁是车主。全抹成 [称呼] 就把对话结构毁了。
+   * extraWords：用户手动补充的打码词（逗号分隔），在本机一并替换掉。
    */
-  function maskText(raw, senders) {
+  function maskText(raw, senders, extraWords) {
     var text = String(raw || ''), hits = {}, mapping = {};
     function bump(n) { hits[n] = (hits[n] || 0) + 1; }
     (senders || []).filter(Boolean)
@@ -141,25 +167,18 @@
         var re = new RegExp(sender.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
         text = text.replace(re, function () { bump('发言人'); return label; });
       });
+    (extraWords || []).filter(Boolean).forEach(function (word) {
+      var re = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      text = text.replace(re, function () { bump('手动打码'); return '[手动打码]'; });
+    });
     MASK_RULES.forEach(function (r) {
       text = text.replace(r.re, function () { bump(r.name); return r.to; });
     });
     return { text: text, hits: hits, senderMapping: mapping };
   }
 
-  function renderMessages(messages) {
-    return (messages || []).map(function (m) {
-      var out = '';
-      if (m.sender) out += m.sender + (m.time ? ' ' + m.time : '') + '\n';
-      else if (m.time) out += m.time + '\n';
-      if (m.text) out += m.text + '\n';
-      var i;
-      for (i = 0; i < (m.image || 0); i++) out += '[图片]\n';
-      for (i = 0; i < (m.voice || 0); i++) out += '[语音]\n';
-      for (i = 0; i < (m.video || 0); i++) out += '[视频]\n';
-      for (i = 0; i < (m.file || 0); i++) out += '[文件]\n';
-      return out.trimEnd();
-    }).filter(Boolean).join('\n');
+  function manualWords() {
+    return $('manualMask').value.split(/[,，、\s]+/).map(function (w) { return w.trim(); }).filter(Boolean);
   }
 
   /* ================= 渲染小工具 ================= */
@@ -178,10 +197,10 @@
   }
   function renderQuota() {
     if (!state.quota || !state.quota.limit) return;
-    $('quota').textContent = '今天还剩 ' + state.quota.remaining + ' / ' + state.quota.limit + ' 次';
+    $('quota').textContent = '今天还剩 ' + state.quota.remaining + ' / ' + state.quota.limit + ' 次（生成一次要 2 次）';
   }
 
-  /* ================= 第一步 ================= */
+  /* ================= 第一步：粘贴 + 打码预览 ================= */
 
   var SAMPLE = [
     '张师傅', '李哥，你那个浙A12345的途观过减速带响的问题，今天举起来看了', '[图片]', '[图片]',
@@ -200,202 +219,56 @@
     '张师傅', '小吊杆两根加四轮定位，一共八百六',
   ].join('\n');
 
-  function stepParse() {
+  var previewTimer = null;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, 300);
+  }
+
+  function renderPreview() {
     var raw = $('input').value;
-    if (!raw.trim()) { notice('parseMsg', 'warn', '先粘贴一段群聊，或者点「看个例子」。'); return; }
+    if (!raw.trim()) { $('maskChips').innerHTML = ''; return; }
     var parsed = parseChat(raw);
-    var masked = maskText(raw, parsed.senders);
-    var after = parseChat(masked.text);
-    state.messages = after.messages;
-    state.stats = after.stats;
+    var masked = maskText(raw, parsed.senders, manualWords());
     state.maskedText = masked.text;
 
-    var chips = ['<span class="chip">已在本机脱敏</span>'];
+    var chips = ['<span class="chip">已在本机打码</span>'];
     Object.keys(masked.hits).forEach(function (k) {
       chips.push('<span class="chip chip-hit">' + esc(k) + ' ×' + masked.hits[k] + '</span>');
     });
     if (!Object.keys(masked.hits).length) chips.push('<span class="chip">没发现隐私字段</span>');
+    if (parsed.stats.voiceCount) chips.push('<span class="chip">语音 ×' + parsed.stats.voiceCount + '（内容拿不到）</span>');
     $('maskChips').innerHTML = chips.join('');
-
-    var warn = '';
-    if (after.stats.voiceCount) {
-      warn += '<div class="notice notice-warn"><b>有 ' + after.stats.voiceCount + ' 条语音</b>：粘贴拿不到语音内容，只留下 [语音] 占位。请在手机微信里长按语音 → 转文字 → 把文字补进对应消息，否则这段信息就丢了。</div>';
-    }
-    if (after.stats.imageCount) {
-      warn += '<div class="notice notice-info"><b>有 ' + after.stats.imageCount + ' 张图片</b>：粘贴只留下 [图片] 占位。案例要配图的话，图片得单独导出再手动挂上去。</div>';
-    }
-    $('parseMsg').innerHTML = warn;
-
-    renderMsgs();
-    show('cardStep2', true);
-    $('cardStep2').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderMsgs() {
-    var box = $('msgList');
-    if (!state.messages.length) { box.innerHTML = '<div class="empty">解析结果会显示在这里</div>'; return; }
-    box.innerHTML = state.messages.map(function (m, i) {
-      return '<div class="msg"><div class="msg-head">'
-        + '<input value="' + esc(m.sender) + '" data-msg="' + i + '" data-part="sender" placeholder="发言人" />'
-        + '<span class="time">' + esc(m.time || '') + '</span>'
-        + (m.image ? '<span class="badge badge-img">图片 ×' + m.image + '</span>' : '')
-        + (m.voice ? '<span class="badge badge-voice">语音 ×' + m.voice + '</span>' : '')
-        + (m.video ? '<span class="badge badge-img">视频 ×' + m.video + '</span>' : '')
-        + '<button class="btn btn-ghost msg-del" type="button" data-del="' + i + '">删除</button>'
-        + '</div><textarea data-msg="' + i + '" data-part="text" placeholder="消息内容">' + esc(m.text) + '</textarea></div>';
-    }).join('');
+  /* ================= 生成案例（一步） ================= */
 
-    box.querySelectorAll('[data-msg]').forEach(function (el) {
-      el.addEventListener('input', function () {
-        state.messages[Number(el.dataset.msg)][el.dataset.part] = el.value;
-      });
-    });
-    box.querySelectorAll('[data-del]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        state.messages.splice(Number(el.dataset.del), 1);
-        renderMsgs();
-      });
-    });
-  }
+  async function stepGenerate() {
+    var raw = $('input').value;
+    if (!raw.trim()) { notice('generateMsg', 'warn', '先粘贴一段群聊，或者点「看个例子」。'); return; }
+    var parsed = parseChat(raw);
+    var masked = maskText(raw, parsed.senders, manualWords());
+    state.maskedText = masked.text;
 
-  /* ================= 第三步 ================= */
-
-  async function stepExtract() {
-    var btn = $('btnExtract');
-    busy(btn, true, '理解中…');
-    $('extractMsg').innerHTML = '';
+    var btn = $('btnGenerate');
+    busy(btn, true, '生成中…（两次大模型调用，约半分钟）');
+    $('generateMsg').innerHTML = '';
     try {
-      var data = await api('/extract', { messages: state.messages, category: state.category });
-      state.facts = data.facts;
-      state.timeline = data.timeline || [];
-      state.doubts = data.doubts || [];
-      state.missing = data.missing || [];
-      state.maskedText = data.maskedText || state.maskedText;
-      renderFacts(data);
-      show('cardStep3', true);
-      $('cardStep3').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (e) {
-      notice('extractMsg', e.code === 42901 ? 'warn' : 'err', esc(e.message));
-    } finally {
-      busy(btn, false);
-      renderQuota();
-    }
-  }
-
-  function manualFacts() {
-    state.facts = { vehicle: '', odo: '', symptom: '', checkFindings: [], excluded: [], plan: '', planReason: '', process: [], parts: [], finish: '', duration: '', handover: '', amount: '', photoHints: [] };
-    state.timeline = []; state.doubts = []; state.missing = [];
-    renderFacts({ facts: state.facts, timeline: [], doubts: [], missing: [], confidence: 0, note: '手工填写' });
-    show('cardStep3', true);
-    $('cardStep3').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  var LIST_KEY = { f_checkFindings: 'checkFindings', f_excluded: 'excluded', f_process: 'process', f_parts: 'parts' };
-
-  function renderFacts(data) {
-    var f = data.facts || {};
-    ['vehicle', 'odo', 'symptom', 'plan', 'planReason', 'finish', 'duration', 'handover', 'amount'].forEach(function (k) {
-      $('f_' + k).value = f[k] || '';
-    });
-    Object.keys(LIST_KEY).forEach(function (id) { renderList(id, f[LIST_KEY[id]]); });
-
-    $('doubtBox').innerHTML = (state.doubts || []).length
-      ? state.doubts.map(function (d) {
-          return '<div class="doubt"><b>存疑 · ' + esc(d.field) + '</b>：' + esc(d.value) + '　—　' + esc(d.why) + '</div>';
-        }).join('')
-      : '';
-    // missing 里的名字后端已转成中文，这里只管长度：17 项里大半没提到是常态，
-    // 全列出来一行塞不下，师傅也不会看，超过 6 项就折叠成「等 N 项」。
-    var miss = (state.missing || []).filter(Boolean);
-    $('missingLine').textContent = miss.length
-      ? '群里没提到：' + miss.slice(0, 6).join('、')
-        + (miss.length > 6 ? ' 等 ' + miss.length + ' 项' : '')
-        + '（不硬补，允许留白）'
-      : '';
-    $('timelineBox').innerHTML = (state.timeline || []).length
-      ? state.timeline.map(function (t, i) {
-          return '<div class="tl"><span class="who">' + esc(t.who || '') + '</span>'
-            + '<input value="' + esc(t.what) + '" data-tl="' + i + '" />'
-            + '<button class="btn btn-ghost" type="button" data-tldel="' + i + '" style="font-size:12px;padding:5px 10px;">删</button></div>';
-        }).join('')
-      : '<div class="muted">过程层为空——这段群聊里没看出明显节点</div>';
-
-    $('timelineBox').querySelectorAll('[data-tl]').forEach(function (el) {
-      el.addEventListener('input', function () { state.timeline[Number(el.dataset.tl)].what = el.value; });
-    });
-    $('timelineBox').querySelectorAll('[data-tldel]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        state.timeline.splice(Number(el.dataset.tldel), 1);
-        renderFacts({ facts: state.facts });
-      });
-    });
-  }
-
-  function renderList(id, arr) {
-    var key = LIST_KEY[id];
-    var list = arr || [];
-    var box = $(id);
-    box.innerHTML = list.map(function (v, i) {
-      return '<div class="list-row"><input value="' + esc(v) + '" data-list="' + id + '" data-idx="' + i + '" />'
-        + '<button class="btn btn-ghost" type="button" data-listdel="' + id + ':' + i + '">删</button></div>';
-    }).join('') + '<button class="btn btn-ghost" type="button" data-listadd="' + id + '" style="font-size:12px;padding:5px 11px;">+ 加一条</button>';
-
-    box.querySelectorAll('[data-list]').forEach(function (el) {
-      el.addEventListener('input', function () {
-        state.facts[key][Number(el.dataset.idx)] = el.value;
-      });
-    });
-    box.querySelectorAll('[data-listdel]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var p = el.dataset.listdel.split(':');
-        state.facts[LIST_KEY[p[0]]].splice(Number(p[1]), 1);
-        renderList(p[0], state.facts[LIST_KEY[p[0]]]);
-      });
-    });
-    box.querySelectorAll('[data-listadd]').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var id2 = el.dataset.listadd;
-        state.facts[LIST_KEY[id2]].push('');
-        renderList(id2, state.facts[LIST_KEY[id2]]);
-      });
-    });
-  }
-
-  function collectFacts() {
-    var f = state.facts;
-    if (!f) return null;
-    return {
-      vehicle: $('f_vehicle').value.trim(), odo: $('f_odo').value.trim(),
-      symptom: $('f_symptom').value.trim(), plan: $('f_plan').value.trim(),
-      planReason: $('f_planReason').value.trim(), finish: $('f_finish').value.trim(),
-      duration: $('f_duration').value.trim(), handover: $('f_handover').value.trim(),
-      amount: $('f_amount').value.trim(),
-      checkFindings: f.checkFindings || [], excluded: f.excluded || [],
-      process: f.process || [], parts: f.parts || [], photoHints: f.photoHints || [],
-    };
-  }
-
-  /* ================= 第四步 ================= */
-
-  async function stepCompose() {
-    var facts = collectFacts();
-    if (!facts) return;
-    var btn = $('btnCompose');
-    busy(btn, true, '生成中…');
-    $('composeMsg').innerHTML = '';
-    try {
-      var data = await api('/compose', {
-        facts: facts,
+      var data = await api('/generate', {
+        text: masked.text,
         city: $('f_city').value.trim() || '杭州',
         category: state.category,
       });
       state.caseData = data;
+      state.facts = data.facts || null;
+      state.doubts = data.doubts || [];
+      state.missing = data.missing || [];
       renderCase(data);
-      show('cardStep4', true);
+      show('cardResult', true);
       show('cardCta', true);
-      $('cardStep4').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('cardResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
-      notice('composeMsg', e.code === 42901 ? 'warn' : 'err', esc(e.message));
+      notice('generateMsg', e.code === 42901 ? 'warn' : 'err', esc(e.message));
     } finally {
       busy(btn, false);
       renderQuota();
@@ -422,6 +295,19 @@
           return '<div class="risk">⚠ <b>' + esc(r.field) + '</b> 命中「' + esc(r.type) + '」：' + esc(r.sample) + '　—　发布前请人工改掉。</div>';
         }).join('') + '<div class="notice notice-ok">其余段落未命中隐私与金额检查。</div>'
       : '<div class="notice notice-ok">检查通过：未发现手机号、车牌、身份证、金额。</div>';
+
+    // 存疑 + 留白：折叠轻提示，只有作者自己会点开，不进导出正文
+    var doubtHtml = '';
+    (state.doubts || []).forEach(function (d) {
+      doubtHtml += '<div class="doubt"><b>存疑 · ' + esc(d.field) + '</b>：' + esc(d.value) + '　—　' + esc(d.why) + '</div>';
+    });
+    var miss = (state.missing || []).filter(Boolean);
+    if (miss.length) {
+      doubtHtml += '<div class="notice notice-info">群里没提到：' + esc(miss.slice(0, 8).join('、'))
+        + (miss.length > 8 ? ' 等 ' + miss.length + ' 项' : '') + '（对应段落已留白，不硬补）</div>';
+    }
+    $('doubtBox').innerHTML = doubtHtml || '<div class="notice notice-ok">没有存疑项。</div>';
+    $('doubtDetails').open = (state.doubts || []).length > 0;
   }
 
   function renderPairs(boxId, key, arr, labelA, labelB) {
@@ -475,7 +361,7 @@
     if (!c) return '';
     var L = [];
     L.push('# ' + c.title, '');
-    L.push('> ' + (c.sourceLabel || '门店发布 · 已脱敏 · 已审核'), '');
+    L.push('> ' + (c.sourceLabel || '微信群沟通记录转化 · 已自动脱敏'), '');
     L.push('**摘要**：' + c.summary, '');
     (c.sections || []).forEach(function (s) {
       if (!s.text) return;
@@ -491,11 +377,12 @@
       c.faq.forEach(function (x) { L.push('**Q：' + x.q + '**', '', 'A：' + x.a, ''); });
     }
     if (c.aiAbstract) L.push('## AI 可引用摘要', '', c.aiAbstract, '');
+    var f = state.facts || {};
     L.push('---', '', '**留档信息（不公开）**', '');
-    L.push('- 车型：' + $('f_vehicle').value + ($('f_odo').value ? '　里程：' + $('f_odo').value : ''));
-    if ($('f_amount').value) L.push('- 本单金额（仅供留档，禁止公开）：' + $('f_amount').value);
+    L.push('- 车型：' + (f.vehicle || '（未识别）') + (f.odo ? '　里程：' + f.odo : ''));
+    if (f.amount) L.push('- 本单金额（仅供留档，禁止公开）：' + f.amount);
     if ((state.doubts || []).length) {
-      L.push('- 存疑项（发布前必须确认）：');
+      L.push('- 存疑项（发布前建议确认）：');
       state.doubts.forEach(function (d) { L.push('  - ' + d.field + '：' + d.value + '（' + d.why + '）'); });
     }
     return L.join('\n');
@@ -523,39 +410,145 @@
     notice('copyMsg', 'ok', '已下载 ' + esc(name));
   }
 
+  /* ================= 草稿箱（localStorage，只在本机） ================= */
+
+  function loadDrafts() {
+    try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]') || []; }
+    catch (e) { return []; }
+  }
+  function storeDrafts(list) {
+    try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list.slice(0, 10))); } catch (e) { /* 存不进就算了 */ }
+  }
+
+  function renderDrafts() {
+    var list = loadDrafts();
+    var box = $('draftList');
+    if (!list.length) { box.innerHTML = '<div class="muted" style="font-size:13px;">还没有草稿。生成案例后点「存草稿」，只存在这台浏览器里。</div>'; return; }
+    box.innerHTML = list.map(function (d) {
+      return '<div class="draft-item">'
+        + '<span class="t">' + esc(d.title || '未命名') + '</span>'
+        + '<span class="time">' + esc(d.savedAt || '') + '</span>'
+        + '<button class="btn btn-ghost" type="button" data-draft-open="' + d.id + '" style="font-size:12px;padding:5px 10px;">打开</button>'
+        + '<button class="btn btn-ghost" type="button" data-draft-del="' + d.id + '" style="font-size:12px;padding:5px 10px;">删</button>'
+        + '</div>';
+    }).join('');
+    box.querySelectorAll('[data-draft-open]').forEach(function (el) {
+      el.addEventListener('click', function () { openDraft(el.dataset.draftOpen); });
+    });
+    box.querySelectorAll('[data-draft-del]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        storeDrafts(loadDrafts().filter(function (d) { return String(d.id) !== el.dataset.draftDel; }));
+        renderDrafts();
+      });
+    });
+  }
+
+  function saveDraft() {
+    syncFromUI();
+    if (!state.caseData) return;
+    var now = new Date();
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var savedAt = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+    var list = loadDrafts().filter(function (d) { return d.savedAt !== savedAt || d.title !== state.caseData.title; });
+    list.unshift({
+      id: Date.now(),
+      savedAt: savedAt,
+      title: state.caseData.title || '未命名',
+      input: $('input').value,
+      manualMask: $('manualMask').value,
+      city: $('f_city').value,
+      caseData: state.caseData,
+      facts: state.facts,
+      doubts: state.doubts,
+      missing: state.missing,
+    });
+    storeDrafts(list);
+    renderDrafts();
+    notice('copyMsg', 'ok', '已存草稿（只在这台浏览器里，换电脑/清缓存就没了）。');
+  }
+
+  function openDraft(id) {
+    var d = loadDrafts().filter(function (x) { return String(x.id) === String(id); })[0];
+    if (!d) return;
+    $('input').value = d.input || '';
+    $('manualMask').value = d.manualMask || '';
+    if (d.city) $('f_city').value = d.city;
+    state.caseData = d.caseData;
+    state.facts = d.facts || null;
+    state.doubts = d.doubts || [];
+    state.missing = d.missing || [];
+    if (state.caseData) {
+      renderCase(state.caseData);
+      show('cardResult', true);
+      show('cardCta', true);
+      $('cardResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    renderPreview();
+  }
+
+  /* ================= 设置 ================= */
+
+  function openSettings() {
+    $('setApi').value = settings.api || '';
+    $('setToken').value = settings.token || '';
+    show('cardSettings', true);
+    $('cardSettings').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function saveSettingsFromUI() {
+    settings = {
+      api: $('setApi').value.trim(),
+      token: $('setToken').value.trim(),
+    };
+    saveSettings(settings);
+    notice('settingsMsg', 'ok', settings.token ? '已保存。带密钥的请求不限次。' : '已保存。');
+    // 重新问一次状态，密钥生效与否马上可见
+    api('/status', null, 'GET').then(function (s) {
+      state.quota = s;
+      renderQuota();
+    }).catch(function () { /* 静默 */ });
+  }
+
+  /* ================= 清空 / 启动 ================= */
+
   function clearAll() {
     $('input').value = '';
-    state.messages = []; state.facts = null; state.caseData = null;
-    state.timeline = []; state.doubts = []; state.missing = [];
-    ['cardStep2', 'cardStep3', 'cardStep4', 'cardCta'].forEach(function (id) { show(id, false); });
-    $('parseMsg').innerHTML = ''; $('extractMsg').innerHTML = ''; $('composeMsg').innerHTML = '';
+    $('manualMask').value = '';
+    state.caseData = null; state.facts = null;
+    state.doubts = []; state.missing = [];
+    ['cardResult', 'cardCta'].forEach(function (id) { show(id, false); });
+    $('maskChips').innerHTML = '';
+    $('generateMsg').innerHTML = ''; $('copyMsg').innerHTML = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  /* ================= 启动 ================= */
-
-  $('btnParse').addEventListener('click', stepParse);
-  $('btnSample').addEventListener('click', function () { $('input').value = SAMPLE; stepParse(); });
+  $('btnGenerate').addEventListener('click', stepGenerate);
+  $('btnSample').addEventListener('click', function () { $('input').value = SAMPLE; renderPreview(); });
   $('btnClear').addEventListener('click', clearAll);
-  $('btnExtract').addEventListener('click', stepExtract);
-  $('btnManual').addEventListener('click', manualFacts);
-  $('btnCompose').addEventListener('click', stepCompose);
   $('btnCopy').addEventListener('click', copyAll);
   $('btnDownload').addEventListener('click', downloadAll);
+  $('btnSaveDraft').addEventListener('click', saveDraft);
+  $('btnSettings').addEventListener('click', openSettings);
+  $('btnSaveSettings').addEventListener('click', saveSettingsFromUI);
+  $('btnCloseSettings').addEventListener('click', function () { show('cardSettings', false); });
+  $('input').addEventListener('input', schedulePreview);
+  $('manualMask').addEventListener('input', schedulePreview);
+
+  renderDrafts();
 
   api('/status', null, 'GET').then(function (s) {
     state.quota = s;
     $('maxChars').textContent = s.maxChars || 20000;
     renderQuota();
     if (!s.enabled || !s.ready) {
-      notice('parseMsg', 'err', '公开试用暂时关闭了（' + (s.remaining <= 0 ? '今天名额用完，明天再来' : '服务未就绪') + '）。想不限次使用，请 <a href="mailto:business@simplewin.cn">联系我们</a>。');
+      notice('generateMsg', 'err', '公开试用暂时关闭了（' + (s.remaining <= 0 ? '今天名额用完，明天再来' : '服务未就绪') + '）。想不限次使用，请 <a href="mailto:business@simplewin.cn">联系我们</a>。');
       // 光提示不够——按钮还亮着，用户点到底只会撞见一句报错。
       // 名额用完或服务没起来时，直接把入口按掉。
-      ['btnParse', 'btnSample', 'btnExtract', 'btnCompose'].forEach(function (id) {
+      ['btnGenerate', 'btnSample'].forEach(function (id) {
         if ($(id)) $(id).disabled = true;
       });
     }
   }).catch(function () {
-    notice('parseMsg', 'err', '连不上服务，请稍后再试。');
+    notice('generateMsg', 'err', '连不上服务，请稍后再试。');
   });
 })();

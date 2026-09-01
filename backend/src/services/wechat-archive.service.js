@@ -2,16 +2,20 @@
  * 微信群归档 → 公开案例
  *
  * 目标定义见 docs/04_维修过程相册/22_微信群归档转案例目标定义.md，案例规范见 07_案例生成规则.md。
- * 这个服务只干三段事：
+ * 这个服务只干四段事：
  *
  *   ① parseChat     把粘贴进来的群聊切成一条条消息（发言人 / 内容 / 图片 / 语音）
- *   ② maskChatText  本地脱敏，手机号车牌身份证 VIN 姓名全部换成占位符
+ *   ② maskChatText  脱敏，手机号车牌身份证 VIN 发动机号地址全部换成占位符
  *   ③ extractFacts  脱敏后的全文交给大模型理解整合 → 事实层 / 过程层 / 存疑项
- *   ④ composeCase   人工确认过的事实 → 按《07》生成标题 / 摘要 / 正文九段 / 图说 / 本单问答
+ *   ④ composeCase   事实 → 按《07》生成标题 / 摘要 / 正文九段 / 图说 / 本单问答
+ *   ⑤ generateCase  ③+④ 一步串联（2026-09-02：页面改一步生成，事实层不再对用户展示，
+ *                   但链路保留——compose 只吃结构化事实，这是「沟通记录转化」来源标签的意义所在）
  *
  * 四条红线（都是文档里定死的，改代码前先读）：
  *   1. 先脱敏，再送大模型。未脱敏的原文不许出本机。顺序反了整个方案就不成立。
- *   2. 不许编造（07 §1.3）。群里没说的一律留空，不许用汽修常识补全；推断出来的必须进存疑项。
+ *   2. 不替用户编内容（转换忠实度）。群里没说的一律留空，不许用汽修常识补全；推断出来的进存疑项。
+ *      注意：这是转换器不无中生有，不是平台背书真实性——平台只标注来源（2026-09-02 老板定），
+ *      可信度由读者 / AI 自己判断。
  *   3. 公域藏价（07 §4.3）。金额可以提取到 facts.amount 供内档参考，但绝不进公开文案。
  *   4. 不做规则匹配提取（22 D3）。真实群聊没有范本，17 的检查项只是喂给模型的"事实清单"，
  *      不是让代码去正则命中。
@@ -74,9 +78,17 @@ const MASK_RULES = [
     to: '[VIN]',
   },
   {
-    // 地址：到「路/街/道 + 号」或「小区 + 栋/单元」才算，避免把「长江大道」这种词打掉
+    // 发动机号：7–9 位字母数字混合，至少两个数字、至少一个字母。
+    // 车牌在前一步已替换掉，纯数字长串归银行卡/座机管，这里只接字母数字混合的短串。
+    name: '发动机号',
+    re: /\b(?=[A-HJ-NPR-Z0-9]{7,9}\b)(?=(?:[A-Z]*\d){2})(?=[A-Z0-9]*[A-Z])[A-HJ-NPR-Z0-9]{7,9}\b/g,
+    to: '[发动机号]',
+  },
+  {
+    // 地址：到「路/街/道 + 号」或「小区 + 栋/单元」才算，避免把「长江大道」这种词打掉；
+    // 独立楼栋号（9栋2单元501）和村组号也算——群聊里发家庭地址经常只发这两截。
     name: '地址',
-    re: /[\u4e00-\u9fa5]{2,10}(?:路|街|道|巷|弄)\d{1,4}号[\u4e00-\u9fa5\d]{0,8}|[\u4e00-\u9fa5]{2,12}(?:小区|花园|家园|公寓|大厦|苑)\d{0,4}(?:栋|幢|座)?\d{0,4}(?:单元|室|层)?/g,
+    re: /[\u4e00-\u9fa5]{2,10}(?:路|街|道|巷|弄)\d{1,4}号[\u4e00-\u9fa5\d]{0,8}|[\u4e00-\u9fa5]{2,12}(?:小区|花园|家园|公寓|大厦|苑)\d{0,4}(?:栋|幢|座)?\d{0,4}(?:单元|室|层)?|\d{1,3}栋\d{0,2}单元\d{0,4}(?:室|号)?|[\u4e00-\u9fa5]{2,8}(?:村|组)\d{0,3}号/g,
     to: '[地址]',
   },
   {
@@ -481,7 +493,7 @@ function composeSystemPrompt() {
     '标题格式（07 §5.0）：【城市】【车型】【项目】：【这次做了什么，至多三项】。',
     '车型缺失时降级为：【城市】【项目】：【这次做了什么】。不要写门店全称、门牌路名、车牌。',
     '',
-    '信源标识固定为：门店发布 · 已脱敏 · 已审核',
+    '信源标识固定为：微信群沟通记录转化 · 已自动脱敏',
     '',
     '只输出 JSON，不要任何解释文字、不要 markdown 代码块标记。',
   ].join('\n')
@@ -504,7 +516,7 @@ function composeUserPrompt({ facts, city, district, category }) {
     '  "captions": [{ "node": "检查结果", "text": "右前小吊杆球头 松旷" }],',
     '  "faq": [{ "q": "…", "a": "…" }],',
     '  "aiAbstract": "150–300 字，给 AI 检索引用用：这段文字讲了一次什么车、什么问题、查到什么、怎么修的、结果如何。客观陈述，不带营销话术。",',
-    '  "sourceLabel": "门店发布 · 已脱敏 · 已审核"',
+    '  "sourceLabel": "微信群沟通记录转化 · 已自动脱敏"',
     '}',
   ].join('\n')
 }
@@ -681,7 +693,7 @@ function normalizeCase(raw) {
           .filter((item) => item.q && item.a)
       : [],
     aiAbstract: clipText(src.aiAbstract, 800),
-    sourceLabel: clipText(src.sourceLabel, 40) || '门店发布 · 已脱敏 · 已审核',
+    sourceLabel: clipText(src.sourceLabel, 40) || '微信群沟通记录转化 · 已自动脱敏',
   }
 }
 
@@ -808,6 +820,43 @@ async function composeCase(input, options = {}) {
   return { ...data, risk: riskScan(data), usage: usage || null }
 }
 
+/**
+ * 一步生成：内部先抽事实（真实性闸门）再写案例（2026-09-02 老板拍板）。
+ *
+ * 页面上不再展示事实层让用户核对——用户面对的是「粘贴 → 生成 → 直接改案例」。
+ * 但这条链路不能省：compose 只吃结构化事实，跳过 extract 直接写案例，
+ * 模型就会拿聊天原文即兴发挥，「沟通记录转化」这个来源标签也就失去了意义。
+ * doubts / missing 照样返回，前端折叠成轻提示；平台上不做真实性背书，
+ * 可信度由来源标签说话，读者自己判断。
+ *
+ * @param {{text?:string, messages?:Array, category?:string, city?:string, district?:string}} input
+ */
+async function generateCase(input, options = {}) {
+  const extracted = await extractFacts(input, options)
+  const composed = await composeCase(
+    {
+      facts: extracted.facts,
+      timeline: extracted.timeline,
+      city: input?.city,
+      district: input?.district,
+      category: extracted.category,
+    },
+    options,
+  )
+  return {
+    ...composed,
+    facts: extracted.facts,
+    doubts: extracted.doubts,
+    missing: extracted.missing,
+    roles: extracted.roles,
+    category: extracted.category,
+    categoryLabel: extracted.categoryLabel,
+    maskedText: extracted.maskedText,
+    maskHits: extracted.maskHits,
+    stats: extracted.stats,
+  }
+}
+
 module.exports = {
   parseChat,
   renderMessages,
@@ -815,6 +864,7 @@ module.exports = {
   ensureMasked,
   extractFacts,
   composeCase,
+  generateCase,
   riskScan,
   archiveStatus,
   normalizeFacts,

@@ -10,6 +10,7 @@ const {
   maskChatText,
   extractFacts,
   composeCase,
+  generateCase,
   riskScan,
   parseJsonLoose,
   SECTION_NAMES,
@@ -102,6 +103,25 @@ check('车牌要打掉，但车型「途观L」不能被误伤', () => {
 check('VIN 要打掉', () => {
   const { text } = maskChatText('车架号 LSVAU0338N2123456 看一下')
   assert(text.includes('[VIN]'), 'VIN 没打掉')
+})
+
+check('发动机号要打掉，但 EA888 这种机型代号不能被误伤', () => {
+  const { text, hits } = maskChatText('发动机号 CBF12345 对一下，EA888 的机子')
+  assert(text.includes('[发动机号]'), '发动机号没打掉')
+  assert(!text.includes('CBF12345'), '发动机号原文还留着')
+  assert(text.includes('EA888'), 'EA888 是机型代号，不是发动机号，被误伤了')
+  assert.strictEqual(hits['发动机号'], 1)
+})
+
+check('加宽的地址：楼栋单元和村组号也要打掉（2026-09-02 规则加宽）', () => {
+  const a = maskChatText('车子停在文三路128号门口')
+  assert(a.text.includes('[地址]'), '路名+门牌没打掉')
+  const b = maskChatText('住在幸福小区9栋2单元501')
+  assert(b.text.includes('[地址]'), '小区+楼栋单元没打掉')
+  const c = maskChatText('送到王家村12号门口')
+  assert(c.text.includes('[地址]'), '村组号没打掉')
+  const d = maskChatText('发动机在3栋1单元这边响')
+  assert(d.text.includes('[地址]'), '独立楼栋号（没有小区前缀）没打掉')
 })
 
 check('精确到门牌的地址要打掉', () => {
@@ -287,7 +307,7 @@ const FAKE_CASE = {
   captions: [{ node: '检查结果', text: '右前小吊杆球头 松旷' }],
   faq: [{ q: '这单为什么没换摆臂总成？', a: '检查确认摆臂本体仍可用，因此只更换小吊杆。' }],
   aiAbstract: '杭州一台大众途观因过减速带异响到店检查……',
-  sourceLabel: '门店发布 · 已脱敏 · 已审核',
+  sourceLabel: '微信群沟通记录转化 · 已自动脱敏',
 }
 
 async function runCompose() {
@@ -301,7 +321,7 @@ async function runCompose() {
     SECTION_NAMES,
     '九段顺序必须跟《07》一致',
   )
-  assert.strictEqual(data.sourceLabel, '门店发布 · 已脱敏 · 已审核', '信源标识按 22 D2')
+  assert.strictEqual(data.sourceLabel, '微信群沟通记录转化 · 已自动脱敏', '来源标签按 2026-09-02 口径：只标来源，不背书真实性')
   assert.strictEqual(data.risk.length, 0, '干净文案不该报风控')
 }
 
@@ -321,6 +341,33 @@ async function runComposeMissingSections() {
 
 async function runComposeGuard() {
   await assert.rejects(() => composeCase({ facts: {} }, { llm: stubLlm({}) }), /还没有可确认的事实/)
+}
+
+// 一步生成的桩：按 system 提示词分流到 extract / compose 两份假回包
+function stubTwoPhaseLlm() {
+  return async (messages) => {
+    const sys = messages[0].content
+    if (sys.includes('案例整理员')) return { text: JSON.stringify(FAKE_EXTRACT), usage: null }
+    if (sys.includes('案例文案')) return { text: JSON.stringify(FAKE_CASE), usage: null }
+    throw new Error('一步生成只允许 extract / compose 两种提示词，出现了第三种')
+  }
+}
+
+async function runGenerate() {
+  // 页面改成了「粘贴 → 生成 → 直接改案例」，事实层不再对用户展示，
+  // 但链路必须仍然是 extract → compose：跳过 extract，compose 就会拿聊天原文即兴发挥。
+  const data = await generateCase({ text: CHAT, city: '杭州', category: 'chassis_noise' }, { llm: stubTwoPhaseLlm() })
+  assert.strictEqual(data.title, FAKE_CASE.title, '要返回成稿')
+  assert.strictEqual(data.sections.length, 9, '九段要齐')
+  assert.strictEqual(data.facts.vehicle, '大众途观', '事实层要一并返回（导出留档用）')
+  assert.strictEqual(data.doubts.length, 1, '存疑项要返回（前端折叠轻提示）')
+  assert(data.missing.includes('里程'), '留白提示用的 missing 要返回')
+  assert.strictEqual(data.sourceLabel, '微信群沟通记录转化 · 已自动脱敏')
+  assert(!data.maskedText.includes('13812345678'), 'generate 内部送模型前必须先脱敏')
+  assert(!data.maskedText.includes('浙A12345'), '车牌不能明文送出去')
+
+  // 空输入护栏
+  await assert.rejects(() => generateCase({ text: '   ' }, { llm: stubTwoPhaseLlm() }), /群聊内容是空的/)
 }
 
 function checkRisk() {
@@ -449,12 +496,46 @@ async function runPublicRoute() {
     assert.strictEqual(cappedStatus.json.data.remaining, 0, '总闸满了页面要显示 0 次可用')
     assert.strictEqual(cappedStatus.json.data.ready, false, '总闸满了 ready 要为 false')
 
-    // 6) 上游报错不许原样吐给外人。
+    // 6) /generate 一次扣 2 个主配额（内部 extract + compose 两次大模型调用）
+    //    前面的用例已经把总闸耗到 0 了，先把总闸放开
+    config.wechatArchive.publicDailyCap = 999
+
+    // IP 31：主配额 2 次，一次 generate 正好扣光，第二次必须 429
+    const g1 = await call(base, '/generate', { text: CHAT_SHORT }, ip(31))
+    assert([0, 50310].includes(g1.json.code), `第 1 次生成应扣到配额（实际 ${g1.json.code}）`)
+    const g2 = await call(base, '/generate', { text: CHAT_SHORT }, ip(31))
+    assert.strictEqual(g2.status, 429, '主配额被 generate 一次扣光后要返回 429')
+    assert.strictEqual(g2.json.code, 42901)
+    assert(/2 次/.test(g2.json.message), `文案要说清一次要 2 次（实际：${g2.json.message}）`)
+    // 只剩 1 次时也不许扣一半——多单位扣减要原子
+    const ip32 = await call(base, '/extract', { text: CHAT_SHORT }, ip(32))
+    assert([0, 50310].includes(ip32.json.code), '先给 IP 32 扣掉 1 次')
+    const g3 = await call(base, '/generate', { text: CHAT_SHORT }, ip(32))
+    assert.strictEqual(g3.json.code, 42901, '余额 1 次时 generate 应整体拒绝，不能扣一半')
+
+    // 7) 密钥免扣：x-archive-token 命中 → 不碰任何配额（内部版退役后老板的入口）
+    const savedToken = config.wechatArchive.token
+    config.wechatArchive.token = 'smoke-token'
+    try {
+      for (let i = 0; i < 3; i += 1) {
+        const r = await call(base, '/generate', { text: CHAT_SHORT }, Object.assign(ip(41), { 'x-archive-token': 'smoke-token' }))
+        assert([0, 50310].includes(r.json.code), `带密钥的第 ${i + 1} 次调用不应被限流（实际 ${r.json.code}）`)
+      }
+      const tokStatus = await call(base, '/status', undefined, ip(41))
+      assert.strictEqual(tokStatus.json.data.remaining, 2, '密钥调用 3 次后配额必须还是满的')
+      // 密钥不对 → 照常扣
+      const wrong = await call(base, '/extract', { text: CHAT_SHORT }, Object.assign(ip(42), { 'x-archive-token': 'wrong-token' }))
+      assert([0, 50310].includes(wrong.json.code))
+      const wrongStatus = await call(base, '/status', undefined, ip(42))
+      assert.strictEqual(wrongStatus.json.data.remaining, 1, '密钥不对时照常扣配额')
+    } finally {
+      config.wechatArchive.token = savedToken
+    }
+
+    // 8) 上游报错不许原样吐给外人。
     //    光靠「本地没配密钥」测不到这条——那种情况走的是 LLM_NOT_CONFIGURED。
     //    这里起一个假上游，专门返回 401 + 阿里云风格的错误体。
     config.wechatArchive.enabled = true
-    // 前面的用例已经把总闸耗到 0 了，这里只想测错误映射，先把总闸放开
-    config.wechatArchive.publicDailyCap = 999
     const savedKey = config.wechatArchive.apiKey
     const savedUrl = config.wechatArchive.apiUrl
     const upstream = http.createServer((req, res) => {
@@ -505,15 +586,15 @@ async function runPublicRoute() {
 // ---------------------------------------------------------------------------
 // 6. 前后端脱敏规则漂移
 //     浏览器那份是「原文不出本机」的唯一保障。它一旦比服务端少一条规则，
-//     手机号/车牌就会以明文飞出用户的电脑——而页面还写着「先在你自己电脑上脱敏」。
+//     手机号/车牌就会以明文飞出用户的电脑——而页面还写着「网站自动打码」。
 // ---------------------------------------------------------------------------
 
 function loadBrowserRules() {
   const p = path.join(__dirname, '..', '..', 'brand-web', 'js', 'archive.js')
   const src = fs.readFileSync(p, 'utf8')
   const start = src.indexOf('var MASK_RULES = [')
-  const end = src.indexOf('function renderMessages')
-  assert(start > -1 && end > start, '浏览器端找不到 MASK_RULES…parseChat 区块，页面结构变了，这段检查要跟着改')
+  const end = src.indexOf('function manualWords')
+  assert(start > -1 && end > start, '浏览器端找不到 MASK_RULES…maskText 区块，页面结构变了，这段检查要跟着改')
   // eslint-disable-next-line no-new-func
   return new Function(`${src.slice(start, end)}\nreturn { MASK_RULES, parseChat, maskText };`)()
 }
@@ -613,12 +694,17 @@ async function runRealLlm() {
     await runComposeGuard()
     console.log('  ✓ 生成阶段的输入护栏')
     passed += 1
+    await runGenerate()
+    console.log('  ✓ 一步生成：extract → compose 链路保留，事实层随成稿返回')
+    passed += 1
 
     console.log('\n[5] 公开试用路由')
     await runPublicRoute()
     console.log('  ✓ 不要密钥即可用 + 解析不占主配额')
     passed += 1
     console.log('  ✓ 个人额度 / 全局总闸 / 总闸满了不误扣个人额度')
+    passed += 1
+    console.log('  ✓ generate 一次扣 2 次、余额不足整体拒绝、密钥头免扣')
     passed += 1
     console.log('  ✓ 拉闸后接口真停（status 仍可问）')
     passed += 1

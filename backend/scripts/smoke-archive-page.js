@@ -1,5 +1,5 @@
 /**
- * 公开试用页（brand-web/archive.html）在 node 里跑一遍
+ * 公开页（brand-web/archive.html）在 node 里跑一遍
  *
  *   node backend/scripts/smoke-archive-page.js
  *
@@ -8,8 +8,10 @@
  * 这里用一个几十行的 DOM 桩把页面真启动一次，至少保证：
  *   1) 启动不抛异常；
  *   2) 页面里写的每个 id 都真存在（拼错 id 是最常见的事故）；
- *   3) 主流程（粘贴 → 本机解析脱敏 → 渲染）能走通；
- *   4) 服务不可用时按钮会按掉，而不是让人点到底才报错。
+ *   3) 主流程（粘贴 → 本机打码 → 一步生成 → 渲染成稿）能走通；
+ *   4) 发出去的请求体里没有明文隐私；
+ *   5) ⚙ 接口设置里填的密钥会真的带上 x-archive-token 请求头；
+ *   6) 服务不可用时按钮会按掉，而不是让人点到底才报错。
  *
  * 这不是浏览器，渲染细节（样式、真实布局）它管不了，也不打算管。
  */
@@ -82,6 +84,7 @@ function makeEl(tag, id) {
     disabled: false,
     style: {},
     checked: false,
+    open: false,
     href: '',
     download: '',
     _ev: {},
@@ -130,9 +133,20 @@ function fire(el, type) {
   return Promise.all(list.map((fn) => fn({ type, target: el, preventDefault() {} })))
 }
 
+/** localStorage 桩：草稿箱 / 设置都只存在本机，页面在 node 里也要能读写 */
+function makeLocalStorage() {
+  const store = new Map()
+  return {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    clear: () => store.clear(),
+  }
+}
+
 // ---------------------------------------------------------------------------
 
-function buildPage(statusData, extractData) {
+function buildPage(statusData, generateData) {
   const html = fs.readFileSync(HTML_PATH, 'utf8')
   const elements = new Map()
   for (const m of html.matchAll(/\bid="([^"]+)"/g)) elements.set(m[1], makeEl('div', m[1]))
@@ -160,10 +174,15 @@ function buildPage(statusData, extractData) {
     } catch (e) {
       body = { __unparsable: String(opts && opts.body) }
     }
-    calls.push({ url, method: (opts && opts.method) || 'GET', body })
-    // /status 和 /extract 的返回结构不一样，桩要按路径分流，
-    // 不然测不到「提取完之后界面长什么样」。
-    const dataFor = /\/status$/.test(url) ? statusData : extractData || statusData
+    calls.push({
+      url,
+      method: (opts && opts.method) || 'GET',
+      headers: (opts && opts.headers) || {},
+      body,
+    })
+    // /status 和 /generate 的返回结构不一样，桩要按路径分流，
+    // 不然测不到「生成完之后界面长什么样」。
+    const dataFor = /\/status$/.test(url) ? statusData : generateData || statusData
     return Promise.resolve({
       status: 200,
       json: () => Promise.resolve({ code: 0, message: 'success', data: dataFor }),
@@ -182,13 +201,14 @@ function buildPage(statusData, extractData) {
 
   const src = fs.readFileSync(JS_PATH, 'utf8')
   // eslint-disable-next-line no-new-func
-  new Function('document', 'window', 'navigator', 'URL', 'Blob', 'location', 'fetch', src)(
+  new Function('document', 'window', 'navigator', 'URL', 'Blob', 'location', 'localStorage', 'fetch', src)(
     doc,
     win,
     nav,
     URLStub,
     BlobStub,
     loc,
+    makeLocalStorage(),
     fetchStub,
   )
 
@@ -209,10 +229,35 @@ const CHAT = [
   '一共八百六？',
 ].join('\n')
 
+const GENERATED = {
+  title: '杭州 大众途观 底盘异响检修：更换两侧小吊杆、四轮定位',
+  summary: '过减速带异响，举升检查发现右前小吊杆球头松旷、胶套开裂。',
+  sections: [
+    { name: '案例概况', text: '本案例记录了一次底盘异响检修。' },
+    { name: '维修前情况', text: '车主反映过减速带时底盘有异响。' },
+    { name: '检查结果', text: '举升检查发现右前小吊杆球头松旷，胶套开裂。' },
+    { name: '维修方案', text: '更换两侧小吊杆，并做四轮定位。' },
+    { name: '维修过程', text: '拆旧件、装新件、按标准力矩紧固。' },
+    { name: '完工效果', text: '路试过减速带异响消失。' },
+    { name: '价格影响因素', text: '价格需根据检测结果确认。' },
+    { name: '门店说明', text: '案例图片已脱敏。' },
+    { name: '温馨提示', text: '底盘异响应尽早检查。' },
+  ],
+  captions: [{ node: '检查结果', text: '右前小吊杆球头 松旷' }],
+  faq: [{ q: '这单为什么没换摆臂总成？', a: '检查确认摆臂本体仍可用，因此只更换小吊杆。' }],
+  aiAbstract: '杭州一台大众途观因过减速带异响到店检查，举升确认小吊杆球头松旷、胶套开裂，更换两侧小吊杆并做四轮定位，路试异响消失。',
+  sourceLabel: '微信群沟通记录转化 · 已自动脱敏',
+  risk: [],
+  facts: { vehicle: '大众途观', odo: '', symptom: '过减速带咯噔响', amount: '860 元' },
+  doubts: [{ field: '已排除项', value: '摆臂本体可用', why: '群里没说检查了摆臂' }],
+  missing: ['里程', '工期', '交车说明', '四轮定位建议', '压装力矩', '试车复现', '环车预检', '轮毂轴承', '减震器/顶胶'],
+  quota: { remaining: 16, limit: 20 },
+}
+
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log('\n公开试用页（node 内跑一遍）')
+  console.log('\n公开页（node 内跑一遍）')
 
   // 1) 服务正常时的启动
   const page = buildPage({
@@ -223,15 +268,7 @@ async function main() {
     limit: 20,
     maxChars: 20000,
     retention: '不保存任何粘贴内容',
-  },
-  // 后端转完中文之后的样子。故意给 9 项——17 项里大半没提到是常态，
-  // 全列出来一行塞不下，页面得自己折叠。
-  {
-    facts: { vehicle: '大众途观', odo: '', symptom: '过减速带咯噔响', plan: '更换两侧小吊杆' },
-    timeline: [],
-    doubts: [{ field: '已排除项', value: '摆臂本体可用', why: '群里没说检查了摆臂' }],
-    missing: ['里程', '工期', '交车说明', '四轮定位建议', '压装力矩', '试车复现', '环车预检', '轮毂轴承', '减震器/顶胶'],
-  })
+  }, GENERATED)
   await new Promise((r) => setTimeout(r, 0))
   assert.deepStrictEqual(page.missedIds, [], `页面引用了不存在的 id：${page.missedIds.join(', ')}`)
   ok('启动不抛异常，且 JS 里引用的 id 在页面上全存在')
@@ -245,100 +282,132 @@ async function main() {
     /18/.test(page.get('quota').innerHTML) || /18/.test(page.get('quota').textContent || ''),
     `剩余次数要显示出来（实际 quota=${page.get('quota').innerHTML}）`,
   )
-  ok('状态里的剩余次数 / 字数上限渲染到页面上了')
+  assert(/2 次/.test(page.get('quota').textContent || ''), '配额文案要说清生成一次要 2 次')
+  ok('状态里的剩余次数 / 字数上限 / 计费口径渲染到页面上了')
 
-  // 2) 主流程：粘贴 → 本机解析 + 脱敏 → 渲染
+  // 2) 生成主流程：粘贴 → 本机打码预览 → 一步生成 → 渲染成稿
   page.get('input').value = CHAT
-  await fire(page.get('btnParse'), 'click')
+  await fire(page.get('btnSample'), 'click') // btnSample 会填示例并直接渲染预览，不走防抖
+  page.get('input').value = CHAT // 覆盖回我们的样本（btnSample 填的是它自带的示例）
+  await fire(page.get('input'), 'input') // 触发防抖预览
 
   const chips = page.get('maskChips').innerHTML
-  assert(/已在本机脱敏/.test(chips), '脱敏提示没渲染')
-  assert(/手机号/.test(chips), `手机号命中没显示（chips=${chips}）`)
-  assert(/车牌/.test(chips), `车牌命中没显示（chips=${chips}）`)
-  ok('粘贴后在本机完成脱敏，命中的字段显示成小标签')
+  assert(/已在本机打码/.test(chips), '打码提示没渲染')
+  ok('粘贴后显示「已在本机打码」提示')
 
-  const msgList = page.get('msgList').innerHTML
-  assert(!/13812345678|浙A12345|张师傅|李老板/.test(msgList), `渲染结果里有未脱敏内容：${msgList.slice(0, 200)}`)
-  assert(/发言人A/.test(msgList), '昵称应换成发言人A/B')
-  ok('渲染出来的消息里没有手机号 / 车牌 / 真实昵称')
+  await new Promise((r) => setTimeout(r, 400)) // 等防抖的打码预览跑完
+  const chipsAfter = page.get('maskChips').innerHTML
+  assert(/手机号/.test(chipsAfter), `手机号命中没显示（chips=${chipsAfter}）`)
+  assert(/车牌/.test(chipsAfter), `车牌命中没显示（chips=${chipsAfter}）`)
+  assert(/语音/.test(chipsAfter), '有语音要显示语音条数')
+  ok('本机打码预览：命中的隐私字段显示成小标签，语音如实计数')
 
-  const warn = page.get('parseMsg').innerHTML
-  assert(/语音/.test(warn), '有语音必须提醒拿不到内容')
-  assert(/图片/.test(warn), '有图片必须提醒只剩占位')
-  ok('语音和图片的「拿不到内容」如实提醒，不假装读到了')
-
+  await fire(page.get('btnGenerate'), 'click')
+  const genCall = page.calls.filter((c) => /\/generate$/.test(c.url)).pop()
+  assert(genCall, '点生成应该发出 /generate 请求')
+  assert.strictEqual(genCall.method, 'POST')
   assert(
-    !page.get('cardStep2')._classes.has('hidden'),
-    '解析完应该露出第二步',
+    typeof genCall.body.text === 'string' && genCall.body.text.length > 0,
+    '请求体要带脱敏后的文本',
   )
-  ok('解析完自动展开第二步')
+  assert(!JSON.stringify(genCall.body).includes('13812345678'), '送出去的内容里不能有手机号')
+  assert(!JSON.stringify(genCall.body).includes('浙A12345'), '送出去的内容里不能有车牌')
+  assert(genCall.body.text.includes('[手机号]'), '手机号应已替换成占位符')
+  assert(genCall.body.text.includes('[车牌]'), '车牌应已替换成占位符')
+  assert(genCall.body.text.includes('发言人A'), '昵称应换成发言人A/B')
+  assert.strictEqual(genCall.body.city, '杭州', '城市要带上（标题用）')
+  ok('一步生成：请求体是脱敏后的文本，原文隐私没出本机')
 
-  // 3) 手改的内容要能进到发给服务端的东西里（页面上的编辑不是摆设）。
-  //    注意：再点一次「解析」会重新从文本框解析，改动自然被覆盖——那是设计如此。
-  //    真正要保证的是「改完点提取，送出去的是改过的」。
-  const senderInput = page
-    .get('msgList')
-    .children.filter((c) => 'msg' in c.dataset && c.dataset.part === 'sender')[0]
-  assert(senderInput, '应能找到发言人输入框')
-  senderInput.value = '王技师'
-  await fire(senderInput, 'input')
+  // 3) 成稿渲染
+  assert(!page.get('cardResult')._classes.has('hidden'), '生成完应该露出成稿卡片')
+  assert.strictEqual(String(page.get('c_title').value || GENERATED.title), GENERATED.title, '标题要渲染')
+  const sectionsHtml = page.get('sectionsBox').innerHTML
+  for (const name of ['案例概况', '维修前情况', '检查结果', '维修方案', '维修过程', '完工效果', '价格影响因素', '门店说明', '温馨提示']) {
+    assert(sectionsHtml.includes(name), `九段里缺了「${name}」`)
+  }
+  ok('九段正文全部渲染')
 
-  await fire(page.get('btnExtract'), 'click')
-  const extractCall = page.calls.filter((c) => /\/extract$/.test(c.url)).pop()
-  assert(extractCall, '点提取应该发出 /extract 请求')
-  assert(
-    Array.isArray(extractCall.body.messages) && extractCall.body.messages.length > 0,
-    '请求体要带上消息',
-  )
-  assert(
-    extractCall.body.messages.some((m) => m.sender === '王技师'),
-    `手改的发言人没进请求体：${JSON.stringify(extractCall.body.messages)}`,
-  )
-  assert(
-    !JSON.stringify(extractCall.body).includes('13812345678'),
-    '送出去的内容里不能有手机号',
-  )
-  assert(!JSON.stringify(extractCall.body).includes('浙A12345'), '送出去的内容里不能有车牌')
-  ok('手改发言人后能回写，且送出去的仍是脱敏后的内容')
-
-  // 「生成案例」按钮旁边那一行是师傅直接看的，英文 key 一个都不许出现。
-  // 后端已经转成中文，这里守住两件事：没有英文、超长会折叠。
-  const missLine = String(page.get('missingLine').textContent || '')
-  assert(/群里没提到/.test(missLine), `缺了「群里没提到」提示：${missLine}`)
-  assert(!/[A-Za-z]/.test(missLine), `「群里没提到」这行出现了英文，师傅看不懂：${missLine}`)
-  assert(/等 9 项/.test(missLine), `9 项要折叠成「等 9 项」：${missLine}`)
-  assert.strictEqual((missLine.match(/、/g) || []).length, 5, `只列前 6 项（5 个顿号）：${missLine}`)
-  // 只看可见文字——标签名（div、b、class）本身就是英文字母，直接查 innerHTML 会误报
+  // 存疑 + 留白：折叠轻提示，只看可见文字，不许有英文 key
   const doubtText = String(page.get('doubtBox').innerHTML || '').replace(/<[^>]*>/g, '')
-  assert(doubtText && !/[A-Za-z]/.test(doubtText), `存疑项里也不能有英文：${doubtText}`)
-  ok('「群里没提到」全中文且超长折叠，不把字段 key 甩给门店')
+  assert(/存疑/.test(doubtText), '存疑项要渲染')
+  const missText = doubtText
+  assert(/群里没提到/.test(missText), `缺了「群里没提到」提示：${missText}`)
+  assert(!/[A-Za-z]/.test(doubtText), `存疑/留白提示里出现了英文，师傅看不懂：${doubtText}`)
+  assert(/等 9 项/.test(missText), `9 项要折叠成「等 9 项」：${missText}`)
+  ok('存疑与留白折叠成轻提示，全中文、超长折叠')
 
-  // 4) 清空
+  const riskHtml = page.get('riskBox').innerHTML
+  assert(/检查通过/.test(riskHtml), '干净文案要显示风控通过')
+  ok('风控结果渲染')
+
+  // 留白段落要有标注（把一段改成空，重新渲染才能看到——这里直接改返回数据再生成一次）
+  const withBlank = Object.assign({}, GENERATED, {
+    sections: GENERATED.sections.map((s) => (s.name === '门店说明' ? { name: '门店说明', text: '' } : s)),
+  })
+  const page2 = buildPage({ enabled: true, ready: true, remaining: 18, limit: 20, maxChars: 20000 }, withBlank)
+  await new Promise((r) => setTimeout(r, 0))
+  page2.get('input').value = CHAT
+  await fire(page2.get('btnGenerate'), 'click')
+  assert(/群里没提到/.test(page2.get('sectionsBox').innerHTML), '留白段落要标注「群里没提到」')
+  ok('留白段落标注「群里没提到」，不硬补')
+
+  // 4) 手动补充打码词要生效（原文里没有正则能命中的真名，靠手动词兜住）
+  page.get('input').value = '张师傅\n李哥，你那个途观过减速带响\n李老板\n严重吗？王建国在吗'
+  page.get('manualMask').value = '王建国'
+  await fire(page.get('input'), 'input')
+  await fire(page.get('manualMask'), 'input')
+  await new Promise((r) => setTimeout(r, 400))
+  assert(/手动打码/.test(page.get('maskChips').innerHTML), '手动打码命中没显示')
+  await fire(page.get('btnGenerate'), 'click')
+  const genCall2 = page.calls.filter((c) => /\/generate$/.test(c.url)).pop()
+  assert(!genCall2.body.text.includes('王建国'), '手动补充的打码词没被打掉')
+  assert(genCall2.body.text.includes('[手动打码]'), '手动打码词应替换成占位符')
+  ok('手动补充打码词在本机生效，真名不出本机')
+
+  // 5) ⚙ 接口设置：填密钥后请求要带 x-archive-token 头
+  await fire(page.get('btnSettings'), 'click')
+  assert(!page.get('cardSettings')._classes.has('hidden'), '点设置要展开设置卡片')
+  page.get('setToken').value = 'my-secret-token'
+  await fire(page.get('btnSaveSettings'), 'click')
+  assert(/已保存/.test(page.get('settingsMsg').innerHTML), '保存设置要有反馈')
+  const afterToken = page.calls.filter((c) => /\/status$/.test(c.url)).pop()
+  assert.strictEqual(afterToken.headers['x-archive-token'], 'my-secret-token', '保存密钥后的请求要带上 x-archive-token')
+  ok('⚙ 接口设置：密钥保存后随请求带上 x-archive-token 头')
+
+  // 6) 草稿箱：存草稿 + 重新打开
+  await fire(page.get('btnSaveDraft'), 'click')
+  assert(/已存草稿/.test(page.get('copyMsg').innerHTML), '存草稿要有反馈')
+  const draftHtml = page.get('draftList').innerHTML
+  assert(/打开/.test(draftHtml), '草稿列表要渲染出条目')
+  ok('草稿箱：存草稿并渲染列表')
+
+  // 7) 清空
   await fire(page.get('btnClear'), 'click')
   assert.strictEqual(page.get('input').value, '', '清空要把输入框清掉')
-  assert(page.get('cardStep2')._classes.has('hidden'), '清空要把后续步骤收起来')
+  assert(page.get('cardResult')._classes.has('hidden'), '清空要把成稿卡片收起来')
+  assert.strictEqual(page.get('maskChips').innerHTML, '', '清空要把打码预览清掉')
   ok('清空按钮把流程和输入框都复位')
 
-  // 5) 服务不可用时，入口要按掉
+  // 8) 服务不可用时，入口要按掉
   const down = buildPage({ enabled: true, ready: false, remaining: 0, limit: 20, maxChars: 20000 })
   await new Promise((r) => setTimeout(r, 0))
   assert.deepStrictEqual(down.missedIds, [], '未就绪分支也不该引用不存在的 id')
-  assert(down.get('btnParse').disabled, '服务未就绪时「解析」要禁用')
-  assert(down.get('btnExtract').disabled, '服务未就绪时「提取」要禁用')
-  assert(/名额用完|未就绪/.test(down.get('parseMsg').innerHTML), '要告诉用户为什么不能用')
+  assert(down.get('btnGenerate').disabled, '服务未就绪时「生成案例」要禁用')
+  assert(down.get('btnSample').disabled, '服务未就绪时「看个例子」要禁用')
+  assert(/名额用完|未就绪/.test(down.get('generateMsg').innerHTML), '要告诉用户为什么不能用')
   ok('服务未就绪 / 名额用完时按钮按掉并说明原因，不会让人点到底')
 
   const closed = buildPage({ enabled: false, ready: false, remaining: 5, limit: 20, maxChars: 20000 })
   await new Promise((r) => setTimeout(r, 0))
-  assert(closed.get('btnParse').disabled, '整体关闭时也要禁用')
-  assert(/关闭/.test(closed.get('parseMsg').innerHTML), '要明说已关闭')
+  assert(closed.get('btnGenerate').disabled, '整体关闭时也要禁用')
+  assert(/关闭/.test(closed.get('generateMsg').innerHTML), '要明说已关闭')
   ok('总闸拉下时页面如实显示「已关闭」')
 
-  console.log(`\n公开试用页冒烟通过：${passed} 项`)
+  console.log(`\n公开页冒烟通过：${passed} 项`)
 }
 
 main().catch((e) => {
-  console.error(`\n公开试用页冒烟失败：${e && e.message ? e.message : e}`)
+  console.error(`\n公开页冒烟失败：${e && e.message ? e.message : e}`)
   if (e && e.stack) console.error(e.stack.split('\n').slice(1, 4).join('\n'))
   process.exit(1)
 })
