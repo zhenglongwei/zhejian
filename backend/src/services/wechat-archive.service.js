@@ -564,7 +564,6 @@ function archiveStatus() {
     ready: Boolean(c.apiKey),
     model: c.model,
     apiKeySource: c.apiKeySource || null,
-    tokenRequired: config.nodeEnv === 'production' && !c.token,
     maxChars: c.maxChars,
   }
 }

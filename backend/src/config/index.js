@@ -401,11 +401,17 @@ const config = {
      * 配额按用户等级（2026-09-02 老板定）：
      *   游客（未登录）按 IP，每天 1 次生成；
      *   登录用户按账号，每天 3 次（复用小程序商家账号体系，官网手机号验证码登录即注册）；
+     *   白名单手机号（老板自己）登录后不限次、不占总闸；
      *   付费额度以后接 MerchantSubscription，现在只预留映射位置。
      * generate 一次（内部两次大模型调用）算 1 次，不再按调用次数拆扣。
      */
     publicPerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PER_IP') || 1),
     loggedInPerUserPerDay: Number(envStr('WECHAT_ARCHIVE_LOGGEDIN_PER_USER') || 3),
+    /** 不限次白名单：逗号分隔手机号。登录后不限次、不计入总闸（老板干活入口） */
+    unlimitedPhones: (envStr('WECHAT_ARCHIVE_UNLIMITED_PHONES') || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
     /** 全局总闸：全站每天最多烧多少次（含登录用户）。一人公司的保险丝，超了当天对外直接关门 */
     publicDailyCap: Number(envStr('WECHAT_ARCHIVE_PUBLIC_DAILY_CAP') || 300),
     /** 解析不调大模型，给个宽松但不无限的次数，防脚本 */

@@ -443,22 +443,36 @@ async function runPublicRoute() {
   const saved = {
     enabled: config.wechatArchive.enabled,
     perIp: config.wechatArchive.publicPerIpPerDay,
+    loggedIn: config.wechatArchive.loggedInPerUserPerDay,
     cap: config.wechatArchive.publicDailyCap,
     parse: config.wechatArchive.publicParsePerIpPerDay,
+    unlimited: config.wechatArchive.unlimitedPhones,
+    jwtSecret: config.jwt.secret,
+    devAuth: config.devAuthEnabled,
   }
   config.wechatArchive.enabled = true
   config.wechatArchive.publicPerIpPerDay = 2
+  config.wechatArchive.loggedInPerUserPerDay = 3
   config.wechatArchive.publicParsePerIpPerDay = 3
   config.wechatArchive.publicDailyCap = 4
+  // 白名单判定要查数据库，冒烟进程没有 DB——只验证「不在白名单时降级为普通用户」之外的主路径
+  config.wechatArchive.unlimitedPhones = []
+  // 登录用户用真实 JWT 模拟（optionalAuth 只验签，不查库）
+  config.jwt.secret = config.jwt.secret || 'smoke-jwt-secret'
+  config.devAuthEnabled = true
+  const { signSessionToken } = require('../src/lib/jwt')
+  const userToken = signSessionToken({ userId: 'user_smoke_1', roles: ['user'] })
+  const adminToken = config.devTokens.system
 
   const { server, base } = await startTestServer()
   const ip = (n) => ({ 'x-forwarded-for': `203.0.113.${n}` })
   try {
-    // 1) 不拿密钥也能用
+    // 1) 游客可用，status 如实报身份
     const st = await call(base, '/status')
-    assert.strictEqual(st.json.code, 0, '公开 status 不该要密钥')
+    assert.strictEqual(st.json.code, 0, '公开 status 不该要登录')
     assert.strictEqual(st.json.data.enabled, true)
     assert.strictEqual(st.json.data.retention, '不保存任何粘贴内容', '不落库这句诺言要跟着接口走')
+    assert.strictEqual(st.json.data.identity, 'guest', '未登录就是 guest')
     assert.strictEqual(st.json.data.remaining, 2)
 
     // 2) parse 不调模型，不该吃掉主配额
@@ -474,17 +488,18 @@ async function runPublicRoute() {
     assert.strictEqual(overParse.status, 429, '解析超额要返回 429')
     assert.strictEqual(overParse.json.code, 42901)
 
-    // 4) 主配额耗尽 → 429（本地没配 key，前两次会 503，但配额照扣）
+    // 4) 游客主配额耗尽 → 429，文案要引导登录
     for (let i = 0; i < 2; i += 1) {
       const r = await call(base, '/extract', { text: CHAT_SHORT }, ip(12))
       assert([0, 50310].includes(r.json.code), `第 ${i + 1} 次主流程应扣到配额（实际 ${r.json.code}）`)
     }
     const overLlm = await call(base, '/extract', { text: CHAT_SHORT }, ip(12))
-    assert.strictEqual(overLlm.status, 429, '主配额用完要返回 429')
+    assert.strictEqual(overLlm.status, 429, '游客配额用完要返回 429')
     assert.strictEqual(overLlm.json.code, 42901)
+    assert(/登录/.test(overLlm.json.message), `游客超额文案要引导登录（实际：${overLlm.json.message}）`)
 
-    // 5) 全局总闸：前面 IP 11/12 已消耗 2 次主配额，总闸设的 4
-    //    再换两个 IP 各来一次就满了，第 5 个 IP 应该被挡在门外
+    // 5) 全局总闸：IP 12 已消耗 2 次主配额，总闸设的 4，
+    //    再换两个 IP 各来一次就满了，下一个 IP 应该被挡在门外
     await call(base, '/extract', { text: CHAT_SHORT }, ip(13))
     await call(base, '/extract', { text: CHAT_SHORT }, ip(14))
     const capped = await call(base, '/extract', { text: CHAT_SHORT }, ip(15))
@@ -496,43 +511,46 @@ async function runPublicRoute() {
     assert.strictEqual(cappedStatus.json.data.remaining, 0, '总闸满了页面要显示 0 次可用')
     assert.strictEqual(cappedStatus.json.data.ready, false, '总闸满了 ready 要为 false')
 
-    // 6) /generate 一次扣 2 个主配额（内部 extract + compose 两次大模型调用）
+    // 6) 登录用户按账号 3 次/天：哪怕用游客额度已耗光的 IP 登录，照样能用（两本账分开）
     //    前面的用例已经把总闸耗到 0 了，先把总闸放开
     config.wechatArchive.publicDailyCap = 999
 
-    // IP 31：主配额 2 次，一次 generate 正好扣光，第二次必须 429
+    const auth = { Authorization: `Bearer ${userToken}` }
+    const userStatus = await call(base, '/status', undefined, Object.assign(ip(12), auth))
+    assert.strictEqual(userStatus.json.data.identity, 'user', '带合法 token 时 status 是 user')
+    assert.strictEqual(userStatus.json.data.limit, 3, '登录用户每天 3 次')
+    for (let i = 0; i < 3; i += 1) {
+      const r = await call(base, '/extract', { text: CHAT_SHORT }, Object.assign(ip(12), auth))
+      assert([0, 50310].includes(r.json.code), `登录用户第 ${i + 1} 次应扣账号配额（实际 ${r.json.code}）`)
+    }
+    const userOver = await call(base, '/extract', { text: CHAT_SHORT }, Object.assign(ip(12), auth))
+    assert.strictEqual(userOver.json.code, 42901, '账号配额用完要返回 429')
+    assert(/3 次/.test(userOver.json.message), `用户超额文案要说清次数（实际：${userOver.json.message}）`)
+
+    // 7) generate 现在算 1 次：游客 IP 31 有 2 次，能生成两回，第三回 429
     const g1 = await call(base, '/generate', { text: CHAT_SHORT }, ip(31))
     assert([0, 50310].includes(g1.json.code), `第 1 次生成应扣到配额（实际 ${g1.json.code}）`)
     const g2 = await call(base, '/generate', { text: CHAT_SHORT }, ip(31))
-    assert.strictEqual(g2.status, 429, '主配额被 generate 一次扣光后要返回 429')
-    assert.strictEqual(g2.json.code, 42901)
-    assert(/2 次/.test(g2.json.message), `文案要说清一次要 2 次（实际：${g2.json.message}）`)
-    // 只剩 1 次时也不许扣一半——多单位扣减要原子
-    const ip32 = await call(base, '/extract', { text: CHAT_SHORT }, ip(32))
-    assert([0, 50310].includes(ip32.json.code), '先给 IP 32 扣掉 1 次')
-    const g3 = await call(base, '/generate', { text: CHAT_SHORT }, ip(32))
-    assert.strictEqual(g3.json.code, 42901, '余额 1 次时 generate 应整体拒绝，不能扣一半')
+    assert([0, 50310].includes(g2.json.code), `第 2 次生成应扣到配额（实际 ${g2.json.code}）`)
+    const g3 = await call(base, '/generate', { text: CHAT_SHORT }, ip(31))
+    assert.strictEqual(g3.status, 429, '游客 2 次被两次 generate 用完后要返回 429')
+    assert.strictEqual(g3.json.code, 42901)
+    assert(!/要 2 次/.test(g3.json.message), `计费文案不该再提「要 2 次」（实际：${g3.json.message}）`)
 
-    // 7) 密钥免扣：x-archive-token 命中 → 不碰任何配额（内部版退役后老板的入口）
-    const savedToken = config.wechatArchive.token
-    config.wechatArchive.token = 'smoke-token'
-    try {
-      for (let i = 0; i < 3; i += 1) {
-        const r = await call(base, '/generate', { text: CHAT_SHORT }, Object.assign(ip(41), { 'x-archive-token': 'smoke-token' }))
-        assert([0, 50310].includes(r.json.code), `带密钥的第 ${i + 1} 次调用不应被限流（实际 ${r.json.code}）`)
-      }
-      const tokStatus = await call(base, '/status', undefined, ip(41))
-      assert.strictEqual(tokStatus.json.data.remaining, 2, '密钥调用 3 次后配额必须还是满的')
-      // 密钥不对 → 照常扣
-      const wrong = await call(base, '/extract', { text: CHAT_SHORT }, Object.assign(ip(42), { 'x-archive-token': 'wrong-token' }))
-      assert([0, 50310].includes(wrong.json.code))
-      const wrongStatus = await call(base, '/status', undefined, ip(42))
-      assert.strictEqual(wrongStatus.json.data.remaining, 1, '密钥不对时照常扣配额')
-    } finally {
-      config.wechatArchive.token = savedToken
+    // 8) 管理员（system 角色）不限次：不扣任何配额，也不占总闸
+    const admin = { Authorization: `Bearer ${adminToken}` }
+    for (let i = 0; i < 3; i += 1) {
+      const r = await call(base, '/generate', { text: CHAT_SHORT }, Object.assign(ip(51), admin))
+      assert([0, 50310].includes(r.json.code), `管理员第 ${i + 1} 次调用不应被限流（实际 ${r.json.code}）`)
     }
+    const adminStatus = await call(base, '/status', undefined, Object.assign(ip(51), admin))
+    assert.strictEqual(adminStatus.json.data.identity, 'unlimited', 'system 角色的 status 是 unlimited')
+    assert.strictEqual(adminStatus.json.data.limit, null, '不限次时 limit 为 null')
+    assert.strictEqual(adminStatus.json.data.remaining, null, '不限次时 remaining 为 null')
+    const guestAfter = await call(base, '/status', undefined, ip(52))
+    assert.strictEqual(guestAfter.json.data.remaining, 2, '管理员的调用不该消耗其它身份的配额')
 
-    // 8) 上游报错不许原样吐给外人。
+    // 9) 上游报错不许原样吐给外人。
     //    光靠「本地没配密钥」测不到这条——那种情况走的是 LLM_NOT_CONFIGURED。
     //    这里起一个假上游，专门返回 401 + 阿里云风格的错误体。
     config.wechatArchive.enabled = true
@@ -577,9 +595,13 @@ async function runPublicRoute() {
     Object.assign(config.wechatArchive, {
       enabled: saved.enabled,
       publicPerIpPerDay: saved.perIp,
+      loggedInPerUserPerDay: saved.loggedIn,
       publicDailyCap: saved.cap,
       publicParsePerIpPerDay: saved.parse,
+      unlimitedPhones: saved.unlimited,
     })
+    config.jwt.secret = saved.jwtSecret
+    config.devAuthEnabled = saved.devAuth
   }
 }
 
@@ -700,11 +722,11 @@ async function runRealLlm() {
 
     console.log('\n[5] 公开试用路由')
     await runPublicRoute()
-    console.log('  ✓ 不要密钥即可用 + 解析不占主配额')
+    console.log('  ✓ 游客按 IP · 解析不占主配额 · 游客超额文案引导登录')
     passed += 1
     console.log('  ✓ 个人额度 / 全局总闸 / 总闸满了不误扣个人额度')
     passed += 1
-    console.log('  ✓ generate 一次扣 2 次、余额不足整体拒绝、密钥头免扣')
+    console.log('  ✓ 登录按账号 3 次 · generate 算 1 次 · system 角色不限次')
     passed += 1
     console.log('  ✓ 拉闸后接口真停（status 仍可问）')
     passed += 1

@@ -1,23 +1,26 @@
 /**
  * 微信群归档转案例 · 公开试用（挂在官网当获客钩子）
  *
- * 跟已删除的 internal 版共用同一套 service，区别只在门口：
- *   - 公开身份按 IP 限次，外加一道全局总闸（一人公司的保险丝）；
- *   - 填了归档密钥（请求头 x-archive-token）则不限次——这是给老板自己干活用的隐藏入口
- *     （2026-09-02 内部版退役后合并进来的能力）；
+ * 跟已删除的 internal 版共用同一套 service，区别只在门口——配额按账户等级（2026-09-02 老板定）：
+ *   - 游客（未登录）按 IP，每天 publicPerIpPerDay 次（默认 1）；
+ *   - 登录用户按账号，每天 loggedInPerUserPerDay 次（默认 3）——
+ *     官网手机号验证码登录即注册，复用辙见账号体系（路由见 public-web-auth.js）；
+ *   - 白名单手机号（WECHAT_ARCHIVE_UNLIMITED_PHONES，老板自己干活用）登录后不限次、不占总闸。
+ *   外加一道全局总闸（一人公司的保险丝），登录用户的消耗同样计入。
  *   - 不落库：粘贴的内容只在内存里走一圈，用完即弃。这是页面上敢写「不保存任何内容」的底气。
  *
- * 计费口径（2026-09-02 改版后）：
- *   - parse  不调大模型，单独宽松计数；
- *   - generate 一步 = 内部 extract + compose 两次大模型调用，算 2 次主配额（和旧流程整轮一致）；
- *   - extract / compose 保留单点调用（旧前端兼容 + 排障用），各算 1 次。
- *   默认每 IP 每天 20 次，够试 10 轮。
+ * 计费口径：generate 一步（内部 extract + compose 两次大模型调用）算 1 次配额；
+ * extract / compose 保留单点调用（旧前端兼容 + 排障用），各算 1 次；
+ * parse 不调大模型，单独宽松计数。
  */
 
 const express = require('express')
 const { ok, fail } = require('../lib/response')
 const { config } = require('../config')
+const { ROLES } = require('../lib/jwt')
+const { prisma } = require('../lib/prisma')
 const { clientIp, consumeDailyLimit, peekDailyUsage } = require('../services/geo-check-rate-limit')
+const { optionalAuth, hasRole } = require('../middleware/auth')
 const {
   parseChat,
   maskChatText,
@@ -31,48 +34,84 @@ const router = express.Router()
 
 const SCOPE_LLM = 'archive-llm'
 const SCOPE_PARSE = 'archive-parse'
-/** 全局总闸的假 IP。key 仍然以日期开头，不会干扰 buckets 的过期清理 */
+/** 全局总闸的假身份。key 仍然以日期开头，不会干扰 buckets 的过期清理 */
 const GLOBAL_KEY = '__global__'
 
 function overQuota(res, message) {
   return fail(res, 42901, message, 429)
 }
 
-/** 归档密钥命中 → 自己人，不扣任何配额（内部版退役后的不限次入口） */
-function hasArchiveToken(req) {
-  const expected = config.wechatArchive.token
-  if (!expected) return false
-  const got = String(req.headers['x-archive-token'] || '')
-  return got === expected
+/** 手机号缓存：userId → { phone, at }。白名单判定要查库，不能每个请求都查一遍 */
+const phoneCache = new Map()
+const PHONE_CACHE_TTL_MS = 10 * 60 * 1000
+
+async function isUnlimitedPhone(userId) {
+  const phones = config.wechatArchive.unlimitedPhones
+  if (!phones.length) return false
+  const hit = phoneCache.get(userId)
+  if (hit && Date.now() - hit.at < PHONE_CACHE_TTL_MS) return phones.includes(hit.phone)
+  let phone = ''
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { phone: true } })
+    phone = (user && user.phone) || ''
+  } catch (e) {
+    // 查库失败就当不在白名单——配额系统不能跟着数据库一起挂
+    phone = ''
+  }
+  phoneCache.set(userId, { phone, at: Date.now() })
+  return phones.includes(phone)
+}
+
+/**
+ * 身份分级，决定配额按哪本账算：
+ *   unlimited（system 角色 / 白名单手机号）> user（已登录）> guest（游客）
+ */
+async function resolveIdentity(req) {
+  const auth = req.auth || {}
+  if (!auth.token || !auth.userId) return { level: 'guest', userId: null }
+  if (hasRole(auth, ROLES.SYSTEM)) return { level: 'unlimited', userId: auth.userId }
+  if (await isUnlimitedPhone(auth.userId)) return { level: 'unlimited', userId: auth.userId }
+  return { level: 'user', userId: auth.userId }
+}
+
+/** 配额身份 key：登录按账号，游客按 IP */
+function quotaKey(identity, req) {
+  if (identity.level === 'user') return `user:${identity.userId}`
+  return clientIp(req)
 }
 
 /**
  * 扣配额。解析与主流程分开算——解析不花钱，卡太死反而挡住正常试用。
- * @param {number} count 一次扣几个主配额（generate 传 2）
  */
-function takeQuota(req, res, kind, count = 1) {
-  if (hasArchiveToken(req)) return null
+async function takeQuota(req, res, kind) {
   const c = config.wechatArchive
-  const ip = clientIp(req)
 
+  // 解析不花钱：对所有人（含老板）按 IP 防脚本，不跟身份走
   if (kind === 'parse') {
-    const r = consumeDailyLimit(ip, c.publicParsePerIpPerDay, SCOPE_PARSE)
+    const r = consumeDailyLimit(clientIp(req), c.publicParsePerIpPerDay, SCOPE_PARSE)
     if (!r.allowed) return overQuota(res, `今天的解析次数用完了（${r.limit} 次/天），明天再来`)
     return null
   }
 
-  // 先看全局总闸再扣 IP：总闸满了就别浪费这个 IP 的额度（它明天还要用）
+  const identity = await resolveIdentity(req)
+  if (identity.level === 'unlimited') return null
+
+  // 先看全局总闸再扣个人：总闸满了就别浪费个人的额度（它明天还要用）
   if (peekDailyUsage(GLOBAL_KEY, SCOPE_LLM).used >= c.publicDailyCap) {
     return overQuota(res, '今天的公开试用名额已经用完，明天再来')
   }
-  const r = consumeDailyLimit(ip, c.publicPerIpPerDay, SCOPE_LLM, count)
+
+  const limit = identity.level === 'user' ? c.loggedInPerUserPerDay : c.publicPerIpPerDay
+  const r = consumeDailyLimit(quotaKey(identity, req), limit, SCOPE_LLM)
   if (!r.allowed) {
     return overQuota(
       res,
-      `今天的试用次数不够了（还剩 ${Math.max(r.limit - r.used, 0)} 次，生成一次要 2 次）。想不限次用，联系我们开一个专属入口。`,
+      identity.level === 'user'
+        ? `今天 ${limit} 次已经用完，明天再来`
+        : `今天的免费次数用完了（游客每天 ${limit} 次）。手机号登录后每天 ${c.loggedInPerUserPerDay} 次。`,
     )
   }
-  consumeDailyLimit(GLOBAL_KEY, c.publicDailyCap, SCOPE_LLM, count)
+  consumeDailyLimit(GLOBAL_KEY, c.publicDailyCap, SCOPE_LLM)
   return null
 }
 
@@ -88,28 +127,39 @@ router.use((req, res, next) => {
   return next()
 })
 
-function statusPayload(req) {
+// 身份解析挂在总闸之后、业务路由之前：所有 archive 接口都按账户等级算账
+router.use(optionalAuth)
+
+async function statusPayload(req) {
   const c = config.wechatArchive
-  const ip = clientIp(req)
-  const used = peekDailyUsage(ip, SCOPE_LLM, c.publicPerIpPerDay)
+  const identity = await resolveIdentity(req)
   const globalLeft = Math.max(c.publicDailyCap - peekDailyUsage(GLOBAL_KEY, SCOPE_LLM).used, 0)
   const s = archiveStatus()
+  let limit = null
+  let remaining = null
+  if (identity.level !== 'unlimited') {
+    limit = identity.level === 'user' ? c.loggedInPerUserPerDay : c.publicPerIpPerDay
+    const used = peekDailyUsage(quotaKey(identity, req), SCOPE_LLM, limit)
+    remaining = Math.min(used.remaining, globalLeft)
+  }
   return {
     enabled: c.enabled,
-    ready: c.enabled && s.ready && globalLeft > 0,
+    ready: c.enabled && s.ready && (identity.level === 'unlimited' || globalLeft > 0),
     model: s.model,
-    remaining: Math.min(used.remaining, globalLeft),
-    limit: c.publicPerIpPerDay,
+    /** 当前身份：guest（游客）/ user（已登录）/ unlimited（白名单，不限次） */
+    identity: identity.level,
+    limit,
+    remaining,
     maxChars: c.maxChars,
     /** 页面上要写清楚：不落库。这行是给前端读的，别删 */
     retention: '不保存任何粘贴内容',
   }
 }
 
-router.get('/wechat-archive/status', (req, res) => ok(res, statusPayload(req)))
+router.get('/wechat-archive/status', async (req, res) => ok(res, await statusPayload(req)))
 
-router.post('/wechat-archive/parse', (req, res) => {
-  const denied = takeQuota(req, res, 'parse')
+router.post('/wechat-archive/parse', async (req, res) => {
+  const denied = await takeQuota(req, res, 'parse')
   if (denied) return denied
 
   const raw = String(req.body?.text || '')
@@ -131,10 +181,10 @@ router.post('/wechat-archive/parse', (req, res) => {
 
 /**
  * 一步生成：粘贴的群聊（或脱敏后的消息）→ 案例。
- * 内部先抽事实再写案例，两次大模型调用、扣 2 次配额。
+ * 内部先抽事实再写案例，两次大模型调用、算 1 次配额。
  */
 router.post('/wechat-archive/generate', async (req, res, next) => {
-  const denied = takeQuota(req, res, 'llm', 2)
+  const denied = await takeQuota(req, res, 'llm')
   if (denied) return denied
   try {
     const data = await generateCase({
@@ -144,7 +194,7 @@ router.post('/wechat-archive/generate', async (req, res, next) => {
       city: req.body?.city,
       district: req.body?.district,
     })
-    return ok(res, { ...data, quota: statusPayload(req) })
+    return ok(res, { ...data, quota: await statusPayload(req) })
   } catch (e) {
     if (e.code === 'EMPTY_INPUT' || e.code === 'TOO_LONG') return fail(res, 40010, e.message, 400)
     if (e.code === 'LLM_NOT_CONFIGURED' || e.code === 'LLM_FAILED') {
@@ -156,7 +206,7 @@ router.post('/wechat-archive/generate', async (req, res, next) => {
 })
 
 router.post('/wechat-archive/extract', async (req, res, next) => {
-  const denied = takeQuota(req, res, 'llm')
+  const denied = await takeQuota(req, res, 'llm')
   if (denied) return denied
   try {
     const data = await extractFacts({
@@ -164,7 +214,7 @@ router.post('/wechat-archive/extract', async (req, res, next) => {
       messages: req.body?.messages,
       category: req.body?.category,
     })
-    return ok(res, { ...data, quota: statusPayload(req) })
+    return ok(res, { ...data, quota: await statusPayload(req) })
   } catch (e) {
     if (e.code === 'EMPTY_INPUT' || e.code === 'TOO_LONG') return fail(res, 40010, e.message, 400)
     if (e.code === 'LLM_NOT_CONFIGURED' || e.code === 'LLM_FAILED') {
@@ -176,7 +226,7 @@ router.post('/wechat-archive/extract', async (req, res, next) => {
 })
 
 router.post('/wechat-archive/compose', async (req, res, next) => {
-  const denied = takeQuota(req, res, 'llm')
+  const denied = await takeQuota(req, res, 'llm')
   if (denied) return denied
   try {
     const data = await composeCase({
@@ -186,7 +236,7 @@ router.post('/wechat-archive/compose', async (req, res, next) => {
       district: req.body?.district,
       category: req.body?.category,
     })
-    return ok(res, { ...data, quota: statusPayload(req) })
+    return ok(res, { ...data, quota: await statusPayload(req) })
   } catch (e) {
     if (e.code === 'EMPTY_FACTS') return fail(res, 40020, e.message, 400)
     if (e.code === 'LLM_NOT_CONFIGURED' || e.code === 'LLM_FAILED') {

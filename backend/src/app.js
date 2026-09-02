@@ -44,6 +44,7 @@ const publicCaseRightsRoutes = require('./routes/public-case-rights')
 const publicGeoCheckRoutes = require('./routes/public-geo-check')
 const publicGeoRankingRoutes = require('./routes/public-geo-ranking')
 const publicWechatArchiveRoutes = require('./routes/public-wechat-archive')
+const publicWebAuthRoutes = require('./routes/public-web-auth')
 const { resolveCaseRedirectTarget } = require('./services/h5-case-redirect.service')
 const adminRoutes = require('./routes/admin')
 
@@ -196,6 +197,7 @@ function createApp() {
   app.use('/api/v1/public', publicGeoCheckRoutes)
   app.use('/api/v1/public', publicGeoRankingRoutes)
   app.use('/api/v1/public', publicWechatArchiveRoutes.router)
+  app.use('/api/v1/public', publicWebAuthRoutes)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)

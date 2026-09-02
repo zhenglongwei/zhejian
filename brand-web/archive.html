@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>微信群案例转换 · 免费试用 · 盈简科技</title>
-  <meta name="description" content="把汽修微信群里师傅日常发的维修对话，变成一篇能直接发出去的案例。免费试用、不用注册、不保存你粘贴的任何内容。网站自动打码：手机号、车牌、姓名、VIN、发动机号、地址在你自己的浏览器里就换成占位符。" />
+  <meta name="description" content="把汽修微信群里师傅日常发的维修对话，变成一篇能直接发出去的案例。游客每天免费 1 次，手机号登录后每天 3 次；不保存你粘贴的任何内容。网站自动打码：手机号、车牌、姓名、VIN、发动机号、地址在你自己的浏览器里就换成占位符。" />
   <link rel="canonical" href="https://simplewin.cn/archive.html" />
   <!-- 结构化数据：WebApplication（微信案例转换工具，浏览器端打码、不落库是差异化事实） -->
   <script type="application/ld+json">
@@ -16,7 +16,7 @@
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "browserRequirements": "Requires JavaScript",
-    "description": "把汽修门店微信群里的维修对话整理成九段式案例草稿。手机号、车牌、姓名、VIN、发动机号、地址在用户自己的浏览器里自动换成占位符，服务器只收到脱敏后的文字，不落库、用完即弃。免费试用，不用注册。",
+    "description": "把汽修门店微信群里的维修对话整理成九段式案例草稿。手机号、车牌、姓名、VIN、发动机号、地址在用户自己的浏览器里自动换成占位符，服务器只收到脱敏后的文字，不落库、用完即弃。游客每天免费 1 次，手机号登录后每天 3 次。",
     "isAccessibleForFree": true,
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
     "publisher": { "@type": "Organization", "name": "盈简科技", "url": "https://simplewin.cn" }
@@ -80,7 +80,7 @@
     <div class="wrap">
       <h1>你的微信群里，本来就躺着几十篇案例</h1>
       <p class="lead">师傅每天在群里发的那些话——「胶套裂了」「旧的拆下来了」「路试不响了」——本来就是一篇案例的骨架，只是散在几百条对话里没人整理。
-        粘贴进来，工具自动打码、自动整理成案例，你直接在上面改。<strong>免费试用，不用注册，不保存你粘贴的任何内容。</strong></p>
+        粘贴进来，工具自动打码、自动整理成案例，你直接在上面改。<strong>不用注册就能试（游客每天 1 次），手机号登录后每天 3 次；不保存你粘贴的任何内容。</strong></p>
     </div>
   </div>
 
@@ -98,6 +98,28 @@
           <li><b>语音拿不到</b>：只会留下 <code>[语音]</code> 三个字，语音内容不会一起复制。请在手机微信里长按语音 → 转文字 → 把文字补进对应消息。</li>
           <li>发言人昵称、手机号、车牌这些<strong>能拿到，所以工具会自动打码</strong>。</li>
         </ul>
+      </div>
+    </div>
+
+    <div class="card" id="cardAuth">
+      <p class="step-kicker">登录（可选）· 次数按账户算</p>
+      <div id="loginForm">
+        <p class="muted" style="margin:0 0 12px">不登录也能试：游客每天 1 次。手机号登录后每天 3 次，验证码登录即注册（辙见账号）。手机号只用来记次数，不作他用。</p>
+        <div class="field-grid">
+          <div><label for="loginPhone">手机号</label><input type="tel" id="loginPhone" maxlength="11" inputmode="numeric" placeholder="11 位手机号" /></div>
+          <div>
+            <label for="loginCode">短信验证码</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="loginCode" maxlength="6" inputmode="numeric" placeholder="6 位数字" style="flex:1" />
+              <button class="btn btn-ghost" type="button" id="btnSendCode" style="white-space:nowrap">获取验证码</button>
+            </div>
+          </div>
+        </div>
+        <p style="margin:12px 0 0"><button class="btn" type="button" id="btnLogin">登录</button></p>
+        <div id="loginMsg" style="margin-top:8px"></div>
+      </div>
+      <div id="loggedInBar" class="hidden">
+        <p class="muted" style="margin:0">已登录 <b id="whoami"></b><button class="btn btn-ghost" type="button" id="btnLogout" style="margin-left:10px">退出</button></p>
       </div>
     </div>
 
@@ -122,23 +144,10 @@
         <button class="btn" type="button" id="btnGenerate">生成案例</button>
         <button class="btn btn-ghost" type="button" id="btnSample">看个例子</button>
         <button class="btn btn-ghost" type="button" id="btnClear">清空</button>
-        <button class="btn btn-ghost" type="button" id="btnSettings">⚙ 接口设置</button>
         <span class="quota" id="quota"></span>
       </p>
       <div id="generateMsg"></div>
     </form>
-
-    <div class="card hidden" id="cardSettings">
-      <p class="step-kicker">接口设置</p>
-      <p class="muted">一般不用动。接口地址默认跟随页面环境；填了归档密钥则不限次使用（密钥请向我们索取），都只存在你本机浏览器里。</p>
-      <p><label>接口地址（留空 = 自动）</label><input type="text" id="setApi" placeholder="例：https://geo.simplewin.cn/api/v1/public/wechat-archive" /></p>
-      <p><label>归档密钥（不限次入口，可留空）</label><input type="password" id="setToken" placeholder="x-archive-token" /></p>
-      <p style="margin-top:12px;">
-        <button class="btn" type="button" id="btnSaveSettings">保存</button>
-        <button class="btn btn-ghost" type="button" id="btnCloseSettings">收起</button>
-      </p>
-      <div id="settingsMsg"></div>
-    </div>
 
     <details class="soft" id="draftBox" style="margin-bottom:14px;">
       <summary>草稿箱（只存在你自己的浏览器里）</summary>

@@ -10,7 +10,7 @@
  *   2) 页面里写的每个 id 都真存在（拼错 id 是最常见的事故）；
  *   3) 主流程（粘贴 → 本机打码 → 一步生成 → 渲染成稿）能走通；
  *   4) 发出去的请求体里没有明文隐私；
- *   5) ⚙ 接口设置里填的密钥会真的带上 x-archive-token 请求头；
+ *   5) 验证码登录后请求真的带上 Authorization 头，身份与配额文案跟着登录态切换；
  *   6) 服务不可用时按钮会按掉，而不是让人点到底才报错。
  *
  * 这不是浏览器，渲染细节（样式、真实布局）它管不了，也不打算管。
@@ -180,9 +180,23 @@ function buildPage(statusData, generateData) {
       headers: (opts && opts.headers) || {},
       body,
     })
-    // /status 和 /generate 的返回结构不一样，桩要按路径分流，
-    // 不然测不到「生成完之后界面长什么样」。
-    const dataFor = /\/status$/.test(url) ? statusData : generateData || statusData
+    // 按路径分流。/status 的身份按请求头判断（带没带 Authorization），
+    // 跟真服务端行为一致——退出后没头，就回游客口径。
+    let dataFor
+    if (/\/web-auth\/send-code$/.test(url)) {
+      dataFor = { resendAfterSec: 60 }
+    } else if (/\/web-auth\/login$/.test(url)) {
+      dataFor = { token: 'stub-session-token', phoneDisplay: '138****5678', isNewUser: true }
+    } else if (/\/status$/.test(url)) {
+      const hasAuth = Boolean(opts && opts.headers && opts.headers.Authorization)
+      dataFor = Object.assign(
+        {},
+        statusData,
+        hasAuth ? { identity: 'user', remaining: 2, limit: 3 } : { identity: 'guest' },
+      )
+    } else {
+      dataFor = generateData || statusData
+    }
     return Promise.resolve({
       status: 200,
       json: () => Promise.resolve({ code: 0, message: 'success', data: dataFor }),
@@ -251,7 +265,7 @@ const GENERATED = {
   facts: { vehicle: '大众途观', odo: '', symptom: '过减速带咯噔响', amount: '860 元' },
   doubts: [{ field: '已排除项', value: '摆臂本体可用', why: '群里没说检查了摆臂' }],
   missing: ['里程', '工期', '交车说明', '四轮定位建议', '压装力矩', '试车复现', '环车预检', '轮毂轴承', '减震器/顶胶'],
-  quota: { remaining: 16, limit: 20 },
+  quota: { identity: 'guest', remaining: 16, limit: 20 },
 }
 
 // ---------------------------------------------------------------------------
@@ -282,8 +296,8 @@ async function main() {
     /18/.test(page.get('quota').innerHTML) || /18/.test(page.get('quota').textContent || ''),
     `剩余次数要显示出来（实际 quota=${page.get('quota').innerHTML}）`,
   )
-  assert(/2 次/.test(page.get('quota').textContent || ''), '配额文案要说清生成一次要 2 次')
-  ok('状态里的剩余次数 / 字数上限 / 计费口径渲染到页面上了')
+  assert(/游客/.test(page.get('quota').textContent || ''), '配额文案要说明游客身份')
+  ok('状态里的剩余次数 / 字数上限 / 身份口径渲染到页面上了')
 
   // 2) 生成主流程：粘贴 → 本机打码预览 → 一步生成 → 渲染成稿
   page.get('input').value = CHAT
@@ -364,15 +378,30 @@ async function main() {
   assert(genCall2.body.text.includes('[手动打码]'), '手动打码词应替换成占位符')
   ok('手动补充打码词在本机生效，真名不出本机')
 
-  // 5) ⚙ 接口设置：填密钥后请求要带 x-archive-token 头
-  await fire(page.get('btnSettings'), 'click')
-  assert(!page.get('cardSettings')._classes.has('hidden'), '点设置要展开设置卡片')
-  page.get('setToken').value = 'my-secret-token'
-  await fire(page.get('btnSaveSettings'), 'click')
-  assert(/已保存/.test(page.get('settingsMsg').innerHTML), '保存设置要有反馈')
-  const afterToken = page.calls.filter((c) => /\/status$/.test(c.url)).pop()
-  assert.strictEqual(afterToken.headers['x-archive-token'], 'my-secret-token', '保存密钥后的请求要带上 x-archive-token')
-  ok('⚙ 接口设置：密钥保存后随请求带上 x-archive-token 头')
+  // 5) 登录：发验证码 → 登录 → 身份切到 user，后续请求带 Authorization
+  page.get('loginPhone').value = '13800005678'
+  await fire(page.get('btnSendCode'), 'click')
+  assert(/已发送/.test(page.get('loginMsg').innerHTML), '发验证码要有反馈')
+  page.get('loginCode').value = '123456'
+  await fire(page.get('btnLogin'), 'click')
+  assert(page.get('loginForm')._classes.has('hidden'), '登录后登录表单要收起来')
+  assert(!page.get('loggedInBar')._classes.has('hidden'), '登录后已登录条要显示')
+  assert(/138\*\*\*\*5678/.test(page.get('whoami').textContent), '登录后显示脱敏手机号')
+  const statusAfterLogin = page.calls.filter((c) => /\/status$/.test(c.url)).pop()
+  assert.strictEqual(
+    statusAfterLogin.headers.Authorization,
+    'Bearer stub-session-token',
+    '登录后的请求要带 Authorization 头',
+  )
+  assert(/2 \/ 3/.test(page.get('quota').textContent || ''), '登录后配额文案切到账号口径')
+  ok('登录：验证码登录成功，身份 / Authorization 头 / 配额口径都切换')
+
+  // 退出后回到游客口径
+  await fire(page.get('btnLogout'), 'click')
+  assert(!page.get('loginForm')._classes.has('hidden'), '退出后登录表单要回来')
+  const statusAfterLogout = page.calls.filter((c) => /\/status$/.test(c.url)).pop()
+  assert(!statusAfterLogout.headers.Authorization, '退出后的请求不能再带 Authorization')
+  ok('退出：登录态清干净，回到游客计账')
 
   // 6) 草稿箱：存草稿 + 重新打开
   await fire(page.get('btnSaveDraft'), 'click')

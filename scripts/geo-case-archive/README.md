@@ -9,9 +9,10 @@
 
 只有一个版本：**公开页** `brand-web/archive.html`（官网 `/archive.html`）。
 
-- 门店老板、任何访客：不用密钥，按 IP 限次。
-- 我们自己：页面右上角「⚙ 接口设置」填一次归档密钥（`WECHAT_ARCHIVE_TOKEN`），
-  请求头带 `x-archive-token` 即完全免扣配额（不限次），存本机浏览器。
+- 门店老板、任何访客：不登录也能试，游客按 IP 每天 1 次。
+- 想多用的：手机号 + 短信验证码登录（登录即注册，复用辙见账号体系），按账号每天 3 次。
+- 我们自己：把手机号配进 `WECHAT_ARCHIVE_UNLIMITED_PHONES`（逗号分隔），登录后不限次、不占总闸。
+  接口设置面板和归档密钥（x-archive-token）已删除（2026-09-02 老板定：次数跟账户等级走）。
 
 | 打开方式 | 地址 | 说明 |
 |---|---|---|
@@ -43,7 +44,8 @@
 | 文件 | 用途 |
 |---|---|
 | `backend/src/services/wechat-archive.service.js` | 解析 / 脱敏 / 事实提取 / 案例生成（generateCase 一步串联）/ 风控扫描 |
-| `backend/src/routes/public-wechat-archive.js` | `/api/v1/public/wechat-archive/*`，不要密钥按 IP 限次 + 全局总闸；`/generate` 一次扣 2 个主配额；带 `x-archive-token` 密钥头则免扣 |
+| `backend/src/routes/public-wechat-archive.js` | `/api/v1/public/wechat-archive/*`，配额按账户等级（游客按 IP 1 次/天、登录按账号 3 次/天、白名单不限次）+ 全局总闸；`/generate` 算 1 次 |
+| `backend/src/routes/public-web-auth.js` | `/api/v1/public/web-auth/*`，手机号验证码登录（即注册），签发与小程序同源的 JWT |
 | `brand-web/archive.html` + `brand-web/js/archive.js` | 公开页（三步流程 + 草稿箱，浏览器本地留存） |
 | `backend/scripts/smoke-wechat-archive.js` | 服务层冒烟（默认不联网，大模型用桩） |
 | `backend/scripts/smoke-archive-page.js` | 公开页冒烟：node 里跑一遍页面，防「一打开就报错」 |
@@ -84,14 +86,16 @@ npm run archive:local                                      # 起本地预览，8
 和 `brand-web/js/archive.js` 里的同名数组。`smoke-wechat-archive.js` 会逐条比对，
 漂移了直接失败——浏览器那份是「原文不出本机」的唯一保障，少一条规则就是明文外泄。
 
-## 公开试用的三道保险
+## 公开试用的几道保险
 
 | 保险 | 行为 |
 |---|---|
-| 每 IP 每天 20 次主配额（`WECHAT_ARCHIVE_PUBLIC_PER_IP`） | 用完返回 429，文案引导联系我们要专属入口；`/generate` 一次扣 2 个 |
+| 游客按 IP 每天 1 次（`WECHAT_ARCHIVE_PUBLIC_PER_IP`） | 用完返回 429，文案引导登录 |
+| 登录用户按账号每天 3 次（`WECHAT_ARCHIVE_LOGGEDIN_PER_USER`） | 手机号验证码登录即注册；用完返回 429 |
+| 白名单手机号不限次（`WECHAT_ARCHIVE_UNLIMITED_PHONES`） | 老板干活入口：不扣配额、不占总闸 |
 | 解析单独宽松计数（60 次/天） | 解析不调模型，不该占用主配额 |
 | 全局总闸 300 次/天（`WECHAT_ARCHIVE_PUBLIC_DAILY_CAP`） | 一人公司的保险丝；总闸满了不误扣个人额度 |
 | `WECHAT_ARCHIVE_PUBLIC_ENABLED=false` | 整体拉闸，接口全停（`/status` 仍可问，页面要据此显示「已关闭」） |
 
 上游（大模型厂商）的报错原文只进服务端日志，公开接口统一回「服务暂时不可用，稍后再试」——
-不能让外人知道我们用的哪家、密钥配没配对。带密钥头的请求（我们自己）照实说，方便排查。
+不能让外人知道我们用的哪家、密钥配没配对。

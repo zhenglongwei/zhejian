@@ -16,6 +16,7 @@
 const path = require('path')
 const express = require('express')
 const { router: publicRouter } = require('../src/routes/public-wechat-archive')
+const { router: publicWebAuthRouter } = require('../src/routes/public-web-auth')
 
 const PORT = Number(process.env.PORT || 8848)
 const BRAND_WEB = path.join(__dirname, '..', '..', 'brand-web')
@@ -31,6 +32,8 @@ app.use((req, res, next) => {
 app.use(express.static(BRAND_WEB))
 
 app.use('/api/v1/public', publicRouter)
+// 登录接口也挂上：配额按账户等级后，本地预览要能测登录（短信没配会如实报「短信服务未开通」）
+app.use('/api/v1/public', publicWebAuthRouter)
 
 app.use((err, req, res, next) => {
   console.error('[archive-local]', err)

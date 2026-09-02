@@ -11,15 +11,16 @@
  *   不许出本机——这是这个工具敢写「不保存任何内容」的前提，不能省。
  *   backend/scripts/smoke-wechat-archive.js 里有一条断言会比对两边规则是否漂移。
  *
- * ⚙ 接口设置里可以填归档密钥（x-archive-token 请求头）——填了就不限次（老板自己用的入口）。
- * 草稿箱存 localStorage，只在本机浏览器里。
+ * 配额按账户等级（2026-09-02 老板定）：游客每天 1 次，手机号登录后每天 3 次。
+ * 登录走 /api/v1/public/web-auth（验证码登录即注册，复用辙见账号体系），
+ * 登录态（token + 脱敏手机号）和草稿箱都存 localStorage，只在本机浏览器里。
  */
 (function () {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
-  var SETTINGS_KEY = 'archiveSettingsV1';
   var DRAFTS_KEY = 'archiveDraftsV1';
+  var SESSION_KEY = 'archiveSessionV1';
 
   var state = {
     quota: null,
@@ -31,36 +32,45 @@
     maskedText: '',
   };
 
-  /* ================= 接口与设置 ================= */
+  /* ================= 接口与登录态 ================= */
 
-  function loadSettings() {
-    try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; }
-    catch (e) { return {}; }
+  function loadSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+      return s && s.token ? s : null;
+    } catch (e) { return null; }
   }
-  function saveSettings(s) {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) { /* 隐私模式就算了 */ }
+  function saveSession(s) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) { /* 隐私模式就算了 */ }
   }
-  var settings = loadSettings();
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* 同上 */ }
+  }
+  var session = loadSession();
 
   /**
    * 线上：页面在 simplewin.cn，接口在 geo.simplewin.cn，所以写死跨域地址。
    * 本地：默认走同源——本地预览服务（backend/scripts/serve-archive-local.js）
    * 同时托管页面和接口，写死 3000 端口反而会打空。
-   * 想指向别处：⚙ 接口设置，或页面加 ?api=... 。
+   * 想指向别处：页面加 ?api=...（调试用，访客看不到）。
    */
   function endpoint() {
     var params = new URLSearchParams(location.search);
     if (params.get('api')) return params.get('api');
-    if (settings.api) return settings.api;
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return '/api/v1/public/wechat-archive';
     }
     return 'https://geo.simplewin.cn/api/v1/public/wechat-archive';
   }
 
+  /** 登录接口跟归档接口同一个 base，只是路径不同 */
+  function authEndpoint(path) {
+    return endpoint().replace(/\/wechat-archive$/, '') + path;
+  }
+
   async function api(path, body, method) {
     var headers = { 'Content-Type': 'application/json' };
-    if (settings.token) headers['x-archive-token'] = settings.token;
+    if (session && session.token) headers['Authorization'] = 'Bearer ' + session.token;
     var res = await fetch(endpoint() + path, {
       method: method || 'POST',
       headers: headers,
@@ -76,6 +86,100 @@
     }
     if (json.data && json.data.quota) state.quota = json.data.quota;
     return json.data;
+  }
+
+  /** 登录相关接口（不带归档路径，也无需登录态） */
+  async function authApi(path, body) {
+    var res = await fetch(authEndpoint(path), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    var json = await res.json().catch(function () {
+      return { code: -1, message: '连不上服务，请稍后再试' };
+    });
+    if (json.code !== 0) {
+      var err = new Error(json.message || ('HTTP ' + res.status));
+      err.code = json.code;
+      throw err;
+    }
+    return json.data;
+  }
+
+  /* ================= 登录 UI ================= */
+
+  var codeTimer = null;
+
+  function startCountdown(sec) {
+    stopCountdown();
+    var btn = $('btnSendCode');
+    var left = sec || 60;
+    btn.disabled = true;
+    btn.textContent = left + ' 秒后重发';
+    codeTimer = setInterval(function () {
+      left -= 1;
+      if (left <= 0) { stopCountdown(); return; }
+      btn.textContent = left + ' 秒后重发';
+    }, 1000);
+  }
+  function stopCountdown() {
+    if (codeTimer) { clearInterval(codeTimer); codeTimer = null; }
+    var btn = $('btnSendCode');
+    if (btn) { btn.disabled = false; btn.textContent = '获取验证码'; }
+  }
+
+  function renderAuth() {
+    if (session) {
+      show('loginForm', false);
+      show('loggedInBar', true);
+      $('whoami').textContent = session.phoneDisplay || '已登录';
+    } else {
+      show('loginForm', true);
+      show('loggedInBar', false);
+    }
+  }
+
+  async function sendCode() {
+    var phone = $('loginPhone').value.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) { notice('loginMsg', 'warn', '手机号先填对（11 位）。'); return; }
+    var btn = $('btnSendCode');
+    busy(btn, true, '发送中…');
+    try {
+      var r = await authApi('/web-auth/send-code', { phone: phone });
+      notice('loginMsg', 'ok', '验证码已发送，5 分钟内有效。');
+      startCountdown(r.resendAfterSec || 60);
+    } catch (e) {
+      notice('loginMsg', 'err', esc(e.message));
+      busy(btn, false);
+    }
+  }
+
+  async function doLogin() {
+    var phone = $('loginPhone').value.trim();
+    var code = $('loginCode').value.trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) { notice('loginMsg', 'warn', '手机号先填对（11 位）。'); return; }
+    if (!/^\d{6}$/.test(code)) { notice('loginMsg', 'warn', '验证码是 6 位数字。'); return; }
+    var btn = $('btnLogin');
+    busy(btn, true, '登录中…');
+    try {
+      var data = await authApi('/web-auth/login', { phone: phone, code: code });
+      session = { token: data.token, phoneDisplay: data.phoneDisplay || '' };
+      saveSession(session);
+      stopCountdown();
+      notice('loginMsg', 'ok', '登录成功' + (data.isNewUser ? '，账号已注册。' : '。'));
+      await refreshStatus();
+    } catch (e) {
+      notice('loginMsg', 'err', esc(e.message));
+    } finally {
+      busy(btn, false);
+    }
+  }
+
+  async function doLogout() {
+    session = null;
+    clearSession();
+    notice('loginMsg', 'ok', '已退出，按游客次数算。');
+    await refreshStatus();
   }
 
   /* ================= 解析 / 脱敏（服务端同源逻辑） ================= */
@@ -196,8 +300,12 @@
     else if (btn.dataset.text) btn.textContent = btn.dataset.text;
   }
   function renderQuota() {
-    if (!state.quota || !state.quota.limit) return;
-    $('quota').textContent = '今天还剩 ' + state.quota.remaining + ' / ' + state.quota.limit + ' 次（生成一次要 2 次）';
+    if (!state.quota) return;
+    var el = $('quota');
+    if (state.quota.identity === 'unlimited') { el.textContent = '不限次'; return; }
+    if (state.quota.limit == null) return;
+    el.textContent = (state.quota.identity === 'guest' ? '游客 · ' : '')
+      + '今天还剩 ' + state.quota.remaining + ' / ' + state.quota.limit + ' 次';
   }
 
   /* ================= 第一步：粘贴 + 打码预览 ================= */
@@ -486,30 +594,36 @@
     renderPreview();
   }
 
-  /* ================= 设置 ================= */
+  /* ================= 状态与启动 ================= */
 
-  function openSettings() {
-    $('setApi').value = settings.api || '';
-    $('setToken').value = settings.token || '';
-    show('cardSettings', true);
-    $('cardSettings').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  function applyStatus(s) {
+    state.quota = s;
+    if (session && s.identity === 'guest') {
+      // 存过登录态但服务端认不出来了（token 过期/被顶掉）——清掉，界面回到游客口径
+      session = null;
+      clearSession();
+      notice('loginMsg', 'warn', '登录已失效，重新登录一下。');
+    }
+    renderAuth();
+    renderQuota();
   }
 
-  function saveSettingsFromUI() {
-    settings = {
-      api: $('setApi').value.trim(),
-      token: $('setToken').value.trim(),
-    };
-    saveSettings(settings);
-    notice('settingsMsg', 'ok', settings.token ? '已保存。带密钥的请求不限次。' : '已保存。');
-    // 重新问一次状态，密钥生效与否马上可见
-    api('/status', null, 'GET').then(function (s) {
-      state.quota = s;
-      renderQuota();
-    }).catch(function () { /* 静默 */ });
+  function refreshStatus() {
+    return api('/status', null, 'GET').then(function (s) {
+      applyStatus(s);
+      $('maxChars').textContent = s.maxChars || 20000;
+      if (!s.enabled || !s.ready) {
+        notice('generateMsg', 'err', '公开试用暂时关闭了（' + ((s.remaining != null && s.remaining <= 0) ? '今天名额用完，明天再来' : '服务未就绪') + '）。想多用的，登录后每天 3 次；想不限次，请 <a href="mailto:business@simplewin.cn">联系我们</a>。');
+        // 光提示不够——按钮还亮着，用户点到底只会撞见一句报错。
+        // 名额用完或服务没起来时，直接把入口按掉。
+        ['btnGenerate', 'btnSample'].forEach(function (id) {
+          if ($(id)) $(id).disabled = true;
+        });
+      }
+    }).catch(function () {
+      notice('generateMsg', 'err', '连不上服务，请稍后再试。');
+    });
   }
-
-  /* ================= 清空 / 启动 ================= */
 
   function clearAll() {
     $('input').value = '';
@@ -528,27 +642,13 @@
   $('btnCopy').addEventListener('click', copyAll);
   $('btnDownload').addEventListener('click', downloadAll);
   $('btnSaveDraft').addEventListener('click', saveDraft);
-  $('btnSettings').addEventListener('click', openSettings);
-  $('btnSaveSettings').addEventListener('click', saveSettingsFromUI);
-  $('btnCloseSettings').addEventListener('click', function () { show('cardSettings', false); });
+  $('btnSendCode').addEventListener('click', sendCode);
+  $('btnLogin').addEventListener('click', doLogin);
+  $('btnLogout').addEventListener('click', doLogout);
   $('input').addEventListener('input', schedulePreview);
   $('manualMask').addEventListener('input', schedulePreview);
 
   renderDrafts();
-
-  api('/status', null, 'GET').then(function (s) {
-    state.quota = s;
-    $('maxChars').textContent = s.maxChars || 20000;
-    renderQuota();
-    if (!s.enabled || !s.ready) {
-      notice('generateMsg', 'err', '公开试用暂时关闭了（' + (s.remaining <= 0 ? '今天名额用完，明天再来' : '服务未就绪') + '）。想不限次使用，请 <a href="mailto:business@simplewin.cn">联系我们</a>。');
-      // 光提示不够——按钮还亮着，用户点到底只会撞见一句报错。
-      // 名额用完或服务没起来时，直接把入口按掉。
-      ['btnGenerate', 'btnSample'].forEach(function (id) {
-        if ($(id)) $(id).disabled = true;
-      });
-    }
-  }).catch(function () {
-    notice('generateMsg', 'err', '连不上服务，请稍后再试。');
-  });
+  renderAuth();
+  refreshStatus();
 })();
