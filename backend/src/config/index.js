@@ -352,6 +352,13 @@ const config = {
   sms: {
     signName: envStr('ALIYUN_SMS_SIGN_NAME', '辙见'),
     templateNotify: envStr('ALIYUN_SMS_TPL_CASE_NOTIFY'),
+    /** 官网登录验证码模板（阿里云控制台申请「验证码」类模板，变量 ${code}） */
+    templateVerifyCode: envStr('ALIYUN_SMS_TPL_VERIFY_CODE'),
+    /**
+     * 调试用固定验证码：设置后所有手机号收到的验证码都是它（老板初期自测 / 冒烟测试用）。
+     * 生产环境绝不能配置。
+     */
+    debugCode: envStr('SMS_DEBUG_CODE'),
     accessKeyId: envStr('ALIBABA_CLOUD_ACCESS_KEY_ID') || envStr('ALIYUN_ACCESS_KEY_ID'),
     accessKeySecret: envStr('ALIBABA_CLOUD_ACCESS_KEY_SECRET') || envStr('ALIYUN_ACCESS_KEY_SECRET'),
     regionId: envStr('ALIYUN_SMS_REGION', 'cn-hangzhou'),
@@ -369,8 +376,6 @@ const config = {
    * 默认复用 geoLlm 的 key 与模型；没配 key 时接口返回 503，页面降级成手填。
    */
   wechatArchive: {
-    // 没配 token 时：开发环境放行，生产环境一律拒绝（不能让人白嫖老板的 token）
-    token: envStr('WECHAT_ARCHIVE_TOKEN'),
     apiUrl:
       envStr('WECHAT_ARCHIVE_API_URL') ||
       envStr('GEO_LLM_API_URL') ||
@@ -392,9 +397,16 @@ const config = {
     ].find((name) => Boolean(envStr(name))) || '',
     timeoutMs: Number(envStr('WECHAT_ARCHIVE_TIMEOUT_MS') || 90000),
     enableThinking: envBool('WECHAT_ARCHIVE_ENABLE_THINKING'),
-    /** 公开试用（挂官网当获客钩子）：每 IP 每天几次大模型调用；extract 与 compose 各算 1 次 */
-    publicPerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PER_IP') || 20),
-    /** 全局总闸：全站每天最多烧多少次。一人公司的保险丝，超了当天对外直接关门 */
+    /**
+     * 配额按用户等级（2026-09-02 老板定）：
+     *   游客（未登录）按 IP，每天 1 次生成；
+     *   登录用户按账号，每天 3 次（复用小程序商家账号体系，官网手机号验证码登录即注册）；
+     *   付费额度以后接 MerchantSubscription，现在只预留映射位置。
+     * generate 一次（内部两次大模型调用）算 1 次，不再按调用次数拆扣。
+     */
+    publicPerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PER_IP') || 1),
+    loggedInPerUserPerDay: Number(envStr('WECHAT_ARCHIVE_LOGGEDIN_PER_USER') || 3),
+    /** 全局总闸：全站每天最多烧多少次（含登录用户）。一人公司的保险丝，超了当天对外直接关门 */
     publicDailyCap: Number(envStr('WECHAT_ARCHIVE_PUBLIC_DAILY_CAP') || 300),
     /** 解析不调大模型，给个宽松但不无限的次数，防脚本 */
     publicParsePerIpPerDay: Number(envStr('WECHAT_ARCHIVE_PUBLIC_PARSE_PER_IP') || 60),
