@@ -109,6 +109,17 @@
   /* ================= 登录 UI ================= */
 
   var codeTimer = null;
+  /** 登录卡默认收起：游客点「登录后每天 3 次」或撞上 429 才展开，别把登记处摆在获客路径上 */
+  var authOpened = false;
+
+  function openLoginCard() {
+    authOpened = true;
+    renderAuth();
+    var card = $('cardAuth');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var phone = $('loginPhone');
+    if (phone && phone.focus) phone.focus();
+  }
 
   function startCountdown(sec) {
     stopCountdown();
@@ -129,14 +140,12 @@
   }
 
   function renderAuth() {
-    if (session) {
-      show('loginForm', false);
-      show('loggedInBar', true);
-      $('whoami').textContent = session.phoneDisplay || '已登录';
-    } else {
-      show('loginForm', true);
-      show('loggedInBar', false);
-    }
+    var logged = Boolean(session);
+    show('cardAuth', logged || authOpened);
+    show('loginForm', !logged);
+    show('loggedInBar', logged);
+    show('loginToggle', !logged);
+    if (logged) $('whoami').textContent = session.phoneDisplay || '已登录';
   }
 
   async function sendCode() {
@@ -178,6 +187,7 @@
   async function doLogout() {
     session = null;
     clearSession();
+    authOpened = false;
     notice('loginMsg', 'ok', '已退出，按游客次数算。');
     await refreshStatus();
   }
@@ -376,7 +386,14 @@
       show('cardCta', true);
       $('cardResult').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
-      notice('generateMsg', e.code === 42901 ? 'warn' : 'err', esc(e.message));
+      if (e.code === 42901 && !session) {
+        // 游客超额：别只甩一句报错，直接把登录卡展开、定位过去
+        notice('generateMsg', 'warn', esc(e.message));
+        openLoginCard();
+        notice('loginMsg', 'warn', '今天的免费次数用完了，登录后每天 3 次。');
+      } else {
+        notice('generateMsg', e.code === 42901 ? 'warn' : 'err', esc(e.message));
+      }
     } finally {
       busy(btn, false);
       renderQuota();
@@ -645,6 +662,7 @@
   $('btnSendCode').addEventListener('click', sendCode);
   $('btnLogin').addEventListener('click', doLogin);
   $('btnLogout').addEventListener('click', doLogout);
+  $('loginToggle').addEventListener('click', function (ev) { ev.preventDefault(); openLoginCard(); });
   $('input').addEventListener('input', schedulePreview);
   $('manualMask').addEventListener('input', schedulePreview);
 

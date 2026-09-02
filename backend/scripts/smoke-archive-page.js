@@ -10,7 +10,8 @@
  *   2) 页面里写的每个 id 都真存在（拼错 id 是最常见的事故）；
  *   3) 主流程（粘贴 → 本机打码 → 一步生成 → 渲染成稿）能走通；
  *   4) 发出去的请求体里没有明文隐私；
- *   5) 验证码登录后请求真的带上 Authorization 头，身份与配额文案跟着登录态切换；
+ *   5) 登录卡默认收起、按需展开（游客 429 自动展开），登录后请求真的带上
+ *      Authorization 头，身份与配额文案跟着登录态切换；
  *   6) 服务不可用时按钮会按掉，而不是让人点到底才报错。
  *
  * 这不是浏览器，渲染细节（样式、真实布局）它管不了，也不打算管。
@@ -146,7 +147,7 @@ function makeLocalStorage() {
 
 // ---------------------------------------------------------------------------
 
-function buildPage(statusData, generateData) {
+function buildPage(statusData, generateData, genFail) {
   const html = fs.readFileSync(HTML_PATH, 'utf8')
   const elements = new Map()
   for (const m of html.matchAll(/\bid="([^"]+)"/g)) elements.set(m[1], makeEl('div', m[1]))
@@ -194,6 +195,12 @@ function buildPage(statusData, generateData) {
         statusData,
         hasAuth ? { identity: 'user', remaining: 2, limit: 3 } : { identity: 'guest' },
       )
+    } else if (/\/generate$/.test(url) && genFail) {
+      // 模拟游客撞 429：接口能通，但业务码报超额
+      return Promise.resolve({
+        status: 200,
+        json: () => Promise.resolve({ code: genFail.code, message: genFail.message, data: null }),
+      })
     } else {
       dataFor = generateData || statusData
     }
@@ -378,7 +385,12 @@ async function main() {
   assert(genCall2.body.text.includes('[手动打码]'), '手动打码词应替换成占位符')
   ok('手动补充打码词在本机生效，真名不出本机')
 
-  // 5) 登录：发验证码 → 登录 → 身份切到 user，后续请求带 Authorization
+  // 5) 登录：登录卡默认收起，点「登录后每天 3 次」才展开 → 发验证码 → 登录 → 身份切到 user
+  assert(page.get('cardAuth')._classes.has('hidden'), '游客一进来不该看到登录表单（默认收起，零门槛获客）')
+  assert(!page.get('loginToggle')._classes.has('hidden'), '游客要在配额行看到「登录后每天 3 次」的链接')
+  await fire(page.get('loginToggle'), 'click')
+  assert(!page.get('cardAuth')._classes.has('hidden'), '点链接要展开登录卡')
+
   page.get('loginPhone').value = '13800005678'
   await fire(page.get('btnSendCode'), 'click')
   assert(/已发送/.test(page.get('loginMsg').innerHTML), '发验证码要有反馈')
@@ -394,14 +406,33 @@ async function main() {
     '登录后的请求要带 Authorization 头',
   )
   assert(/2 \/ 3/.test(page.get('quota').textContent || ''), '登录后配额文案切到账号口径')
+  assert(page.get('loginToggle')._classes.has('hidden'), '登录后「登录后每天 3 次」链接要收掉（已经登录了）')
   ok('登录：验证码登录成功，身份 / Authorization 头 / 配额口径都切换')
 
-  // 退出后回到游客口径
+  // 退出后回到游客口径，登录卡回到收起
   await fire(page.get('btnLogout'), 'click')
   assert(!page.get('loginForm')._classes.has('hidden'), '退出后登录表单要回来')
+  assert(page.get('cardAuth')._classes.has('hidden'), '退出后登录卡要收回起状态，别占着获客路径')
+  assert(!page.get('loginToggle')._classes.has('hidden'), '退出后配额行的登录链接要回来')
   const statusAfterLogout = page.calls.filter((c) => /\/status$/.test(c.url)).pop()
   assert(!statusAfterLogout.headers.Authorization, '退出后的请求不能再带 Authorization')
-  ok('退出：登录态清干净，回到游客计账')
+  ok('退出：登录态清干净，回到游客计账，登录卡收回起')
+
+  // 5b) 游客撞 429：登录卡自动展开并给提示，别只甩一句报错
+  const hit429 = buildPage(
+    { enabled: true, ready: true, remaining: 1, limit: 1, maxChars: 20000 },
+    GENERATED,
+    { code: 42901, message: '今天的免费次数用完了（游客每天 1 次）。手机号登录后每天 3 次。' },
+  )
+  await new Promise((r) => setTimeout(r, 0))
+  assert.deepStrictEqual(hit429.missedIds, [], '429 分支也不该引用不存在的 id')
+  assert(hit429.get('cardAuth')._classes.has('hidden'), '撞 429 之前登录卡同样是收起的')
+  hit429.get('input').value = CHAT
+  await fire(hit429.get('btnGenerate'), 'click')
+  assert(!hit429.get('cardAuth')._classes.has('hidden'), '游客 429 后登录卡要自动展开')
+  assert(/免费次数用完/.test(hit429.get('loginMsg').innerHTML), '登录卡里要给出「登录后每天 3 次」的引导')
+  assert(!hit429.get('btnGenerate').disabled, '报错后按钮要弹回来，不能一直按着')
+  ok('游客 429：登录卡自动展开 + 引导登录，按钮复位')
 
   // 6) 草稿箱：存草稿 + 重新打开
   await fire(page.get('btnSaveDraft'), 'click')

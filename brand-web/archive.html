@@ -101,8 +101,8 @@
       </div>
     </div>
 
-    <div class="card" id="cardAuth">
-      <p class="step-kicker">登录（可选）· 次数按账户算</p>
+    <div class="card hidden" id="cardAuth">
+      <p class="step-kicker">登录 · 次数按账户算</p>
       <div id="loginForm">
         <p class="muted" style="margin:0 0 12px">不登录也能试：游客每天 1 次。手机号登录后每天 3 次，验证码登录即注册（辙见账号）。手机号只用来记次数，不作他用。</p>
         <div class="field-grid">
@@ -145,6 +145,7 @@
         <button class="btn btn-ghost" type="button" id="btnSample">看个例子</button>
         <button class="btn btn-ghost" type="button" id="btnClear">清空</button>
         <span class="quota" id="quota"></span>
+        <a class="quota" id="loginToggle" href="#">登录后每天 3 次</a>
       </p>
       <div id="generateMsg"></div>
     </form>
