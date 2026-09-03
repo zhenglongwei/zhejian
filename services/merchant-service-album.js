@@ -232,6 +232,73 @@ async function decodeMerchantVin(vin) {
   return post('/merchant/service-albums/vin-decode', { vin })
 }
 
+async function fetchMerchantAlbumFlow(albumId) {
+  if (ENV.mode === 'mock') {
+    const album = await mockFetchMerchantServiceAlbum(albumId)
+    const { buildStandardFlowNodes } = require('../constants/service-flow-nodes')
+    const flowNodes = (album.flowNodes && album.flowNodes.length
+      ? album.flowNodes
+      : buildStandardFlowNodes()
+    ).map((node) => {
+      const stageId = node.legacyStageId
+      const stage = (album.nodes || []).find((n) => n.id === stageId)
+      const images = (stage && stage.images) || []
+      return {
+        ...node,
+        photoCount: images.length,
+        previewImages: images.slice(0, 3).map((img) => ({
+          url: typeof img === 'string' ? img : img.url,
+          caption: typeof img === 'object' ? img.caption || '' : '',
+        })),
+        document: node.document
+          ? {
+              ...node.document,
+              statusLabel: node.document.status === 'confirmed' ? '商家代确认' : '草稿',
+              requiresConfirm: node.kind === 'quote_confirm',
+            }
+          : null,
+      }
+    })
+    return {
+      albumId,
+      flowVersion: album.flowVersion || 1,
+      flowNodes,
+      usesFlowTimeline: true,
+      editable: true,
+    }
+  }
+  return get(`/merchant/service-albums/${albumId}/flow`, withStore())
+}
+
+async function updateMerchantFlowNode(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { node: { id: nodeId, ...payload } }
+  }
+  return put(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}`,
+    withStore(payload),
+  )
+}
+
+async function proxyConfirmMerchantFlowNode(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return {
+      node: {
+        id: nodeId,
+        document: {
+          status: 'confirmed',
+          confirmedBy: 'merchant_proxy',
+          statusLabel: '商家代确认',
+        },
+      },
+    }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/proxy-confirm`,
+    withStore(payload),
+  )
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -265,4 +332,7 @@ module.exports = {
   switchMerchantServiceAlbumTemplate,
   recognizeVehicleIntakeOcr,
   decodeMerchantVin,
+  fetchMerchantAlbumFlow,
+  updateMerchantFlowNode,
+  proxyConfirmMerchantFlowNode,
 }

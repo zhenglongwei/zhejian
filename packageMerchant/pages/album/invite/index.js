@@ -8,6 +8,7 @@ const {
 } = require('../../../../services/merchant')
 const { buildAlbumClaimShareMessage } = require('../../../../utils/album-claim')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
+const { MERCHANT_ALBUM_FLOW_PAGE } = require('../../../../utils/merchant-album-nav')
 
 Page({
   data: {
@@ -150,14 +151,14 @@ Page({
   goEditAlbum() {
     if (!this.albumId) return
     wx.redirectTo({
-      url: `/packageMerchant/pages/album/edit/index?albumId=${this.albumId}`,
+      url: `${MERCHANT_ALBUM_FLOW_PAGE}?albumId=${this.albumId}`,
     })
   },
 
   onSwitchToManualPhone() {
     if (!this.albumId) return
     wx.redirectTo({
-      url: `/packageMerchant/pages/album/edit/index?albumId=${this.albumId}&focusOwnerPhone=1`,
+      url: `${MERCHANT_ALBUM_FLOW_PAGE}?albumId=${this.albumId}`,
     })
   },
 

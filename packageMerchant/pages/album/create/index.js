@@ -371,7 +371,7 @@ Page({
         }
         setTimeout(() => {
           wx.redirectTo({
-            url: `/packageMerchant/pages/album/edit/index?albumId=${album.albumId}`,
+            url: `/packageMerchant/pages/album/flow/index?albumId=${album.albumId}`,
           })
         }, 400)
       },

@@ -1,0 +1,127 @@
+.merchant-flow-page {
+  min-height: 100vh;
+  background: var(--color-bg-page);
+}
+
+.merchant-flow-page__pad {
+  padding: var(--space-4);
+}
+
+.merchant-flow-page__scroll {
+  height: 100vh;
+}
+
+.merchant-flow-page__body {
+  padding: var(--space-4) var(--space-4) calc(var(--space-8) + env(safe-area-inset-bottom));
+}
+
+.merchant-flow-page__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.merchant-flow-page__intro {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.merchant-flow-page__hint {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+}
+
+.merchant-flow-page__timeline {
+  margin-top: var(--space-4);
+}
+
+.merchant-flow-page__item {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.merchant-flow-page__rail {
+  width: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: var(--space-4);
+}
+
+.merchant-flow-page__dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+}
+
+.merchant-flow-page__dot--photo {
+  background: var(--color-primary);
+}
+
+.merchant-flow-page__dot--doc {
+  background: var(--color-warning);
+}
+
+.merchant-flow-page__line {
+  flex: 1;
+  width: 2rpx;
+  min-height: 48rpx;
+  margin-top: var(--space-1);
+  background: var(--color-border);
+}
+
+.merchant-flow-page__card {
+  flex: 1;
+}
+
+.merchant-flow-page__card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.merchant-flow-page__index {
+  color: var(--color-text-tertiary);
+}
+
+.merchant-flow-page__card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.merchant-flow-page__title {
+  font-weight: 600;
+}
+
+.merchant-flow-page__summary {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.merchant-flow-page__thumbs {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.merchant-flow-page__thumb {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-soft);
+}
+
+.merchant-flow-page__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

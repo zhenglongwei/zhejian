@@ -770,6 +770,67 @@ router.get(
   },
 )
 
+router.get(
+  '/service-albums/:albumId/flow',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { getMerchantAlbumFlow } = require('../services/service-flow.service')
+      const data = await getMerchantAlbumFlow(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.put(
+  '/service-albums/:albumId/flow/nodes/:nodeId',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { updateFlowNode } = require('../services/service-flow.service')
+      const data = await updateFlowNode(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.body || {},
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/proxy-confirm',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { proxyConfirmFlowDocument } = require('../services/service-flow.service')
+      const data = await proxyConfirmFlowDocument(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.body || {},
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post(
   '/service-albums/:albumId/hard-delete',
   requireAuth(['merchant']),

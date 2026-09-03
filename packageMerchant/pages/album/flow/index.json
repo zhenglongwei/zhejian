@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "服务进度",
+  "usingComponents": {
+    "ui-empty": "/components/empty/index",
+    "ui-button": "/components/button/index",
+    "ui-tag": "/components/tag/index",
+    "ui-skeleton": "/components/skeleton/index",
+    "ui-card": "/components/card/index"
+  }
+}

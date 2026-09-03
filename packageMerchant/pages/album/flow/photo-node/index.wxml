@@ -1,0 +1,46 @@
+<view class="page merchant-flow-photo-node">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-flow-photo-node__pad">
+      <ui-skeleton rows="{{6}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty title="无法加载节点" description="{{errorMessage}}" />
+    </view>
+  </block>
+
+  <block wx:else>
+    <scroll-view scroll-y class="merchant-flow-photo-node__scroll">
+      <view class="page-content merchant-flow-photo-node__body">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <view class="merchant-flow-photo-node__head">
+            <text class="text-h3">{{nodeTitle}}</text>
+            <ui-tag variant="info" text="拍照节点" />
+          </view>
+          <text wx:if="{{generateHint}}" class="text-caption text-secondary merchant-flow-photo-node__hint">
+            {{generateHint}}（二期开放）
+          </text>
+        </ui-card>
+
+        <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-flow-photo-node__uploader">
+          <ui-album-node
+            mode="edit"
+            title="过程照片"
+            photoTips="{{photoTips}}"
+            captionPlaceholder="{{captionPlaceholder}}"
+            images="{{images}}"
+            maxCount="{{18}}"
+            enableCaption="{{true}}"
+            bind:imageschange="onImagesChange"
+          />
+        </ui-card>
+
+        <view wx:if="{{!readOnly}}" class="merchant-flow-photo-node__actions safe-bottom">
+          <ui-button type="primary" text="保存" loading="{{saving}}" disabled="{{saving}}" bind:tap="onSave" />
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+</view>

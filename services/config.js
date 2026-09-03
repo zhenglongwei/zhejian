@@ -10,7 +10,7 @@
  * 域名：geo.simplewin.cn = 生产；staging.geo.simplewin.cn = 预发（API + H5 + /admin/）
  * 提审/正式发版前务必改回 ACTIVE_ENV = 'prod'
  */
-const ACTIVE_ENV = 'prod'
+const ACTIVE_ENV = 'staging'
 
 const PROFILES = {
   mock: {

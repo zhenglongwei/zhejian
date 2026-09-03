@@ -72,6 +72,9 @@ function normalizeAlbumContentPackage(raw) {
     triggeredAt: normalizeString(raw.triggeredAt),
     generatedAt: normalizeString(raw.generatedAt),
     error: normalizeString(raw.error).slice(0, 500),
+    /** DOC-FLOW · 事件节点链 */
+    flowVersion: Number.isFinite(Number(raw.flowVersion)) ? Number(raw.flowVersion) : 0,
+    flowNodes: Array.isArray(raw.flowNodes) ? raw.flowNodes : [],
   }
 }
 

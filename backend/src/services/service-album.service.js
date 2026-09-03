@@ -675,6 +675,19 @@ function buildMerchantView(album) {
         followUpItems: view.followUpItems,
       }
     })(),
+    ...(() => {
+      try {
+        const { buildFlowView } = require('./service-flow.service')
+        const flow = buildFlowView(album, nodes)
+        return {
+          flowVersion: flow.flowVersion,
+          flowNodes: flow.flowNodes,
+          usesFlowTimeline: flow.usesFlowTimeline,
+        }
+      } catch (_) {
+        return { flowVersion: 0, flowNodes: [], usesFlowTimeline: false }
+      }
+    })(),
   }
 }
 
@@ -1228,6 +1241,8 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       updatedAt: view.updatedAt,
       coverUrl: buildListCoverUrl(album),
       followUpCount,
+      flowVersion: view.flowVersion || 0,
+      usesFlowTimeline: Boolean(view.usesFlowTimeline),
     }
   })
 }
@@ -1873,7 +1888,20 @@ async function createMerchantServiceAlbum(merchantId, storeId, payload = {}) {
       images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
     },
   })
-  return buildMerchantView(album)
+  try {
+    const { initFlowOnAlbum } = require('./service-flow.service')
+    await initFlowOnAlbum(albumId)
+  } catch (_) {
+    /* flow init best-effort */
+  }
+  const withFlow = await prisma.album.findUnique({
+    where: { id: albumId },
+    include: {
+      nodes: { orderBy: { sortOrder: 'asc' } },
+      images: { orderBy: [{ nodeId: 'asc' }, { idx: 'asc' }] },
+    },
+  })
+  return buildMerchantView(withFlow || album)
 }
 
 async function resolveOwnerPhoneUpdate(existing, payload) {

@@ -1,0 +1,81 @@
+<view class="page merchant-flow-doc-node">
+  <block wx:if="{{status === 'loading'}}">
+    <view class="page-content merchant-flow-doc-node__pad">
+      <ui-skeleton rows="{{6}}" />
+    </view>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <view class="page-content">
+      <ui-empty title="无法加载单据" description="{{errorMessage}}" />
+    </view>
+  </block>
+
+  <block wx:else>
+    <scroll-view scroll-y class="merchant-flow-doc-node__scroll">
+      <view class="page-content merchant-flow-doc-node__body">
+        <ui-card shadow="{{true}}" padding="{{true}}">
+          <view class="merchant-flow-doc-node__head">
+            <text class="text-h3">{{nodeTitle}}</text>
+            <ui-tag variant="warning" text="单据节点" />
+          </view>
+          <view class="merchant-flow-doc-node__meta">
+            <ui-tag variant="default" text="{{statusLabel}}" />
+            <text class="text-caption text-secondary">docType: {{docType}}</text>
+          </view>
+          <text class="text-caption text-secondary merchant-flow-doc-node__hint">{{generateHint}}</text>
+        </ui-card>
+
+        <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-flow-doc-node__form">
+          <text class="text-body merchant-flow-doc-node__label">单据摘要（一期占位）</text>
+          <textarea
+            class="merchant-flow-doc-node__textarea"
+            value="{{note}}"
+            maxlength="2000"
+            placeholder="填写面向车主的单据要点；二期将按类型自动生成字段"
+            disabled="{{readOnly}}"
+            bindinput="onNoteInput"
+          />
+        </ui-card>
+
+        <ui-card
+          wx:if="{{requiresConfirm && !readOnly}}"
+          shadow="{{true}}"
+          padding="{{true}}"
+          class="merchant-flow-doc-node__confirm"
+        >
+          <text class="text-body merchant-flow-doc-node__label">车主确认</text>
+          <text class="text-caption text-secondary">
+            车主确认后显示「车主已确认」；商家代确认可选上传沟通截图（非必填）。
+          </text>
+          <view class="merchant-flow-doc-node__proof-list">
+            <view
+              wx:for="{{proxyProofImages}}"
+              wx:key="url"
+              class="merchant-flow-doc-node__proof-item"
+            >
+              <image class="merchant-flow-doc-node__proof-img" src="{{item.url}}" mode="aspectFill" />
+              <text
+                class="merchant-flow-doc-node__proof-remove text-caption text-link"
+                data-index="{{index}}"
+                bindtap="onRemoveProxyProof"
+              >移除</text>
+            </view>
+          </view>
+          <ui-button type="ghost" text="上传沟通截图（可选）" bind:tap="onAddProxyProof" />
+          <ui-button
+            type="primary"
+            text="商家代确认"
+            loading="{{confirming}}"
+            disabled="{{confirming}}"
+            bind:tap="onProxyConfirm"
+          />
+        </ui-card>
+
+        <view wx:if="{{!readOnly}}" class="merchant-flow-doc-node__actions safe-bottom">
+          <ui-button type="ghost" text="保存草稿" loading="{{saving}}" disabled="{{saving}}" bind:tap="onSaveDraft" />
+        </view>
+      </view>
+    </scroll-view>
+  </block>
+</view>

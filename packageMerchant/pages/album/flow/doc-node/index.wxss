@@ -1,0 +1,83 @@
+.merchant-flow-doc-node {
+  min-height: 100vh;
+  background: var(--color-bg-page);
+}
+
+.merchant-flow-doc-node__pad,
+.merchant-flow-doc-node__body {
+  padding: var(--space-4);
+}
+
+.merchant-flow-doc-node__scroll {
+  height: 100vh;
+}
+
+.merchant-flow-doc-node__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.merchant-flow-doc-node__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.merchant-flow-doc-node__hint {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.merchant-flow-doc-node__form,
+.merchant-flow-doc-node__confirm {
+  margin-top: var(--space-4);
+}
+
+.merchant-flow-doc-node__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.merchant-flow-doc-node__textarea {
+  width: 100%;
+  min-height: 240rpx;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-soft);
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-line-height);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-doc-node__proof-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.merchant-flow-doc-node__proof-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.merchant-flow-doc-node__proof-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-soft);
+}
+
+.merchant-flow-doc-node__actions {
+  margin-top: var(--space-4);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.merchant-flow-doc-node__confirm ui-button {
+  margin-top: var(--space-3);
+}
