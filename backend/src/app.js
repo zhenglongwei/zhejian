@@ -197,7 +197,10 @@ function createApp() {
   app.use('/api/v1/public', publicGeoCheckRoutes)
   app.use('/api/v1/public', publicGeoRankingRoutes)
   app.use('/api/v1/public', publicWechatArchiveRoutes.router)
-  app.use('/api/v1/public', publicWebAuthRoutes)
+  // #region agent log
+  fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c0e8ee'},body:JSON.stringify({sessionId:'c0e8ee',runId:'post-fix',hypothesisId:'A',location:'app.js:publicWebAuth',message:'mount publicWebAuthRoutes',data:{moduleType:typeof publicWebAuthRoutes,hasRouter:!!(publicWebAuthRoutes&&publicWebAuthRoutes.router),routerType:typeof (publicWebAuthRoutes&&publicWebAuthRoutes.router)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  app.use('/api/v1/public', publicWebAuthRoutes.router)
   app.use('/api/v1/admin', adminRoutes)
 
   app.use(notFoundHandler)
