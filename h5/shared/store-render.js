@@ -181,7 +181,7 @@
   }
 
   function buildStoreHeadTags(store) {
-    var tags = [{ cls: 'h5-tag--audited', text: '已审核' }]
+    var tags = [{ cls: 'h5-tag--info', text: '商家上传' }]
     var qualification = (store.qualificationTags || [])[0]
     if (qualification) {
       tags.push({ cls: 'h5-tag--info', text: qualification })

@@ -440,6 +440,8 @@ Page({
       staff: () => this.onStaffManage(),
       switchStore: () => this.onSwitchStore(),
       reviews: () => this.onReviewList(),
+      wechatArchive: () =>
+        this._navigateTo('/packageMerchant/pages/tools/wechat-archive/index'),
     }
     const fn = handlers[key]
     if (fn) fn()

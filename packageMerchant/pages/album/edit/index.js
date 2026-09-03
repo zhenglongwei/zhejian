@@ -15,6 +15,9 @@ const {
   switchMerchantServiceAlbumTemplate,
   exportMerchantCaseDraftCopy,
   interpretMerchantAlbumVision,
+  hostMerchantAlbum,
+  unhostMerchantAlbum,
+  unpublishHostedMerchantAlbum,
 } = require('../../../../services/merchant-service-album')
 const { fetchServiceAlbumTemplateOptions } = require('../../../../services/service-album-template')
 const { resolveTemplateStageTitle } = require('../../../../constants/service-album-node-templates')
@@ -238,6 +241,10 @@ Page({
     bottomPrimaryText: '',
     bottomPrimaryAction: '',
     showBottomBar: true,
+    hosting: false,
+    hosted: false,
+    hostVisibility: 'private',
+    hostUpdatedAt: '',
     ownerPhoneInput: '',
     allowTestOwnerPhone: true,
     uploadPrivacyHint: '',
@@ -826,9 +833,13 @@ Page({
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     const checklist = this.normalizeChecklistView(detail.checklist || null)
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
+    const hostMeta = detail.hostMeta || {}
     this.setData({
       status: 'normal',
       detail,
+      hosted: Boolean(hostMeta.hosted),
+      hostVisibility: hostMeta.visibility || 'private',
+      hostUpdatedAt: hostMeta.updatedAt || '',
       statusLabel: display.statusLabel,
       statusVariant: display.statusVariant,
       stageTabs,
@@ -2903,6 +2914,59 @@ Page({
     wx.navigateTo({
       url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=${from}`,
     })
+  },
+
+  async onHostAlbum() {
+    if (!this.albumId || this.data.hosting) return
+    this.setData({ hosting: true })
+    try {
+      await hostMerchantAlbum(this.albumId)
+      wx.showToast({ title: '已托管', icon: 'success' })
+      const detail = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(detail)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
+    } finally {
+      this.setData({ hosting: false })
+    }
+  },
+
+  async onUnhostAlbum() {
+    if (!this.albumId || this.data.hosting) return
+    const ok = await new Promise((resolve) => {
+      wx.showModal({
+        title: '取消托管',
+        content: '公域将下线，档案仍留在小程序。确认？',
+        success: (r) => resolve(Boolean(r.confirm)),
+      })
+    })
+    if (!ok) return
+    this.setData({ hosting: true })
+    try {
+      await unhostMerchantAlbum(this.albumId)
+      wx.showToast({ title: '已取消托管', icon: 'success' })
+      const detail = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(detail)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ hosting: false })
+    }
+  },
+
+  async onUnpublishHosted() {
+    if (!this.albumId || this.data.hosting) return
+    this.setData({ hosting: true })
+    try {
+      await unpublishHostedMerchantAlbum(this.albumId)
+      wx.showToast({ title: '已取消公开', icon: 'success' })
+      const detail = await fetchMerchantServiceAlbum(this.albumId)
+      this.applyAlbum(detail)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ hosting: false })
+    }
   },
 
   async onResendNotify() {

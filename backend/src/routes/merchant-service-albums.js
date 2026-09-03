@@ -369,6 +369,11 @@ router.post(
         storeId,
         merchantId: req.auth.merchantId,
         draft: body.draft || null,
+        authenticityCommitment: Boolean(
+          body.authenticityCommitment || (body.attest && body.attest.authenticity),
+        ),
+        useDesensitizeTool:
+          body.useDesensitizeTool == null ? true : Boolean(body.useDesensitizeTool),
       })
       return ok(res, data)
     } catch (e) {
@@ -631,6 +636,152 @@ router.post(
         forceRefresh: Boolean(body.forceRefresh || body.force_refresh),
         storeId,
         merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+/** HOST-ARCH · 托管 / 取消托管 / 取消公开 / 概况 FAQ / 确认件 */
+router.post(
+  '/service-albums/:albumId/host',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { hostAlbum } = require('../services/case-hosting.service')
+      const data = await hostAlbum(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/unhost',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { unhostAlbum } = require('../services/case-hosting.service')
+      const data = await unhostAlbum(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/unpublish-hosted',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { unpublishHostedCase } = require('../services/case-hosting.service')
+      const data = await unpublishHostedCase(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.put(
+  '/service-albums/:albumId/host-public-copy',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const { saveHostedPublicCopy } = require('../services/case-hosting.service')
+      const data = await saveHostedPublicCopy(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        overview: body.overview,
+        faq: body.faq,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/confirmed-docs',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const { freezeConfirmedDoc } = require('../services/case-hosting.service')
+      const data = await freezeConfirmedDoc(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        docType: body.docType,
+        payload: body.payload,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.get('/hosted-cases', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const { listHostedCasesForStore } = require('../services/case-hosting.service')
+    const list = await listHostedCasesForStore(storeId)
+    return ok(res, { list, total: list.length })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get(
+  '/service-albums/:albumId/archive-export',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { exportAlbumArchive } = require('../services/case-hosting.service')
+      const data = await exportAlbumArchive(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/hard-delete',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const { hardDeleteAlbum } = require('../services/case-hosting.service')
+      const data = await hardDeleteAlbum(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        confirmText: body.confirmText,
       })
       return ok(res, data)
     } catch (e) {

@@ -431,6 +431,35 @@
           </view>
         </block>
       </ui-card>
+        <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__host-card">
+        <text class="text-h3">案例托管</text>
+        <text class="text-caption text-secondary">托管到辙见案例站后，可再决定是否公开。公开须脱敏并勾选真实性承诺。</text>
+        <view class="merchant-album-edit__host-row">
+          <ui-tag variant="{{hosted ? 'order' : 'default'}}" text="{{hosted ? (hostVisibility === 'public' ? '已托管·公开' : '已托管·私密') : '未托管'}}" />
+          <text wx:if="{{hostUpdatedAt}}" class="text-caption text-secondary">更新 {{hostUpdatedAt}}</text>
+        </view>
+        <view class="merchant-album-edit__host-actions">
+          <button
+            wx:if="{{!hosted}}"
+            class="btn btn--secondary btn--block"
+            loading="{{hosting}}"
+            catchtap="onHostAlbum"
+          >托管到案例站</button>
+          <block wx:else>
+            <button
+              wx:if="{{hostVisibility === 'public'}}"
+              class="btn btn--secondary btn--block"
+              loading="{{hosting}}"
+              catchtap="onUnpublishHosted"
+            >取消公开（仍私密存档）</button>
+            <button
+              class="btn btn--ghost btn--block"
+              loading="{{hosting}}"
+              catchtap="onUnhostAlbum"
+            >取消托管</button>
+          </block>
+        </view>
+      </ui-card>
         </view>
       </scroll-view>
 

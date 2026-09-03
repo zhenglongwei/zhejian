@@ -25,6 +25,7 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 const MERCHANT_HUB_MORE_ITEMS = [
   { key: 'storeHome', label: '门店主页' },
   { key: 'staff', label: '账号管理' },
+  { key: 'wechatArchive', label: '微信转案例' },
 ]
 
 function formatSectionBadge(n) {
@@ -114,7 +115,10 @@ function buildMerchantHubDock(todos = {}) {
 }
 
 function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
-  const items = canManageStaff ? MERCHANT_HUB_MORE_ITEMS : []
+  const base = canManageStaff ? MERCHANT_HUB_MORE_ITEMS : [{ key: 'wechatArchive', label: '微信转案例' }]
+  const items = canManageStaff
+    ? MERCHANT_HUB_MORE_ITEMS
+    : base
   return items.map((item) =>
     attachNavIcon({
       ...item,

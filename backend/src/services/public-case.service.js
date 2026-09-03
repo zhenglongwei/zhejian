@@ -926,7 +926,11 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
     draft: merchantCaseDraft,
   })
 
-  const pipelineStatus = audit.passed
+  const hardBlocks = Array.isArray(audit.hardBlocks) ? audit.hardBlocks : []
+  const blockedByHard = hardBlocks.length > 0
+  // 2026-09-03：真实性分不挡发；仅系统硬拦挡发
+  const canPublish = !blockedByHard
+  const pipelineStatus = canPublish
     ? CASE_GEO_PIPELINE_STATUS.AUDIT_PASSED
     : CASE_GEO_PIPELINE_STATUS.AUDIT_FAILED
   const caseGeoMeta = {
@@ -934,6 +938,7 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
     skeletonHash,
     copyFingerprint,
     generatedAt: new Date().toISOString(),
+    authenticityAdvisoryOnly: true,
     visionStats: {
       imageCount: imageIds.length,
       described: Array.isArray(vision.results)
@@ -941,7 +946,11 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
         : 0,
     },
   }
-  const caseGeoAudit = { ...audit }
+  const caseGeoAudit = {
+    ...audit,
+    passed: canPublish,
+    authenticityGateRemoved: true,
+  }
 
   const pkg = readPackageFromAlbum(album) || {}
   const nextPkg = {
@@ -970,13 +979,14 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
       albumId,
       pipelineStatus,
       authenticityScore: audit.authenticityScore,
-      passed: Boolean(audit.passed),
+      passed: canPublish,
+      authenticityAdvisoryOnly: true,
     })
   } catch (_) {
     /* ignore */
   }
 
-  if (audit.passed) {
+  if (canPublish) {
     const caseId = (album.publicCase && album.publicCase.id) || newId('case')
     const status = PUBLIC_CASE_STATUS.AUDIT_PASSED
     await prisma.publicCase.upsert({
@@ -1030,7 +1040,7 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
       draft: merchantCaseDraft,
       audit: caseGeoAudit,
       meta: caseGeoMeta,
-      message: '机审已过线。请确认文案后发布到店页。',
+      message: '案例稿已生成。请预览脱敏内容、勾选真实性承诺后发布到店页。',
       canPublish: true,
     }
   }
@@ -1060,23 +1070,28 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
     draft: merchantCaseDraft,
     audit: caseGeoAudit,
     meta: caseGeoMeta,
-    message: '机审未过线，请按不足声称回相册补证据后再生成。',
+    message: '存在系统硬拦项，请处理后再发布。',
     canPublish: false,
   }
 }
 
 /**
- * D14 · 机审过线后商家确认发布 → 直接写快照上店页（不入人审）
+ * 商家确认发布 → 直接上店页（2026-09-03：不挡真实性机审；须承诺 + 公开强制脱敏）
  */
 async function confirmMerchantPublicCasePublish(
   albumId,
-  { storeId, merchantId, draft } = {},
+  {
+    storeId,
+    merchantId,
+    draft,
+    authenticityCommitment = false,
+    useDesensitizeTool = true,
+  } = {},
 ) {
   const {
     assertMerchantAlbum,
     saveMerchantCaseDraft,
     loadAlbum,
-    buildMerchantView,
   } = require('./service-album.service')
   const { readPackageFromAlbum } = require('./album-content-package.service')
   const { normalizeMerchantCaseDraft } = require('./merchant-case-draft.service')
@@ -1086,10 +1101,21 @@ async function confirmMerchantPublicCasePublish(
     draftCopyFingerprint,
   } = require('../utils/case-skeleton-hash')
   const { buildMerchantChecklistView } = require('./album-checklist.service')
-  const {
-    CASE_GEO_PIPELINE_STATUS,
-    CASE_GEO_AUTHENTICITY_PASS,
-  } = require('../constants/case-geo-audit')
+  const { buildMerchantView } = require('./service-album.service')
+  const { CASE_GEO_PIPELINE_STATUS } = require('../constants/case-geo-audit')
+
+  if (!authenticityCommitment) {
+    const err = new Error('请先勾选真实性承诺后再公开')
+    err.status = 400
+    err.code = 'AUTHENTICITY_COMMITMENT_REQUIRED'
+    throw err
+  }
+  if (!useDesensitizeTool) {
+    const err = new Error('公开案例须使用脱敏工具并完成预览确认')
+    err.status = 400
+    err.code = 'DESENSITIZE_REQUIRED'
+    throw err
+  }
 
   let album = await loadAlbum(albumId)
   if (!album) {
@@ -1100,11 +1126,19 @@ async function confirmMerchantPublicCasePublish(
   assertMerchantAlbum(album, storeId, merchantId)
 
   const pc = album.publicCase
-  if (!pc || pc.status !== PUBLIC_CASE_STATUS.AUDIT_PASSED) {
-    const err = new Error('请先生成案例并等待机审过线后再发布')
-    err.status = 409
-    err.code = 'AUDIT_REQUIRED'
-    throw err
+  const readyStatuses = [
+    PUBLIC_CASE_STATUS.AUDIT_PASSED,
+    PUBLIC_CASE_STATUS.NEED_MODIFY,
+  ]
+  if (!pc || !readyStatuses.includes(pc.status)) {
+    // 允许仅有草稿时：须已生成过 contentJson
+    const pkg0 = readPackageFromAlbum(album) || {}
+    if (!pkg0.merchantCaseDraft && !(pc && pc.contentJson && pc.contentJson.merchantCaseDraft)) {
+      const err = new Error('请先生成案例稿后再发布')
+      err.status = 409
+      err.code = 'DRAFT_REQUIRED'
+      throw err
+    }
   }
 
   let merchantCaseDraft = null
@@ -1118,7 +1152,7 @@ async function confirmMerchantPublicCasePublish(
   } else {
     const pkg = readPackageFromAlbum(album)
     merchantCaseDraft = normalizeMerchantCaseDraft(
-      (pc.contentJson && pc.contentJson.merchantCaseDraft) ||
+      (pc && pc.contentJson && pc.contentJson.merchantCaseDraft) ||
         (pkg && pkg.merchantCaseDraft),
     )
   }
@@ -1131,7 +1165,7 @@ async function confirmMerchantPublicCasePublish(
   }
 
   const pkg = readPackageFromAlbum(album) || {}
-  const prevMeta = pkg.caseGeoMeta || (pc.contentJson && pc.contentJson.caseGeoMeta) || {}
+  const prevMeta = pkg.caseGeoMeta || (pc && pc.contentJson && pc.contentJson.caseGeoMeta) || {}
   const checklist = buildMerchantChecklistView(album, album.images || [])
   const skeletonHash = computeCaseSkeletonHash({
     album,
@@ -1146,10 +1180,10 @@ async function confirmMerchantPublicCasePublish(
   }
 
   const copyFingerprint = draftCopyFingerprint(merchantCaseDraft)
-  let audit = pkg.caseGeoAudit || (pc.contentJson && pc.contentJson.caseGeoAudit) || null
+  let audit = pkg.caseGeoAudit || (pc && pc.contentJson && pc.contentJson.caseGeoAudit) || null
+
   const needReaudit =
     !audit ||
-    !audit.passed ||
     (prevMeta.copyFingerprint && prevMeta.copyFingerprint !== copyFingerprint)
 
   if (needReaudit) {
@@ -1159,92 +1193,104 @@ async function confirmMerchantPublicCasePublish(
       albumView: view,
       draft: merchantCaseDraft,
     })
+    const hardBlocks = Array.isArray(audit.hardBlocks) ? audit.hardBlocks : []
+    const canPublish = hardBlocks.length === 0
     const caseGeoMeta = {
       ...prevMeta,
-      pipelineStatus: audit.passed
+      pipelineStatus: canPublish
         ? CASE_GEO_PIPELINE_STATUS.AUDIT_PASSED
         : CASE_GEO_PIPELINE_STATUS.AUDIT_FAILED,
       skeletonHash,
       copyFingerprint,
       reauditedAt: new Date().toISOString(),
+      authenticityAdvisoryOnly: true,
     }
     const nextPkg = {
       ...pkg,
       merchantCaseDraft,
-      caseGeoAudit: audit,
+      caseGeoAudit: { ...audit, passed: canPublish, authenticityGateRemoved: true },
       caseGeoMeta,
     }
     await prisma.album.update({
       where: { id: albumId },
       data: { contentPackageJson: nextPkg },
     })
-    await prisma.publicCase.update({
-      where: { albumId },
-      data: {
-        status: audit.passed
-          ? PUBLIC_CASE_STATUS.AUDIT_PASSED
-          : PUBLIC_CASE_STATUS.NEED_MODIFY,
-        title: merchantCaseDraft.title || pc.title,
-        summary: merchantCaseDraft.caseSummary || pc.summary,
-        contentJson: {
-          merchantCaseDraft,
-          caseGeoAudit: audit,
-          caseGeoMeta,
+    if (pc) {
+      await prisma.publicCase.update({
+        where: { albumId },
+        data: {
+          status: canPublish
+            ? PUBLIC_CASE_STATUS.AUDIT_PASSED
+            : PUBLIC_CASE_STATUS.NEED_MODIFY,
+          title: merchantCaseDraft.title || pc.title,
+          summary: merchantCaseDraft.caseSummary || pc.summary,
+          contentJson: {
+            merchantCaseDraft,
+            caseGeoAudit: nextPkg.caseGeoAudit,
+            caseGeoMeta,
+          },
         },
-      },
-    })
-    if (!audit.passed) {
+      })
+    }
+    if (!canPublish) {
       await prisma.album.update({
         where: { id: albumId },
         data: { publicCaseStatus: PUBLIC_CASE_STATUS.NEED_MODIFY },
       })
       const err = new Error(
-        `改稿后机审未过线（真实性 ${audit.authenticityScore}/${CASE_GEO_AUTHENTICITY_PASS}），请调整后重试`,
+        (hardBlocks[0] && hardBlocks[0].message) || '存在系统硬拦项，暂不可发布',
       )
       err.status = 409
-      err.code = 'AUDIT_FAILED'
+      err.code = 'HARD_BLOCK'
       err.audit = audit
       throw err
     }
   }
 
-  if (!audit.passed || Number(audit.authenticityScore) < CASE_GEO_AUTHENTICITY_PASS) {
-    const err = new Error('机审未过线，暂不可发布')
-    err.status = 409
-    err.code = 'AUDIT_FAILED'
-    throw err
-  }
-  if (Array.isArray(audit.hardBlocks) && audit.hardBlocks.length) {
-    const err = new Error((audit.hardBlocks[0] && audit.hardBlocks[0].message) || '存在系统硬拦项')
+  const hardBlocks = Array.isArray(audit && audit.hardBlocks) ? audit.hardBlocks : []
+  if (hardBlocks.length) {
+    const err = new Error((hardBlocks[0] && hardBlocks[0].message) || '存在系统硬拦项')
     err.status = 409
     err.code = 'HARD_BLOCK'
     throw err
   }
 
-  const published = await commitPublicCaseGoLive(albumId, {
-    authorizationTier: 'merchant_published',
-  })
-
-  const afterPkg = readPackageFromAlbum(await loadAlbum(albumId)) || pkg
+  const commitmentAt = new Date().toISOString()
+  const afterAlbum = await loadAlbum(albumId)
+  const afterPkg = readPackageFromAlbum(afterAlbum) || pkg
   await prisma.album.update({
     where: { id: albumId },
     data: {
       contentPackageJson: {
         ...afterPkg,
+        hostMeta: {
+          ...(afterPkg.hostMeta || {}),
+          hosted: true,
+          visibility: 'public',
+          authenticityCommitmentAt: commitmentAt,
+          useDesensitizeTool: true,
+          sourceLabel: '商家上传',
+          updatedAt: commitmentAt,
+        },
         caseGeoMeta: {
           ...(afterPkg.caseGeoMeta || prevMeta),
           pipelineStatus: CASE_GEO_PIPELINE_STATUS.PUBLISHED,
-          publishedAt: new Date().toISOString(),
+          publishedAt: commitmentAt,
         },
       },
     },
+  })
+
+  const published = await commitPublicCaseGoLive(albumId, {
+    authorizationTier: 'merchant_published',
   })
 
   try {
     const { emitCaseGeoObs } = require('../utils/case-geo-obs')
     emitCaseGeoObs('case.publish', {
       albumId,
-      authenticityScore: audit.authenticityScore,
+      authenticityScore: audit && audit.authenticityScore,
+      authenticityCommitmentAt: commitmentAt,
     })
   } catch (_) {
     /* ignore */

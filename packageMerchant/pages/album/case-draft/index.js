@@ -48,6 +48,8 @@ Page({
     auditHardBlocks: [],
     auditSummary: '',
     canPublish: false,
+    useDesensitizeTool: true,
+    authenticityCommitment: false,
   },
 
   /** 页面工作稿：同步更新，避免 setData 未完成就提交旧文 */
@@ -172,7 +174,7 @@ Page({
     const primaryActionText = showPublishPrimary
       ? '确认发布到店页'
       : generateMode
-        ? '生成并机审'
+        ? '生成案例稿'
         : resubmit
           ? '重新提交'
           : '确认完工'
@@ -190,10 +192,10 @@ Page({
     let auditSummary = ''
     if (audit) {
       const score = audit.authenticityScore != null ? audit.authenticityScore : '—'
-      const thr = audit.threshold != null ? audit.threshold : 60
-      auditSummary = audit.passed
-        ? `机审已过线：真实性 ${score}/${thr}`
-        : `机审未过线：真实性 ${score}/${thr}，请按下方清单补证后再生成`
+      const hard = auditHardBlocks.length
+      auditSummary = hard
+        ? `存在 ${hard} 项系统硬拦，须处理后再公开`
+        : `案例稿已就绪（素材参考分 ${score}，仅供参考，不挡公开）。公开前请勾选脱敏与真实性承诺。`
     }
     this._workingDraft = {
       title,
@@ -518,7 +520,7 @@ Page({
     if (!this.data.editable || this.data.generating) return
     this.setData({ generating: true })
     try {
-      wx.showLoading({ title: '生成并机审中', mask: true })
+      wx.showLoading({ title: '生成案例稿', mask: true })
       const result = await generateMerchantPublicCase(this.albumId, {
         draft: this.buildDraftPayload(),
       })
@@ -533,16 +535,12 @@ Page({
       }
       await this.loadDraft()
       if (result && result.canPublish) {
-        wx.showToast({ title: '机审已过线', icon: 'success' })
+        wx.showToast({ title: '可确认发布', icon: 'success' })
         return
       }
-      const score =
-        result && result.audit && result.audit.authenticityScore != null
-          ? result.audit.authenticityScore
-          : '—'
       wx.showModal({
-        title: '机审未过线',
-        content: `真实性 ${score}/60。请按清单回相册补证据后再生成。`,
+        title: '暂不可发布',
+        content: (result && result.message) || '存在系统硬拦项，请处理后重试。',
         showCancel: false,
       })
     } catch (e) {
@@ -553,24 +551,43 @@ Page({
     }
   },
 
+  onToggleDesensitize() {
+    // 公开强制脱敏，保持勾选
+    this.setData({ useDesensitizeTool: true })
+  },
+
+  onToggleCommitment() {
+    this.setData({ authenticityCommitment: !this.data.authenticityCommitment })
+  },
+
   async onPublishCase() {
     if (!this.data.editable || this.data.publishing || !this.data.canPublish) return
+    if (!this.data.useDesensitizeTool) {
+      wx.showToast({ title: '公开须使用脱敏工具', icon: 'none' })
+      return
+    }
+    if (!this.data.authenticityCommitment) {
+      wx.showToast({ title: '请先勾选真实性承诺', icon: 'none' })
+      return
+    }
     this.setData({ publishing: true })
     try {
       wx.showLoading({ title: '发布中', mask: true })
       await confirmMerchantPublicCasePublish(this.albumId, {
         draft: this.buildDraftPayload(),
+        authenticityCommitment: true,
+        useDesensitizeTool: true,
       })
       wx.hideLoading()
       wx.showModal({
         title: '已发布',
-        content: '案例已出现在店页。',
+        content: '案例已出现在店页（来源：商家上传）。',
         showCancel: false,
         success: () => wx.navigateBack({ delta: 1 }),
       })
     } catch (e) {
       wx.hideLoading()
-      if (e && e.code === 'AUDIT_FAILED') {
+      if (e && (e.code === 'AUDIT_FAILED' || e.code === 'HARD_BLOCK')) {
         await this.loadDraft()
       }
       wx.showToast({ title: (e && e.message) || '发布失败', icon: 'none' })

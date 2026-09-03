@@ -1,0 +1,22 @@
+<view class="page page-content wechat-archive">
+  <ui-card shadow="{{true}}" padding="{{true}}">
+    <text class="text-h3">微信群转案例</text>
+    <text class="text-caption text-secondary wechat-archive__hint">
+      粘贴汽修群聊文字，生成完整服务相册与面向车主单据骨架，再托管到案例站。来源统一为「商家上传」。官网转换页已改为导流。
+    </text>
+    <textarea
+      class="wechat-archive__input"
+      placeholder="粘贴群聊纯文字（图片/语音需自行补文字说明）"
+      maxlength="20000"
+      value="{{chatText}}"
+      bindinput="onInput"
+    />
+    <ui-button type="primary" block loading="{{loading}}" bind:btntap="onGenerate">生成相册草稿</ui-button>
+    <text wx:if="{{message}}" class="text-caption wechat-archive__msg">{{message}}</text>
+  </ui-card>
+  <ui-empty
+    wx:if="{{!chatText && !message}}"
+    title="三期能力"
+    description="完整单据映射与建册 API 按 docs/04/24_微信转案例迁入小程序.md 继续接线；当前可粘贴预览提示。"
+  />
+</view>

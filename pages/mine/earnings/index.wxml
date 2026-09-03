@@ -45,7 +45,8 @@
             </view>
           </view>
         </view>
-        <ui-button type="secondary" block bind:btntap="onGoAuthorize">去授权公开案例</ui-button>
+        <ui-button type="secondary" block disabled>授权公开已下线</ui-button>
+        <text class="text-caption text-secondary">公域案例由门店在案例站托管并公开；车主端仅用于确认单据与查看自有档案。</text>
 
         <view class="surface-album-inset-divider" />
 

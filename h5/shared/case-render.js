@@ -15,7 +15,8 @@
     merchant_published: { text: '门店发布', cls: 'h5-tag--order' },
     anonymous: { text: '已发布', cls: 'h5-tag--desensitized' },
     desensitized: { text: '已脱敏', cls: 'h5-tag--desensitized' },
-    audited: { text: '已审核', cls: 'h5-tag--audited' },
+    audited: { text: '商家上传', cls: 'h5-tag--info' },
+    merchant_upload: { text: '商家上传', cls: 'h5-tag--info' },
   }
 
   function isDesensitizedUrl(url) {
@@ -445,31 +446,17 @@
     return props
   }
 
-  // 主标签：门店发布 · 已脱敏 · 已审核（存量车主点发布显示「已发布」）
+  // 主标签：商家上传 · 已脱敏（禁止「已审核」）
   function renderTags(data) {
-    var tm = data && data.trustMeta
-    var labels = []
-    if (tm && tm.authorizationTierLabel) {
-      labels.push(tm.authorizationTierLabel)
-    } else if (data && data.authorizationTier === 'merchant_published') {
-      labels.push('门店发布')
-    } else if (data && data.authorizationTier) {
-      labels.push('已发布')
-    } else {
-      labels.push('门店发布')
-    }
-    labels.push('已脱敏')
-    labels.push('已审核')
+    var labels = ['商家上传', '已脱敏']
     var html = labels
       .map(function (text) {
-        var cls = 'h5-tag--audited'
-        if (text === '已脱敏') cls = 'h5-tag--desensitized'
-        if (text === '门店发布' || text === '已发布') cls = 'h5-tag--order'
+        var cls = text === '已脱敏' ? 'h5-tag--desensitized' : 'h5-tag--info'
         return '<span class="h5-tag ' + cls + '">' + escapeHtml(text) + '</span>'
       })
       .join('')
     var disclaimer =
-      '<p class="h5-section-note">平台审核针对隐私打码与宣传合规，不代表对维修质量或配件真伪作出保证。</p>'
+      '<p class="h5-section-note">内容由门店托管公开，来源为商家上传；平台不担保真实与脱敏零残留。</p>'
     return '<div class="h5-tags">' + html + '</div>' + disclaimer
   }
 
@@ -1295,7 +1282,7 @@
         })
         .join('')
       html +=
-        '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">常见问题</h2>' +
+        '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">③ 本单 FAQ</h2>' +
         inlineItems +
         '</div>'
     }
@@ -1639,6 +1626,18 @@
       window.zhejianSeo.applyBreadcrumbSchema(breadcrumbItems, 'case-breadcrumb-schema-v2')
     }
 
+    var updatedHint = ''
+    var hostCopy = (safeData.contentJson && safeData.contentJson.hostPublicCopy) || safeData.hostPublicCopy
+    var updatedAt = (hostCopy && hostCopy.updatedAt) || safeData.updatedAt || safeData.publishedAt || ''
+    if (updatedAt) {
+      updatedHint =
+        '<p class="h5-section-note">最近更新：' + escapeHtml(String(updatedAt)) + ' · 来源：商家上传</p>'
+    }
+    var layerNav =
+      '<nav class="h5-section-note" aria-label="档案分层">' +
+      '本页三层：① 概况与脱敏图文 · ② 脱敏单据（分期完善）· ③ FAQ' +
+      '</nav>'
+
     var html =
       '<div class="h5-page">' +
       breadcrumbHtml +
@@ -1649,6 +1648,8 @@
       '<div class="h5-tags">' +
       renderTags(safeData) +
       '</div>' +
+      updatedHint +
+      layerNav +
       renderTrustAttestation(safeData) +
       renderDisclaimerBlock() +
       '</header>'

@@ -649,6 +649,14 @@ function buildMerchantView(album) {
     canWithdraw: isAlbumWithdrawable(album),
     contentLocked: isAlbumContentLocked(album),
     editable: !isAlbumContentLocked(album),
+    hostMeta: (() => {
+      try {
+        const { readHostMeta } = require('./case-hosting.service')
+        return readHostMeta(album)
+      } catch (_) {
+        return { hosted: false, visibility: 'private', sourceLabel: '商家上传' }
+      }
+    })(),
     contentOptimize: (() => {
       const { summarizeOptimizeDraftForApi } = require('./album-content-optimize.service')
       return summarizeOptimizeDraftForApi(album)
@@ -1352,7 +1360,9 @@ async function getMerchantCaseDraft(albumId, storeId, merchantId = '', options =
       audit,
       meta,
       publicCaseStatus,
-      canPublish: publicCaseStatus === 'audit_passed' && Boolean(audit && audit.passed),
+      canPublish:
+        (publicCaseStatus === 'audit_passed' || publicCaseStatus === 'published') &&
+        !(audit && Array.isArray(audit.hardBlocks) && audit.hardBlocks.length),
     }
   }
 

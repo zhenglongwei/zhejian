@@ -167,6 +167,26 @@ async function confirmMerchantPublicCasePublish(albumId, payload = {}) {
   })
 }
 
+async function hostMerchantAlbum(albumId) {
+  return post(`/merchant/service-albums/${albumId}/host`, withStore())
+}
+
+async function unhostMerchantAlbum(albumId) {
+  return post(`/merchant/service-albums/${albumId}/unhost`, withStore())
+}
+
+async function unpublishHostedMerchantAlbum(albumId) {
+  return post(`/merchant/service-albums/${albumId}/unpublish-hosted`, withStore())
+}
+
+async function saveHostedPublicCopy(albumId, payload = {}) {
+  return put(`/merchant/service-albums/${albumId}/host-public-copy`, withStore(payload))
+}
+
+async function fetchHostedCases() {
+  return get('/merchant/hosted-cases', withStore())
+}
+
 async function updateMerchantAlbumNotifyPhone(albumId, phone) {
   return patch(`/merchant/service-albums/${albumId}/notify-phone`, withStore({ phone }))
 }
@@ -232,6 +252,11 @@ module.exports = {
   exportMerchantCaseDraftCopy,
   generateMerchantPublicCase,
   confirmMerchantPublicCasePublish,
+  hostMerchantAlbum,
+  unhostMerchantAlbum,
+  unpublishHostedMerchantAlbum,
+  saveHostedPublicCopy,
+  fetchHostedCases,
   updateMerchantAlbumNotifyPhone,
   resendMerchantCaseNotify,
   createMerchantColdStartPreview,

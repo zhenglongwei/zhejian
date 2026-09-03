@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>我的案例库 · 辙见案例站</title>
+  <meta name="description" content="门店登录后管理已托管的维修案例档案：公开/私密、最近更新。类 GitHub 的案例托管台。" />
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="stylesheet" href="/shared/h5-tokens.css" />
+  <link rel="stylesheet" href="/shared/h5-base.css" />
+  <style>
+    .lib-wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+    .lib-head h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    .lib-head p { color: var(--h5-color-text-secondary, #666); margin: 0 0 24px; }
+    .lib-login { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .lib-login input { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
+    .lib-login button { padding: 12px; border: 0; border-radius: 8px; background: #2b6cb0; color: #fff; font-size: 15px; }
+    .lib-item { border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+    .lib-item h2 { font-size: 1rem; margin: 0 0 6px; }
+    .lib-meta { font-size: 13px; color: #666; display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .lib-meta a { color: #2b6cb0; }
+    .lib-empty { padding: 32px 0; text-align: center; color: #888; }
+    .lib-err { color: #c53030; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="lib-wrap">
+    <div class="lib-head">
+      <h1>我的案例库</h1>
+      <p>托管主台（二期骨架）。使用商家账号登录后查看已托管档案；公开页三层为概况、单据与 FAQ。</p>
+    </div>
+    <div id="loginBox" class="lib-login">
+      <input id="tokenInput" type="password" placeholder="粘贴商家 Bearer Token（联调）" autocomplete="off" />
+      <input id="storeInput" type="text" placeholder="storeId（可选，多店时填写）" />
+      <button type="button" id="btnLoad">加载案例库</button>
+      <p class="lib-err" id="errBox" hidden></p>
+    </div>
+    <div id="listBox"></div>
+  </div>
+  <script>
+    (function () {
+      var API = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
+      var errBox = document.getElementById('errBox')
+      var listBox = document.getElementById('listBox')
+      function showErr(msg) {
+        errBox.hidden = !msg
+        errBox.textContent = msg || ''
+      }
+      document.getElementById('btnLoad').addEventListener('click', function () {
+        var token = document.getElementById('tokenInput').value.trim()
+        var storeId = document.getElementById('storeInput').value.trim()
+        if (!token) {
+          showErr('请填写商家 Token')
+          return
+        }
+        showErr('')
+        listBox.innerHTML = '<p class="lib-empty">加载中…</p>'
+        var url = API + (storeId ? ('?storeId=' + encodeURIComponent(storeId)) : '')
+        fetch(url, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            Accept: 'application/json',
+          },
+        })
+          .then(function (r) {
+            return r.json().then(function (j) {
+              if (!r.ok) throw new Error((j && j.message) || '加载失败')
+              return j
+            })
+          })
+          .then(function (j) {
+            var data = j.data || j
+            var list = (data && data.list) || []
+            if (!list.length) {
+              listBox.innerHTML = '<p class="lib-empty">暂无已托管案例。请在小程序门店端点击「托管到案例站」。</p>'
+              return
+            }
+            listBox.innerHTML = list
+              .map(function (item) {
+                var link = item.publicPath
+                  ? '<a href="' + item.publicPath + '">打开公开页</a>'
+                  : '<span>未公开</span>'
+                return (
+                  '<article class="lib-item"><h2>' +
+                  escapeHtml(item.title || item.serviceName || '未命名') +
+                  '</h2><div class="lib-meta"><span>' +
+                  (item.visibility === 'public' ? '公开' : '私密') +
+                  '</span><span>来源：商家上传</span><span>更新：' +
+                  escapeHtml(String(item.updatedAt || '')) +
+                  '</span>' +
+                  link +
+                  '</div></article>'
+                )
+              })
+              .join('')
+          })
+          .catch(function (e) {
+            listBox.innerHTML = ''
+            showErr(e.message || '加载失败')
+          })
+      })
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+      }
+    })()
+  </script>
+</body>
+</html>

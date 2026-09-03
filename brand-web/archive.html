@@ -3,64 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>微信群案例转换 · 免费试用 · 盈简科技</title>
-  <meta name="description" content="把汽修微信群里师傅日常发的维修对话，变成一篇能直接发出去的案例。游客每天免费 1 次，手机号登录后每天 3 次；不保存你粘贴的任何内容。网站自动打码：手机号、车牌、姓名、VIN、发动机号、地址在你自己的浏览器里就换成占位符。" />
+  <title>微信群转案例已迁入小程序 · 盈简科技</title>
+  <meta name="description" content="微信群转案例能力迁入辙见小程序门店端，产出完整相册与面向车主的单据后再托管到案例站。官网仅保留介绍与 GEO 体检。" />
   <link rel="canonical" href="https://simplewin.cn/archive.html" />
-  <!-- 结构化数据：WebApplication（微信案例转换工具，浏览器端打码、不落库是差异化事实） -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "微信案例转换工具",
-    "url": "https://simplewin.cn/archive.html",
-    "applicationCategory": "BusinessApplication",
-    "operatingSystem": "Web",
-    "browserRequirements": "Requires JavaScript",
-    "description": "把汽修门店微信群里的维修对话整理成九段式案例草稿。手机号、车牌、姓名、VIN、发动机号、地址在用户自己的浏览器里自动换成占位符，服务器只收到脱敏后的文字，不落库、用完即弃。游客每天免费 1 次，手机号登录后每天 3 次。",
-    "isAccessibleForFree": true,
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
-    "publisher": { "@type": "Organization", "name": "盈简科技", "url": "https://simplewin.cn" }
-  }
-  </script>
   <link rel="stylesheet" href="/css/site.css" />
-  <style>
-    /* 本页专用。通用件（卡片/按钮/表单）一律用 site.css，不重复造 */
-    .promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
-    @media (max-width: 720px) { .promise { grid-template-columns: 1fr; } }
-    .promise div { background: var(--soft); border-radius: var(--radius-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.6; }
-    .promise b { display: block; color: var(--ink); margin-bottom: 2px; font-size: 14px; }
-    .promise span { color: var(--sub); }
-    .notice { border-radius: var(--radius-md); padding: 12px 14px; font-size: 13.5px; line-height: 1.75; margin: 14px 0; }
-    .notice-warn { background: #fff8eb; color: var(--warn); }
-    .notice-ok { background: #f0f9f4; color: var(--ok); }
-    .notice-err { background: #fdf1f0; color: var(--danger); }
-    .notice-info { background: var(--brand-bg); color: var(--brand); }
-    .notice ul { margin: 4px 0 0 18px; }
-    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-    .chip { font-size: 12px; padding: 3px 10px; border-radius: 20px; background: var(--soft); color: var(--sub); }
-    .chip-hit { background: #f0f9f4; color: var(--ok); font-weight: 600; }
-    .list-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
-    .list-row input { flex: 1; font-size: 14px; padding: 7px 10px; }
-    .doubt { background: #fff8eb; border-left: 3px solid var(--warn); border-radius: 6px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; color: #8a4b06; }
-    .sect { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 9px; }
-    .sect .name { font-size: 13px; font-weight: 600; color: var(--brand); margin-bottom: 6px; }
-    .sect textarea { min-height: 64px; font-size: 14px; }
-    .risk { background: #fdf1f0; border-left: 3px solid var(--danger); border-radius: 6px; padding: 8px 12px; font-size: 13px; color: var(--danger); margin-bottom: 6px; }
-    .hidden { display: none; }
-    .cta { background: linear-gradient(180deg, var(--brand-bg), #fff); border: 1px solid var(--line); }
-    .cta h3 { margin-top: 0; }
-    .cta ol { padding-left: 1.2em; color: var(--sub); font-size: 14px; }
-    .cta li { margin: 5px 0; }
-    .quota { font-size: 13px; color: var(--sub); margin-left: 10px; }
-    .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .field-grid .full { grid-column: 1 / -1; }
-    @media (max-width: 720px) { .field-grid { grid-template-columns: 1fr; } }
-    details.soft { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 12px; }
-    details.soft summary { cursor: pointer; font-size: 13.5px; color: var(--sub); font-weight: 600; }
-    .draft-item { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
-    .draft-item .t { flex: 1; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .draft-item .time { font-size: 12px; color: var(--sub); flex: none; }
-  </style>
 </head>
 <body>
   <header class="site">
@@ -78,138 +24,29 @@
 
   <div class="hero">
     <div class="wrap">
-      <h1>你的微信群里，本来就躺着几十篇案例</h1>
-      <p class="lead">师傅每天在群里发的那些话——「胶套裂了」「旧的拆下来了」「路试不响了」——本来就是一篇案例的骨架，只是散在几百条对话里没人整理。
-        粘贴进来，工具自动打码、自动整理成案例，你直接在上面改。<strong>不用注册就能试（游客每天 1 次），手机号登录后每天 3 次；不保存你粘贴的任何内容。</strong></p>
+      <h1>微信群转案例，已迁入辙见小程序</h1>
+      <p class="lead">按最新产品定位，群聊转案例是<strong>小程序门店端</strong>的生产能力：产出完整相册与面向车主的单据，再由门店决定是否托管到<a href="https://geo.simplewin.cn/">辙见案例站</a>、是否公开。</p>
     </div>
   </div>
 
   <main class="wrap">
     <div class="card">
-      <div class="promise">
-        <div><b>① 网站自动打码</b><span>手机号、车牌、姓名、VIN、发动机号、地址在你自己的浏览器里就换成占位符，发出去的已经是脱敏文本。有漏网的词，可以手动补充打码。</span></div>
-        <div><b>② 我们只收到脱敏后的文字</b><span>打码在你浏览器里完成，不依赖我们服务器的自觉；接口侧还有第二道兜底。</span></div>
-        <div><b>③ 不保存，用完即弃</b><span>不落库、不建账号、不留痕。想留着继续改，存进草稿箱——草稿只存在你自己的浏览器里。</span></div>
-      </div>
-      <div class="notice notice-warn">
-        <b>先说清楚粘贴能拿到什么：只有纯文字。</b>
-        <ul>
-          <li><b>图片拿不到</b>：只会留下 <code>[图片]</code> 三个字，图片文件不进剪贴板。</li>
-          <li><b>语音拿不到</b>：只会留下 <code>[语音]</code> 三个字，语音内容不会一起复制。请在手机微信里长按语音 → 转文字 → 把文字补进对应消息。</li>
-          <li>发言人昵称、手机号、车牌这些<strong>能拿到，所以工具会自动打码</strong>。</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="card hidden" id="cardAuth">
-      <p class="step-kicker">登录 · 次数按账户算</p>
-      <div id="loginForm">
-        <p class="muted" style="margin:0 0 12px">不登录也能试：游客每天 1 次。手机号登录后每天 3 次，验证码登录即注册（辙见账号）。手机号只用来记次数，不作他用。</p>
-        <div class="field-grid">
-          <div><label for="loginPhone">手机号</label><input type="tel" id="loginPhone" maxlength="11" inputmode="numeric" placeholder="11 位手机号" /></div>
-          <div>
-            <label for="loginCode">短信验证码</label>
-            <div style="display:flex;gap:8px">
-              <input type="text" id="loginCode" maxlength="6" inputmode="numeric" placeholder="6 位数字" style="flex:1" />
-              <button class="btn btn-ghost" type="button" id="btnSendCode" style="white-space:nowrap">获取验证码</button>
-            </div>
-          </div>
-        </div>
-        <p style="margin:12px 0 0"><button class="btn" type="button" id="btnLogin">登录</button></p>
-        <div id="loginMsg" style="margin-top:8px"></div>
-      </div>
-      <div id="loggedInBar" class="hidden">
-        <p class="muted" style="margin:0">已登录 <b id="whoami"></b><button class="btn btn-ghost" type="button" id="btnLogout" style="margin-left:10px">退出</button></p>
-      </div>
-    </div>
-
-    <form class="card" id="cardStep1" onsubmit="return false;">
-      <p class="step-kicker">第一步 · 粘贴一段群聊</p>
-      <p class="muted">只复制这一单相关的那一段就行，别把整年的群聊都贴进来（上限 <span id="maxChars">20000</span> 字）。
-        机器认错发言人、并错行的，直接在框里改；要补打码的词填在下面。</p>
-      <textarea id="input" rows="11" placeholder="张师傅
-李哥，你那个途观过减速带响的问题，今天举起来看了
-[图片]
-[图片]
-张师傅
-右边的小吊杆球头松了，胶套也裂了
-李老板
-严重吗？要不要紧"></textarea>
-      <div class="field-grid" style="margin-top:10px;">
-        <div><label>城市（用于案例标题，默认杭州）</label><input type="text" id="f_city" value="杭州" /></div>
-        <div><label>补充打码（可选）：额外打码的词，逗号隔开</label><input type="text" id="manualMask" placeholder="例：王建国,老陈修车铺" /></div>
-      </div>
-      <div class="chips" id="maskChips"></div>
-      <p style="margin-top:14px;">
-        <button class="btn" type="button" id="btnGenerate">生成案例</button>
-        <button class="btn btn-ghost" type="button" id="btnSample">看个例子</button>
-        <button class="btn btn-ghost" type="button" id="btnClear">清空</button>
-        <span class="quota" id="quota"></span>
-        <a class="quota" id="loginToggle" href="#">登录后每天 3 次</a>
-      </p>
-      <div id="generateMsg"></div>
-    </form>
-
-    <details class="soft" id="draftBox" style="margin-bottom:14px;">
-      <summary>草稿箱（只存在你自己的浏览器里）</summary>
-      <div id="draftList" style="margin-top:8px;"></div>
-    </details>
-
-    <div class="card hidden" id="cardResult">
-      <p class="step-kicker">第二步 · 成稿——直接改，改完就是终稿</p>
-      <p class="muted">留白的段落标注了「群里没提到」：不硬补，可以手动填也可以留空。下面折叠的存疑提示只有你自己看得到，不会跟着案例出去。</p>
-      <div id="riskBox"></div>
-      <details class="soft" id="doubtDetails">
-        <summary>存疑与留白提示（仅自己可见，点开看）</summary>
-        <div id="doubtBox" style="margin-top:8px;"></div>
-      </details>
-      <div class="field-grid" style="margin-top:14px;">
-        <div class="full"><label>标题</label><input type="text" id="c_title" /></div>
-        <div class="full"><label>摘要</label><textarea id="c_summary" rows="3"></textarea></div>
-      </div>
-      <h3>正文</h3>
-      <div id="sectionsBox"></div>
-      <h3>配图说明</h3>
-      <p class="muted">每张图最多一行。没有文字依据的就空着——硬凑的图说比没有更糟。</p>
-      <div id="captionsBox"></div>
-      <h3>本单问答</h3>
-      <p class="muted">只写这一单有答案的问题，可以为空。禁止拿通用百科凑数。</p>
-      <div id="faqBox"></div>
-      <h3>AI 可引用摘要</h3>
-      <p class="muted">这段是给 AI 检索用的：客观陈述这台车怎么了、查到什么、怎么修的、结果如何。写得越平实，越容易被引用。</p>
-      <textarea id="c_aiAbstract" rows="4"></textarea>
-      <p style="margin-top:14px;">
-        <button class="btn" type="button" id="btnCopy">复制全文</button>
-        <button class="btn btn-ghost" type="button" id="btnDownload">下载 .md</button>
-        <button class="btn btn-ghost" type="button" id="btnSaveDraft">存草稿</button>
-      </p>
-      <div id="copyMsg"></div>
-    </div>
-
-    <div class="card cta hidden" id="cardCta">
-      <h3>这篇案例已经合格了。但它现在还只是一段文字。</h3>
-      <p class="muted">要让它真的在车主问 AI 时被引用，还差三件事：</p>
-      <ol>
-        <li><strong>落在能被抓到的地方</strong>——发在自己的站点上，结构清晰、能被搜索引擎和 AI 抓取。</li>
-        <li><strong>配上门店的实体信息</strong>——名字、地址、服务项在各家平台上对得上，AI 才敢把你写进答案。</li>
-        <li><strong>持续有新的真实案例</strong>——一篇不够，AI 信的是稳定的证据密度。</li>
+      <h2 style="margin-top:0">接下来怎么用</h2>
+      <ol style="margin:12px 0 12px 20px;line-height:1.8;color:var(--sub)">
+        <li>打开<strong>辙见小程序 · 门店端</strong>（「微信转案例」入口分期上线）。</li>
+        <li>生成相册与单据后，在小程序内选择<strong>托管 / 取消托管</strong>；公开须脱敏预览并勾选真实性承诺。</li>
+        <li>公域展示与「我的案例库」在 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a>。</li>
       </ol>
-      <p class="muted">这三件正是我们在做的事。想先看看自己在 AI 眼里的处境，可以顺手做个 <a href="/check.html">GEO 体检</a>，或者看看<a href="/rank.html">杭州门店 AI 可见性榜单</a>。</p>
-      <p style="margin-top:14px;">
-        <a class="btn" href="mailto:business@simplewin.cn?subject=咨询汽修门店案例与GEO服务">聊聊我的店 →</a>
-        <a class="btn btn-ghost" href="/check.html">先做个免费体检</a>
+      <p class="muted">官网本页仅作导流说明；完整转换功能不再以本页为主入口。GEO 体检请前往 <a href="/check.html">/check</a>。</p>
+      <p style="margin-top:16px">
+        <a class="btn" href="/zhejian.html">了解辙见平台</a>
+        <a class="btn btn-ghost" href="/check.html">去做 GEO 体检</a>
       </p>
     </div>
   </main>
 
   <footer class="site">
-    <div class="wrap">
-      <p>盈简科技 · 杭州。本工具免费试用，按 IP 限次。案例来源：微信群沟通记录转化 · 已自动脱敏；内容真实性由发布者负责，可信度请自行判断。</p>
-      <p style="margin-top:6px">官网 <a href="https://simplewin.cn/">simplewin.cn</a> · 案例站 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a> · 商务 <a href="mailto:business@simplewin.cn">business@simplewin.cn</a></p>
-      <p style="margin-top:6px">© 2026 杭州盈简科技有限公司 | <a href="https://beian.miit.gov.cn/" rel="nofollow">浙ICP备2024092950号</a></p>
-    </div>
+    <div class="wrap muted">© 盈简科技 · 辙见平台与配套工具</div>
   </footer>
-
-  <script src="/js/archive.js"></script>
 </body>
 </html>

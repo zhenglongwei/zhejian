@@ -15,10 +15,10 @@
       <text class="text-h3">{{showCompletePrimary ? (resubmit ? '案例预览（重新提交）' : '案例预览（确认完工）') : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable && generateMode}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的文章排：先摘要和本单问答，再详情。点「生成并机审」后才会打分；机审过线后可改措辞再「确认发布到店页」。不能在本页加新图。
+          下面按即将上网的档案排：概况、问答与详情。生成后可改措辞；公开须使用脱敏工具并勾选真实性承诺。不能在本页加新图。
         </text>
         <text wx:elif="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的文章排。文案已按相册写顺，可改说明、点缩略图看全图、去掉图、删问答，不能加新图。完工后在相册点「生成案例」才能机审上网。
+          下面按即将上网的档案排。可改说明、点缩略图看全图、去掉图、删问答，不能加新图。完工后在相册点「生成案例」再公开。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
           本预览为已确认或已发布的案例稿（只读）。
@@ -26,7 +26,7 @@
       </view>
       <view wx:if="{{auditSummary}}" class="case-draft__audit">
         <text class="text-body case-draft__audit-summary">{{auditSummary}}</text>
-        <text wx:if="{{auditPainBonus}}" class="text-caption text-secondary">痛点加分 {{auditPainBonus}}（仅展示，不计入过线）</text>
+        <text wx:if="{{auditPainBonus}}" class="text-caption text-secondary">痛点参考加分 {{auditPainBonus}}（不挡公开）</text>
         <block wx:if="{{auditHardBlocks.length}}">
           <text class="text-caption case-draft__audit-label">系统硬拦</text>
           <text
@@ -36,7 +36,7 @@
           >· {{item.message}}</text>
         </block>
         <block wx:if="{{auditClaims.length}}">
-          <text class="text-caption case-draft__audit-label">不足声称（点条目回相册补证）</text>
+          <text class="text-caption case-draft__audit-label">建议补证（可选）</text>
           <text
             wx:for="{{auditClaims}}"
             wx:key="label"
@@ -46,6 +46,16 @@
             bindtap="onTapAuditClaim"
           >· {{item.label}}{{item.reason ? '：' + item.reason : ''}}</text>
         </block>
+      </view>
+      <view wx:if="{{editable && showPublishPrimary}}" class="case-draft__commit">
+        <label class="case-draft__check">
+          <switch checked="{{useDesensitizeTool}}" disabled bindchange="onToggleDesensitize" color="#2B6CB0" />
+          <text class="text-caption">使用脱敏工具（公开强制，不可取消）</text>
+        </label>
+        <label class="case-draft__check" bindtap="onToggleCommitment">
+          <checkbox checked="{{authenticityCommitment}}" color="#2B6CB0" />
+          <text class="text-caption">我确认本案例档案内容真实、合法，已完成脱敏预览；平台不担保真实与零残留，违诺可被取消公开</text>
+        </label>
       </view>
       <text class="text-caption case-draft__label">标题</text>
       <textarea
@@ -171,7 +181,7 @@
         size="sm"
         loading="{{generating}}"
         bind:btntap="onGenerateCase"
-      >重新机审</ui-button>
+      >重新生成</ui-button>
       <ui-button
         wx:if="{{editable}}"
         type="secondary"

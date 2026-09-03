@@ -60,7 +60,7 @@ function buildStoreCasesSeo(store, { total, allowIndex, page, hasFilters, hasMor
 
   return {
     title: `${store.name}维修案例_${cityPart}真实汽车维修案例 · 辙见`,
-    description: `查看${store.name}已审核、已脱敏的公开维修案例（共 ${total} 条），了解维修项目、价格参考与施工过程摘要。`,
+    description: `查看${store.name}已脱敏的公开维修案例（共 ${total} 条，来源：商家上传），了解维修项目、价格参考与施工过程摘要。`,
     ...listSeo,
   }
 }

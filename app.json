@@ -78,6 +78,7 @@
         "pages/album/optimize/index",
         "pages/album/case-draft/index",
         "pages/album/list/index",
+        "pages/tools/wechat-archive/index",
         "pages/desensitize/workbench/index",
         "pages/service/list/index",
         "pages/service/create/index",
