@@ -38,15 +38,17 @@ Page({
     await this.loadNode()
   },
 
-  resolveGenerateHint(kind) {
-    const map = {
-      inspection_report: '由接车、检测照片一键生成（二期）',
-      quote_confirm: '由检测报告生成（二期）',
-      work_order: '由报价确认单生成（二期）',
-      repair_report: '由全流程节点汇总生成（二期）',
-      warranty: '由维修报告生成（二期）',
+  resolveGenerateHint(kind, doc = {}) {
+    if (kind === 'inspection_report' && doc.payload && doc.payload.generatedAt) {
+      return '已由接车与检测自动生成；请发送车主确认后再进行报价。'
     }
-    return map[kind] || '一期可先填写摘要，二期支持一键生成'
+    const map = {
+      quote_confirm: '车主确认检测报告后可填写报价（二期自动带入）',
+      work_order: '报价确认后自动生成工单草稿',
+      repair_report: '完工后由全流程汇总生成（二期）',
+      warranty: '维修报告完成后生成（二期）',
+    }
+    return map[kind] || '填写面向车主的单据要点'
   },
 
   async loadNode() {
@@ -63,10 +65,10 @@ Page({
         docType: doc.docType || node.kind,
         statusLabel: doc.statusLabel || '草稿',
         requiresConfirm: Boolean(doc.requiresConfirm),
-        readOnly: !flow.editable,
+        readOnly: !flow.editable || doc.status === 'confirmed',
         note: String((doc.payload && doc.payload.summary) || ''),
         proxyProofImages: (doc.proxyProofImages || []).map((url) => ({ url })),
-        generateHint: this.resolveGenerateHint(node.kind),
+        generateHint: this.resolveGenerateHint(node.kind, doc),
       })
     } catch (e) {
       this.setData({

@@ -17,28 +17,50 @@
         <ui-card shadow="{{true}}" padding="{{true}}">
           <view class="merchant-flow-photo-node__head">
             <text class="text-h3">{{nodeTitle}}</text>
-            <ui-tag variant="info" text="拍照节点" />
+            <ui-tag variant="info" text="拍照" />
           </view>
-          <text wx:if="{{generateHint}}" class="text-caption text-secondary merchant-flow-photo-node__hint">
-            {{generateHint}}（二期开放）
+          <text wx:if="{{description}}" class="text-caption text-secondary merchant-flow-photo-node__hint">
+            {{description}}
           </text>
         </ui-card>
 
-        <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-flow-photo-node__uploader">
-          <ui-album-node
-            mode="edit"
-            title="过程照片"
-            photoTips="{{photoTips}}"
-            captionPlaceholder="{{captionPlaceholder}}"
-            images="{{images}}"
-            maxCount="{{18}}"
-            enableCaption="{{true}}"
-            bind:imageschange="onImagesChange"
+        <view
+          wx:for="{{sections}}"
+          wx:for-item="section"
+          wx:for-index="sectionIndex"
+          wx:key="stageId"
+          class="merchant-flow-photo-node__section"
+        >
+          <ui-card shadow="{{true}}" padding="{{true}}">
+            <ui-album-node
+              mode="edit"
+              title="{{section.title}}"
+              photoTips="{{section.tips}}"
+              captionPlaceholder="本图说明"
+              images="{{section.images}}"
+              maxCount="{{12}}"
+              enableCaption="{{true}}"
+              data-index="{{sectionIndex}}"
+              bind:imageschange="onSectionImagesChange"
+            />
+          </ui-card>
+        </view>
+
+        <ui-card wx:if="{{nodeKind === 'intake_inspection'}}" shadow="{{true}}" padding="{{true}}" class="merchant-flow-photo-node__note-card">
+          <text class="text-body merchant-flow-photo-node__label">检测说明</text>
+          <textarea
+            class="merchant-flow-photo-node__textarea"
+            value="{{note}}"
+            maxlength="2000"
+            placeholder="填写检测发现、结论与未检项说明（将用于生成检测报告）"
+            disabled="{{readOnly}}"
+            bindinput="onNoteInput"
           />
         </ui-card>
 
         <view wx:if="{{!readOnly}}" class="merchant-flow-photo-node__actions safe-bottom">
-          <ui-button type="primary" text="保存" loading="{{saving}}" disabled="{{saving}}" bind:tap="onSave" />
+          <ui-button type="ghost" text="暂存" loading="{{saving}}" disabled="{{saving || completing}}" bind:tap="onSaveDraft" />
+          <ui-button type="primary" text="确认本步并继续" loading="{{completing}}" disabled="{{saving || completing}}" bind:tap="onConfirmStep" />
         </view>
       </view>
     </scroll-view>

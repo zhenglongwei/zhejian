@@ -811,6 +811,27 @@ router.put(
 )
 
 router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/complete',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { completeFlowNode } = require('../services/service-flow.service')
+      const data = await completeFlowNode(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.body || {},
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/flow/nodes/:nodeId/proxy-confirm',
   requireAuth(['merchant']),
   async (req, res, next) => {

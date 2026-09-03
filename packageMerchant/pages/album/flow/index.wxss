@@ -1,10 +1,10 @@
 .merchant-flow-page {
   min-height: 100vh;
-  background: var(--color-bg-page);
+  background-color: var(--color-bg-page);
 }
 
 .merchant-flow-page__pad {
-  padding: var(--space-4);
+  padding: var(--space-md);
 }
 
 .merchant-flow-page__scroll {
@@ -12,116 +12,94 @@
 }
 
 .merchant-flow-page__body {
-  padding: var(--space-4) var(--space-4) calc(var(--space-8) + env(safe-area-inset-bottom));
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom));
 }
 
-.merchant-flow-page__head {
+.merchant-flow-page__hero {
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg-card) 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.merchant-flow-page__hero-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-sm);
 }
 
-.merchant-flow-page__intro {
+.merchant-flow-page__progress {
   display: block;
-  margin-top: var(--space-2);
+  margin-top: var(--space-sm);
+  color: var(--color-text-secondary);
 }
 
-.merchant-flow-page__hint {
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-soft);
-}
-
-.merchant-flow-page__timeline {
-  margin-top: var(--space-4);
-}
-
-.merchant-flow-page__item {
-  display: flex;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.merchant-flow-page__rail {
-  width: 24rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  padding-top: var(--space-4);
-}
-
-.merchant-flow-page__dot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: var(--radius-full);
-  background: var(--color-border);
-}
-
-.merchant-flow-page__dot--photo {
-  background: var(--color-primary);
-}
-
-.merchant-flow-page__dot--doc {
-  background: var(--color-warning);
-}
-
-.merchant-flow-page__line {
-  flex: 1;
-  width: 2rpx;
-  min-height: 48rpx;
-  margin-top: var(--space-1);
-  background: var(--color-border);
-}
-
-.merchant-flow-page__card {
-  flex: 1;
-}
-
-.merchant-flow-page__card-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.merchant-flow-page__index {
+.merchant-flow-page__section-title {
+  display: block;
+  margin-bottom: var(--space-sm);
   color: var(--color-text-tertiary);
+  letter-spacing: 0.04em;
 }
 
-.merchant-flow-page__card-title-row {
+.merchant-flow-page__done-block {
+  margin-top: var(--space-lg);
+}
+
+.merchant-flow-page__active-block {
+  margin-top: var(--space-lg);
+}
+
+.merchant-flow-page__active-card {
+  border: 2rpx solid var(--color-primary-light);
+}
+
+.merchant-flow-page__active-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-sm);
 }
 
-.merchant-flow-page__title {
-  font-weight: 600;
-}
-
-.merchant-flow-page__summary {
+.merchant-flow-page__active-desc {
   display: block;
-  margin-top: var(--space-2);
+  margin-top: var(--space-sm);
+}
+
+.merchant-flow-page__active-summary {
+  display: block;
+  margin-top: var(--space-md);
+  color: var(--color-text-secondary);
 }
 
 .merchant-flow-page__thumbs {
   display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .merchant-flow-page__thumb {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-soft);
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: var(--radius-md);
+}
+
+.merchant-flow-page__cta {
+  margin-top: var(--space-lg);
+}
+
+.merchant-flow-page__lock-hint {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
 }
 
 .merchant-flow-page__actions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
+  gap: var(--space-sm);
+  margin-top: var(--space-xl);
 }

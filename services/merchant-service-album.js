@@ -299,6 +299,16 @@ async function proxyConfirmMerchantFlowNode(albumId, nodeId, payload = {}) {
   )
 }
 
+async function completeMerchantFlowNode(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { message: '本步已完成', node: { id: nodeId, status: 'completed' } }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/complete`,
+    withStore(payload),
+  )
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -335,4 +345,5 @@ module.exports = {
   fetchMerchantAlbumFlow,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
+  completeMerchantFlowNode,
 }

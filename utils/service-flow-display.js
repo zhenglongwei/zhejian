@@ -34,7 +34,11 @@ function resolveFlowNodeSummary(node = {}) {
 function buildFlowNodeDetailPath(albumId, node = {}) {
   const id = encodeURIComponent(String(albumId || ''))
   const nodeId = encodeURIComponent(String(node.id || ''))
-  if (node.nodeCategory === NODE_CATEGORY.PHOTO || node.legacyStageId) {
+  const isPhoto =
+    node.nodeCategory === NODE_CATEGORY.PHOTO ||
+    node.legacyStageId ||
+    (node.legacyStageIds && node.legacyStageIds.length)
+  if (isPhoto) {
     return `/packageMerchant/pages/album/flow/photo-node/index?albumId=${id}&nodeId=${nodeId}`
   }
   return `/packageMerchant/pages/album/flow/doc-node/index?albumId=${id}&nodeId=${nodeId}`

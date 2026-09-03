@@ -9,10 +9,12 @@ const {
   SERVICE_ALBUM_STATUS_VARIANT,
 } = require('../../../../constants/service-album-status')
 const {
-  resolveFlowNodeCategoryLabel,
-  resolveFlowNodeSummary,
   buildFlowNodeDetailPath,
 } = require('../../../../utils/service-flow-display')
+const {
+  buildFlowProgressView,
+  resolveActiveNodeCta,
+} = require('../../../../utils/service-flow-progress')
 const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-nav')
 
 Page({
@@ -23,10 +25,14 @@ Page({
     serviceName: '',
     statusLabel: '',
     statusVariant: 'default',
-    flowNodes: [],
     readOnly: false,
     completing: false,
     completeHint: '',
+    progressLabel: '',
+    lockedHint: '',
+    completedSteps: [],
+    activeNode: null,
+    allDone: false,
   },
 
   onLoad(options) {
@@ -50,15 +56,16 @@ Page({
     this._loadedOnce = true
   },
 
-  decorateNodes(flowNodes = []) {
-    return (flowNodes || []).map((node, index) => ({
+  decorateActiveNode(node) {
+    if (!node) return null
+    const cta = resolveActiveNodeCta(node)
+    return {
       ...node,
-      indexLabel: String(index + 1).padStart(2, '0'),
-      categoryLabel: resolveFlowNodeCategoryLabel(node),
-      summary: resolveFlowNodeSummary(node),
-      isPhoto: Boolean(node.legacyStageId || node.nodeCategory === 'photo'),
+      summary: node.summary || '',
       detailPath: buildFlowNodeDetailPath(this.albumId, node),
-    }))
+      ctaText: cta.text,
+      isPhoto: cta.type === 'photo',
+    }
   },
 
   async loadFlow(options = {}) {
@@ -73,14 +80,28 @@ Page({
       ])
       const status = album.status || SERVICE_ALBUM_STATUS.DRAFT
       const readOnly = album.contentLocked || album.editable === false
+      const flowNodes = (flow.flowNodes || []).map((node) => ({
+        ...node,
+        summary: node.summary || '',
+      }))
+      const progress = flow.progress || buildFlowProgressView(flowNodes)
+      const activeNode = this.decorateActiveNode(progress.activeNode)
+      const currentStep = progress.currentStep || 0
+      const totalSteps = progress.totalSteps || flowNodes.length
+
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
         statusLabel: SERVICE_ALBUM_STATUS_LABEL[status] || status,
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
-        flowNodes: this.decorateNodes(flow.flowNodes || []),
         readOnly,
-        completeHint: this.buildCompleteHint(flow.flowNodes || []),
+        completedSteps: progress.completedSteps || [],
+        activeNode,
+        allDone: Boolean(progress.allDone),
+        progressLabel:
+          totalSteps > 0 ? `第 ${Math.min(currentStep, totalSteps)} / ${totalSteps} 步` : '',
+        lockedHint: progress.lockedHint || '',
+        completeHint: this.buildCompleteHint(flowNodes),
       })
     } catch (e) {
       this.setData({
@@ -107,8 +128,8 @@ Page({
     this.bootstrap()
   },
 
-  onOpenNode(e) {
-    const path = String((e.currentTarget.dataset && e.currentTarget.dataset.path) || '')
+  onOpenActive() {
+    const path = this.data.activeNode && this.data.activeNode.detailPath
     if (!path) return
     wx.navigateTo({ url: path })
   },
