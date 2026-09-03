@@ -127,7 +127,11 @@ function buildFlowView(album, albumNodes = []) {
 }
 
 async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
-  const { loadAlbum, assertMerchantAlbum, mapNodesForView } = require('./service-album.service')
+  const albumService = require('./service-album.service')
+  const { loadAlbum, assertMerchantAlbum, mapNodesForView } = albumService
+  // #region agent log
+  fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'212993'},body:JSON.stringify({sessionId:'212993',location:'service-flow.service.js:getMerchantAlbumFlow',message:'mapNodesForView export check',data:{albumId,typeofMapNodesForView:typeof mapNodesForView,exportHasKey:'mapNodesForView' in albumService,exportKeysSample:Object.keys(albumService).filter(k=>k.includes('map')||k.includes('Node')).slice(0,10)},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
   let flowVersion = readFlowVersion(album)

@@ -2640,4 +2640,5 @@ module.exports = {
   buildUserAlbumComplianceFields,
   canAccessMerchantAlbum,
   assertMerchantAlbum,
+  mapNodesForView,
 }
