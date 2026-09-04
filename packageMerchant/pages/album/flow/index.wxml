@@ -20,65 +20,169 @@
             <text class="text-h3">{{serviceName}}</text>
             <ui-tag variant="{{statusVariant}}" text="{{statusLabel}}" />
           </view>
-          <text wx:if="{{progressLabel}}" class="merchant-flow-page__progress text-caption">{{progressLabel}}</text>
         </view>
 
-        <view wx:if="{{completedSteps.length}}" class="merchant-flow-page__done-block">
-          <text class="merchant-flow-page__section-title text-caption">已完成</text>
-          <ui-card shadow="{{true}}" padding="{{true}}">
-            <ui-timeline steps="{{completedSteps}}" compact="{{true}}" />
-          </ui-card>
-        </view>
-
-        <block wx:if="{{activeNode}}">
-          <view class="merchant-flow-page__active-block">
-            <text class="merchant-flow-page__section-title text-caption">当前步骤</text>
-            <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-flow-page__active-card">
-              <view class="merchant-flow-page__active-head">
-                <text class="text-h3">{{activeNode.title}}</text>
-                <ui-tag variant="{{activeNode.isPhoto ? 'info' : 'warning'}}" text="{{activeNode.isPhoto ? '拍照' : '单据'}}" />
-              </view>
-              <text wx:if="{{activeNode.description}}" class="text-caption text-secondary merchant-flow-page__active-desc">
-                {{activeNode.description}}
-              </text>
-              <text class="text-body merchant-flow-page__active-summary">{{activeNode.summary}}</text>
-              <view wx:if="{{activeNode.previewImages.length}}" class="merchant-flow-page__thumbs">
-                <image
-                  wx:for="{{activeNode.previewImages}}"
-                  wx:for-item="thumb"
-                  wx:key="url"
-                  class="merchant-flow-page__thumb image-placeholder"
-                  src="{{thumb.url}}"
-                  mode="aspectFill"
+        <flow-stepper
+          completedSteps="{{completedSteps}}"
+          activeTitle="{{activeNode.title}}"
+          activeSummary="{{activeNode.description || activeNode.summary}}"
+          activeCategory="{{activeIsPhoto ? '拍照' : '单据'}}"
+          progressLabel="{{progressLabel}}"
+          showActive="{{!!activeNode}}"
+          lockedHint="{{lockedHint}}"
+          expandedCompletedId="{{expandedCompletedId}}"
+          bind:completedtap="onCompletedTap"
+        >
+          <view slot="active" class="merchant-flow-page__active">
+            <!-- 拍照：内嵌上传 -->
+            <block wx:if="{{activeIsPhoto}}">
+              <view
+                wx:for="{{sections}}"
+                wx:for-item="section"
+                wx:for-index="sectionIndex"
+                wx:key="stageId"
+                class="merchant-flow-page__section"
+              >
+                <ui-album-node
+                  mode="edit"
+                  title="{{section.title}}"
+                  photoTips="{{section.tips}}"
+                  captionPlaceholder="本图说明"
+                  images="{{section.images}}"
+                  maxCount="{{12}}"
+                  enableCaption="{{true}}"
+                  data-index="{{sectionIndex}}"
+                  bind:imageschange="onSectionImagesChange"
                 />
               </view>
               <ui-button
                 wx:if="{{!readOnly}}"
-                class="merchant-flow-page__cta"
                 type="primary"
-                text="{{activeNode.ctaText || '继续填写'}}"
-                bind:tap="onOpenActive"
+                text="确认本步并继续"
+                loading="{{confirming}}"
+                disabled="{{confirming}}"
+                bind:tap="onConfirmPhotoStep"
               />
-            </ui-card>
-          </view>
-          <view wx:if="{{lockedHint}}" class="merchant-flow-page__lock-hint">
-            <text class="text-caption text-secondary">{{lockedHint}}</text>
-          </view>
-        </block>
+            </block>
 
-        <block wx:elif="{{allDone}}">
-          <ui-card shadow="{{true}}" padding="{{true}}">
-            <text class="text-body">全部步骤已完成，可标记整单完工或继续补充材料。</text>
-          </ui-card>
-        </block>
+            <!-- 检测报告 -->
+            <block wx:elif="{{activeNode.kind === 'inspection_report'}}">
+              <view class="merchant-flow-page__doc-block">
+                <text class="text-caption text-secondary">发现项（来自检测照片）</text>
+                <view wx:for="{{docPayload.findings}}" wx:key="url" class="merchant-flow-page__finding">
+                  <image class="merchant-flow-page__finding-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
+                  <text class="text-caption">{{item.captionEmpty ? '未备注' : item.caption}}</text>
+                </view>
+                <text class="text-caption text-secondary merchant-flow-page__disclaimer">{{docPayload.disclaimer}}</text>
+                <text class="text-body merchant-flow-page__label">结论（可选）</text>
+                <textarea
+                  class="merchant-flow-page__textarea"
+                  value="{{conclusion}}"
+                  maxlength="500"
+                  placeholder="一句话结论，可空"
+                  disabled="{{readOnly}}"
+                  bindinput="onConclusionInput"
+                />
+              </view>
+              <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
+                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
+                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
+                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+              </view>
+            </block>
 
-        <view class="merchant-flow-page__actions">
+            <!-- 报价确认单 -->
+            <block wx:elif="{{activeNode.kind === 'quote_confirm'}}">
+              <view class="merchant-flow-page__doc-block">
+                <text class="text-body merchant-flow-page__label">报价项目（手填）</text>
+                <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="项目名称"
+                    value="{{item.name}}"
+                    data-index="{{index}}"
+                    data-field="name"
+                    disabled="{{readOnly}}"
+                    bindinput="onQuoteLineInput"
+                  />
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="参考价/说明"
+                    value="{{item.priceHint}}"
+                    data-index="{{index}}"
+                    data-field="priceHint"
+                    disabled="{{readOnly}}"
+                    bindinput="onQuoteLineInput"
+                  />
+                </view>
+                <ui-button wx:if="{{!readOnly}}" type="ghost" text="添加一行" bind:tap="onAddQuoteLine" />
+                <text class="text-body merchant-flow-page__label">确认文案</text>
+                <textarea
+                  class="merchant-flow-page__textarea"
+                  value="{{confirmCopy}}"
+                  maxlength="800"
+                  placeholder="确认按上述方案施工…"
+                  disabled="{{readOnly}}"
+                  bindinput="onConfirmCopyInput"
+                />
+              </view>
+              <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
+                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
+                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
+                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+              </view>
+            </block>
+
+            <!-- 工单 -->
+            <block wx:elif="{{activeNode.kind === 'work_order'}}">
+              <view class="merchant-flow-page__doc-block">
+                <view wx:for="{{docPayload.items}}" wx:key="name" class="merchant-flow-page__work-item">
+                  <text class="text-body">{{item.name}}</text>
+                  <text class="text-caption text-secondary">{{item.note}}</text>
+                </view>
+                <text wx:if="{{!docPayload.items.length}}" class="text-caption text-secondary">报价确认后自动带入施工项</text>
+              </view>
+              <ui-button
+                wx:if="{{!readOnly}}"
+                type="primary"
+                text="确认工单并开始施工"
+                loading="{{confirming}}"
+                bind:tap="onMarkWorkOrderDone"
+              />
+            </block>
+
+            <!-- 维修报告含质保 -->
+            <block wx:elif="{{activeNode.kind === 'repair_report'}}">
+              <view class="merchant-flow-page__doc-block">
+                <text class="text-caption text-secondary">已施工项目</text>
+                <view wx:for="{{docPayload.workItems}}" wx:key="name">
+                  <text class="text-body">{{item.name}}</text>
+                </view>
+                <text class="text-caption text-secondary">质保：{{docPayload.warrantyPeriod}} · {{docPayload.warrantyScope}}</text>
+                <text class="text-body merchant-flow-page__label">确认文案</text>
+                <textarea
+                  class="merchant-flow-page__textarea"
+                  value="{{confirmCopy}}"
+                  maxlength="800"
+                  disabled="{{readOnly}}"
+                  bindinput="onConfirmCopyInput"
+                />
+              </view>
+              <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
+                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
+                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
+                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+              </view>
+            </block>
+          </view>
+        </flow-stepper>
+
+        <view class="merchant-flow-page__footer-actions">
           <ui-button
             wx:if="{{!readOnly && (allDone || completedSteps.length)}}"
             type="primary"
             text="标记整单完工"
             loading="{{completing}}"
-            disabled="{{completing}}"
             bind:tap="onCompleteAlbum"
           />
           <ui-button type="ghost" text="高级编辑（旧版）" bind:tap="onOpenLegacyEdit" />

@@ -14,6 +14,12 @@ const {
   emptyDocument,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
+const {
+  buildInspectionReportPayload,
+  buildWorkOrderPayloadFromQuote,
+  buildRepairReportPayload,
+} = resolveShared('utils/service-flow-docs.js')
+
 const { buildFlowProgressView, isFlowNodeDone } = resolveShared(
   'utils/service-flow-progress.js',
 )
@@ -135,29 +141,14 @@ function unlockNextNode(nodes, index) {
 }
 
 function migrateFlowPackage(pkg = {}, albumNodes = []) {
-  if (Number(pkg.flowVersion) >= FLOW_VERSION && Array.isArray(pkg.flowNodes) && pkg.flowNodes.length) {
-    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: pkg.flowNodes }
+  const version = Number(pkg.flowVersion) || 0
+  if (version >= FLOW_VERSION && Array.isArray(pkg.flowNodes) && pkg.flowNodes.length) {
+    // 去掉独立质保节点（并入维修报告）
+    const cleaned = pkg.flowNodes.filter((n) => n.kind !== 'warranty')
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: cleaned }
   }
 
   const fresh = buildStandardFlowNodes()
-  const oldNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
-  const intakeDone =
-    countPhotosForFlowNode({ legacyStageIds: ['stage_1'] }, albumNodes) > 0
-  const inspectionDone =
-    countPhotosForFlowNode({ legacyStageIds: ['stage_2'] }, albumNodes) > 0
-  const hadLegacyIntake = oldNodes.some((n) => n.kind === 'intake')
-  const hadLegacyInspection = oldNodes.some((n) => n.kind === 'inspection')
-
-  if (intakeDone || inspectionDone || hadLegacyIntake || hadLegacyInspection) {
-    const first = fresh[0]
-    if (first) {
-      first.status = intakeDone && inspectionDone ? 'completed' : 'in_progress'
-      if (intakeDone && inspectionDone) {
-        unlockNextNode(fresh, 0)
-      }
-    }
-  }
-
   return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: fresh }
 }
 
@@ -299,17 +290,6 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   }
 }
 
-function buildInspectionReportDraft(note, albumNodes) {
-  const intakeCount = countPhotosForFlowNode({ legacyStageIds: ['stage_1'] }, albumNodes)
-  const inspectCount = countPhotosForFlowNode({ legacyStageIds: ['stage_2'] }, albumNodes)
-  return {
-    summary: note || '接车与检测已完成，详见过程照片。',
-    intakePhotoCount: intakeCount,
-    inspectionPhotoCount: inspectCount,
-    generatedAt: new Date().toISOString(),
-  }
-}
-
 async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
     require('./service-album.service')
@@ -341,7 +321,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
-  const note = payload.note != null ? String(payload.note || '').trim() : node.note || ''
+  const vehicle = album.vehicleJson || {}
 
   await writeFlowPackage(albumId, (pkg) => {
     const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
@@ -350,7 +330,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     list[idx] = {
       ...list[idx],
-      note,
       status: 'completed',
     }
     unlockNextNode(list, idx)
@@ -358,12 +337,49 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     if (list[idx].kind === 'intake_inspection') {
       const reportIdx = list.findIndex((n) => n.kind === 'inspection_report')
       if (reportIdx >= 0) {
-        const draft = buildInspectionReportDraft(note, nodes)
+        const draft = buildInspectionReportPayload({
+          vehicle,
+          albumNodes: nodes,
+          chiefComplaint: String(payload.chiefComplaint || ''),
+        })
         list[reportIdx] = {
           ...list[reportIdx],
           status: 'in_progress',
           document: {
             ...(list[reportIdx].document || emptyDocument('inspection_report')),
+            status: 'pending_confirm',
+            payload: draft,
+          },
+        }
+      }
+    }
+
+    if (list[idx].kind === 'delivery_photos') {
+      const repairIdx = list.findIndex((n) => n.kind === 'repair_report')
+      const workOrder = list.find((n) => n.kind === 'work_order')
+      const inspectionReport = list.find((n) => n.kind === 'inspection_report')
+      const delivery = nodes.find((n) => n.id === 'stage_6')
+      if (repairIdx >= 0) {
+        const draft = buildRepairReportPayload({
+          chiefComplaint:
+            (inspectionReport &&
+              inspectionReport.document &&
+              inspectionReport.document.payload &&
+              inspectionReport.document.payload.chiefComplaint) ||
+            '',
+          workItems:
+            (workOrder &&
+              workOrder.document &&
+              workOrder.document.payload &&
+              workOrder.document.payload.items) ||
+            [],
+          deliveryImages: (delivery && delivery.images) || [],
+        })
+        list[repairIdx] = {
+          ...list[repairIdx],
+          status: 'in_progress',
+          document: {
+            ...(list[repairIdx].document || emptyDocument('repair_report')),
             status: 'pending_confirm',
             payload: draft,
           },
@@ -377,12 +393,14 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
+  const messages = {
+    intake_inspection: '已生成检测报告，请确认后发送车主',
+    delivery_photos: '已生成维修报告（含质保），请确认',
+    work: '施工记录已确认',
+  }
   return {
     node: updated ? mapFlowNodeForView(updated, viewNodes) : null,
-    message:
-      node.kind === 'intake_inspection'
-        ? '已生成检测报告，请发送车主确认'
-        : '本步已完成',
+    message: messages[node.kind] || '本步已完成',
   }
 }
 
@@ -393,7 +411,7 @@ async function proxyConfirmFlowDocument(
   payload = {},
   merchantId = '',
 ) {
-  const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable } =
+  const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
     require('./service-album.service')
   const album = await loadAlbum(albumId)
   assertMerchantAlbum(album, storeId, merchantId)
@@ -412,36 +430,35 @@ async function proxyConfirmFlowDocument(
       err.status = 404
       throw err
     }
+    const prevDoc = nodes[index].document || emptyDocument('')
+    const mergedPayload = {
+      ...(prevDoc.payload || {}),
+      ...((payload.document && payload.document.payload) || {}),
+    }
     nodes[index] = {
       ...nodes[index],
       status: 'completed',
       document: {
-        ...(nodes[index].document || emptyDocument('')),
+        ...prevDoc,
         status: 'confirmed',
         confirmedAt: new Date().toISOString(),
         confirmedBy: 'merchant_proxy',
         proxyProofImages: proofImages,
-        payload: {
-          ...((nodes[index].document && nodes[index].document.payload) || {}),
-          ...((payload.document && payload.document.payload) || {}),
-        },
+        payload: mergedPayload,
       },
     }
     unlockNextNode(nodes, index)
 
     if (nodes[index].kind === 'quote_confirm') {
       const orderIdx = nodes.findIndex((n) => n.kind === 'work_order')
-      if (orderIdx >= 0 && nodes[orderIdx].status !== 'completed') {
+      if (orderIdx >= 0) {
         nodes[orderIdx] = {
           ...nodes[orderIdx],
           status: 'in_progress',
           document: {
             ...(nodes[orderIdx].document || emptyDocument('work_order')),
             status: 'draft',
-            payload: {
-              generatedFrom: id,
-              generatedAt: new Date().toISOString(),
-            },
+            payload: buildWorkOrderPayloadFromQuote(mergedPayload, id),
           },
         }
       }
@@ -450,7 +467,6 @@ async function proxyConfirmFlowDocument(
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 
-  const { mapNodesForView } = require('./service-album.service')
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   const node = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)

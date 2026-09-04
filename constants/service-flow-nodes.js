@@ -1,24 +1,27 @@
 /**
  * DOC-FLOW · 服务相册事件节点链（拍照节点 + 单据节点）
- * 真源文档：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md
+ * 真源：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md
  */
-const FLOW_VERSION = 2
+const FLOW_VERSION = 3
 
 const NODE_CATEGORY = {
   PHOTO: 'photo',
   DOCUMENT: 'document',
 }
 
-/** 标准链（接车+检测合并 · 8 步） */
+const INSPECTION_DISCLAIMER =
+  '本次说明仅针对已拍摄部位；未拍照部位不构成全车体检结论。'
+
+/** 标准链（7 步 · 质保并入维修报告） */
 const STANDARD_FLOW_CHAIN = [
   {
     kind: 'intake_inspection',
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车与检测',
     legacyStageIds: ['stage_1', 'stage_2'],
-    photoTips: '接车拍里程与外观；检测拍故障点、读数与对比图',
+    photoTips: '接车拍里程与外观；检测拍故障点；每张写本图说明',
     captionPlaceholder: '本图说明',
-    description: '上传接车、检测照片，填写检测说明，确认后生成本单检测报告。',
+    description: '上传接车、检测照片，每张写一句说明；确认后生成检测报告。',
   },
   {
     kind: 'inspection_report',
@@ -46,7 +49,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '施工',
     legacyStageIds: ['stage_5'],
-    photoTips: '建议拍摄拆卸、安装、新旧对比、配件编码等',
+    photoTips: '拆卸、安装、新旧对比；每张写本图说明',
     captionPlaceholder: '本图说明（选填）',
   },
   {
@@ -54,22 +57,15 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '完工照',
     legacyStageIds: ['stage_6'],
-    photoTips: '建议拍摄试车说明、交车外观',
+    photoTips: '试车、交车外观；每张写本图说明',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
   },
   {
     kind: 'repair_report',
     nodeCategory: NODE_CATEGORY.DOCUMENT,
-    title: '维修报告',
+    title: '维修报告（含质保）',
     docType: 'repair_report',
-    requiresConfirm: false,
-  },
-  {
-    kind: 'warranty',
-    nodeCategory: NODE_CATEGORY.DOCUMENT,
-    title: '质保单',
-    docType: 'warranty',
-    requiresConfirm: false,
+    requiresConfirm: true,
   },
 ]
 
@@ -98,6 +94,7 @@ function emptyDocument(docType) {
     confirmedBy: '',
     proxyProofImages: [],
     sourceNodeIds: [],
+    contentFingerprint: '',
   }
 }
 
@@ -115,9 +112,10 @@ function buildStandardFlowNodes() {
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)
         : null,
-    legacyStageId: meta.legacyStageIds && meta.legacyStageIds.length === 1
-      ? meta.legacyStageIds[0]
-      : '',
+    legacyStageId:
+      meta.legacyStageIds && meta.legacyStageIds.length === 1
+        ? meta.legacyStageIds[0]
+        : '',
     legacyStageIds: meta.legacyStageIds || [],
     insertedReason: '',
     parentNodeId: '',
@@ -159,12 +157,16 @@ function requiresOwnerConfirm(node = {}) {
   const meta = getFlowKindMeta(node.kind)
   if (meta && meta.requiresConfirm) return true
   const doc = node.document
-  return doc && (doc.docType === 'quote_confirm' || doc.docType === 'addon_quote_confirm')
+  if (!doc) return false
+  return ['inspection_report', 'quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(
+    doc.docType || node.kind,
+  )
 }
 
 module.exports = {
   FLOW_VERSION,
   NODE_CATEGORY,
+  INSPECTION_DISCLAIMER,
   STANDARD_FLOW_CHAIN,
   FLOW_KIND_META,
   PHOTO_KIND_TO_LEGACY_STAGE,

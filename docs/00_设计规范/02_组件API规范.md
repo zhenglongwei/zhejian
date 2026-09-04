@@ -289,7 +289,31 @@
 
 ### 3.5 AlbumNode / Timeline / OrderStatusBadge
 
+### 3.5b FlowStepper（`components/flow-stepper` · DOC-FLOW）
+
+商家服务进度竖向时间线：已完成折叠、当前步展开（页面自行塞内嵌内容）、锁定态不渲染。
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| completedSteps | Array | `[]` | `{ id, title, summary?, status: 'done' }[]` |
+| activeTitle | String | `''` | 当前步标题 |
+| activeSummary | String | `''` | 当前步摘要 |
+| activeCategory | String | `''` | `拍照` / `单据` |
+| progressLabel | String | `''` | 如「第 1 / 7 步」 |
+| showActive | Boolean | true | 是否展示当前步外壳 |
+| lockedHint | String | `''` | 未解锁提示 |
+
+| 事件 | 说明 |
+|---|---|
+| completedtap | `{ id, index }` 点击已完成行（展开只读由页面处理） |
+
+| 插槽 | 说明 |
+|---|---|
+| active | 当前步展开区（上传/表单） |
+| completed-detail | 可选：已完成只读详情 |
+
 #### Timeline（`components/timeline`）
+
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|

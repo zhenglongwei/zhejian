@@ -13,7 +13,7 @@ function isFlowNodeDone(node = {}) {
   if (status === 'completed') return true
 
   const doc = node.document
-  if (node.kind === 'inspection_report' || node.kind === 'quote_confirm') {
+  if (node.kind === 'inspection_report' || node.kind === 'quote_confirm' || node.kind === 'repair_report') {
     return doc && doc.status === 'confirmed'
   }
 

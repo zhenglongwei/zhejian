@@ -17,10 +17,10 @@
 }
 
 .merchant-flow-page__hero {
+  margin-bottom: var(--space-lg);
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg-card) 100%);
-  box-shadow: var(--shadow-sm);
 }
 
 .merchant-flow-page__hero-top {
@@ -30,74 +30,81 @@
   gap: var(--space-sm);
 }
 
-.merchant-flow-page__progress {
-  display: block;
-  margin-top: var(--space-sm);
-  color: var(--color-text-secondary);
+.merchant-flow-page__section {
+  margin-bottom: var(--space-md);
 }
 
-.merchant-flow-page__section-title {
+.merchant-flow-page__doc-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__finding {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.merchant-flow-page__finding-img {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__disclaimer {
   display: block;
-  margin-bottom: var(--space-sm);
+  margin: var(--space-sm) 0;
   color: var(--color-text-tertiary);
-  letter-spacing: 0.04em;
 }
 
-.merchant-flow-page__done-block {
-  margin-top: var(--space-lg);
-}
-
-.merchant-flow-page__active-block {
-  margin-top: var(--space-lg);
-}
-
-.merchant-flow-page__active-card {
-  border: 2rpx solid var(--color-primary-light);
-}
-
-.merchant-flow-page__active-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.merchant-flow-page__active-desc {
-  display: block;
-  margin-top: var(--space-sm);
-}
-
-.merchant-flow-page__active-summary {
+.merchant-flow-page__label {
   display: block;
   margin-top: var(--space-md);
-  color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
-.merchant-flow-page__thumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-}
-
-.merchant-flow-page__thumb {
-  width: 128rpx;
-  height: 128rpx;
-  border-radius: var(--radius-md);
-}
-
-.merchant-flow-page__cta {
-  margin-top: var(--space-lg);
-}
-
-.merchant-flow-page__lock-hint {
-  margin-top: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
+.merchant-flow-page__textarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: var(--space-md);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+  font-size: var(--font-body-size);
+  color: var(--color-text-primary);
 }
 
-.merchant-flow-page__actions {
+.merchant-flow-page__input {
+  width: 100%;
+  height: 72rpx;
+  margin-bottom: var(--space-xs);
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__quote-line {
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-flow-page__work-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-flow-page__doc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+.merchant-flow-page__footer-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);

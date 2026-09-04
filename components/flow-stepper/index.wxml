@@ -1,0 +1,55 @@
+<view class="flow-stepper">
+  <view wx:if="{{progressLabel}}" class="flow-stepper__progress">
+    <text class="text-caption">{{progressLabel}}</text>
+  </view>
+
+  <view
+    wx:for="{{completedSteps}}"
+    wx:key="id"
+    class="flow-stepper__row flow-stepper__row--done"
+  >
+    <view class="flow-stepper__rail" aria-hidden="true">
+      <view class="flow-stepper__dot flow-stepper__dot--done" />
+      <view class="flow-stepper__line" />
+    </view>
+    <view class="flow-stepper__body">
+      <view
+        class="flow-stepper__done-head"
+        data-id="{{item.id}}"
+        data-index="{{index}}"
+        bindtap="onCompletedTap"
+      >
+        <view class="flow-stepper__done-titles">
+          <text class="text-body flow-stepper__done-title">{{item.title}}</text>
+          <text class="text-caption text-secondary">{{item.summary || '已完成'}}</text>
+        </view>
+        <text class="text-caption text-link">{{expandedCompletedId === item.id ? '收起' : '查看'}}</text>
+      </view>
+      <view wx:if="{{expandedCompletedId === item.id}}" class="flow-stepper__done-detail">
+        <slot name="completed-detail" />
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showActive}}" class="flow-stepper__row flow-stepper__row--active">
+    <view class="flow-stepper__rail" aria-hidden="true">
+      <view class="flow-stepper__dot flow-stepper__dot--active" />
+      <view wx:if="{{lockedHint}}" class="flow-stepper__line flow-stepper__line--muted" />
+    </view>
+    <view class="flow-stepper__body">
+      <ui-card shadow="{{true}}" padding="{{true}}" class="flow-stepper__active-card">
+        <view class="flow-stepper__active-head">
+          <text class="text-h3">{{activeTitle}}</text>
+          <ui-tag wx:if="{{activeCategory}}" variant="{{activeCategory === '拍照' ? 'info' : 'warning'}}" text="{{activeCategory}}" />
+        </view>
+        <text wx:if="{{activeSummary}}" class="text-caption text-secondary flow-stepper__active-summary">{{activeSummary}}</text>
+        <view class="flow-stepper__active-slot">
+          <slot name="active" />
+        </view>
+      </ui-card>
+      <view wx:if="{{lockedHint}}" class="flow-stepper__hint">
+        <text class="text-caption text-secondary">{{lockedHint}}</text>
+      </view>
+    </view>
+  </view>
+</view>
