@@ -61,7 +61,7 @@ function buildFlowProgressView(nodes = []) {
     completedSteps: completed.map((node) => ({
       id: node.id,
       title: node.title,
-      desc: node.summary || node.document?.statusLabel || '已完成',
+      summary: node.summary || (node.document && node.document.statusLabel) || '已完成',
       status: 'done',
     })),
     activeNode: active,

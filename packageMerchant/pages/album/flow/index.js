@@ -41,6 +41,11 @@ Page({
     completedSteps: [],
     expandedCompletedId: '',
     activeNode: null,
+    activeTitle: '',
+    activeSummary: '',
+    activeCategory: '',
+    activeKind: '',
+    showActive: false,
     activeIsPhoto: false,
     activeIsDoc: false,
     sections: [],
@@ -60,6 +65,11 @@ Page({
   },
 
   onShow() {
+    // #region agent log
+    const _sec = this.data.sections || []
+    const _imgN = _sec.reduce((n, s) => n + ((s.images && s.images.length) || 0), 0)
+    fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'A',location:'flow/index.js:onShow',message:'onShow fired',data:{loadedOnce:!!this._loadedOnce,sectionCount:_sec.length,localImageCount:_imgN,willReload:!!this._loadedOnce},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (this._loadedOnce) this.loadFlow({ silent: true })
   },
 
@@ -103,28 +113,51 @@ Page({
       const readOnly = album.contentLocked || album.editable === false
       const flowNodes = flow.flowNodes || []
       const progress = flow.progress || buildFlowProgressView(flowNodes)
-      const active = progress.activeNode
+      const active = progress.activeNode || null
       const activeIsPhoto = Boolean(
         active &&
           (active.nodeCategory === 'photo' ||
-            (active.legacyStageIds && active.legacyStageIds.length)),
+            (active.legacyStageIds && active.legacyStageIds.length) ||
+            active.kind === 'intake_inspection' ||
+            active.kind === 'work' ||
+            active.kind === 'delivery_photos'),
       )
       const activeIsDoc = Boolean(active && active.document)
       const docPayload = (active && active.document && active.document.payload) || {}
+      const completedSteps = (progress.completedSteps || []).map((step) => ({
+        ...step,
+        summary: step.summary || step.desc || '已完成',
+      }))
 
+      const nextSections = activeIsPhoto && active ? this.buildSections(album, active) : []
+      const nextImgN = nextSections.reduce((n, s) => n + ((s.images && s.images.length) || 0), 0)
+      const prevImgN = (this.data.sections || []).reduce(
+        (n, s) => n + ((s.images && s.images.length) || 0),
+        0,
+      )
+      // #region agent log
+      fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'A',location:'flow/index.js:loadFlow:setData',message:'loadFlow overwriting sections',data:{silent,prevImgN,nextImgN,activeIsPhoto,activeKind:(active&&active.kind)||'',activeTitle:(active&&active.title)||'',willWipeLocal:prevImgN>0&&nextImgN<prevImgN},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
         statusLabel: SERVICE_ALBUM_STATUS_LABEL[status] || status,
         statusVariant: SERVICE_ALBUM_STATUS_VARIANT[status] || 'default',
         readOnly,
-        completedSteps: progress.completedSteps || [],
+        completedSteps,
         activeNode: active,
+        activeTitle: (active && active.title) || '',
+        activeSummary: (active && (active.description || active.summary)) || '',
+        activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
+        activeKind: (active && active.kind) || '',
+        showActive: Boolean(active),
         activeIsPhoto,
         activeIsDoc,
-        sections: activeIsPhoto && active ? this.buildSections(album, active) : [],
+        sections: nextSections,
         docPayload,
-        quoteLines: Array.isArray(docPayload.lines) ? docPayload.lines : [{ name: '', note: '', priceHint: '' }],
+        quoteLines: Array.isArray(docPayload.lines) && docPayload.lines.length
+          ? docPayload.lines
+          : [{ name: '', note: '', priceHint: '' }],
         conclusion: docPayload.conclusion || '',
         confirmCopy: docPayload.confirmCopy || '',
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
@@ -158,6 +191,9 @@ Page({
     if (this.data.readOnly) return
     const index = Number(e.currentTarget.dataset.index)
     const images = (e.detail && e.detail.images) || []
+    // #region agent log
+    fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'D',location:'flow/index.js:onSectionImagesChange',message:'imageschange received',data:{index,imageCount:images.length,sampleUrlPrefix:String((images[0]&&(images[0].url||images[0]))||'').slice(0,48),sectionCount:(this.data.sections||[]).length},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const sections = this.data.sections.map((section, i) =>
       i === index ? { ...section, images } : section,
     )

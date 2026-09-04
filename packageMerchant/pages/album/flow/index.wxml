@@ -24,17 +24,16 @@
 
         <flow-stepper
           completedSteps="{{completedSteps}}"
-          activeTitle="{{activeNode.title}}"
-          activeSummary="{{activeNode.description || activeNode.summary}}"
-          activeCategory="{{activeIsPhoto ? '拍照' : '单据'}}"
+          activeTitle="{{activeTitle}}"
+          activeSummary="{{activeSummary}}"
+          activeCategory="{{activeCategory}}"
           progressLabel="{{progressLabel}}"
-          showActive="{{!!activeNode}}"
+          showActive="{{showActive}}"
           lockedHint="{{lockedHint}}"
           expandedCompletedId="{{expandedCompletedId}}"
           bind:completedtap="onCompletedTap"
         >
           <view slot="active" class="merchant-flow-page__active">
-            <!-- 拍照：内嵌上传 -->
             <block wx:if="{{activeIsPhoto}}">
               <view
                 wx:for="{{sections}}"
@@ -58,15 +57,14 @@
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
-                text="确认本步并继续"
+                block="{{true}}"
                 loading="{{confirming}}"
                 disabled="{{confirming}}"
-                bind:tap="onConfirmPhotoStep"
-              />
+                bind:btntap="onConfirmPhotoStep"
+              >确认本步并继续</ui-button>
             </block>
 
-            <!-- 检测报告 -->
-            <block wx:elif="{{activeNode.kind === 'inspection_report'}}">
+            <block wx:elif="{{activeKind === 'inspection_report'}}">
               <view class="merchant-flow-page__doc-block">
                 <text class="text-caption text-secondary">发现项（来自检测照片）</text>
                 <view wx:for="{{docPayload.findings}}" wx:key="url" class="merchant-flow-page__finding">
@@ -85,14 +83,13 @@
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
-                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
-                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
+                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
+                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
               </view>
             </block>
 
-            <!-- 报价确认单 -->
-            <block wx:elif="{{activeNode.kind === 'quote_confirm'}}">
+            <block wx:elif="{{activeKind === 'quote_confirm'}}">
               <view class="merchant-flow-page__doc-block">
                 <text class="text-body merchant-flow-page__label">报价项目（手填）</text>
                 <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
@@ -115,7 +112,7 @@
                     bindinput="onQuoteLineInput"
                   />
                 </view>
-                <ui-button wx:if="{{!readOnly}}" type="ghost" text="添加一行" bind:tap="onAddQuoteLine" />
+                <ui-button wx:if="{{!readOnly}}" type="ghost" block="{{true}}" bind:btntap="onAddQuoteLine">添加一行</ui-button>
                 <text class="text-body merchant-flow-page__label">确认文案</text>
                 <textarea
                   class="merchant-flow-page__textarea"
@@ -127,14 +124,13 @@
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
-                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
-                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
+                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
+                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
               </view>
             </block>
 
-            <!-- 工单 -->
-            <block wx:elif="{{activeNode.kind === 'work_order'}}">
+            <block wx:elif="{{activeKind === 'work_order'}}">
               <view class="merchant-flow-page__doc-block">
                 <view wx:for="{{docPayload.items}}" wx:key="name" class="merchant-flow-page__work-item">
                   <text class="text-body">{{item.name}}</text>
@@ -145,14 +141,13 @@
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
-                text="确认工单并开始施工"
+                block="{{true}}"
                 loading="{{confirming}}"
-                bind:tap="onMarkWorkOrderDone"
-              />
+                bind:btntap="onMarkWorkOrderDone"
+              >确认工单并开始施工</ui-button>
             </block>
 
-            <!-- 维修报告含质保 -->
-            <block wx:elif="{{activeNode.kind === 'repair_report'}}">
+            <block wx:elif="{{activeKind === 'repair_report'}}">
               <view class="merchant-flow-page__doc-block">
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name">
@@ -169,9 +164,9 @@
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" text="保存草稿" loading="{{saving}}" bind:tap="onSaveDocDraft" />
-                <ui-button type="ghost" text="上传证明（可选）" bind:tap="onAddProxyProof" />
-                <ui-button type="primary" text="商家代确认" loading="{{confirming}}" bind:tap="onProxyConfirm" />
+                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
+                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
+                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
               </view>
             </block>
           </view>
@@ -181,11 +176,11 @@
           <ui-button
             wx:if="{{!readOnly && (allDone || completedSteps.length)}}"
             type="primary"
-            text="标记整单完工"
+            block="{{true}}"
             loading="{{completing}}"
-            bind:tap="onCompleteAlbum"
-          />
-          <ui-button type="ghost" text="高级编辑（旧版）" bind:tap="onOpenLegacyEdit" />
+            bind:btntap="onCompleteAlbum"
+          >标记整单完工</ui-button>
+          <ui-button type="ghost" block="{{true}}" bind:btntap="onOpenLegacyEdit">高级编辑（旧版）</ui-button>
         </view>
       </view>
     </scroll-view>

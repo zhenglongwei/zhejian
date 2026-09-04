@@ -263,6 +263,11 @@ Component({
         .map((entry) => this.normalizeEntry(entry))
         .filter(Boolean)
         .map((item) => this.decorateDisplayItem(item, prevByUrl.get(item.url)))
+      // #region agent log
+      if (prev.length !== displayList.length) {
+        fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'E',location:'image-uploader/index.js:syncDisplayList',message:'displayList length changed',data:{prevLen:prev.length,nextLen:displayList.length,propLen:(this.properties.images||[]).length,sampleUrlPrefix:String((displayList[0]&&displayList[0].url)||(prev[0]&&prev[0].url)||'').slice(0,56)},timestamp:Date.now()})}).catch(()=>{});
+      }
+      // #endregion
       this.setData({ displayList })
     },
     mergeDraftCaptions(list) {
@@ -296,6 +301,9 @@ Component({
           checklistItemKey: stampKey,
           showCaption: false,
         }))
+        // #region agent log
+        fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'C',location:'image-uploader/index.js:onAdd:onSuccess',message:'chooseMedia success emit',data:{picked:list.length,prevCount:current.length,nextCount:current.length+list.length,sampleUrlPrefix:String((list[0]&&list[0].url)||'').slice(0,56)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         if (!list.length) return
         this.emitChange(current.concat(list))
       }
