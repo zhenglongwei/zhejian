@@ -17,22 +17,21 @@
         <ui-card shadow="{{true}}" padding="{{true}}">
           <view class="merchant-flow-doc-node__head">
             <text class="text-h3">{{nodeTitle}}</text>
-            <ui-tag variant="warning" text="单据节点" />
+            <ui-tag variant="warning" text="单据" />
           </view>
           <view class="merchant-flow-doc-node__meta">
             <ui-tag variant="default" text="{{statusLabel}}" />
-            <text class="text-caption text-secondary">docType: {{docType}}</text>
           </view>
-          <text class="text-caption text-secondary merchant-flow-doc-node__hint">{{generateHint}}</text>
+          <text wx:if="{{generateHint}}" class="text-caption text-secondary merchant-flow-doc-node__hint">{{generateHint}}</text>
         </ui-card>
 
         <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-flow-doc-node__form">
-          <text class="text-body merchant-flow-doc-node__label">单据摘要（一期占位）</text>
+          <text class="text-body merchant-flow-doc-node__label">单据摘要</text>
           <textarea
             class="merchant-flow-doc-node__textarea"
             value="{{note}}"
             maxlength="2000"
-            placeholder="填写面向车主的单据要点；二期将按类型自动生成字段"
+            placeholder="面向车主的说明要点"
             disabled="{{readOnly}}"
             bindinput="onNoteInput"
           />

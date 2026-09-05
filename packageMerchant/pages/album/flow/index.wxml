@@ -36,9 +36,6 @@
           <view slot="active" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <view class="merchant-flow-page__hint">
-                  <text class="text-caption">本步写齐主诉，并用同一入口上传里程/外观/检测照片；每张写清部位、现象、结果、建议。确认后自动生成完整检测报告（之后仍可改）。</text>
-                </view>
                 <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
@@ -139,9 +136,6 @@
               </view>
 
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <view class="merchant-flow-page__hint">
-                  <text class="text-caption">本步填写质保要点，确认后自动生成完整维修报告（之后仍可改）。</text>
-                </view>
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <input
                   class="merchant-flow-page__input"
@@ -192,9 +186,6 @@
 
             <block wx:elif="{{activeKind === 'inspection_report'}}">
               <view class="merchant-flow-page__doc-block">
-                <view class="merchant-flow-page__hint">
-                  <text class="text-caption">已由「接车与检测」自动生成。可在此微调后发给车主或代确认。</text>
-                </view>
                 <text class="text-body merchant-flow-page__label">进店主诉 / 症状</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
@@ -268,9 +259,6 @@
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
               <view class="merchant-flow-page__doc-block">
-                <view class="merchant-flow-page__hint">
-                  <text class="text-caption">已按检测建议预填行项，请核对价格与项目后发给车主。</text>
-                </view>
                 <text class="text-body merchant-flow-page__label">报价项目</text>
                 <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
                   <input
@@ -329,9 +317,6 @@
 
             <block wx:elif="{{activeKind === 'repair_report'}}">
               <view class="merchant-flow-page__doc-block">
-                <view class="merchant-flow-page__hint">
-                  <text class="text-caption">已由「完工照」自动生成。可在此微调质保与确认文案后发给车主。</text>
-                </view>
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name">
                   <text class="text-body">{{item.name}}</text>

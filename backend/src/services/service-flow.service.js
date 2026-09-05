@@ -454,8 +454,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const viewNodes = mapNodesForView(refreshed)
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   const messages = {
-    intake_inspection: '已生成检测报告，请确认后发送车主',
-    delivery_photos: '已生成维修报告（含质保），请确认',
+    intake_inspection: '请核对检测报告',
+    delivery_photos: '请核对维修报告',
     work: '施工记录已确认',
   }
   return {

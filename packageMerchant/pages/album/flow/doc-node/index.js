@@ -38,17 +38,14 @@ Page({
     await this.loadNode()
   },
 
-  resolveGenerateHint(kind, doc = {}) {
-    if (kind === 'inspection_report' && doc.payload && doc.payload.generatedAt) {
-      return '已由接车与检测自动生成；请发送车主确认后再进行报价。'
-    }
+  resolveGenerateHint(kind) {
     const map = {
-      quote_confirm: '车主确认检测报告后可填写报价（二期自动带入）',
-      work_order: '报价确认后自动生成工单草稿',
-      repair_report: '完工后由全流程汇总生成（二期）',
-      warranty: '维修报告完成后生成（二期）',
+      inspection_report: '请核对后发送车主',
+      quote_confirm: '请填写报价项目',
+      work_order: '请确认施工项目',
+      repair_report: '请核对质保与确认文案',
     }
-    return map[kind] || '填写面向车主的单据要点'
+    return map[kind] || ''
   },
 
   async loadNode() {
@@ -58,7 +55,7 @@ Page({
       const node = (flow.flowNodes || []).find((item) => item.id === this.nodeId)
       if (!node || !node.document) throw new Error('单据节点不存在')
       const doc = node.document
-      wx.setNavigationBarTitle({ title: node.title || '单据节点' })
+      wx.setNavigationBarTitle({ title: node.title || '单据' })
       this.setData({
         status: 'ready',
         nodeTitle: node.title,
@@ -68,7 +65,7 @@ Page({
         readOnly: !flow.editable || doc.status === 'confirmed',
         note: String((doc.payload && doc.payload.summary) || ''),
         proxyProofImages: (doc.proxyProofImages || []).map((url) => ({ url })),
-        generateHint: this.resolveGenerateHint(node.kind, doc),
+        generateHint: this.resolveGenerateHint(node.kind),
       })
     } catch (e) {
       this.setData({

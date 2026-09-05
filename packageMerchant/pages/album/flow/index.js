@@ -26,7 +26,7 @@ const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-n
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '里程、外观、故障点均可拍。每张图下方须写清部位、现象、结果与处理建议（里程可写在部位，如：里程表 86420 公里）',
+    tips: '里程、外观、故障点均可拍；每张补充部位、现象、结果与建议',
     captionPlaceholder: '检查部位/项目',
     findingMode: true,
   },
@@ -38,7 +38,7 @@ const STAGE_LABELS = {
   },
   stage_6: {
     title: '完工照片',
-    tips: '试车、交车；每张写本图说明。本步同时填写质保要点',
+    tips: '试车、交车；每张写本图说明',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
     findingMode: false,
   },
@@ -70,7 +70,7 @@ Page({
     activeIsDoc: false,
     isIntakePhotoStep: false,
     isDeliveryPhotoStep: false,
-    photoConfirmLabel: '确认本步并继续',
+    photoConfirmLabel: '确认并继续',
     sections: [],
     docPayload: {},
     quoteLines: [],
@@ -266,7 +266,7 @@ Page({
         completedSteps,
         activeNode: active,
         activeTitle: (active && active.title) || '',
-        activeSummary: (active && (active.description || active.summary)) || '',
+        activeSummary: (active && (active.photoTips || active.summary)) || '',
         activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
         activeKind: (active && active.kind) || '',
         showActive: Boolean(active),
@@ -274,10 +274,7 @@ Page({
         activeIsDoc,
         isIntakePhotoStep,
         isDeliveryPhotoStep,
-        photoConfirmLabel:
-          isIntakePhotoStep || isDeliveryPhotoStep
-            ? '确认本步并生成单据'
-            : '确认本步并继续',
+        photoConfirmLabel: '确认并继续',
         sections,
         docPayload,
         findings,
