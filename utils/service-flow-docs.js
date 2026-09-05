@@ -98,27 +98,34 @@ function buildInspectionReportPayload({
 } = {}) {
   const intake = (albumNodes || []).find((n) => n.id === 'stage_1')
   const inspection = (albumNodes || []).find((n) => n.id === 'stage_2')
-  const intakePhotos = mapPhotoRows(intake && intake.images)
+  // 统一入口：发现项来自 stage_2；存量 stage_1 并入
+  const mergedImages = []
+    .concat((intake && intake.images) || [])
+    .concat((inspection && inspection.images) || [])
   const draftFindings =
     Array.isArray(findingsInput) && findingsInput.length
       ? findingsInput
       : Array.isArray(photoDraft.findings)
         ? photoDraft.findings
         : []
-  const findings = mapFindingRows(inspection && inspection.images, draftFindings)
-  const mileageFromCaption = intakePhotos.find((p) => p.caption && /\d/.test(p.caption))
+  const findings = mapFindingRows(mergedImages, draftFindings)
+  const mileageFromFinding = findings.find((item) => {
+    const text = [item.partName, item.symptom, item.result, item.caption].join(' ')
+    return /\d/.test(text)
+  })
   return {
     vehicleBrand: String(vehicle.brand || ''),
     vehicleSeries: String(vehicle.series || ''),
     vehicleYear: String(vehicle.modelYear || vehicle.year || ''),
     mileageText:
       String(vehicle.mileage || vehicle.mileageKm || '').trim() ||
-      (mileageFromCaption ? mileageFromCaption.caption : ''),
+      (mileageFromFinding
+        ? mileageFromFinding.partName || mileageFromFinding.caption || ''
+        : ''),
     chiefComplaint: String(
       chiefComplaint || photoDraft.chiefComplaint || '',
     ).trim(),
     reportDate: new Date().toISOString().slice(0, 10),
-    intakePhotos,
     findings,
     disclaimer: INSPECTION_DISCLAIMER,
     conclusion: String(conclusion || photoDraft.conclusion || '').trim(),

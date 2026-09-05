@@ -37,7 +37,7 @@
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <view class="merchant-flow-page__hint">
-                  <text class="text-caption">本步写齐主诉与每张检测图的部位/现象/结果/建议后，确认将自动生成完整检测报告（之后仍可改）。</text>
+                  <text class="text-caption">本步写齐主诉，并用同一入口上传里程/外观/检测照片；每张写清部位、现象、结果、建议。确认后自动生成完整检测报告（之后仍可改）。</text>
                 </view>
                 <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
                 <textarea
@@ -69,7 +69,7 @@
                   bind:imageschange="onSectionImagesChange"
                 />
                 <block wx:if="{{section.findingMode}}">
-                  <text class="text-body merchant-flow-page__label">检测发现项（必填）</text>
+                  <text class="text-body merchant-flow-page__label">发现项（必填）</text>
                   <view wx:if="{{!section.findings.length}}" class="text-caption text-secondary">请先上传检测照片</view>
                   <view
                     wx:for="{{section.findings}}"

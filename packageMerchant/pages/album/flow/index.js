@@ -24,16 +24,10 @@ const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media
 const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-nav')
 
 const STAGE_LABELS = {
-  stage_1: {
-    title: '接车照片',
-    tips: '里程表必拍；外观、故障部位。每张写本图说明（如：里程 86420 公里）',
-    captionPlaceholder: '本图说明（如：里程 86420 公里）',
-    findingMode: false,
-  },
   stage_2: {
-    title: '检测照片',
-    tips: '故障点、读数、对比。每张图下方须写清部位、现象、结果与处理建议',
-    captionPlaceholder: '检查部位（可在下方发现项中修改）',
+    title: '接车与检测照片',
+    tips: '里程、外观、故障点均可拍。每张图下方须写清部位、现象、结果与处理建议（里程可写在部位，如：里程表 86420 公里）',
+    captionPlaceholder: '检查部位/项目',
     findingMode: true,
   },
   stage_5: {
@@ -116,17 +110,45 @@ Page({
     this._loadedOnce = true
   },
 
+  mapStageImages(stage) {
+    return ((stage && stage.images) || []).map((img) => ({
+      url: typeof img === 'string' ? img : img.url,
+      caption: typeof img === 'object' ? img.caption || '' : '',
+      id: typeof img === 'object' ? img.id || '' : '',
+    }))
+  },
+
+  /** 接车与检测：统一入口；存量 stage_1 并入 stage_2 展示 */
+  collectIntakeImages(album) {
+    const stage1 = (album.nodes || []).find((n) => n.id === 'stage_1')
+    const stage2 = (album.nodes || []).find((n) => n.id === 'stage_2')
+    return this.mapStageImages(stage1).concat(this.mapStageImages(stage2))
+  },
+
   buildSections(album, node, photoDraft = {}) {
-    const ids = resolveLegacyStageIdsForFlowNode(node)
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
+
+    if (node && node.kind === 'intake_inspection') {
+      const meta = STAGE_LABELS.stage_2
+      const images = this.collectIntakeImages(album)
+      return [
+        {
+          stageId: 'stage_2',
+          title: meta.title,
+          tips: meta.tips,
+          captionPlaceholder: meta.captionPlaceholder,
+          findingMode: true,
+          images,
+          findings: mapFindingRows(images, draftFindings),
+        },
+      ]
+    }
+
+    const ids = resolveLegacyStageIdsForFlowNode(node)
     return ids.map((stageId) => {
       const meta = STAGE_LABELS[stageId] || { title: stageId, tips: '', findingMode: false }
       const stage = (album.nodes || []).find((n) => n.id === stageId) || { images: [] }
-      const images = (stage.images || []).map((img) => ({
-        url: typeof img === 'string' ? img : img.url,
-        caption: typeof img === 'object' ? img.caption || '' : '',
-        id: typeof img === 'object' ? img.id || '' : '',
-      }))
+      const images = this.mapStageImages(stage)
       return {
         stageId,
         title: meta.title,
@@ -502,8 +524,13 @@ Page({
         sectionMap[section.stageId] = section.images
       }
     })
+    // 接车与检测统一写入 stage_2，清空旧 stage_1
+    if (this.data.activeNode && this.data.activeNode.kind === 'intake_inspection') {
+      sectionMap.stage_1 = []
+      if (!sectionMap.stage_2) sectionMap.stage_2 = []
+    }
     let nodes = (album.nodes || []).map((node) => {
-      if (!sectionMap[node.id]) return node
+      if (!Object.prototype.hasOwnProperty.call(sectionMap, node.id)) return node
       return {
         ...node,
         images: sectionMap[node.id],

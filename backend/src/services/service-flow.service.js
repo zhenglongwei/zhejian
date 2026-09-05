@@ -65,7 +65,11 @@ function resolveDocumentStatusLabel(doc = {}) {
 }
 
 function countPhotosForFlowNode(node, albumNodes = []) {
-  const stageIds = resolveLegacyStageIdsForFlowNode(node)
+  let stageIds = resolveLegacyStageIdsForFlowNode(node)
+  // 接车与检测：计数含存量 stage_1（统一入口迁移前）
+  if (node && node.kind === 'intake_inspection') {
+    stageIds = ['stage_1', 'stage_2']
+  }
   if (!stageIds.length) return 0
   return stageIds.reduce((sum, stageId) => {
     const stage = (albumNodes || []).find((n) => n.id === stageId)
@@ -75,7 +79,10 @@ function countPhotosForFlowNode(node, albumNodes = []) {
 }
 
 function collectPreviewImages(node, albumNodes = [], limit = 4) {
-  const stageIds = resolveLegacyStageIdsForFlowNode(node)
+  let stageIds = resolveLegacyStageIdsForFlowNode(node)
+  if (node && node.kind === 'intake_inspection') {
+    stageIds = ['stage_1', 'stage_2']
+  }
   const out = []
   stageIds.forEach((stageId) => {
     const stage = (albumNodes || []).find((n) => n.id === stageId)
