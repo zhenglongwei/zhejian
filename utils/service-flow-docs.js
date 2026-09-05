@@ -20,28 +20,40 @@ function mapPhotoRows(images = []) {
     .filter(Boolean)
 }
 
-/** 检测发现项：对标店内报告「部位 / 现象 / 结果 / 建议」 */
-function mapFindingRows(images = []) {
-  return mapPhotoRows(images).map((row) => ({
-    ...row,
-    partName: row.caption || '',
-    symptom: '',
-    result: '',
-    advice: '',
-  }))
-}
-
 function normalizeFinding(raw = {}) {
+  const caption = String(raw.caption || '').trim()
   return {
-    imageId: String(raw.imageId || ''),
+    imageId: String(raw.imageId || raw.id || ''),
     url: String(raw.url || ''),
-    caption: String(raw.caption || '').trim(),
-    captionEmpty: !String(raw.caption || '').trim(),
-    partName: String(raw.partName || raw.caption || '').trim(),
+    caption,
+    captionEmpty: !caption,
+    partName: String(raw.partName || caption || '').trim(),
     symptom: String(raw.symptom || '').trim(),
     result: String(raw.result || '').trim(),
     advice: String(raw.advice || '').trim(),
   }
+}
+
+/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位 */
+function mapFindingRows(images = [], draftFindings = []) {
+  const draftByKey = {}
+  ;(draftFindings || []).forEach((raw, index) => {
+    const item = normalizeFinding(raw)
+    const key = item.imageId || item.url
+    if (key) draftByKey[key] = item
+    draftByKey[`#${index}`] = item
+  })
+  return mapPhotoRows(images).map((row, index) => {
+    const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
+    return normalizeFinding({
+      ...row,
+      ...draft,
+      url: row.url,
+      imageId: row.imageId || draft.imageId || '',
+      caption: row.caption || draft.caption || '',
+      partName: draft.partName || row.caption || '',
+    })
+  })
 }
 
 function collectInspectionReportGaps(payload = {}) {
@@ -51,7 +63,7 @@ function collectInspectionReportGaps(payload = {}) {
   }
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   if (!findings.length) {
-    gaps.push('暂无检测照片，请先完成接车与检测')
+    gaps.push('请至少上传 1 张检测照片并填写发现项')
     return gaps
   }
   findings.forEach((raw, index) => {
@@ -65,11 +77,35 @@ function collectInspectionReportGaps(payload = {}) {
   return gaps
 }
 
-function buildInspectionReportPayload({ vehicle = {}, albumNodes = [], chiefComplaint = '' } = {}) {
+function collectDeliveryPhotoDraftGaps(payload = {}) {
+  const gaps = []
+  if (!String(payload.warrantyPeriod || '').trim()) {
+    gaps.push('请填写质保期限')
+  }
+  if (!String(payload.warrantyScope || '').trim()) {
+    gaps.push('请填写质保范围')
+  }
+  return gaps
+}
+
+function buildInspectionReportPayload({
+  vehicle = {},
+  albumNodes = [],
+  chiefComplaint = '',
+  findings: findingsInput,
+  conclusion = '',
+  photoDraft = {},
+} = {}) {
   const intake = (albumNodes || []).find((n) => n.id === 'stage_1')
   const inspection = (albumNodes || []).find((n) => n.id === 'stage_2')
   const intakePhotos = mapPhotoRows(intake && intake.images)
-  const findings = mapFindingRows(inspection && inspection.images)
+  const draftFindings =
+    Array.isArray(findingsInput) && findingsInput.length
+      ? findingsInput
+      : Array.isArray(photoDraft.findings)
+        ? photoDraft.findings
+        : []
+  const findings = mapFindingRows(inspection && inspection.images, draftFindings)
   const mileageFromCaption = intakePhotos.find((p) => p.caption && /\d/.test(p.caption))
   return {
     vehicleBrand: String(vehicle.brand || ''),
@@ -78,12 +114,14 @@ function buildInspectionReportPayload({ vehicle = {}, albumNodes = [], chiefComp
     mileageText:
       String(vehicle.mileage || vehicle.mileageKm || '').trim() ||
       (mileageFromCaption ? mileageFromCaption.caption : ''),
-    chiefComplaint: String(chiefComplaint || '').trim(),
+    chiefComplaint: String(
+      chiefComplaint || photoDraft.chiefComplaint || '',
+    ).trim(),
     reportDate: new Date().toISOString().slice(0, 10),
     intakePhotos,
     findings,
     disclaimer: INSPECTION_DISCLAIMER,
-    conclusion: '',
+    conclusion: String(conclusion || photoDraft.conclusion || '').trim(),
   }
 }
 
@@ -120,7 +158,16 @@ function buildRepairReportPayload({
   workItems = [],
   deliveryImages = [],
   warranty = {},
+  photoDraft = {},
+  confirmCopy = '',
 } = {}) {
+  const period =
+    String(warranty.period || photoDraft.warrantyPeriod || '').trim() || '以门店公示为准'
+  const scope =
+    String(warranty.scope || photoDraft.warrantyScope || '').trim() || '本次已确认施工项目'
+  const exclusions =
+    String(warranty.exclusions || photoDraft.warrantyExclusions || '').trim() ||
+    '外力撞击、涉水、未按约定使用等除外'
   return {
     chiefComplaint: String(chiefComplaint || '').trim(),
     workItems: (workItems || []).map((item) => ({
@@ -128,18 +175,59 @@ function buildRepairReportPayload({
       note: String(item.note || '').trim(),
     })),
     deliveryPhotos: mapPhotoRows(deliveryImages),
-    warrantyPeriod: String(warranty.period || '以门店公示为准'),
-    warrantyScope: String(warranty.scope || '本次已确认施工项目'),
-    warrantyExclusions: String(warranty.exclusions || '外力撞击、涉水、未按约定使用等除外'),
-    confirmCopy: '本人确认上述施工与交车状态，并知悉质保条款。',
+    warrantyPeriod: period,
+    warrantyScope: scope,
+    warrantyExclusions: exclusions,
+    confirmCopy:
+      String(confirmCopy || photoDraft.confirmCopy || '').trim() ||
+      '本人确认上述施工与交车状态，并知悉质保条款。',
   }
+}
+
+function normalizePhotoDraft(raw = {}) {
+  return {
+    chiefComplaint: String(raw.chiefComplaint || '').trim(),
+    conclusion: String(raw.conclusion || '').trim(),
+    findings: Array.isArray(raw.findings)
+      ? raw.findings.map((item) => normalizeFinding(item)).filter((item) => item.url)
+      : [],
+    warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
+    warrantyScope: String(raw.warrantyScope || '').trim(),
+    warrantyExclusions: String(raw.warrantyExclusions || '').trim(),
+    confirmCopy: String(raw.confirmCopy || '').trim(),
+  }
+}
+
+/** 合并过程步草稿：仅覆盖显式传入的字段 */
+function mergePhotoDraft(prev = {}, patch = {}) {
+  const next = normalizePhotoDraft(prev)
+  if (!patch || typeof patch !== 'object') return next
+  if (patch.chiefComplaint != null) next.chiefComplaint = String(patch.chiefComplaint || '').trim()
+  if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
+  if (patch.findings != null) {
+    next.findings = Array.isArray(patch.findings)
+      ? patch.findings.map((item) => normalizeFinding(item)).filter((item) => item.url)
+      : []
+  }
+  if (patch.warrantyPeriod != null) {
+    next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
+  }
+  if (patch.warrantyScope != null) next.warrantyScope = String(patch.warrantyScope || '').trim()
+  if (patch.warrantyExclusions != null) {
+    next.warrantyExclusions = String(patch.warrantyExclusions || '').trim()
+  }
+  if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
+  return next
 }
 
 module.exports = {
   mapPhotoRows,
   mapFindingRows,
   normalizeFinding,
+  normalizePhotoDraft,
+  mergePhotoDraft,
   collectInspectionReportGaps,
+  collectDeliveryPhotoDraftGaps,
   buildInspectionReportPayload,
   buildWorkOrderPayloadFromQuote,
   buildQuoteLinesFromFindings,

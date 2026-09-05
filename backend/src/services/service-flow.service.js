@@ -20,6 +20,9 @@ const {
   buildRepairReportPayload,
   buildQuoteLinesFromFindings,
   collectInspectionReportGaps,
+  collectDeliveryPhotoDraftGaps,
+  normalizePhotoDraft,
+  mergePhotoDraft,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone } = resolveShared(
@@ -103,6 +106,7 @@ function mapFlowNodeForView(node, albumNodes = []) {
     title: node.title || meta.title || '',
     status: node.status || 'pending',
     note: node.note || '',
+    photoDraft: normalizePhotoDraft(node.photoDraft || {}),
     legacyStageId: legacyStageIds[0] || '',
     legacyStageIds,
     photoTips: meta.photoTips || '',
@@ -259,6 +263,9 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     if (payload.note != null) {
       nextNode.note = String(payload.note || '').trim()
     }
+    if (payload.photoDraft != null) {
+      nextNode.photoDraft = mergePhotoDraft(prev.photoDraft || {}, payload.photoDraft || {})
+    }
     if (payload.status != null) {
       nextNode.status = String(payload.status || '').trim() || prev.status
     }
@@ -324,6 +331,44 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   }
 
   const vehicle = album.vehicleJson || {}
+  const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
+    ...(payload.photoDraft || {}),
+    ...(payload.chiefComplaint != null ? { chiefComplaint: payload.chiefComplaint } : {}),
+    ...(payload.findings != null ? { findings: payload.findings } : {}),
+    ...(payload.conclusion != null ? { conclusion: payload.conclusion } : {}),
+    ...(payload.warrantyPeriod != null ? { warrantyPeriod: payload.warrantyPeriod } : {}),
+    ...(payload.warrantyScope != null ? { warrantyScope: payload.warrantyScope } : {}),
+    ...(payload.warrantyExclusions != null
+      ? { warrantyExclusions: payload.warrantyExclusions }
+      : {}),
+    ...(payload.confirmCopy != null ? { confirmCopy: payload.confirmCopy } : {}),
+  })
+
+  if (node.kind === 'intake_inspection') {
+    const draftReport = buildInspectionReportPayload({
+      vehicle,
+      albumNodes: nodes,
+      photoDraft: incomingDraft,
+      chiefComplaint: incomingDraft.chiefComplaint,
+      findings: incomingDraft.findings,
+      conclusion: incomingDraft.conclusion,
+    })
+    const gaps = collectInspectionReportGaps(draftReport)
+    if (gaps.length) {
+      const err = new Error(gaps[0] || '请先补全主诉与检测发现项')
+      err.status = 400
+      throw err
+    }
+  }
+
+  if (node.kind === 'delivery_photos') {
+    const gaps = collectDeliveryPhotoDraftGaps(incomingDraft)
+    if (gaps.length) {
+      const err = new Error(gaps[0] || '请先补全质保信息')
+      err.status = 400
+      throw err
+    }
+  }
 
   await writeFlowPackage(albumId, (pkg) => {
     const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
@@ -333,6 +378,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     list[idx] = {
       ...list[idx],
       status: 'completed',
+      photoDraft: incomingDraft,
     }
     unlockNextNode(list, idx)
 
@@ -342,7 +388,10 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
         const draft = buildInspectionReportPayload({
           vehicle,
           albumNodes: nodes,
-          chiefComplaint: String(payload.chiefComplaint || ''),
+          photoDraft: incomingDraft,
+          chiefComplaint: incomingDraft.chiefComplaint,
+          findings: incomingDraft.findings,
+          conclusion: incomingDraft.conclusion,
         })
         list[reportIdx] = {
           ...list[reportIdx],
@@ -376,6 +425,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
               workOrder.document.payload.items) ||
             [],
           deliveryImages: (delivery && delivery.images) || [],
+          photoDraft: incomingDraft,
+          confirmCopy: incomingDraft.confirmCopy,
         })
         list[repairIdx] = {
           ...list[repairIdx],

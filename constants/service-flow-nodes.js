@@ -19,9 +19,9 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车与检测',
     legacyStageIds: ['stage_1', 'stage_2'],
-    photoTips: '接车拍里程与外观；检测拍故障点；每张写本图说明',
+    photoTips: '接车拍里程与外观；检测拍故障点；写清主诉与每张检测图的部位/现象/结果/建议',
     captionPlaceholder: '本图说明',
-    description: '上传接车、检测照片，每张写一句说明；确认后生成检测报告。',
+    description: '本步写齐主诉与检测发现项；确认后自动生成完整检测报告（之后可微调）。',
   },
   {
     kind: 'inspection_report',
@@ -29,6 +29,7 @@ const STANDARD_FLOW_CHAIN = [
     title: '检测报告',
     docType: 'inspection_report',
     requiresConfirm: true,
+    description: '核对并微调检测报告后发给车主确认。',
   },
   {
     kind: 'quote_confirm',
@@ -57,8 +58,9 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '完工照',
     legacyStageIds: ['stage_6'],
-    photoTips: '试车、交车外观；每张写本图说明',
+    photoTips: '试车、交车外观；每张写本图说明，并填写质保要点',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
+    description: '本步上传完工照并填写质保；确认后自动生成完整维修报告（之后可微调）。',
   },
   {
     kind: 'repair_report',
@@ -66,6 +68,7 @@ const STANDARD_FLOW_CHAIN = [
     title: '维修报告（含质保）',
     docType: 'repair_report',
     requiresConfirm: true,
+    description: '核对并微调维修报告与质保后发给车主确认。',
   },
 ]
 

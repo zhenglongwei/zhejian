@@ -35,6 +35,21 @@
         >
           <view slot="active" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
+              <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <view class="merchant-flow-page__hint">
+                  <text class="text-caption">本步写齐主诉与每张检测图的部位/现象/结果/建议后，确认将自动生成完整检测报告（之后仍可改）。</text>
+                </view>
+                <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
+                  value="{{chiefComplaint}}"
+                  maxlength="300"
+                  placeholder="例：怠速抖动、机油灯亮、客户反映刹车异响"
+                  disabled="{{readOnly}}"
+                  bindinput="onChiefComplaintInput"
+                />
+              </view>
+
               <view
                 wx:for="{{sections}}"
                 wx:for-item="section"
@@ -49,11 +64,121 @@
                   captionPlaceholder="{{section.captionPlaceholder}}"
                   images="{{section.images}}"
                   maxCount="{{12}}"
-                  enableCaption="{{true}}"
+                  enableCaption="{{!section.findingMode}}"
                   data-index="{{sectionIndex}}"
                   bind:imageschange="onSectionImagesChange"
                 />
+                <block wx:if="{{section.findingMode}}">
+                  <text class="text-body merchant-flow-page__label">检测发现项（必填）</text>
+                  <view wx:if="{{!section.findings.length}}" class="text-caption text-secondary">请先上传检测照片</view>
+                  <view
+                    wx:for="{{section.findings}}"
+                    wx:for-item="finding"
+                    wx:for-index="findingIndex"
+                    wx:key="url"
+                    class="merchant-flow-page__finding-card"
+                  >
+                    <view class="merchant-flow-page__finding-head">
+                      <image class="merchant-flow-page__finding-img image-placeholder" src="{{finding.url}}" mode="aspectFill" />
+                      <text class="text-caption text-secondary">第 {{findingIndex + 1}} 项</text>
+                    </view>
+                    <input
+                      class="merchant-flow-page__input"
+                      placeholder="检查部位/项目（必填）"
+                      value="{{finding.partName}}"
+                      data-section-index="{{sectionIndex}}"
+                      data-finding-index="{{findingIndex}}"
+                      data-field="partName"
+                      disabled="{{readOnly}}"
+                      bindinput="onSectionFindingFieldInput"
+                    />
+                    <input
+                      class="merchant-flow-page__input"
+                      placeholder="现象/症状（必填）"
+                      value="{{finding.symptom}}"
+                      data-section-index="{{sectionIndex}}"
+                      data-finding-index="{{findingIndex}}"
+                      data-field="symptom"
+                      disabled="{{readOnly}}"
+                      bindinput="onSectionFindingFieldInput"
+                    />
+                    <input
+                      class="merchant-flow-page__input"
+                      placeholder="检查结果（必填）"
+                      value="{{finding.result}}"
+                      data-section-index="{{sectionIndex}}"
+                      data-finding-index="{{findingIndex}}"
+                      data-field="result"
+                      disabled="{{readOnly}}"
+                      bindinput="onSectionFindingFieldInput"
+                    />
+                    <input
+                      class="merchant-flow-page__input"
+                      placeholder="处理建议（必填）"
+                      value="{{finding.advice}}"
+                      data-section-index="{{sectionIndex}}"
+                      data-finding-index="{{findingIndex}}"
+                      data-field="advice"
+                      disabled="{{readOnly}}"
+                      bindinput="onSectionFindingFieldInput"
+                    />
+                  </view>
+                </block>
               </view>
+
+              <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <text class="text-body merchant-flow-page__label">结论（可选）</text>
+                <textarea
+                  class="merchant-flow-page__textarea"
+                  value="{{conclusion}}"
+                  maxlength="500"
+                  placeholder="一句话总结，可空"
+                  disabled="{{readOnly}}"
+                  bindinput="onConclusionInput"
+                />
+              </view>
+
+              <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
+                <view class="merchant-flow-page__hint">
+                  <text class="text-caption">本步填写质保要点，确认后自动生成完整维修报告（之后仍可改）。</text>
+                </view>
+                <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
+                <input
+                  class="merchant-flow-page__input"
+                  placeholder="例：90 天 / 5000 公里（以先到为准）"
+                  value="{{warrantyPeriod}}"
+                  data-field="warrantyPeriod"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">质保范围（必填）</text>
+                <input
+                  class="merchant-flow-page__input"
+                  placeholder="例：本次已确认施工项目"
+                  value="{{warrantyScope}}"
+                  data-field="warrantyScope"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">质保除外（可选）</text>
+                <input
+                  class="merchant-flow-page__input"
+                  placeholder="例：外力撞击、涉水、未按约定使用等除外"
+                  value="{{warrantyExclusions}}"
+                  data-field="warrantyExclusions"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">确认文案</text>
+                <textarea
+                  class="merchant-flow-page__textarea"
+                  value="{{confirmCopy}}"
+                  maxlength="800"
+                  disabled="{{readOnly}}"
+                  bindinput="onConfirmCopyInput"
+                />
+              </view>
+
               <text wx:if="{{autoSaveLabel}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
               <ui-button
                 wx:if="{{!readOnly}}"
@@ -62,25 +187,25 @@
                 loading="{{confirming}}"
                 disabled="{{confirming}}"
                 bind:btntap="onConfirmPhotoStep"
-              >确认本步并继续</ui-button>
+              >{{photoConfirmLabel}}</ui-button>
             </block>
 
             <block wx:elif="{{activeKind === 'inspection_report'}}">
               <view class="merchant-flow-page__doc-block">
                 <view class="merchant-flow-page__hint">
-                  <text class="text-caption">须填写主诉，并为每张检测图写清：部位、现象/症状、检查结果、处理建议。缺项无法代确认。</text>
+                  <text class="text-caption">已由「接车与检测」自动生成。可在此微调后发给车主或代确认。</text>
                 </view>
-                <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
+                <text class="text-body merchant-flow-page__label">进店主诉 / 症状</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
                   maxlength="300"
-                  placeholder="例：怠速抖动、机油灯亮、客户反映刹车异响"
+                  placeholder="例：怠速抖动、机油灯亮"
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
                 />
-                <text class="text-body merchant-flow-page__label">发现项（来自检测照片）</text>
-                <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无检测照片，请先完成接车与检测</view>
+                <text class="text-body merchant-flow-page__label">发现项</text>
+                <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无发现项</view>
                 <view wx:for="{{findings}}" wx:key="url" class="merchant-flow-page__finding-card">
                   <view class="merchant-flow-page__finding-head">
                     <image class="merchant-flow-page__finding-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
@@ -88,7 +213,7 @@
                   </view>
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="检查部位/项目（必填）"
+                    placeholder="检查部位/项目"
                     value="{{item.partName}}"
                     data-index="{{index}}"
                     data-field="partName"
@@ -97,7 +222,7 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="现象/症状（必填，如：液位低于下限）"
+                    placeholder="现象/症状"
                     value="{{item.symptom}}"
                     data-index="{{index}}"
                     data-field="symptom"
@@ -106,7 +231,7 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="检查结果（必填，如：滤芯堵塞）"
+                    placeholder="检查结果"
                     value="{{item.result}}"
                     data-index="{{index}}"
                     data-field="result"
@@ -115,7 +240,7 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="处理建议（必填，如：建议更换机油滤芯）"
+                    placeholder="处理建议"
                     value="{{item.advice}}"
                     data-index="{{index}}"
                     data-field="advice"
@@ -143,7 +268,10 @@
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
               <view class="merchant-flow-page__doc-block">
-                <text class="text-body merchant-flow-page__label">报价项目（手填）</text>
+                <view class="merchant-flow-page__hint">
+                  <text class="text-caption">已按检测建议预填行项，请核对价格与项目后发给车主。</text>
+                </view>
+                <text class="text-body merchant-flow-page__label">报价项目</text>
                 <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
                   <input
                     class="merchant-flow-page__input"
@@ -201,11 +329,37 @@
 
             <block wx:elif="{{activeKind === 'repair_report'}}">
               <view class="merchant-flow-page__doc-block">
+                <view class="merchant-flow-page__hint">
+                  <text class="text-caption">已由「完工照」自动生成。可在此微调质保与确认文案后发给车主。</text>
+                </view>
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name">
                   <text class="text-body">{{item.name}}</text>
                 </view>
-                <text class="text-caption text-secondary">质保：{{docPayload.warrantyPeriod}} · {{docPayload.warrantyScope}}</text>
+                <text class="text-body merchant-flow-page__label">质保期限</text>
+                <input
+                  class="merchant-flow-page__input"
+                  value="{{warrantyPeriod}}"
+                  data-field="warrantyPeriod"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">质保范围</text>
+                <input
+                  class="merchant-flow-page__input"
+                  value="{{warrantyScope}}"
+                  data-field="warrantyScope"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
+                <text class="text-body merchant-flow-page__label">质保除外</text>
+                <input
+                  class="merchant-flow-page__input"
+                  value="{{warrantyExclusions}}"
+                  data-field="warrantyExclusions"
+                  disabled="{{readOnly}}"
+                  bindinput="onWarrantyFieldInput"
+                />
                 <text class="text-body merchant-flow-page__label">确认文案</text>
                 <textarea
                   class="merchant-flow-page__textarea"
