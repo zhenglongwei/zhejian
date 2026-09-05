@@ -309,6 +309,23 @@ async function completeMerchantFlowNode(albumId, nodeId, payload = {}) {
   )
 }
 
+async function deliverMerchantFlowNode(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { message: '已送达', node: { id: nodeId, document: { status: 'delivered' } } }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/deliver`,
+    withStore(payload),
+  )
+}
+
+async function insertMerchantAddonPlan(albumId) {
+  if (ENV.mode === 'mock') {
+    return { flowNodes: [], message: '已添加增项方案' }
+  }
+  return post(`/merchant/service-albums/${albumId}/flow/addon-plan`, withStore({}))
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -346,4 +363,6 @@ module.exports = {
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   completeMerchantFlowNode,
+  deliverMerchantFlowNode,
+  insertMerchantAddonPlan,
 }

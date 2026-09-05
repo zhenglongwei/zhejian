@@ -148,10 +148,21 @@ async function interpretOwnerAlbumVision(albumId, payload = {}) {
   })
 }
 
+async function confirmOwnerFlowDocument(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { node: null, ownerFlow: { docs: [], pendingConfirmCount: 0 } }
+  }
+  return post(
+    `/user/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/confirm`,
+    payload,
+  )
+}
+
 module.exports = {
   fetchUserServiceAlbums,
   fetchServiceAlbum,
   submitPartConfirm,
+  confirmOwnerFlowDocument,
   submitServiceAlbumAuthorization,
   prepareServiceAuthorizePreview,
   fetchUserAuthorizations,

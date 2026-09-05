@@ -853,6 +853,42 @@ router.post(
 )
 
 router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/deliver',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { deliverFlowDocument } = require('../services/service-flow.service')
+      const data = await deliverFlowDocument(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.body || {},
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/flow/addon-plan',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { insertAddonPlan } = require('../services/service-flow.service')
+      const data = await insertAddonPlan(req.params.albumId, storeId, req.auth.merchantId)
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/hard-delete',
   requireAuth(['merchant']),
   async (req, res, next) => {

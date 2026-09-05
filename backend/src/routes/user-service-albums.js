@@ -122,6 +122,25 @@ router.post('/service-albums/:albumId/confirm', requireAuth(['user']), async (re
   }
 })
 
+router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/confirm',
+  requireAuth(['user']),
+  async (req, res, next) => {
+    try {
+      const { ownerConfirmFlowDocument } = require('../services/service-flow.service')
+      const data = await ownerConfirmFlowDocument(
+        req.params.albumId,
+        req.auth.userId,
+        req.params.nodeId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post('/service-albums/:albumId/authorization', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await submitServiceAlbumAuthorization(

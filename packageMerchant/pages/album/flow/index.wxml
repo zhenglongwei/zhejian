@@ -175,6 +175,13 @@
 
               <text wx:if="{{autoSaveLabel}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
               <ui-button
+                wx:if="{{!readOnly && isWorkPhotoStep}}"
+                type="ghost"
+                block="{{true}}"
+                loading="{{confirming}}"
+                bind:btntap="onAddAddonPlan"
+              >添加方案</ui-button>
+              <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
                 block="{{true}}"
@@ -186,7 +193,8 @@
 
             <block wx:elif="{{activeKind === 'inspection_report'}}">
               <view class="merchant-flow-page__doc-block">
-                <text class="text-body merchant-flow-page__label">进店主诉 / 症状</text>
+                <text class="text-caption text-secondary">{{docPayload.vehicleBrand}} {{docPayload.vehicleSeries}} · {{docPayload.mileageText}}</text>
+                <text class="text-body merchant-flow-page__label">进店主诉</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
@@ -252,14 +260,13 @@
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
-                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
-                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
+                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onDeliverReport">送达车主</ui-button>
               </view>
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
               <view class="merchant-flow-page__doc-block">
-                <text class="text-body merchant-flow-page__label">报价项目</text>
+                <text class="text-body merchant-flow-page__label">方案项目</text>
                 <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
                   <input
                     class="merchant-flow-page__input"
@@ -272,21 +279,32 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="参考价/说明"
-                    value="{{item.priceHint}}"
+                    placeholder="金额（元）"
+                    type="digit"
+                    value="{{item.amount}}"
                     data-index="{{index}}"
-                    data-field="priceHint"
+                    data-field="amount"
+                    disabled="{{readOnly}}"
+                    bindinput="onQuoteLineInput"
+                  />
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="说明（选填）"
+                    value="{{item.note}}"
+                    data-index="{{index}}"
+                    data-field="note"
                     disabled="{{readOnly}}"
                     bindinput="onQuoteLineInput"
                   />
                 </view>
+                <text class="text-body merchant-flow-page__quote-total">{{quoteTotalLabel}}</text>
                 <ui-button wx:if="{{!readOnly}}" type="ghost" block="{{true}}" bind:btntap="onAddQuoteLine">添加一行</ui-button>
                 <text class="text-body merchant-flow-page__label">确认文案</text>
                 <textarea
                   class="merchant-flow-page__textarea"
                   value="{{confirmCopy}}"
                   maxlength="800"
-                  placeholder="确认按上述方案施工…"
+                  placeholder="本人同意按上述项目施工，费用以本单为准。"
                   disabled="{{readOnly}}"
                   bindinput="onConfirmCopyInput"
                 />
@@ -294,6 +312,7 @@
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
                 <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
+                <ui-button type="ghost" block="{{true}}" loading="{{confirming}}" bind:btntap="onSendForOwnerConfirm">发送车主</ui-button>
                 <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
               </view>
             </block>
@@ -302,9 +321,10 @@
               <view class="merchant-flow-page__doc-block">
                 <view wx:for="{{docPayload.items}}" wx:key="name" class="merchant-flow-page__work-item">
                   <text class="text-body">{{item.name}}</text>
+                  <text class="text-caption">¥{{item.amount}}</text>
                   <text class="text-caption text-secondary">{{item.note}}</text>
                 </view>
-                <text wx:if="{{!docPayload.items.length}}" class="text-caption text-secondary">报价确认后自动带入施工项</text>
+                <text wx:if="{{!docPayload.items || !docPayload.items.length}}" class="text-caption text-secondary">方案确认后自动带入</text>
               </view>
               <ui-button
                 wx:if="{{!readOnly}}"
@@ -312,15 +332,17 @@
                 block="{{true}}"
                 loading="{{confirming}}"
                 bind:btntap="onMarkWorkOrderDone"
-              >确认工单并开始施工</ui-button>
+              >开始施工</ui-button>
             </block>
 
             <block wx:elif="{{activeKind === 'repair_report'}}">
               <view class="merchant-flow-page__doc-block">
                 <text class="text-caption text-secondary">已施工项目</text>
-                <view wx:for="{{docPayload.workItems}}" wx:key="name">
+                <view wx:for="{{docPayload.workItems}}" wx:key="name" class="merchant-flow-page__work-item">
                   <text class="text-body">{{item.name}}</text>
+                  <text class="text-caption">¥{{item.amount}}</text>
                 </view>
+                <text class="text-body merchant-flow-page__label">合计 ¥{{docPayload.totalAmount}}</text>
                 <text class="text-body merchant-flow-page__label">质保期限</text>
                 <input
                   class="merchant-flow-page__input"
@@ -357,6 +379,7 @@
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
                 <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
+                <ui-button type="ghost" block="{{true}}" loading="{{confirming}}" bind:btntap="onSendForOwnerConfirm">发送车主</ui-button>
                 <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
               </view>
             </block>

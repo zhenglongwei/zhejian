@@ -500,6 +500,15 @@ function buildAlbumView(album) {
   const quality = assessPublicCaseQuality(view)
   const workChecklist = buildOwnerWorkChecklistView(album, imageMeta)
 
+  const ownerFlow = (() => {
+    try {
+      const { buildOwnerFlowView } = require('./service-flow.service')
+      return buildOwnerFlowView(album, nodes)
+    } catch (_) {
+      return { flowVersion: 0, usesFlowTimeline: false, docs: [], pendingConfirmCount: 0 }
+    }
+  })()
+
   return {
     ...view,
     ...summaryFields,
@@ -507,6 +516,8 @@ function buildAlbumView(album) {
     planPartsLocked: planCtx.planPartsLocked,
     planPartsLockedAt: planCtx.planPartsLockedAt,
     workChecklist,
+    ownerFlow,
+    usesFlowTimeline: Boolean(ownerFlow.usesFlowTimeline),
     ...quality,
     ...buildUserAlbumComplianceFields(album, quality),
     ...buildUserAlbumGateBFields(album),

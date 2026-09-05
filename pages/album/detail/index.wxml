@@ -40,7 +40,14 @@
         class="album-detail__checklist-scroll"
         show-scrollbar="{{false}}"
       >
+        <album-service-flow
+          wx:if="{{showOwnerFlow}}"
+          docs="{{ownerFlowDocs}}"
+          confirmingId="{{flowConfirmingId}}"
+          bind:confirm="onOwnerFlowConfirm"
+        />
         <album-work-checklist
+          wx:if="{{hasWorkChecklist}}"
           categoryLabel="{{workChecklistCategoryLabel}}"
           cards="{{workChecklistCards}}"
           items="{{workChecklistItems}}"

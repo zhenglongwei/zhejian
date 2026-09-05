@@ -6,6 +6,8 @@ const {
   completeMerchantFlowNode,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
+  deliverMerchantFlowNode,
+  insertMerchantAddonPlan,
 } = require('../../../../services/merchant-service-album')
 const {
   SERVICE_ALBUM_STATUS,
@@ -17,8 +19,11 @@ const { buildFlowProgressView } = require('../../../../utils/service-flow-progre
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
+  collectQuoteConfirmGaps,
   normalizeFinding,
+  normalizeQuoteLine,
   mapFindingRows,
+  sumQuoteAmounts,
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-nav')
@@ -70,6 +75,8 @@ Page({
     activeIsDoc: false,
     isIntakePhotoStep: false,
     isDeliveryPhotoStep: false,
+    isWorkPhotoStep: false,
+    quoteTotalLabel: '',
     photoConfirmLabel: '确认并继续',
     sections: [],
     docPayload: {},
@@ -216,6 +223,7 @@ Page({
       const isDeliveryPhotoStep = Boolean(
         activeIsPhoto && active && active.kind === 'delivery_photos',
       )
+      const isWorkPhotoStep = Boolean(activeIsPhoto && active && active.kind === 'work')
       const completedSteps = (progress.completedSteps || []).map((step) => ({
         ...step,
         summary: step.summary || step.desc || '已完成',
@@ -229,6 +237,7 @@ Page({
       let warrantyScope = ''
       let warrantyExclusions = ''
       let sections = []
+      let quoteLines = [{ name: '', amount: '', note: '' }]
 
       if (activeIsPhoto && active) {
         sections = this.buildSections(album, active, photoDraft)
@@ -251,10 +260,17 @@ Page({
           : []
         chiefComplaint = docPayload.chiefComplaint || ''
         conclusion = docPayload.conclusion || ''
-        confirmCopy = docPayload.confirmCopy || ''
+        confirmCopy =
+          docPayload.confirmCopy ||
+          (active.kind === 'quote_confirm'
+            ? '本人同意按上述项目施工，费用以本单为准。'
+            : docPayload.confirmCopy || '')
         warrantyPeriod = docPayload.warrantyPeriod || ''
         warrantyScope = docPayload.warrantyScope || ''
         warrantyExclusions = docPayload.warrantyExclusions || ''
+        if (Array.isArray(docPayload.lines) && docPayload.lines.length) {
+          quoteLines = docPayload.lines.map((line) => normalizeQuoteLine(line))
+        }
       }
 
       this.setData({
@@ -274,14 +290,14 @@ Page({
         activeIsDoc,
         isIntakePhotoStep,
         isDeliveryPhotoStep,
+        isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
         sections,
         docPayload,
         findings,
         chiefComplaint,
-        quoteLines: Array.isArray(docPayload.lines) && docPayload.lines.length
-          ? docPayload.lines
-          : [{ name: '', note: '', priceHint: '' }],
+        quoteLines,
+        quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
         conclusion,
         confirmCopy,
         warrantyPeriod,
@@ -495,12 +511,17 @@ Page({
     const quoteLines = this.data.quoteLines.map((line, i) =>
       i === index ? { ...line, [field]: e.detail.value } : line,
     )
-    this.setData({ quoteLines })
+    this.setData({
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+    })
   },
 
   onAddQuoteLine() {
+    const quoteLines = this.data.quoteLines.concat([{ name: '', amount: '', note: '' }])
     this.setData({
-      quoteLines: this.data.quoteLines.concat([{ name: '', note: '', priceHint: '' }]),
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
     })
   },
 
@@ -672,12 +693,14 @@ Page({
       }
     }
     if (kind === 'quote_confirm') {
+      const lines = this.data.quoteLines
+        .map((l) => normalizeQuoteLine(l))
+        .filter((l) => String(l.name || '').trim())
       return {
         ...base,
-        lines: this.data.quoteLines.filter((l) => String(l.name || '').trim()),
+        lines,
         confirmCopy:
-          this.data.confirmCopy ||
-          '确认按上述方案施工；费用以到店实际结算为准；配件说明以门店告知为准。',
+          this.data.confirmCopy || '本人同意按上述项目施工，费用以本单为准。',
       }
     }
     if (kind === 'repair_report') {
@@ -695,21 +718,34 @@ Page({
     return base
   },
 
-  async onSaveDocDraft() {
-    if (this.data.readOnly || this.data.saving) return
-    this.setData({ saving: true })
+  async onDeliverReport() {
+    if (this.data.readOnly || this.data.confirming) return
+    const gaps = collectInspectionReportGaps(this.buildDocPayloadForSave())
+    if (gaps.length) {
+      wx.showModal({
+        title: '请先补全',
+        content: gaps.slice(0, 4).join('\n'),
+        showCancel: false,
+      })
+      return
+    }
+    this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: {
-          status: this.data.activeNode.document.status || 'draft',
+          status: 'draft',
           payload: this.buildDocPayloadForSave(),
         },
       })
-      wx.showToast({ title: '已保存', icon: 'success' })
+      const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: { payload: this.buildDocPayloadForSave() },
+      })
+      wx.showToast({ title: (res && res.message) || '已送达', icon: 'success' })
+      await this.loadFlow({ silent: true })
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
-      this.setData({ saving: false })
+      this.setData({ confirming: false })
     }
   },
 
@@ -724,12 +760,110 @@ Page({
         },
         markComplete: true,
       })
-      wx.showToast({ title: '工单已确认，可开始施工', icon: 'success' })
+      wx.showToast({ title: '可以开始施工', icon: 'success' })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
+    }
+  },
+
+  async onAddAddonPlan() {
+    if (this.data.readOnly || this.data.confirming) return
+    this.setData({ confirming: true })
+    try {
+      await insertMerchantAddonPlan(this.albumId)
+      wx.showToast({ title: '请填写增项方案', icon: 'none' })
+      await this.loadFlow({ silent: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  async onSendForOwnerConfirm() {
+    if (this.data.readOnly || this.data.confirming) return
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind === 'quote_confirm') {
+      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
+      if (gaps.length) {
+        wx.showModal({
+          title: '请先补全方案',
+          content: gaps.slice(0, 4).join('\n'),
+          showCancel: false,
+        })
+        return
+      }
+    }
+    this.setData({ confirming: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: {
+          status: 'pending_confirm',
+          payload: this.buildDocPayloadForSave(),
+        },
+      })
+      wx.showToast({ title: '已发送', icon: 'success' })
+      await this.loadFlow({ silent: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  async onProxyConfirm() {
+    if (this.data.readOnly || this.data.confirming) return
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind === 'quote_confirm') {
+      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
+      if (gaps.length) {
+        wx.showModal({
+          title: '请先补全方案',
+          content: gaps.slice(0, 4).join('\n'),
+          showCancel: false,
+        })
+        return
+      }
+    }
+    this.setData({ confirming: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: {
+          status: 'pending_confirm',
+          payload: this.buildDocPayloadForSave(),
+        },
+      })
+      await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
+        document: { payload: this.buildDocPayloadForSave() },
+      })
+      wx.showToast({ title: '已代确认', icon: 'success' })
+      await this.loadFlow({ silent: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  async onSaveDocDraft() {
+    if (this.data.readOnly || this.data.saving) return
+    this.setData({ saving: true })
+    try {
+      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+        document: {
+          status: (this.data.activeNode.document && this.data.activeNode.document.status) || 'draft',
+          payload: this.buildDocPayloadForSave(),
+        },
+      })
+      wx.showToast({ title: '已保存', icon: 'success' })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
+    } finally {
+      this.setData({ saving: false })
     }
   },
 
@@ -755,49 +889,6 @@ Page({
         }
       },
     })
-  },
-
-  async onProxyConfirm() {
-    if (this.data.readOnly || this.data.confirming) return
-    const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind === 'inspection_report') {
-      const gaps = collectInspectionReportGaps(this.buildDocPayloadForSave())
-      if (gaps.length) {
-        wx.showModal({
-          title: '检测报告未填完整',
-          content: `${gaps.slice(0, 4).join('\n')}${gaps.length > 4 ? `\n…共 ${gaps.length} 项` : ''}`,
-          showCancel: false,
-          confirmText: '去补全',
-        })
-        return
-      }
-    }
-    if (kind === 'quote_confirm') {
-      const lines = this.data.quoteLines.filter((l) => String(l.name || '').trim())
-      if (!lines.length) {
-        wx.showToast({ title: '请至少填写一行报价项目', icon: 'none' })
-        return
-      }
-    }
-    this.setData({ confirming: true })
-    try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: {
-          status: 'pending_confirm',
-          payload: this.buildDocPayloadForSave(),
-        },
-      })
-      await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
-        document: { payload: this.buildDocPayloadForSave() },
-      })
-      wx.showToast({ title: '已代确认', icon: 'success' })
-      await this.loadFlow({ silent: true })
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ confirming: false })
-    }
   },
 
   onOpenLegacyEdit() {

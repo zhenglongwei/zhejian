@@ -2,7 +2,7 @@
  * DOC-FLOW · 服务相册事件节点链（拍照节点 + 单据节点）
  * 真源：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md
  */
-const FLOW_VERSION = 3
+const FLOW_VERSION = 4
 
 const NODE_CATEGORY = {
   PHOTO: 'photo',
@@ -12,7 +12,7 @@ const NODE_CATEGORY = {
 const INSPECTION_DISCLAIMER =
   '本次说明仅针对已拍摄部位；未拍照部位不构成全车体检结论。'
 
-/** 标准链（7 步 · 质保并入维修报告） */
+/** 标准链（7 步 · 质保并入完工确认） */
 const STANDARD_FLOW_CHAIN = [
   {
     kind: 'intake_inspection',
@@ -28,13 +28,14 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.DOCUMENT,
     title: '检测报告',
     docType: 'inspection_report',
-    requiresConfirm: true,
+    requiresConfirm: false,
+    deliverable: true,
     description: '',
   },
   {
     kind: 'quote_confirm',
     nodeCategory: NODE_CATEGORY.DOCUMENT,
-    title: '报价确认单',
+    title: '方案确认',
     docType: 'quote_confirm',
     requiresConfirm: true,
   },
@@ -65,7 +66,7 @@ const STANDARD_FLOW_CHAIN = [
   {
     kind: 'repair_report',
     nodeCategory: NODE_CATEGORY.DOCUMENT,
-    title: '维修报告（含质保）',
+    title: '完工确认',
     docType: 'repair_report',
     requiresConfirm: true,
     description: '',
@@ -156,14 +157,12 @@ function resolveLegacyStageIdForFlowNode(node = {}) {
   return ids[0] || ''
 }
 
+/** 需车主确认：仅方案确认、完工确认（及增项方案） */
 function requiresOwnerConfirm(node = {}) {
   const meta = getFlowKindMeta(node.kind)
-  if (meta && meta.requiresConfirm) return true
-  const doc = node.document
-  if (!doc) return false
-  return ['inspection_report', 'quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(
-    doc.docType || node.kind,
-  )
+  if (meta && typeof meta.requiresConfirm === 'boolean') return meta.requiresConfirm
+  const docType = (node.document && node.document.docType) || node.kind
+  return ['quote_confirm', 'repair_report', 'addon_quote_confirm'].includes(docType)
 }
 
 module.exports = {

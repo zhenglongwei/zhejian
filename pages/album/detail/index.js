@@ -7,6 +7,7 @@ const {
   blockPublicCase,
   takedownPublicCase,
   interpretOwnerAlbumVision,
+  confirmOwnerFlowDocument,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -427,6 +428,9 @@ Page({
     workChecklistCategoryLabel: '',
     workChecklistItems: [],
     workChecklistCards: [],
+    showOwnerFlow: false,
+    ownerFlowDocs: [],
+    flowConfirmingId: '',
     warrantyText: '',
     warrantyImages: [],
     reviewNudgeText: REVIEW_NUDGE_TEXT,
@@ -723,6 +727,12 @@ Page({
       const hasWorkChecklist =
         displayCards.length > 0 || workItems.length > 0 || hasWarranty
       const viewMode = 'checklist'
+      const ownerFlow = (detail && detail.ownerFlow) || {}
+      const ownerFlowDocs = Array.isArray(ownerFlow.docs) ? ownerFlow.docs : []
+      const showOwnerFlow = Boolean(ownerFlow.usesFlowTimeline && ownerFlowDocs.length)
+      if (showOwnerFlow && pageStatus === 'empty') {
+        // 有逐步单据时不以「暂无照片」空态拦截
+      }
 
       this.setData({
         detail: enriched,
@@ -752,7 +762,7 @@ Page({
         shareHonorHint: HONOR_HINT,
         authChecked: false,
         authSheetVisible: false,
-        status: pageStatus,
+        status: showOwnerFlow && pageStatus === 'empty' ? 'normal' : pageStatus,
         shareReady: false,
         shareToken: '',
         shareSheetVisible: false,
@@ -762,6 +772,9 @@ Page({
         workChecklistCategoryLabel: (workRaw && workRaw.categoryLabel) || '',
         workChecklistItems: workItems,
         workChecklistCards: displayCards,
+        showOwnerFlow,
+        ownerFlowDocs,
+        flowConfirmingId: '',
         warrantyText,
         warrantyImages,
         ...endPageAuth,
@@ -1175,6 +1188,33 @@ Page({
     const key = e.detail && e.detail.key
     if (!key) return
     runGateUserAction(this, key, this.data.detail || {})
+  },
+
+  async onOwnerFlowConfirm(e) {
+    const nodeId = e && e.detail && e.detail.nodeId
+    if (!nodeId || this.data.flowConfirmingId) return
+    if (!isLoggedIn() || !checkAuth({ needPhone: true }).ok) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    this.setData({ flowConfirmingId: nodeId })
+    try {
+      const res = await confirmOwnerFlowDocument(this.albumId, nodeId)
+      const ownerFlow = (res && res.ownerFlow) || {}
+      const docs = Array.isArray(ownerFlow.docs) ? ownerFlow.docs : null
+      if (docs) {
+        this.setData({
+          ownerFlowDocs: docs,
+          showOwnerFlow: docs.length > 0,
+        })
+      }
+      wx.showToast({ title: '已确认', icon: 'success' })
+      await this.loadAlbum()
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '确认失败', icon: 'none' })
+    } finally {
+      this.setData({ flowConfirmingId: '' })
+    }
   },
 
   onRetry() {
