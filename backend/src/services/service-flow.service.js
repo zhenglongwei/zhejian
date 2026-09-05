@@ -18,6 +18,8 @@ const {
   buildInspectionReportPayload,
   buildWorkOrderPayloadFromQuote,
   buildRepairReportPayload,
+  buildQuoteLinesFromFindings,
+  collectInspectionReportGaps,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone } = resolveShared(
@@ -435,6 +437,16 @@ async function proxyConfirmFlowDocument(
       ...(prevDoc.payload || {}),
       ...((payload.document && payload.document.payload) || {}),
     }
+
+    if (nodes[index].kind === 'inspection_report') {
+      const gaps = collectInspectionReportGaps(mergedPayload)
+      if (gaps.length) {
+        const err = new Error(gaps[0] || '检测报告未填完整')
+        err.status = 400
+        throw err
+      }
+    }
+
     nodes[index] = {
       ...nodes[index],
       status: 'completed',
@@ -448,6 +460,30 @@ async function proxyConfirmFlowDocument(
       },
     }
     unlockNextNode(nodes, index)
+
+    if (nodes[index].kind === 'inspection_report') {
+      const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm')
+      if (quoteIdx >= 0) {
+        const lines = buildQuoteLinesFromFindings(mergedPayload.findings)
+        const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
+        nodes[quoteIdx] = {
+          ...nodes[quoteIdx],
+          status: 'in_progress',
+          document: {
+            ...prevQuoteDoc,
+            status: 'draft',
+            payload: {
+              ...(prevQuoteDoc.payload || {}),
+              lines: lines.length ? lines : [{ name: '', note: '', priceHint: '' }],
+              confirmCopy:
+                (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+                '确认按上述方案施工；费用以到店实际结算为准；配件说明以门店告知为准。',
+              evidenceRef: id,
+            },
+          },
+        }
+      }
+    }
 
     if (nodes[index].kind === 'quote_confirm') {
       const orderIdx = nodes.findIndex((n) => n.kind === 'work_order')

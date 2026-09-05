@@ -14,14 +14,34 @@ const {
 } = require('../../../../constants/service-album-status')
 const { resolveLegacyStageIdsForFlowNode } = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
+const {
+  collectInspectionReportGaps,
+  normalizeFinding,
+} = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-nav')
 
 const STAGE_LABELS = {
-  stage_1: { title: '接车照片', tips: '里程表必拍；外观、故障部位；每张写本图说明' },
-  stage_2: { title: '检测照片', tips: '故障点、读数、对比；每张写本图说明' },
-  stage_5: { title: '施工过程', tips: '拆装、新旧对比；每张写本图说明' },
-  stage_6: { title: '完工照片', tips: '试车、交车；每张写本图说明' },
+  stage_1: {
+    title: '接车照片',
+    tips: '里程表必拍；外观、故障部位。每张写本图说明（如：里程 86420 公里）',
+    captionPlaceholder: '本图说明（如：里程 86420 公里）',
+  },
+  stage_2: {
+    title: '检测照片',
+    tips: '故障点、读数、对比。每张写清部位；报告中还需补症状、结果、建议',
+    captionPlaceholder: '检查部位/项目（如：机油液位、右前小连杆）',
+  },
+  stage_5: {
+    title: '施工过程',
+    tips: '拆装、新旧对比；每张写本图说明',
+    captionPlaceholder: '本图说明（选填）',
+  },
+  stage_6: {
+    title: '完工照片',
+    tips: '试车、交车；每张写本图说明',
+    captionPlaceholder: '本图说明（验收结论等，勿写金额）',
+  },
 }
 
 Page({
@@ -55,6 +75,9 @@ Page({
     confirmCopy: '',
     proxyProofImages: [],
     captionHint: '',
+    autoSaveLabel: '',
+    findings: [],
+    chiefComplaint: '',
     allDone: false,
   },
 
@@ -65,12 +88,11 @@ Page({
   },
 
   onShow() {
-    // #region agent log
-    const _sec = this.data.sections || []
-    const _imgN = _sec.reduce((n, s) => n + ((s.images && s.images.length) || 0), 0)
-    fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'A',location:'flow/index.js:onShow',message:'onShow fired',data:{loadedOnce:!!this._loadedOnce,sectionCount:_sec.length,localImageCount:_imgN,willReload:!!this._loadedOnce},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
-    if (this._loadedOnce) this.loadFlow({ silent: true })
+    // 选图/预览会触发 onShow；仅从「高级编辑」返回时才静默刷新，避免冲掉未保存本地图
+    if (this._loadedOnce && this._reloadOnShow) {
+      this._reloadOnShow = false
+      this.loadFlow({ silent: true })
+    }
   },
 
   async bootstrap() {
@@ -91,6 +113,7 @@ Page({
         stageId,
         title: meta.title,
         tips: meta.tips,
+        captionPlaceholder: meta.captionPlaceholder || '本图说明',
         images: (stage.images || []).map((img) => ({
           url: typeof img === 'string' ? img : img.url,
           caption: typeof img === 'object' ? img.caption || '' : '',
@@ -129,15 +152,6 @@ Page({
         summary: step.summary || step.desc || '已完成',
       }))
 
-      const nextSections = activeIsPhoto && active ? this.buildSections(album, active) : []
-      const nextImgN = nextSections.reduce((n, s) => n + ((s.images && s.images.length) || 0), 0)
-      const prevImgN = (this.data.sections || []).reduce(
-        (n, s) => n + ((s.images && s.images.length) || 0),
-        0,
-      )
-      // #region agent log
-      fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'A',location:'flow/index.js:loadFlow:setData',message:'loadFlow overwriting sections',data:{silent,prevImgN,nextImgN,activeIsPhoto,activeKind:(active&&active.kind)||'',activeTitle:(active&&active.title)||'',willWipeLocal:prevImgN>0&&nextImgN<prevImgN},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
@@ -153,8 +167,12 @@ Page({
         showActive: Boolean(active),
         activeIsPhoto,
         activeIsDoc,
-        sections: nextSections,
+        sections: activeIsPhoto && active ? this.buildSections(album, active) : [],
         docPayload,
+        findings: Array.isArray(docPayload.findings)
+          ? docPayload.findings.map((item) => normalizeFinding(item))
+          : [],
+        chiefComplaint: docPayload.chiefComplaint || '',
         quoteLines: Array.isArray(docPayload.lines) && docPayload.lines.length
           ? docPayload.lines
           : [{ name: '', note: '', priceHint: '' }],
@@ -169,6 +187,7 @@ Page({
             : '',
         lockedHint: progress.lockedHint || '完成当前步骤后，将自动出现下一步',
         captionHint: '',
+        autoSaveLabel: '',
         allDone: Boolean(progress.allDone),
       })
     } catch (e) {
@@ -190,14 +209,51 @@ Page({
   onSectionImagesChange(e) {
     if (this.data.readOnly) return
     const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
     const images = (e.detail && e.detail.images) || []
-    // #region agent log
-    fetch('http://127.0.0.1:7444/ingest/801a788a-6311-461e-a8c2-07503da5b635',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'af494f'},body:JSON.stringify({sessionId:'af494f',runId:'pre-fix',hypothesisId:'D',location:'flow/index.js:onSectionImagesChange',message:'imageschange received',data:{index,imageCount:images.length,sampleUrlPrefix:String((images[0]&&(images[0].url||images[0]))||'').slice(0,48),sectionCount:(this.data.sections||[]).length},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const sections = this.data.sections.map((section, i) =>
       i === index ? { ...section, images } : section,
     )
-    this.setData({ sections })
+    this.setData({ sections, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSavePhotos()
+    })
+  },
+
+  scheduleAutoSavePhotos() {
+    if (this._photoSaveTimer) clearTimeout(this._photoSaveTimer)
+    this._photoSaveTimer = setTimeout(() => {
+      this.runAutoSavePhotos()
+    }, 700)
+  },
+
+  async runAutoSavePhotos() {
+    if (this.data.readOnly || this._photoSaving) return
+    this._photoSaving = true
+    try {
+      await this.persistPhotos()
+      this._album = await fetchMerchantServiceAlbum(this.albumId)
+      this.setData({ autoSaveLabel: '已自动保存' })
+    } catch (e) {
+      this.setData({
+        autoSaveLabel: (e && e.message) || '自动保存失败，请检查网络',
+      })
+    } finally {
+      this._photoSaving = false
+    }
+  },
+
+  onChiefComplaintInput(e) {
+    this.setData({ chiefComplaint: e.detail.value })
+  },
+
+  onFindingFieldInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    if (!Number.isFinite(index) || !field) return
+    const findings = this.data.findings.map((item, i) =>
+      i === index ? { ...item, [field]: e.detail.value } : item,
+    )
+    this.setData({ findings })
   },
 
   onConclusionInput(e) {
@@ -229,7 +285,7 @@ Page({
     this.data.sections.forEach((section) => {
       sectionMap[section.stageId] = section.images
     })
-    const nodes = (album.nodes || []).map((node) => {
+    let nodes = (album.nodes || []).map((node) => {
       if (!sectionMap[node.id]) return node
       return {
         ...node,
@@ -237,6 +293,20 @@ Page({
         status: sectionMap[node.id].length ? 'completed' : 'pending',
         updatedAt: new Date().toISOString(),
       }
+    })
+    // 相册可能缺 stage 节点时补空壳，避免照片无法写入
+    Object.keys(sectionMap).forEach((stageId) => {
+      if (nodes.some((n) => n.id === stageId)) return
+      nodes = nodes.concat([
+        {
+          id: stageId,
+          title: (STAGE_LABELS[stageId] && STAGE_LABELS[stageId].title) || stageId,
+          status: sectionMap[stageId].length ? 'completed' : 'pending',
+          images: sectionMap[stageId],
+          note: '',
+          updatedAt: new Date().toISOString(),
+        },
+      ])
     })
     const { nodes: persisted } = await persistAlbumNodeImages(
       nodes.map((node) => ({
@@ -250,6 +320,7 @@ Page({
       })),
     )
     await saveMerchantServiceAlbum(this.albumId, { nodes: persisted })
+    this._album = { ...album, nodes: persisted }
   },
 
   countMissingCaptions() {
@@ -264,6 +335,10 @@ Page({
 
   async onConfirmPhotoStep() {
     if (this.data.readOnly || this.data.confirming) return
+    if (this._photoSaveTimer) {
+      clearTimeout(this._photoSaveTimer)
+      this._photoSaveTimer = null
+    }
     const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
     if (total < 1) {
       wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
@@ -301,7 +376,12 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     const base = { ...(this.data.docPayload || {}) }
     if (kind === 'inspection_report') {
-      return { ...base, conclusion: this.data.conclusion }
+      return {
+        ...base,
+        chiefComplaint: this.data.chiefComplaint,
+        findings: (this.data.findings || []).map((item) => normalizeFinding(item)),
+        conclusion: this.data.conclusion,
+      }
     }
     if (kind === 'quote_confirm') {
       return {
@@ -386,6 +466,18 @@ Page({
   async onProxyConfirm() {
     if (this.data.readOnly || this.data.confirming) return
     const kind = this.data.activeNode && this.data.activeNode.kind
+    if (kind === 'inspection_report') {
+      const gaps = collectInspectionReportGaps(this.buildDocPayloadForSave())
+      if (gaps.length) {
+        wx.showModal({
+          title: '检测报告未填完整',
+          content: `${gaps.slice(0, 4).join('\n')}${gaps.length > 4 ? `\n…共 ${gaps.length} 项` : ''}`,
+          showCancel: false,
+          confirmText: '去补全',
+        })
+        return
+      }
+    }
     if (kind === 'quote_confirm') {
       const lines = this.data.quoteLines.filter((l) => String(l.name || '').trim())
       if (!lines.length) {
@@ -415,6 +507,7 @@ Page({
   },
 
   onOpenLegacyEdit() {
+    this._reloadOnShow = true
     wx.navigateTo({
       url: `${MERCHANT_ALBUM_EDIT_PAGE}?albumId=${encodeURIComponent(this.albumId)}`,
     })

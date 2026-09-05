@@ -20,11 +20,56 @@ function mapPhotoRows(images = []) {
     .filter(Boolean)
 }
 
+/** 检测发现项：对标店内报告「部位 / 现象 / 结果 / 建议」 */
+function mapFindingRows(images = []) {
+  return mapPhotoRows(images).map((row) => ({
+    ...row,
+    partName: row.caption || '',
+    symptom: '',
+    result: '',
+    advice: '',
+  }))
+}
+
+function normalizeFinding(raw = {}) {
+  return {
+    imageId: String(raw.imageId || ''),
+    url: String(raw.url || ''),
+    caption: String(raw.caption || '').trim(),
+    captionEmpty: !String(raw.caption || '').trim(),
+    partName: String(raw.partName || raw.caption || '').trim(),
+    symptom: String(raw.symptom || '').trim(),
+    result: String(raw.result || '').trim(),
+    advice: String(raw.advice || '').trim(),
+  }
+}
+
+function collectInspectionReportGaps(payload = {}) {
+  const gaps = []
+  if (!String(payload.chiefComplaint || '').trim()) {
+    gaps.push('请填写进店主诉/症状')
+  }
+  const findings = Array.isArray(payload.findings) ? payload.findings : []
+  if (!findings.length) {
+    gaps.push('暂无检测照片，请先完成接车与检测')
+    return gaps
+  }
+  findings.forEach((raw, index) => {
+    const item = normalizeFinding(raw)
+    const label = item.partName || `第 ${index + 1} 项`
+    if (!item.partName) gaps.push(`「${label}」请填写检查部位/项目`)
+    if (!item.symptom) gaps.push(`「${label}」请填写现象/症状`)
+    if (!item.result) gaps.push(`「${label}」请填写检查结果`)
+    if (!item.advice) gaps.push(`「${label}」请填写处理建议`)
+  })
+  return gaps
+}
+
 function buildInspectionReportPayload({ vehicle = {}, albumNodes = [], chiefComplaint = '' } = {}) {
   const intake = (albumNodes || []).find((n) => n.id === 'stage_1')
   const inspection = (albumNodes || []).find((n) => n.id === 'stage_2')
   const intakePhotos = mapPhotoRows(intake && intake.images)
-  const findings = mapPhotoRows(inspection && inspection.images)
+  const findings = mapFindingRows(inspection && inspection.images)
   const mileageFromCaption = intakePhotos.find((p) => p.caption && /\d/.test(p.caption))
   return {
     vehicleBrand: String(vehicle.brand || ''),
@@ -55,6 +100,21 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
   }
 }
 
+/** 报价草稿：从检测报告「处理建议」预填行项（商家可改） */
+function buildQuoteLinesFromFindings(findings = []) {
+  return (findings || [])
+    .map((raw) => {
+      const item = normalizeFinding(raw)
+      if (!item.advice && !item.partName) return null
+      return {
+        name: item.advice || item.partName,
+        note: [item.partName, item.symptom, item.result].filter(Boolean).join('；'),
+        priceHint: '',
+      }
+    })
+    .filter(Boolean)
+}
+
 function buildRepairReportPayload({
   chiefComplaint = '',
   workItems = [],
@@ -77,7 +137,11 @@ function buildRepairReportPayload({
 
 module.exports = {
   mapPhotoRows,
+  mapFindingRows,
+  normalizeFinding,
+  collectInspectionReportGaps,
   buildInspectionReportPayload,
   buildWorkOrderPayloadFromQuote,
+  buildQuoteLinesFromFindings,
   buildRepairReportPayload,
 }

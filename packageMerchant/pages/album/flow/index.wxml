@@ -46,7 +46,7 @@
                   mode="edit"
                   title="{{section.title}}"
                   photoTips="{{section.tips}}"
-                  captionPlaceholder="本图说明"
+                  captionPlaceholder="{{section.captionPlaceholder}}"
                   images="{{section.images}}"
                   maxCount="{{12}}"
                   enableCaption="{{true}}"
@@ -54,6 +54,7 @@
                   bind:imageschange="onSectionImagesChange"
                 />
               </view>
+              <text wx:if="{{autoSaveLabel}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
@@ -66,10 +67,61 @@
 
             <block wx:elif="{{activeKind === 'inspection_report'}}">
               <view class="merchant-flow-page__doc-block">
-                <text class="text-caption text-secondary">发现项（来自检测照片）</text>
-                <view wx:for="{{docPayload.findings}}" wx:key="url" class="merchant-flow-page__finding">
-                  <image class="merchant-flow-page__finding-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
-                  <text class="text-caption">{{item.captionEmpty ? '未备注' : item.caption}}</text>
+                <view class="merchant-flow-page__hint">
+                  <text class="text-caption">须填写主诉，并为每张检测图写清：部位、现象/症状、检查结果、处理建议。缺项无法代确认。</text>
+                </view>
+                <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
+                  value="{{chiefComplaint}}"
+                  maxlength="300"
+                  placeholder="例：怠速抖动、机油灯亮、客户反映刹车异响"
+                  disabled="{{readOnly}}"
+                  bindinput="onChiefComplaintInput"
+                />
+                <text class="text-body merchant-flow-page__label">发现项（来自检测照片）</text>
+                <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无检测照片，请先完成接车与检测</view>
+                <view wx:for="{{findings}}" wx:key="url" class="merchant-flow-page__finding-card">
+                  <view class="merchant-flow-page__finding-head">
+                    <image class="merchant-flow-page__finding-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
+                    <text class="text-caption text-secondary">第 {{index + 1}} 项</text>
+                  </view>
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="检查部位/项目（必填）"
+                    value="{{item.partName}}"
+                    data-index="{{index}}"
+                    data-field="partName"
+                    disabled="{{readOnly}}"
+                    bindinput="onFindingFieldInput"
+                  />
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="现象/症状（必填，如：液位低于下限）"
+                    value="{{item.symptom}}"
+                    data-index="{{index}}"
+                    data-field="symptom"
+                    disabled="{{readOnly}}"
+                    bindinput="onFindingFieldInput"
+                  />
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="检查结果（必填，如：滤芯堵塞）"
+                    value="{{item.result}}"
+                    data-index="{{index}}"
+                    data-field="result"
+                    disabled="{{readOnly}}"
+                    bindinput="onFindingFieldInput"
+                  />
+                  <input
+                    class="merchant-flow-page__input"
+                    placeholder="处理建议（必填，如：建议更换机油滤芯）"
+                    value="{{item.advice}}"
+                    data-index="{{index}}"
+                    data-field="advice"
+                    disabled="{{readOnly}}"
+                    bindinput="onFindingFieldInput"
+                  />
                 </view>
                 <text class="text-caption text-secondary merchant-flow-page__disclaimer">{{docPayload.disclaimer}}</text>
                 <text class="text-body merchant-flow-page__label">结论（可选）</text>
@@ -77,7 +129,7 @@
                   class="merchant-flow-page__textarea"
                   value="{{conclusion}}"
                   maxlength="500"
-                  placeholder="一句话结论，可空"
+                  placeholder="一句话总结，可空"
                   disabled="{{readOnly}}"
                   bindinput="onConclusionInput"
                 />

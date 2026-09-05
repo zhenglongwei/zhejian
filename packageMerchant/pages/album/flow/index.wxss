@@ -40,10 +40,35 @@
   gap: var(--space-sm);
 }
 
-.merchant-flow-page__finding {
+.merchant-flow-page__auto-save {
+  display: block;
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+
+.merchant-flow-page__hint {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-warning-light);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__finding-card {
   display: flex;
-  gap: var(--space-sm);
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+}
+
+.merchant-flow-page__finding-head {
+  display: flex;
   align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .merchant-flow-page__finding-img {
@@ -51,6 +76,10 @@
   height: 96rpx;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
+}
+
+.merchant-flow-page__textarea--short {
+  min-height: 120rpx;
 }
 
 .merchant-flow-page__disclaimer {
