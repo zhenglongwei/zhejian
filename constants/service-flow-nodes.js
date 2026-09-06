@@ -19,8 +19,8 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车与检测',
     legacyStageIds: ['stage_2'],
-    photoTips: '里程、外观、故障点；每张写清部位、现象、结果与建议',
-    captionPlaceholder: '检查部位/项目',
+    photoTips: '里程、外观、故障点；每张写清部位、检查结果与处理建议',
+    captionPlaceholder: '检查部位',
     description: '',
   },
   {

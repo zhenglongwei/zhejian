@@ -25,9 +25,8 @@
         />
         <view class="album-service-flow__finding-body">
           <text class="text-body">{{finding.partName}}</text>
-          <text class="text-caption text-secondary">现象：{{finding.symptom}}</text>
-          <text class="text-caption text-secondary">结果：{{finding.result}}</text>
-          <text class="text-caption text-secondary">建议：{{finding.advice}}</text>
+          <text class="text-caption text-secondary">检查结果：{{finding.result}}</text>
+          <text class="text-caption text-secondary">处理建议：{{finding.advice}}</text>
         </view>
       </view>
       <text wx:if="{{item.conclusion}}" class="text-body">结论：{{item.conclusion}}</text>

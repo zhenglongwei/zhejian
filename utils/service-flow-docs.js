@@ -28,6 +28,7 @@ function normalizeFinding(raw = {}) {
     caption,
     captionEmpty: !caption,
     partName: String(raw.partName || caption || '').trim(),
+    // 存量字段保留读取，新录入不再要求
     symptom: String(raw.symptom || '').trim(),
     result: String(raw.result || '').trim(),
     advice: String(raw.advice || '').trim(),
@@ -69,10 +70,9 @@ function collectInspectionReportGaps(payload = {}) {
   findings.forEach((raw, index) => {
     const item = normalizeFinding(raw)
     const label = item.partName || `第 ${index + 1} 项`
-    if (!item.partName) gaps.push(`「${label}」请填写检查部位/项目`)
-    if (!item.symptom) gaps.push(`「${label}」请填写现象/症状`)
-    if (!item.result) gaps.push(`「${label}」请填写检查结果`)
-    if (!item.advice) gaps.push(`「${label}」请填写处理建议`)
+    if (!item.partName) gaps.push(`「${label}」请填写检查部位`)
+    if (!item.result) gaps.push(`「${label}」请填写检查结果（可写正常）`)
+    if (!item.advice) gaps.push(`「${label}」请填写处理建议（可写无需处理）`)
   })
   return gaps
 }
@@ -110,7 +110,7 @@ function buildInspectionReportPayload({
         : []
   const findings = mapFindingRows(mergedImages, draftFindings)
   const mileageFromFinding = findings.find((item) => {
-    const text = [item.partName, item.symptom, item.result, item.caption].join(' ')
+    const text = [item.partName, item.result, item.advice, item.caption].join(' ')
     return /\d/.test(text)
   })
   return {
@@ -197,7 +197,7 @@ function buildQuoteLinesFromFindings(findings = []) {
       return {
         name: item.advice || item.partName,
         amount: '',
-        note: [item.partName, item.symptom, item.result].filter(Boolean).join('；'),
+        note: [item.partName, item.result].filter(Boolean).join('；'),
         evidenceUrl: item.url || '',
       }
     })

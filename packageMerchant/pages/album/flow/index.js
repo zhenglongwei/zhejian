@@ -31,8 +31,8 @@ const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-n
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '里程、外观、故障点均可拍；每张补充部位、现象、结果与建议',
-    captionPlaceholder: '检查部位/项目',
+    tips: '里程、外观、故障点均可拍；每张补充部位、检查结果与处理建议',
+    captionPlaceholder: '检查部位',
     findingMode: true,
   },
   stage_5: {
@@ -179,7 +179,6 @@ Page({
     const row = normalizeFinding(item)
     let missing = 0
     if (!row.partName) missing += 1
-    if (!row.symptom) missing += 1
     if (!row.result) missing += 1
     if (!row.advice) missing += 1
     return missing

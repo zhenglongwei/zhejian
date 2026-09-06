@@ -36,7 +36,7 @@
           <view slot="active" class="merchant-flow-page__active">
             <block wx:if="{{activeIsPhoto}}">
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <text class="text-body merchant-flow-page__label">进店主诉 / 症状（必填）</text>
+                <text class="text-body merchant-flow-page__label">进店主诉</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
@@ -94,7 +94,7 @@
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
                         <input
                           class="merchant-flow-page__input"
-                          placeholder="检查部位/项目（必填）"
+                          placeholder="检查部位（必填）"
                           value="{{finding.partName}}"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -104,17 +104,7 @@
                         />
                         <input
                           class="merchant-flow-page__input"
-                          placeholder="现象/症状（必填）"
-                          value="{{finding.symptom}}"
-                          data-section-index="{{sectionIndex}}"
-                          data-finding-index="{{findingIndex}}"
-                          data-field="symptom"
-                          disabled="{{readOnly}}"
-                          bindinput="onSectionFindingFieldInput"
-                        />
-                        <input
-                          class="merchant-flow-page__input"
-                          placeholder="检查结果（必填）"
+                          placeholder="检查结果（可写正常）"
                           value="{{finding.result}}"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -124,7 +114,7 @@
                         />
                         <input
                           class="merchant-flow-page__input"
-                          placeholder="处理建议（必填）"
+                          placeholder="处理建议（可写无需处理）"
                           value="{{finding.advice}}"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -247,7 +237,7 @@
                   </view>
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="检查部位/项目"
+                    placeholder="检查部位"
                     value="{{item.partName}}"
                     data-index="{{index}}"
                     data-field="partName"
@@ -256,16 +246,7 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="现象/症状"
-                    value="{{item.symptom}}"
-                    data-index="{{index}}"
-                    data-field="symptom"
-                    disabled="{{readOnly}}"
-                    bindinput="onFindingFieldInput"
-                  />
-                  <input
-                    class="merchant-flow-page__input"
-                    placeholder="检查结果"
+                    placeholder="检查结果（可写正常）"
                     value="{{item.result}}"
                     data-index="{{index}}"
                     data-field="result"
@@ -274,7 +255,7 @@
                   />
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="处理建议"
+                    placeholder="处理建议（可写无需处理）"
                     value="{{item.advice}}"
                     data-index="{{index}}"
                     data-field="advice"
