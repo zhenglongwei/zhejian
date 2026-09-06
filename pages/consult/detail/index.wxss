@@ -1,1 +1,4 @@
-@import '../../../styles/record-detail.wxss';
+/* page-only pad; shared body styles live in lead-detail-body */
+.record-detail__pad {
+  padding-top: var(--space-md);
+}

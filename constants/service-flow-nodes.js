@@ -12,6 +12,29 @@ const NODE_CATEGORY = {
 const INSPECTION_DISCLAIMER =
   '本次说明仅针对已拍摄部位；未拍照部位不构成全车体检结论。'
 
+/** 发现项检查结果三档（点选，非自由文本） */
+const FINDING_RESULT = {
+  OK: '状态良好',
+  WATCH: '需关注',
+  ACTION: '需处理',
+}
+
+const FINDING_RESULT_OPTIONS = [
+  { value: FINDING_RESULT.OK, shortLabel: '良好' },
+  { value: FINDING_RESULT.WATCH, shortLabel: '关注' },
+  { value: FINDING_RESULT.ACTION, shortLabel: '待处理' },
+]
+
+const FINDING_ADVICE_NONE = '无需处理'
+
+function isValidFindingResult(value) {
+  return FINDING_RESULT_OPTIONS.some((row) => row.value === value)
+}
+
+function findingAdviceRequired(result) {
+  return result === FINDING_RESULT.WATCH || result === FINDING_RESULT.ACTION
+}
+
 /** 标准链（7 步 · 质保并入完工确认） */
 const STANDARD_FLOW_CHAIN = [
   {
@@ -19,7 +42,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车与检测',
     legacyStageIds: ['stage_2'],
-    photoTips: '里程、外观、故障点；每张写清部位、检查结果与处理建议',
+    photoTips: '里程、外观、故障点；每张选检查结果档，需处理时写清建议',
     captionPlaceholder: '检查部位',
     description: '',
   },
@@ -169,6 +192,11 @@ module.exports = {
   FLOW_VERSION,
   NODE_CATEGORY,
   INSPECTION_DISCLAIMER,
+  FINDING_RESULT,
+  FINDING_RESULT_OPTIONS,
+  FINDING_ADVICE_NONE,
+  isValidFindingResult,
+  findingAdviceRequired,
   STANDARD_FLOW_CHAIN,
   FLOW_KIND_META,
   PHOTO_KIND_TO_LEGACY_STAGE,

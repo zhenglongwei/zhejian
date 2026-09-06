@@ -2,7 +2,14 @@
  * DOC-FLOW · 单据规则生成（无 LLM）
  * 真源：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md §4
  */
-const { INSPECTION_DISCLAIMER } = require('../constants/service-flow-nodes')
+const {
+  INSPECTION_DISCLAIMER,
+  FINDING_RESULT,
+  FINDING_RESULT_OPTIONS,
+  FINDING_ADVICE_NONE,
+  isValidFindingResult,
+  findingAdviceRequired,
+} = require('../constants/service-flow-nodes')
 
 function mapPhotoRows(images = []) {
   return (images || [])
@@ -20,8 +27,23 @@ function mapPhotoRows(images = []) {
     .filter(Boolean)
 }
 
+function normalizeFindingResult(raw) {
+  const text = String(raw || '').trim()
+  if (!text) return ''
+  if (isValidFindingResult(text)) return text
+  if (/良好|正常/.test(text)) return FINDING_RESULT.OK
+  if (/关注/.test(text)) return FINDING_RESULT.WATCH
+  if (/处理|维修|更换|立即/.test(text)) return FINDING_RESULT.ACTION
+  return text
+}
+
 function normalizeFinding(raw = {}) {
   const caption = String(raw.caption || '').trim()
+  const result = normalizeFindingResult(raw.result)
+  let advice = String(raw.advice || '').trim()
+  if (result === FINDING_RESULT.OK && !advice) {
+    advice = FINDING_ADVICE_NONE
+  }
   return {
     imageId: String(raw.imageId || raw.id || ''),
     url: String(raw.url || ''),
@@ -30,8 +52,8 @@ function normalizeFinding(raw = {}) {
     partName: String(raw.partName || caption || '').trim(),
     // 存量字段保留读取，新录入不再要求
     symptom: String(raw.symptom || '').trim(),
-    result: String(raw.result || '').trim(),
-    advice: String(raw.advice || '').trim(),
+    result,
+    advice,
   }
 }
 
@@ -60,7 +82,7 @@ function mapFindingRows(images = [], draftFindings = []) {
 function collectInspectionReportGaps(payload = {}) {
   const gaps = []
   if (!String(payload.chiefComplaint || '').trim()) {
-    gaps.push('请填写进店主诉/症状')
+    gaps.push('请填写进店主诉')
   }
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   if (!findings.length) {
@@ -71,8 +93,11 @@ function collectInspectionReportGaps(payload = {}) {
     const item = normalizeFinding(raw)
     const label = item.partName || `第 ${index + 1} 项`
     if (!item.partName) gaps.push(`「${label}」请填写检查部位`)
-    if (!item.result) gaps.push(`「${label}」请填写检查结果（可写正常）`)
-    if (!item.advice) gaps.push(`「${label}」请填写处理建议（可写无需处理）`)
+    if (!item.result || !isValidFindingResult(item.result)) {
+      gaps.push(`「${label}」请选择检查结果`)
+    } else if (findingAdviceRequired(item.result) && !item.advice) {
+      gaps.push(`「${label}」请填写处理建议`)
+    }
   })
   return gaps
 }
@@ -188,14 +213,15 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
   }
 }
 
-/** 方案草稿：从检测报告「处理建议」预填行项（金额手填） */
+/** 方案草稿：从「需关注/需处理」发现项的处理建议预填（金额手填） */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
     .map((raw) => {
       const item = normalizeFinding(raw)
-      if (!item.advice && !item.partName) return null
+      if (!findingAdviceRequired(item.result)) return null
+      if (!item.advice || item.advice === FINDING_ADVICE_NONE) return null
       return {
-        name: item.advice || item.partName,
+        name: item.advice,
         amount: '',
         note: [item.partName, item.result].filter(Boolean).join('；'),
         evidenceUrl: item.url || '',

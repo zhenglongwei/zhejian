@@ -124,6 +124,29 @@
   flex-shrink: 0;
 }
 
+.merchant-flow-page__result-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-flow-page__result-chip {
+  padding: 10rpx 20rpx;
+  border-radius: var(--radius-full, 999rpx);
+  border: 1rpx solid var(--color-border);
+  background-color: var(--color-bg-muted);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__result-chip--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .merchant-flow-page__finding-editor {
   display: flex;
   flex-direction: column;

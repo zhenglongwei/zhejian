@@ -14,7 +14,14 @@ const {
   SERVICE_ALBUM_STATUS_LABEL,
   SERVICE_ALBUM_STATUS_VARIANT,
 } = require('../../../../constants/service-album-status')
-const { resolveLegacyStageIdsForFlowNode } = require('../../../../constants/service-flow-nodes')
+const {
+  resolveLegacyStageIdsForFlowNode,
+  FINDING_RESULT,
+  FINDING_RESULT_OPTIONS,
+  FINDING_ADVICE_NONE,
+  isValidFindingResult,
+  findingAdviceRequired,
+} = require('../../../../constants/service-flow-nodes')
 const { buildFlowProgressView } = require('../../../../utils/service-flow-progress')
 const {
   collectInspectionReportGaps,
@@ -31,7 +38,7 @@ const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-n
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '里程、外观、故障点均可拍；每张补充部位、检查结果与处理建议',
+    tips: '里程、外观、故障点均可拍；点选检查结果，需处理时写建议',
     captionPlaceholder: '检查部位',
     findingMode: true,
   },
@@ -80,6 +87,7 @@ Page({
     photoConfirmLabel: '确认并继续',
     sections: [],
     expandedFindingKey: '',
+    findingResultOptions: FINDING_RESULT_OPTIONS,
     docPayload: {},
     quoteLines: [],
     conclusion: '',
@@ -179,20 +187,26 @@ Page({
     const row = normalizeFinding(item)
     let missing = 0
     if (!row.partName) missing += 1
-    if (!row.result) missing += 1
-    if (!row.advice) missing += 1
+    if (!row.result || !isValidFindingResult(row.result)) missing += 1
+    else if (findingAdviceRequired(row.result) && !row.advice) missing += 1
     return missing
   },
 
   decorateFinding(item = {}, expanded = false) {
     const row = normalizeFinding(item)
     const missing = this.countFindingMissingFields(row)
+    const resultOptions = FINDING_RESULT_OPTIONS.map((opt) => ({
+      ...opt,
+      selected: row.result === opt.value,
+    }))
     return {
       ...row,
       expanded: Boolean(expanded),
       complete: missing === 0,
       summaryText: row.partName || '待填写',
-      completenessLabel: missing === 0 ? '已齐' : `缺 ${missing} 项`,
+      completenessLabel: missing === 0 ? row.result || '已齐' : `缺 ${missing} 项`,
+      adviceRequired: findingAdviceRequired(row.result),
+      resultOptions,
     }
   },
 
@@ -334,7 +348,17 @@ Page({
         sections = this.decorateSections(sections, expandedFindingKey)
       } else if (activeIsDoc) {
         findings = Array.isArray(docPayload.findings)
-          ? docPayload.findings.map((item) => normalizeFinding(item))
+          ? docPayload.findings.map((item) => {
+              const row = normalizeFinding(item)
+              return {
+                ...row,
+                adviceRequired: findingAdviceRequired(row.result),
+                resultOptions: FINDING_RESULT_OPTIONS.map((opt) => ({
+                  ...opt,
+                  selected: row.result === opt.value,
+                })),
+              }
+            })
           : []
         chiefComplaint = docPayload.chiefComplaint || ''
         conclusion = docPayload.conclusion || ''
@@ -623,13 +647,66 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
+  onSelectFindingResult(e) {
+    if (this.data.readOnly) return
+    const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
+    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    const value = String(e.currentTarget.dataset.value || '').trim()
+    if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex) || !value) return
+    const sections = this.data.sections.map((section, i) => {
+      if (i !== sectionIndex) return section
+      const findings = (section.findings || []).map((item, fi) => {
+        if (fi !== findingIndex) return item
+        const next = { ...item, result: value }
+        if (value === FINDING_RESULT.OK) {
+          if (!next.advice || next.advice === FINDING_ADVICE_NONE) {
+            next.advice = FINDING_ADVICE_NONE
+          }
+        } else if (next.advice === FINDING_ADVICE_NONE) {
+          next.advice = ''
+        }
+        return next
+      })
+      return { ...section, findings }
+    })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
+    this.scheduleAutoSavePhotos()
+  },
+
   onFindingFieldInput(e) {
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     if (!Number.isFinite(index) || !field) return
-    const findings = this.data.findings.map((item, i) =>
-      i === index ? { ...item, [field]: e.detail.value } : item,
-    )
+    const findings = this.data.findings.map((item, i) => {
+      if (i !== index) return item
+      const next = { ...item, [field]: e.detail.value }
+      if (field === 'partName') next.caption = e.detail.value
+      return next
+    })
+    this.setData({ findings })
+  },
+
+  onSelectReportFindingResult(e) {
+    if (this.data.readOnly) return
+    const index = Number(e.currentTarget.dataset.index)
+    const value = String(e.currentTarget.dataset.value || '').trim()
+    if (!Number.isFinite(index) || !value) return
+    const findings = this.data.findings.map((item, i) => {
+      if (i !== index) return item
+      const next = { ...normalizeFinding(item), result: value }
+      if (value === FINDING_RESULT.OK) {
+        next.advice =
+          next.advice && next.advice !== FINDING_ADVICE_NONE ? next.advice : FINDING_ADVICE_NONE
+      } else if (next.advice === FINDING_ADVICE_NONE) {
+        next.advice = ''
+      }
+      next.resultOptions = FINDING_RESULT_OPTIONS.map((opt) => ({
+        ...opt,
+        selected: next.result === opt.value,
+      }))
+      next.adviceRequired = findingAdviceRequired(next.result)
+      return next
+    })
     this.setData({ findings })
   },
 

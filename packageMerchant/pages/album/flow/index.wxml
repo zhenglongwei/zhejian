@@ -94,7 +94,7 @@
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
                         <input
                           class="merchant-flow-page__input"
-                          placeholder="检查部位（必填）"
+                          placeholder="例：左前制动片"
                           value="{{finding.partName}}"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -102,24 +102,27 @@
                           disabled="{{readOnly}}"
                           bindinput="onSectionFindingFieldInput"
                         />
+                        <view class="merchant-flow-page__result-chips">
+                          <view
+                            wx:for="{{finding.resultOptions}}"
+                            wx:for-item="opt"
+                            wx:key="value"
+                            class="merchant-flow-page__result-chip {{opt.selected ? 'merchant-flow-page__result-chip--on' : ''}}"
+                            data-section-index="{{sectionIndex}}"
+                            data-finding-index="{{findingIndex}}"
+                            data-value="{{opt.value}}"
+                            bindtap="onSelectFindingResult"
+                          >{{opt.value}}</view>
+                        </view>
                         <input
+                          wx:if="{{finding.result}}"
                           class="merchant-flow-page__input"
-                          placeholder="检查结果（可写正常）"
-                          value="{{finding.result}}"
-                          data-section-index="{{sectionIndex}}"
-                          data-finding-index="{{findingIndex}}"
-                          data-field="result"
-                          disabled="{{readOnly}}"
-                          bindinput="onSectionFindingFieldInput"
-                        />
-                        <input
-                          class="merchant-flow-page__input"
-                          placeholder="处理建议（可写无需处理）"
+                          placeholder="{{finding.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
                           value="{{finding.advice}}"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
                           data-field="advice"
-                          disabled="{{readOnly}}"
+                          disabled="{{readOnly || !finding.adviceRequired}}"
                           bindinput="onSectionFindingFieldInput"
                         />
                       </view>
@@ -237,29 +240,32 @@
                   </view>
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="检查部位"
+                    placeholder="例：左前制动片"
                     value="{{item.partName}}"
                     data-index="{{index}}"
                     data-field="partName"
                     disabled="{{readOnly}}"
                     bindinput="onFindingFieldInput"
                   />
+                  <view class="merchant-flow-page__result-chips">
+                    <view
+                      wx:for="{{item.resultOptions}}"
+                      wx:for-item="opt"
+                      wx:key="value"
+                      class="merchant-flow-page__result-chip {{opt.selected ? 'merchant-flow-page__result-chip--on' : ''}}"
+                      data-index="{{index}}"
+                      data-value="{{opt.value}}"
+                      bindtap="onSelectReportFindingResult"
+                    >{{opt.value}}</view>
+                  </view>
                   <input
+                    wx:if="{{item.result}}"
                     class="merchant-flow-page__input"
-                    placeholder="检查结果（可写正常）"
-                    value="{{item.result}}"
-                    data-index="{{index}}"
-                    data-field="result"
-                    disabled="{{readOnly}}"
-                    bindinput="onFindingFieldInput"
-                  />
-                  <input
-                    class="merchant-flow-page__input"
-                    placeholder="处理建议（可写无需处理）"
+                    placeholder="{{item.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
                     value="{{item.advice}}"
                     data-index="{{index}}"
                     data-field="advice"
-                    disabled="{{readOnly}}"
+                    disabled="{{readOnly || !item.adviceRequired}}"
                     bindinput="onFindingFieldInput"
                   />
                 </view>
