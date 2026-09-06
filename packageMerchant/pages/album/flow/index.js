@@ -33,7 +33,6 @@ const {
   sumQuoteAmounts,
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
-const { MERCHANT_ALBUM_EDIT_PAGE } = require('../../../../utils/merchant-album-nav')
 
 const STAGE_LABELS = {
   stage_2: {
@@ -109,21 +108,12 @@ Page({
     this.bootstrap()
   },
 
-  onShow() {
-    // 选图/预览会触发 onShow；仅从「高级编辑」返回时才静默刷新，避免冲掉未保存本地图
-    if (this._loadedOnce && this._reloadOnShow) {
-      this._reloadOnShow = false
-      this.loadFlow({ silent: true })
-    }
-  },
-
   async bootstrap() {
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '缺少相册 ID' })
       return
     }
     await this.loadFlow()
-    this._loadedOnce = true
   },
 
   mapStageImages(stage) {
@@ -192,7 +182,7 @@ Page({
     return missing
   },
 
-  decorateFinding(item = {}, expanded = false) {
+  decorateFinding(item = {}, expanded = false, listKey = '') {
     const row = normalizeFinding(item)
     const missing = this.countFindingMissingFields(row)
     const resultOptions = FINDING_RESULT_OPTIONS.map((opt) => ({
@@ -201,6 +191,7 @@ Page({
     }))
     return {
       ...row,
+      listKey: listKey || row.imageId || row.url || '',
       expanded: Boolean(expanded),
       complete: missing === 0,
       summaryText: row.partName || '待填写',
@@ -215,7 +206,9 @@ Page({
       if (!section.findingMode) return section
       const findings = (section.findings || []).map((item, findingIndex) => {
         const key = `${sectionIndex}:${findingIndex}`
-        return this.decorateFinding(item, key === expandedFindingKey)
+        // 用稳定索引作 listKey，避免临时 URL → 正式 URL 时节点重挂导致收起
+        const listKey = `idx-${sectionIndex}-${findingIndex}`
+        return this.decorateFinding(item, key === expandedFindingKey, listKey)
       })
       return { ...section, findings }
     })
@@ -561,12 +554,29 @@ Page({
     }, 700)
   },
 
+  /** 仅保存发现项文案草稿，避免上传回写打断输入 */
+  scheduleAutoSaveDraftOnly() {
+    if (this._draftSaveTimer) clearTimeout(this._draftSaveTimer)
+    this._draftSaveTimer = setTimeout(async () => {
+      if (this.data.readOnly) return
+      try {
+        await this.persistPhotoDraft()
+        this.setData({ autoSaveLabel: '已自动保存' })
+      } catch (e) {
+        this.setData({
+          autoSaveLabel: (e && e.message) || '自动保存失败，请检查网络',
+        })
+      }
+    }, 700)
+  },
+
   async runAutoSavePhotos() {
     if (this.data.readOnly || this._photoSaving) return
     this._photoSaving = true
+    const keepExpandKey = this.data.expandedFindingKey
     try {
       await this.persistPhotos()
-      this.resyncSectionsAfterPersist()
+      this.resyncSectionsAfterPersist(keepExpandKey)
       await this.persistPhotoDraft()
       this.setData({ autoSaveLabel: '已自动保存' })
     } catch (e) {
@@ -579,15 +589,16 @@ Page({
   },
 
   /** 上传后用落库 URL 回写 sections/findings，避免草稿仍持本地临时路径 */
-  resyncSectionsAfterPersist() {
+  resyncSectionsAfterPersist(preferredExpandKey) {
     const album = this._album
     const active = this.data.activeNode
     if (!album || !active || !this.data.activeIsPhoto) return
     const prevFindings = this.collectFindingsFromSections()
+    const keepKey =
+      preferredExpandKey !== undefined ? preferredExpandKey : this.data.expandedFindingKey
     const expandedUrl = (() => {
-      const key = this.data.expandedFindingKey
-      if (!key) return ''
-      const [si, fi] = String(key).split(':').map(Number)
+      if (!keepKey) return ''
+      const [si, fi] = String(keepKey).split(':').map(Number)
       const section = this.data.sections[si]
       const finding = section && section.findings && section.findings[fi]
       return (finding && finding.url) || ''
@@ -600,6 +611,19 @@ Page({
         const fi = (section.findings || []).findIndex((item) => item.url === expandedUrl)
         if (fi >= 0) expandKey = `${si}:${fi}`
       })
+    }
+    // URL 从临时路径换成正式地址时，按原索引保展开
+    if (!expandKey && keepKey) {
+      const [si, fi] = String(keepKey).split(':').map(Number)
+      if (
+        Number.isFinite(si) &&
+        Number.isFinite(fi) &&
+        sections[si] &&
+        sections[si].findings &&
+        sections[si].findings[fi]
+      ) {
+        expandKey = keepKey
+      }
     }
     this.setSectionsWithFindings(sections, {}, expandKey)
   },
@@ -615,7 +639,7 @@ Page({
   onChiefComplaintInput(e) {
     if (this.data.isIntakePhotoStep) {
       this.setData({ chiefComplaint: e.detail.value, autoSaveLabel: '保存中…' }, () => {
-        this.scheduleAutoSavePhotos()
+        this.scheduleAutoSaveDraftOnly()
       })
       return
     }
@@ -628,23 +652,25 @@ Page({
     const findingIndex = Number(e.currentTarget.dataset.findingIndex)
     const field = e.currentTarget.dataset.field
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex) || !field) return
-    const sections = this.data.sections.map((section, i) => {
-      if (i !== sectionIndex) return section
-      const findings = (section.findings || []).map((item, fi) => {
-        if (fi !== findingIndex) return item
-        const next = { ...item, [field]: e.detail.value }
-        if (field === 'partName') next.caption = e.detail.value
-        return next
-      })
-      const images = (section.images || []).map((img, ii) => {
-        if (ii !== findingIndex) return img
-        if (field === 'partName') return { ...img, caption: e.detail.value }
-        return img
-      })
-      return { ...section, findings, images }
-    })
-    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
-    this.scheduleAutoSavePhotos()
+    const section = this.data.sections[sectionIndex]
+    if (!section || !section.findings || !section.findings[findingIndex]) return
+    const prev = section.findings[findingIndex]
+    const nextRaw = { ...prev, [field]: e.detail.value }
+    if (field === 'partName') nextRaw.caption = e.detail.value
+    const expandKey = `${sectionIndex}:${findingIndex}`
+    const listKey = `idx-${sectionIndex}-${findingIndex}`
+    const decorated = this.decorateFinding(nextRaw, true, listKey)
+    // 路径更新，避免整表 setData 导致输入框失焦、卡片收起
+    const patch = {
+      [`sections[${sectionIndex}].findings[${findingIndex}]`]: decorated,
+      expandedFindingKey: expandKey,
+      autoSaveLabel: '保存中…',
+    }
+    if (field === 'partName') {
+      patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
+    }
+    this.setData(patch)
+    this.scheduleAutoSaveDraftOnly()
   },
 
   onSelectFindingResult(e) {
@@ -653,24 +679,26 @@ Page({
     const findingIndex = Number(e.currentTarget.dataset.findingIndex)
     const value = String(e.currentTarget.dataset.value || '').trim()
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex) || !value) return
-    const sections = this.data.sections.map((section, i) => {
-      if (i !== sectionIndex) return section
-      const findings = (section.findings || []).map((item, fi) => {
-        if (fi !== findingIndex) return item
-        const next = { ...item, result: value }
-        if (value === FINDING_RESULT.OK) {
-          if (!next.advice || next.advice === FINDING_ADVICE_NONE) {
-            next.advice = FINDING_ADVICE_NONE
-          }
-        } else if (next.advice === FINDING_ADVICE_NONE) {
-          next.advice = ''
-        }
-        return next
-      })
-      return { ...section, findings }
+    const section = this.data.sections[sectionIndex]
+    if (!section || !section.findings || !section.findings[findingIndex]) return
+    const prev = section.findings[findingIndex]
+    const nextRaw = { ...prev, result: value }
+    if (value === FINDING_RESULT.OK) {
+      if (!nextRaw.advice || nextRaw.advice === FINDING_ADVICE_NONE) {
+        nextRaw.advice = FINDING_ADVICE_NONE
+      }
+    } else if (nextRaw.advice === FINDING_ADVICE_NONE) {
+      nextRaw.advice = ''
+    }
+    const expandKey = `${sectionIndex}:${findingIndex}`
+    const listKey = `idx-${sectionIndex}-${findingIndex}`
+    const decorated = this.decorateFinding(nextRaw, true, listKey)
+    this.setData({
+      [`sections[${sectionIndex}].findings[${findingIndex}]`]: decorated,
+      expandedFindingKey: expandKey,
+      autoSaveLabel: '保存中…',
     })
-    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
-    this.scheduleAutoSavePhotos()
+    this.scheduleAutoSaveDraftOnly()
   },
 
   onFindingFieldInput(e) {
@@ -714,7 +742,7 @@ Page({
     const patch = { conclusion: e.detail.value }
     if (this.data.isIntakePhotoStep) {
       patch.autoSaveLabel = '保存中…'
-      this.setData(patch, () => this.scheduleAutoSavePhotos())
+      this.setData(patch, () => this.scheduleAutoSaveDraftOnly())
       return
     }
     this.setData(patch)
@@ -1129,13 +1157,6 @@ Page({
           wx.hideLoading()
         }
       },
-    })
-  },
-
-  onOpenLegacyEdit() {
-    this._reloadOnShow = true
-    wx.navigateTo({
-      url: `${MERCHANT_ALBUM_EDIT_PAGE}?albumId=${encodeURIComponent(this.albumId)}`,
     })
   },
 
