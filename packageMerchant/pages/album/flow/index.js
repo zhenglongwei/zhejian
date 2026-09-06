@@ -31,6 +31,7 @@ const {
   normalizeQuoteLine,
   mapFindingRows,
   sumQuoteAmounts,
+  buildQuoteLinesFromFindings,
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
@@ -197,6 +198,11 @@ Page({
     findingResultOptions: FINDING_RESULT_OPTIONS,
     docPayload: {},
     quoteLines: [],
+    quoteTotalLabel: '合计 ¥0.00',
+    quoteNodeId: '',
+    docStatus: '',
+    showCombinedPlan: false,
+    quotePendingOwner: false,
     conclusion: '',
     confirmCopy: '',
     proxyProofImages: [],
@@ -477,7 +483,38 @@ Page({
         if (Array.isArray(docPayload.lines) && docPayload.lines.length) {
           quoteLines = docPayload.lines.map((line) => normalizeQuoteLine(line))
         }
+        if (active.kind === 'inspection_report') {
+          const quoteNode = flowNodes.find(
+            (n) => n && n.kind === 'quote_confirm' && !n.insertedReason,
+          )
+          const quotePayload =
+            (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
+          const fromQuote = Array.isArray(quotePayload.lines)
+            ? quotePayload.lines.map((line) => normalizeQuoteLine(line))
+            : []
+          const hasNamed = fromQuote.some((row) => String(row.name || '').trim())
+          quoteLines = hasNamed
+            ? fromQuote
+            : buildQuoteLinesFromFindings(findings).map((line) => normalizeQuoteLine(line))
+          if (!quoteLines.length) {
+            quoteLines = [{ name: '', amount: '', note: '' }]
+          }
+          confirmCopy =
+            quotePayload.confirmCopy ||
+            '本人同意按上述项目施工，费用以本单为准。'
+          this._quoteNodeId = (quoteNode && quoteNode.id) || ''
+        } else {
+          this._quoteNodeId = active.kind === 'quote_confirm' ? (active.id || '') : ''
+        }
       }
+
+      const showCombinedPlan = Boolean(active && active.kind === 'inspection_report')
+      const docStatus = (active && active.document && active.document.status) || ''
+      const quotePendingOwner = Boolean(
+        active &&
+          (active.kind === 'quote_confirm' || active.kind === 'addon_quote_confirm') &&
+          docStatus === 'pending_confirm',
+      )
 
       this.setData({
         status: 'ready',
@@ -487,8 +524,12 @@ Page({
         readOnly,
         completedSteps,
         activeNode: active,
-        activeTitle: (active && active.title) || '',
-        activeSummary: (active && (active.photoTips || active.summary)) || '',
+        activeTitle: showCombinedPlan
+          ? '核对报告与方案'
+          : (active && active.title) || '',
+        activeSummary: showCombinedPlan
+          ? '确认发现项后填写费用，通知车主'
+          : (active && (active.photoTips || active.summary)) || '',
         activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
         activeKind: (active && active.kind) || '',
         showActive: Boolean(active),
@@ -505,6 +546,10 @@ Page({
         chiefComplaint,
         quoteLines,
         quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+        quoteNodeId: this._quoteNodeId || '',
+        docStatus,
+        showCombinedPlan,
+        quotePendingOwner,
         conclusion,
         confirmCopy,
         warrantyPeriod,
@@ -1098,13 +1143,35 @@ Page({
     return base
   },
 
-  async onDeliverReport() {
+  buildQuotePayloadForSave() {
+    const lines = (this.data.quoteLines || [])
+      .map((l) => normalizeQuoteLine(l))
+      .filter((l) => String(l.name || '').trim())
+    return {
+      lines,
+      confirmCopy:
+        this.data.confirmCopy || '本人同意按上述项目施工，费用以本单为准。',
+    }
+  },
+
+  async onNotifyOwnerPlan() {
     if (this.data.readOnly || this.data.confirming) return
-    const gaps = collectInspectionReportGaps(this.buildDocPayloadForSave())
-    if (gaps.length) {
+    const reportPayload = this.buildDocPayloadForSave()
+    const quotePayload = this.buildQuotePayloadForSave()
+    const reportGaps = collectInspectionReportGaps(reportPayload)
+    if (reportGaps.length) {
       wx.showModal({
-        title: '请先补全',
-        content: gaps.slice(0, 4).join('\n'),
+        title: '请先补全报告',
+        content: reportGaps.slice(0, 4).join('\n'),
+        showCancel: false,
+      })
+      return
+    }
+    const quoteGaps = collectQuoteConfirmGaps(quotePayload)
+    if (quoteGaps.length) {
+      wx.showModal({
+        title: '请先填写方案金额',
+        content: quoteGaps.slice(0, 4).join('\n'),
         showCancel: false,
       })
       return
@@ -1114,19 +1181,33 @@ Page({
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: {
           status: 'draft',
-          payload: this.buildDocPayloadForSave(),
+          payload: reportPayload,
         },
       })
+      const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
+      if (quoteNodeId) {
+        await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+          document: {
+            status: 'draft',
+            payload: quotePayload,
+          },
+        })
+      }
       const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: { payload: this.buildDocPayloadForSave() },
+        document: { payload: reportPayload },
+        quote: { payload: quotePayload },
       })
-      wx.showToast({ title: (res && res.message) || '已送达', icon: 'success' })
+      wx.showToast({ title: (res && res.message) || '已通知车主', icon: 'success' })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }
+  },
+
+  async onDeliverReport() {
+    return this.onNotifyOwnerPlan()
   },
 
   async onMarkWorkOrderDone() {
@@ -1239,6 +1320,17 @@ Page({
           payload: this.buildDocPayloadForSave(),
         },
       })
+      if (this.data.showCombinedPlan) {
+        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
+        if (quoteNodeId) {
+          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+            document: {
+              status: 'draft',
+              payload: this.buildQuotePayloadForSave(),
+            },
+          })
+        }
+      }
       wx.showToast({ title: '已保存', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })

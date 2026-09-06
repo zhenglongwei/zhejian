@@ -96,7 +96,7 @@ function resolveActiveNodeCta(node = {}) {
   }
   const doc = node.document || {}
   if (node.kind === 'inspection_report' && doc.status !== 'delivered') {
-    return { text: '送达车主', type: 'deliver' }
+    return { text: '通知车主', type: 'notify' }
   }
   if (requiresOwnerConfirm(node) && doc.status !== 'confirmed') {
     return { text: '发送确认', type: 'confirm' }

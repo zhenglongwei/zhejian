@@ -213,17 +213,21 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
   }
 }
 
-/** 方案草稿：从「需关注/需处理」发现项的处理建议预填（金额手填） */
+/** 方案草稿：从「需关注/需处理」发现项预填（金额手填） */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
     .map((raw) => {
       const item = normalizeFinding(raw)
       if (!findingAdviceRequired(item.result)) return null
       if (!item.advice || item.advice === FINDING_ADVICE_NONE) return null
+      const name =
+        [item.partName, item.advice].filter(Boolean).join(' · ') ||
+        item.advice ||
+        item.partName
       return {
-        name: item.advice,
+        name,
         amount: '',
-        note: [item.partName, item.result].filter(Boolean).join('；'),
+        note: item.result || '',
         evidenceUrl: item.url || '',
       }
     })

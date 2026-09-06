@@ -238,7 +238,9 @@ function buildFlowView(album, albumNodes = []) {
           progress.activeNode.nodeCategory === 'photo' ||
           (progress.activeNode.legacyStageIds && progress.activeNode.legacyStageIds.length)
             ? '上传照片并确认'
-            : progress.activeNode.document?.requiresConfirm
+            : progress.activeNode.kind === 'inspection_report'
+              ? '通知车主'
+              : progress.activeNode.document?.requiresConfirm
               ? '填写并发送车主确认'
               : '查看并填写',
       }
@@ -262,6 +264,78 @@ async function ensureFlowPackage(albumId, album, albumNodes) {
   return prisma.album.findUnique({ where: { id: albumId } })
 }
 
+async function healQuotePrefillAfterReport(albumId) {
+  await writeFlowPackage(albumId, (pkg) => {
+    const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    const reportIdx = nodes.findIndex((n) => n.kind === 'inspection_report')
+    const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
+    if (reportIdx < 0 || quoteIdx < 0) return pkg
+
+    const report = nodes[reportIdx]
+    const quote = nodes[quoteIdx]
+    const reportDoc = report.document || {}
+    const findings = (reportDoc.payload && reportDoc.payload.findings) || []
+    const existingLines =
+      (quote.document && quote.document.payload && quote.document.payload.lines) || []
+    const hasNamedLine = existingLines.some((row) => String((row && row.name) || '').trim())
+    let changed = false
+
+    // 报告草稿已出、方案行仍空 → 预填（保持锁定）
+    if (
+      reportDoc.status === 'draft' &&
+      (report.status === 'in_progress' || report.status === 'pending') &&
+      !hasNamedLine
+    ) {
+      const lines = buildQuoteLinesFromFindings(findings)
+      const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
+      nodes[quoteIdx] = {
+        ...quote,
+        document: {
+          ...prevQuoteDoc,
+          status: 'draft',
+          payload: {
+            ...(prevQuoteDoc.payload || {}),
+            lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
+            confirmCopy:
+              (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+              '本人同意按上述项目施工，费用以本单为准。',
+            evidenceRef: report.id,
+          },
+        },
+      }
+      changed = true
+    }
+
+    // 存量：报告已单独送达、方案仍锁住 → 解锁并预填，便于补金额后发送
+    if (
+      (reportDoc.status === 'delivered' || report.status === 'completed') &&
+      (quote.status === 'locked' || quote.status === 'pending')
+    ) {
+      const lines = hasNamedLine ? existingLines : buildQuoteLinesFromFindings(findings)
+      const prevQuoteDoc = quote.document || emptyDocument('quote_confirm')
+      nodes[quoteIdx] = {
+        ...quote,
+        status: 'in_progress',
+        document: {
+          ...prevQuoteDoc,
+          status: 'draft',
+          payload: {
+            ...(prevQuoteDoc.payload || {}),
+            lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
+            confirmCopy:
+              (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+              '本人同意按上述项目施工，费用以本单为准。',
+            evidenceRef: report.id,
+          },
+        },
+      }
+      changed = true
+    }
+
+    return changed ? { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes } : pkg
+  })
+}
+
 async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, mapNodesForView } = require('./service-album.service')
   let album = await loadAlbum(albumId)
@@ -273,6 +347,9 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
     album = await ensureFlowPackage(albumId, album, nodes)
     nodes = mapNodesForView(album)
   }
+  await healQuotePrefillAfterReport(albumId)
+  album = await loadAlbum(albumId)
+  nodes = mapNodesForView(album)
   return {
     albumId,
     ...buildFlowView(album, nodes),
@@ -443,6 +520,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     if (list[idx].kind === 'intake_inspection') {
       const reportIdx = list.findIndex((n) => n.kind === 'inspection_report')
+      const quoteIdx = list.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
       if (reportIdx >= 0) {
         const draft = buildInspectionReportPayload({
           vehicle,
@@ -452,6 +530,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           findings: incomingDraft.findings,
           conclusion: incomingDraft.conclusion,
         })
+        const reportId = list[reportIdx].id
         list[reportIdx] = {
           ...list[reportIdx],
           status: 'in_progress',
@@ -460,6 +539,26 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
             status: 'draft',
             payload: draft,
           },
+        }
+        if (quoteIdx >= 0) {
+          const lines = buildQuoteLinesFromFindings(draft.findings)
+          const prevQuoteDoc = list[quoteIdx].document || emptyDocument('quote_confirm')
+          list[quoteIdx] = {
+            ...list[quoteIdx],
+            // 仍锁定：等「通知车主」与报告一并解锁给车主
+            document: {
+              ...prevQuoteDoc,
+              status: 'draft',
+              payload: {
+                ...(prevQuoteDoc.payload || {}),
+                lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
+                confirmCopy:
+                  (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+                  '本人同意按上述项目施工，费用以本单为准。',
+                evidenceRef: reportId,
+              },
+            },
+          }
         }
       }
     }
@@ -500,7 +599,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const viewNodes = mapNodesForView(refreshed)
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   const messages = {
-    intake_inspection: '请核对检测报告',
+    intake_inspection: '请核对报告并填写方案',
     delivery_photos: '请核对完工确认',
     work: '施工记录已确认',
   }
@@ -510,6 +609,10 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   }
 }
 
+/**
+ * 通知车主：检测报告送达 + 方案待确认（合发）
+ * body.document.payload = 报告；body.quote.payload = 方案（可选，缺省用已存草稿）
+ */
 async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merchantId = '') {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
     require('./service-album.service')
@@ -527,7 +630,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       throw err
     }
     if (nodes[index].kind !== 'inspection_report') {
-      const err = new Error('仅检测报告可送达')
+      const err = new Error('请从检测报告步骤通知车主')
       err.status = 400
       throw err
     }
@@ -542,6 +645,42 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       err.status = 400
       throw err
     }
+
+    const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
+    if (quoteIdx < 0) {
+      const err = new Error('未找到方案确认节点')
+      err.status = 400
+      throw err
+    }
+    const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
+    let quoteLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
+      ? payload.quote.payload.lines
+      : null
+    if (!quoteLines || !quoteLines.length) {
+      const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
+      quoteLines = existing.length
+        ? existing
+        : buildQuoteLinesFromFindings(mergedPayload.findings)
+    }
+    const quotePayload = {
+      ...(prevQuoteDoc.payload || {}),
+      ...((payload.quote && payload.quote.payload) || {}),
+      lines: quoteLines,
+      confirmCopy:
+        (payload.quote &&
+          payload.quote.payload &&
+          payload.quote.payload.confirmCopy) ||
+        (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+        '本人同意按上述项目施工，费用以本单为准。',
+      evidenceRef: id,
+    }
+    const quoteGaps = collectQuoteConfirmGaps(quotePayload)
+    if (quoteGaps.length) {
+      const err = new Error(quoteGaps[0] || '请先填写方案金额')
+      err.status = 400
+      throw err
+    }
+
     nodes[index] = {
       ...nodes[index],
       status: 'completed',
@@ -552,28 +691,16 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
         payload: mergedPayload,
       },
     }
-    unlockNextNode(nodes, index)
 
-    const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
-    if (quoteIdx >= 0 && (nodes[quoteIdx].status === 'locked' || nodes[quoteIdx].status === 'pending')) {
-      const lines = buildQuoteLinesFromFindings(mergedPayload.findings)
-      const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
-      nodes[quoteIdx] = {
-        ...nodes[quoteIdx],
-        status: 'in_progress',
-        document: {
-          ...prevQuoteDoc,
-          status: 'draft',
-          payload: {
-            ...(prevQuoteDoc.payload || {}),
-            lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
-            confirmCopy:
-              (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-              '本人同意按上述项目施工，费用以本单为准。',
-            evidenceRef: id,
-          },
-        },
-      }
+    nodes[quoteIdx] = {
+      ...nodes[quoteIdx],
+      status: 'in_progress',
+      document: {
+        ...prevQuoteDoc,
+        status: 'pending_confirm',
+        sentAt: new Date().toISOString(),
+        payload: quotePayload,
+      },
     }
 
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
@@ -584,7 +711,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
   const node = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   return {
     node: node ? mapFlowNodeForView(node, viewNodes) : null,
-    message: '检测报告已送达',
+    message: '已通知车主（检测报告与方案）',
   }
 }
 
