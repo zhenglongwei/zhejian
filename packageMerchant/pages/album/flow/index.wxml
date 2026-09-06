@@ -54,73 +54,108 @@
                 wx:key="stageId"
                 class="merchant-flow-page__section"
               >
+                <block wx:if="{{section.findingMode}}">
+                  <text class="text-body merchant-flow-page__label">{{section.title}}</text>
+                  <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
+                  <view wx:if="{{!section.findings.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
+                    点下方加号上传照片
+                  </view>
+                  <view class="merchant-flow-page__finding-list">
+                    <view
+                      wx:for="{{section.findings}}"
+                      wx:for-item="finding"
+                      wx:for-index="findingIndex"
+                      wx:key="url"
+                      class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}}"
+                    >
+                      <view
+                        class="merchant-flow-page__finding-summary"
+                        data-section-index="{{sectionIndex}}"
+                        data-finding-index="{{findingIndex}}"
+                        bindtap="onToggleFinding"
+                      >
+                        <image
+                          class="merchant-flow-page__finding-img image-placeholder"
+                          src="{{finding.url}}"
+                          mode="aspectFill"
+                        />
+                        <view class="merchant-flow-page__finding-summary-main">
+                          <text class="text-body merchant-flow-page__finding-summary-title">{{finding.summaryText}}</text>
+                          <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
+                        </view>
+                        <text
+                          wx:if="{{!readOnly}}"
+                          class="merchant-flow-page__finding-remove"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          catchtap="onRemoveFinding"
+                        >×</text>
+                      </view>
+                      <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
+                        <input
+                          class="merchant-flow-page__input"
+                          placeholder="检查部位/项目（必填）"
+                          value="{{finding.partName}}"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          data-field="partName"
+                          disabled="{{readOnly}}"
+                          bindinput="onSectionFindingFieldInput"
+                        />
+                        <input
+                          class="merchant-flow-page__input"
+                          placeholder="现象/症状（必填）"
+                          value="{{finding.symptom}}"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          data-field="symptom"
+                          disabled="{{readOnly}}"
+                          bindinput="onSectionFindingFieldInput"
+                        />
+                        <input
+                          class="merchant-flow-page__input"
+                          placeholder="检查结果（必填）"
+                          value="{{finding.result}}"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          data-field="result"
+                          disabled="{{readOnly}}"
+                          bindinput="onSectionFindingFieldInput"
+                        />
+                        <input
+                          class="merchant-flow-page__input"
+                          placeholder="处理建议（必填）"
+                          value="{{finding.advice}}"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          data-field="advice"
+                          disabled="{{readOnly}}"
+                          bindinput="onSectionFindingFieldInput"
+                        />
+                      </view>
+                    </view>
+                    <view
+                      wx:if="{{!readOnly && section.findings.length < 12}}"
+                      class="merchant-flow-page__finding-add"
+                      data-index="{{sectionIndex}}"
+                      bindtap="onAddFindingPhotos"
+                    >
+                      <text class="merchant-flow-page__finding-add-icon">+</text>
+                    </view>
+                  </view>
+                </block>
                 <ui-album-node
+                  wx:else
                   mode="edit"
                   title="{{section.title}}"
                   photoTips="{{section.tips}}"
                   captionPlaceholder="{{section.captionPlaceholder}}"
                   images="{{section.images}}"
                   maxCount="{{12}}"
-                  enableCaption="{{!section.findingMode}}"
+                  enableCaption="{{true}}"
                   data-index="{{sectionIndex}}"
                   bind:imageschange="onSectionImagesChange"
                 />
-                <block wx:if="{{section.findingMode}}">
-                  <text class="text-body merchant-flow-page__label">发现项（必填）</text>
-                  <view wx:if="{{!section.findings.length}}" class="text-caption text-secondary">请先上传检测照片</view>
-                  <view
-                    wx:for="{{section.findings}}"
-                    wx:for-item="finding"
-                    wx:for-index="findingIndex"
-                    wx:key="url"
-                    class="merchant-flow-page__finding-card"
-                  >
-                    <view class="merchant-flow-page__finding-head">
-                      <image class="merchant-flow-page__finding-img image-placeholder" src="{{finding.url}}" mode="aspectFill" />
-                      <text class="text-caption text-secondary">第 {{findingIndex + 1}} 项</text>
-                    </view>
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="检查部位/项目（必填）"
-                      value="{{finding.partName}}"
-                      data-section-index="{{sectionIndex}}"
-                      data-finding-index="{{findingIndex}}"
-                      data-field="partName"
-                      disabled="{{readOnly}}"
-                      bindinput="onSectionFindingFieldInput"
-                    />
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="现象/症状（必填）"
-                      value="{{finding.symptom}}"
-                      data-section-index="{{sectionIndex}}"
-                      data-finding-index="{{findingIndex}}"
-                      data-field="symptom"
-                      disabled="{{readOnly}}"
-                      bindinput="onSectionFindingFieldInput"
-                    />
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="检查结果（必填）"
-                      value="{{finding.result}}"
-                      data-section-index="{{sectionIndex}}"
-                      data-finding-index="{{findingIndex}}"
-                      data-field="result"
-                      disabled="{{readOnly}}"
-                      bindinput="onSectionFindingFieldInput"
-                    />
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="处理建议（必填）"
-                      value="{{finding.advice}}"
-                      data-section-index="{{sectionIndex}}"
-                      data-finding-index="{{findingIndex}}"
-                      data-field="advice"
-                      disabled="{{readOnly}}"
-                      bindinput="onSectionFindingFieldInput"
-                    />
-                  </view>
-                </block>
               </view>
 
               <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">

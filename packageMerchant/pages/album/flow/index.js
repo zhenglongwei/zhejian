@@ -79,6 +79,7 @@ Page({
     quoteTotalLabel: '',
     photoConfirmLabel: '确认并继续',
     sections: [],
+    expandedFindingKey: '',
     docPayload: {},
     quoteLines: [],
     conclusion: '',
@@ -174,6 +175,68 @@ Page({
     return (findingSection.findings || []).map((item) => normalizeFinding(item))
   },
 
+  countFindingMissingFields(item = {}) {
+    const row = normalizeFinding(item)
+    let missing = 0
+    if (!row.partName) missing += 1
+    if (!row.symptom) missing += 1
+    if (!row.result) missing += 1
+    if (!row.advice) missing += 1
+    return missing
+  },
+
+  decorateFinding(item = {}, expanded = false) {
+    const row = normalizeFinding(item)
+    const missing = this.countFindingMissingFields(row)
+    return {
+      ...row,
+      expanded: Boolean(expanded),
+      complete: missing === 0,
+      summaryText: row.partName || '待填写',
+      completenessLabel: missing === 0 ? '已齐' : `缺 ${missing} 项`,
+    }
+  },
+
+  decorateSections(sections = [], expandedFindingKey = this.data.expandedFindingKey) {
+    return (sections || []).map((section, sectionIndex) => {
+      if (!section.findingMode) return section
+      const findings = (section.findings || []).map((item, findingIndex) => {
+        const key = `${sectionIndex}:${findingIndex}`
+        return this.decorateFinding(item, key === expandedFindingKey)
+      })
+      return { ...section, findings }
+    })
+  },
+
+  setSectionsWithFindings(sections, extra = {}, expandKey) {
+    const expandedFindingKey =
+      expandKey === undefined ? this.data.expandedFindingKey : expandKey
+    const decorated = this.decorateSections(sections, expandedFindingKey)
+    const patch = {
+      sections: decorated,
+      expandedFindingKey,
+      ...extra,
+    }
+    if (this.data.isIntakePhotoStep) {
+      patch.findings = this.collectFindingsFromSections(decorated)
+    }
+    this.setData(patch)
+  },
+
+  findFirstIncompleteFindingKey(sections = this.data.sections) {
+    for (let si = 0; si < (sections || []).length; si += 1) {
+      const section = sections[si]
+      if (!section || !section.findingMode) continue
+      const list = section.findings || []
+      for (let fi = 0; fi < list.length; fi += 1) {
+        if (this.countFindingMissingFields(list[fi]) > 0) {
+          return `${si}:${fi}`
+        }
+      }
+    }
+    return ''
+  },
+
   buildPhotoDraftPayload() {
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'intake_inspection') {
@@ -238,6 +301,7 @@ Page({
       let warrantyExclusions = ''
       let sections = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
+      let expandedFindingKey = ''
 
       if (activeIsPhoto && active) {
         sections = this.buildSections(album, active, photoDraft)
@@ -254,6 +318,21 @@ Page({
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
         }
+        const keepKey = this.data.expandedFindingKey
+        const parts = String(keepKey || '').split(':')
+        const si = Number(parts[0])
+        const fi = Number(parts[1])
+        if (
+          keepKey &&
+          Number.isFinite(si) &&
+          Number.isFinite(fi) &&
+          sections[si] &&
+          sections[si].findings &&
+          sections[si].findings[fi]
+        ) {
+          expandedFindingKey = keepKey
+        }
+        sections = this.decorateSections(sections, expandedFindingKey)
       } else if (activeIsDoc) {
         findings = Array.isArray(docPayload.findings)
           ? docPayload.findings.map((item) => normalizeFinding(item))
@@ -293,6 +372,7 @@ Page({
         isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
         sections,
+        expandedFindingKey,
         docPayload,
         findings,
         chiefComplaint,
@@ -357,6 +437,10 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) return
     const images = (e.detail && e.detail.images) || []
+    const prevLen =
+      (this.data.sections[index] && this.data.sections[index].images
+        ? this.data.sections[index].images.length
+        : 0) || 0
     const sections = this.data.sections.map((section, i) => {
       if (i !== index) return section
       const next = { ...section, images }
@@ -365,12 +449,85 @@ Page({
       }
       return next
     })
-    const patch = { sections, autoSaveLabel: '保存中…' }
-    if (this.data.isIntakePhotoStep) {
-      patch.findings = this.collectFindingsFromSections(sections)
+    let expandKey = this.data.expandedFindingKey
+    if (sections[index] && sections[index].findingMode && images.length > prevLen) {
+      expandKey = `${index}:${images.length - 1}`
     }
-    this.setData(patch, () => {
-      this.scheduleAutoSavePhotos()
+    this.setSectionsWithFindings(
+      sections,
+      { autoSaveLabel: '保存中…' },
+      expandKey,
+    )
+    this.scheduleAutoSavePhotos()
+  },
+
+  onToggleFinding(e) {
+    const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
+    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex)) return
+    const key = `${sectionIndex}:${findingIndex}`
+    const nextKey = this.data.expandedFindingKey === key ? '' : key
+    this.setSectionsWithFindings(this.data.sections, {}, nextKey)
+  },
+
+  onRemoveFinding(e) {
+    if (this.data.readOnly) return
+    const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
+    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex)) return
+    const sections = this.data.sections.map((section, i) => {
+      if (i !== sectionIndex) return section
+      const images = (section.images || []).filter((_, idx) => idx !== findingIndex)
+      const findings = this.syncFindingsWithImages(
+        (section.findings || []).filter((_, idx) => idx !== findingIndex),
+        images,
+      )
+      return { ...section, images, findings }
+    })
+    let expandKey = this.data.expandedFindingKey
+    const [esi, efi] = String(expandKey || '').split(':').map(Number)
+    if (esi === sectionIndex) {
+      if (efi === findingIndex) expandKey = ''
+      else if (efi > findingIndex) expandKey = `${sectionIndex}:${efi - 1}`
+    }
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
+    this.scheduleAutoSavePhotos()
+  },
+
+  onAddFindingPhotos(e) {
+    if (this.data.readOnly) return
+    const sectionIndex = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(sectionIndex)) return
+    const section = this.data.sections[sectionIndex]
+    if (!section) return
+    const remain = Math.max(0, 12 - ((section.images && section.images.length) || 0))
+    if (remain < 1) {
+      wx.showToast({ title: '最多 12 张', icon: 'none' })
+      return
+    }
+    wx.chooseMedia({
+      count: remain,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: (res) => {
+        const files = (res.tempFiles || []).map((file) => ({
+          url: file.tempFilePath,
+          caption: '',
+        }))
+        if (!files.length) return
+        const images = (section.images || []).concat(files).slice(0, 12)
+        const sections = this.data.sections.map((row, i) => {
+          if (i !== sectionIndex) return row
+          return {
+            ...row,
+            images,
+            findings: this.syncFindingsWithImages(row.findings || [], images),
+          }
+        })
+        const expandKey = `${sectionIndex}:${images.length - 1}`
+        this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
+        this.scheduleAutoSavePhotos()
+      },
     })
   },
 
@@ -404,12 +561,24 @@ Page({
     const active = this.data.activeNode
     if (!album || !active || !this.data.activeIsPhoto) return
     const prevFindings = this.collectFindingsFromSections()
-    const sections = this.buildSections(album, active, { findings: prevFindings })
-    const patch = { sections }
-    if (this.data.isIntakePhotoStep) {
-      patch.findings = this.collectFindingsFromSections(sections)
+    const expandedUrl = (() => {
+      const key = this.data.expandedFindingKey
+      if (!key) return ''
+      const [si, fi] = String(key).split(':').map(Number)
+      const section = this.data.sections[si]
+      const finding = section && section.findings && section.findings[fi]
+      return (finding && finding.url) || ''
+    })()
+    let sections = this.buildSections(album, active, { findings: prevFindings })
+    let expandKey = ''
+    if (expandedUrl) {
+      sections.forEach((section, si) => {
+        if (!section.findingMode || expandKey) return
+        const fi = (section.findings || []).findIndex((item) => item.url === expandedUrl)
+        if (fi >= 0) expandKey = `${si}:${fi}`
+      })
     }
-    this.setData(patch)
+    this.setSectionsWithFindings(sections, {}, expandKey)
   },
 
   async persistPhotoDraft() {
@@ -451,16 +620,8 @@ Page({
       })
       return { ...section, findings, images }
     })
-    this.setData(
-      {
-        sections,
-        findings: this.collectFindingsFromSections(sections),
-        autoSaveLabel: '保存中…',
-      },
-      () => {
-        this.scheduleAutoSavePhotos()
-      },
-    )
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' })
+    this.scheduleAutoSavePhotos()
   },
 
   onFindingFieldInput(e) {
@@ -616,6 +777,10 @@ Page({
       }
       const gaps = collectInspectionReportGaps(draftPayload)
       if (gaps.length) {
+        const expandKey = this.findFirstIncompleteFindingKey()
+        if (expandKey) {
+          this.setSectionsWithFindings(this.data.sections, {}, expandKey)
+        }
         wx.showModal({
           title: '请先补全检测内容',
           content: `${gaps.slice(0, 4).join('\n')}${gaps.length > 4 ? `\n…共 ${gaps.length} 项` : ''}`,

@@ -53,6 +53,102 @@
   color: var(--color-text-primary);
 }
 
+.merchant-flow-page__finding-tips {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-flow-page__finding-empty {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-flow-page__finding-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__finding-row {
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  overflow: hidden;
+}
+
+.merchant-flow-page__finding-row--open {
+  border-color: var(--color-primary);
+}
+
+.merchant-flow-page__finding-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  min-height: 112rpx;
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__finding-img {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__finding-summary-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.merchant-flow-page__finding-summary-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merchant-flow-page__finding-gap {
+  color: var(--color-danger);
+}
+
+.merchant-flow-page__finding-remove {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 36rpx;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__finding-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 0 var(--space-md) var(--space-md);
+  border-top: 1rpx solid var(--color-border);
+  padding-top: var(--space-sm);
+}
+
+.merchant-flow-page__finding-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 112rpx;
+  border-radius: var(--radius-md);
+  border: 2rpx dashed var(--color-border);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__finding-add-icon {
+  font-size: 48rpx;
+  line-height: 1;
+  color: var(--color-primary);
+}
+
 .merchant-flow-page__finding-card {
   display: flex;
   flex-direction: column;
@@ -69,13 +165,6 @@
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-xs);
-}
-
-.merchant-flow-page__finding-img {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
 }
 
 .merchant-flow-page__textarea--short {
