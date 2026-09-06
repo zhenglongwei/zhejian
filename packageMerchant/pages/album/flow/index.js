@@ -34,6 +34,114 @@ const {
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
+/** 已完成步骤「查看」：把节点内容塞进 stepper，避免空 slot */
+function mapCompletedStepPreview(step, node) {
+  const base = {
+    ...step,
+    summary: (step && step.summary) || (step && step.desc) || '已完成',
+    detailKind: 'empty',
+  }
+  if (!node) return base
+  const kind = node.kind || ''
+  const payload = (node.document && node.document.payload) || {}
+  const summary = base.summary || node.summary || '已完成'
+
+  if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
+    const previewImages = Array.isArray(node.previewImages) ? node.previewImages : []
+    return {
+      ...base,
+      kind,
+      detailKind: 'photos',
+      summary,
+      previewImages,
+      photoCount: Number(node.photoCount) || previewImages.length,
+      chiefComplaint: kind === 'intake_inspection' ? String((node.photoDraft && node.photoDraft.chiefComplaint) || '') : '',
+    }
+  }
+
+  if (kind === 'inspection_report') {
+    const findings = Array.isArray(payload.findings)
+      ? payload.findings.map((item, index) => {
+          const row = normalizeFinding(item)
+          return {
+            ...row,
+            listKey: row.url || `${row.partName || 'f'}_${index}`,
+          }
+        }).filter((row) => row.url || row.partName)
+      : []
+    return {
+      ...base,
+      kind,
+      detailKind: 'inspection_report',
+      summary,
+      chiefComplaint: String(payload.chiefComplaint || ''),
+      conclusion: String(payload.conclusion || ''),
+      findings,
+    }
+  }
+
+  if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
+    const lines = Array.isArray(payload.lines)
+      ? payload.lines.map((line) => normalizeQuoteLine(line)).filter((row) => String(row.name || '').trim())
+      : []
+    const total = sumQuoteAmounts(lines)
+    return {
+      ...base,
+      kind,
+      detailKind: 'quote',
+      summary,
+      lines,
+      totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+    }
+  }
+
+  if (kind === 'work_order') {
+    const items = Array.isArray(payload.items)
+      ? payload.items
+      : Array.isArray(payload.workItems)
+        ? payload.workItems
+        : []
+    return {
+      ...base,
+      kind,
+      detailKind: 'work_order',
+      summary,
+      items: items.map((row) => ({
+        name: String((row && row.name) || ''),
+        amount: row && row.amount != null ? row.amount : '',
+        note: String((row && row.note) || ''),
+      })),
+    }
+  }
+
+  if (kind === 'repair_report') {
+    const workItems = Array.isArray(payload.workItems)
+      ? payload.workItems
+      : Array.isArray(payload.items)
+        ? payload.items
+        : []
+    const total =
+      payload.totalAmount != null
+        ? Number(payload.totalAmount) || 0
+        : workItems.reduce((sum, row) => sum + (Number(row && row.amount) || 0), 0)
+    return {
+      ...base,
+      kind,
+      detailKind: 'repair_report',
+      summary,
+      workItems: workItems.map((row) => ({
+        name: String((row && row.name) || ''),
+        amount: row && row.amount != null ? row.amount : '',
+      })),
+      totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+      warrantyPeriod: String(payload.warrantyPeriod || ''),
+      warrantyScope: String(payload.warrantyScope || ''),
+    }
+  }
+
+  return { ...base, kind, summary }
+}
+
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
@@ -293,10 +401,13 @@ Page({
         activeIsPhoto && active && active.kind === 'delivery_photos',
       )
       const isWorkPhotoStep = Boolean(activeIsPhoto && active && active.kind === 'work')
-      const completedSteps = (progress.completedSteps || []).map((step) => ({
-        ...step,
-        summary: step.summary || step.desc || '已完成',
-      }))
+      const nodeById = {}
+      flowNodes.forEach((node) => {
+        if (node && node.id) nodeById[node.id] = node
+      })
+      const completedSteps = (progress.completedSteps || []).map((step) =>
+        mapCompletedStepPreview(step, nodeById[step.id]),
+      )
 
       let findings = []
       let chiefComplaint = ''

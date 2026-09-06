@@ -295,22 +295,23 @@
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| completedSteps | Array | `[]` | `{ id, title, summary?, status: 'done' }[]` |
+| completedSteps | Array | `[]` | `{ id, title, summary?, status: 'done', detailKind?, …预览字段 }[]`；`detailKind` 为 `inspection_report` / `quote` / `work_order` / `repair_report` / `photos` 时组件内渲染只读详情 |
 | activeTitle | String | `''` | 当前步标题 |
 | activeSummary | String | `''` | 当前步摘要 |
 | activeCategory | String | `''` | `拍照` / `单据` |
 | progressLabel | String | `''` | 如「第 1 / 7 步」 |
 | showActive | Boolean | true | 是否展示当前步外壳 |
 | lockedHint | String | `''` | 未解锁提示 |
+| expandedCompletedId | String | `''` | 当前展开的已完成步骤 id |
 
 | 事件 | 说明 |
 |---|---|
-| completedtap | `{ id, index }` 点击已完成行（展开只读由页面处理） |
+| completedtap | `{ id, index }` 点击已完成行（展开由页面改 `expandedCompletedId`） |
 
 | 插槽 | 说明 |
 |---|---|
 | active | 当前步展开区（上传/表单） |
-| completed-detail | 可选：已完成只读详情 |
+| completed-detail | 可选：`detailKind` 未知时的兜底插槽 |
 
 #### Timeline（`components/timeline`）
 

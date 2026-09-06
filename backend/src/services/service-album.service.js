@@ -504,7 +504,9 @@ function buildAlbumView(album) {
     try {
       const { buildOwnerFlowView } = require('./service-flow.service')
       return buildOwnerFlowView(album, nodes)
-    } catch (_) {
+    } catch (err) {
+      // 勿静默吞掉：车主端会表现为「有流程但看不到检测报告」
+      console.error('[buildAlbumView] buildOwnerFlowView failed', err && err.message)
       return { flowVersion: 0, usesFlowTimeline: false, docs: [], pendingConfirmCount: 0 }
     }
   })()

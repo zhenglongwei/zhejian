@@ -26,7 +26,90 @@
         <text class="text-caption text-link">{{expandedCompletedId === item.id ? '收起' : '查看'}}</text>
       </view>
       <view wx:if="{{expandedCompletedId === item.id}}" class="flow-stepper__done-detail">
-        <slot name="completed-detail" />
+        <block wx:if="{{item.detailKind === 'inspection_report'}}">
+          <text wx:if="{{item.chiefComplaint}}" class="text-body flow-stepper__detail-line">主诉：{{item.chiefComplaint}}</text>
+          <view
+            wx:for="{{item.findings}}"
+            wx:for-item="finding"
+            wx:key="listKey"
+            class="flow-stepper__finding"
+          >
+            <image
+              wx:if="{{finding.url}}"
+              class="flow-stepper__finding-img image-placeholder"
+              src="{{finding.url}}"
+              mode="aspectFill"
+              data-url="{{finding.url}}"
+              data-urls="{{item.findings}}"
+              catchtap="onPreviewFinding"
+            />
+            <view class="flow-stepper__finding-body">
+              <text class="text-body">{{finding.partName}}</text>
+              <text class="text-caption text-secondary">{{finding.result}}</text>
+              <text wx:if="{{finding.advice}}" class="text-caption text-secondary">建议：{{finding.advice}}</text>
+            </view>
+          </view>
+          <text wx:if="{{item.conclusion}}" class="text-body flow-stepper__detail-line">结论：{{item.conclusion}}</text>
+          <text wx:if="{{!item.findings.length && !item.chiefComplaint && !item.conclusion}}" class="text-caption text-secondary">暂无报告内容</text>
+        </block>
+
+        <block wx:elif="{{item.detailKind === 'quote'}}">
+          <view wx:for="{{item.lines}}" wx:for-item="line" wx:key="name" class="flow-stepper__line-row">
+            <view class="flow-stepper__line-main">
+              <text class="text-body">{{line.name}}</text>
+              <text class="text-body">¥{{line.amount}}</text>
+            </view>
+            <text wx:if="{{line.note}}" class="text-caption text-secondary">{{line.note}}</text>
+          </view>
+          <text class="text-body flow-stepper__detail-line">{{item.totalAmountLabel}}</text>
+          <text wx:if="{{!item.lines.length}}" class="text-caption text-secondary">暂无报价项目</text>
+        </block>
+
+        <block wx:elif="{{item.detailKind === 'work_order'}}">
+          <view wx:for="{{item.items}}" wx:for-item="row" wx:key="name" class="flow-stepper__line-row">
+            <view class="flow-stepper__line-main">
+              <text class="text-body">{{row.name}}</text>
+              <text class="text-caption">¥{{row.amount}}</text>
+            </view>
+            <text wx:if="{{row.note}}" class="text-caption text-secondary">{{row.note}}</text>
+          </view>
+          <text wx:if="{{!item.items.length}}" class="text-caption text-secondary">暂无工单项目</text>
+        </block>
+
+        <block wx:elif="{{item.detailKind === 'repair_report'}}">
+          <view wx:for="{{item.workItems}}" wx:for-item="row" wx:key="name" class="flow-stepper__line-row">
+            <view class="flow-stepper__line-main">
+              <text class="text-body">{{row.name}}</text>
+              <text class="text-caption">¥{{row.amount}}</text>
+            </view>
+          </view>
+          <text wx:if="{{item.totalAmountLabel}}" class="text-body flow-stepper__detail-line">{{item.totalAmountLabel}}</text>
+          <text wx:if="{{item.warrantyPeriod}}" class="text-caption">质保期限：{{item.warrantyPeriod}}</text>
+          <text wx:if="{{item.warrantyScope}}" class="text-caption">质保范围：{{item.warrantyScope}}</text>
+        </block>
+
+        <block wx:elif="{{item.detailKind === 'photos'}}">
+          <text wx:if="{{item.chiefComplaint}}" class="text-body flow-stepper__detail-line">主诉：{{item.chiefComplaint}}</text>
+          <view wx:if="{{item.previewImages.length}}" class="flow-stepper__photos">
+            <image
+              wx:for="{{item.previewImages}}"
+              wx:for-item="photo"
+              wx:key="url"
+              class="flow-stepper__photo image-placeholder"
+              src="{{photo.url}}"
+              mode="aspectFill"
+              data-url="{{photo.url}}"
+              data-urls="{{item.previewImages}}"
+              catchtap="onPreviewFinding"
+            />
+          </view>
+          <text class="text-caption text-secondary">共 {{item.photoCount}} 张</text>
+        </block>
+
+        <block wx:else>
+          <slot name="completed-detail" />
+          <text wx:if="{{!item.summary}}" class="text-caption text-secondary">暂无详情</text>
+        </block>
       </view>
     </view>
   </view>

@@ -84,6 +84,61 @@
   padding: var(--space-md);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.flow-stepper__detail-line {
+  display: block;
+}
+
+.flow-stepper__finding {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.flow-stepper__finding-img {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.flow-stepper__finding-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.flow-stepper__line-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.flow-stepper__line-main {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.flow-stepper__photos {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.flow-stepper__photo {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: var(--radius-sm);
 }
 
 .flow-stepper__active-card {

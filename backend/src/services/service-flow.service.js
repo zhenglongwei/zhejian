@@ -26,7 +26,7 @@ const {
   mergePhotoDraft,
 } = resolveShared('utils/service-flow-docs.js')
 
-const { buildFlowProgressView, isFlowNodeDone } = resolveShared(
+const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
 )
 

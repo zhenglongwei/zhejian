@@ -42,5 +42,17 @@ Component({
       const index = Number(e.currentTarget.dataset.index)
       this.triggerEvent('completedtap', { id, index })
     },
+    onPreviewFinding(e) {
+      const url = String((e.currentTarget.dataset && e.currentTarget.dataset.url) || '')
+      if (!url) return
+      const urlsRaw = (e.currentTarget.dataset && e.currentTarget.dataset.urls) || []
+      const urls = (Array.isArray(urlsRaw) ? urlsRaw : [])
+        .map((row) => (typeof row === 'string' ? row : (row && row.url) || ''))
+        .filter(Boolean)
+      wx.previewImage({
+        current: url,
+        urls: urls.length ? urls : [url],
+      })
+    },
   },
 })
