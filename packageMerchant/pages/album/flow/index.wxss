@@ -251,11 +251,19 @@
 }
 
 .merchant-flow-page__quote-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
   padding: var(--space-sm);
   border-radius: var(--radius-md);
   background-color: var(--color-bg-card);
   border: 1rpx solid var(--color-border);
+}
+
+.merchant-flow-page__textarea--quote-note {
+  min-height: 140rpx;
+  margin: 0;
 }
 
 .merchant-flow-page__plan-split {

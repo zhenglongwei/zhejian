@@ -163,14 +163,30 @@ function parseAmount(raw) {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null
 }
 
+/** 存量行：name=部位·建议、note=结果 → name=部位·结果、note=建议 */
+function remapLegacyQuoteLineLayout(line = {}) {
+  const note = String(line.note || '').trim()
+  const name = String(line.name || '').trim()
+  if (!isValidFindingResult(note) || !name.includes(' · ')) return line
+  const sep = name.indexOf(' · ')
+  const part = name.slice(0, sep).trim()
+  const advice = name.slice(sep + 3).trim()
+  if (!part || !advice) return line
+  return {
+    ...line,
+    name: `${part} · ${note}`,
+    note: advice,
+  }
+}
+
 function normalizeQuoteLine(raw = {}) {
   const amount = parseAmount(raw.amount != null ? raw.amount : raw.priceHint)
-  return {
+  return remapLegacyQuoteLineLayout({
     name: String(raw.name || '').trim(),
     amount: amount == null ? '' : amount,
     note: String(raw.note || '').trim(),
     evidenceUrl: String(raw.evidenceUrl || raw.url || '').trim(),
-  }
+  })
 }
 
 function collectQuoteConfirmGaps(payload = {}) {
@@ -213,7 +229,9 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
   }
 }
 
-/** 方案草稿：从「需关注/需处理」发现项预填（金额手填） */
+/** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
+ * name = 部位 · 检测结果；note = 处理建议（可长文）
+ */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
     .map((raw) => {
@@ -221,13 +239,13 @@ function buildQuoteLinesFromFindings(findings = []) {
       if (!findingAdviceRequired(item.result)) return null
       if (!item.advice || item.advice === FINDING_ADVICE_NONE) return null
       const name =
-        [item.partName, item.advice].filter(Boolean).join(' · ') ||
-        item.advice ||
-        item.partName
+        [item.partName, item.result].filter(Boolean).join(' · ') ||
+        item.partName ||
+        item.result
       return {
         name,
         amount: '',
-        note: item.result || '',
+        note: item.advice || '',
         evidenceUrl: item.url || '',
       }
     })

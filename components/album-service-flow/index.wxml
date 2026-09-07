@@ -35,11 +35,9 @@
 
     <block wx:elif="{{item.kind === 'quote_confirm' || item.kind === 'addon_quote_confirm'}}">
       <view wx:for="{{item.lines}}" wx:for-item="line" wx:key="name" class="album-service-flow__line">
-        <view class="album-service-flow__line-main">
-          <text class="text-body">{{line.name}}</text>
-          <text class="text-body">¥{{line.amount}}</text>
-        </view>
-        <text wx:if="{{line.note}}" class="text-caption text-secondary">{{line.note}}</text>
+        <text class="text-body">{{line.name}}</text>
+        <text wx:if="{{line.note}}" class="text-body album-service-flow__line-note">{{line.note}}</text>
+        <text class="text-body">¥{{line.amount}}</text>
       </view>
       <text class="text-body album-service-flow__total">{{item.totalAmountLabel}}</text>
       <text wx:if="{{item.confirmCopy}}" class="text-caption text-secondary">{{item.confirmCopy}}</text>

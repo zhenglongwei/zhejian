@@ -301,10 +301,20 @@
                   <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
                     <input
                       class="merchant-flow-page__input"
-                      placeholder="项目名称"
+                      placeholder="配件 · 检测结果"
                       value="{{item.name}}"
                       data-index="{{index}}"
                       data-field="name"
+                      disabled="{{readOnly}}"
+                      bindinput="onQuoteLineInput"
+                    />
+                    <textarea
+                      class="merchant-flow-page__textarea merchant-flow-page__textarea--quote-note"
+                      placeholder="处理建议（可多写）"
+                      value="{{item.note}}"
+                      maxlength="500"
+                      data-index="{{index}}"
+                      data-field="note"
                       disabled="{{readOnly}}"
                       bindinput="onQuoteLineInput"
                     />
@@ -315,15 +325,6 @@
                       value="{{item.amount}}"
                       data-index="{{index}}"
                       data-field="amount"
-                      disabled="{{readOnly}}"
-                      bindinput="onQuoteLineInput"
-                    />
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="说明（选填）"
-                      value="{{item.note}}"
-                      data-index="{{index}}"
-                      data-field="note"
                       disabled="{{readOnly}}"
                       bindinput="onQuoteLineInput"
                     />
@@ -353,10 +354,20 @@
                 <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
                   <input
                     class="merchant-flow-page__input"
-                    placeholder="项目名称"
+                    placeholder="配件 · 检测结果"
                     value="{{item.name}}"
                     data-index="{{index}}"
                     data-field="name"
+                    disabled="{{readOnly}}"
+                    bindinput="onQuoteLineInput"
+                  />
+                  <textarea
+                    class="merchant-flow-page__textarea merchant-flow-page__textarea--quote-note"
+                    placeholder="处理建议（可多写）"
+                    value="{{item.note}}"
+                    maxlength="500"
+                    data-index="{{index}}"
+                    data-field="note"
                     disabled="{{readOnly}}"
                     bindinput="onQuoteLineInput"
                   />
@@ -367,15 +378,6 @@
                     value="{{item.amount}}"
                     data-index="{{index}}"
                     data-field="amount"
-                    disabled="{{readOnly}}"
-                    bindinput="onQuoteLineInput"
-                  />
-                  <input
-                    class="merchant-flow-page__input"
-                    placeholder="说明（选填）"
-                    value="{{item.note}}"
-                    data-index="{{index}}"
-                    data-field="note"
                     disabled="{{readOnly}}"
                     bindinput="onQuoteLineInput"
                   />
