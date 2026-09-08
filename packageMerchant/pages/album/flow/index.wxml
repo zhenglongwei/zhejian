@@ -159,18 +159,6 @@
                 />
               </view>
 
-              <view wx:if="{{isIntakePhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
-                <text class="text-body merchant-flow-page__label">结论（可选）</text>
-                <textarea
-                  class="merchant-flow-page__textarea"
-                  value="{{conclusion}}"
-                  maxlength="500"
-                  placeholder="一句话总结，可空"
-                  disabled="{{readOnly}}"
-                  bindinput="onConclusionInput"
-                />
-              </view>
-
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <input
@@ -199,14 +187,6 @@
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
-                <text class="text-body merchant-flow-page__label">确认文案</text>
-                <textarea
-                  class="merchant-flow-page__textarea"
-                  value="{{confirmCopy}}"
-                  maxlength="800"
-                  disabled="{{readOnly}}"
-                  bindinput="onConfirmCopyInput"
-                />
               </view>
 
               <text wx:if="{{autoSaveLabel}}" class="text-caption text-secondary merchant-flow-page__auto-save">{{autoSaveLabel}}</text>
@@ -228,118 +208,132 @@
             </block>
 
             <block wx:elif="{{activeKind === 'inspection_report'}}">
-              <view class="merchant-flow-page__doc-block">
-                <text class="text-caption text-secondary">{{docPayload.vehicleBrand}} {{docPayload.vehicleSeries}} · {{docPayload.mileageText}}</text>
-                <text class="text-body merchant-flow-page__label">进店主诉</text>
-                <textarea
-                  class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
-                  value="{{chiefComplaint}}"
-                  maxlength="300"
-                  placeholder="例：怠速抖动、机油灯亮"
-                  disabled="{{readOnly}}"
-                  bindinput="onChiefComplaintInput"
-                />
-                <text class="text-body merchant-flow-page__label">发现项</text>
-                <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无发现项</view>
-                <view wx:for="{{findings}}" wx:key="url" class="merchant-flow-page__finding-card">
-                  <view class="merchant-flow-page__finding-head">
-                    <image class="merchant-flow-page__finding-img image-placeholder" src="{{item.url}}" mode="aspectFill" />
-                    <text class="text-caption text-secondary">第 {{index + 1}} 项</text>
+              <view class="merchant-flow-page__sheet">
+                <view class="merchant-flow-page__sheet-meta">
+                  <text class="text-caption text-secondary">{{docPayload.vehicleBrand}} {{docPayload.vehicleSeries}}</text>
+                  <text wx:if="{{docPayload.mileageText}}" class="text-caption text-secondary">{{docPayload.mileageText}}</text>
+                </view>
+
+                <view class="merchant-flow-page__sheet-section">
+                  <view class="merchant-flow-page__sheet-title-row">
+                    <view class="merchant-flow-page__sheet-rail" />
+                    <text class="text-body merchant-flow-page__sheet-title">进店主诉</text>
                   </view>
-                  <view class="merchant-flow-page__field">
-                    <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
-                    <input
-                      class="merchant-flow-page__input merchant-flow-page__input--field"
-                      placeholder="例：左前制动片"
-                      value="{{item.partName}}"
-                      data-index="{{index}}"
-                      data-field="partName"
-                      disabled="{{readOnly}}"
-                      bindinput="onFindingFieldInput"
+                  <input
+                    class="merchant-flow-page__sheet-input"
+                    value="{{chiefComplaint}}"
+                    maxlength="300"
+                    placeholder="例：定时保养 / 怠速抖动"
+                    disabled="{{readOnly}}"
+                    bindinput="onChiefComplaintInput"
+                  />
+                </view>
+
+                <view class="merchant-flow-page__sheet-section">
+                  <view class="merchant-flow-page__sheet-title-row">
+                    <view class="merchant-flow-page__sheet-rail" />
+                    <text class="text-body merchant-flow-page__sheet-title">检测发现</text>
+                    <text class="text-caption text-secondary">{{findings.length}} 项</text>
+                  </view>
+                  <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无发现项</view>
+                  <view
+                    wx:for="{{findings}}"
+                    wx:key="url"
+                    class="merchant-flow-page__evidence-row {{item.evidenceRowClass}}"
+                  >
+                    <image
+                      class="merchant-flow-page__evidence-img image-placeholder"
+                      src="{{item.url}}"
+                      mode="aspectFill"
                     />
-                  </view>
-                  <view class="merchant-flow-page__field">
-                    <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
-                    <view class="merchant-flow-page__result-seg">
-                      <view
-                        wx:for="{{item.resultOptions}}"
-                        wx:for-item="opt"
-                        wx:key="value"
-                        class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}}"
+                    <view class="merchant-flow-page__evidence-body">
+                      <input
+                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                        placeholder="检查部位"
+                        value="{{item.partName}}"
                         data-index="{{index}}"
-                        data-value="{{opt.value}}"
-                        bindtap="onSelectReportFindingResult"
-                      >{{opt.value}}</view>
+                        data-field="partName"
+                        disabled="{{readOnly}}"
+                        bindinput="onFindingFieldInput"
+                      />
+                      <view class="merchant-flow-page__result-seg merchant-flow-page__result-seg--compact">
+                        <view
+                          wx:for="{{item.resultOptions}}"
+                          wx:for-item="opt"
+                          wx:key="value"
+                          class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}} {{opt.selected ? item.resultToneClass : ''}}"
+                          data-index="{{index}}"
+                          data-value="{{opt.value}}"
+                          bindtap="onSelectReportFindingResult"
+                        >{{opt.shortLabel || opt.value}}</view>
+                      </view>
+                      <input
+                        wx:if="{{item.result}}"
+                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                        placeholder="{{item.adviceRequired ? '处理建议，例：更换滤芯' : '无需处理'}}"
+                        value="{{item.advice}}"
+                        data-index="{{index}}"
+                        data-field="advice"
+                        disabled="{{readOnly || !item.adviceRequired}}"
+                        bindinput="onFindingFieldInput"
+                      />
                     </view>
                   </view>
-                  <view wx:if="{{item.result}}" class="merchant-flow-page__field">
-                    <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
-                    <input
-                      class="merchant-flow-page__input merchant-flow-page__input--field"
-                      placeholder="{{item.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
-                      value="{{item.advice}}"
-                      data-index="{{index}}"
-                      data-field="advice"
-                      disabled="{{readOnly || !item.adviceRequired}}"
-                      bindinput="onFindingFieldInput"
-                    />
-                  </view>
+                  <text class="text-caption merchant-flow-page__sheet-foot">{{docPayload.disclaimer}}</text>
                 </view>
-                <text class="text-caption text-secondary merchant-flow-page__disclaimer">{{docPayload.disclaimer}}</text>
-                <text class="text-body merchant-flow-page__label">结论（可选）</text>
-                <textarea
-                  class="merchant-flow-page__textarea"
-                  value="{{conclusion}}"
-                  maxlength="500"
-                  placeholder="一句话总结，可空"
-                  disabled="{{readOnly}}"
-                  bindinput="onConclusionInput"
-                />
 
-                <view class="merchant-flow-page__plan-split">
-                  <text class="text-body merchant-flow-page__label">方案与费用</text>
-                  <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="配件 · 检测结果"
-                      value="{{item.name}}"
-                      data-index="{{index}}"
-                      data-field="name"
-                      disabled="{{readOnly}}"
-                      bindinput="onQuoteLineInput"
-                    />
+                <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
+                  <view class="merchant-flow-page__sheet-title-row">
+                    <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
+                    <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
+                  </view>
+                  <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                    <view class="merchant-flow-page__plan-row-top">
+                      <input
+                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
+                        placeholder="配件 · 检测结果"
+                        value="{{item.name}}"
+                        data-index="{{index}}"
+                        data-field="name"
+                        disabled="{{readOnly}}"
+                        bindinput="onQuoteLineInput"
+                      />
+                      <view class="merchant-flow-page__plan-amount-wrap">
+                        <text class="text-caption text-secondary">¥</text>
+                        <input
+                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
+                          placeholder="0"
+                          type="digit"
+                          value="{{item.amount}}"
+                          data-index="{{index}}"
+                          data-field="amount"
+                          disabled="{{readOnly}}"
+                          bindinput="onQuoteLineInput"
+                        />
+                      </view>
+                    </view>
                     <textarea
-                      class="merchant-flow-page__textarea merchant-flow-page__textarea--quote-note"
-                      placeholder="处理建议（可多写）"
+                      class="merchant-flow-page__plan-note"
+                      placeholder="处理建议"
                       value="{{item.note}}"
                       maxlength="500"
+                      auto-height="{{true}}"
                       data-index="{{index}}"
                       data-field="note"
                       disabled="{{readOnly}}"
                       bindinput="onQuoteLineInput"
                     />
-                    <input
-                      class="merchant-flow-page__input"
-                      placeholder="金额（元）"
-                      type="digit"
-                      value="{{item.amount}}"
-                      data-index="{{index}}"
-                      data-field="amount"
-                      disabled="{{readOnly}}"
-                      bindinput="onQuoteLineInput"
-                    />
                   </view>
-                  <text class="text-body merchant-flow-page__quote-total">{{quoteTotalLabel}}</text>
-                  <ui-button wx:if="{{!readOnly}}" type="ghost" block="{{true}}" bind:btntap="onAddQuoteLine">添加一行</ui-button>
-                  <text class="text-body merchant-flow-page__label">确认文案</text>
-                  <textarea
-                    class="merchant-flow-page__textarea"
-                    value="{{confirmCopy}}"
-                    maxlength="800"
-                    placeholder="本人同意按上述项目施工，费用以本单为准。"
-                    disabled="{{readOnly}}"
-                    bindinput="onConfirmCopyInput"
-                  />
+                  <view class="merchant-flow-page__plan-total-bar">
+                    <text class="text-h3">{{quoteTotalLabel}}</text>
+                  </view>
+                  <view
+                    wx:if="{{!readOnly}}"
+                    class="merchant-flow-page__plan-add"
+                    bindtap="onAddQuoteLine"
+                  >
+                    <text class="text-caption text-link">+ 添加一行</text>
+                  </view>
                 </view>
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
@@ -349,50 +343,60 @@
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
-              <view class="merchant-flow-page__doc-block">
-                <text class="text-body merchant-flow-page__label">方案项目</text>
-                <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__quote-line">
-                  <input
-                    class="merchant-flow-page__input"
-                    placeholder="配件 · 检测结果"
-                    value="{{item.name}}"
-                    data-index="{{index}}"
-                    data-field="name"
-                    disabled="{{readOnly}}"
-                    bindinput="onQuoteLineInput"
-                  />
-                  <textarea
-                    class="merchant-flow-page__textarea merchant-flow-page__textarea--quote-note"
-                    placeholder="处理建议（可多写）"
-                    value="{{item.note}}"
-                    maxlength="500"
-                    data-index="{{index}}"
-                    data-field="note"
-                    disabled="{{readOnly}}"
-                    bindinput="onQuoteLineInput"
-                  />
-                  <input
-                    class="merchant-flow-page__input"
-                    placeholder="金额（元）"
-                    type="digit"
-                    value="{{item.amount}}"
-                    data-index="{{index}}"
-                    data-field="amount"
-                    disabled="{{readOnly}}"
-                    bindinput="onQuoteLineInput"
-                  />
+              <view class="merchant-flow-page__sheet">
+                <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
+                  <view class="merchant-flow-page__sheet-title-row">
+                    <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
+                    <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
+                  </view>
+                  <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                    <view class="merchant-flow-page__plan-row-top">
+                      <input
+                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
+                        placeholder="配件 · 检测结果"
+                        value="{{item.name}}"
+                        data-index="{{index}}"
+                        data-field="name"
+                        disabled="{{readOnly}}"
+                        bindinput="onQuoteLineInput"
+                      />
+                      <view class="merchant-flow-page__plan-amount-wrap">
+                        <text class="text-caption text-secondary">¥</text>
+                        <input
+                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--amount"
+                          placeholder="0"
+                          type="digit"
+                          value="{{item.amount}}"
+                          data-index="{{index}}"
+                          data-field="amount"
+                          disabled="{{readOnly}}"
+                          bindinput="onQuoteLineInput"
+                        />
+                      </view>
+                    </view>
+                    <textarea
+                      class="merchant-flow-page__plan-note"
+                      placeholder="处理建议"
+                      value="{{item.note}}"
+                      maxlength="500"
+                      auto-height="{{true}}"
+                      data-index="{{index}}"
+                      data-field="note"
+                      disabled="{{readOnly}}"
+                      bindinput="onQuoteLineInput"
+                    />
+                  </view>
+                  <view class="merchant-flow-page__plan-total-bar">
+                    <text class="text-h3">{{quoteTotalLabel}}</text>
+                  </view>
+                  <view
+                    wx:if="{{!readOnly}}"
+                    class="merchant-flow-page__plan-add"
+                    bindtap="onAddQuoteLine"
+                  >
+                    <text class="text-caption text-link">+ 添加一行</text>
+                  </view>
                 </view>
-                <text class="text-body merchant-flow-page__quote-total">{{quoteTotalLabel}}</text>
-                <ui-button wx:if="{{!readOnly}}" type="ghost" block="{{true}}" bind:btntap="onAddQuoteLine">添加一行</ui-button>
-                <text class="text-body merchant-flow-page__label">确认文案</text>
-                <textarea
-                  class="merchant-flow-page__textarea"
-                  value="{{confirmCopy}}"
-                  maxlength="800"
-                  placeholder="本人同意按上述项目施工，费用以本单为准。"
-                  disabled="{{readOnly}}"
-                  bindinput="onConfirmCopyInput"
-                />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
@@ -457,14 +461,6 @@
                   data-field="warrantyExclusions"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
-                />
-                <text class="text-body merchant-flow-page__label">确认文案</text>
-                <textarea
-                  class="merchant-flow-page__textarea"
-                  value="{{confirmCopy}}"
-                  maxlength="800"
-                  disabled="{{readOnly}}"
-                  bindinput="onConfirmCopyInput"
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">

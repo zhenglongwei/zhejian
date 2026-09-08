@@ -27,6 +27,12 @@ const FINDING_RESULT_OPTIONS = [
 
 const FINDING_ADVICE_NONE = '无需处理'
 
+/** 方案确认 · 车主确认固定文案（协议句，商家不可改） */
+const QUOTE_CONFIRM_COPY = '本人同意按上述项目施工，费用以本单为准。'
+
+/** 完工确认 · 车主确认固定文案（协议句，商家不可改） */
+const REPAIR_CONFIRM_COPY = '本人确认上述施工与交车状态，并知悉质保条款。'
+
 function isValidFindingResult(value) {
   return FINDING_RESULT_OPTIONS.some((row) => row.value === value)
 }
@@ -195,6 +201,8 @@ module.exports = {
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
+  QUOTE_CONFIRM_COPY,
+  REPAIR_CONFIRM_COPY,
   isValidFindingResult,
   findingAdviceRequired,
   STANDARD_FLOW_CHAIN,

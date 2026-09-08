@@ -19,6 +19,8 @@ const {
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
+  QUOTE_CONFIRM_COPY,
+  REPAIR_CONFIRM_COPY,
   isValidFindingResult,
   findingAdviceRequired,
 } = require('../../../../constants/service-flow-nodes')
@@ -303,6 +305,14 @@ Page({
       ...opt,
       selected: row.result === opt.value,
     }))
+    const resultTone =
+      row.result === FINDING_RESULT.OK
+        ? 'ok'
+        : row.result === FINDING_RESULT.WATCH
+          ? 'watch'
+          : row.result === FINDING_RESULT.ACTION
+            ? 'action'
+            : ''
     return {
       ...row,
       listKey: listKey || row.imageId || row.url || '',
@@ -311,6 +321,13 @@ Page({
       summaryText: row.partName || '待填写',
       completenessLabel: missing === 0 ? row.result || '已齐' : `缺 ${missing} 项`,
       adviceRequired: findingAdviceRequired(row.result),
+      resultTone,
+      resultToneClass: resultTone
+        ? `merchant-flow-page__result-tone-${resultTone}`
+        : '',
+      evidenceRowClass: resultTone
+        ? `merchant-flow-page__evidence-row--${resultTone}`
+        : '',
       resultOptions,
     }
   },
@@ -371,7 +388,7 @@ Page({
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyScope: this.data.warrantyScope,
         warrantyExclusions: this.data.warrantyExclusions,
-        confirmCopy: this.data.confirmCopy,
+        confirmCopy: REPAIR_CONFIRM_COPY,
       }
     }
     return {}
@@ -460,8 +477,23 @@ Page({
         findings = Array.isArray(docPayload.findings)
           ? docPayload.findings.map((item) => {
               const row = normalizeFinding(item)
+              const resultTone =
+                row.result === FINDING_RESULT.OK
+                  ? 'ok'
+                  : row.result === FINDING_RESULT.WATCH
+                    ? 'watch'
+                    : row.result === FINDING_RESULT.ACTION
+                      ? 'action'
+                      : ''
               return {
                 ...row,
+                resultTone,
+                resultToneClass: resultTone
+                  ? `merchant-flow-page__result-tone-${resultTone}`
+                  : '',
+                evidenceRowClass: resultTone
+                  ? `merchant-flow-page__evidence-row--${resultTone}`
+                  : '',
                 adviceRequired: findingAdviceRequired(row.result),
                 resultOptions: FINDING_RESULT_OPTIONS.map((opt) => ({
                   ...opt,
@@ -528,7 +560,7 @@ Page({
           ? '核对报告与方案'
           : (active && active.title) || '',
         activeSummary: showCombinedPlan
-          ? '确认发现项后填写费用，通知车主'
+          ? ''
           : (active && (active.photoTips || active.summary)) || '',
         activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
         activeKind: (active && active.kind) || '',
@@ -889,6 +921,20 @@ Page({
         selected: next.result === opt.value,
       }))
       next.adviceRequired = findingAdviceRequired(next.result)
+      next.resultTone =
+        next.result === FINDING_RESULT.OK
+          ? 'ok'
+          : next.result === FINDING_RESULT.WATCH
+            ? 'watch'
+            : next.result === FINDING_RESULT.ACTION
+              ? 'action'
+              : ''
+      next.resultToneClass = next.resultTone
+        ? `merchant-flow-page__result-tone-${next.resultTone}`
+        : ''
+      next.evidenceRowClass = next.resultTone
+        ? `merchant-flow-page__evidence-row--${next.resultTone}`
+        : ''
       return next
     })
     this.setData({ findings })
@@ -1124,14 +1170,13 @@ Page({
       return {
         ...base,
         lines,
-        confirmCopy:
-          this.data.confirmCopy || '本人同意按上述项目施工，费用以本单为准。',
+        confirmCopy: QUOTE_CONFIRM_COPY,
       }
     }
     if (kind === 'repair_report') {
       return {
         ...base,
-        confirmCopy: this.data.confirmCopy || base.confirmCopy,
+        confirmCopy: REPAIR_CONFIRM_COPY,
         warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod,
         warrantyScope: this.data.warrantyScope || base.warrantyScope,
         warrantyExclusions: this.data.warrantyExclusions || base.warrantyExclusions,
@@ -1149,8 +1194,7 @@ Page({
       .filter((l) => String(l.name || '').trim())
     return {
       lines,
-      confirmCopy:
-        this.data.confirmCopy || '本人同意按上述项目施工，费用以本单为准。',
+      confirmCopy: QUOTE_CONFIRM_COPY,
     }
   },
 
@@ -1278,7 +1322,7 @@ Page({
   async onProxyConfirm() {
     if (this.data.readOnly || this.data.confirming) return
     const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind === 'quote_confirm') {
+    if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
       if (gaps.length) {
         wx.showModal({
@@ -1289,17 +1333,38 @@ Page({
         return
       }
     }
+    wx.showModal({
+      title: '代确认',
+      content: '请确认已当面或通过电话/微信获得车主同意。',
+      confirmText: '已获得车主确认',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) this.runProxyConfirm()
+      },
+    })
+  },
+
+  async runProxyConfirm() {
+    if (this.data.readOnly || this.data.confirming) return
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    const payload = this.buildDocPayloadForSave()
+    if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
+      payload.confirmCopy = QUOTE_CONFIRM_COPY
+    }
+    if (kind === 'repair_report') {
+      payload.confirmCopy = REPAIR_CONFIRM_COPY
+    }
     this.setData({ confirming: true })
     try {
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: {
           status: 'pending_confirm',
-          payload: this.buildDocPayloadForSave(),
+          payload,
         },
       })
       await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
-        document: { payload: this.buildDocPayloadForSave() },
+        document: { payload },
       })
       wx.showToast({ title: '已代确认', icon: 'success' })
       await this.loadFlow({ silent: true })

@@ -86,6 +86,14 @@
   margin-top: var(--space-xs);
 }
 
+.album-service-flow__protocol {
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  border-left: 6rpx solid var(--color-primary);
+}
+
 .album-service-flow__photos {
   display: flex;
   flex-wrap: wrap;

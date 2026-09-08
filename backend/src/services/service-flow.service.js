@@ -12,6 +12,8 @@ const {
   resolveLegacyStageIdsForFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
+  QUOTE_CONFIRM_COPY,
+  REPAIR_CONFIRM_COPY,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const {
@@ -298,7 +300,7 @@ async function healQuotePrefillAfterReport(albumId) {
             lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
             confirmCopy:
               (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-              '本人同意按上述项目施工，费用以本单为准。',
+              QUOTE_CONFIRM_COPY,
             evidenceRef: report.id,
           },
         },
@@ -324,7 +326,7 @@ async function healQuotePrefillAfterReport(albumId) {
             lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
             confirmCopy:
               (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-              '本人同意按上述项目施工，费用以本单为准。',
+              QUOTE_CONFIRM_COPY,
             evidenceRef: report.id,
           },
         },
@@ -554,7 +556,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
                 lines: lines.length ? lines : [{ name: '', amount: '', note: '' }],
                 confirmCopy:
                   (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-                  '本人同意按上述项目施工，费用以本单为准。',
+                  QUOTE_CONFIRM_COPY,
                 evidenceRef: reportId,
               },
             },
@@ -578,7 +580,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           workItems: collectAllWorkOrderItems(list),
           deliveryImages: (delivery && delivery.images) || [],
           photoDraft: incomingDraft,
-          confirmCopy: incomingDraft.confirmCopy,
+          confirmCopy: REPAIR_CONFIRM_COPY,
         })
         list[repairIdx] = {
           ...list[repairIdx],
@@ -671,7 +673,7 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
           payload.quote.payload &&
           payload.quote.payload.confirmCopy) ||
         (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
-        '本人同意按上述项目施工，费用以本单为准。',
+        QUOTE_CONFIRM_COPY,
       evidenceRef: id,
     }
     const quoteGaps = collectQuoteConfirmGaps(quotePayload)
@@ -836,7 +838,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
         status: 'draft',
         payload: {
           lines: [{ name: '', amount: '', note: '' }],
-          confirmCopy: '本人同意按上述增项项目施工，费用以本单为准。',
+          confirmCopy: QUOTE_CONFIRM_COPY,
         },
       },
       legacyStageId: '',
@@ -936,7 +938,12 @@ function mapOwnerFlowDocCard(node = {}) {
     segmentLabel: node.segmentLabel || '',
     statusLabel: doc.statusLabel || node.summary || '',
     needsConfirm,
-    confirmCopy: String(payload.confirmCopy || ''),
+    confirmCopy:
+      kind === 'repair_report'
+        ? REPAIR_CONFIRM_COPY
+        : kind === 'quote_confirm' || kind === 'addon_quote_confirm'
+          ? QUOTE_CONFIRM_COPY
+          : String(payload.confirmCopy || ''),
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
     chiefComplaint: String(payload.chiefComplaint || ''),
     vehicleBrand: String(payload.vehicleBrand || ''),

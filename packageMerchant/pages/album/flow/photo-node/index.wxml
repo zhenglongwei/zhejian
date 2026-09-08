@@ -52,7 +52,7 @@
             class="merchant-flow-photo-node__textarea"
             value="{{note}}"
             maxlength="2000"
-            placeholder="填写检测发现、结论与未检项说明（将用于生成检测报告）"
+            placeholder="填写检测发现与未检项说明（将用于生成检测报告）"
             disabled="{{readOnly}}"
             bindinput="onNoteInput"
           />

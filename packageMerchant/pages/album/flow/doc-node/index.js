@@ -129,7 +129,20 @@ Page({
     this.setData({ proxyProofImages: next })
   },
 
-  async onProxyConfirm() {
+  onProxyConfirm() {
+    if (this.data.readOnly || this.data.confirming) return
+    wx.showModal({
+      title: '代确认',
+      content: '请确认已当面或通过电话/微信获得车主同意。',
+      confirmText: '已获得车主确认',
+      cancelText: '取消',
+      success: (res) => {
+        if (res.confirm) this.runProxyConfirm()
+      },
+    })
+  },
+
+  async runProxyConfirm() {
     if (this.data.readOnly || this.data.confirming) return
     this.setData({ confirming: true })
     try {
