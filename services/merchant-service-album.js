@@ -167,8 +167,20 @@ async function confirmMerchantPublicCasePublish(albumId, payload = {}) {
   })
 }
 
-async function hostMerchantAlbum(albumId) {
-  return post(`/merchant/service-albums/${albumId}/host`, withStore())
+async function hostMerchantAlbum(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/host`, withStore(payload))
+}
+
+async function auditHostedPublicPrivacy(albumId) {
+  return post(`/merchant/service-albums/${albumId}/host/privacy-audit`, withStore())
+}
+
+async function generateHostedGeoDraft(albumId) {
+  return post(`/merchant/service-albums/${albumId}/host/generate-geo`, withStore())
+}
+
+async function confirmHostedPublicPublish(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/host/confirm-public`, withStore(payload))
 }
 
 async function unhostMerchantAlbum(albumId) {
@@ -362,6 +374,9 @@ module.exports = {
   generateMerchantPublicCase,
   confirmMerchantPublicCasePublish,
   hostMerchantAlbum,
+  auditHostedPublicPrivacy,
+  generateHostedGeoDraft,
+  confirmHostedPublicPublish,
   unhostMerchantAlbum,
   unpublishHostedMerchantAlbum,
   saveHostedPublicCopy,

@@ -15,10 +15,10 @@
       <text class="text-h3">{{showCompletePrimary ? (resubmit ? '案例预览（重新提交）' : '案例预览（确认完工）') : '公开案例稿'}}</text>
       <view class="case-draft__intro">
         <text wx:if="{{editable && generateMode}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的档案排：概况、问答与详情。生成后可改措辞；公开须使用脱敏工具并勾选真实性承诺。不能在本页加新图。
+          存量兼容页。新单请走「托管到案例站」。
         </text>
         <text wx:elif="{{editable}}" class="text-caption text-secondary case-draft__hint">
-          下面按即将上网的档案排。可改说明、点缩略图看全图、去掉图、删问答，不能加新图。完工后在相册点「生成案例」再公开。
+          存量案例稿。可改说明、删问答；不能加新图。新单请走「托管到案例站」。
         </text>
         <text wx:else class="text-caption text-secondary case-draft__hint">
           本预览为已确认或已发布的案例稿（只读）。
@@ -51,10 +51,6 @@
         <label class="case-draft__check">
           <switch checked="{{useDesensitizeTool}}" disabled bindchange="onToggleDesensitize" color="#2B6CB0" />
           <text class="text-caption">使用脱敏工具（公开强制，不可取消）</text>
-        </label>
-        <label class="case-draft__check" bindtap="onToggleCommitment">
-          <checkbox checked="{{authenticityCommitment}}" color="#2B6CB0" />
-          <text class="text-caption">我确认本案例档案内容真实、合法，已完成脱敏预览；平台不担保真实与零残留，违诺可被取消公开</text>
         </label>
       </view>
       <text class="text-caption case-draft__label">标题</text>

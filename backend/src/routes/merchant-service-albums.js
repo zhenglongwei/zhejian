@@ -651,10 +651,72 @@ router.post(
   async (req, res, next) => {
     try {
       const storeId = resolveStoreId(req)
+      const body = req.body || {}
       const { hostAlbum } = require('../services/case-hosting.service')
       const data = await hostAlbum(req.params.albumId, {
         storeId,
         merchantId: req.auth.merchantId,
+        mode: body.mode === 'public' ? 'public' : 'private',
+        useDesensitizeTool:
+          body.useDesensitizeTool == null ? true : Boolean(body.useDesensitizeTool),
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/host/privacy-audit',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { auditHostedPublicPrivacy } = require('../services/case-hosting.service')
+      const data = await auditHostedPublicPrivacy(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/host/generate-geo',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { generateHostedGeoDraft } = require('../services/case-hosting.service')
+      const data = await generateHostedGeoDraft(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/host/confirm-public',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const body = req.body || {}
+      const { confirmHostedPublicPublish } = require('../services/case-hosting.service')
+      const data = await confirmHostedPublicPublish(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+        summary: body.summary,
+        highlights: body.highlights,
+        faq: body.faq,
       })
       return ok(res, data)
     } catch (e) {

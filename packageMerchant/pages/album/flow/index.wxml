@@ -711,6 +711,14 @@
             bind:btntap="onCompleteAlbum"
           >标记整单完工</ui-button>
         </view>
+
+        <view wx:if="{{showHostEntry}}" class="merchant-flow-page__footer-actions">
+          <ui-button
+            type="primary"
+            block="{{true}}"
+            bind:btntap="onGoHostAlbum"
+          >{{hosted ? (hostVisibility === 'public' ? '管理托管' : '管理托管') : '托管到案例站'}}</ui-button>
+        </view>
       </view>
     </scroll-view>
   </block>

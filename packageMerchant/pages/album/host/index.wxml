@@ -1,0 +1,105 @@
+<view class="page merchant-host-page page-content">
+  <block wx:if="{{status === 'loading'}}">
+    <text class="text-caption text-secondary">加载中…</text>
+  </block>
+
+  <block wx:elif="{{status === 'error'}}">
+    <text class="text-body">{{errorMessage}}</text>
+    <ui-button type="ghost" block="{{true}}" bind:btntap="onRetry">重试</ui-button>
+  </block>
+
+  <block wx:else>
+    <view class="merchant-host-page__intro">
+      <text class="text-body">{{serviceName}}</text>
+      <text class="text-caption text-secondary merchant-host-page__hint">
+        托管原始服务档案到案例站；公开须过隐私校验并确认 GEO 文案。
+      </text>
+    </view>
+
+    <view wx:if="{{hosted && hostVisibility === 'public'}}" class="merchant-host-page__status">
+      <text class="text-body">已在店页公开</text>
+    </view>
+
+    <view wx:elif="{{hosted}}" class="merchant-host-page__status">
+      <text class="text-body">已私密托管</text>
+      <text wx:if="{{publicPublishStage}}" class="text-caption text-secondary">
+        公开进度：{{stageLabel}}
+      </text>
+    </view>
+
+    <view wx:if="{{!hosted}}" class="merchant-host-page__section">
+      <text class="text-body merchant-host-page__label">托管方式</text>
+      <view
+        class="merchant-host-page__option {{hostMode === 'private' ? 'is-on' : ''}}"
+        data-mode="private"
+        bindtap="onSelectMode"
+      >
+        <text class="text-body">私密托管</text>
+        <text class="text-caption text-secondary">仅案例站存档，不公开展示</text>
+      </view>
+      <view
+        class="merchant-host-page__option {{hostMode === 'public' ? 'is-on' : ''}}"
+        data-mode="public"
+        bindtap="onSelectMode"
+      >
+        <text class="text-body">公开托管</text>
+        <text class="text-caption text-secondary">隐私校验 → 生成 GEO → 确认后上店页</text>
+      </view>
+    </view>
+
+    <view wx:if="{{hosted && hostMode === 'public' && !privacyPassed}}" class="merchant-host-page__section">
+      <text class="text-body merchant-host-page__label">隐私校验</text>
+      <text class="text-caption text-secondary">公开内容须符合隐私规则；使用平台脱敏工具且未改结果可自动通过。</text>
+      <view wx:if="{{privacyBlocks.length}}" class="merchant-host-page__blocks">
+        <text wx:for="{{privacyBlocks}}" wx:key="issue" class="text-caption">{{item.message}}</text>
+      </view>
+      <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onRunPrivacyAudit">
+        校验隐私
+      </ui-button>
+    </view>
+
+    <view wx:if="{{hosted && privacyPassed && !geoConfirmed}}" class="merchant-host-page__section">
+      <text class="text-body merchant-host-page__label">GEO 文案</text>
+      <text class="text-caption text-secondary">基于可公开面生成，可改；确认后才会公域可见。</text>
+      <ui-button
+        wx:if="{{!geoDraft.summary}}"
+        type="ghost"
+        block="{{true}}"
+        loading="{{working}}"
+        bind:btntap="onGenerateGeo"
+      >生成 GEO 草稿</ui-button>
+      <block wx:if="{{geoDraft.summary}}">
+        <text class="text-caption merchant-host-page__field-label">摘要</text>
+        <textarea
+          class="merchant-host-page__textarea"
+          value="{{geoSummary}}"
+          maxlength="500"
+          bindinput="onGeoSummaryInput"
+        />
+      </block>
+    </view>
+  </block>
+
+  <ui-fixed-bottom-bar wx:if="{{status === 'ready'}}">
+    <ui-button
+      wx:if="{{!hosted}}"
+      type="primary"
+      block="{{true}}"
+      loading="{{working}}"
+      bind:btntap="onSubmitHost"
+    >确认托管</ui-button>
+    <ui-button
+      wx:elif="{{hosted && privacyPassed && geoDraft.summary && !geoConfirmed}}"
+      type="primary"
+      block="{{true}}"
+      loading="{{working}}"
+      bind:btntap="onConfirmPublic"
+    >确认 GEO 并公开</ui-button>
+    <ui-button
+      wx:elif="{{hosted && hostMode === 'private' && hostVisibility !== 'public'}}"
+      type="ghost"
+      block="{{true}}"
+      bind:btntap="onSwitchToPublic"
+    >设为公开</ui-button>
+  </ui-fixed-bottom-bar>
+</view>

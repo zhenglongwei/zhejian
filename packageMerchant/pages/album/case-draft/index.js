@@ -49,7 +49,6 @@ Page({
     auditSummary: '',
     canPublish: false,
     useDesensitizeTool: true,
-    authenticityCommitment: false,
   },
 
   /** 页面工作稿：同步更新，避免 setData 未完成就提交旧文 */
@@ -62,6 +61,13 @@ Page({
     const generateMode = this.generateMode
     if (!this.albumId) {
       this.setData({ status: 'error', errorMessage: '服务相册信息缺失' })
+      return
+    }
+    // 2026-09-09：主路径迁至托管向导；生成/完工后不再进旧案例稿页
+    if (generateMode || fromComplete) {
+      wx.redirectTo({
+        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+      })
       return
     }
     this.setData({ fromComplete, generateMode })
@@ -195,7 +201,7 @@ Page({
       const hard = auditHardBlocks.length
       auditSummary = hard
         ? `存在 ${hard} 项系统硬拦，须处理后再公开`
-        : `案例稿已就绪（素材参考分 ${score}，仅供参考，不挡公开）。公开前请勾选脱敏与真实性承诺。`
+        : `案例稿已就绪（素材参考分 ${score}，仅供参考，不挡公开）。新单请走「托管到案例站」。`
     }
     this._workingDraft = {
       title,
@@ -556,18 +562,10 @@ Page({
     this.setData({ useDesensitizeTool: true })
   },
 
-  onToggleCommitment() {
-    this.setData({ authenticityCommitment: !this.data.authenticityCommitment })
-  },
-
   async onPublishCase() {
     if (!this.data.editable || this.data.publishing || !this.data.canPublish) return
     if (!this.data.useDesensitizeTool) {
       wx.showToast({ title: '公开须使用脱敏工具', icon: 'none' })
-      return
-    }
-    if (!this.data.authenticityCommitment) {
-      wx.showToast({ title: '请先勾选真实性承诺', icon: 'none' })
       return
     }
     this.setData({ publishing: true })
@@ -575,7 +573,6 @@ Page({
       wx.showLoading({ title: '发布中', mask: true })
       await confirmMerchantPublicCasePublish(this.albumId, {
         draft: this.buildDraftPayload(),
-        authenticityCommitment: true,
         useDesensitizeTool: true,
       })
       wx.hideLoading()
@@ -640,7 +637,7 @@ Page({
         title: isResubmit ? '已重新提交' : '已确认完工',
         content: isResubmit
           ? '已再次进入平台案例审核。通过后将出现在店页。'
-          : '相册已完工。之后可从相册点「生成案例」送审；通过后会出现在店页。',
+          : '相册已完工。可从服务流程或相册点「托管到案例站」。',
         confirmText: '复制文案',
         cancelText: '返回相册',
         success: (res) => {

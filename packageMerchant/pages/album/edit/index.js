@@ -15,7 +15,6 @@ const {
   switchMerchantServiceAlbumTemplate,
   exportMerchantCaseDraftCopy,
   interpretMerchantAlbumVision,
-  hostMerchantAlbum,
   unhostMerchantAlbum,
   unpublishHostedMerchantAlbum,
 } = require('../../../../services/merchant-service-album')
@@ -784,7 +783,9 @@ Page({
       bottomPrimaryText = '重新提交'
       bottomPrimaryAction = 'complete'
     }
-    // 已完工只读：底栏「生成案例」或进度（D14：机审过线待确认 / 未过线补证）
+    const hostMeta = detail.hostMeta || {}
+    const hosted = Boolean(hostMeta.hosted)
+    // 已完工只读：底栏「托管到案例站」（废止「生成案例」主路径）
     if (readOnly && isCompleted && detail.complianceStatus !== 'rejected') {
       showBottomPrimary = true
       showSaveButton = false
@@ -793,24 +794,11 @@ Page({
         bottomPrimaryText = '车主已阻止公开'
         bottomPrimaryAction = 'blocked'
       } else if (pcs === 'public_approved') {
-        bottomPrimaryText = '查看案例稿'
-        bottomPrimaryAction = 'viewDraft'
-      } else if (pcs === 'notify_window' || pcs === 'review_passed') {
-        bottomPrimaryText = '查看案例稿'
-        bottomPrimaryAction = 'viewDraft'
-      } else if (pcs === 'audit_passed') {
-        bottomPrimaryText = '继续发布'
-        bottomPrimaryAction = 'generateCase'
-      } else if (pcs === 'need_modify') {
-        bottomPrimaryText = '补证后生成案例'
-        bottomPrimaryAction = 'generateCase'
-      } else if (pcs === 'pending_review' || pcs === 'pending_desensitize') {
-        // 遗留人审排队单：只读查看；新主路径不再入队
-        bottomPrimaryText = '查看案例稿'
-        bottomPrimaryAction = 'viewDraft'
+        bottomPrimaryText = '管理托管'
+        bottomPrimaryAction = 'hostAlbum'
       } else {
-        bottomPrimaryText = '生成案例'
-        bottomPrimaryAction = 'generateCase'
+        bottomPrimaryText = hosted ? '管理托管' : '托管到案例站'
+        bottomPrimaryAction = 'hostAlbum'
       }
     }
     const caseDraftConfirmed = Boolean(
@@ -833,7 +821,6 @@ Page({
     const comparePairRows = this.initComparePairRowsFromNodes(nodes, detail.templateId || '')
     const checklist = this.normalizeChecklistView(detail.checklist || null)
     wx.setNavigationBarTitle({ title: readOnly ? '服务相册' : '编辑服务相册' })
-    const hostMeta = detail.hostMeta || {}
     this.setData({
       status: 'normal',
       detail,
@@ -2837,8 +2824,8 @@ Page({
     // CASE-10：上网门禁用机审真实性；此处仅提示隐私硬拦与内部改善建议
     const contentParts = [
       privacyBlocks.length
-        ? '存在隐私/合规硬项，须先处理后再生成案例。'
-        : '隐私硬门槛已过。上网以「生成案例 → 机审真实性 ≥60 → 确认发布」为准；下列质量分为内部参考，不挡发布。',
+        ? '存在隐私/合规硬项，须先处理后再公开托管。'
+        : '隐私硬门槛已过。公开托管须完成隐私校验并确认 GEO；下列质量分为内部参考，不挡公开。',
       report.publicCaseScore != null
         ? `内部参考分 ${report.publicCaseScore}（不作为上网门禁）`
         : '',
@@ -2891,6 +2878,13 @@ Page({
 
   onBottomPrimaryTap() {
     const action = this.data.bottomPrimaryAction
+    if (action === 'hostAlbum') {
+      if (!this.albumId) return
+      wx.navigateTo({
+        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+      })
+      return
+    }
     if (action === 'generateCase' || action === 'viewDraft') {
       this.onOpenCaseDraft()
       return
@@ -2909,26 +2903,22 @@ Page({
   onOpenCaseDraft() {
     if (!this.albumId) return
     const action = this.data.bottomPrimaryAction
-    const from =
-      action === 'viewDraft' ? 'view' : action === 'generateCase' ? 'generate' : 'generate'
+    if (action === 'generateCase') {
+      wx.navigateTo({
+        url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+      })
+      return
+    }
     wx.navigateTo({
-      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=${from}`,
+      url: `/packageMerchant/pages/album/case-draft/index?albumId=${this.albumId}&from=view`,
     })
   },
 
-  async onHostAlbum() {
-    if (!this.albumId || this.data.hosting) return
-    this.setData({ hosting: true })
-    try {
-      await hostMerchantAlbum(this.albumId)
-      wx.showToast({ title: '已托管', icon: 'success' })
-      const detail = await fetchMerchantServiceAlbum(this.albumId)
-      this.applyAlbum(detail)
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '托管失败', icon: 'none' })
-    } finally {
-      this.setData({ hosting: false })
-    }
+  onHostAlbum() {
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+    })
   },
 
   async onUnhostAlbum() {

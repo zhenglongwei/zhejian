@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "托管到案例站",
+  "usingComponents": {
+    "ui-button": "/components/button/index",
+    "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index"
+  }
+}

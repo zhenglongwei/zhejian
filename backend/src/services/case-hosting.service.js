@@ -21,14 +21,109 @@ function readHostMeta(album) {
   return {
     hosted: Boolean(meta.hosted) || published,
     visibility: published ? 'public' : meta.visibility === 'public' ? 'public' : 'private',
-    authenticityCommitmentAt: meta.authenticityCommitmentAt || null,
     useDesensitizeTool: meta.useDesensitizeTool !== false,
     sourceLabel: meta.sourceLabel || '商家上传',
     overview: meta.overview || '',
     faq: Array.isArray(meta.faq) ? meta.faq : [],
     updatedAt: meta.updatedAt || null,
+    hostedAt: meta.hostedAt || null,
+    factLayerLocked: Boolean(meta.factLayerLocked),
+    archiveSnapshot: meta.archiveSnapshot || null,
+    publicPublishStage: String(meta.publicPublishStage || ''),
+    privacyAuditPassedAt: meta.privacyAuditPassedAt || null,
+    geoDraft: meta.geoDraft || null,
+    geoLayer: meta.geoLayer || null,
     revisions: Array.isArray(meta.revisions) ? meta.revisions : [],
     confirmedDocs: Array.isArray(meta.confirmedDocs) ? meta.confirmedDocs : [],
+  }
+}
+
+/** 托管时冻结门店展示快照（主档在 store 表，此处只读副本） */
+async function resolveStoreSnapshot(album = {}) {
+  const base = {
+    storeId: album.storeId || '',
+    name: album.storeName || '',
+    city: '',
+    address: '',
+    snapshotAt: new Date().toISOString(),
+  }
+  if (!album.storeId) return base
+  try {
+    const store = await prisma.store.findUnique({
+      where: { id: album.storeId },
+      select: { name: true, city: true, address: true },
+    })
+    if (store) {
+      base.name = store.name || base.name
+      base.city = store.city || ''
+      base.address = store.address || ''
+    }
+  } catch (_) {
+    /* 快照允许仅相册冗余字段 */
+  }
+  return base
+}
+
+/** 托管时冻结的原始服务档案（不含 merchantCaseDraft 优化文稿） */
+function buildHostedArchiveSnapshot(album = {}, storeSnapshot = null) {
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : {}
+  const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
+  const confirmedDocs = []
+  flowNodes.forEach((node) => {
+    const doc = node && node.document
+    if (!doc || doc.status !== 'confirmed' || !doc.payload) return
+    confirmedDocs.push({
+      nodeId: node.id,
+      kind: node.kind,
+      confirmedAt: doc.confirmedAt || '',
+      confirmedBy: doc.confirmedBy || '',
+      payload: doc.payload,
+    })
+  })
+  return {
+    frozenAt: new Date().toISOString(),
+    albumId: album.id,
+    serviceName: album.serviceName || '',
+    vehicle: album.vehicleJson || {},
+    storeId: album.storeId || '',
+    storeSnapshot:
+      storeSnapshot && typeof storeSnapshot === 'object'
+        ? storeSnapshot
+        : {
+            storeId: album.storeId || '',
+            name: album.storeName || '',
+            city: '',
+            address: '',
+            snapshotAt: new Date().toISOString(),
+          },
+    nodes: (album.nodes || []).map((n) => ({
+      id: n.id,
+      title: n.title || '',
+      status: n.status || '',
+      note: n.note || '',
+      images: (n.images || []).map((img) => ({
+        url: typeof img === 'string' ? img : (img && img.url) || '',
+        caption: typeof img === 'object' && img ? img.caption || '' : '',
+      })),
+    })),
+    flowNodes: flowNodes.map((n) => ({
+      id: n.id,
+      kind: n.kind,
+      title: n.title || '',
+      status: n.status || '',
+      photoDraft: n.photoDraft || null,
+      document: n.document
+        ? {
+            status: n.document.status || '',
+            confirmedAt: n.document.confirmedAt || '',
+            payload: n.document.payload || null,
+          }
+        : null,
+    })),
+    confirmedDocs,
   }
 }
 
@@ -58,8 +153,12 @@ async function writeHostMeta(albumId, patch) {
   return readHostMeta({ ...album, contentPackageJson: pkg, publicCase: album.publicCase })
 }
 
-async function hostAlbum(albumId, { storeId, merchantId }) {
+async function hostAlbum(
+  albumId,
+  { storeId, merchantId, mode = 'private', useDesensitizeTool = true } = {},
+) {
   const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
+  const { SERVICE_ALBUM_STATUS } = require('../constants/v2')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -67,11 +166,274 @@ async function hostAlbum(albumId, { storeId, merchantId }) {
     throw err
   }
   assertMerchantAlbum(album, storeId, merchantId)
+  const status = String(album.status || '')
+  if (status !== SERVICE_ALBUM_STATUS.COMPLETED && status !== 'completed') {
+    const err = new Error('请先完成服务流程并整单完工后再托管')
+    err.status = 409
+    err.code = 'ALBUM_NOT_COMPLETED'
+    throw err
+  }
+
+  const prev = readHostMeta(album)
+  const intentPublic = String(mode || 'private') === 'public'
+
+  if (prev.hosted && !intentPublic && prev.visibility !== 'public') {
+    return { albumId, ...prev, message: '已在私密托管', nextStep: 'done' }
+  }
+  if (prev.hosted && intentPublic && prev.visibility === 'public') {
+    return { albumId, ...prev, message: '已在店页公开', nextStep: 'done' }
+  }
+
+  const storeSnapshot = await resolveStoreSnapshot(album)
+  const archiveSnapshot =
+    prev.archiveSnapshot && prev.factLayerLocked
+      ? prev.archiveSnapshot
+      : buildHostedArchiveSnapshot(album, storeSnapshot)
+
+  let publicPublishStage = ''
+  if (intentPublic) {
+    if (prev.privacyAuditPassedAt && prev.geoLayer?.confirmedAt) {
+      publicPublishStage = 'published'
+    } else if (prev.privacyAuditPassedAt && prev.geoDraft?.summary) {
+      publicPublishStage = 'awaiting_geo_confirm'
+    } else if (prev.privacyAuditPassedAt) {
+      publicPublishStage = 'awaiting_geo'
+    } else {
+      publicPublishStage = 'awaiting_privacy'
+    }
+  }
+
   const meta = await writeHostMeta(albumId, {
     hosted: true,
-    visibility: 'private',
+    visibility: prev.visibility === 'public' ? 'public' : 'private',
+    factLayerLocked: true,
+    archiveSnapshot,
+    hostedAt: prev.hostedAt || new Date().toISOString(),
+    useDesensitizeTool: useDesensitizeTool !== false,
+    publicPublishStage: intentPublic ? publicPublishStage : prev.hosted ? prev.publicPublishStage || '' : '',
+    privacyAuditPassedAt: intentPublic ? prev.privacyAuditPassedAt || null : null,
+    geoDraft: intentPublic ? prev.geoDraft || null : null,
+    geoLayer: intentPublic ? prev.geoLayer || null : null,
   })
-  return { albumId, ...meta, message: '已托管到案例站（默认不公开）' }
+
+  if (intentPublic) {
+    const nextStep =
+      publicPublishStage === 'awaiting_geo_confirm'
+        ? 'geo_confirm'
+        : publicPublishStage === 'awaiting_geo'
+          ? 'geo'
+          : 'privacy'
+    return {
+      albumId,
+      ...meta,
+      message:
+        prev.hosted && prev.visibility !== 'public'
+          ? '已设为公开托管；请完成隐私校验并确认 GEO'
+          : '已托管；请完成隐私校验后再确认 GEO 并公开',
+      nextStep,
+    }
+  }
+  return { albumId, ...meta, message: '已托管到案例站（私密）', nextStep: 'done' }
+}
+
+/** 公开托管：隐私规则校验（责任在门店；工具未改且通过可 autoPassed） */
+async function auditHostedPublicPrivacy(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const { assessPublicCaseQuality } = require('./public-case-quality.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  if (!prev.hosted) {
+    const err = new Error('请先托管到案例站')
+    err.status = 409
+    throw err
+  }
+
+  const view = buildMerchantView(album)
+  const quality = assessPublicCaseQuality(view)
+  const hardBlocks = (quality.privacyBlocks || []).map((block) => ({
+    kind: block.kind || 'privacy',
+    issue: block.issue || block.field || 'privacy',
+    message: block.message || '存在隐私风险，请处理后再公开',
+  }))
+  const passed = hardBlocks.length === 0
+  const autoPassed = passed && prev.useDesensitizeTool !== false
+
+  let meta = prev
+  if (passed) {
+    meta = await writeHostMeta(albumId, {
+      privacyAuditPassedAt: new Date().toISOString(),
+      publicPublishStage: 'awaiting_geo',
+    })
+  }
+
+  return {
+    albumId,
+    passed,
+    autoPassed,
+    hardBlocks,
+    ...meta,
+    message: passed ? '隐私校验已通过' : hardBlocks[0]?.message || '隐私校验未通过',
+  }
+}
+
+/** 公开托管：基于可公开面生成 GEO 草稿（须先过隐私） */
+async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  if (!prev.hosted) {
+    const err = new Error('请先托管到案例站')
+    err.status = 409
+    throw err
+  }
+  if (!prev.privacyAuditPassedAt) {
+    const err = new Error('请先通过隐私校验')
+    err.status = 409
+    err.code = 'PRIVACY_REQUIRED'
+    throw err
+  }
+
+  const view = buildMerchantView(album)
+  const { buildRuleMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  const preview = buildAlbumGeoPreview(view, { coldStart: !hasOwner })
+  const geo = preview.geo || {}
+  const ruleDraft = buildRuleMerchantCaseDraft(view)
+  const geoDraft = {
+    summary: String(preview.aiSummaryPreview || geo.faultDesc || '').trim(),
+    highlights: geo.keyInfo || [],
+    faq: Array.isArray(ruleDraft.faq) ? ruleDraft.faq : [],
+    faultDesc: geo.faultDesc || '',
+    inspectResult: geo.inspectResult || '',
+    repairPlan: geo.repairPlan || '',
+    resultConfirm: geo.resultConfirm || '',
+    generatedAt: new Date().toISOString(),
+  }
+
+  const meta = await writeHostMeta(albumId, {
+    geoDraft,
+    publicPublishStage: 'awaiting_geo_confirm',
+  })
+  return { albumId, geoDraft, preview, ...meta, message: 'GEO 草稿已生成，请确认后公开' }
+}
+
+/** 确认 GEO 并公开（须隐私已过） */
+async function confirmHostedPublicPublish(
+  albumId,
+  { storeId, merchantId, summary, highlights, faq } = {},
+) {
+  const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const { commitPublicCaseGoLive } = require('./public-case.service')
+  const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+  const { prisma } = require('../lib/prisma')
+
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  if (!prev.hosted || !prev.privacyAuditPassedAt) {
+    const err = new Error('请先完成托管与隐私校验')
+    err.status = 409
+    throw err
+  }
+
+  const draft = prev.geoDraft || {}
+  const geoLayer = {
+    summary: String(summary != null ? summary : draft.summary || '').trim(),
+    highlights: Array.isArray(highlights)
+      ? highlights
+      : Array.isArray(draft.highlights)
+        ? draft.highlights
+        : [],
+    faq: Array.isArray(faq) ? faq : Array.isArray(draft.faq) ? draft.faq : [],
+    confirmedAt: new Date().toISOString(),
+  }
+  if (!geoLayer.summary) {
+    const err = new Error('请填写摘要后再公开')
+    err.status = 400
+    throw err
+  }
+
+  const overview = geoLayer.summary
+  const faqList = geoLayer.faq
+  await writeHostMeta(albumId, {
+    hosted: true,
+    visibility: 'public',
+    geoLayer,
+    overview,
+    faq: faqList,
+    publicPublishStage: 'published',
+  })
+
+  let pc = album.publicCase
+  if (!pc) {
+    const { newId } = require('../lib/ids')
+    pc = await prisma.publicCase.create({
+      data: {
+        id: newId('case'),
+        albumId,
+        storeId: album.storeId,
+        merchantId: album.merchantId,
+        title: album.serviceName || '维修案例',
+        summary: overview,
+        status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
+        contentJson: {
+          hostedArchive: true,
+          hostGeoLayer: geoLayer,
+        },
+      },
+    })
+  } else {
+    await prisma.publicCase.update({
+      where: { id: pc.id },
+      data: {
+        title: album.serviceName || pc.title,
+        summary: overview,
+        status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
+        contentJson: {
+          ...(pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}),
+          hostedArchive: true,
+          hostGeoLayer: geoLayer,
+        },
+      },
+    })
+  }
+
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { publicCaseStatus: PUBLIC_CASE_STATUS.AUDIT_PASSED },
+  })
+
+  const published = await commitPublicCaseGoLive(albumId, {
+    authorizationTier: 'merchant_published',
+    hostedGeoPublish: true,
+  })
+
+  return {
+    albumId,
+    ...readHostMeta(await loadAlbum(albumId)),
+    publicCase: published,
+    message: '已确认 GEO 并公开',
+  }
 }
 
 async function unhostAlbum(albumId, { storeId, merchantId }) {
@@ -324,7 +686,12 @@ async function hardDeleteAlbum(albumId, { storeId, merchantId, confirmText }) {
 module.exports = {
   readHostMeta,
   writeHostMeta,
+  resolveStoreSnapshot,
+  buildHostedArchiveSnapshot,
   hostAlbum,
+  auditHostedPublicPrivacy,
+  generateHostedGeoDraft,
+  confirmHostedPublicPublish,
   unhostAlbum,
   unpublishHostedCase,
   saveHostedPublicCopy,

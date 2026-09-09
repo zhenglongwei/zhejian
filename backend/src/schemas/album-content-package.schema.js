@@ -75,6 +75,8 @@ function normalizeAlbumContentPackage(raw) {
     /** DOC-FLOW · 事件节点链 */
     flowVersion: Number.isFinite(Number(raw.flowVersion)) ? Number(raw.flowVersion) : 0,
     flowNodes: Array.isArray(raw.flowNodes) ? raw.flowNodes : [],
+    /** HOST-ARCH · 案例托管（须保留，供 commitPublicCaseGoLive 读 geoLayer） */
+    hostMeta: isPlainObject(raw.hostMeta) ? raw.hostMeta : null,
   }
 }
 

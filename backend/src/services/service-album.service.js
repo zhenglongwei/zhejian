@@ -764,6 +764,12 @@ function isAlbumContentLocked(album) {
   if (isCaseReviewRejected(album)) return false
   if (album.authorization?.status === 'authorized') return true
   if (isCaseReviewContentLocked(album)) return true
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : null
+  const hostMeta = pkg && pkg.hostMeta && typeof pkg.hostMeta === 'object' ? pkg.hostMeta : null
+  if (hostMeta && hostMeta.factLayerLocked) return true
   if (isAlbumCompletedStatus(album.status)) return true
   return false
 }
@@ -775,6 +781,13 @@ function resolveAlbumContentLockedMessage(album = {}) {
   const { isCaseReviewPending } = require('./case-review-gate.service')
   if (isCaseReviewPending(album)) {
     return '已完工，相册只读。'
+  }
+  const pkg =
+    album.contentPackageJson && typeof album.contentPackageJson === 'object'
+      ? album.contentPackageJson
+      : null
+  if (pkg && pkg.hostMeta && pkg.hostMeta.factLayerLocked) {
+    return '已托管，事实档案只读。'
   }
   return ALBUM_CONTENT_LOCKED_MESSAGE
 }

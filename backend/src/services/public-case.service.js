@@ -440,11 +440,29 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   merchantCaseDraft = merchantCaseDraft
     ? normalizeMerchantCaseDraft(merchantCaseDraft)
     : null
-  if (!merchantCaseDraft || !merchantCaseDraft.confirmedAt) {
+  const hostMeta = (contentPkg && contentPkg.hostMeta) || {}
+  const hostedGeoPublish = Boolean(options.hostedGeoPublish)
+  const geoConfirmed =
+    hostMeta.geoLayer && hostMeta.geoLayer.confirmedAt && hostMeta.hosted
+  if (!hostedGeoPublish && (!merchantCaseDraft || !merchantCaseDraft.confirmedAt)) {
     const err = new Error('门店尚未确认案例稿，暂无法发布到公开网站')
     err.status = 409
     err.code = 'CASE_DRAFT_REQUIRED'
     throw err
+  }
+  if (hostedGeoPublish && !geoConfirmed) {
+    const err = new Error('请先确认 GEO 文案后再公开')
+    err.status = 409
+    err.code = 'GEO_CONFIRM_REQUIRED'
+    throw err
+  }
+  if (hostedGeoPublish && hostMeta.geoLayer) {
+    merchantCaseDraft = {
+      title: pcRow?.title || album.serviceName || '维修案例',
+      caseSummary: hostMeta.geoLayer.summary || '',
+      confirmedAt: hostMeta.geoLayer.confirmedAt,
+      faq: hostMeta.geoLayer.faq || [],
+    }
   }
 
   const albumView = buildAlbumView(album)
@@ -514,6 +532,10 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   })
   if (contentJson && typeof contentJson === 'object') {
     contentJson.merchantCaseDraft = merchantCaseDraft
+    if (hostedGeoPublish && hostMeta.geoLayer) {
+      contentJson.hostedArchive = true
+      contentJson.hostGeoLayer = hostMeta.geoLayer
+    }
   }
   const { shouldIndexPublicCase } = require('./case-index-gate.service')
   const indexable = shouldIndexPublicCase(
@@ -882,6 +904,30 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
   }
   assertMerchantAlbum(album, storeId, merchantId)
 
+  const { readHostMeta } = require('./case-hosting.service')
+  const hostMeta = readHostMeta(album)
+  if (hostMeta.hosted) {
+    const err = new Error('本单已托管，请在「托管到案例站」向导中管理公开')
+    err.status = 409
+    err.code = 'ALREADY_HOSTED'
+    throw err
+  }
+  const pkgEarly = readPackageFromAlbum(album) || {}
+  const pcEarly = album.publicCase
+  const hasLegacyDraft = Boolean(
+    (pkgEarly.merchantCaseDraft && pkgEarly.merchantCaseDraft.confirmedAt) ||
+      (pcEarly &&
+        pcEarly.contentJson &&
+        pcEarly.contentJson.merchantCaseDraft &&
+        pcEarly.contentJson.merchantCaseDraft.confirmedAt),
+  )
+  if (!hasLegacyDraft) {
+    const err = new Error('请使用「托管到案例站」公开本单')
+    err.status = 409
+    err.code = 'HOSTING_REQUIRED'
+    throw err
+  }
+
   if (notifyPhone) {
     await updateAlbumNotifyPhone(albumId, { storeId, merchantId, phone: notifyPhone })
     album = await loadAlbum(albumId)
@@ -1040,7 +1086,7 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
       draft: merchantCaseDraft,
       audit: caseGeoAudit,
       meta: caseGeoMeta,
-      message: '案例稿已生成。请预览脱敏内容、勾选真实性承诺后发布到店页。',
+      message: '案例稿已生成。请预览脱敏内容后发布到店页（存量兼容；新单请走托管向导）。',
       canPublish: true,
     }
   }
@@ -1076,7 +1122,7 @@ async function generateMerchantPublicCase(albumId, { storeId, merchantId, draft,
 }
 
 /**
- * 商家确认发布 → 直接上店页（2026-09-03：不挡真实性机审；须承诺 + 公开强制脱敏）
+ * 商家确认发布 → 直接上店页（存量兼容；新单走托管向导；公开强制脱敏）
  */
 async function confirmMerchantPublicCasePublish(
   albumId,
@@ -1104,12 +1150,6 @@ async function confirmMerchantPublicCasePublish(
   const { buildMerchantView } = require('./service-album.service')
   const { CASE_GEO_PIPELINE_STATUS } = require('../constants/case-geo-audit')
 
-  if (!authenticityCommitment) {
-    const err = new Error('请先勾选真实性承诺后再公开')
-    err.status = 400
-    err.code = 'AUTHENTICITY_COMMITMENT_REQUIRED'
-    throw err
-  }
   if (!useDesensitizeTool) {
     const err = new Error('公开案例须使用脱敏工具并完成预览确认')
     err.status = 400
@@ -1124,6 +1164,14 @@ async function confirmMerchantPublicCasePublish(
     throw err
   }
   assertMerchantAlbum(album, storeId, merchantId)
+
+  const { readHostMeta } = require('./case-hosting.service')
+  if (readHostMeta(album).hosted) {
+    const err = new Error('本单已托管，请在托管向导中确认 GEO 后公开')
+    err.status = 409
+    err.code = 'ALREADY_HOSTED'
+    throw err
+  }
 
   const pc = album.publicCase
   const readyStatuses = [
@@ -1255,7 +1303,7 @@ async function confirmMerchantPublicCasePublish(
     throw err
   }
 
-  const commitmentAt = new Date().toISOString()
+  const publishedAt = new Date().toISOString()
   const afterAlbum = await loadAlbum(albumId)
   const afterPkg = readPackageFromAlbum(afterAlbum) || pkg
   await prisma.album.update({
@@ -1267,15 +1315,14 @@ async function confirmMerchantPublicCasePublish(
           ...(afterPkg.hostMeta || {}),
           hosted: true,
           visibility: 'public',
-          authenticityCommitmentAt: commitmentAt,
           useDesensitizeTool: true,
           sourceLabel: '商家上传',
-          updatedAt: commitmentAt,
+          updatedAt: publishedAt,
         },
         caseGeoMeta: {
           ...(afterPkg.caseGeoMeta || prevMeta),
           pipelineStatus: CASE_GEO_PIPELINE_STATUS.PUBLISHED,
-          publishedAt: commitmentAt,
+          publishedAt,
         },
       },
     },
@@ -1290,7 +1337,7 @@ async function confirmMerchantPublicCasePublish(
     emitCaseGeoObs('case.publish', {
       albumId,
       authenticityScore: audit && audit.authenticityScore,
-      authenticityCommitmentAt: commitmentAt,
+      publishedAt,
     })
   } catch (_) {
     /* ignore */

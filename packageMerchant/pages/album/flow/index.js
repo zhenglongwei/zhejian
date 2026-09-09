@@ -313,6 +313,10 @@ Page({
     warrantyNotes: '',
     allDone: false,
     needManualComplete: false,
+    albumCompleted: false,
+    showHostEntry: false,
+    hosted: false,
+    hostVisibility: 'private',
     workImagePool: [],
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
@@ -924,6 +928,12 @@ Page({
             status !== SERVICE_ALBUM_STATUS.COMPLETED &&
             status !== 'published',
         ),
+        albumCompleted:
+          status === SERVICE_ALBUM_STATUS.COMPLETED || status === 'published',
+        showHostEntry:
+          status === SERVICE_ALBUM_STATUS.COMPLETED || status === 'published',
+        hosted: Boolean((album.hostMeta && album.hostMeta.hosted) || false),
+        hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
         workImagePool,
         deliveryExteriorUrl,
         deliveryPickMode,
@@ -2294,5 +2304,12 @@ Page({
     } finally {
       this.setData({ completing: false })
     }
+  },
+
+  onGoHostAlbum() {
+    if (!this.albumId) return
+    wx.navigateTo({
+      url: `/packageMerchant/pages/album/host/index?albumId=${encodeURIComponent(this.albumId)}`,
+    })
   },
 })

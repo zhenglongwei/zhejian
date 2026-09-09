@@ -80,6 +80,7 @@
         "pages/album/flow/doc-node/index",
         "pages/album/optimize/index",
         "pages/album/case-draft/index",
+        "pages/album/host/index",
         "pages/album/list/index",
         "pages/tools/wechat-archive/index",
         "pages/desensitize/workbench/index",

@@ -433,7 +433,7 @@
       </ui-card>
         <ui-card shadow="{{true}}" padding="{{true}}" class="merchant-album-edit__host-card">
         <text class="text-h3">案例托管</text>
-        <text class="text-caption text-secondary">托管到辙见案例站后，可再决定是否公开。公开须脱敏并勾选真实性承诺。</text>
+        <text class="text-caption text-secondary">托管原始服务档案；私密仅存档，公开须过隐私校验并确认 GEO 文案。</text>
         <view class="merchant-album-edit__host-row">
           <ui-tag variant="{{hosted ? 'order' : 'default'}}" text="{{hosted ? (hostVisibility === 'public' ? '已托管·公开' : '已托管·私密') : '未托管'}}" />
           <text wx:if="{{hostUpdatedAt}}" class="text-caption text-secondary">更新 {{hostUpdatedAt}}</text>

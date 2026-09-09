@@ -43,6 +43,8 @@
     "case:trust-meta-smoke": "node scripts/case-trust-meta-smoke.js",
     "test:case-trust-meta": "node src/services/case-trust-meta.test.js",
     "test:geo-extract": "node src/utils/album-geo-extract.test.js",
+    "test:case-hosting": "node src/services/case-hosting.smoke.test.js",
+    "hosting:smoke": "node scripts/hosting-flow-smoke.js",
     "test:geo-topic-matcher": "node src/utils/geo-topic-matcher.test.js",
     "test:geo-topic-seed": "node src/constants/geo-topic-seed.test.js",
     "cases:check": "node scripts/public-case-prod-check.js",
