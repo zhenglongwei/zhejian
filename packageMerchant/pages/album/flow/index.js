@@ -1743,6 +1743,20 @@ Page({
       wx.showToast({ title: '当前不可取消', icon: 'none' })
       return
     }
+    // 未发送：当误点，直接确认删除，不填原因
+    if (docStatus !== 'pending_confirm') {
+      wx.showModal({
+        title: '取消本项',
+        content: '尚未发送车主，取消后不留记录，回到施工。',
+        confirmText: '确认取消',
+        cancelText: '返回',
+        success: (res) => {
+          if (!res.confirm) return
+          this.submitCancelAddon('')
+        },
+      })
+      return
+    }
     this.setData({ showCancelAddonModal: true, cancelAddonReason: '' })
   },
 
@@ -1755,20 +1769,23 @@ Page({
   },
 
   async onConfirmCancelAddon() {
-    if (this.data.readOnly || this.data.confirming) return
     const reason = String(this.data.cancelAddonReason || '').trim()
     if (!reason) {
       wx.showToast({ title: '请填写取消原因', icon: 'none' })
       return
     }
+    await this.submitCancelAddon(reason)
+  },
+
+  async submitCancelAddon(cancelReason) {
+    if (this.data.readOnly || this.data.confirming) return
     const nodeId = (this.data.activeNode && this.data.activeNode.id) || ''
     if (!nodeId) return
     this.setData({ confirming: true })
     try {
-      await cancelMerchantAddonPlan(this.albumId, {
-        nodeId,
-        cancelReason: reason,
-      })
+      const payload = { nodeId }
+      if (cancelReason) payload.cancelReason = cancelReason
+      await cancelMerchantAddonPlan(this.albumId, payload)
       this.setData({ showCancelAddonModal: false, cancelAddonReason: '' })
       wx.showToast({ title: '已取消，回到施工', icon: 'none' })
       await this.loadFlow({ silent: true })

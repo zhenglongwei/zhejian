@@ -610,7 +610,7 @@
   <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
     <view class="merchant-flow-page__modal">
       <text class="text-h3">取消本项</text>
-      <text class="text-caption text-secondary merchant-flow-page__modal-hint">取消后回到施工。原因会展示给车主（若已发送确认）。</text>
+      <text class="text-caption text-secondary merchant-flow-page__modal-hint">已发给车主，取消后车主可见原因，并回到施工。</text>
       <textarea
         class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
         placeholder="例：沟通后暂不增加 / 误点入口"

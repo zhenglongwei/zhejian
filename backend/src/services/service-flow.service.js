@@ -909,8 +909,9 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
 }
 
 /**
- * 作废增项「施工中新发现」：必填原因；撤后续未开工单/施工；回到原施工。
- * 未发送作废仅商家留痕；已发送作废车主可见原因。
+ * 作废增项「施工中新发现」：
+ * - 未发送（draft）：无痕删除（当误点），不填原因、不通知车主
+ * - 已发送待确认：必填原因并留痕，车主可见；撤后续未开工单/施工；回到原施工
  */
 async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) {
   const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
@@ -926,15 +927,26 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
     err.status = 400
     throw err
   }
-  if (!cancelReason) {
-    const err = new Error('请填写取消原因')
-    err.status = 400
+
+  const previewNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const previewQuote = previewNodes.find((n) => n && n.id === nodeId)
+  if (!previewQuote) {
+    const err = new Error('未找到该增项')
+    err.status = 404
     throw err
   }
-  if (cancelReason.length > 200) {
-    const err = new Error('取消原因请控制在 200 字内')
-    err.status = 400
-    throw err
+  const previewStatus = String((previewQuote.document && previewQuote.document.status) || 'draft')
+  if (previewStatus === 'pending_confirm') {
+    if (!cancelReason) {
+      const err = new Error('请填写取消原因')
+      err.status = 400
+      throw err
+    }
+    if (cancelReason.length > 200) {
+      const err = new Error('取消原因请控制在 200 字内')
+      err.status = 400
+      throw err
+    }
   }
 
   await writeFlowPackage(albumId, (pkg) => {
@@ -983,7 +995,6 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
       })
     }
     collectDescendants(quote.id)
-    // 兼容未挂 parent 的增项后续：紧随本张之后、同批 insertedReason=addon 且未确认的工单/施工
     for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
       const n = nodes[i]
       if (!n || String(n.insertedReason || '') !== 'addon') break
@@ -1011,6 +1022,20 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
       throw err
     }
 
+    // 未发送：整段删除，不留作废记录
+    if (docStatus === 'draft') {
+      removeIds.add(quote.id)
+      const rebuilt = renumberSortOrders(
+        sortFlowNodes(
+          nodes
+            .filter((n) => n && !removeIds.has(n.id))
+            .map((n) => (n.id === work.id ? { ...n, status: 'in_progress' } : n)),
+        ),
+      )
+      return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: rebuilt }
+    }
+
+    // 已发送待确认：留痕 + 原因
     const nextNodes = nodes
       .filter((n) => n && !removeIds.has(n.id))
       .map((n) => {
