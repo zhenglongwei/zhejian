@@ -163,20 +163,40 @@ function parseAmount(raw) {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null
 }
 
-/** 存量行：name=部位·建议、note=结果 → name=部位·结果、note=建议 */
+/** 存量行：name=部位·建议、note=结果 → name=部位、note=建议
+ * 近一代：name=部位·检测结果 → 剥掉结果后缀，只留部位
+ */
+function stripFindingResultFromLineName(name = '') {
+  return String(name || '')
+    .replace(/\s·\s(状态良好|需关注|需处理)$/, '')
+    .trim()
+}
+
 function remapLegacyQuoteLineLayout(line = {}) {
   const note = String(line.note || '').trim()
   const name = String(line.name || '').trim()
-  if (!isValidFindingResult(note) || !name.includes(' · ')) return line
-  const sep = name.indexOf(' · ')
-  const part = name.slice(0, sep).trim()
-  const advice = name.slice(sep + 3).trim()
-  if (!part || !advice) return line
-  return {
-    ...line,
-    name: `${part} · ${note}`,
-    note: advice,
+  // 更旧：name=部位·建议、note=结果档
+  if (isValidFindingResult(note) && name.includes(' · ')) {
+    const sep = name.indexOf(' · ')
+    const part = name.slice(0, sep).trim()
+    const advice = name.slice(sep + 3).trim()
+    if (part && advice) {
+      return {
+        ...line,
+        name: part,
+        note: advice,
+      }
+    }
   }
+  const stripped = stripFindingResultFromLineName(name)
+  if (stripped && stripped !== name) {
+    return {
+      ...line,
+      name: stripped,
+      note,
+    }
+  }
+  return line
 }
 
 function normalizeQuoteLine(raw = {}) {
@@ -230,7 +250,7 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
 }
 
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
- * name = 部位 · 检测结果；note = 处理建议（可长文）
+ * name = 部位；note = 处理建议（可长文）；检测结果不写进行名
  */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
@@ -238,10 +258,7 @@ function buildQuoteLinesFromFindings(findings = []) {
       const item = normalizeFinding(raw)
       if (!findingAdviceRequired(item.result)) return null
       if (!item.advice || item.advice === FINDING_ADVICE_NONE) return null
-      const name =
-        [item.partName, item.result].filter(Boolean).join(' · ') ||
-        item.partName ||
-        item.result
+      const name = item.partName || item.result || ''
       return {
         name,
         amount: '',
@@ -343,4 +360,6 @@ module.exports = {
   buildWorkOrderPayloadFromQuote,
   buildQuoteLinesFromFindings,
   buildRepairReportPayload,
+  stripFindingResultFromLineName,
+  remapLegacyQuoteLineLayout,
 }

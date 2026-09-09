@@ -26,6 +26,7 @@ const {
   collectQuoteConfirmGaps,
   normalizePhotoDraft,
   mergePhotoDraft,
+  normalizeQuoteLine,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
@@ -926,6 +927,28 @@ function isOwnerDocContentReady(node = {}) {
   }
 }
 
+function mapOwnerFriendlyLine(row = {}) {
+  const normalized = normalizeQuoteLine(row)
+  return {
+    ...row,
+    ...normalized,
+    name: normalized.name,
+    note: normalized.note,
+    amount: normalized.amount === '' ? row.amount : normalized.amount,
+  }
+}
+
+function resolveOwnerDocStatusLabel(kind, doc = {}, fallback = '') {
+  const status = String(doc.status || 'draft')
+  const raw = String(doc.statusLabel || fallback || resolveDocumentStatusLabel(doc) || '').trim()
+  if (kind === 'work_order') {
+    if (status === 'draft' || raw === '草稿' || !raw) return '已确认'
+    if (status === 'in_progress') return '施工中'
+    if (status === 'completed') return raw === '草稿' ? '已确认' : raw || '已完成'
+  }
+  return raw || resolveDocumentStatusLabel(doc)
+}
+
 function mapOwnerFlowDocCard(node = {}) {
   const doc = node.document || {}
   const payload = doc.payload || {}
@@ -933,20 +956,22 @@ function mapOwnerFlowDocCard(node = {}) {
     requiresOwnerConfirm(node) &&
     String(doc.status || '') === 'pending_confirm'
   const kind = node.kind
-  const lines = Array.isArray(payload.lines) ? payload.lines : []
-  const items = Array.isArray(payload.items) ? payload.items : []
+  const lines = (Array.isArray(payload.lines) ? payload.lines : []).map(mapOwnerFriendlyLine)
+  const items = (Array.isArray(payload.items) ? payload.items : []).map(mapOwnerFriendlyLine)
   const findings = Array.isArray(payload.findings) ? payload.findings : []
-  const workItems = Array.isArray(payload.workItems) ? payload.workItems : items
+  const workItemsRaw = Array.isArray(payload.workItems) ? payload.workItems : items
+  const workItems = workItemsRaw.map(mapOwnerFriendlyLine)
+  const amountSource = lines.length ? lines : items.length ? items : workItems
   const totalAmount =
     payload.totalAmount != null
       ? payload.totalAmount
-      : lines.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+      : amountSource.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
   return {
     id: node.id,
     kind,
     title: node.title || '',
     segmentLabel: node.segmentLabel || '',
-    statusLabel: doc.statusLabel || node.summary || '',
+    statusLabel: resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
     needsConfirm,
     confirmCopy:
       kind === 'repair_report'
