@@ -113,18 +113,25 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   return gaps
 }
 
-/** 施工过程：每张须有部位；本图说明选填 */
-function collectWorkPhotoDraftGaps(payload = {}) {
+/** 施工过程：每张已上传图须有部位；可选校验工单项目均已挂图 */
+function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
   const gaps = []
   const findings = Array.isArray(payload.findings) ? payload.findings : []
-  if (!findings.length) {
+  const withPhoto = findings.filter((raw) => String((raw && raw.url) || '').trim())
+  if (!withPhoto.length) {
     gaps.push('请至少上传 1 张施工照片并填写部位')
-    return gaps
   }
-  findings.forEach((raw, index) => {
+  withPhoto.forEach((raw, index) => {
     const item = normalizeFinding(raw)
     const label = item.partName || `第 ${index + 1} 项`
     if (!item.partName) gaps.push(`「${label}」请填写部位`)
+  })
+  const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
+  orderItems.forEach((row) => {
+    const name = String((row && row.name) || '').trim()
+    if (!name) return
+    const matched = withPhoto.some((raw) => normalizeFinding(raw).partName === name)
+    if (!matched) gaps.push(`「${name}」请上传施工图`)
   })
   return gaps
 }

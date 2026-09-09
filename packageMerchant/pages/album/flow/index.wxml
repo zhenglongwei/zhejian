@@ -74,7 +74,17 @@
                         data-finding-index="{{findingIndex}}"
                         bindtap="onToggleFinding"
                       >
+                        <view
+                          wx:if="{{finding.pendingPhoto || !finding.url}}"
+                          class="merchant-flow-page__finding-img merchant-flow-page__finding-img--pending"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          catchtap="onAttachFindingPhoto"
+                        >
+                          <text class="text-caption text-secondary">拍照</text>
+                        </view>
                         <image
+                          wx:else
                           class="merchant-flow-page__finding-img image-placeholder"
                           src="{{finding.url}}"
                           mode="aspectFill"
@@ -84,7 +94,7 @@
                           <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
                         </view>
                         <text
-                          wx:if="{{!readOnly}}"
+                          wx:if="{{!readOnly && finding.url}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -92,6 +102,15 @@
                         >×</text>
                       </view>
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
+                        <view
+                          wx:if="{{section.findingKind === 'work' && (finding.pendingPhoto || !finding.url)}}"
+                          class="merchant-flow-page__pending-photo-btn"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          catchtap="onAttachFindingPhoto"
+                        >
+                          <text class="text-body">上传施工图</text>
+                        </view>
                         <view class="merchant-flow-page__field">
                           <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
                           <input

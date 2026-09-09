@@ -320,7 +320,79 @@ Page({
     return this.mapStageImages(stage1).concat(this.mapStageImages(stage2))
   },
 
-  buildSections(album, node, photoDraft = {}) {
+  collectMergedWorkDraftFindings(flowNodes = [], activeNode = null, photoDraft = {}) {
+    const byKey = {}
+    const put = (raw) => {
+      const item = normalizeFinding(raw)
+      const key = item.imageId || item.url
+      if (!key) return
+      const prev = byKey[key]
+      if (!prev) {
+        byKey[key] = item
+        return
+      }
+      byKey[key] = {
+        ...prev,
+        ...item,
+        partName: item.partName || prev.partName,
+        caption: item.caption || prev.caption,
+      }
+    }
+    ;(flowNodes || []).forEach((node) => {
+      if (!node || node.kind !== 'work') return
+      ;((node.photoDraft && node.photoDraft.findings) || []).forEach(put)
+    })
+    ;((photoDraft && photoDraft.findings) || []).forEach(put)
+    ;((activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || []).forEach(put)
+    return Object.keys(byKey).map((k) => byKey[k])
+  },
+
+  resolveRelatedWorkOrder(flowNodes = [], activeNode = null) {
+    if (!activeNode) return null
+    if (activeNode.parentNodeId) {
+      const parent = (flowNodes || []).find((n) => n && n.id === activeNode.parentNodeId)
+      if (parent && parent.kind === 'work_order') return parent
+    }
+    const sorted = (flowNodes || [])
+      .slice()
+      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+    const idx = sorted.findIndex((n) => n && n.id === activeNode.id)
+    for (let i = idx - 1; i >= 0; i -= 1) {
+      if (sorted[i] && sorted[i].kind === 'work_order') return sorted[i]
+    }
+    return null
+  },
+
+  seedPendingWorkParts(findings = [], flowNodes = [], activeNode = null) {
+    const order = this.resolveRelatedWorkOrder(flowNodes, activeNode)
+    const items =
+      (order &&
+        order.document &&
+        order.document.payload &&
+        order.document.payload.items) ||
+      []
+    if (!items.length) return findings
+    const used = new Set(
+      (findings || [])
+        .map((row) => String((row && row.partName) || '').trim())
+        .filter(Boolean),
+    )
+    const pending = items
+      .map((row) => normalizeQuoteLine(row))
+      .filter((row) => row.name && !used.has(row.name))
+      .map((row) => ({
+        partName: row.name,
+        url: '',
+        caption: '',
+        imageId: '',
+        result: '',
+        advice: '',
+        pendingPhoto: true,
+      }))
+    return (findings || []).concat(pending)
+  },
+
+  buildSections(album, node, photoDraft = {}, flowNodes = []) {
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
 
     if (node && node.kind === 'intake_inspection') {
@@ -351,15 +423,27 @@ Page({
       const stage = (album.nodes || []).find((n) => n.id === stageId) || { images: [] }
       const images = this.mapStageImages(stage)
       const findingMode = Boolean(meta.findingMode)
+      const findingKind = meta.findingKind || (findingMode ? 'inspection' : '')
+      let findings = []
+      if (findingMode) {
+        const mergedDraft =
+          findingKind === 'work'
+            ? this.collectMergedWorkDraftFindings(flowNodes, node, photoDraft)
+            : draftFindings
+        findings = mapFindingRows(images, mergedDraft)
+        if (findingKind === 'work') {
+          findings = this.seedPendingWorkParts(findings, flowNodes, node)
+        }
+      }
       return {
         stageId,
         title: meta.title,
         tips: meta.tips,
         captionPlaceholder: meta.captionPlaceholder || '本图说明',
         findingMode,
-        findingKind: meta.findingKind || (findingMode ? 'inspection' : ''),
+        findingKind,
         images,
-        findings: findingMode ? mapFindingRows(images, draftFindings) : [],
+        findings,
       }
     })
   },
@@ -367,14 +451,19 @@ Page({
   collectFindingsFromSections(sections = this.data.sections) {
     const findingSection = (sections || []).find((s) => s.findingMode)
     if (!findingSection) return []
-    return (findingSection.findings || []).map((item) => normalizeFinding(item))
+    return (findingSection.findings || [])
+      .map((item) => normalizeFinding(item))
+      .filter((item) => item.url)
   },
 
   countFindingMissingFields(item = {}, findingKind = 'inspection') {
     const row = normalizeFinding(item)
     let missing = 0
     if (!row.partName) missing += 1
-    if (findingKind === 'work') return missing
+    if (findingKind === 'work') {
+      if (!row.url) missing += 1
+      return missing
+    }
     if (!row.result || !isValidFindingResult(row.result)) missing += 1
     else if (findingAdviceRequired(row.result) && !row.advice) missing += 1
     return missing
@@ -396,14 +485,20 @@ Page({
             ? 'action'
             : ''
     if (findingKind === 'work') {
+      const hasPhoto = Boolean(row.url)
       return {
         ...row,
         findingKind: 'work',
-        listKey: listKey || row.imageId || row.url || '',
+        pendingPhoto: !hasPhoto,
+        listKey: listKey || row.imageId || row.url || `pending-${row.partName || ''}`,
         expanded: Boolean(expanded),
-        complete: missing === 0,
+        complete: hasPhoto && missing === 0,
         summaryText: row.partName || '待填写',
-        completenessLabel: missing === 0 ? row.caption || '已齐' : '缺部位',
+        completenessLabel: !hasPhoto
+          ? '待拍照'
+          : missing === 0
+            ? row.caption || '已齐'
+            : '缺部位',
         adviceRequired: false,
         resultTone: '',
         resultToneClass: '',
@@ -511,6 +606,7 @@ Page({
       const status = album.status || SERVICE_ALBUM_STATUS.DRAFT
       const readOnly = album.contentLocked || album.editable === false
       const flowNodes = flow.flowNodes || []
+      this._flowNodes = flowNodes
       const progress = flow.progress || buildFlowProgressView(flowNodes)
       const active = progress.activeNode || null
       const activeIsPhoto = Boolean(
@@ -549,7 +645,7 @@ Page({
       let expandedFindingKey = ''
 
       if (activeIsPhoto && active) {
-        sections = this.buildSections(album, active, photoDraft)
+        sections = this.buildSections(album, active, photoDraft, flowNodes)
         if (isIntakePhotoStep) {
           chiefComplaint = photoDraft.chiefComplaint || ''
           conclusion = photoDraft.conclusion || ''
@@ -797,14 +893,26 @@ Page({
     const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
     const findingIndex = Number(e.currentTarget.dataset.findingIndex)
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex)) return
-    const sections = this.data.sections.map((section, i) => {
-      if (i !== sectionIndex) return section
-      const images = (section.images || []).filter((_, idx) => idx !== findingIndex)
-      const findings = this.syncFindingsWithImages(
-        (section.findings || []).filter((_, idx) => idx !== findingIndex),
-        images,
+    const section = this.data.sections[sectionIndex]
+    if (!section) return
+    const target = (section.findings || [])[findingIndex] || {}
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== sectionIndex) return row
+      if (!target.url) {
+        return {
+          ...row,
+          findings: (row.findings || []).filter((_, idx) => idx !== findingIndex),
+        }
+      }
+      const images = (row.images || []).filter((img) => {
+        const url = typeof img === 'string' ? img : img.url
+        return url !== target.url
+      })
+      const kept = (row.findings || []).filter((_, idx) => idx !== findingIndex)
+      const findings = this.syncFindingsWithImages(kept.filter((f) => f.url), images).concat(
+        kept.filter((f) => !f.url),
       )
-      return { ...section, images, findings }
+      return { ...row, images, findings }
     })
     let expandKey = this.data.expandedFindingKey
     const [esi, efi] = String(expandKey || '').split(':').map(Number)
@@ -814,6 +922,62 @@ Page({
     }
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
     this.scheduleAutoSavePhotos()
+  },
+
+  onAttachFindingPhoto(e) {
+    if (this.data.readOnly) return
+    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+    const si = Number(ds.sectionIndex)
+    const fi = Number(ds.findingIndex)
+    if (!Number.isFinite(si) || !Number.isFinite(fi)) return
+    const section = this.data.sections[si]
+    if (!section || !section.findings || !section.findings[fi]) return
+    const remain = Math.max(0, 12 - ((section.images && section.images.length) || 0))
+    if (remain < 1) {
+      wx.showToast({ title: '最多 12 张', icon: 'none' })
+      return
+    }
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          const partName = String(
+            (section.findings[fi] && section.findings[fi].partName) || '',
+          ).trim()
+          const sections = this.data.sections.map((row, i) => {
+            if (i !== si) return row
+            const images = (row.images || []).concat([{ url, caption: partName }]).slice(0, 12)
+            const findings = (row.findings || []).map((item, idx) =>
+              idx === fi
+                ? {
+                    ...item,
+                    url,
+                    imageId: '',
+                    caption: item.caption || partName,
+                    partName: item.partName || partName,
+                    pendingPhoto: false,
+                  }
+                : item,
+            )
+            return { ...row, images, findings }
+          })
+          this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
+          this.scheduleAutoSavePhotos()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
   },
 
   onAddFindingPhotos(e) {
@@ -909,7 +1073,7 @@ Page({
       const finding = section && section.findings && section.findings[fi]
       return (finding && finding.url) || ''
     })()
-    let sections = this.buildSections(album, active, { findings: prevFindings })
+    let sections = this.buildSections(album, active, { findings: prevFindings }, this._flowNodes || [])
     let expandKey = ''
     if (expandedUrl) {
       sections.forEach((section, si) => {
@@ -1282,10 +1446,17 @@ Page({
       }
     }
     if (kind === 'work') {
+      const order = this.resolveRelatedWorkOrder(this._flowNodes || [], this.data.activeNode)
+      const orderItems =
+        (order &&
+          order.document &&
+          order.document.payload &&
+          order.document.payload.items) ||
+        []
       const draftPayload = {
         findings: this.collectFindingsFromSections(),
       }
-      const gaps = collectWorkPhotoDraftGaps(draftPayload)
+      const gaps = collectWorkPhotoDraftGaps(draftPayload, { orderItems })
       if (gaps.length) {
         const expandKey = this.findFirstIncompleteFindingKey()
         if (expandKey) {
@@ -1482,6 +1653,20 @@ Page({
     if (this.data.readOnly || this.data.confirming) return
     this.setData({ confirming: true })
     try {
+      // 先落库施工图与部位，再打断插入增项，避免部位名丢失
+      if (this._photoSaveTimer) {
+        clearTimeout(this._photoSaveTimer)
+        this._photoSaveTimer = null
+      }
+      if (this._draftSaveTimer) {
+        clearTimeout(this._draftSaveTimer)
+        this._draftSaveTimer = null
+      }
+      if (this.data.isWorkPhotoStep) {
+        await this.persistPhotos()
+        this.resyncSectionsAfterPersist()
+        await this.persistPhotoDraft()
+      }
       await insertMerchantAddonPlan(this.albumId)
       wx.showToast({ title: '请填写施工中新发现', icon: 'none' })
       await this.loadFlow({ silent: true })

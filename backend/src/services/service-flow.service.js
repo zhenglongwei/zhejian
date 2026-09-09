@@ -823,10 +823,20 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       err.status = 400
       throw err
     }
-    // 打断施工：先完成当前施工节点，插入增项方案
-    if (nodes[workIdx].status === 'in_progress') {
-      nodes[workIdx] = { ...nodes[workIdx], status: 'completed' }
+    // 打断施工：完成当前施工节点（保留 photoDraft），插入增项方案
+    const interrupted = nodes[workIdx]
+    if (interrupted.status === 'in_progress' || interrupted.status === 'pending') {
+      nodes[workIdx] = {
+        ...interrupted,
+        status: 'completed',
+        photoDraft: normalizePhotoDraft(interrupted.photoDraft || {}),
+      }
     }
+    const priorFindings = Array.isArray(
+      nodes[workIdx].photoDraft && nodes[workIdx].photoDraft.findings,
+    )
+      ? nodes[workIdx].photoDraft.findings
+      : []
     const deliveryIdx = nodes.findIndex((n) => n.kind === 'delivery_photos')
     const insertAt = deliveryIdx >= 0 ? deliveryIdx : nodes.length
     const ts = Date.now()
@@ -869,7 +879,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       parentNodeId: quoteNode.id,
       segmentLabel: '增项',
     }
-    // 增项工单确认后还需回到施工：在增项工单后插入新的施工拍照节点（若尚无未完成施工）
+    // 增项后继续施工：新施工步先带入已有 findings，避免部位名丢失
     const extraWork = {
       id: `fn_addon_work_${ts}`,
       kind: 'work',
@@ -885,7 +895,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       insertedReason: 'addon',
       parentNodeId: orderNode.id,
       segmentLabel: '增项',
-      photoDraft: {},
+      photoDraft: normalizePhotoDraft({ findings: priorFindings }),
     }
     nodes.splice(insertAt, 0, quoteNode, orderNode, extraWork)
     renumberSortOrders(nodes)
@@ -1176,16 +1186,33 @@ function applyQuoteConfirmedSideEffects(nodes, index, quoteNodeId, mergedPayload
   if (orderIdx < 0) {
     orderIdx = nodes.findIndex((n) => n.kind === 'work_order')
   }
-  if (orderIdx >= 0) {
-    nodes[orderIdx] = {
-      ...nodes[orderIdx],
+  if (orderIdx < 0) return
+
+  const quoteNode = nodes[index] || {}
+  const isAddon =
+    String(quoteNode.insertedReason || '') === 'addon' ||
+    quoteNode.kind === 'addon_quote_confirm'
+
+  const orderPayload = buildWorkOrderPayloadFromQuote(mergedPayload, quoteNodeId)
+  const nextOrder = {
+    ...nodes[orderIdx],
+    status: isAddon ? 'completed' : 'in_progress',
+    document: {
+      ...(nodes[orderIdx].document || emptyDocument('work_order')),
       status: 'in_progress',
-      document: {
-        ...(nodes[orderIdx].document || emptyDocument('work_order')),
-        status: 'draft',
-        payload: buildWorkOrderPayloadFromQuote(mergedPayload, quoteNodeId),
+      payload: {
+        ...orderPayload,
+        ...(isAddon ? { startedAt: new Date().toISOString() } : {}),
       },
-    }
+    },
+  }
+  if (isAddon) {
+    nextOrder.title = nextOrder.title || '工单'
+  }
+  nodes[orderIdx] = nextOrder
+  // 增项：确认后直达施工拍照，勿停在空工单页
+  if (isAddon) {
+    unlockNextNode(nodes, orderIdx)
   }
 }
 
