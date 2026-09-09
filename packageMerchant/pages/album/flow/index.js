@@ -117,15 +117,20 @@ function mapCompletedStepPreview(step, node, album = {}) {
       ? payload.lines.map((line) => normalizeQuoteLine(line)).filter((row) => String(row.name || '').trim())
       : []
     const total = sumQuoteAmounts(lines)
+    const sheetTitle =
+      node.insertedReason === 'addon'
+        ? node.title || '待处理项目'
+        : node.title || '方案确认'
+    const statusLabel = summary === '草稿' ? '' : summary
     return {
       ...base,
       kind,
       detailKind: 'doc_sheet',
-      summary,
+      summary: statusLabel,
       sheetDoc: {
         kind,
-        title: node.title || '方案确认',
-        statusLabel: summary,
+        title: sheetTitle,
+        statusLabel,
         storeName,
         metaLine,
         styleVariant: 'document',
@@ -190,7 +195,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
       sheetDoc: {
         kind,
         title: node.title || '完工确认',
-        statusLabel: summary,
+        statusLabel: summary === '草稿' ? '' : summary,
         storeName,
         metaLine,
         styleVariant: 'document',
@@ -271,6 +276,7 @@ Page({
     docStatus: '',
     showCombinedPlan: false,
     quotePendingOwner: false,
+    confirmAwaitingOwner: false,
     conclusion: '',
     confirmCopy: '',
     proxyProofImages: [],
@@ -640,11 +646,26 @@ Page({
 
       const showCombinedPlan = Boolean(active && active.kind === 'inspection_report')
       const docStatus = (active && active.document && active.document.status) || ''
-      const quotePendingOwner = Boolean(
+      const isConfirmDoc = Boolean(
         active &&
-          (active.kind === 'quote_confirm' || active.kind === 'addon_quote_confirm') &&
-          docStatus === 'pending_confirm',
+          (active.kind === 'quote_confirm' ||
+            active.kind === 'addon_quote_confirm' ||
+            active.kind === 'repair_report'),
       )
+      const confirmAwaitingOwner = Boolean(isConfirmDoc && docStatus === 'pending_confirm')
+      const quotePendingOwner = confirmAwaitingOwner
+      const isAddonQuote = Boolean(
+        active && active.kind === 'quote_confirm' && active.insertedReason === 'addon',
+      )
+      const rawSummary = showCombinedPlan
+        ? ''
+        : (active && (active.photoTips || active.summary)) || ''
+      const activeSummary = rawSummary === '草稿' ? '' : rawSummary
+      const activeTitle = showCombinedPlan
+        ? '核对报告与方案'
+        : isAddonQuote
+          ? '待处理项目'
+          : (active && active.title) || ''
 
       this.setData({
         status: 'ready',
@@ -654,12 +675,8 @@ Page({
         readOnly,
         completedSteps,
         activeNode: active,
-        activeTitle: showCombinedPlan
-          ? '核对报告与方案'
-          : (active && active.title) || '',
-        activeSummary: showCombinedPlan
-          ? ''
-          : (active && (active.photoTips || active.summary)) || '',
+        activeTitle,
+        activeSummary,
         activeCategory: activeIsPhoto ? '拍照' : active ? '单据' : '',
         activeKind: (active && active.kind) || '',
         showActive: Boolean(active),
@@ -680,6 +697,7 @@ Page({
         docStatus,
         showCombinedPlan,
         quotePendingOwner,
+        confirmAwaitingOwner,
         conclusion,
         confirmCopy,
         warrantyPeriod,
@@ -1413,7 +1431,7 @@ Page({
     this.setData({ confirming: true })
     try {
       await insertMerchantAddonPlan(this.albumId)
-      wx.showToast({ title: '请填写增项方案', icon: 'none' })
+      wx.showToast({ title: '请填写待处理项目', icon: 'none' })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
@@ -1425,11 +1443,11 @@ Page({
   async onSendForOwnerConfirm() {
     if (this.data.readOnly || this.data.confirming) return
     const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind === 'quote_confirm') {
+    if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
       if (gaps.length) {
         wx.showModal({
-          title: '请先补全方案',
+          title: '请先补全项目与金额',
           content: gaps.slice(0, 4).join('\n'),
           showCancel: false,
         })
@@ -1444,7 +1462,7 @@ Page({
           payload: this.buildDocPayloadForSave(),
         },
       })
-      wx.showToast({ title: '已发送', icon: 'success' })
+      wx.showToast({ title: '已发送车主', icon: 'success' })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '发送失败', icon: 'none' })
@@ -1455,12 +1473,16 @@ Page({
 
   async onProxyConfirm() {
     if (this.data.readOnly || this.data.confirming) return
+    if (!this.data.confirmAwaitingOwner) {
+      wx.showToast({ title: '请先发送车主确认', icon: 'none' })
+      return
+    }
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
       if (gaps.length) {
         wx.showModal({
-          title: '请先补全方案',
+          title: '请先补全项目与金额',
           content: gaps.slice(0, 4).join('\n'),
           showCancel: false,
         })
@@ -1468,12 +1490,47 @@ Page({
       }
     }
     wx.showModal({
-      title: '代确认',
+      title: '车主已口头确认？',
       content: '请确认已当面或通过电话/微信获得车主同意。',
-      confirmText: '已获得车主确认',
+      confirmText: '已确认',
       cancelText: '取消',
       success: (res) => {
-        if (res.confirm) this.runProxyConfirm()
+        if (!res.confirm) return
+        wx.showActionSheet({
+          itemList: ['直接确认', '附带沟通截图后确认'],
+          success: (sheet) => {
+            if (sheet.tapIndex === 1) {
+              this.pickProxyProofThenConfirm()
+              return
+            }
+            this.setData({ proxyProofImages: [] }, () => this.runProxyConfirm())
+          },
+          fail: () => {
+            // 用户取消选单，不代确认
+          },
+        })
+      },
+    })
+  },
+
+  pickProxyProofThenConfirm() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          this.setData({ proxyProofImages: [{ url }] }, () => this.runProxyConfirm())
+        } catch (e) {
+          wx.showToast({ title: (e && e.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
       },
     })
   },

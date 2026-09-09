@@ -213,7 +213,7 @@
                 block="{{true}}"
                 loading="{{confirming}}"
                 bind:btntap="onAddAddonPlan"
-              >添加方案</ui-button>
+              >发现新的待处理项目</ui-button>
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
@@ -434,16 +434,23 @@
                 </view>
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
-                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
-                <ui-button
-                  wx:if="{{!quotePendingOwner}}"
-                  type="ghost"
-                  block="{{true}}"
-                  loading="{{confirming}}"
-                  bind:btntap="onSendForOwnerConfirm"
-                >发送车主</ui-button>
-                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
+                <block wx:if="{{!confirmAwaitingOwner}}">
+                  <ui-button
+                    type="primary"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    bind:btntap="onSendForOwnerConfirm"
+                  >发送车主确认</ui-button>
+                </block>
+                <block wx:else>
+                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等待车主确认</text>
+                  <ui-button
+                    type="secondary"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    bind:btntap="onProxyConfirm"
+                  >车主已口头确认</ui-button>
+                </block>
               </view>
             </block>
 
@@ -499,10 +506,23 @@
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
-                <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
-                <ui-button type="ghost" block="{{true}}" bind:btntap="onAddProxyProof">上传证明（可选）</ui-button>
-                <ui-button type="ghost" block="{{true}}" loading="{{confirming}}" bind:btntap="onSendForOwnerConfirm">发送车主</ui-button>
-                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onProxyConfirm">商家代确认</ui-button>
+                <block wx:if="{{!confirmAwaitingOwner}}">
+                  <ui-button
+                    type="primary"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    bind:btntap="onSendForOwnerConfirm"
+                  >发送车主确认</ui-button>
+                </block>
+                <block wx:else>
+                  <text class="text-caption text-secondary merchant-flow-page__await-hint">等待车主确认</text>
+                  <ui-button
+                    type="secondary"
+                    block="{{true}}"
+                    loading="{{confirming}}"
+                    bind:btntap="onProxyConfirm"
+                  >车主已口头确认</ui-button>
+                </block>
               </view>
             </block>
           </view>

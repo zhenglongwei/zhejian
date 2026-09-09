@@ -67,7 +67,8 @@ function resolveDocumentStatusLabel(doc = {}) {
   if (status === 'pending_confirm') return '待车主确认'
   if (status === 'in_progress') return '施工中'
   if (status === 'sent') return '已发送车主'
-  return '草稿'
+  // draft：商家面不标「草稿」
+  return ''
 }
 
 function countPhotosForFlowNode(node, albumNodes = []) {
@@ -830,7 +831,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       kind: 'quote_confirm',
       nodeCategory: 'document',
       sortOrder: insertAt,
-      title: '方案确认',
+      title: '待处理项目',
       status: 'in_progress',
       photos: [],
       note: '',
@@ -838,7 +839,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
         ...emptyDocument('quote_confirm'),
         status: 'draft',
         payload: {
-          lines: [{ name: '', amount: '', note: '' }],
+          lines: [{ name: '', brand: '', amount: '', note: '' }],
           confirmCopy: QUOTE_CONFIRM_COPY,
         },
       },

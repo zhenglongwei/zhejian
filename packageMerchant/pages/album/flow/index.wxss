@@ -497,6 +497,12 @@
   margin-top: var(--space-lg);
 }
 
+.merchant-flow-page__await-hint {
+  display: block;
+  text-align: center;
+  margin-bottom: var(--space-xs);
+}
+
 .merchant-flow-page__footer-actions {
   display: flex;
   flex-direction: column;

@@ -253,7 +253,12 @@ async function fetchMerchantAlbumFlow(albumId) {
         document: node.document
           ? {
               ...node.document,
-              statusLabel: node.document.status === 'confirmed' ? '商家代确认' : '草稿',
+              statusLabel:
+                node.document.status === 'confirmed'
+                  ? '商家代确认'
+                  : node.document.status === 'pending_confirm'
+                    ? '待车主确认'
+                    : '',
               requiresConfirm: node.kind === 'quote_confirm',
             }
           : null,
