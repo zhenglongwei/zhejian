@@ -226,8 +226,9 @@ function normalizeQuoteLine(raw = {}) {
   })
 }
 
-function collectQuoteConfirmGaps(payload = {}) {
+function collectQuoteConfirmGaps(payload = {}, options = {}) {
   const gaps = []
+  const requireEvidence = Boolean(options.requireEvidence)
   const lines = Array.isArray(payload.lines) ? payload.lines.map(normalizeQuoteLine) : []
   const valid = lines.filter((l) => l.name)
   if (!valid.length) {
@@ -238,6 +239,9 @@ function collectQuoteConfirmGaps(payload = {}) {
     const label = line.name || `第 ${index + 1} 行`
     if (line.amount === '' || line.amount == null || Number(line.amount) < 0) {
       gaps.push(`「${label}」请填写金额`)
+    }
+    if (requireEvidence && !String(line.evidenceUrl || '').trim()) {
+      gaps.push(`「${label}」请上传故障证据图`)
     }
   })
   return gaps

@@ -119,7 +119,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
     const total = sumQuoteAmounts(lines)
     const sheetTitle =
       node.insertedReason === 'addon'
-        ? node.title || '待处理项目'
+        ? '施工中新发现'
         : node.title || '方案确认'
     const statusLabel = summary === '草稿' ? '' : summary
     return {
@@ -277,6 +277,7 @@ Page({
     showCombinedPlan: false,
     quotePendingOwner: false,
     confirmAwaitingOwner: false,
+    isAddonQuote: false,
     conclusion: '',
     confirmCopy: '',
     proxyProofImages: [],
@@ -664,7 +665,7 @@ Page({
       const activeTitle = showCombinedPlan
         ? '核对报告与方案'
         : isAddonQuote
-          ? '待处理项目'
+          ? '施工中新发现'
           : (active && active.title) || ''
 
       this.setData({
@@ -698,6 +699,7 @@ Page({
         showCombinedPlan,
         quotePendingOwner,
         confirmAwaitingOwner,
+        isAddonQuote,
         conclusion,
         confirmCopy,
         warrantyPeriod,
@@ -1113,11 +1115,61 @@ Page({
 
   onAddQuoteLine() {
     const quoteLines = this.data.quoteLines.concat([
-      { name: '', brand: '', amount: '', note: '' },
+      { name: '', brand: '', amount: '', note: '', evidenceUrl: '' },
     ])
     this.setData({
       quoteLines,
       quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+    })
+  },
+
+  onAddQuoteEvidence(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          const quoteLines = this.data.quoteLines.map((line, i) =>
+            i === index ? { ...line, evidenceUrl: url } : line,
+          )
+          this.setData({ quoteLines })
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onRemoveQuoteEvidence(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const quoteLines = this.data.quoteLines.map((line, i) =>
+      i === index ? { ...line, evidenceUrl: '' } : line,
+    )
+    this.setData({ quoteLines })
+  },
+
+  onPreviewQuoteEvidence(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const line = this.data.quoteLines[index]
+    const url = line && line.evidenceUrl
+    if (!url) return
+    wx.previewImage({
+      current: url,
+      urls: this.data.quoteLines.map((row) => row.evidenceUrl).filter(Boolean),
     })
   },
 
@@ -1431,7 +1483,7 @@ Page({
     this.setData({ confirming: true })
     try {
       await insertMerchantAddonPlan(this.albumId)
-      wx.showToast({ title: '请填写待处理项目', icon: 'none' })
+      wx.showToast({ title: '请填写施工中新发现', icon: 'none' })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
@@ -1444,7 +1496,9 @@ Page({
     if (this.data.readOnly || this.data.confirming) return
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
+      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave(), {
+        requireEvidence: this.data.isAddonQuote,
+      })
       if (gaps.length) {
         wx.showModal({
           title: '请先补全项目与金额',
@@ -1479,7 +1533,9 @@ Page({
     }
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
-      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave())
+      const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave(), {
+        requireEvidence: this.data.isAddonQuote,
+      })
       if (gaps.length) {
         wx.showModal({
           title: '请先补全项目与金额',

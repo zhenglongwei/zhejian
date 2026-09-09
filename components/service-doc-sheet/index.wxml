@@ -44,7 +44,18 @@
       </view>
       <view wx:for="{{doc.lines}}" wx:for-item="line" wx:key="name" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
-          <text class="text-body">{{line.name}}</text>
+          <view class="service-doc-sheet__table-main-left">
+            <image
+              wx:if="{{line.evidenceUrl}}"
+              class="service-doc-sheet__line-thumb image-placeholder"
+              src="{{line.evidenceUrl}}"
+              mode="aspectFill"
+              data-url="{{line.evidenceUrl}}"
+              data-urls="{{doc.lines}}"
+              bindtap="onPreviewImage"
+            />
+            <text class="text-body">{{line.name}}</text>
+          </view>
           <text class="text-body service-doc-sheet__col-amount">¥{{line.amount}}</text>
         </view>
         <text wx:if="{{line.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{line.brand}}</text>

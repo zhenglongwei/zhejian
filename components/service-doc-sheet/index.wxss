@@ -96,6 +96,22 @@
   border-bottom: 1rpx solid var(--color-border);
 }
 
+.service-doc-sheet__table-main-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.service-doc-sheet__line-thumb {
+  width: 72rpx;
+  height: 72rpx;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
 .service-doc-sheet__col-amount {
   flex-shrink: 0;
   text-align: right;

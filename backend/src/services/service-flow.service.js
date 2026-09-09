@@ -116,7 +116,11 @@ function mapFlowNodeForView(node, albumNodes = []) {
     kind: node.kind,
     nodeCategory: node.nodeCategory,
     sortOrder: node.sortOrder,
-    title: node.title || meta.title || '',
+    title:
+      String(node.insertedReason || '') === 'addon' &&
+      (node.kind === 'quote_confirm' || node.kind === 'addon_quote_confirm')
+        ? '施工中新发现'
+        : node.title || meta.title || '',
     status: node.status || 'pending',
     note: node.note || '',
     photoDraft: normalizePhotoDraft(node.photoDraft || {}),
@@ -831,7 +835,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       kind: 'quote_confirm',
       nodeCategory: 'document',
       sortOrder: insertAt,
-      title: '待处理项目',
+      title: '施工中新发现',
       status: 'in_progress',
       photos: [],
       note: '',
@@ -839,7 +843,7 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
         ...emptyDocument('quote_confirm'),
         status: 'draft',
         payload: {
-          lines: [{ name: '', brand: '', amount: '', note: '' }],
+          lines: [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '' }],
           confirmCopy: QUOTE_CONFIRM_COPY,
         },
       },
@@ -1004,11 +1008,15 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   ).trim()
   const vehicleDisplay = String((album && album.vehicleDisplay) || '').trim()
   const displayItems = items.length ? items : workItems
+  const isAddonQuote =
+    (kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon') ||
+    kind === 'addon_quote_confirm'
   return {
     id: node.id,
     kind,
-    title: node.title || '',
+    title: isAddonQuote ? '施工中新发现' : node.title || '',
     segmentLabel: node.segmentLabel || '',
+    isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
     statusLabel: resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
     needsConfirm,
     storeName,

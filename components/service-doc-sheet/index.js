@@ -34,7 +34,9 @@ Component({
       let urls = []
       if (Array.isArray(list)) {
         urls = list
-          .map((row) => (typeof row === 'string' ? row : row && (row.url || row)))
+          .map((row) =>
+            typeof row === 'string' ? row : row && (row.url || row.evidenceUrl || row),
+          )
           .filter(Boolean)
       }
       if (!url) return

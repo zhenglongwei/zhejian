@@ -373,9 +373,38 @@
                 <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
-                    <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
+                    <text class="text-body merchant-flow-page__sheet-title">{{isAddonQuote ? '项目与费用' : '方案与费用'}}</text>
                   </view>
                   <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                    <view wx:if="{{isAddonQuote}}" class="merchant-flow-page__plan-evidence">
+                      <view
+                        wx:if="{{item.evidenceUrl}}"
+                        class="merchant-flow-page__plan-evidence-thumb"
+                        data-index="{{index}}"
+                        bindtap="onPreviewQuoteEvidence"
+                      >
+                        <image
+                          class="merchant-flow-page__plan-evidence-img image-placeholder"
+                          src="{{item.evidenceUrl}}"
+                          mode="aspectFill"
+                        />
+                        <text
+                          wx:if="{{!readOnly && !confirmAwaitingOwner}}"
+                          class="merchant-flow-page__plan-evidence-remove"
+                          data-index="{{index}}"
+                          catchtap="onRemoveQuoteEvidence"
+                        >×</text>
+                      </view>
+                      <view
+                        wx:elif="{{!readOnly && !confirmAwaitingOwner}}"
+                        class="merchant-flow-page__plan-evidence-add"
+                        data-index="{{index}}"
+                        bindtap="onAddQuoteEvidence"
+                      >
+                        <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
+                        <text class="text-caption text-secondary">故障图</text>
+                      </view>
+                    </view>
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
@@ -383,7 +412,7 @@
                         value="{{item.name}}"
                         data-index="{{index}}"
                         data-field="name"
-                        disabled="{{readOnly}}"
+                        disabled="{{readOnly || confirmAwaitingOwner}}"
                         bindinput="onQuoteLineInput"
                       />
                       <view class="merchant-flow-page__plan-amount-wrap">
@@ -395,7 +424,7 @@
                           value="{{item.amount}}"
                           data-index="{{index}}"
                           data-field="amount"
-                          disabled="{{readOnly}}"
+                          disabled="{{readOnly || confirmAwaitingOwner}}"
                           bindinput="onQuoteLineInput"
                         />
                       </view>
@@ -406,7 +435,7 @@
                       value="{{item.brand}}"
                       data-index="{{index}}"
                       data-field="brand"
-                      disabled="{{readOnly}}"
+                      disabled="{{readOnly || confirmAwaitingOwner}}"
                       bindinput="onQuoteLineInput"
                     />
                     <textarea
@@ -417,7 +446,7 @@
                       auto-height="{{true}}"
                       data-index="{{index}}"
                       data-field="note"
-                      disabled="{{readOnly}}"
+                      disabled="{{readOnly || confirmAwaitingOwner}}"
                       bindinput="onQuoteLineInput"
                     />
                   </view>
@@ -425,7 +454,7 @@
                     <text class="text-h3">{{quoteTotalLabel}}</text>
                   </view>
                   <view
-                    wx:if="{{!readOnly}}"
+                    wx:if="{{!readOnly && !confirmAwaitingOwner}}"
                     class="merchant-flow-page__plan-add"
                     bindtap="onAddQuoteLine"
                   >
