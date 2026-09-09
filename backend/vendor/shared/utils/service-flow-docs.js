@@ -113,6 +113,22 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   return gaps
 }
 
+/** 施工过程：每张须有部位；本图说明选填 */
+function collectWorkPhotoDraftGaps(payload = {}) {
+  const gaps = []
+  const findings = Array.isArray(payload.findings) ? payload.findings : []
+  if (!findings.length) {
+    gaps.push('请至少上传 1 张施工照片并填写部位')
+    return gaps
+  }
+  findings.forEach((raw, index) => {
+    const item = normalizeFinding(raw)
+    const label = item.partName || `第 ${index + 1} 项`
+    if (!item.partName) gaps.push(`「${label}」请填写部位`)
+  })
+  return gaps
+}
+
 function buildInspectionReportPayload({
   vehicle = {},
   albumNodes = [],
@@ -203,6 +219,7 @@ function normalizeQuoteLine(raw = {}) {
   const amount = parseAmount(raw.amount != null ? raw.amount : raw.priceHint)
   return remapLegacyQuoteLineLayout({
     name: String(raw.name || '').trim(),
+    brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
     note: String(raw.note || '').trim(),
     evidenceUrl: String(raw.evidenceUrl || raw.url || '').trim(),
@@ -243,6 +260,7 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
       .filter((line) => line.name)
       .map((line) => ({
         name: line.name,
+        brand: line.brand || '',
         amount: line.amount === '' ? 0 : Number(line.amount),
         note: line.note,
       })),
@@ -250,7 +268,7 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
 }
 
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
- * name = 部位；note = 处理建议（可长文）；检测结果不写进行名
+ * name = 部位；note = 处理建议（可长文）；检测结果不写进行名；品牌商家另填
  */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
@@ -261,6 +279,7 @@ function buildQuoteLinesFromFindings(findings = []) {
       const name = item.partName || item.result || ''
       return {
         name,
+        brand: '',
         amount: '',
         note: item.advice || '',
         evidenceUrl: item.url || '',
@@ -287,6 +306,7 @@ function buildRepairReportPayload({
     '外力撞击、涉水、未按约定使用等除外'
   const items = (workItems || []).map((item) => ({
     name: String(item.name || '').trim(),
+    brand: String(item.brand || '').trim(),
     amount: parseAmount(item.amount) == null ? 0 : parseAmount(item.amount),
     note: String(item.note || '').trim(),
   }))
@@ -355,6 +375,7 @@ module.exports = {
   sumQuoteAmounts,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
+  collectWorkPhotoDraftGaps,
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,
   buildWorkOrderPayloadFromQuote,

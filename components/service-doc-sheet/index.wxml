@@ -47,6 +47,7 @@
           <text class="text-body">{{line.name}}</text>
           <text class="text-body service-doc-sheet__col-amount">¥{{line.amount}}</text>
         </view>
+        <text wx:if="{{line.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{line.brand}}</text>
         <text wx:if="{{line.note}}" class="text-caption text-secondary service-doc-sheet__note">{{line.note}}</text>
       </view>
       <view class="service-doc-sheet__total">
@@ -68,6 +69,7 @@
           <text class="text-body">{{row.name}}</text>
           <text class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
         </view>
+        <text wx:if="{{row.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{row.brand}}</text>
         <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
       </view>
       <view wx:if="{{doc.totalAmountLabel}}" class="service-doc-sheet__total">
@@ -89,6 +91,7 @@
           <text class="text-body">{{row.name}}</text>
           <text class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
         </view>
+        <text wx:if="{{row.brand}}" class="text-caption text-secondary service-doc-sheet__note">品牌：{{row.brand}}</text>
       </view>
       <view class="service-doc-sheet__total">
         <text class="text-body">合计</text>

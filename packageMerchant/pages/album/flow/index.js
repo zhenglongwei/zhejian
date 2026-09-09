@@ -28,6 +28,7 @@ const { buildFlowProgressView } = require('../../../../utils/service-flow-progre
 const {
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
+  collectWorkPhotoDraftGaps,
   collectQuoteConfirmGaps,
   normalizeFinding,
   normalizeQuoteLine,
@@ -143,6 +144,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
         : []
     const mapped = items.map((row) => ({
       name: String((row && row.name) || ''),
+      brand: String((row && row.brand) || ''),
       amount: row && row.amount != null ? row.amount : '',
       note: String((row && row.note) || ''),
     }))
@@ -173,6 +175,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
         : []
     const mapped = workItems.map((row) => ({
       name: String((row && row.name) || ''),
+      brand: String((row && row.brand) || ''),
       amount: row && row.amount != null ? row.amount : '',
     }))
     const total =
@@ -211,18 +214,21 @@ const STAGE_LABELS = {
     tips: '里程、外观、故障点均可拍；点选检查结果，需处理时写建议',
     captionPlaceholder: '检查部位',
     findingMode: true,
+    findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '拆装、新旧对比；每张写本图说明',
+    tips: '拆装、新旧对比；每张写部位，说明选填',
     captionPlaceholder: '本图说明（选填）',
-    findingMode: false,
+    findingMode: true,
+    findingKind: 'work',
   },
   stage_6: {
     title: '完工照片',
     tips: '试车、交车；每张写本图说明',
     captionPlaceholder: '本图说明（验收结论等，勿写金额）',
     findingMode: false,
+    findingKind: '',
   },
 }
 
@@ -320,6 +326,7 @@ Page({
           tips: meta.tips,
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
+          findingKind: 'inspection',
           images,
           findings: mapFindingRows(images, draftFindings),
         },
@@ -328,17 +335,24 @@ Page({
 
     const ids = resolveLegacyStageIdsForFlowNode(node)
     return ids.map((stageId) => {
-      const meta = STAGE_LABELS[stageId] || { title: stageId, tips: '', findingMode: false }
+      const meta = STAGE_LABELS[stageId] || {
+        title: stageId,
+        tips: '',
+        findingMode: false,
+        findingKind: '',
+      }
       const stage = (album.nodes || []).find((n) => n.id === stageId) || { images: [] }
       const images = this.mapStageImages(stage)
+      const findingMode = Boolean(meta.findingMode)
       return {
         stageId,
         title: meta.title,
         tips: meta.tips,
         captionPlaceholder: meta.captionPlaceholder || '本图说明',
-        findingMode: Boolean(meta.findingMode),
+        findingMode,
+        findingKind: meta.findingKind || (findingMode ? 'inspection' : ''),
         images,
-        findings: meta.findingMode ? mapFindingRows(images, draftFindings) : [],
+        findings: findingMode ? mapFindingRows(images, draftFindings) : [],
       }
     })
   },
@@ -349,18 +363,19 @@ Page({
     return (findingSection.findings || []).map((item) => normalizeFinding(item))
   },
 
-  countFindingMissingFields(item = {}) {
+  countFindingMissingFields(item = {}, findingKind = 'inspection') {
     const row = normalizeFinding(item)
     let missing = 0
     if (!row.partName) missing += 1
+    if (findingKind === 'work') return missing
     if (!row.result || !isValidFindingResult(row.result)) missing += 1
     else if (findingAdviceRequired(row.result) && !row.advice) missing += 1
     return missing
   },
 
-  decorateFinding(item = {}, expanded = false, listKey = '') {
+  decorateFinding(item = {}, expanded = false, listKey = '', findingKind = 'inspection') {
     const row = normalizeFinding(item)
-    const missing = this.countFindingMissingFields(row)
+    const missing = this.countFindingMissingFields(row, findingKind)
     const resultOptions = FINDING_RESULT_OPTIONS.map((opt) => ({
       ...opt,
       selected: row.result === opt.value,
@@ -373,8 +388,25 @@ Page({
           : row.result === FINDING_RESULT.ACTION
             ? 'action'
             : ''
+    if (findingKind === 'work') {
+      return {
+        ...row,
+        findingKind: 'work',
+        listKey: listKey || row.imageId || row.url || '',
+        expanded: Boolean(expanded),
+        complete: missing === 0,
+        summaryText: row.partName || '待填写',
+        completenessLabel: missing === 0 ? row.caption || '已齐' : '缺部位',
+        adviceRequired: false,
+        resultTone: '',
+        resultToneClass: '',
+        evidenceRowClass: '',
+        resultOptions: [],
+      }
+    }
     return {
       ...row,
+      findingKind: 'inspection',
       listKey: listKey || row.imageId || row.url || '',
       expanded: Boolean(expanded),
       complete: missing === 0,
@@ -395,11 +427,11 @@ Page({
   decorateSections(sections = [], expandedFindingKey = this.data.expandedFindingKey) {
     return (sections || []).map((section, sectionIndex) => {
       if (!section.findingMode) return section
+      const findingKind = section.findingKind || 'inspection'
       const findings = (section.findings || []).map((item, findingIndex) => {
         const key = `${sectionIndex}:${findingIndex}`
-        // 用稳定索引作 listKey，避免临时 URL → 正式 URL 时节点重挂导致收起
         const listKey = `idx-${sectionIndex}-${findingIndex}`
-        return this.decorateFinding(item, key === expandedFindingKey, listKey)
+        return this.decorateFinding(item, key === expandedFindingKey, listKey, findingKind)
       })
       return { ...section, findings }
     })
@@ -424,9 +456,10 @@ Page({
     for (let si = 0; si < (sections || []).length; si += 1) {
       const section = sections[si]
       if (!section || !section.findingMode) continue
+      const findingKind = section.findingKind || 'inspection'
       const list = section.findings || []
       for (let fi = 0; fi < list.length; fi += 1) {
-        if (this.countFindingMissingFields(list[fi]) > 0) {
+        if (this.countFindingMissingFields(list[fi], findingKind) > 0) {
           return `${si}:${fi}`
         }
       }
@@ -440,6 +473,11 @@ Page({
       return {
         chiefComplaint: this.data.chiefComplaint,
         conclusion: this.data.conclusion,
+        findings: this.collectFindingsFromSections(),
+      }
+    }
+    if (kind === 'work') {
+      return {
         findings: this.collectFindingsFromSections(),
       }
     }
@@ -878,7 +916,7 @@ Page({
 
   async persistPhotoDraft() {
     const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind !== 'intake_inspection' && kind !== 'delivery_photos') return
+    if (kind !== 'intake_inspection' && kind !== 'work' && kind !== 'delivery_photos') return
     await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
       photoDraft: this.buildPhotoDraftPayload(),
     })
@@ -902,19 +940,29 @@ Page({
     if (!Number.isFinite(sectionIndex) || !Number.isFinite(findingIndex) || !field) return
     const section = this.data.sections[sectionIndex]
     if (!section || !section.findings || !section.findings[findingIndex]) return
+    const findingKind = section.findingKind || 'inspection'
     const prev = section.findings[findingIndex]
     const nextRaw = { ...prev, [field]: e.detail.value }
-    if (field === 'partName') nextRaw.caption = e.detail.value
+    // 检测：部位同步到图注；施工：部位与说明分开，图注优先说明
+    if (findingKind !== 'work' && field === 'partName') {
+      nextRaw.caption = e.detail.value
+    }
     const expandKey = `${sectionIndex}:${findingIndex}`
     const listKey = `idx-${sectionIndex}-${findingIndex}`
-    const decorated = this.decorateFinding(nextRaw, true, listKey)
-    // 路径更新，避免整表 setData 导致输入框失焦、卡片收起
+    const decorated = this.decorateFinding(nextRaw, true, listKey, findingKind)
     const patch = {
       [`sections[${sectionIndex}].findings[${findingIndex}]`]: decorated,
       expandedFindingKey: expandKey,
       autoSaveLabel: '保存中…',
     }
-    if (field === 'partName') {
+    if (findingKind === 'work' && (field === 'partName' || field === 'caption')) {
+      const caption =
+        field === 'caption'
+          ? e.detail.value
+          : String(nextRaw.caption || e.detail.value || '').trim()
+      patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] =
+        caption || String(nextRaw.partName || '').trim()
+    } else if (field === 'partName') {
       patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
     }
     this.setData(patch)
@@ -940,7 +988,8 @@ Page({
     }
     const expandKey = `${sectionIndex}:${findingIndex}`
     const listKey = `idx-${sectionIndex}-${findingIndex}`
-    const decorated = this.decorateFinding(nextRaw, true, listKey)
+    const findingKind = section.findingKind || 'inspection'
+    const decorated = this.decorateFinding(nextRaw, true, listKey, findingKind)
     this.setData({
       [`sections[${sectionIndex}].findings[${findingIndex}]`]: decorated,
       expandedFindingKey: expandKey,
@@ -1045,7 +1094,9 @@ Page({
   },
 
   onAddQuoteLine() {
-    const quoteLines = this.data.quoteLines.concat([{ name: '', amount: '', note: '' }])
+    const quoteLines = this.data.quoteLines.concat([
+      { name: '', brand: '', amount: '', note: '' },
+    ])
     this.setData({
       quoteLines,
       quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
@@ -1056,13 +1107,17 @@ Page({
     const album = this._album || (await fetchMerchantServiceAlbum(this.albumId))
     const sectionMap = {}
     this.data.sections.forEach((section) => {
-      // 发现项部位回写到 caption，便于过程图列表展示
+      // 发现项：检测部位→图注；施工优先本图说明，否则部位
       if (section.findingMode) {
         sectionMap[section.stageId] = (section.images || []).map((img, i) => {
           const finding = (section.findings || [])[i] || {}
+          const caption =
+            section.findingKind === 'work'
+              ? finding.caption || finding.partName || img.caption || ''
+              : finding.partName || img.caption || ''
           return {
             ...img,
-            caption: finding.partName || img.caption || '',
+            caption,
           }
         })
       } else {
@@ -1156,6 +1211,25 @@ Page({
         return
       }
     }
+    if (kind === 'work') {
+      const draftPayload = {
+        findings: this.collectFindingsFromSections(),
+      }
+      const gaps = collectWorkPhotoDraftGaps(draftPayload)
+      if (gaps.length) {
+        const expandKey = this.findFirstIncompleteFindingKey()
+        if (expandKey) {
+          this.setSectionsWithFindings(this.data.sections, {}, expandKey)
+        }
+        wx.showModal({
+          title: '请先补全施工内容',
+          content: `${gaps.slice(0, 4).join('\n')}${gaps.length > 4 ? `\n…共 ${gaps.length} 项` : ''}`,
+          showCancel: false,
+          confirmText: '去补全',
+        })
+        return
+      }
+    }
     if (kind === 'delivery_photos') {
       const gaps = collectDeliveryPhotoDraftGaps({
         warrantyPeriod: this.data.warrantyPeriod,
@@ -1192,7 +1266,7 @@ Page({
       }
     }
 
-    if (kind === 'intake_inspection' || kind === 'delivery_photos') {
+    if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
       await run()
       return
     }

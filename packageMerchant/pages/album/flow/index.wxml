@@ -105,34 +105,51 @@
                             bindinput="onSectionFindingFieldInput"
                           />
                         </view>
-                        <view class="merchant-flow-page__field">
-                          <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
-                          <view class="merchant-flow-page__result-seg">
-                            <view
-                              wx:for="{{finding.resultOptions}}"
-                              wx:for-item="opt"
-                              wx:key="value"
-                              class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}}"
+                        <block wx:if="{{section.findingKind === 'work'}}">
+                          <view class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">本图说明</text>
+                            <input
+                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                              placeholder="选填，例：旧件已拆 / 新件安装完成"
+                              value="{{finding.caption}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
-                              data-value="{{opt.value}}"
-                              bindtap="onSelectFindingResult"
-                            >{{opt.value}}</view>
+                              data-field="caption"
+                              disabled="{{readOnly}}"
+                              bindinput="onSectionFindingFieldInput"
+                            />
                           </view>
-                        </view>
-                        <view wx:if="{{finding.result}}" class="merchant-flow-page__field">
-                          <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
-                          <input
-                            class="merchant-flow-page__input merchant-flow-page__input--field"
-                            placeholder="{{finding.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
-                            value="{{finding.advice}}"
-                            data-section-index="{{sectionIndex}}"
-                            data-finding-index="{{findingIndex}}"
-                            data-field="advice"
-                            disabled="{{readOnly || !finding.adviceRequired}}"
-                            bindinput="onSectionFindingFieldInput"
-                          />
-                        </view>
+                        </block>
+                        <block wx:else>
+                          <view class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
+                            <view class="merchant-flow-page__result-seg">
+                              <view
+                                wx:for="{{finding.resultOptions}}"
+                                wx:for-item="opt"
+                                wx:key="value"
+                                class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}}"
+                                data-section-index="{{sectionIndex}}"
+                                data-finding-index="{{findingIndex}}"
+                                data-value="{{opt.value}}"
+                                bindtap="onSelectFindingResult"
+                              >{{opt.value}}</view>
+                            </view>
+                          </view>
+                          <view wx:if="{{finding.result}}" class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
+                            <input
+                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                              placeholder="{{finding.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
+                              value="{{finding.advice}}"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              data-field="advice"
+                              disabled="{{readOnly || !finding.adviceRequired}}"
+                              bindinput="onSectionFindingFieldInput"
+                            />
+                          </view>
+                        </block>
                       </view>
                     </view>
                     <view
@@ -291,7 +308,7 @@
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="配件 · 检测结果"
+                        placeholder="部位"
                         value="{{item.name}}"
                         data-index="{{index}}"
                         data-field="name"
@@ -312,6 +329,15 @@
                         />
                       </view>
                     </view>
+                    <input
+                      class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                      placeholder="品牌（选填）"
+                      value="{{item.brand}}"
+                      data-index="{{index}}"
+                      data-field="brand"
+                      disabled="{{readOnly}}"
+                      bindinput="onQuoteLineInput"
+                    />
                     <textarea
                       class="merchant-flow-page__plan-note"
                       placeholder="处理建议"
@@ -353,7 +379,7 @@
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="配件 · 检测结果"
+                        placeholder="部位"
                         value="{{item.name}}"
                         data-index="{{index}}"
                         data-field="name"
@@ -374,6 +400,15 @@
                         />
                       </view>
                     </view>
+                    <input
+                      class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                      placeholder="品牌（选填）"
+                      value="{{item.brand}}"
+                      data-index="{{index}}"
+                      data-field="brand"
+                      disabled="{{readOnly}}"
+                      bindinput="onQuoteLineInput"
+                    />
                     <textarea
                       class="merchant-flow-page__plan-note"
                       placeholder="处理建议"
