@@ -99,6 +99,7 @@ function buildHostedArchiveSnapshot(album = {}, storeSnapshot = null) {
             address: '',
             snapshotAt: new Date().toISOString(),
           },
+    // 预留：若将来开放车主交档，可另写 storeAttribution（选店 / 非平台店），不替代本快照
     nodes: (album.nodes || []).map((n) => ({
       id: n.id,
       title: n.title || '',
@@ -158,7 +159,6 @@ async function hostAlbum(
   { storeId, merchantId, mode = 'private', useDesensitizeTool = true } = {},
 ) {
   const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
-  const { SERVICE_ALBUM_STATUS } = require('../constants/v2')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -167,7 +167,8 @@ async function hostAlbum(
   }
   assertMerchantAlbum(album, storeId, merchantId)
   const status = String(album.status || '')
-  if (status !== SERVICE_ALBUM_STATUS.COMPLETED && status !== 'completed') {
+  const { isServiceAlbumRepairDone } = require('../constants/v2')
+  if (!isServiceAlbumRepairDone(status) && status !== 'completed') {
     const err = new Error('请先完成服务流程并整单完工后再托管')
     err.status = 409
     err.code = 'ALBUM_NOT_COMPLETED'

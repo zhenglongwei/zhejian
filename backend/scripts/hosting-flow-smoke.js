@@ -22,16 +22,18 @@ const { isAlbumContentLocked } = require('../src/services/service-album.service'
 const prisma = new PrismaClient()
 const FULL = process.env.HOSTING_SMOKE_FULL === '1'
 
-/** 为冒烟准备可公示图 gate（不含脱敏引擎，仅测隐私规则计数） */
+/** 为冒烟准备可公示图（gate 通过 + 可解析的脱敏路径 URL） */
 async function preparePublicGateImages(albumId) {
   const imgs = await prisma.albumImage.findMany({
     where: { albumId, nodeId: { in: ['stage_2', 'stage_5', 'stage_6'] } },
     take: 2,
   })
   for (const img of imgs) {
+    const desensitizedUrl = `https://geo.simplewin.cn/media/files/uploads/desensitized/hosting_smoke_${img.id}.jpg`
     await prisma.albumImage.update({
       where: { id: img.id },
       data: {
+        rawUrl: desensitizedUrl,
         visibility: 'public',
         publicGateStatus: 'passed',
         publicGateReason: '',
@@ -61,7 +63,12 @@ async function main() {
   const storeId = album.storeId
   const merchantId = album.merchantId
   assert(storeId && merchantId, '相册缺 storeId/merchantId')
-  console.log('[hosting-smoke] album', album.id, storeId)
+  console.log('[hosting-smoke] album', album.id, storeId, 'status=', album.status)
+
+  // 公开后相册可能变为 published；允许再进托管管理
+  if (album.status === 'published' || album.publicCaseStatus === 'public_approved') {
+    console.log('[hosting-smoke] album already published — verifying re-host gate')
+  }
 
   const hostRes = await hostAlbum(album.id, { storeId, merchantId, mode: 'private' })
   assert(hostRes.hosted, 'hostAlbum 应 hosted=true')
@@ -103,6 +110,14 @@ async function main() {
   if (FULL && process.env.HOSTING_SMOKE_CONFIRM === '1') {
     const { confirmHostedPublicPublish } = require('../src/services/case-hosting.service')
     try {
+      // 若已公开，先取消公开再确认，便于重复冒烟
+      const row = await prisma.publicCase.findUnique({ where: { albumId: album.id } })
+      if (row && row.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+        await prisma.publicCase.update({
+          where: { id: row.id },
+          data: { status: PUBLIC_CASE_STATUS.AUDIT_PASSED },
+        })
+      }
       const pub = await confirmHostedPublicPublish(album.id, {
         storeId,
         merchantId,
@@ -110,9 +125,10 @@ async function main() {
         faq: geo.geoDraft.faq,
       })
       assert(pub.publicCase, 'confirm-public 应返回 publicCase')
-      console.log('[hosting-smoke] FULL: 确认公开 OK')
+      console.log('[hosting-smoke] FULL: 确认公开 OK status=', pub.publicCase.status || pub.status)
     } catch (e) {
-      console.log('[hosting-smoke] FULL: confirm-public 跳过（常因缺脱敏任务）:', e.code || e.message)
+      console.log('[hosting-smoke] FULL: confirm-public 失败:', e.code || e.message)
+      throw e
     }
   } else {
     console.log('[hosting-smoke] full ok (未 confirm-public；设 HOSTING_SMOKE_CONFIRM=1 可尝试)')

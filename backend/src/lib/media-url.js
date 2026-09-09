@@ -38,6 +38,30 @@ function resolvePublicCaseMediaUrl(url) {
   }
 }
 
+/**
+ * 托管公开 · 门店自处理可公开面（脱敏工具可选）
+ * 仍拦截 /media/raw 占位与临时路径；允许已过隐私规则的 uploads 持久化 URL。
+ */
+function resolveStoreProcessedPublicUrl(url) {
+  const asTool = resolvePublicCaseMediaUrl(url)
+  if (asTool) return asTool
+  if (!url || isPendingMediaUrl(url)) return ''
+  const value = String(url).trim()
+  if (!value || value.startsWith('wxfile://') || value.includes('/__tmp__/')) return ''
+  if (value.startsWith('mock://')) return ''
+  const looksPersisted =
+    value.includes('/files/uploads/') ||
+    value.includes('/api/v1/media/files/') ||
+    value.includes('/media/files/uploads/')
+  if (!looksPersisted) return ''
+  try {
+    const { rewriteMediaUrlForCurrentBase } = require('./media-storage')
+    return rewriteMediaUrlForCurrentBase(value) || value
+  } catch (_) {
+    return value
+  }
+}
+
 /** 公开案例封面：允许持久化 upload URL，拦截占位路径与本机临时路径 */
 function resolveDisplayMediaUrl(url) {
   if (!url) return ''
@@ -67,5 +91,6 @@ module.exports = {
   sanitizeClientMediaUrl,
   isDesensitizedMediaUrl,
   resolvePublicCaseMediaUrl,
+  resolveStoreProcessedPublicUrl,
   resolveDisplayMediaUrl,
 }

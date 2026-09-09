@@ -185,7 +185,7 @@ function assertPublicViewPublishable(publicView, merchantCaseDraft = null) {
   const media = (publicView && Array.isArray(publicView.media) && publicView.media) || []
   if (media.length < 1) {
     const err = new Error(
-      '当前无可公示脱敏配图（接车/报价单仅留档）。请补充检测、施工、配件或交付过程图后再发布',
+      '当前无可公示配图（接车/报价单仅留档）。请补充检测、施工、配件或交付过程图，并通过隐私校验后再公开',
     )
     err.status = 409
     err.code = 'PUBLIC_VIEW_MEDIA_REQUIRED'
@@ -479,10 +479,17 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
   const task = await resolvePublishTask(albumId, payload)
   const previousSnapshotVersion = resolveSnapshotVersion(album.publicCase?.contentJson)
   const nodesWithMask = buildNodesFromTask(albumView.nodes, task)
+  // 托管公开：隐私已过线时允许门店自处理可公开面（脱敏工具可选）
+  const allowStoreProcessedFace = Boolean(
+    hostedGeoPublish && hostMeta.privacyAuditPassedAt,
+  )
   const publicView = config.publicViewV2
-    ? buildPublicView(albumView, task, { authorizationTier: tier })
+    ? buildPublicView(albumView, task, {
+        authorizationTier: tier,
+        allowStoreProcessedFace,
+      })
     : null
-  // 第二层：案例发布规则（公开包须有脱敏图等，与质量分独立）
+  // 第二层：案例发布规则（公开包须有可公示配图等，与质量分独立）
   if (config.publicViewV2) {
     assertPublicViewPublishable(publicView, merchantCaseDraft)
   } else if (!(nodesWithMask || []).some((n) => (n.images || []).length > 0)) {
@@ -1150,7 +1157,11 @@ async function confirmMerchantPublicCasePublish(
   const { buildMerchantView } = require('./service-album.service')
   const { CASE_GEO_PIPELINE_STATUS } = require('../constants/case-geo-audit')
 
+  // 存量兼容参数；2026-09-09 起不再校验真实性承诺
+  void authenticityCommitment
+
   if (!useDesensitizeTool) {
+    // 存量旧路径仍默认要求脱敏工具；新单请走托管向导（工具可选）
     const err = new Error('公开案例须使用脱敏工具并完成预览确认')
     err.status = 400
     err.code = 'DESENSITIZE_REQUIRED'

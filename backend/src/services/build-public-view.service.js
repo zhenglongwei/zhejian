@@ -1,7 +1,7 @@
 /**
  * PV-REFORM · PublicView 构建（公开池 media + scrub 文案）
  */
-const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
+const { resolvePublicCaseMediaUrl, resolveStoreProcessedPublicUrl } = require('../lib/media-url')
 const { stripUrlQuery } = require('../lib/media-signed-url')
 const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { scrubPiiText } = require('../utils/scrub-pii-text')
@@ -81,7 +81,8 @@ function captionForNode(nodes, nodeId) {
 /**
  * @param {object} albumView buildAlbumView 产物（含 imageMeta）
  * @param {object|null} task pre-mask / authorize task
- * @param {{ authorizationTier?: string, softCap?: number }} [options]
+ * @param {{ authorizationTier?: string, softCap?: number, allowStoreProcessedFace?: boolean }} [options]
+ *        allowStoreProcessedFace：托管公开路径；隐私已过且未用平台脱敏任务时，允许用可公开池图（责任在门店）
  */
 function buildPublicView(albumView = {}, task = null, options = {}) {
   const nodes = albumView.nodes || []
@@ -91,16 +92,22 @@ function buildPublicView(albumView = {}, task = null, options = {}) {
     0,
     Math.min(softCap, PUBLIC_MEDIA_SOFT_CAP),
   )
+  const allowStoreProcessedFace = Boolean(options.allowStoreProcessedFace)
 
   const media = publicRows
     .map((row) => {
-      const maskedUrl = resolveMaskedUrlForImage(task, row.nodeId, row.idx, row.rawUrl)
+      const toolMasked = resolveMaskedUrlForImage(task, row.nodeId, row.idx, row.rawUrl)
+      let maskedUrl = toolMasked
+      if (!maskedUrl && allowStoreProcessedFace) {
+        maskedUrl = resolveStoreProcessedPublicUrl(row.rawUrl || '') || ''
+      }
       if (!maskedUrl) return null
       return {
         nodeId: row.nodeId,
         idx: row.idx,
         maskedUrl,
         caption: captionForNode(nodes, row.nodeId),
+        storeProcessed: Boolean(allowStoreProcessedFace && !toolMasked),
       }
     })
     .filter(Boolean)

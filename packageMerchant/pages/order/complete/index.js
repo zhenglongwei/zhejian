@@ -13,7 +13,6 @@ Page({
       partsSummary: '',
       priceNote: '',
       warrantyNote: '',
-      generateCaseDraft: false,
     },
     needPriceNote: false,
     isAccident: false,
@@ -73,10 +72,6 @@ Page({
   onInput(e) {
     const { field } = e.currentTarget.dataset
     this.setData({ [`form.${field}`]: e.detail.value })
-  },
-
-  onDraftChange(e) {
-    this.setData({ 'form.generateCaseDraft': Boolean(e.detail.checked) })
   },
 
   validateForm() {
