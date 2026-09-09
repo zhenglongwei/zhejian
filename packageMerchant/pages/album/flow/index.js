@@ -312,6 +312,7 @@ Page({
     warrantyPeriod: '',
     warrantyNotes: '',
     allDone: false,
+    needManualComplete: false,
     workImagePool: [],
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
@@ -917,6 +918,12 @@ Page({
         captionHint: '',
         autoSaveLabel: '',
         allDone: Boolean(progress.allDone),
+        needManualComplete: Boolean(
+          progress.allDone &&
+            !readOnly &&
+            status !== SERVICE_ALBUM_STATUS.COMPLETED &&
+            status !== 'published',
+        ),
         workImagePool,
         deliveryExteriorUrl,
         deliveryPickMode,
@@ -2205,11 +2212,15 @@ Page({
           payload,
         },
       })
-      await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      const result = await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
         document: { payload },
       })
-      wx.showToast({ title: '已代确认', icon: 'success' })
+      const autoDone = Boolean(result && result.albumAutoCompleted)
+      wx.showToast({
+        title: kind === 'repair_report' && autoDone ? '已确认并完工' : '已代确认',
+        icon: 'success',
+      })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })

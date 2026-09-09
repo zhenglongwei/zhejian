@@ -2110,7 +2110,15 @@ async function saveMerchantServiceAlbum(albumId, storeId, payload = {}, merchant
 
 async function completeMerchantServiceAlbum(albumId, storeId, merchantId = '', options = {}) {
   const existing = await loadAlbum(albumId)
-  assertMerchantAlbum(existing, storeId, merchantId)
+  if (!options.asSystem) {
+    assertMerchantAlbum(existing, storeId, merchantId)
+  }
+  const status = String(existing.status || '')
+  if (status === SERVICE_ALBUM_STATUS.COMPLETED || status === 'published') {
+    const view = buildMerchantView(existing)
+    Object.assign(view, assessPublicCaseQuality(view))
+    return view
+  }
   assertAlbumContentEditable(existing)
   assertAlbumHasOwnerPhone(existing)
   assertAlbumHasNonEmptyContent(existing)

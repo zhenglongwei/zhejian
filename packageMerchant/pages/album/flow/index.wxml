@@ -703,7 +703,7 @@
           </view>
         </flow-stepper>
 
-        <view wx:if="{{!readOnly && allDone}}" class="merchant-flow-page__footer-actions">
+        <view wx:if="{{!readOnly && needManualComplete}}" class="merchant-flow-page__footer-actions">
           <ui-button
             type="primary"
             block="{{true}}"

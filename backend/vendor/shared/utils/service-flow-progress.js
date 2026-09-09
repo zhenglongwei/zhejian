@@ -87,7 +87,7 @@ function buildFlowProgressView(nodes = []) {
 
 function allDoneText(total) {
   if (!total) return ''
-  return '全部步骤已完成，可标记整单完工'
+  return '全部步骤已完成'
 }
 
 function resolveActiveNodeCta(node = {}) {

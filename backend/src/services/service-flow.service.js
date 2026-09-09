@@ -744,6 +744,7 @@ async function proxyConfirmFlowDocument(
     : []
 
   const id = String(nodeId || '').trim()
+  let confirmedKind = ''
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const index = nodes.findIndex((n) => n.id === id)
@@ -753,6 +754,7 @@ async function proxyConfirmFlowDocument(
       throw err
     }
     const kind = nodes[index].kind
+    confirmedKind = kind
     if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
       const err = new Error('该单据无需车主确认')
       err.status = 400
@@ -796,11 +798,21 @@ async function proxyConfirmFlowDocument(
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 
+  let albumAutoCompleted = false
+  if (confirmedKind === 'repair_report') {
+    albumAutoCompleted = await tryCompleteAlbumAfterRepairConfirm(albumId, {
+      storeId,
+      merchantId,
+      asSystem: false,
+    })
+  }
+
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   const node = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   return {
     node: node ? mapFlowNodeForView(node, viewNodes) : null,
+    albumAutoCompleted,
   }
 }
 
@@ -1409,6 +1421,33 @@ function applyQuoteConfirmedSideEffects(nodes, index, quoteNodeId, mergedPayload
   }
 }
 
+async function tryCompleteAlbumAfterRepairConfirm(
+  albumId,
+  { storeId = '', merchantId = '', asSystem = false } = {},
+) {
+  try {
+    const { loadAlbum, completeMerchantServiceAlbum } = require('./service-album.service')
+    const album = await loadAlbum(albumId)
+    if (!album) return false
+    const status = String(album.status || '')
+    if (status === 'completed' || status === 'published') return true
+    await completeMerchantServiceAlbum(
+      albumId,
+      storeId || album.storeId || '',
+      merchantId || album.merchantId || '',
+      { asSystem: Boolean(asSystem) || !merchantId },
+    )
+    return true
+  } catch (err) {
+    console.warn(
+      '[service-flow] auto complete after repair confirm failed',
+      albumId,
+      err && err.message,
+    )
+    return false
+  }
+}
+
 /** 车主确认方案 / 完工 */
 async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
   const { loadAlbum, mapNodesForView } = require('./service-album.service')
@@ -1435,6 +1474,7 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     throw err
   }
 
+  let confirmedKind = ''
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const index = nodes.findIndex((n) => n.id === id)
@@ -1444,6 +1484,7 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
       throw err
     }
     const kind = nodes[index].kind
+    confirmedKind = kind
     if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
       const err = new Error('该单据无需确认')
       err.status = 400
@@ -1492,6 +1533,15 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
 
+  let albumAutoCompleted = false
+  if (confirmedKind === 'repair_report') {
+    albumAutoCompleted = await tryCompleteAlbumAfterRepairConfirm(albumId, {
+      storeId: album.storeId,
+      merchantId: album.merchantId,
+      asSystem: true,
+    })
+  }
+
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)
   return {
@@ -1500,6 +1550,7 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
       viewNodes,
     ),
     ownerFlow: buildOwnerFlowView(refreshed, viewNodes),
+    albumAutoCompleted,
   }
 }
 
