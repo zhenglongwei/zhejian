@@ -495,11 +495,12 @@ Token：`--color-album-frame` / `--color-album-frame-line` / `--color-album-fram
 
 #### AlbumEndPage（`components/album-end-page` · 卷七 UI-ALB）
 
-虚拟 **尾页 / 页底收束区**：暖底 `--color-album-frame-inner` +「本册已阅」+ 服务名 + 服务评价等按钮（按状态显隐）。  
+虚拟 **尾页 / 页底收束区**：暖底 `--color-album-frame-inner`；默认含「本册已阅」+ 服务名；**服务进度**（`hideFinisher`）仅保留操作按钮（评价 / 联系门店 / 发布相关），不展示相册收尾语。  
 待发布态保持简洁（如状态提示 + 主按钮「评价」），**不**叠体验官邀请大卡与「预览脱敏案例」；发布入口在列表卡 / 分享面板（详情页底不放分享链）。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
+| hideFinisher | Boolean | false | 隐藏「本册已阅」与服务名（服务进度页为 true） |
 | showPreview | Boolean | false | 预览脱敏案例 / 发布入口（待发布默认关闭；需修改等态可开） |
 | showFeedback | Boolean | true | 是否展示服务评价入口 |
 | pendingOwnerReview | Boolean | false | 完工未评：评价为主按钮「评价」；已评为次按钮「查看评价」 |

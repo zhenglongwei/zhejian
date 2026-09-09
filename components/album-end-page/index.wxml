@@ -1,12 +1,12 @@
 <view class="album-end-page">
   <view class="album-end-page__sheet">
-    <view class="album-end-page__finisher" aria-hidden="true">
+    <view wx:if="{{!hideFinisher}}" class="album-end-page__finisher" aria-hidden="true">
       <view class="album-end-page__finisher-line" />
       <text class="album-end-page__finisher-label text-caption">本册已阅</text>
       <view class="album-end-page__finisher-line" />
     </view>
 
-    <text wx:if="{{albumTitle}}" class="album-end-page__album-title">{{albumTitle}}</text>
+    <text wx:if="{{!hideFinisher && albumTitle}}" class="album-end-page__album-title">{{albumTitle}}</text>
 
     <view wx:if="{{invitePitch}}" class="album-end-page__invite surface-album-panel">
       <text wx:if="{{inviteEyebrow}}" class="album-end-page__eyebrow">{{inviteEyebrow}}</text>

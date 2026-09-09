@@ -1,2 +1,4 @@
 /**app.wxss**/
 @import "./styles/tokens.wxss";
+@import "./styles/record-card.wxss";
+@import "./styles/record-detail.wxss";

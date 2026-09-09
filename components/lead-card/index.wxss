@@ -1,1 +1,1 @@
-@import '../../styles/record-card.wxss';
+/* layout from styles/record-card.wxss via app.wxss; keep file so component compiles */

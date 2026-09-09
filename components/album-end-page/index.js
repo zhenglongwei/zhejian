@@ -19,6 +19,11 @@ Component({
       type: String,
       value: '',
     },
+    /** 服务进度等场景：隐藏「本册已阅」与相册标题收尾 */
+    hideFinisher: {
+      type: Boolean,
+      value: false,
+    },
     invitePitch: {
       type: String,
       value: '',

@@ -60,7 +60,8 @@
         <view class="album-detail__read-footer">
           <album-end-page
             album-id="{{albumId}}"
-            album-title="{{detail.serviceName || ''}}"
+            album-title="{{showOwnerFlow ? '' : (detail.serviceName || '')}}"
+            hide-finisher="{{showOwnerFlow}}"
             invite-pitch="{{endPageInvitePitch}}"
             invite-eyebrow="{{endPageInviteEyebrow}}"
             control-line="{{endPageControlLine}}"
