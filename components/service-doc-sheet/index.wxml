@@ -1,0 +1,139 @@
+<view class="service-doc-sheet service-doc-sheet--{{doc.styleVariant || 'document'}}" wx:if="{{doc && doc.kind}}">
+  <view wx:if="{{showHeader}}" class="service-doc-sheet__head">
+    <view class="service-doc-sheet__title-row">
+      <text class="text-h3 service-doc-sheet__title">{{doc.title}}</text>
+      <ui-tag wx:if="{{doc.statusLabel}}" variant="{{doc.needsConfirm ? 'warning' : 'default'}}" text="{{doc.statusLabel}}" />
+    </view>
+    <text wx:if="{{doc.storeName}}" class="text-caption text-secondary service-doc-sheet__store">{{doc.storeName}}</text>
+    <text wx:if="{{doc.metaLine}}" class="text-caption text-secondary service-doc-sheet__meta">{{doc.metaLine}}</text>
+  </view>
+
+  <block wx:if="{{doc.kind === 'inspection_report'}}">
+    <view wx:if="{{doc.chiefComplaint}}" class="service-doc-sheet__block">
+      <text class="text-caption text-secondary service-doc-sheet__label">进店主诉</text>
+      <text class="text-body">{{doc.chiefComplaint}}</text>
+    </view>
+    <view wx:if="{{doc.findings && doc.findings.length}}" class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">本次检测项目</text>
+      <view wx:for="{{doc.findings}}" wx:for-item="finding" wx:key="url" class="service-doc-sheet__finding">
+        <image
+          wx:if="{{finding.url}}"
+          class="service-doc-sheet__finding-img image-placeholder"
+          src="{{finding.url}}"
+          mode="aspectFill"
+          data-url="{{finding.url}}"
+          data-urls="{{doc.findings}}"
+          bindtap="onPreviewImage"
+        />
+        <view class="service-doc-sheet__finding-body">
+          <text class="text-body">{{finding.partName}}</text>
+          <text class="text-caption text-secondary">{{finding.result}}</text>
+          <text wx:if="{{finding.advice}}" class="text-caption text-secondary">建议：{{finding.advice}}</text>
+        </view>
+      </view>
+    </view>
+    <text wx:if="{{doc.conclusion}}" class="text-body service-doc-sheet__block">结论：{{doc.conclusion}}</text>
+  </block>
+
+  <block wx:elif="{{doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm'}}">
+    <view class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">费用明细</text>
+      <view class="service-doc-sheet__table-head">
+        <text class="text-caption text-secondary">项目</text>
+        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+      </view>
+      <view wx:for="{{doc.lines}}" wx:for-item="line" wx:key="name" class="service-doc-sheet__table-row">
+        <view class="service-doc-sheet__table-main">
+          <text class="text-body">{{line.name}}</text>
+          <text class="text-body service-doc-sheet__col-amount">¥{{line.amount}}</text>
+        </view>
+        <text wx:if="{{line.note}}" class="text-caption text-secondary service-doc-sheet__note">{{line.note}}</text>
+      </view>
+      <view class="service-doc-sheet__total">
+        <text class="text-body">合计</text>
+        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{doc.kind === 'work_order'}}">
+    <view class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">施工项目</text>
+      <view class="service-doc-sheet__table-head">
+        <text class="text-caption text-secondary">项目</text>
+        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+      </view>
+      <view wx:for="{{doc.items}}" wx:for-item="row" wx:key="name" class="service-doc-sheet__table-row">
+        <view class="service-doc-sheet__table-main">
+          <text class="text-body">{{row.name}}</text>
+          <text class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
+        </view>
+        <text wx:if="{{row.note}}" class="text-caption text-secondary service-doc-sheet__note">{{row.note}}</text>
+      </view>
+      <view wx:if="{{doc.totalAmountLabel}}" class="service-doc-sheet__total">
+        <text class="text-body">合计</text>
+        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{doc.kind === 'repair_report'}}">
+    <view class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">已施工项目</text>
+      <view class="service-doc-sheet__table-head">
+        <text class="text-caption text-secondary">项目</text>
+        <text class="text-caption text-secondary service-doc-sheet__col-amount">金额</text>
+      </view>
+      <view wx:for="{{doc.workItems}}" wx:for-item="row" wx:key="name" class="service-doc-sheet__table-row">
+        <view class="service-doc-sheet__table-main">
+          <text class="text-body">{{row.name}}</text>
+          <text class="text-body service-doc-sheet__col-amount">¥{{row.amount}}</text>
+        </view>
+      </view>
+      <view class="service-doc-sheet__total">
+        <text class="text-body">合计</text>
+        <text class="text-body service-doc-sheet__total-amount">{{doc.totalAmountLabel}}</text>
+      </view>
+    </view>
+    <view wx:if="{{doc.deliveryPhotos && doc.deliveryPhotos.length}}" class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">交车照片</text>
+      <view class="service-doc-sheet__photos">
+        <image
+          wx:for="{{doc.deliveryPhotos}}"
+          wx:for-item="photo"
+          wx:key="url"
+          class="service-doc-sheet__photo image-placeholder"
+          src="{{photo.url || photo}}"
+          mode="aspectFill"
+          data-url="{{photo.url || photo}}"
+          data-urls="{{doc.deliveryPhotos}}"
+          bindtap="onPreviewImage"
+        />
+      </view>
+    </view>
+    <view
+      wx:if="{{doc.warrantyPeriod || doc.warrantyScope || doc.warrantyExclusions}}"
+      class="service-doc-sheet__block"
+    >
+      <text class="text-body service-doc-sheet__section">质保说明</text>
+      <text wx:if="{{doc.warrantyPeriod}}" class="text-caption">期限：{{doc.warrantyPeriod}}</text>
+      <text wx:if="{{doc.warrantyScope}}" class="text-caption">范围：{{doc.warrantyScope}}</text>
+      <text wx:if="{{doc.warrantyExclusions}}" class="text-caption text-secondary">除外：{{doc.warrantyExclusions}}</text>
+    </view>
+  </block>
+
+  <view
+    wx:if="{{doc.confirmCopy && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
+    class="service-doc-sheet__protocol"
+  >
+    <text class="text-caption">{{doc.confirmCopy}}</text>
+  </view>
+
+  <ui-button
+    wx:if="{{mode === 'owner' && doc.needsConfirm}}"
+    type="primary"
+    block="{{true}}"
+    loading="{{confirming}}"
+    bind:btntap="onConfirmTap"
+  >确认</ui-button>
+</view>

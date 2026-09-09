@@ -19,102 +19,13 @@
         <text class="text-caption text-secondary">{{item.statusLabel}}</text>
       </view>
 
-      <view
+      <service-doc-sheet
         wx:else
-        class="album-service-flow__card album-service-flow__card--{{item.styleVariant}} {{item.stepState === 'done' ? 'is-done' : ''}}"
-      >
-        <view class="album-service-flow__head">
-          <view class="album-service-flow__title-row">
-            <text class="text-h3">{{item.title}}</text>
-            <ui-tag wx:if="{{item.segmentLabel}}" variant="warning" text="{{item.segmentLabel}}" />
-          </view>
-          <text class="text-caption text-secondary">{{item.statusLabel}}</text>
-        </view>
-
-        <block wx:if="{{item.kind === 'inspection_report'}}">
-          <text wx:if="{{item.vehicleBrand || item.vehicleSeries || item.mileageText}}" class="text-caption text-secondary album-service-flow__meta">
-            {{item.vehicleBrand}} {{item.vehicleSeries}} · {{item.mileageText}} · {{item.reportDate}}
-          </text>
-          <text wx:if="{{item.chiefComplaint}}" class="text-body album-service-flow__complaint">主诉：{{item.chiefComplaint}}</text>
-          <view wx:for="{{item.findings}}" wx:for-item="finding" wx:key="url" class="album-service-flow__finding">
-            <image
-              wx:if="{{finding.url}}"
-              class="album-service-flow__finding-img image-placeholder"
-              src="{{finding.url}}"
-              mode="aspectFill"
-              data-url="{{finding.url}}"
-              data-urls="{{item.findings}}"
-              bindtap="onPreviewImage"
-            />
-            <view class="album-service-flow__finding-body">
-              <text class="text-body">{{finding.partName}}</text>
-              <text class="text-caption text-secondary">{{finding.result}}</text>
-              <text wx:if="{{finding.advice}}" class="text-caption text-secondary">建议：{{finding.advice}}</text>
-            </view>
-          </view>
-          <text wx:if="{{item.conclusion}}" class="text-body">结论：{{item.conclusion}}</text>
-          <text wx:if="{{item.disclaimer}}" class="text-caption text-secondary album-service-flow__disclaimer">{{item.disclaimer}}</text>
-        </block>
-
-        <block wx:elif="{{item.kind === 'quote_confirm' || item.kind === 'addon_quote_confirm'}}">
-          <view wx:for="{{item.lines}}" wx:for-item="line" wx:key="name" class="album-service-flow__line-item">
-            <text class="text-body">{{line.name}}</text>
-            <text wx:if="{{line.note}}" class="text-body album-service-flow__line-note">{{line.note}}</text>
-            <text class="text-body">¥{{line.amount}}</text>
-          </view>
-          <text class="text-body album-service-flow__total">{{item.totalAmountLabel}}</text>
-          <view wx:if="{{item.confirmCopy}}" class="album-service-flow__protocol">
-            <text class="text-caption">{{item.confirmCopy}}</text>
-          </view>
-        </block>
-
-        <block wx:elif="{{item.kind === 'work_order'}}">
-          <view wx:for="{{item.items}}" wx:for-item="row" wx:key="name" class="album-service-flow__line-item">
-            <view class="album-service-flow__line-main">
-              <text class="text-body">{{row.name}}</text>
-              <text class="text-caption">¥{{row.amount}}</text>
-            </view>
-            <text wx:if="{{row.note}}" class="text-caption text-secondary">{{row.note}}</text>
-          </view>
-        </block>
-
-        <block wx:elif="{{item.kind === 'repair_report'}}">
-          <view wx:for="{{item.workItems}}" wx:for-item="row" wx:key="name" class="album-service-flow__line-item">
-            <view class="album-service-flow__line-main">
-              <text class="text-body">{{row.name}}</text>
-              <text class="text-caption">¥{{row.amount}}</text>
-            </view>
-          </view>
-          <text class="text-body album-service-flow__total">{{item.totalAmountLabel}}</text>
-          <view wx:if="{{item.deliveryPhotos.length}}" class="album-service-flow__photos">
-            <image
-              wx:for="{{item.deliveryPhotos}}"
-              wx:for-item="photo"
-              wx:key="url"
-              class="album-service-flow__photo image-placeholder"
-              src="{{photo.url || photo}}"
-              mode="aspectFill"
-              data-url="{{photo.url || photo}}"
-              bindtap="onPreviewImage"
-            />
-          </view>
-          <text wx:if="{{item.warrantyPeriod}}" class="text-caption">质保期限：{{item.warrantyPeriod}}</text>
-          <text wx:if="{{item.warrantyScope}}" class="text-caption">质保范围：{{item.warrantyScope}}</text>
-          <text wx:if="{{item.warrantyExclusions}}" class="text-caption text-secondary">除外：{{item.warrantyExclusions}}</text>
-          <view wx:if="{{item.confirmCopy}}" class="album-service-flow__protocol">
-            <text class="text-caption">{{item.confirmCopy}}</text>
-          </view>
-        </block>
-
-        <ui-button
-          wx:if="{{item.needsConfirm}}"
-          type="primary"
-          block="{{true}}"
-          loading="{{confirmingId === item.id}}"
-          data-id="{{item.id}}"
-          bind:btntap="onConfirmTap"
-        >确认</ui-button>
-      </view>
+        doc="{{item}}"
+        mode="owner"
+        confirming="{{confirmingId === item.id}}"
+        bind:confirm="onConfirmTap"
+      />
     </view>
   </view>
 </view>

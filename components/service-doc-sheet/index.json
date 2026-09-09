@@ -2,6 +2,7 @@
   "component": true,
   "styleIsolation": "apply-shared",
   "usingComponents": {
-    "service-doc-sheet": "/components/service-doc-sheet/index"
+    "ui-tag": "/components/tag/index",
+    "ui-button": "/components/button/index"
   }
 }

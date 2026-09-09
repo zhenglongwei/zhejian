@@ -3,6 +3,7 @@
   "multipleSlots": true,
   "usingComponents": {
     "ui-tag": "/components/tag/index",
-    "ui-card": "/components/card/index"
+    "ui-card": "/components/card/index",
+    "service-doc-sheet": "/components/service-doc-sheet/index"
   }
 }

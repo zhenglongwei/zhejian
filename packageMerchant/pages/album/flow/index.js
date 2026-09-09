@@ -37,8 +37,21 @@ const {
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
-/** 已完成步骤「查看」：把节点内容塞进 stepper，避免空 slot */
-function mapCompletedStepPreview(step, node) {
+/** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
+function buildSheetMetaLine(payload = {}, album = {}) {
+  const parts = []
+  const dateText = String(payload.reportDate || '').trim()
+  if (dateText) parts.push(dateText.slice(0, 10))
+  const vehicle = [payload.vehicleBrand, payload.vehicleSeries].filter(Boolean).join(' ').trim()
+  const albumVehicle = String((album && album.vehicleDisplay) || '').trim()
+  if (vehicle) parts.push(vehicle)
+  else if (albumVehicle) parts.push(albumVehicle)
+  const mileage = String(payload.mileageText || '').trim()
+  if (mileage) parts.push(mileage)
+  return parts.join(' · ')
+}
+
+function mapCompletedStepPreview(step, node, album = {}) {
   const base = {
     ...step,
     summary: (step && step.summary) || (step && step.desc) || '已完成',
@@ -48,6 +61,8 @@ function mapCompletedStepPreview(step, node) {
   const kind = node.kind || ''
   const payload = (node.document && node.document.payload) || {}
   const summary = base.summary || node.summary || '已完成'
+  const storeName = String((album && album.storeName) || '').trim()
+  const metaLine = buildSheetMetaLine(payload, album)
 
   if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
     const previewImages = Array.isArray(node.previewImages) ? node.previewImages : []
@@ -58,28 +73,41 @@ function mapCompletedStepPreview(step, node) {
       summary,
       previewImages,
       photoCount: Number(node.photoCount) || previewImages.length,
-      chiefComplaint: kind === 'intake_inspection' ? String((node.photoDraft && node.photoDraft.chiefComplaint) || '') : '',
+      chiefComplaint:
+        kind === 'intake_inspection'
+          ? String((node.photoDraft && node.photoDraft.chiefComplaint) || '')
+          : '',
     }
   }
 
   if (kind === 'inspection_report') {
     const findings = Array.isArray(payload.findings)
-      ? payload.findings.map((item, index) => {
-          const row = normalizeFinding(item)
-          return {
-            ...row,
-            listKey: row.url || `${row.partName || 'f'}_${index}`,
-          }
-        }).filter((row) => row.url || row.partName)
+      ? payload.findings
+          .map((item, index) => {
+            const row = normalizeFinding(item)
+            return {
+              ...row,
+              listKey: row.url || `${row.partName || 'f'}_${index}`,
+            }
+          })
+          .filter((row) => row.url || row.partName)
       : []
     return {
       ...base,
       kind,
-      detailKind: 'inspection_report',
+      detailKind: 'doc_sheet',
       summary,
-      chiefComplaint: String(payload.chiefComplaint || ''),
-      conclusion: String(payload.conclusion || ''),
-      findings,
+      sheetDoc: {
+        kind,
+        title: node.title || '检测报告',
+        statusLabel: summary,
+        storeName,
+        metaLine,
+        styleVariant: 'evidence',
+        chiefComplaint: String(payload.chiefComplaint || ''),
+        conclusion: String(payload.conclusion || ''),
+        findings,
+      },
     }
   }
 
@@ -91,10 +119,19 @@ function mapCompletedStepPreview(step, node) {
     return {
       ...base,
       kind,
-      detailKind: 'quote',
+      detailKind: 'doc_sheet',
       summary,
-      lines,
-      totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+      sheetDoc: {
+        kind,
+        title: node.title || '方案确认',
+        statusLabel: summary,
+        storeName,
+        metaLine,
+        styleVariant: 'document',
+        lines,
+        totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+        confirmCopy: QUOTE_CONFIRM_COPY,
+      },
     }
   }
 
@@ -104,16 +141,27 @@ function mapCompletedStepPreview(step, node) {
       : Array.isArray(payload.workItems)
         ? payload.workItems
         : []
+    const mapped = items.map((row) => ({
+      name: String((row && row.name) || ''),
+      amount: row && row.amount != null ? row.amount : '',
+      note: String((row && row.note) || ''),
+    }))
+    const total = mapped.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
     return {
       ...base,
       kind,
-      detailKind: 'work_order',
+      detailKind: 'doc_sheet',
       summary,
-      items: items.map((row) => ({
-        name: String((row && row.name) || ''),
-        amount: row && row.amount != null ? row.amount : '',
-        note: String((row && row.note) || ''),
-      })),
+      sheetDoc: {
+        kind,
+        title: node.title || '工单',
+        statusLabel: summary === '草稿' ? '已确认' : summary,
+        storeName,
+        metaLine,
+        styleVariant: 'document',
+        items: mapped,
+        totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+      },
     }
   }
 
@@ -123,22 +171,34 @@ function mapCompletedStepPreview(step, node) {
       : Array.isArray(payload.items)
         ? payload.items
         : []
+    const mapped = workItems.map((row) => ({
+      name: String((row && row.name) || ''),
+      amount: row && row.amount != null ? row.amount : '',
+    }))
     const total =
       payload.totalAmount != null
         ? Number(payload.totalAmount) || 0
-        : workItems.reduce((sum, row) => sum + (Number(row && row.amount) || 0), 0)
+        : mapped.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
     return {
       ...base,
       kind,
-      detailKind: 'repair_report',
+      detailKind: 'doc_sheet',
       summary,
-      workItems: workItems.map((row) => ({
-        name: String((row && row.name) || ''),
-        amount: row && row.amount != null ? row.amount : '',
-      })),
-      totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-      warrantyPeriod: String(payload.warrantyPeriod || ''),
-      warrantyScope: String(payload.warrantyScope || ''),
+      sheetDoc: {
+        kind,
+        title: node.title || '完工确认',
+        statusLabel: summary,
+        storeName,
+        metaLine,
+        styleVariant: 'document',
+        workItems: mapped,
+        totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
+        deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
+        warrantyPeriod: String(payload.warrantyPeriod || ''),
+        warrantyScope: String(payload.warrantyScope || ''),
+        warrantyExclusions: String(payload.warrantyExclusions || ''),
+        confirmCopy: REPAIR_CONFIRM_COPY,
+      },
     }
   }
 
@@ -429,7 +489,7 @@ Page({
         if (node && node.id) nodeById[node.id] = node
       })
       const completedSteps = (progress.completedSteps || []).map((step) =>
-        mapCompletedStepPreview(step, nodeById[step.id]),
+        mapCompletedStepPreview(step, nodeById[step.id], album),
       )
 
       let findings = []

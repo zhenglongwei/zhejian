@@ -949,7 +949,29 @@ function resolveOwnerDocStatusLabel(kind, doc = {}, fallback = '') {
   return raw || resolveDocumentStatusLabel(doc)
 }
 
-function mapOwnerFlowDocCard(node = {}) {
+function buildDocMetaLine({
+  reportDate = '',
+  vehicleBrand = '',
+  vehicleSeries = '',
+  vehicleDisplay = '',
+  mileageText = '',
+  plateDisplay = '',
+} = {}) {
+  const parts = []
+  const dateText = String(reportDate || '').trim()
+  if (dateText) parts.push(dateText.slice(0, 10))
+  const vehicle =
+    [vehicleBrand, vehicleSeries].filter(Boolean).join(' ').trim() ||
+    String(vehicleDisplay || '').trim()
+  if (vehicle) parts.push(vehicle)
+  const plate = String(plateDisplay || '').trim()
+  if (plate && (!vehicle || vehicle.indexOf(plate) === -1)) parts.push(plate)
+  const mileage = String(mileageText || '').trim()
+  if (mileage) parts.push(mileage)
+  return parts.join(' · ')
+}
+
+function mapOwnerFlowDocCard(node = {}, album = {}) {
   const doc = node.document || {}
   const payload = doc.payload || {}
   const needsConfirm =
@@ -966,6 +988,21 @@ function mapOwnerFlowDocCard(node = {}) {
     payload.totalAmount != null
       ? payload.totalAmount
       : amountSource.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const vehicle = (album && album.vehicleJson) || (album && album.vehicle) || {}
+  const storeName = String(
+    (album && (album.storeName || (album.store && album.store.name))) || '',
+  ).trim()
+  const vehicleBrand = String(payload.vehicleBrand || vehicle.brand || '').trim()
+  const vehicleSeries = String(payload.vehicleSeries || vehicle.series || '').trim()
+  const mileageText = String(payload.mileageText || '').trim()
+  const reportDate = String(
+    payload.reportDate || doc.confirmedAt || doc.deliveredAt || '',
+  ).trim()
+  const plateDisplay = String(
+    vehicle.plateDisplay || vehicle.plate || (album && album.vehicleDisplay) || '',
+  ).trim()
+  const vehicleDisplay = String((album && album.vehicleDisplay) || '').trim()
+  const displayItems = items.length ? items : workItems
   return {
     id: node.id,
     kind,
@@ -973,6 +1010,15 @@ function mapOwnerFlowDocCard(node = {}) {
     segmentLabel: node.segmentLabel || '',
     statusLabel: resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
     needsConfirm,
+    storeName,
+    metaLine: buildDocMetaLine({
+      reportDate,
+      vehicleBrand,
+      vehicleSeries,
+      vehicleDisplay,
+      mileageText,
+      plateDisplay,
+    }),
     confirmCopy:
       kind === 'repair_report'
         ? REPAIR_CONFIRM_COPY
@@ -981,15 +1027,15 @@ function mapOwnerFlowDocCard(node = {}) {
           : String(payload.confirmCopy || ''),
     styleVariant: kind === 'inspection_report' ? 'evidence' : 'document',
     chiefComplaint: String(payload.chiefComplaint || ''),
-    vehicleBrand: String(payload.vehicleBrand || ''),
-    vehicleSeries: String(payload.vehicleSeries || ''),
-    mileageText: String(payload.mileageText || ''),
-    reportDate: String(payload.reportDate || ''),
-    disclaimer: String(payload.disclaimer || ''),
+    vehicleBrand,
+    vehicleSeries,
+    mileageText,
+    reportDate,
+    disclaimer: '',
     conclusion: String(payload.conclusion || ''),
     findings,
     lines,
-    items: items.length ? items : workItems,
+    items: displayItems,
     workItems,
     totalAmount,
     totalAmountLabel: `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
@@ -1058,7 +1104,7 @@ function buildOwnerFlowView(album, albumNodes = []) {
         styleVariant: node.kind === 'inspection_report' ? 'evidence' : 'document',
       }
     }
-    const card = mapOwnerFlowDocCard(node)
+    const card = mapOwnerFlowDocCard(node, album)
     const done = isFlowNodeDone(node) && !card.needsConfirm
     return {
       ...card,

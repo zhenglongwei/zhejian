@@ -167,3 +167,7 @@
   border-radius: var(--radius-md);
   background-color: var(--color-bg-muted);
 }
+
+.flow-stepper__done-detail .service-doc-sheet {
+  margin-top: var(--space-xs);
+}
