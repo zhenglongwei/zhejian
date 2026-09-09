@@ -3,7 +3,7 @@ const { TOOL_HOME_PATH } = require('./share-store-context')
 
 function buildOwnerSharePath(albumId) {
   if (!albumId) return TOOL_HOME_PATH
-  return `/pages/album/detail/index?albumId=${albumId}&${OWNER_SHARE_QUERY}`
+  return `/pages/album/detail/index?albumId=${albumId}&${OWNER_SHARE_QUERY}&focus=pending`
 }
 
 function canShareToOwner(detail = {}) {
@@ -15,7 +15,7 @@ function buildOwnerShareMessage(detail = {}) {
   if (!canShareToOwner(detail)) return null
   const storeName = detail.storeName || '门店'
   return {
-    title: `${storeName} · 邀请查看服务相册`,
+    title: `${storeName} · 请确认服务进度`,
     path: buildOwnerSharePath(detail.albumId),
   }
 }

@@ -1,17 +1,17 @@
 <view class="album-detail page {{detail ? 'bg-album album-detail--checklist' : 'bg-album'}}">
   <block wx:if="{{status === 'loading'}}">
-    <tool-immersive-nav title="服务相册" />
+    <tool-immersive-nav title="服务进度" />
     <view class="album-detail__empty-wrap">
-      <ui-empty theme="album" title="加载中" description="正在打开服务相册…" />
+      <ui-empty theme="album" title="加载中" description="正在打开服务进度…" />
     </view>
   </block>
 
   <block wx:elif="{{status === 'error'}}">
-    <tool-immersive-nav title="服务相册" />
+    <tool-immersive-nav title="服务进度" />
     <view class="album-detail__empty-wrap">
       <ui-empty
         theme="album"
-        title="无法加载服务相册"
+        title="无法打开服务进度"
         description="{{errorMessage}}"
         actionText="重试"
         bind:action="onRetry"
@@ -20,11 +20,11 @@
   </block>
 
   <block wx:elif="{{status === 'empty'}}">
-    <tool-immersive-nav title="服务相册" />
+    <tool-immersive-nav title="服务进度" />
     <view class="album-detail__empty-wrap">
       <ui-empty
         theme="album"
-        title="门店暂未上传服务相册"
+        title="暂无服务进度"
         description="如你对维修进度有疑问，可联系门店。"
         actionText="联系门店"
         bind:action="onContactStore"
@@ -34,11 +34,13 @@
 
   <block wx:elif="{{detail}}">
     <view class="album-detail__shell album-detail__shell--checklist">
-      <tool-immersive-nav title="服务相册" />
+      <tool-immersive-nav title="服务进度" />
       <scroll-view
         scroll-y
         class="album-detail__checklist-scroll"
         show-scrollbar="{{false}}"
+        scroll-into-view="{{flowScrollIntoView}}"
+        scroll-with-animation="{{true}}"
       >
         <album-service-flow
           wx:if="{{showOwnerFlow}}"
@@ -47,7 +49,7 @@
           bind:confirm="onOwnerFlowConfirm"
         />
         <album-work-checklist
-          wx:if="{{hasWorkChecklist}}"
+          wx:if="{{hasWorkChecklist && !showOwnerFlow}}"
           categoryLabel="{{workChecklistCategoryLabel}}"
           cards="{{workChecklistCards}}"
           items="{{workChecklistItems}}"

@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTitleText": "服务相册",
+  "navigationBarTitleText": "服务进度",
   "pageOrientation": "portrait",
   "disableScroll": true,
   "usingComponents": {

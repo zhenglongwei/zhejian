@@ -18,7 +18,7 @@ function buildAlbumClaimUrl(albumId) {
 function buildAlbumDetailUrl(albumId) {
   const id = decodeSafe(albumId)
   if (!id) return ''
-  return `/pages/album/detail/index?albumId=${encodeURIComponent(id)}&from=${MERCHANT_SHARE_FROM}`
+  return `/pages/album/detail/index?albumId=${encodeURIComponent(id)}&from=${MERCHANT_SHARE_FROM}&focus=pending`
 }
 
 function buildStoreDetailUrl(storeId) {

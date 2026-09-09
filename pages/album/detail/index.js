@@ -17,7 +17,7 @@ const {
 } = require('../../../utils/service-album-display')
 const { runGateUserAction } = require('../../../utils/album-gate-actions')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
-const { promptAuthorizeAuditSubscribe, promptAlbumProgressSubscribe } = require('../../../utils/subscribe-message-prompt')
+const { promptAuthorizeAuditSubscribe } = require('../../../utils/subscribe-message-prompt')
 const {
   buildShareableCaseFromAlbum,
   copyPublicCaseWebLink,
@@ -431,6 +431,8 @@ Page({
     showOwnerFlow: false,
     ownerFlowDocs: [],
     flowConfirmingId: '',
+    flowScrollIntoView: '',
+    focusPendingOnLoad: false,
     warrantyText: '',
     warrantyImages: [],
     reviewNudgeText: REVIEW_NUDGE_TEXT,
@@ -454,7 +456,16 @@ Page({
     this.albumId = options.albumId || options.id || ''
     this.fromMerchantShare = options.from === 'merchant_share'
     this.rightsToken = options.rightsToken || ''
-    this.setData({ albumId: this.albumId })
+    this.focusPendingOnLoad =
+      options.focus === 'pending' ||
+      options.focus === 'confirm' ||
+      Boolean(options.nodeId) ||
+      this.fromMerchantShare
+    this.focusNodeId = String(options.nodeId || '').trim()
+    this.setData({
+      albumId: this.albumId,
+      focusPendingOnLoad: this.focusPendingOnLoad,
+    })
     resolvePageShareContext(options, {
       albumId: this.albumId,
       source: this.fromMerchantShare ? 'merchant_share' : 'album_detail',
@@ -575,7 +586,7 @@ Page({
   },
 
   guardAccess() {
-    const shareHint = this.fromMerchantShare ? '门店分享的服务相册' : '服务相册'
+    const shareHint = this.fromMerchantShare ? '门店分享的服务进度' : '服务进度'
     if (!isLoggedIn()) {
       this.setData({
         status: 'error',
@@ -724,15 +735,22 @@ Page({
       const legacyCards =
         workCards.length > 0 ? [] : buildLegacyProcessCards((enriched && enriched.nodes) || [])
       const displayCards = workCards.length > 0 ? workCards : legacyCards
-      const hasWorkChecklist =
-        displayCards.length > 0 || workItems.length > 0 || hasWarranty
-      const viewMode = 'checklist'
       const ownerFlow = (detail && detail.ownerFlow) || {}
       const ownerFlowDocs = Array.isArray(ownerFlow.docs) ? ownerFlow.docs : []
       const showOwnerFlow = Boolean(ownerFlow.usesFlowTimeline && ownerFlowDocs.length)
+      const hasWorkChecklist =
+        !showOwnerFlow &&
+        (displayCards.length > 0 || workItems.length > 0 || hasWarranty)
+      const viewMode = showOwnerFlow ? 'flow' : 'checklist'
       if (showOwnerFlow && pageStatus === 'empty') {
         // 有逐步单据时不以「暂无照片」空态拦截
       }
+
+      const focusId =
+        this.focusNodeId ||
+        ownerFlow.focusNodeId ||
+        (ownerFlowDocs.find((row) => row && row.needsConfirm) || {}).id ||
+        ''
 
       this.setData({
         detail: enriched,
@@ -775,12 +793,18 @@ Page({
         showOwnerFlow,
         ownerFlowDocs,
         flowConfirmingId: '',
+        flowScrollIntoView: '',
         warrantyText,
         warrantyImages,
         ...endPageAuth,
         ...inviteUiFieldsFromDetail(enriched),
       }, () => {
         this.setData({ toolbarBottomPadPx: resolveToolbarBottomPadPx() })
+        if (showOwnerFlow && focusId && this.focusPendingOnLoad) {
+          setTimeout(() => {
+            this.setData({ flowScrollIntoView: `flow-doc-${focusId}` })
+          }, 320)
+        }
       })
 
       if (linkedStoreId) {
@@ -797,21 +821,15 @@ Page({
       } else {
         this.updateShareMenu(showPublicCaseShare)
       }
-
-      if (pageStatus === 'normal' && !isRepairCompleted(enriched.status)) {
-        setTimeout(() => {
-          promptAlbumProgressSubscribe(this.albumId)
-        }, 480)
-      }
     } catch (e) {
       const code = e && e.code
       let message = (e && e.message) || '加载失败'
       if (code === 403) {
         message =
           (e && e.message) ||
-          '仅关联车主可查看，请确认登录手机号与门店登记一致'
+          '手机号与门店登记不一致，请联系门店核对。'
       }
-      if (code === 401) message = '请先登录后查看服务相册。'
+      if (code === 401) message = '请先登录后查看服务进度。'
       this.setData({
         status: 'error',
         errorMessage: message,

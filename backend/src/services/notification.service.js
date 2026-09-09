@@ -597,21 +597,22 @@ async function notifyAlbumNodeUpdated(album, meta = {}) {
     meta.kind === 'images'
       ? '门店上传了新的过程照片'
       : '门店更新了维修说明'
-  const jumpPath = `/pages/album/detail/index?albumId=${album.id}`
+  const jumpPath = `/pages/album/detail/index?albumId=${album.id}&focus=pending`
 
   return notifyUser({
     receiverId: userId,
     messageType: 'album_update',
-    title: '服务相册有更新',
+    title: '服务进度有更新',
     content: `${album.storeName || '门店'} · ${stageTitle}`,
     refType: 'album',
     refId: album.id,
     jumpPath,
+    // DOC-OWN-SUB：进度触达不以微信订阅为前提；有额度时仍可推，但前端不再主动要授权
     wechatTemplateKey: 'album',
     wechatPage: jumpPath.replace(/^\//, ''),
     wechatPayload: {
-      serviceName: album.serviceName || '服务相册',
-      status: '维修中',
+      serviceName: album.serviceName || '服务进度',
+      status: '进行中',
       tips,
       storeName: album.storeName,
       stageTitle,

@@ -76,8 +76,12 @@ function buildAlbumMetaLine(item = {}) {
       parts.push(item.vehicleDisplay)
     }
   }
-  const count = Number(item.imageCount) || 0
-  if (count > 0) parts.push(`${count} 张`)
+  if (item.latestDocTitle) {
+    parts.push(item.latestDocTitle)
+  } else {
+    const count = Number(item.imageCount) || 0
+    if (count > 0 && !item.progressLabel) parts.push(`${count} 张`)
+  }
   return parts.join(' · ')
 }
 
@@ -353,33 +357,48 @@ function enrichServiceAlbumListItem(item, options = {}) {
     hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
   }
 
-  // 已完工 Tab：相册已收口，不强调维修进度 Tag
+  // 已完工 Tab：相册已收口，不强调维修进度 Tag；DOC-FLOW 仍可展示「已完工」进度文案
   if (listTab === 'done') {
+    const progressLabel = String(item.progressLabel || '').trim()
     return appendAlbumListPresentation(item, {
       ...base,
       ...unreadBase,
-      statusLabel: '',
-      statusVariant: 'default',
+      statusLabel: progressLabel || '',
+      statusVariant: progressLabel ? 'success' : 'default',
       visibilityLabel: '',
       visibilityVariant: 'default',
       ...privatePrice,
       summaryRows: summaryRowsFull,
       summaryRowsForDisplay,
+      stageProgress: item.usesFlowTimeline ? [] : item.stageProgress,
     })
   }
 
   const repair = resolveRepairProgress(status)
+  const progressLabel = String(item.progressLabel || '').trim()
+  // 进度文案作卡片主标题时，Tag 不再重复同一句；待确认用 warning 色可另加短 Tag
+  let statusLabel = ''
+  let statusVariant = repair.statusVariant
+  if (progressLabel) {
+    if (progressLabel.indexOf('待确认') >= 0) {
+      statusLabel = '待确认'
+      statusVariant = 'warning'
+    }
+  } else {
+    statusLabel = repair.statusLabel
+  }
 
   return appendAlbumListPresentation(item, {
     ...base,
     ...unreadBase,
-    statusLabel: repair.statusLabel,
-    statusVariant: repair.statusVariant,
+    statusLabel,
+    statusVariant,
     visibilityLabel: '',
     visibilityVariant: 'default',
     ...privatePrice,
     summaryRows: summaryRowsFull,
     summaryRowsForDisplay,
+    stageProgress: item.usesFlowTimeline ? [] : item.stageProgress,
   })
 }
 

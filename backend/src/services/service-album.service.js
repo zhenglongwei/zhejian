@@ -885,6 +885,7 @@ async function resolveUserVehicleForFilter(userId, vehicleId) {
 function mapUserServiceAlbumListItem(album) {
   const view = buildAlbumView(album)
   const parts = Array.isArray(album.partsJson) ? album.partsJson : []
+  const ownerFlow = view.ownerFlow || {}
   return {
     id: view.albumId,
     albumId: view.albumId,
@@ -924,6 +925,10 @@ function mapUserServiceAlbumListItem(album) {
     reviewEligible: false,
     hasReview: false,
     pendingOwnerReview: false,
+    usesFlowTimeline: Boolean(ownerFlow.usesFlowTimeline),
+    progressLabel: String(ownerFlow.progressLabel || ''),
+    latestDocTitle: String(ownerFlow.latestDocTitle || ''),
+    pendingConfirmCount: Number(ownerFlow.pendingConfirmCount || 0),
   }
 }
 
@@ -1133,8 +1138,8 @@ async function getUserServiceAlbum(albumId, userId) {
   if (!allowed) {
     const err = new Error(
       album.userPhone
-        ? '仅关联车主可查看，请确认登录手机号与门店登记一致'
-        : '你无权查看该服务相册。'
+        ? '手机号与门店登记不一致，请联系门店核对。'
+        : '手机号与门店登记不一致，请联系门店核对。'
     )
     err.status = 403
     throw err

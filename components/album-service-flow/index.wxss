@@ -1,8 +1,77 @@
 .album-service-flow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
   padding: var(--space-md);
+}
+
+.album-service-flow__row {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+}
+
+.album-service-flow__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24rpx;
+  flex-shrink: 0;
+  padding-top: 10rpx;
+}
+
+.album-service-flow__dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  border: 2rpx solid var(--color-border);
+  background-color: transparent;
+}
+
+.album-service-flow__dot--done,
+.album-service-flow__dot--current {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+.album-service-flow__dot--current {
+  box-shadow: 0 0 0 6rpx var(--color-primary-light);
+}
+
+.album-service-flow__dot--upcoming {
+  border-color: var(--color-border);
+  background-color: var(--color-bg-page);
+}
+
+.album-service-flow__line {
+  flex: 1;
+  width: 2rpx;
+  min-height: 40rpx;
+  margin-top: var(--space-xs);
+  background-color: var(--color-primary-light);
+}
+
+.album-service-flow__line--muted {
+  background-color: var(--color-border);
+}
+
+.album-service-flow__body {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: var(--space-lg);
+}
+
+.album-service-flow__locked-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  opacity: 0.55;
+}
+
+.album-service-flow__locked-title {
+  color: var(--color-text-secondary);
 }
 
 .album-service-flow__card {
@@ -13,6 +82,10 @@
   border-radius: var(--radius-lg);
   background-color: var(--color-bg-card);
   border: 1rpx solid var(--color-border);
+}
+
+.album-service-flow__card.is-done {
+  border-color: var(--color-border);
 }
 
 .album-service-flow__card--evidence {
@@ -60,7 +133,7 @@
   min-width: 0;
 }
 
-.album-service-flow__line {
+.album-service-flow__line-item {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
@@ -104,4 +177,8 @@
   width: 160rpx;
   height: 160rpx;
   border-radius: var(--radius-md);
+}
+
+.is-current .album-service-flow__card {
+  border-color: var(--color-primary);
 }

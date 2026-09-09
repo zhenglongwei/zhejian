@@ -891,7 +891,19 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   return buildFlowView(refreshed, viewNodes)
 }
 
-function isOwnerVisibleFlowNode(node = {}) {
+/** 车主时间线只含单据节点，不镜像商家拍照步 */
+function isOwnerDocumentKind(kind) {
+  return (
+    kind === 'inspection_report' ||
+    kind === 'quote_confirm' ||
+    kind === 'addon_quote_confirm' ||
+    kind === 'work_order' ||
+    kind === 'repair_report'
+  )
+}
+
+/** 单据正文是否已对车主下发（可展开阅读） */
+function isOwnerDocContentReady(node = {}) {
   const status = String(node.status || '')
   if (status === 'locked' || status === 'pending') return false
   const doc = node.document || {}
@@ -909,8 +921,6 @@ function isOwnerVisibleFlowNode(node = {}) {
         status === 'completed' ||
         Boolean(doc.payload && Array.isArray(doc.payload.items) && doc.payload.items.length)
       )
-    case 'work':
-      return status === 'in_progress' || status === 'completed'
     default:
       return false
   }
@@ -962,12 +972,34 @@ function mapOwnerFlowDocCard(node = {}) {
     warrantyPeriod: String(payload.warrantyPeriod || ''),
     warrantyScope: String(payload.warrantyScope || ''),
     warrantyExclusions: String(payload.warrantyExclusions || ''),
-    previewImages: node.previewImages || [],
-    photoCount: node.photoCount || 0,
   }
 }
 
-/** 车主端：逐步可见的单据 / 施工过程 */
+function deriveOwnerProgressLabel(docs = [], album = {}) {
+  const albumStatus = String((album && album.status) || '')
+  if (
+    albumStatus === 'completed' ||
+    albumStatus === 'published' ||
+    albumStatus === 'offline' ||
+    albumStatus === 'review_passed' ||
+    albumStatus === 'public_approved'
+  ) {
+    const pending = docs.find((row) => row.needsConfirm)
+    if (!pending) return '已完工'
+  }
+  const pending = docs.find((row) => row.needsConfirm)
+  if (pending) {
+    if (pending.kind === 'repair_report') return '待确认完工'
+    return '待确认方案'
+  }
+  if (docs.length && docs.every((row) => row.stepState === 'done')) return '已完工'
+  if (!docs.some((row) => !row.locked)) return '待门店通知'
+  const workOrder = docs.find((row) => row.kind === 'work_order')
+  if (workOrder && !workOrder.locked) return '施工中'
+  return '进行中'
+}
+
+/** 车主端：单据整链（未到灰显）；不含商家拍照步 */
 function buildOwnerFlowView(album, albumNodes = []) {
   const flowVersion = readFlowVersion(album)
   const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
@@ -977,16 +1009,79 @@ function buildOwnerFlowView(album, albumNodes = []) {
       usesFlowTimeline: false,
       docs: [],
       pendingConfirmCount: 0,
+      progressLabel: '',
+      focusNodeId: '',
+      latestDocTitle: '',
     }
   }
-  const mapped = rawNodes.map((node) => mapFlowNodeForView(node, albumNodes))
-  const progressive = buildVisibleFlowNodes(mapped)
-  const docs = progressive.filter(isOwnerVisibleFlowNode).map(mapOwnerFlowDocCard)
+  const mapped = rawNodes
+    .map((node) => mapFlowNodeForView(node, albumNodes))
+    .filter((node) => isOwnerDocumentKind(node.kind))
+
+  const docs = mapped.map((node) => {
+    const contentReady = isOwnerDocContentReady(node)
+    if (!contentReady) {
+      return {
+        id: node.id,
+        kind: node.kind,
+        title: node.title || '',
+        segmentLabel: node.segmentLabel || '',
+        statusLabel: '待进行',
+        needsConfirm: false,
+        locked: true,
+        stepState: 'upcoming',
+        styleVariant: node.kind === 'inspection_report' ? 'evidence' : 'document',
+      }
+    }
+    const card = mapOwnerFlowDocCard(node)
+    const done = isFlowNodeDone(node) && !card.needsConfirm
+    return {
+      ...card,
+      locked: false,
+      stepState: card.needsConfirm ? 'current' : done ? 'done' : 'current',
+      statusLabel: card.needsConfirm
+        ? '待确认'
+        : done
+          ? card.statusLabel || '已完成'
+          : card.statusLabel || '进行中',
+    }
+  })
+
+  const focusPending = docs.find((row) => row.needsConfirm)
+  const focusCurrent =
+    focusPending || docs.find((row) => !row.locked && row.stepState === 'current')
+  const finalDocs = docs.map((row) => {
+    if (row.locked) return row
+    if (focusPending) {
+      if (row.id === focusPending.id) return { ...row, stepState: 'current' }
+      return { ...row, stepState: 'done', needsConfirm: false }
+    }
+    if (focusCurrent && row.id === focusCurrent.id) {
+      return { ...row, stepState: 'current' }
+    }
+    if (!row.locked && row.stepState !== 'done') {
+      // 多个可读未完成时：仅第一个标 current，其余 done
+      const firstCurrentId = (docs.find((d) => !d.locked && d.stepState === 'current') || {}).id
+      if (row.id !== firstCurrentId) return { ...row, stepState: 'done' }
+    }
+    return row
+  })
+
+  const pendingConfirmCount = finalDocs.filter((row) => row.needsConfirm).length
+  const focusNode =
+    finalDocs.find((row) => row.needsConfirm) ||
+    finalDocs.find((row) => row.stepState === 'current') ||
+    null
+  const latestUnlocked = [...finalDocs].reverse().find((row) => !row.locked)
+
   return {
     flowVersion,
     usesFlowTimeline: true,
-    docs,
-    pendingConfirmCount: docs.filter((row) => row.needsConfirm).length,
+    docs: finalDocs,
+    pendingConfirmCount,
+    progressLabel: deriveOwnerProgressLabel(finalDocs, album),
+    focusNodeId: focusNode ? focusNode.id : '',
+    latestDocTitle: latestUnlocked ? latestUnlocked.title : '',
   }
 }
 
@@ -1028,7 +1123,7 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
   const allowed =
     album.userId === userId || (phone && album.userPhone === phone)
   if (!allowed) {
-    const err = new Error('你无权确认该单据')
+    const err = new Error('手机号与门店登记不一致，请联系门店核对。')
     err.status = 403
     throw err
   }

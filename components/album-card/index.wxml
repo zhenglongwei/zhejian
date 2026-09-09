@@ -57,7 +57,7 @@
     <!-- embedded：工作台/我的 Hero — 标题与正文纵向排列 -->
     <view wx:if="{{embedded}}" class="album-card__body album-card__body--stacked">
       <view class="album-card__head {{!showQuickActions && audience === 'user' && (showOwnerShare || showOwnerReview) ? 'album-card__head--with-share' : ''}} {{!showQuickActions && audience === 'merchant' && item.canShareToOwner ? 'album-card__head--with-share' : ''}}">
-        <text class="album-card__service album-card__service--head text-body">{{item.serviceName}}</text>
+        <text class="album-card__service album-card__service--head text-body">{{item.progressLabel || item.serviceName}}</text>
         <view
           wx:if="{{!showQuickActions && audience === 'merchant' && item.canShareToOwner}}"
           class="album-card__head-actions"
@@ -122,8 +122,9 @@
     <!-- raised：列表卡 — 主内容（快捷栏在卡底独立一行） -->
     <view wx:else class="album-card__body album-card__body--split">
       <view class="album-card__main">
-        <text class="album-card__service text-album-display">{{item.serviceName}}</text>
+        <text class="album-card__service text-album-display">{{item.progressLabel || item.serviceName}}</text>
 
+        <text wx:if="{{item.progressLabel && item.serviceName}}" class="album-card__meta text-caption">{{item.serviceName}}</text>
         <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
         <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
 
