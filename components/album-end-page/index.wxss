@@ -22,6 +22,10 @@
   text-align: center;
 }
 
+.album-end-page__sheet--compact {
+  padding-top: var(--space-md);
+}
+
 .album-end-page__finisher {
   display: flex;
   gap: var(--space-sm);
@@ -153,6 +157,10 @@
   width: 100%;
 }
 
+.album-end-page__actions-row--solo {
+  flex-direction: column;
+}
+
 /* 固定等宽，避免 block 按钮把 flex 撑破导致整组偏右 */
 .album-end-page__pair-btn {
   width: 220rpx !important;
@@ -191,4 +199,17 @@
 
 .album-end-page__status--tight {
   margin-bottom: 0;
+}
+
+.album-end-page__contact-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.album-end-page__contact-link--hover {
+  opacity: 0.7;
 }

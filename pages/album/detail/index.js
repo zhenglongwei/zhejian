@@ -386,6 +386,7 @@ Page({
     pageIndex: 0,
     activeNodeId: '',
     storePhone: '',
+    hasStorePhone: false,
     endPageInvitePitch: '',
     endPageInviteEyebrow: '',
     endPageControlLine: CONTROL_LINE,
@@ -758,6 +759,7 @@ Page({
         flipChapters: flip.chapters,
         nodeNoteMap: buildNodeNoteMap(enriched.nodes || []),
         storePhone,
+        hasStorePhone: Boolean(String(storePhone || '').trim()),
         showEvaluateEntry,
         pendingOwnerReview,
         hasOwnerReview,
@@ -1391,10 +1393,11 @@ Page({
   },
 
   onContactStore() {
-    const phone =
-      String(this.data.storePhone || '').trim() ||
-      (this.data.detail && this.data.detail.store && this.data.detail.store.phone) ||
-      ''
+    const phone = String(
+      this.data.storePhone ||
+        (this.data.detail && this.data.detail.store && this.data.detail.store.phone) ||
+        '',
+    ).trim()
     if (!phone) {
       wx.showToast({ title: '暂无门店电话', icon: 'none' })
       return

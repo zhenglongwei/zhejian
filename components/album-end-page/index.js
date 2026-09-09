@@ -24,6 +24,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 联系门店改为页底文字链（服务进度） */
+    contactAsLink: {
+      type: Boolean,
+      value: false,
+    },
     invitePitch: {
       type: String,
       value: '',

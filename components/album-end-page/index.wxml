@@ -1,5 +1,5 @@
 <view class="album-end-page">
-  <view class="album-end-page__sheet">
+  <view class="album-end-page__sheet {{hideFinisher ? 'album-end-page__sheet--compact' : ''}}">
     <view wx:if="{{!hideFinisher}}" class="album-end-page__finisher" aria-hidden="true">
       <view class="album-end-page__finisher-line" />
       <text class="album-end-page__finisher-label text-caption">本册已阅</text>
@@ -57,21 +57,31 @@
       >{{storeBrowseLabel}}</ui-button>
 
       <view
-        wx:if="{{showFeedback || showContact}}"
-        class="album-end-page__actions-row"
+        wx:if="{{showFeedback || (showContact && !contactAsLink)}}"
+        class="album-end-page__actions-row {{contactAsLink ? 'album-end-page__actions-row--solo' : ''}}"
       >
         <ui-button
           wx:if="{{showFeedback}}"
           type="{{pendingOwnerReview ? 'primary' : 'secondary'}}"
-          ext-class="album-end-page__pair-btn"
+          block="{{contactAsLink}}"
+          ext-class="{{contactAsLink ? '' : 'album-end-page__pair-btn'}}"
           bind:btntap="onFeedbackTap"
         >{{resolvedFeedbackLabel}}</ui-button>
         <ui-button
-          wx:if="{{showContact}}"
+          wx:if="{{showContact && !contactAsLink}}"
           type="secondary"
           ext-class="album-end-page__pair-btn"
           bind:btntap="onContactTap"
         >{{contactLabel}}</ui-button>
+      </view>
+
+      <view
+        wx:if="{{showContact && contactAsLink}}"
+        class="album-end-page__contact-link"
+        hover-class="album-end-page__contact-link--hover"
+        bindtap="onContactTap"
+      >
+        <text class="text-link">{{contactLabel}}</text>
       </view>
     </view>
   </view>

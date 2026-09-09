@@ -350,13 +350,36 @@ function buildListStageProgress(album) {
   })
 }
 
-function buildStoreBlock(album) {
+function buildStoreBlock(album, storeRow = null) {
+  const row = storeRow && typeof storeRow === 'object' ? storeRow : null
   return {
-    id: album.storeId || '',
-    name: album.storeName || '—',
-    phone: '',
-    address: '—',
+    id: album.storeId || (row && row.id) || '',
+    name: (row && row.name) || album.storeName || '—',
+    phone: String((row && row.phone) || '').trim(),
+    address: (row && row.address) || '—',
     city: '杭州',
+  }
+}
+
+/** 从门店表补电话/地址（相册仅冗余 storeId/storeName，无 phone） */
+async function withStoreContactFields(album, view) {
+  if (!album || !album.storeId || !view) return view
+  try {
+    const store = await prisma.store.findUnique({
+      where: { id: album.storeId },
+      select: { id: true, name: true, phone: true, address: true },
+    })
+    if (!store) return view
+    const prev = view.store && typeof view.store === 'object' ? view.store : {}
+    return {
+      ...view,
+      store: {
+        ...prev,
+        ...buildStoreBlock(album, store),
+      },
+    }
+  } catch (_) {
+    return view
   }
 }
 
@@ -1155,6 +1178,7 @@ async function getUserServiceAlbum(albumId, userId) {
   )
   assertOwnerAlbumAccessible(album)
   let view = attachPublishInviteFields(buildAlbumView(album), album)
+  view = await withStoreContactFields(album, view)
   try {
     const passed = isCaseReviewPassed(album)
     // 相册全程可看；案例稿仍等案例审通过后再下发（案例模块规则未定前维持）
