@@ -48,10 +48,88 @@
               </view>
 
               <view
+                wx:if="{{isDeliveryPhotoStep}}"
+                class="merchant-flow-page__doc-block merchant-flow-page__section"
+              >
+                <text class="text-body merchant-flow-page__label">整车外观（必选）</text>
+                <view wx:if="{{deliveryExteriorUrl}}" class="merchant-flow-page__exterior-slot">
+                  <image
+                    class="merchant-flow-page__exterior-slot-img image-placeholder"
+                    src="{{deliveryExteriorUrl}}"
+                    mode="aspectFill"
+                  />
+                  <view wx:if="{{!readOnly}}" class="merchant-flow-page__exterior-slot-actions">
+                    <text
+                      class="text-caption merchant-flow-page__link"
+                      bindtap="onStartPickExterior"
+                    >换施工图</text>
+                    <text
+                      class="text-caption merchant-flow-page__link"
+                      bindtap="onCaptureExterior"
+                    >补拍</text>
+                    <text
+                      class="text-caption text-secondary"
+                      bindtap="onClearExterior"
+                    >清除</text>
+                  </view>
+                </view>
+                <view wx:else class="merchant-flow-page__exterior-actions">
+                  <view
+                    class="merchant-flow-page__exterior-btn"
+                    bindtap="onStartPickExterior"
+                  >
+                    <text class="text-body">从施工图选</text>
+                  </view>
+                  <view
+                    class="merchant-flow-page__exterior-btn"
+                    bindtap="onCaptureExterior"
+                  >
+                    <text class="text-body">补拍外观</text>
+                  </view>
+                </view>
+                <text
+                  wx:if="{{deliveryPickMode === 'exterior'}}"
+                  class="text-caption text-secondary merchant-flow-page__finding-tips"
+                >在下方点选一张作为整车外观
+                  <text class="merchant-flow-page__link" bindtap="onCancelPickExterior"> 取消</text>
+                </text>
+              </view>
+
+              <view
+                wx:if="{{isDeliveryPhotoStep && workImagePool.length}}"
+                class="merchant-flow-page__doc-block merchant-flow-page__section"
+              >
+                <text class="text-body merchant-flow-page__label">其他交车图（选填）</text>
+                <text
+                  wx:if="{{deliveryPickMode !== 'exterior'}}"
+                  class="text-caption text-secondary merchant-flow-page__finding-tips"
+                >需要给车主看的过程图再勾选</text>
+                <view class="merchant-flow-page__delivery-pool">
+                  <view
+                    wx:for="{{workImagePool}}"
+                    wx:for-item="pool"
+                    wx:key="url"
+                    class="merchant-flow-page__delivery-pool-item {{pool.isExterior ? 'is-exterior' : ''}} {{pool.selected ? 'is-selected' : ''}}"
+                    data-url="{{pool.url}}"
+                    bindtap="onToggleDeliveryWorkImage"
+                  >
+                    <image
+                      class="merchant-flow-page__delivery-pool-img image-placeholder"
+                      src="{{pool.url}}"
+                      mode="aspectFill"
+                    />
+                    <text wx:if="{{pool.isExterior}}" class="merchant-flow-page__delivery-pool-check">外观</text>
+                    <text wx:elif="{{pool.selected}}" class="merchant-flow-page__delivery-pool-check">✓</text>
+                  </view>
+                </view>
+              </view>
+
+              <view
                 wx:for="{{sections}}"
                 wx:for-item="section"
                 wx:for-index="sectionIndex"
                 wx:key="stageId"
+                wx:if="{{!isDeliveryPhotoStep || section.findingMode}}"
                 class="merchant-flow-page__section"
               >
                 <block wx:if="{{section.findingMode}}">
@@ -94,7 +172,7 @@
                           <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
                         </view>
                         <text
-                          wx:if="{{!readOnly && finding.url}}"
+                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url)}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -102,31 +180,54 @@
                         >×</text>
                       </view>
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
-                        <view
-                          wx:if="{{section.findingKind === 'work' && (finding.pendingPhoto || !finding.url)}}"
-                          class="merchant-flow-page__pending-photo-btn"
-                          data-section-index="{{sectionIndex}}"
-                          data-finding-index="{{findingIndex}}"
-                          catchtap="onAttachFindingPhoto"
-                        >
-                          <text class="text-body">上传施工图</text>
-                        </view>
-                        <view class="merchant-flow-page__field">
-                          <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
-                          <input
-                            class="merchant-flow-page__input merchant-flow-page__input--field"
-                            placeholder="例：左前制动片"
-                            value="{{finding.partName}}"
-                            data-section-index="{{sectionIndex}}"
-                            data-finding-index="{{findingIndex}}"
-                            data-field="partName"
-                            disabled="{{readOnly}}"
-                            bindinput="onSectionFindingFieldInput"
-                          />
-                        </view>
                         <block wx:if="{{section.findingKind === 'work'}}">
+                          <view class="merchant-flow-page__work-thumbs">
+                            <view
+                              wx:for="{{finding.images}}"
+                              wx:for-item="thumb"
+                              wx:for-index="imgIndex"
+                              wx:key="url"
+                              class="merchant-flow-page__work-thumb"
+                            >
+                              <image
+                                class="merchant-flow-page__work-thumb-img image-placeholder"
+                                src="{{thumb.url}}"
+                                mode="aspectFill"
+                              />
+                              <text
+                                wx:if="{{!readOnly}}"
+                                class="merchant-flow-page__work-thumb-remove"
+                                data-section-index="{{sectionIndex}}"
+                                data-finding-index="{{findingIndex}}"
+                                data-img-index="{{imgIndex}}"
+                                catchtap="onRemoveWorkFindingImage"
+                              >×</text>
+                            </view>
+                            <view
+                              wx:if="{{!readOnly && finding.images.length < 6}}"
+                              class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              catchtap="onAttachFindingPhoto"
+                            >
+                              <text class="text-caption text-secondary">+</text>
+                            </view>
+                          </view>
                           <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">本图说明</text>
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
+                            <input
+                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                              placeholder="例：左前制动片"
+                              value="{{finding.partName}}"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              data-field="partName"
+                              disabled="{{readOnly}}"
+                              bindinput="onSectionFindingFieldInput"
+                            />
+                          </view>
+                          <view class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
                               placeholder="选填，例：旧件已拆 / 新件安装完成"
@@ -140,6 +241,28 @@
                           </view>
                         </block>
                         <block wx:else>
+                          <view
+                            wx:if="{{finding.pendingPhoto || !finding.url}}"
+                            class="merchant-flow-page__pending-photo-btn"
+                            data-section-index="{{sectionIndex}}"
+                            data-finding-index="{{findingIndex}}"
+                            catchtap="onAttachFindingPhoto"
+                          >
+                            <text class="text-body">上传照片</text>
+                          </view>
+                          <view class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
+                            <input
+                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                              placeholder="例：左前制动片"
+                              value="{{finding.partName}}"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              data-field="partName"
+                              disabled="{{readOnly}}"
+                              bindinput="onSectionFindingFieldInput"
+                            />
+                          </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
                             <view class="merchant-flow-page__result-seg">
@@ -182,7 +305,7 @@
                   </view>
                 </block>
                 <ui-album-node
-                  wx:else
+                  wx:elif="{{!isDeliveryPhotoStep}}"
                   mode="edit"
                   title="{{section.title}}"
                   photoTips="{{section.tips}}"

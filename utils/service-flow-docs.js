@@ -57,10 +57,99 @@ function normalizeFinding(raw = {}) {
   }
 }
 
-/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位。
- *  施工（mode=work）：部位与本图说明分开；图注≠部位时才回填说明，避免部位名误进说明栏。 */
+const WORK_IMAGES_MAX = 6
+
+function normalizeWorkImage(raw = {}) {
+  const url = String(typeof raw === 'string' ? raw : (raw && raw.url) || '').trim()
+  if (!url) return null
+  return {
+    url,
+    imageId: String(
+      (typeof raw === 'object' && raw && (raw.imageId || raw.id)) || '',
+    ).trim(),
+  }
+}
+
+/** 施工项：部位 + 整项说明 + 多图（最多 6） */
+function normalizeWorkFinding(raw = {}) {
+  let images = Array.isArray(raw.images)
+    ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
+    : []
+  if (!images.length) {
+    const one = normalizeWorkImage({
+      url: raw.url,
+      imageId: raw.imageId || raw.id,
+    })
+    if (one) images = [one]
+  }
+  images = images.slice(0, WORK_IMAGES_MAX)
+  const caption = String(raw.caption || '').trim()
+  const partName = String(raw.partName || '').trim()
+  const first = images[0] || null
+  return {
+    imageId: first ? first.imageId : '',
+    url: first ? first.url : '',
+    caption,
+    captionEmpty: !caption,
+    partName,
+    symptom: String(raw.symptom || '').trim(),
+    result: '',
+    advice: '',
+    images,
+    photoCount: images.length,
+  }
+}
+
+function workFindingHasPhoto(raw = {}) {
+  const item = normalizeWorkFinding(raw)
+  return item.images.length > 0
+}
+
+/**
+ * 施工发现项：以 photoDraft.findings 为结构真源（含 images[]）；
+ * 无结构时回落为一图一项（存量兼容）。
+ */
+function mapWorkFindingRows(images = [], draftFindings = []) {
+  const draftList = (draftFindings || []).map((row) => normalizeWorkFinding(row))
+  if (draftList.some((row) => row.images.length || row.partName)) {
+    return draftList
+  }
+  const draftByKey = {}
+  draftList.forEach((item, index) => {
+    const key = item.imageId || item.url
+    if (key) draftByKey[key] = item
+    draftByKey[`#${index}`] = item
+  })
+  ;(draftFindings || []).forEach((raw, index) => {
+    const item = normalizeFinding(raw)
+    const key = item.imageId || item.url
+    if (key && !draftByKey[key]) draftByKey[key] = item
+    if (!draftByKey[`#${index}`]) draftByKey[`#${index}`] = item
+  })
+  return mapPhotoRows(images).map((row, index) => {
+    const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
+    const partName = String(draft.partName || '').trim()
+    let caption = String(draft.caption || '').trim()
+    if (!caption) {
+      const imgCap = String(row.caption || '').trim()
+      if (imgCap && imgCap !== partName) caption = imgCap
+    }
+    return normalizeWorkFinding({
+      ...draft,
+      url: row.url,
+      imageId: row.imageId || draft.imageId || '',
+      partName,
+      caption,
+      images: [{ url: row.url, imageId: row.imageId || '' }],
+    })
+  })
+}
+
+/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
-  const workMode = options && options.mode === 'work'
+  if (options && options.mode === 'work') {
+    return mapWorkFindingRows(images, draftFindings)
+  }
   const draftByKey = {}
   ;(draftFindings || []).forEach((raw, index) => {
     const item = normalizeFinding(raw)
@@ -70,22 +159,6 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
   })
   return mapPhotoRows(images).map((row, index) => {
     const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
-    if (workMode) {
-      const partName = String(draft.partName || '').trim()
-      let caption = String(draft.caption || '').trim()
-      if (!caption) {
-        const imgCap = String(row.caption || '').trim()
-        if (imgCap && imgCap !== partName) caption = imgCap
-      }
-      return normalizeFinding({
-        ...row,
-        ...draft,
-        url: row.url,
-        imageId: row.imageId || draft.imageId || '',
-        partName,
-        caption,
-      })
-    }
     return normalizeFinding({
       ...row,
       ...draft,
@@ -120,6 +193,29 @@ function collectInspectionReportGaps(payload = {}) {
   return gaps
 }
 
+/** 施工过程：每项至少 1 张图 + 部位；可选校验工单项目均已挂图 */
+function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
+  const gaps = []
+  const findings = Array.isArray(payload.findings) ? payload.findings : []
+  const withPhoto = findings.filter((raw) => workFindingHasPhoto(raw))
+  if (!withPhoto.length) {
+    gaps.push('请至少上传 1 张施工照片并填写部位')
+  }
+  withPhoto.forEach((raw, index) => {
+    const item = normalizeWorkFinding(raw)
+    const label = item.partName || `第 ${index + 1} 项`
+    if (!item.partName) gaps.push(`「${label}」请填写部位`)
+  })
+  const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
+  orderItems.forEach((row) => {
+    const name = String((row && row.name) || '').trim()
+    if (!name) return
+    const matched = withPhoto.some((raw) => normalizeWorkFinding(raw).partName === name)
+    if (!matched) gaps.push(`「${name}」请上传施工图`)
+  })
+  return gaps
+}
+
 function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
   if (!String(payload.warrantyPeriod || '').trim()) {
@@ -128,29 +224,9 @@ function collectDeliveryPhotoDraftGaps(payload = {}) {
   if (!String(payload.warrantyScope || '').trim()) {
     gaps.push('请填写质保范围')
   }
-  return gaps
-}
-
-/** 施工过程：每张已上传图须有部位；可选校验工单项目均已挂图 */
-function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
-  const gaps = []
-  const findings = Array.isArray(payload.findings) ? payload.findings : []
-  const withPhoto = findings.filter((raw) => String((raw && raw.url) || '').trim())
-  if (!withPhoto.length) {
-    gaps.push('请至少上传 1 张施工照片并填写部位')
+  if (!String(payload.deliveryExteriorUrl || '').trim()) {
+    gaps.push('请指定整车外观（从施工图选择或补拍）')
   }
-  withPhoto.forEach((raw, index) => {
-    const item = normalizeFinding(raw)
-    const label = item.partName || `第 ${index + 1} 项`
-    if (!item.partName) gaps.push(`「${label}」请填写部位`)
-  })
-  const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
-  orderItems.forEach((row) => {
-    const name = String((row && row.name) || '').trim()
-    if (!name) return
-    const matched = withPhoto.some((raw) => normalizeFinding(raw).partName === name)
-    if (!matched) gaps.push(`「${name}」请上传施工图`)
-  })
   return gaps
 }
 
@@ -343,11 +419,28 @@ function buildRepairReportPayload({
     totalAmount != null
       ? parseAmount(totalAmount)
       : items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
+
+  // 交车图优先用引用（外观 + 其他勾选），避免复制施工图进 stage_6
+  const exterior = String(photoDraft.deliveryExteriorUrl || '').trim()
+  const extras = Array.isArray(photoDraft.selectedDeliveryUrls)
+    ? photoDraft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
+    : []
+  const refImages = []
+  if (exterior) refImages.push({ url: exterior, caption: '整车外观' })
+  extras.forEach((url) => {
+    if (url && url !== exterior && !refImages.some((row) => row.url === url)) {
+      refImages.push({ url, caption: '' })
+    }
+  })
+  const deliveryPhotos = refImages.length
+    ? mapPhotoRows(refImages)
+    : mapPhotoRows(deliveryImages)
+
   return {
     chiefComplaint: String(chiefComplaint || '').trim(),
     workItems: items,
     totalAmount: computedTotal == null ? 0 : computedTotal,
-    deliveryPhotos: mapPhotoRows(deliveryImages),
+    deliveryPhotos,
     warrantyPeriod: period,
     warrantyScope: scope,
     warrantyExclusions: exclusions,
@@ -362,12 +455,25 @@ function normalizePhotoDraft(raw = {}) {
     chiefComplaint: String(raw.chiefComplaint || '').trim(),
     conclusion: String(raw.conclusion || '').trim(),
     findings: Array.isArray(raw.findings)
-      ? raw.findings.map((item) => normalizeFinding(item)).filter((item) => item.url)
+      ? raw.findings
+          .map((item) => {
+            if (Array.isArray(item && item.images) || (item && item.partName && !item.result)) {
+              const work = normalizeWorkFinding(item)
+              return work.images.length || work.partName ? work : null
+            }
+            const row = normalizeFinding(item)
+            return row.url ? row : null
+          })
+          .filter(Boolean)
       : [],
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyScope: String(raw.warrantyScope || '').trim(),
     warrantyExclusions: String(raw.warrantyExclusions || '').trim(),
     confirmCopy: String(raw.confirmCopy || '').trim(),
+    selectedDeliveryUrls: Array.isArray(raw.selectedDeliveryUrls)
+      ? raw.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
+      : [],
+    deliveryExteriorUrl: String(raw.deliveryExteriorUrl || '').trim(),
   }
 }
 
@@ -378,9 +484,7 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.chiefComplaint != null) next.chiefComplaint = String(patch.chiefComplaint || '').trim()
   if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
   if (patch.findings != null) {
-    next.findings = Array.isArray(patch.findings)
-      ? patch.findings.map((item) => normalizeFinding(item)).filter((item) => item.url)
-      : []
+    next.findings = normalizePhotoDraft({ findings: patch.findings }).findings
   }
   if (patch.warrantyPeriod != null) {
     next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
@@ -390,26 +494,39 @@ function mergePhotoDraft(prev = {}, patch = {}) {
     next.warrantyExclusions = String(patch.warrantyExclusions || '').trim()
   }
   if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
+  if (patch.selectedDeliveryUrls != null) {
+    next.selectedDeliveryUrls = Array.isArray(patch.selectedDeliveryUrls)
+      ? patch.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
+      : []
+  }
+  if (patch.deliveryExteriorUrl != null) {
+    next.deliveryExteriorUrl = String(patch.deliveryExteriorUrl || '').trim()
+  }
   return next
 }
 
 module.exports = {
   mapPhotoRows,
   mapFindingRows,
+  mapWorkFindingRows,
   normalizeFinding,
-  normalizeQuoteLine,
-  normalizePhotoDraft,
-  mergePhotoDraft,
-  parseAmount,
-  sumQuoteAmounts,
+  normalizeWorkFinding,
+  normalizeWorkImage,
+  workFindingHasPhoto,
+  WORK_IMAGES_MAX,
   collectInspectionReportGaps,
   collectDeliveryPhotoDraftGaps,
   collectWorkPhotoDraftGaps,
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,
-  buildWorkOrderPayloadFromQuote,
   buildQuoteLinesFromFindings,
+  buildWorkOrderPayloadFromQuote,
   buildRepairReportPayload,
+  normalizeQuoteLine,
+  sumQuoteAmounts,
+  normalizePhotoDraft,
+  mergePhotoDraft,
+  parseAmount,
   stripFindingResultFromLineName,
   remapLegacyQuoteLineLayout,
 }

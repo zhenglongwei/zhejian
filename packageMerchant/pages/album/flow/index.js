@@ -32,6 +32,9 @@ const {
   collectWorkPhotoDraftGaps,
   collectQuoteConfirmGaps,
   normalizeFinding,
+  normalizeWorkFinding,
+  workFindingHasPhoto,
+  WORK_IMAGES_MAX,
   normalizeQuoteLine,
   mapFindingRows,
   sumQuoteAmounts,
@@ -241,15 +244,15 @@ const STAGE_LABELS = {
   },
   stage_5: {
     title: '施工过程',
-    tips: '拆装、新旧对比；每张写部位，说明选填',
-    captionPlaceholder: '本图说明（选填）',
+    tips: '按维修项留证；同一部位可拍多张（最多 6 张）',
+    captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
   },
   stage_6: {
-    title: '完工照片',
-    tips: '试车、交车；每张写本图说明',
-    captionPlaceholder: '本图说明（验收结论等，勿写金额）',
+    title: '交车证据',
+    tips: '整车外观必选；其他交车图可从施工图勾选（不重复存档）',
+    captionPlaceholder: '',
     findingMode: false,
     findingKind: '',
   },
@@ -309,6 +312,9 @@ Page({
     warrantyScope: '',
     warrantyExclusions: '',
     allDone: false,
+    workImagePool: [],
+    deliveryExteriorUrl: '',
+    deliveryPickMode: '',
   },
 
   onLoad(options) {
@@ -405,11 +411,55 @@ Page({
         url: '',
         caption: '',
         imageId: '',
+        images: [],
         result: '',
         advice: '',
         pendingPhoto: true,
       }))
     return (findings || []).concat(pending)
+  },
+
+  flattenWorkSectionImages(findings = []) {
+    const out = []
+    ;(findings || []).forEach((raw) => {
+      const item = normalizeWorkFinding(raw)
+      item.images.forEach((img) => {
+        out.push({
+          url: img.url,
+          imageId: img.imageId || '',
+          caption: '',
+        })
+      })
+    })
+    return out
+  },
+
+  collectAllWorkImages(album = {}, flowNodes = []) {
+    const byUrl = {}
+    const put = (url, partName = '') => {
+      const key = String(url || '').trim()
+      if (!key || byUrl[key]) return
+      byUrl[key] = {
+        url: key,
+        partName: String(partName || '').trim(),
+        selected: false,
+      }
+    }
+    ;((album && album.nodes) || []).forEach((node) => {
+      if (!node || node.id !== 'stage_5') return
+      ;(node.images || []).forEach((img) => {
+        const url = typeof img === 'string' ? img : img.url
+        put(url, typeof img === 'object' ? img.caption || '' : '')
+      })
+    })
+    ;(flowNodes || []).forEach((node) => {
+      if (!node || node.kind !== 'work') return
+      ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => {
+        const item = normalizeWorkFinding(raw)
+        item.images.forEach((img) => put(img.url, item.partName))
+      })
+    })
+    return Object.keys(byUrl).map((k) => byUrl[k])
   },
 
   buildSections(album, node, photoDraft = {}, flowNodes = []) {
@@ -473,25 +523,55 @@ Page({
   collectFindingsFromSections(sections = this.data.sections) {
     const findingSection = (sections || []).find((s) => s.findingMode)
     if (!findingSection) return []
+    const kind = findingSection.findingKind || 'inspection'
     return (findingSection.findings || [])
-      .map((item) => normalizeFinding(item))
-      .filter((item) => item.url)
+      .map((item) =>
+        kind === 'work' ? normalizeWorkFinding(item) : normalizeFinding(item),
+      )
+      .filter((item) => (kind === 'work' ? item.images.length || item.partName : item.url))
   },
 
   countFindingMissingFields(item = {}, findingKind = 'inspection') {
+    if (findingKind === 'work') {
+      const row = normalizeWorkFinding(item)
+      let missing = 0
+      if (!row.partName) missing += 1
+      if (!row.images.length) missing += 1
+      return missing
+    }
     const row = normalizeFinding(item)
     let missing = 0
     if (!row.partName) missing += 1
-    if (findingKind === 'work') {
-      if (!row.url) missing += 1
-      return missing
-    }
     if (!row.result || !isValidFindingResult(row.result)) missing += 1
     else if (findingAdviceRequired(row.result) && !row.advice) missing += 1
     return missing
   },
 
   decorateFinding(item = {}, expanded = false, listKey = '', findingKind = 'inspection') {
+    if (findingKind === 'work') {
+      const row = normalizeWorkFinding(item)
+      const missing = this.countFindingMissingFields(row, findingKind)
+      const hasPhoto = row.images.length > 0
+      return {
+        ...row,
+        findingKind: 'work',
+        pendingPhoto: !hasPhoto,
+        listKey: listKey || row.imageId || row.url || `pending-${row.partName || ''}`,
+        expanded: Boolean(expanded),
+        complete: hasPhoto && missing === 0,
+        summaryText: row.partName || '待填写',
+        completenessLabel: !hasPhoto
+          ? '待拍照'
+          : missing === 0
+            ? row.caption || `${row.images.length} 张`
+            : '缺部位',
+        adviceRequired: false,
+        resultTone: '',
+        resultToneClass: '',
+        evidenceRowClass: '',
+        resultOptions: [],
+      }
+    }
     const row = normalizeFinding(item)
     const missing = this.countFindingMissingFields(row, findingKind)
     const resultOptions = FINDING_RESULT_OPTIONS.map((opt) => ({
@@ -506,28 +586,6 @@ Page({
           : row.result === FINDING_RESULT.ACTION
             ? 'action'
             : ''
-    if (findingKind === 'work') {
-      const hasPhoto = Boolean(row.url)
-      return {
-        ...row,
-        findingKind: 'work',
-        pendingPhoto: !hasPhoto,
-        listKey: listKey || row.imageId || row.url || `pending-${row.partName || ''}`,
-        expanded: Boolean(expanded),
-        complete: hasPhoto && missing === 0,
-        summaryText: row.partName || '待填写',
-        completenessLabel: !hasPhoto
-          ? '待拍照'
-          : missing === 0
-            ? row.caption || '已齐'
-            : '缺部位',
-        adviceRequired: false,
-        resultTone: '',
-        resultToneClass: '',
-        evidenceRowClass: '',
-        resultOptions: [],
-      }
-    }
     return {
       ...row,
       findingKind: 'inspection',
@@ -606,11 +664,16 @@ Page({
       }
     }
     if (kind === 'delivery_photos') {
+      const exterior = String(this.data.deliveryExteriorUrl || '').trim()
       return {
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyScope: this.data.warrantyScope,
         warrantyExclusions: this.data.warrantyExclusions,
         confirmCopy: REPAIR_CONFIRM_COPY,
+        deliveryExteriorUrl: exterior,
+        selectedDeliveryUrls: (this.data.workImagePool || [])
+          .filter((row) => row && row.selected && row.url && row.url !== exterior)
+          .map((row) => row.url),
       }
     }
     return {}
@@ -669,6 +732,9 @@ Page({
       let sections = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
       let expandedFindingKey = ''
+      let workImagePool = []
+      let deliveryExteriorUrl = ''
+      let deliveryPickMode = ''
 
       if (activeIsPhoto && active) {
         sections = this.buildSections(album, active, photoDraft, flowNodes)
@@ -684,6 +750,25 @@ Page({
             photoDraft.warrantyExclusions || '外力撞击、涉水、未按约定使用等除外'
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
+          deliveryExteriorUrl = String(photoDraft.deliveryExteriorUrl || '').trim()
+          // 兼容：旧数据仅写在 stage_6、未记引用字段
+          if (!deliveryExteriorUrl) {
+            const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
+            const first = stage6 && Array.isArray(stage6.images) && stage6.images[0]
+            const fallbackUrl =
+              typeof first === 'string' ? first : first && first.url ? first.url : ''
+            if (fallbackUrl) deliveryExteriorUrl = String(fallbackUrl).trim()
+          }
+          const selectedSet = {}
+          ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
+            if (url && url !== deliveryExteriorUrl) selectedSet[url] = true
+          })
+          workImagePool = this.collectAllWorkImages(album, flowNodes).map((row) => ({
+            ...row,
+            selected: Boolean(selectedSet[row.url]),
+            isExterior: row.url === deliveryExteriorUrl,
+          }))
+          // 兼容旧草稿：仅有 selectedDeliveryUrls 无外观时，不自动猜外观
         }
         const keepKey = this.data.expandedFindingKey
         const parts = String(keepKey || '').split(':')
@@ -838,6 +923,9 @@ Page({
         captionHint: '',
         autoSaveLabel: '',
         allDone: Boolean(progress.allDone),
+        workImagePool,
+        deliveryExteriorUrl,
+        deliveryPickMode,
       })
     } catch (e) {
       this.setData({ status: 'error', errorMessage: (e && e.message) || '加载失败' })
@@ -940,6 +1028,14 @@ Page({
     const target = (section.findings || [])[findingIndex] || {}
     const sections = this.data.sections.map((row, i) => {
       if (i !== sectionIndex) return row
+      if (row.findingKind === 'work') {
+        const findings = (row.findings || []).filter((_, idx) => idx !== findingIndex)
+        return {
+          ...row,
+          findings,
+          images: this.flattenWorkSectionImages(findings),
+        }
+      }
       if (!target.url) {
         return {
           ...row,
@@ -974,47 +1070,46 @@ Page({
     if (!Number.isFinite(si) || !Number.isFinite(fi)) return
     const section = this.data.sections[si]
     if (!section || !section.findings || !section.findings[fi]) return
-    const remain = Math.max(0, 12 - ((section.images && section.images.length) || 0))
+    const current = normalizeWorkFinding(section.findings[fi])
+    const remain = Math.max(0, WORK_IMAGES_MAX - current.images.length)
     if (remain < 1) {
-      wx.showToast({ title: '最多 12 张', icon: 'none' })
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
       return
     }
     wx.chooseMedia({
-      count: 1,
+      count: Math.min(remain, 6),
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
-        const file = (res.tempFiles && res.tempFiles[0]) || null
-        if (!file) return
+        const files = res.tempFiles || []
+        if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploaded = await uploadImage(file.tempFilePath)
-          const url = uploaded && (uploaded.url || uploaded)
-          if (!url) throw new Error('上传失败')
-          const partName = String(
-            (section.findings[fi] && section.findings[fi].partName) || '',
-          ).trim()
-          const keepCaption = String(
-            (section.findings[fi] && section.findings[fi].caption) || '',
-          ).trim()
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (url) uploadedList.push({ url, imageId: '' })
+          }
+          if (!uploadedList.length) throw new Error('上传失败')
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
-            const images = (row.images || [])
-              .concat([{ url, caption: keepCaption }])
-              .slice(0, 12)
-            const findings = (row.findings || []).map((item, idx) =>
-              idx === fi
-                ? {
-                    ...item,
-                    url,
-                    imageId: '',
-                    caption: keepCaption,
-                    partName: item.partName || partName,
-                    pendingPhoto: false,
-                  }
-                : item,
-            )
-            return { ...row, images, findings }
+            const findings = (row.findings || []).map((item, idx) => {
+              if (idx !== fi) return item
+              const prev = normalizeWorkFinding(item)
+              const images = prev.images.concat(uploadedList).slice(0, WORK_IMAGES_MAX)
+              return normalizeWorkFinding({
+                ...prev,
+                images,
+                partName: prev.partName,
+                caption: prev.caption,
+              })
+            })
+            return {
+              ...row,
+              findings,
+              images: this.flattenWorkSectionImages(findings),
+            }
           })
           this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
           this.scheduleAutoSavePhotos()
@@ -1027,12 +1122,194 @@ Page({
     })
   },
 
+  onRemoveWorkFindingImage(e) {
+    if (this.data.readOnly) return
+    const si = Number(e.currentTarget.dataset.sectionIndex)
+    const fi = Number(e.currentTarget.dataset.findingIndex)
+    const imgIndex = Number(e.currentTarget.dataset.imgIndex)
+    if (!Number.isFinite(si) || !Number.isFinite(fi) || !Number.isFinite(imgIndex)) return
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== si) return row
+      const findings = (row.findings || []).map((item, idx) => {
+        if (idx !== fi) return item
+        const prev = normalizeWorkFinding(item)
+        const images = prev.images.filter((_, j) => j !== imgIndex)
+        return normalizeWorkFinding({ ...prev, images })
+      })
+      return {
+        ...row,
+        findings,
+        images: this.flattenWorkSectionImages(findings),
+      }
+    })
+    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
+    this.scheduleAutoSavePhotos()
+  },
+
+  onToggleDeliveryWorkImage(e) {
+    if (this.data.readOnly) return
+    const url = String(e.currentTarget.dataset.url || '')
+    if (!url) return
+    if (this.data.deliveryPickMode === 'exterior') {
+      const workImagePool = (this.data.workImagePool || []).map((row) => ({
+        ...row,
+        isExterior: row.url === url,
+        selected: row.url === url ? false : row.selected,
+      }))
+      const sections = (this.data.sections || []).map((section) =>
+        section.stageId === 'stage_6' ? { ...section, images: [] } : section,
+      )
+      this.setData({
+        deliveryExteriorUrl: url,
+        deliveryPickMode: '',
+        workImagePool,
+        sections,
+        autoSaveLabel: '保存中…',
+      })
+      this.scheduleAutoSavePhotos()
+      return
+    }
+    if (url === this.data.deliveryExteriorUrl) {
+      wx.showToast({ title: '已用作整车外观', icon: 'none' })
+      return
+    }
+    const workImagePool = (this.data.workImagePool || []).map((row) =>
+      row.url === url ? { ...row, selected: !row.selected } : row,
+    )
+    this.setData({ workImagePool, autoSaveLabel: '保存中…' })
+    this.scheduleAutoSaveDraftOnly()
+  },
+
+  onStartPickExterior() {
+    if (this.data.readOnly) return
+    if (!(this.data.workImagePool || []).length) {
+      wx.showToast({ title: '暂无施工图，请补拍外观', icon: 'none' })
+      return
+    }
+    this.setData({ deliveryPickMode: 'exterior' })
+    wx.showToast({ title: '请点选一张整车外观', icon: 'none' })
+  },
+
+  onClearExterior() {
+    if (this.data.readOnly) return
+    const workImagePool = (this.data.workImagePool || []).map((row) => ({
+      ...row,
+      isExterior: false,
+    }))
+    const sections = (this.data.sections || []).map((section) =>
+      section.stageId === 'stage_6' ? { ...section, images: [] } : section,
+    )
+    this.setData({
+      deliveryExteriorUrl: '',
+      deliveryPickMode: '',
+      workImagePool,
+      sections,
+      autoSaveLabel: '保存中…',
+    })
+    this.scheduleAutoSavePhotos()
+  },
+
+  onCaptureExterior() {
+    if (this.data.readOnly) return
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          const workImagePool = (this.data.workImagePool || []).map((row) => ({
+            ...row,
+            isExterior: false,
+            selected: row.url === url ? false : row.selected,
+          }))
+          const sections = (this.data.sections || []).map((section) => {
+            if (section.stageId !== 'stage_6') return section
+            return {
+              ...section,
+              images: [{ url, caption: '整车外观' }],
+            }
+          })
+          this.setData({
+            deliveryExteriorUrl: url,
+            deliveryPickMode: '',
+            workImagePool,
+            sections,
+            autoSaveLabel: '保存中…',
+          })
+          this.scheduleAutoSavePhotos()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onCancelPickExterior() {
+    this.setData({ deliveryPickMode: '' })
+  },
+
   onAddFindingPhotos(e) {
     if (this.data.readOnly) return
     const sectionIndex = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(sectionIndex)) return
     const section = this.data.sections[sectionIndex]
     if (!section) return
+    if (section.findingKind === 'work') {
+      if ((section.findings || []).length >= 12) {
+        wx.showToast({ title: '最多 12 个维修项', icon: 'none' })
+        return
+      }
+      wx.chooseMedia({
+        count: WORK_IMAGES_MAX,
+        mediaType: ['image'],
+        sourceType: ['album', 'camera'],
+        success: async (res) => {
+          const files = res.tempFiles || []
+          if (!files.length) return
+          try {
+            wx.showLoading({ title: '上传中' })
+            const uploadedList = []
+            for (let i = 0; i < files.length; i += 1) {
+              const uploaded = await uploadImage(files[i].tempFilePath)
+              const url = uploaded && (uploaded.url || uploaded)
+              if (url) uploadedList.push({ url, imageId: '' })
+            }
+            if (!uploadedList.length) throw new Error('上传失败')
+            const sections = this.data.sections.map((row, i) => {
+              if (i !== sectionIndex) return row
+              const findings = (row.findings || []).concat([
+                normalizeWorkFinding({
+                  partName: '',
+                  caption: '',
+                  images: uploadedList.slice(0, WORK_IMAGES_MAX),
+                }),
+              ])
+              return {
+                ...row,
+                findings,
+                images: this.flattenWorkSectionImages(findings),
+              }
+            })
+            const expandKey = `${sectionIndex}:${(section.findings || []).length}`
+            this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
+            this.scheduleAutoSavePhotos()
+          } catch (err) {
+            wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+          } finally {
+            wx.hideLoading()
+          }
+        },
+      })
+      return
+    }
     const remain = Math.max(0, 12 - ((section.images && section.images.length) || 0))
     if (remain < 1) {
       wx.showToast({ title: '最多 12 张', icon: 'none' })
@@ -1187,9 +1464,7 @@ Page({
       autoSaveLabel: '保存中…',
     }
     if (findingKind === 'work') {
-      if (field === 'caption') {
-        patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
-      }
+      // 施工：部位/说明只写在项上，不按索引回写 images
     } else if (field === 'partName') {
       patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
     }
@@ -1400,19 +1675,28 @@ Page({
     const album = this._album || (await fetchMerchantServiceAlbum(this.albumId))
     const sectionMap = {}
     this.data.sections.forEach((section) => {
-      // 发现项：检测部位→图注；施工只写本图说明，不把部位名落到图注
-      if (section.findingMode) {
+      if (section.findingMode && section.findingKind === 'work') {
+        sectionMap[section.stageId] = this.flattenWorkSectionImages(section.findings || [])
+      } else if (section.findingMode) {
         sectionMap[section.stageId] = (section.images || []).map((img, i) => {
           const finding = (section.findings || [])[i] || {}
-          const caption =
-            section.findingKind === 'work'
-              ? String(finding.caption || '').trim()
-              : finding.partName || img.caption || ''
           return {
             ...img,
-            caption,
+            caption: finding.partName || img.caption || '',
           }
         })
+      } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
+        // 仅落库「外观补拍」；从施工图选用的只记引用，不复制
+        const exterior = String(this.data.deliveryExteriorUrl || '').trim()
+        const workUrlSet = {}
+        this.collectAllWorkImages(album, this._flowNodes || []).forEach((row) => {
+          if (row && row.url) workUrlSet[row.url] = true
+        })
+        if (exterior && !workUrlSet[exterior]) {
+          sectionMap[section.stageId] = [{ url: exterior, caption: '整车外观' }]
+        } else {
+          sectionMap[section.stageId] = []
+        }
       } else {
         sectionMap[section.stageId] = section.images
       }
@@ -1534,10 +1818,14 @@ Page({
       const gaps = collectDeliveryPhotoDraftGaps({
         warrantyPeriod: this.data.warrantyPeriod,
         warrantyScope: this.data.warrantyScope,
+        deliveryExteriorUrl: this.data.deliveryExteriorUrl,
+        selectedDeliveryUrls: (this.data.workImagePool || [])
+          .filter((row) => row && row.selected)
+          .map((row) => row.url),
       })
       if (gaps.length) {
         wx.showModal({
-          title: '请先补全质保信息',
+          title: '请先补全交车信息',
           content: gaps.join('\n'),
           showCancel: false,
           confirmText: '去补全',
