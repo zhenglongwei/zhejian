@@ -57,8 +57,10 @@ function normalizeFinding(raw = {}) {
   }
 }
 
-/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位 */
-function mapFindingRows(images = [], draftFindings = []) {
+/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位。
+ *  施工（mode=work）：部位与本图说明分开；图注≠部位时才回填说明，避免部位名误进说明栏。 */
+function mapFindingRows(images = [], draftFindings = [], options = {}) {
+  const workMode = options && options.mode === 'work'
   const draftByKey = {}
   ;(draftFindings || []).forEach((raw, index) => {
     const item = normalizeFinding(raw)
@@ -68,6 +70,22 @@ function mapFindingRows(images = [], draftFindings = []) {
   })
   return mapPhotoRows(images).map((row, index) => {
     const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
+    if (workMode) {
+      const partName = String(draft.partName || '').trim()
+      let caption = String(draft.caption || '').trim()
+      if (!caption) {
+        const imgCap = String(row.caption || '').trim()
+        if (imgCap && imgCap !== partName) caption = imgCap
+      }
+      return normalizeFinding({
+        ...row,
+        ...draft,
+        url: row.url,
+        imageId: row.imageId || draft.imageId || '',
+        partName,
+        caption,
+      })
+    }
     return normalizeFinding({
       ...row,
       ...draft,

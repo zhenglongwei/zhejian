@@ -331,6 +331,16 @@ async function insertMerchantAddonPlan(albumId) {
   return post(`/merchant/service-albums/${albumId}/flow/addon-plan`, withStore({}))
 }
 
+async function cancelMerchantAddonPlan(albumId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { flowNodes: [], message: '已取消' }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/addon-plan/cancel`,
+    withStore(payload),
+  )
+}
+
 module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
@@ -370,4 +380,5 @@ module.exports = {
   completeMerchantFlowNode,
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
+  cancelMerchantAddonPlan,
 }

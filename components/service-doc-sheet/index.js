@@ -19,6 +19,10 @@ Component({
       type: Boolean,
       value: true,
     },
+    storePhone: {
+      type: String,
+      value: '',
+    },
   },
 
   methods: {
@@ -26,6 +30,12 @@ Component({
       const doc = this.data.doc || {}
       if (!doc.needsConfirm || !doc.id) return
       this.triggerEvent('confirm', { nodeId: doc.id })
+    },
+
+    onContactStore() {
+      const phone = String(this.data.storePhone || '').trim()
+      if (!phone) return
+      wx.makePhoneCall({ phoneNumber: phone })
     },
 
     onPreviewImage(e) {

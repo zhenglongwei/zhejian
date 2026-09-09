@@ -8,6 +8,7 @@ const {
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
+  cancelMerchantAddonPlan,
 } = require('../../../../services/merchant-service-album')
 const {
   SERVICE_ALBUM_STATUS,
@@ -50,6 +51,15 @@ function buildSheetMetaLine(payload = {}, album = {}) {
   const mileage = String(payload.mileageText || '').trim()
   if (mileage) parts.push(mileage)
   return parts.join(' · ')
+}
+
+/** 商家时间线：步号写在标题上，不用顶部「第 n / 总步数」 */
+function withFlowStepOrdinal(title, stepNo) {
+  const t = String(title || '').trim()
+  const n = Number(stepNo)
+  if (!t || !Number.isFinite(n) || n < 1) return t
+  if (/^第\s*\d+\s*步/.test(t)) return t
+  return `第${n}步 · ${t}`
 }
 
 function mapCompletedStepPreview(step, node, album = {}) {
@@ -121,12 +131,18 @@ function mapCompletedStepPreview(step, node, album = {}) {
       node.insertedReason === 'addon'
         ? '施工中新发现'
         : node.title || '方案确认'
-    const statusLabel = summary === '草稿' ? '' : summary
+    const statusLabel =
+      String((node.document && node.document.status) || '') === 'cancelled'
+        ? '门店已取消'
+        : summary === '草稿'
+          ? ''
+          : summary
+    const cancelReason = String((node.document && node.document.cancelReason) || '').trim()
     return {
       ...base,
       kind,
       detailKind: 'doc_sheet',
-      summary: statusLabel,
+      summary: cancelReason ? `${statusLabel}：${cancelReason}` : statusLabel,
       sheetDoc: {
         kind,
         title: sheetTitle,
@@ -136,7 +152,9 @@ function mapCompletedStepPreview(step, node, album = {}) {
         styleVariant: 'document',
         lines,
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-        confirmCopy: QUOTE_CONFIRM_COPY,
+        confirmCopy: statusLabel === '门店已取消' ? '' : QUOTE_CONFIRM_COPY,
+        cancelled: statusLabel === '门店已取消',
+        cancelReason,
       },
     }
   }
@@ -278,6 +296,8 @@ Page({
     quotePendingOwner: false,
     confirmAwaitingOwner: false,
     isAddonQuote: false,
+    showCancelAddonModal: false,
+    cancelAddonReason: '',
     conclusion: '',
     confirmCopy: '',
     proxyProofImages: [],
@@ -430,7 +450,9 @@ Page({
           findingKind === 'work'
             ? this.collectMergedWorkDraftFindings(flowNodes, node, photoDraft)
             : draftFindings
-        findings = mapFindingRows(images, mergedDraft)
+        findings = mapFindingRows(images, mergedDraft, {
+          mode: findingKind === 'work' ? 'work' : 'inspection',
+        })
         if (findingKind === 'work') {
           findings = this.seedPendingWorkParts(findings, flowNodes, node)
         }
@@ -629,9 +651,13 @@ Page({
       flowNodes.forEach((node) => {
         if (node && node.id) nodeById[node.id] = node
       })
-      const completedSteps = (progress.completedSteps || []).map((step) =>
-        mapCompletedStepPreview(step, nodeById[step.id], album),
-      )
+      const completedSteps = (progress.completedSteps || []).map((step, index) => {
+        const preview = mapCompletedStepPreview(step, nodeById[step.id], album)
+        return {
+          ...preview,
+          title: withFlowStepOrdinal(preview.title || step.title, index + 1),
+        }
+      })
 
       let findings = []
       let chiefComplaint = ''
@@ -758,11 +784,14 @@ Page({
         ? ''
         : (active && (active.photoTips || active.summary)) || ''
       const activeSummary = rawSummary === '草稿' ? '' : rawSummary
-      const activeTitle = showCombinedPlan
+      const activeTitleRaw = showCombinedPlan
         ? '核对报告与方案'
         : isAddonQuote
           ? '施工中新发现'
           : (active && active.title) || ''
+      const activeTitle = active
+        ? withFlowStepOrdinal(activeTitleRaw, completedSteps.length + 1)
+        : ''
 
       this.setData({
         status: 'ready',
@@ -804,10 +833,7 @@ Page({
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
         ),
-        progressLabel:
-          progress.totalSteps > 0
-            ? `第 ${Math.min(progress.currentStep, progress.totalSteps)} / ${progress.totalSteps} 步`
-            : '',
+        progressLabel: '',
         lockedHint: progress.lockedHint || '完成当前步骤后，将自动出现下一步',
         captionHint: '',
         autoSaveLabel: '',
@@ -829,7 +855,7 @@ Page({
     })
   },
 
-  syncFindingsWithImages(prevFindings = [], images = []) {
+  syncFindingsWithImages(prevFindings = [], images = [], findingKind = 'inspection') {
     const prevByKey = {}
     prevFindings.forEach((item) => {
       const key = item.imageId || item.id || item.url
@@ -838,14 +864,26 @@ Page({
     return (images || []).map((img) => {
       const url = typeof img === 'string' ? img : img.url || ''
       const id = typeof img === 'object' ? img.id || '' : ''
-      const caption = typeof img === 'object' ? img.caption || '' : ''
+      const imgCaption = typeof img === 'object' ? img.caption || '' : ''
       const prev = prevByKey[id] || prevByKey[url] || {}
+      if (findingKind === 'work') {
+        const partName = String(prev.partName || '').trim()
+        let caption = String(prev.caption || '').trim()
+        if (!caption && imgCaption && imgCaption !== partName) caption = imgCaption
+        return normalizeFinding({
+          ...prev,
+          url,
+          imageId: id || prev.imageId || '',
+          partName,
+          caption,
+        })
+      }
       return normalizeFinding({
         ...prev,
         url,
         imageId: id || prev.imageId || '',
-        caption,
-        partName: prev.partName || caption || '',
+        caption: imgCaption,
+        partName: prev.partName || imgCaption || '',
       })
     })
   },
@@ -863,7 +901,11 @@ Page({
       if (i !== index) return section
       const next = { ...section, images }
       if (section.findingMode) {
-        next.findings = this.syncFindingsWithImages(section.findings || [], images)
+        next.findings = this.syncFindingsWithImages(
+          section.findings || [],
+          images,
+          section.findingKind || 'inspection',
+        )
       }
       return next
     })
@@ -952,16 +994,21 @@ Page({
           const partName = String(
             (section.findings[fi] && section.findings[fi].partName) || '',
           ).trim()
+          const keepCaption = String(
+            (section.findings[fi] && section.findings[fi].caption) || '',
+          ).trim()
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
-            const images = (row.images || []).concat([{ url, caption: partName }]).slice(0, 12)
+            const images = (row.images || [])
+              .concat([{ url, caption: keepCaption }])
+              .slice(0, 12)
             const findings = (row.findings || []).map((item, idx) =>
               idx === fi
                 ? {
                     ...item,
                     url,
                     imageId: '',
-                    caption: item.caption || partName,
+                    caption: keepCaption,
                     partName: item.partName || partName,
                     pendingPhoto: false,
                   }
@@ -1127,7 +1174,7 @@ Page({
     const findingKind = section.findingKind || 'inspection'
     const prev = section.findings[findingIndex]
     const nextRaw = { ...prev, [field]: e.detail.value }
-    // 检测：部位同步到图注；施工：部位与说明分开，图注优先说明
+    // 检测：部位同步到图注；施工：部位与本图说明分开，不互相带出
     if (findingKind !== 'work' && field === 'partName') {
       nextRaw.caption = e.detail.value
     }
@@ -1139,13 +1186,10 @@ Page({
       expandedFindingKey: expandKey,
       autoSaveLabel: '保存中…',
     }
-    if (findingKind === 'work' && (field === 'partName' || field === 'caption')) {
-      const caption =
-        field === 'caption'
-          ? e.detail.value
-          : String(nextRaw.caption || e.detail.value || '').trim()
-      patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] =
-        caption || String(nextRaw.partName || '').trim()
+    if (findingKind === 'work') {
+      if (field === 'caption') {
+        patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
+      }
     } else if (field === 'partName') {
       patch[`sections[${sectionIndex}].images[${findingIndex}].caption`] = e.detail.value
     }
@@ -1287,6 +1331,21 @@ Page({
     })
   },
 
+  onRemoveQuoteLine(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const prev = this.data.quoteLines || []
+    let quoteLines = prev.filter((_, i) => i !== index)
+    if (!quoteLines.length) {
+      quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '' }]
+    }
+    this.setData({
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+    })
+  },
+
   onAddQuoteEvidence(e) {
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const index = Number(e.currentTarget.dataset.index)
@@ -1341,13 +1400,13 @@ Page({
     const album = this._album || (await fetchMerchantServiceAlbum(this.albumId))
     const sectionMap = {}
     this.data.sections.forEach((section) => {
-      // 发现项：检测部位→图注；施工优先本图说明，否则部位
+      // 发现项：检测部位→图注；施工只写本图说明，不把部位名落到图注
       if (section.findingMode) {
         sectionMap[section.stageId] = (section.images || []).map((img, i) => {
           const finding = (section.findings || [])[i] || {}
           const caption =
             section.findingKind === 'work'
-              ? finding.caption || finding.partName || img.caption || ''
+              ? String(finding.caption || '').trim()
               : finding.partName || img.caption || ''
           return {
             ...img,
@@ -1672,6 +1731,49 @@ Page({
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ confirming: false })
+    }
+  },
+
+  onOpenCancelAddon() {
+    if (this.data.readOnly || !this.data.isAddonQuote) return
+    const docStatus = String(this.data.docStatus || '')
+    if (docStatus === 'confirmed' || docStatus === 'cancelled') {
+      wx.showToast({ title: '当前不可取消', icon: 'none' })
+      return
+    }
+    this.setData({ showCancelAddonModal: true, cancelAddonReason: '' })
+  },
+
+  onCloseCancelAddonModal() {
+    this.setData({ showCancelAddonModal: false, cancelAddonReason: '' })
+  },
+
+  onCancelAddonReasonInput(e) {
+    this.setData({ cancelAddonReason: e.detail.value })
+  },
+
+  async onConfirmCancelAddon() {
+    if (this.data.readOnly || this.data.confirming) return
+    const reason = String(this.data.cancelAddonReason || '').trim()
+    if (!reason) {
+      wx.showToast({ title: '请填写取消原因', icon: 'none' })
+      return
+    }
+    const nodeId = (this.data.activeNode && this.data.activeNode.id) || ''
+    if (!nodeId) return
+    this.setData({ confirming: true })
+    try {
+      await cancelMerchantAddonPlan(this.albumId, {
+        nodeId,
+        cancelReason: reason,
+      })
+      this.setData({ showCancelAddonModal: false, cancelAddonReason: '' })
+      wx.showToast({ title: '已取消，回到施工', icon: 'none' })
+      await this.loadFlow({ silent: true })
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '取消失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }

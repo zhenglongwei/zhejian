@@ -299,7 +299,7 @@
 | activeTitle | String | `''` | 当前步标题 |
 | activeSummary | String | `''` | 当前步摘要 |
 | activeCategory | String | `''` | `拍照` / `单据` |
-| progressLabel | String | `''` | 如「第 1 / 7 步」 |
+| progressLabel | String | `''` | 可选顶部说明；商家 DOC-FLOW 进度页**不传**（步号写在各步 `title` / `activeTitle`，形如「第1步 · 接车与检测」，勿用「第 n / 总步数」） |
 | showActive | Boolean | true | 是否展示当前步外壳 |
 | lockedHint | String | `''` | 未解锁提示 |
 | expandedCompletedId | String | `''` | 当前展开的已完成步骤 id |

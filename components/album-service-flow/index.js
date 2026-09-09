@@ -8,6 +8,10 @@ Component({
       type: String,
       value: '',
     },
+    storePhone: {
+      type: String,
+      value: '',
+    },
   },
 
   methods: {

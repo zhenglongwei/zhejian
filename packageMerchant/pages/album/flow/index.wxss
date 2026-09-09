@@ -178,11 +178,26 @@
 }
 
 .merchant-flow-page__plan-row {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm) 0;
+  padding-right: 48rpx;
   border-bottom: 1rpx dashed var(--color-border);
+}
+
+.merchant-flow-page__plan-row-remove {
+  position: absolute;
+  top: var(--space-sm);
+  right: 0;
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 36rpx;
+  color: var(--color-text-tertiary);
+  z-index: 1;
 }
 
 .merchant-flow-page__plan-evidence {
@@ -570,6 +585,43 @@
   flex-direction: column;
   gap: var(--space-sm);
   margin-top: var(--space-lg);
+}
+
+.merchant-flow-page__modal-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-popup);
+  background-color: var(--color-album-nav-fade-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__modal {
+  width: 100%;
+  max-width: 640rpx;
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__modal-hint {
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-flow-page__modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
 }
 
 .merchant-flow-page__await-hint {

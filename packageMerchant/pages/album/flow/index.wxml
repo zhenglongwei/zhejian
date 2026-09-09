@@ -324,6 +324,12 @@
                     <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
                   </view>
                   <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                    <view
+                      wx:if="{{!readOnly}}"
+                      class="merchant-flow-page__plan-row-remove"
+                      data-index="{{index}}"
+                      catchtap="onRemoveQuoteLine"
+                    >×</view>
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
@@ -395,6 +401,12 @@
                     <text class="text-body merchant-flow-page__sheet-title">{{isAddonQuote ? '项目与费用' : '方案与费用'}}</text>
                   </view>
                   <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                    <view
+                      wx:if="{{!readOnly && !confirmAwaitingOwner}}"
+                      class="merchant-flow-page__plan-row-remove"
+                      data-index="{{index}}"
+                      catchtap="onRemoveQuoteLine"
+                    >×</view>
                     <view wx:if="{{isAddonQuote}}" class="merchant-flow-page__plan-evidence">
                       <view
                         wx:if="{{item.evidenceUrl}}"
@@ -499,6 +511,13 @@
                     bind:btntap="onProxyConfirm"
                   >车主已口头确认</ui-button>
                 </block>
+                <ui-button
+                  wx:if="{{isAddonQuote}}"
+                  type="ghost"
+                  block="{{true}}"
+                  loading="{{confirming}}"
+                  bind:btntap="onOpenCancelAddon"
+                >取消本项</ui-button>
               </view>
             </block>
 
@@ -587,4 +606,22 @@
       </view>
     </scroll-view>
   </block>
+
+  <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
+    <view class="merchant-flow-page__modal">
+      <text class="text-h3">取消本项</text>
+      <text class="text-caption text-secondary merchant-flow-page__modal-hint">取消后回到施工。原因会展示给车主（若已发送确认）。</text>
+      <textarea
+        class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
+        placeholder="例：沟通后暂不增加 / 误点入口"
+        maxlength="200"
+        value="{{cancelAddonReason}}"
+        bindinput="onCancelAddonReasonInput"
+      />
+      <view class="merchant-flow-page__modal-actions">
+        <ui-button type="ghost" block="{{true}}" bind:btntap="onCloseCancelAddonModal">返回</ui-button>
+        <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onConfirmCancelAddon">确认取消</ui-button>
+      </view>
+    </view>
+  </view>
 </view>

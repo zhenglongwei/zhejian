@@ -23,6 +23,7 @@
         wx:else
         doc="{{item}}"
         mode="owner"
+        storePhone="{{storePhone}}"
         confirming="{{confirmingId === item.id}}"
         bind:confirm="onConfirmTap"
       />

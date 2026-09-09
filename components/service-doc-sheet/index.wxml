@@ -137,7 +137,15 @@
   </block>
 
   <view
-    wx:if="{{doc.confirmCopy && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
+    wx:if="{{doc.cancelReason}}"
+    class="service-doc-sheet__block"
+  >
+    <text class="text-caption text-secondary service-doc-sheet__label">门店说明</text>
+    <text class="text-body">{{doc.cancelReason}}</text>
+  </view>
+
+  <view
+    wx:if="{{doc.confirmCopy && !doc.cancelled && (doc.needsConfirm || doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm' || doc.kind === 'repair_report')}}"
     class="service-doc-sheet__protocol"
   >
     <text class="text-caption">{{doc.confirmCopy}}</text>
@@ -150,4 +158,11 @@
     loading="{{confirming}}"
     bind:btntap="onConfirmTap"
   >确认</ui-button>
+  <view
+    wx:if="{{mode === 'owner' && doc.needsConfirm && storePhone}}"
+    class="service-doc-sheet__contact"
+    bindtap="onContactStore"
+  >
+    <text class="text-caption text-link">有疑问？电话联系门店</text>
+  </view>
 </view>

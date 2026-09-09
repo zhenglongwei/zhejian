@@ -46,6 +46,7 @@
           wx:if="{{showOwnerFlow}}"
           docs="{{ownerFlowDocs}}"
           confirmingId="{{flowConfirmingId}}"
+          storePhone="{{storePhone}}"
           bind:confirm="onOwnerFlowConfirm"
         />
         <album-work-checklist

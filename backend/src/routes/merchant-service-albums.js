@@ -889,6 +889,26 @@ router.post(
 )
 
 router.post(
+  '/service-albums/:albumId/flow/addon-plan/cancel',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { cancelAddonPlan } = require('../services/service-flow.service')
+      const data = await cancelAddonPlan(
+        req.params.albumId,
+        storeId,
+        req.auth.merchantId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/hard-delete',
   requireAuth(['merchant']),
   async (req, res, next) => {

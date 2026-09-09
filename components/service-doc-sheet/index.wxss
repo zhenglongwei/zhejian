@@ -153,3 +153,9 @@
   background-color: var(--color-bg-muted);
   border-left: 6rpx solid var(--color-primary);
 }
+
+.service-doc-sheet__contact {
+  margin-top: var(--space-sm);
+  text-align: center;
+  padding: var(--space-xs) 0;
+}

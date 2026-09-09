@@ -65,6 +65,7 @@ function resolveDocumentStatusLabel(doc = {}) {
   }
   if (status === 'delivered') return '已送达'
   if (status === 'pending_confirm') return '待车主确认'
+  if (status === 'cancelled') return '门店已取消'
   if (status === 'in_progress') return '施工中'
   if (status === 'sent') return '已发送车主'
   // draft：商家面不标「草稿」
@@ -907,6 +908,154 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   return buildFlowView(refreshed, viewNodes)
 }
 
+/**
+ * 作废增项「施工中新发现」：必填原因；撤后续未开工单/施工；回到原施工。
+ * 未发送作废仅商家留痕；已发送作废车主可见原因。
+ */
+async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) {
+  const { loadAlbum, assertMerchantAlbum, assertAlbumContentEditable, mapNodesForView } =
+    require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  assertMerchantAlbum(album, storeId, merchantId)
+  assertAlbumContentEditable(album)
+
+  const nodeId = String((payload && payload.nodeId) || '').trim()
+  const cancelReason = String((payload && payload.cancelReason) || '').trim()
+  if (!nodeId) {
+    const err = new Error('缺少单据')
+    err.status = 400
+    throw err
+  }
+  if (!cancelReason) {
+    const err = new Error('请填写取消原因')
+    err.status = 400
+    throw err
+  }
+  if (cancelReason.length > 200) {
+    const err = new Error('取消原因请控制在 200 字内')
+    err.status = 400
+    throw err
+  }
+
+  await writeFlowPackage(albumId, (pkg) => {
+    const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    const quoteIdx = nodes.findIndex((n) => n && n.id === nodeId)
+    if (quoteIdx < 0) {
+      const err = new Error('未找到该增项')
+      err.status = 404
+      throw err
+    }
+    const quote = nodes[quoteIdx]
+    const isAddonQuote =
+      (quote.kind === 'quote_confirm' && String(quote.insertedReason || '') === 'addon') ||
+      quote.kind === 'addon_quote_confirm'
+    if (!isAddonQuote) {
+      const err = new Error('仅可取消施工中新发现')
+      err.status = 400
+      throw err
+    }
+    const doc = quote.document || {}
+    const docStatus = String(doc.status || 'draft')
+    if (docStatus === 'confirmed') {
+      const err = new Error('车主已确认，不可取消')
+      err.status = 409
+      throw err
+    }
+    if (docStatus === 'cancelled') {
+      const err = new Error('该项目已取消')
+      err.status = 409
+      throw err
+    }
+    if (docStatus !== 'draft' && docStatus !== 'pending_confirm') {
+      const err = new Error('当前状态不可取消')
+      err.status = 409
+      throw err
+    }
+
+    const removeIds = new Set()
+    const collectDescendants = (parentId) => {
+      nodes.forEach((n) => {
+        if (!n || !n.id || n.id === quote.id) return
+        if (String(n.parentNodeId || '') === parentId && !removeIds.has(n.id)) {
+          removeIds.add(n.id)
+          collectDescendants(n.id)
+        }
+      })
+    }
+    collectDescendants(quote.id)
+    // 兼容未挂 parent 的增项后续：紧随本张之后、同批 insertedReason=addon 且未确认的工单/施工
+    for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
+      const n = nodes[i]
+      if (!n || String(n.insertedReason || '') !== 'addon') break
+      if (n.kind === 'work_order' || n.kind === 'work') {
+        if (n.kind === 'work_order' && n.document && n.document.status === 'confirmed') break
+        removeIds.add(n.id)
+      } else {
+        break
+      }
+    }
+
+    const workId = String(quote.parentNodeId || '').trim()
+    let work = workId ? nodes.find((n) => n && n.id === workId) : null
+    if (!work || work.kind !== 'work') {
+      for (let i = quoteIdx - 1; i >= 0; i -= 1) {
+        if (nodes[i] && nodes[i].kind === 'work') {
+          work = nodes[i]
+          break
+        }
+      }
+    }
+    if (!work) {
+      const err = new Error('未找到可恢复的施工步骤')
+      err.status = 400
+      throw err
+    }
+
+    const nextNodes = nodes
+      .filter((n) => n && !removeIds.has(n.id))
+      .map((n) => {
+        if (n.id === quote.id) {
+          return {
+            ...n,
+            status: 'completed',
+            document: {
+              ...doc,
+              status: 'cancelled',
+              cancelReason,
+              cancelledAt: new Date().toISOString(),
+              cancelledFromStatus: docStatus,
+              statusLabel: '门店已取消',
+            },
+          }
+        }
+        if (n.id === work.id) {
+          return {
+            ...n,
+            status: 'in_progress',
+          }
+        }
+        return n
+      })
+
+    const ordered = sortFlowNodes(nextNodes)
+    const q = ordered.find((n) => n.id === quote.id)
+    const w = ordered.find((n) => n.id === work.id)
+    const beforeWork = ordered.filter(
+      (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) < Number(w.sortOrder),
+    )
+    const afterWork = ordered.filter(
+      (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) >= Number(w.sortOrder),
+    )
+    const rebuilt = beforeWork.concat([q, w], afterWork)
+    renumberSortOrders(rebuilt)
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: rebuilt }
+  })
+
+  const refreshed = await loadAlbum(albumId)
+  const viewNodes = mapNodesForView(refreshed)
+  return buildFlowView(refreshed, viewNodes)
+}
+
 /** 车主时间线只含单据节点，不镜像商家拍照步 */
 function isOwnerDocumentKind(kind) {
   return (
@@ -929,6 +1078,10 @@ function isOwnerDocContentReady(node = {}) {
       return docStatus === 'delivered' || docStatus === 'confirmed'
     case 'quote_confirm':
     case 'addon_quote_confirm':
+      if (docStatus === 'cancelled') {
+        return String(doc.cancelledFromStatus || '') === 'pending_confirm'
+      }
+      return docStatus === 'pending_confirm' || docStatus === 'confirmed'
     case 'repair_report':
       return docStatus === 'pending_confirm' || docStatus === 'confirmed'
     case 'work_order':
@@ -1021,14 +1174,20 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   const isAddonQuote =
     (kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon') ||
     kind === 'addon_quote_confirm'
+  const cancelReason = String(doc.cancelReason || '').trim()
+  const isCancelled = String(doc.status || '') === 'cancelled'
   return {
     id: node.id,
     kind,
     title: isAddonQuote ? '施工中新发现' : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
-    statusLabel: resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
+    statusLabel: isCancelled
+      ? '门店已取消'
+      : resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
     needsConfirm,
+    cancelled: isCancelled,
+    cancelReason,
     storeName,
     metaLine: buildDocMetaLine({
       reportDate,
@@ -1107,6 +1266,12 @@ function buildOwnerFlowView(album, albumNodes = []) {
   const mapped = rawNodes
     .map((node) => mapFlowNodeForView(node, albumNodes))
     .filter((node) => isOwnerDocumentKind(node.kind))
+    .filter((node) => {
+      const doc = node.document || {}
+      if (String(doc.status || '') !== 'cancelled') return true
+      // 未发出即作废：车主链不展示
+      return String(doc.cancelledFromStatus || '') === 'pending_confirm'
+    })
 
   const docs = mapped.map((node) => {
     const contentReady = isOwnerDocContentReady(node)
@@ -1324,5 +1489,6 @@ module.exports = {
   proxyConfirmFlowDocument,
   ownerConfirmFlowDocument,
   insertAddonPlan,
+  cancelAddonPlan,
   mapFlowNodeForView,
 }
