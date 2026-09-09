@@ -126,13 +126,16 @@
       </view>
     </view>
     <view
-      wx:if="{{doc.warrantyPeriod || doc.warrantyScope || doc.warrantyExclusions}}"
+      wx:if="{{doc.warrantyPeriod || doc.warrantyNotes || doc.warrantyScope || doc.warrantyExclusions}}"
       class="service-doc-sheet__block"
     >
       <text class="text-body service-doc-sheet__section">质保说明</text>
       <text wx:if="{{doc.warrantyPeriod}}" class="text-caption">期限：{{doc.warrantyPeriod}}</text>
-      <text wx:if="{{doc.warrantyScope}}" class="text-caption">范围：{{doc.warrantyScope}}</text>
-      <text wx:if="{{doc.warrantyExclusions}}" class="text-caption text-secondary">除外：{{doc.warrantyExclusions}}</text>
+      <text wx:if="{{doc.warrantyNotes}}" class="text-caption text-secondary">注意事项：{{doc.warrantyNotes}}</text>
+      <block wx:elif="{{doc.warrantyScope || doc.warrantyExclusions}}">
+        <text wx:if="{{doc.warrantyScope}}" class="text-caption">范围：{{doc.warrantyScope}}</text>
+        <text wx:if="{{doc.warrantyExclusions}}" class="text-caption text-secondary">除外：{{doc.warrantyExclusions}}</text>
+      </block>
     </view>
   </block>
 

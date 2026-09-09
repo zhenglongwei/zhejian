@@ -230,7 +230,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="选填，例：旧件已拆 / 新件安装完成"
+                              placeholder="选填，例：已按规定扭矩紧固并排气"
                               value="{{finding.caption}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -322,27 +322,18 @@
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
                 <input
                   class="merchant-flow-page__input"
-                  placeholder="例：90 天 / 5000 公里（以先到为准）"
+                  placeholder="例：1 年或 5000 公里，以先到为准"
                   value="{{warrantyPeriod}}"
                   data-field="warrantyPeriod"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
-                <text class="text-body merchant-flow-page__label">质保范围（必填）</text>
+                <text class="text-body merchant-flow-page__label">注意事项（选填）</text>
                 <input
                   class="merchant-flow-page__input"
-                  placeholder="例：本次已确认施工项目"
-                  value="{{warrantyScope}}"
-                  data-field="warrantyScope"
-                  disabled="{{readOnly}}"
-                  bindinput="onWarrantyFieldInput"
-                />
-                <text class="text-body merchant-flow-page__label">质保除外（可选）</text>
-                <input
-                  class="merchant-flow-page__input"
-                  placeholder="例：外力撞击、涉水、未按约定使用等除外"
-                  value="{{warrantyExclusions}}"
-                  data-field="warrantyExclusions"
+                  placeholder="例：仅限本次已确认项目；外力撞击、涉水除外"
+                  value="{{warrantyNotes}}"
+                  data-field="warrantyNotes"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
@@ -673,24 +664,18 @@
                 <text class="text-body merchant-flow-page__label">质保期限</text>
                 <input
                   class="merchant-flow-page__input"
+                  placeholder="例：1 年或 5000 公里，以先到为准"
                   value="{{warrantyPeriod}}"
                   data-field="warrantyPeriod"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
-                <text class="text-body merchant-flow-page__label">质保范围</text>
+                <text class="text-body merchant-flow-page__label">注意事项</text>
                 <input
                   class="merchant-flow-page__input"
-                  value="{{warrantyScope}}"
-                  data-field="warrantyScope"
-                  disabled="{{readOnly}}"
-                  bindinput="onWarrantyFieldInput"
-                />
-                <text class="text-body merchant-flow-page__label">质保除外</text>
-                <input
-                  class="merchant-flow-page__input"
-                  value="{{warrantyExclusions}}"
-                  data-field="warrantyExclusions"
+                  placeholder="例：仅限本次已确认项目；外力撞击、涉水除外"
+                  value="{{warrantyNotes}}"
+                  data-field="warrantyNotes"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />

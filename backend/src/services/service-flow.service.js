@@ -27,6 +27,7 @@ const {
   normalizePhotoDraft,
   mergePhotoDraft,
   normalizeQuoteLine,
+  resolveWarrantyNotes,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
@@ -482,6 +483,7 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     ...(payload.findings != null ? { findings: payload.findings } : {}),
     ...(payload.conclusion != null ? { conclusion: payload.conclusion } : {}),
     ...(payload.warrantyPeriod != null ? { warrantyPeriod: payload.warrantyPeriod } : {}),
+    ...(payload.warrantyNotes != null ? { warrantyNotes: payload.warrantyNotes } : {}),
     ...(payload.warrantyScope != null ? { warrantyScope: payload.warrantyScope } : {}),
     ...(payload.warrantyExclusions != null
       ? { warrantyExclusions: payload.warrantyExclusions }
@@ -1244,6 +1246,7 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     totalAmountLabel: `合计 ¥${Number(totalAmount || 0).toFixed(2)}`,
     deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
     warrantyPeriod: String(payload.warrantyPeriod || ''),
+    warrantyNotes: resolveWarrantyNotes(payload),
     warrantyScope: String(payload.warrantyScope || ''),
     warrantyExclusions: String(payload.warrantyExclusions || ''),
   }

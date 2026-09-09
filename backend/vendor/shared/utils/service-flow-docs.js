@@ -216,13 +216,28 @@ function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
   return gaps
 }
 
+function isVagueWarrantyPeriod(text = '') {
+  const t = String(text || '').trim()
+  if (!t) return true
+  return /以门店公示为准|详见门店|见门店公示|门店公示为准|以店内公示为准/.test(t)
+}
+
+/** 注意事项：优先新字段；旧 scope/exclusions 拼成一句 */
+function resolveWarrantyNotes(source = {}) {
+  const notes = String(source.warrantyNotes || source.notes || '').trim()
+  if (notes) return notes
+  const scope = String(source.warrantyScope || source.scope || '').trim()
+  const exclusions = String(source.warrantyExclusions || source.exclusions || '').trim()
+  return [scope, exclusions].filter(Boolean).join('；')
+}
+
 function collectDeliveryPhotoDraftGaps(payload = {}) {
   const gaps = []
-  if (!String(payload.warrantyPeriod || '').trim()) {
+  const period = String(payload.warrantyPeriod || '').trim()
+  if (!period) {
     gaps.push('请填写质保期限')
-  }
-  if (!String(payload.warrantyScope || '').trim()) {
-    gaps.push('请填写质保范围')
+  } else if (isVagueWarrantyPeriod(period)) {
+    gaps.push('质保期限请写清时长或里程，勿填「以门店公示为准」')
   }
   if (!String(payload.deliveryExteriorUrl || '').trim()) {
     gaps.push('请指定整车外观（从施工图选择或补拍）')
@@ -402,13 +417,12 @@ function buildRepairReportPayload({
   confirmCopy = '',
   totalAmount = null,
 } = {}) {
-  const period =
-    String(warranty.period || photoDraft.warrantyPeriod || '').trim() || '以门店公示为准'
-  const scope =
-    String(warranty.scope || photoDraft.warrantyScope || '').trim() || '本次已确认施工项目'
-  const exclusions =
-    String(warranty.exclusions || photoDraft.warrantyExclusions || '').trim() ||
-    '外力撞击、涉水、未按约定使用等除外'
+  const period = String(warranty.period || photoDraft.warrantyPeriod || '').trim()
+  const notes = resolveWarrantyNotes({
+    warrantyNotes: warranty.notes || photoDraft.warrantyNotes,
+    warrantyScope: warranty.scope || photoDraft.warrantyScope,
+    warrantyExclusions: warranty.exclusions || photoDraft.warrantyExclusions,
+  })
   const items = (workItems || []).map((item) => ({
     name: String(item.name || '').trim(),
     brand: String(item.brand || '').trim(),
@@ -442,8 +456,10 @@ function buildRepairReportPayload({
     totalAmount: computedTotal == null ? 0 : computedTotal,
     deliveryPhotos,
     warrantyPeriod: period,
-    warrantyScope: scope,
-    warrantyExclusions: exclusions,
+    warrantyNotes: notes,
+    // 兼容旧读侧：不再写入空话默认；存量字段置空
+    warrantyScope: '',
+    warrantyExclusions: '',
     confirmCopy:
       String(confirmCopy || photoDraft.confirmCopy || '').trim() ||
       '本人确认上述施工与交车状态，并知悉质保条款。',
@@ -467,8 +483,7 @@ function normalizePhotoDraft(raw = {}) {
           .filter(Boolean)
       : [],
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
-    warrantyScope: String(raw.warrantyScope || '').trim(),
-    warrantyExclusions: String(raw.warrantyExclusions || '').trim(),
+    warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
     selectedDeliveryUrls: Array.isArray(raw.selectedDeliveryUrls)
       ? raw.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
@@ -489,9 +504,16 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.warrantyPeriod != null) {
     next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
   }
-  if (patch.warrantyScope != null) next.warrantyScope = String(patch.warrantyScope || '').trim()
-  if (patch.warrantyExclusions != null) {
-    next.warrantyExclusions = String(patch.warrantyExclusions || '').trim()
+  if (patch.warrantyNotes != null) {
+    next.warrantyNotes = String(patch.warrantyNotes || '').trim()
+  }
+  // 旧字段写入时并入注意事项（新字段优先已在 normalize 处理）
+  if (patch.warrantyScope != null || patch.warrantyExclusions != null) {
+    next.warrantyNotes = resolveWarrantyNotes({
+      warrantyNotes: patch.warrantyNotes != null ? patch.warrantyNotes : next.warrantyNotes,
+      warrantyScope: patch.warrantyScope,
+      warrantyExclusions: patch.warrantyExclusions,
+    })
   }
   if (patch.confirmCopy != null) next.confirmCopy = String(patch.confirmCopy || '').trim()
   if (patch.selectedDeliveryUrls != null) {
@@ -529,4 +551,6 @@ module.exports = {
   parseAmount,
   stripFindingResultFromLineName,
   remapLegacyQuoteLineLayout,
+  isVagueWarrantyPeriod,
+  resolveWarrantyNotes,
 }

@@ -39,6 +39,8 @@ const {
   mapFindingRows,
   sumQuoteAmounts,
   buildQuoteLinesFromFindings,
+  resolveWarrantyNotes,
+  isVagueWarrantyPeriod,
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
@@ -224,8 +226,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
         totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
         deliveryPhotos: Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : [],
         warrantyPeriod: String(payload.warrantyPeriod || ''),
-        warrantyScope: String(payload.warrantyScope || ''),
-        warrantyExclusions: String(payload.warrantyExclusions || ''),
+        warrantyNotes: resolveWarrantyNotes(payload),
         confirmCopy: REPAIR_CONFIRM_COPY,
       },
     }
@@ -309,8 +310,7 @@ Page({
     findings: [],
     chiefComplaint: '',
     warrantyPeriod: '',
-    warrantyScope: '',
-    warrantyExclusions: '',
+    warrantyNotes: '',
     allDone: false,
     workImagePool: [],
     deliveryExteriorUrl: '',
@@ -667,8 +667,7 @@ Page({
       const exterior = String(this.data.deliveryExteriorUrl || '').trim()
       return {
         warrantyPeriod: this.data.warrantyPeriod,
-        warrantyScope: this.data.warrantyScope,
-        warrantyExclusions: this.data.warrantyExclusions,
+        warrantyNotes: this.data.warrantyNotes,
         confirmCopy: REPAIR_CONFIRM_COPY,
         deliveryExteriorUrl: exterior,
         selectedDeliveryUrls: (this.data.workImagePool || [])
@@ -727,8 +726,7 @@ Page({
       let conclusion = ''
       let confirmCopy = ''
       let warrantyPeriod = ''
-      let warrantyScope = ''
-      let warrantyExclusions = ''
+      let warrantyNotes = ''
       let sections = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
       let expandedFindingKey = ''
@@ -744,10 +742,8 @@ Page({
           findings = this.collectFindingsFromSections(sections)
         }
         if (isDeliveryPhotoStep) {
-          warrantyPeriod = photoDraft.warrantyPeriod || '以门店公示为准'
-          warrantyScope = photoDraft.warrantyScope || '本次已确认施工项目'
-          warrantyExclusions =
-            photoDraft.warrantyExclusions || '外力撞击、涉水、未按约定使用等除外'
+          warrantyPeriod = String(photoDraft.warrantyPeriod || '').trim()
+          warrantyNotes = resolveWarrantyNotes(photoDraft)
           confirmCopy =
             photoDraft.confirmCopy || '本人确认上述施工与交车状态，并知悉质保条款。'
           deliveryExteriorUrl = String(photoDraft.deliveryExteriorUrl || '').trim()
@@ -822,8 +818,7 @@ Page({
             ? '本人同意按上述项目施工，费用以本单为准。'
             : docPayload.confirmCopy || '')
         warrantyPeriod = docPayload.warrantyPeriod || ''
-        warrantyScope = docPayload.warrantyScope || ''
-        warrantyExclusions = docPayload.warrantyExclusions || ''
+        warrantyNotes = resolveWarrantyNotes(docPayload)
         if (Array.isArray(docPayload.lines) && docPayload.lines.length) {
           quoteLines = docPayload.lines.map((line) => normalizeQuoteLine(line))
         }
@@ -913,8 +908,7 @@ Page({
         conclusion,
         confirmCopy,
         warrantyPeriod,
-        warrantyScope,
-        warrantyExclusions,
+        warrantyNotes,
         proxyProofImages: ((active && active.document && active.document.proxyProofImages) || []).map(
           (url) => ({ url }),
         ),
@@ -1817,7 +1811,7 @@ Page({
     if (kind === 'delivery_photos') {
       const gaps = collectDeliveryPhotoDraftGaps({
         warrantyPeriod: this.data.warrantyPeriod,
-        warrantyScope: this.data.warrantyScope,
+        warrantyNotes: this.data.warrantyNotes,
         deliveryExteriorUrl: this.data.deliveryExteriorUrl,
         selectedDeliveryUrls: (this.data.workImagePool || [])
           .filter((row) => row && row.selected)
@@ -1900,8 +1894,7 @@ Page({
         ...base,
         confirmCopy: REPAIR_CONFIRM_COPY,
         warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod,
-        warrantyScope: this.data.warrantyScope || base.warrantyScope,
-        warrantyExclusions: this.data.warrantyExclusions || base.warrantyExclusions,
+        warrantyNotes: this.data.warrantyNotes || base.warrantyNotes,
       }
     }
     if (kind === 'work_order') {
@@ -2095,6 +2088,17 @@ Page({
         wx.showModal({
           title: '请先补全项目与金额',
           content: gaps.slice(0, 4).join('\n'),
+          showCancel: false,
+        })
+        return
+      }
+    }
+    if (kind === 'repair_report') {
+      const period = String(this.data.warrantyPeriod || '').trim()
+      if (!period || isVagueWarrantyPeriod(period)) {
+        wx.showModal({
+          title: '请先补全质保期限',
+          content: '请写清时长或里程，勿填「以门店公示为准」',
           showCancel: false,
         })
         return
