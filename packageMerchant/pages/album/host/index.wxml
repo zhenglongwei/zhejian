@@ -137,12 +137,15 @@
 
         <view class="merchant-host-page__faq">
           <text class="text-caption merchant-host-page__field-label">常见问法</text>
-          <text wx:if="{{geoFaqEmpty}}" class="text-caption text-secondary merchant-host-page__empty-hint">
+          <text
+            wx:if="{{geoFaqEmpty || geoFaqUnanswered}}"
+            class="text-caption text-secondary merchant-host-page__empty-hint"
+          >
             {{geoFaqEmptyHint}}
           </text>
           <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__edit-row">
             <view class="merchant-host-page__edit-row-head">
-              <text class="text-caption text-secondary">问答 {{index + 1}}</text>
+              <text class="text-caption text-secondary">问答 {{index + 1}}{{item.needsAnswer || !item.a ? ' · 待填答' : ''}}</text>
               <text
                 class="text-caption merchant-host-page__edit-remove"
                 data-index="{{index}}"
@@ -164,8 +167,8 @@
               data-index="{{index}}"
               data-field="a"
               bindinput="onFaqFieldInput"
-              maxlength="200"
-              placeholder="按本单事实简短回答"
+              maxlength="280"
+              placeholder="可写：行业惯例 → 本单怎么做 → 差别或优势；空着则公开页不展示"
             />
           </view>
           <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>

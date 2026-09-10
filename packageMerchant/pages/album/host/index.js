@@ -70,10 +70,11 @@ function normalizeGeoFaq(list) {
       if (!row || typeof row !== 'object') return null
       const q = String(row.q || row.question || '').trim()
       const a = String(row.a || row.answer || '').trim()
-      if (!q && !a) return null
+      if (!q) return null
       return {
         q,
         a,
+        needsAnswer: !a || Boolean(row.needsAnswer),
         _k: row._k || `faq_${i}_${q.slice(0, 12)}`,
       }
     })
@@ -84,6 +85,21 @@ function applyGeoDraftToPageData(draft = {}) {
   const highlights = normalizeGeoHighlights(draft.highlights)
   const faq = normalizeGeoFaq(draft.faq)
   const hints = buildGeoSectionHints(draft)
+  const unanswered = faq.filter((row) => !String(row.a || '').trim()).length
+  const hasMaterial = draft.faqHasMaterial !== false && Boolean(
+    ['faultDesc', 'inspectResult', 'repairPlan', 'resultConfirm'].some((k) =>
+      String(draft[k] || '').trim(),
+    ),
+  )
+  let geoFaqEmptyHint = hints.geoFaqEmptyHint
+  if (faq.length && unanswered) {
+    geoFaqEmptyHint = hasMaterial
+      ? `有 ${unanswered} 条尚未填写答案。未填答的不会出现在公开页，请结合本单补充。`
+      : '以下为本类常见问法。本单细节不足，答案留空，请结合本单填写；未填答的不会出现在公开页。'
+  } else if (!faq.length) {
+    geoFaqEmptyHint =
+      '暂无常见问法。可点「添加问法」自行补充；未填答的不会出现在公开页。'
+  }
   return {
     geoDraft: draft,
     geoSummary: draft.summary || '',
@@ -91,7 +107,9 @@ function applyGeoDraftToPageData(draft = {}) {
     geoFaq: faq,
     geoHighlightsEmpty: !highlights.length,
     geoFaqEmpty: !faq.length,
-    ...hints,
+    geoFaqUnanswered: unanswered,
+    geoHighlightsEmptyHint: hints.geoHighlightsEmptyHint,
+    geoFaqEmptyHint,
   }
 }
 
@@ -168,6 +186,7 @@ Page({
     geoFaq: [],
     geoHighlightsEmpty: true,
     geoFaqEmpty: true,
+    geoFaqUnanswered: 0,
     geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
@@ -648,11 +667,13 @@ Page({
   onAddFaq() {
     const list = [
       ...(this.data.geoFaq || []),
-      { q: '', a: '', _k: `faq_${Date.now()}` },
+      { q: '', a: '', needsAnswer: true, _k: `faq_${Date.now()}` },
     ]
+    const unanswered = list.filter((row) => !String(row.a || '').trim()).length
     this.setData({
       geoFaq: list,
       geoFaqEmpty: false,
+      geoFaqUnanswered: unanswered,
     })
   },
 
@@ -660,9 +681,11 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) return
     const list = (this.data.geoFaq || []).filter((_, i) => i !== index)
+    const unanswered = list.filter((row) => !String(row.a || '').trim()).length
     this.setData({
       geoFaq: list,
       geoFaqEmpty: !list.length,
+      geoFaqUnanswered: unanswered,
     })
   },
 
@@ -670,10 +693,18 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     const field = e.currentTarget.dataset.field
     if (!Number.isFinite(index) || (field !== 'q' && field !== 'a')) return
-    const list = (this.data.geoFaq || []).map((row, i) =>
-      i === index ? { ...row, [field]: e.detail.value } : row,
-    )
-    this.setData({ geoFaq: list })
+    const list = (this.data.geoFaq || []).map((row, i) => {
+      if (i !== index) return row
+      const next = { ...row, [field]: e.detail.value }
+      next.needsAnswer = !String(next.a || '').trim()
+      return next
+    })
+    const unanswered = list.filter((row) => !String(row.a || '').trim()).length
+    this.setData({
+      geoFaq: list,
+      geoFaqEmpty: !list.length,
+      geoFaqUnanswered: unanswered,
+    })
   },
 
   async onConfirmPublic() {
@@ -689,12 +720,11 @@ Page({
         value: String((row && row.value) || '').trim(),
       }))
       .filter((row) => row.label || row.value)
-    const faq = (this.data.geoFaq || [])
-      .map((row) => ({
-        q: String((row && row.q) || '').trim(),
-        a: String((row && row.a) || '').trim(),
-      }))
-      .filter((row) => row.q && row.a)
+    // 空答不上网：仍把全量交给后端，由 filterPublishableFaq 过滤
+    const faq = (this.data.geoFaq || []).map((row) => ({
+      q: String((row && row.q) || '').trim(),
+      a: String((row && row.a) || '').trim(),
+    }))
     this.setData({ working: true })
     try {
       await confirmHostedPublicPublish(this.albumId, {

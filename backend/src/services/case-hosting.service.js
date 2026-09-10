@@ -286,17 +286,28 @@ async function auditHostedPublicPrivacy(albumId, { storeId, merchantId } = {}) {
 function buildRuleHostedGeoDraft(view, album) {
   const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
   const { buildRuleMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const { buildHostedStorefrontFaq } = require('../utils/hosted-storefront-faq')
   const hasOwner =
     Boolean(String(album.userId || '').trim()) ||
     Boolean(String(album.userPhone || '').trim())
   const preview = buildAlbumGeoPreview(view, { coldStart: !hasOwner })
   const geo = preview.geo || {}
   const ruleDraft = buildRuleMerchantCaseDraft(view)
+  const faqPack = buildHostedStorefrontFaq({
+    serviceName: view.serviceName || album.serviceName,
+    templateId: view.templateId || album.templateId,
+    geo,
+    view,
+    answeredFaq: ruleDraft.faq || [],
+  })
   return {
     geoDraft: {
       summary: String(preview.aiSummaryPreview || geo.faultDesc || '').trim(),
       highlights: Array.isArray(geo.keyInfo) ? geo.keyInfo : [],
-      faq: Array.isArray(ruleDraft.faq) ? ruleDraft.faq : [],
+      faq: faqPack.faq,
+      faqCategoryId: faqPack.categoryId,
+      faqCategoryLabel: faqPack.categoryLabel,
+      faqHasMaterial: faqPack.hasMaterial,
       faultDesc: geo.faultDesc || '',
       inspectResult: geo.inspectResult || '',
       repairPlan: geo.repairPlan || '',
@@ -305,6 +316,7 @@ function buildRuleHostedGeoDraft(view, album) {
       source: 'rule',
     },
     preview,
+    faqPack,
   }
 }
 
@@ -312,6 +324,11 @@ function buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo) {
   const snap =
     (hostMeta && hostMeta.archiveSnapshot && hostMeta.archiveSnapshot.storeSnapshot) || {}
   const geo = (ruleGeo && ruleGeo.preview && ruleGeo.preview.geo) || {}
+  const faqPack = ruleGeo.faqPack || {
+    faqQuestions: (ruleGeo.geoDraft && ruleGeo.geoDraft.faq || []).map((r) => r.q).filter(Boolean),
+    hasMaterial: Boolean(ruleGeo.geoDraft && ruleGeo.geoDraft.faqHasMaterial),
+    categoryLabel: (ruleGeo.geoDraft && ruleGeo.geoDraft.faqCategoryLabel) || '',
+  }
   return {
     task: 'hosted_storefront_copy_v0',
     city: snap.city || view.store?.city || view.city || '',
@@ -324,11 +341,15 @@ function buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo) {
     resultConfirm: geo.resultConfirm || '',
     ruleSummary: (ruleGeo.geoDraft && ruleGeo.geoDraft.summary) || '',
     ruleHighlights: (ruleGeo.geoDraft && ruleGeo.geoDraft.highlights) || [],
+    faqCategory: faqPack.categoryLabel || '',
+    faqHasMaterial: Boolean(faqPack.hasMaterial),
+    faqQuestions: faqPack.faqQuestions || [],
     faqCandidates: (ruleGeo.geoDraft && ruleGeo.geoDraft.faq) || [],
   }
 }
 
 function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
+  const { buildHostedStorefrontFaq } = require('../utils/hosted-storefront-faq')
   const base = fallback && fallback.geoDraft ? fallback.geoDraft : {}
   const highlightsRaw = Array.isArray(parsed.highlights) ? parsed.highlights : base.highlights || []
   const highlights = highlightsRaw
@@ -341,23 +362,28 @@ function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
     })
     .filter(Boolean)
     .slice(0, 6)
-  const faqRaw = Array.isArray(parsed.faq) ? parsed.faq : base.faq || []
-  const faq = faqRaw
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null
-      const q = String(row.q || row.question || '').trim()
-      const a = String(row.a || row.answer || '').trim()
-      if (!q || !a) return null
-      return { q, a }
-    })
-    .filter(Boolean)
-    .slice(0, 6)
+  const categoryId =
+    (fallback && fallback.faqPack && fallback.faqPack.categoryId) || base.faqCategoryId || ''
+  const finalFaq = buildHostedStorefrontFaq({
+    categoryId,
+    serviceName: '',
+    geo: {
+      faultDesc: base.faultDesc,
+      inspectResult: base.inspectResult,
+      repairPlan: base.repairPlan,
+      resultConfirm: base.resultConfirm,
+    },
+    answeredFaq: Array.isArray(parsed.faq) ? parsed.faq : base.faq || [],
+  })
   const summary = String(parsed.summary || base.summary || '').trim()
   return {
     ...base,
     summary,
     highlights,
-    faq,
+    faq: finalFaq.faq,
+    faqCategoryId: finalFaq.categoryId,
+    faqCategoryLabel: finalFaq.categoryLabel,
+    faqHasMaterial: finalFaq.hasMaterial,
     generatedAt: new Date().toISOString(),
     source: summary ? 'llm_v0' : base.source || 'rule',
   }
@@ -681,6 +707,8 @@ async function confirmHostedPublicPublish(
   }
 
   const draft = prev.geoDraft || {}
+  const { filterPublishableFaq } = require('../utils/hosted-storefront-faq')
+  const rawFaq = Array.isArray(faq) ? faq : Array.isArray(draft.faq) ? draft.faq : []
   const geoLayer = {
     summary: String(summary != null ? summary : draft.summary || '').trim(),
     highlights: Array.isArray(highlights)
@@ -688,7 +716,7 @@ async function confirmHostedPublicPublish(
       : Array.isArray(draft.highlights)
         ? draft.highlights
         : [],
-    faq: Array.isArray(faq) ? faq : Array.isArray(draft.faq) ? draft.faq : [],
+    faq: filterPublishableFaq(rawFaq),
     confirmedAt: new Date().toISOString(),
   }
   if (!geoLayer.summary) {
