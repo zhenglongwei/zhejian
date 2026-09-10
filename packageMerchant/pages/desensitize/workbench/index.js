@@ -21,6 +21,7 @@ Page({
     albumId: '',
     from: '',
     fromPreMask: false,
+    fromHost: false,
     bizType: BIZ_TYPE.MERCHANT_HISTORY,
     workbenchItems: [],
     stats: { total: 0, processed: 0, failed: 0 },
@@ -43,14 +44,17 @@ Page({
     const albumId = (query && query.albumId) || ''
     const bizType = (query && query.bizType) || BIZ_TYPE.MERCHANT_HISTORY
     const copy = LIABILITY_COPY[bizType] || LIABILITY_COPY[BIZ_TYPE.MERCHANT_HISTORY]
+    const fromHost = query && query.from === 'host'
     this.setData({
       taskId,
       albumId,
       from: (query && query.from) || '',
       fromPreMask: query && query.fromPreMask === '1',
+      fromHost,
       bizType,
       liabilityText: copy.body,
-      confirmLabel: copy.confirmLabel,
+      confirmLabel: fromHost ? '返回继续托管' : copy.confirmLabel,
+      confirmLabelShort: fromHost ? '返回托管' : '确认并提交',
     })
     if (!taskId) {
       this.setData({
@@ -232,6 +236,10 @@ Page({
 
   async onConfirm() {
     if (this.data.confirmLoading) return
+    if (this.data.fromHost) {
+      wx.navigateBack({ delta: 1 })
+      return
+    }
     if (this.data.geoBlocked) {
       wx.showModal({
         title: '暂无法提交',

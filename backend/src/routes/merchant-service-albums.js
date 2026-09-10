@@ -726,6 +726,60 @@ router.post(
 )
 
 router.post(
+  '/service-albums/:albumId/host/cancel-public',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { cancelPublicHostIntent } = require('../services/case-hosting.service')
+      const data = await cancelPublicHostIntent(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.get(
+  '/service-albums/:albumId/host/public-face',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { getHostPublicFacePreview } = require('../services/case-hosting.service')
+      const data = await getHostPublicFacePreview(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/host/ensure-desensitize',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { ensureHostDesensitizeTask } = require('../services/case-hosting.service')
+      const data = await ensureHostDesensitizeTask(req.params.albumId, {
+        storeId,
+        merchantId: req.auth.merchantId,
+      })
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/unhost',
   requireAuth(['merchant']),
   async (req, res, next) => {

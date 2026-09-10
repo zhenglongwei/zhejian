@@ -183,6 +183,20 @@ async function confirmHostedPublicPublish(albumId, payload = {}) {
   return post(`/merchant/service-albums/${albumId}/host/confirm-public`, withStore(payload))
 }
 
+async function cancelPublicHostIntent(albumId) {
+  return post(`/merchant/service-albums/${albumId}/host/cancel-public`, withStore())
+}
+
+async function fetchHostPublicFace(albumId) {
+  return get(`/merchant/service-albums/${albumId}/host/public-face`, withStore())
+}
+
+async function ensureHostDesensitizeTask(albumId) {
+  return post(`/merchant/service-albums/${albumId}/host/ensure-desensitize`, withStore(), {
+    timeout: 120000,
+  })
+}
+
 async function unhostMerchantAlbum(albumId) {
   return post(`/merchant/service-albums/${albumId}/unhost`, withStore())
 }
@@ -377,6 +391,9 @@ module.exports = {
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
   confirmHostedPublicPublish,
+  cancelPublicHostIntent,
+  fetchHostPublicFace,
+  ensureHostDesensitizeTask,
   unhostMerchantAlbum,
   unpublishHostedMerchantAlbum,
   saveHostedPublicCopy,

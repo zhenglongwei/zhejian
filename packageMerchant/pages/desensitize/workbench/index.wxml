@@ -23,7 +23,13 @@
 
   <block wx:else>
     <ui-privacy-banner scene="desensitize" />
-    <block wx:if="{{fromPreMask}}">
+    <block wx:if="{{fromHost}}">
+      <view class="desensitize-page__ready">
+        <text class="desensitize-page__ready-hint text-caption">打码后返回托管页继续核对；公开责任在门店。</text>
+      </view>
+      <ui-compliance-notice type="desensitize" />
+    </block>
+    <block wx:elif="{{fromPreMask}}">
       <view class="desensitize-page__ready">
         <ui-tag variant="desensitized" text="已自动脱敏" />
         <text class="desensitize-page__ready-hint text-caption">敏感信息已预处理，请逐张核对后再提交审核。</text>
@@ -58,7 +64,7 @@
     <ui-fixed-bottom-bar>
       <view slot="left" class="desensitize-page__bar-left">
         <ui-button
-          wx:if="{{!fromPreMask}}"
+          wx:if="{{fromHost || !fromPreMask}}"
           type="primary"
           size="sm"
           loading="{{autoMaskLoading}}"
@@ -81,7 +87,7 @@
         type="secondary"
         slot="right"
         loading="{{confirmLoading}}"
-        disabled="{{!canConfirm || !liabilityAccepted || geoBlocked}}"
+        disabled="{{fromHost ? false : (!canConfirm || !liabilityAccepted || geoBlocked)}}"
         bind:btntap="onConfirm"
       >{{confirmLabelShort}}</ui-button>
     </ui-fixed-bottom-bar>

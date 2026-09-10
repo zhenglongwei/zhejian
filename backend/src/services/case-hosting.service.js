@@ -283,10 +283,148 @@ async function auditHostedPublicPrivacy(albumId, { storeId, merchantId } = {}) {
   }
 }
 
-/** 公开托管：基于可公开面生成 GEO 草稿（须先过隐私） */
+function buildRuleHostedGeoDraft(view, album) {
+  const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
+  const { buildRuleMerchantCaseDraft } = require('./merchant-case-draft.service')
+  const hasOwner =
+    Boolean(String(album.userId || '').trim()) ||
+    Boolean(String(album.userPhone || '').trim())
+  const preview = buildAlbumGeoPreview(view, { coldStart: !hasOwner })
+  const geo = preview.geo || {}
+  const ruleDraft = buildRuleMerchantCaseDraft(view)
+  return {
+    geoDraft: {
+      summary: String(preview.aiSummaryPreview || geo.faultDesc || '').trim(),
+      highlights: Array.isArray(geo.keyInfo) ? geo.keyInfo : [],
+      faq: Array.isArray(ruleDraft.faq) ? ruleDraft.faq : [],
+      faultDesc: geo.faultDesc || '',
+      inspectResult: geo.inspectResult || '',
+      repairPlan: geo.repairPlan || '',
+      resultConfirm: geo.resultConfirm || '',
+      generatedAt: new Date().toISOString(),
+      source: 'rule',
+    },
+    preview,
+  }
+}
+
+function buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo) {
+  const snap =
+    (hostMeta && hostMeta.archiveSnapshot && hostMeta.archiveSnapshot.storeSnapshot) || {}
+  const geo = (ruleGeo && ruleGeo.preview && ruleGeo.preview.geo) || {}
+  return {
+    task: 'hosted_storefront_copy_v0',
+    city: snap.city || view.store?.city || view.city || '',
+    storeName: snap.name || view.storeName || view.store?.name || '',
+    serviceName: view.serviceName || '',
+    vehicleDisplay: view.vehicleDisplay || '',
+    faultDesc: geo.faultDesc || '',
+    inspectResult: geo.inspectResult || '',
+    repairPlan: geo.repairPlan || '',
+    resultConfirm: geo.resultConfirm || '',
+    ruleSummary: (ruleGeo.geoDraft && ruleGeo.geoDraft.summary) || '',
+    ruleHighlights: (ruleGeo.geoDraft && ruleGeo.geoDraft.highlights) || [],
+    faqCandidates: (ruleGeo.geoDraft && ruleGeo.geoDraft.faq) || [],
+  }
+}
+
+function normalizeHostedGeoDraftFromLlm(parsed, fallback) {
+  const base = fallback && fallback.geoDraft ? fallback.geoDraft : {}
+  const highlightsRaw = Array.isArray(parsed.highlights) ? parsed.highlights : base.highlights || []
+  const highlights = highlightsRaw
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const label = String(row.label || row.key || '').trim()
+      const value = String(row.value || '').trim()
+      if (!label && !value) return null
+      return { label: label || '要点', value: value.slice(0, 40) }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
+  const faqRaw = Array.isArray(parsed.faq) ? parsed.faq : base.faq || []
+  const faq = faqRaw
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const q = String(row.q || row.question || '').trim()
+      const a = String(row.a || row.answer || '').trim()
+      if (!q || !a) return null
+      return { q, a }
+    })
+    .filter(Boolean)
+    .slice(0, 6)
+  const summary = String(parsed.summary || base.summary || '').trim()
+  return {
+    ...base,
+    summary,
+    highlights,
+    faq,
+    generatedAt: new Date().toISOString(),
+    source: summary ? 'llm_v0' : base.source || 'rule',
+  }
+}
+
+async function tryGenerateHostedGeoDraftWithLlm(view, hostMeta, ruleGeo) {
+  const fs = require('fs')
+  const path = require('path')
+  const { config } = require('../config')
+  const { chatCompletion } = require('../lib/dashscope-chat')
+  const llm = config.geoLlm || {}
+  const enabled = process.env.GEO_LLM_ENABLED === 'true' || llm.enabled === true
+  const dryRun =
+    process.env.GEO_LLM_DRY_RUN === 'true' || (!enabled && llm.dryRun !== false && !llm.enabled)
+  const apiKey = String(
+    process.env.GEO_LLM_API_KEY || llm.apiKey || process.env.DASHSCOPE_API_KEY || '',
+  ).trim()
+  if (!enabled || dryRun || !apiKey) return null
+
+  const promptPath = path.join(__dirname, '../prompts/hosted-storefront-copy-v0.md')
+  let systemPrompt = ''
+  try {
+    systemPrompt = fs.readFileSync(promptPath, 'utf8')
+  } catch (_) {
+    return null
+  }
+  const userPayload = buildHostedStorefrontLlmInput(view, hostMeta, ruleGeo)
+  try {
+    const completion = await chatCompletion({
+      apiKey,
+      model: String(process.env.GEO_LLM_MODEL || llm.model || 'qwen3.7-flash').trim(),
+      timeoutMs: Number(process.env.GEO_LLM_TIMEOUT_MS || llm.timeoutMs || 90000),
+      temperature: 0.2,
+      responseFormat: { type: 'json_object' },
+      enableThinking: false,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: JSON.stringify(userPayload) },
+      ],
+    })
+    const raw = String(completion && completion.text ? completion.text : '').trim()
+    let parsed = {}
+    try {
+      parsed = JSON.parse(raw)
+    } catch (_) {
+      const start = raw.indexOf('{')
+      const end = raw.lastIndexOf('}')
+      if (start >= 0 && end > start) {
+        try {
+          parsed = JSON.parse(raw.slice(start, end + 1))
+        } catch (e) {
+          parsed = {}
+        }
+      }
+    }
+    const geoDraft = normalizeHostedGeoDraftFromLlm(parsed, ruleGeo)
+    if (!geoDraft.summary) return null
+    return geoDraft
+  } catch (e) {
+    console.warn('[case-hosting] storefront LLM failed, fallback rule', e && e.message)
+    return null
+  }
+}
+
+/** 公开托管：基于可公开面生成店页文案草稿（须先过隐私；优先 LLM 并集 v0） */
 async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
-  const { buildAlbumGeoPreview } = require('./album-geo-preview.service')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -301,36 +439,178 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
     throw err
   }
   if (!prev.privacyAuditPassedAt) {
-    const err = new Error('请先通过隐私校验')
+    const err = new Error('请先核对将公开的内容')
     err.status = 409
     err.code = 'PRIVACY_REQUIRED'
     throw err
   }
 
   const view = buildMerchantView(album)
-  const { buildRuleMerchantCaseDraft } = require('./merchant-case-draft.service')
-  const hasOwner =
-    Boolean(String(album.userId || '').trim()) ||
-    Boolean(String(album.userPhone || '').trim())
-  const preview = buildAlbumGeoPreview(view, { coldStart: !hasOwner })
-  const geo = preview.geo || {}
-  const ruleDraft = buildRuleMerchantCaseDraft(view)
-  const geoDraft = {
-    summary: String(preview.aiSummaryPreview || geo.faultDesc || '').trim(),
-    highlights: geo.keyInfo || [],
-    faq: Array.isArray(ruleDraft.faq) ? ruleDraft.faq : [],
-    faultDesc: geo.faultDesc || '',
-    inspectResult: geo.inspectResult || '',
-    repairPlan: geo.repairPlan || '',
-    resultConfirm: geo.resultConfirm || '',
-    generatedAt: new Date().toISOString(),
-  }
+  const ruleGeo = buildRuleHostedGeoDraft(view, album)
+  const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo)
+  const geoDraft = llmDraft || ruleGeo.geoDraft
 
   const meta = await writeHostMeta(albumId, {
     geoDraft,
     publicPublishStage: 'awaiting_geo_confirm',
   })
-  return { albumId, geoDraft, preview, ...meta, message: 'GEO 草稿已生成，请确认后公开' }
+  return {
+    albumId,
+    geoDraft,
+    preview: ruleGeo.preview,
+    ...meta,
+    message: '店页说明已生成，请核对后公开',
+  }
+}
+
+/**
+ * 改回仅私密：清空公开进度；若已上店页则先下线，档案仍托管。
+ */
+async function cancelPublicHostIntent(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  if (!prev.hosted) {
+    const err = new Error('尚未托管')
+    err.status = 409
+    throw err
+  }
+
+  if (prev.visibility === 'public' || (album.publicCase && album.publicCase.id)) {
+    try {
+      await unpublishHostedCase(albumId, { storeId, merchantId })
+    } catch (_) {
+      /* 未公开也可清空意图 */
+    }
+  }
+
+  const meta = await writeHostMeta(albumId, {
+    hosted: true,
+    visibility: 'private',
+    publicPublishStage: '',
+    privacyAuditPassedAt: null,
+    geoDraft: null,
+    geoLayer: null,
+  })
+  return { albumId, ...meta, message: '已改回仅私密托管', nextStep: 'done' }
+}
+
+/** 将公开的图文预览（供核对页展示；脱敏图优先） */
+async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const { assessPublicCaseQuality } = require('./public-case-quality.service')
+  const { buildPreMaskUrlLookup } = require('./desensitize.service')
+  const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+  const prev = readHostMeta(album)
+  const view = buildMerchantView(album)
+  const quality = assessPublicCaseQuality(view)
+  const hardBlocks = (quality.privacyBlocks || []).map((block) => ({
+    kind: block.kind || 'privacy',
+    issue: block.issue || block.field || 'privacy',
+    message: block.message || '存在隐私风险，请处理后再公开',
+  }))
+
+  let lookup = { byRawUrl: new Map(), byNodeIdx: new Map(), ready: false }
+  try {
+    lookup = await buildPreMaskUrlLookup(albumId)
+  } catch (_) {
+    /* 无预脱敏也可预览原图（门店自认） */
+  }
+
+  const texts = []
+  const ruleGeo = buildRuleHostedGeoDraft(view, album)
+  const geo = (ruleGeo.preview && ruleGeo.preview.geo) || {}
+  ;[
+    { label: '现象', value: geo.faultDesc },
+    { label: '检测', value: geo.inspectResult },
+    { label: '方案', value: geo.repairPlan },
+    { label: '结果', value: geo.resultConfirm },
+  ].forEach((row) => {
+    const value = String(row.value || '').trim()
+    if (value) texts.push(row)
+  })
+
+  const images = []
+  ;(view.nodes || []).forEach((node) => {
+    ;(node.images || []).forEach((img, idx) => {
+      const raw = String(img.url || img.rawUrl || '').trim()
+      if (!raw) return
+      let display = raw
+      const key = `${node.id}:${idx}`
+      if (lookup.byNodeIdx && lookup.byNodeIdx.has(key)) {
+        display = lookup.byNodeIdx.get(key)
+      } else if (lookup.byRawUrl) {
+        const hit =
+          lookup.byRawUrl.get(raw) ||
+          lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
+        if (hit) display = hit
+      }
+      images.push({
+        nodeId: node.id,
+        nodeTitle: node.title || '',
+        idx,
+        url: display,
+        caption: String(img.caption || ''),
+        masked: display !== raw,
+      })
+    })
+  })
+
+  return {
+    albumId,
+    hosted: prev.hosted,
+    publicPublishStage: prev.publicPublishStage,
+    privacyPassed: Boolean(prev.privacyAuditPassedAt),
+    texts,
+    images: images.slice(0, 48),
+    imageCount: images.length,
+    hardBlocks,
+    desensitizeReady: Boolean(lookup.ready),
+  }
+}
+
+/** 确保预脱敏任务存在，供跳转脱敏工作台 */
+async function ensureHostDesensitizeTask(albumId, { storeId, merchantId } = {}) {
+  const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
+  const { ensureOrderPreMaskTask } = require('./desensitize.service')
+  const { buildPreMaskTaskId } = require('./desensitize.constants')
+  const { ROLES } = require('../lib/jwt')
+
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  assertMerchantAlbum(album, storeId, merchantId)
+
+  const task = await ensureOrderPreMaskTask(albumId, {
+    auth: {
+      roles: [ROLES.MERCHANT],
+      merchantId,
+    },
+  })
+  const taskId = (task && task.taskId) || buildPreMaskTaskId(albumId)
+  return {
+    albumId,
+    taskId,
+    preMaskStatus: (task && task.preMaskStatus) || '',
+    fromPreMask: true,
+  }
 }
 
 /** 确认 GEO 并公开（须隐私已过） */
@@ -483,6 +763,10 @@ async function unpublishHostedCase(albumId, { storeId, merchantId }) {
   const meta = await writeHostMeta(albumId, {
     hosted: true,
     visibility: 'private',
+    publicPublishStage: '',
+    privacyAuditPassedAt: null,
+    geoDraft: null,
+    geoLayer: null,
   })
   return { albumId, ...meta, message: '已取消公开，仍作为私密档案托管' }
 }
@@ -693,6 +977,9 @@ module.exports = {
   auditHostedPublicPrivacy,
   generateHostedGeoDraft,
   confirmHostedPublicPublish,
+  cancelPublicHostIntent,
+  getHostPublicFacePreview,
+  ensureHostDesensitizeTask,
   unhostAlbum,
   unpublishHostedCase,
   saveHostedPublicCopy,
