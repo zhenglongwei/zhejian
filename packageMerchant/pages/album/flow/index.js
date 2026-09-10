@@ -440,31 +440,48 @@ Page({
   },
 
   collectAllWorkImages(album = {}, flowNodes = []) {
-    const byUrl = {}
-    const put = (url, partName = '') => {
-      const key = String(url || '').trim()
-      if (!key || byUrl[key]) return
-      byUrl[key] = {
-        url: key,
+    const byKey = {}
+    const normalizeKey = (url, imageId = '') => {
+      const id = String(imageId || '').trim()
+      if (id) return `id:${id}`
+      const raw = String(url || '').trim()
+      if (!raw) return ''
+      // 节点图常经 CDN/签名重写，与 photoDraft 原 URL 不完全一致；去 query 后再比
+      const bare = raw.split('?')[0].split('#')[0]
+      return `url:${bare}`
+    }
+    const put = (url, partName = '', imageId = '') => {
+      const u = String(url || '').trim()
+      const key = normalizeKey(u, imageId)
+      if (!key || byKey[key]) return
+      byKey[key] = {
+        url: u,
+        imageId: String(imageId || '').trim(),
         partName: String(partName || '').trim(),
         selected: false,
       }
     }
-    ;((album && album.nodes) || []).forEach((node) => {
-      if (!node || node.id !== 'stage_5') return
-      ;(node.images || []).forEach((img) => {
-        const url = typeof img === 'string' ? img : img.url
-        put(url, typeof img === 'object' ? img.caption || '' : '')
-      })
-    })
+
+    // 施工图以 photoDraft 为真源；stage_5 是落库镜像，再并入会因 URL 差异整批翻倍
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
       ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => {
         const item = normalizeWorkFinding(raw)
-        item.images.forEach((img) => put(img.url, item.partName))
+        item.images.forEach((img) => put(img.url, item.partName, img.imageId))
       })
     })
-    return Object.keys(byUrl).map((k) => byUrl[k])
+    if (!Object.keys(byKey).length) {
+      ;((album && album.nodes) || []).forEach((node) => {
+        if (!node || node.id !== 'stage_5') return
+        ;(node.images || []).forEach((img) => {
+          const url = typeof img === 'string' ? img : img && img.url
+          const imageId =
+            typeof img === 'object' ? img.id || img.imageId || '' : ''
+          put(url, typeof img === 'object' ? img.caption || '' : '', imageId)
+        })
+      })
+    }
+    return Object.keys(byKey).map((k) => byKey[k])
   },
 
   buildSections(album, node, photoDraft = {}, flowNodes = []) {
@@ -1771,13 +1788,16 @@ Page({
       clearTimeout(this._photoSaveTimer)
       this._photoSaveTimer = null
     }
-    const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
-    if (total < 1) {
-      wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
-      return
+    const kind = this.data.activeNode && this.data.activeNode.kind
+    // 完工照：外观可从施工图引用，不要求再往 stage_6 落一份实体图
+    if (kind !== 'delivery_photos') {
+      const total = this.data.sections.reduce((sum, s) => sum + (s.images || []).length, 0)
+      if (total < 1) {
+        wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
+        return
+      }
     }
 
-    const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'intake_inspection') {
       const draftPayload = {
         chiefComplaint: this.data.chiefComplaint,

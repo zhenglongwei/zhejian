@@ -74,6 +74,15 @@ function resolveDocumentStatusLabel(doc = {}) {
 }
 
 function countPhotosForFlowNode(node, albumNodes = []) {
+  // 完工照：整车外观/交车图以引用为主，不强制 stage_6 再存实体图
+  if (node && node.kind === 'delivery_photos') {
+    const draft = (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+    if (String(draft.deliveryExteriorUrl || '').trim()) return 1
+    const extras = Array.isArray(draft.selectedDeliveryUrls)
+      ? draft.selectedDeliveryUrls.map((url) => String(url || '').trim()).filter(Boolean)
+      : []
+    if (extras.length) return extras.length
+  }
   let stageIds = resolveLegacyStageIdsForFlowNode(node)
   // 接车与检测：计数含存量 stage_1（统一入口迁移前）
   if (node && node.kind === 'intake_inspection') {
@@ -469,13 +478,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
-  const photoCount = countPhotosForFlowNode(node, nodes)
-  if (photoCount < 1) {
-    const err = new Error('请至少上传 1 张过程照片')
-    err.status = 400
-    throw err
-  }
-
   const vehicle = album.vehicleJson || {}
   const incomingDraft = mergePhotoDraft(node.photoDraft || {}, {
     ...(payload.photoDraft || {}),
@@ -489,7 +491,27 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       ? { warrantyExclusions: payload.warrantyExclusions }
       : {}),
     ...(payload.confirmCopy != null ? { confirmCopy: payload.confirmCopy } : {}),
+    ...(payload.deliveryExteriorUrl != null
+      ? { deliveryExteriorUrl: payload.deliveryExteriorUrl }
+      : {}),
+    ...(payload.selectedDeliveryUrls != null
+      ? { selectedDeliveryUrls: payload.selectedDeliveryUrls }
+      : {}),
   })
+
+  const photoCount = countPhotosForFlowNode(
+    { ...node, photoDraft: incomingDraft },
+    nodes,
+  )
+  if (photoCount < 1) {
+    const err = new Error(
+      node.kind === 'delivery_photos'
+        ? '请指定整车外观（从施工图选择或补拍）'
+        : '请至少上传 1 张过程照片',
+    )
+    err.status = 400
+    throw err
+  }
 
   if (node.kind === 'intake_inspection') {
     const draftReport = buildInspectionReportPayload({
