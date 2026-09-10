@@ -191,8 +191,8 @@ async function fetchHostPublicFace(albumId) {
   return get(`/merchant/service-albums/${albumId}/host/public-face`, withStore())
 }
 
-async function ensureHostDesensitizeTask(albumId) {
-  return post(`/merchant/service-albums/${albumId}/host/ensure-desensitize`, withStore(), {
+async function ensureHostDesensitizeTask(albumId, payload = {}) {
+  return post(`/merchant/service-albums/${albumId}/host/ensure-desensitize`, withStore(payload), {
     timeout: 120000,
   })
 }

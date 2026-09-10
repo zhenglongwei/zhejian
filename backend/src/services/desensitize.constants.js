@@ -139,6 +139,11 @@ function buildMerchantColdStartTaskId(albumId) {
   return `task_mch_${albumId}`
 }
 
+/** 托管公开核对：商家可编辑的脱敏任务（非系统 pre_mask） */
+function buildHostMaskTaskId(albumId) {
+  return `task_host_mask_${albumId}`
+}
+
 function buildReviewPreviewTaskId(reviewId) {
   return `task_review_preview_${reviewId}`
 }
@@ -180,6 +185,7 @@ module.exports = {
   buildPreMaskTaskId,
   buildAuthorizeTaskId,
   buildMerchantColdStartTaskId,
+  buildHostMaskTaskId,
   buildReviewPreviewTaskId,
   albumToNodeView,
 }

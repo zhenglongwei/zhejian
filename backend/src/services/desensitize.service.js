@@ -11,6 +11,7 @@ const {
   buildPreMaskTaskId,
   buildAuthorizeTaskId,
   buildMerchantColdStartTaskId,
+  buildHostMaskTaskId,
   buildReviewPreviewTaskId,
   albumToNodeView,
 } = require('./desensitize.constants')
@@ -814,6 +815,43 @@ async function runAutoMask(taskId, options = {}) {
     })
   )
   await Promise.all(updates)
+  // 一键脱敏后同步到同相册 pre_mask 等任务，托管预览可读到最新脱敏图
+  try {
+    const albumId = String(task.bizId || '').trim()
+    if (albumId) {
+      const refreshed = await prisma.desensitizeTask.findUnique({
+        where: { taskId },
+        include: { assets: true },
+      })
+      for (const asset of refreshed.assets || []) {
+        const bare = stripUrlQuery(asset.rawUrl || '')
+        const maskedUrl = asset.maskedUrl || asset.preMaskedUrl || ''
+        if (!bare || !maskedUrl) continue
+        const siblings = await prisma.desensitizeAsset.findMany({
+          where: { task: { bizId: albumId } },
+          select: { taskId: true, assetId: true, rawUrl: true },
+        })
+        await Promise.all(
+          siblings
+            .filter((row) => !(row.taskId === taskId && row.assetId === asset.assetId))
+            .filter((row) => stripUrlQuery(row.rawUrl || '') === bare)
+            .map((row) =>
+              prisma.desensitizeAsset.update({
+                where: { taskId_assetId: { taskId: row.taskId, assetId: row.assetId } },
+                data: {
+                  mediaId: asset.mediaId || '',
+                  maskedUrl,
+                  preMaskedUrl: maskedUrl,
+                  status: asset.status,
+                },
+              }),
+            ),
+        )
+      }
+    }
+  } catch (e) {
+    console.warn('[desensitize] sync auto-mask siblings failed', e && e.message)
+  }
   return getTaskById(taskId, options)
 }
 
@@ -945,6 +983,35 @@ async function applyManualMask(taskId, assetId, payload = {}, options = {}) {
       previewed: false,
     },
   })
+  // 同步到同相册其它脱敏任务（含 pre_mask），便于托管通读预览立刻看到新图
+  try {
+    const albumId = String(task.bizId || '').trim()
+    const bare = stripUrlQuery(asset.rawUrl || '')
+    if (albumId && bare) {
+      const siblings = await prisma.desensitizeAsset.findMany({
+        where: { task: { bizId: albumId } },
+        select: { taskId: true, assetId: true, rawUrl: true },
+      })
+      await Promise.all(
+        siblings
+          .filter((row) => !(row.taskId === taskId && row.assetId === assetId))
+          .filter((row) => stripUrlQuery(row.rawUrl || '') === bare)
+          .map((row) =>
+            prisma.desensitizeAsset.update({
+              where: { taskId_assetId: { taskId: row.taskId, assetId: row.assetId } },
+              data: {
+                mediaId: result.mediaId || asset.mediaId || '',
+                maskedUrl: result.maskedUrl,
+                preMaskedUrl: result.maskedUrl,
+                status: ASSET_STATUS.MANUAL_MASKED,
+              },
+            }),
+          ),
+      )
+    }
+  } catch (e) {
+    console.warn('[desensitize] sync manual mask siblings failed', e && e.message)
+  }
   await refreshPreMaskStatusForTask(taskId)
   return getTaskById(taskId, options)
 }
@@ -1359,6 +1426,115 @@ async function createMerchantColdStartAuthorizeTaskFromPreMask(albumId) {
   }
 }
 
+/**
+ * 托管公开核对：创建/刷新商家可编辑脱敏任务（支持一键 AI / 手工打码）
+ * 与系统 pre_mask 分离，避免「预脱敏无需手动」拦截。
+ */
+async function ensureHostMerchantMaskTask(albumId, options = {}) {
+  const album = await loadAlbumWithRelations(albumId)
+  if (!album) {
+    const err = new Error('相册不存在')
+    err.status = 404
+    throw err
+  }
+  const auth = normalizeTaskAuthOptions(options)
+  if (auth && (auth.roles || []).includes(ROLES.MERCHANT) && auth.merchantId) {
+    assertMerchantAlbumAccess(album, auth.merchantId)
+  }
+
+  let preMaskTask = await findPreMaskTask(albumId)
+  const needsRefresh =
+    !preMaskTask ||
+    [PRE_MASK_STATUS.RUNNING, PRE_MASK_STATUS.IDLE, null, ''].includes(
+      preMaskTask.preMaskStatus,
+    ) ||
+    Boolean(options.force)
+
+  if (needsRefresh || !preMaskTask) {
+    await ensureOrderPreMaskTask(albumId, {
+      force: Boolean(options.force) || Boolean(preMaskTask && preMaskTask.preMaskStatus === PRE_MASK_STATUS.FAILED),
+      auth: auth || { roles: [ROLES.SYSTEM] },
+    })
+    preMaskTask = await findPreMaskTask(albumId)
+  }
+
+  if (!preMaskTask || !(preMaskTask.assets || []).length) {
+    const err = new Error('本单暂无过程图可脱敏')
+    err.status = 409
+    err.code = 'HOST_MASK_NO_ASSETS'
+    throw err
+  }
+
+  const assetInputs = (preMaskTask.assets || []).map(mapPreMaskAssetToAuthorizeInput)
+  const taskId = buildHostMaskTaskId(albumId)
+
+  const existing = await prisma.desensitizeTask.findUnique({
+    where: { taskId },
+    include: { assets: true },
+  })
+  const sameVersion =
+    existing &&
+    existing.preMaskTaskId === preMaskTask.taskId &&
+    Number(existing.preMaskVersion || 0) === Number(preMaskTask.preMaskVersion || 0) &&
+    !existing.maskingConfirmed &&
+    (existing.assets || []).length > 0
+
+  if (sameVersion && !options.force) {
+    const task = await getTaskById(taskId)
+    return {
+      albumId,
+      taskId,
+      fromPreMask: true,
+      preMaskStatus: preMaskTask.preMaskStatus || '',
+      assetCount: (task && task.rawAssets && task.rawAssets.length) || existing.assets.length,
+      task,
+    }
+  }
+
+  await prisma.desensitizeTask.upsert({
+    where: { taskId },
+    create: {
+      taskId,
+      bizType: BIZ_TYPE.MERCHANT_HISTORY,
+      bizId: album.id,
+      orderId: album.orderId || null,
+      operatorRole: 'merchant',
+      liabilityType: 'merchant',
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion || 0,
+      fromPreMask: true,
+      maskingConfirmed: false,
+      assets: { create: assetInputs },
+    },
+    update: {
+      bizType: BIZ_TYPE.MERCHANT_HISTORY,
+      bizId: album.id,
+      orderId: album.orderId || null,
+      operatorRole: 'merchant',
+      liabilityType: 'merchant',
+      preMaskTaskId: preMaskTask.taskId,
+      preMaskVersion: preMaskTask.preMaskVersion || 0,
+      fromPreMask: true,
+      maskingConfirmed: false,
+      maskingConfirmedAt: null,
+      assets: {
+        deleteMany: {},
+        create: assetInputs,
+      },
+    },
+  })
+
+  const task = await getTaskById(taskId)
+  return {
+    albumId,
+    taskId,
+    fromPreMask: true,
+    preMaskStatus: preMaskTask.preMaskStatus || '',
+    assetCount: (task && task.rawAssets && task.rawAssets.length) || assetInputs.length,
+    task,
+  }
+}
+
 module.exports = {
   loadAlbumWithRelations,
   albumToNodeView,
@@ -1371,6 +1547,7 @@ module.exports = {
   buildPreMaskUrlLookup,
   createAlbumAuthorizeTaskFromPreMask,
   createOrderAuthorizeTaskFromPreMask,
+  ensureHostMerchantMaskTask,
   runAutoMask,
   retryAsset,
   applyManualMask,

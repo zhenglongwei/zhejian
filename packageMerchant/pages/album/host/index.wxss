@@ -89,6 +89,9 @@
 
 .merchant-host-page__actions {
   margin-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
 }
 
 .merchant-host-page__field-label {

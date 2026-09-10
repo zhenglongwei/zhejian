@@ -8,8 +8,21 @@ const {
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
 } = require('../../../../services/merchant-service-album')
+const { fetchTask, runAutoMask } = require('../../../../services/desensitize')
 const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-status')
 const { BIZ_TYPE } = require('../../../../constants/desensitize')
+
+function stripUrlQuery(url) {
+  return String(url || '').trim().split('?')[0].split('#')[0]
+}
+
+function urlsLikelyMatch(a, b) {
+  const x = stripUrlQuery(a)
+  const y = stripUrlQuery(b)
+  if (!x || !y) return false
+  if (x === y) return true
+  return x.endsWith(y) || y.endsWith(x)
+}
 
 /** 向导步骤：1 存档 · 2 核对公开内容 · 3 店页说明 */
 function resolveWizardStep(hostMeta = {}, hostMode = 'private') {
@@ -262,11 +275,82 @@ Page({
         url: `/packageMerchant/pages/desensitize/workbench/index?taskId=${encodeURIComponent(
           taskId,
         )}&albumId=${encodeURIComponent(this.albumId)}&from=host&fromPreMask=1&bizType=${encodeURIComponent(
-          BIZ_TYPE.SERVICE_PRE_MASK || 'service_pre_mask',
+          BIZ_TYPE.MERCHANT_HISTORY,
         )}`,
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '打开失败', icon: 'none' })
+    } finally {
+      this.setData({ working: false })
+    }
+  },
+
+  async ensureMaskTask() {
+    const res = await ensureHostDesensitizeTask(this.albumId)
+    const taskId = res && res.taskId
+    if (!taskId) {
+      const err = new Error('脱敏任务未就绪')
+      throw err
+    }
+    this._maskTaskId = taskId
+    return taskId
+  },
+
+  async findMaskAssetId(imageUrl) {
+    const taskId = await this.ensureMaskTask()
+    const task = await fetchTask(taskId)
+    const assets = (task && task.rawAssets) || []
+    const hit = assets.find(
+      (row) =>
+        urlsLikelyMatch(row.url, imageUrl) ||
+        urlsLikelyMatch(row.maskedUrl, imageUrl) ||
+        urlsLikelyMatch(row.preMaskedUrl, imageUrl),
+    )
+    if (!hit) {
+      const err = new Error('未找到对应过程图，请从脱敏工作台处理')
+      throw err
+    }
+    return { taskId, assetId: hit.id }
+  },
+
+  async onReviewImageEdit(e) {
+    if (this.data.working) return
+    const url = e.detail && e.detail.url
+    if (!url) return
+    this.setData({ working: true })
+    try {
+      const { taskId, assetId } = await this.findMaskAssetId(url)
+      wx.navigateTo({
+        url:
+          `/pages/desensitize/mask/index?taskId=${encodeURIComponent(taskId)}` +
+          `&assetId=${encodeURIComponent(assetId)}` +
+          `&albumId=${encodeURIComponent(this.albumId)}`,
+        events: {
+          maskUpdated: () => {
+            this.loadPublicFace({ silent: true })
+          },
+        },
+      })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '无法打开打码', icon: 'none' })
+    } finally {
+      this.setData({ working: false })
+    }
+  },
+
+  async onRunHostAutoMask() {
+    if (this.data.working) return
+    this.setData({ working: true })
+    try {
+      const taskId = await this.ensureMaskTask()
+      wx.showLoading({ title: '脱敏中…', mask: true })
+      await runAutoMask(taskId)
+      wx.hideLoading()
+      wx.showToast({ title: '脱敏完成', icon: 'success' })
+      await this.loadPublicFace({ silent: true })
+    } catch (e) {
+      wx.hideLoading()
+      wx.showToast({ title: (e && e.message) || '脱敏失败', icon: 'none' })
     } finally {
       this.setData({ working: false })
     }

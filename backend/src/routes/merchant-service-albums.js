@@ -771,6 +771,7 @@ router.post(
       const data = await ensureHostDesensitizeTask(req.params.albumId, {
         storeId,
         merchantId: req.auth.merchantId,
+        force: Boolean(req.body && req.body.force),
       })
       return ok(res, data)
     } catch (e) {

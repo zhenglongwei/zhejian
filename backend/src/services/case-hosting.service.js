@@ -596,11 +596,10 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   }
 }
 
-/** 确保预脱敏任务存在，供跳转脱敏工作台 */
-async function ensureHostDesensitizeTask(albumId, { storeId, merchantId } = {}) {
+/** 确保托管可编辑脱敏任务（支持一键 AI / 手工打码） */
+async function ensureHostDesensitizeTask(albumId, { storeId, merchantId, force = false } = {}) {
   const { assertMerchantAlbum, loadAlbum } = require('./service-album.service')
-  const { ensureOrderPreMaskTask } = require('./desensitize.service')
-  const { buildPreMaskTaskId } = require('./desensitize.constants')
+  const { ensureHostMerchantMaskTask } = require('./desensitize.service')
   const { ROLES } = require('../lib/jwt')
 
   const album = await loadAlbum(albumId)
@@ -611,18 +610,19 @@ async function ensureHostDesensitizeTask(albumId, { storeId, merchantId } = {}) 
   }
   assertMerchantAlbum(album, storeId, merchantId)
 
-  const task = await ensureOrderPreMaskTask(albumId, {
+  const data = await ensureHostMerchantMaskTask(albumId, {
+    force: Boolean(force),
     auth: {
       roles: [ROLES.MERCHANT],
       merchantId,
     },
   })
-  const taskId = (task && task.taskId) || buildPreMaskTaskId(albumId)
   return {
     albumId,
-    taskId,
-    preMaskStatus: (task && task.preMaskStatus) || '',
+    taskId: data.taskId,
+    preMaskStatus: data.preMaskStatus || '',
     fromPreMask: true,
+    assetCount: data.assetCount || 0,
   }
 }
 

@@ -23,6 +23,11 @@ Component({
       type: String,
       value: '',
     },
+    /** preview | edit — edit 时点图抛出 imageedit，由父页打开打码 */
+    imageTapMode: {
+      type: String,
+      value: 'preview',
+    },
   },
 
   methods: {
@@ -50,6 +55,10 @@ Component({
           .filter(Boolean)
       }
       if (!url) return
+      if (this.data.imageTapMode === 'edit') {
+        this.triggerEvent('imageedit', { url, urls: urls.length ? urls : [url] })
+        return
+      }
       wx.previewImage({
         current: url,
         urls: urls.length ? urls : [url],

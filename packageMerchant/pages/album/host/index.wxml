@@ -58,10 +58,14 @@
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
         <text class="text-body merchant-host-page__label">通读本单内容</text>
-        <text class="text-caption text-secondary">按报告顺序核对图文；车牌、人脸、手机号等须打码或自行处理后继续。</text>
+        <text class="text-caption text-secondary">点图片可直接打码；车牌、人脸、手机号等处理后再继续。</text>
 
         <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__review">
-          <album-service-flow docs="{{reviewDocs}}" />
+          <album-service-flow
+            docs="{{reviewDocs}}"
+            imageTapMode="edit"
+            bind:imageedit="onReviewImageEdit"
+          />
         </view>
         <view wx:else class="merchant-host-page__empty">
           <text class="text-caption text-secondary">暂无报告内容。请先在服务进度里完成检测/方案/工单/完工后再来。</text>
@@ -72,8 +76,11 @@
         </view>
 
         <view class="merchant-host-page__actions">
+          <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onRunHostAutoMask">
+            一键 AI 脱敏
+          </ui-button>
           <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onOpenDesensitize">
-            自动脱敏 / 手工打码
+            打开脱敏工作台
           </ui-button>
         </view>
       </view>

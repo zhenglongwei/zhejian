@@ -195,7 +195,10 @@ Page({
     const failed = candidates.filter((c) => c.tagVariant === 'warning')
     const list = failed.length ? failed : candidates
     wx.showActionSheet({
-      itemList: list.map((c) => c.nodeTitle || '过程图'),
+      itemList: list.map((c, i) => {
+        const title = String(c.nodeTitle || '过程图').trim() || '过程图'
+        return `${title} · ${i + 1}`
+      }),
       success: (res) => {
         if (list[res.tapIndex]) {
           this.goMaskEditor(list[res.tapIndex].id)

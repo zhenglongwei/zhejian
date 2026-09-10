@@ -12,6 +12,11 @@ Component({
       type: String,
       value: '',
     },
+    /** preview | edit */
+    imageTapMode: {
+      type: String,
+      value: 'preview',
+    },
   },
 
   methods: {
@@ -19,6 +24,11 @@ Component({
       const id = (e.detail && e.detail.nodeId) || e.currentTarget.dataset.id
       if (!id) return
       this.triggerEvent('confirm', { nodeId: id })
+    },
+
+    onImageEdit(e) {
+      const detail = (e && e.detail) || {}
+      this.triggerEvent('imageedit', detail)
     },
   },
 })

@@ -23,9 +23,11 @@
         wx:else
         doc="{{item}}"
         mode="owner"
+        imageTapMode="{{imageTapMode}}"
         storePhone="{{storePhone}}"
         confirming="{{confirmingId === item.id}}"
         bind:confirm="onConfirmTap"
+        bind:imageedit="onImageEdit"
       />
     </view>
   </view>
