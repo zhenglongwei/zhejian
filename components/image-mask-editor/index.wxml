@@ -2,11 +2,16 @@
   <view class="mask-editor__hint text-caption">
     在图片上拖拽框选车牌、人脸等敏感区域；可框选多处后应用打码。
   </view>
-  <view class="mask-editor__canvas-wrap" style="height: {{canvasH}}px;" catchtouchmove="preventPass">
+  <view
+    class="mask-editor__canvas-wrap"
+    style="width: {{canvasW}}px; height: {{canvasH}}px;"
+    catchtouchmove="preventPass"
+  >
     <canvas
       id="maskCanvas"
       type="2d"
       class="mask-editor__canvas"
+      style="width: {{canvasW}}px; height: {{canvasH}}px;"
       disable-scroll="{{true}}"
       catchtouchstart="onTouchStart"
       catchtouchmove="onTouchMove"

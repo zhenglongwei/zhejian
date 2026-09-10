@@ -30,7 +30,8 @@ Component({
   data: {
     regions: [],
     activeMode: 'mosaic',
-    canvasH: 400,
+    canvasW: 300,
+    canvasH: 200,
     ready: false,
   },
   lifetimes: {
@@ -45,23 +46,16 @@ Component({
       this.setData({ activeMode: this.properties.mode === 'blur' ? 'blur' : 'mosaic' })
     },
     ready() {
-      if (this.properties.imageUrl) {
-        this.initCanvas()
-      }
+      if (this.properties.imageUrl) this.initCanvas()
     },
   },
   observers: {
     imageUrl(url) {
-      if (url) {
-        // 延后一拍，等浮层/面板完成布局后再取 canvas 节点
-        setTimeout(() => this.initCanvas(), 40)
-      }
+      if (url) setTimeout(() => this.initCanvas(), 30)
     },
   },
   methods: {
-    preventPass() {
-      /* 拦住空白区滑动穿透，不参与画框 */
-    },
+    preventPass() {},
 
     initCanvas() {
       const url = this.properties.imageUrl
@@ -71,29 +65,37 @@ Component({
         src: url,
         success: (info) => {
           const sys = wx.getSystemInfoSync()
-          const containerW = Math.max(1, sys.windowWidth - 32)
-          const ratio = (info.height || 1) / (info.width || 1)
-          const maxH = sys.windowHeight * 0.45
-          let drawW = containerW
-          let drawH = drawW * ratio
+          // 与弹层左右 padding 对齐，避免画布比容器宽
+          const maxW = Math.max(120, Math.floor(sys.windowWidth - 48))
+          const maxH = Math.floor(sys.windowHeight * 0.42)
+          const imgW = Number(info.width) || 1
+          const imgH = Number(info.height) || 1
+          const ratio = imgH / imgW
+          let drawW = maxW
+          let drawH = Math.round(drawW * ratio)
           if (drawH > maxH) {
             drawH = maxH
-            drawW = drawH / ratio
+            drawW = Math.round(drawH / ratio)
           }
-          const offsetX = (containerW - drawW) / 2
           this._layout = {
-            containerW,
+            containerW: drawW,
             containerH: drawH,
-            offsetX,
+            offsetX: 0,
             offsetY: 0,
             drawW,
             drawH,
-            imgW: info.width,
-            imgH: info.height,
+            imgW,
+            imgH,
           }
-          this.setData({ canvasH: Math.ceil(drawH), ready: false, regions: [] }, () => {
-            this.setupCanvas(url, 0)
-          })
+          this.setData(
+            {
+              canvasW: drawW,
+              canvasH: drawH,
+              ready: false,
+              regions: [],
+            },
+            () => this.setupCanvas(url, 0),
+          )
         },
         fail: () => {
           wx.showToast({ title: '图片加载失败', icon: 'none' })
@@ -103,34 +105,29 @@ Component({
     },
 
     setupCanvas(url, attempt) {
-      const query = this.createSelectorQuery()
-      query
+      this.createSelectorQuery()
         .select('#maskCanvas')
         .fields({ node: true, size: true })
         .exec((res) => {
           if (!res || !res[0] || !res[0].node || !this._layout) {
-            if (attempt < 8) {
-              setTimeout(() => this.setupCanvas(url, attempt + 1), 50)
-            }
+            if (attempt < 10) setTimeout(() => this.setupCanvas(url, attempt + 1), 40)
             return
           }
           const canvas = res[0].node
           const ctx = canvas.getContext('2d')
           const dpr = wx.getSystemInfoSync().pixelRatio || 2
           const { containerW, containerH } = this._layout
-          canvas.width = containerW * dpr
-          canvas.height = containerH * dpr
-          ctx.setTransform(1, 0, 0, 1, 0, 0)
-          ctx.scale(dpr, dpr)
+          // 缓冲分辨率；显示尺寸用 style 固定为 containerW/H，避免空白错位
+          canvas.width = Math.max(1, Math.floor(containerW * dpr))
+          canvas.height = Math.max(1, Math.floor(containerH * dpr))
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
           this._canvas = canvas
           this._ctx = ctx
           const img = canvas.createImage()
           img.onload = () => {
             this._img = img
             this.redraw()
-            this.refreshCanvasRect(() => {
-              this.setData({ ready: true })
-            })
+            this.refreshCanvasRect(() => this.setData({ ready: true }))
           }
           img.onerror = () => {
             wx.showToast({ title: '图片绘制失败', icon: 'none' })
@@ -175,8 +172,7 @@ Component({
       ctx.save()
       ctx.strokeStyle = color
       ctx.lineWidth = 2
-      if (dashed) ctx.setLineDash([6, 4])
-      else ctx.setLineDash([])
+      ctx.setLineDash(dashed ? [6, 4] : [])
       ctx.strokeRect(x, y, w, h)
       ctx.fillStyle =
         color === '#FF4D4F' ? 'rgba(255,77,79,0.18)' : 'rgba(22,119,255,0.14)'
@@ -184,16 +180,19 @@ Component({
       ctx.restore()
     },
 
+    /**
+     * 触摸点 → canvas 逻辑像素（与 drawW/drawH 同一套坐标系）
+     * 用 client 坐标相对 canvas 矩形换算，避免 style 与缓冲错位。
+     */
     touchPoint(e) {
       const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0])
-      if (!t) return null
-      // 浮层 + catchtouch 下，优先用页面坐标换算到 canvas，避免 x/y 缺失或错位
+      if (!t || !this._layout) return null
       const rect = this._canvasRect
-      if (rect && Number.isFinite(t.clientX) && Number.isFinite(t.clientY)) {
-        return {
-          x: t.clientX - rect.left,
-          y: t.clientY - rect.top,
-        }
+      const { containerW, containerH } = this._layout
+      if (rect && rect.width > 0 && rect.height > 0 && Number.isFinite(t.clientX)) {
+        const x = ((t.clientX - rect.left) / rect.width) * containerW
+        const y = ((t.clientY - rect.top) / rect.height) * containerH
+        return { x, y }
       }
       if (typeof t.x === 'number' && typeof t.y === 'number') {
         return { x: t.x, y: t.y }

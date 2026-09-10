@@ -33,6 +33,68 @@ function withCacheBust(url, token) {
   return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
 }
 
+/** 店页说明：空分区提示（商家口吻，不写实现叙事） */
+function buildGeoSectionHints(draft = {}) {
+  const hasDetail = ['faultDesc', 'inspectResult', 'repairPlan', 'resultConfirm'].some((k) =>
+    String(draft[k] || '').trim(),
+  )
+  return {
+    geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
+    geoFaqEmptyHint: hasDetail
+      ? '暂无常见问法，可按车主会问的话自行补充。'
+      : '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
+  }
+}
+
+function normalizeGeoHighlights(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((row, i) => {
+      if (!row || typeof row !== 'object') return null
+      const label = String(row.label || row.key || '').trim()
+      const value = String(row.value || '').trim()
+      if (!label && !value) return null
+      return {
+        label,
+        value,
+        _k: row._k || `hl_${i}_${label}`,
+      }
+    })
+    .filter(Boolean)
+}
+
+function normalizeGeoFaq(list) {
+  if (!Array.isArray(list)) return []
+  return list
+    .map((row, i) => {
+      if (!row || typeof row !== 'object') return null
+      const q = String(row.q || row.question || '').trim()
+      const a = String(row.a || row.answer || '').trim()
+      if (!q && !a) return null
+      return {
+        q,
+        a,
+        _k: row._k || `faq_${i}_${q.slice(0, 12)}`,
+      }
+    })
+    .filter(Boolean)
+}
+
+function applyGeoDraftToPageData(draft = {}) {
+  const highlights = normalizeGeoHighlights(draft.highlights)
+  const faq = normalizeGeoFaq(draft.faq)
+  const hints = buildGeoSectionHints(draft)
+  return {
+    geoDraft: draft,
+    geoSummary: draft.summary || '',
+    geoHighlights: highlights,
+    geoFaq: faq,
+    geoHighlightsEmpty: !highlights.length,
+    geoFaqEmpty: !faq.length,
+    ...hints,
+  }
+}
+
 function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
   const nextUrl = withCacheBust(toUrl, Date.now())
   const match = (u) => urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
@@ -104,6 +166,10 @@ Page({
     geoSummary: '',
     geoHighlights: [],
     geoFaq: [],
+    geoHighlightsEmpty: true,
+    geoFaqEmpty: true,
+    geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
+    geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
     maskEditorVisible: false,
     maskEditorUrl: '',
@@ -153,12 +219,8 @@ Page({
       ) {
         try {
           const res = await generateHostedGeoDraft(this.albumId)
-          const draft = res.geoDraft || {}
           this.setData({
-            geoDraft: draft,
-            geoSummary: draft.summary || '',
-            geoHighlights: Array.isArray(draft.highlights) ? draft.highlights : [],
-            geoFaq: Array.isArray(draft.faq) ? draft.faq : [],
+            ...applyGeoDraftToPageData(res.geoDraft || {}),
             publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
           })
         } catch (_) {
@@ -183,6 +245,18 @@ Page({
     const hostMode =
       hosted && (stage || visibility === 'public') ? 'public' : hosted ? 'private' : this.data.hostMode
     const wizardStep = resolveWizardStep(hostMeta, hostMode)
+    const draftForUi =
+      geoDraft && (geoDraft.summary || (geoDraft.highlights && geoDraft.highlights.length) || (geoDraft.faq && geoDraft.faq.length))
+        ? geoDraft
+        : {
+            summary: geoLayer.summary || '',
+            highlights: geoLayer.highlights || [],
+            faq: geoLayer.faq || [],
+            faultDesc: geoDraft.faultDesc || '',
+            inspectResult: geoDraft.inspectResult || '',
+            repairPlan: geoDraft.repairPlan || '',
+            resultConfirm: geoDraft.resultConfirm || '',
+          }
     this.setData({
       status: 'ready',
       serviceName: album.serviceName || '服务相册',
@@ -193,18 +267,7 @@ Page({
       wizardStep,
       privacyPassed: Boolean(hostMeta.privacyAuditPassedAt),
       privacyBlocks: [],
-      geoDraft,
-      geoSummary: geoDraft.summary || geoLayer.summary || '',
-      geoHighlights: Array.isArray(geoDraft.highlights)
-        ? geoDraft.highlights
-        : Array.isArray(geoLayer.highlights)
-          ? geoLayer.highlights
-          : [],
-      geoFaq: Array.isArray(geoDraft.faq)
-        ? geoDraft.faq
-        : Array.isArray(geoLayer.faq)
-          ? geoLayer.faq
-          : [],
+      ...applyGeoDraftToPageData(draftForUi),
       geoConfirmed: Boolean(geoLayer.confirmedAt) || visibility === 'public',
     })
   },
@@ -467,7 +530,7 @@ Page({
         wx.showModal({
           title: '自动脱敏未完成',
           content:
-            '引擎未产出脱敏图（常见原因：阿里云 OCR/人脸密钥未配或接口失败）。请点图片手工框选打码。',
+            '引擎未产出脱敏图。请确认 backend/.env 已配置 ALIYUN_ACCESS_KEY_ID 与 ALIYUN_ACCESS_KEY_SECRET（或 ECS RAM 角色）；DASHSCOPE / 千帆密钥只用于文案，不能打码。也可点图片手工框选。',
           showCancel: false,
           confirmText: '知道了',
         })
@@ -522,12 +585,9 @@ Page({
       const res = await generateHostedGeoDraft(this.albumId)
       const draft = res.geoDraft || {}
       this.setData({
+        ...applyGeoDraftToPageData(draft),
         wizardStep: 3,
         publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
-        geoDraft: draft,
-        geoSummary: draft.summary || '',
-        geoHighlights: Array.isArray(draft.highlights) ? draft.highlights : [],
-        geoFaq: Array.isArray(draft.faq) ? draft.faq : [],
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '继续失败', icon: 'none' })
@@ -541,13 +601,7 @@ Page({
     this.setData({ working: true })
     try {
       const res = await generateHostedGeoDraft(this.albumId)
-      const draft = res.geoDraft || {}
-      this.setData({
-        geoDraft: draft,
-        geoSummary: draft.summary || '',
-        geoHighlights: Array.isArray(draft.highlights) ? draft.highlights : [],
-        geoFaq: Array.isArray(draft.faq) ? draft.faq : [],
-      })
+      this.setData(applyGeoDraftToPageData(res.geoDraft || {}))
       wx.showToast({ title: '已重新生成', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
@@ -560,6 +614,68 @@ Page({
     this.setData({ geoSummary: e.detail.value })
   },
 
+  onAddHighlight() {
+    const list = [
+      ...(this.data.geoHighlights || []),
+      { label: '', value: '', _k: `hl_${Date.now()}` },
+    ]
+    this.setData({
+      geoHighlights: list,
+      geoHighlightsEmpty: false,
+    })
+  },
+
+  onRemoveHighlight(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const list = (this.data.geoHighlights || []).filter((_, i) => i !== index)
+    this.setData({
+      geoHighlights: list,
+      geoHighlightsEmpty: !list.length,
+    })
+  },
+
+  onHighlightFieldInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    if (!Number.isFinite(index) || (field !== 'label' && field !== 'value')) return
+    const list = (this.data.geoHighlights || []).map((row, i) =>
+      i === index ? { ...row, [field]: e.detail.value } : row,
+    )
+    this.setData({ geoHighlights: list })
+  },
+
+  onAddFaq() {
+    const list = [
+      ...(this.data.geoFaq || []),
+      { q: '', a: '', _k: `faq_${Date.now()}` },
+    ]
+    this.setData({
+      geoFaq: list,
+      geoFaqEmpty: false,
+    })
+  },
+
+  onRemoveFaq(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const list = (this.data.geoFaq || []).filter((_, i) => i !== index)
+    this.setData({
+      geoFaq: list,
+      geoFaqEmpty: !list.length,
+    })
+  },
+
+  onFaqFieldInput(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const field = e.currentTarget.dataset.field
+    if (!Number.isFinite(index) || (field !== 'q' && field !== 'a')) return
+    const list = (this.data.geoFaq || []).map((row, i) =>
+      i === index ? { ...row, [field]: e.detail.value } : row,
+    )
+    this.setData({ geoFaq: list })
+  },
+
   async onConfirmPublic() {
     if (this.data.working) return
     const summary = String(this.data.geoSummary || '').trim()
@@ -567,12 +683,24 @@ Page({
       wx.showToast({ title: '请填写店页说明', icon: 'none' })
       return
     }
+    const highlights = (this.data.geoHighlights || [])
+      .map((row) => ({
+        label: String((row && row.label) || '').trim(),
+        value: String((row && row.value) || '').trim(),
+      }))
+      .filter((row) => row.label || row.value)
+    const faq = (this.data.geoFaq || [])
+      .map((row) => ({
+        q: String((row && row.q) || '').trim(),
+        a: String((row && row.a) || '').trim(),
+      }))
+      .filter((row) => row.q && row.a)
     this.setData({ working: true })
     try {
       await confirmHostedPublicPublish(this.albumId, {
         summary,
-        highlights: this.data.geoHighlights || [],
-        faq: this.data.geoFaq || [],
+        highlights,
+        faq,
       })
       wx.showToast({ title: '已上店页', icon: 'success' })
       const album = await fetchMerchantServiceAlbum(this.albumId)

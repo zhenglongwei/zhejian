@@ -99,20 +99,76 @@
           placeholder="本单做了什么、查到什么、怎么处理"
         />
 
-        <view wx:if="{{geoHighlights.length}}" class="merchant-host-page__highlights">
+        <view class="merchant-host-page__highlights">
           <text class="text-caption merchant-host-page__field-label">要点</text>
-          <view wx:for="{{geoHighlights}}" wx:key="label" class="merchant-host-page__hl-row">
-            <text class="text-caption text-secondary">{{item.label}}</text>
-            <text class="text-body">{{item.value}}</text>
+          <text wx:if="{{geoHighlightsEmpty}}" class="text-caption text-secondary merchant-host-page__empty-hint">
+            {{geoHighlightsEmptyHint}}
+          </text>
+          <view wx:for="{{geoHighlights}}" wx:key="_k" class="merchant-host-page__edit-row">
+            <view class="merchant-host-page__edit-row-head">
+              <text class="text-caption text-secondary">要点 {{index + 1}}</text>
+              <text
+                class="text-caption merchant-host-page__edit-remove"
+                data-index="{{index}}"
+                bindtap="onRemoveHighlight"
+              >删除</text>
+            </view>
+            <input
+              class="merchant-host-page__input"
+              value="{{item.label}}"
+              data-index="{{index}}"
+              data-field="label"
+              bindinput="onHighlightFieldInput"
+              maxlength="12"
+              placeholder="标签，如车型 / 检测"
+            />
+            <input
+              class="merchant-host-page__input"
+              value="{{item.value}}"
+              data-index="{{index}}"
+              data-field="value"
+              bindinput="onHighlightFieldInput"
+              maxlength="40"
+              placeholder="对应内容"
+            />
           </view>
+          <ui-button type="ghost" size="sm" bind:btntap="onAddHighlight">添加要点</ui-button>
         </view>
 
-        <view wx:if="{{geoFaq.length}}" class="merchant-host-page__faq">
+        <view class="merchant-host-page__faq">
           <text class="text-caption merchant-host-page__field-label">常见问法</text>
-          <view wx:for="{{geoFaq}}" wx:key="q" class="merchant-host-page__faq-row">
-            <text class="text-body">问：{{item.q}}</text>
-            <text class="text-caption text-secondary">答：{{item.a}}</text>
+          <text wx:if="{{geoFaqEmpty}}" class="text-caption text-secondary merchant-host-page__empty-hint">
+            {{geoFaqEmptyHint}}
+          </text>
+          <view wx:for="{{geoFaq}}" wx:key="_k" class="merchant-host-page__edit-row">
+            <view class="merchant-host-page__edit-row-head">
+              <text class="text-caption text-secondary">问答 {{index + 1}}</text>
+              <text
+                class="text-caption merchant-host-page__edit-remove"
+                data-index="{{index}}"
+                bindtap="onRemoveFaq"
+              >删除</text>
+            </view>
+            <input
+              class="merchant-host-page__input"
+              value="{{item.q}}"
+              data-index="{{index}}"
+              data-field="q"
+              bindinput="onFaqFieldInput"
+              maxlength="40"
+              placeholder="车主可能怎么问"
+            />
+            <textarea
+              class="merchant-host-page__textarea merchant-host-page__textarea--sm"
+              value="{{item.a}}"
+              data-index="{{index}}"
+              data-field="a"
+              bindinput="onFaqFieldInput"
+              maxlength="200"
+              placeholder="按本单事实简短回答"
+            />
           </view>
+          <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>
         </view>
 
         <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onRegenerateCopy">
