@@ -29,11 +29,18 @@ function buildWorkbenchItems(task) {
     ASSET_STATUS.MASKED_READY,
     ASSET_STATUS.MANUAL_MASKED,
   ])
+  const stamp = (task && task.updatedAt) || Date.now()
+  const bust = (url) => {
+    const raw = String(url || '').trim()
+    if (!raw) return ''
+    if (/[?&]v=/.test(raw)) return raw.replace(/([?&]v=)[^&]*/, `$1${stamp}`)
+    return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
+  }
   return (task.rawAssets || []).map((asset) => ({
     id: asset.id,
     nodeTitle: asset.nodeTitle,
-    rawUrl: asset.url,
-    maskedUrl: asset.maskedUrl || '',
+    rawUrl: bust(asset.url),
+    maskedUrl: asset.maskedUrl ? bust(asset.maskedUrl) : '',
     statusLabel: STATUS_LABEL[asset.status] || asset.status,
     tagVariant: TAG_VARIANT[asset.status] || 'info',
     showRetry: asset.status === ASSET_STATUS.MASK_FAILED,

@@ -58,7 +58,7 @@
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
         <text class="text-body merchant-host-page__label">通读本单内容</text>
-        <text class="text-caption text-secondary">点图片可直接打码；车牌、人脸、手机号等处理后再继续。</text>
+        <text class="text-caption text-secondary">点图片在本页打码；打完后直接显示打码图。也可一键 AI 脱敏。</text>
 
         <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__review">
           <album-service-flow
@@ -78,9 +78,6 @@
         <view class="merchant-host-page__actions">
           <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onRunHostAutoMask">
             一键 AI 脱敏
-          </ui-button>
-          <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onOpenDesensitize">
-            打开脱敏工作台
           </ui-button>
         </view>
       </view>
@@ -124,7 +121,7 @@
     </block>
   </block>
 
-  <ui-fixed-bottom-bar wx:if="{{status === 'ready'}}">
+  <ui-fixed-bottom-bar wx:if="{{status === 'ready'}}" safeArea="{{true}}">
     <block wx:if="{{wizardStep === 1}}">
       <ui-button
         wx:if="{{!hosted}}"
@@ -140,33 +137,60 @@
         loading="{{working}}"
         bind:btntap="onCancelPublicIntent"
       >取消公开</ui-button>
-      <block wx:else>
-        <ui-button type="primary" block="{{true}}" loading="{{working}}" bind:btntap="onSwitchToPublic">
-          准备公开
-        </ui-button>
-      </block>
+      <ui-button
+        wx:else
+        type="primary"
+        block="{{true}}"
+        loading="{{working}}"
+        bind:btntap="onSwitchToPublic"
+      >准备公开</ui-button>
     </block>
 
     <block wx:elif="{{wizardStep === 2}}">
-      <view class="merchant-host-page__bar">
-        <ui-button type="ghost" size="sm" loading="{{working}}" bind:btntap="onCancelPublicIntent">
-          改回仅私密
-        </ui-button>
-        <ui-button type="primary" loading="{{working}}" bind:btntap="onContinueAfterReview">
-          我已核对，继续
-        </ui-button>
-      </view>
+      <ui-button
+        slot="left"
+        type="ghost"
+        size="sm"
+        loading="{{working}}"
+        bind:btntap="onCancelPublicIntent"
+      >改回仅私密</ui-button>
+      <ui-button
+        slot="right"
+        type="primary"
+        loading="{{working}}"
+        bind:btntap="onContinueAfterReview"
+      >我已核对，继续</ui-button>
     </block>
 
     <block wx:elif="{{wizardStep === 3}}">
-      <view class="merchant-host-page__bar">
-        <ui-button type="ghost" size="sm" loading="{{working}}" bind:btntap="onCancelPublicIntent">
-          改回仅私密
-        </ui-button>
-        <ui-button type="primary" loading="{{working}}" bind:btntap="onConfirmPublic">
-          确认并上店页
-        </ui-button>
-      </view>
+      <ui-button
+        slot="left"
+        type="ghost"
+        size="sm"
+        loading="{{working}}"
+        bind:btntap="onCancelPublicIntent"
+      >改回仅私密</ui-button>
+      <ui-button
+        slot="right"
+        type="primary"
+        loading="{{working}}"
+        bind:btntap="onConfirmPublic"
+      >确认并上店页</ui-button>
     </block>
   </ui-fixed-bottom-bar>
+
+  <view wx:if="{{maskEditorVisible}}" class="merchant-host-page__mask-layer">
+    <view class="merchant-host-page__mask-panel">
+      <view class="merchant-host-page__mask-head">
+        <text class="text-body">打码 · {{maskEditorTitle}}</text>
+        <text class="merchant-host-page__mask-close" bindtap="onCloseMaskEditor">关闭</text>
+      </view>
+      <ui-image-mask-editor
+        imageUrl="{{maskEditorUrl}}"
+        nodeTitle="{{maskEditorTitle}}"
+        submitting="{{maskEditorSubmitting}}"
+        bind:submit="onMaskEditorSubmit"
+      />
+    </view>
+  </view>
 </view>

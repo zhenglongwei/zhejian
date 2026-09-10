@@ -3,6 +3,7 @@
   "usingComponents": {
     "ui-button": "/components/button/index",
     "ui-fixed-bottom-bar": "/components/fixed-bottom-bar/index",
-    "album-service-flow": "/components/album-service-flow/index"
+    "album-service-flow": "/components/album-service-flow/index",
+    "ui-image-mask-editor": "/components/image-mask-editor/index"
   }
 }

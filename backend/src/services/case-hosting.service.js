@@ -512,6 +512,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
   const { assessPublicCaseQuality } = require('./public-case-quality.service')
   const { buildPreMaskUrlLookup } = require('./desensitize.service')
   const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+  const { stripUrlQuery } = require('../lib/media-signed-url')
   const { buildHostContentReviewDocs } = require('./service-flow.service')
 
   const album = await loadAlbum(albumId)
@@ -535,6 +536,35 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     lookup = await buildPreMaskUrlLookup(albumId)
   } catch (_) {
     /* 无预脱敏也可预览原图（门店自认） */
+  }
+  // 托管手工打码任务优先：覆盖 pre_mask 旧图
+  try {
+    const { buildHostMaskTaskId } = require('./desensitize.constants')
+    const { prisma } = require('../lib/prisma')
+    const hostTask = await prisma.desensitizeTask.findUnique({
+      where: { taskId: buildHostMaskTaskId(albumId) },
+      include: { assets: true },
+    })
+    ;(hostTask && hostTask.assets ? hostTask.assets : []).forEach((asset) => {
+      const masked = String(asset.maskedUrl || asset.preMaskedUrl || '').trim()
+      if (!masked) return
+      const raw = String(asset.rawUrl || '').trim()
+      if (raw) {
+        lookup.byRawUrl.set(raw, masked)
+        lookup.byRawUrl.set(stripUrlQuery(raw), masked)
+        try {
+          lookup.byRawUrl.set(rewriteMediaUrlForCurrentBase(raw), masked)
+          lookup.byRawUrl.set(stripUrlQuery(rewriteMediaUrlForCurrentBase(raw)), masked)
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      if (asset.nodeId != null && asset.idx != null) {
+        lookup.byNodeIdx.set(`${asset.nodeId}:${Number(asset.idx)}`, masked)
+      }
+    })
+  } catch (_) {
+    /* host mask task optional */
   }
 
   const resolveImageUrl = (rawInput) => {

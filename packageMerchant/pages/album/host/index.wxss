@@ -123,10 +123,37 @@
   background-color: var(--color-bg-muted);
 }
 
-.merchant-host-page__bar {
+.merchant-host-page__mask-layer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-modal, 1000);
+  background-color: var(--color-mask);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.merchant-host-page__mask-panel {
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: var(--space-md);
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background-color: var(--color-bg-card, #fff);
+}
+
+.merchant-host-page__mask-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
-  width: 100%;
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-host-page__mask-close {
+  color: var(--color-primary);
+  font-size: var(--font-size-caption);
+  padding: var(--space-xs);
 }

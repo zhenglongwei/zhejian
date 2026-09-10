@@ -8,9 +8,8 @@ const {
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
 } = require('../../../../services/merchant-service-album')
-const { fetchTask, runAutoMask } = require('../../../../services/desensitize')
+const { fetchTask, runAutoMask, applyManualMask } = require('../../../../services/desensitize')
 const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-status')
-const { BIZ_TYPE } = require('../../../../constants/desensitize')
 
 function stripUrlQuery(url) {
   return String(url || '').trim().split('?')[0].split('#')[0]
@@ -22,6 +21,52 @@ function urlsLikelyMatch(a, b) {
   if (!x || !y) return false
   if (x === y) return true
   return x.endsWith(y) || y.endsWith(x)
+}
+
+function withCacheBust(url, token) {
+  const raw = String(url || '').trim()
+  if (!raw) return ''
+  const stamp = String(token || Date.now())
+  if (/[?&]v=/.test(raw)) {
+    return raw.replace(/([?&]v=)[^&]*/, `$1${stamp}`)
+  }
+  return `${raw}${raw.includes('?') ? '&' : '?'}v=${stamp}`
+}
+
+function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
+  const nextUrl = withCacheBust(toUrl, Date.now())
+  const match = (u) => urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
+  return (docs || []).map((doc) => {
+    if (!doc || doc.locked) return doc
+    let changed = false
+    const findings = Array.isArray(doc.findings)
+      ? doc.findings.map((row) => {
+          if (!row || !match(row.url)) return row
+          changed = true
+          return { ...row, url: nextUrl }
+        })
+      : doc.findings
+    const lines = Array.isArray(doc.lines)
+      ? doc.lines.map((row) => {
+          if (!row || !match(row.evidenceUrl)) return row
+          changed = true
+          return { ...row, evidenceUrl: nextUrl }
+        })
+      : doc.lines
+    const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
+      ? doc.deliveryPhotos.map((photo) => {
+          if (typeof photo === 'string') {
+            if (!match(photo)) return photo
+            changed = true
+            return nextUrl
+          }
+          if (!photo || !match(photo.url)) return photo
+          changed = true
+          return { ...photo, url: nextUrl }
+        })
+      : doc.deliveryPhotos
+    return changed ? { ...doc, findings, lines, deliveryPhotos } : doc
+  })
 }
 
 /** 向导步骤：1 存档 · 2 核对公开内容 · 3 店页说明 */
@@ -60,6 +105,10 @@ Page({
     geoHighlights: [],
     geoFaq: [],
     geoConfirmed: false,
+    maskEditorVisible: false,
+    maskEditorUrl: '',
+    maskEditorTitle: '',
+    maskEditorSubmitting: false,
   },
 
   onLoad(options) {
@@ -173,8 +222,31 @@ Page({
   async loadPublicFace(options = {}) {
     try {
       const face = await fetchHostPublicFace(this.albumId)
+      const stamp = Date.now()
+      const reviewDocs = (Array.isArray(face.reviewDocs) ? face.reviewDocs : []).map((doc) => {
+        if (!doc || doc.locked) return doc
+        const bust = (u) => (u ? withCacheBust(u, stamp) : u)
+        return {
+          ...doc,
+          findings: Array.isArray(doc.findings)
+            ? doc.findings.map((row) => (row && row.url ? { ...row, url: bust(row.url) } : row))
+            : doc.findings,
+          lines: Array.isArray(doc.lines)
+            ? doc.lines.map((row) =>
+                row && row.evidenceUrl ? { ...row, evidenceUrl: bust(row.evidenceUrl) } : row,
+              )
+            : doc.lines,
+          deliveryPhotos: Array.isArray(doc.deliveryPhotos)
+            ? doc.deliveryPhotos.map((photo) => {
+                if (typeof photo === 'string') return bust(photo)
+                if (photo && photo.url) return { ...photo, url: bust(photo.url) }
+                return photo
+              })
+            : doc.deliveryPhotos,
+        }
+      })
       this.setData({
-        reviewDocs: Array.isArray(face.reviewDocs) ? face.reviewDocs : [],
+        reviewDocs,
         previewTexts: face.texts || [],
         previewImages: face.images || [],
         previewImageCount: face.imageCount || 0,
@@ -261,30 +333,6 @@ Page({
     }
   },
 
-  async onOpenDesensitize() {
-    if (this.data.working) return
-    this.setData({ working: true })
-    try {
-      const res = await ensureHostDesensitizeTask(this.albumId)
-      const taskId = res && res.taskId
-      if (!taskId) {
-        wx.showToast({ title: '脱敏任务未就绪', icon: 'none' })
-        return
-      }
-      wx.navigateTo({
-        url: `/packageMerchant/pages/desensitize/workbench/index?taskId=${encodeURIComponent(
-          taskId,
-        )}&albumId=${encodeURIComponent(this.albumId)}&from=host&fromPreMask=1&bizType=${encodeURIComponent(
-          BIZ_TYPE.MERCHANT_HISTORY,
-        )}`,
-      })
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '打开失败', icon: 'none' })
-    } finally {
-      this.setData({ working: false })
-    }
-  },
-
   async ensureMaskTask() {
     const res = await ensureHostDesensitizeTask(this.albumId)
     const taskId = res && res.taskId
@@ -314,27 +362,85 @@ Page({
   },
 
   async onReviewImageEdit(e) {
-    if (this.data.working) return
+    if (this.data.working || this.data.maskEditorVisible) return
     const url = e.detail && e.detail.url
     if (!url) return
     this.setData({ working: true })
     try {
       const { taskId, assetId } = await this.findMaskAssetId(url)
-      wx.navigateTo({
-        url:
-          `/pages/desensitize/mask/index?taskId=${encodeURIComponent(taskId)}` +
-          `&assetId=${encodeURIComponent(assetId)}` +
-          `&albumId=${encodeURIComponent(this.albumId)}`,
-        events: {
-          maskUpdated: () => {
-            this.loadPublicFace({ silent: true })
-          },
-        },
+      const task = await fetchTask(taskId)
+      const asset = ((task && task.rawAssets) || []).find((row) => row.id === assetId)
+      this._maskEdit = {
+        taskId,
+        assetId,
+        sourceUrl: url,
+      }
+      this.setData({
+        maskEditorVisible: true,
+        maskEditorUrl: (asset && (asset.maskedUrl || asset.url)) || url,
+        maskEditorTitle: (asset && asset.nodeTitle) || '过程图',
+        maskEditorSubmitting: false,
       })
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '无法打开打码', icon: 'none' })
     } finally {
       this.setData({ working: false })
+    }
+  },
+
+  onCloseMaskEditor() {
+    if (this.data.maskEditorSubmitting) return
+    this._maskEdit = null
+    this.setData({
+      maskEditorVisible: false,
+      maskEditorUrl: '',
+      maskEditorTitle: '',
+      maskEditorSubmitting: false,
+    })
+  },
+
+  async onMaskEditorSubmit(e) {
+    if (this.data.maskEditorSubmitting) return
+    const edit = this._maskEdit
+    if (!edit || !edit.taskId || !edit.assetId) return
+    const { regions, mode } = e.detail || {}
+    if (!regions || !regions.length) {
+      wx.showToast({ title: '请先框选打码区域', icon: 'none' })
+      return
+    }
+    this.setData({ maskEditorSubmitting: true })
+    try {
+      const task = await applyManualMask(edit.taskId, edit.assetId, {
+        regions,
+        mode: mode || 'mosaic',
+      })
+      const asset = ((task && task.rawAssets) || []).find((row) => row.id === edit.assetId)
+      const maskedUrl = (asset && (asset.maskedUrl || asset.preMaskedUrl)) || ''
+      if (maskedUrl) {
+        const reviewDocs = patchReviewDocImageUrls(
+          this.data.reviewDocs,
+          edit.sourceUrl,
+          maskedUrl,
+        )
+        // 同源多处引用也替换
+        const reviewDocs2 = patchReviewDocImageUrls(
+          reviewDocs,
+          asset.url || edit.sourceUrl,
+          maskedUrl,
+        )
+        this.setData({ reviewDocs: reviewDocs2 })
+      }
+      wx.showToast({ title: '已打码', icon: 'success' })
+      this._maskEdit = null
+      this.setData({
+        maskEditorVisible: false,
+        maskEditorUrl: '',
+        maskEditorTitle: '',
+        maskEditorSubmitting: false,
+      })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '打码失败', icon: 'none' })
+      this.setData({ maskEditorSubmitting: false })
     }
   },
 
