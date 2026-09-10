@@ -38,6 +38,7 @@ Page({
     wizardStep: 1,
     privacyPassed: false,
     privacyBlocks: [],
+    reviewDocs: [],
     previewTexts: [],
     previewImages: [],
     previewImageCount: 0,
@@ -160,6 +161,7 @@ Page({
     try {
       const face = await fetchHostPublicFace(this.albumId)
       this.setData({
+        reviewDocs: Array.isArray(face.reviewDocs) ? face.reviewDocs : [],
         previewTexts: face.texts || [],
         previewImages: face.images || [],
         previewImageCount: face.imageCount || 0,
@@ -233,6 +235,7 @@ Page({
       this.applyAlbum(album)
       this.setData({
         hostMode: 'private',
+        reviewDocs: [],
         previewTexts: [],
         previewImages: [],
         privacyBlocks: [],
@@ -325,13 +328,6 @@ Page({
 
   onGeoSummaryInput(e) {
     this.setData({ geoSummary: e.detail.value })
-  },
-
-  onPreviewImage(e) {
-    const url = e.currentTarget.dataset.url
-    const urls = (this.data.previewImages || []).map((row) => row.url).filter(Boolean)
-    if (!url || !urls.length) return
-    wx.previewImage({ current: url, urls })
   },
 
   async onConfirmPublic() {

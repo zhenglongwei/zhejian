@@ -1286,6 +1286,108 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   }
 }
 
+/**
+ * 托管公开前通读预览：按车主可见报告顺序展开全文全文图，不依赖「已通知车主」解锁。
+ * @param {object} album
+ * @param {object[]} albumNodes mapNodesForView 结果
+ * @param {{ resolveImageUrl?: (url: string) => string }} [options]
+ */
+function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
+  const resolveImageUrl =
+    typeof options.resolveImageUrl === 'function'
+      ? options.resolveImageUrl
+      : (url) => String(url || '').trim()
+
+  const remapUrl = (url) => {
+    const raw = String(url || '').trim()
+    if (!raw) return ''
+    return resolveImageUrl(raw) || raw
+  }
+
+  const remapDoc = (doc) => {
+    if (!doc || doc.locked) return doc
+    const findings = Array.isArray(doc.findings)
+      ? doc.findings.map((row) => {
+          if (!row || typeof row !== 'object') return row
+          const url = remapUrl(row.url)
+          return url && url !== row.url ? { ...row, url } : row
+        })
+      : doc.findings
+    const lines = Array.isArray(doc.lines)
+      ? doc.lines.map((row) => {
+          if (!row || typeof row !== 'object') return row
+          const evidenceUrl = remapUrl(row.evidenceUrl)
+          return evidenceUrl && evidenceUrl !== row.evidenceUrl
+            ? { ...row, evidenceUrl }
+            : row
+        })
+      : doc.lines
+    const deliveryPhotos = Array.isArray(doc.deliveryPhotos)
+      ? doc.deliveryPhotos.map((photo) => {
+          if (typeof photo === 'string') {
+            const url = remapUrl(photo)
+            return url || photo
+          }
+          if (!photo || typeof photo !== 'object') return photo
+          const url = remapUrl(photo.url)
+          return url && url !== photo.url ? { ...photo, url } : photo
+        })
+      : doc.deliveryPhotos
+    return {
+      ...doc,
+      findings,
+      lines,
+      deliveryPhotos,
+      needsConfirm: false,
+      locked: false,
+      stepState: 'done',
+      statusLabel: '通读',
+    }
+  }
+
+  const rawNodes = sortFlowNodes(readFlowNodesRaw(album))
+  if (!rawNodes.length) return []
+
+  return rawNodes
+    .map((node) => mapFlowNodeForView(node, albumNodes))
+    .filter((node) => isOwnerDocumentKind(node.kind))
+    .filter((node) => {
+      const doc = node.document || {}
+      if (String(doc.status || '') !== 'cancelled') return true
+      return String(doc.cancelledFromStatus || '') === 'pending_confirm'
+    })
+    .map((node) => {
+      const doc = node.document || {}
+      const payload = doc.payload && typeof doc.payload === 'object' ? doc.payload : null
+      const hasSubstance =
+        Boolean(payload) &&
+        (Boolean(String(payload.chiefComplaint || '').trim()) ||
+          (Array.isArray(payload.findings) && payload.findings.length) ||
+          (Array.isArray(payload.lines) && payload.lines.length) ||
+          (Array.isArray(payload.items) && payload.items.length) ||
+          (Array.isArray(payload.workItems) && payload.workItems.length) ||
+          (Array.isArray(payload.deliveryPhotos) && payload.deliveryPhotos.length) ||
+          Boolean(String(payload.warrantyPeriod || '').trim()) ||
+          Boolean(String(payload.conclusion || '').trim()))
+
+      if (!hasSubstance && !isOwnerDocContentReady(node)) {
+        return {
+          id: node.id,
+          kind: node.kind,
+          title: node.title || '',
+          segmentLabel: node.segmentLabel || '',
+          statusLabel: '暂无内容',
+          needsConfirm: false,
+          locked: true,
+          stepState: 'upcoming',
+          styleVariant: node.kind === 'inspection_report' ? 'evidence' : 'document',
+        }
+      }
+
+      return remapDoc(mapOwnerFlowDocCard(node, album))
+    })
+}
+
 function deriveOwnerProgressLabel(docs = [], album = {}) {
   const albumStatus = String((album && album.status) || '')
   if (
@@ -1582,6 +1684,7 @@ module.exports = {
   readFlowNodesRaw,
   buildFlowView,
   buildOwnerFlowView,
+  buildHostContentReviewDocs,
   initFlowOnAlbum,
   getMerchantAlbumFlow,
   updateFlowNode,

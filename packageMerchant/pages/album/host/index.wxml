@@ -54,32 +54,18 @@
       </view>
     </block>
 
-    <!-- 步骤 2：核对将公开的内容 -->
+    <!-- 步骤 2：通读本单报告，再脱敏 -->
     <block wx:elif="{{wizardStep === 2}}">
       <view class="merchant-host-page__section">
-        <text class="text-body merchant-host-page__label">将公开的内容</text>
-        <text class="text-caption text-secondary">请核对图文；车牌、人脸等敏感信息须打码或自行处理后继续。</text>
+        <text class="text-body merchant-host-page__label">通读本单内容</text>
+        <text class="text-caption text-secondary">按报告顺序核对图文；车牌、人脸、手机号等须打码或自行处理后继续。</text>
 
-        <view wx:if="{{previewTexts.length}}" class="merchant-host-page__texts">
-          <view wx:for="{{previewTexts}}" wx:key="label" class="merchant-host-page__text-row">
-            <text class="text-caption text-secondary">{{item.label}}</text>
-            <text class="text-body">{{item.value}}</text>
-          </view>
+        <view wx:if="{{reviewDocs.length}}" class="merchant-host-page__review">
+          <album-service-flow docs="{{reviewDocs}}" />
         </view>
-        <text wx:else class="text-caption text-secondary">暂无文字摘要，可回流程单据补全后再来。</text>
-
-        <view wx:if="{{previewImages.length}}" class="merchant-host-page__grid">
-          <image
-            wx:for="{{previewImages}}"
-            wx:key="url"
-            class="merchant-host-page__thumb"
-            src="{{item.url}}"
-            mode="aspectFill"
-            data-url="{{item.url}}"
-            bindtap="onPreviewImage"
-          />
+        <view wx:else class="merchant-host-page__empty">
+          <text class="text-caption text-secondary">暂无报告内容。请先在服务进度里完成检测/方案/工单/完工后再来。</text>
         </view>
-        <text wx:else class="text-caption text-secondary">暂无过程图。</text>
 
         <view wx:if="{{privacyBlocks.length}}" class="merchant-host-page__blocks">
           <text wx:for="{{privacyBlocks}}" wx:key="issue" class="text-caption">{{item.message}}</text>

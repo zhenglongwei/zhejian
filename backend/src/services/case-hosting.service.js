@@ -503,10 +503,16 @@ async function cancelPublicHostIntent(albumId, { storeId, merchantId } = {}) {
 
 /** 将公开的图文预览（供核对页展示；脱敏图优先） */
 async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
-  const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
+  const {
+    assertMerchantAlbum,
+    loadAlbum,
+    buildMerchantView,
+    mapNodesForView,
+  } = require('./service-album.service')
   const { assessPublicCaseQuality } = require('./public-case-quality.service')
   const { buildPreMaskUrlLookup } = require('./desensitize.service')
   const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
+  const { buildHostContentReviewDocs } = require('./service-flow.service')
 
   const album = await loadAlbum(albumId)
   if (!album) {
@@ -531,6 +537,21 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     /* 无预脱敏也可预览原图（门店自认） */
   }
 
+  const resolveImageUrl = (rawInput) => {
+    const raw = String(rawInput || '').trim()
+    if (!raw) return ''
+    if (lookup.byRawUrl) {
+      const hit =
+        lookup.byRawUrl.get(raw) ||
+        lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
+      if (hit) return hit
+    }
+    return raw
+  }
+
+  const albumNodes = mapNodesForView(album)
+  const reviewDocs = buildHostContentReviewDocs(album, albumNodes, { resolveImageUrl })
+
   const texts = []
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   const geo = (ruleGeo.preview && ruleGeo.preview.geo) || {}
@@ -549,16 +570,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     ;(node.images || []).forEach((img, idx) => {
       const raw = String(img.url || img.rawUrl || '').trim()
       if (!raw) return
-      let display = raw
-      const key = `${node.id}:${idx}`
-      if (lookup.byNodeIdx && lookup.byNodeIdx.has(key)) {
-        display = lookup.byNodeIdx.get(key)
-      } else if (lookup.byRawUrl) {
-        const hit =
-          lookup.byRawUrl.get(raw) ||
-          lookup.byRawUrl.get(rewriteMediaUrlForCurrentBase(raw))
-        if (hit) display = hit
-      }
+      const display = resolveImageUrl(raw) || raw
       images.push({
         nodeId: node.id,
         nodeTitle: node.title || '',
@@ -575,6 +587,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     hosted: prev.hosted,
     publicPublishStage: prev.publicPublishStage,
     privacyPassed: Boolean(prev.privacyAuditPassedAt),
+    reviewDocs,
     texts,
     images: images.slice(0, 48),
     imageCount: images.length,
