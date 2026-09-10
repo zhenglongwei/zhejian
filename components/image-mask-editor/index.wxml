@@ -2,16 +2,16 @@
   <view class="mask-editor__hint text-caption">
     在图片上拖拽框选车牌、人脸等敏感区域；可框选多处后应用打码。
   </view>
-  <view class="mask-editor__canvas-wrap" style="height: {{canvasH}}px;">
+  <view class="mask-editor__canvas-wrap" style="height: {{canvasH}}px;" catchtouchmove="preventPass">
     <canvas
       id="maskCanvas"
       type="2d"
       class="mask-editor__canvas"
       disable-scroll="{{true}}"
-      bindtouchstart="onTouchStart"
-      bindtouchmove="onTouchMove"
-      bindtouchend="onTouchEnd"
-      bindtouchcancel="onTouchEnd"
+      catchtouchstart="onTouchStart"
+      catchtouchmove="onTouchMove"
+      catchtouchend="onTouchEnd"
+      catchtouchcancel="onTouchEnd"
     />
     <view wx:if="{{!ready}}" class="mask-editor__loading">
       <text class="text-caption">加载图片…</text>

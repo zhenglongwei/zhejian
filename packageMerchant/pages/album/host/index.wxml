@@ -1,3 +1,4 @@
+<page-meta page-style="{{maskEditorVisible ? 'overflow: hidden;' : ''}}" />
 <view class="page merchant-host-page page-content">
   <block wx:if="{{status === 'loading'}}">
     <text class="text-caption text-secondary">加载中…</text>
@@ -179,18 +180,24 @@
     </block>
   </ui-fixed-bottom-bar>
 
-  <view wx:if="{{maskEditorVisible}}" class="merchant-host-page__mask-layer">
-    <view class="merchant-host-page__mask-panel">
+  <view
+    wx:if="{{maskEditorVisible}}"
+    class="merchant-host-page__mask-layer"
+    catchtouchmove="onPreventTouchMove"
+  >
+    <view class="merchant-host-page__mask-panel" catchtouchmove="onPreventTouchMove">
       <view class="merchant-host-page__mask-head">
         <text class="text-body">打码 · {{maskEditorTitle}}</text>
         <text class="merchant-host-page__mask-close" bindtap="onCloseMaskEditor">关闭</text>
       </view>
-      <ui-image-mask-editor
-        imageUrl="{{maskEditorUrl}}"
-        nodeTitle="{{maskEditorTitle}}"
-        submitting="{{maskEditorSubmitting}}"
-        bind:submit="onMaskEditorSubmit"
-      />
+      <view class="merchant-host-page__mask-body">
+        <ui-image-mask-editor
+          imageUrl="{{maskEditorUrl}}"
+          nodeTitle="{{maskEditorTitle}}"
+          submitting="{{maskEditorSubmitting}}"
+          bind:submit="onMaskEditorSubmit"
+        />
+      </view>
     </view>
   </view>
 </view>

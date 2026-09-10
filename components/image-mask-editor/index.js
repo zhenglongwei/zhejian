@@ -41,27 +41,39 @@ Component({
       this._img = null
       this._dragStart = null
       this._drag = null
+      this._canvasRect = null
       this.setData({ activeMode: this.properties.mode === 'blur' ? 'blur' : 'mosaic' })
+    },
+    ready() {
+      if (this.properties.imageUrl) {
+        this.initCanvas()
+      }
     },
   },
   observers: {
     imageUrl(url) {
       if (url) {
-        this.initCanvas()
+        // 延后一拍，等浮层/面板完成布局后再取 canvas 节点
+        setTimeout(() => this.initCanvas(), 40)
       }
     },
   },
   methods: {
+    preventPass() {
+      /* 拦住空白区滑动穿透，不参与画框 */
+    },
+
     initCanvas() {
       const url = this.properties.imageUrl
       if (!url) return
+      this.setData({ ready: false })
       wx.getImageInfo({
         src: url,
         success: (info) => {
           const sys = wx.getSystemInfoSync()
-          const containerW = sys.windowWidth - 32
-          const ratio = info.height / info.width
-          const maxH = sys.windowHeight * 0.52
+          const containerW = Math.max(1, sys.windowWidth - 32)
+          const ratio = (info.height || 1) / (info.width || 1)
+          const maxH = sys.windowHeight * 0.45
           let drawW = containerW
           let drawH = drawW * ratio
           if (drawH > maxH) {
@@ -80,7 +92,7 @@ Component({
             imgH: info.height,
           }
           this.setData({ canvasH: Math.ceil(drawH), ready: false, regions: [] }, () => {
-            this.setupCanvas(url)
+            this.setupCanvas(url, 0)
           })
         },
         fail: () => {
@@ -90,19 +102,25 @@ Component({
       })
     },
 
-    setupCanvas(url) {
+    setupCanvas(url, attempt) {
       const query = this.createSelectorQuery()
       query
         .select('#maskCanvas')
         .fields({ node: true, size: true })
         .exec((res) => {
-          if (!res[0] || !res[0].node || !this._layout) return
+          if (!res || !res[0] || !res[0].node || !this._layout) {
+            if (attempt < 8) {
+              setTimeout(() => this.setupCanvas(url, attempt + 1), 50)
+            }
+            return
+          }
           const canvas = res[0].node
           const ctx = canvas.getContext('2d')
           const dpr = wx.getSystemInfoSync().pixelRatio || 2
           const { containerW, containerH } = this._layout
           canvas.width = containerW * dpr
           canvas.height = containerH * dpr
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
           ctx.scale(dpr, dpr)
           this._canvas = canvas
           this._ctx = ctx
@@ -110,13 +128,25 @@ Component({
           img.onload = () => {
             this._img = img
             this.redraw()
-            this.setData({ ready: true })
+            this.refreshCanvasRect(() => {
+              this.setData({ ready: true })
+            })
           }
           img.onerror = () => {
             wx.showToast({ title: '图片绘制失败', icon: 'none' })
           }
           img.src = url
         })
+    },
+
+    refreshCanvasRect(done) {
+      this.createSelectorQuery()
+        .select('#maskCanvas')
+        .boundingClientRect((rect) => {
+          this._canvasRect = rect || null
+          if (typeof done === 'function') done()
+        })
+        .exec()
     },
 
     redraw() {
@@ -146,6 +176,7 @@ Component({
       ctx.strokeStyle = color
       ctx.lineWidth = 2
       if (dashed) ctx.setLineDash([6, 4])
+      else ctx.setLineDash([])
       ctx.strokeRect(x, y, w, h)
       ctx.fillStyle =
         color === '#FF4D4F' ? 'rgba(255,77,79,0.18)' : 'rgba(22,119,255,0.14)'
@@ -155,11 +186,24 @@ Component({
 
     touchPoint(e) {
       const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0])
-      return t ? { x: t.x, y: t.y } : null
+      if (!t) return null
+      // 浮层 + catchtouch 下，优先用页面坐标换算到 canvas，避免 x/y 缺失或错位
+      const rect = this._canvasRect
+      if (rect && Number.isFinite(t.clientX) && Number.isFinite(t.clientY)) {
+        return {
+          x: t.clientX - rect.left,
+          y: t.clientY - rect.top,
+        }
+      }
+      if (typeof t.x === 'number' && typeof t.y === 'number') {
+        return { x: t.x, y: t.y }
+      }
+      return null
     },
 
     onTouchStart(e) {
       if (!this.data.ready) return
+      this.refreshCanvasRect()
       const p = this.touchPoint(e)
       if (!p) return
       this._dragStart = p
@@ -192,6 +236,7 @@ Component({
     },
 
     pointsToRegion(a, b) {
+      if (!this._layout || !a || !b) return null
       const { offsetX, offsetY, drawW, drawH } = this._layout
       const x1 = clamp(a.x, offsetX, offsetX + drawW)
       const y1 = clamp(a.y, offsetY, offsetY + drawH)

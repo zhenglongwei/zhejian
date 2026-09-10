@@ -399,6 +399,10 @@ Page({
     })
   },
 
+  onPreventTouchMove() {
+    /* 拦住触摸，避免底层核对页跟着滑 */
+  },
+
   async onMaskEditorSubmit(e) {
     if (this.data.maskEditorSubmitting) return
     const edit = this._maskEdit
@@ -450,13 +454,49 @@ Page({
     try {
       const taskId = await this.ensureMaskTask()
       wx.showLoading({ title: '脱敏中…', mask: true })
-      await runAutoMask(taskId)
+      const task = await runAutoMask(taskId)
       wx.hideLoading()
-      wx.showToast({ title: '脱敏完成', icon: 'success' })
+      const assets = (task && task.rawAssets) || []
+      const okCount = assets.filter((row) => row && String(row.maskedUrl || '').trim()).length
+      const total = assets.length
+      if (!total) {
+        wx.showToast({ title: '本单暂无过程图', icon: 'none' })
+        return
+      }
+      if (!okCount) {
+        wx.showModal({
+          title: '自动脱敏未完成',
+          content:
+            '引擎未产出脱敏图（常见原因：阿里云 OCR/人脸密钥未配或接口失败）。请点图片手工框选打码。',
+          showCancel: false,
+          confirmText: '知道了',
+        })
+        return
+      }
+      // 用任务里的脱敏图直接替换通读预览，避免只靠服务端映射漏掉
+      let reviewDocs = this.data.reviewDocs || []
+      assets.forEach((row) => {
+        if (!row || !row.maskedUrl) return
+        reviewDocs = patchReviewDocImageUrls(reviewDocs, row.url, row.maskedUrl)
+        if (row.preMaskedUrl) {
+          reviewDocs = patchReviewDocImageUrls(reviewDocs, row.preMaskedUrl, row.maskedUrl)
+        }
+      })
+      this.setData({ reviewDocs })
+      wx.showToast({
+        title: okCount < total ? `已脱敏 ${okCount}/${total} 张` : '脱敏完成',
+        icon: 'success',
+      })
       await this.loadPublicFace({ silent: true })
     } catch (e) {
       wx.hideLoading()
-      wx.showToast({ title: (e && e.message) || '脱敏失败', icon: 'none' })
+      const msg = (e && e.message) || '脱敏失败'
+      wx.showModal({
+        title: '自动脱敏失败',
+        content: `${msg}\n可点图片改用手工打码。`,
+        showCancel: false,
+        confirmText: '知道了',
+      })
     } finally {
       this.setData({ working: false })
     }

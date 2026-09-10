@@ -129,23 +129,29 @@
   right: 0;
   top: 0;
   bottom: 0;
-  z-index: var(--z-modal, 1000);
+  z-index: var(--z-toast);
   background-color: var(--color-mask);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  box-sizing: border-box;
 }
 
 .merchant-host-page__mask-panel {
+  height: 92vh;
   max-height: 92vh;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding: var(--space-md);
   padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background-color: var(--color-bg-card, #fff);
+  background-color: var(--color-bg-card);
+  box-sizing: border-box;
 }
 
 .merchant-host-page__mask-head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -156,4 +162,10 @@
   color: var(--color-primary);
   font-size: var(--font-size-caption);
   padding: var(--space-xs);
+}
+
+.merchant-host-page__mask-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
