@@ -144,6 +144,9 @@
     var vehicle = vehicleLabel(data)
     var service = data.serviceName || '维修服务'
     var store = shouldShowStorePublicly(data) ? data.storeName || '' : ''
+    if (data.attribution && !data.attribution.showStoreAsAuthor && data.attribution.factHeadline) {
+      return String(data.attribution.factHeadline) + ' · 辙见'
+    }
     var headline = city + vehicle + service + '维修案例'
     return (store ? headline + '_' + store : headline) + ' · 辙见'
   }
@@ -216,7 +219,9 @@
       image: cover || undefined,
       author: shouldShowStorePublicly(data)
         ? { '@type': 'Organization', name: data.storeName || '辙见合作门店' }
-        : { '@type': 'Organization', name: '辙见' },
+        : data.attribution && data.attribution.claimedStoreName
+          ? { '@type': 'Person', name: '提交者' }
+          : { '@type': 'Organization', name: '辙见' },
       publisher: {
         '@type': 'Organization',
         name: '辙见',
@@ -382,20 +387,47 @@
     return false
   }
 
+  function appendAttributionProperties(props, data) {
+    var list = (props || []).slice()
+    var attr = data && data.attribution
+    if (!attr) return list
+    if (attr.schemaStoreAttributionStatus || attr.status) {
+      list.push({
+        '@type': 'PropertyValue',
+        name: 'storeAttributionStatus',
+        value: String(attr.schemaStoreAttributionStatus || attr.status),
+      })
+    }
+    if (attr.sourceLabel) {
+      list.push({ '@type': 'PropertyValue', name: 'sourceLabel', value: String(attr.sourceLabel) })
+    }
+    if (attr.claimedStoreName) {
+      list.push({
+        '@type': 'PropertyValue',
+        name: 'claimedStoreName',
+        value: String(attr.claimedStoreName),
+      })
+    }
+    return list
+  }
+
   function buildClientTrustAdditionalProperty(data) {
     var tm = data && data.trustMeta
     if (!tm) {
-      return [
-        { '@type': 'PropertyValue', name: 'desensitized', value: 'true' },
-        { '@type': 'PropertyValue', name: 'desensitizedLabel', value: '已脱敏' },
-        { '@type': 'PropertyValue', name: 'reviewStatusLabel', value: '已审核' },
-        { '@type': 'PropertyValue', name: 'platformAuditStatus', value: 'audited' },
-        {
-          '@type': 'PropertyValue',
-          name: 'contentTrustLabels',
-          value: '已脱敏 · 已审核',
-        },
-      ]
+      return appendAttributionProperties(
+        [
+          { '@type': 'PropertyValue', name: 'desensitized', value: 'true' },
+          { '@type': 'PropertyValue', name: 'desensitizedLabel', value: '已脱敏' },
+          { '@type': 'PropertyValue', name: 'reviewStatusLabel', value: '已审核' },
+          { '@type': 'PropertyValue', name: 'platformAuditStatus', value: 'audited' },
+          {
+            '@type': 'PropertyValue',
+            name: 'contentTrustLabels',
+            value: '已脱敏 · 已审核',
+          },
+        ],
+        data
+      )
     }
     var labels = []
     if (tm.authorizationTierLabel) labels.push(tm.authorizationTierLabel)
@@ -443,21 +475,49 @@
         value: String(tm.publicImageCount),
       })
     }
-    return props
+    return appendAttributionProperties(props, data)
   }
 
   // 主标签：商家上传 · 已脱敏（禁止「已审核」）
   function renderTags(data) {
-    var labels = ['商家上传', '已脱敏']
+    var sourceLabel =
+      (data.attribution && data.attribution.sourceLabel) || '商家上传'
+    var labels = [sourceLabel, '已脱敏']
     var html = labels
       .map(function (text) {
         var cls = text === '已脱敏' ? 'h5-tag--desensitized' : 'h5-tag--info'
         return '<span class="h5-tag ' + cls + '">' + escapeHtml(text) + '</span>'
       })
       .join('')
-    var disclaimer =
-      '<p class="h5-section-note">内容由门店托管公开，来源为商家上传；平台不担保真实与脱敏零残留。</p>'
-    return '<div class="h5-tags">' + html + '</div>' + disclaimer
+    var note =
+      data.attribution && !data.attribution.showStoreAsAuthor
+        ? escapeHtml(data.attribution.storeAttributionLabel || '提交者声称、门店未确认')
+        : '内容由门店托管公开，来源为商家上传；平台不担保真实与脱敏零残留。'
+    return (
+      '<div class="h5-tags">' +
+      html +
+      '</div>' +
+      '<p class="h5-section-note">' +
+      note +
+      '</p>' +
+      renderStarBlock(data)
+    )
+  }
+
+  function renderStarBlock(data) {
+    if (!data || !data.id) return ''
+    return (
+      '<div class="h5-star" id="h5-star" data-case-id="' +
+      escapeHtml(data.id) +
+      '">' +
+      '<div class="h5-star-row">' +
+      '<button type="button" class="h5-star-btn" id="h5-star-btn">星标</button>' +
+      '<span class="h5-star-count" id="h5-star-count">0</span>' +
+      '</div>' +
+      '<div class="h5-star-list" id="h5-star-list"></div>' +
+      '<p class="h5-star-hint" id="h5-star-hint" hidden></p>' +
+      '</div>'
+    )
   }
 
   function renderTrustAttestation() {
@@ -533,6 +593,9 @@
   }
 
   function shouldShowStorePublicly(data) {
+    if (data && data.attribution && data.attribution.showStoreAsAuthor != null) {
+      return Boolean(data.attribution.showStoreAsAuthor)
+    }
     return data.authorizationTier !== 'anonymous'
   }
 
@@ -1374,9 +1437,91 @@
     )
   }
 
+  function paintStars(payload) {
+    var countEl = document.getElementById('h5-star-count')
+    var btn = document.getElementById('h5-star-btn')
+    var listEl = document.getElementById('h5-star-list')
+    if (!payload || !countEl) return
+    countEl.textContent = String(payload.count || 0) + ' 星标'
+    if (btn) {
+      btn.className = payload.starred ? 'h5-star-btn is-on' : 'h5-star-btn'
+      btn.textContent = payload.starred ? '已星标' : '星标'
+    }
+    if (!listEl) return
+    listEl.innerHTML = (payload.list || [])
+      .map(function (item) {
+        var avatar = item.avatarUrl
+          ? '<img class="h5-star-avatar" src="' +
+            escapeHtml(item.avatarUrl) +
+            '" alt="" width="22" height="22" />'
+          : '<span class="h5-star-avatar"></span>'
+        var inner = avatar + escapeHtml(item.displayName || '')
+        if (item.href) {
+          return (
+            '<a class="h5-star-chip" href="' + escapeHtml(item.href) + '">' + inner + '</a>'
+          )
+        }
+        return '<span class="h5-star-chip">' + inner + '</span>'
+      })
+      .join('')
+  }
+
+  function bindStars(caseId) {
+    var root = document.getElementById('h5-star')
+    if (!root || !caseId) return
+    var apiBase = String(window.ZHEJIAN_API_BASE || '').replace(/\/$/, '')
+    var url = apiBase + '/api/v1/public/h5/cases/' + encodeURIComponent(caseId) + '/stars'
+    var headers = { Accept: 'application/json' }
+    if (window.zhejianH5Auth && window.zhejianH5Auth.authHeader) {
+      Object.assign(headers, window.zhejianH5Auth.authHeader())
+    }
+    fetch(url, { headers: headers })
+      .then(function (r) {
+        return r.json()
+      })
+      .then(function (body) {
+        paintStars(body.data || body)
+      })
+      .catch(function () {})
+
+    var btn = document.getElementById('h5-star-btn')
+    var hint = document.getElementById('h5-star-hint')
+    if (!btn) return
+    btn.addEventListener('click', function () {
+      if (!window.zhejianH5Auth || !window.zhejianH5Auth.readSession || !window.zhejianH5Auth.readSession()) {
+        if (hint) {
+          hint.hidden = false
+          hint.innerHTML = '登录后可星标这份档案。<a href="/library/">去登录</a>'
+        }
+        return
+      }
+      fetch(apiBase + '/api/v1/public/h5/cases/' + encodeURIComponent(caseId) + '/star', {
+        method: 'POST',
+        headers: Object.assign(
+          { Accept: 'application/json' },
+          window.zhejianH5Auth.authHeader()
+        ),
+      })
+        .then(function (r) {
+          return r.json().then(function (body) {
+            if (!r.ok) throw new Error((body && body.message) || '星标失败')
+            return body.data || body
+          })
+        })
+        .then(paintStars)
+        .catch(function (e) {
+          if (hint) {
+            hint.hidden = false
+            hint.textContent = e.message || '星标失败'
+          }
+        })
+    })
+  }
+
   function bindCaseInteractions(safeData, articleMode) {
     var caseId = safeData.id || ''
     var storeId = safeData.storeId || ''
+    bindStars(caseId)
 
     document.querySelectorAll('[data-case-id]').forEach(function (el) {
       if (el.id === 'h5-store-link') return
@@ -1707,7 +1852,7 @@
     html += renderRelatedCases(
       safeData.relatedCases,
       safeData.id,
-      articleMode ? '本店更多案例' : '相关案例'
+      articleMode && shouldShowStorePublicly(safeData) ? '本店更多案例' : '相似案例'
     )
 
     if (window.zhejianSiteBeian) {

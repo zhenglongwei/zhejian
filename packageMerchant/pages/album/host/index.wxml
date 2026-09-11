@@ -88,7 +88,7 @@
     <block wx:elif="{{wizardStep === 3}}">
       <view class="merchant-host-page__section">
         <text class="text-body merchant-host-page__label">将出现在店页上的说明</text>
-        <text class="text-caption text-secondary">可改；确认后才会公开展示。</text>
+        <text class="text-caption text-secondary">可改；确认后才会公开展示。写给人看：专业、好懂、语气友好。</text>
 
         <text class="text-caption merchant-host-page__field-label">摘要</text>
         <textarea
@@ -96,7 +96,7 @@
           value="{{geoSummary}}"
           maxlength="500"
           bindinput="onGeoSummaryInput"
-          placeholder="本单做了什么、查到什么、怎么处理"
+          placeholder="用平常话写清：车主遇到什么、店里查到什么、怎么处理的"
         />
 
         <view class="merchant-host-page__highlights">
@@ -129,7 +129,7 @@
               data-field="value"
               bindinput="onHighlightFieldInput"
               maxlength="40"
-              placeholder="对应内容"
+              placeholder="对应内容，短句、好懂"
             />
           </view>
           <ui-button type="ghost" size="sm" bind:btntap="onAddHighlight">添加要点</ui-button>
@@ -168,7 +168,7 @@
               data-field="a"
               bindinput="onFaqFieldInput"
               maxlength="280"
-              placeholder="可写：行业惯例 → 本单怎么做 → 差别或优势；空着则公开页不展示"
+              placeholder="用人话答：平时常见怎么做、本单怎么做；空着则公开页不展示"
             />
           </view>
           <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>

@@ -666,15 +666,24 @@
       return ''
     }
     var audit = store.auditMeta || {}
-    var auditNote = audit.auditor
-      ? '<p class="h5-section-note">由' +
-        escapeHtml(audit.auditor) +
-        '依据' +
-        escapeHtml(audit.basis || '营业执照、维修资质证照、门店实景照片') +
-        '审核' +
-        (audit.approvedAt ? '（' + escapeHtml(audit.approvedAt) + '）' : '') +
-        '。</p>'
-      : ''
+    var auditNote = audit.notice
+      ? '<p class="h5-section-note">' +
+        escapeHtml(audit.notice) +
+        (audit.nationalCreditSearch
+          ? ' 可在<a href="' +
+            escapeHtml(audit.nationalCreditSearch) +
+            '" target="_blank" rel="noopener">国家企业信用信息公示系统</a>核对统一社会信用代码。'
+          : '') +
+        '</p>'
+      : audit.auditor
+        ? '<p class="h5-section-note">由' +
+          escapeHtml(audit.auditor) +
+          '依据' +
+          escapeHtml(audit.basis || '营业执照、维修资质证照、门店实景照片') +
+          '审核' +
+          (audit.approvedAt ? '（' + escapeHtml(audit.approvedAt) + '）' : '') +
+          '。</p>'
+        : ''
     var table = ''
     if (certRows.length) {
       var body = certRows
@@ -704,7 +713,7 @@
               '" loading="lazy" /><div class="h5-cert-wall-caption">' +
               escapeHtml(item.label) +
               ' · ' +
-              escapeHtml(item.text || '已认证') +
+              escapeHtml(item.text || '门店自行公示') +
               '</div></div>'
             )
           })
@@ -712,7 +721,7 @@
         '</div>'
     } else if (!store.certWall || !store.certWall.length) {
       wall =
-        '<p class="h5-cert-empty">证照图片待商家补充；以下为平台资料审核结果。</p>'
+        '<p class="h5-cert-empty">证照图片待门店补充。</p>'
     }
     return (
       '<div class="h5-folio-panel" id="store-trust"><h2 class="h5-folio-section-title">门店资质</h2>' +

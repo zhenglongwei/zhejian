@@ -52,7 +52,7 @@ const DIMENSION_DEFS = [
     maxScore: 15,
     unit: 'score',
     audience: 'public',
-    meaning: '营业执照与维修资质等平台核验信息（含有效期），可在本页资质区查看',
+    meaning: '门店自行公示的营业执照与维修资质（平台不验真），可在本页资质区查看',
   },
   {
     id: 'content_freshness',

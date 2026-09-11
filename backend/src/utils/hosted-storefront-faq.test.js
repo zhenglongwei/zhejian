@@ -1,12 +1,14 @@
 /**
- * 托管店页 FAQ 题库 / 空答过滤
+ * 托管店页 FAQ 题库 / 空答过滤 / 低质答拦截
  */
 const assert = require('assert')
 const {
   buildHostedStorefrontFaq,
   filterPublishableFaq,
   caseHasAnswerMaterial,
+  isLowInfoFaqAnswer,
 } = require('../utils/hosted-storefront-faq')
+const { getHostedStorefrontFaqBank: getBank } = require('../constants/hosted-storefront-faq-bank')
 
 function testMaintenanceBank() {
   const pack = buildHostedStorefrontFaq({
@@ -21,11 +23,15 @@ function testMaintenanceBank() {
 }
 
 function testChassisMoreQuestions() {
+  const bankQ = getBank('chassis_noise').questions[0]
   const pack = buildHostedStorefrontFaq({
     serviceName: '底盘维修',
     geo: { faultDesc: '异响', inspectResult: '胶套老化', repairPlan: '更换下摆臂胶套' },
     answeredFaq: [
-      { q: '底盘异响常见原因有哪些？本单查到了什么？', a: '惯例先查胶套球头；本单为胶套老化并更换。' },
+      {
+        q: bankQ,
+        a: '平时常见先查胶套、球头和连杆；本单检查为胶套老化，已更换下摆臂胶套，减轻异响来源。',
+      },
     ],
   })
   assert.equal(pack.categoryId, 'chassis_noise')
@@ -36,15 +42,29 @@ function testChassisMoreQuestions() {
   assert.ok(published[0].a.includes('胶套'))
 }
 
+function testRejectThinAnswer() {
+  assert.equal(isLowInfoFaqAnswer('后门'), true)
+  assert.equal(isLowInfoFaqAnswer('机油'), true)
+  const pack = buildHostedStorefrontFaq({
+    serviceName: '钣金喷漆',
+    geo: { faultDesc: '后门凹陷', repairPlan: '钣金喷漆' },
+    answeredFaq: [{ q: '这次主要修了什么？', a: '后门' }],
+  })
+  assert.equal(filterPublishableFaq(pack.faq).length, 0, '极简答不得公开')
+  assert.ok(
+    !pack.faq.some((row) => row.a === '后门'),
+    '低质答应被清空为待填',
+  )
+  assert.equal(filterPublishableFaq([{ q: '这次主要修了什么？', a: '后门' }]).length, 0)
+}
+
 function testMaterialGate() {
   assert.equal(caseHasAnswerMaterial({}, { serviceName: '保养' }), false)
-  assert.equal(
-    caseHasAnswerMaterial({ inspectResult: '机油变质需更换' }, {}),
-    true,
-  )
+  assert.equal(caseHasAnswerMaterial({ inspectResult: '机油变质需更换' }, {}), true)
 }
 
 testMaintenanceBank()
 testChassisMoreQuestions()
+testRejectThinAnswer()
 testMaterialGate()
 console.log('hosted-storefront-faq.test.js OK')

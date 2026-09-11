@@ -1,5 +1,7 @@
 const express = require('express')
 const { ok } = require('../lib/response')
+const { requireAuth } = require('../middleware/auth')
+const { listCaseStars, toggleCaseStar } = require('../services/archive-star.service')
 const { createH5Lead } = require('../services/h5-lead.service')
 const { resolveCaseRedirectTarget } = require('../services/h5-case-redirect.service')
 const { getCityPagePayload } = require('../services/h5-city.service')
@@ -243,6 +245,26 @@ router.get('/h5/stores/:storeId/bot-html', async (req, res, next) => {
 router.post('/h5/leads', async (req, res, next) => {
   try {
     const data = await createH5Lead(req.body || {})
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/cases/:caseId/stars', async (req, res, next) => {
+  try {
+    const data = await listCaseStars(req.params.caseId, {
+      userId: (req.auth && req.auth.userId) || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/h5/cases/:caseId/star', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await toggleCaseStar(req.auth.userId, req.params.caseId)
     return ok(res, data)
   } catch (e) {
     next(e)

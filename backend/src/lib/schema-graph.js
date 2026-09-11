@@ -223,7 +223,10 @@ function buildTrustAdditionalProperties(input = {}) {
         value: String(trustMeta.publicImageCount),
       })
     }
-    return appendTrustMetaSchemaProperties(props, trustMeta)
+    return appendStoreAttributionProperties(
+      appendTrustMetaSchemaProperties(props, trustMeta),
+      data
+    )
   }
 
   const snapshot =
@@ -290,7 +293,33 @@ function buildTrustAdditionalProperties(input = {}) {
       value: '已脱敏 · 已审核',
     }
   )
-  return props
+  return appendStoreAttributionProperties(props, data)
+}
+
+function appendStoreAttributionProperties(props, data = {}) {
+  const list = Array.isArray(props) ? [...props] : []
+  const attr = data.attribution && typeof data.attribution === 'object' ? data.attribution : null
+  if (!attr) return list
+  list.push({
+    '@type': 'PropertyValue',
+    name: 'storeAttributionStatus',
+    value: String(attr.schemaStoreAttributionStatus || attr.status || ''),
+  })
+  if (attr.sourceLabel) {
+    list.push({
+      '@type': 'PropertyValue',
+      name: 'sourceLabel',
+      value: String(attr.sourceLabel),
+    })
+  }
+  if (attr.claimedStoreName) {
+    list.push({
+      '@type': 'PropertyValue',
+      name: 'claimedStoreName',
+      value: String(attr.claimedStoreName),
+    })
+  }
+  return list
 }
 
 /**
@@ -362,10 +391,19 @@ function buildCasePageSchemaGraph(input) {
   const canonical = canonicalPath.startsWith('http')
     ? canonicalPath
     : entityId(baseUrl, canonicalPath, '')
-  const title = (data.seo && data.seo.title) || data.title || '维修案例'
+  const attr = data.attribution && typeof data.attribution === 'object' ? data.attribution : {}
+  const title =
+    (!attr.showStoreAsAuthor && attr.factHeadline) ||
+    (data.seo && data.seo.title) ||
+    data.title ||
+    '维修案例'
   const description = data.aiSummary || data.summary || (data.seo && data.seo.description) || ''
   const cover = data.coverImageDesensitized || data.coverImage || ''
-  const showStore = Boolean(input.showStorePublicly && data.store && data.store.name)
+  const showStore = Boolean(
+    (attr.showStoreAsAuthor != null ? attr.showStoreAsAuthor : input.showStorePublicly) &&
+      data.store &&
+      data.store.name
+  )
 
   const organization = buildOrganizationNode(baseUrl, input.organizationSameAs)
   const graph = [organization]

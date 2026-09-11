@@ -78,6 +78,36 @@ function run() {
   assert.ok(Array.isArray(article.additionalProperty))
   assert.ok(article.additionalProperty.some((item) => item.name === 'desensitized'))
   assert.ok(article.additionalProperty.some((item) => item.name === 'contentTrustLabels'))
+
+  const claimedGraph = buildCasePageSchemaGraph({
+    baseUrl: base,
+    showStorePublicly: true,
+    data: {
+      id: 'case_claimed',
+      slug: 'case-claimed',
+      title: '不该带店名的旧标题',
+      serviceName: '刹车保养',
+      vehicleText: '朗逸',
+      city: '杭州',
+      store: { id: 'store_1', name: '测试门店' },
+      attribution: {
+        status: 'claimed_unconfirmed',
+        showStoreAsAuthor: false,
+        factHeadline: '朗逸刹车保养',
+        sourceLabel: '提交者声称',
+        schemaStoreAttributionStatus: 'claimed',
+        claimedStoreName: '测试门店',
+      },
+    },
+  })
+  const claimedArticle = claimedGraph['@graph'].find((node) => node['@type'] === 'Article')
+  assert.notStrictEqual(claimedArticle.author && claimedArticle.author['@type'], 'AutoRepair')
+  assert.ok(
+    claimedArticle.additionalProperty.some(
+      (item) => item.name === 'storeAttributionStatus' && item.value === 'claimed'
+    )
+  )
+  assert.ok(claimedGraph['@graph'].some((node) => node['@type'] === 'WebPage' && node.name === '朗逸刹车保养'))
   assert.match(
     article.additionalProperty.find((item) => item.name === 'contentTrustLabels').value,
     /用户授权案例 · 已脱敏 · 已审核/

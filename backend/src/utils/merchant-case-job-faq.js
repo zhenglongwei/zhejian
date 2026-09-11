@@ -30,6 +30,7 @@ function firstSentenceMatching(text, pattern) {
 
 function normalizeFaqItems(list) {
   if (!Array.isArray(list)) return []
+  const { isLowInfoFaqAnswer } = require('./hosted-storefront-faq')
   const out = []
   const seen = new Set()
   for (const item of list) {
@@ -38,6 +39,7 @@ function normalizeFaqItems(list) {
       .replace(/本单已处理[:：]\s*/gu, '')
       .slice(0, 200)
     if (!q || !a || GENERIC_ANSWER.test(a)) continue
+    if (isLowInfoFaqAnswer(a)) continue
     if (/建议项/.test(a) && !/、/.test(a) && a.length < 40) continue
     const key = q.toLowerCase()
     if (seen.has(key)) continue

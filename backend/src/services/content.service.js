@@ -61,6 +61,11 @@ const {
 } = require('./public-page-enrich.service')
 const { applyCasePublicDisplay } = require('../utils/case-geo-display')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
+const {
+  attachArchiveAttribution,
+  isStoreShowcaseCase,
+  readHostMeta,
+} = require('../utils/archive-attribution')
 const { config } = require('../config')
 const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
 const { resolveStoreBusinessStatus } = require('../utils/store-business-status')
@@ -262,7 +267,8 @@ function mapPublicCaseRow(row, album) {
   if (layered.confirmedCaseDraft && Array.isArray(layered.confirmedCaseDraft.faq)) {
     layered.faq = layered.confirmedCaseDraft.faq
   }
-  return applyPublicDisplayRules(layered)
+  const hostMeta = readHostMeta(album) || readHostMeta(rawContent)
+  return attachArchiveAttribution(applyPublicDisplayRules(layered), { hostMeta })
 }
 
 function mapFallbackCase(item) {
@@ -272,11 +278,11 @@ function mapFallbackCase(item) {
     coverImageDesensitized: sanitizeCover(item.coverImage),
     nodes: sanitizeNodes(item.nodes),
   })
-  return {
+  return attachArchiveAttribution({
     ...mapped,
     seo: emptyCaseSeoApi(item.id),
     article: emptyCaseArticleApi(),
-  }
+  })
 }
 
 function attachCaseArticleAndSeo(row, item) {
@@ -353,7 +359,9 @@ async function listCases(query = {}) {
     }
   }
   if (query.storeId) {
-    list = list.filter((c) => c.storeId === query.storeId)
+    list = list.filter(
+      (c) => c.storeId === query.storeId && isStoreShowcaseCase(c.attribution)
+    )
   }
   if (query.serviceItemId) {
     const catalogItem = getServiceItem(query.serviceItemId)
@@ -481,7 +489,10 @@ async function getCaseDetail(idOrSlug, opts = {}) {
   const ownerReviews =
     row && row.albumId ? await listPublicReviewsForAlbum(row.albumId) : []
   const display = applyPublicDisplayRules(item)
-  const showStorePublicly = shouldShowStorePublicly(item.authorizationTier)
+  const showStorePublicly =
+    item.attribution && item.attribution.showStoreAsAuthor != null
+      ? Boolean(item.attribution.showStoreAsAuthor)
+      : shouldShowStorePublicly(item.authorizationTier)
   const { pages: geoPagesForMatch } = await listGeoPages({ limit: 100 })
   const internalLinks = buildCaseInternalLinks(
     { ...display, serviceItemId },

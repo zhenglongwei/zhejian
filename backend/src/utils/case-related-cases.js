@@ -1,5 +1,5 @@
 /**
- * DS-C-11 · 案例页相关案例推荐（PRD 02_公开案例详情页 §6.18）
+ * DS-C-11 · 案例页相似案例（给人看的页底链接，不写成同一单，不给 AI 单独标注相似关系）
  */
 const { getServiceItem } = require('../constants/service-catalog')
 const { matchServiceName } = require('./service-case-link')

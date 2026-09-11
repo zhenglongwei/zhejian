@@ -58,20 +58,21 @@ function readPhotosMeta(photosJson) {
 
 function buildCertifications(merchant, extras = {}) {
   const rows = []
-  const pushRow = (label, text, status = 'verified') => {
+  const pushRow = (label, text, status = 'self_declared') => {
     if (!label) return
-    rows.push({ label, text: text || '已认证', status })
+    rows.push({ label, text: text || '门店自行公示', status })
   }
 
-  if (merchant?.status === 'ACTIVE' || extras.auditStatus === 'approved') {
-    pushRow('平台审核', '已通过平台审核')
+  if (merchant?.creditCode) {
+    pushRow('统一社会信用代码', String(merchant.creditCode).trim(), 'self_declared')
   }
-  if (merchant?.licensePhotoUrl) {
-    pushRow('营业执照', merchant.legalName ? `${merchant.legalName} · 已认证` : '已认证')
+  if (merchant?.licensePhotoUrl || merchant?.legalName) {
+    const who = merchant.legalName ? String(merchant.legalName).trim() : ''
+    pushRow('营业执照', who ? `${who} · 门店自行公示` : '门店自行公示', 'self_declared')
   }
   const operatingYears = buildOperatingYearsMeta(merchant?.licenseEstablishedOn)
   if (operatingYears) {
-    pushRow('经营年限', operatingYears.label)
+    pushRow('经营年限', operatingYears.label, 'self_declared')
   }
   const qualification = formatQualificationForClient(merchant?.qualificationJson)
   if (qualification?.photoUrl || qualification?.baseType || qualification?.type) {
@@ -80,17 +81,19 @@ function buildCertifications(merchant, extras = {}) {
       qualification.typeLabel ||
       QUALIFICATION_LABELS[qualification.baseType || qualification.type] ||
       '维修资质'
-    const text = qualification.certNo ? `${qualification.certNo} · 已认证` : '已认证'
-    pushRow(label, text)
+    const text = qualification.certNo
+      ? `${qualification.certNo} · 门店自行公示`
+      : '门店自行公示'
+    pushRow(label, text, 'self_declared')
   }
   if (qualification?.newEnergy?.enabled) {
     const ne = qualification.newEnergy
-    const text = ne.certNo ? `${ne.certNo} · 已认证` : '已认证'
-    pushRow(ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质', text)
+    const text = ne.certNo ? `${ne.certNo} · 门店自行公示` : '门店自行公示'
+    pushRow(ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质', text, 'self_declared')
   }
   if (extras.certifications?.length) {
     extras.certifications.forEach((item) => {
-      pushRow(item.label, item.text, item.status || 'verified')
+      pushRow(item.label, item.text, item.status || 'self_declared')
     })
   }
   return dedupeCertRows(rows)
@@ -117,8 +120,8 @@ function buildCertWall(merchant, extras = {}) {
       type: 'license',
       label: '营业执照',
       imageUrl: resolvePublicCredentialImageUrl(merchant.licensePhotoUrl),
-      status: 'verified',
-      text: merchant.legalName ? `${merchant.legalName} · 已认证` : '已认证',
+      status: 'self_declared',
+      text: merchant.legalName ? `${merchant.legalName} · 门店自行公示` : '门店自行公示',
     })
   }
   const qualification = formatQualificationForClient(merchant?.qualificationJson)
@@ -130,8 +133,8 @@ function buildCertWall(merchant, extras = {}) {
         qualification.typeLabel ||
         '维修资质',
       imageUrl: resolvePublicCredentialImageUrl(qualification.photoUrl),
-      status: 'verified',
-      text: qualification.certNo ? `${qualification.certNo} · 已认证` : '已认证',
+      status: 'self_declared',
+      text: qualification.certNo ? `${qualification.certNo} · 门店自行公示` : '门店自行公示',
     })
   }
   if (qualification?.newEnergy?.enabled && qualification.newEnergy.photoUrl) {
@@ -140,8 +143,8 @@ function buildCertWall(merchant, extras = {}) {
       type: 'qualification_new_energy',
       label: ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质',
       imageUrl: resolvePublicCredentialImageUrl(ne.photoUrl),
-      status: 'verified',
-      text: ne.certNo ? `${ne.certNo} · 已认证` : '已认证',
+      status: 'self_declared',
+      text: ne.certNo ? `${ne.certNo} · 门店自行公示` : '门店自行公示',
     })
   }
   const brandAuthItems = Array.isArray(extras.brandAuthItems) ? extras.brandAuthItems : []
@@ -475,14 +478,8 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     foundingDate: operatingYearsMeta ? operatingYearsMeta.foundingDate : '',
     operatingYearsLabel: operatingYearsMeta ? operatingYearsMeta.label : '',
     auditMeta: {
-      auditor: '辙见平台运营',
-      basis: '营业执照、维修资质证照、门店实景照片',
-      approvedAt:
-        merchantRow?.approvedAt instanceof Date
-          ? merchantRow.approvedAt.toISOString().slice(0, 10)
-          : merchantRow?.approvedAt
-            ? String(merchantRow.approvedAt).slice(0, 10)
-            : '',
+      notice: '证照由门店自行上传公示，平台不验真、不背书。',
+      nationalCreditSearch: 'https://www.gsxt.gov.cn/',
     },
   }
 
