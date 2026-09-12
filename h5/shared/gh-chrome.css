@@ -13,8 +13,8 @@
   gap: var(--space-md);
   height: 56px;
   padding: 0 var(--space-lg);
-  background: var(--color-bg-card);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-text-primary);
+  border-bottom: 0;
 }
 
 .gh-topbar-left,
@@ -25,26 +25,48 @@
   min-width: 0;
 }
 
+.gh-topbar-right {
+  position: relative;
+}
+
 .gh-logo {
   font-size: var(--font-h3);
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--color-text-inverse);
   text-decoration: none;
   letter-spacing: 0.02em;
 }
 
 .gh-topbar-link {
   font-size: var(--font-body);
-  color: var(--color-text-secondary);
+  color: var(--color-text-inverse);
   text-decoration: none;
+  opacity: 0.85;
 }
 
 .gh-topbar-link:hover,
 .gh-logo:hover {
-  color: var(--color-text-primary);
+  opacity: 1;
+  color: var(--color-text-inverse);
 }
 
-.gh-header-signin,
+.gh-header-signin {
+  appearance: none;
+  border: 1px solid var(--color-text-inverse);
+  background: transparent;
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: var(--font-body);
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.gh-header-signin:hover {
+  background: var(--color-text-primary);
+  opacity: 0.9;
+}
+
 .gh-btn {
   appearance: none;
   border: 1px solid var(--color-border);
@@ -58,7 +80,6 @@
   text-decoration: none;
 }
 
-.gh-header-signin:hover,
 .gh-btn:hover {
   background: var(--color-bg-page);
 }
@@ -81,13 +102,59 @@
   cursor: not-allowed;
 }
 
-.gh-header-user {
+.gh-user-wrap {
+  position: relative;
+}
+
+.gh-user-menu-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  color: var(--color-text-primary);
-  text-decoration: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-inverse);
+  cursor: pointer;
+  padding: 0;
   font-size: var(--font-body);
+}
+
+.gh-user-menu-name {
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gh-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 168px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 0;
+  z-index: 220;
+}
+
+.gh-menu a,
+.gh-menu button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.gh-menu a:hover,
+.gh-menu button:hover {
+  background: var(--color-bg-muted);
 }
 
 .gh-avatar,
@@ -457,6 +524,7 @@
 .gh-profile[hidden],
 .gh-blankslate[hidden],
 .gh-modal-err[hidden],
-.gh-modal-hint[hidden] {
+.gh-modal-hint[hidden],
+.gh-menu[hidden] {
   display: none !important;
 }
