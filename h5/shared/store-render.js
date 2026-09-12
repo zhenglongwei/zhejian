@@ -655,28 +655,8 @@
   }
 
   function renderCertSection(store, certRows) {
-    if (!certRows.length && !(store.certWall && store.certWall.length) && !store.auditMeta) {
-      return ''
-    }
-    var audit = store.auditMeta || {}
-    var auditNote = audit.notice
-      ? '<p class="h5-section-note">' +
-        escapeHtml(audit.notice) +
-        (audit.nationalCreditSearch
-          ? ' 可在<a href="' +
-            escapeHtml(audit.nationalCreditSearch) +
-            '" target="_blank" rel="noopener">国家企业信用信息公示系统</a>核对统一社会信用代码。'
-          : '') +
-        '</p>'
-      : audit.auditor
-        ? '<p class="h5-section-note">由' +
-          escapeHtml(audit.auditor) +
-          '依据' +
-          escapeHtml(audit.basis || '营业执照、维修资质证照、门店实景照片') +
-          '审核' +
-          (audit.approvedAt ? '（' + escapeHtml(audit.approvedAt) + '）' : '') +
-          '。</p>'
-        : ''
+    var hasWall = store.certWall && store.certWall.length
+    if (!certRows.length && !hasWall) return ''
     var table = ''
     if (certRows.length) {
       var body = certRows
@@ -693,7 +673,7 @@
       table = '<table class="h5-table">' + body + '</table>'
     }
     var wall = ''
-    if (store.certWall && store.certWall.length) {
+    if (hasWall) {
       wall =
         '<div class="h5-cert-wall">' +
         store.certWall
@@ -705,20 +685,15 @@
               escapeHtml(item.label) +
               '" loading="lazy" /><div class="h5-cert-wall-caption">' +
               escapeHtml(item.label) +
-              ' · ' +
-              escapeHtml(item.text || '门店自行公示') +
+              (item.text ? ' · ' + escapeHtml(item.text) : '') +
               '</div></div>'
             )
           })
           .join('') +
         '</div>'
-    } else if (!store.certWall || !store.certWall.length) {
-      wall =
-        '<p class="h5-cert-empty">证照图片待门店补充。</p>'
     }
     return (
       '<div class="h5-folio-panel" id="store-trust"><h2 class="h5-folio-section-title">门店资质</h2>' +
-      auditNote +
       wall +
       table +
       '</div>'
@@ -872,7 +847,37 @@
       )
     }
     if (!parts.length) return ''
-    return '<p class="h5-store-contact">' + parts.join('') + '</p>'
+    return '<p class="h5-store-contact">' + parts.join(' · ') + '</p>'
+  }
+
+  function renderStoreIdentity(store, statusText, headTags) {
+    var cover = store.coverImage ? mediaSrc(store.coverImage) : ''
+    var logo = cover
+      ? '<img class="h5-store-logo" src="' +
+        escapeHtml(cover) +
+        '" alt="" />'
+      : '<span class="h5-store-logo h5-store-logo--placeholder">' +
+        escapeHtml(String(store.name || '店').slice(0, 1)) +
+        '</span>'
+    var intro = store.aiSummary || store.intro || ''
+    return (
+      '<header class="h5-store-identity">' +
+      logo +
+      '<div class="h5-store-identity-body">' +
+      '<h1 class="h5-title">' +
+      escapeHtml(store.name) +
+      '</h1>' +
+      '<div class="h5-tags">' +
+      renderTags(headTags) +
+      '</div>' +
+      '<p class="h5-store-status">' +
+      escapeHtml(statusText) +
+      (store.caseCount ? ' · 公开档案 ' + store.caseCount : '') +
+      '</p>' +
+      renderStoreContact(store) +
+      (intro ? '<p class="h5-store-intro">' + escapeHtml(intro) + '</p>' : '') +
+      '</div></header>'
+    )
   }
 
   function renderServices(services, storeId, bookingEnabled) {
@@ -1108,47 +1113,19 @@
     setShareMeta(store)
     if (store.seo && store.seo.noindex) setNoIndex()
 
-    var heroHtml = store.coverImage
-      ? '<div class="h5-store-hero"><img class="h5-store-hero-img" src="' +
-        escapeHtml(mediaSrc(store.coverImage)) +
-        '" alt="' +
-        escapeHtml(store.name) +
-        '门头" loading="eager" /></div>'
-      : ''
-
     var suspendedNotice =
       store.status === 'suspended'
         ? '<div class="h5-store-notice h5-store-notice--warn">门店当前暂停预约，页面信息仅供浏览。</div>'
         : ''
 
     var html =
-      '<div class="h5-page">' +
+      '<div class="h5-page h5-store-page">' +
       '<nav class="h5-breadcrumb"><a href="/">辙见</a> › ' +
       escapeHtml(store.name) +
       '</nav>' +
-      '<header class="h5-header">' +
-      '<h1 class="h5-title">' +
-      escapeHtml(store.name) +
-      '</h1>' +
-      '<div class="h5-tags">' +
-      renderTags(headTags) +
-      '</div>' +
-      '<p class="h5-store-status">' +
-      escapeHtml(statusText) +
-      (store.caseCount ? ' · 公开档案 ' + store.caseCount : '') +
-      '</p>' +
-      renderStoreContact(store) +
+      renderStoreIdentity(store, statusText, headTags) +
       renderDisclaimerBlock() +
-      suspendedNotice +
-      '</header>' +
-      heroHtml
-
-    if (store.aiSummary || store.intro) {
-      html +=
-        '<div class="h5-folio-summary">' +
-        escapeHtml(store.aiSummary || store.intro) +
-        '</div>'
-    }
+      suspendedNotice
 
     html += renderCases(cases, store)
     html += renderCertSection(store, certRows)

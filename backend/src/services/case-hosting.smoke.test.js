@@ -192,7 +192,55 @@ function testContentPackagePreservesHostMeta() {
   assert.ok(pkg && pkg.hostMeta && pkg.hostMeta.geoLayer, 'normalize 须保留 hostMeta')
 }
 
+function testMapHostedCaseListVisibilityAndPath() {
+  const { mapHostedCaseListItem } = require('./case-hosting.service')
+  const live = mapHostedCaseListItem(
+    sampleAlbum({
+      contentPackageJson: { hostMeta: { hosted: true, visibility: 'private' } },
+      publicCase: {
+        id: 'case_live',
+        title: '刹车',
+        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
+        storefrontHidden: false,
+        slug: 'hangzhou-brake-case_live',
+        coverImage: 'https://x/c.jpg',
+      },
+    })
+  )
+  assert.strictEqual(live.visibility, 'public')
+  assert.strictEqual(live.publicPath, '/case/hangzhou-brake-case_live.html')
+  assert.strictEqual(live.caseId, 'case_live')
+  assert.strictEqual(live.id, 'case_live')
+
+  const metaPublic = mapHostedCaseListItem(
+    sampleAlbum({
+      contentPackageJson: { hostMeta: { hosted: true, visibility: 'public' } },
+      publicCase: {
+        id: 'case_meta',
+        status: PUBLIC_CASE_STATUS.AUDIT_PASSED,
+        storefrontHidden: false,
+        slug: '',
+      },
+    })
+  )
+  assert.strictEqual(metaPublic.visibility, 'public')
+  assert.ok(String(metaPublic.publicPath).includes('/case/view.html?id=case_meta'))
+
+  const privateOnly = mapHostedCaseListItem(
+    sampleAlbum({
+      contentPackageJson: { hostMeta: { hosted: true, visibility: 'private' } },
+      publicCase: null,
+    })
+  )
+  assert.strictEqual(privateOnly.visibility, 'private')
+  assert.strictEqual(privateOnly.publicPath, '')
+
+  const skip = mapHostedCaseListItem(sampleAlbum({ publicCase: null }))
+  assert.strictEqual(skip, null)
+}
+
 testContentPackagePreservesHostMeta()
+testMapHostedCaseListVisibilityAndPath()
 
 ;(async () => {
   await testGenerateCaseBlockedForNewAlbum()

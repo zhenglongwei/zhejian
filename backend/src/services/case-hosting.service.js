@@ -6,6 +6,8 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
+const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
+const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 
 function readHostMeta(album) {
   const pkg =
@@ -934,40 +936,32 @@ async function listHostedCasesForStore(storeId) {
     orderBy: { updatedAt: 'desc' },
     take: 200,
   })
-  return albums
-    .map((album) => {
-      const meta = readHostMeta(album)
-      if (!meta.hosted && !(album.publicCase && album.publicCase.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED)) {
-        return null
-      }
-      return {
-        albumId: album.id,
-        caseId: album.publicCase && album.publicCase.id,
-        title:
-          (album.publicCase && album.publicCase.title) ||
-          album.serviceName ||
-          '未命名案例',
-        serviceName: album.serviceName || '',
-        coverImage: (album.publicCase && album.publicCase.coverImage) || '',
-        hosted: meta.hosted,
-        visibility:
-          album.publicCase &&
-          album.publicCase.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED &&
-          !album.publicCase.storefrontHidden
-            ? 'public'
-            : 'private',
-        overview: meta.overview || (album.publicCase && album.publicCase.summary) || '',
-        updatedAt: meta.updatedAt || album.updatedAt,
-        sourceLabel: '商家上传',
-        publicPath:
-          album.publicCase && album.publicCase.slug
-            ? `/case/${album.publicCase.slug}.html`
-            : album.publicCase
-              ? `/case/view.html?id=${album.publicCase.id}`
-              : '',
-      }
-    })
-    .filter(Boolean)
+  return albums.map(mapHostedCaseListItem).filter(Boolean)
+}
+
+function mapHostedCaseListItem(album) {
+  const meta = readHostMeta(album)
+  const pc = album.publicCase
+  const live = isPublicCaseH5Visible(pc)
+  if (!meta.hosted && !live) return null
+  const visibility = live || meta.visibility === 'public' ? 'public' : 'private'
+  const caseId = pc && pc.id ? pc.id : ''
+  return {
+    albumId: album.id,
+    caseId,
+    id: caseId,
+    title: (pc && pc.title) || album.serviceName || '未命名案例',
+    serviceName: album.serviceName || '',
+    coverImage: (pc && pc.coverImage) || '',
+    hosted: meta.hosted || live,
+    visibility,
+    overview: meta.overview || (pc && pc.summary) || '',
+    updatedAt: meta.updatedAt || album.updatedAt,
+    sourceLabel: '商家上传',
+    publicPath: caseId
+      ? resolveCaseCanonicalPath({ slug: pc && pc.slug, caseId })
+      : '',
+  }
 }
 
 /** 导出档案包（元数据 JSON；媒体 URL 清单） */
@@ -1068,6 +1062,7 @@ module.exports = {
   saveHostedPublicCopy,
   freezeConfirmedDoc,
   listHostedCasesForStore,
+  mapHostedCaseListItem,
   exportAlbumArchive,
   hardDeleteAlbum,
 }

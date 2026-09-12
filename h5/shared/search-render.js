@@ -190,9 +190,9 @@
     var history = loadHistory()
     if (!history.length) return ''
     return (
-      '<div class="h5-card">' +
-      '<div class="h5-search-history-head">' +
-      '<h2 class="h5-section-title">最近搜索</h2>' +
+      '<div class="h5-search-aside">' +
+      '<div class="h5-search-aside-head">' +
+      '<span class="h5-search-aside-label">最近</span>' +
       '<button type="button" class="h5-search-clear" data-action="clear-history">清空</button>' +
       '</div>' +
       '<div class="h5-search-chips">' +
@@ -204,8 +204,8 @@
   function renderHotwords(hotwords) {
     if (!hotwords || !hotwords.length) return ''
     return (
-      '<div class="h5-card">' +
-      '<h2 class="h5-section-title">热门搜索</h2>' +
+      '<div class="h5-search-aside">' +
+      '<span class="h5-search-aside-label">热门</span>' +
       '<div class="h5-search-chips">' +
       renderChips(hotwords, 'h5-search-chip') +
       '</div></div>'
@@ -474,13 +474,12 @@
     }
 
     return (
-      '<div class="h5-card">' +
+      '<div class="h5-search-results">' +
       '<div class="h5-search-tabs">' +
       renderTabs(state.tab, counts) +
       '</div>' +
       sections +
       more +
-      '<p class="h5-compliance">公开内容经审核，价格仅为参考，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
     )
   }
@@ -490,16 +489,11 @@
     var app = document.getElementById('app')
     if (!app) return
     app.innerHTML =
-      '<div class="h5-page">' +
-      renderBreadcrumb() +
-      '<header class="h5-header">' +
-      '<h1 class="h5-title">搜索</h1>' +
-      '<p class="h5-summary">搜索公开案例、门店、服务与维修专题（小程序内不提供全站搜索）。</p>' +
-      '</header>' +
-      '<form class="h5-search-form" id="h5-search-form">' +
+      '<div class="h5-page h5-search-page">' +
+      '<form class="h5-search-form h5-search-form--hero" id="h5-search-form" role="search">' +
       '<input class="h5-search-input" id="h5-search-input" name="q" maxlength="' +
       KEYWORD_MAX +
-      '" placeholder="搜索服务、门店、故障或案例" value="' +
+      '" placeholder="搜索档案、门店或服务" value="' +
       escapeHtml(state.keyword) +
       '" autocomplete="off" />' +
       '<button type="submit" class="h5-search-submit">搜索</button>' +

@@ -122,6 +122,9 @@ function createApp() {
     app.use('/library', express.static(path.join(h5Root, 'library')))
     app.use('/case', express.static(path.join(h5Root, 'case')))
     app.use('/album', express.static(path.join(h5Root, 'album')))
+    app.get(['/cases', '/cases/'], function (_req, res) {
+      return res.redirect(301, '/case/')
+    })
     app.get(['/store', '/store/', '/store/index.html'], function (_req, res) {
       return res.redirect(301, '/')
     })
