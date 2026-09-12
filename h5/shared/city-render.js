@@ -200,8 +200,7 @@
         '<div class="h5-card"><h2 class="h5-section-title">' +
         escapeHtml(cityName) +
         '推荐门店</h2>' +
-        '<div class="h5-empty-block">暂无公开展示门店</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
+        '<div class="h5-empty-block">暂无公开展示门店</div></div>'
       )
     }
     var ui = window.zhejianH5Ui
@@ -231,8 +230,7 @@
       '推荐门店</h2>' +
       '<div class="h5-media-list">' +
       items +
-      '</div>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
+      '</div></div>'
     )
   }
 
@@ -457,8 +455,8 @@
       '</p>' +
       '</header>' +
       '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
+      '<a class="h5-btn" href="/case/">公开案例</a>' +
+      '<a class="h5-btn h5-btn--secondary" href="/">首页</a>' +
       '</div></div>'
   }
 
@@ -486,7 +484,7 @@
         renderCity(result.body.data)
       })
       .catch(function () {
-        renderError('暂时无法加载城市推荐内容，你仍可直接浏览案例与门店列表。')
+        renderError('暂时无法加载城市推荐内容，你仍可直接浏览公开案例。')
       })
   }
 

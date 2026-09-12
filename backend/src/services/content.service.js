@@ -14,8 +14,8 @@ const {
   partitionCaseFaq,
   hasCaseFaqContent,
 } = require('../utils/case-faq-links')
-const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { listPublicReviewsForAlbum } = require('./album-review.service')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
 const { getServiceItem } = require('../constants/service-catalog')
 const {
   SEED_SERVICES,
@@ -346,11 +346,7 @@ async function fetchPublicCaseRows() {
     console.warn('[content] expire notify window', e && e.message)
   }
   const rows = await prisma.publicCase.findMany({
-    where: {
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-      storefrontHidden: false,
-    },
+    where: publicCaseH5Where(),
     orderBy: { publishedAt: 'desc' },
   })
   if (!rows.length) return publicCaseFallbackList()
@@ -424,19 +420,11 @@ async function listCases(query = {}) {
 async function getCaseDetail(idOrSlug, opts = {}) {
   const relatedStoreOnly = Boolean(opts.relatedStoreOnly)
   let row = await prisma.publicCase.findFirst({
-    where: {
-      id: idOrSlug,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-    },
+    where: publicCaseH5Where({ id: idOrSlug }),
   })
   if (!row) {
     row = await prisma.publicCase.findFirst({
-      where: {
-        slug: idOrSlug,
-        status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-        articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-      },
+      where: publicCaseH5Where({ slug: idOrSlug }),
     })
   }
 
@@ -648,12 +636,7 @@ function mapStoreRow(store, caseCount = 0) {
 
 async function countCasesByStore(storeId) {
   const count = await prisma.publicCase.count({
-    where: {
-      storeId,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-      storefrontHidden: false,
-    },
+    where: publicCaseH5Where({ storeId }),
   })
   if (count > 0) return count
   if (!config.contentPublicCaseFallback) return 0

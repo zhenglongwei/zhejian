@@ -1,7 +1,7 @@
 const { prisma } = require('../lib/prisma')
 const { newId, maskPhone } = require('../lib/ids')
-const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { createLead } = require('./lead.service')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
 
 const H5_LEAD_RATE_LIMIT_MS = 24 * 60 * 60 * 1000
 
@@ -27,12 +27,7 @@ async function assertH5LeadTarget(storeId, caseId) {
 
   if (caseId) {
     const caseRow = await prisma.publicCase.findFirst({
-      where: {
-        id: caseId,
-        status: 'public_approved',
-        storeId,
-        articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-      },
+      where: publicCaseH5Where({ id: caseId, storeId }),
     })
     if (!caseRow) {
       const err = new Error('案例不存在或与门店不匹配')

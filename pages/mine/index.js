@@ -144,7 +144,7 @@ Page({
     const hasAlbumBindings = Boolean(
       (summary && summary.hasAlbumBindings) || (albums && albums.length)
     )
-    // 已登录无相册：空态主按钮进 H5 门店列表；未登录公域冷启动：底部出口
+    // 已登录无相册：空态主按钮进案例站首页；未登录公域冷启动：底部出口
     const showGuestH5Link =
       !loggedIn && shouldShowH5PublicCaseLink({ hasAlbumBindings: false })
     this.setData({

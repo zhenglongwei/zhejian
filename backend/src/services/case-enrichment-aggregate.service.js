@@ -3,10 +3,10 @@
  */
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
 const { extractSnapshotFromContentJson } = require('../schemas/case-snapshot.schema')
 const { resolveCaseEnrichment } = require('../schemas/case-enrichment.schema')
 const { mapGeoPageRow, normalizeFaq } = require('../schemas/geo-page.schema')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
 const { resolveH5ServiceItemById } = require('../constants/h5-service-items')
 const { buildCaseMountItemFromRow } = require('../utils/case-geo-mount')
 const { resolveServiceItemIdFromPage } = require('./geo-service-catalog.service')
@@ -61,11 +61,7 @@ async function loadPeerCasesForCaseAggregate(row, db, options = {}) {
   const serviceName = mountItem.serviceName || row.serviceName || ''
   if (!serviceName) return [row]
 
-  const where = {
-    status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-    articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-    serviceName,
-  }
+  const where = publicCaseH5Where({ serviceName })
   if (mountItem.city) where.city = mountItem.city
 
   const peers = await db.publicCase.findMany({
@@ -261,10 +257,7 @@ async function refreshGeoPagesAggregateFaq(geoPageIds = [], db) {
  */
 async function backfillCaseEnrichmentAggregateFaq(options = {}) {
   const limit = Math.min(Math.max(Number(options.limit) || 200, 1), 2000)
-  const where = {
-    status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-    articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-  }
+  const where = publicCaseH5Where()
   if (options.caseId) where.id = options.caseId
 
   const rows = await prisma.publicCase.findMany({

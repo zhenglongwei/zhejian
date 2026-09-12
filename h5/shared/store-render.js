@@ -1,10 +1,4 @@
 (function () {
-  var path = location.pathname
-  if (path === '/store' || path === '/store/') {
-    location.replace('/store/index.html')
-    return
-  }
-
   var PC = (window.zhejianPublicCopy && window.zhejianPublicCopy.H5) || {}
   var COPY = {
     displayDisclaimer:
@@ -303,7 +297,7 @@
     var region = store.address || ''
     var services = (store.specialties || []).slice(0, 4).join('、') || '汽车维修保养'
     var caseHint =
-      store.caseCount > 0 ? '可查看真实维修案例与门店资料。' : '可查看门店资质与预约入口。'
+      store.caseCount > 0 ? '可查看公开维修档案。' : '可查看门店资料。'
     return (
       store.name +
       '位于' +
@@ -441,7 +435,6 @@
       window.zhejianSeo.applyBreadcrumbSchema(
         [
           { label: '辙见', href: '/' },
-          { label: '公开门店', href: '/store/' },
           { label: store.name },
         ],
         'store-breadcrumb'
@@ -847,9 +840,27 @@
   function renderStoreContact(store) {
     var parts = []
     if (store.address) {
-      parts.push(
-        '<span class="h5-store-contact__addr">' + escapeHtml(store.address) + '</span>'
-      )
+      var addrText = escapeHtml(store.address)
+      if (store.latitude != null && store.longitude != null) {
+        var mapHref =
+          'https://uri.amap.com/marker?position=' +
+          encodeURIComponent(store.longitude) +
+          ',' +
+          encodeURIComponent(store.latitude) +
+          '&name=' +
+          encodeURIComponent(store.name || '门店') +
+          '&content=' +
+          encodeURIComponent(store.address)
+        parts.push(
+          '<a class="h5-store-contact__addr" href="' +
+            escapeHtml(mapHref) +
+            '" target="_blank" rel="noopener">' +
+            addrText +
+            '</a>'
+        )
+      } else {
+        parts.push('<span class="h5-store-contact__addr">' + addrText + '</span>')
+      }
     }
     if (store.phone) {
       parts.push(
@@ -865,14 +876,9 @@
   }
 
   function renderServices(services, storeId, bookingEnabled) {
+    if (!services || !services.length) return ''
     var section =
-      '<div class="h5-folio-panel" id="store-services"><h2 class="h5-folio-section-title">服务方案</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.price) +
-      '</p>'
-    if (!services || !services.length) {
-      return section + '<div class="h5-empty-block">服务方案完善中</div></div>'
-    }
+      '<div class="h5-folio-panel" id="store-services"><h2 class="h5-folio-section-title">可预约项目</h2>'
     var cards = services
       .map(function (svc) {
         if (window.zhejianH5Ui && window.zhejianH5Ui.renderServiceListItem) {
@@ -922,16 +928,10 @@
   function renderCases(cases, store) {
     var storeId = store && store.id ? store.id : ''
     var totalCount = store && store.caseCount ? store.caseCount : (cases || []).length
-    var caseNote = COPY.casePrice
-    var windowHint = buildStorefrontWindowHint(store)
     var section =
-      '<div class="h5-folio-panel" id="store-cases"><h2 class="h5-folio-section-title">真实维修案例</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(caseNote) +
-      '</p>' +
-      (windowHint ? '<p class="h5-section-note">' + escapeHtml(windowHint) + '</p>' : '')
+      '<div class="h5-folio-panel" id="store-cases"><h2 class="h5-folio-section-title">公开档案</h2>'
     if (!cases || !cases.length) {
-      return section + '<div class="h5-empty-block">公开案例完善中</div></div>'
+      return section + '<div class="h5-empty-block">暂无公开档案</div></div>'
     }
     var cards = cases
       .map(function (item) {
@@ -972,11 +972,11 @@
           storeCasesPagePath(storeId) +
           '">查看全部 ' +
           totalCount +
-          ' 个案例 ›</a></p>'
+          ' 个档案 ›</a></p>'
         : storeId && totalCount > LIST_LIMIT
           ? '<p class="h5-home-more"><a class="h5-link" href="' +
             storeCasesPagePath(storeId) +
-            '">查看全部案例 ›</a></p>'
+            '">查看全部档案 ›</a></p>'
           : ''
     return section + '<div class="h5-media-list">' + cards + '</div>' + moreLink + '</div>'
   }
@@ -1123,7 +1123,7 @@
 
     var html =
       '<div class="h5-page">' +
-      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/store/">公开门店</a> › ' +
+      '<nav class="h5-breadcrumb"><a href="/">辙见</a> › ' +
       escapeHtml(store.name) +
       '</nav>' +
       '<header class="h5-header">' +
@@ -1135,21 +1135,13 @@
       '</div>' +
       '<p class="h5-store-status">' +
       escapeHtml(statusText) +
-      (store.caseCount ? ' · 公开案例 ' + store.caseCount : '') +
-      (buildStorefrontWindowHint(store) ? ' · ' + escapeHtml(buildStorefrontWindowHint(store)) : '') +
+      (store.caseCount ? ' · 公开档案 ' + store.caseCount : '') +
       '</p>' +
       renderStoreContact(store) +
       renderDisclaimerBlock() +
       suspendedNotice +
       '</header>' +
-      heroHtml +
-      (store.phone
-        ? '<div class="h5-top-actions">' +
-          '<a class="h5-btn" href="tel:' +
-          escapeHtml(store.phone) +
-          '" id="h5-book-top-btn">电话预约</a>' +
-          '</div>'
-        : '')
+      heroHtml
 
     if (store.aiSummary || store.intro) {
       html +=
@@ -1158,16 +1150,11 @@
         '</div>'
     }
 
-    html += renderKeyInfo(buildInfoRows(store), '门店信息')
-    html += renderCapabilityAndFreshness(store)
-    html += renderCertSection(store, certRows)
-    html += renderStaff(store.staffPublic)
     html += renderCases(cases, store)
-    html += renderServices(services, store.id, bookingEnabled)
-    html += renderSpecialties(store.specialties)
-    html += renderTransparencyPanel(store, (services || []).length)
-    html += renderStoreFaq(store.faq)
+    html += renderCertSection(store, certRows)
     html += renderEnvironment(store.environmentImages)
+    html += renderServices(services, store.id, bookingEnabled)
+    html += renderStoreFaq(store.faq)
 
     if (window.zhejianSiteBeian) {
       html += window.zhejianSiteBeian.render()
@@ -1175,19 +1162,21 @@
 
     html += '<div class="h5-body-spacer"></div></div>'
 
-    html +=
-      '<footer class="h5-footer">' +
-      '<div class="h5-footer-inner h5-footer-inner--' +
-      (store.phone || store.latitude != null ? 'triple' : 'dual') +
-      '">' +
-      (store.phone
-        ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>'
-        : '') +
-      '<button type="button" class="h5-btn h5-btn--secondary" id="h5-nav-btn">导航</button>' +
-      (bookingEnabled && store.phone
-        ? '<button type="button" class="h5-btn" id="h5-book-btn">电话预约</button>'
-        : '') +
-      '</div></footer>'
+    var footerBits = []
+    if (store.phone) footerBits.push('phone')
+    if (store.latitude != null) footerBits.push('nav')
+    if (footerBits.length) {
+      html +=
+        '<footer class="h5-footer">' +
+        '<div class="h5-footer-inner h5-footer-inner--dual">' +
+        (store.phone
+          ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn">电话</button>'
+          : '') +
+        (store.latitude != null
+          ? '<button type="button" class="h5-btn h5-btn--secondary" id="h5-nav-btn">导航</button>'
+          : '') +
+        '</div></footer>'
+    }
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html

@@ -384,10 +384,18 @@ async function verifyH5GeoTopic() {
 }
 
 async function verifyH5StoreAssets(storeId) {
-  const listRes = await fetch(`${BASE}/store/`)
-  assert(listRes.ok, `store/ 列表页 HTTP ${listRes.status}`)
-  const listHtml = await listRes.text()
-  assert(listHtml.includes('store-list.js'), 'store/index 未引用 store-list.js')
+  const listRes = await fetch(`${BASE}/store/`, { redirect: 'manual' })
+  assert(
+    listRes.status === 301 || listRes.status === 308,
+    `store/ 应变 301，实际 ${listRes.status}`
+  )
+  let listPath = listRes.headers.get('location') || ''
+  try {
+    listPath = new URL(listPath, BASE).pathname
+  } catch (e) {
+    /* keep raw */
+  }
+  assert(listPath === '/', `store/ 应 301 到 /，实际 ${listRes.headers.get('location')}`)
 
   const storeRes = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}.html`)
   assert(storeRes.ok, `store/{id}.html HTTP ${storeRes.status}`)

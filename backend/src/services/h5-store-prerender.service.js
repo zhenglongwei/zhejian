@@ -39,7 +39,7 @@ function buildStoreBotBodyHtml(store) {
         )}</p></section>`
       : '',
     casePreviews.length
-      ? `<section data-bot="store-cases" id="store-cases"><h2>真实维修案例</h2><ul>${casePreviews
+      ? `<section data-bot="store-cases" id="store-cases"><h2>公开档案</h2><ul>${casePreviews
           .map((item) => {
             const href = item.path || (item.slug ? `/case/${item.slug}.html` : '')
             const title = escapeHtml(item.title || item.serviceName || '公开案例')
@@ -49,7 +49,7 @@ function buildStoreBotBodyHtml(store) {
           })
           .join('')}</ul></section>`
       : Number(store.caseCount) > 0
-        ? `<section data-bot="store-cases" id="store-cases"><h2>真实维修案例</h2><p>该门店已公开 ${escapeHtml(
+        ? `<section data-bot="store-cases" id="store-cases"><h2>公开档案</h2><p>该门店已公开 ${escapeHtml(
             String(store.caseCount)
           )} 个维修案例，详见页面案例区。</p></section>`
         : '',

@@ -519,7 +519,6 @@
       window.zhejianSeo.applyBreadcrumbSchema(
         [
           { label: '辙见', href: '/' },
-          { label: '公开门店', href: '/store/' },
           store && store.name
             ? { label: store.name, href: storeHref }
             : { label: '门店' },

@@ -545,6 +545,34 @@
   }
 }
 
+.gh-profile-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.gh-profile-form .gh-btn {
+  margin-top: var(--space-sm);
+}
+
+.gh-profile-store-block {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.gh-profile-store-block h2 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-h3);
+}
+
+.gh-profile-store {
+  margin: 0 0 var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.6;
+}
 .gh-profile[hidden],
 .gh-blankslate[hidden],
 .gh-modal-err[hidden],

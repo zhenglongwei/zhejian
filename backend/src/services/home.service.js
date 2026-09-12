@@ -63,7 +63,7 @@ async function fetchRecommendedMerchants(limit = 6) {
 
 async function getHomePayload() {
   const [featuredCases, recommendedMerchants, geoResult] = await Promise.all([
-    fetchFeaturedCases(3),
+    fetchFeaturedCases(12),
     fetchRecommendedMerchants(6),
     listGeoPages({ limit: 0 }),
   ])

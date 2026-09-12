@@ -146,9 +146,8 @@
     var store = data.store || {}
     var crumbs = [
       { label: '辙见', href: '/' },
-      { label: '公开门店', href: '/store/' },
       { label: store.name || '门店', href: store.id ? storePagePath(store.id) : '' },
-      { label: '维修案例' },
+      { label: '公开档案' },
     ]
     if (window.zhejianSeo) {
       window.zhejianSeo.applyPageSeo({
@@ -311,26 +310,23 @@
       (window.zhejianSeo
         ? window.zhejianSeo.renderBreadcrumbHtml([
             { label: '辙见', href: '/' },
-            { label: '公开门店', href: '/store/' },
             { label: store.name, href: storePagePath(store.id) },
-            { label: '维修案例' },
+            { label: '公开档案' },
           ])
-        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="/store/">公开门店</a> › <a href="' +
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="' +
           storePagePath(store.id) +
           '">' +
           escapeHtml(store.name) +
-          '</a> › 维修案例</nav>') +
+          '</a> › 公开档案</nav>') +
       '<header class="h5-header">' +
       '<h1 class="h5-title">' +
       escapeHtml(store.name) +
-      ' · 公开维修案例</h1>' +
+      ' · 公开档案</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(
-        '以下为' +
-          store.name +
-          '已审核的公开维修案例' +
-          (pagination.total ? '（共 ' + pagination.total + ' 条）' : '') +
-          '。价格仅为参考，实际费用以门店检测为准。'
+        store.name +
+          '托管并公开的维修档案' +
+          (pagination.total ? '（共 ' + pagination.total + ' 条）' : '')
       ) +
       '</p>' +
       (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
@@ -394,8 +390,8 @@
       '</p>' +
       '</header>' +
       '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/store/">浏览公开门店</a>' +
-      '<a class="h5-btn h5-btn--secondary" href="/case/">浏览公开案例</a>' +
+      '<a class="h5-btn" href="/">首页</a>' +
+      '<a class="h5-btn h5-btn--secondary" href="/case/">公开案例</a>' +
       '</div></div>'
   }
 
@@ -411,7 +407,7 @@
       '</p>' +
       '</header>' +
       '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/store/">浏览公开门店</a>' +
+      '<a class="h5-btn" href="/">首页</a>' +
       '</div></div>'
   }
 

@@ -86,12 +86,6 @@ async function collectPageEntries() {
       changefreq: 'daily',
       priority: '0.8',
     },
-    {
-      loc: absUrl('/store/'),
-      lastmod: today,
-      changefreq: 'daily',
-      priority: '0.8',
-    },
   ]
 
   const [allCases, { list: allStores }] = await Promise.all([

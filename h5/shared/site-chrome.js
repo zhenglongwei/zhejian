@@ -36,7 +36,7 @@
       escapeHtml(name) +
       '</span></button>' +
       '<div class="gh-menu" id="gh-user-menu" hidden>' +
-      '<a href="/library/">我的案例库</a>' +
+      '<a class="gh-topbar-link" href="/library/">我的</a>' +
       '<button type="button" id="gh-logout">退出</button>' +
       '</div></div>'
     )
@@ -48,7 +48,7 @@
       '<div class="gh-topbar-left">' +
       '<a class="gh-logo" href="/">辙见</a>' +
       '<a class="gh-topbar-link gh-topbar-link--hide-sm" href="/case/">公开案例</a>' +
-      '<a class="gh-topbar-link gh-topbar-link--hide-sm" href="/store/">门店</a>' +
+      '<a class="gh-topbar-link gh-topbar-link--hide-sm" href="/search/">搜索</a>' +
       '</div>' +
       '<div class="gh-topbar-right" id="gh-topbar-right">' +
       renderRight() +

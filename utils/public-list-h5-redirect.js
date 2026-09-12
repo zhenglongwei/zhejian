@@ -26,9 +26,9 @@ const PAGE_COPY = {
   },
   store: {
     title: '门店',
-    loading: '正在打开门店列表…',
-    offlineTitle: '全站门店列表已迁移',
-    hint: '门店与公开案例请在辙见内容站浏览。',
+    loading: '正在打开案例站…',
+    offlineTitle: '请到案例站查看',
+    hint: '公开档案与门店主页请在辙见案例站浏览。',
   },
 }
 

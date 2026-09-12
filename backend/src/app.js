@@ -122,6 +122,9 @@ function createApp() {
     app.use('/library', express.static(path.join(h5Root, 'library')))
     app.use('/case', express.static(path.join(h5Root, 'case')))
     app.use('/album', express.static(path.join(h5Root, 'album')))
+    app.get(['/store', '/store/', '/store/index.html'], function (_req, res) {
+      return res.redirect(301, '/')
+    })
     app.get(/^\/store\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
       if (req.path === '/store/index.html' || req.path === '/store/view.html') return next()
       const { isCrawlerRequest, renderStoreBotHtml } = require('./services/h5-store-prerender.service')

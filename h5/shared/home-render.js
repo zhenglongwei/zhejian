@@ -66,9 +66,8 @@
   }
 
   function setPageMeta() {
-    var title = '辙见 · 透明汽车维修服务平台'
-    var desc =
-      '辙见提供透明汽车维修信息与咨询预约工具。查看真实维修案例，浏览可信门店，了解维修过程与价格参考。'
+    var title = '辙见案例站'
+    var desc = '维修案例托管库。查看门店公开的维修档案。'
     document.title = title
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
@@ -213,9 +212,9 @@
   function renderFeaturedCases(cases) {
     if (!cases || !cases.length) {
       return (
-        '<div class="h5-card"><h2 class="h5-section-title">精选案例</h2>' +
-        '<div class="h5-empty-block">暂无公开案例</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'
+      '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
+        '<div class="h5-empty-block">暂无公开档案</div>' +
+        '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部 ›</a></p></div>'
       )
     }
     var cards = cases
@@ -240,14 +239,11 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">精选案例</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(COPY.price) +
-      '</p>' +
+      '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
       '<div class="h5-media-list">' +
       cards +
       '</div>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'
+      '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部 ›</a></p></div>'
     )
   }
 
@@ -256,7 +252,7 @@
       return (
         '<div class="h5-card"><h2 class="h5-section-title">推荐门店</h2>' +
         '<div class="h5-empty-block">暂无公开展示门店</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
+        '<p class="h5-home-more"><a class="h5-link" href="/search/">搜索 ›</a></p></div>'
       )
     }
     var ui = window.zhejianH5Ui
@@ -280,7 +276,7 @@
       '<div class="h5-media-list">' +
       items +
       '</div>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/store/">查看全部门店 ›</a></p></div>'
+      '<p class="h5-home-more"><a class="h5-link" href="/search/">搜索 ›</a></p></div>'
     )
   }
 
@@ -302,38 +298,32 @@
     var identity =
       (typeof data.platformIdentity === 'string' && data.platformIdentity) ||
       (data.platformIdentity && data.platformIdentity.subtitle) ||
-      '查看真实维修案例，预约本地可信维修门店。维修过程看得见，每次维修有档案。'
+      '辙见案例站。门店托管公开的维修档案。'
 
     setPageMeta()
 
     var html =
       '<div class="h5-page">' +
       '<header class="h5-header h5-home-hero">' +
-      '<div class="h5-brand">辙见服务平台</div>' +
-      '<h1 class="h5-title">透明汽车维修服务平台</h1>' +
+      '<div class="h5-brand">辙见案例站</div>' +
+      '<h1 class="h5-title">维修案例托管库</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(identity) +
       '</p>' +
       renderDisclaimer() +
       '</header>' +
       '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/search/">搜索内容</a>' +
-      '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
+      '<a class="h5-btn" href="/search/">搜索</a>' +
+      '<a class="h5-btn h5-btn--secondary" href="/case/">公开案例</a>' +
       '</div>' +
-      renderCityEntries(data.cityEntries) +
-      renderServiceEntries(data.serviceEntries) +
       renderFeaturedCases(data.featuredCases) +
-      renderStores(data.recommendedMerchants) +
-      renderGeoTopics(data.geoTopics) +
-      renderIntro((data.platformIntro && data.platformIntro.points) || []) +
       renderSiteNav() +
       '<p class="h5-compliance h5-home-footnote">' +
       escapeHtml(
         (typeof data.protectionText === 'string' && data.protectionText) ||
           (data.protectionText && data.protectionText.body) ||
           PC.footnote ||
-          '页面内容为维修信息展示，不构成平台对维修质量或价格的担保。'
+          '本站展示门店自行公开的维修档案，仅供参考。'
       ) +
       '</p>' +
       '</div>'
@@ -359,15 +349,14 @@
     app.innerHTML =
       '<div class="h5-page">' +
       '<header class="h5-header">' +
-      '<h1 class="h5-title">辙见 · 公开内容</h1>' +
+      '<h1 class="h5-title">辙见案例站</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(message) +
       '</p>' +
       '</header>' +
       '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/search/">搜索内容</a>' +
-      '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '<a class="h5-btn h5-btn--secondary" href="/store/">浏览公开门店</a>' +
+      '<a class="h5-btn" href="/search/">搜索</a>' +
+      '<a class="h5-btn" href="/case/">公开案例</a>' +
       '</div></div>'
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home' })
@@ -388,7 +377,7 @@
         renderHome(result.body.data)
       })
       .catch(function () {
-        renderError('暂时无法加载推荐内容，你仍可直接浏览案例与门店列表。')
+        renderError('暂时无法加载推荐内容，你仍可直接浏览公开案例。')
       })
   }
 

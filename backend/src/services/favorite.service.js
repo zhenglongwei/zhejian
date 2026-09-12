@@ -1,10 +1,9 @@
 const { prisma, assertPrismaDelegate } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
-const { PUBLIC_CASE_STATUS } = require('../constants/v2')
-const { CASE_ARTICLE_H5_PUBLISHED_STATUSES } = require('../constants/case-article-status')
-const { PLAN_SALE_STATUS } = require('../constants/service-plan')
-const { formatPlanRecord } = require('./service-plan-format')
 const { mapStoreRow, mapPublicCaseRow, applyPublicDisplayRules } = require('./content.service')
+const { publicCaseH5Where } = require('../utils/public-case-visibility')
+const { formatPlanRecord } = require('./service-plan-format')
+const { PLAN_SALE_STATUS } = require('../constants/service-plan')
 
 const FAVORITE_TYPES = new Set(['store', 'service', 'case'])
 const DEFAULT_PAGE = 1
@@ -101,11 +100,7 @@ async function resolveServiceAvailability(serviceId) {
 
 async function resolveCaseAvailability(caseId) {
   const row = await prisma.publicCase.findFirst({
-    where: {
-      id: caseId,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-    },
+    where: publicCaseH5Where({ id: caseId }),
   })
   if (!row) {
     return { available: false, unavailableReason: '暂不可查看' }
@@ -131,11 +126,7 @@ async function enrichStoreFavorite(row) {
     }
   }
   const caseCount = await prisma.publicCase.count({
-    where: {
-      storeId: store.id,
-      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
-      articleStatus: { in: CASE_ARTICLE_H5_PUBLISHED_STATUSES },
-    },
+    where: publicCaseH5Where({ storeId: store.id }),
   })
   const availability = await resolveStoreAvailability(store.id)
   return {

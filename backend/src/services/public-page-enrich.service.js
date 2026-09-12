@@ -369,6 +369,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       id: true,
       title: true,
       serviceName: true,
+      slug: true,
       contentJson: true,
       publishedAt: true,
     },

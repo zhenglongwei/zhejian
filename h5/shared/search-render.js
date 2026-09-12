@@ -461,7 +461,7 @@
         '<p>未找到与「' +
         escapeHtml(state.keyword) +
         '」相关的内容</p>' +
-        '<p class="h5-search-hint">试试更短的关键词，或浏览<a class="h5-link" href="/case/">公开案例</a>、<a class="h5-link" href="/store/">公开门店</a></p>' +
+        '<p class="h5-search-hint">试试更短的关键词，或浏览<a class="h5-link" href="/case/">公开案例</a></p>' +
         '</div>'
     }
 

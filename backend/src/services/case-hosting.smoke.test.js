@@ -75,7 +75,7 @@ function testReadHostMetaPublished() {
       hostMeta: { hosted: true, visibility: 'private', sourceLabel: '商家上传' },
     },
     publicCase: {
-      status: PUBLIC_CASE_STATUS.PUBLISHED,
+      status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
       storefrontHidden: false,
       ownerBlockedAt: null,
     },

@@ -68,7 +68,7 @@ function mapStoreCasePreview(row = {}) {
       ? parts.join(' · ')
       : String(row.title || serviceName || '公开案例').replace(/维修维修/gu, '维修')
 
-  const slug = geo.slug || content.slug || ''
+  const slug = row.slug || geo.slug || content.slug || ''
   const id = row.id || ''
   const path = slug
     ? `/case/${encodeURIComponent(slug)}.html`

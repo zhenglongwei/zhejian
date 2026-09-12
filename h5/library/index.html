@@ -1,47 +1,52 @@
-<!DOCTYPE html>
+ï»¿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ÎÒµÄ°¸Àı¿â ¡¤ ÕŞ¼û</title>
-  <meta name="description" content="µÇÂ¼ºó²é¿´ÒÑÍĞ¹ÜµÄÎ¬ĞŞµµ°¸¡£ÓëĞ¡³ÌĞòÍ¬Ò»ÕËºÅ¡£" />
+  <title>æˆ‘çš„ Â· è¾™è§</title>
+  <meta name="description" content="ç™»å½•åç®¡ç†æ˜¾ç¤ºåã€æ‰˜ç®¡æ¡£æ¡ˆä¸æ˜Ÿæ ‡ã€‚" />
   <meta name="robots" content="noindex,nofollow" />
   <link rel="stylesheet" href="/shared/tokens.css" />
   <link rel="stylesheet" href="/shared/base-page.css" />
-  <link rel="stylesheet" href="/shared/gh-chrome.css?v=20260912c" />
+  <link rel="stylesheet" href="/shared/gh-chrome.css?v=20260912e" />
 </head>
 <body>
   <div id="blankBox" class="gh-blankslate" hidden>
-    <h1>ÎÒµÄ°¸Àı¿â</h1>
-    <p>µÇÂ¼ºó²é¿´ÄãÍĞ¹Ü»òĞÇ±êµÄÎ¬ĞŞµµ°¸</p>
-    <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">µÇÂ¼</button>
+    <h1>æˆ‘çš„</h1>
+    <p>ç™»å½•åæŸ¥çœ‹èµ„æ–™ã€æ‰˜ç®¡æ¡£æ¡ˆå’Œæ˜Ÿæ ‡</p>
+    <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">ç™»å½•</button>
   </div>
   <div id="profileBox" class="gh-profile" hidden>
     <aside>
       <div id="avatarBox"></div>
       <h1 class="gh-profile-name" id="nameBox"></h1>
       <p class="gh-profile-meta" id="metaBox"></p>
+      <p class="gh-profile-meta" id="publicLinkBox"></p>
     </aside>
     <main>
-      <nav class="gh-tabs" aria-label="°¸Àı¿â">
-        <button type="button" class="gh-tab is-on" id="tabHosted" data-tab="hosted">ÍĞ¹Üµµ°¸</button>
-        <button type="button" class="gh-tab" id="tabStarred" data-tab="starred">ĞÇ±ê</button>
+      <nav class="gh-tabs" aria-label="æˆ‘çš„">
+        <button type="button" class="gh-tab is-on" id="tabProfile" data-tab="profile">èµ„æ–™</button>
+        <button type="button" class="gh-tab" id="tabHosted" data-tab="hosted">æ‰˜ç®¡æ¡£æ¡ˆ</button>
+        <button type="button" class="gh-tab" id="tabStarred" data-tab="starred">æ˜Ÿæ ‡</button>
       </nav>
       <div id="listBox"></div>
     </main>
   </div>
-  <script src="/shared/h5-auth.js?v=20260912c"></script>
-  <script src="/shared/h5-auth-modal.js?v=20260912c"></script>
-  <script src="/shared/site-chrome.js?v=20260912d"></script>
+  <script src="/shared/h5-auth.js?v=20260912e"></script>
+  <script src="/shared/h5-auth-modal.js?v=20260912e"></script>
+  <script src="/shared/site-chrome.js?v=20260912e"></script>
   <script>
     (function () {
       var API_HOSTED = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
       var API_STARS = (window.ZHEJIAN_API_BASE || '') + '/api/v1/user/favorites?type=case'
+      var API_PROFILE = (window.ZHEJIAN_API_BASE || '') + '/api/v1/user/profile'
+      var API_STORES = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/stores'
       var blankBox = document.getElementById('blankBox')
       var profileBox = document.getElementById('profileBox')
       var listBox = document.getElementById('listBox')
-      var currentTab = 'hosted'
+      var currentTab = 'profile'
       var lastSession = null
+      var storeCache = null
 
       function escapeHtml(str) {
         return String(str || '')
@@ -71,15 +76,16 @@
 
       function setTab(tab) {
         currentTab = tab
+        document.getElementById('tabProfile').classList.toggle('is-on', tab === 'profile')
         document.getElementById('tabHosted').classList.toggle('is-on', tab === 'hosted')
         document.getElementById('tabStarred').classList.toggle('is-on', tab === 'starred')
       }
 
       function repoCard(item) {
         var href = item.publicPath || item.href || ''
-        if (!href && item.id) href = '/case/?id=' + encodeURIComponent(item.id)
-        var title = escapeHtml(item.title || item.serviceName || '°¸Àıµµ°¸')
-        var vis = item.visibility === 'public' ? '¹«¿ª' : item.visibility === 'private' ? 'Ë½ÃÜ' : ''
+        if (!href && item.id) href = '/case/view.html?id=' + encodeURIComponent(item.id)
+        var title = escapeHtml(item.title || item.serviceName || 'æ¡ˆä¾‹æ¡£æ¡ˆ')
+        var vis = item.visibility === 'public' ? 'å…¬å¼€' : item.visibility === 'private' ? 'ç§å¯†' : ''
         var date = item.updatedAt || item.publishedAt || item.createdAt || ''
         if (date) date = String(date).slice(0, 10)
         var heading = href
@@ -96,7 +102,7 @@
           heading +
           (vis ? ' <span class="gh-label">' + vis + '</span>' : '') +
           '</h2><p class="gh-repo-meta">' +
-          (date ? '¸üĞÂÓÚ ' + escapeHtml(date) : '') +
+          (date ? 'æ›´æ–°äº ' + escapeHtml(date) : '') +
           '</p></div></article>'
         )
       }
@@ -109,34 +115,100 @@
         listBox.innerHTML = list.map(repoCard).join('')
       }
 
-      function fetchJson(url) {
+      function fetchJson(url, options) {
+        options = options || {}
+        var headers = Object.assign(
+          { Accept: 'application/json' },
+          window.zhejianH5Auth.authHeader(),
+          options.headers || {}
+        )
         return fetch(url, {
-          headers: Object.assign({ Accept: 'application/json' }, window.zhejianH5Auth.authHeader()),
+          method: options.method || 'GET',
+          headers: headers,
+          body: options.body || undefined,
         }).then(function (r) {
           return r.json().then(function (j) {
-            if (!r.ok) throw new Error((j && j.message) || '¼ÓÔØÊ§°Ü')
+            if (!r.ok) throw new Error((j && j.message) || 'åŠ è½½å¤±è´¥')
             return j.data != null ? j.data : j
           })
         })
       }
 
+      function renderProfileForm(session) {
+        var user = (session && session.user) || {}
+        var merchant = window.zhejianH5Auth.isMerchant(session)
+        var storeId = session && session.merchant && session.merchant.storeId
+        var storeLine = ''
+        if (storeCache && storeCache.name) {
+          storeLine =
+            '<p class="gh-profile-store">' +
+            escapeHtml(storeCache.name) +
+            (storeCache.address ? '<br />' + escapeHtml(storeCache.address) : '') +
+            '</p>'
+        }
+        listBox.innerHTML =
+          '<form class="gh-profile-form" id="profileForm">' +
+          '<label class="gh-profile-label" for="nicknameInput">æ˜¾ç¤ºå</label>' +
+          '<input class="gh-field" id="nicknameInput" name="nickname" maxlength="32" value="' +
+          escapeHtml(user.nickname || '') +
+          '" />' +
+          '<button type="submit" class="gh-btn gh-btn--primary" id="profileSave">ä¿å­˜</button>' +
+          '<p class="gh-empty" id="profileMsg"></p>' +
+          (merchant
+            ? '<div class="gh-profile-store-block"><h2>é—¨åº—</h2>' +
+              storeLine +
+              (storeId
+                ? '<p><a class="h5-link" href="/store/' +
+                  encodeURIComponent(storeId) +
+                  '.html">æŸ¥çœ‹å…¬å¼€é¡µ</a></p>'
+                : '') +
+              '</div>'
+            : '') +
+          '</form>'
+        var form = document.getElementById('profileForm')
+        form.addEventListener('submit', function (e) {
+          e.preventDefault()
+          var nickname = document.getElementById('nicknameInput').value.trim()
+          var msg = document.getElementById('profileMsg')
+          var btn = document.getElementById('profileSave')
+          btn.disabled = true
+          fetchJson(API_PROFILE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: nickname }),
+          })
+            .then(function (updated) {
+              var next = Object.assign({}, session, {
+                user: Object.assign({}, session.user || {}, updated || { nickname: nickname }),
+              })
+              window.zhejianH5Auth.saveSession(next)
+              msg.textContent = 'å·²ä¿å­˜'
+              btn.disabled = false
+            })
+            .catch(function (err) {
+              msg.textContent = err.message || 'ä¿å­˜å¤±è´¥'
+              btn.disabled = false
+            })
+        })
+      }
+
       function loadHosted(session) {
         if (!window.zhejianH5Auth.isMerchant(session)) {
-          renderList([], '¸öÈËÕËºÅ¿ÉĞÇ±êµµ°¸¡£ÍĞ¹ÜµêÒ³µµ°¸ÇëÓÃÒÑÈë×¤ÃÅµêµÄÕËºÅ¡£')
+          renderList([], 'ä¸ªäººè´¦å·å¯æ˜Ÿæ ‡æ¡£æ¡ˆã€‚æ‰˜ç®¡åº—é¡µæ¡£æ¡ˆè¯·ç”¨å·²å…¥é©»é—¨åº—çš„è´¦å·ã€‚')
           return
         }
-        listBox.innerHTML = '<p class="gh-empty">¼ÓÔØÖĞ¡­</p>'
+        listBox.innerHTML = '<p class="gh-empty">åŠ è½½ä¸­â€¦</p>'
         fetchJson(API_HOSTED)
           .then(function (data) {
-            renderList((data && data.list) || [], '»¹Ã»ÓĞÍĞ¹Üµµ°¸')
+            renderList((data && data.list) || [], 'è¿˜æ²¡æœ‰æ‰˜ç®¡æ¡£æ¡ˆ')
           })
           .catch(function (e) {
-            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '¼ÓÔØÊ§°Ü') + '</p>'
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || 'åŠ è½½å¤±è´¥') + '</p>'
           })
       }
 
       function loadStarred() {
-        listBox.innerHTML = '<p class="gh-empty">¼ÓÔØÖĞ¡­</p>'
+        listBox.innerHTML = '<p class="gh-empty">åŠ è½½ä¸­â€¦</p>'
         fetchJson(API_STARS)
           .then(function (data) {
             var rows = (data && data.list) || []
@@ -151,32 +223,58 @@
                   title: item.title || item.serviceName,
                   coverImage: item.coverImageDesensitized || item.coverImage,
                   publishedAt: item.publishedAt,
-                  href: item.slug ? '/case/' + encodeURIComponent(item.slug) + '.html' : '',
+                  href: item.slug
+                    ? '/case/' + encodeURIComponent(item.slug) + '.html'
+                    : item.id
+                      ? '/case/view.html?id=' + encodeURIComponent(item.id)
+                      : '',
                   visibility: 'public',
                 }
               })
-            renderList(list, '»¹Ã»ÓĞĞÇ±êµµ°¸')
+            renderList(list, 'è¿˜æ²¡æœ‰æ˜Ÿæ ‡æ¡£æ¡ˆ')
           })
           .catch(function (e) {
-            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '¼ÓÔØÊ§°Ü') + '</p>'
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || 'åŠ è½½å¤±è´¥') + '</p>'
           })
       }
 
       function showTab(tab, session) {
         setTab(tab)
         if (tab === 'starred') loadStarred()
-        else loadHosted(session)
+        else if (tab === 'hosted') loadHosted(session)
+        else renderProfileForm(session)
+      }
+
+      function fillHeader(session) {
+        document.getElementById('avatarBox').innerHTML = avatarHtml(session)
+        document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
+        var merchant = window.zhejianH5Auth.isMerchant(session)
+        document.getElementById('metaBox').textContent = merchant ? 'é—¨åº—è´¦å·' : 'ä¸ªäººè´¦å·'
+        var storeId = session && session.merchant && session.merchant.storeId
+        var publicLinkBox = document.getElementById('publicLinkBox')
+        if (merchant && storeId) {
+          publicLinkBox.innerHTML =
+            '<a href="/store/' + encodeURIComponent(storeId) + '.html">å…¬å¼€é¡µ</a>'
+        } else {
+          publicLinkBox.textContent = ''
+        }
       }
 
       function loadLibrary(session) {
         lastSession = session
         blankBox.hidden = true
         profileBox.hidden = false
-        document.getElementById('avatarBox').innerHTML = avatarHtml(session)
-        document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
-        document.getElementById('metaBox').textContent = window.zhejianH5Auth.isMerchant(session)
-          ? 'ÃÅµê'
-          : '¸öÈË'
+        fillHeader(session)
+        if (window.zhejianH5Auth.isMerchant(session) && !storeCache) {
+          fetchJson(API_STORES)
+            .then(function (data) {
+              var list = (data && data.list) || []
+              storeCache = list[0] || null
+              if (currentTab === 'profile') renderProfileForm(session)
+              fillHeader(session)
+            })
+            .catch(function () {})
+        }
         showTab(currentTab, session)
       }
 
@@ -186,6 +284,9 @@
         else showGuest()
       }
 
+      document.getElementById('tabProfile').addEventListener('click', function () {
+        if (lastSession) showTab('profile', lastSession)
+      })
       document.getElementById('tabHosted').addEventListener('click', function () {
         if (lastSession) showTab('hosted', lastSession)
       })

@@ -21,8 +21,9 @@ function buildCaseListH5Url() {
   return `${H5_CONTENT_SITE_URL}/case/`
 }
 
+/** 门店黄页已删除；旧入口改开案例站首页（与 `/store/` 301 一致） */
 function buildStoreListH5Url() {
-  return `${H5_CONTENT_SITE_URL}/store/`
+  return H5_CONTENT_SITE_URL
 }
 
 function buildStoreH5Url({ storeId } = {}) {

@@ -1,6 +1,5 @@
 (function () {
-  var LIST_NOTE =
-    '本页仅展示有效门店的公开案例；价格仅为参考，实际费用以门店检测为准。'
+  var LIST_NOTE = '本页列出门店托管并公开的维修档案。'
 
   function renderBreadcrumb() {
     if (window.zhejianSeo) {
@@ -23,7 +22,7 @@
     if (!window.zhejianSeo) return
     window.zhejianSeo.applyPageSeo({
       title: '公开案例 · 辙见',
-      description: '辙见公开案例列表 · 已审核的维修案例，价格仅为参考。',
+      description: '辙见公开案例 · 门店托管并公开的维修档案。',
       canonicalPath: '/case/',
       robots: 'index,follow',
     })
@@ -49,7 +48,7 @@
       renderBreadcrumb() +
       '<header class="h5-header">' +
       '<h1 class="h5-title">公开案例</h1>' +
-      '<p class="h5-summary">展示已审核的维修案例；价格仅为参考。</p>' +
+      '<p class="h5-summary">门店托管并公开的维修档案。</p>' +
       '</header>' +
       '<div class="h5-card h5-case-list-empty"><p>' +
       safeMessage +
@@ -94,7 +93,7 @@
       renderBreadcrumb() +
       '<header class="h5-header">' +
       '<h1 class="h5-title">公开案例</h1>' +
-      '<p class="h5-summary">以下为已审核公示案例，数据来自平台数据库。</p>' +
+      '<p class="h5-summary">门店托管并公开的维修档案。</p>' +
       renderDisclaimer() +
       '</header>' +
       '<div class="h5-media-list">' +
@@ -125,7 +124,7 @@
         }
         var list = result.body.data?.list || result.body.data || []
         if (!list.length) {
-          renderEmpty('暂无已公示的公开案例。请先在小程序完成案例审核通过。')
+          renderEmpty('暂无公开档案。')
           return
         }
         renderList(list)

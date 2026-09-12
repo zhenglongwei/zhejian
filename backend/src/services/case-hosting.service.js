@@ -5,6 +5,7 @@
 
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 
 function readHostMeta(album) {
   const pkg =
@@ -15,7 +16,7 @@ function readHostMeta(album) {
   const published =
     album &&
     album.publicCase &&
-    album.publicCase.status === PUBLIC_CASE_STATUS.PUBLISHED &&
+    album.publicCase.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED &&
     !album.publicCase.storefrontHidden &&
     !album.publicCase.ownerBlockedAt
   return {
@@ -782,6 +783,14 @@ async function confirmHostedPublicPublish(
     hostedGeoPublish: true,
   })
 
+  const liveId = published && published.caseItem && published.caseItem.id
+  if (liveId) {
+    await prisma.publicCase.update({
+      where: { id: liveId },
+      data: { articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5 },
+    })
+  }
+
   return {
     albumId,
     ...readHostMeta(await loadAlbum(albumId)),
@@ -928,7 +937,7 @@ async function listHostedCasesForStore(storeId) {
   return albums
     .map((album) => {
       const meta = readHostMeta(album)
-      if (!meta.hosted && !(album.publicCase && album.publicCase.status === PUBLIC_CASE_STATUS.PUBLISHED)) {
+      if (!meta.hosted && !(album.publicCase && album.publicCase.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED)) {
         return null
       }
       return {
@@ -943,7 +952,7 @@ async function listHostedCasesForStore(storeId) {
         hosted: meta.hosted,
         visibility:
           album.publicCase &&
-          album.publicCase.status === PUBLIC_CASE_STATUS.PUBLISHED &&
+          album.publicCase.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED &&
           !album.publicCase.storefrontHidden
             ? 'public'
             : 'private',
@@ -954,7 +963,7 @@ async function listHostedCasesForStore(storeId) {
           album.publicCase && album.publicCase.slug
             ? `/case/${album.publicCase.slug}.html`
             : album.publicCase
-              ? `/case/?id=${album.publicCase.id}`
+              ? `/case/view.html?id=${album.publicCase.id}`
               : '',
       }
     })
