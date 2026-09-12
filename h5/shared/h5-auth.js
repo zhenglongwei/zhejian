@@ -19,10 +19,17 @@
     }
   }
 
+  function emitAuthChange() {
+    try {
+      global.dispatchEvent(new CustomEvent('zhejian-auth-change'))
+    } catch (e) {}
+  }
+
   function saveSession(session) {
     if (!global.localStorage) return
     if (!session || !session.token) {
       global.localStorage.removeItem(STORAGE_KEY)
+      emitAuthChange()
       return
     }
     global.localStorage.setItem(
@@ -35,6 +42,19 @@
         savedAt: Date.now(),
       })
     )
+    emitAuthChange()
+  }
+
+  function displayName(session) {
+    var current = session || readSession()
+    if (!current) return ''
+    var user = current.user || {}
+    return user.nickname || user.phoneDisplay || '辙见账号'
+  }
+
+  function avatarUrl(session) {
+    var current = session || readSession()
+    return (current && current.user && current.user.avatarUrl) || ''
   }
 
   function clearSession() {
@@ -93,5 +113,7 @@
     sendLoginCode: sendLoginCode,
     loginWithCode: loginWithCode,
     isMerchant: isMerchant,
+    displayName: displayName,
+    avatarUrl: avatarUrl,
   }
 })(window)

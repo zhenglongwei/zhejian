@@ -499,23 +499,27 @@
       '</div>' +
       '<p class="h5-section-note">' +
       note +
-      '</p>' +
-      renderStarBlock(data)
+      '</p>'
     )
   }
 
   function renderStarBlock(data) {
     if (!data || !data.id) return ''
+    var icon =
+      (window.zhejianH5AuthModal && window.zhejianH5AuthModal.STAR_SVG) ||
+      '<span class="gh-star-icon" aria-hidden="true">★</span>'
     return (
-      '<div class="h5-star" id="h5-star" data-case-id="' +
+      '<div class="gh-star" id="h5-star" data-case-id="' +
       escapeHtml(data.id) +
       '">' +
-      '<div class="h5-star-row">' +
-      '<button type="button" class="h5-star-btn" id="h5-star-btn">星标</button>' +
-      '<span class="h5-star-count" id="h5-star-count">0</span>' +
+      '<div class="gh-star-btns">' +
+      '<button type="button" class="gh-star-action" id="h5-star-btn">' +
+      icon +
+      '<span id="h5-star-label">星标</span></button>' +
+      '<span class="gh-star-count" id="h5-star-count">0</span>' +
       '</div>' +
-      '<div class="h5-star-list" id="h5-star-list"></div>' +
-      '<p class="h5-star-hint" id="h5-star-hint" hidden></p>' +
+      '<div class="gh-star-list" id="h5-star-list"></div>' +
+      '<p class="gh-star-hint" id="h5-star-hint" hidden></p>' +
       '</div>'
     )
   }
@@ -1442,26 +1446,27 @@
     var btn = document.getElementById('h5-star-btn')
     var listEl = document.getElementById('h5-star-list')
     if (!payload || !countEl) return
-    countEl.textContent = String(payload.count || 0) + ' 星标'
+    countEl.textContent = String(payload.count || 0)
+    var label = document.getElementById('h5-star-label')
     if (btn) {
-      btn.className = payload.starred ? 'h5-star-btn is-on' : 'h5-star-btn'
-      btn.textContent = payload.starred ? '已星标' : '星标'
+      btn.className = payload.starred ? 'gh-star-action is-on' : 'gh-star-action'
     }
+    if (label) label.textContent = payload.starred ? '已星标' : '星标'
     if (!listEl) return
     listEl.innerHTML = (payload.list || [])
       .map(function (item) {
-        var avatar = item.avatarUrl
-          ? '<img class="h5-star-avatar" src="' +
+        var name = escapeHtml(item.displayName || '')
+        var pic = item.avatarUrl
+          ? '<img class="gh-star-avatar" src="' +
             escapeHtml(item.avatarUrl) +
-            '" alt="" width="22" height="22" />'
-          : '<span class="h5-star-avatar"></span>'
-        var inner = avatar + escapeHtml(item.displayName || '')
+            '" alt="" title="' +
+            name +
+            '" width="24" height="24" />'
+          : '<span class="gh-star-avatar" title="' + name + '"></span>'
         if (item.href) {
-          return (
-            '<a class="h5-star-chip" href="' + escapeHtml(item.href) + '">' + inner + '</a>'
-          )
+          return '<a href="' + escapeHtml(item.href) + '" title="' + name + '">' + pic + '</a>'
         }
-        return '<span class="h5-star-chip">' + inner + '</span>'
+        return pic
       })
       .join('')
   }
@@ -1488,33 +1493,46 @@
     var hint = document.getElementById('h5-star-hint')
     if (!btn) return
     btn.addEventListener('click', function () {
-      if (!window.zhejianH5Auth || !window.zhejianH5Auth.readSession || !window.zhejianH5Auth.readSession()) {
-        if (hint) {
-          hint.hidden = false
-          hint.innerHTML = '登录后可星标这份档案。<a href="/library/">去登录</a>'
-        }
+      var run = function () {
+        fetch(apiBase + '/api/v1/public/h5/cases/' + encodeURIComponent(caseId) + '/star', {
+          method: 'POST',
+          headers: Object.assign(
+            { Accept: 'application/json' },
+            window.zhejianH5Auth.authHeader()
+          ),
+        })
+          .then(function (r) {
+            return r.json().then(function (body) {
+              if (!r.ok) throw new Error((body && body.message) || '星标失败')
+              return body.data || body
+            })
+          })
+          .then(function (data) {
+            paintStars(data)
+            if (hint) {
+              hint.hidden = true
+              hint.textContent = ''
+            }
+          })
+          .catch(function (e) {
+            if (hint) {
+              hint.hidden = false
+              hint.textContent = e.message || '星标失败'
+            }
+          })
+      }
+      if (window.zhejianH5Auth && window.zhejianH5Auth.readSession && window.zhejianH5Auth.readSession()) {
+        run()
         return
       }
-      fetch(apiBase + '/api/v1/public/h5/cases/' + encodeURIComponent(caseId) + '/star', {
-        method: 'POST',
-        headers: Object.assign(
-          { Accept: 'application/json' },
-          window.zhejianH5Auth.authHeader()
-        ),
-      })
-        .then(function (r) {
-          return r.json().then(function (body) {
-            if (!r.ok) throw new Error((body && body.message) || '星标失败')
-            return body.data || body
-          })
-        })
-        .then(paintStars)
-        .catch(function (e) {
-          if (hint) {
-            hint.hidden = false
-            hint.textContent = e.message || '星标失败'
-          }
-        })
+      if (window.zhejianH5AuthModal) {
+        window.zhejianH5AuthModal.requireLogin(run, '星标这份档案需要先登录')
+        return
+      }
+      if (hint) {
+        hint.hidden = false
+        hint.textContent = '登录后可星标'
+      }
     })
   }
 
@@ -1778,23 +1796,18 @@
       updatedHint =
         '<p class="h5-section-note">最近更新：' + escapeHtml(String(updatedAt)) + ' · 来源：商家上传</p>'
     }
-    var layerNav =
-      '<nav class="h5-section-note" aria-label="档案分层">' +
-      '本页三层：① 概况与脱敏图文 · ② 脱敏单据（分期完善）· ③ FAQ' +
-      '</nav>'
-
     var html =
       '<div class="h5-page">' +
       breadcrumbHtml +
       '<header class="h5-header">' +
+      '<div class="gh-repo-head">' +
       '<h1 class="h5-title">' +
       escapeHtml(safeData.title) +
       '</h1>' +
-      '<div class="h5-tags">' +
-      renderTags(safeData) +
+      renderStarBlock(safeData) +
       '</div>' +
+      renderTags(safeData) +
       updatedHint +
-      layerNav +
       renderTrustAttestation(safeData) +
       renderDisclaimerBlock() +
       '</header>'

@@ -3,129 +3,110 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>我的案例库 · 辙见案例站</title>
-  <meta name="description" content="用辙见账号登录后管理已托管的维修案例。网站与小程序同一套账号。" />
+  <title>我的案例库 · 辙见</title>
+  <meta name="description" content="登录后查看已托管的维修档案。与小程序同一账号。" />
   <meta name="robots" content="noindex,nofollow" />
-  <link rel="stylesheet" href="/shared/h5-tokens.css" />
-  <link rel="stylesheet" href="/shared/h5-base.css" />
-  <style>
-    .lib-wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
-    .lib-head h1 { font-size: 1.5rem; margin: 0 0 8px; }
-    .lib-head p { color: var(--h5-color-text-secondary, #666); margin: 0 0 24px; }
-    .lib-login { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
-    .lib-login input { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; }
-    .lib-login button, .lib-toolbar button {
-      padding: 12px; border: 0; border-radius: 8px;
-      background: var(--h5-color-primary, #2b6cb0); color: #fff; font-size: 15px;
-    }
-    .lib-login button[disabled] { opacity: 0.5; }
-    .lib-row { display: flex; gap: 8px; }
-    .lib-row input { flex: 1; }
-    .lib-row button { flex: 0 0 120px; padding: 10px; }
-    .lib-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
-    .lib-toolbar p { margin: 0; font-size: 14px; color: var(--h5-color-text-secondary, #666); }
-    .lib-toolbar button { padding: 8px 12px; background: transparent; color: var(--h5-color-primary, #2b6cb0); }
-    .lib-item { border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
-    .lib-item h2 { font-size: 1rem; margin: 0 0 6px; }
-    .lib-meta { font-size: 13px; color: #666; display: flex; flex-wrap: wrap; gap: 8px 16px; }
-    .lib-meta a { color: var(--h5-color-primary, #2b6cb0); }
-    .lib-empty { padding: 32px 0; text-align: center; color: #888; }
-    .lib-err { color: #c53030; font-size: 14px; }
-    .lib-hint { color: var(--h5-color-text-secondary, #666); font-size: 14px; margin: 0; }
-  </style>
+  <link rel="stylesheet" href="/shared/tokens.css" />
+  <link rel="stylesheet" href="/shared/base-page.css" />
+  <link rel="stylesheet" href="/shared/gh-chrome.css" />
 </head>
 <body>
-  <div class="lib-wrap">
-    <div class="lib-head">
-      <h1>我的案例库</h1>
-      <p>使用辙见账号登录。网站与小程序同一手机号即同一账号；有门店身份后可管理托管档案。</p>
-    </div>
-    <div id="loginBox" class="lib-login" hidden>
-      <input id="phoneInput" type="tel" maxlength="11" placeholder="手机号" autocomplete="tel" />
-      <div class="lib-row">
-        <input id="codeInput" type="text" maxlength="6" placeholder="短信验证码" inputmode="numeric" />
-        <button type="button" id="btnCode">获取验证码</button>
-      </div>
-      <button type="button" id="btnLogin">登录</button>
-      <p class="lib-hint" id="hintBox" hidden></p>
-      <p class="lib-err" id="errBox" hidden></p>
-    </div>
-    <div id="sessionBox" hidden>
-      <div class="lib-toolbar">
-        <p id="whoBox"></p>
-        <button type="button" id="btnLogout">退出</button>
-      </div>
+  <div id="blankBox" class="gh-blankslate" hidden>
+    <h1>我的案例库</h1>
+    <p>登录后查看你托管的维修档案</p>
+    <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">登录</button>
+  </div>
+  <div id="profileBox" class="gh-profile" hidden>
+    <aside>
+      <div id="avatarBox"></div>
+      <h1 class="gh-profile-name" id="nameBox"></h1>
+      <p class="gh-profile-meta" id="metaBox"></p>
+      <p style="margin-top:16px">
+        <button type="button" class="gh-btn" id="btnLogout">退出</button>
+      </p>
+    </aside>
+    <main>
+      <nav class="gh-tabs" aria-label="案例库">
+        <span class="gh-tab is-on">托管档案</span>
+      </nav>
       <div id="listBox"></div>
-    </div>
+    </main>
   </div>
   <script src="/shared/h5-auth.js"></script>
+  <script src="/shared/h5-auth-modal.js"></script>
+  <script src="/shared/site-chrome.js"></script>
   <script>
     (function () {
       var API = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
-      var errBox = document.getElementById('errBox')
-      var hintBox = document.getElementById('hintBox')
+      var blankBox = document.getElementById('blankBox')
+      var profileBox = document.getElementById('profileBox')
       var listBox = document.getElementById('listBox')
-      var loginBox = document.getElementById('loginBox')
-      var sessionBox = document.getElementById('sessionBox')
-      var whoBox = document.getElementById('whoBox')
-      var btnCode = document.getElementById('btnCode')
-      var codeTimer = 0
 
-      function showErr(msg) {
-        errBox.hidden = !msg
-        errBox.textContent = msg || ''
-      }
-      function showHint(msg) {
-        hintBox.hidden = !msg
-        hintBox.textContent = msg || ''
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
       }
 
-      function maskPhone(display) {
-        return display || '已登录'
+      function showGuest() {
+        blankBox.hidden = false
+        profileBox.hidden = true
       }
 
-      function renderSessionChrome(session) {
-        var merchant = window.zhejianH5Auth.isMerchant(session)
-        var name = (session.user && (session.user.nickname || session.user.phoneDisplay)) || '辙见账号'
-        whoBox.textContent = merchant
-          ? (name + ' · 门店身份')
-          : (name + ' · 个人账号（托管档案需门店身份）')
+      function avatarHtml(session) {
+        var name = window.zhejianH5Auth.displayName(session)
+        var url = window.zhejianH5Auth.avatarUrl(session)
+        if (url) {
+          return '<img class="gh-avatar-lg" src="' + escapeHtml(url) + '" alt="" width="96" height="96" />'
+        }
+          return (
+          '<span class="gh-avatar-lg is-letter">' +
+          escapeHtml(String(name).slice(0, 1)) +
+          '</span>'
+        )
       }
 
       function renderList(list) {
         if (!list.length) {
-          listBox.innerHTML = '<p class="lib-empty">暂无已托管案例。请在小程序门店端完工后点「托管到案例站」。</p>'
+          listBox.innerHTML = '<p class="gh-empty">还没有托管档案</p>'
           return
         }
         listBox.innerHTML = list
           .map(function (item) {
-            var link = item.publicPath
-              ? '<a href="' + item.publicPath + '">公开页</a>'
-              : ''
+            var href = item.publicPath || ''
+            var title = escapeHtml(item.title || item.serviceName || '案例档案')
             var vis = item.visibility === 'public' ? '公开' : '私密'
+            var date = item.updatedAt ? String(item.updatedAt).slice(0, 10) : ''
+            var heading = href
+              ? '<a href="' + escapeHtml(href) + '">' + title + '</a>'
+              : title
             return (
-              '<article class="lib-item"><h2>' +
-              (item.title || item.serviceName || '案例档案') +
-              '</h2><div class="lib-meta"><span>' +
+              '<article class="gh-repo"><h2>' +
+              heading +
+              ' <span class="gh-label">' +
               vis +
-              '</span>' +
-              (item.updatedAt ? '<span>' + String(item.updatedAt).slice(0, 10) + '</span>' : '') +
-              link +
-              '</div></article>'
+              '</span></h2><p class="gh-repo-meta">' +
+              (date ? '更新于 ' + escapeHtml(date) : '') +
+              '</p></article>'
             )
           })
           .join('')
       }
 
       function loadLibrary(session) {
-        loginBox.hidden = true
-        sessionBox.hidden = false
-        renderSessionChrome(session)
-        if (!window.zhejianH5Auth.isMerchant(session)) {
-          listBox.innerHTML = '<p class="lib-empty">当前是个人账号。管理店页托管请使用已绑定门店的账号（小程序入驻后，同一手机号即可）。</p>'
+        blankBox.hidden = true
+        profileBox.hidden = false
+        document.getElementById('avatarBox').innerHTML = avatarHtml(session)
+        document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
+        var merchant = window.zhejianH5Auth.isMerchant(session)
+        document.getElementById('metaBox').textContent = merchant ? '门店' : '个人'
+        if (!merchant) {
+          listBox.innerHTML = '<p class="gh-empty">个人账号可星标档案。托管店页档案请用已入驻门店的账号。</p>'
           return
         }
-        listBox.innerHTML = '<p class="lib-empty">加载中…</p>'
+        listBox.innerHTML = '<p class="gh-empty">加载中…</p>'
         fetch(API, {
           headers: Object.assign({ Accept: 'application/json' }, window.zhejianH5Auth.authHeader()),
         })
@@ -140,66 +121,25 @@
             renderList((data && data.list) || [])
           })
           .catch(function (e) {
-            listBox.innerHTML = '<p class="lib-err">' + (e.message || '加载失败') + '</p>'
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '加载失败') + '</p>'
           })
       }
 
-      function showLogin() {
+      function refresh() {
+        var session = window.zhejianH5Auth.readSession()
+        if (session) loadLibrary(session)
+        else showGuest()
+      }
+
+      document.getElementById('btnOpenLogin').addEventListener('click', function () {
+        window.zhejianH5AuthModal.open({ onSuccess: loadLibrary })
+      })
+      document.getElementById('btnLogout').addEventListener('click', function () {
         window.zhejianH5Auth.clearSession()
-        sessionBox.hidden = true
-        loginBox.hidden = false
-        showErr('')
-        showHint('')
-      }
-
-      btnCode.addEventListener('click', function () {
-        var phone = document.getElementById('phoneInput').value.trim()
-        showErr('')
-        showHint('')
-        btnCode.disabled = true
-        window.zhejianH5Auth
-          .sendLoginCode(phone)
-          .then(function (data) {
-            showHint((data && data.loginHint) || '')
-            var hint = (data && data.loginHint) || ''
-            var match = hint.match(/验证码\s+(\d+)/)
-            if (match) document.getElementById('codeInput').value = match[1]
-            var sec = (data && data.resendAfterSec) || 60
-            btnCode.textContent = sec + '秒'
-            codeTimer = window.setInterval(function () {
-              sec -= 1
-              if (sec <= 0) {
-                window.clearInterval(codeTimer)
-                btnCode.disabled = false
-                btnCode.textContent = '获取验证码'
-                return
-              }
-              btnCode.textContent = sec + '秒'
-            }, 1000)
-          })
-          .catch(function (e) {
-            btnCode.disabled = false
-            showErr(e.message || '验证码发送失败')
-          })
+        showGuest()
       })
-
-      document.getElementById('btnLogin').addEventListener('click', function () {
-        var phone = document.getElementById('phoneInput').value.trim()
-        var code = document.getElementById('codeInput').value.trim()
-        showErr('')
-        window.zhejianH5Auth
-          .loginWithCode(phone, code)
-          .then(loadLibrary)
-          .catch(function (e) {
-            showErr(e.message || '登录失败')
-          })
-      })
-
-      document.getElementById('btnLogout').addEventListener('click', showLogin)
-
-      var existing = window.zhejianH5Auth.readSession()
-      if (existing) loadLibrary(existing)
-      else showLogin()
+      window.addEventListener('zhejian-auth-change', refresh)
+      refresh()
     })()
   </script>
 </body>

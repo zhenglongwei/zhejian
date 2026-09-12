@@ -119,6 +119,7 @@ function createApp() {
     })
     app.use('/shared', express.static(path.join(h5Root, 'shared')))
     app.use('/fixtures', express.static(path.join(h5Root, 'fixtures')))
+    app.use('/library', express.static(path.join(h5Root, 'library')))
     app.use('/case', express.static(path.join(h5Root, 'case')))
     app.use('/album', express.static(path.join(h5Root, 'album')))
     app.get(/^\/store\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
