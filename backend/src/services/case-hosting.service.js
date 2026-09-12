@@ -743,8 +743,10 @@ async function confirmHostedPublicPublish(
       data: {
         id: newId('case'),
         albumId,
-        storeId: album.storeId,
-        merchantId: album.merchantId,
+        storeId: album.storeId || '',
+        storeName: album.storeName || '',
+        serviceName: album.serviceName || '',
+        city: album.city || '',
         title: album.serviceName || '维修案例',
         summary: overview,
         status: PUBLIC_CASE_STATUS.AUDIT_PASSED,

@@ -1,5 +1,5 @@
 /**
- * 全站顶栏：深色条（GitHub 式）。右上角「我的」+ 头像菜单（案例库 / 退出）。
+ * 全站顶栏：深色条。未登录显示「登录」；已登录为头像菜单（案例库 / 退出）。
  */
 (function (global) {
   function escapeHtml(str) {
@@ -18,13 +18,8 @@
   function renderRight() {
     var auth = global.zhejianH5Auth
     var session = auth && auth.readSession ? auth.readSession() : null
-    var mine =
-      '<a class="gh-topbar-link" href="/library/" id="gh-topbar-mine">我的</a>'
     if (!session) {
-      return (
-        mine +
-        '<button type="button" class="gh-header-signin" id="gh-topbar-signin">登录</button>'
-      )
+      return '<button type="button" class="gh-header-signin" id="gh-topbar-signin">登录</button>'
     }
     var name = auth.displayName(session)
     var avatar = auth.avatarUrl(session)
@@ -34,7 +29,6 @@
         escapeHtml(String(name || '辙').slice(0, 1)) +
         '</span>'
     return (
-      mine +
       '<div class="gh-user-wrap">' +
       '<button type="button" class="gh-user-menu-btn" id="gh-user-menu-btn" aria-haspopup="true" aria-expanded="false">' +
       img +
@@ -67,21 +61,6 @@
     if (signin) {
       signin.addEventListener('click', function () {
         if (global.zhejianH5AuthModal) global.zhejianH5AuthModal.open()
-      })
-    }
-    var mine = document.getElementById('gh-topbar-mine')
-    if (mine) {
-      mine.addEventListener('click', function (e) {
-        var auth = global.zhejianH5Auth
-        if (auth && auth.readSession && auth.readSession()) return
-        e.preventDefault()
-        if (global.zhejianH5AuthModal) {
-          global.zhejianH5AuthModal.open({
-            onSuccess: function () {
-              location.href = '/library/'
-            },
-          })
-        }
       })
     }
     var btn = document.getElementById('gh-user-menu-btn')

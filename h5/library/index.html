@@ -1,10 +1,10 @@
-ï»¿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>æˆ‘çš„æ¡ˆä¾‹åº“ Â· è¾™è§</title>
-  <meta name="description" content="ç™»å½•åæŸ¥çœ‹å·²æ‰˜ç®¡çš„ç»´ä¿®æ¡£æ¡ˆã€‚ä¸å°ç¨‹åºåŒä¸€è´¦å·ã€‚" />
+  <title>ÎÒµÄ°¸Àı¿â ¡¤ ÕŞ¼û</title>
+  <meta name="description" content="µÇÂ¼ºó²é¿´ÒÑÍĞ¹ÜµÄÎ¬ĞŞµµ°¸¡£ÓëĞ¡³ÌĞòÍ¬Ò»ÕËºÅ¡£" />
   <meta name="robots" content="noindex,nofollow" />
   <link rel="stylesheet" href="/shared/tokens.css" />
   <link rel="stylesheet" href="/shared/base-page.css" />
@@ -12,9 +12,9 @@
 </head>
 <body>
   <div id="blankBox" class="gh-blankslate" hidden>
-    <h1>æˆ‘çš„æ¡ˆä¾‹åº“</h1>
-    <p>ç™»å½•åæŸ¥çœ‹ä½ æ‰˜ç®¡æˆ–æ˜Ÿæ ‡çš„ç»´ä¿®æ¡£æ¡ˆ</p>
-    <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">ç™»å½•</button>
+    <h1>ÎÒµÄ°¸Àı¿â</h1>
+    <p>µÇÂ¼ºó²é¿´ÄãÍĞ¹Ü»òĞÇ±êµÄÎ¬ĞŞµµ°¸</p>
+    <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">µÇÂ¼</button>
   </div>
   <div id="profileBox" class="gh-profile" hidden>
     <aside>
@@ -23,16 +23,16 @@
       <p class="gh-profile-meta" id="metaBox"></p>
     </aside>
     <main>
-      <nav class="gh-tabs" aria-label="æ¡ˆä¾‹åº“">
-        <button type="button" class="gh-tab is-on" id="tabHosted" data-tab="hosted">æ‰˜ç®¡æ¡£æ¡ˆ</button>
-        <button type="button" class="gh-tab" id="tabStarred" data-tab="starred">æ˜Ÿæ ‡</button>
+      <nav class="gh-tabs" aria-label="°¸Àı¿â">
+        <button type="button" class="gh-tab is-on" id="tabHosted" data-tab="hosted">ÍĞ¹Üµµ°¸</button>
+        <button type="button" class="gh-tab" id="tabStarred" data-tab="starred">ĞÇ±ê</button>
       </nav>
       <div id="listBox"></div>
     </main>
   </div>
   <script src="/shared/h5-auth.js?v=20260912c"></script>
   <script src="/shared/h5-auth-modal.js?v=20260912c"></script>
-  <script src="/shared/site-chrome.js?v=20260912c"></script>
+  <script src="/shared/site-chrome.js?v=20260912d"></script>
   <script>
     (function () {
       var API_HOSTED = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
@@ -78,8 +78,8 @@
       function repoCard(item) {
         var href = item.publicPath || item.href || ''
         if (!href && item.id) href = '/case/?id=' + encodeURIComponent(item.id)
-        var title = escapeHtml(item.title || item.serviceName || 'æ¡ˆä¾‹æ¡£æ¡ˆ')
-        var vis = item.visibility === 'public' ? 'å…¬å¼€' : item.visibility === 'private' ? 'ç§å¯†' : ''
+        var title = escapeHtml(item.title || item.serviceName || '°¸Àıµµ°¸')
+        var vis = item.visibility === 'public' ? '¹«¿ª' : item.visibility === 'private' ? 'Ë½ÃÜ' : ''
         var date = item.updatedAt || item.publishedAt || item.createdAt || ''
         if (date) date = String(date).slice(0, 10)
         var heading = href
@@ -96,7 +96,7 @@
           heading +
           (vis ? ' <span class="gh-label">' + vis + '</span>' : '') +
           '</h2><p class="gh-repo-meta">' +
-          (date ? 'æ›´æ–°äº ' + escapeHtml(date) : '') +
+          (date ? '¸üĞÂÓÚ ' + escapeHtml(date) : '') +
           '</p></div></article>'
         )
       }
@@ -114,7 +114,7 @@
           headers: Object.assign({ Accept: 'application/json' }, window.zhejianH5Auth.authHeader()),
         }).then(function (r) {
           return r.json().then(function (j) {
-            if (!r.ok) throw new Error((j && j.message) || 'åŠ è½½å¤±è´¥')
+            if (!r.ok) throw new Error((j && j.message) || '¼ÓÔØÊ§°Ü')
             return j.data != null ? j.data : j
           })
         })
@@ -122,21 +122,21 @@
 
       function loadHosted(session) {
         if (!window.zhejianH5Auth.isMerchant(session)) {
-          renderList([], 'ä¸ªäººè´¦å·å¯æ˜Ÿæ ‡æ¡£æ¡ˆã€‚æ‰˜ç®¡åº—é¡µæ¡£æ¡ˆè¯·ç”¨å·²å…¥é©»é—¨åº—çš„è´¦å·ã€‚')
+          renderList([], '¸öÈËÕËºÅ¿ÉĞÇ±êµµ°¸¡£ÍĞ¹ÜµêÒ³µµ°¸ÇëÓÃÒÑÈë×¤ÃÅµêµÄÕËºÅ¡£')
           return
         }
-        listBox.innerHTML = '<p class="gh-empty">åŠ è½½ä¸­â€¦</p>'
+        listBox.innerHTML = '<p class="gh-empty">¼ÓÔØÖĞ¡­</p>'
         fetchJson(API_HOSTED)
           .then(function (data) {
-            renderList((data && data.list) || [], 'è¿˜æ²¡æœ‰æ‰˜ç®¡æ¡£æ¡ˆ')
+            renderList((data && data.list) || [], '»¹Ã»ÓĞÍĞ¹Üµµ°¸')
           })
           .catch(function (e) {
-            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || 'åŠ è½½å¤±è´¥') + '</p>'
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '¼ÓÔØÊ§°Ü') + '</p>'
           })
       }
 
       function loadStarred() {
-        listBox.innerHTML = '<p class="gh-empty">åŠ è½½ä¸­â€¦</p>'
+        listBox.innerHTML = '<p class="gh-empty">¼ÓÔØÖĞ¡­</p>'
         fetchJson(API_STARS)
           .then(function (data) {
             var rows = (data && data.list) || []
@@ -155,10 +155,10 @@
                   visibility: 'public',
                 }
               })
-            renderList(list, 'è¿˜æ²¡æœ‰æ˜Ÿæ ‡æ¡£æ¡ˆ')
+            renderList(list, '»¹Ã»ÓĞĞÇ±êµµ°¸')
           })
           .catch(function (e) {
-            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || 'åŠ è½½å¤±è´¥') + '</p>'
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '¼ÓÔØÊ§°Ü') + '</p>'
           })
       }
 
@@ -175,8 +175,8 @@
         document.getElementById('avatarBox').innerHTML = avatarHtml(session)
         document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
         document.getElementById('metaBox').textContent = window.zhejianH5Auth.isMerchant(session)
-          ? 'é—¨åº—'
-          : 'ä¸ªäºº'
+          ? 'ÃÅµê'
+          : '¸öÈË'
         showTab(currentTab, session)
       }
 

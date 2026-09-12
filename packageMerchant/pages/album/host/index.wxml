@@ -235,7 +235,7 @@
         type="primary"
         loading="{{working}}"
         bind:btntap="onConfirmPublic"
-      >确认并上店页</ui-button>
+      >确认</ui-button>
     </block>
   </ui-fixed-bottom-bar>
 
