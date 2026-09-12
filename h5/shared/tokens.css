@@ -51,11 +51,14 @@
   --size-h5-img-placeholder: 160px;
   --size-h5-process-img-min: 240px;
   --size-h5-process-img: 280px;
+  --size-h5-process-img-desktop: 132px;
   --size-h5-list-thumb: 80px;
   --size-h5-footer-spacer: 88px;
   --size-h5-btn-padding-y: 12px;
   --size-h5-btn-padding-x: 16px;
   --max-width: 720px;
+  --max-width-archive: 1120px;
+  --max-width-library: 1012px;
   --z-h5-footer: 100;
   --z-h5-sheet: 1000;
 }

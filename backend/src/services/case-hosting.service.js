@@ -937,6 +937,7 @@ async function listHostedCasesForStore(storeId) {
           album.serviceName ||
           '未命名案例',
         serviceName: album.serviceName || '',
+        coverImage: (album.publicCase && album.publicCase.coverImage) || '',
         hosted: meta.hosted,
         visibility:
           album.publicCase &&

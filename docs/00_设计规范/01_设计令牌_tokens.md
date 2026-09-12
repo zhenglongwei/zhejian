@@ -949,11 +949,15 @@ page {
 | `--color-mask` | `rgba(0,0,0,0.45)` | 咨询 sheet 遮罩 |
 | `--line-height-body` | `1.6` | 正文默认 |
 | `--line-height-article` | `1.7` | 文章/免责/合规 |
-| `--size-h5-process-img-min` | `240px` | 过程图最小高度 |
-| `--size-h5-process-img` | `280px` | 过程图典型高度 |
+| `--size-h5-process-img-min` | `240px` | 手机过程图最小高度 |
+| `--size-h5-process-img` | `280px` | 手机过程图典型高度 |
+| `--size-h5-process-img-desktop` | `132px` | 电脑档案页网格图高度 |
 | `--size-h5-list-thumb` | `80px` | 列表封面缩略图 |
 | `--size-h5-footer-spacer` | `88px` | 固定底栏正文留白 |
 | `--radius-full` | `999px` | 搜索 chip |
+| `--max-width` | `720px` | 手机内容栏 |
+| `--max-width-archive` | `1120px` | 电脑档案页 |
+| `--max-width-library` | `1012px` | 电脑案例库 |
 | `--z-h5-footer` | `100` | 固定底栏 |
 | `--z-h5-sheet` | `1000` | 咨询 sheet |
 

@@ -3,6 +3,7 @@ const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { resolveClientReadableMediaUrl, resolveClientReadableMediaUrls, rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
 const { buildPublicCasePrice, resolvePublicCasePriceFields } = require('../utils/album-price')
+const { buildPublicServiceFlow } = require('../utils/public-service-flow')
 const { prepareSearchLists, parseSearchCoords, packSearchResults } = require('../utils/search-query')
 const {
   matchSearchService,
@@ -268,6 +269,19 @@ function mapPublicCaseRow(row, album) {
     layered.faq = layered.confirmedCaseDraft.faq
   }
   const hostMeta = readHostMeta(album) || readHostMeta(rawContent)
+  const archiveSnap =
+    hostMeta.archiveSnapshot && typeof hostMeta.archiveSnapshot === 'object'
+      ? hostMeta.archiveSnapshot
+      : null
+  layered.serviceFlow = buildPublicServiceFlow({
+    flowNodes:
+      (archiveSnap && archiveSnap.flowNodes) ||
+      (album && album.contentPackageJson && album.contentPackageJson.flowNodes) ||
+      [],
+    album,
+    contentNodes: content.nodes,
+    publicView,
+  })
   return attachArchiveAttribution(applyPublicDisplayRules(layered), { hostMeta })
 }
 

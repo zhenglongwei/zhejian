@@ -8,12 +8,12 @@
   <meta name="robots" content="noindex,nofollow" />
   <link rel="stylesheet" href="/shared/tokens.css" />
   <link rel="stylesheet" href="/shared/base-page.css" />
-  <link rel="stylesheet" href="/shared/gh-chrome.css?v=20260912b" />
+  <link rel="stylesheet" href="/shared/gh-chrome.css?v=20260912c" />
 </head>
 <body>
   <div id="blankBox" class="gh-blankslate" hidden>
     <h1>我的案例库</h1>
-    <p>登录后查看你托管的维修档案</p>
+    <p>登录后查看你托管或星标的维修档案</p>
     <button type="button" class="gh-btn gh-btn--primary" id="btnOpenLogin">登录</button>
   </div>
   <div id="profileBox" class="gh-profile" hidden>
@@ -21,26 +21,27 @@
       <div id="avatarBox"></div>
       <h1 class="gh-profile-name" id="nameBox"></h1>
       <p class="gh-profile-meta" id="metaBox"></p>
-      <p style="margin-top:16px">
-        <button type="button" class="gh-btn" id="btnLogout">退出</button>
-      </p>
     </aside>
     <main>
       <nav class="gh-tabs" aria-label="案例库">
-        <span class="gh-tab is-on">托管档案</span>
+        <button type="button" class="gh-tab is-on" id="tabHosted" data-tab="hosted">托管档案</button>
+        <button type="button" class="gh-tab" id="tabStarred" data-tab="starred">星标</button>
       </nav>
       <div id="listBox"></div>
     </main>
   </div>
-  <script src="/shared/h5-auth.js?v=20260912b"></script>
-  <script src="/shared/h5-auth-modal.js?v=20260912b"></script>
-  <script src="/shared/site-chrome.js?v=20260912b"></script>
+  <script src="/shared/h5-auth.js?v=20260912c"></script>
+  <script src="/shared/h5-auth-modal.js?v=20260912c"></script>
+  <script src="/shared/site-chrome.js?v=20260912c"></script>
   <script>
     (function () {
-      var API = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
+      var API_HOSTED = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
+      var API_STARS = (window.ZHEJIAN_API_BASE || '') + '/api/v1/user/favorites?type=case'
       var blankBox = document.getElementById('blankBox')
       var profileBox = document.getElementById('profileBox')
       var listBox = document.getElementById('listBox')
+      var currentTab = 'hosted'
+      var lastSession = null
 
       function escapeHtml(str) {
         return String(str || '')
@@ -61,68 +62,122 @@
         if (url) {
           return '<img class="gh-avatar-lg" src="' + escapeHtml(url) + '" alt="" width="96" height="96" />'
         }
-          return (
+        return (
           '<span class="gh-avatar-lg is-letter">' +
           escapeHtml(String(name).slice(0, 1)) +
           '</span>'
         )
       }
 
-      function renderList(list) {
-        if (!list.length) {
-          listBox.innerHTML = '<p class="gh-empty">还没有托管档案</p>'
-          return
-        }
-        listBox.innerHTML = list
-          .map(function (item) {
-            var href = item.publicPath || ''
-            var title = escapeHtml(item.title || item.serviceName || '案例档案')
-            var vis = item.visibility === 'public' ? '公开' : '私密'
-            var date = item.updatedAt ? String(item.updatedAt).slice(0, 10) : ''
-            var heading = href
-              ? '<a href="' + escapeHtml(href) + '">' + title + '</a>'
-              : title
-            return (
-              '<article class="gh-repo"><h2>' +
-              heading +
-              ' <span class="gh-label">' +
-              vis +
-              '</span></h2><p class="gh-repo-meta">' +
-              (date ? '更新于 ' + escapeHtml(date) : '') +
-              '</p></article>'
-            )
-          })
-          .join('')
+      function setTab(tab) {
+        currentTab = tab
+        document.getElementById('tabHosted').classList.toggle('is-on', tab === 'hosted')
+        document.getElementById('tabStarred').classList.toggle('is-on', tab === 'starred')
       }
 
-      function loadLibrary(session) {
-        blankBox.hidden = true
-        profileBox.hidden = false
-        document.getElementById('avatarBox').innerHTML = avatarHtml(session)
-        document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
-        var merchant = window.zhejianH5Auth.isMerchant(session)
-        document.getElementById('metaBox').textContent = merchant ? '门店' : '个人'
-        if (!merchant) {
-          listBox.innerHTML = '<p class="gh-empty">个人账号可星标档案。托管店页档案请用已入驻门店的账号。</p>'
+      function repoCard(item) {
+        var href = item.publicPath || item.href || ''
+        if (!href && item.id) href = '/case/?id=' + encodeURIComponent(item.id)
+        var title = escapeHtml(item.title || item.serviceName || '案例档案')
+        var vis = item.visibility === 'public' ? '公开' : item.visibility === 'private' ? '私密' : ''
+        var date = item.updatedAt || item.publishedAt || item.createdAt || ''
+        if (date) date = String(date).slice(0, 10)
+        var heading = href
+          ? '<a href="' + escapeHtml(href) + '">' + title + '</a>'
+          : title
+        var cover = item.coverImage || item.coverImageDesensitized || ''
+        var thumb = cover
+          ? '<img class="gh-repo-thumb" src="' + escapeHtml(cover) + '" alt="" />'
+          : '<span class="gh-repo-thumb"></span>'
+        return (
+          '<article class="gh-repo">' +
+          thumb +
+          '<div><h2>' +
+          heading +
+          (vis ? ' <span class="gh-label">' + vis + '</span>' : '') +
+          '</h2><p class="gh-repo-meta">' +
+          (date ? '更新于 ' + escapeHtml(date) : '') +
+          '</p></div></article>'
+        )
+      }
+
+      function renderList(list, emptyText) {
+        if (!list.length) {
+          listBox.innerHTML = '<p class="gh-empty">' + escapeHtml(emptyText) + '</p>'
+          return
+        }
+        listBox.innerHTML = list.map(repoCard).join('')
+      }
+
+      function fetchJson(url) {
+        return fetch(url, {
+          headers: Object.assign({ Accept: 'application/json' }, window.zhejianH5Auth.authHeader()),
+        }).then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok) throw new Error((j && j.message) || '加载失败')
+            return j.data != null ? j.data : j
+          })
+        })
+      }
+
+      function loadHosted(session) {
+        if (!window.zhejianH5Auth.isMerchant(session)) {
+          renderList([], '个人账号可星标档案。托管店页档案请用已入驻门店的账号。')
           return
         }
         listBox.innerHTML = '<p class="gh-empty">加载中…</p>'
-        fetch(API, {
-          headers: Object.assign({ Accept: 'application/json' }, window.zhejianH5Auth.authHeader()),
-        })
-          .then(function (r) {
-            return r.json().then(function (j) {
-              if (!r.ok) throw new Error((j && j.message) || '加载失败')
-              return j
-            })
-          })
-          .then(function (j) {
-            var data = j.data || j
-            renderList((data && data.list) || [])
+        fetchJson(API_HOSTED)
+          .then(function (data) {
+            renderList((data && data.list) || [], '还没有托管档案')
           })
           .catch(function (e) {
             listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '加载失败') + '</p>'
           })
+      }
+
+      function loadStarred() {
+        listBox.innerHTML = '<p class="gh-empty">加载中…</p>'
+        fetchJson(API_STARS)
+          .then(function (data) {
+            var rows = (data && data.list) || []
+            var list = rows
+              .filter(function (row) {
+                return row && row.available !== false && row.item
+              })
+              .map(function (row) {
+                var item = row.item || {}
+                return {
+                  id: item.id || row.targetId,
+                  title: item.title || item.serviceName,
+                  coverImage: item.coverImageDesensitized || item.coverImage,
+                  publishedAt: item.publishedAt,
+                  href: item.slug ? '/case/' + encodeURIComponent(item.slug) + '.html' : '',
+                  visibility: 'public',
+                }
+              })
+            renderList(list, '还没有星标档案')
+          })
+          .catch(function (e) {
+            listBox.innerHTML = '<p class="gh-err">' + escapeHtml(e.message || '加载失败') + '</p>'
+          })
+      }
+
+      function showTab(tab, session) {
+        setTab(tab)
+        if (tab === 'starred') loadStarred()
+        else loadHosted(session)
+      }
+
+      function loadLibrary(session) {
+        lastSession = session
+        blankBox.hidden = true
+        profileBox.hidden = false
+        document.getElementById('avatarBox').innerHTML = avatarHtml(session)
+        document.getElementById('nameBox').textContent = window.zhejianH5Auth.displayName(session)
+        document.getElementById('metaBox').textContent = window.zhejianH5Auth.isMerchant(session)
+          ? '门店'
+          : '个人'
+        showTab(currentTab, session)
       }
 
       function refresh() {
@@ -131,12 +186,14 @@
         else showGuest()
       }
 
+      document.getElementById('tabHosted').addEventListener('click', function () {
+        if (lastSession) showTab('hosted', lastSession)
+      })
+      document.getElementById('tabStarred').addEventListener('click', function () {
+        if (lastSession) showTab('starred', lastSession)
+      })
       document.getElementById('btnOpenLogin').addEventListener('click', function () {
         window.zhejianH5AuthModal.open({ onSuccess: loadLibrary })
-      })
-      document.getElementById('btnLogout').addEventListener('click', function () {
-        window.zhejianH5Auth.clearSession()
-        showGuest()
       })
       window.addEventListener('zhejian-auth-change', refresh)
       refresh()

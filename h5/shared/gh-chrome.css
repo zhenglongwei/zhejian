@@ -319,7 +319,18 @@
 }
 
 .gh-star {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
   flex-shrink: 0;
+}
+
+.gh-star-list {
+  display: flex;
+  align-items: center;
+  margin-top: 0;
+  padding-left: 2px;
 }
 
 .gh-star-btns {
@@ -374,13 +385,6 @@
   fill: var(--color-warning);
 }
 
-.gh-star-list {
-  display: flex;
-  align-items: center;
-  margin-top: var(--space-sm);
-  padding-left: 2px;
-}
-
 .gh-star-avatar {
   width: 24px;
   height: 24px;
@@ -401,7 +405,7 @@
 
 /* —— 案例库主页 —— */
 .gh-profile {
-  max-width: 1012px;
+  max-width: var(--max-width-library);
   margin: 0 auto;
   padding: var(--space-xl) var(--space-lg) 64px;
   display: grid;
@@ -443,8 +447,28 @@
 }
 
 .gh-repo {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: center;
   padding: var(--space-lg) 0;
   border-bottom: 1px solid var(--color-border);
+}
+
+.gh-repo-thumb {
+  width: 64px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+}
+
+.gh-tabs .gh-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
 
 .gh-repo h2 {

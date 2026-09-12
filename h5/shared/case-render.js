@@ -524,6 +524,221 @@
     )
   }
 
+  function archiveFactTitle(data) {
+    var vehicle = String((data && data.vehicleText) || '').trim()
+    var service = String((data && data.serviceName) || '').trim()
+    if (vehicle && service) return vehicle + ' · ' + service
+    if (data && data.attribution && data.attribution.factHeadline) {
+      return String(data.attribution.factHeadline)
+    }
+    return String((data && data.title) || '维修案例')
+  }
+
+  function archiveOwnerName(data) {
+    if (data && data.attribution && data.attribution.showStoreAsAuthor === false) return ''
+    return String((data && (data.storeName || (data.store && data.store.name))) || '').trim()
+  }
+
+  function renderArchiveHead(data) {
+    var owner = archiveOwnerName(data)
+    var fact = archiveFactTitle(data)
+    var heading = owner ? owner + ' / ' + fact : fact
+    var bits = []
+    if (data.city) bits.push(data.city)
+    if (data.publishedAt) bits.push(String(data.publishedAt).slice(0, 10))
+    return (
+      '<header class="h5-archive-head">' +
+      '<h1 class="h5-title">' +
+      escapeHtml(heading) +
+      '</h1>' +
+      '<div class="h5-archive-starline">' +
+      renderStarBlock(data) +
+      '</div>' +
+      (bits.length
+        ? '<p class="h5-archive-meta">' + escapeHtml(bits.join(' · ')) + '</p>'
+        : '') +
+      '</header>'
+    )
+  }
+
+  function renderArchiveAside(data) {
+    var store = data.store || {}
+    var name = archiveOwnerName(data) || store.name || data.storeName || ''
+    var address = store.address || ''
+    var phone = data.storePhone || store.phone || ''
+    var nav = buildStoreNavUrl(store)
+    if (!name && !address && !phone) return ''
+    var addrInner = address
+      ? '<span class="h5-aside-k">地址</span><span class="h5-aside-v">' +
+        escapeHtml(address) +
+        '</span>' +
+        (nav ? '<span class="h5-aside-go">打开地图</span>' : '')
+      : ''
+    var addrBlock = address
+      ? nav
+        ? '<a class="h5-aside-addr" href="' +
+          escapeHtml(nav) +
+          '" target="_blank" rel="noopener">' +
+          addrInner +
+          '</a>'
+        : '<div class="h5-aside-addr">' + addrInner + '</div>'
+      : ''
+    var phoneBlock = phone
+      ? '<p class="h5-aside-phone"><span class="h5-aside-k">电话</span><a href="tel:' +
+        escapeHtml(phone) +
+        '">' +
+        escapeHtml(phone) +
+        '</a></p>'
+      : ''
+    return (
+      '<aside class="h5-archive-aside">' +
+      (name ? '<p class="h5-aside-name">' + escapeHtml(name) + '</p>' : '') +
+      '<p class="h5-aside-note">内容由门店托管公开，仅供参考。</p>' +
+      addrBlock +
+      phoneBlock +
+      '</aside>'
+    )
+  }
+
+  function renderFlowPhotos(photos) {
+    if (!photos || !photos.length) return ''
+    return (
+      '<div class="h5-flow-photos">' +
+      photos
+        .map(function (photo) {
+          var url = photo && photo.url
+          if (!url) return ''
+          return (
+            '<figure class="h5-figure">' +
+            '<a class="h5-figure-link" href="' +
+            escapeHtml(url) +
+            '" target="_blank" rel="noopener">' +
+            '<img class="h5-node-img" src="' +
+            escapeHtml(url) +
+            '" alt="' +
+            escapeHtml(photo.caption || '') +
+            '" loading="lazy" />' +
+            '</a>' +
+            (photo.caption
+              ? '<figcaption class="h5-figure-caption">' +
+                escapeHtml(photo.caption) +
+                '</figcaption>'
+              : '') +
+            '</figure>'
+          )
+        })
+        .join('') +
+      '</div>'
+    )
+  }
+
+  function renderFlowItems(items) {
+    if (!items || !items.length) return ''
+    return (
+      '<ul class="h5-flow-items">' +
+      items
+        .map(function (item) {
+          var name = escapeHtml(item.name || '')
+          var extra = [item.brand, item.note].filter(Boolean).join(' · ')
+          return (
+            '<li>' +
+            '<span class="h5-flow-item-name">' +
+            name +
+            '</span>' +
+            (extra
+              ? '<span class="h5-flow-item-note">' + escapeHtml(extra) + '</span>'
+              : '') +
+            '</li>'
+          )
+        })
+        .join('') +
+      '</ul>'
+    )
+  }
+
+  function renderServiceFlow(flow) {
+    var chapters = (flow && flow.chapters) || []
+    if (!chapters.length) return ''
+    return (
+      '<ol class="h5-flow">' +
+      chapters
+        .map(function (ch) {
+          var body = ''
+          if (ch.chiefComplaint) {
+            body +=
+              '<p class="h5-flow-k">进店主诉</p><p class="h5-flow-p">' +
+              escapeHtml(ch.chiefComplaint) +
+              '</p>'
+          }
+          if (ch.findings && ch.findings.length) {
+            body +=
+              '<p class="h5-flow-k">本次检测</p>' +
+              ch.findings
+                .map(function (f) {
+                  return (
+                    '<div class="h5-flow-finding">' +
+                    (f.url
+                      ? '<img class="h5-flow-finding-img" src="' +
+                        escapeHtml(f.url) +
+                        '" alt="" loading="lazy" />'
+                      : '<span class="h5-flow-finding-img is-empty"></span>') +
+                    '<div><p class="h5-flow-finding-name">' +
+                    escapeHtml(f.partName || '') +
+                    '</p>' +
+                    (f.advice
+                      ? '<p class="h5-flow-item-note">' + escapeHtml(f.advice) + '</p>'
+                      : '') +
+                    '</div></div>'
+                  )
+                })
+                .join('')
+          }
+          body += renderFlowItems(ch.items)
+          body += renderFlowPhotos(ch.photos)
+          if (ch.warrantyPeriod || ch.warrantyNotes) {
+            body +=
+              '<p class="h5-flow-item-note">质保：' +
+              escapeHtml(
+                [ch.warrantyPeriod, ch.warrantyNotes].filter(Boolean).join(' · ')
+              ) +
+              '</p>'
+          }
+          return (
+            '<li class="h5-flow-step">' +
+            '<h2>' +
+            escapeHtml(ch.title || '') +
+            '</h2>' +
+            body +
+            '</li>'
+          )
+        })
+        .join('') +
+      '</ol>'
+    )
+  }
+
+  function renderArchiveLead(data) {
+    var hostCopy = (data.contentJson && data.contentJson.hostPublicCopy) || data.hostPublicCopy
+    var geo = (data.contentJson && data.contentJson.hostGeoLayer) || data.hostGeoLayer
+    var text =
+      (geo && geo.summary) ||
+      (hostCopy && hostCopy.overview) ||
+      data.displayAiSummary ||
+      data.aiSummary ||
+      data.summary ||
+      ''
+    text = String(text || '').trim()
+    if (!text) return ''
+    if (
+      window.zhejianCaseDisplay &&
+      window.zhejianCaseDisplay.isTemplateBoilerplateSummary &&
+      window.zhejianCaseDisplay.isTemplateBoilerplateSummary(text)
+    ) {
+      return ''
+    }
+    return '<p class="h5-archive-lead">' + escapeHtml(text) + '</p>'
+  }
+
   function renderTrustAttestation() {
     return ''
   }
@@ -1349,7 +1564,7 @@
         })
         .join('')
       html +=
-        '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">③ 本单 FAQ</h2>' +
+        '<div class="h5-card" id="case-faq-inline"><h2 class="h5-section-title">常见问法</h2>' +
         inlineItems +
         '</div>'
     }
@@ -1789,90 +2004,64 @@
       window.zhejianSeo.applyBreadcrumbSchema(breadcrumbItems, 'case-breadcrumb-schema-v2')
     }
 
-    var updatedHint = ''
-    var hostCopy = (safeData.contentJson && safeData.contentJson.hostPublicCopy) || safeData.hostPublicCopy
-    var updatedAt = (hostCopy && hostCopy.updatedAt) || safeData.updatedAt || safeData.publishedAt || ''
-    if (updatedAt) {
-      updatedHint =
-        '<p class="h5-section-note">最近更新：' + escapeHtml(String(updatedAt)) + ' · 来源：商家上传</p>'
-    }
-    var html =
-      '<div class="h5-page">' +
-      breadcrumbHtml +
-      '<header class="h5-header">' +
-      '<div class="gh-repo-head">' +
-      '<h1 class="h5-title">' +
-      escapeHtml(safeData.title) +
-      '</h1>' +
-      renderStarBlock(safeData) +
-      '</div>' +
-      renderTags(safeData) +
-      updatedHint +
-      renderTrustAttestation(safeData) +
-      renderDisclaimerBlock() +
-      '</header>'
+    var flowChapters =
+      safeData.serviceFlow &&
+      Array.isArray(safeData.serviceFlow.chapters) &&
+      safeData.serviceFlow.chapters.length
+        ? safeData.serviceFlow.chapters
+        : null
 
-    if (articleMode) {
-      html +=
-        '<div class="h5-top-actions">' +
-        (safeData.storePhone || (safeData.store && safeData.store.phone)
-          ? '<a class="h5-btn h5-btn--secondary" id="h5-call-btn-top" href="tel:' +
-            escapeHtml(safeData.storePhone || safeData.store.phone) +
-            '">电话咨询</a>'
-          : '<button type="button" class="h5-btn h5-btn--secondary" id="h5-call-btn-top">电话咨询</button>') +
-        '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
-        '</div>' +
+    var mainHtml = renderArchiveLead(safeData)
+    if (flowChapters) {
+      mainHtml += renderServiceFlow(safeData.serviceFlow)
+    } else if (articleMode) {
+      mainHtml +=
         (hasConfirmedCaseDraft(safeData) ? '' : renderArticleLead(safeData)) +
-        renderKeyInfo(safeData.keyInfo) +
-        renderPriceSection(safeData)
+        renderKeyInfo(safeData.keyInfo)
       if (hasConfirmedCaseDraft(safeData)) {
-        html += renderConfirmedCaseDraft(safeData)
+        mainHtml += renderConfirmedCaseDraft(safeData)
       } else {
-        html +=
+        mainHtml +=
           renderArticleSections(safeData) +
           renderArticleProcess(safeData, safeData.displayNodes || safeData.nodes)
       }
     } else {
-      html +=
-        '<div class="h5-top-actions">' +
-        (safeData.storePhone || (safeData.store && safeData.store.phone)
-          ? '<a class="h5-btn h5-btn--secondary" id="h5-call-btn-top" href="tel:' +
-            escapeHtml(safeData.storePhone || safeData.store.phone) +
-            '">电话咨询</a>'
-          : '') +
-        '<button type="button" class="h5-btn" id="h5-consult-open-top">留言咨询</button>' +
-        '</div>' +
+      mainHtml +=
         (safeData.displayAiSummary || safeData.aiSummary
           ? '<div class="h5-folio-summary">' +
             escapeHtml(safeData.displayAiSummary || safeData.aiSummary) +
             '</div>'
-          : '') +
-        renderKeyInfo(safeData.keyInfo) +
-        renderPriceSection(safeData)
+          : '') + renderKeyInfo(safeData.keyInfo)
       if (hasConfirmedCaseDraft(safeData)) {
-        html += renderConfirmedCaseDraft(safeData)
+        mainHtml += renderConfirmedCaseDraft(safeData)
       } else {
-        html +=
-          renderNodes(safeData, safeData.displayNodes || safeData.nodes) +
-          renderPriceFactors(safeData.priceFactors)
+        mainHtml += renderNodes(safeData, safeData.displayNodes || safeData.nodes)
       }
     }
 
-    html += renderOwnerReviews(safeData)
-    html += renderStoreSection(safeData)
-    html += renderRelatedServiceCard(safeData)
-    html += renderInternalLinks(safeData)
-    html += renderRelatedCases(
+    mainHtml += renderFaq(safeData)
+    mainHtml += renderOwnerReviews(safeData)
+    mainHtml += renderRelatedServiceCard(safeData)
+    mainHtml += renderInternalLinks(safeData)
+    mainHtml += renderRelatedCases(
       safeData.relatedCases,
       safeData.id,
       articleMode && shouldShowStorePublicly(safeData) ? '本店更多案例' : '相似案例'
     )
-
     if (window.zhejianSiteBeian) {
-      html += window.zhejianSiteBeian.render()
+      mainHtml += window.zhejianSiteBeian.render()
     }
-    html += '<div class="h5-body-spacer"></div></div>'
-    html += articleMode ? renderConversionFooter(safeData) : renderLegacyFooter(safeData)
+
+    var html =
+      '<div class="h5-page h5-archive">' +
+      breadcrumbHtml +
+      renderArchiveHead(safeData) +
+      '<div class="h5-archive-layout">' +
+      '<div class="h5-archive-main">' +
+      mainHtml +
+      '</div>' +
+      renderArchiveAside(safeData) +
+      '</div></div>'
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
