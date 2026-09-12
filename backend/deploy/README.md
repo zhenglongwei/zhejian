@@ -23,7 +23,7 @@ OSS_BUCKET=zhejianoss
 OSS_REGION=cn-hangzhou
 OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
 OSS_INTERNAL_ENDPOINT=oss-cn-hangzhou-internal.aliyuncs.com
-# RAM/ECS 角色须含该 Bucket 读写；勿把主账号 Key 写入仓库
+# RAM/ECS 角色须含该 Bucket 读写，以及短信发送（登录验证码）；勿把主账号 Key 写入仓库
 ```
 
 存量迁移：`npm run media:migrate-oss -- --dry-run` → `npm run media:migrate-oss`  

@@ -11,14 +11,14 @@
  *   1. 验证码只存内存（重启即失效，对登录场景可接受），5 分钟过期、
  *      验证一次即作废，不落库、不进日志；
  *   2. 防刷：同一手机号 60 秒一条、每天 10 条；同一 IP 每天 20 条；
- *   3. 短信未配置（缺 key 或模板）时明确报「短信服务未开通」，
- *      不许静默成功——登录链路对用户必须是真话。
+ *   3. 签名、模板配齐且能拿到阿里云凭证（ECS 实例角色或 AccessKey）就真发；
+ *      本地没工牌时用 888888，或显式 SMS_DEBUG_CODE。
  */
 
 const { prisma } = require('../lib/prisma')
 const { config } = require('../config')
 const { newId, maskPhone } = require('../lib/ids')
-const { isChinaMobilePhone, sendSms } = require('../lib/sms')
+const { isChinaMobilePhone, isSmsSendReady, sendSms } = require('../lib/sms')
 const { buildAuthSession } = require('./auth.service')
 const { clientIp, consumeDailyLimit, peekDailyUsage } = require('./geo-check-rate-limit')
 
@@ -35,13 +35,31 @@ function randomCode() {
   return String(100000 + Math.floor(Math.random() * 900000))
 }
 
-function smsConfigured() {
-  return Boolean(
-    config.sms.accessKeyId &&
-      config.sms.accessKeySecret &&
-      config.sms.signName &&
-      config.sms.templateVerifyCode,
-  )
+/**
+ * 线上能向 ECS 要临时凭证则真发。本地没工牌：开发桩 / 未强制真短信 / 显式 SMS_DEBUG_CODE 走 888888。
+ */
+function allowLoginDebugCode() {
+  if (String(config.sms.debugCode || '').trim()) return true
+  if (isSmsSendReady()) return false
+  if (config.devAuthEnabled) return true
+  if (!config.sms.required) return true
+  return false
+}
+
+function resolveLoginDebugCode() {
+  const explicit = String(config.sms.debugCode || '').trim()
+  if (explicit) return explicit
+  if (isSmsSendReady()) return ''
+  if (allowLoginDebugCode()) return '888888'
+  return ''
+}
+
+function smsFailureMessage(sent) {
+  const blob = `${(sent && sent.reason) || ''} ${(sent && sent.message) || ''}`
+  if (/未开通|NOT.?OPEN|FORBIDDEN|OUT_OF_SERVICE|sms_not_configured/i.test(blob)) {
+    return '短信业务未开通。本地测试请用验证码 888888；正式发短信需在阿里云开通短信并配置验证码模板。'
+  }
+  return '短信没发出去，稍后再试'
 }
 
 /**
@@ -53,9 +71,13 @@ async function sendLoginCode(phone, ip) {
   if (!isChinaMobilePhone(mobile)) {
     return { ok: false, code: 'INVALID_PHONE', message: '手机号格式不对' }
   }
-  if (!smsConfigured() && !config.sms.debugCode) {
-    // debugCode 是给自己人测的后门；正式发短信必须配齐 key + 模板
-    return { ok: false, code: 'SMS_NOT_CONFIGURED', message: '短信服务未开通，请联系我们' }
+  const debugCode = resolveLoginDebugCode()
+  if (!isSmsSendReady() && !debugCode) {
+    return {
+      ok: false,
+      code: 'SMS_NOT_CONFIGURED',
+      message: '短信发不出去。请给云服务器实例角色加上短信权限，或本地设置 SMS_DEBUG_CODE=888888',
+    }
   }
 
   const existing = codeStore.get(mobile)
@@ -73,8 +95,9 @@ async function sendLoginCode(phone, ip) {
     return { ok: false, code: 'PHONE_LIMIT', message: '这个手机号今天收的验证码够多了，明天再试' }
   }
 
-  const code = config.sms.debugCode || randomCode()
-  if (!config.sms.debugCode) {
+  let code = debugCode || randomCode()
+  let usedDebug = Boolean(debugCode)
+  if (!usedDebug) {
     const sent = await sendSms({
       phone: mobile,
       templateCode: config.sms.templateVerifyCode,
@@ -82,8 +105,14 @@ async function sendLoginCode(phone, ip) {
       templateParam: { code },
     })
     if (!sent.ok) {
-      console.error('[web-auth] 验证码短信发送失败：', sent.reason)
-      return { ok: false, code: 'SMS_FAILED', message: '短信没发出去，稍后再试' }
+      console.error('[web-auth] 验证码短信发送失败：', sent.reason, sent.message || '')
+      const fallback = String(config.sms.debugCode || '').trim() || (allowLoginDebugCode() ? '888888' : '')
+      if (fallback) {
+        code = fallback
+        usedDebug = true
+      } else {
+        return { ok: false, code: 'SMS_FAILED', message: smsFailureMessage(sent) }
+      }
     }
   }
 
@@ -94,7 +123,11 @@ async function sendLoginCode(phone, ip) {
       if (v.expiresAt < now) codeStore.delete(k)
     }
   }
-  return { ok: true, resendAfterSec: Math.ceil(RESEND_INTERVAL_MS / 1000) }
+  const payload = { ok: true, resendAfterSec: Math.ceil(RESEND_INTERVAL_MS / 1000) }
+  if (usedDebug) {
+    payload.loginHint = `当前未发短信，验证码 ${code}`
+  }
+  return payload
 }
 
 /**
@@ -157,6 +190,7 @@ module.exports = {
   findOrCreateUserByPhone,
   peekIpSmsUsage,
   clientIp,
+  resolveLoginDebugCode,
   // 仅供冒烟测试检视内部状态
   _codeStore: codeStore,
 }

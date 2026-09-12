@@ -155,7 +155,10 @@
     busy(btn, true, '发送中…');
     try {
       var r = await authApi('/web-auth/send-code', { phone: phone });
-      notice('loginMsg', 'ok', '验证码已发送，5 分钟内有效。');
+      var hint = (r && r.loginHint) || ''
+      notice('loginMsg', 'ok', hint || '验证码已发送，5 分钟内有效。');
+      var match = hint.match(/验证码\s+(\d+)/)
+      if (match && $('loginCode')) $('loginCode').value = match[1]
       startCountdown(r.resendAfterSec || 60);
     } catch (e) {
       notice('loginMsg', 'err', esc(e.message));

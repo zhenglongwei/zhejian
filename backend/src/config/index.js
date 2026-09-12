@@ -350,15 +350,16 @@ const config = {
   })(),
   /** PUB-RIGHT · 审核通过后通知车主；生产默认必须发出短信才可进入窗口 */
   sms: {
-    signName: envStr('ALIYUN_SMS_SIGN_NAME', '辙见'),
+    signName: envStr('ALIYUN_SMS_SIGN_NAME', '杭州盈简科技'),
     templateNotify: envStr('ALIYUN_SMS_TPL_CASE_NOTIFY'),
     /** 官网登录验证码模板（阿里云控制台申请「验证码」类模板，变量 ${code}） */
-    templateVerifyCode: envStr('ALIYUN_SMS_TPL_VERIFY_CODE'),
+    templateVerifyCode: envStr('ALIYUN_SMS_TPL_VERIFY_CODE', 'SMS_332185412'),
     /**
      * 调试用固定验证码：设置后所有手机号收到的验证码都是它（老板初期自测 / 冒烟测试用）。
      * 生产环境绝不能配置。
      */
     debugCode: envStr('SMS_DEBUG_CODE'),
+    /** 可选。生产默认走 ECS 实例角色，与 OSS/脱敏同一套凭证；本地才需要 AccessKey。 */
     accessKeyId: envStr('ALIBABA_CLOUD_ACCESS_KEY_ID') || envStr('ALIYUN_ACCESS_KEY_ID'),
     accessKeySecret: envStr('ALIBABA_CLOUD_ACCESS_KEY_SECRET') || envStr('ALIYUN_ACCESS_KEY_SECRET'),
     regionId: envStr('ALIYUN_SMS_REGION', 'cn-hangzhou'),

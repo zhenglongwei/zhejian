@@ -1,9 +1,10 @@
 /**
- * 短信发送（阿里云 Dysmsapi RPC）。未配置时按环境跳过或失败。
- * 生产默认必须发出，否则不得进入公开异议窗口。
+ * 短信发送（阿里云 Dysmsapi RPC）。
+ * 凭证与 OSS / 脱敏相同：优先环境变量 AccessKey，否则用 ECS 实例角色临时凭证。
  */
 const crypto = require('crypto')
 const { config } = require('../config')
+const { getCredential } = require('./aliyun-clients')
 
 function isChinaMobilePhone(phone) {
   return /^1[3-9]\d{9}$/.test(String(phone || '').trim())
@@ -25,9 +26,74 @@ function signAliyunRpc(params, accessKeySecret) {
     .digest('base64')
 }
 
+function hasStaticAccessKey() {
+  return Boolean(config.sms.accessKeyId && config.sms.accessKeySecret)
+}
+
+/** 生产 ECS 或显式角色名：可向实例要临时凭证，不必写 AccessKey */
+function canUseEcsRamRoleForSms() {
+  if (process.env.ECS_RAM_ROLE_NAME || process.env.ALIBABA_CLOUD_ECS_METADATA_ROLE_NAME) return true
+  return String(config.nodeEnv || '') === 'production' && config.devAuthEnabled === false
+}
+
+function isSmsSendReady() {
+  const sign = String(config.sms.signName || '').trim()
+  const tpl = String(config.sms.templateVerifyCode || '').trim()
+  if (!sign || !tpl) return false
+  return hasStaticAccessKey() || canUseEcsRamRoleForSms()
+}
+
+function withTimeout(promise, ms, label) {
+  const timeoutMs = Number(ms) || 8000
+  let timer
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(`${label || '短信凭证'}超时（${timeoutMs}ms）`)
+      err.code = 'SMS_CREDENTIAL_TIMEOUT'
+      reject(err)
+    }, timeoutMs)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+}
+
+async function resolveSmsCreds() {
+  const cred = getCredential()
+  const raw = await withTimeout(cred.getCredential(), 8000, '获取短信凭证')
+  const accessKeyId = (raw && raw.accessKeyId) || ''
+  const accessKeySecret = (raw && raw.accessKeySecret) || ''
+  const securityToken = (raw && (raw.securityToken || raw.security_token)) || ''
+  if (!accessKeyId || !accessKeySecret) {
+    const err = new Error('阿里云凭证不可用，无法发短信')
+    err.code = 'SMS_CREDENTIAL_MISSING'
+    throw err
+  }
+  return { accessKeyId, accessKeySecret, securityToken }
+}
+
+function buildSendSmsParams({ mobile, tpl, sign, templateParam, creds, nonce, timestamp }) {
+  const params = {
+    AccessKeyId: creds.accessKeyId,
+    Action: 'SendSms',
+    Format: 'JSON',
+    PhoneNumbers: mobile,
+    RegionId: config.sms.regionId || 'cn-hangzhou',
+    SignName: sign,
+    SignatureMethod: 'HMAC-SHA1',
+    SignatureNonce: nonce || crypto.randomBytes(12).toString('hex'),
+    SignatureVersion: '1.0',
+    TemplateCode: tpl,
+    TemplateParam: JSON.stringify(templateParam || {}),
+    Timestamp: timestamp || new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    Version: '2017-05-25',
+  }
+  if (creds.securityToken) params.SecurityToken = creds.securityToken
+  params.Signature = signAliyunRpc(params, creds.accessKeySecret)
+  return params
+}
+
 async function requestAliyunSms(query) {
   const url = `https://dysmsapi.aliyuncs.com/?${query}`
-  const res = await fetch(url, { method: 'GET' })
+  const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000) })
   const text = await res.text()
   let data = {}
   try {
@@ -49,11 +115,7 @@ async function sendSms({ phone, templateCode, templateParam = {}, signName } = {
 
   const tpl = String(templateCode || '').trim()
   const sign = String(signName || config.sms.signName || '').trim()
-  const accessKeyId = config.sms.accessKeyId
-  const accessKeySecret = config.sms.accessKeySecret
-  const configured = Boolean(accessKeyId && accessKeySecret && tpl && sign)
-
-  if (!configured) {
+  if (!tpl || !sign || !isSmsSendReady()) {
     if (config.sms.required) {
       return { ok: false, reason: 'sms_not_configured' }
     }
@@ -61,22 +123,18 @@ async function sendSms({ phone, templateCode, templateParam = {}, signName } = {
     return { ok: true, skipped: true, provider: 'log' }
   }
 
-  const params = {
-    AccessKeyId: accessKeyId,
-    Action: 'SendSms',
-    Format: 'JSON',
-    PhoneNumbers: mobile,
-    RegionId: config.sms.regionId || 'cn-hangzhou',
-    SignName: sign,
-    SignatureMethod: 'HMAC-SHA1',
-    SignatureNonce: crypto.randomBytes(12).toString('hex'),
-    SignatureVersion: '1.0',
-    TemplateCode: tpl,
-    TemplateParam: JSON.stringify(templateParam || {}),
-    Timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    Version: '2017-05-25',
+  let creds
+  try {
+    creds = await resolveSmsCreds()
+  } catch (err) {
+    return {
+      ok: false,
+      reason: (err && err.code) || 'sms_credential_failed',
+      message: (err && err.message) || '',
+    }
   }
-  params.Signature = signAliyunRpc(params, accessKeySecret)
+
+  const params = buildSendSmsParams({ mobile, tpl, sign, templateParam, creds })
   const query = Object.keys(params)
     .sort()
     .map((k) => `${percentEncode(k)}=${percentEncode(params[k])}`)
@@ -90,10 +148,11 @@ async function sendSms({ phone, templateCode, templateParam = {}, signName } = {
     return {
       ok: false,
       reason: String(data.Code || 'sms_failed'),
+      message: String(data.Message || ''),
       provider: 'aliyun',
     }
   } catch (err) {
-    return { ok: false, reason: (err && err.message) || 'sms_request_failed' }
+    return { ok: false, reason: (err && err.message) || 'sms_request_failed', message: '' }
   }
 }
 
@@ -114,6 +173,9 @@ async function sendCaseNotifySms({ phone, storeName, serviceName, hours, link } 
 
 module.exports = {
   isChinaMobilePhone,
+  isSmsSendReady,
   sendSms,
   sendCaseNotifySms,
+  signAliyunRpc,
+  buildSendSmsParams,
 }

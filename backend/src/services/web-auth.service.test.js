@@ -1,3 +1,6 @@
+process.env.DEV_AUTH_ENABLED = 'true'
+process.env.SMS_DEBUG_CODE = '888888'
+
 const assert = require('assert')
 const { sendLoginCode, loginWithCode, _codeStore } = require('./web-auth.service')
 
@@ -26,10 +29,18 @@ async function testWrongCode() {
   assert.strictEqual(_codeStore.has('13800138001'), true)
 }
 
+async function testDevSendCodeWithoutSms() {
+  const sent = await sendLoginCode('13800138888', '127.0.0.1')
+  assert.strictEqual(sent.ok, true)
+  assert.ok(String(sent.loginHint || '').includes('888888'))
+  assert.strictEqual(_codeStore.get('13800138888').code, '888888')
+}
+
 ;(async function run() {
   await testInvalidPhone()
   await testExpiredCode()
   await testWrongCode()
+  await testDevSendCodeWithoutSms()
   console.log('web-auth.service.test.js OK')
 })().catch((err) => {
   console.error(err)

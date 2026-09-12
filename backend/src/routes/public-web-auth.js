@@ -27,7 +27,10 @@ router.post('/web-auth/send-code', async (req, res, next) => {
       }
       return fail(res, 40011, result.message, status)
     }
-    return ok(res, { resendAfterSec: result.resendAfterSec })
+    return ok(res, {
+      resendAfterSec: result.resendAfterSec,
+      loginHint: result.loginHint || '',
+    })
   } catch (e) {
     return next(e)
   }

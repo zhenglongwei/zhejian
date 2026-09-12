@@ -31,6 +31,7 @@
     .lib-meta a { color: var(--h5-color-primary, #2b6cb0); }
     .lib-empty { padding: 32px 0; text-align: center; color: #888; }
     .lib-err { color: #c53030; font-size: 14px; }
+    .lib-hint { color: var(--h5-color-text-secondary, #666); font-size: 14px; margin: 0; }
   </style>
 </head>
 <body>
@@ -46,6 +47,7 @@
         <button type="button" id="btnCode">获取验证码</button>
       </div>
       <button type="button" id="btnLogin">登录</button>
+      <p class="lib-hint" id="hintBox" hidden></p>
       <p class="lib-err" id="errBox" hidden></p>
     </div>
     <div id="sessionBox" hidden>
@@ -61,6 +63,7 @@
     (function () {
       var API = (window.ZHEJIAN_API_BASE || '') + '/api/v1/merchant/hosted-cases'
       var errBox = document.getElementById('errBox')
+      var hintBox = document.getElementById('hintBox')
       var listBox = document.getElementById('listBox')
       var loginBox = document.getElementById('loginBox')
       var sessionBox = document.getElementById('sessionBox')
@@ -71,6 +74,10 @@
       function showErr(msg) {
         errBox.hidden = !msg
         errBox.textContent = msg || ''
+      }
+      function showHint(msg) {
+        hintBox.hidden = !msg
+        hintBox.textContent = msg || ''
       }
 
       function maskPhone(display) {
@@ -142,15 +149,21 @@
         sessionBox.hidden = true
         loginBox.hidden = false
         showErr('')
+        showHint('')
       }
 
       btnCode.addEventListener('click', function () {
         var phone = document.getElementById('phoneInput').value.trim()
         showErr('')
+        showHint('')
         btnCode.disabled = true
         window.zhejianH5Auth
           .sendLoginCode(phone)
           .then(function (data) {
+            showHint((data && data.loginHint) || '')
+            var hint = (data && data.loginHint) || ''
+            var match = hint.match(/验证码\s+(\d+)/)
+            if (match) document.getElementById('codeInput').value = match[1]
             var sec = (data && data.resendAfterSec) || 60
             btnCode.textContent = sec + '秒'
             codeTimer = window.setInterval(function () {
