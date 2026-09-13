@@ -244,6 +244,7 @@ async function hostAlbum(
 async function auditHostedPublicPrivacy(albumId, { storeId, merchantId } = {}) {
   const { assertMerchantAlbum, loadAlbum, buildMerchantView } = require('./service-album.service')
   const { assessPublicCaseQuality } = require('./public-case-quality.service')
+  const { assessHostPublicContent } = require('../utils/host-public-content-check')
   const album = await loadAlbum(albumId)
   if (!album) {
     const err = new Error('相册不存在')
@@ -281,6 +282,7 @@ async function auditHostedPublicPrivacy(albumId, { storeId, merchantId } = {}) {
     passed,
     autoPassed,
     hardBlocks,
+    qualitySuggestions: assessHostPublicContent({ album, view }).suggestions,
     ...meta,
     message: passed ? '隐私校验已通过' : hardBlocks[0]?.message || '隐私校验未通过',
   }
@@ -478,6 +480,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
   const ruleGeo = buildRuleHostedGeoDraft(view, album)
   const llmDraft = await tryGenerateHostedGeoDraftWithLlm(view, prev, ruleGeo)
   const geoDraft = llmDraft || ruleGeo.geoDraft
+  const { assessHostPublicContent } = require('../utils/host-public-content-check')
 
   const meta = await writeHostMeta(albumId, {
     geoDraft,
@@ -487,6 +490,7 @@ async function generateHostedGeoDraft(albumId, { storeId, merchantId } = {}) {
     albumId,
     geoDraft,
     preview: ruleGeo.preview,
+    qualitySuggestions: assessHostPublicContent({ album, view, geoDraft }).suggestions,
     ...meta,
     message: '店页说明已生成，请核对后公开',
   }
@@ -539,6 +543,7 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     mapNodesForView,
   } = require('./service-album.service')
   const { assessPublicCaseQuality } = require('./public-case-quality.service')
+  const { assessHostPublicContent } = require('../utils/host-public-content-check')
   const { buildPreMaskUrlLookup } = require('./desensitize.service')
   const { rewriteMediaUrlForCurrentBase } = require('../lib/media-storage')
   const { stripUrlQuery } = require('../lib/media-signed-url')
@@ -651,6 +656,12 @@ async function getHostPublicFacePreview(albumId, { storeId, merchantId } = {}) {
     images: images.slice(0, 48),
     imageCount: images.length,
     hardBlocks,
+    qualitySuggestions: assessHostPublicContent({
+      album,
+      view,
+      reviewDocs,
+      geoDraft: prev.geoDraft || {},
+    }).suggestions,
     desensitizeReady: Boolean(lookup.ready),
   }
 }

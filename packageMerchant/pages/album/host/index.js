@@ -113,6 +113,31 @@ function applyGeoDraftToPageData(draft = {}) {
   }
 }
 
+function overlayGeoSuggestions(base, summary, faq) {
+  const list = (Array.isArray(base) ? base : []).filter(
+    (row) => row && row.issue !== 'thin_summary' && row.issue !== 'empty_faq',
+  )
+  const s = String(summary || '').trim()
+  if (s && (/含过程图片记录/.test(s) || /手动;自动/.test(s) || /\(\d{4}\.\d{2}/.test(s))) {
+    list.push({
+      issue: 'thin_summary',
+      title: '店页说明复读目录',
+      suggestion: '用人话写：车主为何来、店里做了什么、质保怎么说。不要「含过程图片记录」。',
+    })
+  }
+  const answered = (Array.isArray(faq) ? faq : []).some((row) =>
+    String((row && row.a) || '').trim(),
+  )
+  if (s && !answered) {
+    list.push({
+      issue: 'empty_faq',
+      title: '本单问答还空着',
+      suggestion: '补 3～4 条本单能核对的问法；空着的不会出现在公开页。',
+    })
+  }
+  return list
+}
+
 function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
   const nextUrl = withCacheBust(toUrl, Date.now())
   const match = (u) => urlsLikelyMatch(u, fromUrl) || urlsLikelyMatch(stripUrlQuery(u), stripUrlQuery(fromUrl))
@@ -176,6 +201,7 @@ Page({
     wizardStep: 1,
     privacyPassed: false,
     privacyBlocks: [],
+    qualitySuggestions: [],
     reviewDocs: [],
     previewTexts: [],
     previewImages: [],
@@ -229,18 +255,24 @@ Page({
         return
       }
       this.applyAlbum(album)
-      if (this.data.wizardStep === 2) {
+      if (this.data.wizardStep === 2 || this.data.wizardStep === 3) {
         await this.loadPublicFace({ silent: true })
-      } else if (
+      }
+      if (
         this.data.wizardStep === 3 &&
         this.data.privacyPassed &&
         !String(this.data.geoSummary || '').trim()
       ) {
         try {
           const res = await generateHostedGeoDraft(this.albumId)
+          const qualitySuggestions = Array.isArray(res.qualitySuggestions)
+            ? res.qualitySuggestions
+            : this.data.qualitySuggestions
+          this._baseQualitySuggestions = qualitySuggestions
           this.setData({
             ...applyGeoDraftToPageData(res.geoDraft || {}),
             publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
+            qualitySuggestions,
           })
         } catch (_) {
           /* 留空由用户点重新生成 */
@@ -333,7 +365,13 @@ Page({
         previewImages: face.images || [],
         previewImageCount: face.imageCount || 0,
         privacyBlocks: face.hardBlocks || this.data.privacyBlocks,
+        qualitySuggestions: Array.isArray(face.qualitySuggestions)
+          ? face.qualitySuggestions
+          : this.data.qualitySuggestions,
       })
+      this._baseQualitySuggestions = Array.isArray(face.qualitySuggestions)
+        ? face.qualitySuggestions
+        : []
     } catch (e) {
       if (!options.silent) {
         wx.showToast({ title: (e && e.message) || '预览加载失败', icon: 'none' })
@@ -406,6 +444,7 @@ Page({
         previewTexts: [],
         previewImages: [],
         privacyBlocks: [],
+        qualitySuggestions: [],
       })
       wx.showToast({ title: '已改回私密', icon: 'success' })
     } catch (e) {
@@ -593,6 +632,9 @@ Page({
       this.setData({
         privacyPassed: Boolean(audit.passed),
         privacyBlocks: blocks,
+        qualitySuggestions: Array.isArray(audit.qualitySuggestions)
+          ? audit.qualitySuggestions
+          : this.data.qualitySuggestions,
       })
       if (!audit.passed) {
         wx.showToast({
@@ -603,10 +645,15 @@ Page({
       }
       const res = await generateHostedGeoDraft(this.albumId)
       const draft = res.geoDraft || {}
+      const qualitySuggestions = Array.isArray(res.qualitySuggestions)
+        ? res.qualitySuggestions
+        : this.data.qualitySuggestions
+      this._baseQualitySuggestions = qualitySuggestions
       this.setData({
         ...applyGeoDraftToPageData(draft),
         wizardStep: 3,
         publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
+        qualitySuggestions,
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '继续失败', icon: 'none' })
@@ -620,7 +667,15 @@ Page({
     this.setData({ working: true })
     try {
       const res = await generateHostedGeoDraft(this.albumId)
-      this.setData(applyGeoDraftToPageData(res.geoDraft || {}))
+      this.setData({
+        ...applyGeoDraftToPageData(res.geoDraft || {}),
+        qualitySuggestions: Array.isArray(res.qualitySuggestions)
+          ? res.qualitySuggestions
+          : this.data.qualitySuggestions,
+      })
+      this._baseQualitySuggestions = Array.isArray(res.qualitySuggestions)
+        ? res.qualitySuggestions
+        : this._baseQualitySuggestions
       wx.showToast({ title: '已重新生成', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '生成失败', icon: 'none' })
@@ -630,7 +685,15 @@ Page({
   },
 
   onGeoSummaryInput(e) {
-    this.setData({ geoSummary: e.detail.value })
+    const geoSummary = e.detail.value
+    this.setData({
+      geoSummary,
+      qualitySuggestions: overlayGeoSuggestions(
+        this._baseQualitySuggestions || this.data.qualitySuggestions,
+        geoSummary,
+        this.data.geoFaq,
+      ),
+    })
   },
 
   onAddHighlight() {
@@ -674,6 +737,11 @@ Page({
       geoFaq: list,
       geoFaqEmpty: false,
       geoFaqUnanswered: unanswered,
+      qualitySuggestions: overlayGeoSuggestions(
+        this._baseQualitySuggestions || this.data.qualitySuggestions,
+        this.data.geoSummary,
+        list,
+      ),
     })
   },
 
@@ -686,6 +754,11 @@ Page({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
+      qualitySuggestions: overlayGeoSuggestions(
+        this._baseQualitySuggestions || this.data.qualitySuggestions,
+        this.data.geoSummary,
+        list,
+      ),
     })
   },
 
@@ -704,6 +777,11 @@ Page({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
+      qualitySuggestions: overlayGeoSuggestions(
+        this._baseQualitySuggestions || this.data.qualitySuggestions,
+        this.data.geoSummary,
+        list,
+      ),
     })
   },
 
@@ -725,6 +803,27 @@ Page({
       q: String((row && row.q) || '').trim(),
       a: String((row && row.a) || '').trim(),
     }))
+    const tips = overlayGeoSuggestions(
+      this._baseQualitySuggestions || this.data.qualitySuggestions,
+      summary,
+      faq,
+    )
+    if (tips.length) {
+      const lines = tips
+        .slice(0, 4)
+        .map((row) => `· ${row.title}`)
+        .join('\n')
+      const ok = await new Promise((resolve) => {
+        wx.showModal({
+          title: '仍有可优化项',
+          content: `${lines}\n可回去改，或仍公开。`,
+          confirmText: '仍要公开',
+          cancelText: '回去改',
+          success: (res) => resolve(Boolean(res.confirm)),
+        })
+      })
+      if (!ok) return
+    }
     this.setData({ working: true })
     try {
       await confirmHostedPublicPublish(this.albumId, {

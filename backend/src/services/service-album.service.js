@@ -2704,4 +2704,5 @@ module.exports = {
   canAccessMerchantAlbum,
   assertMerchantAlbum,
   mapNodesForView,
+  normalizeVehicleJson,
 }

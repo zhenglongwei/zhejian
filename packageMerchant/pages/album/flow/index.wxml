@@ -41,10 +41,51 @@
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
                   maxlength="300"
-                  placeholder="例：怠速抖动、机油灯亮、客户反映刹车异响"
+                  placeholder="例：电瓶亏电打不着"
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
                 />
+                <text class="text-body merchant-flow-page__label">当前里程</text>
+                <input
+                  class="merchant-flow-page__input"
+                  type="number"
+                  value="{{mileageKm}}"
+                  maxlength="7"
+                  placeholder="例：86500"
+                  disabled="{{readOnly}}"
+                  bindinput="onMileageInput"
+                />
+                <text class="text-caption text-secondary">公里。仪表照仍要拍，只作证据。</text>
+                <text class="text-body merchant-flow-page__label">对外车型</text>
+                <view class="merchant-flow-page__vehicle-row">
+                  <input
+                    class="merchant-flow-page__input merchant-flow-page__input--third"
+                    value="{{vehicleBrand}}"
+                    maxlength="20"
+                    placeholder="品牌"
+                    disabled="{{readOnly}}"
+                    bindinput="onVehicleFieldInput"
+                    data-field="vehicleBrand"
+                  />
+                  <input
+                    class="merchant-flow-page__input merchant-flow-page__input--third"
+                    value="{{vehicleSeries}}"
+                    maxlength="24"
+                    placeholder="车系"
+                    disabled="{{readOnly}}"
+                    bindinput="onVehicleFieldInput"
+                    data-field="vehicleSeries"
+                  />
+                  <input
+                    class="merchant-flow-page__input merchant-flow-page__input--third"
+                    value="{{vehicleYear}}"
+                    maxlength="8"
+                    placeholder="年款"
+                    disabled="{{readOnly}}"
+                    bindinput="onVehicleFieldInput"
+                    data-field="vehicleYear"
+                  />
+                </view>
               </view>
 
               <view
@@ -52,6 +93,7 @@
                 class="merchant-flow-page__doc-block merchant-flow-page__section"
               >
                 <text class="text-body merchant-flow-page__label">整车外观（必选）</text>
+                <text class="text-caption text-secondary merchant-flow-page__finding-tips">拍车身全貌，不要拍微信码或名片</text>
                 <view wx:if="{{deliveryExteriorUrl}}" class="merchant-flow-page__exterior-slot">
                   <image
                     class="merchant-flow-page__exterior-slot-img image-placeholder"
@@ -282,7 +324,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{finding.adviceRequired ? '例：更换刹车片 / 修复管路' : '无需处理'}}"
+                              placeholder="{{finding.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理'}}"
                               value="{{finding.advice}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -347,6 +389,10 @@
                 loading="{{confirming}}"
                 bind:btntap="onAddAddonPlan"
               >发现新的待处理项目</ui-button>
+              <text
+                wx:if="{{!readOnly && isWorkPhotoStep}}"
+                class="text-caption text-secondary merchant-flow-page__finding-tips"
+              >先征得车主同意再做</text>
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
@@ -373,7 +419,7 @@
                     class="merchant-flow-page__sheet-input"
                     value="{{chiefComplaint}}"
                     maxlength="300"
-                    placeholder="例：定时保养 / 怠速抖动"
+                    placeholder="例：电瓶亏电打不着"
                     disabled="{{readOnly}}"
                     bindinput="onChiefComplaintInput"
                   />
@@ -420,7 +466,7 @@
                       <input
                         wx:if="{{item.result}}"
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                        placeholder="{{item.adviceRequired ? '处理建议，例：更换滤芯' : '无需处理'}}"
+                        placeholder="{{item.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理'}}"
                         value="{{item.advice}}"
                         data-index="{{index}}"
                         data-field="advice"

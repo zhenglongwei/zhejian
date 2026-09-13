@@ -28,6 +28,7 @@ const {
   mergePhotoDraft,
   normalizeQuoteLine,
   resolveWarrantyNotes,
+  parseMileageKm,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
@@ -241,6 +242,27 @@ async function writeFlowPackage(albumId, mutator) {
   return next
 }
 
+async function persistIntakeVehicleFields(albumId, prevVehicle, draft) {
+  const { normalizeVehicleJson } = require('./service-album.service')
+  if (!draft || typeof draft !== 'object') return
+  const mileage = parseMileageKm(draft.mileageKm)
+  const brand = String(draft.vehicleBrand || '').trim()
+  const series = String(draft.vehicleSeries || '').trim()
+  const modelYear = String(draft.vehicleYear || '').trim()
+  const next = normalizeVehicleJson({
+    ...(prevVehicle || {}),
+    ...(brand ? { brand } : {}),
+    ...(series ? { series } : {}),
+    ...(modelYear ? { modelYear } : {}),
+  })
+  if (mileage) next.mileage = Number(mileage)
+  else delete next.mileage
+  await prisma.album.update({
+    where: { id: albumId },
+    data: { vehicleJson: next },
+  })
+}
+
 async function initFlowOnAlbum(albumId) {
   return writeFlowPackage(albumId, (pkg) => migrateFlowPackage(pkg, []))
 }
@@ -391,6 +413,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   }
 
   let unlockedNext = false
+  let intakeDraft = null
 
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
@@ -408,6 +431,7 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
     if (payload.photoDraft != null) {
       nextNode.photoDraft = mergePhotoDraft(prev.photoDraft || {}, payload.photoDraft || {})
+      if (prev.kind === 'intake_inspection') intakeDraft = nextNode.photoDraft
     }
     if (payload.status != null) {
       nextNode.status = String(payload.status || '').trim() || prev.status
@@ -443,6 +467,10 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     nodes[index] = nextNode
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
+
+  if (intakeDraft) {
+    await persistIntakeVehicleFields(albumId, album.vehicleJson, intakeDraft)
+  }
 
   const refreshed = await loadAlbum(albumId)
   const nodes = mapNodesForView(refreshed)
@@ -627,6 +655,10 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
 
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }
   })
+
+  if (node.kind === 'intake_inspection') {
+    await persistIntakeVehicleFields(albumId, album.vehicleJson, incomingDraft)
+  }
 
   const refreshed = await loadAlbum(albumId)
   const viewNodes = mapNodesForView(refreshed)

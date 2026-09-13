@@ -80,6 +80,26 @@
   background-color: var(--color-bg-muted);
 }
 
+.merchant-host-page__tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-host-page__tips--geo {
+  margin-bottom: var(--space-lg);
+}
+
+.merchant-host-page__tip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
 .merchant-host-page__blocks {
   display: flex;
   flex-direction: column;

@@ -11,6 +11,20 @@ const {
   findingAdviceRequired,
 } = require('../constants/service-flow-nodes')
 
+function parseMileageKm(value) {
+  const digits = String(value || '').replace(/[^\d]/g, '')
+  if (!digits) return ''
+  const n = Number(digits)
+  if (!Number.isFinite(n) || n <= 0 || n > 9999999) return ''
+  return String(Math.round(n))
+}
+
+function formatMileageText(value) {
+  const km = parseMileageKm(value)
+  if (!km) return ''
+  return `${Number(km).toLocaleString('zh-CN')} km`
+}
+
 function mapPhotoRows(images = []) {
   return (images || [])
     .map((img) => {
@@ -266,19 +280,15 @@ function buildInspectionReportPayload({
         ? photoDraft.findings
         : []
   const findings = mapFindingRows(mergedImages, draftFindings)
-  const mileageFromFinding = findings.find((item) => {
-    const text = [item.partName, item.result, item.advice, item.caption].join(' ')
-    return /\d/.test(text)
-  })
   return {
-    vehicleBrand: String(vehicle.brand || ''),
-    vehicleSeries: String(vehicle.series || ''),
-    vehicleYear: String(vehicle.modelYear || vehicle.year || ''),
+    vehicleBrand: String(photoDraft.vehicleBrand || vehicle.brand || ''),
+    vehicleSeries: String(photoDraft.vehicleSeries || vehicle.series || ''),
+    vehicleYear: String(
+      photoDraft.vehicleYear || vehicle.modelYear || vehicle.year || '',
+    ),
     mileageText:
-      String(vehicle.mileage || vehicle.mileageKm || '').trim() ||
-      (mileageFromFinding
-        ? mileageFromFinding.partName || mileageFromFinding.caption || ''
-        : ''),
+      formatMileageText(photoDraft.mileageKm) ||
+      formatMileageText(vehicle.mileage || vehicle.mileageKm),
     chiefComplaint: String(
       chiefComplaint || photoDraft.chiefComplaint || '',
     ).trim(),
@@ -469,6 +479,10 @@ function buildRepairReportPayload({
 function normalizePhotoDraft(raw = {}) {
   return {
     chiefComplaint: String(raw.chiefComplaint || '').trim(),
+    mileageKm: parseMileageKm(raw.mileageKm || raw.mileage),
+    vehicleBrand: String(raw.vehicleBrand || '').trim(),
+    vehicleSeries: String(raw.vehicleSeries || '').trim(),
+    vehicleYear: String(raw.vehicleYear || '').trim(),
     conclusion: String(raw.conclusion || '').trim(),
     findings: Array.isArray(raw.findings)
       ? raw.findings
@@ -497,6 +511,12 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   const next = normalizePhotoDraft(prev)
   if (!patch || typeof patch !== 'object') return next
   if (patch.chiefComplaint != null) next.chiefComplaint = String(patch.chiefComplaint || '').trim()
+  if (patch.mileageKm != null || patch.mileage != null) {
+    next.mileageKm = parseMileageKm(patch.mileageKm != null ? patch.mileageKm : patch.mileage)
+  }
+  if (patch.vehicleBrand != null) next.vehicleBrand = String(patch.vehicleBrand || '').trim()
+  if (patch.vehicleSeries != null) next.vehicleSeries = String(patch.vehicleSeries || '').trim()
+  if (patch.vehicleYear != null) next.vehicleYear = String(patch.vehicleYear || '').trim()
   if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
   if (patch.findings != null) {
     next.findings = normalizePhotoDraft({ findings: patch.findings }).findings
@@ -546,6 +566,8 @@ module.exports = {
   buildRepairReportPayload,
   normalizeQuoteLine,
   sumQuoteAmounts,
+  parseMileageKm,
+  formatMileageText,
   normalizePhotoDraft,
   mergePhotoDraft,
   parseAmount,

@@ -41,6 +41,7 @@ const {
   buildQuoteLinesFromFindings,
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
+  parseMileageKm,
 } = require('../../../../utils/service-flow-docs')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
@@ -238,21 +239,21 @@ function mapCompletedStepPreview(step, node, album = {}) {
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '里程、外观、故障点均可拍；点选检查结果，需处理时写建议',
+    tips: '拍部位、能看清结论。仪表公里数填上方，本图只作证据。不要拍微信码、名片',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '按维修项留证；同一部位可拍多张（最多 6 张）',
+    tips: '按维修项留证；拍这次做成的项（最多 6 张）',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
   },
   stage_6: {
     title: '交车证据',
-    tips: '整车外观必选；其他交车图可从施工图勾选（不重复存档）',
+    tips: '整车外观必选；拍车身，不要拍微信码或名片',
     captionPlaceholder: '',
     findingMode: false,
     findingKind: '',
@@ -309,6 +310,10 @@ Page({
     autoSaveLabel: '',
     findings: [],
     chiefComplaint: '',
+    mileageKm: '',
+    vehicleBrand: '',
+    vehicleSeries: '',
+    vehicleYear: '',
     warrantyPeriod: '',
     warrantyNotes: '',
     allDone: false,
@@ -676,6 +681,10 @@ Page({
     if (kind === 'intake_inspection') {
       return {
         chiefComplaint: this.data.chiefComplaint,
+        mileageKm: parseMileageKm(this.data.mileageKm),
+        vehicleBrand: String(this.data.vehicleBrand || '').trim(),
+        vehicleSeries: String(this.data.vehicleSeries || '').trim(),
+        vehicleYear: String(this.data.vehicleYear || '').trim(),
         conclusion: this.data.conclusion,
         findings: this.collectFindingsFromSections(),
       }
@@ -895,6 +904,22 @@ Page({
         ? withFlowStepOrdinal(activeTitleRaw, completedSteps.length + 1)
         : ''
 
+      const albumVehicle = (album && album.vehicle) || {}
+      const mileageKm = isIntakePhotoStep
+        ? parseMileageKm(photoDraft.mileageKm || albumVehicle.mileage || albumVehicle.mileageKm)
+        : parseMileageKm(photoDraft.mileageKm)
+      const vehicleBrand = isIntakePhotoStep
+        ? String(photoDraft.vehicleBrand || albumVehicle.brand || '').trim()
+        : String(photoDraft.vehicleBrand || '').trim()
+      const vehicleSeries = isIntakePhotoStep
+        ? String(photoDraft.vehicleSeries || albumVehicle.series || '').trim()
+        : String(photoDraft.vehicleSeries || '').trim()
+      const vehicleYear = isIntakePhotoStep
+        ? String(
+            photoDraft.vehicleYear || albumVehicle.modelYear || albumVehicle.year || '',
+          ).trim()
+        : String(photoDraft.vehicleYear || '').trim()
+
       this.setData({
         status: 'ready',
         serviceName: album.serviceName || '服务相册',
@@ -919,6 +944,10 @@ Page({
         docPayload,
         findings,
         chiefComplaint,
+        mileageKm,
+        vehicleBrand,
+        vehicleSeries,
+        vehicleYear,
         quoteLines,
         quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
         quoteNodeId: this._quoteNodeId || '',
@@ -1468,6 +1497,20 @@ Page({
     this.setData({ chiefComplaint: e.detail.value })
   },
 
+  onMileageInput(e) {
+    this.setData({ mileageKm: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDraftOnly()
+    })
+  },
+
+  onVehicleFieldInput(e) {
+    const field = e.currentTarget.dataset.field
+    if (!['vehicleBrand', 'vehicleSeries', 'vehicleYear'].includes(field)) return
+    this.setData({ [field]: e.detail.value, autoSaveLabel: '保存中…' }, () => {
+      this.scheduleAutoSaveDraftOnly()
+    })
+  },
+
   onSectionFindingFieldInput(e) {
     if (this.data.readOnly) return
     const sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
@@ -1801,6 +1844,10 @@ Page({
     if (kind === 'intake_inspection') {
       const draftPayload = {
         chiefComplaint: this.data.chiefComplaint,
+        mileageKm: parseMileageKm(this.data.mileageKm),
+        vehicleBrand: String(this.data.vehicleBrand || '').trim(),
+        vehicleSeries: String(this.data.vehicleSeries || '').trim(),
+        vehicleYear: String(this.data.vehicleYear || '').trim(),
         findings: this.collectFindingsFromSections(),
         conclusion: this.data.conclusion,
       }

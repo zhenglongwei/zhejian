@@ -34,10 +34,14 @@
   margin-bottom: var(--space-md);
 }
 
-.merchant-flow-page__doc-block {
+.merchant-flow-page__vehicle-row {
   display: flex;
-  flex-direction: column;
   gap: var(--space-sm);
+}
+
+.merchant-flow-page__input--third {
+  flex: 1;
+  min-width: 0;
 }
 
 .merchant-flow-page__sheet {
