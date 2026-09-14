@@ -62,3 +62,17 @@ test('model payload drops amount fields', () => {
   assert.equal(list.length, 1)
   assert.equal(list[0].field, 'chiefComplaint')
 })
+
+test('model payload infers chiefComplaint from 主诉 title', () => {
+  const list = parseModelSuggestions({
+    suggestions: [
+      {
+        type: 'text',
+        title: '优化主诉描述',
+        suggestedText: '右前门表面划痕',
+      },
+    ],
+  })
+  assert.equal(list[0].field, 'chiefComplaint')
+  assert.equal(list[0].title, '改主诉')
+})

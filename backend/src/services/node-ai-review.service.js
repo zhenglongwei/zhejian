@@ -46,7 +46,7 @@ function sanitizeAiReviewForView(aiReview) {
     acknowledged: Boolean(aiReview.acknowledged),
     fingerprint: text(aiReview.fingerprint),
     updatedAt: text(aiReview.updatedAt),
-    waitHint: '正在检查本步，可先离开',
+    waitHint: '正在检查',
     emptyHint: '未发现可改之处',
     errorMessage:
       status === 'failed' ? text(aiReview.errorMessage) || '检查未完成' : '',
@@ -215,7 +215,9 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
     '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex"}]}',
-    'photo：缺图时写拍哪、怎么拍。text：给可直接填入的句子。',
+    '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
+    'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
+    'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName 之一；suggestedText 必须是可直接填进该字段的整句。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。只用打码图。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
@@ -440,7 +442,7 @@ async function maybeHoldCompleteForAiReview({
     completed: false,
     nextAction: 'ai_review',
     review,
-    message: '正在检查本步，可先离开',
+    message: '正在检查',
   }
 }
 
@@ -480,7 +482,7 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
     delivered: false,
     nextAction: 'ai_review',
     review,
-    message: '正在检查本步，可先离开',
+    message: '正在检查',
   }
 }
 

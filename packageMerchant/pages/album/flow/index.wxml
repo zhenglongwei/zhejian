@@ -1,3 +1,17 @@
+<template name="aiFieldHint">
+  <view wx:if="{{hint && !hint.applied}}" class="merchant-flow-page__ai-hint">
+    <view class="merchant-flow-page__ai-hint-body">
+      <text class="merchant-flow-page__ai-hint-kicker">{{hint.kicker}}</text>
+      <text class="merchant-flow-page__ai-hint-text">{{hint.body}}</text>
+    </view>
+    <text
+      wx:if="{{hint.canApply}}"
+      class="merchant-flow-page__ai-hint-action"
+      data-id="{{hint.id}}"
+      catchtap="onApplyAiSuggestion"
+    >应用</text>
+  </view>
+</template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-flow-page__pad">
@@ -13,8 +27,7 @@
   </block>
 
   <block wx:else>
-    <scroll-view scroll-y class="merchant-flow-page__scroll" show-scrollbar="{{false}}">
-      <view class="page-content merchant-flow-page__body">
+    <view class="page-content merchant-flow-page__body">
         <view class="merchant-flow-page__hero">
           <view class="merchant-flow-page__hero-top">
             <text class="text-h3">{{serviceName}}</text>
@@ -45,6 +58,7 @@
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
                 />
+                <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
                 <text class="text-body merchant-flow-page__label">当前里程</text>
                 <input
                   class="merchant-flow-page__input"
@@ -214,13 +228,14 @@
                           <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
                         </view>
                         <text
-                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url)}}"
+                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.fromAi)}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
                           catchtap="onRemoveFinding"
                         >×</text>
                       </view>
+                      <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
                         <block wx:if="{{section.findingKind === 'work'}}">
                           <view class="merchant-flow-page__work-thumbs">
@@ -272,7 +287,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="选填，例：已按规定扭矩紧固并排气"
+                              placeholder="{{finding.captionPlaceholder || '选填，例：已按规定扭矩紧固并排气'}}"
                               value="{{finding.caption}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -281,6 +296,7 @@
                               bindinput="onSectionFindingFieldInput"
                             />
                           </view>
+                          <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
                         </block>
                         <block wx:else>
                           <view
@@ -305,6 +321,20 @@
                               bindinput="onSectionFindingFieldInput"
                             />
                           </view>
+                          <view wx:if="{{finding.captionPlaceholder || finding.caption || finding.captionHint}}" class="merchant-flow-page__field">
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
+                            <input
+                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                              placeholder="{{finding.captionPlaceholder || '本图说明'}}"
+                              value="{{finding.caption}}"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              data-field="caption"
+                              disabled="{{readOnly}}"
+                              bindinput="onSectionFindingFieldInput"
+                            />
+                          </view>
+                          <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
                             <view class="merchant-flow-page__result-seg">
@@ -324,7 +354,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{finding.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理'}}"
+                              placeholder="{{finding.advicePlaceholder || (finding.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理')}}"
                               value="{{finding.advice}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -333,6 +363,7 @@
                               bindinput="onSectionFindingFieldInput"
                             />
                           </view>
+                          <template is="aiFieldHint" data="{{hint: finding.adviceHint}}" />
                         </block>
                       </view>
                     </view>
@@ -358,6 +389,7 @@
                   data-index="{{sectionIndex}}"
                   bind:imageschange="onSectionImagesChange"
                 />
+                <template is="aiFieldHint" data="{{hint: section.photoHint}}" />
               </view>
 
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
@@ -370,6 +402,7 @@
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
+                <template is="aiFieldHint" data="{{hint: warrantyHint}}" />
                 <text class="text-body merchant-flow-page__label">注意事项（选填）</text>
                 <input
                   class="merchant-flow-page__input"
@@ -393,12 +426,19 @@
                 wx:if="{{!readOnly && isWorkPhotoStep}}"
                 class="text-caption text-secondary merchant-flow-page__finding-tips"
               >先征得车主同意再做</text>
+              <text
+                wx:if="{{aiReview.isWaiting}}"
+                class="text-caption merchant-flow-page__ai-status"
+              >{{aiReview.waitHint}}</text>
+              <view wx:for="{{orphanPhotoHints}}" wx:key="id" class="merchant-flow-page__orphan-hint">
+                <template is="aiFieldHint" data="{{hint: item}}" />
+              </view>
               <ui-button
                 wx:if="{{!readOnly}}"
                 type="primary"
                 block="{{true}}"
-                loading="{{confirming}}"
-                disabled="{{confirming}}"
+                loading="{{confirming || photoConfirmDisabled}}"
+                disabled="{{confirming || photoConfirmDisabled}}"
                 bind:btntap="onConfirmPhotoStep"
               >{{photoConfirmLabel}}</ui-button>
             </block>
@@ -423,6 +463,7 @@
                     disabled="{{readOnly}}"
                     bindinput="onChiefComplaintInput"
                   />
+                  <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
                 </view>
 
                 <view class="merchant-flow-page__sheet-section">
@@ -466,13 +507,14 @@
                       <input
                         wx:if="{{item.result}}"
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                        placeholder="{{item.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理'}}"
+                        placeholder="{{item.advicePlaceholder || (item.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理')}}"
                         value="{{item.advice}}"
                         data-index="{{index}}"
                         data-field="advice"
                         disabled="{{readOnly || !item.adviceRequired}}"
                         bindinput="onFindingFieldInput"
                       />
+                      <template is="aiFieldHint" data="{{hint: item.adviceHint}}" />
                     </view>
                   </view>
                   <text class="text-caption merchant-flow-page__sheet-foot">{{docPayload.disclaimer}}</text>
@@ -514,6 +556,7 @@
                         />
                       </view>
                     </view>
+                    <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
                       placeholder="品牌（选填）"
@@ -549,7 +592,11 @@
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
-                <ui-button type="primary" block="{{true}}" loading="{{confirming}}" bind:btntap="onNotifyOwnerPlan">通知车主</ui-button>
+                <text
+                  wx:if="{{aiReview.isWaiting}}"
+                  class="text-caption merchant-flow-page__ai-status"
+                >{{aiReview.waitHint}}</text>
+                <ui-button type="primary" block="{{true}}" loading="{{confirming || notifyConfirmDisabled}}" disabled="{{confirming || notifyConfirmDisabled}}" bind:btntap="onNotifyOwnerPlan">{{notifyOwnerLabel}}</ui-button>
               </view>
             </block>
 
@@ -620,6 +667,7 @@
                         />
                       </view>
                     </view>
+                    <template is="aiFieldHint" data="{{hint: item.nameHint}}" />
                     <input
                       class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
                       placeholder="品牌（选填）"
@@ -766,62 +814,7 @@
           >{{hosted ? (hostVisibility === 'public' ? '管理托管' : '管理托管') : '托管到案例站'}}</ui-button>
         </view>
       </view>
-    </scroll-view>
   </block>
-
-  <view wx:if="{{showAiReview}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
-    <view class="merchant-flow-page__modal merchant-flow-page__review">
-      <block wx:if="{{aiReview.isWaiting}}">
-        <text class="text-body">{{aiReview.waitHint}}</text>
-        <text wx:if="{{aiReviewTimedOut}}" class="text-caption text-secondary">可再试或仍要继续，后台还在跑。</text>
-      </block>
-      <block wx:else>
-        <text class="text-h3">本步建议</text>
-        <text wx:if="{{aiReview.errorMessage}}" class="text-caption text-secondary">{{aiReview.errorMessage}}</text>
-        <view wx:if="{{!aiReview.hasSuggestions}}" class="text-body merchant-flow-page__review-empty">{{aiReview.emptyHint}}</view>
-        <scroll-view wx:else scroll-y class="merchant-flow-page__review-list" show-scrollbar="{{false}}">
-          <view
-            wx:for="{{aiReview.suggestions}}"
-            wx:key="id"
-            class="merchant-flow-page__review-item"
-          >
-            <text class="text-body">{{item.title}}</text>
-            <text wx:if="{{item.how}}" class="text-caption text-secondary">{{item.how}}</text>
-            <text wx:if="{{item.suggestedText}}" class="text-caption merchant-flow-page__review-suggest">{{item.suggestedText}}</text>
-            <ui-button
-              wx:if="{{item.isText && item.suggestedText && !item.applied}}"
-              type="ghost"
-              data-id="{{item.id}}"
-              bind:btntap="onApplyAiSuggestion"
-            >用这条</ui-button>
-            <text wx:if="{{item.applied}}" class="text-caption text-secondary">已填入</text>
-          </view>
-        </scroll-view>
-      </block>
-      <view class="merchant-flow-page__modal-actions">
-        <ui-button
-          wx:if="{{aiReview.isWaiting && aiReviewTimedOut}}"
-          type="ghost"
-          block="{{true}}"
-          loading="{{aiReviewBusy}}"
-          bind:btntap="onRetryAiReview"
-        >再试</ui-button>
-        <ui-button
-          wx:if="{{!aiReview.isWaiting}}"
-          type="ghost"
-          block="{{true}}"
-          bind:btntap="onCloseAiReview"
-        >返回</ui-button>
-        <ui-button
-          type="primary"
-          block="{{true}}"
-          loading="{{aiReviewBusy || confirming}}"
-          disabled="{{aiReview.isWaiting && !aiReviewTimedOut}}"
-          bind:btntap="onContinueAfterAiReview"
-        >仍要继续</ui-button>
-      </view>
-    </view>
-  </view>
 
   <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
     <view class="merchant-flow-page__modal">

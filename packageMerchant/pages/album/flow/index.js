@@ -326,10 +326,15 @@ Page({
     workImagePool: [],
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
-    showAiReview: false,
     aiReview: null,
     aiReviewBusy: false,
     aiReviewTimedOut: false,
+    chiefComplaintHint: null,
+    warrantyHint: null,
+    orphanPhotoHints: [],
+    notifyOwnerLabel: '通知车主',
+    photoConfirmDisabled: false,
+    notifyConfirmDisabled: false,
   },
 
   onLoad(options) {
@@ -569,6 +574,11 @@ Page({
     if (!findingSection) return []
     const kind = findingSection.findingKind || 'inspection'
     return (findingSection.findings || [])
+      .filter((raw) => {
+        if (!raw || !raw.fromAi) return true
+        if (kind === 'work') return Boolean((raw.images && raw.images.length) || raw.url)
+        return Boolean(raw.url)
+      })
       .map((item) =>
         kind === 'work' ? normalizeWorkFinding(item) : normalizeFinding(item),
       )
@@ -592,15 +602,27 @@ Page({
   },
 
   decorateFinding(item = {}, expanded = false, listKey = '', findingKind = 'inspection') {
+    const extras = {
+      fromAi: Boolean(item.fromAi),
+      aiSuggestionId: item.aiSuggestionId || '',
+      captionPlaceholder: item.captionPlaceholder || '',
+      advicePlaceholder: item.advicePlaceholder || '',
+      photoHint: item.photoHint || null,
+      adviceHint: item.adviceHint || null,
+      captionHint: item.captionHint || null,
+    }
     if (findingKind === 'work') {
       const row = normalizeWorkFinding(item)
       const missing = this.countFindingMissingFields(row, findingKind)
       const hasPhoto = row.images.length > 0
       return {
         ...row,
+        ...extras,
         findingKind: 'work',
         pendingPhoto: !hasPhoto,
-        listKey: listKey || row.imageId || row.url || `pending-${row.partName || ''}`,
+        captionPlaceholder:
+          extras.captionPlaceholder || '选填，例：已按规定扭矩紧固并排气',
+        listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
         expanded: Boolean(expanded),
         complete: hasPhoto && missing === 0,
         summaryText: row.partName || '待填写',
@@ -630,14 +652,21 @@ Page({
           : row.result === FINDING_RESULT.ACTION
             ? 'action'
             : ''
+    const hasPhoto = Boolean(row.url)
     return {
       ...row,
+      ...extras,
       findingKind: 'inspection',
-      listKey: listKey || row.imageId || row.url || '',
+      pendingPhoto: !hasPhoto,
+      listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
       expanded: Boolean(expanded),
-      complete: missing === 0,
+      complete: missing === 0 && hasPhoto,
       summaryText: row.partName || '待填写',
-      completenessLabel: missing === 0 ? row.result || '已齐' : `缺 ${missing} 项`,
+      completenessLabel: !hasPhoto
+        ? '待拍照'
+        : missing === 0
+          ? row.result || '已齐'
+          : `缺 ${missing} 项`,
       adviceRequired: findingAdviceRequired(row.result),
       resultTone,
       resultToneClass: resultTone
@@ -956,6 +985,13 @@ Page({
         isDeliveryPhotoStep,
         isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
+        photoConfirmDisabled: false,
+        notifyOwnerLabel: '通知车主',
+        notifyConfirmDisabled: false,
+        chiefComplaintHint: null,
+        warrantyHint: null,
+        orphanPhotoHints: [],
+        aiReview: null,
         sections,
         expandedFindingKey,
         docPayload,
@@ -1025,7 +1061,7 @@ Page({
       const key = item.imageId || item.id || item.url
       if (key) prevByKey[key] = item
     })
-    return (images || []).map((img) => {
+    const next = (images || []).map((img) => {
       const url = typeof img === 'string' ? img : img.url || ''
       const id = typeof img === 'object' ? img.id || '' : ''
       const imgCaption = typeof img === 'object' ? img.caption || '' : ''
@@ -1050,6 +1086,14 @@ Page({
         partName: prev.partName || imgCaption || '',
       })
     })
+    const pending = (prevFindings || []).filter((item) => {
+      if (findingKind === 'work') {
+        const row = normalizeWorkFinding(item)
+        return !row.images.length && (item.fromAi || row.partName)
+      }
+      return !item.url && (item.fromAi || item.pendingPhoto || item.aiSuggestionId)
+    })
+    return next.concat(pending)
   },
 
   onSectionImagesChange(e) {
@@ -1138,6 +1182,37 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
+  withFindingMeta(item, nextRaw, extra = {}) {
+    const placeholder =
+      extra.captionPlaceholder ||
+      item.captionPlaceholder ||
+      (item.photoHint && item.photoHint.body) ||
+      ''
+    const photoHint = extra.photoHint !== undefined
+      ? extra.photoHint
+      : item.photoHint
+        ? { ...item.photoHint, ...((extra.photoHintPatch) || {}) }
+        : null
+    return {
+      ...nextRaw,
+      fromAi: Boolean(item.fromAi),
+      aiSuggestionId: item.aiSuggestionId || '',
+      captionPlaceholder: placeholder,
+      advicePlaceholder: extra.advicePlaceholder || item.advicePlaceholder || '',
+      photoHint,
+      adviceHint: item.adviceHint || null,
+      captionHint: item.captionHint || null,
+    }
+  },
+
+  markAiSuggestionApplied(id) {
+    if (!id || !this.data.aiReview) return null
+    const suggestions = (this.data.aiReview.suggestions || []).map((row) =>
+      row && row.id === id ? { ...row, applied: true } : row,
+    )
+    return this.decorateAiReview({ ...this.data.aiReview, suggestions })
+  },
+
   onAttachFindingPhoto(e) {
     if (this.data.readOnly) return
     const ds = (e.currentTarget && e.currentTarget.dataset) || {}
@@ -1146,14 +1221,79 @@ Page({
     if (!Number.isFinite(si) || !Number.isFinite(fi)) return
     const section = this.data.sections[si]
     if (!section || !section.findings || !section.findings[fi]) return
-    const current = normalizeWorkFinding(section.findings[fi])
-    const remain = Math.max(0, WORK_IMAGES_MAX - current.images.length)
-    if (remain < 1) {
-      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+    const currentItem = section.findings[fi]
+    const isWork = section.findingKind === 'work'
+    if (isWork) {
+      const current = normalizeWorkFinding(currentItem)
+      const remain = Math.max(0, WORK_IMAGES_MAX - current.images.length)
+      if (remain < 1) {
+        wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+        return
+      }
+      wx.chooseMedia({
+        count: Math.min(remain, 6),
+        mediaType: ['image'],
+        sourceType: ['album', 'camera'],
+        success: async (res) => {
+          const files = res.tempFiles || []
+          if (!files.length) return
+          try {
+            wx.showLoading({ title: '上传中' })
+            const uploadedList = []
+            for (let i = 0; i < files.length; i += 1) {
+              const uploaded = await uploadImage(files[i].tempFilePath)
+              const url = uploaded && (uploaded.url || uploaded)
+              if (url) uploadedList.push({ url, imageId: '' })
+            }
+            if (!uploadedList.length) throw new Error('上传失败')
+            const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
+            const sections = this.data.sections.map((row, i) => {
+              if (i !== si) return row
+              const findings = (row.findings || []).map((item, idx) => {
+                if (idx !== fi) return item
+                const prev = normalizeWorkFinding(item)
+                const images = prev.images.concat(uploadedList).slice(0, WORK_IMAGES_MAX)
+                return this.withFindingMeta(
+                  item,
+                  normalizeWorkFinding({
+                    ...prev,
+                    images,
+                    partName: prev.partName,
+                    caption: prev.caption,
+                  }),
+                  {
+                    captionPlaceholder: hintBody,
+                    photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
+                  },
+                )
+              })
+              return {
+                ...row,
+                findings,
+                images: this.flattenWorkSectionImages(findings),
+              }
+            })
+            const appliedId = currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id)
+            this.setSectionsWithFindings(
+              sections,
+              {
+                autoSaveLabel: '保存中…',
+                aiReview: this.markAiSuggestionApplied(appliedId) || this.data.aiReview,
+              },
+              `${si}:${fi}`,
+            )
+            this.scheduleAutoSavePhotos()
+          } catch (err) {
+            wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+          } finally {
+            wx.hideLoading()
+          }
+        },
+      })
       return
     }
     wx.chooseMedia({
-      count: Math.min(remain, 6),
+      count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
@@ -1161,33 +1301,40 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploadedList = []
-          for (let i = 0; i < files.length; i += 1) {
-            const uploaded = await uploadImage(files[i].tempFilePath)
-            const url = uploaded && (uploaded.url || uploaded)
-            if (url) uploadedList.push({ url, imageId: '' })
-          }
-          if (!uploadedList.length) throw new Error('上传失败')
+          const uploaded = await uploadImage(files[0].tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
             const findings = (row.findings || []).map((item, idx) => {
               if (idx !== fi) return item
-              const prev = normalizeWorkFinding(item)
-              const images = prev.images.concat(uploadedList).slice(0, WORK_IMAGES_MAX)
-              return normalizeWorkFinding({
-                ...prev,
-                images,
-                partName: prev.partName,
-                caption: prev.caption,
-              })
+              return this.withFindingMeta(
+                item,
+                {
+                  ...item,
+                  url,
+                  imageId: '',
+                  pendingPhoto: false,
+                },
+                {
+                  captionPlaceholder: hintBody,
+                  photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
+                },
+              )
             })
-            return {
-              ...row,
-              findings,
-              images: this.flattenWorkSectionImages(findings),
-            }
+            const images = (row.images || []).concat([{ url }])
+            return { ...row, findings, images }
           })
-          this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
+          const appliedId = currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id)
+          this.setSectionsWithFindings(
+            sections,
+            {
+              autoSaveLabel: '保存中…',
+              aiReview: this.markAiSuggestionApplied(appliedId) || this.data.aiReview,
+            },
+            `${si}:${fi}`,
+          )
           this.scheduleAutoSavePhotos()
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
@@ -1496,6 +1643,9 @@ Page({
       }
     }
     this.setSectionsWithFindings(sections, {}, expandKey)
+    if (this.data.aiReview && this.data.aiReview.isReady) {
+      this.applyInlineAiReview(this.data.aiReview, this._aiReviewAction)
+    }
   },
 
   async persistPhotoDraft() {
@@ -1847,12 +1997,56 @@ Page({
   decorateAiReview(review) {
     const raw = review || {}
     const status = String(raw.status || '')
-    const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).map((item) => ({
-      ...item,
-      isPhoto: item && item.type === 'photo',
-      isText: item && item.type === 'text',
-      applied: Boolean(item && item.applied),
-    }))
+    const prevApplied = new Set(
+      ((this.data.aiReview && this.data.aiReview.suggestions) || [])
+        .filter((row) => row && row.applied)
+        .map((row) => row.id),
+    )
+    const findings = this.data.activeIsPhoto
+      ? this.collectFindingsFromSections()
+      : this.data.findings || []
+    const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).map((item) => {
+      const type = item && item.type === 'photo' ? 'photo' : 'text'
+      const field = this.inferAiReviewField(item)
+      const currentText = this.resolveAiReviewCurrentText(item, field, findings)
+      const suggestedText = type === 'text' ? String((item && item.suggestedText) || '').trim() : ''
+      const targetLabel = type === 'photo'
+        ? String((item && (item.part || item.title)) || '相关部位')
+            .replace(/^(补拍|补充)/, '')
+            .trim() || '相关部位'
+        : field === 'chiefComplaint'
+          ? '主诉'
+          : field === 'findingAdvice'
+            ? '处理建议'
+            : field === 'findingCaption'
+              ? '图注'
+              : field === 'warrantyPeriod'
+                ? '质保'
+                : field === 'quoteLineName'
+                  ? '方案行名'
+                  : '本步文字'
+      const applied = Boolean(item && item.applied) || prevApplied.has(item && item.id)
+      const currentShown = applied && suggestedText ? suggestedText : currentText
+      return {
+        ...item,
+        type,
+        field,
+        isPhoto: type === 'photo',
+        isText: type === 'text',
+        kindLabel: type === 'photo' ? '补拍' : '改文案',
+        targetLabel,
+        howText: type === 'photo' ? String((item && item.how) || '').trim() : '',
+        currentText: currentShown,
+        suggestedText,
+        showCurrent: Boolean(
+          type === 'text' && currentText && currentText !== suggestedText && !applied,
+        ),
+        applied,
+        canApply: type === 'text' && Boolean(suggestedText) && !applied,
+        canGoPhoto: type === 'photo' && !applied,
+        actionLabel: type === 'photo' ? '补拍' : applied ? '已应用' : '应用',
+      }
+    })
     return {
       ...raw,
       status,
@@ -1860,43 +2054,313 @@ Page({
       isWaiting: status === 'queued' || status === 'running',
       isReady: status === 'ready',
       isFailed: status === 'failed',
-      hasSuggestions: suggestions.length > 0,
-      waitHint: raw.waitHint || '正在检查本步，可先离开',
+      hasSuggestions: suggestions.some((row) => row && !row.applied),
+      waitHint: raw.waitHint || '正在检查',
+      waitDetail: '对照本步照片和说明',
       emptyHint: raw.emptyHint || '未发现可改之处',
     }
   },
 
-  openAiReviewPanel(review, action) {
-    this._skipAutoAiReview = false
-    this._aiReviewAction = action || this._aiReviewAction || 'complete'
-    this.setData({
-      showAiReview: true,
-      aiReview: this.decorateAiReview(review),
-      aiReviewBusy: false,
-      aiReviewTimedOut: false,
-    })
-    const status = review && review.status
-    if (status === 'queued' || status === 'running') {
-      this.startAiReviewPoll()
-    } else {
-      this.stopAiReviewPoll()
+  inferAiReviewField(item) {
+    const field = String((item && item.field) || '').trim()
+    if (field) return field
+    const blob = `${(item && item.title) || ''} ${(item && item.itemKey) || ''} ${(item && item.how) || ''}`
+    if (/主诉/.test(blob) || (item && item.itemKey) === 'complaint') return 'chiefComplaint'
+    if (/图注|施工说明/.test(blob)) return 'findingCaption'
+    if (/方案/.test(blob)) return 'quoteLineName'
+    if (/质保/.test(blob)) return 'warrantyPeriod'
+    if (/建议|处理/.test(blob)) return 'findingAdvice'
+    return ''
+  },
+
+  resolveAiReviewCurrentText(item, field, findings) {
+    if (field === 'chiefComplaint') return String(this.data.chiefComplaint || '').trim()
+    if (field === 'warrantyPeriod') return String(this.data.warrantyPeriod || '').trim()
+    if (field === 'findingAdvice' || field === 'findingCaption') {
+      const idx = Number.isFinite(Number(item && item.findingIndex))
+        ? Number(item.findingIndex)
+        : -1
+      const row = idx >= 0 ? findings[idx] : findings[0]
+      if (!row) return ''
+      return String((field === 'findingAdvice' ? row.advice : row.caption) || '').trim()
+    }
+    if (field === 'quoteLineName') {
+      const idx = Number.isFinite(Number(item && item.lineIndex)) ? Number(item.lineIndex) : 0
+      const line = (this.data.quoteLines || [])[idx]
+      return String((line && line.name) || '').trim()
+    }
+    return ''
+  },
+
+  toAiFieldHint(item, kind) {
+    const isPhoto = kind === 'photo' || (item && item.isPhoto)
+    const body = isPhoto
+      ? String((item && (item.howText || item.how)) || '').trim()
+      : String((item && item.suggestedText) || '').trim()
+    if (!body) return null
+    return {
+      id: item.id,
+      kicker: isPhoto ? '建议补拍' : '建议改成',
+      body,
+      canApply: !isPhoto && Boolean(item.canApply),
+      applied: Boolean(item.applied),
     }
   },
 
+  aiReviewNeedles(item) {
+    return [item.targetLabel, item.itemKey, item.part, item.title]
+      .map((s) =>
+        String(s || '')
+          .toLowerCase()
+          .replace(/^(补拍|补充)/, '')
+          .trim(),
+      )
+      .filter((s) => s && s !== '相关部位' && s !== '本步文字')
+  },
+
+  findingMatchesAiNeedles(finding, needles) {
+    const hay = `${finding.partName || ''} ${finding.caption || ''} ${finding.advice || ''} ${finding.itemKey || ''}`.toLowerCase()
+    const part = String(finding.partName || '').toLowerCase()
+    return needles.some((n) => hay.includes(n) || (part && n.includes(part)))
+  },
+
+  matchFindingIndex(findings, item, used) {
+    const explicit = Number(item && item.findingIndex)
+    if (Number.isFinite(explicit) && findings[explicit] && !used.has(explicit)) return explicit
+    const needles = this.aiReviewNeedles(item)
+    const idx = (findings || []).findIndex(
+      (row, i) => !used.has(i) && this.findingMatchesAiNeedles(row, needles),
+    )
+    return idx
+  },
+
+  computeInlineHintPatch(review) {
+    const suggestions = (review && review.suggestions) || []
+    let chiefComplaintHint = null
+    let warrantyHint = null
+    const orphanPhotoHints = []
+    let quoteLines = (this.data.quoteLines || []).map((row) => ({ ...row, nameHint: null }))
+    let reportFindings = (this.data.findings || []).map((row) => ({
+      ...row,
+      adviceHint: null,
+      captionHint: null,
+      photoHint: null,
+    }))
+    let sections = (this.data.sections || []).map((section) => ({
+      ...section,
+      photoHint: null,
+      findings: (section.findings || []).map((row) => ({
+        ...row,
+        photoHint: null,
+        adviceHint: null,
+        captionHint: null,
+      })),
+    }))
+    let expandKey = this.data.expandedFindingKey
+    const photoUsed = new Set()
+    let pinnedExpand = false
+
+    suggestions.forEach((item) => {
+      if (!item || item.applied) return
+      if (item.isText) {
+        const hint = this.toAiFieldHint(item, 'text')
+        if (!hint) return
+        if (item.field === 'chiefComplaint') {
+          chiefComplaintHint = hint
+          return
+        }
+        if (item.field === 'warrantyPeriod') {
+          warrantyHint = hint
+          return
+        }
+        if (item.field === 'quoteLineName') {
+          const idx = Number.isFinite(Number(item.lineIndex)) ? Number(item.lineIndex) : 0
+          if (quoteLines[idx]) quoteLines[idx] = { ...quoteLines[idx], nameHint: hint }
+          return
+        }
+        if (item.field === 'findingAdvice' || item.field === 'findingCaption') {
+          const used = new Set()
+          const si = sections.findIndex((section) => section.findingMode)
+          if (si >= 0) {
+            const fi = this.matchFindingIndex(sections[si].findings || [], item, used)
+            if (fi >= 0) {
+              const findings = (sections[si].findings || []).map((row, idx) => {
+                if (idx !== fi) return row
+                if (item.field === 'findingAdvice') {
+                  return {
+                    ...row,
+                    adviceHint: hint,
+                    advicePlaceholder: row.advice ? row.advicePlaceholder : hint.body,
+                  }
+                }
+                return {
+                  ...row,
+                  captionHint: hint,
+                  captionPlaceholder: row.caption ? row.captionPlaceholder : hint.body,
+                }
+              })
+              sections[si] = { ...sections[si], findings }
+              if (!pinnedExpand) {
+                expandKey = `${si}:${fi}`
+                pinnedExpand = true
+              }
+            }
+          }
+          if (!this.data.activeIsPhoto) {
+            const fi = this.matchFindingIndex(reportFindings, item, new Set())
+            const idx = fi >= 0 ? fi : Number.isFinite(Number(item.findingIndex)) ? Number(item.findingIndex) : 0
+            if (reportFindings[idx]) {
+              reportFindings[idx] =
+                item.field === 'findingAdvice'
+                  ? {
+                      ...reportFindings[idx],
+                      adviceHint: hint,
+                      advicePlaceholder: reportFindings[idx].advice
+                        ? reportFindings[idx].advicePlaceholder
+                        : hint.body,
+                    }
+                  : { ...reportFindings[idx], captionHint: hint }
+            }
+          }
+        }
+        return
+      }
+      const hint = this.toAiFieldHint(item, 'photo')
+      if (!hint) return
+      const si = sections.findIndex((section) => section.findingMode)
+      if (si < 0) {
+        orphanPhotoHints.push(hint)
+        return
+      }
+      let fi = this.matchFindingIndex(sections[si].findings || [], item, photoUsed)
+      if (fi < 0) {
+        fi = (sections[si].findings || []).findIndex(
+          (row) => row.aiSuggestionId && row.aiSuggestionId === item.id,
+        )
+      }
+      if (fi >= 0) {
+        photoUsed.add(fi)
+        const findings = (sections[si].findings || []).map((row, idx) => {
+          if (idx !== fi) return row
+          return {
+            ...row,
+            photoHint: hint,
+            captionPlaceholder: row.caption ? row.captionPlaceholder : hint.body,
+            aiSuggestionId: row.aiSuggestionId || item.id,
+          }
+        })
+        sections[si] = { ...sections[si], findings }
+        if (!pinnedExpand) {
+          expandKey = `${si}:${fi}`
+          pinnedExpand = true
+        }
+        return
+      }
+      const pending =
+        sections[si].findingKind === 'work'
+          ? {
+              fromAi: true,
+              aiSuggestionId: item.id,
+              partName: item.targetLabel,
+              caption: '',
+              captionPlaceholder: hint.body,
+              photoHint: hint,
+              images: [],
+            }
+          : {
+              fromAi: true,
+              aiSuggestionId: item.id,
+              partName: item.targetLabel,
+              caption: '',
+              captionPlaceholder: hint.body,
+              photoHint: hint,
+              pendingPhoto: true,
+              url: '',
+            }
+      const findings = (sections[si].findings || []).concat([pending])
+      photoUsed.add(findings.length - 1)
+      sections[si] = { ...sections[si], findings }
+      if (!pinnedExpand) {
+        expandKey = `${si}:${findings.length - 1}`
+        pinnedExpand = true
+      }
+    })
+
+    return {
+      sections,
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+      chiefComplaintHint,
+      warrantyHint,
+      orphanPhotoHints,
+      expandedFindingKey: expandKey,
+      ...(this.data.activeIsPhoto ? {} : { findings: reportFindings }),
+    }
+  },
+
+  applyInlineAiReview(review, action) {
+    this._aiReviewAction = action || this._aiReviewAction || 'complete'
+    const decorated = this.decorateAiReview(review)
+    const waiting = Boolean(decorated.isWaiting)
+    const timedOut = waiting && this.data.aiReviewTimedOut
+    const canProceed = Boolean(decorated.isReady || decorated.isFailed || timedOut)
+    const patch = {
+      aiReview: decorated,
+      aiReviewBusy: false,
+    }
+    if (this._aiReviewAction === 'deliver') {
+      patch.notifyOwnerLabel = waiting && !timedOut ? '正在检查' : '通知车主'
+      patch.notifyConfirmDisabled = waiting && !timedOut
+    } else {
+      patch.photoConfirmLabel = waiting && !timedOut ? '正在检查' : canProceed ? '进入下一步' : '确认并继续'
+      patch.photoConfirmDisabled = waiting && !timedOut
+    }
+    if (waiting || decorated.isFailed || !decorated.hasSuggestions) {
+      patch.chiefComplaintHint = waiting ? this.data.chiefComplaintHint : null
+      patch.warrantyHint = waiting ? this.data.warrantyHint : null
+      if (!waiting) {
+        patch.orphanPhotoHints = []
+      }
+    } else {
+      const hintPatch = this.computeInlineHintPatch(decorated)
+      Object.assign(patch, hintPatch)
+      if (hintPatch.sections) {
+        patch.sections = this.decorateSections(
+          hintPatch.sections,
+          hintPatch.expandedFindingKey,
+        )
+        if (this.data.isIntakePhotoStep) {
+          patch.findings = this.collectFindingsFromSections(patch.sections)
+        }
+      }
+    }
+    this.setData(patch)
+    if (waiting) this.startAiReviewPoll()
+    else this.stopAiReviewPoll()
+  },
+
+  buildAiReviewAckExtra() {
+    const review = this.data.aiReview
+    if (!review) return {}
+    if (review.isReady || review.isFailed || this.data.aiReviewTimedOut) {
+      return { aiReviewAck: true }
+    }
+    return {}
+  },
+
   resumeAiReviewFromNode(active) {
-    if (this._skipAutoAiReview) return
     if (this.data.readOnly || !active || !this._nodeAiReviewEntitled) return
     const review = active.aiReview
     if (!review || review.acknowledged) return
     if (review.status === 'queued' || review.status === 'running' || review.status === 'ready') {
       const action = active.kind === 'inspection_report' ? 'deliver' : 'complete'
-      this.openAiReviewPanel(review, action)
+      this.applyInlineAiReview(review, action)
     }
   },
 
   resumeAiReviewIfNeeded() {
     const active = this.data.activeNode
-    if (this.data.showAiReview && this.data.aiReview && this.data.aiReview.isWaiting) {
+    if (this.data.aiReview && this.data.aiReview.isWaiting) {
       this.startAiReviewPoll()
       return
     }
@@ -1911,62 +2375,88 @@ Page({
   },
 
   startAiReviewPoll() {
-    this.stopAiReviewPoll()
+    if (this._aiReviewTimer) return
     this._aiReviewPollStartedAt = Date.now()
     const tick = async () => {
-      if (!this.data.showAiReview) return
+      if (!this.data.aiReview) return
       const node = this.data.activeNode
       if (!node || !this.albumId) return
       try {
         const data = await fetchMerchantFlowNodeAiReview(this.albumId, node.id)
         const review = this.decorateAiReview(data && data.review)
-        this.setData({ aiReview: review })
         if (review.isReady || review.isFailed) {
           this.stopAiReviewPoll()
           this.setData({ aiReviewTimedOut: false })
+          this.applyInlineAiReview(data && data.review, this._aiReviewAction)
           return
         }
+        this.setData({ aiReview: review })
       } catch (_) {
         /* keep waiting */
       }
-      if (Date.now() - (this._aiReviewPollStartedAt || 0) > 20000) {
-        this.setData({ aiReviewTimedOut: true })
+      if (Date.now() - (this._aiReviewPollStartedAt || 0) > 20000 && !this.data.aiReviewTimedOut) {
+        const waitingPatch = { aiReviewTimedOut: true }
+        if (this._aiReviewAction === 'deliver') {
+          waitingPatch.notifyOwnerLabel = '通知车主'
+          waitingPatch.notifyConfirmDisabled = false
+        } else {
+          waitingPatch.photoConfirmLabel = '进入下一步'
+          waitingPatch.photoConfirmDisabled = false
+        }
+        this.setData(waitingPatch)
       }
       this._aiReviewTimer = setTimeout(tick, 2000)
     }
     this._aiReviewTimer = setTimeout(tick, 1600)
   },
 
-  onCloseAiReview() {
-    this._skipAutoAiReview = true
-    this.stopAiReviewPoll()
-    this.setData({ showAiReview: false, aiReviewBusy: false })
-  },
-
-  async onRetryAiReview() {
-    this.setData({ aiReviewTimedOut: false, aiReviewBusy: true })
-    try {
-      if (this._aiReviewAction === 'deliver') {
-        await this.onNotifyOwnerPlan()
-      } else {
-        await this.onConfirmPhotoStep()
-      }
-    } finally {
-      this.setData({ aiReviewBusy: false })
-    }
-  },
-
   async onApplyAiSuggestion(e) {
     const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
     const review = this.data.aiReview
     const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
-    if (!item || item.type !== 'text' || !item.suggestedText) return
-    const field = String(item.field || '')
+    if (!item) return
+    if (item.type === 'photo' || item.canGoPhoto) {
+      const si = (this.data.sections || []).findIndex((section) =>
+        (section.findings || []).some(
+          (row) => (row.aiSuggestionId || (row.photoHint && row.photoHint.id)) === id,
+        ),
+      )
+      if (si < 0) return
+      const fi = (this.data.sections[si].findings || []).findIndex(
+        (row) => (row.aiSuggestionId || (row.photoHint && row.photoHint.id)) === id,
+      )
+      this.onAttachFindingPhoto({
+        currentTarget: { dataset: { sectionIndex: si, findingIndex: fi } },
+      })
+      return
+    }
+    if (item.type !== 'text' || !item.suggestedText) return
+    const field = this.inferAiReviewField(item) || String(item.field || '')
+    const findingsPool = this.data.activeIsPhoto
+      ? this.collectFindingsFromSections()
+      : this.data.findings || []
+    let findingIndex = Number(item.findingIndex)
+    if ((field === 'findingAdvice' || field === 'findingCaption') && !Number.isFinite(findingIndex)) {
+      const emptyIdx = findingsPool.findIndex((row) => {
+        const value = field === 'findingAdvice' ? row && row.advice : row && row.caption
+        return !String(value || '').trim()
+      })
+      findingIndex = emptyIdx >= 0 ? emptyIdx : findingsPool.length ? 0 : -1
+    }
     const patch = {}
-    if (field === 'chiefComplaint') patch.chiefComplaint = item.suggestedText
-    if (field === 'warrantyPeriod') patch.warrantyPeriod = item.suggestedText
-    if (field === 'findingAdvice' && Number.isFinite(Number(item.findingIndex))) {
-      const idx = Number(item.findingIndex)
+    if (field === 'chiefComplaint') {
+      patch.chiefComplaint = item.suggestedText
+      patch.chiefComplaintHint = this.data.chiefComplaintHint
+        ? { ...this.data.chiefComplaintHint, applied: true }
+        : null
+    }
+    if (field === 'warrantyPeriod') {
+      patch.warrantyPeriod = item.suggestedText
+      patch.warrantyHint = this.data.warrantyHint
+        ? { ...this.data.warrantyHint, applied: true }
+        : null
+    }
+    if (field === 'findingAdvice' && findingIndex >= 0) {
       if (this.data.activeIsPhoto) {
         let cursor = 0
         const sections = (this.data.sections || []).map((section) => ({
@@ -1974,34 +2464,51 @@ Page({
           findings: (section.findings || []).map((row) => {
             const current = cursor
             cursor += 1
-            return current === idx ? { ...row, advice: item.suggestedText } : row
+            if (current !== findingIndex) return row
+            return {
+              ...row,
+              advice: item.suggestedText,
+              adviceHint: row.adviceHint ? { ...row.adviceHint, applied: true } : null,
+            }
           }),
         }))
-        patch.sections = sections
+        patch.sections = this.decorateSections(sections)
       } else {
         const findings = (this.data.findings || []).map((row, fi) =>
-          fi === idx ? { ...row, advice: item.suggestedText } : row,
+          fi === findingIndex
+            ? {
+                ...row,
+                advice: item.suggestedText,
+                adviceHint: row.adviceHint ? { ...row.adviceHint, applied: true } : null,
+              }
+            : row,
         )
         patch.findings = findings
       }
     }
-    if (field === 'findingCaption' && Number.isFinite(Number(item.findingIndex))) {
-      const idx = Number(item.findingIndex)
+    if (field === 'findingCaption' && findingIndex >= 0) {
       let cursor = 0
       const sections = (this.data.sections || []).map((section) => ({
         ...section,
         findings: (section.findings || []).map((row) => {
           const current = cursor
           cursor += 1
-          return current === idx ? { ...row, caption: item.suggestedText } : row
+          if (current !== findingIndex) return row
+          return {
+            ...row,
+            caption: item.suggestedText,
+            captionHint: row.captionHint ? { ...row.captionHint, applied: true } : null,
+          }
         }),
       }))
-      patch.sections = sections
+      patch.sections = this.decorateSections(sections)
     }
     if (field === 'quoteLineName' && Number.isFinite(Number(item.lineIndex))) {
       const idx = Number(item.lineIndex)
       const quoteLines = (this.data.quoteLines || []).map((row, li) =>
-        li === idx ? { ...row, name: item.suggestedText } : row,
+        li === idx
+          ? { ...row, name: item.suggestedText, nameHint: row.nameHint ? { ...row.nameHint, applied: true } : null }
+          : row,
       )
       patch.quoteLines = quoteLines
       patch.quoteTotalLabel = `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`
@@ -2009,7 +2516,7 @@ Page({
     const suggestions = (review.suggestions || []).map((row) =>
       row && row.id === id ? { ...row, applied: true } : row,
     )
-    patch.aiReview = { ...review, suggestions }
+    patch.aiReview = this.decorateAiReview({ ...review, suggestions })
     this.setData(patch)
     try {
       if (this.data.activeIsPhoto) await this.persistPhotoDraft()
@@ -2024,61 +2531,14 @@ Page({
           })
         }
       }
+      wx.showToast({ title: '已应用', icon: 'success' })
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
     }
   },
 
-  async onContinueAfterAiReview() {
-    if (this.data.aiReviewBusy || this.data.confirming) return
-    this.setData({ aiReviewBusy: true, showAiReview: false })
-    this.stopAiReviewPoll()
-    try {
-      if (this._aiReviewAction === 'deliver') {
-        this.setData({ confirming: true })
-        try {
-          const reportPayload = this.buildDocPayloadForSave()
-          const quotePayload = this.buildQuotePayloadForSave()
-          const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-            document: { payload: reportPayload },
-            quote: { payload: quotePayload },
-            aiReviewAck: true,
-          })
-          wx.showToast({ title: (res && res.message) || '已通知车主', icon: 'success' })
-          await this.loadFlow({ silent: true })
-        } finally {
-          this.setData({ confirming: false })
-        }
-      } else {
-        const runAck = async () => {
-          this.setData({ confirming: true })
-          try {
-            await this.persistPhotos()
-            this.resyncSectionsAfterPersist()
-            await this.persistPhotoDraft()
-            const res = await completeMerchantFlowNode(
-              this.albumId,
-              this.data.activeNode.id,
-              Object.assign({}, this.buildPhotoDraftPayload(), { aiReviewAck: true }),
-            )
-            wx.showToast({ title: (res && res.message) || '本步已完成', icon: 'success' })
-            await this.loadFlow({ silent: true })
-          } finally {
-            this.setData({ confirming: false })
-          }
-        }
-        await runAck()
-      }
-    } catch (e) {
-      this.setData({ showAiReview: true })
-      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ aiReviewBusy: false })
-    }
-  },
-
   async onConfirmPhotoStep() {
-    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.readOnly || this.data.confirming || this.data.photoConfirmDisabled) return
     if (this._photoSaveTimer) {
       clearTimeout(this._photoSaveTimer)
       this._photoSaveTimer = null
@@ -2166,6 +2626,7 @@ Page({
 
     const run = async (extra = {}) => {
       this.setData({ confirming: true })
+      this.stopAiReviewPoll()
       try {
         await this.persistPhotos()
         this.resyncSectionsAfterPersist()
@@ -2176,7 +2637,7 @@ Page({
           Object.assign({}, this.buildPhotoDraftPayload(), extra),
         )
         if (res && res.nextAction === 'ai_review') {
-          this.openAiReviewPanel(res.review, 'complete')
+          this.applyInlineAiReview(res.review, 'complete')
           return
         }
         wx.showToast({ title: (res && res.message) || '本步已完成', icon: 'success' })
@@ -2189,7 +2650,7 @@ Page({
     }
 
     if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
-      await run()
+      await run(this.buildAiReviewAckExtra())
       return
     }
 
@@ -2200,12 +2661,12 @@ Page({
         content: `还有 ${missing} 张未写说明，建议每张写一句。仍可继续。`,
         confirmText: '仍要继续',
         success: (res) => {
-          if (res.confirm) run()
+          if (res.confirm) run(this.buildAiReviewAckExtra())
         },
       })
       return
     }
-    await run()
+    await run(this.buildAiReviewAckExtra())
   },
 
   buildDocPayloadForSave() {
@@ -2254,7 +2715,7 @@ Page({
   },
 
   async onNotifyOwnerPlan() {
-    if (this.data.readOnly || this.data.confirming) return
+    if (this.data.readOnly || this.data.confirming || this.data.notifyConfirmDisabled) return
     const reportPayload = this.buildDocPayloadForSave()
     const quotePayload = this.buildQuotePayloadForSave()
     const reportGaps = collectInspectionReportGaps(reportPayload)
@@ -2276,6 +2737,7 @@ Page({
       return
     }
     this.setData({ confirming: true })
+    this.stopAiReviewPoll()
     try {
       await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: {
@@ -2295,9 +2757,10 @@ Page({
       const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: { payload: reportPayload },
         quote: { payload: quotePayload },
+        ...this.buildAiReviewAckExtra(),
       })
       if (res && res.nextAction === 'ai_review') {
-        this.openAiReviewPanel(res.review, 'deliver')
+        this.applyInlineAiReview(res.review, 'deliver')
         return
       }
       wx.showToast({ title: (res && res.message) || '已通知车主', icon: 'success' })

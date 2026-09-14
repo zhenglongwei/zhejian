@@ -212,6 +212,18 @@ function buildRuleSuggestions(ctx = {}) {
   }).slice(0, 7)
 }
 
+function inferSuggestionField(item = {}) {
+  const field = text(item.field)
+  if (field) return field
+  const blob = `${item.title || ''} ${item.itemKey || ''} ${item.how || ''}`
+  if (/主诉/.test(blob) || item.itemKey === 'complaint') return 'chiefComplaint'
+  if (/图注|施工说明/.test(blob)) return 'findingCaption'
+  if (/方案/.test(blob)) return 'quoteLineName'
+  if (/质保/.test(blob)) return 'warrantyPeriod'
+  if (/建议|处理/.test(blob)) return 'findingAdvice'
+  return ''
+}
+
 function parseModelSuggestions(raw, fallback = []) {
   let parsed = raw
   if (typeof raw === 'string') {
@@ -237,13 +249,26 @@ function parseModelSuggestions(raw, fallback = []) {
     if (!type) return
     const suggestedText = type === 'text' ? text(item.suggestedText || item.text) : ''
     if (type === 'text' && /¥|金额|报价/.test(suggestedText)) return
-    const field = text(item.field)
+    const field = inferSuggestionField({ ...item, type })
     if (/amount|price|fee|金额/.test(field)) return
+    const title = type === 'photo'
+      ? (text(item.title) || `补拍${text(item.part) || '相关部位'}`)
+      : field === 'chiefComplaint'
+        ? '改主诉'
+        : field === 'findingAdvice'
+          ? '改处理建议'
+          : field === 'findingCaption'
+            ? '改图注'
+            : field === 'warrantyPeriod'
+              ? '改质保'
+              : field === 'quoteLineName'
+                ? '改方案行名'
+                : (text(item.title) || '改文案')
     normalized.push({
       id: text(item.id) || `${type}:${index}`,
       type,
       itemKey: text(item.itemKey),
-      title: text(item.title) || (type === 'photo' ? '补拍' : '改句'),
+      title,
       how: text(item.how),
       field,
       suggestedText,
@@ -256,6 +281,7 @@ function parseModelSuggestions(raw, fallback = []) {
 
 module.exports = {
   isVagueChiefComplaint,
+  inferSuggestionField,
   buildRuleSuggestions,
   parseModelSuggestions,
 }
