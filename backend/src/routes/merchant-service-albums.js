@@ -948,6 +948,26 @@ router.post(
   },
 )
 
+router.get(
+  '/service-albums/:albumId/flow/nodes/:nodeId/ai-review',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { getNodeAiReview } = require('../services/node-ai-review.service')
+      const data = await getNodeAiReview(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post(
   '/service-albums/:albumId/flow/nodes/:nodeId/proxy-confirm',
   requireAuth(['merchant']),

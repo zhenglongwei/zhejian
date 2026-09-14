@@ -93,7 +93,7 @@
                 class="merchant-flow-page__doc-block merchant-flow-page__section"
               >
                 <text class="text-body merchant-flow-page__label">整车外观（必选）</text>
-                <text class="text-caption text-secondary merchant-flow-page__finding-tips">拍车身全貌，不要拍微信码或名片</text>
+                <text class="text-caption text-secondary merchant-flow-page__finding-tips">拍车身全貌</text>
                 <view wx:if="{{deliveryExteriorUrl}}" class="merchant-flow-page__exterior-slot">
                   <image
                     class="merchant-flow-page__exterior-slot-img image-placeholder"
@@ -768,6 +768,60 @@
       </view>
     </scroll-view>
   </block>
+
+  <view wx:if="{{showAiReview}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
+    <view class="merchant-flow-page__modal merchant-flow-page__review">
+      <block wx:if="{{aiReview.isWaiting}}">
+        <text class="text-body">{{aiReview.waitHint}}</text>
+        <text wx:if="{{aiReviewTimedOut}}" class="text-caption text-secondary">可再试或仍要继续，后台还在跑。</text>
+      </block>
+      <block wx:else>
+        <text class="text-h3">本步建议</text>
+        <text wx:if="{{aiReview.errorMessage}}" class="text-caption text-secondary">{{aiReview.errorMessage}}</text>
+        <view wx:if="{{!aiReview.hasSuggestions}}" class="text-body merchant-flow-page__review-empty">{{aiReview.emptyHint}}</view>
+        <scroll-view wx:else scroll-y class="merchant-flow-page__review-list" show-scrollbar="{{false}}">
+          <view
+            wx:for="{{aiReview.suggestions}}"
+            wx:key="id"
+            class="merchant-flow-page__review-item"
+          >
+            <text class="text-body">{{item.title}}</text>
+            <text wx:if="{{item.how}}" class="text-caption text-secondary">{{item.how}}</text>
+            <text wx:if="{{item.suggestedText}}" class="text-caption merchant-flow-page__review-suggest">{{item.suggestedText}}</text>
+            <ui-button
+              wx:if="{{item.isText && item.suggestedText && !item.applied}}"
+              type="ghost"
+              data-id="{{item.id}}"
+              bind:btntap="onApplyAiSuggestion"
+            >用这条</ui-button>
+            <text wx:if="{{item.applied}}" class="text-caption text-secondary">已填入</text>
+          </view>
+        </scroll-view>
+      </block>
+      <view class="merchant-flow-page__modal-actions">
+        <ui-button
+          wx:if="{{aiReview.isWaiting && aiReviewTimedOut}}"
+          type="ghost"
+          block="{{true}}"
+          loading="{{aiReviewBusy}}"
+          bind:btntap="onRetryAiReview"
+        >再试</ui-button>
+        <ui-button
+          wx:if="{{!aiReview.isWaiting}}"
+          type="ghost"
+          block="{{true}}"
+          bind:btntap="onCloseAiReview"
+        >返回</ui-button>
+        <ui-button
+          type="primary"
+          block="{{true}}"
+          loading="{{aiReviewBusy || confirming}}"
+          disabled="{{aiReview.isWaiting && !aiReviewTimedOut}}"
+          bind:btntap="onContinueAfterAiReview"
+        >仍要继续</ui-button>
+      </view>
+    </view>
+  </view>
 
   <view wx:if="{{showCancelAddonModal}}" class="merchant-flow-page__modal-mask" catchtouchmove="true">
     <view class="merchant-flow-page__modal">

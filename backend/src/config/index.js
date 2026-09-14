@@ -178,6 +178,24 @@ const config = {
   },
   /** PV-REFORM · PublicView 读侧（H5/Feed 优先 snapshot.publicView） */
   publicViewV2: envBool('PUBLIC_VIEW_V2', true),
+  /**
+   * 节点确认前检查 + 增量脱敏（成本开关）
+   * 真源：docs/04_维修过程相册/28_ §4.4
+   * 前期全员免费；关总闸则走原来的直接确认。
+   */
+  nodeAiReview: {
+    enabled: envBool('NODE_AI_REVIEW_ENABLED', true),
+    requirePaid: envBool('NODE_AI_REVIEW_REQUIRE_PAID', false),
+    paidPlans: envStr('NODE_AI_REVIEW_PAID_PLANS', 'index_99,optimize_299')
+      .split(/[,，\s]+/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+    llmEnabled:
+      process.env.NODE_AI_REVIEW_LLM_ENABLED == null ||
+      String(process.env.NODE_AI_REVIEW_LLM_ENABLED).trim() === ''
+        ? process.env.GEO_LLM_ENABLED === 'true'
+        : envBool('NODE_AI_REVIEW_LLM_ENABLED', false),
+  },
   geoProbe: {
     enabled: process.env.GEO_PROBE_ENABLED === 'true',
     dryRun: process.env.GEO_PROBE_DRY_RUN === 'true',

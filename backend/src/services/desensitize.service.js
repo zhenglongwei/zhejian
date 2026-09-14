@@ -347,6 +347,12 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
           await flushQueuedInspectionAdviceForAlbum(albumId).catch((e) => {
             console.warn('[inspection-advice] flush queued', e && e.message)
           })
+          try {
+            const { flushQueuedNodeAiReviewsForAlbum } = require('./node-ai-review.service')
+            await flushQueuedNodeAiReviewsForAlbum(albumId)
+          } catch (e) {
+            console.warn('[node-ai-review] flush queued', e && e.message)
+          }
           return
         }
         if (preMaskStatus === PRE_MASK_STATUS.FAILED) {

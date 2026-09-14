@@ -340,6 +340,16 @@ async function completeMerchantFlowNode(albumId, nodeId, payload = {}) {
   )
 }
 
+async function fetchMerchantFlowNodeAiReview(albumId, nodeId) {
+  if (ENV.mode === 'mock') {
+    return { review: null, capability: { enabled: false, entitled: false } }
+  }
+  return get(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/ai-review`,
+    withStore(),
+  )
+}
+
 async function deliverMerchantFlowNode(albumId, nodeId, payload = {}) {
   if (ENV.mode === 'mock') {
     return { message: '已送达', node: { id: nodeId, document: { status: 'delivered' } } }
@@ -410,6 +420,7 @@ module.exports = {
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   completeMerchantFlowNode,
+  fetchMerchantFlowNodeAiReview,
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,

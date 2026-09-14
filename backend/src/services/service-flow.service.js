@@ -34,6 +34,7 @@ const {
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
   'utils/service-flow-progress.js',
 )
+const { sanitizeAiReviewForView } = require('./node-ai-review.service')
 
 function readRawContentPackage(album) {
   if (!album || !album.contentPackageJson || typeof album.contentPackageJson !== 'object') {
@@ -143,6 +144,7 @@ function mapFlowNodeForView(node, albumNodes = []) {
     description: meta.description || '',
     photoCount: photo ? countPhotosForFlowNode(node, albumNodes) : 0,
     previewImages: photo ? collectPreviewImages(node, albumNodes) : [],
+    aiReview: sanitizeAiReviewForView(node.aiReview),
     summary: photo
       ? countPhotosForFlowNode(node, albumNodes) > 0
         ? `已拍 ${countPhotosForFlowNode(node, albumNodes)} 张`
@@ -391,10 +393,16 @@ async function getMerchantAlbumFlow(albumId, storeId, merchantId = '') {
   await healQuotePrefillAfterReport(albumId)
   album = await loadAlbum(albumId)
   nodes = mapNodesForView(album)
+  const {
+    resolveCapabilityForMerchant,
+    publicNodeAiReviewCapability,
+  } = require('./node-ai-review.service')
+  const capability = await resolveCapabilityForMerchant(merchantId)
   return {
     albumId,
     ...buildFlowView(album, nodes),
     editable: !album.completedAt,
+    nodeAiReview: publicNodeAiReviewCapability(capability),
   }
 }
 
@@ -564,6 +572,24 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       const err = new Error(gaps[0] || '请先补全质保信息')
       err.status = 400
       throw err
+    }
+  }
+
+  const { maybeHoldCompleteForAiReview } = require('./node-ai-review.service')
+  const held = await maybeHoldCompleteForAiReview({
+    album,
+    node,
+    merchantId,
+    incomingDraft,
+    payload,
+  })
+  if (held) {
+    return {
+      ...held,
+      node: mapFlowNodeForView(
+        { ...node, photoDraft: incomingDraft, aiReview: held.review },
+        nodes,
+      ),
     }
   }
 
@@ -744,6 +770,59 @@ async function deliverFlowDocument(albumId, storeId, nodeId, payload = {}, merch
       const err = new Error(quoteGaps[0] || '请先填写方案金额')
       err.status = 400
       throw err
+    }
+
+    return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+  })
+
+  const { maybeHoldDeliverForAiReview } = require('./node-ai-review.service')
+  const holdAlbum = await loadAlbum(albumId)
+  const holdNode = sortFlowNodes(readFlowNodesRaw(holdAlbum)).find((n) => n.id === id)
+  const held = await maybeHoldDeliverForAiReview({
+    album: holdAlbum,
+    node: holdNode || {},
+    merchantId,
+    payload,
+  })
+  if (held) {
+    const viewNodes = mapNodesForView(holdAlbum)
+    return {
+      ...held,
+      node: holdNode ? mapFlowNodeForView(holdNode, viewNodes) : null,
+    }
+  }
+
+  await writeFlowPackage(albumId, (pkg) => {
+    const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+    const index = nodes.findIndex((n) => n.id === id)
+    if (index < 0) return pkg
+    const prevDoc = nodes[index].document || emptyDocument('inspection_report')
+    const mergedPayload = {
+      ...(prevDoc.payload || {}),
+      ...((payload.document && payload.document.payload) || {}),
+    }
+    const quoteIdx = nodes.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
+    const prevQuoteDoc = nodes[quoteIdx].document || emptyDocument('quote_confirm')
+    let quoteLines = Array.isArray(payload.quote && payload.quote.payload && payload.quote.payload.lines)
+      ? payload.quote.payload.lines
+      : null
+    if (!quoteLines || !quoteLines.length) {
+      const existing = (prevQuoteDoc.payload && prevQuoteDoc.payload.lines) || []
+      quoteLines = existing.length
+        ? existing
+        : buildQuoteLinesFromFindings(mergedPayload.findings)
+    }
+    const quotePayload = {
+      ...(prevQuoteDoc.payload || {}),
+      ...((payload.quote && payload.quote.payload) || {}),
+      lines: quoteLines,
+      confirmCopy:
+        (payload.quote &&
+          payload.quote.payload &&
+          payload.quote.payload.confirmCopy) ||
+        (prevQuoteDoc.payload && prevQuoteDoc.payload.confirmCopy) ||
+        QUOTE_CONFIRM_COPY,
+      evidenceRef: id,
     }
 
     nodes[index] = {

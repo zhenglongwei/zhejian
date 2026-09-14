@@ -741,8 +741,35 @@
   gap: var(--space-sm);
 }
 
-.merchant-flow-page__modal-hint {
-  margin-bottom: var(--space-xs);
+.merchant-flow-page__review {
+  max-height: 80vh;
+  width: 100%;
+}
+
+.merchant-flow-page__review-list {
+  max-height: 50vh;
+  margin: var(--space-sm) 0;
+}
+
+.merchant-flow-page__review-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.merchant-flow-page__review-item:last-child {
+  border-bottom: none;
+}
+
+.merchant-flow-page__review-suggest {
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__review-empty {
+  margin: var(--space-sm) 0;
 }
 
 .merchant-flow-page__modal-actions {

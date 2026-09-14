@@ -4,6 +4,7 @@ const {
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   completeMerchantFlowNode,
+  fetchMerchantFlowNodeAiReview,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
@@ -239,7 +240,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '拍部位、能看清结论。仪表公里数填上方，本图只作证据。不要拍微信码、名片',
+    tips: '拍部位、能看清结论。仪表公里数填上方，本图只作证据。',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
@@ -253,7 +254,7 @@ const STAGE_LABELS = {
   },
   stage_6: {
     title: '交车证据',
-    tips: '整车外观必选；拍车身，不要拍微信码或名片',
+    tips: '整车外观必选；拍车身',
     captionPlaceholder: '',
     findingMode: false,
     findingKind: '',
@@ -325,12 +326,28 @@ Page({
     workImagePool: [],
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
+    showAiReview: false,
+    aiReview: null,
+    aiReviewBusy: false,
+    aiReviewTimedOut: false,
   },
 
   onLoad(options) {
     this.albumId = String(options.albumId || '').trim()
     this.setData({ albumId: this.albumId })
     this.bootstrap()
+  },
+
+  onShow() {
+    this.resumeAiReviewIfNeeded()
+  },
+
+  onHide() {
+    this.stopAiReviewPoll()
+  },
+
+  onUnload() {
+    this.stopAiReviewPoll()
   },
 
   async bootstrap() {
@@ -984,6 +1001,8 @@ Page({
         deliveryExteriorUrl,
         deliveryPickMode,
       })
+      this._nodeAiReviewEntitled = Boolean(flow.nodeAiReview && flow.nodeAiReview.entitled)
+      this.resumeAiReviewFromNode(active)
     } catch (e) {
       this.setData({ status: 'error', errorMessage: (e && e.message) || '加载失败' })
     }
@@ -1825,6 +1844,239 @@ Page({
     return missing
   },
 
+  decorateAiReview(review) {
+    const raw = review || {}
+    const status = String(raw.status || '')
+    const suggestions = (Array.isArray(raw.suggestions) ? raw.suggestions : []).map((item) => ({
+      ...item,
+      isPhoto: item && item.type === 'photo',
+      isText: item && item.type === 'text',
+      applied: Boolean(item && item.applied),
+    }))
+    return {
+      ...raw,
+      status,
+      suggestions,
+      isWaiting: status === 'queued' || status === 'running',
+      isReady: status === 'ready',
+      isFailed: status === 'failed',
+      hasSuggestions: suggestions.length > 0,
+      waitHint: raw.waitHint || '正在检查本步，可先离开',
+      emptyHint: raw.emptyHint || '未发现可改之处',
+    }
+  },
+
+  openAiReviewPanel(review, action) {
+    this._skipAutoAiReview = false
+    this._aiReviewAction = action || this._aiReviewAction || 'complete'
+    this.setData({
+      showAiReview: true,
+      aiReview: this.decorateAiReview(review),
+      aiReviewBusy: false,
+      aiReviewTimedOut: false,
+    })
+    const status = review && review.status
+    if (status === 'queued' || status === 'running') {
+      this.startAiReviewPoll()
+    } else {
+      this.stopAiReviewPoll()
+    }
+  },
+
+  resumeAiReviewFromNode(active) {
+    if (this._skipAutoAiReview) return
+    if (this.data.readOnly || !active || !this._nodeAiReviewEntitled) return
+    const review = active.aiReview
+    if (!review || review.acknowledged) return
+    if (review.status === 'queued' || review.status === 'running' || review.status === 'ready') {
+      const action = active.kind === 'inspection_report' ? 'deliver' : 'complete'
+      this.openAiReviewPanel(review, action)
+    }
+  },
+
+  resumeAiReviewIfNeeded() {
+    const active = this.data.activeNode
+    if (this.data.showAiReview && this.data.aiReview && this.data.aiReview.isWaiting) {
+      this.startAiReviewPoll()
+      return
+    }
+    this.resumeAiReviewFromNode(active)
+  },
+
+  stopAiReviewPoll() {
+    if (this._aiReviewTimer) {
+      clearTimeout(this._aiReviewTimer)
+      this._aiReviewTimer = null
+    }
+  },
+
+  startAiReviewPoll() {
+    this.stopAiReviewPoll()
+    this._aiReviewPollStartedAt = Date.now()
+    const tick = async () => {
+      if (!this.data.showAiReview) return
+      const node = this.data.activeNode
+      if (!node || !this.albumId) return
+      try {
+        const data = await fetchMerchantFlowNodeAiReview(this.albumId, node.id)
+        const review = this.decorateAiReview(data && data.review)
+        this.setData({ aiReview: review })
+        if (review.isReady || review.isFailed) {
+          this.stopAiReviewPoll()
+          this.setData({ aiReviewTimedOut: false })
+          return
+        }
+      } catch (_) {
+        /* keep waiting */
+      }
+      if (Date.now() - (this._aiReviewPollStartedAt || 0) > 20000) {
+        this.setData({ aiReviewTimedOut: true })
+      }
+      this._aiReviewTimer = setTimeout(tick, 2000)
+    }
+    this._aiReviewTimer = setTimeout(tick, 1600)
+  },
+
+  onCloseAiReview() {
+    this._skipAutoAiReview = true
+    this.stopAiReviewPoll()
+    this.setData({ showAiReview: false, aiReviewBusy: false })
+  },
+
+  async onRetryAiReview() {
+    this.setData({ aiReviewTimedOut: false, aiReviewBusy: true })
+    try {
+      if (this._aiReviewAction === 'deliver') {
+        await this.onNotifyOwnerPlan()
+      } else {
+        await this.onConfirmPhotoStep()
+      }
+    } finally {
+      this.setData({ aiReviewBusy: false })
+    }
+  },
+
+  async onApplyAiSuggestion(e) {
+    const id = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '')
+    const review = this.data.aiReview
+    const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
+    if (!item || item.type !== 'text' || !item.suggestedText) return
+    const field = String(item.field || '')
+    const patch = {}
+    if (field === 'chiefComplaint') patch.chiefComplaint = item.suggestedText
+    if (field === 'warrantyPeriod') patch.warrantyPeriod = item.suggestedText
+    if (field === 'findingAdvice' && Number.isFinite(Number(item.findingIndex))) {
+      const idx = Number(item.findingIndex)
+      if (this.data.activeIsPhoto) {
+        let cursor = 0
+        const sections = (this.data.sections || []).map((section) => ({
+          ...section,
+          findings: (section.findings || []).map((row) => {
+            const current = cursor
+            cursor += 1
+            return current === idx ? { ...row, advice: item.suggestedText } : row
+          }),
+        }))
+        patch.sections = sections
+      } else {
+        const findings = (this.data.findings || []).map((row, fi) =>
+          fi === idx ? { ...row, advice: item.suggestedText } : row,
+        )
+        patch.findings = findings
+      }
+    }
+    if (field === 'findingCaption' && Number.isFinite(Number(item.findingIndex))) {
+      const idx = Number(item.findingIndex)
+      let cursor = 0
+      const sections = (this.data.sections || []).map((section) => ({
+        ...section,
+        findings: (section.findings || []).map((row) => {
+          const current = cursor
+          cursor += 1
+          return current === idx ? { ...row, caption: item.suggestedText } : row
+        }),
+      }))
+      patch.sections = sections
+    }
+    if (field === 'quoteLineName' && Number.isFinite(Number(item.lineIndex))) {
+      const idx = Number(item.lineIndex)
+      const quoteLines = (this.data.quoteLines || []).map((row, li) =>
+        li === idx ? { ...row, name: item.suggestedText } : row,
+      )
+      patch.quoteLines = quoteLines
+      patch.quoteTotalLabel = `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`
+    }
+    const suggestions = (review.suggestions || []).map((row) =>
+      row && row.id === id ? { ...row, applied: true } : row,
+    )
+    patch.aiReview = { ...review, suggestions }
+    this.setData(patch)
+    try {
+      if (this.data.activeIsPhoto) await this.persistPhotoDraft()
+      else if (this.data.activeKind === 'inspection_report') {
+        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+          document: { status: 'draft', payload: this.buildDocPayloadForSave() },
+        })
+        const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
+        if (quoteNodeId && field === 'quoteLineName') {
+          await updateMerchantFlowNode(this.albumId, quoteNodeId, {
+            document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
+          })
+        }
+      }
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
+    }
+  },
+
+  async onContinueAfterAiReview() {
+    if (this.data.aiReviewBusy || this.data.confirming) return
+    this.setData({ aiReviewBusy: true, showAiReview: false })
+    this.stopAiReviewPoll()
+    try {
+      if (this._aiReviewAction === 'deliver') {
+        this.setData({ confirming: true })
+        try {
+          const reportPayload = this.buildDocPayloadForSave()
+          const quotePayload = this.buildQuotePayloadForSave()
+          const res = await deliverMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+            document: { payload: reportPayload },
+            quote: { payload: quotePayload },
+            aiReviewAck: true,
+          })
+          wx.showToast({ title: (res && res.message) || '已通知车主', icon: 'success' })
+          await this.loadFlow({ silent: true })
+        } finally {
+          this.setData({ confirming: false })
+        }
+      } else {
+        const runAck = async () => {
+          this.setData({ confirming: true })
+          try {
+            await this.persistPhotos()
+            this.resyncSectionsAfterPersist()
+            await this.persistPhotoDraft()
+            const res = await completeMerchantFlowNode(
+              this.albumId,
+              this.data.activeNode.id,
+              Object.assign({}, this.buildPhotoDraftPayload(), { aiReviewAck: true }),
+            )
+            wx.showToast({ title: (res && res.message) || '本步已完成', icon: 'success' })
+            await this.loadFlow({ silent: true })
+          } finally {
+            this.setData({ confirming: false })
+          }
+        }
+        await runAck()
+      }
+    } catch (e) {
+      this.setData({ showAiReview: true })
+      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ aiReviewBusy: false })
+    }
+  },
+
   async onConfirmPhotoStep() {
     if (this.data.readOnly || this.data.confirming) return
     if (this._photoSaveTimer) {
@@ -1912,7 +2164,7 @@ Page({
       }
     }
 
-    const run = async () => {
+    const run = async (extra = {}) => {
       this.setData({ confirming: true })
       try {
         await this.persistPhotos()
@@ -1921,8 +2173,12 @@ Page({
         const res = await completeMerchantFlowNode(
           this.albumId,
           this.data.activeNode.id,
-          this.buildPhotoDraftPayload(),
+          Object.assign({}, this.buildPhotoDraftPayload(), extra),
         )
+        if (res && res.nextAction === 'ai_review') {
+          this.openAiReviewPanel(res.review, 'complete')
+          return
+        }
         wx.showToast({ title: (res && res.message) || '本步已完成', icon: 'success' })
         await this.loadFlow({ silent: true })
       } catch (e) {
@@ -2040,6 +2296,10 @@ Page({
         document: { payload: reportPayload },
         quote: { payload: quotePayload },
       })
+      if (res && res.nextAction === 'ai_review') {
+        this.openAiReviewPanel(res.review, 'deliver')
+        return
+      }
       wx.showToast({ title: (res && res.message) || '已通知车主', icon: 'success' })
       await this.loadFlow({ silent: true })
     } catch (e) {
