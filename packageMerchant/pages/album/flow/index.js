@@ -385,30 +385,66 @@ Page({
   },
 
   collectMergedWorkDraftFindings(flowNodes = [], activeNode = null, photoDraft = {}) {
-    const byKey = {}
-    const put = (raw) => {
-      const item = normalizeFinding(raw)
-      const key = item.imageId || item.url
-      if (!key) return
-      const prev = byKey[key]
-      if (!prev) {
-        byKey[key] = item
+    const rows = []
+    const urlToIndex = {}
+    const reindexRow = (idx) => {
+      Object.keys(urlToIndex).forEach((u) => {
+        if (urlToIndex[u] === idx) delete urlToIndex[u]
+      })
+      ;((rows[idx] && rows[idx].images) || []).forEach((img) => {
+        if (img && img.url) urlToIndex[img.url] = idx
+      })
+    }
+    const unionImages = (prevImages, nextImages) => {
+      const seen = {}
+      const out = []
+      ;(prevImages || []).concat(nextImages || []).forEach((img) => {
+        if (!img || !img.url || seen[img.url]) return
+        seen[img.url] = true
+        out.push(img)
+      })
+      return out
+    }
+    const put = (raw, replaceImages) => {
+      const item = normalizeWorkFinding(raw)
+      if (!item.images.length && !item.partName) return
+      let idx = -1
+      for (let i = 0; i < item.images.length; i += 1) {
+        const url = item.images[i] && item.images[i].url
+        if (url && urlToIndex[url] !== undefined) {
+          idx = urlToIndex[url]
+          break
+        }
+      }
+      if (idx < 0 && item.partName && !item.images.length) {
+        idx = rows.findIndex((row) => row.partName === item.partName)
+      }
+      if (idx < 0) {
+        rows.push(item)
+        reindexRow(rows.length - 1)
         return
       }
-      byKey[key] = {
+      const prev = rows[idx]
+      rows[idx] = normalizeWorkFinding({
         ...prev,
         ...item,
         partName: item.partName || prev.partName,
         caption: item.caption || prev.caption,
-      }
+        images: replaceImages ? item.images : unionImages(prev.images, item.images),
+      })
+      reindexRow(idx)
     }
+    const currentId = activeNode && activeNode.id
     ;(flowNodes || []).forEach((node) => {
       if (!node || node.kind !== 'work') return
-      ;((node.photoDraft && node.photoDraft.findings) || []).forEach(put)
+      if (currentId && node.id === currentId) return
+      ;((node.photoDraft && node.photoDraft.findings) || []).forEach((raw) => put(raw, false))
     })
-    ;((photoDraft && photoDraft.findings) || []).forEach(put)
-    ;((activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || []).forEach(put)
-    return Object.keys(byKey).map((k) => byKey[k])
+    const currentFindings = Array.isArray(photoDraft && photoDraft.findings)
+      ? photoDraft.findings
+      : ((activeNode && activeNode.photoDraft && activeNode.photoDraft.findings) || [])
+    currentFindings.forEach((raw) => put(raw, true))
+    return rows
   },
 
   resolveRelatedWorkOrder(flowNodes = [], activeNode = null) {
@@ -1334,7 +1370,9 @@ Page({
                   pendingPhoto: false,
                 },
                 {
-                  captionPlaceholder: hintBody,
+                  advicePlaceholder: String(item.advice || '').trim()
+                    ? item.advicePlaceholder
+                    : hintBody,
                   photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
                 },
               )
@@ -1365,7 +1403,7 @@ Page({
     if (this.data.readOnly) return
     const si = Number(e.currentTarget.dataset.sectionIndex)
     const fi = Number(e.currentTarget.dataset.findingIndex)
-    const imgIndex = Number(e.currentTarget.dataset.imgIndex)
+    const imgIndex = Number(String(e.currentTarget.dataset.imgIndex || '').replace(/^idx-/, ''))
     if (!Number.isFinite(si) || !Number.isFinite(fi) || !Number.isFinite(imgIndex)) return
     const sections = this.data.sections.map((row, i) => {
       if (i !== si) return row
@@ -1373,7 +1411,15 @@ Page({
         if (idx !== fi) return item
         const prev = normalizeWorkFinding(item)
         const images = prev.images.filter((_, j) => j !== imgIndex)
-        return normalizeWorkFinding({ ...prev, images })
+        return this.withFindingMeta(
+          item,
+          normalizeWorkFinding({
+            ...prev,
+            images,
+            url: '',
+            imageId: '',
+          }),
+        )
       })
       return {
         ...row,
@@ -2079,14 +2125,23 @@ Page({
 
   inferAiReviewField(item) {
     const field = String((item && item.field) || '').trim()
-    if (field) return field
-    const blob = `${(item && item.title) || ''} ${(item && item.itemKey) || ''} ${(item && item.how) || ''}`
-    if (/主诉/.test(blob) || (item && item.itemKey) === 'complaint') return 'chiefComplaint'
-    if (/图注|施工说明/.test(blob)) return 'findingCaption'
-    if (/方案/.test(blob)) return 'quoteLineName'
-    if (/质保/.test(blob)) return 'warrantyPeriod'
-    if (/建议|处理/.test(blob)) return 'findingAdvice'
-    return ''
+    let resolved = field
+    if (!resolved) {
+      const blob = `${(item && item.title) || ''} ${(item && item.itemKey) || ''} ${(item && item.how) || ''}`
+      if (/主诉/.test(blob) || (item && item.itemKey) === 'complaint') resolved = 'chiefComplaint'
+      else if (/图注|施工说明/.test(blob)) resolved = 'findingCaption'
+      else if (/方案/.test(blob)) resolved = 'quoteLineName'
+      else if (/质保/.test(blob)) resolved = 'warrantyPeriod'
+      else if (/建议|处理|检查发现/.test(blob)) resolved = 'findingAdvice'
+    }
+    // 检测只有「检查发现」，没有图注/说明栏
+    if (
+      resolved === 'findingCaption' &&
+      (this.data.isIntakePhotoStep || this.data.activeKind === 'inspection_report')
+    ) {
+      return 'findingAdvice'
+    }
+    return resolved
   },
 
   resolveAiReviewCurrentText(item, field, findings) {
@@ -2197,12 +2252,13 @@ Page({
         if (item.field === 'findingAdvice' || item.field === 'findingCaption') {
           const used = new Set()
           const si = sections.findIndex((section) => section.findingMode)
+          const useAdvice = item.field === 'findingAdvice' || (si >= 0 && sections[si].findingKind !== 'work')
           if (si >= 0) {
             const fi = this.matchFindingIndex(sections[si].findings || [], item, used)
             if (fi >= 0) {
               const findings = (sections[si].findings || []).map((row, idx) => {
                 if (idx !== fi) return row
-                if (item.field === 'findingAdvice') {
+                if (useAdvice) {
                   return {
                     ...row,
                     adviceHint: hint,
@@ -2227,7 +2283,7 @@ Page({
             const idx = fi >= 0 ? fi : Number.isFinite(Number(item.findingIndex)) ? Number(item.findingIndex) : 0
             if (reportFindings[idx]) {
               reportFindings[idx] =
-                item.field === 'findingAdvice'
+                item.field === 'findingAdvice' || this.data.activeKind === 'inspection_report'
                   ? {
                       ...reportFindings[idx],
                       adviceHint: hint,

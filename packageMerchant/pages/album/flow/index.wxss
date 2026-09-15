@@ -451,9 +451,10 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 40rpx;
-  height: 40rpx;
-  line-height: 40rpx;
+  z-index: 1;
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
   text-align: center;
   font-size: 28rpx;
   color: var(--color-text-inverse);
@@ -655,6 +656,25 @@
   background-color: var(--color-bg-muted);
   box-sizing: border-box;
   font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__textarea--field {
+  min-height: 72rpx;
+  margin-bottom: 0;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.merchant-flow-page__sheet-textarea {
+  width: 100%;
+  min-height: 64rpx;
+  padding: var(--space-sm);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+  font-size: var(--font-body-size);
+  line-height: var(--font-body-lh);
   color: var(--color-text-primary);
 }
 

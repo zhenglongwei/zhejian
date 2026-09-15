@@ -54,6 +54,7 @@
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
                   maxlength="300"
+                  auto-height="{{true}}"
                   placeholder="{{chiefComplaintPlaceholder}}"
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
@@ -256,7 +257,7 @@
                                 class="merchant-flow-page__work-thumb-remove"
                                 data-section-index="{{sectionIndex}}"
                                 data-finding-index="{{findingIndex}}"
-                                data-img-index="{{imgIndex}}"
+                                data-img-index="idx-{{imgIndex}}"
                                 catchtap="onRemoveWorkFindingImage"
                               >×</text>
                             </view>
@@ -285,10 +286,12 @@
                           </view>
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                            <textarea
+                              class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                               placeholder="{{finding.captionPlaceholder || workCaptionPlaceholder}}"
                               value="{{finding.caption}}"
+                              maxlength="500"
+                              auto-height="{{true}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
                               data-field="caption"
@@ -321,20 +324,6 @@
                               bindinput="onSectionFindingFieldInput"
                             />
                           </view>
-                          <view wx:if="{{finding.captionPlaceholder || finding.caption || finding.captionHint}}" class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{finding.captionPlaceholder || '本图说明'}}"
-                              value="{{finding.caption}}"
-                              data-section-index="{{sectionIndex}}"
-                              data-finding-index="{{findingIndex}}"
-                              data-field="caption"
-                              disabled="{{readOnly}}"
-                              bindinput="onSectionFindingFieldInput"
-                            />
-                          </view>
-                          <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
                             <view class="merchant-flow-page__result-seg">
@@ -352,10 +341,12 @@
                           </view>
                           <view wx:if="{{finding.result}}" class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
-                            <input
-                              class="merchant-flow-page__input merchant-flow-page__input--field"
+                            <textarea
+                              class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                               placeholder="{{finding.advicePlaceholder || (finding.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
                               value="{{finding.advice}}"
+                              maxlength="500"
+                              auto-height="{{true}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
                               data-field="advice"
@@ -394,20 +385,24 @@
 
               <view wx:if="{{isDeliveryPhotoStep}}" class="merchant-flow-page__doc-block merchant-flow-page__section">
                 <text class="text-body merchant-flow-page__label">质保期限（必填）</text>
-                <input
-                  class="merchant-flow-page__input"
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                   placeholder="例：1 年或 5000 公里，以先到为准"
                   value="{{warrantyPeriod}}"
+                  maxlength="120"
+                  auto-height="{{true}}"
                   data-field="warrantyPeriod"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
                 <template is="aiFieldHint" data="{{hint: warrantyHint}}" />
                 <text class="text-body merchant-flow-page__label">注意事项（选填）</text>
-                <input
-                  class="merchant-flow-page__input"
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                   placeholder="例：仅限本次已确认项目；外力撞击、涉水除外"
                   value="{{warrantyNotes}}"
+                  maxlength="300"
+                  auto-height="{{true}}"
                   data-field="warrantyNotes"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
@@ -455,10 +450,11 @@
                     <view class="merchant-flow-page__sheet-rail" />
                     <text class="text-body merchant-flow-page__sheet-title">进店主诉</text>
                   </view>
-                  <input
-                    class="merchant-flow-page__sheet-input"
+                  <textarea
+                    class="merchant-flow-page__sheet-textarea"
                     value="{{chiefComplaint}}"
                     maxlength="300"
+                    auto-height="{{true}}"
                     placeholder="{{chiefComplaintPlaceholder}}"
                     disabled="{{readOnly}}"
                     bindinput="onChiefComplaintInput"
@@ -504,11 +500,13 @@
                           bindtap="onSelectReportFindingResult"
                         >{{opt.shortLabel || opt.value}}</view>
                       </view>
-                      <input
+                      <textarea
                         wx:if="{{item.result}}"
-                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                        class="merchant-flow-page__sheet-textarea"
                         placeholder="{{item.advicePlaceholder || (item.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
                         value="{{item.advice}}"
+                        maxlength="500"
+                        auto-height="{{true}}"
                         data-index="{{index}}"
                         data-field="advice"
                         disabled="{{readOnly || !item.adviceRequired}}"
@@ -756,19 +754,23 @@
                 </view>
                 <text class="text-body merchant-flow-page__label">合计 ¥{{docPayload.totalAmount}}</text>
                 <text class="text-body merchant-flow-page__label">质保期限</text>
-                <input
-                  class="merchant-flow-page__input"
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                   placeholder="例：1 年或 5000 公里，以先到为准"
                   value="{{warrantyPeriod}}"
+                  maxlength="120"
+                  auto-height="{{true}}"
                   data-field="warrantyPeriod"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
                 />
                 <text class="text-body merchant-flow-page__label">注意事项</text>
-                <input
-                  class="merchant-flow-page__input"
+                <textarea
+                  class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
                   placeholder="例：仅限本次已确认项目；外力撞击、涉水除外"
                   value="{{warrantyNotes}}"
+                  maxlength="300"
+                  auto-height="{{true}}"
                   data-field="warrantyNotes"
                   disabled="{{readOnly}}"
                   bindinput="onWarrantyFieldInput"
@@ -824,6 +826,7 @@
         class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
         placeholder="例：沟通后暂不增加 / 误点入口"
         maxlength="200"
+        auto-height="{{true}}"
         value="{{cancelAddonReason}}"
         bindinput="onCancelAddonReasonInput"
       />

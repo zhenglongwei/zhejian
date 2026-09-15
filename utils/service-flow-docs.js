@@ -32,7 +32,7 @@ function mapPhotoRows(images = []) {
       if (!url) return null
       const caption = String((typeof img === 'object' && img.caption) || '').trim()
       return {
-        imageId: (typeof img === 'object' && img.id) || '',
+        imageId: (typeof img === 'object' && (img.id || img.imageId)) || '',
         url,
         caption,
         captionEmpty: !caption,
@@ -86,10 +86,12 @@ function normalizeWorkImage(raw = {}) {
 
 /** 施工项：部位 + 整项说明 + 多图（最多 6） */
 function normalizeWorkFinding(raw = {}) {
-  let images = Array.isArray(raw.images)
+  const hasImagesField = Array.isArray(raw.images)
+  let images = hasImagesField
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
     : []
-  if (!images.length) {
+  // 仅存量「一图一项」回落；显式 images: [] 表示已删光，不得用 url 填回
+  if (!hasImagesField && !images.length) {
     const one = normalizeWorkImage({
       url: raw.url,
       imageId: raw.imageId || raw.id,
@@ -126,7 +128,25 @@ function workFindingHasPhoto(raw = {}) {
 function mapWorkFindingRows(images = [], draftFindings = []) {
   const draftList = (draftFindings || []).map((row) => normalizeWorkFinding(row))
   if (draftList.some((row) => row.images.length || row.partName)) {
-    return draftList
+    const persisted = mapPhotoRows(images)
+    if (!persisted.length) return draftList
+    let cursor = 0
+    return draftList.map((item) => {
+      if (!item.images.length) return item
+      const nextImages = item.images.map((img) => {
+        const row = persisted[cursor]
+        cursor += 1
+        if (!row) return img
+        return {
+          url: row.url || img.url,
+          imageId: row.imageId || img.imageId || '',
+        }
+      })
+      return normalizeWorkFinding({
+        ...item,
+        images: nextImages,
+      })
+    })
   }
   const draftByKey = {}
   draftList.forEach((item, index) => {
