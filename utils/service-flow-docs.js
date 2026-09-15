@@ -201,7 +201,7 @@ function collectInspectionReportGaps(payload = {}) {
     if (!item.result || !isValidFindingResult(item.result)) {
       gaps.push(`「${label}」请选择检查结果`)
     } else if (findingAdviceRequired(item.result) && !item.advice) {
-      gaps.push(`「${label}」请填写处理建议`)
+      gaps.push(`「${label}」请填写检查发现`)
     }
   })
   return gaps
@@ -398,7 +398,7 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
 }
 
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
- * name = 部位；note = 处理建议（可长文）；检测结果不写进行名；品牌商家另填
+ * name = 部位；note 空（处理建议由商家另写，不复制检查发现）；检测结果不写进行名；品牌商家另填
  */
 function buildQuoteLinesFromFindings(findings = []) {
   return (findings || [])
@@ -411,7 +411,7 @@ function buildQuoteLinesFromFindings(findings = []) {
         name,
         brand: '',
         amount: '',
-        note: item.advice || '',
+        note: '',
         evidenceUrl: item.url || '',
       }
     })

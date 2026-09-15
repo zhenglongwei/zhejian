@@ -54,7 +54,7 @@
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
                   value="{{chiefComplaint}}"
                   maxlength="300"
-                  placeholder="例：电瓶亏电打不着"
+                  placeholder="{{chiefComplaintPlaceholder}}"
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
                 />
@@ -274,7 +274,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="例：左前制动片"
+                              placeholder="{{findingPartPlaceholder}}"
                               value="{{finding.partName}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -287,7 +287,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">说明</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{finding.captionPlaceholder || '选填，例：已按规定扭矩紧固并排气'}}"
+                              placeholder="{{finding.captionPlaceholder || workCaptionPlaceholder}}"
                               value="{{finding.caption}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -312,7 +312,7 @@
                             <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="例：左前制动片"
+                              placeholder="{{findingPartPlaceholder}}"
                               value="{{finding.partName}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -351,10 +351,10 @@
                             </view>
                           </view>
                           <view wx:if="{{finding.result}}" class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">处理建议</text>
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{finding.advicePlaceholder || (finding.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理')}}"
+                              placeholder="{{finding.advicePlaceholder || (finding.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
                               value="{{finding.advice}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -459,7 +459,7 @@
                     class="merchant-flow-page__sheet-input"
                     value="{{chiefComplaint}}"
                     maxlength="300"
-                    placeholder="例：电瓶亏电打不着"
+                    placeholder="{{chiefComplaintPlaceholder}}"
                     disabled="{{readOnly}}"
                     bindinput="onChiefComplaintInput"
                   />
@@ -486,7 +486,7 @@
                     <view class="merchant-flow-page__evidence-body">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                        placeholder="检查部位"
+                        placeholder="{{findingPartPlaceholder}}"
                         value="{{item.partName}}"
                         data-index="{{index}}"
                         data-field="partName"
@@ -507,7 +507,7 @@
                       <input
                         wx:if="{{item.result}}"
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                        placeholder="{{item.advicePlaceholder || (item.adviceRequired ? '例：更换电瓶 / 建议 1 年内更换' : '无需处理')}}"
+                        placeholder="{{item.advicePlaceholder || (item.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
                         value="{{item.advice}}"
                         data-index="{{index}}"
                         data-field="advice"
@@ -568,7 +568,7 @@
                     />
                     <textarea
                       class="merchant-flow-page__plan-note"
-                      placeholder="处理建议"
+                      placeholder="{{quoteNotePlaceholder}}"
                       value="{{item.note}}"
                       maxlength="500"
                       auto-height="{{true}}"
@@ -679,7 +679,7 @@
                     />
                     <textarea
                       class="merchant-flow-page__plan-note"
-                      placeholder="处理建议"
+                      placeholder="{{quoteNotePlaceholder}}"
                       value="{{item.note}}"
                       maxlength="500"
                       auto-height="{{true}}"

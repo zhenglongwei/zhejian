@@ -18,6 +18,7 @@ const TEMPLATE_TO_CATEGORY = {
   battery: 'battery',
   tire: 'tire',
   ac: 'ac',
+  paint: 'body_paint',
   body_paint: 'body_paint',
   accident: 'accident',
   chassis_noise: 'chassis_noise',
@@ -134,7 +135,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写成异响/抖动/行程变长/常规检查'),
-        textHint('findingAdvice', '片厚写前/后外侧约 ×mm；盘写剩余 ×mm；更换范围写清轴位'),
+        textHint('findingAdvice', '片厚写前/后外侧约 ×mm；盘写剩余 ×mm、盘面状态'),
       ],
       complaintExample: '刹车异响，到店检查片厚',
     },
@@ -173,7 +174,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写成启动困难/亏电/无法启动/启停异常'),
-        textHint('findingAdvice', '结论写建议更换或可充电观察，带上读数'),
+        textHint('findingAdvice', '写清看见什么：颜色、杂质、液位，不要只写「更换」'),
       ],
       complaintExample: '电瓶亏电打不着',
     },
@@ -210,7 +211,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写成磨损/鼓包/扎胎/偏磨/抖动'),
-        textHint('findingAdvice', '写清换几条、哪几个位置；偏磨则写定位做不做'),
+        textHint('findingAdvice', '写清花纹、鼓包或裂纹；哪几个位置、什么程度'),
       ],
       complaintExample: '右前胎鼓包，到店更换',
     },
@@ -245,7 +246,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '分清不制冷/异味/风量/换滤中的哪一种'),
-        textHint('findingAdvice', '处理路径写一句：换滤、清洗还是补冷媒'),
+        textHint('findingAdvice', '写清滤芯脏污、出风或异味，不要先写成必须洗箱'),
       ],
       complaintExample: '空调不制冷，到店检查',
     },
@@ -278,7 +279,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写清哪块板、什么伤'),
-        textHint('findingAdvice', '路径：局部补漆/整面喷/钣金+喷；过渡范围；禁止保证无色差'),
+        textHint('findingAdvice', '写清哪块板、伤到什么程度、漆膜读数；不要保证无色差'),
       ],
       complaintExample: '右前门划痕，到店钣喷',
     },
@@ -314,7 +315,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '写清碰撞方位与主要损伤'),
-        textHint('findingAdvice', '损伤清单名称级；范围写换哪些、修哪些，不要金额'),
+        textHint('findingAdvice', '损伤部位名称级清单；气囊灯等客观状态，不要金额'),
       ],
       complaintExample: '右前方碰撞，到店维修',
     },
@@ -350,7 +351,7 @@ const RUBRICS = {
       ],
       texts: [
         textHint('chiefComplaint', '必须带场景：过减速带/转弯/刹车/冷车'),
-        textHint('findingAdvice', '写清已排除什么、换哪件'),
+        textHint('findingAdvice', '写清何时响、查了哪些、胶套或球头看见什么'),
       ],
       complaintExample: '过减速带底盘异响，到店检查胶套',
     },

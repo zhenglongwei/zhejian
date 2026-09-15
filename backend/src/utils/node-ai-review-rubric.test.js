@@ -36,3 +36,10 @@ test('quote check has no required photos', () => {
   assert.equal(rubric.step, 'quote_check')
   assert.equal(rubric.photos.length, 0)
 })
+
+test('paint album template maps to body_paint rubric', () => {
+  assert.equal(resolveReviewCategory('paint', '钣喷修复'), 'body_paint')
+  const rubric = getReviewRubric('paint', 'intake_inspection')
+  assert.match(String(rubric.complaintExample), /划痕|钣喷|刮/)
+  assert.doesNotMatch(String(rubric.complaintExample), /亏电/)
+})

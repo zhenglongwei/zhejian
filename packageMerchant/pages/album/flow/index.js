@@ -44,6 +44,7 @@ const {
   isVagueWarrantyPeriod,
   parseMileageKm,
 } = require('../../../../utils/service-flow-docs')
+const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
 /** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
@@ -335,6 +336,11 @@ Page({
     notifyOwnerLabel: '通知车主',
     photoConfirmDisabled: false,
     notifyConfirmDisabled: false,
+    chiefComplaintPlaceholder: '例：到店检查异响',
+    findingPartPlaceholder: '例：检查部位',
+    findingAdvicePlaceholder: '例：该部位有可见磨损',
+    quoteNotePlaceholder: '例：按检测结果处理该部位',
+    workCaptionPlaceholder: '例：已按规范安装',
   },
 
   onLoad(options) {
@@ -621,7 +627,10 @@ Page({
         findingKind: 'work',
         pendingPhoto: !hasPhoto,
         captionPlaceholder:
-          extras.captionPlaceholder || '选填，例：已按规定扭矩紧固并排气',
+          extras.captionPlaceholder ||
+          (this._placeholders && this._placeholders.workCaption) ||
+          this.data.workCaptionPlaceholder ||
+          '选填，例：已按规定扭矩紧固并排气',
         listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
         expanded: Boolean(expanded),
         complete: hasPhoto && missing === 0,
@@ -764,6 +773,8 @@ Page({
         fetchMerchantAlbumFlow(this.albumId),
       ])
       this._album = album
+      const placeholders = getFlowPlaceholders(album.templateId, album.serviceName)
+      this._placeholders = placeholders
       const status = album.status || SERVICE_ALBUM_STATUS.DRAFT
       const readOnly = album.contentLocked || album.editable === false
       const flowNodes = flow.flowNodes || []
@@ -985,6 +996,11 @@ Page({
         isDeliveryPhotoStep,
         isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
+        chiefComplaintPlaceholder: placeholders.chiefComplaint,
+        findingPartPlaceholder: placeholders.findingPart,
+        findingAdvicePlaceholder: placeholders.findingAdvice,
+        quoteNotePlaceholder: placeholders.quoteNote,
+        workCaptionPlaceholder: placeholders.workCaption,
         photoConfirmDisabled: false,
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
@@ -2017,7 +2033,7 @@ Page({
         : field === 'chiefComplaint'
           ? '主诉'
           : field === 'findingAdvice'
-            ? '处理建议'
+            ? '检查发现'
             : field === 'findingCaption'
               ? '图注'
               : field === 'warrantyPeriod'

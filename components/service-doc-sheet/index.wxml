@@ -28,7 +28,7 @@
         <view class="service-doc-sheet__finding-body">
           <text class="text-body">{{finding.partName}}</text>
           <text class="text-caption text-secondary">{{finding.result}}</text>
-          <text wx:if="{{finding.advice}}" class="text-caption text-secondary">建议：{{finding.advice}}</text>
+          <text wx:if="{{finding.advice}}" class="text-caption text-secondary">{{finding.advice}}</text>
         </view>
       </view>
     </view>

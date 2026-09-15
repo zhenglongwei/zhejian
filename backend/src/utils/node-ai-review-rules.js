@@ -129,11 +129,11 @@ function buildRuleSuggestions(ctx = {}) {
         id: `text:findingAdvice:${idx}`,
         type: 'text',
         itemKey: '',
-        title: '补处理建议',
+        title: '补检查发现',
         how: '',
         field: 'findingAdvice',
         findingIndex: idx,
-        suggestedText: `${part}：建议更换，完成后复核`,
+        suggestedText: `${part}：写清看见什么，例如读数、磨损或损伤程度`,
       })
     }
   }
@@ -256,7 +256,7 @@ function parseModelSuggestions(raw, fallback = []) {
       : field === 'chiefComplaint'
         ? '改主诉'
         : field === 'findingAdvice'
-          ? '改处理建议'
+          ? '改检查发现'
           : field === 'findingCaption'
             ? '改图注'
             : field === 'warrantyPeriod'
