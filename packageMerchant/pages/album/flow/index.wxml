@@ -12,6 +12,56 @@
     >应用</text>
   </view>
 </template>
+<template name="quoteEvidencePicker">
+  <view class="merchant-flow-page__plan-evidence-block">
+    <block wx:if="{{!locked && item.evidencePool.length}}">
+      <view class="merchant-flow-page__plan-chips">
+        <view
+          wx:for="{{item.evidencePool}}"
+          wx:for-item="chip"
+          wx:key="url"
+          class="merchant-flow-page__plan-chip {{chip.selected ? 'merchant-flow-page__plan-chip--on' : ''}} {{chip.taken ? 'merchant-flow-page__plan-chip--taken' : ''}}"
+          data-index="{{index}}"
+          data-url="{{chip.url}}"
+          bindtap="onToggleQuoteEvidence"
+        >
+          <image
+            class="merchant-flow-page__plan-chip-img image-placeholder"
+            src="{{chip.url}}"
+            mode="aspectFill"
+          />
+          <text class="text-caption merchant-flow-page__plan-chip-name">{{chip.partName || '检测图'}}</text>
+        </view>
+      </view>
+    </block>
+    <block wx:elif="{{item.evidenceThumbs.length}}">
+      <view class="merchant-flow-page__plan-evidence">
+        <view
+          wx:for="{{item.evidenceThumbs}}"
+          wx:for-item="thumb"
+          wx:key="url"
+          class="merchant-flow-page__plan-evidence-thumb"
+          data-index="{{index}}"
+          data-url="{{thumb.url}}"
+          bindtap="onPreviewQuoteEvidence"
+        >
+          <image
+            class="merchant-flow-page__plan-evidence-img image-placeholder"
+            src="{{thumb.url}}"
+            mode="aspectFill"
+          />
+          <text
+            wx:if="{{!locked}}"
+            class="merchant-flow-page__plan-evidence-remove"
+            data-index="{{index}}"
+            data-url="{{thumb.url}}"
+            catchtap="onToggleQuoteEvidence"
+          >×</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-flow-page__pad">
@@ -277,10 +327,10 @@
                           </view>
                           <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                           <view class="merchant-flow-page__field">
-                            <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
+                            <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
                             <input
                               class="merchant-flow-page__input merchant-flow-page__input--field"
-                              placeholder="{{findingPartPlaceholder}}"
+                              placeholder="{{workJobPlaceholder || findingPartPlaceholder}}"
                               value="{{finding.partName}}"
                               data-section-index="{{sectionIndex}}"
                               data-finding-index="{{findingIndex}}"
@@ -345,7 +395,7 @@
                               >{{opt.value}}</view>
                             </view>
                           </view>
-                          <view wx:if="{{finding.result}}" class="merchant-flow-page__field">
+                          <view wx:if="{{finding.result && !finding.recordOnly}}" class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
                             <textarea
                               class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
@@ -507,7 +557,7 @@
                         >{{opt.shortLabel || opt.value}}</view>
                       </view>
                       <textarea
-                        wx:if="{{item.result}}"
+                        wx:if="{{item.result && !item.recordOnly}}"
                         class="merchant-flow-page__sheet-textarea"
                         placeholder="{{item.advicePlaceholder || (item.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
                         value="{{item.advice}}"
@@ -536,10 +586,11 @@
                       data-index="{{index}}"
                       catchtap="onRemoveQuoteLine"
                     >×</view>
+                    <template is="quoteEvidencePicker" data="{{item, index, locked: quoteEvidenceLocked}}" />
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="部位"
+                        placeholder="{{quoteJobPlaceholder}}"
                         value="{{item.name}}"
                         data-index="{{index}}"
                         data-field="name"
@@ -647,10 +698,16 @@
                         <text class="text-caption text-secondary">故障图</text>
                       </view>
                     </view>
+                    <view wx:else>
+                      <template
+                        is="quoteEvidencePicker"
+                        data="{{item, index, locked: quoteEvidenceLocked}}"
+                      />
+                    </view>
                     <view class="merchant-flow-page__plan-row-top">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="部位"
+                        placeholder="{{quoteJobPlaceholder}}"
                         value="{{item.name}}"
                         data-index="{{index}}"
                         data-field="name"

@@ -227,18 +227,18 @@ function collectInspectionReportGaps(payload = {}) {
   return gaps
 }
 
-/** 施工过程：每项至少 1 张图 + 部位；可选校验工单项目均已挂图 */
+/** 施工过程：每项至少 1 张图 + 项目名；可选校验工单项目均已挂图 */
 function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
   const gaps = []
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   const withPhoto = findings.filter((raw) => workFindingHasPhoto(raw))
   if (!withPhoto.length) {
-    gaps.push('请至少上传 1 张施工照片并填写部位')
+    gaps.push('请至少上传 1 张施工照片并填写项目')
   }
   withPhoto.forEach((raw, index) => {
     const item = normalizeWorkFinding(raw)
     const label = item.partName || `第 ${index + 1} 项`
-    if (!item.partName) gaps.push(`「${label}」请填写部位`)
+    if (!item.partName) gaps.push(`「${label}」请填写项目`)
   })
   const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
   orderItems.forEach((row) => {
@@ -361,14 +361,38 @@ function remapLegacyQuoteLineLayout(line = {}) {
   return line
 }
 
+function listQuoteLineEvidenceUrls(raw = {}) {
+  const fromList = Array.isArray(raw.evidenceUrls)
+    ? raw.evidenceUrls.map((u) => String(u || '').trim()).filter(Boolean)
+    : []
+  const one = String(raw.evidenceUrl || raw.url || '').trim()
+  const out = []
+  const seen = {}
+  fromList.concat(one ? [one] : []).forEach((url) => {
+    if (!url || seen[url]) return
+    seen[url] = true
+    out.push(url)
+  })
+  return out
+}
+
+function isQuoteEvidenceFinding(raw = {}) {
+  const item = normalizeFinding(raw)
+  if (!item.url) return false
+  if (item.result === FINDING_RESULT.RECORD || item.result === FINDING_RESULT.OK) return false
+  return findingAdviceRequired(item.result)
+}
+
 function normalizeQuoteLine(raw = {}) {
   const amount = parseAmount(raw.amount != null ? raw.amount : raw.priceHint)
+  const evidenceUrls = listQuoteLineEvidenceUrls(raw)
   return remapLegacyQuoteLineLayout({
     name: String(raw.name || '').trim(),
     brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
     note: String(raw.note || '').trim(),
-    evidenceUrl: String(raw.evidenceUrl || raw.url || '').trim(),
+    evidenceUrl: evidenceUrls[0] || '',
+    evidenceUrls,
   })
 }
 
@@ -386,8 +410,8 @@ function collectQuoteConfirmGaps(payload = {}, options = {}) {
     if (line.amount === '' || line.amount == null || Number(line.amount) < 0) {
       gaps.push(`「${label}」请填写金额`)
     }
-    if (requireEvidence && !String(line.evidenceUrl || '').trim()) {
-      gaps.push(`「${label}」请上传故障证据图`)
+    if (requireEvidence && !listQuoteLineEvidenceUrls(line).length) {
+      gaps.push(`「${label}」请挂检测图或上传故障图`)
     }
   })
   return gaps
@@ -420,22 +444,9 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
  * name = 部位；note 空（处理建议由商家另写，不复制检查发现）；检测结果不写进行名；品牌商家另填
  */
-function buildQuoteLinesFromFindings(findings = []) {
-  return (findings || [])
-    .map((raw) => {
-      const item = normalizeFinding(raw)
-      if (!findingAdviceRequired(item.result)) return null
-      if (!item.advice || item.advice === FINDING_ADVICE_NONE) return null
-      const name = item.partName || item.result || ''
-      return {
-        name,
-        brand: '',
-        amount: '',
-        note: '',
-        evidenceUrl: item.url || '',
-      }
-    })
-    .filter(Boolean)
+function buildQuoteLinesFromFindings() {
+  // 检测图不再一对一预填方案行；方案按「要做的事」手填并挂证据
+  return []
 }
 
 function buildRepairReportPayload({
@@ -585,6 +596,8 @@ module.exports = {
   buildWorkOrderPayloadFromQuote,
   buildRepairReportPayload,
   normalizeQuoteLine,
+  listQuoteLineEvidenceUrls,
+  isQuoteEvidenceFinding,
   sumQuoteAmounts,
   parseMileageKm,
   formatMileageText,

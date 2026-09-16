@@ -45,8 +45,24 @@
       <view wx:for="{{doc.lines}}" wx:for-item="line" wx:key="name" class="service-doc-sheet__table-row">
         <view class="service-doc-sheet__table-main">
           <view class="service-doc-sheet__table-main-left">
+            <view
+              wx:if="{{line.evidenceUrls && line.evidenceUrls.length}}"
+              class="service-doc-sheet__line-thumbs"
+            >
+              <image
+                wx:for="{{line.evidenceUrls}}"
+                wx:for-item="evUrl"
+                wx:key="*this"
+                class="service-doc-sheet__line-thumb image-placeholder"
+                src="{{evUrl}}"
+                mode="aspectFill"
+                data-url="{{evUrl}}"
+                data-urls="{{line.evidenceUrls}}"
+                bindtap="onPreviewImage"
+              />
+            </view>
             <image
-              wx:if="{{line.evidenceUrl}}"
+              wx:elif="{{line.evidenceUrl}}"
               class="service-doc-sheet__line-thumb image-placeholder"
               src="{{line.evidenceUrl}}"
               mode="aspectFill"

@@ -39,7 +39,8 @@ const {
   normalizeQuoteLine,
   mapFindingRows,
   sumQuoteAmounts,
-  buildQuoteLinesFromFindings,
+  listQuoteLineEvidenceUrls,
+  isQuoteEvidenceFinding,
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
   parseMileageKm,
@@ -296,6 +297,7 @@ Page({
     findingResultOptions: FINDING_RESULT_OPTIONS,
     docPayload: {},
     quoteLines: [],
+    quoteEvidenceFindings: [],
     quoteTotalLabel: '合计 ¥0.00',
     quoteNodeId: '',
     docStatus: '',
@@ -303,6 +305,7 @@ Page({
     quotePendingOwner: false,
     confirmAwaitingOwner: false,
     isAddonQuote: false,
+    quoteEvidenceLocked: false,
     showCancelAddonModal: false,
     cancelAddonReason: '',
     conclusion: '',
@@ -339,7 +342,9 @@ Page({
     chiefComplaintPlaceholder: '例：到店检查异响',
     findingPartPlaceholder: '例：检查部位',
     findingAdvicePlaceholder: '例：该部位有可见磨损',
-    quoteNotePlaceholder: '例：按检测结果处理该部位',
+    quoteJobPlaceholder: '例：全车补漆',
+    quoteNotePlaceholder: '例：按规范处理已确认项目',
+    workJobPlaceholder: '例：全车补漆',
     workCaptionPlaceholder: '例：已按规范安装',
   },
 
@@ -611,6 +616,60 @@ Page({
     })
   },
 
+  decorateQuoteLines(lines = [], evidenceFindings = []) {
+    const pool = (evidenceFindings || []).filter((row) => isQuoteEvidenceFinding(row))
+    const taken = {}
+    ;(lines || []).forEach((line, index) => {
+      listQuoteLineEvidenceUrls(line).forEach((url) => {
+        taken[url] = index
+      })
+    })
+    return (lines || []).map((line, index) => {
+      const normalized = normalizeQuoteLine(line)
+      const urls = listQuoteLineEvidenceUrls(normalized)
+      return {
+        ...line,
+        ...normalized,
+        evidenceThumbs: urls.map((url) => {
+          const hit = pool.find((row) => row.url === url)
+          return { url, partName: (hit && hit.partName) || '' }
+        }),
+        evidencePool: pool.map((row) => ({
+          url: row.url,
+          partName: row.partName || '',
+          selected: taken[row.url] === index,
+          taken: taken[row.url] !== undefined && taken[row.url] !== index,
+        })),
+      }
+    })
+  },
+
+  quoteEvidenceSource() {
+    if (this.data.isAddonQuote) return []
+    return this.data.quoteEvidenceFindings || this.data.findings || []
+  },
+
+  setQuoteLines(lines) {
+    const quoteLines = this.decorateQuoteLines(lines, this.quoteEvidenceSource())
+    this.setData({
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+    })
+  },
+
+  syncQuoteEvidenceFromFindings() {
+    if (this.data.isAddonQuote || this.data.activeKind !== 'inspection_report') return
+    const quoteEvidenceFindings = (this.data.findings || []).filter((row) =>
+      isQuoteEvidenceFinding(row),
+    )
+    const quoteLines = this.decorateQuoteLines(this.data.quoteLines, quoteEvidenceFindings)
+    this.setData({
+      quoteEvidenceFindings,
+      quoteLines,
+      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
+    })
+  },
+
   collectFindingsFromSections(sections = this.data.sections) {
     const findingSection = (sections || []).find((s) => s.findingMode)
     if (!findingSection) return []
@@ -680,7 +739,7 @@ Page({
           ? '待拍照'
           : missing === 0
             ? row.caption || `${row.images.length} 张`
-            : '缺部位',
+            : '缺项目',
         adviceRequired: false,
         resultTone: '',
         resultToneClass: '',
@@ -708,6 +767,7 @@ Page({
       ...extras,
       findingKind: 'inspection',
       pendingPhoto: !hasPhoto,
+      recordOnly: row.result === FINDING_RESULT.RECORD,
       listKey: listKey || row.imageId || row.url || `pending-${row.partName || extras.aiSuggestionId || ''}`,
       expanded: Boolean(expanded),
       complete: missing === 0 && hasPhoto,
@@ -924,6 +984,7 @@ Page({
                       : ''
               return {
                 ...row,
+                recordOnly: row.result === FINDING_RESULT.RECORD,
                 resultTone,
                 resultToneClass: resultTone
                   ? `merchant-flow-page__result-tone-${resultTone}`
@@ -963,9 +1024,9 @@ Page({
           const hasNamed = fromQuote.some((row) => String(row.name || '').trim())
           quoteLines = hasNamed
             ? fromQuote
-            : buildQuoteLinesFromFindings(findings).map((line) => normalizeQuoteLine(line))
+            : [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           if (!quoteLines.length) {
-            quoteLines = [{ name: '', amount: '', note: '' }]
+            quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
           }
           confirmCopy =
             quotePayload.confirmCopy ||
@@ -989,6 +1050,22 @@ Page({
       const isAddonQuote = Boolean(
         active && active.kind === 'quote_confirm' && active.insertedReason === 'addon',
       )
+      let quoteEvidenceFindings = []
+      if (!isAddonQuote) {
+        if (active && active.kind === 'inspection_report') {
+          quoteEvidenceFindings = (findings || []).filter((row) => isQuoteEvidenceFinding(row))
+        } else if (active && active.kind === 'quote_confirm') {
+          const report = flowNodes.find((n) => n && n.kind === 'inspection_report')
+          const reportFindings =
+            (report &&
+              report.document &&
+              report.document.payload &&
+              report.document.payload.findings) ||
+            []
+          quoteEvidenceFindings = reportFindings.filter((row) => isQuoteEvidenceFinding(row))
+        }
+      }
+      quoteLines = this.decorateQuoteLines(quoteLines, quoteEvidenceFindings)
       const rawSummary = showCombinedPlan
         ? ''
         : (active && (active.photoTips || active.summary)) || ''
@@ -1040,7 +1117,9 @@ Page({
         chiefComplaintPlaceholder: placeholders.chiefComplaint,
         findingPartPlaceholder: placeholders.findingPart,
         findingAdvicePlaceholder: placeholders.findingAdvice,
+        quoteJobPlaceholder: placeholders.quoteJob,
         quoteNotePlaceholder: placeholders.quoteNote,
+        workJobPlaceholder: placeholders.quoteJob,
         workCaptionPlaceholder: placeholders.workCaption,
         photoConfirmDisabled: false,
         notifyOwnerLabel: '通知车主',
@@ -1059,6 +1138,7 @@ Page({
         vehicleSeries,
         vehicleYear,
         quoteLines,
+        quoteEvidenceFindings,
         quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
         quoteNodeId: this._quoteNodeId || '',
         docStatus,
@@ -1066,6 +1146,7 @@ Page({
         quotePendingOwner,
         confirmAwaitingOwner,
         isAddonQuote,
+        quoteEvidenceLocked: Boolean(readOnly || confirmAwaitingOwner),
         conclusion,
         confirmCopy,
         warrantyPeriod,
@@ -1818,7 +1899,7 @@ Page({
       if (field === 'partName') next.caption = e.detail.value
       return next
     })
-    this.setData({ findings })
+    this.setData({ findings }, () => this.syncQuoteEvidenceFromFindings())
   },
 
   onSelectReportFindingResult(e) {
@@ -1840,6 +1921,7 @@ Page({
         selected: next.result === opt.value,
       }))
       next.adviceRequired = findingAdviceRequired(next.result)
+      next.recordOnly = next.result === FINDING_RESULT.RECORD
       next.resultTone =
         next.result === FINDING_RESULT.OK
           ? 'ok'
@@ -1856,7 +1938,7 @@ Page({
         : ''
       return next
     })
-    this.setData({ findings })
+    this.setData({ findings }, () => this.syncQuoteEvidenceFromFindings())
   },
 
   onConclusionInput(e) {
@@ -1897,20 +1979,15 @@ Page({
     const quoteLines = this.data.quoteLines.map((line, i) =>
       i === index ? { ...line, [field]: e.detail.value } : line,
     )
-    this.setData({
-      quoteLines,
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
-    })
+    this.setQuoteLines(quoteLines)
   },
 
   onAddQuoteLine() {
-    const quoteLines = this.data.quoteLines.concat([
-      { name: '', brand: '', amount: '', note: '', evidenceUrl: '' },
-    ])
-    this.setData({
-      quoteLines,
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
-    })
+    this.setQuoteLines(
+      this.data.quoteLines.concat([
+        { name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] },
+      ]),
+    )
   },
 
   onRemoveQuoteLine(e) {
@@ -1920,12 +1997,35 @@ Page({
     const prev = this.data.quoteLines || []
     let quoteLines = prev.filter((_, i) => i !== index)
     if (!quoteLines.length) {
-      quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '' }]
+      quoteLines = [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '', evidenceUrls: [] }]
     }
-    this.setData({
-      quoteLines,
-      quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
-    })
+    this.setQuoteLines(quoteLines)
+  },
+
+  onToggleQuoteEvidence(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const index = Number(e.currentTarget.dataset.index)
+    const url = String(e.currentTarget.dataset.url || '').trim()
+    if (!Number.isFinite(index) || !url) return
+    const line = (this.data.quoteLines || [])[index]
+    if (!line) return
+    if (line.evidencePool) {
+      const chip = (line.evidencePool || []).find((row) => row.url === url)
+      if (chip && chip.taken) {
+        wx.showToast({ title: '已挂到其他项目', icon: 'none' })
+        return
+      }
+    }
+    const current = listQuoteLineEvidenceUrls(line)
+    const nextUrls = current.includes(url)
+      ? current.filter((item) => item !== url)
+      : current.concat([url])
+    const quoteLines = this.data.quoteLines.map((row, i) =>
+      i === index
+        ? { ...row, evidenceUrls: nextUrls, evidenceUrl: nextUrls[0] || '' }
+        : row,
+    )
+    this.setQuoteLines(quoteLines)
   },
 
   onAddQuoteEvidence(e) {
@@ -1945,9 +2045,11 @@ Page({
           const url = uploaded && (uploaded.url || uploaded)
           if (!url) throw new Error('上传失败')
           const quoteLines = this.data.quoteLines.map((line, i) =>
-            i === index ? { ...line, evidenceUrl: url } : line,
+            i === index
+              ? { ...line, evidenceUrl: url, evidenceUrls: [url] }
+              : line,
           )
-          this.setData({ quoteLines })
+          this.setQuoteLines(quoteLines)
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
         } finally {
@@ -1962,19 +2064,20 @@ Page({
     const index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) return
     const quoteLines = this.data.quoteLines.map((line, i) =>
-      i === index ? { ...line, evidenceUrl: '' } : line,
+      i === index ? { ...line, evidenceUrl: '', evidenceUrls: [] } : line,
     )
-    this.setData({ quoteLines })
+    this.setQuoteLines(quoteLines)
   },
 
   onPreviewQuoteEvidence(e) {
     const index = Number(e.currentTarget.dataset.index)
     const line = this.data.quoteLines[index]
-    const url = line && line.evidenceUrl
-    if (!url) return
+    const urls = listQuoteLineEvidenceUrls(line)
+    if (!urls.length) return
+    const current = String(e.currentTarget.dataset.url || '').trim() || urls[0]
     wx.previewImage({
-      current: url,
-      urls: this.data.quoteLines.map((row) => row.evidenceUrl).filter(Boolean),
+      current,
+      urls,
     })
   },
 
@@ -2352,7 +2455,7 @@ Page({
 
     return {
       sections,
-      quoteLines,
+      quoteLines: this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource()),
       quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
       chiefComplaintHint,
       warrantyHint,
@@ -2574,7 +2677,7 @@ Page({
           ? { ...row, name: item.suggestedText, nameHint: row.nameHint ? { ...row.nameHint, applied: true } : null }
           : row,
       )
-      patch.quoteLines = quoteLines
+      patch.quoteLines = this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource())
       patch.quoteTotalLabel = `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`
     }
     const suggestions = (review.suggestions || []).map((row) =>

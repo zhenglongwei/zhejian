@@ -12,17 +12,19 @@ const NODE_CATEGORY = {
 const INSPECTION_DISCLAIMER =
   '本次说明仅针对已拍摄部位；未拍照部位不构成全车体检结论。'
 
-/** 发现项检查结果三档（点选，非自由文本） */
+/** 发现项检查结果（点选，非自由文本） */
 const FINDING_RESULT = {
   OK: '状态良好',
   WATCH: '需关注',
   ACTION: '需处理',
+  RECORD: '仅记录',
 }
 
 const FINDING_RESULT_OPTIONS = [
   { value: FINDING_RESULT.OK, shortLabel: '良好' },
   { value: FINDING_RESULT.WATCH, shortLabel: '关注' },
   { value: FINDING_RESULT.ACTION, shortLabel: '待处理' },
+  { value: FINDING_RESULT.RECORD, shortLabel: '记录' },
 ]
 
 const FINDING_ADVICE_NONE = '无需处理'
@@ -39,6 +41,12 @@ function isValidFindingResult(value) {
 
 function findingAdviceRequired(result) {
   return result === FINDING_RESULT.WATCH || result === FINDING_RESULT.ACTION
+}
+
+/** 车主面结果文案：仅记录不展示商家作业词 */
+function ownerFindingResultLabel(result) {
+  if (result === FINDING_RESULT.RECORD) return '已留证'
+  return String(result || '')
 }
 
 /** 标准链（7 步 · 质保并入完工确认） */
@@ -205,6 +213,7 @@ module.exports = {
   REPAIR_CONFIRM_COPY,
   isValidFindingResult,
   findingAdviceRequired,
+  ownerFindingResultLabel,
   STANDARD_FLOW_CHAIN,
   FLOW_KIND_META,
   PHOTO_KIND_TO_LEGACY_STAGE,

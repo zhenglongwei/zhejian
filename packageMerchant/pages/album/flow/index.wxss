@@ -203,8 +203,55 @@
 .merchant-flow-page__plan-evidence {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-xs);
   margin-bottom: var(--space-xs);
+}
+
+.merchant-flow-page__plan-evidence-block {
+  margin-bottom: var(--space-xs);
+}
+
+.merchant-flow-page__plan-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.merchant-flow-page__plan-chip {
+  width: 128rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.merchant-flow-page__plan-chip-img {
+  width: 128rpx;
+  height: 128rpx;
+  display: block;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  border: 2rpx solid transparent;
+}
+
+.merchant-flow-page__plan-chip--on .merchant-flow-page__plan-chip-img {
+  border-color: var(--color-primary);
+}
+
+.merchant-flow-page__plan-chip--taken {
+  opacity: 0.4;
+}
+
+.merchant-flow-page__plan-chip-name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--color-text-secondary);
 }
 
 .merchant-flow-page__plan-evidence-thumb {

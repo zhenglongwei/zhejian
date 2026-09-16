@@ -14,6 +14,7 @@ const {
   emptyDocument,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
+  ownerFindingResultLabel,
 } = require('../../vendor/shared/constants/service-flow-nodes')
 
 const {
@@ -27,6 +28,7 @@ const {
   normalizePhotoDraft,
   mergePhotoDraft,
   normalizeQuoteLine,
+  listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   parseMileageKm,
 } = resolveShared('utils/service-flow-docs.js')
@@ -1320,7 +1322,10 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
   const kind = node.kind
   const lines = (Array.isArray(payload.lines) ? payload.lines : []).map(mapOwnerFriendlyLine)
   const items = (Array.isArray(payload.items) ? payload.items : []).map(mapOwnerFriendlyLine)
-  const findings = Array.isArray(payload.findings) ? payload.findings : []
+  const findings = (Array.isArray(payload.findings) ? payload.findings : []).map((row) => ({
+    ...(row || {}),
+    result: ownerFindingResultLabel((row && row.result) || ''),
+  }))
   const workItemsRaw = Array.isArray(payload.workItems) ? payload.workItems : items
   const workItems = workItemsRaw.map(mapOwnerFriendlyLine)
   const amountSource = lines.length ? lines : items.length ? items : workItems
@@ -1427,10 +1432,14 @@ function buildHostContentReviewDocs(album, albumNodes = [], options = {}) {
     const lines = Array.isArray(doc.lines)
       ? doc.lines.map((row) => {
           if (!row || typeof row !== 'object') return row
-          const evidenceUrl = remapUrl(row.evidenceUrl)
-          return evidenceUrl && evidenceUrl !== row.evidenceUrl
-            ? { ...row, evidenceUrl }
-            : row
+          const evidenceUrls = listQuoteLineEvidenceUrls(row)
+            .map((url) => remapUrl(url))
+            .filter(Boolean)
+          return {
+            ...row,
+            evidenceUrl: evidenceUrls[0] || '',
+            evidenceUrls,
+          }
         })
       : doc.lines
     const deliveryPhotos = Array.isArray(doc.deliveryPhotos)

@@ -105,6 +105,14 @@
   min-width: 0;
 }
 
+.service-doc-sheet__line-thumbs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
 .service-doc-sheet__line-thumb {
   width: 72rpx;
   height: 72rpx;
