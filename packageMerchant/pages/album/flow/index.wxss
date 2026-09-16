@@ -1035,10 +1035,37 @@
 }
 
 .merchant-flow-page__ai-status {
-  display: block;
-  text-align: center;
-  color: var(--color-warning);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
   margin-bottom: var(--space-xs);
+}
+
+.merchant-flow-page__ai-status-spin {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: var(--radius-full);
+  border: 4rpx solid var(--color-warning-light);
+  border-top-color: var(--color-warning);
+  box-sizing: border-box;
+  animation: merchant-flow-spin 0.8s linear infinite;
+}
+
+.merchant-flow-page__ai-status-text {
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  color: var(--color-warning);
+}
+
+@keyframes merchant-flow-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .merchant-flow-page__orphan-hint {

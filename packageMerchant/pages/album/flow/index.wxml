@@ -552,19 +552,22 @@
                 wx:if="{{!readOnly && isWorkPhotoStep}}"
                 class="text-caption text-secondary merchant-flow-page__finding-tips"
               >先征得车主同意再做</text>
-              <text
+              <view
                 wx:if="{{aiReview.isWaiting}}"
-                class="text-caption merchant-flow-page__ai-status"
-              >{{aiReview.waitHint}}</text>
+                class="merchant-flow-page__ai-status"
+              >
+                <view class="merchant-flow-page__ai-status-spin"></view>
+                <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+              </view>
               <view wx:for="{{orphanPhotoHints}}" wx:key="id" class="merchant-flow-page__orphan-hint">
                 <template is="aiFieldHint" data="{{hint: item}}" />
               </view>
               <ui-button
-                wx:if="{{!readOnly}}"
+                wx:if="{{!readOnly && !photoConfirmDisabled}}"
                 type="primary"
                 block="{{true}}"
-                loading="{{confirming || photoConfirmDisabled}}"
-                disabled="{{confirming || photoConfirmDisabled}}"
+                loading="{{confirming}}"
+                disabled="{{confirming}}"
                 bind:btntap="onConfirmPhotoStep"
               >{{photoConfirmLabel}}</ui-button>
             </block>
@@ -722,11 +725,21 @@
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
                 <ui-button type="ghost" block="{{true}}" loading="{{saving}}" bind:btntap="onSaveDocDraft">保存草稿</ui-button>
-                <text
+                <view
                   wx:if="{{aiReview.isWaiting}}"
-                  class="text-caption merchant-flow-page__ai-status"
-                >{{aiReview.waitHint}}</text>
-                <ui-button type="primary" block="{{true}}" loading="{{confirming || notifyConfirmDisabled}}" disabled="{{confirming || notifyConfirmDisabled}}" bind:btntap="onNotifyOwnerPlan">{{notifyOwnerLabel}}</ui-button>
+                  class="merchant-flow-page__ai-status"
+                >
+                  <view class="merchant-flow-page__ai-status-spin"></view>
+                  <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+                </view>
+                <ui-button
+                  wx:if="{{!notifyConfirmDisabled}}"
+                  type="primary"
+                  block="{{true}}"
+                  loading="{{confirming}}"
+                  disabled="{{confirming}}"
+                  bind:btntap="onNotifyOwnerPlan"
+                >{{notifyOwnerLabel}}</ui-button>
               </view>
             </block>
 

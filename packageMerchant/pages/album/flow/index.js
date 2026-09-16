@@ -2609,10 +2609,10 @@ Page({
       aiReviewBusy: false,
     }
     if (this._aiReviewAction === 'deliver') {
-      patch.notifyOwnerLabel = waiting && !timedOut ? '正在检查' : '通知车主'
+      patch.notifyOwnerLabel = '通知车主'
       patch.notifyConfirmDisabled = waiting && !timedOut
     } else {
-      patch.photoConfirmLabel = waiting && !timedOut ? '正在检查' : canProceed ? '进入下一步' : '确认并继续'
+      patch.photoConfirmLabel = canProceed ? '进入下一步' : '确认并继续'
       patch.photoConfirmDisabled = waiting && !timedOut
     }
     if (waiting || decorated.isFailed || !decorated.hasSuggestions) {
