@@ -404,6 +404,18 @@
   white-space: nowrap;
 }
 
+.merchant-flow-page__finding-hints {
+  padding: 0 var(--space-md) var(--space-sm);
+}
+
+.merchant-flow-page__finding-hints .merchant-flow-page__ai-hint {
+  margin-top: var(--space-xs);
+}
+
+.merchant-flow-page__finding-hints .merchant-flow-page__ai-hint:first-child {
+  margin-top: 0;
+}
+
 .merchant-flow-page__finding-gap {
   color: var(--color-danger);
 }

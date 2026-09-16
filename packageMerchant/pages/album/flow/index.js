@@ -652,6 +652,11 @@ Page({
       photoHint: item.photoHint || null,
       adviceHint: item.adviceHint || null,
       captionHint: item.captionHint || null,
+      hasCollapsedHints: Boolean(
+        (item.photoHint && !item.photoHint.applied) ||
+          (item.captionHint && !item.captionHint.applied) ||
+          (item.adviceHint && !item.adviceHint.applied),
+      ),
     }
     if (findingKind === 'work') {
       const row = normalizeWorkFinding(item)
@@ -2229,7 +2234,6 @@ Page({
     }))
     let expandKey = this.data.expandedFindingKey
     const photoUsed = new Set()
-    let pinnedExpand = false
 
     suggestions.forEach((item) => {
       if (!item || item.applied) return
@@ -2272,10 +2276,6 @@ Page({
                 }
               })
               sections[si] = { ...sections[si], findings }
-              if (!pinnedExpand) {
-                expandKey = `${si}:${fi}`
-                pinnedExpand = true
-              }
             }
           }
           if (!this.data.activeIsPhoto) {
@@ -2322,10 +2322,6 @@ Page({
           }
         })
         sections[si] = { ...sections[si], findings }
-        if (!pinnedExpand) {
-          expandKey = `${si}:${fi}`
-          pinnedExpand = true
-        }
         return
       }
       const pending =
@@ -2352,10 +2348,6 @@ Page({
       const findings = (sections[si].findings || []).concat([pending])
       photoUsed.add(findings.length - 1)
       sections[si] = { ...sections[si], findings }
-      if (!pinnedExpand) {
-        expandKey = `${si}:${findings.length - 1}`
-        pinnedExpand = true
-      }
     })
 
     return {

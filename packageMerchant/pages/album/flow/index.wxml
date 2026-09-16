@@ -236,7 +236,11 @@
                           catchtap="onRemoveFinding"
                         >×</text>
                       </view>
-                      <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
+                      <view wx:if="{{!finding.expanded && finding.hasCollapsedHints}}" class="merchant-flow-page__finding-hints">
+                        <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
+                        <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
+                        <template is="aiFieldHint" data="{{hint: finding.adviceHint}}" />
+                      </view>
                       <view wx:if="{{finding.expanded}}" class="merchant-flow-page__finding-editor">
                         <block wx:if="{{section.findingKind === 'work'}}">
                           <view class="merchant-flow-page__work-thumbs">
@@ -271,6 +275,7 @@
                               <text class="text-caption text-secondary">+</text>
                             </view>
                           </view>
+                          <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
                             <input
@@ -311,6 +316,7 @@
                           >
                             <text class="text-body">上传照片</text>
                           </view>
+                          <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
                           <view class="merchant-flow-page__field">
                             <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
                             <input
