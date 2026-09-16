@@ -334,6 +334,7 @@ Page({
     hosted: false,
     hostVisibility: 'private',
     workImagePool: [],
+    deliveryExtraCount: 0,
     deliveryExteriorUrl: '',
     deliveryPickMode: '',
     aiReview: null,
@@ -938,6 +939,7 @@ Page({
       let workImagePool = []
       let deliveryExteriorUrl = ''
       let deliveryPickMode = ''
+      let deliveryExtraCount = 0
 
       if (activeIsPhoto && active) {
         sections = this.buildSections(album, active, photoDraft, flowNodes)
@@ -964,11 +966,15 @@ Page({
           ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
             if (url && url !== deliveryExteriorUrl) selectedSet[url] = true
           })
-          workImagePool = this.collectAllWorkImages(album, flowNodes).map((row) => ({
-            ...row,
-            selected: Boolean(selectedSet[row.url]),
-            isExterior: row.url === deliveryExteriorUrl,
-          }))
+          const packed = this.packDeliveryPool(
+            this.collectAllWorkImages(album, flowNodes).map((row) => ({
+              ...row,
+              selected: Boolean(selectedSet[row.url]),
+            })),
+            deliveryExteriorUrl,
+          )
+          workImagePool = packed.workImagePool
+          deliveryExtraCount = packed.deliveryExtraCount
           // 兼容旧草稿：仅有 selectedDeliveryUrls 无外观时，不自动猜外观
         }
         const keepKey = this.data.expandedFindingKey
@@ -1193,6 +1199,7 @@ Page({
         hosted: Boolean((album.hostMeta && album.hostMeta.hosted) || false),
         hostVisibility: (album.hostMeta && album.hostMeta.visibility) || 'private',
         workImagePool,
+        deliveryExtraCount,
         deliveryExteriorUrl,
         deliveryPickMode,
       })
@@ -1538,23 +1545,35 @@ Page({
     this.scheduleAutoSavePhotos()
   },
 
+  packDeliveryPool(pool = [], exteriorUrl = '') {
+    const exterior = String(exteriorUrl || '').trim()
+    const workImagePool = (pool || []).map((row) => ({
+      ...row,
+      isExterior: row.url === exterior,
+    }))
+    return {
+      workImagePool,
+      deliveryExtraCount: workImagePool.filter((row) => row.url && row.url !== exterior).length,
+    }
+  },
+
   onToggleDeliveryWorkImage(e) {
     if (this.data.readOnly) return
     const url = String(e.currentTarget.dataset.url || '')
     if (!url) return
     if (this.data.deliveryPickMode === 'exterior') {
-      const workImagePool = (this.data.workImagePool || []).map((row) => ({
+      const mapped = (this.data.workImagePool || []).map((row) => ({
         ...row,
-        isExterior: row.url === url,
         selected: row.url === url ? false : row.selected,
       }))
+      const packed = this.packDeliveryPool(mapped, url)
       const sections = (this.data.sections || []).map((section) =>
         section.stageId === 'stage_6' ? { ...section, images: [] } : section,
       )
       this.setData({
+        ...packed,
         deliveryExteriorUrl: url,
         deliveryPickMode: '',
-        workImagePool,
         sections,
         autoSaveLabel: '保存中…',
       })
@@ -1562,7 +1581,7 @@ Page({
       return
     }
     if (url === this.data.deliveryExteriorUrl) {
-      wx.showToast({ title: '已用作整车外观', icon: 'none' })
+      wx.showToast({ title: '已用作全车照片', icon: 'none' })
       return
     }
     const workImagePool = (this.data.workImagePool || []).map((row) =>
@@ -1575,26 +1594,22 @@ Page({
   onStartPickExterior() {
     if (this.data.readOnly) return
     if (!(this.data.workImagePool || []).length) {
-      wx.showToast({ title: '暂无施工图，请补拍外观', icon: 'none' })
+      wx.showToast({ title: '暂无施工图，请补拍', icon: 'none' })
       return
     }
     this.setData({ deliveryPickMode: 'exterior' })
-    wx.showToast({ title: '请点选一张整车外观', icon: 'none' })
   },
 
   onClearExterior() {
     if (this.data.readOnly) return
-    const workImagePool = (this.data.workImagePool || []).map((row) => ({
-      ...row,
-      isExterior: false,
-    }))
+    const packed = this.packDeliveryPool(this.data.workImagePool || [], '')
     const sections = (this.data.sections || []).map((section) =>
       section.stageId === 'stage_6' ? { ...section, images: [] } : section,
     )
     this.setData({
+      ...packed,
       deliveryExteriorUrl: '',
       deliveryPickMode: '',
-      workImagePool,
       sections,
       autoSaveLabel: '保存中…',
     })
@@ -1615,22 +1630,24 @@ Page({
           const uploaded = await uploadImage(file.tempFilePath)
           const url = uploaded && (uploaded.url || uploaded)
           if (!url) throw new Error('上传失败')
-          const workImagePool = (this.data.workImagePool || []).map((row) => ({
-            ...row,
-            isExterior: false,
-            selected: row.url === url ? false : row.selected,
-          }))
+          const packed = this.packDeliveryPool(
+            (this.data.workImagePool || []).map((row) => ({
+              ...row,
+              selected: row.url === url ? false : row.selected,
+            })),
+            url,
+          )
           const sections = (this.data.sections || []).map((section) => {
             if (section.stageId !== 'stage_6') return section
             return {
               ...section,
-              images: [{ url, caption: '整车外观' }],
+              images: [{ url, caption: '全车照片' }],
             }
           })
           this.setData({
+            ...packed,
             deliveryExteriorUrl: url,
             deliveryPickMode: '',
-            workImagePool,
             sections,
             autoSaveLabel: '保存中…',
           })
@@ -1646,6 +1663,12 @@ Page({
 
   onCancelPickExterior() {
     this.setData({ deliveryPickMode: '' })
+  },
+
+  onPreviewExterior() {
+    const url = String(this.data.deliveryExteriorUrl || '').trim()
+    if (!url) return
+    wx.previewImage({ current: url, urls: [url] })
   },
 
   onAddFindingPhotos(e) {

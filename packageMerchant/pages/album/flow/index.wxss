@@ -304,21 +304,88 @@
 .merchant-flow-page__mileage-row {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
 }
 
-.merchant-flow-page__input--mileage {
+.merchant-flow-page__mileage-field {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: var(--input-height);
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
 }
 
-.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-thumb,
-.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-add,
-.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-img {
-  width: 96rpx;
-  height: 96rpx;
+.merchant-flow-page__mileage-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  background-color: transparent;
+  box-sizing: border-box;
+  font-size: var(--font-body);
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__mileage-unit {
+  flex-shrink: 0;
+  margin-left: var(--space-xs);
+}
+
+.merchant-flow-page__mileage-shot {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--input-height);
+  height: var(--input-height);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__mileage-shot--add {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: auto;
+  padding: 0 var(--space-md);
+  border: 1rpx dashed var(--color-border);
+}
+
+.merchant-flow-page__mileage-shot-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.merchant-flow-page__mileage-shot-plus {
+  font-size: var(--font-h3);
+  line-height: 1;
+  color: var(--color-text-tertiary);
+}
+
+.merchant-flow-page__mileage-shot-label {
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__mileage-shot-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  font-size: var(--font-caption);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .merchant-flow-page__plan-row-top {
@@ -540,40 +607,159 @@
   background-color: var(--color-album-nav-fade-strong);
 }
 
-.merchant-flow-page__exterior-slot {
+.merchant-flow-page__delivery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.merchant-flow-page__delivery-step {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
 }
 
-.merchant-flow-page__exterior-slot-img {
-  width: 240rpx;
-  height: 240rpx;
-  border-radius: var(--radius-sm);
-}
-
-.merchant-flow-page__exterior-slot-actions {
+.merchant-flow-page__delivery-head {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-}
-
-.merchant-flow-page__exterior-actions {
-  display: flex;
-  flex-direction: row;
+  align-items: center;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
 }
 
-.merchant-flow-page__exterior-btn {
-  flex: 1;
-  padding: var(--space-md);
+.merchant-flow-page__delivery-index {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
   text-align: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.merchant-flow-page__delivery-title {
+  font-weight: 600;
+}
+
+.merchant-flow-page__delivery-flag {
+  padding: 0 var(--space-xs);
   border-radius: var(--radius-sm);
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.merchant-flow-page__delivery-flag--optional {
   background-color: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__delivery-hint {
+  display: block;
+}
+
+.merchant-flow-page__exterior-well {
+  position: relative;
+  width: 100%;
+  height: 360rpx;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__exterior-well-img {
+  width: 100%;
+  height: 100%;
+}
+
+.merchant-flow-page__exterior-well-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background-color: var(--color-album-nav-fade-strong);
+}
+
+.merchant-flow-page__exterior-well-action {
+  color: var(--color-text-inverse);
+}
+
+.merchant-flow-page__exterior-well-action--mute {
+  color: var(--color-album-overlay-chip);
+  margin-left: auto;
+}
+
+.merchant-flow-page__exterior-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 360rpx;
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 2rpx dashed var(--color-border);
+  background-color: var(--color-bg-muted);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__exterior-empty-plus {
+  font-size: var(--font-h1);
+  line-height: 1;
+  color: var(--color-text-tertiary);
+}
+
+.merchant-flow-page__exterior-empty-title {
+  font-weight: 600;
+}
+
+.merchant-flow-page__exterior-empty-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.merchant-flow-page__exterior-cta {
+  min-width: 168rpx;
+  padding: var(--space-sm) var(--space-lg);
+  text-align: center;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-caption);
+  line-height: var(--font-caption-lh);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__exterior-cta--ghost {
+  background-color: var(--color-bg-card);
+  color: var(--color-text-primary);
   border: 2rpx solid var(--color-border);
+}
+
+.merchant-flow-page__delivery-pick {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-light);
+  box-sizing: border-box;
+}
+
+.merchant-flow-page__delivery-pick-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
 }
 
 .merchant-flow-page__link {
@@ -585,7 +771,6 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
 }
 
 .merchant-flow-page__delivery-pool-item {
@@ -594,11 +779,13 @@
   height: 160rpx;
   border-radius: var(--radius-sm);
   overflow: hidden;
-  border: 2rpx solid transparent;
+  border: 4rpx solid transparent;
+  box-sizing: border-box;
+  background-color: var(--color-bg-muted);
 }
 
 .merchant-flow-page__delivery-pool-item.is-selected,
-.merchant-flow-page__delivery-pool-item.is-exterior {
+.merchant-flow-page__delivery-pool-item.is-current {
   border-color: var(--color-primary);
 }
 
@@ -611,15 +798,12 @@
   position: absolute;
   right: 8rpx;
   bottom: 8rpx;
-  min-width: 36rpx;
-  height: 36rpx;
-  padding: 0 8rpx;
+  padding: 0 var(--space-xs);
   line-height: 36rpx;
-  text-align: center;
-  border-radius: var(--radius-full, 999rpx);
+  border-radius: var(--radius-full);
   background-color: var(--color-primary);
   color: var(--color-text-inverse);
-  font-size: 20rpx;
+  font-size: var(--font-caption);
 }
 
 .merchant-flow-page__field {

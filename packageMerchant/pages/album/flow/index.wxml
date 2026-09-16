@@ -112,39 +112,41 @@
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
                 <text class="text-body merchant-flow-page__label">当前里程</text>
                 <view class="merchant-flow-page__mileage-row">
-                  <input
-                    class="merchant-flow-page__input merchant-flow-page__input--mileage"
-                    type="number"
-                    value="{{mileageKm}}"
-                    maxlength="7"
-                    placeholder="例：86500"
-                    disabled="{{readOnly}}"
-                    bindinput="onMileageInput"
-                  />
-                  <text class="text-caption text-secondary">km</text>
+                  <view class="merchant-flow-page__mileage-field">
+                    <input
+                      class="merchant-flow-page__mileage-input"
+                      type="number"
+                      value="{{mileageKm}}"
+                      maxlength="7"
+                      placeholder="例：86500"
+                      disabled="{{readOnly}}"
+                      bindinput="onMileageInput"
+                    />
+                    <text class="text-caption text-secondary merchant-flow-page__mileage-unit">km</text>
+                  </view>
                   <view
                     wx:if="{{odometerUrl}}"
-                    class="merchant-flow-page__plan-evidence-thumb"
+                    class="merchant-flow-page__mileage-shot"
                     bindtap="onPreviewOdometer"
                   >
                     <image
-                      class="merchant-flow-page__plan-evidence-img image-placeholder"
+                      class="merchant-flow-page__mileage-shot-img image-placeholder"
                       src="{{odometerUrl}}"
                       mode="aspectFill"
                     />
                     <text
                       wx:if="{{!readOnly}}"
-                      class="merchant-flow-page__plan-evidence-remove"
+                      class="merchant-flow-page__mileage-shot-remove"
                       catchtap="onRemoveOdometer"
                     >×</text>
                   </view>
                   <view
                     wx:elif="{{!readOnly}}"
-                    class="merchant-flow-page__plan-evidence-add"
+                    class="merchant-flow-page__mileage-shot merchant-flow-page__mileage-shot--add"
                     bindtap="onAddOdometerPhoto"
                   >
-                    <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
-                    <text class="text-caption text-secondary">仪表</text>
+                    <text class="merchant-flow-page__mileage-shot-plus">+</text>
+                    <text class="text-caption merchant-flow-page__mileage-shot-label">仪表</text>
                   </view>
                 </view>
                 <text class="text-body merchant-flow-page__label">对外车型</text>
@@ -181,78 +183,125 @@
 
               <view
                 wx:if="{{isDeliveryPhotoStep}}"
-                class="merchant-flow-page__doc-block merchant-flow-page__section"
+                class="merchant-flow-page__doc-block merchant-flow-page__section merchant-flow-page__delivery"
               >
-                <text class="text-body merchant-flow-page__label">整车外观（必选）</text>
-                <text class="text-caption text-secondary merchant-flow-page__finding-tips">拍车身全貌</text>
-                <view wx:if="{{deliveryExteriorUrl}}" class="merchant-flow-page__exterior-slot">
-                  <image
-                    class="merchant-flow-page__exterior-slot-img image-placeholder"
-                    src="{{deliveryExteriorUrl}}"
-                    mode="aspectFill"
-                  />
-                  <view wx:if="{{!readOnly}}" class="merchant-flow-page__exterior-slot-actions">
-                    <text
-                      class="text-caption merchant-flow-page__link"
-                      bindtap="onStartPickExterior"
-                    >换施工图</text>
-                    <text
-                      class="text-caption merchant-flow-page__link"
-                      bindtap="onCaptureExterior"
-                    >补拍</text>
-                    <text
-                      class="text-caption text-secondary"
-                      bindtap="onClearExterior"
-                    >清除</text>
+                <view class="merchant-flow-page__delivery-step">
+                  <view class="merchant-flow-page__delivery-head">
+                    <text class="merchant-flow-page__delivery-index">1</text>
+                    <text class="text-body merchant-flow-page__delivery-title">全车照片</text>
+                    <text class="text-caption merchant-flow-page__delivery-flag">必选</text>
                   </view>
-                </view>
-                <view wx:else class="merchant-flow-page__exterior-actions">
-                  <view
-                    class="merchant-flow-page__exterior-btn"
-                    bindtap="onStartPickExterior"
-                  >
-                    <text class="text-body">从施工图选</text>
-                  </view>
-                  <view
-                    class="merchant-flow-page__exterior-btn"
-                    bindtap="onCaptureExterior"
-                  >
-                    <text class="text-body">补拍外观</text>
-                  </view>
-                </view>
-                <text
-                  wx:if="{{deliveryPickMode === 'exterior'}}"
-                  class="text-caption text-secondary merchant-flow-page__finding-tips"
-                >在下方点选一张作为整车外观
-                  <text class="merchant-flow-page__link" bindtap="onCancelPickExterior"> 取消</text>
-                </text>
-              </view>
 
-              <view
-                wx:if="{{isDeliveryPhotoStep && workImagePool.length}}"
-                class="merchant-flow-page__doc-block merchant-flow-page__section"
-              >
-                <text class="text-body merchant-flow-page__label">其他交车图（选填）</text>
-                <text
-                  wx:if="{{deliveryPickMode !== 'exterior'}}"
-                  class="text-caption text-secondary merchant-flow-page__finding-tips"
-                >需要给车主看的过程图再勾选</text>
-                <view class="merchant-flow-page__delivery-pool">
                   <view
-                    wx:for="{{workImagePool}}"
-                    wx:for-item="pool"
-                    wx:key="url"
-                    class="merchant-flow-page__delivery-pool-item {{pool.isExterior ? 'is-exterior' : ''}} {{pool.selected ? 'is-selected' : ''}}"
-                    data-url="{{pool.url}}"
-                    bindtap="onToggleDeliveryWorkImage"
+                    wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior'}}"
+                    class="merchant-flow-page__exterior-well"
                   >
                     <image
-                      class="merchant-flow-page__delivery-pool-img image-placeholder"
-                      src="{{pool.url}}"
+                      class="merchant-flow-page__exterior-well-img image-placeholder"
+                      src="{{deliveryExteriorUrl}}"
                       mode="aspectFill"
+                      bindtap="onPreviewExterior"
                     />
-                    <text wx:if="{{pool.isExterior}}" class="merchant-flow-page__delivery-pool-check">外观</text>
-                    <text wx:elif="{{pool.selected}}" class="merchant-flow-page__delivery-pool-check">✓</text>
+                    <view wx:if="{{!readOnly}}" class="merchant-flow-page__exterior-well-bar">
+                      <text
+                        class="text-caption merchant-flow-page__exterior-well-action"
+                        catchtap="onCaptureExterior"
+                      >补拍</text>
+                      <text
+                        wx:if="{{workImagePool.length}}"
+                        class="text-caption merchant-flow-page__exterior-well-action"
+                        catchtap="onStartPickExterior"
+                      >从施工图选</text>
+                      <text
+                        class="text-caption merchant-flow-page__exterior-well-action merchant-flow-page__exterior-well-action--mute"
+                        catchtap="onClearExterior"
+                      >清除</text>
+                    </view>
+                  </view>
+
+                  <view
+                    wx:elif="{{!deliveryExteriorUrl && deliveryPickMode !== 'exterior' && !readOnly}}"
+                    class="merchant-flow-page__exterior-empty"
+                  >
+                    <text class="merchant-flow-page__exterior-empty-plus">+</text>
+                    <text class="text-body merchant-flow-page__exterior-empty-title">全车照片</text>
+                    <text class="text-caption text-secondary">拍车身全貌，不要拍码</text>
+                    <view class="merchant-flow-page__exterior-empty-actions">
+                      <view
+                        class="merchant-flow-page__exterior-cta"
+                        bindtap="onCaptureExterior"
+                      >补拍</view>
+                      <view
+                        wx:if="{{workImagePool.length}}"
+                        class="merchant-flow-page__exterior-cta merchant-flow-page__exterior-cta--ghost"
+                        bindtap="onStartPickExterior"
+                      >从施工图选</view>
+                    </view>
+                  </view>
+
+                  <view
+                    wx:if="{{deliveryPickMode === 'exterior'}}"
+                    class="merchant-flow-page__delivery-pick"
+                  >
+                    <view class="merchant-flow-page__delivery-pick-head">
+                      <text class="text-body">点一张作全车</text>
+                      <text
+                        class="text-caption merchant-flow-page__link"
+                        bindtap="onCancelPickExterior"
+                      >取消</text>
+                    </view>
+                    <view class="merchant-flow-page__delivery-pool">
+                      <view
+                        wx:for="{{workImagePool}}"
+                        wx:for-item="pool"
+                        wx:key="url"
+                        class="merchant-flow-page__delivery-pool-item {{pool.url === deliveryExteriorUrl ? 'is-current' : ''}}"
+                        data-url="{{pool.url}}"
+                        bindtap="onToggleDeliveryWorkImage"
+                      >
+                        <image
+                          class="merchant-flow-page__delivery-pool-img image-placeholder"
+                          src="{{pool.url}}"
+                          mode="aspectFill"
+                        />
+                        <text
+                          wx:if="{{pool.url === deliveryExteriorUrl}}"
+                          class="merchant-flow-page__delivery-pool-check"
+                        >当前</text>
+                      </view>
+                    </view>
+                  </view>
+                </view>
+
+                <view
+                  wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior' && deliveryExtraCount}}"
+                  class="merchant-flow-page__delivery-step"
+                >
+                  <view class="merchant-flow-page__delivery-head">
+                    <text class="merchant-flow-page__delivery-index">2</text>
+                    <text class="text-body merchant-flow-page__delivery-title">其他交车图</text>
+                    <text class="text-caption merchant-flow-page__delivery-flag merchant-flow-page__delivery-flag--optional">选填</text>
+                  </view>
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">点选过程图给车主看</text>
+                  <view class="merchant-flow-page__delivery-pool">
+                    <block wx:for="{{workImagePool}}" wx:for-item="pool" wx:key="url">
+                      <view
+                        wx:if="{{!pool.isExterior}}"
+                        class="merchant-flow-page__delivery-pool-item {{pool.selected ? 'is-selected' : ''}}"
+                        data-url="{{pool.url}}"
+                        bindtap="onToggleDeliveryWorkImage"
+                      >
+                        <image
+                          class="merchant-flow-page__delivery-pool-img image-placeholder"
+                          src="{{pool.url}}"
+                          mode="aspectFill"
+                        />
+                        <text
+                          wx:if="{{pool.selected}}"
+                          class="merchant-flow-page__delivery-pool-check"
+                        >已选</text>
+                      </view>
+                    </block>
                   </view>
                 </view>
               </view>
