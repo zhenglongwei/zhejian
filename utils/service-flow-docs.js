@@ -19,6 +19,34 @@ function parseMileageKm(value) {
   return String(Math.round(n))
 }
 
+function parseOdometerMileageFromTexts(texts = []) {
+  const list = Array.isArray(texts) ? texts : [texts]
+  const labeled = []
+  const unlabeled = []
+  list.forEach((raw) => {
+    const s = String(raw || '')
+    if (!s.trim()) return
+    const tagged = s.match(/(?:ODO|odometer|总里程|里程|公里|km)\s*[:：]?\s*([\d\s,]{3,9})/i)
+    if (tagged) {
+      const km = parseMileageKm(tagged[1])
+      if (km) labeled.push(Number(km))
+    }
+    const compact = s.replace(/[,\s]/g, '')
+    const nums = compact.match(/\d{3,7}/g) || []
+    nums.forEach((d) => {
+      const n = Number(d)
+      if (Number.isFinite(n) && n >= 1 && n <= 9999999) unlabeled.push(n)
+    })
+  })
+  const pool = labeled.length ? labeled : unlabeled
+  if (!pool.length) return ''
+  const notYear = pool.filter((n) => n < 1990 || n > 2035)
+  const use = notYear.length ? notYear : pool
+  const typical = use.filter((n) => n >= 100 && n <= 999999)
+  const pickFrom = typical.length ? typical : use
+  return String(Math.max(...pickFrom))
+}
+
 function formatMileageText(value) {
   const km = parseMileageKm(value)
   if (!km) return ''
@@ -68,6 +96,43 @@ function normalizeFinding(raw = {}) {
     symptom: String(raw.symptom || '').trim(),
     result,
     advice,
+  }
+}
+
+function isOdometerFinding(raw = {}) {
+  if (String(raw.itemKey || '').trim() === 'odo') return true
+  const name = String(raw.partName || raw.caption || '').trim()
+  if (!name) return false
+  if (/灯|故障|指示/.test(name)) return false
+  return /仪表|里程表/.test(name)
+}
+
+function pickOdometerSlot(photoDraft = {}, findings = []) {
+  const list = Array.isArray(findings) ? findings : []
+  const draftUrl = String((photoDraft && photoDraft.odometerUrl) || '').trim()
+  if (draftUrl) {
+    return {
+      odometerUrl: draftUrl,
+      odometerImageId: String((photoDraft && photoDraft.odometerImageId) || '').trim(),
+      findings: list.filter((row) => {
+        const url = String((row && row.url) || '').trim()
+        return url !== draftUrl && !isOdometerFinding(row)
+      }),
+    }
+  }
+  const hit = list.find((row) => isOdometerFinding(row) && String((row && row.url) || '').trim())
+  if (hit) {
+    const url = String(hit.url || '').trim()
+    return {
+      odometerUrl: url,
+      odometerImageId: String(hit.imageId || '').trim(),
+      findings: list.filter((row) => row !== hit && String((row && row.url) || '').trim() !== url),
+    }
+  }
+  return {
+    odometerUrl: '',
+    odometerImageId: '',
+    findings: list,
   }
 }
 
@@ -511,6 +576,8 @@ function normalizePhotoDraft(raw = {}) {
   return {
     chiefComplaint: String(raw.chiefComplaint || '').trim(),
     mileageKm: parseMileageKm(raw.mileageKm || raw.mileage),
+    odometerUrl: String(raw.odometerUrl || '').trim(),
+    odometerImageId: String(raw.odometerImageId || '').trim(),
     vehicleBrand: String(raw.vehicleBrand || '').trim(),
     vehicleSeries: String(raw.vehicleSeries || '').trim(),
     vehicleYear: String(raw.vehicleYear || '').trim(),
@@ -545,6 +612,8 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.mileageKm != null || patch.mileage != null) {
     next.mileageKm = parseMileageKm(patch.mileageKm != null ? patch.mileageKm : patch.mileage)
   }
+  if (patch.odometerUrl != null) next.odometerUrl = String(patch.odometerUrl || '').trim()
+  if (patch.odometerImageId != null) next.odometerImageId = String(patch.odometerImageId || '').trim()
   if (patch.vehicleBrand != null) next.vehicleBrand = String(patch.vehicleBrand || '').trim()
   if (patch.vehicleSeries != null) next.vehicleSeries = String(patch.vehicleSeries || '').trim()
   if (patch.vehicleYear != null) next.vehicleYear = String(patch.vehicleYear || '').trim()
@@ -583,6 +652,8 @@ module.exports = {
   mapFindingRows,
   mapWorkFindingRows,
   normalizeFinding,
+  isOdometerFinding,
+  pickOdometerSlot,
   normalizeWorkFinding,
   normalizeWorkImage,
   workFindingHasPhoto,
@@ -600,6 +671,7 @@ module.exports = {
   isQuoteEvidenceFinding,
   sumQuoteAmounts,
   parseMileageKm,
+  parseOdometerMileageFromTexts,
   formatMileageText,
   normalizePhotoDraft,
   mergePhotoDraft,

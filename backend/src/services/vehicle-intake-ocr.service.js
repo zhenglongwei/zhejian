@@ -27,6 +27,10 @@ const {
   unwrapOcrRoot,
 } = require('./desensitize-engine/parse-ocr')
 
+const {
+  parseOdometerMileageFromTexts,
+} = require('../../vendor/shared/utils/service-flow-docs')
+
 const { RecognizeCarNumberRequest, RecognizeCarVinCodeRequest, RecognizeGeneralRequest } = Ocr
 const { RecognizeVINCodeAdvanceRequest, RecognizeCharacterAdvanceRequest } = ViapiOcr
 
@@ -42,7 +46,8 @@ function runtimeOptions() {
 
 function normalizeMode(mode) {
   const value = String(mode || 'auto').trim().toLowerCase()
-  if (value === 'plate' || value === 'vin') return value
+  if (value === 'odo') return 'mileage'
+  if (value === 'plate' || value === 'vin' || value === 'mileage') return value
   return 'auto'
 }
 
@@ -416,6 +421,47 @@ async function recognizeVin(imagePath, publicUrl, options = {}) {
   return { vin, provider, vehicleHints }
 }
 
+async function recognizeOdometerMileage(imagePath, publicUrl) {
+  let texts = []
+  let provider = ''
+  if (imagePath) {
+    try {
+      const viaChar = await recognizeVinViaViapiCharacter(imagePath)
+      texts = Array.isArray(viaChar.texts) ? viaChar.texts : []
+      if (parseOdometerMileageFromTexts(texts)) provider = 'viapi-character'
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] odometer character failed', e && e.message)
+    }
+  }
+  if (!parseOdometerMileageFromTexts(texts)) {
+    try {
+      const data = await ocrRecognize(
+        RecognizeGeneralRequest,
+        'recognizeGeneral',
+        imagePath,
+        publicUrl,
+      )
+      texts = texts.concat(collectOcrTexts(data))
+      if (parseOdometerMileageFromTexts(texts)) provider = provider || 'ocr-api-general'
+    } catch (e) {
+      console.warn('[vehicle-intake-ocr] odometer general failed', e && e.message)
+    }
+  }
+  const mileageKm = parseOdometerMileageFromTexts(texts)
+  if (!mileageKm) {
+    const err = new Error('未读出公里数，请手填')
+    err.status = 422
+    throw err
+  }
+  console.info('[vehicle-intake-ocr] odometer ok', { mileageKm, provider })
+  return {
+    mileageKm,
+    recognized: ['mileage'],
+    mode: 'mileage',
+    provider: provider || 'unknown',
+  }
+}
+
 async function recognizeVehicleIntake(imageUrl, options = {}) {
   const url = String(imageUrl || '').trim()
   if (!url) {
@@ -435,6 +481,10 @@ async function recognizeVehicleIntake(imageUrl, options = {}) {
   try {
     let plateResult = { plate: '', provider: '' }
     let vinResult = { vin: '', provider: '' }
+
+    if (mode === 'mileage') {
+      return await recognizeOdometerMileage(imagePath, publicUrl)
+    }
 
     if (mode === 'plate') {
       plateResult = await recognizePlate(imagePath, publicUrl)
@@ -496,4 +546,5 @@ module.exports = {
   recognizeVehicleIntake,
   normalizePlate,
   normalizeVin,
+  parseOdometerMileageFromTexts,
 }

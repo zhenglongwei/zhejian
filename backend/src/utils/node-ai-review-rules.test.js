@@ -19,6 +19,18 @@ test('empty maintenance intake suggests odo photo and complaint sentence', () =>
   assert.equal(complaint.field, 'chiefComplaint')
 })
 
+test('intake with odometer slot does not suggest odo photo', () => {
+  const rubric = getReviewRubric('maintenance', 'intake_inspection')
+  const list = buildRuleSuggestions({
+    rubric,
+    chiefComplaint: '到店保养，里程 86500',
+    mileageKm: '86500',
+    odometerUrl: 'https://cdn.example.com/odo.jpg',
+    findings: [{ partName: '机油', url: 'https://cdn.example.com/oil.jpg' }],
+  })
+  assert.equal(list.some((row) => row.id === 'photo:odo'), false)
+})
+
 test('brake intake without thickness photo suggests pad_thickness', () => {
   const rubric = getReviewRubric('brake', 'intake_inspection')
   const list = buildRuleSuggestions({

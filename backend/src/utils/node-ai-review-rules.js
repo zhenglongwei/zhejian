@@ -32,6 +32,7 @@ function corpusOf(ctx) {
     })
   })
   chunks.push(ctx.chiefComplaint, ctx.warrantyPeriod, ctx.warrantyNotes, ctx.conclusion)
+  if (ctx.odometerUrl) chunks.push('仪表', '里程', 'odo')
   ;(Array.isArray(ctx.quoteLines) ? ctx.quoteLines : []).forEach((line) => {
     chunks.push(line && line.name, line && line.note)
   })

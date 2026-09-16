@@ -56,7 +56,7 @@ const STANDARD_FLOW_CHAIN = [
     nodeCategory: NODE_CATEGORY.PHOTO,
     title: '接车与检测',
     legacyStageIds: ['stage_2'],
-    photoTips: '拍部位、能看清结论。仪表公里数填上方，本图只作证据。',
+    photoTips: '拍部位、能看清结论。不要拍码。',
     captionPlaceholder: '检查部位',
     description: '',
   },

@@ -111,16 +111,42 @@
                 />
                 <template is="aiFieldHint" data="{{hint: chiefComplaintHint}}" />
                 <text class="text-body merchant-flow-page__label">当前里程</text>
-                <input
-                  class="merchant-flow-page__input"
-                  type="number"
-                  value="{{mileageKm}}"
-                  maxlength="7"
-                  placeholder="例：86500"
-                  disabled="{{readOnly}}"
-                  bindinput="onMileageInput"
-                />
-                <text class="text-caption text-secondary">公里。仪表照仍要拍，只作证据。</text>
+                <view class="merchant-flow-page__mileage-row">
+                  <input
+                    class="merchant-flow-page__input merchant-flow-page__input--mileage"
+                    type="number"
+                    value="{{mileageKm}}"
+                    maxlength="7"
+                    placeholder="例：86500"
+                    disabled="{{readOnly}}"
+                    bindinput="onMileageInput"
+                  />
+                  <text class="text-caption text-secondary">km</text>
+                  <view
+                    wx:if="{{odometerUrl}}"
+                    class="merchant-flow-page__plan-evidence-thumb"
+                    bindtap="onPreviewOdometer"
+                  >
+                    <image
+                      class="merchant-flow-page__plan-evidence-img image-placeholder"
+                      src="{{odometerUrl}}"
+                      mode="aspectFill"
+                    />
+                    <text
+                      wx:if="{{!readOnly}}"
+                      class="merchant-flow-page__plan-evidence-remove"
+                      catchtap="onRemoveOdometer"
+                    >×</text>
+                  </view>
+                  <view
+                    wx:elif="{{!readOnly}}"
+                    class="merchant-flow-page__plan-evidence-add"
+                    bindtap="onAddOdometerPhoto"
+                  >
+                    <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
+                    <text class="text-caption text-secondary">仪表</text>
+                  </view>
+                </view>
                 <text class="text-body merchant-flow-page__label">对外车型</text>
                 <view class="merchant-flow-page__vehicle-row">
                   <input

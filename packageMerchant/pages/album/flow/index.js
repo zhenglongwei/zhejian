@@ -10,6 +10,7 @@ const {
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,
+  recognizeVehicleIntakeOcr,
 } = require('../../../../services/merchant-service-album')
 const {
   SERVICE_ALBUM_STATUS,
@@ -44,6 +45,8 @@ const {
   resolveWarrantyNotes,
   isVagueWarrantyPeriod,
   parseMileageKm,
+  pickOdometerSlot,
+  isOdometerFinding,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
@@ -242,7 +245,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
 const STAGE_LABELS = {
   stage_2: {
     title: '接车与检测照片',
-    tips: '拍部位、能看清结论。仪表公里数填上方，本图只作证据。',
+    tips: '拍部位、能看清结论。不要拍码。',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
@@ -316,6 +319,9 @@ Page({
     findings: [],
     chiefComplaint: '',
     mileageKm: '',
+    odometerUrl: '',
+    odometerImageId: '',
+    odometerOcrBusy: false,
     vehicleBrand: '',
     vehicleSeries: '',
     vehicleYear: '',
@@ -564,6 +570,9 @@ Page({
     if (node && node.kind === 'intake_inspection') {
       const meta = STAGE_LABELS.stage_2
       const images = this.collectIntakeImages(album)
+      const mapped = mapFindingRows(images, draftFindings)
+      const slot = pickOdometerSlot(photoDraft, mapped)
+      const findingImages = images.filter((img) => img.url !== slot.odometerUrl)
       return [
         {
           stageId: 'stage_2',
@@ -572,8 +581,10 @@ Page({
           captionPlaceholder: meta.captionPlaceholder,
           findingMode: true,
           findingKind: 'inspection',
-          images,
-          findings: mapFindingRows(images, draftFindings),
+          images: findingImages,
+          findings: slot.findings,
+          odometerUrl: slot.odometerUrl,
+          odometerImageId: slot.odometerImageId,
         },
       ]
     }
@@ -835,6 +846,7 @@ Page({
   buildPhotoDraftPayload() {
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'intake_inspection') {
+      const odometerUrl = String(this.data.odometerUrl || '').trim()
       return {
         chiefComplaint: this.data.chiefComplaint,
         mileageKm: parseMileageKm(this.data.mileageKm),
@@ -842,7 +854,11 @@ Page({
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
         vehicleYear: String(this.data.vehicleYear || '').trim(),
         conclusion: this.data.conclusion,
-        findings: this.collectFindingsFromSections(),
+        odometerUrl,
+        odometerImageId: String(this.data.odometerImageId || '').trim(),
+        findings: this.collectFindingsFromSections().filter(
+          (row) => row.url !== odometerUrl && !isOdometerFinding(row),
+        ),
       }
     }
     if (kind === 'work') {
@@ -1134,6 +1150,11 @@ Page({
         findings,
         chiefComplaint,
         mileageKm,
+        odometerUrl: isIntakePhotoStep ? String((sections[0] && sections[0].odometerUrl) || '').trim() : '',
+        odometerImageId: isIntakePhotoStep
+          ? String((sections[0] && sections[0].odometerImageId) || '').trim()
+          : '',
+        odometerOcrBusy: false,
         vehicleBrand,
         vehicleSeries,
         vehicleYear,
@@ -1768,7 +1789,16 @@ Page({
       const finding = section && section.findings && section.findings[fi]
       return (finding && finding.url) || ''
     })()
-    let sections = this.buildSections(album, active, { findings: prevFindings }, this._flowNodes || [])
+    let sections = this.buildSections(
+      album,
+      active,
+      {
+        findings: prevFindings,
+        odometerUrl: this.data.odometerUrl,
+        odometerImageId: this.data.odometerImageId,
+      },
+      this._flowNodes || [],
+    )
     let expandKey = ''
     if (expandedUrl) {
       sections.forEach((section, si) => {
@@ -1790,7 +1820,16 @@ Page({
         expandKey = keepKey
       }
     }
-    this.setSectionsWithFindings(sections, {}, expandKey)
+    this.setSectionsWithFindings(
+      sections,
+      {
+        odometerUrl: String((sections[0] && sections[0].odometerUrl) || this.data.odometerUrl || '').trim(),
+        odometerImageId: String(
+          (sections[0] && sections[0].odometerImageId) || this.data.odometerImageId || '',
+        ).trim(),
+      },
+      expandKey,
+    )
     if (this.data.aiReview && this.data.aiReview.isReady) {
       this.applyInlineAiReview(this.data.aiReview, this._aiReviewAction)
     }
@@ -1818,6 +1857,71 @@ Page({
     this.setData({ mileageKm: e.detail.value, autoSaveLabel: '保存中…' }, () => {
       this.scheduleAutoSaveDraftOnly()
     })
+  },
+
+  onAddOdometerPhoto() {
+    if (this.data.readOnly) return
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          this.setData({
+            odometerUrl: url,
+            odometerImageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+            odometerOcrBusy: true,
+            autoSaveLabel: '保存中…',
+          })
+          await this.persistPhotos()
+          await this.persistPhotoDraft()
+          try {
+            const result = await recognizeVehicleIntakeOcr(url, { mode: 'mileage' })
+            const km = parseMileageKm(result && result.mileageKm)
+            if (km) {
+              this.setData({ mileageKm: km })
+              await this.persistPhotoDraft()
+            } else {
+              wx.showToast({ title: '未读出公里数，请手填', icon: 'none' })
+            }
+          } catch (ocrErr) {
+            wx.showToast({
+              title: (ocrErr && ocrErr.message) || '未读出公里数，请手填',
+              icon: 'none',
+            })
+          }
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          this.setData({ odometerOcrBusy: false, autoSaveLabel: '已自动保存' })
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onPreviewOdometer() {
+    const url = String(this.data.odometerUrl || '').trim()
+    if (!url) return
+    wx.previewImage({ current: url, urls: [url] })
+  },
+
+  onRemoveOdometer() {
+    if (this.data.readOnly) return
+    this.setData(
+      {
+        odometerUrl: '',
+        odometerImageId: '',
+        autoSaveLabel: '保存中…',
+      },
+      () => this.scheduleAutoSavePhotos(),
+    )
   },
 
   onVehicleFieldInput(e) {
@@ -2088,13 +2192,19 @@ Page({
       if (section.findingMode && section.findingKind === 'work') {
         sectionMap[section.stageId] = this.flattenWorkSectionImages(section.findings || [])
       } else if (section.findingMode) {
-        sectionMap[section.stageId] = (section.images || []).map((img, i) => {
-          const finding = (section.findings || [])[i] || {}
-          return {
-            ...img,
-            caption: finding.partName || img.caption || '',
-          }
-        })
+        const odo = String(this.data.odometerUrl || '').trim()
+        const findingImgs = (section.images || [])
+          .map((img, i) => {
+            const finding = (section.findings || [])[i] || {}
+            return {
+              ...img,
+              caption: finding.partName || img.caption || '',
+            }
+          })
+          .filter((img) => img && img.url && img.url !== odo)
+        sectionMap[section.stageId] = odo
+          ? [{ url: odo, caption: '仪表' }].concat(findingImgs)
+          : findingImgs
       } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
         // 仅落库「外观补拍」；从施工图选用的只记引用，不复制
         const exterior = String(this.data.deliveryExteriorUrl || '').trim()

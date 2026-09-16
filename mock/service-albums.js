@@ -1517,6 +1517,15 @@ async function mockRecognizeVehicleIntakeOcr(imageUrl, options = {}) {
     throw err
   }
   const mode = String(options.mode || 'auto').toLowerCase()
+  if (mode === 'mileage') {
+    const km = String(url).replace(/\D/g, '').slice(-6) || '86500'
+    return {
+      mileageKm: km === '0' ? '86500' : km,
+      recognized: ['mileage'],
+      mode: 'mileage',
+      provider: 'mock',
+    }
+  }
   if (mode === 'plate') {
     return {
       plate: '浙A12345',

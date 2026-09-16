@@ -62,6 +62,7 @@ function collectNodeImageUrls(node = {}) {
   }
   const draft = node.photoDraft || {}
   push(draft.deliveryExteriorUrl)
+  push(draft.odometerUrl)
   ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
   ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
     push(row && row.url)
@@ -153,6 +154,7 @@ function buildReviewContext(album, node, extra = {}) {
     rubric: getReviewRubric(album.templateId, node.kind, album.serviceName),
     chiefComplaint: text(draft.chiefComplaint || doc.chiefComplaint || extra.chiefComplaint),
     mileageKm: draft.mileageKm || extra.mileageKm,
+    odometerUrl: draft.odometerUrl || extra.odometerUrl || '',
     findings,
     warrantyPeriod: draft.warrantyPeriod || extra.warrantyPeriod,
     warrantyNotes: draft.warrantyNotes,

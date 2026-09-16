@@ -301,6 +301,26 @@
   color: var(--color-text-tertiary);
 }
 
+.merchant-flow-page__mileage-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.merchant-flow-page__input--mileage {
+  flex: 1;
+  min-width: 0;
+}
+
+.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-thumb,
+.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-add,
+.merchant-flow-page__mileage-row .merchant-flow-page__plan-evidence-img {
+  width: 96rpx;
+  height: 96rpx;
+}
+
 .merchant-flow-page__plan-row-top {
   display: flex;
   flex-direction: row;
