@@ -3,6 +3,7 @@ const { newId } = require('../lib/ids')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
 const { publicCaseIdForAlbum } = require('../utils/public-case-id')
+const { publicCaseRelistPatch } = require('../utils/public-case-visibility')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
@@ -557,13 +558,15 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
       summary: snapshot.summary,
       serviceName: snapshot.serviceName || album.serviceName,
       title: snapshot.title,
-      storefrontHidden: Boolean(pc && pc.storefrontHidden),
+      storefrontHidden: false,
+      seoNoindex: false,
     },
     snapshot,
   )
   if (!indexable) {
     articlePayload.seoNoindex = true
   }
+  const relist = publicCaseRelistPatch(articlePayload.seoNoindex)
   const priceColumns = buildPublicCaseDbPriceColumns(draft)
 
   const enrichmentSeedRow = {
@@ -627,6 +630,8 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
       spotCheckStatus: SPOT_CHECK_STATUS.NONE,
       enrichmentJson: enrichmentFinal,
       enrichmentVersion: enrichmentFinal.version,
+      storefrontHidden: relist.storefrontHidden,
+      seoNoindex: relist.seoNoindex,
     },
     update: {
       status: PUBLIC_CASE_STATUS.PUBLIC_APPROVED,
@@ -658,6 +663,8 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
       publishedAt: new Date(),
       enrichmentJson: enrichmentFinal,
       enrichmentVersion: enrichmentFinal.version,
+      storefrontHidden: relist.storefrontHidden,
+      seoNoindex: relist.seoNoindex,
       ...(wasOffline ? { slug: null } : {}),
     },
   })

@@ -85,6 +85,24 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   assert.match(work.photos[0].caption, /拆下旧阀体/)
 })
 
+test('buildPublicServiceFlow 用核对打码图覆盖事实层原图', () => {
+  const flow = buildPublicServiceFlow({
+    flowNodes: [
+      {
+        id: 'e',
+        kind: 'work',
+        sortOrder: 4,
+        photoDraft: {
+          findings: [{ partName: '阀体', caption: '施工', images: [{ url: RAW }] }],
+        },
+      },
+    ],
+    album: { images: [{ url: RAW }] },
+    maskLookup: new Map([[RAW, MASK]]),
+  })
+  assert.equal(flow.chapters[0].photos[0].url, MASK)
+})
+
 test('buildPublicServiceFlow 无流转则空章节', () => {
   assert.deepEqual(buildPublicServiceFlow({}).chapters, [])
 })

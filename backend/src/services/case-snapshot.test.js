@@ -156,6 +156,50 @@ test('mapPublicCaseRow surfaces hosted storefront FAQ', () => {
   assert.ok(mapped.faq[0].a.includes('钣金'))
 })
 
+test('mapPublicCaseRow hosted flow uses mask lookup not raw plate photo', () => {
+  const { mapPublicCaseRow } = require('./content.service')
+  const RAW = 'https://cdn.example.com/files/uploads/2026/09/plate.jpg'
+  const MASK = 'https://cdn.example.com/files/uploads/desensitized/plate.jpg'
+  const mapped = mapPublicCaseRow(
+    {
+      id: 'case_host_mask',
+      albumId: 'alb_host_mask',
+      authorizationTier: 'merchant_published',
+      title: '钣喷修复',
+      summary: '右门划痕修复',
+      serviceName: '钣喷修复',
+      storeId: 'store_1',
+      storeName: '测试店',
+      city: '杭州',
+      contentJson: { hostedArchive: true },
+    },
+    {
+      id: 'alb_host_mask',
+      images: [{ url: RAW }],
+      contentPackageJson: {
+        hostMeta: {
+          hosted: true,
+          visibility: 'public',
+          archiveSnapshot: {
+            flowNodes: [
+              {
+                id: 'work',
+                kind: 'work',
+                sortOrder: 4,
+                photoDraft: {
+                  findings: [{ partName: '右门', caption: '施工', images: [{ url: RAW }] }],
+                },
+              },
+            ],
+          },
+        },
+      },
+    },
+    { maskLookup: new Map([[RAW, MASK]]) },
+  )
+  assert.equal(mapped.serviceFlow.chapters[0].photos[0].url, MASK)
+})
+
 test('buildCaseSnapshot writes frozen snapshot with articleBody', () => {
   const albumView = {
     albumId: 'alb_test_01',

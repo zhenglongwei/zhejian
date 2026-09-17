@@ -25,24 +25,36 @@ function publicizeUrl(url, lookup) {
   const key = urlKey(url)
   if (!key) return ''
   if (lookup.has(key)) return lookup.get(key)
+  const stripped = urlKey(key.split('?')[0])
+  if (stripped && lookup.has(stripped)) return lookup.get(stripped)
   return resolvePublicCaseMediaUrl(key) || resolveStoreProcessedPublicUrl(key) || ''
 }
 
 function rememberUrl(lookup, from, to) {
-  const pub =
-    resolvePublicCaseMediaUrl(to) ||
-    resolveStoreProcessedPublicUrl(to) ||
-    resolvePublicCaseMediaUrl(from) ||
-    resolveStoreProcessedPublicUrl(from) ||
-    ''
+  const pub = resolvePublicCaseMediaUrl(to) || resolveStoreProcessedPublicUrl(to) || ''
   if (!pub) return
   if (from) lookup.set(urlKey(from), pub)
   lookup.set(urlKey(to), pub)
   lookup.set(urlKey(pub), pub)
 }
 
-function buildPublicUrlLookup({ album, contentNodes, publicView } = {}) {
+function applyMaskLookup(lookup, maskLookup) {
+  if (!maskLookup) return
+  const entries =
+    maskLookup instanceof Map
+      ? maskLookup
+      : maskLookup.byRawUrl instanceof Map
+        ? maskLookup.byRawUrl
+        : null
+  if (!entries) return
+  entries.forEach((masked, raw) => {
+    rememberUrl(lookup, raw, masked)
+  })
+}
+
+function buildPublicUrlLookup({ album, contentNodes, publicView, maskLookup } = {}) {
   const lookup = new Map()
+  applyMaskLookup(lookup, maskLookup)
   const images = (album && Array.isArray(album.images) ? album.images : []) || []
   images.forEach((img) => {
     if (!img || typeof img !== 'object') return

@@ -19,7 +19,16 @@ function isPublicCaseH5Visible(row) {
   return true
 }
 
+/** 再次公开上线：清掉「改回仅私密 / 取消托管」留下的下架标记 */
+function publicCaseRelistPatch(seoNoindex = false) {
+  return {
+    storefrontHidden: false,
+    seoNoindex: Boolean(seoNoindex),
+  }
+}
+
 module.exports = {
   publicCaseH5Where,
   isPublicCaseH5Visible,
+  publicCaseRelistPatch,
 }

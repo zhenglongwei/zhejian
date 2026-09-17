@@ -26,4 +26,10 @@ assert.strictEqual(
 )
 assert.strictEqual(isPublicCaseH5Visible({ status: PUBLIC_CASE_STATUS.AUDIT_PASSED }), false)
 
+const { publicCaseRelistPatch } = require('./public-case-visibility')
+const relist = publicCaseRelistPatch(false)
+assert.strictEqual(relist.storefrontHidden, false)
+assert.strictEqual(relist.seoNoindex, false)
+assert.strictEqual(publicCaseRelistPatch(true).seoNoindex, true)
+
 console.log('public-case-visibility.test.js OK')

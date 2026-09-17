@@ -59,6 +59,16 @@ function testRejectThinAnswer() {
   assert.equal(filterPublishableFaq([{ q: '这次主要修了什么？', a: '后门' }]).length, 0)
 }
 
+function testScreenshotBodyShopAnswerIsPublishable() {
+  const published = filterPublishableFaq([
+    {
+      q: '钣金喷漆大概要走哪些步骤？本单流程？',
+      a: '先把旧漆去除，露出底漆。用钣金工具将伤处尽量敲平。关键一步上树脂，防锈。最后上漆。',
+    },
+  ])
+  assert.equal(published.length, 1)
+}
+
 function testMaterialGate() {
   assert.equal(caseHasAnswerMaterial({}, { serviceName: '保养' }), false)
   assert.equal(caseHasAnswerMaterial({ inspectResult: '机油变质需更换' }, {}), true)
@@ -88,6 +98,7 @@ function testCollectHostedFaqPrefersStorefrontLayer() {
 testMaintenanceBank()
 testChassisMoreQuestions()
 testRejectThinAnswer()
+testScreenshotBodyShopAnswerIsPublishable()
 testMaterialGate()
 testCollectHostedFaqPrefersStorefrontLayer()
 console.log('hosted-storefront-faq.test.js OK')

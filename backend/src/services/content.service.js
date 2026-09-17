@@ -210,7 +210,7 @@ function sanitizeNodes(nodes) {
   }))
 }
 
-function mapPublicCaseRow(row, album) {
+function mapPublicCaseRow(row, album, options = {}) {
   const rawContent = row.contentJson && typeof row.contentJson === 'object' ? row.contentJson : {}
   const content = {
     ...rawContent,
@@ -288,6 +288,7 @@ function mapPublicCaseRow(row, album) {
     album,
     contentNodes: content.nodes,
     publicView,
+    maskLookup: options.maskLookup || null,
   })
   return attachArchiveAttribution(applyPublicDisplayRules(layered), { hostMeta })
 }
@@ -453,7 +454,17 @@ async function getCaseDetail(idOrSlug, opts = {}) {
           },
         })
       : null
-    item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album))
+    let maskLookup = null
+    if (album && album.id) {
+      try {
+        const { loadHostedPublicMaskLookup } = require('./hosted-public-mask.service')
+        const packed = await loadHostedPublicMaskLookup(album.id)
+        maskLookup = packed && packed.byRawUrl
+      } catch (_) {
+        maskLookup = null
+      }
+    }
+    item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album, { maskLookup }))
   } else {
     const fallback = config.contentPublicCaseFallback
       ? FALLBACK_PUBLIC_CASES.find((c) => c.id === idOrSlug || c.slug === idOrSlug)
