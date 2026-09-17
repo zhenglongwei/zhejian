@@ -6,6 +6,7 @@
 const { prisma } = require('../lib/prisma')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
+const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 const { resolveCaseCanonicalPath } = require('../utils/case-slug')
 
@@ -751,11 +752,15 @@ async function confirmHostedPublicPublish(
   })
 
   let pc = album.publicCase
+  const alreadyLive =
+    Boolean(pc) &&
+    pc.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED &&
+    !pc.storefrontHidden &&
+    !pc.ownerBlockedAt
   if (!pc) {
-    const { newId } = require('../lib/ids')
     pc = await prisma.publicCase.create({
       data: {
-        id: newId('case'),
+        id: publicCaseIdForAlbum(albumId),
         albumId,
         storeId: album.storeId || '',
         storeName: album.storeName || '',
@@ -770,7 +775,7 @@ async function confirmHostedPublicPublish(
         },
       },
     })
-  } else {
+  } else if (!alreadyLive) {
     await prisma.publicCase.update({
       where: { id: pc.id },
       data: {
@@ -788,21 +793,26 @@ async function confirmHostedPublicPublish(
 
   await prisma.album.update({
     where: { id: albumId },
-    data: { publicCaseStatus: PUBLIC_CASE_STATUS.AUDIT_PASSED },
+    data: { publicCaseStatus: alreadyLive ? PUBLIC_CASE_STATUS.PUBLIC_APPROVED : PUBLIC_CASE_STATUS.AUDIT_PASSED },
   })
 
-  const published = await commitPublicCaseGoLive(albumId, {
-    authorizationTier: 'merchant_published',
-    hostedGeoPublish: true,
-  })
-
-  const liveId = published && published.caseItem && published.caseItem.id
-  if (liveId) {
-    await prisma.publicCase.update({
-      where: { id: liveId },
-      data: { articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5 },
+  let published
+  if (alreadyLive) {
+    published = {
+      caseItem: { id: pc.id, albumId, status: pc.status },
+      status: pc.status,
+    }
+  } else {
+    published = await commitPublicCaseGoLive(albumId, {
+      authorizationTier: 'merchant_published',
+      hostedGeoPublish: true,
     })
   }
+
+  await prisma.publicCase.update({
+    where: { albumId },
+    data: { articleStatus: CASE_ARTICLE_STATUS.PUBLISHED_H5 },
+  })
 
   return {
     albumId,

@@ -1,6 +1,8 @@
 const { prisma } = require('../lib/prisma')
 const { newId } = require('../lib/ids')
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { CASE_ARTICLE_STATUS } = require('../constants/case-article-status')
+const { publicCaseIdForAlbum } = require('../utils/public-case-id')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { getTaskById } = require('./desensitize.service')
 const { buildAlbumView } = require('./service-album.service')
@@ -120,7 +122,7 @@ function buildCaseDraft(albumView, task, authorizationTier, options = {}) {
   const coldStart = Boolean(options.coldStart)
   const hasUserAuthorization =
     options.hasUserAuthorization != null ? options.hasUserAuthorization : !coldStart
-  const caseId = `case_${albumView.albumId.replace(/^alb_/, '')}`
+  const caseId = publicCaseIdForAlbum(albumView.albumId)
   const vehicle = albumView.vehicle || {}
   const serviceName = albumView.serviceName || '维修服务'
   const city = albumView.store?.city || '杭州'
@@ -506,7 +508,7 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     const cover = pickPublicViewCover(publicView)
     if (cover) draft.coverImage = cover
   }
-  const caseId = draft.id
+  const caseId = publicCaseIdForAlbum(albumId, album.publicCase && album.publicCase.id)
   let articlePayload = buildCaseArticlePayload({
     caseId,
     draft: {
@@ -606,7 +608,9 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
       seoTitle: articlePayload.seoTitle,
       seoDescription: articlePayload.seoDescription,
       articleVersion: snapshot.version,
-      articleStatus: articlePayload.articleStatus,
+      articleStatus: hostedGeoPublish
+        ? CASE_ARTICLE_STATUS.PUBLISHED_H5
+        : articlePayload.articleStatus,
       articleGeneratedAt: articlePayload.articleGeneratedAt,
       storeId: draft.storeId,
       storeName: draft.storeName,
@@ -637,7 +641,9 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
       seoTitle: articlePayload.seoTitle,
       seoDescription: articlePayload.seoDescription,
       articleVersion: snapshot.version,
-      articleStatus: articlePayload.articleStatus,
+      articleStatus: hostedGeoPublish
+        ? CASE_ARTICLE_STATUS.PUBLISHED_H5
+        : articlePayload.articleStatus,
       articleGeneratedAt: articlePayload.articleGeneratedAt,
       storeId: draft.storeId,
       storeName: draft.storeName,
