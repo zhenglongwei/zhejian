@@ -627,6 +627,15 @@ function buildStorePageSchemaGraph(input = {}) {
           addressCountry: 'CN',
         }
       : undefined,
+    geo:
+      store.latitude != null && store.longitude != null
+        ? {
+            '@type': 'GeoCoordinates',
+            latitude: Number(store.latitude),
+            longitude: Number(store.longitude),
+          }
+        : undefined,
+    openingHours: store.businessHours || undefined,
     telephone: store.phone || undefined,
     image: store.coverImage || store.storefrontImage || undefined,
     additionalProperty: additionalProperty.length ? additionalProperty : undefined,
@@ -718,4 +727,5 @@ module.exports = {
   buildCasePageSchemaGraph,
   buildHomePageSchemaGraph,
   buildStorePageSchemaGraph,
+  buildFaqNode,
 }

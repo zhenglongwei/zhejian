@@ -50,6 +50,29 @@
     )
   }
 
+  function renderFaq(faq) {
+    var rows = (faq || []).filter(function (row) {
+      return row && (row.q || row.question) && (row.a || row.answer)
+    })
+    if (!rows.length) return ''
+    var items = rows
+      .map(function (row) {
+        return (
+          '<div class="h5-faq-item"><div class="h5-faq-q">' +
+          escapeHtml(row.q || row.question) +
+          '</div><div class="h5-faq-a">' +
+          escapeHtml(row.a || row.answer) +
+          '</div></div>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card" id="service-faq"><h2 class="h5-section-title">常见问题</h2>' +
+      items +
+      '</div>'
+    )
+  }
+
   function renderTrustMeta(data) {
     var geo = data.geo || {}
     var stats = data.stats || {}
@@ -619,6 +642,7 @@
       '</header>' +
       renderServiceOfferList(sortOffers(offers, 'recommend'), item, toolbar) +
       renderFeaturedCases(data.featuredCases) +
+      renderFaq(data.faq) +
       renderTopicEntry(data, item) +
       renderRelatedTopics(data.relatedTopics) +
       renderRelated(data.relatedServices) +

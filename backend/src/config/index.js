@@ -27,11 +27,23 @@ function resolvePublicBaseUrl() {
   return `http://${host}:${port}`
 }
 
+function isStagingPublicHost(baseUrl) {
+  const raw = String(baseUrl || '')
+  try {
+    const href = raw.includes('://') ? raw : `https://${raw}`
+    const host = new URL(href).hostname.toLowerCase()
+    return host === 'staging.geo.simplewin.cn' || host.startsWith('staging.')
+  } catch (e) {
+    return /staging\.geo\.simplewin\.cn/i.test(raw)
+  }
+}
+
 const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: Number(process.env.PORT || 3000),
   host: process.env.HOST || '127.0.0.1',
   publicBaseUrl: resolvePublicBaseUrl(),
+  isStagingPublicSite: isStagingPublicHost(resolvePublicBaseUrl()),
   devAuthEnabled: process.env.DEV_AUTH_ENABLED !== 'false',
   devTokens: {
     user: process.env.DEV_USER_TOKEN || 'dev_user_token_change_me',
@@ -470,4 +482,4 @@ const config = {
   },
 }
 
-module.exports = { config }
+module.exports = { config, isStagingPublicHost }

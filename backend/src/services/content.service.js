@@ -558,6 +558,20 @@ async function getCaseDetail(idOrSlug, opts = {}) {
   })
 }
 
+function extractCityFromAddress(address) {
+  const raw = String(address || '')
+  const withCity = raw.match(/([\u4e00-\u9fa5]{2,3}市)/)
+  if (withCity) return withCity[1]
+  return ''
+}
+
+function isDemoStoreRecord(store) {
+  const id = String(store && store.id ? store.id : '')
+  const name = String(store && store.name ? store.name : '')
+  if (/demo|smoke|ui_smoke/i.test(id)) return true
+  return /示范|测试|联调|冒烟/.test(name)
+}
+
 function mapStoreRow(store, caseCount = 0) {
   const extras = STORE_EXTRAS[store.id] || {}
   const photos = store.photosJson && typeof store.photosJson === 'object' ? store.photosJson : {}
@@ -621,6 +635,8 @@ function mapStoreRow(store, caseCount = 0) {
     status: businessStatus,
     businessStatus,
     auditStatus: extras.auditStatus || 'approved',
+    city: extras.city || extractCityFromAddress(store.address),
+    isDemo: isDemoStoreRecord(store),
     address: store.address || '',
     latitude,
     longitude,

@@ -1,8 +1,13 @@
 /**
  * GEO-CITE-E01/E02 · H5 案例 Bot 预渲染 HTML
  */
-const fs = require('fs')
-const path = require('path')
+const {
+  injectPrerenderHtml,
+  escapeHtml,
+  absoluteUrl,
+  readH5Template,
+  renderFaqSection,
+} = require('../lib/h5-html-prerender')
 const { config } = require('../config')
 const { getCaseDetail } = require('./content.service')
 const { buildCasePageSchemaGraph } = require('../lib/schema-graph')
@@ -20,21 +25,6 @@ function isCrawlerRequest(req) {
   if (isCrawlerUserAgent(req.headers['user-agent'])) return true
   if (String(req.headers['x-crawler-bot'] || '').trim()) return true
   return false
-}
-
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function absoluteUrl(pathname, baseUrl) {
-  const base = String(baseUrl || config.publicBaseUrl).replace(/\/$/, '')
-  const pathValue = String(pathname || '/')
-  if (pathValue.startsWith('http')) return pathValue
-  return `${base}${pathValue.startsWith('/') ? '' : '/'}${pathValue}`
 }
 
 function buildHowToSchema(data, nodes) {
@@ -103,39 +93,10 @@ function buildBotBodyHtml(data) {
           )
           .join('')}</section>`
       : '',
+    renderFaqSection(data.faq || []),
     renderSiteBeianHtml(),
   ]
   return sections.filter(Boolean).join('\n')
-}
-
-function injectPrerenderHtml(template, payload) {
-  const { title, description, canonical, bodyHtml, jsonLdBlocks } = payload
-  let html = template
-  html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(title)}</title>`)
-  html = html.replace(
-    /<meta name="description" content="[^"]*">/,
-    `<meta name="description" content="${escapeHtml(description)}">`
-  )
-  if (canonical) {
-    const linkTag = `<link rel="canonical" href="${escapeHtml(canonical)}">`
-    if (html.includes('rel="canonical"')) {
-      html = html.replace(/<link rel="canonical" href="[^"]*">/, linkTag)
-    } else {
-      html = html.replace('</head>', `  ${linkTag}\n</head>`)
-    }
-  }
-  const ldScripts = (jsonLdBlocks || [])
-    .map(
-      (block, index) =>
-        `<script type="application/ld+json" id="bot-prerender-ld-${index}">${JSON.stringify(block)}</script>`
-    )
-    .join('\n  ')
-  html = html.replace('</head>', `  ${ldScripts}\n</head>`)
-  html = html.replace(
-    '<div id="app">加载中…</div>',
-    `<div id="app"><div class="h5-bot-prerender" data-prerender="geo-cite-e">${bodyHtml}</div></div>`
-  )
-  return html
 }
 
 async function renderCaseBotHtml(caseIdOrSlug) {
@@ -179,16 +140,14 @@ async function renderCaseBotHtml(caseIdOrSlug) {
     jsonLdBlocks.push(...imageObjects)
   }
 
-  const h5Root = path.join(__dirname, '..', '..', '..', 'h5')
-  const templatePath = path.join(h5Root, 'case', 'view.html')
-  const template = fs.readFileSync(templatePath, 'utf8')
-
-  return injectPrerenderHtml(template, {
+  return injectPrerenderHtml(readH5Template('case/view.html'), {
     title: `${title} · 辙见`,
     description,
     canonical,
+    robots: data.seo?.robots || (data.seo?.noindex ? 'noindex,follow' : 'index,follow'),
     bodyHtml: buildBotBodyHtml(data),
     jsonLdBlocks,
+    prerenderAttr: 'geo-cite-e',
   })
 }
 

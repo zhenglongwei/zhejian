@@ -253,7 +253,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
     city: merged.cityFilter,
     priceMode: item.priceMode,
     aiSummary: merged.aiSummary,
-    faq: [],
+    faq: merged.faq || item.faq || [],
   })
 
   const seo = buildSeo(item, { ...merged, aiSummary: aggregated.aiSummary }, geoPage, {
@@ -277,7 +277,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
           publishedAt: geoPage.publishedAt || '',
         }
       : null,
-    faq: [],
+    faq: aggregated.faq || merged.faq || item.faq || [],
     aggregateStats: aggregated.aggregateStats,
     organizationSameAs: config.geo?.organizationSameAs || [],
   })
@@ -349,7 +349,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
       { value: 'transparency', label: '透明度更高' },
       { value: 'distance', label: '距离更近' },
     ],
-    faq: [],
+    faq: aggregated.faq || merged.faq || item.faq || [],
     faqLinks: [],
     articleBody: '',
     aggregateStats: aggregated.aggregateStats,

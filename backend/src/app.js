@@ -94,17 +94,19 @@ function createApp() {
   /** 本地 H5 联调：与 API 同域，无需部署到 geo.simplewin.cn（仅非 production） */
   if (config.nodeEnv !== 'production') {
     const h5Root = path.join(__dirname, '..', '..', 'h5')
-    app.get('/case/view.html', async (req, res, next) => {
-      const { isCrawlerRequest, renderCaseBotHtml } = require('./services/h5-case-prerender.service')
-      if (req.query.id && req.query.legacy !== '1' && isCrawlerRequest(req)) {
-        try {
-          const html = await renderCaseBotHtml(req.query.id)
-          res.set('Content-Type', 'text/html; charset=utf-8')
-          return res.send(html)
-        } catch (e) {
-          if (e.status !== 404) return next(e)
-        }
+    async function sendPrerender(res, next, renderFn) {
+      try {
+        const html = await renderFn()
+        res.set('Content-Type', 'text/html; charset=utf-8')
+        if (config.isStagingPublicSite) res.set('X-Robots-Tag', 'noindex, nofollow')
+        return res.send(html)
+      } catch (e) {
+        if (e.status === 404) return next()
+        return next(e)
       }
+    }
+
+    app.get('/case/view.html', async (req, res, next) => {
       if (!req.query.id || req.query.legacy === '1') return next()
       try {
         const target = await resolveCaseRedirectTarget(req.query.id)
@@ -113,9 +115,11 @@ function createApp() {
         return next()
       }
     })
-    app.get(/^\/case\/[a-zA-Z0-9_-]+\.html$/, (req, res, next) => {
+    app.get(/^\/case\/[a-zA-Z0-9_-]+\.html$/, async (req, res, next) => {
       if (req.path === '/case/index.html' || req.path === '/case/view.html') return next()
-      return res.sendFile(path.join(h5Root, 'case', 'view.html'))
+      const { renderCaseBotHtml } = require('./services/h5-case-prerender.service')
+      const caseId = req.path.replace(/^\/case\//, '').replace(/\.html$/i, '')
+      return sendPrerender(res, next, () => renderCaseBotHtml(caseId))
     })
     app.use('/shared', express.static(path.join(h5Root, 'shared')))
     app.use('/fixtures', express.static(path.join(h5Root, 'fixtures')))
@@ -130,33 +134,30 @@ function createApp() {
     })
     app.get(/^\/store\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
       if (req.path === '/store/index.html' || req.path === '/store/view.html') return next()
-      const { isCrawlerRequest, renderStoreBotHtml } = require('./services/h5-store-prerender.service')
-      if (isCrawlerRequest(req)) {
-        const storeId = req.path.replace(/^\/store\//, '').replace(/\.html$/i, '')
-        try {
-          const html = await renderStoreBotHtml(storeId)
-          res.set('Content-Type', 'text/html; charset=utf-8')
-          return res.send(html)
-        } catch (e) {
-          if (e.status !== 404) return next(e)
-        }
-      }
-      return res.sendFile(path.join(h5Root, 'store', 'view.html'))
+      const { renderStoreBotHtml } = require('./services/h5-store-prerender.service')
+      const storeId = req.path.replace(/^\/store\//, '').replace(/\.html$/i, '')
+      return sendPrerender(res, next, () => renderStoreBotHtml(storeId))
     })
     app.get(/^\/store\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
       res.sendFile(path.join(h5Root, 'store', 'cases.html'))
     })
-    app.get(/^\/topic\/[a-z0-9-]+\/?$/i, (req, res) => {
-      res.sendFile(path.join(h5Root, 'topic', 'index.html'))
+    app.get(/^\/topic\/[a-z0-9-]+\/?$/i, async (req, res, next) => {
+      const { renderTopicHtml } = require('./services/h5-page-prerender.service')
+      const slug = req.path.replace(/^\/topic\//, '').replace(/\/$/, '')
+      return sendPrerender(res, next, () => renderTopicHtml(slug))
     })
     app.get(/^\/service\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
       res.sendFile(path.join(h5Root, 'service', 'cases.html'))
     })
-    app.get(/^\/service\/[a-zA-Z0-9_-]+\.html$/i, (req, res) => {
-      res.sendFile(path.join(h5Root, 'service', 'view.html'))
+    app.get(/^\/service\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
+      const { renderServiceHtml } = require('./services/h5-page-prerender.service')
+      const slug = req.path.replace(/^\/service\//, '').replace(/\.html$/i, '')
+      return sendPrerender(res, next, () => renderServiceHtml(slug, req.query))
     })
-    app.get(/^\/city\/[a-z0-9-]+\/?$/i, (req, res) => {
-      res.sendFile(path.join(h5Root, 'city', 'index.html'))
+    app.get(/^\/city\/[a-z0-9-]+\/?$/i, async (req, res, next) => {
+      const { renderCityHtml } = require('./services/h5-page-prerender.service')
+      const slug = req.path.replace(/^\/city\//, '').replace(/\/$/, '')
+      return sendPrerender(res, next, () => renderCityHtml(slug))
     })
     app.use('/city', express.static(path.join(h5Root, 'city')))
   }

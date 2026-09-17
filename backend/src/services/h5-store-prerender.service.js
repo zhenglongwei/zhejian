@@ -1,8 +1,6 @@
 /**
- * 门店页 Bot 预渲染（透明度指标 + 证据链 + Schema）
+ * 门店页服务端 HTML（透明度指标 + 证据链 + Schema）
  */
-const fs = require('fs')
-const path = require('path')
 const { config } = require('../config')
 const { getMerchantDetail } = require('./content.service')
 const { buildStorePageSchemaGraph } = require('../lib/schema-graph')
@@ -11,21 +9,12 @@ const {
   isCrawlerRequest,
 } = require('./h5-case-prerender.service')
 const { renderSiteBeianHtml } = require('../lib/site-beian')
-
-function escapeHtml(text) {
-  return String(text || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-function absoluteUrl(pathname, baseUrl) {
-  const base = String(baseUrl || config.publicBaseUrl).replace(/\/$/, '')
-  const pathValue = String(pathname || '/')
-  if (pathValue.startsWith('http')) return pathValue
-  return `${base}${pathValue.startsWith('/') ? '' : '/'}${pathValue}`
-}
+const {
+  escapeHtml,
+  absoluteUrl,
+  injectPrerenderHtml,
+  readH5Template,
+} = require('../lib/h5-html-prerender')
 
 function buildStoreBotBodyHtml(store) {
   const transparency = store.transparency || {}
@@ -33,6 +22,19 @@ function buildStoreBotBodyHtml(store) {
   const casePreviews = Array.isArray(store.casePreviews) ? store.casePreviews : []
   const sections = [
     `<h1>${escapeHtml(store.name || '维修门店')}</h1>`,
+    store.city || store.address || store.businessHours || (store.latitude != null && store.longitude != null)
+      ? `<section data-bot="store-nap"><h2>门店信息</h2><ul>${[
+          store.name ? `<li>对外门店名：${escapeHtml(store.name)}</li>` : '',
+          store.city ? `<li>城市：${escapeHtml(store.city)}</li>` : '',
+          store.address ? `<li>地址：${escapeHtml(store.address)}</li>` : '',
+          store.businessHours ? `<li>营业时间：${escapeHtml(store.businessHours)}</li>` : '',
+          store.latitude != null && store.longitude != null
+            ? `<li>坐标：${escapeHtml(String(store.latitude))}, ${escapeHtml(String(store.longitude))}</li>`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('')}</ul></section>`
+      : '',
     store.aiSummary || store.intro
       ? `<section data-bot="store-summary"><h2>门店简介</h2><p>${escapeHtml(
           store.aiSummary || store.intro
@@ -117,42 +119,6 @@ function buildStoreBotBodyHtml(store) {
   return sections.filter(Boolean).join('\n')
 }
 
-function injectPrerenderHtml(template, { title, description, canonical, bodyHtml, jsonLdBlocks }) {
-  let html = template
-  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(title)}</title>`)
-  if (description) {
-    html = html.replace(
-      /<meta name="description" content="[^"]*">/,
-      `<meta name="description" content="${escapeHtml(description)}">`
-    )
-  }
-  if (!html.includes('rel="canonical"')) {
-    html = html.replace(
-      '</head>',
-      `  <link rel="canonical" href="${escapeHtml(canonical)}">\n</head>`
-    )
-  } else {
-    html = html.replace(
-      /<link rel="canonical" href="[^"]*">/,
-      `<link rel="canonical" href="${escapeHtml(canonical)}">`
-    )
-  }
-  const ldScripts = (jsonLdBlocks || [])
-    .map(
-      (block, index) =>
-        `<script type="application/ld+json" id="bot-store-ld-${index}">${JSON.stringify(
-          block
-        )}</script>`
-    )
-    .join('\n  ')
-  html = html.replace('</head>', `  ${ldScripts}\n</head>`)
-  html = html.replace(
-    '<div id="app">加载中…</div>',
-    `<div id="app"><div class="h5-bot-prerender" data-prerender="store-transparency">${bodyHtml}</div></div>`
-  )
-  return html
-}
-
 async function renderStoreBotHtml(storeId) {
   const store = await getMerchantDetail(storeId)
   if (!store) {
@@ -177,16 +143,14 @@ async function renderStoreBotHtml(storeId) {
       organizationSameAs: config.geo?.organizationSameAs || [],
     })
 
-  const h5Root = path.join(__dirname, '..', '..', '..', 'h5')
-  const templatePath = path.join(h5Root, 'store', 'view.html')
-  const template = fs.readFileSync(templatePath, 'utf8')
-
-  return injectPrerenderHtml(template, {
+  return injectPrerenderHtml(readH5Template('store/view.html'), {
     title,
     description,
     canonical,
+    robots: store.seo?.robots || (store.seo?.noindex ? 'noindex,follow' : 'index,follow'),
     bodyHtml: buildStoreBotBodyHtml(store),
     jsonLdBlocks: [schemaGraph],
+    prerenderAttr: 'store-transparency',
   })
 }
 

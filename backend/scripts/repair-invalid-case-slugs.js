@@ -29,16 +29,16 @@ function parseArg(name) {
   return hit ? hit.slice(prefix.length).trim() : ''
 }
 
-function slugLooksInvalid(slug) {
+function slugNeedsRepair(slug) {
   const value = String(slug || '').trim()
-  if (!value) return false
+  if (!value) return true
   return !isH5RoutableCaseSlug(value)
 }
 
 async function main() {
   const dryRun = hasFlag('dry-run')
   const caseId = parseArg('case-id') || parseArg('caseId')
-  const where = caseId ? { id: caseId } : { slug: { not: null } }
+  const where = caseId ? { id: caseId } : {}
   const rows = await prisma.publicCase.findMany({
     where,
     select: {
@@ -53,9 +53,9 @@ async function main() {
     },
   })
 
-  const targets = rows.filter((row) => slugLooksInvalid(row.slug))
+  const targets = rows.filter((row) => slugNeedsRepair(row.slug))
   console.log(
-    `[repair-invalid-case-slugs] scanned=${rows.length} invalid=${targets.length} dryRun=${dryRun}`
+    `[repair-invalid-case-slugs] scanned=${rows.length} needSlug=${targets.length} dryRun=${dryRun}`
   )
 
   let updated = 0

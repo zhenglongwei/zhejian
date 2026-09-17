@@ -17,6 +17,7 @@ const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 function mapFeaturedCase(item) {
   return {
     id: item.id,
+    slug: item.slug || (item.seo && item.seo.slug) || '',
     albumId: item.albumId,
     authorizationTier: item.authorizationTier,
     coverImage: resolveClientReadableMediaUrl(item.coverImage || ''),

@@ -68,6 +68,8 @@ SEO页面必须遵守：
 8. 图片必须有 alt；
 9. 公开案例必须能追溯来源；
 10. 下线页面需要正确处理索引状态。
+11. 关键页（首页、服务、门店、城市、案例、专题）必须在**不执行网页脚本**时仍能读到真实 title、description、正文摘要、FAQ（有则必有）和 JSON-LD。禁止最终标题停留在「加载中… · 辙见」。实现方式为服务端拼装 HTML（全量请求，不只给爬虫 User-Agent）。
+12. 预发域名（如 `staging.geo.simplewin.cn`）必须 `noindex,nofollow`，且 `robots.txt` 全站 `Disallow: /`；正式站不受影响。
 
 ---
 

@@ -51,6 +51,7 @@ async function collectStoreEntries() {
 
   list.forEach((store) => {
     if (!store.id || store.status === 'offline') return
+    if (store.isDemo) return
     if (!publicIndexMerchantIds.has(store.merchantId)) return
     entries.push({
       loc: absUrl(`/store/${store.id}.html`),
@@ -192,8 +193,11 @@ async function getSitemapIndexXml() {
   ])
 }
 
-function getRobotsTxt() {
-  const base = config.publicBaseUrl.replace(/\/$/, '')
+function getRobotsTxt(baseUrl = config.publicBaseUrl) {
+  const base = String(baseUrl || config.publicBaseUrl).replace(/\/$/, '')
+  if (config.isStagingPublicSite || /staging\.geo\.simplewin\.cn/i.test(base)) {
+    return ['User-agent: *', 'Disallow: /', ''].join('\n')
+  }
   return [
     'User-agent: *',
     'Allow: /',

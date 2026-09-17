@@ -445,7 +445,7 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       ? [baseSummary, capabilitySummary].filter(Boolean).join(' ')
       : baseSummary
 
-  const publicIndex = await merchantHasPublicIndex(storeRow.merchantId)
+  const publicIndex = (await merchantHasPublicIndex(storeRow.merchantId)) && !mapped.isDemo
   const operatingYearsMeta = buildOperatingYearsMeta(merchantRow?.licenseEstablishedOn)
 
   const payload = {

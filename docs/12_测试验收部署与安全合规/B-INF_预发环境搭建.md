@@ -249,7 +249,7 @@ curl -s https://geo.simplewin.cn/api/v1/health
 2. **禁止**预发 `MEDIA_STORAGE_DIR` 指向生产 `data/media`。
 3. **禁止**正式版小程序带着 `ACTIVE_ENV = 'staging'` 提审。
 4. 预发 crontab（统计/GEO 聚合）默认**不要**照抄生产；需要时再单独加，并写清路径为 `zhejian-staging`。
-5. 预发可被搜索引擎抓取时，可在预发 `robots.txt` 策略或 Nginx 层限制（按需）；勿把测试脏数据当生产 SEO。
+5. **预发必须禁止搜索收录**（必做，不是按需）：`robots.txt` 对 `User-agent: *` 使用 `Disallow: /`，且 Nginx 全站加 `X-Robots-Tag: noindex, nofollow`。勿把测试脏数据当生产 SEO；正式站 `geo.simplewin.cn` 不得套用该策略。
 
 ---
 

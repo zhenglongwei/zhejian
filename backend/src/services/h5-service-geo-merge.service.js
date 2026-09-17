@@ -42,6 +42,7 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       scenarios: item.scenarios || [],
       process: item.process || [],
       priceFactors: item.priceFactors || [],
+      faq: item.faq || [],
       articleBody: '',
       seoTitle: '',
       seoDescription: '',
@@ -57,6 +58,7 @@ function mergeServiceItemWithGeo(item, geoPage, cityFilter) {
       ? geoPage.serviceMeta.process
       : item.process || [],
     priceFactors: geoPage.priceFactors?.length ? geoPage.priceFactors : item.priceFactors || [],
+    faq: geoPage.faq?.length ? geoPage.faq : item.faq || [],
     articleBody: geoPage.articleBody || geoPage.serviceMeta?.articleBody || '',
     seoTitle: geoPage.seoTitle || '',
     seoDescription: geoPage.seoDescription || '',

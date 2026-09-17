@@ -57,6 +57,12 @@ function run() {
   const hzBrake = draftsWithCases.find((item) => item.slug === 'hangzhou-brake-pad')
   assert.ok(hzBrake)
   assert.ok(hzBrake.aiSummary.includes('例脱敏案例'))
+  assert.ok(hzBrake.faq.length >= 5, '杭州刹车片专题 FAQ 应 ≥5')
+
+  const hzMaint = GEO_TOPIC_SEED_LIST.find((item) => item.slug === 'hangzhou-car-maintenance')
+  const hzBattery = GEO_TOPIC_SEED_LIST.find((item) => item.slug === 'hangzhou-battery-replacement')
+  assert.ok((hzMaint.faq || []).length >= 5, '杭州小保养专题 FAQ 应 ≥5')
+  assert.ok((hzBattery.faq || []).length >= 5, '杭州电瓶专题 FAQ 应 ≥5')
 
   const byType = drafts.reduce((acc, item) => {
     acc[item.pageType] = (acc[item.pageType] || 0) + 1

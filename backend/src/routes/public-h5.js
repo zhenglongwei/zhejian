@@ -16,6 +16,7 @@ const {
   getRobotsTxt,
 } = require('../services/h5-sitemap.service')
 const { getLlmsTxt, getLlmsFullTxt, getTopicsFeedXml } = require('../services/h5-discovery.service')
+const { config } = require('../config')
 const {
   searchH5Content,
   getH5SearchSuggest,
@@ -41,6 +42,15 @@ function sendText(res, body) {
   res.set('Content-Type', 'text/plain; charset=utf-8')
   res.set('Cache-Control', 'public, max-age=3600')
   return res.send(body)
+}
+
+function sendHtml(res, html) {
+  res.set('Content-Type', 'text/html; charset=utf-8')
+  res.set('Cache-Control', 'public, max-age=300')
+  if (config.isStagingPublicSite) {
+    res.set('X-Robots-Tag', 'noindex, nofollow')
+  }
+  return res.send(html)
 }
 
 router.get('/sitemap.xml', async (req, res, next) => {
@@ -214,13 +224,46 @@ router.get('/h5/case-redirect', async (req, res, next) => {
   }
 })
 
+router.get('/h5/home/bot-html', async (req, res, next) => {
+  try {
+    const { renderHomeHtml } = require('../services/h5-page-prerender.service')
+    return sendHtml(res, await renderHomeHtml())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/service-items/:slug/bot-html', async (req, res, next) => {
+  try {
+    const { renderServiceHtml } = require('../services/h5-page-prerender.service')
+    return sendHtml(res, await renderServiceHtml(req.params.slug, req.query))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/cities/:citySlug/bot-html', async (req, res, next) => {
+  try {
+    const { renderCityHtml } = require('../services/h5-page-prerender.service')
+    return sendHtml(res, await renderCityHtml(req.params.citySlug))
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/topics/:slug/bot-html', async (req, res, next) => {
+  try {
+    const { renderTopicHtml } = require('../services/h5-page-prerender.service')
+    return sendHtml(res, await renderTopicHtml(req.params.slug))
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/h5/case/:caseId/bot-html', async (req, res, next) => {
   try {
     const { renderCaseBotHtml } = require('../services/h5-case-prerender.service')
-    const html = await renderCaseBotHtml(req.params.caseId)
-    res.set('Content-Type', 'text/html; charset=utf-8')
-    res.set('Cache-Control', 'public, max-age=300')
-    return res.send(html)
+    return sendHtml(res, await renderCaseBotHtml(req.params.caseId))
   } catch (e) {
     next(e)
   }
@@ -229,10 +272,7 @@ router.get('/h5/case/:caseId/bot-html', async (req, res, next) => {
 router.get('/h5/stores/:storeId/bot-html', async (req, res, next) => {
   try {
     const { renderStoreBotHtml } = require('../services/h5-store-prerender.service')
-    const html = await renderStoreBotHtml(req.params.storeId)
-    res.set('Content-Type', 'text/html; charset=utf-8')
-    res.set('Cache-Control', 'public, max-age=300')
-    return res.send(html)
+    return sendHtml(res, await renderStoreBotHtml(req.params.storeId))
   } catch (e) {
     next(e)
   }

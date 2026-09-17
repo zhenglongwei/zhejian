@@ -277,11 +277,17 @@ async function verifyH5Sitemap() {
   const robotsRes = await fetch(`${BASE}/robots.txt`)
   assert(robotsRes.ok, `robots.txt HTTP ${robotsRes.status}`)
   const robotsText = await robotsRes.text()
-  assert(robotsText.includes('Sitemap:'), 'robots.txt 缺少 Sitemap 声明')
-  assert(robotsText.includes('LLMs-Feed:'), 'robots.txt 缺少 LLMs-Feed 声明')
-  const { auditRobotsTxt } = require('../src/services/geo-robots-audit.service')
-  const robotsAudit = auditRobotsTxt(robotsText)
-  assert(robotsAudit.passed, `robots.txt 审计未通过: ${robotsAudit.missing.join(',')} ${robotsAudit.blockedBots.join(',')}`)
+  const isStaging = /staging\./i.test(BASE)
+  if (isStaging) {
+    assert(robotsText.includes('Disallow: /'), 'staging robots.txt 应禁止收录')
+    assert(!/Sitemap:/i.test(robotsText), 'staging robots.txt 不应声明 sitemap')
+  } else {
+    assert(robotsText.includes('Sitemap:'), 'robots.txt 缺少 Sitemap 声明')
+    assert(robotsText.includes('LLMs-Feed:'), 'robots.txt 缺少 LLMs-Feed 声明')
+    const { auditRobotsTxt } = require('../src/services/geo-robots-audit.service')
+    const robotsAudit = auditRobotsTxt(robotsText)
+    assert(robotsAudit.passed, `robots.txt 审计未通过: ${robotsAudit.missing.join(',')} ${robotsAudit.blockedBots.join(',')}`)
+  }
 
   const llmsRes = await fetch(`${BASE}/llms.txt`)
   assert(llmsRes.ok, `llms.txt HTTP ${llmsRes.status}`)
@@ -289,6 +295,16 @@ async function verifyH5Sitemap() {
   assert(llmsText.includes('辙见服务平台'), 'llms.txt 缺少站点标题')
   assert(llmsText.includes('/service/'), 'llms.txt 应含服务页链接')
   assert(llmsText.includes('JSON Feed'), 'llms.txt 应声明 JSON Feed')
+
+  const llmsFullRes = await fetch(`${BASE}/llms-full.txt`)
+  if (llmsFullRes.status === 404) {
+    const apiFull = await fetch(`${BASE}/api/v1/public/llms-full.txt`)
+    assert(apiFull.ok, `llms-full.txt API HTTP ${apiFull.status}`)
+  } else {
+    assert(llmsFullRes.ok, `llms-full.txt HTTP ${llmsFullRes.status}`)
+    const fullText = await llmsFullRes.text()
+    assert(fullText.includes('全量索引') || fullText.includes('/service/'), 'llms-full.txt 内容不完整')
+  }
 
   const feedRes = await fetch(`${BASE}/feeds/topics.xml`)
   assert(feedRes.ok, `feeds/topics.xml HTTP ${feedRes.status}`)
