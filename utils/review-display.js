@@ -20,16 +20,36 @@ function buildDisplayNickname(review) {
   return review.nickname || '用户*'
 }
 
+function compactReviewText(value) {
+  return String(value || '').replace(/[，,\s]+/g, '')
+}
+
+/** 点选标签曾被写入正文，导致「解释清楚」正文与标签各出现一次 */
+function stripTagOnlyReviewContent(content, tags = []) {
+  const text = String(content || '').trim()
+  if (!text) return ''
+  const list = (Array.isArray(tags) ? tags : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+  if (!list.length) return text
+  const compactText = compactReviewText(text)
+  const joined = compactReviewText(list.join('，'))
+  const concatenated = compactReviewText(list.join(''))
+  if (compactText === joined || compactText === concatenated) return ''
+  return text
+}
+
 function buildReviewCardModel(review) {
   if (!review) return null
   const status = review.status || REVIEW_STATUS.REVIEW_APPROVED
+  const tags = review.tags || []
   return {
     reviewId: review.reviewId,
     orderId: review.orderId || '',
     displayName: buildDisplayNickname(review),
     overallScore: review.overallScore || 0,
-    content: review.content || '',
-    tags: review.tags || [],
+    content: stripTagOnlyReviewContent(review.content || '', tags),
+    tags,
     serviceName: review.serviceName || '',
     createdAtText: formatReviewDate(review.createdAt),
     status,
@@ -48,6 +68,7 @@ function buildReviewCardList(reviews) {
 module.exports = {
   formatReviewDate,
   buildDisplayNickname,
+  stripTagOnlyReviewContent,
   buildReviewCardModel,
   buildReviewCardList,
 }

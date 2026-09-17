@@ -3,6 +3,7 @@ const {
   calcAlbumScore,
   calcOverallScore,
 } = require('./album-review-score')
+const { stripTagOnlyReviewContent } = require('./review-display')
 const { emptyAlbumReviewScores, ALL_REVIEW_DIMENSIONS } = require('../constants/album-review-dimensions')
 const {
   ALBUM_REVIEW_CONSENT_TEXT,
@@ -41,8 +42,11 @@ function buildAlbumReviewPayload(form) {
     repairScore: calcRepairScore(scores),
     albumScore: calcAlbumScore(scores),
     overallScore: calcOverallScore(scores),
-    content: String(form.content || '').trim(),
     tags: form.selectedTags || [],
+    content: stripTagOnlyReviewContent(
+      String(form.content || '').trim(),
+      form.selectedTags || [],
+    ),
     images: form.images || [],
     authorizePublic: true,
     consent: Boolean(form.consent),

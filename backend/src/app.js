@@ -53,6 +53,13 @@ function createApp() {
   app.set('trust proxy', 1)
   app.use(helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    // 公开页现经 API 输出 HTML；脱敏图 302 到 OSS，img-src 不能只用 'self'
+    contentSecurityPolicy: {
+      directives: {
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        mediaSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
   }))
   app.use(createCorsMiddleware())
   applyRateLimits(app)

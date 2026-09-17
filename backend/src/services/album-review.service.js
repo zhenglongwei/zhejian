@@ -73,6 +73,24 @@ function sanitizeTags(tags) {
     .slice(0, MAX_REVIEW_TAGS)
 }
 
+function compactReviewText(value) {
+  return String(value || '').replace(/[，,\s]+/g, '')
+}
+
+function stripTagOnlyReviewContent(content, tags = []) {
+  const text = String(content || '').trim()
+  if (!text) return ''
+  const list = (Array.isArray(tags) ? tags : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+  if (!list.length) return text
+  const compactText = compactReviewText(text)
+  const joined = compactReviewText(list.join('，'))
+  const concatenated = compactReviewText(list.join(''))
+  if (compactText === joined || compactText === concatenated) return ''
+  return text
+}
+
 function sanitizeScores(raw = {}) {
   const scores = {}
   for (const key of REVIEW_DIMENSION_KEYS) {
@@ -113,7 +131,7 @@ function mapReviewRow(row, extras = {}) {
     repairScore,
     albumScore,
     overallScore: row.overallScore || calcOverallScore(scores),
-    content: row.content || '',
+    content: stripTagOnlyReviewContent(row.content || '', tags),
     tags,
     images,
     imagesMaskStatus: row.imagesMaskStatus || REVIEW_IMAGE_MASK_STATUS.NONE,
@@ -267,7 +285,8 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
 
   const scores = sanitizeScores(payload.scores)
   assertReviewScores(scores)
-  const content = String(payload.content || '').trim()
+  const tags = sanitizeTags(payload.tags)
+  const content = stripTagOnlyReviewContent(String(payload.content || '').trim(), tags)
   if (content.length > MAX_REVIEW_CONTENT) {
     const err = new Error(`评价内容不超过 ${MAX_REVIEW_CONTENT} 字`)
     err.status = 400
@@ -293,7 +312,7 @@ async function submitServiceAlbumReview(albumId, userId, payload = {}) {
       albumScore,
       overallScore: calcOverallScore(scores),
       content,
-      tagsJson: sanitizeTags(payload.tags),
+      tagsJson: tags,
       imagesJson: sanitizedImages,
       imagesMaskedJson: [],
       imagesMaskStatus: initialMaskStatus,

@@ -38,6 +38,7 @@ const {
   runGateUserAction,
 } = require('../../../utils/album-gate-actions')
 const { formatUpdatedAtDisplay } = require('../../../utils/album-summary')
+const { stripTagOnlyReviewContent } = require('../../../utils/review-display')
 
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
@@ -146,8 +147,10 @@ Page({
         existingRepairScore: review ? Number(review.repairScore) || 0 : 0,
         existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
         existingCreatedAt: review ? formatUpdatedAtDisplay(review.createdAt) : '',
-        existingContent: review ? review.content || '' : '',
         existingTags: review && Array.isArray(review.tags) ? review.tags : [],
+        existingContent: review
+          ? stripTagOnlyReviewContent(review.content || '', review.tags)
+          : '',
         merchantReply: review ? review.merchantReply || '' : '',
         merchantReplyAt: review ? formatUpdatedAtDisplay(review.merchantReplyAt) : '',
         hasFollowUp: Boolean(review && review.hasFollowUp),
@@ -282,17 +285,12 @@ Page({
   syncTagPool(scores) {
     const pool = resolveReviewTagPool(scores)
     const reconciled = reconcileTagsForPool({
-      content: this.data.content,
       selectedTags: this.data.selectedTags,
-      tagInsertions: this.data.tagInsertions,
       nextPool: pool,
     })
     this.setData({
       tagItems: buildTagItems(pool, reconciled.selectedTags),
-      content: reconciled.content,
-      contentLength: reconciled.content.length,
       selectedTags: reconciled.selectedTags,
-      tagInsertions: reconciled.tagInsertions,
     })
   },
 
@@ -306,21 +304,11 @@ Page({
     if (!tag) return
     const result = toggleReviewTag({
       tag,
-      content: this.data.content,
       selectedTags: this.data.selectedTags,
-      tagInsertions: this.data.tagInsertions,
-      maxLength: 300,
     })
-    if (result.overflow) {
-      wx.showToast({ title: '内容过长', icon: 'none' })
-      return
-    }
     const pool = this.data.tagItems.map((item) => item.text)
     this.setData({
-      content: result.content,
-      contentLength: (result.content || '').length,
       selectedTags: result.selectedTags,
-      tagInsertions: result.tagInsertions,
       tagItems: buildTagItems(pool, result.selectedTags),
     })
   },
