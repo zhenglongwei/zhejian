@@ -48,6 +48,24 @@
     return out
   }
 
+  function renderPreviewableImage(url, alt, imgClass) {
+    var src = mediaSrc(url)
+    if (!src) return ''
+    return (
+      '<button type="button" class="h5-image-open" data-h5-preview="' +
+      escapeHtml(src) +
+      '" aria-label="查看全图">' +
+      '<img class="' +
+      (imgClass || 'h5-node-img') +
+      '" src="' +
+      escapeHtml(src) +
+      '" alt="' +
+      escapeHtml(alt || '') +
+      '" loading="lazy" />' +
+      '</button>'
+    )
+  }
+
   function pickNodeDesensitizedImages(node) {
     var urls = []
     ;(node.imagesDesensitized || []).forEach(function (img) {
@@ -610,15 +628,7 @@
           if (!url) return ''
           return (
             '<figure class="h5-figure">' +
-            '<a class="h5-figure-link" href="' +
-            escapeHtml(url) +
-            '" target="_blank" rel="noopener">' +
-            '<img class="h5-node-img" src="' +
-            escapeHtml(url) +
-            '" alt="' +
-            escapeHtml(photo.caption || '') +
-            '" loading="lazy" />' +
-            '</a>' +
+            renderPreviewableImage(url, photo.caption || '') +
             (photo.caption
               ? '<figcaption class="h5-figure-caption">' +
                 escapeHtml(photo.caption) +
@@ -678,9 +688,7 @@
                   return (
                     '<div class="h5-flow-finding">' +
                     (f.url
-                      ? '<img class="h5-flow-finding-img" src="' +
-                        escapeHtml(f.url) +
-                        '" alt="" loading="lazy" />'
+                      ? renderPreviewableImage(f.url, f.partName || '', 'h5-flow-finding-img')
                       : '<span class="h5-flow-finding-img is-empty"></span>') +
                     '<div><p class="h5-flow-finding-name">' +
                     escapeHtml(f.partName || '') +
@@ -765,15 +773,8 @@
 
   function renderNodeImage(data, node) {
     var desensitized = pickNodeDesensitizedImages(node)
-    var alt = escapeHtml(buildImageAlt(data, node))
     if (desensitized.length) {
-      return (
-        '<img class="h5-node-img" src="' +
-        escapeHtml(desensitized[0]) +
-        '" alt="' +
-        alt +
-        '" loading="lazy" />'
-      )
+      return renderPreviewableImage(desensitized[0], buildImageAlt(data, node))
     }
     return '<div class="h5-placeholder-img">' + escapeHtml((PC.imagePlaceholder || '图片暂未就绪')) + '</div>'
   }
@@ -919,11 +920,7 @@
       '<div class="h5-review-images">' +
       list
         .map(function (url) {
-          return (
-            '<img class="h5-review-img" src="' +
-            escapeHtml(url) +
-            '" alt="车主评价配图" loading="lazy" />'
-          )
+          return renderPreviewableImage(url, '车主评价配图', 'h5-review-img')
         })
         .join('') +
       '</div>'
@@ -1205,15 +1202,11 @@
             if (!m || !m.maskedUrl) return ''
             return (
               '<figure class="h5-figure">' +
-              '<a class="h5-figure-link" href="' +
-              escapeHtml(m.maskedUrl) +
-              '" target="_blank" rel="noopener">' +
-              '<img class="h5-node-img h5-node-img--contain" src="' +
-              escapeHtml(m.maskedUrl) +
-              '" alt="' +
-              escapeHtml(m.caption || m.hint || section.title || data.title || '案例配图') +
-              '" loading="lazy" />' +
-              '</a>' +
+              renderPreviewableImage(
+                m.maskedUrl,
+                m.caption || m.hint || section.title || data.title || '案例配图',
+                'h5-node-img h5-node-img--contain',
+              ) +
               (m.caption || m.hint
                 ? '<figcaption class="h5-figure-caption">' +
                   (m.caption
@@ -1324,11 +1317,7 @@
             var caption = captions[index] && captions[index].alt ? captions[index].alt : buildImageAlt(data, node)
             return (
               '<figure class="h5-figure">' +
-              '<img class="h5-node-img" src="' +
-              escapeHtml(url) +
-              '" alt="' +
-              escapeHtml(caption) +
-              '" loading="lazy" />' +
+              renderPreviewableImage(url, caption) +
               (captions[index] && captions[index].caption
                 ? '<figcaption class="h5-figure-caption">' +
                   escapeHtml(captions[index].caption) +
@@ -1755,6 +1744,9 @@
     var caseId = safeData.id || ''
     var storeId = safeData.storeId || ''
     bindStars(caseId)
+    if (window.zhejianH5Ui && window.zhejianH5Ui.bindImageLightbox) {
+      window.zhejianH5Ui.bindImageLightbox()
+    }
 
     document.querySelectorAll('[data-case-id]').forEach(function (el) {
       if (el.id === 'h5-store-link') return

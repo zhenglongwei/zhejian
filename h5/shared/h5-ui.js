@@ -103,6 +103,73 @@
       .trim()
   }
 
+  function ensureImageLightbox() {
+    if (document.getElementById('h5-image-lightbox')) return
+    var root = document.createElement('div')
+    root.id = 'h5-image-lightbox'
+    root.className = 'h5-image-lightbox'
+    root.hidden = true
+    root.setAttribute('role', 'dialog')
+    root.setAttribute('aria-modal', 'true')
+    root.setAttribute('aria-label', '查看全图')
+    root.innerHTML =
+      '<div class="h5-image-lightbox-mask" data-h5-lightbox-close="1"></div>' +
+      '<img class="h5-image-lightbox-img" alt="" />' +
+      '<button type="button" class="h5-image-lightbox-close" data-h5-lightbox-close="1">关闭</button>'
+    document.body.appendChild(root)
+  }
+
+  function closeImageLightbox() {
+    var root = document.getElementById('h5-image-lightbox')
+    if (!root) return
+    root.hidden = true
+    var img = root.querySelector('.h5-image-lightbox-img')
+    if (img) {
+      img.removeAttribute('src')
+      img.alt = ''
+    }
+    document.body.style.overflow = ''
+  }
+
+  function openImageLightbox(src, alt, extra) {
+    var url = String(src || '').trim()
+    if (!url) return
+    ensureImageLightbox()
+    var root = document.getElementById('h5-image-lightbox')
+    var img = root.querySelector('.h5-image-lightbox-img')
+    img.src = url
+    img.alt = alt || '查看全图'
+    root.hidden = false
+    document.body.style.overflow = 'hidden'
+    if (window.zhejianTrack && window.zhejianTrack.track) {
+      window.zhejianTrack.track(
+        'h5_image_preview',
+        extra && typeof extra === 'object' ? extra : {},
+      )
+    }
+  }
+
+  function bindImageLightbox() {
+    ensureImageLightbox()
+    if (document.documentElement.getAttribute('data-h5-lightbox') === '1') return
+    document.documentElement.setAttribute('data-h5-lightbox', '1')
+    document.addEventListener('click', function (event) {
+      if (event.target.closest('[data-h5-lightbox-close]')) {
+        closeImageLightbox()
+        return
+      }
+      var opener = event.target.closest('[data-h5-preview]')
+      if (!opener) return
+      event.preventDefault()
+      var src = opener.getAttribute('data-h5-preview')
+      var nested = opener.tagName === 'IMG' ? opener : opener.querySelector('img')
+      openImageLightbox(src, nested && nested.alt)
+    })
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') closeImageLightbox()
+    })
+  }
+
   function resolveFixedAmount(data) {
     if (data.amount != null && data.amount !== '') {
       var amount = Number(data.amount)
@@ -389,5 +456,8 @@
     renderEntryCard: renderEntryCard,
     renderStoreListItem: renderStoreListItem,
     renderServiceListItem: renderServiceListItem,
+    bindImageLightbox: bindImageLightbox,
+    openImageLightbox: openImageLightbox,
+    closeImageLightbox: closeImageLightbox,
   }
 })(typeof window !== 'undefined' ? window : globalThis)

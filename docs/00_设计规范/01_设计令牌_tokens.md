@@ -960,6 +960,7 @@ page {
 | `--max-width-library` | `1012px` | 电脑案例库 |
 | `--z-h5-footer` | `100` | 固定底栏 |
 | `--z-h5-sheet` | `1000` | 咨询 sheet |
+| `--z-h5-lightbox` | `1100` | 过程图全图预览 |
 
 **CSS 引用顺序**：`tokens.css` → `base-page.css` → 页专属 CSS。
 
