@@ -67,34 +67,6 @@ function buildMineTodoSummary(badges = {}, authSummary = null) {
       action: 'albumPendingOwnerReview',
     })
   }
-  if (summary.pendingAuth > 0) {
-    items.push({
-      key: 'pendingAuth',
-      label: `${summary.pendingAuth} 本待发布到公开网站`,
-      action: 'albumDone',
-    })
-  }
-  if (summary.pendingReview > 0) {
-    items.push({
-      key: 'pendingReview',
-      label: `${summary.pendingReview} 本审核中`,
-      action: 'albumActive',
-    })
-  }
-  if (summary.auditRejected > 0) {
-    items.push({
-      key: 'auditRejected',
-      label: `${summary.auditRejected} 本审核未通过`,
-      action: 'albumActive',
-    })
-  }
-  if (summary.hasRecords && !items.length) {
-    items.push({
-      key: 'authorizeHub',
-      label: '查看已完工相册',
-      action: 'albumDone',
-    })
-  }
 
   if (!items.length) return null
   return {

@@ -80,7 +80,7 @@ Component({
     },
     withdrawLabel: {
       type: String,
-      value: '从店页撤下',
+      value: '',
     },
     statusHint: {
       type: String,

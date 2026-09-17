@@ -5,17 +5,17 @@ const { AUTHORIZATION_CONSENT } = require('../../constants/compliance-copy')
 const COPY = {
   login: {
     title: '登录',
-    description: '登录后可查看咨询记录、服务相册与授权状态。',
+    description: '登录后可查看服务相册并对本次服务评价。',
     primary: '微信一键登录',
   },
   loginConsult: {
     title: '登录',
-    description: '登录后可查看咨询记录、服务相册与授权状态。',
+    description: '登录后可查看服务相册并对本次服务评价。',
     primary: '微信一键登录',
   },
   bindPhone: {
     title: '绑定手机号',
-    description: '绑定后可接收咨询回复、相册与配件确认通知。',
+    description: '绑定后可查看服务相册并接收门店通知。',
     primary: '绑定手机号',
   },
   bindPhoneOrder: {
@@ -25,7 +25,7 @@ const COPY = {
   },
   bindPhoneConsult: {
     title: '绑定手机号',
-    description: '绑定手机号后门店可与你联系，便于确认咨询与预约。',
+    description: '绑定后可查看门店为你创建的服务相册。',
     primary: '绑定手机号',
   },
 }

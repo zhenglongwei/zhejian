@@ -171,7 +171,7 @@ function filterMerchantGeoOpportunity(geoOpp, storeServiceNames = []) {
   if (!matched) return null
 
   const cityCount = Number(matched.cityPublicCaseCount) || 0
-  const hint = `您所在城市「${matched.serviceName}」相关公开脱敏案例约 ${cityCount} 条；完善服务相册并授权公开，有助于在「${matched.serviceName} 怎么处理」类问题中成为可引用参考。`
+  const hint = `同城「${matched.serviceName}」公开案例约 ${cityCount} 条。把服务相册托管到店页，更容易被搜到。`
   return {
     ...geoOpp,
     hint,

@@ -150,7 +150,7 @@ Page({
     this.setData({
       menuSections: buildMineMenuSections(badges),
       albumHeroCards: albums,
-      pendingAuthBadge: badges.albumPendingAuth || '',
+      pendingAuthBadge: '',
       todoSummary,
       vehicleSummary,
       shareIncentivePreview: buildMineEarningsPreview({ loggedIn }),
@@ -423,10 +423,6 @@ Page({
 
   onDockTap(e) {
     const { key } = e.currentTarget.dataset
-    if (key === 'consult') {
-      this.openMenuEntry('consult', true)
-      return
-    }
     if (key === 'settings') {
       wx.navigateTo({ url: '/pages/mine/settings/index' })
       return

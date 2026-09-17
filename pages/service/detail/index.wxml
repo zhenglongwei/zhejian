@@ -61,7 +61,7 @@
             class="service-detail__consult-guide text-body"
           >{{detail.appointmentSection.consultGuide}}</text>
           <view wx:if="{{detail.status === 'published'}}" class="deep-link-detail__notice">
-            <text class="text-caption">如需了解详情或预约到店，请直接电话联系门店。</text>
+            <text class="text-caption">如需了解详情，请电话联系门店。</text>
           </view>
         </view>
 
@@ -266,7 +266,6 @@
     <ui-button
       type="primary"
       slot="right"
-      disabled="{{!bookable}}"
       bind:btntap="onConsultSubmit"
     >{{consultSubmitLabel}}</ui-button>
   </ui-fixed-bottom-bar>

@@ -35,7 +35,7 @@ Page({
   onLogout() {
     wx.showModal({
       title: '退出登录',
-      content: '退出后将无法查看服务相册与授权状态，确定退出吗？',
+      content: '退出后将无法查看服务相册，确定退出吗？',
       success: (res) => {
         if (!res.confirm) return
         clearSession()

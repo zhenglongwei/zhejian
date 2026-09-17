@@ -4,7 +4,6 @@ const { isAccidentCategory } = require('../../../constants/price-mode')
 const { checkAuth } = require('../../../utils/auth')
 const { loadFavoriteState, toggleFavorite } = require('../../../utils/favorite-toggle')
 const { openLegacyListPage } = require('../../../utils/legacy-list-nav')
-const { getSubmitButtonLabel } = require('../../../utils/lead-form')
 const {
   resolvePageShareContext,
   withStoreContextPath,
@@ -19,7 +18,7 @@ const { assertOwnerStoreAccess, isStoreContextIsolated, userHasBoundAlbum } = re
 const { isolateRelatedCases } = require('../../../utils/isolate-related-cases')
 
 function buildBottomLeftActions(showCasesLink) {
-  const actions = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+  const actions = []
   if (showCasesLink) {
     actions.push({ key: 'cases', type: 'ghost', text: '查看案例' })
   }
@@ -37,7 +36,7 @@ Page({
     isAccident: false,
     showPriceFactors: false,
     bookable: false,
-    consultSubmitLabel: '预约到店',
+    consultSubmitLabel: '联系门店',
     casesAnchor: 'cases-section',
     showCasesLink: false,
     bottomLeftActions: buildBottomLeftActions(false),
@@ -127,7 +126,7 @@ Page({
         isAccident: Boolean(detailView.isAccidentService) || isAccidentCategory(detailView),
         showPriceFactors: Boolean((detailView.priceFactors || []).length),
         bookable: Boolean(detailView.bookable),
-        consultSubmitLabel: getSubmitButtonLabel(detailView.priceMode, 'service'),
+        consultSubmitLabel: '联系门店',
         showCasesLink,
         bottomLeftActions: buildBottomLeftActions(showCasesLink),
         status: 'normal',
@@ -212,23 +211,7 @@ Page({
   },
 
   onConsultSubmit() {
-    if (this._messageNavigating) return
-    const { detail, bookable } = this.data
-    if (!detail || !bookable) {
-      wx.showToast({ title: '当前服务暂不可预约', icon: 'none' })
-      return
-    }
-    if (!this.ensureConsultAuth()) return
-    this._messageNavigating = true
-    wx.navigateTo({
-      url: withStoreContextPath(
-        `/pages/consult/submit/index?serviceId=${detail.id}&storeId=${detail.storeId || ''}&sourcePage=service`,
-        { storeId: detail.storeId }
-      ),
-      complete: () => {
-        this._messageNavigating = false
-      },
-    })
+    this.onCall()
   },
 
   onTopFavoriteTap() {

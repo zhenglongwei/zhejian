@@ -46,7 +46,6 @@
             <text class="mine__section-divider text-caption text-secondary">·</text>
             <view class="mine__section-link" bindtap="onAlbumDoneTap">
               <text class="mine__section-link-text text-caption text-link">已完工</text>
-              <text wx:if="{{pendingAuthBadge}}" class="mine__link-badge text-caption">{{pendingAuthBadge}}</text>
             </view>
           </view>
         </view>
@@ -63,10 +62,7 @@
               embedded="{{true}}"
               data-id="{{item.albumId}}"
               bind:tap="onAlbumCardTap"
-              bind:ownershare="onAlbumOwnerShare"
               bind:ownerreview="onAlbumOwnerReview"
-              bind:authorize="onCardAuthorize"
-              bind:withdraw="onCardWithdraw"
             />
           </view>
         </block>
@@ -88,16 +84,7 @@
         </block>
 
         <view class="surface-album-inset-divider" />
-        <view class="mine__consult-entry" bindtap="onConsultListTap">
-          <view class="mine__consult-main">
-            <text class="text-body">我的咨询</text>
-            <text class="text-caption text-secondary">查看留言与预约记录</text>
-          </view>
-          <text class="mine__todo-arrow text-caption">›</text>
-        </view>
-
         <block wx:if="{{todoSummary}}">
-          <view class="surface-album-inset-divider" />
           <view class="mine__todo surface-album-todo">
             <text class="mine__todo-headline text-body">{{todoSummary.headline}}</text>
             <view class="mine__todo-list">
@@ -113,17 +100,6 @@
                 <text class="mine__todo-arrow text-caption">›</text>
               </view>
             </view>
-          </view>
-        </block>
-
-        <block wx:if="{{isLoggedIn && showShareIncentive}}">
-          <view class="surface-album-inset-divider" />
-          <view class="mine__incentive" bindtap="onShareIncentiveTap">
-            <view class="mine__incentive-head">
-              <text class="text-body">{{shareIncentiveTitle}}</text>
-              <ui-tag variant="default" text="{{shareIncentivePreview.statusLabel}}" />
-            </view>
-            <text class="text-caption text-secondary">{{shareIncentivePreview.summaryHint}}</text>
           </view>
         </block>
 
@@ -162,68 +138,4 @@
   bind:close="closeLoginSheet"
   bind:cancel="closeLoginSheet"
   bind:success="onLoginSheetSuccess"
-/>
-
-<ui-bottom-sheet
-  visible="{{authSheetVisible}}"
-  title="{{authSheetTitle}}"
-  showActions="{{false}}"
-  scrollable="{{true}}"
-  bind:close="onCloseAuthSheet"
->
-  <ui-album-authorize-section
-    title="{{authSheetTitle}}"
-    pitch="{{authPitch}}"
-    benefitLine="{{authBenefitLine}}"
-    controlLine="{{authControlLine}}"
-    disclaimer="{{authDisclaimer}}"
-    consentText="{{authConsentText}}"
-    confirmText="{{authConfirmText}}"
-    rejectText="{{authRejectText}}"
-    checked="{{authChecked}}"
-    authTier="{{authTier}}"
-    submitting="{{authSubmitting}}"
-    showActions="{{false}}"
-    showRejectLink="{{true}}"
-    bind:toggle="onAuthCheckToggle"
-    bind:tierchange="onAuthTierChange"
-    bind:reject="onRejectAuth"
-    bind:policy="onOpenBenefitPolicy"
-  />
-  <view class="mine__auth-submit">
-    <ui-button
-      type="primary"
-      block
-      disabled="{{authSubmitting}}"
-      loading="{{authSubmitting}}"
-      bind:btntap="onSubmitAuth"
-    >{{authConfirmText}}</ui-button>
-  </view>
-</ui-bottom-sheet>
-
-<ui-share-sheet
-  visible="{{shareSheetVisible}}"
-  variant="owner"
-  showOwnerShare="{{showShareEntry}}"
-  shareIntent="{{shareSheetIntent}}"
-  shareUseOriginal="{{shareUseOriginal}}"
-  ownerSharePreparing="{{sharePreparing}}"
-  actionsDisabled="{{shareActionsDisabled}}"
-  bind:close="onCloseShareSheet"
-  bind:toggleoriginal="onShareOriginalToggle"
-  bind:copyownerlink="onCopyOwnerShareLink"
-  bind:copypublicweblink="onCopyPublicWebLink"
-  bind:sharetimeline="onShareTimelineGuide"
-/>
-
-<ui-bottom-sheet
-  visible="{{withdrawSheetVisible}}"
-  title="撤回发布"
-  hint="撤回后公开案例将下架，已产生的传播数据保留后台记录。私密服务相册仍保留。"
-  confirmText="确认撤回"
-  cancelText="取消"
-  loading="{{withdrawSheetLoading}}"
-  bind:close="onWithdrawSheetClose"
-  bind:cancel="onWithdrawSheetClose"
-  bind:confirm="onWithdrawSheetConfirm"
 />

@@ -7,7 +7,6 @@ const { formatShanghaiDate, addDays, shanghaiDayBounds } = require('../lib/shang
 const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const {
   CASE_ARTICLE_STATUS,
-  CASE_ARTICLE_STATUS_LABELS,
   CASE_ARTICLE_H5_PUBLISHED_STATUSES,
 } = require('../constants/case-article-status')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
@@ -41,19 +40,19 @@ function resolvePublishLabel(row) {
   }
   if (CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(articleStatus)) {
     if (row.seoNoindex) {
-      return { key: 'published_h5_private', label: 'H5 私域' }
+      return { key: 'published_h5_private', label: '未公开' }
     }
-    return { key: 'published_h5', label: 'H5 公域收录' }
+    return { key: 'published_h5', label: '已上网站' }
   }
   if (
     articleStatus === CASE_ARTICLE_STATUS.READY ||
     articleStatus === CASE_ARTICLE_STATUS.DRAFT
   ) {
-    return { key: 'ready', label: '待发布 H5' }
+    return { key: 'ready', label: '未公开' }
   }
   return {
     key: 'pending',
-    label: CASE_ARTICLE_STATUS_LABELS[CASE_ARTICLE_STATUS.PENDING] || '待生成',
+    label: '未公开',
   }
 }
 

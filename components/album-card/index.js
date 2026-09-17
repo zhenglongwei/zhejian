@@ -24,7 +24,7 @@ Component({
       type: Boolean,
       value: false,
     },
-    /** 用户端卡底快捷栏：发布/撤回 · 分享 · 去评价/追评 */
+    /** 用户端卡底快捷栏：仅去评价 / 追评 */
     showQuickActions: {
       type: Boolean,
       value: false,
@@ -84,20 +84,20 @@ Component({
         return
       }
 
-      const withdraw = item.withdrawAction || {}
-      const auth = item.authAction || {}
+      const withdraw = { show: false }
+      const auth = { show: false }
       const quickWithdraw = {
-        show: Boolean(withdraw.show),
+        show: false,
         label: '撤回',
-        disabled: Boolean(withdraw.disabled),
+        disabled: false,
       }
       const quickPublish = {
-        show: !quickWithdraw.show && Boolean(auth.show),
+        show: false,
         label: '发布',
-        disabled: Boolean(auth.disabled),
+        disabled: false,
       }
       const quickShare = {
-        show: Boolean(item.showShareButton || item.showOwnerShare),
+        show: false,
       }
       // 已完工：始终给出评价入口（未评「去评价」、已评「追评」）
       // 兼容 API 仅认 completed、而公示后 status 为 published 的情况

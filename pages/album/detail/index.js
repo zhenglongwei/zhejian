@@ -232,121 +232,19 @@ function buildNodeNoteMap(nodes) {
   return map
 }
 
-function buildEndPageActionState(detail, showAuthSection) {
-  const {
-    PREVIEW_LABEL,
-    CONTROL_LINE,
-    canShowPublishInvite,
-    buildPublishInviteCopy,
-  } = require('../../../utils/publish-thank-you')
-  const status = (detail && detail.publicCaseStatus) || 'private'
-  const gateBanner = buildAlbumGateBanner(detail || {})
-  const gateActions = buildGateActionButtons(detail || {})
-  const invite = buildPublishInviteCopy({
-    albumId: detail && (detail.albumId || detail.id),
-    vehicleLabel: detail && detail.vehicleDisplay,
-    serviceName: detail && detail.serviceName,
-  })
-  const showInvite = canShowPublishInvite(detail || {}) && showAuthSection
-
-  const inviteFields = showInvite || status === 'need_modify'
-    ? {
-        endPageInvitePitch: invite.pitch,
-        endPageInviteEyebrow: invite.officerTitle
-          ? `诚邀 · ${invite.officerTitle}`
-          : '诚邀分享这份维修记录',
-        endPageControlLine: CONTROL_LINE,
-      }
-    : {
-        endPageInvitePitch: '',
-        endPageInviteEyebrow: '',
-        endPageControlLine: '',
-      }
-
-  const canWithdraw =
-    detail &&
-    (detail.canWithdraw === true ||
-      ((detail.isAuthorized === true || detail.authorizationStatus === 'authorized') &&
-        (status === 'public_approved' || status === 'need_modify')))
-
-  if (status === 'pending_review') {
-    // 平台案例审中：相册可看；不展示发布/撤回
-    return {
-      endPageInvitePitch: '',
-      endPageInviteEyebrow: '',
-      endPageControlLine: '',
-      endPageShowPreview: false,
-      endPagePreviewLabel: PREVIEW_LABEL,
-      endPagePreviewDisabled: false,
-      endPagePreviewHint: '',
-      endPageShowWithdraw: false,
-      endPageWithdrawLabel: '从店页撤下',
-      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.pending_review,
-      endPageGateActions: gateActions,
-    }
-  }
-  if (status === 'public_approved') {
-    return {
-      endPageInvitePitch: '',
-      endPageInviteEyebrow: '',
-      endPageControlLine: '',
-      endPageShowPreview: false,
-      endPagePreviewLabel: PREVIEW_LABEL,
-      endPagePreviewDisabled: false,
-      endPagePreviewHint: '',
-      endPageShowWithdraw: Boolean(canWithdraw),
-      endPageWithdrawLabel: '从店页撤下',
-      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.public_approved,
-      endPageGateActions: gateActions,
-    }
-  }
-  if (status === 'need_modify') {
-    return {
-      ...inviteFields,
-      endPageShowPreview: true,
-      endPagePreviewLabel: PREVIEW_LABEL,
-      endPagePreviewDisabled: false,
-      endPagePreviewHint: '',
-      endPageShowWithdraw: Boolean(canWithdraw),
-      endPageWithdrawLabel: '从店页撤下',
-      endPageStatusHint: gateBanner || PUBLIC_CASE_HINT.need_modify,
-      endPageGateActions: gateActions,
-    }
-  }
-  // 尾页保持简洁（本册已阅 + 状态提示 + 评价），不叠「体验官」邀请大卡；
-  // 发布入口在分享面板 / 列表，见 canAuthorizePublicCase。
-  if (showInvite) {
-    return {
-      endPageInvitePitch: '',
-      endPageInviteEyebrow: '',
-      endPageControlLine: '',
-      endPageShowPreview: false,
-      endPagePreviewLabel: PREVIEW_LABEL,
-      endPagePreviewDisabled: false,
-      endPagePreviewHint: '',
-      endPageShowWithdraw: false,
-      endPageWithdrawLabel: '从店页撤下',
-      endPageStatusHint:
-        gateBanner ||
-        (detail && detail.userConfirmHint) ||
-        '',
-      endPageGateActions: gateActions,
-    }
-  }
+function buildEndPageActionState(detail) {
   return {
     endPageInvitePitch: '',
     endPageInviteEyebrow: '',
     endPageControlLine: '',
     endPageShowPreview: false,
-    endPagePreviewLabel: PREVIEW_LABEL,
+    endPagePreviewLabel: '',
     endPagePreviewDisabled: false,
     endPagePreviewHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '从店页撤下',
-    endPageStatusHint:
-      gateBanner ||
-      (status === 'user_rejected' ? PUBLIC_CASE_HINT.user_rejected : ''),
-    endPageGateActions: gateActions,
+    endPageWithdrawLabel: '',
+    endPageStatusHint: (detail && detail.userConfirmHint) || '',
+    endPageGateActions: [],
   }
 }
 
@@ -395,7 +293,7 @@ Page({
     endPagePreviewDisabled: false,
     endPagePreviewHint: '',
     endPageShowWithdraw: false,
-    endPageWithdrawLabel: '从店页撤下',
+    endPageWithdrawLabel: '',
     endPageStatusHint: '',
     endPageGateActions: [],
     withdrawSheetLoading: false,
@@ -618,23 +516,14 @@ Page({
       const detail = await fetchServiceAlbum(this.albumId)
       const imageCount = detail.imageCount || 0
       const pageStatus = imageCount > 0 ? 'normal' : 'empty'
-      const showAuthSection = this.shouldShowAuth(detail)
-      const showShareEntry = canOwnerShareAlbum(detail)
-      const shareCase = buildShareableCaseFromAlbum(detail)
-      const showPublicCaseShare =
-        detail.publicCaseStatus === 'public_approved' && Boolean(shareCase && shareCase.id)
+      const showAuthSection = false
+      const showShareEntry = false
+      const showPublicCaseShare = false
       const publishSheetState = resolvePublishSheetState(detail)
-      const showShareButton =
-        isRepairCompleted(detail.status) &&
-        (showShareEntry ||
-          showPublicCaseShare ||
-          showAuthSection ||
-          publishSheetState === 'pending' ||
-          publishSheetState === 'need_modify' ||
-          publishSheetState === 'approved')
-      const defaultShareIntent = showShareEntry ? 'owner' : 'publicCase'
+      const showShareButton = false
+      const defaultShareIntent = 'owner'
       const shareSheetIntent = defaultShareIntent
-      const shareActionsDisabled = showShareEntry
+      const shareActionsDisabled = true
       const enriched = enrichServiceAlbumListItem({
         ...detail,
         id: detail.albumId,
@@ -645,7 +534,7 @@ Page({
         parts: enriched.parts || [],
         templateId: enriched.templateId || '',
       })
-      const endPageAuth = buildEndPageActionState(enriched, showAuthSection)
+      const endPageAuth = buildEndPageActionState(enriched)
       const publishSheetHint = publishHintForState(publishSheetState)
       const publishSheetDisabled = true
       const showPublishSection =
@@ -821,7 +710,7 @@ Page({
       if (showShareEntry) {
         await this.refreshShareToken({ silent: true, defaultShareIntent })
       } else {
-        this.updateShareMenu(showPublicCaseShare)
+        this.updateShareMenu(false)
       }
     } catch (e) {
       const code = e && e.code

@@ -20,7 +20,7 @@ const { assertOwnerStoreAccess, isStoreContextIsolated, userHasBoundAlbum } = re
 const { isolateRelatedCases } = require('../../../utils/isolate-related-cases')
 const { copyMerchantCaseH5Link } = require('../../../constants/h5-links')
 
-const BOTTOM_LEFT_ACTIONS = [{ key: 'call', type: 'secondary', text: '电话咨询' }]
+const BOTTOM_LEFT_ACTIONS = []
 
 function buildShareCaseFromDetail(detail = {}) {
   if (!detail || !detail.id) return null
@@ -315,23 +315,7 @@ Page({
   },
 
   onConsultSubmit() {
-    if (this._messageNavigating) return
-    const { detail } = this.data
-    if (!detail || !detail.storeId) {
-      wx.showToast({ title: '门店信息不完整', icon: 'none' })
-      return
-    }
-    if (!this.ensureConsultAuth()) return
-    this._messageNavigating = true
-    wx.navigateTo({
-      url: withStoreContextPath(
-        `/pages/consult/submit/index?storeId=${detail.storeId}&caseId=${detail.id}&sourcePage=case`,
-        { storeId: detail.storeId }
-      ),
-      complete: () => {
-        this._messageNavigating = false
-      },
-    })
+    this.onCall()
   },
 
   onStoreTap(e) {

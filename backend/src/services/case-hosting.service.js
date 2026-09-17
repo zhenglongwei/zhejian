@@ -836,7 +836,7 @@ async function unhostAlbum(albumId, { storeId, merchantId }) {
     hosted: false,
     visibility: 'private',
   })
-  return { albumId, ...meta, message: '已取消托管；公域已下线，档案仍在小程序' }
+  return { albumId, ...meta, message: '已取消托管；网站已下线，档案仍在小程序' }
 }
 
 async function unpublishHostedCase(albumId, { storeId, merchantId }) {

@@ -20,7 +20,7 @@
       <view class="album-engage__hero">
         <text class="album-engage__album-title text-body">{{albumTitle}}</text>
         <text wx:if="{{gateBanner}}" class="album-engage__gate-banner text-caption text-secondary">{{gateBanner}}</text>
-        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存。案例上店页后会以编号展示，不显示你的微信名</text>
+        <text wx:if="{{hasReview}}" class="album-engage__done-hint text-caption text-secondary">评价已保存</text>
       </view>
 
       <block wx:if="{{hasReview}}">
@@ -75,7 +75,7 @@
           </ui-card>
         </block>
 
-        <ui-card wx:if="{{hasReview && (showAuthAction || showShareButton || showStoreBrowse || hasParts || needsReviewImagePreview || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
+        <ui-card wx:if="{{hasReview && (showStoreBrowse || hasParts || needsReviewImagePreview || gateActions.length)}}" shadow="{{true}}" padding="{{true}}" class="album-engage__actions-card">
           <view class="album-engage__actions">
             <ui-button
               wx:for="{{gateActions}}"
@@ -91,15 +91,6 @@
               block
               bind:btntap="onOpenReviewImagePreview"
             >核对评价配图</ui-button>
-            <block wx:if="{{showAuthAction || showShareButton}}">
-              <ui-button
-                type="secondary"
-                block
-                disabled="{{showAuthAction && authDisabled}}"
-                bind:btntap="onOpenOwnerSharePage"
-              >{{showAuthAction ? authLabel : '分享脱敏报告'}}</ui-button>
-              <text wx:if="{{showAuthAction && authDisabled && authHint}}" class="album-engage__action-hint text-caption text-secondary">{{authHint}}</text>
-            </block>
             <ui-button
               wx:if="{{showStoreBrowse}}"
               type="secondary"

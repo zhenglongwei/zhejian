@@ -432,13 +432,6 @@ Page({
         setTimeout(() => {
           this.goReviewImagePreview(reviewPreviewTaskId)
         }, 600)
-      } else {
-        // 评价完成后进入体验官分享模板页
-        setTimeout(() => {
-          wx.redirectTo({
-            url: `/pages/album/owner-share/index?albumId=${encodeURIComponent(this.data.albumId)}`,
-          })
-        }, 800)
       }
     } catch (e) {
       wx.showToast({

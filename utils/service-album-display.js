@@ -11,7 +11,6 @@ const {
   buildPrivateAlbumPrice,
 } = require('./album-price')
 const { canShareToOwner } = require('./service-album-share')
-const { canOwnerShareAlbum } = require('./album-owner-share')
 const { resolveImageSrc, resolveMediaUrl } = require('./desensitize-url')
 const { isAlbumUnread } = require('./album-unread-hint')
 const { formatArchivalDateText } = require('./album-summary')
@@ -176,52 +175,20 @@ function resolveAlbumWithdrawAction(item = {}) {
   return { show: false, label: '', disabled: false }
 }
 
-function resolveListAlbumActions(item = {}) {
-  const withdrawAction = resolveAlbumWithdrawAction(item)
-  if (withdrawAction.show) {
-    return {
-      authAction: { show: false, label: '', disabled: false, hint: '' },
-      withdrawAction,
-    }
-  }
+function resolveListAlbumActions() {
   return {
-    authAction: resolveAlbumAuthAction(item),
-    withdrawAction,
+    authAction: { show: false, label: '', disabled: false, hint: '' },
+    withdrawAction: { show: false, label: '', disabled: false },
   }
 }
 
-/** 用户相册列表卡 · 案例审 inline 提示（不表示相册不可进） */
-function resolveAlbumListStatusHint(item = {}, authAction = {}) {
-  if (item.compliancePendingHint) return item.compliancePendingHint
-  if (item.publicCaseStatus === 'pending_desensitize') {
-    return '门店案例配图处理中'
-  }
-  if (item.publicCaseStatus === 'pending_review') {
-    return '门店案例审核中'
-  }
-  if (item.publicCaseStatus === 'rejected' || item.complianceRejectReason) {
-    return '门店案例未通过审核，请等待门店修改'
-  }
-  if (authAction.hint) return authAction.hint
-  if (item.complianceRejectReason) {
-    return '门店案例未通过审核，请等待门店修改后重试'
-  }
-  if (item.publicCaseStatus === 'need_modify' && item.gateBRejectHint) {
-    return item.gateBRejectHint
-  }
-  if (item.publicCaseStatus === 'rejected') {
-    return '门店案例未通过审核，请等待门店修改后重试'
-  }
+/** 用户相册列表卡不再提示审核/发布进度 */
+function resolveAlbumListStatusHint() {
   return ''
 }
 
-function resolveUserAlbumShareVisible(item = {}) {
-  const canOwnerShare = canOwnerShareAlbum({
-    albumId: item.albumId,
-    status: item.status,
-    imageCount: item.imageCount,
-  })
-  return canOwnerShare || item.publicCaseStatus === 'public_approved'
+function resolveUserAlbumShareVisible() {
+  return false
 }
 
 function stripPriceSummaryRow(rows = []) {

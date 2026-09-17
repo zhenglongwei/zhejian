@@ -235,7 +235,7 @@
 
 <block wx:if="{{detail && status === 'normal'}}">
   <ui-fixed-bottom-bar leftActions="{{bottomLeftActions}}" bind:leftaction="onBottomLeftAction">
-    <ui-button type="primary" slot="right" bind:btntap="onConsultSubmit">咨询预约</ui-button>
+    <ui-button type="primary" slot="right" bind:btntap="onConsultSubmit">联系门店</ui-button>
   </ui-fixed-bottom-bar>
 
   <ui-share-sheet

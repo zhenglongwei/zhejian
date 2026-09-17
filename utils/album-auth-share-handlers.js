@@ -19,7 +19,6 @@ const {
 } = require('./album-owner-share')
 const { withStoreContextPath, TOOL_HOME_PATH } = require('./share-store-context')
 const { initAlbumShareState } = require('./album-share-state')
-const { resolveAlbumAuthAction } = require('./service-album-display')
 const {
   AUTH_ACTION_LABEL,
   AUTH_SHEET_TITLE,
@@ -96,19 +95,21 @@ function inviteUiFieldsFromDetail(detail = {}) {
 }
 
 function buildAlbumActionState(detail = {}) {
-  const authAction = resolveAlbumAuthAction(detail)
   const shareState = initAlbumShareState(detail)
   const linkedStoreId = (detail.store && detail.store.id) || ''
   const inviteFields = inviteUiFieldsFromDetail(detail)
   return {
-    showAuthAction: authAction.show,
-    authDisabled: authAction.disabled,
-    authLabel: authAction.label || AUTH_ACTION_LABEL,
-    authHint: authAction.hint || '',
+    showAuthAction: false,
+    authDisabled: true,
+    authLabel: AUTH_ACTION_LABEL,
+    authHint: '',
     ...inviteFields,
     showStoreBrowse: Boolean(linkedStoreId),
     linkedStoreId,
     ...shareState,
+    showShareEntry: false,
+    showShareButton: false,
+    showPublicCaseShare: false,
   }
 }
 

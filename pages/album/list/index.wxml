@@ -65,7 +65,7 @@
       <ui-empty
         theme="album"
         title="暂无进行中的相册"
-        description="维修中、审核中或待门店处理的相册会出现在这里"
+        description="维修中的相册会出现在这里"
       />
     </view>
   </block>
@@ -75,7 +75,7 @@
       <ui-empty
         theme="album"
         title="暂无已完工相册"
-        description="平台案例审通过后的相册会出现在这里，可经分享发布到网站"
+        description="已完工的服务相册会出现在这里"
       />
     </view>
   </block>

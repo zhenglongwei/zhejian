@@ -2926,7 +2926,7 @@ Page({
     const ok = await new Promise((resolve) => {
       wx.showModal({
         title: '取消托管',
-        content: '公域将下线，档案仍留在小程序。确认？',
+        content: '网站上将不再展示，档案仍留在小程序。确认？',
         success: (r) => resolve(Boolean(r.confirm)),
       })
     })
