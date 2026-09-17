@@ -97,20 +97,8 @@
 
     <!-- 步骤 3：店页说明 -->
     <block wx:elif="{{wizardStep === 3}}">
-      <view wx:if="{{qualitySuggestions.length}}" class="merchant-host-page__tips merchant-host-page__tips--geo">
-        <text class="text-body merchant-host-page__label">可优化</text>
-        <view
-          wx:for="{{qualitySuggestions}}"
-          wx:key="issue"
-          class="merchant-host-page__tip"
-        >
-          <text class="text-body">{{item.title}}</text>
-          <text class="text-caption text-secondary">{{item.suggestion}}</text>
-        </view>
-      </view>
       <view class="merchant-host-page__section">
         <text class="text-body merchant-host-page__label">将出现在店页上的说明</text>
-        <text class="text-caption text-secondary">可改；确认后才会公开展示。写给人看：专业、好懂、语气友好。</text>
 
         <text class="text-caption merchant-host-page__field-label">摘要</text>
         <textarea
@@ -120,6 +108,7 @@
           bindinput="onGeoSummaryInput"
           placeholder="用平常话写清：车主遇到什么、店里查到什么、怎么处理的"
         />
+        <text wx:if="{{summaryHint}}" class="text-caption merchant-host-page__field-hint">{{summaryHint}}</text>
 
         <view class="merchant-host-page__highlights">
           <text class="text-caption merchant-host-page__field-label">要点</text>
@@ -160,7 +149,11 @@
         <view class="merchant-host-page__faq">
           <text class="text-caption merchant-host-page__field-label">常见问法</text>
           <text
-            wx:if="{{geoFaqEmpty || geoFaqUnanswered}}"
+            wx:if="{{faqHint}}"
+            class="text-caption merchant-host-page__field-hint"
+          >{{faqHint}}</text>
+          <text
+            wx:elif="{{geoFaqEmpty || geoFaqUnanswered}}"
             class="text-caption text-secondary merchant-host-page__empty-hint"
           >
             {{geoFaqEmptyHint}}
@@ -194,6 +187,18 @@
             />
           </view>
           <ui-button type="ghost" size="sm" bind:btntap="onAddFaq">添加问法</ui-button>
+        </view>
+
+        <view wx:if="{{qualitySuggestions.length}}" class="merchant-host-page__tips merchant-host-page__tips--geo">
+          <text class="text-body merchant-host-page__label">可优化</text>
+          <view
+            wx:for="{{qualitySuggestions}}"
+            wx:key="issue"
+            class="merchant-host-page__tip"
+          >
+            <text class="text-body">{{item.title}}</text>
+            <text class="text-caption text-secondary">{{item.suggestion}}</text>
+          </view>
         </view>
 
         <ui-button type="ghost" block="{{true}}" loading="{{working}}" bind:btntap="onRegenerateCopy">

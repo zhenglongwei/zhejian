@@ -192,8 +192,8 @@ function assessHostPublicContent(input = {}) {
     if (THIN_SUMMARY.test(summary) || looksLikeCatalogVehicleText(summary)) {
       pushTip(suggestions, {
         issue: 'thin_summary',
-        title: '店页说明复读目录',
-        suggestion: '车主为何来、店里做了什么、质保怎么说。不要「含过程图片记录」。',
+        title: '摘要还是目录句',
+        suggestion: '改成：为何来、查了什么、怎么处理。',
       })
     }
     const faq = Array.isArray(geoDraft.faq) ? geoDraft.faq : []

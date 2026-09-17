@@ -113,29 +113,20 @@ function applyGeoDraftToPageData(draft = {}) {
   }
 }
 
-function overlayGeoSuggestions(base, summary, faq) {
-  const list = (Array.isArray(base) ? base : []).filter(
+function decorateGeoCopyState(base, summary, faq) {
+  const qualitySuggestions = (Array.isArray(base) ? base : []).filter(
     (row) => row && row.issue !== 'thin_summary' && row.issue !== 'empty_faq',
   )
   const s = String(summary || '').trim()
-  if (s && (/含过程图片记录/.test(s) || /手动;自动/.test(s) || /\(\d{4}\.\d{2}/.test(s))) {
-    list.push({
-      issue: 'thin_summary',
-      title: '店页说明复读目录',
-      suggestion: '车主为何来、店里做了什么、质保怎么说。不要「含过程图片记录」。',
-    })
-  }
+  const summaryHint =
+    s && (/含过程图片记录/.test(s) || /手动;自动/.test(s) || /\(\d{4}\.\d{2}/.test(s))
+      ? '这句像目录。改成：为何来、查了什么、怎么处理。'
+      : ''
   const answered = (Array.isArray(faq) ? faq : []).some((row) =>
-    String((row && row.a) || '').trim(),
+    String((row && (row.a || row.answer)) || '').trim(),
   )
-  if (s && !answered) {
-    list.push({
-      issue: 'empty_faq',
-      title: '本单问答还空着',
-      suggestion: '补 3～4 条本单能核对的问法；空着的不会出现在公开页。',
-    })
-  }
-  return list
+  const faqHint = s && !answered ? '补几条本单能核对的问答；空着的不会出现在店页。' : ''
+  return { qualitySuggestions, summaryHint, faqHint }
 }
 
 function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
@@ -216,6 +207,8 @@ Page({
     geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
+    summaryHint: '',
+    faqHint: '',
   },
 
   onLoad(options) {
@@ -268,7 +261,11 @@ Page({
           this.setData({
             ...applyGeoDraftToPageData(res.geoDraft || {}),
             publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
-            qualitySuggestions,
+            ...decorateGeoCopyState(
+              qualitySuggestions,
+              (res.geoDraft && res.geoDraft.summary) || '',
+              (res.geoDraft && res.geoDraft.faq) || [],
+            ),
           })
         } catch (_) {
           /* 留空由用户点重新生成 */
@@ -610,7 +607,7 @@ Page({
         ...applyGeoDraftToPageData(draft),
         wizardStep: 3,
         publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
-        qualitySuggestions,
+        ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '继续失败', icon: 'none' })
@@ -626,9 +623,13 @@ Page({
       const res = await generateHostedGeoDraft(this.albumId)
       this.setData({
         ...applyGeoDraftToPageData(res.geoDraft || {}),
-        qualitySuggestions: Array.isArray(res.qualitySuggestions)
-          ? res.qualitySuggestions
-          : this.data.qualitySuggestions,
+        ...decorateGeoCopyState(
+          Array.isArray(res.qualitySuggestions)
+            ? res.qualitySuggestions
+            : this._baseQualitySuggestions,
+          (res.geoDraft && res.geoDraft.summary) || '',
+          (res.geoDraft && res.geoDraft.faq) || [],
+        ),
       })
       this._baseQualitySuggestions = Array.isArray(res.qualitySuggestions)
         ? res.qualitySuggestions
@@ -645,8 +646,8 @@ Page({
     const geoSummary = e.detail.value
     this.setData({
       geoSummary,
-      qualitySuggestions: overlayGeoSuggestions(
-        this._baseQualitySuggestions || this.data.qualitySuggestions,
+      ...decorateGeoCopyState(
+        this._baseQualitySuggestions,
         geoSummary,
         this.data.geoFaq,
       ),
@@ -694,11 +695,7 @@ Page({
       geoFaq: list,
       geoFaqEmpty: false,
       geoFaqUnanswered: unanswered,
-      qualitySuggestions: overlayGeoSuggestions(
-        this._baseQualitySuggestions || this.data.qualitySuggestions,
-        this.data.geoSummary,
-        list,
-      ),
+      ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
   },
 
@@ -711,11 +708,7 @@ Page({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
-      qualitySuggestions: overlayGeoSuggestions(
-        this._baseQualitySuggestions || this.data.qualitySuggestions,
-        this.data.geoSummary,
-        list,
-      ),
+      ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
   },
 
@@ -734,11 +727,7 @@ Page({
       geoFaq: list,
       geoFaqEmpty: !list.length,
       geoFaqUnanswered: unanswered,
-      qualitySuggestions: overlayGeoSuggestions(
-        this._baseQualitySuggestions || this.data.qualitySuggestions,
-        this.data.geoSummary,
-        list,
-      ),
+      ...decorateGeoCopyState(this._baseQualitySuggestions, this.data.geoSummary, list),
     })
   },
 
@@ -760,20 +749,23 @@ Page({
       q: String((row && row.q) || '').trim(),
       a: String((row && row.a) || '').trim(),
     }))
-    const tips = overlayGeoSuggestions(
-      this._baseQualitySuggestions || this.data.qualitySuggestions,
+    const copyState = decorateGeoCopyState(
+      this._baseQualitySuggestions,
       summary,
       faq,
     )
-    if (tips.length) {
-      const lines = tips
-        .slice(0, 4)
-        .map((row) => `· ${row.title}`)
-        .join('\n')
+    const lines = []
+      .concat(
+        (copyState.qualitySuggestions || []).map((row) => `· ${row.title}`),
+        copyState.summaryHint ? '· 摘要还是目录句' : '',
+        copyState.faqHint ? '· 常见问法还空着' : '',
+      )
+      .filter(Boolean)
+    if (lines.length) {
       const ok = await new Promise((resolve) => {
         wx.showModal({
           title: '仍有可优化项',
-          content: `${lines}\n可回去改，或仍公开。`,
+          content: `${lines.slice(0, 4).join('\n')}\n可回去改，或仍公开。`,
           confirmText: '仍要公开',
           cancelText: '回去改',
           success: (res) => resolve(Boolean(res.confirm)),
