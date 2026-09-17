@@ -17,9 +17,21 @@
     </view>
 
     <view class="merchant-host-page__steps">
-      <text class="merchant-host-page__step {{wizardStep === 1 ? 'is-on' : ''}}">1 存档</text>
-      <text class="merchant-host-page__step {{wizardStep === 2 ? 'is-on' : ''}}">2 核对内容</text>
-      <text class="merchant-host-page__step {{wizardStep === 3 ? 'is-on' : ''}}">3 店页说明</text>
+      <view
+        class="merchant-host-page__step {{wizardStep === 1 ? 'is-on' : ''}} {{wizardMaxStep >= 1 && wizardStep !== 1 ? 'is-reached' : ''}}"
+        data-step="1"
+        bindtap="onWizardStepTap"
+      >1 存档</view>
+      <view
+        class="merchant-host-page__step {{wizardStep === 2 ? 'is-on' : ''}} {{wizardMaxStep >= 2 && wizardStep !== 2 ? 'is-reached' : ''}} {{wizardMaxStep < 2 ? 'is-locked' : ''}}"
+        data-step="2"
+        bindtap="onWizardStepTap"
+      >2 核对内容</view>
+      <view
+        class="merchant-host-page__step {{wizardStep === 3 ? 'is-on' : ''}} {{wizardMaxStep >= 3 && wizardStep !== 3 ? 'is-reached' : ''}} {{wizardMaxStep < 3 ? 'is-locked' : ''}}"
+        data-step="3"
+        bindtap="onWizardStepTap"
+      >3 店页说明</view>
     </view>
 
     <!-- 步骤 1：存档 -->
@@ -27,6 +39,10 @@
       <view wx:if="{{hosted && hostVisibility === 'public'}}" class="merchant-host-page__status">
         <text class="text-body">已在店页公开</text>
         <text class="text-caption text-secondary">可取消公开，档案仍保留。</text>
+      </view>
+      <view wx:elif="{{hosted && wizardMaxStep >= 2}}" class="merchant-host-page__status">
+        <text class="text-body">正在准备公开</text>
+        <text class="text-caption text-secondary">点上方步骤可再核对或改说明。</text>
       </view>
       <view wx:elif="{{hosted}}" class="merchant-host-page__status">
         <text class="text-body">已私密托管</text>
@@ -224,6 +240,13 @@
         loading="{{working}}"
         bind:btntap="onCancelPublicIntent"
       >取消公开</ui-button>
+      <ui-button
+        wx:elif="{{wizardMaxStep >= 2}}"
+        type="ghost"
+        block="{{true}}"
+        loading="{{working}}"
+        bind:btntap="onCancelPublicIntent"
+      >改回仅私密</ui-button>
       <ui-button
         wx:else
         type="primary"

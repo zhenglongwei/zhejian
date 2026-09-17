@@ -35,6 +35,14 @@
   border-bottom-color: var(--color-primary);
 }
 
+.merchant-host-page__step.is-reached {
+  color: var(--color-text-primary);
+}
+
+.merchant-host-page__step.is-locked {
+  color: var(--color-text-tertiary);
+}
+
 .merchant-host-page__status {
   display: flex;
   flex-direction: column;

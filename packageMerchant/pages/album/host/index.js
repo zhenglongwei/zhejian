@@ -10,6 +10,12 @@ const {
 } = require('../../../../services/merchant-service-album')
 const { fetchTask, runAutoMask } = require('../../../../services/desensitize')
 const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-status')
+const {
+  resolveWizardStep,
+  resolveWizardMaxStep,
+  canVisitWizardStep,
+  shouldKeepExistingGeoDraft,
+} = require('../../../../utils/host-wizard-step')
 
 function stripUrlQuery(url) {
   return String(url || '').trim().split('?')[0].split('#')[0]
@@ -165,19 +171,6 @@ function patchReviewDocImageUrls(docs, fromUrl, toUrl) {
   })
 }
 
-/** 向导步骤：1 存档 · 2 核对公开内容 · 3 店页说明 */
-function resolveWizardStep(hostMeta = {}, hostMode = 'private') {
-  if (!hostMeta.hosted) return 1
-  if (hostMeta.visibility === 'public') return 1
-  const stage = String(hostMeta.publicPublishStage || '')
-  if (!stage) return 1
-  if (stage === 'awaiting_privacy') return 2
-  if (stage === 'awaiting_geo' || stage === 'awaiting_geo_confirm') return 3
-  if (stage === 'published') return 1
-  if (hostMode === 'public') return 2
-  return 1
-}
-
 Page({
   data: {
     albumId: '',
@@ -190,6 +183,7 @@ Page({
     hostVisibility: 'private',
     publicPublishStage: '',
     wizardStep: 1,
+    wizardMaxStep: 1,
     privacyPassed: false,
     privacyBlocks: [],
     qualitySuggestions: [],
@@ -289,6 +283,7 @@ Page({
     const hostMode =
       hosted && (stage || visibility === 'public') ? 'public' : hosted ? 'private' : this.data.hostMode
     const wizardStep = resolveWizardStep(hostMeta, hostMode)
+    const wizardMaxStep = resolveWizardMaxStep(hostMeta, hostMode)
     const draftForUi =
       geoDraft && (geoDraft.summary || (geoDraft.highlights && geoDraft.highlights.length) || (geoDraft.faq && geoDraft.faq.length))
         ? geoDraft
@@ -309,6 +304,7 @@ Page({
       publicPublishStage: stage,
       hostMode: hosted ? hostMode : this.data.hostMode,
       wizardStep,
+      wizardMaxStep,
       privacyPassed: Boolean(hostMeta.privacyAuditPassedAt),
       privacyBlocks: [],
       ...applyGeoDraftToPageData(draftForUi),
@@ -324,6 +320,16 @@ Page({
     const mode = e.currentTarget.dataset.mode
     if (!mode || this.data.hosted) return
     this.setData({ hostMode: mode })
+  },
+
+  onWizardStepTap(e) {
+    const step = Number(e.currentTarget.dataset.step)
+    if (!canVisitWizardStep(step, this.data.wizardMaxStep)) return
+    if (step === this.data.wizardStep) return
+    this.setData({ wizardStep: step })
+    if (step === 2 && !(this.data.reviewDocs || []).length) {
+      this.loadPublicFace({ silent: true })
+    }
   },
 
   async loadPublicFace(options = {}) {
@@ -597,6 +603,18 @@ Page({
         })
         return
       }
+      if (shouldKeepExistingGeoDraft(this.data)) {
+        this.setData({
+          wizardStep: 3,
+          wizardMaxStep: Math.max(3, Number(this.data.wizardMaxStep) || 1),
+          ...decorateGeoCopyState(
+            this._baseQualitySuggestions,
+            this.data.geoSummary,
+            this.data.geoFaq,
+          ),
+        })
+        return
+      }
       const res = await generateHostedGeoDraft(this.albumId)
       const draft = res.geoDraft || {}
       const qualitySuggestions = Array.isArray(res.qualitySuggestions)
@@ -606,6 +624,7 @@ Page({
       this.setData({
         ...applyGeoDraftToPageData(draft),
         wizardStep: 3,
+        wizardMaxStep: 3,
         publicPublishStage: res.publicPublishStage || 'awaiting_geo_confirm',
         ...decorateGeoCopyState(qualitySuggestions, draft.summary, draft.faq),
       })
