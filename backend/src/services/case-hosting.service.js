@@ -772,6 +772,7 @@ async function confirmHostedPublicPublish(
         contentJson: {
           hostedArchive: true,
           hostGeoLayer: geoLayer,
+          faq: geoLayer.faq,
         },
       },
     })
@@ -786,6 +787,21 @@ async function confirmHostedPublicPublish(
           ...(pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}),
           hostedArchive: true,
           hostGeoLayer: geoLayer,
+          faq: geoLayer.faq,
+        },
+      },
+    })
+  } else if (alreadyLive) {
+    await prisma.publicCase.update({
+      where: { id: pc.id },
+      data: {
+        title: album.serviceName || pc.title,
+        summary: overview,
+        contentJson: {
+          ...(pc.contentJson && typeof pc.contentJson === 'object' ? pc.contentJson : {}),
+          hostedArchive: true,
+          hostGeoLayer: geoLayer,
+          faq: geoLayer.faq,
         },
       },
     })

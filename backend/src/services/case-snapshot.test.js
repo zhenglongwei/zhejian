@@ -113,6 +113,49 @@ test('mapPublicCaseRow uses snapshot nodes not live album drift', () => {
   assert.equal(mapped.nodes[0].images[0], '/media/files/uploads/desensitized/a.jpg')
 })
 
+test('mapPublicCaseRow surfaces hosted storefront FAQ', () => {
+  const { mapPublicCaseRow } = require('./content.service')
+  const faq = [
+    {
+      q: '这次主要修了什么？',
+      a: '本单对右前门划痕做了钣金整形和局部喷漆，交车前核对漆面色差。',
+    },
+  ]
+  const mapped = mapPublicCaseRow(
+    {
+      id: 'case_host_faq',
+      albumId: 'alb_host_faq',
+      authorizationTier: 'merchant_published',
+      title: '钣喷修复',
+      summary: '右门划痕修复',
+      serviceName: '钣喷修复',
+      storeId: 'store_1',
+      storeName: '测试店',
+      city: '杭州',
+      contentJson: {
+        hostedArchive: true,
+        faq: [],
+        hostGeoLayer: { summary: '右门划痕修复', faq },
+        merchantCaseDraft: {
+          title: '钣喷修复',
+          caseSummary: '右门划痕修复',
+          confirmedAt: '2026-09-17T00:00:00.000Z',
+          faq: [],
+        },
+      },
+      enrichmentJson: { version: 1, faq: [] },
+    },
+    {
+      id: 'alb_host_faq',
+      contentPackageJson: {
+        hostMeta: { hosted: true, visibility: 'public', geoLayer: { faq } },
+      },
+    },
+  )
+  assert.equal(mapped.faq.length, 1)
+  assert.ok(mapped.faq[0].a.includes('钣金'))
+})
+
 test('buildCaseSnapshot writes frozen snapshot with articleBody', () => {
   const albumView = {
     albumId: 'alb_test_01',

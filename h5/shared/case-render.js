@@ -1530,10 +1530,23 @@
     )
   }
 
+  function collectRenderableFaq(data) {
+    var lists = [
+      data && data.faq,
+      data && data.hostGeoLayer && data.hostGeoLayer.faq,
+      data && data.confirmedCaseDraft && data.confirmedCaseDraft.faq,
+    ]
+    for (var i = 0; i < lists.length; i += 1) {
+      var rows = (lists[i] || []).filter(function (item) {
+        return item && item.q && item.a
+      })
+      if (rows.length) return rows
+    }
+    return []
+  }
+
   function renderFaq(data) {
-    var faqInline = (data.faq || []).filter(function (item) {
-      return item && item.q && item.a
-    })
+    var faqInline = collectRenderableFaq(data)
     var faqLinks = (data.faqLinks || []).concat(
       (data.faq || []).filter(function (item) {
         return item && item.title && item.url

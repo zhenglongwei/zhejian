@@ -120,11 +120,40 @@ function buildHostedStorefrontFaq({
   }
 }
 
+function pickFirstPublishableFaq(...lists) {
+  for (let i = 0; i < lists.length; i += 1) {
+    const pub = filterPublishableFaq(lists[i])
+    if (pub.length) return pub
+  }
+  return []
+}
+
+/** 公开档案 FAQ：店页说明 / 托管层优先，空答与空数组不能盖住已有作答 */
+function collectHostedCaseFaq({ contentJson, hostMeta, enrichmentFaq, draftFaq } = {}) {
+  const content = contentJson && typeof contentJson === 'object' ? contentJson : {}
+  const host = hostMeta && typeof hostMeta === 'object' ? hostMeta : {}
+  const geo =
+    (host.geoLayer && typeof host.geoLayer === 'object' && host.geoLayer) ||
+    (content.hostGeoLayer && typeof content.hostGeoLayer === 'object' && content.hostGeoLayer) ||
+    {}
+  const draft = host.geoDraft && typeof host.geoDraft === 'object' ? host.geoDraft : {}
+  return pickFirstPublishableFaq(
+    geo.faq,
+    host.faq,
+    draft.faq,
+    content.faq,
+    enrichmentFaq,
+    draftFaq,
+  )
+}
+
 module.exports = {
   MIN_PUBLISH_ANSWER_LEN,
   caseHasAnswerMaterial,
   isLowInfoFaqAnswer,
   normalizeFaqRow,
   filterPublishableFaq,
+  pickFirstPublishableFaq,
+  collectHostedCaseFaq,
   buildHostedStorefrontFaq,
 }

@@ -68,6 +68,7 @@ const {
   readHostMeta,
 } = require('../utils/archive-attribution')
 const { config } = require('../config')
+const { collectHostedCaseFaq } = require('../utils/hosted-storefront-faq')
 const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
 const { resolveStoreBusinessStatus } = require('../utils/store-business-status')
 const {
@@ -265,10 +266,16 @@ function mapPublicCaseRow(row, album) {
   if (layered.confirmedCaseDraft && layered.confirmedCaseDraft.title) {
     layered.title = layered.confirmedCaseDraft.title
   }
-  if (layered.confirmedCaseDraft && Array.isArray(layered.confirmedCaseDraft.faq)) {
-    layered.faq = layered.confirmedCaseDraft.faq
-  }
   const hostMeta = readHostMeta(album) || readHostMeta(rawContent)
+  layered.faq = collectHostedCaseFaq({
+    contentJson: rawContent,
+    hostMeta,
+    enrichmentFaq: geoFields.faq,
+    draftFaq: layered.confirmedCaseDraft && layered.confirmedCaseDraft.faq,
+  })
+  if (layered.confirmedCaseDraft && layered.faq.length) {
+    layered.confirmedCaseDraft = { ...layered.confirmedCaseDraft, faq: layered.faq }
+  }
   const archiveSnap =
     hostMeta.archiveSnapshot && typeof hostMeta.archiveSnapshot === 'object'
       ? hostMeta.archiveSnapshot
@@ -320,8 +327,8 @@ function attachCaseArticleAndSeo(row, item) {
     enrichment: {
       version: layerMeta.enrichmentVersion,
       aiSummary: geoFields.aiSummary,
-      faq: geoFields.faq || [],
-      faqLinks: geoFields.faqLinks || [],
+      faq: (item.faq && item.faq.length) ? item.faq : (geoFields.faq || []),
+      faqLinks: (item.faqLinks && item.faqLinks.length) ? item.faqLinks : (geoFields.faqLinks || []),
       keyInfo: geoFields.keyInfo || [],
       sections: geoFields.sections || [],
       nodeNarratives: geoFields.nodeNarratives || [],

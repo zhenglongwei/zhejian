@@ -544,6 +544,9 @@ async function commitPublicCaseGoLive(albumId, options = {}) {
     if (hostedGeoPublish && hostMeta.geoLayer) {
       contentJson.hostedArchive = true
       contentJson.hostGeoLayer = hostMeta.geoLayer
+      if (Array.isArray(hostMeta.geoLayer.faq)) {
+        contentJson.faq = hostMeta.geoLayer.faq
+      }
     }
   }
   const { shouldIndexPublicCase } = require('./case-index-gate.service')

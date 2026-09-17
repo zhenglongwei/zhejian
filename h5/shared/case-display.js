@@ -254,8 +254,12 @@
     var next = Object.assign({}, data)
     if (data.enrichment && typeof data.enrichment === 'object') {
       if (data.enrichment.aiSummary) next.aiSummary = data.enrichment.aiSummary
-      if (data.enrichment.faq) next.faq = data.enrichment.faq
-      if (data.enrichment.faqLinks) next.faqLinks = data.enrichment.faqLinks
+      if (Array.isArray(data.enrichment.faq) && data.enrichment.faq.length) {
+        next.faq = data.enrichment.faq
+      }
+      if (Array.isArray(data.enrichment.faqLinks) && data.enrichment.faqLinks.length) {
+        next.faqLinks = data.enrichment.faqLinks
+      }
       if (data.enrichment.keyInfo && data.enrichment.keyInfo.length) {
         next.keyInfo = data.enrichment.keyInfo
       }

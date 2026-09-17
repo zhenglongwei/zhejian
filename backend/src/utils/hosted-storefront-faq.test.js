@@ -7,6 +7,7 @@ const {
   filterPublishableFaq,
   caseHasAnswerMaterial,
   isLowInfoFaqAnswer,
+  collectHostedCaseFaq,
 } = require('../utils/hosted-storefront-faq')
 const { getHostedStorefrontFaqBank: getBank } = require('../constants/hosted-storefront-faq-bank')
 
@@ -63,8 +64,30 @@ function testMaterialGate() {
   assert.equal(caseHasAnswerMaterial({ inspectResult: '机油变质需更换' }, {}), true)
 }
 
+function testCollectHostedFaqPrefersStorefrontLayer() {
+  const hosted = [
+    {
+      q: '这次主要修了什么？',
+      a: '本单对右前门划痕做了钣金整形和局部喷漆，交车前核对漆面色差。',
+    },
+  ]
+  const picked = collectHostedCaseFaq({
+    contentJson: {
+      faq: [],
+      hostGeoLayer: { faq: hosted },
+      merchantCaseDraft: { faq: [] },
+    },
+    hostMeta: { faq: [], geoLayer: { faq: hosted } },
+    enrichmentFaq: [],
+    draftFaq: [],
+  })
+  assert.equal(picked.length, 1)
+  assert.ok(picked[0].a.includes('钣金'))
+}
+
 testMaintenanceBank()
 testChassisMoreQuestions()
 testRejectThinAnswer()
 testMaterialGate()
+testCollectHostedFaqPrefersStorefrontLayer()
 console.log('hosted-storefront-faq.test.js OK')
