@@ -962,17 +962,7 @@ Page({
               typeof first === 'string' ? first : first && first.url ? first.url : ''
             if (fallbackUrl) deliveryExteriorUrl = String(fallbackUrl).trim()
           }
-          const selectedSet = {}
-          ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
-            if (url && url !== deliveryExteriorUrl) selectedSet[url] = true
-          })
-          const packed = this.packDeliveryPool(
-            this.collectAllWorkImages(album, flowNodes).map((row) => ({
-              ...row,
-              selected: Boolean(selectedSet[row.url]),
-            })),
-            deliveryExteriorUrl,
-          )
+          const packed = this.hydrateDeliveryPool(album, flowNodes, photoDraft, deliveryExteriorUrl)
           workImagePool = packed.workImagePool
           deliveryExtraCount = packed.deliveryExtraCount
           // 兼容旧草稿：仅有 selectedDeliveryUrls 无外观时，不自动猜外观
@@ -1557,6 +1547,77 @@ Page({
     }
   },
 
+  collectWorkUrlSet(album = {}, flowNodes = []) {
+    const set = {}
+    this.collectAllWorkImages(album, flowNodes).forEach((row) => {
+      const url = String((row && row.url) || '').trim()
+      if (!url) return
+      set[url] = true
+      const bare = url.split('?')[0].split('#')[0]
+      if (bare) set[bare] = true
+    })
+    return set
+  },
+
+  hydrateDeliveryPool(album = {}, flowNodes = [], photoDraft = {}, exteriorUrl = '') {
+    const exterior = String(exteriorUrl || '').trim()
+    const selectedSet = {}
+    ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
+      const key = String(url || '').trim()
+      if (key && key !== exterior) selectedSet[key] = true
+    })
+    const pool = this.collectAllWorkImages(album, flowNodes).map((row) => ({
+      ...row,
+      selected: Boolean(selectedSet[row.url]),
+    }))
+    const seen = {}
+    pool.forEach((row) => {
+      if (row && row.url) seen[row.url] = true
+    })
+    const pushCaptured = (url, caption = '') => {
+      const u = String(url || '').trim()
+      if (!u || u === exterior || seen[u]) return
+      seen[u] = true
+      pool.push({
+        url: u,
+        partName: String(caption || '').trim(),
+        selected: true,
+        captured: true,
+      })
+    }
+    Object.keys(selectedSet).forEach((url) => pushCaptured(url))
+    const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
+    ;((stage6 && stage6.images) || []).forEach((img) => {
+      const url = typeof img === 'string' ? img : img && img.url
+      const caption = typeof img === 'object' ? img.caption || '' : ''
+      pushCaptured(url, caption)
+    })
+    return this.packDeliveryPool(pool, exterior)
+  },
+
+  appendDeliveryExtra(url, caption = '') {
+    const extra = String(url || '').trim()
+    const exterior = String(this.data.deliveryExteriorUrl || '').trim()
+    const pool = (this.data.workImagePool || []).slice()
+    if (!extra) return this.packDeliveryPool(pool, exterior)
+    const exists = pool.find((row) => row && row.url === extra)
+    if (exists) {
+      return this.packDeliveryPool(
+        pool.map((row) =>
+          row.url === extra ? { ...row, selected: extra !== exterior } : row,
+        ),
+        exterior,
+      )
+    }
+    pool.push({
+      url: extra,
+      partName: String(caption || '').trim(),
+      selected: extra !== exterior,
+      captured: true,
+    })
+    return this.packDeliveryPool(pool, exterior)
+  },
+
   onToggleDeliveryWorkImage(e) {
     if (this.data.readOnly) return
     const url = String(e.currentTarget.dataset.url || '')
@@ -1669,6 +1730,52 @@ Page({
     const url = String(this.data.deliveryExteriorUrl || '').trim()
     if (!url) return
     wx.previewImage({ current: url, urls: [url] })
+  },
+
+  onCaptureDeliveryExtra() {
+    this.captureDeliveryExtraPhoto()
+  },
+
+  captureDeliveryExtraPhoto(appliedId = '') {
+    if (this.data.readOnly) return
+    const suggestion = ((this.data.aiReview && this.data.aiReview.suggestions) || []).find(
+      (row) => row && row.id === appliedId,
+    )
+    const caption = String((suggestion && (suggestion.part || suggestion.title || suggestion.targetLabel)) || '')
+      .replace(/^(补拍|补充)/, '')
+      .trim()
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const file = (res.tempFiles && res.tempFiles[0]) || null
+        if (!file) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploaded = await uploadImage(file.tempFilePath)
+          const url = uploaded && (uploaded.url || uploaded)
+          if (!url) throw new Error('上传失败')
+          const packed = this.appendDeliveryExtra(url, caption)
+          const patch = {
+            ...packed,
+            autoSaveLabel: '保存中…',
+          }
+          if (appliedId) {
+            patch.aiReview = this.markAiSuggestionApplied(appliedId) || this.data.aiReview
+            patch.orphanPhotoHints = (this.data.orphanPhotoHints || []).map((hint) =>
+              hint && hint.id === appliedId ? { ...hint, applied: true } : hint,
+            )
+          }
+          this.setData(patch)
+          this.scheduleAutoSavePhotos()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
   },
 
   onAddFindingPhotos(e) {
@@ -2229,17 +2336,28 @@ Page({
           ? [{ url: odo, caption: '仪表' }].concat(findingImgs)
           : findingImgs
       } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
-        // 仅落库「外观补拍」；从施工图选用的只记引用，不复制
+        // 施工图只记引用；补拍的全车/其他交车图才写入 stage_6
         const exterior = String(this.data.deliveryExteriorUrl || '').trim()
-        const workUrlSet = {}
-        this.collectAllWorkImages(album, this._flowNodes || []).forEach((row) => {
-          if (row && row.url) workUrlSet[row.url] = true
-        })
-        if (exterior && !workUrlSet[exterior]) {
-          sectionMap[section.stageId] = [{ url: exterior, caption: '整车外观' }]
-        } else {
-          sectionMap[section.stageId] = []
+        const workUrlSet = this.collectWorkUrlSet(album, this._flowNodes || [])
+        const images = []
+        const pushImg = (url, caption) => {
+          const u = String(url || '').trim()
+          if (!u || images.some((row) => row.url === u)) return
+          images.push({ url: u, caption: String(caption || '').trim() })
         }
+        const isWorkRef = (url) => {
+          const u = String(url || '').trim()
+          if (!u) return false
+          const bare = u.split('?')[0].split('#')[0]
+          return Boolean(workUrlSet[u] || (bare && workUrlSet[bare]))
+        }
+        if (exterior && !isWorkRef(exterior)) pushImg(exterior, '整车外观')
+        ;(this.data.workImagePool || []).forEach((row) => {
+          if (!row || !row.selected || row.url === exterior) return
+          if (isWorkRef(row.url)) return
+          pushImg(row.url, row.partName || '交车图')
+        })
+        sectionMap[section.stageId] = images
       } else {
         sectionMap[section.stageId] = section.images
       }
@@ -2415,6 +2533,7 @@ Page({
       kicker: isPhoto ? '建议补拍' : '建议改成',
       body,
       canApply: !isPhoto && Boolean(item.canApply),
+      canGoPhoto: isPhoto && !item.applied,
       applied: Boolean(item.applied),
     }
   },
@@ -2716,6 +2835,10 @@ Page({
     const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
     if (!item) return
     if (item.type === 'photo' || item.canGoPhoto) {
+      if (this.data.isDeliveryPhotoStep) {
+        this.captureDeliveryExtraPhoto(id)
+        return
+      }
       const si = (this.data.sections || []).findIndex((section) =>
         (section.findings || []).some(
           (row) => (row.aiSuggestionId || (row.photoHint && row.photoHint.id)) === id,

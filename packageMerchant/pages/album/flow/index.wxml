@@ -10,6 +10,12 @@
       data-id="{{hint.id}}"
       catchtap="onApplyAiSuggestion"
     >应用</text>
+    <text
+      wx:elif="{{hint.canGoPhoto}}"
+      class="merchant-flow-page__ai-hint-action"
+      data-id="{{hint.id}}"
+      catchtap="onApplyAiSuggestion"
+    >补拍</text>
   </view>
 </template>
 <template name="quoteEvidencePicker">
@@ -274,7 +280,7 @@
                 </view>
 
                 <view
-                  wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior' && deliveryExtraCount}}"
+                  wx:if="{{deliveryExteriorUrl && deliveryPickMode !== 'exterior'}}"
                   class="merchant-flow-page__delivery-step"
                 >
                   <view class="merchant-flow-page__delivery-head">
@@ -282,7 +288,7 @@
                     <text class="text-body merchant-flow-page__delivery-title">其他交车图</text>
                     <text class="text-caption merchant-flow-page__delivery-flag merchant-flow-page__delivery-flag--optional">选填</text>
                   </view>
-                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">点选过程图给车主看</text>
+                  <text class="text-caption text-secondary merchant-flow-page__delivery-hint">点选过程图，或补拍</text>
                   <view class="merchant-flow-page__delivery-pool">
                     <block wx:for="{{workImagePool}}" wx:for-item="pool" wx:key="url">
                       <view
@@ -302,6 +308,14 @@
                         >已选</text>
                       </view>
                     </block>
+                    <view
+                      wx:if="{{!readOnly}}"
+                      class="merchant-flow-page__delivery-pool-item merchant-flow-page__delivery-pool-item--add"
+                      bindtap="onCaptureDeliveryExtra"
+                    >
+                      <text class="merchant-flow-page__delivery-add-plus">+</text>
+                      <text class="text-caption merchant-flow-page__delivery-add-label">补拍</text>
+                    </view>
                   </view>
                 </view>
               </view>
