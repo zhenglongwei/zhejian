@@ -24,7 +24,7 @@ Component({
       type: Boolean,
       value: false,
     },
-    /** 用户端卡底快捷栏：仅去评价 / 追评 */
+    /** 用户端右上：去评价 / 追评 */
     showQuickActions: {
       type: Boolean,
       value: false,

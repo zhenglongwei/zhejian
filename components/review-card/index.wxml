@@ -23,7 +23,7 @@
     服务项目：{{serviceName}}
   </view>
 
-  <text wx:if="{{content}}" class="review-card__content text-body">{{content}}</text>
+  <text wx:if="{{displayContent}}" class="review-card__content text-body">{{displayContent}}</text>
 
     <view wx:if="{{imagesApproved && images.length}}" class="review-card__images">
     <image

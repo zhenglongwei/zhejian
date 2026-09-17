@@ -56,8 +56,10 @@
           wx:for="{{list}}"
           wx:key="albumId"
           item="{{item}}"
-          show-header-actions="{{false}}"
+          audience="user"
+          showQuickActions="{{true}}"
           bind:tap="onAlbumTap"
+          bind:ownerreview="onAlbumOwnerReview"
         />
       </view>
     </block>

@@ -258,9 +258,64 @@ function resolveMerchantAlbumDisplayStatus(rawStatus) {
 }
 
 function resolveCoverInitial(item = {}) {
+  const plate = String(item.listTitle || '').trim()
+  if (plate && plate !== '未登记车牌') return plate.charAt(0)
   const name = String(item.serviceName || '').trim()
   if (!name) return '档'
   return name.charAt(0)
+}
+
+function extractPlateFromVehicleDisplay(vehicleDisplay = '') {
+  const text = String(vehicleDisplay || '').trim()
+  if (!text || text === '—') return ''
+  const slash = text.lastIndexOf(' / ')
+  if (slash < 0) return ''
+  return text.slice(slash + 3).trim()
+}
+
+function extractModelFromVehicleDisplay(vehicleDisplay = '') {
+  const text = String(vehicleDisplay || '').trim()
+  if (!text || text === '—') return ''
+  const slash = text.lastIndexOf(' / ')
+  if (slash < 0) return text
+  return text.slice(0, slash).trim()
+}
+
+/** 车主列表第一行：脱敏车牌；无牌则「未登记车牌」 */
+function resolveUserAlbumListTitle(item = {}) {
+  const vehicle = item.vehicle || {}
+  const plateDisplay = String(vehicle.plateDisplay || '').trim()
+  if (plateDisplay) return plateDisplay
+  const plate = String(vehicle.plate || '').trim()
+  if (plate) return plate
+  const fromDisplay = extractPlateFromVehicleDisplay(item.vehicleDisplay)
+  if (fromDisplay) return fromDisplay
+  return '未登记车牌'
+}
+
+/** 车主列表第四行：品牌 + 车系 */
+function resolveUserAlbumVehicleModelLine(item = {}) {
+  const vehicle = item.vehicle || {}
+  const brand = String(vehicle.brand || '').trim()
+  const series = String(vehicle.series || '').trim()
+  const model = [brand, series].filter(Boolean).join(' ')
+  if (model) return model
+  return extractModelFromVehicleDisplay(item.vehicleDisplay)
+}
+
+/** 车主列表末行：服务进度 */
+function resolveUserAlbumProgressLine(item = {}) {
+  const progressLabel = String(item.progressLabel || '').trim()
+  if (progressLabel) return progressLabel
+  if (isRepairCompleted(item.status)) return '已完工'
+  return '进行中'
+}
+
+function resolveUserAlbumProgressTone(progressLine = '') {
+  const text = String(progressLine || '')
+  if (text.indexOf('待确认') >= 0) return 'pending'
+  if (text === '已完工') return 'done'
+  return 'default'
 }
 
 function appendAlbumListPresentation(item, base = {}) {
@@ -298,7 +353,6 @@ function appendAlbumListPresentation(item, base = {}) {
 
 function enrichServiceAlbumListItem(item, options = {}) {
   const audience = options.audience || 'user'
-  const listTab = options.listTab || 'all'
   const status =
     item.status || (audience === 'merchant' ? 'draft' : 'in_progress')
   const base = {
@@ -323,50 +377,41 @@ function enrichServiceAlbumListItem(item, options = {}) {
   const unreadBase = {
     hasUnreadUpdate: !isRepairCompleted(status) && isAlbumUnread(item),
   }
-
-  // 已完工 Tab：相册已收口，不强调维修进度 Tag；DOC-FLOW 仍可展示「已完工」进度文案
-  if (listTab === 'done') {
-    const progressLabel = String(item.progressLabel || '').trim()
-    return appendAlbumListPresentation(item, {
-      ...base,
-      ...unreadBase,
-      statusLabel: progressLabel || '',
-      statusVariant: progressLabel ? 'success' : 'default',
-      visibilityLabel: '',
-      visibilityVariant: 'default',
-      ...privatePrice,
-      summaryRows: summaryRowsFull,
-      summaryRowsForDisplay,
-      stageProgress: item.usesFlowTimeline ? [] : item.stageProgress,
-    })
-  }
-
-  const repair = resolveRepairProgress(status)
-  const progressLabel = String(item.progressLabel || '').trim()
-  // 进度文案作卡片主标题时，Tag 不再重复同一句；待确认用 warning 色可另加短 Tag
-  let statusLabel = ''
-  let statusVariant = repair.statusVariant
-  if (progressLabel) {
-    if (progressLabel.indexOf('待确认') >= 0) {
-      statusLabel = '待确认'
-      statusVariant = 'warning'
-    }
-  } else {
-    statusLabel = repair.statusLabel
-  }
-
-  return appendAlbumListPresentation(item, {
+  const listTitle = resolveUserAlbumListTitle(base)
+  const vehicleModelLine = resolveUserAlbumVehicleModelLine(base)
+  const progressLine = resolveUserAlbumProgressLine(base)
+  const progressTone = resolveUserAlbumProgressTone(progressLine)
+  const presented = appendAlbumListPresentation(item, {
     ...base,
     ...unreadBase,
-    statusLabel,
-    statusVariant,
+    listTitle,
+    vehicleModelLine,
+    progressLine,
+    progressTone,
+    statusLabel: '',
+    statusVariant: 'default',
     visibilityLabel: '',
     visibilityVariant: 'default',
     ...privatePrice,
     summaryRows: summaryRowsFull,
     summaryRowsForDisplay,
-    stageProgress: item.usesFlowTimeline ? [] : item.stageProgress,
+    stageProgress: [],
   })
+  return {
+    ...presented,
+    listTitle,
+    vehicleModelLine,
+    progressLine,
+    progressTone,
+    statusLabel: '',
+    statusVariant: 'default',
+    metaLine: '',
+    summaryLine: '',
+    deliverDateText: '',
+    archivalDateText: '',
+    statusHint: '',
+    stageProgress: [],
+  }
 }
 
 function resolveMerchantAlbumListTitle(item = {}) {
@@ -554,6 +599,9 @@ module.exports = {
   isRepairCompleted,
   stripPriceSummaryRow,
   resolveAlbumCoverUrl,
+  resolveUserAlbumListTitle,
+  resolveUserAlbumVehicleModelLine,
+  resolveUserAlbumProgressLine,
   buildAlbumListStageProgress,
   buildAlbumMetaLine,
   resolveAlbumAuthAction,

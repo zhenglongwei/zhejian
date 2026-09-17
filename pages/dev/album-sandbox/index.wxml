@@ -36,10 +36,9 @@
         class="album-sandbox__card"
         item="{{userCardItem}}"
         audience="user"
-        showHeaderActions="{{true}}"
+        showQuickActions="{{true}}"
         bind:tap="onSandboxShare"
-        bind:share="onSandboxShare"
-        bind:authorize="onSandboxAuth"
+        bind:ownerreview="onSandboxShare"
       />
       <ui-album-card
         class="album-sandbox__card"

@@ -368,16 +368,17 @@
 #### AlbumCard（`components/album-card` · 卷七 UI-ALB 升级）
 
 用户端与商家端 **共用** 服务相册列表卡片；数据经 `enrichServiceAlbumListItem` 预处理。  
-**卷七 A-06b/c**：**加高横向卡** — 左 `--size-album-list-thumb` 缩略图 + 右档案信息；用户端右上 **分享 + 授权/公示**；可选六段迷你进度条；缩略图轻相框 `--shadow-album-list-thumb`。
+**卷七 A-06b/c**：**加高横向卡** — 左 `--size-album-list-thumb` 缩略图 + 右档案信息；缩略图轻相框 `--shadow-album-list-thumb`。  
+**车主端（2026-09-18）**：信息块固定五行；**去评价 / 追评** 在卡片右上；无卡底快捷栏、无状态/类目混用标题。商家端仍用原信息块（车牌标题 + 车主电话等）。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | item | Object | — | 列表项 ViewModel（含 `albumId`、`coverUrl`、`stageProgress`、`publicCaseStatus`、`canOwnerShare` 等） |
 | audience | String | `user` | `user` 用户端 · `merchant` 商家端 |
-| showProgress | Boolean | true | 是否展示六段进度（user 默认 true） |
+| showProgress | Boolean | true | 商家端可选六段进度；车主端列表不展示 |
 | framed | Boolean | true | 缩略图是否展示轻相框角饰（user 列表建议 true） |
 | showHeaderActions | Boolean | false | 用户端旧版右上操作列（默认 **false**；优先用 `showQuickActions`） |
-| showQuickActions | Boolean | false | 用户端卡底快捷栏：发布/撤回 · 分享 · 去评价/追评（我的 Hero / 相册列表开） |
+| showQuickActions | Boolean | false | 车主端展示右上 **去评价 / 追评**（我的 Hero / 相册列表开；无发布、撤回、分享） |
 | embedded | Boolean | false | Hero / 工作台嵌入态（纵向堆叠） |
 | showOwnerShare | Boolean | false | 兼容旧 Hero 右上「分享」（`showQuickActions` 开启时由快捷栏承接） |
 | showOwnerReview | Boolean | false | 兼容旧 Hero 右上评价（同上） |
@@ -397,30 +398,24 @@
 | authorize | `{ id, publicCaseStatus, disabled?, hint? }` 发布到公开网站 |
 | withdraw | `{ id, disabled? }` 撤回发布 |
 
-**用户端卡片信息块（合并摘要，非四行表）**
+**车主端卡片信息块（固定五行，禁止把进度或类目当标题）**
 
-| 字段 | 来源 |
-|---|---|
-| 服务名 | `serviceName` / `displayServiceName` |
-| 门店 | `storeName` |
-| 车辆·张数 | 车型脱敏 + 过程图张数 |
-| 状态 Tag | `statusLabel`、`publicLabel`、`authPendingBadge` 等 |
-| 更新时间 | `updatedAtDisplay` |
-
-**授权/公示按钮（右上，与 `publicCaseStatus` 合并）**
-
-| 状态 | 按钮文案 | 行为 |
+| 行 | 展示 | 来源 |
 |---|---|---|
-| 可授权 | 授权公示 | `authorize` |
-| pending_review | 审核中 | 弱态说明 |
-| public_approved | 已公开 | 可选查看公示 |
-| 未完工/无图 | 不展示 | — |
+| 1 | **车牌号**（脱敏，如 `浙A****8`） | `listTitle` ← `vehicle.plateDisplay`；无牌则「未登记车牌」 |
+| 2 | 服务类目 | `serviceName` |
+| 3 | 服务商 | `storeName` |
+| 4 | 品牌车型 | `vehicleModelLine`（品牌 + 车系） |
+| 5 | 服务进度 | `progressLine`（如进行中 / 施工中 / 待确认方案 / 已完工） |
+
+不展示：送修日期、张数、摘要行、维修 Tag、「待评价」Tag、卡底快捷栏。  
+**去评价 / 追评** 在第 1 行右侧；未到可评节点则不显示按钮。
 
 **展示差异**
 
 | audience | 布局 | 附加 |
 |---|---|---|
-| user | 左图右文 + 右上操作 | 分享 + 授权/公示 |
+| user | 左图右文 + 右上评价 | 仅去评价 / 追评 |
 | merchant | 左图右文（可选无图） | 无授权；保留分享（若业务需要） |
 
 `stageProgress`：`{ completed: number, total: 6 }` 用于迷你进度条。卡片最小高度 `--size-album-list-card-min-height`。
@@ -1072,3 +1067,4 @@ FAQ 问答列表（案例/服务详情、H5 结构对齐）。
 | V1.1 | 新增 `OrderCard`；`AlbumNode` 扩展 `mode=edit` / `compact` |
 | V2.0 | 新增 `AlbumCard`、`AuthorizationCard`、`AlbumAuthorizeSection`；`ComplianceNotice` 增 `partRisk`；`.note-block` 工具类；`PendingConfirmList`（**Phase 2**，Phase 1 新页勿引）；R6 增 `LeadCard`/`LeadStatusBadge`/`LeadDetailBody`/`ListPageShell`/`BottomSheet` 文档与实现 |
 | V2.1 | **UI-ALB-A-08**：`AlbumCard` 加高横向卡 + 分享/授权；新增 `ToolImmersiveNav`/`AlbumPhotoFrame`/`AlbumFrameViewer`/`AlbumEndPage`/`AlbumInfoSheet`/`AlbumBottomToolbar`/`AlbumPageFooter`；`AlbumFlipBook` 标废弃 |
+| V2.2 | 车主端 AlbumCard：标题统一车牌；五行信息（类目 / 服务商 / 品牌车型 / 进度）；评价按钮右上 |

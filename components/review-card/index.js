@@ -1,4 +1,5 @@
 const STAR_RANGE = [1, 2, 3, 4, 5]
+const { stripTagOnlyReviewContent } = require('../../utils/review-display')
 
 Component({
   properties: {
@@ -22,11 +23,17 @@ Component({
   data: {
     starRange: STAR_RANGE,
     scoreRounded: 0,
+    displayContent: '',
   },
 
   observers: {
     overallScore(score) {
       this.setData({ scoreRounded: Math.round(Number(score) || 0) })
+    },
+    'content, tags': function (content, tags) {
+      this.setData({
+        displayContent: stripTagOnlyReviewContent(content, tags),
+      })
     },
   },
 
@@ -34,6 +41,10 @@ Component({
     attached() {
       this.setData({
         scoreRounded: Math.round(Number(this.properties.overallScore) || 0),
+        displayContent: stripTagOnlyReviewContent(
+          this.properties.content,
+          this.properties.tags,
+        ),
       })
     },
   },

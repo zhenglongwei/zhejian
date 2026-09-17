@@ -23,7 +23,7 @@
             <view wx:else class="album-card__thumb album-card__thumb--placeholder">
               <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
               <view
-                wx:if="{{embedded && showProgress && item.stageProgress.length}}"
+                wx:if="{{audience !== 'user' && embedded && showProgress && item.stageProgress.length}}"
                 class="album-card__thumb-progress"
               >
                 <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
@@ -44,7 +44,7 @@
           <view wx:else class="album-card__thumb album-card__thumb--placeholder">
             <text class="album-card__thumb-initial text-album-display">{{item.coverInitial || '档'}}</text>
             <view
-              wx:if="{{embedded && showProgress && item.stageProgress.length}}"
+              wx:if="{{audience !== 'user' && embedded && showProgress && item.stageProgress.length}}"
               class="album-card__thumb-progress"
             >
               <album-progress-segments stages="{{item.stageProgress}}" variant="mini" />
@@ -54,12 +54,36 @@
       </block>
     </view>
 
-    <!-- embedded：工作台/我的 Hero — 标题与正文纵向排列 -->
-    <view wx:if="{{embedded}}" class="album-card__body album-card__body--stacked">
-      <view class="album-card__head {{!showQuickActions && audience === 'user' && (showOwnerShare || showOwnerReview) ? 'album-card__head--with-share' : ''}} {{!showQuickActions && audience === 'merchant' && item.canShareToOwner ? 'album-card__head--with-share' : ''}}">
+    <!-- 车主端：车牌 / 类目 / 服务商 / 品牌车型 / 进度；评价在右上 -->
+    <view wx:if="{{audience === 'user'}}" class="album-card__body album-card__body--stacked">
+      <view class="album-card__head {{showQuickActions && quickReview.show ? 'album-card__head--with-share' : ''}}">
+        <text class="album-card__service album-card__service--head {{embedded ? 'text-body' : 'text-album-display'}}">{{item.listTitle}}</text>
+        <view
+          wx:if="{{showQuickActions && quickReview.show}}"
+          class="album-card__head-actions"
+          catchtap="onActionAreaTap"
+        >
+          <view
+            class="album-card__share-btn album-card__share-btn--head"
+            catchtap="onOwnerReviewTap"
+          >{{quickReview.label}}</view>
+        </view>
+      </view>
+      <text wx:if="{{item.serviceName && item.serviceName !== '—'}}" class="album-card__meta text-caption">{{item.serviceName}}</text>
+      <text wx:if="{{item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
+      <text wx:if="{{item.vehicleModelLine}}" class="album-card__meta text-caption">{{item.vehicleModelLine}}</text>
+      <text
+        wx:if="{{item.progressLine}}"
+        class="album-card__progress-line text-caption {{item.progressTone === 'done' ? 'album-card__progress-line--done' : ''}} {{item.progressTone === 'pending' ? 'album-card__progress-line--pending' : ''}}"
+      >{{item.progressLine}}</text>
+    </view>
+
+    <!-- 商家端 embedded：工作台/我的 Hero — 标题与正文纵向排列 -->
+    <view wx:elif="{{embedded}}" class="album-card__body album-card__body--stacked">
+      <view class="album-card__head {{item.canShareToOwner ? 'album-card__head--with-share' : ''}}">
         <text class="album-card__service album-card__service--head text-body">{{item.progressLabel || item.serviceName}}</text>
         <view
-          wx:if="{{!showQuickActions && audience === 'merchant' && item.canShareToOwner}}"
+          wx:if="{{item.canShareToOwner}}"
           class="album-card__head-actions"
         >
           <button
@@ -69,39 +93,18 @@
             data-album-id="{{item.albumId}}"
           >分享</button>
         </view>
-        <view
-          wx:elif="{{!showQuickActions && audience === 'user' && (showOwnerShare || showOwnerReview)}}"
-          class="album-card__head-actions"
-        >
-          <view
-            wx:if="{{showOwnerReview}}"
-            class="album-card__share-btn album-card__share-btn--head"
-            catchtap="onOwnerReviewTap"
-          >{{ownerReviewLabel}}</view>
-          <view
-            wx:if="{{showOwnerShare}}"
-            class="album-card__share-btn album-card__share-btn--head"
-            catchtap="onOwnerShareTap"
-          >分享</view>
-        </view>
       </view>
 
-      <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
-      <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+      <text wx:if="{{item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
 
       <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
       <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
 
-      <view wx:if="{{item.statusLabel || item.hasUnreadUpdate || item.pendingOwnerReview}}" class="album-card__tags">
+      <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
         <ui-tag
           wx:if="{{item.hasUnreadUpdate}}"
           variant="warning"
           text="有更新"
-        />
-        <ui-tag
-          wx:if="{{item.pendingOwnerReview}}"
-          variant="warning"
-          text="待评价"
         />
         <ui-tag
           wx:if="{{item.statusLabel}}"
@@ -119,28 +122,22 @@
       >更新于 {{item.updatedAtText}}</text>
     </view>
 
-    <!-- raised：列表卡 — 主内容（快捷栏在卡底独立一行） -->
+    <!-- 商家端 raised：列表卡 -->
     <view wx:else class="album-card__body album-card__body--split">
       <view class="album-card__main">
         <text class="album-card__service text-album-display">{{item.progressLabel || item.serviceName}}</text>
 
         <text wx:if="{{item.progressLabel && item.serviceName}}" class="album-card__meta text-caption">{{item.serviceName}}</text>
-        <text wx:if="{{audience === 'user' && item.storeName}}" class="album-card__meta album-card__meta--store text-caption">{{item.storeName}}</text>
-        <text wx:elif="{{audience === 'merchant' && item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
+        <text wx:if="{{item.userPhoneDisplay}}" class="album-card__meta text-caption">车主 {{item.userPhoneDisplay}}</text>
 
         <text wx:if="{{item.metaLine}}" class="album-card__meta text-caption">{{item.metaLine}}</text>
         <text wx:if="{{item.summaryLine}}" class="album-card__summary text-caption">{{item.summaryLine}}</text>
 
-        <view wx:if="{{item.statusLabel || item.hasUnreadUpdate || item.pendingOwnerReview}}" class="album-card__tags">
+        <view wx:if="{{item.statusLabel || item.hasUnreadUpdate}}" class="album-card__tags">
           <ui-tag
             wx:if="{{item.hasUnreadUpdate}}"
             variant="warning"
             text="有更新"
-          />
-          <ui-tag
-            wx:if="{{item.pendingOwnerReview}}"
-            variant="warning"
-            text="待评价"
           />
           <ui-tag
             wx:if="{{item.statusLabel}}"
@@ -167,46 +164,7 @@
         </view>
       </view>
 
-      <view
-        wx:if="{{!showQuickActions && audience === 'user' && showHeaderActions && (item.showPartVerifyLink || item.showShareButton || item.authAction.show || item.withdrawAction.show)}}"
-        class="album-card__actions album-card__actions--column"
-        catchtap="onActionAreaTap"
-      >
-        <view
-          wx:if="{{item.showPartVerifyLink}}"
-          class="album-card__action"
-          data-action="partverify"
-          catchtap="onPartVerifyTap"
-        >
-          <text class="album-card__action-text text-caption">配件验真</text>
-        </view>
-        <view
-          wx:if="{{item.showShareButton}}"
-          class="album-card__action"
-          data-action="share"
-          catchtap="onShareTap"
-        >
-          <text class="album-card__action-text text-caption">分享</text>
-        </view>
-        <view
-          wx:if="{{item.authAction.show}}"
-          class="album-card__action {{item.authAction.disabled ? 'album-card__action--muted' : ''}}"
-          data-action="authorize"
-          catchtap="onAuthTap"
-        >
-          <text class="album-card__action-text text-caption">{{item.authAction.label}}</text>
-        </view>
-        <view
-          wx:if="{{item.withdrawAction.show}}"
-          class="album-card__action {{item.withdrawAction.disabled ? 'album-card__action--muted' : ''}}"
-          data-action="withdraw"
-          catchtap="onWithdrawTap"
-        >
-          <text class="album-card__action-text text-caption">{{item.withdrawAction.label}}</text>
-        </view>
-      </view>
-
-      <view wx:elif="{{audience === 'merchant' && item.canShareToOwner}}" class="album-card__actions album-card__actions--column">
+      <view wx:if="{{item.canShareToOwner}}" class="album-card__actions album-card__actions--column">
         <button
           class="album-card__share-btn"
           open-type="share"
@@ -214,41 +172,6 @@
           data-album-id="{{item.albumId}}"
         >分享</button>
       </view>
-    </view>
-  </view>
-
-  <view
-    wx:if="{{audience === 'user' && showQuickActions && quickVisible}}"
-    class="album-card__quick"
-    catchtap="onActionAreaTap"
-  >
-    <view
-      wx:if="{{quickPublish.show}}"
-      class="album-card__quick-item {{quickPublish.disabled ? 'is-muted' : ''}}"
-      catchtap="onAuthTap"
-    >
-      <text class="album-card__quick-text text-caption">{{quickPublish.label}}</text>
-    </view>
-    <view
-      wx:if="{{quickWithdraw.show}}"
-      class="album-card__quick-item {{quickWithdraw.disabled ? 'is-muted' : ''}}"
-      catchtap="onWithdrawTap"
-    >
-      <text class="album-card__quick-text text-caption">{{quickWithdraw.label}}</text>
-    </view>
-    <view
-      wx:if="{{quickShare.show}}"
-      class="album-card__quick-item"
-      catchtap="onOwnerShareTap"
-    >
-      <text class="album-card__quick-text text-caption">分享</text>
-    </view>
-    <view
-      wx:if="{{quickReview.show}}"
-      class="album-card__quick-item"
-      catchtap="onOwnerReviewTap"
-    >
-      <text class="album-card__quick-text text-caption">{{quickReview.label}}</text>
     </view>
   </view>
 </view>

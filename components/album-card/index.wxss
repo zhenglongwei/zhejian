@@ -409,6 +409,20 @@
   font-weight: var(--font-weight-medium);
 }
 
-.album-card__quick-item.is-muted .album-card__quick-text {
-  color: var(--color-text-tertiary);
+.album-card__progress-line {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  margin-top: var(--space-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.album-card__progress-line--done {
+  color: var(--color-success);
+}
+
+.album-card__progress-line--pending {
+  color: var(--color-warning);
 }

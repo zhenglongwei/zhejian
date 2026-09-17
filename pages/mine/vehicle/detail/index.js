@@ -103,4 +103,13 @@ Page({
     if (!albumId) return
     wx.navigateTo({ url: `/pages/album/detail/index?albumId=${albumId}` })
   },
+
+  onAlbumOwnerReview(e) {
+    const id = (e.detail && e.detail.id) || ''
+    if (!id) return
+    const title = (e.detail && e.detail.title) || ''
+    let url = `/pages/album/engage/index?albumId=${encodeURIComponent(id)}`
+    if (title) url += `&title=${encodeURIComponent(title)}`
+    wx.navigateTo({ url })
+  },
 })

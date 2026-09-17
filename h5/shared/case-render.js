@@ -947,6 +947,22 @@
     return y + '-' + m + '-' + day + ' ' + hour + ':' + minute
   }
 
+  function stripTagOnlyReviewContent(content, tags) {
+    var text = String(content || '').trim()
+    if (!text) return ''
+    var list = Array.isArray(tags) ? tags : []
+    var remaining = text
+    var i
+    var chunk
+    for (i = 0; i < list.length; i += 1) {
+      chunk = String(list[i] || '').trim()
+      if (!chunk) continue
+      remaining = remaining.split(chunk).join('')
+    }
+    remaining = remaining.replace(/[，,、。.!！？?\s]+/g, '').trim()
+    return remaining ? text : ''
+  }
+
   function renderOwnerReviews(data) {
     var reviews = data && data.ownerReviews
     if (!Array.isArray(reviews) || !reviews.length) {
@@ -1016,9 +1032,12 @@
               : ''
           })() +
           '</div></div>' +
-          (review.content
-            ? '<p class="h5-summary">' + escapeHtml(review.content) + '</p>'
-            : '') +
+          (function () {
+            var bodyText = stripTagOnlyReviewContent(review.content, review.tags)
+            return bodyText
+              ? '<p class="h5-summary">' + escapeHtml(bodyText) + '</p>'
+              : ''
+          })() +
           (tags ? '<div class="h5-tags">' + tags + '</div>' : '') +
           renderReviewImages(review.images) +
           replyHtml +

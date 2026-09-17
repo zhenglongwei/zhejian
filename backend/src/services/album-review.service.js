@@ -77,13 +77,46 @@ function compactReviewText(value) {
   return String(value || '').replace(/[，,\s]+/g, '')
 }
 
+function normalizeReviewTags(tags) {
+  if (tags == null || tags === '') return []
+  if (typeof tags === 'string') {
+    const trimmed = tags.trim()
+    if (!trimmed) return []
+    if (trimmed.startsWith('[')) {
+      try {
+        return normalizeReviewTags(JSON.parse(trimmed))
+      } catch (e) {
+        return [trimmed]
+      }
+    }
+    return [trimmed]
+  }
+  if (!Array.isArray(tags)) return []
+  return tags
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (item && typeof item === 'object') {
+        return String(item.text || item.label || item.name || '').trim()
+      }
+      return String(item || '').trim()
+    })
+    .filter(Boolean)
+}
+
 function stripTagOnlyReviewContent(content, tags = []) {
   const text = String(content || '').trim()
   if (!text) return ''
-  const list = (Array.isArray(tags) ? tags : [])
-    .map((item) => String(item || '').trim())
-    .filter(Boolean)
+  const list = normalizeReviewTags(tags)
   if (!list.length) return text
+  let remaining = text
+  list
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .forEach((chunk) => {
+      remaining = remaining.split(chunk).join('')
+    })
+  remaining = remaining.replace(/[，,、。.!！？?\s]+/g, '').trim()
+  if (!remaining) return ''
   const compactText = compactReviewText(text)
   const joined = compactReviewText(list.join('，'))
   const concatenated = compactReviewText(list.join(''))
@@ -112,7 +145,7 @@ function assertReviewScores(scores) {
 
 function mapReviewRow(row, extras = {}) {
   if (!row) return null
-  const tags = Array.isArray(row.tagsJson) ? row.tagsJson : []
+  const tags = normalizeReviewTags(row.tagsJson)
   const images = parseRawReviewImages(row.imagesJson)
   const followUpImages = parseRawReviewImages(row.followUpImagesJson)
   const scores =
@@ -170,6 +203,24 @@ function formatReviewDisplayTime(value) {
   const get = (type) => (parts.find((p) => p.type === type) || {}).value || ''
   const hour = get('hour') === '24' ? '00' : get('hour')
   return `${get('year')}-${get('month')}-${get('day')} ${hour}:${get('minute')}`
+}
+
+async function repairTagOnlyReviewContent(row) {
+  if (!row || !row.id) return row
+  const tags = normalizeReviewTags(row.tagsJson)
+  const raw = String(row.content || '').trim()
+  if (!raw) return row
+  if (stripTagOnlyReviewContent(raw, tags) !== '') return row
+  try {
+    await prisma.serviceAlbumReview.update({
+      where: { id: row.id },
+      data: { content: '' },
+    })
+    row.content = ''
+  } catch (e) {
+    row.content = ''
+  }
+  return row
 }
 
 function mapPublicReviewRow(row) {
@@ -235,6 +286,7 @@ async function getAlbumReviewContext(albumId, userId) {
   })
   if (existing) {
     existing = await ensureReviewImagesMasked(existing)
+    existing = await repairTagOnlyReviewContent(existing)
   }
   const canAuthorizePublic =
     eligible && publicCaseStatus === PUBLIC_CASE_STATUS.PUBLIC_APPROVED
@@ -382,7 +434,8 @@ async function listPublicReviewsForAlbum(albumId) {
     take: 5,
   })
   const prepared = await Promise.all(rows.map((row) => ensureReviewImagesMasked(row)))
-  return prepared.map(mapPublicReviewRow).filter(Boolean)
+  const repaired = await Promise.all(prepared.map((row) => repairTagOnlyReviewContent(row)))
+  return repaired.map(mapPublicReviewRow).filter(Boolean)
 }
 
 async function submitServiceAlbumReviewFollowUp(albumId, userId, payload = {}) {

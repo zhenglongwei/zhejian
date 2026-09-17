@@ -744,6 +744,7 @@ async function mockFetchUserServiceAlbums(options = {}) {
         storeName: view.store.name,
         storeId: view.store.id,
         vehicleDisplay: view.vehicleDisplay,
+        vehicle: view.vehicle || {},
         status: view.status,
         imageCount: view.imageCount,
         pendingCount: 0,
@@ -757,6 +758,7 @@ async function mockFetchUserServiceAlbums(options = {}) {
         summaryLine: view.summaryLine,
         summaryRows: view.summaryRows,
         partsSummary: view.partsSummary,
+        progressLabel: view.progressLabel || '',
       }
     })
     .filter(

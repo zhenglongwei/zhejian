@@ -3,7 +3,7 @@ const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
 const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
-const { enrichServiceAlbumListItem, isRepairCompleted } = require('../../utils/service-album-display')
+const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
 const { openPlatformSupportContact } = require('../../utils/support-contact')
 const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
@@ -21,8 +21,6 @@ const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
-const MINE_HERO_HINT_COMPLETED = '相册已完工'
-
 function quietHubAlbumTags(item = {}) {
   return {
     ...item,
@@ -31,30 +29,14 @@ function quietHubAlbumTags(item = {}) {
   }
 }
 
-/** Hero 快捷栏分享：满足既有分享条件即可（不再因案例审挡栏） */
-function resolveMineHeroOwnerShare(item = {}) {
-  return Boolean(item.showShareButton)
-}
-
-/** Hero 橙色提示：完工后告知已完工；不因案例审写「不可查看」 */
-function resolveMineHeroStatusHint(item = {}) {
-  if (!isRepairCompleted(item.status)) return ''
-  return MINE_HERO_HINT_COMPLETED
-}
-
 function enrichRecentAlbums(albums = []) {
   return (albums || [])
     .slice(0, 2)
-    .map((item) => {
-      const enriched = quietHubAlbumTags(
+    .map((item) =>
+      quietHubAlbumTags(
         enrichServiceAlbumListItem(item, { audience: 'user', listTab: 'all' })
       )
-      return {
-        ...enriched,
-        showShareButton: resolveMineHeroOwnerShare(enriched),
-        statusHint: resolveMineHeroStatusHint(enriched),
-      }
-    })
+    )
 }
 
 const {

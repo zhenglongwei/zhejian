@@ -38,7 +38,7 @@ const {
   runGateUserAction,
 } = require('../../../utils/album-gate-actions')
 const { formatUpdatedAtDisplay } = require('../../../utils/album-summary')
-const { stripTagOnlyReviewContent } = require('../../../utils/review-display')
+const { stripTagOnlyReviewContent, normalizeReviewTags } = require('../../../utils/review-display')
 
 const authShareHandlers = createAlbumAuthShareHandlers({
   onAuthChanged() {
@@ -138,6 +138,9 @@ Page({
       wx.setNavigationBarTitle({
         title: hasReview ? '评价已提交' : '评价与反馈',
       })
+      const reviewTags = review
+        ? normalizeReviewTags(review.tags || review.tagsJson)
+        : []
       this.setData({
         status: 'normal',
         albumTitle,
@@ -147,9 +150,9 @@ Page({
         existingRepairScore: review ? Number(review.repairScore) || 0 : 0,
         existingAlbumScore: review ? Number(review.albumScore) || 0 : 0,
         existingCreatedAt: review ? formatUpdatedAtDisplay(review.createdAt) : '',
-        existingTags: review && Array.isArray(review.tags) ? review.tags : [],
+        existingTags: reviewTags,
         existingContent: review
-          ? stripTagOnlyReviewContent(review.content || '', review.tags)
+          ? stripTagOnlyReviewContent(review.content || '', reviewTags)
           : '',
         merchantReply: review ? review.merchantReply || '' : '',
         merchantReplyAt: review ? formatUpdatedAtDisplay(review.merchantReplyAt) : '',
