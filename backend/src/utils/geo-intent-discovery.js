@@ -42,7 +42,8 @@ function topicMatchesServiceItem(page, item) {
   const ids = [page.serviceId, page.relatedServiceId, meta.serviceItemId].filter(Boolean)
   if (ids.includes(item.serviceItemId)) return true
   const path = String(page.h5Path || '').trim()
-  if (path && path.startsWith(`/service/${item.slug}.html`)) return true
+  if (path && path.indexOf(`/topic/${item.slug}`) === 0) return true
+  if (path && path.indexOf(`/service/${item.slug}.html`) === 0) return true
   return false
 }
 

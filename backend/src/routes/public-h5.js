@@ -9,6 +9,7 @@ const { getStoreCasesPagePayload } = require('../services/h5-store-cases.service
 const { getServiceItemPagePayload } = require('../services/h5-service-item.service')
 const { getServiceItemCasesPagePayload } = require('../services/h5-service-item-cases.service')
 const { resolveTopicRedirectTarget } = require('../services/h5-topic-redirect.service')
+const { getPublicTopicPagePayload } = require('../services/h5-geo-topic.service')
 const {
   getSitemapIndexXml,
   getSitemapXmlByType,
@@ -158,7 +159,7 @@ router.get('/h5/topic-redirect/:slug', async (req, res, next) => {
   try {
     const target = await resolveTopicRedirectTarget(req.params.slug)
     if (!target) {
-      const err = new Error('专题已合并至服务项目页')
+      const err = new Error('未找到可跳转的旧专题')
       err.status = 404
       throw err
     }
@@ -170,13 +171,8 @@ router.get('/h5/topic-redirect/:slug', async (req, res, next) => {
 
 router.get('/h5/topics/:slug', async (req, res, next) => {
   try {
-    const target = await resolveTopicRedirectTarget(req.params.slug)
-    if (!target) {
-      const err = new Error('专题已合并至服务项目页')
-      err.status = 404
-      throw err
-    }
-    return ok(res, { redirect: target, deprecated: true })
+    const data = await getPublicTopicPagePayload(req.params.slug)
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

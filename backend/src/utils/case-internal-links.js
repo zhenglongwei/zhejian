@@ -69,6 +69,7 @@ function resolveServiceLink(serviceItemId, serviceName, album, caseItem) {
     return {
       serviceItemId: item.serviceItemId,
       name: item.name,
+      slug: item.slug,
       path: buildServicePagePath(item.slug, city),
       casesPath: `/service/${item.slug}/cases`,
       isMerchantPlan: false,
@@ -156,19 +157,23 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
     }
   }
 
-  if (geoTopic) {
+  const serviceTopic =
+    service && service.slug && !service.isMerchantPlan
+      ? {
+          title: `${service.name}专题`,
+          path: `/topic/${service.slug}`,
+          summary: '查看该服务类型的平台案例与常见问法',
+        }
+      : geoTopic && String(geoTopic.path || '').indexOf('/topic/') === 0
+        ? geoTopic
+        : null
+
+  if (serviceTopic) {
     links.push({
       type: 'geo',
-      label: geoTopic.title || service?.name || '相关专题',
-      hint: '阅读专题说明与相关案例',
-      path: geoTopic.path,
-    })
-  } else if (service) {
-    links.push({
-      type: 'geo',
-      label: `${service.name}专题`,
-      hint: '查看服务项目相关专题',
-      path: service.path,
+      label: serviceTopic.title || service?.name || '相关专题',
+      hint: '查看该服务类型的平台案例与问法',
+      path: serviceTopic.path,
     })
   }
 
@@ -190,17 +195,13 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
         ? { label: `${city}本地维修`, path: cityPath }
         : null,
     service,
-    geoTopic: geoTopic
+    geoTopic: serviceTopic
       ? {
-          title: geoTopic.title || '相关专题',
-          path: geoTopic.path,
+          title: serviceTopic.title || '相关专题',
+          path: serviceTopic.path,
+          summary: serviceTopic.summary || '',
         }
-      : service
-        ? {
-            title: `${service.name}专题`,
-            path: service.path,
-          }
-        : null,
+      : null,
     city: cityPath ? { name: city, path: cityPath } : null,
     relatedService: geoMatch.serviceItem
       ? {

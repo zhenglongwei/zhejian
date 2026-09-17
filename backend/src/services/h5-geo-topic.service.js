@@ -1,7 +1,7 @@
 const { getGeoPageDetail } = require('./geo.service')
 const { listCases } = require('./content.service')
 const { resolveServiceItemIdFromPage } = require('./geo-service-catalog.service')
-const { resolveH5ServiceItemById } = require('../constants/h5-service-items')
+const { resolveH5ServiceItemById, resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
 const { applyAggregateToServiceContent } = require('./geo-case-aggregate.service')
 const { applyAggregateToVehicleTopicContent } = require('./geo-vehicle-topic.service')
 const { filterCasesForGeoPage, orderCasesByIds } = require('../utils/geo-topic-matcher')
@@ -13,6 +13,7 @@ function mapCaseItem(item) {
     title: item.title,
     serviceName: item.serviceName,
     summary: item.summary,
+    vehicleText: item.vehicleText || '',
     coverImage: item.coverImage || '',
     coverImageDesensitized: item.coverImageDesensitized || item.coverImage || '',
     priceMode: item.priceMode || 'range',
@@ -23,7 +24,9 @@ function mapCaseItem(item) {
     storeId: item.storeId,
     storeName: item.storeName,
     city: item.city || '',
+    publishedAt: item.publishedAt || '',
     viewCount: item.viewCount || 0,
+    distanceKm: item.distanceKm != null ? item.distanceKm : null,
   }
 }
 
@@ -132,6 +135,10 @@ async function getGeoTopicPagePayload(slugOrId) {
   const aiSummary = aggregated.aiSummary || detail.aiSummary || detail.summary || ''
   const faq = aggregated.faq || detail.faq || []
   const aggregateStats = aggregated.aggregateStats || null
+  const catalogItem =
+    resolveH5ServiceItemById(detail.serviceItemId || '') ||
+    resolveH5ServiceItemBySlug(detail.slug) ||
+    null
 
   return {
     topic: {
@@ -170,12 +177,43 @@ async function getGeoTopicPagePayload(slugOrId) {
       matchedCaseCount: aggregateStats?.sampleSize ?? null,
     },
     aggregateStats,
+    relatedProduct: catalogItem
+      ? {
+          name: catalogItem.name,
+          slug: catalogItem.slug,
+          path: `/service/${catalogItem.slug}.html`,
+        }
+      : null,
+    sortOptions: [
+      { value: 'recommend', label: '综合推荐' },
+      { value: 'newest', label: '最新发布' },
+      { value: 'cases', label: '浏览较多' },
+    ],
     seo: buildTopicSeo({ ...detail, aiSummary }, { allowIndex }),
+  }
+}
+
+async function getPublicTopicPagePayload(slugOrId) {
+  try {
+    return await getGeoTopicPagePayload(slugOrId)
+  } catch (err) {
+    if (!err || err.status !== 404) throw err
+    const { resolveLegacyTopicRedirect } = require('../utils/geo-page-service-resolve')
+    const legacy = resolveLegacyTopicRedirect(slugOrId)
+    const loc = legacy && legacy.location ? String(legacy.location) : ''
+    const topicMatch = loc.match(/\/topic\/([a-z0-9-]+)/i)
+    const serviceMatch = loc.match(/\/service\/([a-z0-9-]+)/i)
+    const nextSlug = (topicMatch && topicMatch[1]) || (serviceMatch && serviceMatch[1]) || ''
+    if (nextSlug && nextSlug !== slugOrId) {
+      return getGeoTopicPagePayload(nextSlug)
+    }
+    throw err
   }
 }
 
 module.exports = {
   getGeoTopicPagePayload,
+  getPublicTopicPagePayload,
   resolveAggregateCasesForGeoPage,
   applyTopicAggregate,
 }

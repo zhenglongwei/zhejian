@@ -39,7 +39,7 @@ async function getLlmsFullTxt() {
   const intentLines = (geoPages.list || [])
     .filter((page) => page.pageType && page.pageType !== 'service_base')
     .map((page) => {
-      const path = page.h5Path || `/service/${page.slug}.html`
+      const path = page.h5Path || `/topic/${page.slug}`
       return `- [${page.title || page.slug}](${absUrl(path)})`
     })
 
@@ -92,7 +92,7 @@ async function getLlmsTxt() {
     .filter((page) => page.pageType && page.pageType !== 'service_base')
     .slice(0, LLMS_SERVICE_LIMIT)
     .map((page) => {
-      const path = page.h5Path || `/service/${page.slug}.html`
+      const path = page.h5Path || `/topic/${page.slug}`
       return `- [${page.title || page.slug}](${absUrl(path)})`
     })
 

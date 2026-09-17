@@ -113,7 +113,9 @@
   }
 
   function geoHref(item) {
-    if (item.h5Path && item.h5Path.indexOf('/service/') === 0) return item.h5Path
+    var path = item && item.h5Path ? String(item.h5Path) : ''
+    if (path.indexOf('/topic/') === 0) return path
+    if (item && item.slug) return '/topic/' + encodeURIComponent(item.slug)
     return ''
   }
 

@@ -47,16 +47,7 @@
         document.title = (doc && doc.title) || '辙见'
         root.innerHTML = renderLegalPage(doc)
         if (global.zhejianSiteNav) {
-          root.insertAdjacentHTML(
-            'beforeend',
-            global.zhejianSiteNav.render({
-              extraHtml:
-                '<div class="h5-site-nav-legal">' +
-                '<a class="h5-site-nav-link" href="/privacy/">隐私政策</a>' +
-                '<a class="h5-site-nav-link" href="/terms/">用户协议</a>' +
-                '</div>',
-            })
-          )
+          root.insertAdjacentHTML('beforeend', global.zhejianSiteNav.render())
         }
       })
       .catch(function () {

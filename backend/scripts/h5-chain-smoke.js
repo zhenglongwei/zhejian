@@ -364,23 +364,26 @@ async function verifyCaseEnrichmentFeedSegment(caseId) {
 }
 
 async function verifyH5GeoTopic() {
-  const slug = 'hangzhou-brake-pad'
-  const redirectApi = await api('GET', `/public/h5/topic-redirect/${slug}`)
-  assert(redirectApi.ok && redirectApi.json?.code === 0, 'GET /public/h5/topic-redirect/:slug 失败')
-  const location = redirectApi.json.data?.location || ''
-  assert(location.includes('/service/'), `topic 应重定向到服务页，实际 ${location}`)
+  const slug = 'body-paint-repair'
+  const topicApi = await api('GET', `/public/h5/topics/${slug}`)
+  assert(topicApi.ok && topicApi.json?.code === 0, 'GET /public/h5/topics/:slug 失败')
+  assert(topicApi.json.data?.topic, 'topics API 应返回专题')
+  assert(Array.isArray(topicApi.json.data?.faq), 'topics API 应返回 faq')
+  assert(Array.isArray(topicApi.json.data?.relatedCases), 'topics API 应返回案例列表')
 
-  const legacyApi = await api('GET', `/public/h5/topics/${slug}`)
-  assert(legacyApi.ok && legacyApi.json?.code === 0, 'GET /public/h5/topics/:slug 兼容失败')
-  assert(legacyApi.json.data?.redirect?.location, 'topics API 应返回 redirect')
+  const htmlRes = await fetch(`${BASE}/topic/${slug}`)
+  assert(htmlRes.ok, `/topic/${slug} HTTP ${htmlRes.status}`)
+  const html = await htmlRes.text()
+  assert(html.includes('topic-render.js'), 'topic 页未引用 topic-render.js')
+  assert(!html.includes('redirectToService'), 'topic 页不应再跳转商品页')
 
-  for (const legacySlug of ['bmw-3-series-maintenance', 'store-demo-hangzhou', 'hangzhou-body-paint']) {
+  for (const legacySlug of ['store-demo-hangzhou']) {
     const legacyRedirect = await api('GET', `/public/h5/topic-redirect/${legacySlug}`)
     assert(legacyRedirect.ok && legacyRedirect.json?.code === 0, `legacy redirect 失败: ${legacySlug}`)
     assert(legacyRedirect.json.data?.location, `legacy 缺 location: ${legacySlug}`)
   }
 
-  console.log('[chain] ✅ 旧专题 URL 重定向至服务项目页 /service/{slug}.html')
+  console.log('[chain] ✅ 专题页 /topic/{slug} 展示案例与问法')
 }
 
 async function verifyH5StoreAssets(storeId) {

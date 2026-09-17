@@ -38,6 +38,10 @@ function buildServiceLocation(serviceSlug, city = '') {
   return `/service/${serviceSlug}.html${qs}`
 }
 
+function buildTopicLocation(topicSlug) {
+  return `/topic/${String(topicSlug || '').trim()}`
+}
+
 function resolveLegacyTopicRedirect(slug) {
   const key = String(slug || '').trim()
   if (!key) return null
@@ -45,7 +49,7 @@ function resolveLegacyTopicRedirect(slug) {
   if (!rule) return null
 
   if (rule.kind === 'service') {
-    return { location: buildServiceLocation(rule.serviceSlug, rule.city), status: 301 }
+    return { location: buildTopicLocation(rule.serviceSlug), status: 301 }
   }
   if (rule.kind === 'store' && rule.storeId) {
     return { location: `/store/${rule.storeId}.html`, status: 301 }
@@ -121,7 +125,9 @@ function buildGeoPageServicePath(page) {
   if (!slug) return ''
 
   const legacy = resolveLegacyTopicRedirect(slug)
-  if (legacy) return legacy.location
+  if (legacy && String(legacy.location).startsWith('/service/')) {
+    return legacy.location
+  }
 
   if (resolveH5ServiceItemBySlug(slug)) {
     return `/service/${slug}.html`
@@ -137,8 +143,8 @@ function buildGeoPageServicePath(page) {
 function isPublicDiscoverableGeoPage(page) {
   if (!page || page.status === 'draft') return false
   if (page.pageType === 'service_base' || page.pageType === 'merchant_geo') return false
-  const path = buildGeoPageServicePath(page)
-  return Boolean(path && path.startsWith('/service/'))
+  const slug = String(page.slug || page.id || '').trim()
+  return Boolean(slug)
 }
 
 module.exports = {
@@ -147,5 +153,6 @@ module.exports = {
   resolveLegacyTopicRedirect,
   resolveServiceSlugFromGeoPage,
   buildGeoPageServicePath,
+  buildTopicLocation,
   isPublicDiscoverableGeoPage,
 }

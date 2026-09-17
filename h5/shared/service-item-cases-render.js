@@ -331,12 +331,6 @@
           (pagination.total ? '（共 ' + pagination.total + ' 条已审核案例）' : '')
       ) +
       '</p>' +
-      (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer
-        ? window.zhejianH5Ui.renderDisclaimer(
-            COPY.casePrice,
-            ''
-          )
-        : '<div class="h5-banner">' + escapeHtml(COPY.casePrice) + '</div>') +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="' +
@@ -350,7 +344,6 @@
       '</div>' +
       renderPagination(item.slug, pagination, data.filters) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">公开内容经审核，不构成平台对维修质量或价格的担保。</p>' +
       '</div>'
 
     var app = document.getElementById('app')

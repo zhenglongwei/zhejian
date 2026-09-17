@@ -1,4 +1,4 @@
-(function (global) {
+;(function (global) {
   var SERVICE_LINKS = [
     { name: '小保养', path: '/service/car-maintenance.html' },
     { name: '刹车片更换', path: '/service/brake-pad-replacement.html' },
@@ -8,6 +8,7 @@
   ]
 
   var CITY_LINKS = [{ name: '杭州', path: '/city/hangzhou' }]
+  var FOOTER_NOTE = '本页内容仅供参考。实际方案与费用请与门店线下确认。'
 
   function escapeHtml(str) {
     return String(str || '')
@@ -17,64 +18,18 @@
       .replace(/"/g, '&quot;')
   }
 
-  function renderLinkList(title, links) {
-    if (!links || !links.length) return ''
-    var items = links
-      .map(function (link) {
-        return (
-          '<a class="h5-site-nav-link" href="' +
-          escapeHtml(link.path) +
-          '">' +
-          escapeHtml(link.name) +
-          '</a>'
-        )
-      })
-      .join('')
-    return (
-      '<div class="h5-site-nav-group"><div class="h5-site-nav-label">' +
-      escapeHtml(title) +
-      '</div><div class="h5-site-nav-links">' +
-      items +
-      '</div></div>'
-    )
-  }
-
   function render(options) {
     options = options || {}
-    var coreLinks = [
-      { name: '平台首页', path: '/' },
-      { name: '全站搜索', path: '/search/' },
-      { name: '公开案例', path: '/case/' },
-    ]
-    var core = coreLinks
-      .map(function (link) {
-        return (
-          '<a class="h5-site-nav-core" href="' +
-          escapeHtml(link.path) +
-          '">' +
-          escapeHtml(link.name) +
-          '</a>'
-        )
-      })
-      .join('')
-
     return (
-      '<nav class="h5-site-nav" aria-label="站内导航">' +
-      '<h2 class="h5-site-nav__title">探索更多内容</h2>' +
-      '<div class="h5-site-nav-core-row">' +
-      core +
-      '</div>' +
-      renderLinkList('服务城市', CITY_LINKS) +
-      renderLinkList('维修项目', SERVICE_LINKS) +
-      '<div class="h5-site-nav-legal">' +
-      '<a class="h5-site-nav-link" href="/privacy/">隐私政策</a>' +
-      '<a class="h5-site-nav-link" href="/terms/">用户协议</a>' +
-      '</div>' +
+      '<footer class="h5-site-footer" aria-label="网站备案与说明">' +
       (global.zhejianSiteBeian
         ? global.zhejianSiteBeian.render({ className: 'h5-site-beian--in-nav' })
         : '') +
+      '<p class="h5-site-footer__note">' +
+      escapeHtml(FOOTER_NOTE) +
+      '</p>' +
       (options.extraHtml || '') +
-      '</nav>'
+      '</footer>'
     )
   }
 

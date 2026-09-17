@@ -127,6 +127,13 @@ function buildServiceOffers(plans, merchants, casesByStore, geo = {}) {
         priceText: buildPlanPriceText(plan),
         sortPrice,
         caseCount: storeCases.length,
+        vehicleTexts: [
+          ...new Set(
+            storeCases
+              .map((row) => String(row.vehicleText || '').trim())
+              .filter(Boolean)
+          ),
+        ],
         transparencyScore,
         // V2.0 无交易评价：用透明度分代替「口碑」指标，供排序与展示
         metrics: {
@@ -302,6 +309,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
       id: offer.storeId,
       name: offer.storeName,
       address: offer.address,
+      city: offer.city,
       servicePlanId: offer.servicePlanId,
       planPath: offer.planPath,
       priceMode: offer.priceMode,
@@ -310,12 +318,30 @@ async function getServiceItemPagePayload(slug, query = {}) {
       amount: offer.amount,
       caseCount: offer.caseCount,
       score: offer.transparencyScore,
+      distanceKm: offer.distanceKm,
+      vehicleTexts: offer.vehicleTexts || [],
       cases: [],
     })),
-    featuredCases: [],
+    featuredCases: effectiveCases.slice(0, 8).map((row) => ({
+      id: row.id,
+      slug: row.slug || (row.seo && row.seo.slug) || '',
+      title: row.title,
+      summary: row.summary,
+      coverImage: row.coverImage || '',
+      coverImageDesensitized: row.coverImageDesensitized || row.coverImage || '',
+      city: row.city || '',
+      storeName: row.storeName || '',
+      vehicleText: row.vehicleText || '',
+      publishedAt: row.publishedAt || '',
+      priceMode: row.priceMode,
+      amount: row.amount,
+      minAmount: row.minAmount,
+      maxAmount: row.maxAmount,
+    })),
     preferredLanding: null,
     relatedServices,
     relatedTopics,
+    topicPath: `/topic/${item.slug}`,
     sortOptions: [
       { value: 'recommend', label: '综合推荐' },
       { value: 'price', label: '价格优先' },

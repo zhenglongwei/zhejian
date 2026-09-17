@@ -8,7 +8,6 @@ const {
   resolveH5ServiceItemById,
   H5_SERVICE_ITEMS,
 } = require('../constants/h5-service-items')
-const { buildGeoPageServicePath } = require('../utils/geo-page-service-resolve')
 
 const MAX_FAQ_ITEMS = 20
 const MAX_FAQ_Q_LEN = 120
@@ -184,7 +183,9 @@ function mapGeoPageRow(row) {
 }
 
 function buildGeoPageH5Path(page) {
-  return buildGeoPageServicePath(page) || ''
+  const slug = page && (page.slug || page.id)
+  if (!slug) return ''
+  return `/topic/${slug}`
 }
 
 function mapGeoListItem(page) {

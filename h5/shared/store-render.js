@@ -1124,7 +1124,6 @@
       escapeHtml(store.name) +
       '</nav>' +
       renderStoreIdentity(store, statusText, headTags) +
-      renderDisclaimerBlock() +
       suspendedNotice
 
     html += renderCases(cases, store)
@@ -1133,7 +1132,9 @@
     html += renderServices(services, store.id, bookingEnabled)
     html += renderStoreFaq(store.faq)
 
-    if (window.zhejianSiteBeian) {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      html += window.zhejianSiteNav.render()
+    } else if (window.zhejianSiteBeian) {
       html += window.zhejianSiteBeian.render()
     }
 

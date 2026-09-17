@@ -120,7 +120,7 @@ function mapGeoPageLink(page, caseItem) {
     slug: page.slug || page.id,
     title: page.title || '',
     summary: page.summary || '',
-    path: buildGeoPageH5Path(page) || buildServicePagePath(page.slug, caseItem.city),
+    path: buildGeoPageH5Path(page) || (page.slug ? `/topic/${page.slug}` : ''),
     pageType: page.pageType || '',
     city: page.city || '',
   }

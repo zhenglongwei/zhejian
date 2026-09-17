@@ -53,7 +53,11 @@
       '<div class="h5-card h5-case-list-empty"><p>' +
       safeMessage +
       '</p></div>' +
-      (window.zhejianSiteBeian ? window.zhejianSiteBeian.render() : '') +
+      (window.zhejianSiteNav && window.zhejianSiteNav.render
+        ? window.zhejianSiteNav.render()
+        : window.zhejianSiteBeian
+          ? window.zhejianSiteBeian.render()
+          : '') +
       '</div>'
   }
 
@@ -94,12 +98,15 @@
       '<header class="h5-header">' +
       '<h1 class="h5-title">公开案例</h1>' +
       '<p class="h5-summary">门店托管并公开的维修档案。</p>' +
-      renderDisclaimer() +
       '</header>' +
       '<div class="h5-media-list">' +
       items +
       '</div>' +
-      (window.zhejianSiteBeian ? window.zhejianSiteBeian.render() : '') +
+      (window.zhejianSiteNav && window.zhejianSiteNav.render
+        ? window.zhejianSiteNav.render()
+        : window.zhejianSiteBeian
+          ? window.zhejianSiteBeian.render()
+          : '') +
       '</div>'
 
     if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {

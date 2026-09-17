@@ -150,7 +150,7 @@
     var ui = window.zhejianH5Ui
     var items = topics
       .filter(function (topic) {
-        return topic.h5Path && topic.h5Path.indexOf('/service/') === 0
+        return topic.h5Path && topic.h5Path.indexOf('/topic/') === 0
       })
       .map(function (topic) {
         var href = topic.h5Path
@@ -310,7 +310,6 @@
       '<p class="h5-summary">' +
       escapeHtml(identity) +
       '</p>' +
-      renderDisclaimer() +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/search/">搜索</a>' +
@@ -318,14 +317,6 @@
       '</div>' +
       renderFeaturedCases(data.featuredCases) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">' +
-      escapeHtml(
-        (typeof data.protectionText === 'string' && data.protectionText) ||
-          (data.protectionText && data.protectionText.body) ||
-          PC.footnote ||
-          '本站展示门店自行公开的维修档案，仅供参考。'
-      ) +
-      '</p>' +
       '</div>'
 
     var app = document.getElementById('app')

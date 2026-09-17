@@ -854,13 +854,6 @@
         hint: '阅读专题说明与相关案例',
         path: links.geoTopic.path,
       })
-    } else if (links.relatedService && links.relatedService.path) {
-      entries.push({
-        type: 'geo',
-        label: links.relatedService.name || '相关服务',
-        hint: '查看服务项目专题',
-        path: links.relatedService.path,
-      })
     }
     if (!entries.length) return ''
 
@@ -895,18 +888,29 @@
   function renderRelatedServiceCard(data) {
     var links = data.internalLinks
     if (!links) return ''
-    var target = links.geoTopic || links.relatedService
-    if (!target || !target.path) return ''
-    var title = target.title || (links.relatedService && links.relatedService.name) || '相关专题'
-    var summary = target.summary || ''
+    var service = links.service
+    var topic = links.geoTopic
+    var path = ''
+    var title = ''
+    var summary = ''
+    if (service && service.slug) {
+      path = '/topic/' + encodeURIComponent(service.slug)
+      title = (service.name || '') + '专题'
+      summary = (topic && topic.summary) || ''
+    } else if (topic && topic.path && String(topic.path).indexOf('/topic/') === 0) {
+      path = topic.path
+      title = topic.title || '相关专题'
+      summary = topic.summary || ''
+    }
+    if (!path) return ''
     return (
       '<div class="h5-card" id="case-related-service">' +
       '<h2 class="h5-section-title">相关专题</h2>' +
       (summary
         ? '<p class="h5-summary">' + escapeHtml(summary) + '</p>'
-        : '<p class="h5-compliance">查看该服务项目的专题说明、流程与价格参考。</p>') +
+        : '<p class="h5-compliance">查看该服务类型的平台案例与常见问法。</p>') +
       '<a class="h5-btn h5-btn--secondary" href="' +
-      escapeHtml(target.path) +
+      escapeHtml(path) +
       '">查看' +
       escapeHtml(title) +
       '</a></div>'
@@ -2053,7 +2057,9 @@
       safeData.id,
       articleMode && shouldShowStorePublicly(safeData) ? '本店更多案例' : '相似案例'
     )
-    if (window.zhejianSiteBeian) {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      mainHtml += window.zhejianSiteNav.render()
+    } else if (window.zhejianSiteBeian) {
       mainHtml += window.zhejianSiteBeian.render()
     }
 

@@ -12,7 +12,7 @@ const {
 function run() {
   assert.strictEqual(
     resolveLegacyTopicRedirect('bmw-3-series-maintenance')?.location,
-    '/service/car-maintenance.html?city=%E6%9D%AD%E5%B7%9E'
+    '/topic/car-maintenance'
   )
   assert.strictEqual(
     resolveLegacyTopicRedirect('store-demo-hangzhou')?.location,

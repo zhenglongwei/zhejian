@@ -233,11 +233,13 @@
         storeName: store.name,
         storePath: storePagePath(store.id),
         address: store.address || '',
+        city: store.city || '',
         priceText: buildStorePriceText(store),
         sortPrice: store.minAmount != null ? store.minAmount : store.amount,
         caseCount: store.caseCount || 0,
         transparencyScore: store.score || 0,
         distanceKm: store.distanceKm,
+        vehicleTexts: store.vehicleTexts || [],
       }
     })
   }
@@ -287,43 +289,15 @@
     return bits.join(' · ')
   }
 
-  function renderServiceOfferList(offers, item, sortOptions, activeSort) {
-    var options = sortOptions && sortOptions.length
-      ? sortOptions
-      : [
-          { value: 'recommend', label: '综合推荐' },
-          { value: 'price', label: '价格优先' },
-          { value: 'cases', label: '案例更多' },
-          { value: 'transparency', label: '透明度更高' },
-          { value: 'distance', label: '距离更近' },
-        ]
-    var sortBar =
-      '<div class="h5-offer-sort" id="service-offer-sort" style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">' +
-      options
-        .map(function (opt) {
-          var active = opt.value === activeSort
-          return (
-            '<button type="button" class="h5-btn h5-btn--secondary' +
-            (active ? ' is-active' : '') +
-            '" data-sort="' +
-            escapeHtml(opt.value) +
-            '"' +
-            (active ? ' aria-current="true" style="font-weight:600"' : '') +
-            '>' +
-            escapeHtml(opt.label) +
-            '</button>'
-          )
-        })
-        .join('') +
-      '</div>'
-
+  function renderServiceOfferList(offers, item, toolbarHtml) {
+    var bar = toolbarHtml || ''
     if (!offers || !offers.length) {
       return (
         '<div class="h5-card" id="service-offers">' +
         '<h2 class="h5-section-title">' +
         escapeHtml(item.name) +
-        '服务列表</h2>' +
-        sortBar +
+        '</h2>' +
+        bar +
         '<div class="h5-empty-block">暂无门店上架该服务，请稍后再查看。</div></div>'
       )
     }
@@ -359,12 +333,12 @@
 
     return (
       '<div class="h5-card" id="service-offers">' +
-      '<h2 class="h5-section-title">' +
-      escapeHtml(item.name) +
-      '服务列表</h2>' +
-      '<p class="h5-compliance">以下每项是一家门店的真实服务方案，可按价格、案例数、透明度、距离挑选；进入后只看该店案例。</p>' +
-      sortBar +
-      '<div class="h5-media-list" id="service-offer-list">' +
+        '<h2 class="h5-section-title">' +
+        escapeHtml(item.name) +
+        '</h2>' +
+        '<p class="h5-compliance">以下为各门店该项目的服务方案。</p>' +
+        bar +
+        '<div class="h5-media-list" id="service-offer-list">' +
       cards +
       '</div></div>'
     )
@@ -428,10 +402,11 @@
     var ui = window.zhejianH5Ui
     var items = topics
       .filter(function (topic) {
-        return topic.h5Path && topic.h5Path.indexOf('/service/') === 0
+        var path = topic.h5Path || topic.path || ''
+        return path.indexOf('/topic/') === 0
       })
       .map(function (topic) {
-        var href = topic.h5Path
+        var href = topic.h5Path || topic.path
         if (ui && ui.renderEntryCard) {
           return ui.renderEntryCard({
             href: href,
@@ -488,30 +463,104 @@
     )
   }
 
+  function renderFeaturedCases(cases) {
+    if (!cases || !cases.length) return ''
+    var ui = window.zhejianH5Ui
+    var cards = cases
+      .map(function (item) {
+        if (ui && ui.renderCaseListItem) return ui.renderCaseListItem(item)
+        return (
+          '<a class="h5-media-list-item" href="/case/view.html?id=' +
+          encodeURIComponent(item.id || '') +
+          '"><div class="h5-media-list-body"><div class="h5-media-list-title">' +
+          escapeHtml(item.title || '公开案例') +
+          '</div></div></a>'
+        )
+      })
+      .join('')
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">相关案例</h2>' +
+      '<div class="h5-media-list">' +
+      cards +
+      '</div></div>'
+    )
+  }
+
+  function renderTopicEntry(data, item) {
+    var path = data.topicPath || (item && item.slug ? '/topic/' + item.slug : '')
+    if (!path) return ''
+    return (
+      '<div class="h5-card"><h2 class="h5-section-title">相关专题</h2>' +
+      '<p class="h5-compliance">按服务类型查看平台案例与常见问法。</p>' +
+      '<a class="h5-btn h5-btn--secondary" href="' +
+      escapeHtml(path) +
+      '">查看' +
+      escapeHtml(item.name || '') +
+      '专题</a></div>'
+    )
+  }
+
+  function renderOfferToolbar(offers, selected, sortValue, sortOptions) {
+    var fs = window.zhejianFilterSort
+    if (!fs) return ''
+    return fs.render({
+      id: 'service-offer-toolbar',
+      filters: fs.defaultFiltersFromOffers(offers),
+      sorts: sortOptions && sortOptions.length
+        ? sortOptions
+        : [
+            { value: 'recommend', label: '综合推荐' },
+            { value: 'price', label: '价格优先' },
+            { value: 'cases', label: '案例更多' },
+            { value: 'transparency', label: '透明度更高' },
+            { value: 'distance', label: '距离更近' },
+          ],
+      selected: selected,
+      sortValue: sortValue,
+    })
+  }
+
   function bindInteractions(data) {
     var item = data.item || {}
     var offers = getServiceOffers(data)
+    var selected = { city: '', vehicle: '', age: '', distance: '' }
     var activeSort = 'recommend'
+    var fs = window.zhejianFilterSort
 
-    function paintOfferList(mode) {
-      activeSort = mode || 'recommend'
-      var sorted = sortOffers(offers, activeSort)
+    function visibleOffers() {
+      var rows = (offers || []).filter(function (row) {
+        return !fs || fs.matchFilters(row, selected)
+      })
+      return sortOffers(rows, activeSort)
+    }
+
+    function bindToolbar() {
+      if (!fs) return
+      fs.bind(document.getElementById('service-offer-toolbar'), {
+        onFilter: function (key, value) {
+          selected[key] = value
+          paintOfferList()
+        },
+        onSort: function (value) {
+          activeSort = value || 'recommend'
+          paintOfferList()
+        },
+      })
+    }
+
+    function paintOfferList() {
       var host = document.getElementById('service-offers')
       if (!host) return
       var next = document.createElement('div')
-      next.innerHTML = renderServiceOfferList(sorted, item, data.sortOptions, activeSort)
+      next.innerHTML = renderServiceOfferList(
+        visibleOffers(),
+        item,
+        renderOfferToolbar(offers, selected, activeSort, data.sortOptions)
+      )
       var replacement = next.firstChild
       if (replacement) host.replaceWith(replacement)
-      bindSortButtons()
+      bindToolbar()
       bindOfferClicks()
-    }
-
-    function bindSortButtons() {
-      document.querySelectorAll('#service-offer-sort [data-sort]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          paintOfferList(btn.getAttribute('data-sort') || 'recommend')
-        })
-      })
     }
 
     function bindOfferClicks() {
@@ -530,7 +579,7 @@
       })
     }
 
-    bindSortButtons()
+    bindToolbar()
     bindOfferClicks()
   }
 
@@ -544,7 +593,8 @@
         escapeHtml(item.cityFilter) +
         '」筛选服务列表；去掉城市参数可看全国。</p>'
       : ''
-    var offers = sortOffers(getServiceOffers(data), 'recommend')
+    var offers = getServiceOffers(data)
+    var toolbar = renderOfferToolbar(offers, { city: '', vehicle: '', age: '', distance: '' }, 'recommend', data.sortOptions)
 
     var html =
       '<div class="h5-page">' +
@@ -563,26 +613,20 @@
       '</h1>' +
       (answerText
         ? '<div class="h5-topic-answer">' + escapeHtml(answerText) + '</div>'
-        : '<p class="h5-summary">对比各门店该服务的方案价、本店案例数与透明度，再进入详情。</p>') +
+        : '<p class="h5-summary">对比各门店该项目的服务方案。</p>') +
       renderTrustMeta(data) +
       cityNote +
       '</header>' +
-      '<div class="h5-home-quick h5-topic-cta">' +
-      '<a class="h5-btn" href="#service-offers">查看服务列表</a>' +
-      '</div>' +
-      renderReferencePrice(data.referencePrice, item) +
-      renderServiceOfferList(offers, item, data.sortOptions, 'recommend') +
+      renderServiceOfferList(sortOffers(offers, 'recommend'), item, toolbar) +
+      renderFeaturedCases(data.featuredCases) +
+      renderTopicEntry(data, item) +
       renderRelatedTopics(data.relatedTopics) +
       renderRelated(data.relatedServices) +
       renderSiteNav() +
-      renderDisclaimerBlock() +
       '</div>'
 
     var app = document.getElementById('app')
     if (app) app.innerHTML = html
-    if (window.zhejianH5Ui && window.zhejianH5Ui.bindDisclaimerToggles) {
-      window.zhejianH5Ui.bindDisclaimerToggles(app)
-    }
     bindInteractions(data)
 
     if (window.zhejianTrack) {

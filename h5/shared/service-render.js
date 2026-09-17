@@ -617,7 +617,6 @@
       (service.storeName
         ? '<p class="h5-service-status">' + escapeHtml(service.storeName) + '</p>'
         : '') +
-      renderDisclaimerBlock() +
       pausedNotice +
       '</header>' +
       heroHtml +
@@ -671,7 +670,9 @@
 
     html += renderCases(cases, service.id, service.storeId)
     html += renderStoreCard(store)
-    if (window.zhejianSiteBeian) {
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      html += window.zhejianSiteNav.render()
+    } else if (window.zhejianSiteBeian) {
       html += window.zhejianSiteBeian.render()
     }
     html += '<div class="h5-body-spacer"></div></div>'

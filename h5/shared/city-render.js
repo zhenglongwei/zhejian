@@ -99,13 +99,10 @@
   }
 
   function renderSiteNav() {
-    if (window.zhejianH5Ui && window.zhejianH5Ui.renderDisclaimer) {
-      return window.zhejianH5Ui.renderDisclaimer(
-        COPY.displayDisclaimer,
-        COPY.geoDisclaimer
-      )
+    if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
+      return window.zhejianSiteNav.render()
     }
-    return '<div class="h5-banner">' + escapeHtml(COPY.displayDisclaimer) + '</div>'
+    return ''
   }
 
   function renderServiceEntries(entries, cityName) {
@@ -261,7 +258,7 @@
     var ui = window.zhejianH5Ui
     var items = topics
       .filter(function (topic) {
-        return topic.h5Path && topic.h5Path.indexOf('/service/') === 0
+        return topic.h5Path && topic.h5Path.indexOf('/topic/') === 0
       })
       .map(function (topic) {
         var href = topic.h5Path
@@ -387,7 +384,6 @@
       '<p class="h5-summary">' +
       escapeHtml(summary) +
       '</p>' +
-      renderDisclaimer() +
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
@@ -399,13 +395,6 @@
       renderGeoTopics(data.geoTopics) +
       renderIntro((data.platformIntro && data.platformIntro.points) || []) +
       renderSiteNav() +
-      '<p class="h5-compliance h5-home-footnote">' +
-      escapeHtml(
-        (typeof data.protectionText === 'string' && data.protectionText) ||
-          (data.protectionText && data.protectionText.body) ||
-          '公开内容经审核，不构成平台对维修质量或价格的担保。'
-      ) +
-      '</p>' +
       '</div>'
 
     var app = document.getElementById('app')
