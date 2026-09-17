@@ -8,6 +8,7 @@
     catchtouchmove="preventPass"
   >
     <canvas
+      wx:if="{{canvasReady}}"
       id="maskCanvas"
       type="2d"
       class="mask-editor__canvas"

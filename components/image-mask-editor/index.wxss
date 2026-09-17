@@ -16,13 +16,14 @@
   align-self: center;
   margin: 0 auto;
   border-radius: var(--radius-md);
-  overflow: hidden;
   background-color: var(--color-bg-muted);
 }
 
 .mask-editor__canvas {
+  position: relative;
+  top: 0;
+  left: 0;
   display: block;
-  /* 宽高由 style 像素值固定，禁止 100% 拉伸造成空白错位 */
 }
 
 .mask-editor__loading {

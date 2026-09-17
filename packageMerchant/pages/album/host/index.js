@@ -8,7 +8,7 @@ const {
   fetchHostPublicFace,
   ensureHostDesensitizeTask,
 } = require('../../../../services/merchant-service-album')
-const { fetchTask, runAutoMask, applyManualMask } = require('../../../../services/desensitize')
+const { fetchTask, runAutoMask } = require('../../../../services/desensitize')
 const { SERVICE_ALBUM_STATUS } = require('../../../../constants/service-album-status')
 
 function stripUrlQuery(url) {
@@ -122,7 +122,7 @@ function overlayGeoSuggestions(base, summary, faq) {
     list.push({
       issue: 'thin_summary',
       title: '店页说明复读目录',
-      suggestion: '用人话写：车主为何来、店里做了什么、质保怎么说。不要「含过程图片记录」。',
+      suggestion: '车主为何来、店里做了什么、质保怎么说。不要「含过程图片记录」。',
     })
   }
   const answered = (Array.isArray(faq) ? faq : []).some((row) =>
@@ -216,10 +216,6 @@ Page({
     geoHighlightsEmptyHint: '暂无要点。可按标签补充，例如车型、检测、方案、结果。',
     geoFaqEmptyHint: '本单缺少现象、检测或方案等细节，未自动生成常见问法。可自行补充。',
     geoConfirmed: false,
-    maskEditorVisible: false,
-    maskEditorUrl: '',
-    maskEditorTitle: '',
-    maskEditorSubmitting: false,
   },
 
   onLoad(options) {
@@ -483,24 +479,24 @@ Page({
   },
 
   async onReviewImageEdit(e) {
-    if (this.data.working || this.data.maskEditorVisible) return
+    if (this.data.working) return
     const url = e.detail && e.detail.url
     if (!url) return
     this.setData({ working: true })
     try {
       const { taskId, assetId } = await this.findMaskAssetId(url)
-      const task = await fetchTask(taskId)
-      const asset = ((task && task.rawAssets) || []).find((row) => row.id === assetId)
-      this._maskEdit = {
-        taskId,
-        assetId,
-        sourceUrl: url,
-      }
-      this.setData({
-        maskEditorVisible: true,
-        maskEditorUrl: (asset && (asset.maskedUrl || asset.url)) || url,
-        maskEditorTitle: (asset && asset.nodeTitle) || '过程图',
-        maskEditorSubmitting: false,
+      this._maskEdit = { taskId, assetId, sourceUrl: url }
+      const albumId = this.albumId || this.data.albumId || ''
+      wx.navigateTo({
+        url:
+          `/pages/desensitize/mask/index?taskId=${encodeURIComponent(taskId)}` +
+          `&assetId=${encodeURIComponent(assetId)}` +
+          (albumId ? `&albumId=${encodeURIComponent(albumId)}` : ''),
+        events: {
+          maskUpdated: () => {
+            this.refreshReviewAfterMask()
+          },
+        },
       })
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '无法打开打码', icon: 'none' })
@@ -509,63 +505,24 @@ Page({
     }
   },
 
-  onCloseMaskEditor() {
-    if (this.data.maskEditorSubmitting) return
-    this._maskEdit = null
-    this.setData({
-      maskEditorVisible: false,
-      maskEditorUrl: '',
-      maskEditorTitle: '',
-      maskEditorSubmitting: false,
-    })
-  },
-
-  onPreventTouchMove() {
-    /* 拦住触摸，避免底层核对页跟着滑 */
-  },
-
-  async onMaskEditorSubmit(e) {
-    if (this.data.maskEditorSubmitting) return
+  async refreshReviewAfterMask() {
     const edit = this._maskEdit
-    if (!edit || !edit.taskId || !edit.assetId) return
-    const { regions, mode } = e.detail || {}
-    if (!regions || !regions.length) {
-      wx.showToast({ title: '请先框选打码区域', icon: 'none' })
-      return
-    }
-    this.setData({ maskEditorSubmitting: true })
+    if (!edit || !edit.taskId) return
     try {
-      const task = await applyManualMask(edit.taskId, edit.assetId, {
-        regions,
-        mode: mode || 'mosaic',
-      })
+      const task = await fetchTask(edit.taskId)
       const asset = ((task && task.rawAssets) || []).find((row) => row.id === edit.assetId)
       const maskedUrl = (asset && (asset.maskedUrl || asset.preMaskedUrl)) || ''
-      if (maskedUrl) {
-        const reviewDocs = patchReviewDocImageUrls(
-          this.data.reviewDocs,
-          edit.sourceUrl,
-          maskedUrl,
-        )
-        // 同源多处引用也替换
-        const reviewDocs2 = patchReviewDocImageUrls(
-          reviewDocs,
-          asset.url || edit.sourceUrl,
-          maskedUrl,
-        )
-        this.setData({ reviewDocs: reviewDocs2 })
-      }
-      wx.showToast({ title: '已打码', icon: 'success' })
+      if (!maskedUrl) return
+      let reviewDocs = patchReviewDocImageUrls(this.data.reviewDocs, edit.sourceUrl, maskedUrl)
+      reviewDocs = patchReviewDocImageUrls(
+        reviewDocs,
+        (asset && asset.url) || edit.sourceUrl,
+        maskedUrl,
+      )
+      this.setData({ reviewDocs })
       this._maskEdit = null
-      this.setData({
-        maskEditorVisible: false,
-        maskEditorUrl: '',
-        maskEditorTitle: '',
-        maskEditorSubmitting: false,
-      })
-    } catch (err) {
-      wx.showToast({ title: (err && err.message) || '打码失败', icon: 'none' })
-      this.setData({ maskEditorSubmitting: false })
+    } catch (_) {
+      /* 返回后仍可再点图 */
     }
   },
 

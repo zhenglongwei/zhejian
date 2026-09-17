@@ -32,6 +32,7 @@ Component({
     activeMode: 'mosaic',
     canvasW: 300,
     canvasH: 200,
+    canvasReady: false,
     ready: false,
   },
   lifetimes: {
@@ -46,12 +47,12 @@ Component({
       this.setData({ activeMode: this.properties.mode === 'blur' ? 'blur' : 'mosaic' })
     },
     ready() {
-      if (this.properties.imageUrl) this.initCanvas()
+      if (this.properties.imageUrl) setTimeout(() => this.initCanvas(), 60)
     },
   },
   observers: {
     imageUrl(url) {
-      if (url) setTimeout(() => this.initCanvas(), 30)
+      if (url) setTimeout(() => this.initCanvas(), 80)
     },
   },
   methods: {
@@ -60,14 +61,20 @@ Component({
     initCanvas() {
       const url = this.properties.imageUrl
       if (!url) return
-      this.setData({ ready: false })
+      const token = Date.now()
+      this._initToken = token
+      this._canvas = null
+      this._ctx = null
+      this._img = null
+      this.setData({ ready: false, canvasReady: false })
       wx.getImageInfo({
         src: url,
         success: (info) => {
+          if (this._initToken !== token) return
           const sys = wx.getSystemInfoSync()
           // 与弹层左右 padding 对齐，避免画布比容器宽
           const maxW = Math.max(120, Math.floor(sys.windowWidth - 48))
-          const maxH = Math.floor(sys.windowHeight * 0.42)
+          const maxH = Math.floor(sys.windowHeight * 0.52)
           const imgW = Number(info.width) || 1
           const imgH = Number(info.height) || 1
           const ratio = imgH / imgW
@@ -91,10 +98,13 @@ Component({
             {
               canvasW: drawW,
               canvasH: drawH,
+              canvasReady: true,
               ready: false,
               regions: [],
             },
-            () => this.setupCanvas(url, 0),
+            () => {
+              wx.nextTick(() => this.setupCanvas(url, 0, token))
+            },
           )
         },
         fail: () => {
@@ -104,13 +114,15 @@ Component({
       })
     },
 
-    setupCanvas(url, attempt) {
+    setupCanvas(url, attempt, token) {
+      if (token && this._initToken !== token) return
       this.createSelectorQuery()
         .select('#maskCanvas')
         .fields({ node: true, size: true })
         .exec((res) => {
+          if (token && this._initToken !== token) return
           if (!res || !res[0] || !res[0].node || !this._layout) {
-            if (attempt < 10) setTimeout(() => this.setupCanvas(url, attempt + 1), 40)
+            if (attempt < 12) setTimeout(() => this.setupCanvas(url, attempt + 1, token), 50)
             return
           }
           const canvas = res[0].node
