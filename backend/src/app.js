@@ -113,6 +113,10 @@ function createApp() {
       }
     }
 
+    app.get(['/case', '/case/', '/case/index.html'], async (req, res, next) => {
+      const { renderCaseListHtml } = require('./services/h5-page-prerender.service')
+      return sendPrerender(res, next, () => renderCaseListHtml(req.query))
+    })
     app.get('/case/view.html', async (req, res, next) => {
       if (!req.query.id || req.query.legacy === '1') return next()
       try {

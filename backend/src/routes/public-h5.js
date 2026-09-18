@@ -233,6 +233,15 @@ router.get('/h5/home/bot-html', async (req, res, next) => {
   }
 })
 
+router.get('/h5/cases/bot-html', async (req, res, next) => {
+  try {
+    const { renderCaseListHtml } = require('../services/h5-page-prerender.service')
+    return sendHtml(res, await renderCaseListHtml(req.query))
+  } catch (e) {
+    next(e)
+  }
+})
+
 router.get('/h5/service-items/:slug/bot-html', async (req, res, next) => {
   try {
     const { renderServiceHtml } = require('../services/h5-page-prerender.service')

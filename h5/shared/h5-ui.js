@@ -274,6 +274,20 @@
     })
   }
 
+  function isGenericConsultPrice(text) {
+    var value = String(text || '')
+    return /到店检测后报价/.test(value) && !/\d/.test(value)
+  }
+
+  function caseCardTitle(item) {
+    var vehicle = String((item && item.vehicleText) || '').trim()
+    var service = String((item && item.serviceName) || '').trim()
+    if (vehicle && service) return vehicle + ' · ' + service
+    if (service) return service
+    if (vehicle) return vehicle
+    return String((item && item.title) || '公开案例')
+  }
+
   function renderCaseListItem(item, options) {
     options = options || {}
     var pc = global.zhejianPublicCopy || {}
@@ -289,13 +303,14 @@
         escapeHtml(coverAlt) +
         '" loading="lazy" />'
       : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">案例</div>'
-    var title = strip(item.title || item.serviceName || '公开案例')
+    var title = caseCardTitle(item)
     var priceLine = stripPriceSuffix(buildPriceDisplay(item).priceText)
+    if (isGenericConsultPrice(priceLine)) priceLine = ''
     var metaParts = []
-    if (priceLine) metaParts.push(priceLine)
-    if (item.publishedAt) metaParts.push(item.publishedAt)
+    if (item.city) metaParts.push(item.city)
     if (item.storeName) metaParts.push(item.storeName)
-    else if (item.city) metaParts.push(item.city)
+    if (item.publishedAt) metaParts.push(String(item.publishedAt).slice(0, 10))
+    if (priceLine) metaParts.push(priceLine)
     var summary = strip(item.summary || item.aiSummary || '')
     if (summary.length > 72) summary = summary.slice(0, 72) + '…'
     var href = options.href || caseHref(item)
@@ -364,11 +379,19 @@
         escapeHtml(store.name || '门店') +
         '门头" loading="lazy" />'
       : '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>'
+    var area = ''
+    if (store.city) area = store.city
+    else {
+      var addrMatch = String(store.address || '').match(/([\u4e00-\u9fa5]{2,3}[市区县])/)
+      area = addrMatch ? addrMatch[1] : ''
+    }
+    var feature = ''
+    if (store.businessHours) feature = store.businessHours
+    else if (store.score >= 10) feature = '透明度 ' + Math.round(store.score) + ' 分'
+    else if (store.caseCount > 0) feature = '公开案例 ' + store.caseCount
     var metaParts = []
-    if (store.address) metaParts.push(store.address)
-    if (store.businessHours) metaParts.push(store.businessHours)
-    if (store.caseCount > 0) metaParts.push('公开案例 ' + store.caseCount)
-    if (store.score >= 10) metaParts.push('透明度 ' + Math.round(store.score) + ' 分')
+    if (area) metaParts.push(area)
+    if (feature) metaParts.push(feature)
     var href =
       options.href || '/store/' + encodeURIComponent(store.id || '') + '.html'
     var className = options.className || 'h5-media-list-item'
@@ -445,6 +468,7 @@
     stripPriceSuffix: stripPriceSuffix,
     buildPriceDisplay: buildPriceDisplay,
     caseHref: caseHref,
+    caseCardTitle: caseCardTitle,
     pickListCover: pickListCover,
     resolveH5ImageSrc: function (url) {
       var fn = global.zhejianPublicCopy && global.zhejianPublicCopy.resolveH5ImageSrc

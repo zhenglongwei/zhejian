@@ -947,17 +947,24 @@ page {
 | `--color-danger` | `#f53f3f` | 表单错误 |
 | `--color-danger-light` | `#fff1f0` | 错误浅底 |
 | `--color-mask` | `rgba(0,0,0,0.45)` | 咨询 sheet 遮罩 |
+| `--color-border-strong` | `#d1d5db` | 卡片经过边框 |
+| `--font-h1` | `28px` | 大标题 |
+| `--font-h2` | `20px` | 小标题 |
+| `--font-h3` | `18px` | 区块标题 |
+| `--font-body` | `16px` | 正文 |
+| `--font-caption` | `13px` | 说明 |
 | `--line-height-body` | `1.6` | 正文默认 |
 | `--line-height-article` | `1.7` | 文章/免责/合规 |
 | `--size-h5-process-img-min` | `240px` | 手机过程图最小高度 |
 | `--size-h5-process-img` | `280px` | 手机过程图典型高度 |
-| `--size-h5-process-img-desktop` | `132px` | 电脑档案页网格图高度 |
-| `--size-h5-list-thumb` | `80px` | 列表封面缩略图 |
+| `--size-h5-process-img-desktop` | `180px` | 电脑档案页网格图统一高度 |
+| `--size-h5-list-thumb` | `80px` | 列表封面缩略图（行布局） |
 | `--size-h5-footer-spacer` | `88px` | 固定底栏正文留白 |
 | `--radius-full` | `999px` | 搜索 chip |
-| `--max-width` | `720px` | 手机内容栏 |
-| `--max-width-archive` | `1120px` | 电脑档案页 |
-| `--max-width-library` | `1012px` | 电脑案例库 |
+| `--max-width` | `720px` | 单篇阅读栏 |
+| `--max-width-list` | `1120px` | 电脑列表 / 搜索 / 城市 / 首页案例区 |
+| `--max-width-archive` | `1120px` | 电脑档案页（正文+侧栏） |
+| `--max-width-library` | `1012px` | 电脑「我的」案例库 |
 | `--z-h5-footer` | `100` | 固定底栏 |
 | `--z-h5-sheet` | `1000` | 咨询 sheet |
 | `--z-h5-lightbox` | `1100` | 过程图全图预览 |

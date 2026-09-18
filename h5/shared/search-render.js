@@ -233,9 +233,10 @@
   }
 
   function searchTagClass(type) {
-    if (type === '服务') return 'h5-tag--reference'
-    if (type === '案例') return 'h5-tag--audited'
-    return 'h5-tag--info'
+    if (type === '服务' || type === 'service') return 'h5-tag--order'
+    if (type === '门店' || type === 'merchant') return 'h5-tag--history'
+    if (type === '案例' || type === 'case') return 'h5-tag--desensitized'
+    return 'h5-tag--history'
   }
 
   function renderTypedMediaItem(options) {
@@ -460,11 +461,10 @@
     if (!sections) {
       sections =
         '<div class="h5-search-empty">' +
-        '<p>未找到与「' +
-        escapeHtml(state.keyword) +
-        '」相关的内容</p>' +
-        '<p class="h5-search-hint">试试更短的关键词，或浏览<a class="h5-link" href="/case/">公开案例</a></p>' +
-        '</div>'
+        '<p>没有找到相关档案</p>' +
+        '<p class="h5-search-hint">换一个词试试，或点下面的热门词。</p>' +
+        '</div>' +
+        renderHotwords((state.config && state.config.hotwords) || [])
     }
 
     var more = ''
@@ -491,7 +491,7 @@
     var app = document.getElementById('app')
     if (!app) return
     app.innerHTML =
-      '<div class="h5-page h5-search-page">' +
+      '<div class="h5-page h5-page--wide h5-search-page">' +
       '<form class="h5-search-form h5-search-form--hero" id="h5-search-form" role="search">' +
       '<input class="h5-search-input" id="h5-search-input" name="q" maxlength="' +
       KEYWORD_MAX +

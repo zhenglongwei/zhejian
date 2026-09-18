@@ -64,7 +64,7 @@ async function renderHomeHtml() {
   const description = '辙见案例站 · 维修案例托管库。查看门店公开的维修档案。'
   const canonical = absoluteUrl('/')
   const bodyHtml = [
-    `<h1>${escapeHtml(title)}</h1>`,
+    `<h1>维修案例托管库</h1>`,
     `<section data-bot="ai-summary"><h2>站点说明</h2><p>${escapeHtml(description)}</p></section>`,
     data.serviceEntries && data.serviceEntries.length
       ? `<section><h2>服务项目</h2>${listLinks(
@@ -274,9 +274,76 @@ async function renderTopicHtml(slug) {
   })
 }
 
+async function renderCaseListHtml(query = {}) {
+  const { listCases } = require('./content.service')
+  const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
+  const SHORT_NAME = {
+    'car-maintenance': '小保养',
+    'brake-pad-replacement': '刹车片',
+    'battery-replacement': '电瓶',
+    'body-paint-repair': '钣喷',
+    'accident-repair': '事故车',
+  }
+  const serviceSlug = String(query.service || '').trim()
+  const catalog = H5_SERVICE_ITEMS.find((item) => item.slug === serviceSlug)
+  const data = await listCases({ service: catalog ? catalog.slug : '', limit: 50 })
+  const list = (data && data.list) || []
+  const catName = catalog ? SHORT_NAME[catalog.slug] || catalog.name : '公开案例'
+  const title = catalog ? `${catName} · 公开案例 · 辙见` : '公开案例 · 辙见'
+  const description = '辙见公开案例 · 门店托管并公开的维修档案。'
+  const canonicalPath = catalog ? `/case/?service=${catalog.slug}` : '/case/'
+  const nav = [
+    `<a href="/case/"${catalog ? '' : ' aria-current="page"'}>全部</a>`,
+    ...H5_SERVICE_ITEMS.map((item) => {
+      const label = SHORT_NAME[item.slug] || item.name
+      return `<a href="/case/?service=${escapeHtml(item.slug)}"${
+        catalog && catalog.slug === item.slug ? ' aria-current="page"' : ''
+      }>${escapeHtml(label)}</a>`
+    }),
+  ].join(' ')
+  const items = list.length
+    ? `<ul>${list
+        .map((item) => {
+          const href = item.slug
+            ? `/case/${item.slug}.html`
+            : `/case/view.html?id=${item.id}`
+          const label = [item.vehicleText, item.serviceName].filter(Boolean).join(' · ') ||
+            item.title ||
+            '公开案例'
+          return `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`
+        })
+        .join('')}</ul>`
+    : '<p>这一类暂时没有公开档案。</p>'
+
+  const bodyHtml = [
+    `<h1>公开案例</h1>`,
+    `<p>门店托管并公开的维修档案。${catalog ? `当前分类：${escapeHtml(catName)}。` : ''}</p>`,
+    `<nav>${nav}</nav>`,
+    `<section><h2>${escapeHtml(catalog ? catName : '全部')}</h2>${items}</section>`,
+    renderSiteBeianHtml(),
+  ].join('\n')
+
+  return injectPrerenderHtml(readH5Template('case/index.html'), {
+    title,
+    description,
+    canonical: absoluteUrl(canonicalPath),
+    robots: 'index,follow',
+    bodyHtml,
+    prerenderAttr: 'case-list',
+    jsonLdBlocks: [
+      buildWebPageGraph({
+        canonicalPath,
+        title,
+        description,
+      }),
+    ],
+  })
+}
+
 module.exports = {
   renderHomeHtml,
   renderServiceHtml,
   renderCityHtml,
   renderTopicHtml,
+  renderCaseListHtml,
 }

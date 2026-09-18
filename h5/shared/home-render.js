@@ -240,7 +240,7 @@
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
-      '<div class="h5-media-list">' +
+      '<div class="h5-media-list h5-case-grid">' +
       cards +
       '</div>' +
       '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部 ›</a></p></div>'
@@ -303,18 +303,14 @@
     setPageMeta()
 
     var html =
-      '<div class="h5-page">' +
+      '<div class="h5-page h5-page--wide">' +
       '<header class="h5-header h5-home-hero">' +
-      '<div class="h5-brand">辙见案例站</div>' +
       '<h1 class="h5-title">维修案例托管库</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(identity) +
       '</p>' +
+      '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>' +
       '</header>' +
-      '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/search/">搜索</a>' +
-      '<a class="h5-btn h5-btn--secondary" href="/case/">公开案例</a>' +
-      '</div>' +
       renderFeaturedCases(data.featuredCases) +
       renderSiteNav() +
       '</div>'
@@ -345,10 +341,7 @@
       escapeHtml(message) +
       '</p>' +
       '</header>' +
-      '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/search/">搜索</a>' +
-      '<a class="h5-btn" href="/case/">公开案例</a>' +
-      '</div></div>'
+      '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p></div>'
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home' })
     }

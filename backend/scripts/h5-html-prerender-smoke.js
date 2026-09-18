@@ -5,7 +5,7 @@
  */
 require('dotenv').config()
 const { H5_SERVICE_ITEMS } = require('../src/constants/h5-service-items')
-const { renderHomeHtml, renderServiceHtml, renderCityHtml } = require('../src/services/h5-page-prerender.service')
+const { renderHomeHtml, renderServiceHtml, renderCityHtml, renderCaseListHtml } = require('../src/services/h5-page-prerender.service')
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg)
@@ -21,6 +21,7 @@ function assertReadableHtml(html, label) {
 async function main() {
   const home = await renderHomeHtml()
   assertReadableHtml(home, '首页')
+  assert(home.includes('维修案例托管库'), '首页应含托管库标题')
   assert(home.includes('辙见案例站'), '首页应含站点名')
 
   const service = await renderServiceHtml('car-maintenance')
@@ -29,9 +30,15 @@ async function main() {
   const maint = H5_SERVICE_ITEMS.find((item) => item.slug === 'car-maintenance')
   assert(maint.faq.length >= 5, '小保养 FAQ 应 ≥5')
 
+  const cases = await renderCaseListHtml()
+  assertReadableHtml(cases, '案例列表')
+  assert(cases.includes('公开案例'), '案例列表应含公开案例')
+  assert(cases.includes('/case/?service='), '案例列表应含分类链接')
+
   const city = await renderCityHtml('hangzhou')
   assertReadableHtml(city, '城市页')
   assert(city.includes('杭州'), '城市页应含杭州')
+  assert(!city.includes('热门维修项目'), '城市页不应再出现热门维修项目')
 
   H5_SERVICE_ITEMS.forEach((item) => {
     assert(Array.isArray(item.faq) && item.faq.length >= 5, `${item.slug} FAQ 应 ≥5`)
@@ -40,6 +47,7 @@ async function main() {
   console.log('[h5-html-prerender-smoke] ok', {
     homeBytes: home.length,
     serviceBytes: service.length,
+    caseBytes: cases.length,
     cityBytes: city.length,
   })
 }

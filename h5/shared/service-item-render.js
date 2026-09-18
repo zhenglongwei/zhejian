@@ -317,9 +317,7 @@
     if (!offers || !offers.length) {
       return (
         '<div class="h5-card" id="service-offers">' +
-        '<h2 class="h5-section-title">' +
-        escapeHtml(item.name) +
-        '</h2>' +
+        '<h2 class="h5-section-title">门店方案</h2>' +
         bar +
         '<div class="h5-empty-block">暂无门店上架该服务，请稍后再查看。</div></div>'
       )
@@ -330,36 +328,43 @@
         var href = offer.planPath || servicePlanPath(offer.servicePlanId)
         var title =
           (offer.servicePlanName ? offer.servicePlanName + ' · ' : '') + (offer.storeName || '门店服务')
+        var storeHref = offer.storeId
+          ? '/store/' + encodeURIComponent(offer.storeId) + '.html'
+          : href
+        var casesHref = offer.storeId
+          ? '/store/' + encodeURIComponent(offer.storeId) + '.html'
+          : href
         return (
-          '<a class="h5-media-list-item h5-service-offer" href="' +
-          escapeHtml(href) +
-          '" data-store-id="' +
-          escapeHtml(offer.storeId || '') +
-          '" data-plan-id="' +
-          escapeHtml(offer.servicePlanId || '') +
-          '">' +
+          '<article class="h5-media-list-item h5-service-offer">' +
           '<div class="h5-media-list-body">' +
           '<div class="h5-media-list-title">' +
-          escapeHtml(title) +
+          escapeHtml(offer.storeName || '门店服务') +
           '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml(offer.address || '') +
+          (offer.servicePlanName
+            ? '<div class="h5-media-list-summary">' +
+              escapeHtml(offer.servicePlanName) +
+              '</div>'
+            : '') +
+          '<div class="h5-price-lg">' +
+          escapeHtml(offer.priceText || '到店确认') +
           '</div>' +
-          '<div class="h5-media-list-meta">' +
-          escapeHtml(renderOfferMetrics(offer)) +
-          '</div>' +
-          '<div class="h5-compliance">案例仅含该店本服务公开留档 · 点击查看服务详情</div>' +
-          '</div><span class="h5-entry-card__hint">›</span></a>'
+          '<div class="h5-offer-actions">' +
+          '<a class="h5-btn" href="' +
+          escapeHtml(storeHref) +
+          '">查看该门店</a>' +
+          (offer.caseCount
+            ? '<a class="h5-btn h5-btn--ghost" href="' +
+              escapeHtml(casesHref) +
+              '">看相关案例</a>'
+            : '') +
+          '</div></div></article>'
         )
       })
       .join('')
 
     return (
       '<div class="h5-card" id="service-offers">' +
-        '<h2 class="h5-section-title">' +
-        escapeHtml(item.name) +
-        '</h2>' +
-        '<p class="h5-compliance">以下为各门店该项目的服务方案。</p>' +
+        '<h2 class="h5-section-title">门店方案</h2>' +
         bar +
         '<div class="h5-media-list" id="service-offer-list">' +
       cards +
@@ -372,9 +377,9 @@
     var items = related
       .map(function (entry) {
         return (
-          '<a class="h5-city-service-item" href="' +
+          '<a class="h5-entry-card" href="' +
           escapeHtml(entry.path) +
-          '"><span class="h5-city-service-name">' +
+          '"><span class="h5-entry-card__title">' +
           escapeHtml(entry.name) +
           '</span></a>'
         )
@@ -382,7 +387,7 @@
       .join('')
     return (
       '<div class="h5-card"><h2 class="h5-section-title">相关服务</h2>' +
-      '<div class="h5-city-service-grid">' +
+      '<div class="h5-entry-grid">' +
       items +
       '</div></div>'
     )
@@ -515,11 +520,9 @@
     return (
       '<div class="h5-card"><h2 class="h5-section-title">相关专题</h2>' +
       '<p class="h5-compliance">按服务类型查看平台案例与常见问法。</p>' +
-      '<a class="h5-btn h5-btn--secondary" href="' +
+      '<a class="h5-link" href="' +
       escapeHtml(path) +
-      '">查看' +
-      escapeHtml(item.name || '') +
-      '专题</a></div>'
+      '">查看专题</a></div>'
     )
   }
 

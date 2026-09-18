@@ -42,17 +42,39 @@
     )
   }
 
+  function currentSearchQuery() {
+    if (location.pathname.indexOf('/search') !== 0) return ''
+    try {
+      return new URLSearchParams(location.search).get('q') || ''
+    } catch (e) {
+      return ''
+    }
+  }
+
+  function isCaseNavOn() {
+    return location.pathname.indexOf('/case') === 0
+  }
+
   function barHtml() {
+    var q = escapeHtml(currentSearchQuery())
+    var caseOn = isCaseNavOn() ? ' is-on' : ''
     return (
       '<header class="gh-topbar" id="gh-topbar">' +
+      '<div class="gh-topbar-row">' +
       '<div class="gh-topbar-left">' +
       '<a class="gh-logo" href="/">辙见</a>' +
-      '<a class="gh-topbar-link gh-topbar-link--hide-sm" href="/case/">公开案例</a>' +
-      '<a class="gh-topbar-link gh-topbar-link--hide-sm" href="/search/">搜索</a>' +
+      '<a class="gh-topbar-link' +
+      caseOn +
+      '" href="/case/">公开案例</a>' +
       '</div>' +
+      '<form class="gh-topbar-search" id="gh-topbar-search" action="/search/" method="get" role="search">' +
+      '<input class="gh-topbar-input" id="gh-topbar-q" type="search" name="q" maxlength="30" placeholder="搜索档案、门店或服务" value="' +
+      q +
+      '" autocomplete="off" />' +
+      '</form>' +
       '<div class="gh-topbar-right" id="gh-topbar-right">' +
       renderRight() +
-      '</div></header>'
+      '</div></div></header>'
     )
   }
 
@@ -80,6 +102,24 @@
         closeMenus()
         if (location.pathname.indexOf('/library') === 0) {
           location.reload()
+        }
+      })
+    }
+    var search = document.getElementById('gh-topbar-search')
+    var input = document.getElementById('gh-topbar-q')
+    if (input) {
+      input.addEventListener('focus', function () {
+        if (location.pathname.indexOf('/search') !== 0 && !String(input.value || '').trim()) {
+          location.href = '/search/'
+        }
+      })
+    }
+    if (search) {
+      search.addEventListener('submit', function (e) {
+        var keyword = String(input && input.value ? input.value : '').trim()
+        if (!keyword) {
+          e.preventDefault()
+          location.href = '/search/'
         }
       })
     }

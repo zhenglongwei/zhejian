@@ -397,6 +397,13 @@ async function listCases(query = {}) {
       (c) => c.serviceName && c.serviceName.indexOf(query.serviceType) !== -1
     )
   }
+  if (query.service) {
+    const slug = String(query.service).trim()
+    const catalog = H5_SERVICE_ITEMS.find((entry) => entry.slug === slug)
+    if (catalog) {
+      list = list.filter((c) => matchServiceName(c.serviceName, catalog.name))
+    }
+  }
   if (query.serviceName) {
     const serviceName = String(query.serviceName).trim()
     if (serviceName) {

@@ -561,20 +561,23 @@
     var owner = archiveOwnerName(data)
     var fact = archiveFactTitle(data)
     var heading = owner ? owner + ' / ' + fact : fact
-    var bits = []
-    if (data.city) bits.push(data.city)
-    if (data.publishedAt) bits.push(String(data.publishedAt).slice(0, 10))
+    var facts = []
+    if (data.vehicleText) facts.push(String(data.vehicleText).trim())
+    if (data.serviceName) facts.push(String(data.serviceName).trim())
+    if (data.city) facts.push(data.city)
+    if (owner) facts.push(owner)
+    if (data.publishedAt) facts.push(String(data.publishedAt).slice(0, 10))
     return (
       '<header class="h5-archive-head">' +
       '<h1 class="h5-title">' +
       escapeHtml(heading) +
       '</h1>' +
+      (facts.length
+        ? '<p class="h5-archive-facts">' + escapeHtml(facts.filter(Boolean).join(' · ')) + '</p>'
+        : '') +
       '<div class="h5-archive-starline">' +
       renderStarBlock(data) +
       '</div>' +
-      (bits.length
-        ? '<p class="h5-archive-meta">' + escapeHtml(bits.join(' · ')) + '</p>'
-        : '') +
       '</header>'
     )
   }
@@ -1561,7 +1564,11 @@
     ]
     for (var i = 0; i < lists.length; i += 1) {
       var rows = (lists[i] || []).filter(function (item) {
-        return item && item.q && item.a
+        var q = String((item && item.q) || '').trim()
+        var a = String((item && item.a) || '').trim()
+        if (!q || !a) return false
+        if (a.length < 10) return false
+        return true
       })
       if (rows.length) return rows
     }

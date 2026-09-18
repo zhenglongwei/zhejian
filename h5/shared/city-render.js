@@ -141,11 +141,9 @@
   function renderFeaturedCases(cases, cityName) {
     if (!cases || !cases.length) {
       return (
-        '<div class="h5-card"><h2 class="h5-section-title">' +
-        escapeHtml(cityName) +
-        '最新维修案例</h2>' +
-        '<div class="h5-empty-block">当前城市的公开案例正在补充中，可先查看相关服务或预约门店咨询。</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'
+        '<div class="h5-card"><div class="h5-section-head"><h2 class="h5-section-title">公开案例</h2>' +
+        '<a class="h5-link" href="/case/">查看全部案例</a></div>' +
+        '<div class="h5-empty-block">当前城市的公开案例正在补充中。</div></div>'
       )
     }
     var cards = cases
@@ -175,19 +173,11 @@
       })
       .join('')
     return (
-      '<div class="h5-card"><h2 class="h5-section-title">' +
-      escapeHtml(cityName) +
-      '最新维修案例</h2>' +
-      '<p class="h5-compliance">' +
-      escapeHtml(
-        '公开案例经审核。' +
-          ((cases[0] && cases[0].priceNotice) || '案例价格仅为参考区间，实际费用以门店检测为准。')
-      ) +
-      '</p>' +
-      '<div class="h5-media-list">' +
+      '<div class="h5-card"><div class="h5-section-head"><h2 class="h5-section-title">公开案例</h2>' +
+      '<a class="h5-link" href="/case/">查看全部案例</a></div>' +
+      '<div class="h5-media-list h5-case-grid">' +
       cards +
-      '</div>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部案例 ›</a></p></div>'
+      '</div></div>'
     )
   }
 
@@ -370,7 +360,7 @@
     setPageMeta(data)
 
     var html =
-      '<div class="h5-page">' +
+      '<div class="h5-page h5-page--wide">' +
       (window.zhejianSeo
         ? window.zhejianSeo.renderBreadcrumbHtml([
             { label: '辙见', href: '/' },
@@ -385,15 +375,10 @@
       escapeHtml(summary) +
       '</p>' +
       '</header>' +
-      '<div class="h5-home-quick">' +
-      '<a class="h5-btn" href="/case/">浏览公开案例</a>' +
-      '</div>' +
-      renderServiceEntries(data.serviceEntries, cityName) +
       renderStats(data.stats, cityName) +
       renderFeaturedCases(data.featuredCases, cityName) +
       renderStores(data.recommendedMerchants, cityName) +
       renderGeoTopics(data.geoTopics) +
-      renderIntro((data.platformIntro && data.platformIntro.points) || []) +
       renderSiteNav() +
       '</div>'
 
