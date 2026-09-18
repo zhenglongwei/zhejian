@@ -1,7 +1,12 @@
 /**
  * 全站顶栏：深色条。未登录显示「登录」；已登录为头像菜单（案例库 / 退出）。
+ * 搜索：当前页联想，点条目或提交才进入 /search/?q=
  */
 (function (global) {
+  var KEYWORD_MAX = 30
+  var suggestTimer = null
+  var suggestSeq = 0
+
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
@@ -13,6 +18,25 @@
   function closeMenus() {
     var menu = document.getElementById('gh-user-menu')
     if (menu) menu.hidden = true
+  }
+
+  function hideSuggest() {
+    var panel = document.getElementById('gh-topbar-suggest')
+    if (!panel) return
+    panel.hidden = true
+    panel.innerHTML = ''
+  }
+
+  function searchHref(keyword) {
+    var k = String(keyword || '').trim().slice(0, KEYWORD_MAX)
+    if (!k) return ''
+    return '/search/?q=' + encodeURIComponent(k)
+  }
+
+  function goSearch(keyword) {
+    var href = searchHref(keyword)
+    if (!href) return
+    location.href = href
   }
 
   function renderRight() {
@@ -68,9 +92,12 @@
       '" href="/case/">公开案例</a>' +
       '</div>' +
       '<form class="gh-topbar-search" id="gh-topbar-search" action="/search/" method="get" role="search">' +
-      '<input class="gh-topbar-input" id="gh-topbar-q" type="search" name="q" maxlength="30" placeholder="搜索档案、门店或服务" value="' +
+      '<input class="gh-topbar-input" id="gh-topbar-q" type="search" name="q" maxlength="' +
+      KEYWORD_MAX +
+      '" placeholder="搜索档案、门店或服务" value="' +
       q +
-      '" autocomplete="off" />' +
+      '" autocomplete="off" aria-autocomplete="list" aria-controls="gh-topbar-suggest" />' +
+      '<div class="gh-topbar-suggest" id="gh-topbar-suggest" hidden role="listbox"></div>' +
       '</form>' +
       '<div class="gh-topbar-right" id="gh-topbar-right">' +
       renderRight() +
@@ -78,7 +105,65 @@
     )
   }
 
-  function bind() {
+  function renderSuggest(items) {
+    var panel = document.getElementById('gh-topbar-suggest')
+    if (!panel) return
+    if (!items || !items.length) {
+      hideSuggest()
+      return
+    }
+    panel.innerHTML = items
+      .map(function (item) {
+        var keyword = String((item && item.keyword) || '').trim()
+        if (!keyword) return ''
+        var type = String((item && (item.typeLabel || item.type)) || '').trim()
+        return (
+          '<button type="button" class="gh-topbar-suggest-item" role="option" data-keyword="' +
+          escapeHtml(keyword) +
+          '">' +
+          escapeHtml(keyword) +
+          (type ? '<span class="gh-topbar-suggest-type">' + escapeHtml(type) + '</span>' : '') +
+          '</button>'
+        )
+      })
+      .filter(Boolean)
+      .join('')
+    panel.hidden = !panel.innerHTML
+  }
+
+  function fetchSuggest(keyword) {
+    var k = String(keyword || '').trim().slice(0, KEYWORD_MAX)
+    if (!k) {
+      hideSuggest()
+      return
+    }
+    var seq = (suggestSeq += 1)
+    fetch('/api/v1/public/h5/search/suggest?keyword=' + encodeURIComponent(k))
+      .then(function (res) {
+        return res.json()
+      })
+      .then(function (body) {
+        if (seq !== suggestSeq) return
+        if (!body || body.code !== 0) {
+          hideSuggest()
+          return
+        }
+        renderSuggest(body.data || [])
+      })
+      .catch(function () {
+        if (seq !== suggestSeq) return
+        hideSuggest()
+      })
+  }
+
+  function queueSuggest(keyword) {
+    clearTimeout(suggestTimer)
+    suggestTimer = setTimeout(function () {
+      fetchSuggest(keyword)
+    }, 200)
+  }
+
+  function bindAuth() {
     var signin = document.getElementById('gh-topbar-signin')
     if (signin) {
       signin.addEventListener('click', function () {
@@ -105,24 +190,46 @@
         }
       })
     }
+  }
+
+  function bindSearch() {
     var search = document.getElementById('gh-topbar-search')
     var input = document.getElementById('gh-topbar-q')
+    var panel = document.getElementById('gh-topbar-suggest')
+    if (!search || search.getAttribute('data-bound') === '1') return
+    search.setAttribute('data-bound', '1')
+
     if (input) {
-      input.addEventListener('focus', function () {
-        if (location.pathname.indexOf('/search') !== 0 && !String(input.value || '').trim()) {
-          location.href = '/search/'
-        }
+      input.addEventListener('input', function () {
+        queueSuggest(input.value)
+      })
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideSuggest()
       })
     }
-    if (search) {
-      search.addEventListener('submit', function (e) {
-        var keyword = String(input && input.value ? input.value : '').trim()
-        if (!keyword) {
-          e.preventDefault()
-          location.href = '/search/'
-        }
+
+    if (panel) {
+      panel.addEventListener('mousedown', function (e) {
+        e.preventDefault()
+      })
+      panel.addEventListener('click', function (e) {
+        var item = e.target && e.target.closest ? e.target.closest('[data-keyword]') : null
+        if (!item) return
+        e.preventDefault()
+        goSearch(item.getAttribute('data-keyword') || '')
       })
     }
+
+    search.addEventListener('submit', function (e) {
+      var keyword = String(input && input.value ? input.value : '').trim()
+      if (!keyword) {
+        e.preventDefault()
+        hideSuggest()
+        return
+      }
+      e.preventDefault()
+      goSearch(keyword)
+    })
   }
 
   function mount() {
@@ -133,7 +240,8 @@
     var wrap = document.createElement('div')
     wrap.innerHTML = barHtml()
     document.body.insertBefore(wrap.firstChild, document.body.firstChild)
-    bind()
+    bindAuth()
+    bindSearch()
   }
 
   function refresh() {
@@ -143,7 +251,8 @@
       return
     }
     right.innerHTML = renderRight()
-    bind()
+    bindAuth()
+    bindSearch()
   }
 
   if (document.readyState === 'loading') {
@@ -151,7 +260,12 @@
   } else {
     mount()
   }
-  document.addEventListener('click', closeMenus)
+  document.addEventListener('click', function (e) {
+    closeMenus()
+    var search = document.getElementById('gh-topbar-search')
+    if (search && e.target && search.contains(e.target)) return
+    hideSuggest()
+  })
   global.addEventListener('zhejian-auth-change', refresh)
 
   global.zhejianSiteChrome = { mount: mount, refresh: refresh }

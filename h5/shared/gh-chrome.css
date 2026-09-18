@@ -7,6 +7,7 @@
   position: sticky;
   top: 0;
   z-index: 200;
+  overflow: visible;
   background: var(--color-text-primary);
   border-bottom: 0;
 }
@@ -34,9 +35,53 @@
 }
 
 .gh-topbar-search {
+  position: relative;
   flex: 1 1 220px;
   max-width: 420px;
   margin-left: auto;
+}
+
+.gh-topbar-suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 210;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+}
+
+.gh-topbar-suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gh-topbar-suggest-item:last-child {
+  border-bottom: none;
+}
+
+.gh-topbar-suggest-item:hover,
+.gh-topbar-suggest-item:focus {
+  background: var(--color-bg-muted);
+}
+
+.gh-topbar-suggest-type {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
 }
 
 .gh-topbar-input {
