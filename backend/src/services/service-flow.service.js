@@ -1806,6 +1806,7 @@ module.exports = {
   buildOwnerFlowView,
   buildHostContentReviewDocs,
   initFlowOnAlbum,
+  writeFlowPackage,
   getMerchantAlbumFlow,
   updateFlowNode,
   completeFlowNode,

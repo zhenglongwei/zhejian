@@ -436,7 +436,7 @@ function composeSystemPrompt() {
     '标题格式（07 §5.0）：【城市】【车型】【项目】：【这次做了什么，至多三项】。',
     '车型缺失时降级为：【城市】【项目】：【这次做了什么】。不要写门店全称、门牌路名、车牌。',
     '',
-    '信源标识固定为：微信群沟通记录转化 · 已自动脱敏',
+    '信源标识固定为：已脱敏。不要写「沟通记录转化」或「已审核」。',
     '',
     '只输出 JSON，不要任何解释文字、不要 markdown 代码块标记。',
   ].join('\n')
@@ -459,7 +459,7 @@ function composeUserPrompt({ facts, city, district, category }) {
     '  "captions": [{ "node": "检查结果", "text": "右前小吊杆球头 松旷" }],',
     '  "faq": [{ "q": "…", "a": "…" }],',
     '  "aiAbstract": "150–300 字，给 AI 检索引用用：这段文字讲了一次什么车、什么问题、查到什么、怎么修的、结果如何。客观陈述，不带营销话术。",',
-    '  "sourceLabel": "微信群沟通记录转化 · 已自动脱敏"',
+    '  "sourceLabel": "已脱敏"',
     '}',
   ].join('\n')
 }
@@ -635,7 +635,7 @@ function normalizeCase(raw) {
           .filter((item) => item.q && item.a)
       : [],
     aiAbstract: clipText(src.aiAbstract, 800),
-    sourceLabel: clipText(src.sourceLabel, 40) || '微信群沟通记录转化 · 已自动脱敏',
+    sourceLabel: clipText(src.sourceLabel, 40) || '已脱敏',
   }
 }
 

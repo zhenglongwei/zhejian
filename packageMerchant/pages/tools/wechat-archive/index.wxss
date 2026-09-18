@@ -1,21 +1,98 @@
-.wechat-archive__hint {
-  display: block;
-  margin: var(--space-2) 0 var(--space-3);
+@import '../../../../styles/merchant-form.wxss';
+
+.wechat-archive {
+  padding-bottom: calc(var(--page-fixed-clearance) + var(--space-lg));
 }
 
 .wechat-archive__input {
   width: 100%;
-  min-height: 240px;
-  margin-bottom: var(--space-3);
-  padding: var(--space-3);
+  min-height: 280rpx;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm);
   box-sizing: border-box;
   border-radius: var(--radius-md);
   background: var(--color-bg-muted);
-  font-size: var(--font-size-body);
+  font-size: var(--font-body);
 }
 
-.wechat-archive__msg {
+.wechat-archive__media {
   display: block;
-  margin-top: var(--space-3);
+  margin-top: var(--space-xs);
+}
+
+.wechat-archive__kv {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.wechat-archive__k {
+  flex: 0 0 72rpx;
   color: var(--color-text-secondary);
+  font-size: var(--font-caption);
+}
+
+.wechat-archive__v {
+  flex: 1;
+  color: var(--color-text-primary);
+  font-size: var(--font-body);
+}
+
+.wechat-archive__warn {
+  display: block;
+  margin-top: var(--space-xs);
+  color: var(--color-warning);
+}
+
+.wechat-archive__photos {
+  margin-top: var(--space-lg);
+  padding: 0 var(--space-md);
+}
+
+.wechat-archive__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0;
+}
+
+.wechat-archive__slot {
+  width: 160rpx;
+}
+
+.wechat-archive__thumb {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-muted);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wechat-archive__img {
+  width: 160rpx;
+  height: 160rpx;
+}
+
+.wechat-archive__plus {
+  color: var(--color-text-tertiary);
+  font-size: 48rpx;
+}
+
+.wechat-archive__chip {
+  margin-top: var(--space-xs);
+  padding: 4rpx 12rpx;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-caption);
+  text-align: center;
+}
+
+.wechat-archive__say {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--color-text-tertiary);
 }

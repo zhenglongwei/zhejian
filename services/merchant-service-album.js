@@ -50,6 +50,45 @@ async function createMerchantServiceAlbum(payload) {
   return post('/merchant/service-albums', withStore(payload))
 }
 
+async function createMerchantAlbumFromWechat(payload = {}, opts = {}) {
+  if (ENV.mode === 'mock') {
+    return {
+      albumId: 'alb_wx_mock',
+      vehicleLabel: '大众途观',
+      chiefComplaint: '过减速带异响',
+      findings: ['右前小吊杆球头', '胶套'],
+      plan: '更换两侧小吊杆并做四轮定位',
+      amount: 860,
+      photoSlots: [
+        { key: 'intake-0-0', label: '检查', target: 'intake', say: '胶套裂了' },
+        { key: 'intake-0-1', label: '检查', target: 'intake', say: '胶套裂了' },
+        { key: 'work-1-0', label: '旧件', target: 'work', say: '旧的拆下来了' },
+        { key: 'delivery-2-0', label: '完工', target: 'delivery', say: '路试不响了' },
+      ],
+      doubts: [],
+      missing: ['里程'],
+      voiceCount: 0,
+      imageCount: 4,
+    }
+  }
+  return post('/merchant/service-albums/from-wechat', withStore(payload), {
+    timeout: 120000,
+    showLoading: false,
+    ...opts,
+  })
+}
+
+async function attachMerchantWechatPhotos(albumId, assignments = []) {
+  if (ENV.mode === 'mock') {
+    return { albumId, album: { albumId } }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/from-wechat/photos`,
+    withStore({ assignments }),
+  )
+}
+
+
 async function saveMerchantServiceAlbum(albumId, payload) {
   if (ENV.mode === 'mock') {
     return mockSaveMerchantServiceAlbum(albumId, payload)
@@ -381,6 +420,8 @@ module.exports = {
   fetchMerchantServiceAlbumList,
   fetchMerchantServiceAlbum,
   createMerchantServiceAlbum,
+  createMerchantAlbumFromWechat,
+  attachMerchantWechatPhotos,
   saveMerchantServiceAlbum,
   completeMerchantServiceAlbum,
   fetchMerchantAlbumStats,

@@ -1,22 +1,85 @@
-<view class="page page-content wechat-archive">
-  <ui-card shadow="{{true}}" padding="{{true}}">
-    <text class="text-h3">微信群转案例</text>
-    <text class="text-caption text-secondary wechat-archive__hint">
-      粘贴汽修群聊文字，生成完整服务相册与面向车主单据骨架，再托管到案例站。来源统一为「商家上传」。官网转换页已改为导流。
-    </text>
-    <textarea
-      class="wechat-archive__input"
-      placeholder="粘贴群聊纯文字（图片/语音需自行补文字说明）"
-      maxlength="20000"
-      value="{{chatText}}"
-      bindinput="onInput"
+<view class="page page-content wechat-archive merchant-form-page">
+  <block wx:if="{{step === 'paste'}}">
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="text-h3">粘贴这一单群聊</text>
+      <textarea
+        class="wechat-archive__input"
+        placeholder="从电脑微信多选复制。语音先转成文字再贴进来。"
+        maxlength="20000"
+        value="{{chatText}}"
+        bindinput="onInput"
+      />
+      <text wx:if="{{mediaHint}}" class="text-caption text-secondary wechat-archive__media">{{mediaHint}}</text>
+    </ui-card>
+    <ui-fixed-bottom-bar safeArea="{{true}}">
+      <ui-button
+        slot="right"
+        type="primary"
+        block
+        loading="{{loading}}"
+        disabled="{{loading}}"
+        bind:btntap="onGenerate"
+      >生成相册</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+
+  <block wx:elif="{{step === 'preview'}}">
+    <ui-card shadow="{{true}}" padding="{{true}}">
+      <text class="text-h3">{{preview.vehicleLabel}}</text>
+      <view class="wechat-archive__kv" wx:if="{{preview.chiefComplaint}}">
+        <text class="wechat-archive__k">主诉</text>
+        <text class="wechat-archive__v">{{preview.chiefComplaint}}</text>
+      </view>
+      <view class="wechat-archive__kv" wx:if="{{preview.findingsText}}">
+        <text class="wechat-archive__k">发现</text>
+        <text class="wechat-archive__v">{{preview.findingsText}}</text>
+      </view>
+      <view class="wechat-archive__kv" wx:if="{{preview.plan}}">
+        <text class="wechat-archive__k">方案</text>
+        <text class="wechat-archive__v">{{preview.plan}}</text>
+      </view>
+      <text wx:if="{{preview.amountLabel}}" class="text-caption text-secondary">{{preview.amountLabel}}</text>
+      <text wx:if="{{preview.voiceHint}}" class="text-caption wechat-archive__warn">{{preview.voiceHint}}</text>
+    </ui-card>
+
+    <view class="wechat-archive__photos">
+      <text class="merchant-form__label">本单照片</text>
+      <text class="text-caption text-secondary">一次选进，点标签可改挂到哪一步</text>
+      <view class="wechat-archive__grid">
+        <view
+          class="wechat-archive__slot"
+          wx:for="{{slots}}"
+          wx:key="key"
+        >
+          <view class="wechat-archive__thumb" data-index="{{index}}" bindtap="onPickOne">
+            <image wx:if="{{item.localPath || item.url}}" class="wechat-archive__img" src="{{item.localPath || item.url}}" mode="aspectFill" />
+            <text wx:else class="wechat-archive__plus">+</text>
+          </view>
+          <view class="wechat-archive__chip" data-index="{{index}}" bindtap="onCycleTarget">{{item.label}}</view>
+          <text wx:if="{{item.say}}" class="text-caption wechat-archive__say">{{item.say}}</text>
+        </view>
+      </view>
+      <ui-button type="secondary" size="sm" bind:btntap="onPickBatch">选照片</ui-button>
+    </view>
+
+    <ui-fixed-bottom-bar safeArea="{{true}}">
+      <ui-button
+        slot="right"
+        type="primary"
+        block
+        loading="{{attaching}}"
+        disabled="{{attaching}}"
+        bind:btntap="onConfirmPhotos"
+      >{{hasLocalPhotos ? '挂上并核对' : '去核对'}}</ui-button>
+    </ui-fixed-bottom-bar>
+  </block>
+
+  <block wx:elif="{{step === 'error'}}">
+    <ui-empty
+      title="没生成成功"
+      description="{{errorMessage}}"
+      actionText="重试"
+      bind:action="onRetry"
     />
-    <ui-button type="primary" block loading="{{loading}}" bind:btntap="onGenerate">生成相册草稿</ui-button>
-    <text wx:if="{{message}}" class="text-caption wechat-archive__msg">{{message}}</text>
-  </ui-card>
-  <ui-empty
-    wx:if="{{!chatText && !message}}"
-    title="三期能力"
-    description="完整单据映射与建册 API 按 docs/04/24_微信转案例迁入小程序.md 继续接线；当前可粘贴预览提示。"
-  />
+  </block>
 </view>

@@ -307,7 +307,7 @@ const FAKE_CASE = {
   captions: [{ node: '检查结果', text: '右前小吊杆球头 松旷' }],
   faq: [{ q: '这单为什么没换摆臂总成？', a: '检查确认摆臂本体仍可用，因此只更换小吊杆。' }],
   aiAbstract: '杭州一台大众途观因过减速带异响到店检查……',
-  sourceLabel: '微信群沟通记录转化 · 已自动脱敏',
+  sourceLabel: '已脱敏',
 }
 
 async function runCompose() {
@@ -321,7 +321,7 @@ async function runCompose() {
     SECTION_NAMES,
     '九段顺序必须跟《07》一致',
   )
-  assert.strictEqual(data.sourceLabel, '微信群沟通记录转化 · 已自动脱敏', '来源标签按 2026-09-02 口径：只标来源，不背书真实性')
+  assert.strictEqual(data.sourceLabel, '已脱敏', '对外不写沟通记录转化')
   assert.strictEqual(data.risk.length, 0, '干净文案不该报风控')
 }
 
@@ -362,7 +362,7 @@ async function runGenerate() {
   assert.strictEqual(data.facts.vehicle, '大众途观', '事实层要一并返回（导出留档用）')
   assert.strictEqual(data.doubts.length, 1, '存疑项要返回（前端折叠轻提示）')
   assert(data.missing.includes('里程'), '留白提示用的 missing 要返回')
-  assert.strictEqual(data.sourceLabel, '微信群沟通记录转化 · 已自动脱敏')
+  assert.strictEqual(data.sourceLabel, '已脱敏')
   assert(!data.maskedText.includes('13812345678'), 'generate 内部送模型前必须先脱敏')
   assert(!data.maskedText.includes('浙A12345'), '车牌不能明文送出去')
 
@@ -692,6 +692,38 @@ async function runRealLlm() {
   if (cased.risk.length) console.log(`  ! 风控命中（需人工处理）：${JSON.stringify(cased.risk)}`)
 }
 
+function checkFlowMapping() {
+  const {
+    parseVehicleName,
+    parseLooseAmount,
+    mapFactsToFlowDraft,
+  } = require('../src/services/wechat-archive-flow.service')
+  check('车型拆品牌车系', () => {
+    const v = parseVehicleName('大众途观')
+    assert.strictEqual(v.brand, '大众')
+    assert.strictEqual(v.series, '途观')
+  })
+  check('中文金额八百六 → 860', () => {
+    assert.strictEqual(parseLooseAmount('一共八百六'), 860)
+    assert.strictEqual(parseLooseAmount('860 元'), 860)
+  })
+  check('事实映射进接车/方案/施工/选图格子', () => {
+    const draft = mapFactsToFlowDraft({
+      ...FAKE_EXTRACT,
+      category: 'chassis_noise',
+      categoryLabel: '底盘异响',
+      stats: { imageCount: 5, voiceCount: 1 },
+    })
+    assert.strictEqual(draft.vehicleBrand, '大众')
+    assert.strictEqual(draft.chiefComplaint, '过减速带异响')
+    assert(draft.intakeFindings.length >= 2, '检查发现要进发现项')
+    assert.strictEqual(draft.quoteLines[0].name.includes('小吊杆'), true)
+    assert.strictEqual(draft.quoteLines[0].amount, 860)
+    assert(draft.workFindings.length >= 1, '施工步骤要进施工项')
+    assert(draft.photoSlots.some((s) => s.target === 'intake'), '检查图格子')
+  })
+}
+
 // ---------------------------------------------------------------------------
 
 ;(async () => {
@@ -719,6 +751,9 @@ async function runRealLlm() {
     await runGenerate()
     console.log('  ✓ 一步生成：extract → compose 链路保留，事实层随成稿返回')
     passed += 1
+
+    console.log('\n[4b] 进料口映射')
+    checkFlowMapping()
 
     console.log('\n[5] 公开试用路由')
     await runPublicRoute()

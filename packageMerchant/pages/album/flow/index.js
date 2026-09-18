@@ -689,13 +689,13 @@ Page({
     return (findingSection.findings || [])
       .filter((raw) => {
         if (!raw || !raw.fromAi) return true
-        if (kind === 'work') return Boolean((raw.images && raw.images.length) || raw.url)
-        return Boolean(raw.url)
+        if (kind === 'work') return Boolean((raw.images && raw.images.length) || raw.url || raw.partName)
+        return Boolean(raw.url || raw.partName)
       })
       .map((item) =>
         kind === 'work' ? normalizeWorkFinding(item) : normalizeFinding(item),
       )
-      .filter((item) => (kind === 'work' ? item.images.length || item.partName : item.url))
+      .filter((item) => (kind === 'work' ? item.images.length || item.partName : item.url || item.partName))
   },
 
   countFindingMissingFields(item = {}, findingKind = 'inspection') {

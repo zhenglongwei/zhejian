@@ -88,6 +88,33 @@ router.post('/service-albums', requireAuth(['merchant']), async (req, res, next)
   }
 })
 
+router.post('/service-albums/from-wechat', requireAuth(['merchant']), async (req, res, next) => {
+  try {
+    const storeId = resolveStoreId(req)
+    const { createAlbumFromWechatChat } = require('../services/wechat-archive-flow.service')
+    const data = await createAlbumFromWechatChat({
+      merchantId: req.auth.merchantId,
+      storeId,
+      text: req.body && req.body.text,
+      category: (req.body && req.body.category) || 'chassis_noise',
+    })
+    return ok(res, data)
+  } catch (e) {
+    if (e.code === 'EMPTY_INPUT' || e.code === 'TOO_LONG') {
+      e.status = 400
+    }
+    if (e.code === 'LLM_NOT_CONFIGURED' || e.code === 'LLM_FAILED') {
+      e.status = 503
+      e.message = '服务暂时不可用，稍后再试'
+    }
+    if (e.code === 'LLM_TIMEOUT') {
+      e.status = 504
+      e.message = '处理超时了，把群聊截短一点再试'
+    }
+    next(e)
+  }
+})
+
 router.post('/service-albums/vehicle-ocr', requireAuth(['merchant']), async (req, res, next) => {
   try {
     const data = await recognizeVehicleIntake(req.body?.imageUrl, {
@@ -920,6 +947,26 @@ router.put(
         req.body || {},
         req.auth.merchantId,
       )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
+  '/service-albums/:albumId/from-wechat/photos',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { attachWechatPhotos } = require('../services/wechat-archive-flow.service')
+      const data = await attachWechatPhotos({
+        merchantId: req.auth.merchantId,
+        storeId,
+        albumId: req.params.albumId,
+        assignments: (req.body && req.body.assignments) || [],
+      })
       return ok(res, data)
     } catch (e) {
       next(e)

@@ -256,7 +256,7 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
     if (key) draftByKey[key] = item
     draftByKey[`#${index}`] = item
   })
-  return mapPhotoRows(images).map((row, index) => {
+  const mapped = mapPhotoRows(images).map((row, index) => {
     const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
     return normalizeFinding({
       ...row,
@@ -267,6 +267,17 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
       partName: draft.partName || row.caption || '',
     })
   })
+  const usedUrls = new Set(mapped.map((row) => row.url).filter(Boolean))
+  const usedIds = new Set(mapped.map((row) => row.imageId).filter(Boolean))
+  const imageCount = (images || []).length
+  ;(draftFindings || []).forEach((raw, index) => {
+    if (index < imageCount) return
+    const item = normalizeFinding(raw)
+    if (item.url && usedUrls.has(item.url)) return
+    if (item.imageId && usedIds.has(item.imageId)) return
+    if (item.partName || item.advice) mapped.push(item)
+  })
+  return mapped
 }
 
 function collectInspectionReportGaps(payload = {}) {
@@ -590,7 +601,7 @@ function normalizePhotoDraft(raw = {}) {
               return work.images.length || work.partName ? work : null
             }
             const row = normalizeFinding(item)
-            return row.url ? row : null
+            return row.url || row.partName || row.advice ? row : null
           })
           .filter(Boolean)
       : [],
