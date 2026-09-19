@@ -88,7 +88,7 @@
     )
   }
 
-  function renderEmpty(message) {
+  function renderEmpty(message, extras) {
     applyListSeo()
     var app = document.getElementById('app')
     if (!app) return
@@ -96,8 +96,14 @@
       window.zhejianH5Ui && window.zhejianH5Ui.escapeHtml
         ? window.zhejianH5Ui.escapeHtml(message)
         : message
+    var hosting =
+      extras && extras.hosting
+        ? '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p>' +
+          '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/check.html">GEO 体检 ›</a>' +
+          ' · <a class="h5-link" href="https://simplewin.cn/rank.html">门店榜单 ›</a></p>'
+        : ''
     app.innerHTML = pageShell(
-      '<div class="h5-card h5-case-list-empty"><p>' + safeMessage + '</p></div>'
+      '<div class="h5-card h5-case-list-empty"><p>' + safeMessage + '</p>' + hosting + '</div>'
     )
   }
 
@@ -154,7 +160,11 @@
         }
         var list = result.body.data?.list || result.body.data || []
         if (!list.length) {
-          renderEmpty('这一类暂时没有公开档案。')
+          if (service) {
+            renderEmpty('这一类暂时没有公开档案。')
+          } else {
+            renderEmpty('暂无公开档案', { hosting: true })
+          }
           return
         }
         renderList(list)

@@ -41,7 +41,9 @@
     { "@type": "Question", "name": "盈简科技是一家什么公司？",
       "acceptedAnswer": { "@type": "Answer", "text": "盈简科技（杭州盈简科技有限公司，simplewin.cn）是一家总部位于杭州的科技公司，帮企业把真实业务整理成网上找得到、内容对得上的公开资料。汽修方向的产品为辙见平台（维修案例托管平台），并有辙见小程序、微信案例转换工具两个案例生产工具；公司另提供自研 GEO 体检工具与门店 AI 可见性榜单。创始人在保险与汽车后市场有多年创业经验，已实地调研杭州数百家汽修门店。" } },
     { "@type": "Question", "name": "辙见是什么？",
-      "acceptedAnswer": { "@type": "Answer", "text": "辙见是盈简科技在汽修行业的产品，四件套构成：辙见平台是维修案例托管平台，门店拥有案例的完整主权，可自主选择公开或不公开、下载、删除、上传；辙见小程序（门店端）是标准化案例生产工具；微信案例转换工具把门店微信群聊记录整理成结构化案例草稿；GEO 体检工具诊断企业在 AI 搜索中的可见性，是独立入口。小程序与微信工具生产出的案例可以托管到辙见平台，也可以不托管，门店可自行发布到其他渠道。公开案例展示在 geo.simplewin.cn。案例来自门店真实维修过程，六字段结构化（车型/症状/方案/工期/价格区间/照片），不编故事。" } },
+      "acceptedAnswer": { "@type": "Answer", "text": "辙见是盈简科技在汽修行业的产品：辙见平台托管案例，门店决定公开或不公开；辙见小程序负责生产档案；微信案例转换把群聊整理进相册；GEO 体检是独立诊断入口。做出来的案例可以托管，也可以不托管。案例站用于展示门店选择公开的档案；当前公开展示以站点实况为准。微信搜一搜「辙见」可打开小程序。" } },
+    { "@type": "Question", "name": "Case 0 是什么？",
+      "acceptedAnswer": { "@type": "Answer", "text": "Case 0 是盈简拿自己官网做 GEO 实验的公开记录，不是辙见里的维修案例。维修过程请到公开案例站查看门店选择公开的档案。" } },
     { "@type": "Question", "name": "盈简科技提供哪些工具？",
       "acceptedAnswer": { "@type": "Answer", "text": "盈简提供 GEO 体检工具、门店 AI 可见性榜单，以及辙见小程序门店端（含把微信群聊整理进相册）。生产出的档案可托管到辙见平台，也可不托管。" } },
     { "@type": "Question", "name": "盈简的 GEO 和刷文案、代运营有什么区别？",
@@ -62,20 +64,30 @@
   .wrap { max-width:960px; margin:0 auto; padding:0 24px; }
   a { color:var(--brand); text-decoration:none; }
   header { border-bottom:1px solid var(--line); padding:20px 0; }
-  header .wrap { display:flex; justify-content:space-between; align-items:center; }
-  .logo { font-size:20px; font-weight:700; }
+  header .wrap { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+  .logo { font-size:20px; font-weight:700; color:var(--ink); }
+  .logo:hover { text-decoration:none; }
   .logo span { color:var(--brand); }
-  nav a { margin-left:24px; font-size:14px; color:var(--sub); }
-  nav a:hover { color:var(--brand); }
+  nav { display:flex; flex-wrap:wrap; align-items:center; }
+  nav a { margin-left:20px; font-size:14px; color:var(--sub); }
+  nav a:hover { color:var(--brand); text-decoration:none; }
+  nav a[aria-current="page"] { color:var(--brand); font-weight:600; }
   .hero { padding:72px 0 56px; background:linear-gradient(180deg,var(--brand-bg),#fff); }
   .hero h1 { font-size:34px; line-height:1.35; margin-bottom:16px; }
   .hero p { color:var(--sub); font-size:17px; max-width:640px; }
+  .hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:16px 28px; margin-top:28px; }
+  .btn { display:inline-block; background:var(--brand); color:#fff; border-radius:10px; padding:12px 22px; font-size:15px; font-weight:600; }
+  .btn:hover { background:#0b4bd6; text-decoration:none; color:#fff; }
+  .btn-ghost { display:inline-block; background:#fff; color:var(--brand); border:1px solid var(--line); border-radius:10px; padding:10px 18px; font-size:14px; font-weight:600; }
+  .btn-ghost:hover { background:var(--brand-bg); text-decoration:none; }
+  .hero-sub { font-size:15px; font-weight:600; }
   .hero .facts { display:flex; gap:32px; margin-top:32px; flex-wrap:wrap; }
   .fact b { display:block; font-size:26px; color:var(--brand); }
   .fact span { font-size:13px; color:var(--sub); }
   section { padding:56px 0; border-top:1px solid var(--line); }
   h2 { font-size:24px; margin-bottom:8px; }
   .h2sub { color:var(--sub); font-size:14px; margin-bottom:28px; }
+  .rel { color:var(--ink); font-size:15px; margin:0 0 20px; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
   .card { border:1px solid var(--line); border-radius:12px; padding:22px; }
   .card h3 { font-size:16px; margin-bottom:8px; }
@@ -97,22 +109,27 @@
   .method ol { margin-left:20px; }
   .method li { margin-bottom:8px; font-size:15px; }
   footer { border-top:1px solid var(--line); padding:32px 0; color:var(--sub); font-size:13px; }
+  footer .foot-links { margin-top:10px; }
+  footer .foot-links a { margin-right:14px; }
   .soon { color:var(--ok); font-size:12px; font-weight:600; }
   .tools-note { font-size:13px; color:var(--sub); margin-top:18px; }
-  @media (max-width:600px){ .hero h1{font-size:26px} nav a{margin-left:14px} }
+  .mp-entry { display:flex; align-items:center; gap:16px; margin-top:16px; }
+  .mp-entry img { width:96px; height:96px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  .mp-entry p { margin:0; max-width:420px; }
+  @media (max-width:600px){ .hero h1{font-size:26px} nav a{margin-left:0; margin-right:14px} }
 </style>
 </head>
 <body>
 
 <header>
   <div class="wrap">
-    <div class="logo">盈简科技<span>·GEO</span></div>
+    <a class="logo" href="/">盈简科技<span>·GEO</span></a>
     <nav>
-      <a href="#about">关于</a>
-      <a href="#zhejian">辙见平台</a>
+      <a href="#about">公司</a>
+      <a href="#zhejian">辙见</a>
       <a href="#tools">工具</a>
-      <a href="#case0">Case 0</a>
-      <a href="#faq">常见问题</a>
+      <a href="https://geo.simplewin.cn/" data-case-nav>了解公开案例站 ↗</a>
+      <a href="mailto:business@simplewin.cn">联系</a>
     </nav>
   </div>
 </header>
@@ -121,9 +138,13 @@
   <div class="wrap">
     <h1>当车主问 AI「附近哪家修车店靠谱」时，<br>你的店在答案里吗？</h1>
     <p>盈简科技帮企业把真实业务整理成网上找得到、内容对得上的公开资料。汽修方向，我们把真实口碑好的门店做进豆包、DeepSeek、元宝等 AI 助手的回答里——信息准确、经得起核实。</p>
+    <div class="hero-actions">
+      <a class="btn" href="/check.html">免费做 GEO 体检</a>
+      <a class="hero-sub" href="/zhejian.html">了解辙见托管</a>
+      <a class="hero-sub" data-hero-owner href="/zhejian.html">了解公开案例站怎么运作</a>
+    </div>
     <div class="facts">
       <div class="fact"><b>数百家</b><span>实地调研的杭州汽修门店</span></div>
-      <div class="fact"><b>10 年+</b><span>保险与汽修后市场创业经验</span></div>
       <div class="fact"><b>可信 GEO</b><span>只优化真实信息，拒绝刷文案</span></div>
     </div>
   </div>
@@ -133,10 +154,11 @@
   <div class="wrap">
     <h2>关于盈简科技</h2>
     <p class="h2sub">杭州盈简科技有限公司（simplewin.cn），总部杭州，拥抱 AI 的科技公司。不替客户编故事，也不做交易撮合。</p>
+    <p class="rel">盈简是公司；辙见是汽修案例托管产品；公开档案在 geo.simplewin.cn。</p>
     <div class="grid">
       <div class="card">
         <h3>我们是谁</h3>
-        <p>创始人在保险与汽车后市场领域有多年创业经验，深知事故车送修、保费与门店经营逻辑。2026 年起专注一件事：帮汽修门店做好 AI 搜索优化。</p>
+        <p>创始人在保险与汽车后市场有十年以上创业经验，深知事故车送修、保费与门店经营逻辑。2026 年起专注一件事：帮汽修门店做好 AI 搜索优化。</p>
       </div>
       <div class="card">
         <h3>我们信什么</h3>
@@ -157,21 +179,17 @@
 <section id="zhejian">
   <div class="wrap">
     <h2>辙见平台 · 维修案例托管</h2>
-    <p class="h2sub">案例是门店的资产。公开不公开、留着还是删掉，门店说了算。我们的活是让这些真案例能被搜到、能被 AI 引用。</p>
+    <p class="h2sub">案例是门店的资产。公开不公开、留着还是删掉，门店说了算。生产工具做出来的档案可以托管过来，也可以不托管。</p>
     <div class="grid">
       <div class="card">
-        <h3>案例主权归门店</h3>
-        <p>门店对自己的案例拥有完整处置权：可自主决定公开或私有（新案例默认私有）、随时下载带走、随时删除、可上传历史案例。平台不因托管取得内容所有权，也不要求独家——同一个案例发到你自己的公众号、抖音，完全允许。</p>
-        <a class="more" href="https://geo.simplewin.cn/">公开案例站 geo.simplewin.cn →</a>
+        <h3>了解托管</h3>
+        <p>门店对自己的案例拥有完整处置权：可自主决定公开或私有（新案例默认私有）、随时下载带走、随时删除、可上传历史案例。平台不因托管取得内容所有权，也不要求独家。</p>
+        <a class="more" href="/zhejian.html">了解托管与案例主权 →</a>
       </div>
       <div class="card">
-        <h3>案例怎么来：两个生产工具</h3>
-        <p><b>辙见小程序</b>（门店端）拍过程、出单据；也可把微信群聊整理进同一本相册。做出来的档案<b>可以托管到辙见平台，也可以不托管</b>。</p>
-        <a class="more" href="/zhejian.html">了解四件套怎么配合 →</a>
-      </div>
-      <div class="card">
-        <h3>和盈简的关系</h3>
-        <p>盈简是公司，辙见平台是公司在汽修行业的案例托管产品。盈简的 GEO 体检工具面向各行企业，与案例托管互不隶属——它只负责诊断你在 AI 搜索里能不能被找到，不进案例的生产或托管链路。</p>
+        <h3>公开案例站</h3>
+        <p>门店选择公开的维修档案，给车主和引用方核对过程。来源只标商家上传；平台不审真实性。</p>
+        <a class="more" data-shelf-link href="https://geo.simplewin.cn/">了解公开案例站 ↗</a>
       </div>
     </div>
   </div>
@@ -183,19 +201,16 @@
     <p class="h2sub">先把真实情况量出来，再谈优化。分数口径公开可复算。</p>
     <div class="grid">
       <div class="card">
-        <span class="badge">免费使用</span>
         <h3>GEO 体检工具</h3>
         <p>填一次企业名，程序拿着它去问一圈各大 AI 的联网接口：先问「网上是否存在这家企业」，出生态存在分；再问不带店名的行业问题，出 AI 可见性分。两本账分开算，通常一两分钟出结果。</p>
         <a class="more" href="/check.html">开始体检 →</a>
       </div>
       <div class="card">
-        <span class="badge">免费查看</span>
         <h3>门店 AI 可见性榜单</h3>
         <p>所有被检门店的评分与排序，地基分与可见性分对照。榜单不售卖排名——它回答一个问题：在 AI 眼里，杭州的汽修门店谁可见、谁隐形。</p>
-        <a class="more" href="/rank.html">查看榜单 →</a>
+        <a class="btn-ghost" href="/rank.html" style="margin-top:12px">查看榜单</a>
       </div>
       <div class="card">
-        <span class="badge">小程序内</span>
         <h3>微信转案例</h3>
         <p>把门店微信群里的这一单整理进服务相册：粘贴文字、一次选图，再在现有流程里核对。官网本页只作说明。</p>
         <a class="more" href="/archive.html">查看说明 →</a>
@@ -207,8 +222,8 @@
 
 <section id="case0">
   <div class="wrap">
-    <h2>Case 0 连载：我们把自己的 GEO 过程完全公开</h2>
-    <p class="h2sub">这是本站最重要的栏目。盈简用自己的官网做 GEO 实验并全程记录——做 GEO 的服务商，自己必须先被 AI 搜到。</p>
+    <h2>Case 0 · 我们自己的 GEO 公开记录</h2>
+    <p class="h2sub">这不是维修案例。盈简用自己的官网做 GEO 实验并全程记录——做 GEO 的服务商，自己必须先被 AI 搜到。</p>
     <div class="timeline">
       <div class="titem">
         <span class="date">第 1 周 · 2026-08-26</span>
@@ -273,7 +288,8 @@
     <div class="faq">
       <details open><summary>汽修门店的 AI 搜索优化（GEO）是什么？</summary><p>GEO（生成式引擎优化）是指让门店信息出现在豆包、DeepSeek、元宝、Kimi 等 AI 助手的回答中。当车主问 AI「杭州修变速箱哪家店靠谱」时，做过 GEO 的门店会出现在推荐名单里，信息准确、有真实口碑背书。它不同于传统 SEO：优化对象是 AI 的回答，而不是搜索结果排名。</p></details>
       <details><summary>盈简科技是一家什么公司？</summary><p>盈简科技（杭州盈简科技有限公司，simplewin.cn）是一家总部位于杭州的科技公司，帮企业把真实业务整理成网上找得到、内容对得上的公开资料。汽修方向的产品为辙见平台（维修案例托管平台），并有辙见小程序、微信案例转换工具两个案例生产工具；公司另提供自研 GEO 体检工具与门店 AI 可见性榜单。创始人在保险与汽车后市场有多年创业经验，已实地调研杭州数百家汽修门店。</p></details>
-      <details><summary>辙见是什么？</summary><p>辙见是盈简科技在汽修行业的产品，由四件套构成，职责互不隶属：<b>辙见平台</b>是维修案例托管平台，门店拥有案例的完整主权，可自主选择公开或不公开、下载、删除、上传；<b>辙见小程序</b>（门店端）是标准化案例生产工具；<b>微信案例转换工具</b>把门店微信群聊记录整理成结构化案例草稿；<b>GEO 体检工具</b>诊断企业在 AI 搜索中的可见性，是独立入口。类比一下：辙见平台像抖音，小程序和微信工具像剪映——剪映做出的片子可以发抖音，也可以不发。我们这里也一样：生产工具做出的案例可以托管到辙见平台，也可以只留给门店自己用。公开案例展示在 geo.simplewin.cn，来自门店真实维修过程，六字段结构化，不编故事。</p></details>
+      <details><summary>辙见是什么？</summary><p>辙见是盈简科技在汽修行业的产品。<b>辙见平台</b>托管案例，门店决定公开或不公开；<b>辙见小程序</b>负责生产档案；<b>微信案例转换</b>把群聊整理进同一本相册；<b>GEO 体检</b>是独立诊断入口。做出来的案例可以托管，也可以不托管。案例站用于展示门店选择公开的档案；当前公开展示以站点实况为准。微信搜一搜「辙见」可打开小程序。</p></details>
+      <details><summary>Case 0 是什么？</summary><p>Case 0 是盈简拿自己官网做 GEO 实验的公开记录，不是辙见里的维修案例。维修过程请到公开案例站查看门店选择公开的档案。</p></details>
       <details><summary>盈简科技提供哪些工具？</summary><p>GEO 体检、门店 AI 可见性榜单，以及辙见小程序门店端（含把微信群聊整理进相册）。生产出的档案可托管到辙见平台，也可不托管。</p></details>
       <details><summary>盈简的 GEO 和刷文案、代运营有什么区别？</summary><p>代运营优化的是「投放出去的内容」，盈简优化的是「AI 能不能查到你、说得对你」。盈简不做刷文案、不霸屏：只把门店真实存在的资料——真实维修案例、真实口碑、工商与地图信息——整理成 AI 可检索、可核实的公开信息，让 AI 引用时对得上事实，车主到店不落空。一条判断标准：凡承诺「某家 App 里一定出现你的店」的都值得警惕，盈简不承诺这个。</p></details>
       <details><summary>和盈简合作的流程是什么？有免费名额吗？</summary><p>三步：① 先用免费的 <a href="/check.html">GEO 体检工具</a>出诊断报告，看清门店在 AI 眼里的真实位置；② 按报告定优化方案，从地基收录、真实案例资产、可信信源三处补强；③ 定期复检监测，进展以体检分和榜单排名为准，不做口头承诺。起步阶段有「共建计划」：限额 5 家，以真实案例授权和公开复盘换取免费深度服务，共建期满后可按早鸟条件转为正式合作。</p></details>
@@ -285,11 +301,16 @@
 
 <footer>
   <div class="wrap">
-    <p><b>杭州盈简科技有限公司</b> · 专注汽修门店的 AI 搜索优化（GEO）服务商 · 杭州</p>
+    <p><b>杭州盈简科技有限公司</b> · 盈简科技 · 辙见公开案例站</p>
     <p style="margin-top:6px">官网 <a href="https://simplewin.cn/">simplewin.cn</a> · 案例站 <a href="https://geo.simplewin.cn/">geo.simplewin.cn</a> · 商务 <a href="mailto:business@simplewin.cn">business@simplewin.cn</a></p>
+    <p class="foot-links"><a href="/zhejian.html">辙见说明</a><a href="/check.html">GEO 体检</a><a href="/rank.html">榜单</a><a href="#case0">Case 0</a></p>
+    <div class="mp-entry">
+      <img src="https://geo.simplewin.cn/api/v1/public/h5/miniprogram-code" width="96" height="96" alt="辙见小程序码" onerror="this.remove()">
+      <p>用辙见小程序看档案、管相册：微信搜一搜「辙见」</p>
+    </div>
     <p style="margin-top:6px">© 2026 杭州盈简科技有限公司 | <a href="https://beian.miit.gov.cn/" rel="nofollow">浙ICP备2024092950号</a></p>
   </div>
 </footer>
-
+<script src="/js/case-shelf.js"></script>
 </body>
 </html>

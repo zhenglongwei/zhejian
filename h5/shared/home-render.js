@@ -214,7 +214,9 @@
       return (
       '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
         '<div class="h5-empty-block">暂无公开档案</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="/case/">查看全部 ›</a></p></div>'
+        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p>' +
+        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/check.html">GEO 体检 ›</a>' +
+        ' · <a class="h5-link" href="https://simplewin.cn/rank.html">门店榜单 ›</a></p></div>'
       )
     }
     var cards = cases

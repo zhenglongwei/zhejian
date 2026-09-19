@@ -9,6 +9,8 @@
 
   var CITY_LINKS = [{ name: '杭州', path: '/city/hangzhou' }]
   var FOOTER_NOTE = '本页内容仅供参考。实际方案与费用请与门店线下确认。'
+  var MINIPROGRAM_HINT = '微信搜一搜「辙见」打开小程序'
+  var MINIPROGRAM_CODE = '/api/v1/public/h5/miniprogram-code'
 
   function escapeHtml(str) {
     return String(str || '')
@@ -28,6 +30,12 @@
       '<p class="h5-site-footer__note">' +
       escapeHtml(FOOTER_NOTE) +
       '</p>' +
+      '<p class="h5-site-footer__note">' +
+      escapeHtml(MINIPROGRAM_HINT) +
+      '</p>' +
+      '<img class="h5-mp-qr" src="' +
+      MINIPROGRAM_CODE +
+      '" width="88" height="88" alt="辙见小程序码" onerror="this.remove()">' +
       (options.extraHtml || '') +
       '</footer>'
     )

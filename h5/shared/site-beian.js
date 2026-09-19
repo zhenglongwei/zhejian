@@ -4,6 +4,7 @@
  */
 ;(function (global) {
   var SPONSOR_NAME = '杭州盈简科技有限公司'
+  var SPONSOR_URL = 'https://simplewin.cn/'
   var ICP_NUMBER = '浙ICP备2024092950号-2'
   var ICP_QUERY_URL = 'https://beian.miit.gov.cn/'
 
@@ -27,9 +28,11 @@
       '" target="_blank" rel="noopener noreferrer">' +
       escapeHtml(ICP_NUMBER) +
       '</a>' +
-      '<div class="h5-site-beian__sponsor">开发者：' +
+      '<div class="h5-site-beian__sponsor">开发者：<a class="h5-site-beian__link" href="' +
+      escapeHtml(SPONSOR_URL) +
+      '">' +
       escapeHtml(SPONSOR_NAME) +
-      '</div>' +
+      '</a></div>' +
       '</aside>'
     )
   }
@@ -37,6 +40,7 @@
   global.zhejianSiteBeian = {
     render: render,
     SPONSOR_NAME: SPONSOR_NAME,
+    SPONSOR_URL: SPONSOR_URL,
     ICP_NUMBER: ICP_NUMBER,
     ICP_QUERY_URL: ICP_QUERY_URL,
   }

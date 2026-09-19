@@ -29,6 +29,10 @@ const {
   getFeedIndexJson,
   sendFeedJson,
 } = require('../services/public-feed.service')
+const {
+  getCaseShelfStatus,
+  getMiniprogramCodePng,
+} = require('../services/h5-site-entry.service')
 
 const router = express.Router()
 
@@ -52,6 +56,26 @@ function sendHtml(res, html) {
   }
   return res.send(html)
 }
+
+router.get('/h5/case-shelf', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=60')
+    return ok(res, await getCaseShelfStatus())
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.get('/h5/miniprogram-code', async (req, res, next) => {
+  try {
+    const buf = await getMiniprogramCodePng()
+    res.set('Content-Type', 'image/png')
+    res.set('Cache-Control', 'public, max-age=21600')
+    return res.send(buf)
+  } catch (e) {
+    next(e)
+  }
+})
 
 router.get('/sitemap.xml', async (req, res, next) => {
   try {

@@ -104,6 +104,9 @@ main { padding: 40px 0 64px; }
   margin: 16px 0;
 }
 .muted { color: var(--sub); font-size: 14px; }
+.more { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; }
+.foot-links { margin-top: 10px; }
+.foot-links a { margin-right: 14px; }
 .btn {
   display: inline-block;
   background: var(--brand);
@@ -150,6 +153,9 @@ footer.site {
 footer.site p { margin: 0 0 6px; }
 footer.site a { color: var(--sub); }
 footer.site a:hover { color: var(--brand); }
+.mp-entry { display: flex; align-items: center; gap: 16px; margin: 12px 0; }
+.mp-entry img { width: 96px; height: 96px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.mp-entry p { margin: 0; max-width: 420px; font-size: 13px; }
 
 /* ===== 体检页 ===== */
 .tag {
