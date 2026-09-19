@@ -211,12 +211,16 @@
 
   function renderFeaturedCases(cases) {
     if (!cases || !cases.length) {
+      if (window.zhejianEmptyShelf && window.zhejianEmptyShelf.renderMerchantEmpty) {
+        return window.zhejianEmptyShelf.renderMerchantEmpty({
+          heading: '还没有公开档案',
+          titleTag: 'h2',
+        })
+      }
       return (
       '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
         '<div class="h5-empty-block">暂无公开档案</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p>' +
-        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/check.html">GEO 体检 ›</a>' +
-        ' · <a class="h5-link" href="https://simplewin.cn/rank.html">门店榜单 ›</a></p></div>'
+        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p></div>'
       )
     }
     var cards = cases
@@ -301,18 +305,26 @@
       (typeof data.platformIdentity === 'string' && data.platformIdentity) ||
       (data.platformIdentity && data.platformIdentity.subtitle) ||
       '辙见案例站。门店托管公开的维修档案。'
+    var hasCases = Array.isArray(data.featuredCases) && data.featuredCases.length > 0
 
     setPageMeta()
 
+    var hero = hasCases
+      ? '<header class="h5-header h5-home-hero">' +
+        '<h1 class="h5-title">维修案例托管库</h1>' +
+        '<p class="h5-summary">' +
+        escapeHtml(identity) +
+        '</p>' +
+        '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>' +
+        '</header>'
+      : '<header class="h5-header h5-home-hero">' +
+        '<h1 class="h5-title">辙见公开档案库</h1>' +
+        '<p class="h5-summary">帮门店把真实维修过程，变成可被看到的公开档案。</p>' +
+        '</header>'
+
     var html =
       '<div class="h5-page h5-page--wide">' +
-      '<header class="h5-header h5-home-hero">' +
-      '<h1 class="h5-title">维修案例托管库</h1>' +
-      '<p class="h5-summary">' +
-      escapeHtml(identity) +
-      '</p>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>' +
-      '</header>' +
+      hero +
       renderFeaturedCases(data.featuredCases) +
       renderSiteNav() +
       '</div>'
@@ -343,7 +355,13 @@
       escapeHtml(message) +
       '</p>' +
       '</header>' +
-      '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p></div>'
+      (window.zhejianEmptyShelf && window.zhejianEmptyShelf.renderMerchantEmpty
+        ? window.zhejianEmptyShelf.renderMerchantEmpty({
+            heading: '也可以先从这里开始',
+            titleTag: 'h2',
+          })
+        : '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>') +
+      '</div>'
     if (window.zhejianTrack) {
       window.zhejianTrack.trackPageView('h5_page_view', { pageType: 'home' })
     }

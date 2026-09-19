@@ -62,7 +62,7 @@ MVP 建议支持以下页面：
 
 # **3.1 全站页脚 · ICP 备案（合规）**
 
-公开内容站（`geo.simplewin.cn` / `simplewin.cn`）须在页脚或站内导航法律区展示运营主体备案信息，与工信部公示一致：
+公开内容站（`zhejian.simplewin.cn`；过渡期 `geo.simplewin.cn` 同站）与官网 `simplewin.cn` 须在页脚或站内导航法律区展示运营主体备案信息，与工信部公示一致：
 
 | 项 | 内容 |
 | --- | --- |

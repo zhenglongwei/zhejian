@@ -96,11 +96,19 @@
       window.zhejianH5Ui && window.zhejianH5Ui.escapeHtml
         ? window.zhejianH5Ui.escapeHtml(message)
         : message
+    if (extras && extras.hosting && window.zhejianEmptyShelf && window.zhejianEmptyShelf.renderMerchantEmpty) {
+      app.innerHTML =
+        '<div class="h5-page h5-page--wide">' +
+        window.zhejianEmptyShelf.renderMerchantEmpty() +
+        (window.zhejianSiteNav && window.zhejianSiteNav.render
+          ? window.zhejianSiteNav.render()
+          : '') +
+        '</div>'
+      return
+    }
     var hosting =
       extras && extras.hosting
-        ? '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p>' +
-          '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/check.html">GEO 体检 ›</a>' +
-          ' · <a class="h5-link" href="https://simplewin.cn/rank.html">门店榜单 ›</a></p>'
+        ? '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p>'
         : ''
     app.innerHTML = pageShell(
       '<div class="h5-card h5-case-list-empty"><p>' + safeMessage + '</p>' + hosting + '</div>'

@@ -241,7 +241,7 @@ function checkPhase2Security() {
     if (corsRaw) {
       add('OK', 'CORS_ALLOWED_ORIGINS', `已配置 ${corsRaw.split(',').filter(Boolean).length} 个 origin`)
     } else {
-      add('OK', 'CORS_ALLOWED_ORIGINS', '使用默认白名单 geo.simplewin.cn + simplewin.cn')
+      add('OK', 'CORS_ALLOWED_ORIGINS', '使用默认白名单 zhejian.simplewin.cn + geo.simplewin.cn + simplewin.cn')
     }
   }
 
@@ -344,7 +344,7 @@ async function main() {
   if (PROBE_BASE) {
     await probeRemote(PROBE_BASE)
   } else if (isProductionContext()) {
-    const base = env('PUBLIC_BASE_URL') || 'https://geo.simplewin.cn'
+    const base = env('PUBLIC_BASE_URL') || 'https://zhejian.simplewin.cn'
     console.log(`\n提示: 可加 --probe ${base} 远程验证 dev 鉴权是否关闭`)
   }
 

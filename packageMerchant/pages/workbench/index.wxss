@@ -260,3 +260,25 @@
 .merchant-hub__more-sep {
   user-select: none;
 }
+
+.merchant-hub__first-guide {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.merchant-hub__first-guide-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  flex: 1;
+}
+
+.merchant-hub__first-guide-dismiss {
+  flex-shrink: 0;
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+}

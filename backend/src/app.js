@@ -98,7 +98,7 @@ function createApp() {
     app.use('/media', express.static(MEDIA_ROOT, { maxAge: '7d', fallthrough: true }))
   }
 
-  /** 本地 H5 联调：与 API 同域，无需部署到 geo.simplewin.cn（仅非 production） */
+  /** 本地 H5 联调：与 API 同域，无需部署到 zhejian.simplewin.cn（仅非 production） */
   if (config.nodeEnv !== 'production') {
     const h5Root = path.join(__dirname, '..', '..', 'h5')
     async function sendPrerender(res, next, renderFn) {

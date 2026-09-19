@@ -13,6 +13,13 @@ function run() {
   assert.strictEqual(noMention.mentioned, false)
   assert.strictEqual(noMention.citedUrl, '')
 
+  const zhejian = parseProbeAnswer(
+    '建议参考辙见案例 https://zhejian.simplewin.cn/topic/brake-pad-replacement ，也可看 https://dianping.com/xxx'
+  )
+  assert.strictEqual(zhejian.mentioned, true)
+  assert.ok(zhejian.citedUrl.includes('zhejian.simplewin.cn'))
+  assert.ok(zhejian.externalDomains.includes('dianping.com'))
+
   console.log('[geo-probe-parse.test] ok')
 }
 

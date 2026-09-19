@@ -20,7 +20,7 @@ function resolvePublicBaseUrl() {
   }
   const nodeEnv = process.env.NODE_ENV || 'development'
   if (nodeEnv === 'production') {
-    return 'https://geo.simplewin.cn'
+    return 'https://zhejian.simplewin.cn'
   }
   const host = process.env.HOST || '127.0.0.1'
   const port = Number(process.env.PORT || 3000)
@@ -32,9 +32,13 @@ function isStagingPublicHost(baseUrl) {
   try {
     const href = raw.includes('://') ? raw : `https://${raw}`
     const host = new URL(href).hostname.toLowerCase()
-    return host === 'staging.geo.simplewin.cn' || host.startsWith('staging.')
+    return (
+        host === 'staging.zhejian.simplewin.cn' ||
+        host === 'staging.geo.simplewin.cn' ||
+        host.startsWith('staging.')
+      )
   } catch (e) {
-    return /staging\.geo\.simplewin\.cn/i.test(raw)
+    return /staging\.(zhejian|geo)\.simplewin\.cn/i.test(raw)
   }
 }
 
@@ -351,7 +355,10 @@ const config = {
       }
       if ((process.env.NODE_ENV || 'development') === 'production') {
         return [
+          'https://zhejian.simplewin.cn',
           'https://geo.simplewin.cn',
+          'https://staging.zhejian.simplewin.cn',
+          'https://staging.geo.simplewin.cn',
           'https://simplewin.cn',
           'https://www.simplewin.cn',
         ]

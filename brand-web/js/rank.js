@@ -5,7 +5,9 @@
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return 'http://127.0.0.1:3000/api/v1/public'
     }
-    return 'https://geo.simplewin.cn/api/v1/public'
+    return window.zhejianSiteHost && window.zhejianSiteHost.publicApi
+      ? window.zhejianSiteHost.publicApi
+      : 'https://zhejian.simplewin.cn/api/v1/public'
   })()
 
   const box = document.getElementById('rank-box')

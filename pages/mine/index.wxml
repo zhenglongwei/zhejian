@@ -18,6 +18,15 @@
 
   <block wx:else>
     <view class="mine__hub">
+      <view wx:if="{{showFirstGuide}}" class="surface-album-hint-strip mine__first-guide">
+        <view class="mine__first-guide-copy">
+          <text class="text-body">{{firstGuide.title}}</text>
+          <text class="text-caption text-secondary">{{firstGuide.body}}</text>
+        </view>
+        <view class="mine__first-guide-dismiss" bindtap="onDismissFirstGuide">
+          <text class="text-caption text-link">{{firstGuide.dismiss}}</text>
+        </view>
+      </view>
       <view class="mine__folio surface-album-folio">
         <ui-mine-user-header
           variant="hub"

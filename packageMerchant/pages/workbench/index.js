@@ -38,6 +38,11 @@ const {
   filterMerchantGeoOpportunity,
 } = require('../../../constants/merchant-hub')
 const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
+const {
+  MERCHANT_FIRST_GUIDE,
+  shouldShowMerchantFirstGuide,
+  dismissMerchantFirstGuide,
+} = require('../../../constants/first-open-guide')
 
 const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
 
@@ -98,10 +103,18 @@ Page({
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
+    showFirstGuide: false,
+    firstGuide: MERCHANT_FIRST_GUIDE,
   },
 
   onShow() {
+    this.setData({ showFirstGuide: shouldShowMerchantFirstGuide() })
     this.loadProfile({ silent: this.data.status === 'normal' })
+  },
+
+  onDismissFirstGuide() {
+    dismissMerchantFirstGuide()
+    this.setData({ showFirstGuide: false })
   },
 
   async loadProfile(options = {}) {

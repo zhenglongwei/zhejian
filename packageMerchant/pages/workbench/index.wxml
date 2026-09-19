@@ -58,6 +58,15 @@
 
   <block wx:else>
     <view class="merchant-hub">
+      <view wx:if="{{showFirstGuide}}" class="surface-album-hint-strip merchant-hub__first-guide">
+        <view class="merchant-hub__first-guide-copy">
+          <text class="text-body">{{firstGuide.title}}</text>
+          <text class="text-caption text-secondary">{{firstGuide.body}}</text>
+        </view>
+        <view class="merchant-hub__first-guide-dismiss" bindtap="onDismissFirstGuide">
+          <text class="text-caption text-link">{{firstGuide.dismiss}}</text>
+        </view>
+      </view>
       <view class="merchant-hub__folio surface-album-folio">
         <ui-merchant-store-header
           storeName="{{profile.storeName}}"

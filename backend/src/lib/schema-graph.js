@@ -9,7 +9,7 @@ const ORG_LEGAL_NAME = '杭州盈简科技有限公司'
 const ORG_ICP_NUMBER = '浙ICP备2024092950号'
 
 function normalizeBase(baseUrl) {
-  return String(baseUrl || '').replace(/\/$/, '') || 'https://geo.simplewin.cn'
+  return String(baseUrl || '').replace(/\/$/, '') || 'https://zhejian.simplewin.cn'
 }
 
 function entityId(base, path, fragment) {

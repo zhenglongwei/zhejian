@@ -49,7 +49,7 @@
   var session = loadSession();
 
   /**
-   * 线上：页面在 simplewin.cn，接口在 geo.simplewin.cn，所以写死跨域地址。
+   * 线上：页面在 simplewin.cn，接口在 zhejian.simplewin.cn（过渡期 geo 同站）。
    * 本地：默认走同源——本地预览服务（backend/scripts/serve-archive-local.js）
    * 同时托管页面和接口，写死 3000 端口反而会打空。
    * 想指向别处：页面加 ?api=...（调试用，访客看不到）。
@@ -60,7 +60,9 @@
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return '/api/v1/public/wechat-archive';
     }
-    return 'https://geo.simplewin.cn/api/v1/public/wechat-archive';
+    return (window.zhejianSiteHost && window.zhejianSiteHost.publicApi
+      ? window.zhejianSiteHost.publicApi
+      : 'https://zhejian.simplewin.cn/api/v1/public') + '/wechat-archive';
   }
 
   /** 登录接口跟归档接口同一个 base，只是路径不同 */

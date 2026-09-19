@@ -1,6 +1,6 @@
 ;(function () {
-  var GEO = 'https://geo.simplewin.cn/'
-  var API = GEO + 'api/v1/public/h5/case-shelf'
+  var host = window.zhejianSiteHost || {}
+  var CASE_SITE = host.caseSiteSlash || 'https://zhejian.simplewin.cn/'
   var EMPTY = {
     nav: '了解公开案例站 ↗',
     ownerText: '了解公开案例站怎么运作',
@@ -10,7 +10,7 @@
   var READY = {
     nav: '公开案例 ↗',
     ownerText: '我是车主，看公开维修档案',
-    ownerHref: GEO,
+    ownerHref: CASE_SITE,
     shelf: '看公开维修档案 ↗',
   }
 
@@ -25,19 +25,22 @@
   function apply(hasCases) {
     var copy = hasCases ? READY : EMPTY
     document.querySelectorAll('[data-case-nav]').forEach(function (el) {
-      setTextHref(el, copy.nav, GEO)
+      setTextHref(el, copy.nav, CASE_SITE)
     })
     document.querySelectorAll('[data-hero-owner]').forEach(function (el) {
       setTextHref(el, copy.ownerText, copy.ownerHref)
     })
     document.querySelectorAll('[data-shelf-link]').forEach(function (el) {
-      setTextHref(el, copy.shelf, GEO)
+      setTextHref(el, copy.shelf, CASE_SITE)
     })
   }
 
   function run() {
     apply(false)
-    fetch(API, { credentials: 'omit' })
+    var fetchPath = host.fetchPublicPath
+      ? host.fetchPublicPath('/api/v1/public/h5/case-shelf', { credentials: 'omit' })
+      : fetch(CASE_SITE + 'api/v1/public/h5/case-shelf', { credentials: 'omit' })
+    fetchPath
       .then(function (res) {
         if (!res.ok) throw new Error('shelf')
         return res.json()

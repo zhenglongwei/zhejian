@@ -29,7 +29,7 @@ const MINE_SHARE_INCENTIVE_COMPLIANCE =
   '按平台规则与实际浏览、到店效果结算；分享卡片不含收益诱导文案。'
 
 /** 未登录公域冷启动底部出口 */
-const MINE_H5_OUTLET_TEXT = '了解提供服务相册的门店 → 打开内容站'
+const MINE_H5_OUTLET_TEXT = '看公开维修档案 → 打开公开案例站'
 
 function summarizeAuthorizationTodos(authList = [], badges = {}) {
   const pendingAuth =

@@ -20,6 +20,11 @@ const {
 const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
 const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
+const {
+  OWNER_FIRST_GUIDE,
+  shouldShowOwnerFirstGuide,
+  dismissOwnerFirstGuide,
+} = require('../../constants/first-open-guide')
 
 function quietHubAlbumTags(item = {}) {
   return {
@@ -83,6 +88,8 @@ Page({
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
     h5OutletText: MINE_H5_OUTLET_TEXT,
+    showFirstGuide: false,
+    firstGuide: OWNER_FIRST_GUIDE,
     ...albumAuthShareData(),
   },
 
@@ -93,7 +100,13 @@ Page({
   },
 
   onShow() {
+    this.setData({ showFirstGuide: shouldShowOwnerFirstGuide() })
     this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
+  },
+
+  onDismissFirstGuide() {
+    dismissOwnerFirstGuide()
+    this.setData({ showFirstGuide: false })
   },
 
   onPullDownRefresh() {

@@ -1,6 +1,6 @@
 # 盈简主站 brand-web
 
-静态页，部署到 **simplewin.cn** 站点根（勿接到 geo.simplewin.cn 案例根）。
+静态页，部署到 **simplewin.cn** 站点根（勿接到 zhejian.simplewin.cn 案例根）。
 
 本地预览：
 
