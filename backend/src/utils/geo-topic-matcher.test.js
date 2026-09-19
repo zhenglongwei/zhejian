@@ -73,7 +73,7 @@ function run() {
   const match = matchCaseToGeoPages(hangzhouBrakeCase, geoPages)
   assert.ok(match.serviceItem)
   assert.strictEqual(match.serviceItem.slug, 'brake-pad-replacement')
-  assert.strictEqual(match.servicePath, '/service/brake-pad-replacement.html?city=%E6%9D%AD%E5%B7%9E')
+  assert.strictEqual(match.servicePath, '/topic/brake-pad-replacement?city=%E6%9D%AD%E5%B7%9E')
   assert.strictEqual(match.bestGeoPage.slug, 'hangzhou-brake-pad')
 
   const mountIds = matchGeoPagesForCaseMount(hangzhouBrakeCase, geoPages)
@@ -91,7 +91,7 @@ function run() {
 
   assert.strictEqual(
     buildServicePagePath('brake-pad-replacement', ''),
-    '/service/brake-pad-replacement.html'
+    '/topic/brake-pad-replacement'
   )
 
   const ordered = orderCasesByIds(

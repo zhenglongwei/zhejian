@@ -239,13 +239,8 @@ const TEMPLATES_BY_TYPE = {
  * @param {{ city?: string, title?: string }} [context]
  * @returns {{ q: string, a: string }[]}
  */
-function getGeoFaqTemplate(pageType, serviceId = '', context = {}) {
-  const typeKey = TEMPLATES_BY_TYPE[pageType] ? pageType : 'city_service'
-  const bucket = TEMPLATES_BY_TYPE[typeKey]
-  const rawServiceKey = String(serviceId || '').trim().toLowerCase()
-  const aliasKey = SERVICE_ID_ALIASES[rawServiceKey] || SERVICE_ID_ALIASES[serviceId] || rawServiceKey
-  const items = bucket[aliasKey] || bucket.default || CITY_SERVICE_DEFAULT
-  return items.map((item) => ({ q: item.q, a: item.a }))
+function getGeoFaqTemplate() {
+  return []
 }
 
 module.exports = {

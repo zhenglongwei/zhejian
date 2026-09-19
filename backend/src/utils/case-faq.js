@@ -164,7 +164,7 @@ const FAQ_BY_TEMPLATE = {
 }
 
 const FAQ_MAX = 6
-const FAQ_MIN = 3
+const FAQ_MIN = 0
 
 function normalizeQuestion(q) {
   return String(q || '')

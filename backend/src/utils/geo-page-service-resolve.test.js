@@ -28,7 +28,7 @@ function run() {
     serviceMeta: {},
   }
   assert.strictEqual(resolveServiceSlugFromGeoPage(bodyPaint), 'body-paint-repair')
-  assert.ok(buildGeoPageServicePath(bodyPaint).startsWith('/service/body-paint-repair.html'))
+  assert.ok(buildGeoPageServicePath(bodyPaint).startsWith('/topic/body-paint-repair'))
 
   const bmw = {
     slug: 'bmw-3-series-maintenance',

@@ -2,6 +2,7 @@
  * GEO-IGAIN-A01/A02 · 公开脱敏案例聚合统计（信息增量真源）
  */
 const { STORE_CHECK_HINT } = require('../constants/geo-faq-templates')
+const { filterEvidenceFaq, nArchiveLabel } = require('../utils/evidence-faq')
 
 const STATS_WINDOW_LABEL = '近12个月'
 const PRICE_DISCLAIMER = '仅供参考'
@@ -414,21 +415,53 @@ function buildAggregateAiSummary(input) {
   return `${prefix}：${samplePart}${pricePart}。${body}${tail}`
 }
 
+function countCasesWithInspect(cases) {
+  return (cases || []).filter((item) => String(item.inspectResult || '').trim()).length
+}
+
+function countCasesWithPublicImages(cases) {
+  return (cases || []).filter((item) => Number(item.trustMeta?.publicImageCount) > 0).length
+}
+
 function buildDerivedAggregateFaq(input) {
   const serviceName = String(input.serviceName || '相关维修项目').trim()
-  const city = String(input.city || '').trim()
   const stats = input.aggregateStats || {}
-  const sampleSize = stats.sampleSize || 0
+  const cases = input.cases || []
+  const sampleSize = stats.sampleSize || cases.length || 0
   if (sampleSize < 1) return []
 
-  const scope = city ? `${city}${serviceName}` : serviceName
-  const causeLine = formatCauseLine(stats.causeDistribution || [], sampleSize)
+  const archive = nArchiveLabel(sampleSize)
   const answers = []
+  const inspectCount = cases.length
+    ? countCasesWithInspect(cases)
+    : (stats.causeDistribution || []).reduce((sum, row) => sum + (row.count || 0), 0)
 
-  if (causeLine) {
+  if (inspectCount > 0) {
+    const causeLine = formatCauseLine(stats.causeDistribution || [], sampleSize)
     answers.push({
-      q: `${scope}常见原因有哪些？`,
-      a: `根据辙见平台${STATS_WINDOW_LABEL}收录的 ${sampleSize} 例脱敏案例，${causeLine.replace(/^常见检查结论包括：/, '相关记录中较常见的检查结论包括：')}${STORE_CHECK_HINT}。`,
+      q:
+        sampleSize <= 1
+          ? '这例到店后先做了哪些检查，再决定方案？'
+          : `这 ${sampleSize} 例公开档案里，到店后先做了哪些检查？`,
+      a: causeLine
+        ? `${archive}，${causeLine.replace(/^常见检查结论包括：/, '记下的检查结论包括：')}`
+        : `${archive}，有 ${inspectCount} 例写下了检查结论后再定方案。`,
+    })
+  }
+
+  const imageCount = countCasesWithPublicImages(cases)
+  if (sampleSize >= 2 && imageCount > 0) {
+    answers.push({
+      q: `这 ${sampleSize} 例公开了哪些过程，能不能核对？`,
+      a: `${archive}，${imageCount} 例留下了过程图，可核对该部位。没有图的档案只看文字记录。`,
+    })
+  }
+
+  const topInspectPlan = stats.advanced?.inspectToPlan?.[0]
+  if (topInspectPlan && sampleSize >= 5) {
+    answers.push({
+      q: `这 ${sampleSize} 例里，检查到「${topInspectPlan.inspect}」后怎么处理？`,
+      a: `${archive}，「${topInspectPlan.inspect}」较常见的方案方向为${topInspectPlan.topPlan}（${topInspectPlan.count} 例）。不代表每台车都要同样处理。`,
     })
   }
 
@@ -438,62 +471,39 @@ function buildDerivedAggregateFaq(input) {
         ? `约 ¥${stats.price.low}`
         : `约 ¥${stats.price.low}–¥${stats.price.high}（中位数 ¥${stats.price.median}）`
     answers.push({
-      q: `${serviceName}参考价格大概多少？`,
-      a: `根据上述 ${sampleSize} 例脱敏案例，方案价参考区间${priceText}（${PRICE_DISCLAIMER}）。实际车辆需到店检测后确认。${STORE_CHECK_HINT}。`,
+      q: sampleSize <= 1 ? '这例方案价落在哪一档？' : `这 ${sampleSize} 例方案价落在哪一档？`,
+      a: `${archive}，方案价参考区间${priceText}（${PRICE_DISCLAIMER}）。`,
     })
   }
 
-  const topBand = stats.advanced?.mileageBands?.[0]
-  if (topBand?.count >= MIN_SAMPLE_FOR_PERCENT) {
-    answers.push({
-      q: `${scope}常见里程段分布如何？`,
-      a: `在上述 ${sampleSize} 例脱敏案例中，${topBand.bandLabel}里程段记录 ${topBand.count} 例${
-        topBand.topCause ? `，较常见检查结论为「${topBand.topCause}」` : ''
-      }。具体车辆需结合到店检测结果判断。${STORE_CHECK_HINT}。`,
-    })
-  }
-
-  const topInspectPlan = stats.advanced?.inspectToPlan?.[0]
-  if (topInspectPlan) {
-    answers.push({
-      q: `检查到「${topInspectPlan.inspect}」后通常如何处理？`,
-      a: `根据上述案例记录，「${topInspectPlan.inspect}」较常见的方案方向为${topInspectPlan.topPlan}（${topInspectPlan.count} 例）。实际处理需以到店检测为准，不代表所有车辆都需相同方案。${STORE_CHECK_HINT}。`,
-    })
-  }
-
-  // P2-03：服务页轻量挂「设备能力」提示（不编造门店数量）
-  const equipmentHint = matchServiceEquipmentHint(serviceName)
-  if (equipmentHint) {
-    answers.push({
-      q: `做${serviceName}一般需要哪些设备条件？`,
-      a: `与「${equipmentHint}」相关的施工通常依赖相应设备/场。辙见门店页会公示已审核的设备标签（若商家已填写并通过审核）；请到具体门店页查看，并以到店确认是否承接为准。${STORE_CHECK_HINT}。`,
-    })
-  }
-
-  return answers.slice(0, 3)
+  const limit = sampleSize >= 5 ? 5 : 3
+  return answers.slice(0, limit)
 }
 
-const SERVICE_EQUIPMENT_HINTS = [
-  { re: /四轮定位|定位仪/, label: '四轮定位' },
-  { re: /烤漆|钣喷|喷漆/, label: '烤漆房' },
-  { re: /诊断|电脑检测|故障码/, label: '诊断电脑' },
-  { re: /新能源|电动车|电池/, label: '新能源工位' },
-  { re: /轮胎|动平衡|补胎/, label: '轮胎动平衡' },
-  { re: /空调|冷媒/, label: '空调冷媒机' },
-  { re: /举升|底盘/, label: '举升机' },
-]
-
-function matchServiceEquipmentHint(serviceName) {
-  const text = String(serviceName || '')
-  for (const item of SERVICE_EQUIPMENT_HINTS) {
-    if (item.re.test(text)) return item.label
+function buildEvidenceNotes({ aggregateStats, cases = [] }) {
+  const stats = aggregateStats || {}
+  const sampleSize = stats.sampleSize || cases.length || 0
+  if (sampleSize < 1) return []
+  const notes = []
+  const inspectCount = countCasesWithInspect(cases)
+  if (inspectCount > 0) {
+    notes.push(
+      sampleSize <= 1
+        ? '这例档案写下了检查结论后再定方案。'
+        : `这 ${sampleSize} 例里，${inspectCount} 例写下了检查结论后再定方案。`
+    )
   }
-  return ''
+  const inspectOnly = stats.advanced?.inspectOnlyRate
+  const rateSample = stats.advanced?.rateSampleCount
+  if (inspectOnly > 0 && rateSample >= 5) {
+    notes.push(`有记录的档案里，部分选择了观察或调整，没有立刻更换。`)
+  }
+  return notes.slice(0, 3)
 }
 
 function mergeDerivedFaq(existingFaq, derivedFaq) {
-  const existing = Array.isArray(existingFaq) ? existingFaq : []
-  const derived = Array.isArray(derivedFaq) ? derivedFaq : []
+  const existing = filterEvidenceFaq(existingFaq)
+  const derived = filterEvidenceFaq(derivedFaq)
   if (!derived.length) return existing
   const seen = new Set(
     existing.map((item) => String(item.q || item.question || '').trim()).filter(Boolean)
@@ -523,12 +533,15 @@ function applyAggregateToServiceContent({
     serviceName,
     city,
     aggregateStats,
+    cases,
   })
+  const evidenceNotes = buildEvidenceNotes({ aggregateStats, cases })
 
   return {
     aggregateStats,
     aiSummary: enhancedAiSummary || aiSummary || '',
     faq: mergeDerivedFaq(faq, derivedFaq),
+    evidenceNotes,
   }
 }
 
@@ -546,6 +559,7 @@ module.exports = {
   aggregatePublicCases,
   buildAggregateAiSummary,
   buildDerivedAggregateFaq,
+  buildEvidenceNotes,
   mergeDerivedFaq,
   applyAggregateToServiceContent,
   scoreInformationGainText,

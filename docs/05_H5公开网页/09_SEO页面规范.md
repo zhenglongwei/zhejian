@@ -130,19 +130,18 @@ URL 应满足：
 
 ---
 
-### **服务项目页**
+### **服务项目页（已下线）**
 
 ```
-/service/{service_slug}.html
+旧 /service/{service_slug}.html  →  301 /topic/{service_slug}
 
 ```
 
 示例：
 
 ```
-/service/brake-pad-replacement.html
-/service/car-maintenance.html
-/service/ac-cleaning.html
+/topic/brake-pad-replacement
+/topic/car-maintenance
 
 ```
 

@@ -1,16 +1,14 @@
 /**
  * GEO-TOPIC-C01 · 案例 → 服务页 / geo_pages 匹配（城市 + 服务名 + 故障标签）
  */
-const { H5_SERVICE_ITEMS, resolveH5ServiceItemById } = require('../constants/h5-service-items')
+const { H5_SERVICE_ITEMS, resolveH5ServiceItemById, buildCatalogTopicPath } = require('../constants/h5-service-items')
 const { resolveAlbumNodeTemplate } = require('../constants/service-album-node-template')
 const { matchServiceName } = require('./service-case-link')
 const { buildGeoPageH5Path } = require('../schemas/geo-page.schema')
 const { seriesMatchesCase } = require('../services/geo-vehicle-topic.service')
 
 function buildServicePagePath(slug, city) {
-  const base = `/service/${slug}.html`
-  const value = String(city || '').trim()
-  return value ? `${base}?city=${encodeURIComponent(value)}` : base
+  return buildCatalogTopicPath(slug, city)
 }
 
 function resolveServiceItemFromCase(caseItem, album) {

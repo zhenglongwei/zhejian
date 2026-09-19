@@ -152,7 +152,7 @@ async function aggregateServiceCatalog(serviceMeta = {}) {
     .map((entry) => ({
       slug: entry.slug,
       name: entry.name,
-      path: `/service/${entry.slug}.html`,
+      path: `/topic/${entry.slug}`,
     }))
 
   const relatedStores = buildRecommendedStores(plans, merchants, caseCountByStore)

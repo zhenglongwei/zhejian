@@ -124,19 +124,11 @@ async function collectPageEntries() {
     if (!allowIndex) continue
 
     entries.push({
-      loc: absUrl(`/service/${item.slug}.html`),
+      loc: absUrl(`/topic/${item.slug}`),
       lastmod: today,
       changefreq: 'weekly',
       priority: '0.8',
     })
-    if (caseTotal > 0) {
-      entries.push({
-        loc: absUrl(`/service/${item.slug}/cases`),
-        lastmod: today,
-        changefreq: 'weekly',
-        priority: '0.7',
-      })
-    }
   }
 
   const { list: geoList } = await listGeoPages({
@@ -150,7 +142,7 @@ async function collectPageEntries() {
       const allowIndex = detail.relatedCaseCount > 0 || detail.relatedStoreCount > 0
       if (!allowIndex) continue
       const servicePath = detail.h5Path || `/topic/${detail.slug}`
-      if (servicePath.indexOf('/service/') !== 0) continue
+      if (servicePath.indexOf('/topic/') !== 0) continue
       entries.push({
         loc: absUrl(servicePath),
         lastmod: detail.updatedAt || today,

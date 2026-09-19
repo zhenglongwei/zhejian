@@ -4,12 +4,12 @@ const { listServiceCities } = require('./cities')
 
 /** 首页入口 → H5 服务/案例链接（与 h5-city.service 共用） */
 const SERVICE_ENTRY_H5_LINKS = {
-  entry_maintenance: '/service/car-maintenance.html',
-  entry_brake: '/service/brake-pad-replacement.html',
-  entry_accident: '/service/accident-repair.html',
-  entry_body: '/service/body-paint-repair.html',
+  entry_maintenance: '/topic/car-maintenance',
+  entry_brake: '/topic/brake-pad-replacement',
+  entry_accident: '/topic/accident-repair',
+  entry_body: '/topic/body-paint-repair',
   entry_tire: '/case/',
-  entry_battery: '/service/battery-replacement.html',
+  entry_battery: '/topic/battery-replacement',
 }
 
 function mapHomeServiceEntries() {
@@ -26,8 +26,8 @@ function buildServiceNavLinks() {
   return H5_SERVICE_ITEMS.map((item) => ({
     slug: item.slug,
     name: item.name,
-    path: `/service/${item.slug}.html`,
-    casesPath: `/service/${item.slug}/cases`,
+    path: `/topic/${item.slug}`,
+    casesPath: `/topic/${item.slug}`,
   }))
 }
 

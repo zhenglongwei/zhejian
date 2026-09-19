@@ -11,6 +11,8 @@ const sections = [
 
 const faqs = extractJobFaqs({ sections })
 assert.ok(faqs.some((item) => item.q.includes('做了什么')))
+assert.ok(faqs.some((item) => item.q.includes('节点')))
+assert.ok(faqs.every((item) => /这例/.test(item.q + item.a)))
 assert.ok(faqs.some((item) => item.q.includes('总成')))
 assert.ok(faqs.some((item) => item.q.includes('旧件')))
 assert.ok(faqs.some((item) => item.q.includes('开走')))
@@ -46,9 +48,9 @@ const inspectFaqs = extractJobFaqs({
   doneLine: '雨刮器',
   differenceLine: '以下检查正常、本次未施工：刹车油液位。灯光与车主约定择日再做',
 })
-assert.ok(inspectFaqs.some((item) => item.q.includes('查了') && item.a.includes('刹车油液位')))
+assert.ok(inspectFaqs.some((item) => item.q.includes('检查') && item.a.includes('刹车油液位')))
 assert.ok(inspectFaqs.some((item) => item.q.includes('做了') && item.a.includes('雨刮器')))
-assert.ok(inspectFaqs.some((item) => item.q.includes('没施工') && item.a.includes('刹车油液位')))
+assert.ok(inspectFaqs.some((item) => item.q.includes('没有做') && item.a.includes('刹车油液位')))
 assert.ok(!inspectFaqs.some((item) => /性价比|暂缓无妨/.test(item.a)))
 
 function GENERIC_PLACEHOLDER(text) {
@@ -56,8 +58,8 @@ function GENERIC_PLACEHOLDER(text) {
 }
 
 const kept = normalizeFaqItems([
-  { q: '这次做了什么？', a: '压套' },
-  { q: '这次做了什么？', a: '重复' },
+  { q: '这例做了什么？', a: '这例公开档案里做了压套，胶套开裂处已处理。' },
+  { q: '这例做了什么？', a: '重复' },
   { q: '', a: '空' },
 ])
 assert.strictEqual(kept.length, 1)

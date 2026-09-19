@@ -47,12 +47,34 @@
     if (!rows.length) return ''
     var items = rows
       .map(function (row) {
+        var sources = (row.sourceCases || []).filter(function (item) {
+          return item && (item.slug || item.id)
+        })
+        var sourceHtml = ''
+        if (sources.length) {
+          sourceHtml =
+            '<div class="h5-faq-sources">' +
+            sources
+              .map(function (item) {
+                return (
+                  '<a class="h5-faq-source" href="' +
+                  escapeHtml(caseHref(item)) +
+                  '">' +
+                  escapeHtml(item.title || '公开档案') +
+                  '</a>'
+                )
+              })
+              .join('') +
+            '</div>'
+        }
         return (
           '<div class="h5-faq-item"><div class="h5-faq-q">' +
           escapeHtml(row.q) +
           '</div><div class="h5-faq-a">' +
           escapeHtml(row.a) +
-          '</div></div>'
+          '</div>' +
+          sourceHtml +
+          '</div>'
         )
       })
       .join('')
@@ -60,6 +82,21 @@
       '<div class="h5-card" id="topic-faq"><h2 class="h5-section-title">常见问法</h2>' +
       items +
       '</div>'
+    )
+  }
+
+  function renderEvidenceNotes(notes) {
+    var rows = (notes || []).filter(Boolean)
+    if (!rows.length) return ''
+    return (
+      '<div class="h5-card" id="topic-evidence">' +
+      '<ul class="h5-evidence-notes">' +
+      rows
+        .map(function (line) {
+          return '<li>' + escapeHtml(line) + '</li>'
+        })
+        .join('') +
+      '</ul></div>'
     )
   }
 
@@ -105,19 +142,6 @@
       return !fs || fs.matchFilters(row, selected)
     })
     return sortCases(filtered, sortValue)
-  }
-
-  function renderProductLink(product) {
-    if (!product || !product.path) return ''
-    return (
-      '<div class="h5-card"><h2 class="h5-section-title">相关商品</h2>' +
-      '<p class="h5-compliance">对比各门店该项目的服务方案。</p>' +
-      '<a class="h5-btn h5-btn--secondary" href="' +
-      escapeHtml(product.path) +
-      '">查看' +
-      escapeHtml(product.name || '服务方案') +
-      '</a></div>'
-    )
   }
 
   function setPageMeta(data) {
@@ -204,6 +228,8 @@
       '</h1>' +
       (summary ? '<p class="h5-summary">' + escapeHtml(summary) + '</p>' : '') +
       '</header>' +
+      renderFaq(data.faq) +
+      renderEvidenceNotes(data.evidenceNotes) +
       (fs
         ? fs.render({
             id: 'topic-toolbar',
@@ -214,8 +240,6 @@
           })
         : '') +
       renderCaseList(applyState(allCases, selected, sortValue)) +
-      renderFaq(data.faq) +
-      renderProductLink(data.relatedProduct) +
       renderFooter() +
       '</div>'
 

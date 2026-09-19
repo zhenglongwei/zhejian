@@ -192,6 +192,28 @@
   line-height: 1.7;
 }
 
+.h5-faq-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.h5-faq-source {
+  font-size: var(--font-caption);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.h5-evidence-notes {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.7;
+}
+
 .h5-faq-links {
   display: flex;
   flex-direction: column;

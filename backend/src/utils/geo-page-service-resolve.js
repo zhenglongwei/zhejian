@@ -35,7 +35,7 @@ const VEHICLE_SERVICE_RULES = [
 
 function buildServiceLocation(serviceSlug, city = '') {
   const qs = String(city || '').trim() ? `?city=${encodeURIComponent(city)}` : ''
-  return `/service/${serviceSlug}.html${qs}`
+  return `/topic/${serviceSlug}${qs}`
 }
 
 function buildTopicLocation(topicSlug) {
@@ -125,12 +125,12 @@ function buildGeoPageServicePath(page) {
   if (!slug) return ''
 
   const legacy = resolveLegacyTopicRedirect(slug)
-  if (legacy && String(legacy.location).startsWith('/service/')) {
+  if (legacy && String(legacy.location).startsWith('/topic/')) {
     return legacy.location
   }
 
   if (resolveH5ServiceItemBySlug(slug)) {
-    return `/service/${slug}.html`
+    return `/topic/${slug}`
   }
 
   const serviceSlug = resolveServiceSlugFromGeoPage(page)

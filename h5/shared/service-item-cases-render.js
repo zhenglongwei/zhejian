@@ -31,8 +31,8 @@
     return String(new URLSearchParams(location.search).get(key) || '').trim()
   }
 
-  function serviceItemPagePath(slug) {
-    return '/service/' + encodeURIComponent(slug) + '.html'
+  function topicPagePath(slug) {
+    return '/topic/' + encodeURIComponent(slug)
   }
 
   function serviceItemCasesPagePath(slug, opts) {
@@ -41,7 +41,7 @@
     if (opts.page && opts.page > 1) qs.push('page=' + encodeURIComponent(String(opts.page)))
     if (opts.city) qs.push('city=' + encodeURIComponent(opts.city))
     if (opts.storeId) qs.push('storeId=' + encodeURIComponent(opts.storeId))
-    var base = '/service/' + encodeURIComponent(slug) + '/cases'
+    var base = topicPagePath(slug)
     return qs.length ? base + '?' + qs.join('&') : base
   }
 
@@ -78,8 +78,7 @@
     var item = data.item || {}
     var crumbs = [
       { label: '辙见', href: '/' },
-      { label: '服务项目', href: '/service/car-maintenance.html' },
-      { label: item.name || '服务项目', href: item.slug ? serviceItemPagePath(item.slug) : '' },
+      { label: item.name || '专题', href: item.slug ? topicPagePath(item.slug) : '' },
       { label: '维修案例' },
     ]
     if (window.zhejianSeo) {
@@ -312,12 +311,11 @@
       (window.zhejianSeo
         ? window.zhejianSeo.renderBreadcrumbHtml([
             { label: '辙见', href: '/' },
-            { label: '服务项目', href: '/service/car-maintenance.html' },
-            { label: item.name, href: serviceItemPagePath(item.slug) },
+            { label: item.name, href: topicPagePath(item.slug) },
             { label: '维修案例' },
           ])
-        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › <a href="' +
-          serviceItemPagePath(item.slug) +
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › <a href="' +
+          topicPagePath(item.slug) +
           '">' +
           escapeHtml(item.name) +
           '</a> › 维修案例</nav>') +
@@ -334,8 +332,8 @@
       '</header>' +
       '<div class="h5-home-quick">' +
       '<a class="h5-btn" href="' +
-      serviceItemPagePath(item.slug) +
-      '">返回服务项目页</a>' +
+      topicPagePath(item.slug) +
+      '">查看专题</a>' +
       '<a class="h5-btn h5-btn--secondary" href="/case/">全部公开案例</a>' +
       '</div>' +
       renderFilters(item.slug, data.filters) +

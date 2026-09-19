@@ -11,7 +11,7 @@ function run() {
   const html = injectPrerenderHtml(SHELL, {
     title: '小保养 · 辙见',
     description: '小保养说明摘要',
-    canonical: 'https://geo.simplewin.cn/service/car-maintenance.html',
+    canonical: 'https://geo.simplewin.cn/topic/car-maintenance',
     robots: 'index,follow',
     bodyHtml: '<h1>小保养</h1><section data-bot="faq"><h2>常见问题</h2><p>答</p></section>',
     prerenderAttr: 'service',

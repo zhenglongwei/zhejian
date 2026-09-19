@@ -78,7 +78,7 @@ function main() {
     seo: {
       title: '刹车片更换',
       description: summary,
-      canonicalPath: '/service/brake-pad-replacement.html',
+      canonicalPath: '/topic/brake-pad-replacement',
     },
     aggregateStats: stats,
     faq: [],

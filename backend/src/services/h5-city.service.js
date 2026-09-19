@@ -56,7 +56,7 @@ function mapServiceEntries(entries, cityName) {
     .map((entry) => {
       const base = SERVICE_ENTRY_H5_LINKS[entry.id] || '/case/'
       const h5Path =
-        base.startsWith('/service/') && cityQs && !base.includes('?')
+        base.startsWith('/topic/') && cityQs && !base.includes('?')
           ? `${base}${cityQs}`
           : base
       return {

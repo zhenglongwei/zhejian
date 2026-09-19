@@ -147,9 +147,9 @@ GEO-TOPIC（答案页形态） + GEO-OBS（探测 + 品牌词归因）
 | --- | --- | --- |
 | 平台 | `{base}/#organization` | 辙见 Organization |
 | 门店 | `{base}/store/{id}#autorepair` | AutoRepair |
-| 服务 | `{base}/service/{slug}#service` | Service |
+| 服务 | `{base}/topic/{slug}#service` | Service |
 | 案例 | `{base}/case/{slug}#article` | Article |
-| 数据集 | `{base}/service/{slug}#dataset` | Dataset（聚合统计） |
+| 数据集 | `{base}/topic/{slug}#dataset` | Dataset（聚合统计） |
 
 ### 5.2 任务表
 

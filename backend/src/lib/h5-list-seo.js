@@ -43,7 +43,7 @@ function buildServiceItemCasesPagePath(slug, { page = 1, city = '', storeId = ''
   if (page > 1) qs.push(`page=${page}`)
   if (city) qs.push(`city=${encodeURIComponent(city)}`)
   if (storeId) qs.push(`storeId=${encodeURIComponent(storeId)}`)
-  const base = `/service/${slug}/cases`
+  const base = `/topic/${slug}`
   return qs.length ? `${base}?${qs.join('&')}` : base
 }
 

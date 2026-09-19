@@ -1,10 +1,10 @@
 ;(function (global) {
   var SERVICE_LINKS = [
-    { name: '小保养', path: '/service/car-maintenance.html' },
-    { name: '刹车片更换', path: '/service/brake-pad-replacement.html' },
-    { name: '电瓶更换', path: '/service/battery-replacement.html' },
-    { name: '钣喷修复', path: '/service/body-paint-repair.html' },
-    { name: '事故车维修', path: '/service/accident-repair.html' },
+    { name: '小保养', path: '/topic/car-maintenance' },
+    { name: '刹车片更换', path: '/topic/brake-pad-replacement' },
+    { name: '电瓶更换', path: '/topic/battery-replacement' },
+    { name: '钣喷修复', path: '/topic/body-paint-repair' },
+    { name: '事故车维修', path: '/topic/accident-repair' },
   ]
 
   var CITY_LINKS = [{ name: '杭州', path: '/city/hangzhou' }]

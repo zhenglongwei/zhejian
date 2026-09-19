@@ -130,10 +130,6 @@
     return '/case/view.html?id=' + encodeURIComponent(caseItem)
   }
 
-  function servicePagePath(serviceId) {
-    return '/service/' + encodeURIComponent(serviceId) + '.html'
-  }
-
   function resolveStoreId() {
     if (window.__STORE_ID__) return String(window.__STORE_ID__).trim()
     var pathMatch = location.pathname.match(/\/store\/([^/]+)\.html$/)
@@ -888,16 +884,14 @@
       .map(function (svc) {
         if (window.zhejianH5Ui && window.zhejianH5Ui.renderServiceListItem) {
           return window.zhejianH5Ui.renderServiceListItem(svc, {
-            href: servicePagePath(svc.id),
+            href: '',
             bookingEnabled: bookingEnabled,
             extraAttrs: ' data-service-id="' + escapeHtml(svc.id) + '"',
           })
         }
         var price = buildPriceDisplay(svc)
         return (
-          '<a class="h5-media-list-item" href="' +
-          servicePagePath(svc.id) +
-          '" data-service-id="' +
+          '<div class="h5-media-list-item" data-service-id="' +
           escapeHtml(svc.id) +
           '">' +
           '<div class="h5-media-list-thumb h5-media-list-thumb--placeholder">服务</div>' +
@@ -910,7 +904,7 @@
             : '') +
           '<div class="h5-media-list-meta">' +
           escapeHtml(stripPriceSuffix(price.priceText)) +
-          '</div></div></a>'
+          '</div></div></div>'
         )
       })
       .join('')

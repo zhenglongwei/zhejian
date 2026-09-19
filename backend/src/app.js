@@ -158,12 +158,19 @@ function createApp() {
       return sendPrerender(res, next, () => renderTopicHtml(slug))
     })
     app.get(/^\/service\/[a-zA-Z0-9_-]+\/cases\/?$/i, (req, res) => {
-      res.sendFile(path.join(h5Root, 'service', 'cases.html'))
+      const { resolveServiceHtmlRedirect } = require('./constants/h5-service-items')
+      const slug = req.path.replace(/^\/service\//, '').replace(/\/cases\/?$/i, '')
+      const target = resolveServiceHtmlRedirect(slug)
+      return res.redirect(target.status, target.location)
     })
-    app.get(/^\/service\/[a-zA-Z0-9_-]+\.html$/i, async (req, res, next) => {
-      const { renderServiceHtml } = require('./services/h5-page-prerender.service')
+    app.get(['/service/view.html', '/service/', '/service'], (_req, res) => {
+      return res.redirect(301, '/')
+    })
+    app.get(/^\/service\/[a-zA-Z0-9_-]+\.html$/i, (req, res) => {
+      const { resolveServiceHtmlRedirect } = require('./constants/h5-service-items')
       const slug = req.path.replace(/^\/service\//, '').replace(/\.html$/i, '')
-      return sendPrerender(res, next, () => renderServiceHtml(slug, req.query))
+      const target = resolveServiceHtmlRedirect(slug)
+      return res.redirect(target.status, target.location)
     })
     app.get(/^\/city\/[a-z0-9-]+\/?$/i, async (req, res, next) => {
       const { renderCityHtml } = require('./services/h5-page-prerender.service')

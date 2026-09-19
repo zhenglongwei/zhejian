@@ -33,7 +33,7 @@ async function getLlmsFullTxt() {
   ])
 
   const serviceLines = H5_SERVICE_ITEMS.map((item) => {
-    return `- [${item.name}](${absUrl(`/service/${item.slug}.html`)}) · JSON: ${absUrl(`/public/v1/services/${item.slug}.json`)}`
+    return `- [${item.name}](${absUrl(`/topic/${item.slug}`)}) · JSON: ${absUrl(`/public/v1/services/${item.slug}.json`)}`
   })
 
   const intentLines = (geoPages.list || [])
@@ -85,7 +85,7 @@ async function getLlmsTxt() {
   ])
 
   const serviceLines = H5_SERVICE_ITEMS.map((item) => {
-    return `- [${item.name}](${absUrl(`/service/${item.slug}.html`)})`
+    return `- [${item.name}](${absUrl(`/topic/${item.slug}`)})`
   })
 
   const intentLines = (geoPages.list || [])

@@ -48,7 +48,7 @@ function buildServiceItemCasesSeo(
   item,
   { total, allowIndex, page, hasFilters, hasMore, city, storeId }
 ) {
-  const canonicalPath = `/service/${item.slug}/cases`
+  const canonicalPath = `/topic/${item.slug}`
   const listSeo = buildListPageSeo({
     canonicalPath,
     allowIndex,

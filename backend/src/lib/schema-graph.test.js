@@ -14,7 +14,7 @@ function run() {
     seo: {
       title: '刹车片更换',
       description: '测试摘要',
-      canonicalPath: '/service/brake-pad-replacement.html',
+      canonicalPath: '/topic/brake-pad-replacement',
     },
     aggregateStats: {
       sampleSize: 5,
@@ -39,8 +39,8 @@ function run() {
   assert.ok(dataset.variableMeasured.some((item) => item.name === 'inspectToPlan'))
   assert.ok(serviceGraph['@graph'].some((node) => node['@type'] === 'Service' && node['@id']))
   assert.strictEqual(
-    entityId(base, '/service/brake-pad-replacement.html', 'service'),
-    `${base}/service/brake-pad-replacement.html#service`
+    entityId(base, '/topic/brake-pad-replacement', 'service'),
+    `${base}/topic/brake-pad-replacement#service`
   )
 
   const caseGraph = buildCasePageSchemaGraph({

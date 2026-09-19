@@ -125,10 +125,6 @@
     return '/store/' + encodeURIComponent(storeId) + '.html'
   }
 
-  function servicePlanPath(planId) {
-    return '/service/' + encodeURIComponent(planId) + '.html'
-  }
-
   function casePagePath(item) {
     if (item.slug) return '/case/' + encodeURIComponent(item.slug) + '.html'
     return '/case/view.html?id=' + encodeURIComponent(item.id)
@@ -210,8 +206,7 @@
       window.zhejianSeo.applyBreadcrumbSchema(
         [
           { label: '辙见', href: '/' },
-          { label: '服务项目', href: '/service/car-maintenance.html' },
-          { label: item.name || '服务项目' },
+          { label: item.name || '专题' },
         ],
         'service-item-breadcrumb'
       )
@@ -251,7 +246,7 @@
       return {
         servicePlanId: store.servicePlanId,
         servicePlanName: store.servicePlanName || '',
-        planPath: store.planPath || (store.servicePlanId ? servicePlanPath(store.servicePlanId) : storePagePath(store.id)),
+        planPath: store.storePath || storePagePath(store.id),
         storeId: store.id,
         storeName: store.name,
         storePath: storePagePath(store.id),
@@ -325,7 +320,7 @@
 
     var cards = offers
       .map(function (offer) {
-        var href = offer.planPath || servicePlanPath(offer.servicePlanId)
+        var href = offer.storePath || (offer.storeId ? storePagePath(offer.storeId) : '')
         var title =
           (offer.servicePlanName ? offer.servicePlanName + ' · ' : '') + (offer.storeName || '门店服务')
         var storeHref = offer.storeId
@@ -627,10 +622,9 @@
       (window.zhejianSeo
         ? window.zhejianSeo.renderBreadcrumbHtml([
             { label: '辙见', href: '/' },
-            { label: '服务项目', href: '/service/car-maintenance.html' },
             { label: item.name },
           ])
-        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › 服务项目 › ' +
+        : '<nav class="h5-breadcrumb"><a href="/">辙见</a> › ' +
           escapeHtml(item.name) +
           '</nav>') +
       '<header class="h5-header h5-topic-header">' +

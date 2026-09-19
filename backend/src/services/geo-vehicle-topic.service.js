@@ -6,6 +6,7 @@ const {
   aggregatePublicCases,
   buildAggregateAiSummary,
   buildDerivedAggregateFaq,
+  buildEvidenceNotes,
   mergeDerivedFaq,
   STATS_WINDOW_LABEL,
 } = require('./geo-case-aggregate.service')
@@ -109,13 +110,16 @@ function applyAggregateToVehicleTopicContent({
     serviceName: vehicleSeries ? `${vehicleSeries}${serviceName}` : serviceName,
     city,
     aggregateStats,
+    cases: matched,
   })
+  const evidenceNotes = buildEvidenceNotes({ aggregateStats, cases: matched })
 
   return {
     aggregateStats,
     matchedCaseCount: matched.length,
     aiSummary: enhancedAiSummary,
     faq: mergeDerivedFaq(faq, derivedFaq),
+    evidenceNotes,
   }
 }
 

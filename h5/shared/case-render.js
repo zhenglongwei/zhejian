@@ -881,7 +881,7 @@
     return (
       '<div class="h5-card" id="case-internal-links">' +
       '<h2 class="h5-section-title">延伸浏览</h2>' +
-      '<p class="h5-compliance">通过以下链接查看门店、服务项目、同类案例与相关专题，便于对比参考。</p>' +
+      '<p class="h5-compliance">通过以下链接查看门店、同类案例与相关专题。</p>' +
       '<div class="h5-internal-links">' +
       items +
       '</div></div>'

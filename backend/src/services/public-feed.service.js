@@ -92,7 +92,7 @@ function mapServiceFeed(payload) {
       a: row.a || row.answer || '',
     })),
     featuredCaseIds: (payload.featuredCases || []).map((row) => row.id).filter(Boolean),
-    canonicalPath: seo.canonicalPath || `/service/${item.slug}.html`,
+    canonicalPath: seo.canonicalPath || `/topic/${item.slug}`,
     updatedAt: (payload.geo && payload.geo.updatedAt) || '',
     disclaimer: FEED_DISCLAIMER,
     complianceTail: STORE_CHECK_HINT,

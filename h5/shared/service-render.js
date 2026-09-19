@@ -118,15 +118,16 @@
   }
 
   function maybeRedirectToCanonical(serviceId) {
-    if (!serviceId) return false
-    if (/\/service\/view\.html$/i.test(location.pathname)) {
-      var target = servicePagePath(serviceId)
-      var qs = location.search.replace(/^\?/, '')
-      var hash = location.hash || ''
-      location.replace(target + (qs ? '?' + qs : '') + hash)
+    return false
+  }
+
+  function redirectRetiredProductPage(service) {
+    if (service && service.storeId) {
+      location.replace(storePagePath(service.storeId))
       return true
     }
-    return false
+    location.replace('/')
+    return true
   }
 
   function isDesensitizedUrl(url) {
@@ -813,6 +814,7 @@
 
     loadService(serviceId)
       .then(function (service) {
+        if (redirectRetiredProductPage(service)) return
         return Promise.all([
           loadMerchant(service.storeId),
           loadCases(service),

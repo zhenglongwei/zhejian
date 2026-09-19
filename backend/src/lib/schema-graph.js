@@ -330,7 +330,7 @@ function buildServicePageSchemaGraph(input) {
   const item = input.item || {}
   const seo = input.seo || {}
   const geo = input.geo || {}
-  const canonicalPath = seo.canonicalPath || `/service/${item.slug || ''}.html`
+  const canonicalPath = seo.canonicalPath || `/topic/${item.slug || ''}`
   const canonical = entityId(baseUrl, canonicalPath, '')
   const title = seo.title || `${item.name || '服务项目'} · 辙见`
   const description = seo.description || item.aiSummary || item.summary || ''
@@ -448,7 +448,7 @@ function buildCasePageSchemaGraph(input) {
 
   if (data.serviceName) {
     const serviceSlug = input.serviceSlug || ''
-    const servicePath = serviceSlug ? `/service/${serviceSlug}.html` : canonicalPath
+    const servicePath = serviceSlug ? `/topic/${serviceSlug}` : canonicalPath
     graph.push({
       '@type': 'Service',
       '@id': entityId(baseUrl, servicePath, 'service'),

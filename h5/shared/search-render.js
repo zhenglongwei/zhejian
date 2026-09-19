@@ -108,8 +108,10 @@
     return '/store/' + encodeURIComponent(id) + '.html'
   }
 
-  function serviceHref(id) {
-    return '/service/' + encodeURIComponent(id) + '.html'
+  function serviceHref(item) {
+    if (item && item.storeId) return '/store/' + encodeURIComponent(item.storeId) + '.html'
+    if (item && item.slug) return '/topic/' + encodeURIComponent(item.slug)
+    return ''
   }
 
   function geoHref(item) {
@@ -325,7 +327,7 @@
     var items = services
       .map(function (item) {
         if (ui && ui.renderServiceListItem) {
-          var html = ui.renderServiceListItem(item, { href: serviceHref(item.id) })
+          var html = ui.renderServiceListItem(item, { href: serviceHref(item) })
           return html.replace(
             '<div class="h5-media-list-body">',
             '<div class="h5-media-list-body"><span class="h5-tag h5-tag--reference h5-search-result-tag">服务</span>'
@@ -335,7 +337,7 @@
           .filter(Boolean)
           .join(' · ')
         return renderTypedMediaItem({
-          href: serviceHref(item.id),
+          href: serviceHref(item),
           type: '服务',
           title: item.name,
           summary: item.summary || '',

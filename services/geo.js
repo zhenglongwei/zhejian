@@ -18,10 +18,10 @@ function pickByIds(list, ids) {
 }
 
 const MOCK_GEO_H5_PATH = {
-  'hangzhou-brake-pad': '/service/brake-pad-replacement.html?city=%E6%9D%AD%E5%B7%9E',
-  'hangzhou-body-paint': '/service/body-paint-repair.html?city=%E6%9D%AD%E5%B7%9E',
-  'hangzhou-accident-guide': '/service/accident-repair.html?city=%E6%9D%AD%E5%B7%9E',
-  'bmw-3-series-maintenance': '/service/car-maintenance.html?city=%E6%9D%AD%E5%B7%9E',
+  'hangzhou-brake-pad': '/topic/brake-pad-replacement?city=%E6%9D%AD%E5%B7%9E',
+  'hangzhou-body-paint': '/topic/body-paint-repair?city=%E6%9D%AD%E5%B7%9E',
+  'hangzhou-accident-guide': '/topic/accident-repair?city=%E6%9D%AD%E5%B7%9E',
+  'bmw-3-series-maintenance': '/topic/car-maintenance?city=%E6%9D%AD%E5%B7%9E',
 }
 
 async function fetchGeoPageDetailMock(id) {

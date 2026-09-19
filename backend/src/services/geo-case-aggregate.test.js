@@ -62,7 +62,9 @@ function run() {
     aggregateStats: stats,
   })
   assert.ok(faq.length >= 1)
-  assert.ok(faq[0].a.includes('3 例'))
+  assert.ok(faq[0].a.includes('3 例') || faq[0].a.includes('这例'))
+  assert.ok(faq.every((item) => !/一般来说/.test(item.q + item.a)))
+  assert.ok(faq.every((item) => !/常见原因有哪些/.test(item.q)))
 
   const advancedCases = [
     {
@@ -121,7 +123,9 @@ function run() {
     city: '杭州',
     aggregateStats: advancedStats,
   })
-  assert.ok(advancedFaq.some((item) => item.q.includes('里程段')))
+  assert.ok(advancedFaq.some((item) => item.q.includes('检查') || item.q.includes('过程') || item.q.includes('方案价')))
+  assert.ok(!advancedFaq.some((item) => item.q.includes('里程段')))
+  assert.ok(!advancedFaq.some((item) => item.q.includes('一般需要哪些设备')))
 
   console.log('[geo-case-aggregate.test] ok')
 }

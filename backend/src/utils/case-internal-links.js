@@ -42,16 +42,16 @@ function inferServicePlanId(album, caseItem) {
 }
 
 function resolveMerchantServicePlanLink(album, caseItem, serviceName) {
-  const planId = inferServicePlanId(album, caseItem)
-  if (!planId) return null
+  const storeId = String((caseItem && caseItem.storeId) || album?.storeId || '').trim()
+  if (!storeId) return null
   const name =
     String(serviceName || album?.serviceName || caseItem?.serviceName || '').trim() ||
     '服务详情'
   return {
     serviceItemId: '',
     name,
-    path: `/service/${encodeURIComponent(planId)}.html`,
-    casesPath: '',
+    path: `/store/${encodeURIComponent(storeId)}.html`,
+    casesPath: `/store/${encodeURIComponent(storeId)}/cases`,
     isMerchantPlan: true,
   }
 }
@@ -71,7 +71,7 @@ function resolveServiceLink(serviceItemId, serviceName, album, caseItem) {
       name: item.name,
       slug: item.slug,
       path: buildServicePagePath(item.slug, city),
-      casesPath: `/service/${item.slug}/cases`,
+      casesPath: `/topic/${item.slug}`,
       isMerchantPlan: false,
     }
   }
@@ -138,23 +138,13 @@ function buildCaseInternalLinks(caseItem, ctx = {}) {
     })
   }
 
-  if (service) {
+  if (service && service.isMerchantPlan && !(showStore && caseItem.storeId)) {
     links.push({
       type: 'service',
       label: service.name,
-      hint: service.isMerchantPlan
-        ? '查看门店服务方案详情'
-        : '查看可预约门店与本店案例',
+      hint: '查看门店服务方案',
       path: service.path,
     })
-    if (service.casesPath) {
-      links.push({
-        type: 'service_cases',
-        label: `${service.name}案例列表`,
-        hint: '同项目更多脱敏案例',
-        path: buildVehicleCasesPath(service, city),
-      })
-    }
   }
 
   const serviceTopic =

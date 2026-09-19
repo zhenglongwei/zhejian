@@ -69,7 +69,7 @@ async function renderHomeHtml() {
     data.serviceEntries && data.serviceEntries.length
       ? `<section><h2>服务项目</h2>${listLinks(
           data.serviceEntries,
-          (item) => item.h5Path || `/service/${item.slug || ''}.html`,
+          (item) => item.h5Path || `/topic/${item.slug || ''}`,
           (item) => item.name || item.title || '服务'
         )}</section>`
       : '',
@@ -123,7 +123,7 @@ async function renderServiceHtml(slug, query = {}) {
   const seo = data.seo || {}
   const title = seo.title || `${item.name} · 辙见`
   const description = seo.description || item.aiSummary || item.summary || ''
-  const canonical = absoluteUrl(seo.canonicalPath || `/service/${item.slug}.html`)
+  const canonical = absoluteUrl(seo.canonicalPath || `/topic/${item.slug}`)
   const faq = data.faq || []
   const bodyHtml = [
     `<h1>${escapeHtml(item.name || '服务项目')}</h1>`,
@@ -185,7 +185,7 @@ async function renderCityHtml(citySlug) {
     (data.serviceEntries || []).length
       ? `<section><h2>服务项目</h2>${listLinks(
           data.serviceEntries,
-          (item) => item.h5Path || `/service/${item.slug || ''}.html`,
+          (item) => item.h5Path || `/topic/${item.slug || ''}`,
           (item) => item.name || item.title || '服务'
         )}</section>`
       : '',
@@ -243,6 +243,11 @@ async function renderTopicHtml(slug) {
         )}</p></section>`
       : '',
     renderFaqSection(faq, '常见问法'),
+    (data.evidenceNotes || []).length
+      ? `<section><ul>${(data.evidenceNotes || [])
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join('')}</ul></section>`
+      : '',
     (data.relatedCases || []).length
       ? `<section><h2>相关案例</h2>${listLinks(
           data.relatedCases,

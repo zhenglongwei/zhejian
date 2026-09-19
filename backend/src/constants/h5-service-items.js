@@ -250,6 +250,28 @@ function resolveH5ServiceItemBySlug(slug) {
   return H5_SERVICE_ITEMS.find((item) => item.slug === normalized) || null
 }
 
+function buildCatalogTopicPath(slug, city = '') {
+  const item = resolveH5ServiceItemBySlug(slug)
+  if (!item) return ''
+  const base = `/topic/${item.slug}`
+  const value = String(city || '').trim()
+  return value ? `${base}?city=${encodeURIComponent(value)}` : base
+}
+
+/** 旧商品页 /service/{slug}.html 与 /cases → 专题或首页 */
+function resolveServiceHtmlRedirect(slug) {
+  const key = String(slug || '')
+    .trim()
+    .replace(/\/cases\/?$/i, '')
+    .replace(/\.html$/i, '')
+  if (!key || key === 'view' || key === 'index') {
+    return { location: '/', status: 301 }
+  }
+  const item = resolveH5ServiceItemBySlug(key)
+  if (item) return { location: `/topic/${item.slug}`, status: 301 }
+  return { location: '/', status: 301 }
+}
+
 function resolveH5ServiceItemById(serviceItemId) {
   const id = String(serviceItemId || '').trim()
   if (!id) return null
@@ -270,4 +292,6 @@ module.exports = {
   resolveH5ServiceItemById,
   listH5ServiceItemSlugs,
   isH5ServiceItemSlug,
+  buildCatalogTopicPath,
+  resolveServiceHtmlRedirect,
 }

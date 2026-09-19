@@ -435,17 +435,25 @@
     var metaParts = []
     if (priceLine) metaParts.push(priceLine)
     if (options.bookingEnabled === false) metaParts.push('暂停预约')
-    var href =
-      options.href ||
-      '/service/' + encodeURIComponent(item.id || '') + '.html'
+    var href = options.href
+    if (href === undefined) {
+      href = item.storeId
+        ? '/store/' + encodeURIComponent(item.storeId) + '.html'
+        : item.slug
+          ? '/topic/' + encodeURIComponent(item.slug)
+          : ''
+    }
     var className = options.className || 'h5-media-list-item'
     var extraAttrs = options.extraAttrs || ''
+    var tag = href ? 'a' : 'div'
+    var hrefAttr = href ? ' href="' + escapeHtml(href) + '"' : ''
     return (
-      '<a class="' +
+      '<' +
+      tag +
+      ' class="' +
       className +
-      '" href="' +
-      escapeHtml(href) +
       '"' +
+      hrefAttr +
       extraAttrs +
       '>' +
       thumb +
@@ -459,7 +467,9 @@
       (metaParts.length
         ? '<div class="h5-media-list-meta">' + escapeHtml(metaParts.join(' · ')) + '</div>'
         : '') +
-      '</div></a>'
+      '</div></' +
+      tag +
+      '>'
     )
   }
 

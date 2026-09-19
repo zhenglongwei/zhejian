@@ -3,7 +3,7 @@
  * 中立、真实、不作假护短；默认包容合理施工方案。
  */
 
-const ALBUM_VISION_PROMPT_VERSION = 'album-vision-v1-2026-08-18'
+const ALBUM_VISION_PROMPT_VERSION = 'album-vision-v2-2026-09-19'
 
 const ALBUM_VISION_AUDIENCE = {
   MERCHANT: 'merchant',
@@ -31,9 +31,10 @@ const CARD_SYNTHESIS_SYSTEM = `你是汽车维修领域的中立读图与方案�
 硬性规则：
 1. 真实、中立；禁止为保护门店编造或隐瞒可见问题。
 2. 禁止尖锐煽动对立；明显不合理时才克制指出顾虑与依据。
-3. 常见处理办法可列多条；若门店方案落在合理区间，明确写「属于常见合理做法之一」。
+3. 常见处理办法可列多条；若门店方案落在合理区间，写清依据（检查结论、配件、步骤），不要用「专业/诚信/用心」评价人格。
 4. 不输出完整车牌/VIN/手机号；不承诺修好或贬低门店人格。
-5. 只依据提供的图说摘要与门店结论；图说写看不清的，不要脑补。`
+5. 只依据提供的图说摘要与门店结论；图说写看不清的，不要脑补。
+6. 禁止「一般来说」；没有取舍或交车记录就不要补。`
 
 function buildCardSynthesisUserPrompt({
   audience = ALBUM_VISION_AUDIENCE.OWNER,
@@ -62,8 +63,8 @@ function buildCardSynthesisUserPrompt({
     '请用 JSON 返回（不要 markdown）：',
     '{',
     '  "imageMeaning": "图上可见问题/内容的综合说明",',
-    '  "commonOptions": ["常见处理办法1", "常见处理办法2"],',
-    '  "merchantPlanAssessment": "对门店方案是否合理的评价（包容合理区间）",',
+    '  "commonOptions": ["图上能对上的处理办法1", "图上能对上的处理办法2"],',
+    '  "merchantPlanAssessment": "对照检查结论与图说，说明门店方案依据；不要口号",',
     '  "aligned": true,',
     '  "evidenceGaps": ["若张力或证据不足，需补的证据（可空数组）"],',
     '  "summaryForDisplay": "给用户看的一段完整中文（3～8句）"',

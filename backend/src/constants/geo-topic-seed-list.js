@@ -1,7 +1,7 @@
 /**
  * GEO-TOPIC-D02 · 首批 30 条意图种子（不含已导入的 5 条 service_base）
  *
- * 每条绑定 promptId（见 geo-prompt-seed.js），公开页收敛至 /service/{slug}.html?city=
+ * 每条绑定 promptId（见 geo-prompt-seed.js），公开页收敛至 /topic/{slug}?city=
  *
  * @typedef {object} GeoTopicSeed
  * @property {string} slug

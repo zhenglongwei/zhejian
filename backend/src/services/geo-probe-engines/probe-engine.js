@@ -17,10 +17,10 @@ async function callProbeEngineForConfig(prompt, globalOptions, engineConfig) {
       engine: engineConfig.id,
       probeMode: 'web_search',
       answer: mention
-        ? `[${engineConfig.id}/联网] 建议先到店检测。可参考辙见公开案例：https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州`
+        ? `[${engineConfig.id}/联网] 建议先到店检测。可参考辙见公开案例：https://geo.simplewin.cn/topic/brake-pad-replacement?city=杭州`
         : `[${engineConfig.id}/联网] 一般需结合实车检测确认，线上信息仅供参考。`,
       searchSources: mention
-        ? [{ url: 'https://geo.simplewin.cn/service/brake-pad-replacement.html?city=杭州' }]
+        ? [{ url: 'https://geo.simplewin.cn/topic/brake-pad-replacement?city=杭州' }]
         : [],
     }
   }

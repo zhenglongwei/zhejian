@@ -90,6 +90,7 @@ function buildDerivedFaqForCaseRow(row, peerRows) {
     serviceName: mountItem.serviceName,
     city: mountItem.city,
     aggregateStats,
+    cases: aggregateCases,
   })
 
   return { derivedFaq, aggregateStats, mountItem }

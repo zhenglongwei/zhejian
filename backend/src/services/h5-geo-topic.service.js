@@ -1,7 +1,7 @@
 const { getGeoPageDetail } = require('./geo.service')
 const { listCases } = require('./content.service')
 const { resolveServiceItemIdFromPage } = require('./geo-service-catalog.service')
-const { resolveH5ServiceItemById, resolveH5ServiceItemBySlug } = require('../constants/h5-service-items')
+const { resolveH5ServiceItemById } = require('../constants/h5-service-items')
 const { applyAggregateToServiceContent } = require('./geo-case-aggregate.service')
 const { applyAggregateToVehicleTopicContent } = require('./geo-vehicle-topic.service')
 const { filterCasesForGeoPage, orderCasesByIds } = require('../utils/geo-topic-matcher')
@@ -65,7 +65,7 @@ function buildTopicSeo(page, { allowIndex }) {
     canonicalPath: `/topic/${page.slug}`,
     robots: indexable ? 'index,follow' : 'noindex,follow',
     allowIndex: indexable,
-    legacyCanonicalPath: isServiceBase ? `/service/${page.slug}.html` : '',
+    legacyCanonicalPath: '',
   }
 }
 
@@ -133,12 +133,18 @@ async function getGeoTopicPagePayload(slugOrId) {
 
   const aggregated = applyTopicAggregate(detail, aggregateCases)
   const aiSummary = aggregated.aiSummary || detail.aiSummary || detail.summary || ''
-  const faq = aggregated.faq || detail.faq || []
+  const sourceCases = (aggregateCases || []).slice(0, 3).map((item) => ({
+    id: item.id,
+    slug: item.slug || '',
+    title: item.title || item.serviceName || '公开档案',
+  }))
+  const faq = (aggregated.faq || []).slice(0, 5).map((row) => ({
+    q: row.q || row.question || '',
+    a: row.a || row.answer || '',
+    sourceCases,
+  }))
+  const evidenceNotes = aggregated.evidenceNotes || []
   const aggregateStats = aggregated.aggregateStats || null
-  const catalogItem =
-    resolveH5ServiceItemById(detail.serviceItemId || '') ||
-    resolveH5ServiceItemBySlug(detail.slug) ||
-    null
 
   return {
     topic: {
@@ -167,6 +173,7 @@ async function getGeoTopicPagePayload(slugOrId) {
     scenarios: detail.scenarios || [],
     priceFactors: detail.priceFactors || [],
     faq,
+    evidenceNotes,
     faqLinks: detail.faqLinks || [],
     relatedCases: (aggregateCases.length ? aggregateCases : detail.relatedCases || []).map(mapCaseItem),
     relatedStores: (detail.relatedStores || []).map(mapStoreItem),
@@ -177,13 +184,6 @@ async function getGeoTopicPagePayload(slugOrId) {
       matchedCaseCount: aggregateStats?.sampleSize ?? null,
     },
     aggregateStats,
-    relatedProduct: catalogItem
-      ? {
-          name: catalogItem.name,
-          slug: catalogItem.slug,
-          path: `/service/${catalogItem.slug}.html`,
-        }
-      : null,
     sortOptions: [
       { value: 'recommend', label: '综合推荐' },
       { value: 'newest', label: '最新发布' },

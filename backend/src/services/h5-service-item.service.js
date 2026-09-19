@@ -109,7 +109,7 @@ function buildServiceOffers(plans, merchants, casesByStore, geo = {}) {
         id: plan.id,
         servicePlanId: plan.id,
         servicePlanName: plan.name || plan.serviceName || '',
-        planPath: `/service/${plan.id}.html`,
+        planPath: `/store/${store.id}.html`,
         storeId: store.id,
         storeName: store.name,
         storePath: `/store/${store.id}.html`,
@@ -171,7 +171,7 @@ function buildSeo(item, merged, geoPage, { caseTotal, offerCount }) {
   return {
     title,
     description,
-    canonicalPath: `/service/${item.slug}.html`,
+    canonicalPath: `/topic/${item.slug}`,
     robots: allowIndex ? 'index,follow' : 'noindex,follow',
     allowIndex,
   }
@@ -244,7 +244,7 @@ async function getServiceItemPagePayload(slug, query = {}) {
     .map((related) => ({
       slug: related.slug,
       name: related.name,
-      path: `/service/${related.slug}.html`,
+      path: `/topic/${related.slug}`,
     }))
 
   const aggregated = applyAggregateToServiceContent({

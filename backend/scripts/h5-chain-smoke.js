@@ -31,6 +31,20 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg)
 }
 
+async function assertRedirect(path, expectedContains) {
+  const res = await fetch(`${BASE}${path}`, { redirect: 'manual' })
+  assert(
+    res.status === 301 || res.status === 302,
+    `${path} 应为跳转，实际 HTTP ${res.status}`
+  )
+  const loc = res.headers.get('location') || ''
+  assert(
+    loc.includes(expectedContains),
+    `${path} 应跳到含 ${expectedContains} 的地址，实际 ${loc}`
+  )
+  return loc
+}
+
 const { verifyCaseEnrichmentFeedSegment: runEnrSegment } = require('./h5-chain-smoke-segment-enr')
 
 async function api(method, path, { body } = {}) {
@@ -179,12 +193,8 @@ async function verifyH5ServiceAssets(storeId) {
   }
   const planId = service.id
 
-  const svcRes = await fetch(`${BASE}/service/${encodeURIComponent(planId)}.html`)
-  assert(svcRes.ok, `service/{id}.html HTTP ${svcRes.status}`)
-  const html = await svcRes.text()
-  assert(html.includes('track.js'), 'service 页未引用 track.js')
-  assert(html.includes('service-render.js'), 'service 页未引用 service-render.js')
-  console.log('[chain] H5 /service/{id}.html 静态资源 OK')
+  await assertRedirect(`/service/${encodeURIComponent(planId)}.html`, '/')
+  console.log('[chain] H5 旧商品页 /service/{id}.html 已 301 下线')
 
   const detail = await api('GET', `/user/services/${encodeURIComponent(planId)}`)
   assert(detail.ok && detail.json?.code === 0, `服务详情 API 失败: ${detail.status}`)
@@ -192,7 +202,7 @@ async function verifyH5ServiceAssets(storeId) {
   console.log('[chain] ✅ GET /user/services/:id')
 
   const eventId = `evt_h5_svc_chain_${Date.now()}`
-  const pagePath = `/service/${encodeURIComponent(planId)}.html`
+  const pagePath = `/store/${encodeURIComponent(storeId)}.html`
   const ingest = await api('POST', '/analytics/events', {
     body: {
       events: [
@@ -222,10 +232,12 @@ async function verifyH5ServiceAssets(storeId) {
 
 async function verifyH5ServiceItem() {
   const slug = 'brake-pad-replacement'
-  const pageRes = await fetch(`${BASE}/service/${slug}.html`)
-  assert(pageRes.ok, `H5 服务项目页 HTTP ${pageRes.status}`)
+  await assertRedirect(`/service/${slug}.html`, `/topic/${slug}`)
+
+  const pageRes = await fetch(`${BASE}/topic/${slug}`)
+  assert(pageRes.ok, `H5 专题页 HTTP ${pageRes.status}`)
   const html = await pageRes.text()
-  assert(html.includes('service-item-render.js'), 'service/view 未引用 service-item-render.js')
+  assert(html.includes('topic-render.js'), 'topic 页未引用 topic-render.js')
 
   const apiItem = await api('GET', `/public/h5/service-items/${slug}`)
   assert(apiItem.ok && apiItem.json?.code === 0, 'GET /public/h5/service-items/:slug 失败')
@@ -248,18 +260,20 @@ async function verifyH5ServiceItem() {
     )
   }
   assert(
-    apiItem.json.data?.seo?.canonicalPath === `/service/${slug}.html`,
-    'service item canonicalPath 不正确'
+    apiItem.json.data?.seo?.canonicalPath === `/topic/${slug}`,
+    'service item canonicalPath 应指向专题'
   )
-  console.log('[chain] ✅ H5 服务项目页（GEO 增强）/service/{slug}.html')
+  const relatedPaths = (apiItem.json.data?.relatedTopics || []).map((row) => String(row.path || ''))
+  assert(
+    relatedPaths.every((path) => !path.includes('/service/')),
+    'relatedTopics 不得再指向商品页'
+  )
+  console.log('[chain] ✅ 旧商品页 301 → 专题 /topic/{slug}')
 }
 
 async function verifyH5ServiceItemCases() {
   const slug = 'brake-pad-replacement'
-  const pageRes = await fetch(`${BASE}/service/${slug}/cases`)
-  assert(pageRes.ok, `H5 项目案例列表 HTTP ${pageRes.status}`)
-  const html = await pageRes.text()
-  assert(html.includes('service-item-cases-render.js'), 'service/cases 未引用 service-item-cases-render.js')
+  await assertRedirect(`/service/${slug}/cases`, `/topic/${slug}`)
 
   const apiCases = await api('GET', `/public/h5/service-items/${slug}/cases?page=1&pageSize=12`)
   assert(apiCases.ok && apiCases.json?.code === 0, 'GET /public/h5/service-items/:slug/cases 失败')
@@ -267,10 +281,10 @@ async function verifyH5ServiceItemCases() {
   assert(Array.isArray(apiCases.json.data?.cases), 'service item cases 缺少 cases 数组')
   assert(apiCases.json.data?.pagination, 'service item cases 缺少 pagination')
   assert(
-    apiCases.json.data?.seo?.canonicalPath === `/service/${slug}/cases`,
-    'service item cases canonicalPath 不正确'
+    apiCases.json.data?.seo?.canonicalPath === `/topic/${slug}`,
+    'service item cases canonicalPath 应指向专题'
   )
-  console.log('[chain] ✅ H5 项目案例列表 /service/{slug}/cases + GET /public/h5/service-items/:slug/cases')
+  console.log('[chain] ✅ 旧项目案例列表 301 → /topic/{slug}')
 }
 
 async function verifyH5Sitemap() {
@@ -293,7 +307,7 @@ async function verifyH5Sitemap() {
   assert(llmsRes.ok, `llms.txt HTTP ${llmsRes.status}`)
   const llmsText = await llmsRes.text()
   assert(llmsText.includes('辙见服务平台'), 'llms.txt 缺少站点标题')
-  assert(llmsText.includes('/service/'), 'llms.txt 应含服务页链接')
+  assert(llmsText.includes('/topic/'), 'llms.txt 应含专题链接')
   assert(llmsText.includes('JSON Feed'), 'llms.txt 应声明 JSON Feed')
 
   const llmsFullRes = await fetch(`${BASE}/llms-full.txt`)
@@ -303,7 +317,7 @@ async function verifyH5Sitemap() {
   } else {
     assert(llmsFullRes.ok, `llms-full.txt HTTP ${llmsFullRes.status}`)
     const fullText = await llmsFullRes.text()
-    assert(fullText.includes('全量索引') || fullText.includes('/service/'), 'llms-full.txt 内容不完整')
+    assert(fullText.includes('全量索引') || fullText.includes('/topic/'), 'llms-full.txt 内容不完整')
   }
 
   const feedRes = await fetch(`${BASE}/feeds/topics.xml`)
@@ -503,7 +517,7 @@ async function verifyH5ListSeo(storeId) {
   )
   assert(serviceCases.ok && serviceCases.json?.code === 0, 'service item cases 筛选 API 失败')
   const serviceSeo = serviceCases.json.data?.seo || {}
-  assert(serviceSeo.canonicalPath === `/service/${slug}/cases`, 'service cases canonical 应为主列表')
+  assert(serviceSeo.canonicalPath === `/topic/${slug}`, 'service cases canonical 应指向专题')
   assert(serviceSeo.robots === 'noindex,follow', 'service cases 筛选/分页变体应为 noindex,follow')
 
   const storeCasesHtml = await fetch(`${BASE}/store/${encodeURIComponent(storeId)}/cases`)

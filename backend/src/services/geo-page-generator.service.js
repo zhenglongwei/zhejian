@@ -3,7 +3,6 @@
  * 从意图种子 + 服务库生成 geo_pages draft（摘要/FAQ 优先聚合统计，禁止无案例通用模板）
  */
 const { resolveH5ServiceItemById } = require('../constants/h5-service-items')
-const { getGeoFaqTemplate } = require('../constants/geo-faq-templates')
 const { normalizeFaq, normalizeServiceMeta } = require('../schemas/geo-page.schema')
 const {
   applyAggregateToServiceContent,
@@ -14,14 +13,6 @@ const {
   buildPseudoPageFromSeed,
 } = require('../utils/geo-topic-matcher')
 
-const SERVICE_KEY_BY_ITEM_ID = {
-  item_brake_pad: 'brake_pad',
-  item_maintenance: 'maintenance',
-  item_battery: 'battery',
-  item_body_paint: 'body_paint',
-  item_accident: 'accident',
-}
-
 function buildGeoPageId(slug) {
   const safe = String(slug || '')
     .trim()
@@ -29,10 +20,6 @@ function buildGeoPageId(slug) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
   return safe ? `geop_${safe}` : ''
-}
-
-function resolveServiceKey(serviceItemId) {
-  return SERVICE_KEY_BY_ITEM_ID[serviceItemId] || String(serviceItemId || '').trim()
 }
 
 function buildTitle(seed, serviceItem) {
@@ -56,13 +43,9 @@ function buildSummary(seed, serviceItem) {
   return `汇总${serviceName}相关常见问题、检查思路与费用影响因素，案例内容仅供参考。`
 }
 
-function buildTemplateFaq(seed, serviceItem) {
+function buildTemplateFaq(seed) {
   if (Array.isArray(seed.faq) && seed.faq.length) return normalizeFaq(seed.faq)
-  const serviceKey = resolveServiceKey(seed.serviceItemId)
-  return getGeoFaqTemplate(seed.pageType, serviceKey, {
-    city: seed.city,
-    title: buildTitle(seed, serviceItem),
-  })
+  return []
 }
 
 /**
@@ -74,7 +57,7 @@ function buildTemplateFaq(seed, serviceItem) {
 function buildAggregateContent(seed, serviceItem, matchedCases) {
   const serviceName = serviceItem?.name || seed.serviceName || '相关维修项目'
   const city = String(seed.city || '').trim()
-  const templateFaq = buildTemplateFaq(seed, serviceItem)
+  const templateFaq = buildTemplateFaq(seed)
 
   if (seed.pageType === 'vehicle_service' && seed.vehicleSeries) {
     const aggregated = applyAggregateToVehicleTopicContent({

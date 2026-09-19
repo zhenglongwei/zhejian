@@ -36,7 +36,7 @@ function buildStoreCasesH5Url({ storeId } = {}) {
   return `${H5_CONTENT_SITE_URL}/store/${encodeURIComponent(storeId)}/cases`
 }
 
-/** GEO / 服务项目 H5 URL（专题已合并至 /service/{slug}.html，h5Path 优先） */
+/** GEO 专题 H5 URL（商品页已下线，h5Path 优先，默认 /topic/{slug}） */
 function buildGeoTopicH5Url({ slug, id, h5Path } = {}) {
   if (h5Path) {
     const path = String(h5Path).startsWith('/') ? h5Path : `/${h5Path}`
@@ -44,7 +44,7 @@ function buildGeoTopicH5Url({ slug, id, h5Path } = {}) {
   }
   const topicSlug = slug || (id && !String(id).startsWith('geo_') ? id : '')
   if (topicSlug) {
-    return `${H5_CONTENT_SITE_URL}/service/${encodeURIComponent(topicSlug)}.html`
+    return `${H5_CONTENT_SITE_URL}/topic/${encodeURIComponent(topicSlug)}`
   }
   return ''
 }

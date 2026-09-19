@@ -244,8 +244,9 @@ router.get('/h5/cases/bot-html', async (req, res, next) => {
 
 router.get('/h5/service-items/:slug/bot-html', async (req, res, next) => {
   try {
-    const { renderServiceHtml } = require('../services/h5-page-prerender.service')
-    return sendHtml(res, await renderServiceHtml(req.params.slug, req.query))
+    const { resolveServiceHtmlRedirect } = require('../constants/h5-service-items')
+    const target = resolveServiceHtmlRedirect(req.params.slug)
+    return res.redirect(target.status, target.location)
   } catch (e) {
     next(e)
   }
