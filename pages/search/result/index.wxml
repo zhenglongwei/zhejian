@@ -93,6 +93,7 @@
           minAmount="{{item.minAmount}}"
           maxAmount="{{item.maxAmount}}"
           storeName="{{item.storeName}}"
+          publisherTrustLine="{{item.publisherTrustLine}}"
           viewCount="{{item.viewCount}}"
           bind:cardtap="onCaseTap"
         />
@@ -132,6 +133,7 @@
         minAmount="{{item.minAmount}}"
         maxAmount="{{item.maxAmount}}"
         storeName="{{item.storeName}}"
+        publisherTrustLine="{{item.publisherTrustLine}}"
         viewCount="{{item.viewCount}}"
         bind:cardtap="onCaseTap"
       />

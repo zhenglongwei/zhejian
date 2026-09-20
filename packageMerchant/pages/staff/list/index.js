@@ -32,8 +32,8 @@ Page({
   async ensureAccess() {
     if (!isMerchantOwner()) {
       wx.showModal({
-        title: '仅管理员可操作',
-        content: '员工账号由店铺管理员添加与管理',
+        title: '仅管理员可操�?,
+        content: '员工账号由店铺管理员添加与管�?,
         showCancel: false,
         success: () => wx.navigateBack(),
       })
@@ -46,7 +46,7 @@ Page({
         content: '完成商家入驻后可管理员工',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }
@@ -60,7 +60,7 @@ Page({
 
   /**
    * @param {{ forceLoading?: boolean, silent?: boolean }} opts
-   * forceLoading：首屏骨架；silent：刷新列表但不收起邀请区、不闪全页 loading
+   * forceLoading：首屏骨架；silent：刷新列表但不收起邀请区、不闪全�?loading
    */
   async loadList(opts = {}) {
     const silent = Boolean(opts.silent)
@@ -116,7 +116,7 @@ Page({
     try {
       const res = await inviteMerchantStaff(phone)
       wx.showModal({
-        title: '已添加',
+        title: '已添�?,
         content: res.hint || '添加成功',
         showCancel: false,
       })
@@ -131,16 +131,16 @@ Page({
 
   onRemoveStaff(e) {
     const id = e.currentTarget.dataset.id
-    const name = e.currentTarget.dataset.name || '该员工'
+    const name = e.currentTarget.dataset.name || '该员�?
     if (!id) return
     wx.showModal({
       title: '移除员工',
-      content: `确定移除「${name}」？移除后将无法进入本店工作台`,
+      content: `确定移除�?{name}」？移除后将无法进入本店工作台`,
       success: async (res) => {
         if (!res.confirm) return
         try {
           await removeMerchantStaff(id)
-          wx.showToast({ title: '已移除', icon: 'success' })
+          wx.showToast({ title: '已移�?, icon: 'success' })
           await this.loadList({ silent: true })
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })

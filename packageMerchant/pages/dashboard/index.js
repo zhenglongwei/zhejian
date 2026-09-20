@@ -1,5 +1,4 @@
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
-const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantAlbumStats } = require('../../../services/merchant-service-album')
 const {
   fetchMerchantProfile,
@@ -8,7 +7,6 @@ const {
 const {
   PERIOD_TABS,
   formatCount,
-  formatRate,
   formatPercentScore,
   sumViews,
   buildLagHint,
@@ -23,15 +21,15 @@ function parseDisplayCount(value) {
 
 function buildHeroKpis(display = {}) {
   return [
-    { key: 'views', label: '总浏览', value: display.totalViews || '0', tone: 'primary' },
-    { key: 'leads', label: '咨询提交', value: display.leadSubmitCount || '0', tone: 'warning' },
-    { key: 'score', label: '透明度', value: display.transparencyScore || '0', tone: 'success' },
+    { key: 'views', label: '总浏�?, value: display.totalViews || '0', tone: 'primary' },
+    { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0', tone: 'warning' },
+    { key: 'score', label: '透明�?, value: display.transparencyScore || '0', tone: 'success' },
   ]
 }
 
 function resolveServiceRankTitle(raw) {
   const text = String(raw || '').trim()
-  if (!text || text === '—') return '—'
+  if (!text || text === '�?) return '�?
   const catalog = getServiceItem(text)
   return (catalog && catalog.name) || text
 }
@@ -39,7 +37,7 @@ function resolveServiceRankTitle(raw) {
 function buildExposureChips(display = {}) {
   return [
     { key: 'h5', label: '网页案例', value: display.h5CaseViewCount || '0' },
-    { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
+    { key: 'mp', label: '小程序案�?, value: display.mpCaseViewCount || '0' },
     { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
   ]
 }
@@ -48,47 +46,8 @@ function buildCrawlerMetric(display = {}) {
   return {
     value: display.crawlerViewCount || '0',
     label: '搜索/智能助手爬虫访问',
-    hint: '代理指标 · 非引用次数',
+    hint: '代理指标 · 非引用次�?,
   }
-}
-
-function buildLeadRows(display = {}) {
-  const pending = parseDisplayCount(display.pendingLeads)
-  const pendingAuth = parseDisplayCount(display.pendingAuth)
-  return [
-    {
-      key: 'pending',
-      value: display.pendingLeads || '0',
-      label: '条咨询待处理（实时）',
-      action: '去处理',
-      active: pending > 0,
-      handler: 'leads',
-    },
-    {
-      key: 'submit',
-      value: display.leadSubmitCount || '0',
-      label: '区间提交',
-      active: false,
-    },
-    {
-      key: 'contacted',
-      value: display.leadContactedCount || '0',
-      label: '已联系',
-      active: false,
-    },
-    {
-      key: 'closed',
-      value: display.leadClosedCount || '0',
-      label: '已关闭',
-      active: false,
-    },
-    {
-      key: 'case',
-      value: display.caseConsultCount || '0',
-      label: '案例留资',
-      active: false,
-    },
-  ]
 }
 
 function buildAlbumRows(display = {}) {
@@ -100,11 +59,15 @@ function buildAlbumRows(display = {}) {
       key: 'auth',
       value: display.pendingAuth || '0',
       label: '本待车主发布',
-      action: '去查看',
+      action: '去查�?,
       active: pendingAuth > 0,
       handler: 'auth',
     },
   ]
+}
+
+function filterMerchantSuggestions(list = []) {
+  return (list || []).filter((item) => !/咨询线索|线索待处理|线索跟进/.test(String(item || '')))
 }
 
 function emptyDisplay() {
@@ -115,18 +78,10 @@ function emptyDisplay() {
     mpCaseViewCount: '0',
     crawlerViewCount: '0',
     phoneClickCount: '0',
-    leadSubmitCount: '0',
-    leadContactedCount: '0',
-    leadClosedCount: '0',
-    caseConsultCount: '0',
     albumCreatedCount: '0',
     albumCompletedCount: '0',
-    leadRate: '暂无数据',
-    contactRate: '暂无数据',
-    caseConsultRate: '暂无数据',
     transparencyScore: '0',
     transparencyBreakdown: [],
-    pendingLeads: '0',
     pendingAuth: '0',
   }
 }
@@ -149,16 +104,15 @@ Page({
     exposureChips: buildExposureChips(),
     crawlerMetric: buildCrawlerMetric(),
     metricNotes: {
-      userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为。',
+      userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为�?,
       crawlerProxy:
-        '「搜索/智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名。',
+        '「搜�?智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名�?,
       probeInternal:
-        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用。',
+        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用�?,
     },
-    leadRows: buildLeadRows(),
     albumRows: buildAlbumRows(),
     complianceText:
-      '数据来自站外公开页浏览与咨询留资统计，不含平台订单；浏览类指标按日更新（次日可见）。爬虫访问为代理指标，非智能助手引用；平台答案探测不向商家展示引用次数。',
+      '数据来自站外公开页浏览与电话点击统计，不含平台订单；浏览类指标按日更新（次日可见）。爬虫访问为代理指标，非智能助手引用；平台答案探测不向商家展示引用次数�?,
   },
 
   onLoad() {
@@ -181,7 +135,7 @@ Page({
         content: '完成商家入驻后可查看数据概览',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }
@@ -194,16 +148,14 @@ Page({
     this.loadData()
   },
 
-  buildDisplay(stats, leadStats, albumStats) {
+  buildDisplay(stats, albumStats) {
     const summary = stats.summary || {}
-    const rates = summary.rates || {}
     const breakdown = stats.transparency?.breakdown || {}
     const transparencyBreakdown = [
       { key: 'album', label: '服务相册', score: breakdown.album || 0 },
       { key: 'case', label: '公开案例', score: breakdown.case || 0 },
       { key: 'serviceProfile', label: '服务资料', score: breakdown.serviceProfile || 0 },
       { key: 'qualification', label: '资质资料', score: breakdown.qualification || 0 },
-      { key: 'leadResponse', label: '咨询响应', score: breakdown.leadResponse || 0 },
     ]
 
     const hasSplitFields =
@@ -220,17 +172,9 @@ Page({
       mpCaseViewCount: formatCount(mpViews),
       crawlerViewCount: formatCount(summary.crawlerViewCount),
       phoneClickCount: formatCount(summary.phoneClickCount),
-      leadSubmitCount: formatCount(summary.leadSubmitCount),
-      leadContactedCount: formatCount(summary.leadContactedCount),
-      leadClosedCount: formatCount(summary.leadClosedCount),
-      caseConsultCount: formatCount(summary.caseConsultCount),
       albumCreatedCount: formatCount(summary.albumCreatedCount),
       albumCompletedCount: formatCount(summary.albumCompletedCount),
-      leadRate: formatRate(rates.leadRate),
-      contactRate: formatRate(rates.contactRate),
-      caseConsultRate: formatRate(rates.caseConsultRate),
       transparencyScore: formatPercentScore(stats.transparency?.score ?? summary.transparencyScore),
-      pendingLeads: formatCount(leadStats?.pending),
       pendingAuth: formatCount(albumStats?.pendingAuth),
       transparencyBreakdown,
     }
@@ -239,27 +183,25 @@ Page({
   async loadData() {
     this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const [stats, leadStats, albumStats] = await Promise.all([
+      const [stats, albumStats] = await Promise.all([
         fetchMerchantStats({ storeId: this.storeId, period: this.data.period }),
-        fetchMerchantLeadStats(this.storeId),
         fetchMerchantAlbumStats(),
       ])
 
       const range = stats.range || {}
       const rangeLabel =
-        range.from && range.to ? `${range.from} 至 ${range.to}` : ''
-      const display = this.buildDisplay(stats, leadStats, albumStats)
+        range.from && range.to ? `${range.from} �?${range.to}` : ''
+      const display = this.buildDisplay(stats, albumStats)
       const rankings = stats.rankings || {}
       const topCases = formatRankRows(rankings.cases, 'title')
       const topServices = formatRankRows(rankings.services, 'name').map((row) => ({
         ...row,
         title: resolveServiceRankTitle(row.title),
       }))
-      const suggestions = stats.suggestions || []
+      const suggestions = filterMerchantSuggestions(stats.suggestions || [])
       const hasMetrics =
         sumViews(stats.summary) > 0 ||
         (stats.summary?.crawlerViewCount || 0) > 0 ||
-        (stats.summary?.leadSubmitCount || 0) > 0 ||
         (stats.summary?.phoneClickCount || 0) > 0
       const hasInsights =
         topCases.length > 0 || topServices.length > 0 || suggestions.length > 0
@@ -279,7 +221,6 @@ Page({
         heroKpis: buildHeroKpis(display),
         exposureChips: buildExposureChips(display),
         crawlerMetric: buildCrawlerMetric(display),
-        leadRows: buildLeadRows(display),
         albumRows: buildAlbumRows(display),
       })
     } catch (e) {
@@ -294,7 +235,6 @@ Page({
         heroKpis: buildHeroKpis(),
         exposureChips: buildExposureChips(),
         crawlerMetric: buildCrawlerMetric(),
-        leadRows: buildLeadRows(),
         albumRows: buildAlbumRows(),
       })
     }
@@ -310,19 +250,14 @@ Page({
     this.loadData()
   },
 
-  onGoLeads() {
-    wx.navigateTo({ url: '/packageMerchant/pages/lead/list/index?tab=pending' })
-  },
-
   onGoAlbumAuth() {
     wx.navigateTo({
       url: '/packageMerchant/pages/album/list/index?tab=done',
     })
   },
 
-  onLeadRowTap(e) {
+  onMetricRowTap(e) {
     const handler = e.currentTarget.dataset.handler
-    if (handler === 'leads') this.onGoLeads()
     if (handler === 'auth') this.onGoAlbumAuth()
   },
 })

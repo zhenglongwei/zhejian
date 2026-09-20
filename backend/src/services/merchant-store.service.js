@@ -231,7 +231,16 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     where: { id: auth.merchantId },
   })
 
-  const profile = formatOnboardingProfile(merchant, updatedStore)
+  try {
+    const { refreshMerchantCompleteness } = require('./merchant-onboarding.service')
+    await refreshMerchantCompleteness(auth.merchantId, storeId)
+  } catch (_) {
+    /* ignore */
+  }
+  const merchantFresh =
+    (await prisma.merchant.findUnique({ where: { id: auth.merchantId } })) || merchant
+
+  const profile = formatOnboardingProfile(merchantFresh, updatedStore)
   return {
     ...attachCapabilityToProfile(profile, updatedStore, capability),
     // 本次保存是否新提交了品牌授权审核（与整体是否仍处于 pending 区分）

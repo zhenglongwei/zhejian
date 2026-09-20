@@ -1,5 +1,4 @@
 const { prisma } = require('../lib/prisma')
-const { config } = require('../config')
 const { newId, toIso } = require('../lib/ids')
 const {
   MERCHANT_STATUS,
@@ -20,6 +19,14 @@ const {
 } = require('../utils/store-capability')
 const { resolveStoreCapabilityJson } = require('../utils/store-capability-load')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+const {
+  ACCOUNT_TYPE,
+  AUTH_STATUS,
+  COMPLETENESS,
+  scoreProfileCompleteness,
+  evaluateAuthSubmission,
+  buildPublisherTrustBadge,
+} = require('../utils/merchant-trust')
 
 /** 商家端 <image> 无法带 Bearer，读侧须返回新鲜 signed URL */
 function resignBrandAuthItems(items) {
@@ -98,6 +105,7 @@ function formatOnboardingProfile(merchant, store) {
   const photos = resignPhotoMap(formatPhotosForClient(store.photosJson))
   const qualification = resignQualification(formatQualificationForClient(merchant.qualificationJson))
   const capabilityEditor = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
+  const trust = buildPublisherTrustBadge(merchant, store)
   return {
     status: toFrontStatus(merchant.status),
     merchantId: merchant.id,
@@ -115,6 +123,7 @@ function formatOnboardingProfile(merchant, store) {
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
+    legalIdPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdPhotoUrl || ''),
     licenseEstablishedOn:
       merchant.licenseEstablishedOn instanceof Date
         ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)
@@ -140,6 +149,12 @@ function formatOnboardingProfile(merchant, store) {
     agreedAt: toIso(merchant.agreedAt),
     submittedAt: toIso(merchant.submittedAt),
     approvedAt: toIso(merchant.approvedAt),
+    accountType: trust.accountType,
+    authStatus: trust.authStatus,
+    authStatusLabel: trust.authStatusLabel,
+    profileCompleteness: trust.profileCompleteness,
+    profileCompletenessLabel: trust.profileCompletenessLabel,
+    publisherTrust: trust,
   }
 }
 
@@ -421,12 +436,7 @@ async function beginNewStoreRegistration(userId) {
 async function assertCanEditApplication(merchant) {
   if (!merchant) return
   if (merchant.status === MERCHANT_STATUS.ACTIVE) {
-    const err = new Error('已入驻，请进入商家工作台')
-    err.status = 409
-    throw err
-  }
-  if (merchant.status === MERCHANT_STATUS.PENDING_AUDIT) {
-    const err = new Error('入驻审核中，请耐心等待')
+    const err = new Error('已开通，请在门店资料或认证入口完善')
     err.status = 409
     throw err
   }
@@ -510,8 +520,9 @@ async function upsertApplication(userId, form, { submit = false } = {}) {
   }
 
   const now = new Date()
-  const nextMerchantStatus = submit ? MERCHANT_STATUS.PENDING_AUDIT : MERCHANT_STATUS.DRAFT
-  const nextStoreStatus = submit ? STORE_STATUS.PENDING_AUDIT : STORE_STATUS.DRAFT
+  // 软信任：提交即 ACTIVE，不再进入 PENDING_AUDIT 门禁
+  const nextMerchantStatus = submit ? MERCHANT_STATUS.ACTIVE : MERCHANT_STATUS.DRAFT
+  const nextStoreStatus = submit ? STORE_STATUS.ACTIVE : STORE_STATUS.DRAFT
   const agreedAt = submit && form.agreed ? now : undefined
   const { merchant: merchantData, store: storeData } = buildMerchantStoreData(payload)
 
@@ -605,24 +616,232 @@ async function saveOnboardingDraft(userId, form) {
 async function submitOnboarding(userId, form) {
   const { merchant, store, user } = await upsertApplication(userId, form, { submit: true })
 
-  let session = null
-  if (config.merchantAutoApprove) {
-    await activateMerchant(merchant.id, userId, store.id)
-    const refreshed = await prisma.merchant.findUnique({
-      where: { id: merchant.id },
-      include: { stores: { take: 1, orderBy: { createdAt: 'asc' } } },
-    })
-    session = await buildAuthSession(user)
+  // 软信任：提交完善资料后一律开通，不再依赖人工入驻审核门禁
+  await activateMerchant(merchant.id, userId, store.id)
+  await refreshMerchantCompleteness(merchant.id, store.id)
+  const refreshed = await prisma.merchant.findUnique({
+    where: { id: merchant.id },
+    include: { stores: { take: 1, orderBy: { createdAt: 'asc' } } },
+  })
+  const session = await buildAuthSession(user)
+  return {
+    profile: formatOnboardingProfile(refreshed, refreshed.stores[0]),
+    session,
+  }
+}
+
+async function refreshMerchantCompleteness(merchantId, storeId) {
+  const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } })
+  const store = await prisma.store.findUnique({ where: { id: storeId } })
+  if (!merchant || !store) return null
+  const tier = scoreProfileCompleteness(merchant, store)
+  if (tier === merchant.profileCompleteness) return tier
+  await prisma.merchant.update({
+    where: { id: merchantId },
+    data: { profileCompleteness: tier },
+  })
+  return tier
+}
+
+/**
+ * 一键开通商家账号：立刻 ACTIVE，可生产
+ */
+async function quickOpenMerchant(userId, { storeName = '' } = {}) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) {
+    const err = new Error('用户不存在')
+    err.status = 404
+    throw err
+  }
+
+  const existingActive = await prisma.merchant.findFirst({
+    where: { ownerUserId: userId, status: MERCHANT_STATUS.ACTIVE },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+    orderBy: { updatedAt: 'desc' },
+  })
+  if (existingActive?.stores?.length) {
+    const session = await buildAuthSession(user)
     return {
-      profile: formatOnboardingProfile(refreshed, refreshed.stores[0]),
+      profile: formatOnboardingProfile(existingActive, existingActive.stores[0]),
       session,
+      alreadyOpen: true,
     }
   }
 
-  return {
-    profile: formatOnboardingProfile(merchant, store),
-    session: null,
+  // 若有草稿申请，直接升为 ACTIVE
+  const incomplete = await findIncompleteMerchantApplication(userId)
+  if (incomplete?.stores?.length) {
+    const store = incomplete.stores[0]
+    const name = String(storeName || store.name || incomplete.name || '我的门店').trim() || '我的门店'
+    await prisma.merchant.update({
+      where: { id: incomplete.id },
+      data: {
+        name,
+        accountType: ACCOUNT_TYPE.MERCHANT,
+        status: MERCHANT_STATUS.ACTIVE,
+        approvedAt: new Date(),
+        profileCompleteness: scoreProfileCompleteness(incomplete, { ...store, name }),
+      },
+    })
+    await prisma.store.update({
+      where: { id: store.id },
+      data: { status: STORE_STATUS.ACTIVE, name: store.name || name },
+    })
+    await activateMerchant(incomplete.id, userId, store.id)
+    const refreshed = await prisma.merchant.findUnique({
+      where: { id: incomplete.id },
+      include: { stores: { orderBy: { createdAt: 'asc' } } },
+    })
+    const session = await buildAuthSession(user)
+    return {
+      profile: formatOnboardingProfile(refreshed, refreshed.stores[0]),
+      session,
+      alreadyOpen: false,
+    }
   }
+
+  const staffElsewhere = await prisma.merchantStaff.findFirst({
+    where: {
+      userId,
+      status: 'ACTIVE',
+      merchant: { ownerUserId: { not: userId } },
+    },
+  })
+  if (staffElsewhere) {
+    const err = new Error('你已是其他商家的员工，请使用主账号开通')
+    err.status = 409
+    throw err
+  }
+
+  const merchantId = newId('mer')
+  const storeId = newId('store')
+  const name = String(storeName || user.nickname || '我的门店').trim() || '我的门店'
+  const now = new Date()
+  await prisma.merchant.create({
+    data: {
+      id: merchantId,
+      ownerUserId: userId,
+      name,
+      accountType: ACCOUNT_TYPE.MERCHANT,
+      authStatus: AUTH_STATUS.NONE,
+      profileCompleteness: COMPLETENESS.BASIC,
+      status: MERCHANT_STATUS.ACTIVE,
+      contactPhone: user.phone || '',
+      approvedAt: now,
+      stores: {
+        create: {
+          id: storeId,
+          name,
+          status: STORE_STATUS.ACTIVE,
+          phone: user.phone || '',
+        },
+      },
+    },
+  })
+  await activateMerchant(merchantId, userId, storeId)
+  const refreshed = await prisma.merchant.findUnique({
+    where: { id: merchantId },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  await refreshMerchantCompleteness(merchantId, storeId)
+  const again = await prisma.merchant.findUnique({
+    where: { id: merchantId },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  const session = await buildAuthSession(user)
+  return {
+    profile: formatOnboardingProfile(again || refreshed, (again || refreshed).stores[0]),
+    session,
+    alreadyOpen: false,
+  }
+}
+
+/**
+ * 可选认证：上传执照 + 法人身份证，自动校验
+ */
+async function submitMerchantAuth(userId, body = {}) {
+  const merchantId = String(body.merchantId || '').trim()
+  const where = merchantId
+    ? { id: merchantId, ownerUserId: userId, status: { not: MERCHANT_STATUS.CLOSED } }
+    : { ownerUserId: userId, status: MERCHANT_STATUS.ACTIVE }
+  const merchant = await prisma.merchant.findFirst({
+    where,
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+    orderBy: { updatedAt: 'desc' },
+  })
+  if (!merchant?.stores?.length) {
+    const err = new Error('请先开通商家账号')
+    err.status = 404
+    throw err
+  }
+  const store = merchant.stores[0]
+  const licensePhotoUrl = String(body.licensePhotoUrl || merchant.licensePhotoUrl || '').trim()
+  const legalIdPhotoUrl = String(body.legalIdPhotoUrl || merchant.legalIdPhotoUrl || '').trim()
+  const legalName = String(body.legalName || merchant.legalName || '').trim()
+  const creditCode = String(body.creditCode || merchant.creditCode || '').trim()
+  const evalResult = evaluateAuthSubmission({
+    licensePhotoUrl,
+    legalIdPhotoUrl,
+    legalName,
+    creditCode,
+  })
+  const now = new Date()
+  const updated = await prisma.merchant.update({
+    where: { id: merchant.id },
+    data: {
+      licensePhotoUrl,
+      legalIdPhotoUrl,
+      legalName,
+      creditCode,
+      authStatus: evalResult.authStatus,
+      authVerifiedAt: evalResult.authStatus === AUTH_STATUS.VERIFIED ? now : null,
+      name: legalName || merchant.name,
+      profileCompleteness: scoreProfileCompleteness(
+        { ...merchant, legalName, creditCode, licensePhotoUrl, legalIdPhotoUrl },
+        store,
+      ),
+    },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  if (evalResult.authStatus === AUTH_STATUS.FAILED) {
+    const err = new Error(evalResult.reason || '认证校验未通过')
+    err.status = 400
+    err.code = 'AUTH_FAILED'
+    err.profile = formatOnboardingProfile(updated, updated.stores[0])
+    throw err
+  }
+  return {
+    profile: formatOnboardingProfile(updated, updated.stores[0]),
+    message:
+      evalResult.authStatus === AUTH_STATUS.VERIFIED
+        ? '认证已通过'
+        : evalResult.reason || '认证已提交',
+  }
+}
+
+/**
+ * 运营撤销认证标
+ */
+async function revokeMerchantAuth(merchantId, { reason = '' } = {}) {
+  const merchant = await prisma.merchant.findUnique({
+    where: { id: merchantId },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  if (!merchant) {
+    const err = new Error('商家不存在')
+    err.status = 404
+    throw err
+  }
+  const updated = await prisma.merchant.update({
+    where: { id: merchantId },
+    data: {
+      authStatus: AUTH_STATUS.NONE,
+      authVerifiedAt: null,
+      rejectReason: reason ? String(reason).slice(0, 200) : merchant.rejectReason,
+    },
+    include: { stores: { orderBy: { createdAt: 'asc' } } },
+  })
+  return formatOnboardingProfile(updated, updated.stores[0])
 }
 
 module.exports = {
@@ -634,4 +853,8 @@ module.exports = {
   listWorkbenchStoreEntries,
   beginNewStoreRegistration,
   discardMerchantApplication,
+  quickOpenMerchant,
+  submitMerchantAuth,
+  revokeMerchantAuth,
+  refreshMerchantCompleteness,
 }

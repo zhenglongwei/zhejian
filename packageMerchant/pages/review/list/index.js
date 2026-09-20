@@ -25,7 +25,7 @@ Page({
     errorMessage: '',
     storeId: '',
     emptyTitle: '暂无评价',
-    emptyDescription: '车主在相册完工后可提交服务评价',
+    emptyDescription: '车主在相册完工后可提交服务评�?,
     skeletonItems: [0, 1, 2],
   },
 
@@ -50,7 +50,7 @@ Page({
         content: '完成商家入驻后可查看车主评价',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }

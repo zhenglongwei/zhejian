@@ -166,7 +166,7 @@ Page({
         title: '请先入驻',
         success: (res) => {
           if (res.confirm) {
-            wx.redirectTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }
@@ -317,7 +317,7 @@ Page({
   async onPickCover() {
     const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
     const temp = res.tempFiles[0].tempFilePath
-    wx.showLoading({ title: '上传中', mask: true })
+    wx.showLoading({ title: '上传�?, mask: true })
     try {
       const url = await uploadImage(temp)
       this.setData({ 'form.coverUrl': url })
@@ -380,17 +380,17 @@ Page({
 
   validate(requireFixedAmount) {
     if (!this.data.itemsReady) {
-      wx.showToast({ title: '服务项目加载中', icon: 'none' })
+      wx.showToast({ title: '服务项目加载�?, icon: 'none' })
       return false
     }
     const { form } = this.data
     const name = form.name.trim()
     if (!name) {
-      wx.showToast({ title: '请填写服务名称', icon: 'none' })
+      wx.showToast({ title: '请填写服务名�?, icon: 'none' })
       return false
     }
     if (name.length > SERVICE_NAME_MAX) {
-      wx.showToast({ title: `服务名称不超过 ${SERVICE_NAME_MAX} 字`, icon: 'none' })
+      wx.showToast({ title: `服务名称不超�?${SERVICE_NAME_MAX} 字`, icon: 'none' })
       return false
     }
     const query = extractNameQuery(name, this.storeName)
@@ -414,7 +414,7 @@ Page({
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), false)
-      wx.showToast({ title: '草稿已保存', icon: 'success' })
+      wx.showToast({ title: '草稿已保�?, icon: 'success' })
       setTimeout(() => wx.navigateBack(), 500)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
@@ -428,7 +428,7 @@ Page({
     this.setData({ submitting: true })
     try {
       await saveServicePlan(this.buildPayload(), true)
-      wx.showToast({ title: '已上架', icon: 'success' })
+      wx.showToast({ title: '已上�?, icon: 'success' })
       setTimeout(() => wx.navigateBack(), 500)
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '上架失败', icon: 'none' })

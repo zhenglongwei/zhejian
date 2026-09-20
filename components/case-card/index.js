@@ -20,6 +20,7 @@ Component({
     minAmount: { type: null, value: null },
     maxAmount: { type: null, value: null },
     storeName: { type: String, value: '' },
+    publisherTrustLine: { type: String, value: '' },
     viewCount: { type: Number, value: 0 },
     showStoreName: { type: Boolean, value: true },
     embedded: { type: Boolean, value: false },

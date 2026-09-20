@@ -5,6 +5,7 @@ const {
   refreshMerchantSession,
   recognizeLicenseOcr,
   beginNewMerchantStore,
+  submitMerchantAuth,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
@@ -39,6 +40,7 @@ const EMPTY_FORM = {
   legalName: '',
   creditCode: '',
   licensePhotoUrl: '',
+  legalIdPhotoUrl: '',
   licenseEstablishedOn: '',
   contactEmail: '',
   qualificationType: 'class_3',
@@ -94,12 +96,14 @@ Page({
     status: 'loading',
     merchantId: '',
     newStoreMode: false,
+    authMode: false,
     licenseOcrHint: '',
   },
 
   onLoad(options = {}) {
     this.newStoreMode = options.newStore === '1'
     this.targetMerchantId = options.merchantId || ''
+    this.authMode = options.mode === 'auth'
     this.initForm()
   },
 
@@ -139,6 +143,7 @@ Page({
         legalName: profile.legalName || '',
         creditCode: profile.creditCode || '',
         licensePhotoUrl: profile.licensePhotoUrl || '',
+        legalIdPhotoUrl: profile.legalIdPhotoUrl || '',
         licenseEstablishedOn: normalizeDateValue(profile.licenseEstablishedOn),
         contactEmail: profile.contactEmail || '',
         qualificationType: baseType,
@@ -184,14 +189,33 @@ Page({
 
     const profile = await fetchMerchantProfile({
       merchantId: this.targetMerchantId,
-      preferIncomplete: !this.targetMerchantId,
+      preferIncomplete: !this.targetMerchantId && !this.authMode,
     })
     if (profile && profile.status === MERCHANT_STATUS.APPROVED && !this.targetMerchantId) {
+      if (this.authMode) {
+        const patch = this.profileToForm(profile)
+        this.setData({
+          ...patch,
+          status: 'auth',
+          authMode: true,
+          profile,
+          merchantId: profile.merchantId || '',
+          heroCopy: {
+            title: '商家认证',
+            subtitle: '上传执照与法人证，通过后公开页显示「已认证」',
+          },
+        })
+        return
+      }
       redirectAfterMerchantApproved(profile.merchantId, 'onboarding')
       return
     }
     if (profile && profile.status === MERCHANT_STATUS.PENDING) {
-      this.setData({ status: 'pending', profile, merchantId: profile.merchantId || '' })
+      this.setData({
+        status: 'pending',
+        profile,
+        merchantId: profile.merchantId || '',
+      })
       return
     }
     if (profile) {
@@ -416,6 +440,10 @@ Page({
     }
   },
 
+  onPickLegalId() {
+    this.pickSingleImage('legalIdPhotoUrl')
+  },
+
   onPickFacade() {
     this.pickSingleImage('facadePhotoUrl')
   },
@@ -508,24 +536,16 @@ Page({
 
   validate() {
     const f = this.data.form
-    if (!f.legalName || !f.creditCode || !f.licensePhotoUrl) {
-      wx.showToast({ title: '请完善商家主体信息', icon: 'none' })
+    if (!f.storeName) {
+      wx.showToast({ title: '请填写门店名称', icon: 'none' })
       return false
     }
-    if (!f.storeName || !f.contactName || !f.phone || !f.address) {
-      wx.showToast({ title: '请填写门店与联系人信息', icon: 'none' })
+    if (!f.contactName || !f.phone) {
+      wx.showToast({ title: '请填写负责人与手机', icon: 'none' })
       return false
     }
     if (!/^\d{11}$/.test(String(f.phone || '').replace(/\D/g, ''))) {
       wx.showToast({ title: '请填写正确的负责人手机号', icon: 'none' })
-      return false
-    }
-    if (!f.latitude || !f.longitude) {
-      wx.showToast({ title: '请在地图上选择门店位置', icon: 'none' })
-      return false
-    }
-    if (!f.qualificationType || !f.qualificationPhotoUrl) {
-      wx.showToast({ title: '请完善基础维修资质信息', icon: 'none' })
       return false
     }
     if (f.newEnergyEnabled && !f.newEnergyPhotoUrl) {
@@ -533,7 +553,7 @@ Page({
       return false
     }
     if (!this.data.agreed) {
-      wx.showToast({ title: '请阅读并同意入驻说明', icon: 'none' })
+      wx.showToast({ title: '请阅读并同意说明', icon: 'none' })
       return false
     }
     return true
@@ -560,23 +580,42 @@ Page({
       })
       const profile = result.profile || result
       if (profile.status === MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '入驻已通过', icon: 'success' })
+        wx.showToast({ title: '资料已保存', icon: 'success' })
         setTimeout(() => {
           redirectAfterMerchantApproved(profile.merchantId, 'submit')
         }, 600)
         return
       }
-      if (profile.status === MERCHANT_STATUS.PENDING) {
-        this.setData({ status: 'pending', profile, merchantId: profile.merchantId || '' })
-        wx.showToast({ title: '已提交，等待审核', icon: 'none' })
-        setTimeout(() => {
-          wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
-        }, 800)
-        return
-      }
       wx.showToast({ title: '提交成功', icon: 'success' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '提交失败', icon: 'none' })
+    } finally {
+      this.setData({ submitting: false })
+    }
+  },
+
+  async onSubmitAuth() {
+    if (this.data.submitting) return
+    const { form, merchantId } = this.data
+    if (!form.licensePhotoUrl || !form.legalIdPhotoUrl) {
+      wx.showToast({ title: '请上传执照与法人证', icon: 'none' })
+      return
+    }
+    this.setData({ submitting: true })
+    try {
+      const result = await submitMerchantAuth({
+        merchantId,
+        licensePhotoUrl: form.licensePhotoUrl,
+        legalIdPhotoUrl: form.legalIdPhotoUrl,
+        legalName: form.legalName,
+        creditCode: form.creditCode,
+      })
+      wx.showToast({ title: (result && result.message) || '已提交', icon: 'success' })
+      setTimeout(() => {
+        wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+      }, 600)
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '认证失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }
@@ -591,7 +630,7 @@ Page({
         merchantId: this.data.profile?.merchantId || this.data.merchantId,
       })
       if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '审核已通过', icon: 'success' })
+        wx.showToast({ title: '已开通', icon: 'success' })
         setTimeout(() => {
           redirectAfterMerchantApproved(profile.merchantId, 'audit')
         }, 600)
@@ -599,20 +638,17 @@ Page({
       }
       this.setData({
         profile: profile || null,
-        status:
-          profile && profile.status === MERCHANT_STATUS.PENDING
-            ? 'pending'
-            : profile && profile.status === MERCHANT_STATUS.NEED_MODIFY
-              ? 'need_modify'
-              : profile && profile.status === MERCHANT_STATUS.REJECTED
-                ? 'rejected'
-                : 'normal',
+        status: 'pending',
       })
-      wx.showToast({ title: '仍在审核中', icon: 'none' })
+      wx.showToast({ title: '可返回工作台一键开通', icon: 'none' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '刷新失败', icon: 'none' })
     } finally {
       this.setData({ submitting: false })
     }
+  },
+
+  onGoWorkbench() {
+    wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
   },
 })

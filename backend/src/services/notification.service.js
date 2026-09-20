@@ -464,26 +464,8 @@ async function notifyLeadClosed(lead) {
   })
 }
 
-async function notifyNewLead(lead) {
-  const senderName = String(lead.contact?.name || '').trim()
-  return notifyMerchantOwner({
-    storeId: lead.storeId,
-    messageType: 'lead',
-    title: '有新的咨询线索',
-    content: `${lead.serviceName || '咨询'} · ${lead.storeName || '门店'}`,
-    refType: 'lead',
-    refId: lead.id,
-    jumpPath: `/packageMerchant/pages/lead/detail/index?id=${lead.id}`,
-    wechatTemplateKey: 'lead',
-    wechatPage: `packageMerchant/pages/lead/detail/index?id=${lead.id}`,
-    wechatPayload: {
-      sender: senderName || '咨询用户',
-      time: lead.createdAt || new Date(),
-      tips: `${lead.serviceName || '咨询预约'}，请及时联系`,
-      storeName: lead.storeName,
-      serviceName: lead.serviceName,
-    },
-  })
+async function notifyNewLead() {
+  return null
 }
 
 async function notifyAlbumCompleted(album) {

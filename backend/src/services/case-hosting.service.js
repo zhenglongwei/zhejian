@@ -44,23 +44,39 @@ function readHostMeta(album) {
 
 /** 托管时冻结门店展示快照（主档在 store 表，此处只读副本） */
 async function resolveStoreSnapshot(album = {}) {
+  const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
   const base = {
     storeId: album.storeId || '',
     name: album.storeName || '',
     city: '',
     address: '',
     snapshotAt: new Date().toISOString(),
+    publisherTrust: null,
   }
   if (!album.storeId) return base
   try {
     const store = await prisma.store.findUnique({
       where: { id: album.storeId },
-      select: { name: true, city: true, address: true },
+      select: {
+        name: true,
+        address: true,
+        merchant: {
+          select: {
+            accountType: true,
+            authStatus: true,
+            profileCompleteness: true,
+            name: true,
+            legalName: true,
+          },
+        },
+      },
     })
     if (store) {
       base.name = store.name || base.name
-      base.city = store.city || ''
       base.address = store.address || ''
+      if (store.merchant) {
+        base.publisherTrust = buildPublisherTrustBadge(store.merchant, store)
+      }
     }
   } catch (_) {
     /* 快照允许仅相册冗余字段 */

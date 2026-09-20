@@ -19,3 +19,7 @@ export function rejectMerchant(merchantId, body) {
 export function requestModifyMerchant(merchantId, body) {
   return request.post(`/admin/merchants/${merchantId}/request-modify`, body)
 }
+
+export function revokeMerchantAuth(merchantId, body) {
+  return request.post(`/admin/merchants/${merchantId}/revoke-auth`, body)
+}

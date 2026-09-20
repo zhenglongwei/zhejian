@@ -6,7 +6,8 @@
 
 ## 使用场景
 
-- 新建或扩展商家工作台页：入驻、服务方案、咨询线索、门店预览、员工、数据看板
+- 新建或扩展商家工作台页：入驻、服务方案、门店预览、员工、数据看板
+- **2026-09-20**：商家工作台**不再建设**咨询线索页；车主提交与 `merchant-leads` API 可保留，勿再加 Dock/待办/列表
 - 将 **localStorage mock** 替换为 prod API（如 `services/service.js` 商家分支）
 - 新增 `backend` 商家路由：`/merchant/service-plans*`、`/merchant/onboarding` 扩展字段等
 - **平台定调（2026-06-02）**：内容发布 + AI 可信信源，非交易撮合；服务 **自助上架**，**无**发布前审核；违规 → 举报 + **OPS-SVC** 事后监管
@@ -30,7 +31,7 @@
 - **子 PRD（按页面选读）**：
   - 入驻 → `01_商家入驻PRD.md`
   - 服务上架 → `02_服务商品上架.md`
-  - 咨询线索 → `03_咨询线索管理.md`
+  - 咨询线索 → `03_咨询线索管理.md`（**商家端已下线**，勿再做列表页）
   - 数据看板 → `06_商家数据看板.md`
   - ~~历史案例~~ → `05_历史案例上传.md`（**Phase 1 归档，不新开发**）
 - 状态机：`docs/11_数据结构与状态机/05_咨询线索状态机.md`
@@ -42,8 +43,8 @@
 - 商家端与用户端共用设计体系
 - **工作台首页**：必读 `docs/00_设计规范/12_商家工作台UI线框.md`（对标用户端 `11_工具相册UI线框.md` §1）
 - Hero 必须用 **`ui-album-card` `audience=merchant`**（×1～2），禁止无封面摘要行作主 Hero
-- Dock **四格**：新建相册 / 咨询线索 / 服务方案 / 数据概览
-- 表单页参考 `packageMerchant/pages/onboarding/`、`lead/` 现有样式
+- Dock **三格**：新建相册 / 车主评价 / 服务方案
+- 表单页参考 `packageMerchant/pages/onboarding/` 现有样式
 
 ## 实现目录速查
 
@@ -52,12 +53,12 @@
 | 工作台 | `packageMerchant/pages/workbench/` | `services/merchant.js` | `merchant-onboarding` + stats |
 | 入驻 | `packageMerchant/pages/onboarding/` | `services/merchant.js` | `routes/merchant-onboarding.js` |
 | 服务方案 | `packageMerchant/pages/service/` | `services/service.js` | 待建 `merchant/service-plans` |
-| 咨询线索 | `packageMerchant/pages/lead/` | `services/merchant-lead.js` | `routes/merchant-leads.js` ✅ |
+| 咨询线索 | **已下线** `pages/lead/` | `services/merchant-lead.js`（API 可留） | `routes/merchant-leads.js` |
 | 相册 | `packageMerchant/pages/album/` | `services/merchant-service-album.js` | **卷一，勿在卷二重复改** |
 
 ## 页面类型模板
 
-### A. 工作台 / 列表壳（M-WB / M-LEAD / M-SVC）
+### A. 工作台 / 列表壳（M-WB / M-SVC）
 
 - 进入前 **`ensureMerchant()`**：未入驻 / 非 `APPROVED` → 引导 `onboarding`
 - 状态：`loading` | `empty` | `error` | `normal`
@@ -72,12 +73,9 @@
 - 合规勾选文案符合 V2.0（禁「每一单维修」「免佣」等交易导向）
 - 服务方案：**保存并上架** 即 `published`；**禁止**实现「待平台审核」上架闸门（**OPS-SVC** 仅事后抽查/下架）
 
-### C. 咨询线索详情（M-LEAD）
+### C. 咨询线索（已下线）
 
-- 进入 `SUBMITTED` 自动 `mark viewed`
-- 底栏：拨号 + 标记已联系 / 关闭（含原因）
-- 页脚固定平台说明（非平台订单）
-- **禁止**出现接单、改价、收款、订单态按钮
+商家工作台**不再**提供线索列表/详情/待办。勿再生成 `packageMerchant/pages/lead/`。车主咨询记录仍走用户端。
 
 ### D. 门店预览（M-STORE）
 

@@ -16,7 +16,6 @@ const MERCHANT_CASE_SECTION_TITLE = '案例动态'
 
 const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'createAlbum', label: '新建相册' },
-  { key: 'leads', label: '咨询线索', badgeKey: 'pendingLeads' },
   { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
   { key: 'services', label: '服务方案' },
 ]
@@ -42,18 +41,10 @@ function overviewMetricIsPositive(raw) {
 }
 
 function buildMerchantTodoSummary(todos = {}) {
-  const pendingLeads = Number(todos.pendingLeads) || 0
   const pendingUpload = Number(todos.pendingUpload) || 0
   const pendingReviews = Number(todos.pendingReviews) || 0
   const pendingFollowUp = Number(todos.pendingFollowUp) || 0
   const items = []
-  if (pendingLeads > 0) {
-    items.push({
-      key: 'leads',
-      label: `${pendingLeads} 条咨询待处理`,
-      action: 'leads',
-    })
-  }
   if (pendingUpload > 0) {
     items.push({
       key: 'upload',
@@ -141,9 +132,6 @@ function buildMerchantSubscriptionEntry(subscription = {}, isOwner = false) {
 /** 仅拼非 0 段；全空返回 '' */
 function buildMerchantOverviewLine(overview = {}) {
   const parts = []
-  if (overviewMetricIsPositive(overview.leadSubmit)) {
-    parts.push(`近7天咨询 ${overview.leadSubmit}`)
-  }
   if (overviewMetricIsPositive(overview.transparency)) {
     parts.push(`透明度 ${overview.transparency}`)
   }

@@ -74,7 +74,6 @@ const PLAN_CATALOG = [
     highlights: [
       '服务相册、车主查看与私域分享',
       '车主发布案例基础收录不另收费',
-      '咨询线索工作台可用',
     ],
     publicIndex: true,
   },

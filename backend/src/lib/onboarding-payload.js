@@ -282,15 +282,10 @@ function sanitizeQualificationPayload(qualification) {
   return next
 }
 
-/** 入驻提交：仅校验基本资料（主体/资质/门店标识），其他资料可审核后完善 */
+/** 软信任：提交完善资料仅校验最少字段；证件/门头/资质为加分项 */
 function validateBasicOnboardingPayload(payload) {
-  if (!payload.storeName || !payload.contactName || !payload.phone || !payload.address) {
-    const err = new Error('请填写完整入驻信息')
-    err.status = 400
-    throw err
-  }
-  if (!payload.legalName || !payload.creditCode) {
-    const err = new Error('请填写商家主体名称与统一社会信用代码')
+  if (!payload.storeName || !payload.contactName || !payload.phone) {
+    const err = new Error('请填写门店名称、负责人与手机')
     err.status = 400
     throw err
   }
@@ -300,23 +295,7 @@ function validateBasicOnboardingPayload(payload) {
     err.status = 400
     throw err
   }
-  if (!payload.licensePhotoUrl) {
-    const err = new Error('请上传营业执照照片')
-    err.status = 400
-    throw err
-  }
-  if (payload.latitude == null || payload.longitude == null) {
-    const err = new Error('请在地图上选择门店位置')
-    err.status = 400
-    throw err
-  }
-
   const q = normalizeQualification(payload.qualification)
-  if (!q.baseType || !q.photoUrl) {
-    const err = new Error('请填写基础维修资质类型并上传资质照片')
-    err.status = 400
-    throw err
-  }
   if (q.newEnergy.enabled && !q.newEnergy.photoUrl) {
     const err = new Error('请上传新能源专项资质照片')
     err.status = 400
@@ -327,7 +306,8 @@ function validateBasicOnboardingPayload(payload) {
 
   return {
     ...payload,
-    licensePhotoUrl: assertPersistentImageUrl(payload.licensePhotoUrl),
+    phone: phoneDigits,
+    licensePhotoUrl: assertPersistentOptional(payload.licensePhotoUrl),
     qualification: sanitizeQualificationPayload(q),
     photos,
   }

@@ -57,7 +57,14 @@ Page({
         wx.showModal({
           title: '请先入驻',
           showCancel: false,
-          success: () => wx.navigateBack(),
+          success: () => {
+            const stack = getCurrentPages()
+            if (stack.length > 1) {
+              wx.navigateBack()
+              return
+            }
+            wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
+          },
         })
       }
     } catch (e) {

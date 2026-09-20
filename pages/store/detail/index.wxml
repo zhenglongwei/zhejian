@@ -357,6 +357,7 @@
               minAmount="{{item.minAmount}}"
               maxAmount="{{item.maxAmount}}"
               storeName="{{item.storeName}}"
+              publisherTrustLine="{{item.publisherTrustLine}}"
               viewCount="{{item.viewCount}}"
               showStoreName="{{false}}"
               bind:cardtap="onCaseTap"

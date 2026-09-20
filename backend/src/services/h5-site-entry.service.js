@@ -1,35 +1,38 @@
 const { listCases } = require('./content.service')
 const { getWxaCodeUnlimited } = require('../lib/wechat')
 const { toShelfStatus } = require('./h5-site-entry-status')
+const { resolveMiniprogramCodeTarget } = require('./h5-miniprogram-code-target')
 
-const MINIPROGRAM_PAGE = 'pages/case/index'
-const MINIPROGRAM_SCENE = 'from=web'
 const CODE_TTL_MS = 6 * 60 * 60 * 1000
 
-/** @type {{ buf: Buffer, at: number } | null} */
-let codeCache = null
+/** @type {Map<string, { buf: Buffer, at: number }>} */
+const codeCache = new Map()
 
 async function getCaseShelfStatus() {
   const data = await listCases({ limit: 1 })
   return toShelfStatus(data && data.total)
 }
 
-async function getMiniprogramCodePng() {
-  if (codeCache && codeCache.buf && Date.now() - codeCache.at < CODE_TTL_MS) {
-    return codeCache.buf
+async function getMiniprogramCodePng(entry) {
+  const target = resolveMiniprogramCodeTarget(entry)
+  const cacheKey = `${target.page}|${target.scene}`
+  const cached = codeCache.get(cacheKey)
+  if (cached && cached.buf && Date.now() - cached.at < CODE_TTL_MS) {
+    return cached.buf
   }
   const buf = await getWxaCodeUnlimited({
-    page: MINIPROGRAM_PAGE,
-    scene: MINIPROGRAM_SCENE,
+    page: target.page,
+    scene: target.scene,
     width: 280,
     envVersion: 'release',
   })
-  codeCache = { buf, at: Date.now() }
+  codeCache.set(cacheKey, { buf, at: Date.now() })
   return buf
 }
 
 module.exports = {
   toShelfStatus,
+  resolveMiniprogramCodeTarget,
   getCaseShelfStatus,
   getMiniprogramCodePng,
 }

@@ -2,8 +2,9 @@
   <div v-loading="loading">
     <el-page-header @back="goBack">
       <template #content>
-        <span class="detail-title">{{ detail.storeName || '商家审核' }}</span>
+        <span class="detail-title">{{ detail.storeName || '商家监管' }}</span>
         <el-tag v-if="detail.statusLabel" class="detail-tag">{{ detail.statusLabel }}</el-tag>
+        <el-tag v-if="detail.authStatusLabel" class="detail-tag" type="info">{{ detail.authStatusLabel }}</el-tag>
       </template>
     </el-page-header>
 
@@ -25,6 +26,7 @@
             <el-descriptions-item label="商家 ID">{{ detail.merchantId }}</el-descriptions-item>
             <el-descriptions-item label="门店 ID">{{ detail.storeId }}</el-descriptions-item>
             <el-descriptions-item label="状态">{{ detail.statusLabel }}</el-descriptions-item>
+            <el-descriptions-item label="身份标签">{{ detail.publisherTrustLine || '—' }}</el-descriptions-item>
             <el-descriptions-item label="门店名称">{{ detail.storeName }}</el-descriptions-item>
             <el-descriptions-item label="负责人">{{ detail.contactName }}</el-descriptions-item>
             <el-descriptions-item label="负责人手机">{{ detail.phoneMasked || '—' }}</el-descriptions-item>
@@ -184,7 +186,18 @@
     </el-card>
 
     <el-card shadow="never" class="section">
-      <template #header>审核操作</template>
+      <template #header>监管操作</template>
+      <div class="soft-actions">
+        <el-button
+          type="warning"
+          :loading="submitting"
+          :disabled="detail.authStatus !== 'verified'"
+          @click="onRevokeAuth"
+        >
+          撤销认证标
+        </el-button>
+        <span class="soft-hint">摘标后公开展示同步为未认证；工作台仍可用</span>
+      </div>
       <ReviewActionBar
         ref="actionRef"
         :loading="submitting"
@@ -214,6 +227,7 @@ import {
   approveMerchant,
   rejectMerchant,
   requestModifyMerchant,
+  revokeMerchantAuth,
 } from '@/api/merchant-review'
 import {
   COMPLIANCE_NOTICES,
@@ -244,14 +258,14 @@ function goBack() {
 }
 
 async function onApprove() {
-  await ElMessageBox.confirm('确认通过并开通该商家工作台？', '审核确认')
+  await ElMessageBox.confirm('确认将该商家标记为已开通？', '确认')
   submitting.value = true
   try {
     const payload = actionRef.value?.getPayload() || {}
     detail.value = await approveMerchant(route.params.merchantId, {
       comment: payload.comment,
     })
-    ElMessage.success('已通过并开通')
+    ElMessage.success('已开通')
     actionRef.value?.reset()
   } finally {
     submitting.value = false
@@ -264,7 +278,7 @@ async function onReject() {
     ElMessage.warning('请填写驳回原因')
     return
   }
-  await ElMessageBox.confirm('确认驳回该入驻申请？', '审核确认', { type: 'warning' })
+  await ElMessageBox.confirm('确认驳回该历史申请？', '确认', { type: 'warning' })
   submitting.value = true
   try {
     detail.value = await rejectMerchant(route.params.merchantId, payload)
@@ -291,6 +305,22 @@ async function onRequestModify() {
   }
 }
 
+async function onRevokeAuth() {
+  await ElMessageBox.confirm('确认撤销「已认证」标签？工作台仍可使用。', '撤销认证标', {
+    type: 'warning',
+  })
+  submitting.value = true
+  try {
+    const payload = actionRef.value?.getPayload() || {}
+    detail.value = await revokeMerchantAuth(route.params.merchantId, {
+      comment: payload.comment || '撤销认证标',
+    })
+    ElMessage.success('已撤销认证标')
+  } finally {
+    submitting.value = false
+  }
+}
+
 onMounted(loadDetail)
 </script>
 
@@ -302,6 +332,16 @@ onMounted(loadDetail)
 }
 .detail-tag {
   vertical-align: middle;
+}
+.soft-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.soft-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
 }
 .notice {
   margin-top: 12px;

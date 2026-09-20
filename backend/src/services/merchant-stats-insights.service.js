@@ -1,6 +1,6 @@
 const { prisma } = require('../lib/prisma')
 const { shanghaiDayBounds } = require('../lib/shanghai-date')
-const { LEAD_STATUS, PUBLIC_CASE_STATUS } = require('../constants/v2')
+const { PUBLIC_CASE_STATUS } = require('../constants/v2')
 const { getServiceItem } = require('../constants/service-catalog')
 const { fetchMerchantAlbumStats } = require('./service-album.service')
 const { loadStoreCapabilitiesByIds } = require('../utils/store-capability-load')
@@ -10,7 +10,6 @@ const H5_CASE_VIEW_EVENT = 'h5_case_view'
 const MP_CASE_VIEW_EVENT = 'case_view'
 const CASE_VIEW_EVENTS = new Set([MP_CASE_VIEW_EVENT, H5_CASE_VIEW_EVENT])
 const SERVICE_VIEW_EVENTS = new Set(['h5_service_view', 'service_view'])
-const STALE_LEAD_MS = 24 * 60 * 60 * 1000
 
 function paramStoreId(params) {
   if (!params || typeof params !== 'object') return ''
@@ -190,30 +189,11 @@ async function fetchTopServices(merchantId, storeIds, range) {
     .slice(0, TOP_LIMIT)
 }
 
-async function countStaleLeads(storeIds) {
-  const cutoff = new Date(Date.now() - STALE_LEAD_MS)
-  return prisma.consultLead.count({
-    where: {
-      storeId: { in: storeIds },
-      status: { in: [LEAD_STATUS.SUBMITTED, LEAD_STATUS.VIEWED] },
-      createdAt: { lt: cutoff },
-    },
-  })
-}
-
 function buildSuggestions(ctx) {
   const tips = []
-  const stale = ctx.staleLeadCount || 0
   const pendingAuth = ctx.pendingAuth || 0
-  const pendingLeads = ctx.pendingLeads || 0
   const score = ctx.transparencyScore || 0
   const topCases = ctx.topCases || []
-
-  if (stale > 0) {
-    tips.push(`你有 ${stale} 条咨询线索超过 24 小时未联系，建议尽快回电。`)
-  } else if (pendingLeads > 0) {
-    tips.push(`你有 ${pendingLeads} 条咨询线索待处理，建议尽快查看并联系。`)
-  }
 
   if (pendingAuth > 0) {
     tips.push(
@@ -231,7 +211,7 @@ function buildSuggestions(ctx) {
   }
 
   if (score > 0 && score < 45) {
-    tips.push('门店透明度分偏低，建议补充公开案例、完善服务资料并跟进咨询线索。')
+    tips.push('门店透明度分偏低，建议补充公开案例、完善服务资料。')
   }
 
   if (ctx.daysSinceLastPublicCase != null && ctx.daysSinceLastPublicCase > 30) {
@@ -249,30 +229,21 @@ function buildSuggestions(ctx) {
   }
 
   if (!tips.length) {
-    tips.push('继续保持案例更新与线索跟进，站外浏览数据将按日汇总展示。')
+    tips.push('继续保持案例更新，站外浏览数据将按日汇总展示。')
   }
 
   return tips.slice(0, 5)
 }
 
 async function loadRealtimeTodos(storeIds, merchantId) {
-  const [pendingLeads, albumStats] = await Promise.all([
-    prisma.consultLead.count({
-      where: {
-        storeId: { in: storeIds },
-        status: { in: [LEAD_STATUS.SUBMITTED, LEAD_STATUS.VIEWED] },
-      },
-    }),
-    fetchMerchantAlbumStats('', merchantId),
-  ])
-  return { pendingLeads, pendingAuth: albumStats.pendingAuth || 0 }
+  const albumStats = await fetchMerchantAlbumStats('', merchantId)
+  return { pendingAuth: albumStats.pendingAuth || 0 }
 }
 
 async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
-  const [topCases, topServices, staleLeadCount, todos, stores] = await Promise.all([
+  const [topCases, topServices, todos, stores] = await Promise.all([
     fetchTopCases(storeIds, range),
     fetchTopServices(merchantId, storeIds, range),
-    countStaleLeads(storeIds),
     loadRealtimeTodos(storeIds, merchantId),
     loadStoreCapabilitiesByIds(storeIds),
   ])
@@ -333,14 +304,13 @@ async function fetchStatsInsights(merchantId, storeIds, range, ctx = {}) {
   const suggestions = buildSuggestions({
     ...ctx,
     ...todos,
-    staleLeadCount,
     topCases,
     capabilityIncomplete,
     brandAuthExpiring,
     daysSinceLastPublicCase,
   })
 
-  return { topCases, topServices, suggestions, staleLeadCount, ...todos }
+  return { topCases, topServices, suggestions, ...todos }
 }
 
 module.exports = {

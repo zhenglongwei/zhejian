@@ -1,9 +1,9 @@
 <template>
   <div v-loading="loading">
-    <h2 class="page-title">商家审核</h2>
+    <h2 class="page-title">商家监管</h2>
     <MerchantHubNav active="onboarding" />
     <p class="page-desc">
-      审核商家首次入驻申请（主体、执照、门店基础信息）。已通过商家的技师/设备/品牌授权变更请切换到「能力变更」。
+      抽查商家账号与认证资料；可撤销认证标或冻结公开。一键开通后即可生产，本页不再作为开通门禁。
     </p>
     <el-tabs v-model="activeTab" @tab-change="onTabChange">
       <el-tab-pane
@@ -30,14 +30,15 @@
       <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
       <el-table-column prop="serviceCount" label="擅长服务" width="90" />
       <el-table-column prop="statusLabel" label="状态" width="100" />
+      <el-table-column prop="publisherTrustLine" label="身份标签" min-width="160" show-overflow-tooltip />
       <el-table-column prop="submittedAt" label="提交时间" width="170" />
       <el-table-column label="操作" width="90" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click.stop="goDetail(row)">审核</el-button>
+          <el-button link type="primary" @click.stop="goDetail(row)">查看</el-button>
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-else-if="!loading" description="暂无商家入驻申请" />
+    <el-empty v-else-if="!loading" description="暂无商家账号" />
 
     <el-pagination
       v-if="total > 0"
@@ -59,7 +60,7 @@ import { MERCHANT_TABS } from '@/constants/merchant-review'
 import MerchantHubNav from '@/components/merchant-review/MerchantHubNav.vue'
 
 const router = useRouter()
-const activeTab = ref('pending')
+const activeTab = ref('approved')
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)

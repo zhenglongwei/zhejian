@@ -68,7 +68,7 @@ router.get('/h5/case-shelf', async (req, res, next) => {
 
 router.get('/h5/miniprogram-code', async (req, res, next) => {
   try {
-    const buf = await getMiniprogramCodePng()
+    const buf = await getMiniprogramCodePng(req.query.entry)
     res.set('Content-Type', 'image/png')
     res.set('Cache-Control', 'public, max-age=21600')
     return res.send(buf)

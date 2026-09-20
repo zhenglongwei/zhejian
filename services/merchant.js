@@ -350,6 +350,69 @@ async function submitOnboarding(form) {
   return data
 }
 
+async function quickOpenMerchant(options = {}) {
+  if (ENV.mode === 'mock') {
+    await delay(200)
+    const profile = {
+      status: MERCHANT_STATUS.APPROVED,
+      merchantId: 'merchant_demo_1',
+      storeId: 'store_demo_1',
+      storeName: options.storeName || '我的门店',
+      authStatus: 'none',
+      authStatusLabel: '未认证',
+      profileCompleteness: 'basic',
+      profileCompletenessLabel: '基础',
+      publisherTrust: {
+        displayLine: '商家 · 未认证 · 资料基础',
+        tags: ['商家', '未认证', '资料基础'],
+      },
+      approvedAt: Date.now(),
+    }
+    saveLocalProfile(profile)
+    return { profile, session: null, alreadyOpen: false }
+  }
+  const data = await post(
+    '/merchant/onboarding/quick-open',
+    { storeName: options.storeName || '' },
+    { showLoading: true, loadingText: '开通中' }
+  )
+  if (data.profile) saveLocalProfile(data.profile)
+  if (data.session) {
+    applyAuthSession(data.session)
+  } else if (data.profile) {
+    await refreshMerchantSession()
+  }
+  return data
+}
+
+async function submitMerchantAuth(form = {}) {
+  if (ENV.mode === 'mock') {
+    await delay(300)
+    const profile = {
+      ...(getLocalProfile() || {}),
+      status: MERCHANT_STATUS.APPROVED,
+      authStatus: 'verified',
+      authStatusLabel: '已认证',
+      legalName: form.legalName || '演示主体',
+      licensePhotoUrl: form.licensePhotoUrl || '',
+      legalIdPhotoUrl: form.legalIdPhotoUrl || '',
+      publisherTrust: {
+        displayLine: '商家 · 已认证 · 资料基础',
+        tags: ['商家', '已认证', '资料基础'],
+      },
+    }
+    saveLocalProfile(profile)
+    return { profile, message: '认证已通过' }
+  }
+  const data = await post(
+    '/merchant/onboarding/auth',
+    buildDraftPayload(form),
+    { showLoading: true, loadingText: '校验中' }
+  )
+  if (data.profile) saveLocalProfile(data.profile)
+  return data
+}
+
 function getProfile() {
   return getLocalProfile()
 }
@@ -370,6 +433,8 @@ module.exports = {
   beginNewMerchantStore,
   discardMerchantApplication,
   submitOnboarding,
+  quickOpenMerchant,
+  submitMerchantAuth,
   saveOnboardingDraft,
   refreshMerchantSession,
   getProfile,

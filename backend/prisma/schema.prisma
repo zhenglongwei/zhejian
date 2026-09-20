@@ -39,14 +39,23 @@ model Merchant {
   id                String          @id
   name              String          @default("")
   status            String          @default("DRAFT")
+  /// merchant | personal（个人生产者预留，暂不开放注册）
+  accountType       String          @default("merchant") @map("account_type") @db.VarChar(16)
+  /// none | pending | verified | failed
+  authStatus        String          @default("none") @map("auth_status") @db.VarChar(16)
+  /// basic | enriched | complete
+  profileCompleteness String        @default("basic") @map("profile_completeness") @db.VarChar(16)
   ownerUserId       String          @default("") @map("owner_user_id")
   contactName       String          @default("") @map("contact_name")
   contactPhone      String          @default("") @map("contact_phone")
   legalName         String          @default("") @map("legal_name")
   creditCode        String          @default("") @map("credit_code")
   licensePhotoUrl   String          @default("") @map("license_photo_url") @db.VarChar(512)
+  /// 法人/负责人身份证照片（认证用）
+  legalIdPhotoUrl   String          @default("") @map("legal_id_photo_url") @db.VarChar(512)
   /// 营业执照成立日期（用于经营年限展示；可空）
   licenseEstablishedOn DateTime?    @map("license_established_on") @db.Date
+  authVerifiedAt    DateTime?       @map("auth_verified_at")
   contactEmail      String          @default("") @map("contact_email")
   qualificationJson Json            @default("{}") @map("qualification_json")
   rejectReason      String          @default("") @map("reject_reason")
@@ -62,6 +71,7 @@ model Merchant {
 
   @@index([ownerUserId])
   @@index([status])
+  @@index([authStatus])
   @@map("merchants")
 }
 

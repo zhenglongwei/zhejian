@@ -28,6 +28,7 @@
     </view>
     <view class="case-card__footer text-caption">
       <text wx:if="{{displayStoreName}}">{{storeName}}</text>
+      <text wx:if="{{publisherTrustLine}}" class="case-card__trust">{{publisherTrustLine}}</text>
       <text wx:if="{{viewCount}}" class="case-card__views">浏览 {{viewCount}}</text>
     </view>
   </view>

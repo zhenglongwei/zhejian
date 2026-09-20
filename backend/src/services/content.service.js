@@ -67,6 +67,55 @@ const {
   isStoreShowcaseCase,
   readHostMeta,
 } = require('../utils/archive-attribution')
+const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
+
+async function loadPublisherTrustByStoreIds(storeIds = []) {
+  const ids = [...new Set((storeIds || []).filter(Boolean))]
+  const map = new Map()
+  if (!ids.length) return map
+  try {
+    const stores = await prisma.store.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+        businessHours: true,
+        phone: true,
+        photosJson: true,
+        capabilityJson: true,
+        merchant: {
+          select: {
+            accountType: true,
+            authStatus: true,
+            profileCompleteness: true,
+            name: true,
+            legalName: true,
+            contactPhone: true,
+          },
+        },
+      },
+    })
+    stores.forEach((store) => {
+      if (!store.merchant) return
+      map.set(store.id, buildPublisherTrustBadge(store.merchant, store))
+    })
+  } catch (e) {
+    console.warn('[content] loadPublisherTrust', e && e.message)
+  }
+  return map
+}
+
+function attachPublisherTrust(item, trust) {
+  if (!item || !trust) return item
+  return {
+    ...item,
+    publisherTrust: trust,
+    publisherTrustLine: trust.displayLine || '',
+  }
+}
 const { config } = require('../config')
 const { collectHostedCaseFaq } = require('../utils/hosted-storefront-faq')
 const { H5_SERVICE_ITEMS } = require('../constants/h5-service-items')
@@ -364,7 +413,10 @@ async function fetchPublicCaseRows() {
   const visibleRows = rows.filter((row) => row.storeId && activeStoreIds.has(row.storeId))
   if (!visibleRows.length) return []
 
-  return visibleRows.map((row) => mapPublicCaseRow(row, null))
+  const trustMap = await loadPublisherTrustByStoreIds(visibleRows.map((row) => row.storeId))
+  return visibleRows.map((row) =>
+    attachPublisherTrust(mapPublicCaseRow(row, null), trustMap.get(row.storeId))
+  )
 }
 
 async function listCases(query = {}) {
@@ -472,6 +524,10 @@ async function getCaseDetail(idOrSlug, opts = {}) {
       }
     }
     item = attachCaseArticleAndSeo(row, mapPublicCaseRow(row, album, { maskLookup }))
+    if (item.storeId) {
+      const trustMap = await loadPublisherTrustByStoreIds([item.storeId])
+      item = attachPublisherTrust(item, trustMap.get(item.storeId))
+    }
   } else {
     const fallback = config.contentPublicCaseFallback
       ? FALLBACK_PUBLIC_CASES.find((c) => c.id === idOrSlug || c.slug === idOrSlug)

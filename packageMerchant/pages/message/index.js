@@ -58,7 +58,9 @@ Page({
       }
 
       const data = await fetchMerchantNotifications({ page: 1, pageSize: 50 })
-      const list = (data && data.list) || []
+      const list = ((data && data.list) || []).filter(
+        (item) => item && item.refType !== 'lead' && item.messageType !== 'lead',
+      )
       this.setData({
         list,
         unreadCount: Number(data && data.unreadCount) || 0,

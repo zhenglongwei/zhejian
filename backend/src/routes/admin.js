@@ -71,6 +71,7 @@ const {
   approveAdminMerchant,
   rejectAdminMerchant,
   requestModifyAdminMerchant,
+  revokeAuthAdminMerchant,
 } = require('../services/admin-merchant.service')
 
 const {
@@ -784,6 +785,18 @@ router.post('/merchants/:merchantId/request-modify', async (req, res, next) => {
       reviewerId: req.admin?.reviewerId,
       comment: req.body?.comment || '',
       reasonType: req.body?.reasonType || '',
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/merchants/:merchantId/revoke-auth', async (req, res, next) => {
+  try {
+    const data = await revokeAuthAdminMerchant(req.params.merchantId, {
+      reviewerId: req.admin?.reviewerId,
+      reviewComment: req.body?.comment || req.body?.reviewComment || '',
     })
     return ok(res, data)
   } catch (e) {

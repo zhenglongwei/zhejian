@@ -12,6 +12,7 @@ const {
 } = require('../lib/onboarding-payload')
 const { buildMerchantCapabilityEditorView } = require('../utils/store-capability')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+const { buildPublisherTrustBadge } = require('../utils/merchant-trust')
 
 function resignPhotoMap(photos = {}) {
   const receptionUrls = (
@@ -89,6 +90,7 @@ function pickPrimaryStore(merchant) {
 function formatListItem(merchant, store) {
   const phone = merchant.contactPhone || store?.phone || ''
   const services = Array.isArray(store?.servicesJson) ? store.servicesJson : []
+  const trust = buildPublisherTrustBadge(merchant, store)
   return {
     merchantId: merchant.id,
     storeId: store?.id || '',
@@ -99,6 +101,11 @@ function formatListItem(merchant, store) {
     serviceCount: services.length,
     status: merchant.status,
     statusLabel: merchantStatusLabel(merchant.status),
+    authStatus: trust.authStatus,
+    authStatusLabel: trust.authStatusLabel,
+    profileCompleteness: trust.profileCompleteness,
+    profileCompletenessLabel: trust.profileCompletenessLabel,
+    publisherTrustLine: trust.displayLine,
     submittedAt: toIso(merchant.submittedAt),
     updatedAt: toIso(merchant.updatedAt),
   }
@@ -201,6 +208,7 @@ async function getAdminMerchantDetail(merchantId) {
   const qualification = formatQualificationForClient(merchant.qualificationJson)
   const photos = resignPhotoMap(formatPhotosForClient(store.photosJson))
   const capability = buildMerchantCapabilityEditorView(store.capabilityJson, photos)
+  const trust = buildPublisherTrustBadge(merchant, store)
 
   return {
     merchantId: merchant.id,
@@ -218,6 +226,7 @@ async function getAdminMerchantDetail(merchantId) {
     legalName: merchant.legalName || '',
     creditCode: merchant.creditCode || '',
     licensePhotoUrl: resolveClientReadableMediaUrl(merchant.licensePhotoUrl || ''),
+    legalIdPhotoUrl: resolveClientReadableMediaUrl(merchant.legalIdPhotoUrl || ''),
     licenseEstablishedOn:
       merchant.licenseEstablishedOn instanceof Date
         ? merchant.licenseEstablishedOn.toISOString().slice(0, 10)
@@ -241,6 +250,13 @@ async function getAdminMerchantDetail(merchantId) {
     capabilityReviewStatus: capability.reviewStatus,
     status: merchant.status,
     statusLabel: merchantStatusLabel(merchant.status),
+    accountType: trust.accountType,
+    authStatus: trust.authStatus,
+    authStatusLabel: trust.authStatusLabel,
+    profileCompleteness: trust.profileCompleteness,
+    profileCompletenessLabel: trust.profileCompletenessLabel,
+    publisherTrust: trust,
+    publisherTrustLine: trust.displayLine,
     rejectReason: merchant.rejectReason || '',
     agreedAt: toIso(merchant.agreedAt),
     submittedAt: toIso(merchant.submittedAt),
@@ -383,10 +399,32 @@ async function requestModifyAdminMerchant(
   return getAdminMerchantDetail(merchantId)
 }
 
+async function revokeAuthAdminMerchant(merchantId, { reviewerId = 'admin', reviewComment = '' } = {}) {
+  const { revokeMerchantAuth } = require('./merchant-onboarding.service')
+  const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } })
+  if (!merchant) {
+    const err = new Error('商家不存在')
+    err.status = 404
+    throw err
+  }
+  await revokeMerchantAuth(merchantId, { reason: reviewComment })
+  await appendMerchantReviewLog({
+    merchantId,
+    storeId: '',
+    reviewerId,
+    reviewAction: 'revoke_auth',
+    reviewComment: reviewComment || '撤销认证标',
+    beforeStatus: merchant.status,
+    afterStatus: merchant.status,
+  })
+  return getAdminMerchantDetail(merchantId)
+}
+
 module.exports = {
   listAdminMerchants,
   getAdminMerchantDetail,
   approveAdminMerchant,
   rejectAdminMerchant,
   requestModifyAdminMerchant,
+  revokeAuthAdminMerchant,
 }

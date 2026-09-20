@@ -10,7 +10,7 @@ const TAB_ALL = 'all'
 const STATUS_TABS = [
   { key: TAB_ALL, label: '全部' },
   { key: SERVICE_STATUS.DRAFT, label: '草稿' },
-  { key: SERVICE_STATUS.PUBLISHED, label: '已上架' },
+  { key: SERVICE_STATUS.PUBLISHED, label: '已上�? },
 ]
 
 Page({
@@ -34,7 +34,7 @@ Page({
         content: '完成商家入驻后可管理服务方案',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }

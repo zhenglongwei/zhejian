@@ -8,6 +8,8 @@ const {
   listWorkbenchStoreEntries,
   beginNewStoreRegistration,
   discardMerchantApplication,
+  quickOpenMerchant,
+  submitMerchantAuth,
 } = require('../services/merchant-onboarding.service')
 const { recognizeBusinessLicense } = require('../services/license-ocr.service')
 
@@ -33,6 +35,29 @@ router.get('/workbench-entries', requireAuth(['user']), async (req, res, next) =
   try {
     const list = await listWorkbenchStoreEntries(req.auth.userId)
     return ok(res, { list, total: list.length })
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/onboarding/quick-open', requireAuth(['user']), async (req, res, next) => {
+  try {
+    const data = await quickOpenMerchant(req.auth.userId, {
+      storeName: req.body?.storeName,
+    })
+    return ok(res, data)
+  } catch (e) {
+    next(e)
+  }
+})
+
+router.post('/onboarding/auth', requireAuth(['user', 'merchant']), async (req, res, next) => {
+  try {
+    const data = await submitMerchantAuth(req.auth.userId, {
+      ...(req.body || {}),
+      merchantId: req.body?.merchantId || req.auth.merchantId,
+    })
+    return ok(res, data)
   } catch (e) {
     next(e)
   }

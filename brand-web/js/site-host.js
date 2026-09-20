@@ -7,14 +7,16 @@
   }
 
   function fallbackMiniprogramCode() {
-    document.querySelectorAll('img[alt="辙见小程序码"]').forEach(function (img) {
+    document.querySelectorAll('img[src*="miniprogram-code"]').forEach(function (img) {
       img.addEventListener('error', function onErr() {
         img.removeEventListener('error', onErr)
         if (String(img.src || '').indexOf(CASE_SITE_LEGACY) >= 0) {
           img.remove()
           return
         }
-        img.src = CASE_SITE_LEGACY + '/api/v1/public/h5/miniprogram-code'
+        var src = String(img.src || '')
+        var query = src.indexOf('?') >= 0 ? src.slice(src.indexOf('?')) : ''
+        img.src = CASE_SITE_LEGACY + '/api/v1/public/h5/miniprogram-code' + query
       })
     })
   }

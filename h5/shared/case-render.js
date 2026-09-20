@@ -496,11 +496,19 @@
     return appendAttributionProperties(props, data)
   }
 
-  // 主标签：商家上传 · 已脱敏（禁止「已审核」）
+  // 主标签：商家上传 · 已脱敏 · 身份标签（禁止「已审核」）
   function renderTags(data) {
     var sourceLabel =
       (data.attribution && data.attribution.sourceLabel) || '商家上传'
     var labels = [sourceLabel, '已脱敏']
+    var trust = data.publisherTrust
+    if (trust && Array.isArray(trust.tags) && trust.tags.length) {
+      trust.tags.forEach(function (t) {
+        if (t && labels.indexOf(t) < 0) labels.push(t)
+      })
+    } else if (data.publisherTrustLine) {
+      labels.push(String(data.publisherTrustLine))
+    }
     var html = labels
       .map(function (text) {
         var cls = text === '已脱敏' ? 'h5-tag--desensitized' : 'h5-tag--info'
@@ -510,7 +518,7 @@
     var note =
       data.attribution && !data.attribution.showStoreAsAuthor
         ? escapeHtml(data.attribution.storeAttributionLabel || '提交者声称、门店未确认')
-        : '内容由门店托管公开，来源为商家上传；平台不担保真实与脱敏零残留。'
+        : '内容由门店托管公开，来源为商家上传；标签仅描述账号资料状态，平台不担保真实与脱敏零残留。'
     return (
       '<div class="h5-tags">' +
       html +

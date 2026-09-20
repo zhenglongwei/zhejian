@@ -53,12 +53,6 @@
 
           <text class="text-h3 merchant-dash__section-title">当前待办</text>
           <view class="merchant-dash__queue">
-            <view class="merchant-dash__action-row merchant-dash__action-row--tap" bindtap="onGoLeads">
-              <view class="merchant-dash__action-copy">
-                <text class="text-body">{{display.pendingLeads}} 条咨询待处理</text>
-              </view>
-              <text class="text-caption text-link">去处理</text>
-            </view>
             <view class="merchant-dash__action-row merchant-dash__action-row--tap" bindtap="onGoAlbumAuth">
               <view class="merchant-dash__action-copy">
                 <text class="text-body">{{display.pendingAuth}} 本待车主发布</text>
@@ -122,29 +116,6 @@
 
           <view class="surface-album-inset-divider" />
 
-          <view class="merchant-dash__section-head">
-            <text class="text-h3">咨询线索</text>
-            <text class="text-caption merchant-dash__rates">线索率 {{display.leadRate}} · 联系率 {{display.contactRate}}</text>
-          </view>
-          <view class="merchant-dash__queue">
-            <view
-              wx:for="{{leadRows}}"
-              wx:key="key"
-              class="merchant-dash__action-row merchant-dash__action-row--{{item.key}} {{item.active ? 'merchant-dash__action-row--active' : ''}} {{item.handler ? 'merchant-dash__action-row--tap' : ''}}"
-              data-handler="{{item.handler}}"
-              bindtap="onLeadRowTap"
-            >
-              <view class="merchant-dash__action-dot {{item.active ? 'merchant-dash__action-dot--active' : ''}}" />
-              <view class="merchant-dash__action-copy">
-                <text class="text-body">{{item.value}} {{item.label}}</text>
-              </view>
-              <text wx:if="{{item.action}}" class="text-caption text-link">{{item.action}}</text>
-            </view>
-          </view>
-          <text class="text-caption merchant-dash__rates merchant-dash__rates--foot">案例咨询率 {{display.caseConsultRate}}</text>
-
-          <view class="surface-album-inset-divider" />
-
           <text class="text-h3 merchant-dash__section-title">服务相册</text>
           <view class="merchant-dash__queue">
             <view
@@ -152,7 +123,7 @@
               wx:key="key"
               class="merchant-dash__action-row merchant-dash__action-row--{{item.key}} {{item.active ? 'merchant-dash__action-row--active' : ''}} {{item.handler ? 'merchant-dash__action-row--tap' : ''}}"
               data-handler="{{item.handler}}"
-              bindtap="onLeadRowTap"
+              bindtap="onMetricRowTap"
             >
               <view class="merchant-dash__action-dot {{item.active ? 'merchant-dash__action-dot--active' : ''}}" />
               <view class="merchant-dash__action-copy">
@@ -165,7 +136,7 @@
           <block wx:if="{{topCases.length || topServices.length}}">
             <view class="surface-album-inset-divider" />
             <text class="text-h3 merchant-dash__section-title">案例 / 服务排行</text>
-            <text class="text-caption merchant-dash__hint">按站外浏览与区间留资统计，转化率为留资÷浏览</text>
+            <text class="text-caption merchant-dash__hint">按站外浏览统计</text>
             <block wx:if="{{topCases.length}}">
               <text class="text-body merchant-dash__rank-sub">案例榜</text>
               <view class="merchant-dash__timeline">
@@ -176,7 +147,7 @@
                   </view>
                   <view class="merchant-dash__timeline-body">
                     <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-                    <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+                    <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}}</text>
                   </view>
                 </view>
               </view>
@@ -191,7 +162,7 @@
                   </view>
                   <view class="merchant-dash__timeline-body">
                     <text class="text-body merchant-dash__rank-title">{{item.title}}</text>
-                    <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}} · 留资 {{item.leadCountText}} · 转化 {{item.leadRateText}}</text>
+                    <text class="text-caption merchant-dash__rank-meta">浏览 {{item.viewCountText}}{{item.viewDetailText ? '（' + item.viewDetailText + '）' : ''}}</text>
                   </view>
                 </view>
               </view>

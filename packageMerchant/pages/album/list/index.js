@@ -60,7 +60,7 @@ Page({
         content: '完成商家入驻后可管理服务相册',
         success: (res) => {
           if (res.confirm) {
-            wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+            wx.navigateTo({ url: '/packageMerchant/pages/workbench/index' })
           } else {
             wx.navigateBack()
           }

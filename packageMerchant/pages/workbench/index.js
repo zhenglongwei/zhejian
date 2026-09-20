@@ -3,13 +3,13 @@ const {
   refreshMerchantSession,
   fetchMerchantStores,
   switchMerchantStore,
+  quickOpenMerchant,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
 const {
   fetchMerchantAlbumStats,
   fetchMerchantServiceAlbumList,
 } = require('../../../services/merchant-service-album')
-const { fetchMerchantLeadStats } = require('../../../services/merchant-lead')
 const { fetchMerchantReviewStats } = require('../../../services/merchant-album-review')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
@@ -22,6 +22,7 @@ const { isMerchantOwner } = require('../../../utils/auth')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
+  MERCHANT_AUTH_HINT,
 } = require('../../../constants/merchant-onboarding-copy')
 const {
   MERCHANT_ALBUM_SECTION_TITLE,
@@ -79,7 +80,6 @@ Page({
     gatePending: MERCHANT_WORKBENCH_GATE_PENDING,
     profile: null,
     todos: {
-      pendingLeads: 0,
       pendingReviews: 0,
       pendingUpload: 0,
       pendingAuth: 0,
@@ -105,6 +105,9 @@ Page({
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
     showFirstGuide: false,
     firstGuide: MERCHANT_FIRST_GUIDE,
+    opening: false,
+    trustHint: '',
+    trustLine: '',
   },
 
   onShow() {
@@ -115,6 +118,18 @@ Page({
   onDismissFirstGuide() {
     dismissMerchantFirstGuide()
     this.setData({ showFirstGuide: false })
+  },
+
+  _buildTrustUi(profile) {
+    if (!profile) return { trustHint: '', trustLine: '' }
+    const auth = String(profile.authStatus || 'none')
+    const hint = MERCHANT_AUTH_HINT[auth] || ''
+    const trustLine =
+      (profile.publisherTrust && profile.publisherTrust.displayLine) ||
+      [profile.authStatusLabel, profile.profileCompletenessLabel && `??${profile.profileCompletenessLabel}`]
+        .filter(Boolean)
+        .join(' � ')
+    return { trustHint: hint, trustLine }
   },
 
   async loadProfile(options = {}) {
@@ -133,27 +148,27 @@ Page({
 
     const profile = await fetchMerchantProfile()
     if (!profile || profile.status === MERCHANT_STATUS.NONE) {
-      this.setData({ status: 'none', profile: null })
+      this.setData({ status: 'none', profile: null, trustHint: '', trustLine: '' })
       return
     }
-    if (profile.status === MERCHANT_STATUS.PENDING) {
-      this.setData({ status: 'pending', profile })
-      return
-    }
-    if (profile.status === MERCHANT_STATUS.REJECTED || profile.status === MERCHANT_STATUS.NEED_MODIFY) {
+    if (
+      profile.status === MERCHANT_STATUS.PENDING ||
+      profile.status === MERCHANT_STATUS.REJECTED ||
+      profile.status === MERCHANT_STATUS.NEED_MODIFY
+    ) {
       this.setData({
-        status: profile.status === MERCHANT_STATUS.NEED_MODIFY ? 'need_modify' : 'rejected',
+        status: 'pending',
         profile,
+        ...this._buildTrustUi(profile),
       })
       return
     }
     if (profile.status !== MERCHANT_STATUS.APPROVED) {
-      this.setData({ status: 'none', profile: null })
+      this.setData({ status: 'none', profile: null, trustHint: '', trustLine: '' })
       return
     }
 
     let todos = {
-      pendingLeads: 0,
       pendingUpload: 0,
       pendingAuth: 0,
       pendingFollowUp: 0,
@@ -185,10 +200,9 @@ Page({
 
     try {
       const canManageStaff = isMerchantOwner()
-      const [stats, leadStats, reviewStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
+      const [stats, reviewStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
         await Promise.all([
           fetchMerchantAlbumStats(),
-          fetchMerchantLeadStats(profile.storeId),
           fetchMerchantReviewStats({ storeId: profile.storeId }).catch(() => ({ pendingReply: 0 })),
           fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
           fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
@@ -200,7 +214,6 @@ Page({
         ])
 
       todos = {
-        pendingLeads: leadStats.pending || 0,
         pendingReviews: reviewStats.pendingReply || 0,
         pendingUpload: stats.pendingUpload || 0,
         pendingAuth: stats.pendingAuth || 0,
@@ -219,7 +232,6 @@ Page({
 
       if (dashStats && dashStats.summary) {
         overviewLine = buildMerchantOverviewLine({
-          leadSubmit: formatCount(dashStats.summary.leadSubmitCount),
           transparency: formatCount(
             dashStats.transparency?.score ?? dashStats.summary.transparencyScore
           ),
@@ -265,7 +277,22 @@ Page({
       canSwitchStore,
       geoOpportunity,
       planTag,
+      ...this._buildTrustUi(profile),
     })
+  },
+
+  async onQuickOpen() {
+    if (this.data.opening) return
+    this.setData({ opening: true })
+    try {
+      await quickOpenMerchant()
+      wx.showToast({ title: '????, icon: 'success' })
+      await this.loadProfile()
+    } catch (e) {
+      wx.showToast({ title: (e && e.message) || '?????, icon: 'none' })
+    } finally {
+      this.setData({ opening: false })
+    }
   },
 
   onStoreHeaderChange(e) {
@@ -286,12 +313,12 @@ Page({
     if (this.data.switchingStore) return
     this.setData({ switchingStore: true })
     try {
-      wx.showLoading({ title: '切换门店', mask: true })
+      wx.showLoading({ title: '????', mask: true })
       await switchMerchantStore(storeId)
       wx.hideLoading()
       this.setData({ storePickerIndex: pickerIndex })
       await this.loadProfile({ silent: true })
-      wx.showToast({ title: '已切换门店', icon: 'success' })
+      wx.showToast({ title: '??????, icon: 'success' })
     } catch (e) {
       wx.hideLoading()
       this.setData({
@@ -300,7 +327,7 @@ Page({
           this.data.storeOptions.findIndex((item) => item.id === this.data.profile?.storeId)
         ),
       })
-      wx.showToast({ title: (e && e.message) || '切换失败', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '????', icon: 'none' })
     } finally {
       this.setData({ switchingStore: false })
     }
@@ -310,8 +337,16 @@ Page({
     wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
   },
 
+  onGoAuth() {
+    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index?mode=auth' })
+  },
+
+  onGoStoreEdit() {
+    wx.navigateTo({ url: '/packageMerchant/pages/store/edit/index' })
+  },
+
   onRefreshAudit() {
-    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index' })
+    this.onQuickOpen()
   },
 
   _navigateTo(url) {
@@ -341,10 +376,6 @@ Page({
       this.onReviewList()
       return
     }
-    if (action === 'leads') {
-      this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } })
-      return
-    }
     if (action === 'upload') {
       this.onOpenPendingUploadTodo()
       return
@@ -371,9 +402,9 @@ Page({
         const plate =
           (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
           row.vehicleDisplay ||
-          '相册'
+          '??'
         const service = String(row.serviceName || '').trim()
-        return service ? `${plate} · ${service}` : plate
+        return service ? `${plate} � ${service}` : plate
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -390,7 +421,7 @@ Page({
     const list = this._followUpAlbums || []
     if (!list.length) {
       this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } })
-      wx.showToast({ title: '请在完工节点查看跟进', icon: 'none' })
+      wx.showToast({ title: '??????????', icon: 'none' })
       return
     }
     if (list.length === 1) {
@@ -403,15 +434,14 @@ Page({
       )
       return
     }
-    // 多本：进列表，优先点开最近有跟进的一本
-    const first = list[0]
+    // ????????????????????    const first = list[0]
     wx.showActionSheet({
       itemList: list.slice(0, 6).map((row) => {
         const plate =
           (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
           row.vehicleDisplay ||
-          '相册'
-        return `${plate} · ${row.followUpCount || 0} 项跟进`
+          '??'
+        return `${plate} � ${row.followUpCount || 0} ???`
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -438,7 +468,6 @@ Page({
     const { key } = e.currentTarget.dataset
     const handlers = {
       createAlbum: () => this.onCreateAlbum(),
-      leads: () => this.onLeadList({ currentTarget: { dataset: { tab: 'pending' } } }),
       reviews: () => this.onReviewList(),
       services: () => this.onServiceList(),
     }
@@ -482,12 +511,6 @@ Page({
     this._navigateTo('/packageMerchant/pages/service/list/index')
   },
 
-  onLeadList(e) {
-    const tab =
-      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.tab) || 'pending'
-    this._navigateTo(`/packageMerchant/pages/lead/list/index?tab=${tab}`)
-  },
-
   onReviewList() {
     this._navigateTo('/packageMerchant/pages/review/list/index?tab=pending')
   },
@@ -511,7 +534,7 @@ Page({
   onStoreHome() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
-      wx.showToast({ title: '未找到门店信息', icon: 'none' })
+      wx.showToast({ title: '????????, icon: 'none' })
       return
     }
     this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1`)

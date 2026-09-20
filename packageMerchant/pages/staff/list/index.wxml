@@ -15,7 +15,7 @@
   <block wx:else>
     <view class="page-content merchant-staff__intro">
       <text class="text-caption merchant-staff__hint">
-        员工账号权限相同，可用于服务相册、咨询线索与服务方案等日常维护。添加时仅需登记手机号；对方日后用该号登录并绑定手机后即可进入工作台。
+        员工账号权限相同，可用于服务相册与服务方案等日常维护。添加时仅需登记手机号；对方日后用该号登录并绑定手机后即可进入工作台。
       </text>
     </view>
 

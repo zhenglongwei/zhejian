@@ -65,11 +65,18 @@
 
 .case-card__footer {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
   color: var(--color-text-tertiary);
+}
+
+.case-card__trust {
+  flex: 1 1 100%;
+  color: var(--color-text-secondary);
 }
 
 .case-card__views {
   flex-shrink: 0;
-  margin-left: var(--space-sm);
+  margin-left: auto;
 }

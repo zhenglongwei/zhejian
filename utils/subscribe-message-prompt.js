@@ -98,20 +98,6 @@ function promptAuthorizeAuditSubscribe(albumId = '') {
   })
 }
 
-/** 商家 · 新咨询线索 */
-function promptMerchantLeadSubscribe(leadId = '') {
-  const storageKey = leadId ? `merchant:lead:${leadId}` : 'merchant:lead'
-  return promptNotificationSubscribe({
-    requestSubscribe: requestMerchantNotificationSubscribe,
-    scene: 'lead',
-    title: '接收新咨询提醒',
-    content:
-      '开启微信通知后，可在有新咨询线索时收到提醒。微信为一次性订阅，每条通知需单独授权。',
-    confirmText: '开启通知',
-    storageKey,
-  })
-}
-
 /** 商家 · 案例/留档审核结果 */
 function promptMerchantAuditSubscribe(refId = '') {
   const storageKey = refId ? `merchant:audit:${refId}` : 'merchant:audit'
@@ -126,14 +112,14 @@ function promptMerchantAuditSubscribe(refId = '') {
   })
 }
 
-/** 商家 · 工作台消息页：新咨询 + 审核结果 */
+/** 商家 · 工作台消息页：审核结果 */
 function promptMerchantWorkbenchSubscribe() {
   return promptNotificationSubscribe({
     requestSubscribe: requestMerchantNotificationSubscribe,
     scene: 'merchant',
     title: '开启微信通知',
     content:
-      '开启后可接收新咨询线索、案例审核与留档合规结果提醒。微信为一次性订阅，每条通知需单独授权。',
+      '开启后可接收案例审核与留档合规结果提醒。微信为一次性订阅，每条通知需单独授权。',
     confirmText: '开启通知',
     storageKey: 'merchant:workbench',
   })
@@ -143,7 +129,6 @@ module.exports = {
   promptUserNotificationSubscribe,
   promptAlbumProgressSubscribe,
   promptAuthorizeAuditSubscribe,
-  promptMerchantLeadSubscribe,
   promptMerchantAuditSubscribe,
   promptMerchantWorkbenchSubscribe,
 }
