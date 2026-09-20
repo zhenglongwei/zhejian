@@ -4,11 +4,10 @@
  * 切换环境：改 ACTIVE_ENV
  * - local    开发者工具 + 本机 backend（127.0.0.1:3000）
  * - staging  体验版/真机联调 → staging.zhejian.simplewin.cn（预发，须微信合法域名）
- * - prod     正式版/体验版 → zhejian.simplewin.cn（生产）
+ * - prod     正式版/体验版 → geo.simplewin.cn（生产；证书扩完后再改 zhejian）
  * - mock     纯前端演示，不发起 HTTP
  *
- * 域名：zhejian.simplewin.cn = 生产；staging.zhejian.simplewin.cn = 预发（API + H5 + /admin/）
- * 过渡期 geo.simplewin.cn / staging.geo.simplewin.cn 仍指向同一套服务。
+ * 预发证书已含 staging.zhejian.simplewin.cn（2026-09-20）。生产仍走 geo，待生产证书 SAN 扩完再改 prod.baseUrl。
  * 提审/正式发版前务必改回 ACTIVE_ENV = 'prod'
  */
 const ACTIVE_ENV = 'staging'
@@ -20,7 +19,7 @@ const PROFILES = {
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://zhejian.simplewin.cn/admin',
+    adminWebBase: 'https://geo.simplewin.cn/admin',
   },
   local: {
     mode: 'dev',
@@ -28,7 +27,7 @@ const PROFILES = {
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://zhejian.simplewin.cn/admin',
+    adminWebBase: 'https://geo.simplewin.cn/admin',
   },
   staging: {
     mode: 'staging',
@@ -40,11 +39,11 @@ const PROFILES = {
   },
   prod: {
     mode: 'prod',
-    baseUrl: 'https://zhejian.simplewin.cn',
+    baseUrl: 'https://geo.simplewin.cn',
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://zhejian.simplewin.cn/admin',
+    adminWebBase: 'https://geo.simplewin.cn/admin',
   },
 }
 
