@@ -162,13 +162,15 @@ pm2 save
 DNS 生效后：
 
 ```bash
-sudo certbot certonly --nginx -d staging.geo.simplewin.cn
+sudo certbot --nginx -d staging.zhejian.simplewin.cn
 ```
+
+不要把 `staging.geo.simplewin.cn` 写进同一张证：该名已无 DNS，Let's Encrypt 会报 NXDOMAIN。
 
 证书路径应为：
 
-- `/etc/letsencrypt/live/staging.geo.simplewin.cn/fullchain.pem`
-- `/etc/letsencrypt/live/staging.geo.simplewin.cn/privkey.pem`
+- `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/fullchain.pem`
+- `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/privkey.pem`
 
 若暂时没有证书：可先注释 Nginx 里 `listen 443` 整块，仅保留 80→301，或临时用 HTTP 调试（小程序正式域名要求 HTTPS，最终必须上证书）。
 
@@ -176,7 +178,8 @@ sudo certbot certonly --nginx -d staging.geo.simplewin.cn
 
 ```bash
 sudo cp /var/www/zhejian-staging/backend/deploy/nginx-staging.geo.simplewin.cn.conf \
-  /etc/nginx/conf.d/staging.geo.simplewin.cn.conf
+  /etc/nginx/conf.d/staging.zhejian.simplewin.cn.conf
+sudo rm -f /etc/nginx/conf.d/staging.geo.simplewin.cn.conf
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -185,13 +188,13 @@ sudo nginx -t && sudo systemctl reload nginx
 ### 7.3 冒烟
 
 ```bash
-curl -s https://staging.geo.simplewin.cn/api/v1/health
-curl -sI https://staging.geo.simplewin.cn/admin/
+curl -s https://staging.zhejian.simplewin.cn/api/v1/health
+curl -sI https://staging.zhejian.simplewin.cn/admin/
 cd /var/www/zhejian-staging/backend
-npm run deploy:verify -- https://staging.geo.simplewin.cn
+npm run deploy:verify -- https://staging.zhejian.simplewin.cn
 ```
 
-浏览器打开：`https://staging.geo.simplewin.cn/admin/`（用预发 `ADMIN_PASSWORD` 登录）。
+浏览器打开：`https://staging.zhejian.simplewin.cn/admin/`（用预发 `ADMIN_PASSWORD` 登录）。
 
 ---
 
