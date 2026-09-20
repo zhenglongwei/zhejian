@@ -6,12 +6,14 @@
 const MINE_TOOL_HERO_SUBTITLE = '查看门店为你创建的汽车维修档案'
 
 const MINE_GUEST_TOOL_HINT =
-  '门店创建相册后，请用微信「扫一扫」打开门店码或分享链接；登录后可在此翻阅汽车维修档案。'
+  '店里拍完会发给你。用微信扫他们给你的码，登录后就能翻。'
 
-/** 已登录无相册：空态标题与主 CTA（使用说明见设置 → 关于辙见） */
-const MINE_ALBUM_EMPTY_TITLE = '暂无相册'
+/** 已登录无相册：空态标题与说明（公开档案仅作次要出口） */
+const MINE_ALBUM_EMPTY_TITLE = '还没有你的相册'
 
-const MINE_ALBUM_EMPTY_ACTION = '查看支持相册的商家 →'
+const MINE_ALBUM_EMPTY_DESC = '让店里用微信发给你，或扫他们给你的码。'
+
+const MINE_ALBUM_EMPTY_H5_LINK = '先看看公开档案'
 
 const MINE_ALBUM_SECTION_TITLE = '我的服务相册'
 
@@ -79,7 +81,8 @@ module.exports = {
   MINE_TOOL_HERO_SUBTITLE,
   MINE_GUEST_TOOL_HINT,
   MINE_ALBUM_EMPTY_TITLE,
-  MINE_ALBUM_EMPTY_ACTION,
+  MINE_ALBUM_EMPTY_DESC,
+  MINE_ALBUM_EMPTY_H5_LINK,
   MINE_ALBUM_SECTION_TITLE,
   MINE_TODO_SECTION_TITLE,
   MINE_SHARE_INCENTIVE_TITLE,

@@ -60,6 +60,14 @@
   padding-bottom: var(--space-xl);
 }
 
+.album-list__empty-alt {
+  margin-top: var(--space-sm);
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .album-list__auth-submit {
   margin-top: var(--space-md);
 }

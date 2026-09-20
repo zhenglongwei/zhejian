@@ -282,3 +282,11 @@
   display: flex;
   align-items: center;
 }
+
+.merchant-hub__empty-alt {
+  margin-top: var(--space-sm);
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

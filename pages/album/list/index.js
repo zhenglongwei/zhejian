@@ -13,10 +13,11 @@ const {
   enrichServiceAlbumListItem,
 } = require('../../../utils/service-album-display')
 const { isLoggedIn, checkAuth } = require('../../../utils/auth')
-const { openH5Url, buildStoreListH5Url } = require('../../../constants/h5-links')
+const { openH5Url, buildCaseListH5Url } = require('../../../constants/h5-links')
 const {
   MINE_ALBUM_EMPTY_TITLE,
-  MINE_ALBUM_EMPTY_ACTION,
+  MINE_ALBUM_EMPTY_DESC,
+  MINE_ALBUM_EMPTY_H5_LINK,
 } = require('../../../constants/mine-hub')
 const {
   shouldRunInitialShow,
@@ -118,7 +119,8 @@ Page({
     publishSheetHint: '',
     showPublicCaseShare: false,
     albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,
-    albumEmptyAction: MINE_ALBUM_EMPTY_ACTION,
+    albumEmptyDesc: MINE_ALBUM_EMPTY_DESC,
+    albumEmptyH5Link: MINE_ALBUM_EMPTY_H5_LINK,
   },
 
   onLoad(options = {}) {
@@ -800,6 +802,6 @@ Page({
   },
 
   onOpenAlbumMerchants() {
-    openH5Url(buildStoreListH5Url())
+    openH5Url(buildCaseListH5Url())
   },
 })

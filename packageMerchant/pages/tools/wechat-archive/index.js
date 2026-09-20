@@ -7,6 +7,10 @@ const {
   attachMerchantWechatPhotos,
 } = require('../../../../services/merchant-service-album')
 const { uploadImage } = require('../../../../utils/media-upload')
+const {
+  consumeWechatArchiveIntent,
+  redirectToWorkbenchForArchive,
+} = require('../../../../utils/wechat-archive-intent')
 
 const TARGET_ORDER = ['intake', 'work', 'delivery']
 const TARGET_LABEL = {
@@ -53,22 +57,13 @@ Page({
   async ensureMerchant() {
     try {
       const profile = await fetchMerchantProfile()
-      if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
-        wx.showModal({
-          title: '请先入驻',
-          showCancel: false,
-          success: () => {
-            const stack = getCurrentPages()
-            if (stack.length > 1) {
-              wx.navigateBack()
-              return
-            }
-            wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
-          },
-        })
+      if (profile && profile.status === MERCHANT_STATUS.APPROVED) {
+        consumeWechatArchiveIntent()
+        return
       }
+      redirectToWorkbenchForArchive()
     } catch (e) {
-      /* 交给生成时报错 */
+      /* 网络失败留在本页，生成时报错 */
     }
   },
 

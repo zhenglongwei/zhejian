@@ -14,7 +14,7 @@
         theme="album"
         title="{{gatePending.title}}"
         description="{{gatePending.description}}"
-        actionText="进入工作台"
+        actionText="{{archiveIntent ? '开通后继续' : '进入工作台'}}"
         bind:action="onQuickOpen"
       />
     </view>
@@ -33,16 +33,7 @@
   </block>
 
   <block wx:else>
-    <view class="merchant-hub">
-      <view wx:if="{{showFirstGuide}}" class="surface-album-hint-strip merchant-hub__first-guide">
-        <view class="merchant-hub__first-guide-copy">
-          <text class="text-body">{{firstGuide.title}}</text>
-          <text class="text-caption text-secondary">{{firstGuide.body}}</text>
-        </view>
-        <view class="merchant-hub__first-guide-dismiss" bindtap="onDismissFirstGuide">
-          <text class="text-caption text-link">{{firstGuide.dismiss}}</text>
-        </view>
-      </view>
+      <view class="merchant-hub">
       <view wx:if="{{trustHint || trustLine}}" class="surface-album-hint-strip merchant-hub__trust">
         <view class="merchant-hub__first-guide-copy">
           <text wx:if="{{trustLine}}" class="text-caption text-secondary">{{trustLine}}</text>
@@ -107,6 +98,9 @@
             actionText="新建服务相册"
             bind:action="onCreateAlbum"
           />
+          <view class="merchant-hub__empty-alt" bindtap="onWechatArchive">
+            <text class="text-caption text-link">从微信群转入</text>
+          </view>
         </block>
 
         <block wx:if="{{todoSummary}}">

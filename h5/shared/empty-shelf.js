@@ -5,7 +5,7 @@
 ;(function (global) {
   var HOSTING = 'https://simplewin.cn/zhejian.html'
   var BRAND = 'https://simplewin.cn/'
-  var CODE = '/api/v1/public/h5/miniprogram-code'
+  var CODE = '/api/v1/public/h5/miniprogram-code?_=wb'
 
   function renderMerchantEmpty(options) {
     options = options || {}
@@ -24,7 +24,7 @@
       titleTag +
       '>' +
       '<p class="h5-summary">门店把真实维修过程做成可核对的公开档案。现在还没有门店选择公开。</p>' +
-      '<p class="h5-empty-guide__how">要出现在这里：微信搜一搜「辙见」，用门店端做相册，再决定是否托管、是否公开。</p>' +
+      '<p class="h5-empty-guide__how">要出现在这里：微信搜一搜「辙见」，或扫码进门店工作台做相册，再决定是否托管、是否公开。</p>' +
       '<img class="h5-mp-qr h5-mp-qr--guide" src="' +
       CODE +
       '" width="120" height="120" alt="辙见小程序码" onerror="this.remove()">' +

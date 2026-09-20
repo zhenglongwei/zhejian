@@ -36,6 +36,11 @@ function buildPlanSelectUrl(merchantId, from) {
 /** 审核通过后直接进门店选择（当前免费，不再经过试用/付费说明） */
 function redirectAfterMerchantApproved(merchantId) {
   saveMerchantPlanAck(merchantId, 'free')
+  const { hasWechatArchiveIntent, redirectToWechatArchive } = require('./wechat-archive-intent')
+  if (hasWechatArchiveIntent()) {
+    redirectToWechatArchive()
+    return
+  }
   wx.redirectTo({ url: '/packageMerchant/pages/store-picker/index' })
 }
 

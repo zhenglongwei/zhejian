@@ -1,5 +1,9 @@
 const MINIPROGRAM_CODE_TARGETS = {
-  default: { page: 'pages/case/index', scene: 'from=web' },
+  default: {
+    page: 'packageMerchant/pages/workbench/index',
+    scene: 'e=wb',
+  },
+  owner: { page: 'pages/mine/index', scene: 'e=ow' },
   'wechat-archive': {
     page: 'packageMerchant/pages/tools/wechat-archive/index',
     scene: 'e=wa',

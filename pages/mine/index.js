@@ -10,21 +10,17 @@ const { buildMineEarningsPreview } = require('../../constants/mine-earnings')
 const {
   MINE_ALBUM_SECTION_TITLE,
   MINE_ALBUM_EMPTY_TITLE,
-  MINE_ALBUM_EMPTY_ACTION,
+  MINE_ALBUM_EMPTY_DESC,
+  MINE_ALBUM_EMPTY_H5_LINK,
   MINE_SHARE_INCENTIVE_TITLE,
   MINE_SHARE_INCENTIVE_ENABLED,
   MINE_H5_OUTLET_TEXT,
   summarizeAuthorizationTodos,
   buildMineTodoSummary,
 } = require('../../constants/mine-hub')
-const { TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
+const { TOOL_GUEST_ALBUM_TITLE, TOOL_GUEST_ALBUM_HINT } = require('../../constants/tool-login-copy')
 const { shouldShowH5PublicCaseLink } = require('../../utils/tool-entry-context')
-const { openH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
-const {
-  OWNER_FIRST_GUIDE,
-  shouldShowOwnerFirstGuide,
-  dismissOwnerFirstGuide,
-} = require('../../constants/first-open-guide')
+const { openH5Url, buildCaseListH5Url, buildStoreListH5Url } = require('../../constants/h5-links')
 
 function quietHubAlbumTags(item = {}) {
   return {
@@ -84,12 +80,12 @@ Page({
     menuSections: buildMineMenuSections({}),
     albumSectionTitle: MINE_ALBUM_SECTION_TITLE,
     albumEmptyTitle: MINE_ALBUM_EMPTY_TITLE,
-    albumEmptyAction: MINE_ALBUM_EMPTY_ACTION,
+    albumEmptyDesc: MINE_ALBUM_EMPTY_DESC,
+    albumEmptyH5Link: MINE_ALBUM_EMPTY_H5_LINK,
+    guestAlbumTitle: TOOL_GUEST_ALBUM_TITLE,
     guestAlbumHint: TOOL_GUEST_ALBUM_HINT,
     shareIncentiveTitle: MINE_SHARE_INCENTIVE_TITLE,
     h5OutletText: MINE_H5_OUTLET_TEXT,
-    showFirstGuide: false,
-    firstGuide: OWNER_FIRST_GUIDE,
     ...albumAuthShareData(),
   },
 
@@ -100,13 +96,7 @@ Page({
   },
 
   onShow() {
-    this.setData({ showFirstGuide: shouldShowOwnerFirstGuide() })
     this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
-  },
-
-  onDismissFirstGuide() {
-    dismissOwnerFirstGuide()
-    this.setData({ showFirstGuide: false })
   },
 
   onPullDownRefresh() {
@@ -319,8 +309,8 @@ Page({
     openH5Url(buildStoreListH5Url())
   },
 
-  onEmptyMerchantsTap() {
-    openH5Url(buildStoreListH5Url())
+  onEmptyH5Tap() {
+    openH5Url(buildCaseListH5Url())
   },
 
   onConsultListTap() {

@@ -9,8 +9,7 @@ const { buildMerchantPlanTag } = require('./merchant-plan-tier')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
-const MERCHANT_ALBUM_EMPTY_HINT =
-  '为线下维修创建服务相册，记录六阶段过程与配件信息。'
+const MERCHANT_ALBUM_EMPTY_HINT = '拍这一单过程，或从微信群转入。'
 
 const MERCHANT_CASE_SECTION_TITLE = '案例动态'
 

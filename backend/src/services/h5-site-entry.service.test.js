@@ -7,8 +7,12 @@ assert.deepStrictEqual(toShelfStatus(7), { hasPublicCases: true, total: 7 })
 assert.deepStrictEqual(toShelfStatus(null), { hasPublicCases: false, total: 0 })
 
 assert.deepStrictEqual(resolveMiniprogramCodeTarget(), {
-  page: 'pages/case/index',
-  scene: 'from=web',
+  page: 'packageMerchant/pages/workbench/index',
+  scene: 'e=wb',
+})
+assert.deepStrictEqual(resolveMiniprogramCodeTarget('owner'), {
+  page: 'pages/mine/index',
+  scene: 'e=ow',
 })
 assert.deepStrictEqual(resolveMiniprogramCodeTarget('wechat-archive'), {
   page: 'packageMerchant/pages/tools/wechat-archive/index',

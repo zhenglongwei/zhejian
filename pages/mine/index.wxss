@@ -188,6 +188,14 @@
   opacity: 0.72;
 }
 
+.mine__empty-alt {
+  margin-top: var(--space-sm);
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .mine__first-guide {
   display: flex;
   align-items: flex-start;

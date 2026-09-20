@@ -21,6 +21,16 @@ const MERCHANT_WORKBENCH_GATE_PENDING = {
   description: '无需等待审核，点下方进入工作台',
 }
 
+const MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE = {
+  title: '开通后继续整理',
+  description: '开通即可把这一单群聊贴进相册',
+}
+
+const MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE = {
+  title: '开通后继续整理',
+  description: '点下方开通，接着贴这一单',
+}
+
 const MERCHANT_AUTH_HINT = {
   none: '补认证：上传执照与法人证',
   pending: '认证校验中，可继续完善资料',
@@ -47,6 +57,8 @@ module.exports = {
   MERCHANT_ONBOARDING_POSITIONING,
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
+  MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE,
+  MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE,
   MERCHANT_AUTH_HINT,
   MERCHANT_SHARE_STORE_DESC,
   MERCHANT_STORE_PICKER_COPY,

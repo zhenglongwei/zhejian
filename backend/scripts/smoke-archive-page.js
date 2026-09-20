@@ -1,5 +1,5 @@
 /**
- * 官网 archive.html：直达小程序码，不再当网页转换器。
+ * 官网微信转案例：首页正文下放直达码；旧 /archive 回首页。
  * 用法：node backend/scripts/smoke-archive-page.js
  */
 const fs = require('fs')
@@ -19,24 +19,24 @@ function ok(name) {
 function main() {
   const html = fs.readFileSync(HTML_PATH, 'utf8')
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8')
-  assert(
-    html.includes('miniprogram-code?entry=wechat-archive'),
-    '导流页要放微信转案例直达码',
-  )
-  assert(html.includes('微信扫码，打开「微信转案例」'), '导流页要写扫码打开')
-  assert(!html.includes('js/archive.js'), '导流页不再加载转换脚本')
-  assert(!html.includes('btnGenerate'), '导流页不再提供生成按钮')
+  assert(html.includes("location.replace('/#tools')"), '旧 archive 页要立刻回首页工具区')
+  assert(!html.includes('js/archive.js'), '不再加载转换脚本')
+  assert(!html.includes('btnGenerate'), '不再提供生成按钮')
   assert(!html.includes('真实性承诺'), '不要再写已取消的真实性承诺')
   assert(!html.includes('分期上线'), '不要写入口分期')
-  ok('官网 archive 放直达码，不再当转换器')
+  assert(!html.includes('查看说明'), '不要再做说明中转页')
+  ok('旧 /archive 回首页，不再当说明中转')
 
+  const toolsBlock = indexHtml.slice(indexHtml.indexOf('微信转案例'))
   assert(
-    indexHtml.includes('miniprogram-code?entry=wechat-archive'),
+    toolsBlock.includes('miniprogram-code?entry=wechat-archive'),
     '首页微信转案例要放直达码',
   )
-  assert(!indexHtml.includes('href="/archive.html"'), '首页不要链到说明页当主入口')
-  assert(!indexHtml.includes('查看说明'), '首页不要用「查看说明」当微信转案例入口')
-  ok('官网首页微信转案例用直达码')
+  assert(toolsBlock.includes('mp-entry--stack'), '码放在卡片正文下方')
+  assert(!indexHtml.includes('href="/archive.html"'), '首页不要链到说明页')
+  assert(!indexHtml.includes('查看说明'), '首页不要用「查看说明」当入口')
+  assert(!indexHtml.includes('官网本页只作说明'), '不要写官网只作说明')
+  ok('官网首页微信转案例正文下放直达码')
 
   const routeSrc = fs.readFileSync(ROUTE_PATH, 'utf8')
   assert(

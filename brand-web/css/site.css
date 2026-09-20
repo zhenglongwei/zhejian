@@ -155,7 +155,8 @@ footer.site a { color: var(--sub); }
 footer.site a:hover { color: var(--brand); }
 .mp-entry { display: flex; align-items: center; gap: 16px; margin: 12px 0; }
 .mp-entry img { width: 96px; height: 96px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-.hero .mp-entry img { width: 160px; height: 160px; }
+.mp-entry--stack { flex-direction: column; align-items: flex-start; gap: 8px; }
+.mp-entry--stack img { width: 120px; height: 120px; }
 .mp-entry p { margin: 0; max-width: 420px; font-size: 13px; }
 
 /* ===== 体检页 ===== */

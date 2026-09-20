@@ -22,6 +22,8 @@ const { isMerchantOwner } = require('../../../utils/auth')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
+  MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE,
+  MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE,
   MERCHANT_AUTH_HINT,
 } = require('../../../constants/merchant-onboarding-copy')
 const {
@@ -40,10 +42,9 @@ const {
 } = require('../../../constants/merchant-hub')
 const { buildMerchantAlbumEntryPath } = require('../../../utils/merchant-album-nav')
 const {
-  MERCHANT_FIRST_GUIDE,
-  shouldShowMerchantFirstGuide,
-  dismissMerchantFirstGuide,
-} = require('../../../constants/first-open-guide')
+  hasWechatArchiveIntent,
+  redirectToWechatArchive,
+} = require('../../../utils/wechat-archive-intent')
 
 const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
 
@@ -78,6 +79,7 @@ Page({
     status: 'loading',
     gateNone: MERCHANT_WORKBENCH_GATE_NONE,
     gatePending: MERCHANT_WORKBENCH_GATE_PENDING,
+    archiveIntent: false,
     profile: null,
     todos: {
       pendingReviews: 0,
@@ -103,21 +105,27 @@ Page({
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
-    showFirstGuide: false,
-    firstGuide: MERCHANT_FIRST_GUIDE,
     opening: false,
     trustHint: '',
     trustLine: '',
   },
 
   onShow() {
-    this.setData({ showFirstGuide: shouldShowMerchantFirstGuide() })
+    this._syncArchiveGateCopy()
     this.loadProfile({ silent: this.data.status === 'normal' })
   },
 
-  onDismissFirstGuide() {
-    dismissMerchantFirstGuide()
-    this.setData({ showFirstGuide: false })
+  _syncArchiveGateCopy() {
+    const archiveIntent = hasWechatArchiveIntent()
+    this.setData({
+      archiveIntent,
+      gateNone: archiveIntent
+        ? MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE
+        : MERCHANT_WORKBENCH_GATE_NONE,
+      gatePending: archiveIntent
+        ? MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE
+        : MERCHANT_WORKBENCH_GATE_PENDING,
+    })
   },
 
   _buildTrustUi(profile) {
@@ -128,7 +136,7 @@ Page({
       (profile.publisherTrust && profile.publisherTrust.displayLine) ||
       [profile.authStatusLabel, profile.profileCompletenessLabel && `??${profile.profileCompletenessLabel}`]
         .filter(Boolean)
-        .join(' � ')
+        .join(' ? ')
     return { trustHint: hint, trustLine }
   },
 
@@ -165,6 +173,10 @@ Page({
     }
     if (profile.status !== MERCHANT_STATUS.APPROVED) {
       this.setData({ status: 'none', profile: null, trustHint: '', trustLine: '' })
+      return
+    }
+    if (hasWechatArchiveIntent()) {
+      redirectToWechatArchive()
       return
     }
 
@@ -286,10 +298,14 @@ Page({
     this.setData({ opening: true })
     try {
       await quickOpenMerchant()
-      wx.showToast({ title: '????, icon: 'success' })
+      wx.showToast({ title: '已开通', icon: 'success' })
+      if (hasWechatArchiveIntent()) {
+        redirectToWechatArchive()
+        return
+      }
       await this.loadProfile()
     } catch (e) {
-      wx.showToast({ title: (e && e.message) || '?????, icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '开通失败', icon: 'none' })
     } finally {
       this.setData({ opening: false })
     }
@@ -404,7 +420,7 @@ Page({
           row.vehicleDisplay ||
           '??'
         const service = String(row.serviceName || '').trim()
-        return service ? `${plate} � ${service}` : plate
+        return service ? `${plate} ? ${service}` : plate
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -441,7 +457,7 @@ Page({
           (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
           row.vehicleDisplay ||
           '??'
-        return `${plate} � ${row.followUpCount || 0} ???`
+        return `${plate} ? ${row.followUpCount || 0} ???`
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -499,6 +515,10 @@ Page({
 
   onCreateAlbum() {
     this._navigateTo('/packageMerchant/pages/album/create/index')
+  },
+
+  onWechatArchive() {
+    this._navigateTo('/packageMerchant/pages/tools/wechat-archive/index')
   },
 
   onAlbumList(e) {

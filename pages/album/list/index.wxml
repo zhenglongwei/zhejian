@@ -54,9 +54,11 @@
       <ui-empty
         theme="album"
         title="{{albumEmptyTitle}}"
-        actionText="{{albumEmptyAction}}"
-        bind:action="onOpenAlbumMerchants"
+        description="{{albumEmptyDesc}}"
       />
+      <view class="album-list__empty-alt" bindtap="onOpenAlbumMerchants">
+        <text class="text-caption text-link">{{albumEmptyH5Link}}</text>
+      </view>
     </view>
   </block>
 
