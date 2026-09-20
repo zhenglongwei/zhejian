@@ -139,12 +139,19 @@
     return false
   }
 
+  function mediaSrc(url) {
+    var fn =
+      (window.zhejianH5Ui && window.zhejianH5Ui.resolveH5ImageSrc) ||
+      (window.zhejianPublicCopy && window.zhejianPublicCopy.resolveH5ImageSrc)
+    return fn ? fn(url) : url || ''
+  }
+
   function pickCaseCover(data) {
     if (data.coverImageDesensitized && isDesensitizedUrl(data.coverImageDesensitized)) {
-      return data.coverImageDesensitized
+      return mediaSrc(data.coverImageDesensitized)
     }
     if (data.coverImage && isDesensitizedUrl(data.coverImage)) {
-      return data.coverImage
+      return mediaSrc(data.coverImage)
     }
     return ''
   }
@@ -482,7 +489,7 @@
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
     ensureMeta('property', 'og:description', desc)
-    if (service.coverUrl) ensureMeta('property', 'og:image', service.coverUrl)
+    if (service.coverUrl) ensureMeta('property', 'og:image', mediaSrc(service.coverUrl))
     ensureLink('canonical', canonical)
 
     var price = buildPriceDisplay(service)
@@ -591,9 +598,10 @@
 
     setShareMeta(service, store)
 
-    var heroHtml = service.coverUrl
+    var heroCover = mediaSrc(service.coverUrl)
+    var heroHtml = heroCover
       ? '<div class="h5-service-hero"><img class="h5-service-hero-img" src="' +
-        escapeHtml(service.coverUrl) +
+        escapeHtml(heroCover) +
         '" alt="' +
         escapeHtml(service.name) +
         '" loading="eager" /></div>'

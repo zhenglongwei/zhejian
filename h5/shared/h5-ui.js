@@ -26,19 +26,44 @@
       .trim()
   }
 
-  /** 旧路径 → /api/v1/media/files/…，便于走 OSS 302（已是 api 路径则勿再拼） */
+  function currentPageOrigin() {
+    try {
+      if (typeof location !== 'undefined' && location.origin) {
+        return String(location.origin).replace(/\/$/, '')
+      }
+    } catch (e) {}
+    return ''
+  }
+
+  function isOwnPublicMediaHost(hostname) {
+    var host = String(hostname || '').toLowerCase()
+    if (!host) return false
+    if (host === 'localhost' || host === '127.0.0.1') return true
+    return /\.simplewin\.cn$/i.test(host)
+  }
+
+  /** 旧域名 / 旧路径 → 当前页 origin + /api/v1/media/files/…（与小程序 resolveMediaFilesUrlForLocalApi 同口径） */
   function normalizePublicMediaUrl(url) {
     if (!url) return ''
     var value = String(url).trim()
     if (!value || value.indexOf('mock://') === 0) return ''
-    if (value.indexOf('/api/v1/media/files/') !== -1) return value
-    if (value.indexOf('/media/files/') !== -1) {
-      return value.replace(/\/media\/files\//, '/api/v1/media/files/')
+    if (value.indexOf('/media/files/') !== -1 && value.indexOf('/api/v1/media/files/') === -1) {
+      value = value.replace(/\/media\/files\//, '/api/v1/media/files/')
     }
     if (value.indexOf('/media/uploads/') !== -1) {
-      return value.replace(/\/media\/uploads\//, '/api/v1/media/files/uploads/')
+      value = value.replace(/\/media\/uploads\//, '/api/v1/media/files/uploads/')
     }
-    return value
+    var origin = currentPageOrigin()
+    var match = value.match(/\/api\/v1\/media\/files\/(.+)$/i)
+    if (!origin || !match) return value
+    try {
+      var parsed = new URL(value, origin + '/')
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return value
+      if (!isOwnPublicMediaHost(parsed.hostname)) return value
+      return origin + '/api/v1/media/files/' + match[1]
+    } catch (e) {
+      return value
+    }
   }
 
   function resolveH5ImageSrc(url) {

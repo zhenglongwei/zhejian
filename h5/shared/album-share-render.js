@@ -41,7 +41,11 @@
           .map(function (url) {
             return (
               '<img class="h5-node-img" src="' +
-              escapeHtml(url) +
+              escapeHtml(
+                (window.zhejianH5Ui && window.zhejianH5Ui.resolveH5ImageSrc
+                  ? window.zhejianH5Ui.resolveH5ImageSrc(url)
+                  : url) || ''
+              ) +
               '" alt="维修过程图片" loading="lazy" />'
             )
           })

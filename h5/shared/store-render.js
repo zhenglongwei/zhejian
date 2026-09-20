@@ -402,7 +402,7 @@
         description: store.aiSummary || store.intro || transparency.summary || undefined,
         url: canonical,
         foundingDate: store.foundingDate || undefined,
-        image: store.coverImage || undefined,
+        image: store.coverImage ? mediaSrc(store.coverImage) : undefined,
         address: store.address || undefined,
         telephone: store.phone || undefined,
         additionalProperty: additionalProperty.length ? additionalProperty : undefined,
@@ -419,7 +419,7 @@
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
     ensureMeta('property', 'og:description', desc)
-    if (store.coverImage) ensureMeta('property', 'og:image', store.coverImage)
+    if (store.coverImage) ensureMeta('property', 'og:image', mediaSrc(store.coverImage))
     ensureLink('canonical', canonical)
 
     if (store.schemaGraph) {
@@ -676,7 +676,7 @@
           .map(function (item) {
             return (
               '<div class="h5-cert-wall-item"><img class="h5-cert-wall-img" src="' +
-              escapeHtml(item.imageUrl) +
+              escapeHtml(mediaSrc(item.imageUrl)) +
               '" alt="' +
               escapeHtml(item.label) +
               '" loading="lazy" /><div class="h5-cert-wall-caption">' +
@@ -714,14 +714,14 @@
         if (yearsText) roleLine += ' · ' + escapeHtml(yearsText)
         var avatar = member.avatarUrl
           ? '<img class="h5-staff-avatar" src="' +
-            escapeHtml(member.avatarUrl) +
+            escapeHtml(mediaSrc(member.avatarUrl)) +
             '" alt="" loading="lazy" />'
           : ''
         var photos = (member.credentialPhotoUrls || [])
           .map(function (url) {
             return (
               '<img class="h5-staff-photo" src="' +
-              escapeHtml(url) +
+              escapeHtml(mediaSrc(url)) +
               '" alt="资质证明" loading="lazy" />'
             )
           })
@@ -986,7 +986,7 @@
       .map(function (url, idx) {
         return (
           '<img class="h5-env-img" src="' +
-          escapeHtml(url) +
+          escapeHtml(mediaSrc(url)) +
           '" alt="门店环境图' +
           (idx + 1) +
           '" loading="lazy" />'

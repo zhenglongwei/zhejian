@@ -1,4 +1,4 @@
-# 预发环境搭建（staging.geo.simplewin.cn）
+# 预发环境搭建（staging.zhejian.simplewin.cn）
 
 > 与生产同机隔离：代码目录、MariaDB 库、API 端口、上传文件、运营后台均独立。  
 > 生产目录 `/var/www/zhejian` **不要**在本流程中 `git pull` 到未验收的代码。
@@ -18,7 +18,7 @@
 | 项 | 预发 | 生产 |
 | --- | --- | --- |
 | 目录 | `/var/www/zhejian-staging` | `/var/www/zhejian` |
-| 域名 | `https://staging.geo.simplewin.cn` | `https://geo.simplewin.cn` |
+| 域名 | `https://staging.zhejian.simplewin.cn` | `https://zhejian.simplewin.cn`（过渡别名 `geo.simplewin.cn`） |
 | API 端口 | `3101` | `3100` |
 | PM2 名 | `zhejian-api-staging` | `zhejian-api` |
 | 数据库 | `zhejian_staging`（MariaDB） | `zhejian` |
@@ -31,10 +31,10 @@
 
 ## 1. 前置检查
 
-1. DNS：`staging.geo.simplewin.cn` 已解析到本机公网 IP（与 `geo.simplewin.cn` 同机）。
+1. DNS：`staging.zhejian.simplewin.cn` 已解析到本机公网 IP（与正式站同机）。
 2. 生产 `/var/www/zhejian` 与 `zhejian-api` 正常运行，本流程不改生产 `.env`。
 3. 微信公众平台 → 开发 → 开发管理 → 服务器域名 → **request 合法域名** 增加：  
-   `https://staging.geo.simplewin.cn`  
+   `https://staging.zhejian.simplewin.cn`  
    （保存后约几分钟生效；体验版测预发时关闭「不校验合法域名」。）
 
 ---
@@ -113,7 +113,7 @@ nano .env
 | 变量 | 值 |
 | --- | --- |
 | `PORT` | `3101` |
-| `PUBLIC_BASE_URL` | `https://staging.geo.simplewin.cn` |
+| `PUBLIC_BASE_URL` | `https://staging.zhejian.simplewin.cn` |
 | `DATABASE_URL` | `mysql://zhejian_staging:密码@127.0.0.1:3306/zhejian_staging` |
 | `JWT_SECRET` | **与生产不同**的随机串 |
 | `ADMIN_PASSWORD` | **与生产不同** |
@@ -167,12 +167,10 @@ sudo certbot --nginx -d staging.zhejian.simplewin.cn
 
 不要把 `staging.geo.simplewin.cn` 写进同一张证：该名已无 DNS，Let's Encrypt 会报 NXDOMAIN。
 
-证书路径应为：
+预发证书文件还不存在时，Nginx 的 `ssl_certificate` 先指向正式站已有证书 `geo.simplewin.cn`（否则 `nginx -t` 失败，certbot 也无法跑）。**不要 `systemctl stop nginx`**，正式站会一起停。签完后再把路径改成：
 
 - `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/fullchain.pem`
 - `/etc/letsencrypt/live/staging.zhejian.simplewin.cn/privkey.pem`
-
-若暂时没有证书：可先注释 Nginx 里 `listen 443` 整块，仅保留 80→301，或临时用 HTTP 调试（小程序正式域名要求 HTTPS，最终必须上证书）。
 
 ### 7.2 安装站点配置
 
@@ -207,7 +205,7 @@ npm run deploy:verify -- https://staging.zhejian.simplewin.cn
 const ACTIVE_ENV = 'staging'
 ```
 
-1. 微信后台已加 request 合法域名 `https://staging.geo.simplewin.cn`
+1. 微信后台已加 request 合法域名 `https://staging.zhejian.simplewin.cn`
 2. 体验版 / 真机预览：**关闭**「不校验合法域名」
 3. 编译上传体验版，验证登录、列表、相册等核心路径
 4. **提审 / 正式发版前**必须改回 `ACTIVE_ENV = 'prod'`，再上传
@@ -226,10 +224,12 @@ git pull
 cd backend && npm install && npm run sync:shared-utils && npm run db:migrate
 cd ../admin-web && npm install && npm run build
 pm2 restart zhejian-api-staging
-curl -s https://staging.geo.simplewin.cn/api/v1/health
+curl -s https://staging.zhejian.simplewin.cn/api/v1/health
 ```
 
 验收：H5、后台、小程序体验版（staging）。
+
+页面能开、图裂开：先看 `PUBLIC_BASE_URL` 是否仍是已无 DNS 的 `staging.geo.simplewin.cn`。接口会把封面写成这个旧域名，浏览器打不开；小程序会把图改到当前接口域名，所以看起来正常。改成 `https://staging.zhejian.simplewin.cn` 后 `pm2 restart zhejian-api-staging`。公开页脚本也会把同站旧域名图改到当前页。若仍裂，再查 OSS 防盗链是否放行 `staging.zhejian.simplewin.cn`。
 
 ### 9.2 再更新生产（验收通过后）
 
@@ -239,10 +239,10 @@ git pull   # 使用与预发相同的 commit / tag
 cd backend && npm install && npm run sync:shared-utils && npm run db:migrate
 cd ../admin-web && npm install && npm run build
 pm2 restart zhejian-api
-curl -s https://geo.simplewin.cn/api/v1/health
+curl -s https://zhejian.simplewin.cn/api/v1/health
 ```
 
-生产 Nginx 若有变更，仍按生产文档同步 `simplewin.conf`；预发只动 `staging.geo.simplewin.cn.conf`。
+生产 Nginx 若有变更，仍按生产文档同步 `simplewin.conf`；预发只动 `staging.zhejian.simplewin.cn.conf`（仓库模板文件名仍为 `nginx-staging.geo.simplewin.cn.conf`）。
 
 ---
 
