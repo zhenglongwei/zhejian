@@ -21,8 +21,7 @@ function assertReadableHtml(html, label) {
 async function main() {
   const home = await renderHomeHtml()
   assertReadableHtml(home, '首页')
-  assert(home.includes('维修案例托管库'), '首页应含托管库标题')
-  assert(home.includes('辙见案例站'), '首页应含站点名')
+  assert(home.includes('辙见公开案例站'), '首页应含公开案例站')
 
   const service = await renderServiceHtml('car-maintenance')
   assertReadableHtml(service, '服务页')

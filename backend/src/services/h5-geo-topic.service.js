@@ -42,22 +42,19 @@ function mapStoreItem(item) {
   }
 }
 
-function buildTopicSeo(page, { allowIndex }) {
+function buildTopicSeo(page, { allowIndex, caseCount }) {
   const forceNoindex = page.status === 'noindex'
-  const isServiceBase = page.pageType === 'service_base'
   const displayName = page.serviceMeta?.displayName || page.title
-  const title =
-    page.seoTitle ||
-    (isServiceBase
-      ? `${displayName}价格参考与维修案例_透明汽车维修平台 · 辙见`
-      : `${page.title}_本地汽车维修专题 · 辙见`)
-  const description =
-    page.seoDescription ||
-    page.aiSummary ||
-    page.summary ||
-    (isServiceBase
-      ? `了解${displayName}适用情况、维修流程、参考价格、价格影响因素和真实维修案例，可预约本地辙见门店。`
-      : `查看${page.city || ''}${page.title}相关门店、脱敏案例与常见问题，价格仅供参考。`)
+  const empty = !caseCount
+  const title = empty
+    ? `${displayName}：公开维修记录（暂无） · 辙见`
+    : `${displayName}：公开维修记录 · 辙见`
+  const description = empty
+    ? `${displayName}在辙见里会展示门店公开的检查和维修过程。目前还没有公开记录。`
+    : page.seoDescription ||
+      page.aiSummary ||
+      page.summary ||
+      `查看${displayName}门店确认后公开的维修记录。平台不做线下验真，车主仍以到店为准。`
   const indexable = allowIndex && !forceNoindex
   return {
     title,
@@ -131,18 +128,23 @@ async function getGeoTopicPagePayload(slugOrId) {
   const effectiveCaseCount = aggregateCases.length || caseCount
   const allowIndex = effectiveCaseCount > 0 || storeCount > 0
 
+  const displayName = detail.serviceMeta?.displayName || detail.title
   const aggregated = applyTopicAggregate(detail, aggregateCases)
-  const aiSummary = aggregated.aiSummary || detail.aiSummary || detail.summary || ''
+  const aiSummary = effectiveCaseCount
+    ? aggregated.aiSummary || detail.aiSummary || detail.summary || ''
+    : `${displayName}在辙见里会展示门店公开的检查和维修过程。目前还没有公开记录。`
   const sourceCases = (aggregateCases || []).slice(0, 3).map((item) => ({
     id: item.id,
     slug: item.slug || '',
     title: item.title || item.serviceName || '公开档案',
   }))
-  const faq = (aggregated.faq || []).slice(0, 5).map((row) => ({
-    q: row.q || row.question || '',
-    a: row.a || row.answer || '',
-    sourceCases,
-  }))
+  const faq = effectiveCaseCount
+    ? (aggregated.faq || []).slice(0, 5).map((row) => ({
+        q: row.q || row.question || '',
+        a: row.a || row.answer || '',
+        sourceCases,
+      }))
+    : []
   const evidenceNotes = aggregated.evidenceNotes || []
   const aggregateStats = aggregated.aggregateStats || null
 
@@ -189,7 +191,7 @@ async function getGeoTopicPagePayload(slugOrId) {
       { value: 'newest', label: '最新发布' },
       { value: 'cases', label: '浏览较多' },
     ],
-    seo: buildTopicSeo({ ...detail, aiSummary }, { allowIndex }),
+    seo: buildTopicSeo({ ...detail, aiSummary }, { allowIndex, caseCount: effectiveCaseCount }),
   }
 }
 

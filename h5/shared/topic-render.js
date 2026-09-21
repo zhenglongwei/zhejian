@@ -102,7 +102,11 @@
 
   function renderCaseList(cases) {
     if (!cases || !cases.length) {
-      return '<div class="h5-empty-block" id="topic-case-list">暂无符合筛选的公开案例。</div>'
+      return (
+        '<div class="h5-empty-block" id="topic-case-list">' +
+        '这一类还没有门店公开记录。你可以先<a class="h5-link" href="/case/">看其他项目</a>，或<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>。门店若要公开：微信搜「辙见」。' +
+        '</div>'
+      )
     }
     var ui = window.zhejianH5Ui
     var cards = cases
@@ -161,6 +165,7 @@
   function renderPage(data) {
     var topic = data.topic || {}
     var allCases = data.relatedCases || []
+    var hasCases = allCases.length > 0
     var selected = { city: '', vehicle: '', age: '', distance: '' }
     var sortValue = 'recommend'
     var sorts = data.sortOptions && data.sortOptions.length
@@ -171,8 +176,12 @@
           { value: 'cases', label: '浏览较多' },
         ]
     var fs = window.zhejianFilterSort
-    var filters = fs ? fs.defaultFiltersFromCases(allCases) : []
-    var summary = topic.aiSummary || topic.summary || ''
+    var filters = hasCases && fs ? fs.defaultFiltersFromCases(allCases) : []
+    var displayName = topic.displayName || topic.title || '这类服务'
+    var summary = hasCases
+      ? topic.aiSummary || topic.summary || ''
+      : displayName + '在辙见里会展示门店公开的检查和维修过程。目前还没有公开记录。'
+    var faq = hasCases ? data.faq : []
 
     function paint() {
       var visible = applyState(allCases, selected, sortValue)
@@ -228,9 +237,9 @@
       '</h1>' +
       (summary ? '<p class="h5-summary">' + escapeHtml(summary) + '</p>' : '') +
       '</header>' +
-      renderFaq(data.faq) +
-      renderEvidenceNotes(data.evidenceNotes) +
-      (fs
+      renderFaq(faq) +
+      renderEvidenceNotes(hasCases ? data.evidenceNotes : []) +
+      (hasCases && fs
         ? fs.render({
             id: 'topic-toolbar',
             filters: filters,
@@ -239,11 +248,11 @@
             sortValue: sortValue,
           })
         : '') +
-      renderCaseList(applyState(allCases, selected, sortValue)) +
+      renderCaseList(hasCases ? applyState(allCases, selected, sortValue) : []) +
       renderFooter() +
       '</div>'
 
-    if (fs) {
+    if (hasCases && fs) {
       fs.bind(document.getElementById('topic-toolbar'), {
         onFilter: function (key, value) {
           selected[key] = value

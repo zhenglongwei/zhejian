@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>GEO 体检 · 盈简科技</title>
-  <meta name="description" content="填企业名，先按行业生成体检问题，确认后程序逐家询问各大 AI 的联网接口：企业名核对出生态存在分，不带店名的行业提问出 AI 可见性分。报告留存可回看，可与历次体检对比。" />
+  <title>免费测：网上找不找得到你的店 · 盈简科技</title>
+  <meta name="description" content="约 2 分钟。一份看地图和网页里有没有你的店，一份看车主不问店名时 AI 会不会想到你。两份分开算，没测到写未测。" />
   <link rel="canonical" href="https://simplewin.cn/check.html" />
   <!-- 结构化数据：WebApplication（GEO 体检工具作为独立软件实体，与公司实体区分） -->
   <script type="application/ld+json">
@@ -16,7 +16,7 @@
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "browserRequirements": "Requires JavaScript",
-    "description": "填一次企业名，先按行业生成体检问题（可换可改），确认后程序逐家询问各大 AI 的联网接口：以企业名核对出生态存在分，以不带店名的行业提问出 AI 可见性分。两本账分开算，报告留存可回看、可与历次体检对比。",
+    "description": "约 2 分钟。一份看地图和网页里有没有你的店，一份看车主不问店名时 AI 会不会想到你。两份分开算。",
     "isAccessibleForFree": true,
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
     "publisher": { "@type": "Organization", "name": "盈简科技", "url": "https://simplewin.cn" }
@@ -39,11 +39,8 @@
 
   <div class="hero">
     <div class="wrap">
-      <h1>GEO 体检</h1>
-      <p class="lead">填一次企业名，先按行业生成一组体检问题——<strong>你可以换一批、换一题、自己改</strong>，确认后程序才拿着它们去问一圈各大 AI 的联网接口。
-        <strong>第一问</strong>是「网上是否存在这家企业」——看百度、阿里、字节、腾讯各家生态里查不查得到你，出<strong>生态存在分</strong>；
-        <strong>接着几问</strong>是你确认过的行业问题——看车主不问名字时 AI 想不想得到你，出<strong>AI 可见性分</strong>。
-        两本账分开算，谁也不冒充谁。报告留存在服务器上，可随时回看、和历次体检对比。</p>
+      <h1>免费测：网上找不找得到你的店</h1>
+      <p class="lead">这就是 GEO 体检。填一次企业名，约 2 分钟出两份结果：<strong>一份看地图和网页里有没有你的店</strong>（生态存在分）；<strong>一份看车主不问店名时，AI 会不会想到你</strong>（可见性分）。两份分开算，互不冒充。没测到的会写「未测」。</p>
     </div>
   </div>
 
@@ -56,12 +53,18 @@
       <input id="city" name="city" type="text" maxlength="40" placeholder="例如：杭州" />
       <label for="industry">行业</label>
       <input id="industry" name="industry" type="text" required maxlength="40" placeholder="例如：GEO优化、汽修、餐饮" />
-      <p class="muted">行业只用来生成体检问题（不带店名那一类），不会拿去搜索。
-      问题生成后先给你过目——可以改、可以换，确认后才逐家询问各大 AI 的联网接口，通常一两分钟出结果，每天免费次数有限。</p>
+      <p class="muted">行业用来生成「不带店名」那一类问题，不会拿去搜索。问题先给你过目，可以改、可以换。确认后才去问，约 2 分钟出结果，每天免费次数有限。</p>
       <p style="margin-bottom:0">
-        <button class="btn" type="submit" id="submitBtn">生成体检问题</button>
+        <button class="btn" type="submit" id="submitBtn">开始测（约 2 分钟）</button>
       </p>
     </form>
+
+    <div class="card" style="margin-top:20px">
+      <p class="step-kicker">报告长这样（示例，不是某家店的成绩）</p>
+      <p>网上找得到你的店：72 / 100</p>
+      <p>不问店名时会被想到：18 / 100</p>
+      <p class="muted" style="margin-bottom:0">两份分开算。没测到的会写「未测」，不会用 0 分冒充。</p>
+    </div>
 
     <div id="status" hidden></div>
     <div id="progress" hidden></div>

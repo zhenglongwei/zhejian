@@ -464,7 +464,7 @@
       sections =
         '<div class="h5-search-empty">' +
         '<p>没有找到相关档案</p>' +
-        '<p class="h5-search-hint">换一个词试试，或点下面的热门词。</p>' +
+        '<p class="h5-search-hint">现在公开记录还很少。你可以<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>，<a class="h5-link" href="/case/">看公开案例</a>，或微信搜「辙见」。</p>' +
         '</div>' +
         renderHotwords((state.config && state.config.hotwords) || [])
     }
@@ -494,15 +494,6 @@
     if (!app) return
     app.innerHTML =
       '<div class="h5-page h5-page--wide h5-search-page">' +
-      '<form class="h5-search-form h5-search-form--hero" id="h5-search-form" role="search">' +
-      '<input class="h5-search-input" id="h5-search-input" name="q" maxlength="' +
-      KEYWORD_MAX +
-      '" placeholder="搜索档案、门店或服务" value="' +
-      escapeHtml(state.keyword) +
-      '" autocomplete="off" />' +
-      '<button type="submit" class="h5-search-submit">搜索</button>' +
-      '</form>' +
-      renderSuggest() +
       bodyHtml +
       renderSiteNav() +
       '</div>'
@@ -717,7 +708,12 @@
     state.status = 'idle'
     state.results = null
     var hotwords = (state.config && state.config.hotwords) || []
-    renderShell(renderHistory() + renderHotwords(hotwords))
+    renderShell(
+      '<div class="h5-card h5-search-empty"><p>用顶栏搜索公开维修记录、门店或服务。</p>' +
+        '<p class="h5-search-hint">现在公开记录还很少。没有档案时，可以<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>，<a class="h5-link" href="/case/">看公开案例</a>，或微信搜「辙见」。</p></div>' +
+        renderHistory() +
+        renderHotwords(hotwords)
+    )
   }
 
   function loadConfig() {

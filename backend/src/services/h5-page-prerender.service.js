@@ -60,11 +60,11 @@ function buildWebPageGraph({ canonicalPath, title, description, faq }) {
 
 async function renderHomeHtml() {
   const data = await getHomePayload()
-  const title = '辙见案例站'
-  const description = '辙见案例站 · 维修案例托管库。查看门店公开的维修档案。'
+  const title = '辙见公开案例站'
+  const description = '这里是门店选择公开的维修记录，能看到检查和维修过程。'
   const canonical = absoluteUrl('/')
   const bodyHtml = [
-    `<h1>维修案例托管库</h1>`,
+    `<h1>辙见公开案例站</h1>`,
     `<section data-bot="ai-summary"><h2>站点说明</h2><p>${escapeHtml(description)}</p></section>`,
     data.serviceEntries && data.serviceEntries.length
       ? `<section><h2>服务项目</h2>${listLinks(
@@ -176,11 +176,11 @@ async function renderCityHtml(citySlug) {
   const title = seo.title || `${cityName}汽车维修保养 · 辙见`
   const description =
     seo.description ||
-    `查看${cityName}汽车维修保养门店、真实维修案例。公开案例已脱敏审核，价格仅供参考。`
+    `查看${cityName}汽车维修保养门店、门店确认后公开的维修记录。平台不做线下验真，车主仍以到店为准。`
   const canonical = absoluteUrl(seo.canonicalPath || `/city/${data.city.slug}`)
-  const summary = `平台收录${cityName}本地可提供汽车维修保养服务的维修门店，并展示已审核的真实维修案例。`
+  const summary = `辙见公开案例站 · ${cityName}。门店确认后公开的维修记录。`
   const bodyHtml = [
-    `<h1>${escapeHtml(cityName)}透明汽车维修服务平台</h1>`,
+    `<h1>辙见公开案例站</h1>`,
     `<section data-bot="ai-summary"><h2>城市摘要</h2><p>${escapeHtml(summary)}</p></section>`,
     (data.serviceEntries || []).length
       ? `<section><h2>服务项目</h2>${listLinks(

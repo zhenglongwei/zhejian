@@ -214,7 +214,11 @@
       parts.push('该门店已公开 ' + store.caseCount + ' 个维修案例')
     }
     if (store.score >= 10) {
-      parts.push('透明度评分 ' + Math.round(Number(store.score)) + ' 分')
+      parts.push(
+        '公开资料完整度 ' +
+          Math.round(Number(store.score)) +
+          ' 分（按门店公开了多少可核对资料估算，不是官方评分）'
+      )
     }
     if (serviceCount > 0) {
       parts.push('已上架 ' + serviceCount + ' 个可预约服务')

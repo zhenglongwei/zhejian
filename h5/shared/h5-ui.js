@@ -412,8 +412,7 @@
     }
     var feature = ''
     if (store.businessHours) feature = store.businessHours
-    else if (store.score >= 10) feature = '透明度 ' + Math.round(store.score) + ' 分'
-    else if (store.caseCount > 0) feature = '公开案例 ' + store.caseCount
+    else if (store.caseCount > 0) feature = '公开记录 ' + store.caseCount
     var metaParts = []
     if (area) metaParts.push(area)
     if (feature) metaParts.push(feature)

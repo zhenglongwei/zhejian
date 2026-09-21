@@ -67,7 +67,7 @@
 
   function setPageMeta() {
     var title = '辙见案例站'
-    var desc = '维修案例托管库。查看门店公开的维修档案。'
+    var desc = '这里是门店选择公开的维修记录，能看到检查和维修过程。'
     document.title = title
     ensureMeta('name', 'description', desc)
     ensureMeta('property', 'og:title', title)
@@ -125,7 +125,7 @@
           return ui.renderEntryCard({
             href: href,
             name: entry.name,
-            summary: entry.summary || entry.tag || '查看公开案例与价格参考',
+            summary: entry.summary || entry.tag || '查看公开维修记录',
           })
         }
         return (
@@ -213,14 +213,14 @@
     if (!cases || !cases.length) {
       if (window.zhejianEmptyShelf && window.zhejianEmptyShelf.renderMerchantEmpty) {
         return window.zhejianEmptyShelf.renderMerchantEmpty({
-          heading: '还没有公开档案',
+          heading: '现在还没有门店公开记录',
           titleTag: 'h2',
         })
       }
       return (
       '<div class="h5-card"><h2 class="h5-section-title">公开档案</h2>' +
-        '<div class="h5-empty-block">暂无公开档案</div>' +
-        '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解托管 ›</a></p></div>'
+        '<div class="h5-empty-block">现在还没有门店公开记录。你可以先看其他项目，或去杭州页看门店。</div>' +
+        '<p class="h5-home-more"><a class="h5-link" href="/city/hangzhou">杭州页</a> · <a class="h5-link" href="https://simplewin.cn/zhejian.html">门店说明</a></p></div>'
       )
     }
     var cards = cases
@@ -304,22 +304,22 @@
     var identity =
       (typeof data.platformIdentity === 'string' && data.platformIdentity) ||
       (data.platformIdentity && data.platformIdentity.subtitle) ||
-      '辙见案例站。门店托管公开的维修档案。'
+      '辙见公开案例站。门店选择公开的维修记录。'
     var hasCases = Array.isArray(data.featuredCases) && data.featuredCases.length > 0
 
     setPageMeta()
 
     var hero = hasCases
       ? '<header class="h5-header h5-home-hero">' +
-        '<h1 class="h5-title">维修案例托管库</h1>' +
+        '<h1 class="h5-title">辙见公开案例站</h1>' +
         '<p class="h5-summary">' +
         escapeHtml(identity) +
         '</p>' +
         '<p class="h5-home-more"><a class="h5-link" href="/case/">公开案例</a></p>' +
         '</header>'
       : '<header class="h5-header h5-home-hero">' +
-        '<h1 class="h5-title">辙见公开档案库</h1>' +
-        '<p class="h5-summary">帮门店把真实维修过程，变成可被看到的公开档案。</p>' +
+        '<h1 class="h5-title">辙见公开案例站</h1>' +
+        '<p class="h5-summary">这里是门店选择公开的维修记录，能看到检查和维修过程。</p>' +
         '</header>'
 
     var html =
@@ -350,7 +350,7 @@
     app.innerHTML =
       '<div class="h5-page">' +
       '<header class="h5-header">' +
-      '<h1 class="h5-title">辙见案例站</h1>' +
+      '<h1 class="h5-title">辙见公开案例站</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(message) +
       '</p>' +

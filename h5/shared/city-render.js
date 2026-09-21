@@ -73,7 +73,7 @@
       seo.description ||
       '查看' +
         cityName +
-        '汽车维修保养门店、真实维修案例与透明度说明。公开案例经审核，价格仅供参考。'
+        '汽车维修保养门店、门店确认后公开的维修记录。平台不做线下验真，车主仍以到店为准。'
     var canonical = location.origin + (seo.canonicalPath || location.pathname.replace(/\/$/, ''))
     var robots = seo.robots || 'index,follow'
 
@@ -116,7 +116,7 @@
           return ui.renderEntryCard({
             href: href,
             name: name,
-            summary: entry.summary || entry.tag || '查看公开案例与价格参考',
+            summary: entry.summary || entry.tag || '查看公开维修记录',
           })
         }
         return (
@@ -143,7 +143,7 @@
       return (
         '<div class="h5-card"><div class="h5-section-head"><h2 class="h5-section-title">公开案例</h2>' +
         '<a class="h5-link" href="/case/">查看全部案例</a></div>' +
-        '<div class="h5-empty-block">当前城市的公开案例正在补充中。</div></div>'
+        '<div class="h5-empty-block">这一类还没有门店公开记录。你可以先看其他项目，或去杭州页看门店。</div></div>'
       )
     }
     var cards = cases
@@ -223,22 +223,19 @@
 
   function renderStats(stats, cityName) {
     if (!stats) return ''
+    var caseCount = Number(stats.caseCount) || 0
+    var storeCount = Number(stats.storeCount) || 0
+    if (caseCount < 1 && storeCount < 1) return ''
     var parts = []
-    if (stats.caseCount > 0) parts.push('公开案例 ' + stats.caseCount + ' 条')
-    if (stats.storeCount > 0) parts.push('可展示门店 ' + stats.storeCount + ' 家')
+    if (caseCount > 0) parts.push('目前公开维修记录 ' + caseCount + ' 条')
+    if (storeCount > 0) parts.push('可查看门店 ' + storeCount + ' 家')
     if (!parts.length) return ''
     return (
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(cityName) +
-      '透明度摘要</h2>' +
+      '现在有什么</h2>' +
       '<p class="h5-summary">' +
-      escapeHtml(
-        '平台收录' +
-          cityName +
-          '本地维修门店与已审核公开案例。' +
-          parts.join('，') +
-          '。不含交易评价，数据来自公开留档与审核信息。'
-      ) +
+      escapeHtml(parts.join('，') + '。数字来自门店选择公开的记录，不是官方评分。') +
       '</p></div>'
     )
   }
@@ -352,10 +349,6 @@
   function renderCity(data) {
     var cityName = (data.city && data.city.name) || '杭州'
     var citySlug = (data.city && data.city.slug) || 'hangzhou'
-    var summary =
-      '平台收录' +
-      cityName +
-      '本地可提供汽车维修保养服务的维修门店，并展示已审核的真实维修案例。用户可查看参考价格、维修流程、门店信息和透明度指标后，通过小程序预约到店服务。'
 
     setPageMeta(data)
 
@@ -368,12 +361,10 @@
           ])
         : '') +
       '<header class="h5-header h5-home-hero">' +
-      '<h1 class="h5-title">' +
-      escapeHtml(cityName) +
-      '透明汽车维修服务平台</h1>' +
+      '<h1 class="h5-title">辙见公开案例站</h1>' +
       '<p class="h5-summary">' +
-      escapeHtml(summary) +
-      '</p>' +
+      escapeHtml(cityName) +
+      '。门店确认后公开的维修记录。公开前须门店确认已脱敏；平台不做线下验真，车主仍以到店为准。</p>' +
       '</header>' +
       renderStats(data.stats, cityName) +
       renderFeaturedCases(data.featuredCases, cityName) +

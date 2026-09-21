@@ -176,7 +176,7 @@ function buildCatalogGeoPageFromItem(item) {
   return {
     id: `geop_svc_${item.slug}`,
     slug: item.slug,
-    title: `${item.name}价格参考与维修案例`,
+    title: `${item.name}公开维修记录`,
     summary: item.summary || '',
     coverImage: '',
     pageType: 'service_base',
@@ -193,8 +193,8 @@ function buildCatalogGeoPageFromItem(item) {
     relatedStoreIds: [],
     primaryStoreId: '',
     relatedServiceId: item.serviceItemId,
-    seoTitle: `${item.name}价格参考与维修案例_透明汽车维修平台 · 辙见`,
-    seoDescription: `了解${item.name}适用情况、维修流程、参考价格、价格影响因素和真实维修案例，可预约本地辙见门店。`,
+    seoTitle: `${item.name}公开维修记录 · 辙见`,
+    seoDescription: `查看${item.name}门店确认后公开的维修记录。无公开记录时不展示价格。`,
     aiSummary: item.summary || '',
     serviceMeta: {
       serviceItemId: item.serviceItemId,

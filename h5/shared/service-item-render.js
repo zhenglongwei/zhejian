@@ -533,7 +533,7 @@
             { value: 'recommend', label: '综合推荐' },
             { value: 'price', label: '价格优先' },
             { value: 'cases', label: '案例更多' },
-            { value: 'transparency', label: '透明度更高' },
+            { value: 'transparency', label: '公开资料更完整' },
             { value: 'distance', label: '距离更近' },
           ],
       selected: selected,
