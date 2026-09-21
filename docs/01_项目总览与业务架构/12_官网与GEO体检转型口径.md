@@ -43,15 +43,16 @@
 
 ## 3. 第一期交付（同一域名）
 
-全部挂在 **simplewin.cn**（盈简主站），三个入口：
+全部挂在 **simplewin.cn**（盈简主站）：
 
 | 路径 | 页面 | 第一期要做到 |
 | --- | --- | --- |
 | `/` | 公司 | 谁、做什么、不做交易撮合、怎么联系 |
 | `/zhejian` | 辙见平台 | 案例托管站定位、门店主权、小程序生产、链到案例站 |
 | `/check` | GEO 体检 | 企业名 + 城市 + 行业 → 巡检评分 |
-| `/rank` | GEO 榜单 | 门店分数排序 |
 | `/archive` | 微信转案例扫码页 | **只放直达小程序码**（扫开小程序整理页）。不是转换器，也不是「已迁入」说明。首页工具卡可点进本页。 |
+
+**2026-09-21**：公开「门店 AI 可见性榜单」下线。官网不再提供 `/rank` 页与入口；旧地址转到 `/check`。体检仍是单店诊断，不做门店之间的公开排名。
 
 对照：免费检测挂在公司官网下（如常见的网站评分工具），不另开检测专用域，也不塞进 `zhejian.simplewin.cn` 案例库。过渡期 `geo.simplewin.cn` 仍解析到同一套服务。
 
@@ -139,7 +140,7 @@ HTML 默认按「没有」写。Case 0 是盈简自己的 GEO 日记，**不是*
 | 进程被 kill | 开跑前回收超 30 分钟的僵尸批次 |
 
 **铁律：抓不到就是抓不到。** 任何失败状态**绝不**当成「没被提到」计入分母。
-门店看到 0 分会去 AI 那里求证，对不上的话榜单和公司信誉一起完蛋。
+门店看到 0 分会去 AI 那里求证，对不上的话分数和公司信誉一起完蛋。
 
 详细操作见 [`docs/09_SEO_GEO_AI内容基础设施/15_GEO浏览器巡检操作手册.md`](../09_SEO_GEO_AI内容基础设施/15_GEO浏览器巡检操作手册.md)。
 
@@ -172,7 +173,7 @@ HTML 默认按「没有」写。Case 0 是盈简自己的 GEO 日记，**不是*
 | --- | --- |
 | 主站 | `brand-web/` 静态页 + `sitemap.xml` + `robots.txt` + `llms.txt` |
 | 体检 API | `POST /api/v1/public/geo-check`（接口通道，同步）/ `POST …/geo-check/browser`（浏览器通道，异步返回 runId）/ `GET …/geo-check/run/:runId`（轮询进度与结果）/ `GET …/geo-check/status` 与 `…/geo-check/browser/status`（通道自检） |
-| 榜单 API | `GET /api/v1/public/geo-ranking` 榜单（支持 `city`/`industry`/`source`/`limit` 过滤） |
+| 榜单 API | 公开页已下线。`GET /api/v1/public/geo-ranking` 可留作内部统计，官网不链、不展示 |
 | 巡检引擎 | `backend/src/services/geo-browser-probe/`（driver / session / runner / platforms / questions） |
 | 平台与题库 | 外置 `backend/config/geo-probe-platforms.json`，平台地址与访问顺序可配置，不用动核心逻辑 |
 | 浏览器 | Playwright 驱动本机 Chrome，专用 profile 持久化登录态 |

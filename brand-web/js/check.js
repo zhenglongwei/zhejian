@@ -527,13 +527,12 @@
 
   function renderRanking(ranking) {
     if (!ranking) return ''
-    let html = '<div class="card"><p class="step-kicker">已计入榜单</p>'
+    let html = '<div class="card"><p class="step-kicker">接口联网分</p>'
     html += '<h2 style="margin-top:0">接口联网分 ' + ranking.score + ' / 100</h2>'
     html +=
       '<p class="muted" style="margin-bottom:0">置信度 ' +
       ranking.confidence +
-      '%（有效回执 ÷ 计划回执）。这个分数由企业名核对和行业提问两路合成，' +
-      '口径公开，<a href="/rank.html">去榜单看排名 →</a></p>'
+      '%（有效回执 ÷ 计划回执）。这个分数由企业名核对和行业提问两路合成。</p>'
     html += '</div>'
     return html
   }

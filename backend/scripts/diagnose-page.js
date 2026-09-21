@@ -1,5 +1,5 @@
 /**
- *  diagnose-page.js — 体检页 / 榜单页的渲染冒烟
+ *  diagnose-page.js — 体检页的渲染冒烟
  *
  *  后端接口对了不代表页面对。这个脚本做最小验证：起一个静态服务，
  *  用巡检同款浏览器打开页面，等表格渲染出来，检查关键字段有没有真的落在 DOM 上。
@@ -7,8 +7,8 @@
  *  注意：巡检在跑的时候不要执行——它和巡检共用同一个 Chrome profile，
  *  两个进程同时开同一个持久化目录会互相打架。
  *
- *  用法：node scripts/diagnose-page.js [rank|check] [--api http://127.0.0.1:3210/api/v1/public]
- *        默认 rank，默认打本机 :3000 上已经在跑的后端。
+ *  用法：node scripts/diagnose-page.js [check] [--api http://127.0.0.1:3210/api/v1/public]
+ *        默认 check。公开榜单页已下线，不再支持 rank。
  *        后端改完但还没重启时，用 --api 指到一个临时实例，照样能验。
  */
 const path = require('path')
@@ -21,7 +21,11 @@ const apiFlagIndex = argv.indexOf('--api')
 const API_BASE = apiFlagIndex >= 0 ? argv[apiFlagIndex + 1] : ''
 const BRAND_WEB = path.resolve(__dirname, '../../brand-web')
 // 用 0 让系统分配空闲端口：本机可能已经跑着 Vite 之类的开发服务器，写死端口会撞
-const PAGE = positional[0] === 'check' ? 'check.html' : 'rank.html'
+if (positional[0] === 'rank') {
+  console.error('公开榜单页已下线，请改用：node scripts/diagnose-page.js check')
+  process.exit(1)
+}
+const PAGE = 'check.html'
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' }
 
 function serve() {
@@ -64,22 +68,8 @@ async function main() {
   await page.goto(url, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(6000)
 
-  if (PAGE === 'rank.html') {
-    const stats = await page.locator('#stats').innerText().catch(() => '')
-    const tableRows = await page.locator('#rank-box table.rank tbody tr').count()
-    const firstRow = tableRows
-      ? await page.locator('#rank-box table.rank tbody tr').first().innerText()
-      : ''
-    const contrast = await page.locator('#contrast').innerText().catch(() => '')
-    console.log('\n--- 统计条 ---\n' + stats)
-    console.log('\n--- 三分数对照 ---\n' + contrast)
-    console.log(`\n--- 表格行数：${tableRows} ---`)
-    console.log('首行：\n' + firstRow.replace(/\n+/g, ' | '))
-    if (!tableRows) console.log('\n⚠ 表格没渲染出来，检查接口或 JS 报错')
-  } else {
-    const body = await page.locator('body').innerText()
-    console.log('\n--- 页面文本前 600 字 ---\n' + body.slice(0, 600))
-  }
+  const body = await page.locator('body').innerText()
+  console.log('\n--- 页面文本前 600 字 ---\n' + body.slice(0, 600))
 
   if (missing.length) {
     console.log('\n--- 加载失败的资源（favicon 之类的可忽略）---')

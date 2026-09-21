@@ -138,7 +138,6 @@ npm run geo-check:page-smoke                       # 体检页全流程：带桩
 
 | 改动位置 | 用哪个 | 它验到哪一层 |
 |---|---|---|
-| `brand-web/rank.html` / `js/rank.js` | `diagnose-page.js rank` | 打真接口，看榜单渲染 |
 | `brand-web/check.html` 静态文案 | `diagnose-page.js check` | 只渲染页面，不调接口 |
 | `brand-web/js/check.js` **任何改动** | `geo-check:page-smoke` | **点提交 → 出接口联网分 → 点巡检 → 出双分数对照，16 条断言** |
 
