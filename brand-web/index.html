@@ -88,11 +88,11 @@
   h2 { font-size:24px; margin-bottom:8px; }
   .h2sub { color:var(--sub); font-size:14px; margin-bottom:28px; }
   .rel { color:var(--ink); font-size:15px; margin:0 0 20px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
-  .card { border:1px solid var(--line); border-radius:12px; padding:22px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; align-items:stretch; }
+  .card { border:1px solid var(--line); border-radius:12px; padding:22px; display:flex; flex-direction:column; }
   .card h3 { font-size:16px; margin-bottom:8px; }
   .card p { font-size:14px; color:var(--sub); }
-  .card .more { display:inline-block; margin-top:10px; font-size:13px; font-weight:600; }
+  .card .more { display:inline-block; margin-top:auto; padding-top:10px; font-size:13px; font-weight:600; }
   .card .badge { display:inline-block; background:var(--brand-bg); color:var(--brand); font-size:12px; font-weight:600; padding:3px 10px; border-radius:20px; margin-bottom:10px; }
   .timeline { border-left:2px solid var(--brand); padding-left:24px; }
   .titem { margin-bottom:22px; position:relative; }
@@ -113,11 +113,9 @@
   footer .foot-links a { margin-right:14px; }
   .soon { color:var(--ok); font-size:12px; font-weight:600; }
   .tools-note { font-size:13px; color:var(--sub); margin-top:18px; }
-  .mp-entry { display:flex; align-items:center; gap:16px; margin-top:16px; }
+  .mp-entry { display:flex; align-items:center; gap:16px; margin-top:auto; padding-top:16px; }
   .mp-entry img { width:96px; height:96px; border:1px solid var(--line); border-radius:8px; background:#fff; }
   .mp-entry p { margin:0; max-width:420px; }
-  .mp-entry--stack { flex-direction:column; align-items:flex-start; gap:8px; }
-  .mp-entry--stack img { width:120px; height:120px; }
   @media (max-width:600px){ .hero h1{font-size:26px} nav a{margin-left:0; margin-right:14px} }
 </style>
 </head>
@@ -222,8 +220,8 @@
       <div class="card">
         <h3>微信转案例</h3>
         <p>把门店微信群里的这一单整理进服务相册：粘贴文字、一次选图，再核对。</p>
-        <div class="mp-entry mp-entry--stack">
-          <img src="https://zhejian.simplewin.cn/api/v1/public/h5/miniprogram-code?entry=wechat-archive" width="120" height="120" alt="微信转案例小程序码">
+        <div class="mp-entry">
+          <img src="https://zhejian.simplewin.cn/api/v1/public/h5/miniprogram-code?entry=wechat-archive" width="96" height="96" alt="微信转案例小程序码">
           <p>微信扫码打开</p>
         </div>
       </div>

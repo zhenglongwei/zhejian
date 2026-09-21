@@ -26,7 +26,9 @@ function main() {
     toolsBlock.includes('miniprogram-code?entry=wechat-archive'),
     '首页微信转案例要放直达码',
   )
-  assert(toolsBlock.includes('mp-entry--stack'), '码放在卡片正文下方')
+  assert(toolsBlock.includes('class="mp-entry"'), '码用与辙见小程序卡同一套横排样式')
+  assert(!toolsBlock.includes('mp-entry--stack'), '不要另做竖排大码')
+  assert(toolsBlock.includes('width="96"'), '码尺寸与辙见小程序卡一致')
   assert(!toolsBlock.includes('href="/archive.html"'), '首页不要链到 /archive')
   assert(!indexHtml.includes('打开小程序码'), '首页不要「打开小程序码」')
   assert(!indexHtml.includes('查看说明'), '首页不要用「查看说明」当入口')
