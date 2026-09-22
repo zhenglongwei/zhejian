@@ -134,9 +134,9 @@ Page({
     const hint = MERCHANT_AUTH_HINT[auth] || ''
     const trustLine =
       (profile.publisherTrust && profile.publisherTrust.displayLine) ||
-      [profile.authStatusLabel, profile.profileCompletenessLabel && `??${profile.profileCompletenessLabel}`]
+      [profile.authStatusLabel, profile.profileCompletenessLabel && `资料${profile.profileCompletenessLabel}`]
         .filter(Boolean)
-        .join(' ? ')
+        .join(' · ')
     return { trustHint: hint, trustLine }
   },
 
@@ -329,12 +329,12 @@ Page({
     if (this.data.switchingStore) return
     this.setData({ switchingStore: true })
     try {
-      wx.showLoading({ title: '????', mask: true })
+      wx.showLoading({ title: '切换门店', mask: true })
       await switchMerchantStore(storeId)
       wx.hideLoading()
       this.setData({ storePickerIndex: pickerIndex })
       await this.loadProfile({ silent: true })
-      wx.showToast({ title: '??????, icon: 'success' })
+      wx.showToast({ title: '已切换门店', icon: 'success' })
     } catch (e) {
       wx.hideLoading()
       this.setData({
@@ -343,7 +343,7 @@ Page({
           this.data.storeOptions.findIndex((item) => item.id === this.data.profile?.storeId)
         ),
       })
-      wx.showToast({ title: (e && e.message) || '????', icon: 'none' })
+      wx.showToast({ title: (e && e.message) || '切换失败', icon: 'none' })
     } finally {
       this.setData({ switchingStore: false })
     }
@@ -418,9 +418,9 @@ Page({
         const plate =
           (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
           row.vehicleDisplay ||
-          '??'
+          '相册'
         const service = String(row.serviceName || '').trim()
-        return service ? `${plate} ? ${service}` : plate
+        return service ? `${plate} · ${service}` : plate
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -437,7 +437,7 @@ Page({
     const list = this._followUpAlbums || []
     if (!list.length) {
       this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } })
-      wx.showToast({ title: '??????????', icon: 'none' })
+      wx.showToast({ title: '请在完工节点查看跟进', icon: 'none' })
       return
     }
     if (list.length === 1) {
@@ -450,14 +450,15 @@ Page({
       )
       return
     }
-    // ????????????????????    const first = list[0]
+    // 多本：进列表，优先点开最近有跟进的一本
+    const first = list[0]
     wx.showActionSheet({
       itemList: list.slice(0, 6).map((row) => {
         const plate =
           (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
           row.vehicleDisplay ||
-          '??'
-        return `${plate} ? ${row.followUpCount || 0} ???`
+          '相册'
+        return `${plate} · ${row.followUpCount || 0} 项跟进`
       }),
       success: (res) => {
         const picked = list[res.tapIndex]
@@ -500,9 +501,15 @@ Page({
       reviews: () => this.onReviewList(),
       wechatArchive: () =>
         this._navigateTo('/packageMerchant/pages/tools/wechat-archive/index'),
+      switchOwner: () => this.onSwitchToOwner(),
     }
     const fn = handlers[key]
     if (fn) fn()
+  },
+
+  onSwitchToOwner() {
+    const { persistRole, reLaunchRoleHome, ROLE_OWNER } = require('../../../utils/app-role')
+    persistRole(ROLE_OWNER).then(() => reLaunchRoleHome(ROLE_OWNER))
   },
 
   onSwitchStore() {
@@ -554,7 +561,7 @@ Page({
   onStoreHome() {
     const { profile } = this.data
     if (!profile || !profile.storeId) {
-      wx.showToast({ title: '????????, icon: 'none' })
+      wx.showToast({ title: '未找到门店信息', icon: 'none' })
       return
     }
     this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1`)

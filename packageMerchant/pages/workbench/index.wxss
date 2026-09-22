@@ -16,6 +16,11 @@
   box-sizing: border-box;
 }
 
+.merchant-hub__role-switch {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+
 .merchant-hub {
   display: flex;
   flex-direction: column;

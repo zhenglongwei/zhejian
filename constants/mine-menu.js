@@ -50,8 +50,8 @@ const MINE_PUBLIC_MENUS = [
 
 const MINE_MERCHANT_ITEM = {
   key: 'merchant',
-  label: '商家工作台',
-  desc: '创建服务相册与管理门店',
+  label: '切换为商家',
+  desc: '进入工作台；还没开通会先开通',
   needPhone: false,
 }
 

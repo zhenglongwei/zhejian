@@ -1,0 +1,22 @@
+.role-gate {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: var(--space-xl) var(--space-lg);
+  padding-bottom: calc(var(--space-xl) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--color-bg-page);
+}
+
+.role-gate__title {
+  margin-bottom: var(--space-xl);
+}
+
+.role-gate__hint {
+  margin-top: var(--space-xs);
+}
+
+.role-gate__gap {
+  height: var(--space-lg);
+}

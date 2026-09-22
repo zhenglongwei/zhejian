@@ -17,6 +17,9 @@
         actionText="{{archiveIntent ? '开通后继续' : '进入工作台'}}"
         bind:action="onQuickOpen"
       />
+      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+        <text class="text-caption text-link">切换为车主</text>
+      </view>
     </view>
   </block>
 
@@ -29,6 +32,9 @@
         actionText="一键开通"
         bind:action="onQuickOpen"
       />
+      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+        <text class="text-caption text-link">切换为车主</text>
+      </view>
     </view>
   </block>
 

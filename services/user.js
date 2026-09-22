@@ -19,6 +19,7 @@ const {
   mockDeactivateAccount,
   mockUpdateUserProfile,
 } = require('../mock/user')
+const { syncRoleWithAccount } = require('../utils/app-role')
 
 async function fetchMineSummary() {
   const { token, user } = getSession()
@@ -55,6 +56,7 @@ async function wechatLogin() {
   if (ENV.mode === 'mock') {
     const { token, user } = await mockWechatLogin(code)
     saveSession({ token, user })
+    syncRoleWithAccount(user)
     return { token, user }
   }
 
@@ -65,6 +67,7 @@ async function wechatLogin() {
     roles: data.roles || ['user'],
     merchant: data.merchant || null,
   })
+  syncRoleWithAccount(data.user)
   return data
 }
 

@@ -38,7 +38,7 @@ async function inviteMerchantStaff(phone) {
         phoneDisplay: String(phone).replace(/(\d{3})\d{4}(\d{4})/, '$1****$2'),
         canRemove: true,
       },
-      hint: '已登记手机号；对方用该号登录并绑定手机后，在「我的」进入商家工作台',
+      hint: '已登记手机号；对方用该号登录并绑定手机后，重新打开小程序进入工作台。若正在看车主页，点「切换为商家」',
     }
   }
   return post('/merchant/staff/invite', { phone })

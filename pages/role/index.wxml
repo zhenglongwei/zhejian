@@ -1,0 +1,11 @@
+<view class="role-gate" wx:if="{{status === 'choose'}}">
+  <text class="role-gate__title text-h2">你是？</text>
+  <ui-button type="secondary" block bind:btntap="onChooseMerchant">商家</ui-button>
+  <text class="role-gate__hint text-caption text-secondary">做案例、管门店</text>
+  <view class="role-gate__gap"></view>
+  <ui-button type="secondary" block bind:btntap="onChooseOwner">车主</ui-button>
+  <text class="role-gate__hint text-caption text-secondary">看维修记录</text>
+</view>
+<view class="role-gate" wx:else>
+  <ui-skeleton rows="{{2}}" title="{{true}}" avatar="{{false}}" />
+</view>

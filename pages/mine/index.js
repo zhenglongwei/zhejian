@@ -395,7 +395,7 @@ Page({
     const { section, item } = found
     if (section === 'public') {
       if (key === 'merchant') {
-        wx.navigateTo({ url: '/packageMerchant/pages/store-picker/index' })
+        this.switchToMerchant()
       }
       return
     }
@@ -417,7 +417,12 @@ Page({
       return
     }
     if (key === 'merchant') {
-      this.openMenuEntry('merchant')
+      this.switchToMerchant()
     }
+  },
+
+  switchToMerchant() {
+    const { persistRole, reLaunchRoleHome, ROLE_MERCHANT } = require('../../utils/app-role')
+    persistRole(ROLE_MERCHANT).then(() => reLaunchRoleHome(ROLE_MERCHANT))
   },
 })

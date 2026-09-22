@@ -105,10 +105,10 @@ function buildMerchantHubDock(todos = {}) {
 }
 
 function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
-  const base = canManageStaff ? MERCHANT_HUB_MORE_ITEMS : [{ key: 'wechatArchive', label: '微信转案例' }]
-  const items = canManageStaff
+  const items = (canManageStaff
     ? MERCHANT_HUB_MORE_ITEMS
-    : base
+    : [{ key: 'wechatArchive', label: '微信转案例' }]
+  ).concat([{ key: 'switchOwner', label: '切换为车主' }])
   return items.map((item) =>
     attachNavIcon({
       ...item,

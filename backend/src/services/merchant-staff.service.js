@@ -226,8 +226,8 @@ async function inviteMerchantStaff(auth, rawPhone) {
   })
 
   const hint = existingUser
-    ? '已关联该用户，对方重新进入小程序即可使用商家工作台'
-    : '已登记手机号；对方用该号登录并绑定手机后，在「我的」进入商家工作台'
+    ? '已关联该用户。对方重新打开小程序进入工作台；若在车主页，点「切换为商家」'
+    : '已登记手机号；对方用该号登录并绑定手机后，重新打开小程序进入工作台。若正在看车主页，点「切换为商家」'
 
   return {
     item: formatStaffItem(row, operatorUserId),

@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD COLUMN `preferred_role` VARCHAR(16) NOT NULL DEFAULT '';

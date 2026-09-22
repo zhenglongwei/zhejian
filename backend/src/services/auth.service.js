@@ -28,6 +28,10 @@ function formatUserPayload(user) {
     avatarUrl: resolveClientReadableMediaUrl(user.avatarUrl || ''),
     phoneDisplay: phone ? maskPhone(phone) : '',
     isPhoneBound: Boolean(phone),
+    preferredRole:
+      user.preferredRole === 'merchant' || user.preferredRole === 'owner'
+        ? user.preferredRole
+        : '',
   }
 }
 
@@ -203,6 +207,15 @@ async function updateUserProfile(userId, payload = {}) {
   }
   if (payload.avatarUrl !== undefined) {
     data.avatarUrl = normalizeStoredAvatarUrl(payload.avatarUrl)
+  }
+  if (payload.preferredRole !== undefined) {
+    const role = String(payload.preferredRole || '').trim()
+    if (role !== 'merchant' && role !== 'owner') {
+      const err = new Error('请选择商家或车主')
+      err.status = 400
+      throw err
+    }
+    data.preferredRole = role
   }
 
   if (!Object.keys(data).length) {

@@ -21,6 +21,7 @@ async function mockWechatLogin() {
     avatarUrl: '',
     phoneDisplay: '',
     isPhoneBound: false,
+    preferredRole: '',
   }
   const token = `mock_token_${Date.now()}`
   return { token, user }
@@ -58,6 +59,7 @@ async function mockMineSummary(user) {
       avatarUrl: user.avatarUrl,
       phoneDisplay: user.phoneDisplay || '',
       isPhoneBound: Boolean(user.isPhoneBound),
+      preferredRole: user.preferredRole || '',
     },
     consultPending: MOCK_SUMMARY.consultPending,
     albumPendingAuth,
@@ -92,6 +94,10 @@ async function mockUpdateUserProfile(payload = {}, currentUser = {}) {
       payload.avatarUrl !== undefined ? String(payload.avatarUrl || '').trim() : currentUser.avatarUrl || '',
     phoneDisplay: currentUser.phoneDisplay || '',
     isPhoneBound: Boolean(currentUser.isPhoneBound),
+    preferredRole:
+      payload.preferredRole !== undefined
+        ? String(payload.preferredRole || '')
+        : currentUser.preferredRole || '',
   }
 }
 
