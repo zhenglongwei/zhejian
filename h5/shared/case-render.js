@@ -518,7 +518,7 @@
     var note =
       data.attribution && !data.attribution.showStoreAsAuthor
         ? escapeHtml(data.attribution.storeAttributionLabel || '提交者声称、门店未确认')
-        : '内容由门店托管公开，来源为商家上传；标签仅描述账号资料状态，平台不担保真实与脱敏零残留。'
+        : '内容由上传者选择公开，来源标注上传者；标签仅描述账号资料状态，平台不担保真实与脱敏零残留。'
     return (
       '<div class="h5-tags">' +
       html +
@@ -622,7 +622,7 @@
     return (
       '<aside class="h5-archive-aside">' +
       (name ? '<p class="h5-aside-name">' + escapeHtml(name) + '</p>' : '') +
-      '<p class="h5-aside-note">内容由门店托管公开，仅供参考。</p>' +
+      '<p class="h5-aside-note">内容由上传者选择公开，仅供参考。</p>' +
       addrBlock +
       phoneBlock +
       '</aside>'

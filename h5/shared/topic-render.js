@@ -104,7 +104,7 @@
     if (!cases || !cases.length) {
       return (
         '<div class="h5-empty-block" id="topic-case-list">' +
-        '这一类还没有门店公开记录。你可以先<a class="h5-link" href="/case/">看其他项目</a>，或<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>。门店若要公开：微信搜「辙见」。' +
+        '这一类暂时还没有公开案例。你可以先<a class="h5-link" href="/case/">浏览其他分类</a>。欢迎修理厂商家上传并选择公开。' +
         '</div>'
       )
     }

@@ -21,7 +21,8 @@ assert.ok(faqs.every((item) => !/1280|元/.test(item.a)))
 const empty = extractJobFaqs({
   sections: [{ key: 'handover', body: '旧件与交车确认以门店留档为准；质保以门店承诺为准。' }],
 })
-assert.strictEqual(empty.length, 0)
+assert.strictEqual(empty.length, 1)
+assert.ok(empty[0].a.includes('质保期'))
 
 const maintenance = extractJobFaqs({
   sections: [

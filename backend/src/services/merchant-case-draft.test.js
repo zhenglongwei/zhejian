@@ -308,7 +308,7 @@ function run() {
   assert.ok(!/本单已处理/.test(checklistDraft.caseSummary))
   assert.ok(checklistDraft.faq.some((item) => item.q.includes('查了')))
   assert.ok(checklistDraft.faq.some((item) => item.q.includes('做了')))
-  assert.ok(checklistDraft.faq.some((item) => item.q.includes('没施工')))
+  assert.ok(checklistDraft.faq.some((item) => item.q.includes('没有做')))
   assert.ok(checklistDraft.faq.every((item) => !/偏低|性价比|暂缓/.test(item.a)))
   assert.ok(checklistDraft.title.includes('雨刮器'))
   assert.strictEqual(diagnosis.title, '检查留证')

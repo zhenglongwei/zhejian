@@ -9,7 +9,6 @@ const {
   isLowInfoFaqAnswer,
   collectHostedCaseFaq,
 } = require('../utils/hosted-storefront-faq')
-const { getHostedStorefrontFaqBank: getBank } = require('../constants/hosted-storefront-faq-bank')
 
 function testMaintenanceBank() {
   const pack = buildHostedStorefrontFaq({
@@ -18,45 +17,57 @@ function testMaintenanceBank() {
     answeredFaq: [],
   })
   assert.equal(pack.categoryId, 'maintenance')
-  assert.ok(pack.faq.length >= 4, '保养应预置多条问')
-  assert.ok(pack.faq.every((row) => row.q && !row.a), '薄案例答应空')
-  assert.equal(filterPublishableFaq(pack.faq).length, 0, '空答不上网')
+  assert.equal(pack.faq.length, 1, '没有亮点时只留一条缺项叮嘱')
+  assert.ok(pack.faq[0].a.includes('质保期'))
+  assert.equal(filterPublishableFaq(pack.faq).length, 1, '短叮嘱可以上网')
+  assert.ok(Array.isArray(pack.directions) && pack.directions.length >= 3)
 }
 
-function testChassisMoreQuestions() {
-  const bankQ = getBank('chassis_noise').questions[0]
+function testChassisKeepsHighlightAndGap() {
   const pack = buildHostedStorefrontFaq({
     serviceName: '底盘维修',
     geo: { faultDesc: '异响', inspectResult: '胶套老化', repairPlan: '更换下摆臂胶套' },
     answeredFaq: [
       {
-        q: bankQ,
-        a: '平时常见先查胶套、球头和连杆；本单检查为胶套老化，已更换下摆臂胶套，减轻异响来源。',
+        q: '这例查出了什么、怎么处理？',
+        a: '这例公开档案里，检查为胶套老化，已更换下摆臂胶套，异响来源已经处理。',
       },
     ],
   })
   assert.equal(pack.categoryId, 'chassis_noise')
-  assert.ok(pack.faq.length >= 5, '底盘题更多')
   assert.ok(pack.hasMaterial)
   const published = filterPublishableFaq(pack.faq)
-  assert.equal(published.length, 1)
+  assert.equal(published.length, 2, '亮点之后补一条缺项叮嘱')
   assert.ok(published[0].a.includes('胶套'))
+  assert.ok(published[1].a.includes('质保期'))
+}
+
+function testSkipGapWhenThemeCovered() {
+  const pack = buildHostedStorefrontFaq({
+    serviceName: '钣金喷漆',
+    geo: { faultDesc: '后门凹陷', repairPlan: '钣金喷漆', resultConfirm: '漆面质保一年' },
+    answeredFaq: [
+      {
+        q: '这例质保怎么写的？',
+        a: '这例写了漆面质保一年。修完后要向商家确定质保期，以及不含哪些。',
+      },
+    ],
+  })
+  assert.equal(pack.faq.length, 1, '已有质保亮点就不再补空叮嘱')
 }
 
 function testRejectThinAnswer() {
   assert.equal(isLowInfoFaqAnswer('后门'), true)
   assert.equal(isLowInfoFaqAnswer('机油'), true)
+  assert.equal(isLowInfoFaqAnswer('修完后要向商家确定质保期'), false)
   const pack = buildHostedStorefrontFaq({
     serviceName: '钣金喷漆',
     geo: { faultDesc: '后门凹陷', repairPlan: '钣金喷漆' },
     answeredFaq: [{ q: '这次主要修了什么？', a: '后门' }],
   })
-  assert.equal(filterPublishableFaq(pack.faq).length, 0, '极简答不得公开')
-  assert.ok(
-    !pack.faq.some((row) => row.a === '后门'),
-    '低质答应被清空为待填',
-  )
+  assert.ok(!pack.faq.some((row) => row.a === '后门'), '低质答应被丢掉')
   assert.equal(filterPublishableFaq([{ q: '这次主要修了什么？', a: '后门' }]).length, 0)
+  assert.equal(filterPublishableFaq(pack.faq).length, 1, '丢掉极简答后仍可留一条叮嘱')
 }
 
 function testScreenshotBodyShopAnswerIsPublishable() {
@@ -96,7 +107,8 @@ function testCollectHostedFaqPrefersStorefrontLayer() {
 }
 
 testMaintenanceBank()
-testChassisMoreQuestions()
+testChassisKeepsHighlightAndGap()
+testSkipGapWhenThemeCovered()
 testRejectThinAnswer()
 testScreenshotBodyShopAnswerIsPublishable()
 testMaterialGate()

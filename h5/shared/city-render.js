@@ -3,10 +3,10 @@
   var COPY = {
     displayDisclaimer:
       PC.displayDisclaimer ||
-      '本页内容仅供参考。实际方案与费用请与门店线下确认。',
+      '本页内容仅供参考。实际方案与费用请与商家线下确认。',
     geoDisclaimer:
       PC.geoDisclaimer ||
-      '页面用于展示维修服务信息、门店信息与公开案例，不构成线上报价或维修承诺。',
+      '页面用于展示公开案例与商家信息，不构成线上报价或承诺。',
   }
 
   function escapeHtml(str) {
@@ -68,12 +68,11 @@
   function setPageMeta(data) {
     var cityName = (data.city && data.city.name) || '杭州'
     var seo = data.seo || {}
-    var title = seo.title || cityName + '汽车维修保养 · 辙见'
+    var title = seo.title || cityName + '公开案例与商家 · 辙见'
     var desc =
       seo.description ||
-      '查看' +
-        cityName +
-        '汽车维修保养门店、门店确认后公开的维修记录。平台不做线下验真，车主仍以到店为准。'
+      cityName +
+        '地区与辙见相关的公开案例与商家信息。目前以修理厂为主。'
     var canonical = location.origin + (seo.canonicalPath || location.pathname.replace(/\/$/, ''))
     var robots = seo.robots || 'index,follow'
 
@@ -143,7 +142,7 @@
       return (
         '<div class="h5-card"><div class="h5-section-head"><h2 class="h5-section-title">公开案例</h2>' +
         '<a class="h5-link" href="/case/">查看全部案例</a></div>' +
-        '<div class="h5-empty-block">这一类还没有门店公开记录。你可以先看其他项目，或去杭州页看门店。</div></div>'
+        '<div class="h5-empty-block">这一类暂时还没有公开案例。你可以先浏览其他分类，或了解辙见怎么上传（微信搜「辙见」）。</div></div>'
       )
     }
     var cards = cases
@@ -186,8 +185,8 @@
       return (
         '<div class="h5-card"><h2 class="h5-section-title">' +
         escapeHtml(cityName) +
-        '推荐门店</h2>' +
-        '<div class="h5-empty-block">暂无公开展示门店</div></div>'
+        '推荐商家</h2>' +
+        '<div class="h5-empty-block">暂无公开展示商家</div></div>'
       )
     }
     var ui = window.zhejianH5Ui
@@ -204,7 +203,7 @@
           storeHref(store.id) +
           '" data-store-id="' +
           escapeHtml(store.id) +
-          '"><div class="h5-media-list-thumb h5-media-list-thumb--placeholder">门店</div>' +
+          '"><div class="h5-media-list-thumb h5-media-list-thumb--placeholder">商家</div>' +
           '<div class="h5-media-list-body"><div class="h5-media-list-title">' +
           escapeHtml(store.name) +
           '</div></div></a>'
@@ -214,7 +213,7 @@
     return (
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(cityName) +
-      '推荐门店</h2>' +
+      '推荐商家</h2>' +
       '<div class="h5-media-list">' +
       items +
       '</div></div>'
@@ -228,14 +227,14 @@
     if (caseCount < 1 && storeCount < 1) return ''
     var parts = []
     if (caseCount > 0) parts.push('目前公开维修记录 ' + caseCount + ' 条')
-    if (storeCount > 0) parts.push('可查看门店 ' + storeCount + ' 家')
+    if (storeCount > 0) parts.push('可查看商家 ' + storeCount + ' 家')
     if (!parts.length) return ''
     return (
       '<div class="h5-card"><h2 class="h5-section-title">' +
       escapeHtml(cityName) +
       '现在有什么</h2>' +
       '<p class="h5-summary">' +
-      escapeHtml(parts.join('，') + '。数字来自门店选择公开的记录，不是官方评分。') +
+      escapeHtml(parts.join('，') + '。数字来自用户选择公开的记录，不是官方评分。') +
       '</p></div>'
     )
   }
@@ -361,10 +360,12 @@
           ])
         : '') +
       '<header class="h5-header h5-home-hero">' +
-      '<h1 class="h5-title">辙见公开案例站</h1>' +
+      '<h1 class="h5-title">' +
+      escapeHtml(cityName) +
+      '公开案例与商家</h1>' +
       '<p class="h5-summary">' +
       escapeHtml(cityName) +
-      '。门店确认后公开的维修记录。公开前须门店确认已脱敏；平台不做线下验真，车主仍以到店为准。</p>' +
+      '地区与辙见相关的公开案例与商家信息。目前以修理厂为主。</p>' +
       '</header>' +
       renderStats(data.stats, cityName) +
       renderFeaturedCases(data.featuredCases, cityName) +

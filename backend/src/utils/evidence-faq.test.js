@@ -38,6 +38,17 @@ function run() {
   assert.strictEqual(kept.length, 1)
   assert.ok(kept[0].q.includes('这例'))
 
+  assert.strictEqual(
+    filterEvidenceFaq([
+      { q: '修完后要向商家确认什么？', a: '修完后要向商家确定质保期。' },
+      {
+        q: '这例质保怎么写的？',
+        a: '这例写了漆面质保一年。修完后要向商家确定质保期，以及不含哪些。',
+      },
+    ]).length,
+    1,
+  )
+
   console.log('[evidence-faq.test] ok')
 }
 

@@ -30,6 +30,11 @@ function keepEvidenceFaq(item) {
   const q = String((item && (item.q || item.question)) || '').trim()
   const a = String((item && (item.a || item.answer)) || '').trim()
   if (!q || !a) return false
+  const text = faqText(item)
+  // 单案缺项叮嘱不上专题页，避免写成跨店结论
+  if (!CASE_POINTER_PATTERN.test(text) && /要向商家确定|先问盘厚|问清是套餐|规格和包装给你看/.test(text)) {
+    return false
+  }
   return !looksLikeEncyclopediaFaq(item)
 }
 

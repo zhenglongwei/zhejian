@@ -60,11 +60,11 @@ function buildWebPageGraph({ canonicalPath, title, description, faq }) {
 
 async function renderHomeHtml() {
   const data = await getHomePayload()
-  const title = '辙见公开案例站'
-  const description = '这里是门店选择公开的维修记录，能看到检查和维修过程。'
+  const title = '让真实被看见 · 辙见公开案例站'
+  const description = '这里展示用户选择公开的案例。现阶段以修理厂商家为主。'
   const canonical = absoluteUrl('/')
   const bodyHtml = [
-    `<h1>辙见公开案例站</h1>`,
+    `<h1>让真实被看见</h1>`,
     `<section data-bot="ai-summary"><h2>站点说明</h2><p>${escapeHtml(description)}</p></section>`,
     data.serviceEntries && data.serviceEntries.length
       ? `<section><h2>服务项目</h2>${listLinks(
@@ -173,14 +173,14 @@ async function renderCityHtml(citySlug) {
   if (!data || !data.city) throw notFound('城市不存在')
   const seo = data.seo || {}
   const cityName = data.city.name
-  const title = seo.title || `${cityName}汽车维修保养 · 辙见`
+  const title = seo.title || `${cityName}公开案例与商家 · 辙见`
   const description =
     seo.description ||
-    `查看${cityName}汽车维修保养门店、门店确认后公开的维修记录。平台不做线下验真，车主仍以到店为准。`
+    `${cityName}地区与辙见相关的公开案例与商家信息。目前以修理厂为主。`
   const canonical = absoluteUrl(seo.canonicalPath || `/city/${data.city.slug}`)
-  const summary = `辙见公开案例站 · ${cityName}。门店确认后公开的维修记录。`
+  const summary = `${cityName}地区与辙见相关的公开案例与商家信息。目前以修理厂为主。`
   const bodyHtml = [
-    `<h1>辙见公开案例站</h1>`,
+    `<h1>${escapeHtml(cityName)}公开案例与商家</h1>`,
     `<section data-bot="ai-summary"><h2>城市摘要</h2><p>${escapeHtml(summary)}</p></section>`,
     (data.serviceEntries || []).length
       ? `<section><h2>服务项目</h2>${listLinks(
@@ -190,7 +190,7 @@ async function renderCityHtml(citySlug) {
         )}</section>`
       : '',
     (data.recommendedMerchants || []).length
-      ? `<section><h2>本地门店</h2>${listLinks(
+      ? `<section><h2>本地商家</h2>${listLinks(
           data.recommendedMerchants,
           (item) => `/store/${item.id}.html`,
           (item) => item.name || '门店'
@@ -295,7 +295,7 @@ async function renderCaseListHtml(query = {}) {
   const list = (data && data.list) || []
   const catName = catalog ? SHORT_NAME[catalog.slug] || catalog.name : '公开案例'
   const title = catalog ? `${catName} · 公开案例 · 辙见` : '公开案例 · 辙见'
-  const description = '辙见公开案例 · 门店托管并公开的维修档案。'
+  const description = '公开案例：用户选择公开后可在此查看。现阶段参与公开的主要是修理厂商家。'
   const canonicalPath = catalog ? `/case/?service=${catalog.slug}` : '/case/'
   const nav = [
     `<a href="/case/"${catalog ? '' : ' aria-current="page"'}>全部</a>`,
@@ -318,11 +318,11 @@ async function renderCaseListHtml(query = {}) {
           return `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`
         })
         .join('')}</ul>`
-    : '<p>这一类暂时没有公开档案。</p>'
+    : '<p>这一类暂时还没有公开案例。</p>'
 
   const bodyHtml = [
     `<h1>公开案例</h1>`,
-    `<p>门店托管并公开的维修档案。${catalog ? `当前分类：${escapeHtml(catName)}。` : ''}</p>`,
+    `<p>用户选择公开后可在此查看。现阶段参与公开的主要是修理厂商家。${catalog ? `当前分类：${escapeHtml(catName)}。` : ''}</p>`,
     `<nav>${nav}</nav>`,
     `<section><h2>${escapeHtml(catalog ? catName : '全部')}</h2>${items}</section>`,
     renderSiteBeianHtml(),

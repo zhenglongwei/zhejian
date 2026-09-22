@@ -1,5 +1,5 @@
 (function () {
-  var LIST_NOTE = '门店选择公开的维修记录。'
+  var LIST_NOTE = '用户选择公开后可在此查看。现阶段参与公开的主要是修理厂商家。'
   var CATEGORIES = [
     { slug: '', name: '全部' },
     { slug: 'car-maintenance', name: '小保养' },
@@ -56,7 +56,7 @@
     var name = current && current.slug ? current.name : '公开案例'
     window.zhejianSeo.applyPageSeo({
       title: (current && current.slug ? name + ' · ' : '') + '公开案例 · 辙见',
-      description: '辙见公开案例站 · 门店选择公开的维修记录。',
+      description: '公开案例：用户选择公开后可在此查看。现阶段参与公开的主要是修理厂商家。',
       canonicalPath: categoryHref(currentService()),
       robots: 'index,follow',
     })
@@ -75,7 +75,7 @@
       renderBreadcrumb() +
       '<header class="h5-header">' +
       '<h1 class="h5-title">公开案例</h1>' +
-      '<p class="h5-summary">门店选择公开的维修记录，能看到检查和维修过程。</p>' +
+      '<p class="h5-summary">公开案例：用户选择公开后可在此查看。现阶段参与公开的主要是修理厂商家。</p>' +
       '</header>' +
       renderCategoryNav() +
       inner +
@@ -108,7 +108,7 @@
     }
     var hosting =
       extras && extras.hosting
-        ? '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">门店说明 ›</a></p>'
+        ? '<p class="h5-home-more"><a class="h5-link" href="https://simplewin.cn/zhejian.html">了解辙见 ›</a></p>'
         : ''
     app.innerHTML = pageShell(
       '<div class="h5-card h5-case-list-empty"><p>' + safeMessage + '</p>' + hosting + '</div>'
@@ -169,7 +169,7 @@
         var list = result.body.data?.list || result.body.data || []
         if (!list.length) {
           if (service) {
-            renderEmpty('这一类还没有门店公开记录。你可以先看其他项目，或去杭州页看门店。门店若要公开：微信搜「辙见」。')
+            renderEmpty('这一类暂时还没有公开案例。你可以先浏览其他分类，或了解辙见怎么上传（微信搜「辙见」）。欢迎修理厂商家上传并选择公开。')
           } else {
             renderEmpty('暂无公开档案', { hosting: true })
           }

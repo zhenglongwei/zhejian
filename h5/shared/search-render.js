@@ -464,7 +464,7 @@
       sections =
         '<div class="h5-search-empty">' +
         '<p>没有找到相关档案</p>' +
-        '<p class="h5-search-hint">现在公开记录还很少。你可以<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>，<a class="h5-link" href="/case/">看公开案例</a>，或微信搜「辙见」。</p>' +
+        '<p class="h5-search-hint">现在公开记录还很少。你可以<a class="h5-link" href="/case/">浏览其他分类</a>，或了解辙见怎么上传（微信搜「辙见」）。</p>' +
         '</div>' +
         renderHotwords((state.config && state.config.hotwords) || [])
     }
@@ -710,7 +710,7 @@
     var hotwords = (state.config && state.config.hotwords) || []
     renderShell(
       '<div class="h5-card h5-search-empty"><p>用顶栏搜索公开维修记录、门店或服务。</p>' +
-        '<p class="h5-search-hint">现在公开记录还很少。没有档案时，可以<a class="h5-link" href="/city/hangzhou">去杭州页看门店</a>，<a class="h5-link" href="/case/">看公开案例</a>，或微信搜「辙见」。</p></div>' +
+        '<p class="h5-search-hint">现在公开记录还很少。没有档案时，可以<a class="h5-link" href="/case/">浏览其他分类</a>，或了解辙见怎么上传（微信搜「辙见」）。</p></div>' +
         renderHistory() +
         renderHotwords(hotwords)
     )

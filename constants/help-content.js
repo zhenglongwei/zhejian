@@ -32,7 +32,7 @@ const HELP_CENTER_PATHS = [
       {
         heading: '公开案例站',
         body:
-          '门店选择公开的维修档案在公开案例站查看。地址：https://zhejian.simplewin.cn/',
+          '商家选择公开的案例在公开案例站查看。地址：https://zhejian.simplewin.cn/',
       },
     ],
   },

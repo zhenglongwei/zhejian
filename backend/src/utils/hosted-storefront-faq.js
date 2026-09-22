@@ -5,8 +5,16 @@ const { getHostedStorefrontFaqBank } = require('../constants/hosted-storefront-f
 const { resolveCategoryIdFromAlbum } = require('../constants/service-checklist-catalog')
 
 const GENERIC_EMPTY_ANSWER = /以门店留档为准|以门店承诺为准|以门店为准/
-/** 公开答案最短长度（对齐 05_/07_：禁止「答：后门」） */
+/** 公开答案最短长度（对齐 05_/07_：禁止「答：后门」）。缺项叮嘱可以短于该长度。 */
 const MIN_PUBLISH_ANSWER_LEN = 30
+const OWNER_REMINDER_PATTERN = /要向商家|先问|问清|给你看|再决定/
+/** 亮点已覆盖预算 / 材料 / 避坑时，不再另补缺项叮嘱 */
+const HIGHLIGHT_THEME_PATTERN =
+  /质保|规格|包装|品牌|没做|没有做|未做|未施工|总成|连盘|加项|套餐|报价|材料/
+const GAP_FAQ = {
+  q: '修完后要向商家确认什么？',
+  a: '修完后要向商家确定质保期。',
+}
 const INFO_SIGNAL =
   /[，。；、：]|本单|本次|一般|常见|检查|检测|更换|维修|处理|建议|因为|所以|风险|流程|质保|复查|磨合|观察/
 
@@ -26,6 +34,33 @@ function caseHasAnswerMaterial(geo = {}, view = {}) {
   return detail.length >= 1 || joined.length >= 40
 }
 
+/** 对车主的短叮嘱（如「修完后要向商家确定质保期」），不是「后门」「机油」 */
+function isOwnerReminderAnswer(answer = '') {
+  const t = String(answer || '')
+    .trim()
+    .replace(GENERIC_EMPTY_ANSWER, '')
+    .trim()
+  if (t.length < 8 || t.length >= MIN_PUBLISH_ANSWER_LEN) return false
+  if (/一般来说|很多店|平时常见|专业|诚信/.test(t)) return false
+  return OWNER_REMINDER_PATTERN.test(t)
+}
+
+function coversHighlightTheme(text = '') {
+  return HIGHLIGHT_THEME_PATTERN.test(String(text || ''))
+}
+
+/** 档案未写到质保、材料或取舍时，最多补一条缺项叮嘱 */
+function appendGapReminder(list, max = 6) {
+  const items = (Array.isArray(list) ? list : []).slice(0, max)
+  const covered = items.some((row) =>
+    coversHighlightTheme(`${(row && (row.q || row.question)) || ''}${(row && (row.a || row.answer)) || ''}`),
+  )
+  if (covered || items.length >= max) return items
+  if (items.some((row) => row && (row.q || row.question) === GAP_FAQ.q)) return items
+  items.push({ q: GAP_FAQ.q, a: GAP_FAQ.a })
+  return items
+}
+
 /** 极简无增量答案（如「后门」「机油」） */
 function isLowInfoFaqAnswer(answer = '') {
   const t = String(answer || '')
@@ -33,6 +68,7 @@ function isLowInfoFaqAnswer(answer = '') {
     .replace(GENERIC_EMPTY_ANSWER, '')
     .trim()
   if (!t) return true
+  if (isOwnerReminderAnswer(t)) return false
   if (t.length < MIN_PUBLISH_ANSWER_LEN) return true
   if (t.length <= 16 && !INFO_SIGNAL.test(t)) return true
   // 仅逗号分隔的部位名清单且过短
@@ -68,7 +104,8 @@ function filterPublishableFaq(list) {
 }
 
 /**
- * 以类目题库为骨架，合并规则/LLM 已写答案；薄案例或低质答强制空答。
+ * 用本单已写出的问答做亮点；类目清单只提供方向，不逐条铺空问。
+ * 未覆盖质保、材料或取舍时，最多补一条缺项叮嘱。
  */
 function buildHostedStorefrontFaq({
   serviceName = '',
@@ -78,6 +115,7 @@ function buildHostedStorefrontFaq({
   view = {},
   answeredFaq = [],
 } = {}) {
+  const { ENCYCLOPEDIA_QUESTION_PATTERN, SLOGAN_PATTERN } = require('./evidence-faq')
   const cat =
     categoryId ||
     resolveCategoryIdFromAlbum({
@@ -86,37 +124,29 @@ function buildHostedStorefrontFaq({
     })
   const bank = getHostedStorefrontFaqBank(cat)
   const hasMaterial = caseHasAnswerMaterial(geo, view)
-  const byQ = new Map()
+  const faq = []
   const answered = (answeredFaq || []).map(normalizeFaqRow).filter(Boolean)
   answered.forEach((n) => {
-    byQ.set(n.q, n)
-  })
-
-  const faq = bank.questions.map((q, i) => {
-    const exact = byQ.get(q)
-    const byIndex = answered[i]
-    let a = (exact && exact.a) || (byIndex && byIndex.a) || ''
-    if (!hasMaterial || isLowInfoFaqAnswer(a)) a = ''
-    return {
-      q,
-      a,
-      needsAnswer: !a,
-    }
-  })
-
-  answered.forEach((n) => {
     if (!n.a || isLowInfoFaqAnswer(n.a)) return
-    if (bank.questions.includes(n.q)) return
+    const text = `${n.q}${n.a}`
+    if (SLOGAN_PATTERN.test(text) || /一般来说|很多店|平时常见/.test(text)) return
+    if (ENCYCLOPEDIA_QUESTION_PATTERN.test(n.q)) return
     if (faq.length >= 6) return
     faq.push({ q: n.q, a: n.a, needsAnswer: false })
   })
+  const withGap = appendGapReminder(faq, 6).map((row) => ({
+    q: row.q,
+    a: row.a,
+    needsAnswer: !row.a,
+  }))
 
   return {
     categoryId: bank.categoryId,
     categoryLabel: bank.label,
     hasMaterial,
-    faqQuestions: bank.questions,
-    faq,
+    directions: bank.directions,
+    faqQuestions: withGap.map((row) => row.q),
+    faq: withGap,
   }
 }
 
@@ -149,7 +179,11 @@ function collectHostedCaseFaq({ contentJson, hostMeta, enrichmentFaq, draftFaq }
 
 module.exports = {
   MIN_PUBLISH_ANSWER_LEN,
+  GAP_FAQ,
   caseHasAnswerMaterial,
+  isOwnerReminderAnswer,
+  coversHighlightTheme,
+  appendGapReminder,
   isLowInfoFaqAnswer,
   normalizeFaqRow,
   filterPublishableFaq,

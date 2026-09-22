@@ -40,8 +40,8 @@ function matchesCity(record, cityName) {
 function buildCitySeo(city, { storeCount, caseCount }) {
   const allowIndex = storeCount > 0 && (caseCount > 0 || storeCount >= 1)
   return {
-    title: `${city.name}汽车维修保养_${city.name}汽修门店与维修案例 · 辙见`,
-    description: `查看${city.name}汽车维修保养门店、真实维修案例、透明度说明和常见维修问题。公开案例已脱敏审核，价格仅供参考，实际费用以门店检测为准。`,
+    title: `${city.name}汽车维修保养_${city.name}公开案例与商家 · 辙见`,
+    description: `${city.name}地区与辙见相关的公开案例与商家信息。目前以修理厂为主。公开前须确认已脱敏；平台不做线下验真。价格仅供参考。`,
     canonicalPath: `/city/${city.slug}`,
     robots: allowIndex ? 'index,follow' : 'noindex,follow',
     allowIndex,

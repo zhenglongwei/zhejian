@@ -114,31 +114,25 @@ function extractJobFaqs({
   const withThisCase = (text) => {
     const body = String(text || '').trim()
     if (!body) return ''
-    if (/^这例/.test(body)) return body.slice(0, 200)
-    return `这例公开档案里，${body}`.slice(0, 200)
+    if (/^这例/.test(body)) return body.slice(0, 180)
+    return `这例公开档案里，${body}`.slice(0, 180)
   }
-  const push = (q, a) => {
+  const push = (q, a, reminder = '') => {
     if (!q || !a) return
-    raw.push({ q, a: withThisCase(a) })
-  }
-
-  if (inspectItems) {
-    push('这例到店后先做了哪些检查，再决定方案？', inspectItems.slice(0, 160))
-  }
-
-  if (doneItems) {
-    push('这例做了哪些项目？', doneItems.slice(0, 160))
-  } else if (!looksMaint && plan && !GENERIC_ANSWER.test(plan)) {
-    push('这例做了什么？', plan.slice(0, 160))
-  } else if (!looksMaint && diagnosis) {
-    push(
-      '这例查出了什么、怎么处理？',
-      [diagnosis, plan].filter(Boolean).join('。').slice(0, 160),
-    )
+    let body = withThisCase(a)
+    const tip = String(reminder || '').trim()
+    if (tip && body && !body.includes(tip)) {
+      body = `${body.replace(/。?$/u, '')}。${tip}`.slice(0, 200)
+    }
+    raw.push({ q, a: body })
   }
 
   if (difference && /未施工|未更换|择日|正常/.test(difference)) {
-    push('这例明确没有做哪些项目？', difference.slice(0, 160))
+    push(
+      '这例哪些项目这次没有做？',
+      difference.slice(0, 140),
+      '到店可以先问哪些这次不做、以后再做。',
+    )
   } else {
     const followLine =
       stripAmountText(followUpSummary) ||
@@ -147,21 +141,38 @@ function extractJobFaqs({
         /择期|择日|改期|其余建议|未做|未处理/,
       )
     if (followUpWorthAsking(followLine)) {
-      push('这例哪些项目这次没做、以后再做？', followLine)
+      push(
+        '这例哪些项目这次没做、以后再做？',
+        followLine,
+        '到店可以先问哪些这次不做、以后再做。',
+      )
     }
   }
 
-  const stages = []
-  if (inspectItems || diagnosis) stages.push('检查')
-  if (doneItems || (process && !GENERIC_ANSWER.test(process))) stages.push('施工')
-  if (handover && !GENERIC_ANSWER.test(handover)) stages.push('交车')
-  if (stages.length >= 2) {
-    push('这例公开了哪些节点？', `有${stages.join('、')}记录。`)
+  if (/不换总成|未换总成|无需换总成|不用换总成|不更换总成/.test(haystack)) {
+    push(
+      '这例为什么没换总成？',
+      firstSentenceMatching(haystack, /总成/) || plan || diagnosis,
+      '可以先问清为什么不换总成。',
+    )
+  }
+  if (/不连盘|只换.{0,8}片|未换.{0,8}盘|无需换盘/.test(haystack)) {
+    push(
+      '这例为什么没连盘一起换？',
+      firstSentenceMatching(haystack, /盘|片/) || plan,
+      '换片时先问盘厚，再决定要不要连盘。',
+    )
   }
 
-  const handoverConfirm = firstSentenceMatching(handover, /路试|试车|灯光|外观|功能确认|交车确认/)
-  if (handoverConfirm) {
-    push('这例交车前做了哪些确认？', handoverConfirm)
+  const materialLine =
+    firstSentenceMatching([doneItems, haystack].filter(Boolean).join('。'), /规格|包装|品牌/) ||
+    (doneItems && /规格|包装|品牌|机油/.test(doneItems) ? doneItems : '')
+  if (materialLine && !GENERIC_ANSWER.test(materialLine)) {
+    push(
+      '这例材料用了什么？',
+      String(materialLine).slice(0, 140),
+      '可以让师傅把规格和包装给你看。',
+    )
   }
 
   const warrantyLine = firstSentenceMatching(
@@ -169,35 +180,72 @@ function extractJobFaqs({
     /质保|配件.{0,12}\d+\s*年|漆面.{0,12}\d+\s*年/,
   )
   if (warrantyLine && !GENERIC_ANSWER.test(warrantyLine)) {
-    push('这例质保怎么写进档案的？', warrantyLine)
+    push(
+      '这例质保怎么写进档案的？',
+      warrantyLine,
+      '修完后要向商家确定质保期，以及不含哪些。',
+    )
   }
 
-  if (/不换总成|未换总成|无需换总成|不用换总成|不更换总成/.test(haystack)) {
+  if (/套餐|检查后再|加项|新增项目/.test(haystack)) {
     push(
-      '这例为什么没换总成？',
-      firstSentenceMatching(haystack, /总成/) || plan || diagnosis,
+      '这例是检查后再定，还是进店就按套餐做？',
+      firstSentenceMatching(haystack, /套餐|报价|加项|新增/) || plan || diagnosis,
+      '到店可以先问清是套餐还是检查后再报价。',
     )
   }
-  if (/不连盘|只换.{0,8}片|未换.{0,8}盘|无需换盘/.test(haystack)) {
+
+  if (inspectItems) {
     push(
-      '这例为什么没连盘一起换？',
-      firstSentenceMatching(haystack, /盘|片/) || plan,
+      '这例到店后先查了哪些检查，再决定方案？',
+      inspectItems.slice(0, 140),
+      '到店可以先问查了什么，再决定方案。',
     )
   }
+
+  if (doneItems) {
+    push(
+      '这例做了哪些项目？',
+      doneItems.slice(0, 140),
+      '交车时可以对照档案看这次做成了哪些。',
+    )
+  } else if (!looksMaint && plan && !GENERIC_ANSWER.test(plan)) {
+    push('这例做了什么？', plan.slice(0, 140))
+  } else if (!looksMaint && diagnosis) {
+    push(
+      '这例查出了什么、怎么处理？',
+      [diagnosis, plan].filter(Boolean).join('。').slice(0, 140),
+    )
+  }
+
+  const handoverConfirm = firstSentenceMatching(handover, /路试|试车|灯光|外观|功能确认|交车确认/)
+  if (handoverConfirm) {
+    push('这例交车前做了哪些确认？', handoverConfirm)
+  }
+
   if (/当天开走|当天交车|留车|留\s*\d+\s*天|大约.{0,12}天|工期/.test(haystack)) {
     push(
       '这例大概要留几天？能不能开走？',
       firstSentenceMatching(haystack, /天|开走|工期|当天/) || handover,
     )
   }
-  if (/旧件/.test(haystack)) {
+  if (/旧件/.test(haystack) && !GENERIC_ANSWER.test(firstSentenceMatching(haystack, /旧件/) || '')) {
     push('这例旧件怎么处理？', firstSentenceMatching(haystack, /旧件/) || handover)
   }
   if (/故障灯|灯亮|报警灯/.test(haystack)) {
     push('这例灯亮查到了什么？', firstSentenceMatching(haystack, /灯/) || diagnosis)
   }
 
-  return normalizeFaqItems(raw)
+  const stages = []
+  if (inspectItems || diagnosis) stages.push('检查')
+  if (doneItems || (process && !GENERIC_ANSWER.test(process))) stages.push('施工')
+  if (handover && !GENERIC_ANSWER.test(handover)) stages.push('交车')
+  if (stages.length >= 2 && raw.length < FAQ_MAX) {
+    push('这例公开了哪些节点？', `有${stages.join('、')}记录。`)
+  }
+
+  const { appendGapReminder } = require('./hosted-storefront-faq')
+  return appendGapReminder(normalizeFaqItems(raw), FAQ_MAX)
 }
 
 module.exports = {

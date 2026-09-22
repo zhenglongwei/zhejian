@@ -1,8 +1,9 @@
 # 杭州盈简科技有限公司
 
 - 官网：https://simplewin.cn/
-- 做什么：门店把真实修过的单子记清楚，需要时再公开。不帮门店编故事，不担保成交。
-- 汽修产品「辙见」：小程序记下这一单怎么修；公开案例站放门店选择公开的维修记录。是否保存、是否公开由门店决定。https://simplewin.cn/zhejian.html
-- 公开案例站：https://zhejian.simplewin.cn/
-- GEO 体检（看网上和 AI 找不找得到你的店，约 2 分钟）：https://simplewin.cn/check.html
+- 主口号：让真实被看见
+- 做什么：帮助商家把真实业务整理成面向 AI 的数字资产。可核对、可公开，经得起引用。商家含各行各业与组织，不限汽修。不替客户编故事，不担保成交。
+- 辙见：案例上传与公开产品。目标是任何用户都可上传；现阶段主要面向修理厂商家。https://simplewin.cn/zhejian.html
+- 公开案例站：https://zhejian.simplewin.cn/ 展示用户选择公开的案例。现阶段以修理厂商家为主。
+- GEO 体检（看网上和 AI 找不找得到你，约 2 分钟）：https://simplewin.cn/check.html
 - 联系：business@simplewin.cn

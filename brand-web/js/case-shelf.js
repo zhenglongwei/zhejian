@@ -3,15 +3,15 @@
   var CASE_SITE = host.caseSiteSlash || 'https://zhejian.simplewin.cn/'
   var EMPTY = {
     nav: '了解公开案例站 ↗',
-    ownerText: '了解公开案例站怎么运作',
+    ownerText: '了解怎么运作',
     ownerHref: '/zhejian.html',
     shelf: '了解公开案例站 ↗',
   }
   var READY = {
     nav: '公开案例 ↗',
-    ownerText: '我是车主，看公开维修档案',
+    ownerText: '了解公开案例站',
     ownerHref: CASE_SITE,
-    shelf: '看公开维修档案 ↗',
+    shelf: '看公开案例 ↗',
   }
 
   function setTextHref(el, text, href) {
