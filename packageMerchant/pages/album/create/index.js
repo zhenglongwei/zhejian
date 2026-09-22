@@ -136,7 +136,7 @@ Page({
     }
 
     this.setData({
-      storeName: profile.storeName || '�?,
+      storeName: profile.storeName || '—',
       storeId: profile.storeId || 'store_demo_1',
     })
 
@@ -270,7 +270,7 @@ Page({
       }
       this.setData({
         decodedVehicle: { vin, ...(fallbackHints || {}) },
-        vehiclePreview: 'VIN 已填写；解析失败可稍后在编辑页手工补全车�?,
+        vehiclePreview: 'VIN 已填写；解析失败可稍后在编辑页手工补全车型',
       })
     }
   },
@@ -278,17 +278,17 @@ Page({
   validateFormBasics() {
     const serviceName = (this.data.form.serviceName || '').trim()
     if (!serviceName) {
-      wx.showToast({ title: '请填写服务项�?, icon: 'none' })
+      wx.showToast({ title: '请填写服务项目', icon: 'none' })
       return null
     }
     const plate = normalizePlateInput(this.data.form.plate)
     if (!plate) {
-      wx.showToast({ title: '请填写或扫描车牌�?, icon: 'none' })
+      wx.showToast({ title: '请填写或扫描车牌号', icon: 'none' })
       return null
     }
     const vin = normalizeVinInput(this.data.form.vin)
     if (vin && vin.length !== 17) {
-      wx.showToast({ title: '车架号须�?17 �?, icon: 'none' })
+      wx.showToast({ title: '车架号须为 17 位', icon: 'none' })
       return null
     }
     return { serviceName, plate, vin }
@@ -302,13 +302,13 @@ Page({
     }
     if (vin) vehicle.vin = vin
     if ((!vehicle.brand || !vehicle.series) && vin) {
-      wx.showLoading({ title: '解析车型�?, mask: true })
+      wx.showLoading({ title: '解析车型…', mask: true })
       try {
         const data = await decodeMerchantVin(vin)
         vehicle = { ...vehicle, ...((data && data.vehicle) || {}) }
         if (vin) vehicle.vin = vin
       } catch (e) {
-        /* 保留扫描铭牌兜底字段，允许无品牌创建后在编辑页补�?*/
+        /* 保留扫描铭牌兜底字段，允许无品牌创建后在编辑页补全 */
       } finally {
         wx.hideLoading()
       }
@@ -338,7 +338,7 @@ Page({
     if (includePhone) {
       const userPhone = normalizeOwnerPhone(this.data.form.userPhone)
       if (userPhone && userPhone.length !== 11) {
-        wx.showToast({ title: '请填写正确的手机�?, icon: 'none' })
+        wx.showToast({ title: '请填写正确的手机号', icon: 'none' })
         return
       }
     }

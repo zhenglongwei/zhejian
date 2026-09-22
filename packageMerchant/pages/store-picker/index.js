@@ -18,9 +18,9 @@ function resolveEntryTagVariant(status) {
 }
 
 function resolveActionHint(item = {}) {
-  if (item.canEnterWorkbench) return '进入工作�?�?
-  if (item.status === MERCHANT_STATUS.PENDING) return '查看审核进度 �?
-  return '继续填写 �?
+  if (item.canEnterWorkbench) return '进入工作台 ›'
+  if (item.status === MERCHANT_STATUS.PENDING) return '查看审核进度 ›'
+  return '继续填写 ›'
 }
 
 function decorateEntries(list = []) {
@@ -139,7 +139,7 @@ Page({
   },
 
   onAddStore() {
-    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index?newStore=1' })
+    wx.navigateTo({ url: '/packageMerchant/pages/workbench/index?newStore=1' })
   },
 
   async onEntryTap(e) {
@@ -154,7 +154,7 @@ Page({
     }
 
     wx.navigateTo({
-      url: `/packageMerchant/pages/onboarding/index?merchantId=${entry.merchantId}`,
+      url: `/packageMerchant/pages/workbench/index?merchantId=${entry.merchantId}`,
     })
   },
 
@@ -181,7 +181,7 @@ Page({
     try {
       await discardMerchantApplication(entry.merchantId)
       if (!this._alive) return
-      wx.showToast({ title: '已删�?, icon: 'success' })
+      wx.showToast({ title: '已删除', icon: 'success' })
       await this.loadEntries()
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '删除失败', icon: 'none' })
@@ -194,7 +194,7 @@ Page({
     if (this.data.switching) return
     this.setData({ switching: true })
     try {
-      wx.showLoading({ title: '进入工作�?, mask: true })
+      wx.showLoading({ title: '进入工作台', mask: true })
       await switchMerchantStore(entry.storeId)
       wx.hideLoading()
       if (!this._alive) return

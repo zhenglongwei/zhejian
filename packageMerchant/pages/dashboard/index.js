@@ -21,15 +21,15 @@ function parseDisplayCount(value) {
 
 function buildHeroKpis(display = {}) {
   return [
-    { key: 'views', label: '总浏�?, value: display.totalViews || '0', tone: 'primary' },
+    { key: 'views', label: '总浏览', value: display.totalViews || '0', tone: 'primary' },
     { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0', tone: 'warning' },
-    { key: 'score', label: '透明�?, value: display.transparencyScore || '0', tone: 'success' },
+    { key: 'score', label: '透明度', value: display.transparencyScore || '0', tone: 'success' },
   ]
 }
 
 function resolveServiceRankTitle(raw) {
   const text = String(raw || '').trim()
-  if (!text || text === '�?) return '�?
+  if (!text || text === '—') return '—'
   const catalog = getServiceItem(text)
   return (catalog && catalog.name) || text
 }
@@ -37,7 +37,7 @@ function resolveServiceRankTitle(raw) {
 function buildExposureChips(display = {}) {
   return [
     { key: 'h5', label: '网页案例', value: display.h5CaseViewCount || '0' },
-    { key: 'mp', label: '小程序案�?, value: display.mpCaseViewCount || '0' },
+    { key: 'mp', label: '小程序案例', value: display.mpCaseViewCount || '0' },
     { key: 'phone', label: '电话点击', value: display.phoneClickCount || '0' },
   ]
 }
@@ -46,7 +46,7 @@ function buildCrawlerMetric(display = {}) {
   return {
     value: display.crawlerViewCount || '0',
     label: '搜索/智能助手爬虫访问',
-    hint: '代理指标 · 非引用次�?,
+    hint: '代理指标 · 非引用次数',
   }
 }
 
@@ -59,7 +59,7 @@ function buildAlbumRows(display = {}) {
       key: 'auth',
       value: display.pendingAuth || '0',
       label: '本待车主发布',
-      action: '去查�?,
+      action: '去查看',
       active: pendingAuth > 0,
       handler: 'auth',
     },
@@ -104,15 +104,15 @@ Page({
     exposureChips: buildExposureChips(),
     crawlerMetric: buildCrawlerMetric(),
     metricNotes: {
-      userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为�?,
+      userExposure: '公开网页案例页、小程序内浏览与电话点击来自真实用户行为。',
       crawlerProxy:
-        '「搜�?智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名�?,
+        '「搜索/智能助手爬虫访问」指已知机器人抓取本店公开页次数，不代表智能助手在对话中引用本店，也不代表收录或排名。',
       probeInternal:
-        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用�?,
+        '平台「答案探测」为内部抽样监测，不向商家展示引用次数；请勿将爬虫访问理解为被智能助手引用。',
     },
     albumRows: buildAlbumRows(),
     complianceText:
-      '数据来自站外公开页浏览与电话点击统计，不含平台订单；浏览类指标按日更新（次日可见）。爬虫访问为代理指标，非智能助手引用；平台答案探测不向商家展示引用次数�?,
+      '数据来自站外公开页浏览与电话点击统计，不含平台订单；浏览类指标按日更新（次日可见）。爬虫访问为代理指标，非智能助手引用；平台答案探测不向商家展示引用次数。',
   },
 
   onLoad() {
@@ -190,7 +190,7 @@ Page({
 
       const range = stats.range || {}
       const rangeLabel =
-        range.from && range.to ? `${range.from} �?${range.to}` : ''
+        range.from && range.to ? `${range.from} 至 ${range.to}` : ''
       const display = this.buildDisplay(stats, albumStats)
       const rankings = stats.rankings || {}
       const topCases = formatRankRows(rankings.cases, 'title')

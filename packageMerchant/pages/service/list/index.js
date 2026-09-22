@@ -10,7 +10,7 @@ const TAB_ALL = 'all'
 const STATUS_TABS = [
   { key: TAB_ALL, label: '全部' },
   { key: SERVICE_STATUS.DRAFT, label: '草稿' },
-  { key: SERVICE_STATUS.PUBLISHED, label: '已上�? },
+  { key: SERVICE_STATUS.PUBLISHED, label: '已上架' },
 ]
 
 Page({

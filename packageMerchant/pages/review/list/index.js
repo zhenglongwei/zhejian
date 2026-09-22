@@ -25,7 +25,7 @@ Page({
     errorMessage: '',
     storeId: '',
     emptyTitle: '暂无评价',
-    emptyDescription: '车主在相册完工后可提交服务评�?,
+    emptyDescription: '车主在相册完工后可提交服务评价',
     skeletonItems: [0, 1, 2],
   },
 
