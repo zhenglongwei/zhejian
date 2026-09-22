@@ -92,13 +92,34 @@ function main() {
     },
     { brandAuthItems: [] }
   )
-  assert.strictEqual(needsReview, true)
-  let pub = buildPublicCapabilityView(capability, { brandAuthUrl: '' })
+  assert.strictEqual(needsReview, false)
+  let pub = buildPublicCapabilityView(capability, {
+    brandAuthItems: [
+      {
+        id: 'ba1',
+        brandName: '品牌授权',
+        imageUrl: '/media/a.jpg',
+        validUntil: '2027-01-01',
+      },
+    ],
+  })
   assert.strictEqual(pub.techniciansPublic.length, 1)
   assert.strictEqual(pub.equipmentTags.length, 1)
-  assert.strictEqual(pub.brandAuth, null)
+  assert.ok(pub.brandAuth)
 
-  const { capability: approved, brandAuthItems } = approveCapabilityPending(capability)
+  const { capability: approved, brandAuthItems } = approveCapabilityPending({
+    ...capability,
+    pending: {
+      brandAuthItems: [
+        {
+          id: 'ba1',
+          brandName: '品牌授权',
+          imageUrl: '/media/a.jpg',
+          validUntil: '2027-01-01',
+        },
+      ],
+    },
+  })
   pub = buildPublicCapabilityView(approved, {
     brandAuthItems: brandAuthItems || [{ imageUrl: '/media/a.jpg', validUntil: '2027-01-01' }],
   })
@@ -112,7 +133,7 @@ function main() {
     { today: '2026-07-17' }
   )
   assert.strictEqual(pub.brandAuth, null)
-  console.log('[QA-03] tech/eq immediate + brandAuth review gate + auth expiry ok')
+  console.log('[QA-03] tech/eq/brandAuth save live + auth expiry ok')
 
   // QA-04 人机同源关键字段存在于 mapStoreRow
   const mapped = mapStoreRow(

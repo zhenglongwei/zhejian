@@ -100,6 +100,12 @@
   <view class="merchant-form__spacer" />
   <ui-fixed-bottom-bar>
     <ui-button
+      type="secondary"
+      slot="left"
+      disabled="{{status === 'loading' || submitting}}"
+      bind:btntap="onCreateFromText"
+    >从聊天创建</ui-button>
+    <ui-button
       type="primary"
       slot="right"
       loading="{{submitting}}"

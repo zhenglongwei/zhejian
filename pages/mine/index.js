@@ -96,6 +96,8 @@ Page({
   },
 
   onShow() {
+    const { hideLaunchHomeButton } = require('../../utils/app-role')
+    hideLaunchHomeButton()
     this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
   },
 

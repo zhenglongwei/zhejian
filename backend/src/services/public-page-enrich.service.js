@@ -24,6 +24,8 @@ const { buildStorePageSchemaGraph } = require('../lib/schema-graph')
 const {
   filterPublicSpecialties,
   filterPublicEnvironmentImages,
+  isPlaceholderStoreName,
+  readCertPublishFlag,
 } = require('../utils/store-public-display')
 const { mapStoreCasePreview } = require('../utils/store-case-preview')
 const { buildStorePublicFaq, sanitizeFaq, buildCapabilitySummaryLine } = require('../utils/store-public-faq')
@@ -58,24 +60,28 @@ function readPhotosMeta(photosJson) {
 
 function buildCertifications(merchant, extras = {}) {
   const rows = []
+  const showLicense = extras.publishLicense !== false
+  const showQualification = extras.publishQualification !== false
   const pushRow = (label, text, status = 'self_declared') => {
     if (!label) return
     rows.push({ label, text: text || '门店自行公示', status })
   }
 
-  if (merchant?.creditCode) {
+  if (showLicense && merchant?.creditCode) {
     pushRow('统一社会信用代码', String(merchant.creditCode).trim(), 'self_declared')
   }
-  if (merchant?.licensePhotoUrl || merchant?.legalName) {
+  if (showLicense && (merchant?.licensePhotoUrl || merchant?.legalName)) {
     const who = merchant.legalName ? String(merchant.legalName).trim() : ''
     pushRow('营业执照', who ? `${who} · 门店自行公示` : '门店自行公示', 'self_declared')
   }
-  const operatingYears = buildOperatingYearsMeta(merchant?.licenseEstablishedOn)
+  const operatingYears = showLicense ? buildOperatingYearsMeta(merchant?.licenseEstablishedOn) : null
   if (operatingYears) {
     pushRow('经营年限', operatingYears.label, 'self_declared')
   }
-  const qualification = formatQualificationForClient(merchant?.qualificationJson)
-  if (qualification?.photoUrl || qualification?.baseType || qualification?.type) {
+  const qualification = showQualification
+    ? formatQualificationForClient(merchant?.qualificationJson)
+    : null
+  if (showQualification && (qualification?.photoUrl || qualification?.baseType || qualification?.type)) {
     const label =
       qualification.baseTypeLabel ||
       qualification.typeLabel ||
@@ -86,7 +92,7 @@ function buildCertifications(merchant, extras = {}) {
       : '门店自行公示'
     pushRow(label, text, 'self_declared')
   }
-  if (qualification?.newEnergy?.enabled) {
+  if (showQualification && qualification?.newEnergy?.enabled) {
     const ne = qualification.newEnergy
     const text = ne.certNo ? `${ne.certNo} · 门店自行公示` : '门店自行公示'
     pushRow(ne.typeLabel || QUALIFICATION_LABELS.new_energy || '新能源专项资质', text, 'self_declared')
@@ -115,7 +121,9 @@ function resolvePublicCredentialImageUrl(url) {
 
 function buildCertWall(merchant, extras = {}) {
   const wall = []
-  if (merchant?.licensePhotoUrl) {
+  const showLicense = extras.publishLicense !== false
+  const showQualification = extras.publishQualification !== false
+  if (showLicense && merchant?.licensePhotoUrl) {
     wall.push({
       type: 'license',
       label: '营业执照',
@@ -124,8 +132,10 @@ function buildCertWall(merchant, extras = {}) {
       text: merchant.legalName ? `${merchant.legalName} · 门店自行公示` : '门店自行公示',
     })
   }
-  const qualification = formatQualificationForClient(merchant?.qualificationJson)
-  if (qualification?.photoUrl) {
+  const qualification = showQualification
+    ? formatQualificationForClient(merchant?.qualificationJson)
+    : null
+  if (showQualification && qualification?.photoUrl) {
     wall.push({
       type: 'qualification',
       label:
@@ -137,7 +147,7 @@ function buildCertWall(merchant, extras = {}) {
       text: qualification.certNo ? `${qualification.certNo} · 门店自行公示` : '门店自行公示',
     })
   }
-  if (qualification?.newEnergy?.enabled && qualification.newEnergy.photoUrl) {
+  if (showQualification && qualification?.newEnergy?.enabled && qualification.newEnergy.photoUrl) {
     const ne = qualification.newEnergy
     wall.push({
       type: 'qualification_new_energy',
@@ -160,8 +170,8 @@ function buildCertWall(merchant, extras = {}) {
         id: String((item && item.id) || brandName),
         label: brandName,
         imageUrl: resolvePublicCredentialImageUrl(imageUrl),
-        status: 'verified',
-        text: validUntil ? `已认证 · 有效期至 ${validUntil}` : '已认证',
+        status: 'self_declared',
+        text: validUntil ? `门店自行公示 · 有效期至 ${validUntil}` : '门店自行公示',
       })
     })
   } else {
@@ -175,8 +185,8 @@ function buildCertWall(merchant, extras = {}) {
           type: 'brand_auth',
           label: '品牌授权',
           imageUrl: resolvePublicCredentialImageUrl(brandAuth),
-          status: 'verified',
-          text: brandAuthValidUntil ? `已认证 · 有效期至 ${brandAuthValidUntil}` : '已认证',
+          status: 'self_declared',
+          text: brandAuthValidUntil ? `门店自行公示 · 有效期至 ${brandAuthValidUntil}` : '门店自行公示',
         })
       }
     }
@@ -342,9 +352,34 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
   const publicCapability = buildPublicCapabilityView(storeRow.capabilityJson, photosRaw)
   const capability = readCapabilityJson(storeRow.capabilityJson)
 
-  const certifications = buildCertifications(merchantRow, extras)
+  const qualJson =
+    merchantRow && merchantRow.qualificationJson && typeof merchantRow.qualificationJson === 'object'
+      ? merchantRow.qualificationJson
+      : {}
+  const publishLicense = readCertPublishFlag(
+    photosRaw,
+    'publishLicense',
+    Boolean(merchantRow?.licensePhotoUrl || merchantRow?.legalName || merchantRow?.creditCode)
+  )
+  const publishQualification = readCertPublishFlag(
+    photosRaw,
+    'publishQualification',
+    Boolean(
+      qualJson.photoUrl ||
+        qualJson.baseType ||
+        qualJson.type ||
+        (qualJson.newEnergy && qualJson.newEnergy.enabled)
+    )
+  )
+  const certifications = buildCertifications(merchantRow, {
+    ...extras,
+    publishLicense,
+    publishQualification,
+  })
   const certWall = buildCertWall(merchantRow, {
     ...extras,
+    publishLicense,
+    publishQualification,
     brandAuthItems: publicCapability.brandAuthItems || [],
     brandAuthUrl: publicCapability.brandAuth?.imageUrl || '',
     brandAuthValidUntil: publicCapability.brandAuth?.validUntil || '',
@@ -445,8 +480,12 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       ? [baseSummary, capabilitySummary].filter(Boolean).join(' ')
       : baseSummary
 
-  const publicIndex = (await merchantHasPublicIndex(storeRow.merchantId)) && !mapped.isDemo
-  const operatingYearsMeta = buildOperatingYearsMeta(merchantRow?.licenseEstablishedOn)
+  const placeholderName = isPlaceholderStoreName(mapped.name || storeRow.name)
+  const publicIndex =
+    (await merchantHasPublicIndex(storeRow.merchantId)) && !mapped.isDemo && !placeholderName
+  const operatingYearsMeta = publishLicense
+    ? buildOperatingYearsMeta(merchantRow?.licenseEstablishedOn)
+    : null
 
   const payload = {
     ...mapped,

@@ -2,6 +2,12 @@ const { fetchMerchantProfile, MERCHANT_STATUS } = require('../../../../services/
 const { updateStoreDisplayProfile } = require('../../../../services/merchant-store')
 const { uploadImage } = require('../../../../utils/media-upload')
 const { isMerchantOwner } = require('../../../../utils/auth')
+const { ONBOARDING_BASE_QUALIFICATION_OPTIONS } = require('../../../../constants/onboarding')
+const { DESIGN_TOKENS } = require('../../../../constants/design-tokens')
+const {
+  chooseStoreLocation,
+  getChooseLocationFailMessage,
+} = require('../../../../utils/choose-location')
 const {
   EMPTY_DISPLAY_FORM,
   EQUIPMENT_PRESETS,
@@ -12,7 +18,6 @@ const {
   RECEPTION_PHOTO_MAX,
   buildServiceTagViews,
   profileToDisplayForm,
-  profileToBasicReadonly,
   buildDisplayPayload,
   validateDisplayForm,
   joinTags,
@@ -40,11 +45,17 @@ function buildEquipmentTagViews(selected) {
   return presetViews.concat(customViews)
 }
 
+function formatToday() {
+  const date = new Date()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
 Page({
   data: {
     status: 'loading',
     form: { ...EMPTY_DISPLAY_FORM },
-    basic: {},
     serviceTags: [],
     equipmentTagViews: buildEquipmentTagViews([]),
     serviceOptions: MERCHANT_SERVICE_TAG_OPTIONS,
@@ -57,8 +68,11 @@ Page({
     closureDraft: { startDate: '', endDate: '', note: '' },
     submitting: false,
     storeId: '',
-    capabilityReviewStatus: 'none',
-    capabilityRejectReason: '',
+    qualificationOptions: ONBOARDING_BASE_QUALIFICATION_OPTIONS,
+    qualificationIndex: 0,
+    qualificationLabel: '',
+    switchColor: DESIGN_TOKENS.COLOR_PRIMARY,
+    today: formatToday(),
   },
 
   ...createBusinessHoursPageHandlers(),
@@ -76,12 +90,15 @@ Page({
     try {
       const profile = await fetchMerchantProfile()
       if (!profile || profile.status !== MERCHANT_STATUS.APPROVED) {
-        wx.showToast({ title: '请先完成入驻审核', icon: 'none' })
+        wx.showToast({ title: '请先开通商家账号', icon: 'none' })
         setTimeout(() => wx.navigateBack(), 1500)
         return
       }
 
       const form = profileToDisplayForm(profile)
+      const qualIndex = ONBOARDING_BASE_QUALIFICATION_OPTIONS.findIndex(
+        (item) => item.value === form.qualificationType
+      )
       const hours = buildBusinessHoursEditorState(form.businessHours)
       const daily = hours.businessHoursDaily || { start: '09:00', end: '18:00' }
       if (!daily.start) daily.start = '09:00'
@@ -92,7 +109,6 @@ Page({
           ...form,
           businessHours: hours.businessHoursPreview || form.businessHours,
         },
-        basic: profileToBasicReadonly(profile),
         serviceTags: buildServiceTagViews(form.services),
         equipmentTagViews: buildEquipmentTagViews(form.equipmentTags),
         businessHoursDaily: daily,
@@ -101,8 +117,8 @@ Page({
         showClosureForm: false,
         closureDraft: hours.closureDraft,
         storeId: profile.storeId || '',
-        capabilityReviewStatus: profile.capabilityReviewStatus || 'none',
-        capabilityRejectReason: profile.capabilityRejectReason || '',
+        qualificationIndex: qualIndex >= 0 ? qualIndex : 0,
+        qualificationLabel: qualIndex >= 0 ? ONBOARDING_BASE_QUALIFICATION_OPTIONS[qualIndex].label : '',
       })
       // 保证预览文案与 picker 初始值一致
       if (typeof this.syncBusinessHours === 'function') {
@@ -502,6 +518,90 @@ Page({
     this.setData({ 'form.workshopPhotoUrls': list })
   },
 
+  onPublishFlag(e) {
+    const { field } = e.currentTarget.dataset
+    if (!field) return
+    this.setData({ [`form.${field}`]: Boolean(e.detail.value) })
+  },
+
+  async onChooseLocation() {
+    if (this._choosingLocation) return
+    this._choosingLocation = true
+    try {
+      const { form } = this.data
+      const privacyPopup = this.selectComponent('#privacyAuthorizePopup')
+      const res = await chooseStoreLocation(
+        {
+          latitude: form.latitude,
+          longitude: form.longitude,
+        },
+        { privacyPopup }
+      )
+      this.setData({
+        'form.address': res.address || res.name || '',
+        'form.latitude': String(res.latitude),
+        'form.longitude': String(res.longitude),
+      })
+    } catch (err) {
+      const message = getChooseLocationFailMessage(err)
+      if (message) wx.showToast({ title: message, icon: 'none' })
+    } finally {
+      this._choosingLocation = false
+    }
+  },
+
+  onQualificationChange(e) {
+    const index = Number(e.detail.value)
+    const item = ONBOARDING_BASE_QUALIFICATION_OPTIONS[index]
+    this.setData({
+      qualificationIndex: index,
+      qualificationLabel: item ? item.label : '',
+      'form.qualificationType': item ? item.value : '',
+    })
+  },
+
+  onValidUntilChange(e) {
+    this.setData({ 'form.qualificationValidUntil': e.detail.value || '' })
+  },
+
+  onLicenseEstablishedChange(e) {
+    this.setData({ 'form.licenseEstablishedOn': e.detail.value || '' })
+  },
+
+  onNewEnergyToggle(e) {
+    const enabled = Boolean(e.detail.value)
+    this.setData({
+      'form.newEnergyEnabled': enabled,
+      ...(enabled
+        ? {}
+        : {
+            'form.newEnergyPhotoUrl': '',
+            'form.newEnergyNo': '',
+            'form.newEnergyValidUntil': '',
+          }),
+    })
+  },
+
+  onNewEnergyValidUntilChange(e) {
+    this.setData({ 'form.newEnergyValidUntil': e.detail.value || '' })
+  },
+
+  async onPickSingle(e) {
+    const { field } = e.currentTarget.dataset
+    if (!field) return
+    const res = await wx.chooseMedia({ count: 1, mediaType: ['image'] })
+    const temp = res.tempFiles[0].tempFilePath
+    wx.showLoading({ title: '上传中', mask: true })
+    try {
+      const url = await uploadImage(temp)
+      this.setData({ [`form.${field}`]: url })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+    } finally {
+      wx.hideLoading()
+    }
+  },
+
   onBackWorkbench() {
     wx.redirectTo({ url: '/packageMerchant/pages/workbench/index' })
   },
@@ -511,14 +611,6 @@ Page({
     if (!storeId) return
     wx.navigateTo({
       url: `/pages/store/detail/index?id=${storeId}&preview=1`,
-    })
-  },
-
-  onShareStore() {
-    const { storeId } = this.data
-    if (!storeId) return
-    wx.navigateTo({
-      url: `/pages/store/detail/index?id=${storeId}&preview=1&share=1`,
     })
   },
 
@@ -538,19 +630,8 @@ Page({
 
     this.setData({ submitting: true })
     try {
-      const profile = await updateStoreDisplayProfile(
-        buildDisplayPayload(this.data.form, this.data.storeId)
-      )
-      const reviewStatus = (profile && profile.capabilityReviewStatus) || 'none'
-      const brandAuthReviewSubmitted = Boolean(profile && profile.brandAuthReviewSubmitted)
-      this.setData({
-        capabilityReviewStatus: reviewStatus,
-        capabilityRejectReason: (profile && profile.capabilityRejectReason) || '',
-      })
-      wx.showToast({
-        title: brandAuthReviewSubmitted ? '已保存，品牌授权待审核' : '已保存',
-        icon: 'none',
-      })
+      await updateStoreDisplayProfile(buildDisplayPayload(this.data.form, this.data.storeId))
+      wx.showToast({ title: '已保存', icon: 'none' })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '保存失败', icon: 'none' })
     } finally {

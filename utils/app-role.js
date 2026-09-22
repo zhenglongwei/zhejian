@@ -50,6 +50,11 @@ function homePathForRole(role) {
   return normalizeRole(role) === ROLE_MERCHANT ? MERCHANT_HOME : OWNER_HOME
 }
 
+function hideLaunchHomeButton() {
+  if (typeof wx === 'undefined' || typeof wx.hideHomeButton !== 'function') return
+  wx.hideHomeButton()
+}
+
 function reLaunchRoleHome(role) {
   const url = homePathForRole(role)
   const go = () => {
@@ -102,6 +107,7 @@ module.exports = {
   writeLocalRole,
   homePathForRole,
   reLaunchRoleHome,
+  hideLaunchHomeButton,
   persistRole,
   syncRoleWithAccount,
 }

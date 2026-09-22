@@ -17,6 +17,7 @@ const {
   isCapabilityFieldError,
 } = require('../utils/store-capability-load')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
+const { evaluateAuthSubmission, AUTH_STATUS } = require('../utils/merchant-trust')
 
 const STAFF_ROLE_OWNER = 'owner'
 const STAFF_STATUS_ACTIVE = 'ACTIVE'
@@ -156,7 +157,6 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
 
   const prevPhotos =
     existing.photosJson && typeof existing.photosJson === 'object' ? existing.photosJson : {}
-  const publishedBrandAuthItems = readBrandAuthItemsFromPhotos(prevPhotos)
   const submittedBrandAuthItems = readBrandAuthItemsFromPhotos(
     {
       brandAuthItems: rawForm.brandAuthItems || payload.brandAuthItems || payload.photos.brandAuthItems,
@@ -165,7 +165,7 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     },
     payload.brandAuthValidUntil || rawForm.brandAuthValidUntil
   )
-  const { capability, needsReview, brandAuthDiffersFromPublished } = mergeCapabilityFromMerchantEdit(
+  const { capability, brandAuthItems } = mergeCapabilityFromMerchantEdit(
     existingCapability,
     {
       specialtyBrands: rawForm.specialtyBrands,
@@ -178,16 +178,13 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     },
     prevPhotos
   )
+  const liveBrandAuthItems = brandAuthItems || submittedBrandAuthItems
 
-  // 须审：授权相对已通过版有差异时，photos 暂不覆盖（待审通过后再写）
   const photosToSave = {
+    ...prevPhotos,
     ...payload.photos,
-    brandAuthItems: brandAuthDiffersFromPublished
-      ? publishedBrandAuthItems
-      : submittedBrandAuthItems,
-    brandAuthUrl: brandAuthDiffersFromPublished
-      ? publishedBrandAuthItems[0]?.imageUrl || prevPhotos.brandAuthUrl || ''
-      : submittedBrandAuthItems[0]?.imageUrl || '',
+    brandAuthItems: liveBrandAuthItems,
+    brandAuthUrl: liveBrandAuthItems[0]?.imageUrl || '',
   }
 
   const baseData = {
@@ -196,6 +193,12 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     intro: payload.intro,
     servicesJson: payload.services,
     photosJson: photosToSave,
+  }
+  if (payload.identityProvided) {
+    baseData.name = payload.storeName
+    baseData.address = payload.address || ''
+    baseData.latitude = payload.latitude
+    baseData.longitude = payload.longitude
   }
 
   let updatedStore
@@ -218,18 +221,45 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
     updatedStore = { ...updatedStore, capabilityJson: capability }
   }
 
-  if (needsReview) {
-    console.info(
-      '[store-capability] brandAuth pending review',
-      storeId,
-      'brandAuth',
-      (capability.pending?.brandAuthItems || []).length
-    )
-  }
-
   const merchant = await prisma.merchant.findUnique({
     where: { id: auth.merchantId },
   })
+  if (payload.identityProvided && merchant) {
+    const merchantData = {
+      name: payload.storeName,
+      contactName: payload.contactName || '',
+      contactPhone: payload.contactPhone || '',
+      legalName: payload.legalName || '',
+      creditCode: payload.creditCode || '',
+      licensePhotoUrl: payload.licensePhotoUrl || '',
+      legalIdPhotoUrl: payload.legalIdPhotoUrl || '',
+      contactEmail: payload.contactEmail || '',
+      licenseEstablishedOn: payload.licenseEstablishedOn
+        ? new Date(`${payload.licenseEstablishedOn}T00:00:00.000Z`)
+        : null,
+    }
+    if (payload.qualification) {
+      merchantData.qualificationJson = payload.qualification
+    }
+    const licenseTouched = payload.licensePhotoUrl !== (merchant.licensePhotoUrl || '')
+    const idTouched = payload.legalIdPhotoUrl !== (merchant.legalIdPhotoUrl || '')
+    if (licenseTouched || idTouched) {
+      const evalResult = evaluateAuthSubmission({
+        licensePhotoUrl: merchantData.licensePhotoUrl,
+        legalIdPhotoUrl: merchantData.legalIdPhotoUrl,
+        legalName: merchantData.legalName,
+        creditCode: merchantData.creditCode,
+      })
+      merchantData.authStatus = evalResult.authStatus
+      if (evalResult.authStatus === AUTH_STATUS.VERIFIED) {
+        merchantData.authVerifiedAt = new Date()
+      }
+    }
+    await prisma.merchant.update({
+      where: { id: merchant.id },
+      data: merchantData,
+    })
+  }
 
   try {
     const { refreshMerchantCompleteness } = require('./merchant-onboarding.service')
@@ -243,8 +273,7 @@ async function updateStoreDisplayProfile(auth, rawForm = {}) {
   const profile = formatOnboardingProfile(merchantFresh, updatedStore)
   return {
     ...attachCapabilityToProfile(profile, updatedStore, capability),
-    // 本次保存是否新提交了品牌授权审核（与整体是否仍处于 pending 区分）
-    brandAuthReviewSubmitted: Boolean(needsReview),
+    brandAuthReviewSubmitted: false,
   }
 }
 

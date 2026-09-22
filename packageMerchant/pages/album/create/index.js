@@ -361,6 +361,11 @@ Page({
     }
   },
 
+  onCreateFromText() {
+    if (this.data.status === 'loading' || this.data.submitting) return
+    wx.navigateTo({ url: '/packageMerchant/pages/tools/wechat-archive/index' })
+  },
+
   async onSubmit() {
     await this.createAlbumAndGo({
       includePhone: true,

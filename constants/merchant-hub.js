@@ -6,10 +6,11 @@
 const { attachNavIcon } = require('./nav-icons')
 const { SERVICE_ALBUM_REPAIR_DONE_STATUSES } = require('./service-album-status')
 const { buildMerchantPlanTag } = require('./merchant-plan-tier')
+const { MERCHANT_AUTH_HINT } = require('./merchant-onboarding-copy')
 
 const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
-const MERCHANT_ALBUM_EMPTY_HINT = '拍这一单过程，或从微信群转入。'
+const MERCHANT_ALBUM_EMPTY_HINT = '先建一本，把这一单过程记下来。'
 
 const MERCHANT_CASE_SECTION_TITLE = '案例动态'
 
@@ -23,7 +24,6 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 const MERCHANT_HUB_MORE_ITEMS = [
   { key: 'storeHome', label: '门店主页' },
   { key: 'staff', label: '账号管理' },
-  { key: 'wechatArchive', label: '微信转案例' },
 ]
 
 function formatSectionBadge(n) {
@@ -72,6 +72,35 @@ function buildMerchantTodoSummary(todos = {}) {
   }
 }
 
+/** 未认证、资料未完善：并进待处理，不单独占扉页 */
+function buildMerchantSetupTodos(profile) {
+  if (!profile) return []
+  const trust = profile.publisherTrust || {}
+  const auth = String(trust.authStatus || profile.authStatus || 'none')
+  const completeness = String(
+    trust.profileCompleteness || profile.profileCompleteness || 'basic'
+  )
+  const items = []
+  const authLabel = MERCHANT_AUTH_HINT[auth] || ''
+  if (authLabel) {
+    items.push({ key: 'auth', label: authLabel, action: 'auth' })
+  }
+  if (completeness !== 'complete') {
+    items.push({ key: 'storeProfile', label: '补门店资料', action: 'storeProfile' })
+  }
+  return items
+}
+
+function withSetupTodos(summary, profile) {
+  const extra = buildMerchantSetupTodos(profile)
+  const items = [...((summary && summary.items) || []), ...extra]
+  if (!items.length) return null
+  return {
+    headline: `${items.length} 项待你处理`,
+    items,
+  }
+}
+
 /** Hero：进行中优先最多 2；无进行中仅最近 1 本 */
 function pickMerchantHubAlbums(list = []) {
   const sorted = (list || [])
@@ -105,10 +134,9 @@ function buildMerchantHubDock(todos = {}) {
 }
 
 function buildMerchantHubMoreLinks(canManageStaff = false, todos = {}) {
-  const items = (canManageStaff
-    ? MERCHANT_HUB_MORE_ITEMS
-    : [{ key: 'wechatArchive', label: '微信转案例' }]
-  ).concat([{ key: 'switchOwner', label: '切换为车主' }])
+  const items = (canManageStaff ? MERCHANT_HUB_MORE_ITEMS : []).concat([
+    { key: 'switchOwner', label: '切换为车主' },
+  ])
   return items.map((item) =>
     attachNavIcon({
       ...item,
@@ -185,6 +213,8 @@ module.exports = {
   MERCHANT_CASE_SECTION_TITLE,
   MERCHANT_HUB_MORE_ITEMS,
   buildMerchantTodoSummary,
+  buildMerchantSetupTodos,
+  withSetupTodos,
   pickMerchantHubAlbums,
   pickPendingUploadAlbums,
   buildAlbumSectionBadge,

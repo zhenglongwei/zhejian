@@ -14,6 +14,28 @@ const BRAND_AUTH_ITEM_MAX = 8
 const RECEPTION_PHOTO_MAX = 6
 
 const EMPTY_DISPLAY_FORM = {
+  storeName: '',
+  address: '',
+  latitude: '',
+  longitude: '',
+  contactName: '',
+  phone: '',
+  legalName: '',
+  creditCode: '',
+  licensePhotoUrl: '',
+  legalIdPhotoUrl: '',
+  licenseEstablishedOn: '',
+  contactEmail: '',
+  qualificationType: '',
+  qualificationPhotoUrl: '',
+  qualificationNo: '',
+  qualificationValidUntil: '',
+  newEnergyEnabled: false,
+  newEnergyPhotoUrl: '',
+  newEnergyNo: '',
+  newEnergyValidUntil: '',
+  publishLicense: false,
+  publishQualification: false,
   storePhone: '',
   businessHours: '',
   intro: '',
@@ -145,10 +167,48 @@ function createEmptyBrandAuthItem() {
   }
 }
 
+function resolvePublishFlag(photos, key, legacyVisible) {
+  if (photos && typeof photos[key] === 'boolean') return photos[key]
+  return Boolean(legacyVisible)
+}
+
 function profileToDisplayForm(profile) {
   const photos = profile.photos || {}
+  const qualification = profile.qualification || {}
+  const newEnergy = qualification.newEnergy || {}
+  const hasLicense = Boolean(
+    profile.licensePhotoUrl || profile.legalName || profile.creditCode
+  )
+  const hasQualification = Boolean(
+    qualification.photoUrl ||
+      qualification.baseType ||
+      qualification.type ||
+      newEnergy.enabled
+  )
   return {
-    storePhone: profile.storePhone || profile.phone || '',
+    storeName: profile.storeName || '',
+    address: profile.address || '',
+    latitude: profile.latitude != null ? String(profile.latitude) : '',
+    longitude: profile.longitude != null ? String(profile.longitude) : '',
+    contactName: profile.contactName || '',
+    phone: profile.phone || '',
+    legalName: profile.legalName || '',
+    creditCode: profile.creditCode || '',
+    licensePhotoUrl: profile.licensePhotoUrl || '',
+    legalIdPhotoUrl: profile.legalIdPhotoUrl || '',
+    licenseEstablishedOn: profile.licenseEstablishedOn || '',
+    contactEmail: profile.contactEmail || '',
+    qualificationType: qualification.baseType || qualification.type || '',
+    qualificationPhotoUrl: qualification.photoUrl || '',
+    qualificationNo: qualification.certNo || '',
+    qualificationValidUntil: qualification.validUntil || '',
+    newEnergyEnabled: Boolean(newEnergy.enabled),
+    newEnergyPhotoUrl: newEnergy.photoUrl || '',
+    newEnergyNo: newEnergy.certNo || '',
+    newEnergyValidUntil: newEnergy.validUntil || '',
+    publishLicense: resolvePublishFlag(photos, 'publishLicense', hasLicense),
+    publishQualification: resolvePublishFlag(photos, 'publishQualification', hasQualification),
+    storePhone: profile.storePhone || '',
     businessHours: profile.businessHours || '',
     intro: profile.intro || '',
     services: profile.services || [],
@@ -230,6 +290,34 @@ function buildDisplayPayload(form, storeId) {
 
   return {
     storeId,
+    storeName: form.storeName,
+    address: form.address,
+    latitude: form.latitude,
+    longitude: form.longitude,
+    contactName: form.contactName,
+    phone: form.phone,
+    legalName: form.legalName,
+    creditCode: form.creditCode,
+    licensePhotoUrl: form.licensePhotoUrl,
+    legalIdPhotoUrl: form.legalIdPhotoUrl,
+    licenseEstablishedOn: form.licenseEstablishedOn,
+    contactEmail: form.contactEmail,
+    publishLicense: Boolean(form.publishLicense),
+    publishQualification: Boolean(form.publishQualification),
+    qualification: {
+      baseType: form.qualificationType || '',
+      type: form.qualificationType || '',
+      photoUrl: form.qualificationPhotoUrl || '',
+      certNo: form.qualificationNo || '',
+      validUntil: form.qualificationValidUntil || '',
+      specialties: form.newEnergyEnabled ? ['new_energy'] : [],
+      newEnergy: {
+        enabled: Boolean(form.newEnergyEnabled),
+        photoUrl: form.newEnergyEnabled ? form.newEnergyPhotoUrl || '' : '',
+        certNo: form.newEnergyEnabled ? form.newEnergyNo || '' : '',
+        validUntil: form.newEnergyEnabled ? form.newEnergyValidUntil || '' : '',
+      },
+    },
     storePhone: form.storePhone,
     businessHours: form.businessHours,
     intro: form.intro,
@@ -252,27 +340,22 @@ function buildDisplayPayload(form, storeId) {
 }
 
 function validateDisplayForm(form, options = {}) {
-  if (!form.storePhone) {
-    return '请填写门店电话'
+  if (!String(form.storeName || '').trim()) {
+    return '请填写门店名称'
   }
-  if (options.businessHoursDaily) {
+  const contactPhone = String(form.phone || '').replace(/\D/g, '')
+  if (contactPhone && !/^\d{11}$/.test(contactPhone)) {
+    return '请填写正确的负责人手机号'
+  }
+  if (options.businessHoursDaily && (options.businessHoursDaily.start || options.businessHoursDaily.end)) {
     const hoursMessage = validateBusinessHours(
       options.businessHoursDaily,
       options.businessHoursClosures
     )
     if (hoursMessage) return hoursMessage
   }
-  if (!form.businessHours) {
-    return '请填写营业时间'
-  }
-  if (!form.services || !form.services.length) {
-    return '请至少选择一项擅长服务'
-  }
-  if (!form.facadePhotoUrl) {
-    return '请上传门头照片'
-  }
-  if (!normalizeWorkshopPhotoUrls(form.workshopPhotoUrls).length) {
-    return '请至少上传一张工位照片'
+  if (form.newEnergyEnabled && !form.newEnergyPhotoUrl) {
+    return '请上传新能源专项资质照片'
   }
   const brandAuthItems = Array.isArray(form.brandAuthItems) ? form.brandAuthItems : []
   for (let i = 0; i < brandAuthItems.length; i += 1) {

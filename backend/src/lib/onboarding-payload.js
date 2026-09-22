@@ -317,6 +317,13 @@ function validateSubmitPayload(payload) {
   return validateBasicOnboardingPayload(payload)
 }
 
+function optionalBoolean(value) {
+  if (value === true || value === false) return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return null
+}
+
 function parseStoreDisplayForm(form = {}) {
   const photos = normalizePhotos(
     form.photos || {
@@ -333,7 +340,34 @@ function parseStoreDisplayForm(form = {}) {
     photos.brandAuthUrl = photos.brandAuthItems[0]?.imageUrl || photos.brandAuthUrl || ''
   }
 
+  const identityProvided = form.storeName != null
+  const latitude = form.latitude === '' || form.latitude == null ? null : Number(form.latitude)
+  const longitude = form.longitude === '' || form.longitude == null ? null : Number(form.longitude)
+
   return {
+    identityProvided,
+    storeName: identityProvided ? String(form.storeName || '').trim() : null,
+    address: form.address == null ? null : String(form.address || '').trim(),
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+    contactName: form.contactName == null ? null : String(form.contactName || '').trim(),
+    contactPhone:
+      form.phone == null && form.contactPhone == null
+        ? null
+        : String(form.phone || form.contactPhone || '').replace(/\D/g, ''),
+    legalName: form.legalName == null ? null : String(form.legalName || '').trim(),
+    creditCode: form.creditCode == null ? null : String(form.creditCode || '').trim(),
+    licensePhotoUrl:
+      form.licensePhotoUrl == null ? null : String(form.licensePhotoUrl || '').trim(),
+    legalIdPhotoUrl:
+      form.legalIdPhotoUrl == null ? null : String(form.legalIdPhotoUrl || '').trim(),
+    licenseEstablishedOn:
+      form.licenseEstablishedOn == null ? null : String(form.licenseEstablishedOn || '').trim(),
+    contactEmail: form.contactEmail == null ? null : String(form.contactEmail || '').trim(),
+    qualification:
+      form.qualification && typeof form.qualification === 'object' ? form.qualification : null,
+    publishLicense: optionalBoolean(form.publishLicense),
+    publishQualification: optionalBoolean(form.publishQualification),
     storePhone: String(form.storePhone || '').trim(),
     businessHours: String(form.businessHours || '').trim(),
     intro: String(form.intro || '').trim(),
@@ -346,37 +380,45 @@ function parseStoreDisplayForm(form = {}) {
   }
 }
 
-/** 审核通过后商家自维护的展示资料 */
+/** 开通后商家自维护的门店资料。店名必填；电话、照片、擅长为加分项。 */
 function validateStoreDisplayPayload(payload) {
-  if (!payload.storePhone) {
-    const err = new Error('请填写门店电话')
+  if (payload.identityProvided && !payload.storeName) {
+    const err = new Error('请填写门店名称')
     err.status = 400
     throw err
   }
-  if (!payload.businessHours) {
-    const err = new Error('请填写营业时间')
-    err.status = 400
-    throw err
-  }
-  if (!payload.services.length) {
-    const err = new Error('请至少选择一项擅长服务')
-    err.status = 400
-    throw err
-  }
-  if (!payload.photos.facadeUrl) {
-    const err = new Error('请上传门头照片')
-    err.status = 400
-    throw err
-  }
-  if (!payload.photos.workshopUrls.length) {
-    const err = new Error('请至少上传一张工位照片')
+  if (payload.contactPhone && !/^\d{11}$/.test(payload.contactPhone)) {
+    const err = new Error('请填写正确的负责人手机号')
     err.status = 400
     throw err
   }
 
+  let qualification = payload.qualification
+  if (qualification) {
+    qualification = sanitizeQualificationPayload(qualification)
+    if (qualification.newEnergy && qualification.newEnergy.enabled && !qualification.newEnergy.photoUrl) {
+      const err = new Error('请上传新能源专项资质照片')
+      err.status = 400
+      throw err
+    }
+  }
+
+  const photos = sanitizePhotoPayload(payload.photos)
+  if (payload.publishLicense !== null) photos.publishLicense = payload.publishLicense
+  if (payload.publishQualification !== null) {
+    photos.publishQualification = payload.publishQualification
+  }
+  if (payload.licensePhotoUrl) {
+    payload.licensePhotoUrl = assertPersistentOptional(payload.licensePhotoUrl)
+  }
+  if (payload.legalIdPhotoUrl) {
+    payload.legalIdPhotoUrl = assertPersistentOptional(payload.legalIdPhotoUrl)
+  }
+
   return {
     ...payload,
-    photos: sanitizePhotoPayload(payload.photos),
+    qualification,
+    photos,
   }
 }
 

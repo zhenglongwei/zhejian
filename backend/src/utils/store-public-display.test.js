@@ -5,6 +5,8 @@ const assert = require('assert')
 const {
   filterPublicSpecialties,
   filterPublicEnvironmentImages,
+  isPlaceholderStoreName,
+  readCertPublishFlag,
 } = require('./store-public-display')
 
 function run() {
@@ -20,6 +22,11 @@ function run() {
     ]),
     ['/media/workshop-1.jpg']
   )
+  assert.strictEqual(isPlaceholderStoreName('我的门店'), true)
+  assert.strictEqual(isPlaceholderStoreName('  '), true)
+  assert.strictEqual(isPlaceholderStoreName('盈简汽修'), false)
+  assert.strictEqual(readCertPublishFlag({}, 'publishLicense', true), true)
+  assert.strictEqual(readCertPublishFlag({ publishLicense: false }, 'publishLicense', true), false)
   console.log('[store-public-display.test] ok')
 }
 

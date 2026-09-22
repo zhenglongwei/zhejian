@@ -48,8 +48,26 @@ function filterPublicEnvironmentImages(list) {
   return out
 }
 
+/** 开通时的占位店名：可预览店页，不进搜索 */
+function isPlaceholderStoreName(name) {
+  const value = String(name || '').trim()
+  return !value || value === '我的门店'
+}
+
+/**
+ * 执照 / 资质是否上店页。
+ * 未写过开关时，沿用已有资料（旧数据默认已在页上）。
+ */
+function readCertPublishFlag(photos, key, legacyVisible) {
+  const raw = photos && typeof photos === 'object' ? photos[key] : undefined
+  if (typeof raw === 'boolean') return raw
+  return Boolean(legacyVisible)
+}
+
 module.exports = {
   VAGUE_SPECIALTY_RE,
   filterPublicSpecialties,
   filterPublicEnvironmentImages,
+  isPlaceholderStoreName,
+  readCertPublishFlag,
 }

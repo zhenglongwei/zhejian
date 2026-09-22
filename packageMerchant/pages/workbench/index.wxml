@@ -40,15 +40,6 @@
 
   <block wx:else>
       <view class="merchant-hub">
-      <view wx:if="{{trustHint || trustLine}}" class="surface-album-hint-strip merchant-hub__trust">
-        <view class="merchant-hub__first-guide-copy">
-          <text wx:if="{{trustLine}}" class="text-caption text-secondary">{{trustLine}}</text>
-          <text wx:if="{{trustHint}}" class="text-caption text-link" bindtap="onGoAuth">{{trustHint}}</text>
-        </view>
-        <view class="merchant-hub__first-guide-dismiss" bindtap="onGoStoreEdit">
-          <text class="text-caption text-link">门店资料</text>
-        </view>
-      </view>
       <view class="merchant-hub__folio surface-album-folio">
         <ui-merchant-store-header
           storeName="{{profile.storeName}}"
@@ -104,9 +95,6 @@
             actionText="新建服务相册"
             bind:action="onCreateAlbum"
           />
-          <view class="merchant-hub__empty-alt" bindtap="onWechatArchive">
-            <text class="text-caption text-link">从微信群转入</text>
-          </view>
         </block>
 
         <block wx:if="{{todoSummary}}">

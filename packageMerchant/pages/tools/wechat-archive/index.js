@@ -88,7 +88,7 @@ Page({
   async onGenerate() {
     const text = String(this.data.chatText || '').trim()
     if (!text) {
-      wx.showToast({ title: '请先粘贴群聊文字', icon: 'none' })
+      wx.showToast({ title: '请先贴进文字', icon: 'none' })
       return
     }
     if (this.data.loading) return

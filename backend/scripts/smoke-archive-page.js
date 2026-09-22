@@ -1,5 +1,5 @@
 /**
- * 官网微信转案例：只在首页工具卡正文下放直达码，不单开 /archive。
+ * 官网「从聊天创建」：只在首页工具卡正文下放直达码，不单开 /archive。
  * 用法：node backend/scripts/smoke-archive-page.js
  */
 const fs = require('fs')
@@ -21,10 +21,12 @@ function main() {
   ok('已删除 archive.html')
 
   const indexHtml = fs.readFileSync(INDEX_PATH, 'utf8')
-  const toolsBlock = indexHtml.slice(indexHtml.indexOf('微信转案例'))
+  const toolsBlock = indexHtml.slice(indexHtml.indexOf('从聊天创建'))
+  assert(toolsBlock.length > 1, '首页工具卡标题为从聊天创建')
+  assert(!indexHtml.includes('微信转案例'), '首页不要再写微信转案例')
   assert(
     toolsBlock.includes('miniprogram-code?entry=wechat-archive'),
-    '首页微信转案例要放直达码',
+    '首页从聊天创建要放直达码',
   )
   assert(toolsBlock.includes('class="mp-entry"'), '码用与辙见小程序卡同一套横排样式')
   assert(!toolsBlock.includes('mp-entry--stack'), '不要另做竖排大码')
@@ -33,7 +35,7 @@ function main() {
   assert(!indexHtml.includes('打开小程序码'), '首页不要「打开小程序码」')
   assert(!indexHtml.includes('查看说明'), '首页不要用「查看说明」当入口')
   assert(!indexHtml.includes('官网本页只作说明'), '不要写官网只作说明')
-  ok('官网首页微信转案例只放直达码，无跳转页')
+  ok('官网首页从聊天创建只放直达码，无跳转页')
 
   const routeSrc = fs.readFileSync(ROUTE_PATH, 'utf8')
   assert(

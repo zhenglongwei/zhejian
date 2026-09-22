@@ -1,10 +1,10 @@
 <view class="page page-content wechat-archive merchant-form-page">
   <block wx:if="{{step === 'paste'}}">
     <ui-card shadow="{{true}}" padding="{{true}}">
-      <text class="text-h3">粘贴这一单群聊</text>
+      <text class="text-h3">贴进这一单文字</text>
       <textarea
         class="wechat-archive__input"
-        placeholder="从电脑微信多选复制。语音先转成文字再贴进来。"
+        placeholder="聊天记录或这一单的文字。语音先转成文字再贴。"
         maxlength="20000"
         value="{{chatText}}"
         bindinput="onInput"

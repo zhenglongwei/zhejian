@@ -23,7 +23,7 @@ const MERCHANT_WORKBENCH_GATE_PENDING = {
 
 const MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE = {
   title: '开通后继续整理',
-  description: '开通即可把这一单群聊贴进相册',
+  description: '开通后把贴进来的文字做成相册',
 }
 
 const MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE = {

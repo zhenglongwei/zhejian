@@ -12,21 +12,47 @@
 </view>
 
 <view class="page merchant-store-edit page-content merchant-form-page" wx:elif="{{status === 'normal'}}">
-  <ui-compliance-notice type="history" text="本页可改两类信息：标注「即时生效」的保存后立即对外展示；仅「品牌授权」须运营审核通过后才更新公开页，审核期间仍显示上一版授权。" />
-
-  <!-- ① 基础展示：即时生效 -->
   <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">基础展示</text>
-    <text class="merchant-store-edit__panel-hint text-caption">即时生效。电话、营业时间、简介保存后立即对用户端与 H5 生效。</text>
+    <text class="merchant-store-edit__panel-title text-h3">店名与地址</text>
 
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门店电话 *</text>
-      <input class="merchant-form__input" type="number" placeholder="用户咨询拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
+      <text class="merchant-form__label">门店名称 *</text>
+      <input class="merchant-form__input" placeholder="对外展示的店名" value="{{form.storeName}}" data-field="storeName" bindinput="onInput" maxlength="40" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">地址</text>
+      <view
+        class="merchant-form__input merchant-onboard__address-picker {{form.address ? '' : 'merchant-onboard__address-picker--empty'}}"
+        hover-class="merchant-onboard__address-picker--active"
+        catchtap="onChooseLocation"
+      >
+        <text class="merchant-onboard__address-text">{{form.address || '点击选择地址'}}</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">简介</text>
+      <textarea class="merchant-form__textarea" placeholder="一段即可，如主营项目" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">负责人</text>
+      <input class="merchant-form__input" placeholder="姓名" value="{{form.contactName}}" data-field="contactName" bindinput="onInput" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">负责人手机</text>
+      <input class="merchant-form__input" type="number" placeholder="11 位手机号" value="{{form.phone}}" data-field="phone" bindinput="onInput" maxlength="11" />
+    </view>
+  </view>
+
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">营业</text>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">门店电话</text>
+      <input class="merchant-form__input" type="number" placeholder="对外拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
     </view>
 
     <view class="merchant-form__section">
-      <text class="merchant-form__label">营业时间 *</text>
-      <text class="text-caption merchant-hours__hint">点击时间可修改每日营业时段；长假可添加临时休息。</text>
+      <text class="merchant-form__label">营业时间</text>
 
       <view class="merchant-hours__daily">
         <text class="merchant-hours__daily-label">每日营业</text>
@@ -72,7 +98,7 @@
           </view>
         </view>
 
-        <text wx:if="{{!businessHoursClosures.length && !showClosureForm}}" class="merchant-hours__closure-empty text-caption">暂无临时休息；非营业时段用户端将显示「休息中」</text>
+        <text wx:if="{{!businessHoursClosures.length && !showClosureForm}}" class="merchant-hours__closure-empty text-caption">暂无临时休息</text>
 
         <view
           wx:for="{{businessHoursClosures}}"
@@ -85,22 +111,16 @@
       </view>
 
       <view class="merchant-hours__preview">
-        <text class="merchant-hours__preview-label text-caption">用户端展示文案</text>
+        <text class="merchant-hours__preview-label text-caption">展示文案</text>
         <text class="merchant-hours__preview-value text-body">{{businessHoursPreview || '请设置营业时间'}}</text>
       </view>
     </view>
-
-    <view class="merchant-form__section">
-      <text class="merchant-form__label">门店简介</text>
-      <textarea class="merchant-form__textarea" placeholder="选填，用户端门店详情展示" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
-    </view>
   </view>
 
-  <!-- ② 擅长服务：即时生效 -->
   <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">擅长服务 *</text>
-    <text class="merchant-store-edit__panel-hint text-caption">即时生效。可点选预设，也可自定义添加。</text>
+    <text class="merchant-store-edit__panel-title text-h3">擅长与环境</text>
     <view class="merchant-form__section">
+      <text class="merchant-form__label">擅长服务</text>
       <view class="merchant-onboard__chips">
         <view
           wx:for="{{serviceTags}}"
@@ -124,23 +144,16 @@
         />
       </view>
     </view>
-  </view>
-
-  <!-- ③ 门店照片：即时生效 -->
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">门店照片</text>
-    <text class="merchant-store-edit__panel-hint text-caption">即时生效。门头、工位、接待区保存后立即进入用户端轮播；品牌授权请到下方「须审核」区块维护。</text>
 
     <view class="merchant-form__section">
-      <text class="merchant-form__label">门头照片 *</text>
+      <text class="merchant-form__label">门头照片</text>
       <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
         <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
         <text wx:else class="text-caption">点击上传</text>
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">工位照片 *（至少 1 张，最多 6 张）</text>
-      <text class="text-caption merchant-store-edit__field-tip">预览轮播会展示：门头 + 工位 + 接待区 + 已审设备实景。</text>
+      <text class="merchant-form__label">工位照片（最多 6 张）</text>
       <view class="merchant-onboard__photo-grid">
         <view
           wx:for="{{form.workshopPhotoUrls}}"
@@ -179,24 +192,6 @@
         </view>
       </view>
     </view>
-  </view>
-
-  <!-- ④ 能力边界：即时 + 品牌授权须审 -->
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">能力与边界</text>
-    <text class="merchant-store-edit__panel-hint text-caption">技师与设备保存后即时展示；仅品牌授权须审。虚假信息可能被举报与事后处理。</text>
-
-    <view wx:if="{{capabilityReviewStatus === 'pending'}}" class="merchant-store-edit__banner merchant-store-edit__banner--pending">
-      <text class="text-caption">品牌授权变更正在审核中。通过前，用户端与 H5 仍显示上一版已通过授权。</text>
-    </view>
-    <view wx:if="{{capabilityReviewStatus === 'rejected'}}" class="merchant-store-edit__banner merchant-store-edit__banner--reject">
-      <text class="text-caption">品牌授权变更已驳回：{{capabilityRejectReason || '请修改后重新提交'}}</text>
-    </view>
-
-    <view class="merchant-store-edit__subhead">
-      <text class="merchant-store-edit__subhead-title text-body">即时生效</text>
-      <text class="merchant-store-edit__subhead-hint text-caption">保存后立即对外展示</text>
-    </view>
 
     <view class="merchant-form__section">
       <text class="merchant-form__label">擅长品牌</text>
@@ -221,7 +216,6 @@
 
     <view class="merchant-form__section">
       <text class="merchant-form__label">设备/场</text>
-      <text class="text-caption merchant-store-edit__field-tip">标签与实景图保存后立即出现在用户端/H5；实景图可进入环境轮播。</text>
       <view class="merchant-onboard__chips">
         <view
           wx:for="{{equipmentTagViews}}"
@@ -279,8 +273,7 @@
       </view>
     </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">技师公示</text>
-      <text class="text-caption merchant-store-edit__field-tip">保存后立即在用户端/H5 展示技师信息。</text>
+      <text class="merchant-form__label">技师</text>
       <view wx:for="{{form.technicians}}" wx:key="id" class="merchant-store-edit__tech-card">
         <input class="merchant-form__input" placeholder="称呼 *" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
         <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
@@ -368,14 +361,106 @@
       </view>
     </view>
 
-    <view class="merchant-store-edit__subhead merchant-store-edit__subhead--review">
-      <text class="merchant-store-edit__subhead-title text-body">须审核后生效</text>
-      <text class="merchant-store-edit__subhead-hint text-caption">仅品牌授权需运营审核；通过前公开页不更新授权展示</text>
+  </view>
+
+  <view class="merchant-store-edit__panel">
+    <text class="merchant-store-edit__panel-title text-h3">公示</text>
+
+    <view class="merchant-form__switch-row">
+      <text class="text-body">在网站展示执照</text>
+      <switch checked="{{form.publishLicense}}" data-field="publishLicense" bindchange="onPublishFlag" color="{{switchColor}}" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">营业执照</text>
+      <view class="merchant-onboard__photo-slot" data-field="licensePhotoUrl" bindtap="onPickSingle">
+        <image wx:if="{{form.licensePhotoUrl}}" class="merchant-onboard__photo" src="{{form.licensePhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">上传执照</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">主体名称</text>
+      <input class="merchant-form__input" placeholder="与执照一致" value="{{form.legalName}}" data-field="legalName" bindinput="onInput" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">统一社会信用代码</text>
+      <input class="merchant-form__input" placeholder="18 位" value="{{form.creditCode}}" data-field="creditCode" bindinput="onInput" maxlength="18" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">成立日期</text>
+      <picker mode="date" value="{{form.licenseEstablishedOn || today}}" start="1950-01-01" end="{{today}}" bindchange="onLicenseEstablishedChange">
+        <view class="merchant-form__picker {{form.licenseEstablishedOn ? '' : 'merchant-form__picker--placeholder'}}">
+          {{form.licenseEstablishedOn || '选择日期'}}
+        </view>
+      </picker>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">法人身份证</text>
+      <text class="text-caption merchant-store-edit__field-tip">不对外</text>
+      <view class="merchant-onboard__photo-slot" data-field="legalIdPhotoUrl" bindtap="onPickSingle">
+        <image wx:if="{{form.legalIdPhotoUrl}}" class="merchant-onboard__photo" src="{{form.legalIdPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">上传身份证</text>
+      </view>
     </view>
 
+    <view class="merchant-form__switch-row">
+      <text class="text-body">在网站展示资质</text>
+      <switch checked="{{form.publishQualification}}" data-field="publishQualification" bindchange="onPublishFlag" color="{{switchColor}}" />
+    </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">品牌授权证明（最多 8 个品牌）</text>
-      <text class="text-caption merchant-store-edit__field-tip">每个品牌单独上传证明图并选择有效期；过期后该品牌授权不再对外展示。</text>
+      <text class="merchant-form__label">维修资质</text>
+      <picker mode="selector" range="{{qualificationOptions}}" range-key="label" value="{{qualificationIndex}}" bindchange="onQualificationChange">
+        <view class="merchant-form__picker {{qualificationLabel ? '' : 'merchant-form__picker--placeholder'}}">
+          {{qualificationLabel || '选择资质类型'}}
+        </view>
+      </picker>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">资质照片</text>
+      <view class="merchant-onboard__photo-slot" data-field="qualificationPhotoUrl" bindtap="onPickSingle">
+        <image wx:if="{{form.qualificationPhotoUrl}}" class="merchant-onboard__photo" src="{{form.qualificationPhotoUrl}}" mode="aspectFill" />
+        <text wx:else class="text-caption">上传照片</text>
+      </view>
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">资质编号</text>
+      <input class="merchant-form__input" placeholder="选填" value="{{form.qualificationNo}}" data-field="qualificationNo" bindinput="onInput" />
+    </view>
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">有效期至</text>
+      <picker mode="date" value="{{form.qualificationValidUntil || today}}" bindchange="onValidUntilChange">
+        <view class="merchant-form__picker {{form.qualificationValidUntil ? '' : 'merchant-form__picker--placeholder'}}">
+          {{form.qualificationValidUntil || '选择日期'}}
+        </view>
+      </picker>
+    </view>
+    <view class="merchant-form__switch-row">
+      <text class="text-body">新能源专项资质</text>
+      <switch checked="{{form.newEnergyEnabled}}" bindchange="onNewEnergyToggle" color="{{switchColor}}" />
+    </view>
+    <block wx:if="{{form.newEnergyEnabled}}">
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">新能源资质照片</text>
+        <view class="merchant-onboard__photo-slot" data-field="newEnergyPhotoUrl" bindtap="onPickSingle">
+          <image wx:if="{{form.newEnergyPhotoUrl}}" class="merchant-onboard__photo" src="{{form.newEnergyPhotoUrl}}" mode="aspectFill" />
+          <text wx:else class="text-caption">上传照片</text>
+        </view>
+      </view>
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">编号</text>
+        <input class="merchant-form__input" placeholder="选填" value="{{form.newEnergyNo}}" data-field="newEnergyNo" bindinput="onInput" />
+      </view>
+      <view class="merchant-form__section">
+        <text class="merchant-form__label">有效期至</text>
+        <picker mode="date" value="{{form.newEnergyValidUntil || today}}" bindchange="onNewEnergyValidUntilChange">
+          <view class="merchant-form__picker {{form.newEnergyValidUntil ? '' : 'merchant-form__picker--placeholder'}}">
+            {{form.newEnergyValidUntil || '选择日期'}}
+          </view>
+        </picker>
+      </view>
+    </block>
+
+    <view class="merchant-form__section">
+      <text class="merchant-form__label">品牌授权（最多 8 个）</text>
       <view
         wx:for="{{form.brandAuthItems}}"
         wx:key="id"
@@ -428,53 +513,10 @@
     </view>
   </view>
 
-  <!-- ⑤ 只读基本资料 -->
-  <view class="merchant-store-edit__panel merchant-store-edit__panel--muted">
-    <text class="merchant-store-edit__panel-title text-h3">基本资料（只读）</text>
-    <text class="merchant-store-edit__panel-hint text-caption">主体、资质、名称与地址变更请联系平台运营。</text>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">门店名称</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.storeName}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">门店地址</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.address}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">主体名称</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.legalName}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">信用代码</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.creditCode}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">负责人</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.contactName}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">负责人手机</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.phone}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row">
-      <text class="merchant-store-edit__readonly-label">基础资质</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.qualificationTypeLabel}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-row" wx:if="{{basic.newEnergyEnabled}}">
-      <text class="merchant-store-edit__readonly-label">新能源专项</text>
-      <text class="merchant-store-edit__readonly-value">{{basic.newEnergyTypeLabel}}</text>
-    </view>
-    <view class="merchant-store-edit__readonly-photos" wx:if="{{basic.licensePhotoUrl || basic.qualificationPhotoUrl || basic.newEnergyPhotoUrl}}">
-      <image wx:if="{{basic.licensePhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.licensePhotoUrl}}" mode="aspectFill" />
-      <image wx:if="{{basic.qualificationPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.qualificationPhotoUrl}}" mode="aspectFill" />
-      <image wx:if="{{basic.newEnergyPhotoUrl}}" class="merchant-store-edit__readonly-photo" src="{{basic.newEnergyPhotoUrl}}" mode="aspectFill" />
-    </view>
-  </view>
-
   <view class="merchant-form__spacer" />
   <ui-fixed-bottom-bar>
-    <ui-button type="secondary" size="sm" slot="left" bind:btntap="onShareStore">分享门店</ui-button>
-    <ui-button type="secondary" size="sm" slot="left" bind:btntap="onPreview">预览主页</ui-button>
+    <ui-button type="secondary" size="sm" slot="left" bind:btntap="onPreview">预览</ui-button>
     <ui-button type="primary" slot="right" loading="{{submitting}}" bind:btntap="onSave">保存</ui-button>
   </ui-fixed-bottom-bar>
+  <privacy-authorize-popup id="privacyAuthorizePopup" />
 </view>

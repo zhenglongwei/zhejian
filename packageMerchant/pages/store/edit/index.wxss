@@ -3,11 +3,15 @@
 @import '../../onboarding/index.wxss';
 
 .merchant-store-edit__panel {
-  margin-top: var(--space-lg);
-  padding: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
   background-color: var(--color-bg-card);
   border-radius: var(--radius-lg);
   border: 1rpx solid var(--color-border);
+}
+
+.merchant-store-edit__panel:first-child {
+  margin-top: 0;
 }
 
 .merchant-form__section--row {
@@ -16,10 +20,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-}
-
-.merchant-store-edit__panel--muted {
-  background-color: var(--color-bg-muted);
 }
 
 .merchant-store-edit__panel-title {
@@ -33,22 +33,6 @@
   margin-bottom: var(--space-sm);
   color: var(--color-text-tertiary);
   line-height: 1.5;
-}
-
-.merchant-store-edit__banner {
-  margin-top: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-}
-
-.merchant-store-edit__banner--pending {
-  background-color: var(--color-bg-muted);
-  border: 1rpx solid var(--color-border);
-}
-
-.merchant-store-edit__banner--reject {
-  background-color: var(--color-bg-muted);
-  border: 1rpx solid var(--color-danger, var(--color-border));
 }
 
 .merchant-store-edit__field-tip {

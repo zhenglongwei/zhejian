@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "微信转案例",
+  "navigationBarTitleText": "从聊天创建",
   "usingComponents": {
     "ui-button": "/components/button/index",
     "ui-card": "/components/card/index",

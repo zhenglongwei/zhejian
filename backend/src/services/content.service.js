@@ -35,6 +35,7 @@ const { buildCaseInternalLinks, resolveServiceItemId } = require('../utils/case-
 const {
   filterPublicSpecialties,
   filterPublicEnvironmentImages,
+  isPlaceholderStoreName,
 } = require('../utils/store-public-display')
 const { searchPublishedGeoPages, listGeoPages } = require('./geo-page-store.service')
 const {
@@ -686,15 +687,21 @@ function mapStoreRow(store, caseCount = 0) {
     qualificationValidUntil: String(qualificationJson.validUntil || '').trim(),
   })
   const baseScore = Number(extras.score) || 0
-  const qualificationTagsFromJson = buildQualificationTags(qualificationJson)
+  const publishQualification = photos.publishQualification !== false
+  const qualificationTagsFromJson = publishQualification
+    ? buildQualificationTags(qualificationJson)
+    : []
   const qualificationTags =
     qualificationTagsFromJson.length > 0
       ? qualificationTagsFromJson
-      : extras.qualificationTags || []
+      : publishQualification
+        ? extras.qualificationTags || []
+        : []
   return {
     id: store.id,
     merchantId: store.merchantId || '',
     name: store.name || '',
+    isPlaceholderName: isPlaceholderStoreName(store.name),
     status: businessStatus,
     businessStatus,
     auditStatus: extras.auditStatus || 'approved',
@@ -781,7 +788,7 @@ async function listMerchants(query = {}) {
     })
   )
 
-  let list = mapped.filter((s) => s.status !== 'offline')
+  let list = mapped.filter((s) => s.status !== 'offline' && !s.isPlaceholderName)
   if (query.status) {
     list = list.filter((s) => s.status === query.status)
   }

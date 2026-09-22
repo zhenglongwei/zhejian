@@ -24,13 +24,13 @@ const {
   MERCHANT_WORKBENCH_GATE_PENDING,
   MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE,
   MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE,
-  MERCHANT_AUTH_HINT,
 } = require('../../../constants/merchant-onboarding-copy')
 const {
   MERCHANT_ALBUM_SECTION_TITLE,
   MERCHANT_ALBUM_EMPTY_HINT,
   MERCHANT_CASE_SECTION_TITLE,
   buildMerchantTodoSummary,
+  withSetupTodos,
   pickMerchantHubAlbums,
   pickPendingUploadAlbums,
   buildAlbumSectionBadge,
@@ -106,11 +106,11 @@ Page({
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
     caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
     opening: false,
-    trustHint: '',
-    trustLine: '',
   },
 
   onShow() {
+    const { hideLaunchHomeButton } = require('../../../utils/app-role')
+    hideLaunchHomeButton()
     this._syncArchiveGateCopy()
     this.loadProfile({ silent: this.data.status === 'normal' })
   },
@@ -126,18 +126,6 @@ Page({
         ? MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE
         : MERCHANT_WORKBENCH_GATE_PENDING,
     })
-  },
-
-  _buildTrustUi(profile) {
-    if (!profile) return { trustHint: '', trustLine: '' }
-    const auth = String(profile.authStatus || 'none')
-    const hint = MERCHANT_AUTH_HINT[auth] || ''
-    const trustLine =
-      (profile.publisherTrust && profile.publisherTrust.displayLine) ||
-      [profile.authStatusLabel, profile.profileCompletenessLabel && `资料${profile.profileCompletenessLabel}`]
-        .filter(Boolean)
-        .join(' · ')
-    return { trustHint: hint, trustLine }
   },
 
   async loadProfile(options = {}) {
@@ -156,7 +144,7 @@ Page({
 
     const profile = await fetchMerchantProfile()
     if (!profile || profile.status === MERCHANT_STATUS.NONE) {
-      this.setData({ status: 'none', profile: null, trustHint: '', trustLine: '' })
+      this.setData({ status: 'none', profile: null })
       return
     }
     if (
@@ -167,12 +155,11 @@ Page({
       this.setData({
         status: 'pending',
         profile,
-        ...this._buildTrustUi(profile),
       })
       return
     }
     if (profile.status !== MERCHANT_STATUS.APPROVED) {
-      this.setData({ status: 'none', profile: null, trustHint: '', trustLine: '' })
+      this.setData({ status: 'none', profile: null })
       return
     }
     if (hasWechatArchiveIntent()) {
@@ -269,7 +256,7 @@ Page({
       // keep defaults
     }
 
-    const todoSummary = buildMerchantTodoSummary(todos)
+    const todoSummary = withSetupTodos(buildMerchantTodoSummary(todos), profile)
     const canManageStaff = isMerchantOwner()
 
     this.setData({
@@ -289,7 +276,6 @@ Page({
       canSwitchStore,
       geoOpportunity,
       planTag,
-      ...this._buildTrustUi(profile),
     })
   },
 
@@ -398,6 +384,14 @@ Page({
     }
     if (action === 'followup') {
       this.onOpenFollowUpTodo()
+      return
+    }
+    if (action === 'auth') {
+      this.onGoAuth()
+      return
+    }
+    if (action === 'storeProfile') {
+      this.onGoStoreEdit()
     }
   },
 
@@ -499,8 +493,6 @@ Page({
       staff: () => this.onStaffManage(),
       switchStore: () => this.onSwitchStore(),
       reviews: () => this.onReviewList(),
-      wechatArchive: () =>
-        this._navigateTo('/packageMerchant/pages/tools/wechat-archive/index'),
       switchOwner: () => this.onSwitchToOwner(),
     }
     const fn = handlers[key]
@@ -522,10 +514,6 @@ Page({
 
   onCreateAlbum() {
     this._navigateTo('/packageMerchant/pages/album/create/index')
-  },
-
-  onWechatArchive() {
-    this._navigateTo('/packageMerchant/pages/tools/wechat-archive/index')
   },
 
   onAlbumList(e) {

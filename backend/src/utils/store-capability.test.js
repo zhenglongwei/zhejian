@@ -40,21 +40,21 @@ function run() {
   )
   assert.deepStrictEqual(merged.capability.specialtyBrands, ['奥迪'])
   assert.deepStrictEqual(merged.capability.notAccepting, ['货车'])
-  assert.strictEqual(merged.needsReview, true)
-  assert.strictEqual(merged.capability.reviewStatus, 'pending')
+  assert.strictEqual(merged.needsReview, false)
+  assert.strictEqual(merged.capability.reviewStatus, 'none')
+  assert.strictEqual(merged.capability.pending, null)
   assert.strictEqual(merged.capability.technicians[0].name, '张师傅')
   assert.strictEqual(merged.capability.equipmentTags[0].label, '烤漆房')
-  assert.ok(merged.capability.pending)
-  assert.strictEqual(merged.capability.pending.brandAuthItems[0].brandName, '宝马')
-  assert.ok(!merged.capability.pending.technicians)
+  assert.strictEqual(merged.brandAuthItems[0].brandName, '宝马')
 
-  // 公开面：技师/设备即时可见；新授权待审不展示
+  // 公开面：技师/设备/品牌授权保存后即可见；证件照不上页
   const pendingPublic = buildPublicCapabilityView(merged.capability, {
-    brandAuthItems: [],
+    brandAuthItems: merged.brandAuthItems,
   })
   assert.strictEqual(pendingPublic.techniciansPublic.length, 1)
+  assert.deepStrictEqual(pendingPublic.techniciansPublic[0].credentialPhotoUrls, [])
   assert.strictEqual(pendingPublic.equipmentTags.length, 1)
-  assert.strictEqual(pendingPublic.brandAuth, null)
+  assert.ok(pendingPublic.brandAuth)
   assert.deepStrictEqual(pendingPublic.specialtyBrands, ['奥迪'])
   assert.deepStrictEqual(pendingPublic.notAccepting, ['货车'])
 
@@ -101,12 +101,22 @@ function run() {
     { brandAuthItems: [] }
   )
   assert.strictEqual(whilePending.needsReview, false)
-  assert.strictEqual(whilePending.capability.reviewStatus, 'pending')
-  assert.strictEqual(whilePending.capability.pending.submittedAt, '2026-07-01T00:00:00.000Z')
+  assert.strictEqual(whilePending.capability.reviewStatus, 'none')
+  assert.strictEqual(whilePending.capability.pending, null)
   assert.strictEqual(whilePending.capability.technicians[0].name, '王工')
+  assert.strictEqual(whilePending.brandAuthItems[0].brandName, '宝马')
 
-  // 过审后亮品牌授权；技师/设备保持即时版不被 pending 覆盖
-  const approved = approveCapabilityPending(merged.capability, { verifiedAt: '2026-07-17' })
+  // 存量待审单仍可由运营通过；通过后公开面用授权图
+  const approved = approveCapabilityPending(
+    {
+      ...merged.capability,
+      pending: {
+        brandAuthItems: merged.brandAuthItems,
+        brandAuthValidUntil: '2027-12-31',
+      },
+    },
+    { verifiedAt: '2026-07-17' }
+  )
   assert.strictEqual(approved.capability.reviewStatus, 'none')
   assert.strictEqual(approved.capability.technicians[0].name, '张师傅')
   assert.strictEqual(approved.capability.lastProfileVerifiedAt, '2026-07-17')

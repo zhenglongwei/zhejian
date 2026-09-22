@@ -303,7 +303,8 @@ function capabilityNeedsReview(nextPending, prev) {
 }
 
 /**
- * 合并商家提交：技师/设备等即时字段直接写；仅品牌授权变更进入 pending
+ * 合并商家提交：技师、设备、品牌授权都直接写入公开面。
+ * 不再把品牌授权送审核。存量 pending 在下次保存时清掉。
  */
 function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
   const prev = readCapabilityJson(prevRaw)
@@ -338,12 +339,7 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
 
   const publishedSig = brandAuthItemsSignature(publishedBrandAuthItems)
   const submittedSig = brandAuthItemsSignature(submittedBrandAuthItems)
-  const pendingBrandAuthItems = readPendingBrandAuthItems(prev.pending, prev.brandAuthValidUntil)
-  const pendingSig = brandAuthItemsSignature(pendingBrandAuthItems)
   const differsFromPublished = submittedSig !== publishedSig
-  const matchesExistingPending = Boolean(prev.pending) && submittedSig === pendingSig
-  // 仅当授权内容相对「已通过版」有变化，且与当前待审快照也不同时，才视为新提交审核
-  const needsReview = differsFromPublished && !matchesExistingPending
 
   const next = {
     ...prev,
@@ -352,29 +348,19 @@ function mergeCapabilityFromMerchantEdit(prevRaw, form = {}, photos = {}) {
     technicians: submittedTechnicians,
     equipmentTags: submittedEquipment,
     bookingPaused: form.bookingPaused === true ? true : prev.bookingPaused,
+    brandAuthValidUntil:
+      earliestBrandAuthValidUntil(submittedBrandAuthItems) ||
+      String(form.brandAuthValidUntil || '').trim(),
+    pending: null,
+    reviewStatus: 'none',
   }
 
-  if (needsReview) {
-    next.pending = {
-      submittedAt: new Date().toISOString(),
-      brandAuthItems: submittedBrandAuthItems,
-      // 兼容旧运营台字段
-      brandAuthUrl: submittedBrandAuthItems[0]?.imageUrl || '',
-      brandAuthValidUntil:
-        earliestBrandAuthValidUntil(submittedBrandAuthItems) ||
-        String(form.brandAuthValidUntil || prev.brandAuthValidUntil || '').trim(),
-      prevBrandAuthItems: publishedBrandAuthItems,
-      prevBrandAuthUrl: publishedBrandAuthItems[0]?.imageUrl || '',
-    }
-    next.reviewStatus = 'pending'
-  } else if (!differsFromPublished && prev.pending && !matchesExistingPending) {
-    // 表单已回到已通过版，且与旧待审不同：视为撤销待审授权变更
-    next.pending = null
-    next.reviewStatus = 'none'
+  return {
+    capability: next,
+    needsReview: false,
+    brandAuthDiffersFromPublished: differsFromPublished,
+    brandAuthItems: submittedBrandAuthItems,
   }
-  // matchesExistingPending：保留原 pending / reviewStatus，不刷新提交时间
-
-  return { capability: next, needsReview, brandAuthDiffersFromPublished: differsFromPublished }
 }
 
 function approveCapabilityPending(prevRaw, options = {}) {
@@ -445,9 +431,8 @@ function buildPublicCapabilityView(capabilityRaw, photos = {}, options = {}) {
       })(),
       credentials: t.credentials,
       avatarUrl: resolveClientReadableMediaUrl(t.avatarUrl || ''),
-      credentialPhotoUrls: (t.credentialPhotoUrls || [])
-        .map((url) => resolveClientReadableMediaUrl(url))
-        .filter(Boolean),
+      // 证件照可能含证件号与人脸，店页不放
+      credentialPhotoUrls: [],
     })),
     equipmentTags: capability.equipmentTags,
     brandAuthItems: publicItems,
