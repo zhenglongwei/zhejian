@@ -49,6 +49,10 @@ const {
   isOdometerFinding,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
+const {
+  isOdometerSuggestion,
+  resolveAiReviewFindingIndex,
+} = require('../../../../utils/ai-review-target')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
 /** 系统选图最多 9 张；超过会直接失败且不弹界面。失败时再试 chooseImage。 */
@@ -372,6 +376,7 @@ Page({
     odometerUrl: '',
     odometerImageId: '',
     odometerOcrBusy: false,
+    odometerHint: null,
     vehicleBrand: '',
     vehicleSeries: '',
     vehicleYear: '',
@@ -1189,6 +1194,7 @@ Page({
         notifyOwnerLabel: '通知车主',
         notifyConfirmDisabled: false,
         chiefComplaintHint: null,
+        odometerHint: null,
         warrantyHint: null,
         orphanPhotoHints: [],
         aiReview: null,
@@ -2594,36 +2600,14 @@ Page({
     }
   },
 
-  aiReviewNeedles(item) {
-    return [item.targetLabel, item.itemKey, item.part, item.title]
-      .map((s) =>
-        String(s || '')
-          .toLowerCase()
-          .replace(/^(补拍|补充)/, '')
-          .trim(),
-      )
-      .filter((s) => s && s !== '相关部位' && s !== '本步文字')
-  },
-
-  findingMatchesAiNeedles(finding, needles) {
-    const hay = `${finding.partName || ''} ${finding.caption || ''} ${finding.advice || ''} ${finding.itemKey || ''}`.toLowerCase()
-    const part = String(finding.partName || '').toLowerCase()
-    return needles.some((n) => hay.includes(n) || (part && n.includes(part)))
-  },
-
   matchFindingIndex(findings, item, used) {
-    const explicit = Number(item && item.findingIndex)
-    if (Number.isFinite(explicit) && findings[explicit] && !used.has(explicit)) return explicit
-    const needles = this.aiReviewNeedles(item)
-    const idx = (findings || []).findIndex(
-      (row, i) => !used.has(i) && this.findingMatchesAiNeedles(row, needles),
-    )
-    return idx
+    return resolveAiReviewFindingIndex(findings, item, used)
   },
 
   computeInlineHintPatch(review) {
     const suggestions = (review && review.suggestions) || []
     let chiefComplaintHint = null
+    let odometerHint = null
     let warrantyHint = null
     const orphanPhotoHints = []
     let quoteLines = (this.data.quoteLines || []).map((row) => ({ ...row, nameHint: null }))
@@ -2645,6 +2629,7 @@ Page({
     }))
     let expandKey = this.data.expandedFindingKey
     const photoUsed = new Set()
+    const textUsed = new Set()
 
     suggestions.forEach((item) => {
       if (!item || item.applied) return
@@ -2665,11 +2650,11 @@ Page({
           return
         }
         if (item.field === 'findingAdvice' || item.field === 'findingCaption') {
-          const used = new Set()
           const si = sections.findIndex((section) => section.findingMode)
           const useAdvice = item.field === 'findingAdvice' || (si >= 0 && sections[si].findingKind !== 'work')
           if (si >= 0) {
-            const fi = this.matchFindingIndex(sections[si].findings || [], item, used)
+            const fi = this.matchFindingIndex(sections[si].findings || [], item, textUsed)
+            if (fi >= 0) textUsed.add(fi)
             if (fi >= 0) {
               const findings = (sections[si].findings || []).map((row, idx) => {
                 if (idx !== fi) return row
@@ -2690,8 +2675,9 @@ Page({
             }
           }
           if (!this.data.activeIsPhoto) {
-            const fi = this.matchFindingIndex(reportFindings, item, new Set())
-            const idx = fi >= 0 ? fi : Number.isFinite(Number(item.findingIndex)) ? Number(item.findingIndex) : 0
+            const fi = this.matchFindingIndex(reportFindings, item, textUsed)
+            if (fi >= 0) textUsed.add(fi)
+            const idx = fi
             if (reportFindings[idx]) {
               reportFindings[idx] =
                 item.field === 'findingAdvice' || this.data.activeKind === 'inspection_report'
@@ -2716,6 +2702,10 @@ Page({
         return
       }
       let fi = this.matchFindingIndex(sections[si].findings || [], item, photoUsed)
+      if (fi < 0 && isOdometerSuggestion(item) && this.data.isIntakePhotoStep) {
+        odometerHint = hint
+        return
+      }
       if (fi < 0) {
         fi = (sections[si].findings || []).findIndex(
           (row) => row.aiSuggestionId && row.aiSuggestionId === item.id,
@@ -2766,6 +2756,7 @@ Page({
       quoteLines: this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource()),
       quoteTotalLabel: `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`,
       chiefComplaintHint,
+      odometerHint,
       warrantyHint,
       orphanPhotoHints,
       expandedFindingKey: expandKey,
@@ -2792,6 +2783,7 @@ Page({
     }
     if (waiting || decorated.isFailed || !decorated.hasSuggestions) {
       patch.chiefComplaintHint = waiting ? this.data.chiefComplaintHint : null
+      patch.odometerHint = waiting ? this.data.odometerHint : null
       patch.warrantyHint = waiting ? this.data.warrantyHint : null
       if (!waiting) {
         patch.orphanPhotoHints = []
@@ -2891,6 +2883,10 @@ Page({
     const item = ((review && review.suggestions) || []).find((row) => row && row.id === id)
     if (!item) return
     if (item.type === 'photo' || item.canGoPhoto) {
+      if (isOdometerSuggestion(item) && this.data.isIntakePhotoStep) {
+        this.onAddOdometerPhoto()
+        return
+      }
       if (this.data.isDeliveryPhotoStep) {
         this.captureDeliveryExtraPhoto(id)
         return
@@ -2911,16 +2907,16 @@ Page({
     }
     if (item.type !== 'text' || !item.suggestedText) return
     const field = this.inferAiReviewField(item) || String(item.field || '')
-    const findingsPool = this.data.activeIsPhoto
-      ? this.collectFindingsFromSections()
-      : this.data.findings || []
-    let findingIndex = Number(item.findingIndex)
-    if ((field === 'findingAdvice' || field === 'findingCaption') && !Number.isFinite(findingIndex)) {
-      const emptyIdx = findingsPool.findIndex((row) => {
-        const value = field === 'findingAdvice' ? row && row.advice : row && row.caption
-        return !String(value || '').trim()
-      })
-      findingIndex = emptyIdx >= 0 ? emptyIdx : findingsPool.length ? 0 : -1
+    const sectionIndex = (this.data.sections || []).findIndex((section) => section && section.findingMode)
+    const sectionFindings = sectionIndex >= 0 ? this.data.sections[sectionIndex].findings || [] : []
+    const findingsPool = this.data.activeIsPhoto ? sectionFindings : this.data.findings || []
+    let findingIndex = -1
+    if (field === 'findingAdvice' || field === 'findingCaption') {
+      findingIndex = this.matchFindingIndex(findingsPool, item, new Set())
+      if (findingIndex < 0) {
+        wx.showToast({ title: '对不上部位', icon: 'none' })
+        return
+      }
     }
     const patch = {}
     if (field === 'chiefComplaint') {
@@ -2937,21 +2933,24 @@ Page({
     }
     if (field === 'findingAdvice' && findingIndex >= 0) {
       if (this.data.activeIsPhoto) {
-        let cursor = 0
-        const sections = (this.data.sections || []).map((section) => ({
-          ...section,
-          findings: (section.findings || []).map((row) => {
-            const current = cursor
-            cursor += 1
-            if (current !== findingIndex) return row
-            return {
-              ...row,
-              advice: item.suggestedText,
-              adviceHint: row.adviceHint ? { ...row.adviceHint, applied: true } : null,
-            }
-          }),
-        }))
+        const sections = (this.data.sections || []).map((section, si) => {
+          if (si !== sectionIndex) return section
+          return {
+            ...section,
+            findings: (section.findings || []).map((row, fi) => {
+              if (fi !== findingIndex) return row
+              return {
+                ...row,
+                advice: item.suggestedText,
+                adviceHint: row.adviceHint ? { ...row.adviceHint, applied: true } : null,
+              }
+            }),
+          }
+        })
         patch.sections = this.decorateSections(sections)
+        if (this.data.isIntakePhotoStep) {
+          patch.findings = this.collectFindingsFromSections(patch.sections)
+        }
       } else {
         const findings = (this.data.findings || []).map((row, fi) =>
           fi === findingIndex
@@ -2966,20 +2965,20 @@ Page({
       }
     }
     if (field === 'findingCaption' && findingIndex >= 0) {
-      let cursor = 0
-      const sections = (this.data.sections || []).map((section) => ({
-        ...section,
-        findings: (section.findings || []).map((row) => {
-          const current = cursor
-          cursor += 1
-          if (current !== findingIndex) return row
-          return {
-            ...row,
-            caption: item.suggestedText,
-            captionHint: row.captionHint ? { ...row.captionHint, applied: true } : null,
-          }
-        }),
-      }))
+      const sections = (this.data.sections || []).map((section, si) => {
+        if (si !== sectionIndex) return section
+        return {
+          ...section,
+          findings: (section.findings || []).map((row, fi) => {
+            if (fi !== findingIndex) return row
+            return {
+              ...row,
+              caption: item.suggestedText,
+              captionHint: row.captionHint ? { ...row.captionHint, applied: true } : null,
+            }
+          }),
+        }
+      })
       patch.sections = this.decorateSections(sections)
     }
     if (field === 'quoteLineName' && Number.isFinite(Number(item.lineIndex))) {
@@ -3010,7 +3009,11 @@ Page({
           })
         }
       }
-      wx.showToast({ title: '已应用', icon: 'success' })
+      const partName =
+        findingIndex >= 0
+          ? String((findingsPool[findingIndex] && findingsPool[findingIndex].partName) || '').trim()
+          : ''
+      wx.showToast({ title: partName ? `已写入${partName}` : '已应用', icon: 'none' })
     } catch (err) {
       wx.showToast({ title: (err && err.message) || '未写入', icon: 'none' })
     }

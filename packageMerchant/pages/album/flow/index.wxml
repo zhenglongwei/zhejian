@@ -159,6 +159,7 @@
                     <text class="text-caption merchant-flow-page__mileage-shot-label">仪表</text>
                   </view>
                 </view>
+                <template is="aiFieldHint" data="{{hint: odometerHint}}" />
                 <text class="text-body merchant-flow-page__label">对外车型</text>
                 <view class="merchant-flow-page__vehicle-row">
                   <input

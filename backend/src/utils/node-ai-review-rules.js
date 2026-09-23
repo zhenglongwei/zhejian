@@ -269,6 +269,7 @@ function parseModelSuggestions(raw, fallback = []) {
       id: text(item.id) || `${type}:${index}`,
       type,
       itemKey: text(item.itemKey),
+      part: text(item.part || item.partName),
       title,
       how: text(item.how),
       field,

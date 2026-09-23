@@ -53,33 +53,40 @@ function sanitizeAiReviewForView(aiReview) {
   }
 }
 
-function collectNodeImageUrls(node = {}) {
-  const urls = []
-  const push = (value) => {
+function collectNodeImageEntries(node = {}) {
+  const entries = []
+  const push = (value, label) => {
     const url = typeof value === 'string' ? value : value && value.url
     const trimmed = text(url)
-    if (trimmed) urls.push(trimmed)
+    if (trimmed) entries.push({ url: trimmed, label: text(label) })
   }
   const draft = node.photoDraft || {}
-  push(draft.deliveryExteriorUrl)
-  push(draft.odometerUrl)
-  ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach(push)
-  ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
-    push(row && row.url)
-    ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
+  push(draft.deliveryExteriorUrl, '全车外观')
+  push(draft.odometerUrl, '仪表里程')
+  ;(Array.isArray(draft.selectedDeliveryUrls) ? draft.selectedDeliveryUrls : []).forEach((url) => {
+    push(url, '交车图')
   })
+  const pushFindings = (list) => {
+    ;(Array.isArray(list) ? list : []).forEach((row, index) => {
+      const label = `发现项${index} ${text(row && row.partName)}`.trim()
+      push(row && row.url, label)
+      ;(Array.isArray(row && row.images) ? row.images : []).forEach((img) => push(img, label))
+    })
+  }
+  pushFindings(draft.findings)
   const payload = (node.document && node.document.payload) || {}
-  ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
-    push(row && row.url)
-    ;(Array.isArray(row && row.images) ? row.images : []).forEach(push)
-  })
+  pushFindings(payload.findings)
   const seen = new Set()
-  return urls.filter((url) => {
-    const key = stripUrlQuery(url)
+  return entries.filter((row) => {
+    const key = stripUrlQuery(row.url)
     if (!key || seen.has(key)) return false
     seen.add(key)
     return true
   })
+}
+
+function collectNodeImageUrls(node = {}) {
+  return collectNodeImageEntries(node).map((row) => row.url)
 }
 
 function buildReviewFingerprint(node, extra = {}) {
@@ -178,9 +185,9 @@ async function collectMaskedUrlsForNode(albumId, node) {
   const lookup = await buildPreMaskUrlLookup(albumId)
   if (!lookup.ready) return { ready: false, urls: [] }
   const urls = []
-  collectNodeImageUrls(node).forEach((raw) => {
-    const masked = lookupMaskedUrl(lookup.byRawUrl, raw)
-    if (masked) urls.push(masked)
+  collectNodeImageEntries(node).forEach((row) => {
+    const masked = lookupMaskedUrl(lookup.byRawUrl, row.url)
+    if (masked) urls.push({ url: masked, label: row.label })
   })
   return { ready: true, urls }
 }
@@ -205,7 +212,8 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   const facts = {
     chiefComplaint: ctx.chiefComplaint,
     mileageKm: ctx.mileageKm || '',
-    findings: (ctx.findings || []).map((row) => ({
+    findings: (ctx.findings || []).map((row, index) => ({
+      index,
       partName: row.partName || '',
       result: row.result || '',
       advice: row.advice || '',
@@ -218,16 +226,28 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
     '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex"}]}',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
+    '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',
+    'findingIndex 必须等于该条 findings 的 index。how 和 suggestedText 只描述这一个部位，不要把别的部位写进同一条。',
+    '仪表、里程不是发现项：补拍仪表时 part 写「仪表」，不要填 findingIndex。',
     'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
-    'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName 之一；suggestedText 必须是可直接填进该字段的整句。',
+    'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName 之一；suggestedText 必须是可直接填进该字段的整句，并包含对应 partName。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。只用打码图。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
   ].join('\n')
 
+  const labeled = Array.isArray(maskedUrls) ? maskedUrls.slice(0, 6) : []
   const userContent = useVision
     ? [{ type: 'text', text: instruction }].concat(
-        maskedUrls.slice(0, 6).map((url) => ({ type: 'image_url', image_url: { url } })),
+        labeled.flatMap((row) => {
+          const url = typeof row === 'string' ? row : row && row.url
+          if (!url) return []
+          const label = typeof row === 'string' ? '' : String((row && row.label) || '').trim()
+          const blocks = []
+          if (label) blocks.push({ type: 'text', text: `下一张图：${label}` })
+          blocks.push({ type: 'image_url', image_url: { url } })
+          return blocks
+        }),
       )
     : instruction
 

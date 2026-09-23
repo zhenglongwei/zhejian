@@ -88,3 +88,21 @@ test('model payload infers chiefComplaint from 主诉 title', () => {
   assert.equal(list[0].field, 'chiefComplaint')
   assert.equal(list[0].title, '改主诉')
 })
+
+test('model payload keeps part so advice is not applied by index alone', () => {
+  const list = parseModelSuggestions({
+    suggestions: [
+      {
+        type: 'text',
+        field: 'findingAdvice',
+        part: '滤芯',
+        title: '滤芯',
+        findingIndex: 0,
+        suggestedText: '滤芯表面有油污附着，建议更换',
+      },
+    ],
+  })
+  assert.equal(list[0].part, '滤芯')
+  assert.equal(list[0].findingIndex, 0)
+  assert.equal(list[0].suggestedText, '滤芯表面有油污附着，建议更换')
+})
