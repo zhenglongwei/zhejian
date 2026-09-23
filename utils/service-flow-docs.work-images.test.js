@@ -35,7 +35,7 @@ test('keeps multiple images on one work finding', () => {
   assert.equal(row.url, 'https://a.jpg')
 })
 
-test('mapWorkFindingRows keeps multi-image draft and remaps persisted urls in order', () => {
+test('mapWorkFindingRows keeps the item photos when album urls differ', () => {
   const draft = [
     {
       partName: '右前门',
@@ -50,7 +50,8 @@ test('mapWorkFindingRows keeps multi-image draft and remaps persisted urls in or
   const rows = mapWorkFindingRows(persisted, draft)
   assert.equal(rows.length, 1)
   assert.equal(rows[0].images.length, 2)
-  assert.equal(rows[0].images[0].url, 'https://cdn/1.jpg')
-  assert.equal(rows[0].images[1].url, 'https://cdn/2.jpg')
+  assert.equal(rows[0].images[0].url, 'tmp://1')
+  assert.equal(rows[0].images[1].url, 'tmp://2')
   assert.equal(rows[0].partName, '右前门')
+  assert.equal(rows[0].caption, '补漆')
 })

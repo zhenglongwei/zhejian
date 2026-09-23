@@ -116,6 +116,31 @@ function normalizeFinding(raw = {}) {
   }
 }
 
+/** 落库的一项：照片数组、部位、检查结果、检查发现在一起。显式 images: [] 表示已删光。 */
+function normalizeItemFinding(raw = {}) {
+  const hasImagesField = Array.isArray(raw.images)
+  let images = hasImagesField
+    ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
+    : collectFindingImages(raw)
+  images = images.slice(0, WORK_IMAGES_MAX)
+  const caption = String(raw.caption || '').trim()
+  const result = normalizeFindingResult(raw.result)
+  let advice = String(raw.advice || '').trim()
+  if (result === FINDING_RESULT.OK && !advice) advice = FINDING_ADVICE_NONE
+  const first = images[0] || { url: '', imageId: '' }
+  return {
+    imageId: first.imageId || '',
+    url: first.url || '',
+    images,
+    caption,
+    captionEmpty: !caption,
+    partName: String(raw.partName || caption || '').trim(),
+    symptom: String(raw.symptom || '').trim(),
+    result,
+    advice,
+  }
+}
+
 function isOdometerFinding(raw = {}) {
   if (String(raw.itemKey || '').trim() === 'odo') return true
   const name = String(raw.partName || raw.caption || '').trim()
@@ -232,16 +257,14 @@ function mapWorkFindingRows(images = [], draftFindings = []) {
     })
     return draftList.map((item) => {
       if (!item.images.length) return item
-      const nextImages = item.images
-        .map((img) => {
-          const hit = byKey[mediaKey(img.url)]
-          if (!hit) return null
-          return {
-            url: hit.url || img.url,
-            imageId: hit.imageId || img.imageId || '',
-          }
-        })
-        .filter(Boolean)
+      const nextImages = item.images.map((img) => {
+        const hit = byKey[mediaKey(img.url)]
+        if (!hit) return img
+        return {
+          url: hit.url || img.url,
+          imageId: hit.imageId || img.imageId || '',
+        }
+      })
       return normalizeWorkFinding({
         ...item,
         images: nextImages,
@@ -370,54 +393,55 @@ function mergeFindingsByPart(list) {
   return out
 }
 
-/** 检测发现项：同一部位的多张照片收成一项；对不上部位的图才单独成项。 */
+/** 检测发现项以草稿里的一项为准。相册散图只补尚未挂上的照片，不重拼、不丢掉已有结果。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
   if (options && options.mode === 'work') {
     return mapWorkFindingRows(images, draftFindings)
   }
-  const drafts = (draftFindings || []).map((raw) => normalizeFinding(raw))
-  const rows = mapPhotoRows(omitOdometerImages(images, options && options.odometerUrl))
-  const usedImages = new Set()
   const assigned = []
-  drafts.forEach((draft) => {
-    const keys = findingImageKeys(draft)
-    const matched = []
-    rows.forEach((row, index) => {
-      if (usedImages.has(index)) return
-      const key = mediaKey(row.url)
-      if (!key || !keys.has(key)) return
-      usedImages.add(index)
-      matched.push({ url: row.url, imageId: row.imageId || '' })
-    })
-    const hadPhoto = keys.size > 0
-    if (!matched.length && hadPhoto) return
-    if (!matched.length && !draft.partName && !draft.advice && !draft.result) return
-    assigned.push(normalizeFinding({
-      ...draft,
-      url: (matched[0] && matched[0].url) || '',
-      imageId: (matched[0] && matched[0].imageId) || '',
-      images: matched,
-    }))
+  ;(draftFindings || []).forEach((raw) => {
+    const draft = normalizeItemFinding(raw)
+    if (!draft.partName && !draft.advice && !draft.result && !draft.images.length) return
+    assigned.push(draft)
   })
-  rows.forEach((row, index) => {
-    if (usedImages.has(index)) return
+  const merged = mergeFindingsByPart(assigned)
+  const owned = new Set()
+  merged.forEach((item) => {
+    findingImageKeys(item).forEach((key) => owned.add(key))
+  })
+  const rows = mapPhotoRows(omitOdometerImages(images, options && options.odometerUrl))
+  rows.forEach((row) => {
+    const key = mediaKey(row.url)
+    if (!key || owned.has(key)) return
     const part = String(row.caption || '').trim()
-    const host = part ? assigned.find((item) => String(item.partName || '').trim() === part) : null
+    const shot = { url: row.url, imageId: row.imageId || '' }
+    const host = part
+      ? merged.find((item) => String(item.partName || '').trim() === part)
+      : null
     if (host) {
-      const images = host.images.concat([{ url: row.url, imageId: row.imageId || '' }])
-      const next = normalizeFinding({ ...host, images, url: images[0].url, imageId: images[0].imageId })
-      Object.assign(host, next)
+      const nextImages = host.images.concat([shot]).slice(0, WORK_IMAGES_MAX)
+      Object.assign(
+        host,
+        normalizeItemFinding({
+          ...host,
+          images: nextImages,
+          url: nextImages[0].url,
+          imageId: nextImages[0].imageId,
+        }),
+      )
+      owned.add(key)
       return
     }
-    assigned.push(normalizeFinding({
+    merged.push(normalizeItemFinding({
       url: row.url,
       imageId: row.imageId || '',
       caption: part,
       partName: part,
-      images: [{ url: row.url, imageId: row.imageId || '' }],
+      images: [shot],
     }))
+    owned.add(key)
   })
-  return mergeFindingsByPart(assigned)
+  return mergeFindingsByPart(merged)
 }
 
 function collectInspectionReportGaps(payload = {}) {
@@ -741,12 +765,8 @@ function normalizePhotoDraft(raw = {}) {
     findings: Array.isArray(raw.findings)
       ? raw.findings
           .map((item) => {
-            if (Array.isArray(item && item.images) || (item && item.partName && !item.result)) {
-              const work = normalizeWorkFinding(item)
-              return work.images.length || work.partName ? work : null
-            }
-            const row = normalizeFinding(item)
-            return row.url || row.partName || row.advice ? row : null
+            const row = normalizeItemFinding(item)
+            return row.url || row.partName || row.advice || row.result || row.images.length ? row : null
           })
           .filter(Boolean)
       : [],
