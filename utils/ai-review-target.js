@@ -79,19 +79,20 @@ function resolveAiReviewFindingIndex(findings, item, used, mode) {
   }
   const skipped = (index) => used && used.has(index)
   if (mode === 'photo') {
-    const tied = list.findIndex((row, index) => {
-      if (skipped(index)) return false
-      if (String((row && row.partName) || '').trim() !== part) return false
+    const named = []
+    list.forEach((row, index) => {
+      if (skipped(index)) return
+      if (String((row && row.partName) || '').trim() !== part) return
+      named.push(index)
+    })
+    if (!named.length) return -1
+    const tied = named.find((index) => {
+      const row = list[index]
       return (row.aiSuggestionId && row.aiSuggestionId === item.id) || (row.photoHint && row.photoHint.id === item.id)
     })
-    if (tied >= 0 && !rowHasPhoto(list[tied])) return tied
-    const empty = list.findIndex((row, index) => {
-      if (skipped(index)) return false
-      if (String((row && row.partName) || '').trim() !== part) return false
-      return !rowHasPhoto(row)
-    })
-    if (empty >= 0) return empty
-    return -1
+    if (tied !== undefined) return tied
+    const withPhoto = named.find((index) => rowHasPhoto(list[index]))
+    return withPhoto !== undefined ? withPhoto : named[0]
   }
   const withPhoto = list.findIndex((row, index) => {
     if (skipped(index)) return false

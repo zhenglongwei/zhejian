@@ -406,7 +406,7 @@
                                 data-section-index="{{sectionIndex}}"
                                 data-finding-index="{{findingIndex}}"
                                 data-img-index="idx-{{imgIndex}}"
-                                catchtap="onRemoveWorkFindingImage"
+                                catchtap="onRemoveFindingImage"
                               >×</text>
                             </view>
                             <view
@@ -451,8 +451,40 @@
                           <template is="aiFieldHint" data="{{hint: finding.captionHint}}" />
                         </block>
                         <block wx:else>
+                          <view wx:if="{{finding.images.length}}" class="merchant-flow-page__work-thumbs">
+                            <view
+                              wx:for="{{finding.images}}"
+                              wx:for-item="thumb"
+                              wx:for-index="imgIndex"
+                              wx:key="url"
+                              class="merchant-flow-page__work-thumb"
+                            >
+                              <image
+                                class="merchant-flow-page__work-thumb-img image-placeholder"
+                                src="{{thumb.url}}"
+                                mode="aspectFill"
+                              />
+                              <text
+                                wx:if="{{!readOnly}}"
+                                class="merchant-flow-page__work-thumb-remove"
+                                data-section-index="{{sectionIndex}}"
+                                data-finding-index="{{findingIndex}}"
+                                data-img-index="idx-{{imgIndex}}"
+                                catchtap="onRemoveFindingImage"
+                              >×</text>
+                            </view>
+                            <view
+                              wx:if="{{!readOnly && finding.images.length < 6}}"
+                              class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                              data-section-index="{{sectionIndex}}"
+                              data-finding-index="{{findingIndex}}"
+                              catchtap="onAttachFindingPhoto"
+                            >
+                              <text class="text-caption text-secondary">+</text>
+                            </view>
+                          </view>
                           <view
-                            wx:if="{{finding.pendingPhoto || !finding.url}}"
+                            wx:else
                             class="merchant-flow-page__pending-photo-btn"
                             data-section-index="{{sectionIndex}}"
                             data-finding-index="{{findingIndex}}"

@@ -79,6 +79,20 @@ function normalizeFindingResult(raw) {
   return text
 }
 
+function collectFindingImages(raw = {}) {
+  const list = []
+  const push = (img) => {
+    const norm = normalizeWorkImage(img)
+    if (!norm) return
+    const key = mediaKey(norm.url)
+    if (!key || list.some((item) => mediaKey(item.url) === key)) return
+    list.push(norm)
+  }
+  if (Array.isArray(raw.images)) raw.images.forEach(push)
+  push({ url: raw.url, imageId: raw.imageId || raw.id })
+  return list.slice(0, WORK_IMAGES_MAX)
+}
+
 function normalizeFinding(raw = {}) {
   const caption = String(raw.caption || '').trim()
   const result = normalizeFindingResult(raw.result)
@@ -86,9 +100,12 @@ function normalizeFinding(raw = {}) {
   if (result === FINDING_RESULT.OK && !advice) {
     advice = FINDING_ADVICE_NONE
   }
+  const images = collectFindingImages(raw)
+  const first = images[0] || { url: '', imageId: '' }
   return {
-    imageId: String(raw.imageId || raw.id || ''),
-    url: String(raw.url || ''),
+    imageId: first.imageId || '',
+    url: first.url || '',
+    images,
     caption,
     captionEmpty: !caption,
     partName: String(raw.partName || caption || '').trim(),
@@ -109,11 +126,18 @@ function isOdometerFinding(raw = {}) {
 
 function withoutOdometerPhoto(row, odometerUrl) {
   if (!row) return null
-  if (!sameMedia(row.url, odometerUrl)) {
-    return isOdometerFinding(row) ? null : row
-  }
   if (isOdometerFinding(row)) return null
-  return { ...row, url: '', imageId: '' }
+  const source = Array.isArray(row.images) && row.images.length
+    ? row.images
+    : [{ url: row.url, imageId: row.imageId }]
+  const images = source.filter((img) => img && !sameMedia(img.url || img, odometerUrl))
+  if (images.length === source.length && !sameMedia(row.url, odometerUrl)) return row
+  return normalizeFinding({
+    ...row,
+    url: (images[0] && images[0].url) || '',
+    imageId: (images[0] && (images[0].imageId || images[0].id)) || '',
+    images,
+  })
 }
 
 function pickOdometerSlot(photoDraft = {}, findings = []) {
@@ -302,62 +326,98 @@ function omitOdometerImages(images = [], odometerUrl = '') {
   })
 }
 
-/** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位。 */
+function findingImageKeys(item) {
+  const keys = new Set()
+  ;(item && item.images ? item.images : []).forEach((img) => {
+    const key = mediaKey(img && img.url)
+    if (key) keys.add(key)
+  })
+  const own = mediaKey(item && item.url)
+  if (own) keys.add(own)
+  return keys
+}
+
+function mergeFindingsByPart(list) {
+  const out = []
+  ;(list || []).forEach((raw) => {
+    const item = normalizeFinding(raw)
+    const part = String(item.partName || '').trim()
+    if (!part) {
+      out.push(item)
+      return
+    }
+    const host = out.find((row) => String(row.partName || '').trim() === part)
+    if (!host) {
+      out.push(item)
+      return
+    }
+    const images = []
+    const seen = new Set()
+    host.images.concat(item.images).forEach((img) => {
+      const key = mediaKey(img && img.url)
+      if (!key || seen.has(key)) return
+      seen.add(key)
+      images.push(img)
+    })
+    host.images = images.slice(0, WORK_IMAGES_MAX)
+    host.url = (host.images[0] && host.images[0].url) || ''
+    host.imageId = (host.images[0] && host.images[0].imageId) || ''
+    if (!host.result && item.result) host.result = item.result
+    if ((!host.advice || host.advice === FINDING_ADVICE_NONE) && item.advice && item.advice !== FINDING_ADVICE_NONE) {
+      host.advice = item.advice
+    }
+  })
+  return out
+}
+
+/** 检测发现项：同一部位的多张照片收成一项；对不上部位的图才单独成项。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
   if (options && options.mode === 'work') {
     return mapWorkFindingRows(images, draftFindings)
   }
   const drafts = (draftFindings || []).map((raw) => normalizeFinding(raw))
   const rows = mapPhotoRows(omitOdometerImages(images, options && options.odometerUrl))
-  const used = new Set()
-  const matchIndex = (row) => {
-    const id = String(row.imageId || '').trim()
-    if (id) {
-      const byId = drafts.findIndex((item, i) => !used.has(i) && item.imageId === id)
-      if (byId >= 0) return byId
-    }
-    const key = mediaKey(row.url)
-    if (key) {
-      const byUrl = drafts.findIndex((item, i) => !used.has(i) && mediaKey(item.url) === key)
-      if (byUrl >= 0) return byUrl
-    }
-    return -1
-  }
-  const assigned = rows.map((row) => {
-    const idx = matchIndex(row)
-    if (idx < 0) return null
-    used.add(idx)
-    return mergeFindingWithImage(row, drafts[idx])
+  const usedImages = new Set()
+  const assigned = []
+  drafts.forEach((draft) => {
+    const keys = findingImageKeys(draft)
+    const matched = []
+    rows.forEach((row, index) => {
+      if (usedImages.has(index)) return
+      const key = mediaKey(row.url)
+      if (!key || !keys.has(key)) return
+      usedImages.add(index)
+      matched.push({ url: row.url, imageId: row.imageId || '' })
+    })
+    const hadPhoto = keys.size > 0
+    if (!matched.length && hadPhoto) return
+    if (!matched.length && !draft.partName && !draft.advice && !draft.result) return
+    assigned.push(normalizeFinding({
+      ...draft,
+      url: (matched[0] && matched[0].url) || '',
+      imageId: (matched[0] && matched[0].imageId) || '',
+      images: matched,
+    }))
   })
-  const imageKeys = new Set(rows.map((row) => mediaKey(row.url)).filter(Boolean))
-  assigned.forEach((item, index) => {
-    if (!item) assigned[index] = mergeFindingWithImage(rows[index], {})
-  })
-  const odoKey = mediaKey(options && options.odometerUrl)
-  drafts.forEach((item, index) => {
-    if (used.has(index)) return
-    const key = mediaKey(item.url)
-    if (key && odoKey && key === odoKey) {
-      if (item.partName || item.advice || item.result) {
-        assigned.push({ ...item, url: '', imageId: '' })
-      }
+  rows.forEach((row, index) => {
+    if (usedImages.has(index)) return
+    const part = String(row.caption || '').trim()
+    const host = part ? assigned.find((item) => String(item.partName || '').trim() === part) : null
+    if (host) {
+      const images = host.images.concat([{ url: row.url, imageId: row.imageId || '' }])
+      const next = normalizeFinding({ ...host, images, url: images[0].url, imageId: images[0].imageId })
+      Object.assign(host, next)
       return
     }
-    if (key && imageKeys.has(key)) {
-      const alreadyShown = assigned.some(
-        (row) => row && String(row.partName || '').trim() === String(item.partName || '').trim() && mediaKey(row.url) === key,
-      )
-      if (!alreadyShown && (item.partName || item.advice || item.result)) {
-        assigned.push({ ...item, url: '', imageId: '' })
-      }
-      return
-    }
-    if (key) return
-    if (item.partName || item.advice || item.result) {
-      assigned.push({ ...item, url: '', imageId: '' })
-    }
+    assigned.push(normalizeFinding({
+      url: row.url,
+      imageId: row.imageId || '',
+      caption: part,
+      partName: part,
+      images: [{ url: row.url, imageId: row.imageId || '' }],
+    }))
   })
-  return assigned.filter(Boolean)
+  return mergeFindingsByPart(assigned)
 }
 
 function collectInspectionReportGaps(payload = {}) {

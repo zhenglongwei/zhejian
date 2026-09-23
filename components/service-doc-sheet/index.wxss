@@ -59,11 +59,23 @@
   border-bottom: 1rpx solid var(--color-border);
 }
 
+.service-doc-sheet__finding-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
 .service-doc-sheet__finding-img {
   width: 160rpx;
   height: 160rpx;
   border-radius: var(--radius-md);
   flex-shrink: 0;
+}
+
+.service-doc-sheet__finding-photos .service-doc-sheet__finding-img {
+  width: 112rpx;
+  height: 112rpx;
 }
 
 .service-doc-sheet__finding-body {

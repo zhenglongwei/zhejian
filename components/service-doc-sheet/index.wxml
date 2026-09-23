@@ -15,9 +15,21 @@
     </view>
     <view wx:if="{{doc.findings && doc.findings.length}}" class="service-doc-sheet__block">
       <text class="text-body service-doc-sheet__section">本次检测项目</text>
-      <view wx:for="{{doc.findings}}" wx:for-item="finding" wx:key="url" class="service-doc-sheet__finding">
+      <view wx:for="{{doc.findings}}" wx:for-item="finding" wx:for-index="findingIndex" wx:key="findingIndex" class="service-doc-sheet__finding">
+        <view wx:if="{{finding.images.length > 1}}" class="service-doc-sheet__finding-photos">
+          <image
+            wx:for="{{finding.images}}"
+            wx:for-item="shot"
+            wx:key="url"
+            class="service-doc-sheet__finding-img image-placeholder"
+            src="{{shot.url}}"
+            mode="aspectFill"
+            data-url="{{shot.url}}"
+            bindtap="onPreviewImage"
+          />
+        </view>
         <image
-          wx:if="{{finding.url}}"
+          wx:elif="{{finding.url}}"
           class="service-doc-sheet__finding-img image-placeholder"
           src="{{finding.url}}"
           mode="aspectFill"

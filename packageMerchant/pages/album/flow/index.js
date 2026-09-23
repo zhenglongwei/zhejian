@@ -569,15 +569,19 @@ Page({
     const odoKey = mediaKey(odometerUrl)
     const out = []
     ;(findings || []).forEach((raw) => {
-      const url = String((raw && raw.url) || '').trim()
-      const key = mediaKey(url)
-      if (!url || !key || (odoKey && key === odoKey) || seen.has(key)) return
-      seen.add(key)
-      out.push({
-        url,
-        id: raw.imageId || '',
-        imageId: raw.imageId || '',
-        caption: String(raw.partName || '').trim(),
+      const item = normalizeFinding(raw)
+      const shots = item.images.length ? item.images : item.url ? [{ url: item.url, imageId: item.imageId }] : []
+      shots.forEach((shot) => {
+        const url = String((shot && shot.url) || '').trim()
+        const key = mediaKey(url)
+        if (!url || !key || (odoKey && key === odoKey) || seen.has(key)) return
+        seen.add(key)
+        out.push({
+          url,
+          id: shot.imageId || '',
+          imageId: shot.imageId || '',
+          caption: String(item.partName || '').trim(),
+        })
       })
     })
     return out
@@ -769,6 +773,19 @@ Page({
     })
   },
 
+  expandQuoteEvidence(findings = []) {
+    const out = []
+    ;(findings || []).filter((row) => isQuoteEvidenceFinding(row)).forEach((row) => {
+      const item = normalizeFinding(row)
+      const shots = item.images.length ? item.images : []
+      shots.forEach((shot) => {
+        if (!shot || !shot.url) return
+        out.push({ ...item, url: shot.url, imageId: shot.imageId || '' })
+      })
+    })
+    return out
+  },
+
   quoteEvidenceSource() {
     if (this.data.isAddonQuote) return []
     return this.data.quoteEvidenceFindings || this.data.findings || []
@@ -784,9 +801,7 @@ Page({
 
   syncQuoteEvidenceFromFindings() {
     if (this.data.isAddonQuote || this.data.activeKind !== 'inspection_report') return
-    const quoteEvidenceFindings = (this.data.findings || []).filter((row) =>
-      isQuoteEvidenceFinding(row),
-    )
+    const quoteEvidenceFindings = this.expandQuoteEvidence(this.data.findings)
     const quoteLines = this.decorateQuoteLines(this.data.quoteLines, quoteEvidenceFindings)
     this.setData({
       quoteEvidenceFindings,
@@ -886,7 +901,7 @@ Page({
           : row.result === FINDING_RESULT.ACTION
             ? 'action'
             : ''
-    const hasPhoto = Boolean(row.url)
+    const hasPhoto = (row.images && row.images.length > 0) || Boolean(row.url)
     return {
       ...row,
       ...extras,
@@ -899,8 +914,8 @@ Page({
       summaryText: row.partName || '待填写',
       completenessLabel: !hasPhoto
         ? '待拍照'
-        : missing === 0
-          ? row.result || '已齐'
+          : missing === 0
+          ? (row.images && row.images.length > 1 ? `${row.result || '已齐'} · ${row.images.length}张` : row.result || '已齐')
           : `缺 ${missing} 项`,
       adviceRequired: findingAdviceRequired(row.result),
       resultTone,
@@ -1178,7 +1193,7 @@ Page({
       let quoteEvidenceFindings = []
       if (!isAddonQuote) {
         if (active && active.kind === 'inspection_report') {
-          quoteEvidenceFindings = (findings || []).filter((row) => isQuoteEvidenceFinding(row))
+          quoteEvidenceFindings = this.expandQuoteEvidence(findings)
         } else if (active && active.kind === 'quote_confirm') {
           const report = flowNodes.find((n) => n && n.kind === 'inspection_report')
           const reportFindings =
@@ -1187,7 +1202,7 @@ Page({
               report.document.payload &&
               report.document.payload.findings) ||
             []
-          quoteEvidenceFindings = reportFindings.filter((row) => isQuoteEvidenceFinding(row))
+          quoteEvidenceFindings = this.expandQuoteEvidence(reportFindings)
         }
       }
       quoteLines = this.decorateQuoteLines(quoteLines, quoteEvidenceFindings)
@@ -1577,55 +1592,36 @@ Page({
           const url = uploaded && (uploaded.url || uploaded)
           if (!url) throw new Error('上传失败')
           const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
-          const hadPhoto = Boolean(String(currentItem.url || '').trim())
+          const prev = normalizeFinding(currentItem)
+          if (prev.images.length >= WORK_IMAGES_MAX) {
+            wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+            return
+          }
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
-            let findings
-            if (hadPhoto) {
-              const created = this.withFindingMeta(
-                { fromAi: true, aiSuggestionId: currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id) || '' },
+            const findings = (row.findings || []).map((item, idx) => {
+              if (idx !== fi) return item
+              const base = normalizeFinding(item)
+              const images = base.images.concat([{ url, imageId: '' }]).slice(0, WORK_IMAGES_MAX)
+              return this.withFindingMeta(
+                item,
                 normalizeFinding({
-                  url,
-                  imageId: '',
-                  partName: currentItem.partName,
-                  caption: '',
-                  result: '',
-                  advice: '',
+                  ...base,
+                  images,
+                  url: images[0].url,
+                  imageId: images[0].imageId || '',
+                  partName: base.partName,
+                  result: base.result,
+                  advice: base.advice,
                 }),
-                { photoHint: null },
-              )
-              findings = []
-              ;(row.findings || []).forEach((item, idx) => {
-                if (idx !== fi) {
-                  findings.push(item)
-                  return
-                }
-                findings.push({
-                  ...item,
+                {
+                  advicePlaceholder: String(base.advice || '').trim()
+                    ? item.advicePlaceholder
+                    : hintBody,
                   photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
-                })
-                findings.push(created)
-              })
-            } else {
-              findings = (row.findings || []).map((item, idx) => {
-                if (idx !== fi) return item
-                return this.withFindingMeta(
-                  item,
-                  {
-                    ...item,
-                    url,
-                    imageId: '',
-                    pendingPhoto: false,
-                  },
-                  {
-                    advicePlaceholder: String(item.advice || '').trim()
-                      ? item.advicePlaceholder
-                      : hintBody,
-                    photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
-                  },
-                )
-              })
-            }
+                },
+              )
+            })
             return {
               ...row,
               findings,
@@ -1639,7 +1635,7 @@ Page({
               autoSaveLabel: '保存中…',
               aiReview: this.markAiSuggestionApplied(appliedId) || this.data.aiReview,
             },
-            `${si}:${hadPhoto ? fi + 1 : fi}`,
+            `${si}:${fi}`,
           )
           this.scheduleAutoSavePhotos()
         } catch (err) {
@@ -1651,7 +1647,7 @@ Page({
     })
   },
 
-  onRemoveWorkFindingImage(e) {
+  onRemoveFindingImage(e) {
     if (this.data.readOnly) return
     const si = Number(e.currentTarget.dataset.sectionIndex)
     const fi = Number(e.currentTarget.dataset.findingIndex)
@@ -1661,22 +1657,38 @@ Page({
       if (i !== si) return row
       const findings = (row.findings || []).map((item, idx) => {
         if (idx !== fi) return item
-        const prev = normalizeWorkFinding(item)
+        if (row.findingKind === 'work') {
+          const prev = normalizeWorkFinding(item)
+          const images = prev.images.filter((_, j) => j !== imgIndex)
+          return this.withFindingMeta(
+            item,
+            normalizeWorkFinding({
+              ...prev,
+              images,
+              url: '',
+              imageId: '',
+            }),
+          )
+        }
+        const prev = normalizeFinding(item)
         const images = prev.images.filter((_, j) => j !== imgIndex)
         return this.withFindingMeta(
           item,
-          normalizeWorkFinding({
+          normalizeFinding({
             ...prev,
             images,
-            url: '',
-            imageId: '',
+            url: (images[0] && images[0].url) || '',
+            imageId: (images[0] && images[0].imageId) || '',
           }),
         )
       })
       return {
         ...row,
         findings,
-        images: this.flattenWorkSectionImages(findings),
+        images:
+          row.findingKind === 'work'
+            ? this.flattenWorkSectionImages(findings)
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
       }
     })
     this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, `${si}:${fi}`)
