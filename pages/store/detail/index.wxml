@@ -54,84 +54,7 @@
           />
         </view>
 
-        <ui-ai-summary-block wx:if="{{store.aiSummary}}" content="{{store.aiSummary}}" />
-
-        <view class="store-detail__info-list">
-          <view class="deep-link-detail__info-row store-detail__info-row">
-            <view
-              class="deep-link-detail__info-icon-wrap {{showStoreNavigate ? 'deep-link-detail__info-icon-wrap--tap' : 'deep-link-detail__info-icon-wrap--disabled'}}"
-              bindtap="onNavigateTap"
-            >
-              <image
-                class="deep-link-detail__info-icon"
-                src="/assets/icon/navigation.png"
-                mode="aspectFit"
-              />
-            </view>
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">地址</text>
-              <text class="deep-link-detail__info-value text-body">{{storeAddress}}</text>
-            </view>
-          </view>
-
-          <view wx:if="{{showStoreSpecialties}}" class="deep-link-detail__info-row store-detail__info-row">
-            <view class="deep-link-detail__info-icon-wrap deep-link-detail__info-icon-wrap--placeholder" />
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">擅长服务</text>
-              <text class="deep-link-detail__info-value text-body">{{storeSpecialtiesText}}</text>
-            </view>
-          </view>
-
-          <view wx:if="{{vehicleSpecialties.length}}" class="deep-link-detail__info-row store-detail__info-row">
-            <view class="deep-link-detail__info-icon-wrap deep-link-detail__info-icon-wrap--placeholder" />
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">擅长车型</text>
-              <text class="deep-link-detail__info-value text-body">{{vehicleSpecialtiesText}}</text>
-            </view>
-          </view>
-
-          <view class="deep-link-detail__info-row store-detail__info-row">
-            <view class="deep-link-detail__info-icon-wrap">
-              <image
-                class="deep-link-detail__info-icon"
-                src="/assets/icon/contact.png"
-                mode="aspectFit"
-              />
-            </view>
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">联系人</text>
-              <text class="deep-link-detail__info-value text-body">{{storeContactName}}</text>
-            </view>
-          </view>
-
-          <view
-            class="deep-link-detail__info-row store-detail__info-row {{storePhone ? 'deep-link-detail__info-row--tap' : ''}}"
-            bindtap="onCallStore"
-          >
-            <view class="deep-link-detail__info-icon-wrap">
-              <image
-                class="deep-link-detail__info-icon"
-                src="/assets/icon/phone.png"
-                mode="aspectFit"
-              />
-            </view>
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">联系电话</text>
-              <text class="deep-link-detail__info-value deep-link-detail__info-value--link text-body">{{storePhoneDisplay}}</text>
-            </view>
-          </view>
-
-          <view class="deep-link-detail__info-row store-detail__info-row store-detail__info-row--last">
-            <view class="deep-link-detail__info-icon-wrap deep-link-detail__info-icon-wrap--placeholder" />
-            <view class="deep-link-detail__info-main">
-              <text class="deep-link-detail__info-label text-caption">营业时间</text>
-              <text class="deep-link-detail__info-value text-body">{{storeBusinessHours}}</text>
-            </view>
-          </view>
-        </view>
-      </view>
-
-      <view wx:if="{{heroImages.length}}" class="store-detail__hero">
+        <view wx:if="{{heroImages.length}}" class="store-detail__hero">
         <swiper
           wx:if="{{heroImages.length > 1}}"
           class="store-detail__hero-swiper"
@@ -158,51 +81,76 @@
           data-url="{{heroImages[0]}}"
           bindtap="onPreviewEnvironment"
         />
+        </view>
       </view>
 
-      <view wx:if="{{statusText || freshnessSummary}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">营业与新鲜度</text>
-        <text wx:if="{{statusText}}" class="text-body">当前：{{statusText}}</text>
-        <text wx:if="{{freshnessSummary}}" class="store-detail__section-note text-caption">{{freshnessSummary}}</text>
+      <view
+        wx:if="{{storeAddress || storePhone || storeBusinessHours || storeIntro}}"
+        class="surface-album-panel store-detail__panel"
+      >
+        <view wx:if="{{storeAddress}}" class="store-detail__line" bindtap="onNavigateTap">
+          <text class="store-detail__line-label text-caption">地址</text>
+          <text class="store-detail__line-value text-body {{showStoreNavigate ? 'store-detail__line-value--link' : ''}}">{{storeAddress}}</text>
+        </view>
+        <view wx:if="{{storePhone}}" class="store-detail__line" bindtap="onCallStore">
+          <text class="store-detail__line-label text-caption">电话</text>
+          <text class="store-detail__line-value store-detail__line-value--link text-body">{{storePhoneDisplay}}</text>
+        </view>
+        <view wx:if="{{storeBusinessHours}}" class="store-detail__line">
+          <text class="store-detail__line-label text-caption">营业</text>
+          <text class="store-detail__line-value text-body">{{storeBusinessHours}}</text>
+        </view>
+        <view wx:if="{{storeIntro}}" class="store-detail__line">
+          <text class="store-detail__line-label text-caption">简介</text>
+          <text class="store-detail__line-value text-body">{{storeIntro}}</text>
+        </view>
       </view>
 
-      <view wx:if="{{specialtyBrandsText || notAcceptingText || equipmentTagsText}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">擅长与能力</text>
-        <text wx:if="{{specialtyBrandsText}}" class="text-body">擅长品牌：{{specialtyBrandsText}}</text>
-        <text wx:if="{{notAcceptingText}}" class="text-body">暂不承接：{{notAcceptingText}}</text>
-        <text wx:if="{{equipmentTagsText}}" class="text-body">设备/场：{{equipmentTagsText}}</text>
-      </view>
-
-      <view wx:if="{{transparencyMetrics.length || transparencySummary}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">透明度指标</text>
-        <text class="store-detail__section-note text-caption">依据公开案例、已完工过程资料齐全度、服务资料、资质与新鲜度等加权计算。过程齐全度不代表可浏览进行中相册；咨询响应仅商家后台可见。</text>
-        <view wx:if="{{transparencyMetrics.length}}" class="surface-album-metric-grid store-detail__metric-grid">
-          <view
-            wx:for="{{transparencyMetrics}}"
-            wx:key="label"
-            class="surface-album-metric-cell"
-          >
-            <text class="surface-album-metric-num">{{item.num}}</text>
-            <text class="surface-album-metric-label">{{item.label}}</text>
+      <view
+        wx:if="{{serviceChips.length || brandChips.length || vehicleChips.length || notAcceptingChips.length || equipmentChips.length}}"
+        class="surface-album-panel store-detail__panel"
+      >
+        <view class="store-detail__section-head">
+          <view class="surface-album-section-accent" />
+          <text class="deep-link-detail__section-title text-h2">擅长</text>
+        </view>
+        <view wx:if="{{serviceChips.length}}" class="store-detail__chip-block">
+          <text class="store-detail__chip-label text-caption">服务</text>
+          <view class="store-detail__chips">
+            <ui-tag wx:for="{{serviceChips}}" wx:key="*this" variant="default" text="{{item}}" />
           </view>
         </view>
-        <view wx:if="{{transparencyExplain.rows.length}}" class="store-detail__breakdown">
-          <view
-            wx:for="{{transparencyExplain.rows}}"
-            wx:key="key"
-            class="store-detail__breakdown-row"
-          >
-            <text class="store-detail__breakdown-label text-body">{{item.label}}</text>
-            <text class="store-detail__breakdown-score text-caption">{{item.score}}/{{item.max}}分</text>
-            <text class="store-detail__breakdown-hint text-caption">{{item.hint}}</text>
+        <view wx:if="{{brandChips.length}}" class="store-detail__chip-block">
+          <text class="store-detail__chip-label text-caption">品牌</text>
+          <view class="store-detail__chips">
+            <ui-tag wx:for="{{brandChips}}" wx:key="*this" variant="default" text="{{item}}" />
           </view>
         </view>
-        <text wx:if="{{transparencyExplain.methodology}}" class="store-detail__transparency text-caption">{{transparencyExplain.methodology}}</text>
-        <text wx:if="{{transparencyExplain.asOfDate}}" class="store-detail__transparency-asof text-caption">统计截至 {{transparencyExplain.asOfDate}}</text>
+        <view wx:if="{{vehicleChips.length}}" class="store-detail__chip-block">
+          <text class="store-detail__chip-label text-caption">车型</text>
+          <view class="store-detail__chips">
+            <ui-tag wx:for="{{vehicleChips}}" wx:key="*this" variant="default" text="{{item}}" />
+          </view>
+        </view>
+        <view wx:if="{{equipmentChips.length}}" class="store-detail__chip-block">
+          <text class="store-detail__chip-label text-caption">设备</text>
+          <view class="store-detail__chips">
+            <ui-tag wx:for="{{equipmentChips}}" wx:key="*this" variant="default" text="{{item}}" />
+          </view>
+        </view>
+        <view wx:if="{{notAcceptingChips.length}}" class="store-detail__chip-block">
+          <text class="store-detail__chip-label text-caption">暂不承接</text>
+          <view class="store-detail__chips">
+            <ui-tag wx:for="{{notAcceptingChips}}" wx:key="*this" variant="default" text="{{item}}" />
+          </view>
+        </view>
       </view>
 
-      <view wx:if="{{certRows.length || certWall.length}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">门店资质</text>
+      <view wx:if="{{certWall.length || certNameTags.length}}" class="surface-album-panel store-detail__panel">
+        <view class="store-detail__section-head">
+          <view class="surface-album-section-accent" />
+          <text class="deep-link-detail__section-title text-h2">门店资质</text>
+        </view>
         <view wx:if="{{certWall.length}}" class="store-detail__cert-wall">
           <view
             wx:for="{{certWall}}"
@@ -213,16 +161,19 @@
             data-label="{{item.label}}"
           >
             <image class="store-detail__cert-wall-img" src="{{item.imageUrl}}" mode="aspectFill" />
-            <text class="store-detail__cert-wall-caption text-caption">{{item.label}} · {{item.text}}</text>
+            <text class="store-detail__cert-wall-caption text-caption">{{item.label}}</text>
           </view>
         </view>
-        <view wx:if="{{certRows.length}}" class="store-detail__cert-table">
-          <ui-key-info-table rows="{{certRows}}" />
+        <view wx:if="{{certNameTags.length}}" class="store-detail__chips">
+          <ui-tag wx:for="{{certNameTags}}" wx:key="*this" variant="default" text="{{item}}" />
         </view>
       </view>
 
       <view wx:if="{{staffPublic.length}}" class="surface-album-panel store-detail__panel" id="store-staff">
-        <text class="deep-link-detail__section-title text-h2">技师公示</text>
+        <view class="store-detail__section-head">
+          <view class="surface-album-section-accent" />
+          <text class="deep-link-detail__section-title text-h2">技师</text>
+        </view>
         <view class="store-detail__staff-list">
           <view
             wx:for="{{staffPublic}}"
@@ -249,26 +200,13 @@
                 class="store-detail__staff-cred text-caption"
               >{{cred}}</text>
             </view>
-            <view wx:if="{{item.credentialPhotoUrls && item.credentialPhotoUrls.length}}" class="store-detail__staff-photos">
-              <image
-                wx:for="{{item.credentialPhotoUrls}}"
-                wx:for-item="photo"
-                wx:for-index="photoIndex"
-                wx:key="photoIndex"
-                class="store-detail__staff-photo"
-                src="{{photo}}"
-                mode="aspectFill"
-                data-url="{{photo}}"
-                data-id="{{item.id}}"
-                bindtap="onPreviewStaffCredential"
-              />
-            </view>
           </view>
         </view>
       </view>
 
-      <view class="surface-album-panel store-detail__panel store-detail__evidence">
+      <view wx:if="{{services.length}}" class="surface-album-panel store-detail__panel store-detail__evidence">
         <view class="deep-link-detail__section-head">
+          <view class="surface-album-section-accent" />
           <text class="deep-link-detail__section-title text-h2">服务方案</text>
           <view wx:if="{{!isPreview && services.length}}" class="store-detail__section-links">
             <text class="deep-link-detail__more text-caption" bindtap="onSearchStore">搜索本店</text>
@@ -278,16 +216,7 @@
         <view class="deep-link-detail__notice">
           <ui-compliance-notice type="price" />
         </view>
-        <block wx:if="{{servicesStatus === 'empty'}}">
-          <ui-empty
-            theme="album"
-            title="该门店暂未配置服务方案"
-            description="你可以联系门店了解服务方案"
-            actionText="联系门店"
-            bind:action="onCallStore"
-          />
-        </block>
-        <view wx:else class="store-detail__evidence-stack">
+        <view class="store-detail__evidence-stack">
           <view
             wx:for="{{services}}"
             wx:key="id"

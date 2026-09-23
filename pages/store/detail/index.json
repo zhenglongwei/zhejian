@@ -10,8 +10,6 @@
     "ui-tag": "/components/tag/index",
     "ui-service-card": "/components/service-card/index",
     "ui-compliance-notice": "/components/compliance-notice/index",
-    "ui-ai-summary-block": "/components/ai-summary-block/index",
-    "ui-key-info-table": "/components/key-info-table/index",
     "ui-detail-report-entry": "/components/detail-report-entry/index",
     "ui-share-sheet": "/components/share-sheet/index",
     "ui-login-sheet": "/components/login-sheet/index"

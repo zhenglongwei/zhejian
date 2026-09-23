@@ -12,8 +12,11 @@
 </view>
 
 <view class="page merchant-store-edit page-content merchant-form-page" wx:elif="{{status === 'normal'}}">
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">店名与地址</text>
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">店名与地址</text>
+    </view>
 
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店名称 *</text>
@@ -33,6 +36,14 @@
       <text class="merchant-form__label">简介</text>
       <textarea class="merchant-form__textarea" placeholder="一段即可，如主营项目" value="{{form.intro}}" data-field="intro" bindinput="onInput" maxlength="500" />
     </view>
+  </view>
+
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">营业</text>
+    </view>
+
     <view class="merchant-form__section">
       <text class="merchant-form__label">负责人</text>
       <input class="merchant-form__input" placeholder="姓名" value="{{form.contactName}}" data-field="contactName" bindinput="onInput" />
@@ -41,11 +52,6 @@
       <text class="merchant-form__label">负责人手机</text>
       <input class="merchant-form__input" type="number" placeholder="11 位手机号" value="{{form.phone}}" data-field="phone" bindinput="onInput" maxlength="11" />
     </view>
-  </view>
-
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">营业</text>
-
     <view class="merchant-form__section">
       <text class="merchant-form__label">门店电话</text>
       <input class="merchant-form__input" type="number" placeholder="对外拨打" value="{{form.storePhone}}" data-field="storePhone" bindinput="onInput" />
@@ -117,8 +123,51 @@
     </view>
   </view>
 
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">擅长与环境</text>
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">环境</text>
+    </view>
+    <view class="merchant-store-edit__photo-strip">
+      <view class="merchant-store-edit__photo-cell">
+        <text class="merchant-form__label">门头</text>
+        <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
+          <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
+          <text wx:else class="text-caption">上传</text>
+        </view>
+      </view>
+      <view class="merchant-store-edit__photo-cell">
+        <text class="merchant-form__label">工位</text>
+        <view class="merchant-onboard__photo-grid">
+          <view wx:for="{{form.workshopPhotoUrls}}" wx:key="index" class="merchant-onboard__photo-wrap">
+            <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
+            <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
+          </view>
+          <view wx:if="{{form.workshopPhotoUrls.length < 6}}" class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickWorkshop">
+            <text class="text-caption">添加</text>
+          </view>
+        </view>
+      </view>
+      <view class="merchant-store-edit__photo-cell">
+        <text class="merchant-form__label">接待区</text>
+        <view class="merchant-onboard__photo-grid">
+          <view wx:for="{{form.receptionPhotoUrls}}" wx:key="index" class="merchant-onboard__photo-wrap">
+            <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
+            <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveReception">×</text>
+          </view>
+          <view wx:if="{{form.receptionPhotoUrls.length < 6}}" class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add" bindtap="onPickReception">
+            <text class="text-caption">添加</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">擅长</text>
+    </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">擅长服务</text>
       <view class="merchant-onboard__chips">
@@ -142,54 +191,6 @@
           bindblur="onCustomServiceCommit"
           bindconfirm="onCustomServiceCommit"
         />
-      </view>
-    </view>
-
-    <view class="merchant-form__section">
-      <text class="merchant-form__label">门头照片</text>
-      <view class="merchant-onboard__photo-slot" bindtap="onPickFacade">
-        <image wx:if="{{form.facadePhotoUrl}}" class="merchant-onboard__photo" src="{{form.facadePhotoUrl}}" mode="aspectFill" />
-        <text wx:else class="text-caption">点击上传</text>
-      </view>
-    </view>
-    <view class="merchant-form__section">
-      <text class="merchant-form__label">工位照片（最多 6 张）</text>
-      <view class="merchant-onboard__photo-grid">
-        <view
-          wx:for="{{form.workshopPhotoUrls}}"
-          wx:key="index"
-          class="merchant-onboard__photo-wrap"
-        >
-          <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-          <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveWorkshop">×</text>
-        </view>
-        <view
-          wx:if="{{form.workshopPhotoUrls.length < 6}}"
-          class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add"
-          bindtap="onPickWorkshop"
-        >
-          <text class="text-caption merchant-store-edit__photo-add-text">添加工位</text>
-        </view>
-      </view>
-    </view>
-    <view class="merchant-form__section">
-      <text class="merchant-form__label">接待区照片（最多 6 张）</text>
-      <view class="merchant-onboard__photo-grid">
-        <view
-          wx:for="{{form.receptionPhotoUrls}}"
-          wx:key="index"
-          class="merchant-onboard__photo-wrap"
-        >
-          <image class="merchant-onboard__photo" src="{{item}}" mode="aspectFill" />
-          <text class="merchant-onboard__photo-del" data-index="{{index}}" catchtap="onRemoveReception">×</text>
-        </view>
-        <view
-          wx:if="{{form.receptionPhotoUrls.length < 6}}"
-          class="merchant-onboard__photo-slot merchant-onboard__photo-slot--add"
-          bindtap="onPickReception"
-        >
-          <text class="text-caption merchant-store-edit__photo-add-text">添加接待区</text>
-        </view>
       </view>
     </view>
 
@@ -272,12 +273,17 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">技师</text>
+    </view>
     <view class="merchant-form__section">
-      <text class="merchant-form__label">技师</text>
       <view wx:for="{{form.technicians}}" wx:key="id" class="merchant-store-edit__tech-card">
-        <input class="merchant-form__input" placeholder="称呼 *" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
-        <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
         <view class="merchant-form__row">
+          <input class="merchant-form__input merchant-form__input--half" placeholder="称呼 *" value="{{item.name}}" data-index="{{index}}" data-field="name" bindinput="onTechInput" />
           <view class="merchant-store-edit__years-field">
             <input
               class="merchant-form__input merchant-store-edit__years-input"
@@ -290,8 +296,9 @@
             />
             <text class="merchant-store-edit__years-unit text-body">年</text>
           </view>
-          <input class="merchant-form__input merchant-form__input--half" placeholder="资质标签" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
         </view>
+        <input class="merchant-form__input" placeholder="主修/角色" value="{{item.role}}" data-index="{{index}}" data-field="role" bindinput="onTechInput" />
+        <input class="merchant-form__input" placeholder="资质标签" value="{{item.credentialsText}}" data-index="{{index}}" data-field="credentialsText" bindinput="onTechInput" />
         <view class="merchant-store-edit__tech-media">
           <text class="text-caption merchant-store-edit__tech-media-label">头像</text>
           <view class="merchant-store-edit__brand-media">
@@ -363,13 +370,18 @@
 
   </view>
 
-  <view class="merchant-store-edit__panel">
-    <text class="merchant-store-edit__panel-title text-h3">公示</text>
+  <view class="merchant-store-edit__panel surface-album-panel">
+    <view class="merchant-store-edit__head">
+      <view class="surface-album-section-accent" />
+      <text class="merchant-store-edit__panel-title text-h3">公示</text>
+    </view>
 
-    <view class="merchant-form__switch-row">
-      <text class="text-body">在网站展示执照</text>
+    <view class="merchant-store-edit__publish-group {{form.publishLicense ? '' : 'is-off'}}">
+    <view class="merchant-form__switch-row merchant-store-edit__switch-head">
+      <text class="text-body">执照 · 网站展示</text>
       <switch checked="{{form.publishLicense}}" data-field="publishLicense" bindchange="onPublishFlag" color="{{switchColor}}" />
     </view>
+    <view class="merchant-store-edit__publish-body">
     <view class="merchant-form__section">
       <text class="merchant-form__label">营业执照</text>
       <view class="merchant-onboard__photo-slot" data-field="licensePhotoUrl" bindtap="onPickSingle">
@@ -393,6 +405,8 @@
         </view>
       </picker>
     </view>
+    </view>
+    </view>
     <view class="merchant-form__section">
       <text class="merchant-form__label">法人身份证</text>
       <text class="text-caption merchant-store-edit__field-tip">不对外</text>
@@ -402,10 +416,12 @@
       </view>
     </view>
 
-    <view class="merchant-form__switch-row">
-      <text class="text-body">在网站展示资质</text>
+    <view class="merchant-store-edit__publish-group {{form.publishQualification ? '' : 'is-off'}}">
+    <view class="merchant-form__switch-row merchant-store-edit__switch-head">
+      <text class="text-body">维修资质 · 网站展示</text>
       <switch checked="{{form.publishQualification}}" data-field="publishQualification" bindchange="onPublishFlag" color="{{switchColor}}" />
     </view>
+    <view class="merchant-store-edit__publish-body">
     <view class="merchant-form__section">
       <text class="merchant-form__label">维修资质</text>
       <picker mode="selector" range="{{qualificationOptions}}" range-key="label" value="{{qualificationIndex}}" bindchange="onQualificationChange">
@@ -458,6 +474,8 @@
         </picker>
       </view>
     </block>
+    </view>
+    </view>
 
     <view class="merchant-form__section">
       <text class="merchant-form__label">品牌授权（最多 8 个）</text>

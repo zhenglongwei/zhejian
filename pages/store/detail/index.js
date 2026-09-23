@@ -1,5 +1,4 @@
 const { fetchStoreDetail } = require('../../../services/store')
-const { fetchCaseList } = require('../../../services/case')
 const { fetchServiceList } = require('../../../services/service')
 const {
   fetchMerchantProfile,
@@ -14,12 +13,7 @@ const {
   TOOL_HOME_PATH,
 } = require('../../../utils/share-store-context')
 const { buildStoreHeadTags } = require('../../../utils/store-tags')
-const {
-  formatTechnicianYearsDisplay,
-  buildCertRows,
-  buildTransparencyMetrics,
-  buildTransparencyExplain,
-} = require('../../../utils/public-page-display')
+const { formatTechnicianYearsDisplay } = require('../../../utils/public-page-display')
 const {
   buildPublicStoreSharePayload,
   buildPublicStoreTimelinePayload,
@@ -60,13 +54,19 @@ function buildHeroImages(store) {
 function buildStoreBasicFields(store) {
   if (!store) {
     return {
-      storeAddress: '—',
+      storeAddress: '',
+      storeIntro: '',
+      serviceChips: [],
+      brandChips: [],
+      vehicleChips: [],
+      notAcceptingChips: [],
+      equipmentChips: [],
       storeSpecialtiesText: '',
       showStoreSpecialties: false,
-      storeContactName: '—',
+      storeContactName: '',
       storePhone: '',
-      storePhoneDisplay: '—',
-      storeBusinessHours: '—',
+      storePhoneDisplay: '',
+      storeBusinessHours: '',
       showStoreNavigate: false,
       vehicleSpecialtiesText: '',
     }
@@ -74,15 +74,23 @@ function buildStoreBasicFields(store) {
   const specialties = store.specialties || []
   const vehicleSpecialties = store.vehicleSpecialties || []
   return {
-    storeAddress: store.address || '—',
+    storeAddress: store.address || '',
+    storeIntro: String(store.intro || '').trim(),
+    serviceChips: specialties.filter(Boolean),
+    brandChips: (store.specialtyBrands || []).filter(Boolean),
+    vehicleChips: vehicleSpecialties.filter(Boolean),
+    notAcceptingChips: (store.notAccepting || []).filter(Boolean),
+    equipmentChips: (store.equipmentTags || [])
+      .map((item) => (item && item.label) || item)
+      .filter(Boolean),
     storeSpecialtiesText: specialties.join('、'),
     showStoreSpecialties: specialties.length > 0,
     vehicleSpecialties,
     vehicleSpecialtiesText: vehicleSpecialties.join('、'),
-    storeContactName: store.contactName || '—',
+    storeContactName: store.contactName || '',
     storePhone: store.phone || '',
-    storePhoneDisplay: store.phone || '—',
-    storeBusinessHours: store.businessHours || '—',
+    storePhoneDisplay: store.phone || '',
+    storeBusinessHours: store.businessHours || '',
     showStoreNavigate: store.latitude != null && store.longitude != null,
   }
 }
@@ -93,21 +101,10 @@ Page({
     shellSubtitle: DEEP_LINK_SHELL.store.subtitle,
     status: 'loading',
     store: null,
-    certRows: [],
     certWall: [],
+    certNameTags: [],
     staffPublic: [],
-    transparencyMetrics: [],
-    transparencySummary: '',
-    transparencyExplain: null,
-    auditMeta: null,
-    auditNote: '',
-    certEmptyHint: '',
-    vehicleSpecialties: [],
-    vehicleSpecialtiesText: '',
-    cases: [],
-    casesStatus: 'loading',
     services: [],
-    servicesStatus: 'loading',
     statusText: '',
     headTags: [],
     errorMessage: '',
@@ -240,50 +237,34 @@ Page({
   },
 
   async loadPage() {
-    this.setData({ status: 'loading', casesStatus: 'loading', servicesStatus: 'loading', errorMessage: '' })
+    this.setData({ status: 'loading', errorMessage: '' })
     try {
-      const [store, { list: cases }, { list: services }] = await Promise.all([
+      const [store, { list: services }] = await Promise.all([
         fetchStoreDetail(this.storeId),
-        fetchCaseList({ storeId: this.storeId }),
         fetchServiceList({ storeId: this.storeId }),
       ])
       const basicFields = buildStoreBasicFields(store)
       const pageTitle = store.name || DEEP_LINK_SHELL.store.subtitle
-      const transparency = store.transparency || {}
-      const transparencyExplain = buildTransparencyExplain(transparency)
       const certWall = store.certWall || []
+      const certNameTags = certWall.length
+        ? []
+        : (store.certifications || []).map((item) => item && item.label).filter(Boolean)
       this.setData({
         store,
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
-        certRows: buildCertRows(store.certifications),
         certWall,
+        certNameTags,
         staffPublic: (store.staffPublic || []).map((item) => ({
           ...item,
           years: formatTechnicianYearsDisplay(item.years),
           credentials: item.credentials || [],
-          credentialPhotoUrls: item.credentialPhotoUrls || [],
+          credentialPhotoUrls: [],
         })),
-        specialtyBrandsText: (store.specialtyBrands || []).join('、'),
-        notAcceptingText: (store.notAccepting || []).join('、'),
-        equipmentTagsText: (store.equipmentTags || [])
-          .map((item) => item.label || item)
-          .filter(Boolean)
-          .join('、'),
-        freshnessSummary: (store.freshness && store.freshness.summary) || '',
         heroImages: buildHeroImages(store),
-        transparencyMetrics: buildTransparencyMetrics({
-          ...transparency,
-          caseCount: cases.length,
-          serviceCount: services.length,
-        }),
-        transparencySummary: transparency.summary || '',
-        transparencyExplain,
         services,
         statusText: STATUS_TEXT[store.status] || store.status,
         status: 'normal',
-        casesStatus: cases.length ? 'normal' : 'empty',
-        servicesStatus: services.length ? 'normal' : 'empty',
         shareActionsDisabled: !canShareStore(store),
         showTopShare: canShareStore(store),
         ...basicFields,
@@ -507,15 +488,4 @@ Page({
     wx.previewImage({ urls: list, current: url })
   },
 
-  onPreviewStaffCredential(e) {
-    const url = e.currentTarget.dataset.url
-    const id = e.currentTarget.dataset.id
-    if (!url) return
-    const member = (this.data.staffPublic || []).find((item) => item.id === id)
-    const list =
-      member && Array.isArray(member.credentialPhotoUrls) && member.credentialPhotoUrls.length
-        ? member.credentialPhotoUrls
-        : [url]
-    wx.previewImage({ urls: list, current: url })
-  },
 })
