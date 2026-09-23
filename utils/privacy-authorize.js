@@ -1,7 +1,14 @@
 /**
- * 隐私授权 — 调用 chooseLocation 等隐私接口前使用
- * 登录页 agreePrivacyAuthorization 已同步时，此处会直接通过
+ * 隐私授权。
+ * 进车主首页或商家首页时先问一次；已同意则选图、选地址不再弹。
+ * 登录弹层上的 agreePrivacyAuthorization 与这里是同一次微信同意。
  */
+
+const HOME_PRIVACY_COPY = {
+  title: '隐私保护提示',
+  description: '继续使用前，请先阅读并同意。',
+}
+
 function queryPrivacySetting() {
   return new Promise((resolve) => {
     if (typeof wx.getPrivacySetting !== 'function') {
@@ -59,7 +66,32 @@ function requestPrivacyAuthorization(popup) {
   })
 }
 
+/**
+ * 首页进入时：尚未同意隐私指引则弹出。已同意则什么都不做。
+ * @param {WechatMiniprogram.Page.TrivialInstance} page 须包含 #privacyAuthorizePopup
+ */
+function promptHomePrivacy(page) {
+  if (!page) return
+  const run = () => {
+    queryPrivacySetting().then((setting) => {
+      if (!setting.needAuthorization) return
+      const popup = page.selectComponent && page.selectComponent('#privacyAuthorizePopup')
+      if (!popup || typeof popup.show !== 'function') return
+      if (popup.data && popup.data.visible) return
+      const app = getApp()
+      if (app) app.privacyPopup = popup
+      popup.show(HOME_PRIVACY_COPY)
+    })
+  }
+  if (typeof wx !== 'undefined' && typeof wx.nextTick === 'function') {
+    wx.nextTick(run)
+    return
+  }
+  setTimeout(run, 0)
+}
+
 module.exports = {
   queryPrivacySetting,
   requestPrivacyAuthorization,
+  promptHomePrivacy,
 }

@@ -2,6 +2,7 @@ const { fetchMineSummary } = require('../../services/user')
 const { fetchDefaultVehicle } = require('../../services/vehicle')
 const { fetchUserServiceAlbums, fetchUserAuthorizations } = require('../../services/service-album')
 const { isLoggedIn, checkAuth, syncAppSession } = require('../../utils/auth')
+const { promptHomePrivacy } = require('../../utils/privacy-authorize')
 const { buildMineMenuSections, buildMineHubDock } = require('../../constants/mine-menu')
 const { enrichServiceAlbumListItem } = require('../../utils/service-album-display')
 const { hasUnreadAlbums } = require('../../utils/album-unread-hint')
@@ -98,6 +99,7 @@ Page({
   onShow() {
     const { hideLaunchHomeButton } = require('../../utils/app-role')
     hideLaunchHomeButton()
+    promptHomePrivacy(this)
     this.loadPage({ silent: this.data.isLoggedIn && this.data.status === 'normal' })
   },
 

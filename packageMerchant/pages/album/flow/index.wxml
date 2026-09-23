@@ -108,9 +108,10 @@
                 <text class="text-body merchant-flow-page__label">进店主诉</text>
                 <textarea
                   class="merchant-flow-page__textarea merchant-flow-page__textarea--short"
+                  style="height: 160rpx;"
                   value="{{chiefComplaint}}"
                   maxlength="300"
-                  auto-height="{{true}}"
+                  disable-default-padding="{{true}}"
                   placeholder="{{chiefComplaintPlaceholder}}"
                   disabled="{{readOnly}}"
                   bindinput="onChiefComplaintInput"
@@ -119,15 +120,17 @@
                 <text class="text-body merchant-flow-page__label">当前里程</text>
                 <view class="merchant-flow-page__mileage-row">
                   <view class="merchant-flow-page__mileage-field">
-                    <input
-                      class="merchant-flow-page__mileage-input"
-                      type="number"
-                      value="{{mileageKm}}"
-                      maxlength="7"
-                      placeholder="例：86500"
-                      disabled="{{readOnly}}"
-                      bindinput="onMileageInput"
-                    />
+                    <view class="merchant-flow-page__mileage-input-wrap">
+                      <input
+                        class="merchant-flow-page__mileage-input"
+                        type="number"
+                        value="{{mileageKm}}"
+                        maxlength="7"
+                        placeholder="例：86500"
+                        disabled="{{readOnly}}"
+                        bindinput="onMileageInput"
+                      />
+                    </view>
                     <text class="text-caption text-secondary merchant-flow-page__mileage-unit">km</text>
                   </view>
                   <view
@@ -149,6 +152,7 @@
                   <view
                     wx:elif="{{!readOnly}}"
                     class="merchant-flow-page__mileage-shot merchant-flow-page__mileage-shot--add"
+                    hover-class="none"
                     bindtap="onAddOdometerPhoto"
                   >
                     <text class="merchant-flow-page__mileage-shot-plus">+</text>
@@ -506,7 +510,8 @@
                     <view
                       wx:if="{{!readOnly && section.findings.length < 12}}"
                       class="merchant-flow-page__finding-add"
-                      data-index="{{sectionIndex}}"
+                      hover-class="none"
+                      data-section-index="{{sectionIndex}}"
                       bindtap="onAddFindingPhotos"
                     >
                       <text class="merchant-flow-page__finding-add-icon">+</text>

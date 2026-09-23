@@ -133,6 +133,7 @@
   </block>
 </ui-tool-page-shell>
 
+<privacy-authorize-popup id="privacyAuthorizePopup" />
 <ui-login-sheet
   visible="{{loginSheetVisible}}"
   mode="{{loginSheetMode}}"

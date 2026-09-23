@@ -51,6 +51,56 @@ const {
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const { persistAlbumNodeImages, uploadImage } = require('../../../../utils/media-upload')
 
+/** 系统选图最多 9 张；超过会直接失败且不弹界面。失败时再试 chooseImage。 */
+function pickLocalImages(options = {}) {
+  const count = Math.max(1, Math.min(9, Number(options.count) || 1))
+  const success = typeof options.success === 'function' ? options.success : function () {}
+  const isCancel = (err) => /cancel/i.test(String((err && err.errMsg) || ''))
+  const onFail = (err) => {
+    if (isCancel(err)) return
+    wx.showToast({ title: '无法打开相册，请检查权限', icon: 'none' })
+  }
+  const fromChooseImage = (res) => {
+    success({
+      tempFiles: (res.tempFilePaths || []).map((tempFilePath) => ({ tempFilePath })),
+    })
+  }
+  if (typeof wx.chooseMedia === 'function') {
+    wx.chooseMedia({
+      count,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      success,
+      fail: (err) => {
+        if (isCancel(err) || typeof wx.chooseImage !== 'function') {
+          onFail(err)
+          return
+        }
+        wx.chooseImage({
+          count,
+          sizeType: ['compressed'],
+          sourceType: ['album', 'camera'],
+          success: fromChooseImage,
+          fail: onFail,
+        })
+      },
+    })
+    return
+  }
+  if (typeof wx.chooseImage === 'function') {
+    wx.chooseImage({
+      count,
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera'],
+      success: fromChooseImage,
+      fail: onFail,
+    })
+    return
+  }
+  onFail({ errMsg: 'chooseImage:fail not support' })
+}
+
 /** 已完成步骤「查看」：单据走 service-doc-sheet；拍照步仍用缩略图 */
 function buildSheetMetaLine(payload = {}, album = {}) {
   const parts = []
@@ -571,7 +621,9 @@ Page({
     if (node && node.kind === 'intake_inspection') {
       const meta = STAGE_LABELS.stage_2
       const images = this.collectIntakeImages(album)
-      const mapped = mapFindingRows(images, draftFindings)
+      const mapped = mapFindingRows(images, draftFindings, {
+        odometerUrl: photoDraft.odometerUrl,
+      })
       const slot = pickOdometerSlot(photoDraft, mapped)
       const findingImages = images.filter((img) => img.url !== slot.odometerUrl)
       return [
@@ -1386,7 +1438,7 @@ Page({
         wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
         return
       }
-      wx.chooseMedia({
+      pickLocalImages({
         count: Math.min(remain, 6),
         mediaType: ['image'],
         sourceType: ['album', 'camera'],
@@ -1448,7 +1500,7 @@ Page({
       })
       return
     }
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -1679,7 +1731,7 @@ Page({
 
   onCaptureExterior() {
     if (this.data.readOnly) return
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -1744,7 +1796,7 @@ Page({
     const caption = String((suggestion && (suggestion.part || suggestion.title || suggestion.targetLabel)) || '')
       .replace(/^(补拍|补充)/, '')
       .trim()
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -1780,8 +1832,12 @@ Page({
 
   onAddFindingPhotos(e) {
     if (this.data.readOnly) return
-    const sectionIndex = Number(e.currentTarget.dataset.index)
-    if (!Number.isFinite(sectionIndex)) return
+    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+    let sectionIndex = Number(ds.sectionIndex)
+    if (!Number.isFinite(sectionIndex)) sectionIndex = Number(ds.index)
+    if (!Number.isFinite(sectionIndex)) {
+      sectionIndex = (this.data.sections || []).findIndex((row) => row && row.findingMode)
+    }
     const section = this.data.sections[sectionIndex]
     if (!section) return
     if (section.findingKind === 'work') {
@@ -1789,7 +1845,7 @@ Page({
         wx.showToast({ title: '最多 12 个维修项', icon: 'none' })
         return
       }
-      wx.chooseMedia({
+      pickLocalImages({
         count: WORK_IMAGES_MAX,
         mediaType: ['image'],
         sourceType: ['album', 'camera'],
@@ -1837,7 +1893,7 @@ Page({
       wx.showToast({ title: '最多 12 张', icon: 'none' })
       return
     }
-    wx.chooseMedia({
+    pickLocalImages({
       count: remain,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -1991,7 +2047,7 @@ Page({
 
   onAddOdometerPhoto() {
     if (this.data.readOnly) return
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -2266,7 +2322,7 @@ Page({
     if (this.data.readOnly || this.data.confirmAwaitingOwner) return
     const index = Number(e.currentTarget.dataset.index)
     if (!Number.isFinite(index)) return
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
@@ -3396,7 +3452,7 @@ Page({
   },
 
   pickProxyProofThenConfirm() {
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       success: async (res) => {
@@ -3482,7 +3538,7 @@ Page({
   },
 
   onAddProxyProof() {
-    wx.chooseMedia({
+    pickLocalImages({
       count: 1,
       mediaType: ['image'],
       success: async (res) => {

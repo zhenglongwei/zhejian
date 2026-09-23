@@ -317,13 +317,19 @@
   height: var(--input-height);
   padding: 0 var(--space-md);
   border-radius: var(--radius-md);
+  overflow: hidden;
   background-color: var(--color-bg-muted);
   box-sizing: border-box;
 }
 
-.merchant-flow-page__mileage-input {
+.merchant-flow-page__mileage-input-wrap {
   flex: 1;
   min-width: 0;
+  height: 100%;
+}
+
+.merchant-flow-page__mileage-input {
+  width: 100%;
   height: 100%;
   padding: 0;
   background-color: transparent;
@@ -339,6 +345,7 @@
 
 .merchant-flow-page__mileage-shot {
   position: relative;
+  z-index: 1;
   flex-shrink: 0;
   width: var(--input-height);
   height: var(--input-height);
@@ -350,6 +357,7 @@
 
 .merchant-flow-page__mileage-shot--add {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -882,9 +890,15 @@
 }
 
 .merchant-flow-page__finding-add {
+  position: relative;
+  z-index: 1;
   display: flex;
+  align-self: stretch;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
   height: 112rpx;
   border-radius: var(--radius-md);
   border: 2rpx dashed var(--color-border);
@@ -933,6 +947,7 @@
 
 .merchant-flow-page__textarea {
   width: 100%;
+  height: 160rpx;
   min-height: 160rpx;
   padding: var(--space-md);
   border-radius: var(--radius-md);
@@ -944,6 +959,7 @@
 }
 
 .merchant-flow-page__textarea--field {
+  height: 72rpx;
   min-height: 72rpx;
   margin-bottom: 0;
   padding: var(--space-sm) var(--space-md);

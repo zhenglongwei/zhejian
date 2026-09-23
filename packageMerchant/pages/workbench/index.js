@@ -14,6 +14,7 @@ const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-s
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner } = require('../../../utils/auth')
+const { promptHomePrivacy } = require('../../../utils/privacy-authorize')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
@@ -88,6 +89,7 @@ Page({
   onShow() {
     const { hideLaunchHomeButton } = require('../../../utils/app-role')
     hideLaunchHomeButton()
+    promptHomePrivacy(this)
     this._syncArchiveGateCopy()
     this.loadProfile({ silent: this.data.status === 'normal' })
   },

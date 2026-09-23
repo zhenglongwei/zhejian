@@ -244,40 +244,86 @@ function mapWorkFindingRows(images = [], draftFindings = []) {
   })
 }
 
+function mediaBare(value) {
+  return String(value || '')
+    .trim()
+    .split('?')[0]
+    .split('#')[0]
+}
+
+function mergeFindingWithImage(row, draft) {
+  const src = draft || {}
+  return normalizeFinding({
+    ...row,
+    ...src,
+    url: row.url,
+    imageId: row.imageId || src.imageId || '',
+    caption: row.caption || src.caption || '',
+    partName: src.partName || row.caption || '',
+  })
+}
+
+/** 仪表照写在检测图最前，不能按序号去配发现项，否则部位结果会错位。 */
+function omitOdometerImages(images = [], odometerUrl = '') {
+  const odo = mediaBare(odometerUrl)
+  if (!odo) return images || []
+  return (images || []).filter((img) => {
+    const url = typeof img === 'string' ? img : (img && img.url) || ''
+    if (mediaBare(url) === odo) return false
+    const caption = img && typeof img === 'object' ? String(img.caption || '').trim() : ''
+    return caption !== '仪表'
+  })
+}
+
 /** 检测发现项：优先用过程步 photoDraft / 结构化字段，否则用图注作部位。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
   if (options && options.mode === 'work') {
     return mapWorkFindingRows(images, draftFindings)
   }
-  const draftByKey = {}
-  ;(draftFindings || []).forEach((raw, index) => {
-    const item = normalizeFinding(raw)
-    const key = item.imageId || item.url
-    if (key) draftByKey[key] = item
-    draftByKey[`#${index}`] = item
+  const drafts = (draftFindings || []).map((raw) => normalizeFinding(raw))
+  const rows = mapPhotoRows(omitOdometerImages(images, options && options.odometerUrl))
+  const used = new Set()
+  const matchIndex = (row) => {
+    const id = String(row.imageId || '').trim()
+    if (id) {
+      const byId = drafts.findIndex((item, i) => !used.has(i) && item.imageId === id)
+      if (byId >= 0) return byId
+    }
+    const bare = mediaBare(row.url)
+    if (bare) {
+      const byUrl = drafts.findIndex((item, i) => !used.has(i) && mediaBare(item.url) === bare)
+      if (byUrl >= 0) return byUrl
+    }
+    return -1
+  }
+  const assigned = rows.map((row) => {
+    const idx = matchIndex(row)
+    if (idx < 0) return null
+    used.add(idx)
+    return mergeFindingWithImage(row, drafts[idx])
   })
-  const mapped = mapPhotoRows(images).map((row, index) => {
-    const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
-    return normalizeFinding({
-      ...row,
-      ...draft,
-      url: row.url,
-      imageId: row.imageId || draft.imageId || '',
-      caption: row.caption || draft.caption || '',
-      partName: draft.partName || row.caption || '',
+  const openImageIndexes = []
+  assigned.forEach((item, index) => {
+    if (!item) openImageIndexes.push(index)
+  })
+  const openDraftIndexes = drafts.map((_, index) => index).filter((index) => !used.has(index))
+  // 正式地址和草稿地址不一致时，仅在两边剩余数量相同才按顺序配，避免仪表图抢走下一项的结果
+  if (openImageIndexes.length && openImageIndexes.length === openDraftIndexes.length) {
+    openImageIndexes.forEach((imageIndex, i) => {
+      const draftIndex = openDraftIndexes[i]
+      used.add(draftIndex)
+      assigned[imageIndex] = mergeFindingWithImage(rows[imageIndex], drafts[draftIndex])
     })
+  } else {
+    openImageIndexes.forEach((imageIndex) => {
+      assigned[imageIndex] = mergeFindingWithImage(rows[imageIndex], {})
+    })
+  }
+  drafts.forEach((item, index) => {
+    if (used.has(index)) return
+    if (item.partName || item.advice || item.result) assigned.push(item)
   })
-  const usedUrls = new Set(mapped.map((row) => row.url).filter(Boolean))
-  const usedIds = new Set(mapped.map((row) => row.imageId).filter(Boolean))
-  const imageCount = (images || []).length
-  ;(draftFindings || []).forEach((raw, index) => {
-    if (index < imageCount) return
-    const item = normalizeFinding(raw)
-    if (item.url && usedUrls.has(item.url)) return
-    if (item.imageId && usedIds.has(item.imageId)) return
-    if (item.partName || item.advice) mapped.push(item)
-  })
-  return mapped
+  return assigned.filter(Boolean)
 }
 
 function collectInspectionReportGaps(payload = {}) {
@@ -366,16 +412,21 @@ function buildInspectionReportPayload({
   const intake = (albumNodes || []).find((n) => n.id === 'stage_1')
   const inspection = (albumNodes || []).find((n) => n.id === 'stage_2')
   // 统一入口：发现项来自 stage_2；存量 stage_1 并入
-  const mergedImages = []
-    .concat((intake && intake.images) || [])
-    .concat((inspection && inspection.images) || [])
+  const mergedImages = omitOdometerImages(
+    []
+      .concat((intake && intake.images) || [])
+      .concat((inspection && inspection.images) || []),
+    photoDraft.odometerUrl,
+  )
   const draftFindings =
     Array.isArray(findingsInput) && findingsInput.length
       ? findingsInput
       : Array.isArray(photoDraft.findings)
         ? photoDraft.findings
         : []
-  const findings = mapFindingRows(mergedImages, draftFindings)
+  const findings = mapFindingRows(mergedImages, draftFindings, {
+    odometerUrl: photoDraft.odometerUrl,
+  })
   return {
     vehicleBrand: String(photoDraft.vehicleBrand || vehicle.brand || ''),
     vehicleSeries: String(photoDraft.vehicleSeries || vehicle.series || ''),

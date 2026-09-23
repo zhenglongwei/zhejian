@@ -2,8 +2,7 @@ Component({
   data: {
     visible: false,
     title: '隐私保护提示',
-    description:
-      '为在地图上选择门店地址，我们需要使用你的位置相关能力。请阅读并同意《用户隐私保护指引》后继续。',
+    description: '继续使用前，请先阅读并同意。',
   },
 
   lifetimes: {
