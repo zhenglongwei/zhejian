@@ -2688,6 +2688,7 @@ Page({
       const blob = `${(item && item.title) || ''} ${(item && item.itemKey) || ''} ${(item && item.how) || ''}`
       if (/主诉/.test(blob) || (item && item.itemKey) === 'complaint') resolved = 'chiefComplaint'
       else if (/图注|施工说明/.test(blob)) resolved = 'findingCaption'
+      else if (/施工方案/.test(blob)) resolved = 'quoteLineNote'
       else if (/方案/.test(blob)) resolved = 'quoteLineName'
       else if (/质保/.test(blob)) resolved = 'warrantyPeriod'
       else if (/建议|处理|检查发现/.test(blob)) resolved = 'findingAdvice'
@@ -2713,10 +2714,11 @@ Page({
       if (!row) return ''
       return String((field === 'findingAdvice' ? row.advice : row.caption) || '').trim()
     }
-    if (field === 'quoteLineName') {
+    if (field === 'quoteLineName' || field === 'quoteLineNote') {
       const idx = Number.isFinite(Number(item && item.lineIndex)) ? Number(item.lineIndex) : 0
       const line = (this.data.quoteLines || [])[idx]
-      return String((line && line.name) || '').trim()
+      if (!line) return ''
+      return String((field === 'quoteLineNote' ? line.note : line.name) || '').trim()
     }
     return ''
   },
@@ -2747,7 +2749,7 @@ Page({
     let odometerHint = null
     let warrantyHint = null
     const orphanPhotoHints = []
-    let quoteLines = (this.data.quoteLines || []).map((row) => ({ ...row, nameHint: null }))
+    let quoteLines = (this.data.quoteLines || []).map((row) => ({ ...row, nameHint: null, noteHint: null }))
     let reportFindings = (this.data.findings || []).map((row) => ({
       ...row,
       adviceHint: null,
@@ -2781,9 +2783,14 @@ Page({
           warrantyHint = hint
           return
         }
-        if (item.field === 'quoteLineName') {
+        if (item.field === 'quoteLineName' || item.field === 'quoteLineNote') {
           const idx = Number.isFinite(Number(item.lineIndex)) ? Number(item.lineIndex) : 0
-          if (quoteLines[idx]) quoteLines[idx] = { ...quoteLines[idx], nameHint: hint }
+          if (quoteLines[idx]) {
+            quoteLines[idx] =
+              item.field === 'quoteLineNote'
+                ? { ...quoteLines[idx], noteHint: hint }
+                : { ...quoteLines[idx], nameHint: hint }
+          }
           return
         }
         if (item.field === 'findingAdvice' || item.field === 'findingCaption') {
@@ -2833,6 +2840,18 @@ Page({
       }
       const hint = this.toAiFieldHint(item, 'photo')
       if (!hint) return
+      if (!this.data.activeIsPhoto && this.data.activeKind === 'inspection_report') {
+        const fi = this.matchFindingIndex(reportFindings, item, photoUsed, 'photo')
+        if (fi >= 0) {
+          photoUsed.add(fi)
+          reportFindings[fi] = {
+            ...reportFindings[fi],
+            photoHint: hint,
+            aiSuggestionId: reportFindings[fi].aiSuggestionId || item.id,
+          }
+          return
+        }
+      }
       const si = sections.findIndex((section) => section.findingMode)
       if (si < 0) {
         orphanPhotoHints.push(hint)
@@ -2954,6 +2973,7 @@ Page({
 
   resumeAiReviewFromNode(active) {
     if (this.data.readOnly || !active || !this._nodeAiReviewEntitled) return
+    if (active.kind === 'intake_inspection') return
     const review = active.aiReview
     if (!review || review.acknowledged) return
     if (review.status === 'queued' || review.status === 'running' || review.status === 'ready') {
@@ -3118,13 +3138,26 @@ Page({
       })
       patch.sections = this.decorateSections(sections)
     }
-    if (field === 'quoteLineName' && Number.isFinite(Number(item.lineIndex))) {
+    if (
+      (field === 'quoteLineName' || field === 'quoteLineNote') &&
+      Number.isFinite(Number(item.lineIndex))
+    ) {
       const idx = Number(item.lineIndex)
-      const quoteLines = (this.data.quoteLines || []).map((row, li) =>
-        li === idx
-          ? { ...row, name: item.suggestedText, nameHint: row.nameHint ? { ...row.nameHint, applied: true } : null }
-          : row,
-      )
+      const quoteLines = (this.data.quoteLines || []).map((row, li) => {
+        if (li !== idx) return row
+        if (field === 'quoteLineNote') {
+          return {
+            ...row,
+            note: item.suggestedText,
+            noteHint: row.noteHint ? { ...row.noteHint, applied: true } : null,
+          }
+        }
+        return {
+          ...row,
+          name: item.suggestedText,
+          nameHint: row.nameHint ? { ...row.nameHint, applied: true } : null,
+        }
+      })
       patch.quoteLines = this.decorateQuoteLines(quoteLines, this.quoteEvidenceSource())
       patch.quoteTotalLabel = `合计 ¥${sumQuoteAmounts(quoteLines).toFixed(2)}`
     }
@@ -3140,7 +3173,7 @@ Page({
           document: { status: 'draft', payload: this.buildDocPayloadForSave() },
         })
         const quoteNodeId = this.data.quoteNodeId || this._quoteNodeId
-        if (quoteNodeId && field === 'quoteLineName') {
+        if (quoteNodeId && (field === 'quoteLineName' || field === 'quoteLineNote')) {
           await updateMerchantFlowNode(this.albumId, quoteNodeId, {
             document: { status: 'draft', payload: this.buildQuotePayloadForSave() },
           })

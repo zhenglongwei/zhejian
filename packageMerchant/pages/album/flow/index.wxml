@@ -628,63 +628,80 @@
                     <text class="text-caption text-secondary">{{findings.length}} 项</text>
                   </view>
                   <view wx:if="{{!findings.length}}" class="text-caption text-secondary">暂无发现项</view>
-                  <view
-                    wx:for="{{findings}}"
-                    wx:key="url"
-                    class="merchant-flow-page__evidence-row {{item.evidenceRowClass}}"
-                  >
-                    <view class="merchant-flow-page__evidence-photos">
-                      <block wx:if="{{item.images.length}}">
-                        <image
-                          wx:for="{{item.images}}"
-                          wx:for-item="shot"
-                          wx:for-index="shotIndex"
-                          wx:key="url"
-                          class="merchant-flow-page__evidence-img image-placeholder"
-                          src="{{shot.url}}"
-                          mode="aspectFill"
-                        />
-                      </block>
-                      <image
-                        wx:elif="{{item.url}}"
-                        class="merchant-flow-page__evidence-img image-placeholder"
-                        src="{{item.url}}"
-                        mode="aspectFill"
-                      />
-                    </view>
-                    <view class="merchant-flow-page__evidence-body">
-                      <input
-                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
-                        placeholder="{{findingPartPlaceholder}}"
-                        value="{{item.partName}}"
-                        data-index="{{index}}"
-                        data-field="partName"
-                        disabled="{{readOnly}}"
-                        bindinput="onFindingFieldInput"
-                      />
-                      <view class="merchant-flow-page__result-seg merchant-flow-page__result-seg--compact">
-                        <view
-                          wx:for="{{item.resultOptions}}"
-                          wx:for-item="opt"
-                          wx:key="value"
-                          class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}} {{opt.selected ? item.resultToneClass : ''}}"
-                          data-index="{{index}}"
-                          data-value="{{opt.value}}"
-                          bindtap="onSelectReportFindingResult"
-                        >{{opt.shortLabel || opt.value}}</view>
+                  <view class="merchant-flow-page__finding-list">
+                    <view
+                      wx:for="{{findings}}"
+                      wx:key="index"
+                      class="merchant-flow-page__finding-row merchant-flow-page__report-finding"
+                    >
+                      <view class="merchant-flow-page__work-thumbs">
+                        <block wx:if="{{item.images.length}}">
+                          <block
+                            wx:for="{{item.images}}"
+                            wx:for-item="shot"
+                            wx:for-index="shotIndex"
+                            wx:key="url"
+                          >
+                            <view wx:if="{{shot.url}}" class="merchant-flow-page__work-thumb">
+                              <image
+                                class="merchant-flow-page__work-thumb-img image-placeholder"
+                                src="{{shot.url}}"
+                                mode="aspectFill"
+                              />
+                            </view>
+                          </block>
+                        </block>
+                        <view wx:elif="{{item.url}}" class="merchant-flow-page__work-thumb">
+                          <image
+                            class="merchant-flow-page__work-thumb-img image-placeholder"
+                            src="{{item.url}}"
+                            mode="aspectFill"
+                          />
+                        </view>
                       </view>
-                      <textarea
-                        wx:if="{{item.result && !item.recordOnly}}"
-                        class="merchant-flow-page__sheet-textarea"
-                        placeholder="{{item.advicePlaceholder || (item.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
-                        value="{{item.advice}}"
-                        maxlength="500"
-                        auto-height="{{true}}"
-                        data-index="{{index}}"
-                        data-field="advice"
-                        disabled="{{readOnly || !item.adviceRequired}}"
-                        bindinput="onFindingFieldInput"
-                      />
+                      <template is="aiFieldHint" data="{{hint: item.photoHint}}" />
+                      <view class="merchant-flow-page__field">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">部位</text>
+                        <input
+                          class="merchant-flow-page__input merchant-flow-page__input--field"
+                          placeholder="{{findingPartPlaceholder}}"
+                          value="{{item.partName}}"
+                          data-index="{{index}}"
+                          data-field="partName"
+                          disabled="{{readOnly}}"
+                          bindinput="onFindingFieldInput"
+                        />
+                      </view>
+                      <view class="merchant-flow-page__field">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">检查结果</text>
+                        <view class="merchant-flow-page__result-seg">
+                          <view
+                            wx:for="{{item.resultOptions}}"
+                            wx:for-item="opt"
+                            wx:for-index="optIndex"
+                            wx:key="value"
+                            class="merchant-flow-page__result-seg-item {{opt.selected ? 'merchant-flow-page__result-seg-item--on' : ''}}"
+                            data-index="{{index}}"
+                            data-value="{{opt.value}}"
+                            bindtap="onSelectReportFindingResult"
+                          >{{opt.value}}</view>
+                        </view>
+                      </view>
+                      <view wx:if="{{item.result && !item.recordOnly}}" class="merchant-flow-page__field">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">检查发现</text>
+                        <textarea
+                          class="merchant-flow-page__textarea merchant-flow-page__textarea--field"
+                          placeholder="{{item.advicePlaceholder || (item.adviceRequired ? findingAdvicePlaceholder : '无需处理')}}"
+                          value="{{item.advice}}"
+                          maxlength="500"
+                          auto-height="{{false}}"
+                          style="height: 96rpx;"
+                          data-index="{{index}}"
+                          data-field="advice"
+                          disabled="{{readOnly || !item.adviceRequired}}"
+                          bindinput="onFindingFieldInput"
+                        />
+                      </view>
                       <template is="aiFieldHint" data="{{hint: item.adviceHint}}" />
                     </view>
                   </view>
@@ -753,6 +770,7 @@
                       disabled="{{readOnly}}"
                       bindinput="onQuoteLineInput"
                     />
+                    <template is="aiFieldHint" data="{{hint: item.noteHint}}" />
                   </view>
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>
@@ -879,6 +897,7 @@
                       disabled="{{readOnly || confirmAwaitingOwner}}"
                       bindinput="onQuoteLineInput"
                     />
+                    <template is="aiFieldHint" data="{{hint: item.noteHint}}" />
                   </view>
                   <view class="merchant-flow-page__plan-total-bar">
                     <text class="text-h3">{{quoteTotalLabel}}</text>

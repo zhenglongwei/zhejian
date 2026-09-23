@@ -157,6 +157,8 @@ function buildReviewContext(album, node, extra = {}) {
   )
   const quotePayload = (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
   const findings = draft.findings || doc.findings || []
+  const step = resolveReviewStep(node.kind)
+  const lockedEarlier = step === 'work' || step === 'delivery'
   return {
     rubric: getReviewRubric(album.templateId, node.kind, album.serviceName),
     chiefComplaint: text(draft.chiefComplaint || doc.chiefComplaint || extra.chiefComplaint),
@@ -166,7 +168,7 @@ function buildReviewContext(album, node, extra = {}) {
     warrantyPeriod: draft.warrantyPeriod || extra.warrantyPeriod,
     warrantyNotes: draft.warrantyNotes,
     conclusion: draft.conclusion || doc.conclusion,
-    quoteLines: extra.quoteLines || quotePayload.lines || [],
+    quoteLines: lockedEarlier ? [] : extra.quoteLines || quotePayload.lines || [],
   }
 }
 
@@ -220,17 +222,30 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       caption: row.caption || '',
     })),
     warrantyPeriod: ctx.warrantyPeriod || '',
-    quoteLines: (ctx.quoteLines || []).map((line) => ({ name: line && line.name })),
+    quoteLines: (ctx.quoteLines || []).map((line, index) => ({
+      index,
+      name: (line && line.name) || '',
+      note: (line && line.note) || '',
+      brand: (line && line.brand) || '',
+    })),
   }
+  const stepNote =
+    ctx.rubric.step === 'quote_check'
+      ? '这是通知车主前的唯一一次核对。同时看检测发现和报价。可以建议改某一项的检查发现，也可以建议改报价的项目名或施工方案，使两边对得上。报价里要做的事应能在检测里找到依据。不要改金额。'
+      : ctx.rubric.step === 'work' || ctx.rubric.step === 'delivery'
+        ? '检测报告和报价已经固定，不要对主诉、检查发现、报价项目或施工方案提修改意见。只看本步。'
+        : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
-    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex"}]}',
+    stepNote,
+    '输出 JSON：{"suggestions":[{"id","type":"photo|text","itemKey","title","how","field","suggestedText","findingIndex","lineIndex","part"}]}',
     '每条只改一件事。title 只写部位或字段名，如「右前门近景」「主诉」，不要写优化/规范/标准话术。',
     '每条都带 part：发现项的 part 必须与草稿 findings 里该条 partName 完全一致。',
     'findingIndex 必须等于该条 findings 的 index。how 和 suggestedText 只描述这一个部位，不要把别的部位写进同一条。',
+    '改报价时 lineIndex 必须等于 quoteLines 的 index。项目名用 field=quoteLineName，施工方案用 field=quoteLineNote。',
     '仪表、里程不是发现项：补拍仪表时 part 写「仪表」，不要填 findingIndex。',
     'photo：how 写拍哪、怎么拍（距离、要入镜的读数、避码）；不要 suggestedText。',
-    'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName 之一；suggestedText 必须是可直接填进该字段的整句，并包含对应 partName。',
+    'text：field 必须是 chiefComplaint / findingAdvice / findingCaption / warrantyPeriod / quoteLineName / quoteLineNote 之一；suggestedText 必须是可直接填进该字段的整句。',
     '禁止改金额、禁止建议合并增项、禁止保证修好/无色差。只用打码图。',
     `提纲：${JSON.stringify(rubricBrief)}`,
     `本步草稿：${JSON.stringify(facts)}`,
@@ -272,7 +287,7 @@ async function analyzeNode(album, node, capability) {
   const fallback = buildRuleSuggestions(ctx)
   const step = resolveReviewStep(node.kind)
   let masked = { ready: true, urls: [] }
-  if (step !== 'quote_check' && collectNodeImageUrls(node).length) {
+  if (collectNodeImageUrls(node).length) {
     masked = await collectMaskedUrlsForNode(album.id, node)
   }
   let suggestions = fallback
@@ -318,7 +333,7 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
     }))
 
     const step = resolveReviewStep(node.kind)
-    if (step !== 'quote_check' && collectNodeImageUrls(node).length) {
+    if (collectNodeImageUrls(node).length) {
       const { scheduleAlbumPreMask, getAlbumPreMaskReadiness } = require('./desensitize.service')
       scheduleAlbumPreMask(albumId, { trigger: 'node_ai_review' })
       const started = Date.now()
@@ -439,7 +454,9 @@ async function maybeHoldCompleteForAiReview({
   incomingDraft,
   payload = {},
 }) {
-  if (!isReviewKind(node.kind) || node.kind === 'inspection_report') return null
+  if (!isReviewKind(node.kind) || node.kind === 'inspection_report' || node.kind === 'intake_inspection') {
+    return null
+  }
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability.entitled) return null
   if (wantsSkip(payload)) {
