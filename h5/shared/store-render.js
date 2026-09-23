@@ -777,26 +777,6 @@
     )
   }
 
-  function renderStoreFaq(faq) {
-    if (!faq || !faq.length) return ''
-    var items = faq
-      .map(function (item) {
-        return (
-          '<div class="h5-faq-item"><div class="h5-faq-q">' +
-          escapeHtml(item.q) +
-          '</div><div class="h5-faq-a">' +
-          escapeHtml(item.a) +
-          '</div></div>'
-        )
-      })
-      .join('')
-    return (
-      '<div class="h5-folio-panel h5-topic-faq" id="store-faq"><h2 class="h5-folio-section-title">常见问题</h2>' +
-      items +
-      '</div>'
-    )
-  }
-
   function renderSpecialties(list) {
     if (!list || !list.length) return ''
     var items = list
@@ -1128,7 +1108,6 @@
     html += renderCertSection(store, certRows)
     html += renderEnvironment(store.environmentImages)
     html += renderServices(services, store.id, bookingEnabled)
-    html += renderStoreFaq(store.faq)
 
     if (window.zhejianSiteNav && window.zhejianSiteNav.render) {
       html += window.zhejianSiteNav.render()

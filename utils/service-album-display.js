@@ -440,6 +440,7 @@ function enrichMerchantAlbumListItem(item) {
     metaLine: buildAlbumMetaLine(withTitle),
     hasOwner: resolveAlbumHasOwner(base),
     canShareToOwner: canShareToOwner(item),
+    hostedSiteUrl: String(item.hostedSiteUrl || '').trim(),
   }
 }
 

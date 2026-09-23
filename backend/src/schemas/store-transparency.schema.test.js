@@ -117,7 +117,7 @@ function run() {
     !auto.additionalProperty.some((item) => String(item.name).endsWith('.scorePart'))
   )
   assert.ok(graph['@graph'].some((node) => node['@type'] === 'ItemList'))
-  assert.ok(graph['@graph'].some((node) => node['@type'] === 'FAQPage'))
+  assert.ok(!graph['@graph'].some((node) => node['@type'] === 'FAQPage'))
 
   const emptyGraph = buildStorePageSchemaGraph({
     baseUrl: 'https://geo.example.com',

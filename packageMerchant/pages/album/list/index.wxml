@@ -32,6 +32,7 @@
       item="{{item}}"
       audience="merchant"
       bind:tap="onCardTap"
+      bind:opensite="onOpenHostedSite"
     />
     <view slot="footer" class="merchant-list-fab page-content">
       <ui-button type="primary" bind:btntap="onCreate">新建服务相册</ui-button>

@@ -20,7 +20,6 @@ const {
   buildTransparencyMetrics,
   buildTransparencyExplain,
 } = require('../../../utils/public-page-display')
-const { enrichStoreCaseList } = require('../../../utils/store-case-display')
 const {
   buildPublicStoreSharePayload,
   buildPublicStoreTimelinePayload,
@@ -34,7 +33,7 @@ const { DEEP_LINK_SHELL } = require('../../../constants/deep-link-detail')
 const { submitStoreDetailPage } = require('../../../utils/wx-search-submit')
 const { assertOwnerStoreAccess, isStoreContextIsolated } = require('../../../utils/album-store-access')
 
-const PREVIEW_BANNER_TEXT = '以下为车主看到的门店主页展示效果'
+const PREVIEW_BANNER_TEXT = '车主看到的门店资料'
 
 const STATUS_TEXT = {
   open: '营业中',
@@ -148,7 +147,7 @@ Page({
     })
     this.setData({ storeIsolated: shareCtx.isolated })
     if (this.isPreview) {
-      wx.setNavigationBarTitle({ title: '门店主页预览' })
+      wx.setNavigationBarTitle({ title: '门店资料' })
     }
     this.initPage()
   },
@@ -259,9 +258,8 @@ Page({
             auditMeta.approvedAt ? `（${auditMeta.approvedAt}）` : ''
           }。`
         : ''
-      const casesForView = enrichStoreCaseList(cases)
       this.setData({
-        store: { ...store, caseCount: cases.length },
+        store,
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certRows: buildCertRows(store.certifications),
@@ -276,7 +274,6 @@ Page({
           credentials: item.credentials || [],
           credentialPhotoUrls: item.credentialPhotoUrls || [],
         })),
-        faqList: store.faq || [],
         specialtyBrandsText: (store.specialtyBrands || []).join('、'),
         notAcceptingText: (store.notAccepting || []).join('、'),
         equipmentTagsText: (store.equipmentTags || [])
@@ -294,7 +291,6 @@ Page({
         }),
         transparencySummary: transparency.summary || '',
         transparencyExplain,
-        cases: casesForView,
         services,
         statusText: STATUS_TEXT[store.status] || store.status,
         status: 'normal',
@@ -380,14 +376,14 @@ Page({
     }
     if (this.storeId) {
       return {
-        title: store && store.name ? buildStoreShareTitle(store) : '辙见 · 门店主页',
+        title: store && store.name ? buildStoreShareTitle(store) : '辙见 · 门店资料',
         path: withStoreContextPath(`/pages/store/detail/index?id=${this.storeId}`, {
           storeId: this.storeId,
           isolated: true,
         }),
       }
     }
-    return { title: '辙见 · 门店主页', path: TOOL_HOME_PATH }
+    return { title: '辙见 · 门店资料', path: TOOL_HOME_PATH }
   },
 
   onShareTimeline() {
@@ -396,20 +392,6 @@ Page({
 
   onRetry() {
     this.loadPage()
-  },
-
-  onCaseTap(e) {
-    const caseId = e.detail && e.detail.caseId
-    if (!caseId || this._caseNavigating) return
-    this._caseNavigating = true
-    wx.navigateTo({
-      url: withStoreContextPath(`/pages/case/detail/index?id=${caseId}`, {
-        storeId: this.storeId,
-      }),
-      complete: () => {
-        this._caseNavigating = false
-      },
-    })
   },
 
   onSearchStore() {
@@ -423,14 +405,6 @@ Page({
         { storeId: this.storeId, isolated: true }
       ),
     })
-  },
-
-  onViewAllCases() {
-    if (this.data.isPreview) {
-      this.previewBlockedToast()
-      return
-    }
-    openLegacyListPage('case', this.storeId)
   },
 
   onViewAllServices() {

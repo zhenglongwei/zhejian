@@ -140,6 +140,13 @@ Component({
 
     onActionAreaTap() {},
 
+    onOpenSiteTap() {
+      const { item } = this.properties
+      const url = item && item.hostedSiteUrl
+      if (!url) return
+      this.triggerEvent('opensite', { id: item.albumId, url })
+    },
+
     onShareTap() {
       const { item } = this.properties
       if (!item || !item.albumId) return

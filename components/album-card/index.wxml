@@ -164,8 +164,17 @@
         </view>
       </view>
 
-      <view wx:if="{{item.canShareToOwner}}" class="album-card__actions album-card__actions--column">
+      <view
+        wx:if="{{item.hostedSiteUrl || item.canShareToOwner}}"
+        class="album-card__actions album-card__actions--column"
+      >
+        <view
+          wx:if="{{item.hostedSiteUrl}}"
+          class="album-card__share-btn"
+          catchtap="onOpenSiteTap"
+        >打开网站</view>
         <button
+          wx:if="{{item.canShareToOwner}}"
           class="album-card__share-btn"
           open-type="share"
           catchtap="onShareTap"

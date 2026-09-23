@@ -40,7 +40,6 @@
             </view>
             <view class="store-detail__status-row">
               <text class="store-detail__status text-body">{{statusText}}</text>
-              <text wx:if="{{store.caseCount}}" class="store-detail__meta text-caption">公开案例 {{store.caseCount}}</text>
             </view>
           </view>
           <ui-detail-top-actions
@@ -313,62 +312,6 @@
             />
           </view>
         </view>
-      </view>
-
-      <view class="surface-album-panel store-detail__panel store-detail__evidence">
-        <view class="deep-link-detail__section-head">
-          <text class="deep-link-detail__section-title text-h2">真实维修案例</text>
-          <text
-            wx:if="{{cases.length && !isPreview}}"
-            class="deep-link-detail__more text-caption"
-            bindtap="onViewAllCases"
-          >查看更多</text>
-        </view>
-        <view class="deep-link-detail__notice">
-          <ui-compliance-notice type="casePrice" />
-        </view>
-        <block wx:if="{{casesStatus === 'empty'}}">
-          <ui-empty
-            theme="album"
-            title="该门店暂无公开案例"
-            description="你可以查看服务或联系门店了解维修能力"
-            actionText="联系门店"
-            bind:action="onCallStore"
-          />
-        </block>
-        <view wx:else class="store-detail__evidence-stack">
-          <view
-            wx:for="{{cases}}"
-            wx:key="id"
-            class="surface-record-card store-detail__evidence-cell"
-          >
-            <ui-case-card
-              embedded="{{true}}"
-              trustOnlyTags="{{true}}"
-              showPriceDisclaimer="{{false}}"
-              caseId="{{item.id}}"
-              authorizationTier="{{item.authorizationTier}}"
-              coverImage="{{item.coverImage}}"
-              title="{{item.displayTitle || item.title}}"
-              serviceName="{{item.serviceName}}"
-              summary="{{item.displayLead || item.summary}}"
-              priceMode="{{item.priceMode}}"
-              amount="{{item.amount}}"
-              minAmount="{{item.minAmount}}"
-              maxAmount="{{item.maxAmount}}"
-              storeName="{{item.storeName}}"
-              publisherTrustLine="{{item.publisherTrustLine}}"
-              viewCount="{{item.viewCount}}"
-              showStoreName="{{false}}"
-              bind:cardtap="onCaseTap"
-            />
-          </view>
-        </view>
-      </view>
-
-      <view wx:if="{{faqList.length}}" class="surface-album-panel store-detail__panel">
-        <text class="deep-link-detail__section-title text-h2">常见问题</text>
-        <ui-faq-list items="{{faqList}}" showQPrefix="{{true}}" variant="card" />
       </view>
 
       <view wx:if="{{!isPreview}}" class="deep-link-detail__section deep-link-detail__report">

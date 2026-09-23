@@ -22,7 +22,7 @@ const MERCHANT_HUB_DOCK_ITEMS = [
 
 /** 主账号 · 页内文字链（不占 Dock 格）；切店在扉页，不重复 */
 const MERCHANT_HUB_MORE_ITEMS = [
-  { key: 'storeHome', label: '门店主页' },
+  { key: 'storeHome', label: '门店资料' },
   { key: 'staff', label: '账号管理' },
 ]
 

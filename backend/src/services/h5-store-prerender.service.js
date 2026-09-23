@@ -103,17 +103,6 @@ function buildStoreBotBodyHtml(store) {
           )
           .join('')}</ul></section>`
       : '',
-    Array.isArray(store.faq) && store.faq.length
-      ? `<section data-bot="store-faq" id="store-faq"><h2>常见问题</h2>${store.faq
-          .map((item) => {
-            const q = escapeHtml(item.q || item.question || '')
-            const a = escapeHtml(item.a || item.answer || '')
-            if (!q || !a) return ''
-            return `<article><h3>${q}</h3><p>${a}</p></article>`
-          })
-          .filter(Boolean)
-          .join('')}</section>`
-      : '',
     renderSiteBeianHtml(),
   ]
   return sections.filter(Boolean).join('\n')
@@ -139,7 +128,6 @@ async function renderStoreBotHtml(storeId) {
       baseUrl: config.publicBaseUrl,
       store,
       transparency: store.transparency,
-      faq: store.faq,
       organizationSameAs: config.geo?.organizationSameAs || [],
     })
 

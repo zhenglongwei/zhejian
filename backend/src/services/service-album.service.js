@@ -1283,6 +1283,7 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
   return albums.map((album) => {
     const view = buildMerchantView(album)
     const followUpCount = countFollowUpItemsInChecklist(album.checklistJson)
+    const host = mapMerchantAlbumHostSite(album)
     return {
       albumId: view.albumId,
       serviceName: view.serviceName,
@@ -1299,8 +1300,31 @@ async function listMerchantServiceAlbums(storeId, options = {}, merchantId = '')
       followUpCount,
       flowVersion: view.flowVersion || 0,
       usesFlowTimeline: Boolean(view.usesFlowTimeline),
+      hosted: host.hosted,
+      hostedSiteUrl: host.hostedSiteUrl,
     }
   })
+}
+
+/** 已托管且网站可打开时，列表才给出网页地址 */
+function mapMerchantAlbumHostSite(album) {
+  const { readHostMeta } = require('./case-hosting.service')
+  const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
+  const { buildCaseH5Url } = require('./case-article-publish.service')
+  const meta = readHostMeta(album)
+  const pc = album && album.publicCase
+  const hosted = Boolean(meta.hosted)
+  if (!hosted || !isPublicCaseH5Visible(pc)) {
+    return { hosted, hostedSiteUrl: '' }
+  }
+  return {
+    hosted: true,
+    hostedSiteUrl: buildCaseH5Url({
+      slug: pc.slug,
+      caseId: pc.id,
+      canonicalPath: pc.canonicalPath,
+    }),
+  }
 }
 
 /** ALB-UX-09 · 商家相册列表搜索（车型/电话/VIN/车牌/服务名/相册号） */

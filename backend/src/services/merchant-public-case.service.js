@@ -11,6 +11,7 @@ const {
 } = require('../constants/case-article-status')
 const { resolvePublicCaseMediaUrl } = require('../lib/media-url')
 const { buildCaseH5Url } = require('./case-article-publish.service')
+const { isPublicCaseH5Visible } = require('../utils/public-case-visibility')
 
 const H5_CASE_VIEW_EVENT = 'h5_case_view'
 const MP_CASE_VIEW_EVENT = 'case_view'
@@ -31,18 +32,24 @@ function resolvePublishLabel(row) {
   if (row.status === PUBLIC_CASE_STATUS.PENDING_REVIEW) {
     return { key: 'pending_review', label: '审核中' }
   }
-  if (row.status !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
-    return { key: 'draft', label: '未公开' }
-  }
   const articleStatus = row.articleStatus || CASE_ARTICLE_STATUS.PENDING
-  if (articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_WECHAT) {
+  if (
+    row.status === PUBLIC_CASE_STATUS.PUBLIC_APPROVED &&
+    articleStatus === CASE_ARTICLE_STATUS.PUBLISHED_WECHAT
+  ) {
     return { key: 'published_wechat', label: '已发公众号' }
   }
-  if (CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(articleStatus)) {
+  if (isPublicCaseH5Visible(row)) {
     if (row.seoNoindex) {
       return { key: 'published_h5_private', label: '未公开' }
     }
     return { key: 'published_h5', label: '已上网站' }
+  }
+  if (row.status !== PUBLIC_CASE_STATUS.PUBLIC_APPROVED) {
+    return { key: 'draft', label: '未公开' }
+  }
+  if (CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(articleStatus)) {
+    return { key: 'published_h5_private', label: '未公开' }
   }
   if (
     articleStatus === CASE_ARTICLE_STATUS.READY ||
@@ -54,6 +61,12 @@ function resolvePublishLabel(row) {
     key: 'pending',
     label: '未公开',
   }
+}
+
+/** 网站已可打开才给链接。不再另等旧「文章已发到网站」。 */
+function resolveRecentH5Url(row) {
+  if (!isPublicCaseH5Visible(row)) return ''
+  return buildCaseH5Url(row)
 }
 
 async function countCaseViews7d(storeId, caseIds = null) {
@@ -162,12 +175,7 @@ async function fetchMerchantCasePublishPanel(storeId) {
 
   const recent = recentRows.map((row) => {
     const publish = resolvePublishLabel(row)
-    const h5Url =
-      CASE_ARTICLE_H5_PUBLISHED_STATUSES.includes(
-        row.articleStatus || CASE_ARTICLE_STATUS.PENDING
-      )
-        ? buildCaseH5Url(row)
-        : ''
+    const h5Url = resolveRecentH5Url(row)
     return {
       caseId: row.id,
       albumId: row.albumId || '',
@@ -206,4 +214,5 @@ async function fetchMerchantCasePublishPanel(storeId) {
 module.exports = {
   fetchMerchantCasePublishPanel,
   resolvePublishLabel,
+  resolveRecentH5Url,
 }

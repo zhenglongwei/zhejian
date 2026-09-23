@@ -20,6 +20,7 @@ const {
 } = require('../../../../utils/list-page-show')
 const { TOOL_HOME_PATH } = require('../../../../utils/share-store-context')
 const { buildMerchantAlbumEntryPath } = require('../../../../utils/merchant-album-nav')
+const { openH5Url } = require('../../../../constants/h5-links')
 
 Page({
   data: {
@@ -136,6 +137,12 @@ Page({
     const item = (this.data.list || []).find((row) => row.albumId === id) || { albumId: id }
     markListNeedRefresh(this)
     wx.navigateTo({ url: buildMerchantAlbumEntryPath(id, item) })
+  },
+
+  onOpenHostedSite(e) {
+    const url = e.detail && e.detail.url
+    if (!url) return
+    openH5Url(url)
   },
 
   onRetry() {

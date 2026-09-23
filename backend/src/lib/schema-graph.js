@@ -526,7 +526,6 @@ function buildStorePageSchemaGraph(input = {}) {
       (caseCount > 0 ||
         dimsRaw.some((dim) => dim && dim.id === 'public_cases' && Number(dim.value) > 0)))
   const dimensions = exposed ? dimsRaw : []
-  const faq = input.faq || store.faq || []
   const storeId = store.id || ''
   const canonicalPath = (store.seo && store.seo.canonicalPath) || `/store/${storeId}.html`
   const canonical = entityId(baseUrl, canonicalPath, '')
@@ -670,9 +669,6 @@ function buildStorePageSchemaGraph(input = {}) {
       isPartOf: { '@id': autoRepair['@id'] },
     })
   })
-
-  const faqNode = buildFaqNode(faq)
-  if (faqNode) graph.push(faqNode)
 
   const caseDim = dimensions.find((item) => item.id === 'public_cases')
   const previewFromInput = Array.isArray(input.casePreviews)

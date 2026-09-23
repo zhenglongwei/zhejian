@@ -28,7 +28,7 @@ const {
   readCertPublishFlag,
 } = require('../utils/store-public-display')
 const { mapStoreCasePreview } = require('../utils/store-case-preview')
-const { buildStorePublicFaq, sanitizeFaq, buildCapabilitySummaryLine } = require('../utils/store-public-faq')
+const { sanitizeFaq, buildCapabilitySummaryLine } = require('../utils/store-public-faq')
 const {
   buildPublicCapabilityView,
   readCapabilityJson,
@@ -333,10 +333,6 @@ async function loadTransparency(store, merchantId, options = {}) {
   })
 }
 
-function resolveStoreFaq(ctx) {
-  return buildStorePublicFaq(ctx)
-}
-
 function attachSectionMeta(payload, sectionOrder) {
   return {
     ...payload,
@@ -452,23 +448,6 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
       bookingPaused: capability.bookingPaused,
     })
 
-  const customFaq = [...sanitizeFaq(photosMeta.publicFaq), ...sanitizeFaq(extras.faq)]
-  const { faq, faqSource } = resolveStoreFaq({
-    storeName: mapped.name || storeRow.name,
-    customFaq,
-    specialties,
-    vehicleSpecialties,
-    specialtyBrands: publicCapability.specialtyBrands,
-    equipmentTags: publicCapability.equipmentTags,
-    notAccepting: publicCapability.notAccepting,
-    casePreviews,
-    caseCount: mapped.caseCount != null ? mapped.caseCount : casePreviews.length,
-    serviceNames: Array.isArray(options.serviceNames) ? options.serviceNames : [],
-    address: mapped.address || storeRow.address || '',
-    businessHours: mapped.businessHours || storeRow.businessHours || '',
-    phone: mapped.phone || storeRow.phone || '',
-  })
-
   const capabilitySummary = buildCapabilitySummaryLine({
     specialtyBrands: publicCapability.specialtyBrands,
     equipmentTags: publicCapability.equipmentTags,
@@ -511,8 +490,8 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     certWall,
     staffPublic,
     transparency,
-    faq,
-    faqSource,
+    faq: [],
+    faqSource: '',
     vehicleSpecialties,
     aiSummary,
     foundingDate: operatingYearsMeta ? operatingYearsMeta.foundingDate : '',
@@ -527,7 +506,6 @@ async function enrichStorePublicPage(mapped, storeRow, merchantRow, options = {}
     baseUrl: config.publicBaseUrl,
     store: payload,
     transparency,
-    faq,
     casePreviews,
     organizationSameAs: config.geo?.organizationSameAs || [],
   })
@@ -570,5 +548,4 @@ module.exports = {
   loadStaffPublic,
   loadTransparency,
   sanitizeFaq,
-  buildStorePublicFaq,
 }
