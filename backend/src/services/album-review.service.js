@@ -507,6 +507,15 @@ async function submitServiceAlbumReviewFollowUp(albumId, userId, payload = {}) {
   return mapReviewRow(row)
 }
 
+function reviewVehicleLine(vehicleJson) {
+  const vehicle = vehicleJson && typeof vehicleJson === 'object' ? vehicleJson : {}
+  const plate = String(vehicle.plate || vehicle.plateDisplay || '').trim()
+  const model = [vehicle.brand, vehicle.series].filter(Boolean).join(' ')
+  const year = String(vehicle.modelYear || '').trim()
+  const modelLine = [model, year].filter(Boolean).join(' ')
+  return [plate, modelLine].filter(Boolean).join(' · ')
+}
+
 function resolveMerchantReviewTab(tab) {
   const value = String(tab || 'pending').trim()
   if (value === 'replied') return 'replied'
@@ -537,7 +546,7 @@ async function listMerchantAlbumReviews(storeId, tab = 'pending') {
   const albumIds = [...new Set(rows.map((r) => r.albumId))]
   const albums = await prisma.album.findMany({
     where: { id: { in: albumIds } },
-    select: { id: true, serviceName: true, userPhone: true },
+    select: { id: true, serviceName: true, userPhone: true, vehicleJson: true },
   })
   const albumMap = new Map(albums.map((a) => [a.id, a]))
 
@@ -550,6 +559,7 @@ async function listMerchantAlbumReviews(storeId, tab = 'pending') {
       id: row.id,
       albumId: row.albumId,
       serviceName: album?.serviceName || '服务相册',
+      vehicleLine: reviewVehicleLine(album?.vehicleJson),
       repairScore: mapped.repairScore,
       albumScore: mapped.albumScore,
       overallScore: mapped.overallScore,
@@ -589,6 +599,7 @@ async function getMerchantAlbumReviewById(reviewId, storeId) {
       serviceName: true,
       userPhone: true,
       status: true,
+      vehicleJson: true,
     },
   })
 
@@ -598,6 +609,7 @@ async function getMerchantAlbumReviewById(reviewId, storeId) {
   return {
     ...mapReviewRow(row),
     serviceName: album?.serviceName || '',
+    vehicleLine: reviewVehicleLine(album?.vehicleJson),
     ownerHint: phoneTail ? `车主*${phoneTail}` : '车主',
     albumStatus: album?.status || '',
   }

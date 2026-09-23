@@ -201,9 +201,8 @@
         <text wx:if="{{transparencyExplain.asOfDate}}" class="store-detail__transparency-asof text-caption">统计截至 {{transparencyExplain.asOfDate}}</text>
       </view>
 
-      <view wx:if="{{certRows.length || certWall.length || auditMeta}}" class="surface-album-panel store-detail__panel">
+      <view wx:if="{{certRows.length || certWall.length}}" class="surface-album-panel store-detail__panel">
         <text class="deep-link-detail__section-title text-h2">门店资质</text>
-        <text wx:if="{{auditNote}}" class="store-detail__section-note text-caption">{{auditNote}}</text>
         <view wx:if="{{certWall.length}}" class="store-detail__cert-wall">
           <view
             wx:for="{{certWall}}"
@@ -217,7 +216,6 @@
             <text class="store-detail__cert-wall-caption text-caption">{{item.label}} · {{item.text}}</text>
           </view>
         </view>
-        <text wx:elif="{{certEmptyHint}}" class="store-detail__cert-empty text-caption">{{certEmptyHint}}</text>
         <view wx:if="{{certRows.length}}" class="store-detail__cert-table">
           <ui-key-info-table rows="{{certRows}}" />
         </view>

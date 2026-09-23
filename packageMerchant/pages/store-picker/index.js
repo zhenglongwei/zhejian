@@ -139,7 +139,7 @@ Page({
   },
 
   onAddStore() {
-    wx.navigateTo({ url: '/packageMerchant/pages/workbench/index?newStore=1' })
+    wx.navigateTo({ url: '/packageMerchant/pages/onboarding/index?newStore=1' })
   },
 
   async onEntryTap(e) {

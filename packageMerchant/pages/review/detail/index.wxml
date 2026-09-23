@@ -23,6 +23,7 @@
           <text class="text-h3">{{review.serviceName}}</text>
           <text class="text-body">维修 {{review.repairScore}} · 记录 {{review.albumScore}}</text>
         </view>
+        <text wx:if="{{review.vehicleLine}}" class="text-body">{{review.vehicleLine}}</text>
         <text class="text-caption text-secondary">
           {{review.ownerHint}} · 评价于 {{review.createdAtText || review.createdAt}}
         </text>

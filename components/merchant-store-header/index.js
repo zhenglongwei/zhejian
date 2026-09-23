@@ -16,6 +16,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    /** 主账号：点店名进入门店列表（切换或注册新店） */
+    canManageStores: {
+      type: Boolean,
+      value: false,
+    },
     switchingStore: {
       type: Boolean,
       value: false,
@@ -45,6 +50,11 @@ Component({
   methods: {
     onStoreChange(e) {
       this.triggerEvent('storechange', { index: Number(e.detail.value) })
+    },
+
+    onOpenStores() {
+      if (!this.properties.canManageStores) return
+      this.triggerEvent('openstores')
     },
 
     onMessageTap() {

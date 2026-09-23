@@ -12,8 +12,6 @@ const MERCHANT_ALBUM_SECTION_TITLE = '服务相册'
 
 const MERCHANT_ALBUM_EMPTY_HINT = '先建一本，把这一单过程记下来。'
 
-const MERCHANT_CASE_SECTION_TITLE = '案例动态'
-
 const MERCHANT_HUB_DOCK_ITEMS = [
   { key: 'createAlbum', label: '新建相册' },
   { key: 'reviews', label: '车主评价', badgeKey: 'pendingReviews' },
@@ -40,29 +38,13 @@ function overviewMetricIsPositive(raw) {
 }
 
 function buildMerchantTodoSummary(todos = {}) {
-  const pendingUpload = Number(todos.pendingUpload) || 0
   const pendingReviews = Number(todos.pendingReviews) || 0
-  const pendingFollowUp = Number(todos.pendingFollowUp) || 0
   const items = []
-  if (pendingUpload > 0) {
-    items.push({
-      key: 'upload',
-      label: `${pendingUpload} 本相册待补留证`,
-      action: 'upload',
-    })
-  }
   if (pendingReviews > 0) {
     items.push({
       key: 'reviews',
       label: `${pendingReviews} 条评价待回复`,
       action: 'reviews',
-    })
-  }
-  if (pendingFollowUp > 0) {
-    items.push({
-      key: 'followup',
-      label: `${pendingFollowUp} 项服务待回访跟进`,
-      action: 'followup',
     })
   }
   if (!items.length) return null
@@ -194,29 +176,14 @@ function filterMerchantGeoOpportunity(geoOpp, storeServiceNames = []) {
   }
 }
 
-/** 草稿/进行中且图很少 → 待补留证列表 */
-function pickPendingUploadAlbums(list = []) {
-  return (list || [])
-    .filter((row) => {
-      const status = String((row && row.status) || '')
-      if (!(status === 'draft' || status === 'in_progress')) return false
-      const count = Number(row.imageCount)
-      const n = Number.isFinite(count) ? count : ((row.images && row.images.length) || 0)
-      return n < 2
-    })
-    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
-}
-
 module.exports = {
   MERCHANT_ALBUM_SECTION_TITLE,
   MERCHANT_ALBUM_EMPTY_HINT,
-  MERCHANT_CASE_SECTION_TITLE,
   MERCHANT_HUB_MORE_ITEMS,
   buildMerchantTodoSummary,
   buildMerchantSetupTodos,
   withSetupTodos,
   pickMerchantHubAlbums,
-  pickPendingUploadAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,

@@ -2,7 +2,6 @@
   "navigationBarTitleText": "商家工作台",
   "usingComponents": {
     "ui-empty": "/components/empty/index",
-    "ui-tag": "/components/tag/index",
     "ui-skeleton": "/components/skeleton/index",
     "ui-tool-page-shell": "/components/tool-page-shell/index",
     "ui-merchant-store-header": "/components/merchant-store-header/index",

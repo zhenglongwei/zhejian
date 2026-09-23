@@ -2,21 +2,14 @@
   <view class="merchant-store-header__main">
     <view class="merchant-store-header__head-row">
       <view class="merchant-store-header__title-wrap">
-        <picker
-          wx:if="{{canSwitchStore}}"
-          class="merchant-store-header__picker"
-          mode="selector"
-          range="{{storeOptions}}"
-          range-key="name"
-          value="{{storePickerIndex}}"
-          disabled="{{switchingStore}}"
-          bindchange="onStoreChange"
+        <view
+          wx:if="{{canManageStores}}"
+          class="merchant-store-header__title-row"
+          bindtap="onOpenStores"
         >
-          <view class="merchant-store-header__title-row">
-            <text class="merchant-store-header__title text-h3">{{storeName}}</text>
-            <text class="merchant-store-header__caret text-caption">▾</text>
-          </view>
-        </picker>
+          <text class="merchant-store-header__title text-h3">{{storeName}}</text>
+          <text class="merchant-store-header__caret text-caption">▾</text>
+        </view>
         <text wx:else class="merchant-store-header__title text-h3">{{storeName}}</text>
       </view>
 

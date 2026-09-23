@@ -252,22 +252,12 @@ Page({
       const transparency = store.transparency || {}
       const transparencyExplain = buildTransparencyExplain(transparency)
       const certWall = store.certWall || []
-      const auditMeta = store.auditMeta || null
-      const auditNote = auditMeta
-        ? `由${auditMeta.auditor}依据${auditMeta.basis}审核${
-            auditMeta.approvedAt ? `（${auditMeta.approvedAt}）` : ''
-          }。`
-        : ''
       this.setData({
         store,
         shellSubtitle: pageTitle,
         headTags: buildStoreHeadTags(store),
         certRows: buildCertRows(store.certifications),
         certWall,
-        certEmptyHint:
-          certWall.length > 0
-            ? ''
-            : '证照图片待商家补充；以下为平台资料审核结果。',
         staffPublic: (store.staffPublic || []).map((item) => ({
           ...item,
           years: formatTechnicianYearsDisplay(item.years),
@@ -282,8 +272,6 @@ Page({
           .join('、'),
         freshnessSummary: (store.freshness && store.freshness.summary) || '',
         heroImages: buildHeroImages(store),
-        auditMeta,
-        auditNote,
         transparencyMetrics: buildTransparencyMetrics({
           ...transparency,
           caseCount: cases.length,

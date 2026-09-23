@@ -6,16 +6,11 @@ const {
   quickOpenMerchant,
   MERCHANT_STATUS,
 } = require('../../../services/merchant')
-const {
-  fetchMerchantAlbumStats,
-  fetchMerchantServiceAlbumList,
-} = require('../../../services/merchant-service-album')
+const { fetchMerchantServiceAlbumList } = require('../../../services/merchant-service-album')
 const { fetchMerchantReviewStats } = require('../../../services/merchant-album-review')
 const { fetchMerchantStats } = require('../../../services/merchant-stats')
 const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo')
-const { fetchMerchantCasePublishPanel } = require('../../../services/merchant-public-case')
 const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-subscription')
-const { openMerchantPublishedCase } = require('../../../constants/h5-links')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
 const { isMerchantOwner } = require('../../../utils/auth')
@@ -28,11 +23,9 @@ const {
 const {
   MERCHANT_ALBUM_SECTION_TITLE,
   MERCHANT_ALBUM_EMPTY_HINT,
-  MERCHANT_CASE_SECTION_TITLE,
   buildMerchantTodoSummary,
   withSetupTodos,
   pickMerchantHubAlbums,
-  pickPendingUploadAlbums,
   buildAlbumSectionBadge,
   buildMerchantHubDock,
   buildMerchantHubMoreLinks,
@@ -45,21 +38,6 @@ const {
   hasWechatArchiveIntent,
   redirectToWechatArchive,
 } = require('../../../utils/wechat-archive-intent')
-
-const MERCHANT_CASE_PUBLISHED = ['published_h5', 'published_wechat', 'published_h5_private']
-
-function resolveCasePublishTagVariant(publishStatus) {
-  if (publishStatus === 'published_h5_private') return 'info'
-  if (MERCHANT_CASE_PUBLISHED.includes(publishStatus)) return 'default'
-  return 'info'
-}
-
-function decorateCasePublishRecent(list = []) {
-  return (list || []).map((item) => ({
-    ...item,
-    publishTagVariant: resolveCasePublishTagVariant(item.publishStatus),
-  }))
-}
 
 function quietMerchantHubAlbumTags(item = {}) {
   const status = item.status || ''
@@ -94,17 +72,16 @@ Page({
     todoSummary: null,
     hubDock: buildMerchantHubDock(),
     hubMoreLinks: [],
-    casePublishRecent: [],
     canManageStaff: false,
     storeOptions: [],
     storePickerIndex: 0,
     canSwitchStore: false,
+    canManageStores: false,
     switchingStore: false,
     geoOpportunity: null,
     planTag: null,
     albumSectionTitle: MERCHANT_ALBUM_SECTION_TITLE,
     albumEmptyHint: MERCHANT_ALBUM_EMPTY_HINT,
-    caseSectionTitle: MERCHANT_CASE_SECTION_TITLE,
     opening: false,
   },
 
@@ -175,10 +152,10 @@ Page({
       activeAlbums: 0,
     }
     let overviewLine = ''
-    let casePublishRecent = []
     let storeOptions = []
     let storePickerIndex = 0
     let canSwitchStore = false
+    let canManageStores = false
     let geoOpportunity = null
     let albumHeroCards = []
     let planTag = null
@@ -192,41 +169,27 @@ Page({
           storeOptions.findIndex((item) => item.id === profile.storeId)
         )
         canSwitchStore = storeOptions.length > 1
+        canManageStores = true
       }
     } catch (e) {
       storeOptions = []
+      canManageStores = isMerchantOwner()
     }
 
     try {
       const canManageStaff = isMerchantOwner()
-      const [stats, reviewStats, dashStats, publishPanel, geoOpp, albumList, subPanel] =
-        await Promise.all([
-          fetchMerchantAlbumStats(),
-          fetchMerchantReviewStats({ storeId: profile.storeId }).catch(() => ({ pendingReply: 0 })),
-          fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
-          fetchMerchantCasePublishPanel({ storeId: profile.storeId }).catch(() => null),
-          fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
-          fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
-          canManageStaff
-            ? fetchMerchantSubscriptionPanel().catch(() => null)
-            : Promise.resolve(null),
-        ])
+      const [reviewStats, dashStats, geoOpp, albumList, subPanel] = await Promise.all([
+        fetchMerchantReviewStats({ storeId: profile.storeId }).catch(() => ({ pendingReply: 0 })),
+        fetchMerchantStats({ storeId: profile.storeId, period: '7d' }).catch(() => null),
+        fetchMerchantGeoOpportunity({ storeId: profile.storeId }).catch(() => null),
+        fetchMerchantServiceAlbumList({ tab: 'all' }).catch(() => []),
+        canManageStaff
+          ? fetchMerchantSubscriptionPanel().catch(() => null)
+          : Promise.resolve(null),
+      ])
 
       todos = {
         pendingReviews: reviewStats.pendingReply || 0,
-        pendingUpload: stats.pendingUpload || 0,
-        pendingAuth: stats.pendingAuth || 0,
-        pendingFollowUp: stats.pendingFollowUp || 0,
-        geoEvidenceBlocked: stats.geoEvidenceBlocked || 0,
-        activeAlbums: stats.active || 0,
-      }
-      this._followUpAlbums = (albumList || []).filter((row) => Number(row.followUpCount) > 0)
-      this._pendingUploadAlbums = pickPendingUploadAlbums(albumList || [])
-
-      if (publishPanel && publishPanel.recent) {
-        casePublishRecent = decorateCasePublishRecent(
-          (publishPanel.recent || []).slice(0, 2)
-        )
       }
 
       if (dashStats && dashStats.summary) {
@@ -269,11 +232,11 @@ Page({
       albumSectionBadge: buildAlbumSectionBadge(todos),
       hubDock: buildMerchantHubDock(todos),
       hubMoreLinks: buildMerchantHubMoreLinks(canManageStaff, todos),
-      casePublishRecent,
       canManageStaff,
       storeOptions,
       storePickerIndex,
       canSwitchStore,
+      canManageStores,
       geoOpportunity,
       planTag,
     })
@@ -378,14 +341,6 @@ Page({
       this.onReviewList()
       return
     }
-    if (action === 'upload') {
-      this.onOpenPendingUploadTodo()
-      return
-    }
-    if (action === 'followup') {
-      this.onOpenFollowUpTodo()
-      return
-    }
     if (action === 'auth') {
       this.onGoAuth()
       return
@@ -393,86 +348,6 @@ Page({
     if (action === 'storeProfile') {
       this.onGoStoreEdit()
     }
-  },
-
-  onOpenPendingUploadTodo() {
-    const list = this._pendingUploadAlbums || []
-    if (!list.length) {
-      this.onAlbumList({ currentTarget: { dataset: { tab: 'active' } } })
-      return
-    }
-    if (list.length === 1) {
-      const item = list[0]
-      this._navigateTo(buildMerchantAlbumEntryPath(item.albumId, item))
-      return
-    }
-    const first = list[0]
-    wx.showActionSheet({
-      itemList: list.slice(0, 6).map((row) => {
-        const plate =
-          (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
-          row.vehicleDisplay ||
-          '相册'
-        const service = String(row.serviceName || '').trim()
-        return service ? `${plate} · ${service}` : plate
-      }),
-      success: (res) => {
-        const picked = list[res.tapIndex]
-        if (!picked) return
-        this._navigateTo(buildMerchantAlbumEntryPath(picked.albumId, picked))
-      },
-      fail: () => {
-        this._navigateTo(buildMerchantAlbumEntryPath(first.albumId, first))
-      },
-    })
-  },
-
-  onOpenFollowUpTodo() {
-    const list = this._followUpAlbums || []
-    if (!list.length) {
-      this.onAlbumList({ currentTarget: { dataset: { tab: 'all' } } })
-      wx.showToast({ title: '请在完工节点查看跟进', icon: 'none' })
-      return
-    }
-    if (list.length === 1) {
-      const item = list[0]
-      this._navigateTo(
-        buildMerchantAlbumEntryPath(item.albumId, item, {
-          stage: 'stage_6',
-          expandFollowUp: true,
-        }),
-      )
-      return
-    }
-    // 多本：进列表，优先点开最近有跟进的一本
-    const first = list[0]
-    wx.showActionSheet({
-      itemList: list.slice(0, 6).map((row) => {
-        const plate =
-          (row.vehicle && (row.vehicle.plate || row.vehicle.plateDisplay)) ||
-          row.vehicleDisplay ||
-          '相册'
-        return `${plate} · ${row.followUpCount || 0} 项跟进`
-      }),
-      success: (res) => {
-        const picked = list[res.tapIndex]
-        if (!picked) return
-        this._navigateTo(
-          buildMerchantAlbumEntryPath(picked.albumId, picked, {
-            stage: 'stage_6',
-            expandFollowUp: true,
-          }),
-        )
-      },
-      fail: () => {
-        this._navigateTo(
-          buildMerchantAlbumEntryPath(first.albumId, first, {
-            stage: 'stage_6',
-            expandFollowUp: true,
-          }),
-        )
-      },
-    })
   },
 
   onDockTap(e) {
@@ -546,37 +421,11 @@ Page({
     this.onSubscription()
   },
 
-  onStoreHome() {
-    const { profile } = this.data
-    if (!profile || !profile.storeId) {
-      wx.showToast({ title: '未找到门店信息', icon: 'none' })
-      return
-    }
-    this._navigateTo(`/pages/store/detail/index?id=${profile.storeId}&preview=1`)
+  onOpenStoreList() {
+    this._navigateTo('/packageMerchant/pages/store-picker/index')
   },
 
-  onCasePublishItemTap(e) {
-    const index = e.currentTarget.dataset.index
-    const item =
-      (typeof index === 'number' && this.data.casePublishRecent[index]) ||
-      this.data.casePublishRecent.find(
-        (row) =>
-          row.caseId === e.currentTarget.dataset.caseId ||
-          row.albumId === e.currentTarget.dataset.albumId
-      )
-    if (!item) return
-
-    const publishedKeys = ['published_h5', 'published_wechat']
-    if (publishedKeys.includes(item.publishStatus) || item.h5Url) {
-      openMerchantPublishedCase(item)
-      return
-    }
-    if (item.albumId) {
-      this._navigateTo(buildMerchantAlbumEntryPath(item.albumId, item))
-      return
-    }
-    if (item.caseId) {
-      this._navigateTo('/packageMerchant/pages/album/list/index?tab=done')
-    }
+  onStoreHome() {
+    this._navigateTo('/packageMerchant/pages/store/edit/index')
   },
 })
