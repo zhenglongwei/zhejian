@@ -39,6 +39,7 @@ const {
   WORK_IMAGES_MAX,
   normalizeQuoteLine,
   mapFindingRows,
+  mediaKey,
   sumQuoteAmounts,
   listQuoteLineEvidenceUrls,
   isQuoteEvidenceFinding,
@@ -459,15 +460,17 @@ Page({
         if (urlToIndex[u] === idx) delete urlToIndex[u]
       })
       ;((rows[idx] && rows[idx].images) || []).forEach((img) => {
-        if (img && img.url) urlToIndex[img.url] = idx
+        const key = mediaKey(img && img.url)
+        if (key) urlToIndex[key] = idx
       })
     }
     const unionImages = (prevImages, nextImages) => {
       const seen = {}
       const out = []
       ;(prevImages || []).concat(nextImages || []).forEach((img) => {
-        if (!img || !img.url || seen[img.url]) return
-        seen[img.url] = true
+        const key = mediaKey(img && img.url)
+        if (!img || !key || seen[key]) return
+        seen[key] = true
         out.push(img)
       })
       return out
@@ -477,9 +480,9 @@ Page({
       if (!item.images.length && !item.partName) return
       let idx = -1
       for (let i = 0; i < item.images.length; i += 1) {
-        const url = item.images[i] && item.images[i].url
-        if (url && urlToIndex[url] !== undefined) {
-          idx = urlToIndex[url]
+        const key = mediaKey(item.images[i] && item.images[i].url)
+        if (key && urlToIndex[key] !== undefined) {
+          idx = urlToIndex[key]
           break
         }
       }
@@ -560,6 +563,50 @@ Page({
     return (findings || []).concat(pending)
   },
 
+  findingImagesFromRows(findings = [], odometerUrl = '') {
+    const seen = new Set()
+    const odoKey = mediaKey(odometerUrl)
+    const out = []
+    ;(findings || []).forEach((raw) => {
+      const url = String((raw && raw.url) || '').trim()
+      const key = mediaKey(url)
+      if (!url || !key || (odoKey && key === odoKey) || seen.has(key)) return
+      seen.add(key)
+      out.push({
+        url,
+        id: raw.imageId || '',
+        imageId: raw.imageId || '',
+        caption: String(raw.partName || '').trim(),
+      })
+    })
+    return out
+  },
+
+  suggestionIdsOnFinding(item = {}) {
+    return [
+      item.aiSuggestionId,
+      item.photoHint && item.photoHint.id,
+      item.adviceHint && item.adviceHint.id,
+      item.captionHint && item.captionHint.id,
+    ]
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  },
+
+  dismissAiSuggestionIds(ids = []) {
+    if (!this._dismissedAiSuggestionIds) this._dismissedAiSuggestionIds = new Set()
+    ids.forEach((id) => {
+      const key = String(id || '').trim()
+      if (key) this._dismissedAiSuggestionIds.add(key)
+    })
+    const review = this.data.aiReview
+    if (!review || !Array.isArray(review.suggestions)) return null
+    const suggestions = review.suggestions.map((row) =>
+      row && this._dismissedAiSuggestionIds.has(row.id) ? { ...row, applied: true } : row,
+    )
+    return this.decorateAiReview({ ...review, suggestions })
+  },
+
   flattenWorkSectionImages(findings = []) {
     const out = []
     ;(findings || []).forEach((raw) => {
@@ -580,11 +627,8 @@ Page({
     const normalizeKey = (url, imageId = '') => {
       const id = String(imageId || '').trim()
       if (id) return `id:${id}`
-      const raw = String(url || '').trim()
-      if (!raw) return ''
-      // 节点图常经 CDN/签名重写，与 photoDraft 原 URL 不完全一致；去 query 后再比
-      const bare = raw.split('?')[0].split('#')[0]
-      return `url:${bare}`
+      const key = mediaKey(url)
+      return key ? `url:${key}` : ''
     }
     const put = (url, partName = '', imageId = '') => {
       const u = String(url || '').trim()
@@ -630,7 +674,12 @@ Page({
         odometerUrl: photoDraft.odometerUrl,
       })
       const slot = pickOdometerSlot(photoDraft, mapped)
-      const findingImages = images.filter((img) => img.url !== slot.odometerUrl)
+      const odoKey = mediaKey(slot.odometerUrl)
+      const findingImages = images.filter((img) => {
+        const key = mediaKey(img && img.url)
+        if (odoKey && key === odoKey) return false
+        return String((img && img.caption) || '').trim() !== '仪表'
+      })
       return [
         {
           stageId: 'stage_2',
@@ -688,9 +737,11 @@ Page({
   decorateQuoteLines(lines = [], evidenceFindings = []) {
     const pool = (evidenceFindings || []).filter((row) => isQuoteEvidenceFinding(row))
     const taken = {}
+    const evidenceKey = (url) => mediaKey(url) || String(url || '').trim()
     ;(lines || []).forEach((line, index) => {
       listQuoteLineEvidenceUrls(line).forEach((url) => {
-        taken[url] = index
+        const key = evidenceKey(url)
+        if (key) taken[key] = index
       })
     })
     return (lines || []).map((line, index) => {
@@ -700,15 +751,19 @@ Page({
         ...line,
         ...normalized,
         evidenceThumbs: urls.map((url) => {
-          const hit = pool.find((row) => row.url === url)
-          return { url, partName: (hit && hit.partName) || '' }
+          const key = evidenceKey(url)
+          const hit = pool.find((row) => evidenceKey(row.url) === key)
+          return { url: (hit && hit.url) || url, partName: (hit && hit.partName) || '' }
         }),
-        evidencePool: pool.map((row) => ({
-          url: row.url,
-          partName: row.partName || '',
-          selected: taken[row.url] === index,
-          taken: taken[row.url] !== undefined && taken[row.url] !== index,
-        })),
+        evidencePool: pool.map((row) => {
+          const key = evidenceKey(row.url)
+          return {
+            url: row.url,
+            partName: row.partName || '',
+            selected: taken[key] === index,
+            taken: taken[key] !== undefined && taken[key] !== index,
+          }
+        }),
       }
     })
   },
@@ -1370,21 +1425,15 @@ Page({
           images: this.flattenWorkSectionImages(findings),
         }
       }
-      if (!target.url) {
-        return {
-          ...row,
-          findings: (row.findings || []).filter((_, idx) => idx !== findingIndex),
-        }
+      const findings = (row.findings || []).filter((_, idx) => idx !== findingIndex)
+      return {
+        ...row,
+        findings,
+        images:
+          row.findingKind === 'work'
+            ? row.images
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
       }
-      const images = (row.images || []).filter((img) => {
-        const url = typeof img === 'string' ? img : img.url
-        return url !== target.url
-      })
-      const kept = (row.findings || []).filter((_, idx) => idx !== findingIndex)
-      const findings = this.syncFindingsWithImages(kept.filter((f) => f.url), images).concat(
-        kept.filter((f) => !f.url),
-      )
-      return { ...row, images, findings }
     })
     let expandKey = this.data.expandedFindingKey
     const [esi, efi] = String(expandKey || '').split(':').map(Number)
@@ -1392,7 +1441,15 @@ Page({
       if (efi === findingIndex) expandKey = ''
       else if (efi > findingIndex) expandKey = `${sectionIndex}:${efi - 1}`
     }
-    this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
+    const aiReview = this.dismissAiSuggestionIds(this.suggestionIdsOnFinding(target))
+    this.setSectionsWithFindings(
+      sections,
+      {
+        autoSaveLabel: '保存中…',
+        ...(aiReview ? { aiReview } : {}),
+      },
+      expandKey,
+    )
     this.scheduleAutoSavePhotos()
   },
 
@@ -1539,8 +1596,11 @@ Page({
                 },
               )
             })
-            const images = (row.images || []).concat([{ url }])
-            return { ...row, findings, images }
+            return {
+              ...row,
+              findings,
+              images: this.findingImagesFromRows(findings, this.data.odometerUrl),
+            }
           })
           const appliedId = currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id)
           this.setSectionsWithFindings(
@@ -1608,11 +1668,8 @@ Page({
   collectWorkUrlSet(album = {}, flowNodes = []) {
     const set = {}
     this.collectAllWorkImages(album, flowNodes).forEach((row) => {
-      const url = String((row && row.url) || '').trim()
-      if (!url) return
-      set[url] = true
-      const bare = url.split('?')[0].split('#')[0]
-      if (bare) set[bare] = true
+      const key = mediaKey(row && row.url)
+      if (key) set[key] = true
     })
     return set
   },
@@ -1620,22 +1677,25 @@ Page({
   hydrateDeliveryPool(album = {}, flowNodes = [], photoDraft = {}, exteriorUrl = '') {
     const exterior = String(exteriorUrl || '').trim()
     const selectedSet = {}
+    const exteriorKey = mediaKey(exterior)
     ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => {
-      const key = String(url || '').trim()
-      if (key && key !== exterior) selectedSet[key] = true
+      const key = mediaKey(url)
+      if (key && key !== exteriorKey) selectedSet[key] = true
     })
     const pool = this.collectAllWorkImages(album, flowNodes).map((row) => ({
       ...row,
-      selected: Boolean(selectedSet[row.url]),
+      selected: Boolean(selectedSet[mediaKey(row.url)]),
     }))
     const seen = {}
     pool.forEach((row) => {
-      if (row && row.url) seen[row.url] = true
+      const key = mediaKey(row && row.url)
+      if (key) seen[key] = true
     })
     const pushCaptured = (url, caption = '') => {
       const u = String(url || '').trim()
-      if (!u || u === exterior || seen[u]) return
-      seen[u] = true
+      const key = mediaKey(u)
+      if (!u || !key || key === exteriorKey || seen[key]) return
+      seen[key] = true
       pool.push({
         url: u,
         partName: String(caption || '').trim(),
@@ -1643,7 +1703,7 @@ Page({
         captured: true,
       })
     }
-    Object.keys(selectedSet).forEach((url) => pushCaptured(url))
+    ;(photoDraft.selectedDeliveryUrls || []).forEach((url) => pushCaptured(url))
     const stage6 = ((album && album.nodes) || []).find((n) => n && n.id === 'stage_6')
     ;((stage6 && stage6.images) || []).forEach((img) => {
       const url = typeof img === 'string' ? img : img && img.url
@@ -1658,11 +1718,13 @@ Page({
     const exterior = String(this.data.deliveryExteriorUrl || '').trim()
     const pool = (this.data.workImagePool || []).slice()
     if (!extra) return this.packDeliveryPool(pool, exterior)
-    const exists = pool.find((row) => row && row.url === extra)
+    const sameShot = (row) =>
+      row && (row.url === extra || (mediaKey(row.url) && mediaKey(row.url) === mediaKey(extra)))
+    const exists = pool.find(sameShot)
     if (exists) {
       return this.packDeliveryPool(
         pool.map((row) =>
-          row.url === extra ? { ...row, selected: extra !== exterior } : row,
+          sameShot(row) ? { ...row, selected: mediaKey(extra) !== mediaKey(exterior) } : row,
         ),
         exterior,
       )
@@ -1894,7 +1956,8 @@ Page({
       })
       return
     }
-    const remain = Math.max(0, 12 - ((section.images && section.images.length) || 0))
+    const usedCount = (section.findings || []).filter((row) => row && row.url).length
+    const remain = Math.max(0, 12 - usedCount)
     if (remain < 1) {
       wx.showToast({ title: '最多 12 张', icon: 'none' })
       return
@@ -1903,24 +1966,50 @@ Page({
       count: remain,
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
-      success: (res) => {
-        const files = (res.tempFiles || []).map((file) => ({
-          url: file.tempFilePath,
-          caption: '',
-        }))
+      success: async (res) => {
+        const files = res.tempFiles || []
         if (!files.length) return
-        const images = (section.images || []).concat(files).slice(0, 12)
-        const sections = this.data.sections.map((row, i) => {
-          if (i !== sectionIndex) return row
-          return {
-            ...row,
-            images,
-            findings: this.syncFindingsWithImages(row.findings || [], images),
+        try {
+          wx.showLoading({ title: '上传中' })
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (!url) continue
+            uploadedList.push({
+              url,
+              imageId: (uploaded && (uploaded.id || uploaded.imageId)) || '',
+            })
           }
-        })
-        const expandKey = `${sectionIndex}:${images.length - 1}`
-        this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
-        this.scheduleAutoSavePhotos()
+          if (!uploadedList.length) throw new Error('上传失败')
+          const sections = this.data.sections.map((row, i) => {
+            if (i !== sectionIndex) return row
+            const findings = (row.findings || []).concat(
+              uploadedList.map((img) =>
+                normalizeFinding({
+                  url: img.url,
+                  imageId: img.imageId,
+                  partName: '',
+                  caption: '',
+                  result: '',
+                  advice: '',
+                }),
+              ),
+            )
+            return {
+              ...row,
+              findings,
+              images: this.findingImagesFromRows(findings, this.data.odometerUrl),
+            }
+          })
+          const expandKey = `${sectionIndex}:${(section.findings || []).length}`
+          this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
+          this.scheduleAutoSavePhotos()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
       },
     })
   },
@@ -1949,7 +2038,11 @@ Page({
   },
 
   async runAutoSavePhotos() {
-    if (this.data.readOnly || this._photoSaving) return
+    if (this.data.readOnly) return
+    if (this._photoSaving) {
+      this._photoSaveAgain = true
+      return
+    }
     this._photoSaving = true
     const keepExpandKey = this.data.expandedFindingKey
     try {
@@ -1963,6 +2056,10 @@ Page({
       })
     } finally {
       this._photoSaving = false
+      if (this._photoSaveAgain) {
+        this._photoSaveAgain = false
+        this.scheduleAutoSavePhotos()
+      }
     }
   },
 
@@ -2313,8 +2410,9 @@ Page({
       }
     }
     const current = listQuoteLineEvidenceUrls(line)
-    const nextUrls = current.includes(url)
-      ? current.filter((item) => item !== url)
+    const sameEvidence = (item) => item === url || (mediaKey(item) && mediaKey(item) === mediaKey(url))
+    const nextUrls = current.some(sameEvidence)
+      ? current.filter((item) => !sameEvidence(item))
       : current.concat([url])
     const quoteLines = this.data.quoteLines.map((row, i) =>
       i === index
@@ -2385,15 +2483,7 @@ Page({
         sectionMap[section.stageId] = this.flattenWorkSectionImages(section.findings || [])
       } else if (section.findingMode) {
         const odo = String(this.data.odometerUrl || '').trim()
-        const findingImgs = (section.images || [])
-          .map((img, i) => {
-            const finding = (section.findings || [])[i] || {}
-            return {
-              ...img,
-              caption: finding.partName || img.caption || '',
-            }
-          })
-          .filter((img) => img && img.url && img.url !== odo)
+        const findingImgs = this.findingImagesFromRows(section.findings || [], odo)
         sectionMap[section.stageId] = odo
           ? [{ url: odo, caption: '仪表' }].concat(findingImgs)
           : findingImgs
@@ -2404,14 +2494,13 @@ Page({
         const images = []
         const pushImg = (url, caption) => {
           const u = String(url || '').trim()
-          if (!u || images.some((row) => row.url === u)) return
+          const key = mediaKey(u)
+          if (!u || !key || images.some((row) => mediaKey(row.url) === key)) return
           images.push({ url: u, caption: String(caption || '').trim() })
         }
         const isWorkRef = (url) => {
-          const u = String(url || '').trim()
-          if (!u) return false
-          const bare = u.split('?')[0].split('#')[0]
-          return Boolean(workUrlSet[u] || (bare && workUrlSet[bare]))
+          const key = mediaKey(url)
+          return Boolean(key && workUrlSet[key])
         }
         if (exterior && !isWorkRef(exterior)) pushImg(exterior, '整车外观')
         ;(this.data.workImagePool || []).forEach((row) => {
@@ -2508,7 +2597,11 @@ Page({
                 : field === 'quoteLineName'
                   ? '方案行名'
                   : '本步文字'
-      const applied = Boolean(item && item.applied) || prevApplied.has(item && item.id)
+      const dismissed = this._dismissedAiSuggestionIds || new Set()
+      const applied =
+        Boolean(item && item.applied) ||
+        prevApplied.has(item && item.id) ||
+        dismissed.has(item && item.id)
       const currentShown = applied && suggestedText ? suggestedText : currentText
       return {
         ...item,

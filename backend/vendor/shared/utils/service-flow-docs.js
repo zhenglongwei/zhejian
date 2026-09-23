@@ -107,6 +107,15 @@ function isOdometerFinding(raw = {}) {
   return /仪表|里程表/.test(name)
 }
 
+function withoutOdometerPhoto(row, odometerUrl) {
+  if (!row) return null
+  if (!sameMedia(row.url, odometerUrl)) {
+    return isOdometerFinding(row) ? null : row
+  }
+  if (isOdometerFinding(row)) return null
+  return { ...row, url: '', imageId: '' }
+}
+
 function pickOdometerSlot(photoDraft = {}, findings = []) {
   const list = Array.isArray(findings) ? findings : []
   const draftUrl = String((photoDraft && photoDraft.odometerUrl) || '').trim()
@@ -114,10 +123,7 @@ function pickOdometerSlot(photoDraft = {}, findings = []) {
     return {
       odometerUrl: draftUrl,
       odometerImageId: String((photoDraft && photoDraft.odometerImageId) || '').trim(),
-      findings: list.filter((row) => {
-        const url = String((row && row.url) || '').trim()
-        return url !== draftUrl && !isOdometerFinding(row)
-      }),
+      findings: list.map((row) => withoutOdometerPhoto(row, draftUrl)).filter(Boolean),
     }
   }
   const hit = list.find((row) => isOdometerFinding(row) && String((row && row.url) || '').trim())
@@ -126,7 +132,7 @@ function pickOdometerSlot(photoDraft = {}, findings = []) {
     return {
       odometerUrl: url,
       odometerImageId: String(hit.imageId || '').trim(),
-      findings: list.filter((row) => row !== hit && String((row && row.url) || '').trim() !== url),
+      findings: list.map((row) => withoutOdometerPhoto(row, url)).filter(Boolean),
     }
   }
   return {
@@ -195,18 +201,23 @@ function mapWorkFindingRows(images = [], draftFindings = []) {
   if (draftList.some((row) => row.images.length || row.partName)) {
     const persisted = mapPhotoRows(images)
     if (!persisted.length) return draftList
-    let cursor = 0
+    const byKey = {}
+    persisted.forEach((row) => {
+      const key = mediaKey(row.url)
+      if (key && !byKey[key]) byKey[key] = row
+    })
     return draftList.map((item) => {
       if (!item.images.length) return item
-      const nextImages = item.images.map((img) => {
-        const row = persisted[cursor]
-        cursor += 1
-        if (!row) return img
-        return {
-          url: row.url || img.url,
-          imageId: row.imageId || img.imageId || '',
-        }
-      })
+      const nextImages = item.images
+        .map((img) => {
+          const hit = byKey[mediaKey(img.url)]
+          if (!hit) return null
+          return {
+            url: hit.url || img.url,
+            imageId: hit.imageId || img.imageId || '',
+          }
+        })
+        .filter(Boolean)
       return normalizeWorkFinding({
         ...item,
         images: nextImages,
@@ -251,6 +262,22 @@ function mediaBare(value) {
     .split('#')[0]
 }
 
+/** 签名参数和 /media/uploads 与 /api/v1/media/files/uploads 视为同一张图 */
+function mediaKey(value) {
+  const bare = mediaBare(value)
+  if (!bare) return ''
+  const mark = '/uploads/'
+  const at = bare.lastIndexOf(mark)
+  if (at >= 0) return bare.slice(at + mark.length)
+  return bare
+}
+
+function sameMedia(a, b) {
+  const left = mediaKey(a)
+  const right = mediaKey(b)
+  return Boolean(left && right && left === right)
+}
+
 function mergeFindingWithImage(row, draft) {
   const src = draft || {}
   return normalizeFinding({
@@ -265,11 +292,11 @@ function mergeFindingWithImage(row, draft) {
 
 /** 仪表照写在检测图最前，不能按序号去配发现项，否则部位结果会错位。 */
 function omitOdometerImages(images = [], odometerUrl = '') {
-  const odo = mediaBare(odometerUrl)
+  const odo = mediaKey(odometerUrl)
   if (!odo) return images || []
   return (images || []).filter((img) => {
     const url = typeof img === 'string' ? img : (img && img.url) || ''
-    if (mediaBare(url) === odo) return false
+    if (mediaKey(url) === odo) return false
     const caption = img && typeof img === 'object' ? String(img.caption || '').trim() : ''
     return caption !== '仪表'
   })
@@ -289,9 +316,9 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
       const byId = drafts.findIndex((item, i) => !used.has(i) && item.imageId === id)
       if (byId >= 0) return byId
     }
-    const bare = mediaBare(row.url)
-    if (bare) {
-      const byUrl = drafts.findIndex((item, i) => !used.has(i) && mediaBare(item.url) === bare)
+    const key = mediaKey(row.url)
+    if (key) {
+      const byUrl = drafts.findIndex((item, i) => !used.has(i) && mediaKey(item.url) === key)
       if (byUrl >= 0) return byUrl
     }
     return -1
@@ -302,26 +329,33 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
     used.add(idx)
     return mergeFindingWithImage(row, drafts[idx])
   })
-  const openImageIndexes = []
+  const imageKeys = new Set(rows.map((row) => mediaKey(row.url)).filter(Boolean))
   assigned.forEach((item, index) => {
-    if (!item) openImageIndexes.push(index)
+    if (!item) assigned[index] = mergeFindingWithImage(rows[index], {})
   })
-  const openDraftIndexes = drafts.map((_, index) => index).filter((index) => !used.has(index))
-  // 正式地址和草稿地址不一致时，仅在两边剩余数量相同才按顺序配，避免仪表图抢走下一项的结果
-  if (openImageIndexes.length && openImageIndexes.length === openDraftIndexes.length) {
-    openImageIndexes.forEach((imageIndex, i) => {
-      const draftIndex = openDraftIndexes[i]
-      used.add(draftIndex)
-      assigned[imageIndex] = mergeFindingWithImage(rows[imageIndex], drafts[draftIndex])
-    })
-  } else {
-    openImageIndexes.forEach((imageIndex) => {
-      assigned[imageIndex] = mergeFindingWithImage(rows[imageIndex], {})
-    })
-  }
+  const odoKey = mediaKey(options && options.odometerUrl)
   drafts.forEach((item, index) => {
     if (used.has(index)) return
-    if (item.partName || item.advice || item.result) assigned.push(item)
+    const key = mediaKey(item.url)
+    if (key && odoKey && key === odoKey) {
+      if (item.partName || item.advice || item.result) {
+        assigned.push({ ...item, url: '', imageId: '' })
+      }
+      return
+    }
+    if (key && imageKeys.has(key)) {
+      const alreadyShown = assigned.some(
+        (row) => row && String(row.partName || '').trim() === String(item.partName || '').trim() && mediaKey(row.url) === key,
+      )
+      if (!alreadyShown && (item.partName || item.advice || item.result)) {
+        assigned.push({ ...item, url: '', imageId: '' })
+      }
+      return
+    }
+    if (key) return
+    if (item.partName || item.advice || item.result) {
+      assigned.push({ ...item, url: '', imageId: '' })
+    }
   })
   return assigned.filter(Boolean)
 }
@@ -711,6 +745,7 @@ function mergePhotoDraft(prev = {}, patch = {}) {
 
 module.exports = {
   mapPhotoRows,
+  mediaKey,
   mapFindingRows,
   mapWorkFindingRows,
   normalizeFinding,
