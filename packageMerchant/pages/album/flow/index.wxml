@@ -348,32 +348,55 @@
                       class="merchant-flow-page__finding-row {{finding.expanded ? 'merchant-flow-page__finding-row--open' : ''}}"
                     >
                       <view
+                        wx:if="{{!finding.expanded}}"
                         class="merchant-flow-page__finding-summary"
                         data-section-index="{{sectionIndex}}"
                         data-finding-index="{{findingIndex}}"
                         bindtap="onToggleFinding"
                       >
-                        <view
-                          wx:if="{{finding.pendingPhoto || !finding.url}}"
-                          class="merchant-flow-page__finding-img merchant-flow-page__finding-img--pending"
-                          data-section-index="{{sectionIndex}}"
-                          data-finding-index="{{findingIndex}}"
-                          catchtap="onAttachFindingPhoto"
-                        >
-                          <text class="text-caption text-secondary">拍照</text>
-                        </view>
-                        <image
-                          wx:else
-                          class="merchant-flow-page__finding-img image-placeholder"
-                          src="{{finding.url}}"
-                          mode="aspectFill"
-                        />
-                        <view class="merchant-flow-page__finding-summary-main">
+                        <view class="merchant-flow-page__finding-summary-lead">
                           <text class="text-body merchant-flow-page__finding-summary-title">{{finding.summaryText}}</text>
                           <text class="text-caption {{finding.complete ? 'text-secondary' : 'text-danger'}}">{{finding.completenessLabel}}</text>
                         </view>
+                        <view class="merchant-flow-page__finding-summary-shots">
+                          <block wx:if="{{finding.images.length}}">
+                            <image
+                              wx:for="{{finding.images}}"
+                              wx:for-item="shot"
+                              wx:key="url"
+                              class="merchant-flow-page__finding-img image-placeholder"
+                              src="{{shot.url}}"
+                              mode="aspectFill"
+                            />
+                          </block>
+                          <view
+                            wx:else
+                            class="merchant-flow-page__finding-img merchant-flow-page__finding-img--pending"
+                            data-section-index="{{sectionIndex}}"
+                            data-finding-index="{{findingIndex}}"
+                            catchtap="onAttachFindingPhoto"
+                          >
+                            <text class="text-caption text-secondary">拍照</text>
+                          </view>
+                        </view>
                         <text
-                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.fromAi)}}"
+                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.images.length || finding.fromAi)}}"
+                          class="merchant-flow-page__finding-remove"
+                          data-section-index="{{sectionIndex}}"
+                          data-finding-index="{{findingIndex}}"
+                          catchtap="onRemoveFinding"
+                        >×</text>
+                      </view>
+                      <view
+                        wx:else
+                        class="merchant-flow-page__finding-open-bar"
+                        data-section-index="{{sectionIndex}}"
+                        data-finding-index="{{findingIndex}}"
+                        bindtap="onToggleFinding"
+                      >
+                        <text class="text-caption merchant-flow-page__finding-collapse">收起</text>
+                        <text
+                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.images.length || finding.fromAi)}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"

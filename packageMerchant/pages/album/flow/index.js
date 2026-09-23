@@ -914,8 +914,8 @@ Page({
       summaryText: row.partName || '待填写',
       completenessLabel: !hasPhoto
         ? '待拍照'
-          : missing === 0
-          ? (row.images && row.images.length > 1 ? `${row.result || '已齐'} · ${row.images.length}张` : row.result || '已齐')
+        : missing === 0
+          ? row.result || '已齐'
           : `缺 ${missing} 项`,
       adviceRequired: findingAdviceRequired(row.result),
       resultTone,
