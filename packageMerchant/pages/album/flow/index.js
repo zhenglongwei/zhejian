@@ -51,6 +51,7 @@ const {
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const {
+  bindSuggestionPart,
   isOdometerSuggestion,
   resolveAiReviewFindingIndex,
 } = require('../../../../utils/ai-review-target')
@@ -1576,26 +1577,55 @@ Page({
           const url = uploaded && (uploaded.url || uploaded)
           if (!url) throw new Error('上传失败')
           const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
+          const hadPhoto = Boolean(String(currentItem.url || '').trim())
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
-            const findings = (row.findings || []).map((item, idx) => {
-              if (idx !== fi) return item
-              return this.withFindingMeta(
-                item,
-                {
-                  ...item,
+            let findings
+            if (hadPhoto) {
+              const created = this.withFindingMeta(
+                { fromAi: true, aiSuggestionId: currentItem.aiSuggestionId || (currentItem.photoHint && currentItem.photoHint.id) || '' },
+                normalizeFinding({
                   url,
                   imageId: '',
-                  pendingPhoto: false,
-                },
-                {
-                  advicePlaceholder: String(item.advice || '').trim()
-                    ? item.advicePlaceholder
-                    : hintBody,
-                  photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
-                },
+                  partName: currentItem.partName,
+                  caption: '',
+                  result: '',
+                  advice: '',
+                }),
+                { photoHint: null },
               )
-            })
+              findings = []
+              ;(row.findings || []).forEach((item, idx) => {
+                if (idx !== fi) {
+                  findings.push(item)
+                  return
+                }
+                findings.push({
+                  ...item,
+                  photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
+                })
+                findings.push(created)
+              })
+            } else {
+              findings = (row.findings || []).map((item, idx) => {
+                if (idx !== fi) return item
+                return this.withFindingMeta(
+                  item,
+                  {
+                    ...item,
+                    url,
+                    imageId: '',
+                    pendingPhoto: false,
+                  },
+                  {
+                    advicePlaceholder: String(item.advice || '').trim()
+                      ? item.advicePlaceholder
+                      : hintBody,
+                    photoHint: item.photoHint ? { ...item.photoHint, applied: true } : null,
+                  },
+                )
+              })
+            }
             return {
               ...row,
               findings,
@@ -1609,7 +1639,7 @@ Page({
               autoSaveLabel: '保存中…',
               aiReview: this.markAiSuggestionApplied(appliedId) || this.data.aiReview,
             },
-            `${si}:${fi}`,
+            `${si}:${hadPhoto ? fi + 1 : fi}`,
           )
           this.scheduleAutoSavePhotos()
         } catch (err) {
@@ -2617,6 +2647,7 @@ Page({
         showCurrent: Boolean(
           type === 'text' && currentText && currentText !== suggestedText && !applied,
         ),
+        boundPart: bindSuggestionPart(findings, item),
         applied,
         canApply: type === 'text' && Boolean(suggestedText) && !applied,
         canGoPhoto: type === 'photo' && !applied,
@@ -2693,8 +2724,8 @@ Page({
     }
   },
 
-  matchFindingIndex(findings, item, used) {
-    return resolveAiReviewFindingIndex(findings, item, used)
+  matchFindingIndex(findings, item, used, mode) {
+    return resolveAiReviewFindingIndex(findings, item, used, mode)
   },
 
   computeInlineHintPatch(review) {
@@ -2746,7 +2777,7 @@ Page({
           const si = sections.findIndex((section) => section.findingMode)
           const useAdvice = item.field === 'findingAdvice' || (si >= 0 && sections[si].findingKind !== 'work')
           if (si >= 0) {
-            const fi = this.matchFindingIndex(sections[si].findings || [], item, textUsed)
+            const fi = this.matchFindingIndex(sections[si].findings || [], item, textUsed, 'text')
             if (fi >= 0) textUsed.add(fi)
             if (fi >= 0) {
               const findings = (sections[si].findings || []).map((row, idx) => {
@@ -2768,7 +2799,7 @@ Page({
             }
           }
           if (!this.data.activeIsPhoto) {
-            const fi = this.matchFindingIndex(reportFindings, item, textUsed)
+            const fi = this.matchFindingIndex(reportFindings, item, textUsed, 'text')
             if (fi >= 0) textUsed.add(fi)
             const idx = fi
             if (reportFindings[idx]) {
@@ -2794,15 +2825,10 @@ Page({
         orphanPhotoHints.push(hint)
         return
       }
-      let fi = this.matchFindingIndex(sections[si].findings || [], item, photoUsed)
+      let fi = this.matchFindingIndex(sections[si].findings || [], item, photoUsed, 'photo')
       if (fi < 0 && isOdometerSuggestion(item) && this.data.isIntakePhotoStep) {
         odometerHint = hint
         return
-      }
-      if (fi < 0) {
-        fi = (sections[si].findings || []).findIndex(
-          (row) => row.aiSuggestionId && row.aiSuggestionId === item.id,
-        )
       }
       if (fi >= 0) {
         photoUsed.add(fi)
@@ -2818,12 +2844,17 @@ Page({
         sections[si] = { ...sections[si], findings }
         return
       }
+      const partName = String(item.boundPart || '').trim()
+      if (!partName) {
+        orphanPhotoHints.push(hint)
+        return
+      }
       const pending =
         sections[si].findingKind === 'work'
           ? {
               fromAi: true,
               aiSuggestionId: item.id,
-              partName: item.targetLabel,
+              partName,
               caption: '',
               captionPlaceholder: hint.body,
               photoHint: hint,
@@ -2832,7 +2863,7 @@ Page({
           : {
               fromAi: true,
               aiSuggestionId: item.id,
-              partName: item.targetLabel,
+              partName,
               caption: '',
               captionPlaceholder: hint.body,
               photoHint: hint,
@@ -3005,7 +3036,7 @@ Page({
     const findingsPool = this.data.activeIsPhoto ? sectionFindings : this.data.findings || []
     let findingIndex = -1
     if (field === 'findingAdvice' || field === 'findingCaption') {
-      findingIndex = this.matchFindingIndex(findingsPool, item, new Set())
+      findingIndex = this.matchFindingIndex(findingsPool, item, new Set(), 'text')
       if (findingIndex < 0) {
         wx.showToast({ title: '对不上部位', icon: 'none' })
         return
