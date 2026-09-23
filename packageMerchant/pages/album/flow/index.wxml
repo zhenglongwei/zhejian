@@ -18,56 +18,6 @@
     >补拍</text>
   </view>
 </template>
-<template name="quoteEvidencePicker">
-  <view class="merchant-flow-page__plan-evidence-block">
-    <block wx:if="{{!locked && item.evidencePool.length}}">
-      <view class="merchant-flow-page__plan-chips">
-        <view
-          wx:for="{{item.evidencePool}}"
-          wx:for-item="chip"
-          wx:key="url"
-          class="merchant-flow-page__plan-chip {{chip.selected ? 'merchant-flow-page__plan-chip--on' : ''}} {{chip.taken ? 'merchant-flow-page__plan-chip--taken' : ''}}"
-          data-index="{{index}}"
-          data-url="{{chip.url}}"
-          bindtap="onToggleQuoteEvidence"
-        >
-          <image
-            class="merchant-flow-page__plan-chip-img image-placeholder"
-            src="{{chip.url}}"
-            mode="aspectFill"
-          />
-          <text class="text-caption merchant-flow-page__plan-chip-name">{{chip.partName || '检测图'}}</text>
-        </view>
-      </view>
-    </block>
-    <block wx:elif="{{item.evidenceThumbs.length}}">
-      <view class="merchant-flow-page__plan-evidence">
-        <view
-          wx:for="{{item.evidenceThumbs}}"
-          wx:for-item="thumb"
-          wx:key="url"
-          class="merchant-flow-page__plan-evidence-thumb"
-          data-index="{{index}}"
-          data-url="{{thumb.url}}"
-          bindtap="onPreviewQuoteEvidence"
-        >
-          <image
-            class="merchant-flow-page__plan-evidence-img image-placeholder"
-            src="{{thumb.url}}"
-            mode="aspectFill"
-          />
-          <text
-            wx:if="{{!locked}}"
-            class="merchant-flow-page__plan-evidence-remove"
-            data-index="{{index}}"
-            data-url="{{thumb.url}}"
-            catchtap="onToggleQuoteEvidence"
-          >×</text>
-        </view>
-      </view>
-    </block>
-  </view>
-</template>
 <view class="page merchant-flow-page">
   <block wx:if="{{status === 'loading'}}">
     <view class="page-content merchant-flow-page__pad">
@@ -683,11 +633,25 @@
                     wx:key="url"
                     class="merchant-flow-page__evidence-row {{item.evidenceRowClass}}"
                   >
-                    <image
-                      class="merchant-flow-page__evidence-img image-placeholder"
-                      src="{{item.url}}"
-                      mode="aspectFill"
-                    />
+                    <view class="merchant-flow-page__evidence-photos">
+                      <block wx:if="{{item.images.length}}">
+                        <image
+                          wx:for="{{item.images}}"
+                          wx:for-item="shot"
+                          wx:for-index="shotIndex"
+                          wx:key="url"
+                          class="merchant-flow-page__evidence-img image-placeholder"
+                          src="{{shot.url}}"
+                          mode="aspectFill"
+                        />
+                      </block>
+                      <image
+                        wx:elif="{{item.url}}"
+                        class="merchant-flow-page__evidence-img image-placeholder"
+                        src="{{item.url}}"
+                        mode="aspectFill"
+                      />
+                    </view>
                     <view class="merchant-flow-page__evidence-body">
                       <input
                         class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
@@ -732,24 +696,26 @@
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
                     <text class="text-body merchant-flow-page__sheet-title">方案与费用</text>
                   </view>
-                  <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                  <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
                     <view
                       wx:if="{{!readOnly}}"
                       class="merchant-flow-page__plan-row-remove"
                       data-index="{{index}}"
                       catchtap="onRemoveQuoteLine"
                     >×</view>
-                    <template is="quoteEvidencePicker" data="{{item, index, locked: quoteEvidenceLocked}}" />
                     <view class="merchant-flow-page__plan-row-top">
-                      <input
-                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="{{quoteJobPlaceholder}}"
-                        value="{{item.name}}"
-                        data-index="{{index}}"
-                        data-field="name"
-                        disabled="{{readOnly}}"
-                        bindinput="onQuoteLineInput"
-                      />
+                      <view class="merchant-flow-page__plan-name">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
+                        <input
+                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                          placeholder="{{quoteJobPlaceholder}}"
+                          value="{{item.name}}"
+                          data-index="{{index}}"
+                          data-field="name"
+                          disabled="{{readOnly}}"
+                          bindinput="onQuoteLineInput"
+                        />
+                      </view>
                       <view class="merchant-flow-page__plan-amount-wrap">
                         <text class="text-caption text-secondary">¥</text>
                         <input
@@ -774,12 +740,14 @@
                       disabled="{{readOnly}}"
                       bindinput="onQuoteLineInput"
                     />
+                    <text class="text-caption text-secondary merchant-flow-page__field-label">施工方案</text>
                     <textarea
                       class="merchant-flow-page__plan-note"
                       placeholder="{{quoteNotePlaceholder}}"
                       value="{{item.note}}"
                       maxlength="500"
-                      auto-height="{{true}}"
+                      auto-height="{{false}}"
+                      style="height: 96rpx;"
                       data-index="{{index}}"
                       data-field="note"
                       disabled="{{readOnly}}"
@@ -825,7 +793,7 @@
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
                     <text class="text-body merchant-flow-page__sheet-title">{{isAddonQuote ? '项目与费用' : '方案与费用'}}</text>
                   </view>
-                  <view wx:for="{{quoteLines}}" wx:key="index" class="merchant-flow-page__plan-row">
+                  <view wx:for="{{quoteLines}}" wx:key="lineKey" class="merchant-flow-page__plan-row">
                     <view
                       wx:if="{{!readOnly && !confirmAwaitingOwner}}"
                       class="merchant-flow-page__plan-row-remove"
@@ -861,22 +829,19 @@
                         <text class="text-caption text-secondary">故障图</text>
                       </view>
                     </view>
-                    <view wx:else>
-                      <template
-                        is="quoteEvidencePicker"
-                        data="{{item, index, locked: quoteEvidenceLocked}}"
-                      />
-                    </view>
                     <view class="merchant-flow-page__plan-row-top">
-                      <input
-                        class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline merchant-flow-page__plan-name"
-                        placeholder="{{quoteJobPlaceholder}}"
-                        value="{{item.name}}"
-                        data-index="{{index}}"
-                        data-field="name"
-                        disabled="{{readOnly || confirmAwaitingOwner}}"
-                        bindinput="onQuoteLineInput"
-                      />
+                      <view class="merchant-flow-page__plan-name">
+                        <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
+                        <input
+                          class="merchant-flow-page__sheet-input merchant-flow-page__sheet-input--inline"
+                          placeholder="{{quoteJobPlaceholder}}"
+                          value="{{item.name}}"
+                          data-index="{{index}}"
+                          data-field="name"
+                          disabled="{{readOnly || confirmAwaitingOwner}}"
+                          bindinput="onQuoteLineInput"
+                        />
+                      </view>
                       <view class="merchant-flow-page__plan-amount-wrap">
                         <text class="text-caption text-secondary">¥</text>
                         <input
@@ -901,12 +866,14 @@
                       disabled="{{readOnly || confirmAwaitingOwner}}"
                       bindinput="onQuoteLineInput"
                     />
+                    <text class="text-caption text-secondary merchant-flow-page__field-label">施工方案</text>
                     <textarea
                       class="merchant-flow-page__plan-note"
                       placeholder="{{quoteNotePlaceholder}}"
                       value="{{item.note}}"
                       maxlength="500"
-                      auto-height="{{true}}"
+                      auto-height="{{false}}"
+                      style="height: 96rpx;"
                       data-index="{{index}}"
                       data-field="note"
                       disabled="{{readOnly || confirmAwaitingOwner}}"

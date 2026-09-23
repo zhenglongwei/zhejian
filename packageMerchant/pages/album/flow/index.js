@@ -407,7 +407,7 @@ Page({
     findingPartPlaceholder: '例：检查部位',
     findingAdvicePlaceholder: '例：该部位有可见磨损',
     quoteJobPlaceholder: '例：全车补漆',
-    quoteNotePlaceholder: '例：按规范处理已确认项目',
+    quoteNotePlaceholder: '例：写清更换范围和做法',
     workJobPlaceholder: '例：全车补漆',
     workCaptionPlaceholder: '例：已按规范安装',
   },
@@ -755,6 +755,7 @@ Page({
       return {
         ...line,
         ...normalized,
+        lineKey: line.lineKey || `ql-${index}-${Math.random().toString(36).slice(2, 8)}`,
         evidenceThumbs: urls.map((url) => {
           const key = evidenceKey(url)
           const hit = pool.find((row) => evidenceKey(row.url) === key)

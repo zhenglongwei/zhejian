@@ -33,7 +33,7 @@ const PLACEHOLDERS = {
     findingPart: '例：机油',
     findingAdvice: '例：机油发黑有杂质',
     quoteJob: '例：更换机油机滤',
-    quoteNote: '例：机油机滤一并更换',
+    quoteNote: '例：5W-30 全合成，机滤同时换',
     workCaption: '例：机油 5W-30，机滤一并更换',
   },
   major_maintenance: {
@@ -41,7 +41,7 @@ const PLACEHOLDERS = {
     findingPart: '例：空滤',
     findingAdvice: '例：空滤积灰明显',
     quoteJob: '例：更换空滤、火花塞',
-    quoteNote: '例：空滤火花塞一并更换',
+    quoteNote: '例：空滤更换，火花塞按手册扭矩',
     workCaption: '例：空滤已更换，火花塞按手册扭矩',
   },
   brake: {
@@ -49,7 +49,7 @@ const PLACEHOLDERS = {
     findingPart: '例：前刹车片',
     findingAdvice: '例：前外侧片厚约 3mm',
     quoteJob: '例：更换前刹车片',
-    quoteNote: '例：更换前刹车片',
+    quoteNote: '例：只换前片，盘面可继续用',
     workCaption: '例：已按规定扭矩紧固',
   },
   battery: {
@@ -57,7 +57,7 @@ const PLACEHOLDERS = {
     findingPart: '例：电瓶',
     findingAdvice: '例：电压 11.8V，桩头有氧化',
     quoteJob: '例：更换电瓶',
-    quoteNote: '例：更换电瓶并紧固桩头',
+    quoteNote: '例：同容量更换，桩头清理后紧固',
     workCaption: '例：型号匹配，桩头已紧固',
   },
   tire: {
@@ -65,7 +65,7 @@ const PLACEHOLDERS = {
     findingPart: '例：右前轮胎',
     findingAdvice: '例：胎侧鼓包，花纹剩余约 3mm',
     quoteJob: '例：更换右前轮胎',
-    quoteNote: '例：更换右前轮胎',
+    quoteNote: '例：同规格更换，做动平衡',
     workCaption: '例：规格一致，已做动平衡',
   },
   ac: {
@@ -73,7 +73,7 @@ const PLACEHOLDERS = {
     findingPart: '例：空调滤芯',
     findingAdvice: '例：滤芯发黑，出风偏弱',
     quoteJob: '例：更换空调滤芯',
-    quoteNote: '例：更换空调滤芯',
+    quoteNote: '例：只换滤芯，不抽真空',
     workCaption: '例：新旧滤已更换',
   },
   body_paint: {
@@ -89,7 +89,7 @@ const PLACEHOLDERS = {
     findingPart: '例：右前翼子板',
     findingAdvice: '例：翼子板凹陷，大灯完好',
     quoteJob: '例：更换翼子板并喷漆',
-    quoteNote: '例：更换翼子板并喷漆',
+    quoteNote: '例：换件后校缝隙，再喷漆',
     workCaption: '例：翼子板已更换，缝隙已校',
   },
   chassis_noise: {
@@ -97,7 +97,7 @@ const PLACEHOLDERS = {
     findingPart: '例：右前下摆臂胶套',
     findingAdvice: '例：胶套开裂，路试可复现',
     quoteJob: '例：更换右前下摆臂胶套',
-    quoteNote: '例：更换右前下摆臂胶套',
+    quoteNote: '例：压装胶套，力矩打卡',
     workCaption: '例：胶套已压装，力矩已打卡',
   },
   generic: {
@@ -105,7 +105,7 @@ const PLACEHOLDERS = {
     findingPart: '例：检查部位',
     findingAdvice: '例：该部位有可见磨损',
     quoteJob: '例：按检测结果施工',
-    quoteNote: '例：按规范处理已确认项目',
+    quoteNote: '例：写清更换范围和做法',
     workCaption: '例：已按规范安装',
   },
 }

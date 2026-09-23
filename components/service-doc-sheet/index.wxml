@@ -58,7 +58,7 @@
         <view class="service-doc-sheet__table-main">
           <view class="service-doc-sheet__table-main-left">
             <view
-              wx:if="{{line.evidenceUrls && line.evidenceUrls.length}}"
+              wx:if="{{doc.kind === 'addon_quote_confirm' && line.evidenceUrls && line.evidenceUrls.length}}"
               class="service-doc-sheet__line-thumbs"
             >
               <image
@@ -74,7 +74,7 @@
               />
             </view>
             <image
-              wx:elif="{{line.evidenceUrl}}"
+              wx:elif="{{doc.kind === 'addon_quote_confirm' && line.evidenceUrl}}"
               class="service-doc-sheet__line-thumb image-placeholder"
               src="{{line.evidenceUrl}}"
               mode="aspectFill"
