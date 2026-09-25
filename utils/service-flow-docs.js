@@ -93,7 +93,23 @@ function collectFindingImages(raw = {}) {
   return list.slice(0, WORK_IMAGES_MAX)
 }
 
-function normalizeFinding(raw = {}) {
+/**
+ * 发现项稳定 id
+ * 真源：docs/04_维修过程相册/26_ §6.4
+ * 存量无 id 时按首图指纹生成，再退回下标（仅首次迁移命中）；生成后由写入路径持久化。
+ */
+function stableFindingId(raw = {}, index = -1) {
+  const own = String((raw && raw.id) || '').trim()
+  if (own) return own
+  const images = Array.isArray(raw && raw.images) ? raw.images : []
+  const first = images[0] || raw
+  const key = String((first && (first.imageId || first.url)) || '').trim()
+  const media = key ? mediaKey(key) : ''
+  if (media) return `fid_${media}`.slice(0, 64)
+  return index >= 0 ? `fid_i${index}` : ''
+}
+
+function normalizeFinding(raw = {}, index = -1) {
   const caption = String(raw.caption || '').trim()
   const result = normalizeFindingResult(raw.result)
   let advice = String(raw.advice || '').trim()
@@ -103,6 +119,7 @@ function normalizeFinding(raw = {}) {
   const images = collectFindingImages(raw)
   const first = images[0] || { url: '', imageId: '' }
   return {
+    id: stableFindingId(raw, index),
     imageId: first.imageId || '',
     url: first.url || '',
     images,
@@ -117,7 +134,7 @@ function normalizeFinding(raw = {}) {
 }
 
 /** 落库的一项：照片数组、部位、检查结果、检查发现在一起。显式 images: [] 表示已删光。 */
-function normalizeItemFinding(raw = {}) {
+function normalizeItemFinding(raw = {}, index = -1) {
   const hasImagesField = Array.isArray(raw.images)
   let images = hasImagesField
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
@@ -129,6 +146,7 @@ function normalizeItemFinding(raw = {}) {
   if (result === FINDING_RESULT.OK && !advice) advice = FINDING_ADVICE_NONE
   const first = images[0] || { url: '', imageId: '' }
   return {
+    id: stableFindingId(raw, index),
     imageId: first.imageId || '',
     url: first.url || '',
     images,
@@ -205,7 +223,7 @@ function normalizeWorkImage(raw = {}) {
 }
 
 /** 施工项：部位 + 整项说明 + 多图（最多 6） */
-function normalizeWorkFinding(raw = {}) {
+function normalizeWorkFinding(raw = {}, index = -1) {
   const hasImagesField = Array.isArray(raw.images)
   let images = hasImagesField
     ? raw.images.map((img) => normalizeWorkImage(img)).filter(Boolean)
@@ -223,12 +241,15 @@ function normalizeWorkFinding(raw = {}) {
   const partName = String(raw.partName || '').trim()
   const first = images[0] || null
   return {
+    id: stableFindingId(raw, index),
     imageId: first ? first.imageId : '',
     url: first ? first.url : '',
     caption,
     captionEmpty: !caption,
     partName,
     symptom: String(raw.symptom || '').trim(),
+    // 关联的方案行 / 工单项 id；配对规则见 26_ §6.5
+    quoteLineId: String(raw.quoteLineId || '').trim(),
     result: '',
     advice: '',
     images,
@@ -246,7 +267,7 @@ function workFindingHasPhoto(raw = {}) {
  * 无结构时回落为一图一项（存量兼容）。
  */
 function mapWorkFindingRows(images = [], draftFindings = []) {
-  const draftList = (draftFindings || []).map((row) => normalizeWorkFinding(row))
+  const draftList = (draftFindings || []).map((row, index) => normalizeWorkFinding(row, index))
   if (draftList.some((row) => row.images.length || row.partName)) {
     const persisted = mapPhotoRows(images)
     if (!persisted.length) return draftList
@@ -275,16 +296,25 @@ function mapWorkFindingRows(images = [], draftFindings = []) {
   draftList.forEach((item, index) => {
     const key = item.imageId || item.url
     if (key) draftByKey[key] = item
+    if (item.id) draftByKey[`@${item.id}`] = item
     draftByKey[`#${index}`] = item
   })
   ;(draftFindings || []).forEach((raw, index) => {
-    const item = normalizeFinding(raw)
+    const item = normalizeFinding(raw, index)
     const key = item.imageId || item.url
     if (key && !draftByKey[key]) draftByKey[key] = item
+    if (item.id && !draftByKey[`@${item.id}`]) draftByKey[`@${item.id}`] = item
     if (!draftByKey[`#${index}`]) draftByKey[`#${index}`] = item
   })
-  return mapPhotoRows(images).map((row, index) => {
-    const draft = draftByKey[row.imageId] || draftByKey[row.url] || draftByKey[`#${index}`] || {}
+  const rows = mapPhotoRows(images)
+  // 位置兜底仅用于存量「一图一项」：两侧数量相等才启用，id 落库后不再命中（26_ §6.5）
+  const legacyPositional = rows.length > 0 && rows.length === draftList.length
+  return rows.map((row, index) => {
+    const draft =
+      draftByKey[row.imageId] ||
+      draftByKey[row.url] ||
+      (legacyPositional ? draftByKey[`#${index}`] : null) ||
+      {}
     const partName = String(draft.partName || '').trim()
     let caption = String(draft.caption || '').trim()
     if (!caption) {
@@ -362,14 +392,18 @@ function findingImageKeys(item) {
 
 function mergeFindingsByPart(list) {
   const out = []
-  ;(list || []).forEach((raw) => {
-    const item = normalizeFinding(raw)
+  ;(list || []).forEach((raw, index) => {
+    const item = normalizeFinding(raw, index)
     const part = String(item.partName || '').trim()
     if (!part) {
       out.push(item)
       return
     }
-    const host = out.find((row) => String(row.partName || '').trim() === part)
+    // 同名不同 id 视为两项；仅存量无 id 时才回落按名称合并（26_ §6.5）
+    const host = out.find((row) => {
+      if (row.id && item.id) return row.id === item.id
+      return String(row.partName || '').trim() === part
+    })
     if (!host) {
       out.push(item)
       return
@@ -399,8 +433,8 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
     return mapWorkFindingRows(images, draftFindings)
   }
   const assigned = []
-  ;(draftFindings || []).forEach((raw) => {
-    const draft = normalizeItemFinding(raw)
+  ;(draftFindings || []).forEach((raw, index) => {
+    const draft = normalizeItemFinding(raw, index)
     if (!draft.partName && !draft.advice && !draft.result && !draft.images.length) return
     assigned.push(draft)
   })
@@ -483,8 +517,15 @@ function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
   const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
   orderItems.forEach((row) => {
     const name = String((row && row.name) || '').trim()
+    const lineId = String((row && (row.id || row.quoteLineId)) || '').trim()
     if (!name) return
-    const matched = withPhoto.some((raw) => normalizeWorkFinding(raw).partName === name)
+    // 优先按 quoteLineId 挂钩；仅存量无 id 时才按名称回落（26_ §6.5）
+    const matched = withPhoto.some((raw) => {
+      const item = normalizeWorkFinding(raw)
+      const itemLineId = String(item.quoteLineId || '').trim()
+      if (lineId && itemLineId) return itemLineId === lineId
+      return item.partName === name
+    })
     if (!matched) gaps.push(`「${name}」请上传施工图`)
   })
   return gaps
@@ -628,10 +669,39 @@ function isQuoteEvidenceFinding(raw = {}) {
   return findingAdviceRequired(item.result)
 }
 
-function normalizeQuoteLine(raw = {}) {
+function hashKey(text = '') {
+  const s = String(text || '')
+  let h = 5381
+  for (let i = 0; i < s.length; i += 1) {
+    h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  }
+  return h.toString(36)
+}
+
+/**
+ * 方案行 / 工单项稳定 id（26_ §4.3）
+ * 优先保留已有 id；其次按内容指纹；最后按下标。前两者缺失即存量，生成后由写入路径持久化。
+ */
+function stableLineId(raw = {}, index = -1) {
+  const own = String((raw && (raw.id || raw.lineId)) || '').trim()
+  if (own) return own
+  const blob = [
+    String((raw && raw.name) || '').trim(),
+    String((raw && raw.brand) || '').trim(),
+    raw && raw.amount != null ? String(raw.amount) : '',
+    String((raw && raw.note) || '').trim(),
+  ]
+    .filter(Boolean)
+    .join('|')
+  if (blob) return `ql_${hashKey(blob)}`
+  return index >= 0 ? `ql_i${index}` : ''
+}
+
+function normalizeQuoteLine(raw = {}, index = -1) {
   const amount = parseAmount(raw.amount != null ? raw.amount : raw.priceHint)
   const evidenceUrls = listQuoteLineEvidenceUrls(raw)
   return remapLegacyQuoteLineLayout({
+    id: stableLineId(raw, index),
     name: String(raw.name || '').trim(),
     brand: String(raw.brand || '').trim(),
     amount: amount == null ? '' : amount,
@@ -644,6 +714,13 @@ function normalizeQuoteLine(raw = {}) {
 function collectQuoteConfirmGaps(payload = {}, options = {}) {
   const gaps = []
   const requireEvidence = Boolean(options.requireEvidence)
+  const requireDiscovery = Boolean(options.requireDiscovery)
+  if (requireDiscovery) {
+    const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+    const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
+    if (!images.length) gaps.push('请先拍下新故障')
+    if (!String(discovery.note || '').trim()) gaps.push('请写一句看见什么')
+  }
   const lines = Array.isArray(payload.lines) ? payload.lines.map(normalizeQuoteLine) : []
   const valid = lines.filter((l) => l.name)
   if (!valid.length) {
@@ -675,15 +752,64 @@ function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '
   return {
     sourceQuoteNodeId,
     items: lines
-      .map((line) => normalizeQuoteLine(line))
+      .map((line, index) => normalizeQuoteLine(line, index))
       .filter((line) => line.name)
       .map((line) => ({
+        id: line.id,
         name: line.name,
         brand: line.brand || '',
         amount: line.amount === '' ? 0 : Number(line.amount),
         note: line.note,
       })),
   }
+}
+
+/**
+ * 施工项由工单项目预生成（26_ §6.6）
+ * 以工单 items 为骨架：已传的图按 quoteLineId 归位；存量无 id 时按名称回落一次并写入 quoteLineId。
+ * 匹配不上任何工单项的已有施工项保留在末尾，不丢数据。
+ */
+function buildWorkFindingsFromOrderItems(orderItems = [], existingFindings = []) {
+  const items = (Array.isArray(orderItems) ? orderItems : []).map((row, index) =>
+    normalizeQuoteLine(row, index),
+  )
+  const existing = (Array.isArray(existingFindings) ? existingFindings : []).map((row, index) =>
+    normalizeWorkFinding(row, index),
+  )
+  const used = new Set()
+  const pick = (line) => {
+    let at = existing.findIndex(
+      (row, i) => !used.has(i) && row.quoteLineId && row.quoteLineId === line.id,
+    )
+    if (at < 0) {
+      at = existing.findIndex(
+        (row, i) => !used.has(i) && !row.quoteLineId && row.partName === line.name,
+      )
+    }
+    if (at >= 0) used.add(at)
+    return at >= 0 ? existing[at] : null
+  }
+  const out = items
+    .filter((line) => line.name)
+    .map((line, index) => {
+      const hit = pick(line)
+      return normalizeWorkFinding(
+        {
+          id: hit ? hit.id : '',
+          quoteLineId: line.id,
+          partName: line.name,
+          images: hit ? hit.images : [],
+          url: hit ? hit.url : '',
+          imageId: hit ? hit.imageId : '',
+          caption: hit ? hit.caption : '',
+        },
+        index,
+      )
+    })
+  existing.forEach((row, i) => {
+    if (!used.has(i)) out.push(row)
+  })
+  return out
 }
 
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
@@ -764,8 +890,8 @@ function normalizePhotoDraft(raw = {}) {
     conclusion: String(raw.conclusion || '').trim(),
     findings: Array.isArray(raw.findings)
       ? raw.findings
-          .map((item) => {
-            const row = normalizeItemFinding(item)
+          .map((item, index) => {
+            const row = normalizeItemFinding(item, index)
             return row.url || row.partName || row.advice || row.result || row.images.length ? row : null
           })
           .filter(Boolean)
@@ -831,6 +957,7 @@ module.exports = {
   normalizeFinding,
   isOdometerFinding,
   pickOdometerSlot,
+  stableFindingId,
   normalizeWorkFinding,
   normalizeWorkImage,
   workFindingHasPhoto,
@@ -842,6 +969,8 @@ module.exports = {
   buildInspectionReportPayload,
   buildQuoteLinesFromFindings,
   buildWorkOrderPayloadFromQuote,
+  buildWorkFindingsFromOrderItems,
+  stableLineId,
   buildRepairReportPayload,
   normalizeQuoteLine,
   listQuoteLineEvidenceUrls,

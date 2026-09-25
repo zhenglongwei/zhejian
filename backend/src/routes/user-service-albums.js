@@ -141,6 +141,25 @@ router.post(
   },
 )
 
+router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/reject',
+  requireAuth(['user']),
+  async (req, res, next) => {
+    try {
+      const { ownerRejectFlowDocument } = require('../services/service-flow.service')
+      const data = await ownerRejectFlowDocument(
+        req.params.albumId,
+        req.auth.userId,
+        req.params.nodeId,
+        req.body || {},
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
 router.post('/service-albums/:albumId/authorization', requireAuth(['user']), async (req, res, next) => {
   try {
     const data = await submitServiceAlbumAuthorization(

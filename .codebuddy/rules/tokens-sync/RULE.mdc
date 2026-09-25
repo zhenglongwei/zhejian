@@ -1,0 +1,18 @@
+---
+description: 对比并同步 docs/00_设计规范/01_设计令牌_tokens.md 与 styles/tokens.wxss。用于新增/修改颜色、字号、间距、标签色、组件尺寸 token 时。
+alwaysApply: false
+enabled: true
+---
+
+# Tokens Sync
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_tokens_sync.md`
+2. 对比 `docs/00_设计规范/01_设计令牌_tokens.md` 与 `styles/tokens.wxss`
+3. 先输出差异与修改计划，**用户确认后再改** token 文件
+4. 不修改业务页面，不随意删除 token
+
+## 关联规则
+
+- `zhejian-development` 样式规则 6（token 不足时先说明语义再同步）
+- `wxss-refactor`（页面侧替换硬编码）
+- `design-system-check`（改完检查）

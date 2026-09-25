@@ -1,0 +1,32 @@
+---
+description: 将页面/组件 WXSS 中的硬编码样式替换为设计 token 与工具类。用于老页面样式治理、生成代码后清理、上线前样式检查。默认只输出重构建议表。
+alwaysApply: false
+enabled: true
+---
+
+# WXSS Refactor
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_wxss_refactor.md`
+2. 必读：`docs/00_设计规范/01_设计令牌_tokens.md`、`styles/tokens.wxss`
+3. 默认只输出重构建议表；直接修改须先给计划且保持视觉基本一致
+4. 新增 token 须先说明语义
+
+## 前置检查（不做会把「有色」改成「无色」）
+
+`tokens.wxss` 由 `app.wxss` 全局引入，**只在页面层与已声明样式共享的组件内生效**。自定义组件默认样式隔离，组件内 `var(--token)` 与全局工具类取不到值。
+
+替换前**必须先确认目标文件的性质**：
+
+- **页面 WXSS**（`pages/**`、`packageMerchant/pages/**`）→ 可直接替换，全局 token 与工具类可用。
+- **组件 WXSS**（`components/**`）→ 先看该组件 `index.json` 有没有 `"styleIsolation": "apply-shared"`：
+  - **有** → 可替换。
+  - **没有**（默认隔离）→ **先补 `styleIsolation` 声明再替换**；否则硬编码色值原本还能显示，换成 `var(--token)` 后会变成无样式。
+  - 写着 `"isolated"` → 不得替换为 token，或先改为 `apply-shared`。
+
+**禁止**在隔离组件内把硬编码色值替换成 token 变量或全局工具类而不补声明。改造报告里须单独列出「因隔离待补声明」的组件。
+
+## 关联规则
+
+- `tokens-sync`（需要新增/同步 token 时）
+- `zhejian-development` 样式规则（禁散落色值）
+- `design-system-check`（治理完成后）

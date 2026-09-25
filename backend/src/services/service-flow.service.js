@@ -70,7 +70,10 @@ function resolveDocumentStatusLabel(doc = {}) {
   }
   if (status === 'delivered') return '已送达'
   if (status === 'pending_confirm') return '待车主确认'
-  if (status === 'cancelled') return '门店已取消'
+  if (status === 'cancelled') {
+    return String(doc.cancelledBy || '') === 'owner' ? '车主未同意' : '门店已取消'
+  }
+  if (status === 'draft' && String(doc.ownerRejectReason || '').trim()) return '车主未同意'
   if (status === 'in_progress') return '施工中'
   if (status === 'sent') return '已发送车主'
   // draft：商家面不标「草稿」
@@ -425,6 +428,84 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
   let unlockedNext = false
   let intakeDraft = null
 
+  const previewNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const preview = previewNodes.find((n) => n && n.id === id)
+  if (!preview) {
+    const err = new Error('节点不存在')
+    err.status = 404
+    throw err
+  }
+  const previewDocStatus = String((preview.document && preview.document.status) || '')
+  if (preview.status === 'completed' && isPhotoFlowNode(preview) && payload.photoDraft != null) {
+    const err = new Error('该步骤已固定')
+    err.status = 409
+    throw err
+  }
+  if (
+    payload.document &&
+    (previewDocStatus === 'pending_confirm' ||
+      previewDocStatus === 'confirmed' ||
+      previewDocStatus === 'cancelled')
+  ) {
+    const err = new Error('已发给车主，不能再改')
+    err.status = 409
+    throw err
+  }
+
+  const notifying =
+    payload.document && String(payload.document.status || '') === 'pending_confirm'
+  const isAddonNotify =
+    notifying &&
+    preview.kind === 'quote_confirm' &&
+    String(preview.insertedReason || '') === 'addon'
+  const isRepairNotify = notifying && preview.kind === 'repair_report'
+  if (isAddonNotify || isRepairNotify) {
+    const mergedPayload = {
+      ...((preview.document && preview.document.payload) || {}),
+      ...((payload.document && payload.document.payload) || {}),
+    }
+    if (isAddonNotify) {
+      const gaps = collectQuoteConfirmGaps(mergedPayload, { requireDiscovery: true })
+      if (gaps.length) {
+        const err = new Error(gaps[0] || '请先补全新发现和报价')
+        err.status = 400
+        throw err
+      }
+    }
+    await writeFlowPackage(albumId, (pkg) => {
+      const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+      const index = nodes.findIndex((n) => n.id === id)
+      if (index < 0) return pkg
+      const prev = nodes[index]
+      nodes[index] = {
+        ...prev,
+        document: {
+          ...(prev.document || {}),
+          status: 'draft',
+          payload: mergedPayload,
+        },
+      }
+      return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+    })
+    const { maybeHoldNotifyForAiReview } = require('./node-ai-review.service')
+    const holdAlbum = await loadAlbum(albumId)
+    const holdNode = sortFlowNodes(readFlowNodesRaw(holdAlbum)).find((n) => n && n.id === id)
+    const held = await maybeHoldNotifyForAiReview({
+      album: holdAlbum,
+      node: holdNode || preview,
+      merchantId,
+      payload,
+    })
+    if (held) {
+      const viewNodes = mapNodesForView(holdAlbum)
+      return {
+        ...held,
+        unlockedNext: false,
+        node: holdNode ? mapFlowNodeForView(holdNode, viewNodes) : null,
+      }
+    }
+  }
+
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     const index = nodes.findIndex((n) => n.id === id)
@@ -454,6 +535,11 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
           ...(prev.document.payload || {}),
           ...((payload.document && payload.document.payload) || {}),
         },
+      }
+      if (String(payload.document.status || '') === 'pending_confirm') {
+        nextNode.document.ownerRejectReason = ''
+        nextNode.document.ownerRejectedAt = ''
+        if (nextNode.document.statusLabel === '车主未同意') nextNode.document.statusLabel = ''
       }
     }
     if (payload.markComplete) {
@@ -959,6 +1045,20 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
   assertMerchantAlbum(album, storeId, merchantId)
   assertAlbumContentEditable(album)
 
+  const existingNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const openAddon = existingNodes.find((n) => {
+    if (!n || n.kind !== 'quote_confirm' || String(n.insertedReason || '') !== 'addon') return false
+    const status = String((n.document && n.document.status) || 'draft')
+    return status === 'draft' || status === 'pending_confirm'
+  })
+  if (openAddon) {
+    const viewNodes = mapNodesForView(album)
+    return {
+      ...buildFlowView(album, viewNodes),
+      addonAlreadyOpen: true,
+    }
+  }
+
   await writeFlowPackage(albumId, (pkg) => {
     const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
     let workIdx = nodes.findIndex((n) => n.kind === 'work' && n.status === 'in_progress')
@@ -1003,7 +1103,8 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
         ...emptyDocument('quote_confirm'),
         status: 'draft',
         payload: {
-          lines: [{ name: '', brand: '', amount: '', note: '', evidenceUrl: '' }],
+          lines: [{ name: '', brand: '', amount: '', note: '' }],
+          discovery: { images: [], note: '', ready: false },
           confirmCopy: QUOTE_CONFIRM_COPY,
         },
       },
@@ -1196,6 +1297,7 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
               ...doc,
               status: 'cancelled',
               cancelReason,
+              cancelledBy: 'merchant',
               cancelledAt: new Date().toISOString(),
               cancelledFromStatus: docStatus,
               statusLabel: '门店已取消',
@@ -1353,15 +1455,27 @@ function mapOwnerFlowDocCard(node = {}, album = {}) {
     kind === 'addon_quote_confirm'
   const cancelReason = String(doc.cancelReason || '').trim()
   const isCancelled = String(doc.status || '') === 'cancelled'
+  const cancelledBy = String(doc.cancelledBy || '')
+  const ownerRejectReason = String(doc.ownerRejectReason || '').trim()
+  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  const discoveryImages = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
   return {
     id: node.id,
     kind,
     title: isAddonQuote ? '施工中新发现' : node.title || '',
     segmentLabel: node.segmentLabel || '',
     isAddon: isAddonQuote || String(node.insertedReason || '') === 'addon',
+    cancelledBy,
+    ownerRejectReason,
+    discoveryNote: String(discovery.note || '').trim(),
+    discoveryImages,
     statusLabel: isCancelled
-      ? '门店已取消'
-      : resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
+      ? cancelledBy === 'owner'
+        ? '车主未同意'
+        : '门店已取消'
+      : ownerRejectReason && String(doc.status || '') === 'draft'
+        ? '车主未同意'
+        : resolveOwnerDocStatusLabel(kind, doc, node.summary || ''),
     needsConfirm,
     cancelled: isCancelled,
     cancelReason,
@@ -1798,6 +1912,169 @@ async function ownerConfirmFlowDocument(albumId, userId, nodeId, payload = {}) {
   }
 }
 
+/** 车主不同意：增项等同取消本项并记车主拒绝；首次方案与完工退回门店修改 */
+async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
+  const { loadAlbum, mapNodesForView } = require('./service-album.service')
+  const album = await loadAlbum(albumId)
+  if (!album) {
+    const err = new Error('相册不存在或已被删除')
+    err.status = 404
+    throw err
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  const phone = (user && user.phone) || ''
+  const allowed = album.userId === userId || (phone && album.userPhone === phone)
+  if (!allowed) {
+    const err = new Error('手机号与门店登记不一致，请联系门店核对。')
+    err.status = 403
+    throw err
+  }
+
+  const id = String(nodeId || '').trim()
+  if (!id) {
+    const err = new Error('缺少节点 ID')
+    err.status = 400
+    throw err
+  }
+  const reason = String((payload && payload.reason) || '').trim() || '车主拒绝'
+  const previewNodes = sortFlowNodes(readFlowNodesRaw(album))
+  const preview = previewNodes.find((n) => n && n.id === id)
+  if (!preview) {
+    const err = new Error('单据不存在')
+    err.status = 404
+    throw err
+  }
+  const kind = preview.kind
+  if (kind !== 'quote_confirm' && kind !== 'repair_report' && kind !== 'addon_quote_confirm') {
+    const err = new Error('该单据无需确认')
+    err.status = 400
+    throw err
+  }
+  const docStatus = String((preview.document && preview.document.status) || '')
+  if (docStatus !== 'pending_confirm') {
+    const err = new Error('当前不能拒绝')
+    err.status = 400
+    throw err
+  }
+
+  const isAddon =
+    (kind === 'quote_confirm' && String(preview.insertedReason || '') === 'addon') ||
+    kind === 'addon_quote_confirm'
+
+  if (isAddon) {
+    await writeFlowPackage(albumId, (pkg) => {
+      const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+      const quoteIdx = nodes.findIndex((n) => n && n.id === id)
+      if (quoteIdx < 0) {
+        const err = new Error('未找到该增项')
+        err.status = 404
+        throw err
+      }
+      const quote = nodes[quoteIdx]
+      const doc = quote.document || {}
+      const removeIds = new Set()
+      const collectDescendants = (parentId) => {
+        nodes.forEach((n) => {
+          if (!n || !n.id || n.id === quote.id) return
+          if (String(n.parentNodeId || '') === parentId && !removeIds.has(n.id)) {
+            removeIds.add(n.id)
+            collectDescendants(n.id)
+          }
+        })
+      }
+      collectDescendants(quote.id)
+      for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
+        const n = nodes[i]
+        if (!n || String(n.insertedReason || '') !== 'addon') break
+        if (n.kind === 'work_order' || n.kind === 'work') {
+          if (n.kind === 'work_order' && n.document && n.document.status === 'confirmed') break
+          removeIds.add(n.id)
+        } else {
+          break
+        }
+      }
+      const workId = String(quote.parentNodeId || '').trim()
+      let work = workId ? nodes.find((n) => n && n.id === workId) : null
+      if (!work || work.kind !== 'work') {
+        for (let i = quoteIdx - 1; i >= 0; i -= 1) {
+          if (nodes[i] && nodes[i].kind === 'work') {
+            work = nodes[i]
+            break
+          }
+        }
+      }
+      if (!work) {
+        const err = new Error('未找到可恢复的施工步骤')
+        err.status = 400
+        throw err
+      }
+      const nextNodes = nodes
+        .filter((n) => n && !removeIds.has(n.id))
+        .map((n) => {
+          if (n.id === quote.id) {
+            return {
+              ...n,
+              status: 'completed',
+              document: {
+                ...doc,
+                status: 'cancelled',
+                cancelReason: reason,
+                cancelledBy: 'owner',
+                cancelledAt: new Date().toISOString(),
+                cancelledFromStatus: 'pending_confirm',
+                statusLabel: '车主未同意',
+              },
+            }
+          }
+          if (n.id === work.id) return { ...n, status: 'in_progress' }
+          return n
+        })
+      const ordered = sortFlowNodes(nextNodes)
+      const q = ordered.find((n) => n.id === quote.id)
+      const w = ordered.find((n) => n.id === work.id)
+      const beforeWork = ordered.filter(
+        (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) < Number(w.sortOrder),
+      )
+      const afterWork = ordered.filter(
+        (n) => n.id !== quote.id && n.id !== work.id && Number(n.sortOrder) >= Number(w.sortOrder),
+      )
+      const rebuilt = beforeWork.concat([q, w], afterWork)
+      renumberSortOrders(rebuilt)
+      return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: rebuilt }
+    })
+  } else {
+    await writeFlowPackage(albumId, (pkg) => {
+      const nodes = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+      const index = nodes.findIndex((n) => n && n.id === id)
+      if (index < 0) {
+        const err = new Error('单据不存在')
+        err.status = 404
+        throw err
+      }
+      const prev = nodes[index]
+      const prevDoc = prev.document || emptyDocument('')
+      nodes[index] = {
+        ...prev,
+        status: 'in_progress',
+        document: {
+          ...prevDoc,
+          status: 'draft',
+          ownerRejectReason: reason,
+          ownerRejectedAt: new Date().toISOString(),
+          statusLabel: '车主未同意',
+        },
+      }
+      return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
+    })
+  }
+
+  const refreshed = await loadAlbum(albumId)
+  const viewNodes = mapNodesForView(refreshed)
+  return {
+    ownerFlow: buildOwnerFlowView(refreshed, viewNodes),
+  }
+}
+
 module.exports = {
   FLOW_VERSION,
   readFlowVersion,
@@ -1813,6 +2090,7 @@ module.exports = {
   deliverFlowDocument,
   proxyConfirmFlowDocument,
   ownerConfirmFlowDocument,
+  ownerRejectFlowDocument,
   insertAddonPlan,
   cancelAddonPlan,
   mapFlowNodeForView,

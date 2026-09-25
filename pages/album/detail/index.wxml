@@ -48,6 +48,7 @@
           confirmingId="{{flowConfirmingId}}"
           storePhone="{{storePhone}}"
           bind:confirm="onOwnerFlowConfirm"
+          bind:reject="onOwnerFlowReject"
         />
         <album-work-checklist
           wx:if="{{hasWorkChecklist && !showOwnerFlow}}"

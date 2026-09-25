@@ -1,0 +1,28 @@
+---
+description: 按组件 API 规范实现微信小程序基础/业务组件。用于新增 Button、PriceDisplay、CaseCard 等组件或扩展组件 API 时。
+alwaysApply: false
+enabled: true
+---
+
+# Component API Implementation
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_component_api_implementation.md`
+2. 必读：`docs/00_设计规范/02_组件API规范.md`、`01_设计令牌_tokens.md`
+3. **先输出组件实现计划**（Props/Events/文件列表），用户确认后再写代码
+4. 样式仅用 token；业务组件须满足合规（尤其 PriceDisplay、ComplianceNotice）
+
+## 必带交付项：`styleIsolation`
+
+新建组件时，`index.json` **必须**带 `"styleIsolation": "apply-shared"`，否则 `app.wxss` 全局引入的 token 变量与工具类（`.card` `.btn` `.tag` `.text-*` 等）在组件内全部失效，表现为「同样的内容样式不一样」或「完全没有样式」。
+
+- 统一写在 `index.json`，**不要**用 `.js` 的 `addGlobalClass: true`（存量保留，逐步迁移）
+- **禁止** `isolated` 与 `addGlobalClass` 同时出现
+- 组件内部样式走组件自身 WXSS + token 变量；页面层全局工具类不会穿透进隔离组件
+
+详见 `zhejian-development`「样式隔离」一节。
+
+## 关联规则
+
+- `zhejian-development`（组件清单与合规红线）
+- `tokens-sync`（需要新增 token 时）
+- `design-system-check`（实现完成后）

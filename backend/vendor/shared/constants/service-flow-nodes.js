@@ -139,6 +139,30 @@ function emptyDocument(docType) {
   }
 }
 
+/**
+ * 过程步草稿工厂
+ * 真源：docs/04_维修过程相册/26_ 商家端事件节点与单据节点链流程.md §6.2
+ * 与 emptyDocument 对称：photo 类节点用它，避免节点对象只带容器字段 photos: []
+ */
+function emptyPhotoDraft() {
+  return {
+    chiefComplaint: '',
+    mileageKm: '',
+    odometerUrl: '',
+    odometerImageId: '',
+    vehicleBrand: '',
+    vehicleSeries: '',
+    vehicleYear: '',
+    conclusion: '',
+    findings: [],
+    warrantyPeriod: '',
+    warrantyNotes: '',
+    confirmCopy: '',
+    selectedDeliveryUrls: [],
+    deliveryExteriorUrl: '',
+  }
+}
+
 function buildStandardFlowNodes() {
   return STANDARD_FLOW_CHAIN.map((meta, index) => ({
     id: newFlowNodeId(index),
@@ -149,6 +173,8 @@ function buildStandardFlowNodes() {
     status: index === 0 ? 'in_progress' : 'locked',
     photos: [],
     note: '',
+    photoDraft:
+      meta.nodeCategory === NODE_CATEGORY.PHOTO ? emptyPhotoDraft() : null,
     document:
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)
@@ -225,5 +251,6 @@ module.exports = {
   resolveLegacyStageIdsForFlowNode,
   requiresOwnerConfirm,
   emptyDocument,
+  emptyPhotoDraft,
   newFlowNodeId,
 }

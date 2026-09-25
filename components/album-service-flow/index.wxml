@@ -27,6 +27,7 @@
         storePhone="{{storePhone}}"
         confirming="{{confirmingId === item.id}}"
         bind:confirm="onConfirmTap"
+        bind:reject="onRejectTap"
         bind:imageedit="onImageEdit"
       />
     </view>

@@ -8,6 +8,7 @@ const {
   takedownPublicCase,
   interpretOwnerAlbumVision,
   confirmOwnerFlowDocument,
+  rejectOwnerFlowDocument,
 } = require('../../../services/service-album')
 const {
   enrichServiceAlbumListItem,
@@ -1124,6 +1125,47 @@ Page({
     } finally {
       this.setData({ flowConfirmingId: '' })
     }
+  },
+
+  onOwnerFlowReject(e) {
+    const nodeId = e && e.detail && e.detail.nodeId
+    const isAddon = Boolean(e && e.detail && e.detail.isAddon)
+    if (!nodeId || this.data.flowConfirmingId) return
+    if (!isLoggedIn() || !checkAuth({ needPhone: true }).ok) {
+      wx.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    wx.showModal({
+      title: '不同意',
+      content: isAddon
+        ? '这项不做了。门店会看到你拒绝了，并回到施工。'
+        : '记下你不同意。门店会改后再发给你。',
+      confirmText: '确认',
+      cancelText: '返回',
+      success: async (res) => {
+        if (!res.confirm) return
+        this.setData({ flowConfirmingId: nodeId })
+        try {
+          const result = await rejectOwnerFlowDocument(this.albumId, nodeId, {
+            reason: '车主拒绝',
+          })
+          const ownerFlow = (result && result.ownerFlow) || {}
+          const docs = Array.isArray(ownerFlow.docs) ? ownerFlow.docs : null
+          if (docs) {
+            this.setData({
+              ownerFlowDocs: docs,
+              showOwnerFlow: docs.length > 0,
+            })
+          }
+          wx.showToast({ title: '已记下', icon: 'none' })
+          await this.loadAlbum()
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '操作失败', icon: 'none' })
+        } finally {
+          this.setData({ flowConfirmingId: '' })
+        }
+      },
+    })
   },
 
   onRetry() {

@@ -1,0 +1,19 @@
+---
+description: 真实自动脱敏引擎（B-MASK-03/04/06）实现与验收。替换 media.service 复制 stub，OCR/车牌/人脸/VIN 打码，联调 pre-mask 任务链。
+alwaysApply: false
+enabled: true
+---
+
+# Desensitize Engine
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_desensitize_engine.md`
+2. 必读：`docs/00_开发计划.md` §7.1.1、`06_自动脱敏规则.md`、`08_图片脱敏工具PRD.md`
+3. 改代码前 Read：`backend/src/services/media.service.js`、`desensitize.service.js`
+4. 先输出实现计划（选型、文件、数据模型、样图验收），再编码
+5. 完成后跑 `privacy-desensitization-check` 对照公开链路
+
+## 关联规则
+
+- `desensitize-plate-debug`（日志成功但未打码时）
+- `privacy-desensitization-check`（完成后必跑）
+- `case-snapshot-flow`（卷九相册→案例链路）

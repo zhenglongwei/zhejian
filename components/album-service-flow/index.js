@@ -26,6 +26,15 @@ Component({
       this.triggerEvent('confirm', { nodeId: id })
     },
 
+    onRejectTap(e) {
+      const id = (e.detail && e.detail.nodeId) || ''
+      if (!id) return
+      this.triggerEvent('reject', {
+        nodeId: id,
+        isAddon: Boolean(e.detail && e.detail.isAddon),
+      })
+    },
+
     onImageEdit(e) {
       const detail = (e && e.detail) || {}
       this.triggerEvent('imageedit', detail)

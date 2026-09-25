@@ -1,0 +1,37 @@
+---
+description: 单页工具台 pages/mine/index 信息架构与视觉重构（UI-ALB-F）。相册 Hero、Nav Cell、待办聚合、公示激励、H5 条件出口。改我的首页/冷启动入口时用。
+alwaysApply: false
+enabled: true
+---
+
+# Tool Workbench Refactor（UI-ALB-F）
+
+1. 用 Read 打开并遵循：
+   - `docs/02_用户端小程序/12_我的页面与账户体系.md` §3 / **§3.1**
+   - `docs/00_设计规范/11_工具相册UI线框.md` §1
+   - `docs/00_设计规范/00_辙见平台设计体系.md` §10.1 / §10.1.2
+   - `docs/99_AI技能库/skill_tool_workbench_refactor.md`
+2. 实现前输出：模块顺序、用户态差异（未登录 / 已登录无相册 / 已登录有相册）、涉及文件
+3. 必用组件：`ui-tool-page-shell`、`ui-mine-user-header`、`ui-album-card`（Hero）、`ui-cell`、`ui-card`、`ui-empty`、`ui-login-sheet`
+4. 完成后跑 `design-system-check`（仅报告或按用户要求修）
+
+## 硬约束（产品已确认）
+
+- **不做** App 内扫码按钮；文案引导微信原生「扫一扫」
+- **分享链/卡片** 不带收益诱导；「公示激励」首屏由 `MINE_SHARE_INCENTIVE_ENABLED` 控制（**当前 false 不下发**）
+- **已登录** 无相册：空态主按钮进 H5 门店列表；扫码说明在「关于辙见」
+- **已登录** 有相册：**不**展示底部 H5 内容站出口
+- **未登录 + 公域冷启动 + 无相册绑定** 可展示底部 H5 出口
+- **禁止**：横向 album rail、四色整行底 grid、底部三图标重复栏、首屏金额占位、「暂无待处理」pill
+
+## 常量
+
+- `constants/mine-hub.js` — 文案、待办聚合
+- `constants/mine-menu.js` — 菜单分区
+- `constants/mine-earnings.js` — 公示激励预览
+- `utils/tool-entry-context.js` — `shouldShowH5PublicCaseLink`
+
+## 关联规则
+
+- `ui-copy-audience`（文案口吻）
+- `design-system-check`（完成后）

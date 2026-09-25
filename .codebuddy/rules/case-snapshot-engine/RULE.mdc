@@ -1,0 +1,19 @@
+---
+description: 案例公开稿与确认件——车主确认件冻结不可静默覆盖；商家修订另存；公开页展示最新公开稿。2026-09-03 起废止「整案永久快照冻结」。用于 CASE-SNAP-*、case-hosting、public-case 读侧。
+alwaysApply: false
+enabled: true
+---
+
+# Case Snapshot / 确认件引擎（2026-09-03 修订）
+
+1. 真源：`docs/01_项目总览与业务架构/15_案例档案与托管状态机.md` · `14_四件套`
+2. **确认件** `hostMeta.confirmedDocs[]`：车主确认瞬间冻结，`immutable: true`
+3. **商家修订**：`saveHostedPublicCopy` / `hostMeta.revisions[]`，不得覆盖确认件
+4. 公开页看最新公开稿 + 页脚最近更新；H5 不再假设整案不可改
+5. 旧 CaseSnapshot 读侧可保留兼容，新逻辑以 hostMeta / hostPublicCopy 为准
+
+## 关联规则
+
+- `case-snapshot-flow`（卷九主编排）
+- `case-snapshot-check`（权限矩阵与 drift 检查）
+- `case-enrichment-geo`（提炼层不得改数字事实）

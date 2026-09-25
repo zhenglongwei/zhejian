@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "multipleSlots": true,
   "usingComponents": {
     "ui-tag": "/components/tag/index",

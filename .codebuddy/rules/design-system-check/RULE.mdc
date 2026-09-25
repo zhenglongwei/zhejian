@@ -1,0 +1,20 @@
+---
+description: 检查页面/组件/WXSS 是否符合辙见平台设计体系（含 UX-COPY 与受众口吻）。用于页面开发完成后、重构前、自动生成代码后或上线前 UI 检查。默认只输出报告不改代码。
+alwaysApply: false
+enabled: true
+---
+
+# Design System Check
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_design_system_check.md`
+2. 必读：`docs/00_设计规范/00_辙见平台设计体系.md`（含 **§2.4.1 用户可见文案 ≠ 产品说明 / 受众口吻**）、`01_设计令牌_tokens.md`、`02_组件API规范.md`
+3. 默认**只输出检查报告**，不直接改代码；修改须先给计划
+4. 用户指定的路径/页面为检查范围；未指定时询问
+5. 报告中须单列 **UX-COPY**：是否存在需求/实现话术上屏、可删的黄底长说明、description 误作 UI；以及 **受众口吻**（商家简练专业 / 车主友好；作业标签是否误给车主）
+
+## 关联规则
+
+- `ui-copy-not-prd`（UX-COPY 红线）
+- `ui-copy-audience`（口吻对照表）
+- `component-usage-review`（本项之前先做）
+- `release-checklist`（发版前汇总本项）

@@ -1,0 +1,154 @@
+---
+description: 辙见平台前端开发总纲——必读 PRD/设计规范、token、组件复用与合规红线。全项目通用，开发任何 UI/页面/组件/样式前必读。
+alwaysApply: true
+enabled: true
+---
+
+# 项目开发规则
+
+你是「辙见」的小程序、H5 与 **backend/运营后台** 工程师（卷三起含脱敏引擎与审核台）。
+
+## 必读文档
+
+开发任何 **UI、页面、组件、样式** 前，必须先阅读（用 Read 工具打开，不要凭记忆实现）：
+
+1. `docs/00_设计规范/00_辙见平台设计体系.md`
+2. `docs/00_设计规范/01_设计令牌_tokens.md`
+3. `docs/00_设计规范/02_组件API规范.md`
+4. **对应业务 PRD**（按模块选读）：
+   - 用户端：`docs/02_用户端小程序/` 下相关文档
+   - 商家端：`docs/03_商家端/` 下相关文档
+   - 服务相册：`docs/04_维修过程相册/` 下相关文档
+   - H5 公开页：`docs/05_H5公开网页/` 下相关文档
+   - GEO/SEO：`docs/09_SEO_GEO_AI内容基础设施/` 下相关文档
+   - **运营后台（卷三）**：`docs/06_平台运营后台/` 下相关文档
+
+**V2.0 已删除模块**（勿引用）：`07_交易/`、`08_评价/`；主 PRD 见各端 `*PRD V2.0.md`（如 `01_用户端小程序PRD V2.0.md`、`00_商家工作台PRD V2.0.md`）。
+
+**代码进度（唯一）**：`docs/00_开发计划.md` — 全量任务拆解；做完一项改 `[ ]` → `[x]`。旧 `00_开发优先级.md` 已归档勿用。
+
+### 任务 → 必读 PRD（开发前 Read 打开）
+
+| 任务域 | 必读 PRD | 补充 |
+| --- | --- | --- |
+| **U-LEAD / U-MLEAD 咨询** | `05_咨询与到店预约.md` | `06_咨询记录与我的相册.md`；`05_咨询线索状态机.md` |
+| **U-MINE 我的** | `12_我的页面与账户体系.md` | 主 PRD §个人中心 |
+| **U-ALB 用户相册** | `07_维修相册查看页.md` | `06_…`；**口径** `04/00_Phase1_服务相册产品口径.md` |
+| **A-MCH 商家相册** | `03_商家端/04_服务相册创建与管理.md` | `04/03_服务相册流程.md`；`10_配件告知确认规则.md` 为 **Phase 2** |
+| **A-PUB / U-CASE 公开案例** | `04/07_案例生成规则.md` | Phase 1 Tag 见口径 §5 |
+| **U-HOME / U-SRCH / U-GEO** | `02_首页与服务发现.md`、`11_搜索与筛选.md`、`09_GEO内容页.md` | |
+| **U-SVC / U-STORE** | `03_服务商品详情页.md`、`04_门店详情页.md` | |
+| **B-MEDIA / A-MASK** | `05_图片视频上传规范.md`、`08_图片脱敏工具PRD.md` | `10/05_图片视频上传API.md` |
+| **卷三 B-MASK / OPS** | `06_自动脱敏规则.md`、`08_图片脱敏工具PRD.md` | `06_平台运营后台/04_公开案例审核.md`；任务见 `00_开发计划.md` §7.1 |
+| **卷三 B-MERCH-04 / A-PUB-06** | `06_平台运营后台/02_商家审核管理.md` | `04/03_服务相册流程.md` §冷启动 |
+| 卷二 商家（未展开） | `03/01_商家入驻PRD.md`、`03/02_服务商品上架.md`、`03/03_咨询线索管理.md` | 见 `00_开发计划.md` §7 |
+
+**R8 遗留下线**：无新 PRD；勿读已删的 `07_交易/`、`08_评价/` 与用户端 `05_下单*`、`06_订单*`、`08_评价*`、`09_分享*`。
+
+若 PRD 与设计体系冲突：**功能与合规以 PRD 为准，视觉与交互以设计体系为准**；无法判断时向用户确认。
+
+## 设计原则
+
+所有页面必须符合定位：
+
+> **像一份可翻阅的服务相册，而不是一张促销传单。**
+
+必须遵守八原则：证据先于说服；价格诚实可见；来源可识别；隐私默认安全；商家友好、不羞辱；合规文案内置；多端一致、场景可分；为内容资产而设计。
+
+## 样式规则
+
+1. 使用 `styles/tokens.wxss` 中的 CSS 变量与工具类。**注意前提**：它由 `app.wxss` 全局引入，只在**页面层**和**已声明样式共享的组件内**生效，详见下方「样式隔离」。
+2. **禁止**在页面 WXSS 中散落硬编码色值（仅允许 `#fff` / `transparent` / `inherit` 等文档列出的例外）。
+3. 间距、圆角、阴影、字号、z-index 优先使用 token（`--color-*`、`--space-*`、`--radius-*` 等）。
+4. 新页面优先复用 `components/` 下已有组件；目录尚未有时，按设计体系 §8 在 `components/` 新建，**禁止**在页面内复制一套卡片/标签/价格样式。
+5. 价格展示必须使用四型之一（一口价 / 参考区间 / 仅预约 / 事故车），见设计体系 §6.1。
+6. token 或组件不足时：**先说明扩展语义与方案**，再同步更新 `01_设计令牌_tokens.md` 与 `styles/tokens.wxss`。
+
+### 样式隔离（不做就会「同样的内容样式不一样，甚至完全没样式」）
+
+`styles/tokens.wxss` 里的 CSS 变量声明在 `page {}` 上，工具类（`.card` `.btn` `.tag` `.text-*` `.safe-bottom` `.fixed-bottom` `.ellipsis` `.skeleton-block` `.mask` `.popup` 等约 100 个）都是全局类。微信小程序**自定义组件默认样式隔离**，`app.wxss` 的全局样式进不去组件内部，于是 `var(--color-*)` 取不到值、工具类不生效。
+
+**硬规则：**
+
+1. **每个自定义组件必须显式声明样式共享**，写法统一为在 `index.json` 写 `"styleIsolation": "apply-shared"`。
+2. **禁止**使用 `.js` 里的 `addGlobalClass: true` 作为新写法（存量保留，逐步迁移到 `styleIsolation`）；**禁止**同一个组件既写 `styleIsolation` 又写 `addGlobalClass`（两者冲突时 `styleIsolation` 优先，容易写成 `isolated` 还以为生效了）。
+3. **禁止**写 `"styleIsolation": "isolated"` 又在组件内使用 token 变量或全局工具类；确需隔离时，组件内样式必须自带完整定义，或改回 `apply-shared`。
+4. **全局工具类只在页面层与非隔离组件内使用**。组件内部样式走组件自身 WXSS + token 变量；不能一边用组件封装、一边指望页面层的 `.card` 类穿透进去。
+5. 新建组件、或给既有组件加样式时，先确认该组件的 `index.json` 有无 `styleIsolation`，没有就先补，再写样式。
+
+> 本项目存量有 19 个组件完全未声明（默认隔离），另有 2 个 `isolated` 与 `addGlobalClass` 并存自相矛盾。修存量属改代码，需经 `docs-before-code` 流程单独处理。
+
+## 业务组件（优先复用）
+
+不得在各页面重复实现以下能力的样式与结构；应使用对应组件或 `tokens.wxss` 工具类：
+
+Button、Tag、Card、Empty、Skeleton、PriceDisplay、Timeline、AlbumNode、CaseCard、StoreCard、ServiceCard、KeyInfoTable、AiSummaryBlock、PrivacyBanner、ComplianceNotice
+
+标签文案使用设计体系标准（如「**用户授权案例**」「**商家历史案例**」「已脱敏」「已审核」），不得自造同义词；**禁止**使用「平台订单案例」。
+
+**V2.0 新页面禁止**：引用或新建下单/支付/订单履约/交易评价/分享奖励能力；底栏 CTA 用「咨询预约 / 预约到店」，不用「立即下单 / 立即购买」。服务相册用 `albumId`，不新增 `orderId` 依赖。
+
+**遗留组件（旧页可用，新页勿引）**：OrderCard、OrderStatusBadge、RatingDimensions、ReviewCard、ReviewListSection、Reward*。
+
+## 合规文案
+
+**禁止**出现：好评返现、晒图返现、分享赚钱、转发领钱、全网最低、100% 修好、事故车线上估价/线上报价暗示。
+
+必须使用设计体系与 PRD 中的合规替代表达；V2.0 **不做**评价奖励、分享领钱，分享按钮不得诱导现金收益。
+
+## 开发流程
+
+**非 trivial 变更**（新页面、新组件、业务流程、样式体系）开始前简要说明：需求理解、涉及文件、实现方案、是否新增组件或 token。
+
+实现后自查：
+
+1. 是否符合对应业务 PRD
+2. 是否符合设计体系与 token 文档
+3. 是否使用 token / 工具类（无散落色值）
+4. **新建/改动的组件是否声明了 `styleIsolation: apply-shared`**；有无 `isolated` 与 `addGlobalClass` 并存；隔离组件内是否误用全局工具类（见「样式隔离」）
+5. 是否复用组件（无重复卡片/标签/价格样式）
+6. 是否处理 loading、empty、error
+7. 固定底栏是否适配 safe-area（`safe-bottom` / `fixed-bottom`）
+8. 是否存在合规文案风险
+9. 公开/分享场景是否仅用脱敏资源与脱敏文案
+10. 是否误接 V1 路径（`order-confirm`、评价/奖励页、平台订单 Tag）
+11. **是否误把需求/实现话术写进界面**（§2.4.1 / `ui-copy-not-prd`）：黄底长说明、节点 description、「统一入口/自动生成/之后可改」等须删除或改为版式引导
+12. **商家/车主口吻是否匹配**（§2.4.1 / `ui-copy-audience`）：车主面勿用「需处理 / 草稿」等作业词当主文案
+13. **数据结构是否自包含**（`data-structure-first`）：改动数据/字段/列表时，同一业务对象的字段是否住在同一对象；有无用下标或 URL 跨数组配对；一对多是否为数组
+14. **结构改完是否体检**（`data-structure-review`）：涉及数据结构的改动，交付前跑一次结构体检
+
+## 专项任务规则索引
+
+专项任务须读取并执行 `docs/99_AI技能库/` 下对应文档（索引见 `00_使用说明.md`）。项目内任务规则位于 `.codebuddy/rules/<name>/RULE.mdc`，与文档同名对应。
+
+| 任务类型 | 使用规则 |
+|---|---|
+| **改数据对象/字段/列表结构** | **`data-structure-first`**（先出结构卡，再写页面） |
+| 结构改完 / 改版后数据错位串项 | `data-structure-review` |
+| **非 trivial 功能交付** | **`feature-build-verify`**（需求→拆分→写码→逐项验证） |
+| 新增页面 | `page-scaffold` |
+| 新增/改组件 | `component-api-implementation` |
+| 接 API | `api-integration` |
+| 样式治理 | `wxss-refactor` |
+| 改 token | `tokens-sync` |
+| 页面完成后 | `component-usage-review` → `design-system-check` |
+| **需求变更且改 UI** | **先读** `ui-copy-not-prd` + 设计体系 §2.4.1 + `ui-copy-audience`，再改页面文案 |
+| **改单据/双端提示文案** | `ui-copy-audience` |
+| 价格相关 | `price-compliance-check` |
+| 相册/案例/分享 | `privacy-desensitization-check` |
+| 脱敏引擎 backend | `desensitize-engine` |
+| 脱敏车牌不打码 / pre-mask 失败 | `desensitize-plate-debug` |
+| 运营 Web 审核台 | `ops-admin-scaffold` |
+| 搜索空态/Tab/综合搜索 UX | `search-result-ux-fix` |
+| 单页工具台/我的首页 IA | `tool-workbench-refactor` |
+| 图片不显示/封面空白 | `miniprogram-image-debug` |
+| 发版前 | `release-checklist` |
+| **卷九 案例快照全流程** | **`case-snapshot-flow`**（编排） |
+| `CASE-SNAP-*` 快照/锁定/H5 读侧 | `case-snapshot-engine` |
+| `CASE-ENR-*` / GEO 提炼层 | `case-enrichment-geo` |
+| 卷九合并前 / 快照 drift 检查 | `case-snapshot-check` |
+| 商家工作台 packageMerchant | `merchant-workbench-scaffold` |
+| 需求/方案对齐拷问 | `grill-me` |
+| 对外写作/文案去 AI 味 | `anti-ai-slop-writing` |
+
+用户指定「使用某规则」或任务匹配上表时：**先 Read 完整规则文档，再按其中输出格式与约束执行**；检查类规则默认只报告不改代码，除非用户明确要求修改。

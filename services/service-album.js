@@ -158,11 +158,22 @@ async function confirmOwnerFlowDocument(albumId, nodeId, payload = {}) {
   )
 }
 
+async function rejectOwnerFlowDocument(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { ownerFlow: { docs: [], pendingConfirmCount: 0 } }
+  }
+  return post(
+    `/user/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/reject`,
+    payload,
+  )
+}
+
 module.exports = {
   fetchUserServiceAlbums,
   fetchServiceAlbum,
   submitPartConfirm,
   confirmOwnerFlowDocument,
+  rejectOwnerFlowDocument,
   submitServiceAlbumAuthorization,
   prepareServiceAuthorizePreview,
   fetchUserAuthorizations,

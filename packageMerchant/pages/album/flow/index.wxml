@@ -576,7 +576,7 @@
               <text
                 wx:if="{{!readOnly && isWorkPhotoStep}}"
                 class="text-caption text-secondary merchant-flow-page__finding-tips"
-              >先征得车主同意再做</text>
+              >下一页拍故障、写看见什么</text>
               <view
                 wx:if="{{aiReview.isWaiting}}"
                 class="merchant-flow-page__ai-status"
@@ -805,7 +805,86 @@
             </block>
 
             <block wx:elif="{{activeKind === 'quote_confirm'}}">
-              <view class="merchant-flow-page__sheet">
+              <view
+                wx:if="{{isAddonQuote && !addonDiscoveryReady && !confirmAwaitingOwner}}"
+                class="merchant-flow-page__sheet"
+              >
+                <view class="merchant-flow-page__sheet-section">
+                  <view class="merchant-flow-page__sheet-title-row">
+                    <view class="merchant-flow-page__sheet-rail" />
+                    <text class="text-body merchant-flow-page__sheet-title">新发现</text>
+                  </view>
+                  <text class="text-caption text-secondary">拍下故障，写一句看见什么</text>
+                  <view class="merchant-flow-page__work-thumbs">
+                    <view
+                      wx:for="{{addonDiscoveryImages}}"
+                      wx:key="*this"
+                      class="merchant-flow-page__work-thumb"
+                    >
+                      <image
+                        class="merchant-flow-page__work-thumb-img image-placeholder"
+                        src="{{item}}"
+                        mode="aspectFill"
+                        data-url="{{item}}"
+                        bindtap="onPreviewAddonDiscovery"
+                      />
+                      <text
+                        wx:if="{{!readOnly}}"
+                        class="merchant-flow-page__work-thumb-remove"
+                        data-index="{{index}}"
+                        catchtap="onRemoveAddonDiscoveryImage"
+                      >×</text>
+                    </view>
+                    <view
+                      wx:if="{{!readOnly && addonDiscoveryImages.length < 6}}"
+                      class="merchant-flow-page__plan-evidence-add"
+                      bindtap="onAddAddonDiscoveryImage"
+                    >
+                      <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
+                      <text class="text-caption text-secondary">故障照片</text>
+                    </view>
+                  </view>
+                  <text class="text-caption text-secondary merchant-flow-page__field-label">看见什么</text>
+                  <textarea
+                    class="merchant-flow-page__plan-note"
+                    placeholder="例：液压位渗油"
+                    value="{{addonDiscoveryNote}}"
+                    maxlength="200"
+                    auto-height="{{false}}"
+                    style="height: 96rpx;"
+                    disabled="{{readOnly}}"
+                    bindinput="onAddonDiscoveryInput"
+                  />
+                  <ui-button
+                    wx:if="{{!readOnly}}"
+                    type="primary"
+                    block="{{true}}"
+                    bind:btntap="onFinishAddonDiscovery"
+                  >写好了，去报价</ui-button>
+                </view>
+              </view>
+              <view wx:elif="{{isAddonQuote && addonDiscoveryReady}}" class="merchant-flow-page__doc-block">
+                <text class="text-body">新发现</text>
+                <text class="text-caption">{{addonDiscoveryNote}}</text>
+                <view class="merchant-flow-page__work-thumbs">
+                  <image
+                    wx:for="{{addonDiscoveryImages}}"
+                    wx:key="*this"
+                    class="merchant-flow-page__work-thumb-img image-placeholder"
+                    src="{{item}}"
+                    mode="aspectFill"
+                    data-url="{{item}}"
+                    bindtap="onPreviewAddonDiscovery"
+                  />
+                </view>
+                <text
+                  wx:if="{{!readOnly && !confirmAwaitingOwner}}"
+                  class="text-caption text-link"
+                  bindtap="onEditAddonDiscovery"
+                >改照片和说明</text>
+              </view>
+              <text wx:if="{{ownerRejectReason && !confirmAwaitingOwner}}" class="text-caption text-secondary">车主未同意。{{ownerRejectReason}}</text>
+              <view wx:if="{{!isAddonQuote || addonDiscoveryReady || confirmAwaitingOwner}}" class="merchant-flow-page__sheet">
                 <view class="merchant-flow-page__sheet-section merchant-flow-page__sheet-section--plan">
                   <view class="merchant-flow-page__sheet-title-row">
                     <view class="merchant-flow-page__sheet-rail merchant-flow-page__sheet-rail--plan" />
@@ -818,35 +897,6 @@
                       data-index="{{index}}"
                       catchtap="onRemoveQuoteLine"
                     >×</view>
-                    <view wx:if="{{isAddonQuote}}" class="merchant-flow-page__plan-evidence">
-                      <view
-                        wx:if="{{item.evidenceUrl}}"
-                        class="merchant-flow-page__plan-evidence-thumb"
-                        data-index="{{index}}"
-                        bindtap="onPreviewQuoteEvidence"
-                      >
-                        <image
-                          class="merchant-flow-page__plan-evidence-img image-placeholder"
-                          src="{{item.evidenceUrl}}"
-                          mode="aspectFill"
-                        />
-                        <text
-                          wx:if="{{!readOnly && !confirmAwaitingOwner}}"
-                          class="merchant-flow-page__plan-evidence-remove"
-                          data-index="{{index}}"
-                          catchtap="onRemoveQuoteEvidence"
-                        >×</text>
-                      </view>
-                      <view
-                        wx:elif="{{!readOnly && !confirmAwaitingOwner}}"
-                        class="merchant-flow-page__plan-evidence-add"
-                        data-index="{{index}}"
-                        bindtap="onAddQuoteEvidence"
-                      >
-                        <text class="merchant-flow-page__plan-evidence-add-icon">+</text>
-                        <text class="text-caption text-secondary">故障图</text>
-                      </view>
-                    </view>
                     <view class="merchant-flow-page__plan-row-top">
                       <view class="merchant-flow-page__plan-name">
                         <text class="text-caption text-secondary merchant-flow-page__field-label">项目</text>
@@ -911,12 +961,23 @@
                   </view>
                 </view>
               </view>
-              <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
+              <view
+                wx:if="{{!readOnly && (!isAddonQuote || addonDiscoveryReady || confirmAwaitingOwner)}}"
+                class="merchant-flow-page__doc-actions"
+              >
+                <view
+                  wx:if="{{aiReview.isWaiting}}"
+                  class="merchant-flow-page__ai-status"
+                >
+                  <view class="merchant-flow-page__ai-status-spin"></view>
+                  <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+                </view>
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
                     type="primary"
                     block="{{true}}"
                     loading="{{confirming}}"
+                    disabled="{{notifyConfirmDisabled}}"
                     bind:btntap="onSendForOwnerConfirm"
                   >发送车主确认</ui-button>
                 </block>
@@ -931,6 +992,14 @@
                 </block>
                 <ui-button
                   wx:if="{{isAddonQuote}}"
+                  type="ghost"
+                  block="{{true}}"
+                  loading="{{confirming}}"
+                  bind:btntap="onOpenCancelAddon"
+                >取消本项</ui-button>
+              </view>
+              <view wx:elif="{{!readOnly && isAddonQuote}}" class="merchant-flow-page__doc-actions">
+                <ui-button
                   type="ghost"
                   block="{{true}}"
                   loading="{{confirming}}"
@@ -958,6 +1027,7 @@
             </block>
 
             <block wx:elif="{{activeKind === 'repair_report'}}">
+              <text wx:if="{{ownerRejectReason && !confirmAwaitingOwner}}" class="text-caption text-secondary">车主未同意。{{ownerRejectReason}}</text>
               <view class="merchant-flow-page__doc-block">
                 <text class="text-caption text-secondary">已施工项目</text>
                 <view wx:for="{{docPayload.workItems}}" wx:key="name" class="merchant-flow-page__work-item">
@@ -989,11 +1059,19 @@
                 />
               </view>
               <view wx:if="{{!readOnly}}" class="merchant-flow-page__doc-actions">
+                <view
+                  wx:if="{{aiReview.isWaiting}}"
+                  class="merchant-flow-page__ai-status"
+                >
+                  <view class="merchant-flow-page__ai-status-spin"></view>
+                  <text class="merchant-flow-page__ai-status-text">{{aiReview.waitHint}}</text>
+                </view>
                 <block wx:if="{{!confirmAwaitingOwner}}">
                   <ui-button
                     type="primary"
                     block="{{true}}"
                     loading="{{confirming}}"
+                    disabled="{{notifyConfirmDisabled}}"
                     bind:btntap="onSendForOwnerConfirm"
                   >发送车主确认</ui-button>
                 </block>

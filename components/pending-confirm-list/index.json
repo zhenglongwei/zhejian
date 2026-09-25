@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-card": "/components/card/index",
     "ui-button": "/components/button/index",

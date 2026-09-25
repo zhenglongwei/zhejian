@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-image-uploader": "/components/image-uploader/index"
   }

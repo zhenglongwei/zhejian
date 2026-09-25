@@ -1,0 +1,19 @@
+---
+description: 案例 GEO 提炼层——Enrichment 与 Snapshot 分离；专题/FAQ/聚合统计；规则为主 LLM 边界。用于 CASE-ENR-*、geo-case-aggregate、geo-page-generator、h5-geo-topic、admin enrichment API。
+alwaysApply: false
+enabled: true
+---
+
+# Case Enrichment GEO
+
+1. 用 Read 打开：`docs/99_AI技能库/skill_case_enrichment_geo.md`
+2. 必读：`docs/04_维修过程相册/13_案例全流程快照与GEO分层开发计划.md` §5 + `docs/09_SEO_GEO_AI内容基础设施/09_GEO信息增量与RAG专线开发计划.md`
+3. **先输出计划**：改 enrichment 还是 snapshot；LLM 是否涉及；Feed/页面一致性
+4. 聚合统计必须含 N=；禁止无案例通用模板 index
+5. 完成后：`geo-aggregate-smoke` + `case-snapshot-check`
+
+## 关联规则
+
+- `case-snapshot-flow`（卷九编排）
+- `case-snapshot-check`（完成后必跑）
+- `anti-ai-slop-writing`（GEO 对外内容写作时）

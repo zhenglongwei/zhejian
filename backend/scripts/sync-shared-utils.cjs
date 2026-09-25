@@ -18,6 +18,8 @@ const FILES = [
   /** ALB-UX：service-album-stages 依赖四阶段模板常量 */
   'constants/service-album-node-templates.js',
   'constants/service-album-stages.js',
+  /** 服务流程节点链：节点工厂与发现项结构（此前靠手动复制，易漂移） */
+  'constants/service-flow-nodes.js',
   'utils/album-inspection-advice.js',
   'utils/album-inspection-context.js',
   'utils/album-inspection-content-fingerprint.js',
@@ -32,6 +34,8 @@ const FILES = [
   'utils/album-summary.js',
   'utils/album-ai-summary.js',
   'utils/desensitize-url.js',
+  /** 服务流程文档/草稿读写：发现项归一化与节点读写真源 */
+  'utils/service-flow-docs.js',
 ]
 
 function ensureDir(dir) {

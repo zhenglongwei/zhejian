@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-album-node": "/components/album-node/index",
     "ui-privacy-banner": "/components/privacy-banner/index"

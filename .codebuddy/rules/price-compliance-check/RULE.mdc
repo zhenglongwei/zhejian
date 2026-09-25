@@ -1,0 +1,19 @@
+---
+description: 检查价格、事故车、历史案例等展示与文案合规。用于服务详情、案例、门店列表等涉及价格的页面。默认只输出问题清单与文案替换建议。
+alwaysApply: false
+enabled: true
+---
+
+# Price Compliance Check
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_price_compliance_check.md`
+2. 必读：`02_组件API规范.md`（PriceDisplay）、设计体系价格与合规章节
+3. 默认只输出问题清单与文案替换建议，不直接改代码
+4. 事故车禁止线上报价暗示；区间价须有到店检测说明
+
+## 关联规则
+
+- `zhejian-development` 价格四型与合规文案
+- `merchant-workbench-scaffold`（服务价格上架时叠加本项）
+- `ops-admin-scaffold`（审核台含价格时叠加本项）
+- `release-checklist`（发版前汇总本项）

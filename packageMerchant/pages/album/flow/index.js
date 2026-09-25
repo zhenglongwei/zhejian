@@ -38,6 +38,7 @@ const {
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
   normalizeQuoteLine,
+  buildWorkFindingsFromOrderItems,
   mapFindingRows,
   mediaKey,
   sumQuoteAmounts,
@@ -364,6 +365,10 @@ Page({
     quotePendingOwner: false,
     confirmAwaitingOwner: false,
     isAddonQuote: false,
+    addonDiscoveryImages: [],
+    addonDiscoveryNote: '',
+    addonDiscoveryReady: false,
+    ownerRejectReason: '',
     quoteEvidenceLocked: false,
     showCancelAddonModal: false,
     cancelAddonReason: '',
@@ -543,25 +548,10 @@ Page({
         order.document.payload.items) ||
       []
     if (!items.length) return findings
-    const used = new Set(
-      (findings || [])
-        .map((row) => String((row && row.partName) || '').trim())
-        .filter(Boolean),
+    // 26_ §6.6：以工单项目为骨架预生成施工项，已传的图按 quoteLineId（存量按名称）归位
+    return buildWorkFindingsFromOrderItems(items, findings).map((row) =>
+      row.images.length ? row : { ...row, pendingPhoto: true },
     )
-    const pending = items
-      .map((row) => normalizeQuoteLine(row))
-      .filter((row) => row.name && !used.has(row.name))
-      .map((row) => ({
-        partName: row.name,
-        url: '',
-        caption: '',
-        imageId: '',
-        images: [],
-        result: '',
-        advice: '',
-        pendingPhoto: true,
-      }))
-    return (findings || []).concat(pending)
   },
 
   findingImagesFromRows(findings = [], odometerUrl = '') {
@@ -821,8 +811,10 @@ Page({
         if (kind === 'work') return Boolean((raw.images && raw.images.length) || raw.url || raw.partName)
         return Boolean(raw.url || raw.partName)
       })
-      .map((item) =>
-        kind === 'work' ? normalizeWorkFinding(item) : normalizeFinding(item),
+      .map((item, index) =>
+        kind === 'work'
+          ? normalizeWorkFinding(item, index)
+          : normalizeFinding(item, index),
       )
       .filter((item) => (kind === 'work' ? item.images.length || item.partName : item.url || item.partName))
   },
@@ -1191,6 +1183,20 @@ Page({
       const isAddonQuote = Boolean(
         active && active.kind === 'quote_confirm' && active.insertedReason === 'addon',
       )
+      const discovery =
+        isAddonQuote && docPayload.discovery && typeof docPayload.discovery === 'object'
+          ? docPayload.discovery
+          : {}
+      const addonDiscoveryImages = Array.isArray(discovery.images)
+        ? discovery.images.filter(Boolean)
+        : []
+      const addonDiscoveryNote = String(discovery.note || '')
+      const addonDiscoveryReady = Boolean(
+        discovery.ready && addonDiscoveryImages.length && addonDiscoveryNote.trim(),
+      )
+      const ownerRejectReason = String(
+        (active && active.document && active.document.ownerRejectReason) || '',
+      ).trim()
       let quoteEvidenceFindings = []
       if (!isAddonQuote) {
         if (active && active.kind === 'inspection_report') {
@@ -1293,6 +1299,10 @@ Page({
         quotePendingOwner,
         confirmAwaitingOwner,
         isAddonQuote,
+        addonDiscoveryImages,
+        addonDiscoveryNote,
+        addonDiscoveryReady,
+        ownerRejectReason,
         quoteEvidenceLocked: Boolean(readOnly || confirmAwaitingOwner),
         conclusion,
         confirmCopy,
@@ -2930,7 +2940,7 @@ Page({
       aiReview: decorated,
       aiReviewBusy: false,
     }
-    if (this._aiReviewAction === 'deliver') {
+    if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
       patch.notifyOwnerLabel = '通知车主'
       patch.notifyConfirmDisabled = waiting && !timedOut
     } else {
@@ -2973,13 +2983,18 @@ Page({
 
   resumeAiReviewFromNode(active) {
     if (this.data.readOnly || !active || !this._nodeAiReviewEntitled) return
-    if (active.kind === 'intake_inspection') return
+    const kind = active.kind
+    if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') return
     const review = active.aiReview
     if (!review || review.acknowledged) return
-    if (review.status === 'queued' || review.status === 'running' || review.status === 'ready') {
-      const action = active.kind === 'inspection_report' ? 'deliver' : 'complete'
-      this.applyInlineAiReview(review, action)
+    if (review.status !== 'queued' && review.status !== 'running' && review.status !== 'ready') return
+    let action = ''
+    if (kind === 'inspection_report') action = 'deliver'
+    else if (kind === 'quote_confirm' || kind === 'addon_quote_confirm' || kind === 'repair_report') {
+      action = 'notify'
     }
+    if (!action) return
+    this.applyInlineAiReview(review, action)
   },
 
   resumeAiReviewIfNeeded() {
@@ -3020,7 +3035,7 @@ Page({
       }
       if (Date.now() - (this._aiReviewPollStartedAt || 0) > 20000 && !this.data.aiReviewTimedOut) {
         const waitingPatch = { aiReviewTimedOut: true }
-        if (this._aiReviewAction === 'deliver') {
+        if (this._aiReviewAction === 'deliver' || this._aiReviewAction === 'notify') {
           waitingPatch.notifyOwnerLabel = '通知车主'
           waitingPatch.notifyConfirmDisabled = false
         } else {
@@ -3336,11 +3351,19 @@ Page({
       const lines = this.data.quoteLines
         .map((l) => normalizeQuoteLine(l))
         .filter((l) => String(l.name || '').trim())
-      return {
+      const payload = {
         ...base,
         lines,
         confirmCopy: QUOTE_CONFIRM_COPY,
       }
+      if (this.data.isAddonQuote) {
+        payload.discovery = {
+          images: (this.data.addonDiscoveryImages || []).filter(Boolean),
+          note: String(this.data.addonDiscoveryNote || '').trim(),
+          ready: Boolean(this.data.addonDiscoveryReady),
+        }
+      }
+      return payload
     }
     if (kind === 'repair_report') {
       return {
@@ -3466,14 +3489,118 @@ Page({
         this.resyncSectionsAfterPersist()
         await this.persistPhotoDraft()
       }
-      await insertMerchantAddonPlan(this.albumId)
-      wx.showToast({ title: '请填写施工中新发现', icon: 'none' })
+      const added = await insertMerchantAddonPlan(this.albumId)
+      wx.showToast({
+        title: added && added.addonAlreadyOpen ? '新发现已在这一页' : '请先拍故障、写看见什么',
+        icon: 'none',
+      })
       await this.loadFlow({ silent: true })
     } catch (e) {
       wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
     } finally {
       this.setData({ confirming: false })
     }
+  },
+
+  async persistAddonDocument() {
+    if (!this.data.isAddonQuote || this.data.readOnly || this.data.confirmAwaitingOwner) return
+    const nodeId = this.data.activeNode && this.data.activeNode.id
+    if (!nodeId) return
+    await updateMerchantFlowNode(this.albumId, nodeId, {
+      document: {
+        status: 'draft',
+        payload: this.buildDocPayloadForSave(),
+      },
+    })
+  },
+
+  onAddonDiscoveryInput(e) {
+    this.setData({ addonDiscoveryNote: e.detail.value })
+  },
+
+  onAddAddonDiscoveryImage() {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner || this.data.addonDiscoveryReady) return
+    const current = (this.data.addonDiscoveryImages || []).filter(Boolean)
+    if (current.length >= 6) {
+      wx.showToast({ title: '最多 6 张', icon: 'none' })
+      return
+    }
+    pickLocalImages({
+      count: Math.min(6 - current.length, 9),
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: async (res) => {
+        const files = (res && res.tempFiles) || []
+        if (!files.length) return
+        try {
+          wx.showLoading({ title: '上传中' })
+          const urls = current.slice()
+          for (let i = 0; i < files.length && urls.length < 6; i += 1) {
+            const file = files[i]
+            if (!file || !file.tempFilePath) continue
+            const uploaded = await uploadImage(file.tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (url) urls.push(url)
+          }
+          this.setData({ addonDiscoveryImages: urls }, () => {
+            this.persistAddonDocument().catch(() => {})
+          })
+        } catch (err) {
+          wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
+        } finally {
+          wx.hideLoading()
+        }
+      },
+    })
+  },
+
+  onRemoveAddonDiscoveryImage(e) {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner || this.data.addonDiscoveryReady) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const urls = (this.data.addonDiscoveryImages || []).filter((_, i) => i !== index)
+    this.setData({ addonDiscoveryImages: urls }, () => {
+      this.persistAddonDocument().catch(() => {})
+    })
+  },
+
+  onFinishAddonDiscovery() {
+    const images = (this.data.addonDiscoveryImages || []).filter(Boolean)
+    const note = String(this.data.addonDiscoveryNote || '').trim()
+    if (!images.length) {
+      wx.showToast({ title: '请先拍下新故障', icon: 'none' })
+      return
+    }
+    if (!note) {
+      wx.showToast({ title: '请写一句看见什么', icon: 'none' })
+      return
+    }
+    this.setData(
+      {
+        addonDiscoveryImages: images,
+        addonDiscoveryNote: note,
+        addonDiscoveryReady: true,
+      },
+      () => {
+        this.persistAddonDocument().catch((err) => {
+          wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' })
+        })
+      },
+    )
+  },
+
+  onPreviewAddonDiscovery(e) {
+    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '')
+    const urls = (this.data.addonDiscoveryImages || []).filter(Boolean)
+    if (!url || !urls.length) return
+    wx.previewImage({ current: url, urls })
+  },
+
+  onEditAddonDiscovery() {
+    if (this.data.readOnly || this.data.confirmAwaitingOwner) return
+    this.setData({ addonDiscoveryReady: false }, () => {
+      this.persistAddonDocument().catch(() => {})
+    })
   },
 
   onOpenCancelAddon() {
@@ -3541,7 +3668,7 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave(), {
-        requireEvidence: this.data.isAddonQuote,
+        requireDiscovery: this.data.isAddonQuote,
       })
       if (gaps.length) {
         wx.showModal({
@@ -3565,12 +3692,17 @@ Page({
     }
     this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+      const sent = await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         document: {
           status: 'pending_confirm',
           payload: this.buildDocPayloadForSave(),
         },
+        ...this.buildAiReviewAckExtra(),
       })
+      if (sent && sent.nextAction === 'ai_review') {
+        this.applyInlineAiReview(sent.review, 'notify')
+        return
+      }
       wx.showToast({ title: '已发送车主', icon: 'success' })
       await this.loadFlow({ silent: true })
     } catch (e) {
@@ -3589,7 +3721,7 @@ Page({
     const kind = this.data.activeNode && this.data.activeNode.kind
     if (kind === 'quote_confirm' || kind === 'addon_quote_confirm') {
       const gaps = collectQuoteConfirmGaps(this.buildDocPayloadForSave(), {
-        requireEvidence: this.data.isAddonQuote,
+        requireDiscovery: this.data.isAddonQuote,
       })
       if (gaps.length) {
         wx.showModal({

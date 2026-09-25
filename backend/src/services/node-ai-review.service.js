@@ -13,6 +13,7 @@ const {
 const {
   getReviewRubric,
   isReviewKind,
+  resolveReviewCategory,
   resolveReviewStep,
 } = require('../utils/node-ai-review-rubric')
 const { buildRuleSuggestions, parseModelSuggestions } = require('../utils/node-ai-review-rules')
@@ -76,6 +77,11 @@ function collectNodeImageEntries(node = {}) {
   pushFindings(draft.findings)
   const payload = (node.document && node.document.payload) || {}
   pushFindings(payload.findings)
+  const discovery = payload.discovery && typeof payload.discovery === 'object' ? payload.discovery : {}
+  ;(Array.isArray(discovery.images) ? discovery.images : []).forEach((url) => push(url, '新发现'))
+  ;(Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []).forEach((row) => {
+    push(row, '交车图')
+  })
   const seen = new Set()
   return entries.filter((row) => {
     const key = stripUrlQuery(row.url)
@@ -101,7 +107,10 @@ function buildReviewFingerprint(node, extra = {}) {
       r: text(row && row.result),
     })),
     warranty: text((node.photoDraft && node.photoDraft.warrantyPeriod) || extra.warrantyPeriod),
-    lines: (extra.quoteLines || []).map((line) => ({ n: text(line && line.name) })),
+    lines: (extra.quoteLines || []).map((line) => ({
+      n: text(line && line.name),
+      t: text(line && line.note),
+    })),
   }
   return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex')
 }
@@ -152,23 +161,61 @@ async function patchFlowNode(albumId, nodeId, mutator) {
 function buildReviewContext(album, node, extra = {}) {
   const draft = node.photoDraft || {}
   const doc = (node.document && node.document.payload) || {}
+  const reviewStep =
+    extra.step || (node.aiReview && node.aiReview.reviewStep) || resolveReviewStep(node.kind)
   const quoteNode = extra.quoteNode || readFlowNodes(album).find(
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
   const quotePayload = (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
-  const findings = draft.findings || doc.findings || []
-  const step = resolveReviewStep(node.kind)
-  const lockedEarlier = step === 'work' || step === 'delivery'
+  let findings = draft.findings || doc.findings || []
+  let quoteLines = extra.quoteLines || quotePayload.lines || []
+  if (reviewStep === 'addon_check') {
+    const parent = readFlowNodes(album).find((item) => item && item.id === node.parentNodeId)
+    const workFindings =
+      (parent && parent.photoDraft && parent.photoDraft.findings) || []
+    const discovery = doc.discovery && typeof doc.discovery === 'object' ? doc.discovery : {}
+    const images = Array.isArray(discovery.images) ? discovery.images.filter(Boolean) : []
+    findings = workFindings.concat([
+      {
+        partName: '新发现',
+        advice: text(discovery.note),
+        caption: text(discovery.note),
+        images,
+        url: images[0] || '',
+      },
+    ])
+    quoteLines = Array.isArray(doc.lines) ? doc.lines : []
+  } else if (reviewStep === 'delivery' && node.kind === 'repair_report') {
+    findings = []
+    readFlowNodes(album).forEach((item) => {
+      if (!item || item.kind !== 'work') return
+      const rows = item.photoDraft && item.photoDraft.findings
+      if (Array.isArray(rows)) findings = findings.concat(rows)
+    })
+    quoteLines = []
+  } else if (reviewStep === 'work' || reviewStep === 'delivery') {
+    quoteLines = []
+  }
+  const rubricKind = reviewStep === 'delivery' ? 'delivery_photos' : node.kind
+  const rubric =
+    reviewStep === 'addon_check'
+      ? {
+          category: resolveReviewCategory(album.templateId, album.serviceName),
+          step: 'addon_check',
+          photos: [],
+          texts: [],
+        }
+      : getReviewRubric(album.templateId, rubricKind, album.serviceName)
   return {
-    rubric: getReviewRubric(album.templateId, node.kind, album.serviceName),
+    rubric,
     chiefComplaint: text(draft.chiefComplaint || doc.chiefComplaint || extra.chiefComplaint),
     mileageKm: draft.mileageKm || extra.mileageKm,
     odometerUrl: draft.odometerUrl || extra.odometerUrl || '',
     findings,
-    warrantyPeriod: draft.warrantyPeriod || extra.warrantyPeriod,
-    warrantyNotes: draft.warrantyNotes,
+    warrantyPeriod: draft.warrantyPeriod || doc.warrantyPeriod || extra.warrantyPeriod,
+    warrantyNotes: draft.warrantyNotes || doc.warrantyNotes,
     conclusion: draft.conclusion || doc.conclusion,
-    quoteLines: lockedEarlier ? [] : extra.quoteLines || quotePayload.lines || [],
+    quoteLines,
   }
 }
 
@@ -231,10 +278,14 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是通知车主前的唯一一次核对。同时看检测发现和报价。可以建议改某一项的检查发现，也可以建议改报价的项目名或施工方案，使两边对得上。报价里要做的事应能在检测里找到依据。不要改金额。'
-      : ctx.rubric.step === 'work' || ctx.rubric.step === 'delivery'
-        ? '检测报告和报价已经固定，不要对主诉、检查发现、报价项目或施工方案提修改意见。只看本步。'
-        : ''
+      ? '这是通知车主前的核对。同时看检测发现和报价。可以建议改某一项的检查发现，也可以建议改报价的项目名或施工方案，使两边对得上。报价里要做的事应能在检测里找到依据。不要改金额。'
+      : ctx.rubric.step === 'addon_check'
+        ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
+        : ctx.rubric.step === 'delivery'
+          ? '这是完工通知前的一次核对。只看施工和交车。不要改已经确认过的检测和报价，也不要改金额。'
+          : ctx.rubric.step === 'work'
+            ? '检测报告和报价已经固定，不要对主诉、检查发现、报价项目或施工方案提修改意见。只看本步。'
+            : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
     stepNote,
@@ -284,11 +335,17 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
 
 async function analyzeNode(album, node, capability) {
   const ctx = buildReviewContext(album, node)
+  const imageNode = {
+    ...node,
+    photoDraft: {
+      ...(node.photoDraft || {}),
+      findings: ctx.findings || [],
+    },
+  }
   const fallback = buildRuleSuggestions(ctx)
-  const step = resolveReviewStep(node.kind)
   let masked = { ready: true, urls: [] }
-  if (collectNodeImageUrls(node).length) {
-    masked = await collectMaskedUrlsForNode(album.id, node)
+  if (collectNodeImageUrls(imageNode).length) {
+    masked = await collectMaskedUrlsForNode(album.id, imageNode)
   }
   let suggestions = fallback
   let source = 'rule'
@@ -320,7 +377,13 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
     const album = await loadAlbum(albumId)
     if (!album) return
     const node = readFlowNodes(album).find((item) => item && item.id === nodeId)
-    if (!node || !isReviewKind(node.kind)) return
+    const reviewStep = String((node && node.aiReview && node.aiReview.reviewStep) || '')
+    const runnable =
+      node &&
+      (isReviewKind(node.kind) ||
+        reviewStep === 'addon_check' ||
+        (reviewStep === 'delivery' && node.kind === 'repair_report'))
+    if (!runnable) return
     const current = node.aiReview || {}
     if (current.status === 'ready' && current.acknowledged) return
     await patchFlowNode(albumId, nodeId, (item) => ({
@@ -332,8 +395,8 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
       },
     }))
 
-    const step = resolveReviewStep(node.kind)
-    if (collectNodeImageUrls(node).length) {
+    const step = reviewStep || resolveReviewStep(node.kind)
+    if (step && collectNodeImageUrls(node).length) {
       const { scheduleAlbumPreMask, getAlbumPreMaskReadiness } = require('./desensitize.service')
       scheduleAlbumPreMask(albumId, { trigger: 'node_ai_review' })
       const started = Date.now()
@@ -413,6 +476,7 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
     photoDraft: incomingDraft || node.photoDraft || {},
   }
   const fingerprint = buildReviewFingerprint(merged, extra)
+  const reviewStep = text(extra.step || (node.aiReview && node.aiReview.reviewStep))
   const existing = node.aiReview || {}
   if (
     existing.fingerprint === fingerprint &&
@@ -429,6 +493,7 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
     photoDraft: incomingDraft || item.photoDraft || {},
     aiReview: {
       status: 'queued',
+      reviewStep,
       fingerprint,
       suggestions: [],
       source: '',
@@ -454,7 +519,13 @@ async function maybeHoldCompleteForAiReview({
   incomingDraft,
   payload = {},
 }) {
-  if (!isReviewKind(node.kind) || node.kind === 'inspection_report' || node.kind === 'intake_inspection') {
+  if (
+    !isReviewKind(node.kind) ||
+    node.kind === 'inspection_report' ||
+    node.kind === 'intake_inspection' ||
+    node.kind === 'work' ||
+    node.kind === 'delivery_photos'
+  ) {
     return null
   }
   const capability = await resolveCapabilityForMerchant(merchantId)
@@ -550,12 +621,54 @@ async function getNodeAiReview(albumId, storeId, nodeId, merchantId) {
   }
 }
 
+/** 施工中新发现、完工确认：通知车主前查一次 */
+async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {} }) {
+  const isAddon =
+    node &&
+    node.kind === 'quote_confirm' &&
+    String(node.insertedReason || '') === 'addon'
+  const isRepair = node && node.kind === 'repair_report'
+  if (!isAddon && !isRepair) return null
+  const capability = await resolveCapabilityForMerchant(merchantId)
+  if (!capability.entitled) return null
+  if (wantsSkip(payload)) {
+    await patchFlowNode(album.id, node.id, (item) => ({
+      ...item,
+      aiReview: {
+        ...(item.aiReview || {}),
+        acknowledged: true,
+        updatedAt: new Date().toISOString(),
+      },
+    }))
+    return null
+  }
+  const doc = (node.document && node.document.payload) || {}
+  const reviewStep = isAddon ? 'addon_check' : 'delivery'
+  const quoteLines = isAddon && Array.isArray(doc.lines) ? doc.lines : []
+  const review = await startOrResumeReview({
+    album,
+    node,
+    merchantId,
+    extra: {
+      step: reviewStep,
+      quoteLines,
+    },
+  })
+  return {
+    delivered: false,
+    nextAction: 'ai_review',
+    review,
+    message: '正在检查',
+  }
+}
+
 module.exports = {
   sanitizeAiReviewForView,
   resolveCapabilityForMerchant,
   publicNodeAiReviewCapability,
   maybeHoldCompleteForAiReview,
   maybeHoldDeliverForAiReview,
+  maybeHoldNotifyForAiReview,
   getNodeAiReview,
   flushQueuedNodeAiReviewsForAlbum,
   runNodeAiReviewJob,

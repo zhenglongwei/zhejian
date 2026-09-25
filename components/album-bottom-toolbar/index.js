@@ -17,10 +17,6 @@ function resolveDisplayNote(captionLine, activeNodeId, activeTitle, nodeNoteMap)
 }
 
 Component({
-  options: {
-    addGlobalClass: true,
-  },
-
   properties: {
     chapters: {
       type: Array,

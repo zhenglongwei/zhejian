@@ -1,0 +1,19 @@
+---
+description: 案例快照分层合规检查——相册锁定、快照不可变、提炼层可改、H5/Feed 一致、权限矩阵。用于卷九合并前、发版前、CASE-FLOW 验收；默认只报告不改代码。
+alwaysApply: false
+enabled: true
+---
+
+# Case Snapshot Check
+
+1. 用 Read 打开：`docs/99_AI技能库/skill_case_snapshot_check.md`
+2. 对照 `docs/04_维修过程相册/13_案例全流程快照与GEO分层开发计划.md` §8 权限矩阵
+3. **只输出检查报告**（阻塞/非阻塞），除非用户明确要求修复
+4. 必查：授权后 merchant save 409、H5 不 drift、公示后无 snapshot 写路径、enrichment 不改数字事实
+
+## 关联规则
+
+- `case-snapshot-flow`（编排）
+- `case-snapshot-engine`（确认件/公开稿语义）
+- `privacy-desensitization-check`（公开链合规）
+- `release-checklist`（发版前必跑本项）

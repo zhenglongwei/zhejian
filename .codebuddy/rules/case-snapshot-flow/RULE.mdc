@@ -1,0 +1,21 @@
+---
+description: 卷九案例全流程编排——商家确认完工→商家生成案例→脱敏→案例人审→过审即快照冻结上线→H5 只读→GEO 提炼层。平台不代通知车主。用于 CASE-SNAP/ENR/OPS/MCH/FLOW、CASE-REVIEW-ONCE、快照分层开发前计划、跨端串联验收。
+alwaysApply: false
+enabled: true
+---
+
+# Case Snapshot Flow（卷九主编排）
+
+1. 用 Read 打开真源：`docs/04_维修过程相册/13_案例全流程快照与GEO分层开发计划.md`
+2. 用 Read 打开本规则全文：`docs/99_AI技能库/skill_case_snapshot_flow.md`
+3. **先输出实现计划**（任务 ID、涉及文件、快照 vs 提炼层边界），用户确认后再写代码
+4. 按任务类型分流子规则（见规则文档 §子 skill 矩阵）
+5. 完成后必跑：`case-snapshot-check`；涉及公开链加 `privacy-desensitization-check`
+
+## 关联规则
+
+- `case-snapshot-engine`（`CASE-SNAP-*` 快照/锁定/H5 读侧）
+- `case-enrichment-geo`（`CASE-ENR-*` / GEO 提炼层）
+- `case-snapshot-check`（完成后必跑）
+- `privacy-desensitization-check`（涉及公开链）
+- `release-checklist`（发版前汇总）

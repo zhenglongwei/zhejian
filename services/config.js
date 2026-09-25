@@ -10,7 +10,7 @@
  * 预发证书已含 staging.zhejian.simplewin.cn（2026-09-20）。生产仍走 geo，待生产证书 SAN 扩完再改 prod.baseUrl。
  * 提审/正式发版前务必改回 ACTIVE_ENV = 'prod'
  */
-const ACTIVE_ENV = 'staging'
+const ACTIVE_ENV = 'prod'
 
 const PROFILES = {
   mock: {
@@ -19,7 +19,7 @@ const PROFILES = {
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://geo.simplewin.cn/admin',
+    adminWebBase: 'https://zhejian.simplewin.cn/admin',
   },
   local: {
     mode: 'dev',
@@ -27,7 +27,7 @@ const PROFILES = {
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://geo.simplewin.cn/admin',
+    adminWebBase: 'https://zhejian.simplewin.cn/admin',
   },
   staging: {
     mode: 'staging',
@@ -39,11 +39,11 @@ const PROFILES = {
   },
   prod: {
     mode: 'prod',
-    baseUrl: 'https://geo.simplewin.cn',
+    baseUrl: 'https://zhejian.simplewin.cn',
     apiVersion: 'v1',
     clientType: 'user-miniapp',
     appVersion: '0.0.1',
-    adminWebBase: 'https://geo.simplewin.cn/admin',
+    adminWebBase: 'https://zhejian.simplewin.cn/admin',
   },
 }
 

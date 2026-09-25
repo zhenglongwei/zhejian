@@ -48,6 +48,22 @@
   </block>
 
   <block wx:elif="{{doc.kind === 'quote_confirm' || doc.kind === 'addon_quote_confirm'}}">
+    <view wx:if="{{doc.isAddon && (doc.discoveryNote || doc.discoveryImages.length)}}" class="service-doc-sheet__block">
+      <text class="text-body service-doc-sheet__section">新发现</text>
+      <text wx:if="{{doc.discoveryNote}}" class="text-body">{{doc.discoveryNote}}</text>
+      <view wx:if="{{doc.discoveryImages.length}}" class="service-doc-sheet__line-thumbs">
+        <image
+          wx:for="{{doc.discoveryImages}}"
+          wx:key="*this"
+          class="service-doc-sheet__line-thumb image-placeholder"
+          src="{{item}}"
+          mode="aspectFill"
+          data-url="{{item}}"
+          data-urls="{{doc.discoveryImages}}"
+          bindtap="onPreviewImage"
+        />
+      </view>
+    </view>
     <view class="service-doc-sheet__block">
       <text class="text-body service-doc-sheet__section">费用明细</text>
       <view class="service-doc-sheet__table-head">
@@ -58,7 +74,7 @@
         <view class="service-doc-sheet__table-main">
           <view class="service-doc-sheet__table-main-left">
             <view
-              wx:if="{{doc.kind === 'addon_quote_confirm' && line.evidenceUrls && line.evidenceUrls.length}}"
+              wx:if="{{doc.isAddon && line.evidenceUrls && line.evidenceUrls.length}}"
               class="service-doc-sheet__line-thumbs"
             >
               <image
@@ -74,7 +90,7 @@
               />
             </view>
             <image
-              wx:elif="{{doc.kind === 'addon_quote_confirm' && line.evidenceUrl}}"
+              wx:elif="{{doc.isAddon && line.evidenceUrl}}"
               class="service-doc-sheet__line-thumb image-placeholder"
               src="{{line.evidenceUrl}}"
               mode="aspectFill"
@@ -168,10 +184,18 @@
   </block>
 
   <view
+    wx:if="{{doc.ownerRejectReason && !doc.cancelled}}"
+    class="service-doc-sheet__block"
+  >
+    <text class="text-caption text-secondary service-doc-sheet__label">车主未同意</text>
+    <text class="text-body">{{doc.ownerRejectReason}}</text>
+  </view>
+
+  <view
     wx:if="{{doc.cancelReason}}"
     class="service-doc-sheet__block"
   >
-    <text class="text-caption text-secondary service-doc-sheet__label">门店说明</text>
+    <text class="text-caption text-secondary service-doc-sheet__label">说明</text>
     <text class="text-body">{{doc.cancelReason}}</text>
   </view>
 
@@ -189,6 +213,14 @@
     loading="{{confirming}}"
     bind:btntap="onConfirmTap"
   >确认</ui-button>
+  <view wx:if="{{mode === 'owner' && doc.needsConfirm}}" class="service-doc-sheet__reject">
+    <ui-button
+      type="ghost"
+      block="{{true}}"
+      disabled="{{confirming}}"
+      bind:btntap="onRejectTap"
+    >不同意</ui-button>
+  </view>
   <view
     wx:if="{{mode === 'owner' && doc.needsConfirm && storePhone}}"
     class="service-doc-sheet__contact"

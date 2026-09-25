@@ -1,0 +1,21 @@
+---
+description: 商家工作台 packageMerchant 与商家 API（服务自助上架无前置审核、入驻）。卷二 M-*、B-SVC-*；不含相册 A-*、不含咨询线索页。工作台 UI 见 12_商家工作台UI线框.md。
+alwaysApply: false
+enabled: true
+---
+
+# Merchant Workbench Scaffold
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_merchant_workbench_scaffold.md`
+2. **改 `workbench/index` 时必读**：`docs/00_设计规范/12_商家工作台UI线框.md` + `docs/00_开发计划.md` §7.2.1a（M-WB-UI-*）
+3. 必读：`docs/01_项目总览与业务架构/02_业务模式说明.md` §2.1 + `docs/00_开发计划.md` §7.2/§7.3 + **对应子 PRD**
+4. **先输出页面/API 生成计划**（服务 **无前置审核**；公开案例/入驻仍走卷三），用户确认后再写代码
+5. 接 prod API 时叠加 `api-integration`；服务价格叠加 `price-compliance-check`
+6. 运营 **服务事后监管**（OPS-SVC）/ 入驻详情用 `ops-admin-scaffold`；**禁止**设计「待审核才上架」
+7. 相册、脱敏、冷启动公开仍走卷一 `A-*` + `privacy-desensitization-check`
+
+## 关联规则
+
+- `api-integration`、`price-compliance-check`
+- `ops-admin-scaffold`（运营侧审核台）
+- `privacy-desensitization-check`（相册/公开案例）

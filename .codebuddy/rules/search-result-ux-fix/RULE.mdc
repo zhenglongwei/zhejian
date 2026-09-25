@@ -1,0 +1,18 @@
+---
+description: 排查并修复搜索页/搜索结果页空态与列表同屏、Tab 自动跳回、综合搜索缺入口、关键词匹配误解等问题。用于 pages/search、list-page-shell、searchContent 相关 UX Bug。默认先输出排查报告。
+alwaysApply: false
+enabled: true
+---
+
+# Search Result UX Fix
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_search_result_ux_fix.md`
+2. 必读：`docs/02_用户端小程序/11_搜索与筛选.md` §6–§8
+3. 按规则文档「诊断流程 → 标准修复模式 → 自测清单」执行
+4. 默认先输出排查报告；用户明确要求修复再改代码
+5. 重点检查：`list-page-shell` 的 `multipleSlots`、结果页勿用自定义 `slot="empty"`、`isPageEmpty` 是否看实际数组
+
+## 关联规则
+
+- `zhejian-development`（U-HOME / U-SRCH / U-GEO 必读 PRD）
+- `page-scaffold`（页面骨架）

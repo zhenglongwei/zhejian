@@ -1,0 +1,19 @@
+---
+description: 发版前总检查（设计、组件、价格/隐私合规、快照分层、状态、mock）。用于上线或合并主分支前；卷九须含 case-snapshot-check。高风险合规问题必须建议阻塞上线。
+alwaysApply: false
+enabled: true
+---
+
+# Release Checklist
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_release_checklist.md`
+2. 按范围触发子检查（design-system、component-usage、price、privacy、**case-snapshot-check**；涉及数据结构改动加 `data-structure-review`）
+3. 卷九或改动 public-case / content.service / 案例 H5 时：**先** `case-snapshot-check`，再汇总本报告
+4. 输出上线前检查报告：总体结论、阻塞/非阻塞问题、合规表（含快照只读行）、已执行子项
+5. 高风险合规问题必须建议阻塞上线
+
+## 关联规则
+
+- `design-system-check`、`component-usage-review`
+- `price-compliance-check`、`privacy-desensitization-check`
+- `case-snapshot-check`（卷九必跑）

@@ -1,0 +1,19 @@
+---
+description: 按项目规范生成小程序/H5 页面骨架（含 loading/empty/error、组件组合）。用于新增用户端/商家端/运营/H5 页面时。
+alwaysApply: false
+enabled: true
+---
+
+# Page Scaffold
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_page_scaffold.md`
+2. 必读设计规范三文档 + **对应业务 PRD**
+3. **先输出页面生成计划**，用户确认后再生成代码
+4. 优先组合已有组件；mock 须标注；不绕开 PriceDisplay/PrivacyBanner 等合规组件
+
+## 关联规则
+
+- `zhejian-development`（必读文档与设计体系）
+- `component-api-implementation`（需要新组件时）
+- `component-usage-review`、`design-system-check`（页面完成后）
+- `api-integration`（接真实接口时）

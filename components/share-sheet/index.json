@@ -1,5 +1,6 @@
 {
   "component": true,
+  "styleIsolation": "apply-shared",
   "usingComponents": {
     "ui-bottom-sheet": "/components/bottom-sheet/index",
     "ui-button": "/components/button/index"

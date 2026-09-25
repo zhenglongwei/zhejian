@@ -37,6 +37,12 @@ Component({
       this.triggerEvent('confirm', { nodeId: doc.id })
     },
 
+    onRejectTap() {
+      const doc = this.data.doc || {}
+      if (!doc.needsConfirm || !doc.id) return
+      this.triggerEvent('reject', { nodeId: doc.id, isAddon: Boolean(doc.isAddon) })
+    },
+
     onContactStore() {
       const phone = String(this.data.storePhone || '').trim()
       if (!phone) return

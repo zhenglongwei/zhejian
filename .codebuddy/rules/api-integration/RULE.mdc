@@ -1,0 +1,17 @@
+---
+description: 规范接口接入与 loading/empty/error/登录态/分页/防重复提交。用于页面接真实 API、替换 mock、表单提交时。
+alwaysApply: false
+enabled: true
+---
+
+# API Integration
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_api_integration.md`
+2. 必读：`docs/10_技术架构与接口/02_前端架构.md`、`04_接口规范.md`（若存在）及页面 PRD
+3. 先输出 API 接入计划（接口列表、状态机、错误处理），再实现
+4. 不得遗留未标注的 mock
+
+## 关联规则
+
+- `page-scaffold`（页面骨架已有 loading/empty/error 位）
+- `feature-build-verify`（按项验证）

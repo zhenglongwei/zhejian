@@ -1,0 +1,17 @@
+---
+description: 检查页面是否重复实现已有组件，给出复用与重构建议。用于页面开发完成、合并前、老页面重构前。默认只检查不修改。
+alwaysApply: false
+enabled: true
+---
+
+# Component Usage Review
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_component_usage_review.md`
+2. 对照 `docs/00_设计规范/02_组件API规范.md` 组件清单
+3. 默认只检查不修改；差异小则建议扩展组件 API 而非页面内复制样式
+
+## 关联规则
+
+- `page-scaffold`、`component-api-implementation`
+- `design-system-check`（本项通过后继续）
+- `wxss-refactor`（确有散落样式时）

@@ -1,0 +1,18 @@
+---
+description: 排查微信小程序 image 不显示（API 有 URL、WXML 已绑定 src 仍空白）。用于案例/门店/相册封面、同组件跨页表现不一致、image-placeholder 灰块、__tmp__ 临时路径等问题。默认输出排查报告。
+alwaysApply: false
+enabled: true
+---
+
+# Miniprogram Image Debug
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_miniprogram_image_debug.md`
+2. **严格按分层顺序排查**：API → 页面 map → 组件 props → WXML src → CSS → 图片请求；有 src 仍空白时优先查 CSS（`aspect-ratio` + `height:100%` 在自定义组件内常失效）
+3. 对比能显示与不能显示的页面/Tab，diff 数据处理与 props，勿先改后端
+4. 默认输出排查报告（见规则文档模板）；用户要求修复时再改代码
+5. 本项目案例卡片：`components/case-card`（`ui-case-card`）；封面工具：`utils/desensitize-url.js` → `pickCaseDisplayCover`
+
+## 关联规则
+
+- `component-usage-review`（跨页表现不一致时 diff 组件用法）
+- `desensitize-plate-debug`（封面来自脱敏图时）

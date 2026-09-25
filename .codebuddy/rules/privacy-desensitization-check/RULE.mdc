@@ -1,0 +1,19 @@
+---
+description: 检查服务相册、公开案例、分享、授权公开的隐私与脱敏合规；卷九含快照只读（H5/Feed 不 drift）。用于相册/案例/H5/分享相关页面。默认只输出检查报告。
+alwaysApply: false
+enabled: true
+---
+
+# Privacy Desensitization Check
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_privacy_desensitization_check.md`（含 **§快照只读**）
+2. 必读：`docs/04_维修过程相册/06_自动脱敏规则.md`、`13_案例全流程快照与GEO分层开发计划.md` §8
+3. 默认只输出检查报告；公开展示仅脱敏图；**运营审核台不展示原图**；公开链真源为 **CaseSnapshot**
+4. 卷九完整分层检查联用 **`case-snapshot-check`**（合并前 / CASE-FLOW 验收）
+
+## 关联规则
+
+- `desensitize-engine`（引擎实现）
+- `desensitize-plate-debug`（车牌未打码排查）
+- `case-snapshot-check`（快照分层）
+- `release-checklist`（发版前汇总本项）

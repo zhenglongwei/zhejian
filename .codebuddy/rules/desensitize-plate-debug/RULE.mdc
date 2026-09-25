@@ -1,0 +1,18 @@
+---
+description: 排查 backend 脱敏引擎「日志 SUCCESS 但车牌仍清晰」、VIAPI/OCR 失败、pre-mask 失败、Roi 坐标错位、stub 缓存。用于 pm2 脱敏日志、desensitize-smoke 冒烟、授权预览脱敏图未打码。默认只输出排查报告。
+alwaysApply: false
+enabled: true
+---
+
+# Desensitize Plate Debug
+
+1. 用 Read 工具完整执行：`docs/99_AI技能库/skill_desensitize_plate_debug.md`
+2. 实现/改造引擎时另读：`.codebuddy/rules/desensitize-engine/RULE.mdc`
+3. 公开链路合规另跑：`privacy-desensitization-check`
+4. **先**在 ECS 跑 `scripts/desensitize-smoke.js` 目视像素，**再**查缓存/前端
+5. 默认只输出排查报告；用户明确要求后再改 `desensitize-engine/` 或 `media.service.js`
+
+## 关联规则
+
+- `desensitize-engine`（引擎实现与验收）
+- `privacy-desensitization-check`（公开链路合规）
