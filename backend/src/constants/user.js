@@ -2,6 +2,8 @@ const USER_STATUS = {
   ACTIVE: 'ACTIVE',
   DISABLED: 'DISABLED',
   CANCELLED: 'CANCELLED',
+  /** 被迁到另一个账号（换号找回/绑定微信），不是用户主动注销 */
+  MERGED: 'MERGED',
 }
 
 const DEACTIVATE_BLOCKER = {

@@ -1,18 +1,32 @@
 <view wx:if="{{visible}}" class="privacy-auth-popup">
-  <view class="privacy-auth-popup__mask mask" catchtap="onDisagree" />
+  <view wx:if="{{requireAgreement}}" class="privacy-auth-popup__mask mask" catchtap="noop" />
+  <view wx:else class="privacy-auth-popup__mask mask" catchtap="onDisagree" />
   <view class="privacy-auth-popup__panel popup safe-bottom" catchtap="noop">
     <text class="privacy-auth-popup__title text-h3">{{title}}</text>
     <text class="privacy-auth-popup__desc text-body">
       {{description}}
       <text class="privacy-auth-popup__link" catchtap="onOpenPrivacyContract">查看《用户隐私保护指引》</text>
     </text>
+
+    <view wx:if="{{requireAgreement}}" class="privacy-auth-popup__agreement" bindtap="toggleAgreement">
+      <text class="privacy-auth-popup__consent text-caption">
+        <text class="privacy-auth-popup__consent-box {{agreed ? 'privacy-auth-popup__consent-box--on' : ''}}">{{agreed ? '✓' : ' '}}</text>我已阅读并同意<text class="privacy-auth-popup__link" data-type="terms" catchtap="onAgreementLinkTap">《用户服务协议》</text>、<text class="privacy-auth-popup__link" data-type="privacy" catchtap="onAgreementLinkTap">《隐私政策》</text>及<text class="privacy-auth-popup__link" catchtap="onOpenPrivacyContract">《用户隐私保护指引》</text>
+      </text>
+    </view>
+
     <view class="privacy-auth-popup__actions">
-      <button class="privacy-auth-popup__btn privacy-auth-popup__btn--ghost" bindtap="onDisagree">暂不</button>
+      <button
+        wx:if="{{!requireAgreement}}"
+        class="privacy-auth-popup__btn privacy-auth-popup__btn--ghost"
+        bindtap="onDisagree"
+      >暂不</button>
       <button
         id="privacy-agree-btn"
-        class="privacy-auth-popup__btn privacy-auth-popup__btn--primary"
+        class="privacy-auth-popup__btn privacy-auth-popup__btn--primary {{requireAgreement && !agreed ? 'privacy-auth-popup__btn--disabled' : ''}}"
+        disabled="{{requireAgreement && !agreed}}"
         open-type="agreePrivacyAuthorization"
         bindagreeprivacyauthorization="onAgree"
+        bindtap="onAgree"
       >同意并继续</button>
     </view>
   </view>

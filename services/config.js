@@ -10,7 +10,7 @@
  * 预发证书已含 staging.zhejian.simplewin.cn（2026-09-20）。生产仍走 geo，待生产证书 SAN 扩完再改 prod.baseUrl。
  * 提审/正式发版前务必改回 ACTIVE_ENV = 'prod'
  */
-const ACTIVE_ENV = 'prod'
+const ACTIVE_ENV = 'staging'
 
 const PROFILES = {
   mock: {

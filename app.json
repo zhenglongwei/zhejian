@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/role/index",
+    "pages/privacy-authorize/index",
+    "pages/web-login/index",
     "pages/mine/index",
     "pages/web/h5-site/index",
     "pages/search/index/index",
@@ -34,6 +36,7 @@
     "pages/mine/settings/index",
     "pages/mine/profile/index",
     "pages/mine/settings/document/index",
+    "pages/mine/settings/change-phone/index",
     "pages/mine/settings/about/index",
     "pages/mine/settings/deactivate/index",
     "pages/mine/favorite/index",

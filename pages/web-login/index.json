@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "确认登录",
+  "usingComponents": {
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
+  }
+}

@@ -104,6 +104,47 @@
     return Array.isArray(current.roles) && current.roles.indexOf('merchant') >= 0
   }
 
+  /** 取一张小程序码：action=login 登录，action=bind 给当前账号绑微信 */
+  function createWxCode(action) {
+    var headers = { 'Content-Type': 'application/json', Accept: 'application/json' }
+    var session = readSession()
+    if (session && session.token) headers.Authorization = 'Bearer ' + session.token
+    return fetch(apiBase() + '/api/v1/public/web-auth/wx-code', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ action: action || 'login' }),
+    }).then(parseJson)
+  }
+
+  /** 轮询扫码结果：确认后一次消费，返回 { status, session } */
+  function pollWxCode(ticket) {
+    return fetch(
+      apiBase() +
+        '/api/v1/public/web-auth/wx-code/status?ticket=' +
+        encodeURIComponent(ticket || ''),
+      { headers: { Accept: 'application/json' } }
+    ).then(parseJson)
+  }
+
+  /** 换号找回旧账号：验证旧号验证码后，旧账号资产迁到当前账号 */
+  function recoverOldAccount(oldPhone, code) {
+    var session = readSession()
+    return fetch(apiBase() + '/api/v1/public/web-auth/recover-old-account', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: session && session.token ? 'Bearer ' + session.token : '',
+      },
+      body: JSON.stringify({ oldPhone: oldPhone, code: code }),
+    })
+      .then(parseJson)
+      .then(function (data) {
+        saveSession(data)
+        return data
+      })
+  }
+
   global.zhejianH5Auth = {
     STORAGE_KEY: STORAGE_KEY,
     readSession: readSession,
@@ -112,6 +153,9 @@
     authHeader: authHeader,
     sendLoginCode: sendLoginCode,
     loginWithCode: loginWithCode,
+    createWxCode: createWxCode,
+    pollWxCode: pollWxCode,
+    recoverOldAccount: recoverOldAccount,
     isMerchant: isMerchant,
     displayName: displayName,
     avatarUrl: avatarUrl,

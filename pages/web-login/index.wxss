@@ -1,0 +1,48 @@
+.web-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-lg);
+  box-sizing: border-box;
+}
+
+.web-login__card {
+  width: 100%;
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  background-color: #fff;
+  text-align: center;
+}
+
+.web-login__title {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.web-login__desc {
+  margin-top: var(--space-sm);
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+}
+
+.web-login__hint {
+  font-size: var(--font-body);
+  color: var(--color-text-secondary);
+}
+
+.web-login__btn {
+  margin-top: var(--space-lg);
+  font-size: var(--font-body);
+  line-height: 1.6;
+}
+
+.web-login__btn::after {
+  border: none;
+}
+
+.web-login__btn--primary {
+  color: var(--color-text-inverse);
+  background-color: var(--color-primary);
+}

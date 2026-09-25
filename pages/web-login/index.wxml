@@ -1,0 +1,22 @@
+<view class="web-login">
+  <privacy-authorize-popup id="privacyAuthorizePopup" requireAgreement bind:result="onPopupResult" />
+
+  <view wx:if="{{status === 'loading'}}" class="web-login__hint">正在准备…</view>
+
+  <view wx:elif="{{status === 'confirm'}}" class="web-login__card">
+    <view class="web-login__title">确认登录官网</view>
+    <view class="web-login__desc">用当前微信账号登录辙见官网（电脑端），确认后回到电脑继续。</view>
+    <button class="web-login__btn web-login__btn--primary" bindtap="onConfirm">确认登录</button>
+    <button class="web-login__btn" bindtap="onCancel">取消</button>
+  </view>
+
+  <view wx:elif="{{status === 'done'}}" class="web-login__card">
+    <view class="web-login__title">已确认</view>
+    <view class="web-login__desc">回到电脑继续操作。</view>
+  </view>
+
+  <view wx:elif="{{status === 'error'}}" class="web-login__card">
+    <view class="web-login__title">没能完成</view>
+    <view class="web-login__desc">{{message}}</view>
+  </view>
+</view>

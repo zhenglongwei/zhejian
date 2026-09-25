@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "更换手机号",
+  "usingComponents": {
+    "ui-tool-page-shell": "/components/tool-page-shell/index",
+    "ui-button": "/components/button/index",
+    "ui-empty": "/components/empty/index"
+  }
+}

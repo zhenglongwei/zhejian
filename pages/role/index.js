@@ -1,4 +1,5 @@
 const { isLoggedIn, isMerchant, getSession } = require('../../utils/auth')
+const { hasAgreedLegalConsent, markLegalConsent } = require('../../utils/legal-consent')
 const { wechatLogin, fetchMineSummary, refreshSession } = require('../../services/user')
 const {
   ROLE_MERCHANT,
@@ -15,6 +16,38 @@ Page({
   },
 
   onLoad() {
+    // 协议先于一切：没确认过就不登录、不发请求
+    if (!hasAgreedLegalConsent()) {
+      this.setData({ status: 'consent' }, () => this.showConsentPopup())
+      return
+    }
+    this.bootstrap()
+  },
+
+  showConsentPopup() {
+    const run = () => {
+      if (this._left) return
+      const popup = this.selectComponent && this.selectComponent('#privacyAuthorizePopup')
+      if (!popup || typeof popup.show !== 'function') return
+      popup.show({
+        title: '欢迎使用辙见',
+        description: '继续使用前，请先阅读并同意下列协议。',
+      })
+    }
+    if (typeof wx !== 'undefined' && typeof wx.nextTick === 'function') {
+      wx.nextTick(run)
+      return
+    }
+    setTimeout(run, 30)
+  },
+
+  onPopupResult(e) {
+    const agreed = Boolean(e && e.detail && e.detail.agreed)
+    if (this.data.status !== 'consent') return
+    // 启动确认不接受「暂不」：弹窗保持，用户可退出或继续阅读
+    if (!agreed) return
+    markLegalConsent()
+    this.setData({ status: 'loading' })
     this.bootstrap()
   },
 

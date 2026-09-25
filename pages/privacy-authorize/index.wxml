@@ -1,0 +1,3 @@
+<view class="privacy-page">
+  <privacy-authorize-popup id="privacyAuthorizePopup" bind:result="onResult" />
+</view>

@@ -6,6 +6,12 @@
   <ui-button type="secondary" block bind:btntap="onChooseOwner">车主</ui-button>
   <text class="role-gate__hint text-caption text-secondary">看维修记录</text>
 </view>
-<view class="role-gate" wx:else>
+<view class="role-gate" wx:elif="{{status === 'loading'}}">
   <ui-skeleton rows="{{2}}" title="{{true}}" avatar="{{false}}" />
 </view>
+
+<privacy-authorize-popup
+  id="privacyAuthorizePopup"
+  require-agreement="{{status === 'consent'}}"
+  bind:result="onPopupResult"
+/>

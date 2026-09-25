@@ -108,6 +108,10 @@ Page({
   },
 
   onBindPhoneTap() {
+    if (this.data.user && this.data.user.isPhoneBound) {
+      wx.navigateTo({ url: '/pages/mine/settings/change-phone/index' })
+      return
+    }
     this.setData({ loginSheetVisible: true, loginSheetMode: 'bindPhone' })
   },
 

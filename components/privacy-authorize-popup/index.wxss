@@ -39,6 +39,35 @@
   color: var(--color-primary);
 }
 
+.privacy-auth-popup__agreement {
+  margin-top: var(--space-lg);
+}
+
+.privacy-auth-popup__consent {
+  display: block;
+}
+
+.privacy-auth-popup__consent-box {
+  display: inline-block;
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: var(--space-sm);
+  vertical-align: middle;
+  border: 2rpx solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  text-align: center;
+  font-size: var(--font-caption);
+  line-height: 28rpx;
+  color: transparent;
+}
+
+.privacy-auth-popup__consent-box--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .privacy-auth-popup__actions {
   display: flex;
   gap: var(--space-sm);
@@ -68,4 +97,8 @@
 .privacy-auth-popup__btn--primary {
   color: var(--color-text-inverse);
   background-color: var(--color-primary);
+}
+
+.privacy-auth-popup__btn--disabled {
+  opacity: var(--opacity-disabled);
 }

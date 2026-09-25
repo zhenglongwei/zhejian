@@ -1,0 +1,60 @@
+<ui-tool-page-shell showBand="{{false}}" showCompliance="{{false}}">
+  <block wx:if="{{status === 'unauthenticated'}}">
+    <ui-empty
+      theme="album"
+      title="请先登录"
+      description="登录后才能更换手机号"
+      actionText="返回登录"
+      bind:action="onLoginTap"
+    />
+  </block>
+
+  <block wx:else>
+    <view class="change-phone">
+      <text class="change-phone__title text-h3">更换手机号</text>
+      <text class="change-phone__desc text-caption text-secondary">更换后可继续查看本账号的服务相册。</text>
+
+      <view class="change-phone__field">
+        <text class="change-phone__label text-body">新手机号</text>
+        <input
+          class="input"
+          type="number"
+          maxlength="11"
+          placeholder="请输入新手机号"
+          placeholder-class="input-placeholder"
+          value="{{phone}}"
+          bindinput="onPhoneInput"
+        />
+      </view>
+
+      <view class="change-phone__field">
+        <text class="change-phone__label text-body">验证码</text>
+        <view class="change-phone__code-row">
+          <input
+            class="input change-phone__code-input"
+            type="number"
+            maxlength="6"
+            placeholder="6 位验证码"
+            placeholder-class="input-placeholder"
+            value="{{code}}"
+            bindinput="onCodeInput"
+          />
+          <view
+            class="change-phone__code-btn {{canSend ? '' : 'change-phone__code-btn--disabled'}}"
+            bindtap="onSendCode"
+          >
+            <text class="text-caption">{{codeBtnText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{errorMessage}}" class="change-phone__error text-caption">{{errorMessage}}</view>
+
+      <view class="change-phone__footer safe-bottom">
+        <ui-button type="primary" block loading="{{submitting}}" disabled="{{!canSubmit}}" bind:btntap="onSubmit">
+          确认更换
+        </ui-button>
+      </view>
+    </view>
+  </block>
+</ui-tool-page-shell>

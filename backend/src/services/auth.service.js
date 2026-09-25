@@ -8,6 +8,8 @@ const { stripUrlQuery } = require('../lib/media-signed-url')
 const { resolveClientReadableMediaUrl } = require('../lib/media-storage')
 const { resolveMerchantContext } = require('./merchant-context.service')
 const { linkPendingStaffForUser } = require('./merchant-staff.service')
+const { verifyLoginCode } = require('./sms-code.service')
+const { consumeDailyLimit } = require('./geo-check-rate-limit')
 const {
   listUserRecentServiceAlbums,
   countUserServiceAlbumBindings,
@@ -15,6 +17,8 @@ const {
 } = require('./service-album.service')
 
 const MINE_RECENT_ALBUMS_LIMIT = 3
+/** 同一账号每天最多换绑手机号次数 */
+const PHONE_CHANGE_PER_DAY = 3
 
 function normalizeStoredAvatarUrl(url) {
   return stripUrlQuery(String(url || '').trim()).slice(0, 512)
@@ -194,6 +198,78 @@ async function bindPhone(userId, payload = {}) {
   throw err
 }
 
+/**
+ * 更换手机号。
+ *
+ * 不验证旧号、不做实名：换绑发生在已登录状态，身份由微信号（openid）确认过；
+ * 账号主键 userId 不变，相册/收藏/车辆等按 userId 关联的数据自动跟随，不做数据迁移。
+ * 换绑时把旧号关联的历史相册固化到当前账号，避免号码被运营商回收后旧相册被新号主人看到。
+ */
+async function changePhone(userId, payload = {}) {
+  const phone = String(payload.phone || '').trim()
+  const code = String(payload.code || '').trim()
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user || user.status === USER_STATUS.CANCELLED) {
+    const err = new Error('账号不存在')
+    err.status = 404
+    throw err
+  }
+  if (phone === (user.phone || '')) {
+    const err = new Error('新手机号与当前手机号相同')
+    err.status = 400
+    throw err
+  }
+
+  if (!(config.devAuthEnabled && !code)) {
+    const verified = verifyLoginCode(phone, code)
+    if (!verified.ok) {
+      const err = new Error(verified.message)
+      err.status = 400
+      err.code = verified.code
+      throw err
+    }
+  }
+
+  const quota = consumeDailyLimit(
+    `phone-change:${userId}`,
+    PHONE_CHANGE_PER_DAY,
+    'phone-change'
+  )
+  if (!quota.allowed) {
+    const err = new Error('今天换绑次数用完了，明天再试')
+    err.status = 429
+    throw err
+  }
+
+  const oldPhone = user.phone || ''
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        phone,
+        phoneChangedAt: new Date(),
+        phoneChangeCount: { increment: 1 },
+      },
+    })
+    if (oldPhone) {
+      await tx.album.updateMany({
+        where: {
+          userPhone: oldPhone,
+          OR: [{ userId: '' }, { userId }],
+        },
+        data: { userId, userPhone: phone },
+      })
+    }
+  })
+
+  return {
+    phone,
+    phoneDisplay: maskPhone(phone),
+    isPhoneBound: true,
+  }
+}
+
 async function updateUserProfile(userId, payload = {}) {
   if (!userId) {
     const err = new Error('未授权')
@@ -304,6 +380,7 @@ module.exports = {
   wechatLogin,
   devBindPhone,
   bindPhone,
+  changePhone,
   fetchMineSummary,
   updateUserProfile,
   buildAuthSession,

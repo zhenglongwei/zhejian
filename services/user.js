@@ -114,6 +114,44 @@ async function bindPhone(detail) {
   return nextUser
 }
 
+/**
+ * 更换手机号 · 给新号发验证码
+ * 已登录即可，不验证旧号：账号主键（微信号）没变，换的只是联系方式
+ */
+async function sendPhoneChangeCode(phone) {
+  if (ENV.mode === 'mock') {
+    return { resendAfterSec: 60, loginHint: '当前未发短信，验证码 888888' }
+  }
+  return post('/user/auth/change-phone/send-code', { phone })
+}
+
+async function changePhone(payload = {}) {
+  const phone = String(payload.phone || '').trim()
+
+  if (ENV.mode === 'mock') {
+    const { user } = getSession()
+    const nextUser = {
+      ...user,
+      phone,
+      phoneDisplay: maskPhone(phone),
+      isPhoneBound: true,
+    }
+    saveSession({ user: nextUser })
+    return nextUser
+  }
+
+  const data = await post('/user/auth/change-phone', { phone, code: payload.code || '' })
+  const { user } = getSession()
+  const nextUser = {
+    ...user,
+    phone: data.phone || phone,
+    phoneDisplay: data.phoneDisplay || maskPhone(phone),
+    isPhoneBound: true,
+  }
+  saveSession({ user: nextUser })
+  return nextUser
+}
+
 async function logout() {
   if (ENV.mode !== 'mock') {
     try {
@@ -180,6 +218,8 @@ module.exports = {
   fetchMineSummary,
   wechatLogin,
   bindPhone,
+  sendPhoneChangeCode,
+  changePhone,
   updateUserProfile,
   logout,
   refreshSession,

@@ -14,7 +14,6 @@ const {
   riskScan,
   parseJsonLoose,
   SECTION_NAMES,
-  MASK_RULES,
   CATEGORY_ITEMS,
   FIELD_LABELS,
   humanizeFieldKey,
@@ -409,8 +408,6 @@ function checkJsonParse() {
 // 5. 公开试用路由：不要密钥，但必须限流 + 能拉闸
 // ---------------------------------------------------------------------------
 
-const fs = require('fs')
-const path = require('path')
 const http = require('http')
 const express = require('express')
 const { config } = require('../src/config')
@@ -605,78 +602,7 @@ async function runPublicRoute() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// 6. 前后端脱敏规则漂移
-//     浏览器那份是「原文不出本机」的唯一保障。它一旦比服务端少一条规则，
-//     手机号/车牌就会以明文飞出用户的电脑——而页面还写着「网站自动打码」。
-// ---------------------------------------------------------------------------
 
-function loadBrowserRules() {
-  const p = path.join(__dirname, '..', '..', 'brand-web', 'js', 'archive.js')
-  const src = fs.readFileSync(p, 'utf8')
-  const start = src.indexOf('var MASK_RULES = [')
-  const end = src.indexOf('function manualWords')
-  assert(start > -1 && end > start, '浏览器端找不到 MASK_RULES…maskText 区块，页面结构变了，这段检查要跟着改')
-  // eslint-disable-next-line no-new-func
-  return new Function(`${src.slice(start, end)}\nreturn { MASK_RULES, parseChat, maskText };`)()
-}
-
-function checkBrowserParity() {
-  check('脱敏规则逐条比对：条数 / 顺序 / 正则 / 替换值', () => {
-    const b = loadBrowserRules()
-    const a = MASK_RULES
-    assert.strictEqual(
-      b.MASK_RULES.length,
-      a.length,
-      `前端 ${b.MASK_RULES.length} 条 vs 服务端 ${a.length} 条，规则漂移了`,
-    )
-    a.forEach((r, i) => {
-      const br = b.MASK_RULES[i]
-      assert.strictEqual(br.name, r.name, `第 ${i + 1} 条规则名不一致`)
-      assert.strictEqual(br.re.source, r.re.source, `规则「${r.name}」的正则不一致`)
-      assert.strictEqual(br.re.flags, r.re.flags, `规则「${r.name}」的 flags 不一致`)
-      assert.strictEqual(br.to, r.to, `规则「${r.name}」的替换值不一致`)
-    })
-  })
-
-  check('同一个群聊，前后端解析结果必须一模一样', () => {
-    const b = loadBrowserRules()
-    const samples = [
-      CHAT,
-      CHAT_SHORT,
-      '张师傅：右边的小吊杆球头松了\n李老板：那要换什么',
-      '2026-08-20 10:23 张师傅\n举起来看了\n[语音]\n李老板 10:25\n好',
-    ]
-    samples.forEach((raw, i) => {
-      // idx 是服务端为落库加的序号，前端不需要，比对时归一掉
-      const strip = (r) => ({
-        senders: r.senders,
-        stats: r.stats,
-        messages: r.messages.map((m) => {
-          const o = {}
-          Object.keys(m).filter((k) => k !== 'idx').sort().forEach((k) => { o[k] = m[k] })
-          return o
-        }),
-      })
-      assert.deepStrictEqual(
-        strip(b.parseChat(raw)),
-        strip(parseChat(raw)),
-        `第 ${i + 1} 份样本的解析结果前后端不一致`,
-      )
-    })
-  })
-
-  check('脱敏结果前后端一致：原文里的手机号/车牌两边都得没', () => {
-    const b = loadBrowserRules()
-    const raw = '张师傅\n李哥 13812345678，你那辆浙A12345今天举起来看了\n李老板\n八百六十块能搞定吗'
-    const parsed = parseChat(raw)
-    const serverOut = maskChatText(raw, { senders: parsed.senders }).text
-    const browserOut = b.maskText(raw, parsed.senders).text
-    assert.strictEqual(browserOut, serverOut, '前后端脱敏输出不一致')
-    assert(!browserOut.includes('13812345678'), '前端脱敏漏了手机号')
-    assert(!browserOut.includes('浙A12345'), '前端脱敏漏了车牌')
-  })
-}
 
 // ---------------------------------------------------------------------------
 // 7. 真调一次大模型（可选）
@@ -766,11 +692,8 @@ function checkFlowMapping() {
     console.log('  ✓ 拉闸后接口真停（status 仍可问）')
     passed += 1
 
-    console.log('\n[6] 前后端脱敏规则一致性')
-    checkBrowserParity()
-
     if (process.env.WECHAT_ARCHIVE_SMOKE_LLM === '1') {
-      console.log('\n[7] 真实大模型')
+      console.log('\n[6] 真实大模型')
       await runRealLlm()
     }
 

@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "隐私保护",
+  "usingComponents": {
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
+  }
+}

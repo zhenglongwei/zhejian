@@ -162,8 +162,13 @@ Component({
       await this.runWechatLogin()
     },
 
-    async onAgreePrivacyAndLogin() {
+    async onAgreePrivacyAndLogin(e) {
       if (this.data.loading) return
+      const detail = (e && e.detail) || {}
+      if (detail.errMsg && detail.errMsg.indexOf('disagree') !== -1) {
+        this.setData({ errorMessage: '需先同意《用户隐私保护指引》才能继续' })
+        return
+      }
       if (this.data.needAgreement && !this.data.agreed) {
         this.setData({ errorMessage: '请先阅读并同意相关协议与隐私保护指引' })
         return

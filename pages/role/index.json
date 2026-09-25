@@ -2,6 +2,7 @@
   "navigationBarTitleText": "辙见",
   "usingComponents": {
     "ui-button": "/components/button/index",
-    "ui-skeleton": "/components/skeleton/index"
+    "ui-skeleton": "/components/skeleton/index",
+    "privacy-authorize-popup": "/components/privacy-authorize-popup/index"
   }
 }

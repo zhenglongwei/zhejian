@@ -9,6 +9,9 @@ const HOME_PRIVACY_COPY = {
   description: '继续使用前，请先阅读并同意。',
 }
 
+/** 首页提示一次即可，避免每次 onShow 都查一次设置 */
+let homePrompted = false
+
 function queryPrivacySetting() {
   return new Promise((resolve) => {
     if (typeof wx.getPrivacySetting !== 'function') {
@@ -41,6 +44,10 @@ function requestPrivacyAuthorization(popup) {
 
       const showPopup = (target) => {
         if (!target || typeof target.show !== 'function') {
+          // 没地方弹窗时也要说清楚，不能静默失败
+          if (typeof wx !== 'undefined' && typeof wx.showToast === 'function') {
+            wx.showToast({ title: '请先同意《用户隐私保护指引》', icon: 'none' })
+          }
           finish(false)
           return
         }
@@ -71,15 +78,19 @@ function requestPrivacyAuthorization(popup) {
  * @param {WechatMiniprogram.Page.TrivialInstance} page 须包含 #privacyAuthorizePopup
  */
 function promptHomePrivacy(page) {
-  if (!page) return
+  if (!page || homePrompted) return
   const run = () => {
     queryPrivacySetting().then((setting) => {
-      if (!setting.needAuthorization) return
+      if (!setting.needAuthorization) {
+        homePrompted = true
+        return
+      }
       const popup = page.selectComponent && page.selectComponent('#privacyAuthorizePopup')
       if (!popup || typeof popup.show !== 'function') return
       if (popup.data && popup.data.visible) return
       const app = getApp()
       if (app) app.privacyPopup = popup
+      homePrompted = true
       popup.show(HOME_PRIVACY_COPY)
     })
   }

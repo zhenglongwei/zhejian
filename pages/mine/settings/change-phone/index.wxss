@@ -1,0 +1,58 @@
+.change-phone {
+  padding: var(--space-lg);
+}
+
+.change-phone__title {
+  display: block;
+}
+
+.change-phone__desc {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
+.change-phone__field {
+  margin-top: var(--space-lg);
+}
+
+.change-phone__label {
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.change-phone__code-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.change-phone__code-input {
+  flex: 1;
+}
+
+.change-phone__code-btn {
+  flex-shrink: 0;
+  padding: 0 var(--space-md);
+  height: 80rpx;
+  line-height: 80rpx;
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+  color: var(--color-primary);
+}
+
+.change-phone__code-btn--disabled {
+  color: var(--color-text-secondary);
+  opacity: var(--opacity-disabled);
+}
+
+.change-phone__error {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.change-phone__footer {
+  margin-top: var(--space-xl);
+}
