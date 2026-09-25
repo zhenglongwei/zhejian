@@ -3733,16 +3733,16 @@ Page({
       }
     }
     wx.showModal({
-      title: '车主已口头确认？',
-      content: '请确认已当面或通过电话/微信获得车主同意。',
-      confirmText: '已确认',
+      title: '代车主确认',
+      content: '车主当面、电话或微信已同意，但未在手机确认。',
+      confirmText: '继续',
       cancelText: '取消',
       success: (res) => {
         if (!res.confirm) return
         wx.showActionSheet({
-          itemList: ['直接确认', '附带沟通截图后确认'],
+          itemList: ['附同意截图（聊天记录即可）', '不留痕，直接确认'],
           success: (sheet) => {
-            if (sheet.tapIndex === 1) {
+            if (sheet.tapIndex === 0) {
               this.pickProxyProofThenConfirm()
               return
             }
@@ -3790,12 +3790,17 @@ Page({
     }
     this.setData({ confirming: true })
     try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: {
-          status: 'pending_confirm',
-          payload,
-        },
-      })
+      const docStatus = String(
+        (this.data.activeNode.document && this.data.activeNode.document.status) || '',
+      )
+      if (docStatus !== 'pending_confirm') {
+        await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
+          document: {
+            status: 'pending_confirm',
+            payload,
+          },
+        })
+      }
       const result = await proxyConfirmMerchantFlowNode(this.albumId, this.data.activeNode.id, {
         proxyProofImages: this.data.proxyProofImages.map((p) => p.url).filter(Boolean),
         document: { payload },

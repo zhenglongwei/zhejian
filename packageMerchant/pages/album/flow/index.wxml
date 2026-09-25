@@ -988,7 +988,7 @@
                     block="{{true}}"
                     loading="{{confirming}}"
                     bind:btntap="onProxyConfirm"
-                  >车主已口头确认</ui-button>
+                  >代车主确认</ui-button>
                 </block>
                 <ui-button
                   wx:if="{{isAddonQuote}}"
@@ -1082,7 +1082,7 @@
                     block="{{true}}"
                     loading="{{confirming}}"
                     bind:btntap="onProxyConfirm"
-                  >车主已口头确认</ui-button>
+                  >代车主确认</ui-button>
                 </block>
               </view>
             </block>
