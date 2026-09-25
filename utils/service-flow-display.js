@@ -39,7 +39,8 @@ function buildFlowNodeDetailPath(albumId, node = {}) {
     node.legacyStageId ||
     (node.legacyStageIds && node.legacyStageIds.length)
   if (isPhoto) {
-    return `/packageMerchant/pages/album/flow/photo-node/index?albumId=${id}&nodeId=${nodeId}`
+    // 拍照节点已并入服务进度页（flow/index）内编辑，不再单独开页；旧的 photo-node 页已删除
+    return `/packageMerchant/pages/album/flow/index?albumId=${id}`
   }
   return `/packageMerchant/pages/album/flow/doc-node/index?albumId=${id}&nodeId=${nodeId}`
 }

@@ -206,10 +206,21 @@ const config = {
       .split(/[,，\s]+/)
       .map((item) => item.trim())
       .filter(Boolean),
+    // 没显式设开关时，看有没有配上能看图的大模型：配了就开。
+    // 之前只看 GEO_LLM_ENABLED，导致老板配了火山方舟的 key 却整段走规则、不调模型。
     llmEnabled:
       process.env.NODE_AI_REVIEW_LLM_ENABLED == null ||
       String(process.env.NODE_AI_REVIEW_LLM_ENABLED).trim() === ''
-        ? process.env.GEO_LLM_ENABLED === 'true'
+        ? Boolean(
+            process.env.GEO_LLM_ENABLED === 'true' ||
+              process.env.DASHSCOPE_API_KEY ||
+              process.env.GEO_VISION_API_KEY ||
+              process.env.GEO_LLM_API_KEY ||
+              process.env.ARK_API_KEY ||
+              process.env.VOLCENGINE_API_KEY ||
+              process.env.GEO_PROBE_DOUBAO_API_KEY ||
+              process.env.NODE_AI_REVIEW_DOUBAO_API_KEY,
+          )
         : envBool('NODE_AI_REVIEW_LLM_ENABLED', false),
   },
   geoProbe: {

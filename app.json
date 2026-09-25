@@ -80,7 +80,6 @@
         "pages/album/invite/index",
         "pages/album/edit/index",
         "pages/album/flow/index",
-        "pages/album/flow/photo-node/index",
         "pages/album/flow/doc-node/index",
         "pages/album/optimize/index",
         "pages/album/case-draft/index",

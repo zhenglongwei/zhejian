@@ -167,6 +167,22 @@ function buildReviewContext(album, node, extra = {}) {
     (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
   )
   const quotePayload = (quoteNode && quoteNode.document && quoteNode.document.payload) || {}
+  const reportNode = readFlowNodes(album).find((item) => item && item.kind === 'inspection_report')
+  const reportPayload = (reportNode && reportNode.document && reportNode.document.payload) || {}
+  /**
+   * 只读参考：已确认（或已随通知送达）的检测报告与报价方案。
+   * 只用来把本步描述写准；**不得**对它提修改意见，也**不写回**。
+   * 与「本步检查对象」分开存放，避免模型把两者混为一谈
+   * （docs/04_维修过程相册/26_ 确认前检查 · 哪些步）
+   */
+  const reference = {
+    reportFindings: [],
+    quoteLines: [],
+  }
+  const fillConfirmedReference = () => {
+    reference.reportFindings = Array.isArray(reportPayload.findings) ? reportPayload.findings : []
+    reference.quoteLines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
+  }
   let findings = draft.findings || doc.findings || []
   let quoteLines = extra.quoteLines || quotePayload.lines || []
   if (reviewStep === 'addon_check') {
@@ -186,15 +202,43 @@ function buildReviewContext(album, node, extra = {}) {
     ])
     quoteLines = Array.isArray(doc.lines) ? doc.lines : []
   } else if (reviewStep === 'delivery' && node.kind === 'repair_report') {
+    // 完工通知前：施工项 + 交车照一起看（26_ 确认前检查 · 哪些步）
     findings = []
     readFlowNodes(album).forEach((item) => {
       if (!item || item.kind !== 'work') return
       const rows = item.photoDraft && item.photoDraft.findings
       if (Array.isArray(rows)) findings = findings.concat(rows)
     })
+    readFlowNodes(album).forEach((item) => {
+      if (!item || item.kind !== 'delivery_photos') return
+      const draftDelivery = item.photoDraft || {}
+      const urls = []
+      const exterior = text(draftDelivery.deliveryExteriorUrl)
+      if (exterior) urls.push(exterior)
+      ;(Array.isArray(draftDelivery.selectedDeliveryUrls)
+        ? draftDelivery.selectedDeliveryUrls
+        : []
+      ).forEach((url) => {
+        const trimmed = text(url)
+        if (trimmed && urls.indexOf(trimmed) < 0) urls.push(trimmed)
+      })
+      if (!urls.length) return
+      findings = findings.concat([
+        {
+          partName: '交车',
+          advice: '',
+          caption: text(draftDelivery.warrantyNotes),
+          images: urls,
+          url: urls[0] || '',
+        },
+      ])
+    })
     quoteLines = []
+    fillConfirmedReference()
   } else if (reviewStep === 'work' || reviewStep === 'delivery') {
+    // 施工、交车：本步内容自评；带已确认的检测报告与报价作只读参考
     quoteLines = []
+    fillConfirmedReference()
   }
   const rubricKind = reviewStep === 'delivery' ? 'delivery_photos' : node.kind
   const rubric =
@@ -216,6 +260,8 @@ function buildReviewContext(album, node, extra = {}) {
     warrantyNotes: draft.warrantyNotes || doc.warrantyNotes,
     conclusion: draft.conclusion || doc.conclusion,
     quoteLines,
+    /** 只读参考，与上面的检查对象分离；模型不得对它提修改意见 */
+    reference,
   }
 }
 
@@ -243,11 +289,11 @@ async function collectMaskedUrlsForNode(albumId, node) {
 
 async function runLlmSuggestions(ctx, maskedUrls, capability) {
   if (!capability.llmEnabled) return null
-  const llm = config.geoLlm || {}
-  const vision = config.geoVision || {}
-  if (!llm.apiKey && !vision.apiKey) return null
-  const useVision = Boolean(vision.enabled && maskedUrls.length && (vision.apiKey || llm.apiKey))
+  const { resolveConfiguredNodeAiReviewEngines } = require('../lib/node-ai-review-llm-registry')
+  const engines = resolveConfiguredNodeAiReviewEngines()
+  if (!engines.length) return null
   const { chatCompletion } = require('../lib/dashscope-chat')
+  const { responsesCompletion } = require('../lib/responses-chat')
   const rubricBrief = {
     category: ctx.rubric.category,
     step: ctx.rubric.step,
@@ -275,6 +321,18 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       note: (line && line.note) || '',
       brand: (line && line.brand) || '',
     })),
+    /** 已确认参考（只读）：不输出针对它的修改意见 */
+    confirmedReference: {
+      reportFindings: ((ctx.reference && ctx.reference.reportFindings) || []).map((row) => ({
+        partName: (row && row.partName) || '',
+        result: (row && row.result) || '',
+        advice: (row && row.advice) || '',
+      })),
+      quoteLines: ((ctx.reference && ctx.reference.quoteLines) || []).map((line) => ({
+        name: (line && line.name) || '',
+        note: (line && line.note) || '',
+      })),
+    },
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
@@ -282,9 +340,9 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
-          ? '这是完工通知前的一次核对。只看施工和交车。不要改已经确认过的检测和报价，也不要改金额。'
+          ? '这是完工通知前的一次核对。看施工与交车照。confirmedReference 是已确认的检测结论与报价项目，只能用来把完工描述写准；不要对它提修改意见，也不要改金额。'
           : ctx.rubric.step === 'work'
-            ? '检测报告和报价已经固定，不要对主诉、检查发现、报价项目或施工方案提修改意见。只看本步。'
+            ? '只看本步施工。confirmedReference 是已确认的检测结论与报价项目，只能用来把本步施工的项目名和说明写准写具体；不要对它提修改意见，也不要改金额。'
             : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
@@ -303,34 +361,53 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   ].join('\n')
 
   const labeled = Array.isArray(maskedUrls) ? maskedUrls.slice(0, 6) : []
-  const userContent = useVision
-    ? [{ type: 'text', text: instruction }].concat(
-        labeled.flatMap((row) => {
-          const url = typeof row === 'string' ? row : row && row.url
-          if (!url) return []
-          const label = typeof row === 'string' ? '' : String((row && row.label) || '').trim()
-          const blocks = []
-          if (label) blocks.push({ type: 'text', text: `下一张图：${label}` })
-          blocks.push({ type: 'image_url', image_url: { url } })
-          return blocks
-        }),
-      )
-    : instruction
+  const buildUserContent = () => {
+    if (!labeled.length) return instruction
+    return [{ type: 'text', text: instruction }].concat(
+      labeled.flatMap((row) => {
+        const url = typeof row === 'string' ? row : row && row.url
+        if (!url) return []
+        const label = typeof row === 'string' ? '' : String((row && row.label) || '').trim()
+        const blocks = []
+        if (label) blocks.push({ type: 'text', text: `下一张图：${label}` })
+        blocks.push({ type: 'image_url', image_url: { url } })
+        return blocks
+      }),
+    )
+  }
 
-  const result = await chatCompletion({
-    apiUrl: useVision ? vision.apiUrl : llm.apiUrl,
-    apiKey: useVision ? vision.apiKey || llm.apiKey : llm.apiKey,
-    model: useVision ? vision.model : llm.model,
-    messages: [
-      { role: 'system', content: '只输出 JSON。建议必须可执行，不要空话。' },
-      { role: 'user', content: userContent },
-    ],
-    temperature: 0.2,
-    responseFormat: { type: 'json_object' },
-    enableThinking: false,
-    timeoutMs: Math.min(Number(llm.timeoutMs || 60000), 60000),
-  })
-  return parseModelSuggestions(result && result.text, [])
+  // 按序换模型：单个模型不可用就换下一个，全部不可用才回退规则建议
+  const failures = []
+  let called = false
+  for (const engine of engines) {
+    try {
+      // 豆包走 Responses API（input/input_image），通义走 chat/completions（messages/image_url）
+      const callModel = engine.protocol === 'responses' ? responsesCompletion : chatCompletion
+      const result = await callModel({
+        apiUrl: engine.apiUrl,
+        apiKey: engine.apiKey,
+        model: engine.model,
+        messages: [
+          { role: 'system', content: '只输出 JSON。建议必须可执行，不要空话。' },
+          { role: 'user', content: buildUserContent() },
+        ],
+        temperature: 0.2,
+        // response_format / enable_thinking 是通义专有参数，其它厂商不认，别乱传
+        responseFormat: engine.vendor === 'dashscope' ? { type: 'json_object' } : undefined,
+        enableThinking: engine.vendor === 'dashscope' ? false : undefined,
+        timeoutMs: Math.min(Number(engine.timeoutMs || 60000), 60000),
+      })
+      called = true
+      const suggestions = parseModelSuggestions(result && result.text, [])
+      if (suggestions.length) return { suggestions, source: 'llm', engine: engine.id }
+    } catch (error) {
+      failures.push(`${engine.id}：${text(error && error.message).slice(0, 80)}`)
+    }
+  }
+  if (!called && failures.length) {
+    throw new Error(`模型不可用：${failures.join('；')}`)
+  }
+  return null
 }
 
 async function analyzeNode(album, node, capability) {
@@ -352,9 +429,9 @@ async function analyzeNode(album, node, capability) {
   if (capability.llmEnabled) {
     try {
       const fromModel = await runLlmSuggestions(ctx, masked.urls, capability)
-      if (fromModel && fromModel.length) {
-        suggestions = fromModel
-        source = 'llm'
+      if (fromModel && fromModel.suggestions && fromModel.suggestions.length) {
+        suggestions = fromModel.suggestions
+        source = fromModel.source || 'llm'
       }
     } catch (error) {
       source = 'rule'
@@ -519,13 +596,10 @@ async function maybeHoldCompleteForAiReview({
   incomingDraft,
   payload = {},
 }) {
-  if (
-    !isReviewKind(node.kind) ||
-    node.kind === 'inspection_report' ||
-    node.kind === 'intake_inspection' ||
-    node.kind === 'work' ||
-    node.kind === 'delivery_photos'
-  ) {
+  const kind = String(node.kind || '')
+  // 接车与检测不在这里查：其内容随检测报告在「通知车主前」一起核对。
+  // 施工、完工照完成时查本步（docs/04_维修过程相册/26_ · 28_ 确认前检查）
+  if (!isReviewKind(kind) || kind === 'intake_inspection' || kind === 'inspection_report') {
     return null
   }
   const capability = await resolveCapabilityForMerchant(merchantId)
@@ -547,6 +621,7 @@ async function maybeHoldCompleteForAiReview({
     node,
     merchantId,
     incomingDraft,
+    extra: { step: resolveReviewStep(kind) },
   })
   return {
     completed: false,
