@@ -100,7 +100,12 @@ function buildReviewFingerprint(node, extra = {}) {
     urls: collectNodeImageUrls(node).map((url) => stripUrlQuery(url)).sort(),
     complaint: text((node.photoDraft && node.photoDraft.chiefComplaint) || extra.chiefComplaint),
     mileage: text((node.photoDraft && node.photoDraft.mileageKm) || extra.mileageKm),
-    findings: ((node.photoDraft && node.photoDraft.findings) || extra.findings || []).map((row) => ({
+    findings: (
+      (node.photoDraft && node.photoDraft.findings) ||
+      (node.document && node.document.payload && node.document.payload.findings) ||
+      extra.findings ||
+      []
+    ).map((row) => ({
       p: text(row && row.partName),
       c: text(row && row.caption),
       a: text(row && row.advice),
@@ -130,6 +135,21 @@ async function resolveCapabilityForMerchant(merchantId) {
 
 function wantsSkip(payload = {}) {
   return Boolean(payload.aiReviewAck || payload.skipAiReview)
+}
+
+/** 「看过了，放行」只对同一份内容生效：
+ *  没查过、或内容已经改过，都不能凭上一次的确认放行，必须重新查。 */
+function isAckStale(node, extra = {}) {
+  const current = (node && node.aiReview) || {}
+  if (current.status !== 'ready' && current.status !== 'failed') return true
+  const doc = (node && node.document && node.document.payload) || {}
+  const quoteLines = Array.isArray(extra.quoteLines)
+    ? extra.quoteLines
+    : Array.isArray(doc.lines)
+      ? doc.lines
+      : []
+  const fingerprint = buildReviewFingerprint(node, { ...extra, quoteLines })
+  return !current.fingerprint || current.fingerprint !== fingerprint
 }
 
 async function patchFlowNode(albumId, nodeId, mutator) {
@@ -201,8 +221,14 @@ function buildReviewContext(album, node, extra = {}) {
       },
     ])
     quoteLines = Array.isArray(doc.lines) ? doc.lines : []
-  } else if (reviewStep === 'delivery' && node.kind === 'repair_report') {
-    // 完工通知前：施工项 + 交车照一起看（26_ 确认前检查 · 哪些步）
+  } else if (
+    reviewStep === 'delivery' &&
+    (node.kind === 'repair_report' || node.kind === 'delivery_photos')
+  ) {
+    // 完工通知前：施工项 + 交车照一起看（26_ 确认前检查 · 哪些步）。
+    // 交车照步与完工报告单据是同一环节——交车照一完成，完工报告就发给车主确认、
+    // 内容随即固定托管到网站，所以这一步查的就是车主看到的那一整份内容，
+    // 不能只查交车照草稿。刚提交的草稿在排队时已写进节点，这里读得到。
     findings = []
     readFlowNodes(album).forEach((item) => {
       if (!item || item.kind !== 'work') return
@@ -249,7 +275,14 @@ function buildReviewContext(album, node, extra = {}) {
           photos: [],
           texts: [],
         }
-      : getReviewRubric(album.templateId, rubricKind, album.serviceName)
+      : reviewStep === 'notify_check'
+        ? {
+            category: resolveReviewCategory(album.templateId, album.serviceName),
+            step: 'notify_check',
+            photos: [],
+            texts: [],
+          }
+        : getReviewRubric(album.templateId, rubricKind, album.serviceName)
   return {
     rubric,
     chiefComplaint: text(draft.chiefComplaint || doc.chiefComplaint || extra.chiefComplaint),
@@ -343,7 +376,9 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
           ? '这是完工通知前的一次核对。看施工与交车照。confirmedReference 是已确认的检测结论与报价项目，只能用来把完工描述写准；不要对它提修改意见，也不要改金额。'
           : ctx.rubric.step === 'work'
             ? '只看本步施工。confirmedReference 是已确认的检测结论与报价项目，只能用来把本步施工的项目名和说明写准写具体；不要对它提修改意见，也不要改金额。'
-            : ''
+              : ctx.rubric.step === 'notify_check'
+                ? '这是发给车主查看前的一次核对。只能根据本单已有的检测发现与当前单据内容组织句子，不许编造没拍到、没提到的工序或读数。不要改金额。'
+                : ''
   const instruction = [
     '你是汽修店员的核对助手。只根据本单已有事实给优化方向，不要百科，不要编造没拍到的读数。',
     stepNote,
@@ -455,11 +490,9 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
     if (!album) return
     const node = readFlowNodes(album).find((item) => item && item.id === nodeId)
     const reviewStep = String((node && node.aiReview && node.aiReview.reviewStep) || '')
-    const runnable =
-      node &&
-      (isReviewKind(node.kind) ||
-        reviewStep === 'addon_check' ||
-        (reviewStep === 'delivery' && node.kind === 'repair_report'))
+    // 已经排进检查队列就执行：该不该检查由「是否发给车主」这些动作在排队时定好，
+    // 这里不再按单据类型放行，免得新单据类型排了队却没人执行、一直卡在「正在检查」
+    const runnable = Boolean(node && reviewStep)
     if (!runnable) return
     const current = node.aiReview || {}
     if (current.status === 'ready' && current.acknowledged) return
@@ -638,10 +671,22 @@ async function maybeHoldCompleteForAiReview({
 }
 
 async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = {} }) {
-  if (node.kind !== 'inspection_report') return null
+  // 送达即车主可见：查不查由这个动作决定，不再按单据类型挑
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability.entitled) return null
-  if (wantsSkip(payload)) {
+  const quoteLines =
+    (payload.quote && payload.quote.payload && payload.quote.payload.lines) || []
+  const mergedNode = {
+    ...node,
+    document: {
+      ...(node.document || {}),
+      payload: {
+        ...((node.document && node.document.payload) || {}),
+        ...((payload.document && payload.document.payload) || {}),
+      },
+    },
+  }
+  if (wantsSkip(payload) && !isAckStale(mergedNode, { quoteLines })) {
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
       aiReview: {
@@ -652,20 +697,9 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
     }))
     return null
   }
-  const quoteLines =
-    (payload.quote && payload.quote.payload && payload.quote.payload.lines) || []
   const review = await startOrResumeReview({
     album,
-    node: {
-      ...node,
-      document: {
-        ...(node.document || {}),
-        payload: {
-          ...((node.document && node.document.payload) || {}),
-          ...((payload.document && payload.document.payload) || {}),
-        },
-      },
-    },
+    node: mergedNode,
     merchantId,
     extra: { quoteLines },
   })
@@ -702,17 +736,31 @@ async function getNodeAiReview(albumId, storeId, nodeId, merchantId) {
   }
 }
 
-/** 施工中新发现、完工确认：通知车主前查一次 */
+/** 发给车主时按内容决定检查口径——它只决定「查什么」，不决定「查不查」。
+ *  查不查看这次是不是发给车主（由调用方判定），所以新增单据类型会自动纳入检查。 */
+function resolveNotifyReviewStep(node = {}) {
+  const kind = String(node.kind || '')
+  // 增项有两种写法：独立类型 addon_quote_confirm，或 quote_confirm + insertedReason=addon
+  const isAddon =
+    kind === 'addon_quote_confirm' ||
+    (kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon')
+  if (isAddon) return 'addon_check'
+  if (kind === 'quote_confirm') return 'quote_check'
+  if (kind === 'inspection_report') return 'quote_check'
+  if (kind === 'repair_report') return 'delivery'
+  if (kind === 'work_order') return 'work'
+  return 'notify_check'
+}
+
+/** 发给车主前查一次 */
 async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {} }) {
-  const isQuote = Boolean(node && node.kind === 'quote_confirm')
-  const isAddon = isQuote && String(node.insertedReason || '') === 'addon'
-  // 首次报价：车主看到的也是这一份方案，同样要在发给车主前过一遍检查
-  const isFirstQuote = isQuote && !isAddon
-  const isRepair = node && node.kind === 'repair_report'
-  if (!isAddon && !isFirstQuote && !isRepair) return null
+  const kind = String((node && node.kind) || '')
+  const reviewStep = resolveNotifyReviewStep(node)
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability.entitled) return null
-  if (wantsSkip(payload)) {
+  const doc = (node.document && node.document.payload) || {}
+  const quoteLines = kind === 'quote_confirm' && Array.isArray(doc.lines) ? doc.lines : []
+  if (wantsSkip(payload) && !isAckStale(node, { quoteLines })) {
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
       aiReview: {
@@ -723,9 +771,6 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
     }))
     return null
   }
-  const doc = (node.document && node.document.payload) || {}
-  const reviewStep = isAddon ? 'addon_check' : isRepair ? 'delivery' : 'quote_check'
-  const quoteLines = (isAddon || isFirstQuote) && Array.isArray(doc.lines) ? doc.lines : []
   const review = await startOrResumeReview({
     album,
     node,

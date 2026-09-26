@@ -454,20 +454,18 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
 
   const notifying =
     payload.document && String(payload.document.status || '') === 'pending_confirm'
-  const isAddonNotify =
-    notifying &&
-    preview.kind === 'quote_confirm' &&
-    String(preview.insertedReason || '') === 'addon'
-  const isRepairNotify = notifying && preview.kind === 'repair_report'
-  if (isAddonNotify || isRepairNotify) {
+  // 以「这次是不是发给车主看」为准：凡是发给车主的单据，发出前都过一遍检查。
+  // 不按单据类型枚举，新增单据类型自动纳入；类型只决定发前必填校验与检查口径
+  if (notifying) {
     const mergedPayload = {
       ...((preview.document && preview.document.payload) || {}),
       ...((payload.document && payload.document.payload) || {}),
     }
-    if (isAddonNotify) {
-      const gaps = collectQuoteConfirmGaps(mergedPayload, { requireDiscovery: true })
+    if (preview.kind === 'quote_confirm') {
+      const isAddon = String(preview.insertedReason || '') === 'addon'
+      const gaps = collectQuoteConfirmGaps(mergedPayload, isAddon ? { requireDiscovery: true } : {})
       if (gaps.length) {
-        const err = new Error(gaps[0] || '请先补全新发现和报价')
+        const err = new Error(gaps[0] || (isAddon ? '请先补全新发现和报价' : '请先填写方案金额'))
         err.status = 400
         throw err
       }
@@ -2056,6 +2054,9 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
       nodes[index] = {
         ...prev,
         status: 'in_progress',
+        // 清掉上一次的检查结果：门店改完再提交时要重新查。
+        // 否则内容指纹没变就复用旧结论，商家看不到模型介入、也不再等「正在检查」
+        aiReview: null,
         document: {
           ...prevDoc,
           status: 'draft',
