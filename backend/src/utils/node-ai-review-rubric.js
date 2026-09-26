@@ -7,6 +7,9 @@ const KIND_TO_STEP = {
   work: 'work',
   delivery_photos: 'delivery',
   inspection_report: 'quote_check',
+  // 报价单据节点：单独发车主确认时也按「报价核对」查，
+  // 提纲才能按类目取到 quote_check 那套写作要求
+  quote_confirm: 'quote_check',
 }
 
 const REVIEW_KINDS = new Set(Object.keys(KIND_TO_STEP))
@@ -85,6 +88,7 @@ const RUBRICS = {
       texts: [
         textHint('chiefComplaint', '主诉与方案主项应是同一件事'),
         textHint('quoteLineName', '方案行名用部位名，如机油/机滤；巡检正常的不要预填报价行'),
+        textHint('quoteLineNote', '施工方案写清做什么、用什么：机油规格与用量、机滤是否一并更换、含不含工时与保养灯复位。依据只取检测发现里已有的内容，不要加没做的项'),
       ],
     },
   },
@@ -121,6 +125,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '增量项与检测建议一致；未做项不要出现在方案里'),
+        textHint('quoteLineNote', '施工方案按项写清本次做什么、用什么件与规格；基础保养与增量项分开写，增量对应检测发现的那一条'),
       ],
     },
   },
@@ -161,6 +166,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '行名写「前刹车片」这类部位，不要「需处理」；盘不换要在建议里写清'),
+        textHint('quoteLineNote', '施工方案写清换哪个位置（前/后、左/右）、含不含工时与制动液；盘是更换、车削还是不动要写明，并写清依据的片厚/盘厚读数'),
       ],
     },
   },
@@ -199,6 +205,7 @@ const RUBRICS = {
       texts: [
         textHint('chiefComplaint', '不要把「打不着火」直接写成一定是电瓶'),
         textHint('quoteLineName', '方案就是电瓶更换；充电系统待复查写在建议里'),
+        textHint('quoteLineNote', '施工方案写清电瓶型号与容量、含不含桩头清理与装车后检测复核、旧件如何处理；待复查项写进建议，不要混进这一行'),
       ],
     },
   },
@@ -234,6 +241,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '禁止「必须四条一起换」恐吓句；同轴规格不一致要写约定'),
+        textHint('quoteLineNote', '施工方案写清换几条、哪几个位置、含不含动平衡与新气嘴；同轴规格与花纹须一致，不一致的把约定写清'),
       ],
     },
   },
@@ -267,6 +275,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '路径与诉求一致：异味单不要自动写成「必须洗箱」'),
+        textHint('quoteLineNote', '施工方案写清到底做什么：补漏、加注、换滤芯还是清洗，含不含检漏工序；依据写检测时看见的现象，不要写没做过的工序'),
       ],
     },
   },
@@ -304,6 +313,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '方案写清喷哪些板；不要写成「恢复原厂」'),
+        textHint('quoteLineNote', '施工方案写清喷哪几块板、含哪几道工序（钣金、腻子、中涂、面漆、清漆）与是否含拆装；不要写「恢复原厂」「无色差」'),
       ],
     },
   },
@@ -338,6 +348,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('chiefComplaint', '公开侧不要把定损金额带进说明'),
+        textHint('quoteLineNote', '施工方案写清更换哪些件、是否含拆装、喷漆与 ADAS 标定；对应检测发现里哪几条要指出来。不要写金额，不要做承诺'),
       ],
     },
   },
@@ -372,6 +383,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '方案对应查出的那一件，不要写成「底盘大修」'),
+        textHint('quoteLineNote', '施工方案写清换的是哪一件（哪个位置的下摆臂、球头或小吊杆）、含不含四轮定位；不要写成「底盘大修」这种笼统话'),
       ],
     },
   },
@@ -401,6 +413,7 @@ const RUBRICS = {
       photos: [],
       texts: [
         textHint('quoteLineName', '方案行与发现一致'),
+        textHint('quoteLineNote', '施工方案写清这一行具体做什么、用什么件，并对应检测发现的那一条；不要写通用套话'),
       ],
     },
   },

@@ -18,6 +18,7 @@
     "smoke:prod": "node scripts/prod-launch-smoke.js",
     "check:prod-env": "node scripts/check-production-env.js --strict",
     "test:media-signed-url": "node src/lib/media-signed-url.test.js",
+    "test:oss-client": "node src/lib/oss-client.test.js",
     "test:node-ai-review": "node --test src/utils/node-ai-review-capability.test.js src/utils/node-ai-review-rubric.test.js src/utils/node-ai-review-rules.test.js",
     "desensitize:smoke": "node scripts/desensitize-smoke.js",
     "media:migrate-oss": "node scripts/migrate-media-to-oss.js",

@@ -336,7 +336,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
   }
   const stepNote =
     ctx.rubric.step === 'quote_check'
-      ? '这是通知车主前的核对。同时看检测发现和报价。可以建议改某一项的检查发现，也可以建议改报价的项目名或施工方案，使两边对得上。报价里要做的事应能在检测里找到依据。不要改金额。'
+      ? '这是发给车主确认前的核对。同时看检测发现和报价。除了让两边对得上，还要把每条报价行的施工方案写清楚：做什么工序、用什么件与规格、依据哪条发现，车主和之后看公开案例的人要能一眼看懂这一条做了什么。只能用本单已有的检测发现与当前行内容来组织句子，不许编造没拍到、没提到的工序或读数。不要改金额。'
       : ctx.rubric.step === 'addon_check'
         ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
         : ctx.rubric.step === 'delivery'
@@ -599,7 +599,13 @@ async function maybeHoldCompleteForAiReview({
   const kind = String(node.kind || '')
   // 接车与检测不在这里查：其内容随检测报告在「通知车主前」一起核对。
   // 施工、完工照完成时查本步（docs/04_维修过程相册/26_ · 28_ 确认前检查）
-  if (!isReviewKind(kind) || kind === 'intake_inspection' || kind === 'inspection_report') {
+  // quote_confirm 不在这里查：它的核对发生在发给车主确认前，不在「完成」这一刻
+  if (
+    !isReviewKind(kind) ||
+    kind === 'intake_inspection' ||
+    kind === 'inspection_report' ||
+    kind === 'quote_confirm'
+  ) {
     return null
   }
   const capability = await resolveCapabilityForMerchant(merchantId)
@@ -698,12 +704,12 @@ async function getNodeAiReview(albumId, storeId, nodeId, merchantId) {
 
 /** 施工中新发现、完工确认：通知车主前查一次 */
 async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {} }) {
-  const isAddon =
-    node &&
-    node.kind === 'quote_confirm' &&
-    String(node.insertedReason || '') === 'addon'
+  const isQuote = Boolean(node && node.kind === 'quote_confirm')
+  const isAddon = isQuote && String(node.insertedReason || '') === 'addon'
+  // 首次报价：车主看到的也是这一份方案，同样要在发给车主前过一遍检查
+  const isFirstQuote = isQuote && !isAddon
   const isRepair = node && node.kind === 'repair_report'
-  if (!isAddon && !isRepair) return null
+  if (!isAddon && !isFirstQuote && !isRepair) return null
   const capability = await resolveCapabilityForMerchant(merchantId)
   if (!capability.entitled) return null
   if (wantsSkip(payload)) {
@@ -718,8 +724,8 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
     return null
   }
   const doc = (node.document && node.document.payload) || {}
-  const reviewStep = isAddon ? 'addon_check' : 'delivery'
-  const quoteLines = isAddon && Array.isArray(doc.lines) ? doc.lines : []
+  const reviewStep = isAddon ? 'addon_check' : isRepair ? 'delivery' : 'quote_check'
+  const quoteLines = (isAddon || isFirstQuote) && Array.isArray(doc.lines) ? doc.lines : []
   const review = await startOrResumeReview({
     album,
     node,
