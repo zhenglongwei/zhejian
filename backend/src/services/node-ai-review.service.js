@@ -141,6 +141,13 @@ function wantsSkip(payload = {}) {
  *  没查过、或内容已经改过，都不能凭上一次的确认放行，必须重新查。 */
 function isAckStale(node, extra = {}) {
   const current = (node && node.aiReview) || {}
+  // 车主拒绝过，且手上的结论是「拒绝之前」那次查出来的 → 结论已作废，重新查。
+  // 早先的单据拒绝时还没清结论，光比指纹会误判成「看过了、内容没变」而直接放行。
+  // 反过来，结论比拒绝时间新，说明是拒绝之后刚查过的，看完就能发，不然会一直拦着发不出去
+  const rejectedAt = String(
+    extra.rejectedAt || (node && node.document && node.document.ownerRejectedAt) || '',
+  )
+  if (rejectedAt && (!current.updatedAt || String(current.updatedAt) < rejectedAt)) return true
   if (current.status !== 'ready' && current.status !== 'failed') return true
   const doc = (node && node.document && node.document.payload) || {}
   const quoteLines = Array.isArray(extra.quoteLines)
@@ -592,11 +599,21 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
     existing.fingerprint === fingerprint &&
     (existing.status === 'queued' || existing.status === 'running' || existing.status === 'ready')
   ) {
+    console.info('[node-ai-review] 复用已有结论', {
+      nodeId: node.id,
+      step: reviewStep,
+      status: existing.status,
+    })
     if (existing.status === 'queued' || existing.status === 'running') {
       queueReviewJob(album.id, node.id, merchantId)
     }
     return sanitizeAiReviewForView(existing)
   }
+  console.info('[node-ai-review] 排队检查', {
+    nodeId: node.id,
+    step: reviewStep,
+    fingerprint: String(fingerprint).slice(0, 8),
+  })
 
   await patchFlowNode(album.id, node.id, (item) => ({
     ...item,
@@ -686,7 +703,14 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = 
       },
     },
   }
-  if (wantsSkip(payload) && !isAckStale(mergedNode, { quoteLines })) {
+  // 报告与方案是一起发的：方案被车主拒绝过，报告这份同样要重查（结论早于拒绝就算作废）
+  const quoteNode = readFlowNodes(album).find(
+    (item) => item && item.kind === 'quote_confirm' && !item.insertedReason,
+  )
+  const rejectedAt = String(
+    (quoteNode && quoteNode.document && quoteNode.document.ownerRejectedAt) || '',
+  )
+  if (wantsSkip(payload) && !isAckStale(mergedNode, { quoteLines, rejectedAt })) {
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
       aiReview: {
@@ -757,10 +781,14 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
   const kind = String((node && node.kind) || '')
   const reviewStep = resolveNotifyReviewStep(node)
   const capability = await resolveCapabilityForMerchant(merchantId)
-  if (!capability.entitled) return null
+  if (!capability.entitled) {
+    console.info('[node-ai-review] 跳过检查：能力未开通', { kind, merchantId })
+    return null
+  }
   const doc = (node.document && node.document.payload) || {}
   const quoteLines = kind === 'quote_confirm' && Array.isArray(doc.lines) ? doc.lines : []
   if (wantsSkip(payload) && !isAckStale(node, { quoteLines })) {
+    console.info('[node-ai-review] 放行：门店已看过同一份内容的检查结论', { kind, nodeId: node.id })
     await patchFlowNode(album.id, node.id, (item) => ({
       ...item,
       aiReview: {

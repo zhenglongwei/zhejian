@@ -2065,6 +2065,17 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
           statusLabel: '车主未同意',
         },
       }
+      // 门店再次通知车主时是「检测报告 + 方案」一起发，检查挂在检测报告节点上。
+      // 那份结论也要一并作废，否则第二次只会复用首次的结论、根本不再调用模型
+      const isQuoteDoc =
+        String(prev.kind || '') === 'quote_confirm' ||
+        String(prev.kind || '') === 'addon_quote_confirm'
+      if (isQuoteDoc) {
+        for (let i = 0; i < nodes.length; i += 1) {
+          const item = nodes[i]
+          if (item && item.kind === 'inspection_report') nodes[i] = { ...item, aiReview: null }
+        }
+      }
       return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
     })
   }
