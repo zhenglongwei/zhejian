@@ -31,6 +31,12 @@ const MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE = {
   description: '点下方开通，接着贴这一单',
 }
 
+/** 登录态失效/未登录：与「还没入驻」分开，避免有门店的人被误导去开通 */
+const MERCHANT_WORKBENCH_GATE_GUEST = {
+  title: '登录后进入工作台',
+  description: '用微信登录，查看你的门店与相册',
+}
+
 const MERCHANT_AUTH_HINT = {
   none: '补认证：上传执照与法人证',
   pending: '认证校验中，可继续完善资料',
@@ -59,6 +65,7 @@ module.exports = {
   MERCHANT_WORKBENCH_GATE_PENDING,
   MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE,
   MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE,
+  MERCHANT_WORKBENCH_GATE_GUEST,
   MERCHANT_AUTH_HINT,
   MERCHANT_SHARE_STORE_DESC,
   MERCHANT_STORE_PICKER_COPY,

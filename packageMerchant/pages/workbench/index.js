@@ -13,13 +13,15 @@ const { fetchMerchantGeoOpportunity } = require('../../../services/merchant-geo'
 const { fetchMerchantSubscriptionPanel } = require('../../../services/merchant-subscription')
 const { formatCount } = require('../../../utils/merchant-dashboard')
 const { enrichMerchantAlbumListItem } = require('../../../utils/service-album-display')
-const { isMerchantOwner } = require('../../../utils/auth')
+const { isMerchantOwner, isLoggedIn } = require('../../../utils/auth')
 const { promptHomePrivacy } = require('../../../utils/privacy-authorize')
+const { wechatLogin } = require('../../../services/user')
 const {
   MERCHANT_WORKBENCH_GATE_NONE,
   MERCHANT_WORKBENCH_GATE_PENDING,
   MERCHANT_WORKBENCH_GATE_NONE_ARCHIVE,
   MERCHANT_WORKBENCH_GATE_PENDING_ARCHIVE,
+  MERCHANT_WORKBENCH_GATE_GUEST,
 } = require('../../../constants/merchant-onboarding-copy')
 const {
   MERCHANT_ALBUM_SECTION_TITLE,
@@ -58,6 +60,7 @@ Page({
     status: 'loading',
     gateNone: MERCHANT_WORKBENCH_GATE_NONE,
     gatePending: MERCHANT_WORKBENCH_GATE_PENDING,
+    gateGuest: MERCHANT_WORKBENCH_GATE_GUEST,
     archiveIntent: false,
     profile: null,
     todos: {
@@ -107,8 +110,28 @@ Page({
     })
   },
 
+  async onGuestLogin() {
+    if (this._logging) return
+    this._logging = true
+    try {
+      await wechatLogin()
+      await this.loadProfile()
+    } catch (e) {
+      wx.showToast({ title: '登录失败，请重试', icon: 'none' })
+    } finally {
+      this._logging = false
+    }
+  },
+
   async loadProfile(options = {}) {
     const silent = Boolean(options.silent)
+
+    // 没登录 ≠ 没入驻：登录态失效时不能显示「去开通」，有门店的人会以为自己没入驻
+    if (!isLoggedIn()) {
+      this.setData({ status: 'guest', profile: null })
+      return
+    }
+
     if (!silent) {
       this.setData({ status: 'loading' })
     }
@@ -119,6 +142,12 @@ Page({
       } catch (e) {
         // ignore
       }
+    }
+
+    // 刷新会话可能被服务端拒（登录态失效会顺带清掉本地），这种情况同样不能算「没入驻」
+    if (!isLoggedIn()) {
+      this.setData({ status: 'guest', profile: null })
+      return
     }
 
     const profile = await fetchMerchantProfile()

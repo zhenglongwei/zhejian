@@ -38,6 +38,21 @@
     </view>
   </block>
 
+  <block wx:elif="{{status === 'guest'}}">
+    <view class="merchant-hub__gate">
+      <ui-empty
+        theme="album"
+        title="{{gateGuest.title}}"
+        description="{{gateGuest.description}}"
+        actionText="微信登录"
+        bind:action="onGuestLogin"
+      />
+      <view class="merchant-hub__role-switch" bindtap="onSwitchToOwner">
+        <text class="text-caption text-link">切换为车主</text>
+      </view>
+    </view>
+  </block>
+
   <block wx:else>
       <view class="merchant-hub">
       <view class="merchant-hub__folio surface-album-folio">

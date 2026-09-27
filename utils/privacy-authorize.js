@@ -101,8 +101,14 @@ function promptHomePrivacy(page) {
   setTimeout(run, 0)
 }
 
+/** 启动确认里已经同意过：本次启动不再在首页重复弹一次隐私提示 */
+function markHomePrivacyPrompted() {
+  homePrompted = true
+}
+
 module.exports = {
   queryPrivacySetting,
   requestPrivacyAuthorization,
   promptHomePrivacy,
+  markHomePrivacyPrompted,
 }

@@ -1,5 +1,6 @@
 const { isLoggedIn, isMerchant, getSession } = require('../../utils/auth')
 const { hasAgreedLegalConsent, markLegalConsent } = require('../../utils/legal-consent')
+const { markHomePrivacyPrompted } = require('../../utils/privacy-authorize')
 const { wechatLogin, fetchMineSummary, refreshSession } = require('../../services/user')
 const {
   ROLE_MERCHANT,
@@ -47,17 +48,15 @@ Page({
     // 启动确认不接受「暂不」：弹窗保持，用户可退出或继续阅读
     if (!agreed) return
     markLegalConsent()
+    // 本次启动已经确认过，后面的首页不再重复弹一次隐私提示
+    markHomePrivacyPrompted()
     this.setData({ status: 'loading' })
     this.bootstrap()
   },
 
   async bootstrap() {
-    const known = readLocalRole()
-    if (known) {
-      reLaunchRoleHome(known)
-      return
-    }
-
+    // 登录态先于角色：本机记住的角色不作数，先把身份确认/刷新一遍再跳。
+    // 否则会带着失效的登录态进首页 —— 首页拉不到数据，还会被当成「没入驻」
     if (!isLoggedIn()) {
       try {
         await wechatLogin()
@@ -66,20 +65,24 @@ Page({
         this.setData({ status: 'choose' })
         return
       }
-    }
-
-    const afterLogin = readLocalRole()
-    if (afterLogin) {
-      reLaunchRoleHome(afterLogin)
-      return
-    }
-
-    if (!isMerchant()) {
+    } else {
       try {
         await refreshSession()
       } catch (e) {
-        // 非商家刷新失败时继续看相册关联
+        // 本地已有登录态，刷新失败不挡路，继续用本地身份判断
       }
+    }
+
+    if (!isLoggedIn()) {
+      if (this._left) return
+      this.setData({ status: 'choose' })
+      return
+    }
+
+    const remembered = readLocalRole()
+    if (remembered) {
+      reLaunchRoleHome(remembered)
+      return
     }
 
     let hasAlbumBindings = false
