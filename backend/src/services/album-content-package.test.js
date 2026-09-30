@@ -68,7 +68,7 @@ test('collectMissingFromPanels detects absent rows', () => {
   assert.equal(missing[0].label, '完工照')
 })
 
-test('empty album is not eligible for llm package', () => {
+test('album is eligible for llm package (留痕矩阵已下线，不再做缺项拦截)', () => {
   const {
     isAlbumEligibleForLlmContentPackage,
   } = require('./album-content-package.service')
@@ -79,5 +79,5 @@ test('empty album is not eligible for llm package', () => {
     parts: [],
     planParts: [],
   })
-  assert.equal(eligible, false)
+  assert.equal(eligible, true)
 })

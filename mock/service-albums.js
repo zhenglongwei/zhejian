@@ -263,15 +263,6 @@ const MOCK_ALBUMS = [
         images: ['mock://service-album/alb_svc_completed/stage_3/quote'],
       },
       {
-        id: 'work_order',
-        category: 'document',
-        type: 'work_order',
-        stageId: 'stage_5',
-        label: '施工工单',
-        strength: 'recommended',
-        images: ['mock://service-album/alb_svc_completed/stage_5/0'],
-      },
-      {
         id: 'settlement',
         category: 'document',
         type: 'settlement',

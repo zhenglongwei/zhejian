@@ -970,27 +970,6 @@ Page({
     }
   },
 
-  onOpenInspect() {
-    if (!this.albumId) return
-    const focusStageId = this.data.activeNodeId || ''
-    const query = [
-      `albumId=${this.albumId}`,
-      focusStageId ? `focusStageId=${focusStageId}` : '',
-      'triggerContext=album_detail',
-    ]
-      .filter(Boolean)
-      .join('&')
-    wx.navigateTo({
-      url: `/pages/album/inspect/index?${query}`,
-      events: {
-        jumptopart: ({ index } = {}) => {
-          const parts = (this.data.detail && this.data.detail.parts) || []
-          this.jumpToAlbumPart(parts[Number(index) || 0])
-        },
-      },
-    })
-  },
-
   onUnload() {
   },
 

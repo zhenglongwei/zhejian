@@ -248,7 +248,12 @@ function normalizeWorkFinding(raw = {}, index = -1) {
     captionEmpty: !caption,
     partName,
     symptom: String(raw.symptom || '').trim(),
-    // 关联的方案行 / 工单项 id；配对规则见 26_ §6.5
+    // 工单如实记录：用料/品牌/数量/金额均选填，用于完工核对与报价比对
+    material: String(raw.material || '').trim(),
+    brand: String(raw.brand || '').trim(),
+    qty: String(raw.qty || '').trim(),
+    amount: parseAmount(raw.amount),
+    // 关联的方案行 id；仅作排序/展示参考，不要求与报价勾连
     quoteLineId: String(raw.quoteLineId || '').trim(),
     result: '',
     advice: '',
@@ -502,7 +507,7 @@ function collectInspectionReportGaps(payload = {}) {
 }
 
 /** 施工过程：每项至少 1 张图 + 项目名；可选校验工单项目均已挂图 */
-function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
+function collectWorkPhotoDraftGaps(payload = {}) {
   const gaps = []
   const findings = Array.isArray(payload.findings) ? payload.findings : []
   const withPhoto = findings.filter((raw) => workFindingHasPhoto(raw))
@@ -513,20 +518,6 @@ function collectWorkPhotoDraftGaps(payload = {}, options = {}) {
     const item = normalizeWorkFinding(raw)
     const label = item.partName || `第 ${index + 1} 项`
     if (!item.partName) gaps.push(`「${label}」请填写项目`)
-  })
-  const orderItems = Array.isArray(options.orderItems) ? options.orderItems : []
-  orderItems.forEach((row) => {
-    const name = String((row && row.name) || '').trim()
-    const lineId = String((row && (row.id || row.quoteLineId)) || '').trim()
-    if (!name) return
-    // 优先按 quoteLineId 挂钩；仅存量无 id 时才按名称回落（26_ §6.5）
-    const matched = withPhoto.some((raw) => {
-      const item = normalizeWorkFinding(raw)
-      const itemLineId = String(item.quoteLineId || '').trim()
-      if (lineId && itemLineId) return itemLineId === lineId
-      return item.partName === name
-    })
-    if (!matched) gaps.push(`「${name}」请上传施工图`)
   })
   return gaps
 }
@@ -747,71 +738,6 @@ function sumQuoteAmounts(lines = []) {
   }, 0)
 }
 
-function buildWorkOrderPayloadFromQuote(quotePayload = {}, sourceQuoteNodeId = '') {
-  const lines = Array.isArray(quotePayload.lines) ? quotePayload.lines : []
-  return {
-    sourceQuoteNodeId,
-    items: lines
-      .map((line, index) => normalizeQuoteLine(line, index))
-      .filter((line) => line.name)
-      .map((line) => ({
-        id: line.id,
-        name: line.name,
-        brand: line.brand || '',
-        amount: line.amount === '' ? 0 : Number(line.amount),
-        note: line.note,
-      })),
-  }
-}
-
-/**
- * 施工项由工单项目预生成（26_ §6.6）
- * 以工单 items 为骨架：已传的图按 quoteLineId 归位；存量无 id 时按名称回落一次并写入 quoteLineId。
- * 匹配不上任何工单项的已有施工项保留在末尾，不丢数据。
- */
-function buildWorkFindingsFromOrderItems(orderItems = [], existingFindings = []) {
-  const items = (Array.isArray(orderItems) ? orderItems : []).map((row, index) =>
-    normalizeQuoteLine(row, index),
-  )
-  const existing = (Array.isArray(existingFindings) ? existingFindings : []).map((row, index) =>
-    normalizeWorkFinding(row, index),
-  )
-  const used = new Set()
-  const pick = (line) => {
-    let at = existing.findIndex(
-      (row, i) => !used.has(i) && row.quoteLineId && row.quoteLineId === line.id,
-    )
-    if (at < 0) {
-      at = existing.findIndex(
-        (row, i) => !used.has(i) && !row.quoteLineId && row.partName === line.name,
-      )
-    }
-    if (at >= 0) used.add(at)
-    return at >= 0 ? existing[at] : null
-  }
-  const out = items
-    .filter((line) => line.name)
-    .map((line, index) => {
-      const hit = pick(line)
-      return normalizeWorkFinding(
-        {
-          id: hit ? hit.id : '',
-          quoteLineId: line.id,
-          partName: line.name,
-          images: hit ? hit.images : [],
-          url: hit ? hit.url : '',
-          imageId: hit ? hit.imageId : '',
-          caption: hit ? hit.caption : '',
-        },
-        index,
-      )
-    })
-  existing.forEach((row, i) => {
-    if (!used.has(i)) out.push(row)
-  })
-  return out
-}
-
 /** 方案草稿：从「需关注/需处理」发现项预填（金额手填）
  * name = 部位；note 空（处理建议由商家另写，不复制检查发现）；检测结果不写进行名；品牌商家另填
  */
@@ -968,8 +894,6 @@ module.exports = {
   collectQuoteConfirmGaps,
   buildInspectionReportPayload,
   buildQuoteLinesFromFindings,
-  buildWorkOrderPayloadFromQuote,
-  buildWorkFindingsFromOrderItems,
   stableLineId,
   buildRepairReportPayload,
   normalizeQuoteLine,

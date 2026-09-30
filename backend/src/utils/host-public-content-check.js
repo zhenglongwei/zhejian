@@ -51,8 +51,10 @@ function collectFindingRows({ flowNodes, reviewDocs }) {
   ;(Array.isArray(payload.findings) ? payload.findings : []).forEach((row) => {
     if (row) rows.push(row)
   })
-  const intake = findFlow(flowNodes, 'intake_inspection')
-  const draft = (intake && intake.photoDraft) || {}
+  // findings 记在检测节点；存量合并节点 intake_inspection 兼容
+  const inspection =
+    findFlow(flowNodes, 'inspection') || findFlow(flowNodes, 'intake_inspection')
+  const draft = (inspection && inspection.photoDraft) || {}
   ;(Array.isArray(draft.findings) ? draft.findings : []).forEach((row) => {
     if (row) rows.push(row)
   })
@@ -80,7 +82,8 @@ function collectCaptionPool({ flowNodes, reviewDocs }) {
 }
 
 function resolveMileageKm({ vehicle, flowNodes }) {
-  const intake = findFlow(flowNodes, 'intake_inspection')
+  // 里程记在接车节点；存量合并节点 intake_inspection 兼容
+  const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
   const draft = (intake && intake.photoDraft) || {}
   const report = findFlow(flowNodes, 'inspection_report')
   const payload = (report && report.document && report.document.payload) || {}
@@ -92,7 +95,8 @@ function resolveMileageKm({ vehicle, flowNodes }) {
 }
 
 function resolveChiefComplaint({ flowNodes, reviewDocs }) {
-  const intake = findFlow(flowNodes, 'intake_inspection')
+  // 主诉记在接车节点；存量合并节点 intake_inspection 兼容
+  const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
   const draft = (intake && intake.photoDraft) || {}
   const report = findFlow(flowNodes, 'inspection_report')
   const payload = (report && report.document && report.document.payload) || {}
@@ -107,7 +111,8 @@ function resolveChiefComplaint({ flowNodes, reviewDocs }) {
 }
 
 function resolveVehicleBlob({ vehicle, flowNodes, view }) {
-  const intake = findFlow(flowNodes, 'intake_inspection')
+  // 对外车型记在接车节点；存量合并节点 intake_inspection 兼容
+  const intake = findFlow(flowNodes, 'intake') || findFlow(flowNodes, 'intake_inspection')
   const draft = (intake && intake.photoDraft) || {}
   return [
     draft.vehicleBrand,

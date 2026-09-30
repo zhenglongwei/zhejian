@@ -42,7 +42,6 @@ Page({
     const map = {
       inspection_report: '请核对后发送车主',
       quote_confirm: '请填写报价项目',
-      work_order: '请确认施工项目',
       repair_report: '请核对质保与确认文案',
     }
     return map[kind] || ''

@@ -270,7 +270,8 @@ function mapFactsToFlowDraft(extracted) {
 
 function applyDraftToNodes(nodes, draft) {
   return (nodes || []).map((node) => {
-    if (node.kind === 'intake_inspection') {
+    // 主诉/里程/车型归接车节点；存量合并节点 intake_inspection 兼容
+    if (node.kind === 'intake' || node.kind === 'intake_inspection') {
       return {
         ...node,
         photoDraft: {
@@ -451,7 +452,8 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
   })
 
   let nodes = mapNodesForView(album)
-  if (groups.intake.length) nodes = appendImagesToStage(nodes, 'stage_2', groups.intake)
+  // 接车组照片写入 stage_1（接车节点）；存量合并节点读侧兼容 stage_1 + stage_2
+  if (groups.intake.length) nodes = appendImagesToStage(nodes, 'stage_1', groups.intake)
   if (groups.work.length) nodes = appendImagesToStage(nodes, 'stage_5', groups.work)
   if (groups.delivery.length) nodes = appendImagesToStage(nodes, 'stage_6', groups.delivery)
 
@@ -462,6 +464,8 @@ async function attachWechatPhotos({ merchantId, storeId, albumId, assignments })
   await writeFlowPackage(albumId, (pkg) => {
     const flowNodes = Array.isArray(pkg.flowNodes) ? pkg.flowNodes : []
     const next = flowNodes.map((node) => {
+      // 存量合并节点（v5）：接车组照片填进其 findings
+      // 新体系接车照片已写入 stage_1，由 intake 节点按 legacyStageIds 读取
       if (node.kind === 'intake_inspection' && groups.intake.length) {
         const photoDraft = node.photoDraft || {}
         return {

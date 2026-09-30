@@ -22,6 +22,7 @@ const {
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
+  WALKAROUND_PARTS,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
   isValidFindingResult,
@@ -38,7 +39,6 @@ const {
   workFindingHasPhoto,
   WORK_IMAGES_MAX,
   normalizeQuoteLine,
-  buildWorkFindingsFromOrderItems,
   mapFindingRows,
   mediaKey,
   sumQuoteAmounts,
@@ -144,7 +144,13 @@ function mapCompletedStepPreview(step, node, album = {}) {
   const storeName = String((album && album.storeName) || '').trim()
   const metaLine = buildSheetMetaLine(payload, album)
 
-  if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
+  if (
+    kind === 'intake_inspection' ||
+    kind === 'intake' ||
+    kind === 'inspection' ||
+    kind === 'work' ||
+    kind === 'delivery_photos'
+  ) {
     const previewImages = Array.isArray(node.previewImages) ? node.previewImages : []
     return {
       ...base,
@@ -154,7 +160,7 @@ function mapCompletedStepPreview(step, node, album = {}) {
       previewImages,
       photoCount: Number(node.photoCount) || previewImages.length,
       chiefComplaint:
-        kind === 'intake_inspection'
+        kind === 'intake_inspection' || kind === 'intake'
           ? String((node.photoDraft && node.photoDraft.chiefComplaint) || '')
           : '',
     }
@@ -228,37 +234,6 @@ function mapCompletedStepPreview(step, node, album = {}) {
     }
   }
 
-  if (kind === 'work_order') {
-    const items = Array.isArray(payload.items)
-      ? payload.items
-      : Array.isArray(payload.workItems)
-        ? payload.workItems
-        : []
-    const mapped = items.map((row) => ({
-      name: String((row && row.name) || ''),
-      brand: String((row && row.brand) || ''),
-      amount: row && row.amount != null ? row.amount : '',
-      note: String((row && row.note) || ''),
-    }))
-    const total = mapped.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-    return {
-      ...base,
-      kind,
-      detailKind: 'doc_sheet',
-      summary,
-      sheetDoc: {
-        kind,
-        title: node.title || '工单',
-        statusLabel: summary === '草稿' ? '已确认' : summary,
-        storeName,
-        metaLine,
-        styleVariant: 'document',
-        items: mapped,
-        totalAmountLabel: `合计 ¥${total.toFixed(2)}`,
-      },
-    }
-  }
-
   if (kind === 'repair_report') {
     const workItems = Array.isArray(payload.workItems)
       ? payload.workItems
@@ -300,8 +275,15 @@ function mapCompletedStepPreview(step, node, album = {}) {
 }
 
 const STAGE_LABELS = {
+  stage_1: {
+    title: '接车照片',
+    tips: '拍环车、仪表、油液：留证车辆进场时什么样',
+    captionPlaceholder: '本图说明（选填）',
+    findingMode: false,
+    findingKind: '',
+  },
   stage_2: {
-    title: '接车与检测照片',
+    title: '检测照片',
     tips: '拍部位、能看清结论。不要拍码。',
     captionPlaceholder: '检查部位',
     findingMode: true,
@@ -353,6 +335,9 @@ Page({
     quoteTotalLabel: '',
     photoConfirmLabel: '确认并继续',
     sections: [],
+    walkaround: [],
+    walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
+    isInspectionPhotoStep: false,
     expandedFindingKey: '',
     findingResultOptions: FINDING_RESULT_OPTIONS,
     docPayload: {},
@@ -523,36 +508,7 @@ Page({
     return rows
   },
 
-  resolveRelatedWorkOrder(flowNodes = [], activeNode = null) {
-    if (!activeNode) return null
-    if (activeNode.parentNodeId) {
-      const parent = (flowNodes || []).find((n) => n && n.id === activeNode.parentNodeId)
-      if (parent && parent.kind === 'work_order') return parent
-    }
-    const sorted = (flowNodes || [])
-      .slice()
-      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
-    const idx = sorted.findIndex((n) => n && n.id === activeNode.id)
-    for (let i = idx - 1; i >= 0; i -= 1) {
-      if (sorted[i] && sorted[i].kind === 'work_order') return sorted[i]
-    }
-    return null
-  },
 
-  seedPendingWorkParts(findings = [], flowNodes = [], activeNode = null) {
-    const order = this.resolveRelatedWorkOrder(flowNodes, activeNode)
-    const items =
-      (order &&
-        order.document &&
-        order.document.payload &&
-        order.document.payload.items) ||
-      []
-    if (!items.length) return findings
-    // 26_ §6.6：以工单项目为骨架预生成施工项，已传的图按 quoteLineId（存量按名称）归位
-    return buildWorkFindingsFromOrderItems(items, findings).map((row) =>
-      row.images.length ? row : { ...row, pendingPhoto: true },
-    )
-  },
 
   findingImagesFromRows(findings = [], odometerUrl = '') {
     const seen = new Set()
@@ -662,6 +618,53 @@ Page({
   buildSections(album, node, photoDraft = {}, flowNodes = []) {
     const draftFindings = Array.isArray(photoDraft.findings) ? photoDraft.findings : []
 
+    // 接车＝留证：照片 + 主诉/里程/车型 + 环车清单勾选，**不做**故障判定
+    if (node && node.kind === 'intake') {
+      const meta = STAGE_LABELS.stage_1
+      const stage = (album.nodes || []).find((n) => n.id === 'stage_1') || { images: [] }
+      const images = this.mapStageImages(stage)
+      const odoKey = mediaKey(photoDraft.odometerUrl)
+      return [
+        {
+          stageId: 'stage_1',
+          title: meta.title,
+          tips: meta.tips,
+          captionPlaceholder: meta.captionPlaceholder,
+          findingMode: false,
+          findingKind: '',
+          images: odoKey
+            ? images.filter((img) => mediaKey(img && img.url) !== odoKey)
+            : images,
+          findings: [],
+          odometerUrl: String(photoDraft.odometerUrl || ''),
+          odometerImageId: String(photoDraft.odometerImageId || ''),
+          walkaround: Array.isArray(photoDraft.walkaround) ? photoDraft.walkaround : [],
+        },
+      ]
+    }
+
+    // 检测＝细查：部位级 findings（结论进检测报告）
+    if (node && node.kind === 'inspection') {
+      const meta = STAGE_LABELS.stage_2
+      const stage = (album.nodes || []).find((n) => n.id === 'stage_2') || { images: [] }
+      const images = this.mapStageImages(stage)
+      return [
+        {
+          stageId: 'stage_2',
+          title: meta.title,
+          tips: meta.tips,
+          captionPlaceholder: meta.captionPlaceholder,
+          findingMode: true,
+          findingKind: 'inspection',
+          images,
+          findings: mapFindingRows(images, draftFindings, {}),
+          odometerUrl: '',
+          odometerImageId: '',
+        },
+      ]
+    }
+
+    // 存量合并节点（v5）：统一入口，stage_1 并入 stage_2 展示
     if (node && node.kind === 'intake_inspection') {
       const meta = STAGE_LABELS.stage_2
       const images = this.collectIntakeImages(album)
@@ -712,9 +715,6 @@ Page({
         findings = mapFindingRows(images, mergedDraft, {
           mode: findingKind === 'work' ? 'work' : 'inspection',
         })
-        if (findingKind === 'work') {
-          findings = this.seedPendingWorkParts(findings, flowNodes, node)
-        }
       }
       return {
         stageId,
@@ -967,6 +967,27 @@ Page({
 
   buildPhotoDraftPayload() {
     const kind = this.data.activeNode && this.data.activeNode.kind
+    // 接车＝留证：主诉 / 里程 / 对外车型 / 仪表 / 环车清单勾选
+    if (kind === 'intake') {
+      return {
+        chiefComplaint: this.data.chiefComplaint,
+        mileageKm: parseMileageKm(this.data.mileageKm),
+        vehicleBrand: String(this.data.vehicleBrand || '').trim(),
+        vehicleSeries: String(this.data.vehicleSeries || '').trim(),
+        vehicleYear: String(this.data.vehicleYear || '').trim(),
+        odometerUrl: String(this.data.odometerUrl || '').trim(),
+        odometerImageId: String(this.data.odometerImageId || '').trim(),
+        walkaround: Array.isArray(this.data.walkaround) ? this.data.walkaround : [],
+      }
+    }
+    // 检测＝细查：部位 findings + 结论（结论进检测报告）
+    if (kind === 'inspection') {
+      return {
+        findings: this.collectFindingsFromSections(),
+        conclusion: this.data.conclusion,
+      }
+    }
+    // 存量合并节点（v5）
     if (kind === 'intake_inspection') {
       const odometerUrl = String(this.data.odometerUrl || '').trim()
       return {
@@ -1025,13 +1046,22 @@ Page({
           (active.nodeCategory === 'photo' ||
             (active.legacyStageIds && active.legacyStageIds.length) ||
             active.kind === 'intake_inspection' ||
+            active.kind === 'intake' ||
+            active.kind === 'inspection' ||
             active.kind === 'work' ||
             active.kind === 'delivery_photos'),
       )
       const activeIsDoc = Boolean(active && active.document)
       const docPayload = (active && active.document && active.document.payload) || {}
       const photoDraft = (active && active.photoDraft) || {}
-      const isIntakePhotoStep = Boolean(activeIsPhoto && active && active.kind === 'intake_inspection')
+      const isIntakePhotoStep = Boolean(
+        activeIsPhoto &&
+          active &&
+          (active.kind === 'intake' || active.kind === 'intake_inspection'),
+      )
+      const isInspectionPhotoStep = Boolean(
+        activeIsPhoto && active && (active.kind === 'inspection' || active.kind === 'intake_inspection'),
+      )
       const isDeliveryPhotoStep = Boolean(
         activeIsPhoto && active && active.kind === 'delivery_photos',
       )
@@ -1055,6 +1085,7 @@ Page({
       let warrantyPeriod = ''
       let warrantyNotes = ''
       let sections = []
+      let walkaround = []
       let quoteLines = [{ name: '', amount: '', note: '' }]
       let expandedFindingKey = ''
       let workImagePool = []
@@ -1064,8 +1095,13 @@ Page({
 
       if (activeIsPhoto && active) {
         sections = this.buildSections(album, active, photoDraft, flowNodes)
+        // 主诉 / 环车勾选记在接车步
         if (isIntakePhotoStep) {
           chiefComplaint = photoDraft.chiefComplaint || ''
+          walkaround = Array.isArray(photoDraft.walkaround) ? photoDraft.walkaround : []
+        }
+        // findings / 结论记在检测步（结论进检测报告）
+        if (isInspectionPhotoStep) {
           conclusion = photoDraft.conclusion || ''
           findings = this.collectFindingsFromSections(sections)
         }
@@ -1258,6 +1294,7 @@ Page({
         activeIsPhoto,
         activeIsDoc,
         isIntakePhotoStep,
+        isInspectionPhotoStep,
         isDeliveryPhotoStep,
         isWorkPhotoStep,
         photoConfirmLabel: '确认并继续',
@@ -1277,6 +1314,11 @@ Page({
         orphanPhotoHints: [],
         aiReview: null,
         sections,
+        walkaround,
+        walkaroundParts: WALKAROUND_PARTS.map((row) => ({
+          ...row,
+          checked: walkaround.indexOf(row.id) >= 0,
+        })),
         expandedFindingKey,
         docPayload,
         findings,
@@ -2179,7 +2221,15 @@ Page({
 
   async persistPhotoDraft() {
     const kind = this.data.activeNode && this.data.activeNode.kind
-    if (kind !== 'intake_inspection' && kind !== 'work' && kind !== 'delivery_photos') return
+    if (
+      kind !== 'intake_inspection' &&
+      kind !== 'intake' &&
+      kind !== 'inspection' &&
+      kind !== 'work' &&
+      kind !== 'delivery_photos'
+    ) {
+      return
+    }
     await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
       photoDraft: this.buildPhotoDraftPayload(),
     })
@@ -2263,6 +2313,30 @@ Page({
         autoSaveLabel: '保存中…',
       },
       () => this.scheduleAutoSavePhotos(),
+    )
+  },
+
+  /** 接车 · 环车清单勾选：只记「拍没拍到」，不做故障判定 */
+  onToggleWalkaround(e) {
+    if (this.data.readOnly) return
+    const id = String(
+      (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.id) || '',
+    ).trim()
+    if (!id) return
+    const list = Array.isArray(this.data.walkaround) ? this.data.walkaround.slice() : []
+    const at = list.indexOf(id)
+    if (at >= 0) list.splice(at, 1)
+    else list.push(id)
+    this.setData(
+      {
+        walkaround: list,
+        walkaroundParts: (this.data.walkaroundParts || []).map((row) => ({
+          ...row,
+          checked: list.indexOf(row.id) >= 0,
+        })),
+        autoSaveLabel: '保存中…',
+      },
+      () => this.scheduleAutoSaveDraftOnly(),
     )
   },
 
@@ -2984,7 +3058,15 @@ Page({
   resumeAiReviewFromNode(active) {
     if (this.data.readOnly || !active || !this._nodeAiReviewEntitled) return
     const kind = active.kind
-    if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') return
+    if (
+      kind === 'intake_inspection' ||
+      kind === 'intake' ||
+      kind === 'inspection' ||
+      kind === 'work' ||
+      kind === 'delivery_photos'
+    ) {
+      return
+    }
     const review = active.aiReview
     if (!review || review.acknowledged) return
     if (review.status !== 'queued' && review.status !== 'running' && review.status !== 'ready') return
@@ -3220,9 +3302,18 @@ Page({
       }
     }
 
-    if (kind === 'intake_inspection') {
+    if (kind === 'inspection' || kind === 'intake_inspection') {
+      // 主诉记在接车节点，检测步跨节点取（存量合并节点自带）
+      const intakeNode = (this._flowNodes || []).find((n) => n && n.kind === 'intake')
       const draftPayload = {
-        chiefComplaint: this.data.chiefComplaint,
+        chiefComplaint:
+          kind === 'intake_inspection'
+            ? this.data.chiefComplaint
+            : String(
+                (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+                  this.data.chiefComplaint ||
+                  '',
+              ).trim(),
         mileageKm: parseMileageKm(this.data.mileageKm),
         vehicleBrand: String(this.data.vehicleBrand || '').trim(),
         vehicleSeries: String(this.data.vehicleSeries || '').trim(),
@@ -3246,17 +3337,12 @@ Page({
       }
     }
     if (kind === 'work') {
-      const order = this.resolveRelatedWorkOrder(this._flowNodes || [], this.data.activeNode)
-      const orderItems =
-        (order &&
-          order.document &&
-          order.document.payload &&
-          order.document.payload.items) ||
-        []
       const draftPayload = {
         findings: this.collectFindingsFromSections(),
       }
-      const gaps = collectWorkPhotoDraftGaps(draftPayload, { orderItems })
+      // 工单如实记录：不再强制每个方案行都要有对应图，
+      // 漏项/多做交给工单定稿时的核对去提醒
+      const gaps = collectWorkPhotoDraftGaps(draftPayload)
       if (gaps.length) {
         const expandKey = this.findFirstIncompleteFindingKey()
         if (expandKey) {
@@ -3316,7 +3402,13 @@ Page({
       }
     }
 
-    if (kind === 'intake_inspection' || kind === 'work' || kind === 'delivery_photos') {
+    if (
+      kind === 'intake_inspection' ||
+      kind === 'intake' ||
+      kind === 'inspection' ||
+      kind === 'work' ||
+      kind === 'delivery_photos'
+    ) {
       await run(this.buildAiReviewAckExtra())
       return
     }
@@ -3372,9 +3464,6 @@ Page({
         warrantyPeriod: this.data.warrantyPeriod || base.warrantyPeriod,
         warrantyNotes: this.data.warrantyNotes || base.warrantyNotes,
       }
-    }
-    if (kind === 'work_order') {
-      return base
     }
     return base
   },
@@ -3449,26 +3538,6 @@ Page({
 
   async onDeliverReport() {
     return this.onNotifyOwnerPlan()
-  },
-
-  async onMarkWorkOrderDone() {
-    if (this.data.readOnly || this.data.confirming) return
-    this.setData({ confirming: true })
-    try {
-      await updateMerchantFlowNode(this.albumId, this.data.activeNode.id, {
-        document: {
-          status: 'draft',
-          payload: this.buildDocPayloadForSave(),
-        },
-        markComplete: true,
-      })
-      wx.showToast({ title: '可以开始施工', icon: 'success' })
-      await this.loadFlow({ silent: true })
-    } catch (e) {
-      wx.showToast({ title: (e && e.message) || '操作失败', icon: 'none' })
-    } finally {
-      this.setData({ confirming: false })
-    }
   },
 
   async onAddAddonPlan() {

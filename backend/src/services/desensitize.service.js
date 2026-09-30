@@ -343,10 +343,6 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
         }
         if ([PRE_MASK_STATUS.READY, PRE_MASK_STATUS.PARTIAL_FAILED].includes(preMaskStatus)) {
           // 车主审前不可见相册：脱敏就绪不再通知车主打开相册；仅刷新案例稿配图链路
-          const { flushQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
-          await flushQueuedInspectionAdviceForAlbum(albumId).catch((e) => {
-            console.warn('[inspection-advice] flush queued', e && e.message)
-          })
           try {
             const { flushQueuedNodeAiReviewsForAlbum } = require('./node-ai-review.service')
             await flushQueuedNodeAiReviewsForAlbum(albumId)
@@ -354,14 +350,6 @@ function notifyPreMaskLifecycle(albumId, preMaskStatus) {
             console.warn('[node-ai-review] flush queued', e && e.message)
           }
           return
-        }
-        if (preMaskStatus === PRE_MASK_STATUS.FAILED) {
-          const { cancelQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
-          await cancelQueuedInspectionAdviceForAlbum(albumId, '配图脱敏未完成，暂无法进行 AI 分析').catch(
-            (e) => {
-              console.warn('[inspection-advice] cancel queued', e && e.message)
-            },
-          )
         }
       })
       .catch((e) => {
@@ -399,15 +387,6 @@ function scheduleAlbumPreMask(albumId, options = {}) {
         try {
           const { promoteAlbumCaseToPendingReview } = require('./public-case.service')
           await promoteAlbumCaseToPendingReview(id)
-        } catch (_) {
-          /* ignore */
-        }
-        try {
-          const { cancelQueuedInspectionAdviceForAlbum } = require('./album-inspection-advice.service')
-          await cancelQueuedInspectionAdviceForAlbum(
-            id,
-            '配图脱敏处理失败，暂无法进行 AI 分析',
-          )
         } catch (_) {
           /* ignore */
         }

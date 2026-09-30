@@ -2,17 +2,23 @@
  * 类目 × 步骤检查提纲（程序可读）
  * 真源：docs/04_维修过程相册/28_ §2；itemKey 对齐 17_服务类目检测清单.md
  */
+/** 单据类型 → 检查口径。全项目唯一一份，类型与权威字典
+ *  STANDARD_FLOW_CHAIN（vendor/shared/constants/service-flow-nodes）对齐；
+ *  漏一个类型就会出现「排了队却查不出内容」，新增类型必须同步这里。 */
 const KIND_TO_STEP = {
   intake_inspection: 'intake',
+  // 检测节点沿用 intake 口径（故障与外观的检查提纲）
+  inspection: 'intake',
+  // 接车＝留证，照片不上公网、不进车主时间线，故不排 AI 检查
   work: 'work',
   delivery_photos: 'delivery',
   inspection_report: 'quote_check',
   // 报价单据节点：单独发车主确认时也按「报价核对」查，
   // 提纲才能按类目取到 quote_check 那套写作要求
   quote_confirm: 'quote_check',
+  addon_quote_confirm: 'addon_check',
+  repair_report: 'delivery',
 }
-
-const REVIEW_KINDS = new Set(Object.keys(KIND_TO_STEP))
 
 const TEMPLATE_TO_CATEGORY = {
   maintenance: 'maintenance',
@@ -419,6 +425,35 @@ const RUBRICS = {
   },
 }
 
+/**
+ * 工单核对口径（complete 事件）。
+ * 工单是如实记录施工过程的单据，不是报价的副本，所以**不要求项目名逐字对上**，
+ * 但要把三件事说出来：
+ *   一、检测报告提了问题、工单里却没体现的（漏项）；
+ *   二、工单做了报价范围之外的活（该走增项报价）；
+ *   三、项目写得含糊，看不出做了什么、换了什么件。
+ * 检测报告与报价都不可改，发现问题只能改工单文案。
+ */
+const WORK_SHEET_TEXT_HINTS = [
+  textHint('findingCaption', '每项写清做了什么、换了什么件（用料/品牌/数量一并写明）'),
+  textHint('findingAdvice', '检测报告已提而这里没做的项、或做了报价之外的项，补一句缘由'),
+]
+
+function withWorkSheetRubricStep(rubrics) {
+  Object.keys(rubrics).forEach((key) => {
+    const pack = rubrics[key]
+    if (!pack || pack.work_sheet) return
+    pack.work_sheet = {
+      photos: Array.isArray(pack.work && pack.work.photos) ? pack.work.photos : [],
+      texts: WORK_SHEET_TEXT_HINTS.slice(),
+      complaintExample: (pack.work && pack.work.complaintExample) || '',
+    }
+  })
+  return rubrics
+}
+
+withWorkSheetRubricStep(RUBRICS)
+
 function resolveReviewCategory(templateId, serviceName) {
   const raw = String(templateId || '').trim()
   if (raw === 'default' || !raw) {
@@ -432,9 +467,47 @@ function resolveReviewStep(kind) {
   return KIND_TO_STEP[kind] || ''
 }
 
-function getReviewRubric(templateId, kind, serviceName) {
+/** 执行检查时用哪个口径：优先排队时写入的，其次按单据类型推，推不出就走通用口径。
+ *  必须有兜底——返回空会让执行端放弃执行，状态永远停在「正在检查」。 */
+function resolveRunReviewStep(node = {}) {
+  return (
+    String((node.aiReview && node.aiReview.reviewStep) || '') ||
+    resolveReviewStep(node.kind) ||
+    'notify_check'
+  )
+}
+
+/** 唯一决策入口：**查不查只由事件决定，查什么只由类型决定。**
+ *  event 只有 'expose'（内容要发给车主：送达或通知确认）一种——
+ *  门店内部完成动作不触发检查，因为那些内容车主当下看不到
+ *  （车主端只渲染 buildOwnerFlowView 的单据节点，拍照步不镜像）。
+ *  @returns {null | { step: string }} null 表示不查 */
+/**
+ * 统一的检查决策入口：查不查、按哪个口径查，只在这里判。
+ * event: 'expose'   内容要发到车主眼前之前（通知/送达）
+ *        'complete' 节点完成时。目前只认工单——工单是如实记录施工过程的单据，
+ *                   定稿那一刻要跟检测报告、报价单核一遍
+ */
+function planNodeReview({ event, node } = {}) {
+  if (!node) return null
+  const kind = String(node.kind || '')
+  const addon =
+    kind === 'addon_quote_confirm' || String(node.insertedReason || '') === 'addon'
+
+  if (event === 'complete') {
+    // 工单＝施工记录单据：这是唯一需要在「完成」时核对的节点
+    return kind === 'work' ? { step: 'work_sheet' } : null
+  }
+  if (event !== 'expose') return null
+  // 接车＝留证步：照片不进车主时间线、不上公网，不排 AI 检查
+  if (kind === 'intake') return null
+  if (addon) return { step: 'addon_check' }
+  return { step: resolveReviewStep(kind) || 'notify_check' }
+}
+
+function getReviewRubric(templateId, kind, serviceName, stepOverride) {
   const category = resolveReviewCategory(templateId, serviceName)
-  const step = resolveReviewStep(kind)
+  const step = stepOverride || resolveReviewStep(kind)
   const pack = RUBRICS[category] || RUBRICS.generic
   const stepRubric = (step && pack[step]) || { photos: [], texts: [] }
   return {
@@ -446,16 +519,12 @@ function getReviewRubric(templateId, kind, serviceName) {
   }
 }
 
-function isReviewKind(kind) {
-  return REVIEW_KINDS.has(String(kind || ''))
-}
-
 module.exports = {
   KIND_TO_STEP,
-  REVIEW_KINDS,
   RUBRICS,
   resolveReviewCategory,
   resolveReviewStep,
+  resolveRunReviewStep,
+  planNodeReview,
   getReviewRubric,
-  isReviewKind,
 }

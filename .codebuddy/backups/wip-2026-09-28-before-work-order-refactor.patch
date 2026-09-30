@@ -1,0 +1,418 @@
+﻿diff --git a/backend/src/services/node-ai-review.service.js b/backend/src/services/node-ai-review.service.js
+index c3292ee..f1347a6 100644
+--- a/backend/src/services/node-ai-review.service.js
++++ b/backend/src/services/node-ai-review.service.js
+@@ -12,9 +12,10 @@ const {
+ } = require('../utils/node-ai-review-capability')
+ const {
+   getReviewRubric,
+-  isReviewKind,
+   resolveReviewCategory,
+   resolveReviewStep,
++  resolveRunReviewStep,
++  planNodeReview,
+ } = require('../utils/node-ai-review-rubric')
+ const { buildRuleSuggestions, parseModelSuggestions } = require('../utils/node-ai-review-rules')
+ const { FLOW_VERSION } = require('../../vendor/shared/constants/service-flow-nodes')
+@@ -212,6 +213,9 @@ function buildReviewContext(album, node, extra = {}) {
+   }
+   let findings = draft.findings || doc.findings || []
+   let quoteLines = extra.quoteLines || quotePayload.lines || []
++  /** 工单项目（含增项工单）与完工报告施工项：完工验收时车主一并看到 */
++  let orderItems = []
++  let workItems = []
+   if (reviewStep === 'addon_check') {
+     const parent = readFlowNodes(album).find((item) => item && item.id === node.parentNodeId)
+     const workFindings =
+@@ -266,6 +270,18 @@ function buildReviewContext(album, node, extra = {}) {
+         },
+       ])
+     })
++    // 工单是车主验收单的一部分：施工过程要和它对得上
++    readFlowNodes(album).forEach((item) => {
++      if (!item || item.kind !== 'work_order') return
++      const rows = item.document && item.document.payload && item.document.payload.items
++      if (Array.isArray(rows)) orderItems = orderItems.concat(rows)
++    })
++    // 完工报告正文的施工项：车主这次看到的就是它
++    workItems = Array.isArray(doc.workItems)
++      ? doc.workItems
++      : Array.isArray(doc.items)
++        ? doc.items
++        : []
+     quoteLines = []
+     fillConfirmedReference()
+   } else if (reviewStep === 'work' || reviewStep === 'delivery') {
+@@ -296,6 +312,8 @@ function buildReviewContext(album, node, extra = {}) {
+     mileageKm: draft.mileageKm || extra.mileageKm,
+     odometerUrl: draft.odometerUrl || extra.odometerUrl || '',
+     findings,
++    orderItems,
++    workItems,
+     warrantyPeriod: draft.warrantyPeriod || doc.warrantyPeriod || extra.warrantyPeriod,
+     warrantyNotes: draft.warrantyNotes || doc.warrantyNotes,
+     conclusion: draft.conclusion || doc.conclusion,
+@@ -361,6 +379,18 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
+       note: (line && line.note) || '',
+       brand: (line && line.brand) || '',
+     })),
++    /** 工单项目：车主验收时与施工过程一并看到，须对得上 */
++    orderItems: (ctx.orderItems || []).map((line) => ({
++      name: (line && line.name) || '',
++      note: (line && line.note) || '',
++      brand: (line && line.brand) || '',
++    })),
++    /** 完工报告正文的施工项：车主这次看到的就是它 */
++    workItems: (ctx.workItems || []).map((line) => ({
++      name: (line && line.name) || '',
++      note: (line && line.note) || '',
++      brand: (line && line.brand) || '',
++    })),
+     /** 已确认参考（只读）：不输出针对它的修改意见 */
+     confirmedReference: {
+       reportFindings: ((ctx.reference && ctx.reference.reportFindings) || []).map((row) => ({
+@@ -380,7 +410,7 @@ async function runLlmSuggestions(ctx, maskedUrls, capability) {
+       : ctx.rubric.step === 'addon_check'
+         ? '这是通知车主前的核对。同时看已经做过的施工、新发现和这次报价。可以建议改新发现的说明，或改报价的项目名和施工方案，使两边对得上。不要改金额。不要改已经确认过的首次检测和首次报价。'
+         : ctx.rubric.step === 'delivery'
+-          ? '这是完工通知前的一次核对。看施工与交车照。confirmedReference 是已确认的检测结论与报价项目，只能用来把完工描述写准；不要对它提修改意见，也不要改金额。'
++          ? '这是完工通知车主验收前的一次核对。车主这次会一起看到：施工过程、工单项目、完工照和这份完工报告。要做三件事：一、施工过程（findings）与工单项目（orderItems）要对得上：每一项做了什么，是否都有对应的工单项；对不上或写得含糊，就建议改这条施工的**说明**（field 用 findingCaption 或 findingAdvice），把做的项目写清楚。工单与完工报告施工项（workItems）都源自已确认的报价，**不是本次的修改对象**，发现不一致只改施工侧。二、完工报告整体要能和前期已确定的检测结论、报价项目对得上——那些已确定的内容只用来判断这里写得准不准，不提修改意见。三、交车照与质保两行要写清。confirmedReference 是前期已经润色过的检测与报价，只作参考，不要对它提修改意见，也不要改金额。'
+           : ctx.rubric.step === 'work'
+             ? '只看本步施工。confirmedReference 是已确认的检测结论与报价项目，只能用来把本步施工的项目名和说明写准写具体；不要对它提修改意见，也不要改金额。'
+               : ctx.rubric.step === 'notify_check'
+@@ -496,11 +526,12 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
+     const album = await loadAlbum(albumId)
+     if (!album) return
+     const node = readFlowNodes(album).find((item) => item && item.id === nodeId)
+-    const reviewStep = String((node && node.aiReview && node.aiReview.reviewStep) || '')
++    if (!node) return
+     // 已经排进检查队列就执行：该不该检查由「是否发给车主」这些动作在排队时定好，
+-    // 这里不再按单据类型放行，免得新单据类型排了队却没人执行、一直卡在「正在检查」
+-    const runnable = Boolean(node && reviewStep)
+-    if (!runnable) return
++    // 这里不再按单据类型放行，免得新单据类型排了队却没人执行、一直卡在「正在检查」。
++    // 排队时没写口径的（如「报告送达」）按单据类型推，推不出就走通用口径：
++    // 口径为空不能成为不执行的理由，否则状态永远停在「正在检查」
++    const reviewStep = resolveRunReviewStep(node)
+     const current = node.aiReview || {}
+     if (current.status === 'ready' && current.acknowledged) return
+     await patchFlowNode(albumId, nodeId, (item) => ({
+@@ -512,8 +543,7 @@ async function runNodeAiReviewJob(albumId, nodeId, merchantId) {
+       },
+     }))
+ 
+-    const step = reviewStep || resolveReviewStep(node.kind)
+-    if (step && collectNodeImageUrls(node).length) {
++    if (reviewStep && collectNodeImageUrls(node).length) {
+       const { scheduleAlbumPreMask, getAlbumPreMaskReadiness } = require('./desensitize.service')
+       scheduleAlbumPreMask(albumId, { trigger: 'node_ai_review' })
+       const started = Date.now()
+@@ -639,56 +669,10 @@ async function startOrResumeReview({ album, node, merchantId, incomingDraft, ext
+   })
+ }
+ 
+-async function maybeHoldCompleteForAiReview({
+-  album,
+-  node,
+-  merchantId,
+-  incomingDraft,
+-  payload = {},
+-}) {
+-  const kind = String(node.kind || '')
+-  // 接车与检测不在这里查：其内容随检测报告在「通知车主前」一起核对。
+-  // 施工、完工照完成时查本步（docs/04_维修过程相册/26_ · 28_ 确认前检查）
+-  // quote_confirm 不在这里查：它的核对发生在发给车主确认前，不在「完成」这一刻
+-  if (
+-    !isReviewKind(kind) ||
+-    kind === 'intake_inspection' ||
+-    kind === 'inspection_report' ||
+-    kind === 'quote_confirm'
+-  ) {
+-    return null
+-  }
+-  const capability = await resolveCapabilityForMerchant(merchantId)
+-  if (!capability.entitled) return null
+-  if (wantsSkip(payload)) {
+-    await patchFlowNode(album.id, node.id, (item) => ({
+-      ...item,
+-      photoDraft: incomingDraft || item.photoDraft,
+-      aiReview: {
+-        ...(item.aiReview || {}),
+-        acknowledged: true,
+-        updatedAt: new Date().toISOString(),
+-      },
+-    }))
+-    return null
+-  }
+-  const review = await startOrResumeReview({
+-    album,
+-    node,
+-    merchantId,
+-    incomingDraft,
+-    extra: { step: resolveReviewStep(kind) },
+-  })
+-  return {
+-    completed: false,
+-    nextAction: 'ai_review',
+-    review,
+-    message: '正在检查',
+-  }
+-}
+-
+ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload = {} }) {
+-  // 送达即车主可见：查不查由这个动作决定，不再按单据类型挑
++  // 送达即车主可见：expose 事件，查不查由决策入口统一判，不再按单据类型挑
++  const plan = planNodeReview({ event: 'expose', node })
++  if (!plan) return null
+   const capability = await resolveCapabilityForMerchant(merchantId)
+   if (!capability.entitled) return null
+   const quoteLines =
+@@ -725,7 +709,8 @@ async function maybeHoldDeliverForAiReview({ album, node, merchantId, payload =
+     album,
+     node: mergedNode,
+     merchantId,
+-    extra: { quoteLines },
++    // 显式写入口径：送达时排队若不写，执行端就推不出该查什么
++    extra: { quoteLines, step: plan.step },
+   })
+   return {
+     delivered: false,
+@@ -760,26 +745,11 @@ async function getNodeAiReview(albumId, storeId, nodeId, merchantId) {
+   }
+ }
+ 
+-/** 发给车主时按内容决定检查口径——它只决定「查什么」，不决定「查不查」。
+- *  查不查看这次是不是发给车主（由调用方判定），所以新增单据类型会自动纳入检查。 */
+-function resolveNotifyReviewStep(node = {}) {
+-  const kind = String(node.kind || '')
+-  // 增项有两种写法：独立类型 addon_quote_confirm，或 quote_confirm + insertedReason=addon
+-  const isAddon =
+-    kind === 'addon_quote_confirm' ||
+-    (kind === 'quote_confirm' && String(node.insertedReason || '') === 'addon')
+-  if (isAddon) return 'addon_check'
+-  if (kind === 'quote_confirm') return 'quote_check'
+-  if (kind === 'inspection_report') return 'quote_check'
+-  if (kind === 'repair_report') return 'delivery'
+-  if (kind === 'work_order') return 'work'
+-  return 'notify_check'
+-}
+-
+-/** 发给车主前查一次 */
++/** 发给车主前查一次（expose 事件） */
+ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {} }) {
+   const kind = String((node && node.kind) || '')
+-  const reviewStep = resolveNotifyReviewStep(node)
++  const plan = planNodeReview({ event: 'expose', node })
++  if (!plan) return null
+   const capability = await resolveCapabilityForMerchant(merchantId)
+   if (!capability.entitled) {
+     console.info('[node-ai-review] 跳过检查：能力未开通', { kind, merchantId })
+@@ -804,7 +774,7 @@ async function maybeHoldNotifyForAiReview({ album, node, merchantId, payload = {
+     node,
+     merchantId,
+     extra: {
+-      step: reviewStep,
++      step: plan.step,
+       quoteLines,
+     },
+   })
+@@ -820,7 +790,6 @@ module.exports = {
+   sanitizeAiReviewForView,
+   resolveCapabilityForMerchant,
+   publicNodeAiReviewCapability,
+-  maybeHoldCompleteForAiReview,
+   maybeHoldDeliverForAiReview,
+   maybeHoldNotifyForAiReview,
+   getNodeAiReview,
+diff --git a/backend/src/services/service-flow.service.js b/backend/src/services/service-flow.service.js
+index 64880e3..7fd57e4 100644
+--- a/backend/src/services/service-flow.service.js
++++ b/backend/src/services/service-flow.service.js
+@@ -661,24 +661,6 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
+     }
+   }
+ 
+-  const { maybeHoldCompleteForAiReview } = require('./node-ai-review.service')
+-  const held = await maybeHoldCompleteForAiReview({
+-    album,
+-    node,
+-    merchantId,
+-    incomingDraft,
+-    payload,
+-  })
+-  if (held) {
+-    return {
+-      ...held,
+-      node: mapFlowNodeForView(
+-        { ...node, photoDraft: incomingDraft, aiReview: held.review },
+-        nodes,
+-      ),
+-    }
+-  }
+-
+   await writeFlowPackage(albumId, (pkg) => {
+     const list = sortFlowNodes(Array.isArray(pkg.flowNodes) ? pkg.flowNodes : [])
+     const idx = list.findIndex((n) => n.id === id)
+diff --git a/backend/src/utils/node-ai-review-rubric.js b/backend/src/utils/node-ai-review-rubric.js
+index 6acba0c..6f95cb1 100644
+--- a/backend/src/utils/node-ai-review-rubric.js
++++ b/backend/src/utils/node-ai-review-rubric.js
+@@ -2,6 +2,9 @@
+  * 类目 × 步骤检查提纲（程序可读）
+  * 真源：docs/04_维修过程相册/28_ §2；itemKey 对齐 17_服务类目检测清单.md
+  */
++/** 单据类型 → 检查口径。全项目唯一一份，类型与权威字典
++ *  STANDARD_FLOW_CHAIN（vendor/shared/constants/service-flow-nodes）对齐；
++ *  漏一个类型就会出现「排了队却查不出内容」，新增类型必须同步这里。 */
+ const KIND_TO_STEP = {
+   intake_inspection: 'intake',
+   work: 'work',
+@@ -10,10 +13,11 @@ const KIND_TO_STEP = {
+   // 报价单据节点：单独发车主确认时也按「报价核对」查，
+   // 提纲才能按类目取到 quote_check 那套写作要求
+   quote_confirm: 'quote_check',
++  addon_quote_confirm: 'addon_check',
++  work_order: 'work',
++  repair_report: 'delivery',
+ }
+ 
+-const REVIEW_KINDS = new Set(Object.keys(KIND_TO_STEP))
+-
+ const TEMPLATE_TO_CATEGORY = {
+   maintenance: 'maintenance',
+   major_maintenance: 'major_maintenance',
+@@ -432,6 +436,30 @@ function resolveReviewStep(kind) {
+   return KIND_TO_STEP[kind] || ''
+ }
+ 
++/** 执行检查时用哪个口径：优先排队时写入的，其次按单据类型推，推不出就走通用口径。
++ *  必须有兜底——返回空会让执行端放弃执行，状态永远停在「正在检查」。 */
++function resolveRunReviewStep(node = {}) {
++  return (
++    String((node.aiReview && node.aiReview.reviewStep) || '') ||
++    resolveReviewStep(node.kind) ||
++    'notify_check'
++  )
++}
++
++/** 唯一决策入口：**查不查只由事件决定，查什么只由类型决定。**
++ *  event 只有 'expose'（内容要发给车主：送达或通知确认）一种——
++ *  门店内部完成动作不触发检查，因为那些内容车主当下看不到
++ *  （车主端只渲染 buildOwnerFlowView 的单据节点，拍照步不镜像）。
++ *  @returns {null | { step: string }} null 表示不查 */
++function planNodeReview({ event, node } = {}) {
++  if (event !== 'expose' || !node) return null
++  const addon =
++    String(node.kind || '') === 'addon_quote_confirm' ||
++    String(node.insertedReason || '') === 'addon'
++  if (addon) return { step: 'addon_check' }
++  return { step: resolveReviewStep(node.kind) || 'notify_check' }
++}
++
+ function getReviewRubric(templateId, kind, serviceName) {
+   const category = resolveReviewCategory(templateId, serviceName)
+   const step = resolveReviewStep(kind)
+@@ -446,16 +474,12 @@ function getReviewRubric(templateId, kind, serviceName) {
+   }
+ }
+ 
+-function isReviewKind(kind) {
+-  return REVIEW_KINDS.has(String(kind || ''))
+-}
+-
+ module.exports = {
+   KIND_TO_STEP,
+-  REVIEW_KINDS,
+   RUBRICS,
+   resolveReviewCategory,
+   resolveReviewStep,
++  resolveRunReviewStep,
++  planNodeReview,
+   getReviewRubric,
+-  isReviewKind,
+ }
+diff --git a/backend/src/utils/node-ai-review-rubric.test.js b/backend/src/utils/node-ai-review-rubric.test.js
+index 5a82935..24f8112 100644
+--- a/backend/src/utils/node-ai-review-rubric.test.js
++++ b/backend/src/utils/node-ai-review-rubric.test.js
+@@ -1,6 +1,11 @@
+ const test = require('node:test')
+ const assert = require('node:assert/strict')
+-const { getReviewRubric, resolveReviewCategory } = require('./node-ai-review-rubric')
++const {
++  getReviewRubric,
++  resolveReviewCategory,
++  resolveRunReviewStep,
++  planNodeReview,
++} = require('./node-ai-review-rubric')
+ 
+ test('maintenance intake includes odo with how-to', () => {
+   const rubric = getReviewRubric('maintenance', 'intake_inspection')
+@@ -37,6 +42,43 @@ test('quote check has no required photos', () => {
+   assert.equal(rubric.photos.length, 0)
+ })
+ 
++test('run step never comes back empty when queued without one', () => {
++  // 报告送达排队时不写口径，执行端必须仍能推出 quote_check，否则永远不执行
++  assert.equal(resolveRunReviewStep({ kind: 'inspection_report' }), 'quote_check')
++  assert.equal(resolveRunReviewStep({ kind: 'inspection_report', aiReview: {} }), 'quote_check')
++  // 未知单据类型兜底，不能返回空
++  assert.equal(resolveRunReviewStep({ kind: 'some_new_kind' }), 'notify_check')
++  assert.equal(resolveRunReviewStep({}), 'notify_check')
++})
++
++test('run step keeps the step written when queued', () => {
++  assert.equal(
++    resolveRunReviewStep({ kind: 'quote_confirm', aiReview: { reviewStep: 'addon_check' } }),
++    'addon_check',
++  )
++})
++
++test('only the expose event triggers a review', () => {
++  // 门店内部完成动作不查：那些内容车主当下看不到
++  assert.equal(planNodeReview({ event: 'complete', node: { kind: 'work' } }), null)
++  assert.equal(planNodeReview({ event: 'complete', node: { kind: 'quote_confirm' } }), null)
++  assert.equal(planNodeReview({ event: 'expose', node: null }), null)
++  assert.equal(planNodeReview({}), null)
++})
++
++test('expose picks the step by kind only', () => {
++  const step = (node) => planNodeReview({ event: 'expose', node }).step
++  assert.equal(step({ kind: 'quote_confirm' }), 'quote_check')
++  assert.equal(step({ kind: 'inspection_report' }), 'quote_check')
++  assert.equal(step({ kind: 'work_order' }), 'work')
++  assert.equal(step({ kind: 'repair_report' }), 'delivery')
++  // 增项两种写法都要落到 addon_check
++  assert.equal(step({ kind: 'addon_quote_confirm' }), 'addon_check')
++  assert.equal(step({ kind: 'quote_confirm', insertedReason: 'addon' }), 'addon_check')
++  // 新增单据类型自动纳入，不再漏查
++  assert.equal(step({ kind: 'brand_new_kind' }), 'notify_check')
++})
++
+ test('paint album template maps to body_paint rubric', () => {
+   assert.equal(resolveReviewCategory('paint', '钣喷修复'), 'body_paint')
+   const rubric = getReviewRubric('paint', 'intake_inspection')
+diff --git "a/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/26_\345\225\206\345\256\266\347\253\257\344\272\213\344\273\266\350\212\202\347\202\271\344\270\216\345\215\225\346\215\256\350\212\202\347\202\271\351\223\276\346\265\201\347\250\213.md" "b/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/26_\345\225\206\345\256\266\347\253\257\344\272\213\344\273\266\350\212\202\347\202\271\344\270\216\345\215\225\346\215\256\350\212\202\347\202\271\351\223\276\346\265\201\347\250\213.md"
+index b34c858..2090ee9 100644
+--- "a/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/26_\345\225\206\345\256\266\347\253\257\344\272\213\344\273\266\350\212\202\347\202\271\344\270\216\345\215\225\346\215\256\350\212\202\347\202\271\351\223\276\346\265\201\347\250\213.md"
++++ "b/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/26_\345\225\206\345\256\266\347\253\257\344\272\213\344\273\266\350\212\202\347\202\271\344\270\216\345\215\225\346\215\256\350\212\202\347\202\271\351\223\276\346\265\201\347\250\213.md"
+@@ -86,8 +86,8 @@
+ 
+ | 规则 | 口径 |
+ | --- | --- |
+-| **哪些步** | **不在接车与检测时查**（这一步还不通知车主）。通知车主前，把检测报告和报价放在一次里核对：可以按报价补检测所见，也可以按检测补报价的项目或施工方案。查出后两边都能改，检测报告的改法与接车填写相同（照片、部位、检查结果、检查发现）。**施工完成时、完工照完成时各查一次本步**（不拦下一步），把照片与描述写准；这两次可**只读**引用已确认的检测报告与报价方案作参考，用完不改。**完工通知前再查一次**，覆盖施工与交车照；**报价方案发给车主确认前（首次报价与增项同一口径）也查**，避免报价页单独发送时整段不过检查；车主拒绝退回后门店改完再次提交，清掉上一次结论重新查，不复用旧建议。**是否检查以「这次是不是发给车主看」为准，不按单据类型挑**，新增单据类型自动纳入检查。车主确认或代确认之后，后续检查不再改已经固定的检测和报价。**工单不跑** |
+-| **向车主确认的环节（都要查）** | 凡是发给车主确认、确认后内容即固定并托管到网站的材料，发出前都过一次检查。判定只看「这次是不是发给车主」，不看单据类型；类型只决定用哪套口径查：检测报告送达（`quote_check`）、报价——**首次以及车主拒绝后的二次、三次、四次……每一次重新提交**（`quote_check`）、施工中新发现的增项（`addon_check`）、工单（`work`）、完工/交车报告（`delivery`，施工项 + 交车照一起看）。施工中新发现写在施工节点上不另建检测节点，它通过增项报价向车主确认，同时在完工报告里一并检查 |
++| **哪些步** | **唯一标准：内容要发给车主看，发出前查一次。** 门店内部「完成」动作一律不触发——施工与完工照车主端不展示（车主时间线只镜像单据节点，见 `buildOwnerFlowView`）；接车与检测随检测报告在送达时一起核对；工单条目由已确认的报价逐条生成、车主端又不显示金额，再查是重复。因此只有两条路触发：**检测报告送达**（报告与方案一次核对，可按报价补检测所见，也可按检测补报价的项目或施工方案，两边都能改）；**报价方案通知车主**（首次，以及车主拒绝后每一次重新提交，与增项同一口径）。车主拒绝退回后门店改完再次提交，清掉上一次结论重新查，不复用旧建议。**是否检查只看「这次是不是发给车主」，不按单据类型挑**，新增单据类型自动纳入；类型只决定用哪套口径（`KIND_TO_STEP` 唯一一份）。车主确认或代确认之后，后续检查不再改已经固定的检测和报价。**工单、施工、完工照、接车与检测都不单独跑** |
++| **向车主确认的环节（都要查）** | 凡是发给车主确认、确认后内容即固定并托管到网站的材料，发出前都过一次检查。判定只看「这次是不是发给车主」，不看单据类型；类型只决定用哪套口径查：检测报告送达（`quote_check`）、报价——**首次以及车主拒绝后的二次、三次、四次……每一次重新提交**（`quote_check`）、施工中新发现的增项（`addon_check`）、完工/交车报告（`delivery`）：车主这次一并看到**施工过程、工单项目、完工照和完工报告**，放进一次里核对——施工过程要与工单项目对得上（对不上改施工侧说明，工单源自已确认报价、不动），完工报告要与施工、工单一致；**接车与检测、报价前期已润色过，这次只作只读参考，不重复润色、不提修改意见**。施工中新发现写在施工节点上不另建检测节点，它通过增项报价向车主确认，同时在完工报告里一并检查 |
+ | **硬拦 vs 建议** | 缺必填仍硬拦。检查结果贴在**原字段 / 原照片下方**（不同字色与字号）：文案旁「应用」只改这一块；缺图在该部位下补拍，照片并入该项，不另开一项。对不上已有部位才加一行待拍。报价证据、施工图、交车图同样：对得上就加在该项，对不上才新增。发现项默认折叠、一次只展开一项；**有未处理建议的行在折叠态也露出该条**（与补拍条同一位置），展开后再贴到对应输入框下，避免叠两遍。**不**为了展示建议而自动展开某一项。看完后「进入下一步」（通知车主前则「通知车主」）。**不挡下一步，不弹层** |
+ | **必须先看到再决定** | 建议未出时本步先不完成；等待时主按钮收起，只留一行橙色「正在检查」+ 进行中图标。关掉小程序后打码与分析继续；再打开仍停在本步，建议仍贴在对应位置 |
+ | **先打码再分析** | 只用打码图问模型；失败不把原图送出去。打码图与建议挂在该节点，托管不再对同图整单重打 |
+diff --git "a/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/28_\350\212\202\347\202\271AI\346\243\200\346\237\245_\347\224\250\346\210\267\345\205\263\345\277\203\347\202\271\344\270\216\345\274\200\345\217\221\350\256\241\345\210\222.md" "b/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/28_\350\212\202\347\202\271AI\346\243\200\346\237\245_\347\224\250\346\210\267\345\205\263\345\277\203\347\202\271\344\270\216\345\274\200\345\217\221\350\256\241\345\210\222.md"
+index 252aff4..8727ced 100644
+--- "a/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/28_\350\212\202\347\202\271AI\346\243\200\346\237\245_\347\224\250\346\210\267\345\205\263\345\277\203\347\202\271\344\270\216\345\274\200\345\217\221\350\256\241\345\210\222.md"
++++ "b/docs/04_\347\273\264\344\277\256\350\277\207\347\250\213\347\233\270\345\206\214/28_\350\212\202\347\202\271AI\346\243\200\346\237\245_\347\224\250\346\210\267\345\205\263\345\277\203\347\202\271\344\270\216\345\274\200\345\217\221\350\256\241\345\210\222.md"
+@@ -256,3 +256,4 @@
+ | 2026-09-25 | 施工、完工照完成时各查本步（不拦下一步）；检查只读引用已确认的检测报告与报价方案以完善描述；完工通知前那次覆盖施工与交车照 |
+ | 2026-09-25 | 检查用大模型按序切换（通义视觉→豆包），只放多模态模型；前一个不可用换下一个；配了密钥即视为模型闸打开 |
+ | 2026-09-26 | 报价核对补「施工方案要写清做什么、用什么、依据哪条发现」的润色口径（十个类目各一条）；首次报价单独发车主确认时也走检查，与增项、完工同口径 |
++| 2026-09-27 | 触发标准收敛为唯一一条：**只在内容发给车主前查一次**，删掉「完成时」触发（施工、完工照、接车与检测、工单都不再单独查）；决策收口到 `planNodeReview({ event: 'expose' })`，类型→口径映射收敛为 `KIND_TO_STEP` 一张表并补齐 `work_order` / `repair_report` / `addon_quote_confirm`，新增类型自动纳入 |

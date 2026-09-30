@@ -66,15 +66,6 @@ Component({
       type: Boolean,
       value: false,
     },
-    showInspect: {
-      type: Boolean,
-      value: false,
-    },
-    /** @deprecated 使用 showInspect */
-    showCompare: {
-      type: Boolean,
-      value: false,
-    },
     showParts: {
       type: Boolean,
       value: false,
@@ -144,17 +135,6 @@ Component({
     onArchiveTap() {
       if (this.properties.disabled) return
       this.triggerEvent('archivetap')
-    },
-
-    onInspectTap() {
-      if (this.properties.disabled) return
-      this.triggerEvent('inspecttap')
-    },
-
-    /** @deprecated 使用 onInspectTap */
-    onCompareTap() {
-      if (this.properties.disabled) return
-      this.triggerEvent('inspecttap')
     },
 
     onPartsTap() {

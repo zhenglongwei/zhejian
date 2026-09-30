@@ -2,7 +2,7 @@
  * DOC-FLOW · 服务相册事件节点链（拍照节点 + 单据节点）
  * 真源：docs/04_维修过程相册/26_商家端事件节点与单据节点链流程.md
  */
-const FLOW_VERSION = 4
+const FLOW_VERSION = 6
 
 const NODE_CATEGORY = {
   PHOTO: 'photo',
@@ -29,6 +29,28 @@ const FINDING_RESULT_OPTIONS = [
 
 const FINDING_ADVICE_NONE = '无需处理'
 
+/**
+ * 接车 · 环车清单（固定部位勾选，确保不漏拍）
+ * 只作「拍没拍到」的留证勾选，**不做故障判定**（判定属于检测节点的 findings）
+ * 真源：docs/04_维修过程相册/26_ 商家端事件节点与单据节点链流程.md §4.1
+ */
+const WALKAROUND_PARTS = [
+  { id: 'front_bumper', label: '前保险杠' },
+  { id: 'hood', label: '引擎盖' },
+  { id: 'left_front_fender', label: '左前翼子板' },
+  { id: 'left_front_door', label: '左前门' },
+  { id: 'left_rear_door', label: '左后门' },
+  { id: 'left_rear_fender', label: '左后翼子板' },
+  { id: 'rear_bumper', label: '后保险杠' },
+  { id: 'trunk', label: '后备箱盖' },
+  { id: 'right_rear_fender', label: '右后翼子板' },
+  { id: 'right_rear_door', label: '右后门' },
+  { id: 'right_front_door', label: '右前门' },
+  { id: 'right_front_fender', label: '右前翼子板' },
+  { id: 'roof', label: '车顶' },
+  { id: 'odometer', label: '仪表（里程）' },
+]
+
 /** 方案确认 · 车主确认固定文案（协议句，商家不可改） */
 const QUOTE_CONFIRM_COPY = '本人同意按上述项目施工，费用以本单为准。'
 
@@ -49,12 +71,24 @@ function ownerFindingResultLabel(result) {
   return String(result || '')
 }
 
-/** 标准链（7 步 · 质保并入完工确认） */
+/** 标准链（7 步 · 接车＝初始状态留证、检测＝故障与外观细查；工单＝如实记录施工过程的单据） */
 const STANDARD_FLOW_CHAIN = [
   {
-    kind: 'intake_inspection',
+    // 接车＝留证：证明车辆进场时的初始状态，避免后续与车主就损伤/故障归属产生分歧。
+    // 只拍不改判定：环车清单勾选「拍没拍到」，故障判定归检测节点
+    kind: 'intake',
     nodeCategory: NODE_CATEGORY.PHOTO,
-    title: '接车与检测',
+    title: '接车',
+    legacyStageIds: ['stage_1'],
+    photoTips: '拍环车、仪表、油液：留证车辆进场时什么样',
+    captionPlaceholder: '本图说明（选填）',
+    description: '',
+  },
+  {
+    // 检测＝细查：故障与外观的部位级检查，结论进检测报告
+    kind: 'inspection',
+    nodeCategory: NODE_CATEGORY.PHOTO,
+    title: '检测',
     legacyStageIds: ['stage_2'],
     photoTips: '拍部位、能看清结论。不要拍码。',
     captionPlaceholder: '检查部位',
@@ -77,18 +111,14 @@ const STANDARD_FLOW_CHAIN = [
     requiresConfirm: true,
   },
   {
-    kind: 'work_order',
-    nodeCategory: NODE_CATEGORY.DOCUMENT,
-    title: '工单',
-    docType: 'work_order',
-    requiresConfirm: false,
-  },
-  {
+    // 工单＝如实记录施工过程的单据，不是报价派生出来的。
+    // 数据仍由 photoDraft.findings 承载图文，故 nodeCategory 维持 PHOTO，
+    // 以免重写拍照步的编辑链路；对外它就是一张单据
     kind: 'work',
     nodeCategory: NODE_CATEGORY.PHOTO,
-    title: '施工',
+    title: '工单',
     legacyStageIds: ['stage_5'],
-    photoTips: '拍这次做成的项；每张写本图说明',
+    photoTips: '拍这次做成的项；每项写清项目与用料',
     captionPlaceholder: '本图说明（选填）',
   },
   {
@@ -163,6 +193,24 @@ function emptyPhotoDraft() {
   }
 }
 
+/**
+ * 接车步草稿工厂
+ * 接车只承载留证：主诉 / 里程 / 对外车型 / 环车清单勾选。
+ * **不承载 findings**（部位与故障判定属于检测节点）
+ */
+function emptyIntakeDraft() {
+  return {
+    chiefComplaint: '',
+    mileageKm: '',
+    odometerUrl: '',
+    odometerImageId: '',
+    vehicleBrand: '',
+    vehicleSeries: '',
+    vehicleYear: '',
+    walkaround: [],
+  }
+}
+
 function buildStandardFlowNodes() {
   return STANDARD_FLOW_CHAIN.map((meta, index) => ({
     id: newFlowNodeId(index),
@@ -174,7 +222,11 @@ function buildStandardFlowNodes() {
     photos: [],
     note: '',
     photoDraft:
-      meta.nodeCategory === NODE_CATEGORY.PHOTO ? emptyPhotoDraft() : null,
+      meta.nodeCategory === NODE_CATEGORY.PHOTO
+        ? meta.kind === 'intake'
+          ? emptyIntakeDraft()
+          : emptyPhotoDraft()
+        : null,
     document:
       meta.nodeCategory === NODE_CATEGORY.DOCUMENT
         ? emptyDocument(meta.docType || meta.kind)
@@ -235,6 +287,7 @@ module.exports = {
   FINDING_RESULT,
   FINDING_RESULT_OPTIONS,
   FINDING_ADVICE_NONE,
+  WALKAROUND_PARTS,
   QUOTE_CONFIRM_COPY,
   REPAIR_CONFIRM_COPY,
   isValidFindingResult,
@@ -252,5 +305,6 @@ module.exports = {
   requiresOwnerConfirm,
   emptyDocument,
   emptyPhotoDraft,
+  emptyIntakeDraft,
   newFlowNodeId,
 }

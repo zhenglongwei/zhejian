@@ -20,13 +20,6 @@ const FILES = [
   'constants/service-album-stages.js',
   /** 服务流程节点链：节点工厂与发现项结构（此前靠手动复制，易漂移） */
   'constants/service-flow-nodes.js',
-  'utils/album-inspection-advice.js',
-  'utils/album-inspection-context.js',
-  'utils/album-inspection-content-fingerprint.js',
-  'utils/album-inspection-view.js',
-  'utils/album-inspection-matrix.js',
-  'utils/album-inspection-method-guide.js',
-  'utils/album-inspection-resolutions.js',
   'utils/album-part-pairs.js',
   'utils/album-compare-pairs.js',
   'utils/album-compare-stage-images.js',

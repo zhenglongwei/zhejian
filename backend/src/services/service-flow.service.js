@@ -19,7 +19,6 @@ const {
 
 const {
   buildInspectionReportPayload,
-  buildWorkOrderPayloadFromQuote,
   buildRepairReportPayload,
   buildQuoteLinesFromFindings,
   collectInspectionReportGaps,
@@ -31,6 +30,7 @@ const {
   listQuoteLineEvidenceUrls,
   resolveWarrantyNotes,
   parseMileageKm,
+  parseAmount,
 } = resolveShared('utils/service-flow-docs.js')
 
 const { buildFlowProgressView, isFlowNodeDone, buildVisibleFlowNodes } = resolveShared(
@@ -182,11 +182,19 @@ function unlockNextNode(nodes, index) {
   return nodes
 }
 
+// 已下线的节点类型：读侧滤除，库里的旧节点不动（可逆）
+// - warranty：质保并入完工确认
+// - work_order：工单不再由报价派生，改由 work 节点如实记录施工过程
+const DROPPED_FLOW_KINDS = {
+  warranty: true,
+  work_order: true,
+}
+
 function migrateFlowPackage(pkg = {}, albumNodes = []) {
   const version = Number(pkg.flowVersion) || 0
   if (version >= FLOW_VERSION && Array.isArray(pkg.flowNodes) && pkg.flowNodes.length) {
     const cleaned = pkg.flowNodes
-      .filter((n) => n.kind !== 'warranty')
+      .filter((n) => !DROPPED_FLOW_KINDS[n.kind])
       .map((n) => {
         const meta = getFlowKindMeta(n.kind)
         if (!meta) return n
@@ -200,7 +208,7 @@ function migrateFlowPackage(pkg = {}, albumNodes = []) {
 
   if (version >= 3 && Array.isArray(pkg.flowNodes) && pkg.flowNodes.length) {
     const cleaned = pkg.flowNodes
-      .filter((n) => n.kind !== 'warranty')
+      .filter((n) => !DROPPED_FLOW_KINDS[n.kind])
       .map((n) => {
         const meta = getFlowKindMeta(n.kind)
         return {
@@ -215,14 +223,65 @@ function migrateFlowPackage(pkg = {}, albumNodes = []) {
   return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: fresh }
 }
 
+/** 工单里登记了金额的条目：有登记就要求它与报价合计相等，没登记则不校验 */
+function collectWorkSheetDeclaredAmounts(nodes = []) {
+  const out = []
+  ;(nodes || [])
+    .filter((n) => n.kind === 'work')
+    .forEach((n) => {
+      const findings =
+        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) || []
+      findings.forEach((row) => {
+        const amount = parseAmount(row && row.amount)
+        if (amount != null) out.push(amount)
+      })
+    })
+  return out
+}
+
+/** 已确认报价（含增项方案）的金额合计 */
+function collectConfirmedQuoteTotal(nodes = []) {
+  return (nodes || [])
+    .filter(
+      (n) =>
+        (n.kind === 'quote_confirm' || n.kind === 'addon_quote_confirm') &&
+        String((n.document && n.document.status) || '') === 'confirmed',
+    )
+    .reduce((sum, n) => {
+      const lines = (n.document && n.document.payload && n.document.payload.lines) || []
+      if (!Array.isArray(lines)) return sum
+      return sum + lines.reduce((s, line) => s + (Number(line && line.amount) || 0), 0)
+    }, 0)
+}
+
+/** 完工报告的施工项：取自工单（work 节点）如实登记的施工记录，不再由报价派生 */
 function collectAllWorkOrderItems(nodes = []) {
   return (nodes || [])
-    .filter((n) => n.kind === 'work_order')
+    .filter((n) => n.kind === 'work')
     .flatMap((n) => {
-      const items =
-        (n.document && n.document.payload && n.document.payload.items) || []
-      return Array.isArray(items) ? items : []
+      const findings =
+        (n.photoDraft && Array.isArray(n.photoDraft.findings) && n.photoDraft.findings) || []
+      return findings.map(mapWorkFindingToReportItem).filter(Boolean)
     })
+}
+
+/** 工单条目 → 完工报告施工项。金额留空则记 0，合计回落规则见 buildRepairReportPayload */
+function mapWorkFindingToReportItem(row = {}) {
+  const name = String(row.partName || '').trim()
+  const note = String(row.caption || '').trim()
+  const material = String(row.material || '').trim()
+  const brand = String(row.brand || '').trim()
+  const qty = String(row.qty || '').trim()
+  if (!name && !note && !material) return null
+  const amount = parseAmount(row.amount)
+  return {
+    name,
+    brand,
+    material,
+    qty,
+    note,
+    amount: amount == null ? 0 : amount,
+  }
 }
 
 function renumberSortOrders(nodes = []) {
@@ -520,7 +579,10 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
     if (payload.photoDraft != null) {
       nextNode.photoDraft = mergePhotoDraft(prev.photoDraft || {}, payload.photoDraft || {})
-      if (prev.kind === 'intake_inspection') intakeDraft = nextNode.photoDraft
+      // 车型/里程由接车节点登记（存量合并节点 intake_inspection 同口径）
+      if (prev.kind === 'intake' || prev.kind === 'intake_inspection') {
+        intakeDraft = nextNode.photoDraft
+      }
     }
     if (payload.status != null) {
       nextNode.status = String(payload.status || '').trim() || prev.status
@@ -542,18 +604,6 @@ async function updateFlowNode(albumId, storeId, nodeId, payload = {}, merchantId
     }
     if (payload.markComplete) {
       nextNode.status = 'completed'
-      if (prev.kind === 'work_order' && prev.document) {
-        nextNode.document = {
-          ...prev.document,
-          ...(nextNode.document || {}),
-          status: 'in_progress',
-          payload: {
-            ...((prev.document && prev.document.payload) || {}),
-            ...((nextNode.document && nextNode.document.payload) || {}),
-            startedAt: new Date().toISOString(),
-          },
-        }
-      }
       unlockNextNode(nodes, index)
       unlockedNext = true
     }
@@ -635,12 +685,22 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     throw err
   }
 
-  if (node.kind === 'intake_inspection') {
+  if (node.kind === 'inspection' || node.kind === 'intake_inspection') {
+    // 主诉记在接车节点（intake），检测节点跨节点取；存量合并节点自带 chiefComplaint
+    const intakeNode = rawNodes.find((n) => n && n.kind === 'intake')
+    const chiefComplaint =
+      node.kind === 'intake_inspection'
+        ? incomingDraft.chiefComplaint
+        : String(
+            (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+              incomingDraft.chiefComplaint ||
+              '',
+          ).trim()
     const draftReport = buildInspectionReportPayload({
       vehicle,
       albumNodes: nodes,
       photoDraft: incomingDraft,
-      chiefComplaint: incomingDraft.chiefComplaint,
+      chiefComplaint,
       findings: incomingDraft.findings,
       conclusion: incomingDraft.conclusion,
     })
@@ -661,19 +721,21 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
   }
 
-  const { maybeHoldCompleteForAiReview } = require('./node-ai-review.service')
-  const held = await maybeHoldCompleteForAiReview({
+  // 工单是如实记录施工过程的单据：定稿前先拿它跟检测报告、报价核一遍。
+  // 检查没跑完就不置「已完成」，免得门店以为交了定稿其实还漏着项
+  const { maybeHoldWorkSheetForReview } = require('./node-ai-review.service')
+  const heldSheet = await maybeHoldWorkSheetForReview({
     album,
     node,
     merchantId,
     incomingDraft,
     payload,
   })
-  if (held) {
+  if (heldSheet) {
     return {
-      ...held,
+      ...heldSheet,
       node: mapFlowNodeForView(
-        { ...node, photoDraft: incomingDraft, aiReview: held.review },
+        { ...node, photoDraft: incomingDraft, aiReview: heldSheet.review },
         nodes,
       ),
     }
@@ -691,15 +753,25 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     }
     unlockNextNode(list, idx)
 
-    if (list[idx].kind === 'intake_inspection') {
+    if (list[idx].kind === 'inspection' || list[idx].kind === 'intake_inspection') {
       const reportIdx = list.findIndex((n) => n.kind === 'inspection_report')
       const quoteIdx = list.findIndex((n) => n.kind === 'quote_confirm' && !n.insertedReason)
       if (reportIdx >= 0) {
+        // 主诉记在接车节点（intake），检测跨节点取；存量合并节点自带
+        const intakeNode = list.find((n) => n && n.kind === 'intake')
+        const chiefComplaint =
+          list[idx].kind === 'intake_inspection'
+            ? incomingDraft.chiefComplaint
+            : String(
+                (intakeNode && intakeNode.photoDraft && intakeNode.photoDraft.chiefComplaint) ||
+                  incomingDraft.chiefComplaint ||
+                  '',
+              ).trim()
         const draft = buildInspectionReportPayload({
           vehicle,
           albumNodes: nodes,
           photoDraft: incomingDraft,
-          chiefComplaint: incomingDraft.chiefComplaint,
+          chiefComplaint,
           findings: incomingDraft.findings,
           conclusion: incomingDraft.conclusion,
         })
@@ -741,6 +813,19 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
       const inspectionReport = list.find((n) => n.kind === 'inspection_report')
       const delivery = nodes.find((n) => n.id === 'stage_6')
       if (repairIdx >= 0) {
+        // 金额口径：工单登记了金额就必须与已确认报价合计一致，否则先走增项报价
+        const declaredAmounts = collectWorkSheetDeclaredAmounts(list)
+        const quoteTotal = collectConfirmedQuoteTotal(list)
+        if (declaredAmounts.length) {
+          const sheetTotal = declaredAmounts.reduce((s, v) => s + v, 0)
+          if (Math.abs(sheetTotal - quoteTotal) > 0.01) {
+            const err = new Error(
+              '工单金额与报价合计不一致，请先补一张增项报价并经车主确认',
+            )
+            err.status = 400
+            throw err
+          }
+        }
         const draft = buildRepairReportPayload({
           chiefComplaint:
             (inspectionReport &&
@@ -751,6 +836,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
           workItems: collectAllWorkOrderItems(list),
           deliveryImages: (delivery && delivery.images) || [],
           photoDraft: incomingDraft,
+          // 工单没登记金额就回落报价合计；登记了则两者必然相等（上面已校验）
+          totalAmount: quoteTotal,
           confirmCopy: REPAIR_CONFIRM_COPY,
         })
         list[repairIdx] = {
@@ -768,7 +855,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: list }
   })
 
-  if (node.kind === 'intake_inspection') {
+  // 车型/里程由接车节点登记（存量合并节点 intake_inspection 同口径）
+  if (node.kind === 'intake' || node.kind === 'intake_inspection') {
     await persistIntakeVehicleFields(albumId, album.vehicleJson, incomingDraft)
   }
 
@@ -776,6 +864,8 @@ async function completeFlowNode(albumId, storeId, nodeId, payload = {}, merchant
   const viewNodes = mapNodesForView(refreshed)
   const updated = sortFlowNodes(readFlowNodesRaw(refreshed)).find((n) => n.id === id)
   const messages = {
+    intake: '接车留证已完成，下一步做检测',
+    inspection: '请核对报告并填写方案',
     intake_inspection: '请核对报告并填写方案',
     delivery_photos: '请核对完工确认',
     work: '施工记录已确认',
@@ -1112,29 +1202,13 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       parentNodeId: nodes[workIdx].id,
       segmentLabel: '增项',
     }
-    const orderNode = {
-      id: `fn_addon_w_${ts}`,
-      kind: 'work_order',
-      nodeCategory: 'document',
-      sortOrder: insertAt + 1,
-      title: '工单',
-      status: 'locked',
-      photos: [],
-      note: '',
-      document: emptyDocument('work_order'),
-      legacyStageId: '',
-      legacyStageIds: [],
-      insertedReason: 'addon',
-      parentNodeId: quoteNode.id,
-      segmentLabel: '增项',
-    }
-    // 增项后继续施工：新施工步先带入已有 findings，避免部位名丢失
+    // 增项后继续施工：新开一段工单（如实记录），沿用已有登记内容免重抄
     const extraWork = {
       id: `fn_addon_work_${ts}`,
       kind: 'work',
       nodeCategory: 'photo',
-      sortOrder: insertAt + 2,
-      title: '施工',
+      sortOrder: insertAt + 1,
+      title: '工单',
       status: 'locked',
       photos: [],
       note: '',
@@ -1142,11 +1216,11 @@ async function insertAddonPlan(albumId, storeId, merchantId = '') {
       legacyStageId: 'stage_5',
       legacyStageIds: ['stage_5'],
       insertedReason: 'addon',
-      parentNodeId: orderNode.id,
+      parentNodeId: quoteNode.id,
       segmentLabel: '增项',
       photoDraft: normalizePhotoDraft({ findings: priorFindings }),
     }
-    nodes.splice(insertAt, 0, quoteNode, orderNode, extraWork)
+    nodes.splice(insertAt, 0, quoteNode, extraWork)
     renumberSortOrders(nodes)
     return { ...pkg, flowVersion: FLOW_VERSION, flowNodes: nodes }
   })
@@ -1246,8 +1320,7 @@ async function cancelAddonPlan(albumId, storeId, merchantId = '', payload = {}) 
     for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
       const n = nodes[i]
       if (!n || String(n.insertedReason || '') !== 'addon') break
-      if (n.kind === 'work_order' || n.kind === 'work') {
-        if (n.kind === 'work_order' && n.document && n.document.status === 'confirmed') break
+      if (n.kind === 'work') {
         removeIds.add(n.id)
       } else {
         break
@@ -1336,7 +1409,7 @@ function isOwnerDocumentKind(kind) {
     kind === 'inspection_report' ||
     kind === 'quote_confirm' ||
     kind === 'addon_quote_confirm' ||
-    kind === 'work_order' ||
+    kind === 'work' ||
     kind === 'repair_report'
   )
 }
@@ -1358,11 +1431,16 @@ function isOwnerDocContentReady(node = {}) {
       return docStatus === 'pending_confirm' || docStatus === 'confirmed'
     case 'repair_report':
       return docStatus === 'pending_confirm' || docStatus === 'confirmed'
-    case 'work_order':
+    case 'work':
+      // 工单＝如实记录施工过程：一旦开始登记（有条目）车主即可见
       return (
         status === 'in_progress' ||
         status === 'completed' ||
-        Boolean(doc.payload && Array.isArray(doc.payload.items) && doc.payload.items.length)
+        Boolean(
+          node.photoDraft &&
+            Array.isArray(node.photoDraft.findings) &&
+            node.photoDraft.findings.length,
+        )
       )
     default:
       return false
@@ -1380,14 +1458,78 @@ function mapOwnerFriendlyLine(row = {}) {
   }
 }
 
+/** 工单条目 → 车主可见行：项目/用料/品牌/数量/说明/金额，均按门店如实登记的原文 */
+function mapOwnerWorkSheetLine(row = {}) {
+  const name = String(row.partName || '').trim()
+  const material = String(row.material || '').trim()
+  const brand = String(row.brand || '').trim()
+  const qty = String(row.qty || '').trim()
+  const note = String(row.caption || '').trim()
+  if (!name && !material && !note) return null
+  const amount = parseAmount(row.amount)
+  return { name, brand, material, qty, note, amount: amount == null ? 0 : amount }
+}
+
+/** 工单卡片：车主时间线上的只读单据，数据源是 photoDraft.findings，
+ *  工单节点没有 document 壳，这里不能走 payload */
+function mapOwnerWorkSheetCard(node = {}, album = {}) {
+  const draft =
+    (node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const rows = Array.isArray(draft.findings) ? draft.findings : []
+  const items = rows.map(mapOwnerWorkSheetLine).filter(Boolean)
+  const photos = []
+  const seen = new Set()
+  rows.forEach((row) => {
+    const list = Array.isArray(row && row.images) ? row.images : []
+    list.forEach((img) => {
+      const url = typeof img === 'string' ? img : img && img.url
+      if (!url || seen.has(url)) return
+      seen.add(url)
+      photos.push({ url, caption: String((row && row.caption) || '').trim() })
+    })
+  })
+  const totalAmount = items.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+  const done = String(node.status || '') === 'completed'
+  return {
+    id: node.id,
+    kind: 'work',
+    title: node.title || '工单',
+    segmentLabel: node.segmentLabel || '',
+    isAddon: String(node.insertedReason || '') === 'addon',
+    cancelled: false,
+    cancelledBy: '',
+    cancelReason: '',
+    ownerRejectReason: '',
+    discoveryNote: '',
+    discoveryImages: [],
+    statusLabel: done ? '已完工' : '施工中',
+    needsConfirm: false,
+    storeName: String(
+      (album && (album.storeName || (album.store && album.store.name))) || '',
+    ).trim(),
+    metaLine: '',
+    confirmCopy: '',
+    styleVariant: 'document',
+    chiefComplaint: '',
+    conclusion: '',
+    findings: [],
+    lines: [],
+    items,
+    workItems: items,
+    totalAmount,
+    totalAmountLabel: totalAmount > 0 ? `合计 ¥${totalAmount.toFixed(2)}` : '',
+    photos,
+    deliveryPhotos: [],
+    warrantyPeriod: '',
+    warrantyNotes: '',
+    warrantyScope: '',
+    warrantyExclusions: '',
+  }
+}
+
 function resolveOwnerDocStatusLabel(kind, doc = {}, fallback = '') {
   const status = String(doc.status || 'draft')
   const raw = String(doc.statusLabel || fallback || resolveDocumentStatusLabel(doc) || '').trim()
-  if (kind === 'work_order') {
-    if (status === 'draft' || raw === '草稿' || !raw) return '已确认'
-    if (status === 'in_progress') return '施工中'
-    if (status === 'completed') return raw === '草稿' ? '已确认' : raw || '已完成'
-  }
   return raw || resolveDocumentStatusLabel(doc)
 }
 
@@ -1414,6 +1556,8 @@ function buildDocMetaLine({
 }
 
 function mapOwnerFlowDocCard(node = {}, album = {}) {
+  // 工单没有 document 壳：如实登记的施工内容在 photoDraft.findings 里
+  if (node.kind === 'work') return mapOwnerWorkSheetCard(node, album)
   const doc = node.document || {}
   const payload = doc.payload || {}
   const needsConfirm =
@@ -1639,8 +1783,8 @@ function deriveOwnerProgressLabel(docs = [], album = {}) {
   }
   if (docs.length && docs.every((row) => row.stepState === 'done')) return '已完工'
   if (!docs.some((row) => !row.locked)) return '待门店通知'
-  const workOrder = docs.find((row) => row.kind === 'work_order')
-  if (workOrder && !workOrder.locked) return '施工中'
+  const workSheet = docs.find((row) => row.kind === 'work')
+  if (workSheet && !workSheet.locked) return '施工中'
   return '进行中'
 }
 
@@ -1736,45 +1880,10 @@ function buildOwnerFlowView(album, albumNodes = []) {
   }
 }
 
-function applyQuoteConfirmedSideEffects(nodes, index, quoteNodeId, mergedPayload) {
+/** 报价确认后的连带动作：工单是施工过程的如实记录，不由报价派生，
+ *  所以这里只放行后面的工单节点开工，不再塞一份items 给它 */
+function applyQuoteConfirmedSideEffects(nodes, index) {
   unlockNextNode(nodes, index)
-  let orderIdx = nodes.findIndex(
-    (n, i) => i > index && n.kind === 'work_order' && n.status !== 'completed',
-  )
-  if (orderIdx < 0) {
-    orderIdx = nodes.findIndex((n, i) => i > index && n.kind === 'work_order')
-  }
-  if (orderIdx < 0) {
-    orderIdx = nodes.findIndex((n) => n.kind === 'work_order')
-  }
-  if (orderIdx < 0) return
-
-  const quoteNode = nodes[index] || {}
-  const isAddon =
-    String(quoteNode.insertedReason || '') === 'addon' ||
-    quoteNode.kind === 'addon_quote_confirm'
-
-  const orderPayload = buildWorkOrderPayloadFromQuote(mergedPayload, quoteNodeId)
-  const nextOrder = {
-    ...nodes[orderIdx],
-    status: isAddon ? 'completed' : 'in_progress',
-    document: {
-      ...(nodes[orderIdx].document || emptyDocument('work_order')),
-      status: 'in_progress',
-      payload: {
-        ...orderPayload,
-        ...(isAddon ? { startedAt: new Date().toISOString() } : {}),
-      },
-    },
-  }
-  if (isAddon) {
-    nextOrder.title = nextOrder.title || '工单'
-  }
-  nodes[orderIdx] = nextOrder
-  // 增项：确认后直达施工拍照，勿停在空工单页
-  if (isAddon) {
-    unlockNextNode(nodes, orderIdx)
-  }
 }
 
 async function tryCompleteAlbumAfterRepairConfirm(
@@ -1984,8 +2093,7 @@ async function ownerRejectFlowDocument(albumId, userId, nodeId, payload = {}) {
       for (let i = quoteIdx + 1; i < nodes.length; i += 1) {
         const n = nodes[i]
         if (!n || String(n.insertedReason || '') !== 'addon') break
-        if (n.kind === 'work_order' || n.kind === 'work') {
-          if (n.kind === 'work_order' && n.document && n.document.status === 'confirmed') break
+        if (n.kind === 'work') {
           removeIds.add(n.id)
         } else {
           break

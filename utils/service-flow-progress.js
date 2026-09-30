@@ -26,12 +26,6 @@ function isFlowNodeDone(node = {}) {
     return Boolean(doc && doc.status === 'confirmed')
   }
 
-  // 工单：商家开始施工后节点 status=completed，或 document 标记 started
-  if (kind === 'work_order') {
-    if (status === 'completed') return true
-    return Boolean(doc && (doc.status === 'in_progress' || doc.payload && doc.payload.startedAt))
-  }
-
   if (doc && typeof doc === 'object') {
     if (doc.status === 'confirmed' || doc.status === 'delivered') return true
     if (requiresOwnerConfirm(node)) return false
@@ -92,6 +86,10 @@ function allDoneText(total) {
 
 function resolveActiveNodeCta(node = {}) {
   if (!node) return { text: '', type: '' }
+  // 工单：如实登记施工内容（图文 + 项目用料）
+  if (node.kind === 'work') {
+    return { text: '登记工单内容', type: 'photo' }
+  }
   if (node.nodeCategory === 'photo' || node.legacyStageId || node.legacyStageIds) {
     return { text: '上传并确认', type: 'photo' }
   }
@@ -101,9 +99,6 @@ function resolveActiveNodeCta(node = {}) {
   }
   if (requiresOwnerConfirm(node) && doc.status !== 'confirmed') {
     return { text: '发送确认', type: 'confirm' }
-  }
-  if (node.kind === 'work_order') {
-    return { text: '开始施工', type: 'start_work' }
   }
   return { text: '查看', type: 'document' }
 }

@@ -519,56 +519,6 @@ async function notifyAlbumPreMaskFailed(album) {
   })
 }
 
-async function notifyAlbumInspectionReady(album, reportId = '') {
-  const userId = await resolveAlbumUserId(album)
-  if (!userId) return null
-  const qs = reportId
-    ? `albumId=${encodeURIComponent(album.id)}&highlightReportId=${encodeURIComponent(reportId)}`
-    : `albumId=${encodeURIComponent(album.id)}`
-  const jumpPath = `/pages/album/inspect-ai/index?${qs}`
-  return notifyUser({
-    receiverId: userId,
-    messageType: 'album_inspection_ready',
-    title: '相册 AI 分析已完成',
-    content: '可以查看分析结果了。',
-    refType: 'album',
-    refId: album.id,
-    jumpPath,
-    wechatTemplateKey: 'album',
-    wechatPage: jumpPath.replace(/^\//, ''),
-    wechatPayload: {
-      serviceName: album.serviceName || '服务相册',
-      status: '分析完成',
-      tips: '可查看 AI 分析报告',
-      storeName: album.storeName,
-    },
-  })
-}
-
-async function notifyAlbumInspectionFailed(album, errorMessage = '') {
-  const userId = await resolveAlbumUserId(album)
-  if (!userId) return null
-  const jumpPath = `/pages/album/inspect-ai/index?albumId=${encodeURIComponent(album.id)}`
-  const tips = String(errorMessage || '请稍后重试').slice(0, 20)
-  return notifyUser({
-    receiverId: userId,
-    messageType: 'album_inspection_failed',
-    title: '相册 AI 分析失败',
-    content: String(errorMessage || '分析未成功，可稍后重试。').slice(0, 120),
-    refType: 'album',
-    refId: album.id,
-    jumpPath,
-    wechatTemplateKey: 'album',
-    wechatPage: jumpPath.replace(/^\//, ''),
-    wechatPayload: {
-      serviceName: album.serviceName || '服务相册',
-      status: '分析失败',
-      tips,
-      storeName: album.storeName,
-    },
-  })
-}
-
 async function notifyAlbumNodeUpdated(album, meta = {}) {
   const userId = await resolveAlbumUserId(album)
   if (!userId) return null
@@ -867,8 +817,6 @@ module.exports = {
   notifyAlbumCompleted,
   notifyAlbumPreMaskReady,
   notifyAlbumPreMaskFailed,
-  notifyAlbumInspectionReady,
-  notifyAlbumInspectionFailed,
   notifyAlbumNodeUpdated,
   notifyAuthorizationSubmitted,
   notifyAuthorizationWithdrawn,

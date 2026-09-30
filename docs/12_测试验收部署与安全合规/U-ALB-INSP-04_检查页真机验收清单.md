@@ -1,11 +1,24 @@
 # U-ALB-INSP-04 · 相册检查页真机验收清单
 
-> **任务**：`docs/00_开发计划.md` §7.6.14 **U-ALB-INSP-04**  
-> **页面**：`pages/album/inspect`  
-> **入口**：`pages/album/detail` 底栏 **「检查」**  
-> **对照真源**：§7.6.14 二版 Tab 口径 · `constants/album-evidence-guide.js` · `utils/album-inspection-matrix.js`  
+> ## 已下线（2026-09-28）
+>
+> 相册检查页整套功能已下线并从代码库删除。本文档**不再作为验收依据，仅作历史存档**。已删除：
+> - 页面 `pages/album/inspect`、`inspect-compare`、`inspect-ai` 及其 `app.json` 注册
+> - 组件 `components/album-inspection-matrix`
+> - `utils/album-inspection-*.js`（含 `backend/vendor/shared/utils/` 拷贝）、`utils/album-merchant-inspection.js`、`services/album-inspection.js`
+> - 后端 `album-inspection-advice.service.js`、`album-inspection-vision.service.js` 及 `src/utils/album-inspection-*` 转发 shim
+> - 路由 `GET /service-albums/:albumId/inspection-reports`、`POST /service-albums/:albumId/inspection-advice`
+> - 冒烟脚本 `scripts/album-inspection-acceptance-smoke.cjs`
+> - 入口：`pages/album/detail` 底栏「检查」按钮、`album-bottom-toolbar` 的 `showInspect` / `onInspectTap`
+>
+> 连带：完工内容包（`album-content-package.service.js`）的留痕缺项门槛已取消（恒为 eligible）。
+
+> **任务**：`docs/00_开发计划.md` §7.6.14 **U-ALB-INSP-04**（已下线）  
+> **页面**：`pages/album/inspect`（已删除）  
+> **入口**：`pages/album/detail` 底栏 **「检查」**（已移除）  
+> **对照真源**：§7.6.14 二版 Tab 口径 · `constants/album-evidence-guide.js` · `utils/album-inspection-matrix.js`（**均已随功能下线删除**）  
 > **前置**：U-ALB-INSP-05 ✅ · B-EVID-06 ✅ · U-ALB-INSP-06 ✅  
-> **静态验收（2026-07-05）**：`node scripts/album-inspection-acceptance-smoke.cjs` **8/8**；真机勾选见 [`U-ALB-INSP-04_检查页真机验收清单.md`](../12_测试验收部署与安全合规/U-ALB-INSP-04_检查页真机验收清单.md)
+> **静态验收（2026-07-05，脚本已删除、命令已失效）**：`node scripts/album-inspection-acceptance-smoke.cjs` **8/8**；真机勾选见 [`U-ALB-INSP-04_检查页真机验收清单.md`](../12_测试验收部署与安全合规/U-ALB-INSP-04_检查页真机验收清单.md)
 
 ---
 

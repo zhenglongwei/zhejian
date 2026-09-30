@@ -490,6 +490,33 @@
   margin-bottom: var(--space-sm);
 }
 
+.merchant-flow-page__walkaround {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.merchant-flow-page__walkaround-item {
+  margin: 0 var(--space-sm) var(--space-sm) 0;
+  padding: var(--space-xs) var(--space-md);
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__walkaround-item--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.merchant-flow-page__walkaround-label {
+  color: var(--color-text-primary);
+}
+
+.merchant-flow-page__walkaround-item--on .merchant-flow-page__walkaround-label {
+  color: var(--color-primary);
+}
+
 .merchant-flow-page__finding-list {
   display: flex;
   flex-direction: column;

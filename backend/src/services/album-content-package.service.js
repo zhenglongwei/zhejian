@@ -23,14 +23,12 @@ const {
   isPackageGenerating,
   isPackageSkipped,
 } = require('../schemas/album-content-package.schema')
-const { resolveShared } = require('../utils/resolve-shared')
 
 const PROMPT_PATH = path.join(__dirname, '../prompts/album-content-package.md')
 const runningAlbums = new Set()
 
 /**
- * 与商家完工弹窗同一口径：留痕清单任一缺项 → 不值得调 LLM
- *（商家可「仍要完工」，但跳过大模型文案）
+ * 留痕清单缺项汇总（纯函数，供读侧展示用）
  */
 function collectMissingFromPanels(panels = []) {
   const items = []
@@ -48,24 +46,14 @@ function collectMissingFromPanels(panels = []) {
   return items
 }
 
-function isAlbumEligibleForLlmContentPackage(albumView = {}) {
-  try {
-    const { buildAlbumInspectionView } = resolveShared('utils/album-inspection-view.js')
-    const view = buildAlbumInspectionView(albumView, {
-      audience: 'merchant',
-      completenessOnly: true,
-    })
-    const missing = collectMissingFromPanels(
-      view && view.completeness && view.completeness.panels
-    )
-    return missing.length === 0
-  } catch (e) {
-    console.warn(
-      '[album-content-package] eligibility check failed, skip llm',
-      e && e.message
-    )
-    return false
-  }
+/**
+ * 完工内容包是否值得调 LLM。
+ * 旧口径：留痕清单任一缺项 → 跳过（依赖已下线的旧留痕矩阵）。
+ * 2026-09-28：旧留痕矩阵整套下线删除，缺项判定失去依据；
+ * 内容包仅在完工后触发，此时相册必有内容，故不再做留痕门槛拦截。
+ */
+function isAlbumEligibleForLlmContentPackage() {
+  return true
 }
 
 async function persistSkippedIncompletePackage(albumId) {

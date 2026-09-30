@@ -10,6 +10,8 @@ const {
 
 const SKIP_PHOTO_KINDS = {
   intake_inspection: true,
+  intake: true,
+  inspection: true,
   delivery_photos: true,
 }
 
@@ -155,6 +157,23 @@ function photosFromPublicNodes(contentNodes, titleHints) {
   return photos
 }
 
+/** 工单条目（公网版，去金额）：项目 + 用料/品牌/数量 + 说明 */
+function collectWorkSheetPublicItems(node) {
+  const draft =
+    (node && node.photoDraft && typeof node.photoDraft === 'object' && node.photoDraft) || {}
+  const rows = Array.isArray(draft.findings) ? draft.findings : []
+  return rows
+    .map((row) => {
+      const name = text(row && row.partName)
+      const note = [text(row && row.material), text(row && row.brand), text(row && row.qty), text(row && row.caption)]
+        .filter(Boolean)
+        .join(' · ')
+      if (!name && !note) return null
+      return { name, brand: text(row && row.brand), note }
+    })
+    .filter(Boolean)
+}
+
 function collectDeliveryPhotos(payload, lookup) {
   const list = Array.isArray(payload.deliveryPhotos) ? payload.deliveryPhotos : []
   const photos = []
@@ -187,7 +206,7 @@ function publicTitle(node) {
     kind === 'addon_quote_confirm' || text(node && node.insertedReason) === 'addon'
   if (addon) return '施工中新发现'
   if (kind === 'quote_confirm') return '方案'
-  if (kind === 'work_order') return '工单'
+  if (kind === 'work') return '工单'
   if (kind === 'repair_report') return '完工'
   if (kind === 'work') return '施工'
   if (kind === 'inspection_report') return '检测报告'
@@ -216,16 +235,6 @@ function mapDocumentChapter(node, lookup) {
       kind,
       title: publicTitle(node),
       items: (Array.isArray(payload.lines) ? payload.lines : [])
-        .map((row) => stripLine(row, lookup))
-        .filter(Boolean),
-    }
-  }
-  if (kind === 'work_order') {
-    return {
-      id: node.id || '',
-      kind,
-      title: publicTitle(node),
-      items: (Array.isArray(payload.items) ? payload.items : [])
         .map((row) => stripLine(row, lookup))
         .filter(Boolean),
     }
@@ -268,13 +277,14 @@ function buildPublicServiceFlow(input = {}) {
     if (kind === 'work') {
       let photos = collectWorkPhotos(node, lookup)
       if (!photos.length) {
-        photos = photosFromPublicNodes(input.contentNodes, ['施工'])
+        photos = photosFromPublicNodes(input.contentNodes, ['施工', '工单'])
       }
       const chapter = {
         id: node.id || '',
         kind: 'work',
-        title: '施工',
+        title: '工单',
         photos,
+        items: collectWorkSheetPublicItems(node),
       }
       if (chapterHasContent(chapter)) chapters.push(chapter)
       return

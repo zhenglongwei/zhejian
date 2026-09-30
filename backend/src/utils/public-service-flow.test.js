@@ -35,20 +35,21 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
         },
       },
       {
-        id: 'd',
-        kind: 'work_order',
-        sortOrder: 3,
-        document: {
-          status: 'completed',
-          payload: { items: [{ name: '阀体', amount: 2800 }] },
-        },
-      },
-      {
         id: 'e',
         kind: 'work',
-        sortOrder: 4,
+        sortOrder: 3,
         photoDraft: {
-          findings: [{ partName: '阀体', caption: '拆下旧阀体', images: [{ url: RAW }] }],
+          findings: [
+            {
+              partName: '阀体',
+              caption: '拆下旧阀体',
+              material: '阀体总成',
+              brand: '原厂',
+              qty: '1 个',
+              amount: 2800,
+              images: [{ url: RAW }],
+            },
+          ],
         },
       },
       {
@@ -72,7 +73,8 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   })
 
   const titles = flow.chapters.map((c) => c.title)
-  assert.deepEqual(titles, ['检测报告', '方案', '工单', '施工', '完工'])
+  // 工单＝如实记录施工过程的单据，报价派生的旧 work_order 节点已下线
+  assert.deepEqual(titles, ['检测报告', '方案', '工单', '完工'])
   const quote = flow.chapters.find((c) => c.kind === 'quote_confirm')
   assert.equal(quote.items[0].name, '阀体')
   assert.equal(quote.items[0].amount, undefined)
@@ -83,6 +85,11 @@ test('buildPublicServiceFlow 按单据链排并单独成章施工，去掉金额
   const work = flow.chapters.find((c) => c.kind === 'work')
   assert.equal(work.photos[0].url, MASK)
   assert.match(work.photos[0].caption, /拆下旧阀体/)
+  // 工单条目带用料/品牌/数量，公网侧不带金额
+  assert.equal(work.items[0].name, '阀体')
+  assert.match(work.items[0].note, /阀体总成/)
+  assert.match(work.items[0].note, /原厂/)
+  assert.equal(work.items[0].amount, undefined)
 })
 
 test('buildPublicServiceFlow 用核对打码图覆盖事实层原图', () => {

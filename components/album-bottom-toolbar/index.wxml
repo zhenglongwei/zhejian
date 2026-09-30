@@ -13,16 +13,6 @@
       </view>
       <view class="album-bottom-toolbar__panel-actions">
         <view
-          wx:if="{{showInspect || showCompare}}"
-          class="album-bottom-toolbar__archive"
-          hover-class="album-bottom-toolbar__archive--hover"
-          catchtap="onInspectTap"
-          aria-role="button"
-          aria-label="相册检查"
-        >
-          <text class="album-bottom-toolbar__archive-text text-caption">检查</text>
-        </view>
-        <view
           wx:if="{{showArchive}}"
           class="album-bottom-toolbar__archive"
           hover-class="album-bottom-toolbar__archive--hover"
