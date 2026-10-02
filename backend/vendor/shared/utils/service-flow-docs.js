@@ -271,10 +271,20 @@ function workFindingHasPhoto(raw = {}) {
  * 施工发现项：以 photoDraft.findings 为结构真源（含 images[]）；
  * 无结构时回落为一图一项（存量兼容）。
  */
-function mapWorkFindingRows(images = [], draftFindings = []) {
+function mapWorkFindingRows(images = [], draftFindings = [], options = {}) {
+  const pendingKeys = new Set(
+    ((options && options.pendingKeys) || []).map((value) => mediaKey(value)).filter(Boolean),
+  )
+  const workImages = pendingKeys.size
+    ? (images || []).filter((img) => {
+        const url = typeof img === 'string' ? img : img && img.url
+        const key = mediaKey(url)
+        return Boolean(key && !pendingKeys.has(key))
+      })
+    : images
   const draftList = (draftFindings || []).map((row, index) => normalizeWorkFinding(row, index))
   if (draftList.some((row) => row.images.length || row.partName)) {
-    const persisted = mapPhotoRows(images)
+    const persisted = mapPhotoRows(workImages)
     if (!persisted.length) return draftList
     const byKey = {}
     persisted.forEach((row) => {
@@ -311,7 +321,7 @@ function mapWorkFindingRows(images = [], draftFindings = []) {
     if (item.id && !draftByKey[`@${item.id}`]) draftByKey[`@${item.id}`] = item
     if (!draftByKey[`#${index}`]) draftByKey[`#${index}`] = item
   })
-  const rows = mapPhotoRows(images)
+  const rows = mapPhotoRows(workImages)
   // 位置兜底仅用于存量「一图一项」：两侧数量相等才启用，id 落库后不再命中（26_ §6.5）
   const legacyPositional = rows.length > 0 && rows.length === draftList.length
   return rows.map((row, index) => {
@@ -432,10 +442,127 @@ function mergeFindingsByPart(list) {
   return out
 }
 
+function normalizePendingImages(list = []) {
+  const out = []
+  const seen = new Set()
+  ;(list || []).forEach((raw) => {
+    const img = normalizeWorkImage(raw)
+    if (!img) return
+    const key = mediaKey(img.url)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    out.push(img)
+  })
+  return out
+}
+
+function matchPendingImage(pending, byKey, rawKey) {
+  const candidates = []
+  const key = mediaKey(rawKey)
+  if (key) candidates.push(key)
+  const tail = String(rawKey || '').split(/[\\/]/).filter(Boolean).pop()
+  if (tail) {
+    candidates.push(tail)
+    const tailKey = mediaKey(tail)
+    if (tailKey) candidates.push(tailKey)
+  }
+  for (let i = 0; i < candidates.length; i += 1) {
+    if (byKey[candidates[i]]) return byKey[candidates[i]]
+  }
+  return (
+    pending.find((row) => {
+      const m = mediaKey(row.url)
+      return Boolean(m && candidates.some((c) => c === m || String(rawKey || '').endsWith(m)))
+    }) || null
+  )
+}
+
+/** 整理结果并入已有项：对得上部位/项目则加图，空字段才填草稿，未用到的图留在待整理。 */
+function applyOrganizeGroups({
+  pendingImages = [],
+  findings = [],
+  groups = [],
+  mode = 'inspection',
+} = {}) {
+  const pending = normalizePendingImages(pendingImages)
+  const byKey = {}
+  pending.forEach((img) => {
+    byKey[mediaKey(img.url)] = img
+  })
+  const used = new Set()
+  const nextFindings = (findings || []).map((row) =>
+    mode === 'work' ? normalizeWorkFinding(row) : normalizeItemFinding(row),
+  )
+  ;(groups || []).forEach((group) => {
+    const partName = String((group && group.partName) || '').trim()
+    const keys = Array.isArray(group && group.imageKeys) ? group.imageKeys : []
+    const shots = []
+    keys.forEach((rawKey) => {
+      const img = matchPendingImage(pending, byKey, rawKey)
+      if (!img) return
+      const imgKey = mediaKey(img.url)
+      if (!imgKey || used.has(imgKey)) return
+      used.add(imgKey)
+      shots.push(img)
+    })
+    if (!shots.length && !partName) return
+    const hostIdx = partName
+      ? nextFindings.findIndex((row) => String(row.partName || '').trim() === partName)
+      : -1
+    if (hostIdx >= 0) {
+      const host = nextFindings[hostIdx]
+      const images = (host.images || []).concat(shots).slice(0, WORK_IMAGES_MAX)
+      if (mode === 'work') {
+        nextFindings[hostIdx] = normalizeWorkFinding({
+          ...host,
+          images,
+          partName: host.partName || partName,
+          caption: host.caption || String((group && group.caption) || '').trim(),
+        })
+      } else {
+        nextFindings[hostIdx] = normalizeItemFinding({
+          ...host,
+          images,
+          partName: host.partName || partName,
+            result: host.result || (isValidFindingResult(String((group && group.result) || '').trim())
+              ? group.result
+              : ''),
+          advice: host.advice || group.advice || '',
+        })
+      }
+      return
+    }
+    if (mode === 'work') {
+      nextFindings.push(
+        normalizeWorkFinding({
+          partName,
+          caption: String((group && group.caption) || '').trim(),
+          images: shots.slice(0, WORK_IMAGES_MAX),
+        }),
+      )
+      return
+    }
+    nextFindings.push(
+      normalizeItemFinding({
+        partName,
+        result: isValidFindingResult(String((group && group.result) || '').trim())
+          ? group.result
+          : '',
+        advice: (group && group.advice) || '',
+        images: shots.slice(0, WORK_IMAGES_MAX),
+      }),
+    )
+  })
+  return {
+    findings: mode === 'work' ? nextFindings : mergeFindingsByPart(nextFindings),
+    pendingImages: pending.filter((img) => !used.has(mediaKey(img.url))),
+  }
+}
+
 /** 检测发现项以草稿里的一项为准。相册散图只补尚未挂上的照片，不重拼、不丢掉已有结果。 */
 function mapFindingRows(images = [], draftFindings = [], options = {}) {
   if (options && options.mode === 'work') {
-    return mapWorkFindingRows(images, draftFindings)
+    return mapWorkFindingRows(images, draftFindings, options)
   }
   const assigned = []
   ;(draftFindings || []).forEach((raw, index) => {
@@ -448,10 +575,13 @@ function mapFindingRows(images = [], draftFindings = [], options = {}) {
   merged.forEach((item) => {
     findingImageKeys(item).forEach((key) => owned.add(key))
   })
+  const pendingKeys = new Set(
+    ((options && options.pendingKeys) || []).map((value) => mediaKey(value)).filter(Boolean),
+  )
   const rows = mapPhotoRows(omitOdometerImages(images, options && options.odometerUrl))
   rows.forEach((row) => {
     const key = mediaKey(row.url)
-    if (!key || owned.has(key)) return
+    if (!key || owned.has(key) || pendingKeys.has(key)) return
     const part = String(row.caption || '').trim()
     const shot = { url: row.url, imageId: row.imageId || '' }
     const host = part
@@ -822,6 +952,7 @@ function normalizePhotoDraft(raw = {}) {
           })
           .filter(Boolean)
       : [],
+    pendingImages: normalizePendingImages(raw.pendingImages),
     warrantyPeriod: String(raw.warrantyPeriod || '').trim(),
     warrantyNotes: resolveWarrantyNotes(raw),
     confirmCopy: String(raw.confirmCopy || '').trim(),
@@ -848,6 +979,9 @@ function mergePhotoDraft(prev = {}, patch = {}) {
   if (patch.conclusion != null) next.conclusion = String(patch.conclusion || '').trim()
   if (patch.findings != null) {
     next.findings = normalizePhotoDraft({ findings: patch.findings }).findings
+  }
+  if (patch.pendingImages != null) {
+    next.pendingImages = normalizePendingImages(patch.pendingImages)
   }
   if (patch.warrantyPeriod != null) {
     next.warrantyPeriod = String(patch.warrantyPeriod || '').trim()
@@ -905,6 +1039,8 @@ module.exports = {
   formatMileageText,
   normalizePhotoDraft,
   mergePhotoDraft,
+  normalizePendingImages,
+  applyOrganizeGroups,
   parseAmount,
   stripFindingResultFromLineName,
   remapLegacyQuoteLineLayout,

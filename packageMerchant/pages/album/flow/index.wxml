@@ -301,8 +301,49 @@
                 <block wx:if="{{section.findingMode}}">
                   <text class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
-                  <view wx:if="{{!section.findings.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
-                    点下方加号上传照片
+                  <view wx:if="{{!readOnly || pendingImages.length}}" class="merchant-flow-page__pending">
+                    <text class="text-caption text-secondary merchant-flow-page__pending-label">待整理</text>
+                    <view class="merchant-flow-page__work-thumbs">
+                      <view
+                        wx:for="{{pendingImages}}"
+                        wx:for-item="shot"
+                        wx:for-index="pendingIndex"
+                        wx:key="url"
+                        class="merchant-flow-page__work-thumb"
+                      >
+                        <image
+                          class="merchant-flow-page__work-thumb-img image-placeholder"
+                          src="{{shot.url}}"
+                          mode="aspectFill"
+                          data-url="{{shot.url}}"
+                          bindtap="onPreviewPendingPhoto"
+                        />
+                        <text
+                          wx:if="{{!readOnly}}"
+                          class="merchant-flow-page__work-thumb-remove"
+                          data-index="{{pendingIndex}}"
+                          catchtap="onRemovePendingPhoto"
+                        >×</text>
+                      </view>
+                      <view
+                        wx:if="{{!readOnly && pendingImages.length < 12}}"
+                        class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                        bindtap="onAddFindingPhotos"
+                      >
+                        <text class="text-caption text-secondary">+</text>
+                      </view>
+                    </view>
+                    <ui-button
+                      wx:if="{{!readOnly && pendingImages.length}}"
+                      type="ghost"
+                      block="{{true}}"
+                      loading="{{organizingPhotos}}"
+                      disabled="{{organizingPhotos}}"
+                      bind:btntap="onOrganizePhotos"
+                    >整理</ui-button>
+                  </view>
+                  <view wx:if="{{!section.findings.length && !pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
+                    点加号连拍，再点整理
                   </view>
                   <view class="merchant-flow-page__finding-list">
                     <view
@@ -567,15 +608,6 @@
                         </block>
                       </view>
                     </view>
-                    <view
-                      wx:if="{{!readOnly && section.findings.length < 12}}"
-                      class="merchant-flow-page__finding-add"
-                      hover-class="none"
-                      data-section-index="{{sectionIndex}}"
-                      bindtap="onAddFindingPhotos"
-                    >
-                      <text class="merchant-flow-page__finding-add-icon">+</text>
-                    </view>
                   </view>
                 </block>
                 <ui-album-node
@@ -586,10 +618,18 @@
                   captionPlaceholder="{{section.captionPlaceholder}}"
                   images="{{section.images}}"
                   maxCount="{{12}}"
-                  enableCaption="{{true}}"
+                  enableCaption="{{false}}"
                   data-index="{{sectionIndex}}"
                   bind:imageschange="onSectionImagesChange"
                 />
+                <ui-button
+                  wx:if="{{!readOnly && isIntakePhotoStep && !section.findingMode && section.images.length}}"
+                  type="ghost"
+                  block="{{true}}"
+                  loading="{{organizingPhotos}}"
+                  disabled="{{organizingPhotos}}"
+                  bind:btntap="onOrganizePhotos"
+                >整理</ui-button>
                 <template is="aiFieldHint" data="{{hint: section.photoHint}}" />
               </view>
 

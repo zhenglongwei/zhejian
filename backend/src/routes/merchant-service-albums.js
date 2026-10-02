@@ -1016,6 +1016,27 @@ router.get(
 )
 
 router.post(
+  '/service-albums/:albumId/flow/nodes/:nodeId/organize-photos',
+  requireAuth(['merchant']),
+  async (req, res, next) => {
+    try {
+      const storeId = resolveStoreId(req)
+      const { organizeFlowNodePhotos } = require('../services/node-photo-organize.service')
+      const data = await organizeFlowNodePhotos(
+        req.params.albumId,
+        storeId,
+        req.params.nodeId,
+        req.body || {},
+        req.auth.merchantId,
+      )
+      return ok(res, data)
+    } catch (e) {
+      next(e)
+    }
+  },
+)
+
+router.post(
   '/service-albums/:albumId/flow/nodes/:nodeId/proxy-confirm',
   requireAuth(['merchant']),
   async (req, res, next) => {

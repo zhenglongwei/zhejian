@@ -389,6 +389,16 @@ async function fetchMerchantFlowNodeAiReview(albumId, nodeId) {
   )
 }
 
+async function organizeMerchantFlowNodePhotos(albumId, nodeId, payload = {}) {
+  if (ENV.mode === 'mock') {
+    return { groups: [], walkaroundIds: [], odometerImageKey: '', skipped: true }
+  }
+  return post(
+    `/merchant/service-albums/${albumId}/flow/nodes/${encodeURIComponent(nodeId)}/organize-photos`,
+    withStore(payload),
+  )
+}
+
 async function deliverMerchantFlowNode(albumId, nodeId, payload = {}) {
   if (ENV.mode === 'mock') {
     return { message: '已送达', node: { id: nodeId, document: { status: 'delivered' } } }
@@ -462,6 +472,7 @@ module.exports = {
   proxyConfirmMerchantFlowNode,
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
+  organizeMerchantFlowNodePhotos,
   deliverMerchantFlowNode,
   insertMerchantAddonPlan,
   cancelMerchantAddonPlan,

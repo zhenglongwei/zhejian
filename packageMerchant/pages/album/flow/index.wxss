@@ -490,6 +490,17 @@
   margin-bottom: var(--space-sm);
 }
 
+.merchant-flow-page__pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.merchant-flow-page__pending-label {
+  display: block;
+}
+
 .merchant-flow-page__walkaround {
   display: flex;
   flex-direction: row;

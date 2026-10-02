@@ -5,6 +5,7 @@ const {
   completeMerchantServiceAlbum,
   completeMerchantFlowNode,
   fetchMerchantFlowNodeAiReview,
+  organizeMerchantFlowNodePhotos,
   updateMerchantFlowNode,
   proxyConfirmMerchantFlowNode,
   deliverMerchantFlowNode,
@@ -49,6 +50,8 @@ const {
   parseMileageKm,
   pickOdometerSlot,
   isOdometerFinding,
+  applyOrganizeGroups,
+  normalizePendingImages,
 } = require('../../../../utils/service-flow-docs')
 const { getFlowPlaceholders } = require('../../../../utils/service-flow-placeholders')
 const {
@@ -277,21 +280,21 @@ function mapCompletedStepPreview(step, node, album = {}) {
 const STAGE_LABELS = {
   stage_1: {
     title: '接车照片',
-    tips: '拍环车、仪表、油液：留证车辆进场时什么样',
+    tips: '连拍环车、仪表、油液，再点整理勾清单',
     captionPlaceholder: '本图说明（选填）',
     findingMode: false,
     findingKind: '',
   },
   stage_2: {
     title: '检测照片',
-    tips: '拍部位、能看清结论。不要拍码。',
+    tips: '连拍后点整理，按部位归组；漏的再补进该项',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '按维修项留证；拍这次做成的项（最多 6 张）',
+    tips: '连拍后点整理，按做过的项归组；漏的再补进该项',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
@@ -335,6 +338,8 @@ Page({
     quoteTotalLabel: '',
     photoConfirmLabel: '确认并继续',
     sections: [],
+    pendingImages: [],
+    organizingPhotos: false,
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -558,6 +563,23 @@ Page({
     return this.decorateAiReview({ ...review, suggestions })
   },
 
+  appendPendingToImages(images = []) {
+    const seen = new Set()
+    const out = []
+    ;(images || []).concat(normalizePendingImages(this.data.pendingImages)).forEach((img) => {
+      const url = String((img && img.url) || '').trim()
+      const key = mediaKey(url)
+      if (!url || !key || seen.has(key)) return
+      seen.add(key)
+      out.push({
+        url,
+        imageId: (img && (img.imageId || img.id)) || '',
+        caption: String((img && img.caption) || '').trim(),
+      })
+    })
+    return out
+  },
+
   flattenWorkSectionImages(findings = []) {
     const out = []
     ;(findings || []).forEach((raw) => {
@@ -657,7 +679,9 @@ Page({
           findingMode: true,
           findingKind: 'inspection',
           images,
-          findings: mapFindingRows(images, draftFindings, {}),
+          findings: mapFindingRows(images, draftFindings, {
+            pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
+          }),
           odometerUrl: '',
           odometerImageId: '',
         },
@@ -670,6 +694,7 @@ Page({
       const images = this.collectIntakeImages(album)
       const mapped = mapFindingRows(images, draftFindings, {
         odometerUrl: photoDraft.odometerUrl,
+        pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
       })
       const slot = pickOdometerSlot(photoDraft, mapped)
       const odoKey = mediaKey(slot.odometerUrl)
@@ -714,6 +739,7 @@ Page({
             : draftFindings
         findings = mapFindingRows(images, mergedDraft, {
           mode: findingKind === 'work' ? 'work' : 'inspection',
+          pendingKeys: (photoDraft.pendingImages || []).map((img) => img && img.url),
         })
       }
       return {
@@ -978,6 +1004,7 @@ Page({
         odometerUrl: String(this.data.odometerUrl || '').trim(),
         odometerImageId: String(this.data.odometerImageId || '').trim(),
         walkaround: Array.isArray(this.data.walkaround) ? this.data.walkaround : [],
+        pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
     // 检测＝细查：部位 findings + 结论（结论进检测报告）
@@ -985,6 +1012,7 @@ Page({
       return {
         findings: this.collectFindingsFromSections(),
         conclusion: this.data.conclusion,
+        pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
     // 存量合并节点（v5）
@@ -1002,11 +1030,13 @@ Page({
         findings: this.collectFindingsFromSections().filter(
           (row) => row.url !== odometerUrl && !isOdometerFinding(row),
         ),
+        pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
     if (kind === 'work') {
       return {
         findings: this.collectFindingsFromSections(),
+        pendingImages: normalizePendingImages(this.data.pendingImages),
       }
     }
     if (kind === 'delivery_photos') {
@@ -1314,6 +1344,7 @@ Page({
         orphanPhotoHints: [],
         aiReview: null,
         sections,
+        pendingImages: normalizePendingImages(photoDraft.pendingImages),
         walkaround,
         walkaroundParts: WALKAROUND_PARTS.map((row) => ({
           ...row,
@@ -1993,68 +2024,12 @@ Page({
     })
   },
 
-  onAddFindingPhotos(e) {
+  onAddFindingPhotos() {
     if (this.data.readOnly) return
-    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
-    let sectionIndex = Number(ds.sectionIndex)
-    if (!Number.isFinite(sectionIndex)) sectionIndex = Number(ds.index)
-    if (!Number.isFinite(sectionIndex)) {
-      sectionIndex = (this.data.sections || []).findIndex((row) => row && row.findingMode)
-    }
-    const section = this.data.sections[sectionIndex]
-    if (!section) return
-    if (section.findingKind === 'work') {
-      if ((section.findings || []).length >= 12) {
-        wx.showToast({ title: '最多 12 个维修项', icon: 'none' })
-        return
-      }
-      pickLocalImages({
-        count: WORK_IMAGES_MAX,
-        mediaType: ['image'],
-        sourceType: ['album', 'camera'],
-        success: async (res) => {
-          const files = res.tempFiles || []
-          if (!files.length) return
-          try {
-            wx.showLoading({ title: '上传中' })
-            const uploadedList = []
-            for (let i = 0; i < files.length; i += 1) {
-              const uploaded = await uploadImage(files[i].tempFilePath)
-              const url = uploaded && (uploaded.url || uploaded)
-              if (url) uploadedList.push({ url, imageId: '' })
-            }
-            if (!uploadedList.length) throw new Error('上传失败')
-            const sections = this.data.sections.map((row, i) => {
-              if (i !== sectionIndex) return row
-              const findings = (row.findings || []).concat([
-                normalizeWorkFinding({
-                  partName: '',
-                  caption: '',
-                  images: uploadedList.slice(0, WORK_IMAGES_MAX),
-                }),
-              ])
-              return {
-                ...row,
-                findings,
-                images: this.flattenWorkSectionImages(findings),
-              }
-            })
-            const expandKey = `${sectionIndex}:${(section.findings || []).length}`
-            this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
-            this.scheduleAutoSavePhotos()
-          } catch (err) {
-            wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
-          } finally {
-            wx.hideLoading()
-          }
-        },
-      })
-      return
-    }
-    const usedCount = (section.findings || []).filter((row) => row && row.url).length
-    const remain = Math.max(0, 12 - usedCount)
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const remain = Math.max(0, 12 - pending.length)
     if (remain < 1) {
-      wx.showToast({ title: '最多 12 张', icon: 'none' })
+      wx.showToast({ title: '待整理最多 12 张', icon: 'none' })
       return
     }
     pickLocalImages({
@@ -2077,28 +2052,10 @@ Page({
             })
           }
           if (!uploadedList.length) throw new Error('上传失败')
-          const sections = this.data.sections.map((row, i) => {
-            if (i !== sectionIndex) return row
-            const findings = (row.findings || []).concat(
-              uploadedList.map((img) =>
-                normalizeFinding({
-                  url: img.url,
-                  imageId: img.imageId,
-                  partName: '',
-                  caption: '',
-                  result: '',
-                  advice: '',
-                }),
-              ),
-            )
-            return {
-              ...row,
-              findings,
-              images: this.findingImagesFromRows(findings, this.data.odometerUrl),
-            }
+          this.setData({
+            pendingImages: normalizePendingImages(pending.concat(uploadedList)),
+            autoSaveLabel: '保存中…',
           })
-          const expandKey = `${sectionIndex}:${(section.findings || []).length}`
-          this.setSectionsWithFindings(sections, { autoSaveLabel: '保存中…' }, expandKey)
           this.scheduleAutoSavePhotos()
         } catch (err) {
           wx.showToast({ title: (err && err.message) || '上传失败', icon: 'none' })
@@ -2107,6 +2064,141 @@ Page({
         }
       },
     })
+  },
+
+  onRemovePendingPhoto(e) {
+    if (this.data.readOnly) return
+    const index = Number(e.currentTarget.dataset.index)
+    if (!Number.isFinite(index)) return
+    const pendingImages = normalizePendingImages(this.data.pendingImages).filter(
+      (_, i) => i !== index,
+    )
+    this.setData({ pendingImages, autoSaveLabel: '保存中…' })
+    this.scheduleAutoSavePhotos()
+  },
+
+  onPreviewPendingPhoto(e) {
+    const url = String((e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.url) || '').trim()
+    const urls = normalizePendingImages(this.data.pendingImages).map((img) => img.url)
+    if (!urls.length) return
+    wx.previewImage({ current: url || urls[0], urls })
+  },
+
+  collectPendingForOrganize(kind) {
+    if (kind === 'intake') {
+      const section = (this.data.sections || []).find((row) => row && !row.findingMode) || this.data.sections[0]
+      return normalizePendingImages(section && section.images)
+    }
+    return normalizePendingImages(this.data.pendingImages)
+  },
+
+  applyIntakeOrganize(res) {
+    const walkIds = Array.isArray(res && res.walkaroundIds) ? res.walkaroundIds : []
+    const merged = Array.from(new Set((this.data.walkaround || []).concat(walkIds)))
+    const odoKey = mediaKey(res && res.odometerImageKey)
+    let odometerUrl = String(this.data.odometerUrl || '').trim()
+    let odometerImageId = String(this.data.odometerImageId || '').trim()
+    const sections = (this.data.sections || []).map((section) => {
+      if (section.findingMode) return section
+      let images = section.images || []
+      if (odoKey) {
+        const hit = images.find((img) => mediaKey(img && img.url) === odoKey)
+        if (hit) {
+          odometerUrl = hit.url
+          odometerImageId = hit.imageId || hit.id || odometerImageId
+          images = images.filter((img) => mediaKey(img && img.url) !== odoKey)
+        }
+      }
+      return { ...section, images, odometerUrl, odometerImageId }
+    })
+    this.setData({
+      sections,
+      walkaround: merged,
+      walkaroundParts: WALKAROUND_PARTS.map((row) => ({
+        ...row,
+        checked: merged.indexOf(row.id) >= 0,
+      })),
+      odometerUrl,
+      odometerImageId,
+      autoSaveLabel: '保存中…',
+    })
+    this.scheduleAutoSavePhotos()
+  },
+
+  async onOrganizePhotos() {
+    if (this.data.readOnly || this.data.organizingPhotos) return
+    const node = this.data.activeNode
+    const rawKind = (node && node.kind) || ''
+    if (rawKind === 'delivery_photos') return
+    const kind =
+      rawKind === 'intake_inspection' ? 'inspection' : rawKind
+    const pending = this.collectPendingForOrganize(kind)
+    if (!pending.length) {
+      wx.showToast({ title: '先上传照片', icon: 'none' })
+      return
+    }
+    this.setData({ organizingPhotos: true })
+    wx.showLoading({ title: '整理中' })
+    try {
+      const findings = this.collectFindingsFromSections()
+      const res = await organizeMerchantFlowNodePhotos(this.albumId, node.id, {
+        kind,
+        pendingImages: pending,
+        findings,
+      })
+      if (kind === 'intake') {
+        if (res && res.skipped) {
+          wx.showToast({ title: '这次没整理上，自己勾清单或稍后再试', icon: 'none' })
+          return
+        }
+        this.applyIntakeOrganize(res || {})
+        wx.showToast({ title: '已勾清单', icon: 'none' })
+        return
+      }
+      const groups = (res && res.groups) || []
+      if (!groups.length) {
+        wx.showToast({
+          title: (res && res.skipped) ? '这次没整理上，稍后再试或自己归组' : '没对上部位，自己归组或改名后再试',
+          icon: 'none',
+        })
+        return
+      }
+      const mode = kind === 'work' ? 'work' : 'inspection'
+      const applied = applyOrganizeGroups({
+        pendingImages: pending,
+        findings,
+        groups,
+        mode,
+      })
+      const sections = this.data.sections.map((row) => {
+        if (!row.findingMode) return row
+        const nextFindings = applied.findings
+        return {
+          ...row,
+          findings: nextFindings,
+          images:
+            mode === 'work'
+              ? this.flattenWorkSectionImages(nextFindings)
+              : this.findingImagesFromRows(nextFindings, this.data.odometerUrl),
+        }
+      })
+      const leftover = applied.pendingImages
+      this.setSectionsWithFindings(
+        sections,
+        { pendingImages: leftover, autoSaveLabel: '保存中…' },
+        this.findFirstIncompleteFindingKey(sections) || '',
+      )
+      this.scheduleAutoSavePhotos()
+      wx.showToast({
+        title: leftover.length ? `已归组，还有 ${leftover.length} 张未对上` : '已归组',
+        icon: 'none',
+      })
+    } catch (err) {
+      wx.showToast({ title: (err && err.message) || '整理失败', icon: 'none' })
+    } finally {
+      this.setData({ organizingPhotos: false })
+      wx.hideLoading()
+    }
   },
 
   scheduleAutoSavePhotos() {
@@ -2180,6 +2272,7 @@ Page({
         findings: prevFindings,
         odometerUrl: this.data.odometerUrl,
         odometerImageId: this.data.odometerImageId,
+        pendingImages: this.data.pendingImages,
       },
       this._flowNodes || [],
     )
@@ -2607,13 +2700,16 @@ Page({
     const sectionMap = {}
     this.data.sections.forEach((section) => {
       if (section.findingMode && section.findingKind === 'work') {
-        sectionMap[section.stageId] = this.flattenWorkSectionImages(section.findings || [])
+        sectionMap[section.stageId] = this.appendPendingToImages(
+          this.flattenWorkSectionImages(section.findings || []),
+        )
       } else if (section.findingMode) {
         const odo = String(this.data.odometerUrl || '').trim()
         const findingImgs = this.findingImagesFromRows(section.findings || [], odo)
-        sectionMap[section.stageId] = odo
+        const withOdo = odo
           ? [{ url: odo, caption: '仪表' }].concat(findingImgs)
           : findingImgs
+        sectionMap[section.stageId] = this.appendPendingToImages(withOdo)
       } else if (section.stageId === 'stage_6' && this.data.isDeliveryPhotoStep) {
         // 施工图只记引用；补拍的全车/其他交车图才写入 stage_6
         const exterior = String(this.data.deliveryExteriorUrl || '').trim()
@@ -3300,6 +3396,13 @@ Page({
         wx.showToast({ title: '请至少上传 1 张照片', icon: 'none' })
         return
       }
+    }
+    if (
+      (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
+      normalizePendingImages(this.data.pendingImages).length
+    ) {
+      wx.showToast({ title: '还有未整理的照片，先点整理或删掉', icon: 'none' })
+      return
     }
 
     if (kind === 'inspection' || kind === 'intake_inspection') {
