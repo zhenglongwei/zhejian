@@ -799,13 +799,46 @@
   margin-bottom: var(--space-sm);
 }
 
-.merchant-flow-page__unmatched-copy {
-  flex: 1;
-  min-width: 0;
+.merchant-flow-page__work-thumb--add {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding-top: var(--space-xs);
+  align-items: center;
+  justify-content: center;
+  border: 2rpx dashed var(--color-border);
+  box-sizing: border-box;
+  background-color: var(--color-bg-muted);
+}
+
+.merchant-flow-page__work-thumb-plus {
+  font-size: 56rpx;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  font-weight: 300;
+}
+
+.merchant-flow-page__reshoot {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.merchant-flow-page__unmatched-action {
+  color: var(--color-primary);
+}
+
+.merchant-flow-page__unmatched-action--muted {
+  color: var(--color-text-secondary);
+}
+
+.merchant-flow-page__add-finding {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--color-primary);
+}
+
+.merchant-flow-page__assign-row {
+  padding: var(--space-md) 0;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .merchant-flow-page__work-thumb-img {

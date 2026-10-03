@@ -244,11 +244,14 @@
                   <text class="text-body merchant-flow-page__label">{{section.title}}</text>
                   <text wx:if="{{section.tips}}" class="text-caption text-secondary merchant-flow-page__finding-tips">{{section.tips}}</text>
                   <view wx:if="{{!readOnly || pendingImages.length}}" class="merchant-flow-page__pending">
-                    <text class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
-                    <view class="merchant-flow-page__work-thumbs">
-                      <block wx:for="{{pendingImages}}" wx:for-item="shot" wx:for-index="pendingIndex" wx:key="url">
+                    <block wx:if="{{!hasFindingItems}}">
+                      <text class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
+                      <view class="merchant-flow-page__work-thumbs">
                         <view
-                          wx:if="{{!shot.skipReason}}"
+                          wx:for="{{pendingImages}}"
+                          wx:for-item="shot"
+                          wx:for-index="pendingIndex"
+                          wx:key="url"
                           class="merchant-flow-page__work-thumb"
                         >
                           <image
@@ -261,47 +264,68 @@
                           <text
                             wx:if="{{!readOnly}}"
                             class="merchant-flow-page__work-thumb-remove"
-                            data-index="{{pendingIndex}}"
+                            data-pending-index="{{pendingIndex}}"
                             catchtap="onRemovePendingPhoto"
                           >×</text>
                         </view>
+                        <view
+                          wx:if="{{!readOnly && pendingImages.length < 12}}"
+                          class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                          bindtap="onAddFindingPhotos"
+                        >
+                          <text class="merchant-flow-page__work-thumb-plus">+</text>
+                        </view>
+                      </view>
+                    </block>
+                    <block wx:else>
+                      <block wx:if="{{pendingImages.length}}">
+                        <text class="text-caption text-secondary merchant-flow-page__pending-label">未归组</text>
+                        <view
+                          wx:for="{{pendingImages}}"
+                          wx:for-item="shot"
+                          wx:for-index="pendingIndex"
+                          wx:key="url"
+                          class="merchant-flow-page__unmatched"
+                        >
+                          <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
+                            <image
+                              class="merchant-flow-page__work-thumb-img image-placeholder"
+                              src="{{shot.url}}"
+                              mode="aspectFill"
+                              data-url="{{shot.url}}"
+                              bindtap="onPreviewPendingPhoto"
+                            />
+                          </view>
+                          <view class="merchant-flow-page__unmatched-copy">
+                            <text
+                              wx:if="{{hasFindingItems}}"
+                              class="text-caption merchant-flow-page__unmatched-action"
+                              data-pending-index="{{pendingIndex}}"
+                              catchtap="onOpenAssignPending"
+                            >归入已有项</text>
+                            <text
+                              class="text-caption merchant-flow-page__unmatched-action"
+                              data-pending-index="{{pendingIndex}}"
+                              catchtap="onPromotePendingToFinding"
+                            >单独成一项</text>
+                            <text
+                              class="text-caption merchant-flow-page__unmatched-action merchant-flow-page__unmatched-action--muted"
+                              data-pending-index="{{pendingIndex}}"
+                              catchtap="onRemovePendingPhoto"
+                            >删除</text>
+                          </view>
+                        </view>
                       </block>
-                      <view
-                        wx:if="{{!readOnly && pendingImages.length < 12}}"
-                        class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
-                        bindtap="onAddFindingPhotos"
-                      >
-                        <text class="text-caption text-secondary">+</text>
+                      <view wx:if="{{!readOnly && pendingImages.length < 12}}" class="merchant-flow-page__reshoot">
+                        <text class="text-caption text-secondary">补拍</text>
+                        <view
+                          class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                          bindtap="onAddFindingPhotos"
+                        >
+                          <text class="merchant-flow-page__work-thumb-plus">+</text>
+                        </view>
                       </view>
-                    </view>
-                    <view
-                      wx:for="{{pendingImages}}"
-                      wx:for-item="shot"
-                      wx:for-index="pendingIndex"
-                      wx:key="url"
-                      wx:if="{{shot.skipReason}}"
-                      class="merchant-flow-page__unmatched"
-                    >
-                      <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
-                        <image
-                          class="merchant-flow-page__work-thumb-img image-placeholder"
-                          src="{{shot.url}}"
-                          mode="aspectFill"
-                          data-url="{{shot.url}}"
-                          bindtap="onPreviewPendingPhoto"
-                        />
-                        <text
-                          wx:if="{{!readOnly}}"
-                          class="merchant-flow-page__work-thumb-remove"
-                          data-index="{{pendingIndex}}"
-                          catchtap="onRemovePendingPhoto"
-                        >×</text>
-                      </view>
-                      <view class="merchant-flow-page__unmatched-copy">
-                        <text class="text-caption text-danger">请手工归到对应项</text>
-                        <text class="text-caption text-secondary">点进该项补进去，或改部位名后再整理</text>
-                      </view>
-                    </view>
+                    </block>
                     <text
                       wx:if="{{!readOnly && canUseLibrary}}"
                       class="text-caption merchant-flow-page__library-entry"
@@ -313,7 +337,7 @@
                     >进场外观在图库</text>
                   </view>
                   <view wx:if="{{!section.findings.length && !pendingImages.length}}" class="text-caption text-secondary merchant-flow-page__finding-empty">
-                    点加号连拍，再点整理
+                    点加号连拍，再点{{organizeActionLabel}}
                   </view>
                   <view class="merchant-flow-page__finding-list">
                     <view
@@ -356,7 +380,7 @@
                           </view>
                         </view>
                         <text
-                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.images.length || finding.fromAi)}}"
+                          wx:if="{{!readOnly}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -372,7 +396,7 @@
                       >
                         <text class="text-caption merchant-flow-page__finding-collapse">收起</text>
                         <text
-                          wx:if="{{!readOnly && (section.findingKind === 'work' || finding.url || finding.images.length || finding.fromAi)}}"
+                          wx:if="{{!readOnly}}"
                           class="merchant-flow-page__finding-remove"
                           data-section-index="{{sectionIndex}}"
                           data-finding-index="{{findingIndex}}"
@@ -415,7 +439,7 @@
                               data-finding-index="{{findingIndex}}"
                               catchtap="onAttachFindingPhoto"
                             >
-                              <text class="text-caption text-secondary">+</text>
+                              <text class="merchant-flow-page__work-thumb-plus">+</text>
                             </view>
                           </view>
                           <template is="aiFieldHint" data="{{hint: finding.photoHint}}" />
@@ -518,7 +542,7 @@
                               data-finding-index="{{findingIndex}}"
                               catchtap="onAttachFindingPhoto"
                             >
-                              <text class="text-caption text-secondary">+</text>
+                              <text class="merchant-flow-page__work-thumb-plus">+</text>
                             </view>
                           </view>
                           <view
@@ -578,6 +602,12 @@
                         </block>
                       </view>
                     </view>
+                    <text
+                      wx:if="{{!readOnly}}"
+                      class="text-body merchant-flow-page__add-finding"
+                      data-section-index="{{sectionIndex}}"
+                      bindtap="onAddFindingItem"
+                    >加一项</text>
                   </view>
                 </block>
                 <ui-album-node
@@ -599,7 +629,7 @@
                   loading="{{organizingPhotos}}"
                   disabled="{{organizingPhotos}}"
                   bind:btntap="onOrganizePhotos"
-                >整理</ui-button>
+                >生成接车结果</ui-button>
                 <view wx:if="{{isIntakePhotoStep && intakeResults.length}}" class="merchant-flow-page__intake-results">
                   <text class="text-body merchant-flow-page__label">接车结果</text>
                   <view
@@ -694,16 +724,16 @@
                   <template is="aiFieldHint" data="{{hint: item}}" />
                 </view>
                 <view class="merchant-flow-page__step-actions">
-                  <view wx:if="{{!readOnly && (isInspectionPhotoStep || isWorkPhotoStep)}}" class="merchant-flow-page__step-action">
+                  <view wx:if="{{!readOnly && (isInspectionPhotoStep || isWorkPhotoStep) && showOrganizeAction}}" class="merchant-flow-page__step-action">
                     <ui-button
-                      type="{{organizedOnce ? 'secondary' : 'primary'}}"
+                      type="{{organizedOnce || hasFindingItems ? 'secondary' : 'primary'}}"
                       block="{{true}}"
                       loading="{{organizingPhotos}}"
                       disabled="{{organizingPhotos}}"
                       bind:btntap="onOrganizePhotos"
-                    >整理</ui-button>
+                    >{{organizeActionLabel}}</ui-button>
                   </view>
-                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce)}}" class="merchant-flow-page__step-action">
+                  <view wx:if="{{!readOnly && !photoConfirmDisabled && (!(isInspectionPhotoStep || isWorkPhotoStep) || organizedOnce || hasFindingItems)}}" class="merchant-flow-page__step-action">
                     <ui-button
                       type="primary"
                       block="{{true}}"
@@ -1235,6 +1265,27 @@
         </view>
       </scroll-view>
       <ui-button type="primary" block="{{true}}" bind:btntap="onConfirmLibrary">选用</ui-button>
+    </view>
+  </view>
+
+  <view wx:if="{{showAssignSheet}}" class="merchant-flow-page__library-mask" catchtouchmove="true" bindtap="onCloseAssignSheet">
+    <view class="merchant-flow-page__library" catchtap="onLibraryPanelTap">
+      <view class="merchant-flow-page__library-head">
+        <text class="text-h3">归入哪一项</text>
+        <text class="text-caption text-secondary" catchtap="onCloseAssignSheet">关闭</text>
+      </view>
+      <scroll-view scroll-y class="merchant-flow-page__library-list">
+        <view
+          wx:for="{{assignTargets}}"
+          wx:for-item="row"
+          wx:key="index"
+          class="merchant-flow-page__assign-row"
+          data-finding-index="{{row.index}}"
+          bindtap="onPickAssignTarget"
+        >
+          <text class="text-body">{{row.title}}</text>
+        </view>
+      </scroll-view>
     </view>
   </view>
 

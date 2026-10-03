@@ -290,14 +290,14 @@ const STAGE_LABELS = {
   },
   stage_2: {
     title: '检测照片',
-    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点整理',
+    tips: '基础查：油液、故障灯、底盘、刹车、轮胎。连拍后点生成检测项',
     captionPlaceholder: '检查部位',
     findingMode: true,
     findingKind: 'inspection',
   },
   stage_5: {
     title: '施工过程',
-    tips: '连拍后点整理，按做过的项归组；漏的再补进该项',
+    tips: '连拍后点生成施工项；补图进该项或走补拍',
     captionPlaceholder: '说明（选填）',
     findingMode: true,
     findingKind: 'work',
@@ -352,6 +352,12 @@ Page({
     libraryItems: [],
     canUseLibrary: false,
     organizedOnce: false,
+    hasFindingItems: false,
+    organizeActionLabel: '生成检测项',
+    showOrganizeAction: false,
+    showAssignSheet: false,
+    assignPendingIndex: -1,
+    assignTargets: [],
     walkaround: [],
     walkaroundParts: WALKAROUND_PARTS.map((row) => ({ ...row, checked: false })),
     isInspectionPhotoStep: false,
@@ -890,7 +896,11 @@ Page({
           ? normalizeWorkFinding(item, index)
           : normalizeFinding(item, index),
       )
-      .filter((item) => (kind === 'work' ? item.images.length || item.partName : item.url || item.partName))
+      .filter((item) => {
+        if (String(item.id || '').indexOf('fid_new_') === 0) return true
+        if (kind === 'work') return item.images.length || item.partName
+        return item.url || item.partName || (item.images && item.images.length)
+      })
   },
 
   countFindingMissingFields(item = {}, findingKind = 'inspection') {
@@ -1009,13 +1019,33 @@ Page({
     })
   },
 
+  findingChromePatch(sections, pendingImages) {
+    const findingSection = (sections || []).find((row) => row && row.findingMode)
+    const findings = (findingSection && findingSection.findings) || []
+    const hasFindingItems = findings.length > 0
+    const isWork = Boolean(findingSection && findingSection.findingKind === 'work')
+    const pending = normalizePendingImages(pendingImages)
+    return {
+      hasFindingItems,
+      organizeActionLabel: hasFindingItems
+        ? '归到项里'
+        : isWork
+          ? '生成施工项'
+          : '生成检测项',
+      showOrganizeAction: pending.length > 0,
+    }
+  },
+
   setSectionsWithFindings(sections, extra = {}, expandKey) {
     const expandedFindingKey =
       expandKey === undefined ? this.data.expandedFindingKey : expandKey
     const decorated = this.decorateSections(sections, expandedFindingKey)
+    const pending =
+      extra.pendingImages !== undefined ? extra.pendingImages : this.data.pendingImages
     const patch = {
       sections: decorated,
       expandedFindingKey,
+      ...this.findingChromePatch(decorated, pending),
       ...extra,
     }
     if (this.data.isIntakePhotoStep) {
@@ -1410,6 +1440,7 @@ Page({
           (isInspectionPhotoStep || isWorkPhotoStep) &&
             sections.some((row) => row && row.findingMode && (row.findings || []).length),
         ),
+        ...this.findingChromePatch(sections, photoDraft.pendingImages),
         showLibrary: false,
         libraryBusy: false,
         libraryItems: [],
@@ -1732,8 +1763,13 @@ Page({
       })
       return
     }
+    const remain = Math.max(0, WORK_IMAGES_MAX - normalizeFinding(currentItem).images.length)
+    if (remain < 1) {
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+      return
+    }
     pickLocalImages({
-      count: 1,
+      count: Math.min(remain, 6),
       mediaType: ['image'],
       sourceType: ['album', 'camera'],
       success: async (res) => {
@@ -1741,21 +1777,20 @@ Page({
         if (!files.length) return
         try {
           wx.showLoading({ title: '上传中' })
-          const uploaded = await uploadImage(files[0].tempFilePath)
-          const url = uploaded && (uploaded.url || uploaded)
-          if (!url) throw new Error('上传失败')
-          const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
-          const prev = normalizeFinding(currentItem)
-          if (prev.images.length >= WORK_IMAGES_MAX) {
-            wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
-            return
+          const uploadedList = []
+          for (let i = 0; i < files.length; i += 1) {
+            const uploaded = await uploadImage(files[i].tempFilePath)
+            const url = uploaded && (uploaded.url || uploaded)
+            if (url) uploadedList.push({ url, imageId: '' })
           }
+          if (!uploadedList.length) throw new Error('上传失败')
+          const hintBody = (currentItem.photoHint && currentItem.photoHint.body) || currentItem.captionPlaceholder || ''
           const sections = this.data.sections.map((row, i) => {
             if (i !== si) return row
             const findings = (row.findings || []).map((item, idx) => {
               if (idx !== fi) return item
               const base = normalizeFinding(item)
-              const images = base.images.concat([{ url, imageId: '' }]).slice(0, WORK_IMAGES_MAX)
+              const images = base.images.concat(uploadedList).slice(0, WORK_IMAGES_MAX)
               return this.withFindingMeta(
                 item,
                 normalizeFinding({
@@ -2121,9 +2156,11 @@ Page({
             })
           }
           if (!uploadedList.length) throw new Error('上传失败')
+          const pendingImages = normalizePendingImages(pending.concat(uploadedList))
           this.setData({
-            pendingImages: normalizePendingImages(pending.concat(uploadedList)),
+            pendingImages,
             autoSaveLabel: '保存中…',
+            ...this.findingChromePatch(this.data.sections, pendingImages),
           })
           this.scheduleAutoSavePhotos()
         } catch (err) {
@@ -2137,12 +2174,192 @@ Page({
 
   onRemovePendingPhoto(e) {
     if (this.data.readOnly) return
-    const index = Number(e.currentTarget.dataset.index)
+    const ds = (e.currentTarget && e.currentTarget.dataset) || {}
+    const index = Number(ds.pendingIndex)
     if (!Number.isFinite(index)) return
     const pendingImages = normalizePendingImages(this.data.pendingImages).filter(
       (_, i) => i !== index,
     )
-    this.setData({ pendingImages, autoSaveLabel: '保存中…' })
+    this.setData({
+      pendingImages,
+      autoSaveLabel: '保存中…',
+      showAssignSheet: false,
+      ...this.findingChromePatch(this.data.sections, pendingImages),
+    })
+    this.scheduleAutoSavePhotos()
+  },
+
+  findingSectionIndex(sections = this.data.sections) {
+    return (sections || []).findIndex((row) => row && row.findingMode)
+  },
+
+  onAddFindingItem(e) {
+    if (this.data.readOnly) return
+    let sectionIndex = Number(e.currentTarget.dataset.sectionIndex)
+    if (!Number.isFinite(sectionIndex) || sectionIndex < 0) {
+      sectionIndex = this.findingSectionIndex()
+    }
+    const section = this.data.sections[sectionIndex]
+    if (!section || !section.findingMode) return
+    const id = `fid_new_${Date.now()}`
+    const blank =
+      section.findingKind === 'work'
+        ? normalizeWorkFinding({ id, partName: '', caption: '', images: [] })
+        : normalizeFinding({ id, partName: '', result: '', advice: '', images: [] })
+    const findings = (section.findings || []).concat([blank])
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== sectionIndex) return row
+      return {
+        ...row,
+        findings,
+        images:
+          row.findingKind === 'work'
+            ? this.flattenWorkSectionImages(findings)
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      { autoSaveLabel: '保存中…' },
+      `${sectionIndex}:${findings.length - 1}`,
+    )
+    this.scheduleAutoSavePhotos()
+  },
+
+  onOpenAssignPending(e) {
+    if (this.data.readOnly) return
+    const pendingIndex = Number(e.currentTarget.dataset.pendingIndex)
+    if (!Number.isFinite(pendingIndex)) return
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    const list = (section && section.findings) || []
+    if (!list.length) {
+      wx.showToast({ title: '先加一项或单独成项', icon: 'none' })
+      return
+    }
+    this.setData({
+      showAssignSheet: true,
+      assignPendingIndex: pendingIndex,
+      assignTargets: list.map((row, index) => ({
+        index,
+        title: String((row && row.partName) || '').trim() || `第${index + 1}项`,
+      })),
+    })
+  },
+
+  onCloseAssignSheet() {
+    this.setData({ showAssignSheet: false, assignPendingIndex: -1, assignTargets: [] })
+  },
+
+  onPickAssignTarget(e) {
+    const findingIndex = Number(e.currentTarget.dataset.findingIndex)
+    this.assignPendingToFinding(this.data.assignPendingIndex, findingIndex)
+  },
+
+  assignPendingToFinding(pendingIndex, findingIndex) {
+    if (this.data.readOnly) return
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const shot = pending[pendingIndex]
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    if (!shot || !section || !section.findings || !section.findings[findingIndex]) return
+    const isWork = section.findingKind === 'work'
+    const current = isWork
+      ? normalizeWorkFinding(section.findings[findingIndex])
+      : normalizeFinding(section.findings[findingIndex])
+    if (current.images.length >= WORK_IMAGES_MAX) {
+      wx.showToast({ title: `每项最多 ${WORK_IMAGES_MAX} 张`, icon: 'none' })
+      return
+    }
+    const nextImages = current.images.concat([{ url: shot.url, imageId: shot.imageId || '' }]).slice(
+      0,
+      WORK_IMAGES_MAX,
+    )
+    const leftover = pending.filter((_, i) => i !== pendingIndex)
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== si) return row
+      const findings = (row.findings || []).map((item, idx) => {
+        if (idx !== findingIndex) return item
+        if (isWork) {
+          return this.withFindingMeta(
+            item,
+            normalizeWorkFinding({ ...current, images: nextImages }),
+          )
+        }
+        return this.withFindingMeta(
+          item,
+          normalizeFinding({
+            ...current,
+            images: nextImages,
+            url: nextImages[0].url,
+            imageId: nextImages[0].imageId || '',
+          }),
+        )
+      })
+      return {
+        ...row,
+        findings,
+        images: isWork
+          ? this.flattenWorkSectionImages(findings)
+          : this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      {
+        pendingImages: leftover,
+        autoSaveLabel: '保存中…',
+        showAssignSheet: false,
+        assignPendingIndex: -1,
+        assignTargets: [],
+      },
+      `${si}:${findingIndex}`,
+    )
+    this.scheduleAutoSavePhotos()
+  },
+
+  onPromotePendingToFinding(e) {
+    if (this.data.readOnly) return
+    const pendingIndex = Number(e.currentTarget.dataset.pendingIndex)
+    const pending = normalizePendingImages(this.data.pendingImages)
+    const shot = pending[pendingIndex]
+    const si = this.findingSectionIndex()
+    const section = this.data.sections[si]
+    if (!shot || !section) return
+    const id = `fid_new_${Date.now()}`
+    const created =
+      section.findingKind === 'work'
+        ? normalizeWorkFinding({
+            id,
+            partName: '',
+            caption: '',
+            images: [{ url: shot.url, imageId: shot.imageId || '' }],
+          })
+        : normalizeFinding({
+            id,
+            partName: '',
+            result: '',
+            advice: '',
+            images: [{ url: shot.url, imageId: shot.imageId || '' }],
+          })
+    const leftover = pending.filter((_, i) => i !== pendingIndex)
+    const findings = (section.findings || []).concat([created])
+    const sections = this.data.sections.map((row, i) => {
+      if (i !== si) return row
+      return {
+        ...row,
+        findings,
+        images:
+          row.findingKind === 'work'
+            ? this.flattenWorkSectionImages(findings)
+            : this.findingImagesFromRows(findings, this.data.odometerUrl),
+      }
+    })
+    this.setSectionsWithFindings(
+      sections,
+      { pendingImages: leftover, autoSaveLabel: '保存中…' },
+      `${si}:${findings.length - 1}`,
+    )
     this.scheduleAutoSavePhotos()
   },
 
@@ -2193,7 +2410,7 @@ Page({
       return
     }
     this.setData({ organizingPhotos: true })
-    wx.showLoading({ title: '整理中' })
+    wx.showLoading({ title: '归组中' })
     try {
       await this.persistPhotos()
       await this.persistPhotoDraft()
@@ -2205,7 +2422,7 @@ Page({
       })
       if (kind === 'intake') {
         if (res && res.skipped) {
-          wx.showToast({ title: '这次没整理上，稍后再试', icon: 'none' })
+          wx.showToast({ title: '这次没归上，稍后再试', icon: 'none' })
           return
         }
         this.applyIntakeOrganize(res || {})
@@ -2215,7 +2432,7 @@ Page({
       const groups = (res && res.groups) || []
       if (!groups.length) {
         wx.showToast({
-          title: (res && res.skipped) ? '这次没整理上，稍后再试或自己归组' : '没对上部位，自己归组或改名后再试',
+          title: (res && res.skipped) ? '这次没归上，稍后再试或自己归' : '没写成项，自己归或改名后再试',
           icon: 'none',
         })
         return
@@ -2251,7 +2468,7 @@ Page({
         icon: 'none',
       })
     } catch (err) {
-      wx.showToast({ title: (err && err.message) || '整理失败', icon: 'none' })
+      wx.showToast({ title: (err && err.message) || '归组失败', icon: 'none' })
     } finally {
       this.setData({ organizingPhotos: false })
       wx.hideLoading()
@@ -2456,12 +2673,14 @@ Page({
       if (picked.length && room === 0) wx.showToast({ title: '一次最多 12 张', icon: 'none' })
       return
     }
+    const pendingImages = pending.concat(
+      extra.map((item) => ({ url: item.url, imageId: item.imageId || '' })),
+    )
     this.setData({
       showLibrary: false,
-      pendingImages: pending.concat(
-        extra.map((item) => ({ url: item.url, imageId: item.imageId || '' })),
-      ),
+      pendingImages,
       autoSaveLabel: '保存中…',
+      ...this.findingChromePatch(this.data.sections, pendingImages),
     })
     this.scheduleAutoSavePhotos()
   },
@@ -3545,7 +3764,7 @@ Page({
       (kind === 'inspection' || kind === 'work' || kind === 'intake_inspection') &&
       normalizePendingImages(this.data.pendingImages).length
     ) {
-      wx.showToast({ title: '先点整理', icon: 'none' })
+      wx.showToast({ title: '先归到项里或删掉未归组的图', icon: 'none' })
       return
     }
 
