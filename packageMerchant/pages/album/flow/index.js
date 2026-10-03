@@ -2247,7 +2247,7 @@ Page({
       )
       this.scheduleAutoSavePhotos()
       wx.showToast({
-        title: leftover.length ? `已归组，还有 ${leftover.length} 张未对上` : '已归组',
+        title: leftover.length ? `已归组，还有 ${leftover.length} 张请手工归` : '已归组',
         icon: 'none',
       })
     } catch (err) {
@@ -2819,7 +2819,7 @@ Page({
   },
 
   async persistPhotos() {
-    const album = this._album || (await fetchMerchantServiceAlbum(this.albumId))
+    const album = (await fetchMerchantServiceAlbum(this.albumId).catch(() => this._album)) || this._album || {}
     const sectionMap = {}
     this.data.sections.forEach((section) => {
       if (section.findingMode && section.findingKind === 'work') {
@@ -2864,12 +2864,33 @@ Page({
       sectionMap.stage_1 = []
       if (!sectionMap.stage_2) sectionMap.stage_2 = []
     }
+    const imagesByNode = {}
+    ;(album.imageMeta || []).forEach((img) => {
+      const nid = String((img && (img.nodeId || img.node_id)) || '')
+      if (!nid) return
+      if (!imagesByNode[nid]) imagesByNode[nid] = []
+      imagesByNode[nid].push({
+        url: img.rawUrl || img.url,
+        id: img.id || '',
+        caption: img.caption || '',
+      })
+    })
     let nodes = (album.nodes || []).map((node) => {
-      if (!Object.prototype.hasOwnProperty.call(sectionMap, node.id)) return node
+      const id = node.id || node.nodeId
+      const fallback = (node.images && node.images.length)
+        ? node.images
+        : (imagesByNode[id] || [])
+      const images = Object.prototype.hasOwnProperty.call(sectionMap, id)
+        ? sectionMap[id]
+        : fallback
+      if (!Object.prototype.hasOwnProperty.call(sectionMap, id)) {
+        return { ...node, id, images: fallback }
+      }
       return {
         ...node,
-        images: sectionMap[node.id],
-        status: sectionMap[node.id].length ? 'completed' : 'pending',
+        id,
+        images,
+        status: images.length ? 'completed' : 'pending',
         updatedAt: new Date().toISOString(),
       }
     })

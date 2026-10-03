@@ -452,19 +452,36 @@ function normalizePendingImages(list = []) {
     const key = mediaKey(img.url)
     if (!key || seen.has(key)) return
     seen.add(key)
-    out.push(img)
+    const skipReason = String((raw && typeof raw === 'object' && raw.skipReason) || '').trim()
+    out.push(skipReason ? { ...img, skipReason } : img)
   })
   return out
 }
 
+function parseOrganizeSlot(value, count) {
+  const total = Number(count) || 0
+  if (total < 1) return -1
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= total) {
+    return value - 1
+  }
+  const raw = String(value == null ? '' : value).trim()
+  const named = raw.match(/^图\s*(\d+)$/i)
+  if (named) {
+    const n = Number(named[1])
+    if (n >= 1 && n <= total) return n - 1
+  }
+  if (/^\d{1,2}$/.test(raw)) {
+    const n = Number(raw)
+    if (n >= 1 && n <= total) return n - 1
+  }
+  return -1
+}
+
 function matchPendingImage(pending, byKey, rawKey) {
+  const slot = parseOrganizeSlot(rawKey, (pending || []).length)
+  if (slot >= 0) return pending[slot] || null
   const raw = String(rawKey || '').trim()
   if (!raw) return null
-  const indexHit = raw.match(/待整理\s*(\d+)/i) || raw.match(/^图\s*(\d+)$/i) || raw.match(/^(\d+)$/)
-  if (indexHit) {
-    const at = Number(indexHit[1])
-    if (Number.isFinite(at) && pending[at]) return pending[at]
-  }
   const candidates = []
   const key = mediaKey(raw)
   if (key) candidates.push(key)
@@ -503,7 +520,11 @@ function applyOrganizeGroups({
   )
   const prepared = (groups || []).map((group) => {
     const partName = String((group && group.partName) || '').trim()
-    const keys = Array.isArray(group && group.imageKeys) ? group.imageKeys : []
+    const keys = Array.isArray(group && group.imageSlots) && group.imageSlots.length
+      ? group.imageSlots
+      : Array.isArray(group && group.imageKeys)
+        ? group.imageKeys
+        : []
     const shots = []
     keys.forEach((rawKey) => {
       const img = matchPendingImage(pending, byKey, rawKey)
@@ -514,14 +535,6 @@ function applyOrganizeGroups({
       shots.push(img)
     })
     return { group, partName, shots }
-  })
-  const unused = pending.filter((img) => !used.has(mediaKey(img.url)))
-  prepared.forEach((row) => {
-    if (row.shots.length || !row.partName) return
-    const take = unused.shift()
-    if (!take) return
-    used.add(mediaKey(take.url))
-    row.shots.push(take)
   })
   prepared.forEach(({ group, partName, shots }) => {
     if (!shots.length) return
@@ -574,7 +587,12 @@ function applyOrganizeGroups({
   })
   return {
     findings: mode === 'work' ? nextFindings : mergeFindingsByPart(nextFindings),
-    pendingImages: pending.filter((img) => !used.has(mediaKey(img.url))),
+    pendingImages: pending
+      .filter((img) => !used.has(mediaKey(img.url)))
+      .map((img) => ({
+        ...img,
+        skipReason: '请手工归到对应项',
+      })),
   }
 }
 
@@ -625,7 +643,11 @@ function applyIntakeOrganizeGroups({
     const meta = resolveIntakeCategory(group)
     if (!meta) return
     const shots = []
-    const keys = Array.isArray(group.imageKeys) ? group.imageKeys : []
+    const keys = Array.isArray(group.imageSlots) && group.imageSlots.length
+      ? group.imageSlots
+      : Array.isArray(group.imageKeys)
+        ? group.imageKeys
+        : []
     keys.forEach((rawKey) => {
       const img = matchPendingImage(pending, byKey, rawKey)
       if (!img) return

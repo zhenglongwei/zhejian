@@ -6,6 +6,25 @@ const a = { url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg', imageId
 const b = { url: 'https://cdn.example/api/v1/media/files/uploads/b.jpg', imageId: '2' }
 const c = { url: 'https://cdn.example/api/v1/media/files/uploads/c.jpg', imageId: '3' }
 
+test('organize maps 图1 slots onto pending photos in order', () => {
+  const { findings, pendingImages } = applyOrganizeGroups({
+    pendingImages: [a, b],
+    findings: [],
+    groups: [{
+      partName: '雨刮器',
+      result: '状态良好',
+      advice: '胶条完好',
+      imageSlots: ['图2'],
+    }],
+    mode: 'inspection',
+  })
+  assert.equal(findings.length, 1)
+  assert.equal(findings[0].partName, '雨刮器')
+  assert.match(findings[0].images[0].url, /b\.jpg/)
+  assert.equal(pendingImages.length, 1)
+  assert.match(pendingImages[0].url, /a\.jpg/)
+})
+
 test('organize merges same part into one inspection item and fills empty fields', () => {
   const { findings, pendingImages } = applyOrganizeGroups({
     pendingImages: [a, b],
@@ -49,20 +68,19 @@ test('organize does not overwrite filled inspection fields', () => {
   assert.equal(findings[0].advice, '店员已写')
 })
 
-test('groups without matching keys still get leftover photos', () => {
+test('groups without matching keys stay unmatched, do not invent pairings', () => {
   const { findings, pendingImages } = applyOrganizeGroups({
     pendingImages: [a, b],
     findings: [],
     groups: [
-      { partName: '侧裙', result: '需关注', advice: '擦伤', imageKeys: ['wrong-key'] },
+      { partName: '雨刮器', result: '状态良好', advice: '到位', imageKeys: ['wrong-key'] },
       { partName: '滤芯', result: '状态良好', advice: '干净', imageKeys: [] },
     ],
     mode: 'inspection',
   })
-  assert.equal(findings.length, 2)
-  assert.equal(findings[0].images.length, 1)
-  assert.equal(findings[1].images.length, 1)
-  assert.equal(pendingImages.length, 0)
+  assert.equal(findings.length, 0)
+  assert.equal(pendingImages.length, 2)
+  assert.ok(pendingImages.every((img) => /手工归/.test(img.skipReason)))
 })
 
 test('does not create photo-less findings', () => {

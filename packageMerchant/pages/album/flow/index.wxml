@@ -246,13 +246,43 @@
                   <view wx:if="{{!readOnly || pendingImages.length}}" class="merchant-flow-page__pending">
                     <text class="text-caption text-secondary merchant-flow-page__pending-label">本次照片</text>
                     <view class="merchant-flow-page__work-thumbs">
+                      <block wx:for="{{pendingImages}}" wx:for-item="shot" wx:for-index="pendingIndex" wx:key="url">
+                        <view
+                          wx:if="{{!shot.skipReason}}"
+                          class="merchant-flow-page__work-thumb"
+                        >
+                          <image
+                            class="merchant-flow-page__work-thumb-img image-placeholder"
+                            src="{{shot.url}}"
+                            mode="aspectFill"
+                            data-url="{{shot.url}}"
+                            bindtap="onPreviewPendingPhoto"
+                          />
+                          <text
+                            wx:if="{{!readOnly}}"
+                            class="merchant-flow-page__work-thumb-remove"
+                            data-index="{{pendingIndex}}"
+                            catchtap="onRemovePendingPhoto"
+                          >×</text>
+                        </view>
+                      </block>
                       <view
-                        wx:for="{{pendingImages}}"
-                        wx:for-item="shot"
-                        wx:for-index="pendingIndex"
-                        wx:key="url"
-                        class="merchant-flow-page__work-thumb"
+                        wx:if="{{!readOnly && pendingImages.length < 12}}"
+                        class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
+                        bindtap="onAddFindingPhotos"
                       >
+                        <text class="text-caption text-secondary">+</text>
+                      </view>
+                    </view>
+                    <view
+                      wx:for="{{pendingImages}}"
+                      wx:for-item="shot"
+                      wx:for-index="pendingIndex"
+                      wx:key="url"
+                      wx:if="{{shot.skipReason}}"
+                      class="merchant-flow-page__unmatched"
+                    >
+                      <view class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--skip">
                         <image
                           class="merchant-flow-page__work-thumb-img image-placeholder"
                           src="{{shot.url}}"
@@ -267,12 +297,9 @@
                           catchtap="onRemovePendingPhoto"
                         >×</text>
                       </view>
-                      <view
-                        wx:if="{{!readOnly && pendingImages.length < 12}}"
-                        class="merchant-flow-page__work-thumb merchant-flow-page__work-thumb--add"
-                        bindtap="onAddFindingPhotos"
-                      >
-                        <text class="text-caption text-secondary">+</text>
+                      <view class="merchant-flow-page__unmatched-copy">
+                        <text class="text-caption text-danger">请手工归到对应项</text>
+                        <text class="text-caption text-secondary">点进该项补进去，或改部位名后再整理</text>
                       </view>
                     </view>
                     <text

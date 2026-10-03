@@ -35,26 +35,72 @@ function fingerprintMasked(maskedUrl = '') {
   return createHash('sha256').update(stripUrlQuery(String(maskedUrl || '').trim())).digest('hex').slice(0, 40)
 }
 
-function resolveImageKeys(rawKeys, allowed) {
-  return (Array.isArray(rawKeys) ? rawKeys : [])
-    .map((value) => {
-      const key = mediaKey(value)
-      if (key && allowed.has(key)) return key
-      const tail = String(value || '').split(/[\\/]/).filter(Boolean).pop()
-      if (tail && allowed.has(tail)) return tail
-      const found = [...allowed].find((id) => id && String(value || '').endsWith(id))
-      return found || ''
-    })
-    .filter((key) => key && allowed.has(key))
+function collectGroupRefs(row = {}) {
+  if (Array.isArray(row.imageSlots) && row.imageSlots.length) return row.imageSlots
+  if (Array.isArray(row.slots) && row.slots.length) return row.slots
+  if (Array.isArray(row.images) && row.images.length) return row.images
+  return Array.isArray(row.imageKeys) ? row.imageKeys : []
+}
+
+function parseOrganizeSlot(value, count) {
+  const total = Number(count) || 0
+  if (total < 1) return -1
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= total) {
+    return value - 1
+  }
+  const raw = String(value == null ? '' : value).trim()
+  const named = raw.match(/^图\s*(\d+)$/i)
+  if (named) {
+    const n = Number(named[1])
+    if (n >= 1 && n <= total) return n - 1
+  }
+  if (/^\d{1,2}$/.test(raw)) {
+    const n = Number(raw)
+    if (n >= 1 && n <= total) return n - 1
+  }
+  return -1
+}
+
+function resolveImageKeys(rawKeys, pending = []) {
+  const list = Array.isArray(rawKeys) ? rawKeys : []
+  const allowed = []
+  const byKey = {}
+  ;(pending || []).forEach((img) => {
+    const key = mediaKey(img && img.url)
+    if (!key) return
+    allowed.push(key)
+    if (!byKey[key]) byKey[key] = key
+  })
+  const out = []
+  const seen = new Set()
+  list.forEach((value) => {
+    const slot = parseOrganizeSlot(value, pending.length)
+    let key = ''
+    if (slot >= 0) key = mediaKey(pending[slot] && pending[slot].url)
+    else {
+      key = mediaKey(value)
+      if (!byKey[key]) {
+        const tail = String(value || '').split(/[\\/]/).filter(Boolean).pop()
+        key = (tail && byKey[mediaKey(tail)]) || ''
+        if (!key) {
+          key = allowed.find((id) => id && String(value || '').endsWith(id)) || ''
+        }
+      }
+    }
+    if (key && byKey[key] && !seen.has(key)) {
+      seen.add(key)
+      out.push(key)
+    }
+  })
+  return out
 }
 
 function normalizeGroups(rawGroups, pending) {
-  const allowed = new Set((pending || []).map((img) => mediaKey(img && img.url)).filter(Boolean))
   const list = Array.isArray(rawGroups) ? rawGroups : []
   return list
     .map((row) => {
       const partName = text(row && (row.partName || row.part || row.label))
-      const imageKeys = resolveImageKeys(row && row.imageKeys, allowed)
+      const imageKeys = resolveImageKeys(collectGroupRefs(row), pending)
       const category = text(row && row.category)
       if (!partName && !category && !imageKeys.length) return null
       return {
@@ -93,7 +139,7 @@ async function collectMaskedPending(albumId, pending = []) {
     if (masked) {
       urls.push({
         url: masked,
-        label: mediaKey(raw) || `图${index + 1}`,
+        label: `图${index + 1}`,
         imageKey: mediaKey(raw),
         rawUrl: raw,
       })
@@ -106,7 +152,7 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   const categories = INTAKE_RECORD_CATEGORIES.map((row) => ({ id: row.id, label: row.label }))
   const common = [
     '你是汽修店员。只根据这些照片归组，不要百科，不要编造没拍到的读数。',
-    'imageKeys 必须填每张图说明里的那个文件名，不要写待整理、序号或部位名。同一部位的多张图放进同一组。',
+    '每张图的说明是「图1」「图2」。返回 imageSlots 填这些编号，例如 [1,2] 或 ["图1","图2"]。同一部位的多张图放进同一组。不要填文件名。',
     `已有项：${JSON.stringify(existingParts)}`,
     cachedNotes ? `这些图已经识过，不要再猜，直接沿用：${cachedNotes}` : '',
   ].filter(Boolean)
@@ -114,7 +160,7 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
     return common.concat([
       '这是接车留证。按类目归组，抽出读数。不要写需处理，不要给每块板贴正常或有破损。',
       `类目 id：${JSON.stringify(categories)}`,
-      '输出 JSON：{"groups":[{"category","imageKeys","reading","observation"}]}',
+      '输出 JSON：{"groups":[{"category","imageSlots","reading","observation"}]}',
       'category 必须是类目 id。里程读数填纯数字到 reading；油量把表上能读到的写进 reading。observation 写你看见什么，给后台缓存，不要当检查结果。',
       '仪表和油量可以在同一张图：这张图同时进 odometer 和 fuel 两组。',
     ]).join('\n')
@@ -122,12 +168,12 @@ function buildInstruction({ mode, existingParts, cachedNotes }) {
   if (mode === 'work') {
     return common.concat([
       '这是施工过程。按「做了哪一项」归组。partName 写项目名，caption 写做了什么、用了什么件。不要写检查结果。',
-      '输出 JSON：{"groups":[{"partName","imageKeys","caption","observation"}]}',
+      '输出 JSON：{"groups":[{"partName","imageSlots","caption","observation"}]}',
     ]).join('\n')
   }
   return common.concat([
     '这是检测。按检查点/部位归组。result 只能是：状态良好、需关注、需处理、仅记录。advice 写看见什么，不要写成更换方案。',
-    '输出 JSON：{"groups":[{"partName","imageKeys","result","advice","observation"}]}',
+    '输出 JSON：{"groups":[{"partName","imageSlots","result","advice","observation"}]}',
     '已识过的图若有观察记录，优先用来填 advice，不要再编。',
   ]).join('\n')
 }
@@ -332,7 +378,9 @@ async function organizeFlowNodePhotos(albumId, storeId, nodeId, payload = {}, me
   const cachedNotes = cached
     .map((row) => {
       const json = row.resultJson || {}
-      return `${row.imageKey}:${json.category || json.partName || ''} ${json.reading || ''} ${json.observation || ''}`
+      const at = pending.findIndex((img) => mediaKey(img && img.url) === row.imageKey)
+      const slot = at >= 0 ? `图${at + 1}` : '图'
+      return `${slot}:${json.category || json.partName || ''} ${json.reading || ''} ${json.observation || ''}`
     })
     .join('；')
     .slice(0, 2000)

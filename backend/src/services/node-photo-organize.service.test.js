@@ -2,6 +2,19 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { normalizeGroups } = require('./node-photo-organize.service')
 
+test('normalizeGroups maps 图1 slots to pending photos', () => {
+  const pending = [
+    { url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg' },
+    { url: 'https://cdn.example/api/v1/media/files/uploads/b.jpg' },
+  ]
+  const groups = normalizeGroups(
+    [{ partName: '雨刮器', imageSlots: ['图2', 1] }],
+    pending,
+  )
+  assert.equal(groups.length, 1)
+  assert.deepEqual(groups[0].imageKeys, ['b.jpg', 'a.jpg'])
+})
+
 test('normalizeGroups only keeps keys that exist in pending photos', () => {
   const pending = [
     { url: 'https://cdn.example/api/v1/media/files/uploads/a.jpg' },
